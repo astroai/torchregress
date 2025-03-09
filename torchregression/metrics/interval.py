@@ -1,0 +1,161 @@
+"""
+Interval metrics for evaluating prediction intervals in regression.
+"""
+
+import torch
+import numpy as np
+from typing import Union, Optional, Dict, List, Tuple
+
+from torchregression.metrics.utils import convert_to_tensor, apply_reduction, create_metric_result
+
+def interval_score(
+    y_true: Union[torch.Tensor, np.ndarray],
+    lower_bound: Union[torch.Tensor, np.ndarray],
+    upper_bound: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+    reduction: str = "mean"
+) -> Union[Dict[str, Union[float, torch.Tensor]], torch.Tensor]:
+    """
+    Calculate prediction interval score (Winkler score).
+    
+    This score rewards narrow intervals but penalizes when the true value
+    falls outside the interval.
+    
+    Args:
+        y_true: Ground truth values
+        lower_bound: Lower bound of prediction interval (e.g., q=0.1)
+        upper_bound: Upper bound of prediction interval (e.g., q=0.9)
+        alpha: Significance level (e.g., 0.1 for 90% interval)
+        reduction: How to reduce the score ("none", "mean", "sum", or "full")
+            If "full", return a dictionary with detailed metrics
+            
+    Returns:
+        If reduction="full": Dictionary with interval scores and components
+        Otherwise: Tensor of interval scores (reduced as specified)
+    """
+    y_true = convert_to_tensor(y_true)
+    lower_bound = convert_to_tensor(lower_bound)
+    upper_bound = convert_to_tensor(upper_bound)
+    
+    # Calculate interval width
+    interval_width = upper_bound - lower_bound
+    
+    # Calculate penalties for observations outside the interval
+    below_lower = torch.clamp(lower_bound - y_true, min=0)
+    above_upper = torch.clamp(y_true - upper_bound, min=0)
+    
+    # Calculate the interval score: width + penalties
+    score = interval_width + (2/alpha) * (below_lower + above_upper)
+    
+    # Calculate coverage (1 if y is in the interval, 0 otherwise)
+    coverage = ((y_true >= lower_bound) & (y_true <= upper_bound)).float()
+    
+    if reduction == "full":
+        return {
+            'score': torch.mean(score).item(),
+            'mean_width': torch.mean(interval_width).item(),
+            'mean_coverage': torch.mean(coverage).item(),
+            'expected_coverage': 1 - alpha,
+            'coverage_error': torch.abs(torch.mean(coverage) - (1 - alpha)).item(),
+            'penalty_below': torch.mean(below_lower).item(),
+            'penalty_above': torch.mean(above_upper).item()
+        }
+    else:
+        result = apply_reduction(score, reduction)
+        return result.item() if isinstance(y_true, np.ndarray) and reduction != "none" else result
+
+def prediction_interval_coverage_probability(
+    y_true: Union[torch.Tensor, np.ndarray],
+    lower_bound: Union[torch.Tensor, np.ndarray],
+    upper_bound: Union[torch.Tensor, np.ndarray],
+    expected_coverage: float = 0.9,
+    return_diagnostics: bool = False
+) -> Union[float, Dict[str, float]]:
+    """
+    Calculate Prediction Interval Coverage Probability (PICP) and related metrics.
+    
+    PICP measures the proportion of observations falling within the prediction interval.
+    
+    Args:
+        y_true: Ground truth values
+        lower_bound: Lower bound of prediction interval
+        upper_bound: Upper bound of prediction interval
+        expected_coverage: Expected coverage probability (e.g., 0.9 for 90% interval)
+        return_diagnostics: Whether to return detailed diagnostics
+        
+    Returns:
+        PICP value or dictionary with coverage metrics
+    """
+    y_true = convert_to_tensor(y_true)
+    lower_bound = convert_to_tensor(lower_bound)
+    upper_bound = convert_to_tensor(upper_bound)
+    
+    # Calculate coverage (1 if y is in the interval, 0 otherwise)
+    coverage = ((y_true >= lower_bound) & (y_true <= upper_bound)).float()
+    observed_coverage = torch.mean(coverage)
+    
+    if not return_diagnostics:
+        return observed_coverage.item()
+    
+    # Calculate Mean Prediction Interval Width (MPIW)
+    interval_width = upper_bound - lower_bound
+    mpiw = torch.mean(interval_width)
+    
+    # Calculate Normalized MPIW
+    range_y = torch.max(y_true) - torch.min(y_true)
+    nmpiw = mpiw / range_y
+    
+    # Calculate Coverage Error
+    coverage_error = torch.abs(observed_coverage - expected_coverage)
+    
+    # Calculate miss rates on both sides
+    too_low = (y_true < lower_bound).float().mean()
+    too_high = (y_true > upper_bound).float().mean()
+    
+    return {
+        'picp': observed_coverage.item(),
+        'expected_coverage': expected_coverage,
+        'coverage_error': coverage_error.item(),
+        'mpiw': mpiw.item(),
+        'nmpiw': nmpiw.item(),
+        'miss_rate_low': too_low.item(),
+        'miss_rate_high': too_high.item(),
+        'miss_rate_ratio': (too_high / too_low).item() if too_low > 0 else float('inf')
+    }
+
+def interval_metrics_report(
+    y_true: Union[torch.Tensor, np.ndarray],
+    predictions: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]],
+    alpha: float = 0.1
+) -> Dict[str, Dict[str, float]]:
+    """
+    Generate a comprehensive report on prediction interval quality for multiple models.
+    
+    Args:
+        y_true: Ground truth values
+        predictions: Dictionary mapping model names to dictionaries with 'lower' and 'upper' bounds
+        alpha: Significance level (e.g., 0.1 for 90% interval)
+        
+    Returns:
+        Dictionary with interval metrics for each model
+    """
+    y_true = convert_to_tensor(y_true)
+    results = {}
+    
+    for model_name, pred in predictions.items():
+        lower_bound = convert_to_tensor(pred['lower'])
+        upper_bound = convert_to_tensor(pred['upper'])
+        
+        # Calculate interval score
+        int_score = interval_score(y_true, lower_bound, upper_bound, alpha, reduction="full")
+        
+        # Calculate coverage probability
+        coverage = prediction_interval_coverage_probability(
+            y_true, lower_bound, upper_bound, 
+            expected_coverage=1-alpha, return_diagnostics=True
+        )
+        
+        # Combine metrics
+        results[model_name] = {**int_score, **coverage}
+    
+    return results

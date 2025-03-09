@@ -1,71 +1,43 @@
+from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn.functional as F
-from typing import List, Optional, Tuple, Union
 
-def combine_binary_average(labels: List[torch.Tensor]) -> torch.Tensor:
+def combine_binary_average(labels: torch.Tensor, dim: int = 0) -> torch.Tensor:
     """
-    Averages categorical labels from multiple annotators.
+    Simple averaging of binary labels from multiple annotators.
+    
+    Args:
+        labels: Binary labels tensor [annotators, samples] or [samples, annotators]
+        dim: Dimension along which to average (annotator dimension)
+        
+    Returns:
+        Average labels [samples]
+    """
+    return torch.mean(labels.float(), dim=dim)
+
+def combine_binary_weighted_average(labels: torch.Tensor, weights: torch.Tensor, dim: int = 0) -> torch.Tensor:
+    """
+    Weighted averaging of binary labels from multiple annotators.
 
     Args:
-        labels: A list of tensors, where each tensor represents the labels
-                from one annotator.  Each tensor should have shape (num_samples,)
-                and contain 0/1 (or boolean) values.
+        labels: Binary labels tensor [annotators, samples] or [samples, annotators]
+        weights: Weights for each annotator [annotators]
+        dim: Dimension along which to average (annotator dimension)
 
     Returns:
-        A tensor of shape (num_samples,) containing the average probabilities.
+        Weighted average labels [samples]
     """
-    if not labels:
-        raise ValueError("Input list of labels cannot be empty")
-    if not all(isinstance(label, torch.Tensor) for label in labels):
-        raise TypeError('labels must be a list of tensors')
+    # Normalize weights
+    norm_weights = weights / torch.sum(weights)
 
-    # Convert to float and stack along a new dimension (annotator dimension)
-    labels_tensor = torch.stack([label.float() for label in labels]) #shape (num_annotators, num_samples)
-
-    # Average across the annotators
-    return torch.mean(labels_tensor, dim=0) #along annotator dimension
-
-def combine_binary_weighted_average(labels: List[torch.Tensor], weights: Union[List[float], torch.Tensor]) -> torch.Tensor:
-    """
-    Calculates weighted average of binary labels from multiple annotators.
-
-    Args:
-        labels: List of label tensors. Each tensor: (num_samples,), 0/1 or boolean.
-        weights: List or tensor of weights for each annotator.
-
-    Returns:
-        Tensor of shape (num_samples,) with weighted average probabilities.
-    """
-    if not labels:
-        raise ValueError("Input list of labels cannot be empty")
-    if not all(isinstance(label, torch.Tensor) for label in labels):
-        raise TypeError('labels must be a list of tensors')
-
-    # Ensure all tensors are on the same device
-    device = labels[0].device
-    for i in range(1, len(labels)):
-        if labels[i].device != device:
-            labels[i] = labels[i].to(device)
-
-    num_annotators = len(labels)
-    if isinstance(weights, list):
-        if len(weights) != num_annotators:
-            raise ValueError("Number of weights must match the number of annotators.")
-        weights = torch.tensor(weights, dtype=torch.float32, device=device)
-    elif isinstance(weights, torch.Tensor):
-        if weights.ndim != 1 or weights.size(0) != num_annotators:
-            raise ValueError("Weights must be a 1D tensor with length equal to the number of annotators.")
-        weights = weights.to(device)
+    # Reshape weights for broadcasting
+    if dim == 0:
+        weights_expanded = norm_weights.unsqueeze(1)
     else:
-        raise TypeError("Weights must be a list or a torch.Tensor")
+        weights_expanded = norm_weights.unsqueeze(0)
 
-    # Normalize weights to sum to 1
-    weights = weights / torch.sum(weights)
-    # Stack labels and convert to float
-    labels_tensor = torch.stack([label.float() for label in labels])
-
-    # Calculate weighted average.  Use einsum for clarity and efficiency.
-    return torch.einsum('i,i...->...', weights, labels_tensor)
+    # Weighted sum
+    return torch.sum(labels.float() * weights_expanded, dim=dim)
 
 def combine_dawid_skene(
     annotations: torch.Tensor, 
@@ -117,7 +89,7 @@ def combine_dawid_skene(
         pi = torch.ones(num_classes, device=device) / num_classes
     else:
         if init_pi.shape != (num_classes,):
-            raise ValueError("init_pi must have shape (num_classes,)")
+            raise ValueError(f"Expected init_pi shape ({num_classes},), got {init_pi.shape}")
         pi = init_pi.to(device)
         pi = pi / torch.sum(pi)  # Ensure it sums to 1
 
@@ -129,7 +101,7 @@ def combine_dawid_skene(
         confusion_matrices /= confusion_matrices.sum(dim=2, keepdim=True)  # Normalize rows
     else:
         if init_confusion.shape != (num_annotators, num_classes, num_classes):
-            raise ValueError("init_confusion must have shape (num_annotators, num_classes, num_classes)")
+            raise ValueError(f"Expected init_confusion shape ({num_annotators}, {num_classes}, {num_classes}), got {init_confusion.shape}")
         confusion_matrices = init_confusion.to(device)
         # Ensure rows sum to 1
         confusion_matrices = confusion_matrices / confusion_matrices.sum(dim=2, keepdim=True)
@@ -155,30 +127,31 @@ def combine_dawid_skene(
 
         for r in range(num_annotators):
             # Skip missing annotations
-            annotator_mask = ~missing_mask[:, r]  # (N,)
-            if not annotator_mask.any():
-                continue  # Skip if all annotations are missing for this annotator
-                
-            annotator_confusion = confusion_matrices[r]  # (C, C)
-            log_confusion = torch.log(annotator_confusion + 1e-10)  # (C, C)
+            r_mask = ~missing_mask[:, r]  # (N,)
             
-            # For each sample with valid annotation, add log probability from this annotator
-            for c in range(num_classes):  # true class
-                # For samples with annotations from this annotator
-                mask = annotator_mask
-                if not mask.any():
+            if not torch.any(r_mask):
+                continue  # Skip if all annotations from this annotator are missing
+                
+            # For each class z, calculate log P(y_r | z)
+            # confusion_matrices[r, z, y_r] = P(y_r | z)
+            # We use batch matrix multiplication for efficiency
+            # annotations_one_hot[:, r] = one-hot of annotator r's labels
+            # shape: (N, C)
+            log_py_given_z = torch.log(confusion_matrices[r] + 1e-10)  # (C, C)
+            
+            # For samples with valid annotations, update their log likelihood
+            # by adding log P(y_r | z)
+            # For batch operation, we need to batch select from log_py_given_z 
+            # based on the observed annotations
+            for c in range(num_classes):
+                # For samples where annotator r assigned class c
+                class_mask = annotations_one_hot[:, r, c] > 0
+                if not torch.any(class_mask):
                     continue
-                    
-                # Get observed class probabilities from confusion matrix
-                # P(annotation=j | true_class=c) for all possible j
-                class_probs = log_confusion[c]  # (C,)
                 
-                # Apply these probabilities to the one-hot encoded annotations
-                # Multiply each sample's one-hot vector by the appropriate confusion matrix row
-                contribution = torch.matmul(annotations_one_hot[mask, r], class_probs)  # (N_valid,)
-                
-                # Add to the log likelihood for true class c
-                log_likelihood[mask, c] += contribution
+                # Update log likelihood for these samples
+                # Add log P(y_r = c | z) for all possible z values
+                log_likelihood[class_mask] += log_py_given_z[:, c]
 
         # Normalize using log-sum-exp trick for numerical stability
         max_loglik = torch.max(log_likelihood, dim=1, keepdim=True)[0]
@@ -192,24 +165,33 @@ def combine_dawid_skene(
 
         # Update confusion matrices
         for r in range(num_annotators):
-            annotator_mask = ~missing_mask[:, r]  # (N,)
-            if not annotator_mask.any():
-                continue  # Skip if all annotations are missing
-                
-            # Get mask for samples with annotations from this annotator
-            masked_q_z = q_z[annotator_mask]  # (N_valid, C)
-            masked_annotations = annotations_one_hot[annotator_mask, r]  # (N_valid, C)
+            # Skip missing annotations
+            r_mask = ~missing_mask[:, r]  # (N,)
             
-            # For each true class c, compute P(annotation=j | true_class=c)
-            for c in range(num_classes):
-                # Weight by q_z (probability that sample has true class c)
-                weights = masked_q_z[:, c].unsqueeze(1)  # (N_valid, 1)
+            if not torch.any(r_mask):
+                continue  # Skip if all annotations from this annotator are missing
                 
-                # Weighted sum of one-hot annotations
-                numerator = torch.sum(weights * masked_annotations, dim=0)  # (C,)
-                denominator = torch.sum(weights) + 1e-10
+            # For each true class z and observed class c
+            # confusion_matrices[r, z, c] = P(y_r = c | z)
+            for z in range(num_classes):
+                # Numerator: sum_i q_z[i, z] * annotations_one_hot[i, r, c] for all c
+                # This gives the expected count of samples with true class z that annotator r labeled as each class
+                numerator = torch.sum(
+                    q_z[:, z].unsqueeze(1) * annotations_one_hot[:, r],  # (N, C)
+                    dim=0  # Sum over samples
+                )
                 
-                confusion_matrices[r, c] = numerator / denominator
+                # Denominator: sum_i q_z[i, z]
+                # This gives the expected total count of samples with true class z
+                denominator = torch.sum(q_z[:, z])
+                
+                # Update confusion matrix for this annotator and true class
+                # Add small epsilon to avoid division by zero
+                if denominator > 0:
+                    confusion_matrices[r, z] = numerator / (denominator + 1e-10)
+                else:
+                    # If no samples are assigned to this class, keep the current estimates
+                    pass
 
         # --- Check for Convergence ---
         current_log_likelihood = torch.mean(torch.logsumexp(log_likelihood, dim=1))
@@ -219,7 +201,11 @@ def combine_dawid_skene(
 
     return pi, confusion_matrices, q_z
 
-def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matrix: Optional[torch.Tensor] = None, variances: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def combine_continuous_blue_with_scaling(
+    estimates: torch.Tensor, 
+    covariance_matrix: Optional[torch.Tensor] = None, 
+    variances: Optional[torch.Tensor] = None
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Combines continuous estimates using Best Linear Unbiased Estimator (BLUE), scaling uncertainty if inconsistent.
 
@@ -253,9 +239,9 @@ def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matr
     if covariance_matrix is not None:
         # --- Full Covariance Case ---
         if covariance_matrix.ndim != 2:
-            raise ValueError("covariance_matrix must be a 2D tensor (num_estimators, num_estimators)")
+            raise ValueError(f"covariance_matrix must be a 2D tensor, got shape {covariance_matrix.shape}")
         if covariance_matrix.shape != (num_estimators, num_estimators):
-            raise ValueError("covariance_matrix shape must be (num_estimators, num_estimators)")
+            raise ValueError(f"covariance_matrix shape {covariance_matrix.shape} must match (num_estimators, num_estimators) = ({num_estimators}, {num_estimators})")
 
         covariance_matrix = covariance_matrix.to(device)
         ones = torch.ones(num_estimators, 1, device=device)
@@ -266,7 +252,8 @@ def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matr
         try:
             V_inv = torch.linalg.inv(covariance_matrix + jitter)
         except torch.linalg.LinAlgError:
-            V_inv = torch.linalg.pinv(covariance_matrix + jitter)
+            # Fall back to pseudoinverse with more jitter if inverse fails
+            V_inv = torch.linalg.pinv(covariance_matrix + 1e-4 * torch.eye(num_estimators, device=device))
 
         denominator = torch.matmul(ones.T, torch.matmul(V_inv, ones))
         weights = torch.matmul(V_inv, ones) / denominator
@@ -274,7 +261,7 @@ def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matr
         
         # Handle potential shape issues
         if num_samples == 1:
-            combined_estimate = combined_estimate.unsqueeze(0)
+            combined_estimate = combined_estimate.reshape(1)
             
         # Base variance is the same for all samples
         base_variance = (1.0 / denominator).item()
@@ -289,9 +276,9 @@ def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matr
     else:
         # --- Diagonal Variance Case ---
         if variances.ndim != 1:
-            raise ValueError("variances must be a 1D tensor (num_estimators,)")
+            raise ValueError(f"variances must be a 1D tensor, got shape {variances.shape}")
         if variances.shape[0] != num_estimators:
-            raise ValueError("variances must have shape (num_estimators,)")
+            raise ValueError(f"variances shape {variances.shape} must match (num_estimators,) = ({num_estimators},)")
 
         variances = variances.to(device)
         weights = 1.0 / (variances + 1e-10)  # Better numeric stability
@@ -304,7 +291,7 @@ def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matr
 
         # Calculate chi-squared (weighted sum of squared deviations)
         diff = estimates - combined_estimate.unsqueeze(1)
-        chi2 = torch.sum(diff**2 / variances.unsqueeze(0), dim=1)
+        chi2 = torch.sum((diff ** 2) / variances.unsqueeze(0), dim=1)
         total_chi2 = torch.sum(chi2)
 
     # --- Scale the Variance if necessary ---
@@ -312,9 +299,10 @@ def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matr
     scale_factor = torch.tensor(1.0, device=device)  # Initialize to 1
     
     if dof > 0:
-        chi2_per_dof = total_chi2 / dof
-        if chi2_per_dof > 1.0:
-            scale_factor = chi2_per_dof
+        # Scale by chi-square per degree of freedom
+        scale_factor = total_chi2 / dof
+        # Clamp to reasonable range to avoid extreme scaling
+        scale_factor = torch.clamp(scale_factor, min=0.1, max=10.0)
             
     scaled_variance = combined_variance * scale_factor
 
@@ -322,7 +310,7 @@ def comine_continuous_blue_with_scaling(estimates: torch.Tensor, covariance_matr
 
 
 def combine_continuous_simple(labels: torch.Tensor, method: str = 'mean', 
-                                   mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+                             mask: Optional[torch.Tensor] = None) -> torch.Tensor:
     """
     Combines continuous labels using simple aggregation methods.
     
@@ -337,29 +325,30 @@ def combine_continuous_simple(labels: torch.Tensor, method: str = 'mean',
         Tensor of shape (num_samples,) containing the combined labels.
     """
     if labels.ndim != 2:
-        raise ValueError("labels must be a 2D tensor")
+        raise ValueError(f"labels must be a 2D tensor, got shape {labels.shape}")
     
     # Ensure we're working with (num_samples, num_annotators)
     if method not in ['mean', 'median', 'min', 'max']:
-        raise ValueError(f"Unknown method: {method}. Use one of ['mean', 'median', 'min', 'max']")
+        raise ValueError(f"method must be one of ['mean', 'median', 'min', 'max'], got {method}")
     
     # Handle missing values if mask is provided
     if mask is not None:
         if mask.shape != labels.shape:
-            raise ValueError("mask must have the same shape as labels")
-        # Fill missing values with NaN
-        masked_labels = torch.where(mask, labels, torch.tensor(float('nan'), device=labels.device))
+            raise ValueError(f"mask shape {mask.shape} must match labels shape {labels.shape}")
+        # Replace invalid values with NaN
+        labels = labels.float().clone()
+        labels[~mask] = float('nan')
     else:
-        masked_labels = labels
+        labels = labels.float()
     
     if method == 'mean':
-        return torch.nanmean(masked_labels, dim=1)
+        return torch.nanmean(labels, dim=1)
     elif method == 'median':
-        return torch.nanmedian(masked_labels, dim=1).values
+        return torch.nanmedian(labels, dim=1).values
     elif method == 'min':
-        return torch.nanmin(masked_labels, dim=1).values
+        return torch.nanmin(labels, dim=1).values
     else:  # max
-        return torch.nanmax(masked_labels, dim=1).values
+        return torch.nanmax(labels, dim=1).values
 
 
 def combine_continuous_trimmed_mean(labels: torch.Tensor, trim_percentage: float = 0.2, 
@@ -377,10 +366,10 @@ def combine_continuous_trimmed_mean(labels: torch.Tensor, trim_percentage: float
         Tensor of shape (num_samples,) containing the trimmed mean labels.
     """
     if not 0.0 <= trim_percentage < 0.5:
-        raise ValueError("trim_percentage must be between 0.0 and 0.5")
+        raise ValueError(f"trim_percentage must be between 0.0 and 0.5, got {trim_percentage}")
     
     if labels.ndim != 2:
-        raise ValueError("labels must be a 2D tensor")
+        raise ValueError(f"labels must be a 2D tensor, got shape {labels.shape}")
     
     num_samples, num_annotators = labels.shape
     device = labels.device
@@ -388,27 +377,33 @@ def combine_continuous_trimmed_mean(labels: torch.Tensor, trim_percentage: float
     
     # Handle each sample separately
     for i in range(num_samples):
+        # Get annotations for this sample
         sample_labels = labels[i]
         
         # Apply mask if provided
         if mask is not None:
             sample_mask = mask[i]
-            if not torch.any(sample_mask):
+            valid_labels = sample_labels[sample_mask]
+            if valid_labels.numel() == 0:
+                # No valid labels, assign NaN
                 result[i] = float('nan')
                 continue
-            sample_labels = sample_labels[sample_mask]
-        
-        # Sort values
-        sorted_values, _ = torch.sort(sample_labels)
-        n = len(sorted_values)
-        
-        if n <= 2:  # Not enough data to trim
-            result[i] = torch.mean(sorted_values)
         else:
-            # Calculate how many values to trim from each end
-            k = int(n * trim_percentage)
-            # Use values after trimming
-            result[i] = torch.mean(sorted_values[k:n-k])
+            valid_labels = sample_labels
+            
+        # Sort labels
+        sorted_labels, _ = torch.sort(valid_labels)
+        n_valid = sorted_labels.shape[0]
+        
+        # Calculate number of values to trim from each end
+        n_trim = int(n_valid * trim_percentage)
+        
+        # Calculate trimmed mean
+        if n_valid - 2 * n_trim > 0:
+            result[i] = torch.mean(sorted_labels[n_trim:n_valid-n_trim])
+        else:
+            # Not enough values after trimming
+            result[i] = torch.mean(sorted_labels)
     
     return result
 
@@ -447,15 +442,24 @@ def combine_continuous_robust_blue(estimates: torch.Tensor, initial_variances: O
         # Calculate residuals
         residuals = estimates - combined.unsqueeze(1)
         
-        # Apply Huber weighting to handle outliers
-        abs_residuals = torch.abs(residuals)
-        huber_weights = torch.ones_like(residuals)
-        outlier_mask = abs_residuals > huber_threshold
-        huber_weights[outlier_mask] = huber_threshold / abs_residuals[outlier_mask]
+        # Calculate standardized residuals
+        stds = torch.sqrt(initial_variances + 1e-10)
+        standardized_residuals = residuals / stds.unsqueeze(0)
+        
+        # Apply Huber weighting
+        abs_std_residuals = torch.abs(standardized_residuals)
+        w = torch.where(
+            abs_std_residuals <= huber_threshold,
+            torch.ones_like(standardized_residuals),
+            huber_threshold / abs_std_residuals
+        )
         
         # Update weights
-        iteration_weights = weights.unsqueeze(0) * huber_weights
-        norm_weights = iteration_weights / torch.sum(iteration_weights, dim=1, keepdim=True)
+        weights = w / (initial_variances + 1e-10).unsqueeze(0)
+        
+        # Calculate normalized weights
+        weights_sum = torch.sum(weights, dim=1, keepdim=True)
+        norm_weights = weights / (weights_sum + 1e-10)
         
         # Update combined estimate
         combined = torch.sum(estimates * norm_weights, dim=1)
@@ -469,11 +473,10 @@ def combine_continuous_robust_blue(estimates: torch.Tensor, initial_variances: O
     return combined, variance
 
 
-def combine_continuousbayesian(estimates: torch.Tensor, variances: Optional[torch.Tensor] = None,
+def combine_continuous_bayesian(estimates: torch.Tensor, variances: Optional[torch.Tensor] = None,
                          prior_mean: Optional[float] = None, prior_var: Optional[float] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Combines continuous labels using Bayesian inference, treating each estimator as a noisy measurement.
-    Booooo Bayesian and their priors. 
     
     Args:
         estimates: Tensor of shape (num_samples, num_estimators) containing the estimates.
@@ -489,17 +492,16 @@ def combine_continuousbayesian(estimates: torch.Tensor, variances: Optional[torc
     device = estimates.device
     
     if variances is None:
-        # Estimate variances from data, with a small floor
-        variances = torch.var(estimates, dim=0, unbiased=True).clamp(min=1e-5)
+        # Use variance across samples as estimate
+        variances = torch.var(estimates, dim=0, unbiased=True)
     
     # Set prior if not provided
     if prior_mean is None:
-        prior_mean = torch.mean(estimates).item()
+        prior_mean = torch.mean(estimates)
     
     if prior_var is None:
-        # Use a weakly informative prior
-        data_var = torch.var(estimates).item()
-        prior_var = max(data_var * 10, 1.0)  # Weakly informative
+        # Use a weakly informative prior: 10x the average variance
+        prior_var = 10.0 * torch.mean(variances)
     
     # Convert to precision (inverse variance)
     prior_precision = 1.0 / prior_var
@@ -511,20 +513,20 @@ def combine_continuousbayesian(estimates: torch.Tensor, variances: Optional[torc
     
     # Process each sample
     for i in range(num_samples):
+        # Bayesian update formula
+        # posterior_precision = prior_precision + sum(precisions)
+        # posterior_mean = (prior_precision * prior_mean + sum(precisions * estimates)) / posterior_precision
+        
+        sample_estimates = estimates[i]
+        
         # Calculate posterior precision
-        post_precision = prior_precision + torch.sum(precisions)
-        
-        # Calculate posterior variance
-        post_var = 1.0 / post_precision
-        
-        # Calculate weighted mean
-        weighted_data = torch.sum(estimates[i] * precisions)
-        weighted_prior = prior_mean * prior_precision
+        posterior_precision = prior_precision + torch.sum(precisions)
         
         # Calculate posterior mean
-        post_mean = (weighted_data + weighted_prior) * post_var
+        weighted_sum = prior_precision * prior_mean + torch.sum(precisions * sample_estimates)
+        posterior_mean[i] = weighted_sum / posterior_precision
         
-        posterior_mean[i] = post_mean
-        posterior_var[i] = post_var
+        # Calculate posterior variance
+        posterior_var[i] = 1.0 / posterior_precision
     
     return posterior_mean, posterior_var

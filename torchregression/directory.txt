@@ -1,47 +1,40 @@
 torchregression/
-├── __init__.py             # Makes torchregression a Python package
-├── wrappers.py             # easy wrappers to many torchgression commonly used tools and utilities (create_* and more)
-├── losses/                 # All loss functions and related transforms
+├── __init__.py                    # Main package initialization
+├── losses/                        # Loss function implementations
+│   ├── __init__.py                # Loss function exports
+│   ├── base.py                    # Base classes for losses
+│   ├── categorical.py             # Classification-related losses
+│   ├── eiv.py                     # Error-in-variables losses
+│   ├── expectile.py               # Expectile regression losses
+│   ├── gaussian.py                # Gaussian losses
+│   ├── loss_registry.py           # Registry of available losses
+│   ├── mixtures.py                # MDN and mixture model losses
+│   ├── poisson.py                 # Poisson and count data losses  
+│   ├── quantile.py                # Quantile regression losses
+│   ├── robust.py                  # Robust regression losses
+│   ├── torch_extensions.py        # Extensions of PyTorch losses
+│   └── tweedie.py                 # Tweedie distribution losses
+├── eiv/                           # Error-in-variables specific modules
 │   ├── __init__.py
-│   ├── base.py             # Base loss function class
-│   ├── gaussian.py         # Gaussian NLL, generalized least squares, ... loss functions
-│   ├── categorical.py      # Histogram loss, regression-as-classification losses
-│   ├── poisson.py          # Poisson related losses
-│   ├── tweedie.py          # Tweedie loss
-│   ├── quantile.py         # Quantile related losses
-│   ├── expectile.py        # Expectile losses
-│   ├── robust.py           # Robust losses (L1, Huber, Tukey, ...)
-│   ├── ...                 # Other loss functions
-├── algorithms/             # All methods and algorithms
+│   ├── eiv_chamfer.py             # Chamfer distance EIV algorithms
+│   ├── eiv_mdn.py                 # Mixture Density Network EIV
+│   ├── eiv_rfit.py                # Robust fitting for EIV
+│   └── eiv_utils.py               # EIV utility functions
+├── ensemble/                      # Ensemble methods
 │   ├── __init__.py
-│   ├── irls.py             # Iteratively Reweighted Least Squares
-│   ├── ...                 # Other algorithms
-├── ensemble/               # All model implementations, including ensembles
+│   └── ensemble.py                # Ensemble model implementations
+├── algorithms/                    # Model fitting algorithms
 │   ├── __init__.py
-│   ├── models.py           # Basic models useful for ensembles
-│   ├── deepensemble.py     # Deep Ensemble implementation
-│   ├── batchensemble.py    # Batch Ensemble implementation
-│   ├── swag.py             # Stochastic Weight Averaging implementation
-│   ├── soup.py             # Model soup implementation
-│   ├── ...                 # Other ensemble or individual regression models
-├── metrics/                # Evaluation metrics
-│   ├── __init__.py
-│   ├── regression.py       # RMSE, MAE, R2, ... point prediction metrics
-│   ├── distribution.py     # NLL, CRPS, PIT, Calibration metrics, ... distribution metrics
-│   ├── ...                 # Other metrics stuff
-├── utils/                  # Utility functions and classes
-│   ├── __init__.py
-│   ├── augment.py          # Data augmentation/adversarial training utilities
-│   ├── labels.py           # Tools to combine labels
-│   ├── ...                 # General utilities will be here
-├── plots/                  # Plotting and visualization tools
-│   ├── __init__.py
-│   ├── residuals.py        # All good residual plots
-│   ├── distributions.py    # All distribution plots 
-├── eiv/                    # Errors-in-variables regression implementations
-│   ├── __init__.py
-│   ├── base.py             # Base EIV functionality (from current eiv.py)
-│   ├── chamfer.py          # Chamfer distance implementation
-│   ├── mdn.py              # Mixture density network implementation for EIV
-│   ├── rfit.py             # Robust fitting methods for EIV
-│   ├── utils.py            # EIV specific utilities
+│   └── irls.py                    # Iteratively Reweighted Least Squares
+├── metrics/                       # Evaluation metrics
+│   └── __init__.py                # Regression metrics
+├── plots/                         # Visualization utilities
+│   └── __init__.py                # Plot functions
+└── utils/                         # Utility functions
+    ├── __init__.py
+    ├── augment.py                 # Data augmentation utilities
+    ├── labels.py                  # Multi-label handling
+    ├── pytorch_compat.py          # PyTorch compatibility helpers
+    ├── stats.py                   # Statistical utilities
+    ├── tensor_ops.py              # Tensor operations
+    └── validation.py              # Input validation utilities

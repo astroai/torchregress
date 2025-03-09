@@ -1,22 +1,23 @@
-
 torchregression/
-├── torchgression/          # main package directory
-├── examples/               # Example scripts/notebooks
-│   ├── basic_regression.py # Example using Gaussian NLL and a simple model
-│   ├── ensemble.py         # Example with Deep Ensemble
-│   ├── rag.py              # Example for histogram loss classification as regression
-│   ├── mdn.py              # Mixture Density Network example
-│   ├── ....                # More examples to come hopefully
-├── tests/                  # Tests
-│   ├── __init__.py
-│   ├── test_losses.py      # Tests for all loss functions
-│   ├── test_ensemble.py    # Tests for all ensembles
-│   ├── test_metrics.py     # Tests for metrics
-│   ├── test_utils.py       # Tests for utilities
-│   ├── test_integration.py # Integration tests
-│   ├── ...                 # More tests to come
-├── README.md
-├── DOCS.md               # Loss functions math explanation 
-├── LICENSE
-├── setup.py
-└── requirements.txt
+├── torchregression/               # Main package source code
+│   ├── __init__.py                # Package initialization
+│   ├── losses/                    # Loss function implementations
+│   ├── eiv/                       # Error-in-variables modules
+│   ├── ensemble/                  # Ensemble methods
+│   ├── algorithms/                # Model fitting algorithms
+│   ├── metrics/                   # Evaluation metrics
+│   ├── plots/                     # Visualization utilities
+│   └── utils/                     # Utility functions
+├── docs/                          # Documentation
+│   └── api/                       # API documentation
+├── tests/                         # Unit tests
+│   ├── test_losses/               # Tests for loss functions
+│   ├── test_eiv/                  # Tests for EIV modules
+│   └── test_utils/                # Tests for utilities
+├── examples/                      # Usage examples
+│   ├── basic/                     # Basic usage examples
+│   └── advanced/                  # Advanced usage examples
+├── setup.py                       # Package installation script
+├── README.md                      # Project overview
+├── LICENSE                        # License information
+└── requirements.txt               # Project dependencies
