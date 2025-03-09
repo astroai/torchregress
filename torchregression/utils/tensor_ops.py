@@ -10,63 +10,63 @@ import torch
 import numpy as np
 from typing import Optional, Union, Tuple, List, Any
 
-def apply_mask(x: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
+def apply_mask(tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
     """
-    Apply a boolean mask to a tensor.
+    Apply a mask to a tensor.
     
     Args:
-        x: Input tensor
-        mask: Boolean mask of same shape as x or broadcastable to x
+        tensor: Input tensor of any shape
+        mask: Boolean mask with compatible shape for broadcasting
         
     Returns:
-        Masked tensor with same values but zeros where mask is False
+        Original tensor if mask is None, otherwise a copy with masked values set to 0
     """
     if mask is None:
-        return x
-    
-    # Ensure mask is broadcastable to x
-    if x.shape != mask.shape:
+        return tensor
+        
+    # Handle broadcasting if needed
+    if tensor.shape != mask.shape:
+        # Try to broadcast mask to tensor shape
         try:
-            return x * mask
+            expanded_mask = mask.expand_as(tensor)
         except RuntimeError:
-            raise ValueError(f"Mask shape {mask.shape} cannot be broadcast to tensor shape {x.shape}")
-    
-    return x * mask
+            raise ValueError(f"Mask shape {mask.shape} cannot be broadcast to tensor shape {tensor.shape}")
+        
+        return tensor * expanded_mask
+    else:
+        return tensor * mask
 
-def masked_reduction(x: torch.Tensor, mask: Optional[torch.Tensor], 
+def masked_reduction(tensor: torch.Tensor, mask: Optional[torch.Tensor], 
                     reduction: str = 'mean') -> torch.Tensor:
     """
     Apply reduction to a tensor with optional masking.
     
     Args:
-        x: Input tensor
-        mask: Boolean mask of same shape as x or broadcastable to x
-        reduction: 'none' | 'mean' | 'sum'
+        tensor: Input tensor to reduce
+        mask: Optional boolean mask indicating valid values
+        reduction: Reduction method ('none', 'mean', or 'sum')
         
     Returns:
-        Reduced tensor according to specified reduction type
+        Reduced tensor based on specified reduction method
     """
     if reduction == 'none':
-        return x
-        
+        return tensor
+    
     if mask is None:
+        # No mask, straightforward reduction
         if reduction == 'mean':
-            return torch.mean(x)
+            return torch.mean(tensor)
         else:  # 'sum'
-            return torch.sum(x)
+            return torch.sum(tensor)
     else:
-        # Apply mask
-        masked_x = x * mask
-        
+        # With mask, we need to handle the reduction carefully
         if reduction == 'mean':
-            # Count non-masked values for mean
-            valid_count = torch.sum(mask)
-            if valid_count > 0:
-                return torch.sum(masked_x) / valid_count
-            else:
-                return torch.tensor(0.0, device=x.device)
+            # Count valid elements for mean reduction
+            valid_count = torch.sum(mask).clamp(min=1)  # Avoid division by zero
+            masked_sum = torch.sum(tensor * mask)
+            return masked_sum / valid_count
         else:  # 'sum'
-            return torch.sum(masked_x)
+            return torch.sum(tensor * mask)
 
 def prepare_param(param: Union[float, torch.Tensor], n_dims: int, 
                  device: torch.device, default_value: float = 1.0) -> torch.Tensor:
@@ -328,3 +328,21 @@ def unstandardize(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> tor
         Original scale tensor
     """
     return x * std + mean
+
+def broadcast_shapes(*shapes: Tuple[int, ...]) -> Tuple[int, ...]:
+    """
+    Compute the shape resulting from broadcasting the given shapes.
+    
+    Args:
+        *shapes: Input shapes to broadcast
+        
+    Returns:
+        Resulting shape after broadcasting
+        
+    Raises:
+        ValueError: If shapes are not broadcastable
+    """
+    try:
+        return torch.broadcast_shapes(*shapes)
+    except RuntimeError as e:
+        raise ValueError(f"Shapes are not broadcastable: {shapes}. Error: {str(e)}")

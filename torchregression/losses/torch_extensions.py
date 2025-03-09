@@ -7,7 +7,6 @@ support for masking, weighted loss, and other useful features.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Dict, List
 
 from .base import MaskedLoss, RegressionLoss, TorchLossWrapper
 

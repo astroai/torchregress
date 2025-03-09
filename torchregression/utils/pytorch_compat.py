@@ -1,14 +1,16 @@
 """
 PyTorch compatibility utilities.
 
-This module provides functions for ensuring compatibility across different
-PyTorch versions and custom autograd extensions.
+This module provides functions for handling compatibility across
+different PyTorch versions.
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import random
+import functools
+import warnings
 from torch import Tensor
 from typing import Optional, Union, Dict, Any, List, Tuple, Callable
 
@@ -135,32 +137,52 @@ def get_device(device_str: Optional[str] = None) -> torch.device:
     
     return torch.device(device_str)
 
-def get_torch_version() -> List[int]:
+def get_torch_version() -> Tuple[int, int, int]:
     """
-    Get the current PyTorch version as a list of integers.
+    Get the current PyTorch version as a tuple of integers.
     
     Returns:
-        List of version components: [major, minor, patch]
+        Tuple of (major, minor, patch) version numbers
     """
-    version_str = torch.__version__
-    # Handle development versions (e.g., '1.9.0.dev20210320')
-    base_version = version_str.split('+')[0]
-    base_version = base_version.split('.dev')[0]
+    version_str = torch.__version__.split('+')[0]  # Remove git commit hash if present
+    version_parts = version_str.split('.')
     
-    # Parse version into integers
+    # Handle different version string formats
     try:
-        return [int(x) for x in base_version.split('.')[:3]]
-    except ValueError:
-        # Fallback for non-standard version strings
-        components = []
-        for component in base_version.split('.')[:3]:
-            try:
-                components.append(int(component))
-            except ValueError:
-                # Handle non-numeric components
-                components.append(0)
-        return components
+        if len(version_parts) >= 3:
+            return (int(version_parts[0]), int(version_parts[1]), int(version_parts[2]))
+        elif len(version_parts) == 2:
+            return (int(version_parts[0]), int(version_parts[1]), 0)
+        else:
+            return (int(version_parts[0]), 0, 0)
+    except (ValueError, IndexError):
+        warnings.warn(f"Couldn't parse PyTorch version: {torch.__version__}. Using (0, 0, 0).")
+        return (0, 0, 0)
 
+def requires_torch_version(major: int, minor: int = 0, patch: int = 0) -> Callable:
+    """
+    Decorator to check if the current PyTorch version meets the minimum requirement.
+    
+    Args:
+        major: Major version requirement
+        minor: Minor version requirement
+        patch: Patch version requirement
+        
+    Returns:
+        Decorator function
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            version = get_torch_version()
+            if version < (major, minor, patch):
+                warnings.warn(
+                    f"Function {func.__name__} requires PyTorch version >= {major}.{minor}.{patch}, "
+                    f"but you have {torch.__version__}. This might cause issues."
+                )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 def has_torch_function(tensors) -> bool:
     """

@@ -30,6 +30,7 @@ __all__ = [
     # IRLS algorithm
     'iteratively_reweighted_least_squares',
     'IRLS',
+    'IRLS_Algorithm',
     '_huber_weights',
     '_tukey_weights',
     '_power_weights',

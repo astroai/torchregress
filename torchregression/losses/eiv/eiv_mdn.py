@@ -4,10 +4,10 @@ Mixture Density Network implementation for Errors-in-Variables regression.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, Dict, Tuple, List, Callable
+from typing import Optional, Union, Dict, List
 
 from ..base import MaskedLoss
-from ...utils.tensor_ops import prepare_sigma, prepare_param
+from .eiv_utils import prepare_sigma
 
 class MDNEIVLoss(MaskedLoss):
     """

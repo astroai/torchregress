@@ -8,7 +8,6 @@ robust against outliers.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
 
 from .base import RegressionLoss
 from ..utils.validation import validate_positive

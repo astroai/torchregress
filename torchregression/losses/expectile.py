@@ -7,7 +7,7 @@ than standard mean regression, similar to quantile regression.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, List, Tuple, Dict
+from typing import Optional, Union, List, Tuple
 
 from .base import RegressionLoss
 from ..utils.validation import validate_range
@@ -27,7 +27,7 @@ class ExpectileLoss(RegressionLoss):
         super().__init__(reduction=reduction)
         self.expectile = validate_range(expectile, 0.0, 1.0, "expectile")
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor, mask: Optional[torch.Tensor] = None, weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate expectile loss.
         

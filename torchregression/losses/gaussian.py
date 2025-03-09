@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from torch.distributions import Normal, MultivariateNormal
-from typing import Optional, Union, Tuple, Dict, Any
+from typing import Optional, Union, Tuple, Dict
 
 from .base import MaskedLoss, RegressionLoss, DistributionLoss
 
@@ -27,10 +27,10 @@ class WeightedMSELoss(RegressionLoss):
         reduction (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
                          Default: 'mean'
     """
-    def __init__(self, reduction='mean'):
+    def __init__(self, reduction: str = 'mean'):
         super().__init__(reduction=reduction)
 
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor, mask: Optional[torch.Tensor] = None, weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate weighted MSE loss.
         
@@ -76,15 +76,8 @@ class DiagonalGaussianNLL(DistributionLoss):
         eps (float): Small constant for numerical stability
         reduction (str): 'none' | 'mean' | 'sum'
     """
-    def __init__(
-        self, 
-        n_features=None,
-        learnable_variance=True,
-        fixed_variance=1.0,
-        min_variance=1e-6,
-        eps=1e-8,
-        reduction='mean'
-    ):
+    def __init__(self, n_features: Optional[int] = None, learnable_variance: bool = True,
+                 fixed_variance: float = 1.0, min_variance: float = 1e-6, eps: float = 1e-8, reduction: str = 'mean'):
         super().__init__(reduction=reduction)
         self.n_features = n_features
         self.min_variance = min_variance
@@ -375,15 +368,8 @@ class GaussianNLLWithCovariance(DistributionLoss):
             return nll.sum()
 
 
-def create_gaussian_nll(
-    n_features, 
-    covariance_type='diagonal',
-    learnable_variance=True,
-    fixed_variance=1.0,
-    jitter=1e-6,
-    reduction='mean',
-    **kwargs
-):
+def create_gaussian_nll(n_features: int, covariance_type: str = 'diagonal', learnable_variance: bool = True,
+                        fixed_variance: float = 1.0, jitter: float = 1e-6, reduction: str = 'mean', **kwargs) -> DistributionLoss:
     """
     Factory function to create an appropriate Gaussian NLL loss.
     
@@ -400,20 +386,10 @@ def create_gaussian_nll(
         An appropriate Gaussian NLL loss object
     """
     if covariance_type == 'diagonal':
-        return DiagonalGaussianNLL(
-            n_features=n_features,
-            learnable_variance=learnable_variance,
-            fixed_variance=fixed_variance,
-            reduction=reduction,
-            **kwargs
-        )
+        return DiagonalGaussianNLL(n_features=n_features, learnable_variance=learnable_variance,
+                                   fixed_variance=fixed_variance, reduction=reduction, **kwargs)
     elif covariance_type == 'full':
-        return GaussianNLLWithCovariance(
-            n_features=n_features,
-            learnable_adjustment=learnable_variance,
-            jitter=jitter,
-            reduction=reduction,
-            **kwargs
-        )
+        return GaussianNLLWithCovariance(n_features=n_features, learnable_adjustment=learnable_variance,
+                                         jitter=jitter, reduction=reduction, **kwargs)
     else:
         raise ValueError(f"Unknown covariance_type: {covariance_type}")

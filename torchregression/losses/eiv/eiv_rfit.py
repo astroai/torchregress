@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .losses.base import MaskedLoss
-from .robust import HuberLoss, L1Loss
-from typing import Union, Optional, List, Callable, Dict, Literal
-from .eiv_utils import prepare_param
+from typing import Callable, Literal, Dict, Union
+from ..base import MaskedLoss
+from ..robust import HuberLoss, L1Loss
+from .eiv_utils import prepare_sigma
 
 class RobustEIVLoss(MaskedLoss):
     """
@@ -41,7 +41,7 @@ class RobustEIVLoss(MaskedLoss):
         quantile: float = 0.95,
         reduction: str = 'mean'
     ):
-        super().__init__()
+        super().__init__(reduction=reduction)
         self.model = model
         
         # Set up base loss function
@@ -69,11 +69,6 @@ class RobustEIVLoss(MaskedLoss):
         if self.aggregation not in ('mean', 'median', 'max', 'quantile'):
             raise ValueError("aggregation must be 'mean', 'median', 'max', or 'quantile'")
         
-        # Validate reduction method
-        self.reduction = reduction
-        if reduction not in ('none', 'mean', 'sum'):
-            raise ValueError(f"Invalid reduction: {reduction}")
-
         # Validate quantile parameter
         self.quantile = quantile
         if self.aggregation == 'quantile' and (quantile is None or not 0 <= quantile <= 1):
@@ -97,7 +92,7 @@ class RobustEIVLoss(MaskedLoss):
         device = x_obs.device
         
         # Prepare sigma_x parameter
-        sigma_x = prepare_param(self.sigma_x, x_obs.shape[1], device)
+        sigma_x = prepare_sigma(self.sigma_x, x_obs.shape[1], device)
         
         # Generate input variations using the provided function
         varied_inputs = self.variation_fn(
@@ -257,265 +252,3 @@ def bootstrap_variation(x_batch, sigma_x=None, n_samples=10, **kwargs):
         variations.append(x_varied)
         
     return variations
-
-"""
-Robust fitting methods for Error-in-Variables (EIV) regression.
-
-This module provides implementations of robust EIV models that handle
-both measurement error and outliers simultaneously.
-"""
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from typing import Optional, Union, Dict, List, Tuple, Callable
-
-from ..base import MaskedLoss
-from ...utils.tensor_ops import prepare_param
-
-
-def gaussian_variation(x: torch.Tensor, sigma_x: Union[float, torch.Tensor], 
-                     n_samples: int) -> torch.Tensor:
-    """
-    Generate Gaussian variations of input samples.
-    
-    Args:
-        x: Input tensor [batch_size, n_features]
-        sigma_x: Standard deviation(s) of the noise
-        n_samples: Number of variations to generate
-        
-    Returns:
-        Tensor of variations [n_samples, batch_size, n_features]
-    """
-    batch_size, n_features = x.shape
-    device = x.device
-    
-    # Handle different types of sigma_x
-    if isinstance(sigma_x, (int, float)):
-        # Scalar case
-        noise = torch.randn(n_samples, batch_size, n_features, device=device) * sigma_x
-    elif isinstance(sigma_x, torch.Tensor):
-        if sigma_x.ndim == 0:
-            # Scalar tensor
-            noise = torch.randn(n_samples, batch_size, n_features, device=device) * sigma_x
-        elif sigma_x.ndim == 1:
-            # Vector - apply different noise to each feature
-            if sigma_x.shape[0] != n_features:
-                raise ValueError(f"sigma_x shape {sigma_x.shape} doesn't match features {n_features}")
-            noise = torch.randn(n_samples, batch_size, n_features, device=device) * sigma_x.unsqueeze(0).unsqueeze(0)
-        else:
-            raise ValueError(f"sigma_x must be scalar or vector, got tensor with {sigma_x.ndim} dimensions")
-    else:
-        raise TypeError(f"sigma_x must be float or tensor, got {type(sigma_x)}")
-    
-    # Create variations by adding noise to original samples
-    variations = x.unsqueeze(0) + noise
-    
-    return variations
-
-
-def uniform_variation(x: torch.Tensor, range_x: Union[float, torch.Tensor], 
-                    n_samples: int) -> torch.Tensor:
-    """
-    Generate uniform variations of input samples.
-    
-    Args:
-        x: Input tensor [batch_size, n_features]
-        range_x: Range of the uniform noise (+/-)
-        n_samples: Number of variations to generate
-        
-    Returns:
-        Tensor of variations [n_samples, batch_size, n_features]
-    """
-    batch_size, n_features = x.shape
-    device = x.device
-    
-    # Handle different types of range_x
-    if isinstance(range_x, (int, float)):
-        # Scalar case
-        noise = torch.rand(n_samples, batch_size, n_features, device=device) * (2 * range_x) - range_x
-    elif isinstance(range_x, torch.Tensor):
-        if range_x.ndim == 0:
-            # Scalar tensor
-            noise = torch.rand(n_samples, batch_size, n_features, device=device) * (2 * range_x) - range_x
-        elif range_x.ndim == 1:
-            # Vector - apply different noise to each feature
-            if range_x.shape[0] != n_features:
-                raise ValueError(f"range_x shape {range_x.shape} doesn't match features {n_features}")
-            # Expand for broadcasting
-            expanded_range = range_x.unsqueeze(0).unsqueeze(0).expand(n_samples, batch_size, -1)
-            noise = torch.rand(n_samples, batch_size, n_features, device=device) * (2 * expanded_range) - expanded_range
-        else:
-            raise ValueError(f"range_x must be scalar or vector, got tensor with {range_x.ndim} dimensions")
-    else:
-        raise TypeError(f"range_x must be float or tensor, got {type(range_x)}")
-    
-    # Create variations by adding noise to original samples
-    variations = x.unsqueeze(0) + noise
-    
-    return variations
-
-
-def bootstrap_variation(x: torch.Tensor, n_samples: int) -> torch.Tensor:
-    """
-    Generate bootstrap variations of input samples.
-    
-    Args:
-        x: Input tensor [batch_size, n_features]
-        n_samples: Number of variations to generate
-        
-    Returns:
-        Tensor of variations [n_samples, batch_size, n_features]
-    """
-    batch_size, _ = x.shape
-    device = x.device
-    
-    # Sample with replacement
-    variations = []
-    for _ in range(n_samples):
-        # Generate random indices with replacement
-        indices = torch.randint(0, batch_size, (batch_size,), device=device)
-        
-        # Sample from original data
-        bootstrap_sample = x[indices]
-        variations.append(bootstrap_sample)
-    
-    # Stack along new dimension
-    return torch.stack(variations)
-
-
-class RobustEIVLoss(MaskedLoss):
-    """
-    Robust Error-in-Variables loss that uses data variations to reduce sensitivity to both 
-    measurement errors and outliers.
-    
-    This loss generates multiple input variations and applies robust loss functions
-    to handle outliers and measurement errors simultaneously.
-    
-    Args:
-        model: Model function f(x) that predicts y
-        base_loss: Base loss function type ('huber', 'l1', 'mse')
-        delta: Delta parameter for Huber loss
-        variation_fn: Function to generate input variations
-        sigma_x: Parameter for variation function (e.g., standard deviation for Gaussian noise)
-        n_samples: Number of variations to generate
-        variation_params: Additional parameters for variation function
-        aggregation: How to aggregate losses: 'mean', 'median', 'max', 'quantile'
-        quantile: Quantile to use if aggregation='quantile'
-        reduction: 'none' | 'mean' | 'sum'
-    """
-    def __init__(
-        self,
-        model: Callable,
-        base_loss: str = 'huber',
-        delta: float = 1.0,
-        variation_fn: Callable = gaussian_variation,
-        sigma_x: Union[float, torch.Tensor] = 1.0,
-        n_samples: int = 10,
-        variation_params: Dict = None,
-        aggregation: str = 'median',
-        quantile: float = 0.95,
-        reduction: str = 'mean'
-    ):
-        super().__init__(reduction=reduction)
-        self.model = model
-        self.base_loss = base_loss
-        self.delta = delta
-        self.variation_fn = variation_fn
-        self.sigma_x = sigma_x
-        self.n_samples = n_samples
-        self.variation_params = variation_params or {}
-        self.aggregation = aggregation
-        self.quantile = quantile
-        
-    def forward(self, x_obs, y_true, mask=None):
-        """
-        Calculate robust EIV loss.
-        
-        Args:
-            x_obs: Observed features with noise [batch_size, n_features_x]
-            y_true: Observed targets [batch_size, n_features_y]
-            mask: Optional boolean mask [batch_size, n_features_y]
-            
-        Returns:
-            Loss tensor (scalar if reduction is applied)
-        """
-        y_true = self._apply_mask(y_true, mask)
-        batch_size, n_features_y = y_true.shape
-        device = x_obs.device
-        
-        # Create variations of input based on measurement error model
-        if self.variation_fn == gaussian_variation:
-            # Pass sigma_x as argument for Gaussian variations
-            x_variations = self.variation_fn(x_obs, self.sigma_x, self.n_samples, **self.variation_params)
-        elif self.variation_fn == uniform_variation:
-            # Similar for uniform variations
-            x_variations = self.variation_fn(x_obs, self.sigma_x, self.n_samples, **self.variation_params)
-        else:
-            # Pass generic variation parameters
-            x_variations = self.variation_fn(x_obs, self.n_samples, **self.variation_params)
-        
-        # Flatten for batch processing
-        x_flat = x_variations.reshape(-1, x_variations.shape[-1])
-        
-        # Get predictions for all variations
-        with torch.no_grad():  # No need for gradients in the variation evaluation
-            y_preds_flat = self.model(x_flat)
-            
-            # Reshape back to [n_samples, batch_size, n_features_y]
-            y_preds = y_preds_flat.reshape(self.n_samples, batch_size, n_features_y)
-        
-        # Calculate loss for each variation
-        variation_losses = []
-        
-        for i in range(self.n_samples):
-            y_pred = y_preds[i]
-            
-            # Calculate residuals
-            residuals = y_true - y_pred
-            
-            # Apply different base loss functions
-            if self.base_loss == 'huber':
-                # Huber loss: quadratic for small residuals, linear for large ones
-                abs_residuals = torch.abs(residuals)
-                loss_i = torch.where(
-                    abs_residuals <= self.delta,
-                    0.5 * residuals**2,
-                    self.delta * (abs_residuals - 0.5 * self.delta)
-                )
-            elif self.base_loss == 'l1':
-                # L1/MAE loss
-                loss_i = torch.abs(residuals)
-            else:  # 'mse'
-                # MSE loss
-                loss_i = 0.5 * residuals**2
-                
-            # Sum across feature dimension
-            variation_losses.append(torch.sum(loss_i, dim=1))
-            
-        # Stack losses [n_samples, batch_size]
-        all_losses = torch.stack(variation_losses)
-        
-        # Aggregate losses across variations
-        if self.aggregation == 'mean':
-            # Simple average across variations
-            agg_loss = torch.mean(all_losses, dim=0)
-        elif self.aggregation == 'median':
-            # More robust to extreme variations
-            agg_loss = torch.median(all_losses, dim=0).values
-        elif self.aggregation == 'max':
-            # Worst-case variation
-            agg_loss = torch.max(all_losses, dim=0).values
-        elif self.aggregation == 'quantile':
-            # Specific quantile across variations (e.g., 95th percentile)
-            agg_loss = torch.quantile(all_losses, self.quantile, dim=0)
-        else:
-            raise ValueError(f"Unknown aggregation method: {self.aggregation}")
-        
-        # Apply reduction
-        if self.reduction == 'mean':
-            return torch.mean(agg_loss)
-        elif self.reduction == 'sum':
-            return torch.sum(agg_loss)
-        else:  # 'none'
-            return agg_loss

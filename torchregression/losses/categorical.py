@@ -8,7 +8,7 @@ tasks to classification tasks and vice versa, as well as handling categorical da
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, List, Literal, Tuple
+from typing import Optional, Union, List, Literal
 
 from .base import MaskedLoss
 from ..utils.validation import validate_tensor_shapes

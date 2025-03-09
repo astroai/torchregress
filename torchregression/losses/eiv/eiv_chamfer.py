@@ -8,11 +8,10 @@ when inputs have significant measurement error.
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import Optional, Union, Dict, List, Tuple, Callable
+from typing import Optional, Union, Callable
 
 from ..base import MaskedLoss
-from ...utils.tensor_ops import prepare_param, prepare_sigma
+from .eiv_utils import prepare_sigma
 
 
 def chamfer_distance(x: torch.Tensor, y: torch.Tensor, bidirectional: bool = True) -> torch.Tensor:

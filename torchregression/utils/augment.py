@@ -1,13 +1,14 @@
 """
-Data augmentation utilities for regression.
+Data augmentation utilities.
 
-This module provides data augmentation techniques specifically designed
-for regression tasks to improve model robustness and accuracy.
+This module provides various data augmentation techniques for enhancing 
+regression and classification models.
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, Dict, Tuple, List, Callable
+import numpy as np
+from typing import Optional, Union, Dict, Tuple, List, Callable, Any
 
 class Augmentation(nn.Module):
     """
@@ -367,3 +368,253 @@ class FeatureMask(Augmentation):
             x_aug[i, mask_indices] = 0.0
         
         return x_aug, y
+
+
+class GaussianNoiseAugmenter(nn.Module):
+    """
+    Add Gaussian noise to input data for augmentation.
+    
+    Args:
+        std: Standard deviation of the Gaussian noise
+        per_feature: Whether to use different noise levels per feature
+        learn_std: Whether to make std a learnable parameter
+        constant_noise: Whether to use the same noise pattern for all batch samples
+    """
+    def __init__(
+        self, 
+        std: float = 0.1, 
+        per_feature: bool = False, 
+        learn_std: bool = False,
+        constant_noise: bool = False
+    ):
+        super().__init__()
+        self.constant_noise = constant_noise
+        self.per_feature = per_feature
+        self.learn_std = learn_std
+        
+        # Initialize learnable parameters if requested
+        if learn_std:
+            self.log_std = nn.Parameter(torch.ones(1) * np.log(std))
+        else:
+            self.std = std
+            
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Apply Gaussian noise augmentation.
+        
+        Args:
+            x: Input tensor of shape [batch_size, features]
+            
+        Returns:
+            Augmented tensor with same shape as input
+        """
+        if self.training:
+            # Get the effective standard deviation
+            if self.learn_std:
+                std = torch.exp(self.log_std)
+            else:
+                std = self.std
+                
+            # Generate noise
+            if self.constant_noise:
+                # Same noise pattern for all samples in batch
+                if self.per_feature:
+                    # Different noise per feature
+                    noise_shape = (1, x.shape[1])
+                else:
+                    # Same noise for all features
+                    noise_shape = (1, 1)
+                    
+                noise = torch.randn(noise_shape, device=x.device) * std
+                noise = noise.expand_as(x)
+            else:
+                # Different noise for each sample
+                if self.per_feature and x.dim() > 1:
+                    # Different noise per sample and feature
+                    noise = torch.randn_like(x) * std
+                else:
+                    # Same noise across features
+                    noise = torch.randn(x.shape[0], 1, device=x.device) * std
+                    if x.dim() > 1:
+                        noise = noise.expand_as(x)
+                        
+            return x + noise
+        else:
+            return x
+
+
+class MixupAugmenter(nn.Module):
+    """
+    Apply Mixup augmentation (https://arxiv.org/abs/1710.09412).
+    
+    Args:
+        alpha: Parameter for Beta distribution
+        apply_to_targets: Whether to apply mixup to targets
+    """
+    def __init__(self, alpha: float = 1.0, apply_to_targets: bool = True):
+        super().__init__()
+        self.alpha = alpha
+        self.apply_to_targets = apply_to_targets
+        
+    def forward(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """
+        Apply Mixup augmentation.
+        
+        Args:
+            x: Input features [batch_size, ...]
+            y: Optional targets [batch_size, ...]
+            
+        Returns:
+            Tuple of augmented features and targets
+        """
+        if not self.training or self.alpha <= 0:
+            return x, y
+            
+        batch_size = x.shape[0]
+        
+        # Sample from Beta distribution
+        lam = np.random.beta(self.alpha, self.alpha)
+        
+        # Create random permutation of indices
+        indices = torch.randperm(batch_size, device=x.device)
+        
+        # Mix the features
+        mixed_x = lam * x + (1 - lam) * x[indices]
+        
+        # Mix targets if provided and requested
+        mixed_y = None
+        if y is not None and self.apply_to_targets:
+            mixed_y = lam * y + (1 - lam) * y[indices]
+        else:
+            mixed_y = y
+            
+        return mixed_x, mixed_y
+
+
+class CutoutAugmenter(nn.Module):
+    """
+    Apply Cutout augmentation (https://arxiv.org/abs/1708.04552).
+    
+    Args:
+        size: Size of the cutout as a fraction of the input size
+        n_holes: Number of holes to cut out
+    """
+    def __init__(self, size: float = 0.2, n_holes: int = 1):
+        super().__init__()
+        self.size = size
+        self.n_holes = n_holes
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Apply Cutout augmentation.
+        
+        Args:
+            x: Input features [batch_size, ...]
+            
+        Returns:
+            Augmented features
+        """
+        if not self.training or self.size <= 0:
+            return x
+            
+        # Handle only 2D+ inputs (batch_size, channels, height, width, ...)
+        if x.dim() < 3:
+            return x
+            
+        batch_size = x.shape[0]
+        x_aug = x.clone()
+        
+        # Apply cutout
+        for i in range(batch_size):
+            for _ in range(self.n_holes):
+                # Determine cutout dimensions
+                h, w = x.shape[2], x.shape[3] if x.dim() > 3 else x.shape[2]
+                cutout_h = int(h * self.size)
+                cutout_w = int(w * self.size) if x.dim() > 3 else cutout_h
+                
+                # Random position
+                top = np.random.randint(0, h - cutout_h + 1)
+                left = np.random.randint(0, w - cutout_w + 1) if x.dim() > 3 else 0
+                
+                # Apply the cutout
+                if x.dim() > 3:
+                    x_aug[i, :, top:top+cutout_h, left:left+cutout_w] = 0
+                else:
+                    x_aug[i, :, top:top+cutout_h] = 0
+                    
+        return x_aug
+
+
+class CutMixAugmenter(nn.Module):
+    """
+    Apply CutMix augmentation (https://arxiv.org/abs/1905.04899).
+    
+    Args:
+        alpha: Parameter for Beta distribution
+        apply_to_targets: Whether to apply mixup to targets
+    """
+    def __init__(self, alpha: float = 1.0, apply_to_targets: bool = True):
+        super().__init__()
+        self.alpha = alpha
+        self.apply_to_targets = apply_to_targets
+        
+    def forward(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """
+        Apply CutMix augmentation.
+        
+        Args:
+            x: Input features [batch_size, channels, height, width]
+            y: Optional targets [batch_size, ...]
+            
+        Returns:
+            Tuple of augmented features and targets
+        """
+        if not self.training or self.alpha <= 0:
+            return x, y
+            
+        # Only for images with at least 2D spatial dimensions
+        if x.dim() < 4:
+            return x, y
+            
+        batch_size = x.shape[0]
+        
+        # Sample mixing parameter
+        lam = np.random.beta(self.alpha, self.alpha)
+        
+        # Create random permutation of indices
+        indices = torch.randperm(batch_size, device=x.device)
+        
+        # Get dimensions
+        h, w = x.shape[2], x.shape[3]
+        
+        # Calculate cut size
+        cut_ratio = np.sqrt(1. - lam)
+        cut_h = int(h * cut_ratio)
+        cut_w = int(w * cut_ratio)
+        
+        # Get random center
+        cx = np.random.randint(0, h)
+        cy = np.random.randint(0, w)
+        
+        # Calculate box boundaries
+        top = max(cx - cut_h // 2, 0)
+        left = max(cy - cut_w // 2, 0)
+        bottom = min(cx + cut_h // 2, h)
+        right = min(cy + cut_w // 2, w)
+        
+        # Create mixed image
+        mixed_x = x.clone()
+        mixed_x[:, :, top:bottom, left:right] = x[indices, :, top:bottom, left:right]
+        
+        # Calculate effective lambda
+        mixed_area = (bottom - top) * (right - left)
+        lam_effective = 1 - mixed_area / (h * w)
+        
+        # Mix targets if provided and requested
+        mixed_y = None
+        if y is not None and self.apply_to_targets:
+            mixed_y = lam_effective * y + (1 - lam_effective) * y[indices]
+        else:
+            mixed_y = y
+            
+        return mixed_x, mixed_y

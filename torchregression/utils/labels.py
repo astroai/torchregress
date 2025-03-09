@@ -1,3 +1,82 @@
+"""
+Label handling utilities.
+
+This module provides functions for encoding, decoding, and manipulating
+label data.
+"""
+import torch
+import torch.nn.functional as F
+from typing import Optional, Union
+
+def encode_onehot(labels: torch.Tensor, num_classes: Optional[int] = None) -> torch.Tensor:
+    """
+    Convert class indices to one-hot encodings.
+    
+    Args:
+        labels: Class indices of shape [...] with integer values in [0, num_classes-1]
+        num_classes: Number of classes. If None, inferred from labels.
+        
+    Returns:
+        One-hot encoded tensor of shape [..., num_classes]
+    """
+    if num_classes is None:
+        num_classes = int(torch.max(labels).item()) + 1
+        
+    # Ensure labels are integers
+    if not labels.dtype.is_integer:
+        labels = labels.long()
+    
+    shape = labels.shape
+    labels = labels.reshape(-1)
+    
+    # Create one-hot encoding
+    onehot = torch.zeros(labels.shape[0], num_classes, dtype=torch.float32, device=labels.device)
+    onehot.scatter_(1, labels.unsqueeze(1), 1)
+    
+    # Reshape back to original dimensions with added class dimension
+    return onehot.reshape(*shape, num_classes)
+
+def decode_onehot(onehot: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """
+    Convert one-hot encodings to class indices.
+    
+    Args:
+        onehot: One-hot encoded tensor
+        dim: Dimension containing the one-hot encoding
+        
+    Returns:
+        Class indices tensor
+    """
+    return torch.argmax(onehot, dim=dim)
+
+def label_smoothing(onehot: torch.Tensor, alpha: float = 0.1) -> torch.Tensor:
+    """
+    Apply label smoothing to one-hot encoded labels.
+    
+    Args:
+        onehot: One-hot encoded tensor
+        alpha: Smoothing factor in [0, 1]
+        
+    Returns:
+        Smoothed labels tensor
+    """
+    num_classes = onehot.shape[-1]
+    return (1.0 - alpha) * onehot + alpha / num_classes
+
+def soft_to_hard_labels(soft_labels: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """
+    Convert soft labels (probabilities) to hard labels (one-hot).
+    
+    Args:
+        soft_labels: Soft labels tensor with probability distributions
+        dim: Dimension containing the class probabilities
+        
+    Returns:
+        One-hot encoded tensor
+    """
+    indices = torch.argmax(soft_labels, dim=dim)
+    return F.one_hot(indices, num_classes=soft_labels.shape[dim]).float()
+
 from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn.functional as F

@@ -7,7 +7,7 @@ in the torchregression library.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, Tuple, Dict, Any, Callable
+from typing import Optional, Union, Tuple, Dict, Callable
 
 from ..utils.tensor_ops import apply_mask, masked_reduction
 from ..utils.validation import validate_reduction

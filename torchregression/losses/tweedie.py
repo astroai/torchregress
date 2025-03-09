@@ -8,13 +8,11 @@ It's defined through the variance function V(μ) = μ^p where p is the power par
 
 import torch
 import torch.nn as nn
-import math
 from typing import Optional
 
-from .base import MaskedLoss
-from ..utils.validation import validate_positive
+from .base import RegressionLoss
 
-class TweedieLoss(MaskedLoss):
+class TweedieLoss(RegressionLoss):
     """
     Tweedie loss function for regression.
     
@@ -53,7 +51,123 @@ class TweedieLoss(MaskedLoss):
                 raise ValueError(f"link must be 'identity' or 'log', got {link}")
             self.link = link
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+        # Validate p value
+        if p < 0:
+            raise ValueError(f"Power parameter p must be non-negative, got {p}")
+        if 0 < p < 1:
+            raise ValueError(f"Power parameter p between 0 and 1 is not supported, got {p}")
+        
+    def _get_mean(self, y_pred: torch.Tensor) -> torch.Tensor:
+        """
+        Get mean parameter from prediction based on link function.
+        
+        Args:
+            y_pred: Model predictions
+            
+        Returns:
+            Mean parameter μ
+        """
+        if self.link == 'log':
+            mu = torch.exp(y_pred)
+        else:  # identity
+            mu = y_pred
+        return torch.clamp(mu, min=self.eps)
+    
+    def _normal_loss(self, y_true: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:
+        """
+        Normal distribution loss (p=0).
+        
+        Args:
+            y_true: Ground truth values
+            mu: Mean parameter
+            
+        Returns:
+            Loss tensor
+        """
+        return (y_true - mu)**2 / 2
+    
+    def _poisson_loss(self, y_true: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:
+        """
+        Poisson distribution loss (p=1).
+        
+        Args:
+            y_true: Ground truth values
+            mu: Mean parameter
+            
+        Returns:
+            Loss tensor
+        """
+        zero_mask = y_true == 0
+        non_zero_mask = ~zero_mask
+        
+        loss = torch.zeros_like(y_true)
+        if torch.any(non_zero_mask):
+            loss[non_zero_mask] = y_true[non_zero_mask] * torch.log(
+                y_true[non_zero_mask] / mu[non_zero_mask] + self.eps
+            ) - (y_true[non_zero_mask] - mu[non_zero_mask])
+        loss[zero_mask] = mu[zero_mask]
+        return loss
+    
+    def _gamma_loss(self, y_true: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:
+        """
+        Gamma distribution loss (p=2).
+        
+        Args:
+            y_true: Ground truth values
+            mu: Mean parameter
+            
+        Returns:
+            Loss tensor
+        """
+        return torch.log(mu / (y_true + self.eps) + self.eps) + y_true / (mu + self.eps) - 1
+    
+    def _inverse_gaussian_loss(self, y_true: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:
+        """
+        Inverse Gaussian loss (p=3).
+        
+        Args:
+            y_true: Ground truth values
+            mu: Mean parameter
+            
+        Returns:
+            Loss tensor
+        """
+        return (y_true - mu)**2 / (y_true * mu**2 + self.eps)
+    
+    def _compound_poisson_loss(self, y_true: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:
+        """
+        Compound Poisson-Gamma loss (1<p<2).
+        
+        Args:
+            y_true: Ground truth values
+            mu: Mean parameter
+            
+        Returns:
+            Loss tensor
+        """
+        zero_mask = y_true == 0
+        non_zero_mask = ~zero_mask
+        
+        loss = torch.zeros_like(y_true)
+        
+        # Constants for readability
+        p1 = 1 - self.p
+        p2 = 2 - self.p
+        
+        if torch.any(non_zero_mask):
+            term1 = y_true[non_zero_mask]**(p2) / (p1 * p2)
+            term2 = y_true[non_zero_mask] * mu[non_zero_mask]**(p1) / p1
+            term3 = mu[non_zero_mask]**(p2) / p2
+            loss[non_zero_mask] = 2 * (term1 - term2 + term3)
+        
+        loss[zero_mask] = 2 * mu[zero_mask]**(p2) / p2
+        return loss
+    
+    def forward(self, 
+               y_true: torch.Tensor, 
+               y_pred: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None,
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Tweedie loss.
         
@@ -66,71 +180,27 @@ class TweedieLoss(MaskedLoss):
         Returns:
             Tweedie loss value
         """
+        # Validate inputs
+        self._validate_inputs(y_true, y_pred, mask)
+        
         # Apply mask if provided
         y_true = self._apply_mask(y_true, mask)
         y_pred = self._apply_mask(y_pred, mask)
         
-        # Apply link function to get mean parameter μ
-        if self.link == 'log':
-            mu = torch.exp(y_pred)
-        else:  # identity
-            mu = y_pred
-        
-        # Ensure positive values for mean
-        mu = torch.clamp(mu, min=self.eps)
+        # Get mean parameter μ
+        mu = self._get_mean(y_pred)
         
         # Calculate loss based on Tweedie deviance
         if self.p == 0:  # Normal distribution
-            # For normal distribution, deviance = (y - μ)²
-            loss = (y_true - mu)**2 / 2
-            
+            loss = self._normal_loss(y_true, mu)
         elif self.p == 1:  # Poisson distribution
-            # For Poisson, deviance = 2 * (y * log(y/μ) - (y - μ))
-            # Simplify to y * log(y/μ) - (y - μ) since scale is arbitrary
-            # Handle y=0 case separately
-            zero_mask = y_true == 0
-            non_zero_mask = ~zero_mask
-            
-            loss = torch.zeros_like(y_true)
-            # For y > 0: y * log(y/μ) - (y - μ)
-            if torch.any(non_zero_mask):
-                loss[non_zero_mask] = y_true[non_zero_mask] * torch.log(y_true[non_zero_mask] / mu[non_zero_mask] + self.eps) - (y_true[non_zero_mask] - mu[non_zero_mask])
-            # For y = 0: μ (simplified from the limit as y → 0)
-            loss[zero_mask] = mu[zero_mask]
-            
+            loss = self._poisson_loss(y_true, mu)
         elif self.p == 2:  # Gamma distribution
-            # For Gamma, deviance = 2 * (log(μ/y) + y/μ - 1)
-            # Simplify to log(μ/y) + y/μ - 1 since scale is arbitrary
-            loss = torch.log(mu / (y_true + self.eps) + self.eps) + y_true / (mu + self.eps) - 1
-            
+            loss = self._gamma_loss(y_true, mu)
         elif self.p == 3:  # Inverse Gaussian
-            # For Inverse Gaussian, deviance = (y - μ)²/(y * μ²)
-            loss = (y_true - mu)**2 / (y_true * mu**2 + self.eps)
-            
+            loss = self._inverse_gaussian_loss(y_true, mu)
         elif 1 < self.p < 2:  # Compound Poisson-Gamma
-            # General case for 1 < p < 2
-            # deviance = 2 * (y^(2-p)/(1-p)/(2-p) - y*μ^(1-p)/(1-p) + μ^(2-p)/(2-p))
-            
-            # Handle y=0 case separately
-            zero_mask = y_true == 0
-            non_zero_mask = ~zero_mask
-            
-            loss = torch.zeros_like(y_true)
-            
-            # Constants for readability
-            p1 = 1 - self.p
-            p2 = 2 - self.p
-            
-            # For y > 0: Use full formula
-            if torch.any(non_zero_mask):
-                term1 = y_true[non_zero_mask]**(p2) / (p1 * p2)
-                term2 = y_true[non_zero_mask] * mu[non_zero_mask]**(p1) / p1
-                term3 = mu[non_zero_mask]**(p2) / p2
-                loss[non_zero_mask] = 2 * (term1 - term2 + term3)
-                
-            # For y = 0: Use just the mu^(2-p)/(2-p) term
-            loss[zero_mask] = 2 * mu[zero_mask]**(p2) / p2
-            
+            loss = self._compound_poisson_loss(y_true, mu)
         else:
             raise ValueError(f"Tweedie power parameter p={self.p} not supported. "
                            f"Must be 0, 1, 2, 3, or between 1 and 2.")

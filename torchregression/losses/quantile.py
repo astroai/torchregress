@@ -8,7 +8,7 @@ useful for estimating prediction intervals and handling heteroscedastic data.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, List, Tuple, Dict
+from typing import Optional, Union, List, Dict
 
 from .base import RegressionLoss
 from ..utils.validation import validate_range

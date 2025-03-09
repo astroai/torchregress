@@ -4,7 +4,7 @@ Registry of available loss functions.
 This module provides a registry of loss functions that can be accessed by name,
 making it easier to instantiate losses from configuration.
 """
-from typing import Dict, Any, Callable, Optional, List, Union
+from typing import Dict, Callable, Optional, List, Union
 
 import torch
 import torch.nn as nn
@@ -103,7 +103,7 @@ from .expectile import (
 from .torch_extensions import MSELoss, BCELoss
 from .poisson import PoissonNLLLoss
 from .tweedie import TweedieLoss, GammaLoss, InverseGaussianLoss, CompoundPoissonLoss
-from .mdn import MixtureDensityNetworkLoss, mdn_loss
+from .mdn import MixtureDensityLoss, create_mdn_loss
 
 # Register robust losses
 register_loss('l1', L1Loss)
@@ -143,4 +143,4 @@ register_loss('inverse_gaussian', InverseGaussianLoss)
 register_loss('compound_poisson', CompoundPoissonLoss)
 
 # Register mixture model losses
-register_loss('mdn', MixtureDensityNetworkLoss, num_components=5, n_features=1)
+register_loss('mdn', MixtureDensityLoss, n_components=5, n_features=1)

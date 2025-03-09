@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from typing import Optional, Union, Tuple, Dict, Any, List
+from typing import Optional, Union, Tuple, Dict
 
 from .base import DistributionLoss
 from ..utils.tensor_ops import apply_mask, masked_reduction
@@ -30,15 +30,8 @@ class MixtureDensityLoss(DistributionLoss):
         eps (float): Small constant for numerical stability in calculations
         reduction (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'
     """
-    def __init__(
-        self,
-        n_components: int,
-        n_features: int,
-        covariance_type: str = 'diagonal',
-        min_std: float = 1e-3,
-        eps: float = 1e-8,
-        reduction: str = 'mean'
-    ):
+    def __init__(self, n_components: int, n_features: int, covariance_type: str = 'diagonal',
+                 min_std: float = 1e-3, eps: float = 1e-8, reduction: str = 'mean'):
         super().__init__(reduction=reduction)
         self.n_components = n_components
         self.n_features = n_features
@@ -344,14 +337,8 @@ class MixtureDensityLoss(DistributionLoss):
                 return nll.sum()
 
 
-def create_mdn_loss(
-    n_components: int,
-    n_features: int,
-    covariance_type: str = 'diagonal',
-    min_std: float = 1e-3,
-    eps: float = 1e-8,
-    reduction: str = 'mean'
-) -> MixtureDensityLoss:
+def create_mdn_loss(n_components: int, n_features: int, covariance_type: str = 'diagonal',
+                    min_std: float = 1e-3, eps: float = 1e-8, reduction: str = 'mean') -> MixtureDensityLoss:
     """
     Factory function to create a Mixture Density Network loss.
     
@@ -366,11 +353,6 @@ def create_mdn_loss(
     Returns:
         An appropriate MixtureDensityLoss object
     """
-    return MixtureDensityLoss(
-        n_components=n_components,
-        n_features=n_features,
-        covariance_type=covariance_type,
-        min_std=min_std,
-        eps=eps,
-        reduction=reduction
-    )
+    return MixtureDensityLoss(n_components=n_components, n_features=n_features,
+                              covariance_type=covariance_type, min_std=min_std,
+                              eps=eps, reduction=reduction)

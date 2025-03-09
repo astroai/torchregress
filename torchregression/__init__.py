@@ -1,68 +1,41 @@
 """
-TorchRegression: A comprehensive PyTorch library for regression tasks.
+TorchRegression: PyTorch-based regression modeling toolkit.
 
-This library provides tools for various regression tasks, including:
-- Robust regression losses
-- Quantile and expectile regression
-- Error-in-Variables (EIV) regression
-- Mixture models and distributional regression
-- Ensemble methods
-- Uncertainty quantification
+This package provides utilities, models, and loss functions for 
+various regression tasks in PyTorch, with a focus on uncertainty
+estimation and robust regression techniques.
 """
 
-__version__ = '0.1.0'
+__version__ = "0.1.0"
 
-# Import core components into the top-level namespace
-from .losses import (
-    # Base losses
-    RegressionLoss, MaskedLoss,
+# Import main submodules
+from . import losses
+from . import metrics
+from . import algorithms
+from . import ensemble
+from . import utils
+
+# Export key components for easy access
+from .losses import register_loss, get_loss_function, list_available_losses
+from .losses.base import MaskedLoss, RegressionLoss, DistributionLoss
+from .algorithms import IRLS, iteratively_reweighted_least_squares
+
+__all__ = [
+    # Main modules
+    'losses',
+    'metrics',
+    'algorithms',
+    'ensemble',
+    'utils',
     
-    # Common robust losses
-    L1Loss, HuberLoss, PseudoHuberLoss,
-    
-    # Quantile and expectile losses
-    QuantileLoss, ExpectileLoss, MultiQuantileLoss, MultiExpectileLoss,
-    
-    # Distributional losses
-    PoissonNLLLoss, TweedieLoss, GammaLoss,
-    MixtureDensityNetworkLoss, mdn_loss,
-    
-    # EIV losses
-    create_eiv_loss, create_robust_eiv_loss, TotalLeastSquaresLoss
-)
-
-# Import model fitting algorithms
-from .algorithms import (
-    IRLS, iteratively_reweighted_least_squares,
-    DiagonalGaussianNLL, GaussianNLLWithCovariance,
-    fit_linear_gaussian, fit_bayesian_linear
-)
-
-# Import ensemble methods
-from .ensemble import (
-    DeepEnsemble, BatchEnsembleLinear, BaseEnsembleModel
-)
-
-# Import commonly used utilities
-from .utils import (
-    # Statistics utilities
-    r_squared, adjusted_r_squared, mse, rmse, mae,
-    
-    # Data augmentation
-    GaussianNoiseAugmentation, MixUp, AdversarialAugmentation
-)
-
-# Import wrappers for scikit-learn compatibility
-from .wrappers import (
-    TorchRegressionEstimator, TorchQuantileEstimator, TorchMDNEstimator
-)
-
-# For plotting support (if matplotlib is available)
-try:
-    from .plots import plot_predictions
-except ImportError:
-    # matplotlib not available
-    pass
-
-# Convenience function to list all available losses
-from .losses.loss_registry import list_available_losses
+    # Key components
+    'register_loss',
+    'get_loss_function',
+    'list_available_losses',
+    'MaskedLoss',
+    'RegressionLoss',
+    'DistributionLoss',
+    'IRLS',
+    'iteratively_reweighted_least_squares',
+    '__version__',
+]

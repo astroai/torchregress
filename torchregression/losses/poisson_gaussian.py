@@ -6,6 +6,7 @@ Poisson process (for count/shot noise) and Gaussian readout noise.
 """
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from typing import Optional, Union
 
@@ -40,118 +41,92 @@ class PoissonGaussianMixtureLoss(MaskedLoss):
         super().__init__(reduction=reduction)
         self.eps = eps
         self.learn_variance = learn_variance
-        self.log_input = log_input
+        self.initial_variance = initial_variance
         self.min_variance = min_variance
-        self.learn_mixture_weights = (mixture_weights == 'learn')
+        self.log_input = log_input
+        self.mixture_weights = mixture_weights
         self.extra_variance_model = extra_variance_model
         
-        # Handle mixture weights configuration
-        if mixture_weights is None:
-            # Equal weighting (0.5, 0.5)
-            self.register_buffer('fixed_mixture_weight', torch.tensor(0.5, dtype=torch.float32))
-            self.learn_mixture_weights = False
-        elif isinstance(mixture_weights, (int, float)) and not self.learn_mixture_weights:
-            # Fixed weighting provided by user
-            self.register_buffer('fixed_mixture_weight', torch.tensor(float(mixture_weights), dtype=torch.float32))
-        elif self.learn_mixture_weights:
-            # Learnable weight initialized to 0.5 (logit = 0)
-            self.mixture_logit = nn.Parameter(torch.tensor(0.0))
-        else:
-            raise ValueError("mixture_weights must be None, a float, or 'learn'")
-
-        # Gaussian variance - fixed or learnable
-        if self.learn_variance:
-            self.log_variance = nn.Parameter(torch.tensor(np.log(initial_variance)))
-        else:
-            self.register_buffer('fixed_variance', torch.tensor(initial_variance, dtype=torch.float32))
+        # Initialize learnable parameters if needed
+        if learn_variance:
+            self.log_variance = nn.Parameter(torch.ones(1) * torch.log(torch.tensor(initial_variance)))
             
-        # Extra variance parameter for heteroscedastic noise model
-        if self.extra_variance_model:
-            # Initialize with small value (log scale for numerical stability)
-            self.log_extra_var_multiplier = nn.Parameter(torch.tensor(-2.0))  # exp(-2) ≈ 0.135
+        if mixture_weights == 'learn':
+            self.weight_logit = nn.Parameter(torch.zeros(1))
+            
+        # Initialize Poisson loss
+        self.poisson_loss = PoissonNLL(log_input=log_input, reduction='none')
 
-        # Initialize Poisson NLL loss
-        self.poisson_nll = PoissonNLL(eps=self.eps, log_input=self.log_input)
 
     def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor, 
               mask: Optional[torch.Tensor] = None, 
               extra_var: Optional[torch.Tensor] = None):
         """
-        Calculate the Poisson-Gaussian mixture NLL loss.
+        Calculate the Poisson-Gaussian mixture loss.
         
         Args:
-            y_true: Ground truth values [batch_size, n_features]
-            y_pred: Predicted Poisson rates [batch_size, n_features]
-                   If log_input=True, these are log(lambda) values
-            mask: Optional mask for masked calculations
-            extra_var: Optional per-sample variance predictions when using extra_variance_model
+            y_true: Target values
+            y_pred: Predicted values (lambda for Poisson component)
+            mask: Optional mask for invalid values
+            extra_var: Optional per-sample variance term
             
         Returns:
-            Negative log-likelihood loss
+            Loss value
         """
-        # Apply mask
+        # Apply mask if provided
         y_true = self._apply_mask(y_true, mask)
         y_pred = self._apply_mask(y_pred, mask)
         
-        # Poisson component calculation
-        poisson_loss = self.poisson_nll(y_true, y_pred, mask=None)  # Mask already applied
-        
-        # Convert predictions to linear space if needed
+        # Get lambda (rate) parameter
         if self.log_input:
-            y_pred_linear = torch.exp(y_pred)
+            lam = torch.exp(y_pred)
         else:
-            y_pred_linear = y_pred
+            lam = y_pred
+            
+        # Calculate Poisson component
+        poisson_nll = self.poisson_loss(y_true, y_pred)
         
-        # Get Gaussian variance - either fixed or learned
+        # Calculate Gaussian component (using squared error)
+        residuals = y_true - lam
+        
+        # Get variance parameter
         if self.learn_variance:
-            variance = torch.exp(self.log_variance) + self.eps
-            variance = torch.clamp(variance, min=self.min_variance)
+            variance = torch.exp(self.log_variance).clamp(min=self.min_variance)
         else:
-            variance = self.fixed_variance.to(y_true.device)
+            variance = torch.tensor(self.initial_variance, device=y_true.device)
+            
+        # Add extra variance if provided
+        if extra_var is not None and self.extra_variance_model:
+            variance = variance + extra_var
+            
+        # Calculate Gaussian NLL: 0.5 * (log(2π) + log(σ²) + (y-μ)²/σ²)
+        gaussian_nll = 0.5 * (torch.log(2 * torch.pi * variance + self.eps) + 
+                             residuals**2 / (variance + self.eps))
         
-        # Gaussian component calculation 
-        squared_error = (y_true - y_pred_linear) ** 2
-        gaussian_loss = 0.5 * (
-            squared_error / variance + 
-            torch.log(variance) + 
-            torch.log(torch.tensor(2 * np.pi, device=y_true.device))
-        )
-        
-        # Get mixture weights
-        if self.learn_mixture_weights:
-            # Convert logit to probabilities
-            poisson_weight = torch.sigmoid(self.mixture_logit)
-            gaussian_weight = 1.0 - poisson_weight
+        # Calculate mixture weights
+        if self.mixture_weights is None:
+            # Equal weights (0.5, 0.5)
+            poisson_weight = 0.5
+            gaussian_weight = 0.5
+        elif self.mixture_weights == 'learn':
+            # Learned weights using sigmoid to ensure they sum to 1
+            poisson_weight = torch.sigmoid(self.weight_logit)
+            gaussian_weight = 1 - poisson_weight
         else:
-            poisson_weight = self.fixed_mixture_weight.to(y_true.device)
-            gaussian_weight = 1.0 - poisson_weight
+            # Fixed weights
+            poisson_weight = self.mixture_weights
+            gaussian_weight = 1 - self.mixture_weights
             
-        # Calculate base mixture loss
-        loss = poisson_weight * poisson_loss + gaussian_weight * gaussian_loss
+        # Calculate weighted mixture
+        mixture_nll = poisson_weight * poisson_nll + gaussian_weight * gaussian_nll
         
-        # Apply extra variance model if enabled and provided
-        if self.extra_variance_model and extra_var is not None:
-            # Apply mask to extra_var if needed
-            if mask is not None:
-                extra_var = self._apply_mask(extra_var, mask)
-                
-            # Scale the extra variance with learned multiplier
-            scaled_extra_var = torch.exp(self.log_extra_var_multiplier) * extra_var
-            scaled_extra_var = torch.clamp(scaled_extra_var, min=self.eps)
-            
-            # Apply the extra variance - dividing the loss by (1 + scaled_var)
-            # This effectively reduces the weight of samples with higher predicted variance
-            loss = loss / (1.0 + scaled_extra_var)
-            
-            # Add log variance term (from Gaussian log likelihood formula)
-            loss = loss + 0.5 * torch.log(1.0 + scaled_extra_var)
-        
-        return self._reduce(loss, mask)
+        # Apply reduction
+        return self._reduce(mixture_nll, mask)
 
 
 def poisson_gaussian_mixture_loss(learn_variance: bool = False, initial_variance: float = 1.0,
-                                 log_input: bool = False, mixture_weights: Optional[Union[float, str]] = None,
-                                 extra_variance_model: bool = False, **kwargs) -> PoissonGaussianMixtureLoss:
+                                  log_input: bool = False, mixture_weights: Optional[Union[float, str]] = None,
+                                  extra_variance_model: bool = False, **kwargs) -> PoissonGaussianMixtureLoss:
     """
     Create a Poisson-Gaussian mixture loss function.
     
@@ -210,14 +185,14 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
         if self.learn_gain:
             self.log_gain = nn.Parameter(torch.tensor(0.0))  # Initialize with gain=1.0
         else:
-            self.register_buffer('fixed_gain', torch.tensor(float(gain)))
+            self.registerBuffer('fixed_gain', torch.tensor(float(gain)))
             
         # Configure offset parameter
         self.learn_offset = (offset == 'learn')
         if self.learn_offset:
             self.offset = nn.Parameter(torch.tensor(0.0))  # Initialize with offset=0.0
         else:
-            self.register_buffer('fixed_offset', torch.tensor(float(offset)))
+            self.registerBuffer('fixed_offset', torch.tensor(float(offset)))
             
         # Configure read noise (constant variance component)
         self.learn_read_noise = (read_noise == 'learn')
@@ -225,7 +200,7 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
             # Initialize with log(1.0) = 0.0
             self.log_read_noise = nn.Parameter(torch.tensor(0.0))
         else:
-            self.register_buffer('fixed_read_noise', torch.tensor(float(read_noise)))
+            self.registerBuffer('fixed_read_noise', torch.tensor(float(read_noise)))
             
         # Configure shot noise (signal-dependent variance component)
         self.learn_shot_noise = (shot_noise == 'learn')
@@ -233,7 +208,7 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
             # Initialize with log(small value) for stability
             self.log_shot_noise = nn.Parameter(torch.tensor(-4.0))  # exp(-4) ≈ 0.018
         else:
-            self.register_buffer('fixed_shot_noise', torch.tensor(float(shot_noise)))
+            self.registerBuffer('fixed_shot_noise', torch.tensor(float(shot_noise)))
             
         # Calibration parameters (optional)
         if self.calibration:
