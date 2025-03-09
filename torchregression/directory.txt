@@ -1,0 +1,66 @@
+torchregression/
+├── __init__.py             # Makes torchregression a Python package
+├── wrappers.py             # easy wrappers to many torchgression commonly used tools and utilities (create_* and more)
+├── losses/                 # All loss functions and related transforms
+│   ├── __init__.py
+│   ├── base.py             # Base loss function class
+│   ├── gaussian.py         # Gaussian NLL, generalized least squares, ... loss functions
+│   ├── categorical.py      # Histogram loss, regression-as-classification losses
+│   ├── poisson.py          # Poisson related losses
+│   ├── tweedie.py          # Tweedie loss
+│   ├── quantile.py         # Quantile related losses
+│   ├── expectile.py        # Expectile losses
+│   ├── robust.py           # Robust losses (L1, Huber, Tukey, ...)
+│   ├── ...                 # Other loss functions
+├── algorithms/             # All methods and algorithms
+│   ├── __init__.py
+│   ├── irls.py             # Iteratively Reweighted Least Squares
+│   ├── ...                 # Other algorithms
+├── ensemble/               # All model implementations, including ensembles
+│   ├── __init__.py
+│   ├── models.py           # Basic models useful for ensembles
+│   ├── deepensemble.py     # Deep Ensemble implementation
+│   ├── batchensemble.py    # Batch Ensemble implementation
+│   ├── swag.py             # Stochastic Weight Averaging implementation
+│   ├── soup.py             # Model soup implementation
+│   ├── ...                 # Other ensemble or individual regression models
+├── metrics/                # Evaluation metrics
+│   ├── __init__.py
+│   ├── regression.py       # RMSE, MAE, R2, ... point prediction metrics
+│   ├── distribution.py     # NLL, CRPS, PIT, Calibration metrics, ... distribution metrics
+│   ├── ...                 # Other metrics stuff
+├── utils/                  # Utility functions and classes
+│   ├── __init__.py
+│   ├── augment.py          # Data augmentation/adversarial training utilities
+│   ├── labels.py           # Tools to combine labels
+│   ├── ...                 # General utilities will be here
+├── plots/                  # Plotting and visualization tools
+│   ├── __init__.py
+│   ├── residuals.py        # All good residual plots
+│   ├── distributions.py    # All distribution plots 
+├── eiv/                    # Errors-in-variables regression implementations
+│   ├── __init__.py
+│   ├── base.py             # Base EIV functionality (from current eiv.py)
+│   ├── chamfer.py          # Chamfer distance implementation
+│   ├── mdn.py              # Mixture density network implementation for EIV
+│   ├── rfit.py             # Robust fitting methods for EIV
+│   ├── utils.py            # EIV specific utilities
+├── examples/               # Example scripts/notebooks
+│   ├── basic_regression.py # Example using Gaussian NLL and a simple model
+│   ├── ensemble.py         # Example with Deep Ensemble
+│   ├── rag.py              # Example for histogram loss classification as regression
+│   ├── mdn.py              # Mixture Density Network example
+│   ├── ....                # More examples to come hopefully
+├── tests/                  # Tests
+│   ├── __init__.py
+│   ├── test_losses.py      # Tests for all loss functions
+│   ├── test_ensemble.py    # Tests for all ensembles
+│   ├── test_metrics.py     # Tests for metrics
+│   ├── test_utils.py       # Tests for utilities
+│   ├── test_integration.py # Integration tests
+│   ├── ...                 # More tests to come
+├── README.md
+├── DOCS.md               # Loss functions math explanation 
+├── LICENSE
+├── setup.py
+└── requirements.txt
