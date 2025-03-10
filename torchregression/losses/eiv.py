@@ -1,71 +1,252 @@
-"""
-Error-in-Variables (EIV) loss functions for regression with uncertain inputs.
-
-This module provides implementations of various loss functions that account for
-measurement error in both features and targets.
-"""
 import torch
-from typing import Callable, Union, List, Optional
+from typing import Callable, Optional, Union
 
-from .eiv.eiv_chamfer import ChamferEIVLoss, HybridEIVChamferLoss
-from .eiv.eiv_mdn import MDNEIVLoss, MDNEIVModel
-from .eiv.eiv_rfit import (
-    RobustEIVLoss, gaussian_variation, uniform_variation, 
-    bootstrap_variation, structured_variation, adversarial_variation
+from .base import RegressionLoss
+from .eiv_utils import (
+    prepare_covariance,
+    prepare_cross_covariance,
+    compute_model_gradients, 
+    calculate_gaussian_nll,
+    prepare_model_input_for_gradients,
+    calculate_propagated_variance,
+    generate_perturbed_samples
 )
-from .eiv.eiv_standard import (
-    FunctionalEIVLoss, StructuralEIVLoss, EnsembleEIVLoss,
-    OrthogonalDistanceRegressionLoss
-)
-from .eiv.eiv_quantile import QuantileEIVLoss, MultiQuantileEIVLoss
 
-# Factory functions with improved parameter handling
-
-def create_eiv_loss(
-    model: Callable, 
-    sigma_x: Union[float, torch.Tensor],
-    sigma_y: Optional[Union[float, torch.Tensor]] = None,
-    monte_carlo: bool = False,
-    n_samples: int = 20,
-    reduction: str = 'mean',
-    eps: float = 1e-8
-) -> FunctionalEIVLoss:
+class BaseEIVLoss(RegressionLoss):
     """
-    Create a Functional Error-in-Variables loss function.
+    Base class for Errors-In-Variables regression loss functions.
+    
+    This provides common functionality for all EIV loss variants.
     
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        sigma_y: Standard deviation of target noise (optional)
+        sigma_x: Standard deviation of feature noise (scalar, vector or matrix)
+        sigma_y: Standard deviation of target noise (scalar, vector or matrix)
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        eps: Small value for numerical stability
+    """
+    def __init__(self, model: Callable, sigma_x: Union[float, torch.Tensor], 
+                 sigma_y: Optional[Union[float, torch.Tensor]] = None,
+                 reduction: str = 'mean', eps: float = 1e-8):
+        super().__init__(reduction=reduction)
+        self.model = model
+        self.sigma_x = sigma_x
+        self.sigma_y = sigma_y
+        self.eps = eps
+        
+    def _prepare_covariances(self, n_features_x, n_features_y, device):
+        """
+        Prepare covariance matrices for features and targets.
+        
+        Args:
+            n_features_x: Number of features in input
+            n_features_y: Number of features in output
+            device: Device to create tensors on
+            
+        Returns:
+            Tuple of (sigma_x_tensor, sigma_y_tensor)
+        """
+        sigma_x_tensor = prepare_covariance(self.sigma_x, n_features_x, device)
+        sigma_y_tensor = None if self.sigma_y is None else prepare_covariance(
+            self.sigma_y, n_features_y, device
+        )
+        return sigma_x_tensor, sigma_y_tensor
+        
+    def _prepare_inverse_covariances(self, sigma_x_tensor, sigma_y_tensor, n_features_x, n_features_y, device):
+        """
+        Calculate inverse covariance matrices for Mahalanobis distances.
+        
+        Args:
+            sigma_x_tensor: Covariance matrix for features
+            sigma_y_tensor: Covariance matrix for targets
+            n_features_x: Number of features in input
+            n_features_y: Number of features in output
+            device: Device to create tensors on
+            
+        Returns:
+            Tuple of (sigma_x_inv, sigma_y_inv)
+        """
+        if sigma_x_tensor.ndim <= 1:
+            sigma_x_inv = 1.0 / (sigma_x_tensor + self.eps)
+        else:
+            sigma_x_inv = torch.inverse(sigma_x_tensor + torch.eye(n_features_x, device=device) * self.eps)
+            
+        if sigma_y_tensor.ndim <= 1:
+            sigma_y_inv = 1.0 / (sigma_y_tensor + self.eps)
+        else:
+            sigma_y_inv = torch.inverse(sigma_y_tensor + torch.eye(n_features_y, device=device) * self.eps)
+            
+        return sigma_x_inv, sigma_y_inv
+    
+    def _calculate_mahalanobis_distance(self, diff, sigma_inv):
+        """
+        Calculate weighted Mahalanobis distance.
+        
+        Args:
+            diff: Difference vector or matrix [batch_size, n_features]
+            sigma_inv: Inverse covariance matrix or diagonal vector
+            
+        Returns:
+            Distance per sample [batch_size]
+        """
+        if sigma_inv.ndim <= 1:
+            return torch.sum(diff**2 * sigma_inv, dim=1)
+        else:
+            return torch.sum(diff * torch.matmul(diff, sigma_inv), dim=1)
+    
+    def _apply_model_with_mask(self, x, mask=None):
+        """Apply model to input and apply mask if needed"""
+        y_pred = self.model(x)
+        if mask is not None:
+            y_pred = self._apply_mask(y_pred, mask)
+        return y_pred
+
+
+class FunctionalEIVLoss(BaseEIVLoss):
+    """
+    Functional Errors-In-Variables Loss (previously GeneralErrorInVariablesLoss).
+    
+    This loss implements the functional approach to errors-in-variables modeling,
+    where the true values are treated as fixed but unknown parameters.
+    It propagates uncertainty from the inputs to the outputs using a 
+    first-order Taylor approximation through model gradients.
+    
+    Args:
+        model: Model function f(x) that predicts y
+        sigma_x: Standard deviation of feature noise (scalar, vector or matrix)
+        sigma_y: Standard deviation of target noise (scalar, vector or matrix)
         monte_carlo: Whether to use Monte Carlo sampling for gradient estimation
         n_samples: Number of MC samples if monte_carlo=True
         reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         eps: Small value for numerical stability
+    """
+    def __init__(self, model: Callable, sigma_x: Union[float, torch.Tensor], 
+                 sigma_y: Optional[Union[float, torch.Tensor]] = None,
+                 monte_carlo: bool = False, n_samples: int = 20, 
+                 reduction: str = 'mean', eps: float = 1e-8):
+        super().__init__(model, sigma_x, sigma_y, reduction, eps)
+        self.monte_carlo = monte_carlo
+        self.n_samples = n_samples
         
-    Returns:
-        FunctionalEIVLoss instance
-    """
-    return FunctionalEIVLoss(
-        model=model, 
-        sigma_x=sigma_x,
-        sigma_y=sigma_y,
-        monte_carlo=monte_carlo,
-        n_samples=n_samples,
-        reduction=reduction,
-        eps=eps
-    )
+    def forward(self, x_obs, y_true, mask=None):
+        """
+        Calculate Functional EIV loss.
+        
+        Args:
+            x_obs: Observed features with noise [batch_size, n_features_x]
+            y_true: Observed targets with noise [batch_size, n_features_y]
+            mask: Optional boolean mask [batch_size, n_features_y]
+            
+        Returns:
+            Loss tensor (scalar if reduction is applied)
+        """
+        # Apply mask to targets if provided
+        y_true = self._apply_mask(y_true, mask)
+        
+        batch_size, n_features_x = x_obs.shape
+        n_features_y = y_true.shape[1]
+        device = x_obs.device
+        
+        # Prepare noise parameters
+        sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(n_features_x, n_features_y, device)
+        
+        if not self.monte_carlo:
+            # Analytical approach: use gradients to propagate uncertainty
+            x_grad = prepare_model_input_for_gradients(x_obs)
+            y_pred = self._apply_model_with_mask(x_grad, mask)
+            residuals = y_true - y_pred
+            
+            # Calculate gradients and propagate variance
+            grad = compute_model_gradients(y_pred, x_grad, n_features_y)
+            
+            # Propagate variance from inputs to outputs
+            propagated_var = calculate_propagated_variance(
+                grad, sigma_x_tensor, sigma_y=sigma_y_tensor
+            )
+                
+            # Calculate negative log-likelihood
+            nll = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
+        else:
+            # Monte Carlo approach
+            nll = self._monte_carlo_forward(x_obs, y_true, sigma_x_tensor, sigma_y_tensor, 
+                                           batch_size, n_features_x, n_features_y, device, mask)
+        
+        # Apply reduction
+        if self.reduction == 'mean':
+            return torch.mean(nll)
+        elif self.reduction == 'sum':
+            return torch.sum(nll)
+        else:  # 'none'
+            return nll
+            
+    def _monte_carlo_forward(self, x_obs, y_true, sigma_x_tensor, sigma_y_tensor, 
+                            batch_size, n_features_x, n_features_y, device, mask=None):
+        """Monte Carlo implementation of variance propagation"""
+        # Sample multiple inputs around observed values
+        samples = generate_perturbed_samples(
+            x_obs, sigma_x_tensor, self.n_samples, perturb_method='gaussian'
+        )
+        
+        # Stack samples [n_samples, batch_size, n_features_x]
+        x_samples = torch.stack(samples)
+        
+        # Reshape for batch processing
+        x_flat = x_samples.reshape(-1, n_features_x)
+        
+        # Forward pass for all samples
+        with torch.no_grad():
+            y_preds_flat = self.model(x_flat)
+            
+            # Reshape predictions [n_samples, batch_size, n_features_y]
+            if y_preds_flat.shape[-1] == n_features_y:
+                y_preds = y_preds_flat.reshape(self.n_samples, batch_size, n_features_y)
+            else:
+                # Handle case where model output doesn't match expected shape
+                y_preds = y_preds_flat.reshape(self.n_samples, batch_size, -1)
+                y_preds = y_preds[..., :n_features_y]
+            
+            # Apply mask if provided
+            if mask is not None:
+                mask_expanded = mask.unsqueeze(0).expand(self.n_samples, -1, -1)
+                y_preds = torch.where(mask_expanded, y_preds, torch.zeros_like(y_preds))
+        
+        # Calculate mean prediction across samples
+        mean_pred = torch.mean(y_preds, dim=0)
+        
+        # Calculate covariance more efficiently
+        y_centered = y_preds - mean_pred.unsqueeze(0)
+        batch_centered = y_centered.permute(1, 0, 2)  # [batch_size, n_samples, n_features_y]
+        
+        # Batch matrix multiplication for all batch elements at once
+        batch_cov = torch.bmm(
+            batch_centered.transpose(1, 2), 
+            batch_centered
+        ) / (self.n_samples - 1)  # [batch_size, n_features_y, n_features_y]
+        
+        # Add intrinsic output noise if provided
+        if sigma_y_tensor is not None:
+            if sigma_y_tensor.ndim <= 1:
+                # Diagonal case
+                diag_indices = torch.arange(n_features_y, device=device)
+                batch_cov[:, diag_indices, diag_indices] += sigma_y_tensor
+            else:
+                # Full covariance case
+                batch_cov += sigma_y_tensor
+        
+        # Calculate residuals from mean prediction
+        residuals_mc = y_true - mean_pred
+        
+        # Calculate negative log-likelihood
+        return calculate_gaussian_nll(residuals_mc, batch_cov, eps=self.eps)
 
 
-def create_structural_eiv_loss(
-    model: Callable, 
-    sigma_x: Union[float, torch.Tensor], 
-    sigma_y: Union[float, torch.Tensor],
-    sigma_xy: torch.Tensor,
-    reduction: str = 'mean',
-    eps: float = 1e-8
-) -> StructuralEIVLoss:
+class StructuralEIVLoss(BaseEIVLoss):
     """
-    Create a Structural EIV loss that handles correlated errors.
+    Structural Errors-In-Variables Loss (previously CorrelatedEIVLoss).
+    
+    This implements the structural approach to errors-in-variables modeling,
+    which accounts for correlations between errors in x and y through 
+    a cross-covariance matrix.
     
     Args:
         model: Model function f(x) that predicts y
@@ -74,386 +255,261 @@ def create_structural_eiv_loss(
         sigma_xy: Cross-covariance between feature and target noise
         reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         eps: Small value for numerical stability
+    """
+    def __init__(self, model: Callable, sigma_x: Union[float, torch.Tensor], 
+                 sigma_y: Union[float, torch.Tensor], sigma_xy: torch.Tensor, 
+                 reduction: str = 'mean', eps: float = 1e-8):
+        super().__init__(model, sigma_x, sigma_y, reduction, eps)
+        self.sigma_xy = sigma_xy
         
-    Returns:
-        StructuralEIVLoss instance
-    """
-    return StructuralEIVLoss(
-        model=model, 
-        sigma_x=sigma_x, 
-        sigma_y=sigma_y, 
-        sigma_xy=sigma_xy,
-        reduction=reduction,
-        eps=eps
-    )
+    def forward(self, x_obs, y_true, mask=None):
+        """
+        Calculate Structural EIV loss.
+        
+        Args:
+            x_obs: Observed features with noise [batch_size, n_features_x]
+            y_true: Observed targets [batch_size, n_features_y]
+            mask: Optional boolean mask [batch_size, n_features_y]
+            
+        Returns:
+            Loss tensor (scalar if reduction is applied)
+        """
+        # Apply mask to targets if provided
+        y_true = self._apply_mask(y_true, mask)
+        
+        batch_size, n_features_x = x_obs.shape
+        n_features_y = y_true.shape[1]
+        device = x_obs.device
+        
+        # Prepare input for gradient computation
+        x_grad = prepare_model_input_for_gradients(x_obs)
+        
+        # Forward pass and apply mask if needed
+        y_pred = self._apply_model_with_mask(x_grad, mask)
+            
+        # Calculate residuals
+        residuals = y_true - y_pred
+        
+        # Prepare covariance matrices
+        sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(n_features_x, n_features_y, device)
+        sigma_xy_tensor = prepare_cross_covariance(self.sigma_xy, n_features_x, n_features_y, device)
+        
+        # Calculate gradients of predictions with respect to inputs
+        grad = compute_model_gradients(y_pred, x_grad, n_features_y)
+        
+        # Propagate input variance to output variance with cross-covariance
+        propagated_var = calculate_propagated_variance(
+            grad, sigma_x_tensor, sigma_xy=sigma_xy_tensor, sigma_y=sigma_y_tensor
+        )
+        
+        # Calculate negative log-likelihood
+        nll = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
+        
+        # Apply reduction
+        if self.reduction == 'mean':
+            return torch.mean(nll)
+        elif self.reduction == 'sum':
+            return torch.sum(nll)
+        else:  # 'none'
+            return nll
 
 
-def create_odr_loss(
-    model: Callable, 
-    sigma_x: Union[float, torch.Tensor],
-    sigma_y: Union[float, torch.Tensor],
-    learning_rate: float = 0.01,
-    max_iterations: int = 10, 
-    tolerance: float = 1e-6,
-    reduction: str = 'mean',
-    eps: float = 1e-8
-) -> OrthogonalDistanceRegressionLoss:
+class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
     """
-    Create an Orthogonal Distance Regression loss.
+    Orthogonal Distance Regression (ODR) loss.
+    
+    This loss minimizes the orthogonal (perpendicular) distances from data points
+    to the model curve by optimizing latent true x values during the forward pass.
     
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        sigma_y: Standard deviation of target noise
-        learning_rate: Learning rate for latent x optimization
-        max_iterations: Maximum iterations for optimization
+        sigma_x: Standard deviation of feature noise (scalar, vector, or matrix)
+        sigma_y: Standard deviation of target noise (scalar, vector, or matrix)
+        learning_rate: Learning rate for the latent x optimization
+        max_iterations: Maximum iterations for latent x optimization
         tolerance: Convergence criterion for optimization
         reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         eps: Small value for numerical stability
+    """
+    def __init__(self, model: Callable, sigma_x: Union[float, torch.Tensor], 
+                 sigma_y: Union[float, torch.Tensor], learning_rate: float = 0.01, 
+                 max_iterations: int = 10, tolerance: float = 1e-6,
+                 reduction: str = 'mean', eps: float = 1e-8):
+        super().__init__(model, sigma_x, sigma_y, reduction, eps)
+        self.learning_rate = learning_rate
+        self.max_iterations = max_iterations
+        self.tolerance = tolerance
         
-    Returns:
-        OrthogonalDistanceRegressionLoss instance
-    """
-    return OrthogonalDistanceRegressionLoss(
-        model=model,
-        sigma_x=sigma_x,
-        sigma_y=sigma_y,
-        learning_rate=learning_rate,
-        max_iterations=max_iterations,
-        tolerance=tolerance,
-        reduction=reduction,
-        eps=eps
-    )
+    def forward(self, x_obs, y_true, mask=None):
+        """
+        Calculate the ODR loss by optimizing latent true x values.
+        
+        Args:
+            x_obs: Observed features with noise [batch_size, n_features_x]
+            y_true: Observed targets with noise [batch_size, n_features_y]
+            mask: Optional boolean mask [batch_size, n_features_y]
+            
+        Returns:
+            Loss tensor (scalar if reduction is applied)
+        """
+        # Apply mask to targets if provided
+        y_true = self._apply_mask(y_true, mask)
+        
+        batch_size, n_features_x = x_obs.shape
+        n_features_y = y_true.shape[1]
+        device = x_obs.device
+        
+        # Prepare covariance matrices
+        sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(n_features_x, n_features_y, device)
+        
+        # Prepare inverse covariance matrices for Mahalanobis distance
+        sigma_x_inv, sigma_y_inv = self._prepare_inverse_covariances(
+            sigma_x_tensor, sigma_y_tensor, n_features_x, n_features_y, device)
+        
+        # Initialize latent true x as observed x with gradient tracking enabled
+        x_latent = x_obs.clone().detach().requires_grad_(True)
+        optimizer = torch.optim.Adam([x_latent], lr=self.learning_rate)
+        
+        # Optimize latent true x values
+        prev_loss = float('inf')
+        for iteration in range(self.max_iterations):
+            optimizer.zero_grad()
+            
+            # Forward pass with current latent x
+            y_pred = self._apply_model_with_mask(x_latent, mask)
+            
+            # Calculate x distance (between observed and latent x)
+            x_diff = x_obs - x_latent
+            x_dist = self._calculate_mahalanobis_distance(x_diff, sigma_x_inv)
+            
+            # Calculate y distance (between observed y and predicted y)
+            y_diff = y_true - y_pred
+            y_dist = self._calculate_mahalanobis_distance(y_diff, sigma_y_inv)
+            
+            # Total ODR objective: minimize weighted sum of distances
+            total_dist = x_dist + y_dist
+            odr_objective = torch.mean(total_dist)
+            
+            # Backward pass and update
+            odr_objective.backward()
+            optimizer.step()
+            
+            # Check for convergence
+            if abs(prev_loss - odr_objective.item()) < self.tolerance:
+                break
+                
+            prev_loss = odr_objective.item()
+        
+        # Final forward pass with optimized latent x (detached to avoid gradient tracking)
+        x_latent_final = x_latent.detach()
+        y_pred_final = self._apply_model_with_mask(x_latent_final, mask)
+            
+        # Calculate final orthogonal distances
+        x_diff_final = x_obs - x_latent_final
+        final_x_dist = self._calculate_mahalanobis_distance(x_diff_final, sigma_x_inv)
+        
+        y_diff_final = y_true - y_pred_final
+        final_y_dist = self._calculate_mahalanobis_distance(y_diff_final, sigma_y_inv)
+            
+        # Total loss is the weighted sum of squared orthogonal distances
+        loss = final_x_dist + final_y_dist
+        
+        # Apply reduction
+        if self.reduction == 'mean':
+            return torch.mean(loss)
+        elif self.reduction == 'sum':
+            return torch.sum(loss)
+        else:  # 'none'
+            return loss
 
 
-def create_chamfer_eiv_loss(
-    model: Callable,
-    sigma_x: Optional[Union[float, torch.Tensor]] = None,
-    method: str = 'monte_carlo',
-    n_samples: int = 100,
-    optim_steps: int = 50,
-    optim_lr: float = 0.01,
-    early_stopping_tol: float = 1e-5,
-    reduction: str = 'mean'
-) -> ChamferEIVLoss:
+class EnsembleEIVLoss(BaseEIVLoss):
     """
-    Create a Chamfer distance-based EIV loss.
+    Simple Ensemble Errors-in-Variables Loss.
+    
+    This loss implements a straightforward approach to handling uncertainty in inputs
+    by generating multiple perturbed versions, running the model on each, and
+    averaging the predictions before calculating the loss.
     
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        method: Method for finding closest point ('monte_carlo', 'optimization')
-        n_samples: Number of Monte Carlo samples
-        optim_steps: Number of optimization steps
-        optim_lr: Learning rate for optimization
-        early_stopping_tol: Tolerance for early stopping
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        
-    Returns:
-        ChamferEIVLoss instance
-    """
-    return ChamferEIVLoss(
-        model=model,
-        sigma_x=sigma_x,
-        method=method,
-        n_samples=n_samples,
-        optim_steps=optim_steps,
-        optim_lr=optim_lr,
-        early_stopping_tol=early_stopping_tol,
-        reduction=reduction
-    )
-
-
-def create_hybrid_eiv_loss(
-    model: Callable, 
-    sigma_x: Union[float, torch.Tensor],
-    alpha: float = 0.5,
-    chamfer_method: str = 'monte_carlo',
-    n_samples: int = 100,
-    reduction: str = 'mean',
-    **kwargs
-) -> HybridEIVChamferLoss:
-    """
-    Create a hybrid EIV-Chamfer loss.
-    
-    Args:
-        model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        alpha: Weight for EIV component (0-1)
-        chamfer_method: Method for Chamfer component ('monte_carlo', 'optimization')
-        n_samples: Number of Monte Carlo samples
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        **kwargs: Additional arguments for component losses
-        
-    Returns:
-        HybridEIVChamferLoss instance
-    """
-    # Extract kwargs for each component
-    eiv_kwargs = {k: v for k, v in kwargs.items() if k not in 
-                 ['method', 'optim_steps', 'optim_lr', 'early_stopping_tol']}
-    chamfer_kwargs = {k: v for k, v in kwargs.items() if k not in ['monte_carlo']}
-    
-    # Create component losses with 'none' reduction
-    eiv_loss = FunctionalEIVLoss(
-        model=model, sigma_x=sigma_x, reduction='none', **eiv_kwargs
-    )
-    
-    chamfer_loss = ChamferEIVLoss(
-        model=model, sigma_x=sigma_x, method=chamfer_method,
-        n_samples=n_samples, reduction='none', **chamfer_kwargs
-    )
-    
-    return HybridEIVChamferLoss(
-        eiv_loss=eiv_loss, chamfer_loss=chamfer_loss, 
-        alpha=alpha, reduction=reduction
-    )
-
-
-def create_mdn_eiv_loss(
-    num_components: int, 
-    n_features_y: int,
-    sigma_x: Union[float, torch.Tensor],
-    sigma_y: Optional[Union[float, torch.Tensor]] = None,
-    min_sigma: float = 1e-4,
-    eps: float = 1e-8,
-    uncertainty_method: str = 'fixed',
-    mc_samples: int = 100,
-    reduction: str = 'mean'
-) -> MDNEIVLoss:
-    """
-    Create an EIV loss for Mixture Density Networks.
-    
-    Args:
-        num_components: Number of mixture components in the MDN
-        n_features_y: Dimensionality of target variable
-        sigma_x: Standard deviation of feature noise
-        sigma_y: Standard deviation of target noise (optional)
-        min_sigma: Minimum value for standard deviation
-        eps: Small value for numerical stability
-        uncertainty_method: Method for uncertainty propagation ('fixed', 'gradient', 'monte_carlo')
-        mc_samples: Number of Monte Carlo samples
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        
-    Returns:
-        MDNEIVLoss instance
-    """
-    return MDNEIVLoss(
-        num_components=num_components,
-        n_features=n_features_y,
-        sigma_x=sigma_x,
-        sigma_y=sigma_y,
-        min_sigma=min_sigma,
-        eps=eps,
-        uncertainty_method=uncertainty_method,
-        mc_samples=mc_samples,
-        reduction=reduction
-    )
-
-
-def create_mdn_model(
-    input_size: int,
-    hidden_layers: List[int],
-    output_size: int = 1,
-    num_components: int = 5,
-    activation: str = 'relu',
-    dropout_rate: float = 0.0
-) -> MDNEIVModel:
-    """
-    Create a Mixture Density Network model with Error-in-Variables capabilities.
-    
-    Args:
-        input_size: Input feature dimension
-        hidden_layers: List of hidden layer sizes
-        output_size: Dimensionality of output variable
-        num_components: Number of mixture components
-        activation: Activation function ('relu', 'tanh', 'sigmoid', 'leaky_relu')
-        dropout_rate: Dropout probability (0 to disable)
-        
-    Returns:
-        MDNEIVModel instance
-    """
-    # Map activation string to torch module
-    activation_map = {
-        'relu': torch.nn.ReLU(),
-        'tanh': torch.nn.Tanh(),
-        'sigmoid': torch.nn.Sigmoid(),
-        'leaky_relu': torch.nn.LeakyReLU(0.1)
-    }
-    
-    if activation not in activation_map:
-        raise ValueError(f"Unsupported activation: {activation}. "
-                         f"Choose from {list(activation_map.keys())}")
-    
-    return MDNEIVModel(
-        input_size=input_size,
-        hidden_layers=hidden_layers,
-        output_size=output_size,
-        num_components=num_components,
-        activation=activation_map[activation],
-        dropout_rate=dropout_rate
-    )
-
-
-def create_robust_eiv_loss(
-    model: Callable,
-    sigma_x: Union[float, torch.Tensor] = 1.0,
-    base_loss: str = 'huber', 
-    delta: float = 1.0,
-    variation_method: str = 'gaussian',
-    n_samples: int = 10,
-    batch_size: Optional[int] = None,
-    aggregation: str = 'median',
-    quantile: float = 0.95,
-    reduction: str = 'mean',
-    **variation_params
-) -> RobustEIVLoss:
-    """
-    Create a robust EIV loss that uses multiple forward passes.
-    
-    Args:
-        model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        base_loss: Base loss function ('huber', 'l1', or 'mse')
-        delta: Delta parameter for Huber loss
-        variation_method: Method for generating input variations
-            ('gaussian', 'uniform', 'bootstrap', 'structured', 'adversarial')
-        n_samples: Number of samples to generate
-        batch_size: Batch size for processing variations
-        aggregation: How to aggregate losses ('mean', 'median', 'max', or 'quantile')
-        quantile: Quantile level for 'quantile' aggregation
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        **variation_params: Additional parameters for variation function
-        
-    Returns:
-        RobustEIVLoss instance
-    """
-    # Select variation function based on variation_method
-    variation_fn_map = {
-        'gaussian': gaussian_variation,
-        'uniform': uniform_variation,
-        'bootstrap': bootstrap_variation,
-        'structured': structured_variation,
-        'adversarial': adversarial_variation
-    }
-    
-    if variation_method not in variation_fn_map:
-        raise ValueError(f"Unsupported variation method: {variation_method}. "
-                       f"Choose from {list(variation_fn_map.keys())}")
-    
-    variation_fn = variation_fn_map[variation_method]
-    
-    return RobustEIVLoss(
-        model=model,
-        sigma_x=sigma_x,
-        base_loss=base_loss,
-        delta=delta,
-        variation_fn=variation_fn,
-        n_samples=n_samples,
-        batch_size=batch_size,
-        aggregation=aggregation,
-        quantile=quantile,
-        reduction=reduction,
-        variation_params=variation_params
-    )
-
-
-def create_ensemble_eiv_loss(
-    model: Callable,
-    sigma_x: Union[float, torch.Tensor],
-    n_samples: int = 20,
-    perturb_method: str = 'gaussian',
-    reduction: str = 'mean',
-    eps: float = 1e-8
-) -> EnsembleEIVLoss:
-    """
-    Create a simple ensemble-based EIV loss.
-    
-    Args:
-        model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        n_samples: Number of perturbed samples
+        sigma_x: Standard deviation of feature noise (scalar, vector, or matrix)
+        n_samples: Number of perturbed samples to generate
         perturb_method: Method for perturbing inputs ('gaussian', 'uniform')
         reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         eps: Small value for numerical stability
+    """
+    def __init__(self, model: Callable, sigma_x: Union[float, torch.Tensor], 
+                 n_samples: int = 20, perturb_method: str = 'gaussian',
+                 reduction: str = 'mean', eps: float = 1e-8):
+        super().__init__(model, sigma_x, None, reduction, eps)
+        self.n_samples = n_samples
+        self.perturb_method = perturb_method
         
-    Returns:
-        EnsembleEIVLoss instance
-    """
-    return EnsembleEIVLoss(
-        model=model,
-        sigma_x=sigma_x,
-        n_samples=n_samples,
-        perturb_method=perturb_method,
-        reduction=reduction,
-        eps=eps
-    )
-
-
-def create_quantile_eiv_loss(
-    model: Callable,
-    sigma_x: Union[float, torch.Tensor],
-    quantile: float = 0.5,
-    n_samples: int = 20,
-    perturb_method: str = 'gaussian',
-    reduction: str = 'mean',
-    eps: float = 1e-8
-) -> QuantileEIVLoss:
-    """
-    Create a Quantile Error-in-Variables loss.
-    
-    Args:
-        model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        quantile: Quantile level to estimate (0 to 1)
-        n_samples: Number of perturbed samples
-        perturb_method: Method for perturbing inputs ('gaussian', 'uniform')
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        eps: Small value for numerical stability
+    def forward(self, x_obs, y_true, mask=None):
+        """
+        Calculate Ensemble EIV loss.
         
-    Returns:
-        QuantileEIVLoss instance
-    """
-    return QuantileEIVLoss(
-        model=model,
-        sigma_x=sigma_x,
-        quantile=quantile,
-        n_samples=n_samples,
-        perturb_method=perturb_method,
-        reduction=reduction,
-        eps=eps
-    )
-
-
-def create_multi_quantile_eiv_loss(
-    model: Callable,
-    sigma_x: Union[float, torch.Tensor],
-    quantiles: list = [0.1, 0.5, 0.9],
-    n_samples: int = 20,
-    perturb_method: str = 'gaussian',
-    reduction: str = 'mean',
-    eps: float = 1e-8
-) -> MultiQuantileEIVLoss:
-    """
-    Create a Multi-Quantile Error-in-Variables loss.
-    
-    Args:
-        model: Model function f(x) that predicts y
-        sigma_x: Standard deviation of feature noise
-        quantiles: List of quantile levels to estimate
-        n_samples: Number of perturbed samples
-        perturb_method: Method for perturbing inputs ('gaussian', 'uniform')
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        eps: Small value for numerical stability
+        Args:
+            x_obs: Observed features with noise [batch_size, n_features_x]
+            y_true: Observed targets [batch_size, n_features_y]
+            mask: Optional boolean mask [batch_size, n_features_y]
+            
+        Returns:
+            Loss tensor (scalar if reduction is applied)
+        """
+        # Apply mask to targets if provided
+        y_true = self._apply_mask(y_true, mask)
         
-    Returns:
-        MultiQuantileEIVLoss instance
-    """
-    return MultiQuantileEIVLoss(
-        model=model,
-        sigma_x=sigma_x,
-        quantiles=quantiles,
-        n_samples=n_samples,
-        perturb_method=perturb_method,
-        reduction=reduction,
-        eps=eps
-    )
+        batch_size, n_features_x = x_obs.shape
+        device = x_obs.device
+        
+        # Prepare noise parameters
+        sigma_x_tensor = prepare_covariance(self.sigma_x, n_features_x, device)
+        
+        # Generate perturbed samples
+        perturbed_samples = generate_perturbed_samples(
+            x_obs, sigma_x_tensor, self.n_samples, perturb_method=self.perturb_method
+        )
+            
+        # Stack perturbed samples and reshape for batch processing
+        x_perturbed = torch.stack(perturbed_samples)  # [n_samples, batch_size, n_features_x]
+        x_flat = x_perturbed.reshape(-1, n_features_x)  # [n_samples * batch_size, n_features_x]
+        
+        # Forward pass for all samples
+        with torch.no_grad():
+            y_preds_flat = self.model(x_flat)
+            
+            # Get output feature dimension
+            n_features_y = y_preds_flat.shape[1] if y_preds_flat.dim() > 1 else 1
+            
+            # Reshape predictions 
+            if y_preds_flat.dim() == 1:
+                # Handle scalar output case
+                y_preds = y_preds_flat.reshape(self.n_samples, batch_size, 1)
+            else:
+                y_preds = y_preds_flat.reshape(self.n_samples, batch_size, n_features_y)
+                
+            # Apply mask if provided
+            if mask is not None:
+                mask_expanded = mask.unsqueeze(0).expand(self.n_samples, -1, -1)
+                y_preds = torch.where(mask_expanded, y_preds, torch.zeros_like(y_preds))
+        
+        # Average predictions across samples
+        mean_pred = torch.mean(y_preds, dim=0)  # [batch_size, n_features_y]
+        
+        # Calculate loss between averaged prediction and target
+        loss = torch.sum((mean_pred - y_true)**2, dim=1)
+        
+        # Apply reduction
+        if self.reduction == 'mean':
+            return torch.mean(loss)
+        elif self.reduction == 'sum':
+            return torch.sum(loss)
+        else:  # 'none'
+            return loss
+
+
+# Aliases for backward compatibility
+GeneralErrorInVariablesLoss = FunctionalEIVLoss
+CorrelatedEIVLoss = StructuralEIVLoss
