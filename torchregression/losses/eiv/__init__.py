@@ -5,7 +5,7 @@ This module provides various Error-in-Variables (EIV) loss functions
 for regression tasks with uncertain inputs.
 """
 
-# Import EIV loss functions
+# Import EIV utility functions
 from .eiv_utils import (
     prepare_param, 
     prepare_sigma, 
@@ -14,13 +14,48 @@ from .eiv_utils import (
     compute_model_gradients, 
     calculate_gaussian_nll,
     prepare_model_input_for_gradients,
-    calculate_propagated_variance
+    calculate_propagated_variance,
+    generate_perturbed_samples
 )
-from .eiv_chamfer import ChamferEIVLoss, HybridEIVChamferLoss
-from .eiv_mdn import MDNEIVLoss
-from .eiv_rfit import RobustEIVLoss
 
+# Import EIV standard losses
+from .eiv_standard import (
+    BaseEIVLoss,
+    FunctionalEIVLoss,
+    StructuralEIVLoss,
+    OrthogonalDistanceRegressionLoss,
+    EnsembleEIVLoss,
+    # Aliases for backward compatibility 
+    GeneralErrorInVariablesLoss,
+    CorrelatedEIVLoss
+)
+
+# Import EIV Chamfer-based losses
+from .eiv_chamfer import (
+    chamfer_distance,
+    ChamferEIVLoss,
+    HybridEIVChamferLoss
+)
+
+# Import EIV MDN-based losses and models
+from .eiv_mdn import MDNEIVLoss, MDNEIVModel
+
+# Import EIV robust sampling-based losses
+from .eiv_rfit import (
+    RobustEIVLoss,
+    gaussian_variation,
+    uniform_variation,
+    bootstrap_variation,
+    structured_variation,
+    adversarial_variation
+)
+
+# Import EIV quantile-based losses
+from .eiv_quantile import QuantileEIVLoss, MultiQuantileEIVLoss
+
+# Export everything
 __all__ = [
+    # Utility functions
     'prepare_param', 
     'prepare_sigma', 
     'prepare_covariance',
@@ -29,10 +64,37 @@ __all__ = [
     'calculate_gaussian_nll',
     'prepare_model_input_for_gradients',
     'calculate_propagated_variance',
+    'generate_perturbed_samples',
+    
+    # Standard EIV losses
+    'BaseEIVLoss',
+    'FunctionalEIVLoss',
+    'StructuralEIVLoss',
+    'OrthogonalDistanceRegressionLoss',
+    'EnsembleEIVLoss',
+    'GeneralErrorInVariablesLoss',  # Alias
+    'CorrelatedEIVLoss',  # Alias
+    
+    # Chamfer-based losses
+    'chamfer_distance',
     'ChamferEIVLoss', 
     'HybridEIVChamferLoss',
+    
+    # MDN-based losses and models
     'MDNEIVLoss',
-    'RobustEIVLoss'
+    'MDNEIVModel',
+    
+    # Robust sampling-based losses
+    'RobustEIVLoss',
+    'gaussian_variation',
+    'uniform_variation',
+    'bootstrap_variation',
+    'structured_variation',
+    'adversarial_variation',
+    
+    # Quantile-based losses
+    'QuantileEIVLoss',
+    'MultiQuantileEIVLoss'
 ]
 
 # Version info

@@ -23,7 +23,7 @@ def prepare_param(param, size, device):
     else:
         return torch.tensor(param, device=device).expand(size)
 
-def prepare_sigma(sigma, size, device):
+def prepare_sigma(sigma, size, device, default_zero=True):
     """
     Prepare a sigma tensor.
     
@@ -31,10 +31,13 @@ def prepare_sigma(sigma, size, device):
         sigma: Sigma value (scalar or tensor)
         size: Desired size of the sigma tensor
         device: Device to place the tensor on
+        default_zero: If True and sigma is None, returns zeros. Otherwise, returns None.
         
     Returns:
         Prepared sigma tensor
     """
+    if sigma is None:
+        return torch.zeros(size, device=device) if default_zero else None
     return prepare_param(sigma, size, device)
 
 def prepare_covariance(cov, size, device):
@@ -144,3 +147,48 @@ def calculate_propagated_variance(grad, sigma_x, sigma_y=None, sigma_xy=None):
         propagated_var += 2 * torch.matmul(grad, sigma_xy)
         
     return propagated_var
+
+def generate_perturbed_samples(x_obs, sigma_x_tensor, n_samples, perturb_method='gaussian'):
+    """
+    Generate perturbed samples around observed features.
+    
+    Args:
+        x_obs: Observed features [batch_size, n_features_x]
+        sigma_x_tensor: Standard deviation of feature noise
+        n_samples: Number of samples to generate
+        perturb_method: Method for perturbing inputs ('gaussian', 'uniform')
+        
+    Returns:
+        List of perturbed samples
+    """
+    batch_size, n_features_x = x_obs.shape
+    device = x_obs.device
+    
+    perturbed_samples = []
+    for _ in range(n_samples):
+        if perturb_method == 'gaussian':
+            if sigma_x_tensor.ndim <= 1:
+                # Diagonal covariance
+                noise = torch.randn_like(x_obs) * sigma_x_tensor.view(1, -1)
+            else:
+                # Full covariance - use multivariate normal
+                noise = torch.distributions.MultivariateNormal(
+                    torch.zeros(n_features_x, device=device),
+                    sigma_x_tensor
+                ).sample((batch_size,))
+        elif perturb_method == 'uniform':
+            # Scale factor to match standard deviation between uniform and normal distributions
+            scale_factor = 1.732  # sqrt(3)
+            if sigma_x_tensor.ndim <= 1:
+                half_range = sigma_x_tensor.view(1, -1) * scale_factor
+                noise = (torch.rand_like(x_obs) * 2 - 1) * half_range
+            else:
+                # Use diagonal approximation for uniform with full covariance
+                half_range = torch.sqrt(torch.diag(sigma_x_tensor)).view(1, -1) * scale_factor
+                noise = (torch.rand_like(x_obs) * 2 - 1) * half_range
+        else:
+            raise ValueError(f"Unknown perturbation method: {perturb_method}")
+            
+        perturbed_samples.append(x_obs + noise)
+        
+    return perturbed_samples

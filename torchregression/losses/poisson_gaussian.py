@@ -3,17 +3,23 @@ Poisson-Gaussian mixture loss functions for signal processing applications.
 
 This module provides loss functions that model signals as a mixture of
 Poisson process (for count/shot noise) and Gaussian readout noise.
+
+These models are especially useful for:
+- Scientific imaging (e.g., microscopy, astronomy)
+- Low-light photography
+- Medical imaging (e.g., CT scans, PET)
+- Sensor data with both counting noise and electronic noise
 """
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import math
 import numpy as np
 from typing import Optional, Union
 
-from .base import MaskedLoss
-from .poisson import PoissonNLL
+from .base import RegressionLoss
+from .poisson import PoissonNLLLoss
 
-class PoissonGaussianMixtureLoss(MaskedLoss):
+class PoissonGaussianMixtureLoss(RegressionLoss):
     """
     Negative log-likelihood loss for a mixture of Gaussian (readout noise)
     and Poisson (count) noise, common in imaging and signal processing.
@@ -22,22 +28,35 @@ class PoissonGaussianMixtureLoss(MaskedLoss):
     y ~ Poisson(λ) + N(0, σ²)
     
     Args:
-        eps: Small constant for numerical stability
-        learn_variance: Whether to learn the Gaussian variance parameter
-        initial_variance: Initial value for Gaussian variance
-        min_variance: Minimum variance value for numerical stability
-        log_input: Whether y_pred is provided as log(lambda)
+        eps: Small constant for numerical stability. Default: 1e-8
+        learn_variance: Whether to learn the Gaussian variance parameter. Default: False
+        initial_variance: Initial value for Gaussian variance. Default: 1.0
+        min_variance: Minimum variance value for numerical stability. Default: 1e-6
+        log_input: Whether y_pred is provided as log(lambda). Default: False
         mixture_weights: How to weight the mixture components:
             - If None: Equal weighting (0.5, 0.5)
             - If float: Fixed weighting (mixture_weights, 1-mixture_weights)
             - If 'learn': Learn the mixture weights
-        extra_variance_model: Whether to include a separate learned variance term
-        reduction: Method for loss reduction
+        extra_variance_model: Whether to include a separate learned variance term. Default: False
+        reduction: Method for loss reduction. Default: 'mean'
+    
+    Example:
+        >>> # For imaging data with fixed noise variance
+        >>> loss_fn = PoissonGaussianMixtureLoss(initial_variance=0.1, log_input=True)
+        >>> y_pred = torch.log(torch.tensor([[10.0, 20.0], [5.0, 15.0]]))  # log(lambda)
+        >>> target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])  # noisy measurements
+        >>> loss_fn(y_pred, target)
+        tensor(1.8241)
     """
-    def __init__(self, eps: float = 1e-8, learn_variance: bool = False,
-                 initial_variance: float = 1.0, min_variance: float = 1e-6,
-                 log_input: bool = False, mixture_weights: Optional[Union[float, str]] = None,
-                 extra_variance_model: bool = False, reduction: str = 'mean'):
+    def __init__(self, 
+                eps: float = 1e-8, 
+                learn_variance: bool = False,
+                initial_variance: float = 1.0, 
+                min_variance: float = 1e-6,
+                log_input: bool = False, 
+                mixture_weights: Optional[Union[float, str]] = None,
+                extra_variance_model: bool = False, 
+                reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
         self.learn_variance = learn_variance
@@ -55,27 +74,29 @@ class PoissonGaussianMixtureLoss(MaskedLoss):
             self.weight_logit = nn.Parameter(torch.zeros(1))
             
         # Initialize Poisson loss
-        self.poisson_loss = PoissonNLL(log_input=log_input, reduction='none')
+        self.poisson_loss = PoissonNLLLoss(log_input=log_input, reduction='none')
 
 
-    def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor, 
-              mask: Optional[torch.Tensor] = None, 
-              extra_var: Optional[torch.Tensor] = None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None,
+               extra_var: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate the Poisson-Gaussian mixture loss.
         
         Args:
-            y_true: Target values
             y_pred: Predicted values (lambda for Poisson component)
+            target: Target values
             mask: Optional mask for invalid values
+            weights: Optional tensor of weights for each sample
             extra_var: Optional per-sample variance term
             
         Returns:
             Loss value
         """
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Get lambda (rate) parameter
         if self.log_input:
@@ -84,23 +105,23 @@ class PoissonGaussianMixtureLoss(MaskedLoss):
             lam = y_pred
             
         # Calculate Poisson component
-        poisson_nll = self.poisson_loss(y_true, y_pred)
+        poisson_nll = self.poisson_loss(y_pred, target)
         
         # Calculate Gaussian component (using squared error)
-        residuals = y_true - lam
+        residuals = target - lam
         
         # Get variance parameter
         if self.learn_variance:
             variance = torch.exp(self.log_variance).clamp(min=self.min_variance)
         else:
-            variance = torch.tensor(self.initial_variance, device=y_true.device)
+            variance = torch.tensor(self.initial_variance, device=y_pred.device)
             
         # Add extra variance if provided
         if extra_var is not None and self.extra_variance_model:
             variance = variance + extra_var
             
         # Calculate Gaussian NLL: 0.5 * (log(2π) + log(σ²) + (y-μ)²/σ²)
-        gaussian_nll = 0.5 * (torch.log(2 * torch.pi * variance + self.eps) + 
+        gaussian_nll = 0.5 * (torch.log(2 * math.pi * variance + self.eps) + 
                              residuals**2 / (variance + self.eps))
         
         # Calculate mixture weights
@@ -120,26 +141,37 @@ class PoissonGaussianMixtureLoss(MaskedLoss):
         # Calculate weighted mixture
         mixture_nll = poisson_weight * poisson_nll + gaussian_weight * gaussian_nll
         
-        # Apply reduction
-        return self._reduce(mixture_nll, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(mixture_nll, mask, weights)
 
 
-def poisson_gaussian_mixture_loss(learn_variance: bool = False, initial_variance: float = 1.0,
-                                  log_input: bool = False, mixture_weights: Optional[Union[float, str]] = None,
-                                  extra_variance_model: bool = False, **kwargs) -> PoissonGaussianMixtureLoss:
+def poisson_gaussian_mixture_loss(learn_variance: bool = False, 
+                                 initial_variance: float = 1.0,
+                                 log_input: bool = False, 
+                                 mixture_weights: Optional[Union[float, str]] = None,
+                                 extra_variance_model: bool = False, 
+                                 **kwargs) -> PoissonGaussianMixtureLoss:
     """
     Create a Poisson-Gaussian mixture loss function.
     
     Args:
-        learn_variance: Whether to learn the Gaussian variance
-        initial_variance: Initial value for Gaussian variance
-        log_input: Whether inputs are in log space
-        mixture_weights: How to handle mixture weights
-        extra_variance_model: Whether to include extra variance terms
+        learn_variance: Whether to learn the Gaussian variance. Default: False
+        initial_variance: Initial value for Gaussian variance. Default: 1.0
+        log_input: Whether inputs are in log space. Default: False
+        mixture_weights: How to handle mixture weights. Default: None (equal weighting)
+        extra_variance_model: Whether to include extra variance terms. Default: False
         **kwargs: Additional parameters for the loss
         
     Returns:
         PoissonGaussianMixtureLoss instance
+    
+    Example:
+        >>> # Create a loss with learnable mixture weights
+        >>> loss_fn = poisson_gaussian_mixture_loss(
+        ...     learn_variance=True, 
+        ...     mixture_weights='learn',
+        ...     log_input=True
+        ... )
     """
     return PoissonGaussianMixtureLoss(
         learn_variance=learn_variance,
@@ -151,7 +183,7 @@ def poisson_gaussian_mixture_loss(learn_variance: bool = False, initial_variance
     )
 
 
-class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
+class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
     """
     Advanced Poisson-Gaussian mixture loss with additional features for scientific applications.
     
@@ -164,17 +196,34 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
     Model: y ~ Poisson(g * λ + b) + N(0, σ₁² + σ₂² * λ)
     
     Args:
-        gain: Fixed gain/scaling factor or 'learn' to make it learnable
-        offset: Fixed offset/bias or 'learn' to make it learnable
-        read_noise: Constant variance component (σ₁²)
-        shot_noise: Signal-dependent variance component (σ₂²)
-        log_input: Whether inputs are in log space
-        calibration: Whether to include calibration parameters
-        reduction: Method for loss reduction
+        gain: Fixed gain/scaling factor or 'learn' to make it learnable. Default: 1.0
+        offset: Fixed offset/bias or 'learn' to make it learnable. Default: 0.0
+        read_noise: Constant variance component (σ₁²). Default: 1.0
+        shot_noise: Signal-dependent variance component (σ₂²). Default: 0.0
+        log_input: Whether inputs are in log space. Default: False
+        calibration: Whether to include calibration parameters. Default: False
+        reduction: Method for loss reduction. Default: 'mean'
+    
+    Example:
+        >>> # For scientific imaging with signal-dependent noise
+        >>> loss_fn = EnhancedPoissonGaussianMixtureLoss(
+        ...     gain='learn', 
+        ...     read_noise=0.2, 
+        ...     shot_noise=0.1
+        ... )
+        >>> y_pred = torch.tensor([[10.0, 20.0], [30.0, 40.0]])
+        >>> target = torch.tensor([[9.8, 21.2], [28.5, 41.3]])
+        >>> loss_fn(y_pred, target)
+        tensor(1.4208)
     """
-    def __init__(self, gain: Union[float, str] = 1.0, offset: Union[float, str] = 0.0,
-                read_noise: Union[float, str] = 1.0, shot_noise: Union[float, str] = 0.0,
-                log_input: bool = False, calibration: bool = False, reduction: str = 'mean'):
+    def __init__(self, 
+                gain: Union[float, str] = 1.0, 
+                offset: Union[float, str] = 0.0,
+                read_noise: Union[float, str] = 1.0, 
+                shot_noise: Union[float, str] = 0.0,
+                log_input: bool = False, 
+                calibration: bool = False, 
+                reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.log_input = log_input
         self.calibration = calibration
@@ -185,14 +234,14 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
         if self.learn_gain:
             self.log_gain = nn.Parameter(torch.tensor(0.0))  # Initialize with gain=1.0
         else:
-            self.registerBuffer('fixed_gain', torch.tensor(float(gain)))
+            self.register_buffer('fixed_gain', torch.tensor(float(gain)))
             
         # Configure offset parameter
         self.learn_offset = (offset == 'learn')
         if self.learn_offset:
             self.offset = nn.Parameter(torch.tensor(0.0))  # Initialize with offset=0.0
         else:
-            self.registerBuffer('fixed_offset', torch.tensor(float(offset)))
+            self.register_buffer('fixed_offset', torch.tensor(float(offset)))
             
         # Configure read noise (constant variance component)
         self.learn_read_noise = (read_noise == 'learn')
@@ -200,7 +249,7 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
             # Initialize with log(1.0) = 0.0
             self.log_read_noise = nn.Parameter(torch.tensor(0.0))
         else:
-            self.registerBuffer('fixed_read_noise', torch.tensor(float(read_noise)))
+            self.register_buffer('fixed_read_noise', torch.tensor(float(read_noise)))
             
         # Configure shot noise (signal-dependent variance component)
         self.learn_shot_noise = (shot_noise == 'learn')
@@ -208,7 +257,7 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
             # Initialize with log(small value) for stability
             self.log_shot_noise = nn.Parameter(torch.tensor(-4.0))  # exp(-4) ≈ 0.018
         else:
-            self.registerBuffer('fixed_shot_noise', torch.tensor(float(shot_noise)))
+            self.register_buffer('fixed_shot_noise', torch.tensor(float(shot_noise)))
             
         # Calibration parameters (optional)
         if self.calibration:
@@ -217,23 +266,26 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
             self.calib_mult = nn.Parameter(torch.tensor(1.0))
             
         # Initialize Poisson NLL
-        self.poisson_nll = PoissonNLL(eps=self.eps, log_input=False)  # We'll handle log_input ourselves
+        self.poisson_nll = PoissonNLLLoss(log_input=False, reduction='none')  # We'll handle log_input ourselves
         
-    def forward(self, y_true, y_pred, mask=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None,
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate enhanced Poisson-Gaussian mixture loss.
         
         Args:
-            y_true: Ground truth values
             y_pred: Predicted rate parameters or log(rate)
+            target: Ground truth values
             mask: Optional mask for masked loss
+            weights: Optional sample weights
             
         Returns:
             Negative log-likelihood loss
         """
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Convert from log space if needed
         if self.log_input:
@@ -249,49 +301,50 @@ class EnhancedPoissonGaussianMixtureLoss(MaskedLoss):
         if self.learn_gain:
             gain = torch.exp(self.log_gain)
         else:
-            gain = self.fixed_gain.to(y_true.device)
+            gain = self.fixed_gain.to(y_pred.device)
             
         # Get offset parameter
         if self.learn_offset:
             offset = self.offset
         else:
-            offset = self.fixed_offset.to(y_true.device)
+            offset = self.fixed_offset.to(y_pred.device)
             
         # Apply gain and offset to rate
         scaled_rate = gain * rate + offset
         scaled_rate = torch.clamp(scaled_rate, min=self.eps)  # Ensure positive rate
         
         # Calculate Poisson component
-        poisson_loss = self.poisson_nll(y_true, scaled_rate)
+        poisson_loss = self.poisson_nll(scaled_rate, target)
         
         # Calculate variance components for Gaussian
         if self.learn_read_noise:
             read_var = torch.exp(self.log_read_noise)
         else:
-            read_var = self.fixed_read_noise.to(y_true.device)
+            read_var = self.fixed_read_noise.to(y_pred.device)
             
         if self.learn_shot_noise:
             shot_coef = torch.exp(self.log_shot_noise)
         else:
-            shot_coef = self.fixed_shot_noise.to(y_true.device)
+            shot_coef = self.fixed_shot_noise.to(y_pred.device)
             
         # Total variance: read noise + shot noise * signal
         total_var = read_var + shot_coef * scaled_rate
         total_var = torch.clamp(total_var, min=self.eps)
         
         # Calculate Gaussian component
-        squared_error = (y_true - scaled_rate) ** 2
+        squared_error = (target - scaled_rate) ** 2
         gaussian_loss = 0.5 * (
             squared_error / total_var + 
             torch.log(total_var) + 
-            torch.log(torch.tensor(2 * np.pi, device=y_true.device))
+            torch.log(torch.tensor(2 * np.pi, device=y_pred.device))
         )
         
         # Combine losses - use equal weight for simplicity
         # Could be extended to learn weights if needed
         loss = 0.5 * (poisson_loss + gaussian_loss)
         
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
         
 
 def enhanced_poisson_gaussian_loss(**kwargs) -> EnhancedPoissonGaussianMixtureLoss:
@@ -303,5 +356,14 @@ def enhanced_poisson_gaussian_loss(**kwargs) -> EnhancedPoissonGaussianMixtureLo
         
     Returns:
         EnhancedPoissonGaussianMixtureLoss instance
+        
+    Example:
+        >>> # Create a loss with learnable gain and signal-dependent noise
+        >>> loss_fn = enhanced_poisson_gaussian_loss(
+        ...     gain='learn',
+        ...     read_noise=0.1,
+        ...     shot_noise='learn',
+        ...     log_input=True
+        ... )
     """
     return EnhancedPoissonGaussianMixtureLoss(**kwargs)

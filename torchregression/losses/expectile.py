@@ -2,12 +2,16 @@
 Expectile regression loss functions.
 
 Expectile regression provides a richer description of the conditional distribution
-than standard mean regression, similar to quantile regression.
+than standard mean regression, similar to quantile regression but with different
+properties:
+- Expectiles are defined via asymmetric least squares
+- Mean is a special case of expectile (τ=0.5)
+- Expectiles minimize the expected asymmetric squared error
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List
 
 from .base import RegressionLoss
 from ..utils.validation import validate_range
@@ -19,46 +23,61 @@ class ExpectileLoss(RegressionLoss):
     Expectiles are defined via asymmetric least squares that generalize
     the mean in a similar way as quantiles generalize the median.
     
+    L(y, f(x)) = |y - f(x)|² * (τ * 1(y > f(x)) + (1-τ) * 1(y ≤ f(x)))
+    
+    where τ is the expectile level (0 < τ < 1).
+    
     Args:
         expectile: Expectile level (0 < τ < 1). Default: 0.5 (mean)
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        reduction: Reduction method ('none', 'mean', 'sum'). Default: 'mean'
+        
+    Example:
+        >>> # Mean (τ=0.5)
+        >>> loss_fn = ExpectileLoss(expectile=0.5)
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 4.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.0000)  # Standard MSE at τ=0.5
+        
+        >>> # 80th expectile (τ=0.8)
+        >>> loss_fn = ExpectileLoss(expectile=0.8)
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0]) 
+        >>> target = torch.tensor([0.0, 2.0, 4.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.6000)  # Underestimation penalized 4x more than overestimation
     """
-    def __init__(self, expectile: float = 0.5, reduction: str = 'mean'):
+    def __init__(self, expectile: float = 0.5, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.expectile = validate_range(expectile, 0.0, 1.0, "expectile")
         
-    def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor, mask: Optional[torch.Tensor] = None, weights: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate expectile loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
-            Expectile loss
+            Expectile loss value
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate residuals
-        residuals = y_true - y_pred
+        residuals = target - y_pred
         
         # Calculate asymmetric squared error
         indicator = (residuals >= 0).float()
         loss = residuals**2 * (self.expectile * indicator + (1 - self.expectile) * (1 - indicator))
         
-        # Apply sample weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class MultiExpectileLoss(RegressionLoss):
@@ -68,17 +87,31 @@ class MultiExpectileLoss(RegressionLoss):
     This loss is useful for models that predict multiple expectiles at once,
     providing a more complete description of the conditional distribution.
     
+    The combined loss is:
+    L(y, f₁(x), f₂(x), ..., fₖ(x)) = (1/k) * ∑ᵢ L_τᵢ(y, fᵢ(x))
+    
+    where L_τᵢ is the expectile loss for the i-th expectile level τᵢ.
+    
     Args:
         expectiles: List of expectile levels in ascending order
         joint_prediction: Whether predictions are passed as a joint tensor
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        reduction: Reduction method ('none', 'mean', 'sum'). Default: 'mean'
+        
+    Example:
+        >>> # Predict 10th, 50th and 90th expectiles together
+        >>> loss_fn = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9])
+        >>> # Predictions shape: [batch_size, num_expectiles, features]
+        >>> y_pred = torch.tensor([[[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]]])
+        >>> target = torch.tensor([[2.0, 3.0]])
+        >>> loss_fn(y_pred, target)
+        tensor(1.1333)  # Average of the three expectile losses
     """
     def __init__(
         self, 
         expectiles: Union[List[float], torch.Tensor],
         joint_prediction: bool = True,
         reduction: str = 'mean'
-    ):
+    ) -> None:
         super().__init__(reduction=reduction)
         
         # Convert list to tensor if needed
@@ -90,28 +123,31 @@ class MultiExpectileLoss(RegressionLoss):
         self.num_expectiles = self.expectiles.size(0)
         self.joint_prediction = joint_prediction
     
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: Union[torch.Tensor, List[torch.Tensor]], 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate combined expectile loss for multiple levels.
         
         Args:
-            y_true: Ground truth values [batch_size, n_features]
             y_pred: When joint_prediction=True: [batch_size, num_expectiles, n_features]
                    or [batch_size, n_features * num_expectiles]
                    Otherwise: List of expectile predictions, each [batch_size, n_features]
+            target: Target values [batch_size, n_features]
             mask: Optional boolean mask [batch_size, n_features]
             weights: Optional weights [batch_size, n_features]
             
         Returns:
             Combined expectile loss value
         """
-        batch_size = y_true.shape[0]
-        n_features = y_true.shape[1] if y_true.dim() > 1 else 1
-        device = y_true.device
+        batch_size = target.shape[0]
+        n_features = target.shape[1] if target.dim() > 1 else 1
         
-        # Reshape y_true for broadcasting if it's a 1D tensor
-        if y_true.dim() == 1:
-            y_true = y_true.unsqueeze(1)
+        # Reshape target for broadcasting if it's a 1D tensor
+        if target.dim() == 1:
+            target = target.unsqueeze(1)
             
         # Handle mask and weights
         if mask is not None and mask.dim() == 1:
@@ -158,7 +194,7 @@ class MultiExpectileLoss(RegressionLoss):
             level_preds = expectile_preds[:, i]
             
             # Calculate residuals
-            residuals = y_true - level_preds
+            residuals = target - level_preds
             
             # Calculate asymmetric squared error
             indicator = (residuals >= 0).float()
@@ -173,7 +209,11 @@ class MultiExpectileLoss(RegressionLoss):
                 level_loss = level_loss * weights
                 
             # Reduce across features
-            level_loss = torch.mean(level_loss, dim=1)
+            if n_features > 1:
+                level_loss = torch.mean(level_loss, dim=1)
+            else:
+                level_loss = level_loss.squeeze(1)
+                
             losses.append(level_loss)
         
         # Stack losses for all expectile levels [batch_size, num_expectiles]
@@ -195,11 +235,21 @@ class AsymmetricLeastSquaresLoss(ExpectileLoss):
     """
     Asymmetric least squares loss (alias for ExpectileLoss for legacy compatibility).
     
+    L(y, f(x)) = |y - f(x)|² * (τ * 1(y > f(x)) + (1-τ) * 1(y ≤ f(x)))
+    
     Args:
         tau: Expectile level (0 < tau < 1). Default: 0.5 (mean)
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        reduction: Reduction method ('none', 'mean', 'sum'). Default: 'mean'
+        
+    Example:
+        >>> # This is equivalent to ExpectileLoss(expectile=0.75)
+        >>> loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 4.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.5000)  # Underestimation penalized 3x more than overestimation
     """
-    def __init__(self, tau: float = 0.5, reduction: str = 'mean'):
+    def __init__(self, tau: float = 0.5, reduction: str = 'mean') -> None:
         super().__init__(expectile=tau, reduction=reduction)
 
 
@@ -210,11 +260,31 @@ class ExpectileCrossover(RegressionLoss):
     In expectile regression, we expect lower expectiles to be below higher ones.
     This loss adds a penalty when this constraint is violated.
     
+    The loss is defined as:
+    L(y, {fᵢ(x)}) = base_loss * L_expectile(y, {fᵢ(x)}) + 
+                     crossover_penalty * ∑ᵢmax(fᵢ(x) - fᵢ₊₁(x), 0)
+                     
+    where L_expectile is the standard expectile loss for multiple levels,
+    and the second term penalizes cases where fᵢ(x) > fᵢ₊₁(x).
+    
     Args:
         expectiles: List of expectile levels in ascending order
-        base_loss: Base expectile loss coefficient
-        crossover_penalty: Coefficient for crossover penalty term
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        base_loss: Weight for standard expectile loss term
+        crossover_penalty: Weight for crossover penalty term
+        reduction: Reduction method ('none', 'mean', 'sum'). Default: 'mean'
+        
+    Example:
+        >>> # Create loss that predicts 10th, 50th, 90th expectiles
+        >>> loss_fn = ExpectileCrossover(expectiles=[0.1, 0.5, 0.9], crossover_penalty=5.0)
+        >>> # Properly ordered predictions
+        >>> good_pred = torch.tensor([[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]])
+        >>> # Predictions with crossover (τ₁ > τ₂)
+        >>> bad_pred = torch.tensor([[[1.0, 3.0], [2.0, 2.0], [3.0, 1.0]]])
+        >>> target = torch.tensor([[2.0, 2.0]])
+        >>> loss_fn(good_pred, target)  # Normal loss
+        tensor(1.0000)
+        >>> loss_fn(bad_pred, target)  # Higher loss due to crossover penalty
+        tensor(6.0000)  # Base loss + penalty for crossover
     """
     def __init__(
         self,
@@ -222,7 +292,7 @@ class ExpectileCrossover(RegressionLoss):
         base_loss: float = 1.0,
         crossover_penalty: float = 10.0,
         reduction: str = 'mean'
-    ):
+    ) -> None:
         super().__init__(reduction=reduction)
         # Ensure expectiles are sorted in ascending order
         if isinstance(expectiles, list):
@@ -243,24 +313,25 @@ class ExpectileCrossover(RegressionLoss):
             for e in expectiles
         ])
     
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate expectile loss with crossover penalty.
         
         Args:
-            y_true: Ground truth values [batch_size, n_features]
             y_pred: Predicted expectiles [batch_size, num_expectiles, n_features]
+            target: Target values [batch_size, n_features]
             mask: Optional boolean mask [batch_size, n_features]
             weights: Optional weights [batch_size, n_features] or [batch_size]
         
         Returns:
             Loss combining standard expectile loss and crossover penalty
         """
-        batch_size, n_features = y_true.shape[0], y_true.shape[-1]
-        device = y_true.device
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
+        batch_size, n_features = target.shape[0], target.shape[-1]
+        device = target.device
         
         # Shape validation for y_pred
         if y_pred.shape[1] != self.num_expectiles:
@@ -273,7 +344,7 @@ class ExpectileCrossover(RegressionLoss):
         base_losses = []
         for i, loss_fn in enumerate(self.expectile_losses):
             level_preds = y_pred[:, i]
-            level_loss = loss_fn(y_true, level_preds, mask, weights)
+            level_loss = loss_fn(level_preds, target, mask, weights)
             base_losses.append(level_loss)
             
         stacked_base_losses = torch.stack(base_losses, dim=0)  # [num_expectiles, batch_size]

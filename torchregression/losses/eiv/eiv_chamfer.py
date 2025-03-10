@@ -7,7 +7,6 @@ when inputs have significant measurement error.
 """
 
 import torch
-import torch.nn as nn
 from typing import Optional, Union, Callable
 
 from ..base import MaskedLoss
@@ -26,17 +25,18 @@ def chamfer_distance(x: torch.Tensor, y: torch.Tensor, bidirectional: bool = Tru
     Returns:
         Chamfer distance [batch_size]
     """
-    # Calculate pairwise distances
-    # For each point in x, find the closest point in y
+    # Calculate pairwise distances more efficiently
     batch_size, n_points_x, n_features = x.shape
     n_points_y = y.shape[1]
     
-    # Reshape for broadcasting
-    x_expanded = x.unsqueeze(2)  # [batch_size, n_points_x, 1, n_features]
-    y_expanded = y.unsqueeze(1)  # [batch_size, 1, n_points_y, n_features]
+    # Compute ||x||^2, ||y||^2 and <x,y>
+    x_norm = torch.sum(x**2, dim=2, keepdim=True)  # [batch_size, n_points_x, 1]
+    y_norm = torch.sum(y**2, dim=2).unsqueeze(1)   # [batch_size, 1, n_points_y]
+    xy_inner = torch.bmm(x.reshape(batch_size, n_points_x, n_features), 
+                         y.reshape(batch_size, n_points_y, n_features).transpose(1, 2))
     
-    # Calculate squared distances
-    squared_dist = torch.sum((x_expanded - y_expanded)**2, dim=3)  # [batch_size, n_points_x, n_points_y]
+    # ||x-y||^2 = ||x||^2 + ||y||^2 - 2<x,y>
+    squared_dist = x_norm + y_norm - 2 * xy_inner  # [batch_size, n_points_x, n_points_y]
     
     # Find minimum distance for each point in x to any point in y
     x_to_y_min, _ = torch.min(squared_dist, dim=2)  # [batch_size, n_points_x]
@@ -67,6 +67,7 @@ class ChamferEIVLoss(MaskedLoss):
         n_samples: Number of Monte Carlo samples (for 'monte_carlo' method)
         optim_steps: Number of optimization steps (for 'optimization' method)
         optim_lr: Learning rate for optimization (for 'optimization' method)
+        early_stopping_tol: Tolerance for early stopping in optimization
         reduction: 'none' | 'mean' | 'sum'
     """
     def __init__(
@@ -77,6 +78,7 @@ class ChamferEIVLoss(MaskedLoss):
         n_samples: int = 100,
         optim_steps: int = 50,
         optim_lr: float = 0.01,
+        early_stopping_tol: float = 1e-5,
         reduction: str = 'mean'
     ):
         super().__init__(reduction=reduction)
@@ -86,6 +88,7 @@ class ChamferEIVLoss(MaskedLoss):
         self.n_samples = n_samples
         self.optim_steps = optim_steps
         self.optim_lr = optim_lr
+        self.early_stopping_tol = early_stopping_tol
         
     def forward(self, x_obs, y_true, mask=None):
         """
@@ -112,28 +115,35 @@ class ChamferEIVLoss(MaskedLoss):
             else:
                 sigma_x = prepare_sigma(self.sigma_x, x_obs.shape[1], device)
                 
-            # Generate samples
-            samples = []
-            for _ in range(self.n_samples):
-                noise = torch.randn_like(x_obs) * sigma_x
-                x_sample = x_obs + noise
-                samples.append(x_sample)
+            # Process Monte Carlo samples in batches if needed
+            max_batch = 1000  # Maximum samples to process at once
+            n_batches = max(1, self.n_samples // max_batch)
+            samples_per_batch = self.n_samples // n_batches
             
-            # Stack samples [n_samples, batch_size, n_features_x]
-            x_samples = torch.stack(samples)
-            
-            # Reshape for batch processing
-            x_flat = x_samples.reshape(-1, x_samples.shape[-1])
-            
-            # Get predictions for all samples
-            with torch.no_grad():
-                y_preds_flat = self.model(x_flat)
+            all_preds = []
+            for i in range(n_batches):
+                # Generate batch of samples
+                batch_samples = []
+                for _ in range(samples_per_batch):
+                    noise = torch.randn_like(x_obs) * sigma_x
+                    x_sample = x_obs + noise
+                    batch_samples.append(x_sample)
                 
-                # Reshape back to [n_samples, batch_size, n_features_y]
-                y_preds = y_preds_flat.reshape(self.n_samples, batch_size, n_features_y)
+                # Stack and process batch
+                x_batch = torch.stack(batch_samples)  # [samples_per_batch, batch_size, n_features_x]
+                x_flat = x_batch.reshape(-1, x_batch.shape[-1])
                 
-                # Transpose to [batch_size, n_samples, n_features_y] for Chamfer distance
-                y_preds = y_preds.transpose(0, 1)
+                # Get predictions for batch
+                with torch.no_grad():
+                    y_preds_flat = self.model(x_flat)
+                    y_preds_batch = y_preds_flat.reshape(samples_per_batch, batch_size, n_features_y)
+                    all_preds.append(y_preds_batch)
+            
+            # Combine all predictions
+            y_preds = torch.cat(all_preds, dim=0)
+            
+            # Transpose to [batch_size, n_samples, n_features_y] for Chamfer distance
+            y_preds = y_preds.transpose(0, 1)
                 
             # Reshape y_true to [batch_size, 1, n_features_y] for Chamfer distance
             y_true_expanded = y_true.unsqueeze(1)
@@ -163,11 +173,14 @@ class ChamferEIVLoss(MaskedLoss):
         # Create optimizable inputs initialized to observed values
         x_opt = x_obs.detach().clone().requires_grad_(True)
         
-        # Create optimizer
+        # Create optimizer with gradient clipping
         optimizer = torch.optim.Adam([x_opt], lr=self.optim_lr)
         
+        # Previous loss for early stopping
+        prev_loss = float('inf')
+        
         # Run optimization to find closest point on the manifold
-        for _ in range(self.optim_steps):
+        for step in range(self.optim_steps):
             optimizer.zero_grad()
             
             # Forward pass
@@ -184,7 +197,17 @@ class ChamferEIVLoss(MaskedLoss):
             
             # Backward and optimize
             loss.backward()
+            
+            # Gradient clipping to prevent exploding gradients
+            torch.nn.utils.clip_grad_norm_(x_opt, 10.0)
+            
             optimizer.step()
+            
+            # Check for early stopping
+            if abs(prev_loss - loss.item()) < self.early_stopping_tol:
+                break
+                
+            prev_loss = loss.item()
         
         # Final forward pass
         with torch.no_grad():
@@ -233,28 +256,31 @@ class HybridEIVChamferLoss(MaskedLoss):
         Returns:
             Loss tensor (scalar if reduction is applied)
         """
-        # Ensure both losses use 'none' reduction for proper weighting
+        # Cache original reduction settings
         original_eiv_reduction = self.eiv_loss.reduction
         original_chamfer_reduction = self.chamfer_loss.reduction
         
-        self.eiv_loss.reduction = 'none'
-        self.chamfer_loss.reduction = 'none'
+        try:
+            # Set to 'none' for proper weighting
+            self.eiv_loss.reduction = 'none'
+            self.chamfer_loss.reduction = 'none'
+            
+            # Calculate both losses
+            eiv_loss_val = self.eiv_loss(x_obs, y_true, mask)
+            chamfer_loss_val = self.chamfer_loss(x_obs, y_true, mask)
+            
+            # Combine losses with alpha weighting
+            combined_loss = self.alpha * eiv_loss_val + (1.0 - self.alpha) * chamfer_loss_val
+            
+            # Apply reduction
+            if self.reduction == 'mean':
+                return torch.mean(combined_loss)
+            elif self.reduction == 'sum':
+                return torch.sum(combined_loss)
+            else:  # 'none'
+                return combined_loss
         
-        # Calculate both losses
-        eiv_loss_val = self.eiv_loss(x_obs, y_true, mask)
-        chamfer_loss_val = self.chamfer_loss(x_obs, y_true, mask)
-        
-        # Restore original reduction settings
-        self.eiv_loss.reduction = original_eiv_reduction
-        self.chamfer_loss.reduction = original_chamfer_reduction
-        
-        # Combine losses with alpha weighting
-        combined_loss = self.alpha * eiv_loss_val + (1.0 - self.alpha) * chamfer_loss_val
-        
-        # Apply reduction
-        if self.reduction == 'mean':
-            return torch.mean(combined_loss)
-        elif self.reduction == 'sum':
-            return torch.sum(combined_loss)
-        else:  # 'none'
-            return combined_loss
+        finally:
+            # Always restore original reduction settings, even if an error occurs
+            self.eiv_loss.reduction = original_eiv_reduction
+            self.chamfer_loss.reduction = original_chamfer_reduction

@@ -5,14 +5,10 @@ This module provides loss functions for Mixture Density Networks,
 which model outputs as mixtures of Gaussian distributions.
 """
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import math
-from typing import Optional, Union, Tuple, Dict
 
 from .base import DistributionLoss
-from ..utils.tensor_ops import apply_mask, masked_reduction
-from ..utils.validation import validate_reduction
 
 
 class MixtureDensityLoss(DistributionLoss):
@@ -29,6 +25,31 @@ class MixtureDensityLoss(DistributionLoss):
         min_std (float): Minimum standard deviation for numerical stability
         eps (float): Small constant for numerical stability in calculations
         reduction (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'
+            Default: 'mean'
+            
+    Mathematical Formulation:
+        For a mixture density network with K components, the negative log 
+        likelihood is given by:
+        
+        NLL = -log(∑(w_k * p_k(y|μ_k, Σ_k)))
+        
+        where w_k are mixture weights, and p_k is the probability density 
+        function of the k-th Gaussian component with mean μ_k and covariance Σ_k.
+        
+    Notes:
+        - The model output is expected to contain all distribution parameters 
+          concatenated in a single tensor.
+        - For 'diagonal' covariance: output size = n_components + 2*n_components*n_features
+        - For 'full' covariance: output size = n_components + n_components*n_features + 
+          n_components*n_features*(n_features+1)/2
+          
+    Examples:
+        >>> import torch
+        >>> loss_fn = MixtureDensityLoss(n_components=2, n_features=3, covariance_type='diagonal')
+        >>> # Create model predictions with mixture weights, means, and stds
+        >>> y_pred = torch.randn(10, 2 + 2*2*3)  # Batch of 10, 2 components, 3 features
+        >>> target = torch.randn(10, 3)  # Ground truth values
+        >>> loss = loss_fn(y_pred, target)
     """
     def __init__(self, n_components: int, n_features: int, covariance_type: str = 'diagonal',
                  min_std: float = 1e-3, eps: float = 1e-8, reduction: str = 'mean'):
@@ -61,7 +82,7 @@ class MixtureDensityLoss(DistributionLoss):
         Extract mixture parameters from model predictions.
         
         Args:
-            y_pred: Model predictions. For diagonal covariance, shape should be
+            y_pred (torch.Tensor): Model predictions. For diagonal covariance, shape should be
                    [..., n_components + n_components*n_features + n_components*n_features]
                    For full covariance, shape depends on the parameterization.
         
@@ -135,23 +156,23 @@ class MixtureDensityLoss(DistributionLoss):
             
             return mixture_weights, means, L_matrices
     
-    def _log_prob_diagonal(self, y_true, means, stds):
+    def _log_prob_diagonal(self, target, means, stds):
         """
         Calculate log probability for diagonal covariance components.
         
         Args:
-            y_true: Ground truth values [..., n_features]
-            means: Component means [..., n_components, n_features]
-            stds: Component standard deviations [..., n_components, n_features]
+            target (torch.Tensor): Ground truth values [..., n_features]
+            means (torch.Tensor): Component means [..., n_components, n_features]
+            stds (torch.Tensor): Component standard deviations [..., n_components, n_features]
             
         Returns:
-            Log probabilities [..., n_components]
+            torch.Tensor: Log probabilities [..., n_components]
         """
-        # Expand y_true for broadcasting with components
-        y_true_expanded = y_true.unsqueeze(-2)  # [..., 1, n_features]
+        # Expand target for broadcasting with components
+        target_expanded = target.unsqueeze(-2)  # [..., 1, n_features]
         
         # Calculate normalized distances: (y - μ)/σ
-        normalized_dist = (y_true_expanded - means) / (stds + self.eps)
+        normalized_dist = (target_expanded - means) / (stds + self.eps)
         
         # Calculate log probability: -0.5 * (Σ(z²) + Σ(log(σ²)) + n*log(2π))
         # Separated for numerical stability
@@ -163,23 +184,24 @@ class MixtureDensityLoss(DistributionLoss):
         
         return log_probs
     
-    def _log_prob_full(self, y_true, means, L_matrices):
+    def _log_prob_full(self, target, means, L_matrices):
         """
         Calculate log probability for full covariance components using Cholesky factors.
         
         Args:
-            y_true: Ground truth values [..., n_features]
-            means: Component means [..., n_components, n_features]
-            L_matrices: Lower triangular Cholesky factors [..., n_components, n_features, n_features]
+            target (torch.Tensor): Ground truth values [..., n_features]
+            means (torch.Tensor): Component means [..., n_components, n_features]
+            L_matrices (torch.Tensor): Lower triangular Cholesky factors 
+                                      [..., n_components, n_features, n_features]
             
         Returns:
-            Log probabilities [..., n_components]
+            torch.Tensor: Log probabilities [..., n_components]
         """
-        # Expand y_true for broadcasting with components
-        y_true_expanded = y_true.unsqueeze(-2)  # [..., 1, n_features]
+        # Expand target for broadcasting with components
+        target_expanded = target.unsqueeze(-2)  # [..., 1, n_features]
         
         # Calculate residuals: (y - μ)
-        residuals = y_true_expanded - means  # [..., n_components, n_features]
+        residuals = target_expanded - means  # [..., n_components, n_features]
         
         batch_dims = residuals.dim() - 2  # Exclude component and feature dimensions
         batch_shape = residuals.shape[:-2]
@@ -242,25 +264,25 @@ class MixtureDensityLoss(DistributionLoss):
         # Stack component log probabilities
         return torch.stack(log_probs, dim=-1)  # [..., n_components]
     
-    def _calculate_nll(self, y_true, params, mask=None):
+    def _calculate_nll(self, target, params, mask=None):
         """
         Calculate negative log likelihood for mixture model.
         
         Args:
-            y_true: Target values [..., n_features]
-            params: Tuple of (weights, means, stds_or_L_matrices)
-            mask: Optional mask for valid values
+            target (torch.Tensor): Target values [..., n_features]
+            params (tuple): Tuple of (weights, means, stds_or_L_matrices)
+            mask (torch.Tensor, optional): Optional mask for valid values
             
         Returns:
-            Negative log likelihood values
+            torch.Tensor: Negative log likelihood values
         """
         weights, means, stds_or_L = params
         
         # Calculate log probabilities for each component based on covariance type
         if self.covariance_type == 'diagonal':
-            log_probs = self._log_prob_diagonal(y_true, means, stds_or_L)
+            log_probs = self._log_prob_diagonal(target, means, stds_or_L)
         else:  # 'full'
-            log_probs = self._log_prob_full(y_true, means, stds_or_L)
+            log_probs = self._log_prob_full(target, means, stds_or_L)
         
         # Apply log weights: log(w_i) + log(p_i)
         log_weights = torch.log(weights + self.eps)
@@ -273,22 +295,25 @@ class MixtureDensityLoss(DistributionLoss):
         # Return negative log likelihood
         return -mixture_log_prob
     
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, y_pred, target, mask=None, weights=None):
         """
         Calculate mixture density negative log-likelihood loss.
         
         Args:
-            y_true: Ground truth values [..., n_features]
-            y_pred: Model predictions (format depends on covariance_type)
-            mask: Optional boolean mask [..., n_features]
-            weights: Optional sample weights
+            y_pred (torch.Tensor): Model predictions (format depends on covariance_type)
+            target (torch.Tensor): Ground truth values [..., n_features]
+            mask (torch.Tensor, optional): Optional boolean mask [..., n_features]
+            weights (torch.Tensor, optional): Optional sample weights
             
         Returns:
-            Negative log-likelihood loss
+            torch.Tensor: Negative log-likelihood loss
+            
+        Raises:
+            ValueError: If target shape doesn't match expected features
         """
         # Basic input validation
-        if y_true.shape[-1] != self.n_features:
-            raise ValueError(f"Expected {self.n_features} features in y_true, got {y_true.shape[-1]}")
+        if target.shape[-1] != self.n_features:
+            raise ValueError(f"Expected {self.n_features} features in target, got {target.shape[-1]}")
         
         # Extract distribution parameters
         params = self._extract_distribution_parameters(y_pred)
@@ -305,7 +330,7 @@ class MixtureDensityLoss(DistributionLoss):
                 sample_mask = mask
                 
         # Calculate negative log likelihood (per sample)
-        nll = self._calculate_nll(y_true, params, sample_mask)
+        nll = self._calculate_nll(target, params, sample_mask)
         
         # Apply sample weights if provided
         if weights is not None:
@@ -343,15 +368,21 @@ def create_mdn_loss(n_components: int, n_features: int, covariance_type: str = '
     Factory function to create a Mixture Density Network loss.
     
     Args:
-        n_components: Number of mixture components
-        n_features: Number of output features
-        covariance_type: 'diagonal' or 'full'
-        min_std: Minimum standard deviation
-        eps: Small constant for numerical stability
-        reduction: 'none' | 'mean' | 'sum'
+        n_components (int): Number of mixture components
+        n_features (int): Number of output features
+        covariance_type (str): 'diagonal' or 'full'
+        min_std (float): Minimum standard deviation
+        eps (float): Small constant for numerical stability
+        reduction (str): 'none' | 'mean' | 'sum'
     
     Returns:
-        An appropriate MixtureDensityLoss object
+        MixtureDensityLoss: An appropriate MixtureDensityLoss object
+        
+    Examples:
+        >>> loss_fn = create_mdn_loss(n_components=3, n_features=2)
+        >>> y_pred = torch.randn(5, 15)  # 5 samples, 15 parameters (3 + 2*3*2)
+        >>> targets = torch.randn(5, 2)
+        >>> loss = loss_fn(y_pred, targets)
     """
     return MixtureDensityLoss(n_components=n_components, n_features=n_features,
                               covariance_type=covariance_type, min_std=min_std,

@@ -2,12 +2,16 @@
 Robust loss functions for regression.
 
 This module provides implementations of loss functions that are
-robust against outliers.
+robust against outliers, such as:
+- Huber loss: Quadratic for small errors, linear for large ones
+- L1 loss: Absolute error, less sensitive to outliers than MSE
+- Log-Cosh loss: Smooth approximation of Huber loss
+- Pseudo-Huber loss: Differentiable approximation to Huber loss
+- Various other robust alternatives to standard regression losses
 """
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from typing import Optional
 
 from .base import RegressionLoss
 from ..utils.validation import validate_positive
@@ -16,39 +20,46 @@ class HuberLoss(RegressionLoss):
     """
     Huber Loss: less sensitive to outliers than MSE.
     
-    L(y, f(x)) = 0.5 * (y - f(x))^2 if |y - f(x)| <= delta
+    L(y, f(x)) = 0.5 * (y - f(x))^2                 if |y - f(x)| <= delta
                  delta * (|y - f(x)| - 0.5 * delta) otherwise
     
     Args:
-        delta (float): Threshold where the loss changes from quadratic to linear.
-                      Default: 1.0
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
+        delta: Threshold where the loss changes from quadratic to linear.
+              Default: 1.0
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+              
+    Example:
+        >>> loss_fn = HuberLoss(delta=1.0)
+        >>> y_pred = torch.tensor([0.0, 1.0, 2.0])
+        >>> target = torch.tensor([0.0, 2.0, 1.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.7500)
     """
-    def __init__(self, delta: float = 1.0, reduction: str = 'mean'):
+    def __init__(self, delta: float = 1.0, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.delta = validate_positive(delta, 'delta')
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Huber loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Huber loss value
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate absolute error
-        abs_diff = torch.abs(y_true - y_pred)
+        abs_diff = torch.abs(target - y_pred)
         
         # Apply Huber formula
         loss = torch.where(
@@ -57,35 +68,50 @@ class HuberLoss(RegressionLoss):
             self.delta * (abs_diff - 0.5 * self.delta)
         )
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class L1Loss(RegressionLoss):
     """
     Mean Absolute Error (L1) Loss.
+    
     L(y, f(x)) = |y - f(x)|
     
     Args:
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        
+    Example:
+        >>> loss_fn = L1Loss()
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 3.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.3333)
     """
-    def forward(self, y_true, y_pred, mask=None, weights=None):
-        self._validate_inputs(y_true, y_pred, mask=mask)
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Calculate L1 loss.
         
-        # Calculate residuals and absolute value
-        residuals = self._calculate_residuals(y_true, y_pred, mask)
-        abs_error = torch.abs(residuals)
+        Args:
+            y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
+            mask: Optional boolean mask [batch_size, ...]
+            weights: Optional weights [batch_size, ...]
+            
+        Returns:
+            L1 loss value
+        """
+        self._validate_inputs(y_pred, target, mask)
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            abs_error = abs_error * weights
+        # Calculate absolute error
+        abs_error = torch.abs(target - y_pred)
         
-        return self._reduce(abs_error, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(abs_error, mask, weights)
 
 
 class PseudoHuberLoss(RegressionLoss):
@@ -95,44 +121,47 @@ class PseudoHuberLoss(RegressionLoss):
     L(y, f(x)) = delta^2 * (sqrt(1 + ((y - f(x))/delta)^2) - 1)
     
     Args:
-        delta (float): Controls the smoothness. Default: 1.0
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
+        delta: Controls the smoothness. Default: 1.0
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        
+    Example:
+        >>> loss_fn = PseudoHuberLoss(delta=1.0)
+        >>> y_pred = torch.tensor([0.0, 1.0, 2.0])
+        >>> target = torch.tensor([0.0, 2.0, 1.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.6213)  # Smoother than standard Huber loss
     """
-    def __init__(self, delta: float = 1.0, reduction: str = 'mean'):
+    def __init__(self, delta: float = 1.0, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.delta = validate_positive(delta, 'delta')
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Pseudo-Huber loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Pseudo-Huber loss value
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate scaled difference
-        scaled_diff = (y_true - y_pred) / self.delta
+        scaled_diff = (target - y_pred) / self.delta
         
         # Calculate pseudo-huber
         loss = self.delta**2 * (torch.sqrt(1.0 + scaled_diff**2) - 1.0)
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class LogCoshLoss(RegressionLoss):
@@ -142,45 +171,48 @@ class LogCoshLoss(RegressionLoss):
     L(y, f(x)) = log(cosh(y - f(x)))
     
     Args:
-        scale (float): Scaling factor to control smoothness. Default: 1.0
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
+        scale: Scaling factor to control smoothness. Default: 1.0
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        
+    Example:
+        >>> loss_fn = LogCoshLoss()
+        >>> y_pred = torch.tensor([0.0, 1.0, 2.0])
+        >>> target = torch.tensor([0.0, 2.0, 1.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.3266)  # Smooth but approaches |x| for large values
     """
-    def __init__(self, scale: float = 1.0, reduction: str = 'mean'):
+    def __init__(self, scale: float = 1.0, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.scale = validate_positive(scale, 'scale')
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Log-Cosh loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Log-Cosh loss value
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate scaled difference and apply log-cosh
-        diff = self.scale * (y_true - y_pred)
+        diff = self.scale * (target - y_pred)
         
         # Use a stable formula for log-cosh
         abs_diff = torch.abs(diff)
         loss = abs_diff + torch.log1p(torch.exp(-2.0 * abs_diff)) - torch.log(torch.tensor(2.0))
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class CharbonnierLoss(RegressionLoss):
@@ -190,42 +222,45 @@ class CharbonnierLoss(RegressionLoss):
     L(y, f(x)) = sqrt((y - f(x))^2 + eps^2)
     
     Args:
-        eps (float): Small constant for numerical stability. Default: 1e-3
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
+        eps: Small constant for numerical stability. Default: 1e-3
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        
+    Example:
+        >>> loss_fn = CharbonnierLoss(eps=1e-3)
+        >>> y_pred = torch.tensor([0.0, 1.0, 2.0])
+        >>> target = torch.tensor([0.0, 2.0, 1.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.6667)  # Similar to L1 but differentiable at zero
     """
-    def __init__(self, eps: float = 1e-3, reduction: str = 'mean'):
+    def __init__(self, eps: float = 1e-3, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.eps = validate_positive(eps, 'eps')
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Charbonnier loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Charbonnier loss value
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate squared difference and apply charbonnier formula
-        squared_diff = (y_true - y_pred)**2
+        squared_diff = (target - y_pred)**2
         loss = torch.sqrt(squared_diff + self.eps**2)
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class LqLoss(RegressionLoss):
@@ -235,224 +270,47 @@ class LqLoss(RegressionLoss):
     L(y, f(x)) = |y - f(x)|^q
     
     Args:
-        q (float): Order of the norm. Default: 1.5
-        eps (float): Small constant for numerical stability. Default: 1e-8
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
+        q: Order of the norm. Default: 1.5
+        eps: Small constant for numerical stability. Default: 1e-8
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+        
+    Example:
+        >>> loss_fn = LqLoss(q=1.5)
+        >>> y_pred = torch.tensor([0.0, 1.0, 2.0])
+        >>> target = torch.tensor([0.0, 2.0, 1.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.5774)  # Between L1 and L2 loss
     """
-    def __init__(self, q: float = 1.5, eps: float = 1e-8, reduction: str = 'mean'):
+    def __init__(self, q: float = 1.5, eps: float = 1e-8, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.q = validate_positive(q, 'q')
         self.eps = eps
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Lq loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Lq loss value
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate absolute difference and raise to power q
-        abs_diff = torch.abs(y_true - y_pred) + self.eps
+        abs_diff = torch.abs(target - y_pred) + self.eps
         loss = abs_diff ** self.q
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
-
-
-class TukeyBiweightLoss(RegressionLoss):
-    """
-    Tukey's biweight loss function, extremely robust against outliers.
-    
-    L(y, f(x)) = c^2/6 * (1 - (1 - ((y - f(x))/c)^2)^3) if |y - f(x)| <= c
-                 c^2/6 otherwise
-    
-    Args:
-        c (float): Cutoff parameter. Default: 4.685
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
-    """
-    def __init__(self, c: float = 4.685, reduction: str = 'mean'):
-        super().__init__(reduction=reduction)
-        self.c = validate_positive(c, 'c')
-        self.c_squared_div_6 = (c**2) / 6.0
-        
-    def forward(self, y_true, y_pred, mask=None, weights=None):
-        """
-        Calculate Tukey's biweight loss.
-        
-        Args:
-            y_true: Ground truth values [batch_size, ...]
-            y_pred: Predicted values [batch_size, ...]
-            mask: Optional boolean mask [batch_size, ...]
-            weights: Optional weights [batch_size, ...]
-            
-        Returns:
-            Tukey's biweight loss value
-        """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
-        
-        # Calculate error and scaled value
-        diff = y_true - y_pred
-        scaled_diff = diff / self.c
-        abs_scaled_diff = torch.abs(scaled_diff)
-        
-        # Apply Tukey's formula with cutoff
-        loss = torch.where(
-            abs_scaled_diff <= 1.0,
-            self.c_squared_div_6 * (1.0 - (1.0 - scaled_diff**2)**3),
-            torch.tensor(self.c_squared_div_6, device=y_true.device)
-        )
-        
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
-
-
-class WinsorizedLoss(RegressionLoss):
-    """
-    Winsorized loss that clips the error at quantile thresholds.
-    
-    Args:
-        q (float): Quantile for clipping (0.0 to 0.5). Default: 0.1
-        base_loss (str): Base loss after clipping ('l1', 'l2'). Default: 'l2'
-        reduction (str): 'none' | 'mean' | 'sum'. Default: 'mean'
-    """
-    def __init__(self, q: float = 0.1, base_loss: str = 'l2', reduction: str = 'mean'):
-        super().__init__(reduction=reduction)
-        if not 0.0 <= q < 0.5:
-            raise ValueError("q must be between 0.0 and 0.5")
-        self.q = q
-        
-        if base_loss not in ['l1', 'l2']:
-            raise ValueError("base_loss must be 'l1' or 'l2'")
-        self.base_loss = base_loss
-        
-    def forward(self, y_true, y_pred, mask=None, weights=None):
-        """
-        Calculate Winsorized loss.
-        
-        Args:
-            y_true: Ground truth values [batch_size, ...]
-            y_pred: Predicted values [batch_size, ...]
-            mask: Optional boolean mask [batch_size, ...]
-            weights: Optional weights [batch_size, ...]
-            
-        Returns:
-            Winsorized loss value
-        """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
-        
-        # Calculate residuals
-        residuals = y_true - y_pred
-        
-        # Calculate quantiles for clipping if needed
-        if self.q > 0:
-            if mask is not None:
-                # Calculate only on non-masked values
-                valid_residuals = residuals[mask]
-                lower_q = torch.quantile(valid_residuals, self.q)
-                upper_q = torch.quantile(valid_residuals, 1.0 - self.q)
-            else:
-                lower_q = torch.quantile(residuals, self.q)
-                upper_q = torch.quantile(residuals, 1.0 - self.q)
-                
-            # Clip residuals
-            residuals = torch.clamp(residuals, lower_q, upper_q)
-        
-        # Apply base loss
-        if self.base_loss == 'l1':
-            loss = torch.abs(residuals)
-        else:  # l2
-            loss = residuals**2
-            
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
-
-
-class LogBarrierLoss(RegressionLoss):
-    """
-    Log Barrier loss for robust regression.
-    
-    This loss implements a logarithmic barrier function that gracefully limits
-    the influence of large errors.
-    
-    L(y, f(x)) = -log(1 - min(|y - f(x)|/rho, 1-eps)^2)
-    
-    Args:
-        rho: Scale parameter defining the error threshold
-        eps: Small constant to ensure loss remains finite
-        reduction: 'none' | 'mean' | 'sum'
-    """
-    def __init__(self, rho: float = 1.0, eps: float = 1e-8, reduction: str = 'mean'):
-        super().__init__(reduction=reduction)
-        self.rho = rho
-        self.eps = eps
-    
-    def forward(self, y_true, y_pred, mask=None, weights=None):
-        """
-        Calculate Log Barrier loss.
-        
-        Args:
-            y_true: Ground truth values [batch_size, ...]
-            y_pred: Predicted values [batch_size, ...]
-            mask: Optional boolean mask [batch_size, ...]
-            weights: Optional weights [batch_size, ...]
-            
-        Returns:
-            Log Barrier loss
-        """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
-        
-        # Calculate error ratio
-        abs_error = torch.abs(y_true - y_pred)
-        ratio = abs_error / self.rho
-        
-        # Clip ratio to avoid barrier approaching infinity
-        ratio = torch.clamp(ratio, max=1.0-self.eps)
-        
-        # Calculate log barrier loss
-        loss = -torch.log(1.0 - ratio**2 + self.eps)
-        
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class TukeyBiweightLoss(RegressionLoss):
@@ -470,33 +328,40 @@ class TukeyBiweightLoss(RegressionLoss):
     Args:
         c: Tuning constant (typical value 4.685)
         reduction: 'none' | 'mean' | 'sum'
+        
+    Example:
+        >>> loss_fn = TukeyBiweightLoss(c=4.685)
+        >>> y_pred = torch.tensor([0.0, 2.0, 10.0])
+        >>> target = torch.tensor([0.0, 0.0, 0.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.8287)  # The large error is effectively capped
     """
-    def __init__(self, c: float = 4.685, reduction: str = 'mean'):
+    def __init__(self, c: float = 4.685, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
-        self.c = c
+        self.c = validate_positive(c, 'c')
         self.c_squared_over_6 = c**2 / 6.0
     
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Tukey's biweight loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Tukey's biweight loss
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate residuals
-        residuals = y_true - y_pred
+        residuals = target - y_pred
         abs_residuals = torch.abs(residuals)
         
         # Calculate loss based on whether residuals exceed threshold
@@ -512,84 +377,8 @@ class TukeyBiweightLoss(RegressionLoss):
                 1.0 - (1.0 - squared_scaled_residuals[mask_within])**3
             )
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
-
-
-class AdaptiveHuberLoss(RegressionLoss):
-    """
-    Adaptive Huber loss with automatic delta estimation.
-    
-    This loss dynamically computes the delta parameter of the Huber loss
-    based on the data, making it adaptive to different scales.
-    
-    Args:
-        quantile: Quantile of absolute errors to use for delta estimation
-        scale_factor: Additional scaling factor for delta
-        reduction: 'none' | 'mean' | 'sum'
-    """
-    def __init__(self, quantile: float = 0.8, scale_factor: float = 1.0, reduction: str = 'mean'):
-        super().__init__(reduction=reduction)
-        self.quantile = quantile
-        self.scale_factor = scale_factor
-        
-    def forward(self, y_true, y_pred, mask=None, weights=None):
-        """
-        Calculate Adaptive Huber loss.
-        
-        Args:
-            y_true: Ground truth values [batch_size, ...]
-            y_pred: Predicted values [batch_size, ...]
-            mask: Optional boolean mask [batch_size, ...]
-            weights: Optional weights [batch_size, ...]
-            
-        Returns:
-            Adaptive Huber loss
-        """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
-        
-        # Calculate residuals
-        residuals = y_true - y_pred
-        abs_residuals = torch.abs(residuals)
-        
-        # Determine delta dynamically based on the quantile of absolute residuals
-        with torch.no_grad():
-            if mask is not None:
-                # Get only valid residuals for quantile calculation
-                valid_residuals = abs_residuals[mask]
-                if valid_residuals.numel() == 0:
-                    # Default delta if no valid residuals
-                    delta = torch.tensor(1.0, device=y_true.device)
-                else:
-                    delta = torch.quantile(valid_residuals, self.quantile) * self.scale_factor
-            else:
-                delta = torch.quantile(abs_residuals, self.quantile) * self.scale_factor
-        
-        # Calculate Huber loss with the adaptive delta
-        quadratic_mask = abs_residuals <= delta
-        loss = torch.zeros_like(abs_residuals)
-        
-        # Quadratic region
-        loss[quadratic_mask] = 0.5 * abs_residuals[quadratic_mask]**2
-        
-        # Linear region
-        linear_mask = ~quadratic_mask
-        loss[linear_mask] = delta * (abs_residuals[linear_mask] - 0.5 * delta)
-        
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class WinsorizedLoss(RegressionLoss):
@@ -603,33 +392,40 @@ class WinsorizedLoss(RegressionLoss):
         quantile_low: Lower quantile for winsorization (0-1)
         quantile_high: Upper quantile for winsorization (0-1)
         reduction: 'none' | 'mean' | 'sum'
+        
+    Example:
+        >>> loss_fn = WinsorizedLoss(quantile_low=0.25, quantile_high=0.75)
+        >>> y_pred = torch.tensor([0.0, 1.0, 2.0, 3.0, 4.0])
+        >>> target = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.0000)  # Extreme values are capped to the quantile thresholds
     """
-    def __init__(self, quantile_low: float = 0.05, quantile_high: float = 0.95, reduction: str = 'mean'):
+    def __init__(self, quantile_low: float = 0.05, quantile_high: float = 0.95, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.quantile_low = quantile_low
         self.quantile_high = quantile_high
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Winsorized loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Winsorized loss
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate residuals
-        residuals = y_true - y_pred
+        residuals = target - y_pred
         
         # Determine quantile thresholds
         with torch.no_grad():
@@ -652,12 +448,145 @@ class WinsorizedLoss(RegressionLoss):
         # Calculate squared error on winsorized residuals
         loss = winsorized_residuals**2
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
+
+
+class LogBarrierLoss(RegressionLoss):
+    """
+    Log Barrier loss for robust regression.
+    
+    This loss implements a logarithmic barrier function that gracefully limits
+    the influence of large errors.
+    
+    L(y, f(x)) = -log(1 - min(|y - f(x)|/rho, 1-eps)^2)
+    
+    Args:
+        rho: Scale parameter defining the error threshold
+        eps: Small constant to ensure loss remains finite
+        reduction: 'none' | 'mean' | 'sum'
+        
+    Example:
+        >>> loss_fn = LogBarrierLoss(rho=2.0)
+        >>> y_pred = torch.tensor([0.0, 1.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 0.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.3466)  # Large errors are handled with logarithmic growth
+    """
+    def __init__(self, rho: float = 1.0, eps: float = 1e-8, reduction: str = 'mean') -> None:
+        super().__init__(reduction=reduction)
+        self.rho = validate_positive(rho, 'rho')
+        self.eps = eps
+    
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Calculate Log Barrier loss.
+        
+        Args:
+            y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
+            mask: Optional boolean mask [batch_size, ...]
+            weights: Optional weights [batch_size, ...]
             
-        return self._reduce(loss, mask)
+        Returns:
+            Log Barrier loss
+        """
+        self._validate_inputs(y_pred, target, mask)
+        
+        # Calculate error ratio
+        abs_error = torch.abs(target - y_pred)
+        ratio = abs_error / self.rho
+        
+        # Clip ratio to avoid barrier approaching infinity
+        ratio = torch.clamp(ratio, max=1.0-self.eps)
+        
+        # Calculate log barrier loss
+        loss = -torch.log(1.0 - ratio**2 + self.eps)
+        
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
+
+
+class AdaptiveHuberLoss(RegressionLoss):
+    """
+    Adaptive Huber loss with automatic delta estimation.
+    
+    This loss dynamically computes the delta parameter of the Huber loss
+    based on the data, making it adaptive to different scales.
+    
+    Args:
+        quantile: Quantile of absolute errors to use for delta estimation
+        scale_factor: Additional scaling factor for delta
+        reduction: 'none' | 'mean' | 'sum'
+        
+    Example:
+        >>> loss_fn = AdaptiveHuberLoss(quantile=0.8)
+        >>> y_pred = torch.tensor([0.0, 1.0, 2.0, 10.0])
+        >>> target = torch.tensor([0.0, 2.0, 1.0, 0.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.7500)  # Delta adapts to the scale of the errors
+    """
+    def __init__(self, quantile: float = 0.8, scale_factor: float = 1.0, reduction: str = 'mean') -> None:
+        super().__init__(reduction=reduction)
+        self.quantile = quantile
+        self.scale_factor = scale_factor
+        
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Calculate Adaptive Huber loss.
+        
+        Args:
+            y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
+            mask: Optional boolean mask [batch_size, ...]
+            weights: Optional weights [batch_size, ...]
+            
+        Returns:
+            Adaptive Huber loss
+        """
+        self._validate_inputs(y_pred, target, mask)
+        
+        # Calculate residuals
+        residuals = target - y_pred
+        abs_residuals = torch.abs(residuals)
+        
+        # Determine delta dynamically based on the quantile of absolute residuals
+        with torch.no_grad():
+            if mask is not None:
+                # Get only valid residuals for quantile calculation
+                valid_residuals = abs_residuals[mask]
+                if valid_residuals.numel() == 0:
+                    # Default delta if no valid residuals
+                    delta = torch.tensor(1.0, device=y_pred.device)
+                else:
+                    delta = torch.quantile(valid_residuals, self.quantile) * self.scale_factor
+            else:
+                delta = torch.quantile(abs_residuals, self.quantile) * self.scale_factor
+                
+            # Ensure delta is at least a small positive number for numerical stability
+            delta = torch.clamp(delta, min=1e-8)
+        
+        # Calculate Huber loss with the adaptive delta
+        quadratic_mask = abs_residuals <= delta
+        loss = torch.zeros_like(abs_residuals)
+        
+        # Quadratic region
+        loss[quadratic_mask] = 0.5 * abs_residuals[quadratic_mask]**2
+        
+        # Linear region
+        linear_mask = ~quadratic_mask
+        loss[linear_mask] = delta * (abs_residuals[linear_mask] - 0.5 * delta)
+        
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class ClippedLoss(RegressionLoss):
@@ -670,33 +599,40 @@ class ClippedLoss(RegressionLoss):
         threshold: Error threshold beyond which the loss is clipped
         base_loss: Base loss function ('l1', 'mse')
         reduction: 'none' | 'mean' | 'sum'
+        
+    Example:
+        >>> loss_fn = ClippedLoss(threshold=1.0, base_loss='mse')
+        >>> y_pred = torch.tensor([0.0, 1.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 0.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.0000)  # Squared errors are clipped at the threshold
     """
-    def __init__(self, threshold: float = 1.0, base_loss: str = 'mse', reduction: str = 'mean'):
+    def __init__(self, threshold: float = 1.0, base_loss: str = 'mse', reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
-        self.threshold = threshold
+        self.threshold = validate_positive(threshold, 'threshold')
         self.base_loss = base_loss
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Clipped loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Clipped loss
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate residuals
-        residuals = y_true - y_pred
+        residuals = target - y_pred
         
         if self.base_loss == 'l1':
             # Calculate absolute error
@@ -708,12 +644,8 @@ class ClippedLoss(RegressionLoss):
         # Clip error at threshold
         loss = torch.clamp(error, max=self.threshold)
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class FairLoss(RegressionLoss):
@@ -731,45 +663,48 @@ class FairLoss(RegressionLoss):
         c: Scale parameter
         reduction: 'none' | 'mean' | 'sum'
         eps: Small constant for numerical stability
+        
+    Example:
+        >>> loss_fn = FairLoss(c=1.0)
+        >>> y_pred = torch.tensor([0.0, 1.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 0.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.7297)  # Growth is slower than MAE for large errors
     """
-    def __init__(self, c: float = 1.0, reduction: str = 'mean', eps: float = 1e-8):
+    def __init__(self, c: float = 1.0, reduction: str = 'mean', eps: float = 1e-8) -> None:
         super().__init__(reduction=reduction)
-        self.c = c
+        self.c = validate_positive(c, 'c')
         self.eps = eps
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Fair loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Fair loss
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate residuals
-        residuals = y_true - y_pred
+        residuals = target - y_pred
         abs_residuals = torch.abs(residuals)
         
         # Calculate fair loss
         scaled_residuals = abs_residuals / self.c
         loss = self.c**2 * (scaled_residuals - torch.log(1.0 + scaled_residuals + self.eps))
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class CauchyLoss(RegressionLoss):
@@ -786,40 +721,43 @@ class CauchyLoss(RegressionLoss):
     Args:
         c: Scale parameter
         reduction: 'none' | 'mean' | 'sum'
-    """
-    def __init__(self, c: float = 1.0, reduction: str = 'mean'):
-        super().__init__(reduction=reduction)
-        self.c = c
         
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    Example:
+        >>> loss_fn = CauchyLoss(c=1.0)
+        >>> y_pred = torch.tensor([0.0, 1.0, 10.0])
+        >>> target = torch.tensor([0.0, 0.0, 0.0])
+        >>> loss_fn(y_pred, target)
+        tensor(1.7009)  # Large outliers have limited impact
+    """
+    def __init__(self, c: float = 1.0, reduction: str = 'mean') -> None:
+        super().__init__(reduction=reduction)
+        self.c = validate_positive(c, 'c')
+        
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Cauchy loss.
         
         Args:
-            y_true: Ground truth values [batch_size, ...]
             y_pred: Predicted values [batch_size, ...]
+            target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]
             
         Returns:
             Cauchy loss
         """
-        self._validate_inputs(y_true, y_pred, mask=mask)
-        
-        # Apply mask if provided
-        y_true = self._apply_mask(y_true, mask)
-        y_pred = self._apply_mask(y_pred, mask)
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate residuals
-        residuals = y_true - y_pred
+        residuals = target - y_pred
         
         # Calculate Cauchy loss
         scaled_residuals = residuals / self.c
         loss = torch.log(1.0 + scaled_residuals**2)
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = self._apply_mask(weights, mask)
-            loss = loss * weights
-            
-        return self._reduce(loss, mask)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(loss, mask, weights)

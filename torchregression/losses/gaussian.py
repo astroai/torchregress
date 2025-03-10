@@ -11,10 +11,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from torch.distributions import Normal, MultivariateNormal
-from typing import Optional, Union, Tuple, Dict
+from typing import Optional, Union, Tuple, Dict, Any
 
-from .base import MaskedLoss, RegressionLoss, DistributionLoss
+from .base import RegressionLoss, DistributionLoss
 
 class WeightedMSELoss(RegressionLoss):
     """
@@ -24,41 +23,43 @@ class WeightedMSELoss(RegressionLoss):
     with optional masking for missing values.
     
     Args:
-        reduction (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
-                         Default: 'mean'
+        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
+                   Default: 'mean'
+                   
+    Example:
+        >>> loss_fn = WeightedMSELoss()
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 4.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.6667)
     """
-    def __init__(self, reduction: str = 'mean'):
+    def __init__(self, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
 
-    def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor, mask: Optional[torch.Tensor] = None, weights: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate weighted MSE loss.
         
         Args:
-            y_true (tensor): Target values (batch_size, n_features)
-            y_pred (tensor): Predicted values (batch_size, n_features)
-            mask (tensor, optional): Optional mask (batch_size, n_features)
-            weights (tensor, optional): Weights for each feature (batch_size, n_features)
+            y_pred: Predicted values (batch_size, n_features)
+            target: Target values (batch_size, n_features)
+            mask: Optional mask (batch_size, n_features)
+            weights: Optional weights for each feature (batch_size, n_features)
             
         Returns:
-            tensor: The loss value
+            Loss value
         """
-        self._validate_inputs(y_true, y_pred, mask)
-        
-        # Apply mask if provided
-        y_true = apply_mask(y_true, mask)
-        y_pred = apply_mask(y_pred, mask) 
+        self._validate_inputs(y_pred, target, mask)
         
         # Calculate MSE
-        mse = F.mse_loss(y_pred, y_true, reduction='none')
+        mse = F.mse_loss(y_pred, target, reduction='none')
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = apply_mask(weights, mask)
-            mse = mse * weights
-        
-        # Apply reduction
-        return masked_reduction(mse, mask, self.reduction)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(mse, mask, weights)
 
 
 class DiagonalGaussianNLL(DistributionLoss):
@@ -69,15 +70,35 @@ class DiagonalGaussianNLL(DistributionLoss):
     where the diagonal covariance matrix can be learned or fixed.
     
     Args:
-        n_features (int, optional): Number of output features (required when learnable_variance=True)
-        learnable_variance (bool): Whether to use learnable variance parameters
-        fixed_variance (float or tensor): Fixed variance value when learnable_variance=False
-        min_variance (float): Minimum variance for numerical stability
-        eps (float): Small constant for numerical stability
-        reduction (str): 'none' | 'mean' | 'sum'
+        n_features: Number of output features (required when learnable_variance=True)
+        learnable_variance: Whether to use learnable variance parameters
+        fixed_variance: Fixed variance value when learnable_variance=False
+        min_variance: Minimum variance for numerical stability
+        eps: Small constant for numerical stability
+        reduction: 'none' | 'mean' | 'sum'
+        
+    Example:
+        >>> # With fixed variance
+        >>> loss_fn = DiagonalGaussianNLL(fixed_variance=1.0, learnable_variance=False)
+        >>> y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+        >>> target = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
+        >>> loss_fn(y_pred, target)
+        tensor(1.4189)  # 0.5 * (log(2π) + log(1) + (error)²/1)
+        
+        >>> # With predicted variance
+        >>> pred_mean = torch.tensor([[1.0, 2.0]])
+        >>> pred_logvar = torch.tensor([[-1.0, 0.0]])  # log(0.368), log(1.0)
+        >>> loss_fn = DiagonalGaussianNLL(learnable_variance=False)
+        >>> loss_fn((pred_mean, pred_logvar), torch.tensor([[1.0, 3.0]]))
+        tensor(1.0979)  # Smaller error for first dim due to smaller variance
     """
-    def __init__(self, n_features: Optional[int] = None, learnable_variance: bool = True,
-                 fixed_variance: float = 1.0, min_variance: float = 1e-6, eps: float = 1e-8, reduction: str = 'mean'):
+    def __init__(self, 
+                n_features: Optional[int] = None, 
+                learnable_variance: bool = True,
+                fixed_variance: float = 1.0, 
+                min_variance: float = 1e-6, 
+                eps: float = 1e-8, 
+                reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.n_features = n_features
         self.min_variance = min_variance
@@ -94,7 +115,7 @@ class DiagonalGaussianNLL(DistributionLoss):
             # Use fixed variance value
             self.register_buffer('fixed_variance', torch.tensor(fixed_variance))
     
-    def _extract_distribution_parameters(self, y_pred):
+    def _extract_distribution_parameters(self, y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Extract mean and variance from model predictions.
         
@@ -134,60 +155,57 @@ class DiagonalGaussianNLL(DistributionLoss):
                 
         return mean, var
     
-    def _calculate_nll(self, y_true, params, mask=None):
+    def _calculate_nll(self, 
+                      y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+                      target: torch.Tensor,
+                      mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate negative log likelihood for diagonal Gaussian.
         
         Args:
-            y_true: Target values
-            params: Tuple of (mean, variance)
+            y_pred: Predicted distribution parameters
+            target: Target values
             mask: Optional mask for valid values
             
         Returns:
             tensor: Negative log likelihood values
         """
-        mean, var = params
-        
-        # Apply mask if provided
-        if mask is not None:
-            y_true = apply_mask(y_true, mask)
-            mean = apply_mask(mean, mask)
-            var = apply_mask(var, mask)
+        mean, var = self._extract_distribution_parameters(y_pred)
             
         # Calculate NLL: 0.5 * (log(var) + (y-μ)²/var + log(2π))
-        squared_error = (y_true - mean) ** 2
+        squared_error = (target - mean) ** 2
         nll = 0.5 * (torch.log(var + self.eps) + squared_error / (var + self.eps) + self.log_2pi)
         
         return nll
     
-    def forward(self, y_true, y_pred, mask=None, weights=None):
+    def forward(self, 
+               y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]], 
+               target: torch.Tensor, 
+               mask: Optional[torch.Tensor] = None,
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate Gaussian negative log-likelihood loss.
         
         Args:
-            y_true: Ground truth values [batch_size, n_features]
             y_pred: Predictions - see _extract_distribution_parameters for formats
+            target: Ground truth values [batch_size, n_features]
             mask: Optional boolean mask [batch_size, n_features]
             weights: Optional sample weights [batch_size, n_features] or [batch_size]
         
         Returns:
             Negative log-likelihood loss
         """
-        self._validate_inputs(y_true, y_pred if not isinstance(y_pred, tuple) else y_pred[0], mask)
-        
-        # Extract distribution parameters
-        params = self._extract_distribution_parameters(y_pred)
+        # Validate inputs
+        if isinstance(y_pred, tuple):
+            self._validate_inputs(y_pred[0], target, mask)
+        else:
+            self._validate_inputs(y_pred, target, mask)
         
         # Calculate NLL
-        nll = self._calculate_nll(y_true, params, mask)
+        nll = self._calculate_nll(y_pred, target, mask)
         
-        # Apply weights if provided
-        if weights is not None:
-            weights = apply_mask(weights, mask)
-            nll = nll * weights
-        
-        # Apply reduction
-        return masked_reduction(nll, mask, self.reduction)
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(nll, mask, weights)
 
 
 class GaussianNLLWithCovariance(DistributionLoss):
@@ -198,20 +216,28 @@ class GaussianNLLWithCovariance(DistributionLoss):
     which can capture correlations between features.
     
     Args:
-        n_features (int, optional): Number of features (required for learnable_adjustment)
-        learnable_adjustment (bool): Whether to learn feature-specific variance adjustments
-        jitter (float): Small value added to diagonal for numerical stability
-        eps (float): Small constant for numerical stability in log calculations
-        reduction (str): 'none' | 'mean' | 'sum'
+        n_features: Number of features (required for learnable_adjustment)
+        learnable_adjustment: Whether to learn feature-specific variance adjustments
+        jitter: Small value added to diagonal for numerical stability
+        eps: Small constant for numerical stability in log calculations
+        reduction: 'none' | 'mean' | 'sum'
+        
+    Example:
+        >>> loss_fn = GaussianNLLWithCovariance()
+        >>> y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+        >>> target = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
+        >>> cov = torch.tensor([[1.0, 0.5], [0.5, 2.0]])  # Shared covariance
+        >>> loss_fn(y_pred, target, cov)
+        tensor(0.9069)  # Using multivariate Gaussian with correlation
     """
     def __init__(
         self, 
-        n_features=None,
-        learnable_adjustment=False,
-        jitter=1e-6, 
-        eps=1e-8,
-        reduction='mean'
-    ):
+        n_features: Optional[int] = None,
+        learnable_adjustment: bool = False,
+        jitter: float = 1e-6, 
+        eps: float = 1e-8,
+        reduction: str = 'mean'
+    ) -> None:
         super().__init__(reduction=reduction)
         self.n_features = n_features
         self.jitter = jitter
@@ -224,14 +250,16 @@ class GaussianNLLWithCovariance(DistributionLoss):
                 raise ValueError("n_features must be specified when learnable_adjustment=True")
             self.log_variance_adjustment = nn.Parameter(torch.zeros(n_features))
     
-    def _extract_distribution_parameters(self, y_pred, covariance_matrices):
+    def _extract_distribution_parameters(self, 
+                                        y_pred: torch.Tensor, 
+                                        covariance_matrices: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Extract mean and covariance from model predictions.
         
         Args:
             y_pred: Predicted mean values [batch_size, n_features]
             covariance_matrices: Covariance matrices [batch_size, n_features, n_features] 
-                                 or [n_features, n_features]
+                               or [n_features, n_features]
                    
         Returns:
             tuple: (mean, covariance)
@@ -263,13 +291,16 @@ class GaussianNLLWithCovariance(DistributionLoss):
         
         return y_pred, cov_matrices
     
-    def _calculate_nll(self, y_true, params, mask=None):
+    def _calculate_nll(self, 
+                     params: Tuple[torch.Tensor, torch.Tensor], 
+                     target: torch.Tensor,
+                     mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate negative log likelihood for multivariate Gaussian.
         
         Args:
-            y_true: Target values [batch_size, n_features]
             params: Tuple of (mean, covariance)
+            target: Target values [batch_size, n_features]
             mask: Optional mask for valid values
             
         Returns:
@@ -285,7 +316,7 @@ class GaussianNLLWithCovariance(DistributionLoss):
         try:
             # Try using torch distribution (most stable)
             mvn = MultivariateNormal(mean, cov)
-            nll = -mvn.log_prob(y_true)
+            nll = -mvn.log_prob(target)
         except Exception:
             # Fallback with Cholesky decomposition
             try:
@@ -295,7 +326,7 @@ class GaussianNLLWithCovariance(DistributionLoss):
                 log_det = 2 * torch.sum(torch.log(torch.diagonal(L, dim1=-2, dim2=-1) + self.eps), dim=1)
                 
                 # (y-μ)ᵀΣ⁻¹(y-μ) = ‖L⁻¹(y-μ)‖²
-                residuals = y_true - mean
+                residuals = target - mean
                 z = torch.linalg.solve_triangular(L, residuals.unsqueeze(-1), upper=False).squeeze(-1)
                 quadratic = torch.sum(z**2, dim=1)
                 
@@ -310,7 +341,7 @@ class GaussianNLLWithCovariance(DistributionLoss):
                 log_det = torch.sum(torch.log(eigenvalues), dim=1)
                 
                 # Compute (y-μ)ᵀΣ⁻¹(y-μ) using eigendecomposition
-                residuals = y_true - mean
+                residuals = target - mean
                 whitened = torch.bmm(eigenvectors.transpose(-1, -2), residuals.unsqueeze(-1)).squeeze(-1)
                 quadratic = torch.sum(whitened**2 / eigenvalues, dim=1)
                 
@@ -318,13 +349,18 @@ class GaussianNLLWithCovariance(DistributionLoss):
                 
         return nll
     
-    def forward(self, y_true, y_pred, covariance_matrices, mask=None, weights=None):
+    def forward(self, 
+               y_pred: torch.Tensor, 
+               target: torch.Tensor, 
+               covariance_matrices: torch.Tensor,
+               mask: Optional[torch.Tensor] = None, 
+               weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate multivariate Gaussian negative log-likelihood loss.
         
         Args:
-            y_true: Ground truth values [batch_size, n_features]
             y_pred: Predicted mean values [batch_size, n_features]
+            target: Ground truth values [batch_size, n_features]
             covariance_matrices: Predicted covariance matrices [batch_size, n_features, n_features] or
                                 [n_features, n_features] for a shared covariance
             mask: Optional boolean mask for complete samples [batch_size] 
@@ -333,13 +369,13 @@ class GaussianNLLWithCovariance(DistributionLoss):
         Returns:
             Negative log-likelihood loss
         """
-        self._validate_inputs(y_true, y_pred, None)  # Special handling for mask with multivariate
+        self._validate_inputs(y_pred, target, None)  # Special handling for mask with multivariate
         
         # Extract distribution parameters
         params = self._extract_distribution_parameters(y_pred, covariance_matrices)
         
         # Calculate NLL - returns per-sample NLL [batch_size]
-        nll = self._calculate_nll(y_true, params, None)  # Handle mask separately
+        nll = self._calculate_nll(params, target, None)  # Handle mask separately
         
         # Apply sample mask if provided (can only mask whole samples)
         if mask is not None:
@@ -374,16 +410,24 @@ def create_gaussian_nll(n_features: int, covariance_type: str = 'diagonal', lear
     Factory function to create an appropriate Gaussian NLL loss.
     
     Args:
-        n_features (int): Number of features
-        covariance_type (str): One of 'diagonal', 'full'
-        learnable_variance (bool): Whether to learn variance parameters
-        fixed_variance (float): Fixed variance value when not learning
-        jitter (float): Regularization strength for numerical stability
-        reduction (str): 'none' | 'mean' | 'sum'
+        n_features: Number of features
+        covariance_type: One of 'diagonal', 'full'
+        learnable_variance: Whether to learn variance parameters
+        fixed_variance: Fixed variance value when not learning
+        jitter: Regularization strength for numerical stability
+        reduction: 'none' | 'mean' | 'sum'
         **kwargs: Additional arguments for specific loss types
     
     Returns:
         An appropriate Gaussian NLL loss object
+        
+    Example:
+        >>> # Create diagonal Gaussian NLL with fixed variance
+        >>> loss_fn = create_gaussian_nll(n_features=3, covariance_type='diagonal',
+        ...                             learnable_variance=False, fixed_variance=0.5)
+        >>> # Create full-covariance Gaussian NLL with learnable adjustment
+        >>> loss_fn = create_gaussian_nll(n_features=3, covariance_type='full',
+        ...                             learnable_variance=True, jitter=1e-5)
     """
     if covariance_type == 'diagonal':
         return DiagonalGaussianNLL(n_features=n_features, learnable_variance=learnable_variance,

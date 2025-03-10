@@ -2,15 +2,24 @@
 Label handling utilities.
 
 This module provides functions for encoding, decoding, and manipulating
-label data.
+label data with PyTorch tensors. While similar functionality exists in libraries 
+like scikit-learn, these implementations are tensor-native and optimized for
+integration with PyTorch regression models.
 """
 import torch
 import torch.nn.functional as F
-from typing import Optional, Union
+import numpy as np
+from typing import Optional, Union, Tuple, List, Dict
+
+# Basic encoding/decoding functions
 
 def encode_onehot(labels: torch.Tensor, num_classes: Optional[int] = None) -> torch.Tensor:
     """
     Convert class indices to one-hot encodings.
+    
+    While similar to torch.nn.functional.one_hot, this implementation
+    handles arbitrary input shapes and automatically determines the
+    number of classes when not provided.
     
     Args:
         labels: Class indices of shape [...] with integer values in [0, num_classes-1]
@@ -53,6 +62,10 @@ def label_smoothing(onehot: torch.Tensor, alpha: float = 0.1) -> torch.Tensor:
     """
     Apply label smoothing to one-hot encoded labels.
     
+    While torch.nn.CrossEntropyLoss supports label_smoothing, this standalone
+    function allows applying smoothing to any one-hot tensor for flexibility
+    in custom loss functions.
+    
     Args:
         onehot: One-hot encoded tensor
         alpha: Smoothing factor in [0, 1]
@@ -77,9 +90,6 @@ def soft_to_hard_labels(soft_labels: torch.Tensor, dim: int = -1) -> torch.Tenso
     indices = torch.argmax(soft_labels, dim=dim)
     return F.one_hot(indices, num_classes=soft_labels.shape[dim]).float()
 
-from typing import List, Optional, Tuple, Union
-import torch
-import torch.nn.functional as F
 
 def combine_binary_average(labels: torch.Tensor, dim: int = 0) -> torch.Tensor:
     """
@@ -128,6 +138,11 @@ def combine_dawid_skene(
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Implements the Dawid-Skene model for aggregating annotations from multiple annotators.
+    
+    Note:
+        While libraries like 'crowdkit' offer Dawid-Skene implementations,
+        this version is PyTorch tensor-native for seamless integration with
+        deep learning workflows without numpy conversions.
 
     This implementation uses an iterative Expectation-Maximization (EM) algorithm
     to estimate the true labels and the confusion matrices of the annotators.
