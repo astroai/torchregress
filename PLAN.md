@@ -125,34 +125,67 @@ This document outlines the detailed implementation plan for TorchRegression 0.1.
 ### 5. Package Infrastructure
 
 14. **Update Package Metadata**
-    - [ ] Complete package version information
+    - [X] Complete package version information in pyproject.toml
     - [ ] Update README with completed features
     - [ ] Ensure proper imports in `__init__.py` files
-    - Files to change: `setup.py`, `README.md`, `__init__.py` files
+    - Files to change: `pyproject.toml`, `README.md`, `__init__.py` files
     - Priority: **MEDIUM**
 
-15. **Continuous Integration Setup**
-    - [ ] Set up CI workflow for tests
-    - [ ] Add code coverage reporting
-    - [ ] Configure automatic documentation building
-    - Files to create/change: CI configuration files
-    - Priority: **LOW**
+15. **Modern Packaging Setup**
+    - [X] Update to modern Python packaging using PEP 621 (pyproject.toml)
+    - [X] Configure optional dependencies for different use cases
+    - [X] Remove redundant files (setup.py, requirements.txt, pytest.ini)
+    - Files to change: `pyproject.toml`
+    - Priority: **MEDIUM**
 
-### 6. Deferred to Version 0.2.0
+### 6. Metrics
 
-1. **High-Level Wrappers**
-   - [ ] Refactor the experimental wrappers to follow the standardized API
-   - [ ] Properly document all wrapper functions with examples
-   - [ ] Create integration tests for all wrapper functions
-   - Files to change: `experimental/wrappers.py` → `wrappers.py`
-   - Priority: **MEDIUM**
+16. **Update Core Metrics**
+    - [ ] Audit existing metrics code for API consistency
+    - [ ] Standardize parameter naming (y_pred first, consistent with losses)
+    - [ ] Ensure proper error handling and validation
+    - [ ] Add missing type hints and docstrings
+    - [ ] Update tests to match revised API
+    - Files to change: `metrics/point.py`, `metrics/distribution.py`, `metrics/interval.py`, `metrics/calibration.py`, `metrics/ood.py`, `metrics/utils.py`, `tests/test_metrics.py`
+    - Priority: **HIGH**
 
-2. **Loss builder system**
-3. **Registration system for custom losses**
-4. **Sophisticated Error-in-Variables (EIV) losses**
-5. **PyTorch Lightning integration** 
-6. **Advanced loss functions (Barron, censored regression, etc.)**
-7. **More uncertainty estimation tools**
+### 7. Visualization & Documentation
+
+17. **Implement Visualization Tools**
+    - [ ] Create diagnostic plotting utilities
+      - [ ] Residual plots (scatter, histogram, QQ plots)
+      - [ ] Calibration plots (reliability diagrams)
+      - [ ] Uncertainty visualization (prediction intervals, ensemble variation)
+      - [ ] Distribution comparison plots (predicted vs. actual)
+    - [ ] Create training monitoring plots
+      - [ ] Learning curve visualization
+      - [ ] Validation metric tracking
+      - [ ] Early stopping visualization
+    - [ ] Create results visualization tools
+      - [ ] Performance comparison plots
+      - [ ] Parameter sensitivity analysis
+      - [ ] Feature importance plots
+    - Files to create: `viz/diagnostic.py`, `viz/monitoring.py`, `viz/results.py`, `viz/utils.py`
+    - Priority: **MEDIUM**
+
+18. **Create mkdocs Documentation**
+    - [ ] Set up mkdocs configuration and structure
+      - [ ] Create `mkdocs.yml` configuration file
+      - [ ] Configure navigation, theme, and plugins
+      - [ ] Set up automatic API documentation generation
+    - [ ] Develop comprehensive mathematical documentation
+      - [ ] Core loss functions with equations and derivations
+      - [ ] Uncertainty estimation techniques
+      - [ ] Metrics with proper mathematical notation
+      - [ ] Statistical interpretations of different losses and metrics
+    - [ ] Create usage documentation
+      - [ ] Getting started guide with installation instructions
+      - [ ] Basic and advanced usage examples
+      - [ ] When to use each loss function
+      - [ ] How to interpret different metrics
+      - [ ] Recommended combinations for different problems
+    - Files to create: `mkdocs.yml`, `docs/index.md`, `docs/losses/index.md`, `docs/metrics/index.md`, `docs/examples/index.md`, `docs/math/formulations.md`, `docs/usage/practical_usage.md`
+    - Priority: **HIGH**
 
 ## File Change Order (Implementation Sequence)
 
@@ -166,17 +199,56 @@ This document outlines the detailed implementation plan for TorchRegression 0.1.
 8. `losses/rag.py`, `losses/mdn.py`, `losses/nflows.py`, `losses/eiv.py`: Advanced losses with uncertainty handling
 9. `losses/eiv.py`, standard error-in-variables models
 10. `ensemble/ensemble.py`, ensemble algorithms
-11. Test files for each modified loss
-12. Example files
-13. Package metadata files
+11. `metrics/*.py` - Review and update all metrics modules
+12. `viz/*.py` - Implement visualization utilities
+13. Test files for each modified loss and metrics
+14. Example files 
+15. `mkdocs.yml` - MkDocs configuration
+16. `docs/` - Documentation files for mkdocs
+17. Package metadata files
 
-## Deferring to Later Releases
+## Deferred to Version 0.2.0
 
-The following items are explicitly deferred to post-0.1.0 releases:
+The following items are explicitly deferred to version 0.2.0 or later:
 
-1. Loss builder system
-2. Registration system for custom losses
-3. Sophisticated Error-in-Variables (EIV) losses
-4. PyTorch Lightning integration
-5. Advanced loss functions (Barron, censored regression, etc.)
-6. More uncertainty estimation tools
+1. **High-Level Wrappers**
+   - Refactor the experimental wrappers to follow the standardized API
+   - Properly document all wrapper functions with examples
+   - Create integration tests for all wrapper functions
+   - Files to change: `experimental/wrappers.py` → `wrappers.py`
+
+2. **Loss Builder System**
+   - Create a flexible system to build custom loss functions
+   - Implement composable loss components
+   - Add comprehensive documentation and examples
+
+3. **Registration System for Custom Losses**
+   - Develop a registry for custom loss functions
+   - Create hooks for easy extension
+   - Add documentation on how to create and register custom losses
+
+4. **Sophisticated Error-in-Variables (EIV) Losses**
+   - Implement advanced EIV models
+   - Add specialized handling for different error distributions
+   - Create comprehensive tests and examples
+
+5. **PyTorch Lightning Integration**
+   - Create Lightning-compatible modules
+   - Add examples showing integration with Lightning workflows
+   - Ensure compatibility with latest Lightning features
+
+6. **Advanced Loss Functions**
+   - Implement Barron loss
+   - Add censored regression losses
+   - Add other specialized loss functions
+
+7. **More Uncertainty Estimation Tools**
+   - Implement additional uncertainty quantification methods
+   - Add calibration utilities
+   - Create visualization tools for uncertainty
+
+8. **Continuous Integration Setup**
+   - Set up CI workflow for tests
+   - Add code coverage reporting
+   - Configure automatic documentation building
+   - Files to create/change: CI configuration files

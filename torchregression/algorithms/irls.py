@@ -9,8 +9,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, IterableDataset
 import warnings
-from typing import Callable, Optional, Dict, Tuple, List, Union, Any, Iterator, Literal
-import time
+from typing import Callable, Optional, Dict, Tuple, List, Union, Any
+
 try:
     from tqdm.auto import tqdm
     TQDM_AVAILABLE = True

@@ -4,16 +4,42 @@ A comprehensive collection of PyTorch loss functions for regression tasks with u
 
 ## Installation
 
+### Using pip
+
 ```bash
-pip install torch-regression-losses
+pip install torchregression
+```
+
+### Using uv (recommended)
+
+```bash
+uv pip install torchregression
+```
+
+### Development installation
+
+```bash
+# Clone the repository
+git clone https://github.com/sfabbro/torchregression.git
+cd torchregression
+
+# Using uv (recommended)
+uv pip install -e ".[dev,test]"
+
+# Using pip
+pip install -e ".[dev,test]"
 ```
 
 ## Features
 
-- **Uncertainty Modeling**: Various losses for handling data with uncertainty information
-- **Masked Losses**: All losses support optional masking for handling missing data
-- **Numerical Stability**: Implementations focus on stability for training robustness
-- **Comprehensive Collection**: Gaussian, Poisson, robust, quantile, and other specialized losses
+TorchRegression provides a comprehensive collection of loss functions for regression tasks:
+
+- **Basic loss functions**: MSE, MAE, Gaussian NLL
+- **Robust loss functions**: Huber, Pseudo-Huber, Log-cosh, Cauchy
+- **Distributional losses**: Quantile, Expectile, Poisson, Tweedie
+- **Uncertainty estimation**: RAG, MDN, Normalizing Flows
+- **Error-in-variables models**: Total Least Squares, Deming Regression
+- **Ensemble methods**: Various ensembling techniques
 
 ## Loss Functions
 

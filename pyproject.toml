@@ -1,21 +1,81 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "torchregression"
+version = "0.1.0"
+description = "A collection of regression loss functions and utilities for PyTorch."
+readme = "README.md"
+authors = [
+    {name = "Sébastien Fabbro", email = "sebfabbro@gmail.com"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["pytorch", "regression", "machine learning", "deep learning", "loss functions"]
+dependencies = [
+    "torch",
+    "numpy",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/sfabbro/torchregression"
+"Bug Tracker" = "https://github.com/sfabbro/torchregression/issues"
+"Documentation" = "https://github.com/sfabbro/torchregression#readme"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+dev = [
+    "black",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "myst-parser",
+]
+all = ["torchregression[test,dev,docs]"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
 
 [tool.black]
 line-length = 100
 target-version = ["py39"]
 include = '\.pyi?$'
 
-[tool.isort]
-profile = "black"
-line_length = 100
+[tool.ruff]
+line-length = 100
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+]
+ignore = []
 
 [tool.mypy]
 python_version = "3.9"
