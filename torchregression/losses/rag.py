@@ -760,255 +760,6 @@ class HistogramRegressionLoss(BinnedRegressionLoss):
         return self._reduce(loss, mask)
 
 
-def create_binned_regression_loss(
-    method: str = 'auto',
-    bins: Union[int, torch.Tensor] = 10,
-    min_value: Optional[float] = None,
-    max_value: Optional[float] = None,
-    data: Optional[torch.Tensor] = None,
-    noise_aware: bool = False,
-    ordinal_for_smooth: bool = True,
-    **kwargs
-) -> BinnedRegressionLoss:
-    """
-    Factory function to create the most appropriate binned regression loss.
-    
-    Args:
-        method (str): Loss method ('auto', 'classification', 'ordinal', 'histogram')
-            Default: 'auto'
-        bins (Union[int, torch.Tensor]): Number of bins or array of bin edges
-            Default: 10
-        min_value (float, optional): Minimum value for auto-generated bins
-            Default: None
-        max_value (float, optional): Maximum value for auto-generated bins
-            Default: None
-        data (torch.Tensor, optional): Data for automatic bin range detection
-            Default: None
-        noise_aware (bool): Whether to adjust for noisy labels
-            Default: False
-        ordinal_for_smooth (bool): Use ordinal regression for smooth/continuous targets
-            Default: True
-        **kwargs: Additional arguments for the specific loss class
-        
-    Returns:
-        Appropriate binned regression loss instance
-        
-    Examples:
-        >>> # Create a binned regression loss with automatic bin detection
-        >>> loss_fn = create_binned_regression_loss(
-        ...     method='histogram',
-        ...     bins=20,
-        ...     data=training_data
-        ... )
-        >>> # Use the loss function
-        >>> y_pred = model(x)
-        >>> loss = loss_fn(y_pred, target)
-    """
-    # Initialize bins if min/max not provided
-    if (min_value is None or max_value is None) and isinstance(bins, int):
-        bin_edges = create_bin_edges(bins, min_value, max_value, data)
-    else:
-        bin_edges = bins
-    
-    # Determine the best method if 'auto' is specified
-    if method == 'auto':
-        if noise_aware:
-            # For noisy labels, histogram regression is generally more robust
-            method = 'histogram'
-        elif ordinal_for_smooth and kwargs.get('soft_targets', True):
-            # For smooth targets, ordinal regression is usually better
-            method = 'ordinal'
-        else:
-            # Default to standard classification approach
-            method = 'classification'
-    
-    # Create the requested loss function
-    if method == 'classification':
-        return StandardClassificationRegressionLoss(
-            bins=bin_edges, 
-            min_value=min_value, 
-            max_value=max_value,
-            noise_aware=noise_aware,
-            **kwargs
-        )
-    elif method == 'ordinal':
-        return OrdinalRegressionLoss(
-            bins=bin_edges, 
-            min_value=min_value, 
-            max_value=max_value,
-            noise_aware=noise_aware,
-            **kwargs
-        )
-    elif method == 'histogram':
-        return HistogramRegressionLoss(
-            bins=bin_edges, 
-            min_value=min_value, 
-            max_value=max_value,
-            noise_aware=noise_aware,
-            **kwargs
-        )
-    else:
-        raise ValueError(f"Unsupported method: {method}")
-
-def create_classification_regression_loss(
-    bins: Union[int, torch.Tensor] = 10, 
-    **kwargs
-) -> StandardClassificationRegressionLoss:
-    """Create a classification-based regression loss."""
-    return StandardClassificationRegressionLoss(bins=bins, **kwargs)
-
-def create_ordinal_regression_loss(
-    bins: Union[int, torch.Tensor] = 10, 
-    **kwargs
-) -> OrdinalRegressionLoss:
-    """Create an ordinal regression loss."""
-    return OrdinalRegressionLoss(bins=bins, **kwargs)
-
-def create_histogram_regression_loss(
-    bins: Union[int, torch.Tensor] = 10, 
-    **kwargs
-) -> HistogramRegressionLoss:
-    """Create a histogram regression loss."""
-    return HistogramRegressionLoss(bins=bins, **kwargs)
-
-def create_noise_aware_regression_loss(
-    bins: Union[int, torch.Tensor] = 20,
-    method: str = 'histogram',
-    **kwargs
-) -> BinnedRegressionLoss:
-    """Create a regression loss designed for noisy labels."""
-    return create_binned_regression_loss(
-        method=method,
-        bins=bins,
-        noise_aware=True,
-        adaptive_sigma=True,
-        **kwargs
-    )
-
-def regression_as_classification(
-    bins: Union[int, torch.Tensor] = 15,
-    min_value: Optional[float] = None,
-    max_value: Optional[float] = None,
-    smooth_targets: bool = True,
-    robust_to_noise: bool = False,
-    auto_adapt: bool = True,
-    **advanced_config
-) -> BinnedRegressionLoss:
-    """
-    Convert a regression problem into classification for better uncertainty modeling.
-    
-    This creates a loss function that treats regression as a classification problem
-    by binning continuous values and predicting probability distributions over those
-    bins. This approach provides better uncertainty quantification, can model 
-    multi-modal distributions, and is more robust to noisy labels.
-    
-    Args:
-        bins (Union[int, torch.Tensor]): Number of bins or explicit bin edges
-            Default: 15
-        min_value (float, optional): Minimum value (auto-detected from data if None)
-            Default: None
-        max_value (float, optional): Maximum value (auto-detected from data if None)
-            Default: None
-        smooth_targets (bool): Use smooth distributions instead of hard bin assignments
-            Default: True
-        robust_to_noise (bool): Make the loss robust to noisy labels
-            Default: False
-        auto_adapt (bool): Automatically adjust parameters based on data characteristics
-            Default: True
-        **advanced_config: Additional options for fine-tuning
-    
-    Returns:
-        A loss function that converts regression to classification
-        
-    Examples:
-        >>> # Basic usage with default settings
-        >>> loss_fn = regression_as_classification(bins=15)
-        >>> 
-        >>> # For noisy data with automatic parameter optimization
-        >>> loss_fn = regression_as_classification(
-        ...     bins=20,
-        ...     robust_to_noise=True,
-        ...     auto_adapt=True
-        ... )
-        >>> 
-        >>> # With auto-detection of value range from training data
-        >>> loss_fn = regression_as_classification(
-        ...     bins=10, 
-        ...     min_value=None, 
-        ...     max_value=None,
-        ...     data=training_targets
-        ... )
-    """
-    # Set intelligent defaults
-    sigma = advanced_config.pop('sigma', 0.1)
-    loss_type = advanced_config.pop('loss_type', 'cross_entropy')
-    order_aware = advanced_config.pop('order_aware', True)
-    adaptive_sigma = advanced_config.pop('adaptive_sigma', auto_adapt)
-    
-    # Adjust sigma based on bin count (more bins = smaller sigma)
-    if auto_adapt and isinstance(bins, int) and 'sigma' not in advanced_config:
-        # For more bins, we want a narrower distribution
-        if bins > 20:
-            sigma = 0.07
-        elif bins < 10:
-            sigma = 0.15
-    
-    # For noisy data, use more robust settings
-    if robust_to_noise:
-        # Use a more robust loss type
-        if loss_type == 'cross_entropy':
-            loss_type = 'kl_div'  # KL divergence handles noise better
-        
-        # Increase sigma for smoother target distributions
-        if 'sigma' not in advanced_config:
-            sigma = max(sigma, 0.12)  # Wider sigma for noisy data
-            
-        # Enable adaptive sigma
-        adaptive_sigma = True
-    
-    # Create the smart regression loss
-    return RegressionAsClassificationLoss(
-        bins=bins,
-        min_value=min_value,
-        max_value=max_value,
-        order_aware=order_aware,
-        smooth_targets=smooth_targets,
-        sigma=sigma,
-        loss_type=loss_type,
-        adaptive_sigma=adaptive_sigma,
-        **advanced_config
-    )
-
-def uncertainty_regression(
-    bins: int = 20,
-    min_value: Optional[float] = None,
-    max_value: Optional[float] = None,
-    **kwargs
-) -> BinnedRegressionLoss:
-    """
-    Create a regression loss that captures prediction uncertainty.
-    
-    This is a specialized version of regression_as_classification optimized
-    for uncertainty estimation in regression problems.
-    
-    Args:
-        bins: Number of bins to divide the output range
-        min_value: Minimum value (auto-detected from data if None)
-        max_value: Maximum value (auto-detected from data if None)
-        **kwargs: Additional configuration options
-    
-    Returns:
-        A loss function for uncertainty-aware regression
-    """
-    return regression_as_classification(
-        bins=bins,
-        min_value=min_value,
-        max_value=max_value,
-        smooth_targets=True,
-        robust_to_noise=True,
-        **kwargs
-    )
-
 class RegressionAsClassificationLoss(BinnedRegressionLoss):
     """
     Unified regression-as-classification loss.
@@ -1294,3 +1045,253 @@ class RegressionAsClassificationLoss(BinnedRegressionLoss):
             
         # Apply mask and reduction
         return self._reduce(loss, mask)
+
+def create_binned_regression_loss(
+    method: str = 'auto',
+    bins: Union[int, torch.Tensor] = 10,
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None,
+    data: Optional[torch.Tensor] = None,
+    noise_aware: bool = False,
+    ordinal_for_smooth: bool = True,
+    **kwargs
+) -> BinnedRegressionLoss:
+    """
+    Factory function to create the most appropriate binned regression loss.
+    
+    Args:
+        method (str): Loss method ('auto', 'classification', 'ordinal', 'histogram')
+            Default: 'auto'
+        bins (Union[int, torch.Tensor]): Number of bins or array of bin edges
+            Default: 10
+        min_value (float, optional): Minimum value for auto-generated bins
+            Default: None
+        max_value (float, optional): Maximum value for auto-generated bins
+            Default: None
+        data (torch.Tensor, optional): Data for automatic bin range detection
+            Default: None
+        noise_aware (bool): Whether to adjust for noisy labels
+            Default: False
+        ordinal_for_smooth (bool): Use ordinal regression for smooth/continuous targets
+            Default: True
+        **kwargs: Additional arguments for the specific loss class
+        
+    Returns:
+        Appropriate binned regression loss instance
+        
+    Examples:
+        >>> # Create a binned regression loss with automatic bin detection
+        >>> loss_fn = create_binned_regression_loss(
+        ...     method='histogram',
+        ...     bins=20,
+        ...     data=training_data
+        ... )
+        >>> # Use the loss function
+        >>> y_pred = model(x)
+        >>> loss = loss_fn(y_pred, target)
+    """
+    # Initialize bins if min/max not provided
+    if (min_value is None or max_value is None) and isinstance(bins, int):
+        bin_edges = create_bin_edges(bins, min_value, max_value, data)
+    else:
+        bin_edges = bins
+    
+    # Determine the best method if 'auto' is specified
+    if method == 'auto':
+        if noise_aware:
+            # For noisy labels, histogram regression is generally more robust
+            method = 'histogram'
+        elif ordinal_for_smooth and kwargs.get('soft_targets', True):
+            # For smooth targets, ordinal regression is usually better
+            method = 'ordinal'
+        else:
+            # Default to standard classification approach
+            method = 'classification'
+    
+    # Create the requested loss function
+    if method == 'classification':
+        return StandardClassificationRegressionLoss(
+            bins=bin_edges, 
+            min_value=min_value, 
+            max_value=max_value,
+            noise_aware=noise_aware,
+            **kwargs
+        )
+    elif method == 'ordinal':
+        return OrdinalRegressionLoss(
+            bins=bin_edges, 
+            min_value=min_value, 
+            max_value=max_value,
+            noise_aware=noise_aware,
+            **kwargs
+        )
+    elif method == 'histogram':
+        return HistogramRegressionLoss(
+            bins=bin_edges, 
+            min_value=min_value, 
+            max_value=max_value,
+            noise_aware=noise_aware,
+            **kwargs
+        )
+    else:
+        raise ValueError(f"Unsupported method: {method}")
+
+def create_classification_regression_loss(
+    bins: Union[int, torch.Tensor] = 10, 
+    **kwargs
+) -> StandardClassificationRegressionLoss:
+    """Create a classification-based regression loss."""
+    return StandardClassificationRegressionLoss(bins=bins, **kwargs)
+
+def create_ordinal_regression_loss(
+    bins: Union[int, torch.Tensor] = 10, 
+    **kwargs
+) -> OrdinalRegressionLoss:
+    """Create an ordinal regression loss."""
+    return OrdinalRegressionLoss(bins=bins, **kwargs)
+
+def create_histogram_regression_loss(
+    bins: Union[int, torch.Tensor] = 10, 
+    **kwargs
+) -> HistogramRegressionLoss:
+    """Create a histogram regression loss."""
+    return HistogramRegressionLoss(bins=bins, **kwargs)
+
+def create_noise_aware_regression_loss(
+    bins: Union[int, torch.Tensor] = 20,
+    method: str = 'histogram',
+    **kwargs
+) -> BinnedRegressionLoss:
+    """Create a regression loss designed for noisy labels."""
+    return create_binned_regression_loss(
+        method=method,
+        bins=bins,
+        noise_aware=True,
+        adaptive_sigma=True,
+        **kwargs
+    )
+
+def regression_as_classification(
+    bins: Union[int, torch.Tensor] = 15,
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None,
+    smooth_targets: bool = True,
+    robust_to_noise: bool = False,
+    auto_adapt: bool = True,
+    **advanced_config
+) -> BinnedRegressionLoss:
+    """
+    Convert a regression problem into classification for better uncertainty modeling.
+    
+    This creates a loss function that treats regression as a classification problem
+    by binning continuous values and predicting probability distributions over those
+    bins. This approach provides better uncertainty quantification, can model 
+    multi-modal distributions, and is more robust to noisy labels.
+    
+    Args:
+        bins (Union[int, torch.Tensor]): Number of bins or explicit bin edges
+            Default: 15
+        min_value (float, optional): Minimum value (auto-detected from data if None)
+            Default: None
+        max_value (float, optional): Maximum value (auto-detected from data if None)
+            Default: None
+        smooth_targets (bool): Use smooth distributions instead of hard bin assignments
+            Default: True
+        robust_to_noise (bool): Make the loss robust to noisy labels
+            Default: False
+        auto_adapt (bool): Automatically adjust parameters based on data characteristics
+            Default: True
+        **advanced_config: Additional options for fine-tuning
+    
+    Returns:
+        A loss function that converts regression to classification
+        
+    Examples:
+        >>> # Basic usage with default settings
+        >>> loss_fn = regression_as_classification(bins=15)
+        >>> 
+        >>> # For noisy data with automatic parameter optimization
+        >>> loss_fn = regression_as_classification(
+        ...     bins=20,
+        ...     robust_to_noise=True,
+        ...     auto_adapt=True
+        ... )
+        >>> 
+        >>> # With auto-detection of value range from training data
+        >>> loss_fn = regression_as_classification(
+        ...     bins=10, 
+        ...     min_value=None, 
+        ...     max_value=None,
+        ...     data=training_targets
+        ... )
+    """
+    # Set intelligent defaults
+    sigma = advanced_config.pop('sigma', 0.1)
+    loss_type = advanced_config.pop('loss_type', 'cross_entropy')
+    order_aware = advanced_config.pop('order_aware', True)
+    adaptive_sigma = advanced_config.pop('adaptive_sigma', auto_adapt)
+    
+    # Adjust sigma based on bin count (more bins = smaller sigma)
+    if auto_adapt and isinstance(bins, int) and 'sigma' not in advanced_config:
+        # For more bins, we want a narrower distribution
+        if bins > 20:
+            sigma = 0.07
+        elif bins < 10:
+            sigma = 0.15
+    
+    # For noisy data, use more robust settings
+    if robust_to_noise:
+        # Use a more robust loss type
+        if loss_type == 'cross_entropy':
+            loss_type = 'kl_div'  # KL divergence handles noise better
+        
+        # Increase sigma for smoother target distributions
+        if 'sigma' not in advanced_config:
+            sigma = max(sigma, 0.12)  # Wider sigma for noisy data
+            
+        # Enable adaptive sigma
+        adaptive_sigma = True
+    
+    # Create the smart regression loss
+    return RegressionAsClassificationLoss(
+        bins=bins,
+        min_value=min_value,
+        max_value=max_value,
+        order_aware=order_aware,
+        smooth_targets=smooth_targets,
+        sigma=sigma,
+        loss_type=loss_type,
+        adaptive_sigma=adaptive_sigma,
+        **advanced_config
+    )
+
+def uncertainty_regression(
+    bins: int = 20,
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None,
+    **kwargs
+) -> BinnedRegressionLoss:
+    """
+    Create a regression loss that captures prediction uncertainty.
+    
+    This is a specialized version of regression_as_classification optimized
+    for uncertainty estimation in regression problems.
+    
+    Args:
+        bins: Number of bins to divide the output range
+        min_value: Minimum value (auto-detected from data if None)
+        max_value: Maximum value (auto-detected from data if None)
+        **kwargs: Additional configuration options
+    
+    Returns:
+        A loss function for uncertainty-aware regression
+    """
+    return regression_as_classification(
+        bins=bins,
+        min_value=min_value,
+        max_value=max_value,
+        smooth_targets=True,
+        robust_to_noise=True,
+        **kwargs
+    )
+

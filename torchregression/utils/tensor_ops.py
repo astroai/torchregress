@@ -622,3 +622,157 @@ def batch_diag(x: torch.Tensor) -> torch.Tensor:
     
     # Multiply to get [..., n, n] diagonal matrices
     return batch_identity * x_diag.unsqueeze(-2)
+
+def compute_model_gradients(y_pred: torch.Tensor, 
+                           x: torch.Tensor, 
+                           n_features_y: int) -> torch.Tensor:
+    """
+    Compute gradients of model predictions with respect to inputs.
+    
+    Args:
+        y_pred: Model predictions
+        x: Input features with requires_grad=True
+        n_features_y: Number of output features
+        
+    Returns:
+        Gradients of model predictions with respect to inputs [batch_size, n_features_y, n_features_x]
+        
+    Examples:
+        >>> x = torch.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
+        >>> y_pred = torch.tensor([[3.0, 5.0], [7.0, 9.0]])
+        >>> grads = compute_model_gradients(y_pred, x, 2)
+        >>> grads.shape
+        torch.Size([2, 2, 2])
+    """
+    grads = torch.autograd.grad(
+        outputs=y_pred,
+        inputs=x,
+        grad_outputs=torch.ones_like(y_pred),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True
+    )[0]
+    
+    return grads.view(-1, n_features_y, x.shape[-1])
+
+def calculate_gaussian_nll(residuals: torch.Tensor, 
+                          var: torch.Tensor, 
+                          eps: float = 1e-8) -> torch.Tensor:
+    """
+    Calculate Gaussian negative log-likelihood.
+    
+    Args:
+        residuals: Residuals between true and predicted values [batch_size, n_features]
+        var: Variance of the Gaussian distribution [batch_size, n_features, n_features] or [batch_size, n_features]
+        eps: Small constant for numerical stability
+        
+    Returns:
+        Negative log-likelihood per sample [batch_size]
+        
+    Examples:
+        >>> residuals = torch.tensor([[1.0, 2.0], [0.5, 1.0]])
+        >>> var = torch.tensor([[2.0, 0.5], [1.0, 1.0]])
+        >>> nll = calculate_gaussian_nll(residuals, var)
+        >>> nll.shape
+        torch.Size([2])
+    """
+    if var.dim() <= 2:
+        # Diagonal covariance case
+        nll = 0.5 * (torch.log(var + eps) + (residuals**2) / (var + eps))
+        nll = torch.sum(nll, dim=1)
+        # Add log(2π) term
+        nll = nll + 0.5 * residuals.shape[1] * torch.log(torch.tensor(2 * torch.pi))
+    else:
+        # Full covariance case - use multivariate normal distribution
+        batch_size, n_features = residuals.shape
+        
+        # For numerical stability, ensure covariance is positive definite
+        var_stabilized = var + torch.eye(n_features, device=var.device) * eps
+        
+        # Calculate log determinant and inverse for each batch element
+        logdet = torch.zeros(batch_size, device=var.device)
+        quad_term = torch.zeros(batch_size, device=var.device)
+        
+        for i in range(batch_size):
+            # Use Cholesky decomposition for numerical stability
+            try:
+                L = torch.linalg.cholesky(var_stabilized[i])
+                logdet[i] = 2 * torch.sum(torch.log(torch.diagonal(L)))
+                
+                # Solve linear system instead of calculating inverse
+                x_i = torch.cholesky_solve(residuals[i].unsqueeze(1), L).squeeze(1)
+                quad_term[i] = torch.dot(residuals[i], x_i)
+            except RuntimeError:
+                # Fallback to SVD if Cholesky fails
+                U, S, Vh = torch.linalg.svd(var_stabilized[i])
+                logdet[i] = torch.sum(torch.log(S))
+                
+                # Use pseudo-inverse for numerical stability
+                S_inv = torch.where(S > eps, 1.0 / S, torch.zeros_like(S))
+                x_i = torch.matmul(Vh.t(), torch.matmul(torch.diag(S_inv), torch.matmul(U.t(), residuals[i])))
+                quad_term[i] = torch.dot(residuals[i], x_i)
+        
+        nll = 0.5 * (logdet + quad_term + n_features * torch.log(torch.tensor(2 * torch.pi)))
+    
+    return nll
+
+def calculate_propagated_variance(grad: torch.Tensor, 
+                                 sigma_x: torch.Tensor, 
+                                 sigma_y: Optional[torch.Tensor] = None, 
+                                 sigma_xy: Optional[torch.Tensor] = None) -> torch.Tensor:
+    """
+    Calculate propagated variance from input to output.
+    
+    Args:
+        grad: Gradients of model predictions with respect to inputs [batch_size, n_features_y, n_features_x]
+        sigma_x: Covariance of input features [batch_size, n_features_x, n_features_x] or [batch_size, n_features_x]
+        sigma_y: Optional covariance of output features [batch_size, n_features_y, n_features_y] or [batch_size, n_features_y]
+        sigma_xy: Optional cross-covariance [batch_size, n_features_y, n_features_x]
+        
+    Returns:
+        Propagated variance [batch_size, n_features_y, n_features_y]
+        
+    Examples:
+        >>> grad = torch.ones(2, 3, 2)  # 2 samples, 3 outputs, 2 inputs
+        >>> sigma_x = torch.eye(2).unsqueeze(0).expand(2, -1, -1)  # 2 samples
+        >>> propagated_var = calculate_propagated_variance(grad, sigma_x)
+        >>> propagated_var.shape
+        torch.Size([2, 3, 3])
+    """
+    batch_size, n_features_y, n_features_x = grad.shape
+    
+    # Handle diagonal covariance case
+    if sigma_x.dim() <= 2:
+        # Create batch of diagonal matrices for efficient computation
+        if sigma_x.dim() == 1:
+            sigma_x = torch.diag_embed(sigma_x.expand(batch_size, n_features_x))
+        else:  # sigma_x.dim() == 2
+            sigma_x = torch.diag_embed(sigma_x)
+    
+    # Calculate propagated variance from inputs: grad · Σ_x · grad^T
+    propagated_var = torch.bmm(torch.bmm(grad, sigma_x), grad.transpose(1, 2))
+    
+    # Add intrinsic output variance if provided
+    if sigma_y is not None:
+        if sigma_y.dim() <= 1:
+            # Diagonal case - expand to batch size if needed
+            sigma_y = torch.diag_embed(sigma_y.expand(batch_size, n_features_y))
+        elif sigma_y.dim() == 2:
+            if sigma_y.shape[0] == batch_size:
+                sigma_y = torch.diag_embed(sigma_y)
+            else:
+                # Full covariance case
+                sigma_y = sigma_y.unsqueeze(0).expand(batch_size, -1, -1)
+                
+        propagated_var += sigma_y
+    
+    # Add cross-covariance terms if provided
+    if sigma_xy is not None:
+        if sigma_xy.dim() == 2:
+            sigma_xy = sigma_xy.unsqueeze(0).expand(batch_size, -1, -1)
+            
+        # Add terms: grad · Σ_xy + Σ_xy^T · grad^T
+        propagated_var += torch.bmm(grad, sigma_xy.transpose(1, 2))
+        propagated_var += torch.bmm(sigma_xy, grad.transpose(1, 2))
+    
+    return propagated_var

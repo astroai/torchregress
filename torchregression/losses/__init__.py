@@ -17,14 +17,19 @@ from .robust import (
     FairLoss, CauchyLoss
 )
 
+# Import standard losses and wrapped PyTorch losses
+from .standard import (
+    MSELoss, BCELoss,
+    # Wrapped PyTorch losses
+    MaskedMSELoss, MaskedL1Loss, MaskedCrossEntropyLoss,
+    MaskedBCELoss, MaskedBCEWithLogitsLoss, MaskedKLDivLoss,
+    MaskedNLLLoss, MaskedSmoothL1Loss, MaskedHuberLoss, 
+    MaskedPoissonNLLLoss
+)
+
 # Import distributional losses
 from .poisson import PoissonNLLLoss, PoissonNLL
 from .tweedie import TweedieLoss, GammaLoss, InverseGaussianLoss, CompoundPoissonLoss
-from .mdn import (
-    MixtureDensityNetworkLoss, MDNEIVLoss, GaussianPoissonMixtureNLL,
-    NMDRLoss, CombinedMDNFixedErrorLoss,
-    mdn_loss, nmdr_loss, combined_mdn_loss, mdn_ensemble
-)
 
 # Import quantile and expectile losses
 from .quantile import (
@@ -35,17 +40,18 @@ from .expectile import (
     ExpectileCrossover
 )
 
-# Import EIV losses
-from .eiv import (
-    TotalLeastSquaresLoss, GeneralErrorInVariablesLoss,
-    CorrelatedEIVLoss,
-    create_eiv_loss, create_correlated_eiv_loss, 
-    create_chamfer_eiv_loss, create_hybrid_eiv_loss,
-    create_mdn_eiv_loss, create_robust_eiv_loss
+# Import mixture model losses
+from .mdn import (
+    MixtureDensityNetworkLoss, MDNEIVLoss, GaussianPoissonMixtureNLL,
+    NMDRLoss, CombinedMDNFixedErrorLoss,
+    mdn_loss, nmdr_loss, combined_mdn_loss, mdn_ensemble
 )
 
-# Import torch extension losses
-from .torch_extensions import MSELoss, BCELoss
+# Import basic EIV losses (sophisticated ones deferred to 0.2.0)
+from .eiv import (
+    TotalLeastSquaresLoss, GeneralErrorInVariablesLoss, CorrelatedEIVLoss,
+    create_eiv_loss, create_correlated_eiv_loss
+)
 
 # Import categorical losses
 from .categorical import (
@@ -53,12 +59,17 @@ from .categorical import (
     MultiLabelSoftMarginLoss, DiceLoss
 )
 
-# Import loss registry
-from .loss_registry import register_loss, get_loss_function, list_available_losses
+# Note: Loss registry is deferred to version 0.2.0
 
 __all__ = [
     # Base classes
     'RegressionLoss', 'MaskedLoss',
+    
+    # Standard losses and wrapped PyTorch losses
+    'MSELoss', 'BCELoss',
+    'MaskedMSELoss', 'MaskedL1Loss', 'MaskedCrossEntropyLoss',
+    'MaskedBCELoss', 'MaskedBCEWithLogitsLoss', 'MaskedKLDivLoss',
+    'MaskedNLLLoss', 'MaskedSmoothL1Loss', 'MaskedHuberLoss', 'MaskedPoissonNLLLoss',
     
     # Robust losses
     'L1Loss', 'HuberLoss', 'PseudoHuberLoss', 'LogCoshLoss',
@@ -70,28 +81,21 @@ __all__ = [
     'PoissonNLLLoss', 'PoissonNLL',
     'TweedieLoss', 'GammaLoss', 'InverseGaussianLoss', 'CompoundPoissonLoss',
     
-    # Mixture model losses
-    'MixtureDensityNetworkLoss', 'MDNEIVLoss', 'GaussianPoissonMixtureNLL',
-    'NMDRLoss', 'CombinedMDNFixedErrorLoss',
-    'mdn_loss', 'nmdr_loss', 'combined_mdn_loss', 'mdn_ensemble',
-    
     # Quantile and expectile losses
     'QuantileLoss', 'MultiQuantileLoss', 'QuantileCrossover', 'TiltedLoss',
     'ExpectileLoss', 'MultiExpectileLoss', 'AsymmetricLeastSquaresLoss',
     'ExpectileCrossover',
     
-    # EIV losses
-    'TotalLeastSquaresLoss', 'GeneralErrorInVariablesLoss', 'CorrelatedEIVLoss',
-    'create_eiv_loss', 'create_correlated_eiv_loss', 'create_chamfer_eiv_loss',
-    'create_hybrid_eiv_loss', 'create_mdn_eiv_loss', 'create_robust_eiv_loss',
+    # Mixture model losses
+    'MixtureDensityNetworkLoss', 'MDNEIVLoss', 'GaussianPoissonMixtureNLL',
+    'NMDRLoss', 'CombinedMDNFixedErrorLoss',
+    'mdn_loss', 'nmdr_loss', 'combined_mdn_loss', 'mdn_ensemble',
     
-    # Torch extension losses
-    'MSELoss', 'BCELoss',
+    # Basic EIV losses (core functionality only for 0.1.0)
+    'TotalLeastSquaresLoss', 'GeneralErrorInVariablesLoss', 'CorrelatedEIVLoss',
+    'create_eiv_loss', 'create_correlated_eiv_loss',
     
     # Categorical losses
     'BinaryCrossEntropyLoss', 'FocalLoss', 'MultiClassCrossEntropyLoss',
-    'MultiLabelSoftMarginLoss', 'DiceLoss',
-    
-    # Registry functions
-    'register_loss', 'get_loss_function', 'list_available_losses'
+    'MultiLabelSoftMarginLoss', 'DiceLoss'
 ]

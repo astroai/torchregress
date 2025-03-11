@@ -1,24 +1,12 @@
 """
-Ensemble methods for regression.
-
-This module provides implementations of ensemble techniques
-for regression models, including deep ensembles, batch ensembles,
-and specialized ensembles for uncertainty quantification.
+Ensemble models for regression tasks with uncertainty estimation.
 """
 
-# Import ensemble models
-from .ensemble import (
-    BatchEnsembleLinear,
-    BaseEnsembleModel,
+# Make classes directly accessible from the ensemble module
+from .base import BaseEnsembleModel
+from .layers import BatchEnsembleLinear
+from .models import (
     HeteroscedasticEnsembleModel,
     DeepEnsemble,
     HeteroscedasticBatchEnsembleModel
 )
-
-__all__ = [
-    'BatchEnsembleLinear',
-    'BaseEnsembleModel',
-    'HeteroscedasticEnsembleModel',
-    'DeepEnsemble',
-    'HeteroscedasticBatchEnsembleModel'
-]

@@ -33,18 +33,17 @@ Primary focus: **Optimization and ecosystem integration**
 
 Primary focus: **Advanced features and specialized losses**
 
-- Error-in-Variables (EIV) losses
+- More Error-in-Variables (EIV) losses
 - Configurable loss builder system
 - Heteroscedastic regression abstractions
 - Barron loss implementation
+- Conformal prediction methods
+- Distribution-free uncertainty losses
+- Ensemble uncertainty estimation
 - Target transformation losses
 
 ## Future Releases
 
 - Censored regression and survival analysis
-- Ensemble uncertainty estimation
-- Distribution-free uncertainty losses
 - Multivariate regression metrics
-- IRLS integration improvements
-- Conformal prediction methods
 - Time series specific losses

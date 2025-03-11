@@ -76,45 +76,83 @@ This document outlines the detailed implementation plan for TorchRegression 0.1.
    - Priority: **MEDIUM**
 
 10. **Update EIV Losses**
-   - [ ] Optimize `eiv_standard.py` to be standalone like other non-eiv losses.
-   - [ ] Keep only `eiv.py` which will contain the `eiv_standard.py` logic and make an eiv branch of the other eiv losses
-   - [ ] Update parameter ordering
-   - [ ] Add comprehensive docstrings
-   - [ ] Fix numerical stability issues
-   - Files to change: `losses/eiv.py`, `losses/eiv_*.py`, 
+
+   - [X] Update `eiv.py` and clean `eiv_utils.py`
+   - [X] Update parameter ordering
+   - [X] Add comprehensive docstrings
+   - [X] Fix numerical stability issues
+   - Files to change: `losses/eiv.py`, `losses/eiv_utils.py`, 
+   - Priority: **MEDIUM**
+
+11. **Update Ensemble**
+   - [X] Update, debug and split `ensemble.py` into different styles of esembling
+   - [X] Standardize interfaces and parameter naming
+   - [X] Add comprehensive docstrings
+   - [X] Fix numerical stability issues
+   - Files to change: Various loss function files
    - Priority: **MEDIUM**
 
 ### 4. Testing
 
-11. **Complete Test Coverage**
-    - [ ] Ensure tests for basic cases for all losses
-    - [ ] Add tests for edge cases (NaN, inf, extreme values)
-    - [ ] Test numerical stability and gradient flow
-    - Files to change: Test files for each loss
+12. **Complete Test Coverage**
+    - [X] Ensure tests for basic cases for all losses
+      - [X] `gaussian.py`: MSE, MAE, Gaussian NLL
+      - [X] `robust.py`: Huber, Pseudo-Huber, Log-cosh, Cauchy
+      - [X] `quantile.py` & `expectile.py`: Quantile and Expectile losses
+      - [X] `poisson.py` & `tweedie.py`: Poisson and Tweedie losses
+      - [X] `rag.py`, `mdn.py`, `nflows.py`: Advanced mixture/uncertainty losses
+      - [X] `eiv.py`: Error-in-variables losses
+      - [X] `ensemble/*`: All ensemble methods
+    - [X] Add tests for edge cases (NaN, inf, extreme values)
+      - [X] Test behavior with zero-valued inputs
+      - [X] Test behavior with empty tensors
+      - [X] Test with extremely large/small values
+      - [X] Test with NaN/Inf values and masks
+    - [X] Test numerical stability and gradient flow
+      - [X] Test gradient flow through all losses
+      - [X] Test numerical stability at extreme values
+      - [X] Test backward pass with various reduction modes
+    - Files to change: Test files for each loss module (`tests/test_*.py`)
     - Priority: **HIGH**
 
-12. **Add Test for API Consistency**
-    - [ ] Create test that checks parameter ordering
-    - [ ] Ensure proper inheritance from base classes
-    - [ ] Test for consistent reduction behavior
+13. **Add Test for API Consistency**
+    - [X] Create test that checks parameter ordering
+    - [X] Ensure proper inheritance from base classes
+    - [X] Test for consistent reduction behavior
     - Files to create: `tests/test_api_consistency.py`
     - Priority: **MEDIUM**
 
 ### 5. Package Infrastructure
 
-13. **Update Package Metadata**
+14. **Update Package Metadata**
     - [ ] Complete package version information
     - [ ] Update README with completed features
     - [ ] Ensure proper imports in `__init__.py` files
     - Files to change: `setup.py`, `README.md`, `__init__.py` files
     - Priority: **MEDIUM**
 
-14. **Continuous Integration Setup**
+15. **Continuous Integration Setup**
     - [ ] Set up CI workflow for tests
     - [ ] Add code coverage reporting
     - [ ] Configure automatic documentation building
     - Files to create/change: CI configuration files
     - Priority: **LOW**
+
+### 6. Deferred to Version 0.2.0
+
+1. **High-Level Wrappers**
+   - [ ] Refactor the experimental wrappers to follow the standardized API
+   - [ ] Properly document all wrapper functions with examples
+   - [ ] Create integration tests for all wrapper functions
+   - Files to change: `experimental/wrappers.py` → `wrappers.py`
+   - Priority: **MEDIUM**
+
+2. **Loss builder system**
+3. **Registration system for custom losses**
+4. **Sophisticated Error-in-Variables (EIV) losses**
+5. **PyTorch Lightning integration** 
+6. **Advanced loss functions (Barron, censored regression, etc.)**
+7. **More uncertainty estimation tools**
 
 ## File Change Order (Implementation Sequence)
 
@@ -126,9 +164,11 @@ This document outlines the detailed implementation plan for TorchRegression 0.1.
 6. `losses/quantile.py` & `losses/expectile.py` - Distribution-free alternatives
 7. `losses/poisson.py` & `losses/tweedie.py` - Special cases
 8. `losses/rag.py`, `losses/mdn.py`, `losses/nflows.py`, `losses/eiv.py`: Advanced losses with uncertainty handling
-9. Test files for each modified loss
-10. Example files
-11. Package metadata files
+9. `losses/eiv.py`, standard error-in-variables models
+10. `ensemble/ensemble.py`, ensemble algorithms
+11. Test files for each modified loss
+12. Example files
+13. Package metadata files
 
 ## Deferring to Later Releases
 
@@ -139,4 +179,4 @@ The following items are explicitly deferred to post-0.1.0 releases:
 3. Sophisticated Error-in-Variables (EIV) losses
 4. PyTorch Lightning integration
 5. Advanced loss functions (Barron, censored regression, etc.)
-6. Ensemble and uncertainty estimation tools
+6. More uncertainty estimation tools
