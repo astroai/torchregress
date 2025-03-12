@@ -13,8 +13,199 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from typing import Optional, Union, Tuple
+from torch.distributions import MultivariateNormal
 
 from .base import RegressionLoss, DistributionLoss
+
+
+# Add simple implementations for classes referenced in tests
+class MSELoss(RegressionLoss):
+    """
+    Mean Squared Error Loss.
+    
+    A simple wrapper around F.mse_loss with masking and weighting support.
+    
+    Args:
+        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
+                   Default: 'mean'
+    
+    Example:
+        >>> loss_fn = MSELoss()
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 4.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.6667)
+    """
+    def __init__(self, reduction: str = "mean") -> None:
+        super().__init__(reduction=reduction)
+    
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """
+        Calculate MSE loss.
+        
+        Args:
+            y_pred: Predicted values
+            target: Target values
+            mask: Optional boolean mask
+            weights: Optional sample weights
+            
+        Returns:
+            Loss value
+        """
+        self._validate_inputs(y_pred, target, mask)
+        
+        # Calculate MSE
+        mse = F.mse_loss(y_pred, target, reduction="none")
+        
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(mse, mask, weights)
+
+
+class MAELoss(RegressionLoss):
+    """
+    Mean Absolute Error Loss.
+    
+    A simple wrapper around F.l1_loss with masking and weighting support.
+    
+    Args:
+        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
+                   Default: 'mean'
+    
+    Example:
+        >>> loss_fn = MAELoss()
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> target = torch.tensor([0.0, 2.0, 4.0])
+        >>> loss_fn(y_pred, target)
+        tensor(0.6667)
+    """
+    def __init__(self, reduction: str = "mean") -> None:
+        super().__init__(reduction=reduction)
+    
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """
+        Calculate MAE loss.
+        
+        Args:
+            y_pred: Predicted values
+            target: Target values
+            mask: Optional boolean mask
+            weights: Optional sample weights
+            
+        Returns:
+            Loss value
+        """
+        self._validate_inputs(y_pred, target, mask)
+        
+        # Calculate L1 loss
+        mae = F.l1_loss(y_pred, target, reduction="none")
+        
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(mae, mask, weights)
+
+
+class GaussianNLLLoss(DistributionLoss):
+    """
+    Gaussian Negative Log Likelihood Loss.
+    
+    Simplified interface for Gaussian NLL loss with explicit variance input.
+    
+    Args:
+        eps: Small constant for numerical stability
+        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
+                   Default: 'mean'
+    
+    Example:
+        >>> loss_fn = GaussianNLLLoss()
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> y_true = torch.tensor([0.0, 2.0, 4.0])
+        >>> var = torch.tensor([1.0, 1.0, 1.0])
+        >>> loss_fn(y_pred, y_true, var)
+    """
+    def __init__(self, eps: float = 1e-8, reduction: str = "mean") -> None:
+        super().__init__(reduction=reduction)
+        self.eps = eps
+        self.log_2pi = math.log(2 * math.pi)
+    
+    def _extract_distribution_parameters(self, inputs: Tuple[torch.Tensor, torch.Tensor]) -> dict:
+        """
+        Extract mean and variance from inputs.
+        
+        Args:
+            inputs: Tuple of (mean, variance)
+            
+        Returns:
+            Dict with distribution parameters
+        """
+        mean, var = inputs
+        return {"mean": mean, "var": var}
+    
+    def _calculate_nll(
+        self,
+        inputs: Tuple[torch.Tensor, torch.Tensor],
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """
+        Calculate negative log likelihood.
+        
+        Args:
+            inputs: Tuple of (mean, variance)
+            target: Ground truth values
+            mask: Optional mask
+            
+        Returns:
+            Negative log likelihood
+        """
+        params = self._extract_distribution_parameters(inputs)
+        mean = params["mean"]
+        var = params["var"].clamp(min=self.eps)
+        
+        # Calculate NLL: 0.5 * (log(var) + (y-μ)²/var + log(2π))
+        squared_error = (target - mean) ** 2
+        nll = 0.5 * (torch.log(var) + squared_error / var + self.log_2pi)
+        
+        return nll
+    
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        var: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """
+        Calculate Gaussian NLL loss.
+        
+        Args:
+            y_pred: Predicted mean values
+            target: Ground truth values
+            var: Variance values (must be positive)
+            mask: Optional boolean mask
+            weights: Optional sample weights
+            
+        Returns:
+            Loss value
+        """
+        self._validate_inputs(y_pred, target, mask)
+        
+        # Calculate NLL
+        nll = self._calculate_nll((y_pred, var), target, mask)
+        
+        # Apply reduction with mask and weights
+        return self._reduce_with_mask(nll, mask, weights)
 
 
 class WeightedMSELoss(RegressionLoss):

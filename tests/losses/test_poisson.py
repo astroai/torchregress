@@ -3,10 +3,9 @@ import unittest
 from torch.autograd import gradcheck
 from torchregression.losses.poisson import (
     PoissonNLL,
-    ModifiedPoissonNLL,
+    PoissonDeviance,
     ZeroInflatedPoissonNLL,
     NegativeBinomialNLL,
-    PoissonLoss,
     PoissonNLLLoss,
 )
 
@@ -86,8 +85,8 @@ class TestPoissonLosses(unittest.TestCase):
         loss_var.backward()
         self.assertIsNotNone(loss_fn_var.log_variance.grad)  # Check gradient
 
-    def test_modified_poisson_nll(self):
-        loss_fn = ModifiedPoissonNLL().to(self.device)
+    def test_poisson_deviance(self):
+        loss_fn = PoissonDeviance().to(self.device)
         loss = loss_fn(self.y_true, self.y_pred, self.mask, self.weights)
         self.assertTrue(torch.is_tensor(loss))
         self.assertFalse(torch.isnan(loss).any())
@@ -98,7 +97,7 @@ class TestPoissonLosses(unittest.TestCase):
 
         # Test with deterministic values
         det_loss = loss_fn(self.det_y_true, self.det_y_pred, self.det_mask)
-        # Modified Poisson loss has term: (pred - true + true * (log(true) - log(pred)))
+        # Poisson deviance has term: (pred - true + true * (log(true) - log(pred)))
         expected_value = (
             (2 - 2 + 2 * (torch.log(2) - torch.log(2)))
             + (0.5 - 0 + 0)
@@ -114,7 +113,7 @@ class TestPoissonLosses(unittest.TestCase):
         self.assertFalse(torch.isnan(loss_small).any())
 
         # Test learn variance
-        loss_fn_var = ModifiedPoissonNLL(learn_variance=True).to(self.device)
+        loss_fn_var = PoissonDeviance(learn_variance=True).to(self.device)
         loss_fn_var.zero_grad()  # Clear previous gradients
         loss_var = loss_fn_var(self.y_true, self.y_pred, self.mask, self.weights)
         self.assertTrue(torch.is_tensor(loss_var))
@@ -285,17 +284,17 @@ class TestPoissonLosses(unittest.TestCase):
             places=5,
         )
 
-        # Test ModifiedPoissonNLL
-        mod_loss_none = ModifiedPoissonNLL(reduction="none").to(self.device)
-        mod_loss_none_out = mod_loss_none(self.y_true, self.y_pred)
-        self.assertEqual(mod_loss_none_out.shape, self.y_true.shape)
+        # Test PoissonDeviance
+        dev_loss_none = PoissonDeviance(reduction="none").to(self.device)
+        dev_loss_none_out = dev_loss_none(self.y_true, self.y_pred)
+        self.assertEqual(dev_loss_none_out.shape, self.y_true.shape)
 
-        mod_loss_mean = ModifiedPoissonNLL(reduction="mean").to(self.device)
-        mod_loss_sum = ModifiedPoissonNLL(reduction="sum").to(self.device)
-        mod_loss_mean_out = mod_loss_mean(self.y_true, self.y_pred)
-        mod_loss_sum_out = mod_loss_sum(self.y_true, self.y_pred)
-        self.assertTrue(torch.is_tensor(mod_loss_mean_out) and mod_loss_mean_out.numel() == 1)
-        self.assertTrue(torch.is_tensor(mod_loss_sum_out) and mod_loss_sum_out.numel() == 1)
+        dev_loss_mean = PoissonDeviance(reduction="mean").to(self.device)
+        dev_loss_sum = PoissonDeviance(reduction="sum").to(self.device)
+        dev_loss_mean_out = dev_loss_mean(self.y_true, self.y_pred)
+        dev_loss_sum_out = dev_loss_sum(self.y_true, self.y_pred)
+        self.assertTrue(torch.is_tensor(dev_loss_mean_out) and dev_loss_mean_out.numel() == 1)
+        self.assertTrue(torch.is_tensor(dev_loss_sum_out) and dev_loss_sum_out.numel() == 1)
 
         # Test ZeroInflatedPoissonNLL
         pi_logits = torch.randn(self.batch_size, self.n_features, device=self.device)
@@ -343,10 +342,10 @@ class TestPoissonLosses(unittest.TestCase):
         # Reset gradients
         y_pred_param.grad = None
 
-        # Test ModifiedPoissonNLL
-        mod_loss_fn = ModifiedPoissonNLL().to(self.device)
-        mod_loss = mod_loss_fn(self.y_true, y_pred_param)
-        mod_loss.backward()
+        # Test PoissonDeviance
+        dev_loss_fn = PoissonDeviance().to(self.device)
+        dev_loss = dev_loss_fn(self.y_true, y_pred_param)
+        dev_loss.backward()
         self.assertIsNotNone(y_pred_param.grad)
         self.assertFalse(torch.isnan(y_pred_param.grad).any())
 
@@ -457,8 +456,8 @@ class TestPoissonLosses(unittest.TestCase):
         self.assertFalse(torch.isnan(new_loss).any())
 
     def test_poisson_edge_cases(self):
-        """Test PoissonLoss with edge cases: zeros, empty tensors, extreme values, NaN/Inf."""
-        loss_fn = PoissonLoss()
+        """Test PoissonNLLLoss with edge cases: zeros, empty tensors, extreme values, NaN/Inf."""
+        loss_fn = PoissonNLLLoss(log_input=False)
 
         # Test with zeros
         y_pred_zeros = torch.zeros(10)

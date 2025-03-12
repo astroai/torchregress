@@ -50,6 +50,8 @@ $$\mathcal{L}_{\text{PoissonNLL}}(y, \lambda) = \lambda - y \log(\lambda) + \log
 
 When `log_input=True`, the input is interpreted as $\log(\lambda)$ rather than $\lambda$, which can help with numerical stability and is appropriate when the model outputs are unconstrained.
 
+When `log_input=False`, the input is expected to be positive rate values λ directly, and will be clamped to ensure positivity.
+
 **Example:**
 
 ```python
@@ -69,6 +71,61 @@ loss = loss_fn(y_pred, target)
 # With mask (ignore some measurements)
 mask = torch.tensor([[True, True, False], [True, False, True]])
 masked_loss = loss_fn(y_pred, target, mask=mask)
+
+# For a model that outputs λ directly (not recommended for unbounded outputs)
+direct_loss_fn = tr.losses.PoissonNLLLoss(log_input=False)
+lambda_pred = torch.tensor([[1.0, 2.5, 8.0], [2.5, 4.5, 1.5]])  # λ values
+direct_loss = direct_loss_fn(lambda_pred, target)
+```
+
+### PoissonDeviance
+
+```python
+class PoissonDeviance(RegressionLoss)
+```
+
+Poisson deviance loss function, also known as G-statistic, which measures the goodness-of-fit for Poisson models. This loss is useful for assessing how well a model fits count data.
+
+**Parameters:**
+
+- `log_input` (bool, optional): If True, input is expected to be log(λ) rather than λ. Default: `True`
+- `eps` (float, optional): Small constant for numerical stability. Default: `1e-8`
+- `learn_variance` (bool, optional): Whether to use a learnable variance parameter. Default: `False`
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Methods:**
+
+- `forward(y_pred, target, mask=None, weights=None)`: Computes the Poisson deviance loss
+
+The deviance is defined mathematically as:
+
+$$D(y, \lambda) = 2 \sum_i \left[ y_i \log\left(\frac{y_i}{\lambda_i}\right) - (y_i - \lambda_i) \right]$$
+
+For implementation, we use the equivalent form (without the factor of 2):
+
+$$\mathcal{L}_{\text{Deviance}}(y, \lambda) = \lambda - y + y \log\left(\frac{y}{\lambda}\right)$$
+
+Where $y=0$, the term $y \log(y/\lambda) = 0$.
+
+**Example:**
+
+```python
+import torch
+import torchregression as tr
+
+# Create deviance loss
+loss_fn = tr.losses.PoissonDeviance(log_input=True)
+
+# For a model that predicts log(λ)
+y_pred = torch.tensor([[0.0, 1.0, 2.0], [1.0, 1.5, 0.5]])  # log(λ) values
+target = torch.tensor([[1.0, 2.0, 7.0], [2.0, 5.0, 1.0]])  # count data
+
+# Calculate deviance
+loss = loss_fn(y_pred, target)
+
+# With variance learning (useful for meta-learning or uncertainty quantification)
+var_loss_fn = tr.losses.PoissonDeviance(log_input=True, learn_variance=True)
+var_loss = var_loss_fn(y_pred, target)
 ```
 
 ### PoissonLikelihoodRatioLoss

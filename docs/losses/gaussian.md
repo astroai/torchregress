@@ -20,6 +20,74 @@ For a fixed $\sigma^2$, minimizing this NLL is equivalent to minimizing the mean
 
 ## Available Gaussian Losses
 
+### MSELoss
+
+```python
+class MSELoss(RegressionLoss)
+```
+
+Mean Squared Error loss with support for masking and weighting. This is a wrapper around PyTorch's F.mse_loss with additional functionality.
+
+**Parameters:**
+
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Methods:**
+
+- `forward(y_pred, target, mask=None, weights=None)`: Computes the MSE loss
+
+**Example:**
+
+```python
+import torch
+import torchregression as tr
+
+loss_fn = tr.losses.MSELoss()
+
+# Predictions and targets
+y_pred = torch.tensor([1.0, 2.0, 3.0])
+target = torch.tensor([0.0, 2.0, 4.0])
+
+# Basic MSE loss
+basic_loss = loss_fn(y_pred, target)  # tensor(0.6667)
+
+# With mask (ignore the 2nd sample)
+mask = torch.tensor([True, False, True])
+masked_loss = loss_fn(y_pred, target, mask=mask)
+```
+
+### MAELoss
+
+```python
+class MAELoss(RegressionLoss)
+```
+
+Mean Absolute Error loss with support for masking and weighting. This is a wrapper around PyTorch's F.l1_loss with additional functionality.
+
+**Parameters:**
+
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Methods:**
+
+- `forward(y_pred, target, mask=None, weights=None)`: Computes the MAE loss
+
+**Example:**
+
+```python
+import torch
+import torchregression as tr
+
+loss_fn = tr.losses.MAELoss()
+
+# Predictions and targets
+y_pred = torch.tensor([1.0, 2.0, 3.0])
+target = torch.tensor([0.0, 2.0, 4.0])
+
+# Basic MAE loss
+loss = loss_fn(y_pred, target)  # tensor(0.6667)
+```
+
 ### WeightedMSELoss
 
 ```python
@@ -66,6 +134,41 @@ weighted_loss = loss_fn(y_pred, target, weights=weights)  # Gives more weight to
 # With mask (ignore the 2nd sample)
 mask = torch.tensor([True, False, True])
 masked_loss = loss_fn(y_pred, target, mask=mask)
+```
+
+### GaussianNLLLoss
+
+```python
+class GaussianNLLLoss(DistributionLoss)
+```
+
+Gaussian Negative Log-Likelihood loss with explicit variance input. This simpler interface is useful when you have a separate model or estimate for variance.
+
+**Parameters:**
+
+- `eps` (float, optional): Small constant for numerical stability. Default: `1e-8`
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Methods:**
+
+- `forward(y_pred, target, var, mask=None, weights=None)`: Computes the Gaussian NLL loss
+
+**Example:**
+
+```python
+import torch
+import torchregression as tr
+
+# Create loss function
+loss_fn = tr.losses.GaussianNLLLoss()
+
+# Predictions, targets and variance
+y_pred = torch.tensor([1.0, 2.0, 3.0])
+target = torch.tensor([0.0, 2.0, 4.0])
+var = torch.tensor([0.5, 1.0, 2.0])  # Different uncertainty for each prediction
+
+# Calculate NLL loss
+loss = loss_fn(y_pred, target, var)
 ```
 
 ### DiagonalGaussianNLL
@@ -219,15 +322,21 @@ loss_fn = tr.losses.create_gaussian_nll(
 
 ## Choosing the Right Gaussian Loss
 
-1. **WeightedMSELoss**: Use when you only care about point predictions and want to weight samples or features differently.
+1. **MSELoss**: Simple squared error loss with masking and weighting support.
 
-2. **DiagonalGaussianNLL**:
+2. **MAELoss**: Mean absolute error loss when outliers should have less influence.
+
+3. **WeightedMSELoss**: Use when you need to weight samples or features differently.
+
+4. **GaussianNLLLoss**: Use when you have separate models for mean and variance.
+
+5. **DiagonalGaussianNLL**:
    - Use when you want to model uncertainty for each output dimension independently
    - Good for heteroscedastic regression where uncertainty varies across the input space
    - Choose `learnable_variance=True` if your dataset has a constant but unknown noise level
    - Choose `learnable_variance=False` if your model should predict both mean and variance
 
-3. **GaussianNLLWithCovariance**:
+6. **GaussianNLLWithCovariance**:
    - Use when output dimensions are correlated (e.g., multivariate time series, spatial data)
    - More complex but can capture richer uncertainty relationships
    - Requires more data to estimate reliably compared to diagonal variants

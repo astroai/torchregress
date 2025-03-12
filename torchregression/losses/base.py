@@ -96,7 +96,7 @@ class MaskedLoss(BaseLoss):
     Base class for losses that support optional masking.
 
     This class provides common functionality for handling masked losses,
-    where certain elements in the inputs should be ignored.
+        where certain elements in the inputs should be ignored.
 
     Args:
         reduction: Specifies the reduction to apply to the output:
