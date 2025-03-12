@@ -16,39 +16,41 @@ from .eiv_utils import prepare_sigma
 def chamfer_distance(x: torch.Tensor, y: torch.Tensor, bidirectional: bool = True) -> torch.Tensor:
     """
     Calculate Chamfer distance between point clouds.
-    
+
     Args:
         x: First point cloud [batch_size, n_points_x, n_features]
         y: Second point cloud [batch_size, n_points_y, n_features]
         bidirectional: Whether to compute distance in both directions
-        
+
     Returns:
         Chamfer distance [batch_size]
     """
     # Calculate pairwise distances more efficiently
     batch_size, n_points_x, n_features = x.shape
     n_points_y = y.shape[1]
-    
+
     # Compute ||x||^2, ||y||^2 and <x,y>
     x_norm = torch.sum(x**2, dim=2, keepdim=True)  # [batch_size, n_points_x, 1]
-    y_norm = torch.sum(y**2, dim=2).unsqueeze(1)   # [batch_size, 1, n_points_y]
-    xy_inner = torch.bmm(x.reshape(batch_size, n_points_x, n_features), 
-                         y.reshape(batch_size, n_points_y, n_features).transpose(1, 2))
-    
+    y_norm = torch.sum(y**2, dim=2).unsqueeze(1)  # [batch_size, 1, n_points_y]
+    xy_inner = torch.bmm(
+        x.reshape(batch_size, n_points_x, n_features),
+        y.reshape(batch_size, n_points_y, n_features).transpose(1, 2),
+    )
+
     # ||x-y||^2 = ||x||^2 + ||y||^2 - 2<x,y>
     squared_dist = x_norm + y_norm - 2 * xy_inner  # [batch_size, n_points_x, n_points_y]
-    
+
     # Find minimum distance for each point in x to any point in y
     x_to_y_min, _ = torch.min(squared_dist, dim=2)  # [batch_size, n_points_x]
     x_to_y = torch.mean(x_to_y_min, dim=1)  # [batch_size]
-    
+
     if not bidirectional:
         return x_to_y
-    
+
     # Find minimum distance for each point in y to any point in x
     y_to_x_min, _ = torch.min(squared_dist, dim=1)  # [batch_size, n_points_y]
     y_to_x = torch.mean(y_to_x_min, dim=1)  # [batch_size]
-    
+
     # Combine for bidirectional Chamfer distance
     return 0.5 * (x_to_y + y_to_x)
 
@@ -56,10 +58,10 @@ def chamfer_distance(x: torch.Tensor, y: torch.Tensor, bidirectional: bool = Tru
 class ChamferEIVLoss(MaskedLoss):
     """
     Error-in-Variables loss using Chamfer distance.
-    
+
     This loss is used when seeking to match a model's manifold rather than just
     point-wise predictions, making it robust to input uncertainty.
-    
+
     Args:
         model: Model function f(x) that predicts y
         sigma_x: Standard deviation of noise in the features (for sampling)
@@ -70,16 +72,17 @@ class ChamferEIVLoss(MaskedLoss):
         early_stopping_tol: Tolerance for early stopping in optimization
         reduction: 'none' | 'mean' | 'sum'
     """
+
     def __init__(
         self,
         model: Callable,
         sigma_x: Optional[Union[float, torch.Tensor]] = None,
-        method: str = 'monte_carlo',
+        method: str = "monte_carlo",
         n_samples: int = 100,
         optim_steps: int = 50,
         optim_lr: float = 0.01,
         early_stopping_tol: float = 1e-5,
-        reduction: str = 'mean'
+        reduction: str = "mean",
     ):
         super().__init__(reduction=reduction)
         self.model = model
@@ -89,37 +92,37 @@ class ChamferEIVLoss(MaskedLoss):
         self.optim_steps = optim_steps
         self.optim_lr = optim_lr
         self.early_stopping_tol = early_stopping_tol
-        
+
     def forward(self, x_obs, y_true, mask=None):
         """
         Calculate Chamfer EIV loss.
-        
+
         Args:
             x_obs: Observed features with noise [batch_size, n_features_x]
             y_true: Observed targets [batch_size, n_features_y]
             mask: Optional boolean mask [batch_size, n_features_y]
-            
+
         Returns:
             Loss tensor (scalar if reduction is applied)
         """
         y_true = self._apply_mask(y_true, mask)
         batch_size, n_features_y = y_true.shape
         device = x_obs.device
-        
+
         # Handle different methods for finding closest point on the manifold
-        if self.method == 'monte_carlo':
+        if self.method == "monte_carlo":
             # Generate samples around observed x to approximate the manifold
             if self.sigma_x is None:
                 # Default noise level if not specified
                 sigma_x = torch.ones(x_obs.shape[1], device=device) * 0.1
             else:
                 sigma_x = prepare_sigma(self.sigma_x, x_obs.shape[1], device)
-                
+
             # Process Monte Carlo samples in batches if needed
             max_batch = 1000  # Maximum samples to process at once
             n_batches = max(1, self.n_samples // max_batch)
             samples_per_batch = self.n_samples // n_batches
-            
+
             all_preds = []
             for i in range(n_batches):
                 # Generate batch of samples
@@ -128,158 +131,163 @@ class ChamferEIVLoss(MaskedLoss):
                     noise = torch.randn_like(x_obs) * sigma_x
                     x_sample = x_obs + noise
                     batch_samples.append(x_sample)
-                
+
                 # Stack and process batch
-                x_batch = torch.stack(batch_samples)  # [samples_per_batch, batch_size, n_features_x]
+                x_batch = torch.stack(
+                    batch_samples
+                )  # [samples_per_batch, batch_size, n_features_x]
                 x_flat = x_batch.reshape(-1, x_batch.shape[-1])
-                
+
                 # Get predictions for batch
                 with torch.no_grad():
                     y_preds_flat = self.model(x_flat)
-                    y_preds_batch = y_preds_flat.reshape(samples_per_batch, batch_size, n_features_y)
+                    y_preds_batch = y_preds_flat.reshape(
+                        samples_per_batch, batch_size, n_features_y
+                    )
                     all_preds.append(y_preds_batch)
-            
+
             # Combine all predictions
             y_preds = torch.cat(all_preds, dim=0)
-            
+
             # Transpose to [batch_size, n_samples, n_features_y] for Chamfer distance
             y_preds = y_preds.transpose(0, 1)
-                
+
             # Reshape y_true to [batch_size, 1, n_features_y] for Chamfer distance
             y_true_expanded = y_true.unsqueeze(1)
-            
+
             # Calculate Chamfer distance from y_true to manifold samples
             chamfer_loss = chamfer_distance(y_true_expanded, y_preds, bidirectional=True)
-            
-        elif self.method == 'optimization':
+
+        elif self.method == "optimization":
             # Find closest point on the manifold through optimization
             chamfer_loss = self._optimization_method(x_obs, y_true)
         else:
             raise ValueError(f"Unknown method: {self.method}")
-        
+
         # Apply reduction
-        if self.reduction == 'mean':
+        if self.reduction == "mean":
             return torch.mean(chamfer_loss)
-        elif self.reduction == 'sum':
+        elif self.reduction == "sum":
             return torch.sum(chamfer_loss)
         else:  # 'none'
             return chamfer_loss
-    
+
     def _optimization_method(self, x_obs, y_true):
         """Find closest point on the model manifold through optimization."""
         batch_size, n_features_y = y_true.shape
         device = x_obs.device
-        
+
         # Create optimizable inputs initialized to observed values
         x_opt = x_obs.detach().clone().requires_grad_(True)
-        
+
         # Create optimizer with gradient clipping
         optimizer = torch.optim.Adam([x_opt], lr=self.optim_lr)
-        
+
         # Previous loss for early stopping
-        prev_loss = float('inf')
-        
+        prev_loss = float("inf")
+
         # Run optimization to find closest point on the manifold
         for step in range(self.optim_steps):
             optimizer.zero_grad()
-            
+
             # Forward pass
             y_pred = self.model(x_opt)
-            
+
             # L2 distance between prediction and target
-            loss = torch.sum((y_pred - y_true)**2, dim=1).mean()
-            
+            loss = torch.sum((y_pred - y_true) ** 2, dim=1).mean()
+
             # Add regularization to stay close to original x
             if self.sigma_x is not None:
                 sigma_x = prepare_sigma(self.sigma_x, x_obs.shape[1], device)
-                reg_term = torch.sum(((x_opt - x_obs) / sigma_x)**2, dim=1).mean()
+                reg_term = torch.sum(((x_opt - x_obs) / sigma_x) ** 2, dim=1).mean()
                 loss = loss + 0.5 * reg_term
-            
+
             # Backward and optimize
             loss.backward()
-            
+
             # Gradient clipping to prevent exploding gradients
             torch.nn.utils.clip_grad_norm_(x_opt, 10.0)
-            
+
             optimizer.step()
-            
+
             # Check for early stopping
             if abs(prev_loss - loss.item()) < self.early_stopping_tol:
                 break
-                
+
             prev_loss = loss.item()
-        
+
         # Final forward pass
         with torch.no_grad():
             y_pred = self.model(x_opt)
-            
+
             # Calculate squared distance to target
-            chamfer_loss = torch.sum((y_pred - y_true)**2, dim=1)
-        
+            chamfer_loss = torch.sum((y_pred - y_true) ** 2, dim=1)
+
         return chamfer_loss
 
 
 class HybridEIVChamferLoss(MaskedLoss):
     """
     Hybrid loss combining standard EIV and Chamfer distance.
-    
+
     This loss combines the analytical EIV loss with Chamfer distance for
     better handling of complex error structures.
-    
+
     Args:
         eiv_loss: Standard EIV loss instance
         chamfer_loss: Chamfer EIV loss instance
         alpha: Weight for EIV component (0-1)
         reduction: 'none' | 'mean' | 'sum'
     """
+
     def __init__(
         self,
         eiv_loss: MaskedLoss,
         chamfer_loss: ChamferEIVLoss,
         alpha: float = 0.5,
-        reduction: str = 'mean'
+        reduction: str = "mean",
     ):
         super().__init__(reduction=reduction)
         self.eiv_loss = eiv_loss
         self.chamfer_loss = chamfer_loss
         self.alpha = alpha
-        
+
     def forward(self, x_obs, y_true, mask=None):
         """
         Calculate hybrid EIV-Chamfer loss.
-        
+
         Args:
             x_obs: Observed features with noise [batch_size, n_features_x]
             y_true: Observed targets [batch_size, n_features_y]
             mask: Optional boolean mask [batch_size, n_features_y]
-            
+
         Returns:
             Loss tensor (scalar if reduction is applied)
         """
         # Cache original reduction settings
         original_eiv_reduction = self.eiv_loss.reduction
         original_chamfer_reduction = self.chamfer_loss.reduction
-        
+
         try:
             # Set to 'none' for proper weighting
-            self.eiv_loss.reduction = 'none'
-            self.chamfer_loss.reduction = 'none'
-            
+            self.eiv_loss.reduction = "none"
+            self.chamfer_loss.reduction = "none"
+
             # Calculate both losses
             eiv_loss_val = self.eiv_loss(x_obs, y_true, mask)
             chamfer_loss_val = self.chamfer_loss(x_obs, y_true, mask)
-            
+
             # Combine losses with alpha weighting
             combined_loss = self.alpha * eiv_loss_val + (1.0 - self.alpha) * chamfer_loss_val
-            
+
             # Apply reduction
-            if self.reduction == 'mean':
+            if self.reduction == "mean":
                 return torch.mean(combined_loss)
-            elif self.reduction == 'sum':
+            elif self.reduction == "sum":
                 return torch.sum(combined_loss)
             else:  # 'none'
                 return combined_loss
-        
+
         finally:
             # Always restore original reduction settings, even if an error occurs
             self.eiv_loss.reduction = original_eiv_reduction

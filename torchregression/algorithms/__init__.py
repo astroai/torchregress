@@ -11,7 +11,7 @@ from .irls import (
     IRLS,
     _huber_weights,
     _tukey_weights,
-    _power_weights
+    _power_weights,
 )
 
 # Import Gaussian process algorithms
@@ -20,7 +20,7 @@ from .gaussian import (
     GaussianNLLWithCovariance,
     HeteroscedasticGaussianNLL,
     fit_linear_gaussian,
-    fit_bayesian_linear
+    fit_bayesian_linear,
 )
 
 # Convenience aliases
@@ -28,17 +28,16 @@ IRLS_Algorithm = IRLS
 
 __all__ = [
     # IRLS algorithm
-    'iteratively_reweighted_least_squares',
-    'IRLS',
-    'IRLS_Algorithm',
-    '_huber_weights',
-    '_tukey_weights',
-    '_power_weights',
-    
+    "iteratively_reweighted_least_squares",
+    "IRLS",
+    "IRLS_Algorithm",
+    "_huber_weights",
+    "_tukey_weights",
+    "_power_weights",
     # Gaussian process algorithms
-    'DiagonalGaussianNLL',
-    'GaussianNLLWithCovariance',
-    'HeteroscedasticGaussianNLL',
-    'fit_linear_gaussian',
-    'fit_bayesian_linear'
+    "DiagonalGaussianNLL",
+    "GaussianNLLWithCovariance",
+    "HeteroscedasticGaussianNLL",
+    "fit_linear_gaussian",
+    "fit_bayesian_linear",
 ]

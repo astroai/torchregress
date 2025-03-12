@@ -24,7 +24,7 @@ from torchregression.metrics.point import (
     # Outlier metrics
     outlier_fraction,
     # Report generator
-    regression_metrics_report
+    regression_metrics_report,
 )
 
 # Import distribution prediction metrics
@@ -32,7 +32,7 @@ from torchregression.metrics.distribution import (
     probability_integral_transform,
     continuous_ranked_probability_score,
     energy_score,
-    distribution_metrics_report
+    distribution_metrics_report,
 )
 
 # Import calibration metrics
@@ -40,14 +40,14 @@ from torchregression.metrics.calibration import (
     expected_calibration_error,
     marginal_calibration_error,
     plot_reliability_diagram,
-    calibration_metrics_report
+    calibration_metrics_report,
 )
 
 # Import interval metrics
 from torchregression.metrics.interval import (
     interval_score,
     prediction_interval_coverage_probability,
-    interval_metrics_report
+    interval_metrics_report,
 )
 
 # Import OOD metrics
@@ -56,5 +56,5 @@ from torchregression.metrics.ood import (
     typicality_score,
     entropy_score,
     kernel_density_score,
-    ood_metrics_report
+    ood_metrics_report,
 )
