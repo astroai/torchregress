@@ -4,14 +4,18 @@ Distribution metrics for evaluating probabilistic regression models.
 
 import torch
 import numpy as np
-from typing import Union, Optional, Dict, List, Tuple, Callable
+from typing import Union, Optional, Dict, List, Callable
 from torch.distributions import Distribution
 
-from torchregression.metrics.utils import convert_to_tensor, apply_reduction, create_metric_result
+from torchregression.metrics.utils import (
+    convert_to_tensor, 
+    apply_reduction, 
+    validate_inputs
+)
 
 def probability_integral_transform(
-    y_true: Union[torch.Tensor, np.ndarray],
     cdf_fn: Callable,
+    y_true: Union[torch.Tensor, np.ndarray],
     n_bins: int = 20,
     return_histogram: bool = False
 ) -> Union[torch.Tensor, Dict[str, Union[torch.Tensor, np.ndarray]]]:
@@ -22,8 +26,8 @@ def probability_integral_transform(
     For a well-calibrated forecast, PIT values should be uniformly distributed.
     
     Args:
-        y_true: Ground truth values
         cdf_fn: Function that takes y_true and returns CDF values at those points
+        y_true: Ground truth values
         n_bins: Number of bins for PIT histogram
         return_histogram: Whether to return histogram counts and edges
         
@@ -51,8 +55,8 @@ def probability_integral_transform(
     return pit_values.cpu().numpy() if isinstance(y_true, np.ndarray) else pit_values
 
 def continuous_ranked_probability_score(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred_quantiles: Dict[float, Union[torch.Tensor, np.ndarray]],
+    y_true: Union[torch.Tensor, np.ndarray],
     reduction: str = "mean"
 ) -> Union[float, torch.Tensor]:
     """
@@ -62,9 +66,9 @@ def continuous_ranked_probability_score(
     Lower values indicate better performance.
     
     Args:
-        y_true: Ground truth values [n_samples]
         y_pred_quantiles: Dictionary mapping quantile levels to predictions
             each with shape [n_samples]
+        y_true: Ground truth values [n_samples]
         reduction: How to reduce the score ("none", "mean", "sum")
             
     Returns:
@@ -74,10 +78,16 @@ def continuous_ranked_probability_score(
     
     # Sort quantiles and extract predictions
     quantiles = sorted(y_pred_quantiles.keys())
+    
+    # Validate that we have at least 2 quantiles
+    if len(quantiles) < 2:
+        raise ValueError("At least 2 quantile levels are required for CRPS calculation")
+        
     forecasts = []
     
     for q in quantiles:
         q_pred = convert_to_tensor(y_pred_quantiles[q])
+        validate_inputs(q_pred, y_true_tensor)
         forecasts.append(q_pred)
     
     # Stack forecasts along a new dimension [n_quantiles, n_samples]
@@ -85,14 +95,17 @@ def continuous_ranked_probability_score(
     quantile_tensor = torch.tensor(quantiles, device=forecast_tensor.device)
     
     # Calculate weights (differences between consecutive quantiles)
-    weights = torch.diff(torch.cat([torch.tensor([0.0]), quantile_tensor, torch.tensor([1.0])]))
+    # Using torch.cat for better device handling
+    zero_tensor = torch.tensor([0.0], device=quantile_tensor.device)
+    one_tensor = torch.tensor([1.0], device=quantile_tensor.device)
+    weights = torch.diff(torch.cat([zero_tensor, quantile_tensor, one_tensor]))
     
     # Calculate quantile loss for each level
-    crps_values = torch.zeros_like(y_true_tensor)
+    crps_values = torch.zeros_like(y_true_tensor, device=y_true_tensor.device)
     for i, q in enumerate(quantiles):
         diff = y_true_tensor - forecast_tensor[i]
         q_tensor = torch.tensor(q, device=diff.device)
-        quantile_loss = torch.maximum(q_tensor * diff, (q_tensor - 1) * diff)
+        quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
         crps_values = crps_values + weights[i+1] * quantile_loss
     
     # Apply reduction
@@ -100,10 +113,11 @@ def continuous_ranked_probability_score(
     return result.item() if isinstance(y_true, np.ndarray) and reduction != "none" else result
 
 def energy_score(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_samples: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     beta: float = 1.0,
-    reduction: str = "mean"
+    reduction: str = "mean",
+    max_pairs: Optional[int] = None
 ) -> Union[float, torch.Tensor]:
     """
     Calculate Energy Score for multivariate probabilistic forecasts.
@@ -111,10 +125,11 @@ def energy_score(
     Energy Score is a multivariate generalization of the CRPS.
     
     Args:
-        y_true: Ground truth values [batch_size, n_dims]
         y_samples: Ensemble of forecast samples [n_samples, batch_size, n_dims]
+        y_true: Ground truth values [batch_size, n_dims]
         beta: Parameter of the energy score (typically 1.0 or 0.5)
         reduction: How to reduce the score ("none", "mean", "sum")
+        max_pairs: Maximum number of sample pairs to use (for better scalability)
         
     Returns:
         Energy Score (reduced as specified)
@@ -125,11 +140,26 @@ def energy_score(
     n_samples = y_samples.shape[0]
     batch_size = y_true.shape[0]
     
-    # Use more efficient calculation
+    # For very large sample counts, limit computation using random sampling
+    if max_pairs is not None and n_samples > max_pairs:
+        # Randomly select samples to use
+        indices = torch.randperm(n_samples)[:max_pairs]
+        y_samples = y_samples[indices]
+        n_samples = max_pairs
+    
     # Term 1: Expected distance between forecasts and observations
     norms = torch.zeros(batch_size, n_samples, device=y_true.device)
     for i in range(n_samples):
-        norms[:, i] = torch.norm(y_samples[i] - y_true, dim=1)**beta
+        # More numerically stable norm calculation, especially with beta!=1
+        diff = y_samples[i] - y_true
+        # Use safe power function to avoid numerical issues with negative numbers
+        if beta == 1.0:
+            norms[:, i] = torch.norm(diff, dim=1)
+        elif beta == 0.5:
+            norms[:, i] = torch.sqrt(torch.sum(torch.abs(diff), dim=1))
+        else:
+            norms[:, i] = torch.pow(torch.sum(torch.pow(torch.abs(diff), beta), dim=1), 1/beta)
+            
     term1 = torch.mean(norms, dim=1)  # [batch_size]
     
     # Term 2: Expected distance between pairs of forecasts (more efficient)
@@ -158,8 +188,8 @@ def energy_score(
     return result.item() if isinstance(y_true, np.ndarray) and reduction != "none" else result
 
 def distribution_metrics_report(
+    distribution: Optional[Distribution],
     y_true: Union[torch.Tensor, np.ndarray],
-    distribution: Optional[Distribution] = None,
     y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]] = None,
     samples: Optional[Union[torch.Tensor, np.ndarray]] = None,
     quantiles_to_check: List[float] = [0.1, 0.5, 0.9]
@@ -168,8 +198,8 @@ def distribution_metrics_report(
     Generate a comprehensive report on distribution prediction quality.
     
     Args:
-        y_true: Ground truth values
         distribution: PyTorch distribution object (optional)
+        y_true: Ground truth values
         y_pred_quantiles: Dictionary mapping quantile levels to predictions (optional)
         samples: Samples from predictive distribution [n_samples, batch_size, ...] (optional)
         quantiles_to_check: Quantiles to evaluate for calibration
@@ -206,10 +236,10 @@ def distribution_metrics_report(
     
     # Calculate CRPS if we have quantiles
     if y_pred_quantiles is not None:
-        metrics['crps'] = continuous_ranked_probability_score(y_true, y_pred_quantiles)
+        metrics['crps'] = continuous_ranked_probability_score(y_pred_quantiles, y_true)
     
     # Calculate energy score for multivariate predictions
     if samples is not None and y_true.dim() > 1 and y_true.shape[1] > 1:
-        metrics['energy_score'] = energy_score(y_true, samples)
+        metrics['energy_score'] = energy_score(samples, y_true)
     
     return metrics

@@ -1,16 +1,20 @@
 """
 Metrics for evaluating regression models.
+
+This module provides metrics for both point prediction and probabilistic regression models,
+with a consistent API where prediction inputs precede target inputs.
 """
 
 # Import point prediction metrics
 from torchregression.metrics.point import (
+    # Basic metrics
     mean_squared_error,
     mean_absolute_error,
     r2_score,
     explained_variance_score,
     mean_absolute_percentage_error,
-    median_absolute_error,
     mean_squared_log_error,
+    median_absolute_error,
     normalized_rmse,
     # Robust metrics
     huber_loss,
@@ -34,8 +38,8 @@ from torchregression.metrics.distribution import (
 # Import calibration metrics
 from torchregression.metrics.calibration import (
     expected_calibration_error,
-    calibration_error,
     marginal_calibration_error,
+    plot_reliability_diagram,
     calibration_metrics_report
 )
 
@@ -43,7 +47,6 @@ from torchregression.metrics.calibration import (
 from torchregression.metrics.interval import (
     interval_score,
     prediction_interval_coverage_probability,
-    winkler_score,
     interval_metrics_report
 )
 
@@ -55,6 +58,3 @@ from torchregression.metrics.ood import (
     kernel_density_score,
     ood_metrics_report
 )
-
-# For backward compatibility
-quantile_score = continuous_ranked_probability_score

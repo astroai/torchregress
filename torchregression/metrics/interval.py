@@ -4,14 +4,18 @@ Interval metrics for evaluating prediction intervals in regression.
 
 import torch
 import numpy as np
-from typing import Union, Optional, Dict, List, Tuple
+from typing import Union, Dict
 
-from torchregression.metrics.utils import convert_to_tensor, apply_reduction, create_metric_result
+from torchregression.metrics.utils import (
+    convert_to_tensor, 
+    apply_reduction, 
+    validate_inputs
+)
 
 def interval_score(
-    y_true: Union[torch.Tensor, np.ndarray],
     lower_bound: Union[torch.Tensor, np.ndarray],
     upper_bound: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     alpha: float = 0.1,
     reduction: str = "mean"
 ) -> Union[Dict[str, Union[float, torch.Tensor]], torch.Tensor]:
@@ -22,9 +26,9 @@ def interval_score(
     falls outside the interval.
     
     Args:
-        y_true: Ground truth values
         lower_bound: Lower bound of prediction interval (e.g., q=0.1)
         upper_bound: Upper bound of prediction interval (e.g., q=0.9)
+        y_true: Ground truth values
         alpha: Significance level (e.g., 0.1 for 90% interval)
         reduction: How to reduce the score ("none", "mean", "sum", or "full")
             If "full", return a dictionary with detailed metrics
@@ -37,8 +41,15 @@ def interval_score(
     lower_bound = convert_to_tensor(lower_bound)
     upper_bound = convert_to_tensor(upper_bound)
     
+    validate_inputs(lower_bound, y_true)
+    validate_inputs(upper_bound, y_true)
+    
     # Calculate interval width
     interval_width = upper_bound - lower_bound
+    
+    # Validate interval bounds
+    if torch.any(interval_width < 0):
+        raise ValueError("Upper bounds must be greater than or equal to lower bounds")
     
     # Calculate penalties for observations outside the interval
     below_lower = torch.clamp(lower_bound - y_true, min=0)
@@ -65,9 +76,9 @@ def interval_score(
         return result.item() if isinstance(y_true, np.ndarray) and reduction != "none" else result
 
 def prediction_interval_coverage_probability(
-    y_true: Union[torch.Tensor, np.ndarray],
     lower_bound: Union[torch.Tensor, np.ndarray],
     upper_bound: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     expected_coverage: float = 0.9,
     return_diagnostics: bool = False
 ) -> Union[float, Dict[str, float]]:
@@ -77,9 +88,9 @@ def prediction_interval_coverage_probability(
     PICP measures the proportion of observations falling within the prediction interval.
     
     Args:
-        y_true: Ground truth values
         lower_bound: Lower bound of prediction interval
         upper_bound: Upper bound of prediction interval
+        y_true: Ground truth values
         expected_coverage: Expected coverage probability (e.g., 0.9 for 90% interval)
         return_diagnostics: Whether to return detailed diagnostics
         
@@ -124,16 +135,16 @@ def prediction_interval_coverage_probability(
     }
 
 def interval_metrics_report(
-    y_true: Union[torch.Tensor, np.ndarray],
     predictions: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]],
+    y_true: Union[torch.Tensor, np.ndarray],
     alpha: float = 0.1
 ) -> Dict[str, Dict[str, float]]:
     """
     Generate a comprehensive report on prediction interval quality for multiple models.
     
     Args:
-        y_true: Ground truth values
         predictions: Dictionary mapping model names to dictionaries with 'lower' and 'upper' bounds
+        y_true: Ground truth values
         alpha: Significance level (e.g., 0.1 for 90% interval)
         
     Returns:
@@ -147,11 +158,11 @@ def interval_metrics_report(
         upper_bound = convert_to_tensor(pred['upper'])
         
         # Calculate interval score
-        int_score = interval_score(y_true, lower_bound, upper_bound, alpha, reduction="full")
+        int_score = interval_score(lower_bound, upper_bound, y_true, alpha, reduction="full")
         
         # Calculate coverage probability
         coverage = prediction_interval_coverage_probability(
-            y_true, lower_bound, upper_bound, 
+            lower_bound, upper_bound, y_true, 
             expected_coverage=1-alpha, return_diagnostics=True
         )
         

@@ -6,9 +6,12 @@ import torch
 import numpy as np
 from typing import Union, Optional, Dict, Callable
 import torchmetrics.functional as tmf
-from torchmetrics.regression import MeanSquaredError
 
-from torchregression.metrics.utils import convert_to_tensor, create_metric_result
+from torchregression.metrics.utils import (
+    convert_to_tensor, 
+    validate_inputs, 
+    validate_sample_weight
+)
 
 class PointMetric:
     """Base class for point metrics to simplify implementation."""
@@ -18,14 +21,15 @@ class PointMetric:
     
     def __call__(
         self,
-        y_true: Union[torch.Tensor, np.ndarray],
         y_pred: Union[torch.Tensor, np.ndarray],
+        y_true: Union[torch.Tensor, np.ndarray],
         sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
         multioutput: str = 'uniform_average'
     ) -> Union[float, np.ndarray]:
         """Calculate metric value."""
-        y_true = convert_to_tensor(y_true)
         y_pred = convert_to_tensor(y_pred)
+        y_true = convert_to_tensor(y_true)
+        validate_inputs(y_pred, y_true)
         
         if self.torchmetrics_fn is None:
             raise NotImplementedError("Subclasses must implement this method or provide torchmetrics_fn")
@@ -36,6 +40,7 @@ class PointMetric:
             for i in range(y_true.shape[1]):
                 if sample_weight is not None:
                     sw = convert_to_tensor(sample_weight)
+                    sw = validate_sample_weight(sw, y_pred.shape[0])
                     result[i] = self.torchmetrics_fn(y_pred[:, i], y_true[:, i], sample_weights=sw)
                 else:
                     result[i] = self.torchmetrics_fn(y_pred[:, i], y_true[:, i])
@@ -43,6 +48,7 @@ class PointMetric:
         else:
             if sample_weight is not None:
                 sw = convert_to_tensor(sample_weight)
+                sw = validate_sample_weight(sw, y_pred.shape[0])
                 result = self.torchmetrics_fn(y_pred, y_true, sample_weights=sw)
             else:
                 result = self.torchmetrics_fn(y_pred, y_true)
@@ -57,8 +63,8 @@ mean_absolute_percentage_error = PointMetric(torchmetrics_fn=tmf.mean_absolute_p
 mean_squared_log_error = PointMetric(torchmetrics_fn=tmf.mean_squared_log_error)
 
 def median_absolute_error(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     multioutput: str = 'uniform_average'
 ) -> Union[float, np.ndarray]:
     """
@@ -67,15 +73,16 @@ def median_absolute_error(
     Robust to outliers. Not available in torchmetrics functional API.
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         multioutput: How to aggregate multiple outputs
         
     Returns:
         Median absolute error value(s)
     """
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     # Calculate absolute errors
     abs_errors = torch.abs(y_pred - y_true)
@@ -95,23 +102,24 @@ def median_absolute_error(
         return result.item() if isinstance(y_true, np.ndarray) else result
 
 def normalized_rmse(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     normalization: str = 'std'
 ) -> float:
     """
     Normalized Root Mean Square Error.
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         normalization: How to normalize ('std', 'range', 'mean', or 'iqr')
         
     Returns:
         Normalized RMSE value
     """
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     # Calculate RMSE using torchmetrics
     rmse = torch.sqrt(tmf.mean_squared_error(y_pred, y_true))
@@ -138,8 +146,8 @@ def normalized_rmse(
     return result.item() if isinstance(y_true, np.ndarray) else result
 
 def huber_loss(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     delta: float = 1.0,
     reduction: str = "mean"
 ) -> Union[torch.Tensor, float]:
@@ -150,16 +158,17 @@ def huber_loss(
     and MAE-like for large residuals.
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         delta: Threshold where loss changes from MSE to MAE
         reduction: How to reduce the loss ("mean", "sum", "none")
         
     Returns:
         Huber loss value(s)
     """
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     # Calculate absolute error
     abs_error = torch.abs(y_true - y_pred)
@@ -180,8 +189,8 @@ def huber_loss(
         raise ValueError(f"Unknown reduction: {reduction}")
 
 def trimmed_mean_squared_error(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     proportion: float = 0.1
 ) -> float:
     """
@@ -190,8 +199,8 @@ def trimmed_mean_squared_error(
     Calculates MSE after removing the top and bottom proportion of errors.
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         proportion: Proportion of data to trim from each end (0-0.5)
         
     Returns:
@@ -200,8 +209,9 @@ def trimmed_mean_squared_error(
     if not 0 <= proportion < 0.5:
         raise ValueError("Proportion must be between 0 and 0.5")
         
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     # Calculate squared errors
     squared_errors = (y_true - y_pred)**2
@@ -222,8 +232,8 @@ def trimmed_mean_squared_error(
     return torch.mean(trimmed_errors).item()
 
 def median_absolute_deviation(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     scale: float = 1.4826  # Scaling factor for normal distribution
 ) -> float:
     """
@@ -232,15 +242,16 @@ def median_absolute_deviation(
     MAD = scale * median(|errors - median(errors)|)
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         scale: Scaling factor (1.4826 for normal distribution)
         
     Returns:
         MAD value
     """
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     # Calculate errors
     errors = y_true - y_pred
@@ -261,8 +272,8 @@ def median_absolute_deviation(
     return (scale * mad).item()
 
 def outlier_fraction(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     threshold: float = 0.15,
     scale: Optional[Union[torch.Tensor, np.ndarray]] = None,
     mode: str = "photometric"
@@ -277,8 +288,8 @@ def outlier_fraction(
     |y_pred - y_true|/scale > threshold
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         threshold: Threshold to define an outlier
         scale: Scaling factor (optional, defaults to std of y_true)
         mode: "photometric" for photometric redshift style or "standard"
@@ -286,8 +297,9 @@ def outlier_fraction(
     Returns:
         Fraction of outliers
     """
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     # Calculate error
     abs_error = torch.abs(y_true - y_pred)
@@ -310,8 +322,8 @@ def outlier_fraction(
     return outlier_fraction_value
 
 def normalized_median_absolute_deviation(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     normalization: str = "median"
 ) -> float:
     """
@@ -324,15 +336,16 @@ def normalized_median_absolute_deviation(
     - "photometric": Δz = (y_pred - y_true) / (1 + y_true)
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         normalization: How to normalize differences ("median", "photometric")
         
     Returns:
         NMAD value
     """
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     # Calculate differences
     diff = y_pred - y_true
@@ -354,8 +367,8 @@ def normalized_median_absolute_deviation(
     return nmad.item()
 
 def regression_metrics_report(
-    y_true: Union[torch.Tensor, np.ndarray],
     y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
     sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
     include_robust: bool = True,
     include_outliers: bool = True
@@ -366,8 +379,8 @@ def regression_metrics_report(
     This is useful for model evaluation and comparison.
     
     Args:
-        y_true: Ground truth values
         y_pred: Predicted values
+        y_true: Ground truth values
         sample_weight: Optional weights for samples
         include_robust: Whether to include robust metrics
         include_outliers: Whether to include outlier metrics
@@ -375,27 +388,28 @@ def regression_metrics_report(
     Returns:
         Dictionary with multiple regression metrics
     """
-    y_true = convert_to_tensor(y_true)
     y_pred = convert_to_tensor(y_pred)
+    y_true = convert_to_tensor(y_true)
+    validate_inputs(y_pred, y_true)
     
     metrics = {}
     
     # Calculate basic metrics
-    metrics['mse'] = mean_squared_error(y_true, y_pred, sample_weight)
+    metrics['mse'] = mean_squared_error(y_pred, y_true, sample_weight)
     metrics['rmse'] = torch.sqrt(torch.tensor(metrics['mse'])).item()
-    metrics['mae'] = mean_absolute_error(y_true, y_pred, sample_weight)
-    metrics['r2'] = r2_score(y_true, y_pred, sample_weight)
-    metrics['explained_var'] = explained_variance_score(y_true, y_pred, sample_weight)
-    metrics['median_ae'] = median_absolute_error(y_true, y_pred)
+    metrics['mae'] = mean_absolute_error(y_pred, y_true, sample_weight)
+    metrics['r2'] = r2_score(y_pred, y_true, sample_weight)
+    metrics['explained_var'] = explained_variance_score(y_pred, y_true, sample_weight)
+    metrics['median_ae'] = median_absolute_error(y_pred, y_true)
     
     # Only include MAPE and MSLE if data is suitable
     if torch.all(y_true > 0) and torch.all(y_pred > 0):
-        metrics['mape'] = mean_absolute_percentage_error(y_true, y_pred, sample_weight)
-        metrics['msle'] = mean_squared_log_error(y_true, y_pred, sample_weight)
+        metrics['mape'] = mean_absolute_percentage_error(y_pred, y_true, sample_weight)
+        metrics['msle'] = mean_squared_log_error(y_pred, y_true, sample_weight)
     
     # Add normalized RMSE variants
     for norm in ['std', 'range', 'mean', 'iqr']:
-        metrics[f'nrmse_{norm}'] = normalized_rmse(y_true, y_pred, normalization=norm)
+        metrics[f'nrmse_{norm}'] = normalized_rmse(y_pred, y_true, normalization=norm)
     
     # Calculate percentile errors
     abs_errors = torch.abs(y_pred - y_true)
@@ -410,17 +424,17 @@ def regression_metrics_report(
     
     # Add robust metrics
     if include_robust:
-        metrics['huber_loss'] = huber_loss(y_true, y_pred).item()
-        metrics['trimmed_mse'] = trimmed_mean_squared_error(y_true, y_pred)
-        metrics['mad'] = median_absolute_deviation(y_true, y_pred)
-        metrics['nmad'] = normalized_median_absolute_deviation(y_true, y_pred)
-        metrics['nmad_photometric'] = normalized_median_absolute_deviation(y_true, y_pred, "photometric")
+        metrics['huber_loss'] = huber_loss(y_pred, y_true).item()
+        metrics['trimmed_mse'] = trimmed_mean_squared_error(y_pred, y_true)
+        metrics['mad'] = median_absolute_deviation(y_pred, y_true)
+        metrics['nmad'] = normalized_median_absolute_deviation(y_pred, y_true)
+        metrics['nmad_photometric'] = normalized_median_absolute_deviation(y_pred, y_true, "photometric")
     
     # Add outlier metrics
     if include_outliers:
-        metrics['outlier_fraction'] = outlier_fraction(y_true, y_pred)
-        metrics['outlier_fraction_5pct'] = outlier_fraction(y_true, y_pred, threshold=0.05)
-        metrics['outlier_fraction_10pct'] = outlier_fraction(y_true, y_pred, threshold=0.10)
+        metrics['outlier_fraction'] = outlier_fraction(y_pred, y_true)
+        metrics['outlier_fraction_5pct'] = outlier_fraction(y_pred, y_true, threshold=0.05)
+        metrics['outlier_fraction_10pct'] = outlier_fraction(y_pred, y_true, threshold=0.10)
     
     return metrics
 

@@ -32,10 +32,10 @@ This document outlines the detailed implementation plan for TorchRegression 0.1.
 
 4. **Create Basic Examples**
    - [ ] Example showing basic usage of each loss
-   - [ ] Example demonstrating missing data handling
    - [ ] Example comparing different losses
-   - Files to create: `examples/basic_usage.py`, `examples/missing_data.py`, `examples/loss_comparison.py`
-   - Priority: **MEDIUM**
+   - [ ] Example on photometric redshift benchmark
+   - Files to create: `examples/basic_usage.py`, `examples/loss_comparison.py`, `examples/photoz.py`
+   - Priority: **HIGH**
 
 ### 3. API Consistency
 
