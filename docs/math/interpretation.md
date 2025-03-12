@@ -39,6 +39,22 @@ $$\mathcal{L}_{\text{Quantile}}(y, \hat{q}_\tau, \tau) \propto -\log \text{ALD}(
 
 where ALD is the asymmetric Laplace distribution.
 
+### Poisson Loss
+
+The Poisson loss corresponds to the negative log-likelihood of a Poisson distribution:
+
+$$\mathcal{L}_{\text{Poisson}}(y, \hat{\lambda}) \propto -\log \text{Poisson}(y|\hat{\lambda})$$
+
+This is appropriate for count data where the variance equals the mean.
+
+### Tweedie Loss
+
+The Tweedie loss corresponds to the negative log-likelihood of the Tweedie distribution, which includes many common distributions as special cases:
+
+$$\mathcal{L}_{\text{Tweedie}}(y, \hat{\mu}, p) \propto -\log \text{Tweedie}(y|\hat{\mu}, p, \phi)$$
+
+where $p$ is the power parameter and $\phi$ is the dispersion parameter.
+
 ## Maximum Likelihood Estimation
 
 When we minimize a loss function derived from the negative log-likelihood of a probability distribution, we are performing maximum likelihood estimation (MLE). 
@@ -84,22 +100,14 @@ Traditional regression focuses on estimating the conditional mean $\mathbb{E}[Y|
 - **Expectile Regression**: Estimate specific expectiles
 - **Histogram Regression**: Estimate the entire discretized distribution
 
-## Causal Interpretation
+## Error-in-Variables Models
 
-While most regression methods aim to model correlations, some techniques in TorchRegression can be used in causal inference scenarios:
-
-### Error-in-Variables Models
-
-EIV models account for measurement errors in predictors, which is important in causal inference where we need to estimate the true effect of a variable, not just its measured proxy.
+Error-in-variables models account for measurement errors in predictors, which is important in causal inference where we need to estimate the true effect of a variable, not just its measured proxy.
 
 $$Y = \beta X^* + \epsilon$$
 $$X = X^* + \delta$$
 
 where $X^*$ is the true value, $X$ is the measured value with error $\delta$, and $\epsilon$ is the model error.
-
-### Instrumental Variables
-
-Some robust regression techniques can be adapted for instrumental variable estimation, which is a common approach in causal inference with endogeneity issues.
 
 ## Metrics Interpretation
 
@@ -133,5 +141,7 @@ Based on the statistical interpretations above, here are guidelines for choosing
 4. **When dealing with count data**: Poisson loss
 5. **When the distribution is multi-modal**: MDN loss
 6. **When modeling extreme values**: Tweedie loss or heavy-tailed distributions
+7. **When both inputs and outputs have errors**: Error-in-Variables losses
+8. **When the conditional distribution is complex**: Normalizing Flow loss
 
 Remember that the choice of loss function implicitly defines the conditional distribution your model is trying to approximate, so it should match the statistical properties of your data.

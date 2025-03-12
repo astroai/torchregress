@@ -59,121 +59,156 @@ If each model also predicts its own aleatoric uncertainty $\sigma^2_{\theta_m}(x
 
 $$\sigma^2_{\text{total}}(x) = \underbrace{\frac{1}{M}\sum_{m=1}^M \sigma^2_{\theta_m}(x)}_{\text{aleatoric}} + \underbrace{\frac{1}{M}\sum_{m=1}^M (\mu_{\theta_m}(x) - \mu_{\text{ensemble}}(x))^2}_{\text{epistemic}}$$
 
-## Implemented Methods in TorchRegression
+### Monte Carlo Dropout
 
-### Parametric Methods
+Monte Carlo Dropout uses dropout at inference time to approximate Bayesian inference:
 
-TorchRegression implements several parametric uncertainty estimation methods:
+$$p(y|x, \mathcal{D}) \approx \frac{1}{T} \sum_{t=1}^T p(y|x, \omega_t)$$
 
-#### Gaussian Models
+where $\omega_t \sim q_{\theta}(\omega)$ are dropout-sampled weights. The predictive mean and variance are:
+
+$$\mathbb{E}[y|x, \mathcal{D}] \approx \frac{1}{T} \sum_{t=1}^T f_{\omega_t}(x)$$
+
+$$\text{Var}[y|x, \mathcal{D}] \approx \underbrace{\frac{1}{T} \sum_{t=1}^T \sigma^2_{\omega_t}(x)}_{\text{aleatoric}} + \underbrace{\frac{1}{T} \sum_{t=1}^T (f_{\omega_t}(x) - \mathbb{E}[y|x, \mathcal{D}])^2}_{\text{epistemic}}$$
+
+### Mixture Density Networks
+
+Mixture Density Networks (MDNs) model the predictive distribution as a mixture of Gaussians:
+
+$$p(y|x) = \sum_{k=1}^K \pi_k(x) \mathcal{N}(y|\mu_k(x), \sigma^2_k(x))$$
+
+where $\pi_k(x)$ are the mixture weights, $\mu_k(x)$ are the means, and $\sigma^2_k(x)$ are the variances of the $K$ components.
+
+This allows for modeling multi-modal and skewed distributions, capturing complex forms of aleatoric uncertainty.
+
+### Normalizing Flows
+
+Normalizing Flows provide non-parametric density estimation by transforming a simple base distribution into a complex target distribution through a series of invertible transformations:
+
+$$p_X(x) = p_Z(f(x)) \left| \det\left(\frac{\partial f(x)}{\partial x}\right) \right|$$
+
+where $p_Z$ is a base distribution (usually Gaussian), and $f$ is an invertible transformation.
+
+### Evidential Regression
+
+Evidential Regression models the parameters of a Gaussian distribution as coming from a prior distribution, allowing for the separation of aleatoric and epistemic uncertainty:
+
+$$p(y|x) = \int p(y|\mu, \sigma^2) p(\mu, \sigma^2|x) d\mu d\sigma^2$$
+
+The model predicts the parameters of a Normal-Gamma prior over the mean and precision (inverse variance).
+
+## Calibration Methods
+
+Uncertainty estimates often need to be calibrated to ensure that they match empirical frequencies:
+
+### Temperature Scaling
+
+Temperature scaling adjusts the confidence of predictions by dividing logits by a temperature parameter $T$:
+
+$$q_i = \frac{\exp(z_i/T)}{\sum_j \exp(z_j/T)}$$
+
+where higher values of $T$ produce softer (more uncertain) predictions.
+
+### Isotonic Regression
+
+Isotonic regression learns a non-parametric monotonic mapping from predicted probabilities to calibrated probabilities:
+
+$$\hat{p}_{\text{calibrated}} = f_{\text{isotonic}}(\hat{p}_{\text{uncalibrated}})$$
+
+where $f_{\text{isotonic}}$ is a piecewise constant function that preserves the rank order of predictions.
+
+### Conformal Prediction
+
+Conformal prediction provides prediction intervals with guaranteed coverage properties:
+
+$$C_n(X_{n+1}) = \{\hat{y} \in \mathbb{R} : s(\hat{y}, X_{n+1}) \leq q_{\alpha}\}$$
+
+where $s$ is a nonconformity score and $q_{\alpha}$ is a quantile of the calibration scores chosen to achieve $(1-\alpha)$ coverage.
+
+## Evaluation Metrics
+
+Several metrics can be used to evaluate the quality of uncertainty estimates:
+
+### Negative Log-Likelihood (NLL)
+
+$$\text{NLL} = -\frac{1}{n}\sum_{i=1}^{n} \log p(y_i|x_i)$$
+
+### Continuous Ranked Probability Score (CRPS)
+
+$$\text{CRPS}(F, y) = \int_{-\infty}^{\infty} (F(z) - \mathbbm{1}\{z \geq y\})^2 dz$$
+
+where $F$ is the predicted cumulative distribution function.
+
+### Prediction Interval Coverage Probability (PICP)
+
+$$\text{PICP} = \frac{1}{n}\sum_{i=1}^{n} \mathbbm{1}\{y_i \in [\hat{y}_{\text{lower},i}, \hat{y}_{\text{upper},i}]\}$$
+
+### Mean Prediction Interval Width (MPIW)
+
+$$\text{MPIW} = \frac{1}{n}\sum_{i=1}^{n} (\hat{y}_{\text{upper},i} - \hat{y}_{\text{lower},i})$$
+
+### Calibration Error
+
+$$\text{ECE} = \sum_{m=1}^M \frac{|B_m|}{n} |p_m - \hat{p}_m|$$
+
+where $p_m$ is the observed frequency and $\hat{p}_m$ is the predicted probability in bin $m$.
+
+## Implementation in TorchRegression
+
+TorchRegression provides several methods for uncertainty estimation:
+
+### Gaussian NLL Loss
 
 ```python
-# Direct variance estimation
-model = UncertaintyModel()  # Model that outputs mean and log_variance
-loss_fn = tr.losses.GaussianNLLLoss()
+loss_fn = tr.losses.DiagonalGaussianNLL(n_features=1)
 ```
 
-#### Mixture Density Networks
-
-For multi-modal distributions:
+### Quantile Regression
 
 ```python
-# MDN with 5 components
-model = MDNModel(components=5)  # Model that outputs mixture parameters
-loss_fn = tr.losses.MDNLoss(components=5)
-```
-
-### Non-parametric Methods
-
-#### Quantile Regression
-
-```python
-# For 90% prediction intervals
-model = QuantileModel()  # Model that outputs multiple quantiles
+# For predicting upper and lower bounds of a 90% prediction interval
 loss_fn = tr.losses.MultiQuantileLoss(quantiles=[0.05, 0.95])
 ```
 
-#### Conformalized Quantile Regression
+### Mixture Density Networks
 
 ```python
-# Train with quantile loss
-model = QuantileModel()
-loss_fn = tr.losses.QuantileLoss(quantile=0.5)
-
-# Then apply conformal calibration
-conformal_predictor = tr.calibration.ConformalPredictor(model, alpha=0.1)
-conformal_predictor.calibrate(X_calib, y_calib)
-lower, upper = conformal_predictor.predict(X_test)
+loss_fn = tr.losses.MixtureDensityLoss(n_components=5, n_features=1)
 ```
 
-### Ensemble Methods
-
-#### Deep Ensembles
+### Normalizing Flows
 
 ```python
-# Create an ensemble of 5 models
-models = [create_model() for _ in range(5)]
-ensemble = tr.ensemble.DeepEnsemble(models)
-
-# Get predictions with uncertainty
-mean, variance = ensemble.predict(X_test)
+loss_fn = tr.losses.NormalizingFlowLoss(n_features=1, flow_type='nsf')
 ```
 
-#### Monte Carlo Dropout
+### Deep Ensembles
 
 ```python
-# Enable dropout at test time
-model.train()  # Keep dropout active during inference
-
-# Perform multiple forward passes
-predictions = []
-for _ in range(50):
-    pred = model(X_test)
-    predictions.append(pred)
-
-# Calculate mean and variance
-stacked_preds = torch.stack(predictions)
-mean = torch.mean(stacked_preds, dim=0)
-variance = torch.var(stacked_preds, dim=0)
+ensemble = tr.ensemble.DeepEnsemble(base_model=MyModel, ensemble_size=5)
 ```
 
-## Evaluation of Uncertainty Estimates
-
-To evaluate the quality of uncertainty estimates, TorchRegression provides several metrics:
-
-### Calibration Metrics
-
-- **Prediction Interval Coverage Probability (PICP)**: Measures what fraction of true values fall within the prediction intervals.
-- **Expected Calibration Error (ECE)**: Measures the difference between confidence and accuracy.
-
-### Sharpness Metrics
-
-- **Mean Prediction Interval Width (MPIW)**: Measures how wide the prediction intervals are.
-- **Negative Log-Likelihood (NLL)**: Evaluates both calibration and sharpness.
-
-### Proper Scoring Rules
-
-- **Continuous Ranked Probability Score (CRPS)**: A proper scoring rule for probabilistic forecasts.
+### Monte Carlo Dropout
 
 ```python
-# Evaluate uncertainty estimates
-picp = tr.metrics.picp(y_test, lower, upper)
-mpiw = tr.metrics.mpiw(lower, upper)
-nll = tr.metrics.gaussian_nll(mean, y_test, variance)
-crps = tr.metrics.crps_gaussian(mean, y_test, torch.sqrt(variance))
+# Define a model with dropout
+model = create_model_with_dropout(dropout_prob=0.1)
+
+# Generate MC dropout samples at inference time
+results = tr.ensemble.utils.generate_prediction_samples(model, x, n_samples=30)
 ```
 
-## Visualization Tools
+## Best Practices
 
-TorchRegression provides tools for visualizing uncertainty estimates:
+1. **Begin with simpler methods**: Start with direct variance estimation before moving to more complex approaches.
 
-```python
-# Plot predictions with uncertainty
-tr.viz.plot_predictions(X_test, y_test, mean, lower, upper)
+2. **Consider the data distribution**: Choose an appropriate uncertainty estimation method based on the properties of your data.
+   - For approximately Gaussian data: Direct variance estimation
+   - For skewed or multi-modal data: MDNs or normalizing flows
+   - For count data: Appropriate likelihood (e.g., Poisson, Negative Binomial)
 
-# Plot calibration curve
-tr.viz.plot_calibration_curve(mean, torch.sqrt(variance), y_test)
+3. **Separate aleatoric and epistemic uncertainty** when possible to understand the sources of uncertainty in your predictions.
 
-# Plot reliability diagram for prediction intervals
-tr.viz.plot_reliability_diagram(lower, upper, y_test)
-```
+4. **Evaluate calibration** of your uncertainty estimates using proper scoring rules and calibration metrics.
+
+5. **Combine multiple methods** for more robust uncertainty estimation (e.g., ensembles of heteroscedastic models).
