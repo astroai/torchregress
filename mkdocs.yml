@@ -1,0 +1,108 @@
+site_name: TorchRegression
+site_description: A PyTorch library for regression and uncertainty estimation
+site_author: Sébastien Fabbro
+repo_url: https://github.com/sfabbro/torchregression
+repo_name: sfabbro/torchregression
+
+theme:
+  name: material
+  font:
+    text: Roboto
+    code: Roboto Mono
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+        pimary: deep purple
+        accent: deep orange
+    - scheme: slate
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+      primary: deep purple
+      accent: lime
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.annotate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - footnotes
+  - attr_list
+  - md_in_html
+  - def_list
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_if_no_docstring: false
+            show_root_heading: true
+            heading_level: 3
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Getting Started: 
+      - Installation: usage/installation.md
+      - Quick Start: usage/quickstart.md
+      - Practical Usage: usage/practical_usage.md
+  - Losses:
+      - Overview: losses/index.md
+      - Gaussian Losses: losses/gaussian.md
+      - Robust Losses: losses/robust.md
+      - Quantile & Expectile: losses/quantile_expectile.md
+      - Poisson & Tweedie: losses/poisson_tweedie.md
+      - Advanced Losses: losses/advanced.md
+      - Error-in-Variables: losses/eiv.md
+      - Ensemble Methods: losses/ensemble.md
+  - Metrics:
+      - Overview: metrics/index.md
+      - Point Metrics: metrics/point.md
+      - Distribution Metrics: metrics/distribution.md
+      - Interval Metrics: metrics/interval.md
+      - Calibration Metrics: metrics/calibration.md
+      - OOD Detection: metrics/ood.md
+  - Math:
+      - Core Formulations: math/formulations.md
+      - Uncertainty Estimation: math/uncertainty.md
+      - Statistical Interpretation: math/interpretation.md
+  - Examples:
+      - Overview: examples/index.md
+      - Basic Usage: examples/basic_usage.md
+      - Loss Comparison: examples/loss_comparison.md
+      - Photometric Redshift: examples/photoz.md
+  - API Reference:
+      - Overview: api/index.md
+      - Losses: api/losses.md
+      - Metrics: api/metrics.md
+      - Visualization: api/viz.md
+      - Utilities: api/utils.md

@@ -141,30 +141,30 @@ This document outlines the detailed implementation plan for TorchRegression 0.1.
 ### 6. Metrics
 
 16. **Update Core Metrics**
-    - [ ] Audit existing metrics code for API consistency
-    - [ ] Standardize parameter naming (y_pred first, consistent with losses)
-    - [ ] Ensure proper error handling and validation
-    - [ ] Add missing type hints and docstrings
-    - [ ] Update tests to match revised API
+    - [X] Audit existing metrics code for API consistency
+    - [X] Standardize parameter naming (y_pred first, consistent with losses)
+    - [X] Ensure proper error handling and validation
+    - [X] Add missing type hints and docstrings
+    - [X] Update tests to match revised API
     - Files to change: `metrics/point.py`, `metrics/distribution.py`, `metrics/interval.py`, `metrics/calibration.py`, `metrics/ood.py`, `metrics/utils.py`, `tests/test_metrics.py`
     - Priority: **HIGH**
 
 ### 7. Visualization & Documentation
 
 17. **Implement Visualization Tools**
-    - [ ] Create diagnostic plotting utilities
-      - [ ] Residual plots (scatter, histogram, QQ plots)
-      - [ ] Calibration plots (reliability diagrams)
-      - [ ] Uncertainty visualization (prediction intervals, ensemble variation)
-      - [ ] Distribution comparison plots (predicted vs. actual)
-    - [ ] Create training monitoring plots
-      - [ ] Learning curve visualization
-      - [ ] Validation metric tracking
-      - [ ] Early stopping visualization
-    - [ ] Create results visualization tools
-      - [ ] Performance comparison plots
-      - [ ] Parameter sensitivity analysis
-      - [ ] Feature importance plots
+    - [X] Create diagnostic plotting utilities
+      - [X] Residual plots (scatter, histogram, QQ plots)
+      - [X] Calibration plots (reliability diagrams)
+      - [X] Uncertainty visualization (prediction intervals, ensemble variation)
+      - [X] Distribution comparison plots (predicted vs. actual)
+    - [X] Create training monitoring plots
+      - [X] Learning curve visualization
+      - [X] Validation metric tracking
+      - [X] Early stopping visualization
+    - [X] Create results visualization tools
+      - [X] Performance comparison plots
+      - [X] Parameter sensitivity analysis
+      - [X] Feature importance plots
     - Files to create: `viz/diagnostic.py`, `viz/monitoring.py`, `viz/results.py`, `viz/utils.py`
     - Priority: **MEDIUM**
 
@@ -211,11 +211,11 @@ This document outlines the detailed implementation plan for TorchRegression 0.1.
 
 The following items are explicitly deferred to version 0.2.0 or later:
 
-1. **High-Level Wrappers**
-   - Refactor the experimental wrappers to follow the standardized API
-   - Properly document all wrapper functions with examples
-   - Create integration tests for all wrapper functions
-   - Files to change: `experimental/wrappers.py` → `wrappers.py`
+1. **Enhance High-Level Wrappers**
+   - ~~Refactor the experimental wrappers to follow the standardized API~~
+   - Add more integration tests for all wrapper functions
+   - Add more comprehensive examples for wrapper usage
+   - ~~Files to change: `experimental/wrappers.py` → `wrappers.py`~~
 
 2. **Loss Builder System**
    - Create a flexible system to build custom loss functions

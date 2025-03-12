@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from typing import Optional, Union, Tuple, Dict, Any
+from typing import Optional, Union, Tuple
 
 from .base import RegressionLoss, DistributionLoss
 
@@ -60,7 +60,6 @@ class WeightedMSELoss(RegressionLoss):
         
         # Apply reduction with mask and weights
         return self._reduce_with_mask(mse, mask, weights)
-
 
 class DiagonalGaussianNLL(DistributionLoss):
     """
@@ -206,7 +205,6 @@ class DiagonalGaussianNLL(DistributionLoss):
         
         # Apply reduction with mask and weights
         return self._reduce_with_mask(nll, mask, weights)
-
 
 class GaussianNLLWithCovariance(DistributionLoss):
     """

@@ -1,0 +1,182 @@
+# Point Prediction Metrics
+
+Point prediction metrics evaluate the accuracy of single-point predictions without considering uncertainty information.
+
+## Basic Metrics
+
+### Mean Squared Error (MSE)
+
+The average of squared differences between predictions and targets.
+
+```python
+from torchregression.metrics.point import mean_squared_error
+
+mse = mean_squared_error(y_pred, y_true)
+```
+
+### Mean Absolute Error (MAE)
+
+The average of absolute differences between predictions and targets.
+
+```python
+from torchregression.metrics.point import mean_absolute_error
+
+mae = mean_absolute_error(y_pred, y_true)
+```
+
+### Root Mean Squared Error (RMSE)
+
+The square root of the mean squared error.
+
+```python
+from torchregression.metrics.point import mean_squared_error
+import torch
+
+mse = mean_squared_error(y_pred, y_true)
+rmse = torch.sqrt(torch.tensor(mse))
+```
+
+### Mean Absolute Percentage Error (MAPE)
+
+The average percentage difference between predictions and targets.
+
+```python
+from torchregression.metrics.point import mean_absolute_percentage_error
+
+mape = mean_absolute_percentage_error(y_pred, y_true)
+```
+
+### R² (Coefficient of Determination)
+
+Measures the proportion of variance in the target that is predictable from the model.
+
+```python
+from torchregression.metrics.point import r2_score
+
+r2 = r2_score(y_pred, y_true)
+```
+
+### Explained Variance Score
+
+Measures the proportion of variance explained by the model.
+
+```python
+from torchregression.metrics.point import explained_variance_score
+
+explained_var = explained_variance_score(y_pred, y_true)
+```
+
+### Mean Squared Log Error (MSLE)
+
+Mean squared error after log transformation, useful for data with exponential trends.
+
+```python
+from torchregression.metrics.point import mean_squared_log_error
+
+# Note: Only works with strictly positive values
+msle = mean_squared_log_error(y_pred, y_true)
+```
+
+## Robust Metrics
+
+### Median Absolute Error
+
+Median of absolute differences, robust to outliers.
+
+```python
+from torchregression.metrics.point import median_absolute_error
+
+median_ae = median_absolute_error(y_pred, y_true)
+```
+
+### Huber Loss
+
+Combines MSE and MAE to balance sensitivity to outliers.
+
+```python
+from torchregression.metrics.point import huber_loss
+
+# delta controls the transition point from MSE to MAE
+hl = huber_loss(y_pred, y_true, delta=1.0)
+```
+
+### Trimmed Mean Squared Error
+
+MSE after removing extreme values, robust to outliers.
+
+```python
+from torchregression.metrics.point import trimmed_mean_squared_error
+
+# trim 10% of data from both ends
+tmse = trimmed_mean_squared_error(y_pred, y_true, proportion=0.1)
+```
+
+### Median Absolute Deviation (MAD)
+
+Median of absolute deviations from the median error, highly robust to outliers.
+
+```python
+from torchregression.metrics.point import median_absolute_deviation
+
+mad = median_absolute_deviation(y_pred, y_true)
+```
+
+### Normalized RMSE
+
+RMSE normalized by a scale factor for comparability across datasets.
+
+```python
+from torchregression.metrics.point import normalized_rmse
+
+# Normalize by the standard deviation of the true values
+nrmse = normalized_rmse(y_pred, y_true, normalization='std')
+
+# Other normalization options include 'range', 'mean', and 'iqr'
+nrmse_range = normalized_rmse(y_pred, y_true, normalization='range')
+```
+
+### Normalized Median Absolute Deviation
+
+MAD normalized by the median or using a photometric normalization approach.
+
+```python
+from torchregression.metrics.point import normalized_median_absolute_deviation
+
+nmad = normalized_median_absolute_deviation(y_pred, y_true)
+nmad_photo = normalized_median_absolute_deviation(y_pred, y_true, normalization="photometric")
+```
+
+## Application-Specific Metrics
+
+### Outlier Fraction
+
+Fraction of predictions with errors exceeding a threshold.
+
+```python
+from torchregression.metrics.point import outlier_fraction
+
+# Standard outlier detection
+of = outlier_fraction(y_pred, y_true, threshold=0.15)
+
+# Photometric redshift style
+of_photo = outlier_fraction(y_pred, y_true, threshold=0.15, mode="photometric")
+```
+
+## Comprehensive Reporting
+
+### Regression Metrics Report
+
+Generate a comprehensive report of multiple metrics.
+
+```python
+from torchregression.metrics.point import regression_metrics_report
+
+report = regression_metrics_report(y_pred, y_true)
+print(f"MSE: {report['mse']}, MAE: {report['mae']}, R²: {report['r2']}")
+
+# Include robust metrics
+report = regression_metrics_report(y_pred, y_true, include_robust=True)
+
+# Include outlier metrics
+report = regression_metrics_report(y_pred, y_true, include_outliers=True)
+```

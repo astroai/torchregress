@@ -17,6 +17,12 @@ from torchregression.losses.gaussian import GaussianNLL, MSELoss
 from torchregression.losses.robust import HuberLoss, PseudoHuberLoss
 from torchregression.losses.quantile import QuantileLoss
 
+# Import additional losses from the torchregression library
+from torchregression.losses.gaussian import MAELoss, GaussianNLLLoss  # GaussianNLLLoss is duplicated with GaussianNLL
+from torchregression.losses.robust import LogCoshLoss
+from torchregression.losses.expectile import ExpectileLoss
+from torchregression.losses.poisson import PoissonNLLLoss
+
 
 # 1. Create a synthetic dataset with heteroscedastic noise
 def generate_dataset(n_samples=1000):
