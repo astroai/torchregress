@@ -1,161 +1,147 @@
 """
 Loss functions for regression tasks.
 
-This module provides a comprehensive collection of loss functions
-for various regression scenarios, including robust regression,
-quantile regression, expectile regression, and error-in-variables (EIV) models.
+This module contains a variety of loss functions designed for regression problems,
+including weighted losses, Gaussian-based losses, robust losses, and more.
 """
 
-# Import basic losses
-from .base import RegressionLoss, MaskedLoss
+# Base classes and wrappers
+from .base import (
+    BaseLoss,
+    MaskedLoss,
+    RegressionLoss,
+    DistributionLoss,
+    WeightedLossWrapper,
+    create_weighted_losses,
+)
 
-# Import robust losses
+# Standard weighted PyTorch losses
+from .base import (
+    WeightedMSELoss,
+    WeightedL1Loss,
+    WeightedCrossEntropyLoss,
+    WeightedBCELoss,
+    WeightedBCEWithLogitsLoss,
+    WeightedKLDivLoss,
+    WeightedNLLLoss,
+    WeightedSmoothL1Loss,
+    WeightedHuberLoss,
+    WeightedPoissonNLLLoss,
+    WeightedGaussianNLLLoss,
+    WeightedCTCLoss,
+    WeightedCosineEmbeddingLoss,
+    WeightedHingeEmbeddingLoss,
+    WeightedMarginRankingLoss,
+    WeightedMultiMarginLoss,
+    WeightedMultiLabelMarginLoss,
+    WeightedSoftMarginLoss,
+    WeightedMultiLabelSoftMarginLoss,
+    WeightedTripletMarginLoss,
+    WeightedTripletMarginWithDistanceLoss,
+)
+
+# Gaussian losses
+from .gaussian import (
+    HeteroscedasticGaussianLoss,
+    MultivariateGaussianLoss,
+    create_gaussian_nll,
+)
+
+# Robust losses
 from .robust import (
-    L1Loss,
-    HuberLoss,
     PseudoHuberLoss,
     LogCoshLoss,
     CharbonnierLoss,
     LqLoss,
-    LogBarrierLoss,
     TukeyBiweightLoss,
-    AdaptiveHuberLoss,
     WinsorizedLoss,
+    LogBarrierLoss,
+    AdaptiveHuberLoss,
     ClippedLoss,
     FairLoss,
     CauchyLoss,
 )
 
-# Import standard losses and wrapped PyTorch losses
-from .standard import (
-    MSELoss,
-    BCELoss,
-    # Wrapped PyTorch losses
-    MaskedMSELoss,
-    MaskedL1Loss,
-    MaskedCrossEntropyLoss,
-    MaskedBCELoss,
-    MaskedBCEWithLogitsLoss,
-    MaskedKLDivLoss,
-    MaskedNLLLoss,
-    MaskedSmoothL1Loss,
-    MaskedHuberLoss,
-    MaskedPoissonNLLLoss,
+# Poisson losses
+from .poisson import (
+    PoissonDevianceLoss,
+    PoissonLikelihoodRatioLoss,
+    ZeroInflatedPoissonNLLLoss,
+    NegativeBinomialNLLLoss,
 )
 
-# Import distributional losses
-from .poisson import PoissonNLLLoss, PoissonNLL
-from .tweedie import TweedieLoss, GammaLoss, InverseGaussianLoss, CompoundPoissonLoss
-
-# Import quantile and expectile losses
-from .quantile import QuantileLoss, MultiQuantileLoss, QuantileCrossover, TiltedLoss
-from .expectile import (
-    ExpectileLoss,
-    MultiExpectileLoss,
-    AsymmetricLeastSquaresLoss,
-    ExpectileCrossover,
+# Mixed Poisson-Gaussian losses
+from .poisson_gaussian import (
+    PoissonGaussianMixtureLoss,
+    poisson_gaussian_mixture_loss,
+    EnhancedPoissonGaussianMixtureLoss,
+    enhanced_poisson_gaussian_loss,
+    PoissonGaussianLikelihoodRatioLoss,
+    poisson_gaussian_likelihood_ratio_loss,
 )
-
-# Import mixture model losses
-from .mdn import (
-    MixtureDensityNetworkLoss,
-    MDNEIVLoss,
-    GaussianPoissonMixtureNLL,
-    NMDRLoss,
-    CombinedMDNFixedErrorLoss,
-    mdn_loss,
-    nmdr_loss,
-    combined_mdn_loss,
-    mdn_ensemble,
-)
-
-# Import basic EIV losses (sophisticated ones deferred to 0.2.0)
-from .eiv import (
-    TotalLeastSquaresLoss,
-    GeneralErrorInVariablesLoss,
-    CorrelatedEIVLoss,
-    create_eiv_loss,
-    create_correlated_eiv_loss,
-)
-
-# Import categorical losses
-from .categorical import (
-    BinaryCrossEntropyLoss,
-    FocalLoss,
-    MultiClassCrossEntropyLoss,
-    MultiLabelSoftMarginLoss,
-    DiceLoss,
-)
-
-# Note: Loss registry is deferred to version 0.2.0
 
 __all__ = [
     # Base classes
-    "RegressionLoss",
+    "BaseLoss",
     "MaskedLoss",
-    # Standard losses and wrapped PyTorch losses
-    "MSELoss",
-    "BCELoss",
-    "MaskedMSELoss",
-    "MaskedL1Loss",
-    "MaskedCrossEntropyLoss",
-    "MaskedBCELoss",
-    "MaskedBCEWithLogitsLoss",
-    "MaskedKLDivLoss",
-    "MaskedNLLLoss",
-    "MaskedSmoothL1Loss",
-    "MaskedHuberLoss",
-    "MaskedPoissonNLLLoss",
+    "RegressionLoss",
+    "DistributionLoss",
+    "TorchLossWrapper",
+    "WeightedLossWrapper",
+    "create_weighted_losses",
+    
+    # Standard weighted losses
+    "WeightedMSELoss",
+    "WeightedL1Loss",
+    "WeightedCrossEntropyLoss",
+    "WeightedBCELoss",
+    "WeightedBCEWithLogitsLoss",
+    "WeightedKLDivLoss",
+    "WeightedNLLLoss",
+    "WeightedSmoothL1Loss",
+    "WeightedHuberLoss",
+    "WeightedPoissonNLLLoss",
+    "WeightedGaussianNLLLoss",
+    "WeightedCTCLoss",
+    "WeightedCosineEmbeddingLoss",
+    "WeightedHingeEmbeddingLoss",
+    "WeightedMarginRankingLoss",
+    "WeightedMultiMarginLoss",
+    "WeightedMultiLabelMarginLoss",
+    "WeightedSoftMarginLoss",
+    "WeightedMultiLabelSoftMarginLoss",
+    "WeightedTripletMarginLoss",
+    "WeightedTripletMarginWithDistanceLoss",
+    
+    # Gaussian losses
+    "HeteroscedasticGaussianLoss", 
+    "MultivariateGaussianLoss",
+    "create_gaussian_nll",
+    
     # Robust losses
-    "L1Loss",
-    "HuberLoss",
     "PseudoHuberLoss",
     "LogCoshLoss",
     "CharbonnierLoss",
     "LqLoss",
-    "LogBarrierLoss",
     "TukeyBiweightLoss",
-    "AdaptiveHuberLoss",
     "WinsorizedLoss",
+    "LogBarrierLoss",
+    "AdaptiveHuberLoss",
     "ClippedLoss",
     "FairLoss",
     "CauchyLoss",
-    # Distribution losses
-    "PoissonNLLLoss",
-    "PoissonNLL",
-    "TweedieLoss",
-    "GammaLoss",
-    "InverseGaussianLoss",
-    "CompoundPoissonLoss",
-    # Quantile and expectile losses
-    "QuantileLoss",
-    "MultiQuantileLoss",
-    "QuantileCrossover",
-    "TiltedLoss",
-    "ExpectileLoss",
-    "MultiExpectileLoss",
-    "AsymmetricLeastSquaresLoss",
-    "ExpectileCrossover",
-    # Mixture model losses
-    "MixtureDensityNetworkLoss",
-    "MDNEIVLoss",
-    "GaussianPoissonMixtureNLL",
-    "NMDRLoss",
-    "CombinedMDNFixedErrorLoss",
-    "mdn_loss",
-    "nmdr_loss",
-    "combined_mdn_loss",
-    "mdn_ensemble",
-    # Basic EIV losses (core functionality only for 0.1.0)
-    "TotalLeastSquaresLoss",
-    "GeneralErrorInVariablesLoss",
-    "CorrelatedEIVLoss",
-    "create_eiv_loss",
-    "create_correlated_eiv_loss",
-    # Categorical losses
-    "BinaryCrossEntropyLoss",
-    "FocalLoss",
-    "MultiClassCrossEntropyLoss",
-    "MultiLabelSoftMarginLoss",
-    "DiceLoss",
+    
+    # Poisson losses
+    "PoissonDevianceLoss",
+    "PoissonLikelihoodRatioLoss",
+    "ZeroInflatedPoissonNLLLoss",
+    "NegativeBinomialNLLLoss",
+    
+    # Poisson-Gaussian losses
+    "PoissonGaussianMixtureLoss",
+    "poisson_gaussian_mixture_loss",
+    "EnhancedPoissonGaussianMixtureLoss",
+    "enhanced_poisson_gaussian_loss",
+    "PoissonGaussianLikelihoodRatioLoss",
+    "poisson_gaussian_likelihood_ratio_loss",
 ]

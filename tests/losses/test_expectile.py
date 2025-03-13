@@ -4,7 +4,7 @@ from torch.autograd import gradcheck
 from torchregression.losses.expectile import (
     ExpectileLoss,
     MultiExpectileLoss,
-    ExpectileCrossover,
+    ExpectileCrossoverLoss,
     AsymmetricLeastSquaresLoss,
 )
 
@@ -448,9 +448,9 @@ class TestExpectileLoss(unittest.TestCase):
         self.assertAlmostEqual(loss_sum.item(), loss_mean.item() * batch_size, places=5)
 
     def test_expectile_crossover_basics(self):
-        """Test basic functionality of ExpectileCrossover loss."""
+        """Test basic functionality of ExpectileCrossoverLoss loss."""
         expectiles = [0.1, 0.5, 0.9]
-        loss_fn = ExpectileCrossover(expectiles=expectiles).to(self.device)
+        loss_fn = ExpectileCrossoverLoss(expectiles=expectiles).to(self.device)
 
         batch_size = 4
         n_features = 3
@@ -484,7 +484,7 @@ class TestExpectileLoss(unittest.TestCase):
         base_loss_weight = 1.0
         crossover_penalty = 10.0
 
-        loss_fn = ExpectileCrossover(
+        loss_fn = ExpectileCrossoverLoss(
             expectiles=expectiles, base_loss=base_loss_weight, crossover_penalty=crossover_penalty
         ).to(self.device)
 
@@ -517,9 +517,9 @@ class TestExpectileLoss(unittest.TestCase):
         self.assertAlmostEqual(actual_diff, expected_diff, delta=0.5)
 
     def test_expectile_crossover_mask_and_weights(self):
-        """Test ExpectileCrossover with mask and weights."""
+        """Test ExpectileCrossoverLoss with mask and weights."""
         expectiles = [0.1, 0.5, 0.9]
-        loss_fn = ExpectileCrossover(expectiles=expectiles).to(self.device)
+        loss_fn = ExpectileCrossoverLoss(expectiles=expectiles).to(self.device)
 
         batch_size = 4
         n_features = 3
@@ -545,7 +545,7 @@ class TestExpectileLoss(unittest.TestCase):
         self.assertFalse(torch.isnan(loss_both).any())
 
     def test_expectile_crossover_reduction(self):
-        """Test different reduction modes for ExpectileCrossover."""
+        """Test different reduction modes for ExpectileCrossoverLoss."""
         expectiles = [0.1, 0.5, 0.9]
 
         batch_size = 4
@@ -556,17 +556,17 @@ class TestExpectileLoss(unittest.TestCase):
         y_pred = torch.randn(batch_size, num_expectiles, n_features, device=self.device)
 
         # Test with reduction='none'
-        loss_fn_none = ExpectileCrossover(expectiles=expectiles, reduction="none").to(self.device)
+        loss_fn_none = ExpectileCrossoverLoss(expectiles=expectiles, reduction="none").to(self.device)
         loss_none = loss_fn_none(y_pred, y_true)
         self.assertEqual(loss_none.shape, (batch_size,))
 
         # Test with reduction='sum'
-        loss_fn_sum = ExpectileCrossover(expectiles=expectiles, reduction="sum").to(self.device)
+        loss_fn_sum = ExpectileCrossoverLoss(expectiles=expectiles, reduction="sum").to(self.device)
         loss_sum = loss_fn_sum(y_pred, y_true)
         self.assertEqual(loss_sum.dim(), 0)
 
         # Test with reduction='mean' (default)
-        loss_fn_mean = ExpectileCrossover(expectiles=expectiles, reduction="mean").to(self.device)
+        loss_fn_mean = ExpectileCrossoverLoss(expectiles=expectiles, reduction="mean").to(self.device)
         loss_mean = loss_fn_mean(y_pred, y_true)
         self.assertEqual(loss_mean.dim(), 0)
 
@@ -610,9 +610,9 @@ class TestExpectileLoss(unittest.TestCase):
         )
 
     def test_expectile_crossover_nan_inf(self):
-        """Test ExpectileCrossover with NaN and Inf values."""
+        """Test ExpectileCrossoverLoss with NaN and Inf values."""
         expectiles = [0.2, 0.5, 0.8]
-        loss_fn = ExpectileCrossover(expectiles=expectiles).to(self.device)
+        loss_fn = ExpectileCrossoverLoss(expectiles=expectiles).to(self.device)
 
         batch_size = 4
         n_features = 3
@@ -681,12 +681,12 @@ class TestExpectileLoss(unittest.TestCase):
         self.assertLess(avg_grad_low, avg_grad_high)
 
     def test_expectile_crossover_gradient(self):
-        """Test gradient computation for ExpectileCrossover."""
+        """Test gradient computation for ExpectileCrossoverLoss."""
         expectiles = [0.2, 0.5, 0.8]
         base_loss = 1.0
         crossover_penalty = 10.0
 
-        loss_fn = ExpectileCrossover(
+        loss_fn = ExpectileCrossoverLoss(
             expectiles=expectiles, base_loss=base_loss, crossover_penalty=crossover_penalty
         ).to(self.device)
 

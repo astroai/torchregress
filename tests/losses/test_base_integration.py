@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from torchregression.losses.base import RegressionLoss, DistributionLoss, TorchLossWrapper
+from torchregression.losses.base import RegressionLoss, DistributionLoss, WeightedLossWrapper
 
 
 # Define a simple model for integration testing
@@ -153,11 +153,11 @@ class TestIntegration:
         # Loss should decrease
         assert final_loss < initial_loss
 
-    def test_torch_wrapper_integration(self):
-        """Test the TorchLossWrapper with PyTorch model."""
+    def test_weighted_wrapper_integration(self):
+        """Test the WeightedLossWrapper with PyTorch model."""
         model = SimpleModel()
         # Wrap PyTorch's MSE loss
-        loss_fn = TorchLossWrapper(nn.MSELoss)
+        loss_fn = WeightedLossWrapper(nn.MSELoss)
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
         # Create fake data

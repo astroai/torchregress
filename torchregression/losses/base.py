@@ -16,7 +16,7 @@ inputs in the form of (y_pred, target, ...).
 
 import torch
 import torch.nn as nn
-from typing import Optional, Union, Callable, Dict, Any, Tuple
+from typing import Optional, Union, Callable, Dict, Any
 
 from ..utils.tensor_ops import apply_mask, masked_reduction
 from ..utils.validation import validate_reduction, validate_weights
@@ -308,7 +308,7 @@ class DistributionLoss(MaskedLoss):
         raise NotImplementedError("Subclasses must implement this method")
 
 
-class TorchLossWrapper(MaskedLoss):
+class WeightedLossWrapper(MaskedLoss):
     """
     Wrapper for PyTorch loss functions to add masking and weighting support.
 
@@ -323,7 +323,7 @@ class TorchLossWrapper(MaskedLoss):
 
     Example:
         >>> import torch.nn.functional as F
-        >>> mse_loss = TorchLossWrapper(nn.MSELoss)
+        >>> mse_loss = WeightedLossWrapper(nn.MSELoss)
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
         >>> target = torch.tensor([0.0, 2.0, 4.0])
         >>> mse_loss(y_pred, target)
@@ -388,3 +388,59 @@ class TorchLossWrapper(MaskedLoss):
 
         # Handle weights and reduction
         return self._reduce(loss, mask, weights)
+
+# Create weighted versions of PyTorch losses
+WeightedMSELoss = WeightedLossWrapper(nn.MSELoss)
+WeightedL1Loss = WeightedLossWrapper(nn.L1Loss)
+WeightedCrossEntropyLoss = WeightedLossWrapper(nn.CrossEntropyLoss)
+WeightedBCELoss = WeightedLossWrapper(nn.BCELoss)
+WeightedBCEWithLogitsLoss = WeightedLossWrapper(nn.BCEWithLogitsLoss)
+WeightedKLDivLoss = WeightedLossWrapper(nn.KLDivLoss)
+WeightedNLLLoss = WeightedLossWrapper(nn.NLLLoss)
+WeightedSmoothL1Loss = WeightedLossWrapper(nn.SmoothL1Loss)
+WeightedHuberLoss = WeightedLossWrapper(nn.HuberLoss)
+WeightedPoissonNLLLoss = WeightedLossWrapper(nn.PoissonNLLLoss)
+WeightedGaussianNLLLoss = WeightedLossWrapper(nn.GaussianNLLLoss)
+WeightedCTCLoss = WeightedLossWrapper(nn.CTCLoss)
+WeightedCosineEmbeddingLoss = WeightedLossWrapper(nn.CosineEmbeddingLoss)
+WeightedHingeEmbeddingLoss = WeightedLossWrapper(nn.HingeEmbeddingLoss)
+WeightedMarginRankingLoss = WeightedLossWrapper(nn.MarginRankingLoss)
+WeightedMultiMarginLoss = WeightedLossWrapper(nn.MultiMarginLoss)
+WeightedMultiLabelMarginLoss = WeightedLossWrapper(nn.MultiLabelMarginLoss)
+WeightedSoftMarginLoss = WeightedLossWrapper(nn.SoftMarginLoss)
+WeightedMultiLabelSoftMarginLoss = WeightedLossWrapper(nn.MultiLabelSoftMarginLoss)
+WeightedTripletMarginLoss = WeightedLossWrapper(nn.TripletMarginLoss)
+WeightedTripletMarginWithDistanceLoss = WeightedLossWrapper(nn.TripletMarginWithDistanceLoss)
+
+
+def create_weighted_losses():
+    """
+    Factory function that returns all weighted versions of standard PyTorch losses.
+    
+    Returns:
+        Dictionary mapping from loss name to weighted loss instance
+    """
+    weighted_losses = {
+        "MSELoss": WeightedMSELoss,
+        "L1Loss": WeightedL1Loss, 
+        "CrossEntropyLoss": WeightedCrossEntropyLoss,
+        "BCELoss": WeightedBCELoss,
+        "BCEWithLogitsLoss": WeightedBCEWithLogitsLoss,
+        "KLDivLoss": WeightedKLDivLoss,
+        "NLLLoss": WeightedNLLLoss,
+        "SmoothL1Loss": WeightedSmoothL1Loss,
+        "HuberLoss": WeightedHuberLoss,
+        "PoissonNLLLoss": WeightedPoissonNLLLoss,
+        "GaussianNLLLoss": WeightedGaussianNLLLoss,
+        "CTCLoss": WeightedCTCLoss,
+        "CosineEmbeddingLoss": WeightedCosineEmbeddingLoss,
+        "HingeEmbeddingLoss": WeightedHingeEmbeddingLoss,
+        "MarginRankingLoss": WeightedMarginRankingLoss,
+        "MultiMarginLoss": WeightedMultiMarginLoss,
+        "MultiLabelMarginLoss": WeightedMultiLabelMarginLoss,
+        "SoftMarginLoss": WeightedSoftMarginLoss,
+        "MultiLabelSoftMarginLoss": WeightedMultiLabelSoftMarginLoss,
+        "TripletMarginLoss": WeightedTripletMarginLoss,
+        "TripletMarginWithDistanceLoss": WeightedTripletMarginWithDistanceLoss,
+    }
+    return weighted_losses

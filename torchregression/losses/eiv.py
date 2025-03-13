@@ -741,8 +741,3 @@ class EnsembleEIVLoss(BaseEIVLoss):
 
         # Apply weights and reduction
         return self._reduce_with_mask(loss, mask, weights)
-
-
-# Aliases for backward compatibility
-GeneralErrorInVariablesLoss = FunctionalEIVLoss
-CorrelatedEIVLoss = StructuralEIVLoss

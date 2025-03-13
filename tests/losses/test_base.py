@@ -1,15 +1,13 @@
 import pytest
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
 
 from torchregression.losses.base import (
     BaseLoss,
     MaskedLoss,
     RegressionLoss,
     DistributionLoss,
-    TorchLossWrapper,
+    WeightedLossWrapper,
 )
 
 
@@ -264,11 +262,11 @@ class TestDistributionLoss:
         assert torch.isclose(result, expected, atol=1e-3)
 
 
-# Tests for TorchLossWrapper
-class TestTorchLossWrapper:
+# Tests for WeightedLossWrapper
+class TestWeightedLossWrapper:
     def test_wrap_loss_class(self):
         # Test wrapping a loss class
-        loss = TorchLossWrapper(nn.MSELoss, reduction="mean")
+        loss = WeightedLossWrapper(nn.MSELoss, reduction="mean")
         y_pred = torch.tensor([1.0, 2.0, 3.0])
         target = torch.tensor([0.0, 2.0, 4.0])
 
@@ -279,7 +277,7 @@ class TestTorchLossWrapper:
     def test_wrap_loss_instance(self):
         # Test wrapping a loss instance
         torch_loss = nn.L1Loss(reduction="none")
-        loss = TorchLossWrapper(torch_loss, reduction="sum")
+        loss = WeightedLossWrapper(torch_loss, reduction="sum")
         y_pred = torch.tensor([1.0, 2.0, 3.0])
         target = torch.tensor([0.0, 2.0, 4.0])
 
@@ -289,7 +287,7 @@ class TestTorchLossWrapper:
 
     def test_wrap_with_mask(self):
         # Test using mask with wrapped loss
-        loss = TorchLossWrapper(nn.MSELoss, reduction="mean")
+        loss = WeightedLossWrapper(nn.MSELoss, reduction="mean")
         y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
         target = torch.tensor([0.0, 2.0, 0.0, 5.0])
         mask = torch.tensor([True, True, False, True])
@@ -300,7 +298,7 @@ class TestTorchLossWrapper:
 
     def test_wrap_with_weights(self):
         # Test using weights with wrapped loss
-        loss = TorchLossWrapper(nn.MSELoss, reduction="mean")
+        loss = WeightedLossWrapper(nn.MSELoss, reduction="mean")
         y_pred = torch.tensor([1.0, 2.0, 3.0])
         target = torch.tensor([0.0, 2.0, 4.0])
         weights = torch.tensor([0.5, 0.0, 1.5])

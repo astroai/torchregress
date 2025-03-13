@@ -262,7 +262,7 @@ class AsymmetricLeastSquaresLoss(ExpectileLoss):
         super().__init__(expectile=tau, reduction=reduction)
 
 
-class ExpectileCrossover(RegressionLoss):
+class ExpectileCrossoverLoss(RegressionLoss):
     """
     Loss that ensures proper ordering of expectile curves.
 
@@ -284,7 +284,7 @@ class ExpectileCrossover(RegressionLoss):
 
     Example:
         >>> # Create loss that predicts 10th, 50th, 90th expectiles
-        >>> loss_fn = ExpectileCrossover(expectiles=[0.1, 0.5, 0.9], crossover_penalty=5.0)
+        >>> loss_fn = ExpectileCrossoverLoss(expectiles=[0.1, 0.5, 0.9], crossover_penalty=5.0)
         >>> # Properly ordered predictions
         >>> good_pred = torch.tensor([[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]])
         >>> # Predictions with crossover (τ₁ > τ₂)

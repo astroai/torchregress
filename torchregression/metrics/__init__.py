@@ -16,14 +16,11 @@ from torchregression.metrics.point import (
     mean_squared_log_error,
     median_absolute_error,
     normalized_rmse,
-    # Robust metrics
     huber_loss,
     trimmed_mean_squared_error,
     median_absolute_deviation,
     normalized_median_absolute_deviation,
-    # Outlier metrics
     outlier_fraction,
-    # Report generator
     regression_metrics_report,
 )
 
@@ -39,7 +36,6 @@ from torchregression.metrics.distribution import (
 from torchregression.metrics.calibration import (
     expected_calibration_error,
     marginal_calibration_error,
-    plot_reliability_diagram,
     calibration_metrics_report,
 )
 

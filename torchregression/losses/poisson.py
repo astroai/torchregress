@@ -1,11 +1,14 @@
 """
 Poisson regression loss functions.
 
-This module provides loss functions for count data regression based on
-the Poisson distribution, which is appropriate for modeling:
+This module provides specialized loss functions for count data regression based on
+the Poisson distribution and its variants, which are appropriate for modeling:
 - Count data (non-negative integers)
 - Rate data (events per unit time/space)
 - Rare event occurrences
+
+For standard Poisson Negative Log-Likelihood, use WeightedPoissonNLLLoss
+from the base module instead.
 """
 
 import torch
@@ -14,95 +17,7 @@ from typing import Optional, Union
 
 from .base import RegressionLoss
 
-class PoissonNLLLoss(RegressionLoss):
-    """
-    Negative log-likelihood loss for Poisson regression.
-
-    The Poisson distribution models the probability of observing k events in a fixed
-    interval when events occur independently at a constant rate λ.
-
-    L(y, λ) = λ - y*log(λ) + log(y!)
-
-    where:
-    - y is the observed count (target)
-    - λ is the predicted rate parameter
-
-    Args:
-        log_input: If True, input is log(λ) rather than λ. Default: True
-        full: If True, include the constant term log(y!). Default: False
-        eps: Small constant for numerical stability. Default: 1e-8
-        reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-    Example:
-        >>> # For count data
-        >>> loss_fn = PoissonNLLLoss(log_input=True)
-        >>> y_pred = torch.log(torch.tensor([1.0, 2.0, 3.0]))  # log(lambda)
-        >>> target = torch.tensor([0.0, 1.0, 4.0])  # counts
-        >>> loss_fn(y_pred, target)
-        tensor(0.7662)
-    """
-
-    def __init__(
-        self, log_input: bool = True, full: bool = False, eps: float = 1e-8, reduction: str = "mean"
-    ) -> None:
-        super().__init__(reduction=reduction)
-        self.log_input = log_input
-        self.full = full
-        self.eps = eps
-
-    def forward(
-        self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate Poisson NLL loss.
-
-        Args:
-            y_pred: Predicted rate parameters λ or log(λ) [batch_size, n_features]
-            target: Ground truth count values [batch_size, n_features]
-            mask: Optional boolean mask [batch_size, n_features]
-            weights: Optional weights [batch_size, n_features]
-
-        Returns:
-            Poisson NLL loss value
-        """
-        self._validate_inputs(y_pred, target, mask)
-
-        # Ensure non-negative targets
-        if torch.any(target < 0):
-            raise ValueError("Target values must be non-negative for Poisson regression")
-
-        # Convert log_input to predicted rate
-        if self.log_input:
-            rate = torch.exp(y_pred)
-        else:
-            # When not using log_input, ensure rate is positive
-            rate = torch.clamp(y_pred, min=self.eps)
-
-        # Calculate Poisson NLL
-        # loss = λ - y * log(λ) + log(y!)
-        loss = rate - target * torch.log(rate + self.eps)
-
-        # Add factorial term if full=True
-        if self.full:
-            # Use Stirling's approximation for log(y!)
-            # for large values of y: log(y!) ≈ y*log(y) - y
-            # For y=0, we explicitly handle this case
-            non_zero = target > 0
-            if torch.any(non_zero):
-                log_factorial = torch.zeros_like(target)
-                log_factorial[non_zero] = (
-                    target[non_zero] * torch.log(target[non_zero]) - target[non_zero]
-                )
-                loss = loss + log_factorial
-
-        # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
-
-class PoissonDeviance(RegressionLoss):
+class PoissonDevianceLoss(RegressionLoss):
     """
     Poisson Deviance loss function, also known as G-statistic.
     
@@ -117,7 +32,7 @@ class PoissonDeviance(RegressionLoss):
         reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         
     Example:
-        >>> loss_fn = PoissonDeviance()
+        >>> loss_fn = PoissonDevianceLoss()
         >>> y_pred = torch.log(torch.tensor([1.0, 2.0, 3.0]))  # log(lambda)
         >>> target = torch.tensor([0.0, 1.0, 4.0])  # counts
         >>> loss_fn(y_pred, target)
@@ -191,6 +106,7 @@ class PoissonDeviance(RegressionLoss):
             
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
+
 class PoissonLikelihoodRatioLoss(RegressionLoss):
     """
     Poisson Likelihood Ratio Loss for binned data, also known as Baker-Cousins Loss.
@@ -279,7 +195,8 @@ class PoissonLikelihoodRatioLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
-class ZeroInflatedPoissonNLL(RegressionLoss):
+
+class ZeroInflatedPoissonNLLLoss(RegressionLoss):
     """
     Zero-Inflated Poisson Negative Log-Likelihood.
     
@@ -293,7 +210,7 @@ class ZeroInflatedPoissonNLL(RegressionLoss):
         reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         
     Example:
-        >>> loss_fn = ZeroInflatedPoissonNLL()
+        >>> loss_fn = ZeroInflatedPoissonNLLLoss()
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])  # lambda values
         >>> pi_logits = torch.tensor([-1.0, 0.0, 1.0])  # zero-inflation logits
         >>> target = torch.tensor([0.0, 0.0, 3.0])  # counts
@@ -312,7 +229,7 @@ class ZeroInflatedPoissonNLL(RegressionLoss):
         self.eps = eps
         self.learn_variance = learn_variance
         
-        if learn_variance:
+        if self.learn_variance:
             self.log_variance = nn.Parameter(torch.zeros(1))
     
     def forward(
@@ -382,7 +299,7 @@ class ZeroInflatedPoissonNLL(RegressionLoss):
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
 
-class NegativeBinomialNLL(RegressionLoss):
+class NegativeBinomialNLLLoss(RegressionLoss):
     """
     Negative Binomial Negative Log-Likelihood loss.
     
@@ -396,7 +313,7 @@ class NegativeBinomialNLL(RegressionLoss):
         reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         
     Example:
-        >>> loss_fn = NegativeBinomialNLL(learn_theta=True)
+        >>> loss_fn = NegativeBinomialNLLLoss(learn_theta=True)
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])  # mean values
         >>> target = torch.tensor([0.0, 3.0, 5.0])  # counts
         >>> loss_fn(y_pred, target)

@@ -3,123 +3,20 @@ Robust loss functions for regression.
 
 This module provides implementations of loss functions that are
 robust against outliers, such as:
-- Huber loss: Quadratic for small errors, linear for large ones
-- L1 loss: Absolute error, less sensitive to outliers than MSE
-- Log-Cosh loss: Smooth approximation of Huber loss
 - Pseudo-Huber loss: Differentiable approximation to Huber loss
+- Log-Cosh loss: Smooth approximation of Huber loss
 - Various other robust alternatives to standard regression losses
+
+Note: For standard Huber loss with masking and weights, use WeightedHuberLoss 
+from the base module instead.
 """
 
 import torch
 from typing import Optional
-
 from .base import RegressionLoss
 from ..utils.validation import validate_positive
 
-
-class HuberLoss(RegressionLoss):
-    """
-    Huber Loss: less sensitive to outliers than MSE.
-
-    L(y, f(x)) = 0.5 * (y - f(x))^2                 if |y - f(x)| <= delta
-                 delta * (|y - f(x)| - 0.5 * delta) otherwise
-
-    Args:
-        delta: Threshold where the loss changes from quadratic to linear.
-              Default: 1.0
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-    Example:
-        >>> loss_fn = HuberLoss(delta=1.0)
-        >>> y_pred = torch.tensor([0.0, 1.0, 2.0])
-        >>> target = torch.tensor([0.0, 2.0, 1.0])
-        >>> loss_fn(y_pred, target)
-        tensor(0.7500)
-    """
-
-    def __init__(self, delta: float = 1.0, reduction: str = "mean") -> None:
-        super().__init__(reduction=reduction)
-        self.delta = validate_positive(delta, "delta")
-
-    def forward(
-        self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate Huber loss.
-
-        Args:
-            y_pred: Predicted values [batch_size, ...]
-            target: Target values [batch_size, ...]
-            mask: Optional boolean mask [batch_size, ...]
-            weights: Optional weights [batch_size, ...]
-
-        Returns:
-            Huber loss value
-        """
-        self._validate_inputs(y_pred, target, mask)
-
-        # Calculate absolute error
-        abs_diff = torch.abs(target - y_pred)
-
-        # Apply Huber formula
-        loss = torch.where(
-            abs_diff <= self.delta,
-            0.5 * abs_diff * abs_diff,
-            self.delta * (abs_diff - 0.5 * self.delta),
-        )
-
-        # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
-
-
-class L1Loss(RegressionLoss):
-    """
-    Mean Absolute Error (L1) Loss.
-
-    L(y, f(x)) = |y - f(x)|
-
-    Args:
-        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-    Example:
-        >>> loss_fn = L1Loss()
-        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
-        >>> target = torch.tensor([0.0, 2.0, 3.0])
-        >>> loss_fn(y_pred, target)
-        tensor(0.3333)
-    """
-
-    def forward(
-        self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate L1 loss.
-
-        Args:
-            y_pred: Predicted values [batch_size, ...]
-            target: Target values [batch_size, ...]
-            mask: Optional boolean mask [batch_size, ...]
-            weights: Optional weights [batch_size, ...]
-
-        Returns:
-            L1 loss value
-        """
-        self._validate_inputs(y_pred, target, mask)
-
-        # Calculate absolute error
-        abs_error = torch.abs(target - y_pred)
-
-        # Apply reduction with mask and weights
-        return self._reduce_with_mask(abs_error, mask, weights)
-
+# Remove HuberLoss as it's redundant with WeightedHuberLoss in base
 
 class PseudoHuberLoss(RegressionLoss):
     """

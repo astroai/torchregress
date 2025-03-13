@@ -31,26 +31,7 @@ In practice, the $\log(y!)$ term is often omitted during optimization as it does
 class PoissonNLLLoss(RegressionLoss)
 ```
 
-Negative log-likelihood loss for Poisson regression, suitable for modeling count data.
-
-**Parameters:**
-
-- `log_input` (bool, optional): If True, input is expected to be log(λ) rather than λ. Default: `True`
-- `full` (bool, optional): If True, include the constant term log(y!). Default: `False`
-- `eps` (float, optional): Small constant for numerical stability. Default: `1e-8`
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Poisson NLL loss
-
-The loss function is defined mathematically as:
-
-$$\mathcal{L}_{\text{PoissonNLL}}(y, \lambda) = \lambda - y \log(\lambda) + \log(y!)$$
-
-When `log_input=True`, the input is interpreted as $\log(\lambda)$ rather than $\lambda$, which can help with numerical stability and is appropriate when the model outputs are unconstrained.
-
-When `log_input=False`, the input is expected to be positive rate values λ directly, and will be clamped to ensure positivity.
+For standard Poisson Negative Log-Likelihood, use WeightedPoissonNLLLoss from the base module.
 
 **Example:**
 
@@ -59,7 +40,7 @@ import torch
 import torchregression as tr
 
 # Create Poisson NLL loss
-loss_fn = tr.losses.PoissonNLLLoss(log_input=True, full=False)
+loss_fn = tr.losses.WeightedPoissonNLLLoss(log_input=True, full=False)
 
 # For a model that predicts log(λ)
 y_pred = torch.tensor([[0.0, 1.0, 2.0], [1.0, 1.5, 0.5]])  # log(λ) values
@@ -67,21 +48,12 @@ target = torch.tensor([[1.0, 2.0, 7.0], [2.0, 5.0, 1.0]])  # count data
 
 # Calculate loss
 loss = loss_fn(y_pred, target)
-
-# With mask (ignore some measurements)
-mask = torch.tensor([[True, True, False], [True, False, True]])
-masked_loss = loss_fn(y_pred, target, mask=mask)
-
-# For a model that outputs λ directly (not recommended for unbounded outputs)
-direct_loss_fn = tr.losses.PoissonNLLLoss(log_input=False)
-lambda_pred = torch.tensor([[1.0, 2.5, 8.0], [2.5, 4.5, 1.5]])  # λ values
-direct_loss = direct_loss_fn(lambda_pred, target)
 ```
 
-### PoissonDeviance
+### PoissonDevianceLoss
 
 ```python
-class PoissonDeviance(RegressionLoss)
+class PoissonDevianceLoss(RegressionLoss)
 ```
 
 Poisson deviance loss function, also known as G-statistic, which measures the goodness-of-fit for Poisson models. This loss is useful for assessing how well a model fits count data.
@@ -114,7 +86,7 @@ import torch
 import torchregression as tr
 
 # Create deviance loss
-loss_fn = tr.losses.PoissonDeviance(log_input=True)
+loss_fn = tr.losses.PoissonDevianceLoss(log_input=True)
 
 # For a model that predicts log(λ)
 y_pred = torch.tensor([[0.0, 1.0, 2.0], [1.0, 1.5, 0.5]])  # log(λ) values
@@ -124,7 +96,7 @@ target = torch.tensor([[1.0, 2.0, 7.0], [2.0, 5.0, 1.0]])  # count data
 loss = loss_fn(y_pred, target)
 
 # With variance learning (useful for meta-learning or uncertainty quantification)
-var_loss_fn = tr.losses.PoissonDeviance(log_input=True, learn_variance=True)
+var_loss_fn = tr.losses.PoissonDevianceLoss(log_input=True, learn_variance=True)
 var_loss = var_loss_fn(y_pred, target)
 ```
 
@@ -173,9 +145,69 @@ target = torch.tensor([[12.0, 18.0, 32.0], [16.0, 23.0, 38.0]])
 
 # Calculate test statistic
 loss = loss_fn(y_pred, target)
+```
 
-# The resulting loss can be used for goodness-of-fit assessment
-# by comparing to chi-squared distribution with appropriate degrees of freedom
+### ZeroInflatedPoissonNLLLoss
+
+```python
+class ZeroInflatedPoissonNLLLoss(RegressionLoss)
+```
+
+Zero-Inflated Poisson Negative Log-Likelihood loss for count data with excess zeros.
+
+**Parameters:**
+
+- `log_input` (bool, optional): If True, input is expected to be log(λ) rather than λ. Default: `True`
+- `eps` (float, optional): Small constant for numerical stability. Default: `1e-8`
+- `learn_variance` (bool, optional): Whether to learn a global variance parameter. Default: `False`
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Example:**
+
+```python
+import torch
+import torchregression as tr
+
+# Create loss
+loss_fn = tr.losses.ZeroInflatedPoissonNLLLoss()
+
+# Model predicts lambda values and zero-inflation logits
+y_pred = torch.tensor([1.0, 2.0, 3.0])  # lambda values
+pi_logits = torch.tensor([-1.0, 0.0, 1.0])  # zero-inflation logits
+target = torch.tensor([0.0, 0.0, 3.0])  # counts
+
+# Calculate loss
+loss = loss_fn(y_pred, target, pi_logits)
+```
+
+### NegativeBinomialNLLLoss
+
+```python
+class NegativeBinomialNLLLoss(RegressionLoss)
+```
+
+Negative Binomial Negative Log-Likelihood loss for overdispersed count data (where variance > mean).
+
+**Parameters:**
+
+- `learn_theta` (bool, optional): Whether to learn the dispersion parameter θ. Default: `False`
+- `eps` (float, optional): Small constant for numerical stability. Default: `1e-8`
+- `min_theta` (float, optional): Minimum value for θ parameter. Default: `1e-6`
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Example:**
+
+```python
+import torch
+import torchregression as tr
+
+# Create loss
+loss_fn = tr.losses.NegativeBinomialNLLLoss(learn_theta=True)
+y_pred = torch.tensor([1.0, 2.0, 3.0])  # mean values
+target = torch.tensor([0.0, 3.0, 5.0])  # counts
+
+# Calculate loss
+loss = loss_fn(y_pred, target)
 ```
 
 ## When to Use Poisson Losses
@@ -196,14 +228,4 @@ loss = loss_fn(y_pred, target)
 
 3. **Zero Inflation**: Standard Poisson may underperform when data has excessive zeros beyond what's expected; consider Zero-Inflated Poisson models in these cases.
 
-4. **Overdispersion**: When variance > mean in your data, consider Negative Binomial as an alternative (not yet implemented).
-
-## Tips for Implementation
-
-1. **Numerical Stability**: Always use `log_input=True` when your model outputs unconstrained values, as this ensures positive rate parameters after exponentiation.
-
-2. **Target Constraints**: Ensure your target data consists of non-negative values, as the Poisson distribution is only defined for non-negative integers.
-
-3. **Scaling**: If your counts are very large, consider scaling them down to improve numerical stability during training.
-
-4. **Model Output**: When using `log_input=True`, no activation function is needed on your model's output layer. Otherwise, use a softplus or exponential activation to ensure positive rate parameters.
+4. **Overdispersion**: When variance > mean in your data, consider NegativeBinomialNLLLoss as an alternative.

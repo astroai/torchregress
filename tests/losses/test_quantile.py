@@ -1,7 +1,7 @@
 import pytest
 import torch
 from torch.autograd import gradcheck
-from torchregression.losses.quantile import QuantileLoss, MultiQuantileLoss, QuantileCrossover
+from torchregression.losses.quantile import QuantileLoss, MultiQuantileLoss, QuantileCrossoverLoss
 
 
 class TestQuantileLoss:
@@ -61,7 +61,7 @@ class TestQuantileLoss:
         assert not torch.isnan(loss)
 
     def test_quantile_crossover_constraint(self):
-        """Test that QuantileCrossover enforces the quantile ordering constraint."""
+        """Test that QuantileCrossoverLoss enforces the quantile ordering constraint."""
         device = "cuda" if torch.cuda.is_available() else "cpu"
         y_true = torch.randn(10, 1, device=device)
 
@@ -73,7 +73,7 @@ class TestQuantileLoss:
         y_pred = torch.cat([lower_quantile, upper_quantile], dim=1)
 
         # Create loss with crossover constraint
-        loss_fn = QuantileCrossover(quantiles=[0.1, 0.9])
+        loss_fn = QuantileCrossoverLoss(quantiles=[0.1, 0.9])
 
         # Calculate loss
         loss = loss_fn(y_pred, y_true)

@@ -247,7 +247,7 @@ class MultiQuantileLoss(RegressionLoss):
             return combined_loss
 
 
-class QuantileCrossover(RegressionLoss):
+class QuantileCrossoverLoss(RegressionLoss):
     """
     Loss that encourages proper ordering of quantile curves.
 
@@ -269,7 +269,7 @@ class QuantileCrossover(RegressionLoss):
 
     Example:
         >>> # Create loss that predicts 10th, 50th, 90th percentiles
-        >>> loss_fn = QuantileCrossover(quantiles=[0.1, 0.5, 0.9], crossover_penalty=5.0)
+        >>> loss_fn = QuantileCrossoverLoss(quantiles=[0.1, 0.5, 0.9], crossover_penalty=5.0)
         >>> # Properly ordered predictions
         >>> good_pred = torch.tensor([[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]])
         >>> # Predictions with crossover (q₁ > q₂)

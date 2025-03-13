@@ -174,6 +174,76 @@ mask = torch.tensor([True, False, True])
 loss = wrapped_mse(y_pred, target, mask=mask)
 ```
 
+## WeightedLossWrapper
+
+```python
+class WeightedLossWrapper(MaskedLoss)
+```
+
+`WeightedLossWrapper` adapts standard PyTorch loss functions to TorchRegression's interface, adding support for masks and weights.
+
+**Parameters:**
+
+- `loss_fn` (Callable or nn.Module): PyTorch loss function class or instance
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+- `**kwargs`: Additional arguments to pass to the loss function
+
+**Example:**
+
+```python
+import torch.nn as nn
+import torchregression as tr
+
+# Wrap a standard PyTorch loss
+torch_mse = nn.MSELoss()
+wrapped_mse = tr.losses.WeightedLossWrapper(torch_mse)
+
+# Now we can use it with masks and weights
+y_pred = torch.tensor([1.0, 2.0, 3.0])
+target = torch.tensor([1.5, 2.0, 2.5])
+mask = torch.tensor([True, False, True])
+
+loss = wrapped_mse(y_pred, target, mask=mask)
+```
+
+## Pre-defined Weighted Loss Functions
+
+TorchRegression provides weighted versions of all standard PyTorch loss functions:
+
+```python
+# Available weighted versions of PyTorch losses
+WeightedMSELoss = WeightedLossWrapper(nn.MSELoss)
+WeightedL1Loss = WeightedLossWrapper(nn.L1Loss)
+WeightedCrossEntropyLoss = WeightedLossWrapper(nn.CrossEntropyLoss)
+WeightedBCELoss = WeightedLossWrapper(nn.BCELoss)
+WeightedBCEWithLogitsLoss = WeightedLossWrapper(nn.BCEWithLogitsLoss)
+WeightedKLDivLoss = WeightedLossWrapper(nn.KLDivLoss)
+WeightedNLLLoss = WeightedLossWrapper(nn.NLLLoss)
+WeightedSmoothL1Loss = WeightedLossWrapper(nn.SmoothL1Loss)
+WeightedHuberLoss = WeightedLossWrapper(nn.HuberLoss)
+WeightedPoissonNLLLoss = WeightedLossWrapper(nn.PoissonNLLLoss)
+WeightedGaussianNLLLoss = WeightedLossWrapper(nn.GaussianNLLLoss)
+# ...and many more
+```
+
+These can be used directly with mask and weight arguments:
+
+```python
+import torch
+import torchregression as tr
+
+# Use weighted version of standard PyTorch loss
+loss_fn = tr.losses.WeightedMSELoss()
+
+# Calculate with masks and weights
+y_pred = torch.tensor([1.0, 2.0, 3.0])
+target = torch.tensor([0.0, 2.0, 4.0])
+mask = torch.tensor([True, False, True])
+weights = torch.tensor([0.5, 1.0, 2.0])
+
+loss = loss_fn(y_pred, target, mask=mask, weights=weights)
+```
+
 ## Best Practices for Custom Loss Functions
 
 When implementing custom loss functions using the TorchRegression framework:

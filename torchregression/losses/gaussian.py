@@ -1,269 +1,32 @@
 """
 Gaussian loss functions for regression tasks.
 
-This module provides various Gaussian-based loss functions,
-including:
-- Weighted Mean Squared Error
-- Gaussian Negative Log-Likelihood with diagonal covariance
-- Gaussian Negative Log-Likelihood with full covariance
+This module provides specialized Gaussian-based loss functions
+beyond what's available in PyTorch, including:
+- Heteroscedastic Gaussian (diagonal covariance)
+- Multivariate Gaussian (full covariance)
+
+For simple Gaussian losses (MSE), use WeightedMSELoss from base module instead.
+For standard variable variance Gaussian, use WeightedGaussianNLLLoss from base module.
 """
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import math
 from typing import Optional, Union, Tuple
 from torch.distributions import MultivariateNormal
 
-from .base import RegressionLoss, DistributionLoss
+from .base import DistributionLoss
 
-
-# Add simple implementations for classes referenced in tests
-class MSELoss(RegressionLoss):
-    """
-    Mean Squared Error Loss.
-    
-    A simple wrapper around F.mse_loss with masking and weighting support.
-    
-    Args:
-        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
-                   Default: 'mean'
-    
-    Example:
-        >>> loss_fn = MSELoss()
-        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
-        >>> target = torch.tensor([0.0, 2.0, 4.0])
-        >>> loss_fn(y_pred, target)
-        tensor(0.6667)
-    """
-    def __init__(self, reduction: str = "mean") -> None:
-        super().__init__(reduction=reduction)
-    
-    def forward(
-        self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate MSE loss.
-        
-        Args:
-            y_pred: Predicted values
-            target: Target values
-            mask: Optional boolean mask
-            weights: Optional sample weights
-            
-        Returns:
-            Loss value
-        """
-        self._validate_inputs(y_pred, target, mask)
-        
-        # Calculate MSE
-        mse = F.mse_loss(y_pred, target, reduction="none")
-        
-        # Apply reduction with mask and weights
-        return self._reduce_with_mask(mse, mask, weights)
-
-
-class MAELoss(RegressionLoss):
-    """
-    Mean Absolute Error Loss.
-    
-    A simple wrapper around F.l1_loss with masking and weighting support.
-    
-    Args:
-        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
-                   Default: 'mean'
-    
-    Example:
-        >>> loss_fn = MAELoss()
-        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
-        >>> target = torch.tensor([0.0, 2.0, 4.0])
-        >>> loss_fn(y_pred, target)
-        tensor(0.6667)
-    """
-    def __init__(self, reduction: str = "mean") -> None:
-        super().__init__(reduction=reduction)
-    
-    def forward(
-        self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate MAE loss.
-        
-        Args:
-            y_pred: Predicted values
-            target: Target values
-            mask: Optional boolean mask
-            weights: Optional sample weights
-            
-        Returns:
-            Loss value
-        """
-        self._validate_inputs(y_pred, target, mask)
-        
-        # Calculate L1 loss
-        mae = F.l1_loss(y_pred, target, reduction="none")
-        
-        # Apply reduction with mask and weights
-        return self._reduce_with_mask(mae, mask, weights)
-
-
-class GaussianNLLLoss(DistributionLoss):
-    """
-    Gaussian Negative Log Likelihood Loss.
-    
-    Simplified interface for Gaussian NLL loss with explicit variance input.
-    
-    Args:
-        eps: Small constant for numerical stability
-        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
-                   Default: 'mean'
-    
-    Example:
-        >>> loss_fn = GaussianNLLLoss()
-        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
-        >>> y_true = torch.tensor([0.0, 2.0, 4.0])
-        >>> var = torch.tensor([1.0, 1.0, 1.0])
-        >>> loss_fn(y_pred, y_true, var)
-    """
-    def __init__(self, eps: float = 1e-8, reduction: str = "mean") -> None:
-        super().__init__(reduction=reduction)
-        self.eps = eps
-        self.log_2pi = math.log(2 * math.pi)
-    
-    def _extract_distribution_parameters(self, inputs: Tuple[torch.Tensor, torch.Tensor]) -> dict:
-        """
-        Extract mean and variance from inputs.
-        
-        Args:
-            inputs: Tuple of (mean, variance)
-            
-        Returns:
-            Dict with distribution parameters
-        """
-        mean, var = inputs
-        return {"mean": mean, "var": var}
-    
-    def _calculate_nll(
-        self,
-        inputs: Tuple[torch.Tensor, torch.Tensor],
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate negative log likelihood.
-        
-        Args:
-            inputs: Tuple of (mean, variance)
-            target: Ground truth values
-            mask: Optional mask
-            
-        Returns:
-            Negative log likelihood
-        """
-        params = self._extract_distribution_parameters(inputs)
-        mean = params["mean"]
-        var = params["var"].clamp(min=self.eps)
-        
-        # Calculate NLL: 0.5 * (log(var) + (y-μ)²/var + log(2π))
-        squared_error = (target - mean) ** 2
-        nll = 0.5 * (torch.log(var) + squared_error / var + self.log_2pi)
-        
-        return nll
-    
-    def forward(
-        self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        var: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate Gaussian NLL loss.
-        
-        Args:
-            y_pred: Predicted mean values
-            target: Ground truth values
-            var: Variance values (must be positive)
-            mask: Optional boolean mask
-            weights: Optional sample weights
-            
-        Returns:
-            Loss value
-        """
-        self._validate_inputs(y_pred, target, mask)
-        
-        # Calculate NLL
-        nll = self._calculate_nll((y_pred, var), target, mask)
-        
-        # Apply reduction with mask and weights
-        return self._reduce_with_mask(nll, mask, weights)
-
-
-class WeightedMSELoss(RegressionLoss):
-    """
-    Weighted Mean Squared Error Loss.
-
-    Calculates weighted MSE between predictions and targets,
-    with optional masking for missing values.
-
-    Args:
-        reduction: Specifies the reduction to apply: 'none' | 'mean' | 'sum'.
-                   Default: 'mean'
-
-    Example:
-        >>> loss_fn = WeightedMSELoss()
-        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
-        >>> target = torch.tensor([0.0, 2.0, 4.0])
-        >>> loss_fn(y_pred, target)
-        tensor(0.6667)
-    """
-
-    def __init__(self, reduction: str = "mean") -> None:
-        super().__init__(reduction=reduction)
-
-    def forward(
-        self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Calculate weighted MSE loss.
-
-        Args:
-            y_pred: Predicted values (batch_size, n_features)
-            target: Target values (batch_size, n_features)
-            mask: Optional mask (batch_size, n_features)
-            weights: Optional weights for each feature (batch_size, n_features)
-
-        Returns:
-            Loss value
-        """
-        self._validate_inputs(y_pred, target, mask)
-
-        # Calculate MSE
-        mse = F.mse_loss(y_pred, target, reduction="none")
-
-        # Apply reduction with mask and weights
-        return self._reduce_with_mask(mse, mask, weights)
-
-
-class DiagonalGaussianNLL(DistributionLoss):
+class HeteroscedasticGaussianLoss(DistributionLoss):
     """
     Negative Log-Likelihood loss for diagonal Gaussian distributions.
 
     This loss models each output dimension with an independent Gaussian distribution
     where the diagonal covariance matrix can be learned or fixed.
+    
+    Note: For simple cases where the model directly outputs mean and variance,
+    consider using WeightedGaussianNLLLoss from the base module instead.
 
     Args:
         n_features: Number of output features (required when learnable_variance=True)
@@ -275,7 +38,7 @@ class DiagonalGaussianNLL(DistributionLoss):
 
     Example:
         >>> # With fixed variance
-        >>> loss_fn = DiagonalGaussianNLL(fixed_variance=1.0, learnable_variance=False)
+        >>> loss_fn = HeteroscedasticGaussianLoss(fixed_variance=1.0, learnable_variance=False)
         >>> y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
         >>> target = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
         >>> loss_fn(y_pred, target)
@@ -284,7 +47,7 @@ class DiagonalGaussianNLL(DistributionLoss):
         >>> # With predicted variance
         >>> pred_mean = torch.tensor([[1.0, 2.0]])
         >>> pred_logvar = torch.tensor([[-1.0, 0.0]])  # log(0.368), log(1.0)
-        >>> loss_fn = DiagonalGaussianNLL(learnable_variance=False)
+        >>> loss_fn = HeteroscedasticGaussianLoss(learnable_variance=False)
         >>> loss_fn((pred_mean, pred_logvar), torch.tensor([[1.0, 3.0]]))
         tensor(1.0979)  # Smaller error for first dim due to smaller variance
     """
@@ -413,7 +176,7 @@ class DiagonalGaussianNLL(DistributionLoss):
         return self._reduce_with_mask(nll, mask, weights)
 
 
-class GaussianNLLWithCovariance(DistributionLoss):
+class MultivariateGaussianLoss(DistributionLoss):
     """
     Negative Log-Likelihood loss for multivariate Gaussian with full covariance matrices.
 
@@ -428,7 +191,7 @@ class GaussianNLLWithCovariance(DistributionLoss):
         reduction: 'none' | 'mean' | 'sum'
 
     Example:
-        >>> loss_fn = GaussianNLLWithCovariance()
+        >>> loss_fn = MultivariateGaussianLoss()
         >>> y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
         >>> target = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
         >>> cov = torch.tensor([[1.0, 0.5], [0.5, 2.0]])  # Shared covariance
@@ -653,15 +416,25 @@ def create_gaussian_nll(
         ...                             learnable_variance=True, jitter=1e-5)
     """
     if covariance_type == "diagonal":
-        return DiagonalGaussianNLL(
-            n_features=n_features,
-            learnable_variance=learnable_variance,
-            fixed_variance=fixed_variance,
-            reduction=reduction,
-            **kwargs,
-        )
+        if not learnable_variance and fixed_variance == 1.0:
+            # If using fixed unit variance, just use WeightedMSELoss
+            from .base import WeightedMSELoss
+            return WeightedMSELoss(reduction=reduction)
+        elif not learnable_variance:
+            # Simple diagonal case with fixed variance - use standard PyTorch
+            from .base import WeightedGaussianNLLLoss
+            return WeightedGaussianNLLLoss(reduction=reduction)
+        else:
+            # Complex case with learnable variance
+            return HeteroscedasticGaussianLoss(
+                n_features=n_features,
+                learnable_variance=learnable_variance,
+                fixed_variance=fixed_variance,
+                reduction=reduction,
+                **kwargs,
+            )
     elif covariance_type == "full":
-        return GaussianNLLWithCovariance(
+        return MultivariateGaussianLoss(
             n_features=n_features,
             learnable_adjustment=learnable_variance,
             jitter=jitter,

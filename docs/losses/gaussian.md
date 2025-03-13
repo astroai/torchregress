@@ -20,21 +20,15 @@ For a fixed $\sigma^2$, minimizing this NLL is equivalent to minimizing the mean
 
 ## Available Gaussian Losses
 
-### MSELoss
+### WeightedMSELoss and WeightedGaussianNLLLoss 
 
 ```python
-class MSELoss(RegressionLoss)
+# Standard weighted MSE and Gaussian NLL Loss
+WeightedMSELoss = WeightedLossWrapper(nn.MSELoss)
+WeightedGaussianNLLLoss = WeightedLossWrapper(nn.GaussianNLLLoss)
 ```
 
-Mean Squared Error loss with support for masking and weighting. This is a wrapper around PyTorch's F.mse_loss with additional functionality.
-
-**Parameters:**
-
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the MSE loss
+For simple Gaussian losses, TorchRegression provides weighted versions of standard PyTorch losses from the base module. These include standard MSE loss (WeightedMSELoss) and the variable variance Gaussian NLL loss (WeightedGaussianNLLLoss).
 
 **Example:**
 
@@ -42,82 +36,7 @@ Mean Squared Error loss with support for masking and weighting. This is a wrappe
 import torch
 import torchregression as tr
 
-loss_fn = tr.losses.MSELoss()
-
-# Predictions and targets
-y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
-
-# Basic MSE loss
-basic_loss = loss_fn(y_pred, target)  # tensor(0.6667)
-
-# With mask (ignore the 2nd sample)
-mask = torch.tensor([True, False, True])
-masked_loss = loss_fn(y_pred, target, mask=mask)
-```
-
-### MAELoss
-
-```python
-class MAELoss(RegressionLoss)
-```
-
-Mean Absolute Error loss with support for masking and weighting. This is a wrapper around PyTorch's F.l1_loss with additional functionality.
-
-**Parameters:**
-
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the MAE loss
-
-**Example:**
-
-```python
-import torch
-import torchregression as tr
-
-loss_fn = tr.losses.MAELoss()
-
-# Predictions and targets
-y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
-
-# Basic MAE loss
-loss = loss_fn(y_pred, target)  # tensor(0.6667)
-```
-
-### WeightedMSELoss
-
-```python
-class WeightedMSELoss(RegressionLoss)
-```
-
-An extension of the standard Mean Squared Error loss with support for sample/feature weighting and masking.
-
-**Parameters:**
-
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the weighted MSE loss
-
-MSE is defined mathematically as:
-
-$$\mathcal{L}_{\text{MSE}}(y, \hat{y}) = \frac{1}{N}\sum_{i=1}^{N}(y_i - \hat{y}_i)^2$$
-
-With weights, this becomes:
-
-$$\mathcal{L}_{\text{WeightedMSE}}(y, \hat{y}, w) = \frac{\sum_{i=1}^{N}w_i(y_i - \hat{y}_i)^2}{\sum_{i=1}^{N}w_i}$$
-
-**Example:**
-
-```python
-import torch
-import torchregression as tr
-
+# Mean squared error (fixed variance)
 loss_fn = tr.losses.WeightedMSELoss()
 
 # Predictions and targets
@@ -127,54 +46,21 @@ target = torch.tensor([0.0, 2.0, 4.0])
 # Basic MSE loss
 basic_loss = loss_fn(y_pred, target)  # tensor(0.6667)
 
-# With sample weights
-weights = torch.tensor([0.5, 1.0, 2.0])  # Emphasize the 3rd sample
-weighted_loss = loss_fn(y_pred, target, weights=weights)  # Gives more weight to the 3rd error
-
 # With mask (ignore the 2nd sample)
 mask = torch.tensor([True, False, True])
 masked_loss = loss_fn(y_pred, target, mask=mask)
+
+# PyTorch's GaussianNLL with weighting/masking support
+gaussian_nll_fn = tr.losses.WeightedGaussianNLLLoss()
+mean = torch.tensor([1.0, 2.0, 3.0])
+var = torch.tensor([0.1, 0.2, 0.3])
+gaussian_nll_fn(mean, target, var)
 ```
 
-### GaussianNLLLoss
+### HeteroscedasticGaussianLoss
 
 ```python
-class GaussianNLLLoss(DistributionLoss)
-```
-
-Gaussian Negative Log-Likelihood loss with explicit variance input. This simpler interface is useful when you have a separate model or estimate for variance.
-
-**Parameters:**
-
-- `eps` (float, optional): Small constant for numerical stability. Default: `1e-8`
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `forward(y_pred, target, var, mask=None, weights=None)`: Computes the Gaussian NLL loss
-
-**Example:**
-
-```python
-import torch
-import torchregression as tr
-
-# Create loss function
-loss_fn = tr.losses.GaussianNLLLoss()
-
-# Predictions, targets and variance
-y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
-var = torch.tensor([0.5, 1.0, 2.0])  # Different uncertainty for each prediction
-
-# Calculate NLL loss
-loss = loss_fn(y_pred, target, var)
-```
-
-### DiagonalGaussianNLL
-
-```python
-class DiagonalGaussianNLL(DistributionLoss)
+class HeteroscedasticGaussianLoss(DistributionLoss)
 ```
 
 Negative Log-Likelihood loss for diagonal Gaussian distributions, which models each output dimension with an independent Gaussian distribution.
@@ -205,22 +91,22 @@ import torch
 import torchregression as tr
 
 # Case 1: Learnable variance parameters
-loss_fn = tr.losses.DiagonalGaussianNLL(n_features=2, learnable_variance=True)
+loss_fn = tr.losses.HeteroscedasticGaussianLoss(n_features=2, learnable_variance=True)
 y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])  # Just mean predictions
 target = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
 loss = loss_fn(y_pred, target)
 
 # Case 2: Model predicts both mean and variance
-loss_fn = tr.losses.DiagonalGaussianNLL(learnable_variance=False)
+loss_fn = tr.losses.HeteroscedasticGaussianLoss(learnable_variance=False)
 mean = torch.tensor([[1.0, 2.0]])
 log_var = torch.tensor([[-1.0, 0.0]])  # log(0.368), log(1.0)
-loss = loss_fn((mean, log_var), target[0:1])
+loss = loss_fn((mean, log_var), torch.tensor([[1.0, 3.0]]))
 ```
 
-### GaussianNLLWithCovariance
+### MultivariateGaussianLoss
 
 ```python
-class GaussianNLLWithCovariance(DistributionLoss)
+class MultivariateGaussianLoss(DistributionLoss)
 ```
 
 Negative Log-Likelihood loss for multivariate Gaussian with full covariance matrices, which can capture correlations between output dimensions.
@@ -252,7 +138,7 @@ import torch
 import torchregression as tr
 
 # Create the loss function
-loss_fn = tr.losses.GaussianNLLWithCovariance()
+loss_fn = tr.losses.MultivariateGaussianLoss()
 
 # Predicted means
 y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
@@ -295,7 +181,7 @@ A factory function that creates an appropriate Gaussian NLL loss based on the sp
 
 **Returns:**
 
-An appropriate Gaussian NLL loss object (`DiagonalGaussianNLL` or `GaussianNLLWithCovariance`)
+An appropriate Gaussian NLL loss object (`WeightedMSELoss`, `WeightedGaussianNLLLoss`, `HeteroscedasticGaussianLoss` or `MultivariateGaussianLoss`)
 
 **Example:**
 
@@ -322,21 +208,17 @@ loss_fn = tr.losses.create_gaussian_nll(
 
 ## Choosing the Right Gaussian Loss
 
-1. **MSELoss**: Simple squared error loss with masking and weighting support.
+1. **WeightedMSELoss**: Simple squared error loss with masking and weighting support. Use when variance is fixed and known.
 
-2. **MAELoss**: Mean absolute error loss when outliers should have less influence.
+2. **WeightedGaussianNLLLoss**: PyTorch's standard Gaussian NLL with weighting/masking support. Use when your model outputs both mean and variance but doesn't need more complex distribution modeling.
 
-3. **WeightedMSELoss**: Use when you need to weight samples or features differently.
-
-4. **GaussianNLLLoss**: Use when you have separate models for mean and variance.
-
-5. **DiagonalGaussianNLL**:
+3. **HeteroscedasticGaussianLoss**:
    - Use when you want to model uncertainty for each output dimension independently
    - Good for heteroscedastic regression where uncertainty varies across the input space
    - Choose `learnable_variance=True` if your dataset has a constant but unknown noise level
    - Choose `learnable_variance=False` if your model should predict both mean and variance
 
-6. **GaussianNLLWithCovariance**:
+4. **MultivariateGaussianLoss**:
    - Use when output dimensions are correlated (e.g., multivariate time series, spatial data)
    - More complex but can capture richer uncertainty relationships
    - Requires more data to estimate reliably compared to diagonal variants
@@ -350,3 +232,8 @@ loss_fn = tr.losses.create_gaussian_nll(
 3. **The Bias-Variance Tradeoff**:
    - Larger predicted variances reduce the penalty for errors in the mean but increase the log-variance term
    - The loss forces the model to predict larger variances only when there is genuine uncertainty
+
+4. **Implementation Notes**:
+   - When using `learnable_variance=True`, only mean values are predicted by your model
+   - When using `learnable_variance=False`, your model is expected to output both mean and log-variance
+   - For multivariate cases, eigendecomposition is used as a fallback for numerical stability

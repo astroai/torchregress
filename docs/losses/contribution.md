@@ -4,6 +4,36 @@ This page outlines opportunities to contribute new loss functions to the TorchRe
 
 ## Loss Functions Wish List
 
+### Uncertainty-Aware Regression Losses
+
+1. **RAGLoss**
+   - Residual Adaptive Gaussian (RAG) loss for heteroscedastic regression
+   - Adapts to different noise characteristics in the data
+   - Parameters:
+     - `alpha` (float): Heavy-tail parameter controlling the adaptive distribution
+     - `beta` (float): Regularization parameter for variance prediction
+     - `min_sigma` (float): Minimum allowed standard deviation
+   - Mathematical formulation:
+     $$\mathcal{L}_{\text{RAG}}(y, \hat{y}, \hat{\sigma}) = \frac{1}{2} \left( \frac{(y - \hat{y})^2}{\hat{\sigma}^2 + r^2} + \log(\hat{\sigma}^2 + r^2) \right)$$
+   - Applications in robust regression with outliers
+
+2. **DeepEvidentialLoss**
+   - Uses theory of subjective logic to quantify both aleatoric and epistemic uncertainty
+   - Models the target as a Normal distribution with unknown mean and precision
+   - Parameters:
+     - `kl_weight` (float): Weight for KL divergence regularization term
+   - Mathematical background: Normal-Gamma prior for uncertainty estimation
+   - Separates aleatoric from epistemic uncertainty explicitly
+
+3. **EnsembleDistributionLoss**
+   - Loss function for training ensemble-based uncertainty models
+   - Combines individual model losses with consistency regularization
+   - Parameters:
+     - `base_loss` (DistributionLoss): Base loss function for each model
+     - `consistency_weight` (float): Weight for consistency regularization
+     - `diversity_weight` (float): Weight for diversity promotion
+   - Promotes both consistent predictions and diverse models
+
 ### Count Data Models
 
 1. **NegativeBinomialLoss**

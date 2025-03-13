@@ -40,8 +40,9 @@ except ImportError:
     # Fallback for Python < 3.8
     CallbackFn = Callable
 
-from ..losses.robust import HuberLoss, L1Loss, TukeyBiweightLoss
-from ..losses.gaussian import DiagonalGaussianNLL, GaussianNLLWithCovariance
+from ..losses.base import WeightedHuberLoss, WeightedL1Loss, WeightedGaussianNLLLoss, WeightedMSELoss
+from ..losses.robust import TukeyBiweightLoss
+from ..losses.gaussian import HeteroscedasticGaussianLoss, MultivariateGaussianLoss
 from ..utils.irls_utils import (
     huber_weights,
     tukey_weights,
@@ -134,13 +135,15 @@ def iteratively_reweighted_least_squares(
     # --- Loss Function Setup ---
     if base_loss == "gaussian":
         if covariance_matrices is None:
-            loss_fn = DiagonalGaussianNLL(y_true.shape[-1])
+            # Use heteroscedastic Gaussian loss for diagonal covariance
+            loss_fn = HeteroscedasticGaussianLoss(n_features=y_true.shape[-1])
         else:
-            loss_fn = GaussianNLLWithCovariance()
+            # Use multivariate Gaussian loss for full covariance matrices
+            loss_fn = MultivariateGaussianLoss()
     elif base_loss == "huber":
-        loss_fn = HuberLoss(delta=delta)
+        loss_fn = WeightedHuberLoss(delta=delta)
     elif base_loss == "l1":
-        loss_fn = L1Loss()
+        loss_fn = WeightedL1Loss()
     else:
         raise ValueError(f"Invalid base_loss: {base_loss}. Must be 'gaussian', 'huber', or 'l1'.")
 
@@ -200,12 +203,12 @@ def iteratively_reweighted_least_squares(
             if base_loss == "gaussian":
                 if covariance_matrices is not None:
                     current_loss = loss_fn(
-                        y_pred, y_true, covariance_matrices=covariance_matrices, mask=mask
+                        y_pred=y_pred, target=y_true, covariance_matrices=covariance_matrices, mask=mask
                     )
                 else:
-                    current_loss = loss_fn(y_pred, y_true, mask=mask)
+                    current_loss = loss_fn(y_pred=y_pred, target=y_true, mask=mask)
             else:  # huber or l1
-                current_loss = loss_fn(y_pred, y_true, mask=mask, weights=precision)
+                current_loss = loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
 
             loss_value = current_loss.item()
             loss_history.append(loss_value)
@@ -246,10 +249,10 @@ def iteratively_reweighted_least_squares(
             precision = precision * iter_weights
 
             # Update model's variance parameters if using learnable variance
-            if base_loss == "gaussian" and isinstance(loss_fn, DiagonalGaussianNLL):
+            if base_loss == "gaussian" and isinstance(loss_fn, HeteroscedasticGaussianLoss):
                 # More stable approach: directly compute optimal log variances
                 weighted_variance = (variance / (precision + EPS)).mean(dim=0)
-                loss_fn.log_variances.data = 0.5 * torch.log(weighted_variance + EPS)
+                loss_fn.log_variance_adjustment.data = 0.5 * torch.log(weighted_variance + EPS)
 
     # Get final predictions if we didn't run all iterations
     with torch.no_grad():
@@ -286,20 +289,20 @@ def calculate_loss(
     # Handle tuple output (mu, log_sigma)
     if isinstance(y_pred, tuple) and len(y_pred) == 2:
         mu, log_sigma = y_pred
-        if isinstance(loss_fn, DiagonalGaussianNLL):
+        if isinstance(loss_fn, HeteroscedasticGaussianLoss):
             return loss_fn(y_pred=(mu, log_sigma), target=y_true, mask=mask)
         else:
             # For other losses, just use the mean prediction
             return loss_fn(y_pred=mu, target=y_true, mask=mask, weights=precision)
 
-    # Handle GaussianNLLWithCovariance
-    elif isinstance(loss_fn, GaussianNLLWithCovariance):
+    # Handle MultivariateGaussianLoss
+    elif isinstance(loss_fn, MultivariateGaussianLoss):
         return loss_fn(
             y_pred=y_pred, target=y_true, covariance_matrices=covariance_matrices, mask=mask
         )
 
     # Handle robust losses with weights
-    elif isinstance(loss_fn, (HuberLoss, L1Loss, TukeyBiweightLoss)) and precision is not None:
+    elif isinstance(loss_fn, (WeightedHuberLoss, WeightedL1Loss, TukeyBiweightLoss)) and precision is not None:
         return loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
 
     # Standard case
@@ -334,6 +337,10 @@ def IRLS(
     use_compile: bool = False,
     compile_kwargs: Optional[Dict[str, Any]] = None,
     callbacks: Optional[List[Callable]] = None,
+    return_all_iterations: bool = False,
+    verbose_epoch_freq: int = 1,
+    verbose_batch_freq: int = 5,
+    epsilon: float = EPS,
 ) -> Dict[str, Any]:
     """
     Trains a PyTorch model using Iteratively Reweighted Least Squares (IRLS).
@@ -387,11 +394,11 @@ def IRLS(
     # --- Determine base loss type ---
     if base_loss is None:
         # Infer base loss type from loss_fn
-        if isinstance(loss_fn, (DiagonalGaussianNLL, GaussianNLLWithCovariance)):
+        if isinstance(loss_fn, (HeteroscedasticGaussianLoss, MultivariateGaussianLoss)):
             base_loss = "gaussian"
-        elif isinstance(loss_fn, HuberLoss):
+        elif isinstance(loss_fn, WeightedHuberLoss):
             base_loss = "huber"
-        elif isinstance(loss_fn, L1Loss):
+        elif isinstance(loss_fn, WeightedL1Loss):
             base_loss = "l1"
         else:
             # Default to gaussian if we can't determine
