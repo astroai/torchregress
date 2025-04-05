@@ -38,7 +38,7 @@ Style Guide for Visualization Functions:
 """
 
 # Import diagnostic plotting utilities
-from torchregression.viz.diagnostic import (
+from torchregress.viz.diagnostic import (
     plot_reliability_diagram,
     plot_residuals,
     plot_prediction_intervals,
@@ -49,7 +49,7 @@ from torchregression.viz.diagnostic import (
 )
 
 # Import training monitoring plots
-from torchregression.viz.monitoring import (
+from torchregress.viz.monitoring import (
     plot_learning_curves,
     plot_validation_metrics,
     plot_early_stopping,
@@ -57,7 +57,7 @@ from torchregression.viz.monitoring import (
 )
 
 # Import results visualization tools
-from torchregression.viz.results import (
+from torchregress.viz.results import (
     plot_performance_comparison,
     plot_parameter_sensitivity,
     plot_feature_importance,
@@ -65,7 +65,7 @@ from torchregression.viz.results import (
 )
 
 # Import common utility functions
-from torchregression.viz.utils import (
+from torchregress.viz.utils import (
     set_style,
     create_grid_figure,
     add_identity_line,

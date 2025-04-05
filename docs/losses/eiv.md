@@ -61,7 +61,7 @@ Implements the functional approach to errors-in-variables modeling, where the tr
 
 ```python
 import torch
-from torchregression.losses import FunctionalEIVLoss
+from torchregress.losses import FunctionalEIVLoss
 
 # Define a simple model
 model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
@@ -103,7 +103,7 @@ Implements the structural approach to errors-in-variables modeling, which accoun
 
 ```python
 import torch
-from torchregression.losses import StructuralEIVLoss
+from torchregress.losses import StructuralEIVLoss
 
 # Define a simple model
 model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
@@ -163,7 +163,7 @@ where:
 
 ```python
 import torch
-from torchregression.losses import OrthogonalDistanceRegressionLoss
+from torchregress.losses import OrthogonalDistanceRegressionLoss
 
 # Define a simple model
 model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
@@ -207,7 +207,7 @@ A simple ensemble approach for handling errors-in-variables by generating multip
 
 ```python
 import torch
-from torchregression.losses import EnsembleEIVLoss
+from torchregress.losses import EnsembleEIVLoss
 
 # Define a simple model
 model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
@@ -244,7 +244,7 @@ Factory function to create an error-in-variables loss with the specified paramet
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Define a simple model
 model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]

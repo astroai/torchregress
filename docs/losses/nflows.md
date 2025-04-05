@@ -53,7 +53,7 @@ Negative Log-Likelihood loss for normalizing flow models, supporting various flo
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create a normalizing flow loss
 loss_fn = tr.losses.NormalizingFlowLoss(

@@ -7,7 +7,7 @@ Interval metrics evaluate the quality of prediction intervals, focusing on cover
 Evaluates prediction intervals by rewarding narrow intervals and penalizing when observations fall outside the interval.
 
 ```python
-from torchregression.metrics.interval import interval_score
+from torchregress.metrics.interval import interval_score
 
 # lower_bound and upper_bound typically represent a 90% prediction interval
 score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1)
@@ -25,7 +25,7 @@ print(f"Expected coverage: {detailed_score['expected_coverage']}")
 Measures the proportion of observations that fall within the prediction interval.
 
 ```python
-from torchregression.metrics.interval import prediction_interval_coverage_probability
+from torchregress.metrics.interval import prediction_interval_coverage_probability
 
 # Calculate basic PICP
 picp = prediction_interval_coverage_probability(lower_bound, upper_bound, y_true)
@@ -47,7 +47,7 @@ print(f"Normalized MPIW: {picp_detailed['nmpiw']}")
 Measures the average width of prediction intervals. This is included in the detailed output of `prediction_interval_coverage_probability`.
 
 ```python
-from torchregression.metrics.interval import prediction_interval_coverage_probability
+from torchregress.metrics.interval import prediction_interval_coverage_probability
 
 # Get MPIW from detailed metrics
 results = prediction_interval_coverage_probability(
@@ -64,7 +64,7 @@ mpiw = results['mpiw']
 Compare interval quality across multiple models.
 
 ```python
-from torchregression.metrics.interval import interval_metrics_report
+from torchregress.metrics.interval import interval_metrics_report
 
 # Create a dictionary of model predictions
 predictions = {
@@ -89,7 +89,7 @@ model3_interval_width = report['model3']['mean_width']
 The interval score can reveal asymmetries in the prediction intervals:
 
 ```python
-from torchregression.metrics.interval import interval_score
+from torchregress.metrics.interval import interval_score
 
 detailed_score = interval_score(lower_bound, upper_bound, y_true, 
                                alpha=0.1, reduction="full")

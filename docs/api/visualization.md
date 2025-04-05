@@ -7,7 +7,7 @@ TorchRegression provides a comprehensive suite of visualization tools to help yo
 ### Residual Analysis
 
 ```python
-from torchregression.viz import plot_residuals
+from torchregress.viz import plot_residuals
 
 plot_residuals(
     y_pred, 
@@ -49,7 +49,7 @@ plot_residuals(
 ### Prediction Intervals
 
 ```python
-from torchregression.viz import plot_prediction_intervals
+from torchregress.viz import plot_prediction_intervals
 
 plot_prediction_intervals(
     y_pred=mean_predictions,
@@ -91,7 +91,7 @@ plot_prediction_intervals(
 ### Reliability Diagram
 
 ```python
-from torchregression.viz import plot_reliability_diagram
+from torchregress.viz import plot_reliability_diagram
 
 plot_reliability_diagram(
     y_pred_quantiles={0.1: q10_preds, 0.5: q50_preds, 0.9: q90_preds},
@@ -128,7 +128,7 @@ plot_reliability_diagram(
 ### Distribution Comparison
 
 ```python
-from torchregression.viz import plot_distribution_comparison
+from torchregress.viz import plot_distribution_comparison
 
 plot_distribution_comparison(
     predicted_samples=model_samples,  # Shape: [n_samples, batch_size]
@@ -168,7 +168,7 @@ plot_distribution_comparison(
 ### Learning Curves
 
 ```python
-from torchregression.viz import plot_learning_curves
+from torchregress.viz import plot_learning_curves
 
 plot_learning_curves(
     train_history={'loss': train_losses, 'rmse': train_rmse},
@@ -211,7 +211,7 @@ plot_learning_curves(
 ### Early Stopping Visualization
 
 ```python
-from torchregression.viz import plot_early_stopping
+from torchregress.viz import plot_early_stopping
 
 plot_early_stopping(
     train_losses=train_loss_history,
@@ -249,7 +249,7 @@ plot_early_stopping(
 ### Learning Rate Finder
 
 ```python
-from torchregression.viz import plot_lr_find_results
+from torchregress.viz import plot_lr_find_results
 
 lr, suggested_lr = plot_lr_find_results(
     learning_rates=lr_values,
@@ -290,7 +290,7 @@ lr, suggested_lr = plot_lr_find_results(
 ### Model Comparison
 
 ```python
-from torchregression.viz import plot_performance_comparison
+from torchregress.viz import plot_performance_comparison
 
 plot_performance_comparison(
     metrics={
@@ -332,7 +332,7 @@ plot_performance_comparison(
 ### Feature Importance
 
 ```python
-from torchregression.viz import plot_feature_importance
+from torchregress.viz import plot_feature_importance
 
 plot_feature_importance(
     feature_names=feature_names,
@@ -380,7 +380,7 @@ plot_feature_importance(
 ### Parameter Sensitivity
 
 ```python
-from torchregression.viz import plot_parameter_sensitivity
+from torchregress.viz import plot_parameter_sensitivity
 
 plot_parameter_sensitivity(
     parameter_values={'learning_rate': [0.001, 0.01, 0.1], 'dropout': [0.0, 0.2, 0.5]},
@@ -417,7 +417,7 @@ plot_parameter_sensitivity(
 ### Setting Plot Style
 
 ```python
-from torchregression.viz import set_style
+from torchregress.viz import set_style
 
 # Set style for all subsequent plots
 set_style(
@@ -450,7 +450,7 @@ set_style(
 ### Saving Figures
 
 ```python
-from torchregression.viz import save_figure
+from torchregress.viz import save_figure
 
 # Create any plot with return_figure=True
 fig = plot_residuals(y_pred, y_true, return_figure=True)

@@ -2,7 +2,7 @@
 Base classes for ensemble models.
 
 This module provides foundation classes and abstractions for all ensemble techniques
-in the torchregression library.
+in the torchregress library.
 """
 
 import torch

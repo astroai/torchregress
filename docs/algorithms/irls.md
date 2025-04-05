@@ -201,7 +201,7 @@ def power_weights(residuals, a=1.0, b=2.0, **kwargs):
 ```python
 import torch
 import torch.nn as nn
-from torchregression.algorithms.irls import IRLS
+from torchregress.algorithms.irls import IRLS
 
 # Define a simple linear model
 class LinearModel(nn.Module):
@@ -238,7 +238,7 @@ trained_model = result['model']
 ```python
 import torch
 import torch.nn as nn
-from torchregression.algorithms.irls import iteratively_reweighted_least_squares
+from torchregress.algorithms.irls import iteratively_reweighted_least_squares
 
 # Define a custom weight function
 def custom_weights(residuals, cutoff=2.5, **kwargs):

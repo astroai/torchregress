@@ -7,7 +7,7 @@ import numpy as np
 from typing import Union, Optional, Dict, Tuple
 from torch.distributions import Normal
 
-from torchregression.metrics.utils import convert_to_tensor, apply_reduction, ensure_batch_dim
+from torchregress.metrics.utils import convert_to_tensor, apply_reduction, ensure_batch_dim
 
 
 def mahalanobis_distance(

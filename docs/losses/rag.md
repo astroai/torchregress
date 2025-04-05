@@ -66,7 +66,7 @@ where $p(\text{bin}_i|y)$ is the target distribution and $q(\text{bin}_i|x)$ is 
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create standard classification regression loss
 loss_fn = tr.losses.StandardClassificationRegressionLoss(
@@ -124,7 +124,7 @@ Ordinal regression converts the problem into a series of binary classifications.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create ordinal regression loss
 loss_fn = tr.losses.OrdinalRegressionLoss(
@@ -183,7 +183,7 @@ $$\mathcal{L}_{\text{W1}}(p, q) = \sum_i |CDF_p(\text{bin}_i) - CDF_q(\text{bin}
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create histogram regression loss
 loss_fn = tr.losses.HistogramRegressionLoss(
@@ -238,7 +238,7 @@ This unified approach supports both classification-style and ordinal-style regre
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create unified regression-as-classification loss
 loss_fn = tr.losses.RegressionAsClassificationLoss(

@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch import optim
 
-from torchregression.losses.gaussian import MSELoss, MAELoss
-from torchregression.losses.robust import HuberLoss, LogCoshLoss
-from torchregression.losses.quantile import QuantileLoss
+from torchregress.losses.gaussian import MSELoss, MAELoss
+from torchregress.losses.robust import HuberLoss, LogCoshLoss
+from torchregress.losses.quantile import QuantileLoss
 
 
 class SimpleModel(torch.nn.Module):

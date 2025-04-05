@@ -21,10 +21,10 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from sklearn.preprocessing import StandardScaler
 
 # Import TorchRegression losses and metrics
-from torchregression.losses.gaussian import MSELoss
-from torchregression.losses.eiv import EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss
-from torchregression.metrics.point import rmse, mae
-from torchregression.metrics.calibration import bias
+from torchregress.losses.gaussian import MSELoss
+from torchregress.losses.eiv import EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss
+from torchregress.metrics.point import rmse, mae
+from torchregress.metrics.calibration import bias
 
 # Constants
 DATA_DIR = os.path.join("data", "sdss")

@@ -64,7 +64,7 @@ class MaskedLoss(BaseLoss)
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create a masked loss
 loss_fn = tr.losses.MSELoss()  # Inherits from MaskedLoss
@@ -160,7 +160,7 @@ class TorchLossWrapper(MaskedLoss)
 
 ```python
 import torch.nn as nn
-import torchregression as tr
+import torchregress as tr
 
 # Wrap a standard PyTorch loss
 torch_mse = nn.MSELoss()
@@ -192,7 +192,7 @@ class WeightedLossWrapper(MaskedLoss)
 
 ```python
 import torch.nn as nn
-import torchregression as tr
+import torchregress as tr
 
 # Wrap a standard PyTorch loss
 torch_mse = nn.MSELoss()
@@ -230,7 +230,7 @@ These can be used directly with mask and weight arguments:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Use weighted version of standard PyTorch loss
 loss_fn = tr.losses.WeightedMSELoss()

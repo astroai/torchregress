@@ -7,7 +7,7 @@ Distribution metrics evaluate the quality of probabilistic forecasts by comparin
 PIT evaluates calibration by transforming observations through the predicted CDF. For perfectly calibrated forecasts, PIT values follow a uniform distribution.
 
 ```python
-from torchregression.metrics.distribution import probability_integral_transform
+from torchregress.metrics.distribution import probability_integral_transform
 from torch.distributions import Normal
 
 # Create a simple CDF function for a normal distribution
@@ -29,7 +29,7 @@ print(f"Uniformity chi-squared: {pit_results['uniformity_chi2']}")
 CRPS measures the integrated squared difference between the predicted CDF and the empirical CDF of the observation. Lower values indicate better performance.
 
 ```python
-from torchregression.metrics.distribution import continuous_ranked_probability_score
+from torchregress.metrics.distribution import continuous_ranked_probability_score
 
 # Create a dictionary of quantile predictions
 quantiles = {0.1: q10_pred, 0.5: q50_pred, 0.9: q90_pred}
@@ -46,7 +46,7 @@ crps_per_sample = continuous_ranked_probability_score(quantiles, y_true, reducti
 Energy Score is a multivariate generalization of CRPS, suitable for evaluating joint distributions.
 
 ```python
-from torchregression.metrics.distribution import energy_score
+from torchregress.metrics.distribution import energy_score
 
 # y_samples has shape [n_samples, batch_size, n_dimensions]
 # y_true has shape [batch_size, n_dimensions]
@@ -66,7 +66,7 @@ es_limited = energy_score(y_samples, y_true, max_pairs=1000)
 Generate a comprehensive report of distribution evaluation metrics.
 
 ```python
-from torchregression.metrics.distribution import distribution_metrics_report
+from torchregress.metrics.distribution import distribution_metrics_report
 from torch.distributions import Normal
 
 # Using a PyTorch distribution
@@ -90,7 +90,7 @@ print(f"CRPS: {report['crps']}")
 You can use custom quantile levels for more detailed evaluation:
 
 ```python
-from torchregression.metrics.distribution import continuous_ranked_probability_score
+from torchregress.metrics.distribution import continuous_ranked_probability_score
 
 # More detailed quantiles
 detailed_quantiles = {

@@ -8,7 +8,7 @@ Here's a minimal example to get started with TorchRegression:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -88,7 +88,7 @@ Now let's extend the example to include uncertainty estimation:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -203,7 +203,7 @@ Here's how to use robust loss functions for datasets with outliers:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 import numpy as np
 import matplotlib.pyplot as plt
 

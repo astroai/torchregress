@@ -1,5 +1,5 @@
 """
-Initialization for the torchregression.losses.eiv module.
+Initialization for the torchregress.losses.eiv module.
 
 This module provides various Error-in-Variables (EIV) loss functions
 for regression tasks with uncertain inputs.

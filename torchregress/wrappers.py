@@ -1,5 +1,5 @@
 """
-Easy wrappers for commonly used tools and utilities in torchregression.
+Easy wrappers for commonly used tools and utilities in torchregress.
 """
 
 import torch
@@ -8,23 +8,20 @@ import torch.nn.functional as F
 from typing import List, Optional, Tuple, Union, Callable, Dict, Any
 
 # Import base losses
-from .losses.base import MaskedLoss, RegressionLoss, PyTorchLossWrapper, DistributionLoss
+from .losses.base import MaskedLoss, RegressionLoss, WeightedLossWrapper, DistributionLoss, WeightedMSELoss, WeightedHuberLoss, WeightedL1Loss
 
 # Import specific loss implementations
-from .losses.gaussian import DiagonalGaussianNLL, GaussianNLLWithCovariance
-from .losses.robust import HuberLoss, L1Loss, PseudoHuberLoss, LogCoshLoss
+from .losses.gaussian import HeteroscedasticGaussianLoss as DiagonalGaussianNLL, MultivariateGaussianLoss as GaussianNLLWithCovariance
+from .losses.robust import PseudoHuberLoss, LogCoshLoss, CharbonnierLoss
 from .losses.quantile import QuantileLoss, MultiQuantileLoss
-from .losses.categorical import HistogramLoss, RegressionAsClassificationLoss
-from .losses.mdn import mdn_loss, mdn_ensemble
+from .losses.mdn import create_mdn_loss
+from .losses.eiv import FunctionalEIVLoss as ChamferEIVLoss, OrthogonalDistanceRegressionLoss as RobustEIVLoss
 
 # Import ensemble components
 from .ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
 
 # Import utilities
 from .utils.augment import GaussianNoiseAugmentation, AdversarialAugmentation
-
-# Import EIV losses
-from .eiv import ChamferEIVLoss, RobustEIVLoss
 
 
 def create_gaussian_regression(
@@ -108,9 +105,9 @@ def create_robust_regression(
 
     # Create loss function
     if loss_type == "huber":
-        loss_fn = HuberLoss(delta=delta)
+        loss_fn = WeightedHuberLoss(delta=delta)
     elif loss_type == "l1":
-        loss_fn = L1Loss()
+        loss_fn = WeightedL1Loss()
     elif loss_type == "pseudo_huber":
         loss_fn = PseudoHuberLoss(delta=delta)
     elif loss_type == "log_cosh":
@@ -265,7 +262,7 @@ def create_mdn_model(
     model = nn.Sequential(*layers, output_layer)
 
     # Create loss function
-    loss_fn = mdn_loss(num_components, out_features, distribution=distribution)
+    loss_fn = create_mdn_loss(num_components, out_features, distribution=distribution)
 
     return model, loss_fn
 
@@ -319,7 +316,7 @@ def create_deep_ensemble(
 
 def wrap_pytorch_loss(loss_class: type, **kwargs) -> MaskedLoss:
     """
-    Wrap any PyTorch loss function with torchregression's masking and weighting capabilities.
+    Wrap any PyTorch loss function with torchregress's masking and weighting capabilities.
 
     Args:
         loss_class: PyTorch loss class (e.g., nn.MSELoss, nn.L1Loss)
@@ -328,7 +325,7 @@ def wrap_pytorch_loss(loss_class: type, **kwargs) -> MaskedLoss:
     Returns:
         A wrapped loss function with masking and weighting support
     """
-    return PyTorchLossWrapper(loss_class, **kwargs)
+    return WeightedLossWrapper(loss_class, **kwargs)
 
 
 def create_regression_model(
@@ -413,10 +410,10 @@ def create_loss_from_config(config: Dict[str, Any]) -> MaskedLoss:
         return WeightedMSELoss(**config)
 
     elif loss_type == "l1" or loss_type == "mae":
-        return L1Loss(**config)
+        return WeightedL1Loss(**config)
 
     elif loss_type == "huber":
-        return HuberLoss(**config)
+        return WeightedHuberLoss(**config)
 
     elif loss_type == "gaussian" or loss_type == "gaussiannll":
         return DiagonalGaussianNLL(**config)
@@ -431,7 +428,7 @@ def create_loss_from_config(config: Dict[str, Any]) -> MaskedLoss:
         return HistogramLoss(**config)
 
     elif loss_type == "mdn":
-        return mdn_loss(**config)
+        return create_mdn_loss(**config)
 
     elif loss_type == "pytorch":
         loss_class = config.pop("class")

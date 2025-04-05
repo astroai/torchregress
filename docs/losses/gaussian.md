@@ -34,7 +34,7 @@ For simple Gaussian losses, TorchRegression provides weighted versions of standa
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Mean squared error (fixed variance)
 loss_fn = tr.losses.WeightedMSELoss()
@@ -88,7 +88,7 @@ $$\mathcal{L}_{\text{DiagGaussNLL}}(y, \mu, \sigma^2) = \frac{1}{2N}\sum_{i=1}^{
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Case 1: Learnable variance parameters
 loss_fn = tr.losses.HeteroscedasticGaussianLoss(n_features=2, learnable_variance=True)
@@ -135,7 +135,7 @@ where $k$ is the dimension of the output, $\Sigma$ is the covariance matrix, and
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create the loss function
 loss_fn = tr.losses.MultivariateGaussianLoss()
@@ -187,7 +187,7 @@ An appropriate Gaussian NLL loss object (`WeightedMSELoss`, `WeightedGaussianNLL
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create a diagonal Gaussian NLL with fixed variance
 loss_fn = tr.losses.create_gaussian_nll(

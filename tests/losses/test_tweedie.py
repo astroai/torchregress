@@ -1,7 +1,7 @@
 import torch
 import unittest
 from torch.autograd import gradcheck
-from torchregression.losses.tweedie import (
+from torchregress.losses.tweedie import (
     TweedieLoss,
     GammaLoss,
     InverseGaussianLoss,
@@ -306,7 +306,7 @@ class TestTweedieLoss(unittest.TestCase):
 class TestTweedieLossNumericalStability:
     def test_tweedie_gradient_flow(self):
         """Test that gradients flow through TweedieLoss properly."""
-        from torchregression.losses.tweedie import TweedieLoss
+        from torchregress.losses.tweedie import TweedieLoss
 
         # Create inputs that require gradients
         y_pred = torch.exp(torch.randn(10, 1, requires_grad=True, dtype=torch.double))
@@ -324,7 +324,7 @@ class TestTweedieLossNumericalStability:
 
     def test_extreme_values(self):
         """Test stability with extreme values."""
-        from torchregression.losses.tweedie import TweedieLoss
+        from torchregress.losses.tweedie import TweedieLoss
 
         # Small values (close to zero)
         y_pred_small = torch.tensor([1e-3, 1e-4, 1e-5], requires_grad=True)
@@ -371,7 +371,7 @@ class TestTweedieLossNumericalStability:
 
     def test_zero_targets(self):
         """Test handling of zero values in targets."""
-        from torchregression.losses.tweedie import TweedieLoss
+        from torchregress.losses.tweedie import TweedieLoss
 
         # Predictions with gradient
         y_pred = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
@@ -396,7 +396,7 @@ class TestTweedieLossNumericalStability:
 
     def test_nan_inf_handling(self):
         """Test how tweedie loss handles NaN and Inf values with masks."""
-        from torchregression.losses.tweedie import TweedieLoss
+        from torchregress.losses.tweedie import TweedieLoss
 
         # Create data with some NaNs and Infs
         y_pred = torch.tensor([1.0, float("nan"), 3.0, float("inf")], requires_grad=True)
@@ -418,7 +418,7 @@ class TestTweedieLossNumericalStability:
 
     def test_reduction_modes(self):
         """Test different reduction modes for backward pass."""
-        from torchregression.losses.tweedie import TweedieLoss
+        from torchregress.losses.tweedie import TweedieLoss
 
         y_pred = torch.exp(torch.randn(10, 1, requires_grad=True))
         y_true = torch.abs(torch.randn(10, 1)) + 0.1  # positive values

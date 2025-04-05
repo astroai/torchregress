@@ -39,7 +39,7 @@ Base class for ensemble models that provides common functionality.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create a base model class
 class SimpleModel(nn.Module):
@@ -97,7 +97,7 @@ Implementation of deep ensembles for uncertainty estimation as described in "Sim
 ```python
 import torch
 import torch.nn as nn
-import torchregression as tr
+import torchregress as tr
 
 # Create base model class
 class SimpleModel(nn.Module):
@@ -156,7 +156,7 @@ Ensemble model with heteroscedastic uncertainty estimation, where each ensemble 
 ```python
 import torch
 import torch.nn as nn
-import torchregression as tr
+import torchregress as tr
 
 # Create base heteroscedastic model that outputs (mean, log_var)
 class HeteroscedasticModel(nn.Module):
@@ -220,7 +220,7 @@ Batch ensemble model with heteroscedastic uncertainty estimation, using paramete
 ```python
 import torch
 import torch.nn as nn
-import torchregression as tr
+import torchregress as tr
 
 # Create backbone network (without output layer)
 backbone = nn.Sequential(
@@ -269,7 +269,7 @@ Run a model on multiple input variations and aggregate results.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create model with dropout
 model = create_model_with_dropout()
@@ -302,7 +302,7 @@ Run a heteroscedastic model on multiple input variations and aggregate results.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create heteroscedastic model that outputs mean and log_var
 model = create_heteroscedastic_model()
@@ -339,7 +339,7 @@ Generate multiple predictions using dropout at inference time (MC Dropout).
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create model with dropout
 model = create_model_with_dropout(dropout_prob=0.2)
@@ -363,7 +363,7 @@ Train multiple models independently with different random initializations:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create deep ensemble
 ensemble = tr.ensemble.DeepEnsemble(
@@ -391,7 +391,7 @@ Use dropout at inference time to create an ensemble:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create model with dropout
 model = create_model_with_dropout(dropout_prob=0.2)
@@ -418,7 +418,7 @@ Efficient parameter-sharing ensemble using fast weight vectors:
 ```python
 import torch
 import torch.nn as nn
-import torchregression as tr
+import torchregress as tr
 
 # Create a backbone network
 backbone = nn.Sequential(

@@ -9,18 +9,13 @@ regression tasks, including IRLS, Gaussian processes, and others.
 from .irls import (
     iteratively_reweighted_least_squares,
     IRLS,
-    _huber_weights,
-    _tukey_weights,
-    _power_weights,
 )
 
-# Import Gaussian process algorithms
-from .gaussian import (
-    DiagonalGaussianNLL,
-    GaussianNLLWithCovariance,
-    HeteroscedasticGaussianNLL,
-    fit_linear_gaussian,
-    fit_bayesian_linear,
+# Import weight functions from utils
+from ..utils.irls_utils import (
+    huber_weights as _huber_weights,
+    tukey_weights as _tukey_weights,
+    power_weights as _power_weights,
 )
 
 # Convenience aliases
@@ -34,10 +29,4 @@ __all__ = [
     "_huber_weights",
     "_tukey_weights",
     "_power_weights",
-    # Gaussian process algorithms
-    "DiagonalGaussianNLL",
-    "GaussianNLLWithCovariance",
-    "HeteroscedasticGaussianNLL",
-    "fit_linear_gaussian",
-    "fit_bayesian_linear",
 ]

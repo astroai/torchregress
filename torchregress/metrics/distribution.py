@@ -7,7 +7,7 @@ import numpy as np
 from typing import Union, Optional, Dict, List, Callable
 from torch.distributions import Distribution
 
-from torchregression.metrics.utils import convert_to_tensor, apply_reduction, validate_inputs
+from torchregress.metrics.utils import convert_to_tensor, apply_reduction, validate_inputs
 
 
 def probability_integral_transform(

@@ -61,7 +61,7 @@ Where:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For imaging data with fixed noise variance
 loss_fn = tr.losses.PoissonGaussianMixtureLoss(
@@ -123,7 +123,7 @@ Where:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For scientific imaging with signal-dependent noise
 loss_fn = tr.losses.EnhancedPoissonGaussianMixtureLoss(

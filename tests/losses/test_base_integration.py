@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from torchregression.losses.base import RegressionLoss, DistributionLoss, WeightedLossWrapper
+from torchregress.losses.base import RegressionLoss, DistributionLoss, WeightedLossWrapper
 
 
 # Define a simple model for integration testing

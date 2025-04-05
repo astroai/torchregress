@@ -7,7 +7,7 @@ This section contains detailed documentation for the TorchRegression API.
 TorchRegression is organized into the following main modules:
 
 ```
-torchregression/
+torchregress/
 │
 ├── losses/          # Loss functions for regression
 │   ├── base.py      # Base loss classes
@@ -52,7 +52,7 @@ torchregression/
 The `losses` module contains implementations of various loss functions for regression tasks.
 
 ```python
-import torchregression.losses as losses
+import torchregress.losses as losses
 
 # Create a loss function
 loss_fn = losses.HuberLoss(delta=1.0)
@@ -68,7 +68,7 @@ loss = loss_fn(y_pred, y_true)
 The `metrics` module provides functions to evaluate regression models.
 
 ```python
-import torchregression.metrics as metrics
+import torchregress.metrics as metrics
 
 # Calculate metrics
 rmse = metrics.rmse(y_pred, y_true)
@@ -83,7 +83,7 @@ picp = metrics.picp(y_true, lower, upper)
 The `viz` module contains functions for visualizing regression results and diagnostics.
 
 ```python
-import torchregression.viz as viz
+import torchregress.viz as viz
 
 # Create visualization
 viz.plot_predictions(X, y, y_pred)
@@ -98,7 +98,7 @@ viz.plot_calibration_curve(mean, std, y_true)
 The `ensemble` module provides tools for creating ensemble models.
 
 ```python
-import torchregression.ensemble as ensemble
+import torchregress.ensemble as ensemble
 
 # Create an ensemble
 models = [create_model() for _ in range(5)]
@@ -113,7 +113,7 @@ mean, variance = deep_ensemble.predict(X)
 The `utils` module contains helper functions used throughout the library.
 
 ```python
-import torchregression.utils as utils
+import torchregress.utils as utils
 
 # Validate input tensors
 utils.validate_tensors(y_pred, y_true)

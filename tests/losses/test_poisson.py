@@ -1,7 +1,7 @@
 import torch
 import unittest
 from torch.autograd import gradcheck
-from torchregression.losses.poisson import (
+from torchregress.losses.poisson import (
     PoissonDevianceLoss,
     ZeroInflatedPoissonNLLLoss,
     NegativeBinomialNLLLoss,

@@ -117,7 +117,7 @@ reduction = tr.utils.validate_reduction(reduction)
 Validates that a value or tensor is within a specified range.
 
 ```python
-from torchregression.utils.validation import validate_range
+from torchregress.utils.validation import validate_range
 
 # Validate probability values
 prob = torch.tensor([0.1, 0.3, 0.95])
@@ -132,7 +132,7 @@ validate_range(1.5, 0.0, 1.0, "parameter")
 Validates quantile values (must be between 0 and 1) and converts them to tensor format.
 
 ```python
-from torchregression.utils.validation import validate_quantile
+from torchregress.utils.validation import validate_quantile
 
 q = validate_quantile(0.5)  # Single quantile
 q_multiple = validate_quantile(torch.tensor([0.1, 0.5, 0.9]))  # Multiple quantiles
@@ -345,7 +345,7 @@ mask = tr.utils.create_mask(tensor, lambda x: x > 0)
 Apply reduction operations to a tensor with optional masking for handling missing values.
 
 ```python
-from torchregression.utils.tensor_ops import masked_reduction
+from torchregress.utils.tensor_ops import masked_reduction
 
 # Create data with some missing values (represented by mask)
 data = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -363,7 +363,7 @@ total = masked_reduction(data, mask, reduction='sum')  # Result: 12.0
 Standardize data to zero mean and unit variance, and convert it back to original scale.
 
 ```python
-from torchregression.utils.tensor_ops import standardize, unstandardize
+from torchregress.utils.tensor_ops import standardize, unstandardize
 
 # Sample data
 X = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
@@ -384,7 +384,7 @@ predictions = unstandardize(predictions_std, mean, std)
 Calculate variance propagation through a model, essential for uncertainty quantification.
 
 ```python
-from torchregression.utils.tensor_ops import calculate_propagated_variance, prepare_model_input_for_gradients
+from torchregress.utils.tensor_ops import calculate_propagated_variance, prepare_model_input_for_gradients
 
 # Prepare input with gradient tracking
 X = prepare_model_input_for_gradients(X_test)
@@ -414,7 +414,7 @@ Functions for encoding, decoding, and combining labels from multiple sources.
 Implements the Dawid-Skene model for aggregating annotations from multiple annotators, leveraging an EM algorithm to estimate true labels.
 
 ```python
-from torchregression.utils.labels import combine_dawid_skene
+from torchregress.utils.labels import combine_dawid_skene
 
 # Multiple annotator labels (num_samples x num_annotators)
 # -1 indicates missing annotations
@@ -440,7 +440,7 @@ estimated_labels = torch.argmax(q_z, dim=1)
 Combines continuous estimates using Best Linear Unbiased Estimator (BLUE), scaling uncertainty when estimators disagree.
 
 ```python
-from torchregression.utils.labels import combine_continuous_blue_with_scaling
+from torchregress.utils.labels import combine_continuous_blue_with_scaling
 
 # Different estimates for the same quantities (num_samples x num_estimators)
 estimates = torch.tensor([
@@ -470,7 +470,7 @@ Techniques for augmenting regression datasets to improve model generalization.
 Add Gaussian noise to input features for data augmentation.
 
 ```python
-from torchregression.utils.augment import GaussianNoiseAugmentation
+from torchregress.utils.augment import GaussianNoiseAugmentation
 
 # Create augmenter with 50% probability and noise std=0.1
 augmenter = GaussianNoiseAugmentation(std=0.1, probability=0.5)
@@ -487,7 +487,7 @@ X_augmented, y_augmented = augmenter(X_batch, y_batch)
 Implement MixUp augmentation for regression tasks.
 
 ```python
-from torchregression.utils.augment import MixUp
+from torchregress.utils.augment import MixUp
 
 # Create MixUp augmenter
 mixup = MixUp(alpha=0.2, probability=0.7)
@@ -504,7 +504,7 @@ X_mixed, y_mixed = mixup(X_batch, y_batch)
 Generate multiple perturbed versions of inputs for ensemble prediction methods, useful for uncertainty estimation.
 
 ```python
-from torchregression.utils.augment import EnsemblePerturbationAugmenter
+from torchregress.utils.augment import EnsemblePerturbationAugmenter
 
 # Create ensemble perturbation generator
 perturbator = EnsemblePerturbationAugmenter(
@@ -532,7 +532,7 @@ Utilities to ensure compatibility across PyTorch versions.
 Automatically select the appropriate device for computation.
 
 ```python
-from torchregression.utils.pytorch_compat import get_device
+from torchregress.utils.pytorch_compat import get_device
 
 # Auto-select device (CUDA if available, else CPU)
 device = get_device()
@@ -553,7 +553,7 @@ data = data.to(device)
 Set all random seeds for reproducible results.
 
 ```python
-from torchregression.utils.pytorch_compat import set_all_seeds
+from torchregress.utils.pytorch_compat import set_all_seeds
 
 # Set seed for reproducible results
 set_all_seeds(42)

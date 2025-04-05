@@ -1,6 +1,6 @@
 import torch
 import unittest
-from torchregression.losses.eiv import EIVLoss
+from torchregress.losses.eiv import EIVLoss
 from torch.autograd import gradcheck
 
 
@@ -87,7 +87,7 @@ class TestEIVLoss(unittest.TestCase):
 class TestEIVLossNumericalStability:
     def test_eiv_gradient_flow(self):
         """Test that gradients flow through EIVLoss properly."""
-        from torchregression.losses.eiv import EIVLoss
+        from torchregress.losses.eiv import EIVLoss
 
         # Create inputs that require gradients
         batch_size = 8
@@ -105,7 +105,7 @@ class TestEIVLossNumericalStability:
 
     def test_multi_eiv_gradient_flow(self):
         """Test that gradients flow through MultiOutputEIVLoss properly."""
-        from torchregression.losses.eiv import MultiOutputEIVLoss
+        from torchregress.losses.eiv import MultiOutputEIVLoss
 
         # Create inputs that require gradients
         batch_size = 8
@@ -130,7 +130,7 @@ class TestEIVLossNumericalStability:
 
     def test_extreme_values(self):
         """Test stability with extreme values."""
-        from torchregression.losses.eiv import EIVLoss
+        from torchregress.losses.eiv import EIVLoss
 
         # Large values
         x_obs_large = torch.tensor([[1e3, 1e3, 1e3], [1e5, 1e5, 1e5]], requires_grad=True)
@@ -172,7 +172,7 @@ class TestEIVLossNumericalStability:
 
     def test_nan_inf_handling(self):
         """Test how EIV loss handles NaN and Inf values with masks."""
-        from torchregression.losses.eiv import EIVLoss
+        from torchregress.losses.eiv import EIVLoss
 
         # Create data with some NaNs and Infs
         x_obs = torch.tensor(
@@ -213,7 +213,7 @@ class TestEIVLossNumericalStability:
 
     def test_reduction_modes(self):
         """Test different reduction modes for backward pass."""
-        from torchregression.losses.eiv import EIVLoss
+        from torchregress.losses.eiv import EIVLoss
 
         x_obs = torch.randn(10, 3, requires_grad=True)
         y_obs = torch.randn(10, 2, requires_grad=True)
@@ -272,7 +272,7 @@ class TestEIVLossNumericalStability:
 
     def test_zero_variance_handling(self):
         """Test handling of zero or very small variance values."""
-        from torchregression.losses.eiv import EIVLoss
+        from torchregress.losses.eiv import EIVLoss
 
         x_obs = torch.randn(5, 3, requires_grad=True)
         y_obs = torch.randn(5, 2, requires_grad=True)

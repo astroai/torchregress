@@ -6,7 +6,7 @@ with a consistent API where prediction inputs precede target inputs.
 """
 
 # Import point prediction metrics
-from torchregression.metrics.point import (
+from torchregress.metrics.point import (
     # Basic metrics
     mean_squared_error,
     mean_absolute_error,
@@ -25,7 +25,7 @@ from torchregression.metrics.point import (
 )
 
 # Import distribution prediction metrics
-from torchregression.metrics.distribution import (
+from torchregress.metrics.distribution import (
     probability_integral_transform,
     continuous_ranked_probability_score,
     energy_score,
@@ -33,21 +33,21 @@ from torchregression.metrics.distribution import (
 )
 
 # Import calibration metrics
-from torchregression.metrics.calibration import (
+from torchregress.metrics.calibration import (
     expected_calibration_error,
     marginal_calibration_error,
     calibration_metrics_report,
 )
 
 # Import interval metrics
-from torchregression.metrics.interval import (
+from torchregress.metrics.interval import (
     interval_score,
     prediction_interval_coverage_probability,
     interval_metrics_report,
 )
 
 # Import OOD metrics
-from torchregression.metrics.ood import (
+from torchregress.metrics.ood import (
     mahalanobis_distance,
     typicality_score,
     entropy_score,

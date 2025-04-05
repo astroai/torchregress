@@ -2,7 +2,7 @@ import pytest
 import torch
 import numpy as np
 from torch import optim
-from torchregression.losses.poisson_gaussian import (
+from torchregress.losses.poisson_gaussian import (
     PoissonGaussianMixtureLoss,
     poisson_gaussian_mixture_loss,
     EnhancedPoissonGaussianMixtureLoss,

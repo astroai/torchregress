@@ -180,7 +180,7 @@ class FunctionalEIVLoss(BaseEIVLoss):
 
     Examples:
         >>> import torch
-        >>> from torchregression.losses import FunctionalEIVLoss
+        >>> from torchregress.losses import FunctionalEIVLoss
         >>>
         >>> # Define a simple model
         >>> model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
@@ -380,7 +380,7 @@ class StructuralEIVLoss(BaseEIVLoss):
 
     Examples:
         >>> import torch
-        >>> from torchregression.losses import StructuralEIVLoss
+        >>> from torchregress.losses import StructuralEIVLoss
         >>>
         >>> # Define a simple model
         >>> model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
@@ -507,7 +507,7 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
     Examples:
         >>> import torch
-        >>> from torchregression.losses import OrthogonalDistanceRegressionLoss
+        >>> from torchregress.losses import OrthogonalDistanceRegressionLoss
         >>>
         >>> # Define a simple model
         >>> model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]

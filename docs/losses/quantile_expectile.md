@@ -71,7 +71,7 @@ Basic quantile regression loss function for estimating a single quantile level.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For median regression (q=0.5)
 median_loss = tr.losses.QuantileLoss(quantile=0.5)
@@ -106,7 +106,7 @@ Loss for simultaneously estimating multiple quantile levels, useful for generati
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For 90% prediction intervals (5th and 95th percentiles) plus median
 loss_fn = tr.losses.MultiQuantileLoss(quantiles=[0.05, 0.5, 0.95])
@@ -143,7 +143,7 @@ Loss that encourages proper ordering of quantile predictions, ensuring lower qua
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create loss for 10th, 50th, 90th percentiles
 loss_fn = tr.losses.QuantileCrossover(
@@ -189,7 +189,7 @@ Basic expectile regression loss function for estimating a single expectile level
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For mean regression (τ=0.5)
 mean_loss = tr.losses.ExpectileLoss(expectile=0.5)
@@ -224,7 +224,7 @@ Loss for simultaneously estimating multiple expectile levels, useful for charact
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For predicting 10th, 50th and 90th expectiles together
 loss_fn = tr.losses.MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9])
@@ -260,7 +260,7 @@ Loss that encourages proper ordering of expectile predictions, ensuring lower ex
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create loss for 20th, 50th, 80th expectiles
 loss_fn = tr.losses.ExpectileCrossover(
@@ -293,7 +293,7 @@ Alias for ExpectileLoss, provided for compatibility with different naming conven
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # This is equivalent to ExpectileLoss(expectile=0.75)
 loss_fn = tr.losses.AsymmetricLeastSquaresLoss(tau=0.75)
@@ -310,7 +310,7 @@ The most common application is creating prediction intervals that capture the un
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 import matplotlib.pyplot as plt
 
 # Define model that outputs 3 values per input (q0.05, q0.5, q0.95)
@@ -437,7 +437,7 @@ class RiskModel(torch.nn.Module):
    For guaranteed coverage properties, combine quantile regression with conformal prediction:
 
    ```python
-   from torchregression.calibration import ConformalQuantileRegression
+   from torchregress.calibration import ConformalQuantileRegression
    
    conformal = ConformalQuantileRegression(
        model,

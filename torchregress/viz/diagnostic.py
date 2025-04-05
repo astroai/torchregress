@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from typing import Union, Optional, Dict, Tuple, Any
 
-from torchregression.metrics.utils import convert_to_tensor, validate_inputs
-from torchregression.metrics.calibration import expected_calibration_error
-from torchregression.viz.utils import add_identity_line
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.calibration import expected_calibration_error
+from torchregress.viz.utils import add_identity_line
 
 
 def plot_reliability_diagram(

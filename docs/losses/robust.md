@@ -41,7 +41,7 @@ $$\mathcal{L}_{\text{Huber}}(y, \hat{y}) = \begin{cases}
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Huber loss with default delta=1.0
 loss_fn = tr.losses.HuberLoss()
@@ -84,7 +84,7 @@ $$\mathcal{L}_{\text{L1}}(y, \hat{y}) = |y - \hat{y}|$$
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create L1 loss
 loss_fn = tr.losses.L1Loss()
@@ -122,7 +122,7 @@ $$\mathcal{L}_{\text{PseudoHuber}}(y, \hat{y}) = \delta^2 \left( \sqrt{1 + \left
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Pseudo-Huber loss with delta=1.0
 loss_fn = tr.losses.PseudoHuberLoss(delta=1.0)
@@ -160,7 +160,7 @@ $$\mathcal{L}_{\text{LogCosh}}(y, \hat{y}) = \text{log}(\text{cosh}(\text{scale}
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Log-Cosh loss
 loss_fn = tr.losses.LogCoshLoss(scale=1.0)
@@ -198,7 +198,7 @@ $$\mathcal{L}_{\text{Charbonnier}}(y, \hat{y}) = \sqrt{(y - \hat{y})^2 + \epsilo
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Charbonnier loss
 loss_fn = tr.losses.CharbonnierLoss(eps=1e-3)
@@ -237,7 +237,7 @@ $$\mathcal{L}_{\text{Lq}}(y, \hat{y}) = |y - \hat{y}|^q$$
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Lq loss with q=1.5 (between L1 and L2)
 loss_fn = tr.losses.LqLoss(q=1.5)
@@ -278,7 +278,7 @@ $$\mathcal{L}_{\text{Tukey}}(y, \hat{y}) = \begin{cases}
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Tukey biweight loss
 loss_fn = tr.losses.TukeyBiweightLoss(c=4.685)
@@ -313,7 +313,7 @@ Winsorized loss replaces extreme residuals with more moderate values, truncating
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Winsorized loss
 loss_fn = tr.losses.WinsorizedLoss(quantile_low=0.25, quantile_high=0.75)
@@ -352,7 +352,7 @@ $$\mathcal{L}_{\text{LogBarrier}}(y, \hat{y}) = -\log\left(1 - \min\left(\frac{|
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Log Barrier loss
 loss_fn = tr.losses.LogBarrierLoss(rho=2.0)
@@ -387,7 +387,7 @@ Adaptive Huber loss with automatic delta estimation based on data quantiles.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Adaptive Huber loss
 loss_fn = tr.losses.AdaptiveHuberLoss(quantile=0.8)
@@ -422,7 +422,7 @@ Clipped loss for robust regression that clips errors above a threshold.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Clipped loss
 loss_fn = tr.losses.ClippedLoss(threshold=1.0, base_loss='mse')
@@ -461,7 +461,7 @@ $$\mathcal{L}_{\text{Fair}}(y, \hat{y}) = c^2 \left(\frac{|y - \hat{y}|}{c} - \l
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Fair loss
 loss_fn = tr.losses.FairLoss(c=1.0)
@@ -499,7 +499,7 @@ $$\mathcal{L}_{\text{Cauchy}}(y, \hat{y}) = \log\left(1 + \left(\frac{y - \hat{y
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Cauchy loss with c=1.0
 loss_fn = tr.losses.CauchyLoss(c=1.0)
@@ -560,7 +560,7 @@ print(f"Cauchy: {loss.item():.4f}, Huber: {huber_loss.item():.4f}, MSE: {mse_los
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create different loss functions
 mse_loss = tr.losses.MSELoss()

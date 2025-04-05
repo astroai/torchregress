@@ -20,10 +20,10 @@ from torch.utils.data import Dataset, DataLoader, random_split
 import matplotlib.pyplot as plt
 
 # Import TorchRegression losses
-from torchregression.losses.gaussian import MSELoss, MAELoss
-from torchregression.losses.robust import HuberLoss, LogCoshLoss
-from torchregression.losses.quantile import QuantileLoss
-from torchregression.metrics.point import mae, mse, rmse
+from torchregress.losses.gaussian import MSELoss, MAELoss
+from torchregress.losses.robust import HuberLoss, LogCoshLoss
+from torchregress.losses.quantile import QuantileLoss
+from torchregress.metrics.point import mae, mse, rmse
 
 # Define constants
 DATA_DIR = os.path.join("data", "imdb_wiki")

@@ -23,15 +23,15 @@ TorchRegression provides a collection of regression loss functions, metrics, and
 ## Installation
 
 ```bash
-pip install torchregression
+pip install torchregress
 ```
 
 ## Quickstart
 
 ```python
 import torch
-import torchregression.losses as losses
-import torchregression.metrics as metrics
+import torchregress.losses as losses
+import torchregress.metrics as metrics
 
 # Define your model (any PyTorch model)
 model = torch.nn.Sequential(...)
@@ -70,7 +70,7 @@ TorchRegression provides powerful visualization tools for regression analysis an
 Monitor your model's training progress with learning curves:
 
 ```python
-from torchregression.viz import plot_learning_curves
+from torchregress.viz import plot_learning_curves
 
 # Assuming you've tracked losses during training
 plot_learning_curves(
@@ -88,7 +88,7 @@ This plot helps you identify overfitting (gap between train and validation growi
 Find the optimal learning rate for your training:
 
 ```python
-from torchregression.viz import plot_lr_find_results
+from torchregress.viz import plot_lr_find_results
 
 # After running learning rate finder
 plot_lr_find_results(
@@ -107,7 +107,7 @@ The plot identifies the learning rate where the loss decreases most rapidly, hel
 Analyze model residuals to diagnose systematic errors:
 
 ```python
-from torchregression.viz import plot_residuals, plot_residual_histogram, plot_qq_plot
+from torchregress.viz import plot_residuals, plot_residual_histogram, plot_qq_plot
 
 # Basic residual plot
 plot_residuals(y_pred, y_true, clip_outliers=True)
@@ -126,7 +126,7 @@ These plots help you identify heteroscedasticity (non-constant variance), non-li
 Visualize prediction intervals and uncertainty:
 
 ```python
-from torchregression.viz import plot_prediction_intervals
+from torchregress.viz import plot_prediction_intervals
 
 # For models that predict uncertainty
 plot_prediction_intervals(
@@ -142,7 +142,7 @@ plot_prediction_intervals(
 Check if your uncertainty estimates are well-calibrated:
 
 ```python
-from torchregression.viz import plot_reliability_diagram
+from torchregress.viz import plot_reliability_diagram
 
 # For models that predict quantiles
 plot_reliability_diagram(
@@ -160,7 +160,7 @@ The closer the plot is to the diagonal line, the better calibrated your uncertai
 Compare multiple models across different metrics:
 
 ```python
-from torchregression.viz import plot_performance_comparison
+from torchregress.viz import plot_performance_comparison
 
 # Dictionary of models and their metrics
 metrics = {
@@ -181,7 +181,7 @@ plot_performance_comparison(
 Visualize which features are most important for your model:
 
 ```python
-from torchregression.viz import plot_feature_importance
+from torchregress.viz import plot_feature_importance
 
 plot_feature_importance(
     feature_names=feature_names,
@@ -197,7 +197,7 @@ plot_feature_importance(
 All visualization functions support customization:
 
 ```python
-from torchregression.viz import set_style, save_figure
+from torchregress.viz import set_style, save_figure
 
 # Set consistent style for all plots
 set_style(style="whitegrid", context="talk", font_scale=1.2)
@@ -214,7 +214,7 @@ save_figure(fig, "residual_analysis", formats=["png", "pdf"])
 For probabilistic regression models:
 
 ```python
-from torchregression.viz import plot_distribution_comparison
+from torchregress.viz import plot_distribution_comparison
 
 # For models that generate samples
 plot_distribution_comparison(
@@ -232,10 +232,10 @@ This visualization shows the full predicted distribution for selected samples, h
 If you use TorchRegression in your research, please cite:
 
 ```bibtex
-@software{torchregression,
+@software{torchregress,
   title = {{TorchRegression: A PyTorch Library for Regression and Uncertainty Estimation}},
   author = {Fabbro, Sébastien},
-  url = {https://github.com/sfabbro/torchregression},
+  url = {https://github.com/sfabbro/torchregress},
   version = {0.1.0},
   year = {2025},
 }

@@ -37,7 +37,7 @@ For standard Poisson Negative Log-Likelihood, use WeightedPoissonNLLLoss from th
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create Poisson NLL loss
 loss_fn = tr.losses.WeightedPoissonNLLLoss(log_input=True, full=False)
@@ -83,7 +83,7 @@ Where $y=0$, the term $y \log(y/\lambda) = 0$.
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create deviance loss
 loss_fn = tr.losses.PoissonDevianceLoss(log_input=True)
@@ -133,7 +133,7 @@ This statistic follows a $\chi^2$ distribution asymptotically, making it useful 
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create loss for histogram fitting
 loss_fn = tr.losses.PoissonLikelihoodRatioLoss(log_input=False)
@@ -166,7 +166,7 @@ Zero-Inflated Poisson Negative Log-Likelihood loss for count data with excess ze
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create loss
 loss_fn = tr.losses.ZeroInflatedPoissonNLLLoss()
@@ -199,7 +199,7 @@ Negative Binomial Negative Log-Likelihood loss for overdispersed count data (whe
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create loss
 loss_fn = tr.losses.NegativeBinomialNLLLoss(learn_theta=True)

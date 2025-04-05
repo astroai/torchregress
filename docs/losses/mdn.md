@@ -49,7 +49,7 @@ Negative Log-Likelihood loss for Mixture Density Networks, supporting diagonal o
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create an MDN loss with 3 components (mixture of 3 Gaussians)
 loss_fn = tr.losses.MixtureDensityLoss(

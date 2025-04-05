@@ -1,7 +1,7 @@
 import pytest
 import torch
 import numpy as np
-from torchregression.losses.rag import (
+from torchregress.losses.rag import (
     BinnedRegressionLoss,
     StandardClassificationRegressionLoss,
     OrdinalRegressionLoss,
@@ -1271,7 +1271,7 @@ class TestRegressionAsClassificationLoss:
 
     def test_factory_function(self):
         """Test that the regression_as_classification factory function works correctly."""
-        from torchregression.losses.rag import regression_as_classification
+        from torchregress.losses.rag import regression_as_classification
 
         # Basic usage
         loss_fn = regression_as_classification(bins=5, min_value=-1.0, max_value=1.0)
@@ -1294,7 +1294,7 @@ class TestRegressionAsClassificationLoss:
 
     def test_uncertainty_regression_factory(self):
         """Test the uncertainty_regression factory function."""
-        from torchregression.losses.rag import uncertainty_regression
+        from torchregress.losses.rag import uncertainty_regression
 
         loss_fn = uncertainty_regression(bins=20, min_value=-1.0, max_value=1.0)
 
@@ -1349,7 +1349,7 @@ from torch.autograd import gradcheck
 class TestRAGLossNumericalStability:
     def test_rag_gradient_flow(self):
         """Test that gradients flow through RAGLoss properly."""
-        from torchregression.losses.rag import RAGLoss
+        from torchregress.losses.rag import RAGLoss
 
         # Create inputs that require gradients
         y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
@@ -1365,7 +1365,7 @@ class TestRAGLossNumericalStability:
 
     def test_extreme_values(self):
         """Test stability with extreme values."""
-        from torchregression.losses.rag import RAGLoss
+        from torchregress.losses.rag import RAGLoss
 
         # Very large and small values
         y_pred_large = torch.tensor([1e5, 1e10, 1e15], requires_grad=True)
@@ -1397,7 +1397,7 @@ class TestRAGLossNumericalStability:
 
     def test_nan_inf_handling(self):
         """Test how RAG loss handles NaN and Inf values with masks."""
-        from torchregression.losses.rag import RAGLoss
+        from torchregress.losses.rag import RAGLoss
 
         # Create data with some NaNs and Infs
         y_pred = torch.tensor([1.0, float("nan"), 3.0, float("inf")], requires_grad=True)
@@ -1424,7 +1424,7 @@ class TestRAGLossNumericalStability:
 
     def test_reduction_modes(self):
         """Test different reduction modes for backward pass."""
-        from torchregression.losses.rag import RAGLoss
+        from torchregress.losses.rag import RAGLoss
 
         y_pred = torch.randn(10, 1, requires_grad=True)
         y_var = torch.exp(torch.randn(10, 1, requires_grad=True))

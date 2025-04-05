@@ -1,5 +1,5 @@
 """
-Easy wrappers for commonly used tools and utilities in torchregression.
+Easy wrappers for commonly used tools and utilities in torchregress.
 
 NOTE: This module is experimental and will be properly incorporated in a future release.
 These wrappers are provided for reference but are not part of the stable 0.1.0 API.
@@ -322,7 +322,7 @@ def create_deep_ensemble(
 
 def wrap_pytorch_loss(loss_class: type, **kwargs) -> MaskedLoss:
     """
-    Wrap any PyTorch loss function with torchregression's masking and weighting capabilities.
+    Wrap any PyTorch loss function with torchregress's masking and weighting capabilities.
 
     Args:
         loss_class: PyTorch loss class (e.g., nn.MSELoss, nn.L1Loss)

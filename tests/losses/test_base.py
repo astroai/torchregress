@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from torchregression.losses.base import (
+from torchregress.losses.base import (
     BaseLoss,
     MaskedLoss,
     RegressionLoss,

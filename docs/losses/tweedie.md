@@ -71,7 +71,7 @@ $$\mathcal{L}(y, \mu) = \frac{2}{(2-p)(1-p)}\left[y^{2-p} - (2-p)y\mu^{1-p} + (1
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For regression with compound Poisson-Gamma distribution (p=1.5)
 loss_fn = tr.losses.TweedieLoss(p=1.5, link='log')
@@ -110,7 +110,7 @@ $$\mathcal{L}(y, \mu) = \log\left(\frac{\mu}{y}\right) + \frac{y}{\mu} - 1$$
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For modeling positive continuous data like prices or durations
 loss_fn = tr.losses.GammaLoss(link='log')
@@ -145,7 +145,7 @@ $$\mathcal{L}(y, \mu) = \frac{(y - \mu)^2}{y \mu^2}$$
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For highly skewed positive data
 loss_fn = tr.losses.InverseGaussianLoss(link='log')
@@ -177,7 +177,7 @@ Specialized loss for compound Poisson-Gamma regression (1<p<2), suitable for mod
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # For insurance claims or rainfall data with many zeros
 loss_fn = tr.losses.CompoundPoissonLoss(p=1.6)

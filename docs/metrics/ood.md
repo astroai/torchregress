@@ -7,7 +7,7 @@ Out-of-Distribution (OOD) detection metrics evaluate how well a model can identi
 Measures how many standard deviations a point is from the mean of a distribution, useful for detecting outliers.
 
 ```python
-from torchregression.metrics.ood import mahalanobis_distance
+from torchregress.metrics.ood import mahalanobis_distance
 
 # x has shape [batch_size, n_features]
 # mean has shape [n_features]
@@ -23,7 +23,7 @@ avg_md = mahalanobis_distance(x, mean, cov, reduction="mean")
 Measures how typical a test sample is under the model's predictive distribution.
 
 ```python
-from torchregression.metrics.ood import typicality_score
+from torchregress.metrics.ood import typicality_score
 
 # Using a tuple of (mean, variance)
 ts = typicality_score((mean_pred, var_pred), x_test)
@@ -40,7 +40,7 @@ ts = typicality_score((mean_pred, var_pred), x_test, n_samples=1000)
 Calculates entropy of the predictive distribution as a measure of uncertainty.
 
 ```python
-from torchregression.metrics.ood import entropy_score
+from torchregress.metrics.ood import entropy_score
 
 # samples has shape [n_samples, batch_size, ...]
 es = entropy_score(samples)
@@ -54,7 +54,7 @@ es = entropy_score(samples, n_bins=20)
 Measures similarity of test samples to a reference set using kernel density estimation.
 
 ```python
-from torchregression.metrics.ood import kernel_density_score
+from torchregress.metrics.ood import kernel_density_score
 
 # x_test has shape [batch_size, n_features]
 # x_reference has shape [n_reference, n_features]
@@ -71,7 +71,7 @@ kds = kernel_density_score(x_test, x_reference, bandwidth=0.5)
 Generate a comprehensive report of OOD detection metrics.
 
 ```python
-from torchregression.metrics.ood import ood_metrics_report
+from torchregress.metrics.ood import ood_metrics_report
 
 # Basic usage with test data and reference statistics
 report = ood_metrics_report(
@@ -96,7 +96,7 @@ print(f"Entropy: {report['entropy']}")
 Compare OOD scores between training and test data:
 
 ```python
-from torchregression.metrics.ood import mahalanobis_distance
+from torchregress.metrics.ood import mahalanobis_distance
 import torch
 
 # Calculate scores for training data

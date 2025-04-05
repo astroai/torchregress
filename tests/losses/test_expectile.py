@@ -1,7 +1,7 @@
 import torch
 import unittest
 from torch.autograd import gradcheck
-from torchregression.losses.expectile import (
+from torchregress.losses.expectile import (
     ExpectileLoss,
     MultiExpectileLoss,
     ExpectileCrossoverLoss,
@@ -752,7 +752,7 @@ class TestExpectileLoss(unittest.TestCase):
 class TestExpectileLossNumericalStability:
     def test_expectile_gradient_flow(self):
         """Test that gradients flow through ExpectileLoss properly."""
-        from torchregression.losses.expectile import ExpectileLoss
+        from torchregress.losses.expectile import ExpectileLoss
 
         # Create inputs that require gradients
         y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
@@ -772,7 +772,7 @@ class TestExpectileLossNumericalStability:
 
     def test_extreme_values(self):
         """Test stability with extreme values."""
-        from torchregression.losses.expectile import ExpectileLoss
+        from torchregress.losses.expectile import ExpectileLoss
 
         # Large values
         y_pred_large = torch.tensor([1e5, 1e7, 1e9], requires_grad=True)
@@ -800,7 +800,7 @@ class TestExpectileLossNumericalStability:
 
     def test_nan_inf_handling(self):
         """Test how expectile loss handles NaN and Inf values with masks."""
-        from torchregression.losses.expectile import ExpectileLoss
+        from torchregress.losses.expectile import ExpectileLoss
 
         # Create data with some NaNs and Infs
         y_pred = torch.tensor([1.0, float("nan"), 3.0, float("inf")], requires_grad=True)
@@ -822,7 +822,7 @@ class TestExpectileLossNumericalStability:
 
     def test_reduction_modes(self):
         """Test different reduction modes for backward pass."""
-        from torchregression.losses.expectile import ExpectileLoss
+        from torchregress.losses.expectile import ExpectileLoss
 
         y_pred = torch.randn(10, 1, requires_grad=True)
         y_true = torch.randn(10, 1)

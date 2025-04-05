@@ -1,6 +1,6 @@
 import pytest
 import torch
-from torchregression.losses.mdn import MixtureDensityLoss, create_mdn_loss
+from torchregress.losses.mdn import MixtureDensityLoss, create_mdn_loss
 
 
 class TestMixtureDensityLoss:
@@ -365,7 +365,7 @@ from torch.autograd import gradcheck
 class TestMDNLossNumericalStability:
     def test_mdn_gradient_flow(self):
         """Test that gradients flow through MDNLoss properly."""
-        from torchregression.losses.mdn import MDNLoss
+        from torchregress.losses.mdn import MDNLoss
 
         # Create batched input: batch_size=5, n_components=3, n_dims=2
         n_samples = 5
@@ -391,7 +391,7 @@ class TestMDNLossNumericalStability:
 
     def test_extreme_values(self):
         """Test stability with extreme values."""
-        from torchregression.losses.mdn import MDNLoss
+        from torchregress.losses.mdn import MDNLoss
 
         n_samples = 3
         n_components = 2
@@ -440,7 +440,7 @@ class TestMDNLossNumericalStability:
 
     def test_nan_inf_handling(self):
         """Test how MDN loss handles NaN and Inf values with masks."""
-        from torchregression.losses.mdn import MDNLoss
+        from torchregress.losses.mdn import MDNLoss
 
         n_samples = 3
         n_components = 2
@@ -472,7 +472,7 @@ class TestMDNLossNumericalStability:
 
     def test_reduction_modes(self):
         """Test different reduction modes for backward pass."""
-        from torchregression.losses.mdn import MDNLoss
+        from torchregress.losses.mdn import MDNLoss
 
         n_samples = 5
         n_components = 3

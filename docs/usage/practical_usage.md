@@ -86,7 +86,7 @@ Example code for training with uncertainty:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Define model that outputs mean and log_variance
 class UncertaintyModel(torch.nn.Module):
@@ -140,7 +140,7 @@ Example evaluation code:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Evaluation mode
 model.eval()

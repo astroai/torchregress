@@ -7,7 +7,7 @@ import numpy as np
 from typing import Union, Optional, Dict, Callable
 import torchmetrics.functional as tmf
 
-from torchregression.metrics.utils import convert_to_tensor, validate_inputs, validate_sample_weight
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs, validate_sample_weight
 
 
 class PointMetric:

@@ -6,14 +6,14 @@ import torch
 import pytest
 from torch import nn
 
-from torchregression.ensemble.base import BaseEnsembleModel
-from torchregression.ensemble.models import (
+from torchregress.ensemble.base import BaseEnsembleModel
+from torchregress.ensemble.models import (
     DeepEnsemble,
     HeteroscedasticEnsembleModel,
     HeteroscedasticBatchEnsembleModel,
 )
-from torchregression.ensemble.layers import BatchEnsembleLinear
-from torchregression.ensemble.utils import (
+from torchregress.ensemble.layers import BatchEnsembleLinear
+from torchregress.ensemble.utils import (
     run_ensemble_model,
     run_heteroscedastic_ensemble_model,
     generate_prediction_samples,

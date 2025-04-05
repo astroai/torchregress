@@ -1,7 +1,7 @@
 import pytest
 import torch
 from torch.autograd import gradcheck
-from torchregression.losses.quantile import QuantileLoss, MultiQuantileLoss, QuantileCrossoverLoss
+from torchregress.losses.quantile import QuantileLoss, MultiQuantileLoss, QuantileCrossoverLoss
 
 
 class TestQuantileLoss:

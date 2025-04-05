@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from typing import Optional, Dict, List, Tuple
 
-from torchregression.viz.utils import add_annotations
+from torchregress.viz.utils import add_annotations
 
 
 def plot_learning_curves(

@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from typing import Union, Optional, Dict, List, Any
 
-from torchregression.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs
 
 
 def expected_calibration_error(

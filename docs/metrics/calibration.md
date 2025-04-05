@@ -7,7 +7,7 @@ Calibration metrics evaluate whether the predicted distributions accurately refl
 Measures the average discrepancy between predicted quantiles and observed proportions.
 
 ```python
-from torchregression.metrics.calibration import expected_calibration_error
+from torchregress.metrics.calibration import expected_calibration_error
 
 # Using a dictionary of quantile predictions
 quantiles = {0.1: q10_pred, 0.5: q50_pred, 0.9: q90_pred}
@@ -28,7 +28,7 @@ print(f"Actual proportions: {ece_detailed['actual_proportions']}")
 Evaluates how well the predictive distribution's marginals match the empirical distribution of observations.
 
 ```python
-from torchregression.metrics.calibration import marginal_calibration_error
+from torchregress.metrics.calibration import marginal_calibration_error
 
 # y_pred_samples has shape [n_samples, batch_size]
 mce_metrics = marginal_calibration_error(y_pred_samples, y_true)
@@ -46,7 +46,7 @@ mce_detailed = marginal_calibration_error(y_pred_samples, y_true, n_bins=20, ret
 Generate a comprehensive report of calibration metrics.
 
 ```python
-from torchregression.metrics.calibration import calibration_metrics_report
+from torchregress.metrics.calibration import calibration_metrics_report
 from torch.distributions import Normal
 
 # Using a PyTorch distribution

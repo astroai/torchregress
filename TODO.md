@@ -1,6 +1,6 @@
-# TorchRegression: TODO List
+# torchregress: TODO List
 
-This document outlines planned improvements for the TorchRegression library to enhance its API, maintainability, and functionality.
+This document outlines planned improvements for the torchregress library to enhance its API, maintainability, and functionality.
 
 ## API Consistency & Usability
 
@@ -123,32 +123,32 @@ This section outlines a practical file-by-file approach to implementing the task
 
 ### 1. Core Utilities and Validation
 
-1. **Update Validation Utilities** (`torchregression/utils/validation.py`)
+1. **Update Validation Utilities** (`torchregress/utils/validation.py`)
    - [ ] Complete existing validation functions
    - [ ] Add validation for uncertainty representations (scalar/vector/matrix)
    - [ ] Create consistent error messages
    - [ ] Add comprehensive docstrings
 
-2. **Enhance Tensor Operations** (`torchregression/utils/tensor_ops.py`) 
+2. **Enhance Tensor Operations** (`torchregress/utils/tensor_ops.py`) 
    - [ ] Implement optimized masked operations
    - [ ] Add batching support for computationally intensive operations
    - [ ] Create utilities for broadcasting uncertainty representations
    - [ ] Add tests comparing performance of different implementations
 
-3. **Add PyTorch Compatibility Utilities** (`torchregression/utils/pytorch_compat.py`)
+3. **Add PyTorch Compatibility Utilities** (`torchregress/utils/pytorch_compat.py`)
    - [ ] Implement torch.compile compatibility checks
    - [ ] Add dynamo support functions
    - [ ] Create performance benchmarking tools
 
 ### 2. Base Loss Framework
 
-4. **Refactor Loss Base Classes** (`torchregression/losses/base.py`)
+4. **Refactor Loss Base Classes** (`torchregress/losses/base.py`)
    - [ ] Standardize parameter order (y_pred, y_true) in all forward() methods
    - [ ] Simplify inheritance hierarchy
    - [ ] Add comprehensive docstrings with examples
    - [ ] Create clear separation of responsibilities between classes
 
-5. **Implement Loss Registration System** (`torchregression/losses/loss_registry.py`)
+5. **Implement Loss Registration System** (`torchregress/losses/loss_registry.py`)
    - [ ] Complete register_loss() implementation
    - [ ] Add decorator API for registration
    - [ ] Create discovery mechanism
@@ -156,70 +156,70 @@ This section outlines a practical file-by-file approach to implementing the task
 
 ### 3. Standard Loss Functions
 
-6. **Update Basic Losses** (`torchregression/losses/torch_extensions.py`, `torchregression/losses/gaussian.py`)
+6. **Update Basic Losses** (`torchregress/losses/torch_extensions.py`, `torchregress/losses/gaussian.py`)
    - [ ] Standardize interfaces
    - [ ] Use common validation utilities
    - [ ] Register with loss registry
    - [ ] Add tests for edge cases
 
 7. **Enhance Advanced Losses**
-   - [ ] `torchregression/losses/robust.py`: Standardize interfaces, add missing robust losses
-   - [ ] `torchregression/losses/quantile.py`: Update parameter naming, optimize implementations
-   - [ ] `torchregression/losses/expectile.py`: Standardize to match quantile losses
-   - [ ] `torchregression/losses/tweedie.py`, `torchregression/losses/poisson.py`: Update interfaces
+   - [ ] `torchregress/losses/robust.py`: Standardize interfaces, add missing robust losses
+   - [ ] `torchregress/losses/quantile.py`: Update parameter naming, optimize implementations
+   - [ ] `torchregress/losses/expectile.py`: Standardize to match quantile losses
+   - [ ] `torchregress/losses/tweedie.py`, `torchregress/losses/poisson.py`: Update interfaces
 
 8. **Improve Distribution Losses**
-   - [ ] `torchregression/losses/mdn.py`: Standardize interface, add better docstrings
-   - [ ] `torchregression/losses/nflows.py`: Update parameter order, add examples
-   - [ ] `torchregression/losses/categorical.py`: Standardize interface
+   - [ ] `torchregress/losses/mdn.py`: Standardize interface, add better docstrings
+   - [ ] `torchregress/losses/nflows.py`: Update parameter order, add examples
+   - [ ] `torchregress/losses/categorical.py`: Standardize interface
 
 ### 4. Error-in-Variables System
 
-9. **Optimize EIV Utilities** (`torchregression/losses/eiv/eiv_utils.py`)
+9. **Optimize EIV Utilities** (`torchregress/losses/eiv/eiv_utils.py`)
    - [ ] Implement batched Monte Carlo sampling
    - [ ] Standardize uncertainty representation
    - [ ] Add automatic batch size determination
    - [ ] Optimize utility functions
 
 10. **Update EIV Implementations**
-    - [ ] `torchregression/losses/eiv/eiv_standard.py`: Standardize interfaces
-    - [ ] `torchregression/losses/eiv/eiv_rfit.py`: Optimize and standardize
-    - [ ] `torchregression/losses/eiv/eiv_quantile.py`: Update to match base quantile loss
-    - [ ] `torchregression/losses/eiv/eiv_mdn.py`: Standardize interface
-    - [ ] `torchregression/losses/eiv/eiv_chamfer.py`: Optimize and standardize
+    - [ ] `torchregress/losses/eiv/eiv_standard.py`: Standardize interfaces
+    - [ ] `torchregress/losses/eiv/eiv_rfit.py`: Optimize and standardize
+    - [ ] `torchregress/losses/eiv/eiv_quantile.py`: Update to match base quantile loss
+    - [ ] `torchregress/losses/eiv/eiv_mdn.py`: Standardize interface
+    - [ ] `torchregress/losses/eiv/eiv_chamfer.py`: Optimize and standardize
 
 ### 5. Metrics System
 
-11. **Update Metrics Utilities** (`torchregression/metrics/utils.py`)
+11. **Update Metrics Utilities** (`torchregress/metrics/utils.py`)
     - [ ] Add TorchMetrics compatibility layer
     - [ ] Implement metric composition utilities 
     - [ ] Standardize reduction handling
 
 12. **Enhance Regression Metrics**
-    - [ ] `torchregression/metrics/point.py`: Convert to TorchMetrics subclasses
-    - [ ] `torchregression/metrics/interval.py`: Standardize interfaces
-    - [ ] `torchregression/metrics/distribution.py`: Add missing metrics
-    - [ ] `torchregression/metrics/calibration.py`: Improve visualization options
-    - [ ] `torchregression/metrics/ood.py`: Standardize interfaces
+    - [ ] `torchregress/metrics/point.py`: Convert to TorchMetrics subclasses
+    - [ ] `torchregress/metrics/interval.py`: Standardize interfaces
+    - [ ] `torchregress/metrics/distribution.py`: Add missing metrics
+    - [ ] `torchregress/metrics/calibration.py`: Improve visualization options
+    - [ ] `torchregress/metrics/ood.py`: Standardize interfaces
 
 ### 6. Utility Module Integration
 
-13. **Consolidate Label Handling** (`torchregression/utils/labels.py`)
+13. **Consolidate Label Handling** (`torchregress/utils/labels.py`)
     - [ ] Create standard API for multi-annotator data
     - [ ] Add integration with metrics system
     - [ ] Improve documentation and examples
 
-14. **Enhance Augmentation Framework** (`torchregression/utils/augment.py`)
+14. **Enhance Augmentation Framework** (`torchregress/utils/augment.py`)
     - [ ] Add regression-specific augmentations
     - [ ] Create augmentation pipeline class
     - [ ] Add time series augmentations
 
-15. **Improve IRLS Integration** (`torchregression/algorithms/irls.py`)
+15. **Improve IRLS Integration** (`torchregress/algorithms/irls.py`)
     - [ ] Create PyTorch Lightning callback
     - [ ] Add interface for common robust regression tasks
     - [ ] Optimize implementation for large datasets
 
-16. **Enhance Ensemble Integration** (`torchregression/ensemble/ensemble.py`)
+16. **Enhance Ensemble Integration** (`torchregress/ensemble/ensemble.py`)
     - [ ] Add ensemble calibration utilities
     - [ ] Implement prediction combination strategies
     - [ ] Create visualization tools for ensemble predictions
@@ -227,32 +227,32 @@ This section outlines a practical file-by-file approach to implementing the task
 ### 7. New Features Implementation
 
 17. **Implement Modern Loss Functions**
-    - [ ] Create `torchregression/losses/barron.py` for generalized L1/L2 loss
-    - [ ] Create `torchregression/losses/conformal.py` for conformal prediction
-    - [ ] Create `torchregression/losses/autoregressive.py` for time series losses
+    - [ ] Create `torchregress/losses/barron.py` for generalized L1/L2 loss
+    - [ ] Create `torchregress/losses/conformal.py` for conformal prediction
+    - [ ] Create `torchregress/losses/autoregressive.py` for time series losses
 
 18. **Add Target Transformation Support**
-    - [ ] Create `torchregression/transforms/target.py` for Box-Cox and other transformations
+    - [ ] Create `torchregress/transforms/target.py` for Box-Cox and other transformations
     - [ ] Implement loss wrappers that handle transformations automatically
 
 19. **Implement Censored Regression**
-    - [ ] Create `torchregression/losses/censored.py` for interval-censored and right-censored losses
+    - [ ] Create `torchregress/losses/censored.py` for interval-censored and right-censored losses
     - [ ] Add survival regression building blocks
     - [ ] Implement time-to-event metrics
 
 20. **Add PyTorch Lightning Support**
-    - [ ] Create `torchregression/lightning/regression.py` with LightningModule implementations
+    - [ ] Create `torchregress/lightning/regression.py` with LightningModule implementations
     - [ ] Add regression-specific callbacks
     - [ ] Create example notebooks
 
 21. **Implement Uncertainty Estimation Tools**
-    - [ ] Create `torchregression/models/heteroscedastic.py` for variance prediction
-    - [ ] Create `torchregression/models/ensemble.py` for deep ensembles
+    - [ ] Create `torchregress/models/heteroscedastic.py` for variance prediction
+    - [ ] Create `torchregress/models/ensemble.py` for deep ensembles
     - [ ] Add multivariate regression metrics
 
 ### 8. Builder System (Last)
 
-22. **Implement Loss Builder System** (`torchregression/losses/builder.py`)
+22. **Implement Loss Builder System** (`torchregress/losses/builder.py`)
     - [ ] Create fluent API for loss construction
     - [ ] Implement method chaining
     - [ ] Add comprehensive examples and tests

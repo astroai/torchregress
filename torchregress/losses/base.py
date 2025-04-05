@@ -2,7 +2,7 @@
 Base loss functions and abstract classes for regression tasks.
 
 This module provides the foundation classes for all loss functions
-in the torchregression library. Each base class handles specific aspects
+in the torchregress library. Each base class handles specific aspects
 of regression losses:
 
 - BaseLoss: Root base class defining common interfaces
@@ -444,3 +444,7 @@ def create_weighted_losses():
         "TripletMarginWithDistanceLoss": WeightedTripletMarginWithDistanceLoss,
     }
     return weighted_losses
+
+# Add aliases for backward compatibility with tests
+Loss = BaseLoss
+ReductionLoss = RegressionLoss

@@ -12,7 +12,7 @@ import torch
 from typing import Union, Optional, Dict, List, Tuple, Any
 import pandas as pd
 
-from torchregression.viz.utils import create_color_palette
+from torchregress.viz.utils import create_color_palette
 
 
 def plot_performance_comparison(

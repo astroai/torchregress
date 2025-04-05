@@ -1,11 +1,11 @@
 """
-Examples demonstrating the PyTorch-native API usage patterns for torchregression.
+Examples demonstrating the PyTorch-native API usage patterns for torchregress.
 """
 
 import torch
 import torch.nn as nn
-from torchregression.losses.gaussian import DiagonalGaussianNLL
-from torchregression.losses.robust import HuberLoss
+from torchregress.losses.gaussian import DiagonalGaussianNLL
+from torchregress.losses.robust import HuberLoss
 
 
 # Example 1: Standard regression model with MSE loss

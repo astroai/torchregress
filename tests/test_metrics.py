@@ -1,31 +1,31 @@
 """
-Tests for the metrics modules in torchregression.
+Tests for the metrics modules in torchregress.
 """
 
 import torch
 import numpy as np
 import pytest
 
-from torchregression.metrics.utils import convert_to_tensor, validate_inputs
-from torchregression.metrics.calibration import (
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.calibration import (
     expected_calibration_error,
     marginal_calibration_error,
     calibration_metrics_report,
 )
-from torchregression.metrics.distribution import (
+from torchregress.metrics.distribution import (
     probability_integral_transform,
     continuous_ranked_probability_score,
     energy_score,
     distribution_metrics_report,
 )
-from torchregression.metrics.ood import (
+from torchregress.metrics.ood import (
     mahalanobis_distance,
     typicality_score,
     entropy_score,
     kernel_density_score,
     ood_metrics_report,
 )
-from torchregression.metrics.point import (
+from torchregress.metrics.point import (
     mean_squared_error,
     mean_absolute_error,
     median_absolute_error,
@@ -35,7 +35,7 @@ from torchregression.metrics.point import (
     median_absolute_deviation,
     regression_metrics_report,
 )
-from torchregression.metrics.interval import (
+from torchregress.metrics.interval import (
     interval_score,
     prediction_interval_coverage_probability,
     interval_metrics_report,

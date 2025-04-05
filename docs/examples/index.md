@@ -15,7 +15,7 @@ This tutorial covers the fundamental usage patterns of TorchRegression:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Example of basic TorchRegression usage
 X_train, y_train = load_data()
@@ -40,7 +40,7 @@ This example compares different loss functions on the same dataset:
 - Determining which loss is best for different data characteristics
 
 ```python
-import torchregression as tr
+import torchregress as tr
 
 # Dictionary of loss functions to compare
 losses = {
@@ -66,7 +66,7 @@ A real-world application for astronomy:
 - Evaluating results with domain-specific metrics
 
 ```python
-import torchregression as tr
+import torchregress as tr
 
 # Load astronomical dataset
 # ...
@@ -108,8 +108,8 @@ All examples can be run directly from the repository:
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/torchregression.git
-cd torchregression
+git clone https://github.com/username/torchregress.git
+cd torchregress
 
 # Install dependencies
 pip install -e '.[examples]'
@@ -118,4 +118,4 @@ pip install -e '.[examples]'
 python examples/basic_usage.py
 ```
 
-For questions or issues with the examples, please [open an issue](https://github.com/username/torchregression/issues) in the repository.
+For questions or issues with the examples, please [open an issue](https://github.com/username/torchregress/issues) in the repository.

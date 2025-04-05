@@ -2,11 +2,11 @@ import torch
 import unittest
 import math
 from torch.autograd import gradcheck
-from torchregression.losses.base import (
+from torchregress.losses.base import (
     WeightedMSELoss, 
     WeightedGaussianNLLLoss,
 )
-from torchregression.losses.gaussian import (
+from torchregress.losses.gaussian import (
     HeteroscedasticGaussianLoss,
     MultivariateGaussianLoss,
     create_gaussian_nll,

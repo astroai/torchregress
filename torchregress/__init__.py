@@ -17,7 +17,6 @@ from . import utils
 from . import wrappers
 
 # Export key components for easy access
-from .losses import register_loss, get_loss_function, list_available_losses
 from .losses.base import MaskedLoss, RegressionLoss, DistributionLoss
 from .algorithms import IRLS, iteratively_reweighted_least_squares
 
@@ -40,9 +39,6 @@ __all__ = [
     "ensemble",
     "utils",
     "wrappers",
-    "register_loss",
-    "get_loss_function",
-    "list_available_losses",
     "MaskedLoss",
     "RegressionLoss",
     "DistributionLoss",

@@ -1,6 +1,6 @@
 import torch
 import pytest
-from torchregression.losses import (
+from torchregress.losses import (
     MSELoss,
     MAELoss,
     GaussianNLLLoss,
