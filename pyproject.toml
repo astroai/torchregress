@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "torchregression"
+name = "torchregress"
 version = "0.1.0"
 description = "PyTorch loss functions and utilities for regression problems."
 readme = "README.md"
@@ -30,9 +30,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/sfabbro/torchregression"
-"Bug Tracker" = "https://github.com/sfabbro/torchregression/issues"
-"Documentation" = "https://github.com/sfabbro/torchregression#readme"
+"Homepage" = "https://github.com/sfabbro/torchregress"
+"Bug Tracker" = "https://github.com/sfabbro/torchregress/issues"
+"Documentation" = "https://github.com/sfabbro/torchregress#readme"
 
 [project.optional-dependencies]
 test = [
@@ -50,7 +50,7 @@ docs = [
     "sphinx-rtd-theme",
     "myst-parser",
 ]
-all = ["torchregression[test,dev,docs]"]
+all = ["torchregress[test,dev,docs]"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,8 +1,8 @@
-site_name: TorchRegression
+site_name: TorchRegress
 site_description: A PyTorch library for regression and uncertainty estimation
 site_author: Sébastien Fabbro
-repo_url: https://github.com/sfabbro/torchregression
-repo_name: sfabbro/torchregression
+repo_url: https://github.com/sfabbro/torchregress
+repo_name: sfabbro/torchregress
 
 theme:
   name: material

@@ -1,14 +1,14 @@
-# TorchRegression
+# TorchRegress
 
 PyTorch loss functions for regression with uncertainty estimation and missing data support.
 
-[![PyPI](https://img.shields.io/pypi/v/torchregression.svg)](https://pypi.org/project/torchregression/)
+[![PyPI](https://img.shields.io/pypi/v/torchregress.svg)](https://pypi.org/project/torchregress/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Installation
 
 ```bash
-pip install torchregression
+pip install torchregress
 ```
 
 ## Features
@@ -26,7 +26,7 @@ pip install torchregression
 ### Heteroscedastic Regression
 
 ```python
-from torchregression.losses.gaussian import DiagonalGaussianNLL
+from torchregress.losses.gaussian import DiagonalGaussianNLL
 
 # Create model that outputs mean and log_variance
 class Model(torch.nn.Module):
@@ -56,7 +56,7 @@ loss = loss_fn((mean, logvar), target)
 ### Robust Regression with Missing Data
 
 ```python
-from torchregression.losses.robust import HuberLoss
+from torchregress.losses.robust import HuberLoss
 
 # Mask indicates missing values (False = missing)
 mask = torch.ones_like(target).bool()
@@ -70,7 +70,7 @@ loss = loss_fn(predictions, target, mask=mask)
 ### Quantile Regression
 
 ```python
-from torchregression.losses.quantile import MultiQuantileLoss
+from torchregress.losses.quantile import MultiQuantileLoss
 
 # Predict 10th, 50th and 90th percentiles simultaneously
 quantiles = [0.1, 0.5, 0.9]
@@ -81,7 +81,7 @@ loss = loss_fn(predictions, target)  # predictions shape: [batch, num_quantiles,
 ### Iteratively Reweighted Least Squares
 
 ```python
-from torchregression.algorithms.irls import IRLS
+from torchregress.algorithms.irls import IRLS
 
 # Train with robust IRLS
 result = IRLS(
@@ -92,7 +92,7 @@ result = IRLS(
 )
 ```
 
-For more advanced usage and API details, refer to the [documentation](https://github.com/sfabbro/torchregression).
+For more advanced usage and API details, refer to the [documentation](https://github.com/sfabbro/torchregress).
 
 ## License
 

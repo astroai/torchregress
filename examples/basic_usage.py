@@ -1,8 +1,8 @@
 """
-TorchRegression basic usage example.
+TorchRegress basic usage example.
 
 This example demonstrates how to use various regression loss functions
-from the TorchRegression library in a simple neural network training scenario.
+from the TorchRegress library in a simple neural network training scenario.
 """
 
 import torch
@@ -12,19 +12,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset, DataLoader
 
-# Import main TorchRegression components
-from torchregression.losses.gaussian import GaussianNLL, MSELoss
-from torchregression.losses.robust import HuberLoss, PseudoHuberLoss
-from torchregression.losses.quantile import QuantileLoss
+# Import main TorchRegress components
+from torchregress.losses.gaussian import GaussianNLL, MSELoss
+from torchregress.losses.robust import HuberLoss, PseudoHuberLoss
+from torchregress.losses.quantile import QuantileLoss
 
-# Import additional losses from the torchregression library
-from torchregression.losses.gaussian import (
+# Import additional losses from the torchregress library
+from torchregress.losses.gaussian import (
     MAELoss,
     GaussianNLLLoss,
 )  # GaussianNLLLoss is duplicated with GaussianNLL
-from torchregression.losses.robust import LogCoshLoss
-from torchregression.losses.expectile import ExpectileLoss
-from torchregression.losses.poisson import PoissonNLLLoss
+from torchregress.losses.robust import LogCoshLoss
+from torchregress.losses.expectile import ExpectileLoss
+from torchregress.losses.poisson import PoissonNLLLoss
 
 
 # 1. Create a synthetic dataset with heteroscedastic noise

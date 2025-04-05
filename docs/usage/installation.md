@@ -1,31 +1,31 @@
 # Installation
 
-TorchRegression can be installed from PyPI or directly from the source code. The library requires Python 3.10 or newer and PyTorch.
+TorchRegress can be installed from PyPI or directly from the source code. The library requires Python 3.10 or newer and PyTorch.
 
 ## From PyPI
 
-The simplest way to install TorchRegression is via pip:
+The simplest way to install TorchRegress is via pip:
 
 ```bash
-pip install torchregression
+pip install torchregress
 ```
 
 ## With Extra Dependencies
 
-TorchRegression provides optional dependency sets for different use cases:
+TorchRegress provides optional dependency sets for different use cases:
 
 ```bash
 # For testing capabilities
-pip install 'torchregression[test]'
+pip install 'torchregress[test]'
 
 # For development 
-pip install 'torchregression[dev]'
+pip install 'torchregress[dev]'
 
 # For documentation
-pip install 'torchregression[docs]'
+pip install 'torchregress[docs]'
 
 # For all optional dependencies
-pip install 'torchregression[all]'
+pip install 'torchregress[all]'
 ```
 
 ## From Source
@@ -33,14 +33,14 @@ pip install 'torchregression[all]'
 To install the latest development version:
 
 ```bash
-git clone https://github.com/sfabbro/torchregression.git
-cd torchregression
+git clone https://github.com/sfabbro/torchregress.git
+cd torchregress
 pip install -e .
 ```
 
 ## Requirements
 
-TorchRegression has the following dependencies:
+TorchRegress has the following dependencies:
 
 ### Core Dependencies
 
@@ -67,18 +67,18 @@ Documentation:
 
 ## Verifying Installation
 
-To verify that TorchRegression is installed correctly, you can run:
+To verify that TorchRegress is installed correctly, you can run:
 
 ```python
-import torchregression
-print(torchregression.__version__)
+import torchregress
+print(torchregress.__version__)
 ```
 
 Or use the following minimal example:
 
 ```python
 import torch
-import torchregression as tr
+import torchregress as tr
 
 # Create some dummy data
 X = torch.randn(100, 1)
@@ -106,4 +106,4 @@ with torch.no_grad():
     print(f"RMSE: {rmse.item():.4f}")
 ```
 
-If this runs without errors, TorchRegression is correctly installed.
+If this runs without errors, TorchRegress is correctly installed.

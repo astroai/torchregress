@@ -1,4 +1,4 @@
-"""Tests for API consistency across all loss functions in torchregression.
+"""Tests for API consistency across all loss functions in torchregress.
 
 This module ensures that all loss functions in the library follow consistent
 API patterns, including parameter ordering, inheritance structure, and
@@ -13,11 +13,11 @@ import torch
 from typing import List, Type
 
 # Import base classes
-from torchregression.losses.base import Loss, ReductionLoss
+from torchregress.losses.base import Loss, ReductionLoss
 
 
 def get_all_loss_classes() -> List[Type[Loss]]:
-    """Dynamically discover all loss classes in the torchregression.losses package.
+    """Dynamically discover all loss classes in the torchregress.losses package.
 
     Returns:
         List of all loss classes that inherit from the base Loss class.
@@ -25,7 +25,7 @@ def get_all_loss_classes() -> List[Type[Loss]]:
     loss_classes = []
 
     # Import the losses package
-    import torchregression.losses as losses_pkg
+    import torchregress.losses as losses_pkg
 
     # Iterate through all modules in the losses package
     for _, module_name, _ in pkgutil.iter_modules(losses_pkg.__path__):
@@ -33,7 +33,7 @@ def get_all_loss_classes() -> List[Type[Loss]]:
             continue
 
         # Import the module
-        module = importlib.import_module(f"torchregression.losses.{module_name}")
+        module = importlib.import_module(f"torchregress.losses.{module_name}")
 
         # Find all classes in the module that inherit from Loss
         for name, obj in module.__dict__.items():
