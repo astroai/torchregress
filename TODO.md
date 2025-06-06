@@ -4,15 +4,15 @@ This document outlines planned improvements for the torchregress library to enha
 
 ## API Consistency & Usability
 
-- [ ] **Standardize loss function interfaces**:
-  - [ ] Unify parameter ordering across all losses (`forward(y_pred, y_true, ...)` to match PyTorch convention)
-  - [ ] Standardize parameter naming (e.g., consistent use of "target" vs "y_true")
-  - [ ] Ensure consistent docstring format and examples
+- [x] **Standardize loss function interfaces**:
+  - [x] Unify parameter ordering across all losses (`forward(y_pred, y_true, ...)` to match PyTorch convention)
+  - [x] Standardize parameter naming (e.g., consistent use of "target" vs "y_true")
+  - [x] Ensure consistent docstring format and examples
 
-- [ ] **Simplified base classes hierarchy**:
-  - [ ] Review current `MaskedLoss`, `RegressionLoss`, `DistributionLoss` inheritance
-  - [ ] Create clearer specialization with flatter hierarchy
-  - [ ] Document class relationships and intended use cases
+- [x] **Simplified base classes hierarchy**:
+  - [x] Review current `MaskedLoss`, `RegressionLoss`, `DistributionLoss` inheritance
+  - [x] Create clearer specialization with flatter hierarchy
+  - [x] Document class relationships and intended use cases
 
 - [ ] **Configurable loss builder system**:
   - [ ] Create a fluent API for loss construction
@@ -36,9 +36,9 @@ This document outlines planned improvements for the torchregress library to enha
   - [ ] Reduce code duplication across loss functions
   - [ ] Optimize masked operations for performance
 
-- [ ] **Batched implementations**:
-  - [ ] Optimize Monte Carlo sampling through proper vectorization
-  - [ ] Avoid unnecessary for-loops in EIV implementation
+- [x] **Batched implementations**:
+  - [x] Optimize Monte Carlo sampling through proper vectorization
+  - [x] Avoid unnecessary for-loops in EIV implementation
   - [ ] Add support for automatic batch size determination
 
 ## PyTorch Ecosystem Integration
@@ -53,43 +53,43 @@ This document outlines planned improvements for the torchregress library to enha
   - [ ] Implement validation/test step methods with appropriate metrics
   - [ ] Create regression-specific callbacks
 
-- [ ] **Torch.compile compatibility**:
-  - [ ] Ensure all operations are compatible with torch.compile()
-  - [ ] Add dynamo support for faster compilation
-  - [ ] Create benchmarks comparing compiled vs non-compiled performance
+- [x] **Torch.compile compatibility**:
+  - [x] Ensure all operations are compatible with torch.compile()
+  - [x] Add dynamo support for faster compilation
+  - [x] Create benchmarks comparing compiled vs non-compiled performance
 
 ## Missing Features & Use Cases
 
-- [ ] **Heteroscedastic regression abstractions**:
-  - [ ] High-level API for variance prediction alongside means
-  - [ ] Support for joint optimization of mean and variance networks
-  - [ ] Variance network utilities and implementations
+- [x] **Heteroscedastic regression abstractions**:
+  - [x] High-level API for variance prediction alongside means
+  - [x] Support for joint optimization of mean and variance networks
+  - [x] Variance network utilities and implementations
 
-- [ ] **Modern regression losses**:
-  - [ ] Add distribution-free uncertainty losses (e.g., SQR, simultaneous quantile regression)
-  - [ ] Implement Barron loss (generalization of L1/L2)
-  - [ ] Support for conformal prediction methods
-  - [ ] Add DeepAR-style autoregressive losses
+- [x] **Modern regression losses**:
+  - [x] Add distribution-free uncertainty losses (e.g., SQR, simultaneous quantile regression)
+  - [x] Implement Barron loss (generalization of L1/L2)
+  - [x] Support for conformal prediction methods
+  - [x] Add DeepAR-style autoregressive losses
 
-- [ ] **Target transformation losses**:
-  - [ ] Built-in support for log/box-cox transformations within losses
-  - [ ] Variance stabilizing transformations for heteroscedastic data
-  - [ ] Inverse transformation handling for prediction
+- [x] **Target transformation losses**:
+  - [x] Built-in support for log/box-cox transformations within losses
+  - [x] Variance stabilizing transformations for heteroscedastic data
+  - [x] Inverse transformation handling for prediction
 
 - [ ] **Censored regression support**:
   - [ ] Add losses for interval-censored and right-censored data
   - [ ] Survival regression building blocks
   - [ ] Time-to-event prediction metrics
 
-- [ ] **Ensemble uncertainty estimation**:
-  - [ ] Built-in support for deep ensembles with uncertainty propagation
-  - [ ] Simplified API for combining multiple models' predictions
-  - [ ] Ensemble-specific metrics and aggregation methods
+- [x] **Ensemble uncertainty estimation**:
+  - [x] Built-in support for deep ensembles with uncertainty propagation
+  - [x] Simplified API for combining multiple models' predictions
+  - [x] Ensemble-specific metrics and aggregation methods
 
-- [ ] **Multivariate regression testing metrics**:
-  - [ ] Add metrics specific to multivariate outputs (beyond treating dimensions independently)
+- [x] **Multivariate regression testing metrics**:
+  - [x] Add metrics specific to multivariate outputs (beyond treating dimensions independently)
   - [ ] Support for evaluating joint distributions
-  - [ ] Multi-output calibration metrics
+  - [x] Multi-output calibration metrics
 
 ## Utility Module Consolidation
 
@@ -136,9 +136,9 @@ This section outlines a practical file-by-file approach to implementing the task
    - [ ] Add tests comparing performance of different implementations
 
 3. **Add PyTorch Compatibility Utilities** (`torchregress/utils/pytorch_compat.py`)
-   - [ ] Implement torch.compile compatibility checks
-   - [ ] Add dynamo support functions
-   - [ ] Create performance benchmarking tools
+   - [x] Implement torch.compile compatibility checks
+   - [x] Add dynamo support functions
+   - [x] Create performance benchmarking tools
 
 ### 2. Base Loss Framework
 
@@ -176,7 +176,7 @@ This section outlines a practical file-by-file approach to implementing the task
 ### 4. Error-in-Variables System
 
 9. **Optimize EIV Utilities** (`torchregress/losses/eiv/eiv_utils.py`)
-   - [ ] Implement batched Monte Carlo sampling
+   - [x] Implement batched Monte Carlo sampling
    - [ ] Standardize uncertainty representation
    - [ ] Add automatic batch size determination
    - [ ] Optimize utility functions
@@ -191,9 +191,9 @@ This section outlines a practical file-by-file approach to implementing the task
 ### 5. Metrics System
 
 11. **Update Metrics Utilities** (`torchregress/metrics/utils.py`)
-    - [ ] Add TorchMetrics compatibility layer
-    - [ ] Implement metric composition utilities 
-    - [ ] Standardize reduction handling
+    - [x] Add TorchMetrics compatibility layer
+    - [x] Implement metric composition utilities 
+    - [x] Standardize reduction handling
 
 12. **Enhance Regression Metrics**
     - [ ] `torchregress/metrics/point.py`: Convert to TorchMetrics subclasses
@@ -223,16 +223,17 @@ This section outlines a practical file-by-file approach to implementing the task
     - [ ] Add ensemble calibration utilities
     - [ ] Implement prediction combination strategies
     - [ ] Create visualization tools for ensemble predictions
+    - [x] Rename `*_utils.py` modules to base names (transform.py, histogram.py, quantile.py, irls.py) and adapt all imports
 
 ### 7. New Features Implementation
 
 17. **Implement Modern Loss Functions**
-    - [ ] Create `torchregress/losses/barron.py` for generalized L1/L2 loss
-    - [ ] Create `torchregress/losses/conformal.py` for conformal prediction
-    - [ ] Create `torchregress/losses/autoregressive.py` for time series losses
+    - [x] Create `torchregress/losses/barron.py` for generalized L1/L2 loss
+    - [x] Create `torchregress/losses/conformal.py` for conformal prediction
+    - [x] Create `torchregress/losses/autoregressive.py` for time series losses
 
 18. **Add Target Transformation Support**
-    - [ ] Create `torchregress/transforms/target.py` for Box-Cox and other transformations
+    - [x] Create `torchregress/transforms/target.py` for Box-Cox and other transformations
     - [ ] Implement loss wrappers that handle transformations automatically
 
 19. **Implement Censored Regression**
@@ -246,8 +247,8 @@ This section outlines a practical file-by-file approach to implementing the task
     - [ ] Create example notebooks
 
 21. **Implement Uncertainty Estimation Tools**
-    - [ ] Create `torchregress/models/heteroscedastic.py` for variance prediction
-    - [ ] Create `torchregress/models/ensemble.py` for deep ensembles
+    - [x] Create `torchregress/models/heteroscedastic.py` for variance prediction
+    - [x] Create `torchregress/models/ensemble.py` for deep ensembles
     - [ ] Add multivariate regression metrics
 
 ### 8. Builder System (Last)

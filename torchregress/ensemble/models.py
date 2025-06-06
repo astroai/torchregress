@@ -84,6 +84,44 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
                 "aleatoric_variance": aleatoric_var,
             }
 
+    def predict_full_covariance(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """
+        Make prediction with full-output covariance estimation, splitting aleatoric and epistemic.
+        """
+        with torch.no_grad():
+            preds = self.forward(x)
+            means, vars_ = [], []
+            for pred in preds:
+                # Expect (mean, log_var) or concatenated [mean|log_var]
+                if isinstance(pred, tuple) and len(pred) == 2:
+                    mean, log_var = pred
+                elif pred.shape[1] % 2 == 0:
+                    d = pred.shape[1] // 2
+                    mean, log_var = pred[:, :d], pred[:, d:]
+                else:
+                    raise ValueError("Unexpected output format for heteroscedastic ensemble.")
+                means.append(mean)
+                vars_.append(torch.exp(log_var))
+
+            # Stack [M, B, D]
+            stacked_means = torch.stack(means)
+            mean = torch.mean(stacked_means, dim=0)
+            # Epistemic covariance: variance of means
+            p = stacked_means.permute(1, 0, 2)  # [B, M, D]
+            p_centered = p - mean.unsqueeze(1)
+            epi_cov = torch.einsum('bmd,bnd->bmn', p_centered, p_centered) / (self.ensemble_size - 1)
+            # Aleatoric covariance: mean of member variances as diagonal
+            stacked_vars = torch.stack(vars_)  # [M, B, D]
+            avg_vars = torch.mean(stacked_vars, dim=0)  # [B, D]
+            ale_cov = torch.diag_embed(avg_vars)
+            total_cov = epi_cov + ale_cov
+            return {
+                'mean': mean,
+                'epistemic_covariance': epi_cov,
+                'aleatoric_covariance': ale_cov,
+                'total_covariance': total_cov,
+            }
+
 
 class DeepEnsemble(BaseEnsembleModel):
     """

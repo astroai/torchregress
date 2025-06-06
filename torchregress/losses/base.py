@@ -6,7 +6,6 @@ in the torchregress library. Each base class handles specific aspects
 of regression losses:
 
 - BaseLoss: Root base class defining common interfaces
-- MaskedLoss: Adds support for masked operations
 - RegressionLoss: Standard regression loss functions
 - DistributionLoss: Losses for probabilistic/distributional regression
 
@@ -18,7 +17,7 @@ import torch
 import torch.nn as nn
 from typing import Optional, Union, Callable, Dict, Any
 
-from ..utils.tensor_ops import apply_mask, masked_reduction
+from ..utils.masked_ops import apply_mask, masked_reduction
 from ..utils.validation import validate_reduction, validate_weights
 
 
@@ -69,87 +68,62 @@ class BaseLoss(nn.Module):
         weights: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
-        Apply reduction to the loss tensor.
-
-        Args:
-            loss: Loss tensor
-            mask: Optional boolean mask
-            weights: Optional sample weights
-
-        Returns:
-            Reduced loss according to the reduction method
+        Apply reduction to the loss tensor with support for masking and weighting.
         """
+        # No reduction: return raw values (filtered or weighted)
         if self.reduction == "none":
+            if mask is not None:
+                vals = loss[mask]
+                if weights is not None:
+                    return vals * weights[mask]
+                return vals
             if weights is not None:
                 return loss * weights
             return loss
 
-        # Apply weights if provided
-        if weights is not None:
-            loss = loss * weights
+        # Sum reduction
+        if self.reduction == "sum":
+            if mask is not None:
+                if weights is not None:
+                    return torch.sum(loss[mask] * weights[mask])
+                return torch.sum(loss[mask])
+            if weights is not None:
+                return torch.sum(loss * weights)
+            return torch.sum(loss)
 
-        return masked_reduction(loss, mask, self.reduction)
+        # Mean reduction
+        if self.reduction == "mean":
+            if mask is not None:
+                if weights is not None:
+                    w = weights[mask]
+                    vals = loss[mask] * w
+                    return torch.sum(vals) / torch.sum(w).clamp(min=1)
+                return torch.mean(loss[mask])
+            if weights is not None:
+                vals = loss * weights
+                return torch.sum(vals) / torch.sum(weights).clamp(min=1)
+            return torch.mean(loss)
 
+        # Max / Min reduction
+        if self.reduction == "max":
+            return torch.max(loss[mask] if mask is not None else loss)
+        if self.reduction == "min":
+            return torch.min(loss[mask] if mask is not None else loss)
 
-class MaskedLoss(BaseLoss):
-    """
-    Base class for losses that support optional masking.
-
-    This class provides common functionality for handling masked losses,
-        where certain elements in the inputs should be ignored.
-
-    Args:
-        reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
-
-    Example:
-        >>> class MyMaskedLoss(MaskedLoss):
-        ...     def forward(self, y_pred, target, mask=None, weights=None):
-        ...         loss = torch.abs(y_pred - target)
-        ...         return self._reduce_with_mask(loss, mask, weights)
-        >>> loss_fn = MyMaskedLoss()
-        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
-        >>> target = torch.tensor([0.0, 0.0, 3.0])
-        >>> mask = torch.tensor([False, False, True])
-        >>> loss_fn(y_pred, target, mask=mask)
-        tensor(0.)  # Only the masked value is considered
-    """
-
-    def __init__(self, reduction: str = "mean") -> None:
-        super().__init__(reduction)
-
-    def _apply_mask(self, tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
-        """
-        Apply an optional mask to a tensor.
-
-        Args:
-            tensor: Input tensor
-            mask: Optional boolean mask with the same shape as tensor
-
-        Returns:
-            Tensor with mask applied or original tensor if mask is None
-        """
-        return apply_mask(tensor, mask)
+    def _apply_mask(
+        self, tensor: torch.Tensor, mask: Optional[torch.Tensor]
+    ) -> torch.Tensor:
+        """Filter tensor elements by boolean mask."""
+        if mask is None:
+            return tensor
+        return tensor[mask]
 
     def _validate_inputs(
         self, y_pred: torch.Tensor, target: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> None:
-        """
-        Validate input tensors.
-
-        Args:
-            y_pred: Predicted values
-            target: Target values
-            mask: Optional boolean mask
-
-        Raises:
-            ValueError: If inputs have incompatible shapes
-        """
-        # Check shape compatibility
+        """Validate that y_pred, target, and mask shapes are compatible."""
         if target.shape != y_pred.shape:
             raise ValueError(f"target shape {target.shape} must match y_pred shape {y_pred.shape}")
-
-        # Check mask if provided
         if mask is not None and mask.shape != target.shape:
             raise ValueError(f"Mask shape {mask.shape} must match target shape {target.shape}")
 
@@ -159,28 +133,20 @@ class MaskedLoss(BaseLoss):
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """
-        Apply reduction to the loss tensor, handling masks.
-
-        Args:
-            loss: Loss tensor
-            mask: Optional boolean mask
-            weights: Optional sample weights
-
-        Returns:
-            Reduced loss according to the reduction method
-        """
+        """Apply mask to filter values and then apply reduction."""
         if mask is not None:
             loss = self._apply_mask(loss, mask)
+            if weights is not None:
+                weights = weights[mask]
+        # After masking, use unmasked reduction
+        return self._reduce(loss, None, weights)
 
-        return self._reduce(loss, mask, weights)
 
-
-class RegressionLoss(MaskedLoss):
+class RegressionLoss(BaseLoss):
     """
     Base class for regression losses.
 
-    This extends MaskedLoss with additional functionality specific
+    This extends BaseLoss with additional functionality specific
     to regression tasks. All implementations should override forward()
     with the PyTorch standard parameter ordering (y_pred, target).
 
@@ -226,7 +192,7 @@ class RegressionLoss(MaskedLoss):
         raise NotImplementedError("Subclasses must implement this method")
 
 
-class DistributionLoss(MaskedLoss):
+class DistributionLoss(BaseLoss):
     """
     Base class for distributional losses.
 
@@ -308,7 +274,7 @@ class DistributionLoss(MaskedLoss):
         raise NotImplementedError("Subclasses must implement this method")
 
 
-class WeightedLossWrapper(MaskedLoss):
+class WeightedLossWrapper(BaseLoss):
     """
     Wrapper for PyTorch loss functions to add masking and weighting support.
 
@@ -448,3 +414,5 @@ def create_weighted_losses():
 # Add aliases for backward compatibility with tests
 Loss = BaseLoss
 ReductionLoss = RegressionLoss
+# Alias for backward compatibility
+MaskedLoss = BaseLoss

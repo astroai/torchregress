@@ -14,7 +14,8 @@ def expected_calibration_error(
     y_true: Union[torch.Tensor, np.ndarray],
     n_bins: int = 10,
     return_diagnostics: bool = False,
-) -> Dict[str, Union[float, List]]:
+    per_output: bool = False,
+) -> Dict[str, torch.Tensor]:
     """
     Calculate Expected Calibration Error (ECE) for quantile regression.
 
@@ -23,11 +24,36 @@ def expected_calibration_error(
         y_true: Ground truth values
         n_bins: Number of bins for discretizing predictions
         return_diagnostics: Whether to return additional diagnostic information
+        per_output: Whether to calculate metrics per output feature
 
     Returns:
         Dictionary with calibration metrics
     """
     y_true = convert_to_tensor(y_true)
+
+    if per_output:
+        # Per-feature calibration
+        if y_true.dim() == 1:
+            y_feat = y_true.unsqueeze(-1)
+        else:
+            y_feat = y_true
+        n_feat = y_feat.shape[-1]
+        props = []
+        quantiles = sorted(y_pred_quantiles.keys())
+        expected_proportions = torch.tensor(quantiles, device=y_true.device)
+        for q in quantiles:
+            q_pred = convert_to_tensor(y_pred_quantiles[q])
+            validate_inputs(q_pred, y_true)
+            if q_pred.dim() == 1:
+                q_pred = q_pred.unsqueeze(-1)
+            props.append(torch.mean((y_feat <= q_pred).float(), dim=0))
+        actual_props = torch.stack(props, dim=0)  # [n_quantiles, n_feat]
+        err = torch.abs(actual_props - expected_proportions.unsqueeze(1))
+        return {
+            "mean_absolute_calibration_error": torch.mean(err, dim=0),
+            "root_mean_squared_calibration_error": torch.sqrt(torch.mean((actual_props - expected_proportions.unsqueeze(1))**2, dim=0)),
+            "maximum_calibration_error": torch.max(err, dim=0)[0],
+        }
 
     quantiles = sorted(y_pred_quantiles.keys())
     expected_proportions = torch.tensor(quantiles, device=y_true.device)
@@ -52,9 +78,9 @@ def expected_calibration_error(
     max_ce = torch.max(abs_errors)
 
     result = {
-        "mean_absolute_calibration_error": mace.item(),
-        "root_mean_squared_calibration_error": rmsce.item(),
-        "maximum_calibration_error": max_ce.item(),
+        "mean_absolute_calibration_error": mace,
+        "root_mean_squared_calibration_error": rmsce,
+        "maximum_calibration_error": max_ce,
     }
 
     if return_diagnostics:
@@ -67,16 +93,16 @@ def expected_calibration_error(
             mask = bin_indices == i
             if torch.any(mask):
                 bin_error = torch.mean(abs_errors[mask])
-                bin_errors.append(bin_error.item())
+                bin_errors.append(bin_error)
             else:
-                bin_errors.append(0.0)
+                bin_errors.append(torch.tensor(0.0, device=y_true.device))
 
         # Add diagnostic information
         result.update(
             {
-                "bin_errors": bin_errors,
-                "expected_proportions": expected_proportions.tolist(),
-                "actual_proportions": actual_proportions.tolist(),
+                "bin_errors": torch.stack(bin_errors),
+                "expected_proportions": expected_proportions,
+                "actual_proportions": actual_proportions,
             }
         )
 
@@ -88,7 +114,8 @@ def marginal_calibration_error(
     y_true: Union[torch.Tensor, np.ndarray],
     n_bins: int = 20,
     return_diagnostics: bool = False,
-) -> Dict[str, Union[float, List]]:
+    per_output: bool = False,
+) -> Dict[str, torch.Tensor]:
     """
     Calculate Marginal Calibration Error (MCE) for probabilistic regression.
 
@@ -100,12 +127,48 @@ def marginal_calibration_error(
         y_true: Ground truth values [batch_size]
         n_bins: Number of bins for histogram
         return_diagnostics: Whether to return additional diagnostic information
+        per_output: Whether to calculate metrics per output feature
 
     Returns:
         Dictionary with calibration metrics
     """
     y_true = convert_to_tensor(y_true)
     y_pred_samples = convert_to_tensor(y_pred_samples)
+
+    if per_output:
+        # Per-feature marginal calibration error
+        if y_true.dim() == 1:
+            y_feat = y_true.unsqueeze(-1)
+        else:
+            y_feat = y_true
+        preds = y_pred_samples.unsqueeze(-1) if y_pred_samples.dim() == 2 else y_pred_samples
+        n_feat = preds.shape[-1]
+        results = {"marginal_calibration_error": [], "root_mean_squared_mce": [], "maximum_marginal_calibration_error": []}
+        for f in range(n_feat):
+            obs = y_feat[:, f]
+            samp = preds[:, :, f]
+            all_vals = torch.cat([obs, samp.view(-1)])
+            min_val, max_val = torch.min(all_vals), torch.max(all_vals)
+            # histogram edges
+            bin_edges = torch.linspace(min_val, max_val, n_bins + 1, device="cpu")
+            # obs CDF
+            obs_hist = torch.histogram(obs.cpu(), bin_edges)[0]
+            obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(obs))
+            # pred CDF
+            pred_cdfs = []
+            for i in range(samp.shape[0]):
+                p_hist = torch.histogram(samp[i].cpu(), bin_edges)[0]
+                pred_cdfs.append(torch.cumsum(p_hist, dim=0) / max(1, len(samp[i])))
+            pred_cdf_mean = torch.stack(pred_cdfs).mean(dim=0)
+            abs_err = torch.abs(obs_cdf - pred_cdf_mean)
+            mce_f = torch.mean(abs_err)
+            rmsce_f = torch.sqrt(torch.mean((obs_cdf - pred_cdf_mean) ** 2))
+            max_mce_f = torch.max(abs_err)
+            results["marginal_calibration_error"].append(mce_f)
+            results["root_mean_squared_mce"].append(rmsce_f)
+            results["maximum_marginal_calibration_error"].append(max_mce_f)
+        device = y_feat.device
+        return {k: torch.stack(v).to(device) for k, v in results.items()}
 
     # Calculate empirical CDFs
     # First, determine range from combined predictions and observations
@@ -154,19 +217,19 @@ def marginal_calibration_error(
         max_mce = max_mce.to(device)
 
     result = {
-        "marginal_calibration_error": mce.item(),
-        "root_mean_squared_mce": rmsce.item(),
-        "maximum_marginal_calibration_error": max_mce.item(),
+        "marginal_calibration_error": mce,
+        "root_mean_squared_mce": rmsce,
+        "maximum_marginal_calibration_error": max_mce,
     }
 
     if return_diagnostics:
         # Add diagnostic information
         result.update(
             {
-                "bin_centers": (bin_edges[:-1] + bin_edges[1:]).tolist(),
-                "observed_cdf": obs_cdf.tolist(),
-                "predicted_cdf": pred_cdf_mean.tolist(),
-                "abs_errors": abs_errors.tolist(),
+                "bin_centers": (bin_edges[:-1] + bin_edges[1:]),
+                "observed_cdf": obs_cdf,
+                "predicted_cdf": pred_cdf_mean,
+                "abs_errors": abs_errors,
             }
         )
 
@@ -180,7 +243,7 @@ def calibration_metrics_report(
     y_true: Union[torch.Tensor, np.ndarray],
     y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]] = None,
     quantile_levels: List[float] = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99],
-) -> Dict[str, float]:
+) -> Dict[str, torch.Tensor]:
     """
     Generate a comprehensive report on calibration quality.
 

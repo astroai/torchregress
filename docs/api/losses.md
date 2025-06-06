@@ -23,28 +23,10 @@ Base class for all loss functions in TorchRegression.
 - `forward(y_pred, target, **kwargs)`: Abstract method for computing the loss
 - `_reduce(loss, mask=None, weights=None)`: Applies reduction to the loss tensor
 
-### MaskedLoss
-
-```python
-class MaskedLoss(BaseLoss)
-```
-
-Base class for losses that support optional masking.
-
-**Parameters:**
-
-- `reduction` (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `_apply_mask(tensor, mask)`: Applies a boolean mask to a tensor
-- `_validate_inputs(y_pred, target, mask)`: Validates input shapes and compatibility
-- `_reduce_with_mask(loss, mask, weights)`: Applies reduction with masking
-
 ### RegressionLoss
 
 ```python
-class RegressionLoss(MaskedLoss)
+class RegressionLoss(BaseLoss)
 ```
 
 Base class for standard regression loss functions that operate on point predictions.
@@ -60,7 +42,7 @@ Base class for standard regression loss functions that operate on point predicti
 ### DistributionLoss
 
 ```python
-class DistributionLoss(MaskedLoss)
+class DistributionLoss(BaseLoss)
 ```
 
 Base class for losses that model full probability distributions.
@@ -95,7 +77,7 @@ Mean Absolute Error (L1) loss with support for masking and per-sample weights.
 ### BCELoss
 
 ```python
-class BCELoss(MaskedLoss)
+class BCELoss(BaseLoss)
 ```
 
 Binary Cross Entropy loss with support for masking, weighting, and positive class weighting.
@@ -105,7 +87,7 @@ Binary Cross Entropy loss with support for masking, weighting, and positive clas
 ### TorchLossWrapper
 
 ```python
-class TorchLossWrapper(MaskedLoss)
+class TorchLossWrapper(BaseLoss)
 ```
 
 Wrapper for PyTorch loss functions to add masking and weighting support.

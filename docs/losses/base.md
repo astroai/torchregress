@@ -8,9 +8,8 @@ TorchRegression implements a hierarchical structure of loss functions with the f
 
 ```
 BaseLoss
-└── MaskedLoss
-    ├── RegressionLoss
-    └── DistributionLoss
+├── RegressionLoss
+└── DistributionLoss
 ```
 
 ## BaseLoss
@@ -42,48 +41,10 @@ class CustomLoss(BaseLoss):
         return self._reduce(loss)
 ```
 
-## MaskedLoss
-
-```python
-class MaskedLoss(BaseLoss)
-```
-
-`MaskedLoss` extends BaseLoss with support for masking operations. Masks allow for ignoring specified elements during loss computation, which is useful for handling missing values, variable sequence lengths, or selective training.
-
-**Parameters:**
-
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `_apply_mask(tensor, mask)`: Applies a boolean mask to a tensor
-- `_validate_inputs(y_pred, target, mask)`: Validates shapes and compatibility of inputs
-- `_reduce_with_mask(loss, mask, weights)`: Applies reduction with masking
-
-**Example:**
-
-```python
-import torch
-import torchregress as tr
-
-# Create a masked loss
-loss_fn = tr.losses.MSELoss()  # Inherits from MaskedLoss
-
-# Tensor with missing values
-y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])
-target = torch.tensor([1.0, 3.0, 3.0, 5.0, 5.0])
-# Mask for ignoring specific elements (e.g., 2nd value)
-mask = torch.tensor([True, False, True, True, True])
-
-# Calculate loss with mask
-loss = loss_fn(y_pred, target, mask=mask)
-# This will ignore the 2nd element when computing the loss
-```
-
 ## RegressionLoss
 
 ```python
-class RegressionLoss(MaskedLoss)
+class RegressionLoss(BaseLoss)
 ```
 
 `RegressionLoss` is a base class specifically designed for standard regression loss functions that operate on point predictions.
@@ -112,7 +73,7 @@ loss = loss_fn(y_pred, target, weights=weights)
 ## DistributionLoss
 
 ```python
-class DistributionLoss(MaskedLoss)
+class DistributionLoss(BaseLoss)
 ```
 
 `DistributionLoss` serves as a base class for losses that model full probability distributions rather than just point predictions. These losses take distribution parameters as inputs and calculate proper scoring rules.
@@ -145,7 +106,7 @@ loss = loss_fn((mean, log_var), target)
 ## TorchLossWrapper
 
 ```python
-class TorchLossWrapper(MaskedLoss)
+class TorchLossWrapper(BaseLoss)
 ```
 
 `TorchLossWrapper` adapts standard PyTorch loss functions to TorchRegression's interface, adding support for masks and weights.
@@ -177,7 +138,7 @@ loss = wrapped_mse(y_pred, target, mask=mask)
 ## WeightedLossWrapper
 
 ```python
-class WeightedLossWrapper(MaskedLoss)
+class WeightedLossWrapper(BaseLoss)
 ```
 
 `WeightedLossWrapper` adapts standard PyTorch loss functions to TorchRegression's interface, adding support for masks and weights.

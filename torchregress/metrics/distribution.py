@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from typing import Union, Optional, Dict, List, Callable
 from torch.distributions import Distribution
-
+from torchregress.utils.histogram import histogram_bins
 from torchregress.metrics.utils import convert_to_tensor, apply_reduction, validate_inputs
 
 
@@ -15,7 +15,7 @@ def probability_integral_transform(
     y_true: Union[torch.Tensor, np.ndarray],
     n_bins: int = 20,
     return_histogram: bool = False,
-) -> Union[torch.Tensor, Dict[str, Union[torch.Tensor, np.ndarray]]]:
+) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
     """
     Calculate Probability Integral Transform (PIT) values and optionally their histogram.
 
@@ -36,35 +36,26 @@ def probability_integral_transform(
 
     # Optionally calculate histogram for uniformity assessment
     if return_histogram:
-        hist = torch.histogram(pit_values, bins=n_bins, range=(0, 1))
-        bin_counts = hist.hist
-        bin_edges = hist.bin_edges
+        counts, bin_edges = histogram_bins(pit_values, n_bins, range=(0,1))
+        bin_counts = counts
         # Normalize histogram
         normalized_counts = bin_counts / torch.sum(bin_counts) * n_bins
 
         return {
-            "pit_values": (
-                pit_values.cpu().numpy() if isinstance(y_true, np.ndarray) else pit_values
-            ),
-            "histogram_counts": (
-                normalized_counts.cpu().numpy()
-                if isinstance(y_true, np.ndarray)
-                else normalized_counts
-            ),
-            "bin_edges": bin_edges.cpu().numpy() if isinstance(y_true, np.ndarray) else bin_edges,
-            "uniformity_chi2": torch.sum(
-                (normalized_counts - 1.0) ** 2
-            ).item(),  # Chi-square statistic against uniformity
+            "pit_values": pit_values,
+            "histogram_counts": normalized_counts,
+            "bin_edges": bin_edges,
+            "uniformity_chi2": torch.sum((normalized_counts - 1.0) ** 2),
         }
 
-    return pit_values.cpu().numpy() if isinstance(y_true, np.ndarray) else pit_values
+    return pit_values
 
 
 def continuous_ranked_probability_score(
     y_pred_quantiles: Dict[float, Union[torch.Tensor, np.ndarray]],
     y_true: Union[torch.Tensor, np.ndarray],
     reduction: str = "mean",
-) -> Union[float, torch.Tensor]:
+) -> torch.Tensor:
     """
     Calculate Continuous Ranked Probability Score (CRPS) for probabilistic forecasts.
 
@@ -115,8 +106,7 @@ def continuous_ranked_probability_score(
         crps_values = crps_values + weights[i + 1] * quantile_loss
 
     # Apply reduction
-    result = apply_reduction(crps_values, reduction)
-    return result.item() if isinstance(y_true, np.ndarray) and reduction != "none" else result
+    return apply_reduction(crps_values, reduction)
 
 
 def energy_score(
@@ -125,7 +115,7 @@ def energy_score(
     beta: float = 1.0,
     reduction: str = "mean",
     max_pairs: Optional[int] = None,
-) -> Union[float, torch.Tensor]:
+) -> torch.Tensor:
     """
     Calculate Energy Score for multivariate probabilistic forecasts.
 
@@ -191,8 +181,7 @@ def energy_score(
     energy_scores = term1 - term2
 
     # Apply reduction
-    result = apply_reduction(energy_scores, reduction)
-    return result.item() if isinstance(y_true, np.ndarray) and reduction != "none" else result
+    return apply_reduction(energy_scores, reduction)
 
 
 def distribution_metrics_report(
@@ -201,7 +190,7 @@ def distribution_metrics_report(
     y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]] = None,
     samples: Optional[Union[torch.Tensor, np.ndarray]] = None,
     quantiles_to_check: List[float] = [0.1, 0.5, 0.9],
-) -> Dict[str, float]:
+) -> Dict[str, torch.Tensor]:
     """
     Generate a comprehensive report on distribution prediction quality.
 
@@ -224,7 +213,7 @@ def distribution_metrics_report(
 
     # If we have a distribution, compute likelihood metrics
     if distribution is not None:
-        metrics["log_prob"] = distribution.log_prob(y_true).mean().item()
+        metrics["log_prob"] = distribution.log_prob(y_true).mean()
 
         # Generate quantiles if not provided
         if y_pred_quantiles is None:

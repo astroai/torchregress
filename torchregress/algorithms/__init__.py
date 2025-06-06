@@ -12,7 +12,7 @@ from .irls import (
 )
 
 # Import weight functions from utils
-from ..utils.irls_utils import (
+from ..utils.irls import (
     huber_weights as _huber_weights,
     tukey_weights as _tukey_weights,
     power_weights as _power_weights,

@@ -16,7 +16,7 @@ from typing import Optional, Union, List
 
 from .base import RegressionLoss
 from ..utils.validation import validate_range, validate_quantile
-
+from ..utils.quantile import quantile_loss, multi_quantile_loss
 
 class QuantileLoss(RegressionLoss):
     """
@@ -79,16 +79,8 @@ class QuantileLoss(RegressionLoss):
         """
         self._validate_inputs(y_pred, target, mask)
 
-        # Calculate residuals
-        residuals = target - y_pred
-
-        # Calculate asymmetric absolute error
-        indicator = (residuals >= 0).float()
-        loss = torch.abs(residuals) * (
-            self.quantile * indicator + (1 - self.quantile) * (1 - indicator)
-        )
-
-        # Apply reduction with mask and weights
+        # Elementwise quantile loss via shared utility
+        loss = quantile_loss(y_pred, target, self.quantile)
         return self._reduce_with_mask(loss, mask, weights)
 
 
@@ -203,48 +195,9 @@ class MultiQuantileLoss(RegressionLoss):
                     f"of {self.num_quantiles} tensors"
                 )
 
-        # Calculate loss for each quantile level
-        losses = []
-        for i, q in enumerate(self.quantiles):
-            # Extract predictions for this quantile
-            level_preds = quantile_preds[:, i]
-
-            # Calculate residuals
-            residuals = target - level_preds
-
-            # Calculate asymmetric absolute error
-            indicator = (residuals >= 0).float()
-            level_loss = torch.abs(residuals) * (q * indicator + (1 - q) * (1 - indicator))
-
-            # Apply mask if provided
-            if mask is not None:
-                level_loss = level_loss * mask
-
-            # Apply sample weights if provided
-            if weights is not None:
-                level_loss = level_loss * weights
-
-            # Reduce across features
-            if n_features > 1:
-                level_loss = torch.mean(level_loss, dim=1)
-            else:
-                level_loss = level_loss.squeeze(1)
-
-            losses.append(level_loss)
-
-        # Stack losses for all quantile levels [batch_size, num_quantiles]
-        stacked_losses = torch.stack(losses, dim=1)
-
-        # Average across quantile levels for each sample
-        combined_loss = torch.mean(stacked_losses, dim=1)
-
-        # Apply final reduction
-        if self.reduction == "mean":
-            return torch.mean(combined_loss)
-        elif self.reduction == "sum":
-            return torch.sum(combined_loss)
-        else:  # 'none'
-            return combined_loss
+        # Elementwise multi-quantile loss via shared utility
+        loss = multi_quantile_loss(quantile_preds, target, self.quantiles)
+        return self._reduce_with_mask(loss, mask, weights)
 
 
 class QuantileCrossoverLoss(RegressionLoss):

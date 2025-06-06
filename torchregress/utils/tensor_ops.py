@@ -8,6 +8,7 @@ linear algebra operations.
 
 import torch
 import numpy as np
+import math
 from typing import Optional, Union, Tuple, List
 
 
@@ -720,38 +721,18 @@ def calculate_gaussian_nll(
         # Add log(2π) term
         nll = nll + 0.5 * residuals.shape[1] * torch.log(torch.tensor(2 * torch.pi))
     else:
-        # Full covariance case - use multivariate normal distribution
+        # Full covariance case - vectorized multivariate normal NLL
         batch_size, n_features = residuals.shape
-
-        # For numerical stability, ensure covariance is positive definite
-        var_stabilized = var + torch.eye(n_features, device=var.device) * eps
-
-        # Calculate log determinant and inverse for each batch element
-        logdet = torch.zeros(batch_size, device=var.device)
-        quad_term = torch.zeros(batch_size, device=var.device)
-
-        for i in range(batch_size):
-            # Use Cholesky decomposition for numerical stability
-            try:
-                L = torch.linalg.cholesky(var_stabilized[i])
-                logdet[i] = 2 * torch.sum(torch.log(torch.diagonal(L)))
-
-                # Solve linear system instead of calculating inverse
-                x_i = torch.cholesky_solve(residuals[i].unsqueeze(1), L).squeeze(1)
-                quad_term[i] = torch.dot(residuals[i], x_i)
-            except RuntimeError:
-                # Fallback to SVD if Cholesky fails
-                U, S, Vh = torch.linalg.svd(var_stabilized[i])
-                logdet[i] = torch.sum(torch.log(S))
-
-                # Use pseudo-inverse for numerical stability
-                S_inv = torch.where(S > eps, 1.0 / S, torch.zeros_like(S))
-                x_i = torch.matmul(
-                    Vh.t(), torch.matmul(torch.diag(S_inv), torch.matmul(U.t(), residuals[i]))
-                )
-                quad_term[i] = torch.dot(residuals[i], x_i)
-
-        nll = 0.5 * (logdet + quad_term + n_features * torch.log(torch.tensor(2 * torch.pi)))
+        # Stabilize and decompose covariance
+        var_stab = var + torch.eye(n_features, device=var.device) * eps
+        # Compute log-determinant
+        sign, logabsdet = torch.linalg.slogdet(var_stab)
+        # Invert covariance
+        inv_var = torch.inverse(var_stab)
+        # Compute quadratic term: r^T Σ^{-1} r
+        quad = torch.einsum('bi,bij,bj->b', residuals, inv_var, residuals)
+        # Combine terms
+        nll = 0.5 * (logabsdet + quad + n_features * math.log(2 * math.pi))
 
     return nll
 

@@ -8,6 +8,7 @@ from typing import Union, Optional, Dict, Tuple
 from torch.distributions import Normal
 
 from torchregress.metrics.utils import convert_to_tensor, apply_reduction, ensure_batch_dim
+from torchregress.utils.histogram import histogram_bins
 
 
 def mahalanobis_distance(
@@ -15,7 +16,7 @@ def mahalanobis_distance(
     mean: Union[torch.Tensor, np.ndarray],
     cov: Union[torch.Tensor, np.ndarray],
     reduction: str = "none",
-) -> Union[torch.Tensor, float]:
+) -> torch.Tensor:
     """
     Calculate Mahalanobis distance for OOD detection.
 
@@ -72,7 +73,7 @@ def typicality_score(
     x: Union[torch.Tensor, np.ndarray],
     n_samples: int = 100,
     reduction: str = "none",
-) -> Union[torch.Tensor, float]:
+) -> torch.Tensor:
     """
     Calculate typicality score for OOD detection using predictive uncertainty.
 
@@ -122,7 +123,7 @@ def typicality_score(
 
 def entropy_score(
     samples: Union[torch.Tensor, np.ndarray], n_bins: int = 10, reduction: str = "none"
-) -> Union[torch.Tensor, float]:
+) -> torch.Tensor:
     """
     Calculate entropy of predictive distribution for OOD detection.
 
@@ -153,9 +154,9 @@ def entropy_score(
             # Get samples for this instance and dimension
             inst_samples = samples[:, i, j]
 
-            # Calculate histogram
-            hist = torch.histogram(inst_samples, n_bins)
-            bin_counts = hist.hist
+            # Calculate histogram using shared utility
+            counts, _ = histogram_bins(inst_samples, n_bins)
+            bin_counts = counts
 
             # Calculate probabilities
             probs = bin_counts / n_samples
@@ -178,7 +179,7 @@ def kernel_density_score(
     x_reference: Union[torch.Tensor, np.ndarray],
     bandwidth: float = 1.0,
     reduction: str = "none",
-) -> Union[torch.Tensor, float]:
+) -> torch.Tensor:
     """
     Calculate kernel density score for OOD detection.
 
@@ -227,7 +228,7 @@ def ood_metrics_report(
     mean: Optional[Union[torch.Tensor, np.ndarray]] = None,
     cov: Optional[Union[torch.Tensor, np.ndarray]] = None,
     samples: Optional[Union[torch.Tensor, np.ndarray]] = None,
-) -> Dict[str, float]:
+) -> Dict[str, torch.Tensor]:
     """
     Generate a comprehensive report on OOD detection metrics.
 
@@ -248,22 +249,22 @@ def ood_metrics_report(
     if mean is not None and cov is not None and x_test is not None:
         metrics["mahalanobis_distance"] = mahalanobis_distance(
             x_test, mean, cov, reduction="mean"
-        ).item()
+        )
 
     # Calculate typicality score if model provided
     if model_output is not None and x_test is not None:
         metrics["typicality_score"] = typicality_score(
             model_output, x_test, reduction="mean"
-        ).item()
+        )
 
     # Calculate kernel density if reference data provided
     if x_reference is not None and x_test is not None:
         metrics["kernel_density"] = kernel_density_score(
             x_test, x_reference, reduction="mean"
-        ).item()
+        )
 
     # Calculate entropy if samples provided
     if samples is not None:
-        metrics["entropy"] = entropy_score(samples, reduction="mean").item()
+        metrics["entropy"] = entropy_score(samples, reduction="mean")
 
     return metrics

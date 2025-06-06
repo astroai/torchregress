@@ -54,3 +54,30 @@ from torchregress.metrics.ood import (
     kernel_density_score,
     ood_metrics_report,
 )
+
+# Multivariate metrics
+from torchregress.metrics.multivariate import (
+    multivariate_rmse,
+    multivariate_mae,
+)
+
+# Ensemble metrics
+from torchregress.metrics.ensemble import (
+    ensemble_statistics,
+    uncertainty_decomposition,
+    gaussian_nll_ensemble,
+    ensemble_interval_bounds,
+    ensemble_interval_metrics,
+)
+
+# Update __all__
+__all__ = []
+__all__.extend([
+    "multivariate_rmse",
+    "multivariate_mae",
+    'ensemble_statistics',
+    'uncertainty_decomposition',
+    'gaussian_nll_ensemble',
+    'ensemble_interval_bounds',
+    'ensemble_interval_metrics',
+])

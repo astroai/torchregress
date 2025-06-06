@@ -101,3 +101,47 @@ def validate_sample_weight(sample_weight: torch.Tensor, batch_size: int) -> torc
         raise ValueError("Sample weights must be non-negative")
 
     return sample_weight.reshape(-1)
+
+
+# TorchMetrics compatibility and metric composition utilities
+try:
+    import torchmetrics
+    from torchmetrics import Metric
+except ImportError:
+    Metric = None
+
+
+def torchmetrics_available() -> bool:
+    """Check if torchmetrics is installed."""
+    return Metric is not None
+
+
+def compose_metrics(
+    preds: Union[torch.Tensor, np.ndarray],
+    targets: Union[torch.Tensor, np.ndarray],
+    metrics: Dict[str, Callable],
+    sample_weight: Optional[torch.Tensor] = None,
+    as_numpy: bool = False,
+) -> Dict[str, Union[torch.Tensor, float, np.ndarray]]:
+    """
+    Compose multiple metric functions into a single report.
+    Args:
+        preds: Predictions
+        targets: Ground truth values
+        metrics: Mapping from metric name to metric function
+        sample_weight: Optional sample weights
+        as_numpy: Whether to convert results to numpy arrays
+    Returns:
+        Dictionary of metric results
+    """
+    results: Dict[str, Union[torch.Tensor, float, np.ndarray]] = {}
+    for name, fn in metrics.items():
+        try:
+            if sample_weight is not None:
+                val = fn(preds, targets, sample_weight=sample_weight)
+            else:
+                val = fn(preds, targets)
+        except TypeError:
+            val = fn(preds, targets)
+        results[name] = create_metric_result(val, as_numpy)
+    return results

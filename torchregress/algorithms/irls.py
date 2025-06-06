@@ -43,7 +43,7 @@ except ImportError:
 from ..losses.base import WeightedHuberLoss, WeightedL1Loss, WeightedGaussianNLLLoss, WeightedMSELoss
 from ..losses.robust import TukeyBiweightLoss
 from ..losses.gaussian import HeteroscedasticGaussianLoss, MultivariateGaussianLoss
-from ..utils.irls_utils import (
+from ..utils.irls import (
     huber_weights,
     tukey_weights,
     power_weights,

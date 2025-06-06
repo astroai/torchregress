@@ -47,6 +47,13 @@ from .gaussian import (
     create_gaussian_nll,
 )
 
+# Target transform losses
+from .target_transform import (
+    LogTransformLoss,
+    BoxCoxTransformLoss,
+    SqrtTransformLoss,
+)
+
 # Robust losses
 from .robust import (
     PseudoHuberLoss,
@@ -61,6 +68,12 @@ from .robust import (
     FairLoss,
     CauchyLoss,
 )
+
+# Family-based regression losses
+from .sqr import SQRLoss
+from .barron import BarronLoss
+from .conformal import ConformalLoss
+from .deepar import DeepARLoss
 
 # Poisson losses
 from .poisson import (
@@ -118,6 +131,11 @@ __all__ = [
     "MultivariateGaussianLoss",
     "create_gaussian_nll",
     
+    # Target transformations
+    "LogTransformLoss",
+    "BoxCoxTransformLoss",
+    "SqrtTransformLoss",
+    
     # Robust losses
     "PseudoHuberLoss",
     "LogCoshLoss",
@@ -130,6 +148,12 @@ __all__ = [
     "ClippedLoss",
     "FairLoss",
     "CauchyLoss",
+    
+    # Family-based regression losses
+    "SQRLoss",
+    "BarronLoss",
+    "ConformalLoss",
+    "DeepARLoss",
     
     # Poisson losses
     "PoissonDevianceLoss",

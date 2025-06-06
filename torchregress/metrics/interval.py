@@ -15,7 +15,7 @@ def interval_score(
     y_true: Union[torch.Tensor, np.ndarray],
     alpha: float = 0.1,
     reduction: str = "mean",
-) -> Union[Dict[str, Union[float, torch.Tensor]], torch.Tensor]:
+) -> Union[Dict[str, Union[torch.Tensor]], torch.Tensor]:
     """
     Calculate prediction interval score (Winkler score).
 
@@ -60,17 +60,16 @@ def interval_score(
 
     if reduction == "full":
         return {
-            "score": torch.mean(score).item(),
-            "mean_width": torch.mean(interval_width).item(),
-            "mean_coverage": torch.mean(coverage).item(),
-            "expected_coverage": 1 - alpha,
-            "coverage_error": torch.abs(torch.mean(coverage) - (1 - alpha)).item(),
-            "penalty_below": torch.mean(below_lower).item(),
-            "penalty_above": torch.mean(above_upper).item(),
+            "score": torch.mean(score),
+            "mean_width": torch.mean(interval_width),
+            "mean_coverage": torch.mean(coverage),
+            "expected_coverage": torch.tensor(1 - alpha),
+            "coverage_error": torch.abs(torch.mean(coverage) - torch.tensor(1 - alpha)),
+            "penalty_below": torch.mean(below_lower),
+            "penalty_above": torch.mean(above_upper),
         }
     else:
-        result = apply_reduction(score, reduction)
-        return result.item() if isinstance(y_true, np.ndarray) and reduction != "none" else result
+        return apply_reduction(score, reduction)
 
 
 def prediction_interval_coverage_probability(
@@ -79,7 +78,7 @@ def prediction_interval_coverage_probability(
     y_true: Union[torch.Tensor, np.ndarray],
     expected_coverage: float = 0.9,
     return_diagnostics: bool = False,
-) -> Union[float, Dict[str, float]]:
+) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
     """
     Calculate Prediction Interval Coverage Probability (PICP) and related metrics.
 
@@ -104,7 +103,7 @@ def prediction_interval_coverage_probability(
     observed_coverage = torch.mean(coverage)
 
     if not return_diagnostics:
-        return observed_coverage.item()
+        return observed_coverage
 
     # Calculate Mean Prediction Interval Width (MPIW)
     interval_width = upper_bound - lower_bound
@@ -115,21 +114,21 @@ def prediction_interval_coverage_probability(
     nmpiw = mpiw / range_y
 
     # Calculate Coverage Error
-    coverage_error = torch.abs(observed_coverage - expected_coverage)
+    coverage_error = torch.abs(observed_coverage - torch.tensor(expected_coverage))
 
     # Calculate miss rates on both sides
     too_low = (y_true < lower_bound).float().mean()
     too_high = (y_true > upper_bound).float().mean()
 
     return {
-        "picp": observed_coverage.item(),
-        "expected_coverage": expected_coverage,
-        "coverage_error": coverage_error.item(),
-        "mpiw": mpiw.item(),
-        "nmpiw": nmpiw.item(),
-        "miss_rate_low": too_low.item(),
-        "miss_rate_high": too_high.item(),
-        "miss_rate_ratio": (too_high / too_low).item() if too_low > 0 else float("inf"),
+        "picp": observed_coverage,
+        "expected_coverage": torch.tensor(expected_coverage),
+        "coverage_error": coverage_error,
+        "mpiw": mpiw,
+        "nmpiw": nmpiw,
+        "miss_rate_low": too_low,
+        "miss_rate_high": too_high,
+        "miss_rate_ratio": too_high / too_low,
     }
 
 
@@ -137,7 +136,7 @@ def interval_metrics_report(
     predictions: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]],
     y_true: Union[torch.Tensor, np.ndarray],
     alpha: float = 0.1,
-) -> Dict[str, Dict[str, float]]:
+) -> Dict[str, Dict[str, torch.Tensor]]:
     """
     Generate a comprehensive report on prediction interval quality for multiple models.
 

@@ -10,12 +10,13 @@ integration with PyTorch regression models.
 import torch
 import torch.nn.functional as F
 import numpy as np
+from torchregress.metrics.utils import convert_to_tensor
 from typing import Optional, Union, Tuple, List, Dict
 
 # Basic encoding/decoding functions
 
 
-def encode_onehot(labels: torch.Tensor, num_classes: Optional[int] = None) -> torch.Tensor:
+def encode_onehot(labels: Union[torch.Tensor, np.ndarray], num_classes: Optional[int] = None) -> torch.Tensor:
     """
     Convert class indices to one-hot encodings.
 
@@ -30,6 +31,7 @@ def encode_onehot(labels: torch.Tensor, num_classes: Optional[int] = None) -> to
     Returns:
         One-hot encoded tensor of shape [..., num_classes]
     """
+    labels = convert_to_tensor(labels)
     if num_classes is None:
         num_classes = int(torch.max(labels).item()) + 1
 
@@ -48,7 +50,7 @@ def encode_onehot(labels: torch.Tensor, num_classes: Optional[int] = None) -> to
     return onehot.reshape(*shape, num_classes)
 
 
-def decode_onehot(onehot: torch.Tensor, dim: int = -1) -> torch.Tensor:
+def decode_onehot(onehot: Union[torch.Tensor, np.ndarray], dim: int = -1) -> torch.Tensor:
     """
     Convert one-hot encodings to class indices.
 
@@ -59,10 +61,11 @@ def decode_onehot(onehot: torch.Tensor, dim: int = -1) -> torch.Tensor:
     Returns:
         Class indices tensor
     """
+    onehot = convert_to_tensor(onehot)
     return torch.argmax(onehot, dim=dim)
 
 
-def label_smoothing(onehot: torch.Tensor, alpha: float = 0.1) -> torch.Tensor:
+def label_smoothing(onehot: Union[torch.Tensor, np.ndarray], alpha: float = 0.1) -> torch.Tensor:
     """
     Apply label smoothing to one-hot encoded labels.
 
@@ -77,11 +80,12 @@ def label_smoothing(onehot: torch.Tensor, alpha: float = 0.1) -> torch.Tensor:
     Returns:
         Smoothed labels tensor
     """
+    onehot = convert_to_tensor(onehot)
     num_classes = onehot.shape[-1]
     return (1.0 - alpha) * onehot + alpha / num_classes
 
 
-def soft_to_hard_labels(soft_labels: torch.Tensor, dim: int = -1) -> torch.Tensor:
+def soft_to_hard_labels(soft_labels: Union[torch.Tensor, np.ndarray], dim: int = -1) -> torch.Tensor:
     """
     Convert soft labels (probabilities) to hard labels (one-hot).
 
@@ -92,11 +96,12 @@ def soft_to_hard_labels(soft_labels: torch.Tensor, dim: int = -1) -> torch.Tenso
     Returns:
         One-hot encoded tensor
     """
+    soft_labels = convert_to_tensor(soft_labels)
     indices = torch.argmax(soft_labels, dim=dim)
     return F.one_hot(indices, num_classes=soft_labels.shape[dim]).float()
 
 
-def combine_binary_average(labels: torch.Tensor, dim: int = 0) -> torch.Tensor:
+def combine_binary_average(labels: Union[torch.Tensor, np.ndarray], dim: int = 0) -> torch.Tensor:
     """
     Simple averaging of binary labels from multiple annotators.
 
@@ -107,11 +112,12 @@ def combine_binary_average(labels: torch.Tensor, dim: int = 0) -> torch.Tensor:
     Returns:
         Average labels [samples]
     """
+    labels = convert_to_tensor(labels)
     return torch.mean(labels.float(), dim=dim)
 
 
 def combine_binary_weighted_average(
-    labels: torch.Tensor, weights: torch.Tensor, dim: int = 0
+    labels: Union[torch.Tensor, np.ndarray], weights: Union[torch.Tensor, np.ndarray], dim: int = 0
 ) -> torch.Tensor:
     """
     Weighted averaging of binary labels from multiple annotators.
@@ -124,6 +130,8 @@ def combine_binary_weighted_average(
     Returns:
         Weighted average labels [samples]
     """
+    labels = convert_to_tensor(labels)
+    weights = convert_to_tensor(weights)
     # Normalize weights
     norm_weights = weights / torch.sum(weights)
 
@@ -138,12 +146,12 @@ def combine_binary_weighted_average(
 
 
 def combine_dawid_skene(
-    annotations: torch.Tensor,
+    annotations: Union[torch.Tensor, np.ndarray],
     num_classes: int,
     max_iter: int = 100,
     tol: float = 1e-6,
-    init_pi: Optional[torch.Tensor] = None,
-    init_confusion: Optional[torch.Tensor] = None,
+    init_pi: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    init_confusion: Optional[Union[torch.Tensor, np.ndarray]] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Implements the Dawid-Skene model for aggregating annotations from multiple annotators.
@@ -176,6 +184,13 @@ def combine_dawid_skene(
             - q_z (torch.Tensor):  Estimated posterior probabilities of the true labels
               (num_samples, num_classes).
     """
+    annotations = convert_to_tensor(annotations)
+    if not annotations.dtype.is_integer:
+        annotations = annotations.long()
+    if init_pi is not None:
+        init_pi = convert_to_tensor(init_pi)
+    if init_confusion is not None:
+        init_confusion = convert_to_tensor(init_confusion)
     if not isinstance(annotations, torch.Tensor):
         raise TypeError("annotations must be a torch.Tensor")
     if annotations.dim() != 2:
@@ -311,9 +326,9 @@ def combine_dawid_skene(
 
 
 def combine_continuous_blue_with_scaling(
-    estimates: torch.Tensor,
-    covariance_matrix: Optional[torch.Tensor] = None,
-    variances: Optional[torch.Tensor] = None,
+    estimates: Union[torch.Tensor, np.ndarray],
+    covariance_matrix: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    variances: Optional[Union[torch.Tensor, np.ndarray]] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Combines continuous estimates using Best Linear Unbiased Estimator (BLUE), scaling uncertainty if inconsistent.
@@ -334,6 +349,11 @@ def combine_continuous_blue_with_scaling(
             - scaled_variance: Tensor of shape (num_samples,) containing the scaled variances.
             - scale_factor: Scalar tensor containing the scaling factor.
     """
+    estimates = convert_to_tensor(estimates)
+    if covariance_matrix is not None:
+        covariance_matrix = convert_to_tensor(covariance_matrix)
+    if variances is not None:
+        variances = convert_to_tensor(variances)
     if estimates.ndim != 2:
         raise ValueError("estimates must be a 2D tensor (num_samples, num_estimators)")
 
@@ -431,7 +451,7 @@ def combine_continuous_blue_with_scaling(
 
 
 def combine_continuous_simple(
-    labels: torch.Tensor, method: str = "mean", mask: Optional[torch.Tensor] = None
+    labels: Union[torch.Tensor, np.ndarray], method: str = "mean", mask: Optional[torch.Tensor] = None
 ) -> torch.Tensor:
     """
     Combines continuous labels using simple aggregation methods.
@@ -446,6 +466,7 @@ def combine_continuous_simple(
     Returns:
         Tensor of shape (num_samples,) containing the combined labels.
     """
+    labels = convert_to_tensor(labels)
     if labels.ndim != 2:
         raise ValueError(f"labels must be a 2D tensor, got shape {labels.shape}")
 
@@ -474,7 +495,7 @@ def combine_continuous_simple(
 
 
 def combine_continuous_trimmed_mean(
-    labels: torch.Tensor, trim_percentage: float = 0.2, mask: Optional[torch.Tensor] = None
+    labels: Union[torch.Tensor, np.ndarray], trim_percentage: float = 0.2, mask: Optional[torch.Tensor] = None
 ) -> torch.Tensor:
     """
     Combines continuous labels using trimmed mean (removing extreme values).
@@ -488,6 +509,7 @@ def combine_continuous_trimmed_mean(
     Returns:
         Tensor of shape (num_samples,) containing the trimmed mean labels.
     """
+    labels = convert_to_tensor(labels)
     if not 0.0 <= trim_percentage < 0.5:
         raise ValueError(f"trim_percentage must be between 0.0 and 0.5, got {trim_percentage}")
 
@@ -532,8 +554,8 @@ def combine_continuous_trimmed_mean(
 
 
 def combine_continuous_robust_blue(
-    estimates: torch.Tensor,
-    initial_variances: Optional[torch.Tensor] = None,
+    estimates: Union[torch.Tensor, np.ndarray],
+    initial_variances: Optional[Union[torch.Tensor, np.ndarray]] = None,
     huber_threshold: float = 1.345,
     max_iter: int = 3,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -551,6 +573,7 @@ def combine_continuous_robust_blue(
     Returns:
         Tuple: (combined_estimate, estimated_variance)
     """
+    estimates = convert_to_tensor(estimates)
     num_samples, num_estimators = estimates.shape
     device = estimates.device
 
@@ -601,8 +624,8 @@ def combine_continuous_robust_blue(
 
 
 def combine_continuous_bayesian(
-    estimates: torch.Tensor,
-    variances: Optional[torch.Tensor] = None,
+    estimates: Union[torch.Tensor, np.ndarray],
+    variances: Optional[Union[torch.Tensor, np.ndarray]] = None,
     prior_mean: Optional[float] = None,
     prior_var: Optional[float] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -619,6 +642,7 @@ def combine_continuous_bayesian(
     Returns:
         Tuple: (posterior_mean, posterior_variance)
     """
+    estimates = convert_to_tensor(estimates)
     num_samples, num_estimators = estimates.shape
     device = estimates.device
 

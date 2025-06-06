@@ -68,7 +68,8 @@ class BaseEnsembleModel(nn.Module):
             x: Input tensor [batch_size, ...]
 
         Returns:
-            Dictionary with mean and variance of predictions
+            Dictionary with mean and variance of predictions.
+            For full-output covariance across targets, use `predict_full_covariance`.
         """
         with torch.no_grad():
             # Get predictions from all ensemble members
@@ -98,3 +99,26 @@ class BaseEnsembleModel(nn.Module):
         with torch.no_grad():
             # For standard ensemble, this is the same as predict
             return self.predict(x)
+
+    def predict_full_covariance(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """
+        Make prediction with full-output covariance estimation.
+
+        Args:
+            x: Input tensor [batch_size, ...]
+
+        Returns:
+            Dictionary with:
+                - 'mean': [batch_size, output_dim]
+                - 'covariance': [batch_size, output_dim, output_dim]
+        """
+        with torch.no_grad():
+            preds = self.forward(x)
+            stacked = torch.stack(preds)  # [ensemble_size, batch, dim]
+            mean = torch.mean(stacked, dim=0)
+            # Compute sample covariance across ensemble members
+            # stacked => [M, B, D] -> [B, M, D]
+            p = stacked.permute(1, 0, 2)
+            p_centered = p - mean.unsqueeze(1)
+            cov = torch.einsum('bmd,bnd->bmn', p_centered, p_centered) / (self.ensemble_size - 1)
+            return {"mean": mean, "covariance": cov}

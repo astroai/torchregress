@@ -5,62 +5,9 @@ Point prediction metrics for regression evaluation.
 import torch
 import numpy as np
 from typing import Union, Optional, Dict, Callable
-import torchmetrics.functional as tmf
+from torchmetrics import MeanSquaredError, MeanAbsoluteError, R2Score, ExplainedVariance, MeanAbsolutePercentageError, MeanSquaredLogError
 
 from torchregress.metrics.utils import convert_to_tensor, validate_inputs, validate_sample_weight
-
-
-class PointMetric:
-    """Base class for point metrics to simplify implementation."""
-
-    def __init__(self, torchmetrics_fn: Optional[Callable] = None):
-        self.torchmetrics_fn = torchmetrics_fn
-
-    def __call__(
-        self,
-        y_pred: Union[torch.Tensor, np.ndarray],
-        y_true: Union[torch.Tensor, np.ndarray],
-        sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
-        multioutput: str = "uniform_average",
-    ) -> Union[float, np.ndarray]:
-        """Calculate metric value."""
-        y_pred = convert_to_tensor(y_pred)
-        y_true = convert_to_tensor(y_true)
-        validate_inputs(y_pred, y_true)
-
-        if self.torchmetrics_fn is None:
-            raise NotImplementedError(
-                "Subclasses must implement this method or provide torchmetrics_fn"
-            )
-
-        # Use torchmetrics implementation
-        if multioutput == "raw_values" and y_true.ndim > 1 and y_true.shape[1] > 1:
-            result = torch.zeros(y_true.shape[1])
-            for i in range(y_true.shape[1]):
-                if sample_weight is not None:
-                    sw = convert_to_tensor(sample_weight)
-                    sw = validate_sample_weight(sw, y_pred.shape[0])
-                    result[i] = self.torchmetrics_fn(y_pred[:, i], y_true[:, i], sample_weights=sw)
-                else:
-                    result[i] = self.torchmetrics_fn(y_pred[:, i], y_true[:, i])
-            return result.cpu().numpy() if isinstance(y_true, np.ndarray) else result
-        else:
-            if sample_weight is not None:
-                sw = convert_to_tensor(sample_weight)
-                sw = validate_sample_weight(sw, y_pred.shape[0])
-                result = self.torchmetrics_fn(y_pred, y_true, sample_weights=sw)
-            else:
-                result = self.torchmetrics_fn(y_pred, y_true)
-            return result.item() if isinstance(y_true, np.ndarray) else result
-
-
-# Define point metrics using the base class
-mean_squared_error = PointMetric(torchmetrics_fn=tmf.mean_squared_error)
-mean_absolute_error = PointMetric(torchmetrics_fn=tmf.mean_absolute_error)
-r2_score = PointMetric(torchmetrics_fn=tmf.r2_score)
-explained_variance_score = PointMetric(torchmetrics_fn=tmf.explained_variance)
-mean_absolute_percentage_error = PointMetric(torchmetrics_fn=tmf.mean_absolute_percentage_error)
-mean_squared_log_error = PointMetric(torchmetrics_fn=tmf.mean_squared_log_error)
 
 
 def median_absolute_error(
@@ -124,7 +71,7 @@ def normalized_rmse(
     validate_inputs(y_pred, y_true)
 
     # Calculate RMSE using torchmetrics
-    rmse = torch.sqrt(tmf.mean_squared_error(y_pred, y_true))
+    rmse = torch.sqrt(MeanSquaredError()(y_pred, y_true))
 
     # Normalize based on specified method
     if normalization == "std":
@@ -403,17 +350,17 @@ def regression_metrics_report(
     metrics = {}
 
     # Calculate basic metrics
-    metrics["mse"] = mean_squared_error(y_pred, y_true, sample_weight)
+    metrics["mse"] = MeanSquaredError()(y_pred, y_true)
     metrics["rmse"] = torch.sqrt(torch.tensor(metrics["mse"])).item()
-    metrics["mae"] = mean_absolute_error(y_pred, y_true, sample_weight)
-    metrics["r2"] = r2_score(y_pred, y_true, sample_weight)
-    metrics["explained_var"] = explained_variance_score(y_pred, y_true, sample_weight)
+    metrics["mae"] = MeanAbsoluteError()(y_pred, y_true)
+    metrics["r2"] = R2Score()(y_pred, y_true)
+    metrics["explained_var"] = ExplainedVariance()(y_pred, y_true)
     metrics["median_ae"] = median_absolute_error(y_pred, y_true)
 
     # Only include MAPE and MSLE if data is suitable
     if torch.all(y_true > 0) and torch.all(y_pred > 0):
-        metrics["mape"] = mean_absolute_percentage_error(y_pred, y_true, sample_weight)
-        metrics["msle"] = mean_squared_log_error(y_pred, y_true, sample_weight)
+        metrics["mape"] = MeanAbsolutePercentageError()(y_pred, y_true)
+        metrics["msle"] = MeanSquaredLogError()(y_pred, y_true)
 
     # Add normalized RMSE variants
     for norm in ["std", "range", "mean", "iqr"]:
@@ -449,3 +396,11 @@ def regression_metrics_report(
         metrics["outlier_fraction_10pct"] = outlier_fraction(y_pred, y_true, threshold=0.10)
 
     return metrics
+
+# Define point metrics as TorchMetrics instances
+mean_squared_error = MeanSquaredError()
+mean_absolute_error = MeanAbsoluteError()
+r2_score = R2Score()
+explained_variance_score = ExplainedVariance()
+mean_absolute_percentage_error = MeanAbsolutePercentageError()
+mean_squared_log_error = MeanSquaredLogError()

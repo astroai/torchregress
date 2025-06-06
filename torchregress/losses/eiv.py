@@ -299,15 +299,14 @@ class FunctionalEIVLoss(BaseEIVLoss):
         mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Monte Carlo implementation of variance propagation"""
-        # Sample multiple inputs around observed values
-        perturbed_samples = generate_perturbed_samples(
-            x_obs, sigma_x_tensor, self.n_samples, perturb_method="gaussian"
-        )
-
-        # Stack samples [n_samples, batch_size, n_features_x]
-        x_samples = torch.stack(perturbed_samples)
-
-        # Reshape for batch processing
+        # Vectorized sampling around observed values
+        if sigma_x_tensor.ndim <= 1:
+            noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device) * sigma_x_tensor.view(1,1,n_features_x)
+        else:
+            chol = torch.linalg.cholesky(sigma_x_tensor + torch.eye(n_features_x, device=device) * self.eps)
+            base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device)
+            noise = base_noise @ chol.T
+        x_samples = x_obs.unsqueeze(0) + noise
         x_flat = x_samples.reshape(-1, n_features_x)
 
         # Forward pass for all samples
@@ -331,12 +330,8 @@ class FunctionalEIVLoss(BaseEIVLoss):
         # Calculate covariance
         y_centered = y_preds - mean_pred.unsqueeze(0)  # [n_samples, batch_size, n_features_y]
 
-        # Efficient batch covariance calculation
-        batch_cov = torch.zeros(batch_size, n_features_y, n_features_y, device=device)
-        for i in range(batch_size):
-            # Sample covariance for each batch element
-            sample_cov = torch.mm(y_centered[:, i].t(), y_centered[:, i]) / (self.n_samples - 1)
-            batch_cov[i] = sample_cov
+        # Efficient vectorized batch covariance: [n_samples, batch_size, n_features_y]
+        batch_cov = torch.einsum('sbi,sbj->bij', y_centered, y_centered) / (self.n_samples - 1)
 
         # Add intrinsic output noise if provided
         if sigma_y_tensor is not None:
