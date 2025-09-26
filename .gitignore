@@ -59,3 +59,69 @@ lightning_logs/
 data/
 output/
 results/
+
+# Build system artifacts
+site/
+*.html
+*.css
+*.js
+
+# Documentation build artifacts
+docs/_build/
+docs/api/
+docs/assets/
+
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+
+# MyPy cache
+.mypy_cache/
+
+# Ruff cache
+.ruff_cache/
+
+# Black cache
+.black_cache/
+
+# UV cache and lock files
+.uv-cache/
+uv.lock
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor backup files
+*~
+*.bak
+*.orig
+*.rej
+
+# MkDocs generated files
+site/
+
+# Python profiling
+*.prof
+
+# TorchRegress specific
+*.model
+*.weights
+*.checkpoint
+
+# Package build artifacts
+torchregress.egg-info/

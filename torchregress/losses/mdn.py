@@ -5,9 +5,10 @@ This module provides loss functions for Mixture Density Networks,
 which model outputs as mixtures of Gaussian distributions.
 """
 
+import math
+
 import torch
 import torch.nn.functional as F
-import math
 
 from .base import DistributionLoss
 
@@ -215,8 +216,8 @@ class MixtureDensityLoss(DistributionLoss):
         # Calculate residuals: (y - μ)
         residuals = target_expanded - means  # [..., n_components, n_features]
 
-        batch_dims = residuals.dim() - 2  # Exclude component and feature dimensions
-        batch_shape = residuals.shape[:-2]
+        residuals.dim() - 2  # Exclude component and feature dimensions
+        residuals.shape[:-2]
 
         log_probs = []
 

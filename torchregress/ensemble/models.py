@@ -5,9 +5,10 @@ This module provides concrete implementations of ensemble models
 for regression tasks with uncertainty estimation.
 """
 
+from typing import Any, Dict, List, Optional
+
 import torch
 import torch.nn as nn
-from typing import List, Dict, Optional, Any
 import torch.utils.data
 
 from .base import BaseEnsembleModel
@@ -109,17 +110,19 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             # Epistemic covariance: variance of means
             p = stacked_means.permute(1, 0, 2)  # [B, M, D]
             p_centered = p - mean.unsqueeze(1)
-            epi_cov = torch.einsum('bmd,bnd->bmn', p_centered, p_centered) / (self.ensemble_size - 1)
+            epi_cov = torch.einsum("bmd,bnd->bmn", p_centered, p_centered) / (
+                self.ensemble_size - 1
+            )
             # Aleatoric covariance: mean of member variances as diagonal
             stacked_vars = torch.stack(vars_)  # [M, B, D]
             avg_vars = torch.mean(stacked_vars, dim=0)  # [B, D]
             ale_cov = torch.diag_embed(avg_vars)
             total_cov = epi_cov + ale_cov
             return {
-                'mean': mean,
-                'epistemic_covariance': epi_cov,
-                'aleatoric_covariance': ale_cov,
-                'total_covariance': total_cov,
+                "mean": mean,
+                "epistemic_covariance": epi_cov,
+                "aleatoric_covariance": ale_cov,
+                "total_covariance": total_cov,
             }
 
 

@@ -1,9 +1,11 @@
+from typing import Callable, Dict, Literal, Optional, Union
+
 import torch
 import torch.nn as nn
-from typing import Callable, Literal, Dict, Union, List, Optional
+
 from ..base import MaskedLoss
 from ..robust import HuberLoss, L1Loss
-from .eiv_utils import prepare_sigma, generate_perturbed_samples
+from .eiv_utils import prepare_sigma
 
 
 class RobustEIVLoss(MaskedLoss):
@@ -94,7 +96,7 @@ class RobustEIVLoss(MaskedLoss):
         """
         # Apply mask to ground truth
         y_true = self._apply_mask(y_true, mask)
-        batch_size = y_true.shape[0]
+        y_true.shape[0]
         device = x_obs.device
 
         # Prepare sigma_x parameter
@@ -377,7 +379,6 @@ def adversarial_variation(
         return gaussian_variation(x_batch, sigma_x, n_samples)
 
     batch_size, n_features = x_batch.shape
-    device = x_batch.device
 
     # Scale factor for noise magnitude
     if isinstance(sigma_x, (int, float)):

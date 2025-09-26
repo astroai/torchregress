@@ -6,8 +6,9 @@ the Chamfer distance, particularly useful for point cloud matching and
 when inputs have significant measurement error.
 """
 
+from typing import Callable, Optional, Union
+
 import torch
-from typing import Optional, Union, Callable
 
 from ..base import MaskedLoss
 from .eiv_utils import prepare_sigma

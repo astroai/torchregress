@@ -1,12 +1,15 @@
 """
 Ensemble forecasting metrics and uncertainty decomposition.
 """
-import torch
+
+from typing import Dict, Tuple, Union
+
 import numpy as np
-from typing import Union, Dict, Tuple
+import torch
 from torch.distributions import Normal
-from .utils import convert_to_tensor, apply_reduction
+
 from .interval import interval_score, prediction_interval_coverage_probability
+from .utils import apply_reduction, convert_to_tensor
 
 
 def ensemble_statistics(
@@ -52,10 +55,10 @@ def uncertainty_decomposition(
     aleatoric = torch.mean(vars_t, dim=dim)
     total = epistemic + aleatoric
     return {
-        'mean': mean,
-        'epistemic_uncertainty': epistemic,
-        'aleatoric_uncertainty': aleatoric,
-        'total_uncertainty': total,
+        "mean": mean,
+        "epistemic_uncertainty": epistemic,
+        "aleatoric_uncertainty": aleatoric,
+        "total_uncertainty": total,
     }
 
 
@@ -64,7 +67,7 @@ def gaussian_nll_ensemble(
     variances: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
     dim: int = 0,
-    reduction: str = 'mean',
+    reduction: str = "mean",
 ) -> torch.Tensor:
     """
     Compute Gaussian negative log-likelihood for ensemble forecasts.
@@ -81,8 +84,8 @@ def gaussian_nll_ensemble(
     """
     y = convert_to_tensor(y_true)
     stats = uncertainty_decomposition(means, variances, dim)
-    mean = stats['mean']
-    total_var = stats['total_uncertainty']
+    mean = stats["mean"]
+    total_var = stats["total_uncertainty"]
     total_var = torch.clamp(total_var, min=1e-6)
     diff2 = (y - mean) ** 2
     nll = 0.5 * (torch.log(2 * np.pi * total_var) + diff2 / total_var)
@@ -101,8 +104,8 @@ def ensemble_interval_bounds(
     Returns lower and upper bounds at level 1-alpha.
     """
     stats = uncertainty_decomposition(means, variances, dim)
-    mean = stats['mean']
-    total_var = torch.clamp(stats['total_uncertainty'], min=1e-6)
+    mean = stats["mean"]
+    total_var = torch.clamp(stats["total_uncertainty"], min=1e-6)
     sd = torch.sqrt(total_var)
     z = Normal(0, 1).icdf(torch.tensor(1 - alpha / 2, device=mean.device))
     lower = mean - z * sd
@@ -121,6 +124,6 @@ def ensemble_interval_metrics(
     """
     lower, upper = ensemble_interval_bounds(means, variances, alpha)
     y = convert_to_tensor(y_true)
-    score = interval_score(lower, upper, y, alpha, reduction='mean')
+    score = interval_score(lower, upper, y, alpha, reduction="mean")
     picp = prediction_interval_coverage_probability(lower, upper, y, expected_coverage=1 - alpha)
-    return {'interval_score': score, 'picp': picp}
+    return {"interval_score": score, "picp": picp}

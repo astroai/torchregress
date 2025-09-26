@@ -4,9 +4,9 @@ import torch.nn as nn
 
 from torchregress.losses.base import (
     BaseLoss,
+    DistributionLoss,
     MaskedLoss,
     RegressionLoss,
-    DistributionLoss,
     WeightedLossWrapper,
 )
 

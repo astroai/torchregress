@@ -1,11 +1,13 @@
-import torch
 import unittest
+
+import torch
 from torch.autograd import gradcheck
+
 from torchregress.losses.poisson import (
-    PoissonDevianceLoss,
-    ZeroInflatedPoissonNLLLoss,
     NegativeBinomialNLLLoss,
+    PoissonDevianceLoss,
     PoissonLikelihoodRatioLoss,
+    ZeroInflatedPoissonNLLLoss,
 )
 
 
@@ -43,8 +45,10 @@ class TestPoissonLosses(unittest.TestCase):
 
         # Additional extreme test cases
         self.neg_true = torch.ones_like(self.y_true) * -1  # Invalid negative counts
-        self.extreme_pi_logits = torch.tensor([[10.0, -10.0], [10.0, -10.0]], device=self.device)  # Extreme ZI probabilities
-        self.nan_pred = torch.full_like(self.y_pred, float('nan'))  # NaN predictions
+        self.extreme_pi_logits = torch.tensor(
+            [[10.0, -10.0], [10.0, -10.0]], device=self.device
+        )  # Extreme ZI probabilities
+        self.nan_pred = torch.full_like(self.y_pred, float("nan"))  # NaN predictions
 
     def test_poisson_deviance(self):
         loss_fn = PoissonDevianceLoss().to(self.device)
@@ -77,7 +81,7 @@ class TestPoissonLosses(unittest.TestCase):
         loss_large = loss_fn(self.y_true, self.large_pred)
         self.assertFalse(torch.isnan(loss_large).any())
         self.assertFalse(torch.isinf(loss_large).any())
-        
+
         # Test with negative targets (should raise error)
         with self.assertRaises(ValueError):
             loss_fn(self.neg_true, self.y_pred)
@@ -121,7 +125,7 @@ class TestPoissonLosses(unittest.TestCase):
         extreme_loss = loss_fn(self.det_y_true, self.det_y_pred, self.extreme_pi_logits)
         self.assertFalse(torch.isnan(extreme_loss).any())
         self.assertFalse(torch.isinf(extreme_loss).any())
-        
+
         # Test with large predictions
         large_loss = loss_fn(self.y_true, self.large_pred, pi_logits)
         self.assertFalse(torch.isnan(large_loss).any())
@@ -163,7 +167,7 @@ class TestPoissonLosses(unittest.TestCase):
         loss_small_theta = loss_fn(self.y_true, self.y_pred, theta=small_theta)
         self.assertFalse(torch.isnan(loss_small_theta).any())
         self.assertFalse(torch.isinf(loss_small_theta).any())
-        
+
         # Test with very large theta (approaching normal distribution)
         large_theta = 1e5
         loss_large_theta = loss_fn(self.y_true, self.y_pred, theta=large_theta)
@@ -357,7 +361,7 @@ class TestPoissonLosses(unittest.TestCase):
 
         # Test invalid reduction mode
         with self.assertRaises(ValueError):
-            invalid_loss_fn = PoissonDevianceLoss(reduction="invalid").to(self.device)
+            PoissonDevianceLoss(reduction="invalid").to(self.device)
 
     def test_stateful_properties(self):
         """Test stateful properties of loss functions."""
@@ -366,7 +370,9 @@ class TestPoissonLosses(unittest.TestCase):
         initial_theta = nb_loss_fn.log_theta.exp().clone()
 
         # Compute loss with gradients
-        y_pred_param = torch.rand(self.batch_size, self.n_features, device=self.device, requires_grad=True) * 5
+        y_pred_param = (
+            torch.rand(self.batch_size, self.n_features, device=self.device, requires_grad=True) * 5
+        )
         optimizer = torch.optim.SGD([nb_loss_fn.log_theta], lr=0.1)
         loss = nb_loss_fn(self.y_true, y_pred_param)
         loss.backward()
@@ -379,17 +385,17 @@ class TestPoissonLosses(unittest.TestCase):
         # Test learnable variance in PoissonDevianceLoss
         loss_fn_var = PoissonDevianceLoss(learn_variance=True).to(self.device)
         initial_variance = loss_fn_var.log_variance.exp().clone()
-        
+
         # Compute loss and update variance
         var_optimizer = torch.optim.SGD([loss_fn_var.log_variance], lr=0.1)
         var_loss = loss_fn_var(self.y_true, self.y_pred)
         var_loss.backward()
         var_optimizer.step()
-        
+
         # Verify log_variance has changed
         updated_variance = loss_fn_var.log_variance.exp()
         self.assertFalse(torch.allclose(initial_variance, updated_variance))
-        
+
         # Test that the variance parameter persists
         loss_fn_var2 = loss_fn_var  # Reference the same object
         self.assertTrue(torch.allclose(loss_fn_var2.log_variance, loss_fn_var.log_variance))
@@ -403,82 +409,79 @@ class TestPoissonLosses(unittest.TestCase):
         """Test that losses handle NaN inputs properly."""
         # For PoissonDevianceLoss
         dev_loss_fn = PoissonDevianceLoss().to(self.device)
-        
+
         # NaN targets should be masked by default
         mask = torch.ones_like(self.y_true, dtype=torch.bool)
         nan_target = self.y_true.clone()
-        nan_target[0, 0] = float('nan')
+        nan_target[0, 0] = float("nan")
         mask[0, 0] = False
-        
+
         loss = dev_loss_fn(nan_target, self.y_pred, mask)
         self.assertFalse(torch.isnan(loss).any())
-        
+
         # NegativeBinomialNLLLoss should handle edge cases
         nb_loss_fn = NegativeBinomialNLLLoss().to(self.device)
         theta = 1.0
-        
+
         # Test masking NaN values
         nb_loss = nb_loss_fn(nan_target, self.y_pred, mask, theta=theta)
         self.assertFalse(torch.isnan(nb_loss).any())
-        
+
         # ZeroInflatedPoissonNLLLoss should handle extreme probabilities
         zip_loss_fn = ZeroInflatedPoissonNLLLoss().to(self.device)
         pi_logits = torch.randn_like(self.y_pred)
-        
+
         # Set some extreme values in pi_logits
         pi_logits[0, 0] = 100.0  # Probability ≈ 1
         pi_logits[0, 1] = -100.0  # Probability ≈ 0
-        
+
         zip_loss = zip_loss_fn(self.y_true, self.y_pred, pi_logits)
         self.assertFalse(torch.isnan(zip_loss).any())
-        
+
         # NaN in mask should be treated as False
         nan_mask = self.mask.clone().float()
-        nan_mask[0, 0] = float('nan')
+        nan_mask[0, 0] = float("nan")
         nan_mask = nan_mask.bool()
-        
+
         # This should not raise error and not produce NaN loss
         try:
             loss_with_nan_mask = dev_loss_fn(self.y_true, self.y_pred, nan_mask)
             self.assertFalse(torch.isnan(loss_with_nan_mask).any())
         except:
             self.fail("Loss function failed with NaN in mask")
-    
+
     def test_numerical_gradients(self):
         """Test numerical gradient correctness using gradcheck."""
         # Prepare small tensors for gradcheck (which is computationally intensive)
         small_batch = 2
         small_features = 3
-        
-        y_true_small = torch.randint(1, 5, (small_batch, small_features), device=self.device).float()
-        y_pred_small = torch.rand(small_batch, small_features, device=self.device).requires_grad_(True) * 3 + 0.5
-        
+
+        y_true_small = torch.randint(
+            1, 5, (small_batch, small_features), device=self.device
+        ).float()
+        y_pred_small = (
+            torch.rand(small_batch, small_features, device=self.device).requires_grad_(True) * 3
+            + 0.5
+        )
+
         # PoissonDevianceLoss gradcheck
         def fn_deviance(pred):
-            return PoissonDevianceLoss(reduction='sum')(pred, y_true_small)
-        
+            return PoissonDevianceLoss(reduction="sum")(pred, y_true_small)
+
         gradcheck_result = gradcheck(
-            fn_deviance, 
-            y_pred_small, 
-            eps=1e-3, 
-            atol=1e-3, 
-            check_grad_dtypes=True
+            fn_deviance, y_pred_small, eps=1e-3, atol=1e-3, check_grad_dtypes=True
         )
         self.assertTrue(gradcheck_result)
-        
+
         # PoissonLikelihoodRatioLoss gradcheck
         def fn_likelihood_ratio(pred):
-            return PoissonLikelihoodRatioLoss(reduction='sum')(pred, y_true_small)
-        
+            return PoissonLikelihoodRatioLoss(reduction="sum")(pred, y_true_small)
+
         gradcheck_result = gradcheck(
-            fn_likelihood_ratio, 
-            y_pred_small, 
-            eps=1e-3, 
-            atol=1e-3, 
-            check_grad_dtypes=True
+            fn_likelihood_ratio, y_pred_small, eps=1e-3, atol=1e-3, check_grad_dtypes=True
         )
         self.assertTrue(gradcheck_result)
-        
+
         # For more complex losses, we'll do a simpler check
         # Testing gradient consistency for NegativeBinomialNLLLoss
         def check_grad_consistency(loss_fn, inputs, target):
@@ -487,67 +490,68 @@ class TestPoissonLosses(unittest.TestCase):
             loss1 = loss_fn(target, inputs)
             loss1.backward()
             grad1 = inputs.grad.clone()
-            
+
             inputs.grad.zero_()
             loss2 = loss_fn(target, inputs)
             loss2.backward()
             grad2 = inputs.grad.clone()
-            
+
             # Gradients should be identical for deterministic functions
             return torch.allclose(grad1, grad2)
-        
+
         # Test NegativeBinomialNLLLoss gradient consistency
         loss_fn = NegativeBinomialNLLLoss().to(self.device)
         inputs = torch.rand(small_batch, small_features, device=self.device, requires_grad=True)
         self.assertTrue(check_grad_consistency(loss_fn, inputs, y_true_small))
-    
+
     def test_double_backward(self):
         """Test second-order gradients (important for some optimization algorithms)."""
         small_batch = 2
         small_features = 3
-        
+
         y_true = torch.randint(1, 5, (small_batch, small_features), device=self.device).float()
-        y_pred = torch.rand(small_batch, small_features, device=self.device).requires_grad_(True) * 3 + 0.5
-        
+        y_pred = (
+            torch.rand(small_batch, small_features, device=self.device).requires_grad_(True) * 3
+            + 0.5
+        )
+
         # Test double backward for PoissonDevianceLoss
         loss_fn = PoissonDevianceLoss().to(self.device)
-        
+
         # First backward pass
         loss = loss_fn(y_true, y_pred)
         grad_outputs = torch.ones_like(loss)
         gradients = torch.autograd.grad(
             loss, y_pred, grad_outputs=grad_outputs, create_graph=True, retain_graph=True
         )[0]
-        
+
         # Second backward pass
         grad_sum = gradients.sum()
         second_grads = torch.autograd.grad(grad_sum, y_pred)
-        
+
         self.assertIsNotNone(second_grads[0])
         self.assertFalse(torch.isnan(second_grads[0]).any())
         self.assertFalse(torch.isinf(second_grads[0]).any())
-        
+
         # Also test NegativeBinomialNLLLoss with learn_theta
         nb_loss_fn = NegativeBinomialNLLLoss(learn_theta=True).to(self.device)
-        
+
         # First backward pass
         loss = nb_loss_fn(y_true, y_pred)
         grad_outputs = torch.ones_like(loss)
         gradients_pred = torch.autograd.grad(
             loss, y_pred, grad_outputs=grad_outputs, create_graph=True, retain_graph=True
         )[0]
-        
+
         # Second backward pass on prediction
         grad_sum = gradients_pred.sum()
-        second_grads_pred = torch.autograd.grad(
-            grad_sum, y_pred, retain_graph=True
-        )[0]
-        
+        second_grads_pred = torch.autograd.grad(grad_sum, y_pred, retain_graph=True)[0]
+
         # Second backward pass on log_theta
-        second_grads_theta = torch.autograd.grad(
-            grad_sum, nb_loss_fn.log_theta, retain_graph=True
-        )[0]
-        
+        second_grads_theta = torch.autograd.grad(grad_sum, nb_loss_fn.log_theta, retain_graph=True)[
+            0
+        ]
+
         self.assertIsNotNone(second_grads_pred)
         self.assertIsNotNone(second_grads_theta)
         self.assertFalse(torch.isnan(second_grads_pred).any())
@@ -556,32 +560,33 @@ class TestPoissonLosses(unittest.TestCase):
     def test_shape_mismatch(self):
         """Test error handling for shape mismatches."""
         wrong_shape = torch.rand(self.batch_size + 1, self.n_features, device=self.device)
-        
+
         # Test PoissonDevianceLoss
         dev_loss_fn = PoissonDevianceLoss().to(self.device)
         with self.assertRaises(ValueError):
             dev_loss_fn(self.y_true, wrong_shape)
-        
+
         # Test ZeroInflatedPoissonNLLLoss
         zip_loss_fn = ZeroInflatedPoissonNLLLoss().to(self.device)
         pi_logits = torch.randn_like(self.y_true)
         with self.assertRaises(ValueError):
             zip_loss_fn(self.y_true, wrong_shape, pi_logits)
-        
+
         # Test when pi_logits has wrong shape
         wrong_pi_shape = torch.randn(self.batch_size + 1, self.n_features, device=self.device)
         with self.assertRaises(ValueError):
             zip_loss_fn(self.y_true, self.y_pred, wrong_pi_shape)
-        
+
         # Test NegativeBinomialNLLLoss
         nb_loss_fn = NegativeBinomialNLLLoss().to(self.device)
         with self.assertRaises(ValueError):
             nb_loss_fn(self.y_true, wrong_shape)
-        
+
         # Test PoissonLikelihoodRatioLoss
         lr_loss_fn = PoissonLikelihoodRatioLoss().to(self.device)
         with self.assertRaises(ValueError):
             lr_loss_fn(self.y_true, wrong_shape)
+
 
 if __name__ == "__main__":
     unittest.main()

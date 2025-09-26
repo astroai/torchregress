@@ -2,17 +2,17 @@
 Mixture Density Network implementation for Errors-in-Variables regression.
 """
 
+from typing import Dict, List, Optional, Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, Dict, List
 
 from ..base import RegressionLoss
 from .eiv_utils import (
-    prepare_sigma,
-    compute_model_gradients,
-    prepare_model_input_for_gradients,
     generate_perturbed_samples,
+    prepare_model_input_for_gradients,
+    prepare_sigma,
 )
 
 
@@ -80,7 +80,7 @@ class MDNEIVLoss(RegressionLoss):
         y_pred = self._apply_mask(y_pred, mask)
 
         # Check input shapes
-        batch_size = y_true.shape[0]
+        y_true.shape[0]
         device = y_true.device
 
         # Verify MDN output size
@@ -168,7 +168,7 @@ class MDNEIVLoss(RegressionLoss):
 
         if sigma_x is not None:
             # Prepare input for gradient computation
-            x_grad = prepare_model_input_for_gradients(x_obs)
+            prepare_model_input_for_gradients(x_obs)
 
             # We'll need to implement a function to extract component means from MDN based on input
             # This is a simplified approximation - for a proper implementation, we would need
@@ -221,15 +221,13 @@ class MDNEIVLoss(RegressionLoss):
             samples_per_batch = self.mc_samples // n_batches
 
             # Storage for component-wise variance estimates
-            component_vars = torch.zeros(
-                (batch_size, self.num_components, self.n_features), device=device
-            )
+            torch.zeros((batch_size, self.num_components, self.n_features), device=device)
 
             # We need a model reference for this approach - without it, this is just illustrative
             for i in range(n_batches):
                 start_idx = i * samples_per_batch
                 end_idx = min((i + 1) * samples_per_batch, self.mc_samples)
-                batch_samples = perturbed_samples[start_idx:end_idx]
+                perturbed_samples[start_idx:end_idx]
 
                 # This is a placeholder - in practice we would need access to the MDN model
                 # to run forward passes on the perturbed samples and analyze component-wise variances
@@ -481,8 +479,7 @@ class MDNEIVModel(nn.Module):
         Returns:
             Dictionary with 'mean', 'variance', 'entropy'
         """
-        batch_size = x.shape[0]
-        device = x.device
+        x.shape[0]
 
         with torch.no_grad():
             # Get MDN parameters

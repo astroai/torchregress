@@ -5,12 +5,13 @@ API patterns, including parameter ordering, inheritance structure, and
 reduction behavior.
 """
 
-import inspect
 import importlib
+import inspect
 import pkgutil
+from typing import List, Type
+
 import pytest
 import torch
-from typing import List, Type
 
 # Import base classes
 from torchregress.losses.base import Loss, ReductionLoss
@@ -32,7 +33,9 @@ def get_all_loss_classes() -> List[Type[Loss]]:
 
     # Iterate through all modules in the losses package
     for _, module_name, _ in pkgutil.iter_modules(losses_pkg.__path__):
-        if module_name == "base" or module_name in skip_modules:  # Skip the base module and problematic modules
+        if (
+            module_name == "base" or module_name in skip_modules
+        ):  # Skip the base module and problematic modules
             continue
 
         try:
@@ -87,11 +90,11 @@ def test_reduction_behavior():
     y_true = torch.abs(torch.randn(10, 1))
 
     reduction_values = ["mean", "sum", "none"]
-    
+
     # List of classes that need special initialization and shouldn't be tested this way
     skip_classes = [
-        "BaseEIVLoss", 
-        "DistributionLoss", 
+        "BaseEIVLoss",
+        "DistributionLoss",
         "MaskedLoss",
         "FunctionalEIVLoss",
         "StructuralEIVLoss",
@@ -110,15 +113,15 @@ def test_reduction_behavior():
         "ZeroInflatedPoissonNLLLoss",
         "NegativeBinomialNLLLoss",
         "PoissonGaussianMixtureLoss",
-        "EnhancedPoissonGaussianMixtureLoss", 
+        "EnhancedPoissonGaussianMixtureLoss",
         "PoissonGaussianLikelihoodRatioLoss",
-        "QuantileCrossoverLoss"
+        "QuantileCrossoverLoss",
     ]
 
     for loss_class in get_all_loss_classes():
         if not issubclass(loss_class, ReductionLoss):
             continue
-            
+
         # Skip classes that need special initialization
         if loss_class.__name__ in skip_classes:
             continue

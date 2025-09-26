@@ -4,7 +4,7 @@ Transform utilities for regression tasks.
 
 import torch
 from torch import Tensor
-from typing import Optional
+
 
 def log_transform(x: Tensor, eps: float = 1e-6) -> Tensor:
     """
@@ -12,11 +12,13 @@ def log_transform(x: Tensor, eps: float = 1e-6) -> Tensor:
     """
     return torch.log(x + eps)
 
+
 def log_inverse(y: Tensor, eps: float = 1e-6) -> Tensor:
     """
     Inverse of log transform.
     """
     return torch.clamp(torch.exp(y) - eps, min=0.0)
+
 
 def boxcox_transform(x: Tensor, lam: float = 0.0, eps: float = 1e-6) -> Tensor:
     """
@@ -27,6 +29,7 @@ def boxcox_transform(x: Tensor, lam: float = 0.0, eps: float = 1e-6) -> Tensor:
         return torch.log(x_shift)
     return (torch.pow(x_shift, lam) - 1.0) / lam
 
+
 def boxcox_inverse(y: Tensor, lam: float = 0.0, eps: float = 1e-6) -> Tensor:
     """
     Inverse of Box-Cox transform.
@@ -35,11 +38,13 @@ def boxcox_inverse(y: Tensor, lam: float = 0.0, eps: float = 1e-6) -> Tensor:
         return torch.clamp(torch.exp(y) - eps, min=0.0)
     return torch.clamp((y * lam + 1.0).pow(1.0 / lam) - eps, min=0.0)
 
+
 def sqrt_transform(x: Tensor, eps: float = 1e-6) -> Tensor:
     """
     Apply square-root transform.
     """
     return torch.sqrt(x + eps)
+
 
 def sqrt_inverse(y: Tensor, eps: float = 1e-6) -> Tensor:
     """

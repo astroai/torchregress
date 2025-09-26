@@ -1,16 +1,17 @@
-import torch
 import pytest
+import torch
+
 from torchregress.losses import (
-    MSELoss,
-    MAELoss,
+    CauchyLoss,
+    ExpectileLoss,
     GaussianNLLLoss,
     HuberLoss,
-    PseudoHuberLoss,
     LogCoshLoss,
-    CauchyLoss,
-    QuantileLoss,
-    ExpectileLoss,
+    MAELoss,
+    MSELoss,
     PoissonLoss,
+    PseudoHuberLoss,
+    QuantileLoss,
     TweedieLoss,
     # Import other losses as needed
 )

@@ -5,10 +5,11 @@ This module provides foundation classes and abstractions for all ensemble techni
 in the torchregress library.
 """
 
+from copy import deepcopy
+from typing import Dict, Union
+
 import torch
 import torch.nn as nn
-from typing import Dict, Union
-from copy import deepcopy
 
 
 class BaseEnsembleModel(nn.Module):
@@ -120,5 +121,5 @@ class BaseEnsembleModel(nn.Module):
             # stacked => [M, B, D] -> [B, M, D]
             p = stacked.permute(1, 0, 2)
             p_centered = p - mean.unsqueeze(1)
-            cov = torch.einsum('bmd,bnd->bmn', p_centered, p_centered) / (self.ensemble_size - 1)
+            cov = torch.einsum("bmd,bnd->bmn", p_centered, p_centered) / (self.ensemble_size - 1)
             return {"mean": mean, "covariance": cov}

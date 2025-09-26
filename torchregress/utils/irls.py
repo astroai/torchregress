@@ -5,12 +5,12 @@ This module provides helper functions for implementing IRLS,
 including weighting functions, variance estimation, and data handling utilities.
 """
 
+import warnings
+from typing import Iterator, List, Optional, Tuple, Union
+
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset, IterableDataset
-
-import warnings
-from typing import Optional, Tuple, List, Union, Iterator
+from torch.utils.data import DataLoader, IterableDataset, TensorDataset
 
 # Get machine epsilon for numerical stability
 EPS = torch.finfo(torch.float32).eps

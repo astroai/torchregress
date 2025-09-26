@@ -6,16 +6,19 @@ regression tasks, including IRLS, Gaussian processes, and others.
 """
 
 # Import IRLS algorithm
-from .irls import (
-    iteratively_reweighted_least_squares,
-    IRLS,
-)
-
 # Import weight functions from utils
 from ..utils.irls import (
     huber_weights as _huber_weights,
-    tukey_weights as _tukey_weights,
+)
+from ..utils.irls import (
     power_weights as _power_weights,
+)
+from ..utils.irls import (
+    tukey_weights as _tukey_weights,
+)
+from .irls import (
+    IRLS,
+    iteratively_reweighted_least_squares,
 )
 
 # Convenience aliases

@@ -5,12 +5,13 @@ This module tests the functionality of the NormalizingFlowLoss class and the
 create_flow_loss factory function from the nflows.py module.
 """
 
-import pytest
-import torch
 from unittest.mock import patch
 
+import pytest
+import torch
+
 # Import the loss function
-from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_loss, ZUKO_AVAILABLE
+from torchregress.losses.nflows import ZUKO_AVAILABLE, NormalizingFlowLoss, create_flow_loss
 
 # Skip all tests if zuko is not available
 pytestmark = pytest.mark.skipif(not ZUKO_AVAILABLE, reason="zuko package is not installed")
@@ -292,7 +293,7 @@ def test_nflows_edge_cases():
     # Skip this test if ZUKO_AVAILABLE is False
     if not ZUKO_AVAILABLE:
         pytest.skip("zuko not available")
-        
+
     # For this test, we need a simple mock normalizing flow
     class MockFlow:
         def log_prob(self, x):
@@ -301,7 +302,7 @@ def test_nflows_edge_cases():
     mock_flow = MockFlow()
     # Create a properly initialized NormalizingFlowLoss
     loss_fn = NormalizingFlowLoss(n_features=1)
-    
+
     # Override the internal flow for testing
     loss_fn._flow = mock_flow
 
@@ -355,7 +356,6 @@ def test_nflows_edge_cases():
     """
 
 
-import torch
 import pytest
 from torch.autograd import gradcheck
 

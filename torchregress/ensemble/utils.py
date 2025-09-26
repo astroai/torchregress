@@ -6,8 +6,9 @@ ensemble implementations, including tools for prediction aggregation
 and uncertainty estimation.
 """
 
+from typing import Callable, Dict, List, Union
+
 import torch
-from typing import Callable, List, Dict, Union
 
 
 def run_ensemble_model(

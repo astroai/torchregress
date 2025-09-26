@@ -2,11 +2,12 @@
 Interval metrics for evaluating prediction intervals in regression.
 """
 
-import torch
-import numpy as np
-from typing import Union, Dict
+from typing import Dict, Union
 
-from torchregress.metrics.utils import convert_to_tensor, apply_reduction, validate_inputs
+import numpy as np
+import torch
+
+from torchregress.metrics.utils import apply_reduction, convert_to_tensor, validate_inputs
 
 
 def interval_score(

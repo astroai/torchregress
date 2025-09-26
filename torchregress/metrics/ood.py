@@ -2,12 +2,13 @@
 Out-of-distribution (OOD) detection metrics for regression models.
 """
 
-import torch
+from typing import Dict, Optional, Tuple, Union
+
 import numpy as np
-from typing import Union, Optional, Dict, Tuple
+import torch
 from torch.distributions import Normal
 
-from torchregress.metrics.utils import convert_to_tensor, apply_reduction, ensure_batch_dim
+from torchregress.metrics.utils import apply_reduction, convert_to_tensor, ensure_batch_dim
 from torchregress.utils.histogram import histogram_bins
 
 
@@ -198,8 +199,8 @@ def kernel_density_score(
     x_test = ensure_batch_dim(convert_to_tensor(x_test))
     x_reference = ensure_batch_dim(convert_to_tensor(x_reference))
 
-    batch_size = x_test.shape[0]
-    n_reference = x_reference.shape[0]
+    x_test.shape[0]
+    x_reference.shape[0]
 
     # Calculate pairwise distances efficiently
     # Expand dimensions for broadcasting
@@ -247,21 +248,15 @@ def ood_metrics_report(
 
     # Calculate Mahalanobis distance if mean and covariance provided
     if mean is not None and cov is not None and x_test is not None:
-        metrics["mahalanobis_distance"] = mahalanobis_distance(
-            x_test, mean, cov, reduction="mean"
-        )
+        metrics["mahalanobis_distance"] = mahalanobis_distance(x_test, mean, cov, reduction="mean")
 
     # Calculate typicality score if model provided
     if model_output is not None and x_test is not None:
-        metrics["typicality_score"] = typicality_score(
-            model_output, x_test, reduction="mean"
-        )
+        metrics["typicality_score"] = typicality_score(model_output, x_test, reduction="mean")
 
     # Calculate kernel density if reference data provided
     if x_reference is not None and x_test is not None:
-        metrics["kernel_density"] = kernel_density_score(
-            x_test, x_reference, reduction="mean"
-        )
+        metrics["kernel_density"] = kernel_density_score(x_test, x_reference, reduction="mean")
 
     # Calculate entropy if samples provided
     if samples is not None:

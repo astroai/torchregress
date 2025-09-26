@@ -2,12 +2,20 @@
 Point prediction metrics for regression evaluation.
 """
 
-import torch
-import numpy as np
-from typing import Union, Optional, Dict, Callable
-from torchmetrics import MeanSquaredError, MeanAbsoluteError, R2Score, ExplainedVariance, MeanAbsolutePercentageError, MeanSquaredLogError
+from typing import Dict, Optional, Union
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs, validate_sample_weight
+import numpy as np
+import torch
+from torchmetrics import (
+    ExplainedVariance,
+    MeanAbsoluteError,
+    MeanAbsolutePercentageError,
+    MeanSquaredError,
+    MeanSquaredLogError,
+    R2Score,
+)
+
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs
 
 
 def median_absolute_error(
@@ -396,6 +404,7 @@ def regression_metrics_report(
         metrics["outlier_fraction_10pct"] = outlier_fraction(y_pred, y_true, threshold=0.10)
 
     return metrics
+
 
 # Define point metrics as TorchMetrics instances
 mean_squared_error = MeanSquaredError()

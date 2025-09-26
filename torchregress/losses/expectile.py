@@ -9,13 +9,14 @@ properties:
 - Expectiles minimize the expected asymmetric squared error
 """
 
+from typing import List, Optional, Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, List
 
-from .base import RegressionLoss
 from ..utils.validation import validate_range
+from .base import RegressionLoss
 
 
 class ExpectileLoss(RegressionLoss):
@@ -341,7 +342,7 @@ class ExpectileCrossoverLoss(RegressionLoss):
         Returns:
             Loss combining standard expectile loss and crossover penalty
         """
-        batch_size, n_features = target.shape[0], target.shape[-1]
+        batch_size, _n_features = target.shape[0], target.shape[-1]
         device = target.device
 
         # Shape validation for y_pred

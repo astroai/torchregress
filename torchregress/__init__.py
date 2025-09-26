@@ -9,26 +9,26 @@ estimation and robust regression techniques.
 __version__ = "0.1.0"
 
 # Import main submodules
-from . import losses
-from . import metrics
-from . import algorithms
-from . import ensemble
-from . import utils
-from . import wrappers
+from . import algorithms, ensemble, losses, metrics, utils, wrappers
+from .algorithms import IRLS, iteratively_reweighted_least_squares
 
 # Export key components for easy access
-from .losses.base import MaskedLoss, RegressionLoss, DistributionLoss
-from .algorithms import IRLS, iteratively_reweighted_least_squares
+from .losses.base import DistributionLoss, MaskedLoss, RegressionLoss
 
 # Add key wrapper functions
 from .wrappers import (
-    create_gaussian_regression,
-    create_robust_regression,
-    create_quantile_regression,
-    create_histogram_regression,
-    create_mdn_model,
     create_deep_ensemble,
+    create_mdn_model,
     wrap_pytorch_loss,
+)
+from .wrappers import (
+    create_gaussian_model as create_gaussian_regression,
+)
+from .wrappers import (
+    create_quantile_model as create_quantile_regression,
+)
+from .wrappers import (
+    create_robust_model as create_robust_regression,
 )
 
 __all__ = [
@@ -47,7 +47,6 @@ __all__ = [
     "create_gaussian_regression",
     "create_robust_regression",
     "create_quantile_regression",
-    "create_histogram_regression",
     "create_mdn_model",
     "create_deep_ensemble",
     "wrap_pytorch_loss",

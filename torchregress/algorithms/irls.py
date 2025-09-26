@@ -5,11 +5,12 @@ This module provides implementations of IRLS for robust regression,
 with support for various weighting schemes and loss functions.
 """
 
+import warnings
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, IterableDataset
-import warnings
-from typing import Callable, Optional, Dict, Tuple, List, Union, Any
 
 try:
     from tqdm.auto import tqdm
@@ -40,22 +41,25 @@ except ImportError:
     # Fallback for Python < 3.8
     CallbackFn = Callable
 
-from ..losses.base import WeightedHuberLoss, WeightedL1Loss, WeightedGaussianNLLLoss, WeightedMSELoss
-from ..losses.robust import TukeyBiweightLoss
+from ..losses.base import (
+    WeightedHuberLoss,
+    WeightedL1Loss,
+)
 from ..losses.gaussian import HeteroscedasticGaussianLoss, MultivariateGaussianLoss
+from ..losses.robust import TukeyBiweightLoss
 from ..utils.irls import (
-    huber_weights,
-    tukey_weights,
-    power_weights,
+    buffer_data,
     estimate_variance,
     extract_mean_and_residuals,
+    get_batch_precision,
+    huber_weights,
+    iterate_batches,
     parse_update_frequency,
+    power_weights,
     setup_data_loader,
     setup_validation_loader,
-    iterate_batches,
+    tukey_weights,
     unpack_batch_data,
-    buffer_data,
-    get_batch_precision,
     validate_model,
 )
 
@@ -203,7 +207,10 @@ def iteratively_reweighted_least_squares(
             if base_loss == "gaussian":
                 if covariance_matrices is not None:
                     current_loss = loss_fn(
-                        y_pred=y_pred, target=y_true, covariance_matrices=covariance_matrices, mask=mask
+                        y_pred=y_pred,
+                        target=y_true,
+                        covariance_matrices=covariance_matrices,
+                        mask=mask,
                     )
                 else:
                     current_loss = loss_fn(y_pred=y_pred, target=y_true, mask=mask)
@@ -302,7 +309,10 @@ def calculate_loss(
         )
 
     # Handle robust losses with weights
-    elif isinstance(loss_fn, (WeightedHuberLoss, WeightedL1Loss, TukeyBiweightLoss)) and precision is not None:
+    elif (
+        isinstance(loss_fn, (WeightedHuberLoss, WeightedL1Loss, TukeyBiweightLoss))
+        and precision is not None
+    ):
         return loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
 
     # Standard case
@@ -382,7 +392,7 @@ def IRLS(
     if optimizer is None and model.parameters():
         optimizer = torch.optim.Adam(model.parameters())
         if verbose:
-            print(f"No optimizer provided. Using default Adam optimizer with learning_rate=0.001")
+            print("No optimizer provided. Using default Adam optimizer with learning_rate=0.001")
 
     model.to(device)
     model.train()

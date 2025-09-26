@@ -7,16 +7,20 @@ like scikit-learn, these implementations are tensor-native and optimized for
 integration with PyTorch regression models.
 """
 
+from typing import Optional, Tuple, Union
+
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
+
 from torchregress.metrics.utils import convert_to_tensor
-from typing import Optional, Union, Tuple, List, Dict
 
 # Basic encoding/decoding functions
 
 
-def encode_onehot(labels: Union[torch.Tensor, np.ndarray], num_classes: Optional[int] = None) -> torch.Tensor:
+def encode_onehot(
+    labels: Union[torch.Tensor, np.ndarray], num_classes: Optional[int] = None
+) -> torch.Tensor:
     """
     Convert class indices to one-hot encodings.
 
@@ -85,7 +89,9 @@ def label_smoothing(onehot: Union[torch.Tensor, np.ndarray], alpha: float = 0.1)
     return (1.0 - alpha) * onehot + alpha / num_classes
 
 
-def soft_to_hard_labels(soft_labels: Union[torch.Tensor, np.ndarray], dim: int = -1) -> torch.Tensor:
+def soft_to_hard_labels(
+    soft_labels: Union[torch.Tensor, np.ndarray], dim: int = -1
+) -> torch.Tensor:
     """
     Convert soft labels (probabilities) to hard labels (one-hot).
 
@@ -451,7 +457,9 @@ def combine_continuous_blue_with_scaling(
 
 
 def combine_continuous_simple(
-    labels: Union[torch.Tensor, np.ndarray], method: str = "mean", mask: Optional[torch.Tensor] = None
+    labels: Union[torch.Tensor, np.ndarray],
+    method: str = "mean",
+    mask: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     Combines continuous labels using simple aggregation methods.
@@ -495,7 +503,9 @@ def combine_continuous_simple(
 
 
 def combine_continuous_trimmed_mean(
-    labels: Union[torch.Tensor, np.ndarray], trim_percentage: float = 0.2, mask: Optional[torch.Tensor] = None
+    labels: Union[torch.Tensor, np.ndarray],
+    trim_percentage: float = 0.2,
+    mask: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     Combines continuous labels using trimmed mean (removing extreme values).

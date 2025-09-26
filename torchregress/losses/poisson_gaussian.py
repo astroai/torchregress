@@ -11,14 +11,15 @@ These models are especially useful for:
 - Sensor data with both counting noise and electronic noise
 """
 
-import torch
-import torch.nn as nn
 import math
-import numpy as np
 from typing import Optional, Union
 
-from .base import RegressionLoss
+import numpy as np
+import torch
+import torch.nn as nn
 from torch.nn import PoissonNLLLoss
+
+from .base import RegressionLoss
 
 
 class PoissonGaussianMixtureLoss(RegressionLoss):
@@ -83,10 +84,10 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         # Initialize Poisson loss using torch.nn implementation
         # Note: torch.nn.PoissonNLLLoss has an additional 'full' parameter not present in the local version
         self.poisson_loss = PoissonNLLLoss(
-            log_input=log_input, 
+            log_input=log_input,
             full=True,  # Set full=True to match behavior of original implementation
             eps=eps,
-            reduction="none"
+            reduction="none",
         )
 
     def forward(
@@ -290,7 +291,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
             log_input=False,  # We handle log_input ourselves
             full=True,  # Set full=True to match behavior of original implementation
             eps=self.eps,
-            reduction="none"
+            reduction="none",
         )
 
     def forward(
@@ -382,7 +383,7 @@ def enhanced_poisson_gaussian_loss(
     log_input: bool = False,
     calibration: bool = False,
     reduction: str = "mean",
-    **kwargs
+    **kwargs,
 ) -> EnhancedPoissonGaussianMixtureLoss:
     """
     Create an enhanced Poisson-Gaussian mixture loss.
@@ -417,17 +418,17 @@ def enhanced_poisson_gaussian_loss(
         log_input=log_input,
         calibration=calibration,
         reduction=reduction,
-        **kwargs
+        **kwargs,
     )
 
 
 class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
     """
     Likelihood ratio loss combining Poisson count processes and Gaussian noise.
-    
+
     This implements a weighted combination of Poisson likelihood ratio and Gaussian components,
     suitable for binned data with mixed noise characteristics.
-    
+
     Args:
         log_input: If True, input is log(λ) rather than λ. Default: True
         eps: Small constant for numerical stability. Default: 1e-8
@@ -441,35 +442,34 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
         >>> target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])
         >>> loss_fn(y_pred, target)
     """
-    
+
     def __init__(
         self,
         log_input: bool = True,
         eps: float = 1e-8,
         learn_variance: bool = False,
         initial_variance: float = 1.0,
-        reduction: str = "mean"
+        reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
         self.log_input = log_input
         self.eps = eps
         self.learn_variance = learn_variance
         self.initial_variance = initial_variance
-        
+
         if learn_variance:
             self.log_variance = nn.Parameter(
                 torch.ones(1) * torch.log(torch.tensor(initial_variance))
             )
-            
+
         # Still import PoissonLikelihoodRatioLoss from local .poisson module
         # This class doesn't exist in torch.nn
         from .poisson import PoissonLikelihoodRatioLoss
+
         self.poisson_lr_loss = PoissonLikelihoodRatioLoss(
-            log_input=log_input, 
-            eps=eps,
-            reduction="none"
+            log_input=log_input, eps=eps, reduction="none"
         )
-    
+
     def forward(
         self,
         y_pred: torch.Tensor,
@@ -479,64 +479,61 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
     ) -> torch.Tensor:
         """
         Calculate combined Poisson-Gaussian likelihood ratio loss.
-        
+
         Args:
             y_pred: Predicted values (lambda for Poisson or log(lambda) if log_input=True)
             target: Target values
             mask: Optional mask for invalid values
             weights: Optional tensor of weights for each sample
-            
+
         Returns:
             Loss value
         """
         self._validate_inputs(y_pred, target, mask)
-        
+
         # Calculate Poisson likelihood ratio component
         poisson_lr = self.poisson_lr_loss(y_pred, target)
-        
+
         # Get lambda parameter
         if self.log_input:
             lam = torch.exp(y_pred)
         else:
             lam = y_pred
-        
+
         # Calculate Gaussian likelihood ratio component
         residuals = target - lam
-        
+
         # Get variance parameter
         if self.learn_variance:
             variance = torch.exp(self.log_variance).clamp(min=self.eps)
         else:
             variance = torch.tensor(self.initial_variance, device=y_pred.device)
-        
+
         # Calculate Gaussian component
         gaussian_lr = residuals**2 / (variance + self.eps)
-        
+
         # Combine components (equal weighting for simplicity)
         combined_lr = 0.5 * (poisson_lr + gaussian_lr)
-        
+
         # Apply reduction with mask and weights
         return self._reduce_with_mask(combined_lr, mask, weights)
 
 
 def poisson_gaussian_likelihood_ratio_loss(
-    log_input: bool = True,
-    learn_variance: bool = False,
-    initial_variance: float = 1.0,
-    **kwargs
+    log_input: bool = True, learn_variance: bool = False, initial_variance: float = 1.0, **kwargs
 ) -> PoissonGaussianLikelihoodRatioLoss:
     """
     Create a Poisson-Gaussian likelihood ratio loss function.
-    
+
     Args:
         log_input: If True, input is log(λ) rather than λ. Default: True
         learn_variance: Whether to learn the Gaussian variance. Default: False
         initial_variance: Initial value for Gaussian variance. Default: 1.0
         **kwargs: Additional parameters for the loss
-        
+
     Returns:
         PoissonGaussianLikelihoodRatioLoss instance
-        
+
     Example:
         >>> loss_fn = poisson_gaussian_likelihood_ratio_loss(
         ...     learn_variance=True,
@@ -547,5 +544,5 @@ def poisson_gaussian_likelihood_ratio_loss(
         log_input=log_input,
         learn_variance=learn_variance,
         initial_variance=initial_variance,
-        **kwargs
+        **kwargs,
     )

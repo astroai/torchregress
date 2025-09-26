@@ -5,26 +5,26 @@ This example demonstrates how to use various regression loss functions
 from the TorchRegress library in a simple neural network training scenario.
 """
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
-import matplotlib.pyplot as plt
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import DataLoader, TensorDataset
+
+# Set random seeds for reproducibility
+torch.manual_seed(42)
+np.random.seed(42)
 
 # Import main TorchRegress components
-from torchregress.losses.gaussian import GaussianNLL, MSELoss
-from torchregress.losses.robust import HuberLoss, PseudoHuberLoss
-from torchregress.losses.quantile import QuantileLoss
 
 # Import additional losses from the torchregress library
 from torchregress.losses.gaussian import (
-    MAELoss,
-    GaussianNLLLoss,
+    GaussianNLL,
+    MSELoss,
 )  # GaussianNLLLoss is duplicated with GaussianNLL
-from torchregress.losses.robust import LogCoshLoss
-from torchregress.losses.expectile import ExpectileLoss
-from torchregress.losses.poisson import PoissonNLLLoss
+from torchregress.losses.quantile import QuantileLoss
+from torchregress.losses.robust import HuberLoss
 
 
 # 1. Create a synthetic dataset with heteroscedastic noise

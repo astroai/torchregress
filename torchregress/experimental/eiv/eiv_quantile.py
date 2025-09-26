@@ -5,11 +5,12 @@ This module provides implementations of Quantile regression losses that
 account for measurement error in input features.
 """
 
-import torch
 from typing import Callable, Union
 
+import torch
+
 from .eiv_standard import BaseEIVLoss
-from .eiv_utils import prepare_covariance, generate_perturbed_samples
+from .eiv_utils import generate_perturbed_samples, prepare_covariance
 
 
 class QuantileEIVLoss(BaseEIVLoss):

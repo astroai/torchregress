@@ -8,9 +8,10 @@ These utilities are used throughout the library to provide consistent
 error checking and helpful error messages.
 """
 
-import torch
+from typing import List, Optional, Union
+
 import numpy as np
-from typing import Union, Optional, List
+import torch
 
 
 def validate_reduction(reduction: str, valid_reductions: Optional[list] = None) -> str:

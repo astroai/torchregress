@@ -5,29 +5,27 @@ NOTE: This module is experimental and will be properly incorporated in a future 
 These wrappers are provided for reference but are not part of the stable 0.1.0 API.
 """
 
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import List, Optional, Tuple, Union, Callable, Dict, Any
-
-# Import base losses
-from .losses.base import MaskedLoss, RegressionLoss, PyTorchLossWrapper, DistributionLoss
-
-# Import specific loss implementations
-from .losses.gaussian import DiagonalGaussianNLL, GaussianNLLWithCovariance
-from .losses.robust import HuberLoss, L1Loss, PseudoHuberLoss, LogCoshLoss
-from .losses.quantile import QuantileLoss, MultiQuantileLoss
-from .losses.categorical import HistogramLoss, RegressionAsClassificationLoss
-from .losses.mdn import mdn_loss, mdn_ensemble
-
-# Import ensemble components
-from .ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
-
-# Import utilities
-from .utils.augment import GaussianNoiseAugmentation, AdversarialAugmentation
 
 # Import EIV losses
-from .eiv import ChamferEIVLoss, RobustEIVLoss
+# Import ensemble components
+from .ensemble import DeepEnsemble
+
+# Import base losses
+from .losses.base import MaskedLoss, PyTorchLossWrapper
+from .losses.categorical import HistogramLoss
+
+# Import specific loss implementations
+from .losses.gaussian import DiagonalGaussianNLL
+from .losses.mdn import mdn_loss
+from .losses.quantile import MultiQuantileLoss, QuantileLoss
+from .losses.robust import HuberLoss, L1Loss, LogCoshLoss, PseudoHuberLoss
+
+# Import utilities
+from .utils.augment import AdversarialAugmentation, GaussianNoiseAugmentation
 
 
 def create_gaussian_regression(

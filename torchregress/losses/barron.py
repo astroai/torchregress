@@ -3,9 +3,11 @@ Barron loss: generalization of L1/L2 tunable via alpha.
 See Barron (2019).
 """
 
+from typing import Optional
+
 import torch
 from torch import Tensor
-from typing import Optional
+
 from .base import RegressionLoss
 
 
@@ -14,6 +16,7 @@ class BarronLoss(RegressionLoss):
     Barron loss: generalization of L1/L2 tunable via alpha.
     See Barron (2019).
     """
+
     def __init__(
         self,
         alpha: float = 1.0,
@@ -35,12 +38,12 @@ class BarronLoss(RegressionLoss):
         error = (y_pred - y_true) / self.scale
         a = self.alpha
         if a == 2.0:
-            loss = 0.5 * error ** 2
+            loss = 0.5 * error**2
         elif a == 0.0:
-            loss = torch.log(0.5 * error ** 2 + 1.0)
+            loss = torch.log(0.5 * error**2 + 1.0)
         else:
             loss = (torch.abs(a - 2.0) / a) * (
-                (error ** 2 / torch.abs(a - 2.0) + 1.0) ** (a / 2.0) - 1.0
+                (error**2 / torch.abs(a - 2.0) + 1.0) ** (a / 2.0) - 1.0
             )
-        loss = loss * (self.scale ** 2)
+        loss = loss * (self.scale**2)
         return self._reduce(loss, mask, weights)

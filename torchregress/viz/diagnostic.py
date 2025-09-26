@@ -2,14 +2,15 @@
 Diagnostic plotting utilities for regression and uncertainty quantification.
 """
 
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from typing import Union, Optional, Dict, Tuple, Any
+from typing import Any, Dict, Optional, Tuple, Union
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from matplotlib.figure import Figure
+
 from torchregress.metrics.calibration import expected_calibration_error
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs
 from torchregress.viz.utils import add_identity_line
 
 
@@ -481,8 +482,8 @@ def plot_residual_histogram(
                 label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
             )
             ax.legend()
-        except:
-            pass  # Skip KDE if it fails
+        except ImportError:
+            pass  # Skip KDE if scipy not available
 
     # Add vertical line at zero
     ax.axvline(x=0, color="black", linestyle="-", alpha=0.5)

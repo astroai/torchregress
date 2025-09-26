@@ -5,10 +5,11 @@ This module provides visualization utilities for monitoring model training
 progress, validation metrics, and early stopping.
 """
 
-import numpy as np
+from typing import Dict, List, Optional, Tuple
+
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.figure import Figure
-from typing import Optional, Dict, List, Tuple
 
 from torchregress.viz.utils import add_annotations
 
@@ -193,14 +194,14 @@ def plot_learning_curves(
 
             best_train_idx = np.argmin(train_values) if is_loss else np.argmax(train_values)
             best_train = train_values[best_train_idx]
-            annotations = {f"Best train": format_number(best_train)}
+            annotations = {"Best train": format_number(best_train)}
 
             if val_history is not None and metric in val_history and len(val_values) > 0:
                 val_best_idx = np.argmin(val_values) if is_loss else np.argmax(val_values)
                 best_val = val_values[val_best_idx]
                 best_epoch = val_epochs[val_best_idx]
-                annotations[f"Best val"] = format_number(best_val)
-                annotations[f"Best epoch"] = int(best_epoch)
+                annotations["Best val"] = format_number(best_val)
+                annotations["Best epoch"] = int(best_epoch)
 
             add_annotations(ax, annotations, loc="upper right")
 

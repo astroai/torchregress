@@ -1,7 +1,9 @@
-import torch
 import unittest
-from torchregress.losses.eiv import EIVLoss
+
+import torch
 from torch.autograd import gradcheck
+
+from torchregress.losses.eiv import EIVLoss
 
 
 class TestEIVLoss(unittest.TestCase):
@@ -227,8 +229,8 @@ class TestEIVLossNumericalStability:
 
         x_mean_grad = x_obs.grad.clone()
         y_mean_grad = y_obs.grad.clone()
-        x_var_mean_grad = x_var.grad.clone()
-        y_var_mean_grad = y_var.grad.clone()
+        x_var.grad.clone()
+        y_var.grad.clone()
 
         # Reset gradients
         x_obs.grad = None
@@ -243,8 +245,8 @@ class TestEIVLossNumericalStability:
 
         x_sum_grad = x_obs.grad.clone()
         y_sum_grad = y_obs.grad.clone()
-        x_var_sum_grad = x_var.grad.clone()
-        y_var_sum_grad = y_var.grad.clone()
+        x_var.grad.clone()
+        y_var.grad.clone()
 
         # Reset gradients
         x_obs.grad = None
@@ -259,8 +261,8 @@ class TestEIVLossNumericalStability:
 
         x_none_grad = x_obs.grad.clone()
         y_none_grad = y_obs.grad.clone()
-        x_var_none_grad = x_var.grad.clone()
-        y_var_none_grad = y_var.grad.clone()
+        x_var.grad.clone()
+        y_var.grad.clone()
 
         # Mean and sum should give different gradients
         assert not torch.allclose(x_mean_grad, x_sum_grad)

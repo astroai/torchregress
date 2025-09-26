@@ -5,15 +5,14 @@ This module provides functions for handling compatibility across
 different PyTorch versions.
 """
 
+import functools
+import random
+import warnings
+from typing import Any, Callable, List, Optional, Tuple, Union
+
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-import random
-import functools
-import warnings
-from torch import Tensor
-from typing import Optional, Union, Dict, Any, List, Tuple, Callable
 
 
 def convert_reduction_type(reduction: str) -> str:

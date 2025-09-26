@@ -6,18 +6,19 @@ normalizing flows to model complex output distributions.
 Uses the zuko package for efficient implementation of various flows.
 """
 
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 import torch
 
 try:
-    from zuko.flows import Flow, MAF, RealNVP, NSF, IAF
+    from zuko.flows import IAF, MAF, NSF, Flow, RealNVP
 
     ZUKO_AVAILABLE = True
 except ImportError:
     ZUKO_AVAILABLE = False
 
-from .base import DistributionLoss
 from ..utils.tensor_ops import apply_mask, masked_reduction
+from .base import DistributionLoss
 
 
 class NormalizingFlowLoss(DistributionLoss):

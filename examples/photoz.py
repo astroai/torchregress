@@ -7,24 +7,24 @@ features (magnitudes/colors) and targets (spectroscopic redshifts) have measurem
 """
 
 import os
+from io import StringIO
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import requests
-import json
-import time
-from io import StringIO
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, random_split
 from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader, Dataset, random_split
+
+from torchregress.losses.eiv import EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss
 
 # Import TorchRegression losses and metrics
 from torchregress.losses.gaussian import MSELoss
-from torchregress.losses.eiv import EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss
-from torchregress.metrics.point import rmse, mae
 from torchregress.metrics.calibration import bias
+from torchregress.metrics.point import mae, rmse
 
 # Constants
 DATA_DIR = os.path.join("data", "sdss")
@@ -32,7 +32,7 @@ BATCH_SIZE = 64
 NUM_EPOCHS = 50
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # SDSS SkyServer API URL
-SDSS_API_URL = "http://skyserver.sdss.org/dr18/SkyServerWS/SearchTools/SqlSearch"
+SDSS_API_URL = "https://skyserver.sdss.org/dr18/SkyServerWS/SearchTools/SqlSearch"
 
 
 def download_sdss_data(force_download=False, sample_size=10000):

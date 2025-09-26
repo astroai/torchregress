@@ -2,9 +2,10 @@
 Calibration metrics for evaluating probabilistic regression models.
 """
 
-import torch
+from typing import Dict, List, Optional, Union
+
 import numpy as np
-from typing import Union, Optional, Dict, List, Any
+import torch
 
 from torchregress.metrics.utils import convert_to_tensor, validate_inputs
 
@@ -37,7 +38,7 @@ def expected_calibration_error(
             y_feat = y_true.unsqueeze(-1)
         else:
             y_feat = y_true
-        n_feat = y_feat.shape[-1]
+        y_feat.shape[-1]
         props = []
         quantiles = sorted(y_pred_quantiles.keys())
         expected_proportions = torch.tensor(quantiles, device=y_true.device)
@@ -51,7 +52,9 @@ def expected_calibration_error(
         err = torch.abs(actual_props - expected_proportions.unsqueeze(1))
         return {
             "mean_absolute_calibration_error": torch.mean(err, dim=0),
-            "root_mean_squared_calibration_error": torch.sqrt(torch.mean((actual_props - expected_proportions.unsqueeze(1))**2, dim=0)),
+            "root_mean_squared_calibration_error": torch.sqrt(
+                torch.mean((actual_props - expected_proportions.unsqueeze(1)) ** 2, dim=0)
+            ),
             "maximum_calibration_error": torch.max(err, dim=0)[0],
         }
 
@@ -143,7 +146,11 @@ def marginal_calibration_error(
             y_feat = y_true
         preds = y_pred_samples.unsqueeze(-1) if y_pred_samples.dim() == 2 else y_pred_samples
         n_feat = preds.shape[-1]
-        results = {"marginal_calibration_error": [], "root_mean_squared_mce": [], "maximum_marginal_calibration_error": []}
+        results = {
+            "marginal_calibration_error": [],
+            "root_mean_squared_mce": [],
+            "maximum_marginal_calibration_error": [],
+        }
         for f in range(n_feat):
             obs = y_feat[:, f]
             samp = preds[:, :, f]

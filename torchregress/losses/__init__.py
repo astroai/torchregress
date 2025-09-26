@@ -6,39 +6,45 @@ including weighted losses, Gaussian-based losses, robust losses, and more.
 """
 
 # Base classes and wrappers
-from .base import (
-    BaseLoss,
-    MaskedLoss,
-    RegressionLoss,
-    DistributionLoss,
-    WeightedLossWrapper,
-    create_weighted_losses,
-)
+from .barron import BarronLoss
 
 # Standard weighted PyTorch losses
 from .base import (
-    WeightedMSELoss,
-    WeightedL1Loss,
-    WeightedCrossEntropyLoss,
+    BaseLoss,
+    DistributionLoss,
+    MaskedLoss,
+    RegressionLoss,
     WeightedBCELoss,
     WeightedBCEWithLogitsLoss,
-    WeightedKLDivLoss,
-    WeightedNLLLoss,
-    WeightedSmoothL1Loss,
-    WeightedHuberLoss,
-    WeightedPoissonNLLLoss,
-    WeightedGaussianNLLLoss,
-    WeightedCTCLoss,
     WeightedCosineEmbeddingLoss,
+    WeightedCrossEntropyLoss,
+    WeightedCTCLoss,
+    WeightedGaussianNLLLoss,
     WeightedHingeEmbeddingLoss,
+    WeightedHuberLoss,
+    WeightedKLDivLoss,
+    WeightedL1Loss,
+    WeightedLossWrapper,
     WeightedMarginRankingLoss,
-    WeightedMultiMarginLoss,
+    WeightedMSELoss,
     WeightedMultiLabelMarginLoss,
-    WeightedSoftMarginLoss,
     WeightedMultiLabelSoftMarginLoss,
+    WeightedMultiMarginLoss,
+    WeightedNLLLoss,
+    WeightedPoissonNLLLoss,
+    WeightedSmoothL1Loss,
+    WeightedSoftMarginLoss,
     WeightedTripletMarginLoss,
     WeightedTripletMarginWithDistanceLoss,
+    create_weighted_losses,
 )
+from .conformal import (
+    AdaptiveConformalLoss,
+    ConformalizedQuantileLoss,
+    ConformalLoss,
+    MultiDimensionalConformalLoss,
+)
+from .deepar import DeepARLoss
 
 # Gaussian losses
 from .gaussian import (
@@ -47,50 +53,47 @@ from .gaussian import (
     create_gaussian_nll,
 )
 
-# Target transform losses
-from .target_transform import (
-    LogTransformLoss,
-    BoxCoxTransformLoss,
-    SqrtTransformLoss,
-)
-
-# Robust losses
-from .robust import (
-    PseudoHuberLoss,
-    LogCoshLoss,
-    CharbonnierLoss,
-    LqLoss,
-    TukeyBiweightLoss,
-    WinsorizedLoss,
-    LogBarrierLoss,
-    AdaptiveHuberLoss,
-    ClippedLoss,
-    FairLoss,
-    CauchyLoss,
-)
-
-# Family-based regression losses
-from .sqr import SQRLoss
-from .barron import BarronLoss
-from .conformal import ConformalLoss
-from .deepar import DeepARLoss
-
 # Poisson losses
 from .poisson import (
+    NegativeBinomialNLLLoss,
     PoissonDevianceLoss,
     PoissonLikelihoodRatioLoss,
     ZeroInflatedPoissonNLLLoss,
-    NegativeBinomialNLLLoss,
 )
 
 # Mixed Poisson-Gaussian losses
 from .poisson_gaussian import (
-    PoissonGaussianMixtureLoss,
-    poisson_gaussian_mixture_loss,
     EnhancedPoissonGaussianMixtureLoss,
-    enhanced_poisson_gaussian_loss,
     PoissonGaussianLikelihoodRatioLoss,
+    PoissonGaussianMixtureLoss,
+    enhanced_poisson_gaussian_loss,
     poisson_gaussian_likelihood_ratio_loss,
+    poisson_gaussian_mixture_loss,
+)
+
+# Robust losses
+from .robust import (
+    AdaptiveHuberLoss,
+    CauchyLoss,
+    CharbonnierLoss,
+    ClippedLoss,
+    FairLoss,
+    LogBarrierLoss,
+    LogCoshLoss,
+    LqLoss,
+    PseudoHuberLoss,
+    TukeyBiweightLoss,
+    WinsorizedLoss,
+)
+
+# Family-based regression losses
+from .sqr import SQRLoss
+
+# Target transform losses
+from .transform import (
+    BoxCoxTransformLoss,
+    LogTransformLoss,
+    SqrtTransformLoss,
 )
 
 __all__ = [
@@ -102,7 +105,6 @@ __all__ = [
     "TorchLossWrapper",
     "WeightedLossWrapper",
     "create_weighted_losses",
-    
     # Standard weighted losses
     "WeightedMSELoss",
     "WeightedL1Loss",
@@ -125,17 +127,14 @@ __all__ = [
     "WeightedMultiLabelSoftMarginLoss",
     "WeightedTripletMarginLoss",
     "WeightedTripletMarginWithDistanceLoss",
-    
     # Gaussian losses
-    "HeteroscedasticGaussianLoss", 
+    "HeteroscedasticGaussianLoss",
     "MultivariateGaussianLoss",
     "create_gaussian_nll",
-    
     # Target transformations
     "LogTransformLoss",
     "BoxCoxTransformLoss",
     "SqrtTransformLoss",
-    
     # Robust losses
     "PseudoHuberLoss",
     "LogCoshLoss",
@@ -148,19 +147,19 @@ __all__ = [
     "ClippedLoss",
     "FairLoss",
     "CauchyLoss",
-    
     # Family-based regression losses
     "SQRLoss",
     "BarronLoss",
     "ConformalLoss",
+    "AdaptiveConformalLoss",
+    "ConformalizedQuantileLoss",
+    "MultiDimensionalConformalLoss",
     "DeepARLoss",
-    
     # Poisson losses
     "PoissonDevianceLoss",
     "PoissonLikelihoodRatioLoss",
     "ZeroInflatedPoissonNLLLoss",
     "NegativeBinomialNLLLoss",
-    
     # Poisson-Gaussian losses
     "PoissonGaussianMixtureLoss",
     "poisson_gaussian_mixture_loss",

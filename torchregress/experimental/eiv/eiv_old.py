@@ -5,26 +5,27 @@ This module provides implementations of various loss functions that account for
 measurement error in both features and targets.
 """
 
+from typing import Callable, List, Optional, Union
+
 import torch
-from typing import Callable, Union, List, Optional
 
 from .eiv.eiv_chamfer import ChamferEIVLoss, HybridEIVChamferLoss
 from .eiv.eiv_mdn import MDNEIVLoss, MDNEIVModel
+from .eiv.eiv_quantile import MultiQuantileEIVLoss, QuantileEIVLoss
 from .eiv.eiv_rfit import (
     RobustEIVLoss,
-    gaussian_variation,
-    uniform_variation,
-    bootstrap_variation,
-    structured_variation,
     adversarial_variation,
+    bootstrap_variation,
+    gaussian_variation,
+    structured_variation,
+    uniform_variation,
 )
 from .eiv.eiv_standard import (
-    FunctionalEIVLoss,
-    StructuralEIVLoss,
     EnsembleEIVLoss,
+    FunctionalEIVLoss,
     OrthogonalDistanceRegressionLoss,
+    StructuralEIVLoss,
 )
-from .eiv.eiv_quantile import QuantileEIVLoss, MultiQuantileEIVLoss
 
 # Factory functions with improved parameter handling
 

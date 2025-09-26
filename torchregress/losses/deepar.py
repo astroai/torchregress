@@ -2,10 +2,12 @@
 DeepAR-style autoregressive loss placeholder.
 """
 
-import torch
 import math
-from torch import Tensor
 from typing import Optional
+
+import torch
+from torch import Tensor
+
 from .base import RegressionLoss
 
 
@@ -13,6 +15,7 @@ class DeepARLoss(RegressionLoss):
     """
     DeepAR-style loss: Gaussian NLL per timestep.
     """
+
     def __init__(self, reduction: str = "mean", eps: float = 1e-6) -> None:
         """
         DeepAR-style loss: Gaussian NLL per timestep.
@@ -46,7 +49,9 @@ class DeepARLoss(RegressionLoss):
                 mean = y_pred[..., :n_feat]
                 log_var = y_pred[..., n_feat:]
             else:
-                raise ValueError(f"DeepARLoss expects y_pred shape [..., 2*n_features], got {y_pred.shape}")
+                raise ValueError(
+                    f"DeepARLoss expects y_pred shape [..., 2*n_features], got {y_pred.shape}"
+                )
         var = torch.exp(log_var).clamp(min=self.eps)
         err2 = (y_true - mean) ** 2
         nll = 0.5 * (torch.log(var) + err2 / var + self.log2pi)

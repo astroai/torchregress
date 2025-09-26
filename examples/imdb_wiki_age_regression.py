@@ -6,23 +6,28 @@ for age regression on the IMDB-WIKI dataset.
 """
 
 import os
-import requests
 import zipfile
-import pandas as pd
+
+import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
+import pandas as pd
+import requests
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision.transforms as transforms
 import torchvision.models as models
-from torch.utils.data import Dataset, DataLoader, random_split
-import matplotlib.pyplot as plt
+import torchvision.transforms as transforms
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset, random_split
+
+# Set random seeds for reproducibility
+torch.manual_seed(42)
+np.random.seed(42)
 
 # Import TorchRegression losses
-from torchregress.losses.gaussian import MSELoss, MAELoss
-from torchregress.losses.robust import HuberLoss, LogCoshLoss
+from torchregress.losses.gaussian import MAELoss, MSELoss
 from torchregress.losses.quantile import QuantileLoss
+from torchregress.losses.robust import HuberLoss, LogCoshLoss
 from torchregress.metrics.point import mae, mse, rmse
 
 # Define constants

@@ -2,9 +2,10 @@
 Histogram and CDF utilities for regression metrics.
 """
 
+from typing import Optional, Tuple
+
 import torch
 from torch import Tensor
-from typing import Tuple, Optional
 
 
 def histogram(

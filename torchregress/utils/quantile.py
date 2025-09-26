@@ -2,9 +2,10 @@
 Quantile loss utilities for regression tasks.
 """
 
+from typing import Union
+
 import torch
 from torch import Tensor
-from typing import Union
 
 
 def quantile_loss(
@@ -52,7 +53,6 @@ def multi_quantile_loss(
     # Expand target for quantile dimension
     if y_pred.dim() >= 2:
         # y_pred shape: [batch, n_quantiles, *]
-        y_shape = y_pred.shape
         if y_true.dim() < y_pred.dim():
             y_true = y_true.unsqueeze(1)
     # Broadcast quantiles to match prediction shape

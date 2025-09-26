@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from torchregress.losses.mdn import MixtureDensityLoss, create_mdn_loss
 
 
@@ -276,7 +277,7 @@ class TestMixtureDensityLoss:
         # Valid inputs
         y_pred = torch.randn(5, loss_fn.expected_output_size)
         target = torch.randn(5, n_features)
-        loss = loss_fn(y_pred, target)  # Should not raise
+        loss_fn(y_pred, target)  # Should not raise
 
         # Invalid target shape
         invalid_target = torch.randn(5, n_features + 1)
@@ -357,8 +358,6 @@ class TestMixtureDensityLoss:
         assert torch.isfinite(loss_fn(y_pred_nan, y_true_nan, mask))
 
 
-import torch
-import pytest
 from torch.autograd import gradcheck
 
 
@@ -395,7 +394,6 @@ class TestMDNLossNumericalStability:
 
         n_samples = 3
         n_components = 2
-        n_dims = 1
 
         # Normal values
         means = torch.tensor([[[0.0], [1.0]], [[2.0], [3.0]], [[4.0], [5.0]]], requires_grad=True)
@@ -444,7 +442,6 @@ class TestMDNLossNumericalStability:
 
         n_samples = 3
         n_components = 2
-        n_dims = 1
 
         # Create data with some NaNs
         means = torch.tensor(
@@ -488,8 +485,8 @@ class TestMDNLossNumericalStability:
         loss = mdn_mean(means, scales, weights, y_true)
         loss.backward()
         mean_grad_means = means.grad.clone()
-        mean_grad_scales = scales.grad.clone()
-        mean_grad_weights = weights.grad.clone()
+        scales.grad.clone()
+        weights.grad.clone()
 
         # Reset gradients
         means.grad = None
@@ -501,8 +498,8 @@ class TestMDNLossNumericalStability:
         loss = mdn_sum(means, scales, weights, y_true)
         loss.backward()
         sum_grad_means = means.grad.clone()
-        sum_grad_scales = scales.grad.clone()
-        sum_grad_weights = weights.grad.clone()
+        scales.grad.clone()
+        weights.grad.clone()
 
         # Reset gradients
         means.grad = None
@@ -514,8 +511,8 @@ class TestMDNLossNumericalStability:
         loss = mdn_none(means, scales, weights, y_true)
         loss.mean().backward()
         none_grad_means = means.grad.clone()
-        none_grad_scales = scales.grad.clone()
-        none_grad_weights = weights.grad.clone()
+        scales.grad.clone()
+        weights.grad.clone()
 
         # Mean and sum should give different gradients
         assert not torch.allclose(mean_grad_means, sum_grad_means)

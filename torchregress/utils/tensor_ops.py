@@ -6,10 +6,11 @@ regression, including tensor conversion, standardization, and special
 linear algebra operations.
 """
 
-import torch
-import numpy as np
 import math
-from typing import Optional, Union, Tuple, List
+from typing import List, Optional, Tuple, Union
+
+import numpy as np
+import torch
 
 
 def apply_mask(tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
@@ -311,7 +312,7 @@ def prepare_covariance(
             if not torch.allclose(cov, cov.t(), rtol=1e-5, atol=1e-8):
                 warnings_module = __import__("warnings")
                 warnings_module.warn(
-                    f"Covariance matrix is not symmetric. Using (cov + cov.T) / 2 to ensure symmetry."
+                    "Covariance matrix is not symmetric. Using (cov + cov.T) / 2 to ensure symmetry."
                 )
                 # Make it symmetric
                 cov = (cov + cov.t()) / 2
@@ -730,7 +731,7 @@ def calculate_gaussian_nll(
         # Invert covariance
         inv_var = torch.inverse(var_stab)
         # Compute quadratic term: r^T Σ^{-1} r
-        quad = torch.einsum('bi,bij,bj->b', residuals, inv_var, residuals)
+        quad = torch.einsum("bi,bij,bj->b", residuals, inv_var, residuals)
         # Combine terms
         nll = 0.5 * (logabsdet + quad + n_features * math.log(2 * math.pi))
 

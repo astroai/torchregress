@@ -1,14 +1,13 @@
-import pytest
 import torch
-import numpy as np
 from torch import optim
+
 from torchregress.losses.poisson_gaussian import (
-    PoissonGaussianMixtureLoss,
-    poisson_gaussian_mixture_loss,
     EnhancedPoissonGaussianMixtureLoss,
-    enhanced_poisson_gaussian_loss,
     PoissonGaussianLikelihoodRatioLoss,
+    PoissonGaussianMixtureLoss,
+    enhanced_poisson_gaussian_loss,
     poisson_gaussian_likelihood_ratio_loss,
+    poisson_gaussian_mixture_loss,
 )
 
 
@@ -405,7 +404,7 @@ class TestPoissonGaussianLikelihoodRatioLoss:
         """Test default parameter initialization"""
         loss_fn = PoissonGaussianLikelihoodRatioLoss()
         assert loss_fn.eps == 1e-8
-        assert loss_fn.log_input == True
+        assert loss_fn.log_input
         assert not loss_fn.learn_variance
         assert loss_fn.initial_variance == 1.0
 
@@ -472,10 +471,10 @@ class TestPoissonGaussianLikelihoodRatioLoss:
 
         # Create a simple model
         model = SimpleModel(5, 2)
-        
+
         # Create loss function with learnable variance
         loss_fn = PoissonGaussianLikelihoodRatioLoss(learn_variance=True)
-        
+
         # Combine all parameters
         params = list(model.parameters()) + list(loss_fn.parameters())
         optimizer = optim.Adam(params, lr=0.01)
@@ -505,11 +504,9 @@ class TestPoissonGaussianLikelihoodRatioLoss:
     def test_factory_function(self):
         """Test the factory function"""
         loss_fn = poisson_gaussian_likelihood_ratio_loss(
-            log_input=False, 
-            learn_variance=True, 
-            initial_variance=0.5
+            log_input=False, learn_variance=True, initial_variance=0.5
         )
-        
+
         assert isinstance(loss_fn, PoissonGaussianLikelihoodRatioLoss)
         assert not loss_fn.log_input
         assert loss_fn.learn_variance
@@ -535,10 +532,10 @@ def test_numerical_stability():
     target2 = torch.tensor([[0.0, 1e-8], [1e-9, 1e-7]])
     loss2 = loss_fn2(y_pred2, target2)
     assert not torch.isnan(loss2)
-    
+
     # Test PoissonGaussianLikelihoodRatioLoss
     loss_fn3 = PoissonGaussianLikelihoodRatioLoss(log_input=False)
-    
+
     # Test with very small values
     y_pred3 = torch.tensor([[1e-10, 1e-8], [1e-9, 1e-7]])
     target3 = torch.tensor([[0.0, 1e-8], [1e-9, 1e-7]])

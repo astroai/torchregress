@@ -1,11 +1,13 @@
-import torch
 import unittest
+
+import torch
 from torch.autograd import gradcheck
+
 from torchregress.losses.tweedie import (
-    TweedieLoss,
+    CompoundPoissonLoss,
     GammaLoss,
     InverseGaussianLoss,
-    CompoundPoissonLoss,
+    TweedieLoss,
 )
 
 

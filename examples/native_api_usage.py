@@ -4,6 +4,7 @@ Examples demonstrating the PyTorch-native API usage patterns for torchregress.
 
 import torch
 import torch.nn as nn
+
 from torchregress.losses.gaussian import DiagonalGaussianNLL
 from torchregress.losses.robust import HuberLoss
 

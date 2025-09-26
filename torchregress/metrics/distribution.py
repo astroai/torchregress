@@ -2,12 +2,14 @@
 Distribution metrics for evaluating probabilistic regression models.
 """
 
-import torch
+from typing import Callable, Dict, List, Optional, Union
+
 import numpy as np
-from typing import Union, Optional, Dict, List, Callable
+import torch
 from torch.distributions import Distribution
+
+from torchregress.metrics.utils import apply_reduction, convert_to_tensor, validate_inputs
 from torchregress.utils.histogram import histogram_bins
-from torchregress.metrics.utils import convert_to_tensor, apply_reduction, validate_inputs
 
 
 def probability_integral_transform(
@@ -36,7 +38,7 @@ def probability_integral_transform(
 
     # Optionally calculate histogram for uniformity assessment
     if return_histogram:
-        counts, bin_edges = histogram_bins(pit_values, n_bins, range=(0,1))
+        counts, bin_edges = histogram_bins(pit_values, n_bins, range=(0, 1))
         bin_counts = counts
         # Normalize histogram
         normalized_counts = bin_counts / torch.sum(bin_counts) * n_bins

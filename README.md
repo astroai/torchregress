@@ -19,7 +19,60 @@ pip install torchregress
 - **Count data**: Poisson and Poisson-Gaussian mixture models
 - **Missing data support**: All losses handle masked values gracefully
 - **Error propagation**: Error-in-Variables regression for inputs with uncertainty
+- **Modern regression**: Simultaneous quantile regression, Barron loss, conformal prediction
+- **Ensemble methods**: Deep ensembles with uncertainty propagation
+- **Target transformations**: Built-in log, Box-Cox, and sqrt transformations
 - **Algorithms**: IRLS for robust fitting, ensemble methods for uncertainty
+
+## Development
+
+This project uses modern Python tooling with [uv](https://github.com/astral-sh/uv) as the primary package manager.
+
+### Quick Start
+
+1. Install uv:
+   ```bash
+   # On macOS and Linux:
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. Clone and install:
+   ```bash
+   git clone https://github.com/sfabbro/torchregress.git
+   cd torchregress
+   uv pip install -e .[all]
+   ```
+
+### Common Development Tasks
+
+```bash
+# Run tests
+uv run pytest
+
+# Run tests with coverage
+uv run pytest --cov=torchregress --cov-report=html
+
+# Code formatting
+uv run black .
+
+# Code linting
+uv run ruff check .
+
+# Type checking
+uv run mypy torchregress
+
+# Build documentation
+uv run mkdocs build
+
+# Serve documentation locally
+uv run mkdocs serve
+
+# Build distribution packages
+uv build
+
+# Publish to PyPI
+uv publish
+```
 
 ## Common Usage
 
@@ -76,6 +129,23 @@ from torchregress.losses.quantile import MultiQuantileLoss
 quantiles = [0.1, 0.5, 0.9]
 loss_fn = MultiQuantileLoss(quantiles=quantiles)
 loss = loss_fn(predictions, target)  # predictions shape: [batch, num_quantiles, features]
+```
+
+### Conformal Prediction
+
+```python
+from torchregress.losses.conformal import ConformalLoss
+
+# Train conformal prediction model
+loss_fn = ConformalLoss(alpha=0.1)  # 90% prediction intervals
+loss = loss_fn(predictions, target)
+
+# Calibrate on hold-out data
+lower_pred, upper_pred = predictions[:, :n_features], predictions[:, n_features:]
+tau = loss_fn.calibrate(lower_pred, upper_pred, target)
+
+# Make predictions with calibrated intervals
+lower_interval, upper_interval = loss_fn.predict_interval(lower_pred, upper_pred)
 ```
 
 ### Iteratively Reweighted Least Squares

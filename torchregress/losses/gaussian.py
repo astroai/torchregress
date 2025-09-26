@@ -10,13 +10,15 @@ For simple Gaussian losses (MSE), use WeightedMSELoss from base module instead.
 For standard variable variance Gaussian, use WeightedGaussianNLLLoss from base module.
 """
 
+import math
+from typing import Optional, Tuple, Union
+
 import torch
 import torch.nn as nn
-import math
-from typing import Optional, Union, Tuple
 from torch.distributions import MultivariateNormal
 
 from .base import DistributionLoss
+
 
 class HeteroscedasticGaussianLoss(DistributionLoss):
     """
@@ -24,7 +26,7 @@ class HeteroscedasticGaussianLoss(DistributionLoss):
 
     This loss models each output dimension with an independent Gaussian distribution
     where the diagonal covariance matrix can be learned or fixed.
-    
+
     Note: For simple cases where the model directly outputs mean and variance,
     consider using WeightedGaussianNLLLoss from the base module instead.
 
@@ -419,10 +421,12 @@ def create_gaussian_nll(
         if not learnable_variance and fixed_variance == 1.0:
             # If using fixed unit variance, just use WeightedMSELoss
             from .base import WeightedMSELoss
+
             return WeightedMSELoss(reduction=reduction)
         elif not learnable_variance:
             # Simple diagonal case with fixed variance - use standard PyTorch
             from .base import WeightedGaussianNLLLoss
+
             return WeightedGaussianNLLLoss(reduction=reduction)
         else:
             # Complex case with learnable variance

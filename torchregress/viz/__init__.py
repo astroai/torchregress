@@ -39,41 +39,41 @@ Style Guide for Visualization Functions:
 
 # Import diagnostic plotting utilities
 from torchregress.viz.diagnostic import (
-    plot_reliability_diagram,
-    plot_residuals,
+    plot_calibration_curve,
+    plot_distribution_comparison,
     plot_prediction_intervals,
     plot_qq_plot,
+    plot_reliability_diagram,
     plot_residual_histogram,
-    plot_distribution_comparison,
-    plot_calibration_curve,
+    plot_residuals,
 )
 
 # Import training monitoring plots
 from torchregress.viz.monitoring import (
-    plot_learning_curves,
-    plot_validation_metrics,
     plot_early_stopping,
+    plot_learning_curves,
     plot_lr_find_results,
+    plot_validation_metrics,
 )
 
 # Import results visualization tools
 from torchregress.viz.results import (
-    plot_performance_comparison,
-    plot_parameter_sensitivity,
     plot_feature_importance,
     plot_model_ensemble_contributions,
+    plot_parameter_sensitivity,
+    plot_performance_comparison,
 )
 
 # Import common utility functions
 from torchregress.viz.utils import (
-    set_style,
-    create_grid_figure,
-    add_identity_line,
-    save_figure,
     add_annotations,
+    add_identity_line,
     create_color_palette,
+    create_grid_figure,
     enable_latex_rendering,
     format_metric_label,
+    save_figure,
+    set_style,
 )
 
 __all__ = [

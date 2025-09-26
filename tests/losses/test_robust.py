@@ -1,19 +1,12 @@
 import pytest
 import torch
+
 from torchregress.losses.robust import (
-    L1Loss,
-    HuberLoss,
-    PseudoHuberLoss,
-    LogCoshLoss,
-    CharbonnierLoss,
-    LqLoss,
-    TukeyBiweightLoss,
-    WinsorizedLoss,
-    LogBarrierLoss,
-    AdaptiveHuberLoss,
-    ClippedLoss,
-    FairLoss,
     CauchyLoss,
+    HuberLoss,
+    L1Loss,
+    LogCoshLoss,
+    PseudoHuberLoss,
 )
 
 
@@ -143,7 +136,6 @@ class TestL1Loss:
 
 # ... Additional test classes for other robust losses ...
 
-import torch
 import pytest
 from torch.autograd import gradcheck
 
@@ -151,7 +143,6 @@ from torch.autograd import gradcheck
 class TestRobustLossesNumericalStability:
     def test_huber_gradient_flow(self):
         """Test that gradients flow through HuberLoss properly."""
-        from torchregress.losses.robust import HuberLoss
 
         # Create inputs that require gradients
         y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
@@ -163,7 +154,6 @@ class TestRobustLossesNumericalStability:
 
     def test_pseudo_huber_gradient_flow(self):
         """Test that gradients flow through PseudoHuberLoss properly."""
-        from torchregress.losses.robust import PseudoHuberLoss
 
         # Create inputs that require gradients
         y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
@@ -175,7 +165,6 @@ class TestRobustLossesNumericalStability:
 
     def test_log_cosh_gradient_flow(self):
         """Test that gradients flow through LogCoshLoss properly."""
-        from torchregress.losses.robust import LogCoshLoss
 
         # Create inputs that require gradients
         y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
@@ -187,7 +176,6 @@ class TestRobustLossesNumericalStability:
 
     def test_cauchy_gradient_flow(self):
         """Test that gradients flow through CauchyLoss properly."""
-        from torchregress.losses.robust import CauchyLoss
 
         # Create inputs that require gradients
         y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
@@ -199,12 +187,6 @@ class TestRobustLossesNumericalStability:
 
     def test_extreme_values(self):
         """Test stability with extreme values."""
-        from torchregress.losses.robust import (
-            HuberLoss,
-            PseudoHuberLoss,
-            LogCoshLoss,
-            CauchyLoss,
-        )
 
         # Moderately large values (too extreme can cause overflow in robust losses)
         y_pred = torch.tensor([100.0, 1000.0, 10000.0], requires_grad=True)
@@ -243,7 +225,6 @@ class TestRobustLossesNumericalStability:
 
     def test_nan_inf_handling(self):
         """Test how losses handle NaN and Inf values with masks."""
-        from torchregress.losses.robust import HuberLoss
 
         # Create data with some NaNs and Infs
         y_pred = torch.tensor([1.0, float("nan"), 3.0, float("inf")], requires_grad=True)
@@ -265,7 +246,6 @@ class TestRobustLossesNumericalStability:
 
     def test_reduction_modes(self):
         """Test different reduction modes for backward pass."""
-        from torchregress.losses.robust import HuberLoss
 
         y_pred = torch.randn(10, 1, requires_grad=True)
         y_true = torch.randn(10, 1)

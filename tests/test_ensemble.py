@@ -2,21 +2,21 @@
 Tests for ensemble models and associated components.
 """
 
-import torch
 import pytest
+import torch
 from torch import nn
 
 from torchregress.ensemble.base import BaseEnsembleModel
+from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.models import (
     DeepEnsemble,
-    HeteroscedasticEnsembleModel,
     HeteroscedasticBatchEnsembleModel,
+    HeteroscedasticEnsembleModel,
 )
-from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.utils import (
+    generate_prediction_samples,
     run_ensemble_model,
     run_heteroscedastic_ensemble_model,
-    generate_prediction_samples,
 )
 
 
@@ -265,13 +265,13 @@ class TestBatchEnsembleLinear:
         x = torch.randn(10)
 
         with pytest.raises(ValueError):
-            out = layer(x)
+            layer(x)
 
         # 3D input with wrong ensemble size - should raise error
         x = torch.randn(8, 3, 10)  # Ensemble size 3 != 4
 
         with pytest.raises(ValueError):
-            out = layer(x)
+            layer(x)
 
 
 class TestHeteroscedasticBatchEnsembleModel:
@@ -348,7 +348,7 @@ class TestUtilityFunctions:
             return x * 2 + torch.randn_like(x) * 0.1
 
         # Create inputs
-        single_input = torch.randn(10, 5)  # [batch_size, features]
+        torch.randn(10, 5)  # [batch_size, features]
         inputs_list = [
             torch.randn(10, 5) for _ in range(5)
         ]  # 5 samples, each [batch_size, features]
@@ -358,7 +358,7 @@ class TestUtilityFunctions:
         result1 = run_ensemble_model(model_fn, inputs_list)
 
         # Test with stacked tensor input
-        result2 = run_ensemble_model(model_fn, inputs_stacked)
+        run_ensemble_model(model_fn, inputs_stacked)
 
         # Check results
         assert "mean" in result1

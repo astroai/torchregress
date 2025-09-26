@@ -1,11 +1,13 @@
-import torch
 import unittest
+
+import torch
 from torch.autograd import gradcheck
+
 from torchregress.losses.expectile import (
+    AsymmetricLeastSquaresLoss,
+    ExpectileCrossoverLoss,
     ExpectileLoss,
     MultiExpectileLoss,
-    ExpectileCrossoverLoss,
-    AsymmetricLeastSquaresLoss,
 )
 
 
@@ -490,7 +492,7 @@ class TestExpectileLoss(unittest.TestCase):
 
         batch_size = 1  # Simplified test with single sample
         n_features = 1  # And single feature
-        num_expectiles = len(expectiles)
+        len(expectiles)
 
         # Create target value in the middle
         y_true = torch.zeros(batch_size, n_features, device=self.device)
@@ -556,7 +558,9 @@ class TestExpectileLoss(unittest.TestCase):
         y_pred = torch.randn(batch_size, num_expectiles, n_features, device=self.device)
 
         # Test with reduction='none'
-        loss_fn_none = ExpectileCrossoverLoss(expectiles=expectiles, reduction="none").to(self.device)
+        loss_fn_none = ExpectileCrossoverLoss(expectiles=expectiles, reduction="none").to(
+            self.device
+        )
         loss_none = loss_fn_none(y_pred, y_true)
         self.assertEqual(loss_none.shape, (batch_size,))
 
@@ -566,7 +570,9 @@ class TestExpectileLoss(unittest.TestCase):
         self.assertEqual(loss_sum.dim(), 0)
 
         # Test with reduction='mean' (default)
-        loss_fn_mean = ExpectileCrossoverLoss(expectiles=expectiles, reduction="mean").to(self.device)
+        loss_fn_mean = ExpectileCrossoverLoss(expectiles=expectiles, reduction="mean").to(
+            self.device
+        )
         loss_mean = loss_fn_mean(y_pred, y_true)
         self.assertEqual(loss_mean.dim(), 0)
 
@@ -674,7 +680,7 @@ class TestExpectileLoss(unittest.TestCase):
 
         # Higher expectile levels should have larger absolute gradients
         avg_grad_low = y_pred.grad[:, 0, :].abs().mean().item()
-        avg_grad_mid = y_pred.grad[:, 1, :].abs().mean().item()
+        y_pred.grad[:, 1, :].abs().mean().item()
         avg_grad_high = y_pred.grad[:, 2, :].abs().mean().item()
 
         # For underestimation, gradients should be more negative as tau increases

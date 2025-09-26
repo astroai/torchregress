@@ -9,14 +9,16 @@ These losses support:
 - Properly ordered quantiles with crossover penalties
 """
 
+from typing import List, Optional, Union, Any, cast
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union, List
 
+from ..utils.quantile import multi_quantile_loss, quantile_loss
+from ..utils.validation import validate_quantile, validate_range
 from .base import RegressionLoss
-from ..utils.validation import validate_range, validate_quantile
-from ..utils.quantile import quantile_loss, multi_quantile_loss
+
 
 class QuantileLoss(RegressionLoss):
     """
@@ -64,6 +66,7 @@ class QuantileLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate quantile loss.
@@ -134,6 +137,7 @@ class MultiQuantileLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate combined quantile loss for multiple levels.
@@ -151,7 +155,6 @@ class MultiQuantileLoss(RegressionLoss):
         """
         batch_size = target.shape[0]
         n_features = target.shape[1] if target.dim() > 1 else 1
-        device = target.device
 
         # Reshape target for broadcasting if it's a 1D tensor
         if target.dim() == 1:
@@ -167,20 +170,21 @@ class MultiQuantileLoss(RegressionLoss):
         if self.joint_prediction:
             # Handle joint predictions
             if isinstance(y_pred, torch.Tensor):
+                y_pred_tensor = y_pred  # Type narrowing
                 # Process based on prediction shape
-                if y_pred.dim() == 3 and y_pred.shape[1] == self.num_quantiles:
+                if y_pred_tensor.dim() == 3 and y_pred_tensor.shape[1] == self.num_quantiles:
                     # [batch_size, num_quantiles, n_features] format
-                    quantile_preds = y_pred
-                elif y_pred.dim() == 2 and y_pred.shape[1] == n_features * self.num_quantiles:
+                    quantile_preds = y_pred_tensor
+                elif y_pred_tensor.dim() == 2 and y_pred_tensor.shape[1] == n_features * self.num_quantiles:
                     # [batch_size, n_features * num_quantiles] format
                     # Reshape to [batch_size, num_quantiles, n_features]
-                    quantile_preds = y_pred.reshape(batch_size, self.num_quantiles, n_features)
+                    quantile_preds = y_pred_tensor.reshape(batch_size, self.num_quantiles, n_features)
                 else:
                     raise ValueError(
                         f"Expected y_pred shape to be either "
                         f"[batch_size, {self.num_quantiles}, {n_features}] or "
                         f"[batch_size, {n_features * self.num_quantiles}], "
-                        f"got {y_pred.shape}"
+                        f"got {list(y_pred_tensor.shape)}"
                     )
             else:
                 raise TypeError("With joint_prediction=True, y_pred must be a tensor")
@@ -188,7 +192,7 @@ class MultiQuantileLoss(RegressionLoss):
             # Handle separate predictions (list of tensors)
             if isinstance(y_pred, (list, tuple)) and len(y_pred) == self.num_quantiles:
                 # Stack predictions [batch_size, num_quantiles, n_features]
-                quantile_preds = torch.stack(y_pred, dim=1)
+                quantile_preds = torch.stack(cast(List[torch.Tensor], y_pred), dim=1)
             else:
                 raise TypeError(
                     f"With joint_prediction=False, y_pred must be a list or tuple "
@@ -266,6 +270,7 @@ class QuantileCrossoverLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate quantile loss with crossover penalty.
@@ -279,7 +284,7 @@ class QuantileCrossoverLoss(RegressionLoss):
         Returns:
             Loss combining standard quantile loss and crossover penalty
         """
-        batch_size, n_features = target.shape[0], target.shape[-1]
+        batch_size, _n_features = target.shape[0], target.shape[-1]
         device = target.device
 
         # Shape validation for y_pred

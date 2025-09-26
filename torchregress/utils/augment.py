@@ -5,10 +5,11 @@ This module provides various data augmentation techniques for enhancing
 regression and classification models.
 """
 
+from typing import List, Optional, Tuple, Union
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-from typing import Optional, Union, Tuple, List
 
 
 class Augmentation(nn.Module):
@@ -748,7 +749,7 @@ class EnsemblePerturbationAugmenter(nn.Module):
                             torch.zeros(n_features, device=device), sigma_tensor
                         )
                         noise = dist.sample((batch_size,))
-                    except:
+                    except (RuntimeError, ValueError):
                         # Fallback to diagonal approximation
                         diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
                         noise = torch.randn(batch_size, n_features, device=device) * torch.sqrt(

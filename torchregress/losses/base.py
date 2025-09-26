@@ -13,11 +13,11 @@ All losses follow PyTorch conventions with forward methods expecting
 inputs in the form of (y_pred, target, ...).
 """
 
+from typing import Any, Callable, Dict, Optional, Union
+
 import torch
 import torch.nn as nn
-from typing import Optional, Union, Callable, Dict, Any
 
-from ..utils.masked_ops import apply_mask, masked_reduction
 from ..utils.validation import validate_reduction, validate_weights
 
 
@@ -47,13 +47,22 @@ class BaseLoss(nn.Module):
         super().__init__()
         self.reduction = validate_reduction(reduction)
 
-    def forward(self, y_pred: torch.Tensor, target: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
         """
         Compute the loss.
 
         Args:
             y_pred: Predicted values
             target: Target values
+            mask: Optional boolean mask for indicating valid values
+            weights: Optional sample weights
             **kwargs: Additional arguments
 
         Returns:
@@ -109,10 +118,11 @@ class BaseLoss(nn.Module):
             return torch.max(loss[mask] if mask is not None else loss)
         if self.reduction == "min":
             return torch.min(loss[mask] if mask is not None else loss)
+        
+        # Default case - raise an error for unknown reduction types
+        raise ValueError(f"Unknown reduction type: {self.reduction}")
 
-    def _apply_mask(
-        self, tensor: torch.Tensor, mask: Optional[torch.Tensor]
-    ) -> torch.Tensor:
+    def _apply_mask(self, tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
         """Filter tensor elements by boolean mask."""
         if mask is None:
             return tensor
@@ -176,6 +186,7 @@ class RegressionLoss(BaseLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate regression loss.
@@ -255,6 +266,7 @@ class DistributionLoss(BaseLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate distributional loss.
@@ -320,6 +332,7 @@ class WeightedLossWrapper(BaseLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate loss using the wrapped PyTorch loss function.
@@ -355,6 +368,7 @@ class WeightedLossWrapper(BaseLoss):
         # Handle weights and reduction
         return self._reduce(loss, mask, weights)
 
+
 # Create weighted versions of PyTorch losses
 WeightedMSELoss = WeightedLossWrapper(nn.MSELoss)
 WeightedL1Loss = WeightedLossWrapper(nn.L1Loss)
@@ -379,16 +393,16 @@ WeightedTripletMarginLoss = WeightedLossWrapper(nn.TripletMarginLoss)
 WeightedTripletMarginWithDistanceLoss = WeightedLossWrapper(nn.TripletMarginWithDistanceLoss)
 
 
-def create_weighted_losses():
+def create_weighted_losses() -> Dict[str, Any]:
     """
     Factory function that returns all weighted versions of standard PyTorch losses.
-    
+
     Returns:
         Dictionary mapping from loss name to weighted loss instance
     """
     weighted_losses = {
         "MSELoss": WeightedMSELoss,
-        "L1Loss": WeightedL1Loss, 
+        "L1Loss": WeightedL1Loss,
         "CrossEntropyLoss": WeightedCrossEntropyLoss,
         "BCELoss": WeightedBCELoss,
         "BCEWithLogitsLoss": WeightedBCEWithLogitsLoss,
@@ -410,6 +424,7 @@ def create_weighted_losses():
         "TripletMarginWithDistanceLoss": WeightedTripletMarginWithDistanceLoss,
     }
     return weighted_losses
+
 
 # Add aliases for backward compatibility with tests
 Loss = BaseLoss

@@ -2,44 +2,44 @@
 Tests for the metrics modules in torchregress.
 """
 
-import torch
 import numpy as np
 import pytest
+import torch
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs
 from torchregress.metrics.calibration import (
+    calibration_metrics_report,
     expected_calibration_error,
     marginal_calibration_error,
-    calibration_metrics_report,
 )
 from torchregress.metrics.distribution import (
-    probability_integral_transform,
     continuous_ranked_probability_score,
-    energy_score,
     distribution_metrics_report,
-)
-from torchregress.metrics.ood import (
-    mahalanobis_distance,
-    typicality_score,
-    entropy_score,
-    kernel_density_score,
-    ood_metrics_report,
-)
-from torchregress.metrics.point import (
-    mean_squared_error,
-    mean_absolute_error,
-    median_absolute_error,
-    huber_loss,
-    normalized_rmse,
-    trimmed_mean_squared_error,
-    median_absolute_deviation,
-    regression_metrics_report,
+    energy_score,
+    probability_integral_transform,
 )
 from torchregress.metrics.interval import (
+    interval_metrics_report,
     interval_score,
     prediction_interval_coverage_probability,
-    interval_metrics_report,
 )
+from torchregress.metrics.ood import (
+    entropy_score,
+    kernel_density_score,
+    mahalanobis_distance,
+    ood_metrics_report,
+    typicality_score,
+)
+from torchregress.metrics.point import (
+    huber_loss,
+    mean_absolute_error,
+    mean_squared_error,
+    median_absolute_deviation,
+    median_absolute_error,
+    normalized_rmse,
+    regression_metrics_report,
+    trimmed_mean_squared_error,
+)
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs
 
 
 class TestMetricsUtils:

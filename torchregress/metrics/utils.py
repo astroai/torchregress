@@ -2,9 +2,10 @@
 Utility functions for metrics calculations.
 """
 
-import torch
+from typing import Callable, Dict, List, Optional, Union
+
 import numpy as np
-from typing import Union, Optional, Dict, Tuple, List, Callable
+import torch
 
 
 def convert_to_tensor(x: Union[torch.Tensor, np.ndarray, List, float, int]) -> torch.Tensor:
@@ -105,8 +106,8 @@ def validate_sample_weight(sample_weight: torch.Tensor, batch_size: int) -> torc
 
 # TorchMetrics compatibility and metric composition utilities
 try:
-    import torchmetrics
-    from torchmetrics import Metric
+    import torchmetrics  # noqa: F401
+    from torchmetrics import Metric  # noqa: F401
 except ImportError:
     Metric = None
 

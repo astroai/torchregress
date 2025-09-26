@@ -1,11 +1,11 @@
-import torch
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from torch import optim
 
-from torchregress.losses.gaussian import MSELoss, MAELoss
-from torchregress.losses.robust import HuberLoss, LogCoshLoss
+from torchregress.losses.gaussian import MAELoss, MSELoss
 from torchregress.losses.quantile import QuantileLoss
+from torchregress.losses.robust import HuberLoss, LogCoshLoss
 
 
 class SimpleModel(torch.nn.Module):
@@ -78,7 +78,7 @@ def main():
     train_size = int(0.8 * len(x))
     x_train, x_test = x[:train_size], x[train_size:]
     y_train, y_test = y[:train_size], y[train_size:]
-    y_true_train, y_true_test = y_true[:train_size], y_true[train_size:]
+    _y_true_train, _y_true_test = y_true[:train_size], y_true[train_size:]
 
     # Define loss functions to compare
     loss_functions = {

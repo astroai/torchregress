@@ -2,9 +2,11 @@
 Multivariate regression metrics for vector-valued outputs.
 """
 
-import torch
 from typing import Union
-from .utils import convert_to_tensor, apply_reduction, validate_inputs
+
+import torch
+
+from .utils import apply_reduction, convert_to_tensor, validate_inputs
 
 
 def multivariate_rmse(

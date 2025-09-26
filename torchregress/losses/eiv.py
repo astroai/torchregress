@@ -5,21 +5,22 @@ This module implements various approaches to Error-in-Variables regression,
 where both inputs (x) and outputs (y) contain measurement errors.
 """
 
-import torch
-from typing import Callable, Optional, Union, Tuple
+from typing import Callable, Optional, Tuple, Union
 
-from .base import RegressionLoss
+import torch
+
+from ..ensemble.utils import run_ensemble_model
+from ..utils.augment import EnsemblePerturbationAugmenter
 from ..utils.tensor_ops import (
+    apply_mask,
+    calculate_gaussian_nll,
+    calculate_propagated_variance,
+    compute_model_gradients,
     prepare_covariance,
     prepare_cross_covariance,
-    compute_model_gradients,
-    calculate_gaussian_nll,
     prepare_model_input_for_gradients,
-    calculate_propagated_variance,
-    apply_mask,
 )
-from ..utils.augment import EnsemblePerturbationAugmenter
-from ..ensemble.utils import run_ensemble_model
+from .base import RegressionLoss
 
 
 class BaseEIVLoss(RegressionLoss):
@@ -301,9 +302,13 @@ class FunctionalEIVLoss(BaseEIVLoss):
         """Monte Carlo implementation of variance propagation"""
         # Vectorized sampling around observed values
         if sigma_x_tensor.ndim <= 1:
-            noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device) * sigma_x_tensor.view(1,1,n_features_x)
+            noise = torch.randn(
+                self.n_samples, batch_size, n_features_x, device=device
+            ) * sigma_x_tensor.view(1, 1, n_features_x)
         else:
-            chol = torch.linalg.cholesky(sigma_x_tensor + torch.eye(n_features_x, device=device) * self.eps)
+            chol = torch.linalg.cholesky(
+                sigma_x_tensor + torch.eye(n_features_x, device=device) * self.eps
+            )
             base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device)
             noise = base_noise @ chol.T
         x_samples = x_obs.unsqueeze(0) + noise
@@ -331,7 +336,7 @@ class FunctionalEIVLoss(BaseEIVLoss):
         y_centered = y_preds - mean_pred.unsqueeze(0)  # [n_samples, batch_size, n_features_y]
 
         # Efficient vectorized batch covariance: [n_samples, batch_size, n_features_y]
-        batch_cov = torch.einsum('sbi,sbj->bij', y_centered, y_centered) / (self.n_samples - 1)
+        batch_cov = torch.einsum("sbi,sbj->bij", y_centered, y_centered) / (self.n_samples - 1)
 
         # Add intrinsic output noise if provided
         if sigma_y_tensor is not None:

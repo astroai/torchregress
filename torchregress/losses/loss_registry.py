@@ -5,7 +5,7 @@ Use @register_regression_loss(name) to register custom loss classes.
 
 """
 
-from typing import Type, Callable, Dict, List
+from typing import Callable, Dict, List, Type
 
 # Global registry dictionary
 loss_registry: Dict[str, Type] = {}
@@ -21,6 +21,7 @@ def register_regression_loss(name: str) -> Callable:
     Returns:
         Decorator that registers the class.
     """
+
     def decorator(cls: Type) -> Type:
         if name in loss_registry:
             raise KeyError(f"Loss '{name}' is already registered.")

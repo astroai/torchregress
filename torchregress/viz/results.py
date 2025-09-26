@@ -5,14 +5,19 @@ This module provides visualization utilities for presenting
 and comparing regression model results.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-import torch
-from typing import Union, Optional, Dict, List, Tuple, Any
-import pandas as pd
+from typing import Dict, List, Optional, Tuple, Union
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+from matplotlib.figure import Figure
+
+# Import visualization utilities
 from torchregress.viz.utils import create_color_palette
+
+# Set random seed for reproducibility
+np.random.seed(42)
 
 
 def plot_performance_comparison(
@@ -49,10 +54,10 @@ def plot_performance_comparison(
     """
     # Extract common metrics across all models if not specified
     if metrics_to_include is None:
-        metrics_to_include = set.intersection(
+        metrics_to_include = list(set.intersection(
             *[set(model_metrics.keys()) for model_metrics in metrics.values()]
-        )
-        metrics_to_include = sorted(list(metrics_to_include))
+        ))
+        metrics_to_include = sorted(metrics_to_include)
 
     # Filter to only include metrics that exist for all models
     metrics_to_include = [
@@ -209,8 +214,8 @@ def _plot_performance_bar(
             else:
                 metric_labels.append(metric)
         ax.set_xticklabels(metric_labels, rotation=45, ha="right")
-    except:
-        pass
+    except (ImportError, RuntimeError):
+        pass  # Skip LaTeX rendering if not available
 
     ax.legend(loc="best", frameon=True, fancybox=True, framealpha=0.9)
 
@@ -477,7 +482,7 @@ def plot_parameter_sensitivity(
             # Get colors
             if plot_type == "line":
                 # For line plot, use a single color
-                color = None  # Use default color cycle
+                pass  # Use default color cycle
             else:
                 # For bar plot, use a color gradient
                 cmap = plt.get_cmap(color_palette)

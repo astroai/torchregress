@@ -1,16 +1,18 @@
-import torch
-import unittest
 import math
-from torch.autograd import gradcheck
+import unittest
+
+import torch
+
 from torchregress.losses.base import (
-    WeightedMSELoss, 
     WeightedGaussianNLLLoss,
+    WeightedMSELoss,
 )
 from torchregress.losses.gaussian import (
     HeteroscedasticGaussianLoss,
     MultivariateGaussianLoss,
     create_gaussian_nll,
 )
+
 
 class TestGaussianLosses(unittest.TestCase):
     def setUp(self):
@@ -86,9 +88,9 @@ class TestGaussianLosses(unittest.TestCase):
         self.assertIsNotNone(loss_fn.log_variances.grad)
 
         # Test with fixed variance
-        fixed_loss_fn = HeteroscedasticGaussianLoss(learnable_variance=False, fixed_variance=0.5).to(
-            self.device
-        )
+        fixed_loss_fn = HeteroscedasticGaussianLoss(
+            learnable_variance=False, fixed_variance=0.5
+        ).to(self.device)
         fixed_loss = fixed_loss_fn(self.x, self.x_reconstructed)
         self.assertTrue(torch.is_tensor(fixed_loss))
         self.assertFalse(torch.isnan(fixed_loss).any())
@@ -308,7 +310,7 @@ class TestGaussianLosses(unittest.TestCase):
         """Test handling of NaN and Inf values in inputs."""
         # Test HeteroscedasticGaussianLoss with NaNs and Infs
         h_loss_fn = HeteroscedasticGaussianLoss(self.n_features_diag).to(self.device)
-        
+
         # Test NaN in inputs
         x_nan = self.x.clone()
         x_nan[0, 0] = float("nan")
@@ -325,13 +327,13 @@ class TestGaussianLosses(unittest.TestCase):
 
         # Test MultivariateGaussianLoss with NaNs and Infs
         m_loss_fn = MultivariateGaussianLoss().to(self.device)
-        
+
         # Test NaN in covariance
         cov_nan = self.covariance_matrices.clone()
         cov_nan[0, 0, 0] = float("nan")
         with self.assertRaises(RuntimeError):
             _ = m_loss_fn(self.x_cov, self.x_cov_reconstructed, cov_nan)
-        
+
         # Test infinity in mask (should be handled by casting)
         mask_inf = torch.ones_like(self.mask_cov).float()
         mask_inf[0, 0] = float("inf")

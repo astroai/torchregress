@@ -5,12 +5,13 @@ This module provides helper functions for consistent styling and
 common operations used across different visualization functions.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.figure import Figure
-from typing import Optional, Tuple, List, Dict, Union, Any
 import os
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.figure import Figure
 
 
 def set_style(

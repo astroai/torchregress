@@ -13,8 +13,9 @@ Common special cases:
 - 1<p<2: Compound Poisson-Gamma (useful for mixed discrete-continuous data)
 """
 
-import torch
 from typing import Optional
+
+import torch
 
 from .base import RegressionLoss
 

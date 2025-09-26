@@ -7,16 +7,19 @@ robust against outliers, such as:
 - Log-Cosh loss: Smooth approximation of Huber loss
 - Various other robust alternatives to standard regression losses
 
-Note: For standard Huber loss with masking and weights, use WeightedHuberLoss 
+Note: For standard Huber loss with masking and weights, use WeightedHuberLoss
 from the base module instead.
 """
 
+from typing import Any, Optional
+
 import torch
-from typing import Optional
-from .base import RegressionLoss
+
 from ..utils.validation import validate_positive
+from .base import RegressionLoss
 
 # Remove HuberLoss as it's redundant with WeightedHuberLoss in base
+
 
 class PseudoHuberLoss(RegressionLoss):
     """
@@ -46,6 +49,7 @@ class PseudoHuberLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Pseudo-Huber loss.
@@ -99,6 +103,7 @@ class LogCoshLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Log-Cosh loss.
@@ -153,6 +158,7 @@ class CharbonnierLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Charbonnier loss.
@@ -206,6 +212,7 @@ class LqLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Lq loss.
@@ -264,6 +271,7 @@ class TukeyBiweightLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Tukey's biweight loss.
@@ -333,6 +341,7 @@ class WinsorizedLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Winsorized loss.
@@ -409,6 +418,7 @@ class LogBarrierLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Log Barrier loss.
@@ -471,6 +481,7 @@ class AdaptiveHuberLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Adaptive Huber loss.
@@ -553,6 +564,7 @@ class ClippedLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Clipped loss.
@@ -620,6 +632,7 @@ class FairLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Fair loss.
@@ -680,6 +693,7 @@ class CauchyLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Cauchy loss.

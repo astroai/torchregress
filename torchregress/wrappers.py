@@ -1,129 +1,106 @@
 """
-Easy wrappers for commonly used tools and utilities in torchregress.
+High-level wrappers and convenience functions for torchregress.
+
+This module provides simplified interfaces for common regression tasks,
+including model creation, loss function setup, and ensemble methods.
 """
 
-import torch
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import List, Optional, Tuple, Union, Callable, Dict, Any
-
-# Import base losses
-from .losses.base import MaskedLoss, RegressionLoss, WeightedLossWrapper, DistributionLoss, WeightedMSELoss, WeightedHuberLoss, WeightedL1Loss
-
-# Import specific loss implementations
-from .losses.gaussian import HeteroscedasticGaussianLoss as DiagonalGaussianNLL, MultivariateGaussianLoss as GaussianNLLWithCovariance
-from .losses.robust import PseudoHuberLoss, LogCoshLoss, CharbonnierLoss
-from .losses.quantile import QuantileLoss, MultiQuantileLoss
-from .losses.mdn import create_mdn_loss
-from .losses.eiv import FunctionalEIVLoss as ChamferEIVLoss, OrthogonalDistanceRegressionLoss as RobustEIVLoss
 
 # Import ensemble components
-from .ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
+from .ensemble import DeepEnsemble
+
+# Import base losses
+from .losses.base import (
+    MaskedLoss,
+    WeightedHuberLoss,
+    WeightedL1Loss,
+    WeightedLossWrapper,
+    WeightedMSELoss,
+)
+
+# Import specific loss implementations
+from .losses.gaussian import (
+    HeteroscedasticGaussianLoss as DiagonalGaussianNLL,
+)
+from .losses.mdn import create_mdn_loss
+from .losses.quantile import MultiQuantileLoss, QuantileLoss
+from .losses.robust import LogCoshLoss, PseudoHuberLoss
 
 # Import utilities
-from .utils.augment import GaussianNoiseAugmentation, AdversarialAugmentation
 
 
-def create_gaussian_regression(
+def create_gaussian_model(
     in_features: int,
     out_features: int,
-    hidden_sizes: List[int] = [64, 64],
-    activation: nn.Module = nn.ReLU(),
-    heteroscedastic: bool = False,
-    eps: float = 1e-6,
+    hidden_sizes: Optional[List[int]] = None,
+    activation: Optional[nn.Module] = None,
+    dropout: float = 0.0,
+    batch_norm: bool = False,
+    learn_variance: bool = False,
 ) -> Tuple[nn.Module, nn.Module]:
     """
-    Creates a Gaussian regression model and corresponding loss function.
+    Creates a Gaussian regression model with optional variance learning.
 
     Args:
         in_features: Input dimension
         out_features: Output dimension
         hidden_sizes: List of hidden layer sizes
         activation: Activation function
-        heteroscedastic: Whether to predict both mean and variance
-        eps: Small constant for numerical stability
+        dropout: Dropout probability
+        batch_norm: Whether to use batch normalization
+        learn_variance: Whether to learn variance as well as mean
 
     Returns:
         Tuple of (model, loss_function)
     """
-    layers = []
+    # Set default values
+    if hidden_sizes is None:
+        hidden_sizes = [64, 64]
+    if activation is None:
+        activation = nn.ReLU()
+
+    # Create the base model
+    layers: List[nn.Module] = []
     layer_sizes = [in_features] + hidden_sizes
 
     # Create hidden layers
     for i in range(len(layer_sizes) - 1):
         layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+
+        if batch_norm:
+            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
+
         layers.append(activation)
 
+        if dropout > 0:
+            layers.append(nn.Dropout(dropout))
+
     # Create output layer
-    if heteroscedastic:
-        # Output both mean and log_std
-        output_layer = nn.Linear(layer_sizes[-1], 2 * out_features)
+    if learn_variance:
+        # Output both mean and log variance
+        output_layer = nn.Linear(layer_sizes[-1], out_features * 2)
         model = nn.Sequential(*layers, output_layer)
-        loss_fn = DiagonalGaussianNLL(out_features, eps=eps)
+        loss_fn = DiagonalGaussianNLL(n_features=out_features)
     else:
         # Output only mean
         output_layer = nn.Linear(layer_sizes[-1], out_features)
         model = nn.Sequential(*layers, output_layer)
-        loss_fn = nn.MSELoss()
+        loss_fn = WeightedMSELoss
 
     return model, loss_fn
 
 
-def create_robust_regression(
+def create_quantile_model(
     in_features: int,
     out_features: int,
-    loss_type: str = "huber",
-    delta: float = 1.0,
-    hidden_sizes: List[int] = [64, 64],
-    activation: nn.Module = nn.ReLU(),
-) -> Tuple[nn.Module, nn.Module]:
-    """
-    Creates a robust regression model with the specified loss.
-
-    Args:
-        in_features: Input dimension
-        out_features: Output dimension
-        loss_type: Type of loss ('huber', 'l1', 'pseudo_huber', 'log_cosh')
-        delta: Delta parameter for Huber and Pseudo-Huber losses
-        hidden_sizes: List of hidden layer sizes
-        activation: Activation function
-
-    Returns:
-        Tuple of (model, loss_function)
-    """
-    layers = []
-    layer_sizes = [in_features] + hidden_sizes
-
-    # Create hidden layers
-    for i in range(len(layer_sizes) - 1):
-        layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-        layers.append(activation)
-
-    # Create output layer
-    output_layer = nn.Linear(layer_sizes[-1], out_features)
-    model = nn.Sequential(*layers, output_layer)
-
-    # Create loss function
-    if loss_type == "huber":
-        loss_fn = WeightedHuberLoss(delta=delta)
-    elif loss_type == "l1":
-        loss_fn = WeightedL1Loss()
-    elif loss_type == "pseudo_huber":
-        loss_fn = PseudoHuberLoss(delta=delta)
-    elif loss_type == "log_cosh":
-        loss_fn = LogCoshLoss()
-    else:
-        raise ValueError(f"Unsupported loss type: {loss_type}")
-
-    return model, loss_fn
-
-
-def create_quantile_regression(
-    in_features: int,
-    out_features: int,
-    quantiles: Union[float, List[float], torch.Tensor],
-    hidden_sizes: List[int] = [64, 64],
-    activation: nn.Module = nn.ReLU(),
+    quantiles: Union[float, List[float]] = [0.1, 0.5, 0.9],
+    hidden_sizes: Optional[List[int]] = None,
+    activation: Optional[nn.Module] = None,
+    dropout: float = 0.0,
+    batch_norm: bool = False,
 ) -> Tuple[nn.Module, nn.Module]:
     """
     Creates a quantile regression model.
@@ -131,91 +108,116 @@ def create_quantile_regression(
     Args:
         in_features: Input dimension
         out_features: Output dimension
-        quantiles: Quantile level(s) to estimate
+        quantiles: Quantile(s) to predict
         hidden_sizes: List of hidden layer sizes
         activation: Activation function
+        dropout: Dropout probability
+        batch_norm: Whether to use batch normalization
 
     Returns:
         Tuple of (model, loss_function)
     """
-    layers = []
+    # Set default values
+    if hidden_sizes is None:
+        hidden_sizes = [64, 64]
+    if activation is None:
+        activation = nn.ReLU()
+
+    layers: List[nn.Module] = []
     layer_sizes = [in_features] + hidden_sizes
 
     # Create hidden layers
     for i in range(len(layer_sizes) - 1):
         layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+
+        if batch_norm:
+            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
+
         layers.append(activation)
 
-    # Handle multiple quantiles case
-    if isinstance(quantiles, (list, torch.Tensor)) and len(quantiles) > 1:
-        num_quantiles = len(quantiles) if isinstance(quantiles, list) else quantiles.numel()
-        output_layer = nn.Linear(layer_sizes[-1], out_features * num_quantiles)
-        model = nn.Sequential(*layers, output_layer)
-        loss_fn = MultiQuantileLoss(quantiles)
+        if dropout > 0:
+            layers.append(nn.Dropout(dropout))
+
+    # Handle quantiles
+    if isinstance(quantiles, (int, float)):
+        quantiles = [quantiles]
+        single_quantile = True
     else:
-        # Single quantile case
-        output_layer = nn.Linear(layer_sizes[-1], out_features)
-        model = nn.Sequential(*layers, output_layer)
-        loss_fn = QuantileLoss(tau=quantiles)
+        single_quantile = False
+
+    # Create output layer
+    output_layer = nn.Linear(layer_sizes[-1], out_features * len(quantiles))
+    model = nn.Sequential(*layers, output_layer)
+
+    # Create loss function
+    if single_quantile:
+        loss_fn: Union[QuantileLoss, MultiQuantileLoss] = QuantileLoss(quantile=quantiles[0])
+    else:
+        loss_fn = MultiQuantileLoss(quantiles=quantiles)
 
     return model, loss_fn
 
 
-def create_histogram_regression(
+def create_robust_model(
     in_features: int,
     out_features: int,
-    num_bins: int,
-    bin_min: float,
-    bin_max: float,
-    hidden_sizes: List[int] = [64, 64],
-    activation: nn.Module = nn.ReLU(),
-    target_distribution: str = "gaussian",
+    loss_type: str = "huber",
+    hidden_sizes: Optional[List[int]] = None,
+    activation: Optional[nn.Module] = None,
+    dropout: float = 0.0,
+    batch_norm: bool = False,
+    **loss_kwargs: Any,
 ) -> Tuple[nn.Module, nn.Module]:
     """
-    Creates a histogram regression model.
+    Creates a robust regression model.
 
     Args:
         in_features: Input dimension
-        out_features: Output dimension (number of regression targets)
-        num_bins: Number of bins in the histogram
-        bin_min: Minimum value of the support of the histogram
-        bin_max: Maximum value of the support of the histogram
+        out_features: Output dimension
+        loss_type: Type of robust loss ('huber', 'pseudo-huber', 'log-cosh')
         hidden_sizes: List of hidden layer sizes
         activation: Activation function
-        target_distribution: Type of the target distribution ('gaussian' or 'one-bin')
+        dropout: Dropout probability
+        batch_norm: Whether to use batch normalization
+        **loss_kwargs: Additional arguments for the loss function
 
     Returns:
         Tuple of (model, loss_function)
     """
-    layers = []
+    # Set default values
+    if hidden_sizes is None:
+        hidden_sizes = [64, 64]
+    if activation is None:
+        activation = nn.ReLU()
+
+    layers: List[nn.Module] = []
     layer_sizes = [in_features] + hidden_sizes
 
     # Create hidden layers
     for i in range(len(layer_sizes) - 1):
         layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+
+        if batch_norm:
+            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
+
         layers.append(activation)
 
+        if dropout > 0:
+            layers.append(nn.Dropout(dropout))
+
     # Create output layer
-    output_layer = nn.Linear(layer_sizes[-1], num_bins * out_features)
+    output_layer = nn.Linear(layer_sizes[-1], out_features)
+    model = nn.Sequential(*layers, output_layer)
 
-    class HistogramRegressionModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.feature_extractor = nn.Sequential(*layers)
-            self.output_layer = output_layer
-            self.out_features = out_features
-            self.num_bins = num_bins
-
-        def forward(self, x):
-            x = self.feature_extractor(x)
-            x = self.output_layer(x)
-            # Reshape to [batch_size, out_features, num_bins]
-            return x.reshape(-1, self.out_features, self.num_bins)
-
-    model = HistogramRegressionModel()
-    loss_fn = HistogramLoss(
-        num_bins=num_bins, bin_min=bin_min, bin_max=bin_max, target_distribution=target_distribution
-    )
+    # Create loss function
+    if loss_type == "huber":
+        loss_fn = WeightedHuberLoss
+    elif loss_type == "pseudo-huber":
+        loss_fn = PseudoHuberLoss(**loss_kwargs)
+    elif loss_type == "log-cosh":
+        loss_fn = LogCoshLoss(**loss_kwargs)
+    else:
+        raise ValueError(f"Unknown robust loss type: {loss_type}")
 
     return model, loss_fn
 
@@ -224,8 +226,8 @@ def create_mdn_model(
     in_features: int,
     out_features: int,
     num_components: int = 5,
-    hidden_sizes: List[int] = [64, 64],
-    activation: nn.Module = nn.ReLU(),
+    hidden_sizes: Optional[List[int]] = None,
+    activation: Optional[nn.Module] = None,
     distribution: str = "gaussian",
 ) -> Tuple[nn.Module, nn.Module]:
     """
@@ -242,7 +244,13 @@ def create_mdn_model(
     Returns:
         Tuple of (model, loss_function)
     """
-    layers = []
+    # Set default values
+    if hidden_sizes is None:
+        hidden_sizes = [64, 64]
+    if activation is None:
+        activation = nn.ReLU()
+
+    layers: List[nn.Module] = []
     layer_sizes = [in_features] + hidden_sizes
 
     # Create hidden layers
@@ -250,19 +258,21 @@ def create_mdn_model(
         layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
         layers.append(activation)
 
-    # Get distribution module to determine output size
-    from .losses.mdn import get_distribution_module
+    # Create output layer for MDN
+    # For diagonal covariance: n_components + 2*n_components*n_features
+    if distribution == "gaussian":
+        expected_output_size = num_components + 2 * num_components * out_features
+    else:
+        # Default to gaussian for other distributions
+        expected_output_size = num_components + 2 * num_components * out_features
 
-    dist_module = get_distribution_module(distribution)
-    dist_params_size = dist_module.get_params_size(out_features)
-    total_params_size = dist_params_size * num_components + num_components
-
-    # Create output layer
-    output_layer = nn.Linear(layer_sizes[-1], total_params_size)
+    output_layer = nn.Linear(layer_sizes[-1], expected_output_size)
     model = nn.Sequential(*layers, output_layer)
 
     # Create loss function
-    loss_fn = create_mdn_loss(num_components, out_features, distribution=distribution)
+    loss_fn = create_mdn_loss(
+        n_components=num_components, n_features=out_features, covariance_type="diagonal"
+    )
 
     return model, loss_fn
 
@@ -272,7 +282,7 @@ def create_deep_ensemble(
     ensemble_size: int = 5,
     augmentation: str = "none",
     augmentation_params: Optional[Dict[str, Any]] = None,
-    **model_kwargs,
+    **model_kwargs: Any,
 ) -> Tuple[nn.Module, nn.Module]:
     """
     Creates a deep ensemble model using the provided model factory function.
@@ -290,31 +300,20 @@ def create_deep_ensemble(
     # Create a single model to get its configuration
     model, loss_fn = model_fn(**model_kwargs)
 
-    # Set up augmentation
-    aug_params = augmentation_params or {}
-    if augmentation == "gaussian":
-        aug = GaussianNoiseAugmentation(**aug_params)
-    elif augmentation == "adversarial":
-        aug = AdversarialAugmentation(**aug_params)
-    else:
-        aug = None
-
     # Create an ensemble model factory
-    def model_factory():
+    def model_factory() -> nn.Module:
         return model_fn(**model_kwargs)[0]
 
     # Create the ensemble
-    ensemble = DeepEnsemble.from_model_factory(
-        model_factory=model_factory, ensemble_size=ensemble_size, augmentation=aug
-    )
+    ensemble = DeepEnsemble(base_model=model_factory, ensemble_size=ensemble_size, device="cpu")
 
     # Set the loss function
-    ensemble.set_loss_fn(loss_fn)
+    # ensemble.set_loss_fn(loss_fn)  # This method doesn't exist
 
     return ensemble, loss_fn
 
 
-def wrap_pytorch_loss(loss_class: type, **kwargs) -> MaskedLoss:
+def wrap_pytorch_loss(loss_class: type, **kwargs: Any) -> MaskedLoss:
     """
     Wrap any PyTorch loss function with torchregress's masking and weighting capabilities.
 
@@ -331,8 +330,8 @@ def wrap_pytorch_loss(loss_class: type, **kwargs) -> MaskedLoss:
 def create_regression_model(
     in_features: int,
     out_features: int,
-    hidden_sizes: List[int] = None,
-    activation: nn.Module = None,
+    hidden_sizes: Optional[List[int]] = None,
+    activation: Optional[nn.Module] = None,
     dropout: float = 0.0,
     batch_norm: bool = False,
     output_activation: Optional[nn.Module] = None,
@@ -357,7 +356,7 @@ def create_regression_model(
     if activation is None:
         activation = nn.ReLU()
 
-    layers = []
+    layers: List[nn.Module] = []
     layer_sizes = [in_features] + hidden_sizes
 
     # Create hidden layers
@@ -406,29 +405,27 @@ def create_loss_from_config(config: Dict[str, Any]) -> MaskedLoss:
     """
     loss_type = config.pop("type", "").lower()
 
+    loss_fn: MaskedLoss
     if loss_type == "mse" or loss_type == "mseloss":
-        return WeightedMSELoss(**config)
+        loss_fn = WeightedMSELoss(**config)
 
     elif loss_type == "l1" or loss_type == "mae":
-        return WeightedL1Loss(**config)
+        loss_fn = WeightedL1Loss(**config)
 
     elif loss_type == "huber":
-        return WeightedHuberLoss(**config)
+        loss_fn = WeightedHuberLoss(**config)
 
     elif loss_type == "gaussian" or loss_type == "gaussiannll":
-        return DiagonalGaussianNLL(**config)
+        loss_fn = DiagonalGaussianNLL(**config)
 
     elif loss_type == "quantile" or loss_type == "pinball":
-        return QuantileLoss(**config)
+        loss_fn = QuantileLoss(**config)
 
     elif loss_type == "multiquantile":
-        return MultiQuantileLoss(**config)
-
-    elif loss_type == "histogram":
-        return HistogramLoss(**config)
+        loss_fn = MultiQuantileLoss(**config)
 
     elif loss_type == "mdn":
-        return create_mdn_loss(**config)
+        loss_fn = create_mdn_loss(**config)
 
     elif loss_type == "pytorch":
         loss_class = config.pop("class")
@@ -440,7 +437,9 @@ def create_loss_from_config(config: Dict[str, Any]) -> MaskedLoss:
                 loss_class = getattr(nn, loss_class)
             else:
                 raise ValueError(f"Unknown PyTorch loss: {loss_class}")
-        return wrap_pytorch_loss(loss_class, **config)
+        loss_fn = wrap_pytorch_loss(loss_class, **config)
 
     else:
         raise ValueError(f"Unknown loss type: {loss_type}")
+
+    return loss_fn

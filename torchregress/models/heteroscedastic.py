@@ -2,16 +2,18 @@
 Heteroscedastic regression network utilities.
 """
 
+from typing import Callable, List, Tuple
+
 import torch
 import torch.nn as nn
 from torch import Tensor
-from typing import List, Callable, Tuple
 
 
 class DualHeadRegressionModel(nn.Module):
     """
     MLP with shared hidden layers and separate heads for mean and log-variance.
     """
+
     def __init__(
         self,
         input_dim: int,
@@ -50,7 +52,7 @@ def create_dual_head_regression(
     hidden_sizes: List[int] = [64, 64],
     activation: Callable[..., nn.Module] = nn.ReLU,
     log_var_init: float = 0.0,
-) -> Tuple[nn.Module, torch.nn.Module]:
+) -> Tuple[nn.Module, nn.Module]:
     """
     Convenience: returns DualHeadRegressionModel and HeteroscedasticGaussianLoss.
     """
