@@ -41,8 +41,8 @@ def generate_synthetic_data(n_samples: int = 1000, n_features: int = 2) -> tuple
 
 
 def demo_basic_conformal() -> None:
-    """Demonstrate basic ConformalLoss (CQR by default)."""
-    print("=== Basic Conformal Prediction Demo (CQR) ===")
+    """Demonstrate basic ConformalLoss (split conformal)."""
+    print("=== Basic Conformal Prediction Demo (Split Conformal) ===")
 
     # Generate data
     X, y, _ = generate_synthetic_data(n_samples=1000, n_features=1)
@@ -53,13 +53,13 @@ def demo_basic_conformal() -> None:
     _X_train, _X_cal, _X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
     y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
-    # Create dummy predictions (lower and upper quantiles for CQR)
-    y_pred_train = torch.cat([y_train - 0.5, y_train + 0.5], dim=1)
-    y_pred_cal = torch.cat([y_cal - 0.5, y_cal + 0.5], dim=1)
-    y_pred_test = torch.cat([y_test - 0.5, y_test + 0.5], dim=1)
+    # Create dummy predictions (point predictions for split conformal)
+    y_pred_train = y_train + 0.1 * torch.randn_like(y_train)
+    y_pred_cal = y_cal + 0.1 * torch.randn_like(y_cal)
+    y_pred_test = y_test + 0.1 * torch.randn_like(y_test)
 
-    # Create conformal loss (defaults to method='cqr')
-    loss_fn = ConformalLoss(alpha=0.1)
+    # Create conformal loss
+    loss_fn = ConformalLoss(method='split', alpha=0.1)
 
     # Train with the loss
     train_loss = loss_fn(y_pred_train, y_train)
@@ -70,6 +70,48 @@ def demo_basic_conformal() -> None:
     print("Calibrated successfully.")
 
     # Get prediction intervals on test set
+    lower_interval, upper_interval = loss_fn.predict_interval(y_pred_test)
+
+    # Calculate coverage
+    coverage = ((y_test >= lower_interval) & (y_test <= upper_interval)).float().mean()
+    print(f"Test coverage: {coverage.item():.4f} (target: {1 - loss_fn.alpha:.2f})")
+
+    # Calculate interval width
+    avg_width = (upper_interval - lower_interval).mean()
+    print(f"Average interval width: {avg_width.item():.4f}")
+    print()
+
+
+def demo_conformalized_quantile() -> None:
+    """Demonstrate Conformalized Quantile Loss."""
+    print("=== Conformalized Quantile Regression Demo ===")
+
+    # Generate data
+    X, y, _ = generate_synthetic_data(n_samples=1000, n_features=1)
+
+    # Split data
+    n_train = 600
+    n_cal = 200
+    _X_train, _X_cal, _X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
+    y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
+
+    # Create dummy quantile predictions (lower and upper quantiles)
+    y_pred_train = torch.cat([y_train - 0.5, y_train + 0.5], dim=1)
+    y_pred_cal = torch.cat([y_cal - 0.5, y_cal + 0.5], dim=1)
+    y_pred_test = torch.cat([y_test - 0.5, y_test + 0.5], dim=1)
+
+    # Create conformalized quantile loss
+    loss_fn = ConformalLoss(method='cqr', alpha=0.1)
+
+    # Train with the loss
+    train_loss = loss_fn(y_pred_train, y_train)
+    print(f"Training loss: {train_loss.item():.4f}")
+
+    # Calibrate on calibration set
+    loss_fn.calibrate(y_pred_cal, y_cal)
+    print("Calibrated successfully.")
+
+    # Get calibrated prediction intervals
     lower_interval, upper_interval = loss_fn.predict_interval(y_pred_test)
 
     # Calculate coverage
@@ -181,6 +223,7 @@ def main() -> None:
     print("=" * 50)
 
     demo_basic_conformal()
+    demo_conformalized_quantile()
     demo_adaptive_conformal()
     demo_multidimensional_conformal()
 
