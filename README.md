@@ -1,9 +1,27 @@
 # torchregress
 
-PyTorch loss functions for regression with uncertainty estimation and missing data support.
-
 [![PyPI](https://img.shields.io/pypi/v/torchregress.svg)](https://pypi.org/project/torchregress/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A comprehensive PyTorch library for regression and uncertainty estimation.
+
+## Overview
+
+**torchregress** provides a collection of regression loss functions, metrics, and uncertainty estimation techniques implemented in PyTorch. It's designed to make it easy to:
+
+- Use different regression loss functions beyond MSE
+- Estimate uncertainty in regression predictions
+- Evaluate regression models with appropriate metrics
+- Visualize regression results and uncertainty
+
+## Key Features
+
+- **Diverse Loss Functions**: From basic (MSE, MAE) to advanced (MDN, NF) regression losses
+- **Uncertainty Quantification**: Built-in support for different uncertainty estimation techniques
+- **Comprehensive Metrics**: Evaluation metrics for point predictions, predictive distributions, and uncertainty
+- **Visualization Tools**: Ready-to-use visualization functions for regression diagnostics
+- **PyTorch Integration**: Seamlessly integrates with PyTorch models and training loops
+- **Statistical Rigor**: Mathematically sound implementation of statistical estimators
 
 ## Installation
 
@@ -11,158 +29,81 @@ PyTorch loss functions for regression with uncertainty estimation and missing da
 pip install torchregress
 ```
 
-## Features
+## Quickstart
 
-- **Uncertainty-aware losses**: Gaussian NLL, Mixture Density Networks, Normalizing Flows
-- **Robust regression**: Huber, Log-cosh, Tukey losses for outlier resistance 
-- **Quantile regression**: Predict specific percentiles and prediction intervals
-- **Count data**: Poisson and Poisson-Gaussian mixture models
-- **Missing data support**: All losses handle masked values gracefully
-- **Error propagation**: Error-in-Variables regression for inputs with uncertainty
-- **Modern regression**: Simultaneous quantile regression, Barron loss, conformal prediction
-- **Ensemble methods**: Deep ensembles with uncertainty propagation
-- **Target transformations**: Built-in log, Box-Cox, and sqrt transformations
-- **Algorithms**: IRLS for robust fitting, ensemble methods for uncertainty
+```python
+import torch
+from torchregress.losses import GaussianNLLLoss
+from torchregress.metrics import rmse
 
-## Development
+# Define your model (any PyTorch model that outputs mean and variance)
+# For example:
+class MyModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = torch.nn.Linear(10, 2) # Output mean and log_var
 
-This project uses modern Python tooling with [uv](https://github.com/astral-sh/uv) as the primary package manager.
+    def forward(self, x):
+        return self.fc(x).chunk(2, dim=-1)
 
-### Quick Start
+model = MyModel()
+optimizer = torch.optim.Adam(model.parameters())
+loss_fn = GaussianNLLLoss()
 
-1. Install uv:
-   ```bash
-   # On macOS and Linux:
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
+# Example data
+X_train = torch.randn(100, 10)
+y_train = torch.randn(100, 1)
+X_test = torch.randn(50, 10)
+y_test = torch.randn(50, 1)
 
-2. Clone and install:
-   ```bash
-   git clone https://github.com/sfabbro/torchregress.git
-   cd torchregress
-   uv pip install -e .[all]
-   ```
+# Training loop
+for epoch in range(10):
+    for i in range(len(X_train)):
+        # Forward pass: get predictions (mean and variance)
+        mean, log_var = model(X_train[i:i+1])
 
-### Common Development Tasks
+        # Calculate loss
+        loss = loss_fn(mean, y_train[i:i+1], log_var=log_var.exp())
 
-```bash
-# Run tests
-uv run pytest
+        # Backward and optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-# Run tests with coverage
-uv run pytest --cov=torchregress --cov-report=html
+# Evaluation
+with torch.no_grad():
+    mean, log_var = model(X_test)
+    rmse_score = rmse(mean, y_test)
+    print(f"RMSE: {rmse_score:.4f}")
 
-# Code formatting
-uv run black .
-
-# Code linting
-uv run ruff check .
-
-# Type checking
-uv run mypy torchregress
-
-# Build documentation
-uv run mkdocs build
-
-# Serve documentation locally
-uv run mkdocs serve
-
-# Build distribution packages
-uv build
-
-# Publish to PyPI
-uv publish
 ```
 
 ## Common Usage
-
-### Heteroscedastic Regression
-
-```python
-from torchregress.losses.gaussian import DiagonalGaussianNLL
-
-# Create model that outputs mean and log_variance
-class Model(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.backbone = torch.nn.Sequential(
-            torch.nn.Linear(input_dim, 64),
-            torch.nn.ReLU(),
-            torch.nn.Linear(64, 64),
-            torch.nn.ReLU(),
-        )
-        self.mean_head = torch.nn.Linear(64, output_dim)
-        self.logvar_head = torch.nn.Linear(64, output_dim)
-    
-    def forward(self, x):
-        features = self.backbone(x)
-        mean = self.mean_head(features)
-        logvar = self.logvar_head(features)
-        return mean, logvar
-
-# Training with uncertainty estimation
-model = Model()
-loss_fn = DiagonalGaussianNLL(n_features=2)
-loss = loss_fn((mean, logvar), target)
-```
-
-### Robust Regression with Missing Data
-
-```python
-from torchregress.losses.robust import HuberLoss
-
-# Mask indicates missing values (False = missing)
-mask = torch.ones_like(target).bool()
-mask[:, 1] = False  # Second feature missing
-
-# Apply mask-aware loss
-loss_fn = HuberLoss(delta=1.0)
-loss = loss_fn(predictions, target, mask=mask)
-```
-
-### Quantile Regression
-
-```python
-from torchregress.losses.quantile import MultiQuantileLoss
-
-# Predict 10th, 50th and 90th percentiles simultaneously
-quantiles = [0.1, 0.5, 0.9]
-loss_fn = MultiQuantileLoss(quantiles=quantiles)
-loss = loss_fn(predictions, target)  # predictions shape: [batch, num_quantiles, features]
-```
 
 ### Conformal Prediction
 
 ```python
 from torchregress.losses.conformal import ConformalLoss
 
-# Train conformal prediction model
-loss_fn = ConformalLoss(alpha=0.1)  # 90% prediction intervals
-loss = loss_fn(predictions, target)
+# Your model should be trained to predict quantiles for CQR
+# For split conformal prediction, it can be a standard regression model
+model = MyModel() # A model that outputs a point prediction or quantiles
+loss_fn = ConformalLoss(method='cqr', alpha=0.1)  # 90% prediction intervals
+
+# ... training loop for the model ...
 
 # Calibrate on hold-out data
-lower_pred, upper_pred = predictions[:, :n_features], predictions[:, n_features:]
-tau = loss_fn.calibrate(lower_pred, upper_pred, target)
+# For CQR, y_pred_cal should contain lower and upper quantile predictions
+y_pred_cal = torch.randn(100, 2)
+y_true_cal = torch.randn(100, 1)
+loss_fn.calibrate(y_pred_cal, y_true_cal)
 
 # Make predictions with calibrated intervals
-lower_interval, upper_interval = loss_fn.predict_interval(lower_pred, upper_pred)
+y_pred_test = torch.randn(50, 2)
+lower_interval, upper_interval = loss_fn.predict_interval(y_pred_test)
 ```
 
-### Iteratively Reweighted Least Squares
-
-```python
-from torchregress.algorithms.irls import IRLS
-
-# Train with robust IRLS
-result = IRLS(
-    model=model,
-    train_data=(X, y),
-    weight_fn="tukey",  # Robust to outliers
-    num_epochs=20
-)
-```
-
-For more advanced usage and API details, refer to the [documentation](https://github.com/sfabbro/torchregress).
+For more advanced usage and API details, refer to the [full documentation](https://github.com/sfabbro/torchregress).
 
 ## License
 

@@ -229,7 +229,6 @@ def main():
 
     plt.tight_layout()
     plt.savefig("regression_comparison.png")
-    plt.show()
 
     print("Example completed! Results saved to regression_comparison.png")
 

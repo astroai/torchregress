@@ -15,7 +15,7 @@ from torchregress.losses.conformal import (
     ConformalizedQuantileLoss,
     ConformalLoss,
 )
-from torchregress.losses.quantile import QuantileLoss
+from torchregress.losses.quantile import MultiQuantileLoss
 
 
 class SimpleModel(nn.Module):
@@ -74,7 +74,7 @@ def main():
 
     # Train a model for CQR (outputs two quantiles)
     cqr_model = SimpleModel(in_features=1, out_features=2)
-    train_loss_cqr = QuantileLoss(quantiles=[0.05, 0.95])
+    train_loss_cqr = MultiQuantileLoss(quantiles=[0.05, 0.95])
     cqr_model = train_model(cqr_model, X_train, y_train, train_loss_cqr)
 
     # Train a model for Split and ACI (outputs a point prediction)
