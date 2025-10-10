@@ -25,9 +25,13 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 # Import TorchRegression losses
-from torchregress.losses.gaussian import MAELoss, MSELoss
-from torchregress.losses.quantile import QuantileLoss
-from torchregress.losses.robust import HuberLoss, LogCoshLoss
+from torchregress.losses import (
+    LogCoshLoss,
+    QuantileLoss,
+    WeightedHuberLoss,
+    WeightedL1Loss,
+    WeightedMSELoss,
+)
 from torchregress.metrics.point import mae, mse, rmse
 
 # Define constants
@@ -316,9 +320,9 @@ def main():
 
     # Define different loss functions to compare
     loss_functions = {
-        "MSE": MSELoss(reduction="mean"),
-        "MAE": MAELoss(reduction="mean"),
-        "Huber": HuberLoss(delta=1.0, reduction="mean"),  # Missing reduction parameter
+        "MSE": WeightedMSELoss(reduction="mean"),
+        "MAE": WeightedL1Loss(reduction="mean"),
+        "Huber": WeightedHuberLoss(reduction="mean"),
         "LogCosh": LogCoshLoss(reduction="mean"),  # Missing reduction parameter
         "Quantile_50": QuantileLoss(quantile=0.5, reduction="mean"),  # Missing reduction parameter
     }

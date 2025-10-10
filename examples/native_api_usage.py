@@ -5,8 +5,7 @@ Examples demonstrating the PyTorch-native API usage patterns for torchregress.
 import torch
 import torch.nn as nn
 
-from torchregress.losses.gaussian import DiagonalGaussianNLL
-from torchregress.losses.robust import HuberLoss
+from torchregress.losses import HeteroscedasticGaussianLoss, WeightedHuberLoss
 
 
 # Example 1: Standard regression model with MSE loss
@@ -53,7 +52,7 @@ def example_heteroscedastic_regression():
 
     # Create model and loss
     model = HeteroscedasticModel(in_features=10, out_features=1)
-    loss_fn = DiagonalGaussianNLL(learnable_variance=False)
+    loss_fn = HeteroscedasticGaussianLoss(n_features=1, learnable_variance=False)
 
     # Example usage
     x = torch.randn(32, 10)  # 32 samples, 10 features
@@ -77,7 +76,7 @@ def example_robust_regression():
     )
 
     # Use Huber loss for robustness
-    loss_fn = HuberLoss(delta=1.0)
+    loss_fn = WeightedHuberLoss()
 
     # Example usage
     x = torch.randn(32, 10)  # 32 samples, 10 features

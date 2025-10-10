@@ -39,14 +39,16 @@ $$\mathcal{L}_{\tau}(y, \hat{q}_{\tau}) = \begin{cases}
 
 The expectile loss function for an expectile level τ ∈ (0,1) is defined as:
 
-$$\mathcal{L}_{\tau}(y, \hat{e}_{\tau}) = |y - \hat{e}_{\tau}|^2 \cdot (\tau \cdot \mathbb{1}_{y \geq \hat{e}_{\tau}} + (1-\tau) \cdot \mathbb{1}_{y < \hat{e}_{\tau}})$$
+$$\mathcal{L}_{\tau}(y, \hat{e}_{\tau}) = 2 \cdot |y - \hat{e}_{\tau}|^2 \cdot (\tau \cdot \mathbb{1}_{y \geq \hat{e}_{\tau}} + (1-\tau) \cdot \mathbb{1}_{y < \hat{e}_{\tau}})$$
 
 Which can also be written as:
 
 $$\mathcal{L}_{\tau}(y, \hat{e}_{\tau}) = \begin{cases}
-\tau \cdot (y - \hat{e}_{\tau})^2, & \text{if } y \geq \hat{e}_{\tau} \\
-(1 - \tau) \cdot (y - \hat{e}_{\tau})^2, & \text{if } y < \hat{e}_{\tau}
+2\tau \cdot (y - \hat{e}_{\tau})^2, & \text{if } y \geq \hat{e}_{\tau} \\
+2(1 - \tau) \cdot (y - \hat{e}_{\tau})^2, & \text{if } y < \hat{e}_{\tau}
 \end{cases}$$
+
+**Note**: The factor of 2 ensures that when τ=0.5, the expectile loss equals standard MSE loss.
 
 ## Quantile Loss Functions
 

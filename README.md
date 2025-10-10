@@ -1,4 +1,4 @@
-# TorchRegress
+# torchregress
 
 PyTorch loss functions for regression with uncertainty estimation and missing data support.
 

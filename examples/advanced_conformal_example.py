@@ -4,7 +4,7 @@ Example demonstrating advanced conformal prediction methods.
 
 import numpy as np
 import torch
-from torchregress.losses.advanced_conformal import (
+from torchregress.losses.conformal_advanced import (
     AdaptiveConformalLoss,
     ConformalizedQuantileLoss,
     MultiDimensionalConformalLoss,

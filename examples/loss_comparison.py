@@ -3,9 +3,13 @@ import numpy as np
 import torch
 from torch import optim
 
-from torchregress.losses.gaussian import MAELoss, MSELoss
-from torchregress.losses.quantile import QuantileLoss
-from torchregress.losses.robust import HuberLoss, LogCoshLoss
+from torchregress.losses import (
+    LogCoshLoss,
+    QuantileLoss,
+    WeightedHuberLoss,
+    WeightedL1Loss,
+    WeightedMSELoss,
+)
 
 
 class SimpleModel(torch.nn.Module):
@@ -82,9 +86,9 @@ def main():
 
     # Define loss functions to compare
     loss_functions = {
-        "MSE": MSELoss(reduction="mean"),
-        "MAE": MAELoss(reduction="mean"),
-        "Huber": HuberLoss(delta=1.0, reduction="mean"),
+        "MSE": WeightedMSELoss(reduction="mean"),
+        "MAE": WeightedL1Loss(reduction="mean"),
+        "Huber": WeightedHuberLoss(reduction="mean"),
         "LogCosh": LogCoshLoss(reduction="mean"),
         "Quantile (0.5)": QuantileLoss(quantile=0.5, reduction="mean"),
     }
@@ -112,12 +116,15 @@ def main():
         # Plot predictions
         plt.subplot(2, 3, i + 2)
         plt.scatter(x_train.numpy(), y_train.numpy(), alpha=0.5, label="Train data")
-        plt.scatter(
-            x_train[outlier_idx[: int(0.8 * len(outlier_idx))]].numpy(),
-            y_train[outlier_idx[: int(0.8 * len(outlier_idx))]].numpy(),
-            color="red",
-            label="Outliers",
-        )
+        # Filter outlier indices to only those in training set
+        train_outliers = outlier_idx[outlier_idx < train_size]
+        if len(train_outliers) > 0:
+            plt.scatter(
+                x_train[train_outliers].numpy(),
+                y_train[train_outliers].numpy(),
+                color="red",
+                label="Outliers",
+            )
         plt.scatter(x_test.numpy(), y_test.numpy(), alpha=0.5, label="Test data")
         plt.plot(x_test.numpy(), y_pred.numpy(), "g-", linewidth=2, label="Prediction")
         plt.plot(x.numpy(), y_true.numpy(), "k--", linewidth=1, label="True relationship")

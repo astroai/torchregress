@@ -22,7 +22,10 @@ def generate_synthetic_data(n_samples: int = 1000, n_features: int = 2) -> tuple
     X = torch.randn(n_samples, n_features)
 
     # Generate targets with heteroscedastic noise
-    y_true = torch.sin(X[:, 0]) + 0.5 * X[:, 1] ** 2
+    if n_features >= 2:
+        y_true = torch.sin(X[:, 0]) + 0.5 * X[:, 1] ** 2
+    else:
+        y_true = torch.sin(X[:, 0])
     noise_std = 0.1 + 0.2 * torch.abs(X[:, 0])  # Heteroscedastic noise
     y = y_true + torch.randn(n_samples) * noise_std
 
@@ -158,14 +161,13 @@ def demo_conformalized_quantile() -> None:
     )
 
     # Create dummy quantile predictions
-    quantiles = [0.05, 0.5, 0.95]
-    len(quantiles)
+    # ConformalizedQuantileLoss expects only 2 quantiles (lower and upper bounds)
+    quantiles = [0.05, 0.95]
 
     # For demo, create predictions for each quantile
     quantile_preds_train = torch.stack(
         [
             y_train - 1.0 + 0.2 * torch.randn_like(y_train),  # 0.05 quantile
-            y_train + 0.1 * torch.randn_like(y_train),  # 0.5 quantile (median)
             y_train + 1.0 + 0.2 * torch.randn_like(y_train),  # 0.95 quantile
         ],
         dim=-1,
@@ -176,7 +178,6 @@ def demo_conformalized_quantile() -> None:
     quantile_preds_cal = torch.stack(
         [
             y_cal - 1.0 + 0.2 * torch.randn_like(y_cal),
-            y_cal + 0.1 * torch.randn_like(y_cal),
             y_cal + 1.0 + 0.2 * torch.randn_like(y_cal),
         ],
         dim=-1,
@@ -185,7 +186,6 @@ def demo_conformalized_quantile() -> None:
     quantile_preds_test = torch.stack(
         [
             y_test - 1.0 + 0.2 * torch.randn_like(y_test),
-            y_test + 0.1 * torch.randn_like(y_test),
             y_test + 1.0 + 0.2 * torch.randn_like(y_test),
         ],
         dim=-1,

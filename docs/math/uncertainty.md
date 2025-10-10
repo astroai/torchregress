@@ -198,6 +198,141 @@ model = create_model_with_dropout(dropout_prob=0.1)
 results = tr.ensemble.utils.generate_prediction_samples(model, x, n_samples=30)
 ```
 
+## Uncertainty Decomposition: Which Methods Support It?
+
+**IMPORTANT:** Not all uncertainty quantification methods support the decomposition of total uncertainty into epistemic and aleatoric components. Understanding which methods provide this capability is crucial for choosing the right approach for your application.
+
+### Total Predictive Uncertainty
+
+Total uncertainty = Epistemic + Aleatoric
+
+This decomposition is only possible with certain methods. Below is a comprehensive guide:
+
+### Methods Supporting Decomposition
+
+| Method | Epistemic | Aleatoric | Notes |
+|--------|-----------|-----------|-------|
+| **Heteroscedastic Ensemble** | ✅ Variance of means | ✅ Mean of variances | Requires ensemble + variance prediction. Most reliable decomposition. |
+| **MDN (Mixture Density Network)** | ✅ Mixture entropy | ✅ Component variances | From mixture weights and component variances. Good for multimodal distributions. |
+| **Normalizing Flows (ensemble)** | ✅ Via ensemble | ✅ From distribution | Requires multiple flows or Bayesian approach. |
+| **SWAG/MultiSWAG** | ✅ Weight posterior | ⚠️ Requires additional modeling | Epistemic via weight sampling. Aleatoric needs variance prediction. |
+| **Monte Carlo Dropout** | ✅ Dropout variance | ⚠️ Requires variance prediction | Can approximate epistemic. Aleatoric needs explicit modeling. |
+| **Deep Ensembles** | ✅ Variance of means | ❌ Not available | Unless combined with heteroscedastic outputs (variance prediction). |
+| **Quantile Regression** | ❌ | ❌ | Provides intervals, not decomposition. Distribution-free. |
+| **Conformal Prediction** | ❌ | ❌ | Distribution-free coverage guarantees, NOT uncertainty decomposition. |
+| **Simple Point Losses** | ❌ | ❌ | No uncertainty quantification at all. |
+
+### When to Use What
+
+**Need epistemic/aleatoric decomposition?**
+- ✅ Use: Heteroscedastic Ensemble or MDN
+- ⚠️ Alternative: SWAG with variance prediction
+- ❌ Don't use: Conformal prediction or quantile regression
+
+**Distribution-free prediction intervals?**
+- ✅ Use: Conformal Prediction or Quantile Regression
+- Note: These provide coverage guarantees but cannot decompose uncertainty
+
+**Calibrated coverage guarantees?**
+- ✅ Use: Conformal Prediction
+- Note: Provides valid coverage without distributional assumptions
+
+**Multimodal uncertainty?**
+- ✅ Use: MDN or Normalizing Flows
+- Good for: Complex, multi-peaked distributions
+
+**Simple uncertainty estimate without decomposition?**
+- ✅ Use: Deep Ensemble or Quantile Regression
+- Good for: When you only need total uncertainty
+
+**Out-of-distribution detection?**
+- ✅ Use: Deep Ensemble or SWAG (high epistemic uncertainty indicates OOD)
+- ❌ Don't rely on: Conformal prediction (provides coverage, not OOD detection)
+
+### Important Distinction: Conformal Prediction
+
+**Conformal prediction is NOT an uncertainty decomposition method.** It provides:
+- ✅ Distribution-free prediction intervals with guaranteed marginal coverage
+- ✅ Finite-sample validity (coverage holds for finite samples, not just asymptotically)
+- ❌ NO separation of epistemic vs aleatoric uncertainty
+- ❌ NO measure of model confidence or knowledge
+
+Use conformal prediction when you need:
+1. Rigorous coverage guarantees without distributional assumptions
+2. Calibrated prediction intervals
+3. Robust performance across different data distributions
+
+Do NOT use conformal prediction when you need:
+1. To understand sources of uncertainty (epistemic vs aleatoric)
+2. To detect out-of-distribution samples (use ensemble disagreement instead)
+3. To know if the model is confident or uncertain about its predictions
+
+### Practical Examples
+
+#### Example 1: Medical Diagnosis (Need Decomposition)
+
+```python
+# Goal: Understand if uncertainty comes from inherent patient variability
+# (aleatoric) or lack of data (epistemic)
+
+# Use heteroscedastic ensemble
+from torchregress.ensemble import DeepEnsemble
+from torchregress.losses import HeteroscedasticGaussianLoss
+
+model = DeepEnsemble(
+    base_model=MyModel(output_dim=2),  # Predicts (mean, log_var)
+    ensemble_size=5
+)
+loss_fn = HeteroscedasticGaussianLoss()
+
+# At inference, get decomposed uncertainties
+mean, epistemic_var, aleatoric_var = model.predict_with_uncertainty(x_test)
+
+# High epistemic variance → need more data
+# High aleatoric variance → inherent noise in the problem
+```
+
+#### Example 2: Safety-Critical Application (Need Coverage Guarantees)
+
+```python
+# Goal: Ensure prediction intervals have valid coverage for safety
+
+# Use conformal prediction
+from torchregress.losses import TorchCPConformalLoss
+
+loss_fn = TorchCPConformalLoss(method='cqr', alpha=0.1)  # 90% coverage
+
+# Train model
+train_model(model, loss_fn, train_loader)
+
+# Calibrate on hold-out set
+loss_fn.calibrate(cal_predictions, cal_targets)
+
+# Get intervals with guaranteed 90% coverage
+lower, upper = loss_fn.predict(test_predictions)
+
+# Note: These intervals have coverage guarantees but don't tell you
+# whether uncertainty comes from model or data
+```
+
+#### Example 3: Active Learning (Need Epistemic Uncertainty)
+
+```python
+# Goal: Select samples where model is most uncertain (needs more data)
+
+# Use deep ensemble for epistemic uncertainty
+from torchregress.ensemble import DeepEnsemble
+
+ensemble = DeepEnsemble(base_model=MyModel(), ensemble_size=10)
+
+# Get epistemic uncertainty (disagreement between ensemble members)
+predictions = ensemble.predict(unlabeled_data)
+epistemic_uncertainty = predictions.var(dim=0)
+
+# Select samples with highest epistemic uncertainty for labeling
+samples_to_label = torch.topk(epistemic_uncertainty, k=100)
+```
+
 ## Best Practices
 
 1. **Begin with simpler methods**: Start with direct variance estimation before moving to more complex approaches.
@@ -207,8 +342,12 @@ results = tr.ensemble.utils.generate_prediction_samples(model, x, n_samples=30)
    - For skewed or multi-modal data: MDNs or normalizing flows
    - For count data: Appropriate likelihood (e.g., Poisson, Negative Binomial)
 
-3. **Separate aleatoric and epistemic uncertainty** when possible to understand the sources of uncertainty in your predictions.
+3. **Choose based on your needs**:
+   - Need uncertainty decomposition? → Heteroscedastic Ensemble or MDN
+   - Need coverage guarantees? → Conformal Prediction
+   - Need OOD detection? → Deep Ensemble or SWAG
+   - Need multimodal distributions? → MDN or Normalizing Flows
 
 4. **Evaluate calibration** of your uncertainty estimates using proper scoring rules and calibration metrics.
 
-5. **Combine multiple methods** for more robust uncertainty estimation (e.g., ensembles of heteroscedastic models).
+5. **Combine multiple methods** for more robust uncertainty estimation (e.g., ensembles of heteroscedastic models, or conformal prediction on top of probabilistic models).

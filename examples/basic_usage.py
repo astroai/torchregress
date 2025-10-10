@@ -17,14 +17,12 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 # Import main TorchRegress components
-
-# Import additional losses from the torchregress library
-from torchregress.losses.gaussian import (
-    GaussianNLL,
-    MSELoss,
-)  # GaussianNLLLoss is duplicated with GaussianNLL
-from torchregress.losses.quantile import QuantileLoss
-from torchregress.losses.robust import HuberLoss
+from torchregress.losses import (
+    HeteroscedasticGaussianLoss,  # For uncertainty estimation
+    QuantileLoss,  # For quantile regression
+    WeightedHuberLoss,  # For robust regression
+    WeightedMSELoss,  # For standard MSE
+)
 
 
 # 1. Create a synthetic dataset with heteroscedastic noise
@@ -114,7 +112,10 @@ def train_model(
 
             if uncertainty_model:
                 mean, var = model(x_batch)
-                loss = loss_fn(mean, y_batch, var)
+                # HeteroscedasticGaussianLoss expects y_pred as (mean, log_var) tuple
+                # var is already in variance form, so convert to log_var
+                log_var = torch.log(var)
+                loss = loss_fn((mean, log_var), y_batch)
             else:
                 y_pred = model(x_batch)
                 loss = loss_fn(y_pred, y_batch)
@@ -148,12 +149,12 @@ def main():
 
     # 4. Train with MSE loss (basic)
     model_mse = RegressionModel()
-    mse_loss = MSELoss()
+    mse_loss = WeightedMSELoss()
     mse_losses = train_model(model_mse, mse_loss, x_train, y_train, verbose=False)
 
     # 5. Train with Huber loss (robust)
     model_huber = RegressionModel()
-    huber_loss = HuberLoss(delta=1.0)
+    huber_loss = WeightedHuberLoss(delta=1.0)
     huber_losses = train_model(model_huber, huber_loss, x_train, y_train, verbose=False)
 
     # 6. Train with Quantile loss (asymmetric)
@@ -161,9 +162,10 @@ def main():
     quantile_loss = QuantileLoss(quantile=0.5)  # Median regression
     quantile_losses = train_model(model_quantile, quantile_loss, x_train, y_train, verbose=False)
 
-    # 7. Train with Gaussian NLL (uncertainty aware)
+    # 7. Train with Heteroscedastic Gaussian loss (uncertainty aware)
     model_uncertainty = UncertaintyModel()
-    gaussian_nll = GaussianNLL()
+    # Model outputs (mean, log_var), so use learnable_variance=False to accept model's variance
+    gaussian_nll = HeteroscedasticGaussianLoss(n_features=1, learnable_variance=False)
     gnll_losses = train_model(
         model_uncertainty, gaussian_nll, x_train, y_train, uncertainty_model=True, verbose=False
     )

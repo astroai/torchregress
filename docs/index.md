@@ -1,10 +1,10 @@
-# TorchRegression
+# torchregress
 
 A comprehensive PyTorch library for regression and uncertainty estimation.
 
 ## Overview
 
-TorchRegression provides a collection of regression loss functions, metrics, and uncertainty estimation techniques implemented in PyTorch. It's designed to make it easy to:
+**torchregress** (lowercase) provides a collection of regression loss functions, metrics, and uncertainty estimation techniques implemented in PyTorch. It's designed to make it easy to:
 
 - Use different regression loss functions beyond MSE
 - Estimate uncertainty in regression predictions
