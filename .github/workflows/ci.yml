@@ -122,5 +122,5 @@ jobs:
         
     - name: Run linting
       run: |
-        ruff check .
-        black --check .
+        uv run ruff check .
+        uv run black --check .
