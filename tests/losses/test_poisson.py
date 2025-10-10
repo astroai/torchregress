@@ -66,12 +66,15 @@ class TestPoissonLosses(unittest.TestCase):
         det_loss = det_loss_fn(self.det_y_pred, self.det_y_true, self.det_mask)
         # Poisson deviance has term: (pred - true + true * (log(true) - log(pred)))
         import math
+
         expected_value = (
             (2 - 2 + 2 * (math.log(2) - math.log(2)))
             + (0.5 - 0 + 0)
             + (3 - 3 + 3 * (math.log(3) - math.log(3)))
         ) / 3  # Should be 0.5/3
-        self.assertTrue(torch.allclose(det_loss, torch.tensor(expected_value, device=self.device), rtol=1e-4))
+        self.assertTrue(
+            torch.allclose(det_loss, torch.tensor(expected_value, device=self.device), rtol=1e-4)
+        )
 
         # Test with edge cases
         loss_zeros = loss_fn(self.y_pred, self.zero_true)
@@ -101,7 +104,9 @@ class TestPoissonLosses(unittest.TestCase):
     def test_zero_inflated_poisson_nll(self):
         loss_fn = ZeroInflatedPoissonNLLLoss(log_input=False).to(self.device)
         pi_logits = torch.randn(self.batch_size, self.n_features, device=self.device)  # logits
-        loss = loss_fn(self.y_pred, self.y_true, mask=self.mask, weights=self.weights, pi_logits=pi_logits)
+        loss = loss_fn(
+            self.y_pred, self.y_true, mask=self.mask, weights=self.weights, pi_logits=pi_logits
+        )
         self.assertTrue(torch.is_tensor(loss))
         self.assertFalse(torch.isnan(loss).any())
 
@@ -111,7 +116,9 @@ class TestPoissonLosses(unittest.TestCase):
 
         # Test with deterministic values
         det_loss_fn = ZeroInflatedPoissonNLLLoss(log_input=False).to(self.device)
-        det_loss = det_loss_fn(self.det_y_pred, self.det_y_true, mask=self.det_mask, pi_logits=self.det_pi_logits)
+        det_loss = det_loss_fn(
+            self.det_y_pred, self.det_y_true, mask=self.det_mask, pi_logits=self.det_pi_logits
+        )
         # Just check that loss is finite and reasonable
         self.assertTrue(torch.isfinite(det_loss))
         self.assertGreater(det_loss.item(), 0.0)
@@ -133,7 +140,9 @@ class TestPoissonLosses(unittest.TestCase):
         # Test learn variance
         loss_fn_var = ZeroInflatedPoissonNLLLoss(learn_variance=True).to(self.device)
         loss_fn_var.zero_grad()  # Clear previous gradients
-        loss_var = loss_fn_var(self.y_pred, self.y_true, mask=self.mask, weights=self.weights, pi_logits=pi_logits)
+        loss_var = loss_fn_var(
+            self.y_pred, self.y_true, mask=self.mask, weights=self.weights, pi_logits=pi_logits
+        )
         self.assertTrue(torch.is_tensor(loss_var))
         self.assertFalse(torch.isnan(loss_var).any())
         loss_var.backward()
@@ -209,7 +218,9 @@ class TestPoissonLosses(unittest.TestCase):
         # For third element (expected=3.0, observed=3.0): 2*(3-3) + 2*3*ln(3/3) = 0
         # Total: (0 + 1 + 0) / 3 = 1/3 = 0.333...
         expected_value = 1.0 / 3.0
-        self.assertTrue(torch.allclose(det_loss, torch.tensor(expected_value, device=self.device), rtol=1e-4))
+        self.assertTrue(
+            torch.allclose(det_loss, torch.tensor(expected_value, device=self.device), rtol=1e-4)
+        )
 
         # Test with edge cases
         loss_zeros = loss_fn(self.y_pred, self.zero_true)
@@ -288,8 +299,12 @@ class TestPoissonLosses(unittest.TestCase):
     def test_gradient_flow(self):
         """Test gradient flow through all loss functions."""
         # Create trainable parameters as leaf tensors
-        y_pred_param = (torch.rand(self.batch_size, self.n_features, device=self.device) * 5).requires_grad_(True)
-        pi_logits_param = torch.randn(self.batch_size, self.n_features, device=self.device).requires_grad_(True)
+        y_pred_param = (
+            torch.rand(self.batch_size, self.n_features, device=self.device) * 5
+        ).requires_grad_(True)
+        pi_logits_param = torch.randn(
+            self.batch_size, self.n_features, device=self.device
+        ).requires_grad_(True)
 
         # Reset gradients
         y_pred_param.grad = None

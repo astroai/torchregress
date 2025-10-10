@@ -250,9 +250,7 @@ def evaluate_and_visualize(model, loss_fn, x_train, y_train, x_test, y_test_clea
     plt.subplot(1, 2, 2)
 
     # Plot aleatoric uncertainty
-    plt.plot(
-        x_test_np, np.sqrt(ale_np), "b-", linewidth=2, label="Aleatoric (data noise)"
-    )
+    plt.plot(x_test_np, np.sqrt(ale_np), "b-", linewidth=2, label="Aleatoric (data noise)")
 
     # Plot epistemic uncertainty
     plt.plot(
@@ -307,9 +305,7 @@ def compare_regularization_strengths(x_train, y_train, x_test, y_test_clean):
 
     for coeff in coeffs:
         print(f"\nTraining with coeff_nig = {coeff}")
-        model, loss_fn = train_evidential_model(
-            x_train, y_train, n_epochs=300, coeff_nig=coeff
-        )
+        model, loss_fn = train_evidential_model(x_train, y_train, n_epochs=300, coeff_nig=coeff)
         models.append(model)
         loss_fns.append(loss_fn)
 
@@ -404,8 +400,7 @@ def demonstrate_sampling(model, loss_fn, x_test):
         ax.set_xlabel("Prediction")
         ax.set_ylabel("Density")
         ax.set_title(
-            f"x={x_val:.2f}\n"
-            f"Ale={ale_np[i]:.3f}, Epi={epi_np[i]:.3f}",
+            f"x={x_val:.2f}\n" f"Ale={ale_np[i]:.3f}, Epi={epi_np[i]:.3f}",
             fontsize=9,
         )
         ax.legend(fontsize=8)
@@ -439,9 +434,7 @@ def main():
     print(f"  Gap region: [-0.2, 0.2] (no training data)")
 
     # 1. Train and evaluate main model
-    model, loss_fn = train_evidential_model(
-        x_train, y_train, n_epochs=500, coeff_nig=0.01
-    )
+    model, loss_fn = train_evidential_model(x_train, y_train, n_epochs=500, coeff_nig=0.01)
     evaluate_and_visualize(model, loss_fn, x_train, y_train, x_test, y_test_clean)
 
     # 2. Compare regularization strengths

@@ -456,8 +456,7 @@ class LDSLoss(RegressionLoss):
         """
         if self.lds_weights is None:
             raise ValueError(
-                "Must call fit() before using LDSLoss. "
-                "Example: loss_fn.fit(train_targets)"
+                "Must call fit() before using LDSLoss. " "Example: loss_fn.fit(train_targets)"
             )
 
         self._validate_inputs(y_pred, target, mask)

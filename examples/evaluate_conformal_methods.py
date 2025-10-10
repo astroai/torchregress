@@ -88,7 +88,10 @@ def main():
     for alpha in alphas:
         methods_config = {
             "CQR": {"loss": ConformalizedQuantileLoss(alpha=alpha), "model": cqr_model},
-            "ACI": {"loss": AdaptiveConformalLoss(alpha=alpha, model=point_model), "model": point_model},
+            "ACI": {
+                "loss": AdaptiveConformalLoss(alpha=alpha, model=point_model),
+                "model": point_model,
+            },
             "SPLIT": {"loss": ConformalLoss(method="split", alpha=alpha), "model": point_model},
         }
 

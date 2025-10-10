@@ -131,14 +131,18 @@ class MultiQuantileLoss(RegressionLoss):
         self.register_buffer("quantiles", validate_quantile(quantiles))
         self.num_quantiles = self.quantiles.size(0)
         self.joint_prediction = joint_prediction
-        
+
         # Handle quantile weights
         if quantile_weights is not None:
             if len(quantile_weights) != self.num_quantiles:
-                raise ValueError(f"quantile_weights length {len(quantile_weights)} must match number of quantiles {self.num_quantiles}")
+                raise ValueError(
+                    f"quantile_weights length {len(quantile_weights)} must match number of quantiles {self.num_quantiles}"
+                )
             self.register_buffer("quantile_weights", quantile_weights)
         else:
-            self.register_buffer("quantile_weights", torch.ones(self.num_quantiles) / self.num_quantiles)
+            self.register_buffer(
+                "quantile_weights", torch.ones(self.num_quantiles) / self.num_quantiles
+            )
 
     def forward(
         self,
@@ -184,10 +188,15 @@ class MultiQuantileLoss(RegressionLoss):
                 if y_pred_tensor.dim() == 3 and y_pred_tensor.shape[1] == self.num_quantiles:
                     # [batch_size, num_quantiles, n_features] format
                     quantile_preds = y_pred_tensor
-                elif y_pred_tensor.dim() == 2 and y_pred_tensor.shape[1] == n_features * self.num_quantiles:
+                elif (
+                    y_pred_tensor.dim() == 2
+                    and y_pred_tensor.shape[1] == n_features * self.num_quantiles
+                ):
                     # [batch_size, n_features * num_quantiles] format
                     # Reshape to [batch_size, num_quantiles, n_features]
-                    quantile_preds = y_pred_tensor.reshape(batch_size, self.num_quantiles, n_features)
+                    quantile_preds = y_pred_tensor.reshape(
+                        batch_size, self.num_quantiles, n_features
+                    )
                 else:
                     raise ValueError(
                         f"Expected y_pred shape to be either "

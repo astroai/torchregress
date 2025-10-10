@@ -260,8 +260,8 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
             Zero-inflated Poisson NLL loss value
         """
         # Extract pi_logits from kwargs
-        pi_logits = kwargs.get('pi_logits', None)
-            
+        pi_logits = kwargs.get("pi_logits", None)
+
         # If still None, try to extract from y_pred
         if pi_logits is None:
             if y_pred.shape[-1] % 2 == 0:
@@ -270,8 +270,10 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
                 pi_logits = y_pred[..., half_dim:]
                 y_pred = y_pred[..., :half_dim]
             else:
-                raise ValueError("pi_logits must be provided either as argument or extracted from y_pred")
-        
+                raise ValueError(
+                    "pi_logits must be provided either as argument or extracted from y_pred"
+                )
+
         self._validate_inputs(y_pred, target, mask)
 
         # Ensure non-negative targets
@@ -288,7 +290,9 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
         if rate.shape != target.shape:
             raise ValueError(f"Rate shape {rate.shape} must match target shape {target.shape}")
         if pi_logits.shape != target.shape:
-            raise ValueError(f"Pi logits shape {pi_logits.shape} must match target shape {target.shape}")
+            raise ValueError(
+                f"Pi logits shape {pi_logits.shape} must match target shape {target.shape}"
+            )
 
         # Calculate zero-inflation probability from logits
         pi = torch.sigmoid(pi_logits)
@@ -297,22 +301,24 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
         loss = torch.zeros_like(target)
 
         # For zero targets: -log(pi + (1-pi) * exp(-lambda))
-        zero_mask = (target == 0)
+        zero_mask = target == 0
         if torch.any(zero_mask):
             exp_neg_rate = torch.exp(-rate)
-            loss[zero_mask] = -torch.log(pi[zero_mask] + (1 - pi[zero_mask]) * exp_neg_rate[zero_mask] + self.eps)
+            loss[zero_mask] = -torch.log(
+                pi[zero_mask] + (1 - pi[zero_mask]) * exp_neg_rate[zero_mask] + self.eps
+            )
 
         # For non-zero targets: -log(1-pi) + lambda - y*log(lambda) + log(y!)
-        non_zero_mask = (target > 0)
+        non_zero_mask = target > 0
         if torch.any(non_zero_mask):
             # Calculate log factorial of target values
             log_factorial = torch.lgamma(target[non_zero_mask] + 1)
-            
+
             loss[non_zero_mask] = (
-                -torch.log(1 - pi[non_zero_mask] + self.eps) +
-                rate[non_zero_mask] - 
-                target[non_zero_mask] * torch.log(rate[non_zero_mask] + self.eps) +
-                log_factorial
+                -torch.log(1 - pi[non_zero_mask] + self.eps)
+                + rate[non_zero_mask]
+                - target[non_zero_mask] * torch.log(rate[non_zero_mask] + self.eps)
+                + log_factorial
             )
 
         # Apply variance adjustment if using learnable variance
@@ -382,8 +388,8 @@ class NegativeBinomialNLLLoss(RegressionLoss):
             Negative Binomial NLL loss value
         """
         # Extract theta from kwargs
-        theta = kwargs.get('theta', None)
-        
+        theta = kwargs.get("theta", None)
+
         self._validate_inputs(y_pred, target, mask)
 
         # Ensure non-negative targets

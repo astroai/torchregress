@@ -60,7 +60,12 @@ class TweedieLoss(RegressionLoss):
     """
 
     def __init__(
-        self, p: float = 1.5, eps: float = 1e-8, reduction: str = "mean", link: Optional[str] = None, log_input: Optional[bool] = None
+        self,
+        p: float = 1.5,
+        eps: float = 1e-8,
+        reduction: str = "mean",
+        link: Optional[str] = None,
+        log_input: Optional[bool] = None,
     ) -> None:
         super().__init__(reduction=reduction)
         self.p = p
@@ -69,7 +74,7 @@ class TweedieLoss(RegressionLoss):
         # Handle log_input parameter (alias for link)
         if log_input is not None:
             link = "log" if log_input else "identity"
-        
+
         # Set default link function based on p
         if link is None:
             self.link = "identity" if p == 0 else "log"

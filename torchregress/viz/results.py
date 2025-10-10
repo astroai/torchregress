@@ -54,9 +54,9 @@ def plot_performance_comparison(
     """
     # Extract common metrics across all models if not specified
     if metrics_to_include is None:
-        metrics_to_include = list(set.intersection(
-            *[set(model_metrics.keys()) for model_metrics in metrics.values()]
-        ))
+        metrics_to_include = list(
+            set.intersection(*[set(model_metrics.keys()) for model_metrics in metrics.values()])
+        )
         metrics_to_include = sorted(metrics_to_include)
 
     # Filter to only include metrics that exist for all models

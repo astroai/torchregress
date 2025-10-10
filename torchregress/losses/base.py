@@ -378,7 +378,9 @@ WeightedMultiLabelMarginLoss = partial(WeightedLossWrapper, nn.MultiLabelMarginL
 WeightedSoftMarginLoss = partial(WeightedLossWrapper, nn.SoftMarginLoss)
 WeightedMultiLabelSoftMarginLoss = partial(WeightedLossWrapper, nn.MultiLabelSoftMarginLoss)
 WeightedTripletMarginLoss = partial(WeightedLossWrapper, nn.TripletMarginLoss)
-WeightedTripletMarginWithDistanceLoss = partial(WeightedLossWrapper, nn.TripletMarginWithDistanceLoss)
+WeightedTripletMarginWithDistanceLoss = partial(
+    WeightedLossWrapper, nn.TripletMarginWithDistanceLoss
+)
 
 
 def create_weighted_losses() -> Dict[str, Any]:

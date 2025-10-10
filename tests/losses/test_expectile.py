@@ -163,7 +163,9 @@ class TestExpectileLoss(unittest.TestCase):
         # where the first 2 comes from the normalization factor in expectile loss
         # and n is the number of elements (for mean reduction)
         n_elements = y_pred.numel()
-        expected_grad_0 = 4 * (1 - tau) * (y_pred[0, 0] - y_true[0, 0]) / n_elements  # overestimation
+        expected_grad_0 = (
+            4 * (1 - tau) * (y_pred[0, 0] - y_true[0, 0]) / n_elements
+        )  # overestimation
         expected_grad_1 = 4 * tau * (y_pred[0, 1] - y_true[0, 1]) / n_elements  # underestimation
 
         self.assertAlmostEqual(y_pred.grad[0, 0].item(), expected_grad_0.item(), places=5)
@@ -293,7 +295,9 @@ class TestExpectileLoss(unittest.TestCase):
         alpha = torch.ones_like(diff) * 0.7  # tau=0.7, and all diffs are positive (1-0=1)
         # Weighted mean: sum(loss * weight) / sum(weight)
         # Note: ExpectileLoss uses factor of 2 for normalization
-        expected_weighted_loss = (2 * alpha * diff * non_uniform_weights).sum() / non_uniform_weights.sum()
+        expected_weighted_loss = (
+            2 * alpha * diff * non_uniform_weights
+        ).sum() / non_uniform_weights.sum()
 
         self.assertAlmostEqual(
             loss_weighted_nonuniform.item(), expected_weighted_loss.item(), places=5

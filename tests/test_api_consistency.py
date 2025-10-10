@@ -65,7 +65,7 @@ def test_parameter_ordering():
         "CoTeachingLoss": "y_pred1",  # Takes two predictions
         "RENTLoss": "ensemble_preds",  # Takes ensemble predictions
     }
-    
+
     for loss_class in get_all_loss_classes():
         # Get the signature of the forward method
         sig = inspect.signature(loss_class.forward)

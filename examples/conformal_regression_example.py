@@ -52,8 +52,8 @@ def demo_basic_conformal() -> None:
     # Split into train/calibration/test
     n_train = 600
     n_cal = 200
-    _X_train, _X_cal, _X_test = X[:n_train], X[n_train:n_train + n_cal], X[n_train + n_cal:]
-    y_train, y_cal, y_test = y[:n_train], y[n_train:n_train + n_cal], y[n_train + n_cal:]
+    _X_train, _X_cal, _X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
+    y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
     # Create dummy predictions (lower and upper quantiles for CQR)
     y_pred_train = torch.cat([y_train - 0.5, y_train + 0.5], dim=1)
@@ -94,8 +94,8 @@ def demo_adaptive_conformal() -> None:
     # Split into train/calibration/test
     n_train = 600
     n_cal = 200
-    X_train, X_cal, X_test = X[:n_train], X[n_train:n_train + n_cal], X[n_train + n_cal:]
-    y_train, y_cal, y_test = y[:n_train], y[n_train:n_train + n_cal], y[n_train + n_cal:]
+    X_train, X_cal, X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
+    y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
     # ACI requires a model
     model = DummyModel(1, 1)
@@ -139,8 +139,8 @@ def demo_conformalized_quantile() -> None:
     # Split data
     n_train = 600
     n_cal = 200
-    _X_train, _X_cal, _X_test = X[:n_train], X[n_train:n_train + n_cal], X[n_train + n_cal:]
-    y_train, y_cal, y_test = y[:n_train], y[n_train:n_train + n_cal], y[n_train + n_cal:]
+    _X_train, _X_cal, _X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
+    y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
     # Create dummy quantile predictions (lower and upper quantiles)
     y_pred_train = torch.cat([y_train - 0.5, y_train + 0.5], dim=1)
@@ -181,8 +181,8 @@ def demo_multidimensional_conformal() -> None:
     # Split data
     n_train = 600
     n_cal = 200
-    X_train, X_cal, X_test = X[:n_train], X[n_train:n_train + n_cal], X[n_train + n_cal:]
-    y_train, y_cal, y_test = y[:n_train], y[n_train:n_train + n_cal], y[n_train + n_cal:]
+    X_train, X_cal, X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
+    y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
     # Create dummy predictions (point predictions)
     model = DummyModel(3, 3)
@@ -206,7 +206,8 @@ def demo_multidimensional_conformal() -> None:
 
     # Calculate coverage per dimension
     for i in range(y_test.shape[1]):
-        coverage = (((y_test[:, i] >= lower_intervals[:, i]) & (y_test[:, i] <= upper_intervals[:, i]))
+        coverage = (
+            ((y_test[:, i] >= lower_intervals[:, i]) & (y_test[:, i] <= upper_intervals[:, i]))
             .float()
             .mean()
         )

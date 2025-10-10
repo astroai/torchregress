@@ -94,9 +94,7 @@ class SWAG(nn.Module):
         for name, param in self.base_model.named_parameters():
             if param.requires_grad:
                 self.register_buffer(f"{name.replace('.', '_')}_mean", torch.zeros_like(param))
-                self.register_buffer(
-                    f"{name.replace('.', '_')}_sq_mean", torch.zeros_like(param)
-                )
+                self.register_buffer(f"{name.replace('.', '_')}_sq_mean", torch.zeros_like(param))
 
         # Store deviations for low-rank approximation
         self.deviations: List[Dict[str, torch.Tensor]] = []
@@ -293,7 +291,10 @@ class MultiSWAG(nn.Module):
         import copy
 
         self.swag_models = nn.ModuleList(
-            [SWAG(copy.deepcopy(base_model), max_num_models=max_num_models) for _ in range(n_models)]
+            [
+                SWAG(copy.deepcopy(base_model), max_num_models=max_num_models)
+                for _ in range(n_models)
+            ]
         )
 
     def predict_with_uncertainty(

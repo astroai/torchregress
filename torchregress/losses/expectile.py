@@ -81,7 +81,9 @@ class ExpectileLoss(RegressionLoss):
         # Calculate asymmetric squared error
         # Use factor of 2 so that tau=0.5 gives MSE
         indicator = (residuals >= 0).float()
-        loss = 2 * residuals**2 * (self.expectile * indicator + (1 - self.expectile) * (1 - indicator))
+        loss = (
+            2 * residuals**2 * (self.expectile * indicator + (1 - self.expectile) * (1 - indicator))
+        )
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
@@ -209,7 +211,9 @@ class MultiExpectileLoss(RegressionLoss):
             # Calculate asymmetric squared error
             # Use factor of 2 for consistency with ExpectileLoss
             indicator = (residuals >= 0).float()
-            level_loss = 2 * residuals**2 * (expectile * indicator + (1 - expectile) * (1 - indicator))
+            level_loss = (
+                2 * residuals**2 * (expectile * indicator + (1 - expectile) * (1 - indicator))
+            )
 
             # Apply mask if provided
             if mask is not None:
@@ -361,8 +365,12 @@ class ExpectileCrossoverLoss(RegressionLoss):
             # Compute loss without reduction to get per-element losses
             residuals = target - level_preds
             indicator = (residuals >= 0).float()
-            level_loss = 2 * residuals**2 * (loss_fn.expectile * indicator + (1 - loss_fn.expectile) * (1 - indicator))
-            
+            level_loss = (
+                2
+                * residuals**2
+                * (loss_fn.expectile * indicator + (1 - loss_fn.expectile) * (1 - indicator))
+            )
+
             # Apply mask and weights
             if mask is not None:
                 level_loss = level_loss * mask
@@ -373,7 +381,7 @@ class ExpectileCrossoverLoss(RegressionLoss):
                 else:
                     weights_broadcast = weights
                 level_loss = level_loss * weights_broadcast
-            
+
             # Sum across features to get per-sample loss
             level_loss = torch.sum(level_loss, dim=-1)  # [batch_size]
             base_losses.append(level_loss)
@@ -400,7 +408,9 @@ class ExpectileCrossoverLoss(RegressionLoss):
             crossover_penalties += sample_violations
 
         # Final loss is weighted combination of base loss and crossover penalty
-        total_base_loss = torch.mean(stacked_base_losses, dim=0)  # Mean across expectiles [batch_size]
+        total_base_loss = torch.mean(
+            stacked_base_losses, dim=0
+        )  # Mean across expectiles [batch_size]
 
         final_loss = self.base_loss * total_base_loss + self.crossover_penalty * crossover_penalties
 

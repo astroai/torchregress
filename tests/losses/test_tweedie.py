@@ -282,7 +282,9 @@ class TestTweedieLoss(unittest.TestCase):
 
     def test_tweedie_edge_cases(self):
         """Test TweedieLoss with edge cases: zeros, empty tensors, extreme values, NaN/Inf."""
-        loss_fn = TweedieLoss(p=1.5, link='identity')  # Power between 1-2 for compound Poisson-gamma
+        loss_fn = TweedieLoss(
+            p=1.5, link="identity"
+        )  # Power between 1-2 for compound Poisson-gamma
 
         # Test with zeros - for some powers, this requires special handling
         y_pred_zeros = torch.ones(10) * 1e-6  # Small positive values
@@ -411,7 +413,7 @@ class TestTweedieLossNumericalStability:
         y_true = torch.tensor([1.1, 2.0, 3.0, 4.0])
         mask = torch.tensor([True, False, False, False])  # Only use first element
 
-        tweedie_loss = TweedieLoss(reduction="mean", p=1.5, link='identity')
+        tweedie_loss = TweedieLoss(reduction="mean", p=1.5, link="identity")
 
         # This should only use the valid elements
         loss = tweedie_loss(y_pred, y_true, mask=mask)

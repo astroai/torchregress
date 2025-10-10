@@ -132,7 +132,9 @@ def train_noise_adaptive(dataset, n_epochs=50):
     print(f"\nWeight statistics:")
     print(f"  Clean samples: mean={sample_weights[~noisy_mask].mean():.3f}")
     print(f"  Noisy samples: mean={sample_weights[noisy_mask].mean():.3f}")
-    print(f"  Correctly identified noisy: {(sample_weights[noisy_mask] < 0.5).sum()}/{noisy_mask.sum()}")
+    print(
+        f"  Correctly identified noisy: {(sample_weights[noisy_mask] < 0.5).sum()}/{noisy_mask.sum()}"
+    )
 
     return model, sample_weights
 
@@ -240,7 +242,9 @@ def train_rent(dataset, n_epochs=50, ensemble_size=5):
 
         for x, y in loader:
             # Get predictions from all ensemble members
-            ensemble_preds = torch.stack([model(x) for model in models])  # [ensemble_size, batch, 1]
+            ensemble_preds = torch.stack(
+                [model(x) for model in models]
+            )  # [ensemble_size, batch, 1]
 
             # RENT loss
             optimizer.zero_grad()

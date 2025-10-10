@@ -55,11 +55,12 @@ class ConformalLoss(RegressionLoss):
         elif self.method == "aci":
             if self.model is None:
                 raise ValueError("ACIPredictor requires a 'model' to be provided.")
-            self._predictor = ACIPredictor(score_function=AbsScore(), model=self.model, gamma=self.gamma)
+            self._predictor = ACIPredictor(
+                score_function=AbsScore(), model=self.model, gamma=self.gamma
+            )
         else:
             raise ValueError(
-                f"Unknown method: {self.method}. "
-                f"Supported methods: 'split', 'cqr', 'aci'"
+                f"Unknown method: {self.method}. " f"Supported methods: 'split', 'cqr', 'aci'"
             )
 
     def forward(
@@ -79,9 +80,7 @@ class ConformalLoss(RegressionLoss):
         if self.method == "cqr":
             n_feat = target.shape[-1] if target.dim() > 1 else 1
             if y_pred.shape[-1] != 2 * n_feat:
-                raise ValueError(
-                    f"CQR expects y_pred shape [..., 2*features], got {y_pred.shape}"
-                )
+                raise ValueError(f"CQR expects y_pred shape [..., 2*features], got {y_pred.shape}")
             lower_pred = y_pred[..., :n_feat]
             upper_pred = y_pred[..., n_feat:]
             lower_q = self.alpha / 2

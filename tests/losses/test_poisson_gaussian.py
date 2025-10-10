@@ -169,10 +169,10 @@ class TestPoissonGaussianMixtureLoss:
 
         # Create a simple model
         model = SimpleModel(5, 2)
-        
+
         # Create loss function with learnable parameters
         loss_fn = PoissonGaussianMixtureLoss(learn_variance=True, mixture_weights="learn")
-        
+
         # Optimizer includes both model and loss function parameters
         optimizer = optim.Adam(list(model.parameters()) + list(loss_fn.parameters()), lr=0.01)
 

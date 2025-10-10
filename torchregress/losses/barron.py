@@ -42,8 +42,6 @@ class BarronLoss(RegressionLoss):
         elif a == 0.0:
             loss = torch.log(0.5 * error**2 + 1.0)
         else:
-            loss = (abs(a - 2.0) / a) * (
-                (error**2 / abs(a - 2.0) + 1.0) ** (a / 2.0) - 1.0
-            )
+            loss = (abs(a - 2.0) / a) * ((error**2 / abs(a - 2.0) + 1.0) ** (a / 2.0) - 1.0)
         loss = loss * (self.scale**2)
         return self._reduce(loss, mask, weights)

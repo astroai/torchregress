@@ -48,20 +48,25 @@ from .conformal import (
 # Try to import torchcp-based conformal methods (requires torchcp with dependencies)
 try:
     from .conformal_advanced import TorchCPConformalLoss, create_conformal_predictor
+
     _TORCHCP_ADVANCED_AVAILABLE = True
 except (ImportError, ModuleNotFoundError):
     _TORCHCP_ADVANCED_AVAILABLE = False
+
     # Create placeholder functions that raise informative errors
     def TorchCPConformalLoss(*args, **kwargs):
         raise ImportError(
             "TorchCPConformalLoss requires torchcp with all dependencies. "
             "Install with: pip install torchcp torchsort"
         )
+
     def create_conformal_predictor(*args, **kwargs):
         raise ImportError(
             "create_conformal_predictor requires torchcp with all dependencies. "
             "Install with: pip install torchcp torchsort"
         )
+
+
 from .deepar import DeepARLoss
 
 # Gaussian losses

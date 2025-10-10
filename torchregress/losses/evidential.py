@@ -112,9 +112,7 @@ class EvidentialRegressionLoss(DistributionLoss):
         if coeff_nig < 0:
             raise ValueError(f"coeff_nig must be >= 0, got {coeff_nig}")
 
-    def _extract_nig_parameters(
-        self, y_pred: Tensor
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def _extract_nig_parameters(self, y_pred: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """
         Extract NIG parameters from model output.
 
@@ -281,9 +279,7 @@ class EvidentialRegressionLoss(DistributionLoss):
 
         return self._reduce_with_mask(loss, mask, None)
 
-    def predict_with_uncertainty(
-        self, y_pred: Tensor
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    def predict_with_uncertainty(self, y_pred: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """
         Get predictions with decomposed uncertainty.
 
@@ -325,9 +321,7 @@ class EvidentialRegressionLoss(DistributionLoss):
 
         return mean, aleatoric, epistemic
 
-    def sample_predictions(
-        self, y_pred: Tensor, n_samples: int = 100
-    ) -> Tensor:
+    def sample_predictions(self, y_pred: Tensor, n_samples: int = 100) -> Tensor:
         """
         Sample predictions from the evidential distribution.
 
@@ -387,7 +381,9 @@ class EvidentialRegressionLoss(DistributionLoss):
         return prediction_samples
 
 
-def create_evidential_loss(coeff_nig: float = 0.01, reduction: str = "mean") -> EvidentialRegressionLoss:
+def create_evidential_loss(
+    coeff_nig: float = 0.01, reduction: str = "mean"
+) -> EvidentialRegressionLoss:
     """
     Factory function to create an evidential regression loss.
 

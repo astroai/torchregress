@@ -417,7 +417,10 @@ class RENTLoss(RegressionLoss):
             ValueError: If ensemble_preds doesn't have correct shape
         """
         # Ensure ensemble_preds has shape [ensemble_size, batch_size, ...]
-        if ensemble_preds.shape[0] != self.ensemble_size and ensemble_preds.shape[1] == self.ensemble_size:
+        if (
+            ensemble_preds.shape[0] != self.ensemble_size
+            and ensemble_preds.shape[1] == self.ensemble_size
+        ):
             # Transpose if needed: [batch, ensemble, ...] -> [ensemble, batch, ...]
             ensemble_preds = ensemble_preds.transpose(0, 1)
 

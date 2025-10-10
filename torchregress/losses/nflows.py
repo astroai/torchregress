@@ -197,7 +197,7 @@ class NormalizingFlowLoss(DistributionLoss):
             log_prob = dist.log_prob(target)
         except (AttributeError, TypeError):
             # Fallback for mock flows or other implementations
-            if hasattr(flow, 'log_prob'):
+            if hasattr(flow, "log_prob"):
                 log_prob = flow.log_prob(target)
             else:
                 raise RuntimeError("Flow does not support log_prob calculation")

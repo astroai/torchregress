@@ -214,7 +214,9 @@ def test_flow_creation_error(mock_realnvp, basic_flow_loss, mock_flow_output):
 
 
 # Numerical stability and gradient tests
-@pytest.mark.skip(reason="Test design issue: flow is created independently of model output, so gradients don't flow back")
+@pytest.mark.skip(
+    reason="Test design issue: flow is created independently of model output, so gradients don't flow back"
+)
 def test_gradient_flow():
     """Test that gradients flow through the loss function."""
 
@@ -267,20 +269,20 @@ def test_gradient_flow():
 @patch("torchregress.losses.nflows.MAF", MockFlow)
 @patch("torchregress.losses.nflows.NSF", MockFlow)
 def test_different_flow_types():
-        """Test different flow types if zuko is available."""
-        n_features = 1
-        batch_size = 3
-        input_size = 100  # Arbitrary flow parameter size
+    """Test different flow types if zuko is available."""
+    n_features = 1
+    batch_size = 3
+    input_size = 100  # Arbitrary flow parameter size
 
-        # Test all supported flow types (iaf not supported in current zuko)
-        for flow_type in ["realnvp", "maf", "nsf"]:
-            loss_fn = NormalizingFlowLoss(n_features=n_features, flow_type=flow_type)
-            y_pred = torch.randn(batch_size, input_size)
-            target = torch.randn(batch_size, n_features)
+    # Test all supported flow types (iaf not supported in current zuko)
+    for flow_type in ["realnvp", "maf", "nsf"]:
+        loss_fn = NormalizingFlowLoss(n_features=n_features, flow_type=flow_type)
+        y_pred = torch.randn(batch_size, input_size)
+        target = torch.randn(batch_size, n_features)
 
-            # Forward pass should not raise error
-            loss = loss_fn(y_pred, target)
-            assert isinstance(loss, torch.Tensor)
+        # Forward pass should not raise error
+        loss = loss_fn(y_pred, target)
+        assert isinstance(loss, torch.Tensor)
 
 
 @patch("torchregress.losses.nflows.RealNVP", MockFlow)
