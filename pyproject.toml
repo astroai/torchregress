@@ -114,9 +114,5 @@ module = "torchcp.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "zuko.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = "torchmetrics.*"
 ignore_missing_imports = true

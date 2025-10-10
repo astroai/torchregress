@@ -229,7 +229,7 @@ class MultiDimensionalConformalLoss(ConformalLoss):
     ) -> Tuple[Tensor, Tensor]:
         """Return calibrated intervals using dimension-specific taus."""
         if not self._is_calibrated or self.q_hat is None:
-            raise ValueError("Call calibrate() before predict_intervals().")
+            raise RuntimeError("Call calibrate() before predict_intervals().")
 
         lower = y_pred - self.q_hat
         upper = y_pred + self.q_hat

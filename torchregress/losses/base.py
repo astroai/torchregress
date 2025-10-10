@@ -79,66 +79,45 @@ class BaseLoss(nn.Module):
         """
         Apply reduction to the loss tensor with support for masking and weighting.
         """
-        # No reduction: return raw values (filtered or weighted)
-        if self.reduction == "none":
-            if mask is not None:
-                loss_flat = loss.flatten()
-                mask_flat = mask.flatten()
-                vals = loss_flat[mask_flat]
-                if weights is not None:
-                    return vals * weights[mask_flat]
-                return vals
+        # First, apply mask if provided
+        if mask is not None:
             if weights is not None:
-                # Broadcast weights to match loss shape if needed
+                # Broadcast weights to match loss shape if needed for masking
                 if weights.dim() < loss.dim():
                     for _ in range(loss.dim() - weights.dim()):
                         weights = weights.unsqueeze(-1)
-                return loss * weights
-            return loss
+                weights = weights.expand_as(loss)
+                weights = weights[mask]
+            loss = loss[mask]
+        elif weights is not None:
+            # Broadcast weights to match loss shape if needed
+            if weights.dim() < loss.dim():
+                for _ in range(loss.dim() - weights.dim()):
+                    weights = weights.unsqueeze(-1)
+
+        # No reduction: return raw values (potentially weighted)
+        if self.reduction == "none":
+            return loss * weights if weights is not None else loss
 
         # Sum reduction
         if self.reduction == "sum":
-            if mask is not None:
-                loss_flat = loss.flatten()
-                mask_flat = mask.flatten()
-                if weights is not None:
-                    return torch.sum(loss_flat[mask_flat] * weights[mask_flat])
-                return torch.sum(loss_flat[mask_flat])
             if weights is not None:
-                # Broadcast weights to match loss shape if needed
-                if weights.dim() < loss.dim():
-                    for _ in range(loss.dim() - weights.dim()):
-                        weights = weights.unsqueeze(-1)
                 return torch.sum(loss * weights)
             return torch.sum(loss)
 
         # Mean reduction
         if self.reduction == "mean":
-            if mask is not None:
-                # Flatten both loss and mask for indexing
-                loss_flat = loss.flatten()
-                mask_flat = mask.flatten()
-                if weights is not None:
-                    w = weights[mask_flat]
-                    vals = loss_flat[mask_flat] * w
-                    return torch.sum(vals) / torch.sum(w).clamp(min=1)
-                return torch.mean(loss_flat[mask_flat])
             if weights is not None:
-                # Broadcast weights to match loss shape if needed
-                if weights.dim() < loss.dim():
-                    # Add dimensions to the right for broadcasting
-                    for _ in range(loss.dim() - weights.dim()):
-                        weights = weights.unsqueeze(-1)
                 vals = loss * weights
                 return torch.sum(vals) / torch.sum(weights).clamp(min=1)
             return torch.mean(loss)
 
         # Max / Min reduction
         if self.reduction == "max":
-            return torch.max(loss[mask] if mask is not None else loss)
+            return torch.max(loss)
         if self.reduction == "min":
-            return torch.min(loss[mask] if mask is not None else loss)
-        
+            return torch.min(loss)
+
         # Default case - raise an error for unknown reduction types
         raise ValueError(f"Unknown reduction type: {self.reduction}")
 
@@ -164,12 +143,7 @@ class BaseLoss(nn.Module):
         weights: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Apply mask to filter values and then apply reduction."""
-        if mask is not None:
-            loss = self._apply_mask(loss, mask)
-            if weights is not None:
-                weights = weights[mask]
-        # After masking, use unmasked reduction
-        return self._reduce(loss, None, weights)
+        return self._reduce(loss, mask, weights)
 
 
 class RegressionLoss(BaseLoss):
