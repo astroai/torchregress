@@ -1,8 +1,5 @@
 name: CI
 
-permissions:
-  contents: write
-
 on:
   push:
     branches: [ main ]
@@ -46,35 +43,19 @@ jobs:
 
     - name: Install dependencies (via uv)
       run: |
-        # Ensure a CPU-only PyTorch wheel is installed inside the uv venv so binary deps
-        # that rely on torch can be satisfied. We install PyTorch from the CPU wheel index.
-        uv pip install --index-url https://download.pytorch.org/whl/cpu torch
-        # Install PyG wheels that match the installed torch version (CPU).
-        # Construct the PyG wheel index for the detected torch version and install
-        # the PyG binary packages required by torchcp.
+        # We need to install torch first to determine its version, which is required to find
+        # the correct PyG wheels. We use the CPU-only wheel index for torch.
+        uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+        # Determine the torch version and construct the PyG index URL.
         TORCH_VER=$(uv run python -c "import torch,sys; print(torch.__version__.split('+')[0])")
-        echo "Detected torch version: ${TORCH_VER}"
         PYG_INDEX="https://data.pyg.org/whl/torch-${TORCH_VER}+cpu.html"
-        echo "Using PyG index: ${PYG_INDEX}"
-        # Install core PyG binary packages from the PyG index; fail if unavailable.
-        uv pip install -f "${PYG_INDEX}" --no-deps torch-scatter torch-sparse torch-cluster torch-spline-conv
-        # Install torch-geometric itself (it will pull from the same index)
-        uv pip install -f "${PYG_INDEX}" torch-geometric
-        # Finally install project and test extras from pyproject.toml using uv (reads pyproject)
-        uv pip install -e ".[test]"
-    - name: Save .venv to cache
-      if: always()
-      uses: actions/cache@v4
-      with:
-        path: .venv
-        key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-venv-${{ matrix.python-version }}-
-          ${{ runner.os }}-venv-
-        
+        # Install the project with test dependencies. `torchcp` is a project dependency that
+        # requires torch-geometric, which in turn requires torch-scatter, etc.
+        # We use --find-links to point to the correct PyG wheels.
+        uv pip install --find-links ${PYG_INDEX} -e ".[test]"
     - name: Run tests
       run: |
-        pytest --cov=torchregress
+        uv run pytest --cov=torchregress
         
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -112,23 +93,8 @@ jobs:
       run: |
         # For linting we only need dev dependencies; no heavy binary preinstalls are done here.
         uv pip install -e ".[dev]"
-    - name: Ensure linting tools available
-      run: |
-        # Make sure ruff and black are installed in the uv venv (redundant but safe)
-        uv pip install ruff black || true
 
     - name: Run linting
       run: |
-        # Try to auto-fix with ruff first, then check formatting with black.
-        uv run ruff --fix . || true
-        # black --check will fail if files need formatting. If so, commit & push the fixes.
-        if uv run black --check .; then
-          echo "Formatting OK"
-        else
-          uv run black .
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "style(ci): auto-format with ruff and black" || echo "no changes to commit"
-          git push origin main
-        fi
+        uv run ruff check .
+        uv run black --check .
