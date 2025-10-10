@@ -2,38 +2,65 @@
 Conformal prediction loss via quantile & calibration.
 """
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple
 
-import numpy as np
 import torch
 from torch import Tensor
+from torch.nn import Module
+from torchcp.regression.predictor import ACIPredictor, SplitPredictor
+from torchcp.regression.score import ABS as AbsScore
+from torchcp.regression.score import CQR as CQRScore
 
-from ..utils.validation import validate_range
 from .base import RegressionLoss
-from .quantile import QuantileLoss
-
-# Note: torchcp is imported in conformal_advanced.py where it's actually used
-# This file doesn't need torchcp since it implements basic CQR from scratch
 
 
 class ConformalLoss(RegressionLoss):
-    """Conformalized Quantile Regression (CQR).
-    Train lower (α/2) and upper (1−α/2) quantile losses,
-    then calibrate interval width on hold-out data."""
+    """
+    Wrapper for torchcp conformal methods.
+
+    Provides access to state-of-the-art conformal prediction methods including:
+    - Split Conformal Prediction
+    - Conformalized Quantile Regression (CQR)
+    - Adaptive Conformal Inference (ACI)
+
+    This wrapper provides a unified interface to torchcp predictors while maintaining
+    compatibility with the torchregress loss function API.
+    """
 
     def __init__(
         self,
+        method: str = "cqr",
         alpha: float = 0.1,
         reduction: str = "mean",
-        base_loss_reduction: str = "none",
+        model: Optional[Module] = None,
+        gamma: float = 0.01,  # Needed for ACI
     ) -> None:
         super().__init__(reduction=reduction)
+        self.method = method.lower()
         self.alpha = alpha
-        self.lower_q = alpha / 2
-        self.upper_q = 1 - alpha / 2
-        self.lower_loss = QuantileLoss(self.lower_q, reduction=base_loss_reduction)
-        self.upper_loss = QuantileLoss(self.upper_q, reduction=base_loss_reduction)
-        self.tau: Optional[Tensor] = None
+        self._predictor: Optional[Any] = None
+        self._is_calibrated = False
+        self.q_hat: Optional[Tensor] = None
+        self.model = model
+        self.gamma = gamma
+
+        self._init_predictor()
+
+    def _init_predictor(self) -> None:
+        """Initialize the appropriate torchcp predictor."""
+        if self.method == "split":
+            self._predictor = SplitPredictor(score_function=AbsScore())
+        elif self.method == "cqr":
+            self._predictor = SplitPredictor(score_function=CQRScore())
+        elif self.method == "aci":
+            if self.model is None:
+                raise ValueError("ACIPredictor requires a 'model' to be provided.")
+            self._predictor = ACIPredictor(score_function=AbsScore(), model=self.model, gamma=self.gamma)
+        else:
+            raise ValueError(
+                f"Unknown method: {self.method}. "
+                f"Supported methods: 'split', 'cqr', 'aci'"
+            )
 
     def forward(
         self,
@@ -43,221 +70,121 @@ class ConformalLoss(RegressionLoss):
         weights: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tensor:
-        """Training loss: sum of lower and upper quantile losses."""
-        # Validate and split predictions
-        n_feat = target.shape[-1] if target.dim() > 1 else 1
-        if y_pred.dim() >= 1 and y_pred.shape[-1] == 2 * n_feat:
+        """
+        Training loss for conformal prediction.
+        """
+        if self.method != "cqr":
+            self._validate_inputs(y_pred, target, mask)
+
+        if self.method == "cqr":
+            n_feat = target.shape[-1] if target.dim() > 1 else 1
+            if y_pred.shape[-1] != 2 * n_feat:
+                raise ValueError(
+                    f"CQR expects y_pred shape [..., 2*features], got {y_pred.shape}"
+                )
             lower_pred = y_pred[..., :n_feat]
             upper_pred = y_pred[..., n_feat:]
+            lower_q = self.alpha / 2
+            upper_q = 1 - self.alpha / 2
+            lower_err = target - lower_pred
+            lower_loss = torch.maximum(lower_q * lower_err, (lower_q - 1) * lower_err)
+            upper_err = target - upper_pred
+            upper_loss = torch.maximum(upper_q * upper_err, (upper_q - 1) * upper_err)
+            loss = lower_loss + upper_loss
         else:
-            raise ValueError(
-                f"ConformalLoss expects y_pred shape [...,2*features], got {y_pred.shape}"
-            )
-        # Compute quantile losses
-        l = self.lower_loss(lower_pred, target, mask=mask, weights=weights)
-        u = self.upper_loss(upper_pred, target, mask=mask, weights=weights)
-        loss = l + u
+            loss = (y_pred - target) ** 2
+
         return self._reduce_with_mask(loss, mask, weights)
 
     def calibrate(
         self,
-        lower_pred: Tensor,
-        upper_pred: Tensor,
+        y_pred: Tensor,
         target: Tensor,
         mask: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Calibrate hold-out: compute τ so intervals cover ≥1−α."""
+    ) -> None:
+        """
+        Calibrate the conformal predictor on hold-out data.
+        """
+        if self._predictor is None:
+            raise RuntimeError("Predictor not initialized")
+
         if mask is not None:
-            lower_pred = lower_pred[mask]
-            upper_pred = upper_pred[mask]
-            target = target[mask]
-        # Residuals outside predicted interval
-        resid = torch.maximum(lower_pred - target, target - upper_pred)
-        resid = torch.clamp(resid, min=0.0)
-        resid_flat = resid.view(-1)
-        self.tau = torch.quantile(resid_flat, 1 - self.alpha)
-        return self.tau
+            mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
+            y_pred = y_pred[mask_1d]
+            target = target[mask_1d]
+
+        scores = self._predictor.calculate_score(y_pred, target)
+        q_hat_scalar = torch.quantile(scores, 1 - self.alpha)
+        self.q_hat = q_hat_scalar.unsqueeze(0)  # Ensure q_hat is a 1D tensor
+        self._is_calibrated = True
 
     def predict_interval(
         self,
-        lower_pred: Tensor,
-        upper_pred: Tensor,
+        y_pred: Tensor,
     ) -> Tuple[Tensor, Tensor]:
-        """Return calibrated intervals: [lower−τ, upper+τ]."""
-        if self.tau is None:
-            raise ValueError("Call calibrate() before predict_interval().")
-        return lower_pred - self.tau, upper_pred + self.tau
+        """
+        Make predictions with conformal prediction intervals.
+        """
+        if not self._is_calibrated or self.q_hat is None:
+            raise RuntimeError(
+                "Predictor must be calibrated before making predictions. Call calibrate() first."
+            )
+        if self._predictor is None:
+            raise RuntimeError("Predictor not initialized")
 
+        if self.method == "cqr":
+            n_feat = y_pred.shape[-1] // 2
+            lower = y_pred[..., :n_feat] - self.q_hat
+            upper = y_pred[..., n_feat:] + self.q_hat
+            return lower, upper
 
-# Note: The following classes would ideally integrate with torchcp when available
-# For now, they provide basic conformal prediction functionality
+        intervals = self._predictor.score_function.generate_intervals(y_pred, self.q_hat)
+
+        if intervals.dim() > 1 and intervals.shape[1] == 1:
+            intervals = intervals.squeeze(1)
+
+        lower, upper = intervals[..., 0], intervals[..., 1]
+
+        if lower.dim() == 1:
+            lower = lower.unsqueeze(-1)
+            upper = upper.unsqueeze(-1)
+
+        return lower, upper
 
 
 class AdaptiveConformalLoss(ConformalLoss):
     """
     Adaptive Conformal Prediction for regression.
-
-    Adjusts the confidence level based on the difficulty of recent predictions.
     """
 
     def __init__(
         self,
         alpha: float = 0.1,
+        reduction: str = "mean",
+        model: Optional[Module] = None,
         gamma: float = 0.01,
-        reduction: str = "mean",
-        base_loss_reduction: str = "none",
     ) -> None:
-        super().__init__(alpha, reduction, base_loss_reduction)
-        self.gamma = gamma  # Learning rate for adaptation
-        self.alpha_history = [alpha]  # Track alpha values over time
-        self.residual_history: List[float] = []  # Track residuals for adaptation
-
-    def calibrate(
-        self,
-        lower_pred: Tensor,
-        upper_pred: Tensor,
-        target: Tensor,
-        mask: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Calibrate with adaptive adjustment based on recent performance."""
-        if mask is not None:
-            lower_pred = lower_pred[mask]
-            upper_pred = upper_pred[mask]
-            target = target[mask]
-
-        # Calculate residuals
-        resid = torch.maximum(lower_pred - target, target - upper_pred)
-        resid = torch.clamp(resid, min=0.0)
-        resid_flat = resid.view(-1)
-
-        # Store residuals for adaptation
-        self.residual_history.extend(resid_flat.detach().cpu().numpy())
-
-        # Keep only recent history (last 1000 points)
-        if len(self.residual_history) > 1000:
-            self.residual_history = self.residual_history[-1000:]
-
-        # Adapt alpha based on recent coverage
-        if len(self.residual_history) > 10:
-            recent_coverage = np.mean(np.array(self.residual_history) <= 0)
-            target_coverage = 1 - self.alpha
-            error = target_coverage - recent_coverage
-
-            # Adjust alpha (smaller alpha -> wider intervals -> better coverage)
-            new_alpha = max(0.01, min(0.5, self.alpha + self.gamma * error))
-            self.alpha = float(new_alpha)  # type: ignore
-            self.alpha_history.append(float(new_alpha))  # type: ignore
-
-            # Update quantiles
-            self.lower_q = self.alpha / 2
-            self.upper_q = 1 - self.alpha / 2
-            self.lower_loss = QuantileLoss(float(self.lower_q), reduction=self.lower_loss.reduction)  # type: ignore
-            self.upper_loss = QuantileLoss(float(self.upper_q), reduction=self.upper_loss.reduction)  # type: ignore
-
-        # Compute tau as before
-        self.tau = torch.quantile(resid_flat, 1 - self.alpha)
-        return self.tau
+        if model is None:
+            raise ValueError("AdaptiveConformalLoss requires a 'model' to be provided.")
+        super().__init__(method="aci", alpha=alpha, reduction=reduction, model=model, gamma=gamma)
 
 
-class ConformalizedQuantileLoss(RegressionLoss):
+class ConformalizedQuantileLoss(ConformalLoss):
     """
-    Conformalized Quantile Regression (CQR) with multiple quantiles.
-
-    Extends basic CQR to work with multiple quantile levels simultaneously.
+    Conformalized Quantile Regression (CQR).
     """
 
     def __init__(
         self,
-        quantiles: Union[Tuple[float, float], list] = (0.05, 0.95),
         alpha: float = 0.1,
         reduction: str = "mean",
     ) -> None:
-        super().__init__(reduction=reduction)
-        if isinstance(quantiles, tuple):
-            quantiles = list(quantiles)
-        self.quantiles = sorted(quantiles)
-        self.alpha = alpha
-        self.lower_q = quantiles[0]
-        self.upper_q = quantiles[-1]
-        self.lower_loss = QuantileLoss(self.lower_q, reduction="none")
-        self.upper_loss = QuantileLoss(self.upper_q, reduction="none")
-        self.tau: Optional[Tensor] = None
-
-    def forward(
-        self,
-        y_pred: Tensor,
-        target: Tensor,
-        mask: Optional[Tensor] = None,
-        weights: Optional[Tensor] = None,
-        **kwargs: Any,
-    ) -> Tensor:
-        """Training loss: sum of lower and upper quantile losses."""
-        # Validate and split predictions
-        n_feat = target.shape[-1] if target.dim() > 1 else 1
-        expected_features = len(self.quantiles) * n_feat
-        if y_pred.dim() >= 1 and y_pred.shape[-1] == expected_features:
-            # Split predictions for each quantile
-            pred_list = []
-            for i in range(len(self.quantiles)):
-                start_idx = i * n_feat
-                end_idx = (i + 1) * n_feat
-                pred_list.append(y_pred[..., start_idx:end_idx])
-
-            lower_pred = pred_list[0]
-            upper_pred = pred_list[-1]
-        else:
-            raise ValueError(
-                f"ConformalizedQuantileLoss expects y_pred shape [...,{expected_features}], got {y_pred.shape}"
-            )
-
-        # Compute quantile losses
-        l = self.lower_loss(lower_pred, target, mask=mask, weights=weights)
-        u = self.upper_loss(upper_pred, target, mask=mask, weights=weights)
-        loss = l + u
-        return self._reduce_with_mask(loss, mask, weights)
-
-    def calibrate(
-        self,
-        quantile_preds: Tensor,
-        target: Tensor,
-        mask: Optional[Tensor] = None,
-    ) -> Tensor:
-        """Calibrate using multiple quantile predictions."""
-        if mask is not None:
-            quantile_preds = quantile_preds[mask]
-            target = target[mask]
-
-        # Extract lower and upper predictions
-        n_feat = target.shape[-1] if target.dim() > 1 else 1
-        lower_pred = quantile_preds[..., :n_feat]
-        upper_pred = quantile_preds[..., -n_feat:]
-
-        # Residuals outside predicted interval
-        resid = torch.maximum(lower_pred - target, target - upper_pred)
-        resid = torch.clamp(resid, min=0.0)
-        resid_flat = resid.view(-1)
-        self.tau = torch.quantile(resid_flat, 1 - self.alpha)
-        return self.tau
-
-    def predict_interval(
-        self,
-        quantile_preds: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
-        """Return calibrated intervals from multiple quantile predictions."""
-        if self.tau is None:
-            raise ValueError("Call calibrate() before predict_interval().")
-
-        n_feat = quantile_preds.shape[-1] // len(self.quantiles)
-        lower_pred = quantile_preds[..., :n_feat]
-        upper_pred = quantile_preds[..., -n_feat:]
-        return lower_pred - self.tau, upper_pred + self.tau
+        super().__init__(method="cqr", alpha=alpha, reduction=reduction)
 
 
-class MultiDimensionalConformalLoss(RegressionLoss):
+class MultiDimensionalConformalLoss(ConformalLoss):
     """
     Multi-dimensional conformal prediction for multi-output regression.
-
-    Calibrates prediction intervals separately for each output dimension.
     """
 
     def __init__(
@@ -265,76 +192,45 @@ class MultiDimensionalConformalLoss(RegressionLoss):
         alpha: float = 0.1,
         reduction: str = "mean",
     ) -> None:
-        super().__init__(reduction=reduction)
-        self.alpha = alpha
-        self.taus: Optional[Tensor] = None
-        self._is_calibrated = False
+        # For multi-dimensional, we use 'split' as the base, but override calibration
+        super().__init__(method="split", alpha=alpha, reduction=reduction)
 
-    def forward(
+    def calibrate(
         self,
         y_pred: Tensor,
         target: Tensor,
         mask: Optional[Tensor] = None,
-        weights: Optional[Tensor] = None,
-        **kwargs: Any,
-    ) -> Tensor:
-        """Training loss for multi-dimensional conformal prediction."""
-        # Validate inputs
-        self._validate_inputs(y_pred, target, mask)
-
-        # For training, we can use a simple MSE loss or other base loss
-        # In practice, this would be combined with quantile losses
-        loss = (y_pred - target) ** 2
-        return self._reduce_with_mask(loss, mask, weights)
-
-    def calibrate(
-        self,
-        lower_preds: Tensor,
-        upper_preds: Tensor,
-        target: Tensor,
-        mask: Optional[Tensor] = None,
-    ) -> Tensor:
+    ) -> None:
         """Calibrate separate taus for each output dimension."""
+        if self._predictor is None:
+            raise RuntimeError("Predictor not initialized")
+
         if mask is not None:
-            lower_preds = lower_preds[mask]
-            upper_preds = upper_preds[mask]
-            target = target[mask]
+            mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
+            y_pred = y_pred[mask_1d]
+            target = target[mask_1d]
 
         n_features = target.shape[-1]
-        taus = []
+        q_hats = []
 
-        # Calculate separate tau for each feature
         for i in range(n_features):
-            lower_pred = lower_preds[..., i]
-            upper_pred = upper_preds[..., i]
-            y_i = target[..., i]
+            y_pred_i = y_pred[..., i].unsqueeze(-1)
+            target_i = target[..., i].unsqueeze(-1)
+            scores = self._predictor.calculate_score(y_pred_i, target_i)
+            q_hat_i = torch.quantile(scores, 1 - self.alpha)
+            q_hats.append(q_hat_i)
 
-            # Residuals outside predicted interval for this feature
-            resid = torch.maximum(lower_pred - y_i, y_i - upper_pred)
-            resid = torch.clamp(resid, min=0.0)
-            resid_flat = resid.view(-1)
-            tau_i = torch.quantile(resid_flat, 1 - self.alpha)
-            taus.append(tau_i)
-
-        self.taus = torch.stack(taus)
+        self.q_hat = torch.stack(q_hats)
         self._is_calibrated = True
-        return self.taus
 
     def predict_intervals(
         self,
-        lower_preds: Tensor,
-        upper_preds: Tensor,
+        y_pred: Tensor,
     ) -> Tuple[Tensor, Tensor]:
         """Return calibrated intervals using dimension-specific taus."""
-        if not self._is_calibrated or self.taus is None:
+        if not self._is_calibrated or self.q_hat is None:
             raise ValueError("Call calibrate() before predict_intervals().")
 
-        # Expand taus to match the dimensions of predictions
-        taus = self.taus
-        while taus.dim() < lower_preds.dim():
-            taus = taus.unsqueeze(0)
-
-        taus_expanded = taus.expand_as(lower_preds)
-        lower_intervals = lower_preds - taus_expanded
-        upper_intervals = upper_preds + taus_expanded
-        return lower_intervals, upper_intervals
+        lower = y_pred - self.q_hat
+        upper = y_pred + self.q_hat
+        return lower, upper

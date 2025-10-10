@@ -76,6 +76,14 @@ Flexible family of losses for data with various mean-variance relationships:
 
 [Learn more about Tweedie losses →](tweedie.md)
 
+### Conformal Prediction Losses
+
+Methods that provide rigorous prediction intervals with statistical guarantees:
+
+- **ConformalLoss**: Unified wrapper for various `torchcp` methods (Split, CQR, ACI)
+
+[Learn more about conformal prediction losses →](conformal.md)
+
 ### Advanced Uncertainty-Aware Losses
 
 Sophisticated losses for full predictive distributions:
@@ -112,6 +120,7 @@ Approaches to combine multiple models:
 | Simple regression | `MSELoss` or `L1Loss` |
 | Robustness to outliers | `HuberLoss` or `CauchyLoss` |
 | Prediction intervals | `QuantileLoss` (with multiple quantiles) |
+| Guaranteed coverage intervals | `ConformalLoss` |
 | Full uncertainty | `GaussianNLLLoss` or `MDNLoss` |
 | Count data | `PoissonNLLLoss` |
 | Continuous data with zeros | `TweedieLoss(p=1.5)` |
