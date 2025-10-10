@@ -30,6 +30,11 @@ dependencies = [
     "matplotlib>=3.5.0",
     "pandas>=1.4.0",
     "torchmetrics>=1.0.0",
+    "torchcp>=1.2.0",
+    "torchsort>=0.1.0",
+    "scikit-learn>=1.0.0",
+    "tqdm>=4.60.0",
+    "zuko>=1.4.0",
 ]
 
 [project.urls]
@@ -53,10 +58,7 @@ docs = [
     "mkdocstrings[python]>=0.20.0",
     "pymdown-extensions>=10.0.0",
 ]
-conformal = [
-    "torchcp>=0.1.0",
-]
-all = ["torchregress[test,dev,docs,conformal]"]
+all = ["torchregress[test,dev,docs]"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -109,6 +111,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "torchcp.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "zuko.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

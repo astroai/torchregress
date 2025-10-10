@@ -2,6 +2,16 @@
 
 This document outlines planned improvements and ongoing work for the TorchRegression library.
 
+## Recently Completed (2025-10-08)
+
+See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for details.
+
+- [x] **SWAG/MultiSWAG implementation**: Bayesian uncertainty estimation via weight averaging
+- [x] **TorchCP integration**: Modern conformal prediction methods (Split, CQR, ACI)
+- [x] **Uncertainty decomposition documentation**: Clarified which methods support epistemic/aleatoric split
+- [x] **Fixed conditional imports**: All imports now direct per CLAUDE.md policy
+- [x] **Updated dependencies**: torchcp and zuko now required dependencies
+
 ## High Priority Items
 
 ### Ecosystem Integration
@@ -10,6 +20,9 @@ This document outlines planned improvements and ongoing work for the TorchRegres
 - [ ] **Registration system for custom losses**: Add decorator-based registration for user extensions
 
 ### Advanced Features
+- [ ] **Noisy labels for regression**: Implement NoiseAdaptiveLoss, CoTeachingLoss, RENTLoss
+- [ ] **Imbalanced regression**: DensityWeightedLoss, LDSLoss with calibration warnings
+- [ ] **Evidential regression**: Normal-Inverse-Gamma loss for uncertainty
 - [ ] **Censored regression support**: Add losses for interval-censored and right-censored data
 - [ ] **Time series specific losses**: Implement autoregressive and temporal consistency losses
 - [ ] **Multivariate regression testing metrics**: Add metrics specific to multivariate outputs
@@ -34,53 +47,3 @@ This document outlines planned improvements and ongoing work for the TorchRegres
 - [ ] **IRLS integration**: Better integrate IRLS with standard loss functions
 - [ ] **Ensemble model integration**: Add utilities for combining and calibrating ensemble predictions
 
-## Completed Items
-
-### API Consistency & Usability
-- ✅ **Standardize loss function interfaces**: Unify parameter ordering across all losses
-- ✅ **Simplified base classes hierarchy**: Review and simplify inheritance structure
-- ✅ **Batched implementations**: Optimize Monte Carlo sampling through proper vectorization
-
-### Modern Regression Features
-- ✅ **Heteroscedastic regression abstractions**: High-level API for variance prediction
-- ✅ **Modern regression losses**: SQR, Barron, conformal prediction, DeepAR
-- ✅ **Target transformation losses**: Built-in support for log/box-cox transformations
-- ✅ **Ensemble uncertainty estimation**: Built-in support for deep ensembles
-
-### Codebase Improvements
-- ✅ **Torch.compile compatibility**: Ensure all operations are compatible with torch.compile()
-- ✅ **File organization**: Remove redundant files and improve module structure
-- ✅ **Comprehensive testing**: Extensive test coverage for all loss functions
-
-## Implementation Status
-
-### Core Modules
-- ✅ **Base loss framework**: Standardized parameter order and inheritance
-- ✅ **Loss registration system**: Basic implementation complete
-- ✅ **Validation utilities**: Comprehensive validation functions
-- ✅ **Tensor operations**: Optimized masked operations
-
-### Loss Functions
-- ✅ **Gaussian losses**: MSE, Gaussian NLL variants
-- ✅ **Robust losses**: Huber, Log-cosh, Tukey, and others
-- ✅ **Quantile & Expectile losses**: Complete implementations
-- ✅ **Poisson & Tweedie losses**: Specialized count data models
-- ✅ **Error-in-Variables losses**: Advanced uncertainty handling
-- ✅ **Modern regression losses**: SQR, Barron, conformal, DeepAR
-
-### Metrics & Evaluation
-- ✅ **Point metrics**: Standard regression metrics
-- ✅ **Distribution metrics**: Uncertainty-aware evaluation
-- ✅ **Interval metrics**: Prediction interval evaluation
-- ✅ **Calibration metrics**: Reliability assessment
-- ✅ **Out-of-distribution metrics**: Uncertainty quality measures
-
-### Utilities
-- ✅ **Validation utilities**: Input checking and error handling
-- ✅ **Tensor operations**: Optimized core functions
-- ✅ **PyTorch compatibility**: Compile and ecosystem support
-- ✅ **Ensemble utilities**: Prediction combination methods
-
-## Future Directions
-
-The library is now in a stable state with comprehensive coverage of modern regression techniques. Future work will focus on ecosystem integration, advanced features for specialized domains, and performance optimizations.
