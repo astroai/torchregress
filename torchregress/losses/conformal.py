@@ -25,6 +25,11 @@ class ConformalLoss(RegressionLoss):
 
     This wrapper provides a unified interface to torchcp predictors while maintaining
     compatibility with the torchregress loss function API.
+
+    To use a specific method, pass the method name to the constructor, e.g.:
+    - `ConformalLoss(method='split', ...)` for Split Conformal Prediction.
+    - `ConformalLoss(method='cqr', ...)` for Conformalized Quantile Regression.
+    - `ConformalLoss(method='aci', model=my_model, ...)` for Adaptive Conformal Inference.
     """
 
     def __init__(
@@ -35,6 +40,16 @@ class ConformalLoss(RegressionLoss):
         model: Optional[Module] = None,
         gamma: float = 0.01,  # Needed for ACI
     ) -> None:
+        """
+        Args:
+            method: The conformal prediction method to use.
+                One of 'split', 'cqr', or 'aci'.
+            alpha: The desired miscoverage rate (e.g., 0.1 for a 90% confidence interval).
+            reduction: Specifies the reduction to apply to the loss:
+                'none' | 'mean' | 'sum'. Default: 'mean'.
+            model: The regression model. Required when `method` is 'aci'.
+            gamma: Regularization parameter for ACI. Only used when `method` is 'aci'.
+        """
         super().__init__(reduction=reduction)
         self.method = method.lower()
         self.alpha = alpha
@@ -151,36 +166,6 @@ class ConformalLoss(RegressionLoss):
         return lower, upper
 
 
-class AdaptiveConformalLoss(ConformalLoss):
-    """
-    Adaptive Conformal Prediction for regression.
-    """
-
-    def __init__(
-        self,
-        alpha: float = 0.1,
-        reduction: str = "mean",
-        model: Optional[Module] = None,
-        gamma: float = 0.01,
-    ) -> None:
-        if model is None:
-            raise ValueError("AdaptiveConformalLoss requires a 'model' to be provided.")
-        super().__init__(method="aci", alpha=alpha, reduction=reduction, model=model, gamma=gamma)
-
-
-class ConformalizedQuantileLoss(ConformalLoss):
-    """
-    Conformalized Quantile Regression (CQR).
-    """
-
-    def __init__(
-        self,
-        alpha: float = 0.1,
-        reduction: str = "mean",
-    ) -> None:
-        super().__init__(method="cqr", alpha=alpha, reduction=reduction)
-
-
 class MultiDimensionalConformalLoss(ConformalLoss):
     """
     Multi-dimensional conformal prediction for multi-output regression.
@@ -222,13 +207,13 @@ class MultiDimensionalConformalLoss(ConformalLoss):
         self.q_hat = torch.stack(q_hats)
         self._is_calibrated = True
 
-    def predict_intervals(
+    def predict_interval(
         self,
         y_pred: Tensor,
     ) -> Tuple[Tensor, Tensor]:
         """Return calibrated intervals using dimension-specific taus."""
         if not self._is_calibrated or self.q_hat is None:
-            raise RuntimeError("Call calibrate() before predict_intervals().")
+            raise RuntimeError("Call calibrate() before predict_interval().")
 
         lower = y_pred - self.q_hat
         upper = y_pred + self.q_hat

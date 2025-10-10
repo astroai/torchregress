@@ -14,13 +14,20 @@ The `ConformalLoss` class is a wrapper around various conformal prediction metho
 
 ### Usage
 
-To use the unified conformal prediction module, you first need to create a `ConformalLoss` object, specifying the desired method and the target miscoverage level `alpha`.
+To use the unified conformal prediction module, you create a `ConformalLoss` object, specifying the desired `method` and the target miscoverage level `alpha`.
 
+For `'split'` and `'cqr'`:
 ```python
 from torchregress.losses.conformal import ConformalLoss
 
 # Create a CQR loss with a target coverage of 90%
 loss_fn = ConformalLoss(method='cqr', alpha=0.1)
+```
+
+For `'aci'`, you also need to pass the model to the constructor:
+```python
+# Create an ACI loss with a target coverage of 90%
+loss_fn = ConformalLoss(method='aci', alpha=0.1, model=my_model)
 ```
 
 During training, the `ConformalLoss` object can be used like any other loss function in PyTorch.

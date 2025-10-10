@@ -10,11 +10,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from torchregress.losses.conformal import (
-    AdaptiveConformalLoss,
-    ConformalizedQuantileLoss,
-    ConformalLoss,
-)
+from torchregress.losses.conformal import ConformalLoss
 from torchregress.losses.quantile import MultiQuantileLoss
 
 
@@ -87,9 +83,9 @@ def main():
 
     for alpha in alphas:
         methods_config = {
-            "CQR": {"loss": ConformalizedQuantileLoss(alpha=alpha), "model": cqr_model},
+            "CQR": {"loss": ConformalLoss(method="cqr", alpha=alpha), "model": cqr_model},
             "ACI": {
-                "loss": AdaptiveConformalLoss(alpha=alpha, model=point_model),
+                "loss": ConformalLoss(method="aci", alpha=alpha, model=point_model),
                 "model": point_model,
             },
             "SPLIT": {"loss": ConformalLoss(method="split", alpha=alpha), "model": point_model},
