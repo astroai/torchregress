@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.utils import convert_to_tensor, validate_inputs, create_metric_result
 
 
 def expected_calibration_error(
@@ -109,7 +109,9 @@ def expected_calibration_error(
             }
         )
 
-    return result
+    # Detect if inputs were numpy arrays
+    was_numpy = isinstance(y_pred_quantiles[list(y_pred_quantiles.keys())[0]], np.ndarray)
+    return create_metric_result(result, was_numpy)
 
 
 def marginal_calibration_error(
@@ -240,7 +242,9 @@ def marginal_calibration_error(
             }
         )
 
-    return result
+    # Detect if inputs were numpy arrays
+    was_numpy = isinstance(y_pred_samples, np.ndarray) or isinstance(y_true, np.ndarray)
+    return create_metric_result(result, was_numpy)
 
 
 def calibration_metrics_report(

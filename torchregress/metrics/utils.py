@@ -11,11 +11,11 @@ import torch
 def convert_to_tensor(x: Union[torch.Tensor, np.ndarray, List, float, int]) -> torch.Tensor:
     """Convert various input types to torch tensors."""
     if isinstance(x, np.ndarray):
-        return torch.from_numpy(x)
+        return torch.from_numpy(x).float()
     elif isinstance(x, (list, tuple)):
-        return torch.tensor(x)
+        return torch.tensor(x, dtype=torch.float32)
     elif isinstance(x, (float, int)):
-        return torch.tensor([x])
+        return torch.tensor([x], dtype=torch.float32)
     elif isinstance(x, torch.Tensor):
         return x
     else:
@@ -46,12 +46,18 @@ def create_metric_result(
 ) -> Union[torch.Tensor, float, np.ndarray, Dict]:
     """Convert result to appropriate type based on input."""
     if isinstance(result, Dict):
-        # Convert dict values
+        # Convert dict values - always convert scalar tensors to float
         return {
-            k: v.cpu().numpy() if isinstance(v, torch.Tensor) and as_numpy else v
+            k: (
+                float(v.item()) if isinstance(v, torch.Tensor) and v.numel() == 1
+                else v.cpu().numpy() if isinstance(v, torch.Tensor) and as_numpy
+                else v
+            )
             for k, v in result.items()
         }
     elif isinstance(result, torch.Tensor):
+        if result.numel() == 1:
+            return float(result.item())
         return result.cpu().numpy() if as_numpy else result
     return result
 

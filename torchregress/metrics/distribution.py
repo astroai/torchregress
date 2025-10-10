@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torch.distributions import Distribution
 
-from torchregress.metrics.utils import apply_reduction, convert_to_tensor, validate_inputs
+from torchregress.metrics.utils import apply_reduction, convert_to_tensor, validate_inputs, create_metric_result
 from torchregress.utils.histogram import histogram_bins
 
 
@@ -43,14 +43,17 @@ def probability_integral_transform(
         # Normalize histogram
         normalized_counts = bin_counts / torch.sum(bin_counts) * n_bins
 
-        return {
+        result = {
             "pit_values": pit_values,
             "histogram_counts": normalized_counts,
             "bin_edges": bin_edges,
             "uniformity_chi2": torch.sum((normalized_counts - 1.0) ** 2),
         }
+        was_numpy = isinstance(y_true, np.ndarray)
+        return create_metric_result(result, was_numpy)
 
-    return pit_values
+    was_numpy = isinstance(y_true, np.ndarray)
+    return pit_values.cpu().numpy() if was_numpy else pit_values
 
 
 def continuous_ranked_probability_score(
@@ -108,7 +111,9 @@ def continuous_ranked_probability_score(
         crps_values = crps_values + weights[i + 1] * quantile_loss
 
     # Apply reduction
-    return apply_reduction(crps_values, reduction)
+    result = apply_reduction(crps_values, reduction)
+    was_numpy = isinstance(y_true, np.ndarray)
+    return create_metric_result(result, was_numpy)
 
 
 def energy_score(
@@ -183,7 +188,9 @@ def energy_score(
     energy_scores = term1 - term2
 
     # Apply reduction
-    return apply_reduction(energy_scores, reduction)
+    result = apply_reduction(energy_scores, reduction)
+    was_numpy = isinstance(y_true, np.ndarray)
+    return create_metric_result(result, was_numpy)
 
 
 def distribution_metrics_report(
