@@ -44,6 +44,24 @@ from .conformal import (
     ConformalLoss,
     MultiDimensionalConformalLoss,
 )
+
+# Try to import torchcp-based conformal methods (requires torchcp with dependencies)
+try:
+    from .conformal_advanced import TorchCPConformalLoss, create_conformal_predictor
+    _TORCHCP_ADVANCED_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    _TORCHCP_ADVANCED_AVAILABLE = False
+    # Create placeholder functions that raise informative errors
+    def TorchCPConformalLoss(*args, **kwargs):
+        raise ImportError(
+            "TorchCPConformalLoss requires torchcp with all dependencies. "
+            "Install with: pip install torchcp torchsort"
+        )
+    def create_conformal_predictor(*args, **kwargs):
+        raise ImportError(
+            "create_conformal_predictor requires torchcp with all dependencies. "
+            "Install with: pip install torchcp torchsort"
+        )
 from .deepar import DeepARLoss
 
 # Gaussian losses
@@ -96,13 +114,30 @@ from .transform import (
     SqrtTransformLoss,
 )
 
+# Noisy label losses
+from .noisy import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
+
+# Imbalanced regression losses
+from .imbalanced import DensityWeightedLoss, LDSLoss
+
+# Evidential regression
+from .evidential import EvidentialRegressionLoss, create_evidential_loss
+
+# Expectile losses
+from .expectile import ExpectileLoss, MultiExpectileLoss, AsymmetricLeastSquaresLoss
+
+# Quantile losses
+from .quantile import QuantileLoss, MultiQuantileLoss
+
+# Tweedie losses
+from .tweedie import TweedieLoss, GammaLoss, InverseGaussianLoss, CompoundPoissonLoss
+
 __all__ = [
     # Base classes
     "BaseLoss",
     "MaskedLoss",
     "RegressionLoss",
     "DistributionLoss",
-    "TorchLossWrapper",
     "WeightedLossWrapper",
     "create_weighted_losses",
     # Standard weighted losses
@@ -154,6 +189,8 @@ __all__ = [
     "AdaptiveConformalLoss",
     "ConformalizedQuantileLoss",
     "MultiDimensionalConformalLoss",
+    "TorchCPConformalLoss",
+    "create_conformal_predictor",
     "DeepARLoss",
     # Poisson losses
     "PoissonDevianceLoss",
@@ -167,4 +204,26 @@ __all__ = [
     "enhanced_poisson_gaussian_loss",
     "PoissonGaussianLikelihoodRatioLoss",
     "poisson_gaussian_likelihood_ratio_loss",
+    # Noisy label losses
+    "NoiseAdaptiveLoss",
+    "CoTeachingLoss",
+    "RENTLoss",
+    # Imbalanced regression losses
+    "DensityWeightedLoss",
+    "LDSLoss",
+    # Evidential regression
+    "EvidentialRegressionLoss",
+    "create_evidential_loss",
+    # Expectile losses
+    "ExpectileLoss",
+    "MultiExpectileLoss",
+    "AsymmetricLeastSquaresLoss",
+    # Quantile losses
+    "QuantileLoss",
+    "MultiQuantileLoss",
+    # Tweedie losses
+    "TweedieLoss",
+    "GammaLoss",
+    "InverseGaussianLoss",
+    "CompoundPoissonLoss",
 ]

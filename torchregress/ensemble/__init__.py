@@ -12,6 +12,7 @@ from .advanced import (
 from .base import BaseEnsembleModel
 from .layers import BatchEnsembleLinear
 from .models import DeepEnsemble, HeteroscedasticBatchEnsembleModel, HeteroscedasticEnsembleModel
+from .swag import MultiSWAG, SWAG
 
 __all__ = [
     "BaseEnsembleModel",
@@ -23,4 +24,6 @@ __all__ = [
     "StackingEnsemble",
     "DynamicEnsembleWeighting",
     "EnsembleCalibration",
+    "SWAG",
+    "MultiSWAG",
 ]

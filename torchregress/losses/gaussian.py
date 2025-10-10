@@ -168,8 +168,11 @@ class HeteroscedasticGaussianLoss(DistributionLoss):
         # Validate inputs
         if isinstance(y_pred, tuple):
             self._validate_inputs(y_pred[0], target, mask)
-        else:
+        elif self.learnable_variance:
+            # When learnable_variance=True, y_pred is just the mean
             self._validate_inputs(y_pred, target, mask)
+        # When learnable_variance=False and y_pred is concatenated, skip validation
+        # as y_pred will have shape [..., 2*n_features]
 
         # Calculate NLL
         nll = self._calculate_nll(y_pred, target, mask)

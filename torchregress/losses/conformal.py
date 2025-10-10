@@ -12,13 +12,8 @@ from ..utils.validation import validate_range
 from .base import RegressionLoss
 from .quantile import QuantileLoss
 
-# Try to import torchcp, but provide fallback if not available
-try:
-    import torchcp  # noqa: F401
-
-    TORCHCP_AVAILABLE = True
-except ImportError:
-    TORCHCP_AVAILABLE = False
+# Note: torchcp is imported in conformal_advanced.py where it's actually used
+# This file doesn't need torchcp since it implements basic CQR from scratch
 
 
 class ConformalLoss(RegressionLoss):
