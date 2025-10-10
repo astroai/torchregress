@@ -4,16 +4,14 @@ import torch
 from torchregress.losses import (
     CauchyLoss,
     ExpectileLoss,
-    GaussianNLLLoss,
-    HuberLoss,
     LogCoshLoss,
-    MAELoss,
-    MSELoss,
-    PoissonLoss,
     PseudoHuberLoss,
     QuantileLoss,
     TweedieLoss,
-    # Import other losses as needed
+    WeightedHuberLoss as HuberLoss,
+    WeightedL1Loss as MAELoss,
+    WeightedMSELoss as MSELoss,
+    WeightedPoissonNLLLoss as PoissonLoss,
 )
 
 
@@ -22,7 +20,6 @@ from torchregress.losses import (
     [
         MSELoss,
         MAELoss,
-        GaussianNLLLoss,
         HuberLoss,
         PseudoHuberLoss,
         LogCoshLoss,

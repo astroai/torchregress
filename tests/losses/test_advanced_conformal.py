@@ -4,7 +4,7 @@ Tests for advanced conformal prediction methods.
 
 import pytest
 import torch
-from torchregress.losses.advanced_conformal import (
+from torchregress.losses.conformal import (
     AdaptiveConformalLoss,
     ConformalizedQuantileLoss,
     MultiDimensionalConformalLoss,

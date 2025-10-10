@@ -128,7 +128,7 @@ class TestMaskedLoss:
 
         masked = loss._apply_mask(tensor, mask)
         # Masked values should be the tensor values where mask is True
-        assert masked.shape == torch.tensor([2]).shape
+        assert masked.shape == torch.Size([2])
         assert torch.allclose(masked, torch.tensor([1.0, 3.0]))
 
     def test_validate_inputs(self):
@@ -174,7 +174,7 @@ class TestMaskedLoss:
         loss.reduction = "none"
         reduced_none = loss._reduce_with_mask(loss_values, mask)
         # Expected: [1.0, 2.0, 4.0]
-        assert reduced_none.shape == torch.tensor([3]).shape
+        assert reduced_none.shape[0] == 3
         assert torch.allclose(reduced_none, torch.tensor([1.0, 2.0, 4.0]))
 
     def test_forward_with_mask(self):

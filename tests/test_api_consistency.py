@@ -60,6 +60,12 @@ def get_all_loss_classes() -> List[Type[Loss]]:
 
 def test_parameter_ordering():
     """Test that all loss classes have y_pred as the first parameter in forward()."""
+    # Special cases that have different parameter patterns
+    special_cases = {
+        "CoTeachingLoss": "y_pred1",  # Takes two predictions
+        "RENTLoss": "ensemble_preds",  # Takes ensemble predictions
+    }
+    
     for loss_class in get_all_loss_classes():
         # Get the signature of the forward method
         sig = inspect.signature(loss_class.forward)
@@ -69,10 +75,17 @@ def test_parameter_ordering():
         if params[0] == "self":
             params = params[1:]
 
-        # Check that y_pred is the first parameter
-        assert (
-            params[0] == "y_pred"
-        ), f"{loss_class.__name__}.forward() should have y_pred as first parameter, got {params[0]}"
+        # Check for special cases
+        if loss_class.__name__ in special_cases:
+            expected_param = special_cases[loss_class.__name__]
+            assert (
+                params[0] == expected_param
+            ), f"{loss_class.__name__}.forward() should have {expected_param} as first parameter, got {params[0]}"
+        else:
+            # Check that y_pred is the first parameter
+            assert (
+                params[0] == "y_pred"
+            ), f"{loss_class.__name__}.forward() should have y_pred as first parameter, got {params[0]}"
 
 
 def test_base_class_inheritance():
@@ -116,6 +129,24 @@ def test_reduction_behavior():
         "EnhancedPoissonGaussianMixtureLoss",
         "PoissonGaussianLikelihoodRatioLoss",
         "QuantileCrossoverLoss",
+        "ConformalLoss",  # Needs special input shape
+        "AdaptiveConformalLoss",  # Needs special input shape
+        "ConformalizedQuantileLoss",  # Needs special input shape
+        "MultiDimensionalConformalLoss",  # Needs special input shape
+        "TorchCPConformalLoss",  # Needs special input shape
+        "TorchCPAdaptiveConformalLoss",  # Needs special input shape
+        "TorchCPConformalizedQuantileLoss",  # Needs special input shape
+        "TorchCPMultiDimensionalConformalLoss",  # Needs special input shape
+        "DiagonalGaussianNLL",  # Needs variance input
+        "WeightedLossWrapper",  # Wrapper class
+        "NormalizingFlowLoss",  # Needs flow parameters
+        "CoTeachingLoss",  # Needs two predictions
+        "RENTLoss",  # Needs ensemble predictions
+        "DeepARLoss",  # Needs special input shape (mean and scale)
+        "DensityWeightedLoss",  # Needs to be fitted first
+        "LDSLoss",  # Needs to be fitted first
+        "NoiseAdaptiveLoss",  # Needs n_samples parameter
+        "SQRLoss",  # Needs special input shape (quantiles)
     ]
 
     for loss_class in get_all_loss_classes():

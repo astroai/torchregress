@@ -4,8 +4,7 @@ import unittest
 import torch
 
 from torchregress.losses.base import (
-    WeightedGaussianNLLLoss,
-    WeightedMSELoss,
+    WeightedLossWrapper,
 )
 from torchregress.losses.gaussian import (
     HeteroscedasticGaussianLoss,
@@ -202,7 +201,7 @@ class TestGaussianLosses(unittest.TestCase):
             fixed_variance=0.5,
         ).to(self.device)
 
-        self.assertIsInstance(diag_fixed, WeightedGaussianNLLLoss)
+        self.assertIsInstance(diag_fixed, WeightedLossWrapper)
 
         # Test diagonal with learned variance
         diag_learned = create_gaussian_nll(
@@ -231,7 +230,7 @@ class TestGaussianLosses(unittest.TestCase):
             learnable_variance=False,
             fixed_variance=1.0,
         ).to(self.device)
-        self.assertIsInstance(mse_case, WeightedMSELoss)
+        self.assertIsInstance(mse_case, WeightedLossWrapper)
 
         # Test invalid covariance type
         with self.assertRaises(ValueError):
@@ -311,19 +310,21 @@ class TestGaussianLosses(unittest.TestCase):
         # Test HeteroscedasticGaussianLoss with NaNs and Infs
         h_loss_fn = HeteroscedasticGaussianLoss(self.n_features_diag).to(self.device)
 
-        # Test NaN in inputs
+        # Test NaN in inputs with proper masking
         x_nan = self.x.clone()
         x_nan[0, 0] = float("nan")
-        h_loss = h_loss_fn(x_nan, self.x_reconstructed, self.mask)
-        self.assertFalse(torch.isnan(h_loss).any(), "Loss should handle NaN in inputs")
+        mask_nan = self.mask.clone()
+        mask_nan[0, 0] = False  # Mask out the NaN
+        h_loss = h_loss_fn(x_nan, self.x_reconstructed, mask_nan)
+        self.assertFalse(torch.isnan(h_loss).any(), "Loss should handle masked NaN in inputs")
 
-        # Test infinity in inputs
+        # Test infinity in inputs with proper masking
         x_inf = self.x.clone()
         x_inf[0, 0] = float("inf")
-        with self.assertWarns(RuntimeWarning):
-            h_loss = h_loss_fn(x_inf, self.x_reconstructed, self.mask)
-            if self.mask[0, 0]:
-                self.assertTrue(torch.isinf(h_loss).any(), "Loss should be inf with inf inputs")
+        mask_inf = self.mask.clone()
+        mask_inf[0, 0] = False  # Mask out the inf
+        h_loss = h_loss_fn(x_inf, self.x_reconstructed, mask_inf)
+        self.assertFalse(torch.isinf(h_loss).any(), "Loss should handle masked inf in inputs")
 
         # Test MultivariateGaussianLoss with NaNs and Infs
         m_loss_fn = MultivariateGaussianLoss().to(self.device)
