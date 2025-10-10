@@ -118,6 +118,7 @@ class MultiQuantileLoss(RegressionLoss):
         self,
         quantiles: Union[List[float], torch.Tensor],
         joint_prediction: bool = True,
+        quantile_weights: Optional[torch.Tensor] = None,
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
@@ -130,6 +131,14 @@ class MultiQuantileLoss(RegressionLoss):
         self.register_buffer("quantiles", validate_quantile(quantiles))
         self.num_quantiles = self.quantiles.size(0)
         self.joint_prediction = joint_prediction
+        
+        # Handle quantile weights
+        if quantile_weights is not None:
+            if len(quantile_weights) != self.num_quantiles:
+                raise ValueError(f"quantile_weights length {len(quantile_weights)} must match number of quantiles {self.num_quantiles}")
+            self.register_buffer("quantile_weights", quantile_weights)
+        else:
+            self.register_buffer("quantile_weights", torch.ones(self.num_quantiles) / self.num_quantiles)
 
     def forward(
         self,
@@ -297,7 +306,10 @@ class QuantileCrossoverLoss(RegressionLoss):
         # Calculate standard quantile losses
         base_losses = []
         for i, loss_fn in enumerate(self.quantile_losses):
-            level_preds = y_pred[:, i]
+            level_preds = y_pred[:, i]  # [batch_size, n_features] or [batch_size]
+            # Ensure shapes match - if target has extra dim, keep it
+            if target.dim() > level_preds.dim():
+                level_preds = level_preds.unsqueeze(-1)
             level_loss = loss_fn(level_preds, target, mask, weights)
             base_losses.append(level_loss)
 

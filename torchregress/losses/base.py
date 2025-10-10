@@ -82,33 +82,53 @@ class BaseLoss(nn.Module):
         # No reduction: return raw values (filtered or weighted)
         if self.reduction == "none":
             if mask is not None:
-                vals = loss[mask]
+                loss_flat = loss.flatten()
+                mask_flat = mask.flatten()
+                vals = loss_flat[mask_flat]
                 if weights is not None:
-                    return vals * weights[mask]
+                    return vals * weights[mask_flat]
                 return vals
             if weights is not None:
+                # Broadcast weights to match loss shape if needed
+                if weights.dim() < loss.dim():
+                    for _ in range(loss.dim() - weights.dim()):
+                        weights = weights.unsqueeze(-1)
                 return loss * weights
             return loss
 
         # Sum reduction
         if self.reduction == "sum":
             if mask is not None:
+                loss_flat = loss.flatten()
+                mask_flat = mask.flatten()
                 if weights is not None:
-                    return torch.sum(loss[mask] * weights[mask])
-                return torch.sum(loss[mask])
+                    return torch.sum(loss_flat[mask_flat] * weights[mask_flat])
+                return torch.sum(loss_flat[mask_flat])
             if weights is not None:
+                # Broadcast weights to match loss shape if needed
+                if weights.dim() < loss.dim():
+                    for _ in range(loss.dim() - weights.dim()):
+                        weights = weights.unsqueeze(-1)
                 return torch.sum(loss * weights)
             return torch.sum(loss)
 
         # Mean reduction
         if self.reduction == "mean":
             if mask is not None:
+                # Flatten both loss and mask for indexing
+                loss_flat = loss.flatten()
+                mask_flat = mask.flatten()
                 if weights is not None:
-                    w = weights[mask]
-                    vals = loss[mask] * w
+                    w = weights[mask_flat]
+                    vals = loss_flat[mask_flat] * w
                     return torch.sum(vals) / torch.sum(w).clamp(min=1)
-                return torch.mean(loss[mask])
+                return torch.mean(loss_flat[mask_flat])
             if weights is not None:
+                # Broadcast weights to match loss shape if needed
+                if weights.dim() < loss.dim():
+                    # Add dimensions to the right for broadcasting
+                    for _ in range(loss.dim() - weights.dim()):
+                        weights = weights.unsqueeze(-1)
                 vals = loss * weights
                 return torch.sum(vals) / torch.sum(weights).clamp(min=1)
             return torch.mean(loss)
@@ -353,44 +373,38 @@ class WeightedLossWrapper(BaseLoss):
         if weights is not None:
             weights = validate_weights(weights, target.shape[0])
 
-        # Skip masking if not needed
-        if mask is None:
-            # PyTorch losses already expect (y_pred, target) order
-            loss = self.torch_loss(y_pred, target)
-        else:
-            # Apply mask if provided
-            target_masked = self._apply_mask(target, mask)
-            y_pred_masked = self._apply_mask(y_pred, mask)
+        # PyTorch losses already expect (y_pred, target) order
+        loss = self.torch_loss(y_pred, target)
 
-            # PyTorch losses already expect (y_pred, target) order
-            loss = self.torch_loss(y_pred_masked, target_masked)
-
-        # Handle weights and reduction
+        # Handle weights and reduction with mask
         return self._reduce(loss, mask, weights)
 
 
-# Create weighted versions of PyTorch losses
-WeightedMSELoss = WeightedLossWrapper(nn.MSELoss)
-WeightedL1Loss = WeightedLossWrapper(nn.L1Loss)
-WeightedCrossEntropyLoss = WeightedLossWrapper(nn.CrossEntropyLoss)
-WeightedBCELoss = WeightedLossWrapper(nn.BCELoss)
-WeightedBCEWithLogitsLoss = WeightedLossWrapper(nn.BCEWithLogitsLoss)
-WeightedKLDivLoss = WeightedLossWrapper(nn.KLDivLoss)
-WeightedNLLLoss = WeightedLossWrapper(nn.NLLLoss)
-WeightedSmoothL1Loss = WeightedLossWrapper(nn.SmoothL1Loss)
-WeightedHuberLoss = WeightedLossWrapper(nn.HuberLoss)
-WeightedPoissonNLLLoss = WeightedLossWrapper(nn.PoissonNLLLoss)
-WeightedGaussianNLLLoss = WeightedLossWrapper(nn.GaussianNLLLoss)
-WeightedCTCLoss = WeightedLossWrapper(nn.CTCLoss)
-WeightedCosineEmbeddingLoss = WeightedLossWrapper(nn.CosineEmbeddingLoss)
-WeightedHingeEmbeddingLoss = WeightedLossWrapper(nn.HingeEmbeddingLoss)
-WeightedMarginRankingLoss = WeightedLossWrapper(nn.MarginRankingLoss)
-WeightedMultiMarginLoss = WeightedLossWrapper(nn.MultiMarginLoss)
-WeightedMultiLabelMarginLoss = WeightedLossWrapper(nn.MultiLabelMarginLoss)
-WeightedSoftMarginLoss = WeightedLossWrapper(nn.SoftMarginLoss)
-WeightedMultiLabelSoftMarginLoss = WeightedLossWrapper(nn.MultiLabelSoftMarginLoss)
-WeightedTripletMarginLoss = WeightedLossWrapper(nn.TripletMarginLoss)
-WeightedTripletMarginWithDistanceLoss = WeightedLossWrapper(nn.TripletMarginWithDistanceLoss)
+# Create weighted versions of PyTorch losses using functools.partial
+from functools import partial
+
+# Factory functions that create weighted loss instances
+WeightedMSELoss = partial(WeightedLossWrapper, nn.MSELoss)
+WeightedL1Loss = partial(WeightedLossWrapper, nn.L1Loss)
+WeightedCrossEntropyLoss = partial(WeightedLossWrapper, nn.CrossEntropyLoss)
+WeightedBCELoss = partial(WeightedLossWrapper, nn.BCELoss)
+WeightedBCEWithLogitsLoss = partial(WeightedLossWrapper, nn.BCEWithLogitsLoss)
+WeightedKLDivLoss = partial(WeightedLossWrapper, nn.KLDivLoss)
+WeightedNLLLoss = partial(WeightedLossWrapper, nn.NLLLoss)
+WeightedSmoothL1Loss = partial(WeightedLossWrapper, nn.SmoothL1Loss)
+WeightedHuberLoss = partial(WeightedLossWrapper, nn.HuberLoss)
+WeightedPoissonNLLLoss = partial(WeightedLossWrapper, nn.PoissonNLLLoss)
+WeightedGaussianNLLLoss = partial(WeightedLossWrapper, nn.GaussianNLLLoss)
+WeightedCTCLoss = partial(WeightedLossWrapper, nn.CTCLoss)
+WeightedCosineEmbeddingLoss = partial(WeightedLossWrapper, nn.CosineEmbeddingLoss)
+WeightedHingeEmbeddingLoss = partial(WeightedLossWrapper, nn.HingeEmbeddingLoss)
+WeightedMarginRankingLoss = partial(WeightedLossWrapper, nn.MarginRankingLoss)
+WeightedMultiMarginLoss = partial(WeightedLossWrapper, nn.MultiMarginLoss)
+WeightedMultiLabelMarginLoss = partial(WeightedLossWrapper, nn.MultiLabelMarginLoss)
+WeightedSoftMarginLoss = partial(WeightedLossWrapper, nn.SoftMarginLoss)
+WeightedMultiLabelSoftMarginLoss = partial(WeightedLossWrapper, nn.MultiLabelSoftMarginLoss)
+WeightedTripletMarginLoss = partial(WeightedLossWrapper, nn.TripletMarginLoss)
+WeightedTripletMarginWithDistanceLoss = partial(WeightedLossWrapper, nn.TripletMarginWithDistanceLoss)
 
 
 def create_weighted_losses() -> Dict[str, Any]:

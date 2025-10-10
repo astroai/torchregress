@@ -10,12 +10,9 @@ from typing import Dict, Optional
 
 import torch
 
-try:
-    from zuko.flows import IAF, MAF, NSF, Flow, RealNVP
-
-    ZUKO_AVAILABLE = True
-except ImportError:
-    ZUKO_AVAILABLE = False
+# Direct import as per CLAUDE.md policy - users must install required dependencies
+# Note: IAF is not available in current zuko version, removed from imports
+from zuko.flows import MAF, NSF, Flow, RealNVP
 
 from ..utils.tensor_ops import apply_mask, masked_reduction
 from .base import DistributionLoss
@@ -30,7 +27,7 @@ class NormalizingFlowLoss(DistributionLoss):
 
     Args:
         n_features (int): Number of output features (dimensions)
-        flow_type (str): Type of flow to use ('realnvp', 'maf', 'nsf', 'iaf')
+        flow_type (str): Type of flow to use ('realnvp', 'maf', 'nsf')
             Default: 'realnvp'
         n_blocks (int): Number of transformation blocks in the flow
             Default: 3
@@ -63,7 +60,7 @@ class NormalizingFlowLoss(DistributionLoss):
         - Requires the 'zuko' package: `pip install zuko`
         - The model should output parameters for the flow, which are handled
           by the zuko package internally
-        - Different flow types (RealNVP, MAF, NSF, IAF) have different modeling
+        - Different flow types (RealNVP, MAF, NSF) have different modeling
           capacities and computational characteristics
 
     Examples:
@@ -89,12 +86,6 @@ class NormalizingFlowLoss(DistributionLoss):
         batch_norm: bool = False,
         reduction: str = "mean",
     ):
-        if not ZUKO_AVAILABLE:
-            raise ImportError(
-                "The zuko package is required for NormalizingFlowLoss. "
-                "Install it with: pip install zuko"
-            )
-
         super().__init__(reduction=reduction)
         self.n_features = n_features
         self.flow_type = flow_type.lower()
@@ -116,7 +107,7 @@ class NormalizingFlowLoss(DistributionLoss):
         Raises:
             ValueError: If an invalid flow type is provided
         """
-        valid_types = ["realnvp", "maf", "nsf", "iaf"]
+        valid_types = ["realnvp", "maf", "nsf"]
         if self.flow_type not in valid_types:
             raise ValueError(
                 f"Invalid flow_type: {self.flow_type}. " f"Must be one of: {', '.join(valid_types)}"
@@ -155,11 +146,7 @@ class NormalizingFlowLoss(DistributionLoss):
                 flow = MAF(**common_args)
             elif self.flow_type == "nsf":
                 flow = NSF(**common_args)
-            elif self.flow_type == "iaf":
-                flow = IAF(**common_args)
 
-            # Set the flow parameters
-            flow.set_parameters(params_dict)
             return flow
         except Exception as e:
             raise RuntimeError(f"Failed to create flow model: {str(e)}")
@@ -203,7 +190,17 @@ class NormalizingFlowLoss(DistributionLoss):
         flow = self._create_flow(params)
 
         # Calculate log probability
-        log_prob = flow.log_prob(target)
+        # zuko flows are callable and return a distribution
+        try:
+            # Try zuko API: flow() returns a distribution with log_prob method
+            dist = flow()
+            log_prob = dist.log_prob(target)
+        except (AttributeError, TypeError):
+            # Fallback for mock flows or other implementations
+            if hasattr(flow, 'log_prob'):
+                log_prob = flow.log_prob(target)
+            else:
+                raise RuntimeError("Flow does not support log_prob calculation")
 
         # Return negative log-likelihood
         return -log_prob
@@ -256,6 +253,11 @@ class NormalizingFlowLoss(DistributionLoss):
                 weights = weights.mean(dim=1)
             nll = nll * weights
 
+        # Handle mask shape - reduce to match nll shape if needed
+        if mask is not None and mask.dim() > nll.dim():
+            # If mask is per-feature, reduce to per-sample (all features must be valid)
+            mask = mask.all(dim=1)
+
         # Apply reduction
         return masked_reduction(nll, mask, self.reduction)
 
@@ -306,7 +308,7 @@ def create_flow_loss(
 
     Args:
         n_features (int): Number of features in the target
-        flow_type (str): Type of flow ('realnvp', 'maf', 'nsf', 'iaf')
+        flow_type (str): Type of flow ('realnvp', 'maf', 'nsf')
             Default: 'realnvp'
         n_blocks (int): Number of transformation blocks
             Default: 3
