@@ -1,9 +1,10 @@
 """
-Tests for conformal prediction methods.
+Tests for the unified conformal prediction module.
 """
 
 import pytest
 import torch
+from torch.nn import Linear, Module, Sequential
 
 from torchregress.losses.conformal import (
     AdaptiveConformalLoss,
@@ -13,240 +14,129 @@ from torchregress.losses.conformal import (
 )
 
 
-class TestConformalLoss:
-    """Test ConformalLoss class."""
+class DummyModel(Module):
+    def __init__(self, in_features, out_features):
+        super().__init__()
+        self.linear = Sequential(Linear(in_features, out_features))
 
-    def test_initialization(self):
-        """Test initialization of ConformalLoss."""
-        loss_fn = ConformalLoss(alpha=0.1)
-        assert loss_fn.alpha == 0.1
-        assert loss_fn.tau is None
-
-    def test_forward_pass(self):
-        """Test forward pass of ConformalLoss."""
-        loss_fn = ConformalLoss(alpha=0.1)
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        y_pred = torch.randn(batch_size, 2 * n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Forward pass
-        loss = loss_fn(y_pred, y_true)
-        assert isinstance(loss, torch.Tensor)
-        assert loss.dim() == 0  # Scalar loss
-
-    def test_calibration(self):
-        """Test calibration method."""
-        loss_fn = ConformalLoss(alpha=0.1)
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        lower_pred = torch.randn(batch_size, n_features)
-        upper_pred = torch.randn(batch_size, n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Calibrate
-        tau = loss_fn.calibrate(lower_pred, upper_pred, y_true)
-        assert isinstance(tau, torch.Tensor)
-        assert tau.dim() == 0  # Scalar tau
-
-    def test_predict_interval(self):
-        """Test predict_interval method."""
-        loss_fn = ConformalLoss(alpha=0.1)
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        lower_pred = torch.randn(batch_size, n_features)
-        upper_pred = torch.randn(batch_size, n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Calibrate first
-        loss_fn.calibrate(lower_pred, upper_pred, y_true)
-
-        # Predict intervals
-        lower_interval, upper_interval = loss_fn.predict_interval(lower_pred, upper_pred)
-        assert isinstance(lower_interval, torch.Tensor)
-        assert isinstance(upper_interval, torch.Tensor)
-        assert lower_interval.shape == lower_pred.shape
-        assert upper_interval.shape == upper_pred.shape
+    def forward(self, x):
+        return self.linear(x)
 
 
-class TestAdaptiveConformalLoss:
-    """Test AdaptiveConformalLoss class."""
-
-    def test_initialization(self):
-        """Test initialization of AdaptiveConformalLoss."""
-        loss_fn = AdaptiveConformalLoss(alpha=0.1, gamma=0.01)
-        assert loss_fn.alpha == 0.1
-        assert loss_fn.gamma == 0.01
-        assert loss_fn.tau is None
-
-    def test_forward_pass(self):
-        """Test forward pass of AdaptiveConformalLoss."""
-        loss_fn = AdaptiveConformalLoss(alpha=0.1)
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        y_pred = torch.randn(batch_size, 2 * n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Forward pass
-        loss = loss_fn(y_pred, y_true)
-        assert isinstance(loss, torch.Tensor)
-        assert loss.dim() == 0  # Scalar loss
-
-    def test_calibration(self):
-        """Test calibration method."""
-        loss_fn = AdaptiveConformalLoss(alpha=0.1)
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        lower_pred = torch.randn(batch_size, n_features)
-        upper_pred = torch.randn(batch_size, n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Calibrate
-        tau = loss_fn.calibrate(lower_pred, upper_pred, y_true)
-        assert isinstance(tau, torch.Tensor)
-        assert tau.dim() == 0  # Scalar tau
-
-    def test_predict_interval(self):
-        """Test predict_interval method."""
-        loss_fn = AdaptiveConformalLoss(alpha=0.1)
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        lower_pred = torch.randn(batch_size, n_features)
-        upper_pred = torch.randn(batch_size, n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Calibrate first
-        loss_fn.calibrate(lower_pred, upper_pred, y_true)
-
-        # Predict intervals
-        lower_interval, upper_interval = loss_fn.predict_interval(lower_pred, upper_pred)
-        assert isinstance(lower_interval, torch.Tensor)
-        assert isinstance(upper_interval, torch.Tensor)
-        assert lower_interval.shape == lower_pred.shape
-        assert upper_interval.shape == upper_pred.shape
+@pytest.mark.parametrize("method", ["cqr", "split", "aci"])
+def test_conformal_loss_initialization(method):
+    """Test initialization of ConformalLoss for different methods."""
+    if method == "aci":
+        model = DummyModel(1, 1)
+        loss_fn = ConformalLoss(method=method, alpha=0.1, model=model)
+    else:
+        loss_fn = ConformalLoss(method=method, alpha=0.1)
+    assert loss_fn.method == method
+    assert loss_fn.alpha == 0.1
+    assert loss_fn._predictor is not None
+    assert not loss_fn._is_calibrated
 
 
-class TestConformalizedQuantileLoss:
-    """Test ConformalizedQuantileLoss class."""
-
-    def test_initialization(self):
-        """Test initialization of ConformalizedQuantileLoss."""
-        loss_fn = ConformalizedQuantileLoss(quantiles=(0.05, 0.95), alpha=0.1)
-        assert loss_fn.quantiles == [0.05, 0.95]
-        assert loss_fn.alpha == 0.1
-        assert loss_fn.tau is None
-
-    def test_forward_pass(self):
-        """Test forward pass of ConformalizedQuantileLoss."""
-        loss_fn = ConformalizedQuantileLoss(quantiles=(0.05, 0.95))
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        y_pred = torch.randn(batch_size, 2 * n_features)  # 2 quantiles
-        y_true = torch.randn(batch_size, n_features)
-
-        # Forward pass
-        loss = loss_fn(y_pred, y_true)
-        assert isinstance(loss, torch.Tensor)
-        assert loss.dim() == 0  # Scalar loss
-
-    def test_calibration(self):
-        """Test calibration method."""
-        loss_fn = ConformalizedQuantileLoss(quantiles=(0.05, 0.95))
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        quantile_preds = torch.randn(batch_size, 2 * n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Calibrate
-        tau = loss_fn.calibrate(quantile_preds, y_true)
-        assert isinstance(tau, torch.Tensor)
-        assert tau.dim() == 0  # Scalar tau
-
-    def test_predict_interval(self):
-        """Test predict_interval method."""
-        loss_fn = ConformalizedQuantileLoss(quantiles=(0.05, 0.95))
-
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        quantile_preds = torch.randn(batch_size, 2 * n_features)
-        y_true = torch.randn(batch_size, n_features)
-
-        # Calibrate first
-        loss_fn.calibrate(quantile_preds, y_true)
-
-        # Predict intervals
-        lower_interval, upper_interval = loss_fn.predict_interval(quantile_preds)
-        assert isinstance(lower_interval, torch.Tensor)
-        assert isinstance(upper_interval, torch.Tensor)
-        assert lower_interval.shape == (batch_size, n_features)
-        assert upper_interval.shape == (batch_size, n_features)
+def test_conformal_loss_forward_cqr():
+    """Test forward pass of ConformalLoss with CQR."""
+    loss_fn = ConformalLoss(method="cqr", alpha=0.1)
+    batch_size, n_features = 10, 1
+    # CQR expects lower and upper quantiles
+    y_pred = torch.randn(batch_size, 2 * n_features)
+    y_true = torch.randn(batch_size, n_features)
+    loss = loss_fn(y_pred, y_true)
+    assert isinstance(loss, torch.Tensor)
+    assert loss.dim() == 0
 
 
-class TestMultiDimensionalConformalLoss:
-    """Test MultiDimensionalConformalLoss class."""
+@pytest.mark.parametrize("method", ["split", "aci"])
+def test_conformal_loss_forward_split_aci(method):
+    """Test forward pass of ConformalLoss with Split and ACI."""
+    if method == "aci":
+        model = DummyModel(1, 1)
+        loss_fn = ConformalLoss(method=method, alpha=0.1, model=model)
+    else:
+        loss_fn = ConformalLoss(method=method, alpha=0.1)
+    batch_size, n_features = 10, 1
+    # Split/ACI expect point predictions
+    y_pred = torch.randn(batch_size, n_features)
+    y_true = torch.randn(batch_size, n_features)
+    loss = loss_fn(y_pred, y_true)
+    assert isinstance(loss, torch.Tensor)
+    assert loss.dim() == 0
 
-    def test_initialization(self):
-        """Test initialization of MultiDimensionalConformalLoss."""
-        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
-        assert loss_fn.alpha == 0.1
-        assert loss_fn.taus is None
 
-    def test_forward_pass(self):
-        """Test forward pass of MultiDimensionalConformalLoss."""
-        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+@pytest.mark.parametrize("method", ["cqr", "split", "aci"])
+def test_conformal_loss_calibration_and_prediction(method):
+    """Test calibration and prediction flow."""
+    if method == "aci":
+        model = DummyModel(1, 1)
+        loss_fn = ConformalLoss(method=method, alpha=0.1, model=model)
+    else:
+        loss_fn = ConformalLoss(method=method, alpha=0.1)
 
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        y_pred = torch.randn(batch_size, n_features)
-        y_true = torch.randn(batch_size, n_features)
+    batch_size, n_features = 20, 1
 
-        # Forward pass
-        loss = loss_fn(y_pred, y_true)
-        assert isinstance(loss, torch.Tensor)
-        assert loss.dim() == 0  # Scalar loss
+    # Prepare data
+    if method == "cqr":
+        y_pred_cal = torch.randn(batch_size, 2 * n_features)
+        y_pred_test = torch.randn(batch_size, 2 * n_features)
+    else:
+        y_pred_cal = torch.randn(batch_size, n_features)
+        y_pred_test = torch.randn(batch_size, n_features)
 
-    def test_calibration(self):
-        """Test calibration method."""
-        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+    y_true_cal = torch.randn(batch_size, n_features)
 
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        lower_preds = torch.randn(batch_size, n_features)
-        upper_preds = torch.randn(batch_size, n_features)
-        y_true = torch.randn(batch_size, n_features)
+    # Prediction should fail before calibration
+    with pytest.raises(RuntimeError):
+        loss_fn.predict_interval(y_pred_test)
 
-        # Calibrate
-        taus = loss_fn.calibrate(lower_preds, upper_preds, y_true)
-        assert isinstance(taus, torch.Tensor)
-        assert taus.shape == (n_features,)
+    # Calibrate
+    loss_fn.calibrate(y_pred_cal, y_true_cal)
+    assert loss_fn._is_calibrated
 
-    def test_predict_intervals(self):
-        """Test predict_intervals method."""
-        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+    # Predict intervals
+    lower, upper = loss_fn.predict_interval(y_pred_test)
+    assert isinstance(lower, torch.Tensor)
+    assert isinstance(upper, torch.Tensor)
 
-        # Create dummy predictions and targets
-        batch_size, n_features = 10, 3
-        lower_preds = torch.randn(batch_size, n_features)
-        upper_preds = torch.randn(batch_size, n_features)
-        y_true = torch.randn(batch_size, n_features)
+    expected_shape = (batch_size, n_features)
+    assert lower.shape == expected_shape
+    assert upper.shape == expected_shape
 
-        # Calibrate first
-        loss_fn.calibrate(lower_preds, upper_preds, y_true)
 
-        # Predict intervals
-        lower_intervals, upper_intervals = loss_fn.predict_intervals(lower_preds, upper_preds)
-        assert isinstance(lower_intervals, torch.Tensor)
-        assert isinstance(upper_intervals, torch.Tensor)
-        assert lower_intervals.shape == lower_preds.shape
-        assert upper_intervals.shape == upper_preds.shape
+def test_adaptive_conformal_loss_wrapper():
+    """Test that AdaptiveConformalLoss is a wrapper for ConformalLoss with method='aci'."""
+    model = DummyModel(1, 1)
+    loss_fn = AdaptiveConformalLoss(alpha=0.1, model=model)
+    assert isinstance(loss_fn, ConformalLoss)
+    assert loss_fn.method == "aci"
+
+
+def test_conformalized_quantile_loss_wrapper():
+    """Test that ConformalizedQuantileLoss is a wrapper for ConformalLoss with method='cqr'."""
+    loss_fn = ConformalizedQuantileLoss(alpha=0.1)
+    assert isinstance(loss_fn, ConformalLoss)
+    assert loss_fn.method == "cqr"
+
+
+def test_multidimensional_conformal_loss_wrapper():
+    """Test that MultiDimensionalConformalLoss is a wrapper for ConformalLoss with method='split'."""
+    loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+    assert isinstance(loss_fn, ConformalLoss)
+    assert loss_fn.method == "split"
+
+    # Test the predict_intervals alias
+    batch_size, n_features = 20, 3
+    y_pred_cal = torch.randn(batch_size, n_features)
+    y_true_cal = torch.randn(batch_size, n_features)
+    y_pred_test = torch.randn(batch_size, n_features)
+
+    loss_fn.calibrate(y_pred_cal, y_true_cal)
+    lower, upper = loss_fn.predict_intervals(y_pred_test)
+    assert lower.shape == y_pred_test.shape
+    assert upper.shape == y_pred_test.shape
+    assert lower.shape[-1] == n_features
 
 
 if __name__ == "__main__":
