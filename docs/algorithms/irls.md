@@ -19,6 +19,8 @@ The IRLS algorithm works by iteratively:
 
 This process automatically reduces the influence of outliers, producing robust regression results.
 
+The implementation in `torchregress` is modular, with the core logic broken down into helper functions for clarity and maintainability.
+
 ## Functions
 
 ### `iteratively_reweighted_least_squares`

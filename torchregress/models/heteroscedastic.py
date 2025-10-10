@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from torchregress.losses.gaussian import HeteroscedasticGaussianLoss
+
 
 class DualHeadRegressionModel(nn.Module):
     """
@@ -57,7 +59,6 @@ def create_dual_head_regression(
     Convenience: returns DualHeadRegressionModel and HeteroscedasticGaussianLoss.
     """
     model = DualHeadRegressionModel(input_dim, output_dim, hidden_sizes, activation, log_var_init)
-    from torchregress.losses.gaussian import HeteroscedasticGaussianLoss
 
     # Use predicted log_var, so learnable_variance=False
     loss_fn = HeteroscedasticGaussianLoss(learnable_variance=False)

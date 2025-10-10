@@ -67,6 +67,122 @@ from ..utils.irls import (
 EPS = torch.finfo(torch.float32).eps
 
 
+def _setup_irls(
+    model: nn.Module,
+    x: torch.Tensor,
+    y_true: torch.Tensor,
+    base_loss: str,
+    weight_fn: Union[str, Callable],
+    delta: float,
+    weight_params: Optional[Dict[str, Any]],
+    use_compile: bool,
+    compile_kwargs: Optional[Dict[str, Any]],
+    covariance_matrices: Optional[torch.Tensor] = None,
+) -> Tuple[nn.Module, nn.Module, Callable, Dict[str, Any]]:
+    """Helper function to set up IRLS components."""
+    if use_compile and hasattr(torch, "compile"):
+        try:
+            model = torch.compile(model, **(compile_kwargs or {}))
+        except Exception as e:
+            warnings.warn(f"Failed to compile model: {e}. Continuing with uncompiled model.")
+
+    # Loss Function Setup
+    if base_loss == "gaussian":
+        loss_fn = (
+            MultivariateGaussianLoss()
+            if covariance_matrices is not None
+            else HeteroscedasticGaussianLoss(n_features=y_true.shape[-1])
+        )
+    elif base_loss == "huber":
+        loss_fn = WeightedHuberLoss(delta=delta)
+    elif base_loss == "l1":
+        loss_fn = WeightedL1Loss()
+    else:
+        raise ValueError(f"Invalid base_loss: {base_loss}. Must be 'gaussian', 'huber', or 'l1'.")
+
+    # Weight Function Setup
+    weight_params = weight_params or {}
+    if isinstance(weight_fn, str):
+        if weight_fn == "huber":
+            _weight_fn = huber_weights
+            weight_params = {"delta": delta, **weight_params}
+        elif weight_fn == "tukey":
+            _weight_fn = tukey_weights
+            weight_params = {"c": 4.685, **weight_params}
+        elif weight_fn == "power":
+            _weight_fn = power_weights
+            weight_params = {"a": 1.0, "b": 2.0, **weight_params}
+        else:
+            raise ValueError(f"Invalid weight_fn: {weight_fn}. Must be 'huber', 'tukey', or 'power'.")
+    elif callable(weight_fn):
+        _weight_fn = weight_fn
+    else:
+        raise TypeError("weight_fn must be a string or a callable")
+
+    return model, loss_fn, _weight_fn, weight_params
+
+
+def _perform_irls_iteration(
+    model: nn.Module,
+    x: torch.Tensor,
+    y_true: torch.Tensor,
+    precision: torch.Tensor,
+    loss_fn: nn.Module,
+    _weight_fn: Callable,
+    weight_params: Dict[str, Any],
+    base_loss: str,
+    variance_type: str,
+    covariance_matrices: Optional[torch.Tensor],
+    mask: Optional[torch.Tensor],
+    callbacks: List[CallbackFn],
+    iteration: int,
+    return_all_predictions: bool,
+    all_predictions: Optional[List[torch.Tensor]],
+) -> Tuple[torch.Tensor, float, Optional[List[torch.Tensor]]]:
+    """Helper function to perform a single IRLS iteration."""
+    with torch.no_grad():
+        y_pred = model(x)
+        if return_all_predictions and all_predictions is not None:
+            all_predictions.append(y_pred)
+
+        mean, residuals = extract_mean_and_residuals(y_pred, y_true)
+
+        if base_loss == "gaussian":
+            current_loss = loss_fn(
+                y_pred=y_pred,
+                target=y_true,
+                covariance_matrices=covariance_matrices,
+                mask=mask,
+            )
+        else:
+            current_loss = loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
+
+        loss_value = current_loss.item()
+
+        for callback in callbacks:
+            callback(
+                iteration=iteration,
+                model=model,
+                y_pred=y_pred,
+                mean=mean,
+                residuals=residuals,
+                precision=precision,
+                loss=loss_value,
+                mask=mask,
+            )
+
+        variance = estimate_variance(residuals, y_pred, covariance_matrices, variance_type, loss_fn)
+        scaled_residuals = residuals / (torch.sqrt(variance) + EPS)
+        iter_weights = _weight_fn(scaled_residuals, **weight_params)
+        precision = precision * iter_weights
+
+        if base_loss == "gaussian" and isinstance(loss_fn, HeteroscedasticGaussianLoss):
+            weighted_variance = (variance / (precision + EPS)).mean(dim=0)
+            loss_fn.log_variance_adjustment.data = 0.5 * torch.log(weighted_variance + EPS)
+
+    return precision, loss_value, all_predictions
+
+
 def iteratively_reweighted_least_squares(
     model: nn.Module,
     x: torch.Tensor,
@@ -94,7 +210,9 @@ def iteratively_reweighted_least_squares(
     """
     Applies iteratively reweighted least squares (IRLS) for robust regression.
 
-    Performance-optimized implementation supporting PyTorch's latest features.
+    This function is a performance-optimized implementation that supports PyTorch's
+    latest features, including `torch.compile`. The core logic is broken down into
+    helper functions for clarity and maintainability.
 
     Args:
         model: PyTorch model
@@ -123,56 +241,22 @@ def iteratively_reweighted_least_squares(
         final_precision: Final precision tensor
         [optional] all_predictions: List of predictions from all iterations
     """
-    x = x.detach().clone()  # Don't modify original input
+    x = x.detach().clone()
     device = x.device
-    weight_params = {} if weight_params is None else weight_params
     callbacks = callbacks or []
-    compile_kwargs = compile_kwargs or {}
 
-    # --- Compile model if requested (PyTorch 2.0+) ---
-    if use_compile and hasattr(torch, "compile"):
-        try:
-            model = torch.compile(model, **compile_kwargs)
-        except Exception as e:
-            warnings.warn(f"Failed to compile model: {e}. Continuing with uncompiled model.")
-
-    # --- Loss Function Setup ---
-    if base_loss == "gaussian":
-        if covariance_matrices is None:
-            # Use heteroscedastic Gaussian loss for diagonal covariance
-            loss_fn = HeteroscedasticGaussianLoss(n_features=y_true.shape[-1])
-        else:
-            # Use multivariate Gaussian loss for full covariance matrices
-            loss_fn = MultivariateGaussianLoss()
-    elif base_loss == "huber":
-        loss_fn = WeightedHuberLoss(delta=delta)
-    elif base_loss == "l1":
-        loss_fn = WeightedL1Loss()
-    else:
-        raise ValueError(f"Invalid base_loss: {base_loss}. Must be 'gaussian', 'huber', or 'l1'.")
-
-    # --- Weight Function Setup ---
-    if isinstance(weight_fn, str):
-        if weight_fn == "huber":
-            _weight_fn = huber_weights
-            weight_params = {"delta": delta, **weight_params}
-        elif weight_fn == "tukey":
-            _weight_fn = tukey_weights
-            weight_params = {
-                "c": 4.685,
-                **weight_params,
-            }  # Default robust against 95% efficiency for Gaussian
-        elif weight_fn == "power":
-            _weight_fn = power_weights
-            weight_params = {"a": 1.0, "b": 2.0, **weight_params}
-        else:
-            raise ValueError(
-                f"Invalid weight_fn: {weight_fn}. Must be 'huber', 'tukey', or 'power'."
-            )
-    elif callable(weight_fn):
-        _weight_fn = weight_fn
-    else:
-        raise TypeError("weight_fn must be a string or a callable")
+    model, loss_fn, _weight_fn, weight_params = _setup_irls(
+        model,
+        x,
+        y_true,
+        base_loss,
+        weight_fn,
+        delta,
+        weight_params,
+        use_compile,
+        compile_kwargs,
+        covariance_matrices,
+    )
 
     # --- Initial Precision ---
     if initial_precision is None:
@@ -194,76 +278,36 @@ def iteratively_reweighted_least_squares(
 
     # --- IRLS Iterations ---
     for iteration in iter_range:
-        # Forward pass - without gradients for inference
-        with torch.no_grad():
-            y_pred = model(x)
-            if return_all_predictions:
-                all_predictions.append(y_pred)
+        precision, loss_value, all_predictions = _perform_irls_iteration(
+            model,
+            x,
+            y_true,
+            precision,
+            loss_fn,
+            _weight_fn,
+            weight_params,
+            base_loss,
+            variance_type,
+            covariance_matrices,
+            mask,
+            callbacks,
+            iteration,
+            return_all_predictions,
+            all_predictions,
+        )
+        loss_history.append(loss_value)
 
-            # Extract mean predictions and calculate residuals
-            mean, residuals = extract_mean_and_residuals(y_pred, y_true)
-
-            # Calculate current loss
-            if base_loss == "gaussian":
-                if covariance_matrices is not None:
-                    current_loss = loss_fn(
-                        y_pred=y_pred,
-                        target=y_true,
-                        covariance_matrices=covariance_matrices,
-                        mask=mask,
-                    )
-                else:
-                    current_loss = loss_fn(y_pred=y_pred, target=y_true, mask=mask)
-            else:  # huber or l1
-                current_loss = loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
-
-            loss_value = current_loss.item()
-            loss_history.append(loss_value)
-
-            # Execute callbacks
-            for callback in callbacks:
-                callback(
-                    iteration=iteration,
-                    model=model,
-                    y_pred=y_pred,
-                    mean=mean,
-                    residuals=residuals,
-                    precision=precision,
-                    loss=loss_value,
-                    mask=mask,
-                )
-
-            # Check for early convergence
-            if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
-                if use_tqdm and TQDM_AVAILABLE:
-                    iter_range.set_postfix(loss=f"{loss_value:.6f}", converged=True)
-                break
-            elif use_tqdm and TQDM_AVAILABLE:
-                iter_range.set_postfix(loss=f"{loss_value:.6f}")
-
-            # Estimate variance based on current residuals
-            variance = estimate_variance(
-                residuals, y_pred, covariance_matrices, variance_type, loss_fn
-            )
-
-            # Scale residuals for weighting - use EPS consistently
-            scaled_residuals = residuals / (torch.sqrt(variance) + EPS)
-
-            # Calculate weights using the chosen weighting function
-            iter_weights = _weight_fn(scaled_residuals, **weight_params)
-
-            # Update precision weights
-            precision = precision * iter_weights
-
-            # Update model's variance parameters if using learnable variance
-            if base_loss == "gaussian" and isinstance(loss_fn, HeteroscedasticGaussianLoss):
-                # More stable approach: directly compute optimal log variances
-                weighted_variance = (variance / (precision + EPS)).mean(dim=0)
-                loss_fn.log_variance_adjustment.data = 0.5 * torch.log(weighted_variance + EPS)
+        # Check for early convergence
+        if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
+            if use_tqdm and TQDM_AVAILABLE:
+                iter_range.set_postfix(loss=f"{loss_value:.6f}", converged=True)
+            break
+        elif use_tqdm and TQDM_AVAILABLE:
+            iter_range.set_postfix(loss=f"{loss_value:.6f}")
 
     # Get final predictions if we didn't run all iterations
     with torch.no_grad():
-        final_y_pred = model(x) if iteration < max_iter - 1 else y_pred
+        final_y_pred = model(x)
 
     if return_all_predictions:
         return final_y_pred, loss_history, precision, all_predictions
@@ -318,6 +362,30 @@ def calculate_loss(
     # Standard case
     else:
         return loss_fn(y_pred=y_pred, target=y_true, mask=mask)
+
+
+def _train_step(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    loss_fn: nn.Module,
+    batch_x: torch.Tensor,
+    batch_y: torch.Tensor,
+    batch_precision: Optional[torch.Tensor],
+    batch_cov: Optional[torch.Tensor],
+    batch_mask: Optional[torch.Tensor],
+    clip_grad_norm: Optional[float],
+) -> float:
+    """Helper for a single training step."""
+    optimizer.zero_grad()
+    y_pred = model(batch_x)
+    loss = calculate_loss(loss_fn, y_pred, batch_y, batch_precision, batch_cov, batch_mask)
+    loss.backward()
+
+    if clip_grad_norm is not None and clip_grad_norm > 0:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
+
+    optimizer.step()
+    return loss.item()
 
 
 def IRLS(
@@ -573,10 +641,6 @@ def IRLS(
                         previous_epoch_precision = batch_precision
 
             # --- Standard optimization step ---
-            optimizer.zero_grad()
-            y_pred = model(batch_x)
-
-            # --- Get precision for current batch ---
             batch_precision = get_batch_precision(
                 previous_epoch_precision,
                 i,
@@ -587,20 +651,20 @@ def IRLS(
                 is_minibatch,
             )
 
-            # --- Calculate loss ---
-            loss = calculate_loss(loss_fn, y_pred, batch_y, batch_precision, batch_cov, batch_mask)
-
-            # --- Backward and optimization step ---
-            loss.backward()
-
-            # Apply gradient clipping if specified
-            if clip_grad_norm is not None and clip_grad_norm > 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-
-            optimizer.step()
+            loss_item = _train_step(
+                model,
+                optimizer,
+                loss_fn,
+                batch_x,
+                batch_y,
+                batch_precision,
+                batch_cov,
+                batch_mask,
+                clip_grad_norm,
+            )
 
             # Track loss
-            epoch_loss += loss.item() * batch_size_current
+            epoch_loss += loss_item * batch_size_current
             batch_count += batch_size_current
             global_step += 1
 
