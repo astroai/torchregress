@@ -52,7 +52,7 @@ jobs:
         # Install the project with test dependencies. `torchcp` is a project dependency that
         # requires torch-geometric, which in turn requires torch-scatter, etc.
         # We use --find-links to point to the correct PyG wheels.
-        uv pip install --find-links ${PYG_INDEX} -e ".[test]"
+        uv pip install --no-build-isolation --find-links ${PYG_INDEX} -e ".[test]"
     - name: Run tests
       run: |
         uv run pytest --cov=torchregress
