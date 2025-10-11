@@ -7,8 +7,6 @@ import torch
 from torch.nn import Linear, Module, Sequential
 
 from torchregress.losses.conformal import (
-    AdaptiveConformalLoss,
-    ConformalizedQuantileLoss,
     ConformalLoss,
     MultiDimensionalConformalLoss,
 )
@@ -105,17 +103,17 @@ def test_conformal_loss_calibration_and_prediction(method):
     assert upper.shape == expected_shape
 
 
-def test_adaptive_conformal_loss_wrapper():
-    """Test that AdaptiveConformalLoss is a wrapper for ConformalLoss with method='aci'."""
+def test_adaptive_conformal_loss_method():
+    """Test that ConformalLoss with method='aci' works correctly."""
     model = DummyModel(1, 1)
-    loss_fn = AdaptiveConformalLoss(alpha=0.1, model=model)
+    loss_fn = ConformalLoss(method="aci", alpha=0.1, model=model)
     assert isinstance(loss_fn, ConformalLoss)
     assert loss_fn.method == "aci"
 
 
-def test_conformalized_quantile_loss_wrapper():
-    """Test that ConformalizedQuantileLoss is a wrapper for ConformalLoss with method='cqr'."""
-    loss_fn = ConformalizedQuantileLoss(alpha=0.1)
+def test_conformalized_quantile_loss_method():
+    """Test that ConformalLoss with method='cqr' works correctly."""
+    loss_fn = ConformalLoss(method="cqr", alpha=0.1)
     assert isinstance(loss_fn, ConformalLoss)
     assert loss_fn.method == "cqr"
 
@@ -126,14 +124,14 @@ def test_multidimensional_conformal_loss_wrapper():
     assert isinstance(loss_fn, ConformalLoss)
     assert loss_fn.method == "split"
 
-    # Test the predict_intervals alias
+    # Test the predict_interval method
     batch_size, n_features = 20, 3
     y_pred_cal = torch.randn(batch_size, n_features)
     y_true_cal = torch.randn(batch_size, n_features)
     y_pred_test = torch.randn(batch_size, n_features)
 
     loss_fn.calibrate(y_pred_cal, y_true_cal)
-    lower, upper = loss_fn.predict_intervals(y_pred_test)
+    lower, upper = loss_fn.predict_interval(y_pred_test)
     assert lower.shape == y_pred_test.shape
     assert upper.shape == y_pred_test.shape
     assert lower.shape[-1] == n_features

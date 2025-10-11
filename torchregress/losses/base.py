@@ -142,7 +142,12 @@ class BaseLoss(nn.Module):
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Apply mask to filter values and then apply reduction."""
+        """
+        Apply mask to filter values and then apply reduction.
+
+        Note: This is an alias for _reduce() that provides semantic clarity
+        when used in loss implementations that explicitly handle masking.
+        """
         return self._reduce(loss, mask, weights)
 
 
@@ -357,67 +362,51 @@ class WeightedLossWrapper(BaseLoss):
 # Create weighted versions of PyTorch losses using functools.partial
 from functools import partial
 
-# Factory functions that create weighted loss instances
+# Regression losses - core point prediction
 WeightedMSELoss = partial(WeightedLossWrapper, nn.MSELoss)
 WeightedL1Loss = partial(WeightedLossWrapper, nn.L1Loss)
-WeightedCrossEntropyLoss = partial(WeightedLossWrapper, nn.CrossEntropyLoss)
-WeightedBCELoss = partial(WeightedLossWrapper, nn.BCELoss)
-WeightedBCEWithLogitsLoss = partial(WeightedLossWrapper, nn.BCEWithLogitsLoss)
-WeightedKLDivLoss = partial(WeightedLossWrapper, nn.KLDivLoss)
-WeightedNLLLoss = partial(WeightedLossWrapper, nn.NLLLoss)
 WeightedSmoothL1Loss = partial(WeightedLossWrapper, nn.SmoothL1Loss)
 WeightedHuberLoss = partial(WeightedLossWrapper, nn.HuberLoss)
+
+# Probabilistic regression losses
 WeightedPoissonNLLLoss = partial(WeightedLossWrapper, nn.PoissonNLLLoss)
 WeightedGaussianNLLLoss = partial(WeightedLossWrapper, nn.GaussianNLLLoss)
-WeightedCTCLoss = partial(WeightedLossWrapper, nn.CTCLoss)
-WeightedCosineEmbeddingLoss = partial(WeightedLossWrapper, nn.CosineEmbeddingLoss)
-WeightedHingeEmbeddingLoss = partial(WeightedLossWrapper, nn.HingeEmbeddingLoss)
-WeightedMarginRankingLoss = partial(WeightedLossWrapper, nn.MarginRankingLoss)
-WeightedMultiMarginLoss = partial(WeightedLossWrapper, nn.MultiMarginLoss)
-WeightedMultiLabelMarginLoss = partial(WeightedLossWrapper, nn.MultiLabelMarginLoss)
-WeightedSoftMarginLoss = partial(WeightedLossWrapper, nn.SoftMarginLoss)
-WeightedMultiLabelSoftMarginLoss = partial(WeightedLossWrapper, nn.MultiLabelSoftMarginLoss)
-WeightedTripletMarginLoss = partial(WeightedLossWrapper, nn.TripletMarginLoss)
-WeightedTripletMarginWithDistanceLoss = partial(
-    WeightedLossWrapper, nn.TripletMarginWithDistanceLoss
-)
+
+# Regression-as-classification (ordinal, discretized regression)
+WeightedCrossEntropyLoss = partial(WeightedLossWrapper, nn.CrossEntropyLoss)
+WeightedNLLLoss = partial(WeightedLossWrapper, nn.NLLLoss)
+WeightedKLDivLoss = partial(WeightedLossWrapper, nn.KLDivLoss)
 
 
-def create_weighted_losses() -> Dict[str, Any]:
-    """
-    Factory function that returns all weighted versions of standard PyTorch losses.
-
-    Returns:
-        Dictionary mapping from loss name to weighted loss instance
-    """
-    weighted_losses = {
-        "MSELoss": WeightedMSELoss,
-        "L1Loss": WeightedL1Loss,
-        "CrossEntropyLoss": WeightedCrossEntropyLoss,
-        "BCELoss": WeightedBCELoss,
-        "BCEWithLogitsLoss": WeightedBCEWithLogitsLoss,
-        "KLDivLoss": WeightedKLDivLoss,
-        "NLLLoss": WeightedNLLLoss,
-        "SmoothL1Loss": WeightedSmoothL1Loss,
-        "HuberLoss": WeightedHuberLoss,
-        "PoissonNLLLoss": WeightedPoissonNLLLoss,
-        "GaussianNLLLoss": WeightedGaussianNLLLoss,
-        "CTCLoss": WeightedCTCLoss,
-        "CosineEmbeddingLoss": WeightedCosineEmbeddingLoss,
-        "HingeEmbeddingLoss": WeightedHingeEmbeddingLoss,
-        "MarginRankingLoss": WeightedMarginRankingLoss,
-        "MultiMarginLoss": WeightedMultiMarginLoss,
-        "MultiLabelMarginLoss": WeightedMultiLabelMarginLoss,
-        "SoftMarginLoss": WeightedSoftMarginLoss,
-        "MultiLabelSoftMarginLoss": WeightedMultiLabelSoftMarginLoss,
-        "TripletMarginLoss": WeightedTripletMarginLoss,
-        "TripletMarginWithDistanceLoss": WeightedTripletMarginWithDistanceLoss,
-    }
-    return weighted_losses
 
 
-# Add aliases for backward compatibility with tests
-Loss = BaseLoss
-ReductionLoss = RegressionLoss
-# Alias for backward compatibility
-MaskedLoss = BaseLoss
+# Backward compatibility aliases with deprecation warnings
+import warnings
+
+
+def _deprecated_alias(old_name: str, new_name: str, obj: type) -> type:
+    """Create a deprecated alias that warns on first use."""
+
+    class DeprecatedAlias(obj):  # type: ignore
+        _warning_shown = False
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            if not DeprecatedAlias._warning_shown:
+                warnings.warn(
+                    f"{old_name} is deprecated and will be removed in a future version. "
+                    f"Use {new_name} instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                DeprecatedAlias._warning_shown = True
+            super().__init__(*args, **kwargs)
+
+    DeprecatedAlias.__name__ = old_name
+    DeprecatedAlias.__qualname__ = old_name
+    return DeprecatedAlias
+
+
+# Note: All losses support masking/reduction via BaseLoss
+Loss = _deprecated_alias("Loss", "BaseLoss", BaseLoss)
+ReductionLoss = _deprecated_alias("ReductionLoss", "RegressionLoss", RegressionLoss)
+MaskedLoss = _deprecated_alias("MaskedLoss", "BaseLoss", BaseLoss)

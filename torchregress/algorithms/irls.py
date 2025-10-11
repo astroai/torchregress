@@ -47,7 +47,7 @@ from ..losses.base import (
 )
 from ..losses.gaussian import HeteroscedasticGaussianLoss, MultivariateGaussianLoss
 from ..losses.robust import TukeyBiweightLoss
-from ..utils.irls import (
+from ..utils.irls_helpers import (
     buffer_data,
     estimate_variance,
     extract_mean_and_residuals,

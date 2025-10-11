@@ -31,6 +31,7 @@ dependencies = [
     "pandas>=1.4.0",
     "torchmetrics>=1.0.0",
     "torchcp>=1.2.0",
+    "transformers>=4.0.0",
     "torch-geometric",
     "torch-scatter",
     "torch-sparse",
@@ -121,3 +122,9 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "torchmetrics.*"
 ignore_missing_imports = true
+
+[tool.uv.extra-build-dependencies]
+torch-cluster = ["torch", "setuptools"]
+torch-scatter = ["torch", "setuptools"]
+torch-sparse = ["torch", "setuptools"]
+torch-spline-conv = ["torch", "setuptools"]

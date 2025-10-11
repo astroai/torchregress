@@ -6,9 +6,11 @@ normalizing flows to model complex output distributions.
 Uses the zuko package for efficient implementation of various flows.
 """
 
-from typing import Dict, Optional
+from typing import Optional
 
 import torch
+from torch import Tensor
+from torch.nn import Module
 
 # Direct import as per CLAUDE.md policy - users must install required dependencies
 # Note: IAF is not available in current zuko version, removed from imports
@@ -20,203 +22,151 @@ from .base import DistributionLoss
 
 class NormalizingFlowLoss(DistributionLoss):
     """
-    Negative Log-Likelihood loss for normalizing flow models using zuko.
+    Negative Log-Likelihood loss for conditional normalizing flow models using zuko.
 
     This loss allows modeling complex multi-dimensional target distributions
-    for regression tasks using various normalizing flow architectures.
+    for regression tasks using various normalizing flow architectures. The flow
+    is conditioned on the model's output, allowing it to learn target distributions
+    that depend on the input.
 
     Args:
-        n_features (int): Number of output features (dimensions)
-        flow_type (str): Type of flow to use ('realnvp', 'maf', 'nsf')
-            Default: 'realnvp'
-        n_blocks (int): Number of transformation blocks in the flow
-            Default: 3
-        hidden_features (int): Size of hidden layers in coupling/autoregressive networks
-            Default: 64
-        n_hidden_layers (int): Number of hidden layers in coupling/autoregressive networks
-            Default: 2
-        base_distribution (str): Base distribution ('normal' or 'uniform')
-            Default: 'normal'
-        activation (str): Activation function for hidden layers
-            Default: 'relu'
-        dropout (float): Dropout rate for hidden layers
-            Default: 0.0
-        batch_norm (bool): Whether to use batch normalization
-            Default: False
+        flow (Flow): A zuko Flow instance (RealNVP, MAF, NSF, etc.)
+            The flow must be created with context dimension matching the model output.
         reduction (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'
             Default: 'mean'
 
     Mathematical Formulation:
         Normalizing flows transform a simple base distribution into a complex target
-        distribution through a series of invertible transformations. The negative log
-        likelihood is given by:
+        distribution through a series of invertible transformations. For conditional
+        flows, the transformation depends on context c (model output):
 
-        NLL = -log(p_X(x)) = -log(p_Z(f(x))) - log|det(df/dx)|
+        NLL = -log(p_X(x|c)) = -log(p_Z(f(x|c))) - log|det(df/dx)|
 
         where p_Z is the density of the base distribution, f is the invertible
-        transformation, and |det(df/dx)| is the absolute determinant of the Jacobian.
+        transformation conditioned on c, and |det(df/dx)| is the absolute determinant
+        of the Jacobian.
 
     Notes:
         - Requires the 'zuko' package: `pip install zuko`
-        - The model should output parameters for the flow, which are handled
-          by the zuko package internally
+        - The flow must be a trainable nn.Module that will be part of your model
+        - The model should output context vectors that condition the flow
         - Different flow types (RealNVP, MAF, NSF) have different modeling
           capacities and computational characteristics
+        - The flow's parameters are trained alongside the model via backpropagation
 
     Examples:
         >>> import torch
-        >>> # First, create a flow loss function
-        >>> loss_fn = NormalizingFlowLoss(n_features=2, flow_type='realnvp', n_blocks=3)
-        >>> # Model predictions are flow parameters
-        >>> y_pred = torch.randn(10, 100)  # Example flow parameters
-        >>> target = torch.randn(10, 2)    # Target values
-        >>> loss = loss_fn(y_pred, target)
+        >>> from torch import nn
+        >>> from zuko.flows import NSF
+        >>>
+        >>> # Create a conditional flow (2D targets conditioned on 10D context)
+        >>> flow = NSF(features=2, context=10, transforms=3, hidden_features=[64, 64])
+        >>>
+        >>> # Create loss function with the flow
+        >>> loss_fn = NormalizingFlowLoss(flow=flow)
+        >>>
+        >>> # Model outputs context vectors
+        >>> class MyModel(nn.Module):
+        ...     def __init__(self):
+        ...         super().__init__()
+        ...         self.net = nn.Linear(5, 10)  # outputs 10D context
+        ...     def forward(self, x):
+        ...         return self.net(x)
+        >>>
+        >>> model = MyModel()
+        >>> x = torch.randn(32, 5)
+        >>> context = model(x)  # [32, 10]
+        >>> target = torch.randn(32, 2)  # [32, 2]
+        >>>
+        >>> # Compute loss - gradients flow through both model and flow
+        >>> loss = loss_fn(context, target)
+        >>> loss.backward()  # Updates both model and flow parameters
     """
 
     def __init__(
         self,
-        n_features: int,
-        flow_type: str = "realnvp",
-        n_blocks: int = 3,
-        hidden_features: int = 64,
-        n_hidden_layers: int = 2,
-        base_distribution: str = "normal",
-        activation: str = "relu",
-        dropout: float = 0.0,
-        batch_norm: bool = False,
+        flow: Flow,
         reduction: str = "mean",
     ):
         super().__init__(reduction=reduction)
-        self.n_features = n_features
-        self.flow_type = flow_type.lower()
-        self.n_blocks = n_blocks
-        self.hidden_features = hidden_features
-        self.n_hidden_layers = n_hidden_layers
-        self.base_distribution = base_distribution
-        self.activation = activation
-        self.dropout = dropout
-        self.batch_norm = batch_norm
 
-        # Validate flow type
-        self._validate_flow_type()
-
-    def _validate_flow_type(self) -> None:
-        """
-        Validate the flow type selection.
-
-        Raises:
-            ValueError: If an invalid flow type is provided
-        """
-        valid_types = ["realnvp", "maf", "nsf"]
-        if self.flow_type not in valid_types:
-            raise ValueError(
-                f"Invalid flow_type: {self.flow_type}. " f"Must be one of: {', '.join(valid_types)}"
+        if not isinstance(flow, Module):
+            raise TypeError(
+                f"flow must be a torch.nn.Module (zuko Flow), got {type(flow)}"
             )
 
-    def _create_flow(self, params_dict: Dict[str, torch.Tensor]) -> "Flow":
-        """
-        Create a flow model from parameters dictionary.
+        self.flow = flow
 
-        Args:
-            params_dict: Dictionary of flow parameters from model output
-
-        Returns:
-            Flow model instance
-
-        Raises:
-            RuntimeError: If there's an issue creating the flow
-        """
-        # Common arguments for all flows
-        common_args = {
-            "features": self.n_features,
-            "transforms": self.n_blocks,
-            "hidden_features": self.hidden_features,
-            "hidden_layers": self.n_hidden_layers,
-            "activation": self.activation,
-            "dropout": self.dropout,
-            "batch_norm": self.batch_norm,
-            "base_dist": self.base_distribution,
-        }
-
+        # Extract flow configuration for validation
+        # Zuko flows store dimensions in the base distribution
         try:
-            # Create flow based on type
-            if self.flow_type == "realnvp":
-                flow = RealNVP(**common_args)
-            elif self.flow_type == "maf":
-                flow = MAF(**common_args)
-            elif self.flow_type == "nsf":
-                flow = NSF(**common_args)
-
-            return flow
+            base_dist = flow.base()
+            self.n_features = base_dist.event_shape[0] if len(base_dist.event_shape) > 0 else 1
         except Exception as e:
-            raise RuntimeError(f"Failed to create flow model: {str(e)}")
+            raise ValueError(
+                f"Could not extract feature dimension from flow: {e}"
+            )
 
-    def _extract_distribution_parameters(self, y_pred: torch.Tensor) -> Dict[str, torch.Tensor]:
+        # Try to get context dimension - check if it was added by create_flow_model
+        self.context_dim = getattr(flow, 'context', None)  # May be None if not set
+
+    def _extract_distribution_parameters(self, y_pred: Tensor) -> Tensor:
         """
-        Extract flow parameters from model predictions.
+        Extract context from model predictions.
 
         Args:
-            y_pred: Model predictions containing flow parameters
+            y_pred: Model predictions serving as context for the flow
+                    Shape: [batch_size, context_dim]
 
         Returns:
-            Dictionary of flow parameters
+            Context tensor for conditioning the flow
         """
-        # If y_pred is already a dictionary of parameters, return it directly
-        if isinstance(y_pred, dict):
-            return y_pred
-
-        # Otherwise, we assume the model outputs the serialized parameters directly
-        # We'll create a valid parameter dictionary expected by zuko
-        return {"params": y_pred}
+        return y_pred
 
     def _calculate_nll(
         self,
-        target: torch.Tensor,
-        params: Dict[str, torch.Tensor],
-        mask: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
+        target: Tensor,
+        context: Tensor,
+        mask: Optional[Tensor] = None,
+    ) -> Tensor:
         """
-        Calculate negative log-likelihood for the flow model.
+        Calculate negative log-likelihood for the conditional flow model.
 
         Args:
             target: Target values [batch_size, n_features]
-            params: Flow parameters
+            context: Context vectors from model [batch_size, context_dim]
             mask: Optional mask [batch_size, n_features]
 
         Returns:
             Negative log-likelihood [batch_size]
         """
-        # Create flow
-        flow = self._create_flow(params)
+        # Get conditional distribution from flow
+        # zuko flows: flow(context) returns a Distribution
+        if self.context_dim is not None and self.context_dim > 0:
+            # Conditional flow
+            dist = self.flow(context)
+        else:
+            # Unconditional flow (context_dim=0 or None with empty context)
+            dist = self.flow()
 
         # Calculate log probability
-        # zuko flows are callable and return a distribution
-        try:
-            # Try zuko API: flow() returns a distribution with log_prob method
-            dist = flow()
-            log_prob = dist.log_prob(target)
-        except (AttributeError, TypeError):
-            # Fallback for mock flows or other implementations
-            if hasattr(flow, "log_prob"):
-                log_prob = flow.log_prob(target)
-            else:
-                raise RuntimeError("Flow does not support log_prob calculation")
+        log_prob = dist.log_prob(target)
 
         # Return negative log-likelihood
         return -log_prob
 
     def forward(
         self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
+        y_pred: Tensor,
+        target: Tensor,
+        mask: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+    ) -> Tensor:
         """
         Calculate normalizing flow negative log-likelihood loss.
 
         Args:
-            y_pred: Flow parameters from model
+            y_pred: Context from model [batch_size, context_dim]
             target: Ground truth values [batch_size, n_features]
             mask: Optional boolean mask [batch_size, n_features]
             weights: Optional sample weights [batch_size]
@@ -225,25 +175,29 @@ class NormalizingFlowLoss(DistributionLoss):
             Negative log-likelihood loss
 
         Raises:
-            ValueError: If target shape doesn't match expected features
+            ValueError: If shapes don't match expected dimensions
         """
-        # Validate inputs
+        # Validate target shape
         if target.shape[-1] != self.n_features:
             raise ValueError(
                 f"Expected {self.n_features} features in target, got {target.shape[-1]}"
             )
 
-        # Apply mask if provided
+        # Infer and store context_dim on first forward pass
+        if self.context_dim is None and y_pred.numel() > 0:
+            self.context_dim = y_pred.shape[-1] if y_pred.dim() > 0 else 0
+
+        # Apply mask to targets if provided
         if mask is not None:
             target_masked = apply_mask(target, mask)
         else:
             target_masked = target
 
-        # Extract parameters
-        params = self._extract_distribution_parameters(y_pred)
+        # Extract context
+        context = self._extract_distribution_parameters(y_pred)
 
         # Calculate negative log-likelihood
-        nll = self._calculate_nll(target_masked, params, mask)
+        nll = self._calculate_nll(target_masked, context, mask)
 
         # Apply weights if provided
         if weights is not None:
@@ -261,95 +215,205 @@ class NormalizingFlowLoss(DistributionLoss):
         # Apply reduction
         return masked_reduction(nll, mask, self.reduction)
 
-    def sample(self, y_pred: torch.Tensor, n_samples: int = 1) -> torch.Tensor:
+    def sample(self, y_pred: Tensor, n_samples: int = 1) -> Tensor:
         """
-        Generate samples from the flow distribution.
+        Generate samples from the conditional flow distribution.
 
         Args:
-            y_pred: Flow parameters from model
+            y_pred: Context from model [batch_size, context_dim]
             n_samples: Number of samples to generate per input
                 Default: 1
 
         Returns:
-            Samples [batch_size, n_samples, n_features]
+            Samples [batch_size, n_samples, n_features] or [batch_size, n_features] if n_samples=1
         """
-        # Extract parameters
-        params = self._extract_distribution_parameters(y_pred)
+        # Extract context
+        context = self._extract_distribution_parameters(y_pred)
 
-        # Create flow
-        flow = self._create_flow(params)
+        # Get conditional distribution
+        if self.context_dim is not None and self.context_dim > 0:
+            dist = self.flow(context)
+        else:
+            dist = self.flow()
 
-        # Generate samples - shape depends on the flow implementation
-        # Typically [batch_size, n_samples, n_features] or [batch_size * n_samples, n_features]
-        samples = flow.sample(n_samples)
-
-        # Reshape if needed to ensure [batch_size, n_samples, n_features]
-        if samples.dim() == 2:
-            batch_size = params["params"].shape[0] if "params" in params else y_pred.shape[0]
-            samples = samples.reshape(batch_size, n_samples, self.n_features)
+        # Generate samples
+        if n_samples == 1:
+            # Single sample per input
+            samples = dist.sample()  # [batch_size, n_features]
+        else:
+            # Multiple samples per input
+            samples = dist.sample((n_samples,))  # [n_samples, batch_size, n_features]
+            # Transpose to [batch_size, n_samples, n_features]
+            samples = samples.transpose(0, 1)
 
         return samples
 
 
-def create_flow_loss(
+def create_flow_model(
     n_features: int,
-    flow_type: str = "realnvp",
-    n_blocks: int = 3,
+    context_dim: int,
+    flow_type: str = "nsf",
+    n_transforms: int = 3,
     hidden_features: int = 64,
     n_hidden_layers: int = 2,
-    base_distribution: str = "normal",
-    activation: str = "relu",
-    dropout: float = 0.0,
-    batch_norm: bool = False,
-    reduction: str = "mean",
-) -> DistributionLoss:
+    **kwargs
+) -> Flow:
     """
-    Factory function to create a normalizing flow loss.
+    Factory function to create a conditional normalizing flow model.
+
+    This creates a zuko flow that can be used with NormalizingFlowLoss.
+    The flow will be a trainable nn.Module.
+
+    Args:
+        n_features (int): Number of features in the target distribution
+        context_dim (int): Dimension of conditioning context from model
+            Set to 0 for unconditional flows
+        flow_type (str): Type of flow ('realnvp', 'maf', 'nsf')
+            Default: 'nsf' (Neural Spline Flow - most flexible)
+        n_transforms (int): Number of transformation blocks
+            Default: 3
+        hidden_features (int): Size of hidden layers in transformations
+            Default: 64
+        n_hidden_layers (int): Number of hidden layers
+            Default: 2
+        **kwargs: Additional arguments passed to the flow constructor
+            For NSF: bins, randperm, etc.
+            For MAF/RealNVP: activation, dropout, etc.
+
+    Returns:
+        Flow: A trainable zuko Flow instance
+
+    Raises:
+        ValueError: If invalid flow_type is specified
+
+    Examples:
+        >>> # Create a conditional NSF for 2D targets with 10D context
+        >>> flow = create_flow_model(
+        ...     n_features=2,
+        ...     context_dim=10,
+        ...     flow_type='nsf',
+        ...     n_transforms=5,
+        ...     hidden_features=128
+        ... )
+        >>>
+        >>> # Use with loss function
+        >>> loss_fn = NormalizingFlowLoss(flow=flow)
+        >>>
+        >>> # Create unconditional flow
+        >>> uncond_flow = create_flow_model(
+        ...     n_features=3,
+        ...     context_dim=0,
+        ...     flow_type='realnvp'
+        ... )
+    """
+    flow_type = flow_type.lower()
+
+    # Validate flow type
+    valid_types = ["realnvp", "maf", "nsf"]
+    if flow_type not in valid_types:
+        raise ValueError(
+            f"Invalid flow_type: {flow_type}. Must be one of: {', '.join(valid_types)}"
+        )
+
+    # Common arguments for all flows
+    common_args = {
+        "features": n_features,
+        "context": context_dim,
+        "transforms": n_transforms,
+    }
+
+    # Flow-specific arguments
+    if flow_type == "nsf":
+        # NSF uses bins for spline transformations
+        flow_args = {
+            **common_args,
+            "bins": kwargs.get("bins", 8),
+            "hidden_features": [hidden_features] * n_hidden_layers,
+        }
+        flow = NSF(**flow_args)
+
+    elif flow_type == "maf":
+        # MAF (Masked Autoregressive Flow)
+        flow_args = {
+            **common_args,
+            "hidden_features": [hidden_features] * n_hidden_layers,
+        }
+        # Add optional MAF-specific args
+        if "randperm" in kwargs:
+            flow_args["randperm"] = kwargs["randperm"]
+        flow = MAF(**flow_args)
+
+    elif flow_type == "realnvp":
+        # RealNVP (Real-valued Non-Volume Preserving)
+        flow_args = {
+            **common_args,
+            "hidden_features": [hidden_features] * n_hidden_layers,
+        }
+        flow = RealNVP(**flow_args)
+
+    # Add metadata attributes for convenience (zuko flows don't have these by default)
+    flow.features = n_features
+    flow.context = context_dim
+
+    return flow
+
+
+def create_flow_loss(
+    n_features: int,
+    context_dim: int,
+    flow_type: str = "nsf",
+    n_transforms: int = 3,
+    hidden_features: int = 64,
+    n_hidden_layers: int = 2,
+    reduction: str = "mean",
+    **kwargs
+) -> NormalizingFlowLoss:
+    """
+    Factory function to create a normalizing flow loss with built-in flow.
+
+    This is a convenience function that creates both the flow and the loss.
 
     Args:
         n_features (int): Number of features in the target
+        context_dim (int): Dimension of context from model
         flow_type (str): Type of flow ('realnvp', 'maf', 'nsf')
-            Default: 'realnvp'
-        n_blocks (int): Number of transformation blocks
+            Default: 'nsf'
+        n_transforms (int): Number of transformation blocks
             Default: 3
         hidden_features (int): Size of hidden layers
             Default: 64
         n_hidden_layers (int): Number of hidden layers
             Default: 2
-        base_distribution (str): Base distribution ('normal', 'uniform')
-            Default: 'normal'
-        activation (str): Activation function
-            Default: 'relu'
-        dropout (float): Dropout rate
-            Default: 0.0
-        batch_norm (bool): Whether to use batch normalization
-            Default: False
-        reduction (str): Loss reduction method
+        reduction (str): Loss reduction method ('mean', 'sum', 'none')
             Default: 'mean'
+        **kwargs: Additional arguments for flow creation
 
     Returns:
-        NormalizingFlowLoss instance
+        NormalizingFlowLoss: Loss instance with embedded flow
 
     Examples:
-        >>> # Create a normalizing flow loss for 3D targets
-        >>> flow_loss = create_flow_loss(
+        >>> # Create a complete flow loss
+        >>> loss_fn = create_flow_loss(
         ...     n_features=3,
+        ...     context_dim=10,
         ...     flow_type='nsf',
-        ...     n_blocks=5,
+        ...     n_transforms=5,
         ...     hidden_features=128
         ... )
-        >>> # Use it with model predictions and targets
-        >>> loss = flow_loss(model_output, targets)
+        >>>
+        >>> # The flow is accessible via loss_fn.flow if needed
+        >>> flow_parameters = list(loss_fn.flow.parameters())
     """
-    return NormalizingFlowLoss(
+    # Create the flow
+    flow = create_flow_model(
         n_features=n_features,
+        context_dim=context_dim,
         flow_type=flow_type,
-        n_blocks=n_blocks,
+        n_transforms=n_transforms,
         hidden_features=hidden_features,
         n_hidden_layers=n_hidden_layers,
-        base_distribution=base_distribution,
-        activation=activation,
-        dropout=dropout,
-        batch_norm=batch_norm,
-        reduction=reduction,
+        **kwargs
     )
+
+    # Create and return the loss
+    return NormalizingFlowLoss(flow=flow, reduction=reduction)

@@ -14,57 +14,21 @@ from .base import (
     DistributionLoss,
     MaskedLoss,
     RegressionLoss,
-    WeightedBCELoss,
-    WeightedBCEWithLogitsLoss,
-    WeightedCosineEmbeddingLoss,
     WeightedCrossEntropyLoss,
-    WeightedCTCLoss,
     WeightedGaussianNLLLoss,
-    WeightedHingeEmbeddingLoss,
     WeightedHuberLoss,
     WeightedKLDivLoss,
     WeightedL1Loss,
     WeightedLossWrapper,
-    WeightedMarginRankingLoss,
     WeightedMSELoss,
-    WeightedMultiLabelMarginLoss,
-    WeightedMultiLabelSoftMarginLoss,
-    WeightedMultiMarginLoss,
     WeightedNLLLoss,
     WeightedPoissonNLLLoss,
     WeightedSmoothL1Loss,
-    WeightedSoftMarginLoss,
-    WeightedTripletMarginLoss,
-    WeightedTripletMarginWithDistanceLoss,
-    create_weighted_losses,
 )
 from .conformal import (
-    AdaptiveConformalLoss,
-    ConformalizedQuantileLoss,
     ConformalLoss,
     MultiDimensionalConformalLoss,
 )
-
-# Try to import torchcp-based conformal methods (requires torchcp with dependencies)
-try:
-    from .conformal_advanced import TorchCPConformalLoss, create_conformal_predictor
-
-    _TORCHCP_ADVANCED_AVAILABLE = True
-except (ImportError, ModuleNotFoundError):
-    _TORCHCP_ADVANCED_AVAILABLE = False
-
-    # Create placeholder functions that raise informative errors
-    def TorchCPConformalLoss(*args, **kwargs):
-        raise ImportError(
-            "TorchCPConformalLoss requires torchcp with all dependencies. "
-            "Install with: pip install torchcp torchsort"
-        )
-
-    def create_conformal_predictor(*args, **kwargs):
-        raise ImportError(
-            "create_conformal_predictor requires torchcp with all dependencies. "
-            "Install with: pip install torchcp torchsort"
-        )
 
 
 from .deepar import DeepARLoss
@@ -137,6 +101,9 @@ from .quantile import QuantileLoss, MultiQuantileLoss
 # Tweedie losses
 from .tweedie import TweedieLoss, GammaLoss, InverseGaussianLoss, CompoundPoissonLoss
 
+# Normalizing flows
+from .nflows import NormalizingFlowLoss, create_flow_model, create_flow_loss
+
 __all__ = [
     # Base classes
     "BaseLoss",
@@ -144,29 +111,17 @@ __all__ = [
     "RegressionLoss",
     "DistributionLoss",
     "WeightedLossWrapper",
-    "create_weighted_losses",
     # Standard weighted losses
     "WeightedMSELoss",
     "WeightedL1Loss",
-    "WeightedCrossEntropyLoss",
-    "WeightedBCELoss",
-    "WeightedBCEWithLogitsLoss",
-    "WeightedKLDivLoss",
-    "WeightedNLLLoss",
     "WeightedSmoothL1Loss",
     "WeightedHuberLoss",
     "WeightedPoissonNLLLoss",
     "WeightedGaussianNLLLoss",
-    "WeightedCTCLoss",
-    "WeightedCosineEmbeddingLoss",
-    "WeightedHingeEmbeddingLoss",
-    "WeightedMarginRankingLoss",
-    "WeightedMultiMarginLoss",
-    "WeightedMultiLabelMarginLoss",
-    "WeightedSoftMarginLoss",
-    "WeightedMultiLabelSoftMarginLoss",
-    "WeightedTripletMarginLoss",
-    "WeightedTripletMarginWithDistanceLoss",
+    # Regression-as-classification
+    "WeightedCrossEntropyLoss",
+    "WeightedNLLLoss",
+    "WeightedKLDivLoss",
     # Gaussian losses
     "HeteroscedasticGaussianLoss",
     "MultivariateGaussianLoss",
@@ -191,11 +146,7 @@ __all__ = [
     "SQRLoss",
     "BarronLoss",
     "ConformalLoss",
-    "AdaptiveConformalLoss",
-    "ConformalizedQuantileLoss",
     "MultiDimensionalConformalLoss",
-    "TorchCPConformalLoss",
-    "create_conformal_predictor",
     "DeepARLoss",
     # Poisson losses
     "PoissonDevianceLoss",
@@ -231,4 +182,8 @@ __all__ = [
     "GammaLoss",
     "InverseGaussianLoss",
     "CompoundPoissonLoss",
+    # Normalizing flows
+    "NormalizingFlowLoss",
+    "create_flow_model",
+    "create_flow_loss",
 ]

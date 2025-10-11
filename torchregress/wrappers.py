@@ -32,6 +32,71 @@ from .losses.robust import LogCoshLoss, PseudoHuberLoss
 # Import utilities
 
 
+def _get_defaults(
+    hidden_sizes: Optional[List[int]], activation: Optional[nn.Module]
+) -> Tuple[List[int], nn.Module]:
+    """
+    Get default values for hidden sizes and activation if not provided.
+
+    Args:
+        hidden_sizes: User-provided hidden sizes or None
+        activation: User-provided activation or None
+
+    Returns:
+        Tuple of (hidden_sizes, activation) with defaults applied
+    """
+    if hidden_sizes is None:
+        hidden_sizes = [64, 64]
+    if activation is None:
+        activation = nn.ReLU()
+    return hidden_sizes, activation
+
+
+def _build_mlp_backbone(
+    in_features: int,
+    hidden_sizes: List[int],
+    activation: nn.Module,
+    dropout: float = 0.0,
+    batch_norm: bool = False,
+) -> List[nn.Module]:
+    """
+    Build MLP backbone layers (shared code for all model builders).
+
+    This function creates a standard MLP architecture with optional batch normalization
+    and dropout. It's used internally by all model creation functions to avoid code duplication.
+
+    Args:
+        in_features: Input dimension (number of input features)
+        hidden_sizes: List of hidden layer sizes (e.g., [64, 32] for two hidden layers)
+        activation: Activation function instance (e.g., nn.ReLU())
+        dropout: Dropout probability (0.0 = no dropout, default: 0.0)
+        batch_norm: Whether to use batch normalization after each linear layer (default: False)
+
+    Returns:
+        List of nn.Module layers that can be unpacked into nn.Sequential()
+
+    Example:
+        >>> import torch.nn as nn
+        >>> layers = _build_mlp_backbone(10, [64, 32], nn.ReLU(), dropout=0.1)
+        >>> model = nn.Sequential(*layers, nn.Linear(32, 1))
+    """
+    layers: List[nn.Module] = []
+    layer_sizes = [in_features] + hidden_sizes
+
+    for i in range(len(layer_sizes) - 1):
+        layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+
+        if batch_norm:
+            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
+
+        layers.append(activation)
+
+        if dropout > 0:
+            layers.append(nn.Dropout(dropout))
+
+    return layers
+
+
 def create_gaussian_model(
     in_features: int,
     out_features: int,
@@ -57,38 +122,22 @@ def create_gaussian_model(
         Tuple of (model, loss_function)
     """
     # Set default values
-    if hidden_sizes is None:
-        hidden_sizes = [64, 64]
-    if activation is None:
-        activation = nn.ReLU()
+    hidden_sizes, activation = _get_defaults(hidden_sizes, activation)
 
-    # Create the base model
-    layers: List[nn.Module] = []
-    layer_sizes = [in_features] + hidden_sizes
-
-    # Create hidden layers
-    for i in range(len(layer_sizes) - 1):
-        layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-
-        if batch_norm:
-            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
-
-        layers.append(activation)
-
-        if dropout > 0:
-            layers.append(nn.Dropout(dropout))
+    # Build MLP backbone
+    layers = _build_mlp_backbone(in_features, hidden_sizes, activation, dropout, batch_norm)
 
     # Create output layer
     if learn_variance:
         # Output both mean and log variance
-        output_layer = nn.Linear(layer_sizes[-1], out_features * 2)
+        output_layer = nn.Linear(hidden_sizes[-1], out_features * 2)
         model = nn.Sequential(*layers, output_layer)
         loss_fn = DiagonalGaussianNLL(n_features=out_features)
     else:
         # Output only mean
-        output_layer = nn.Linear(layer_sizes[-1], out_features)
+        output_layer = nn.Linear(hidden_sizes[-1], out_features)
         model = nn.Sequential(*layers, output_layer)
-        loss_fn = WeightedMSELoss
+        loss_fn = WeightedMSELoss()
 
     return model, loss_fn
 
@@ -118,25 +167,10 @@ def create_quantile_model(
         Tuple of (model, loss_function)
     """
     # Set default values
-    if hidden_sizes is None:
-        hidden_sizes = [64, 64]
-    if activation is None:
-        activation = nn.ReLU()
+    hidden_sizes, activation = _get_defaults(hidden_sizes, activation)
 
-    layers: List[nn.Module] = []
-    layer_sizes = [in_features] + hidden_sizes
-
-    # Create hidden layers
-    for i in range(len(layer_sizes) - 1):
-        layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-
-        if batch_norm:
-            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
-
-        layers.append(activation)
-
-        if dropout > 0:
-            layers.append(nn.Dropout(dropout))
+    # Build MLP backbone
+    layers = _build_mlp_backbone(in_features, hidden_sizes, activation, dropout, batch_norm)
 
     # Handle quantiles
     if isinstance(quantiles, (int, float)):
@@ -146,7 +180,7 @@ def create_quantile_model(
         single_quantile = False
 
     # Create output layer
-    output_layer = nn.Linear(layer_sizes[-1], out_features * len(quantiles))
+    output_layer = nn.Linear(hidden_sizes[-1], out_features * len(quantiles))
     model = nn.Sequential(*layers, output_layer)
 
     # Create loss function
@@ -185,33 +219,18 @@ def create_robust_model(
         Tuple of (model, loss_function)
     """
     # Set default values
-    if hidden_sizes is None:
-        hidden_sizes = [64, 64]
-    if activation is None:
-        activation = nn.ReLU()
+    hidden_sizes, activation = _get_defaults(hidden_sizes, activation)
 
-    layers: List[nn.Module] = []
-    layer_sizes = [in_features] + hidden_sizes
-
-    # Create hidden layers
-    for i in range(len(layer_sizes) - 1):
-        layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-
-        if batch_norm:
-            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
-
-        layers.append(activation)
-
-        if dropout > 0:
-            layers.append(nn.Dropout(dropout))
+    # Build MLP backbone
+    layers = _build_mlp_backbone(in_features, hidden_sizes, activation, dropout, batch_norm)
 
     # Create output layer
-    output_layer = nn.Linear(layer_sizes[-1], out_features)
+    output_layer = nn.Linear(hidden_sizes[-1], out_features)
     model = nn.Sequential(*layers, output_layer)
 
     # Create loss function
     if loss_type == "huber":
-        loss_fn = WeightedHuberLoss
+        loss_fn = WeightedHuberLoss(**loss_kwargs)
     elif loss_type == "pseudo-huber":
         loss_fn = PseudoHuberLoss(**loss_kwargs)
     elif loss_type == "log-cosh":
@@ -245,18 +264,10 @@ def create_mdn_model(
         Tuple of (model, loss_function)
     """
     # Set default values
-    if hidden_sizes is None:
-        hidden_sizes = [64, 64]
-    if activation is None:
-        activation = nn.ReLU()
+    hidden_sizes, activation = _get_defaults(hidden_sizes, activation)
 
-    layers: List[nn.Module] = []
-    layer_sizes = [in_features] + hidden_sizes
-
-    # Create hidden layers
-    for i in range(len(layer_sizes) - 1):
-        layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-        layers.append(activation)
+    # Build MLP backbone (no dropout/batch_norm for MDN by default)
+    layers = _build_mlp_backbone(in_features, hidden_sizes, activation, dropout=0.0, batch_norm=False)
 
     # Create output layer for MDN
     # For diagonal covariance: n_components + 2*n_components*n_features
@@ -266,7 +277,7 @@ def create_mdn_model(
         # Default to gaussian for other distributions
         expected_output_size = num_components + 2 * num_components * out_features
 
-    output_layer = nn.Linear(layer_sizes[-1], expected_output_size)
+    output_layer = nn.Linear(hidden_sizes[-1], expected_output_size)
     model = nn.Sequential(*layers, output_layer)
 
     # Create loss function
@@ -351,28 +362,14 @@ def create_regression_model(
     Returns:
         A PyTorch model
     """
-    if hidden_sizes is None:
-        hidden_sizes = [64, 64]
-    if activation is None:
-        activation = nn.ReLU()
+    # Set default values
+    hidden_sizes, activation = _get_defaults(hidden_sizes, activation)
 
-    layers: List[nn.Module] = []
-    layer_sizes = [in_features] + hidden_sizes
-
-    # Create hidden layers
-    for i in range(len(layer_sizes) - 1):
-        layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-
-        if batch_norm:
-            layers.append(nn.BatchNorm1d(layer_sizes[i + 1]))
-
-        layers.append(activation)
-
-        if dropout > 0:
-            layers.append(nn.Dropout(dropout))
+    # Build MLP backbone
+    layers = _build_mlp_backbone(in_features, hidden_sizes, activation, dropout, batch_norm)
 
     # Create output layer
-    layers.append(nn.Linear(layer_sizes[-1], out_features))
+    layers.append(nn.Linear(hidden_sizes[-1], out_features))
 
     # Add output activation if specified
     if output_activation is not None:
