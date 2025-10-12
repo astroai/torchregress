@@ -5,7 +5,7 @@ Examples demonstrating the PyTorch-native API usage patterns for torchregress.
 import torch
 import torch.nn as nn
 
-from torchregress.losses import HeteroscedasticGaussianLoss, WeightedHuberLoss
+from torchregress.losses import GaussianNLLLoss, WeightedHuberLoss
 
 
 # Example 1: Standard regression model with MSE loss
@@ -34,7 +34,7 @@ def example_standard_regression():
 
 # Example 2: Heteroscedastic regression with Gaussian NLL
 def example_heteroscedastic_regression():
-    # Create model with 2*output_dim outputs (mean, log_var)
+    # Create model that outputs (mean, log_var) tuple
     class HeteroscedasticModel(nn.Module):
         def __init__(self, in_features, out_features):
             super().__init__()
@@ -52,7 +52,7 @@ def example_heteroscedastic_regression():
 
     # Create model and loss
     model = HeteroscedasticModel(in_features=10, out_features=1)
-    loss_fn = HeteroscedasticGaussianLoss(n_features=1, learnable_variance=False)
+    loss_fn = GaussianNLLLoss()
 
     # Example usage
     x = torch.randn(32, 10)  # 32 samples, 10 features

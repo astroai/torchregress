@@ -22,9 +22,7 @@ from .losses.base import (
 )
 
 # Import specific loss implementations
-from .losses.gaussian import (
-    HeteroscedasticGaussianLoss as DiagonalGaussianNLL,
-)
+from .losses.gaussian import GaussianNLLLoss
 from .losses.mdn import create_mdn_loss
 from .losses.quantile import MultiQuantileLoss, QuantileLoss
 from .losses.robust import LogCoshLoss, PseudoHuberLoss
@@ -129,12 +127,12 @@ def create_gaussian_model(
 
     # Create output layer
     if learn_variance:
-        # Output both mean and log variance
+        # Output both mean and log variance (concatenated)
         output_layer = nn.Linear(hidden_sizes[-1], out_features * 2)
         model = nn.Sequential(*layers, output_layer)
-        loss_fn = DiagonalGaussianNLL(n_features=out_features)
+        loss_fn = GaussianNLLLoss()
     else:
-        # Output only mean
+        # Output only mean (use MSE)
         output_layer = nn.Linear(hidden_sizes[-1], out_features)
         model = nn.Sequential(*layers, output_layer)
         loss_fn = WeightedMSELoss()

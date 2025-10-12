@@ -35,7 +35,7 @@ from .deepar import DeepARLoss
 
 # Gaussian losses
 from .gaussian import (
-    HeteroscedasticGaussianLoss,
+    GaussianNLLLoss,
     MultivariateGaussianLoss,
     create_gaussian_nll,
 )
@@ -104,6 +104,21 @@ from .tweedie import TweedieLoss, GammaLoss, InverseGaussianLoss, CompoundPoisso
 # Normalizing flows
 from .nflows import NormalizingFlowLoss, create_flow_model, create_flow_loss
 
+# Mixture Density Networks
+from .mdn import MixtureDensityLoss, create_mdn_loss
+
+# Convenience aliases (match PyTorch/common naming conventions)
+MSELoss = WeightedMSELoss
+L1Loss = WeightedL1Loss
+MAELoss = WeightedL1Loss  # Alternative name
+SmoothL1Loss = WeightedSmoothL1Loss
+HuberLoss = WeightedHuberLoss
+PoissonNLLLoss = WeightedPoissonNLLLoss
+# Note: GaussianNLLLoss is our main implementation (from gaussian.py), not an alias
+CrossEntropyLoss = WeightedCrossEntropyLoss
+NLLLoss = WeightedNLLLoss
+KLDivLoss = WeightedKLDivLoss
+
 __all__ = [
     # Base classes
     "BaseLoss",
@@ -123,7 +138,7 @@ __all__ = [
     "WeightedNLLLoss",
     "WeightedKLDivLoss",
     # Gaussian losses
-    "HeteroscedasticGaussianLoss",
+    "GaussianNLLLoss",
     "MultivariateGaussianLoss",
     "create_gaussian_nll",
     # Target transformations
@@ -186,4 +201,18 @@ __all__ = [
     "NormalizingFlowLoss",
     "create_flow_model",
     "create_flow_loss",
+    # Mixture Density Networks
+    "MixtureDensityLoss",
+    "create_mdn_loss",
+    # Convenience aliases
+    "MSELoss",
+    "L1Loss",
+    "MAELoss",
+    "SmoothL1Loss",
+    "HuberLoss",
+    "PoissonNLLLoss",
+    # GaussianNLLLoss is in the Gaussian losses section (not an alias)
+    "CrossEntropyLoss",
+    "NLLLoss",
+    "KLDivLoss",
 ]

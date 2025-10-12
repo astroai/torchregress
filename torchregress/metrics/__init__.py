@@ -69,6 +69,100 @@ from torchregress.metrics.point import (
     trimmed_mean_squared_error,
 )
 
+# Convenience aliases for common metrics
+mse = mean_squared_error
+mae = mean_absolute_error
+mape = mean_absolute_percentage_error
+picp = prediction_interval_coverage_probability
+ece = expected_calibration_error
+mce = marginal_calibration_error
+crps = continuous_ranked_probability_score
+pit = probability_integral_transform
+
+
+# Convenience functions
+def rmse(y_pred, y_true, **kwargs):
+    """
+    Root Mean Squared Error (convenience function).
+
+    Args:
+        y_pred: Predicted values
+        y_true: True values
+        **kwargs: Additional arguments passed to mean_squared_error
+
+    Returns:
+        RMSE value
+
+    Examples:
+        >>> import torch
+        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
+        >>> y_true = torch.tensor([1.1, 2.1, 2.9])
+        >>> error = rmse(y_pred, y_true)
+    """
+    import torch
+
+    return torch.sqrt(mean_squared_error(y_pred, y_true, **kwargs))
+
+
+def mpiw(lower, upper):
+    """
+    Mean Prediction Interval Width (convenience function).
+
+    Args:
+        lower: Lower bounds of prediction intervals
+        upper: Upper bounds of prediction intervals
+
+    Returns:
+        Mean interval width
+
+    Examples:
+        >>> import torch
+        >>> lower = torch.tensor([1.0, 2.0, 3.0])
+        >>> upper = torch.tensor([2.0, 3.0, 4.0])
+        >>> width = mpiw(lower, upper)
+    """
+    import torch
+
+    return torch.mean(upper - lower)
+
+
+def gaussian_nll(mean, target, var, reduction="mean"):
+    """
+    Gaussian Negative Log-Likelihood (convenience function).
+
+    Computes the negative log-likelihood assuming a Gaussian distribution
+    with predicted mean and variance.
+
+    Args:
+        mean: Predicted means
+        target: True values
+        var: Predicted variances
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+    Returns:
+        NLL value
+
+    Examples:
+        >>> import torch
+        >>> mean = torch.tensor([1.0, 2.0, 3.0])
+        >>> target = torch.tensor([1.1, 2.1, 2.9])
+        >>> var = torch.tensor([0.1, 0.1, 0.1])
+        >>> nll = gaussian_nll(mean, target, var)
+    """
+    import math
+
+    import torch
+
+    nll = 0.5 * (torch.log(var) + (target - mean) ** 2 / var + math.log(2 * math.pi))
+
+    if reduction == "mean":
+        return nll.mean()
+    elif reduction == "sum":
+        return nll.sum()
+    else:
+        return nll
+
+
 # Update __all__
 __all__ = []
 __all__.extend(
@@ -116,5 +210,17 @@ __all__.extend(
         "r2_score",
         "regression_metrics_report",
         "trimmed_mean_squared_error",
+        # Convenience aliases
+        "mse",
+        "mae",
+        "mape",
+        "rmse",
+        "picp",
+        "mpiw",
+        "ece",
+        "mce",
+        "crps",
+        "pit",
+        "gaussian_nll",
     ]
 )

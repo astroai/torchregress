@@ -113,7 +113,7 @@ def test_reduction_behavior():
         "StructuralEIVLoss",
         "OrthogonalDistanceRegressionLoss",
         "EnsembleEIVLoss",
-        "HeteroscedasticGaussianLoss",
+        "GaussianNLLLoss",
         "MultivariateGaussianLoss",
         "MixtureDensityLoss",
         "MultiExpectileLoss",

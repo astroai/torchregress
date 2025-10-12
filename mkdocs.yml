@@ -1,4 +1,4 @@
-site_name: TorchRegress
+site_name: torchregress
 site_description: A PyTorch library for regression and uncertainty estimation
 site_author: Sébastien Fabbro
 repo_url: https://github.com/sfabbro/torchregress
@@ -71,10 +71,14 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Getting Started: 
+  - Getting Started:
       - Installation: usage/installation.md
       - Quick Start: usage/quickstart.md
       - Practical Usage: usage/practical_usage.md
+  - Guides:
+      - Best Practices: guides/best-practices.md
+  - Visualization:
+      - Overview: visualization/index.md
   - Losses:
       - Overview: losses/index.md
       - Gaussian Losses: losses/gaussian.md
@@ -84,6 +88,9 @@ nav:
       - Advanced Losses: losses/advanced.md
       - Error-in-Variables: losses/eiv.md
       - Ensemble Methods: losses/ensemble.md
+      - Imbalanced Regression: losses/imbalanced.md
+      - Noisy Labels: losses/noisy_labels.md
+      - Transform Losses: losses/transforms.md
   - Metrics:
       - Overview: metrics/index.md
       - Point Metrics: metrics/point.md

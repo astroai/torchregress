@@ -15,7 +15,7 @@ The building blocks of regression, including basic losses and wrapped PyTorch lo
 - **Binary Cross Entropy (BCE)**: For regression with binary targets
 - **Wrapped PyTorch Losses**: Adding mask and weight support to PyTorch's losses
 
-[Learn more about standard losses →](standard.md)
+See [base losses documentation](base.md) for the foundation classes and wrapped PyTorch losses.
 
 ### Gaussian Losses
 

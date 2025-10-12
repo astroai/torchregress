@@ -5,9 +5,10 @@ import torch
 
 from torchregress.losses.base import (
     WeightedLossWrapper,
+    WeightedMSELoss,
 )
 from torchregress.losses.gaussian import (
-    HeteroscedasticGaussianLoss,
+    GaussianNLLLoss,
     MultivariateGaussianLoss,
     create_gaussian_nll,
 )
@@ -67,47 +68,36 @@ class TestGaussianLosses(unittest.TestCase):
             ]
         )
 
-    def test_heteroscedastic_gaussian_loss(self):
-        """Test HeteroscedasticGaussianLoss with mask and gradient flow verification."""
-        # Test with learned variance
-        loss_fn = HeteroscedasticGaussianLoss(self.n_features_diag).to(self.device)
+    def test_gaussian_nll_loss(self):
+        """Test GaussianNLLLoss with mask and various input formats."""
+        # Test with tuple input format (mean, logvar)
+        loss_fn = GaussianNLLLoss().to(self.device)
+        log_var = torch.zeros_like(self.x)
 
         # Test with mask
-        loss = loss_fn(self.x, self.x_reconstructed, self.mask)
+        loss = loss_fn((self.x, log_var), self.x_reconstructed, self.mask)
         self.assertTrue(torch.is_tensor(loss))
         self.assertFalse(torch.isnan(loss).any())
 
         # Test without mask
-        loss_no_mask = loss_fn(self.x, self.x_reconstructed)
+        loss_no_mask = loss_fn((self.x, log_var), self.x_reconstructed)
         self.assertTrue(torch.is_tensor(loss_no_mask))
         self.assertFalse(torch.isnan(loss_no_mask).any())
 
-        # Check for gradient flow
-        loss.backward()
-        self.assertIsNotNone(loss_fn.log_variances.grad)
+        # Test with concatenated input format [mean, logvar]
+        concat_input = torch.cat([self.x, log_var], dim=-1)
+        concat_loss = loss_fn(concat_input, self.x_reconstructed)
+        self.assertTrue(torch.is_tensor(concat_loss))
+        self.assertFalse(torch.isnan(concat_loss).any())
 
         # Test with fixed variance
-        fixed_loss_fn = HeteroscedasticGaussianLoss(
-            learnable_variance=False, fixed_variance=0.5
-        ).to(self.device)
+        fixed_loss_fn = GaussianNLLLoss(fixed_variance=0.5).to(self.device)
         fixed_loss = fixed_loss_fn(self.x, self.x_reconstructed)
         self.assertTrue(torch.is_tensor(fixed_loss))
         self.assertFalse(torch.isnan(fixed_loss).any())
 
-        # Test with tuple input format (mean, logvar)
-        log_var = torch.zeros_like(self.x)
-        tuple_loss = fixed_loss_fn((self.x, log_var), self.x_reconstructed)
-        self.assertTrue(torch.is_tensor(tuple_loss))
-        self.assertFalse(torch.isnan(tuple_loss).any())
-
-        # Test with concatenated input format [mean, logvar]
-        concat_input = torch.cat([self.x, log_var], dim=-1)
-        concat_loss = fixed_loss_fn(concat_input, self.x_reconstructed)
-        self.assertTrue(torch.is_tensor(concat_loss))
-        self.assertFalse(torch.isnan(concat_loss).any())
-
         # Test with extreme values to check numerical stability
-        extreme_loss_fn = HeteroscedasticGaussianLoss(learnable_variance=False).to(self.device)
+        extreme_loss_fn = GaussianNLLLoss(fixed_variance=1.0).to(self.device)
         extreme_loss = extreme_loss_fn(self.extreme_tensor, self.extreme_tensor * 1.1)
         self.assertFalse(torch.isnan(extreme_loss).any(), "Loss should handle extreme values")
         self.assertFalse(
@@ -116,14 +106,14 @@ class TestGaussianLosses(unittest.TestCase):
 
         # Test with weights
         weights = torch.rand(self.batch_size, self.n_features_diag, device=self.device)
-        weighted_loss = loss_fn(self.x, self.x_reconstructed, weights=weights)
+        weighted_loss = loss_fn((self.x, log_var), self.x_reconstructed, weights=weights)
         self.assertTrue(torch.is_tensor(weighted_loss))
         self.assertFalse(torch.isnan(weighted_loss).any())
 
         # Verify reduction modes
         for reduction in ["none", "mean", "sum"]:
-            loss_fn.reduction = reduction
-            red_loss = loss_fn(self.x, self.x_reconstructed)
+            test_loss_fn = GaussianNLLLoss(reduction=reduction).to(self.device)
+            red_loss = test_loss_fn((self.x, log_var), self.x_reconstructed)
             if reduction == "none":
                 self.assertEqual(red_loss.shape[0], self.batch_size)
             else:
@@ -193,60 +183,54 @@ class TestGaussianLosses(unittest.TestCase):
 
     def test_create_gaussian_nll_factory(self):
         """Test the factory function for creating Gaussian NLL losses."""
+        # Test diagonal with model predicting variance (default)
+        diag_default = create_gaussian_nll(
+            n_features=self.n_features_diag,
+            covariance_type="diagonal",
+        ).to(self.device)
+        self.assertIsInstance(diag_default, GaussianNLLLoss)
+
         # Test diagonal with fixed variance
         diag_fixed = create_gaussian_nll(
             n_features=self.n_features_diag,
             covariance_type="diagonal",
-            learnable_variance=False,
+            model_predicts_variance=False,
             fixed_variance=0.5,
         ).to(self.device)
+        self.assertIsInstance(diag_fixed, GaussianNLLLoss)
 
-        self.assertIsInstance(diag_fixed, WeightedLossWrapper)
-
-        # Test diagonal with learned variance
-        diag_learned = create_gaussian_nll(
-            n_features=self.n_features_diag, covariance_type="diagonal", learnable_variance=True
-        ).to(self.device)
-
-        self.assertIsInstance(diag_learned, HeteroscedasticGaussianLoss)
-        self.assertEqual(diag_learned.log_variances.shape[0], self.n_features_diag)
-
-        # Test full covariance with adjustment
+        # Test full covariance
         full_cov = create_gaussian_nll(
             n_features=self.n_features_cov,
             covariance_type="full",
-            learnable_variance=True,
             jitter=1e-5,
         ).to(self.device)
-
         self.assertIsInstance(full_cov, MultivariateGaussianLoss)
         self.assertEqual(full_cov.jitter, 1e-5)
-        self.assertTrue(full_cov.learnable_adjustment)
 
         # Test with MSELoss case (simplified diagonal with unit variance)
         mse_case = create_gaussian_nll(
             n_features=self.n_features_diag,
             covariance_type="diagonal",
-            learnable_variance=False,
+            model_predicts_variance=False,
             fixed_variance=1.0,
         ).to(self.device)
+        # WeightedMSELoss is a partial, so check the wrapper type
         self.assertIsInstance(mse_case, WeightedLossWrapper)
 
         # Test invalid covariance type
         with self.assertRaises(ValueError):
             create_gaussian_nll(n_features=self.n_features_diag, covariance_type="invalid")
 
-    def test_heteroscedastic_gaussian_numerical_stability(self):
-        """Test numerical stability of HeteroscedasticGaussianLoss."""
+    def test_gaussian_nll_numerical_stability(self):
+        """Test numerical stability of GaussianNLLLoss."""
         # Test with very small/large variances
         variance_scales = [1e-8, 1e-4, 1.0, 1e4, 1e8]
 
         for scale in variance_scales:
             with self.subTest(variance_scale=scale):
                 # Test fixed variance case
-                fixed_var_loss = HeteroscedasticGaussianLoss(
-                    learnable_variance=False, fixed_variance=scale
-                ).to(self.device)
+                fixed_var_loss = GaussianNLLLoss(fixed_variance=scale).to(self.device)
 
                 loss = fixed_var_loss(self.x, self.x_reconstructed)
                 self.assertFalse(
@@ -259,7 +243,8 @@ class TestGaussianLosses(unittest.TestCase):
 
                 # Test log variance case
                 log_var = torch.ones_like(self.x) * math.log(scale)
-                loss = fixed_var_loss((self.x, log_var), self.x_reconstructed)
+                var_loss = GaussianNLLLoss().to(self.device)
+                loss = var_loss((self.x, log_var), self.x_reconstructed)
                 self.assertFalse(
                     torch.isnan(loss).any(),
                     f"Loss should be stable with log variance scale {scale}",
@@ -272,8 +257,9 @@ class TestGaussianLosses(unittest.TestCase):
         # Test with very small differences between prediction and target
         small_diff = 1e-10
         close_recon = self.x + small_diff
-        loss_fn = HeteroscedasticGaussianLoss(self.n_features_diag).to(self.device)
-        close_loss = loss_fn(self.x, close_recon)
+        log_var = torch.zeros_like(self.x)
+        loss_fn = GaussianNLLLoss().to(self.device)
+        close_loss = loss_fn((self.x, log_var), close_recon)
         self.assertFalse(
             torch.isnan(close_loss).any(), "Loss should be stable with very small differences"
         )
@@ -307,15 +293,16 @@ class TestGaussianLosses(unittest.TestCase):
 
     def test_gaussian_losses_with_nans_infs(self):
         """Test handling of NaN and Inf values in inputs."""
-        # Test HeteroscedasticGaussianLoss with NaNs and Infs
-        h_loss_fn = HeteroscedasticGaussianLoss(self.n_features_diag).to(self.device)
+        # Test GaussianNLLLoss with NaNs and Infs
+        log_var = torch.zeros_like(self.x)
+        h_loss_fn = GaussianNLLLoss().to(self.device)
 
         # Test NaN in inputs with proper masking
         x_nan = self.x.clone()
         x_nan[0, 0] = float("nan")
         mask_nan = self.mask.clone()
         mask_nan[0, 0] = False  # Mask out the NaN
-        h_loss = h_loss_fn(x_nan, self.x_reconstructed, mask_nan)
+        h_loss = h_loss_fn((x_nan, log_var), self.x_reconstructed, mask_nan)
         self.assertFalse(torch.isnan(h_loss).any(), "Loss should handle masked NaN in inputs")
 
         # Test infinity in inputs with proper masking
@@ -323,7 +310,7 @@ class TestGaussianLosses(unittest.TestCase):
         x_inf[0, 0] = float("inf")
         mask_inf = self.mask.clone()
         mask_inf[0, 0] = False  # Mask out the inf
-        h_loss = h_loss_fn(x_inf, self.x_reconstructed, mask_inf)
+        h_loss = h_loss_fn((x_inf, log_var), self.x_reconstructed, mask_inf)
         self.assertFalse(torch.isinf(h_loss).any(), "Loss should handle masked inf in inputs")
 
         # Test MultivariateGaussianLoss with NaNs and Infs

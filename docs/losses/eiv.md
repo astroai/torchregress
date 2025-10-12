@@ -297,6 +297,245 @@ odr_loss = tr.losses.create_eiv_loss(
    - For non-linear relationships, use OrthogonalDistanceRegressionLoss or FunctionalEIVLoss
    - Consider computational complexity when choosing between methods
 
+## Decision Guide: Which EIV Method?
+
+```
+┌─ Do you have measurement errors in X? ──────────────────┐
+│                                                          │
+│  Only errors in Y (traditional regression)?             │
+│  └─ No → Use standard regression losses (MSE, etc.)    │
+│                                                          │
+│  Errors in both X and Y?                                 │
+│  └─ Yes → Continue below                                 │
+│                                                          │
+│  Do you know error covariances precisely?                │
+│  ├─ Yes → Continue below                                 │
+│  └─ No → Start with FunctionalEIVLoss (robust)         │
+│                                                          │
+│  Do X and Y errors correlate?                            │
+│  ├─ Yes → StructuralEIVLoss (accounts for correlation) │
+│  └─ No → Continue below                                  │
+│                                                          │
+│  Is your model differentiable?                           │
+│  ├─ Yes → FunctionalEIVLoss (gradient-based)           │
+│  └─ No → EnsembleEIVLoss (sampling-based)              │
+│                                                          │
+│  Need classical ODR solution?                            │
+│  └─ Yes → OrthogonalDistanceRegressionLoss             │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+## Method Comparison
+
+| Method | Best For | Computational Cost | Requires Gradients | Handles Correlation |
+|--------|----------|-------------------|-------------------|-------------------|
+| **FunctionalEIVLoss** | General use, differentiable models | Medium | Yes | No |
+| **StructuralEIVLoss** | Correlated X-Y errors | Medium | Yes | Yes |
+| **OrthogonalDistanceRegressionLoss** | Classical ODR, iterative optimization | High | Yes | Yes |
+| **EnsembleEIVLoss** | Non-differentiable models, quick baseline | High (sampling) | No | No |
+
+## Complete Example: Calibration Problem
+
+```python
+import torch
+import torch.nn as nn
+from torchregress.losses import FunctionalEIVLoss, EnsembleEIVLoss
+import matplotlib.pyplot as plt
+
+# Scenario: Calibrating a sensor against a reference
+# Both sensor and reference have measurement errors
+
+# Generate true relationship: y_true = 2.0 * x_true + 1.0
+torch.manual_seed(42)
+n_samples = 200
+
+# True values
+x_true = torch.linspace(0, 10, n_samples).unsqueeze(1)
+y_true = 2.0 * x_true + 1.0
+
+# Add measurement noise to both X and Y
+sigma_x = 0.5  # Sensor noise std
+sigma_y = 0.3  # Reference noise std
+
+x_observed = x_true + sigma_x * torch.randn_like(x_true)
+y_observed = y_true + sigma_y * torch.randn_like(y_true)
+
+# Split data
+train_size = 150
+X_train = x_observed[:train_size]
+y_train = y_observed[:train_size]
+X_test = x_observed[train_size:]
+y_test = y_observed[train_size:]
+
+# Define calibration model
+class CalibrationModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(1, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+# Method 1: Standard regression (ignores X errors)
+print("=== Standard Regression (Baseline) ===")
+model_standard = CalibrationModel()
+optimizer_std = torch.optim.Adam(model_standard.parameters(), lr=0.01)
+mse_loss = nn.MSELoss()
+
+for epoch in range(100):
+    optimizer_std.zero_grad()
+    y_pred = model_standard(X_train)
+    loss = mse_loss(y_pred, y_train)
+    loss.backward()
+    optimizer_std.step()
+
+    if (epoch + 1) % 50 == 0:
+        print(f"Epoch {epoch+1}: Loss = {loss.item():.4f}")
+
+# Method 2: EIV regression (accounts for X errors)
+print("\n=== EIV Regression ===")
+model_eiv = CalibrationModel()
+optimizer_eiv = torch.optim.Adam(model_eiv.parameters(), lr=0.01)
+
+# Create EIV loss with known error variances
+eiv_loss = FunctionalEIVLoss(
+    model=model_eiv,
+    sigma_x=sigma_x,
+    sigma_y=sigma_y,
+    monte_carlo=False  # Use gradient-based estimation
+)
+
+for epoch in range(100):
+    optimizer_eiv.zero_grad()
+    # Note: In EIV, y_pred is actually x_observed
+    loss = eiv_loss(X_train, y_train)
+    loss.backward()
+    optimizer_eiv.step()
+
+    if (epoch + 1) % 50 == 0:
+        print(f"Epoch {epoch+1}: Loss = {loss.item():.4f}")
+
+# Evaluate both methods
+print("\n=== Evaluation on Test Set ===")
+
+model_standard.eval()
+model_eiv.eval()
+
+with torch.no_grad():
+    # Standard method
+    y_pred_std = model_standard(X_test)
+    mae_std = torch.abs(y_pred_std - y_test).mean()
+
+    # EIV method
+    y_pred_eiv = model_eiv(X_test)
+    mae_eiv = torch.abs(y_pred_eiv - y_test).mean()
+
+    print(f"Standard Regression MAE: {mae_std:.4f}")
+    print(f"EIV Regression MAE:      {mae_eiv:.4f}")
+    print(f"Improvement:             {(mae_std - mae_eiv)/mae_std * 100:.1f}%")
+
+# Visualize results
+plt.figure(figsize=(12, 4))
+
+plt.subplot(131)
+plt.scatter(x_observed[:train_size], y_observed[:train_size],
+           alpha=0.3, label='Observed (train)')
+plt.scatter(x_true[:train_size], y_true[:train_size],
+           alpha=0.3, marker='x', label='True values')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.title('Training Data with Errors')
+
+plt.subplot(132)
+x_plot = torch.linspace(0, 10, 100).unsqueeze(1)
+with torch.no_grad():
+    y_plot_std = model_standard(x_plot)
+    y_plot_eiv = model_eiv(x_plot)
+
+plt.plot(x_plot, y_plot_std, 'r-', label='Standard', linewidth=2)
+plt.plot(x_plot, y_plot_eiv, 'b-', label='EIV', linewidth=2)
+plt.plot(x_plot, 2.0 * x_plot + 1.0, 'k--', label='True', linewidth=2)
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.title('Fitted Models')
+
+plt.subplot(133)
+errors_std = torch.abs(y_pred_std - y_test).numpy()
+errors_eiv = torch.abs(y_pred_eiv - y_test).numpy()
+plt.hist(errors_std, bins=20, alpha=0.5, label='Standard', color='red')
+plt.hist(errors_eiv, bins=20, alpha=0.5, label='EIV', color='blue')
+plt.xlabel('Absolute Error')
+plt.ylabel('Frequency')
+plt.legend()
+plt.title('Error Distribution')
+
+plt.tight_layout()
+plt.savefig('eiv_comparison.png')
+print("\nPlot saved as eiv_comparison.png")
+```
+
+## When to Use EIV vs Standard Regression
+
+### Use EIV Methods When:
+
+✅ **Measurement errors in predictors**: X contains noise comparable to Y noise
+✅ **Calibration problems**: Comparing two imperfect measurement methods
+✅ **Scientific measurements**: Both variables measured with known/estimated uncertainties
+✅ **Ratio of X error to Y error > 0.2**: When $\sigma_X / \sigma_Y > 0.2$, EIV provides meaningful improvement
+
+### Use Standard Regression When:
+
+❌ **Negligible X errors**: Predictors measured very precisely ($\sigma_X / \sigma_Y < 0.1$)
+❌ **Unknown error structure**: Can't estimate or bound measurement errors
+❌ **Computational constraints**: EIV methods are 2-5× slower than standard losses
+❌ **Large sample sizes**: With N > 10,000, standard methods often sufficient
+
+## Common Pitfalls
+
+### ❌ Pitfall 1: Wrong Error Variance
+
+```python
+# Using arbitrary values
+eiv_loss = FunctionalEIVLoss(model, sigma_x=1.0, sigma_y=1.0)
+# → Results depend heavily on relative scales
+```
+
+**Solution**: Estimate errors from repeated measurements or domain knowledge. If unknown, tune as hyperparameters.
+
+### ❌ Pitfall 2: Ignoring Computational Cost
+
+```python
+# Using expensive EIV when not needed
+# X noise: 0.01, Y noise: 1.0 → ratio 0.01 (negligible)
+eiv_loss = FunctionalEIVLoss(model, sigma_x=0.01, sigma_y=1.0)
+# → 3× slower training with minimal benefit
+```
+
+**Solution**: Calculate error ratio first. If $\sigma_X / \sigma_Y < 0.1$, use standard regression.
+
+### ❌ Pitfall 3: Not Testing on Clean Data
+
+```python
+# Training with EIV, testing on noisy data only
+# → Can't separate model improvement from lucky noise cancellation
+```
+
+**Solution**: If possible, evaluate on independently measured "clean" reference data.
+
+## References
+
+- Fuller, W. A. (1987). "Measurement Error Models". Wiley.
+- Carroll, R. J., et al. (2006). "Measurement Error in Nonlinear Models". Chapman & Hall.
+- Cheng, C. L., & Van Ness, J. W. (1999). "Statistical Regression with Measurement Error". Arnold.
+- Boggs, P. T., & Rogers, J. E. (1990). "Orthogonal Distance Regression". NIST.
+
 3. **Computational Considerations**:
    - EIV methods are generally more computationally intensive than standard regression
    - For large datasets, consider mini-batch training with appropriate batch sizes

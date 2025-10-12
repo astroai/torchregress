@@ -1,5 +1,7 @@
 """
-Heteroscedastic regression network utilities.
+Gaussian regression network utilities for heteroscedastic models.
+
+This module provides models that predict both mean and variance.
 """
 
 from typing import Callable, List, Tuple
@@ -8,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from torchregress.losses.gaussian import HeteroscedasticGaussianLoss
+from torchregress.losses.gaussian import GaussianNLLLoss
 
 
 class DualHeadRegressionModel(nn.Module):
@@ -56,10 +58,12 @@ def create_dual_head_regression(
     log_var_init: float = 0.0,
 ) -> Tuple[nn.Module, nn.Module]:
     """
-    Convenience: returns DualHeadRegressionModel and HeteroscedasticGaussianLoss.
+    Convenience: returns DualHeadRegressionModel and GaussianNLLLoss.
+
+    The model outputs (mean, log_var) tuple for heteroscedastic regression.
     """
     model = DualHeadRegressionModel(input_dim, output_dim, hidden_sizes, activation, log_var_init)
 
-    # Use predicted log_var, so learnable_variance=False
-    loss_fn = HeteroscedasticGaussianLoss(learnable_variance=False)
+    # Model predicts variance, so no fixed_variance
+    loss_fn = GaussianNLLLoss()
     return model, loss_fn

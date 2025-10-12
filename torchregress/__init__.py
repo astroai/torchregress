@@ -9,7 +9,7 @@ estimation and robust regression techniques.
 __version__ = "0.1.0"
 
 # Import main submodules
-from . import algorithms, ensemble, losses, metrics, utils, wrappers
+from . import algorithms, ensemble, losses, metrics, models, utils, viz, wrappers
 from .algorithms import IRLS, iteratively_reweighted_least_squares
 
 # Export key components for easy access
@@ -37,6 +37,8 @@ __all__ = [
     "metrics",
     "algorithms",
     "ensemble",
+    "models",
+    "viz",
     "utils",
     "wrappers",
     "MaskedLoss",

@@ -45,7 +45,7 @@ from ..losses.base import (
     WeightedHuberLoss,
     WeightedL1Loss,
 )
-from ..losses.gaussian import HeteroscedasticGaussianLoss, MultivariateGaussianLoss
+from ..losses.gaussian import GaussianNLLLoss, MultivariateGaussianLoss
 from ..losses.robust import TukeyBiweightLoss
 from ..utils.irls_helpers import (
     buffer_data,
@@ -91,7 +91,7 @@ def _setup_irls(
         loss_fn = (
             MultivariateGaussianLoss()
             if covariance_matrices is not None
-            else HeteroscedasticGaussianLoss(n_features=y_true.shape[-1])
+            else GaussianNLLLoss(fixed_variance=1.0)
         )
     elif base_loss == "huber":
         loss_fn = WeightedHuberLoss(delta=delta)
@@ -175,10 +175,6 @@ def _perform_irls_iteration(
         scaled_residuals = residuals / (torch.sqrt(variance) + EPS)
         iter_weights = _weight_fn(scaled_residuals, **weight_params)
         precision = precision * iter_weights
-
-        if base_loss == "gaussian" and isinstance(loss_fn, HeteroscedasticGaussianLoss):
-            weighted_variance = (variance / (precision + EPS)).mean(dim=0)
-            loss_fn.log_variance_adjustment.data = 0.5 * torch.log(weighted_variance + EPS)
 
     return precision, loss_value, all_predictions
 
@@ -340,7 +336,7 @@ def calculate_loss(
     # Handle tuple output (mu, log_sigma)
     if isinstance(y_pred, tuple) and len(y_pred) == 2:
         mu, log_sigma = y_pred
-        if isinstance(loss_fn, HeteroscedasticGaussianLoss):
+        if isinstance(loss_fn, GaussianNLLLoss):
             return loss_fn(y_pred=(mu, log_sigma), target=y_true, mask=mask)
         else:
             # For other losses, just use the mean prediction
@@ -472,7 +468,7 @@ def IRLS(
     # --- Determine base loss type ---
     if base_loss is None:
         # Infer base loss type from loss_fn
-        if isinstance(loss_fn, (HeteroscedasticGaussianLoss, MultivariateGaussianLoss)):
+        if isinstance(loss_fn, (GaussianNLLLoss, MultivariateGaussianLoss)):
             base_loss = "gaussian"
         elif isinstance(loss_fn, WeightedHuberLoss):
             base_loss = "huber"

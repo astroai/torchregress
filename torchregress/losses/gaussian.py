@@ -1,13 +1,11 @@
 """
 Gaussian loss functions for regression tasks.
 
-This module provides specialized Gaussian-based loss functions
-beyond what's available in PyTorch, including:
-- Heteroscedastic Gaussian (diagonal covariance)
-- Multivariate Gaussian (full covariance)
+This module provides Gaussian-based negative log-likelihood loss functions:
+- GaussianNLLLoss: Diagonal covariance (independent features with learned variance)
+- MultivariateGaussianLoss: Full covariance (correlated features)
 
-For simple Gaussian losses (MSE), use WeightedMSELoss from base module instead.
-For standard variable variance Gaussian, use WeightedGaussianNLLLoss from base module.
+For fixed variance (homoscedastic), use WeightedMSELoss from base module instead.
 """
 
 import math
@@ -20,64 +18,57 @@ from torch.distributions import MultivariateNormal
 from .base import DistributionLoss
 
 
-class HeteroscedasticGaussianLoss(DistributionLoss):
+class GaussianNLLLoss(DistributionLoss):
     """
     Negative Log-Likelihood loss for diagonal Gaussian distributions.
 
     This loss models each output dimension with an independent Gaussian distribution
-    where the diagonal covariance matrix can be learned or fixed.
+    where the model predicts both mean and variance (heteroscedastic regression).
 
-    Note: For simple cases where the model directly outputs mean and variance,
-    consider using WeightedGaussianNLLLoss from the base module instead.
+    The model should output either:
+    - A tuple (mean, log_variance)
+    - A concatenated tensor [..., 2*n_features] containing [mean, log_var]
+    - Just mean (when using fixed_variance parameter)
 
     Args:
-        n_features: Number of output features (required when learnable_variance=True)
-        learnable_variance: Whether to use learnable variance parameters
-        fixed_variance: Fixed variance value when learnable_variance=False
-        min_variance: Minimum variance for numerical stability
-        eps: Small constant for numerical stability
-        reduction: 'none' | 'mean' | 'sum'
+        fixed_variance: Fixed variance value when model only predicts mean. Default: None
+        min_variance: Minimum variance for numerical stability. Default: 1e-6
+        eps: Small constant for numerical stability. Default: 1e-8
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
 
     Example:
-        >>> # With fixed variance
-        >>> loss_fn = HeteroscedasticGaussianLoss(fixed_variance=1.0, learnable_variance=False)
+        >>> # Model predicts (mean, log_variance) tuple
+        >>> loss_fn = GaussianNLLLoss()
+        >>> pred_mean = torch.tensor([[1.0, 2.0]])
+        >>> pred_logvar = torch.tensor([[-1.0, 0.0]])  # log(0.368), log(1.0)
+        >>> target = torch.tensor([[1.0, 3.0]])
+        >>> loss_fn((pred_mean, pred_logvar), target)
+        tensor(1.0979)
+
+        >>> # Model predicts only mean, use fixed variance
+        >>> loss_fn = GaussianNLLLoss(fixed_variance=0.5)
         >>> y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
         >>> target = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
         >>> loss_fn(y_pred, target)
-        tensor(1.4189)  # 0.5 * (log(2π) + log(1) + (error)²/1)
-
-        >>> # With predicted variance
-        >>> pred_mean = torch.tensor([[1.0, 2.0]])
-        >>> pred_logvar = torch.tensor([[-1.0, 0.0]])  # log(0.368), log(1.0)
-        >>> loss_fn = HeteroscedasticGaussianLoss(learnable_variance=False)
-        >>> loss_fn((pred_mean, pred_logvar), torch.tensor([[1.0, 3.0]]))
-        tensor(1.0979)  # Smaller error for first dim due to smaller variance
+        tensor(1.7689)
     """
 
     def __init__(
         self,
-        n_features: Optional[int] = None,
-        learnable_variance: bool = True,
-        fixed_variance: float = 1.0,
+        fixed_variance: Optional[float] = None,
         min_variance: float = 1e-6,
         eps: float = 1e-8,
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
-        self.n_features = n_features
         self.min_variance = min_variance
         self.eps = eps
-        self.learnable_variance = learnable_variance
         self.log_2pi = math.log(2 * math.pi)
 
-        if learnable_variance:
-            # Initialize learnable log-variance parameters
-            if n_features is None:
-                raise ValueError("n_features must be specified when learnable_variance=True")
-            self.log_variances = nn.Parameter(torch.zeros(n_features))
-        else:
-            # Use fixed variance value
+        if fixed_variance is not None:
             self.register_buffer("fixed_variance", torch.tensor(fixed_variance))
+        else:
+            self.fixed_variance = None
 
     def _extract_distribution_parameters(
         self, y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
@@ -87,37 +78,37 @@ class HeteroscedasticGaussianLoss(DistributionLoss):
 
         Args:
             y_pred: Model predictions, can be either:
-                   - Mean values (when learnable_variance=True)
                    - Tuple of (mean, log_var)
                    - Tensor with shape [..., 2*n_features] containing concatenated [mean, log_var]
+                   - Mean values only (when fixed_variance is set)
 
         Returns:
             tuple: (mean, variance)
         """
-        if self.learnable_variance:
-            # Model only predicts mean, use learned variance parameters
-            mean = y_pred
-            log_var = self.log_variances
-
-            # Broadcast log_var to match mean's shape
-            for _ in range(mean.dim() - log_var.dim()):
-                log_var = log_var.unsqueeze(0)
-
-            var = torch.exp(log_var).expand_as(mean).clamp(min=self.min_variance)
-        else:
-            # Model might predict both mean and log variance
-            if isinstance(y_pred, tuple) and len(y_pred) == 2:
-                mean, log_var = y_pred
-                var = torch.exp(log_var).clamp(min=self.min_variance)
-            elif y_pred.shape[-1] == 2 * (y_pred.shape[-1] // 2):
-                # Assume concatenated [mean, log_var]
+        if isinstance(y_pred, tuple) and len(y_pred) == 2:
+            # Model outputs (mean, log_var) tuple
+            mean, log_var = y_pred
+            var = torch.exp(log_var).clamp(min=self.min_variance)
+        elif isinstance(y_pred, torch.Tensor) and y_pred.shape[-1] % 2 == 0:
+            # Try to interpret as concatenated [mean, log_var]
+            # Only do this if fixed_variance is not set
+            if self.fixed_variance is None:
                 n_features = y_pred.shape[-1] // 2
                 mean, log_var = y_pred[..., :n_features], y_pred[..., n_features:]
                 var = torch.exp(log_var).clamp(min=self.min_variance)
             else:
-                # Just mean predictions, use fixed variance
+                # Just mean predictions with fixed variance
                 mean = y_pred
                 var = self.fixed_variance * torch.ones_like(mean)
+        else:
+            # Just mean predictions, must use fixed variance
+            if self.fixed_variance is None:
+                raise ValueError(
+                    "Model appears to predict only mean values, but fixed_variance is not set. "
+                    "Either set fixed_variance parameter or ensure model outputs (mean, log_var)."
+                )
+            mean = y_pred
+            var = self.fixed_variance * torch.ones_like(mean)
 
         return mean, var
 
@@ -168,10 +159,7 @@ class HeteroscedasticGaussianLoss(DistributionLoss):
         # Validate inputs
         if isinstance(y_pred, tuple):
             self._validate_inputs(y_pred[0], target, mask)
-        elif self.learnable_variance:
-            # When learnable_variance=True, y_pred is just the mean
-            self._validate_inputs(y_pred, target, mask)
-        # When learnable_variance=False and y_pred is concatenated, skip validation
+        # For tensor inputs, validation is skipped when concatenated [mean, log_var]
         # as y_pred will have shape [..., 2*n_features]
 
         # Calculate NLL
@@ -391,8 +379,8 @@ class MultivariateGaussianLoss(DistributionLoss):
 def create_gaussian_nll(
     n_features: int,
     covariance_type: str = "diagonal",
-    learnable_variance: bool = True,
-    fixed_variance: float = 1.0,
+    model_predicts_variance: bool = True,
+    fixed_variance: Optional[float] = None,
     jitter: float = 1e-6,
     reduction: str = "mean",
     **kwargs,
@@ -403,8 +391,8 @@ def create_gaussian_nll(
     Args:
         n_features: Number of features
         covariance_type: One of 'diagonal', 'full'
-        learnable_variance: Whether to learn variance parameters
-        fixed_variance: Fixed variance value when not learning
+        model_predicts_variance: Whether model predicts variance (default: True)
+        fixed_variance: Fixed variance value when model doesn't predict variance
         jitter: Regularization strength for numerical stability
         reduction: 'none' | 'mean' | 'sum'
         **kwargs: Additional arguments for specific loss types
@@ -413,37 +401,33 @@ def create_gaussian_nll(
         An appropriate Gaussian NLL loss object
 
     Example:
-        >>> # Create diagonal Gaussian NLL with fixed variance
-        >>> loss_fn = create_gaussian_nll(n_features=3, covariance_type='diagonal',
-        ...                             learnable_variance=False, fixed_variance=0.5)
-        >>> # Create full-covariance Gaussian NLL with learnable adjustment
-        >>> loss_fn = create_gaussian_nll(n_features=3, covariance_type='full',
-        ...                             learnable_variance=True, jitter=1e-5)
+        >>> # Model predicts (mean, log_var)
+        >>> loss_fn = create_gaussian_nll(n_features=3, covariance_type='diagonal')
+
+        >>> # Model predicts only mean with fixed variance
+        >>> loss_fn = create_gaussian_nll(n_features=3, model_predicts_variance=False,
+        ...                                fixed_variance=0.5)
+
+        >>> # Full covariance case
+        >>> loss_fn = create_gaussian_nll(n_features=3, covariance_type='full')
     """
     if covariance_type == "diagonal":
-        if not learnable_variance and fixed_variance == 1.0:
+        if not model_predicts_variance and fixed_variance == 1.0:
             # If using fixed unit variance, just use WeightedMSELoss
             from .base import WeightedMSELoss
 
             return WeightedMSELoss(reduction=reduction)
-        elif not learnable_variance:
-            # Simple diagonal case with fixed variance - use standard PyTorch
-            from .base import WeightedGaussianNLLLoss
-
-            return WeightedGaussianNLLLoss(reduction=reduction)
         else:
-            # Complex case with learnable variance
-            return HeteroscedasticGaussianLoss(
-                n_features=n_features,
-                learnable_variance=learnable_variance,
-                fixed_variance=fixed_variance,
+            # Use GaussianNLLLoss for all other diagonal cases
+            return GaussianNLLLoss(
+                fixed_variance=fixed_variance if not model_predicts_variance else None,
                 reduction=reduction,
                 **kwargs,
             )
     elif covariance_type == "full":
         return MultivariateGaussianLoss(
             n_features=n_features,
-            learnable_adjustment=learnable_variance,
+            learnable_adjustment=not model_predicts_variance,
             jitter=jitter,
             reduction=reduction,
             **kwargs,
