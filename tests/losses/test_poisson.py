@@ -65,7 +65,6 @@ class TestPoissonLosses(unittest.TestCase):
         det_loss_fn = PoissonDevianceLoss(log_input=False).to(self.device)
         det_loss = det_loss_fn(self.det_y_pred, self.det_y_true, self.det_mask)
         # Poisson deviance has term: (pred - true + true * (log(true) - log(pred)))
-        import math
 
         expected_value = (
             (2 - 2 + 2 * (math.log(2) - math.log(2)))

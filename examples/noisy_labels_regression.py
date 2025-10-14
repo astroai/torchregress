@@ -18,7 +18,6 @@ from torch.utils.data import DataLoader, Dataset
 
 from torchregress.losses import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
 
-
 # ============================================================================
 # Synthetic Dataset with Noisy Labels
 # ============================================================================
@@ -129,7 +128,7 @@ def train_noise_adaptive(dataset, n_epochs=50):
     sample_weights = loss_fn.get_sample_weights().detach().cpu().numpy()
     noisy_mask = np.array([i in dataset.noisy_indices for i in range(len(dataset))])
 
-    print(f"\nWeight statistics:")
+    print("\nWeight statistics:")
     print(f"  Clean samples: mean={sample_weights[~noisy_mask].mean():.3f}")
     print(f"  Noisy samples: mean={sample_weights[noisy_mask].mean():.3f}")
     print(

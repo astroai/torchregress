@@ -6,7 +6,6 @@ This module provides models that predict both mean and variance.
 
 from typing import Callable, List, Tuple
 
-import torch
 import torch.nn as nn
 from torch import Tensor
 

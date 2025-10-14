@@ -16,18 +16,18 @@ Use cases:
 - Any scenario where targets have complex dependencies
 """
 
-import torch
-import torch.nn as nn
 import matplotlib.pyplot as plt
 import numpy as np
-from torch.utils.data import TensorDataset, DataLoader
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.losses.nflows import create_flow_model, NormalizingFlowLoss
-
+from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
 
 # ============================================================================
 # 1. Generate Synthetic Multi-Target Data with Complex Distribution
 # ============================================================================
+
 
 def generate_complex_multitarget_data(n_samples=2000, noise_level=0.1):
     """
@@ -54,11 +54,10 @@ def generate_complex_multitarget_data(n_samples=2000, noise_level=0.1):
 
     # Add multimodal noise in middle region
     multimodal_mask = (x.abs() < 1.5).float()
-    mode_shift = torch.where(
-        torch.rand(n_samples, 1) < 0.3,
-        torch.tensor(0.5),
-        torch.tensor(-0.5)
-    ) * multimodal_mask
+    mode_shift = (
+        torch.where(torch.rand(n_samples, 1) < 0.3, torch.tensor(0.5), torch.tensor(-0.5))
+        * multimodal_mask
+    )
 
     # Combine targets with noise
     y1_noisy = y1 + torch.randn_like(y1) * noise_scale + mode_shift * 0.3
@@ -73,6 +72,7 @@ def generate_complex_multitarget_data(n_samples=2000, noise_level=0.1):
 # ============================================================================
 # 2. Build Model with Normalizing Flow
 # ============================================================================
+
 
 class MultiTargetFlowModel(nn.Module):
     """
@@ -89,11 +89,7 @@ class MultiTargetFlowModel(nn.Module):
         layers = []
         prev_dim = input_dim
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(0.1)
-            ])
+            layers.extend([nn.Linear(prev_dim, hidden_dim), nn.ReLU(), nn.Dropout(0.1)])
             prev_dim = hidden_dim
 
         # Final layer outputs context for flow
@@ -107,11 +103,7 @@ class MultiTargetFlowModel(nn.Module):
 
 
 def create_multitarget_flow_model(
-    input_dim=1,
-    n_targets=2,
-    context_dim=16,
-    flow_type='nsf',
-    n_transforms=5
+    input_dim=1, n_targets=2, context_dim=16, flow_type="nsf", n_transforms=5
 ):
     """
     Create a complete model for multi-target distributional regression.
@@ -130,9 +122,7 @@ def create_multitarget_flow_model(
     """
     # Create the model that produces context
     model = MultiTargetFlowModel(
-        input_dim=input_dim,
-        context_dim=context_dim,
-        hidden_dims=[128, 64]
+        input_dim=input_dim, context_dim=context_dim, hidden_dims=[128, 64]
     )
 
     # Create conditional normalizing flow
@@ -143,11 +133,11 @@ def create_multitarget_flow_model(
         flow_type=flow_type,
         n_transforms=n_transforms,
         hidden_features=64,
-        n_hidden_layers=2
+        n_hidden_layers=2,
     )
 
     # Create loss function
-    loss_fn = NormalizingFlowLoss(flow=flow, reduction='mean')
+    loss_fn = NormalizingFlowLoss(flow=flow, reduction="mean")
 
     return model, flow, loss_fn
 
@@ -156,6 +146,7 @@ def create_multitarget_flow_model(
 # 3. Training
 # ============================================================================
 
+
 def train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3):
     """
     Train the model and flow jointly.
@@ -163,13 +154,10 @@ def train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3):
     Both model parameters and flow parameters are optimized together.
     """
     # Combine parameters from both model and flow
-    optimizer = torch.optim.Adam(
-        list(model.parameters()) + list(flow.parameters()),
-        lr=lr
-    )
+    optimizer = torch.optim.Adam(list(model.parameters()) + list(flow.parameters()), lr=lr)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=10
+        optimizer, mode="min", factor=0.5, patience=10
     )
 
     losses = []
@@ -208,6 +196,7 @@ def train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3):
 # 4. Prediction and Sampling
 # ============================================================================
 
+
 def predict_with_flow(model, flow, loss_fn, x_test, n_samples=100):
     """
     Generate predictions from the learned distribution.
@@ -241,7 +230,7 @@ def predict_with_flow(model, flow, loss_fn, x_test, n_samples=100):
 
         # Compute statistics
         mean = samples.mean(dim=1)  # [n_test, 2]
-        std = samples.std(dim=1)    # [n_test, 2]
+        std = samples.std(dim=1)  # [n_test, 2]
 
     return samples, mean, std
 
@@ -250,62 +239,76 @@ def predict_with_flow(model, flow, loss_fn, x_test, n_samples=100):
 # 5. Visualization
 # ============================================================================
 
+
 def visualize_predictions(x_train, y_train, x_test, y_test, samples, mean, std):
     """Visualize multi-target predictions with uncertainty."""
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
     # Plot each target dimension
-    for i, target_name in enumerate(['Target 1', 'Target 2']):
+    for i, target_name in enumerate(["Target 1", "Target 2"]):
         ax = axes[i, 0]
 
         # Training data
-        ax.scatter(x_train.numpy(), y_train[:, i].numpy(),
-                  alpha=0.3, s=10, label='Training data', color='gray')
-
-        # Test data
-        ax.scatter(x_test.numpy(), y_test[:, i].numpy(),
-                  alpha=0.5, s=20, label='True test data', color='blue')
-
-        # Predictions with uncertainty
-        ax.plot(x_test.numpy(), mean[:, i].numpy(),
-               'r-', linewidth=2, label='Mean prediction')
-        ax.fill_between(
-            x_test.numpy().flatten(),
-            (mean[:, i] - 2*std[:, i]).numpy().flatten(),
-            (mean[:, i] + 2*std[:, i]).numpy().flatten(),
-            alpha=0.3, color='red', label='±2 std'
+        ax.scatter(
+            x_train.numpy(),
+            y_train[:, i].numpy(),
+            alpha=0.3,
+            s=10,
+            label="Training data",
+            color="gray",
         )
 
-        ax.set_xlabel('Input x')
+        # Test data
+        ax.scatter(
+            x_test.numpy(),
+            y_test[:, i].numpy(),
+            alpha=0.5,
+            s=20,
+            label="True test data",
+            color="blue",
+        )
+
+        # Predictions with uncertainty
+        ax.plot(x_test.numpy(), mean[:, i].numpy(), "r-", linewidth=2, label="Mean prediction")
+        ax.fill_between(
+            x_test.numpy().flatten(),
+            (mean[:, i] - 2 * std[:, i]).numpy().flatten(),
+            (mean[:, i] + 2 * std[:, i]).numpy().flatten(),
+            alpha=0.3,
+            color="red",
+            label="±2 std",
+        )
+
+        ax.set_xlabel("Input x")
         ax.set_ylabel(target_name)
         ax.legend()
         ax.grid(True, alpha=0.3)
-        ax.set_title(f'{target_name} Predictions')
+        ax.set_title(f"{target_name} Predictions")
 
     # 2D scatter: True vs Predicted
     ax = axes[0, 1]
     ax.scatter(y_test[:, 0].numpy(), mean[:, 0].numpy(), alpha=0.5)
     lim = [y_test[:, 0].min().item(), y_test[:, 0].max().item()]
-    ax.plot(lim, lim, 'r--', label='Perfect prediction')
-    ax.set_xlabel('True Target 1')
-    ax.set_ylabel('Predicted Target 1')
+    ax.plot(lim, lim, "r--", label="Perfect prediction")
+    ax.set_xlabel("True Target 1")
+    ax.set_ylabel("Predicted Target 1")
     ax.legend()
     ax.grid(True, alpha=0.3)
-    ax.set_title('Target 1: True vs Predicted')
+    ax.set_title("Target 1: True vs Predicted")
 
     ax = axes[1, 1]
     ax.scatter(y_test[:, 1].numpy(), mean[:, 1].numpy(), alpha=0.5)
     lim = [y_test[:, 1].min().item(), y_test[:, 1].max().item()]
-    ax.plot(lim, lim, 'r--', label='Perfect prediction')
-    ax.set_xlabel('True Target 2')
-    ax.set_ylabel('Predicted Target 2')
+    ax.plot(lim, lim, "r--", label="Perfect prediction")
+    ax.set_xlabel("True Target 2")
+    ax.set_ylabel("Predicted Target 2")
     ax.legend()
     ax.grid(True, alpha=0.3)
-    ax.set_title('Target 2: True vs Predicted')
+    ax.set_title("Target 2: True vs Predicted")
 
     plt.tight_layout()
-    plt.savefig('normalizing_flows_multitarget_predictions.png', dpi=150)
+    plt.savefig("normalizing_flows_multitarget_predictions.png", dpi=150)
     print("Saved predictions plot to 'normalizing_flows_multitarget_predictions.png'")
 
     # Joint distribution visualization
@@ -321,31 +324,44 @@ def visualize_predictions(x_train, y_train, x_test, y_test, samples, mean, std):
         input_samples = samples[test_idx].numpy()  # [n_samples, 2]
 
         # 2D scatter of samples
-        ax.scatter(input_samples[:, 0], input_samples[:, 1],
-                  alpha=0.3, s=10, label='Samples')
+        ax.scatter(input_samples[:, 0], input_samples[:, 1], alpha=0.3, s=10, label="Samples")
 
         # True point
-        ax.scatter(y_test[test_idx, 0].numpy(), y_test[test_idx, 1].numpy(),
-                  color='red', s=100, marker='x', linewidths=3, label='True')
+        ax.scatter(
+            y_test[test_idx, 0].numpy(),
+            y_test[test_idx, 1].numpy(),
+            color="red",
+            s=100,
+            marker="x",
+            linewidths=3,
+            label="True",
+        )
 
         # Mean prediction
-        ax.scatter(mean[test_idx, 0].numpy(), mean[test_idx, 1].numpy(),
-                  color='green', s=100, marker='o', label='Mean')
+        ax.scatter(
+            mean[test_idx, 0].numpy(),
+            mean[test_idx, 1].numpy(),
+            color="green",
+            s=100,
+            marker="o",
+            label="Mean",
+        )
 
-        ax.set_xlabel('Target 1')
-        ax.set_ylabel('Target 2')
+        ax.set_xlabel("Target 1")
+        ax.set_ylabel("Target 2")
         ax.legend()
         ax.grid(True, alpha=0.3)
-        ax.set_title(f'Joint Distribution at x={x_test[test_idx].item():.2f}')
+        ax.set_title(f"Joint Distribution at x={x_test[test_idx].item():.2f}")
 
     plt.tight_layout()
-    plt.savefig('normalizing_flows_joint_distributions.png', dpi=150)
+    plt.savefig("normalizing_flows_joint_distributions.png", dpi=150)
     print("Saved joint distributions plot to 'normalizing_flows_joint_distributions.png'")
 
 
 # ============================================================================
 # 6. Main Execution
 # ============================================================================
+
 
 def main():
     """Run the complete multi-target normalizing flow example."""
@@ -378,8 +394,8 @@ def main():
         input_dim=1,
         n_targets=2,
         context_dim=16,
-        flow_type='nsf',  # Neural Spline Flow - most flexible
-        n_transforms=5
+        flow_type="nsf",  # Neural Spline Flow - most flexible
+        n_transforms=5,
     )
 
     n_model_params = sum(p.numel() for p in model.parameters())
@@ -391,24 +407,15 @@ def main():
     # 3. Train
     print("\n3. Training model and flow jointly...")
     print("   (Both model and flow parameters are optimized together)")
-    losses = train_flow_model(
-        model, flow, loss_fn,
-        train_loader,
-        n_epochs=100,
-        lr=1e-3
-    )
+    losses = train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3)
 
     # 4. Evaluate
     print("\n4. Generating predictions on test set...")
-    samples, mean, std = predict_with_flow(
-        model, flow, loss_fn,
-        x_test,
-        n_samples=200
-    )
+    samples, mean, std = predict_with_flow(model, flow, loss_fn, x_test, n_samples=200)
 
     # Compute metrics
-    mse_target1 = ((mean[:, 0] - y_test[:, 0])**2).mean().item()
-    mse_target2 = ((mean[:, 1] - y_test[:, 1])**2).mean().item()
+    mse_target1 = ((mean[:, 0] - y_test[:, 0]) ** 2).mean().item()
+    mse_target2 = ((mean[:, 1] - y_test[:, 1]) ** 2).mean().item()
 
     print(f"\n   Test MSE (Target 1): {mse_target1:.4f}")
     print(f"   Test MSE (Target 2): {mse_target2:.4f}")

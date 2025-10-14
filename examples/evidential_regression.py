@@ -23,7 +23,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import EvidentialRegressionLoss
 
-
 # ============================================================================
 # Evidential Model
 # ============================================================================
@@ -428,10 +427,10 @@ def main():
     # Create dataset
     x_train, y_train, x_test, y_test_clean = create_dataset_with_gaps(n_samples=500)
 
-    print(f"\nDataset:")
+    print("\nDataset:")
     print(f"  Training samples: {len(x_train)}")
     print(f"  Test samples: {len(x_test)}")
-    print(f"  Gap region: [-0.2, 0.2] (no training data)")
+    print("  Gap region: [-0.2, 0.2] (no training data)")
 
     # 1. Train and evaluate main model
     model, loss_fn = train_evidential_model(x_train, y_train, n_epochs=500, coeff_nig=0.01)

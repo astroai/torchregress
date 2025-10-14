@@ -14,7 +14,7 @@ Warning:
     calibration validation when using these losses. See documentation for details.
 """
 
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import numpy as np
 import torch

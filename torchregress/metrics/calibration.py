@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs, create_metric_result
+from torchregress.metrics.utils import convert_to_tensor, create_metric_result, validate_inputs
 
 
 def expected_calibration_error(

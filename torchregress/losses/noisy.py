@@ -11,7 +11,7 @@ References:
     - Chen et al. "Understanding and Utilizing Deep Neural Networks Trained with Noisy Labels" (ICML 2019)
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn

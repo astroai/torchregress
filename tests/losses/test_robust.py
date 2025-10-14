@@ -1,7 +1,8 @@
 import pytest
 import torch
 
-from torchregress.losses.base import WeightedHuberLoss as HuberLoss, WeightedL1Loss as L1Loss
+from torchregress.losses.base import WeightedHuberLoss as HuberLoss
+from torchregress.losses.base import WeightedL1Loss as L1Loss
 from torchregress.losses.robust import (
     CauchyLoss,
     LogCoshLoss,

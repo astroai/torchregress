@@ -5,7 +5,6 @@ import torch
 
 from torchregress.losses.base import (
     WeightedLossWrapper,
-    WeightedMSELoss,
 )
 from torchregress.losses.gaussian import (
     GaussianNLLLoss,

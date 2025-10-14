@@ -11,8 +11,8 @@ from torch.distributions import Distribution
 from torchregress.metrics.utils import (
     apply_reduction,
     convert_to_tensor,
-    validate_inputs,
     create_metric_result,
+    validate_inputs,
 )
 from torchregress.utils.histogram import histogram_bins
 

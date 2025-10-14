@@ -11,7 +11,7 @@ For standard Poisson Negative Log-Likelihood, use WeightedPoissonNLLLoss
 from the base module instead.
 """
 
-from typing import Any, List, Optional, Union
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn

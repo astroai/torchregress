@@ -20,6 +20,7 @@ from ..utils.tensor_ops import (
     prepare_cross_covariance,
     prepare_model_input_for_gradients,
 )
+from ..utils.validation import validate_weights
 from .base import RegressionLoss
 
 

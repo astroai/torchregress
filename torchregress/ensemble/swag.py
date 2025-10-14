@@ -11,7 +11,7 @@ References:
       of Generalization" (NeurIPS 2020)
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import torch
 import torch.nn as nn

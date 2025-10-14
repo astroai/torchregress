@@ -29,9 +29,13 @@ from .conformal import (
     ConformalLoss,
     MultiDimensionalConformalLoss,
 )
-
-
 from .deepar import DeepARLoss
+
+# Evidential regression
+from .evidential import EvidentialRegressionLoss, create_evidential_loss
+
+# Expectile losses
+from .expectile import AsymmetricLeastSquaresLoss, ExpectileLoss, MultiExpectileLoss
 
 # Gaussian losses
 from .gaussian import (
@@ -39,6 +43,18 @@ from .gaussian import (
     MultivariateGaussianLoss,
     create_gaussian_nll,
 )
+
+# Imbalanced regression losses
+from .imbalanced import DensityWeightedLoss, LDSLoss
+
+# Mixture Density Networks
+from .mdn import MixtureDensityLoss, create_mdn_loss
+
+# Normalizing flows
+from .nflows import NormalizingFlowLoss, create_flow_loss, create_flow_model
+
+# Noisy label losses
+from .noisy import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
 
 # Poisson losses
 from .poisson import (
@@ -57,6 +73,9 @@ from .poisson_gaussian import (
     poisson_gaussian_likelihood_ratio_loss,
     poisson_gaussian_mixture_loss,
 )
+
+# Quantile losses
+from .quantile import MultiQuantileLoss, QuantileLoss
 
 # Robust losses
 from .robust import (
@@ -83,29 +102,8 @@ from .transform import (
     SqrtTransformLoss,
 )
 
-# Noisy label losses
-from .noisy import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
-
-# Imbalanced regression losses
-from .imbalanced import DensityWeightedLoss, LDSLoss
-
-# Evidential regression
-from .evidential import EvidentialRegressionLoss, create_evidential_loss
-
-# Expectile losses
-from .expectile import ExpectileLoss, MultiExpectileLoss, AsymmetricLeastSquaresLoss
-
-# Quantile losses
-from .quantile import QuantileLoss, MultiQuantileLoss
-
 # Tweedie losses
-from .tweedie import TweedieLoss, GammaLoss, InverseGaussianLoss, CompoundPoissonLoss
-
-# Normalizing flows
-from .nflows import NormalizingFlowLoss, create_flow_model, create_flow_loss
-
-# Mixture Density Networks
-from .mdn import MixtureDensityLoss, create_mdn_loss
+from .tweedie import CompoundPoissonLoss, GammaLoss, InverseGaussianLoss, TweedieLoss
 
 # Convenience aliases (match PyTorch/common naming conventions)
 MSELoss = WeightedMSELoss

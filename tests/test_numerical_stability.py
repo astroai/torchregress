@@ -8,9 +8,17 @@ from torchregress.losses import (
     PseudoHuberLoss,
     QuantileLoss,
     TweedieLoss,
+)
+from torchregress.losses import (
     WeightedHuberLoss as HuberLoss,
+)
+from torchregress.losses import (
     WeightedL1Loss as MAELoss,
+)
+from torchregress.losses import (
     WeightedMSELoss as MSELoss,
+)
+from torchregress.losses import (
     WeightedPoissonNLLLoss as PoissonLoss,
 )
 

@@ -59,7 +59,7 @@ def demo_basic_conformal() -> None:
     y_pred_test = y_test + 0.1 * torch.randn_like(y_test)
 
     # Create conformal loss
-    loss_fn = ConformalLoss(method='split', alpha=0.1)
+    loss_fn = ConformalLoss(method="split", alpha=0.1)
 
     # Train with the loss
     train_loss = loss_fn(y_pred_train, y_train)
@@ -101,7 +101,7 @@ def demo_conformalized_quantile() -> None:
     y_pred_test = torch.cat([y_test - 0.5, y_test + 0.5], dim=1)
 
     # Create conformalized quantile loss
-    loss_fn = ConformalLoss(method='cqr', alpha=0.1)
+    loss_fn = ConformalLoss(method="cqr", alpha=0.1)
 
     # Train with the loss
     train_loss = loss_fn(y_pred_train, y_train)

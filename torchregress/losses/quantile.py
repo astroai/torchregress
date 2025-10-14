@@ -9,7 +9,7 @@ These losses support:
 - Properly ordered quantiles with crossover penalties
 """
 
-from typing import List, Optional, Union, Any, cast
+from typing import Any, List, Optional, Union, cast
 
 import torch
 import torch.nn as nn

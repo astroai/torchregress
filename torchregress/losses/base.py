@@ -378,8 +378,6 @@ WeightedNLLLoss = partial(WeightedLossWrapper, nn.NLLLoss)
 WeightedKLDivLoss = partial(WeightedLossWrapper, nn.KLDivLoss)
 
 
-
-
 # Backward compatibility aliases with deprecation warnings
 import warnings
 

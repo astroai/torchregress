@@ -12,7 +12,7 @@ from .advanced import (
 from .base import BaseEnsembleModel
 from .layers import BatchEnsembleLinear
 from .models import DeepEnsemble, HeteroscedasticBatchEnsembleModel, HeteroscedasticEnsembleModel
-from .swag import MultiSWAG, SWAG
+from .swag import SWAG, MultiSWAG
 
 __all__ = [
     "BaseEnsembleModel",

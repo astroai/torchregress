@@ -8,7 +8,6 @@ Uses the zuko package for efficient implementation of various flows.
 
 from typing import Optional
 
-import torch
 from torch import Tensor
 from torch.nn import Module
 
@@ -91,9 +90,7 @@ class NormalizingFlowLoss(DistributionLoss):
         super().__init__(reduction=reduction)
 
         if not isinstance(flow, Module):
-            raise TypeError(
-                f"flow must be a torch.nn.Module (zuko Flow), got {type(flow)}"
-            )
+            raise TypeError(f"flow must be a torch.nn.Module (zuko Flow), got {type(flow)}")
 
         self.flow = flow
 
@@ -103,12 +100,10 @@ class NormalizingFlowLoss(DistributionLoss):
             base_dist = flow.base()
             self.n_features = base_dist.event_shape[0] if len(base_dist.event_shape) > 0 else 1
         except Exception as e:
-            raise ValueError(
-                f"Could not extract feature dimension from flow: {e}"
-            )
+            raise ValueError(f"Could not extract feature dimension from flow: {e}")
 
         # Try to get context dimension - check if it was added by create_flow_model
-        self.context_dim = getattr(flow, 'context', None)  # May be None if not set
+        self.context_dim = getattr(flow, "context", None)  # May be None if not set
 
     def _extract_distribution_parameters(self, y_pred: Tensor) -> Tensor:
         """
@@ -256,7 +251,7 @@ def create_flow_model(
     n_transforms: int = 3,
     hidden_features: int = 64,
     n_hidden_layers: int = 2,
-    **kwargs
+    **kwargs,
 ) -> Flow:
     """
     Factory function to create a conditional normalizing flow model.
@@ -366,7 +361,7 @@ def create_flow_loss(
     hidden_features: int = 64,
     n_hidden_layers: int = 2,
     reduction: str = "mean",
-    **kwargs
+    **kwargs,
 ) -> NormalizingFlowLoss:
     """
     Factory function to create a normalizing flow loss with built-in flow.
@@ -412,7 +407,7 @@ def create_flow_loss(
         n_transforms=n_transforms,
         hidden_features=hidden_features,
         n_hidden_layers=n_hidden_layers,
-        **kwargs
+        **kwargs,
     )
 
     # Create and return the loss

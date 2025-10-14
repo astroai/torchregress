@@ -14,11 +14,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.isotonic import IsotonicRegression
 from torch.utils.data import DataLoader, Dataset
 
 from torchregress.losses import DensityWeightedLoss, LDSLoss
-
 
 # ============================================================================
 # Imbalanced Dataset

@@ -265,7 +265,9 @@ def create_mdn_model(
     hidden_sizes, activation = _get_defaults(hidden_sizes, activation)
 
     # Build MLP backbone (no dropout/batch_norm for MDN by default)
-    layers = _build_mlp_backbone(in_features, hidden_sizes, activation, dropout=0.0, batch_norm=False)
+    layers = _build_mlp_backbone(
+        in_features, hidden_sizes, activation, dropout=0.0, batch_norm=False
+    )
 
     # Create output layer for MDN
     # For diagonal covariance: n_components + 2*n_components*n_features
@@ -411,7 +413,7 @@ def create_loss_from_config(config: Dict[str, Any]) -> MaskedLoss:
         loss_fn = WeightedHuberLoss(**config)
 
     elif loss_type == "gaussian" or loss_type == "gaussiannll":
-        loss_fn = DiagonalGaussianNLL(**config)
+        loss_fn = GaussianNLLLoss(**config)
 
     elif loss_type == "quantile" or loss_type == "pinball":
         loss_fn = QuantileLoss(**config)

@@ -113,7 +113,9 @@ def _setup_irls(
             _weight_fn = power_weights
             weight_params = {"a": 1.0, "b": 2.0, **weight_params}
         else:
-            raise ValueError(f"Invalid weight_fn: {weight_fn}. Must be 'huber', 'tukey', or 'power'.")
+            raise ValueError(
+                f"Invalid weight_fn: {weight_fn}. Must be 'huber', 'tukey', or 'power'."
+            )
     elif callable(weight_fn):
         _weight_fn = weight_fn
     else:

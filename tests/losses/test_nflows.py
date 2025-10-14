@@ -2,14 +2,15 @@
 Tests for the normalizing flow loss module with conditional flows.
 """
 
-import torch
-import pytest
 from unittest.mock import Mock
+
+import pytest
+import torch
 
 from torchregress.losses.nflows import (
     NormalizingFlowLoss,
-    create_flow_model,
     create_flow_loss,
+    create_flow_model,
 )
 
 
@@ -23,7 +24,7 @@ def simple_conditional_flow():
         flow_type="nsf",
         n_transforms=2,
         hidden_features=16,
-        n_hidden_layers=1
+        n_hidden_layers=1,
     )
 
 
@@ -36,7 +37,7 @@ def simple_unconditional_flow():
         flow_type="nsf",
         n_transforms=2,
         hidden_features=16,
-        n_hidden_layers=1
+        n_hidden_layers=1,
     )
 
 
@@ -69,11 +70,7 @@ def test_create_flow_model_conditional():
     """Test creating conditional flow models."""
     for flow_type in ["realnvp", "maf", "nsf"]:
         flow = create_flow_model(
-            n_features=3,
-            context_dim=10,
-            flow_type=flow_type,
-            n_transforms=2,
-            hidden_features=32
+            n_features=3, context_dim=10, flow_type=flow_type, n_transforms=2, hidden_features=32
         )
         assert flow.features == 3
         assert flow.context == 10
@@ -84,11 +81,7 @@ def test_create_flow_model_conditional():
 
 def test_create_flow_model_unconditional():
     """Test creating unconditional flow models."""
-    flow = create_flow_model(
-        n_features=2,
-        context_dim=0,
-        flow_type="nsf"
-    )
+    flow = create_flow_model(n_features=2, context_dim=0, flow_type="nsf")
     assert flow.features == 2
     assert flow.context == 0
 
@@ -153,18 +146,20 @@ def test_forward_with_mask(simple_conditional_flow, mock_context, mock_target):
     loss_fn = NormalizingFlowLoss(flow=simple_conditional_flow)
 
     # Create mask that masks out some samples
-    mask = torch.tensor([
-        [True, True],
-        [False, False],
-        [True, True],
-        [True, True],
-        [False, False],
-        [True, True],
-        [True, True],
-        [True, True],
-        [True, True],
-        [True, True]
-    ])
+    mask = torch.tensor(
+        [
+            [True, True],
+            [False, False],
+            [True, True],
+            [True, True],
+            [False, False],
+            [True, True],
+            [True, True],
+            [True, True],
+            [True, True],
+            [True, True],
+        ]
+    )
 
     loss = loss_fn(mock_context, mock_target, mask=mask)
 
@@ -256,7 +251,9 @@ def test_gradient_flow_end_to_end():
     """Test end-to-end gradient flow through model -> flow."""
     # Create a simple model that outputs context
     model = torch.nn.Linear(3, 5)
-    flow = create_flow_model(n_features=2, context_dim=5, flow_type="nsf", n_transforms=1, hidden_features=8)
+    flow = create_flow_model(
+        n_features=2, context_dim=5, flow_type="nsf", n_transforms=1, hidden_features=8
+    )
     loss_fn = NormalizingFlowLoss(flow=flow)
 
     # Create input and target
@@ -287,7 +284,7 @@ def test_create_flow_loss():
         flow_type="nsf",
         n_transforms=3,
         hidden_features=64,
-        reduction="sum"
+        reduction="sum",
     )
 
     assert isinstance(loss_fn, NormalizingFlowLoss)
@@ -349,12 +346,10 @@ def test_batch_consistency(simple_conditional_flow):
 def test_training_loop():
     """Test a simple training loop to ensure everything works together."""
     # Create model, flow, and loss
-    model = torch.nn.Sequential(
-        torch.nn.Linear(5, 10),
-        torch.nn.ReLU(),
-        torch.nn.Linear(10, 8)
+    model = torch.nn.Sequential(torch.nn.Linear(5, 10), torch.nn.ReLU(), torch.nn.Linear(10, 8))
+    flow = create_flow_model(
+        n_features=2, context_dim=8, flow_type="nsf", n_transforms=2, hidden_features=16
     )
-    flow = create_flow_model(n_features=2, context_dim=8, flow_type="nsf", n_transforms=2, hidden_features=16)
     loss_fn = NormalizingFlowLoss(flow=flow)
 
     # Create optimizer
@@ -389,11 +384,7 @@ def test_training_loop():
 def test_different_flow_types(flow_type):
     """Test that all supported flow types work correctly."""
     flow = create_flow_model(
-        n_features=2,
-        context_dim=5,
-        flow_type=flow_type,
-        n_transforms=2,
-        hidden_features=16
+        n_features=2, context_dim=5, flow_type=flow_type, n_transforms=2, hidden_features=16
     )
     loss_fn = NormalizingFlowLoss(flow=flow)
 
