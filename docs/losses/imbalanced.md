@@ -2,6 +2,38 @@
 
 Imbalanced regression addresses problems where the target distribution is highly non-uniform, with some regions having many samples (dense) and others having very few samples (sparse). This is common in real-world scenarios like predicting rare events, extreme values, or skewed distributions.
 
+## Quick Start
+
+Here's a quick example of how to use `DensityWeightedLoss` to handle imbalanced regression:
+
+```python
+import torch
+import torch.nn as nn
+from torchregress.losses import DensityWeightedLoss
+
+# 1. Create synthetic imbalanced data
+X = torch.randn(1000, 10)
+y = torch.cat([torch.randn(900, 1), 5 + torch.randn(100, 1)])
+
+# 2. Create a model
+model = nn.Sequential(nn.Linear(10, 1))
+
+# 3. Create the loss function
+loss_fn = DensityWeightedLoss(kernel_width=0.5)
+
+# 4. Fit the density on the training targets
+loss_fn.fit_density(y)
+
+# 5. Train the model
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+for epoch in range(100):
+    optimizer.zero_grad()
+    y_pred = model(X)
+    loss = loss_fn(y_pred, y)
+    loss.backward()
+    optimizer.step()
+```
+
 ## The Imbalance Problem
 
 Traditional regression methods optimize average performance across all samples, which can lead to:

@@ -517,6 +517,49 @@ mse_loss = tr.losses.MSELoss()(y_pred, target)
 print(f"Cauchy: {loss.item():.4f}, Huber: {huber_loss.item():.4f}, MSE: {mse_loss.item():.4f}")
 ```
 
+### BarronLoss
+
+```python
+class BarronLoss(RegressionLoss)
+```
+
+The Barron loss is a generalization of L1 and L2 losses, tunable via the `alpha` parameter. It can behave like L2 (`alpha=2`), Cauchy (`alpha=0`), or something in between.
+
+**Parameters:**
+
+- `alpha` (float, optional): Shape parameter controlling the robustness. Default: `1.0`
+- `scale` (float, optional): Scale parameter. Default: `1.0`
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Methods:**
+
+- `forward(y_pred, target, mask=None, weights=None)`: Computes the Barron loss
+
+**Mathematical Formulation:**
+
+$$\mathcal{L}_{\text{Barron}}(x, \alpha, c) = \begin{cases}
+\frac{1}{2} (x/c)^2 & \alpha = 2 \\
+\log(\frac{1}{2}(x/c)^2 + 1) & \alpha = 0 \\
+\frac{|\alpha-2|}{\alpha} ((\frac{(x/c)^2}{|\alpha-2|} + 1)^{\alpha/2} - 1) & \text{otherwise}
+\end{cases}$$
+
+**Example:**
+
+```python
+import torch
+import torchregress as tr
+
+# Create Barron loss with alpha=1.0 (between L1 and L2)
+loss_fn = tr.losses.BarronLoss(alpha=1.0)
+
+# Predictions and targets
+y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
+target = torch.tensor([1.2, 1.9, 5.0, 4.1])
+
+# Calculate loss
+loss = loss_fn(y_pred, target)
+```
+
 ## Choosing the Right Robust Loss
 
 | Loss Function | Robustness Level | Twice Differentiable | Special Features |
@@ -527,6 +570,7 @@ print(f"Cauchy: {loss.item():.4f}, Huber: {huber_loss.item():.4f}, MSE: {mse_los
 | Log-Cosh | Moderate | Yes | Natural scaling of errors |
 | Charbonnier | Moderate | Yes | Smooth L1 alternative |
 | Lq | Variable | Depends on q | Flexible norm parameter |
+| Barron | Variable | Yes | Generalization of L1/L2 and Cauchy |
 | Cauchy | High | Yes | Very robust to extreme outliers |
 | Fair | High | Yes | Gradual transition |
 | TukeyBiweight | Highest | No | Completely ignores large outliers |

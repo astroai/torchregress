@@ -690,7 +690,5 @@ def ab_test_models(model_a, model_b, X_test, y_test, n_bootstrap=1000):
 
 ## Further Reading
 
-- [Model Evaluation Guide](model-evaluation.md) - Comprehensive evaluation workflows
-- [Debugging Checklist](debugging-checklist.md) - When things go wrong
 - [Visualization Guide](../visualization/index.md) - Diagnostic plots
 - [Loss Function Comparison](../examples/loss_comparison.md) - Choosing the right loss

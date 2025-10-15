@@ -77,17 +77,23 @@ nav:
       - Practical Usage: usage/practical_usage.md
   - Guides:
       - Best Practices: guides/best-practices.md
+  - Algorithms:
+      - IRLS: algorithms/irls.md
   - Visualization:
       - Overview: visualization/index.md
   - Losses:
       - Overview: losses/index.md
+      - Base Classes: losses/base.md
       - Gaussian Losses: losses/gaussian.md
       - Robust Losses: losses/robust.md
       - Quantile & Expectile: losses/quantile_expectile.md
       - Poisson & Tweedie: losses/poisson_tweedie.md
+      - Poisson-Gaussian: losses/poisson_gaussian.md
       - Advanced Losses: losses/advanced.md
+      - Conformal Prediction: losses/conformal.md
+      - Mixture Density Networks: losses/mdn.md
+      - Normalizing Flows: losses/nflows.md
       - Error-in-Variables: losses/eiv.md
-      - Ensemble Methods: losses/ensemble.md
       - Imbalanced Regression: losses/imbalanced.md
       - Noisy Labels: losses/noisy_labels.md
       - Transform Losses: losses/transforms.md
@@ -98,15 +104,20 @@ nav:
       - Interval Metrics: metrics/interval.md
       - Calibration Metrics: metrics/calibration.md
       - OOD Detection: metrics/ood.md
+      - Ensemble Metrics: metrics/ensemble.md
+      - Multivariate Metrics: metrics/multivariate.md
   - Math:
-      - Core Formulations: math/formulations.md
-      - Uncertainty Estimation: math/uncertainty.md
-      - Statistical Interpretation: math/interpretation.md
+      - Mathematical Foundations: math/index.md
   - Examples:
       - Overview: examples/index.md
       - Basic Usage: examples/basic_usage.md
       - Loss Comparison: examples/loss_comparison.md
       - Photometric Redshift: examples/photoz.md
+      - Conformal Regression: examples/conformal_regression_example.md
+      - Evidential Regression: examples/evidential_regression.md
+      - Imbalanced Regression: examples/imbalanced_regression.md
+      - Noisy Labels Regression: examples/noisy_labels_regression.md
+      - Normalizing Flows: examples/normalizing_flows_multitarget.md
   - API Reference:
       - Overview: api/index.md
       - Losses: api/losses.md

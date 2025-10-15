@@ -103,38 +103,6 @@ target = torch.tensor([0.8, 2.2, 2.7])
 loss = loss_fn((mean, log_var), target)
 ```
 
-## TorchLossWrapper
-
-```python
-class TorchLossWrapper(BaseLoss)
-```
-
-`TorchLossWrapper` adapts standard PyTorch loss functions to TorchRegression's interface, adding support for masks and weights.
-
-**Parameters:**
-
-- `loss_fn` (Callable or nn.Module): PyTorch loss function class or instance
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-- `**kwargs`: Additional arguments to pass to the loss function
-
-**Example:**
-
-```python
-import torch.nn as nn
-import torchregress as tr
-
-# Wrap a standard PyTorch loss
-torch_mse = nn.MSELoss()
-wrapped_mse = tr.losses.TorchLossWrapper(torch_mse)
-
-# Now we can use it with masks and weights
-y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([1.5, 2.0, 2.5])
-mask = torch.tensor([True, False, True])
-
-loss = wrapped_mse(y_pred, target, mask=mask)
-```
-
 ## WeightedLossWrapper
 
 ```python

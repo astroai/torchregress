@@ -303,4 +303,4 @@ For more advanced use cases, check out:
 
 - [Practical Usage Guide](practical_usage.md) for detailed recommendations
 - [Examples](../examples/index.md) for complete code examples
-- [Mathematical Formulations](../math/formulations.md) for the theoretical background
+[Learn more about the mathematical formulations of these losses →](../math/index.md) for the theoretical background

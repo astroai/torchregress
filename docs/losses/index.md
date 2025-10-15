@@ -35,6 +35,7 @@ Loss functions that are less sensitive to outliers:
 - **Pseudo-Huber Loss**: Smooth approximation of Huber loss
 - **Log-cosh Loss**: Smooth approximation that's twice differentiable
 - **Cauchy Loss**: Highly robust to extreme outliers
+- **Barron Loss**: A generalization of Cauchy and L2 losses.
 
 [Learn more about robust losses →](robust.md)
 
@@ -48,41 +49,24 @@ Distribution-free alternatives that target specific parts of the conditional dis
 
 [Learn more about quantile & expectile losses →](quantile_expectile.md)
 
-### Poisson Losses
+### Poisson & Tweedie Losses
 
-Specialized losses for count data:
+Specialized losses for count data and data with non-normal distributions:
 
 - **Poisson Loss**: For count data regression
-- **Poisson Likelihood Ratio**: For histogram fitting and goodness-of-fit tests
+- **Tweedie Loss**: For data with various mean-variance relationships (e.g., insurance claims)
+- **Poisson-Gaussian Mixture Loss**: For modeling mixed noise processes
 
-[Learn more about Poisson losses →](poisson.md)
+[Learn more about Poisson & Tweedie losses →](poisson_tweedie.md)
 
-### Poisson-Gaussian Mixture Losses
+### Imbalanced & Noisy Data Losses
 
-Losses that combine Poisson and Gaussian components for modeling mixed noise processes:
+Losses designed to handle specific data challenges:
 
-- **PoissonGaussianMixtureLoss**: Basic mixture implementation
-- **EnhancedPoissonGaussianMixtureLoss**: With gain, offset and noise components
+- **Imbalanced Loss**: For imbalanced regression tasks where some target values are more frequent than others.
+- **Noisy Loss**: For training with noisy labels.
 
-[Learn more about Poisson-Gaussian mixture losses →](poisson_gaussian.md)
-
-### Tweedie Losses
-
-Flexible family of losses for data with various mean-variance relationships:
-
-- **TweedieLoss**: General implementation with configurable power parameter
-- **GammaLoss**: For positive continuous data (p=2)
-- **CompoundPoissonLoss**: For continuous data with exact zeros (1<p<2)
-
-[Learn more about Tweedie losses →](tweedie.md)
-
-### Conformal Prediction Losses
-
-Methods that provide rigorous prediction intervals with statistical guarantees:
-
-- **ConformalLoss**: Unified wrapper for various `torchcp` methods (Split, CQR, ACI)
-
-[Learn more about conformal prediction losses →](conformal.md)
+[Learn more about imbalanced & noisy data losses →](imbalanced.md)
 
 ### Advanced Uncertainty-Aware Losses
 
@@ -90,7 +74,9 @@ Sophisticated losses for full predictive distributions:
 
 - **Mixture Density Network (MDN) Loss**: For multi-modal distribution prediction
 - **Normalizing Flows (NF) Loss**: For flexible distribution prediction
-- **Residual Adaptive Gaussian (RAG) Loss**: For heteroscedastic uncertainty estimation
+- **Evidential Loss**: For evidential regression and uncertainty quantification.
+- **DeepAR Loss**: For probabilistic forecasting with autoregressive models.
+- **Squared Quantile Score (SQS) Loss**: For quantile regression with a scoring rule.
 
 [Learn more about advanced losses →](advanced.md)
 
@@ -103,29 +89,36 @@ Losses that account for uncertainty in both inputs and outputs:
 
 [Learn more about error-in-variables losses →](eiv.md)
 
-### Ensemble Methods
+### Conformal Prediction Losses
 
-Approaches to combine multiple models:
+Methods that provide rigorous prediction intervals with statistical guarantees:
 
-- **Bootstrapped Ensemble Loss**: Training with resampled data
-- **Adversarial Training Loss**: Ensembles with adversarial perturbations
-- **Snapshot Ensemble Loss**: Time-based ensemble creation
+- **ConformalLoss**: Unified wrapper for various `torchcp` methods (Split, CQR, ACI)
 
-[Learn more about ensemble methods →](ensemble.md)
+[Learn more about conformal prediction losses →](conformal.md)
+
+### Transform Losses
+
+Apply transformations to the target variable before computing the loss:
+
+- **TransformedLoss**: A wrapper that applies a transformation to the target variable.
+
+[Learn more about transform losses →](transforms.md)
 
 ## Loss Selection Guide
 
 | If you need... | Consider using... |
 |----------------|-------------------|
 | Simple regression | `MSELoss` or `L1Loss` |
-| Robustness to outliers | `HuberLoss` or `CauchyLoss` |
+| Robustness to outliers | `HuberLoss` or `BarronLoss` |
 | Prediction intervals | `QuantileLoss` (with multiple quantiles) |
 | Guaranteed coverage intervals | `ConformalLoss` |
-| Full uncertainty | `GaussianNLLLoss` or `MDNLoss` |
+| Full uncertainty | `GaussianNLLLoss`, `MDNLoss`, or `EvidentialLoss` |
 | Count data | `PoissonNLLLoss` |
 | Continuous data with zeros | `TweedieLoss(p=1.5)` |
-| Positive continuous data | `GammaLoss` |
-| Multi-modal predictions | `MDNLoss` or `NormalizingFlowLoss` |
+| Imbalanced data | `ImbalancedLoss` |
+| Noisy labels | `NoisyLoss` |
+| Time series forecasting | `DeepARLoss` |
 | Accounting for input errors | `DemingLoss` or `ODRLoss` |
 
 For detailed guidance on loss selection, see the [practical usage guide](../usage/practical_usage.md).

@@ -17,6 +17,8 @@ Advanced losses go beyond simple point predictions or variance estimation to mod
 |--------|-----------|----------------|---------------------|----------|
 | **Gaussian NLL** | Low | Low | Easy | Simple unimodal distributions |
 | **MDN** | Medium | Medium-High | Medium | Multi-modal with known component count |
+| **DeepAR** | Medium | Medium | Medium | Probabilistic time series forecasting |
+| **Evidential Regression** | Medium | Medium | Medium | Decomposed uncertainty (aleatoric/epistemic) |
 | **Normalizing Flows** | High | Very High | Hard | Complex, arbitrary distributions |
 | **Conformal Prediction** | Low | N/A | Easy | Distribution-free coverage guarantees |
 
@@ -393,6 +395,131 @@ conformal = tr.losses.ConformalLoss(method='aci', alpha=0.1, model=base_model)
 
 [Detailed Conformal Prediction documentation →](conformal.md)
 
+## DeepAR
+
+DeepAR is a probabilistic forecasting method for time series data. It uses an autoregressive recurrent neural network to predict the parameters of a probability distribution for each time step.
+
+### Mathematical Foundation
+
+The DeepAR loss is typically the negative log-likelihood of a Gaussian distribution, where the mean and variance are predicted by the model at each time step.
+
+$$p(y_t|y_{t-1}, ..., y_0, x_t) = \mathcal{N}(y_t|\mu(h_t), \sigma^2(h_t))$$
+
+Where $h_t$ is the hidden state of the RNN at time $t$.
+
+### When to Use DeepAR
+
+**Ideal scenarios:**
+- Time series forecasting
+- When you need probabilistic forecasts (prediction intervals)
+- When you have covariates that can be used to improve forecasts
+
+**Example: Time Series Forecasting**
+
+```python
+import torch
+import torch.nn as nn
+import torchregress as tr
+
+class DeepARModel(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers):
+        super().__init__()
+        self.rnn = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.linear_mu = nn.Linear(hidden_size, 1)
+        self.linear_sigma = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        out, _ = self.rnn(x)
+        mu = self.linear_mu(out)
+        sigma = torch.nn.functional.softplus(self.linear_sigma(out)) + 1e-6
+        return mu, sigma
+
+# Create model and loss
+model = DeepARModel(input_size=10, hidden_size=32, num_layers=2)
+loss_fn = tr.losses.DeepARLoss()
+
+# Training
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+for epoch in range(100):
+    # Forward pass
+    mu, sigma = model(time_series_data)
+    loss = loss_fn((mu, torch.log(sigma**2)), target_series)
+
+    # Backward pass
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+```
+
+## Evidential Regression
+
+Evidential Regression is a method for quantifying uncertainty from a single forward pass. It does this by placing a higher-order prior distribution over the parameters of the likelihood function.
+
+### Mathematical Foundation
+
+Evidential Regression uses a Normal-Inverse-Gamma (NIG) distribution as a prior over the mean and variance of a Gaussian likelihood. The model outputs four parameters $(\gamma, \nu, \alpha, \beta)$ that define the NIG distribution.
+
+- **Aleatoric uncertainty**: $\mathbb{E}[\sigma^2] = \frac{\beta}{\alpha - 1}$
+- **Epistemic uncertainty**: $\text{Var}[\mu] = \frac{\beta}{\nu(\alpha - 1)}$
+
+### When to Use Evidential Regression
+
+**Ideal scenarios:**
+- When you need to distinguish between aleatoric and epistemic uncertainty.
+- When you want to get uncertainty estimates from a single forward pass, without ensembles or sampling.
+- For out-of-distribution detection.
+
+**Example: Regression with Uncertainty Decomposition**
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchregress as tr
+
+class EvidentialModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(10, 64),
+            nn.ReLU(),
+            nn.Linear(64, 4)  # Output: gamma, nu, alpha, beta
+        )
+
+    def forward(self, x):
+        out = self.net(x)
+        gamma = out[:, 0:1]  # mean
+        nu = F.softplus(out[:, 1:2]) + 0.01  # > 0
+        alpha = F.softplus(out[:, 2:3]) + 1.01  # > 1
+        beta = F.softplus(out[:, 3:4]) + 0.01  # > 0
+        return torch.cat([gamma, nu, alpha, beta], dim=1)
+
+# Create model and loss
+model = EvidentialModel()
+loss_fn = tr.losses.EvidentialRegressionLoss(coeff_nig=0.01)
+
+# Training
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+x = torch.randn(32, 10)
+y = torch.randn(32, 1)
+
+for epoch in range(100):
+    y_pred = model(x)
+    loss = loss_fn(y_pred, y)
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+# Inference with uncertainty
+model.eval()
+with torch.no_grad():
+    params = model(x)
+    mean, ale_unc, epi_unc = loss_fn.predict_with_uncertainty(params)
+```
+
 ## Choosing the Right Advanced Method
 
 ### Decision Tree
@@ -401,10 +528,16 @@ conformal = tr.losses.ConformalLoss(method='aci', alpha=0.1, model=base_model)
 Do you need guaranteed coverage?
 ├─ YES → Use Conformal Prediction
 └─ NO
-   └─ Is the distribution multimodal?
-      ├─ YES, with known # of modes → Use MDN
-      ├─ YES, complex/unknown → Use Normalizing Flows
-      └─ NO → Use simpler methods (Gaussian NLL, Quantile)
+   └─ Are you doing time series forecasting?
+      ├─ YES → Use DeepAR
+      └─ NO
+         └─ Do you need to decompose uncertainty?
+            ├─ YES → Use Evidential Regression
+            └─ NO
+               └─ Is the distribution multimodal?
+                  ├─ YES, with known # of modes → Use MDN
+                  ├─ YES, complex/unknown → Use Normalizing Flows
+                  └─ NO → Use simpler methods (Gaussian NLL, Quantile)
 ```
 
 ### Computational Comparison
@@ -413,6 +546,8 @@ Do you need guaranteed coverage?
 |--------|--------------|----------------|---------|-----------|
 | Gaussian NLL | Fast | Very Fast | Low | High |
 | MDN | Medium | Fast | Medium | Medium |
+| DeepAR | Medium | Fast | Medium | Medium |
+| Evidential Regression | Medium | Fast | Medium | Medium |
 | Normalizing Flows | Slow | Medium | High | Low |
 | Conformal | Fast (any base) | Fast | Low | High |
 
@@ -487,6 +622,6 @@ epistemic = torch.stack([p.mean(dim=1) for p in predictions]).var(dim=0)
 
 ## Further Reading
 
-- [Mathematical Formulations](../math/formulations.md) - Detailed mathematical background
-- [Uncertainty Estimation](../math/uncertainty.md) - Understanding uncertainty types
+- [Mathematical Foundations](../math/index.md) - Detailed mathematical background
+- [Uncertainty Estimation](../math/index.md) - Understanding uncertainty types
 - [Calibration Metrics](../metrics/calibration.md) - Evaluating uncertainty quality

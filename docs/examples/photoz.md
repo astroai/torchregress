@@ -473,5 +473,5 @@ print(f"Conformal Coverage: {coverage_conf:.2%} (guaranteed >= 90%)")
 ## Further Reading
 
 - [Loss Comparison](loss_comparison.md) - Detailed comparison across scenarios
-- [Uncertainty Estimation](../math/uncertainty.md) - Theory of uncertainty decomposition
+- [Learn more about uncertainty estimation →](../math/index.md) - Theory of uncertainty decomposition
 - [Calibration Metrics](../metrics/calibration.md) - Evaluating prediction intervals

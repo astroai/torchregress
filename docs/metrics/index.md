@@ -61,6 +61,25 @@ Metrics for evaluating OOD detection performance:
 
 [Learn more about OOD metrics →](ood.md)
 
+### Ensemble Metrics
+
+Metrics for evaluating ensemble models:
+
+- **Ensemble Variance**: Measures the disagreement among ensemble members.
+- **Ensemble Kurtosis**: Measures the "tailedness" of the ensemble predictions.
+
+[Learn more about ensemble metrics →](ensemble.md)
+
+### Multivariate Metrics
+
+Metrics for evaluating multivariate regression models:
+
+- **Multivariate NLL**: Negative log-likelihood for multivariate distributions.
+
+[Learn more about multivariate metrics →](multivariate.md)
+
+[Learn more about OOD metrics →](ood.md)
+
 ## Metric Selection Guide
 
 | If you need to evaluate... | Consider using... |

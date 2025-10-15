@@ -65,42 +65,25 @@ A real-world application for astronomy:
 - Creating calibrated prediction intervals
 - Evaluating results with domain-specific metrics
 
-```python
-import torchregress as tr
+### [Conformal Regression](conformal_regression_example.md)
 
-# Load astronomical dataset
-# ...
+- Using conformal prediction to obtain prediction intervals with guaranteed coverage.
 
-# Setup specialized model for photometric redshift estimation
-model = PhotozModel()
-loss_fn = tr.losses.GaussianNLLLoss()
+### [Evidential Regression](evidential_regression.md)
 
-# Train and evaluate
-# ...
+- Decomposing uncertainty into aleatoric and epistemic components.
 
-# Visualize results with specialized plots
-tr.viz.plot_redshift_comparison(z_pred, z_spec)
-tr.viz.plot_calibration_curve(z_pred, z_err, z_spec)
-```
+### [Imbalanced Regression](imbalanced_regression.md)
 
-## Planned Examples
+- Handling imbalanced datasets in regression tasks.
 
-We are working on additional examples that will be added soon:
+### [Noisy Labels Regression](noisy_labels_regression.md)
 
-1. **Time Series Forecasting with Uncertainty**
-   - Predicting future values with prediction intervals
-   - Handling temporal dependencies
-   - Evaluating forecasts with specialized metrics
+- Training models on data with noisy labels.
 
-2. **Medical Outcome Prediction**
-   - Reliable uncertainty estimation for clinical decision support
-   - Risk-aware regression for patient outcomes
-   - Calibrated prediction intervals for medical applications
+### [Normalizing Flows](normalizing_flows_multitarget.md)
 
-3. **Financial Risk Modeling**
-   - Predicting asset returns with uncertainty
-   - Value-at-Risk estimation with different loss functions
-   - Evaluating prediction intervals for financial applications
+- Using normalizing flows for multi-target regression.
 
 ## Running the Examples
 

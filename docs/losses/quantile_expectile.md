@@ -168,6 +168,42 @@ good_loss = loss_fn(good_pred, target)
 bad_loss = loss_fn(bad_pred, target)
 ```
 
+### SQRLoss
+
+```python
+class SQRLoss(RegressionLoss)
+```
+
+Simultaneous Quantile Regression (SQR) loss encourages distribution-free uncertainty estimation via twin quantiles.
+
+**Parameters:**
+
+- `lower_quantile` (float, optional): The lower quantile to predict. Default: `0.1`
+- `upper_quantile` (float, optional): The upper quantile to predict. Default: `0.9`
+- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+**Methods:**
+
+- `forward(y_pred, target, mask=None, weights=None)`: Computes the SQR loss
+
+**Example:**
+
+```python
+import torch
+import torchregress as tr
+
+# Create SQR loss for 10th and 90th percentiles
+loss_fn = tr.losses.SQRLoss(lower_quantile=0.1, upper_quantile=0.9)
+
+# Model predictions: [batch_size, 2*n_features]
+# Here: 1 batch, 2 features
+y_pred = torch.tensor([[1.0, 2.0, 3.0, 4.0]])
+target = torch.tensor([[2.0, 3.0]])
+
+# Calculate combined loss
+loss = loss_fn(y_pred, target)
+```
+
 ## Expectile Loss Functions
 
 ### ExpectileLoss
