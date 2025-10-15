@@ -55,7 +55,7 @@ Implements the functional approach to errors-in-variables modeling, where the tr
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Functional EIV loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Functional EIV loss
 
 **Example:**
 
@@ -71,10 +71,10 @@ loss_fn = FunctionalEIVLoss(model, sigma_x=torch.tensor([0.2, 0.1]), sigma_y=0.1
 
 # Generate some data
 y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])  # x_obs in EIV terminology
-target = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
+y_true = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
 
 # Compute loss
-loss_value = loss_fn(y_pred, target)
+loss_value = loss_fn(y_pred, y_true)
 print(f"Loss: {loss_value.item():.4f}")
 ```
 
@@ -97,7 +97,7 @@ Implements the structural approach to errors-in-variables modeling, which accoun
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Structural EIV loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Structural EIV loss
 
 **Example:**
 
@@ -116,10 +116,10 @@ loss_fn = StructuralEIVLoss(model, sigma_x, sigma_y, sigma_xy)
 
 # Generate some data
 y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])  # x_obs in EIV terminology
-target = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
+y_true = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
 
 # Compute loss
-loss_value = loss_fn(y_pred, target)
+loss_value = loss_fn(y_pred, y_true)
 print(f"Loss: {loss_value.item():.4f}")
 ```
 
@@ -144,7 +144,7 @@ Orthogonal Distance Regression (ODR) loss minimizes the orthogonal (perpendicula
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the ODR loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the ODR loss
 
 **Mathematical Formulation:**
 
@@ -171,14 +171,11 @@ model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
 # Create loss with equal weighting of x and y errors
 sigma_x = torch.tensor([1.0, 1.0])  # Equal uncertainty in both inputs
 sigma_y = torch.tensor([1.0])       # Unit uncertainty in output
-loss_fn = OrthogonalDistanceRegressionLoss(model, sigma_x, sigma_y)
-
-# Generate some data
 y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])  # x_obs in EIV terminology
-target = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
+y_true = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
 
 # Compute loss
-loss_value = loss_fn(y_pred, target)
+loss_value = loss_fn(y_pred, y_true)
 print(f"Loss: {loss_value.item():.4f}")
 ```
 
@@ -201,7 +198,7 @@ A simple ensemble approach for handling errors-in-variables by generating multip
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Ensemble EIV loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Ensemble EIV loss
 
 **Example:**
 
@@ -217,10 +214,10 @@ loss_fn = EnsembleEIVLoss(model, sigma_x=torch.tensor([0.2, 0.1]), n_samples=30)
 
 # Generate some data
 y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])  # x_obs in EIV terminology
-target = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
+y_true = torch.tensor([[4.0], [10.0]])           # y_true in EIV terminology
 
 # Compute loss
-loss_value = loss_fn(y_pred, target)
+loss_value = loss_fn(y_pred, y_true)
 print(f"Loss: {loss_value.item():.4f}")
 ```
 

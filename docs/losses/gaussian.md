@@ -46,16 +46,16 @@ import torchregress as tr
 # Mean squared error (fixed variance)
 loss_fn = tr.losses.MSELoss()
 
-# Predictions and targets
+# Predictions and y_trues
 y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
+y_true = torch.tensor([0.0, 2.0, 4.0])
 
 # Basic MSE loss
-basic_loss = loss_fn(y_pred, target)  # tensor(0.6667)
+basic_loss = loss_fn(y_pred, y_true)  # tensor(0.6667)
 
 # With mask (ignore the 2nd sample)
 mask = torch.tensor([True, False, True])
-masked_loss = loss_fn(y_pred, target, mask=mask)
+masked_loss = loss_fn(y_pred, y_true, mask=mask)
 ```
 
 ### GaussianNLLLoss (Heteroscedastic)
@@ -76,8 +76,8 @@ Negative Log-Likelihood loss for diagonal Gaussian distributions where the model
 **Methods:**
 
 - `_extract_distribution_parameters(y_pred)`: Extracts mean and variance from predictions
-- `_calculate_nll(y_pred, target, mask)`: Calculates the negative log-likelihood
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Gaussian NLL loss
+- `_calculate_nll(y_pred, y_true, mask)`: Calculates the negative log-likelihood
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Gaussian NLL loss
 
 The full NLL formula used in this implementation is:
 
@@ -115,7 +115,7 @@ y = torch.randn(100, 1)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 for epoch in range(10):
     y_pred = model(X)  # Returns (mean, logvar) tuple
-    loss = loss_fn(y_pred, y)  # Clean API: just (predictions, targets)
+    loss = loss_fn(y_pred, y)  # Clean API: just (predictions, y_trues)
 
     optimizer.zero_grad()
     loss.backward()
@@ -166,8 +166,8 @@ Negative Log-Likelihood loss for multivariate Gaussian with full covariance matr
 **Methods:**
 
 - `_extract_distribution_parameters(y_pred, covariance_matrices)`: Extracts mean and covariance
-- `_calculate_nll(params, target, mask)`: Calculates multivariate Gaussian NLL
-- `forward(y_pred, target, covariance_matrices, mask=None, weights=None)`: Computes the loss
+- `_calculate_nll(params, y_true, mask)`: Calculates multivariate Gaussian NLL
+- `forward(y_pred, y_true, covariance_matrices, mask=None, weights=None)`: Computes the loss
 
 The multivariate Gaussian NLL is defined as:
 
@@ -186,11 +186,11 @@ loss_fn = tr.losses.MultivariateGaussianLoss()
 
 # Predicted means
 y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
-target = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
+y_true = torch.tensor([[0.0, 2.0], [3.0, 5.0]])
 
 # Case 1: Shared covariance matrix for all samples
 cov = torch.tensor([[1.0, 0.5], [0.5, 2.0]])  # 2x2 covariance matrix with correlation
-loss = loss_fn(y_pred, target, cov)
+loss = loss_fn(y_pred, y_true, cov)
 
 # Case 2: Sample-specific covariance matrices
 batch_size = y_pred.shape[0]
@@ -199,7 +199,7 @@ n_features = y_pred.shape[1]
 batch_cov = torch.zeros(batch_size, n_features, n_features)
 batch_cov[0] = torch.tensor([[1.0, 0.2], [0.2, 1.0]])
 batch_cov[1] = torch.tensor([[2.0, 0.6], [0.6, 1.5]])
-loss = loss_fn(y_pred, target, batch_cov)
+loss = loss_fn(y_pred, y_true, batch_cov)
 ```
 
 ## Factory Function
@@ -268,12 +268,12 @@ loss_fn = tr.losses.create_gaussian_nll(
 ## Comparison: GaussianNLLLoss vs WeightedGaussianNLLLoss
 
 **GaussianNLLLoss (Recommended):**
-- Clean API: `loss((mean, logvar), target)`
+- Clean API: `loss((mean, logvar), y_true)`
 - Tuple input matches how models naturally output predictions
 - Automatic unpacking and processing
 
 **WeightedGaussianNLLLoss:**
-- PyTorch wrapper: `loss(mean, target, var)` (3 separate arguments)
+- PyTorch wrapper: `loss(mean, y_true, var)` (3 separate arguments)
 - Use only for PyTorch API compatibility
 - Less convenient for torchregress patterns
 

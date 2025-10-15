@@ -60,10 +60,10 @@ loss_fn = tr.losses.PoissonDevianceLoss(log_input=True)
 
 # For a model that predicts log(λ)
 y_pred = torch.tensor([[0.0, 1.0, 2.0], [1.0, 1.5, 0.5]])  # log(λ) values
-target = torch.tensor([[1.0, 2.0, 7.0], [2.0, 5.0, 1.0]])  # count data
+y_true = torch.tensor([[1.0, 2.0, 7.0], [2.0, 5.0, 1.0]])  # count data
 
 # Calculate deviance
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ## Tweedie Loss Functions
@@ -121,10 +121,10 @@ loss_fn = tr.losses.TweedieLoss(p=1.5, link='log')
 
 # Model predicts log of mean parameter
 y_pred = torch.tensor([[0.0, 1.0, 2.0], [0.5, 1.5, 2.5]])  # log(μ) values
-target = torch.tensor([[0.0, 2.0, 8.0], [1.0, 4.0, 12.0]])  # response values
+y_true = torch.tensor([[0.0, 2.0, 8.0], [1.0, 4.0, 12.0]])  # response values
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 #### GammaLoss
@@ -142,8 +142,8 @@ loss_fn = tr.losses.GammaLoss(link='log')
 
 # Model predicts log(μ)
 y_pred = torch.tensor([[1.0, 2.0, 3.0]])  # log(μ) values
-target = torch.tensor([[3.0, 7.5, 20.0]])  # positive response values
+y_true = torch.tensor([[3.0, 7.5, 20.0]])  # positive response values
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```

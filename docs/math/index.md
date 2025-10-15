@@ -1,9 +1,3 @@
-# Mathematical Foundations
-
-This page provides the mathematical foundations for the loss functions, metrics, and uncertainty estimation techniques implemented in TorchRegression.
-
-## Notation
-
 Throughout this documentation, we use the following notation:
 
 - $y$: True target value (ground truth)

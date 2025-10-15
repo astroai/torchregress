@@ -45,8 +45,8 @@ Negative Log-Likelihood loss for normalizing flow models, supporting various flo
 - `_validate_flow_type()`: Validates the chosen flow type
 - `_create_flow(params_dict)`: Creates the flow model from parameters
 - `_extract_distribution_parameters(y_pred)`: Gets flow parameters from predictions
-- `_calculate_nll(target, params, mask)`: Calculates negative log-likelihood
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the NLL loss
+- `_calculate_nll(y_true, params, mask)`: Calculates negative log-likelihood
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the NLL loss
 - `sample(y_pred, n_samples=1)`: Generates samples from the flow distribution
 
 **Example:**
@@ -69,10 +69,10 @@ loss_fn = tr.losses.NormalizingFlowLoss(
 batch_size = 32
 # These parameters would come from your model
 flow_params = torch.randn(batch_size, 500)  
-target = torch.randn(batch_size, 2)
+y_true = torch.randn(batch_size, 2)
 
 # Calculate loss
-loss = loss_fn(flow_params, target)
+loss = loss_fn(flow_params, y_true)
 
 # Generate samples from the distribution
 samples = loss_fn.sample(flow_params, n_samples=10)  # [batch_size, 10, 2]
@@ -169,8 +169,8 @@ class FlowRegressionModel(torch.nn.Module):
         # Use the loss function's sample method
         return self.flow_loss.sample(flow_params, n_samples)
         
-    def loss(self, flow_params, target):
-        return self.flow_loss(flow_params, target)
+    def loss(self, flow_params, y_true):
+        return self.flow_loss(flow_params, y_true)
 ```
 
 ## Practical Considerations

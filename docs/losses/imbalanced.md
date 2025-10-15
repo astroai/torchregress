@@ -94,7 +94,7 @@ Weights samples inversely proportional to their local density in target space. T
 **Methods**:
 
 - `fit_density(train_targets)`: Estimate target density and compute inverse density weights
-- `forward(y_pred, target, sample_indices=None, mask=None, weights=None)`: Compute density-weighted loss
+- `forward(y_pred, y_true, sample_indices=None, mask=None, weights=None)`: Compute density-weighted loss
 
 **Example**:
 
@@ -205,7 +205,7 @@ Smooths the label distribution using kernel smoothing and reweights samples base
 **Methods**:
 
 - `fit(train_targets, n_bins=100)`: Compute LDS weights from training targets
-- `forward(y_pred, target, sample_indices=None, mask=None, weights=None)`: Compute LDS-weighted loss
+- `forward(y_pred, y_true, sample_indices=None, mask=None, weights=None)`: Compute LDS-weighted loss
 
 **Example**:
 

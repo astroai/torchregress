@@ -40,10 +40,10 @@ Negative Log-Likelihood loss for Mixture Density Networks, supporting diagonal o
 **Methods:**
 
 - `_extract_distribution_parameters(y_pred)`: Extracts mixture weights, means, and std/covariance factors
-- `_log_prob_diagonal(target, means, stds)`: Calculates log probability for diagonal covariance
-- `_log_prob_full(target, means, L_matrices)`: Calculates log probability for full covariance
-- `_calculate_nll(target, params, mask)`: Calculates the negative log-likelihood
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the MDN loss
+- `_log_prob_diagonal(y_true, means, stds)`: Calculates log probability for diagonal covariance
+- `_log_prob_full(y_true, means, L_matrices)`: Calculates log probability for full covariance
+- `_calculate_nll(y_true, params, mask)`: Calculates the negative log-likelihood
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the MDN loss
 
 **Example:**
 
@@ -62,10 +62,10 @@ loss_fn = tr.losses.MixtureDensityLoss(
 # For diagonal: [batch_size, n_components + 2*n_components*n_features]
 # Here: [batch_size, 3 + 2*3*2] = [batch_size, 15]
 y_pred = torch.randn(10, 15)  # Parameters for 3 components, 2D output
-target = torch.randn(10, 2)   # Target values
+y_true = torch.randn(10, 2)   # Target values
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ## Factory Function

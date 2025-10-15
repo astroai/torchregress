@@ -26,7 +26,7 @@ class BaseLoss(torch.nn.Module)
 
 **Methods:**
 
-- `forward(y_pred, target, **kwargs)`: Abstract method that subclasses must implement
+- `forward(y_pred, y_true, **kwargs)`: Abstract method that subclasses must implement
 - `_reduce(loss, mask=None, weights=None)`: Applies specified reduction to the loss tensor
 
 **Example:**
@@ -34,9 +34,9 @@ class BaseLoss(torch.nn.Module)
 ```python
 # Custom loss implementation
 class CustomLoss(BaseLoss):
-    def forward(self, y_pred, target, **kwargs):
+    def forward(self, y_pred, y_true, **kwargs):
         # Calculate point-wise loss
-        loss = (y_pred - target)**2
+        loss = (y_pred - y_true)**2
         # Apply reduction
         return self._reduce(loss)
 ```
@@ -55,7 +55,7 @@ class RegressionLoss(BaseLoss)
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Abstract method for computing regression loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Abstract method for computing regression loss
 
 **Example:**
 
@@ -64,10 +64,10 @@ class RegressionLoss(BaseLoss)
 loss_fn = tr.losses.L1Loss()  # Inherits from RegressionLoss
 
 y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
+y_true = torch.tensor([0.0, 2.0, 4.0])
 weights = torch.tensor([0.5, 1.0, 2.0])  # Emphasize the importance of the 3rd sample
 
-loss = loss_fn(y_pred, target, weights=weights)
+loss = loss_fn(y_pred, y_true, weights=weights)
 ```
 
 ## DistributionLoss
@@ -85,8 +85,8 @@ class DistributionLoss(BaseLoss)
 **Methods:**
 
 - `_extract_distribution_parameters(y_pred)`: Extract distribution parameters from model outputs
-- `_calculate_nll(y_pred, target, mask)`: Calculate negative log-likelihood
-- `forward(y_pred, target, mask=None, weights=None)`: Abstract method for computing distributional loss
+- `_calculate_nll(y_pred, y_true, mask)`: Calculate negative log-likelihood
+- `forward(y_pred, y_true, mask=None, weights=None)`: Abstract method for computing distributional loss
 
 **Example:**
 
@@ -97,10 +97,10 @@ loss_fn = tr.losses.GaussianNLLLoss()  # Inherits from DistributionLoss
 # Model outputs mean and log-variance
 mean = torch.tensor([1.0, 2.0, 3.0])
 log_var = torch.tensor([-1.0, 0.0, 1.0])
-target = torch.tensor([0.8, 2.2, 2.7])
+y_true = torch.tensor([0.8, 2.2, 2.7])
 
 # Calculate NLL loss using both mean and variance predictions
-loss = loss_fn((mean, log_var), target)
+loss = loss_fn((mean, log_var), y_true)
 ```
 
 ## WeightedLossWrapper
@@ -129,10 +129,10 @@ wrapped_mse = tr.losses.WeightedLossWrapper(torch_mse)
 
 # Now we can use it with masks and weights
 y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([1.5, 2.0, 2.5])
+y_true = torch.tensor([1.5, 2.0, 2.5])
 mask = torch.tensor([True, False, True])
 
-loss = wrapped_mse(y_pred, target, mask=mask)
+loss = wrapped_mse(y_pred, y_true, mask=mask)
 ```
 
 ## Pre-defined Weighted Loss Functions
@@ -166,11 +166,11 @@ loss_fn = tr.losses.WeightedMSELoss()
 
 # Calculate with masks and weights
 y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
+y_true = torch.tensor([0.0, 2.0, 4.0])
 mask = torch.tensor([True, False, True])
 weights = torch.tensor([0.5, 1.0, 2.0])
 
-loss = loss_fn(y_pred, target, mask=mask, weights=weights)
+loss = loss_fn(y_pred, y_true, mask=mask, weights=weights)
 ```
 
 ## Best Practices for Custom Loss Functions
@@ -181,7 +181,7 @@ When implementing custom loss functions using the TorchRegression framework:
    - For standard regression losses: `RegressionLoss`
    - For distribution-based losses: `DistributionLoss`
    
-2. **Always validate inputs** by calling `self._validate_inputs(y_pred, target, mask)` in your `forward` method
+2. **Always validate inputs** by calling `self._validate_inputs(y_pred, y_true, mask)` in your `forward` method
 
 3. **Handle reduction properly**:
    - For RegressionLoss, use `return self._reduce_with_mask(loss, mask, weights)`

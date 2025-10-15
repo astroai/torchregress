@@ -198,22 +198,22 @@ assert not torch.isinf(test_pred).any(), "Inf in predictions!"
 
 # 2. Check prediction range vs target range
 pred_min, pred_max = test_pred.min(), test_pred.max()
-target_min, target_max = y_test.min(), y_test.max()
+y_true_min, y_true_max = y_test.min(), y_test.max()
 
 print(f"Predictions range: [{pred_min:.2f}, {pred_max:.2f}]")
-print(f"Targets range: [{target_min:.2f}, {target_max:.2f}]")
+print(f"y_trues range: [{y_true_min:.2f}, {y_true_max:.2f}]")
 
-if pred_max < target_min or pred_min > target_max:
-    print("⚠️  WARNING: Prediction range doesn't overlap with target range!")
+if pred_max < y_true_min or pred_min > y_true_max:
+    print("⚠️  WARNING: Prediction range doesn't overlap with y_true range!")
 
 # 3. Check if model is just predicting mean
 pred_std = test_pred.std()
-target_std = y_test.std()
+y_true_std = y_test.std()
 
 print(f"\nPrediction std: {pred_std:.4f}")
-print(f"Target std: {target_std:.4f}")
+print(f"y_true std: {y_true_std:.4f}")
 
-if pred_std < 0.1 * target_std:
+if pred_std < 0.1 * y_true_std:
     print("⚠️  WARNING: Model predicts nearly constant values!")
     print("  Check: learning rate, model capacity, feature scaling")
 ```
@@ -287,7 +287,7 @@ if test_rmse > 1.5 * val_rmse:
 ### Decision Tree
 
 ```
-Is your target continuous?
+Is your y_true continuous?
 ├─ NO (counts) → PoissonNLLLoss or NegativeBinomialNLLLoss
 └─ YES
    └─ Is the distribution normal?
@@ -314,7 +314,7 @@ Is your target continuous?
    mean, log_var = model(X_test)
    print(f"Mean shape: {mean.shape}")
    print(f"Log_var shape: {log_var.shape}")
-   print(f"Target shape: {y_test.shape}")
+   print(f"y_true shape: {y_test.shape}")
 
    # All should match!
    ```
@@ -400,7 +400,7 @@ if abs(picp - 0.95) > 0.05:
 # Check interval widths
 mpiw = tr.metrics.mpiw(lower, upper)
 print(f"Mean Interval Width: {mpiw:.4f}")
-print(f"Target std: {y_test.std():.4f}")
+print(f"y_true std: {y_test.std():.4f}")
 ```
 
 **3. Reliability Diagram**

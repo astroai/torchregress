@@ -46,7 +46,7 @@ Negative log-likelihood loss for a mixture of Gaussian (readout noise) and Poiss
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None, extra_var=None)`: Computes the mixture loss
+- `forward(y_pred, y_true, mask=None, weights=None, extra_var=None)`: Computes the mixture loss
 
 The loss combines Poisson and Gaussian negative log-likelihoods using specified or learned weights:
 
@@ -73,17 +73,17 @@ loss_fn = tr.losses.PoissonGaussianMixtureLoss(
 # Predicted signals (log-intensity)
 y_pred = torch.log(torch.tensor([[10.0, 20.0], [5.0, 15.0]]))
 # Measured signals
-target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])
+y_true = torch.tensor([[11.2, 19.5], [4.8, 16.3]])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 
 # With learned mixture weights
 loss_fn_learned = tr.losses.PoissonGaussianMixtureLoss(
     learn_variance=True,
     mixture_weights='learn'
 )
-loss = loss_fn_learned(y_pred, target)
+loss = loss_fn_learned(y_pred, y_true)
 ```
 
 ### EnhancedPoissonGaussianMixtureLoss
@@ -106,7 +106,7 @@ Advanced Poisson-Gaussian mixture loss with additional features for scientific a
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the enhanced mixture loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the enhanced mixture loss
 
 This loss implements the physically motivated model:
 
@@ -136,10 +136,10 @@ loss_fn = tr.losses.EnhancedPoissonGaussianMixtureLoss(
 # Predicted log-intensities
 y_pred = torch.tensor([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
 # Measured values
-target = torch.tensor([[2.8, 7.3, 19.5], [7.4, 20.1, 55.2]])
+y_true = torch.tensor([[2.8, 7.3, 19.5], [7.4, 20.1, 55.2]])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 
 # With calibration parameters
 loss_fn_calib = tr.losses.EnhancedPoissonGaussianMixtureLoss(
@@ -148,7 +148,7 @@ loss_fn_calib = tr.losses.EnhancedPoissonGaussianMixtureLoss(
     shot_noise=0.1,
     calibration=True  # Add learnable calibration parameters
 )
-loss = loss_fn_calib(y_pred, target)
+loss = loss_fn_calib(y_pred, y_true)
 ```
 
 ## Factory Functions

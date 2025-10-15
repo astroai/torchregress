@@ -7,7 +7,8 @@ Robust loss functions are designed to be less sensitive to outliers than standar
 The key idea behind robust losses is to reduce the influence of large errors by growing more slowly than squared error as the error magnitude increases. 
 
 For a standard MSE loss, the gradient grows linearly with error magnitude:
-$\frac{\partial}{\partial \hat{y}} (\hat{y} - y)^2 = 2(\hat{y} - y)$
+
+$$\frac{\partial}{\partial \hat{y}} (\hat{y} - y)^2 = 2(\hat{y} - y)$$
 
 In contrast, robust losses have gradients that are bounded or grow more slowly for large errors, making them less sensitive to outliers.
 
@@ -28,7 +29,7 @@ The Huber loss combines the best properties of MSE and MAE: it behaves like MSE 
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Huber loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Huber loss
 
 **Mathematical Formulation:**
 
@@ -48,14 +49,14 @@ loss_fn = tr.losses.HuberLoss()
 
 # Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])  # Note the large error for index 2
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])  # Note the large error for index 2
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 
 # Compare with MSE and MAE
-mse_loss = tr.losses.MSELoss()(y_pred, target)
-mae_loss = tr.losses.L1Loss()(y_pred, target)
+mse_loss = tr.losses.MSELoss()(y_pred, y_true)
+mae_loss = tr.losses.L1Loss()(y_pred, y_true)
 print(f"Huber: {loss.item():.4f}, MSE: {mse_loss.item():.4f}, MAE: {mae_loss.item():.4f}")
 # Huber will be somewhere between MSE and MAE, but closer to MAE due to the outlier
 ```
@@ -74,7 +75,7 @@ The L1 Loss (Mean Absolute Error) is less sensitive to outliers than MSE as it u
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the L1 loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the L1 loss
 
 **Mathematical Formulation:**
 
@@ -91,10 +92,10 @@ loss_fn = tr.losses.L1Loss()
 
 # Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### PseudoHuberLoss
@@ -112,7 +113,7 @@ The Pseudo-Huber loss is a smooth approximation of the Huber loss that ensures c
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Pseudo-Huber loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Pseudo-Huber loss
 
 **Mathematical Formulation:**
 
@@ -124,15 +125,11 @@ $$\mathcal{L}_{\text{PseudoHuber}}(y, \hat{y}) = \delta^2 \left( \sqrt{1 + \left
 import torch
 import torchregress as tr
 
-# Create Pseudo-Huber loss with delta=1.0
-loss_fn = tr.losses.PseudoHuberLoss(delta=1.0)
-
-# Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### LogCoshLoss
@@ -150,11 +147,11 @@ The Log-Cosh loss computes the logarithm of the hyperbolic cosine of the predict
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Log-Cosh loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Log-Cosh loss
 
 **Mathematical Formulation:**
 
-$$\mathcal{L}_{\text{LogCosh}}(y, \hat{y}) = \text{log}(\text{cosh}(\text{scale} \cdot (y - \hat{y})))$$
+$$\mathcal{L}_{\text{LogCosh}}(y, \hat{y}) = \log(\cosh(\text{scale} \cdot (y - \hat{y})))$$
 
 **Example:**
 
@@ -167,10 +164,10 @@ loss_fn = tr.losses.LogCoshLoss(scale=1.0)
 
 # Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### CharbonnierLoss
@@ -188,7 +185,7 @@ The Charbonnier loss is a smooth alternative to L1 loss, often used in computer 
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Charbonnier loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Charbonnier loss
 
 **Mathematical Formulation:**
 
@@ -200,15 +197,11 @@ $$\mathcal{L}_{\text{Charbonnier}}(y, \hat{y}) = \sqrt{(y - \hat{y})^2 + \epsilo
 import torch
 import torchregress as tr
 
-# Create Charbonnier loss
-loss_fn = tr.losses.CharbonnierLoss(eps=1e-3)
-
-# Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### LqLoss
@@ -227,7 +220,7 @@ The Lq Loss is a generalization of L1 (q=1) and L2 (q=2) losses, allowing for mo
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Lq loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Lq loss
 
 **Mathematical Formulation:**
 
@@ -242,12 +235,12 @@ import torchregress as tr
 # Create Lq loss with q=1.5 (between L1 and L2)
 loss_fn = tr.losses.LqLoss(q=1.5)
 
-# Predictions and targets
+# Predictions and y_trues
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### TukeyBiweightLoss
@@ -265,7 +258,7 @@ Tukey's biweight loss (or bisquare loss) completely ignores errors beyond a cert
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Tukey biweight loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Tukey biweight loss
 
 **Mathematical Formulation:**
 
@@ -285,10 +278,10 @@ loss_fn = tr.losses.TukeyBiweightLoss(c=4.685)
 
 # Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 15.0, 4.1])  # Extreme outlier at index 2
+y_true = torch.tensor([1.2, 1.9, 15.0, 4.1])  # Extreme outlier at index 2
 
 # Calculate loss - the outlier will have minimal impact
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### WinsorizedLoss
@@ -307,7 +300,7 @@ Winsorized loss replaces extreme residuals with more moderate values, truncating
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the winsorized loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the winsorized loss
 
 **Example:**
 
@@ -320,10 +313,10 @@ loss_fn = tr.losses.WinsorizedLoss(quantile_low=0.25, quantile_high=0.75)
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0])
+y_true = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### LogBarrierLoss
@@ -342,7 +335,7 @@ Log Barrier loss implements a logarithmic barrier function that gracefully limit
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the log barrier loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the log barrier loss
 
 **Mathematical Formulation:**
 
@@ -354,15 +347,11 @@ $$\mathcal{L}_{\text{LogBarrier}}(y, \hat{y}) = -\log\left(1 - \min\left(\frac{|
 import torch
 import torchregress as tr
 
-# Create Log Barrier loss
-loss_fn = tr.losses.LogBarrierLoss(rho=2.0)
-
-# Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 3.0])
-target = torch.tensor([0.0, 2.0, 0.0])
+y_true = torch.tensor([0.0, 2.0, 0.0])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### AdaptiveHuberLoss
@@ -381,7 +370,7 @@ Adaptive Huber loss with automatic delta estimation based on data quantiles.
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the adaptive Huber loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the adaptive Huber loss
 
 **Example:**
 
@@ -394,10 +383,10 @@ loss_fn = tr.losses.AdaptiveHuberLoss(quantile=0.8)
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 2.0, 10.0])
-target = torch.tensor([0.0, 2.0, 1.0, 0.0])
+y_true = torch.tensor([0.0, 2.0, 1.0, 0.0])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### ClippedLoss
@@ -416,7 +405,7 @@ Clipped loss for robust regression that clips errors above a threshold.
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the clipped loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the clipped loss
 
 **Example:**
 
@@ -429,10 +418,10 @@ loss_fn = tr.losses.ClippedLoss(threshold=1.0, base_loss='mse')
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 3.0])
-target = torch.tensor([0.0, 2.0, 0.0])
+y_true = torch.tensor([0.0, 2.0, 0.0])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### FairLoss
@@ -451,7 +440,7 @@ Fair loss grows less than linearly with the absolute error, making it less sensi
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the fair loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the fair loss
 
 **Mathematical Formulation:**
 
@@ -468,10 +457,10 @@ loss_fn = tr.losses.FairLoss(c=1.0)
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 3.0])
-target = torch.tensor([0.0, 2.0, 0.0])
+y_true = torch.tensor([0.0, 2.0, 0.0])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### CauchyLoss
@@ -489,7 +478,7 @@ Cauchy loss uses the negative log of the Cauchy distribution density, making it 
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Cauchy loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Cauchy loss
 
 **Mathematical Formulation:**
 
@@ -506,14 +495,14 @@ loss_fn = tr.losses.CauchyLoss(c=1.0)
 
 # Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])  # Large error for index 2
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])  # Large error for index 2
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 
 # Compare with other losses
-huber_loss = tr.losses.HuberLoss()(y_pred, target)
-mse_loss = tr.losses.MSELoss()(y_pred, target)
+huber_loss = tr.losses.HuberLoss()(y_pred, y_true)
+mse_loss = tr.losses.MSELoss()(y_pred, y_true)
 print(f"Cauchy: {loss.item():.4f}, Huber: {huber_loss.item():.4f}, MSE: {mse_loss.item():.4f}")
 ```
 
@@ -533,7 +522,7 @@ The Barron loss is a generalization of L1 and L2 losses, tunable via the `alpha`
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the Barron loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the Barron loss
 
 **Mathematical Formulation:**
 
@@ -554,10 +543,10 @@ loss_fn = tr.losses.BarronLoss(alpha=1.0)
 
 # Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-target = torch.tensor([1.2, 1.9, 5.0, 4.1])
+y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])
 
 # Calculate loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ## Choosing the Right Robust Loss
@@ -615,15 +604,15 @@ tukey_loss = tr.losses.TukeyBiweightLoss(c=4.685)
 
 # Generate errors
 errors = torch.linspace(-10, 10, 1000)
-target = torch.zeros_like(errors)
-y_pred = errors  # error = pred - target = pred - 0 = pred
+y_true = torch.zeros_like(errors)
+y_pred = errors  # error = pred - y_true = pred - 0 = pred
 
 # Calculate losses
-mse_values = mse_loss(y_pred, target, reduction='none')
-l1_values = l1_loss(y_pred, target, reduction='none')
-huber_values = huber_loss(y_pred, target, reduction='none')
-cauchy_values = cauchy_loss(y_pred, target, reduction='none')
-tukey_values = tukey_loss(y_pred, target, reduction='none')
+mse_values = mse_loss(y_pred, y_true, reduction='none')
+l1_values = l1_loss(y_pred, y_true, reduction='none')
+huber_values = huber_loss(y_pred, y_true, reduction='none')
+cauchy_values = cauchy_loss(y_pred, y_true, reduction='none')
+tukey_values = tukey_loss(y_pred, y_true, reduction='none')
 
 # Plot
 plt.figure(figsize=(10, 6))

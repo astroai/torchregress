@@ -58,16 +58,9 @@ $$\mathcal{L}_{\tau}(y, \hat{e}_{\tau}) = \begin{cases}
 class QuantileLoss(RegressionLoss)
 ```
 
-Basic quantile regression loss function for estimating a single quantile level.
-
-**Parameters:**
-
-- `quantile` (float, optional): Quantile level to estimate (0 < q < 1). Default: `0.5` (median)
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the quantile loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the quantile loss
 
 **Example:**
 
@@ -78,12 +71,12 @@ import torchregress as tr
 # For median regression (q=0.5)
 median_loss = tr.losses.QuantileLoss(quantile=0.5)
 y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
-loss = median_loss(y_pred, target)
+y_true = torch.tensor([0.0, 2.0, 4.0])
+loss = median_loss(y_pred, y_true)
 
 # For 90th percentile regression (q=0.9)
 p90_loss = tr.losses.QuantileLoss(quantile=0.9)
-loss = p90_loss(y_pred, target)  # Underestimation heavily penalized
+loss = p90_loss(y_pred, y_true)  # Underestimation heavily penalized
 ```
 
 ### MultiQuantileLoss
@@ -102,7 +95,7 @@ Loss for simultaneously estimating multiple quantile levels, useful for generati
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the combined quantile loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the combined quantile loss
 
 **Example:**
 
@@ -116,10 +109,10 @@ loss_fn = tr.losses.MultiQuantileLoss(quantiles=[0.05, 0.5, 0.95])
 # Model predictions: [batch_size, num_quantiles, n_features]
 # Here: 1 batch, 3 quantiles, 2 features
 y_pred = torch.tensor([[[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]]])
-target = torch.tensor([[2.0, 3.0]])
+y_true = torch.tensor([[2.0, 3.0]])
 
 # Calculate combined loss across all quantiles
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### QuantileCrossover
@@ -139,7 +132,7 @@ Loss that encourages proper ordering of quantile predictions, ensuring lower qua
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the quantile loss with crossover penalty
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the quantile loss with crossover penalty
 
 **Example:**
 
@@ -159,13 +152,13 @@ good_pred = torch.tensor([[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]])
 # Predictions with crossover (q₁ > q₂)
 bad_pred = torch.tensor([[[2.0, 3.0], [1.0, 2.0], [3.0, 1.0]]])
 
-target = torch.tensor([[2.0, 2.0]])
+y_true = torch.tensor([[2.0, 2.0]])
 
 # Normal loss for properly ordered predictions
-good_loss = loss_fn(good_pred, target)
+good_loss = loss_fn(good_pred, y_true)
 
 # Higher loss for predictions with crossover
-bad_loss = loss_fn(bad_pred, target)
+bad_loss = loss_fn(bad_pred, y_true)
 ```
 
 ### SQRLoss
@@ -184,7 +177,7 @@ Simultaneous Quantile Regression (SQR) loss encourages distribution-free uncerta
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the SQR loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the SQR loss
 
 **Example:**
 
@@ -198,10 +191,10 @@ loss_fn = tr.losses.SQRLoss(lower_quantile=0.1, upper_quantile=0.9)
 # Model predictions: [batch_size, 2*n_features]
 # Here: 1 batch, 2 features
 y_pred = torch.tensor([[1.0, 2.0, 3.0, 4.0]])
-target = torch.tensor([[2.0, 3.0]])
+y_true = torch.tensor([[2.0, 3.0]])
 
 # Calculate combined loss
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ## Expectile Loss Functions
@@ -221,7 +214,7 @@ Basic expectile regression loss function for estimating a single expectile level
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the expectile loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the expectile loss
 
 **Example:**
 
@@ -232,12 +225,12 @@ import torchregress as tr
 # For mean regression (τ=0.5)
 mean_loss = tr.losses.ExpectileLoss(expectile=0.5)
 y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
-loss = mean_loss(y_pred, target)  # Standard MSE at τ=0.5
+y_true = torch.tensor([0.0, 2.0, 4.0])
+loss = mean_loss(y_pred, y_true)  # Standard MSE at τ=0.5
 
 # For 80th expectile regression (τ=0.8)
 e80_loss = tr.losses.ExpectileLoss(expectile=0.8)
-loss = e80_loss(y_pred, target)  # Underestimation penalized 4x more
+loss = e80_loss(y_pred, y_true)  # Underestimation penalized 4x more
 ```
 
 ### MultiExpectileLoss
@@ -256,7 +249,7 @@ Loss for simultaneously estimating multiple expectile levels, useful for charact
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the combined expectile loss
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the combined expectile loss
 
 **Example:**
 
@@ -269,10 +262,10 @@ loss_fn = tr.losses.MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9])
 
 # Model predictions: [batch_size, num_expectiles, features]
 y_pred = torch.tensor([[[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]]])
-target = torch.tensor([[2.0, 3.0]])
+y_true = torch.tensor([[2.0, 3.0]])
 
 # Calculate combined loss across all expectiles
-loss = loss_fn(y_pred, target)
+loss = loss_fn(y_pred, y_true)
 ```
 
 ### ExpectileCrossover
@@ -292,7 +285,7 @@ Loss that encourages proper ordering of expectile predictions, ensuring lower ex
 
 **Methods:**
 
-- `forward(y_pred, target, mask=None, weights=None)`: Computes the expectile loss with crossover penalty
+- `forward(y_pred, y_true, mask=None, weights=None)`: Computes the expectile loss with crossover penalty
 
 **Example:**
 
@@ -312,11 +305,11 @@ good_pred = torch.tensor([[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]])
 # Predictions with crossover (e₁ > e₂)
 bad_pred = torch.tensor([[[2.0, 3.0], [1.0, 2.0], [3.0, 1.0]]])
 
-target = torch.tensor([[2.0, 2.0]])
+y_true = torch.tensor([[2.0, 2.0]])
 
 # Compare losses
-good_loss = loss_fn(good_pred, target)
-bad_loss = loss_fn(bad_pred, target)  # Higher due to penalty
+good_loss = loss_fn(good_pred, y_true)
+bad_loss = loss_fn(bad_pred, y_true)  # Higher due to penalty
 ```
 
 ### AsymmetricLeastSquaresLoss
@@ -336,8 +329,8 @@ import torchregress as tr
 # This is equivalent to ExpectileLoss(expectile=0.75)
 loss_fn = tr.losses.AsymmetricLeastSquaresLoss(tau=0.75)
 y_pred = torch.tensor([1.0, 2.0, 3.0])
-target = torch.tensor([0.0, 2.0, 4.0])
-loss = loss_fn(y_pred, target)
+y_true = torch.tensor([0.0, 2.0, 4.0])
+loss = loss_fn(y_pred, y_true)
 ```
 
 ## Real-World Applications

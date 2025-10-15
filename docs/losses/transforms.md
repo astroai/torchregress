@@ -65,7 +65,7 @@ Applies logarithmic transformation to both predictions and targets before comput
 
 **Methods**:
 
-- `forward(y_pred, target, mask=None, weights=None)`: Compute loss in log space
+- `forward(y_pred, y_true, mask=None, weights=None)`: Compute loss in log space
 - `inverse(y_transformed)`: Map transformed values back to original scale
 
 **Mathematical Form**:
@@ -212,7 +212,7 @@ This subsumes several common transforms:
 
 **Methods**:
 
-- `forward(y_pred, target, mask=None, weights=None)`: Compute loss in transformed space
+- `forward(y_pred, y_true, mask=None, weights=None)`: Compute loss in transformed space
 - `inverse(y_transformed)`: Map transformed values back to original scale
 
 **Example**:
@@ -328,7 +328,7 @@ Applies square root transformation. This is variance-stabilizing for **Poisson-d
 
 **Methods**:
 
-- `forward(y_pred, target, mask=None, weights=None)`: Compute loss in sqrt space
+- `forward(y_pred, y_true, mask=None, weights=None)`: Compute loss in sqrt space
 - `inverse(y_transformed)`: Map transformed values back to original scale
 
 **Mathematical Form**:
