@@ -108,7 +108,7 @@ def test_reduction_behavior():
     skip_classes = [
         "BaseEIVLoss",
         "DistributionLoss",
-        "MaskedLoss",
+        "BaseLoss",
         "FunctionalEIVLoss",
         "StructuralEIVLoss",
         "OrthogonalDistanceRegressionLoss",

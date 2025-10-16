@@ -18,8 +18,10 @@ import torch.nn as nn
 from torch import Tensor
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("noise_adaptive")
 class NoiseAdaptiveLoss(RegressionLoss):
     """
     Learns sample-specific noise levels via meta-learning.
@@ -174,6 +176,7 @@ class NoiseAdaptiveLoss(RegressionLoss):
         return self._reduce_with_mask(weighted_loss, mask, None)
 
 
+@register_regression_loss("co_teaching")
 class CoTeachingLoss(RegressionLoss):
     """
     Co-teaching loss for training with noisy labels in regression.
@@ -325,6 +328,7 @@ class CoTeachingLoss(RegressionLoss):
             return loss_1_update, loss_2_update
 
 
+@register_regression_loss("rent")
 class RENTLoss(RegressionLoss):
     """
     Robust Ensemble Training (RENT) loss for noisy labels.

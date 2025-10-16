@@ -376,35 +376,3 @@ WeightedGaussianNLLLoss = partial(WeightedLossWrapper, nn.GaussianNLLLoss)
 WeightedCrossEntropyLoss = partial(WeightedLossWrapper, nn.CrossEntropyLoss)
 WeightedNLLLoss = partial(WeightedLossWrapper, nn.NLLLoss)
 WeightedKLDivLoss = partial(WeightedLossWrapper, nn.KLDivLoss)
-
-
-# Backward compatibility aliases with deprecation warnings
-import warnings
-
-
-def _deprecated_alias(old_name: str, new_name: str, obj: type) -> type:
-    """Create a deprecated alias that warns on first use."""
-
-    class DeprecatedAlias(obj):  # type: ignore
-        _warning_shown = False
-
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            if not DeprecatedAlias._warning_shown:
-                warnings.warn(
-                    f"{old_name} is deprecated and will be removed in a future version. "
-                    f"Use {new_name} instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                DeprecatedAlias._warning_shown = True
-            super().__init__(*args, **kwargs)
-
-    DeprecatedAlias.__name__ = old_name
-    DeprecatedAlias.__qualname__ = old_name
-    return DeprecatedAlias
-
-
-# Note: All losses support masking/reduction via BaseLoss
-Loss = _deprecated_alias("Loss", "BaseLoss", BaseLoss)
-ReductionLoss = _deprecated_alias("ReductionLoss", "RegressionLoss", RegressionLoss)
-MaskedLoss = _deprecated_alias("MaskedLoss", "BaseLoss", BaseLoss)

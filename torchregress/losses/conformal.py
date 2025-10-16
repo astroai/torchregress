@@ -12,8 +12,10 @@ from torchcp.regression.score import ABS as AbsScore
 from torchcp.regression.score import CQR as CQRScore
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("conformal")
 class ConformalLoss(RegressionLoss):
     """
     Wrapper for torchcp conformal methods.
@@ -166,6 +168,7 @@ class ConformalLoss(RegressionLoss):
         return lower, upper
 
 
+@register_regression_loss("multidim_conformal")
 class MultiDimensionalConformalLoss(ConformalLoss):
     """
     Multi-dimensional conformal prediction for multi-output regression.

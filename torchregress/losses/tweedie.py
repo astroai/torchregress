@@ -18,8 +18,10 @@ from typing import Optional
 import torch
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("tweedie")
 class TweedieLoss(RegressionLoss):
     """
     Tweedie loss function for regression.
@@ -241,6 +243,7 @@ class TweedieLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("gamma")
 class GammaLoss(TweedieLoss):
     """
     Gamma loss for regression.
@@ -267,6 +270,7 @@ class GammaLoss(TweedieLoss):
         super().__init__(p=2, eps=eps, reduction=reduction, link=link)
 
 
+@register_regression_loss("inverse_gaussian")
 class InverseGaussianLoss(TweedieLoss):
     """
     Inverse Gaussian loss for regression.
@@ -293,6 +297,7 @@ class InverseGaussianLoss(TweedieLoss):
         super().__init__(p=3, eps=eps, reduction=reduction, link=link)
 
 
+@register_regression_loss("compound_poisson")
 class CompoundPoissonLoss(TweedieLoss):
     """
     Compound Poisson-Gamma loss for regression with excess zeros.

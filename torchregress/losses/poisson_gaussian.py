@@ -20,8 +20,10 @@ import torch.nn as nn
 from torch.nn import PoissonNLLLoss
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("poisson_gaussian_mixture")
 class PoissonGaussianMixtureLoss(RegressionLoss):
     """
     Negative log-likelihood loss for a mixture of Gaussian (readout noise)
@@ -161,46 +163,7 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         return self._reduce_with_mask(mixture_nll, mask, weights)
 
 
-def poisson_gaussian_mixture_loss(
-    learn_variance: bool = False,
-    initial_variance: float = 1.0,
-    log_input: bool = False,
-    mixture_weights: Optional[Union[float, str]] = None,
-    extra_variance_model: bool = False,
-    **kwargs,
-) -> PoissonGaussianMixtureLoss:
-    """
-    Create a Poisson-Gaussian mixture loss function.
-
-    Args:
-        learn_variance: Whether to learn the Gaussian variance. Default: False
-        initial_variance: Initial value for Gaussian variance. Default: 1.0
-        log_input: Whether inputs are in log space. Default: False
-        mixture_weights: How to handle mixture weights. Default: None (equal weighting)
-        extra_variance_model: Whether to include extra variance terms. Default: False
-        **kwargs: Additional parameters for the loss
-
-    Returns:
-        PoissonGaussianMixtureLoss instance
-
-    Example:
-        >>> # Create a loss with learnable mixture weights
-        >>> loss_fn = poisson_gaussian_mixture_loss(
-        ...     learn_variance=True,
-        ...     mixture_weights='learn',
-        ...     log_input=True
-        ... )
-    """
-    return PoissonGaussianMixtureLoss(
-        learn_variance=learn_variance,
-        initial_variance=initial_variance,
-        log_input=log_input,
-        mixture_weights=mixture_weights,
-        extra_variance_model=extra_variance_model,
-        **kwargs,
-    )
-
-
+@register_regression_loss("enhanced_poisson_gaussian_mixture")
 class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
     """
     Advanced Poisson-Gaussian mixture loss with additional features for scientific applications.
@@ -375,53 +338,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
-def enhanced_poisson_gaussian_loss(
-    gain: Union[float, str] = 1.0,
-    offset: Union[float, str] = 0.0,
-    read_noise: Union[float, str] = 1.0,
-    shot_noise: Union[float, str] = 0.0,
-    log_input: bool = False,
-    calibration: bool = False,
-    reduction: str = "mean",
-    **kwargs,
-) -> EnhancedPoissonGaussianMixtureLoss:
-    """
-    Create an enhanced Poisson-Gaussian mixture loss.
-
-    Args:
-        gain: Fixed gain/scaling factor or 'learn' to make it learnable. Default: 1.0
-        offset: Fixed offset/bias or 'learn' to make it learnable. Default: 0.0
-        read_noise: Constant variance component (σ₁²). Default: 1.0
-        shot_noise: Signal-dependent variance component (σ₂²). Default: 0.0
-        log_input: Whether inputs are in log space. Default: False
-        calibration: Whether to include calibration parameters. Default: False
-        reduction: Method for loss reduction. Default: 'mean'
-        **kwargs: Additional parameters for the loss
-
-    Returns:
-        EnhancedPoissonGaussianMixtureLoss instance
-
-    Example:
-        >>> # Create a loss with learnable gain and signal-dependent noise
-        >>> loss_fn = enhanced_poisson_gaussian_loss(
-        ...     gain='learn',
-        ...     read_noise=0.1,
-        ...     shot_noise='learn',
-        ...     log_input=True
-        ... )
-    """
-    return EnhancedPoissonGaussianMixtureLoss(
-        gain=gain,
-        offset=offset,
-        read_noise=read_noise,
-        shot_noise=shot_noise,
-        log_input=log_input,
-        calibration=calibration,
-        reduction=reduction,
-        **kwargs,
-    )
-
-
+@register_regression_loss("poisson_gaussian_likelihood_ratio")
 class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
     """
     Likelihood ratio loss combining Poisson count processes and Gaussian noise.
@@ -517,32 +434,3 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(combined_lr, mask, weights)
-
-
-def poisson_gaussian_likelihood_ratio_loss(
-    log_input: bool = True, learn_variance: bool = False, initial_variance: float = 1.0, **kwargs
-) -> PoissonGaussianLikelihoodRatioLoss:
-    """
-    Create a Poisson-Gaussian likelihood ratio loss function.
-
-    Args:
-        log_input: If True, input is log(λ) rather than λ. Default: True
-        learn_variance: Whether to learn the Gaussian variance. Default: False
-        initial_variance: Initial value for Gaussian variance. Default: 1.0
-        **kwargs: Additional parameters for the loss
-
-    Returns:
-        PoissonGaussianLikelihoodRatioLoss instance
-
-    Example:
-        >>> loss_fn = poisson_gaussian_likelihood_ratio_loss(
-        ...     learn_variance=True,
-        ...     log_input=True
-        ... )
-    """
-    return PoissonGaussianLikelihoodRatioLoss(
-        log_input=log_input,
-        learn_variance=learn_variance,
-        initial_variance=initial_variance,
-        **kwargs,
-    )

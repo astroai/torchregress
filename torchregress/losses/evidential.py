@@ -20,8 +20,10 @@ import torch
 from torch import Tensor
 
 from .base import DistributionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("evidential")
 class EvidentialRegressionLoss(DistributionLoss):
     """
     Evidential Regression loss using Normal-Inverse-Gamma (NIG) prior.
@@ -378,22 +380,3 @@ class EvidentialRegressionLoss(DistributionLoss):
         prediction_samples = pred_dist.sample()
 
         return prediction_samples
-
-
-def create_evidential_loss(
-    coeff_nig: float = 0.01, reduction: str = "mean"
-) -> EvidentialRegressionLoss:
-    """
-    Factory function to create an evidential regression loss.
-
-    Args:
-        coeff_nig: Coefficient for NIG regularization. Default: 0.01
-        reduction: Loss reduction method. Default: 'mean'
-
-    Returns:
-        EvidentialRegressionLoss instance
-
-    Example:
-        >>> loss_fn = create_evidential_loss(coeff_nig=0.01)
-    """
-    return EvidentialRegressionLoss(coeff_nig=coeff_nig, reduction=reduction)

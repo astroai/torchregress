@@ -17,10 +17,12 @@ import torch
 
 from ..utils.validation import validate_positive
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 # Remove HuberLoss as it's redundant with WeightedHuberLoss in base
 
 
+@register_regression_loss("pseudo_huber")
 class PseudoHuberLoss(RegressionLoss):
     """
     Pseudo-Huber Loss: a smooth approximation to the Huber loss.
@@ -75,6 +77,7 @@ class PseudoHuberLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("log_cosh")
 class LogCoshLoss(RegressionLoss):
     """
     Log-Cosh Loss: A smooth approximation of Huber loss.
@@ -130,6 +133,7 @@ class LogCoshLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("charbonnier")
 class CharbonnierLoss(RegressionLoss):
     """
     Charbonnier Loss: A smooth alternative to L1 loss.
@@ -182,6 +186,7 @@ class CharbonnierLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("lq")
 class LqLoss(RegressionLoss):
     """
     Lq Loss: A generalization of L1 (q=1) and L2 (q=2) losses.
@@ -236,6 +241,7 @@ class LqLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("tukey_biweight")
 class TukeyBiweightLoss(RegressionLoss):
     """
     Tukey's biweight (bisquare) loss for robust regression.
@@ -308,6 +314,7 @@ class TukeyBiweightLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("winsorized")
 class WinsorizedLoss(RegressionLoss):
     """
     Winsorized loss for robust regression.
@@ -385,6 +392,7 @@ class WinsorizedLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("log_barrier")
 class LogBarrierLoss(RegressionLoss):
     """
     Log Barrier loss for robust regression.
@@ -448,6 +456,7 @@ class LogBarrierLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("adaptive_huber")
 class AdaptiveHuberLoss(RegressionLoss):
     """
     Adaptive Huber loss with automatic delta estimation.
@@ -532,6 +541,7 @@ class AdaptiveHuberLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("clipped")
 class ClippedLoss(RegressionLoss):
     """
     Clipped loss for robust regression.
@@ -597,6 +607,7 @@ class ClippedLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("fair")
 class FairLoss(RegressionLoss):
     """
     Fair loss for robust regression.
@@ -660,6 +671,7 @@ class FairLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("cauchy")
 class CauchyLoss(RegressionLoss):
     """
     Cauchy loss for robust regression.

@@ -54,12 +54,9 @@ class BaseEnsembleModel(nn.Module):
             x: Input tensor [batch_size, ...]
 
         Returns:
-            List of predictions from each ensemble member
+            Stacked predictions from each ensemble member [ensemble_size, batch_size, ...]
         """
-        outputs = []
-        for model in self.models:
-            outputs.append(model(x))
-        return outputs
+        return torch.stack([model(x) for model in self.models])
 
     def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -70,14 +67,10 @@ class BaseEnsembleModel(nn.Module):
 
         Returns:
             Dictionary with mean and variance of predictions.
-            For full-output covariance across targets, use `predict_full_covariance`.
         """
         with torch.no_grad():
             # Get predictions from all ensemble members
-            predictions = self.forward(x)
-
-            # Stack predictions [ensemble_size, batch_size, output_dim]
-            stacked_preds = torch.stack(predictions)
+            stacked_preds = self.forward(x)
 
             # Calculate mean across ensemble dimension
             mean = torch.mean(stacked_preds, dim=0)
@@ -86,20 +79,6 @@ class BaseEnsembleModel(nn.Module):
             variance = torch.var(stacked_preds, dim=0, unbiased=True)
 
             return {"mean": mean, "variance": variance}
-
-    def predict_with_uncertainties(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """
-        Make prediction with epistemic and aleatoric uncertainty estimates.
-
-        Args:
-            x: Input tensor [batch_size, ...]
-
-        Returns:
-            Dictionary with predictions and uncertainty estimates
-        """
-        with torch.no_grad():
-            # For standard ensemble, this is the same as predict
-            return self.predict(x)
 
     def predict_full_covariance(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """

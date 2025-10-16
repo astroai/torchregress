@@ -15,8 +15,10 @@ from ..utils.transform import (
     sqrt_transform,
 )
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("log_transform")
 class LogTransformLoss(RegressionLoss):
     """
     Loss on log-transformed targets (variance-stabilizing for multiplicative noise).
@@ -47,6 +49,7 @@ class LogTransformLoss(RegressionLoss):
         return log_inverse(y_transformed, self.eps)
 
 
+@register_regression_loss("boxcox_transform")
 class BoxCoxTransformLoss(RegressionLoss):
     """
     Loss on Box-Cox transformed targets.
@@ -80,6 +83,7 @@ class BoxCoxTransformLoss(RegressionLoss):
         return boxcox_inverse(y_transformed, self.lam, self.eps)
 
 
+@register_regression_loss("sqrt_transform")
 class SqrtTransformLoss(RegressionLoss):
     """
     Loss on square-root transformed targets (variance-stabilizing for Poisson-like data).

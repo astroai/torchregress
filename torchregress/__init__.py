@@ -2,34 +2,24 @@
 TorchRegress: PyTorch-based regression modeling toolkit.
 
 This package provides utilities, models, and loss functions for
-various regression tasks in PyTorch, with a focus on uncertainty
+various regression tasks, with a focus on uncertainty
 estimation and robust regression techniques.
 """
 
 __version__ = "0.1.0"
 
 # Import main submodules
-from . import algorithms, ensemble, losses, metrics, models, utils, viz, wrappers
-from .algorithms import IRLS, iteratively_reweighted_least_squares
+from . import algorithms, ensemble, losses, metrics, models, utils, viz
 
 # Export key components for easy access
-from .losses.base import DistributionLoss, MaskedLoss, RegressionLoss
-
-# Add key wrapper functions
-from .wrappers import (
-    create_deep_ensemble,
-    create_mdn_model,
-    wrap_pytorch_loss,
+from .losses import (
+    DistributionLoss,
+    BaseLoss,
+    RegressionLoss,
+    create_loss_from_config,
 )
-from .wrappers import (
-    create_gaussian_model as create_gaussian_regression,
-)
-from .wrappers import (
-    create_quantile_model as create_quantile_regression,
-)
-from .wrappers import (
-    create_robust_model as create_robust_regression,
-)
+from .algorithms import iteratively_reweighted_least_squares
+from .wrappers import wrap_pytorch_loss
 
 __all__ = [
     # Main modules
@@ -40,17 +30,13 @@ __all__ = [
     "models",
     "viz",
     "utils",
-    "wrappers",
-    "MaskedLoss",
+    # Core classes
+    "BaseLoss",
     "RegressionLoss",
     "DistributionLoss",
-    "IRLS",
+    # Core functions
     "iteratively_reweighted_least_squares",
-    "create_gaussian_regression",
-    "create_robust_regression",
-    "create_quantile_regression",
-    "create_mdn_model",
-    "create_deep_ensemble",
+    "create_loss_from_config",
     "wrap_pytorch_loss",
     "__version__",
 ]

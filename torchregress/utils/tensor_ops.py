@@ -33,20 +33,7 @@ def apply_mask(tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tens
     if mask is None:
         return tensor
 
-    # Handle broadcasting if needed
-    if tensor.shape != mask.shape:
-        # Try to broadcast mask to tensor shape using torch's broadcasting rules
-        try:
-            # Use proper broadcasting using * operator
-            return tensor * mask
-        except RuntimeError:
-            # Provide more detailed error message
-            raise ValueError(
-                f"Mask shape {mask.shape} cannot be broadcast to tensor shape {tensor.shape}. "
-                f"For broadcasting to work, mask dimensions must be 1 or match tensor dimensions."
-            )
-    else:
-        return tensor * mask
+    return tensor * mask
 
 
 def masked_reduction(
@@ -69,17 +56,10 @@ def masked_reduction(
         >>> masked_reduction(x, mask, reduction='mean')
         tensor(2.)  # (1 + 3) / 2
     """
-    valid_reductions = ["none", "mean", "sum", "max", "min"]
-    if reduction not in valid_reductions:
-        raise ValueError(
-            f"Reduction '{reduction}' not supported. Must be one of {valid_reductions}"
-        )
-
     if reduction == "none":
         return tensor
 
     if mask is None:
-        # No mask, straightforward reduction
         if reduction == "mean":
             return torch.mean(tensor)
         elif reduction == "sum":
@@ -88,98 +68,48 @@ def masked_reduction(
             return torch.max(tensor)
         elif reduction == "min":
             return torch.min(tensor)
+        else:
+            raise ValueError(f"Unknown reduction: {reduction}")
+
+    if reduction == "mean":
+        return masked_mean(tensor, mask)
+    elif reduction == "sum":
+        return masked_sum(tensor, mask)
     else:
-        # With mask, we need to handle the reduction carefully
-        # First apply the mask to zero out invalid values
-        masked_tensor = tensor * mask
+        # For max/min, we need to handle masked values specially
+        if reduction == "max":
+            fill_value = torch.finfo(tensor.dtype).min
+        elif reduction == "min":
+            fill_value = torch.finfo(tensor.dtype).max
+        else:
+            raise ValueError(f"Unknown reduction: {reduction}")
 
-        if reduction == "mean":
-            # Count valid elements for mean reduction
-            valid_count = torch.sum(mask).clamp(min=1)  # Avoid division by zero
-            masked_sum = torch.sum(masked_tensor)
-            return masked_sum / valid_count
-        elif reduction == "sum":
-            return torch.sum(masked_tensor)
-        elif reduction == "max" or reduction == "min":
-            # For max/min, we need to handle masked values specially
-            # Fill masked values with appropriate extreme values
-            if reduction == "max":
-                # Fill masked positions with negative infinity
-                fill_value = torch.finfo(tensor.dtype).min
-            else:  # 'min'
-                # Fill masked positions with positive infinity
-                fill_value = torch.finfo(tensor.dtype).max
-
-            # Create a tensor with fill values at masked positions
-            filled_tensor = tensor.clone()
-            filled_tensor = filled_tensor.masked_fill(~mask, fill_value)
-
-            # Apply the reduction
-            if reduction == "max":
-                return torch.max(filled_tensor)
-            else:  # 'min'
-                return torch.min(filled_tensor)
+        return torch.where(mask, tensor, fill_value).max() if reduction == "max" else torch.where(mask, tensor, fill_value).min()
 
 
 def masked_mean(
-    tensor: torch.Tensor, mask: Optional[torch.Tensor], dim: Optional[int] = None
+    tensor: torch.Tensor, mask: Optional[torch.Tensor], dim: Optional[Union[int, Tuple[int, ...]]] = None, keepdim: bool = False
 ) -> torch.Tensor:
     """
     Compute masked mean along specified dimension(s).
-
-    Args:
-        tensor: Input tensor
-        mask: Boolean mask (True for valid values)
-        dim: Dimension(s) to reduce over. None for all dimensions.
-
-    Returns:
-        Mean of valid elements along specified dimension(s)
-
-    Examples:
-        >>> x = torch.tensor([[1., 2., 3.], [4., 5., 6.]])
-        >>> mask = torch.tensor([[True, True, False], [True, False, True]])
-        >>> masked_mean(x, mask, dim=1)
-        tensor([1.5000, 5.0000])
     """
     if mask is None:
-        return torch.mean(tensor, dim=dim)
+        return torch.mean(tensor, dim=dim, keepdim=keepdim)
 
-    if dim is None:
-        # Reduce over all dimensions
-        valid_count = torch.sum(mask).clamp(min=1)
-        return torch.sum(tensor * mask) / valid_count
-
-    # Handle reducing along specific dimension(s)
-    masked_tensor = tensor * mask
-    valid_count = torch.sum(mask, dim=dim).clamp(min=1)
-    return torch.sum(masked_tensor, dim=dim) / valid_count
+    valid_count = mask.sum(dim=dim, keepdim=keepdim).clamp(min=1)
+    return (tensor * mask).sum(dim=dim, keepdim=keepdim) / valid_count
 
 
 def masked_sum(
-    tensor: torch.Tensor, mask: Optional[torch.Tensor], dim: Optional[int] = None
+    tensor: torch.Tensor, mask: Optional[torch.Tensor], dim: Optional[Union[int, Tuple[int, ...]]] = None, keepdim: bool = False
 ) -> torch.Tensor:
     """
     Compute masked sum along specified dimension(s).
-
-    Args:
-        tensor: Input tensor
-        mask: Boolean mask (True for valid values)
-        dim: Dimension(s) to reduce over. None for all dimensions.
-
-    Returns:
-        Sum of valid elements along specified dimension(s)
-
-    Examples:
-        >>> x = torch.tensor([[1., 2., 3.], [4., 5., 6.]])
-        >>> mask = torch.tensor([[True, True, False], [True, False, True]])
-        >>> masked_sum(x, mask, dim=1)
-        tensor([3., 10.])
     """
     if mask is None:
-        return torch.sum(tensor, dim=dim)
+        return torch.sum(tensor, dim=dim, keepdim=keepdim)
 
-    masked_tensor = tensor * mask
-    return torch.sum(masked_tensor, dim=dim)
+    return (tensor * mask).sum(dim=dim, keepdim=keepdim)
 
 
 def prepare_param(
@@ -187,45 +117,20 @@ def prepare_param(
 ) -> torch.Tensor:
     """
     Prepare a parameter tensor for use in models.
-
-    Args:
-        param: Input parameter (scalar or tensor)
-        n_dims: Number of dimensions required
-        device: Device to put the tensor on
-        default_value: Default value if param is None
-
-    Returns:
-        Parameter tensor of appropriate shape
-
-    Examples:
-        >>> device = torch.device('cpu')
-        >>> prepare_param(0.5, 3, device)
-        tensor([0.5000, 0.5000, 0.5000])
-        >>> prepare_param(torch.tensor([0.1, 0.2, 0.3]), 3, device)
-        tensor([0.1000, 0.2000, 0.3000])
     """
     if param is None:
-        return torch.tensor(default_value, device=device).expand(n_dims)
+        return torch.full((n_dims,), default_value, device=device)
 
     if isinstance(param, (int, float)):
-        return torch.tensor(param, device=device).expand(n_dims)
+        return torch.full((n_dims,), param, device=device)
 
     if isinstance(param, torch.Tensor):
         param = param.to(device)
-
-        if param.ndim == 0:
-            # Scalar tensor
+        if param.numel() == 1:
             return param.expand(n_dims)
-        elif param.shape[0] == n_dims:
-            # Check if we need to reshape to match n_dims
-            if param.ndim > 1 and param.numel() == n_dims:
-                return param.reshape(n_dims)
-            return param
-        else:
-            raise ValueError(
-                f"Parameter shape {param.shape} doesn't match required size {n_dims}. "
-                f"Expected a tensor with first dimension of size {n_dims}."
-            )
+        if param.numel() == n_dims:
+            return param.reshape(n_dims)
+        raise ValueError(f"Parameter shape {param.shape} doesn't match required size {n_dims}.")
 
     raise TypeError(f"Parameter must be float or tensor, got {type(param).__name__}")
 
@@ -235,22 +140,6 @@ def prepare_sigma(
 ) -> torch.Tensor:
     """
     Prepare sigma (standard deviation) parameter for noise models.
-
-    Args:
-        sigma: Standard deviation (scalar or tensor)
-        n_dims: Number of dimensions required
-        device: Device to put the tensor on
-        default_zero: Whether default value is 0.0 (if sigma is None)
-
-    Returns:
-        Sigma tensor of appropriate shape
-
-    Examples:
-        >>> device = torch.device('cpu')
-        >>> prepare_sigma(0.5, 3, device)
-        tensor([0.5000, 0.5000, 0.5000])
-        >>> prepare_sigma(None, 3, device, default_zero=False)
-        tensor([1., 1., 1.])
     """
     default = 0.0 if default_zero else 1.0
     return prepare_param(sigma, n_dims, device, default)
@@ -261,66 +150,30 @@ def prepare_covariance(
 ) -> torch.Tensor:
     """
     Prepare covariance matrix or vector for multivariate models.
-
-    Args:
-        cov: Covariance (scalar, vector or matrix)
-        n_dims: Dimensionality of feature space
-        device: Device to put tensor on
-
-    Returns:
-        Covariance tensor of appropriate shape (n_dims, n_dims)
-
-    Examples:
-        >>> device = torch.device('cpu')
-        >>> prepare_covariance(1.0, 2, device)
-        tensor([[1., 0.],
-                [0., 1.]])
-        >>> prepare_covariance(torch.tensor([2.0, 3.0]), 2, device)
-        tensor([[2., 0.],
-                [0., 3.]])
     """
     if cov is None:
-        # Default to identity matrix
         return torch.eye(n_dims, device=device)
 
     if isinstance(cov, (int, float)):
-        # Scalar covariance - use as diagonal
         return torch.eye(n_dims, device=device) * cov
 
     if isinstance(cov, torch.Tensor):
         cov = cov.to(device)
-
-        if cov.ndim == 0:
-            # Scalar tensor
-            return torch.eye(n_dims, device=device) * cov
-        elif cov.ndim == 1:
-            # Vector - interpret as diagonal entries
+        if cov.numel() == 1:
+            return torch.eye(n_dims, device=device) * cov.item()
+        if cov.ndim == 1:
             if cov.shape[0] != n_dims:
-                raise ValueError(
-                    f"Diagonal covariance shape {cov.shape} doesn't match required dimensions {n_dims}. "
-                    f"Expected a tensor with {n_dims} elements."
-                )
+                raise ValueError(f"Diagonal covariance shape {cov.shape} doesn't match required dimensions {n_dims}.")
             return torch.diag(cov)
-        elif cov.ndim == 2:
-            # Matrix - check shape
+        if cov.ndim == 2:
             if cov.shape != (n_dims, n_dims):
-                raise ValueError(
-                    f"Covariance matrix shape {cov.shape} doesn't match required shape ({n_dims}, {n_dims}). "
-                    f"Expected a square matrix with dimensions ({n_dims}, {n_dims})."
-                )
-            # Ensure the covariance matrix is symmetric
-            if not torch.allclose(cov, cov.t(), rtol=1e-5, atol=1e-8):
-                warnings_module = __import__("warnings")
-                warnings_module.warn(
-                    "Covariance matrix is not symmetric. Using (cov + cov.T) / 2 to ensure symmetry."
-                )
-                # Make it symmetric
+                raise ValueError(f"Covariance matrix shape {cov.shape} doesn't match required shape ({n_dims}, {n_dims}).")
+            if not torch.allclose(cov, cov.t()):
+                import warnings
+                warnings.warn("Covariance matrix is not symmetric. Using (cov + cov.T) / 2.")
                 cov = (cov + cov.t()) / 2
             return cov
-        else:
-            raise ValueError(
-                f"Covariance must be scalar, vector or matrix, got tensor with {cov.ndim} dimensions"
-            )
+        raise ValueError(f"Covariance must be scalar, vector or matrix, got tensor with {cov.ndim} dimensions")
 
     raise TypeError(f"Covariance must be float or tensor, got {type(cov).__name__}")
 
@@ -330,37 +183,15 @@ def prepare_cross_covariance(
 ) -> torch.Tensor:
     """
     Prepare cross-covariance matrix for correlated input-output noise.
-
-    Args:
-        cov_xy: Cross-covariance tensor
-        n_dims_x: Number of input dimensions
-        n_dims_y: Number of output dimensions
-        device: Device to put tensor on
-
-    Returns:
-        Cross-covariance tensor [n_dims_y, n_dims_x]
-
-    Examples:
-        >>> device = torch.device('cpu')
-        >>> prepare_cross_covariance(None, 2, 3, device)
-        tensor([[0., 0.],
-                [0., 0.],
-                [0., 0.]])
     """
     if cov_xy is None:
-        # Default to zero cross-covariance
         return torch.zeros((n_dims_y, n_dims_x), device=device)
 
     if isinstance(cov_xy, torch.Tensor):
         cov_xy = cov_xy.to(device)
-
         if cov_xy.shape == (n_dims_y, n_dims_x):
             return cov_xy
-        else:
-            raise ValueError(
-                f"Cross-covariance shape {cov_xy.shape} doesn't match required shape ({n_dims_y}, {n_dims_x}). "
-                f"Expected a matrix with dimensions ({n_dims_y}, {n_dims_x})."
-            )
+        raise ValueError(f"Cross-covariance shape {cov_xy.shape} doesn't match required shape ({n_dims_y}, {n_dims_x}).")
 
     raise TypeError(f"Cross-covariance must be a tensor, got {type(cov_xy).__name__}")
 
@@ -368,22 +199,8 @@ def prepare_cross_covariance(
 def prepare_model_input_for_gradients(x: torch.Tensor) -> torch.Tensor:
     """
     Prepare model input for gradient calculation.
-
-    Args:
-        x: Input tensor
-
-    Returns:
-        Input tensor with requires_grad=True
-
-    Examples:
-        >>> x = torch.tensor([1.0, 2.0])
-        >>> x_grad = prepare_model_input_for_gradients(x)
-        >>> x_grad.requires_grad
-        True
     """
-    x_grad = x.detach().clone()
-    x_grad.requires_grad_(True)
-    return x_grad
+    return x.detach().clone().requires_grad_(True)
 
 
 def batched_linalg_solve(
@@ -391,116 +208,15 @@ def batched_linalg_solve(
 ) -> torch.Tensor:
     """
     Solve multiple linear systems in batched mode.
-
-    This function solves Ax = b for multiple A, b pairs in a batch.
-    Uses progressively more robust but potentially slower methods if simple approach fails.
-
-    Args:
-        A: Batch of matrices [batch_size, n, n]
-        b: Batch of vectors [batch_size, n, 1] or [batch_size, n]
-        ridge_factor: Small constant added to diagonal for numerical stability
-
-    Returns:
-        x: Solution of Ax = b, [batch_size, n, 1] or [batch_size, n]
-
-    Examples:
-        >>> A = torch.tensor([[[2.0, 1.0], [1.0, 2.0]], [[1.0, 0.5], [0.5, 1.0]]])
-        >>> b = torch.tensor([[5.0, 5.0], [2.0, 2.0]])
-        >>> x = batched_linalg_solve(A, b)
-        >>> x.shape
-        torch.Size([2, 2])
     """
-    # Ensure b is a 3D tensor with shape [batch_size, n, 1]
-    squeeze_dim = False
-    if b.dim() == 2:
-        b = b.unsqueeze(-1)
-        squeeze_dim = True
-
-    # Try direct solve first
     try:
-        x = torch.linalg.solve(A, b)
+        return torch.linalg.solve(A, b)
     except RuntimeError:
-        # Fall back to batched inverse method
-        # Add small jitter to diagonal for numerical stability
-        batch_size, n, _ = A.shape
-        device = A.device
-        jitter = ridge_factor * torch.eye(n, device=device).unsqueeze(0).expand(batch_size, -1, -1)
-
         try:
-            # Try with jitter
-            A_jitter = A + jitter
-            x = torch.linalg.solve(A_jitter, b)
+            A_jitter = A + ridge_factor * torch.eye(A.shape[-1], device=A.device)
+            return torch.linalg.solve(A_jitter, b)
         except RuntimeError:
-            # Ultimate fallback: explicit inverse
-            try:
-                A_inv = torch.inverse(A + jitter)
-                x = torch.bmm(A_inv, b)
-            except RuntimeError:
-                # If everything fails, try SVD-based pseudo-inverse
-                A_flat = A.reshape(-1, n, n)
-                b_flat = b.reshape(-1, n, 1)
-                x_flat = []
-
-                for i in range(A_flat.shape[0]):
-                    # Compute SVD-based pseudo-inverse for each matrix in batch
-                    U, S, Vh = torch.linalg.svd(A_flat[i])
-                    # Apply threshold to singular values
-                    threshold = ridge_factor * torch.max(S)
-                    S_inv = torch.where(S > threshold, 1.0 / S, torch.zeros_like(S))
-                    # Compute pseudo-inverse: A⁺ = V·S⁺·U^T
-                    A_pinv = torch.mm(Vh.t(), torch.mm(torch.diag(S_inv), U.t()))
-                    # Solve system
-                    x_i = torch.mm(A_pinv, b_flat[i])
-                    x_flat.append(x_i)
-
-                x = torch.stack(x_flat).reshape(batch_size, n, 1)
-
-    # Return with original dimensions
-    if squeeze_dim:
-        return x.squeeze(-1)
-    return x
-
-
-def to_tensor(
-    x: Union[np.ndarray, List, Tuple, torch.Tensor],
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
-) -> torch.Tensor:
-    """
-    Convert various data types to PyTorch tensor.
-
-    Args:
-        x: Input data (numpy array, list, tuple, or tensor)
-        device: Device to put tensor on (if None, uses input tensor's device)
-        dtype: Desired tensor dtype (if None, inferred from input)
-
-    Returns:
-        PyTorch tensor
-
-    Examples:
-        >>> to_tensor([1, 2, 3])
-        tensor([1, 2, 3])
-        >>> to_tensor(np.array([1.0, 2.0, 3.0]), dtype=torch.float32)
-        tensor([1., 2., 3.], dtype=torch.float32)
-    """
-    if isinstance(x, torch.Tensor):
-        tensor = x
-    elif isinstance(x, np.ndarray):
-        tensor = torch.from_numpy(x)
-    elif isinstance(x, (list, tuple)):
-        tensor = torch.tensor(x)
-    else:
-        raise TypeError(f"Cannot convert {type(x).__name__} to torch.Tensor")
-
-    # Move to specified device if provided
-    if device is not None:
-        tensor = tensor.to(device)
-
-    # Convert to specified dtype if provided
-    if dtype is not None:
-        tensor = tensor.to(dtype)
-
-    return tensor
+            return torch.linalg.pinv(A) @ b
 
 
 def standardize(
@@ -511,154 +227,19 @@ def standardize(
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Standardize data to have zero mean and unit variance.
-
-    Args:
-        x: Input tensor [batch_size, n_features]
-        mean: Mean values to use (if None, computed from data)
-        std: Standard deviation values to use (if None, computed from data)
-        eps: Small value for numerical stability
-
-    Returns:
-        Tuple of (standardized_x, mean, std)
-
-    Examples:
-        >>> x = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-        >>> std_x, mean, std = standardize(x)
-        >>> mean
-        tensor([3., 4.])
-        >>> std
-        tensor([1.6330, 1.6330])
     """
-    if x.dim() == 1:
-        x = x.unsqueeze(-1)
-
     if mean is None:
-        # Compute mean along batch dimension
-        mean = torch.mean(x, dim=0)
-
+        mean = x.mean(dim=0)
     if std is None:
-        # Compute standard deviation along batch dimension
-        std = torch.std(x, dim=0, unbiased=False)
-
-    # Avoid division by zero
-    std = torch.clamp(std, min=eps)
-
-    # Standardize
-    standardized_x = (x - mean) / std
-
-    return standardized_x, mean, std
+        std = x.std(dim=0)
+    return (x - mean) / (std + eps), mean, std
 
 
 def unstandardize(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
     """
     Reverse standardization transform.
-
-    Args:
-        x: Standardized tensor
-        mean: Mean values used for standardization
-        std: Standard deviation values used for standardization
-
-    Returns:
-        Original scale tensor
-
-    Examples:
-        >>> x_std = torch.tensor([[0.0, 0.0], [1.0, 1.0]])
-        >>> mean = torch.tensor([2.0, 3.0])
-        >>> std = torch.tensor([1.0, 2.0])
-        >>> unstandardize(x_std, mean, std)
-        tensor([[2., 3.],
-                [3., 5.]])
     """
     return x * std + mean
-
-
-def broadcast_shapes(*shapes: Tuple[int, ...]) -> Tuple[int, ...]:
-    """
-    Compute the shape resulting from broadcasting the given shapes.
-
-    Args:
-        *shapes: Input shapes to broadcast
-
-    Returns:
-        Resulting shape after broadcasting
-
-    Raises:
-        ValueError: If shapes are not broadcastable
-
-    Examples:
-        >>> broadcast_shapes((3, 1), (1, 4))
-        (3, 4)
-        >>> broadcast_shapes((5, 1, 3), (1, 4, 3))
-        (5, 4, 3)
-    """
-    if not shapes:
-        return ()
-
-    try:
-        return torch.broadcast_shapes(*shapes)
-    except RuntimeError as e:
-        # Provide more helpful error message
-        raise ValueError(
-            f"Shapes {shapes} are not broadcastable. For broadcasting to work, "
-            f"trailing dimensions must match or be 1. Error: {str(e)}"
-        )
-
-
-def broadcast_tensors(*tensors: torch.Tensor) -> List[torch.Tensor]:
-    """
-    Broadcast tensors to a common shape.
-
-    Args:
-        *tensors: Tensors to broadcast together
-
-    Returns:
-        List of broadcasted tensors
-
-    Examples:
-        >>> a = torch.tensor([1, 2, 3])
-        >>> b = torch.tensor([[4], [5]])
-        >>> c_a, c_b = broadcast_tensors(a, b)
-        >>> c_a.shape, c_b.shape
-        (torch.Size([2, 3]), torch.Size([2, 3]))
-    """
-    try:
-        return torch.broadcast_tensors(*tensors)
-    except RuntimeError as e:
-        raise ValueError(f"Cannot broadcast tensors: {str(e)}")
-
-
-def batch_diag(x: torch.Tensor) -> torch.Tensor:
-    """
-    Create a batch of diagonal matrices from a batch of vectors.
-
-    Args:
-        x: Input tensor of shape [..., n]
-
-    Returns:
-        Batch of diagonal matrices with shape [..., n, n]
-
-    Examples:
-        >>> x = torch.tensor([[1, 2, 3], [4, 5, 6]])
-        >>> batch_diag(x).shape
-        torch.Size([2, 3, 3])
-    """
-    # Get the shape of the input
-    shape = x.shape
-    n = shape[-1]
-
-    # Create identity matrices and scale them
-    # First create a tensor of shape [..., 1, n, n] with 1s on the diagonal
-    # Then multiply by x.unsqueeze(-1).unsqueeze(-1) of shape [..., n, 1, 1]
-    identity = torch.eye(n, device=x.device, dtype=x.dtype)
-    batch_shape = shape[:-1]  # shape without the last dimension
-    batch_identity = identity.expand(*batch_shape, n, n)
-
-    # Reshape x to have the right shape for broadcasting
-    # From [..., n] to [..., n, 1]
-    x_diag = x.unsqueeze(-1)
-
-    # Multiply to get [..., n, n] diagonal matrices
-    return batch_identity * x_diag.unsqueeze(-2)
 
 
 def compute_model_gradients(
@@ -666,21 +247,6 @@ def compute_model_gradients(
 ) -> torch.Tensor:
     """
     Compute gradients of model predictions with respect to inputs.
-
-    Args:
-        y_pred: Model predictions
-        x: Input features with requires_grad=True
-        n_features_y: Number of output features
-
-    Returns:
-        Gradients of model predictions with respect to inputs [batch_size, n_features_y, n_features_x]
-
-    Examples:
-        >>> x = torch.tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
-        >>> y_pred = torch.tensor([[3.0, 5.0], [7.0, 9.0]])
-        >>> grads = compute_model_gradients(y_pred, x, 2)
-        >>> grads.shape
-        torch.Size([2, 2, 2])
     """
     grads = torch.autograd.grad(
         outputs=y_pred,
@@ -699,41 +265,16 @@ def calculate_gaussian_nll(
 ) -> torch.Tensor:
     """
     Calculate Gaussian negative log-likelihood.
-
-    Args:
-        residuals: Residuals between true and predicted values [batch_size, n_features]
-        var: Variance of the Gaussian distribution [batch_size, n_features, n_features] or [batch_size, n_features]
-        eps: Small constant for numerical stability
-
-    Returns:
-        Negative log-likelihood per sample [batch_size]
-
-    Examples:
-        >>> residuals = torch.tensor([[1.0, 2.0], [0.5, 1.0]])
-        >>> var = torch.tensor([[2.0, 0.5], [1.0, 1.0]])
-        >>> nll = calculate_gaussian_nll(residuals, var)
-        >>> nll.shape
-        torch.Size([2])
     """
     if var.dim() <= 2:
         # Diagonal covariance case
         nll = 0.5 * (torch.log(var + eps) + (residuals**2) / (var + eps))
         nll = torch.sum(nll, dim=1)
-        # Add log(2π) term
-        nll = nll + 0.5 * residuals.shape[1] * torch.log(torch.tensor(2 * torch.pi))
+        nll = nll + 0.5 * residuals.shape[1] * math.log(2 * math.pi)
     else:
-        # Full covariance case - vectorized multivariate normal NLL
-        batch_size, n_features = residuals.shape
-        # Stabilize and decompose covariance
-        var_stab = var + torch.eye(n_features, device=var.device) * eps
-        # Compute log-determinant
-        sign, logabsdet = torch.linalg.slogdet(var_stab)
-        # Invert covariance
-        inv_var = torch.inverse(var_stab)
-        # Compute quadratic term: r^T Σ^{-1} r
-        quad = torch.einsum("bi,bij,bj->b", residuals, inv_var, residuals)
-        # Combine terms
-        nll = 0.5 * (logabsdet + quad + n_features * math.log(2 * math.pi))
+        # Full covariance case
+        mvn = torch.distributions.MultivariateNormal(torch.zeros_like(residuals), covariance_matrix=var)
+        nll = -mvn.log_prob(residuals)
 
     return nll
 
@@ -746,57 +287,13 @@ def calculate_propagated_variance(
 ) -> torch.Tensor:
     """
     Calculate propagated variance from input to output.
-
-    Args:
-        grad: Gradients of model predictions with respect to inputs [batch_size, n_features_y, n_features_x]
-        sigma_x: Covariance of input features [batch_size, n_features_x, n_features_x] or [batch_size, n_features_x]
-        sigma_y: Optional covariance of output features [batch_size, n_features_y, n_features_y] or [batch_size, n_features_y]
-        sigma_xy: Optional cross-covariance [batch_size, n_features_y, n_features_x]
-
-    Returns:
-        Propagated variance [batch_size, n_features_y, n_features_y]
-
-    Examples:
-        >>> grad = torch.ones(2, 3, 2)  # 2 samples, 3 outputs, 2 inputs
-        >>> sigma_x = torch.eye(2).unsqueeze(0).expand(2, -1, -1)  # 2 samples
-        >>> propagated_var = calculate_propagated_variance(grad, sigma_x)
-        >>> propagated_var.shape
-        torch.Size([2, 3, 3])
     """
-    batch_size, n_features_y, n_features_x = grad.shape
+    propagated_var = grad @ sigma_x @ grad.transpose(-1, -2)
 
-    # Handle diagonal covariance case
-    if sigma_x.dim() <= 2:
-        # Create batch of diagonal matrices for efficient computation
-        if sigma_x.dim() == 1:
-            sigma_x = torch.diag_embed(sigma_x.expand(batch_size, n_features_x))
-        else:  # sigma_x.dim() == 2
-            sigma_x = torch.diag_embed(sigma_x)
-
-    # Calculate propagated variance from inputs: grad · Σ_x · grad^T
-    propagated_var = torch.bmm(torch.bmm(grad, sigma_x), grad.transpose(1, 2))
-
-    # Add intrinsic output variance if provided
     if sigma_y is not None:
-        if sigma_y.dim() <= 1:
-            # Diagonal case - expand to batch size if needed
-            sigma_y = torch.diag_embed(sigma_y.expand(batch_size, n_features_y))
-        elif sigma_y.dim() == 2:
-            if sigma_y.shape[0] == batch_size:
-                sigma_y = torch.diag_embed(sigma_y)
-            else:
-                # Full covariance case
-                sigma_y = sigma_y.unsqueeze(0).expand(batch_size, -1, -1)
-
         propagated_var += sigma_y
 
-    # Add cross-covariance terms if provided
     if sigma_xy is not None:
-        if sigma_xy.dim() == 2:
-            sigma_xy = sigma_xy.unsqueeze(0).expand(batch_size, -1, -1)
-
-        # Add terms: grad · Σ_xy + Σ_xy^T · grad^T
-        propagated_var += torch.bmm(grad, sigma_xy.transpose(1, 2))
-        propagated_var += torch.bmm(sigma_xy, grad.transpose(1, 2))
+        propagated_var += grad @ sigma_xy.transpose(-1, -2) + sigma_xy @ grad.transpose(-1, -2)
 
     return propagated_var

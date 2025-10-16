@@ -5,7 +5,6 @@ import torch.nn as nn
 from torchregress.losses.base import (
     BaseLoss,
     DistributionLoss,
-    MaskedLoss,
     RegressionLoss,
     WeightedLossWrapper,
 )
@@ -13,12 +12,6 @@ from torchregress.losses.base import (
 
 # Helper implementation classes for testing abstract base classes
 class SimpleLoss(BaseLoss):
-    def forward(self, y_pred, target, **kwargs):
-        loss = torch.abs(y_pred - target)
-        return self._reduce(loss, **kwargs)
-
-
-class SimpleMaskedLoss(MaskedLoss):
     def forward(self, y_pred, target, mask=None, weights=None, **kwargs):
         self._validate_inputs(y_pred, target, mask)
         loss = torch.abs(y_pred - target)
@@ -118,11 +111,8 @@ class TestBaseLoss:
         with pytest.raises(NotImplementedError):
             loss(y_pred, target)
 
-
-# Tests for MaskedLoss
-class TestMaskedLoss:
     def test_apply_mask(self):
-        loss = SimpleMaskedLoss()
+        loss = SimpleLoss()
         tensor = torch.tensor([1.0, 2.0, 3.0, 4.0])
         mask = torch.tensor([True, False, True, False])
 
@@ -132,7 +122,7 @@ class TestMaskedLoss:
         assert torch.allclose(masked, torch.tensor([1.0, 3.0]))
 
     def test_validate_inputs(self):
-        loss = SimpleMaskedLoss()
+        loss = SimpleLoss()
         y_pred = torch.tensor([1.0, 2.0, 3.0])
         target = torch.tensor([1.5, 1.5, 2.5])
 
@@ -154,7 +144,7 @@ class TestMaskedLoss:
             loss._validate_inputs(y_pred, target, mask_wrong_shape)
 
     def test_reduce_with_mask(self):
-        loss = SimpleMaskedLoss()
+        loss = SimpleLoss()
         loss_values = torch.tensor([1.0, 2.0, 3.0, 4.0])
         mask = torch.tensor([True, True, False, True])
 
@@ -179,7 +169,7 @@ class TestMaskedLoss:
 
     def test_forward_with_mask(self):
         # This tests the entire end-to-end flow
-        loss = SimpleMaskedLoss(reduction="mean")
+        loss = SimpleLoss(reduction="mean")
         y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
         target = torch.tensor([0.0, 0.0, 3.0, 0.0])
         mask = torch.tensor([False, True, True, False])
@@ -189,7 +179,7 @@ class TestMaskedLoss:
         assert torch.isclose(result, torch.tensor(1.0))
 
     def test_forward_with_weights_and_mask(self):
-        loss = SimpleMaskedLoss(reduction="mean")
+        loss = SimpleLoss(reduction="mean")
         y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
         target = torch.tensor([0.0, 0.0, 3.0, 0.0])
         mask = torch.tensor([False, True, True, False])
@@ -252,7 +242,7 @@ class TestDistributionLoss:
         # Calculate expected NLL manually:
         # For item 0: 0.5 * (0 + (0-0)^2/e^0) = 0
         # For item 1: 0.5 * (0 + (0-1)^2/e^0) = 0.5
-        # For item 2: 0.5 * (-1 + (3-2)^2/e^-1) = 0.5 * (-1 + 1*e^1) = 0.5 * (-1 + 2.718) = 0.859
+        # For item 2: 0.5 * (-1 + (3-2)^2/e^-1) = 0.5 * (-1 + 1*e^1) = 0.859
         # Mean: (0 + 0.5 + 0.859) / 3 = 0.453
 
         # Calculate with our loss
@@ -322,7 +312,7 @@ class TestEdgeCases:
 
     def test_nan_handling(self):
         # Test with NaN values (should propagate NaN)
-        loss = SimpleMaskedLoss(reduction="mean")
+        loss = SimpleLoss(reduction="mean")
         y_pred = torch.tensor([1.0, float("nan"), 3.0])
         target = torch.tensor([0.0, 2.0, 4.0])
 
@@ -336,7 +326,7 @@ class TestEdgeCases:
 
     def test_inf_handling(self):
         # Test with Inf values
-        loss = SimpleMaskedLoss(reduction="mean")
+        loss = SimpleLoss(reduction="mean")
         y_pred = torch.tensor([1.0, float("inf"), 3.0])
         target = torch.tensor([0.0, 2.0, 4.0])
 
@@ -370,7 +360,7 @@ class TestGradientFlow:
 
     def test_gradient_flow_masked(self):
         # Test gradient flows properly with mask
-        loss_fn = SimpleMaskedLoss(reduction="mean")
+        loss_fn = SimpleLoss(reduction="mean")
         y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0], requires_grad=True)
         target = torch.tensor([0.0, 2.0, 0.0, 5.0])
         mask = torch.tensor([True, True, False, True])

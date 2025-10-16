@@ -91,57 +91,6 @@ def validate_shape(
     return tensor
 
 
-def validate_tensor_shapes(
-    tensor_a: torch.Tensor,
-    tensor_b: torch.Tensor,
-    name_a: str = "tensor_a",
-    name_b: str = "tensor_b",
-) -> bool:
-    """
-    Validate that two tensors have compatible shapes for broadcasting.
-
-    Args:
-        tensor_a: First tensor
-        tensor_b: Second tensor
-        name_a: Name of the first tensor for error messages
-        name_b: Name of the second tensor for error messages
-
-    Returns:
-        True if shapes are compatible
-
-    Raises:
-        ValueError: If tensor shapes are incompatible
-
-    Examples:
-        >>> a = torch.randn(3, 4)
-        >>> b = torch.randn(3, 4)
-        >>> validate_tensor_shapes(a, b)
-        True
-        >>> c = torch.randn(3, 1)  # Broadcastable
-        >>> validate_tensor_shapes(a, c)
-        True
-        >>> d = torch.randn(2, 4)  # Not compatible
-        >>> validate_tensor_shapes(a, d)
-        Traceback (most recent call last):
-            ...
-        ValueError: tensor_a shape torch.Size([3, 4]) and tensor_b shape torch.Size([2, 4]) are not compatible for broadcasting
-    """
-    if tensor_a.shape == tensor_b.shape:
-        return True
-
-    # Try to broadcast
-    try:
-        # Check if shapes are broadcastable
-        torch.broadcast_tensors(tensor_a, tensor_b)
-        return True
-    except RuntimeError:
-        # If broadcast fails, raise with meaningful message
-        raise ValueError(
-            f"{name_a} shape {tensor_a.shape} and {name_b} shape {tensor_b.shape} "
-            f"are not compatible for broadcasting"
-        )
-
-
 def validate_positive(
     value: Union[float, torch.Tensor], param_name: str, allow_zero: bool = False
 ) -> Union[float, torch.Tensor]:
@@ -192,43 +141,6 @@ def validate_positive(
     return value
 
 
-def validate_non_negative(
-    value: Union[float, torch.Tensor], name: str = "value"
-) -> Union[float, torch.Tensor]:
-    """
-    Validate that a value is non-negative.
-
-    Args:
-        value: Value to validate
-        name: Name of the value for error messages
-
-    Returns:
-        The validated value
-
-    Raises:
-        ValueError: If value is negative
-
-    Examples:
-        >>> validate_non_negative(0.0)
-        0.0
-        >>> validate_non_negative(5.0)
-        5.0
-        >>> validate_non_negative(-1.0)
-        Traceback (most recent call last):
-            ...
-        ValueError: value must be non-negative, got -1.0
-    """
-    if isinstance(value, torch.Tensor):
-        if torch.any(value < 0):
-            raise ValueError(
-                f"{name} must be non-negative, got tensor with minimum value {value.min().item()}"
-            )
-    else:
-        if value < 0:
-            raise ValueError(f"{name} must be non-negative, got {value}")
-    return value
-
-
 def validate_range(
     value: Union[float, torch.Tensor], min_value: float, max_value: float, param_name: str
 ) -> Union[float, torch.Tensor]:
@@ -272,79 +184,38 @@ def validate_range(
 
 
 def validate_integer(
-    value: Union[int, torch.Tensor], name: str = "value"
-) -> Union[int, torch.Tensor]:
+    tensor: torch.Tensor, name: str = "tensor"
+) -> torch.Tensor:
     """
-    Validate that a value is an integer or tensor of integers.
+    Validate that a tensor has an integer dtype.
 
     Args:
-        value: Value to validate
-        name: Name of the value for error messages
+        tensor: Tensor to validate
+        name: Name of the tensor for error messages
 
     Returns:
-        The validated value
+        The validated tensor
 
     Raises:
-        ValueError: If value is not an integer
-
-    Examples:
-        >>> validate_integer(5)
-        5
-        >>> validate_integer(5.0)  # Converts to int if it's a whole number
-        5
-        >>> validate_integer(5.5)
-        Traceback (most recent call last):
-            ...
-        ValueError: value must be an integer, got 5.5
+        ValueError: If tensor does not have an integer dtype
     """
-    if isinstance(value, torch.Tensor):
-        if value.dtype not in [torch.int8, torch.int16, torch.int32, torch.int64, torch.bool]:
-            # For float tensors, check if all values are close to integers
-            if not torch.allclose(value, value.round()):
-                raise ValueError(
-                    f"{name} must contain only integer values, got tensor with non-integer values"
-                )
-    elif not isinstance(value, (int, np.integer)):
-        if not float(value).is_integer():
-            raise ValueError(f"{name} must be an integer, got {value}")
-    return value
+    if not tensor.dtype.is_floating_point:
+        return tensor
+
+    if not torch.allclose(tensor, tensor.round()):
+        raise ValueError(f"{name} must contain only integer values, got tensor with non-integer values")
+
+    return tensor.to(torch.int64)
 
 
 def validate_quantile(q: Union[float, torch.Tensor]) -> torch.Tensor:
     """
     Validate quantile level(s) and convert to tensor.
-
-    Args:
-        q: Quantile level(s) (must be in range [0, 1])
-
-    Returns:
-        Validated quantile tensor
-
-    Raises:
-        ValueError: If any quantile is outside the range [0, 1]
-
-    Examples:
-        >>> validate_quantile(0.5)
-        tensor(0.5000)
-        >>> validate_quantile(torch.tensor([0.1, 0.9]))
-        tensor([0.1000, 0.9000])
-        >>> validate_quantile(1.5)
-        Traceback (most recent call last):
-            ...
-        ValueError: Quantile(s) must be in range [0, 1], got values in range [1.5, 1.5]
     """
-    if isinstance(q, (int, float)):
-        q_tensor = torch.tensor(q, dtype=torch.float32)
-    else:
-        q_tensor = q
-
-    # Check range
-    if torch.any(q_tensor < 0.0) or torch.any(q_tensor > 1.0):
-        raise ValueError(
-            f"Quantile(s) must be in range [0, 1], got values in range "
-            f"[{q_tensor.min().item()}, {q_tensor.max().item()}]"
-        )
-    return q_tensor
+    q = torch.as_tensor(q)
+    if not (0 <= q.all() and q.all() <= 1):
+        raise ValueError(f"Quantile(s) must be in range [0, 1], got {q.min().item()} to {q.max().item()}")
+    return q
 
 
 def validate_batch_consistency(
@@ -476,12 +347,12 @@ def validate_weights(
         )
 
     # Check values
-    validate_non_negative(weights, "weights")
+    validate_positive(weights, "weights", allow_zero=True)
 
     return weights
 
 
-def validate_tensor(tensor: torch.Tensor, name: str = "tensor") -> torch.Tensor:
+def check_tensor(tensor: torch.Tensor, name: str = "tensor") -> torch.Tensor:
     """
     Validates a tensor for common issues - checks for NaNs, infs, and ensures it's a proper torch tensor.
 

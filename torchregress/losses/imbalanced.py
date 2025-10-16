@@ -21,8 +21,10 @@ import torch
 from torch import Tensor
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("density_weighted")
 class DensityWeightedLoss(RegressionLoss):
     """
     Density-weighted loss for imbalanced regression (calibration-safe).
@@ -257,6 +259,7 @@ class DensityWeightedLoss(RegressionLoss):
         return self._reduce_with_mask(weighted_loss, mask, None)
 
 
+@register_regression_loss("lds")
 class LDSLoss(RegressionLoss):
     """
     Label Distribution Smoothing (LDS) loss for imbalanced regression.

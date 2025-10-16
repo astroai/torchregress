@@ -17,8 +17,10 @@ import torch.nn.functional as F
 
 from ..utils.validation import validate_range
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("expectile")
 class ExpectileLoss(RegressionLoss):
     """
     Expectile regression loss function.
@@ -89,6 +91,7 @@ class ExpectileLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("multi_expectile")
 class MultiExpectileLoss(RegressionLoss):
     """
     Loss for multiple expectile levels simultaneously.
@@ -246,6 +249,7 @@ class MultiExpectileLoss(RegressionLoss):
             return combined_loss
 
 
+@register_regression_loss("als")
 class AsymmetricLeastSquaresLoss(ExpectileLoss):
     """
     Asymmetric least squares loss (alias for ExpectileLoss for legacy compatibility).
@@ -269,6 +273,7 @@ class AsymmetricLeastSquaresLoss(ExpectileLoss):
         super().__init__(expectile=tau, reduction=reduction)
 
 
+@register_regression_loss("expectile_crossover")
 class ExpectileCrossoverLoss(RegressionLoss):
     """
     Loss that ensures proper ordering of expectile curves.

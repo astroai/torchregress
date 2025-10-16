@@ -9,8 +9,10 @@ import torch
 from torch import Tensor
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("barron")
 class BarronLoss(RegressionLoss):
     """
     Barron loss: generalization of L1/L2 tunable via alpha.

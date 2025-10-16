@@ -11,8 +11,10 @@ import torch
 import torch.nn.functional as F
 
 from .base import DistributionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("mdn")
 class MixtureDensityLoss(DistributionLoss):
     """
     Negative Log-Likelihood loss for Mixture Density Networks.
@@ -376,41 +378,3 @@ class MixtureDensityLoss(DistributionLoss):
                 return nll.mean()
             else:  # 'sum'
                 return nll.sum()
-
-
-def create_mdn_loss(
-    n_components: int,
-    n_features: int,
-    covariance_type: str = "diagonal",
-    min_std: float = 1e-3,
-    eps: float = 1e-8,
-    reduction: str = "mean",
-) -> MixtureDensityLoss:
-    """
-    Factory function to create a Mixture Density Network loss.
-
-    Args:
-        n_components (int): Number of mixture components
-        n_features (int): Number of output features
-        covariance_type (str): 'diagonal' or 'full'
-        min_std (float): Minimum standard deviation
-        eps (float): Small constant for numerical stability
-        reduction (str): 'none' | 'mean' | 'sum'
-
-    Returns:
-        MixtureDensityLoss: An appropriate MixtureDensityLoss object
-
-    Examples:
-        >>> loss_fn = create_mdn_loss(n_components=3, n_features=2)
-        >>> y_pred = torch.randn(5, 15)  # 5 samples, 15 parameters (3 + 2*3*2)
-        >>> targets = torch.randn(5, 2)
-        >>> loss = loss_fn(y_pred, targets)
-    """
-    return MixtureDensityLoss(
-        n_components=n_components,
-        n_features=n_features,
-        covariance_type=covariance_type,
-        min_std=min_std,
-        eps=eps,
-        reduction=reduction,
-    )

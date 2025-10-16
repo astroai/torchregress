@@ -17,8 +17,10 @@ from zuko.flows import MAF, NSF, Flow, RealNVP
 
 from ..utils.tensor_ops import apply_mask, masked_reduction
 from .base import DistributionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("nflow")
 class NormalizingFlowLoss(DistributionLoss):
     """
     Negative Log-Likelihood loss for conditional normalizing flow models using zuko.
@@ -351,64 +353,3 @@ def create_flow_model(
     flow.context = context_dim
 
     return flow
-
-
-def create_flow_loss(
-    n_features: int,
-    context_dim: int,
-    flow_type: str = "nsf",
-    n_transforms: int = 3,
-    hidden_features: int = 64,
-    n_hidden_layers: int = 2,
-    reduction: str = "mean",
-    **kwargs,
-) -> NormalizingFlowLoss:
-    """
-    Factory function to create a normalizing flow loss with built-in flow.
-
-    This is a convenience function that creates both the flow and the loss.
-
-    Args:
-        n_features (int): Number of features in the target
-        context_dim (int): Dimension of context from model
-        flow_type (str): Type of flow ('realnvp', 'maf', 'nsf')
-            Default: 'nsf'
-        n_transforms (int): Number of transformation blocks
-            Default: 3
-        hidden_features (int): Size of hidden layers
-            Default: 64
-        n_hidden_layers (int): Number of hidden layers
-            Default: 2
-        reduction (str): Loss reduction method ('mean', 'sum', 'none')
-            Default: 'mean'
-        **kwargs: Additional arguments for flow creation
-
-    Returns:
-        NormalizingFlowLoss: Loss instance with embedded flow
-
-    Examples:
-        >>> # Create a complete flow loss
-        >>> loss_fn = create_flow_loss(
-        ...     n_features=3,
-        ...     context_dim=10,
-        ...     flow_type='nsf',
-        ...     n_transforms=5,
-        ...     hidden_features=128
-        ... )
-        >>>
-        >>> # The flow is accessible via loss_fn.flow if needed
-        >>> flow_parameters = list(loss_fn.flow.parameters())
-    """
-    # Create the flow
-    flow = create_flow_model(
-        n_features=n_features,
-        context_dim=context_dim,
-        flow_type=flow_type,
-        n_transforms=n_transforms,
-        hidden_features=hidden_features,
-        n_hidden_layers=n_hidden_layers,
-        **kwargs,
-    )
-
-    # Create and return the loss
-    return NormalizingFlowLoss(flow=flow, reduction=reduction)

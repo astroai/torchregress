@@ -5,6 +5,9 @@ This module contains a variety of loss functions designed for regression problem
 including weighted losses, Gaussian-based losses, robust losses, and more.
 """
 
+from typing import Any, Dict
+import torch.nn as nn
+
 # Base classes and wrappers
 from .barron import BarronLoss
 
@@ -12,7 +15,7 @@ from .barron import BarronLoss
 from .base import (
     BaseLoss,
     DistributionLoss,
-    MaskedLoss,
+    BaseLoss,
     RegressionLoss,
     WeightedCrossEntropyLoss,
     WeightedGaussianNLLLoss,
@@ -29,29 +32,27 @@ from .conformal import (
     ConformalLoss,
     MultiDimensionalConformalLoss,
 )
-from .deepar import DeepARLoss
+
 
 # Evidential regression
-from .evidential import EvidentialRegressionLoss, create_evidential_loss
+from .evidential import EvidentialRegressionLoss
 
 # Expectile losses
-from .expectile import AsymmetricLeastSquaresLoss, ExpectileLoss, MultiExpectileLoss
+from .expectile import AsymmetricLeastSquaresLoss, ExpectileLoss, MultiExpectileLoss, ExpectileCrossoverLoss
 
 # Gaussian losses
 from .gaussian import (
     GaussianNLLLoss,
-    MultivariateGaussianLoss,
-    create_gaussian_nll,
 )
 
 # Imbalanced regression losses
 from .imbalanced import DensityWeightedLoss, LDSLoss
 
 # Mixture Density Networks
-from .mdn import MixtureDensityLoss, create_mdn_loss
+from .mdn import MixtureDensityLoss
 
 # Normalizing flows
-from .nflows import NormalizingFlowLoss, create_flow_loss, create_flow_model
+from .nflows import NormalizingFlowLoss, create_flow_model
 
 # Noisy label losses
 from .noisy import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
@@ -69,13 +70,10 @@ from .poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureLoss,
-    enhanced_poisson_gaussian_loss,
-    poisson_gaussian_likelihood_ratio_loss,
-    poisson_gaussian_mixture_loss,
 )
 
 # Quantile losses
-from .quantile import MultiQuantileLoss, QuantileLoss
+from .quantile import MultiQuantileLoss, QuantileLoss, QuantileCrossoverLoss
 
 # Robust losses
 from .robust import (
@@ -104,6 +102,67 @@ from .transform import (
 
 # Tweedie losses
 from .tweedie import CompoundPoissonLoss, GammaLoss, InverseGaussianLoss, TweedieLoss
+from .loss_registry import get_regression_loss, list_regression_losses
+
+def create_loss_from_config(config: Dict[str, Any]) -> BaseLoss:
+    """
+    Create a loss function from a configuration dictionary.
+
+    This provides a standardized way to instantiate any loss function
+    based on a configuration dict, useful for experiments and hyperparameter tuning.
+
+    Args:
+        config: Configuration dictionary with at least a 'type' key
+               and optional parameters for the specific loss
+
+    Returns:
+        Instantiated loss function
+
+    Example:
+        >>> loss_config = {
+        >>>     'type': 'huber',
+        >>>     'delta': 1.0,
+        >>>     'reduction': 'mean'
+        >>> }
+        >>> loss_fn = create_loss_from_config(loss_config)
+    """
+    loss_type = config.pop("type", "").lower()
+
+    if not loss_type:
+        raise ValueError("Configuration must contain a 'type' key.")
+
+    # Handle pytorch losses separately
+    if loss_type == "pytorch":
+        loss_class_name = config.pop("class")
+        if isinstance(loss_class_name, str):
+            if hasattr(nn, loss_class_name):
+                loss_class = getattr(nn, loss_class_name)
+            else:
+                raise ValueError(f"Unknown PyTorch loss: {loss_class_name}")
+        else:
+            loss_class = loss_class_name
+        return WeightedLossWrapper(loss_class, **config)
+
+    # Aliases
+    if loss_type == "mseloss":
+        loss_type = "mse"
+    if loss_type == "mae":
+        loss_type = "l1"
+    if loss_type == "gaussian":
+        loss_type = "gaussian_nll"
+    if loss_type == "pinball":
+        loss_type = "quantile"
+
+    try:
+        loss_class = get_regression_loss(loss_type)
+        return loss_class(**config)
+    except KeyError:
+        available_losses = list_regression_losses()
+        raise ValueError(
+            f"Unknown loss type: '{loss_type}'. "
+            f"Available losses: {available_losses}"
+        )
+
 
 # Convenience aliases (match PyTorch/common naming conventions)
 MSELoss = WeightedMSELoss
@@ -120,7 +179,7 @@ KLDivLoss = WeightedKLDivLoss
 __all__ = [
     # Base classes
     "BaseLoss",
-    "MaskedLoss",
+    "BaseLoss",
     "RegressionLoss",
     "DistributionLoss",
     "WeightedLossWrapper",
@@ -137,8 +196,7 @@ __all__ = [
     "WeightedKLDivLoss",
     # Gaussian losses
     "GaussianNLLLoss",
-    "MultivariateGaussianLoss",
-    "create_gaussian_nll",
+
     # Target transformations
     "LogTransformLoss",
     "BoxCoxTransformLoss",
@@ -160,7 +218,7 @@ __all__ = [
     "BarronLoss",
     "ConformalLoss",
     "MultiDimensionalConformalLoss",
-    "DeepARLoss",
+
     # Poisson losses
     "PoissonDevianceLoss",
     "PoissonLikelihoodRatioLoss",
@@ -168,11 +226,8 @@ __all__ = [
     "NegativeBinomialNLLLoss",
     # Poisson-Gaussian losses
     "PoissonGaussianMixtureLoss",
-    "poisson_gaussian_mixture_loss",
     "EnhancedPoissonGaussianMixtureLoss",
-    "enhanced_poisson_gaussian_loss",
     "PoissonGaussianLikelihoodRatioLoss",
-    "poisson_gaussian_likelihood_ratio_loss",
     # Noisy label losses
     "NoiseAdaptiveLoss",
     "CoTeachingLoss",
@@ -182,14 +237,15 @@ __all__ = [
     "LDSLoss",
     # Evidential regression
     "EvidentialRegressionLoss",
-    "create_evidential_loss",
     # Expectile losses
     "ExpectileLoss",
     "MultiExpectileLoss",
     "AsymmetricLeastSquaresLoss",
+    "ExpectileCrossoverLoss",
     # Quantile losses
     "QuantileLoss",
     "MultiQuantileLoss",
+    "QuantileCrossoverLoss",
     # Tweedie losses
     "TweedieLoss",
     "GammaLoss",
@@ -198,10 +254,8 @@ __all__ = [
     # Normalizing flows
     "NormalizingFlowLoss",
     "create_flow_model",
-    "create_flow_loss",
     # Mixture Density Networks
     "MixtureDensityLoss",
-    "create_mdn_loss",
     # Convenience aliases
     "MSELoss",
     "L1Loss",
@@ -213,4 +267,6 @@ __all__ = [
     "CrossEntropyLoss",
     "NLLLoss",
     "KLDivLoss",
+    # Factory function
+    "create_loss_from_config",
 ]

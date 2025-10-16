@@ -3,10 +3,9 @@ Ensemble models for regression tasks with uncertainty estimation.
 """
 
 # Make classes directly accessible from the ensemble module
-from .advanced import (
+from .combiners import (
     BayesianModelAveraging,
     DynamicEnsembleWeighting,
-    EnsembleCalibration,
     StackingEnsemble,
 )
 from .base import BaseEnsembleModel
@@ -23,7 +22,7 @@ __all__ = [
     "BayesianModelAveraging",
     "StackingEnsemble",
     "DynamicEnsembleWeighting",
-    "EnsembleCalibration",
+
     "SWAG",
     "MultiSWAG",
 ]

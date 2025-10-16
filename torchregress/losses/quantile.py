@@ -18,8 +18,10 @@ import torch.nn.functional as F
 from ..utils.quantile import multi_quantile_loss, quantile_loss
 from ..utils.validation import validate_quantile, validate_range
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("quantile")
 class QuantileLoss(RegressionLoss):
     """
     Quantile regression loss function.
@@ -87,6 +89,7 @@ class QuantileLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("multi_quantile")
 class MultiQuantileLoss(RegressionLoss):
     """
     Loss for multiple quantile levels simultaneously.
@@ -222,6 +225,7 @@ class MultiQuantileLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("quantile_crossover")
 class QuantileCrossoverLoss(RegressionLoss):
     """
     Loss that encourages proper ordering of quantile curves.

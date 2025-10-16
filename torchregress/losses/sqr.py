@@ -7,9 +7,11 @@ from typing import Any, Optional
 from torch import Tensor
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 from .quantile import QuantileLoss
 
 
+@register_regression_loss("sqr")
 class SQRLoss(RegressionLoss):
     """
     Simultaneous Quantile Regression Loss (SQR).

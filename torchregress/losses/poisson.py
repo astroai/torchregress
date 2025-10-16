@@ -17,8 +17,10 @@ import torch
 import torch.nn as nn
 
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
+@register_regression_loss("poisson_deviance")
 class PoissonDevianceLoss(RegressionLoss):
     """
     Poisson Deviance loss function, also known as G-statistic.
@@ -111,6 +113,7 @@ class PoissonDevianceLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("poisson_likelihood_ratio")
 class PoissonLikelihoodRatioLoss(RegressionLoss):
     """
     Poisson Likelihood Ratio Loss for binned data, also known as Baker-Cousins Loss.
@@ -202,6 +205,7 @@ class PoissonLikelihoodRatioLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("zip")
 class ZeroInflatedPoissonNLLLoss(RegressionLoss):
     """
     Zero-Inflated Poisson Negative Log-Likelihood.
@@ -330,6 +334,7 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("nbinom")
 class NegativeBinomialNLLLoss(RegressionLoss):
     """
     Negative Binomial Negative Log-Likelihood loss.

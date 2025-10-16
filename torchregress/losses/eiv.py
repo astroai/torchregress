@@ -22,6 +22,7 @@ from ..utils.tensor_ops import (
 )
 from ..utils.validation import validate_weights
 from .base import RegressionLoss
+from .loss_registry import register_regression_loss
 
 
 class BaseEIVLoss(RegressionLoss):
@@ -154,6 +155,7 @@ class BaseEIVLoss(RegressionLoss):
             return torch.sum(diff * torch.bmm(diff.unsqueeze(1), sigma_inv).squeeze(1), dim=1)
 
 
+@register_regression_loss("functional_eiv")
 class FunctionalEIVLoss(BaseEIVLoss):
     """
     Functional Errors-In-Variables Loss.
@@ -355,6 +357,7 @@ class FunctionalEIVLoss(BaseEIVLoss):
         return calculate_gaussian_nll(residuals, batch_cov, eps=self.eps)
 
 
+@register_regression_loss("structural_eiv")
 class StructuralEIVLoss(BaseEIVLoss):
     """
     Structural Errors-In-Variables Loss.
@@ -481,6 +484,7 @@ class StructuralEIVLoss(BaseEIVLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
+@register_regression_loss("odr")
 class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
     """
     Orthogonal Distance Regression (ODR) loss.
@@ -655,6 +659,7 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
             return loss
 
 
+@register_regression_loss("ensemble_eiv")
 class EnsembleEIVLoss(BaseEIVLoss):
     """
     Simple Ensemble Errors-in-Variables Loss.
