@@ -69,9 +69,20 @@ with torch.no_grad():
 
 ## Next Steps
 
-- **Explore the Guides**: Learn about best practices for building regression pipelines.
-- **Browse the Examples**: See torchregress in action with a variety of real-world examples.
-- **Dive into the API Reference**: Get detailed information about all the available losses, metrics, and visualization tools.
+### For Beginners
+- **[Core Concepts Guide](guides/concepts.md)** 🆕 - Start here! Learn key concepts: uncertainty types, robustness, ensembles, and more
+- **[Quick Start](usage/quickstart.md)** - Three runnable examples to get started quickly
+- **[Basic Examples](examples/basic_usage.md)** - Four detailed tutorials covering common use cases
+
+### For Practitioners
+- **[Practical Usage Guide](usage/practical_usage.md)** - Decision trees for choosing losses and methods
+- **[Best Practices](guides/best-practices.md)** - 7-phase development workflow and common pitfalls
+- **[Comprehensive Comparison](examples/comprehensive_comparison.py)** 🆕 - All-in-one comparison of robustness, uncertainty, and ensembles
+
+### Deep Dives
+- **[Ensemble Methods](examples/ensemble_methods.md)** 🆕 - Complete guide to uncertainty quantification with ensembles
+- **[Browse All Examples](examples/index.md)** - Real-world examples including astronomy, computer vision, and more
+- **[API Reference](api/index.md)** - Detailed documentation of all available functions
 
 ## Citation
 
