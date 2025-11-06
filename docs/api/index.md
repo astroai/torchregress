@@ -1,10 +1,10 @@
 # API Reference
 
-This section contains detailed documentation for the TorchRegression API.
+This section contains detailed documentation for the torchregress API.
 
 ## Package Structure
 
-TorchRegression is organized into the following main modules:
+torchregress is organized into the following main modules:
 
 ```
 torchregress/
@@ -126,7 +126,7 @@ masked_sum = utils.masked_sum(tensor, mask)
 
 ## Complete Class Listing
 
-Below is a complete listing of all public classes in TorchRegression:
+Below is a complete listing of all public classes in torchregress:
 
 ### Loss Functions
 

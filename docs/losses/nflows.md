@@ -80,7 +80,7 @@ samples = loss_fn.sample(flow_params, n_samples=10)  # [batch_size, 10, 2]
 
 ## Flow Types
 
-TorchRegression supports four main types of normalizing flows, each with different characteristics:
+torchregress supports four main types of normalizing flows, each with different characteristics:
 
 ### RealNVP (Real-valued Non-Volume Preserving)
 

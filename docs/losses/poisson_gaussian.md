@@ -18,7 +18,7 @@ Where:
 - $N(0, \sigma^2)$ is a Gaussian random variable with mean 0 and variance $\sigma^2$
 - $\alpha$ is a scaling factor (gain)
 
-The negative log-likelihood for this mixed model doesn't have a simple closed form, but there are several effective approximations implemented in TorchRegression.
+The negative log-likelihood for this mixed model doesn't have a simple closed form, but there are several effective approximations implemented in torchregress.
 
 ## Available Poisson-Gaussian Losses
 

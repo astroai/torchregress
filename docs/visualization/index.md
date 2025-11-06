@@ -1,6 +1,6 @@
 # Visualization Guide
 
-TorchRegression provides powerful visualization tools for regression analysis and uncertainty estimation. These visualizations help you understand model behavior, diagnose issues, and communicate results effectively.
+torchregress provides powerful visualization tools for regression analysis and uncertainty estimation. These visualizations help you understand model behavior, diagnose issues, and communicate results effectively.
 
 ## Training Visualizations
 
@@ -159,7 +159,7 @@ from torchregress.viz import set_style, save_figure
 # Set consistent style for all plots
 set_style(style="whitegrid", context="talk", font_scale=1.2)
 
-# Create plot (any TorchRegression plot)
+# Create plot (any torchregress plot)
 fig = plot_residuals(y_pred, y_true, return_figure=True)
 
 # Save in multiple formats

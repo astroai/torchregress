@@ -1,6 +1,6 @@
 # Conformal Regression Example
 
-This example demonstrates how to use the conformal prediction methods in TorchRegression to obtain prediction intervals with guaranteed coverage.
+This example demonstrates how to use the conformal prediction methods in torchregress to obtain prediction intervals with guaranteed coverage.
 
 ## Code
 
