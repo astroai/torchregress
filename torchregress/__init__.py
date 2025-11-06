@@ -9,7 +9,7 @@ estimation and robust regression techniques.
 __version__ = "0.1.0"
 
 # Import main submodules
-from . import algorithms, ensemble, losses, metrics, models, utils, viz
+from . import algorithms, ensemble, losses, metrics, utils, viz
 
 # Export key components for easy access
 from .losses import (
@@ -27,7 +27,6 @@ __all__ = [
     "metrics",
     "algorithms",
     "ensemble",
-    "models",
     "viz",
     "utils",
     # Core classes

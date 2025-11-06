@@ -13,6 +13,7 @@ import torch.utils.data
 
 from .base import BaseEnsembleModel
 from .layers import BatchEnsembleLinear
+from .utils import parse_heteroscedastic_output
 
 
 class HeteroscedasticEnsembleModel(BaseEnsembleModel):
@@ -41,23 +42,12 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             # Get predictions from all ensemble members
             predictions = self.forward(x)
 
-            # Separate means and log_vars
+            # Separate means and log_vars using utility function
             means = []
             log_vars = []
 
             for pred in predictions:
-                if isinstance(pred, tuple) and len(pred) == 2:
-                    # If output is a tuple, assume it's (mean, log_var)
-                    mean, log_var = pred
-                elif pred.shape[1] == 2 * pred.shape[1] // 2:  # For even number of outputs
-                    # Assume first half is mean, second half is log_var
-                    dim = pred.shape[1] // 2
-                    mean, log_var = pred[:, :dim], pred[:, dim:]
-                else:
-                    raise ValueError(
-                        "Model output format not recognized for heteroscedastic uncertainty"
-                    )
-
+                mean, log_var = parse_heteroscedastic_output(pred)
                 means.append(mean)
                 log_vars.append(log_var)
 
