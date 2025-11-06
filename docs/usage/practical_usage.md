@@ -1,6 +1,6 @@
 # Practical Usage Guide
 
-This guide provides practical advice on using TorchRegression effectively for various regression tasks.
+This guide provides practical advice on using torchregress effectively for various regression tasks.
 
 ## Choosing the Right Loss Function
 
@@ -179,7 +179,7 @@ Ensemble methods are particularly useful for:
 2. Improving robustness and generalization
 3. Avoiding local minima during optimization
 
-TorchRegression provides several ensemble approaches:
+torchregress provides several ensemble approaches:
 
 ```python
 # Deep ensemble (train multiple models with different initializations)
@@ -195,7 +195,7 @@ ensemble = tr.ensemble.BootstrappedEnsemble(base_model, n_models=5)
 
 ## Performance Optimization
 
-To optimize performance when using TorchRegression:
+To optimize performance when using torchregress:
 
 1. **Batch Operations**: Use vectorized operations instead of loops
 2. **Data Types**: Use appropriate precision (float32 is typically sufficient)

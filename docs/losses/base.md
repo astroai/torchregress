@@ -1,10 +1,10 @@
 # Base Loss Functions
 
-This page documents the foundational loss function classes that serve as building blocks for all loss functions in TorchRegression.
+This page documents the foundational loss function classes that serve as building blocks for all loss functions in torchregress.
 
 ## Class Hierarchy
 
-TorchRegression implements a hierarchical structure of loss functions with the following inheritance tree:
+torchregress implements a hierarchical structure of loss functions with the following inheritance tree:
 
 ```
 BaseLoss
@@ -18,7 +18,7 @@ BaseLoss
 class BaseLoss(torch.nn.Module)
 ```
 
-`BaseLoss` is the root class for all loss functions in TorchRegression. It extends PyTorch's `nn.Module` and provides common functionality for reduction operations.
+`BaseLoss` is the root class for all loss functions in torchregress. It extends PyTorch's `nn.Module` and provides common functionality for reduction operations.
 
 **Parameters:**
 
@@ -109,7 +109,7 @@ loss = loss_fn((mean, log_var), y_true)
 class WeightedLossWrapper(BaseLoss)
 ```
 
-`WeightedLossWrapper` adapts standard PyTorch loss functions to TorchRegression's interface, adding support for masks and weights.
+`WeightedLossWrapper` adapts standard PyTorch loss functions to torchregress's interface, adding support for masks and weights.
 
 **Parameters:**
 
@@ -137,7 +137,7 @@ loss = wrapped_mse(y_pred, y_true, mask=mask)
 
 ## Pre-defined Weighted Loss Functions
 
-TorchRegression provides weighted versions of all standard PyTorch loss functions:
+torchregress provides weighted versions of all standard PyTorch loss functions:
 
 ```python
 # Available weighted versions of PyTorch losses
@@ -175,7 +175,7 @@ loss = loss_fn(y_pred, y_true, mask=mask, weights=weights)
 
 ## Best Practices for Custom Loss Functions
 
-When implementing custom loss functions using the TorchRegression framework:
+When implementing custom loss functions using the torchregress framework:
 
 1. **Inherit from the right base class**:
    - For standard regression losses: `RegressionLoss`

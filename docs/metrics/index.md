@@ -1,6 +1,6 @@
 # Evaluation Metrics
 
-TorchRegression provides a comprehensive set of metrics for evaluating regression models, with special focus on uncertainty quantification.
+torchregress provides a comprehensive set of metrics for evaluating regression models, with special focus on uncertainty quantification.
 
 ## Metric Categories
 
@@ -77,8 +77,6 @@ Metrics for evaluating multivariate regression models:
 - **Multivariate NLL**: Negative log-likelihood for multivariate distributions.
 
 [Learn more about multivariate metrics →](multivariate.md)
-
-[Learn more about OOD metrics →](ood.md)
 
 ## Metric Selection Guide
 

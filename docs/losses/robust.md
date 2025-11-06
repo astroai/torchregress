@@ -125,6 +125,9 @@ $$\mathcal{L}_{\text{PseudoHuber}}(y, \hat{y}) = \delta^2 \left( \sqrt{1 + \left
 import torch
 import torchregress as tr
 
+# Create Pseudo-Huber loss with default delta=1.0
+loss_fn = tr.losses.PseudoHuberLoss(delta=1.0)
+
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
 y_true = torch.tensor([1.2, 1.9, 5.0, 4.1])
 

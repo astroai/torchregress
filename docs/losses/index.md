@@ -1,6 +1,6 @@
 # Loss Functions
 
-TorchRegression provides a comprehensive collection of loss functions for regression tasks, ranging from basic losses to advanced uncertainty-aware losses.
+torchregress provides a comprehensive collection of loss functions for regression tasks, ranging from basic losses to advanced uncertainty-aware losses.
 
 ## Loss Categories
 

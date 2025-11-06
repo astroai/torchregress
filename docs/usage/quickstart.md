@@ -1,10 +1,10 @@
 # Quick Start
 
-This guide provides a quick introduction to TorchRegression for regression and uncertainty estimation.
+This guide provides a quick introduction to torchregress for regression and uncertainty estimation.
 
 ## Basic Usage
 
-Here's a minimal example to get started with TorchRegression:
+Here's a minimal example to get started with torchregress:
 
 ```python
 import torch
@@ -292,7 +292,7 @@ for name, y_pred in results.items():
 
 ## Next Steps
 
-Now that you've seen the basics of TorchRegression, you can:
+Now that you've seen the basics of torchregress, you can:
 
 1. **Explore more loss functions** for your specific regression needs
 2. **Implement uncertainty estimation** to provide prediction intervals

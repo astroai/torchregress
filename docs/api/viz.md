@@ -1,6 +1,6 @@
 # Visualization API Reference
 
-This page provides a complete API reference for all visualization functions in TorchRegression.
+This page provides a complete API reference for all visualization functions in torchregress.
 
 ::: torchregress.viz.diagnostic
 

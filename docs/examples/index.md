@@ -1,12 +1,12 @@
 # Examples
 
-This section contains practical examples of using TorchRegression for various regression tasks. The examples are designed to demonstrate key features and use cases of the library.
+This section contains practical examples of using torchregress for various regression tasks. The examples are designed to demonstrate key features and use cases of the library.
 
 ## Basic Examples
 
 ### [Basic Usage](basic_usage.md)
 
-This tutorial covers the fundamental usage patterns of TorchRegression:
+This tutorial covers the fundamental usage patterns of torchregress:
 
 - Setting up simple regression models
 - Choosing and applying loss functions
@@ -17,7 +17,7 @@ This tutorial covers the fundamental usage patterns of TorchRegression:
 import torch
 import torchregress as tr
 
-# Example of basic TorchRegression usage
+# Example of basic torchregress usage
 X_train, y_train = load_data()
 model = MyRegressionModel()
 loss_fn = tr.losses.HuberLoss()
