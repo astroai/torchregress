@@ -2,6 +2,10 @@
 
 This section contains practical examples of using torchregress for various regression tasks. The examples are designed to demonstrate key features and use cases of the library.
 
+## Getting Started
+
+**New to torchregress?** Start with the [Concepts Guide](../guides/concepts.md) to learn key concepts.
+
 ## Basic Examples
 
 ### [Basic Usage](basic_usage.md)
@@ -54,7 +58,46 @@ losses = {
 # ...
 ```
 
+### [Comprehensive Comparison](../../examples/comprehensive_comparison.py) 🆕
+
+**All-in-one comparison** demonstrating the three main capabilities of torchregress:
+
+- **Robust Regression** - Handling outliers (MSE vs. Huber vs. Cauchy)
+- **Uncertainty Estimation** - Quantifying confidence (Gaussian NLL, ensembles)
+- **Ensemble Methods** - Combining models (Deep Ensemble, Heteroscedastic Ensemble)
+
+Three challenging scenarios:
+1. Clean data (baseline comparison)
+2. Data with outliers (robust losses)
+3. Heteroscedastic data (uncertainty decomposition)
+
+```python
+# Compare robust losses on outlier data
+losses = {
+    "MSE": WeightedMSELoss(),      # Sensitive to outliers
+    "Huber": HuberLoss(delta=1.0),  # Balanced
+    "Cauchy": CauchyLoss(scale=0.5) # Very robust
+}
+```
+
 ## Advanced Examples
+
+### [Ensemble Methods](ensemble_methods.md) 🆕
+
+**Complete guide to uncertainty quantification with ensembles:**
+
+- **Deep Ensemble** - Epistemic uncertainty from model disagreement
+- **Heteroscedastic Ensemble** - Both epistemic and aleatoric uncertainty
+- **Batch Ensemble** - Efficient alternative for limited compute
+- **Uncertainty Decomposition** - Separating model vs. data uncertainty
+
+Includes decision trees, comparison tables, and complete working example ([`ensemble_tutorial.py`](../../examples/ensemble_tutorial.py)).
+
+```python
+# Train heteroscedastic ensemble with uncertainty decomposition
+ensemble_models = train_heteroscedastic_ensemble(n_models=5, ...)
+epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
+```
 
 ### [Photometric Redshift Estimation](photoz.md)
 
