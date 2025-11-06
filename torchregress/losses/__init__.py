@@ -15,7 +15,6 @@ from .barron import BarronLoss
 from .base import (
     BaseLoss,
     DistributionLoss,
-    BaseLoss,
     RegressionLoss,
     WeightedCrossEntropyLoss,
     WeightedGaussianNLLLoss,
@@ -178,7 +177,6 @@ KLDivLoss = WeightedKLDivLoss
 
 __all__ = [
     # Base classes
-    "BaseLoss",
     "BaseLoss",
     "RegressionLoss",
     "DistributionLoss",
