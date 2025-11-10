@@ -1,6 +1,6 @@
 # Metrics API Reference
 
-This page provides a complete API reference for all metrics in TorchRegression.
+This page provides a complete API reference for all metrics in torchregress.
 
 ::: torchregress.metrics.calibration
 

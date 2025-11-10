@@ -1,5 +1,5 @@
 """
-TorchRegress: PyTorch-based regression modeling toolkit.
+torchregress: PyTorch-based regression modeling toolkit.
 
 This package provides utilities, models, and loss functions for
 various regression tasks, with a focus on uncertainty

@@ -108,13 +108,7 @@ class DensityWeightedLoss(RegressionLoss):
             >>> # Fit density
             >>> loss_fn.fit_density(train_targets)
         """
-        try:
-            from sklearn.neighbors import KernelDensity
-        except ImportError:
-            raise ImportError(
-                "DensityWeightedLoss requires scikit-learn. "
-                "Install with: pip install scikit-learn"
-            )
+        from sklearn.neighbors import KernelDensity
 
         # Store targets for potential reuse
         self._train_targets = train_targets.detach().cpu()
@@ -154,10 +148,7 @@ class DensityWeightedLoss(RegressionLoss):
         if self._train_targets is None:
             raise ValueError("Must call fit_density() before computing weights")
 
-        try:
-            from sklearn.neighbors import KernelDensity
-        except ImportError:
-            raise ImportError("DensityWeightedLoss requires scikit-learn")
+        from sklearn.neighbors import KernelDensity
 
         # Reshape target if needed
         if target.dim() == 1:

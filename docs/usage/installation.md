@@ -1,10 +1,10 @@
 # Installation
 
-TorchRegress can be installed from PyPI or directly from the source code. The library requires Python 3.10 or newer and PyTorch.
+torchregress can be installed from PyPI or directly from the source code. The library requires Python 3.10 or newer and PyTorch.
 
 ## From PyPI
 
-The simplest way to install TorchRegress is via pip:
+The simplest way to install torchregress is via pip:
 
 ```bash
 pip install torchregress
@@ -12,7 +12,7 @@ pip install torchregress
 
 ## With Extra Dependencies
 
-TorchRegress provides optional dependency sets for different use cases:
+torchregress provides optional dependency sets for different use cases:
 
 ```bash
 # For testing capabilities
@@ -40,7 +40,7 @@ pip install -e .
 
 ## Requirements
 
-TorchRegress has the following dependencies:
+torchregress has the following dependencies:
 
 ### Core Dependencies
 
@@ -67,7 +67,7 @@ Documentation:
 
 ## Verifying Installation
 
-To verify that TorchRegress is installed correctly, you can run:
+To verify that torchregress is installed correctly, you can run:
 
 ```python
 import torchregress
@@ -106,4 +106,4 @@ with torch.no_grad():
     print(f"RMSE: {rmse.item():.4f}")
 ```
 
-If this runs without errors, TorchRegress is correctly installed.
+If this runs without errors, torchregress is correctly installed.
