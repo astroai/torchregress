@@ -1,8 +1,8 @@
 """
-TorchRegress basic usage example.
+torchregress basic usage example.
 
 This example demonstrates how to use various regression loss functions
-from the TorchRegress library in a simple neural network training scenario.
+from the torchregress library in a simple neural network training scenario.
 """
 
 import matplotlib.pyplot as plt
@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, TensorDataset
 torch.manual_seed(42)
 np.random.seed(42)
 
-# Import main TorchRegress components
+# Import main torchregress components
 from torchregress.losses import (
     HeteroscedasticGaussianLoss,  # For uncertainty estimation
     QuantileLoss,  # For quantile regression

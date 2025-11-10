@@ -1,6 +1,6 @@
 # Losses API Reference
 
-This page provides a complete API reference for all loss functions in TorchRegression.
+This page provides a complete API reference for all loss functions in torchregress.
 
 ::: torchregress.losses.base
 
@@ -11,10 +11,6 @@ This page provides a complete API reference for all loss functions in TorchRegre
 ---
 
 ::: torchregress.losses.conformal
-
----
-
-::: torchregress.losses.deepar
 
 ---
 

@@ -111,16 +111,13 @@ def validate_sample_weight(sample_weight: torch.Tensor, batch_size: int) -> torc
 
 
 # TorchMetrics compatibility and metric composition utilities
-try:
-    import torchmetrics  # noqa: F401
-    from torchmetrics import Metric  # noqa: F401
-except ImportError:
-    Metric = None
+import torchmetrics  # noqa: F401
+from torchmetrics import Metric  # noqa: F401
 
 
 def torchmetrics_available() -> bool:
     """Check if torchmetrics is installed."""
-    return Metric is not None
+    return True
 
 
 def compose_metrics(

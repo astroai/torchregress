@@ -1,7 +1,7 @@
 """
 Age regression example using the IMDB-WIKI dataset.
 
-This example demonstrates how to use TorchRegression with a pretrained model
+This example demonstrates how to use torchregress with a pretrained model
 for age regression on the IMDB-WIKI dataset.
 """
 
@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 torch.manual_seed(42)
 np.random.seed(42)
 
-# Import TorchRegression losses
+# Import torchregress losses
 from torchregress.losses import (
     LogCoshLoss,
     QuantileLoss,

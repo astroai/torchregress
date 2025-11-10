@@ -1,7 +1,7 @@
 """
 Photometric redshift estimation using SDSS data.
 
-This example demonstrates using TorchRegression's error-in-variables (EIV) losses
+This example demonstrates using torchregress's error-in-variables (EIV) losses
 for photometric redshift estimation from SDSS ugriz photometry, where both the
 features (magnitudes/colors) and targets (spectroscopic redshifts) have measurement errors.
 """
@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 
 from torchregress.losses.eiv import EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss
 
-# Import TorchRegression losses and metrics
+# Import torchregress losses and metrics
 from torchregress.losses.gaussian import MSELoss
 from torchregress.metrics.calibration import bias
 from torchregress.metrics.point import mae, rmse
