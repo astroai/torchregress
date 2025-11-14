@@ -17,12 +17,9 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 # Import main torchregress components
-from torchregress.losses import (
-    HeteroscedasticGaussianLoss,  # For uncertainty estimation
-    QuantileLoss,  # For quantile regression
-    WeightedHuberLoss,  # For robust regression
-    WeightedMSELoss,  # For standard MSE
-)
+from torchregress.distributions import Normal
+from torchregress.losses import GaussianNLLLoss, QuantileLoss, WeightedHuberLoss, WeightedMSELoss
+from torchregress.models import ProbabilisticModel
 
 
 # 1. Create a synthetic dataset with heteroscedastic noise
@@ -63,39 +60,7 @@ class RegressionModel(nn.Module):
         return self.network(x)
 
 
-# 3. Define a model with uncertainty estimation
-class UncertaintyModel(nn.Module):
-    """Regression model with aleatoric uncertainty estimation."""
-
-    def __init__(self, input_dim=1, hidden_dim=50):
-        super().__init__()
-        self.shared = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-        )
-
-        # Mean prediction head
-        self.mean_head = nn.Linear(hidden_dim, 1)
-
-        # Log variance prediction head (for aleatoric uncertainty)
-        self.logvar_head = nn.Linear(hidden_dim, 1)
-
-    def forward(self, x):
-        features = self.shared(x)
-        mean = self.mean_head(features)
-        logvar = self.logvar_head(features)
-
-        # Ensure variance is positive and stable
-        var = torch.exp(logvar)
-
-        return mean, var
-
-
-def train_model(
-    model, loss_fn, x_train, y_train, epochs=200, lr=0.01, uncertainty_model=False, verbose=True
-):
+def train_model(model, loss_fn, x_train, y_train, epochs=200, lr=0.01, verbose=True):
     """Train a model using the specified loss function."""
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
@@ -110,15 +75,8 @@ def train_model(
         for x_batch, y_batch in dataloader:
             optimizer.zero_grad()
 
-            if uncertainty_model:
-                mean, var = model(x_batch)
-                # HeteroscedasticGaussianLoss expects y_pred as (mean, log_var) tuple
-                # var is already in variance form, so convert to log_var
-                log_var = torch.log(var)
-                loss = loss_fn((mean, log_var), y_batch)
-            else:
-                y_pred = model(x_batch)
-                loss = loss_fn(y_pred, y_batch)
+            y_pred = model(x_batch)
+            loss = loss_fn(y_pred, y_batch)
 
             loss.backward()
             optimizer.step()
@@ -162,13 +120,12 @@ def main():
     quantile_loss = QuantileLoss(quantile=0.5)  # Median regression
     quantile_losses = train_model(model_quantile, quantile_loss, x_train, y_train, verbose=False)
 
-    # 7. Train with Heteroscedastic Gaussian loss (uncertainty aware)
-    model_uncertainty = UncertaintyModel()
-    # Model outputs (mean, log_var), so use learnable_variance=False to accept model's variance
-    gaussian_nll = HeteroscedasticGaussianLoss(n_features=1, learnable_variance=False)
-    gnll_losses = train_model(
-        model_uncertainty, gaussian_nll, x_train, y_train, uncertainty_model=True, verbose=False
-    )
+    # 7. Train with GaussianNLLLoss (uncertainty aware)
+    backbone = RegressionModel(output_dim=50)
+    dist_head = Normal(in_features=50, out_features=1)
+    model_uncertainty = ProbabilisticModel(backbone, dist_head)
+    gaussian_nll = GaussianNLLLoss()
+    gnll_losses = train_model(model_uncertainty, gaussian_nll, x_train, y_train, verbose=False)
 
     # Plot loss curves
     plt.subplot(2, 2, 2)
@@ -198,8 +155,9 @@ def main():
 
     # Uncertainty model predictions
     with torch.no_grad():
-        y_pred_mean, y_pred_var = model_uncertainty(x_sorted)
-        y_pred_std = torch.sqrt(y_pred_var)
+        dist = model_uncertainty(x_sorted)
+        y_pred_mean = dist.mean
+        y_pred_std = dist.stddev
         lower_bound = y_pred_mean - 2 * y_pred_std
         upper_bound = y_pred_mean + 2 * y_pred_std
 
