@@ -78,3 +78,104 @@ class PredictionIntervalCoverageProbability(Metric):
     def compute(self) -> torch.Tensor:
         """Compute PICP."""
         return self.covered / self.total
+
+
+def interval_score(
+    lower_bound: Union[torch.Tensor, np.ndarray],
+    upper_bound: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+    reduction: str = "mean",
+) -> Union[torch.Tensor, float, Dict[str, torch.Tensor]]:
+    """
+    Functional interval score (Winkler score).
+    """
+    lower_t = convert_to_tensor(lower_bound)
+    upper_t = convert_to_tensor(upper_bound)
+    y_true_t = convert_to_tensor(y_true)
+
+    validate_inputs(lower_t, y_true_t)
+    validate_inputs(upper_t, y_true_t)
+
+    interval_width = upper_t - lower_t
+    if torch.any(interval_width < 0):
+        raise ValueError("Upper bounds must be greater than or equal to lower bounds")
+
+    below_lower = torch.clamp(lower_t - y_true_t, min=0)
+    above_upper = torch.clamp(y_true_t - upper_t, min=0)
+    score = interval_width + (2 / alpha) * (below_lower + above_upper)
+
+    coverage = torch.mean(((y_true_t >= lower_t) & (y_true_t <= upper_t)).float())
+    expected_coverage = 1.0 - alpha
+    mean_width = torch.mean(interval_width)
+
+    if reduction == "full":
+        return {
+            "score": torch.mean(score),
+            "mean_width": mean_width,
+            "mean_coverage": coverage,
+            "expected_coverage": torch.tensor(expected_coverage, device=score.device),
+            "coverage_error": coverage - expected_coverage,
+        }
+
+    if reduction == "none":
+        return score
+    if reduction == "sum":
+        return torch.sum(score)
+    return torch.mean(score)
+
+
+def prediction_interval_coverage_probability(
+    lower_bound: Union[torch.Tensor, np.ndarray],
+    upper_bound: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+    return_diagnostics: bool = False,
+) -> Union[torch.Tensor, float, Dict[str, torch.Tensor]]:
+    """
+    Functional Prediction Interval Coverage Probability (PICP).
+    """
+    lower_t = convert_to_tensor(lower_bound)
+    upper_t = convert_to_tensor(upper_bound)
+    y_true_t = convert_to_tensor(y_true)
+
+    coverage_mask = (y_true_t >= lower_t) & (y_true_t <= upper_t)
+    picp = torch.mean(coverage_mask.float())
+    mpiw = torch.mean(upper_t - lower_t)
+
+    miss_rate_low = torch.mean((y_true_t < lower_t).float())
+    miss_rate_high = torch.mean((y_true_t > upper_t).float())
+    expected_coverage = 1.0 - alpha
+
+    if not return_diagnostics:
+        return picp
+
+    return {
+        "picp": picp,
+        "expected_coverage": torch.tensor(expected_coverage, device=picp.device),
+        "coverage_error": picp - expected_coverage,
+        "mpiw": mpiw,
+        "miss_rate_low": miss_rate_low,
+        "miss_rate_high": miss_rate_high,
+    }
+
+
+def interval_metrics_report(
+    predictions: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]],
+    y_true: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+) -> Dict[str, Dict[str, torch.Tensor]]:
+    """
+    Generate interval metrics report for multiple models.
+    """
+    report: Dict[str, Dict[str, torch.Tensor]] = {}
+    for name, bounds in predictions.items():
+        lower = bounds["lower"]
+        upper = bounds["upper"]
+        score = interval_score(lower, upper, y_true, alpha=alpha)
+        picp = prediction_interval_coverage_probability(
+            lower, upper, y_true, alpha=alpha, return_diagnostics=False
+        )
+        mpiw = torch.mean(convert_to_tensor(upper) - convert_to_tensor(lower))
+        report[name] = {"score": score, "picp": picp, "mpiw": mpiw}
+    return report

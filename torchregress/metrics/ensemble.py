@@ -26,6 +26,38 @@ def ensemble_statistics(
     return mean, var
 
 
+def ensemble_mean(
+    predictions: Union[torch.Tensor, np.ndarray], dim: int = 0
+) -> torch.Tensor:
+    """
+    Alias for ensemble mean across dimension `dim`.
+    """
+    mean, _ = ensemble_statistics(predictions, dim=dim)
+    return mean
+
+
+def ensemble_std(
+    predictions: Union[torch.Tensor, np.ndarray], dim: int = 0
+) -> torch.Tensor:
+    """
+    Alias for ensemble standard deviation across dimension `dim`.
+    """
+    _, var = ensemble_statistics(predictions, dim=dim)
+    return torch.sqrt(var)
+
+
+def ensemble_variance_decomposition(
+    means: Union[torch.Tensor, np.ndarray],
+    variances: Union[torch.Tensor, np.ndarray],
+    dim: int = 0,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Alias returning (epistemic, aleatoric) uncertainty.
+    """
+    stats = uncertainty_decomposition(means, variances, dim=dim)
+    return stats["epistemic_uncertainty"], stats["aleatoric_uncertainty"]
+
+
 def uncertainty_decomposition(
     means: Union[torch.Tensor, np.ndarray],
     variances: Union[torch.Tensor, np.ndarray],

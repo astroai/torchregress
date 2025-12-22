@@ -157,12 +157,19 @@ def evaluate_point_predictions(model, x_test, y_test, name="Model"):
     model.eval()
     with torch.no_grad():
         y_pred = model(x_test)
-        mse = ((y_pred - y_test) ** 2).mean().item()
-        mae = (torch.abs(y_pred - y_test)).mean().item()
+        if y_test is not None:
+            mse = ((y_pred - y_test) ** 2).mean().item()
+            mae = (torch.abs(y_pred - y_test)).mean().item()
+        else:
+            mse = None
+            mae = None
 
     print(f"{name}:")
-    print(f"  MSE: {mse:.4f}")
-    print(f"  MAE: {mae:.4f}")
+    if mse is not None:
+        print(f"  MSE: {mse:.4f}")
+        print(f"  MAE: {mae:.4f}")
+    else:
+        print("  Metrics skipped (no targets provided).")
 
     return y_pred, None
 
@@ -180,12 +187,14 @@ def evaluate_ensemble_predictions(ensemble_models, x_test, y_test, name="Ensembl
     pred_mean = ensemble_mean(predictions)
     pred_std = ensemble_std(predictions)
 
-    mse = ((pred_mean - y_test) ** 2).mean().item()
-    mae = (torch.abs(pred_mean - y_test)).mean().item()
-
     print(f"{name}:")
-    print(f"  MSE: {mse:.4f}")
-    print(f"  MAE: {mae:.4f}")
+    if y_test is not None:
+        mse = ((pred_mean - y_test) ** 2).mean().item()
+        mae = (torch.abs(pred_mean - y_test)).mean().item()
+        print(f"  MSE: {mse:.4f}")
+        print(f"  MAE: {mae:.4f}")
+    else:
+        print("  Metrics skipped (no targets provided).")
     print(f"  Mean Uncertainty: {pred_std.mean().item():.4f}")
 
     return pred_mean, pred_std
@@ -207,15 +216,18 @@ def evaluate_heteroscedastic_ensemble(
     log_vars = torch.stack([p[1] for p in predictions])
 
     pred_mean = ensemble_mean(means)
-    epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
+    variances = torch.exp(log_vars)
+    epistemic, aleatoric = ensemble_variance_decomposition(means, variances)
     total_std = torch.sqrt(epistemic + aleatoric)
 
-    mse = ((pred_mean - y_test) ** 2).mean().item()
-    mae = (torch.abs(pred_mean - y_test)).mean().item()
-
     print(f"{name}:")
-    print(f"  MSE: {mse:.4f}")
-    print(f"  MAE: {mae:.4f}")
+    if y_test is not None:
+        mse = ((pred_mean - y_test) ** 2).mean().item()
+        mae = (torch.abs(pred_mean - y_test)).mean().item()
+        print(f"  MSE: {mse:.4f}")
+        print(f"  MAE: {mae:.4f}")
+    else:
+        print("  Metrics skipped (no targets provided).")
     print(f"  Epistemic Uncertainty: {torch.sqrt(epistemic).mean().item():.4f}")
     print(f"  Aleatoric Uncertainty: {torch.sqrt(aleatoric).mean().item():.4f}")
     print(f"  Total Uncertainty: {total_std.mean().item():.4f}")
@@ -397,7 +409,7 @@ def scenario_2_outliers():
     print("\n3. Training Cauchy model (very robust)...")
     set_seed(42)
     model_cauchy = create_mlp()
-    model_cauchy = train_model(model_cauchy, dataloader, CauchyLoss(scale=0.5), epochs=100)
+    model_cauchy = train_model(model_cauchy, dataloader, CauchyLoss(c=0.5), epochs=100)
     pred_cauchy, _ = evaluate_point_predictions(model_cauchy, x_test_t, None, "Cauchy")
     results["Cauchy (Very Robust)"] = (pred_cauchy, None, None)
 

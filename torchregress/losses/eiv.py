@@ -9,14 +9,12 @@ from typing import Callable, Optional, Tuple, Union
 
 import torch
 
-from ..ensemble.utils import run_ensemble_model
 from ..utils.augment import EnsemblePerturbationAugmenter
 from ..utils.tensor_ops import (
     apply_mask,
     calculate_gaussian_nll,
     calculate_propagated_variance,
     compute_model_gradients,
-    prepare_covariance,
     prepare_cross_covariance,
     prepare_model_input_for_gradients,
 )
@@ -33,8 +31,8 @@ class BaseEIVLoss(RegressionLoss):
 
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Standard deviation or covariance of feature noise (scalar, vector or matrix)
-        sigma_y: Standard deviation or covariance of target noise (scalar, vector or matrix)
+        sigma_x: Standard deviation (scalar/vector) or covariance matrix of feature noise
+        sigma_y: Standard deviation (scalar/vector) or covariance matrix of target noise
         reduction: One of 'none', 'mean', 'sum'
         eps: Small value for numerical stability
 
@@ -60,6 +58,20 @@ class BaseEIVLoss(RegressionLoss):
         self.sigma_y = sigma_y
         self.eps = eps
 
+    def _validate_inputs(
+        self, y_pred: torch.Tensor, target: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> None:
+        """
+        Validate EIV inputs where y_pred represents noisy inputs (x_obs).
+        """
+        if y_pred.shape[0] != target.shape[0]:
+            raise ValueError(
+                f"Batch size mismatch: y_pred has {y_pred.shape[0]} rows, "
+                f"target has {target.shape[0]} rows."
+            )
+        if mask is not None and mask.shape != target.shape:
+            raise ValueError(f"Mask shape {mask.shape} must match target shape {target.shape}")
+
     def _prepare_covariances(
         self, n_features_x: int, n_features_y: int, device: torch.device
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -74,11 +86,47 @@ class BaseEIVLoss(RegressionLoss):
         Returns:
             Tuple of (sigma_x_tensor, sigma_y_tensor)
         """
-        sigma_x_tensor = prepare_covariance(self.sigma_x, n_features_x, device)
-        sigma_y_tensor = (
-            None if self.sigma_y is None else prepare_covariance(self.sigma_y, n_features_y, device)
+        sigma_x_tensor = self._prepare_covariance_from_sigma(
+            self.sigma_x, n_features_x, device
         )
+        sigma_y_tensor = None
+        if self.sigma_y is not None:
+            sigma_y_tensor = self._prepare_covariance_from_sigma(
+                self.sigma_y, n_features_y, device
+            )
         return sigma_x_tensor, sigma_y_tensor
+
+    def _prepare_covariance_from_sigma(
+        self, sigma: Union[float, torch.Tensor], n_features: int, device: torch.device
+    ) -> torch.Tensor:
+        """
+        Interpret scalar/vector sigma as standard deviation and return covariance.
+        """
+        if isinstance(sigma, (int, float)):
+            return torch.eye(n_features, device=device) * float(sigma) ** 2
+
+        if isinstance(sigma, torch.Tensor):
+            sigma = sigma.to(device)
+            if sigma.numel() == 1:
+                return torch.eye(n_features, device=device) * float(sigma.item()) ** 2
+            if sigma.ndim == 1:
+                if sigma.shape[0] != n_features:
+                    raise ValueError(
+                        f"sigma shape {tuple(sigma.shape)} doesn't match required size {n_features}"
+                    )
+                return torch.diag(sigma**2)
+            if sigma.ndim == 2:
+                if sigma.shape != (n_features, n_features):
+                    raise ValueError(
+                        f"sigma matrix shape {tuple(sigma.shape)} doesn't match "
+                        f"expected shape ({n_features}, {n_features})"
+                    )
+                if not torch.allclose(sigma, sigma.t()):
+                    sigma = (sigma + sigma.t()) / 2
+                return sigma
+            raise ValueError(f"sigma must be scalar, vector, or matrix, got {sigma.ndim}D tensor")
+
+        raise TypeError(f"sigma must be float or tensor, got {type(sigma).__name__}")
 
     def _prepare_inverse_covariances(
         self,
@@ -151,8 +199,9 @@ class BaseEIVLoss(RegressionLoss):
         """
         if sigma_inv.ndim <= 1:
             return torch.sum(diff**2 * sigma_inv, dim=1)
-        else:
-            return torch.sum(diff * torch.bmm(diff.unsqueeze(1), sigma_inv).squeeze(1), dim=1)
+        if sigma_inv.ndim == 2:
+            return torch.sum(diff * (diff @ sigma_inv), dim=1)
+        return torch.sum(diff * torch.bmm(diff.unsqueeze(1), sigma_inv).squeeze(1), dim=1)
 
 
 @register_regression_loss("functional_eiv")
@@ -167,8 +216,8 @@ class FunctionalEIVLoss(BaseEIVLoss):
 
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Standard deviation or covariance of feature noise
-        sigma_y: Standard deviation or covariance of target noise (optional)
+        sigma_x: Standard deviation (scalar/vector) or covariance matrix of feature noise
+        sigma_y: Standard deviation (scalar/vector) or covariance matrix of target noise (optional)
         monte_carlo: Whether to use Monte Carlo sampling for gradient estimation
         n_samples: Number of MC samples if monte_carlo=True
         reduction: One of 'none', 'mean', 'sum'
@@ -254,25 +303,26 @@ class FunctionalEIVLoss(BaseEIVLoss):
 
         if not self.monte_carlo:
             # Analytical approach: use gradients to propagate uncertainty
-            x_grad = prepare_model_input_for_gradients(x_obs)
-            model_output = self.model(x_grad)
+            with torch.enable_grad():
+                x_grad = prepare_model_input_for_gradients(x_obs)
+                model_output = self.model(x_grad)
 
-            # Apply mask if needed
-            if mask is not None:
-                model_output = apply_mask(model_output, mask)
+                # Apply mask if needed
+                if mask is not None:
+                    model_output = apply_mask(model_output, mask)
 
-            residuals = y_true - model_output
+                residuals = y_true - model_output
 
-            # Calculate gradients and propagate variance
-            grad = compute_model_gradients(model_output, x_grad, n_features_y)
+                # Calculate gradients and propagate variance
+                grad = compute_model_gradients(model_output, x_grad, n_features_y)
 
-            # Propagate variance from inputs to outputs
-            propagated_var = calculate_propagated_variance(
-                grad, sigma_x_tensor, sigma_y=sigma_y_tensor
-            )
+                # Propagate variance from inputs to outputs
+                propagated_var = calculate_propagated_variance(
+                    grad, sigma_x_tensor, sigma_y=sigma_y_tensor
+                )
 
-            # Calculate negative log-likelihood
-            loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
+                # Calculate negative log-likelihood
+                loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
         else:
             # Monte Carlo approach
             loss = self._monte_carlo_forward(
@@ -368,8 +418,8 @@ class StructuralEIVLoss(BaseEIVLoss):
 
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Covariance of feature noise
-        sigma_y: Covariance of target noise
+        sigma_x: Standard deviation (scalar/vector) or covariance matrix of feature noise
+        sigma_y: Standard deviation (scalar/vector) or covariance matrix of target noise
         sigma_xy: Cross-covariance between feature and target noise
         reduction: One of 'none', 'mean', 'sum'
         eps: Small value for numerical stability
@@ -494,8 +544,8 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Standard deviation or covariance of feature noise
-        sigma_y: Standard deviation or covariance of target noise
+        sigma_x: Standard deviation (scalar/vector) or covariance matrix of feature noise
+        sigma_y: Standard deviation (scalar/vector) or covariance matrix of target noise
         learning_rate: Learning rate for the latent x optimization
         max_iterations: Maximum iterations for latent x optimization
         tolerance: Convergence criterion for optimization
@@ -595,37 +645,38 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
         # Optimize latent true x values
         prev_loss = float("inf")
-        for iteration in range(self.max_iterations):
-            optimizer.zero_grad()
+        with torch.enable_grad():
+            for iteration in range(self.max_iterations):
+                optimizer.zero_grad()
 
-            # Forward pass with current latent x
-            model_output = self.model(x_latent)
+                # Forward pass with current latent x
+                model_output = self.model(x_latent)
 
-            # Apply mask if needed
-            if mask is not None:
-                model_output = apply_mask(model_output, mask)
+                # Apply mask if needed
+                if mask is not None:
+                    model_output = apply_mask(model_output, mask)
 
-            # Calculate x distance (between observed and latent x)
-            x_diff = x_obs - x_latent
-            x_dist = self._calculate_mahalanobis_distance(x_diff, sigma_x_inv)
+                # Calculate x distance (between observed and latent x)
+                x_diff = x_obs - x_latent
+                x_dist = self._calculate_mahalanobis_distance(x_diff, sigma_x_inv)
 
-            # Calculate y distance (between observed y and predicted y)
-            y_diff = y_true - model_output
-            y_dist = self._calculate_mahalanobis_distance(y_diff, sigma_y_inv)
+                # Calculate y distance (between observed y and predicted y)
+                y_diff = y_true - model_output
+                y_dist = self._calculate_mahalanobis_distance(y_diff, sigma_y_inv)
 
-            # Total ODR objective: minimize weighted sum of distances
-            total_dist = x_dist + y_dist
-            odr_objective = torch.mean(total_dist)
+                # Total ODR objective: minimize weighted sum of distances
+                total_dist = x_dist + y_dist
+                odr_objective = torch.mean(total_dist)
 
-            # Backward pass and update
-            odr_objective.backward()
-            optimizer.step()
+                # Backward pass and update
+                odr_objective.backward()
+                optimizer.step()
 
-            # Check for convergence
-            if abs(prev_loss - odr_objective.item()) < self.tolerance:
-                break
+                # Check for convergence
+                if abs(prev_loss - odr_objective.item()) < self.tolerance:
+                    break
 
-            prev_loss = odr_objective.item()
+                prev_loss = odr_objective.item()
 
         # Final forward pass with optimized latent x (detached to avoid gradient tracking)
         x_latent_final = x_latent.detach()
@@ -670,7 +721,7 @@ class EnsembleEIVLoss(BaseEIVLoss):
 
     Args:
         model: Model function f(x) that predicts y
-        sigma_x: Standard deviation or covariance of feature noise (scalar, vector, or matrix)
+        sigma_x: Standard deviation (scalar/vector) or covariance matrix of feature noise
         n_samples: Number of perturbed samples to generate
         perturb_method: Method for perturbing inputs ('gaussian', 'uniform')
         reduction: One of 'none', 'mean', 'sum'
@@ -733,9 +784,13 @@ class EnsembleEIVLoss(BaseEIVLoss):
         perturbed_samples = self.perturbation_augmenter(x_obs)
         perturbed_stacked = torch.stack(perturbed_samples)
 
-        # Run ensemble model prediction using util function
-        result = run_ensemble_model(self.model, perturbed_stacked)
-        mean_pred = result["mean"]
+        # Flatten for a single forward pass to keep gradients
+        flat_inputs = perturbed_stacked.reshape(-1, perturbed_stacked.shape[-1])
+        preds_flat = self.model(flat_inputs)
+        if preds_flat.dim() == 1:
+            preds_flat = preds_flat.unsqueeze(1)
+        preds = preds_flat.reshape(self.n_samples, x_obs.shape[0], -1)
+        mean_pred = preds.mean(dim=0)
 
         # Apply mask if needed
         if mask is not None:

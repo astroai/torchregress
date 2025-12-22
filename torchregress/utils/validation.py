@@ -213,8 +213,10 @@ def validate_quantile(q: Union[float, torch.Tensor]) -> torch.Tensor:
     Validate quantile level(s) and convert to tensor.
     """
     q = torch.as_tensor(q)
-    if not (0 <= q.all() and q.all() <= 1):
-        raise ValueError(f"Quantile(s) must be in range [0, 1], got {q.min().item()} to {q.max().item()}")
+    q_min = q.min().item()
+    q_max = q.max().item()
+    if q_min < 0.0 or q_max > 1.0:
+        raise ValueError(f"Quantile(s) must be in range [0, 1], got {q_min} to {q_max}")
     return q
 
 

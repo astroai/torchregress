@@ -19,10 +19,15 @@ import torch.optim as optim
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset, random_split
 
-from torchregress.losses.eiv import EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss
+from torchregress.losses.eiv import (
+    BaseEIVLoss,
+    EnsembleEIVLoss,
+    FunctionalEIVLoss,
+    OrthogonalDistanceRegressionLoss,
+)
 
 # Import torchregress losses and metrics
-from torchregress.losses.gaussian import MSELoss
+from torchregress.losses import MSELoss
 from torchregress.metrics.calibration import bias
 from torchregress.metrics.point import mae, rmse
 
@@ -281,14 +286,12 @@ def train_model(model, train_loader, val_loader, loss_fn, optimizer, num_epochs=
             y, y_err = y.to(device), y_err.to(device)
 
             optimizer.zero_grad()
-            outputs = model(x)
 
-            # Different losses handle errors differently
-            if isinstance(loss_fn, (EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss)):
-                # EIV losses use both input and output errors
-                loss = loss_fn(outputs, y, x_err=x_err, y_err=y_err)
+            if isinstance(loss_fn, BaseEIVLoss):
+                # EIV losses use observed inputs and handle the model internally
+                loss = loss_fn(x, y)
             else:
-                # Standard losses just use predictions and targets
+                outputs = model(x)
                 loss = loss_fn(outputs, y)
 
             loss.backward()
@@ -308,11 +311,10 @@ def train_model(model, train_loader, val_loader, loss_fn, optimizer, num_epochs=
                 x, x_err = x.to(device), x_err.to(device)
                 y, y_err = y.to(device), y_err.to(device)
 
-                outputs = model(x)
-
-                if isinstance(loss_fn, (EIVRegressionLoss, OrthogonalEIVLoss, WeightedEIVLoss)):
-                    loss = loss_fn(outputs, y, x_err=x_err, y_err=y_err)
+                if isinstance(loss_fn, BaseEIVLoss):
+                    loss = loss_fn(x, y)
                 else:
+                    outputs = model(x)
                     loss = loss_fn(outputs, y)
 
                 val_running_loss += loss.item() * x.size(0)
@@ -362,9 +364,9 @@ def evaluate_model(model, test_loader, device=DEVICE):
     nmad = 1.48 * torch.median(torch.abs(delta_z_norm - torch.median(delta_z_norm)))
 
     return {
-        "rmse": rmse_value.item(),
-        "mae": mae_value.item(),
-        "bias": bias_value.item(),
+        "rmse": float(rmse_value),
+        "mae": float(mae_value),
+        "bias": float(bias_value),
         "nmad": nmad.item(),
         "predictions": all_preds.numpy(),
         "targets": all_targets.numpy(),
@@ -505,23 +507,45 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
+    # Estimate global measurement error levels from training data
+    train_rows = sdss_data.iloc[train_dataset.indices]
+    sigma_x_std = np.sqrt(np.mean(train_rows[error_cols].to_numpy() ** 2, axis=0))
+    sigma_y_std = float(np.sqrt(np.mean(train_rows["spec_z_err"].to_numpy() ** 2)))
+
     # Define loss functions to compare
-    loss_functions = {
-        "MSE": MSELoss(reduction="mean"),  # Standard loss as baseline
-        "EIV": EIVRegressionLoss(reduction="mean"),  # Basic EIV loss
-        "OrthogonalEIV": OrthogonalEIVLoss(reduction="mean"),  # Orthogonal errors
-        "WeightedEIV": WeightedEIVLoss(reduction="mean"),  # Weighted by uncertainties
+    loss_builders = {
+        "MSE": lambda _: MSELoss(reduction="mean"),  # Standard loss as baseline
+        "EIV": lambda model: FunctionalEIVLoss(
+            model,
+            sigma_x=torch.tensor(sigma_x_std, dtype=torch.float32),
+            sigma_y=sigma_y_std,
+            reduction="mean",
+        ),
+        "OrthogonalEIV": lambda model: OrthogonalDistanceRegressionLoss(
+            model,
+            sigma_x=torch.tensor(sigma_x_std, dtype=torch.float32),
+            sigma_y=sigma_y_std,
+            reduction="mean",
+        ),
+        "EnsembleEIV": lambda model: EnsembleEIVLoss(
+            model,
+            sigma_x=torch.tensor(sigma_x_std, dtype=torch.float32),
+            n_samples=20,
+            reduction="mean",
+        ),
     }
 
     # Dictionary to store results
     results = {}
 
     # Train models with different loss functions
-    for loss_name, loss_fn in loss_functions.items():
+    for loss_name, loss_builder in loss_builders.items():
         print(f"\n=== Training with {loss_name} Loss ===")
 
         # Initialize model
         model = PhotoZModel(input_dim=len(feature_cols))
+
+        loss_fn = loss_builder(model)
 
         # Initialize optimizer
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
@@ -543,7 +567,7 @@ def main():
         }
 
     # Plot and compare results
-    plot_results(results, loss_functions.keys())
+    plot_results(results, loss_builders.keys())
 
     # Print results table
     print("\nPhotometric Redshift Estimation Results:")

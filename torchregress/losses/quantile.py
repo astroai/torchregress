@@ -137,6 +137,8 @@ class MultiQuantileLoss(RegressionLoss):
 
         # Handle quantile weights
         if quantile_weights is not None:
+            if isinstance(quantile_weights, list):
+                quantile_weights = torch.tensor(quantile_weights, dtype=torch.float32)
             if len(quantile_weights) != self.num_quantiles:
                 raise ValueError(
                     f"quantile_weights length {len(quantile_weights)} must match number of quantiles {self.num_quantiles}"
@@ -221,7 +223,9 @@ class MultiQuantileLoss(RegressionLoss):
                 )
 
         # Elementwise multi-quantile loss via shared utility
-        loss = multi_quantile_loss(quantile_preds, target, self.quantiles)
+        loss = multi_quantile_loss(
+            quantile_preds, target, self.quantiles, quantile_weights=self.quantile_weights
+        )
         return self._reduce_with_mask(loss, mask, weights)
 
 

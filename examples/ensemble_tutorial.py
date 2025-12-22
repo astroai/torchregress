@@ -96,36 +96,40 @@ def train_model(model, dataloader, loss_fn, epochs=100, lr=0.01):
 
 def train_deep_ensemble(n_models, dataloader, hidden_dim=64, epochs=100, lr=0.01):
     """Train a deep ensemble (multiple independent models)."""
-    models = []
     print(f"\nTraining Deep Ensemble with {n_models} models...")
-
-    for i in range(n_models):
-        print(f"\n--- Training Model {i + 1}/{n_models} ---")
-        set_seed(42 + i)  # Different seed for each model
-        model = create_mlp(hidden_dim=hidden_dim)
-        loss_fn = WeightedMSELoss()
-        model = train_model(model, dataloader, loss_fn, epochs=epochs, lr=lr)
-        models.append(model)
-
-    return DeepEnsemble(models)
+    set_seed(42)
+    ensemble = DeepEnsemble(
+        base_model=create_mlp(hidden_dim=hidden_dim),
+        ensemble_size=n_models,
+    )
+    ensemble.fit(
+        train_loader=dataloader,
+        criterion=WeightedMSELoss(),
+        epochs=epochs,
+        lr=lr,
+        verbose=True,
+    )
+    return ensemble
 
 
 def train_heteroscedastic_ensemble(
     n_models, dataloader, hidden_dim=64, epochs=100, lr=0.01
 ):
     """Train ensemble where each model predicts mean and variance."""
-    models = []
     print(f"\nTraining Heteroscedastic Ensemble with {n_models} models...")
-
-    for i in range(n_models):
-        print(f"\n--- Training Model {i + 1}/{n_models} ---")
-        set_seed(42 + i)
-        model = create_heteroscedastic_mlp(hidden_dim=hidden_dim)
-        loss_fn = GaussianNLLLoss()
-        model = train_model(model, dataloader, loss_fn, epochs=epochs, lr=lr)
-        models.append(model)
-
-    return HeteroscedasticEnsembleModel(models)
+    set_seed(42)
+    ensemble = HeteroscedasticEnsembleModel(
+        base_model=create_heteroscedastic_mlp(hidden_dim=hidden_dim),
+        ensemble_size=n_models,
+    )
+    ensemble.fit(
+        train_loader=dataloader,
+        criterion=GaussianNLLLoss(),
+        epochs=epochs,
+        lr=lr,
+        verbose=True,
+    )
+    return ensemble
 
 
 def evaluate_ensemble(ensemble, x_test, y_test, model_type="Deep Ensemble"):
@@ -135,12 +139,17 @@ def evaluate_ensemble(ensemble, x_test, y_test, model_type="Deep Ensemble"):
         predictions = ensemble(x_test)
 
         if isinstance(ensemble, HeteroscedasticEnsembleModel):
-            # Predictions are list of (mean, log_var) tuples
-            means = torch.stack([pred[0] for pred in predictions])
-            log_vars = torch.stack([pred[1] for pred in predictions])
+            # Predictions are either stacked tensors [M, B, 2] or list of tensors
+            if isinstance(predictions, torch.Tensor):
+                means = predictions[..., 0:1]
+                log_vars = predictions[..., 1:2]
+            else:
+                means = torch.stack([pred[..., 0:1] for pred in predictions])
+                log_vars = torch.stack([pred[..., 1:2] for pred in predictions])
 
             # Decompose uncertainty
-            epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
+            variances = torch.exp(log_vars)
+            epistemic, aleatoric = ensemble_variance_decomposition(means, variances)
             total_std = torch.sqrt(epistemic + aleatoric)
             pred_mean = ensemble_mean(means)
 

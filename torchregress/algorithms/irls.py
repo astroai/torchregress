@@ -40,7 +40,7 @@ from ..losses.base import (
     WeightedHuberLoss,
     WeightedL1Loss,
 )
-from ..losses.gaussian import GaussianNLLLoss, MultivariateGaussianLoss
+from ..losses.gaussian import GaussianNLLLoss, LowRankGaussianLoss, MultivariateGaussianLoss
 from ..losses.robust import TukeyBiweightLoss
 
 # Get machine epsilon for numerical stability
@@ -714,6 +714,24 @@ def calculate_loss(
     elif isinstance(loss_fn, MultivariateGaussianLoss):
         return loss_fn(
             y_pred=y_pred, target=y_true, covariance_matrices=covariance_matrices, mask=mask
+        )
+    # Handle LowRankGaussianLoss
+    elif isinstance(loss_fn, LowRankGaussianLoss):
+        if (
+            covariance_matrices is None
+            or not isinstance(covariance_matrices, (tuple, list))
+            or len(covariance_matrices) != 2
+        ):
+            raise ValueError(
+                "LowRankGaussianLoss requires covariance_matrices=(cov_factor, cov_diag)."
+            )
+        cov_factor, cov_diag = covariance_matrices
+        return loss_fn(
+            y_pred=y_pred,
+            target=y_true,
+            cov_factor=cov_factor,
+            cov_diag=cov_diag,
+            mask=mask,
         )
 
     # Handle robust losses with weights

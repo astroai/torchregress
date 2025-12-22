@@ -46,7 +46,7 @@ class BaseEnsembleModel(nn.Module):
                 model = deepcopy(base_model)
             self.models.append(model)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor):
         """
         Forward pass computes predictions from all ensemble members.
 
@@ -55,8 +55,12 @@ class BaseEnsembleModel(nn.Module):
 
         Returns:
             Stacked predictions from each ensemble member [ensemble_size, batch_size, ...]
+            for tensor outputs, otherwise a list of per-member outputs.
         """
-        return torch.stack([model(x) for model in self.models])
+        outputs = [model(x) for model in self.models]
+        if outputs and isinstance(outputs[0], torch.Tensor):
+            return torch.stack(outputs)
+        return outputs
 
     def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -71,6 +75,13 @@ class BaseEnsembleModel(nn.Module):
         with torch.no_grad():
             # Get predictions from all ensemble members
             stacked_preds = self.forward(x)
+            if isinstance(stacked_preds, list):
+                if not all(isinstance(pred, torch.Tensor) for pred in stacked_preds):
+                    raise ValueError(
+                        "BaseEnsembleModel.predict expects tensor outputs. "
+                        "Use a specialized ensemble for structured outputs."
+                    )
+                stacked_preds = torch.stack(stacked_preds)
 
             # Calculate mean across ensemble dimension
             mean = torch.mean(stacked_preds, dim=0)
@@ -94,7 +105,14 @@ class BaseEnsembleModel(nn.Module):
         """
         with torch.no_grad():
             preds = self.forward(x)
-            stacked = torch.stack(preds)  # [ensemble_size, batch, dim]
+            if isinstance(preds, list):
+                if not all(isinstance(pred, torch.Tensor) for pred in preds):
+                    raise ValueError(
+                        "BaseEnsembleModel.predict_full_covariance expects tensor outputs. "
+                        "Use a specialized ensemble for structured outputs."
+                    )
+                preds = torch.stack(preds)
+            stacked = preds  # [ensemble_size, batch, dim]
             mean = torch.mean(stacked, dim=0)
             # Compute sample covariance across ensemble members
             # stacked => [M, B, D] -> [B, M, D]
@@ -102,3 +120,61 @@ class BaseEnsembleModel(nn.Module):
             p_centered = p - mean.unsqueeze(1)
             cov = torch.einsum("bmd,bnd->bmn", p_centered, p_centered) / (self.ensemble_size - 1)
             return {"mean": mean, "covariance": cov}
+
+    def fit(
+        self,
+        train_loader: torch.utils.data.DataLoader,
+        criterion: nn.Module,
+        epochs: int = 10,
+        lr: float = 1e-3,
+        optimizer_cls: type = torch.optim.Adam,
+        verbose: bool = True,
+        device: Union[str, torch.device, None] = None,
+    ) -> Dict[str, list]:
+        """
+        Train each ensemble member independently.
+        """
+        device = device or self.device
+        member_histories = []
+
+        for idx, model in enumerate(self.models):
+            model.to(device)
+            optimizer = optimizer_cls(model.parameters(), lr=lr)
+            history = []
+
+            for epoch in range(epochs):
+                model.train()
+                running_loss = 0.0
+                batch_count = 0
+
+                for batch in train_loader:
+                    if isinstance(batch, (tuple, list)) and len(batch) >= 2:
+                        x, y = batch[0], batch[1]
+                    else:
+                        raise ValueError("train_loader must yield (inputs, targets) tuples")
+
+                    x = x.to(device)
+                    y = y.to(device)
+
+                    optimizer.zero_grad()
+                    preds = model(x)
+                    loss = criterion(preds, y)
+                    loss.backward()
+                    optimizer.step()
+
+                    running_loss += float(loss.detach().item())
+                    batch_count += 1
+
+                epoch_loss = running_loss / max(batch_count, 1)
+                history.append(epoch_loss)
+
+                if verbose:
+                    print(
+                        f"Member {idx + 1}/{self.ensemble_size} "
+                        f"Epoch {epoch + 1}/{epochs} "
+                        f"Loss {epoch_loss:.6f}"
+                    )
+
+            member_histories.append(history)
+
+        return {"member_histories": member_histories}

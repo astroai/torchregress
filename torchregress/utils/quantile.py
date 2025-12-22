@@ -2,7 +2,7 @@
 Quantile loss utilities for regression tasks.
 """
 
-from typing import Union
+from typing import Optional, Union
 
 import torch
 from torch import Tensor
@@ -38,6 +38,7 @@ def multi_quantile_loss(
     y_pred: Tensor,
     y_true: Tensor,
     quantiles: Tensor,
+    quantile_weights: Optional[Tensor] = None,
 ) -> Tensor:
     """
     Compute multi-quantile loss by averaging individual quantile losses.
@@ -46,6 +47,7 @@ def multi_quantile_loss(
         y_pred: Predictions [batch_size, n_quantiles, ...]
         y_true: Targets [batch_size, ...]
         quantiles: Tensor of shape [n_quantiles]
+        quantile_weights: Optional tensor of shape [n_quantiles]
 
     Returns:
         Tensor of shape [batch_size, ...] representing averaged loss
@@ -60,5 +62,14 @@ def multi_quantile_loss(
     # Residuals
     res = y_true - y_pred
     loss = torch.max(q * res, (q - 1) * res)
+    if quantile_weights is not None:
+        weights = quantile_weights.to(y_pred.device).type_as(y_pred)
+        if weights.numel() != q.shape[1]:
+            raise ValueError(
+                f"quantile_weights length {weights.numel()} must match quantiles length {q.shape[1]}"
+            )
+        weights = weights.view(1, -1, *[1] * (y_pred.dim() - 2))
+        weight_sum = weights.sum().clamp(min=1e-12)
+        return (loss * weights).sum(dim=1) / weight_sum
     # Average across quantile dimension
     return loss.mean(dim=1)

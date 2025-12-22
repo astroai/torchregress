@@ -365,6 +365,7 @@ from functools import partial
 # Regression losses - core point prediction
 WeightedMSELoss = partial(WeightedLossWrapper, nn.MSELoss)
 WeightedL1Loss = partial(WeightedLossWrapper, nn.L1Loss)
+WeightedMAELoss = WeightedL1Loss
 WeightedSmoothL1Loss = partial(WeightedLossWrapper, nn.SmoothL1Loss)
 WeightedHuberLoss = partial(WeightedLossWrapper, nn.HuberLoss)
 

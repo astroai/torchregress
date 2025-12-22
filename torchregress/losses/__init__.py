@@ -22,6 +22,7 @@ from .base import (
     WeightedKLDivLoss,
     WeightedL1Loss,
     WeightedLossWrapper,
+    WeightedMAELoss,
     WeightedMSELoss,
     WeightedNLLLoss,
     WeightedPoissonNLLLoss,
@@ -35,6 +36,13 @@ from .conformal import (
 
 # Evidential regression
 from .evidential import EvidentialRegressionLoss
+from .eiv import (
+    BaseEIVLoss,
+    EnsembleEIVLoss,
+    FunctionalEIVLoss,
+    OrthogonalDistanceRegressionLoss,
+    StructuralEIVLoss,
+)
 
 # Expectile losses
 from .expectile import AsymmetricLeastSquaresLoss, ExpectileLoss, MultiExpectileLoss, ExpectileCrossoverLoss
@@ -42,16 +50,21 @@ from .expectile import AsymmetricLeastSquaresLoss, ExpectileLoss, MultiExpectile
 # Gaussian losses
 from .gaussian import (
     GaussianNLLLoss,
+    LowRankGaussianLoss,
+    MultivariateGaussianLoss,
+    create_gaussian_nll,
+    low_rank_output_dim,
+    split_low_rank_gaussian_output,
 )
 
 # Imbalanced regression losses
 from .imbalanced import DensityWeightedLoss, LDSLoss
 
 # Mixture Density Networks
-from .mdn import MixtureDensityLoss
+from .mdn import MixtureDensityLoss, create_mdn_loss
 
 # Normalizing flows
-from .nflows import NormalizingFlowLoss, create_flow_model
+from .nflows import NormalizingFlowLoss, create_flow_loss, create_flow_model
 
 # Noisy label losses
 from .noisy import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
@@ -69,6 +82,9 @@ from .poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureLoss,
+    enhanced_poisson_gaussian_loss,
+    poisson_gaussian_likelihood_ratio_loss,
+    poisson_gaussian_mixture_loss,
 )
 
 # Quantile losses
@@ -80,6 +96,7 @@ from .robust import (
     CauchyLoss,
     CharbonnierLoss,
     ClippedLoss,
+    CVaRLoss,
     FairLoss,
     LogBarrierLoss,
     LogCoshLoss,
@@ -152,6 +169,15 @@ def create_loss_from_config(config: Dict[str, Any]) -> BaseLoss:
     if loss_type == "pinball":
         loss_type = "quantile"
 
+    direct_map = {
+        "mse": WeightedMSELoss,
+        "l1": WeightedL1Loss,
+        "huber": WeightedHuberLoss,
+        "smooth_l1": WeightedSmoothL1Loss,
+    }
+    if loss_type in direct_map:
+        return direct_map[loss_type](**config)
+
     try:
         loss_class = get_regression_loss(loss_type)
         return loss_class(**config)
@@ -184,6 +210,7 @@ __all__ = [
     # Standard weighted losses
     "WeightedMSELoss",
     "WeightedL1Loss",
+    "WeightedMAELoss",
     "WeightedSmoothL1Loss",
     "WeightedHuberLoss",
     "WeightedPoissonNLLLoss",
@@ -192,8 +219,19 @@ __all__ = [
     "WeightedCrossEntropyLoss",
     "WeightedNLLLoss",
     "WeightedKLDivLoss",
+    # EIV losses
+    "BaseEIVLoss",
+    "EnsembleEIVLoss",
+    "FunctionalEIVLoss",
+    "OrthogonalDistanceRegressionLoss",
+    "StructuralEIVLoss",
     # Gaussian losses
     "GaussianNLLLoss",
+    "LowRankGaussianLoss",
+    "MultivariateGaussianLoss",
+    "create_gaussian_nll",
+    "low_rank_output_dim",
+    "split_low_rank_gaussian_output",
 
     # Target transformations
     "LogTransformLoss",
@@ -211,6 +249,7 @@ __all__ = [
     "ClippedLoss",
     "FairLoss",
     "CauchyLoss",
+    "CVaRLoss",
     # Family-based regression losses
     "SQRLoss",
     "BarronLoss",
@@ -226,6 +265,9 @@ __all__ = [
     "PoissonGaussianMixtureLoss",
     "EnhancedPoissonGaussianMixtureLoss",
     "PoissonGaussianLikelihoodRatioLoss",
+    "poisson_gaussian_mixture_loss",
+    "enhanced_poisson_gaussian_loss",
+    "poisson_gaussian_likelihood_ratio_loss",
     # Noisy label losses
     "NoiseAdaptiveLoss",
     "CoTeachingLoss",
@@ -251,9 +293,11 @@ __all__ = [
     "CompoundPoissonLoss",
     # Normalizing flows
     "NormalizingFlowLoss",
+    "create_flow_loss",
     "create_flow_model",
-    # Mixture Density Networks
+    # Mixture density networks
     "MixtureDensityLoss",
+    "create_mdn_loss",
     # Convenience aliases
     "MSELoss",
     "L1Loss",

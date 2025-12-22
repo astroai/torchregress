@@ -14,10 +14,13 @@ import pytest
 import torch
 
 # Import base classes
-from torchregress.losses.base import Loss, ReductionLoss
+from torchregress.losses.base import BaseLoss
+
+# Alias for tests expecting a ReductionLoss base
+ReductionLoss = BaseLoss
 
 
-def get_all_loss_classes() -> List[Type[Loss]]:
+def get_all_loss_classes() -> List[Type[BaseLoss]]:
     """Dynamically discover all loss classes in the torchregress.losses package.
 
     Returns:
@@ -44,12 +47,7 @@ def get_all_loss_classes() -> List[Type[Loss]]:
 
             # Find all classes in the module that inherit from Loss
             for name, obj in module.__dict__.items():
-                if (
-                    isinstance(obj, type)
-                    and issubclass(obj, Loss)
-                    and obj != Loss
-                    and obj != ReductionLoss
-                ):
+                if isinstance(obj, type) and issubclass(obj, BaseLoss) and obj != BaseLoss:
                     loss_classes.append(obj)
         except ImportError:
             print(f"Skipping module {module_name} due to import error")
@@ -92,8 +90,8 @@ def test_base_class_inheritance():
     """Test that all loss classes inherit from the base Loss class."""
     for loss_class in get_all_loss_classes():
         assert issubclass(
-            loss_class, Loss
-        ), f"{loss_class.__name__} should inherit from Loss base class"
+            loss_class, BaseLoss
+        ), f"{loss_class.__name__} should inherit from BaseLoss"
 
 
 def test_reduction_behavior():
@@ -109,13 +107,16 @@ def test_reduction_behavior():
         "BaseEIVLoss",
         "DistributionLoss",
         "BaseLoss",
+        "RegressionLoss",
         "FunctionalEIVLoss",
         "StructuralEIVLoss",
         "OrthogonalDistanceRegressionLoss",
         "EnsembleEIVLoss",
         "GaussianNLLLoss",
+        "LowRankGaussianLoss",
         "MultivariateGaussianLoss",
         "MixtureDensityLoss",
+        "EvidentialRegressionLoss",
         "MultiExpectileLoss",
         "MultiQuantileLoss",
         "QuantileLoss",
@@ -150,9 +151,6 @@ def test_reduction_behavior():
     ]
 
     for loss_class in get_all_loss_classes():
-        if not issubclass(loss_class, ReductionLoss):
-            continue
-
         # Skip classes that need special initialization
         if loss_class.__name__ in skip_classes:
             continue

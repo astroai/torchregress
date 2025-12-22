@@ -125,3 +125,13 @@ site/
 
 # Package build artifacts
 torchregress.egg-info/
+
+# Generated plots and benchmark outputs
+*.png
+*.svg
+.mplconfig/
+benchmarks/output/
+benchmarks/outputs/
+benchmarks/*.csv
+benchmarks/*.json
+benchmarks/*.npz

@@ -10,6 +10,7 @@ from .augment import (
     Adversarial,
     MixUp,
     FeatureMask,
+    EnsemblePerturbationAugmenter,
 )
 from .labels import (
     encode_onehot,
@@ -24,6 +25,7 @@ from .pytorch_compat import (
     convert_to_pytorch_loss,
     extract_output_size,
     set_all_seeds,
+    set_seed,
     get_device,
 )
 from .quantile import (
@@ -75,6 +77,7 @@ __all__ = [
     "Adversarial",
     "MixUp",
     "FeatureMask",
+    "EnsemblePerturbationAugmenter",
     # labels
     "encode_onehot",
     "decode_onehot",
@@ -87,6 +90,7 @@ __all__ = [
     "convert_to_pytorch_loss",
     "extract_output_size",
     "set_all_seeds",
+    "set_seed",
     "get_device",
     # quantile
     "quantile_loss",

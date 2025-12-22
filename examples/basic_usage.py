@@ -18,7 +18,7 @@ np.random.seed(42)
 
 # Import main torchregress components
 from torchregress.losses import (
-    HeteroscedasticGaussianLoss,  # For uncertainty estimation
+    GaussianNLLLoss,  # For uncertainty estimation
     QuantileLoss,  # For quantile regression
     WeightedHuberLoss,  # For robust regression
     WeightedMSELoss,  # For standard MSE
@@ -112,7 +112,7 @@ def train_model(
 
             if uncertainty_model:
                 mean, var = model(x_batch)
-                # HeteroscedasticGaussianLoss expects y_pred as (mean, log_var) tuple
+                # GaussianNLLLoss expects y_pred as (mean, log_var) tuple
                 # var is already in variance form, so convert to log_var
                 log_var = torch.log(var)
                 loss = loss_fn((mean, log_var), y_batch)
@@ -165,7 +165,7 @@ def main():
     # 7. Train with Heteroscedastic Gaussian loss (uncertainty aware)
     model_uncertainty = UncertaintyModel()
     # Model outputs (mean, log_var), so use learnable_variance=False to accept model's variance
-    gaussian_nll = HeteroscedasticGaussianLoss(n_features=1, learnable_variance=False)
+    gaussian_nll = GaussianNLLLoss()
     gnll_losses = train_model(
         model_uncertainty, gaussian_nll, x_train, y_train, uncertainty_model=True, verbose=False
     )

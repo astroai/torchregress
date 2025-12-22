@@ -59,11 +59,11 @@ y_test = torch.randn(50, 1)
 # Training loop
 for epoch in range(10):
     for i in range(len(X_train)):
-        # Forward pass: get predictions (mean and variance)
+        # Forward pass: get predictions (mean and log variance)
         mean, log_var = model(X_train[i:i+1])
 
         # Calculate loss
-        loss = loss_fn(mean, y_train[i:i+1], log_var=log_var.exp())
+        loss = loss_fn((mean, log_var), y_train[i:i+1])
 
         # Backward and optimize
         optimizer.zero_grad()
@@ -104,6 +104,15 @@ lower_interval, upper_interval = loss_fn.predict_interval(y_pred_test)
 ```
 
 For more advanced usage and API details, refer to the [full documentation](https://github.com/sfabbro/torchregress).
+
+## Examples
+
+- `examples/gaussian_full_covariance_regression.py` - full-covariance Gaussian regression
+- `examples/gaussian_low_rank_regression.py` - low-rank Gaussian regression with diagonal correction
+
+## Benchmarks
+
+- `benchmarks/tail_extremes_benchmark.py` - tail performance under noisy labels (robust, density-weighted, CVaR)
 
 ## License
 

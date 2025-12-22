@@ -353,3 +353,28 @@ def create_flow_model(
     flow.context = context_dim
 
     return flow
+
+
+def create_flow_loss(
+    n_features: int,
+    context_dim: int,
+    flow_type: str = "nsf",
+    n_transforms: int = 3,
+    hidden_features: int = 64,
+    n_hidden_layers: int = 2,
+    reduction: str = "mean",
+    **kwargs,
+) -> NormalizingFlowLoss:
+    """
+    Factory function to create a NormalizingFlowLoss with an embedded flow model.
+    """
+    flow = create_flow_model(
+        n_features=n_features,
+        context_dim=context_dim,
+        flow_type=flow_type,
+        n_transforms=n_transforms,
+        hidden_features=hidden_features,
+        n_hidden_layers=n_hidden_layers,
+        **kwargs,
+    )
+    return NormalizingFlowLoss(flow=flow, reduction=reduction)

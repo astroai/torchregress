@@ -5,7 +5,6 @@ Evaluation script for comparing conformal prediction methods.
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -125,18 +124,43 @@ def main():
 
     # Plot results
     plt.figure(figsize=(10, 6))
-    sns.barplot(data=results_df, x="Method", y="Interval Width", hue="Target Coverage")
+    methods = results_df["Method"].unique().tolist()
+    coverages = sorted(results_df["Target Coverage"].unique())
+    x = np.arange(len(methods))
+    bar_width = 0.8 / max(len(coverages), 1)
+    for i, cov in enumerate(coverages):
+        subset = results_df[results_df["Target Coverage"] == cov]
+        subset = subset.set_index("Method").reindex(methods)
+        offset = (i - (len(coverages) - 1) / 2) * bar_width
+        plt.bar(
+            x + offset,
+            subset["Interval Width"].values,
+            width=bar_width,
+            label=f"{cov:.2f}",
+        )
+    plt.xticks(x, methods, rotation=30, ha="right")
     plt.title("Mean Interval Width vs. Target Coverage")
+    plt.xlabel("Method")
+    plt.ylabel("Interval Width")
+    plt.legend(title="Target Coverage")
     plt.tight_layout()
     plt.savefig("interval_width_vs_coverage.png")
     print("\nPlot saved to interval_width_vs_coverage.png")
 
     plt.figure(figsize=(10, 6))
-    sns.lineplot(
-        data=results_df, x="Target Coverage", y="Actual Coverage", hue="Method", marker="o"
-    )
-    plt.axline((0.8, 0.8), slope=1, color="gray", linestyle="--")
+    for method in methods:
+        subset = results_df[results_df["Method"] == method].sort_values("Target Coverage")
+        plt.plot(
+            subset["Target Coverage"].values,
+            subset["Actual Coverage"].values,
+            marker="o",
+            label=method,
+        )
+    plt.plot([0.8, 1.0], [0.8, 1.0], color="gray", linestyle="--")
     plt.title("Actual Coverage vs. Target Coverage")
+    plt.xlabel("Target Coverage")
+    plt.ylabel("Actual Coverage")
+    plt.legend()
     plt.tight_layout()
     plt.savefig("coverage_vs_target.png")
     print("Plot saved to coverage_vs_target.png")

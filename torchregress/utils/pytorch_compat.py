@@ -39,7 +39,7 @@ def convert_to_pytorch_loss(loss_fn: Union[nn.Module, Callable], **kwargs) -> nn
             self.kwargs = kwargs
 
         def forward(self, output, target):
-            return self.loss_fn(target, output, **self.kwargs)
+            return self.loss_fn(output, target, **self.kwargs)
 
     return LossFunctionWrapper(loss_fn, **kwargs)
 
@@ -74,6 +74,13 @@ def set_all_seeds(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+def set_seed(seed: int) -> None:
+    """
+    Alias for set_all_seeds.
+    """
+    set_all_seeds(seed)
 
 
 def get_device(device_str: Optional[str] = None) -> torch.device:

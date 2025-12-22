@@ -434,3 +434,74 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(combined_lr, mask, weights)
+
+
+def poisson_gaussian_mixture_loss(
+    eps: float = 1e-8,
+    learn_variance: bool = False,
+    initial_variance: float = 1.0,
+    min_variance: float = 1e-6,
+    log_input: bool = False,
+    mixture_weights: Optional[Union[float, str]] = None,
+    extra_variance_model: bool = False,
+    reduction: str = "mean",
+    **kwargs,
+) -> PoissonGaussianMixtureLoss:
+    """
+    Factory function to create a PoissonGaussianMixtureLoss instance.
+    """
+    return PoissonGaussianMixtureLoss(
+        eps=eps,
+        learn_variance=learn_variance,
+        initial_variance=initial_variance,
+        min_variance=min_variance,
+        log_input=log_input,
+        mixture_weights=mixture_weights,
+        extra_variance_model=extra_variance_model,
+        reduction=reduction,
+        **kwargs,
+    )
+
+
+def enhanced_poisson_gaussian_loss(
+    gain: Union[float, str] = 1.0,
+    offset: Union[float, str] = 0.0,
+    read_noise: Union[float, str] = 1.0,
+    shot_noise: Union[float, str] = 0.0,
+    log_input: bool = False,
+    calibration: bool = False,
+    reduction: str = "mean",
+    **kwargs,
+) -> EnhancedPoissonGaussianMixtureLoss:
+    """
+    Factory function to create an EnhancedPoissonGaussianMixtureLoss instance.
+    """
+    return EnhancedPoissonGaussianMixtureLoss(
+        gain=gain,
+        offset=offset,
+        read_noise=read_noise,
+        shot_noise=shot_noise,
+        log_input=log_input,
+        calibration=calibration,
+        reduction=reduction,
+        **kwargs,
+    )
+
+
+def poisson_gaussian_likelihood_ratio_loss(
+    log_input: bool = False,
+    learn_variance: bool = False,
+    initial_variance: float = 1.0,
+    reduction: str = "mean",
+    **kwargs,
+) -> PoissonGaussianLikelihoodRatioLoss:
+    """
+    Factory function to create a PoissonGaussianLikelihoodRatioLoss instance.
+    """
+    return PoissonGaussianLikelihoodRatioLoss(
+        log_input=log_input,
+        learn_variance=learn_variance,
+        initial_variance=initial_variance,
+        reduction=reduction,
+        **kwargs,
+    )

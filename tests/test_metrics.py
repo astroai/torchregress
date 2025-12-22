@@ -8,6 +8,7 @@ import torch
 
 from torchregress.metrics.calibration import (
     calibration_metrics_report,
+    bias,
     expected_calibration_error,
     marginal_calibration_error,
 )
@@ -31,7 +32,9 @@ from torchregress.metrics.ood import (
 )
 from torchregress.metrics.point import (
     huber_loss,
+    mae,
     mean_absolute_error,
+    mse,
     mean_squared_error,
     median_absolute_deviation,
     median_absolute_error,
@@ -205,6 +208,9 @@ class TestCalibrationMetrics:
         dist_params = {"loc": mean, "scale": std}
         result = calibration_metrics_report(dist_params, self.y_true)
         assert len(result) > 0
+
+        bias_val = bias(self.y_pred_quantiles[0.5], self.y_true)
+        assert np.isfinite(bias_val)
 
 
 class TestDistributionMetrics:
@@ -477,12 +483,16 @@ class TestPointMetrics:
     def test_basic_metrics(self):
         """Test basic regression metrics."""
         # Test MSE
-        mse = mean_squared_error(self.y_pred, self.y_true)
-        assert mse > 0
+        mse_val = mean_squared_error(self.y_pred, self.y_true)
+        assert mse_val > 0
+        mse_alias = mse(self.y_pred, self.y_true)
+        assert mse_alias > 0
 
         # Test MAE
-        mae = mean_absolute_error(self.y_pred, self.y_true)
-        assert mae > 0
+        mae_val = mean_absolute_error(self.y_pred, self.y_true)
+        assert mae_val > 0
+        mae_alias = mae(self.y_pred, self.y_true)
+        assert mae_alias > 0
 
         # Test Median AE
         median_ae = median_absolute_error(self.y_pred, self.y_true)

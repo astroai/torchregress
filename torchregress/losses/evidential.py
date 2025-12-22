@@ -14,6 +14,7 @@ References:
     - Sensoy et al. "Evidential Deep Learning to Quantify Classification Uncertainty" (NeurIPS 2018)
 """
 
+import math
 from typing import Any, Optional, Tuple
 
 import torch
@@ -180,7 +181,7 @@ class EvidentialRegressionLoss(DistributionLoss):
         residual_sq = residual**2
 
         # Term 1: log normalizing constant
-        nll = 0.5 * torch.log(torch.tensor(torch.pi) / nu)
+        nll = 0.5 * torch.log(math.pi / nu)
 
         # Term 2: -alpha * log(2*beta)
         nll -= alpha * torch.log(2.0 * beta + 1e-6)

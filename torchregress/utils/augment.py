@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.distributions import MultivariateNormal
 
 
 class Augmentation(nn.Module):
@@ -171,3 +172,106 @@ class FeatureMask(Augmentation):
             x_aug[i, mask_indices] = 0.0
 
         return x_aug, y
+
+
+class EnsemblePerturbationAugmenter(nn.Module):
+    """
+    Generate multiple perturbed versions of inputs for ensemble-style EIV losses.
+    """
+
+    def __init__(
+        self,
+        n_samples: int = 20,
+        perturb_method: str = "gaussian",
+        sigma: Union[float, torch.Tensor] = 0.1,
+        feature_wise: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> None:
+        super().__init__()
+        if n_samples <= 0:
+            raise ValueError("n_samples must be a positive integer")
+        if perturb_method not in {"gaussian", "uniform"}:
+            raise ValueError("perturb_method must be 'gaussian' or 'uniform'")
+        self.n_samples = n_samples
+        self.perturb_method = perturb_method
+        self.sigma = sigma
+        self.feature_wise = feature_wise
+        self.device = device
+
+    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+        batch_size, n_features = x.shape
+        device = self.device if self.device is not None else x.device
+
+        if isinstance(self.sigma, (int, float)):
+            if self.feature_wise:
+                sigma_tensor = torch.ones(n_features, device=device, dtype=x.dtype) * self.sigma
+            else:
+                sigma_tensor = torch.tensor(self.sigma, device=device, dtype=x.dtype)
+        else:
+            sigma_tensor = self.sigma.to(device=device, dtype=x.dtype)
+            if sigma_tensor.ndim == 0 and self.feature_wise:
+                sigma_tensor = sigma_tensor.expand(n_features)
+
+            if sigma_tensor.ndim == 1 and sigma_tensor.shape[0] != n_features:
+                raise ValueError(
+                    f"Sigma vector shape {tuple(sigma_tensor.shape)} doesn't match "
+                    f"feature dimension {n_features}"
+                )
+            if sigma_tensor.ndim == 2 and sigma_tensor.shape != (n_features, n_features):
+                raise ValueError(
+                    f"Sigma matrix shape {tuple(sigma_tensor.shape)} doesn't match "
+                    f"expected shape ({n_features}, {n_features})"
+                )
+
+        samples: List[torch.Tensor] = []
+        if self.perturb_method == "gaussian":
+            if sigma_tensor.ndim <= 1:
+                sigma_vec = (
+                    sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
+                )
+                for _ in range(self.n_samples):
+                    noise = torch.randn(batch_size, n_features, device=device) * sigma_vec.view(
+                        1, -1
+                    )
+                    samples.append(x + noise)
+                return samples
+
+            # Full covariance Gaussian
+            try:
+                mvn = MultivariateNormal(
+                    torch.zeros(n_features, device=device, dtype=x.dtype), sigma_tensor
+                )
+                for _ in range(self.n_samples):
+                    noise = mvn.sample((batch_size,))
+                    samples.append(x + noise)
+            except (RuntimeError, ValueError):
+                diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
+                noise = torch.randn(batch_size, n_features, device=device) * torch.sqrt(
+                    diag
+                ).view(1, -1)
+                for _ in range(self.n_samples):
+                    samples.append(x + noise)
+            return samples
+
+        # uniform
+        scale_factor = 1.732  # sqrt(3)
+        if sigma_tensor.ndim <= 1:
+            sigma_vec = (
+                sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
+            )
+            half_range = sigma_vec.view(1, -1) * scale_factor
+            for _ in range(self.n_samples):
+                noise = (torch.rand(batch_size, n_features, device=device) * 2 - 1) * half_range
+                samples.append(x + noise)
+            return samples
+
+        diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
+        half_range = torch.sqrt(diag).view(1, -1) * scale_factor
+        for _ in range(self.n_samples):
+            noise = (torch.rand(batch_size, n_features, device=device) * 2 - 1) * half_range
+            samples.append(x + noise)
+        return samples
+
+    def generate_and_stack(self, x: torch.Tensor) -> torch.Tensor:
+        samples = self.forward(x)
+        return torch.stack(samples)

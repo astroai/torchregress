@@ -1,12 +1,12 @@
-# GEMINI.md
+# CLAUDE.md
 
-This file provides guidance to Gemini when working with code in this repository.
+This file provides merged guidance to coding agents (Claude, Gemini, Codex) when working in this repository.
 
 ## Project Overview
 
-**torchregress** (lowercase) is a PyTorch library providing loss functions and utilities for regression problems with focus on uncertainty estimation, robust regression, and missing data support.
+**torchregress** (lowercase) is a PyTorch library providing regression losses, metrics, and utilities with a focus on uncertainty estimation, robust regression, and missing data support.
 
-The library name is "torchregress" (all lowercase), not "TorchRegress".
+**Naming Convention:** The library name is "torchregress" (all lowercase).
 
 ## Development Commands
 
@@ -26,10 +26,15 @@ uv run pytest
 uv run pytest --cov=torchregress --cov-report=html
 
 # Run single test file
-uv run pytest tests/test_metrics.py
+uv run pytest tests/losses/test_gaussian.py
 
 # Run specific test
-uv run pytest tests/test_metrics.py::test_function_name
+uv run pytest tests/losses/test_gaussian.py::TestGaussianLosses::test_gaussian_nll_loss
+```
+
+If `uv` is not available, use the project venv directly:
+```bash
+.venv/bin/python -m pytest
 ```
 
 ### Code Quality
@@ -66,7 +71,7 @@ uv publish
 
 ### Core Design Pattern
 
-All losses inherit from a three-tier base class hierarchy in [torchregress/losses/base.py](torchregress/losses/base.py):
+All losses inherit from a three-tier base class hierarchy in `torchregress/losses/base.py`:
 
 1. **BaseLoss**: Root class providing reduction strategies (`mean`, `sum`, `none`) and mask/weight support
 2. **RegressionLoss**: For point prediction losses (MSE, Huber, etc.)
@@ -95,28 +100,39 @@ torchregress/
 
 ### Key Abstractions
 
-**Wrapper Functions** ([wrappers.py](torchregress/wrappers.py)): High-level factory functions that create (model, loss) tuples:
+**Wrapper Functions** (`torchregress/wrappers.py`): High-level factory functions that create (model, loss) tuples:
 - `create_gaussian_model()`: Heteroscedastic regression with learned variance
 - `create_quantile_model()`: Quantile regression
 - `create_robust_model()`: Robust regression with outlier-resistant losses
 - `create_mdn_model()`: Mixture Density Networks
 - `create_deep_ensemble()`: Deep ensemble uncertainty estimation
 
-**WeightedLossWrapper** ([losses/base.py](torchregress/losses/base.py:289)): Wraps any PyTorch loss to add mask and weight support. All standard PyTorch losses are wrapped (e.g., `WeightedMSELoss`, `WeightedL1Loss`).
+**WeightedLossWrapper** (`torchregress/losses/base.py`): Wraps any PyTorch loss to add mask and weight support (e.g., `WeightedMSELoss`, `WeightedMAELoss`).
 
-**Ensemble Models** ([ensemble/](torchregress/ensemble/)):
+**Ensemble Models** (`torchregress/ensemble/`):
 - `DeepEnsemble`: Multiple independently trained models
 - `HeteroscedasticEnsembleModel`: Ensembles with aleatoric uncertainty
 - `BatchEnsembleLinear`: Efficient batch ensemble layers
 
-**IRLS Algorithm** ([algorithms/irls.py](torchregress/algorithms/irls.py)): Iteratively Reweighted Least Squares for robust regression with automatic weight function application.
+**IRLS Algorithm** (`torchregress/algorithms/irls.py`): Iteratively Reweighted Least Squares for robust regression.
 
 ### Distribution Parameters
 
 Models that output distributions typically return tuples or concatenated tensors:
-- **Gaussian**: `(mean, log_variance)` as tuple or `[mean, log_var]` concatenated
+- **Gaussian (diagonal)**: `(mean, log_variance)` or concatenated `[mean, log_var]`
+- **Gaussian (full covariance)**: `mean` plus `covariance_matrices` passed separately via `MultivariateGaussianLoss`
+- **Gaussian (low-rank)**: `mean` plus `cov_factor` and `cov_diag` passed to `LowRankGaussianLoss`
 - **MDN**: Raw output containing mixture weights, means, and log-variances
 - **Quantile**: Multiple quantile predictions concatenated `[q1, q2, ..., qn]`
+
+Use `create_gaussian_nll()` to pick the appropriate Gaussian loss based on covariance type.
+For low-rank heads, `low_rank_output_dim()` and `split_low_rank_gaussian_output()` describe the output layout.
+
+### Error-in-Variables (EIV) Losses
+
+EIV losses treat `y_pred` as noisy inputs (`x_obs`) and require a model reference inside the loss:
+- `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss`, `EnsembleEIVLoss`
+- Call pattern: `loss_fn(x_obs, y_obs, mask=...)` (not `loss_fn(model(x), y)`).
 
 ### Uncertainty Decomposition
 
@@ -154,7 +170,7 @@ When adding new loss functions:
 2. Implement `forward(y_pred, target, mask=None, weights=None)`
 3. Use `self._validate_inputs()` to check shapes
 4. Use `self._reduce_with_mask()` or `self._reduce()` for reduction
-5. Add to `losses/__init__.py` exports
+5. Add to `torchregress/losses/__init__.py` exports
 6. Add tests following patterns in `tests/`
 
 ## Dependencies
@@ -164,14 +180,15 @@ Core dependencies:
 - numpy >= 1.21.0
 - torchmetrics >= 1.0.0
 - matplotlib, pandas (for visualization/data handling)
+- scikit-learn (density weighting utilities)
 
-Optional (required for specific features):
-- **torchcp >= 1.2.0** (for conformal prediction - REQUIRED, no conditional imports)
-- **zuko >= 1.4.0** (for normalizing flows - REQUIRED, no conditional imports)
+Required (feature-specific) dependencies:
+- **torchcp >= 1.2.0** (conformal prediction)
+- **zuko >= 1.4.0** (normalizing flows)
 
 ### Import Policy
 
-**IMPORTANT:** All imports must be direct/unconditional. NO conditional imports like:
+All imports must be direct/unconditional. NO conditional imports like:
 ```python
 # ❌ WRONG - Do not use try/except for optional dependencies
 try:

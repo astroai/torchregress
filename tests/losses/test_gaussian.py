@@ -8,8 +8,11 @@ from torchregress.losses.base import (
 )
 from torchregress.losses.gaussian import (
     GaussianNLLLoss,
+    LowRankGaussianLoss,
     MultivariateGaussianLoss,
     create_gaussian_nll,
+    low_rank_output_dim,
+    split_low_rank_gaussian_output,
 )
 
 
@@ -163,22 +166,65 @@ class TestGaussianLosses(unittest.TestCase):
                 self.assertTrue(torch.is_tensor(jitter_loss))
                 self.assertFalse(torch.isnan(jitter_loss).any())
 
-        # Test with weights
-        weights = torch.rand(self.batch_size, device=self.device)
-        weighted_loss = loss_fn(
-            self.x_cov, self.x_cov_reconstructed, self.covariance_matrices, weights=weights
+    def test_low_rank_gaussian_loss(self):
+        """Test LowRankGaussianLoss with and without mask."""
+        rank = 2
+        cov_factor = torch.randn(
+            self.batch_size, self.n_features_cov, rank, device=self.device
         )
-        self.assertTrue(torch.is_tensor(weighted_loss))
-        self.assertFalse(torch.isnan(weighted_loss).any())
+        cov_diag = torch.abs(
+            torch.randn(self.batch_size, self.n_features_cov, device=self.device)
+        ) + 0.1
 
-        # Verify reduction modes
+        loss_fn = LowRankGaussianLoss().to(self.device)
+
+        loss = loss_fn(self.x_cov, self.x_cov_reconstructed, cov_factor, cov_diag, self.mask_cov)
+        self.assertTrue(torch.is_tensor(loss))
+        self.assertFalse(torch.isnan(loss).any())
+
+        loss_no_mask = loss_fn(self.x_cov, self.x_cov_reconstructed, cov_factor, cov_diag)
+        self.assertTrue(torch.is_tensor(loss_no_mask))
+        self.assertFalse(torch.isnan(loss_no_mask).any())
+
+        shared_factor = torch.randn(self.n_features_cov, rank, device=self.device)
+        shared_diag = torch.ones(self.n_features_cov, device=self.device) * 0.5
+        loss_shared = loss_fn(self.x_cov, self.x_cov_reconstructed, shared_factor, shared_diag)
+        self.assertTrue(torch.is_tensor(loss_shared))
+        self.assertFalse(torch.isnan(loss_shared).any())
+
         for reduction in ["none", "mean", "sum"]:
-            loss_fn.reduction = reduction
-            red_loss = loss_fn(self.x_cov, self.x_cov_reconstructed, self.covariance_matrices)
+            test_loss_fn = LowRankGaussianLoss(reduction=reduction).to(self.device)
+            red_loss = test_loss_fn(
+                self.x_cov, self.x_cov_reconstructed, cov_factor, cov_diag
+            )
             if reduction == "none":
                 self.assertEqual(red_loss.shape[0], self.batch_size)
             else:
                 self.assertEqual(red_loss.dim(), 0)
+
+        # Test with weights
+        weights = torch.rand(self.batch_size, device=self.device)
+        weighted_loss = loss_fn(
+            self.x_cov, self.x_cov_reconstructed, cov_factor, cov_diag, weights=weights
+        )
+        self.assertTrue(torch.is_tensor(weighted_loss))
+        self.assertFalse(torch.isnan(weighted_loss).any())
+
+    def test_low_rank_output_helper(self):
+        """Test low-rank output split helper."""
+        rank = 2
+        out_dim = low_rank_output_dim(self.n_features_cov, rank)
+        y_pred = torch.randn(self.batch_size, out_dim, device=self.device)
+
+        mean, cov_factor, cov_diag = split_low_rank_gaussian_output(
+            y_pred, self.n_features_cov, rank
+        )
+        self.assertEqual(mean.shape, (self.batch_size, self.n_features_cov))
+        self.assertEqual(cov_factor.shape, (self.batch_size, self.n_features_cov, rank))
+        self.assertEqual(cov_diag.shape, (self.batch_size, self.n_features_cov))
+
+        with self.assertRaises(ValueError):
+            split_low_rank_gaussian_output(y_pred, self.n_features_cov, rank + 1)
 
     def test_create_gaussian_nll_factory(self):
         """Test the factory function for creating Gaussian NLL losses."""
@@ -206,6 +252,15 @@ class TestGaussianLosses(unittest.TestCase):
         ).to(self.device)
         self.assertIsInstance(full_cov, MultivariateGaussianLoss)
         self.assertEqual(full_cov.jitter, 1e-5)
+
+        # Test low-rank covariance
+        low_rank_cov = create_gaussian_nll(
+            n_features=self.n_features_cov,
+            covariance_type="low_rank",
+            jitter=1e-5,
+        ).to(self.device)
+        self.assertIsInstance(low_rank_cov, LowRankGaussianLoss)
+        self.assertEqual(low_rank_cov.jitter, 1e-5)
 
         # Test with MSELoss case (simplified diagonal with unit variance)
         mse_case = create_gaussian_nll(

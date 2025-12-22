@@ -10,6 +10,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
+from ..utils.augment import EnsemblePerturbationAugmenter
 
 def parse_heteroscedastic_output(
     output: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], Dict[str, torch.Tensor]]
@@ -223,127 +224,5 @@ def generate_prediction_samples(
 
     # Switch model back to evaluation mode
     return result
-
-
-class EnsemblePerturbationAugmenter(torch.nn.Module):
-    """
-    Generate multiple perturbed versions of inputs for ensemble prediction.
-
-    This augmenter is designed specifically for uncertainty estimation methods
-    like EnsembleEIVLoss that need to generate multiple perturbed versions
-    of the same inputs.
-
-    Args:
-        n_samples: Number of perturbed samples to generate
-        perturb_method: Method for perturbation ('gaussian', 'uniform')
-        sigma: Standard deviation or covariance matrix for perturbation
-        feature_wise: Whether to use different noise for each feature
-        device: Device for tensor operations
-    """
-
-    def __init__(
-        self,
-        n_samples: int = 20,
-        perturb_method: str = "gaussian",
-        sigma: Union[float, torch.Tensor] = 0.1,
-        feature_wise: bool = True,
-        device: Optional[torch.device] = None,
-    ):
-        super().__init__()
-        self.n_samples = n_samples
-        self.perturb_method = perturb_method
-        self.sigma = sigma
-        self.feature_wise = feature_wise
-        self.device = device
-
-        if perturb_method not in ["gaussian", "uniform"]:
-            raise ValueError(
-                f"Unknown perturbation method: {perturb_method}. "
-                f"Must be one of ['gaussian', 'uniform']"
-            )
-
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
-        """
-        Generate multiple perturbed versions of the input.
-
-        Args:
-            x: Input tensor [batch_size, n_features]
-
-        Returns:
-            List of perturbed samples, each with shape [batch_size, n_features]
-        """
-        batch_size, n_features = x.shape
-        device = self.device if self.device is not None else x.device
-
-        # Prepare sigma as covariance tensor
-        if isinstance(self.sigma, (int, float)):
-            if self.feature_wise:
-                sigma_tensor = torch.ones(n_features, device=device) * self.sigma
-            else:
-                sigma_tensor = torch.tensor(self.sigma, device=device)
-        else:
-            sigma_tensor = self.sigma.to(device)
-
-            # Validate shape
-            if sigma_tensor.ndim == 1 and sigma_tensor.shape[0] != n_features:
-                raise ValueError(
-                    f"Sigma vector shape {sigma_tensor.shape} doesn't match "
-                    f"feature dimension {n_features}"
-                )
-            elif sigma_tensor.ndim == 2 and sigma_tensor.shape != (n_features, n_features):
-                raise ValueError(
-                    f"Sigma matrix shape {sigma_tensor.shape} doesn't match "
-                    f"expected shape ({n_features}, {n_features})"
-                )
-
-        perturbed_samples = []
-        for _ in range(self.n_samples):
-            if self.perturb_method == "gaussian":
-                if sigma_tensor.ndim <= 1:
-                    # Diagonal covariance - different noise per feature
-                    noise = torch.randn(batch_size, n_features, device=device) * sigma_tensor.view(
-                        1, -1
-                    )
-                else:
-                    # Full covariance - use multivariate normal
-                    try:
-                        dist = torch.distributions.MultivariateNormal(
-                            torch.zeros(n_features, device=device), sigma_tensor
-                        )
-                        noise = dist.sample((batch_size,))
-                    except (RuntimeError, ValueError):
-                        # Fallback to diagonal approximation
-                        diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
-                        noise = torch.randn(batch_size, n_features, device=device) * torch.sqrt(
-                            diag
-                        ).view(1, -1)
-            else:  # uniform
-                # Scale factor to match standard deviation between uniform and normal
-                scale_factor = 1.732  # sqrt(3)
-                if sigma_tensor.ndim <= 1:
-                    half_range = sigma_tensor.view(1, -1) * scale_factor
-                    noise = (torch.rand(batch_size, n_features, device=device) * 2 - 1) * half_range
-                else:
-                    # Use diagonal approximation for uniform with full covariance
-                    diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
-                    half_range = torch.sqrt(diag).view(1, -1) * scale_factor
-                    noise = (torch.rand(batch_size, n_features, device=device) * 2 - 1) * half_range
-
-            perturbed_samples.append(x + noise)
-
-        return perturbed_samples
-
-    def generate_and_stack(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Generate perturbed samples and stack them into a single tensor.
-
-        Args:
-            x: Input tensor [batch_size, n_features]
-
-        Returns:
-            Stacked tensor of shape [n_samples, batch_size, n_features]
-        """
-        samples = self.forward(x)
-        return torch.stack(samples)
 
 
