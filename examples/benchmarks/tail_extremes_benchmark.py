@@ -14,10 +14,13 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 os.environ.setdefault("MPLCONFIGDIR", os.path.join(os.getcwd(), ".mplconfig"))
 
 from torchregress.losses import (
+    BaseEIVLoss,
     CVaRLoss,
     CauchyLoss,
     DensityWeightedLoss,
+    EnsembleEIVLoss,
     ExpectileLoss,
+    FunctionalEIVLoss,
     GaussianNLLLoss,
     HuberLoss,
     MSELoss,
@@ -59,15 +62,21 @@ class MLP(nn.Module):
 def make_data(
     n_samples: int,
     noise_scale: float,
+    feature_noise: float,
     label_noise: float,
     tail_quantile: float,
     seed: int,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     rng = torch.Generator().manual_seed(seed)
-    x = torch.empty(n_samples, 1).uniform_(-2.0, 2.0, generator=rng)
-    y_true = x**3 + 0.5 * x
+    x_true = torch.empty(n_samples, 1).uniform_(-2.0, 2.0, generator=rng)
+    y_true = x_true**3 + 0.5 * x_true
 
-    hetero = noise_scale * (1.0 + 0.5 * torch.abs(x))
+    if feature_noise > 0:
+        x_obs = x_true + torch.randn(x_true.shape, generator=rng) * feature_noise
+    else:
+        x_obs = x_true
+
+    hetero = noise_scale * (1.0 + 0.5 * torch.abs(x_true))
     y_obs = y_true + torch.randn(y_true.shape, generator=rng) * hetero
 
     if label_noise > 0:
@@ -79,24 +88,29 @@ def make_data(
     else:
         tail_mask = torch.abs(y_true) >= torch.quantile(torch.abs(y_true), tail_quantile)
 
-    return x, y_obs, y_true, tail_mask
+    return x_obs, y_obs, y_true, tail_mask, hetero.mean()
 
 
 def split_data(
     train_size: int,
     test_size: int,
     noise_scale: float,
+    feature_noise: float,
     label_noise: float,
     tail_quantile: float,
     seed: int,
 ):
-    x_train, y_obs_train, y_true_train, _ = make_data(
-        train_size, noise_scale, label_noise, tail_quantile, seed
+    x_train, y_obs_train, y_true_train, _, y_sigma_mean = make_data(
+        train_size, noise_scale, feature_noise, label_noise, tail_quantile, seed
     )
-    x_test, y_obs_test, y_true_test, tail_mask = make_data(
-        test_size, noise_scale, label_noise, tail_quantile, seed + 1
+    x_test, y_obs_test, y_true_test, tail_mask, _ = make_data(
+        test_size, noise_scale, feature_noise, label_noise, tail_quantile, seed + 1
     )
-    return (x_train, y_obs_train, y_true_train), (x_test, y_obs_test, y_true_test, tail_mask)
+    return (
+        (x_train, y_obs_train, y_true_train),
+        (x_test, y_obs_test, y_true_test, tail_mask),
+        y_sigma_mean,
+    )
 
 
 def train_model(
@@ -116,11 +130,14 @@ def train_model(
             x = x.to(device)
             y_obs = y_obs.to(device)
             optimizer.zero_grad()
-            preds = model(x)
-            if use_indices:
-                loss = loss_fn(preds, y_obs, sample_indices=idx.to(device))
+            if isinstance(loss_fn, BaseEIVLoss):
+                loss = loss_fn(x, y_obs)
             else:
-                loss = loss_fn(preds, y_obs)
+                preds = model(x)
+                if use_indices:
+                    loss = loss_fn(preds, y_obs, sample_indices=idx.to(device))
+                else:
+                    loss = loss_fn(preds, y_obs)
             loss.backward()
             optimizer.step()
 
@@ -163,9 +180,27 @@ class Method:
     build: Callable[[], Tuple[nn.Module, nn.Module, bool, bool]]
 
 
-def build_methods(train_targets: torch.Tensor) -> List[Method]:
+def build_methods(train_targets: torch.Tensor, sigma_x: float, sigma_y: float) -> List[Method]:
     density_loss = DensityWeightedLoss(base_loss="huber", reweight_factor=1.0)
     density_loss.fit_density(train_targets)
+
+    def build_functional_eiv():
+        model = MLP(1, 1)
+        loss = FunctionalEIVLoss(
+            model=model,
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+        )
+        return model, loss, False, False
+
+    def build_ensemble_eiv():
+        model = MLP(1, 1)
+        loss = EnsembleEIVLoss(
+            model=model,
+            sigma_x=sigma_x,
+            n_samples=20,
+        )
+        return model, loss, False, False
 
     return [
         Method(
@@ -204,6 +239,8 @@ def build_methods(train_targets: torch.Tensor) -> List[Method]:
             "GaussianNLL",
             lambda: (MLP(1, 2), GaussianNLLLoss(), True, False),
         ),
+        Method("FunctionalEIV", build_functional_eiv),
+        Method("EnsembleEIV", build_ensemble_eiv),
     ]
 
 
@@ -236,6 +273,7 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--noise-scale", type=float, default=0.1)
+    parser.add_argument("--feature-noise", type=float, default=0.1)
     parser.add_argument("--label-noise", type=float, default=0.2)
     parser.add_argument("--tail-quantile", type=float, default=0.9)
     parser.add_argument("--seed", type=int, default=42)
@@ -245,10 +283,15 @@ def main() -> None:
 
     device = torch.device(args.device)
 
-    (x_train, y_obs_train, y_true_train), (x_test, _, y_true_test, tail_mask) = split_data(
+    (
+        (x_train, y_obs_train, y_true_train),
+        (x_test, _, y_true_test, tail_mask),
+        y_sigma_mean,
+    ) = split_data(
         args.train_size,
         args.test_size,
         args.noise_scale,
+        args.feature_noise,
         args.label_noise,
         args.tail_quantile,
         args.seed,
@@ -262,11 +305,11 @@ def main() -> None:
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
 
     rows: List[Dict[str, float]] = []
-    for method in build_methods(y_obs_train):
+    for method in build_methods(y_obs_train, args.feature_noise, float(y_sigma_mean)):
         model, loss_fn, is_gaussian, needs_indices = method.build()
-        train_model(
-            model, loss_fn, train_loader, args.epochs, device, use_indices=needs_indices
-        )
+        if isinstance(loss_fn, BaseEIVLoss):
+            model = loss_fn.model
+        train_model(model, loss_fn, train_loader, args.epochs, device, use_indices=needs_indices)
         model.eval()
         with torch.no_grad():
             preds = predict(model.to(device), test_x, is_gaussian)

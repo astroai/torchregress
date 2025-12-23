@@ -112,7 +112,8 @@ For more advanced usage and API details, refer to the [full documentation](https
 
 ## Benchmarks
 
-- `benchmarks/tail_extremes_benchmark.py` - tail performance under noisy labels (robust, density-weighted, CVaR)
+- `examples/benchmarks/tail_extremes_benchmark.py` - tail performance under noisy labels (robust, density-weighted, CVaR)
+- `examples/benchmarks/tail_extremes_sweep.py` - sweep feature/label noise to identify best tail method
 
 ## License
 
