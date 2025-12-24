@@ -1,56 +1,94 @@
 # torchregress TODO List
 
-This document outlines planned improvements and ongoing work for the library.
+This roadmap is prioritized by user impact for regression practitioners.
+Each item includes candidate SOTA approaches as of today.
 
-## High Priority Items
+## P0 (Highest Impact)
 
-### Documentation & Examples (Highest User Impact)
+### 1) Trustworthy uncertainty under shift
+**Goal:** Calibrated, actionable uncertainty that remains useful when data drifts.
+**SOTA candidates:**
+- Conformal families for regression (CQR, ACI, Jackknife+/EnbPI) for coverage guarantees.
+- Post-hoc calibration for regression: isotonic/quantile calibration, distributional calibration
+  on PIT or CRPS, and temperature scaling for probabilistic heads.
+- Epistemic methods with strong empirical performance: deep ensembles, SWAG, Laplace.
+- Decision support: risk-coverage curves and abstain/reject policies tied to uncertainty.
 
-- [ ] **Tutorial notebooks**: Add Jupyter notebooks demonstrating key features (uncertainty estimation, robust regression, conformal prediction)
-- [ ] **Advanced examples**: Create examples for conformal prediction, calibration, and ensemble methods
-- [ ] **Comprehensive API documentation**: Complete mkdocs setup with clear API docs, getting started guide, and migration guide
+### 2) Scalable multi-target regression with dependency structure
+**Goal:** Accurate uncertainty when outputs are correlated at scale.
+**SOTA candidates:**
+- Low-rank + diagonal Gaussian heads with stable Cholesky parameterization.
+- Structured covariance (Kronecker, block-diagonal, sparse precision) for large outputs.
+- Copula-based post-hoc dependency modeling for non-Gaussian targets.
+- Multi-output GP inspirations (LMC) as design references for loss/parameterization.
 
-**Rationale:** Users can't effectively use features they don't understand. Good documentation has the highest ROI for adoption.
+### 3) Measurement error + missingness as first-class
+**Goal:** Robust learning with noisy features/labels and missing data.
+**SOTA candidates:**
+- Errors-in-variables (functional/structural) with heteroscedastic noise modeling.
+- Total least squares / orthogonal regression variants for feature noise.
+- SIMEX-inspired noise estimation and noise-level learning utilities.
+- Masked losses + uncertainty-aware imputation (probabilistic heads).
 
-### Core Functionality Gaps
+### 4) Tail-risk and imbalance end-to-end
+**Goal:** Better performance on rare/extreme targets, not just overall RMSE.
+**SOTA candidates:**
+- Quantile regression (pinball), expectiles, and CVaR-style losses.
+- Density or difficulty reweighting (LDS, focal-style weighting for regression).
+- Monotonic constraints for quantile crossing and interval consistency.
+- Tail-centric evaluation (coverage, tail RMSE/MAE, extreme quantile calibration).
 
-- [ ] **Censored regression support**: Add losses for interval-censored and right-censored data (common in survival analysis, astronomy)
-- [ ] **Unified uncertainty representation**: Standardize how epistemic/aleatoric uncertainty is represented and decomposed across methods
-- [ ] **Better ensemble utilities**: Add tools for combining predictions, uncertainty decomposition, and calibration across ensemble members
+### 5) Actionable OOD/shift detection for regression
+**Goal:** Move from OOD scores to decisions (alerting/abstention).
+**SOTA candidates:**
+- Energy, typicality, and Mahalanobis-style scores over learned representations.
+- Density-ratio and ensemble disagreement for shift signals.
+- Practical thresholding and alert policies tied to uncertainty reports.
 
-**Rationale:** These fill important gaps for scientific/industrial users (censored data is very common, uncertainty decomposition is critical for decision-making).
+### 6) Censored regression support
+**Goal:** Native support for interval/right-censored targets.
+**SOTA candidates:**
+- Tobit-style losses, AFT losses, and interval-censored likelihoods.
+- Survival-style baselines (Cox partial likelihood) as references.
+- Censored quantile regression variants for robust intervals.
 
-### API Quality of Life
+## P1 (High Impact Enablers)
 
-- [ ] **Registration system for custom losses**: Add decorator-based registration (`@register_loss`) for user extensions
-- [ ] **Configurable loss builder system**: Fluent API for loss construction (e.g., `Loss.mse().with_mask().with_weights()`)
-- [ ] **Better error messages**: Add input validation with clear, actionable error messages
+### 7) Benchmark + recipe suite
+**Goal:** Repeatable evaluation of robustness and uncertainty claims.
+**SOTA candidates:**
+- A fixed benchmark set (UCI + tabular OOD splits + synthetic stress tests).
+- Standard metrics: NLL, CRPS, PICP, interval width, risk-coverage.
+- Reproducible scripts for tail-risk and shift stress tests.
 
-**Rationale:** Makes the library easier to extend and debug, reducing friction for advanced users.
+### 8) Documentation & examples refresh
+**Goal:** Make advanced features approachable and correct.
+**SOTA candidates:**
+- Focused tutorials for uncertainty, robust regression, EIV, and multi-target.
+- Minimal examples for each head type (Gaussian, low-rank, MDN, flows).
 
-## Medium Priority Items
+## P2 (Quality of Life + Ecosystem)
 
-### Ecosystem Integration
+### 9) API extension ergonomics
+**Goal:** Faster user iteration and fewer footguns.
+**SOTA candidates:**
+- Loss registration decorators and structured config-driven builders.
+- Standardized input validation and actionable error messages.
 
-- [ ] **PyTorch Lightning integration**: Provide LightningModule templates for common regression workflows
-- [ ] **TorchMetrics compatibility**: Align metric APIs with torchmetrics conventions for consistency
+### 10) Training integrations
+**Goal:** Reduce boilerplate for real projects.
+**SOTA candidates:**
+- PyTorch Lightning templates for regression + uncertainty.
+- TorchMetrics-aligned APIs for metrics consistency.
 
-**Rationale:** Nice to have, but not critical - users can already integrate manually.
+### 11) Performance & stability
+**Goal:** Robustness at scale and production readiness.
+**SOTA candidates:**
+- Numerical stability tests (NaN/Inf, extreme values).
+- GPU profiling for hot paths and memory scaling.
 
-### Performance & Testing
+## Deferred / Revisit Later
 
-- [ ] **Benchmark suite**: Create performance benchmarks for all loss functions and models
-- [ ] **Numerical stability tests**: Add comprehensive tests for edge cases (NaN, Inf, very small/large values)
-- [ ] **GPU optimization**: Profile and optimize critical paths for GPU performance
-
-**Rationale:** Important for production use but not blocking for research/prototyping.
-
-## Lower Priority Items
-
-### Nice-to-Have Features
-
-- [ ] **Augmentation framework expansion**: Add specialized regression augmentations (mixup for regression, etc.)
-- [ ] **Label handling consolidation**: Integrate label combination methods with metrics and evaluation
-
-**Rationale:** Useful but niche - most users can implement themselves or use external libraries.
-
+### Conformal prediction stack choice
+We may revisit conformal prediction later with a different dependency stack
+or a native implementation. For now, conformal remains optional and external.
