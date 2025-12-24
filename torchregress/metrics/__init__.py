@@ -2,6 +2,8 @@
 Metrics for evaluating regression models.
 """
 
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, R2Score
+
 from .calibration import (
     ExpectedCalibrationError,
     MarginalCalibrationError,
@@ -19,11 +21,11 @@ from .distribution import (
     probability_integral_transform,
 )
 from .ensemble import (
-    GaussianNLLEnsemble,
     EnsembleIntervalMetrics,
+    GaussianNLLEnsemble,
     ensemble_mean,
-    ensemble_std,
     ensemble_statistics,
+    ensemble_std,
     ensemble_variance_decomposition,
     uncertainty_decomposition,
 )
@@ -51,26 +53,24 @@ from .ood import (
 )
 from .point import (
     HuberLoss,
-    MedianAbsoluteError,
     MedianAbsoluteDeviation,
+    MedianAbsoluteError,
     NormalizedMedianAbsoluteDeviation,
     NormalizedRMSE,
     OutlierFraction,
     TrimmedMeanSquaredError,
-    mae,
     huber_loss,
+    mae,
     mean_absolute_error,
     mean_squared_error,
-    mse,
     median_absolute_deviation,
     median_absolute_error,
-    rmse,
+    mse,
     normalized_rmse,
     regression_metrics_report,
+    rmse,
     trimmed_mean_squared_error,
 )
-
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, R2Score
 
 __all__ = [
     # Calibration

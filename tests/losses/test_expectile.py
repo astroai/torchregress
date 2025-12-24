@@ -158,8 +158,10 @@ class TestExpectileLoss(unittest.TestCase):
         # Verify gradients exist
         self.assertIsNotNone(y_pred.grad)
 
-        # For overestimation (y_pred[0,0] > y_true[0,0]), gradient should be 2*2*(1-tau)*(y_pred-y_true) / n
-        # For underestimation (y_pred[0,1] < y_true[0,1]), gradient should be 2*2*tau*(y_pred-y_true) / n
+        # For overestimation (y_pred[0,0] > y_true[0,0]), gradient should be
+        # 2*2*(1-tau)*(y_pred-y_true) / n.
+        # For underestimation (y_pred[0,1] < y_true[0,1]), gradient should be
+        # 2*2*tau*(y_pred-y_true) / n.
         # where the first 2 comes from the normalization factor in expectile loss
         # and n is the number of elements (for mean reduction)
         n_elements = y_pred.numel()

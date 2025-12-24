@@ -26,7 +26,12 @@ class IntervalScore(Metric):
         self.add_state("score", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, lower_bound: torch.Tensor, upper_bound: torch.Tensor, y_true: torch.Tensor) -> None:
+    def update(
+        self,
+        lower_bound: torch.Tensor,
+        upper_bound: torch.Tensor,
+        y_true: torch.Tensor,
+    ) -> None:
         """Update state with predictions and targets."""
         lower_bound = convert_to_tensor(lower_bound)
         upper_bound = convert_to_tensor(upper_bound)
@@ -65,7 +70,12 @@ class PredictionIntervalCoverageProbability(Metric):
         self.add_state("covered", default=torch.tensor(0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, lower_bound: torch.Tensor, upper_bound: torch.Tensor, y_true: torch.Tensor) -> None:
+    def update(
+        self,
+        lower_bound: torch.Tensor,
+        upper_bound: torch.Tensor,
+        y_true: torch.Tensor,
+    ) -> None:
         """Update state with predictions and targets."""
         lower_bound = convert_to_tensor(lower_bound)
         upper_bound = convert_to_tensor(upper_bound)

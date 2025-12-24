@@ -30,7 +30,6 @@ dependencies = [
     "matplotlib>=3.5.0",
     "pandas>=1.4.0",
     "torchmetrics>=1.0.0",
-    "torchcp>=1.2.0",
     "scikit-learn>=1.0.0",
     "tqdm>=4.60.0",
     "zuko>=1.4.0",
@@ -57,7 +56,17 @@ docs = [
     "mkdocstrings[python]>=0.20.0",
     "pymdown-extensions>=10.0.0",
 ]
-all = ["torchregress[test,dev,docs]"]
+conformal = [
+    "torchcp>=1.2.0",
+    "torchsort>=0.1.10",
+    "torch-geometric>=2.7.0",
+    "torch-scatter>=2.1.2",
+    "torch-sparse>=0.6.18",
+    "torch-cluster>=1.6.3",
+    "torch-spline-conv>=1.2.2",
+    "transformers>=4.40.0",
+]
+all = ["torchregress[test,dev,docs,conformal]"]
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -6,9 +6,9 @@ from typing import Any, Optional
 
 from torch import Tensor
 
+from ..utils.quantile import quantile_loss
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
-from ..utils.quantile import quantile_loss
 
 
 @register_regression_loss("sqr")
@@ -52,10 +52,13 @@ class SQRLoss(RegressionLoss):
 
         if lower_pred.shape != target.shape:
             raise ValueError(
-                f"Target shape {list(target.shape)} must match prediction shape {list(lower_pred.shape)}"
+                f"Target shape {list(target.shape)} must match prediction shape "
+                f"{list(lower_pred.shape)}"
             )
         if mask is not None and mask.shape != target.shape:
-            raise ValueError(f"Mask shape {list(mask.shape)} must match target shape {list(target.shape)}")
+            raise ValueError(
+                f"Mask shape {list(mask.shape)} must match target shape {list(target.shape)}"
+            )
 
         lower_loss_val = quantile_loss(lower_pred, target, self.lower_quantile)
         upper_loss_val = quantile_loss(upper_pred, target, self.upper_quantile)

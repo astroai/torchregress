@@ -6,13 +6,11 @@ with support for various weighting schemes and loss functions.
 """
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Iterator
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, IterableDataset, TensorDataset
-
-
 
 # For typing
 try:
@@ -605,10 +603,6 @@ def iteratively_reweighted_least_squares(
         variance_type: Variance estimation method: 'predicted', 'fixed', or 'robust'
         epsilon: Small value for numerical stability
         return_all_predictions: Whether to return predictions from all iterations
-        callbacks: List of callback functions for monitoring/custom behavior
-        use_compile: Whether to use torch.compile for the model (PyTorch 2.0+)
-        compile_kwargs: Additional kwargs for torch.compile
-        use_tqdm: Whether to display a progress bar for iterations
 
     Returns:
         y_pred: Final predicted values
@@ -618,7 +612,6 @@ def iteratively_reweighted_least_squares(
     """
     x = x.detach().clone()
     device = x.device
-    callbacks = callbacks or []
 
     model, loss_fn, _weight_fn, weight_params = _setup_irls(
         model,
@@ -637,7 +630,8 @@ def iteratively_reweighted_least_squares(
     else:
         if initial_precision.shape != y_true.shape:
             raise ValueError(
-                f"initial_precision shape {initial_precision.shape} must match y_true shape {y_true.shape}"
+                f"initial_precision shape {initial_precision.shape} must match "
+                f"y_true shape {y_true.shape}"
             )
         precision = initial_precision.clone().detach().to(device)
 

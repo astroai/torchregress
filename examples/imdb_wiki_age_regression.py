@@ -20,11 +20,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, random_split
 
-# Set random seeds for reproducibility
-torch.manual_seed(42)
-np.random.seed(42)
-
-# Import torchregress losses
 from torchregress.losses import (
     LogCoshLoss,
     QuantileLoss,
@@ -33,6 +28,10 @@ from torchregress.losses import (
     WeightedMSELoss,
 )
 from torchregress.metrics.point import mae, mse, rmse
+
+# Set random seeds for reproducibility
+torch.manual_seed(42)
+np.random.seed(42)
 
 # Define constants
 DATA_DIR = os.path.join("data", "imdb_wiki")
@@ -74,8 +73,11 @@ def download_and_extract_dataset():
 
                     # Print progress
                     done = int(50 * downloaded / total_size)
+                    downloaded_mb = downloaded / 1024 / 1024
+                    total_mb = total_size / 1024 / 1024
+                    progress_bar = f"\r[{'=' * done}{' ' * (50 - done)}]"
                     print(
-                        f"\r[{'=' * done}{' ' * (50-done)}] {downloaded/1024/1024:.1f}/{total_size/1024/1024:.1f} MB",
+                        f"{progress_bar} {downloaded_mb:.1f}/{total_mb:.1f} MB",
                         end="",
                         flush=True,
                     )
@@ -231,9 +233,11 @@ def train_model(model, train_loader, val_loader, loss_fn, optimizer, num_epochs=
         val_epoch_loss = val_running_loss / len(val_loader.dataset)
         val_losses.append(val_epoch_loss)
 
-        print(
-            f"Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f}, Val Loss: {val_epoch_loss:.4f}"
+        message = (
+            f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {epoch_loss:.4f}, "
+            f"Val Loss: {val_epoch_loss:.4f}"
         )
+        print(message)
 
         # Save the best model
         if val_epoch_loss < best_val_loss:
@@ -424,7 +428,8 @@ def main():
     for loss_name, result in results.items():
         metrics = result["metrics"]
         print(
-            f"{loss_name:<15} {metrics['mae']:<10.2f} {metrics['mse']:<10.2f} {metrics['rmse']:<10.2f}"
+            f"{loss_name:<15} {metrics['mae']:<10.2f} "
+            f"{metrics['mse']:<10.2f} {metrics['rmse']:<10.2f}"
         )
 
 

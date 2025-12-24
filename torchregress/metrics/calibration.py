@@ -2,7 +2,7 @@
 Calibration metrics for evaluating probabilistic regression models.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import torch
@@ -26,9 +26,7 @@ class ExpectedCalibrationError(Metric):
         self.add_state("y_pred_quantiles", default=[], dist_reduce_fx=None)
         self.add_state("y_true", default=[], dist_reduce_fx=None)
 
-    def update(
-        self, y_pred_quantiles: Dict[float, torch.Tensor], y_true: torch.Tensor
-    ) -> None:
+    def update(self, y_pred_quantiles: Dict[float, torch.Tensor], y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
         self.y_pred_quantiles.append(y_pred_quantiles)
         self.y_true.append(y_true)
@@ -278,7 +276,9 @@ def bias(
 
 
 def calibration_metrics_report(
-    dist_or_samples: Optional[Union[torch.distributions.Distribution, torch.Tensor, np.ndarray, Dict[str, Any]]],
+    dist_or_samples: Optional[
+        Union[torch.distributions.Distribution, torch.Tensor, np.ndarray, Dict[str, Any]]
+    ],
     y_true: Union[torch.Tensor, np.ndarray],
     y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]] = None,
     n_bins: int = 20,

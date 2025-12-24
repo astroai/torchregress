@@ -176,9 +176,7 @@ def demo_multidimensional_conformal() -> None:
     # Generate multi-output data
     torch.manual_seed(42)
     X = torch.randn(1000, 3)
-    y_base = torch.stack(
-        [torch.sin(X[:, 0]), 0.5 * X[:, 1] ** 2, 0.3 * X[:, 2]], dim=1
-    )
+    y_base = torch.stack([torch.sin(X[:, 0]), 0.5 * X[:, 1] ** 2, 0.3 * X[:, 2]], dim=1)
     noise = 0.1 * torch.randn_like(y_base)
     y = y_base + noise
 

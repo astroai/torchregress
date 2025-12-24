@@ -7,8 +7,8 @@ import pytest
 import torch
 
 from torchregress.metrics.calibration import (
-    calibration_metrics_report,
     bias,
+    calibration_metrics_report,
     expected_calibration_error,
     marginal_calibration_error,
 )
@@ -34,10 +34,10 @@ from torchregress.metrics.point import (
     huber_loss,
     mae,
     mean_absolute_error,
-    mse,
     mean_squared_error,
     median_absolute_deviation,
     median_absolute_error,
+    mse,
     normalized_rmse,
     regression_metrics_report,
     trimmed_mean_squared_error,

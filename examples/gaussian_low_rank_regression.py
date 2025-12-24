@@ -13,7 +13,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.losses import LowRankGaussianLoss, low_rank_output_dim, split_low_rank_gaussian_output
+from torchregress.losses import (
+    LowRankGaussianLoss,
+    low_rank_output_dim,
+    split_low_rank_gaussian_output,
+)
 
 
 def make_low_rank_data(n_samples=1024, input_dim=4, n_features=3, rank=2):
@@ -71,9 +75,7 @@ def train():
         for batch_x, batch_y in loader:
             optimizer.zero_grad()
             y_pred = model(batch_x)
-            mean, cov_factor, cov_diag = split_low_rank_gaussian_output(
-                y_pred, n_features, rank
-            )
+            mean, cov_factor, cov_diag = split_low_rank_gaussian_output(y_pred, n_features, rank)
             loss = loss_fn(mean, batch_y, cov_factor, cov_diag)
             loss.backward()
             optimizer.step()
@@ -86,9 +88,7 @@ def train():
     with torch.no_grad():
         y_pred = model(x[:5])
         mean, cov_factor, cov_diag = split_low_rank_gaussian_output(y_pred, n_features, rank)
-        cov = cov_factor @ cov_factor.transpose(-1, -2) + torch.diag_embed(
-            cov_diag.clamp(min=1e-6)
-        )
+        cov = cov_factor @ cov_factor.transpose(-1, -2) + torch.diag_embed(cov_diag.clamp(min=1e-6))
         print("mean shape:", mean.shape)
         print("cov shape:", cov.shape)
 

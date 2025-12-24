@@ -8,7 +8,8 @@ specifically designed for continuous target variables.
 References:
     - Li et al. "Learning to Learn from Noisy Labeled Data" (CVPR 2019)
     - Han et al. "Co-teaching: Robust Training of DNNs with Extremely Noisy Labels" (NeurIPS 2018)
-    - Chen et al. "Understanding and Utilizing Deep Neural Networks Trained with Noisy Labels" (ICML 2019)
+    - Chen et al. "Understanding and Utilizing Deep Neural Networks Trained with Noisy Labels"
+      (ICML 2019)
 """
 
 from typing import Any, Optional

@@ -1,11 +1,9 @@
 import argparse
 import csv
-import math
 import os
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
@@ -15,8 +13,8 @@ os.environ.setdefault("MPLCONFIGDIR", os.path.join(os.getcwd(), ".mplconfig"))
 
 from torchregress.losses import (
     BaseEIVLoss,
-    CVaRLoss,
     CauchyLoss,
+    CVaRLoss,
     DensityWeightedLoss,
     EnsembleEIVLoss,
     ExpectileLoss,
@@ -30,9 +28,7 @@ from torchregress.losses import (
 
 
 class RegressionDataset(Dataset):
-    def __init__(
-        self, x: torch.Tensor, y_obs: torch.Tensor, y_true: torch.Tensor
-    ) -> None:
+    def __init__(self, x: torch.Tensor, y_obs: torch.Tensor, y_true: torch.Tensor) -> None:
         self.x = x
         self.y_obs = y_obs
         self.y_true = y_true
@@ -249,7 +245,11 @@ def format_results(rows: List[Dict[str, float]]) -> str:
     col_widths = {h: len(h) for h in headers}
     for row in rows:
         for h in headers:
-            col_widths[h] = max(col_widths[h], len(f"{row[h]:.4f}") if h != "method" else len(row[h]))
+            if h == "method":
+                col_width = len(row[h])
+            else:
+                col_width = len(f"{row[h]:.4f}")
+            col_widths[h] = max(col_widths[h], col_width)
 
     lines = []
     header_line = "  ".join(h.ljust(col_widths[h]) for h in headers)
@@ -267,7 +267,9 @@ def format_results(rows: List[Dict[str, float]]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Tail performance benchmark for regression losses.")
+    parser = argparse.ArgumentParser(
+        description="Tail performance benchmark for regression losses."
+    )
     parser.add_argument("--train-size", type=int, default=2048)
     parser.add_argument("--test-size", type=int, default=1024)
     parser.add_argument("--epochs", type=int, default=30)

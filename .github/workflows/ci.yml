@@ -28,13 +28,6 @@ jobs:
       run: |
         uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
 
-    - name: Install torch-geometric dependencies
-      run: |
-        TORCH_VER=$(python -c "import torch; print(torch.__version__.split('+')[0])")
-        uv pip install --system \
-          torch-scatter torch-sparse torch-cluster torch-spline-conv \
-          --find-links https://data.pyg.org/whl/torch-${TORCH_VER}+cpu.html
-
     - name: Install package with test dependencies
       run: |
         uv pip install --system -e ".[test]"

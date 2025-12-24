@@ -359,7 +359,9 @@ for epoch in range(100):
     optimizer.step()
 
 # Conformalize on calibration set
-conformal_loss = tr.losses.ConformalLoss(method='cqr', alpha=0.1)
+from torchregress.losses.conformal import ConformalLoss
+
+conformal_loss = ConformalLoss(method='cqr', alpha=0.1)
 
 with torch.no_grad():
     cal_preds = model(X_cal)
@@ -380,17 +382,23 @@ print(f"Coverage: {coverage:.2%}")  # Will be >= 90% with high probability
 
 **Split Conformal:** Simple, works with any model
 ```python
-conformal = tr.losses.ConformalLoss(method='split', alpha=0.1)
+from torchregress.losses.conformal import ConformalLoss
+
+conformal = ConformalLoss(method='split', alpha=0.1)
 ```
 
 **CQR (Conformalized Quantile Regression):** More efficient intervals
 ```python
-conformal = tr.losses.ConformalLoss(method='cqr', alpha=0.1)
+from torchregress.losses.conformal import ConformalLoss
+
+conformal = ConformalLoss(method='cqr', alpha=0.1)
 ```
 
 **ACI (Adaptive Conformal Inference):** Adaptive to input difficulty
 ```python
-conformal = tr.losses.ConformalLoss(method='aci', alpha=0.1, model=base_model)
+from torchregress.losses.conformal import ConformalLoss
+
+conformal = ConformalLoss(method='aci', alpha=0.1, model=base_model)
 ```
 
 [Detailed Conformal Prediction documentation →](conformal.md)
@@ -590,7 +598,9 @@ base_model = create_mdn_model()
 train_model(base_model, train_data)
 
 # Use mean prediction for conformal
-conformal = tr.losses.ConformalLoss(method='split', alpha=0.1)
+from torchregress.losses.conformal import ConformalLoss
+
+conformal = ConformalLoss(method='split', alpha=0.1)
 conformal.calibrate(base_model.mean(X_cal), y_cal)
 
 # Now you have both:

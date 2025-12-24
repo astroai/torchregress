@@ -10,7 +10,6 @@ error checking and helpful error messages.
 
 from typing import List, Optional, Union
 
-import numpy as np
 import torch
 
 
@@ -124,12 +123,14 @@ def validate_positive(
         if allow_zero:
             if torch.any(value < 0):
                 raise ValueError(
-                    f"{param_name} must be non-negative, got tensor with minimum value {value.min().item()}"
+                    f"{param_name} must be non-negative, got tensor with minimum value "
+                    f"{value.min().item()}"
                 )
         else:
             if torch.any(value <= 0):
                 raise ValueError(
-                    f"{param_name} must be positive, got tensor with minimum value {value.min().item()}"
+                    f"{param_name} must be positive, got tensor with minimum value "
+                    f"{value.min().item()}"
                 )
     else:
         if allow_zero:
@@ -183,9 +184,7 @@ def validate_range(
     return value
 
 
-def validate_integer(
-    tensor: torch.Tensor, name: str = "tensor"
-) -> torch.Tensor:
+def validate_integer(tensor: torch.Tensor, name: str = "tensor") -> torch.Tensor:
     """
     Validate that a tensor has an integer dtype.
 
@@ -203,7 +202,9 @@ def validate_integer(
         return tensor
 
     if not torch.allclose(tensor, tensor.round()):
-        raise ValueError(f"{name} must contain only integer values, got tensor with non-integer values")
+        raise ValueError(
+            f"{name} must contain only integer values, got tensor with non-integer values"
+        )
 
     return tensor.to(torch.int64)
 
@@ -345,7 +346,8 @@ def validate_weights(
 
     if weights.shape[0] != batch_size:
         raise ValueError(
-            f"weights must have same batch size as inputs, got {weights.shape[0]}, expected {batch_size}"
+            f"weights must have same batch size as inputs, got {weights.shape[0]}, "
+            f"expected {batch_size}"
         )
 
     # Check values
@@ -356,7 +358,8 @@ def validate_weights(
 
 def check_tensor(tensor: torch.Tensor, name: str = "tensor") -> torch.Tensor:
     """
-    Validates a tensor for common issues - checks for NaNs, infs, and ensures it's a proper torch tensor.
+    Validates a tensor for common issues - checks for NaNs, infs, and ensures it's
+    a proper torch tensor.
 
     Args:
         tensor: The tensor to validate

@@ -13,6 +13,7 @@ All losses follow PyTorch conventions with forward methods expecting
 inputs in the form of (y_pred, target, ...).
 """
 
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Union
 
 import torch
@@ -360,8 +361,6 @@ class WeightedLossWrapper(BaseLoss):
 
 
 # Create weighted versions of PyTorch losses using functools.partial
-from functools import partial
-
 # Regression losses - core point prediction
 WeightedMSELoss = partial(WeightedLossWrapper, nn.MSELoss)
 WeightedL1Loss = partial(WeightedLossWrapper, nn.L1Loss)

@@ -6,14 +6,13 @@ ensemble implementations, including tools for prediction aggregation
 and uncertainty estimation.
 """
 
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union
 
 import torch
 
-from ..utils.augment import EnsemblePerturbationAugmenter
 
 def parse_heteroscedastic_output(
-    output: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], Dict[str, torch.Tensor]]
+    output: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], Dict[str, torch.Tensor]],
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Parse heteroscedastic model output into mean and log_variance tensors.
@@ -224,5 +223,3 @@ def generate_prediction_samples(
 
     # Switch model back to evaluation mode
     return result
-
-

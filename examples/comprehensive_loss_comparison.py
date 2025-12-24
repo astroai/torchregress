@@ -14,19 +14,18 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import (
-    create_loss_from_config,
-    TukeyBiweightLoss,
     CharbonnierLoss,
     DensityWeightedLoss,
+    TukeyBiweightLoss,
+    create_loss_from_config,
 )
 from torchregress.metrics import (
-    MeanSquaredError,
-    MeanAbsoluteError,
-    R2Score,
     ContinuousRankedProbabilityScore,
     ExpectedCalibrationError,
+    MeanAbsoluteError,
+    MeanSquaredError,
+    R2Score,
 )
-from torchregress.ensemble import DeepEnsemble
 
 
 class SimpleMLP(nn.Module):
@@ -129,9 +128,11 @@ def main():
             if samples is not None:
                 quantiles = {q: torch.quantile(samples, q, dim=0) for q in np.arange(0.1, 1.0, 0.1)}
                 crps = ContinuousRankedProbabilityScore()(quantiles, y).item()
-                ece = ExpectedCalibrationError()({q: torch.quantile(samples, q, dim=0) for q in np.arange(0.05, 1.0, 0.05)}, y)[
-                    "mean_absolute_calibration_error"
-                ].item()
+                ece_quantiles = {
+                    q: torch.quantile(samples, q, dim=0) for q in np.arange(0.05, 1.0, 0.05)
+                }
+                ece_metrics = ExpectedCalibrationError()(ece_quantiles, y)
+                ece = ece_metrics["mean_absolute_calibration_error"].item()
 
             results[name] = {
                 "model": model,

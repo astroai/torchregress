@@ -169,12 +169,10 @@ class TestGaussianLosses(unittest.TestCase):
     def test_low_rank_gaussian_loss(self):
         """Test LowRankGaussianLoss with and without mask."""
         rank = 2
-        cov_factor = torch.randn(
-            self.batch_size, self.n_features_cov, rank, device=self.device
+        cov_factor = torch.randn(self.batch_size, self.n_features_cov, rank, device=self.device)
+        cov_diag = (
+            torch.abs(torch.randn(self.batch_size, self.n_features_cov, device=self.device)) + 0.1
         )
-        cov_diag = torch.abs(
-            torch.randn(self.batch_size, self.n_features_cov, device=self.device)
-        ) + 0.1
 
         loss_fn = LowRankGaussianLoss().to(self.device)
 
@@ -194,9 +192,7 @@ class TestGaussianLosses(unittest.TestCase):
 
         for reduction in ["none", "mean", "sum"]:
             test_loss_fn = LowRankGaussianLoss(reduction=reduction).to(self.device)
-            red_loss = test_loss_fn(
-                self.x_cov, self.x_cov_reconstructed, cov_factor, cov_diag
-            )
+            red_loss = test_loss_fn(self.x_cov, self.x_cov_reconstructed, cov_factor, cov_diag)
             if reduction == "none":
                 self.assertEqual(red_loss.shape[0], self.batch_size)
             else:

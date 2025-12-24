@@ -86,14 +86,10 @@ class BaseEIVLoss(RegressionLoss):
         Returns:
             Tuple of (sigma_x_tensor, sigma_y_tensor)
         """
-        sigma_x_tensor = self._prepare_covariance_from_sigma(
-            self.sigma_x, n_features_x, device
-        )
+        sigma_x_tensor = self._prepare_covariance_from_sigma(self.sigma_x, n_features_x, device)
         sigma_y_tensor = None
         if self.sigma_y is not None:
-            sigma_y_tensor = self._prepare_covariance_from_sigma(
-                self.sigma_y, n_features_y, device
-            )
+            sigma_y_tensor = self._prepare_covariance_from_sigma(self.sigma_y, n_features_y, device)
         return sigma_x_tensor, sigma_y_tensor
 
     def _prepare_covariance_from_sigma(

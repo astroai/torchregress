@@ -598,9 +598,8 @@ def plot_distribution_comparison(
         # Remove any NaN or Inf values
         valid_samples = samples[np.isfinite(samples)]
         if len(valid_samples) < len(samples):
-            print(
-                f"Warning: {len(samples) - len(valid_samples)} non-finite values removed from samples"
-            )
+            removed = len(samples) - len(valid_samples)
+            print(f"Warning: {removed} non-finite values removed from samples")
 
         # Make sure we have data to plot
         if len(valid_samples) == 0:
@@ -792,8 +791,11 @@ def plot_calibration_curve(
 
     # Ensure valid prediction probabilities
     if np.min(y_pred_probs) < 0 or np.max(y_pred_probs) > 1:
+        min_prob = np.min(y_pred_probs)
+        max_prob = np.max(y_pred_probs)
         print(
-            f"Warning: Predicted probabilities outside [0, 1] range: min={np.min(y_pred_probs)}, max={np.max(y_pred_probs)}"
+            f"Warning: Predicted probabilities outside [0, 1] range: "
+            f"min={min_prob}, max={max_prob}"
         )
         y_pred_probs = np.clip(y_pred_probs, 0, 1)
 

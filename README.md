@@ -82,6 +82,12 @@ with torch.no_grad():
 
 ### Conformal Prediction
 
+Install the conformal extra to use this module:
+
+```bash
+uv pip install -e ".[conformal]"
+```
+
 ```python
 from torchregress.losses.conformal import ConformalLoss
 

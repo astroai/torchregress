@@ -407,7 +407,7 @@ def main():
     # 3. Train
     print("\n3. Training model and flow jointly...")
     print("   (Both model and flow parameters are optimized together)")
-    losses = train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3)
+    train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3)
 
     # 4. Evaluate
     print("\n4. Generating predictions on test set...")

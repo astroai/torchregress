@@ -132,7 +132,8 @@ def train_noise_adaptive(dataset, n_epochs=50):
     print(f"  Clean samples: mean={sample_weights[~noisy_mask].mean():.3f}")
     print(f"  Noisy samples: mean={sample_weights[noisy_mask].mean():.3f}")
     print(
-        f"  Correctly identified noisy: {(sample_weights[noisy_mask] < 0.5).sum()}/{noisy_mask.sum()}"
+        f"  Correctly identified noisy: {(sample_weights[noisy_mask] < 0.5).sum()}/"
+        f"{noisy_mask.sum()}"
     )
 
     return model, sample_weights

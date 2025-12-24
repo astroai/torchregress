@@ -2,7 +2,7 @@
 Distribution metrics for evaluating probabilistic regression models.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import torch
@@ -25,9 +25,7 @@ class ContinuousRankedProbabilityScore(Metric):
         self.add_state("crps_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(
-        self, y_pred_quantiles: Dict[float, torch.Tensor], y_true: torch.Tensor
-    ) -> None:
+    def update(self, y_pred_quantiles: Dict[float, torch.Tensor], y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
         y_true = convert_to_tensor(y_true)
 
@@ -98,7 +96,10 @@ class EnergyScore(Metric):
             if self.beta == 1.0:
                 norms[:, i] = torch.norm(diff, dim=1)
             else:
-                norms[:, i] = torch.pow(torch.sum(torch.pow(torch.abs(diff), self.beta), dim=1), 1 / self.beta)
+                norms[:, i] = torch.pow(
+                    torch.sum(torch.pow(torch.abs(diff), self.beta), dim=1),
+                    1 / self.beta,
+                )
 
         term1 = torch.mean(norms, dim=1)
 

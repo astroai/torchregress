@@ -16,12 +16,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
 from torchregress.losses import (
     CauchyLoss,
     GaussianNLLLoss,
     HuberLoss,
-    WeightedMAELoss,
     WeightedMSELoss,
 )
 from torchregress.metrics import (
@@ -30,7 +28,6 @@ from torchregress.metrics import (
     ensemble_variance_decomposition,
 )
 from torchregress.utils import set_seed
-
 
 # ============================================================================
 # Data Generation
@@ -132,9 +129,7 @@ def train_model(model, dataloader, loss_fn, epochs=100, lr=0.01, verbose=False):
     return model
 
 
-def train_ensemble(
-    n_models, dataloader, model_fn, loss_fn, epochs=100, lr=0.01, verbose=False
-):
+def train_ensemble(n_models, dataloader, model_fn, loss_fn, epochs=100, lr=0.01, verbose=False):
     """Train an ensemble of models."""
     models = []
     for i in range(n_models):
@@ -347,9 +342,7 @@ def scenario_1_clean_data():
 
     # Deep Ensemble
     print("\n3. Training Deep Ensemble...")
-    ensemble_models = train_ensemble(
-        5, dataloader, create_mlp, WeightedMSELoss(), epochs=100
-    )
+    ensemble_models = train_ensemble(5, dataloader, create_mlp, WeightedMSELoss(), epochs=100)
     pred_mean, pred_std = evaluate_ensemble_predictions(
         ensemble_models, x_test_t, None, "Deep Ensemble"
     )

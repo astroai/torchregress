@@ -24,6 +24,9 @@ pip install 'torchregress[dev]'
 # For documentation
 pip install 'torchregress[docs]'
 
+# For conformal prediction (torchcp + dependencies)
+pip install 'torchregress[conformal]'
+
 # For all optional dependencies
 pip install 'torchregress[all]'
 ```
@@ -64,6 +67,12 @@ Documentation:
 - sphinx
 - sphinx-rtd-theme
 - myst-parser
+
+Conformal prediction:
+- torchcp
+- torchsort
+- torch-geometric
+- transformers
 
 ## Verifying Installation
 

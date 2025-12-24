@@ -84,7 +84,8 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
             self.weight_logit = nn.Parameter(torch.zeros(1))
 
         # Initialize Poisson loss using torch.nn implementation
-        # Note: torch.nn.PoissonNLLLoss has an additional 'full' parameter not present in the local version
+        # Note: torch.nn.PoissonNLLLoss has an additional 'full' parameter not present
+        # in the local version
         self.poisson_loss = PoissonNLLLoss(
             log_input=log_input,
             full=True,  # Set full=True to match behavior of original implementation

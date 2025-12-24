@@ -12,17 +12,16 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
-# Set random seeds for reproducibility
-torch.manual_seed(42)
-np.random.seed(42)
-
-# Import main torchregress components
 from torchregress.losses import (
     GaussianNLLLoss,  # For uncertainty estimation
     QuantileLoss,  # For quantile regression
     WeightedHuberLoss,  # For robust regression
     WeightedMSELoss,  # For standard MSE
 )
+
+# Set random seeds for reproducibility
+torch.manual_seed(42)
+np.random.seed(42)
 
 
 # 1. Create a synthetic dataset with heteroscedastic noise

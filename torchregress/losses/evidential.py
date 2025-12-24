@@ -170,9 +170,6 @@ class EvidentialRegressionLoss(DistributionLoss):
             NLL per sample [batch_size, n_features]
         """
         # Student-t distribution (predictive distribution of NIG)
-        # Degrees of freedom
-        two_alpha = 2.0 * alpha
-
         # NLL = 0.5 * log(pi/nu) - alpha*log(2*beta) + (alpha+0.5)*log(nu*(target-gamma)^2 + 2*beta)
         #       + loggamma(alpha) - loggamma(alpha+0.5)
 
@@ -347,9 +344,6 @@ class EvidentialRegressionLoss(DistributionLoss):
             >>> percentiles = torch.quantile(samples, torch.tensor([0.05, 0.95]), dim=0)
         """
         gamma, nu, alpha, beta = self._extract_nig_parameters(y_pred)
-
-        batch_size = gamma.shape[0]
-        n_features = gamma.shape[1]
 
         # Sample variance from Inverse Gamma
         # InvGamma(α, β) = 1 / Gamma(α, 1/β)

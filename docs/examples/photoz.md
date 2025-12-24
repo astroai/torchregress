@@ -456,7 +456,9 @@ quantile_loss = tr.losses.MultiQuantileLoss(quantiles=[0.05, 0.95])
 # ...
 
 # Conformalize on calibration set
-conformal = tr.losses.ConformalLoss(method='cqr', alpha=0.1)
+from torchregress.losses.conformal import ConformalLoss
+
+conformal = ConformalLoss(method='cqr', alpha=0.1)
 with torch.no_grad():
     cal_quantiles = quantile_model(X_cal)
 conformal.calibrate(cal_quantiles, y_cal)

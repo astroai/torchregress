@@ -141,7 +141,8 @@ class MultiQuantileLoss(RegressionLoss):
                 quantile_weights = torch.tensor(quantile_weights, dtype=torch.float32)
             if len(quantile_weights) != self.num_quantiles:
                 raise ValueError(
-                    f"quantile_weights length {len(quantile_weights)} must match number of quantiles {self.num_quantiles}"
+                    f"quantile_weights length {len(quantile_weights)} must match "
+                    f"number of quantiles {self.num_quantiles}"
                 )
             self.register_buffer("quantile_weights", quantile_weights)
         else:

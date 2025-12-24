@@ -773,9 +773,7 @@ class CVaRLoss(RegressionLoss):
 
         supported = {"mse", "mae", "huber", "log_cosh", "cauchy", "tukey"}
         if self.base_loss not in supported:
-            raise ValueError(
-                f"base_loss must be one of {sorted(supported)}, got {self.base_loss}"
-            )
+            raise ValueError(f"base_loss must be one of {sorted(supported)}, got {self.base_loss}")
 
     def _compute_elementwise_loss(
         self, residuals: torch.Tensor, abs_residuals: torch.Tensor
@@ -803,9 +801,7 @@ class CVaRLoss(RegressionLoss):
         loss = torch.ones_like(residuals) * self.c_squared_over_6
         mask_within = abs_residuals <= self.c
         if torch.any(mask_within):
-            loss[mask_within] = self.c_squared_over_6 * (
-                1.0 - (1.0 - squared[mask_within]) ** 3
-            )
+            loss[mask_within] = self.c_squared_over_6 * (1.0 - (1.0 - squared[mask_within]) ** 3)
         return loss
 
     def forward(

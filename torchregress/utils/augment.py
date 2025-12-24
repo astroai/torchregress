@@ -246,9 +246,9 @@ class EnsemblePerturbationAugmenter(nn.Module):
                     samples.append(x + noise)
             except (RuntimeError, ValueError):
                 diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
-                noise = torch.randn(batch_size, n_features, device=device) * torch.sqrt(
-                    diag
-                ).view(1, -1)
+                noise = torch.randn(batch_size, n_features, device=device) * torch.sqrt(diag).view(
+                    1, -1
+                )
                 for _ in range(self.n_samples):
                     samples.append(x + noise)
             return samples
@@ -256,9 +256,7 @@ class EnsemblePerturbationAugmenter(nn.Module):
         # uniform
         scale_factor = 1.732  # sqrt(3)
         if sigma_tensor.ndim <= 1:
-            sigma_vec = (
-                sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
-            )
+            sigma_vec = sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
             half_range = sigma_vec.view(1, -1) * scale_factor
             for _ in range(self.n_samples):
                 noise = (torch.rand(batch_size, n_features, device=device) * 2 - 1) * half_range

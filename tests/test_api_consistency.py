@@ -76,14 +76,16 @@ def test_parameter_ordering():
         # Check for special cases
         if loss_class.__name__ in special_cases:
             expected_param = special_cases[loss_class.__name__]
-            assert (
-                params[0] == expected_param
-            ), f"{loss_class.__name__}.forward() should have {expected_param} as first parameter, got {params[0]}"
+            assert params[0] == expected_param, (
+                f"{loss_class.__name__}.forward() should have {expected_param} "
+                f"as first parameter, got {params[0]}"
+            )
         else:
             # Check that y_pred is the first parameter
-            assert (
-                params[0] == "y_pred"
-            ), f"{loss_class.__name__}.forward() should have y_pred as first parameter, got {params[0]}"
+            assert params[0] == "y_pred", (
+                f"{loss_class.__name__}.forward() should have y_pred as first parameter, "
+                f"got {params[0]}"
+            )
 
 
 def test_base_class_inheritance():
@@ -169,9 +171,10 @@ def test_reduction_behavior():
                 result = loss_fn(**forward_args)
 
                 if reduction == "none":
-                    assert (
-                        len(result.shape) >= 1
-                    ), f"{loss_class.__name__} with reduction='none' should return non-scalar tensor"
+                    assert len(result.shape) >= 1, (
+                        f"{loss_class.__name__} with reduction='none' "
+                        "should return non-scalar tensor"
+                    )
                 elif reduction in ("mean", "sum"):
                     assert (
                         result.ndim == 0

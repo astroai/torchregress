@@ -6,10 +6,9 @@ import pytest
 import torch
 from torch.nn import Linear, Module, Sequential
 
-from torchregress.losses.conformal import (
-    ConformalLoss,
-    MultiDimensionalConformalLoss,
-)
+pytest.importorskip("torchcp")
+
+from torchregress.losses.conformal import ConformalLoss, MultiDimensionalConformalLoss
 
 
 class DummyModel(Module):
@@ -119,7 +118,7 @@ def test_conformalized_quantile_loss_method():
 
 
 def test_multidimensional_conformal_loss_wrapper():
-    """Test that MultiDimensionalConformalLoss is a wrapper for ConformalLoss with method='split'."""
+    """Test that MultiDimensionalConformalLoss wraps ConformalLoss with method='split'."""
     loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
     assert isinstance(loss_fn, ConformalLoss)
     assert loss_fn.method == "split"

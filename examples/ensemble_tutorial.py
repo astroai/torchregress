@@ -48,7 +48,7 @@ def create_mlp(input_dim=1, hidden_dim=64, output_dim=1):
         nn.ReLU(),
         nn.Linear(hidden_dim, hidden_dim),
         nn.ReLU(),
-        nn.Linear(hidden_dim, output_dim)
+        nn.Linear(hidden_dim, output_dim),
     )
 
 
@@ -59,7 +59,7 @@ def create_heteroscedastic_mlp(input_dim=1, hidden_dim=64):
         nn.ReLU(),
         nn.Linear(hidden_dim, hidden_dim),
         nn.ReLU(),
-        nn.Linear(hidden_dim, 2)  # Output: [mean, log_variance]
+        nn.Linear(hidden_dim, 2),  # Output: [mean, log_variance]
     )
 
 
@@ -112,9 +112,7 @@ def train_deep_ensemble(n_models, dataloader, hidden_dim=64, epochs=100, lr=0.01
     return ensemble
 
 
-def train_heteroscedastic_ensemble(
-    n_models, dataloader, hidden_dim=64, epochs=100, lr=0.01
-):
+def train_heteroscedastic_ensemble(n_models, dataloader, hidden_dim=64, epochs=100, lr=0.01):
     """Train ensemble where each model predicts mean and variance."""
     print(f"\nTraining Heteroscedastic Ensemble with {n_models} models...")
     set_seed(42)
@@ -179,9 +177,7 @@ def plot_results(x_train, y_train, x_test, results_dict):
     x_test_np = x_test.numpy()
     y_true = np.sin(x_test_np)
 
-    for idx, (name, (pred_mean, pred_std, epistemic, aleatoric)) in enumerate(
-        results_dict.items()
-    ):
+    for idx, (name, (pred_mean, pred_std, epistemic, aleatoric)) in enumerate(results_dict.items()):
         ax = axes[idx]
 
         pred_mean_np = pred_mean.numpy()
@@ -282,11 +278,9 @@ def main():
     print("\n" + "=" * 60)
     print("3. Heteroscedastic Ensemble (Epistemic + Aleatoric)")
     print("=" * 60)
-    hetero_ensemble = train_heteroscedastic_ensemble(
-        n_models=5, dataloader=dataloader, epochs=100
-    )
-    hetero_pred_mean, hetero_total_std, hetero_epistemic, hetero_aleatoric = (
-        evaluate_ensemble(hetero_ensemble, x_test_t, None, "Heteroscedastic Ensemble")
+    hetero_ensemble = train_heteroscedastic_ensemble(n_models=5, dataloader=dataloader, epochs=100)
+    hetero_pred_mean, hetero_total_std, hetero_epistemic, hetero_aleatoric = evaluate_ensemble(
+        hetero_ensemble, x_test_t, None, "Heteroscedastic Ensemble"
     )
 
     # Compare results

@@ -26,9 +26,7 @@ def ensemble_statistics(
     return mean, var
 
 
-def ensemble_mean(
-    predictions: Union[torch.Tensor, np.ndarray], dim: int = 0
-) -> torch.Tensor:
+def ensemble_mean(predictions: Union[torch.Tensor, np.ndarray], dim: int = 0) -> torch.Tensor:
     """
     Alias for ensemble mean across dimension `dim`.
     """
@@ -36,9 +34,7 @@ def ensemble_mean(
     return mean
 
 
-def ensemble_std(
-    predictions: Union[torch.Tensor, np.ndarray], dim: int = 0
-) -> torch.Tensor:
+def ensemble_std(predictions: Union[torch.Tensor, np.ndarray], dim: int = 0) -> torch.Tensor:
     """
     Alias for ensemble standard deviation across dimension `dim`.
     """
@@ -94,9 +90,7 @@ class GaussianNLLEnsemble(Metric):
         self.add_state("nll_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(
-        self, means: torch.Tensor, variances: torch.Tensor, y_true: torch.Tensor
-    ) -> None:
+    def update(self, means: torch.Tensor, variances: torch.Tensor, y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
         y = convert_to_tensor(y_true)
         stats = uncertainty_decomposition(means, variances)
@@ -128,9 +122,7 @@ class EnsembleIntervalMetrics(Metric):
         self.interval_score = IntervalScore(alpha=alpha)
         self.picp = PredictionIntervalCoverageProbability()
 
-    def update(
-        self, means: torch.Tensor, variances: torch.Tensor, y_true: torch.Tensor
-    ) -> None:
+    def update(self, means: torch.Tensor, variances: torch.Tensor, y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
         lower, upper = self.ensemble_interval_bounds(means, variances)
         self.interval_score.update(lower, upper, y_true)

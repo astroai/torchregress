@@ -2,6 +2,17 @@
 
 The `torchregress.losses.conformal` module provides a unified interface for state-of-the-art conformal prediction methods for regression, leveraging the `torchcp` library as a backend.
 
+## Installation
+
+Conformal prediction relies on `torchcp` and its dependencies. Install the extra:
+
+```bash
+uv pip install -e ".[conformal]"
+```
+
+`torch-geometric` and its compiled dependencies may require the PyG wheel index; see the
+official installation guide if your environment needs it.
+
 ## Unified Conformal Prediction Module
 
 The `ConformalLoss` class is a wrapper around various conformal prediction methods. It provides a consistent API for training, calibrating, and generating prediction intervals.

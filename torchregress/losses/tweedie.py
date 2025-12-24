@@ -208,7 +208,8 @@ class TweedieLoss(RegressionLoss):
         Calculate Tweedie loss.
 
         Args:
-            y_pred: Predicted values (log(μ) if link=='log', μ if link=='identity') [batch_size, ...]
+            y_pred: Predicted values (log(μ) if link=='log', μ if link=='identity')
+                [batch_size, ...]
             target: Target values [batch_size, ...]
             mask: Optional boolean mask [batch_size, ...]
             weights: Optional weights [batch_size, ...]

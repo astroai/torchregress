@@ -10,15 +10,15 @@ __version__ = "0.1.0"
 
 # Import main submodules
 from . import algorithms, ensemble, losses, metrics, utils, viz
+from .algorithms import iteratively_reweighted_least_squares
 
 # Export key components for easy access
 from .losses import (
-    DistributionLoss,
     BaseLoss,
+    DistributionLoss,
     RegressionLoss,
     create_loss_from_config,
 )
-from .algorithms import iteratively_reweighted_least_squares
 from .wrappers import wrap_pytorch_loss
 
 __all__ = [

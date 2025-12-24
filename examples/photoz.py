@@ -19,15 +19,14 @@ import torch.optim as optim
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset, random_split
 
+# Import torchregress losses and metrics
+from torchregress.losses import MSELoss
 from torchregress.losses.eiv import (
     BaseEIVLoss,
     EnsembleEIVLoss,
     FunctionalEIVLoss,
     OrthogonalDistanceRegressionLoss,
 )
-
-# Import torchregress losses and metrics
-from torchregress.losses import MSELoss
 from torchregress.metrics.calibration import bias
 from torchregress.metrics.point import mae, rmse
 
@@ -322,9 +321,11 @@ def train_model(model, train_loader, val_loader, loss_fn, optimizer, num_epochs=
         val_epoch_loss = val_running_loss / len(val_loader.dataset)
         val_losses.append(val_epoch_loss)
 
-        print(
-            f"Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f}, Val Loss: {val_epoch_loss:.4f}"
+        message = (
+            f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {epoch_loss:.4f}, "
+            f"Val Loss: {val_epoch_loss:.4f}"
         )
+        print(message)
 
         # Save the best model
         if val_epoch_loss < best_val_loss:

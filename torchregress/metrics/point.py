@@ -6,13 +6,9 @@ from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import torch
-from torchmetrics import Metric
 from torchmetrics import (
-    ExplainedVariance,
-    MeanAbsoluteError,
-    MeanAbsolutePercentageError,
     MeanSquaredError,
-    MeanSquaredLogError,
+    Metric,
     R2Score,
 )
 

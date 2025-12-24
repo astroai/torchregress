@@ -2,7 +2,7 @@
 Advanced ensemble methods for regression with uncertainty quantification.
 """
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple
 
 import torch
 import torch.nn as nn
@@ -45,9 +45,7 @@ class BayesianModelAveraging(nn.Module):
         """Get the current model weights (probabilities)."""
         return torch.softmax(self.model_weights, dim=0)
 
-    def predict_with_uncertainty(
-        self, x: Tensor
-    ) -> Tuple[Tensor, Tensor]:
+    def predict_with_uncertainty(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         """
         Get predictions with uncertainty estimates.
         """

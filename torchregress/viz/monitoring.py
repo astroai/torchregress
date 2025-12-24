@@ -152,9 +152,8 @@ def plot_learning_curves(
             # Handle NaN or Inf values
             val_valid_idx = np.isfinite(val_values)
             if not np.all(val_valid_idx):
-                print(
-                    f"Warning: {np.sum(~val_valid_idx)} non-finite values removed from validation {metric}"
-                )
+                removed = np.sum(~val_valid_idx)
+                print(f"Warning: {removed} non-finite values removed from validation {metric}")
                 val_values = val_values[val_valid_idx]
                 val_epochs = val_epochs[val_valid_idx]
 

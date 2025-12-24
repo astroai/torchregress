@@ -55,7 +55,10 @@ def run_sweep(
 
             train_loader = torch.utils.data.DataLoader(
                 torch.utils.data.TensorDataset(
-                    x_train, y_obs_train, torch.zeros_like(y_obs_train), torch.arange(x_train.shape[0])
+                    x_train,
+                    y_obs_train,
+                    torch.zeros_like(y_obs_train),
+                    torch.arange(x_train.shape[0]),
                 ),
                 batch_size=batch_size,
                 shuffle=True,
@@ -66,9 +69,7 @@ def run_sweep(
                 model, loss_fn, is_gaussian, needs_indices = method.build()
                 if hasattr(loss_fn, "model"):
                     model = loss_fn.model
-                train_model(
-                    model, loss_fn, train_loader, epochs, device, use_indices=needs_indices
-                )
+                train_model(model, loss_fn, train_loader, epochs, device, use_indices=needs_indices)
                 model.eval()
                 with torch.no_grad():
                     preds = predict(model.to(device), x_test.to(device), is_gaussian)

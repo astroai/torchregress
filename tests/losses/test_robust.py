@@ -1,5 +1,6 @@
 import pytest
 import torch
+from torch.autograd import gradcheck
 
 from torchregress.losses.base import WeightedHuberLoss as HuberLoss
 from torchregress.losses.base import WeightedL1Loss as L1Loss
@@ -135,9 +136,6 @@ class TestL1Loss:
 
 
 # ... Additional test classes for other robust losses ...
-
-import pytest
-from torch.autograd import gradcheck
 
 
 class TestRobustLossesNumericalStability:

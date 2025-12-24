@@ -6,6 +6,7 @@ including weighted losses, Gaussian-based losses, robust losses, and more.
 """
 
 from typing import Any, Dict
+
 import torch.nn as nn
 
 # Base classes and wrappers
@@ -28,14 +29,6 @@ from .base import (
     WeightedPoissonNLLLoss,
     WeightedSmoothL1Loss,
 )
-from .conformal import (
-    ConformalLoss,
-    MultiDimensionalConformalLoss,
-)
-
-
-# Evidential regression
-from .evidential import EvidentialRegressionLoss
 from .eiv import (
     BaseEIVLoss,
     EnsembleEIVLoss,
@@ -44,8 +37,16 @@ from .eiv import (
     StructuralEIVLoss,
 )
 
+# Evidential regression
+from .evidential import EvidentialRegressionLoss
+
 # Expectile losses
-from .expectile import AsymmetricLeastSquaresLoss, ExpectileLoss, MultiExpectileLoss, ExpectileCrossoverLoss
+from .expectile import (
+    AsymmetricLeastSquaresLoss,
+    ExpectileCrossoverLoss,
+    ExpectileLoss,
+    MultiExpectileLoss,
+)
 
 # Gaussian losses
 from .gaussian import (
@@ -59,6 +60,7 @@ from .gaussian import (
 
 # Imbalanced regression losses
 from .imbalanced import DensityWeightedLoss, LDSLoss
+from .loss_registry import get_regression_loss, list_regression_losses
 
 # Mixture Density Networks
 from .mdn import MixtureDensityLoss, create_mdn_loss
@@ -88,7 +90,7 @@ from .poisson_gaussian import (
 )
 
 # Quantile losses
-from .quantile import MultiQuantileLoss, QuantileLoss, QuantileCrossoverLoss
+from .quantile import MultiQuantileLoss, QuantileCrossoverLoss, QuantileLoss
 
 # Robust losses
 from .robust import (
@@ -118,7 +120,7 @@ from .transform import (
 
 # Tweedie losses
 from .tweedie import CompoundPoissonLoss, GammaLoss, InverseGaussianLoss, TweedieLoss
-from .loss_registry import get_regression_loss, list_regression_losses
+
 
 def create_loss_from_config(config: Dict[str, Any]) -> BaseLoss:
     """
@@ -184,8 +186,7 @@ def create_loss_from_config(config: Dict[str, Any]) -> BaseLoss:
     except KeyError:
         available_losses = list_regression_losses()
         raise ValueError(
-            f"Unknown loss type: '{loss_type}'. "
-            f"Available losses: {available_losses}"
+            f"Unknown loss type: '{loss_type}'. " f"Available losses: {available_losses}"
         )
 
 
@@ -232,7 +233,6 @@ __all__ = [
     "create_gaussian_nll",
     "low_rank_output_dim",
     "split_low_rank_gaussian_output",
-
     # Target transformations
     "LogTransformLoss",
     "BoxCoxTransformLoss",
@@ -253,9 +253,6 @@ __all__ = [
     # Family-based regression losses
     "SQRLoss",
     "BarronLoss",
-    "ConformalLoss",
-    "MultiDimensionalConformalLoss",
-
     # Poisson losses
     "PoissonDevianceLoss",
     "PoissonLikelihoodRatioLoss",

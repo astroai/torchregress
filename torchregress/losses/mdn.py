@@ -80,10 +80,12 @@ class MixtureDensityLoss(DistributionLoss):
 
         # Calculate expected output size for validation
         if self.covariance_type == "diagonal":
-            # n_components (mixture weights) + n_components * n_features (means) + n_components * n_features (stds)
+            # n_components (mixture weights) + n_components * n_features (means) +
+            # n_components * n_features (stds)
             self.expected_output_size = n_components + 2 * n_components * n_features
         else:  # 'full'
-            # n_components + n_components * n_features (means) + n_components * n_features * (n_features + 1) / 2 (covs)
+            # n_components + n_components * n_features (means) +
+            # n_components * n_features * (n_features + 1) / 2 (covs)
             # We use triangular parameterization for covariance matrices
             self.expected_output_size = (
                 n_components
@@ -106,7 +108,8 @@ class MixtureDensityLoss(DistributionLoss):
         # Validate output size
         if y_pred.shape[-1] != self.expected_output_size:
             raise ValueError(
-                f"Model output size {y_pred.shape[-1]} doesn't match expected size {self.expected_output_size}"
+                f"Model output size {y_pred.shape[-1]} doesn't match expected size "
+                f"{self.expected_output_size}"
             )
 
         batch_shape = y_pred.shape[:-1]

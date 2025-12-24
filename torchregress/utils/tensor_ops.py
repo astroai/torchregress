@@ -7,9 +7,8 @@ linear algebra operations.
 """
 
 import math
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
-import numpy as np
 import torch
 
 
@@ -84,11 +83,15 @@ def masked_reduction(
         else:
             raise ValueError(f"Unknown reduction: {reduction}")
 
-        return torch.where(mask, tensor, fill_value).max() if reduction == "max" else torch.where(mask, tensor, fill_value).min()
+        masked_tensor = torch.where(mask, tensor, fill_value)
+        return masked_tensor.max() if reduction == "max" else masked_tensor.min()
 
 
 def masked_mean(
-    tensor: torch.Tensor, mask: Optional[torch.Tensor], dim: Optional[Union[int, Tuple[int, ...]]] = None, keepdim: bool = False
+    tensor: torch.Tensor,
+    mask: Optional[torch.Tensor],
+    dim: Optional[Union[int, Tuple[int, ...]]] = None,
+    keepdim: bool = False,
 ) -> torch.Tensor:
     """
     Compute masked mean along specified dimension(s).
@@ -101,7 +104,10 @@ def masked_mean(
 
 
 def masked_sum(
-    tensor: torch.Tensor, mask: Optional[torch.Tensor], dim: Optional[Union[int, Tuple[int, ...]]] = None, keepdim: bool = False
+    tensor: torch.Tensor,
+    mask: Optional[torch.Tensor],
+    dim: Optional[Union[int, Tuple[int, ...]]] = None,
+    keepdim: bool = False,
 ) -> torch.Tensor:
     """
     Compute masked sum along specified dimension(s).
@@ -163,17 +169,26 @@ def prepare_covariance(
             return torch.eye(n_dims, device=device) * cov.item()
         if cov.ndim == 1:
             if cov.shape[0] != n_dims:
-                raise ValueError(f"Diagonal covariance shape {cov.shape} doesn't match required dimensions {n_dims}.")
+                raise ValueError(
+                    f"Diagonal covariance shape {cov.shape} doesn't match required dimensions "
+                    f"{n_dims}."
+                )
             return torch.diag(cov)
         if cov.ndim == 2:
             if cov.shape != (n_dims, n_dims):
-                raise ValueError(f"Covariance matrix shape {cov.shape} doesn't match required shape ({n_dims}, {n_dims}).")
+                raise ValueError(
+                    f"Covariance matrix shape {cov.shape} doesn't match required shape "
+                    f"({n_dims}, {n_dims})."
+                )
             if not torch.allclose(cov, cov.t()):
                 import warnings
+
                 warnings.warn("Covariance matrix is not symmetric. Using (cov + cov.T) / 2.")
                 cov = (cov + cov.t()) / 2
             return cov
-        raise ValueError(f"Covariance must be scalar, vector or matrix, got tensor with {cov.ndim} dimensions")
+        raise ValueError(
+            f"Covariance must be scalar, vector or matrix, got tensor with {cov.ndim} dimensions"
+        )
 
     raise TypeError(f"Covariance must be float or tensor, got {type(cov).__name__}")
 
@@ -191,7 +206,10 @@ def prepare_cross_covariance(
         cov_xy = cov_xy.to(device)
         if cov_xy.shape == (n_dims_y, n_dims_x):
             return cov_xy
-        raise ValueError(f"Cross-covariance shape {cov_xy.shape} doesn't match required shape ({n_dims_y}, {n_dims_x}).")
+        raise ValueError(
+            f"Cross-covariance shape {cov_xy.shape} doesn't match required shape "
+            f"({n_dims_y}, {n_dims_x})."
+        )
 
     raise TypeError(f"Cross-covariance must be a tensor, got {type(cov_xy).__name__}")
 
@@ -273,7 +291,9 @@ def calculate_gaussian_nll(
         nll = nll + 0.5 * residuals.shape[1] * math.log(2 * math.pi)
     else:
         # Full covariance case
-        mvn = torch.distributions.MultivariateNormal(torch.zeros_like(residuals), covariance_matrix=var)
+        mvn = torch.distributions.MultivariateNormal(
+            torch.zeros_like(residuals), covariance_matrix=var
+        )
         nll = -mvn.log_prob(residuals)
 
     return nll

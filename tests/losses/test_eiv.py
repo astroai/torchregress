@@ -4,6 +4,14 @@ import pytest
 import torch
 from torch.autograd import gradcheck
 
+
+class EIVLoss:
+    """Placeholder for removed EIVLoss; tests are skipped at import time."""
+
+    def __init__(self, *args, **kwargs):
+        raise RuntimeError("EIVLoss is not implemented; update tests to current API.")
+
+
 # NOTE: The EIVLoss class referenced in this test doesn't exist in the current implementation.
 # The eiv module has BaseEIVLoss, FunctionalEIVLoss, StructuralEIVLoss, etc. instead.
 # These tests need to be rewritten to match the actual implementation.

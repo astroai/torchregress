@@ -19,6 +19,7 @@ import torch.optim as optim
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset, random_split
 
+from torchregress.ensemble import BaseEnsembleModel, DeepEnsemble
 from torchregress.losses import (
     BaseEIVLoss,
     FunctionalEIVLoss,
@@ -27,20 +28,20 @@ from torchregress.losses import (
     create_loss_from_config,
 )
 from torchregress.metrics import (
-    MeanSquaredError,
-    MeanAbsoluteError,
-    R2Score,
-    MedianAbsoluteError,
-    NormalizedMedianAbsoluteDeviation,
     ContinuousRankedProbabilityScore,
     ExpectedCalibrationError,
+    MeanAbsoluteError,
+    MeanSquaredError,
+    MedianAbsoluteError,
+    NormalizedMedianAbsoluteDeviation,
+    R2Score,
 )
-from torchregress.ensemble import BaseEnsembleModel, DeepEnsemble
 from torchregress.utils import GaussianNoise
 
 # --- 1. Data Loading and Preparation ---
 
 DATA_DIR = os.path.join("data", "sdss")
+
 
 def download_sdss_data(force_download=False, sample_size=10000):
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -72,7 +73,11 @@ def download_sdss_data(force_download=False, sample_size=10000):
     """
     try:
         params = {"cmd": sql_query, "format": "csv"}
-        response = requests.post("https://skyserver.sdss.org/dr18/SkyServerWS/SearchTools/SqlSearch", data=params, timeout=120)
+        response = requests.post(
+            "https://skyserver.sdss.org/dr18/SkyServerWS/SearchTools/SqlSearch",
+            data=params,
+            timeout=120,
+        )
         response.raise_for_status()
         df = pd.read_csv(StringIO(response.text), comment="#")
         if len(df) == 0:
@@ -153,7 +158,14 @@ def create_simulated_sdss_data(n_galaxies=10000):
 
 
 class SDSSDataset(Dataset):
-    def __init__(self, data, feature_cols, error_cols, target_col="spec_z", target_error_col="spec_z_err"):
+    def __init__(
+        self,
+        data,
+        feature_cols,
+        error_cols,
+        target_col="spec_z",
+        target_error_col="spec_z_err",
+    ):
         self.data = data
         self.feature_cols = feature_cols
         self.error_cols = error_cols
@@ -180,6 +192,7 @@ class SDSSDataset(Dataset):
 
 # --- 2. Model Definitions ---
 
+
 class PhotoZMLP(nn.Module):
     def __init__(self, input_dim, output_dim=1):
         super().__init__()
@@ -201,7 +214,16 @@ class PhotoZMLP(nn.Module):
 
 # --- 3. Training and Evaluation ---
 
-def train_model(model, loss_fn, train_loader, epochs=50, lr=0.001, device="cpu", use_augmentation=False):
+
+def train_model(
+    model,
+    loss_fn,
+    train_loader,
+    epochs=50,
+    lr=0.001,
+    device="cpu",
+    use_augmentation=False,
+):
     optimizer = optim.Adam(model.parameters(), lr=lr)
     model.to(device)
     model.train()
@@ -221,6 +243,7 @@ def train_model(model, loss_fn, train_loader, epochs=50, lr=0.001, device="cpu",
             loss.backward()
             optimizer.step()
 
+
 def evaluate_model(model, loader, device="cpu"):
     model.eval()
     preds, targets = [], []
@@ -235,6 +258,7 @@ def evaluate_model(model, loader, device="cpu"):
 
 
 # --- 4. Main Execution ---
+
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -294,7 +318,7 @@ def main():
                 train_model(sub_model, loss_fn, train_loader, device=device)
         else:
             train_model(model, loss_fn, train_loader, device=device)
-        
+
         y_pred, y_true = evaluate_model(model, test_loader, device)
 
         # For distributional models, get samples
@@ -318,7 +342,10 @@ def main():
         if samples is not None:
             quantiles = {q: torch.quantile(samples, q, dim=0) for q in np.arange(0.1, 1.0, 0.1)}
             metrics["CRPS"] = ContinuousRankedProbabilityScore()(quantiles, y_true).item()
-            ece = ExpectedCalibrationError()({q: torch.quantile(samples, q, dim=0) for q in np.arange(0.05, 1.0, 0.05)}, y_true)
+            ece_quantiles = {
+                q: torch.quantile(samples, q, dim=0) for q in np.arange(0.05, 1.0, 0.05)
+            }
+            ece = ExpectedCalibrationError()(ece_quantiles, y_true)
             metrics["ECE"] = ece["mean_absolute_calibration_error"].item()
 
         results[name] = {"metrics": metrics, "model": model}
@@ -343,7 +370,7 @@ def main():
             y_pred = torch.chunk(y_pred, 2, dim=-1)[0]
 
         ax.scatter(y_true.cpu(), y_pred.cpu(), alpha=0.1)
-        ax.plot([0, 0.8], [0, 0.8], 'k--')
+        ax.plot([0, 0.8], [0, 0.8], "k--")
         ax.set_xlabel("Spectroscopic Redshift")
         ax.set_ylabel("Photometric Redshift")
         ax.set_title(f"{name} (NMAD: {result['metrics']['NMAD']:.3f})")
@@ -351,6 +378,7 @@ def main():
     plt.tight_layout()
     plt.savefig("photoz_loss_comparison.png")
     plt.show()
+
 
 if __name__ == "__main__":
     main()

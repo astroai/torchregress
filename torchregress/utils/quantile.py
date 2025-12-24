@@ -66,7 +66,8 @@ def multi_quantile_loss(
         weights = quantile_weights.to(y_pred.device).type_as(y_pred)
         if weights.numel() != q.shape[1]:
             raise ValueError(
-                f"quantile_weights length {weights.numel()} must match quantiles length {q.shape[1]}"
+                f"quantile_weights length {weights.numel()} must match quantiles length "
+                f"{q.shape[1]}"
             )
         weights = weights.view(1, -1, *[1] * (y_pred.dim() - 2))
         weight_sum = weights.sum().clamp(min=1e-12)

@@ -25,9 +25,7 @@ class MahalanobisDistance(Metric):
         super().__init__(**kwargs)
         self.add_state("distances", default=[], dist_reduce_fx="cat")
 
-    def update(
-        self, x: torch.Tensor, mean: torch.Tensor, cov: torch.Tensor
-    ) -> None:
+    def update(self, x: torch.Tensor, mean: torch.Tensor, cov: torch.Tensor) -> None:
         """Update state with predictions and targets."""
         x = ensure_batch_dim(convert_to_tensor(x))
         mean = convert_to_tensor(mean)
@@ -196,7 +194,8 @@ def mahalanobis_distance(
         eigenvalues, eigenvectors = torch.linalg.eigh(cov_t)
         eigenvalues = torch.clamp(eigenvalues, min=1e-6)
         diff = x_t - mean_t
-        scaled_diff = diff @ eigenvectors @ torch.diag(1.0 / torch.sqrt(eigenvalues)) @ eigenvectors.T
+        inv_sqrt = torch.diag(1.0 / torch.sqrt(eigenvalues))
+        scaled_diff = diff @ eigenvectors @ inv_sqrt @ eigenvectors.T
         md_squared = torch.sum(scaled_diff**2, dim=1)
         md = torch.sqrt(md_squared)
 
@@ -304,7 +303,9 @@ def kernel_density_score(
 
 
 def ood_metrics_report(
-    model_output: Optional[Union[Dict[str, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]] = None,
+    model_output: Optional[
+        Union[Dict[str, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]
+    ] = None,
     x_test: Optional[Union[torch.Tensor, np.ndarray]] = None,
     x_reference: Optional[Union[torch.Tensor, np.ndarray]] = None,
     mean: Optional[Union[torch.Tensor, np.ndarray]] = None,
@@ -320,9 +321,7 @@ def ood_metrics_report(
         results["typicality_score"] = typicality_score(model_output, x_test, reduction="mean")
 
     if mean is not None and cov is not None and x_test is not None:
-        results["mahalanobis_distance"] = mahalanobis_distance(
-            x_test, mean, cov, reduction="mean"
-        )
+        results["mahalanobis_distance"] = mahalanobis_distance(x_test, mean, cov, reduction="mean")
 
     if x_reference is not None and x_test is not None:
         results["kernel_density"] = kernel_density_score(x_test, x_reference, reduction="mean")

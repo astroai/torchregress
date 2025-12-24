@@ -358,7 +358,8 @@ class TestPoissonLosses(unittest.TestCase):
 
     def test_invalid_inputs(self):
         """Test error handling for invalid inputs."""
-        # Test negative theta for NegativeBinomialNLLLoss - gets clamped but may produce NaN with extreme values
+        # Test negative theta for NegativeBinomialNLLLoss - gets clamped but may produce
+        # NaN with extreme values
         nb_loss_fn = NegativeBinomialNLLLoss().to(self.device)
         # With very small theta (clamped from negative), loss may be NaN due to numerical issues
         # This is expected behavior - just check it doesn't crash
@@ -453,7 +454,7 @@ class TestPoissonLosses(unittest.TestCase):
         try:
             loss_with_nan_mask = dev_loss_fn(self.y_pred, self.y_true, nan_mask)
             self.assertFalse(torch.isnan(loss_with_nan_mask).any())
-        except:
+        except Exception:
             self.fail("Loss function failed with NaN in mask")
 
     def test_numerical_gradients(self):

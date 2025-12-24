@@ -6,6 +6,8 @@ from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
 import torch
+import torchmetrics  # noqa: F401
+from torchmetrics import Metric  # noqa: F401
 
 
 def convert_to_tensor(x: Union[torch.Tensor, np.ndarray, List, float, int]) -> torch.Tensor:
@@ -111,10 +113,6 @@ def validate_sample_weight(sample_weight: torch.Tensor, batch_size: int) -> torc
 
 
 # TorchMetrics compatibility and metric composition utilities
-import torchmetrics  # noqa: F401
-from torchmetrics import Metric  # noqa: F401
-
-
 def torchmetrics_available() -> bool:
     """Check if torchmetrics is installed."""
     return True
