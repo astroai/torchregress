@@ -106,7 +106,7 @@ with torch.no_grad():
     mse = tr.metrics.mse(y_pred_test, y_test)
     rmse = tr.metrics.rmse(y_pred_test, y_test)
     mae = tr.metrics.mae(y_pred_test, y_test)
-    r2 = tr.metrics.r2_score(y_pred_test, y_test)
+    r2 = tr.metrics.R2Score()(y_pred_test, y_test)
 
 print(f"\nTest Set Metrics:")
 print(f"MSE: {mse:.4f}")
@@ -184,11 +184,11 @@ class HeteroscedasticModel(nn.Module):
         features = self.shared(x)
         mean = self.mean_head(features)
         logvar = self.logvar_head(features)
-        return (mean, logvar)  # Return as tuple for HeteroscedasticGaussianLoss
+        return (mean, logvar)  # Return as tuple for GaussianNLLLoss
 
 # Create model and loss
 model = HeteroscedasticModel()
-loss_fn = tr.losses.HeteroscedasticGaussianLoss(learnable_variance=False)
+loss_fn = tr.losses.GaussianNLLLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 # Training
@@ -225,9 +225,9 @@ with torch.no_grad():
 
     # Calculate metrics
     rmse = tr.metrics.rmse(mean_pred, y_test)
-    nll = loss_fn(mean_pred, y_test, var_pred)
-    picp = tr.metrics.picp(y_test, lower, upper)
-    mpiw = tr.metrics.mpiw(lower, upper)
+    nll = loss_fn((mean_pred, torch.log(var_pred)), y_test)
+    picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test)
+    mpiw = torch.mean(upper - lower)
 
 print(f"\nTest Metrics:")
 print(f"RMSE: {rmse:.4f}")
@@ -465,10 +465,10 @@ with torch.no_grad():
     q95 = quantile_preds[:, 4:5]  # 95th percentile
 
     # Calculate interval metrics
-    picp_50 = tr.metrics.picp(y_test, q25, q75)
-    picp_90 = tr.metrics.picp(y_test, q05, q95)
-    mpiw_50 = tr.metrics.mpiw(q25, q75)
-    mpiw_90 = tr.metrics.mpiw(q05, q95)
+    picp_50 = tr.metrics.prediction_interval_coverage_probability(q25, q75, y_test)
+    picp_90 = tr.metrics.prediction_interval_coverage_probability(q05, q95, y_test)
+    mpiw_50 = torch.mean(q75 - q25)
+    mpiw_90 = torch.mean(q95 - q05)
 
 print(f"\nTest Metrics:")
 print(f"50% Interval Coverage: {picp_50:.4f} (should be ~0.50)")

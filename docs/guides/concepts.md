@@ -35,23 +35,25 @@ Example: "The house will cost $500,000 ± $50,000 (95% confident)"
 
 <center>
 
-| Type | What it means | Example | Can reduce? |
-|------|---------------|---------|-------------|
-| **Aleatoric** | Data noise | "This coin is weighted, so outcomes vary" | No |
-| **Epistemic** | Model uncertainty | "I haven't seen enough coin flips" | Yes (more data) |
+| Type | What it means | Physics Analogy | Can reduce? |
+|------|---------------|-----------------|-------------|
+| **Aleatoric** | Irreducible data noise | Detector resolution, photon shot noise, thermal noise | No |
+| **Epistemic** | Model/knowledge uncertainty | Systematic error, limited calibration data, extrapolation | Yes (more data) |
 
 </center>
+
+**For physicists:** Think of aleatoric uncertainty as the intrinsic measurement noise you cannot eliminate (like quantum shot noise in photon counting, or thermal Johnson noise in electronics). Epistemic uncertainty is like systematic error from an incomplete calibration curve—it can be reduced with more calibration data or a better model.
 
 **Real-world example:**
 
 ```python
-# Medical diagnosis
-# High aleatoric: Patient symptoms are ambiguous
-# High epistemic: Rare disease, model hasn't seen many cases
+# Astronomy: Photometric redshift estimation
+# High aleatoric: Photon noise in faint galaxies, CCD readout noise
+# High epistemic: Rare galaxy types not in training set, extrapolating beyond calibration range
 
-# Self-driving car
-# High aleatoric: Heavy rain obscures road markings
-# High epistemic: Never seen this road configuration
+# Particle physics: Energy measurement
+# High aleatoric: Shower fluctuations in calorimeter, electronic noise
+# High epistemic: Unknown systematic from detector aging, pile-up effects
 ```
 
 **Which uncertainty do you need?**
@@ -101,7 +103,7 @@ loss = WeightedMAELoss()  # or HuberLoss(delta=1.0)
 y = f(x) + ε,  where ε ~ N(0, σ²) and σ is constant
 ```
 
-Example: Measuring instrument with fixed precision
+Example: A well-calibrated thermometer with fixed resolution across its range.
 
 **Heteroscedastic:** Noise varies with input
 
@@ -109,7 +111,12 @@ Example: Measuring instrument with fixed precision
 y = f(x) + ε,  where ε ~ N(0, σ(x)²) and σ depends on x
 ```
 
-Example: Stock predictions (more uncertain far in future)
+**Physics examples of heteroscedasticity:**
+
+- **CCD imaging:** Photon noise (Poisson statistics) means σ ∝ √signal—bright regions have higher absolute noise
+- **Photometric redshift:** Faint, high-z galaxies have much larger uncertainties than bright, nearby ones
+- **Spectrometer:** Signal-to-noise ratio varies with wavelength depending on detector sensitivity and source spectrum
+- **Particle tracking:** Position uncertainty depends on track curvature and number of hits
 
 **How to handle:**
 
@@ -162,7 +169,8 @@ loss = QuantileLoss(quantiles=[0.025, 0.5, 0.975])  # 95% interval
 # → Directly predict lower, median, upper
 
 # Method 3: Conformal prediction (guaranteed coverage)
-from torchregress.losses.conformal import SplitConformalLoss
+from torchregress.losses import ConformalLoss
+loss = ConformalLoss(method='split', alpha=0.05)  # 95% coverage
 # → Calibrates any model to achieve exact coverage
 ```
 
@@ -246,7 +254,7 @@ See [Ensemble Methods Guide](../examples/ensemble_methods.md) for details.
 | Need prediction intervals | `QuantileLoss` | Directly predicts quantiles |
 | Multiple modes in data | `MDNLoss` | Models mixture of distributions |
 | Count data (non-negative integers) | `PoissonNLLLoss` | Proper likelihood for counts |
-| Guaranteed coverage | `SplitConformalLoss` | Calibrates for exact coverage |
+| Guaranteed coverage | `ConformalLoss(method='split')` | Calibrates for exact coverage |
 
 ### Uncertainty Methods Comparison
 
@@ -280,7 +288,7 @@ What's your main concern?
 │  └─ Distribution-free → QuantileLoss
 │
 ├─ Need guaranteed coverage?
-│  └─ Yes → Conformal Prediction (SplitConformalLoss, CQRLoss)
+│  └─ Yes → ConformalLoss(method='split') or ConformalLoss(method='cqr')
 │
 ├─ Special data types?
 │  ├─ Count data → PoissonNLLLoss or TweedieLoss
@@ -456,19 +464,20 @@ loss = loss_fn(y_pred, y, mask=mask)
 
 ## Glossary
 
-| Term | Definition |
-|------|------------|
-| **Aleatoric Uncertainty** | Uncertainty from data noise (irreducible) |
-| **Epistemic Uncertainty** | Uncertainty from model (reducible with data) |
-| **Heteroscedastic** | Noise varies across input space |
-| **Homoscedastic** | Noise is constant |
-| **Conformal Prediction** | Method providing guaranteed interval coverage |
-| **Quantile Regression** | Predicting specific quantiles of distribution |
-| **MDN** | Mixture Density Network (multimodal distributions) |
-| **NLL** | Negative Log-Likelihood |
-| **PICP** | Prediction Interval Coverage Probability |
-| **MPIW** | Mean Prediction Interval Width |
-| **OOD** | Out-of-Distribution (novel/unseen data) |
+| Term | Definition | Physics Analogy |
+|------|------------|-----------------|
+| **Aleatoric Uncertainty** | Irreducible noise in the data | Detector noise, shot noise, thermal fluctuations |
+| **Epistemic Uncertainty** | Model uncertainty, reducible with more data | Systematic error, incomplete calibration |
+| **Heteroscedastic** | Noise varies across input space | SNR varies with signal level (Poisson statistics) |
+| **Homoscedastic** | Noise is constant | Fixed detector resolution |
+| **Conformal Prediction** | Method providing guaranteed coverage | Distribution-free error bar calibration |
+| **Quantile Regression** | Predicting percentiles of distribution | Estimating confidence intervals directly |
+| **MDN** | Mixture Density Network for multimodal outputs | Modeling multi-peaked probability distributions |
+| **NLL** | Negative Log-Likelihood (minimize = maximize probability) | Like minimizing free energy in stat mech |
+| **CRPS** | Continuous Ranked Probability Score | Proper scoring rule for probabilistic forecasts |
+| **PICP** | Prediction Interval Coverage Probability | Fraction of truth values within error bars |
+| **MPIW** | Mean Prediction Interval Width | Average size of error bars |
+| **OOD** | Out-of-Distribution (unseen data) | Test points outside training calibration range |
 
 ## Questions?
 

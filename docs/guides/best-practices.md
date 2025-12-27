@@ -129,7 +129,7 @@ with torch.no_grad():
     test_pred = model(X_test)
     baseline_rmse = tr.metrics.rmse(test_pred, y_test)
     baseline_mae = tr.metrics.mae(test_pred, y_test)
-    baseline_r2 = tr.metrics.r2_score(test_pred, y_test)
+    baseline_r2 = tr.metrics.R2Score()(test_pred, y_test)
 
 print(f"\nBaseline Performance:")
 print(f"RMSE: {baseline_rmse:.4f}")
@@ -249,7 +249,7 @@ print(f"Std ratio (Q4/Q1): {std_ratio:.2f}")
 
 if std_ratio > 2.0 or std_ratio < 0.5:
     print("⚠️  Heteroscedasticity detected!")
-    print("  → Consider: HeteroscedasticGaussianLoss")
+    print("  → Consider: GaussianNLLLoss")
 
 # 3. Check for normality (for Gaussian assumptions)
 viz.plot_qq_plot(y_pred, y_test, title="QQ Plot")
@@ -294,7 +294,7 @@ Is your y_true continuous?
       ├─ YES
       │  └─ Is variance constant?
       │     ├─ YES → MSELoss or MAELoss
-      │     └─ NO → HeteroscedasticGaussianLoss
+      │     └─ NO → GaussianNLLLoss
       └─ NO
          └─ What's the issue?
             ├─ Outliers → HuberLoss or CauchyLoss
@@ -310,7 +310,7 @@ Is your y_true continuous?
 
 1. **Input/Output shapes match**
    ```python
-   # Example: HeteroscedasticGaussianLoss expects (mean, log_var)
+   # Example: GaussianNLLLoss expects (mean, log_var)
    mean, log_var = model(X_test)
    print(f"Mean shape: {mean.shape}")
    print(f"Log_var shape: {log_var.shape}")
@@ -356,7 +356,7 @@ Is your y_true continuous?
 
 | Scenario | Method | Provides |
 |----------|--------|----------|
-| Quick uncertainty | HeteroscedasticGaussianLoss | Aleatoric only |
+| Quick uncertainty | GaussianNLLLoss | Aleatoric only |
 | Distribution-free intervals | QuantileLoss | Prediction intervals |
 | Guaranteed coverage | ConformalLoss | Calibrated intervals |
 | Model uncertainty | DeepEnsemble | Epistemic only |
@@ -389,7 +389,7 @@ viz.plot_prediction_intervals(
 
 ```python
 # Check if 95% intervals actually contain 95% of data
-picp = tr.metrics.picp(y_test, lower, upper)
+picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test)
 print(f"Prediction Interval Coverage: {picp:.2%}")
 print(f"Target: 95%")
 
@@ -398,7 +398,7 @@ if abs(picp - 0.95) > 0.05:
     print("  → Use ConformalLoss for calibration")
 
 # Check interval widths
-mpiw = tr.metrics.mpiw(lower, upper)
+mpiw = torch.mean(upper - lower)
 print(f"Mean Interval Width: {mpiw:.4f}")
 print(f"y_true std: {y_test.std():.4f}")
 ```
@@ -428,7 +428,7 @@ viz.plot_reliability_diagram(
 mse = tr.metrics.mse(y_pred, y_true)
 rmse = tr.metrics.rmse(y_pred, y_true)
 mae = tr.metrics.mae(y_pred, y_true)
-r2 = tr.metrics.r2_score(y_pred, y_true)
+r2 = tr.metrics.R2Score()(y_pred, y_true)
 
 # Robust metrics (for outliers)
 median_ae = tr.metrics.median_absolute_error(y_pred, y_true)
@@ -444,7 +444,7 @@ nll = tr.metrics.gaussian_nll(mean, y_true, var)
 crps = tr.metrics.continuous_ranked_probability_score(samples, y_true)
 
 # Interval metrics
-picp = tr.metrics.picp(y_true, lower, upper)
+picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_true)
 interval_score = tr.metrics.interval_score(y_true, lower, upper, alpha=0.1)
 ```
 
@@ -474,7 +474,7 @@ def evaluate_with_cv(create_model_fn, X, y, n_splits=5):
         # Create fresh model
         model = create_model_fn()
         optimizer = torch.optim.Adam(model.parameters())
-        loss_fn = tr.losses.HeteroscedasticGaussianLoss()
+        loss_fn = tr.losses.GaussianNLLLoss()
 
         # Train
         for epoch in range(100):
@@ -494,11 +494,11 @@ def evaluate_with_cv(create_model_fn, X, y, n_splits=5):
 
             results['rmse'].append(tr.metrics.rmse(mean, y_val).item())
             results['mae'].append(tr.metrics.mae(mean, y_val).item())
-            results['r2'].append(tr.metrics.r2_score(mean, y_val).item())
+            results['r2'].append(tr.metrics.R2Score()(mean, y_val).item())
 
             lower = mean - 1.96 * std
             upper = mean + 1.96 * std
-            results['picp'].append(tr.metrics.picp(y_val, lower, upper).item())
+            results['picp'].append(tr.metrics.prediction_interval_coverage_probability(lower, upper, y_val).item())
 
     # Report results
     for metric, values in results.items():
@@ -564,7 +564,7 @@ lower = mean - 1.96 * std
 upper = mean + 1.96 * std
 
 # GOOD: Always verify coverage
-picp = tr.metrics.picp(y_test, lower, upper)
+picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test)
 print(f"Actual coverage: {picp:.2%} (target: 95%)")
 ```
 

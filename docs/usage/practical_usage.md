@@ -153,7 +153,7 @@ with torch.no_grad():
     # Point prediction metrics
     rmse = tr.metrics.rmse(mean, y_test)
     mae = tr.metrics.mae(mean, y_test)
-    r2 = tr.metrics.r2_score(mean, y_test)
+    r2 = tr.metrics.R2Score()(mean, y_test)
     
     # Distribution metrics
     nll = tr.metrics.gaussian_nll(mean, y_test, var)
@@ -162,8 +162,8 @@ with torch.no_grad():
     # Interval metrics (90% prediction intervals)
     lower = mean - 1.645 * std  # 5th percentile
     upper = mean + 1.645 * std  # 95th percentile
-    picp = tr.metrics.picp(y_test, lower, upper)
-    mpiw = tr.metrics.mpiw(lower, upper)
+    picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test)
+    mpiw = torch.mean(upper - lower)
 
 # Visualization
 tr.viz.plot_predictions(X_test, y_test, mean, lower, upper)

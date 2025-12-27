@@ -65,7 +65,7 @@ with torch.no_grad():
     y_pred = model(X_test)
     mse = tr.metrics.mse(y_pred, y_test)
     mae = tr.metrics.mae(y_pred, y_test)
-    r2 = tr.metrics.r2_score(y_pred, y_test)
+    r2 = tr.metrics.R2Score()(y_pred, y_test)
     
 print(f"MSE: {mse.item():.4f}")
 print(f"MAE: {mae.item():.4f}")
@@ -161,8 +161,8 @@ with torch.no_grad():
     upper = mean + 1.96 * std
     
     # Coverage metrics
-    picp = tr.metrics.picp(y_test, lower, upper)
-    mpiw = tr.metrics.mpiw(lower, upper)
+    picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test)
+    mpiw = torch.mean(upper - lower)
     
 print(f"MSE: {mse.item():.4f}")
 print(f"NLL: {nll.item():.4f}")

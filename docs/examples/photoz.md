@@ -1,15 +1,29 @@
 # Photometric Redshift Estimation
 
-This example demonstrates using torchregress for a real-world astronomy application: estimating galaxy redshifts from photometric observations.
+This example demonstrates using torchregress for a real-world astronomy application: estimating galaxy redshifts from photometric observations. It serves as a template for any physics problem where you need to handle **measurement errors in both inputs and outputs** (errors-in-variables regression).
 
 ## Background
 
-**Photometric redshift (photo-z)** estimation is a fundamental problem in astronomy where we predict the redshift (distance) of galaxies from broadband imaging data. This is a challenging regression problem because:
+**Photometric redshift (photo-z)** estimation is a fundamental problem in modern cosmology. Spectroscopic redshifts are the gold standard but require expensive telescope time. Photometric redshifts use broadband imaging (just a few flux measurements through filters) to estimate redshift—enabling surveys of billions of galaxies.
 
-- The relationship between colors and redshift is complex and non-linear
-- Measurement uncertainties vary significantly across observations
-- Some galaxies have ambiguous color-redshift mappings (multi-modal distributions)
-- Accurate uncertainty quantification is critical for cosmological analyses
+### Why This Is a Great ML Benchmark for Physicists
+
+This problem exhibits several features common in experimental physics:
+
+- **Heteroscedastic noise:** Faint galaxies have larger photometric errors (Poisson statistics)
+- **Errors-in-variables:** Both input features (colors) and sometimes calibration targets have measurement uncertainty
+- **Multi-modal posteriors:** A galaxy's colors can be consistent with multiple redshifts (degeneracies)
+- **Distribution shift:** Training on bright galaxies, predicting for faint ones
+- **Calibration matters:** Cosmological constraints depend critically on accurate uncertainty quantification
+
+### Connection to Uncertainty Types
+
+| Astronomy Term | ML Term | Example |
+|---------------|---------|---------|
+| Photometric noise | Aleatoric | Shot noise in CCD, varies with brightness |
+| Sparse training data | Epistemic | Rare galaxy types not well represented |
+| Color-redshift degeneracy | Multi-modality | Need MDN or normalizing flows |
+| Systematic calibration error | Epistemic | Can reduce with better calibration data |
 
 ## Problem Setup
 
@@ -192,7 +206,7 @@ class HeteroscedasticPhotoZModel(nn.Module):
 
 # Train heteroscedastic model
 hetero_model = HeteroscedasticPhotoZModel()
-hetero_loss = tr.losses.HeteroscedasticGaussianLoss(learnable_variance=False)
+hetero_loss = tr.losses.GaussianNLLLoss()
 optimizer = torch.optim.Adam(hetero_model.parameters(), lr=1e-3)
 
 for epoch in range(100):
@@ -228,8 +242,8 @@ with torch.no_grad():
     # Metrics
     rmse = tr.metrics.rmse(mean_pred, y_test).item()
     nll = gnll_loss(mean_pred, y_test, var_pred).item()
-    picp_68 = tr.metrics.picp(y_test, lower_68, upper_68).item()
-    picp_95 = tr.metrics.picp(y_test, lower_95, upper_95).item()
+    picp_68 = tr.metrics.prediction_interval_coverage_probability(lower_68, upper_68, y_test).item()
+    picp_95 = tr.metrics.prediction_interval_coverage_probability(lower_95, upper_95, y_test).item()
 
 print(f"\nHeteroscedastic Model Results:")
 print(f"RMSE: {rmse:.4f}")
@@ -250,7 +264,7 @@ class EnsemblePhotoZ:
         self.n_models = n_models
 
     def train(self, train_loader, n_epochs=100):
-        loss_fn = tr.losses.HeteroscedasticGaussianLoss(learnable_variance=False)
+        loss_fn = tr.losses.GaussianNLLLoss()
 
         for i, model in enumerate(self.models):
             print(f"\nTraining ensemble member {i+1}/{self.n_models}")
@@ -317,7 +331,7 @@ std_total = torch.sqrt(total)
 # Prediction intervals using total uncertainty
 lower = mean_ens - 1.96 * std_total
 upper = mean_ens + 1.96 * std_total
-picp = tr.metrics.picp(y_test, lower, upper).item()
+picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test).item()
 
 print(f"\nDeep Ensemble Results:")
 print(f"RMSE: {rmse_ens:.4f}")

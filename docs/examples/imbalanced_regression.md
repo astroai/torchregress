@@ -375,11 +375,11 @@ def main():
     # Let's retrain baseline with variance prediction
     print("\nRetraining models with variance prediction for calibration check...")
 
-    from torchregress.losses import HeteroscedasticGaussianLoss
+    from torchregress.losses import GaussianNLLLoss
 
     # Baseline with heteroscedastic loss
     model_baseline_het = HeteroscedasticRegressor()
-    loss_het = HeteroscedasticGaussianLoss(n_features=1, learnable_variance=False)
+    loss_het = GaussianNLLLoss()
     optimizer = optim.Adam(model_baseline_het.parameters(), lr=0.01)
 
     loader = DataLoader(

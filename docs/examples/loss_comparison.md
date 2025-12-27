@@ -67,7 +67,7 @@ for loss_name, loss_fn in losses_to_test.items():
             'pred': y_pred,
             'mse': tr.metrics.mse(y_pred, y_tensor).item(),
             'mae': tr.metrics.mae(y_pred, y_tensor).item(),
-            'r2': tr.metrics.r2_score(y_pred, y_tensor).item()
+            'r2': tr.metrics.R2Score()(y_pred, y_tensor).item()
         }
 
 # Print comparison
@@ -283,7 +283,7 @@ for epoch in range(200):
 
 # Train heteroscedastic
 hetero_model = HeteroscedasticModel()
-hetero_loss = tr.losses.HeteroscedasticGaussianLoss(learnable_variance=False)
+hetero_loss = tr.losses.GaussianNLLLoss()
 optimizer2 = torch.optim.Adam(hetero_model.parameters(), lr=1e-3)
 
 for epoch in range(200):
@@ -315,7 +315,7 @@ with torch.no_grad():
     # 95% prediction intervals
     lower = mean_hetero - 1.96 * std_hetero
     upper = mean_hetero + 1.96 * std_hetero
-    picp = tr.metrics.picp(y_test, lower, upper).item()
+    picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test).item()
 
 print("\nHeteroscedastic Data Comparison")
 print("=" * 50)
