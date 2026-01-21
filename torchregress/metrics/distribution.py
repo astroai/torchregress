@@ -46,12 +46,12 @@ class ContinuousRankedProbabilityScore(Metric):
         one_tensor = torch.tensor([1.0], device=quantile_tensor.device)
         weights = torch.diff(torch.cat([zero_tensor, quantile_tensor, one_tensor]))
 
-        crps_values = torch.zeros_like(y_true, device=y_true.device)
-        for i, q in enumerate(quantiles):
-            diff = y_true - forecast_tensor[i]
-            q_tensor = torch.tensor(q, device=diff.device)
-            quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
-            crps_values = crps_values + weights[i + 1] * quantile_loss
+        diff = y_true.unsqueeze(0) - forecast_tensor
+        view_shape = (-1,) + (1,) * y_true.ndim
+        q_tensor = quantile_tensor.view(*view_shape)
+        quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
+        weights_tensor = weights[1:].view(*view_shape)
+        crps_values = torch.sum(weights_tensor * quantile_loss, dim=0)
 
         self.crps_sum += torch.sum(crps_values)
         self.total += y_true.numel()
@@ -189,12 +189,12 @@ def continuous_ranked_probability_score(
     one_tensor = torch.tensor([1.0], device=quantile_tensor.device)
     weights = torch.diff(torch.cat([zero_tensor, quantile_tensor, one_tensor]))
 
-    crps_values = torch.zeros_like(y_true_t, device=y_true_t.device)
-    for i, q in enumerate(quantiles):
-        diff = y_true_t - forecast_tensor[i]
-        q_tensor = torch.tensor(q, device=diff.device)
-        quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
-        crps_values = crps_values + weights[i + 1] * quantile_loss
+    diff = y_true_t.unsqueeze(0) - forecast_tensor
+    view_shape = (-1,) + (1,) * y_true_t.ndim
+    q_tensor = quantile_tensor.view(*view_shape)
+    quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
+    weights_tensor = weights[1:].view(*view_shape)
+    crps_values = torch.sum(weights_tensor * quantile_loss, dim=0)
 
     if reduction == "none":
         return crps_values
