@@ -146,21 +146,19 @@ class DynamicEnsembleWeighting(nn.Module):
         if len(self.prediction_history) < 2:
             return
 
-        # Calculate recent errors for each model
-        recent_errors = []
-        for i in range(self.n_models):
-            model_errors = []
-            for pred_batch, target_batch in zip(self.prediction_history, self.target_history):
-                model_pred = pred_batch[:, i, :]  # [batch, features]
-                error = torch.mean((model_pred - target_batch) ** 2, dim=1)  # [batch]
-                model_errors.append(error)
+        # Vectorized error calculation
+        # [total_samples, n_models, features]
+        all_preds = torch.cat(self.prediction_history, dim=0)
+        # [total_samples, features]
+        all_targets = torch.cat(self.target_history, dim=0)
 
-            # Average error across batches
-            avg_error = torch.mean(torch.cat(model_errors))
-            recent_errors.append(avg_error)
-
-        # Convert to tensor
-        errors = torch.stack(recent_errors)  # [n_models]
+        # Calculate MSE for each model across all samples in history
+        # [total_samples, n_models, features] - [total_samples, 1, features]
+        diff = all_preds - all_targets.unsqueeze(1)
+        # Mean over features: [total_samples, n_models]
+        mse = torch.mean(diff**2, dim=2)
+        # Mean over samples: [n_models]
+        errors = torch.mean(mse, dim=0)
 
         # Update weights using gradient descent (lower error = higher weight)
         with torch.no_grad():
