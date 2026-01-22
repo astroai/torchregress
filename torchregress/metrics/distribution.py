@@ -103,16 +103,19 @@ class EnergyScore(Metric):
 
         term1 = torch.mean(norms, dim=1)
 
-        term2 = torch.zeros(batch_size, device=y_true.device)
-        n_pairs = 0
-        for i in range(n_samples):
-            sample_i = y_samples[i]
-            for j in range(i + 1, n_samples):
-                sample_j = y_samples[j]
-                term2 += torch.norm(sample_i - sample_j, dim=1) ** self.beta
-                n_pairs += 1
+        y_samples_p = y_samples.permute(1, 0, 2)
+        dists = torch.cdist(y_samples_p, y_samples_p, p=2)
 
-        term2 /= 2.0 * n_pairs
+        if self.beta != 1.0:
+            dists = torch.pow(dists, self.beta)
+
+        term2 = torch.sum(dists, dim=(1, 2))
+        n_pairs = n_samples * (n_samples - 1) // 2
+
+        if n_pairs > 0:
+            term2 = term2 / (4.0 * n_pairs)
+        else:
+            term2 = torch.zeros_like(term2)
 
         energy_scores = term1 - term2
         self.score_sum += torch.sum(energy_scores)
@@ -234,16 +237,19 @@ def energy_score(
 
     term1 = torch.mean(norms, dim=1)
 
-    term2 = torch.zeros(batch_size, device=y_true_t.device)
-    n_pairs = 0
-    for i in range(n_samples):
-        sample_i = y_samples_t[i]
-        for j in range(i + 1, n_samples):
-            sample_j = y_samples_t[j]
-            term2 += torch.norm(sample_i - sample_j, dim=-1) ** beta
-            n_pairs += 1
+    y_samples_p = y_samples_t.permute(1, 0, 2)
+    dists = torch.cdist(y_samples_p, y_samples_p, p=2)
 
-    term2 /= 2.0 * max(1, n_pairs)
+    if beta != 1.0:
+        dists = torch.pow(dists, beta)
+
+    term2 = torch.sum(dists, dim=(1, 2))
+    n_pairs = n_samples * (n_samples - 1) // 2
+
+    if n_pairs > 0:
+        term2 = term2 / (4.0 * n_pairs)
+    else:
+        term2 = torch.zeros_like(term2)
     scores = term1 - term2
 
     if reduction == "none":
