@@ -90,18 +90,16 @@ class EnergyScore(Metric):
             y_samples = y_samples[indices]
             n_samples = self.max_pairs
 
-        norms = torch.zeros(batch_size, n_samples, device=y_true.device)
-        for i in range(n_samples):
-            diff = y_samples[i] - y_true
-            if self.beta == 1.0:
-                norms[:, i] = torch.norm(diff, dim=1)
-            else:
-                norms[:, i] = torch.pow(
-                    torch.sum(torch.pow(torch.abs(diff), self.beta), dim=1),
-                    1 / self.beta,
-                )
+        diff = y_samples - y_true.unsqueeze(0)
 
-        term1 = torch.mean(norms, dim=1)
+        if self.beta == 1.0:
+            norms = torch.norm(diff, dim=-1)
+        else:
+            norms = torch.pow(
+                torch.sum(torch.pow(torch.abs(diff), self.beta), dim=-1), 1 / self.beta
+            )
+
+        term1 = torch.mean(norms, dim=0)
 
         y_samples_p = y_samples.permute(1, 0, 2)
         dists = torch.cdist(y_samples_p, y_samples_p, p=2)
@@ -220,22 +218,20 @@ def energy_score(
     y_samples_t = convert_to_tensor(y_samples)
 
     n_samples = y_samples_t.shape[0]
-    batch_size = y_true_t.shape[0]
 
     if max_pairs is not None and n_samples > max_pairs:
         indices = torch.randperm(n_samples)[:max_pairs]
         y_samples_t = y_samples_t[indices]
         n_samples = max_pairs
 
-    norms = torch.zeros(batch_size, n_samples, device=y_true_t.device)
-    for i in range(n_samples):
-        diff = y_samples_t[i] - y_true_t
-        if beta == 1.0:
-            norms[:, i] = torch.norm(diff, dim=-1)
-        else:
-            norms[:, i] = torch.pow(torch.sum(torch.pow(torch.abs(diff), beta), dim=-1), 1 / beta)
+    diff = y_samples_t - y_true_t.unsqueeze(0)
 
-    term1 = torch.mean(norms, dim=1)
+    if beta == 1.0:
+        norms = torch.norm(diff, dim=-1)
+    else:
+        norms = torch.pow(torch.sum(torch.pow(torch.abs(diff), beta), dim=-1), 1 / beta)
+
+    term1 = torch.mean(norms, dim=0)
 
     y_samples_p = y_samples_t.permute(1, 0, 2)
     dists = torch.cdist(y_samples_p, y_samples_p, p=2)
