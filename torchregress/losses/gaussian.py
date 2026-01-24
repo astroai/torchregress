@@ -94,13 +94,16 @@ class GaussianNLLLoss(DistributionLoss):
 
         if isinstance(y_pred, (tuple, list)):
             if len(y_pred) != 2:
-                raise ValueError("Tuple predictions must be (mean, log_variance)")
+                raise ValueError(
+                    "Tuple predictions must be (mean, log_variance), "
+                    f"but got {len(y_pred)} elements"
+                )
             mean, log_var = y_pred
         else:
             if y_pred.shape[-1] % 2 != 0:
                 raise ValueError(
-                    "Concatenated predictions must have even last dimension "
-                    "([mean, log_variance])."
+                    f"Concatenated predictions must have even last dimension "
+                    f"([mean, log_variance]), but got dimension {y_pred.shape[-1]}."
                 )
             mean, log_var = torch.chunk(y_pred, 2, dim=-1)
         var = torch.exp(log_var).clamp(min=self.min_variance)
