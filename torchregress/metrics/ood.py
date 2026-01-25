@@ -119,17 +119,9 @@ class EntropyScore(Metric):
     def update(self, samples: torch.Tensor) -> None:
         """Update state with predictions and targets."""
         samples = convert_to_tensor(samples)
-        n_samples, batch_size, output_dim = samples.shape
 
-        entropies = torch.zeros(batch_size, output_dim, device=samples.device)
-
-        for i in range(batch_size):
-            for j in range(output_dim):
-                inst_samples = samples[:, i, j]
-                counts, _ = torch.histogram(inst_samples, bins=self.n_bins)
-                probs = counts / n_samples
-                probs = probs[probs > 0]
-                entropies[i, j] = -torch.sum(probs * torch.log(probs))
+        # Vectorized calculation
+        entropies = _batched_entropy(samples, self.n_bins)
 
         total_entropy = torch.sum(entropies, dim=1)
         self.entropies.append(total_entropy)
@@ -256,16 +248,9 @@ def entropy_score(
     Functional entropy score from predictive samples.
     """
     samples_t = convert_to_tensor(samples)
-    n_samples, batch_size, output_dim = samples_t.shape
 
-    entropies = torch.zeros(batch_size, output_dim, device=samples_t.device)
-    for i in range(batch_size):
-        for j in range(output_dim):
-            inst_samples = samples_t[:, i, j]
-            counts, _ = torch.histogram(inst_samples, bins=n_bins)
-            probs = counts / n_samples
-            probs = probs[probs > 0]
-            entropies[i, j] = -torch.sum(probs * torch.log(probs))
+    # Vectorized calculation
+    entropies = _batched_entropy(samples_t, n_bins)
 
     total_entropy = torch.sum(entropies, dim=1)
 
@@ -274,6 +259,55 @@ def entropy_score(
     if reduction == "sum":
         return torch.sum(total_entropy)
     return total_entropy
+
+
+def _batched_entropy(samples: torch.Tensor, n_bins: int) -> torch.Tensor:
+    """
+    Compute entropy for batched samples using vectorized histogram.
+
+    Args:
+        samples: Tensor of shape [n_samples, batch_size, output_dim]
+        n_bins: Number of bins for histogram
+
+    Returns:
+        Tensor of shape [batch_size, output_dim]
+    """
+    n_samples, batch_size, output_dim = samples.shape
+
+    # 1. Compute min/max per distribution
+    min_vals = samples.min(dim=0, keepdim=True).values
+    max_vals = samples.max(dim=0, keepdim=True).values
+    ranges = max_vals - min_vals
+
+    # Handle zero range (all samples equal) -> entropy is 0
+    # Set range to 1 to avoid division by zero
+    ranges = torch.where(ranges == 0, torch.ones_like(ranges), ranges)
+
+    # 2. Normalize to [0, 1)
+    norm_samples = (samples - min_vals) / ranges
+    # Clamp to handle numerical instability or max value being exactly at edge
+    norm_samples = torch.clamp(norm_samples, 0.0, 0.999999)
+
+    # 3. Bin indices
+    bin_idx = (norm_samples * n_bins).long()  # [n_samples, batch_size, output_dim]
+
+    # 4. Count bins
+    # Shape: [n_samples, batch_size, output_dim, n_bins]
+    one_hot = torch.nn.functional.one_hot(bin_idx, n_bins).float()
+    counts = one_hot.sum(dim=0)  # [batch_size, output_dim, n_bins]
+
+    # 5. Compute probs and entropy
+    probs = counts / n_samples
+
+    # Calculate -sum(p * log(p))
+    # Handle p=0 case where p*log(p) should be 0
+    # We use a mask for positive probabilities
+    positive_probs = probs > 0
+    entropy_per_bin = torch.zeros_like(probs)
+    entropy_per_bin[positive_probs] = probs[positive_probs] * torch.log(probs[positive_probs])
+
+    entropies = -torch.sum(entropy_per_bin, dim=-1)  # [batch_size, output_dim]
+    return entropies
 
 
 def kernel_density_score(
