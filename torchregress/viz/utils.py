@@ -120,9 +120,9 @@ def create_grid_figure(
 
 def add_identity_line(
     ax: plt.Axes,
-    color: str = "k",
+    color: str = "gray",
     linestyle: str = "--",
-    alpha: float = 0.7,
+    alpha: float = 0.5,
     label: Optional[str] = None,
 ) -> None:
     """

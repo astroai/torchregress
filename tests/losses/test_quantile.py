@@ -97,7 +97,7 @@ class TestQuantileLoss:
         loss = loss_fn(y_pred, y_true)
 
         assert torch.is_tensor(loss)
-        assert loss.ndim == 0 # Scalar because default reduction is mean
+        assert loss.ndim == 0  # Scalar because default reduction is mean
         assert torch.isfinite(loss)
 
     @pytest.mark.parametrize("quantile", [0.1, 0.5, 0.9])

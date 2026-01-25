@@ -12,7 +12,6 @@ These losses support:
 from typing import Any, List, Optional, Union, cast
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 from ..utils.quantile import multi_quantile_loss, quantile_loss
@@ -315,9 +314,7 @@ class QuantileCrossoverLoss(RegressionLoss):
 
         # Calculate standard quantile losses using vectorized utility
         # multi_quantile_loss returns [batch_size, n_features] (mean over quantiles)
-        base_loss = multi_quantile_loss(
-            y_pred, target, self.quantiles, quantile_weights=None
-        )
+        base_loss = multi_quantile_loss(y_pred, target, self.quantiles, quantile_weights=None)
 
         # Calculate crossover penalties vectorized
         # violations: [batch_size, num_quantiles - 1, n_features]

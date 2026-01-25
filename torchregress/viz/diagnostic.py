@@ -78,7 +78,7 @@ def plot_reliability_diagram(
 
     # Show diagonal line for perfect calibration
     if show_diagonal:
-        add_identity_line(ax, color="k", linestyle="--", label="Perfect calibration")
+        add_identity_line(ax, label="Perfect calibration")
 
     ax.set_xlabel("Expected proportion")
     ax.set_ylabel("Observed proportion")
@@ -194,7 +194,7 @@ def plot_residuals(
 
     # Add horizontal line at y=0 for reference
     if show_zero_line:
-        ax.axhline(y=0, color="black", linestyle="-", alpha=0.5)
+        ax.axhline(y=0, color="gray", linestyle="-", alpha=0.5)
 
     # Add trend line using polynomial fit
     if show_trend and len(y_pred) > 1:
@@ -393,7 +393,7 @@ def plot_qq_plot(
     ax.scatter(theoretical_quantiles, std_residuals, color=color, alpha=0.6)
 
     # Add identity line
-    add_identity_line(ax, color="red", linestyle="--", label="Normal")
+    add_identity_line(ax, label="Normal")
 
     # Add labels and title
     ax.set_xlabel(xlabel)
@@ -804,9 +804,9 @@ def plot_calibration_curve(
     binids = np.digitize(y_pred_probs, bins) - 1
 
     # Calculate mean predicted probability and observed frequency in each bin
-    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=len(bins))
-    bin_true = np.bincount(binids, weights=y_true, minlength=len(bins))
-    bin_counts = np.bincount(binids, minlength=len(bins))
+    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=n_bins)
+    bin_true = np.bincount(binids, weights=y_true, minlength=n_bins)
+    bin_counts = np.bincount(binids, minlength=n_bins)
 
     # Avoid division by zero
     nonzero = bin_counts > 0
@@ -827,7 +827,7 @@ def plot_calibration_curve(
     ax.plot(prob_pred, prob_true, marker="o", linewidth=2, color=color, label="Calibration Curve")
 
     # Add diagonal reference line
-    add_identity_line(ax, color="gray", linestyle="--", label="Perfectly Calibrated")
+    add_identity_line(ax, label="Perfectly Calibrated")
 
     # Calculate calibration metrics
     calibration_error = np.mean(np.abs(prob_true - prob_pred))
