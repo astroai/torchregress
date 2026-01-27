@@ -202,40 +202,37 @@ class MultiExpectileLoss(RegressionLoss):
                     f"of {self.num_expectiles} tensors"
                 )
 
-        # Calculate loss for each expectile level
-        losses = []
-        for i, expectile in enumerate(self.expectiles):
-            # Extract predictions for this expectile
-            level_preds = expectile_preds[:, i]
+        # Calculate residuals for all expectiles simultaneously
+        # target: [batch_size, n_features] -> [batch_size, 1, n_features]
+        # expectile_preds: [batch_size, num_expectiles, n_features]
+        residuals = target.unsqueeze(1) - expectile_preds
 
-            # Calculate residuals
-            residuals = target - level_preds
+        # Reshape expectiles for broadcasting: [num_expectiles] -> [1, num_expectiles, 1]
+        expectiles_reshaped = self.expectiles.view(1, -1, 1)
 
-            # Calculate asymmetric squared error
-            # Use factor of 2 for consistency with ExpectileLoss
-            indicator = (residuals >= 0).float()
-            level_loss = (
-                2 * residuals**2 * (expectile * indicator + (1 - expectile) * (1 - indicator))
-            )
+        # Calculate asymmetric squared error
+        # Use factor of 2 for consistency with ExpectileLoss
+        # weight = expectile if residual >= 0 else (1 - expectile)
+        weight = torch.where(residuals >= 0, expectiles_reshaped, 1 - expectiles_reshaped)
 
-            # Apply mask if provided
-            if mask is not None:
-                level_loss = level_loss * mask
+        # Calculate loss
+        stacked_losses = 2 * residuals**2 * weight
 
-            # Apply sample weights if provided
-            if weights is not None:
-                level_loss = level_loss * weights
+        # Apply mask if provided
+        if mask is not None:
+            # mask: [batch_size, n_features] -> [batch_size, 1, n_features]
+            stacked_losses = stacked_losses * mask.unsqueeze(1)
 
-            # Reduce across features
-            if n_features > 1:
-                level_loss = torch.mean(level_loss, dim=1)
-            else:
-                level_loss = level_loss.squeeze(1)
+        # Apply sample weights if provided
+        if weights is not None:
+            # weights: [batch_size, n_features] -> [batch_size, 1, n_features]
+            stacked_losses = stacked_losses * weights.unsqueeze(1)
 
-            losses.append(level_loss)
-
-        # Stack losses for all expectile levels [batch_size, num_expectiles]
-        stacked_losses = torch.stack(losses, dim=1)
+        # Reduce across features
+        if n_features > 1:
+            stacked_losses = torch.mean(stacked_losses, dim=2)
+        else:
+            stacked_losses = stacked_losses.squeeze(2)
 
         # Average across expectile levels for each sample
         combined_loss = torch.mean(stacked_losses, dim=1)
