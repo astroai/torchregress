@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 from torchregress.metrics.calibration import expected_calibration_error
 from torchregress.metrics.utils import convert_to_tensor, validate_inputs
-from torchregress.viz.utils import add_identity_line
+from torchregress.viz.utils import add_annotations, add_identity_line, add_zero_line
 
 
 def plot_reliability_diagram(
@@ -194,7 +194,7 @@ def plot_residuals(
 
     # Add horizontal line at y=0 for reference
     if show_zero_line:
-        ax.axhline(y=0, color="gray", linestyle="-", alpha=0.5)
+        add_zero_line(ax, axis="y")
 
     # Add trend line using polynomial fit
     if show_trend and len(y_pred) > 1:
@@ -486,21 +486,16 @@ def plot_residual_histogram(
             pass  # Skip KDE if scipy not available
 
     # Add vertical line at zero
-    ax.axvline(x=0, color="black", linestyle="-", alpha=0.5)
+    add_zero_line(ax, axis="x")
 
     # Add statistics as text box
     mean = np.mean(residuals)
     std = np.std(residuals)
-    stats_text = f"Mean: {mean:.4f}\nStd: {std:.4f}"
-    ax.text(
-        0.95,
-        0.95,
-        stats_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "Mean": mean,
+        "Std": std,
+    }
+    add_annotations(ax, annotations, loc="upper right")
 
     # Add labels and title
     ax.set_xlabel(xlabel)
@@ -691,21 +686,14 @@ def plot_distribution_comparison(
             error = mean_pred - true_value
             in_ci = lower_ci <= true_value <= upper_ci
             ci_text = "in CI" if in_ci else "outside CI"
-            metrics_text = (
-                f"Mean: {mean_pred:.2f}\n"
-                f"Median: {median_pred:.2f}\n"
-                f"Error: {error:.2f}\n"
-                f"True: {true_value:.2f} ({ci_text})"
-            )
-            ax.text(
-                0.05,
-                0.95,
-                metrics_text,
-                transform=ax.transAxes,
-                verticalalignment="top",
-                horizontalalignment="left",
-                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-            )
+
+            annotations = {
+                "Mean": f"{mean_pred:.2f}",
+                "Median": f"{median_pred:.2f}",
+                "Error": f"{error:.2f}",
+                "True": f"{true_value:.2f} ({ci_text})",
+            }
+            add_annotations(ax, annotations, loc="upper left")
 
         # Add labels and legend
         ax.set_xlabel(xlabel)
@@ -865,21 +853,12 @@ def plot_calibration_curve(
     ax.set_xlim(0, 1.0)
 
     # Add text box with calibration metrics
-    metrics_text = (
-        f"Mean Calibration Error: {calibration_error:.4f}\n"
-        f"RMSCE: {rmsce:.4f}\n"
-        f"Max Calibration Error: {max_calib_error:.4f}"
-    )
-
-    ax.text(
-        0.05,
-        0.95,
-        metrics_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="left",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "Mean Calibration Error": calibration_error,
+        "RMSCE": rmsce,
+        "Max Calibration Error": max_calib_error,
+    }
+    add_annotations(ax, annotations, loc="upper left")
 
     # Add labels and title
     ax.set_xlabel(xlabel)
