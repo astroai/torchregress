@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.utils import convert_to_tensor
 
 
 class ContinuousRankedProbabilityScore(Metric):
@@ -33,13 +33,35 @@ class ContinuousRankedProbabilityScore(Metric):
         if len(quantiles) < 2:
             raise ValueError("At least 2 quantile levels are required for CRPS calculation")
 
-        forecasts = []
-        for q in quantiles:
-            q_pred = convert_to_tensor(y_pred_quantiles[q])
-            validate_inputs(q_pred, y_true)
-            forecasts.append(q_pred)
+        # Vectorized validation
+        if torch.isnan(y_true).any() or torch.isinf(y_true).any():
+            raise ValueError("y_true contains NaN or infinite values")
 
+        forecasts = [convert_to_tensor(y_pred_quantiles[q]) for q in quantiles]
         forecast_tensor = torch.stack(forecasts)
+
+        if torch.isnan(forecast_tensor).any() or torch.isinf(forecast_tensor).any():
+            raise ValueError("y_pred contains NaN or infinite values")
+
+        # Check shapes using first quantile
+        y_pred_sample = forecasts[0]
+        if y_pred_sample.dim() == 0 or y_true.dim() == 0:
+            raise ValueError("Inputs cannot be scalars, must have at least one dimension")
+
+        if y_pred_sample.shape[0] != y_true.shape[0]:
+            raise ValueError(
+                f"y_pred and y_true must have same batch size. "
+                f"Got y_pred: {y_pred_sample.shape}, y_true: {y_true.shape}"
+            )
+
+        if y_pred_sample.shape != y_true.shape:
+            try:
+                _ = y_pred_sample + y_true
+            except RuntimeError:
+                raise ValueError(
+                    f"y_pred shape {y_pred_sample.shape} and y_true shape {y_true.shape} "
+                    "are not compatible"
+                )
         quantile_tensor = torch.tensor(quantiles, device=forecast_tensor.device)
 
         zero_tensor = torch.tensor([0.0], device=quantile_tensor.device)
@@ -177,13 +199,35 @@ def continuous_ranked_probability_score(
     if len(quantiles) < 2:
         raise ValueError("At least 2 quantile levels are required for CRPS calculation")
 
-    forecasts = []
-    for q in quantiles:
-        q_pred = convert_to_tensor(y_pred_quantiles[q])
-        validate_inputs(q_pred, y_true_t)
-        forecasts.append(q_pred)
+    # Vectorized validation
+    if torch.isnan(y_true_t).any() or torch.isinf(y_true_t).any():
+        raise ValueError("y_true contains NaN or infinite values")
 
+    forecasts = [convert_to_tensor(y_pred_quantiles[q]) for q in quantiles]
     forecast_tensor = torch.stack(forecasts)
+
+    if torch.isnan(forecast_tensor).any() or torch.isinf(forecast_tensor).any():
+        raise ValueError("y_pred contains NaN or infinite values")
+
+    # Check shapes using first quantile
+    y_pred_sample = forecasts[0]
+    if y_pred_sample.dim() == 0 or y_true_t.dim() == 0:
+        raise ValueError("Inputs cannot be scalars, must have at least one dimension")
+
+    if y_pred_sample.shape[0] != y_true_t.shape[0]:
+        raise ValueError(
+            f"y_pred and y_true must have same batch size. "
+            f"Got y_pred: {y_pred_sample.shape}, y_true: {y_true_t.shape}"
+        )
+
+    if y_pred_sample.shape != y_true_t.shape:
+        try:
+            _ = y_pred_sample + y_true_t
+        except RuntimeError:
+            raise ValueError(
+                f"y_pred shape {y_pred_sample.shape} and y_true shape {y_true_t.shape} "
+                "are not compatible"
+            )
     quantile_tensor = torch.tensor(quantiles, device=forecast_tensor.device)
 
     zero_tensor = torch.tensor([0.0], device=quantile_tensor.device)
