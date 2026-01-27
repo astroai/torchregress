@@ -641,6 +641,9 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
         # Optimize latent true x values
         prev_loss = float("inf")
+        # Check convergence less frequently to avoid GPU-CPU sync overhead
+        check_interval = 5
+
         with torch.enable_grad():
             for iteration in range(self.max_iterations):
                 optimizer.zero_grad()
@@ -668,11 +671,12 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
                 odr_objective.backward()
                 optimizer.step()
 
-                # Check for convergence
-                if abs(prev_loss - odr_objective.item()) < self.tolerance:
-                    break
-
-                prev_loss = odr_objective.item()
+                # Check for convergence periodically
+                if (iteration + 1) % check_interval == 0:
+                    current_loss = odr_objective.item()
+                    if abs(prev_loss - current_loss) < self.tolerance:
+                        break
+                    prev_loss = current_loss
 
         # Final forward pass with optimized latent x (detached to avoid gradient tracking)
         x_latent_final = x_latent.detach()
