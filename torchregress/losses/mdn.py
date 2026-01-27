@@ -151,26 +151,22 @@ class MixtureDensityLoss(DistributionLoss):
             )
 
             # Create full batch of lower triangular matrices
-            L_matrices = []
-            for c in range(self.n_components):
-                # Start with zeros for each component
-                L = torch.zeros(
-                    *batch_shape, self.n_features, self.n_features, device=y_pred.device
-                )
+            L_matrices = torch.zeros(
+                *batch_shape,
+                self.n_components,
+                self.n_features,
+                self.n_features,
+                device=y_pred.device,
+            )
 
-                # Fill lower triangular part
-                L[..., tril_indices[0], tril_indices[1]] = tril_values[..., c, :]
+            # Fill lower triangular part
+            L_matrices[..., tril_indices[0], tril_indices[1]] = tril_values
 
-                # Ensure positive diagonal (for valid Cholesky decomposition)
-                diag_indices = torch.arange(self.n_features)
-                L[..., diag_indices, diag_indices] = (
-                    F.softplus(L[..., diag_indices, diag_indices]) + self.min_std
-                )
-
-                L_matrices.append(L)
-
-            # Stack along component dimension
-            L_matrices = torch.stack(L_matrices, dim=-3)
+            # Ensure positive diagonal (for valid Cholesky decomposition)
+            diag_indices = torch.arange(self.n_features, device=y_pred.device)
+            L_matrices[..., diag_indices, diag_indices] = (
+                F.softplus(L_matrices[..., diag_indices, diag_indices]) + self.min_std
+            )
 
             return mixture_weights, means, L_matrices
 
