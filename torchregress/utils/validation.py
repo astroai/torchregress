@@ -19,7 +19,8 @@ def validate_reduction(reduction: str, valid_reductions: Optional[list] = None) 
 
     Args:
         reduction: Reduction method to validate
-        valid_reductions: List of valid reductions (defaults to ['none', 'mean', 'sum'])
+        valid_reductions: List of valid reductions (defaults to
+            ['none', 'mean', 'sum', 'min', 'max'])
 
     Returns:
         Reduction method if valid
@@ -35,10 +36,10 @@ def validate_reduction(reduction: str, valid_reductions: Optional[list] = None) 
         >>> validate_reduction('unknown')
         Traceback (most recent call last):
             ...
-        ValueError: reduction must be one of ['none', 'mean', 'sum'], got unknown
+        ValueError: reduction must be one of ['none', 'mean', 'sum', 'min', 'max'], got unknown
     """
     if valid_reductions is None:
-        valid_reductions = ["none", "mean", "sum"]
+        valid_reductions = ["none", "mean", "sum", "min", "max"]
 
     if reduction not in valid_reductions:
         raise ValueError(f"reduction must be one of {valid_reductions}, got {reduction}")
