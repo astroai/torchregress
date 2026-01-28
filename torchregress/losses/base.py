@@ -31,7 +31,7 @@ class BaseLoss(nn.Module):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
+            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
 
     Example:
         >>> class MyLoss(BaseLoss):
@@ -162,7 +162,7 @@ class RegressionLoss(BaseLoss):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
+            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
 
     Example:
         >>> class L1Loss(RegressionLoss):
@@ -212,7 +212,7 @@ class DistributionLoss(BaseLoss):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
+            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
 
     Example:
         >>> class GaussianNLL(DistributionLoss):
