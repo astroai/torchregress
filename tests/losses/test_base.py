@@ -6,7 +6,10 @@ from torchregress.losses.base import (
     BaseLoss,
     DistributionLoss,
     RegressionLoss,
+    WeightedCrossEntropyLoss,
+    WeightedGaussianNLLLoss,
     WeightedLossWrapper,
+    WeightedNLLLoss,
 )
 
 
@@ -297,6 +300,66 @@ class TestWeightedLossWrapper:
         # = (0.5*1 + 0 + 1.5*1) / 2.0 = 2.0/2.0 = 1.0
         result = loss(y_pred, target, weights=weights)
         assert torch.isclose(result, torch.tensor(1.0))
+
+
+class TestWeightedClassificationLosses:
+    def test_weighted_cross_entropy(self):
+        loss = WeightedCrossEntropyLoss(reduction="mean")
+        logits = torch.tensor([[2.0, 0.5], [0.1, 1.5], [1.0, 0.2]])
+        target = torch.tensor([0, 1, 0])
+        weights = torch.tensor([1.0, 0.5, 2.0])
+
+        torch_loss = nn.CrossEntropyLoss(reduction="none")
+        expected_values = torch_loss(logits, target)
+        expected = torch.sum(expected_values * weights) / torch.sum(weights)
+
+        result = loss(logits, target, weights=weights)
+        assert torch.isclose(result, expected)
+
+    def test_weighted_nll_with_mask(self):
+        loss = WeightedNLLLoss(reduction="mean")
+        logits = torch.tensor([[2.0, 0.5], [0.1, 1.5], [1.0, 0.2]])
+        log_probs = torch.log_softmax(logits, dim=1)
+        target = torch.tensor([0, 1, 0])
+        mask = torch.tensor([True, False, True])
+
+        torch_loss = nn.NLLLoss(reduction="none")
+        expected_values = torch_loss(log_probs, target)
+        expected = torch.mean(expected_values[mask])
+
+        result = loss(log_probs, target, mask=mask)
+        assert torch.isclose(result, expected)
+
+
+class TestWeightedGaussianNLLLoss:
+    def test_mean_and_variance(self):
+        loss = WeightedGaussianNLLLoss(reduction="mean", log_variance=False)
+        mean = torch.tensor([0.0, 1.0, 2.0])
+        variance = torch.tensor([1.0, 0.5, 2.0])
+        target = torch.tensor([0.5, 1.5, 1.0])
+        weights = torch.tensor([1.0, 0.0, 2.0])
+
+        torch_loss = nn.GaussianNLLLoss(reduction="none")
+        expected_values = torch_loss(mean, target, variance)
+        expected = torch.sum(expected_values * weights) / torch.sum(weights)
+
+        result = loss((mean, variance), target, weights=weights)
+        assert torch.isclose(result, expected)
+
+    def test_mean_and_log_variance(self):
+        loss = WeightedGaussianNLLLoss(reduction="mean", log_variance=True)
+        mean = torch.tensor([0.0, 1.0, 2.0])
+        log_variance = torch.log(torch.tensor([1.0, 0.5, 2.0]))
+        target = torch.tensor([0.5, 1.5, 1.0])
+        mask = torch.tensor([True, False, True])
+
+        torch_loss = nn.GaussianNLLLoss(reduction="none")
+        variance = torch.exp(log_variance)
+        expected_values = torch_loss(mean, target, variance)
+        expected = torch.mean(expected_values[mask])
+
+        result = loss((mean, log_variance), target, mask=mask)
+        assert torch.isclose(result, expected)
 
 
 # Tests for edge cases and numerical stability
