@@ -5,3 +5,7 @@
 ## 2024-05-24 - Invisible UX & Documentation Integrity
 **Learning:** UX isn't just what users see; it's also about security (removing polyfill.io) and trust (accurate documentation). Broken docs or insecure scripts erode user confidence even if the UI looks "nice".
 **Action:** Always verify that documentation dependencies and API references match the actual codebase state. "Invisible" cleanups often have the highest ROI for project health.
+
+## 2024-10-27 - Histogram Bar Alignment
+**Learning:** In histograms plotted over fixed bins, using the data mean within each bin as the bar's x-coordinate causes visual misalignment and clutter, especially with fixed-width bars. It misrepresents the bin structure to the user.
+**Action:** Always center histogram bars at the geometric center of the bins, regardless of the data distribution within the bin, to clearly communicate the binning structure.

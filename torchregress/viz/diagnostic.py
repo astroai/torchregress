@@ -789,6 +789,7 @@ def plot_calibration_curve(
 
     # Create bins and find bin edges
     bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
     binids = np.digitize(y_pred_probs, bins) - 1
 
     # Calculate mean predicted probability and observed frequency in each bin
@@ -835,13 +836,14 @@ def plot_calibration_curve(
         # Create histogram bars
         for i in range(len(scaled_hist)):
             ax.bar(
-                prob_pred[i],
+                bin_centers[i],
                 scaled_hist[i],
                 width=(1 / n_bins),
                 bottom=-scaled_hist[i],
                 align="center",
                 alpha=hist_alpha,
                 color=hist_color,
+                label="Prediction Dist." if i == 0 else None,
             )
 
         # Adjust ylimit to accommodate the histograms at the bottom
