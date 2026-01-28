@@ -162,7 +162,8 @@ loss = QuantileLoss(quantiles=[0.025, 0.5, 0.975])  # 95% interval
 # → Directly predict lower, median, upper
 
 # Method 3: Conformal prediction (guaranteed coverage)
-from torchregress.losses.conformal import SplitConformalLoss
+from torchregress.losses import ConformalLoss
+loss = ConformalLoss(method="split")
 # → Calibrates any model to achieve exact coverage
 ```
 
@@ -246,7 +247,7 @@ See [Ensemble Methods Guide](../examples/ensemble_methods.md) for details.
 | Need prediction intervals | `QuantileLoss` | Directly predicts quantiles |
 | Multiple modes in data | `MDNLoss` | Models mixture of distributions |
 | Count data (non-negative integers) | `PoissonNLLLoss` | Proper likelihood for counts |
-| Guaranteed coverage | `SplitConformalLoss` | Calibrates for exact coverage |
+| Guaranteed coverage | `ConformalLoss(method="split")` | Calibrates for exact coverage |
 
 ### Uncertainty Methods Comparison
 
@@ -280,7 +281,7 @@ What's your main concern?
 │  └─ Distribution-free → QuantileLoss
 │
 ├─ Need guaranteed coverage?
-│  └─ Yes → Conformal Prediction (SplitConformalLoss, CQRLoss)
+│  └─ Yes → Conformal Prediction (`ConformalLoss(method="split")` or `ConformalLoss(method="cqr")`)
 │
 ├─ Special data types?
 │  ├─ Count data → PoissonNLLLoss or TweedieLoss
