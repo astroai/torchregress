@@ -150,10 +150,12 @@ class KernelDensityScore(Metric):
         x_test = ensure_batch_dim(convert_to_tensor(x_test))
         x_reference = ensure_batch_dim(convert_to_tensor(x_reference))
 
-        x_expanded = x_test.unsqueeze(1)
-        ref_expanded = x_reference.unsqueeze(0)
+        # Memory optimization: Use torch.cdist instead of manual broadcasting
+        # Manual broadcasting creates an intermediate (N_test, N_ref, D) tensor
+        # which is memory intensive. cdist is optimized for this.
+        dists = torch.cdist(x_test, x_reference, p=2)
+        dist_sq = dists**2
 
-        dist_sq = torch.sum((x_expanded - ref_expanded) ** 2, dim=2)
         kernel_values = torch.exp(-dist_sq / (2 * self.bandwidth**2))
         density_scores = torch.mean(kernel_values, dim=1)
         self.scores.append(density_scores)
@@ -322,10 +324,10 @@ def kernel_density_score(
     x_test_t = ensure_batch_dim(convert_to_tensor(x_test))
     x_ref_t = ensure_batch_dim(convert_to_tensor(x_reference))
 
-    x_expanded = x_test_t.unsqueeze(1)
-    ref_expanded = x_ref_t.unsqueeze(0)
+    # Memory optimization: Use torch.cdist instead of manual broadcasting
+    dists = torch.cdist(x_test_t, x_ref_t, p=2)
+    dist_sq = dists**2
 
-    dist_sq = torch.sum((x_expanded - ref_expanded) ** 2, dim=2)
     kernel_values = torch.exp(-dist_sq / (2 * bandwidth**2))
     density_scores = torch.mean(kernel_values, dim=1)
 
