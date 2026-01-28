@@ -64,9 +64,10 @@ Development:
 - pre-commit
 
 Documentation:
-- sphinx
-- sphinx-rtd-theme
-- myst-parser
+- mkdocs
+- mkdocs-material
+- mkdocstrings[python]
+- pymdown-extensions
 
 Conformal prediction:
 - torchcp

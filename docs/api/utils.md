@@ -6,19 +6,7 @@ This page provides a complete API reference for all utility functions in torchre
 
 ---
 
-::: torchregress.utils.histogram
-
----
-
-::: torchregress.utils.irls_helpers
-
----
-
 ::: torchregress.utils.labels
-
----
-
-::: torchregress.utils.masked_ops
 
 ---
 
@@ -27,10 +15,6 @@ This page provides a complete API reference for all utility functions in torchre
 ---
 
 ::: torchregress.utils.quantile
-
----
-
-::: torchregress.utils.target_transform
 
 ---
 
