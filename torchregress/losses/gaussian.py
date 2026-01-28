@@ -415,6 +415,7 @@ def create_gaussian_nll(
     covariance_type: str = "diagonal",
     model_predicts_variance: bool = True,
     fixed_variance: Optional[float] = None,
+    use_mse_for_unit_variance: bool = False,
     jitter: float = 1e-6,
     reduction: str = "mean",
     **kwargs,
@@ -427,6 +428,8 @@ def create_gaussian_nll(
         covariance_type: 'diagonal', 'full', or 'low_rank'.
         model_predicts_variance: Whether the model outputs variance parameters.
         fixed_variance: Fixed variance for homoscedastic models.
+        use_mse_for_unit_variance: If True and fixed_variance is 1.0, return MSE instead
+            of Gaussian NLL (changes the optimization objective).
         jitter: Diagonal jitter for stability.
         reduction: Reduction to apply.
     """
@@ -467,7 +470,9 @@ def create_gaussian_nll(
     if fixed_variance is None:
         raise ValueError("fixed_variance must be provided when model_predicts_variance=False")
 
-    if math.isclose(float(fixed_variance), 1.0, rel_tol=0.0, abs_tol=0.0):
+    if use_mse_for_unit_variance and math.isclose(
+        float(fixed_variance), 1.0, rel_tol=0.0, abs_tol=0.0
+    ):
         return WeightedMSELoss(reduction=reduction)
 
     return GaussianNLLLoss(
