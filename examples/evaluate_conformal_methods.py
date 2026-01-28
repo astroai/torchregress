@@ -99,7 +99,7 @@ def main():
                 pred_cal = model(X_cal)
                 pred_test = model(X_test)
 
-            # Calibrate
+            # Calibrate (uses conformal correction for q-hat)
             loss_fn.calibrate(pred_cal, y_cal)
 
             # Predict intervals

@@ -65,7 +65,7 @@ def demo_basic_conformal() -> None:
     train_loss = loss_fn(y_pred_train, y_train)
     print(f"Training loss: {train_loss.item():.4f}")
 
-    # Calibrate on calibration set
+    # Calibrate on calibration set (uses conformal correction for q-hat)
     loss_fn.calibrate(y_pred_cal, y_cal)
     print("Calibrated successfully.")
 
@@ -107,7 +107,7 @@ def demo_conformalized_quantile() -> None:
     train_loss = loss_fn(y_pred_train, y_train)
     print(f"Training loss: {train_loss.item():.4f}")
 
-    # Calibrate on calibration set
+    # Calibrate on calibration set (uses conformal correction for q-hat)
     loss_fn.calibrate(y_pred_cal, y_cal)
     print("Calibrated successfully.")
 
@@ -152,7 +152,7 @@ def demo_adaptive_conformal() -> None:
     train_loss = loss_fn(y_pred_train, y_train)
     print(f"Training loss: {train_loss.item():.4f}")
 
-    # Calibrate on calibration set
+    # Calibrate on calibration set (uses conformal correction for q-hat)
     loss_fn.calibrate(y_pred_cal, y_cal)
     print("Calibrated successfully.")
 
@@ -199,7 +199,7 @@ def demo_multidimensional_conformal() -> None:
     train_loss = loss_fn(y_pred_train, y_train)
     print(f"Training loss: {train_loss.item():.4f}")
 
-    # Calibrate on calibration set
+    # Calibrate on calibration set (uses conformal correction for q-hat)
     loss_fn.calibrate(y_pred_cal, y_cal)
     print("Calibrated successfully.")
 
