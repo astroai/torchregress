@@ -2,6 +2,7 @@
 Conformal prediction loss via quantile & calibration.
 """
 
+import math
 from typing import Any, Optional, Tuple
 
 import torch
@@ -130,7 +131,9 @@ class ConformalLoss(RegressionLoss):
             target = target[mask_1d]
 
         scores = self._predictor.calculate_score(y_pred, target)
-        q_hat_scalar = torch.quantile(scores, 1 - self.alpha)
+        n = scores.numel()
+        q = math.ceil((n + 1) * (1 - self.alpha)) / n
+        q_hat_scalar = torch.quantile(scores, q, interpolation="higher")
         self.q_hat = q_hat_scalar.unsqueeze(0)  # Ensure q_hat is a 1D tensor
         self._is_calibrated = True
 
@@ -204,7 +207,9 @@ class MultiDimensionalConformalLoss(ConformalLoss):
             y_pred_i = y_pred[..., i].unsqueeze(-1)
             target_i = target[..., i].unsqueeze(-1)
             scores = self._predictor.calculate_score(y_pred_i, target_i)
-            q_hat_i = torch.quantile(scores, 1 - self.alpha)
+            n = scores.numel()
+            q = math.ceil((n + 1) * (1 - self.alpha)) / n
+            q_hat_i = torch.quantile(scores, q, interpolation="higher")
             q_hats.append(q_hat_i)
 
         self.q_hat = torch.stack(q_hats)
