@@ -78,7 +78,7 @@ def plot_reliability_diagram(
 
     # Show diagonal line for perfect calibration
     if show_diagonal:
-        add_identity_line(ax, label="Perfect calibration")
+        add_identity_line(ax, label="Perfectly Calibrated")
 
     ax.set_xlabel("Expected proportion")
     ax.set_ylabel("Observed proportion")
@@ -194,7 +194,7 @@ def plot_residuals(
 
     # Add horizontal line at y=0 for reference
     if show_zero_line:
-        add_zero_line(ax, axis="y")
+        add_zero_line(ax, axis="y", label="Perfect Prediction")
 
     # Add trend line using polynomial fit
     if show_trend and len(y_pred) > 1:
@@ -208,9 +208,12 @@ def plot_residuals(
                 linestyle="--",
                 label=f"Trend: y={z[0]:.3f}x{z[1]:+.3f}",
             )
-            ax.legend()
         except Exception as e:
             print(f"Warning: Could not fit trend line: {e}")
+
+    # Show legend if there are labeled elements
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend()
 
     # Add labels and title
     ax.set_xlabel(xlabel)
