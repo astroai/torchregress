@@ -9,3 +9,7 @@
 ## 2024-10-27 - Histogram Bar Alignment
 **Learning:** In histograms plotted over fixed bins, using the data mean within each bin as the bar's x-coordinate causes visual misalignment and clutter, especially with fixed-width bars. It misrepresents the bin structure to the user.
 **Action:** Always center histogram bars at the geometric center of the bins, regardless of the data distribution within the bin, to clearly communicate the binning structure.
+
+## 2025-02-17 - Reference Line Labels
+**Learning:** Users rely on legends to interpret reference lines (e.g., identity lines, zero lines). Inconsistent or missing labels (e.g., "Perfect calibration" vs "Perfectly Calibrated", or no label for zero lines) increase cognitive load.
+**Action:** Explicitly label all reference lines in diagnostic plots (e.g., "Perfectly Calibrated", "Perfect Prediction") and ensure they appear in the legend.
