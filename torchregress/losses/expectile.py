@@ -47,8 +47,7 @@ def multi_expectile_loss(
     # Calculate asymmetric squared error
     # Use factor of 2 for consistency with ExpectileLoss
     # weight = expectile if residual >= 0 else (1 - expectile)
-    indicator = (residuals >= 0).float()
-    weight = expectiles_reshaped * indicator + (1 - expectiles_reshaped) * (1 - indicator)
+    weight = torch.where(residuals >= 0, expectiles_reshaped, 1 - expectiles_reshaped)
 
     # Calculate loss
     loss = 2 * residuals**2 * weight
@@ -117,10 +116,8 @@ class ExpectileLoss(RegressionLoss):
 
         # Calculate asymmetric squared error
         # Use factor of 2 so that tau=0.5 gives MSE
-        indicator = (residuals >= 0).float()
-        loss = (
-            2 * residuals**2 * (self.expectile * indicator + (1 - self.expectile) * (1 - indicator))
-        )
+        weight = torch.where(residuals >= 0, self.expectile, 1 - self.expectile)
+        loss = 2 * residuals**2 * weight
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
