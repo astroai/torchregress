@@ -601,7 +601,7 @@ def plot_distribution_comparison(
 
         # Make sure we have data to plot
         if len(valid_samples) == 0:
-            ax.text(0.5, 0.5, "No valid samples", ha="center", va="center")
+            ax.text(0.5, 0.5, "No valid samples", ha="center", va="center", transform=ax.transAxes)
             continue
 
         samples = valid_samples
@@ -672,6 +672,7 @@ def plot_distribution_comparison(
                 va="bottom",
                 rotation=90,
                 fontweight="bold",
+                transform=ax.get_xaxis_transform(),
             )
 
         # Add additional vertical lines for mean and median

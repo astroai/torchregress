@@ -13,3 +13,7 @@
 ## 2025-02-17 - Reference Line Labels
 **Learning:** Users rely on legends to interpret reference lines (e.g., identity lines, zero lines). Inconsistent or missing labels (e.g., "Perfect calibration" vs "Perfectly Calibrated", or no label for zero lines) increase cognitive load.
 **Action:** Explicitly label all reference lines in diagnostic plots (e.g., "Perfectly Calibrated", "Perfect Prediction") and ensure they appear in the legend.
+
+## 2025-02-17 - Micro-UX: Invisible Text on Plots
+**Learning:** When adding text annotations to plots, blindly using data coordinates without considering scale variability (e.g., density vs count) can make text invisible.
+**Action:** Always use relative coordinate systems (`transAxes`, `get_xaxis_transform()`) for annotations that should be anchored to the plot frame rather than data values.
