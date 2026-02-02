@@ -332,6 +332,192 @@ Not all non-uniform distributions require special treatment. Use imbalanced regr
 └──────────────────────────────────────────────────────────┘
 ```
 
+### FocalRLoss (Focus on Hard Samples)
+
+```python
+class FocalRLoss(RegressionLoss)
+```
+
+Focal loss adapted for regression. Upweights samples with larger errors, making the model focus on "hard" samples that it currently predicts poorly.
+
+**Formula**: `L = sigmoid(β * |error|)^γ * base_loss`
+
+**Parameters**:
+
+- `beta` (float): Error scaling factor. Default: 0.2
+- `gamma` (float): Focus parameter (higher = more focus on hard samples). Default: 1.0
+- `base_loss` (str): Base loss ('mse', 'mae', 'huber'). Default: 'mse'
+- `reduction` (str): Loss reduction method. Default: 'mean'
+
+**Example**:
+
+```python
+from torchregress.losses import FocalRLoss
+
+loss_fn = FocalRLoss(beta=0.2, gamma=1.0, base_loss="mse")
+loss = loss_fn(y_pred, y_true)
+```
+
+**When to Use**:
+
+- ✅ Model performs poorly on a subset of samples
+- ✅ Want to focus on difficult cases without explicit density estimation
+- ✅ Don't have access to full training set for density fitting
+
+**Reference**: Yang et al. "Delving into Deep Imbalanced Regression" (ICML 2021)
+
+---
+
+### BalancedMSELoss (Contrastive Formulation)
+
+```python
+class BalancedMSELoss(RegressionLoss)
+```
+
+Balanced MSE (BMC) from CVPR 2022. Converts regression into a contrastive-like loss where each prediction-target pair is treated as a matching sample. This naturally balances learning across different value ranges without explicit density estimation.
+
+**Parameters**:
+
+- `init_noise_sigma` (float): Initial noise standard deviation. Default: 1.0
+- `learnable` (bool): Whether sigma is learnable. Default: True
+- `reduction` (str): Loss reduction method. Default: 'mean'
+
+**Example**:
+
+```python
+from torchregress.losses import BalancedMSELoss
+
+loss_fn = BalancedMSELoss(init_noise_sigma=0.1, learnable=True)
+
+# IMPORTANT: Add loss parameters to optimizer for learnable sigma
+optimizer = torch.optim.Adam(
+    list(model.parameters()) + list(loss_fn.parameters()),
+    lr=0.001
+)
+
+loss = loss_fn(y_pred, y_true)
+```
+
+**When to Use**:
+
+- ✅ Don't want to fit density/weights beforehand
+- ✅ Batch size ≥ 32 (needs sufficient negative pairs)
+- ✅ Single-output regression (for multi-output, use `BalancedMSELossMD`)
+
+**Reference**: Ren et al. "Balanced MSE for Imbalanced Visual Regression" (CVPR 2022)
+
+---
+
+### SQINVLoss (Square-root Inverse Frequency)
+
+```python
+class SQINVLoss(RegressionLoss)
+```
+
+Uses sqrt(1/frequency) weighting instead of 1/frequency. This is safer than full inverse weighting as it prevents extreme weight disparities.
+
+**Parameters**:
+
+- `kernel_width` (float): Bandwidth for density estimation. Default: 0.5
+- `base_loss` (str): Base loss ('mse', 'mae', 'huber'). Default: 'mse'
+- `max_weight_ratio` (float): Maximum ratio between largest/smallest weights. Default: 100.0
+- `reduction` (str): Loss reduction method. Default: 'mean'
+
+**Example**:
+
+```python
+from torchregress.losses import SQINVLoss
+
+loss_fn = SQINVLoss(kernel_width=0.5, max_weight_ratio=100.0)
+loss_fn.fit(train_targets)  # Fit on training data
+
+loss = loss_fn(y_pred, y_true)
+```
+
+**When to Use**:
+
+- ✅ Want frequency-based reweighting but worried about extreme weights
+- ✅ Safer alternative to full inverse weighting
+- ✅ Recommended as default over full inverse for most tasks
+
+**Reference**: Yang et al. "Delving into Deep Imbalanced Regression" (ICML 2021)
+
+---
+
+### FrequencyWeightedLoss (Simple Bin-based Weighting)
+
+```python
+class FrequencyWeightedLoss(RegressionLoss)
+```
+
+Simple and interpretable: bins targets and weights inversely by bin frequency. Straightforward approach where samples from rare value ranges get higher weights.
+
+**Parameters**:
+
+- `n_bins` (int): Number of bins. Default: 100
+- `base_loss` (str): Base loss ('mse', 'mae', 'huber'). Default: 'mse'
+- `weighting` (str): 'inv' (1/freq) or 'sqinv' (sqrt(1/freq)). Default: 'inv'
+- `max_weight` (float): Maximum weight. Default: 10.0
+- `reduction` (str): Loss reduction method. Default: 'mean'
+
+**Example**:
+
+```python
+from torchregress.losses import FrequencyWeightedLoss
+
+loss_fn = FrequencyWeightedLoss(n_bins=50, weighting="inv", max_weight=10.0)
+loss_fn.fit(train_targets)  # Compute bin frequencies
+
+loss = loss_fn(y_pred, y_true)
+```
+
+**When to Use**:
+
+- ✅ Want simple, interpretable weighting
+- ✅ Know how many bins make sense for your target range
+- ✅ Want control over maximum weight
+
+---
+
+### DistLoss (Distribution Distance Constraint - ICLR 2025)
+
+```python
+class DistLoss(RegressionLoss)
+```
+
+State-of-the-art method from ICLR 2025. Combines sample-wise loss with a distribution alignment term that constrains sorted predictions to match the expected target distribution.
+
+**Formula**: `L_total = L_sample(pred, target) + α * L_dist(sorted_pred, pseudo_labels)`
+
+**Parameters**:
+
+- `n_bins` (int): Bins for distribution estimation. Default: 100
+- `alpha` (float): Weight for distribution loss. Default: 1.0
+- `base_loss` (str): Sample-wise loss ('mse', 'mae'). Default: 'mse'
+- `dist_loss` (str): Distribution loss ('mse', 'mae'). Default: 'mae'
+- `reduction` (str): Loss reduction method. Default: 'mean'
+
+**Example**:
+
+```python
+from torchregress.losses import DistLoss
+
+loss_fn = DistLoss(n_bins=50, alpha=1.0, base_loss="mse", dist_loss="mae")
+loss_fn.fit(train_targets)  # Estimate label distribution
+
+loss = loss_fn(y_pred, y_true)
+```
+
+**When to Use**:
+
+- ✅ Few-shot regions need improvement
+- ✅ Larger batch sizes (256+) for best results
+- ✅ Want latest SOTA method
+
+**Reference**: Nie et al. "Dist Loss: Enhancing Regression in Few-shot Region through Distribution Distance Constraint" (ICLR 2025)
+
+---
+
 ## Comparison: Method Selection
 
 | Method | Calibration | Performance on Rare | Complexity | Best For |
@@ -339,6 +525,11 @@ Not all non-uniform distributions require special treatment. Use imbalanced regr
 | **Standard Loss** | ✅ Perfect | ❌ Poor | Simple | Balanced data |
 | **DensityWeightedLoss** | ✅ Preserved | ⭐⭐ Good | Medium | General imbalance, need calibration |
 | **LDSLoss** | ⚠️ May break | ⭐⭐⭐ Excellent | Medium | Extreme imbalance, can tolerate miscalibration |
+| **FocalRLoss** | ⭐⭐ Mostly preserved | ⭐⭐ Good | Simple | Focus on hard samples, no pre-fitting |
+| **BalancedMSELoss** | ⭐⭐ Mostly preserved | ⭐⭐⭐ Excellent | Medium | Contrastive approach, learnable sigma |
+| **SQINVLoss** | ⚠️ May break | ⭐⭐⭐ Excellent | Medium | Safer than full inverse |
+| **FrequencyWeightedLoss** | ⚠️ May break | ⭐⭐ Good | Simple | Simple, interpretable |
+| **DistLoss** | ⚠️ May break | ⭐⭐⭐ Excellent | Medium | SOTA (ICLR 2025), few-shot regions |
 
 ## Complete Example: Comparison
 
@@ -614,6 +805,8 @@ loss_fn = DensityWeightedLoss(kernel_width=0.01)
 
 ## References
 
-- Yang et al. "Delving into Deep Imbalanced Regression" (ICML 2021)
+- Yang et al. "Delving into Deep Imbalanced Regression" (ICML 2021) - LDS, FocalR, SQINV
+- Ren et al. "Balanced MSE for Imbalanced Visual Regression" (CVPR 2022) - BalancedMSE
+- Nie et al. "Dist Loss: Enhancing Regression in Few-shot Region through Distribution Distance Constraint" (ICLR 2025) - DistLoss
 - Steininger et al. "Density-based weighting for imbalanced regression" (Machine Learning 2021)
 - Branco et al. "A Survey of Predictive Modeling on Imbalanced Domains" (ACM Computing Surveys 2016)

@@ -59,7 +59,16 @@ from .gaussian import (
 )
 
 # Imbalanced regression losses
-from .imbalanced import DensityWeightedLoss, LDSLoss
+from .imbalanced import (
+    BalancedMSELoss,
+    BalancedMSELossMD,
+    DensityWeightedLoss,
+    DistLoss,
+    FocalRLoss,
+    FrequencyWeightedLoss,
+    LDSLoss,
+    SQINVLoss,
+)
 from .loss_registry import get_regression_loss, list_regression_losses
 
 # Mixture Density Networks
@@ -270,8 +279,14 @@ __all__ = [
     "CoTeachingLoss",
     "RENTLoss",
     # Imbalanced regression losses
+    "BalancedMSELoss",
+    "BalancedMSELossMD",
     "DensityWeightedLoss",
+    "DistLoss",
+    "FocalRLoss",
+    "FrequencyWeightedLoss",
     "LDSLoss",
+    "SQINVLoss",
     # Evidential regression
     "EvidentialRegressionLoss",
     # Expectile losses

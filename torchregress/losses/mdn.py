@@ -380,6 +380,164 @@ class MixtureDensityLoss(DistributionLoss):
                 return nll.sum()
 
 
+    def predict_mean_std(self, y_pred: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute the mean and standard deviation of the mixture distribution.
+
+        Note: This uses the Gaussian approximation which may not be accurate
+        for multimodal mixtures. For proper prediction intervals, use
+        `predict_interval()` instead.
+
+        Args:
+            y_pred: Model predictions [batch, output_size]
+
+        Returns:
+            tuple: (mean, std) each of shape [batch, n_features]
+        """
+        weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
+
+        if self.covariance_type != "diagonal":
+            raise NotImplementedError(
+                "predict_mean_std only supports diagonal covariance. "
+                "Use predict_interval() for full covariance."
+            )
+
+        # Mixture mean: E[y] = sum(w_k * mu_k)
+        mixture_mean = (weights.unsqueeze(-1) * means).sum(dim=-2)  # [batch, n_features]
+
+        # Mixture variance: Var[y] = sum(w_k * (sigma_k^2 + mu_k^2)) - E[y]^2
+        # This is the law of total variance
+        mixture_second_moment = (weights.unsqueeze(-1) * (stds_or_L**2 + means**2)).sum(dim=-2)
+        mixture_var = mixture_second_moment - mixture_mean**2
+        mixture_std = torch.sqrt(mixture_var.clamp(min=self.eps))
+
+        return mixture_mean, mixture_std
+
+    def predict_interval(
+        self,
+        y_pred: torch.Tensor,
+        confidence: float = 0.95,
+        n_samples: int = 10000,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute prediction intervals by sampling from the mixture distribution.
+
+        Unlike the Gaussian approximation (mean ± 1.96*std), this method correctly
+        computes quantiles for mixture distributions which may be multimodal or
+        have different tail behavior than a Gaussian.
+
+        Args:
+            y_pred: Model predictions [batch, output_size]
+            confidence: Confidence level (default 0.95 for 95% CI)
+            n_samples: Number of Monte Carlo samples for quantile estimation
+
+        Returns:
+            tuple: (lower, upper) each of shape [batch, n_features]
+                Lower and upper bounds of the prediction interval
+
+        Example:
+            >>> loss_fn = MixtureDensityLoss(n_components=3, n_features=1)
+            >>> y_pred = model(x_test)
+            >>> lower, upper = loss_fn.predict_interval(y_pred, confidence=0.95)
+            >>> # Check coverage
+            >>> in_interval = (y_test >= lower) & (y_test <= upper)
+            >>> coverage = in_interval.float().mean()  # Should be ~0.95
+        """
+        weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
+
+        if self.covariance_type != "diagonal":
+            raise NotImplementedError(
+                "predict_interval currently only supports diagonal covariance."
+            )
+
+        batch_size = means.shape[0]
+        n_components = means.shape[1]
+        n_features = means.shape[2]
+
+        # Sample component indices for each sample
+        # [batch, n_samples]
+        component_idx = torch.multinomial(
+            weights, n_samples, replacement=True
+        )
+
+        # Expand component indices for gathering
+        # [batch, n_samples, 1] for n_features=1
+        component_idx_expanded = component_idx.unsqueeze(-1).expand(-1, -1, n_features)
+
+        # Gather means and stds for selected components
+        # means/stds shape: [batch, n_components, n_features]
+        # After gather: [batch, n_samples, n_features]
+        selected_means = torch.gather(
+            means.unsqueeze(1).expand(-1, n_samples, -1, -1),
+            dim=2,
+            index=component_idx_expanded.unsqueeze(2),
+        ).squeeze(2)
+        selected_stds = torch.gather(
+            stds_or_L.unsqueeze(1).expand(-1, n_samples, -1, -1),
+            dim=2,
+            index=component_idx_expanded.unsqueeze(2),
+        ).squeeze(2)
+
+        # Sample from selected Gaussian components
+        samples = torch.randn(batch_size, n_samples, n_features, device=y_pred.device)
+        samples = samples * selected_stds + selected_means
+
+        # Compute quantiles
+        alpha = 1 - confidence
+        lower = torch.quantile(samples, alpha / 2, dim=1)
+        upper = torch.quantile(samples, 1 - alpha / 2, dim=1)
+
+        return lower, upper
+
+    def sample(
+        self,
+        y_pred: torch.Tensor,
+        n_samples: int = 100,
+    ) -> torch.Tensor:
+        """
+        Sample from the mixture distribution.
+
+        Args:
+            y_pred: Model predictions [batch, output_size]
+            n_samples: Number of samples to generate
+
+        Returns:
+            samples: [n_samples, batch, n_features]
+        """
+        weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
+
+        if self.covariance_type != "diagonal":
+            raise NotImplementedError(
+                "sample currently only supports diagonal covariance."
+            )
+
+        batch_size = means.shape[0]
+        n_features = means.shape[2]
+
+        # Sample component indices
+        component_idx = torch.multinomial(weights, n_samples, replacement=True)
+        component_idx_expanded = component_idx.unsqueeze(-1).expand(-1, -1, n_features)
+
+        # Gather parameters
+        selected_means = torch.gather(
+            means.unsqueeze(1).expand(-1, n_samples, -1, -1),
+            dim=2,
+            index=component_idx_expanded.unsqueeze(2),
+        ).squeeze(2)
+        selected_stds = torch.gather(
+            stds_or_L.unsqueeze(1).expand(-1, n_samples, -1, -1),
+            dim=2,
+            index=component_idx_expanded.unsqueeze(2),
+        ).squeeze(2)
+
+        # Sample
+        samples = torch.randn(batch_size, n_samples, n_features, device=y_pred.device)
+        samples = samples * selected_stds + selected_means
+
+        # Transpose to [n_samples, batch, n_features]
+        return samples.transpose(0, 1)
+
+
 def create_mdn_loss(
     n_components: int,
     n_features: int,

@@ -39,13 +39,17 @@ Style Guide for Visualization Functions:
 
 # Import diagnostic plotting utilities
 from torchregress.viz.diagnostic import (
+    plot_binned_metrics,
     plot_calibration_curve,
     plot_distribution_comparison,
+    plot_gaussian_reliability_diagram,
+    plot_pit_histogram,
     plot_prediction_intervals,
     plot_qq_plot,
     plot_reliability_diagram,
     plot_residual_histogram,
     plot_residuals,
+    plot_uncertainty_vs_error,
 )
 
 # Import training monitoring plots
@@ -78,6 +82,10 @@ from torchregress.viz.utils import (
 
 __all__ = [
     "plot_reliability_diagram",
+    "plot_gaussian_reliability_diagram",
+    "plot_pit_histogram",
+    "plot_uncertainty_vs_error",
+    "plot_binned_metrics",
     "plot_residuals",
     "plot_prediction_intervals",
     "plot_qq_plot",

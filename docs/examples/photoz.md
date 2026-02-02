@@ -2,6 +2,8 @@
 
 This example demonstrates using torchregress for a real-world astronomy application: estimating galaxy redshifts from photometric observations. It serves as a template for any physics problem where you need to handle **measurement errors in both inputs and outputs** (errors-in-variables regression).
 
+**Full Example:** See [`examples/photoz.py`](../../examples/photoz.py) for a complete runnable example that compares 12+ methods and generates calibration diagnostics.
+
 ## Background
 
 **Photometric redshift (photo-z)** estimation is a fundamental problem in modern cosmology. Spectroscopic redshifts are the gold standard but require expensive telescope time. Photometric redshifts use broadband imaging (just a few flux measurements through filters) to estimate redshift—enabling surveys of billions of galaxies.
@@ -24,6 +26,24 @@ This problem exhibits several features common in experimental physics:
 | Sparse training data | Epistemic | Rare galaxy types not well represented |
 | Color-redshift degeneracy | Multi-modality | Need MDN or normalizing flows |
 | Systematic calibration error | Epistemic | Can reduce with better calibration data |
+
+## Methods Compared in Full Example
+
+The `examples/photoz.py` script compares the following approaches:
+
+| Method | Type | Uncertainty Type | When to Use |
+|--------|------|------------------|-------------|
+| MSE | Point | None | Baseline comparison |
+| MAE | Point | None | Outlier-resistant baseline |
+| Huber | Point | None | Moderate outliers |
+| Cauchy | Point | None | Heavy outliers (robust) |
+| GaussianNLL | Probabilistic | Aleatoric | Standard heteroscedastic |
+| Quantile | Probabilistic | Distribution-free | Non-Gaussian errors |
+| MDN | Probabilistic | Multimodal | Color degeneracies |
+| Evidential | Probabilistic | Aleatoric + Epistemic | Decompose uncertainty |
+| EIV losses | Point | Input noise | Known measurement errors |
+| DeepEnsemble | Ensemble | Epistemic | Model uncertainty |
+| HetEnsemble | Ensemble | Both | Full decomposition |
 
 ## Problem Setup
 
@@ -486,8 +506,47 @@ coverage_conf = ((y_test >= lower_conf) & (y_test <= upper_conf)).float().mean()
 print(f"Conformal Coverage: {coverage_conf:.2%} (guaranteed >= 90%)")
 ```
 
+## Expected Metrics Guide
+
+When running the photo-z example, here's what to expect for well-calibrated models:
+
+### Point Prediction Metrics
+
+| Metric | Description | Good Values |
+|--------|-------------|-------------|
+| RMSE | Root Mean Squared Error | < 0.05 (depends on data quality) |
+| MAE | Mean Absolute Error | < 0.03 |
+| NMAD | Normalized Median Absolute Deviation | < 0.02 (astronomy standard) |
+| Bias | Mean signed error | Close to 0 |
+
+### Probabilistic Metrics
+
+| Metric | Description | Target |
+|--------|-------------|--------|
+| PICP@95% | Prediction Interval Coverage | ~0.95 |
+| CRPS | Continuous Ranked Probability Score | Lower is better |
+| MCE | Marginal Calibration Error | < 0.05 |
+
+### Diagnostic Interpretation
+
+**Reliability Diagram:** Points should follow the diagonal line. If above: underconfident. If below: overconfident.
+
+**PIT Histogram:** Should be uniform (flat). U-shaped = underconfident, inverted-U = overconfident, skewed = biased.
+
+**Uncertainty vs Error:** Should show positive correlation. High uncertainty should correspond to high errors.
+
+### Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| PICP << 0.95 | Intervals too narrow | Check variance scaling |
+| PICP >> 0.95 | Intervals too wide | Remove variance floor |
+| PIT peaks at 0 or 1 | Wrong distribution | Try MDN or quantile |
+| High-z worse than low-z | Tail undersampling | Use LDSLoss weighting |
+| Low uncertainty-error correlation | Uncertainty uninformative | Try heteroscedastic model |
+
 ## Further Reading
 
 - [Loss Comparison](loss_comparison.md) - Detailed comparison across scenarios
-- [Learn more about uncertainty estimation →](../math/index.md) - Theory of uncertainty decomposition
-- [Calibration Metrics](../metrics/calibration.md) - Evaluating prediction intervals
+- [Core Concepts](../guides/concepts.md) - Theory of uncertainty decomposition
+- [Ensemble Methods](ensemble_methods.md) - Deep ensemble and SWAG techniques

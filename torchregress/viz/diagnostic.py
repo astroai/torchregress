@@ -912,3 +912,465 @@ def plot_calibration_curve(
         plt.show()
 
     return None
+
+
+def plot_pit_histogram(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    n_bins: int = 20,
+    figsize: Tuple[int, int] = (8, 5),
+    title: str = "PIT Histogram",
+    color: str = "steelblue",
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Figure]:
+    """
+    Plot Probability Integral Transform (PIT) histogram for Gaussian predictions.
+
+    For a well-calibrated probabilistic model with Gaussian predictive distributions,
+    the PIT values should be uniformly distributed. Deviations indicate miscalibration:
+    - U-shaped: underconfident (variances too large)
+    - Inverse U-shaped: overconfident (variances too small)
+    - Skewed: biased predictions
+
+    Args:
+        y_pred: Predicted mean values
+        y_pred_std: Predicted standard deviations
+        y_true: Ground truth values
+        n_bins: Number of histogram bins
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title
+        color: Color for the histogram bars
+        return_figure: If True, return figure object instead of displaying
+        ax: Optional matplotlib axes for plotting
+
+    Returns:
+        If return_figure=True, returns matplotlib Figure object
+
+    Example:
+        >>> plot_pit_histogram(preds, pred_stds, targets, return_figure=True)
+    """
+    from scipy import stats
+
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+
+    # Compute PIT: CDF of target under predicted Gaussian
+    z_scores = (y_true - y_pred) / (y_pred_std + 1e-8)
+    pit_values = stats.norm.cdf(z_scores)
+
+    # Create plot if no axes provided
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    # Plot histogram
+    ax.hist(
+        pit_values,
+        bins=n_bins,
+        density=True,
+        alpha=0.7,
+        color=color,
+        edgecolor="black",
+        linewidth=0.5,
+    )
+
+    # Add reference line for uniform distribution
+    ax.axhline(y=1.0, color="red", linestyle="--", linewidth=2, label="Uniform (ideal)")
+
+    # Add statistics
+    ks_stat, ks_pval = stats.kstest(pit_values, "uniform")
+    stats_text = f"KS statistic: {ks_stat:.4f}\np-value: {ks_pval:.4f}"
+    ax.text(
+        0.95,
+        0.95,
+        stats_text,
+        transform=ax.transAxes,
+        verticalalignment="top",
+        horizontalalignment="right",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+    )
+
+    ax.set_xlabel("PIT Value")
+    ax.set_ylabel("Density")
+    ax.set_title(title)
+    ax.set_xlim(0, 1)
+    ax.legend(loc="upper left")
+    ax.grid(True, alpha=0.3)
+
+    if return_figure:
+        return fig
+    elif ax is None:
+        plt.tight_layout()
+        plt.show()
+
+    return None
+
+
+def plot_uncertainty_vs_error(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    figsize: Tuple[int, int] = (8, 8),
+    title: str = "Uncertainty vs Error",
+    color: str = "steelblue",
+    max_points: int = 2000,
+    show_trend: bool = True,
+    show_correlation: bool = True,
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Union[Figure, Tuple[Figure, float]]]:
+    """
+    Plot predicted uncertainty vs absolute error.
+
+    A good uncertainty estimator should show positive correlation:
+    when the model predicts high uncertainty, errors should actually be larger.
+
+    Args:
+        y_pred: Predicted mean values
+        y_pred_std: Predicted standard deviations
+        y_true: Ground truth values
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title
+        color: Color for scatter points
+        max_points: Maximum number of points to plot (for performance)
+        show_trend: Whether to show linear trend line
+        show_correlation: Whether to show Spearman correlation in legend
+        return_figure: If True, return figure object instead of displaying
+        ax: Optional matplotlib axes for plotting
+
+    Returns:
+        If return_figure=True, returns matplotlib Figure object
+        If show_correlation=True, also returns Spearman correlation coefficient
+
+    Example:
+        >>> fig, corr = plot_uncertainty_vs_error(preds, stds, targets, return_figure=True)
+        >>> print(f"Correlation: {corr:.3f}")
+    """
+    from scipy import stats
+
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+
+    # Compute absolute errors
+    abs_errors = np.abs(y_pred - y_true)
+
+    # Compute Spearman correlation
+    correlation, p_value = stats.spearmanr(y_pred_std, abs_errors)
+
+    # Subsample if too many points
+    if len(y_pred) > max_points:
+        idx = np.random.choice(len(y_pred), max_points, replace=False)
+        y_pred_std_plot = y_pred_std[idx]
+        abs_errors_plot = abs_errors[idx]
+    else:
+        y_pred_std_plot = y_pred_std
+        abs_errors_plot = abs_errors
+
+    # Create plot if no axes provided
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    # Scatter plot
+    ax.scatter(y_pred_std_plot, abs_errors_plot, alpha=0.3, s=10, color=color)
+
+    # Add trend line
+    if show_trend:
+        z = np.polyfit(y_pred_std_plot, abs_errors_plot, 1)
+        p = np.poly1d(z)
+        x_line = np.linspace(y_pred_std_plot.min(), y_pred_std_plot.max(), 100)
+        label = f"Trend (ρ={correlation:.3f})" if show_correlation else "Trend"
+        ax.plot(x_line, p(x_line), "r--", linewidth=2, label=label)
+        ax.legend()
+
+    # Add statistics text
+    stats_text = f"Spearman ρ: {correlation:.4f}\np-value: {p_value:.2e}"
+    ax.text(
+        0.05,
+        0.95,
+        stats_text,
+        transform=ax.transAxes,
+        verticalalignment="top",
+        horizontalalignment="left",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+    )
+
+    ax.set_xlabel("Predicted Uncertainty (σ)")
+    ax.set_ylabel("Absolute Error |ŷ - y|")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+
+    if return_figure:
+        if show_correlation:
+            return fig, correlation
+        return fig
+    elif ax is None:
+        plt.tight_layout()
+        plt.show()
+
+    if show_correlation:
+        return correlation
+    return None
+
+
+def plot_binned_metrics(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    n_bins: int = 5,
+    metric: str = "rmse",
+    figsize: Tuple[int, int] = (10, 5),
+    title: Optional[str] = None,
+    color: str = "steelblue",
+    return_figure: bool = False,
+    return_metrics: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Union[Figure, Dict[str, Dict[str, float]]]]:
+    """
+    Compute and plot metrics in bins of the target variable.
+
+    This reveals whether model performance degrades in certain regions,
+    particularly at the tails of the distribution.
+
+    Args:
+        y_pred: Predicted mean values
+        y_pred_std: Predicted standard deviations
+        y_true: Ground truth values
+        n_bins: Number of bins
+        metric: Which metric to plot ('rmse', 'mae', 'bias', 'nmad', 'picp_95', 'mpiw_95')
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title (auto-generated if None)
+        color: Color for the bars
+        return_figure: If True, return figure object instead of displaying
+        return_metrics: If True, return the binned metrics dictionary
+        ax: Optional matplotlib axes for plotting
+
+    Returns:
+        If return_figure=True, returns matplotlib Figure object
+        If return_metrics=True, returns dict of metrics per bin
+
+    Example:
+        >>> metrics = plot_binned_metrics(preds, stds, targets, return_metrics=True)
+        >>> print(metrics)
+    """
+    from scipy import stats
+
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+
+    # Create bins using quantiles
+    bin_edges = np.quantile(y_true, np.linspace(0, 1, n_bins + 1))
+
+    binned_metrics: Dict[str, Dict[str, float]] = {}
+
+    for i in range(len(bin_edges) - 1):
+        low, high = bin_edges[i], bin_edges[i + 1]
+        mask = (y_true >= low) & (y_true < high)
+
+        if i == len(bin_edges) - 2:  # Include right edge for last bin
+            mask = (y_true >= low) & (y_true <= high)
+
+        if mask.sum() < 10:  # Skip bins with too few samples
+            continue
+
+        bin_preds = y_pred[mask]
+        bin_stds = y_pred_std[mask]
+        bin_targets = y_true[mask]
+
+        # Compute metrics
+        errors = bin_preds - bin_targets
+        abs_errors = np.abs(errors)
+
+        # RMSE
+        rmse = np.sqrt(np.mean(errors**2))
+
+        # MAE
+        mae = np.mean(abs_errors)
+
+        # Bias
+        bias_val = np.mean(errors)
+
+        # NMAD (normalized median absolute deviation)
+        delta_z_norm = errors / (1 + bin_targets)
+        nmad = 1.48 * np.median(np.abs(delta_z_norm - np.median(delta_z_norm)))
+
+        # PICP at 95%
+        z = stats.norm.ppf(0.975)
+        lower = bin_preds - z * bin_stds
+        upper = bin_preds + z * bin_stds
+        picp = np.mean((bin_targets >= lower) & (bin_targets <= upper))
+
+        # Mean prediction interval width
+        mpiw = np.mean(upper - lower)
+
+        bin_name = f"[{low:.3f}, {high:.3f})"
+        binned_metrics[bin_name] = {
+            "n_samples": int(mask.sum()),
+            "rmse": float(rmse),
+            "mae": float(mae),
+            "bias": float(bias_val),
+            "nmad": float(nmad),
+            "picp_95": float(picp),
+            "mpiw_95": float(mpiw),
+        }
+
+    if return_metrics and not return_figure:
+        return binned_metrics
+
+    # Plot
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    bins = list(binned_metrics.keys())
+    values = [binned_metrics[b][metric] for b in bins]
+    n_samples = [binned_metrics[b]["n_samples"] for b in bins]
+
+    x = np.arange(len(bins))
+    bars = ax.bar(x, values, alpha=0.7, color=color)
+
+    # Add sample counts as text
+    for bar, n in zip(bars, n_samples):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"n={n}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(bins, rotation=45, ha="right")
+    ax.set_xlabel("Target Bin")
+    ax.set_ylabel(metric.upper())
+    ax.set_title(title or f"{metric.upper()} by Target Bin")
+    ax.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+
+    if return_figure:
+        if return_metrics:
+            return fig, binned_metrics
+        return fig
+    elif ax is None:
+        plt.show()
+
+    if return_metrics:
+        return binned_metrics
+    return None
+
+
+def plot_gaussian_reliability_diagram(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    n_levels: int = 10,
+    figsize: Tuple[int, int] = (6, 6),
+    title: str = "Reliability Diagram",
+    color: str = "steelblue",
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Figure]:
+    """
+    Plot reliability diagram for Gaussian predictive distributions.
+
+    A well-calibrated model should have observed coverage matching expected coverage
+    at all confidence levels. Points on the diagonal indicate perfect calibration.
+
+    This is different from the quantile-based plot_reliability_diagram - this version
+    is designed for models that output (mean, std) predictions assuming Gaussian.
+
+    Args:
+        y_pred: Predicted mean values
+        y_pred_std: Predicted standard deviations
+        y_true: Ground truth values
+        n_levels: Number of confidence levels to evaluate
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title
+        color: Color for the plot line
+        return_figure: If True, return figure object instead of displaying
+        ax: Optional matplotlib axes for plotting
+
+    Returns:
+        If return_figure=True, returns matplotlib Figure object
+
+    Example:
+        >>> plot_gaussian_reliability_diagram(preds, stds, targets, return_figure=True)
+    """
+    from scipy import stats
+
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+
+    # Confidence levels to check
+    confidence_levels = np.linspace(0.1, 0.99, n_levels)
+
+    expected_coverage = []
+    observed_coverage = []
+
+    for conf in confidence_levels:
+        # For Gaussian: z-score for given confidence level
+        z = stats.norm.ppf((1 + conf) / 2)
+
+        # Compute interval bounds
+        lower = y_pred - z * y_pred_std
+        upper = y_pred + z * y_pred_std
+
+        # Check coverage
+        covered = (y_true >= lower) & (y_true <= upper)
+        observed = np.mean(covered)
+
+        expected_coverage.append(conf)
+        observed_coverage.append(observed)
+
+    expected_coverage_arr = np.array(expected_coverage)
+    observed_coverage_arr = np.array(observed_coverage)
+
+    # Compute calibration error
+    mace = np.mean(np.abs(expected_coverage_arr - observed_coverage_arr))
+
+    # Create plot if no axes provided
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    # Plot diagonal (perfect calibration)
+    ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration", alpha=0.5)
+
+    # Plot calibration curve
+    ax.plot(
+        expected_coverage_arr,
+        observed_coverage_arr,
+        "o-",
+        color=color,
+        markersize=6,
+        label=f"Model (MACE={mace:.4f})",
+    )
+
+    ax.set_xlabel("Expected Coverage")
+    ax.set_ylabel("Observed Coverage")
+    ax.set_title(title)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_aspect("equal")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    if return_figure:
+        return fig
+    elif ax is None:
+        plt.tight_layout()
+        plt.show()
+
+    return None

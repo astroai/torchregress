@@ -375,3 +375,102 @@ class EvidentialRegressionLoss(DistributionLoss):
         prediction_samples = pred_dist.sample()
 
         return prediction_samples
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        confidence: float = 0.95,
+    ) -> Tuple[Tensor, Tensor]:
+        """
+        Compute prediction intervals using the Student-t predictive distribution.
+
+        The predictive distribution for a Normal-Inverse-Gamma prior is a
+        Student-t distribution with:
+        - Location: γ (predicted mean)
+        - Scale: sqrt(β * (1 + 1/ν) / (α - 1))
+        - Degrees of freedom: 2α
+
+        This method correctly accounts for the heavier tails of the Student-t
+        compared to a Gaussian, especially when α is small (low evidence).
+
+        Args:
+            y_pred: Model output [batch_size, 4*n_features]
+            confidence: Confidence level (default 0.95 for 95% CI)
+
+        Returns:
+            Tuple of (lower, upper) bounds, each [batch_size, n_features]
+
+        Example:
+            >>> model.eval()
+            >>> with torch.no_grad():
+            >>>     params = model(x_test)
+            >>>     lower, upper = loss_fn.predict_interval(params, confidence=0.95)
+            >>>
+            >>> # Check coverage
+            >>> in_interval = (y_test >= lower) & (y_test <= upper)
+            >>> coverage = in_interval.float().mean()  # Should be ~0.95
+
+        Notes:
+            - For α close to 1, the Student-t has very heavy tails
+            - With α > 30, the Student-t approaches Gaussian (1.96*std works)
+            - The scale parameter differs from sqrt(aleatoric + epistemic)
+        """
+        gamma, nu, alpha, beta = self._extract_nig_parameters(y_pred)
+
+        # Degrees of freedom for Student-t
+        df = 2 * alpha
+
+        # Scale parameter for Student-t predictive
+        # This is sqrt(β * (1 + 1/ν) / (α - 1))
+        # which differs from sqrt(aleatoric + epistemic)
+        scale = torch.sqrt(beta * (1 + 1 / nu) / (alpha - 1.0 + 1e-6))
+
+        # Student-t quantile using scipy
+        # For large batches, this is computed element-wise
+        from scipy import stats as scipy_stats
+
+        # Compute t-quantile for each sample (may have different df)
+        df_np = df.detach().cpu().numpy()
+        t_quantile = scipy_stats.t.ppf((1 + confidence) / 2, df_np)
+        t_quantile = torch.tensor(t_quantile, device=y_pred.device, dtype=y_pred.dtype)
+
+        # Compute intervals
+        lower = gamma - t_quantile * scale
+        upper = gamma + t_quantile * scale
+
+        return lower, upper
+
+    def predict_interval_gaussian(
+        self,
+        y_pred: Tensor,
+        confidence: float = 0.95,
+    ) -> Tuple[Tensor, Tensor]:
+        """
+        Compute prediction intervals using Gaussian approximation.
+
+        This uses mean ± z * sqrt(aleatoric + epistemic), which is only
+        accurate when α is large (df > 30). For proper intervals, use
+        `predict_interval()` instead.
+
+        Args:
+            y_pred: Model output [batch_size, 4*n_features]
+            confidence: Confidence level (default 0.95 for 95% CI)
+
+        Returns:
+            Tuple of (lower, upper) bounds, each [batch_size, n_features]
+
+        Warning:
+            This approximation underestimates interval width when α is small,
+            leading to under-coverage. Use predict_interval() for accurate
+            coverage, especially with low-evidence models.
+        """
+        from scipy import stats as scipy_stats
+
+        mean, aleatoric, epistemic = self.predict_with_uncertainty(y_pred)
+        total_std = torch.sqrt(aleatoric + epistemic)
+
+        z = scipy_stats.norm.ppf((1 + confidence) / 2)
+        lower = mean - z * total_std
+        upper = mean + z * total_std
+
+        return lower, upper
