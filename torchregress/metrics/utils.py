@@ -53,9 +53,7 @@ def create_metric_result(
             k: (
                 float(v.item())
                 if isinstance(v, torch.Tensor) and v.numel() == 1
-                else v.cpu().numpy()
-                if isinstance(v, torch.Tensor) and as_numpy
-                else v
+                else v.cpu().numpy() if isinstance(v, torch.Tensor) and as_numpy else v
             )
             for k, v in result.items()
         }
