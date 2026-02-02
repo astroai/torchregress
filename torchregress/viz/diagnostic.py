@@ -484,12 +484,11 @@ def plot_residual_histogram(
                 linewidth=2,
                 label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
             )
-            ax.legend()
         except ImportError:
             pass  # Skip KDE if scipy not available
 
     # Add vertical line at zero
-    add_zero_line(ax, axis="x")
+    add_zero_line(ax, axis="x", label="Perfect Prediction")
 
     # Add statistics as text box
     mean = np.mean(residuals)
@@ -505,6 +504,10 @@ def plot_residual_histogram(
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
+
+    # Show legend if there are labeled elements
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend(loc="best")
 
     if return_figure:
         return fig
@@ -601,7 +604,14 @@ def plot_distribution_comparison(
 
         # Make sure we have data to plot
         if len(valid_samples) == 0:
-            ax.text(0.5, 0.5, "No valid samples", ha="center", va="center")
+            ax.text(
+                0.5,
+                0.5,
+                "No valid samples",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             continue
 
         samples = valid_samples

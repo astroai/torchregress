@@ -167,7 +167,7 @@ def add_zero_line(
     ax: plt.Axes,
     axis: str = "y",
     color: str = "gray",
-    linestyle: str = "-",
+    linestyle: str = "--",
     alpha: float = 0.5,
     label: Optional[str] = None,
 ) -> None:
