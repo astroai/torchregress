@@ -120,9 +120,9 @@ def create_grid_figure(
 
 def add_identity_line(
     ax: plt.Axes,
-    color: str = "k",
+    color: str = "gray",
     linestyle: str = "--",
-    alpha: float = 0.7,
+    alpha: float = 0.5,
     label: Optional[str] = None,
 ) -> None:
     """
@@ -161,6 +161,33 @@ def add_identity_line(
     # Restore original limits
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+
+
+def add_zero_line(
+    ax: plt.Axes,
+    axis: str = "y",
+    color: str = "gray",
+    linestyle: str = "--",
+    alpha: float = 0.5,
+    label: Optional[str] = None,
+) -> None:
+    """
+    Add a zero reference line to a plot.
+
+    Args:
+        ax: Matplotlib axes object
+        axis: Which axis to add the zero line to ('x' or 'y')
+        color: Line color
+        linestyle: Line style
+        alpha: Transparency
+        label: Label for legend
+    """
+    if axis == "y":
+        ax.axhline(y=0, color=color, linestyle=linestyle, alpha=alpha, label=label)
+    elif axis == "x":
+        ax.axvline(x=0, color=color, linestyle=linestyle, alpha=alpha, label=label)
+    else:
+        raise ValueError(f"axis must be 'x' or 'y', got {axis}")
 
 
 def save_figure(

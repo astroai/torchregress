@@ -50,6 +50,11 @@ After training, you need to calibrate the conformal predictor on a hold-out cali
 loss_fn.calibrate(cal_preds, y_cal)
 ```
 
+During calibration, the conformal correction uses
+`q = ceil((n + 1) * (1 - alpha)) / n` with `n = scores.numel()` and selects
+`torch.quantile(scores, q, interpolation="higher")` to match standard conformal
+coverage guarantees.
+
 Finally, you can use the calibrated predictor to generate prediction intervals for new data.
 
 ```python

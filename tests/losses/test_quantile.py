@@ -82,6 +82,24 @@ class TestQuantileLoss:
         # Loss should include a penalty
         assert loss > 0
 
+    def test_quantile_crossover_multivariate(self, device):
+        """Test QuantileCrossoverLoss with multivariate targets."""
+        batch_size = 10
+        n_features = 5
+        num_quantiles = 3
+
+        loss_fn = QuantileCrossoverLoss(quantiles=[0.1, 0.5, 0.9])
+
+        # [batch, quantiles, features]
+        y_pred = torch.randn(batch_size, num_quantiles, n_features, device=device)
+        y_true = torch.randn(batch_size, n_features, device=device)
+
+        loss = loss_fn(y_pred, y_true)
+
+        assert torch.is_tensor(loss)
+        assert loss.ndim == 0  # Scalar because default reduction is mean
+        assert torch.isfinite(loss)
+
     @pytest.mark.parametrize("quantile", [0.1, 0.5, 0.9])
     def test_gradient_flow(self, quantile, device):
         """Test that gradients flow correctly."""

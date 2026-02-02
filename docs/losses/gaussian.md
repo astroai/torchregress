@@ -208,7 +208,8 @@ loss = loss_fn(y_pred, y_true, batch_cov)
 
 ```python
 create_gaussian_nll(n_features, covariance_type='diagonal', model_predicts_variance=True,
-                   fixed_variance=None, jitter=1e-6, reduction='mean', **kwargs)
+                   fixed_variance=None, use_mse_for_unit_variance=False,
+                   jitter=1e-6, reduction='mean', **kwargs)
 ```
 
 A factory function that creates an appropriate Gaussian NLL loss based on the specified parameters.
@@ -219,13 +220,16 @@ A factory function that creates an appropriate Gaussian NLL loss based on the sp
 - `covariance_type` (str, optional): One of 'diagonal' or 'full'. Default: 'diagonal'
 - `model_predicts_variance` (bool, optional): Whether model predicts variance. Default: `True`
 - `fixed_variance` (float, optional): Fixed variance value when model doesn't predict variance. Default: `None`
+- `use_mse_for_unit_variance` (bool, optional): If `True` and `fixed_variance == 1.0`, return
+  `WeightedMSELoss` instead of Gaussian NLL (changes the optimization objective). Default: `False`
 - `jitter` (float, optional): Regularization strength for numerical stability. Default: `1e-6`
 - `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
 - `**kwargs`: Additional arguments for specific loss types
 
 **Returns:**
 
-An appropriate Gaussian NLL loss object (`MSELoss`, `GaussianNLLLoss`, or `MultivariateGaussianLoss`)
+An appropriate Gaussian NLL loss object (`GaussianNLLLoss`, `MultivariateGaussianLoss`,
+`LowRankGaussianLoss`, or `WeightedMSELoss` when `use_mse_for_unit_variance=True`)
 
 **Example:**
 
@@ -243,6 +247,14 @@ loss_fn = tr.losses.create_gaussian_nll(
     fixed_variance=0.5
 )
 
+# Optional: preserve the MSE shortcut for unit variance (changes the objective)
+loss_fn = tr.losses.create_gaussian_nll(
+    n_features=3,
+    model_predicts_variance=False,
+    fixed_variance=1.0,
+    use_mse_for_unit_variance=True
+)
+
 # Full covariance case
 loss_fn = tr.losses.create_gaussian_nll(
     n_features=3,
@@ -252,7 +264,9 @@ loss_fn = tr.losses.create_gaussian_nll(
 
 ## Choosing the Right Gaussian Loss
 
-1. **MSELoss**: Simple squared error loss with masking and weighting support. Use when variance is constant and known (homoscedastic).
+1. **MSELoss**: Simple squared error loss with masking and weighting support. Use when variance is constant
+   and known (homoscedastic). `create_gaussian_nll` only returns `WeightedMSELoss` when you set
+   `use_mse_for_unit_variance=True` with `fixed_variance=1.0` (which changes the objective).
 
 2. **GaussianNLLLoss**:
    - Use when you want to model uncertainty for each output dimension independently
@@ -289,5 +303,7 @@ loss_fn = tr.losses.create_gaussian_nll(
 
 4. **Implementation Notes**:
    - When using `fixed_variance`, only mean values are predicted by your model
+   - `create_gaussian_nll` defaults to `GaussianNLLLoss` even with `fixed_variance` unless you set
+     `use_mse_for_unit_variance=True`
    - When `fixed_variance=None` (default), your model should output both mean and log-variance
    - For multivariate cases, eigendecomposition is used as a fallback for numerical stability

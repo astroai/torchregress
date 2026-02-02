@@ -20,6 +20,40 @@ from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
 
+def multi_expectile_loss(
+    y_pred: torch.Tensor,
+    target: torch.Tensor,
+    expectiles: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Compute elementwise expectile loss for multiple expectiles.
+
+    Args:
+        y_pred: Predicted values [batch_size, num_expectiles, n_features]
+        target: Target values [batch_size, n_features]
+        expectiles: Expectile levels [num_expectiles]
+
+    Returns:
+        Elementwise loss [batch_size, num_expectiles, n_features]
+    """
+    # Calculate residuals for all expectiles simultaneously
+    # target: [batch_size, n_features] -> [batch_size, 1, n_features]
+    # expectile_preds: [batch_size, num_expectiles, n_features]
+    residuals = target.unsqueeze(1) - y_pred
+
+    # Reshape expectiles for broadcasting: [num_expectiles] -> [1, num_expectiles, 1]
+    expectiles_reshaped = expectiles.view(1, -1, 1)
+
+    # Calculate asymmetric squared error
+    # Use factor of 2 for consistency with ExpectileLoss
+    # weight = expectile if residual >= 0 else (1 - expectile)
+    weight = torch.where(residuals >= 0, expectiles_reshaped, 1 - expectiles_reshaped)
+
+    # Calculate loss
+    loss = 2 * residuals**2 * weight
+    return loss
+
+
 @register_regression_loss("expectile")
 class ExpectileLoss(RegressionLoss):
     """
@@ -82,10 +116,8 @@ class ExpectileLoss(RegressionLoss):
 
         # Calculate asymmetric squared error
         # Use factor of 2 so that tau=0.5 gives MSE
-        indicator = (residuals >= 0).float()
-        loss = (
-            2 * residuals**2 * (self.expectile * indicator + (1 - self.expectile) * (1 - indicator))
-        )
+        weight = torch.where(residuals >= 0, self.expectile, 1 - self.expectile)
+        loss = 2 * residuals**2 * weight
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
@@ -202,40 +234,24 @@ class MultiExpectileLoss(RegressionLoss):
                     f"of {self.num_expectiles} tensors"
                 )
 
-        # Calculate loss for each expectile level
-        losses = []
-        for i, expectile in enumerate(self.expectiles):
-            # Extract predictions for this expectile
-            level_preds = expectile_preds[:, i]
+        # Elementwise multi-expectile loss via shared utility
+        stacked_losses = multi_expectile_loss(expectile_preds, target, self.expectiles)
 
-            # Calculate residuals
-            residuals = target - level_preds
+        # Apply mask if provided
+        if mask is not None:
+            # mask: [batch_size, n_features] -> [batch_size, 1, n_features]
+            stacked_losses = stacked_losses * mask.unsqueeze(1)
 
-            # Calculate asymmetric squared error
-            # Use factor of 2 for consistency with ExpectileLoss
-            indicator = (residuals >= 0).float()
-            level_loss = (
-                2 * residuals**2 * (expectile * indicator + (1 - expectile) * (1 - indicator))
-            )
+        # Apply sample weights if provided
+        if weights is not None:
+            # weights: [batch_size, n_features] -> [batch_size, 1, n_features]
+            stacked_losses = stacked_losses * weights.unsqueeze(1)
 
-            # Apply mask if provided
-            if mask is not None:
-                level_loss = level_loss * mask
-
-            # Apply sample weights if provided
-            if weights is not None:
-                level_loss = level_loss * weights
-
-            # Reduce across features
-            if n_features > 1:
-                level_loss = torch.mean(level_loss, dim=1)
-            else:
-                level_loss = level_loss.squeeze(1)
-
-            losses.append(level_loss)
-
-        # Stack losses for all expectile levels [batch_size, num_expectiles]
-        stacked_losses = torch.stack(losses, dim=1)
+        # Reduce across features
+        if n_features > 1:
+            stacked_losses = torch.mean(stacked_losses, dim=2)
+        else:
+            stacked_losses = stacked_losses.squeeze(2)
 
         # Average across expectile levels for each sample
         combined_loss = torch.mean(stacked_losses, dim=1)
@@ -329,11 +345,6 @@ class ExpectileCrossoverLoss(RegressionLoss):
         self.base_loss = base_loss
         self.crossover_penalty = crossover_penalty
 
-        # Create individual expectile losses
-        self.expectile_losses = nn.ModuleList(
-            [ExpectileLoss(expectile=e, reduction="none") for e in expectiles]
-        )
-
     def forward(
         self,
         y_pred: torch.Tensor,
@@ -353,9 +364,6 @@ class ExpectileCrossoverLoss(RegressionLoss):
         Returns:
             Loss combining standard expectile loss and crossover penalty
         """
-        batch_size, _n_features = target.shape[0], target.shape[-1]
-        device = target.device
-
         # Shape validation for y_pred
         if y_pred.shape[1] != self.num_expectiles:
             raise ValueError(
@@ -363,60 +371,54 @@ class ExpectileCrossoverLoss(RegressionLoss):
                 f"got shape {y_pred.shape}"
             )
 
-        # Calculate standard expectile losses per sample
-        base_losses = []
-        for i, loss_fn in enumerate(self.expectile_losses):
-            level_preds = y_pred[:, i]
-            # Compute loss without reduction to get per-element losses
-            residuals = target - level_preds
-            indicator = (residuals >= 0).float()
-            level_loss = (
-                2
-                * residuals**2
-                * (loss_fn.expectile * indicator + (1 - loss_fn.expectile) * (1 - indicator))
-            )
+        # 1. Calculate Base Loss (Standard Expectile Loss) using vectorized utility
+        # [batch_size, num_expectiles, n_features]
+        level_losses = multi_expectile_loss(y_pred, target, self.expectiles)
 
-            # Apply mask and weights
-            if mask is not None:
-                level_loss = level_loss * mask
-            if weights is not None:
-                # Broadcast weights if needed
-                if weights.dim() < level_loss.dim():
-                    weights_broadcast = weights.unsqueeze(-1)
-                else:
-                    weights_broadcast = weights
-                level_loss = level_loss * weights_broadcast
+        # Apply mask and weights to base loss
+        if mask is not None:
+            # mask: [batch_size, n_features] -> [batch_size, 1, n_features]
+            mask_expanded = mask.unsqueeze(1) if mask.dim() > 1 else mask.unsqueeze(1).unsqueeze(2)
+            level_losses = level_losses * mask_expanded
 
-            # Sum across features to get per-sample loss
-            level_loss = torch.sum(level_loss, dim=-1)  # [batch_size]
-            base_losses.append(level_loss)
+        if weights is not None:
+            weights_expanded = weights
+            if weights.dim() == 1:
+                # [batch] -> [batch, 1, 1]
+                weights_expanded = weights.view(-1, 1, 1)
+            elif weights.dim() == 2:
+                # [batch, features] -> [batch, 1, features]
+                weights_expanded = weights.unsqueeze(1)
+            level_losses = level_losses * weights_expanded
 
-        stacked_base_losses = torch.stack(base_losses, dim=0)  # [num_expectiles, batch_size]
+        # Sum across features to get per-sample loss: [batch_size, num_expectiles]
+        per_sample_level_losses = torch.sum(level_losses, dim=-1)
 
-        # Calculate crossover penalties
-        crossover_penalties = torch.zeros(batch_size, device=device)
+        # Mean across expectiles per sample: [batch_size]
+        total_base_loss = torch.mean(per_sample_level_losses, dim=1)
 
-        for i in range(self.num_expectiles - 1):
-            # Lower expectile should be <= higher expectile
-            lower_preds = y_pred[:, i]  # Lower expectile predictions
-            higher_preds = y_pred[:, i + 1]  # Higher expectile predictions
+        # 2. Calculate Crossover Penalties (Vectorized)
+        # y_pred: [batch_size, num_expectiles, n_features]
+        # Compare i and i+1
+        lower_preds = y_pred[:, :-1, :]
+        higher_preds = y_pred[:, 1:, :]
 
-            # Calculate violation: ReLU(lower - higher)
-            violations = F.relu(lower_preds - higher_preds)
+        # Violations: [batch_size, num_expectiles-1, n_features]
+        violations = F.relu(lower_preds - higher_preds)
 
-            # Apply mask if provided
-            if mask is not None:
-                violations = violations * mask
+        if mask is not None:
+            # Re-use mask_expanded [batch_size, 1, n_features]
+            # Make sure mask_expanded is defined
+            mask_expanded = mask.unsqueeze(1) if mask.dim() > 1 else mask.unsqueeze(1).unsqueeze(2)
+            violations = violations * mask_expanded
 
-            # Sum violations across features
-            sample_violations = torch.sum(violations, dim=-1)
-            crossover_penalties += sample_violations
+        # Sum across features: [batch_size, num_expectiles-1]
+        feature_violations = torch.sum(violations, dim=-1)
 
-        # Final loss is weighted combination of base loss and crossover penalty
-        total_base_loss = torch.mean(
-            stacked_base_losses, dim=0
-        )  # Mean across expectiles [batch_size]
+        # Sum across expectiles: [batch_size]
+        crossover_penalties = torch.sum(feature_violations, dim=1)
 
+        # Final combination
         final_loss = self.base_loss * total_base_loss + self.crossover_penalty * crossover_penalties
 
         # Apply final reduction

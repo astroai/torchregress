@@ -151,26 +151,22 @@ class MixtureDensityLoss(DistributionLoss):
             )
 
             # Create full batch of lower triangular matrices
-            L_matrices = []
-            for c in range(self.n_components):
-                # Start with zeros for each component
-                L = torch.zeros(
-                    *batch_shape, self.n_features, self.n_features, device=y_pred.device
-                )
+            L_matrices = torch.zeros(
+                *batch_shape,
+                self.n_components,
+                self.n_features,
+                self.n_features,
+                device=y_pred.device,
+            )
 
-                # Fill lower triangular part
-                L[..., tril_indices[0], tril_indices[1]] = tril_values[..., c, :]
+            # Fill lower triangular part
+            L_matrices[..., tril_indices[0], tril_indices[1]] = tril_values
 
-                # Ensure positive diagonal (for valid Cholesky decomposition)
-                diag_indices = torch.arange(self.n_features)
-                L[..., diag_indices, diag_indices] = (
-                    F.softplus(L[..., diag_indices, diag_indices]) + self.min_std
-                )
-
-                L_matrices.append(L)
-
-            # Stack along component dimension
-            L_matrices = torch.stack(L_matrices, dim=-3)
+            # Ensure positive diagonal (for valid Cholesky decomposition)
+            diag_indices = torch.arange(self.n_features, device=y_pred.device)
+            L_matrices[..., diag_indices, diag_indices] = (
+                F.softplus(L_matrices[..., diag_indices, diag_indices]) + self.min_std
+            )
 
             return mixture_weights, means, L_matrices
 
@@ -221,64 +217,57 @@ class MixtureDensityLoss(DistributionLoss):
         # Calculate residuals: (y - μ)
         residuals = target_expanded - means  # [..., n_components, n_features]
 
-        log_probs = []
+        try:
+            # Vectorized solve for all components at once
+            # residuals: [..., n_components, n_features]
+            # L_matrices: [..., n_components, n_features, n_features]
 
-        # Process each component separately for better memory efficiency
-        for c in range(self.n_components):
-            # Extract component residuals and Cholesky factors
-            comp_residuals = residuals[..., c, :]  # [..., n_features]
-            L = L_matrices[..., c, :, :]  # [..., n_features, n_features]
+            # Solve triangular system: z = L⁻¹(y-μ)
+            # Result z has shape [..., n_components, n_features]
+            z = torch.linalg.solve_triangular(
+                L_matrices, residuals.unsqueeze(-1), upper=False
+            ).squeeze(-1)
 
-            try:
-                # Solve triangular system: z = L⁻¹(y-μ)
-                # Using batch-friendly implementation
-                z = torch.linalg.solve_triangular(
-                    L, comp_residuals.unsqueeze(-1), upper=False
-                ).squeeze(-1)
+            # Calculate quadratic term: ‖z‖² -> [..., n_components]
+            quadratic_term = torch.sum(z**2, dim=-1)
 
-                # Calculate quadratic term: ‖z‖²
-                quadratic_term = torch.sum(z**2, dim=-1)
+            # Calculate log determinant: 2*Σlog(L_ii) -> [..., n_components]
+            diag_L = torch.diagonal(L_matrices, dim1=-2, dim2=-1)
+            log_det = 2 * torch.sum(torch.log(diag_L + self.eps), dim=-1)
 
-                # Calculate log determinant: 2*Σlog(L_ii)
-                # Equivalent to log(det(Σ)) since det(Σ) = det(LLᵀ) = det(L)²
-                diag_L = torch.diagonal(L, dim1=-2, dim2=-1)  # [..., n_features]
-                log_det = 2 * torch.sum(torch.log(diag_L + self.eps), dim=-1)
+            # Calculate log probability -> [..., n_components]
+            log_probs = -0.5 * (quadratic_term + log_det + self.n_features * self.log_2pi)
 
-                # Calculate log probability
-                comp_log_prob = -0.5 * (quadratic_term + log_det + self.n_features * self.log_2pi)
+        except RuntimeError:
+            # Fallback for numerical issues - use eigendecomposition (vectorized)
+            # This handles the case where solve_triangular fails for the batch
+            # L_matrices: [..., K, D, D]
+            cov = torch.matmul(L_matrices, L_matrices.transpose(-1, -2))  # Σ = LLᵀ
 
-            except RuntimeError:
-                # Fallback for numerical issues - use eigendecomposition
-                # This is computationally more expensive but more stable
-                cov = torch.bmm(L, L.transpose(-1, -2))  # Σ = LLᵀ
+            # Add small regularization to diagonal for stability
+            diag_indices = torch.arange(self.n_features, device=L_matrices.device)
+            cov[..., diag_indices, diag_indices] += self.eps
 
-                # Add small regularization to diagonal for stability
-                diag_indices = torch.arange(self.n_features, device=L.device)
-                cov[..., diag_indices, diag_indices] += self.eps
+            # Eigendecomposition: [..., K, D], [..., K, D, D]
+            eigenvalues, eigenvectors = torch.linalg.eigh(cov)
 
-                # Eigendecomposition
-                eigenvalues, eigenvectors = torch.linalg.eigh(cov)
+            # Ensure eigenvalues are positive
+            eigenvalues = torch.clamp(eigenvalues, min=self.eps)
 
-                # Ensure eigenvalues are positive
-                eigenvalues = torch.clamp(eigenvalues, min=self.eps)
+            # Log determinant: sum(log(λ_i))
+            log_det = torch.sum(torch.log(eigenvalues), dim=-1)
 
-                # Log determinant: sum(log(λ_i))
-                log_det = torch.sum(torch.log(eigenvalues), dim=-1)
+            # Whiten the residuals: (y-μ)ᵀΣ⁻¹(y-μ) = Σ[(y-μ)ᵀv_i]²/λ_i
+            # [..., K, D, D] @ [..., K, D, 1] -> [..., K, D, 1]
+            whitened = torch.matmul(
+                eigenvectors.transpose(-1, -2), residuals.unsqueeze(-1)
+            ).squeeze(-1)
+            quadratic_term = torch.sum(whitened**2 / eigenvalues, dim=-1)
 
-                # Whiten the residuals: (y-μ)ᵀΣ⁻¹(y-μ) = Σ[(y-μ)ᵀv_i]²/λ_i
-                # where v_i, λ_i are eigenvectors and eigenvalues
-                whitened = torch.bmm(
-                    eigenvectors.transpose(-1, -2), comp_residuals.unsqueeze(-1)
-                ).squeeze(-1)
-                quadratic_term = torch.sum(whitened**2 / eigenvalues, dim=-1)
+            # Calculate log probability
+            log_probs = -0.5 * (quadratic_term + log_det + self.n_features * self.log_2pi)
 
-                # Calculate log probability
-                comp_log_prob = -0.5 * (quadratic_term + log_det + self.n_features * self.log_2pi)
-
-            log_probs.append(comp_log_prob)
-
-        # Stack component log probabilities
-        return torch.stack(log_probs, dim=-1)  # [..., n_components]
+        return log_probs
 
     def _calculate_nll(self, target, params, mask=None):
         """

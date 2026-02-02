@@ -31,7 +31,7 @@ class BaseLoss(nn.Module):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
+            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
 
     Example:
         >>> class MyLoss(BaseLoss):
@@ -162,7 +162,7 @@ class RegressionLoss(BaseLoss):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
+            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
 
     Example:
         >>> class L1Loss(RegressionLoss):
@@ -212,7 +212,7 @@ class DistributionLoss(BaseLoss):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
+            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
 
     Example:
         >>> class GaussianNLL(DistributionLoss):
@@ -360,6 +360,149 @@ class WeightedLossWrapper(BaseLoss):
         return self._reduce(loss, mask, weights)
 
 
+class WeightedCrossEntropyLoss(BaseLoss):
+    """
+    Weighted wrapper for torch.nn.CrossEntropyLoss with mask support.
+
+    This wrapper supports class-index targets and per-sample weights.
+    """
+
+    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
+        super().__init__(reduction="none")
+        kwargs["reduction"] = "none"
+        self.torch_loss = nn.CrossEntropyLoss(**kwargs)
+        self.reduction = validate_reduction(reduction)
+
+    def _validate_classification_inputs(
+        self, y_pred: torch.Tensor, target: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> None:
+        if y_pred.dim() < 2:
+            raise ValueError("y_pred must have at least 2 dimensions for classification losses")
+
+        expected_target_shape = (y_pred.shape[0], *y_pred.shape[2:])
+        if target.shape != expected_target_shape:
+            raise ValueError(
+                f"target shape {target.shape} must match y_pred shape {expected_target_shape} "
+                "for class-index targets"
+            )
+
+        if mask is not None and mask.shape != target.shape:
+            raise ValueError(f"Mask shape {mask.shape} must match target shape {target.shape}")
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        self._validate_classification_inputs(y_pred, target, mask)
+
+        if weights is not None:
+            weights = validate_weights(weights, y_pred.shape[0])
+
+        loss = self.torch_loss(y_pred, target)
+        return self._reduce(loss, mask, weights)
+
+
+class WeightedNLLLoss(BaseLoss):
+    """
+    Weighted wrapper for torch.nn.NLLLoss with mask support.
+
+    This wrapper supports class-index targets and per-sample weights.
+    """
+
+    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
+        super().__init__(reduction="none")
+        kwargs["reduction"] = "none"
+        self.torch_loss = nn.NLLLoss(**kwargs)
+        self.reduction = validate_reduction(reduction)
+
+    def _validate_classification_inputs(
+        self, y_pred: torch.Tensor, target: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> None:
+        if y_pred.dim() < 2:
+            raise ValueError("y_pred must have at least 2 dimensions for classification losses")
+
+        expected_target_shape = (y_pred.shape[0], *y_pred.shape[2:])
+        if target.shape != expected_target_shape:
+            raise ValueError(
+                f"target shape {target.shape} must match y_pred shape {expected_target_shape} "
+                "for class-index targets"
+            )
+
+        if mask is not None and mask.shape != target.shape:
+            raise ValueError(f"Mask shape {mask.shape} must match target shape {target.shape}")
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        self._validate_classification_inputs(y_pred, target, mask)
+
+        if weights is not None:
+            weights = validate_weights(weights, y_pred.shape[0])
+
+        loss = self.torch_loss(y_pred, target)
+        return self._reduce(loss, mask, weights)
+
+
+class WeightedGaussianNLLLoss(BaseLoss):
+    """
+    Weighted wrapper for torch.nn.GaussianNLLLoss with mask support.
+
+    Accepts (mean, var) or (mean, log_var) predictions. When log_variance=True,
+    the second element is treated as log-variance and exponentiated.
+    """
+
+    def __init__(self, reduction: str = "mean", log_variance: bool = True, **kwargs: Any) -> None:
+        super().__init__(reduction="none")
+        kwargs["reduction"] = "none"
+        self.torch_loss = nn.GaussianNLLLoss(**kwargs)
+        self.reduction = validate_reduction(reduction)
+        self.log_variance = log_variance
+
+    def forward(
+        self,
+        y_pred: Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]],
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        log_variance: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        if isinstance(y_pred, (tuple, list)):
+            if len(y_pred) != 2:
+                raise ValueError(
+                    "y_pred must be a tuple of (mean, var) or (mean, log_var) for "
+                    "WeightedGaussianNLLLoss"
+                )
+            mean, var_or_log = y_pred
+        else:
+            mean = y_pred
+            if "var" not in kwargs:
+                raise ValueError(
+                    "WeightedGaussianNLLLoss requires (mean, var) or (mean, log_var) inputs"
+                )
+            var_or_log = kwargs["var"]
+
+        variance_is_log = self.log_variance if log_variance is None else log_variance
+        var = torch.exp(var_or_log) if variance_is_log else var_or_log
+
+        self._validate_inputs(mean, target, mask)
+
+        if weights is not None:
+            weights = validate_weights(weights, target.shape[0])
+
+        loss = self.torch_loss(mean, target, var)
+        return self._reduce(loss, mask, weights)
+
+
 # Create weighted versions of PyTorch losses using functools.partial
 # Regression losses - core point prediction
 WeightedMSELoss = partial(WeightedLossWrapper, nn.MSELoss)
@@ -370,9 +513,5 @@ WeightedHuberLoss = partial(WeightedLossWrapper, nn.HuberLoss)
 
 # Probabilistic regression losses
 WeightedPoissonNLLLoss = partial(WeightedLossWrapper, nn.PoissonNLLLoss)
-WeightedGaussianNLLLoss = partial(WeightedLossWrapper, nn.GaussianNLLLoss)
-
 # Regression-as-classification (ordinal, discretized regression)
-WeightedCrossEntropyLoss = partial(WeightedLossWrapper, nn.CrossEntropyLoss)
-WeightedNLLLoss = partial(WeightedLossWrapper, nn.NLLLoss)
 WeightedKLDivLoss = partial(WeightedLossWrapper, nn.KLDivLoss)

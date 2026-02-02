@@ -210,17 +210,25 @@ class SWAG(nn.Module):
         # Add low-rank component from stored deviations
         if len(self.deviations) > 0:
             # Sample coefficients: z ~ N(0, 1)
-            z = torch.randn(len(self.deviations), device=next(self.base_model.parameters()).device)
+            device = next(self.base_model.parameters()).device
+            z = torch.randn(len(self.deviations), device=device)
+
+            # Denominator for scaling. Avoid division by zero if only one model.
+            k = len(self.deviations)
+            denom = (k - 1) ** 0.5 if k > 1 else 1.0
 
             for name, param in self.base_model.named_parameters():
                 if not param.requires_grad:
                     continue
 
-                # Low-rank component: sum of z_i * deviation_i
-                low_rank_sample = sum(
-                    z[i] * self.deviations[i][name].to(param.device)
-                    for i in range(len(self.deviations))
-                ) / ((len(self.deviations) - 1) ** 0.5)
+                # Stack all deviations for the current parameter
+                dev_stack = torch.stack([d[name] for d in self.deviations])
+
+                # Move the entire stack to the correct device at once
+                dev_stack = dev_stack.to(device)
+
+                # Calculate low-rank sample with efficient tensor dot product
+                low_rank_sample = torch.tensordot(z, dev_stack, dims=([0], [0])) / denom
 
                 param.data.add_(scale * low_rank_sample)
 

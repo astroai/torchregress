@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 from torchregress.metrics.calibration import expected_calibration_error
 from torchregress.metrics.utils import convert_to_tensor, validate_inputs
-from torchregress.viz.utils import add_identity_line
+from torchregress.viz.utils import add_annotations, add_identity_line, add_zero_line
 
 
 def plot_reliability_diagram(
@@ -78,7 +78,7 @@ def plot_reliability_diagram(
 
     # Show diagonal line for perfect calibration
     if show_diagonal:
-        add_identity_line(ax, color="k", linestyle="--", label="Perfect calibration")
+        add_identity_line(ax, label="Perfectly Calibrated")
 
     ax.set_xlabel("Expected proportion")
     ax.set_ylabel("Observed proportion")
@@ -194,7 +194,7 @@ def plot_residuals(
 
     # Add horizontal line at y=0 for reference
     if show_zero_line:
-        ax.axhline(y=0, color="black", linestyle="-", alpha=0.5)
+        add_zero_line(ax, axis="y", label="Perfect Prediction")
 
     # Add trend line using polynomial fit
     if show_trend and len(y_pred) > 1:
@@ -208,9 +208,12 @@ def plot_residuals(
                 linestyle="--",
                 label=f"Trend: y={z[0]:.3f}x{z[1]:+.3f}",
             )
-            ax.legend()
         except Exception as e:
             print(f"Warning: Could not fit trend line: {e}")
+
+    # Show legend if there are labeled elements
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend()
 
     # Add labels and title
     ax.set_xlabel(xlabel)
@@ -393,7 +396,7 @@ def plot_qq_plot(
     ax.scatter(theoretical_quantiles, std_residuals, color=color, alpha=0.6)
 
     # Add identity line
-    add_identity_line(ax, color="red", linestyle="--", label="Normal")
+    add_identity_line(ax, label="Normal")
 
     # Add labels and title
     ax.set_xlabel(xlabel)
@@ -481,32 +484,30 @@ def plot_residual_histogram(
                 linewidth=2,
                 label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
             )
-            ax.legend()
         except ImportError:
             pass  # Skip KDE if scipy not available
 
     # Add vertical line at zero
-    ax.axvline(x=0, color="black", linestyle="-", alpha=0.5)
+    add_zero_line(ax, axis="x", label="Perfect Prediction")
 
     # Add statistics as text box
     mean = np.mean(residuals)
     std = np.std(residuals)
-    stats_text = f"Mean: {mean:.4f}\nStd: {std:.4f}"
-    ax.text(
-        0.95,
-        0.95,
-        stats_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "Mean": mean,
+        "Std": std,
+    }
+    add_annotations(ax, annotations, loc="upper right")
 
     # Add labels and title
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
+
+    # Show legend if there are labeled elements
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend(loc="best")
 
     if return_figure:
         return fig
@@ -603,7 +604,14 @@ def plot_distribution_comparison(
 
         # Make sure we have data to plot
         if len(valid_samples) == 0:
-            ax.text(0.5, 0.5, "No valid samples", ha="center", va="center")
+            ax.text(
+                0.5,
+                0.5,
+                "No valid samples",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             continue
 
         samples = valid_samples
@@ -674,6 +682,7 @@ def plot_distribution_comparison(
                 va="bottom",
                 rotation=90,
                 fontweight="bold",
+                transform=ax.get_xaxis_transform(),
             )
 
         # Add additional vertical lines for mean and median
@@ -691,21 +700,14 @@ def plot_distribution_comparison(
             error = mean_pred - true_value
             in_ci = lower_ci <= true_value <= upper_ci
             ci_text = "in CI" if in_ci else "outside CI"
-            metrics_text = (
-                f"Mean: {mean_pred:.2f}\n"
-                f"Median: {median_pred:.2f}\n"
-                f"Error: {error:.2f}\n"
-                f"True: {true_value:.2f} ({ci_text})"
-            )
-            ax.text(
-                0.05,
-                0.95,
-                metrics_text,
-                transform=ax.transAxes,
-                verticalalignment="top",
-                horizontalalignment="left",
-                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-            )
+
+            annotations = {
+                "Mean": f"{mean_pred:.2f}",
+                "Median": f"{median_pred:.2f}",
+                "Error": f"{error:.2f}",
+                "True": f"{true_value:.2f} ({ci_text})",
+            }
+            add_annotations(ax, annotations, loc="upper left")
 
         # Add labels and legend
         ax.set_xlabel(xlabel)
@@ -801,12 +803,13 @@ def plot_calibration_curve(
 
     # Create bins and find bin edges
     bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
     binids = np.digitize(y_pred_probs, bins) - 1
 
     # Calculate mean predicted probability and observed frequency in each bin
-    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=len(bins))
-    bin_true = np.bincount(binids, weights=y_true, minlength=len(bins))
-    bin_counts = np.bincount(binids, minlength=len(bins))
+    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=n_bins)
+    bin_true = np.bincount(binids, weights=y_true, minlength=n_bins)
+    bin_counts = np.bincount(binids, minlength=n_bins)
 
     # Avoid division by zero
     nonzero = bin_counts > 0
@@ -827,7 +830,7 @@ def plot_calibration_curve(
     ax.plot(prob_pred, prob_true, marker="o", linewidth=2, color=color, label="Calibration Curve")
 
     # Add diagonal reference line
-    add_identity_line(ax, color="gray", linestyle="--", label="Perfectly Calibrated")
+    add_identity_line(ax, label="Perfectly Calibrated")
 
     # Calculate calibration metrics
     calibration_error = np.mean(np.abs(prob_true - prob_pred))
@@ -847,13 +850,14 @@ def plot_calibration_curve(
         # Create histogram bars
         for i in range(len(scaled_hist)):
             ax.bar(
-                prob_pred[i],
+                bin_centers[i],
                 scaled_hist[i],
                 width=(1 / n_bins),
                 bottom=-scaled_hist[i],
                 align="center",
                 alpha=hist_alpha,
                 color=hist_color,
+                label="Prediction Dist." if i == 0 else None,
             )
 
         # Adjust ylimit to accommodate the histograms at the bottom
@@ -865,21 +869,12 @@ def plot_calibration_curve(
     ax.set_xlim(0, 1.0)
 
     # Add text box with calibration metrics
-    metrics_text = (
-        f"Mean Calibration Error: {calibration_error:.4f}\n"
-        f"RMSCE: {rmsce:.4f}\n"
-        f"Max Calibration Error: {max_calib_error:.4f}"
-    )
-
-    ax.text(
-        0.05,
-        0.95,
-        metrics_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="left",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "Mean Calibration Error": calibration_error,
+        "RMSCE": rmsce,
+        "Max Calibration Error": max_calib_error,
+    }
+    add_annotations(ax, annotations, loc="upper left")
 
     # Add labels and title
     ax.set_xlabel(xlabel)

@@ -12,7 +12,6 @@ These losses support:
 from typing import Any, List, Optional, Union, cast
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 from ..utils.quantile import multi_quantile_loss, quantile_loss
@@ -286,11 +285,6 @@ class QuantileCrossoverLoss(RegressionLoss):
         self.base_loss = base_loss
         self.crossover_penalty = crossover_penalty
 
-        # Create individual quantile losses
-        self.quantile_losses = nn.ModuleList(
-            [QuantileLoss(quantile=q, reduction="none") for q in quantiles]
-        )
-
     def forward(
         self,
         y_pred: torch.Tensor,
@@ -311,9 +305,6 @@ class QuantileCrossoverLoss(RegressionLoss):
         Returns:
             Loss combining standard quantile loss and crossover penalty
         """
-        batch_size, _n_features = target.shape[0], target.shape[-1]
-        device = target.device
-
         # Shape validation for y_pred
         if y_pred.shape[1] != self.num_quantiles:
             raise ValueError(
@@ -321,45 +312,36 @@ class QuantileCrossoverLoss(RegressionLoss):
                 f"got shape {y_pred.shape}"
             )
 
-        # Calculate standard quantile losses
-        base_losses = []
-        for i, loss_fn in enumerate(self.quantile_losses):
-            level_preds = y_pred[:, i]  # [batch_size, n_features] or [batch_size]
-            # Ensure shapes match - if target has extra dim, keep it
-            if target.dim() > level_preds.dim():
-                level_preds = level_preds.unsqueeze(-1)
-            level_loss = loss_fn(level_preds, target, mask, weights)
-            base_losses.append(level_loss)
+        # Calculate standard quantile losses using vectorized utility
+        # multi_quantile_loss returns [batch_size, n_features] (mean over quantiles)
+        base_loss = multi_quantile_loss(y_pred, target, self.quantiles, quantile_weights=None)
 
-        stacked_base_losses = torch.stack(base_losses, dim=0)  # [num_quantiles, batch_size]
+        # Calculate crossover penalties vectorized
+        # violations: [batch_size, num_quantiles - 1, n_features]
+        violations = F.relu(y_pred[:, :-1] - y_pred[:, 1:])
 
-        # Calculate crossover penalties
-        crossover_penalties = torch.zeros(batch_size, device=device)
+        # Apply mask if provided
+        if mask is not None:
+            # Mask typically [batch_size, n_features], needs unsqueeze for quantiles
+            if mask.dim() == violations.dim() - 1:
+                mask_expanded = mask.unsqueeze(1)
+            else:
+                mask_expanded = mask
+            violations = violations * mask_expanded
 
-        for i in range(self.num_quantiles - 1):
-            # Lower quantile should be <= higher quantile
-            lower_preds = y_pred[:, i]  # Lower quantile predictions
-            higher_preds = y_pred[:, i + 1]  # Higher quantile predictions
+        # Sum violations across quantiles [batch_size, n_features]
+        crossover_penalties = torch.sum(violations, dim=1)
 
-            # Calculate violation: ReLU(lower - higher)
-            violations = F.relu(lower_preds - higher_preds)
-
-            # Apply mask if provided
-            if mask is not None:
-                violations = violations * mask
-
-            # Sum violations across features
-            sample_violations = torch.sum(violations, dim=-1)
-            crossover_penalties += sample_violations
+        # Handle weights for the final combination if provided
+        if weights is not None:
+            if weights.dim() < base_loss.dim():
+                for _ in range(base_loss.dim() - weights.dim()):
+                    weights = weights.unsqueeze(-1)
+            # We apply weights during reduction, but here we combine losses first
+            # Since _reduce handles weighting, we just return the combined loss map
 
         # Final loss is weighted combination of base loss and crossover penalty
-        total_base_loss = torch.mean(stacked_base_losses, dim=0)  # Mean across quantiles
-        final_loss = self.base_loss * total_base_loss + self.crossover_penalty * crossover_penalties
+        final_loss = self.base_loss * base_loss + self.crossover_penalty * crossover_penalties
 
         # Apply final reduction
-        if self.reduction == "mean":
-            return torch.mean(final_loss)
-        elif self.reduction == "sum":
-            return torch.sum(final_loss)
-        else:  # 'none'
-            return final_loss
+        return self._reduce(final_loss, mask, weights)
