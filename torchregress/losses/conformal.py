@@ -78,7 +78,7 @@ class ConformalLoss(RegressionLoss):
             )
         else:
             raise ValueError(
-                f"Unknown method: {self.method}. " f"Supported methods: 'split', 'cqr', 'aci'"
+                f"Unknown method: {self.method}. Supported methods: 'split', 'cqr', 'aci'"
             )
 
     def forward(

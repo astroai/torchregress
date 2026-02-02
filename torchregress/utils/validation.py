@@ -78,7 +78,7 @@ def validate_shape(
     """
     if len(tensor.shape) != len(expected_shape):
         raise ValueError(
-            f"{param_name} has {len(tensor.shape)} dimensions, " f"expected {len(expected_shape)}"
+            f"{param_name} has {len(tensor.shape)} dimensions, expected {len(expected_shape)}"
         )
 
     for i, (actual, expected) in enumerate(zip(tensor.shape, expected_shape)):
@@ -86,7 +86,7 @@ def validate_shape(
             if actual != expected:
                 if not allow_broadcast or actual != 1:
                     raise ValueError(
-                        f"{param_name} has shape {tensor.shape}, " f"expected {expected_shape}"
+                        f"{param_name} has shape {tensor.shape}, expected {expected_shape}"
                     )
     return tensor
 
@@ -180,7 +180,7 @@ def validate_range(
     else:
         if value < min_value or value > max_value:
             raise ValueError(
-                f"{param_name} must be between {min_value} and {max_value}, " f"got {value}"
+                f"{param_name} must be between {min_value} and {max_value}, got {value}"
             )
     return value
 

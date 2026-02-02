@@ -128,7 +128,7 @@ def train_model(
         losses.append(avg_loss)
 
         if verbose and (epoch + 1) % 50 == 0:
-            print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
 
     return losses
 

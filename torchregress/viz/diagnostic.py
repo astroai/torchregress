@@ -640,7 +640,7 @@ def plot_distribution_comparison(
                         y_ci,
                         color=color_samples,
                         alpha=0.2,
-                        label=f"{int(credible_interval*100)}% CI",
+                        label=f"{int(credible_interval * 100)}% CI",
                     )
 
                 # Add sample curves with low alpha for uncertainty visualization
@@ -796,8 +796,7 @@ def plot_calibration_curve(
         min_prob = np.min(y_pred_probs)
         max_prob = np.max(y_pred_probs)
         print(
-            f"Warning: Predicted probabilities outside [0, 1] range: "
-            f"min={min_prob}, max={max_prob}"
+            f"Warning: Predicted probabilities outside [0, 1] range: min={min_prob}, max={max_prob}"
         )
         y_pred_probs = np.clip(y_pred_probs, 0, 1)
 

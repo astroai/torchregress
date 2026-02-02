@@ -191,7 +191,7 @@ def train_baseline(dataset, n_epochs=100):
             total_loss += loss.item()
 
         if (epoch + 1) % 20 == 0:
-            print(f"Epoch {epoch+1}/{n_epochs}, Loss: {total_loss/len(loader):.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {total_loss / len(loader):.4f}")
 
     return model
 
@@ -225,7 +225,7 @@ def train_density_weighted(dataset, n_epochs=100):
             total_loss += loss.item()
 
         if (epoch + 1) % 20 == 0:
-            print(f"Epoch {epoch+1}/{n_epochs}, Loss: {total_loss/len(loader):.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {total_loss / len(loader):.4f}")
 
     return model
 
@@ -260,7 +260,7 @@ def train_lds(dataset, n_epochs=100):
             total_loss += loss.item()
 
         if (epoch + 1) % 20 == 0:
-            print(f"Epoch {epoch+1}/{n_epochs}, Loss: {total_loss/len(loader):.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {total_loss / len(loader):.4f}")
 
     return model
 
@@ -294,7 +294,7 @@ def evaluate_on_regions(model, dataset):
 
     print(f"MSE on dense region [-1, 1]: {mse_dense:.4f}")
     print(f"MSE on sparse region (tails): {mse_sparse:.4f}")
-    print(f"MSE ratio (sparse/dense): {mse_sparse/mse_dense:.2f}")
+    print(f"MSE ratio (sparse/dense): {mse_sparse / mse_dense:.2f}")
 
     return mse_dense, mse_sparse
 

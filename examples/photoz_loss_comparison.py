@@ -314,7 +314,7 @@ def main():
         model, loss_fn = build()
         if name == "Ensemble (MSE)":
             for i, sub_model in enumerate(model.models):
-                print(f"Training ensemble member {i+1}/{model.ensemble_size}")
+                print(f"Training ensemble member {i + 1}/{model.ensemble_size}")
                 train_model(sub_model, loss_fn, train_loader, device=device)
         else:
             train_model(model, loss_fn, train_loader, device=device)

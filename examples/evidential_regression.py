@@ -158,7 +158,7 @@ def train_evidential_model(x_train, y_train, n_epochs=500, coeff_nig=0.01):
 
         if (epoch + 1) % 100 == 0:
             avg_loss = total_loss / len(loader)
-            print(f"Epoch {epoch+1}/{n_epochs}, Loss: {avg_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {avg_loss:.4f}")
 
     return model, loss_fn
 
@@ -399,7 +399,7 @@ def demonstrate_sampling(model, loss_fn, x_test):
         ax.set_xlabel("Prediction")
         ax.set_ylabel("Density")
         ax.set_title(
-            f"x={x_val:.2f}\n" f"Ale={ale_np[i]:.3f}, Epi={epi_np[i]:.3f}",
+            f"x={x_val:.2f}\nAle={ale_np[i]:.3f}, Epi={epi_np[i]:.3f}",
             fontsize=9,
         )
         ax.legend(fontsize=8)

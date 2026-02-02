@@ -187,7 +187,7 @@ def train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3):
         scheduler.step(avg_loss)
 
         if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{n_epochs}, Loss: {avg_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {avg_loss:.4f}")
 
     return losses
 

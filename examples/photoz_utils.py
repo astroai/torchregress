@@ -7,10 +7,10 @@ This module provides helper functions for:
 - Tail/edge performance analysis
 """
 
-import numpy as np
-import torch
+from typing import Dict, Optional, Tuple
+
 import matplotlib.pyplot as plt
-from typing import Dict, List, Optional, Tuple, Union
+import numpy as np
 from scipy import stats
 
 
@@ -77,15 +77,14 @@ def plot_reliability_diagram(
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 6))
 
-    ax.plot([0, 1], [0, 1], 'k--', label='Perfect calibration', alpha=0.5)
-    ax.plot(expected_coverage, observed_coverage, 'o-',
-            label=label, color=color, markersize=6)
-    ax.set_xlabel('Expected Coverage')
-    ax.set_ylabel('Observed Coverage')
-    ax.set_title('Reliability Diagram')
+    ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration", alpha=0.5)
+    ax.plot(expected_coverage, observed_coverage, "o-", label=label, color=color, markersize=6)
+    ax.set_xlabel("Expected Coverage")
+    ax.set_ylabel("Observed Coverage")
+    ax.set_title("Reliability Diagram")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
     ax.grid(True, alpha=0.3)
     if label:
         ax.legend()
@@ -140,12 +139,20 @@ def plot_pit_histogram(
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 4))
 
-    ax.hist(pit_values, bins=n_bins, density=True, alpha=0.7,
-            label=label, color=color, edgecolor='black', linewidth=0.5)
-    ax.axhline(y=1.0, color='red', linestyle='--', label='Uniform (ideal)')
-    ax.set_xlabel('PIT Value')
-    ax.set_ylabel('Density')
-    ax.set_title('PIT Histogram (Uniform = Well-Calibrated)')
+    ax.hist(
+        pit_values,
+        bins=n_bins,
+        density=True,
+        alpha=0.7,
+        label=label,
+        color=color,
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    ax.axhline(y=1.0, color="red", linestyle="--", label="Uniform (ideal)")
+    ax.set_xlabel("PIT Value")
+    ax.set_ylabel("Density")
+    ax.set_title("PIT Histogram (Uniform = Well-Calibrated)")
     ax.set_xlim(0, 1)
     ax.legend()
 
@@ -207,19 +214,17 @@ def plot_uncertainty_vs_error(
         pred_stds_plot = pred_stds
         abs_errors_plot = abs_errors
 
-    ax.scatter(pred_stds_plot, abs_errors_plot, alpha=0.3, s=10,
-               label=label, color=color)
+    ax.scatter(pred_stds_plot, abs_errors_plot, alpha=0.3, s=10, label=label, color=color)
 
     # Add trend line
     z = np.polyfit(pred_stds_plot, abs_errors_plot, 1)
     p = np.poly1d(z)
     x_line = np.linspace(pred_stds_plot.min(), pred_stds_plot.max(), 100)
-    ax.plot(x_line, p(x_line), 'r--', linewidth=2,
-            label=f'Trend (ρ={correlation:.3f})')
+    ax.plot(x_line, p(x_line), "r--", linewidth=2, label=f"Trend (ρ={correlation:.3f})")
 
-    ax.set_xlabel('Predicted Uncertainty (σ)')
-    ax.set_ylabel('Absolute Error |ŷ - y|')
-    ax.set_title('Uncertainty vs Error (should correlate)')
+    ax.set_xlabel("Predicted Uncertainty (σ)")
+    ax.set_ylabel("Absolute Error |ŷ - y|")
+    ax.set_title("Uncertainty vs Error (should correlate)")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -283,7 +288,7 @@ def compute_binned_metrics(
         abs_errors = np.abs(errors)
 
         # RMSE
-        rmse = np.sqrt(np.mean(errors ** 2))
+        rmse = np.sqrt(np.mean(errors**2))
 
         # MAE
         mae = np.mean(abs_errors)
@@ -306,13 +311,13 @@ def compute_binned_metrics(
 
         bin_name = f"[{low:.3f}, {high:.3f})"
         results[bin_name] = {
-            'n_samples': int(mask.sum()),
-            'rmse': float(rmse),
-            'mae': float(mae),
-            'bias': float(bias),
-            'nmad': float(nmad),
-            'picp_95': float(picp),
-            'mpiw_95': float(mpiw),
+            "n_samples": int(mask.sum()),
+            "rmse": float(rmse),
+            "mae": float(mae),
+            "bias": float(bias),
+            "nmad": float(nmad),
+            "picp_95": float(picp),
+            "mpiw_95": float(mpiw),
         }
 
     return results
@@ -320,7 +325,7 @@ def compute_binned_metrics(
 
 def plot_binned_metrics(
     binned_metrics: Dict[str, Dict[str, float]],
-    metric_name: str = 'rmse',
+    metric_name: str = "rmse",
     ax: Optional[plt.Axes] = None,
     label: Optional[str] = None,
     color: Optional[str] = None,
@@ -340,22 +345,28 @@ def plot_binned_metrics(
 
     bins = list(binned_metrics.keys())
     values = [binned_metrics[b][metric_name] for b in bins]
-    n_samples = [binned_metrics[b]['n_samples'] for b in bins]
+    n_samples = [binned_metrics[b]["n_samples"] for b in bins]
 
     x = np.arange(len(bins))
     bars = ax.bar(x, values, alpha=0.7, label=label, color=color)
 
     # Add sample counts as text
     for i, (bar, n) in enumerate(zip(bars, n_samples)):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height(),
-                f'n={n}', ha='center', va='bottom', fontsize=8)
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"n={n}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(bins, rotation=45, ha='right')
-    ax.set_xlabel('Target Bin (z_spec)')
+    ax.set_xticklabels(bins, rotation=45, ha="right")
+    ax.set_xlabel("Target Bin (z_spec)")
     ax.set_ylabel(metric_name.upper())
-    ax.set_title(f'{metric_name.upper()} by Redshift Bin')
-    ax.grid(True, alpha=0.3, axis='y')
+    ax.set_title(f"{metric_name.upper()} by Redshift Bin")
+    ax.grid(True, alpha=0.3, axis="y")
 
     if label:
         ax.legend()
@@ -385,43 +396,46 @@ def compare_calibration(
     # 1. Reliability diagram (top-left)
     ax = axes[0, 0]
     for (name, res), color in zip(results.items(), colors):
-        if 'pred_stds' not in res or res['pred_stds'] is None:
+        if "pred_stds" not in res or res["pred_stds"] is None:
             continue
         plot_reliability_diagram(
-            res['predictions'], res['pred_stds'], res['targets'],
-            ax=ax, label=name, color=color
+            res["predictions"], res["pred_stds"], res["targets"], ax=ax, label=name, color=color
         )
     ax.legend(fontsize=8)
 
     # 2. PIT histograms (top-right) - show just a few key models
     ax = axes[0, 1]
-    key_models = ['GaussianNLL', 'Quantile', 'MDN', 'Evidential']
+    key_models = ["GaussianNLL", "Quantile", "MDN", "Evidential"]
     for name in key_models:
-        if name in results and 'pred_stds' in results[name]:
+        if name in results and "pred_stds" in results[name]:
             res = results[name]
             color = colors[list(results.keys()).index(name)]
             ax.hist(
                 stats.norm.cdf(
-                    (res['targets'].flatten() - res['predictions'].flatten()) /
-                    (res['pred_stds'].flatten() + 1e-8)
+                    (res["targets"].flatten() - res["predictions"].flatten())
+                    / (res["pred_stds"].flatten() + 1e-8)
                 ),
-                bins=20, density=True, alpha=0.5, label=name, color=color
+                bins=20,
+                density=True,
+                alpha=0.5,
+                label=name,
+                color=color,
             )
-    ax.axhline(y=1.0, color='red', linestyle='--', label='Uniform')
-    ax.set_xlabel('PIT Value')
-    ax.set_ylabel('Density')
-    ax.set_title('PIT Histograms')
+    ax.axhline(y=1.0, color="red", linestyle="--", label="Uniform")
+    ax.set_xlabel("PIT Value")
+    ax.set_ylabel("Density")
+    ax.set_title("PIT Histograms")
     ax.legend(fontsize=8)
 
     # 3. Uncertainty vs Error correlation (bottom-left)
     ax = axes[1, 0]
     correlations = {}
     for (name, res), color in zip(results.items(), colors):
-        if 'pred_stds' not in res or res['pred_stds'] is None:
+        if "pred_stds" not in res or res["pred_stds"] is None:
             continue
-        preds = res['predictions'].flatten()
-        stds = res['pred_stds'].flatten()
-        targets = res['targets'].flatten()
+        preds = res["predictions"].flatten()
+        stds = res["pred_stds"].flatten()
+        targets = res["targets"].flatten()
         abs_err = np.abs(preds - targets)
         corr, _ = stats.spearmanr(stds, abs_err)
         correlations[name] = corr
@@ -429,29 +443,29 @@ def compare_calibration(
     # Bar chart of correlations
     names = list(correlations.keys())
     corrs = list(correlations.values())
-    bars = ax.bar(range(len(names)), corrs, color=[colors[list(results.keys()).index(n)] for n in names])
+    ax.bar(range(len(names)), corrs, color=[colors[list(results.keys()).index(n)] for n in names])
     ax.set_xticks(range(len(names)))
-    ax.set_xticklabels(names, rotation=45, ha='right')
-    ax.set_ylabel('Spearman Correlation')
-    ax.set_title('Uncertainty-Error Correlation (higher = better)')
-    ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
-    ax.grid(True, alpha=0.3, axis='y')
+    ax.set_xticklabels(names, rotation=45, ha="right")
+    ax.set_ylabel("Spearman Correlation")
+    ax.set_title("Uncertainty-Error Correlation (higher = better)")
+    ax.axhline(y=0, color="black", linestyle="-", linewidth=0.5)
+    ax.grid(True, alpha=0.3, axis="y")
 
     # 4. Summary metrics table (bottom-right)
     ax = axes[1, 1]
-    ax.axis('off')
+    ax.axis("off")
 
     # Create summary table
-    headers = ['Model', 'CRPS', 'PICP@95%', 'MPIW', 'MCE']
+    headers = ["Model", "CRPS", "PICP@95%", "MPIW", "MCE"]
     table_data = []
     for name, res in results.items():
-        if 'crps' in res:
+        if "crps" in res:
             row = [
                 name,
                 f"{res.get('crps', 0):.4f}",
                 f"{res.get('picp_95', 0):.3f}",
                 f"{res.get('mpiw_95', 0):.4f}",
-                f"{res.get('mce', 0):.4f}" if not np.isnan(res.get('mce', float('nan'))) else 'N/A'
+                f"{res.get('mce', 0):.4f}" if not np.isnan(res.get("mce", float("nan"))) else "N/A",
             ]
             table_data.append(row)
 
@@ -459,14 +473,14 @@ def compare_calibration(
         table = ax.table(
             cellText=table_data,
             colLabels=headers,
-            cellLoc='center',
-            loc='center',
-            colWidths=[0.25, 0.15, 0.15, 0.15, 0.15]
+            cellLoc="center",
+            loc="center",
+            colWidths=[0.25, 0.15, 0.15, 0.15, 0.15],
         )
         table.auto_set_font_size(False)
         table.set_fontsize(9)
         table.scale(1.2, 1.5)
-        ax.set_title('Probabilistic Metrics Summary', pad=20)
+        ax.set_title("Probabilistic Metrics Summary", pad=20)
 
     plt.tight_layout()
     return fig
@@ -492,9 +506,11 @@ def print_metrics_table(
         print(f"{'Model':<20} {'MAE':<10} {'RMSE':<10} {'Bias':<10} {'NMAD':<10}")
         print("-" * 70)
         for name, res in results.items():
-            if 'mae' in res:
-                print(f"{name:<20} {res['mae']:<10.4f} {res['rmse']:<10.4f} "
-                      f"{res['bias']:<10.4f} {res['nmad']:<10.4f}")
+            if "mae" in res:
+                print(
+                    f"{name:<20} {res['mae']:<10.4f} {res['rmse']:<10.4f} "
+                    f"{res['bias']:<10.4f} {res['nmad']:<10.4f}"
+                )
 
     if include_prob:
         print("\n" + "=" * 70)
@@ -503,10 +519,14 @@ def print_metrics_table(
         print(f"{'Model':<20} {'CRPS':<10} {'PICP@95%':<10} {'MPIW':<10} {'MCE':<10}")
         print("-" * 70)
         for name, res in results.items():
-            if 'crps' in res:
-                mce_str = f"{res['mce']:.4f}" if not np.isnan(res.get('mce', float('nan'))) else 'N/A'
-                print(f"{name:<20} {res['crps']:<10.4f} {res['picp_95']:<10.3f} "
-                      f"{res['mpiw_95']:<10.4f} {mce_str:<10}")
+            if "crps" in res:
+                mce_str = (
+                    f"{res['mce']:.4f}" if not np.isnan(res.get("mce", float("nan"))) else "N/A"
+                )
+                print(
+                    f"{name:<20} {res['crps']:<10.4f} {res['picp_95']:<10.3f} "
+                    f"{res['mpiw_95']:<10.4f} {mce_str:<10}"
+                )
 
 
 def print_comprehensive_metrics_table(
@@ -538,27 +558,27 @@ def print_comprehensive_metrics_table(
         metrics = {}
 
         # Basic metrics (already in results)
-        metrics['mae'] = res.get('mae', float('nan'))
-        metrics['rmse'] = res.get('rmse', float('nan'))
-        metrics['bias'] = res.get('bias', float('nan'))
-        metrics['nmad'] = res.get('nmad', float('nan'))
-        metrics['crps'] = res.get('crps', float('nan'))
-        metrics['picp_95'] = res.get('picp_95', float('nan'))
-        metrics['mpiw'] = res.get('mpiw_95', float('nan'))
-        metrics['mce'] = res.get('mce', float('nan'))
+        metrics["mae"] = res.get("mae", float("nan"))
+        metrics["rmse"] = res.get("rmse", float("nan"))
+        metrics["bias"] = res.get("bias", float("nan"))
+        metrics["nmad"] = res.get("nmad", float("nan"))
+        metrics["crps"] = res.get("crps", float("nan"))
+        metrics["picp_95"] = res.get("picp_95", float("nan"))
+        metrics["mpiw"] = res.get("mpiw_95", float("nan"))
+        metrics["mce"] = res.get("mce", float("nan"))
 
         # Compute uncertainty-error correlation
-        if 'predictions' in res and 'pred_stds' in res and 'targets' in res:
-            preds = np.asarray(res['predictions']).flatten()
-            stds = np.asarray(res['pred_stds']).flatten()
-            targets = np.asarray(res['targets']).flatten()
+        if "predictions" in res and "pred_stds" in res and "targets" in res:
+            preds = np.asarray(res["predictions"]).flatten()
+            stds = np.asarray(res["pred_stds"]).flatten()
+            targets = np.asarray(res["targets"]).flatten()
             abs_err = np.abs(preds - targets)
 
             if len(stds) > 0 and np.std(stds) > 1e-8:
                 corr, _ = stats.spearmanr(stds, abs_err)
-                metrics['unc_err_rho'] = corr
+                metrics["unc_err_rho"] = corr
             else:
-                metrics['unc_err_rho'] = float('nan')
+                metrics["unc_err_rho"] = float("nan")
 
             # Compute tail metrics (first and last quintile)
             try:
@@ -567,53 +587,55 @@ def print_comprehensive_metrics_table(
                 # Low-z bin (first 20%)
                 low_mask = targets <= bin_edges[1]
                 if low_mask.sum() > 10:
-                    low_rmse = np.sqrt(np.mean((preds[low_mask] - targets[low_mask])**2))
-                    metrics['low_z_rmse'] = low_rmse
+                    low_rmse = np.sqrt(np.mean((preds[low_mask] - targets[low_mask]) ** 2))
+                    metrics["low_z_rmse"] = low_rmse
                 else:
-                    metrics['low_z_rmse'] = float('nan')
+                    metrics["low_z_rmse"] = float("nan")
 
                 # High-z bin (last 20%)
                 high_mask = targets >= bin_edges[2]
                 if high_mask.sum() > 10:
-                    high_rmse = np.sqrt(np.mean((preds[high_mask] - targets[high_mask])**2))
+                    high_rmse = np.sqrt(np.mean((preds[high_mask] - targets[high_mask]) ** 2))
                     # Tail PICP
                     z = stats.norm.ppf(0.975)
                     lower = preds[high_mask] - z * stds[high_mask]
                     upper = preds[high_mask] + z * stds[high_mask]
-                    tail_picp = np.mean((targets[high_mask] >= lower) & (targets[high_mask] <= upper))
-                    metrics['high_z_rmse'] = high_rmse
-                    metrics['tail_picp'] = tail_picp
+                    tail_picp = np.mean(
+                        (targets[high_mask] >= lower) & (targets[high_mask] <= upper)
+                    )
+                    metrics["high_z_rmse"] = high_rmse
+                    metrics["tail_picp"] = tail_picp
                 else:
-                    metrics['high_z_rmse'] = float('nan')
-                    metrics['tail_picp'] = float('nan')
+                    metrics["high_z_rmse"] = float("nan")
+                    metrics["tail_picp"] = float("nan")
 
                 # Imbalance ratio (high-z / low-z RMSE)
-                if not np.isnan(metrics['low_z_rmse']) and not np.isnan(metrics['high_z_rmse']):
-                    metrics['imbal_ratio'] = metrics['high_z_rmse'] / (metrics['low_z_rmse'] + 1e-8)
+                if not np.isnan(metrics["low_z_rmse"]) and not np.isnan(metrics["high_z_rmse"]):
+                    metrics["imbal_ratio"] = metrics["high_z_rmse"] / (metrics["low_z_rmse"] + 1e-8)
                 else:
-                    metrics['imbal_ratio'] = float('nan')
+                    metrics["imbal_ratio"] = float("nan")
             except Exception:
-                metrics['low_z_rmse'] = float('nan')
-                metrics['high_z_rmse'] = float('nan')
-                metrics['tail_picp'] = float('nan')
-                metrics['imbal_ratio'] = float('nan')
+                metrics["low_z_rmse"] = float("nan")
+                metrics["high_z_rmse"] = float("nan")
+                metrics["tail_picp"] = float("nan")
+                metrics["imbal_ratio"] = float("nan")
         else:
-            metrics['unc_err_rho'] = float('nan')
-            metrics['low_z_rmse'] = float('nan')
-            metrics['high_z_rmse'] = float('nan')
-            metrics['tail_picp'] = float('nan')
-            metrics['imbal_ratio'] = float('nan')
+            metrics["unc_err_rho"] = float("nan")
+            metrics["low_z_rmse"] = float("nan")
+            metrics["high_z_rmse"] = float("nan")
+            metrics["tail_picp"] = float("nan")
+            metrics["imbal_ratio"] = float("nan")
 
         # Uncertainty decomposition (if available)
-        if 'aleatoric_std' in res:
-            metrics['ale_std'] = float(np.mean(np.asarray(res['aleatoric_std'])))
+        if "aleatoric_std" in res:
+            metrics["ale_std"] = float(np.mean(np.asarray(res["aleatoric_std"])))
         else:
-            metrics['ale_std'] = float('nan')
+            metrics["ale_std"] = float("nan")
 
-        if 'epistemic_std' in res:
-            metrics['epi_std'] = float(np.mean(np.asarray(res['epistemic_std'])))
+        if "epistemic_std" in res:
+            metrics["epi_std"] = float(np.mean(np.asarray(res["epistemic_std"])))
         else:
-            metrics['epi_std'] = float('nan')
+            metrics["epi_std"] = float("nan")
 
         all_metrics[name] = metrics
 
@@ -626,7 +648,9 @@ def print_comprehensive_metrics_table(
     print(f"│ {'Model':<18} │ {'MAE':^12} │ {'RMSE':^12} │ {'Bias':^12} │ {'NMAD':^12} │")
     print("├" + "─" * 20 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┤")
     for name, m in all_metrics.items():
-        print(f"│ {name:<18} │ {m['mae']:^12.4f} │ {m['rmse']:^12.4f} │ {m['bias']:^12.4f} │ {m['nmad']:^12.4f} │")
+        print(
+            f"│ {name:<18} │ {m['mae']:^12.4f} │ {m['rmse']:^12.4f} │ {m['bias']:^12.4f} │ {m['nmad']:^12.4f} │"
+        )
     print("└" + "─" * 20 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┘")
 
     # 2. Probabilistic Metrics
@@ -636,8 +660,10 @@ def print_comprehensive_metrics_table(
     print(f"│ {'Model':<18} │ {'CRPS':^12} │ {'PICP@95%':^12} │ {'MPIW':^12} │ {'MCE':^12} │")
     print("├" + "─" * 20 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┤")
     for name, m in all_metrics.items():
-        mce_str = f"{m['mce']:.4f}" if not np.isnan(m['mce']) else "N/A"
-        print(f"│ {name:<18} │ {m['crps']:^12.4f} │ {m['picp_95']:^12.3f} │ {m['mpiw']:^12.4f} │ {mce_str:^12} │")
+        mce_str = f"{m['mce']:.4f}" if not np.isnan(m["mce"]) else "N/A"
+        print(
+            f"│ {name:<18} │ {m['crps']:^12.4f} │ {m['picp_95']:^12.3f} │ {m['mpiw']:^12.4f} │ {mce_str:^12} │"
+        )
     print("└" + "─" * 20 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┘")
 
     # 3. Calibration & Uncertainty Quality
@@ -647,8 +673,8 @@ def print_comprehensive_metrics_table(
     print(f"│ {'Model':<18} │ {'Unc-Err ρ':^12} │ {'|PICP-0.95|':^12} │")
     print("├" + "─" * 20 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┤")
     for name, m in all_metrics.items():
-        rho_str = f"{m['unc_err_rho']:.3f}" if not np.isnan(m['unc_err_rho']) else "N/A"
-        picp_dev = abs(m['picp_95'] - 0.95) if not np.isnan(m['picp_95']) else float('nan')
+        rho_str = f"{m['unc_err_rho']:.3f}" if not np.isnan(m["unc_err_rho"]) else "N/A"
+        picp_dev = abs(m["picp_95"] - 0.95) if not np.isnan(m["picp_95"]) else float("nan")
         picp_dev_str = f"{picp_dev:.3f}" if not np.isnan(picp_dev) else "N/A"
         print(f"│ {name:<18} │ {rho_str:^12} │ {picp_dev_str:^12} │")
     print("└" + "─" * 20 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┘")
@@ -657,30 +683,37 @@ def print_comprehensive_metrics_table(
     print("\n┌" + "─" * 82 + "┐")
     print("│" + " TAIL/IMBALANCE PERFORMANCE (first vs last 20%)".center(82) + "│")
     print("├" + "─" * 20 + "┬" + "─" * 14 + "┬" + "─" * 14 + "┬" + "─" * 14 + "┬" + "─" * 16 + "┤")
-    print(f"│ {'Model':<18} │ {'Low-z RMSE':^12} │ {'High-z RMSE':^12} │ {'Tail PICP':^12} │ {'Imbal. Ratio':^14} │")
+    print(
+        f"│ {'Model':<18} │ {'Low-z RMSE':^12} │ {'High-z RMSE':^12} │ {'Tail PICP':^12} │ {'Imbal. Ratio':^14} │"
+    )
     print("├" + "─" * 20 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 16 + "┤")
     for name, m in all_metrics.items():
-        low_str = f"{m['low_z_rmse']:.4f}" if not np.isnan(m['low_z_rmse']) else "N/A"
-        high_str = f"{m['high_z_rmse']:.4f}" if not np.isnan(m['high_z_rmse']) else "N/A"
-        tail_str = f"{m['tail_picp']:.3f}" if not np.isnan(m['tail_picp']) else "N/A"
-        imbal_str = f"{m['imbal_ratio']:.2f}x" if not np.isnan(m['imbal_ratio']) else "N/A"
+        low_str = f"{m['low_z_rmse']:.4f}" if not np.isnan(m["low_z_rmse"]) else "N/A"
+        high_str = f"{m['high_z_rmse']:.4f}" if not np.isnan(m["high_z_rmse"]) else "N/A"
+        tail_str = f"{m['tail_picp']:.3f}" if not np.isnan(m["tail_picp"]) else "N/A"
+        imbal_str = f"{m['imbal_ratio']:.2f}x" if not np.isnan(m["imbal_ratio"]) else "N/A"
         print(f"│ {name:<18} │ {low_str:^12} │ {high_str:^12} │ {tail_str:^12} │ {imbal_str:^14} │")
     print("└" + "─" * 20 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 16 + "┘")
 
     # 5. Uncertainty Decomposition (for models that support it)
-    decomp_models = {k: v for k, v in all_metrics.items()
-                     if not np.isnan(v['ale_std']) or not np.isnan(v['epi_std'])}
+    decomp_models = {
+        k: v
+        for k, v in all_metrics.items()
+        if not np.isnan(v["ale_std"]) or not np.isnan(v["epi_std"])
+    }
     if decomp_models:
         print("\n┌" + "─" * 68 + "┐")
         print("│" + " UNCERTAINTY DECOMPOSITION".center(68) + "│")
         print("├" + "─" * 20 + "┬" + "─" * 14 + "┬" + "─" * 14 + "┬" + "─" * 16 + "┤")
-        print(f"│ {'Model':<18} │ {'Aleatoric σ':^12} │ {'Epistemic σ':^12} │ {'Epi/(Ale+Epi)':^14} │")
+        print(
+            f"│ {'Model':<18} │ {'Aleatoric σ':^12} │ {'Epistemic σ':^12} │ {'Epi/(Ale+Epi)':^14} │"
+        )
         print("├" + "─" * 20 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 16 + "┤")
         for name, m in decomp_models.items():
-            ale_str = f"{m['ale_std']:.4f}" if not np.isnan(m['ale_std']) else "N/A"
-            epi_str = f"{m['epi_std']:.4f}" if not np.isnan(m['epi_std']) else "N/A"
-            if not np.isnan(m['ale_std']) and not np.isnan(m['epi_std']):
-                epi_frac = m['epi_std']**2 / (m['ale_std']**2 + m['epi_std']**2 + 1e-8)
+            ale_str = f"{m['ale_std']:.4f}" if not np.isnan(m["ale_std"]) else "N/A"
+            epi_str = f"{m['epi_std']:.4f}" if not np.isnan(m["epi_std"]) else "N/A"
+            if not np.isnan(m["ale_std"]) and not np.isnan(m["epi_std"]):
+                epi_frac = m["epi_std"] ** 2 / (m["ale_std"] ** 2 + m["epi_std"] ** 2 + 1e-8)
                 frac_str = f"{epi_frac:.1%}"
             else:
                 frac_str = "N/A"
@@ -693,31 +726,37 @@ def print_comprehensive_metrics_table(
     print("─" * 80)
 
     # Find best models by category
-    valid_models = {k: v for k, v in all_metrics.items() if not np.isnan(v['rmse'])}
+    valid_models = {k: v for k, v in all_metrics.items() if not np.isnan(v["rmse"])}
     if valid_models:
-        best_point = min(valid_models, key=lambda x: valid_models[x]['rmse'])
+        best_point = min(valid_models, key=lambda x: valid_models[x]["rmse"])
         print(f"  Best point prediction (RMSE):      {best_point}")
 
-    valid_prob = {k: v for k, v in all_metrics.items() if not np.isnan(v['crps'])}
+    valid_prob = {k: v for k, v in all_metrics.items() if not np.isnan(v["crps"])}
     if valid_prob:
-        best_prob = min(valid_prob, key=lambda x: valid_prob[x]['crps'])
+        best_prob = min(valid_prob, key=lambda x: valid_prob[x]["crps"])
         print(f"  Best probabilistic (CRPS):         {best_prob}")
 
-    valid_calib = {k: v for k, v in all_metrics.items()
-                   if not np.isnan(v['picp_95']) and abs(v['picp_95'] - 0.95) < 0.2}
+    valid_calib = {
+        k: v
+        for k, v in all_metrics.items()
+        if not np.isnan(v["picp_95"]) and abs(v["picp_95"] - 0.95) < 0.2
+    }
     if valid_calib:
-        best_calib = min(valid_calib, key=lambda x: abs(valid_calib[x]['picp_95'] - 0.95))
+        best_calib = min(valid_calib, key=lambda x: abs(valid_calib[x]["picp_95"] - 0.95))
         print(f"  Best calibration (PICP@95%):       {best_calib}")
 
-    valid_tail = {k: v for k, v in all_metrics.items() if not np.isnan(v['imbal_ratio'])}
+    valid_tail = {k: v for k, v in all_metrics.items() if not np.isnan(v["imbal_ratio"])}
     if valid_tail:
-        best_tail = min(valid_tail, key=lambda x: valid_tail[x]['imbal_ratio'])
+        best_tail = min(valid_tail, key=lambda x: valid_tail[x]["imbal_ratio"])
         print(f"  Best tail balance (Imbal. Ratio):  {best_tail}")
 
-    valid_unc = {k: v for k, v in all_metrics.items()
-                 if not np.isnan(v['unc_err_rho']) and v['unc_err_rho'] > 0}
+    valid_unc = {
+        k: v
+        for k, v in all_metrics.items()
+        if not np.isnan(v["unc_err_rho"]) and v["unc_err_rho"] > 0
+    }
     if valid_unc:
-        best_unc = max(valid_unc, key=lambda x: valid_unc[x]['unc_err_rho'])
+        best_unc = max(valid_unc, key=lambda x: valid_unc[x]["unc_err_rho"])
         print(f"  Best uncertainty quality (ρ):      {best_unc}")
 
 

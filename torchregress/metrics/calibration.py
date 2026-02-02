@@ -8,7 +8,11 @@ import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, create_metric_result, validate_inputs
+from torchregress.metrics.utils import (
+    convert_to_tensor,
+    create_metric_result,
+    validate_inputs,
+)
 
 
 class ExpectedCalibrationError(Metric):

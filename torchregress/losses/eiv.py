@@ -149,8 +149,7 @@ class BaseEIVLoss(RegressionLoss):
                     )
                 if batch_size is not None and sigma.shape[0] != batch_size:
                     raise ValueError(
-                        f"sigma shape {tuple(sigma.shape)} doesn't match batch size "
-                        f"{batch_size}"
+                        f"sigma shape {tuple(sigma.shape)} doesn't match batch size {batch_size}"
                     )
                 sigma_t = sigma.transpose(-1, -2)
                 if not torch.allclose(sigma, sigma_t):

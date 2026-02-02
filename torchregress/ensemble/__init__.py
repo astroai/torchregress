@@ -12,7 +12,11 @@ from .combiners import (
 )
 from .layers import BatchEnsembleLinear
 from .mc_dropout import MCDropoutModel, MCDropoutWrapper, enable_dropout
-from .models import DeepEnsemble, HeteroscedasticBatchEnsembleModel, HeteroscedasticEnsembleModel
+from .models import (
+    DeepEnsemble,
+    HeteroscedasticBatchEnsembleModel,
+    HeteroscedasticEnsembleModel,
+)
 from .swag import SWAG, MultiSWAG
 from .utils import parse_heteroscedastic_output
 

@@ -368,7 +368,6 @@ class MixtureDensityLoss(DistributionLoss):
             else:  # 'sum'
                 return nll.sum()
 
-
     def predict_mean_std(self, y_pred: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the mean and standard deviation of the mixture distribution.
@@ -440,14 +439,12 @@ class MixtureDensityLoss(DistributionLoss):
             )
 
         batch_size = means.shape[0]
-        n_components = means.shape[1]
+        # n_components = means.shape[1]
         n_features = means.shape[2]
 
         # Sample component indices for each sample
         # [batch, n_samples]
-        component_idx = torch.multinomial(
-            weights, n_samples, replacement=True
-        )
+        component_idx = torch.multinomial(weights, n_samples, replacement=True)
 
         # Expand component indices for gathering
         # [batch, n_samples, 1] for n_features=1
@@ -496,9 +493,7 @@ class MixtureDensityLoss(DistributionLoss):
         weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
 
         if self.covariance_type != "diagonal":
-            raise NotImplementedError(
-                "sample currently only supports diagonal covariance."
-            )
+            raise NotImplementedError("sample currently only supports diagonal covariance.")
 
         batch_size = means.shape[0]
         n_features = means.shape[2]

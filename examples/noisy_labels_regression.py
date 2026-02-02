@@ -122,7 +122,7 @@ def train_noise_adaptive(dataset, n_epochs=50):
             total_loss += loss.item()
 
         if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{n_epochs}, Loss: {total_loss/len(loader):.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {total_loss / len(loader):.4f}")
 
     # Analyze learned weights
     sample_weights = loss_fn.get_sample_weights().detach().cpu().numpy()
@@ -198,9 +198,9 @@ def train_coteaching(dataset, n_epochs=50):
 
         if (epoch + 1) % 10 == 0:
             print(
-                f"Epoch {epoch+1}/{n_epochs}, "
-                f"Loss1: {total_loss1/len(loader):.4f}, "
-                f"Loss2: {total_loss2/len(loader):.4f}"
+                f"Epoch {epoch + 1}/{n_epochs}, "
+                f"Loss1: {total_loss1 / len(loader):.4f}, "
+                f"Loss2: {total_loss2 / len(loader):.4f}"
             )
 
     return model1, model2
@@ -255,7 +255,7 @@ def train_rent(dataset, n_epochs=50, ensemble_size=5):
             total_loss += loss.item()
 
         if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{n_epochs}, Loss: {total_loss/len(loader):.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {total_loss / len(loader):.4f}")
 
     return models
 

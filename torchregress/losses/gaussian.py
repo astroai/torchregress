@@ -305,8 +305,7 @@ class LowRankGaussianLoss(DistributionLoss):
         if cov_factor.dim() == 2:
             if cov_factor.shape[0] != n_features:
                 raise ValueError(
-                    f"cov_factor has shape {list(cov_factor.shape)}, "
-                    f"expected [{n_features}, rank]"
+                    f"cov_factor has shape {list(cov_factor.shape)}, expected [{n_features}, rank]"
                 )
             cov_factor = cov_factor.unsqueeze(0).expand(batch_size, -1, -1)
         elif cov_factor.dim() == 3:
@@ -327,7 +326,7 @@ class LowRankGaussianLoss(DistributionLoss):
         elif cov_diag.dim() == 2:
             if cov_diag.shape[0] != batch_size or cov_diag.shape[1] != n_features:
                 raise ValueError(
-                    f"cov_diag has shape {list(cov_diag.shape)}, " f"expected [batch, {n_features}]"
+                    f"cov_diag has shape {list(cov_diag.shape)}, expected [batch, {n_features}]"
                 )
         else:
             raise ValueError("cov_diag must be 1D or 2D tensor")

@@ -194,9 +194,7 @@ def create_loss_from_config(config: Dict[str, Any]) -> BaseLoss:
         return loss_class(**config)
     except KeyError:
         available_losses = list_regression_losses()
-        raise ValueError(
-            f"Unknown loss type: '{loss_type}'. " f"Available losses: {available_losses}"
-        )
+        raise ValueError(f"Unknown loss type: '{loss_type}'. Available losses: {available_losses}")
 
 
 # Convenience aliases (match PyTorch/common naming conventions)

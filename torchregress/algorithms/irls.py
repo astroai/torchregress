@@ -38,7 +38,11 @@ from ..losses.base import (
     WeightedHuberLoss,
     WeightedL1Loss,
 )
-from ..losses.gaussian import GaussianNLLLoss, LowRankGaussianLoss, MultivariateGaussianLoss
+from ..losses.gaussian import (
+    GaussianNLLLoss,
+    LowRankGaussianLoss,
+    MultivariateGaussianLoss,
+)
 from ..losses.robust import TukeyBiweightLoss
 
 # Get machine epsilon for numerical stability
@@ -891,7 +895,7 @@ def IRLS(
             epoch % verbose_epoch_freq == 0 or epoch == num_epochs - 1
         )
         if should_print_epoch:
-            print(f"Epoch {epoch+1}/{num_epochs} started")
+            print(f"Epoch {epoch + 1}/{num_epochs} started")
 
         # --- Buffer data for epoch-level IRLS if needed ---
         all_x = all_y_true = all_cov = all_masks = None
@@ -900,14 +904,14 @@ def IRLS(
             # Skip epoch if no data (possible with IterableDataset)
             if len(all_x) == 0:
                 if verbose:
-                    print(f"Epoch {epoch+1}: No data available, skipping.")
+                    print(f"Epoch {epoch + 1}: No data available, skipping.")
                 continue
 
         # --- Perform IRLS reweighting at epoch level if required ---
         do_epoch_reweight = update_type == "epoch" and epoch % update_freq == 0
         if do_epoch_reweight:
             if should_print_epoch:
-                print(f"Epoch {epoch+1}: Performing IRLS reweighting with {base_loss} base loss")
+                print(f"Epoch {epoch + 1}: Performing IRLS reweighting with {base_loss} base loss")
 
             # Use buffered data for full-dataset IRLS
             x_for_irls = all_x if is_minibatch else next(iter(data_loader))[0].to(device)
@@ -962,7 +966,7 @@ def IRLS(
 
                 if should_print_batch:
                     print(
-                        f"Epoch {epoch+1}, Batch {i+1}/{len(data_loader)}: "
+                        f"Epoch {epoch + 1}, Batch {i + 1}/{len(data_loader)}: "
                         f"Performing IRLS reweighting with {base_loss} base loss"
                     )
 
@@ -1056,14 +1060,14 @@ def IRLS(
             train_loss_history.append(avg_epoch_loss)
 
             if should_print_epoch:
-                print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {avg_epoch_loss:.6f}")
+                print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {avg_epoch_loss:.6f}")
 
         # --- Validation ---
         if val_loader is not None and (epoch + 1) % val_freq == 0:
             val_loss = validate_model(model, val_loader, loss_fn, device)
             val_loss_history.append(val_loss)
             if should_print_epoch:
-                print(f"Epoch {epoch+1}/{num_epochs}, Validation Loss: {val_loss:.6f}")
+                print(f"Epoch {epoch + 1}/{num_epochs}, Validation Loss: {val_loss:.6f}")
 
     # Final summary
     if verbose:

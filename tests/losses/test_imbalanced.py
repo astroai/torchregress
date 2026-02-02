@@ -1,6 +1,5 @@
 """Tests for imbalanced regression losses."""
 
-import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
@@ -43,8 +42,8 @@ class TestFocalRLoss:
         pred_large = torch.tensor([[1.0]])
         target_large = torch.tensor([[5.0]])
 
-        loss_small = loss_fn(pred_small, target, reduction="none")
-        loss_large = loss_fn(pred_large, target_large, reduction="none")
+        loss_fn(pred_small, target, reduction="none")
+        loss_fn(pred_large, target_large, reduction="none")
 
         # Focal weight for larger error should be higher
         # Ratio should be > 1 because larger error gets more weight
@@ -214,10 +213,12 @@ class TestSQINVLoss:
         loss_fn = SQINVLoss(kernel_width=0.5)
 
         # Fit on imbalanced data
-        train_targets = torch.cat([
-            torch.randn(800) * 0.3,  # Dense region
-            torch.randn(200) * 0.3 + 3.0,  # Sparse region
-        ])
+        train_targets = torch.cat(
+            [
+                torch.randn(800) * 0.3,  # Dense region
+                torch.randn(200) * 0.3 + 3.0,  # Sparse region
+            ]
+        )
         loss_fn.fit(train_targets)
 
         pred = torch.randn(32, 1)
@@ -234,11 +235,7 @@ class TestSQINVLoss:
         loss_fn.fit(train_targets)
 
         # Check bin weights are normalized (not sample weights)
-        assert torch.isclose(
-            loss_fn._weights_per_bin.mean(),
-            torch.tensor(1.0),
-            rtol=0.1
-        )
+        assert torch.isclose(loss_fn._weights_per_bin.mean(), torch.tensor(1.0), rtol=0.1)
 
     def test_with_sample_indices(self):
         """Test using precomputed weights via indices."""
@@ -258,10 +255,12 @@ class TestSQINVLoss:
         loss_fn = SQINVLoss(max_weight_ratio=10.0)
 
         # Very imbalanced data
-        train_targets = torch.cat([
-            torch.randn(990) * 0.1,
-            torch.randn(10) * 0.1 + 10.0,  # Very rare region
-        ])
+        train_targets = torch.cat(
+            [
+                torch.randn(990) * 0.1,
+                torch.randn(10) * 0.1 + 10.0,  # Very rare region
+            ]
+        )
         loss_fn.fit(train_targets)
 
         max_w = loss_fn.sqinv_weights.max()
@@ -341,9 +340,7 @@ class TestDensityWeightedLoss:
 
         # With factor=0, all weights should be 1.0
         assert torch.allclose(
-            loss_fn_0.density_weights,
-            torch.ones_like(loss_fn_0.density_weights),
-            rtol=1e-5
+            loss_fn_0.density_weights, torch.ones_like(loss_fn_0.density_weights), rtol=1e-5
         )
 
         # With factor=1, weights should vary
@@ -396,10 +393,12 @@ class TestFrequencyWeightedLoss:
     def test_max_weight_clipping(self):
         """Test that max_weight limits extreme weights."""
         # Very imbalanced data
-        train_targets = torch.cat([
-            torch.randn(990) * 0.1,
-            torch.randn(10) * 0.1 + 10.0,  # Very rare region
-        ])
+        train_targets = torch.cat(
+            [
+                torch.randn(990) * 0.1,
+                torch.randn(10) * 0.1 + 10.0,  # Very rare region
+            ]
+        )
 
         loss_fn = FrequencyWeightedLoss(max_weight=5.0)
         loss_fn.fit(train_targets)

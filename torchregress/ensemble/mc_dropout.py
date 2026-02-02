@@ -177,11 +177,13 @@ class MCDropoutModel(nn.Module):
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(dropout_rate),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout_rate),
+                ]
+            )
             prev_dim = hidden_dim
 
         layers.append(nn.Linear(prev_dim, output_dim))

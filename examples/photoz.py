@@ -16,6 +16,16 @@ import requests
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
+# Import visualization utilities
+from photoz_utils import (
+    compare_calibration,
+    compute_binned_metrics,
+    plot_binned_metrics,
+    print_comprehensive_metrics_table,
+    print_expected_metrics_guide,
+    print_metrics_table,
+)
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset, random_split
 
@@ -45,20 +55,8 @@ from torchregress.losses.eiv import (
     OrthogonalDistanceRegressionLoss,
 )
 from torchregress.metrics.calibration import bias, calibration_metrics_report
-from torchregress.metrics.distribution import probability_integral_transform
 from torchregress.metrics.interval import prediction_interval_coverage_probability
 from torchregress.metrics.point import mae, rmse
-
-# Import visualization utilities
-from photoz_utils import (
-    compare_calibration,
-    compute_binned_metrics,
-    plot_binned_metrics,
-    plot_reliability_diagram,
-    print_comprehensive_metrics_table,
-    print_expected_metrics_guide,
-    print_metrics_table,
-)
 
 # Constants
 DATA_DIR = os.path.join("data", "sdss")
@@ -711,9 +709,7 @@ def evaluate_model(
 
     # Calculate probabilistic metrics
     # CRPS (Continuous Ranked Probability Score) - lower is better
-    crps = gaussian_crps(
-        all_means.squeeze(), all_stds.squeeze(), all_targets.squeeze()
-    )
+    crps = gaussian_crps(all_means.squeeze(), all_stds.squeeze(), all_targets.squeeze())
 
     # Prediction interval coverage (95% interval)
     # Use pre-computed intervals for quantile models, or compute from std
@@ -772,10 +768,21 @@ def plot_results(results, loss_names):
 
     # Group losses by scale
     error_based = [
-        "MSE", "MAE", "Huber", "Cauchy", "LogCosh", "EnsembleEIV",
-        "LDS", "DensityWeighted", "FocalR", "BalancedMSE", "SQINV", "FreqWeighted", "DistLoss"
+        "MSE",
+        "MAE",
+        "Huber",
+        "Cauchy",
+        "LogCosh",
+        "EnsembleEIV",
+        "LDS",
+        "DensityWeighted",
+        "FocalR",
+        "BalancedMSE",
+        "SQINV",
+        "FreqWeighted",
+        "DistLoss",
     ]
-    likelihood_based = ["GaussianNLL", "FunctionalEIV", "OrthogonalEIV", "Quantile", "MDN", "Evidential"]
+    # likelihood_based = ["GaussianNLL", "FunctionalEIV", "OrthogonalEIV", "Quantile", "MDN", "Evidential"]
 
     # Extended color palette for all losses
     colors = {
@@ -810,7 +817,9 @@ def plot_results(results, loss_names):
         if name in error_based:
             ax1.plot(losses, label=f"{name}", color=colors.get(name, "gray"), linewidth=2)
         else:
-            ax2.plot(losses, label=f"{name}", color=colors.get(name, "gray"), linewidth=2, linestyle="--")
+            ax2.plot(
+                losses, label=f"{name}", color=colors.get(name, "gray"), linewidth=2, linestyle="--"
+            )
 
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Error-based Loss", color="blue")
@@ -835,7 +844,9 @@ def plot_results(results, loss_names):
         if name in error_based:
             ax3.plot(losses, label=f"{name}", color=colors.get(name, "gray"), linewidth=2)
         else:
-            ax4.plot(losses, label=f"{name}", color=colors.get(name, "gray"), linewidth=2, linestyle="--")
+            ax4.plot(
+                losses, label=f"{name}", color=colors.get(name, "gray"), linewidth=2, linestyle="--"
+            )
 
     ax3.set_xlabel("Epoch")
     ax3.set_ylabel("Error-based Loss", color="blue")
@@ -982,7 +993,7 @@ def main():
     raw_errors = train_rows[error_cols].to_numpy()
     feature_stds = np.sqrt(dataset.feature_scaler.var_)
     scaled_errors = raw_errors / feature_stds  # Scale errors same as features
-    sigma_x_std = np.sqrt(np.mean(scaled_errors ** 2, axis=0))
+    sigma_x_std = np.sqrt(np.mean(scaled_errors**2, axis=0))
 
     # For sigma_y, we need to estimate the TOTAL irreducible uncertainty, which includes:
     # 1. Spectroscopic measurement error (~0.001 for simulated data)
@@ -1005,9 +1016,11 @@ def main():
     # Total sigma_y combines measurement error and intrinsic scatter (in quadrature)
     sigma_y_std = float(np.sqrt(sigma_y_measurement**2 + residual_std**2))
 
-    print(f"\nEIV parameters:")
+    print("\nEIV parameters:")
     print(f"  sigma_x (scaled): {sigma_x_std}")
-    print(f"  sigma_y: {sigma_y_std:.4f} (measurement: {sigma_y_measurement:.4f}, intrinsic: {residual_std:.4f})")
+    print(
+        f"  sigma_y: {sigma_y_std:.4f} (measurement: {sigma_y_measurement:.4f}, intrinsic: {residual_std:.4f})"
+    )
 
     # Define loss functions to compare
     # Each entry is (loss_builder, model_builder, model_type)
@@ -1121,9 +1134,7 @@ def main():
         )
 
         # Evaluate model
-        metrics = evaluate_model(
-            model, test_loader, DEVICE, model_type=model_type, loss_fn=loss_fn
-        )
+        metrics = evaluate_model(model, test_loader, DEVICE, model_type=model_type, loss_fn=loss_fn)
 
         # Store results
         results[loss_name] = {
@@ -1143,14 +1154,19 @@ def main():
     ensemble_size = 5
     ensemble_models = []
     for i in range(ensemble_size):
-        print(f"  Training member {i+1}/{ensemble_size}...")
+        print(f"  Training member {i + 1}/{ensemble_size}...")
         torch.manual_seed(42 + i)  # Different seed for each member
         model = PhotoZModel(input_dim=input_dim)
         loss_fn = MSELoss(reduction="mean")
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
         train_model(
-            model, train_loader, val_loader, loss_fn, optimizer,
-            num_epochs=NUM_EPOCHS // 2, device=DEVICE  # Shorter training for demo
+            model,
+            train_loader,
+            val_loader,
+            loss_fn,
+            optimizer,
+            num_epochs=NUM_EPOCHS // 2,
+            device=DEVICE,  # Shorter training for demo
         )
         ensemble_models.append(model)
 
@@ -1170,10 +1186,9 @@ def main():
 
     # Ensemble mean and epistemic uncertainty (from disagreement)
     ens_mean = all_preds.mean(dim=0)  # [total_samples, 1]
-    ens_std = all_preds.std(dim=0)    # Epistemic uncertainty
+    ens_std = all_preds.std(dim=0)  # Epistemic uncertainty
 
     # Compute metrics
-    from torchregress.metrics import ensemble_mean, ensemble_std
     ens_rmse = rmse(ens_mean, all_targets)
     ens_mae = mae(ens_mean, all_targets)
     ens_crps = gaussian_crps(ens_mean.squeeze(), ens_std.squeeze(), all_targets.squeeze())
@@ -1186,7 +1201,8 @@ def main():
             "rmse": float(ens_rmse),
             "mae": float(ens_mae),
             "bias": float(bias(ens_mean, all_targets)),
-            "nmad": 1.48 * float(torch.median(torch.abs((ens_mean - all_targets) / (1 + all_targets)))),
+            "nmad": 1.48
+            * float(torch.median(torch.abs((ens_mean - all_targets) / (1 + all_targets)))),
             "crps": float(ens_crps),
             "picp_95": float(ens_picp),
             "mpiw_95": float(torch.mean(ens_upper - ens_lower)),
@@ -1206,14 +1222,19 @@ def main():
     het_ensemble_size = 3
     het_ensemble_models = []
     for i in range(het_ensemble_size):
-        print(f"  Training member {i+1}/{het_ensemble_size}...")
+        print(f"  Training member {i + 1}/{het_ensemble_size}...")
         torch.manual_seed(42 + i)
         model = HeteroscedasticPhotoZModel(input_dim=input_dim)
         loss_fn = GaussianNLLLoss(reduction="mean")
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
         train_model(
-            model, train_loader, val_loader, loss_fn, optimizer,
-            num_epochs=NUM_EPOCHS // 2, device=DEVICE
+            model,
+            train_loader,
+            val_loader,
+            loss_fn,
+            optimizer,
+            num_epochs=NUM_EPOCHS // 2,
+            device=DEVICE,
         )
         het_ensemble_models.append(model)
 
@@ -1232,7 +1253,7 @@ def main():
             het_targets.append(y)
 
     # Reshape: [n_members * n_batches, batch_size, 1] -> proper shape
-    n_samples = len(test_loader.dataset)
+    # n_samples = len(test_loader.dataset)
     het_means = torch.cat(het_means, dim=0).view(het_ensemble_size, -1, 1)
     het_vars = torch.cat(het_vars, dim=0).view(het_ensemble_size, -1, 1)
     het_targets = torch.cat(het_targets, dim=0)
@@ -1254,7 +1275,8 @@ def main():
             "rmse": float(het_rmse),
             "mae": float(mae(het_mean, het_targets)),
             "bias": float(bias(het_mean, het_targets)),
-            "nmad": 1.48 * float(torch.median(torch.abs((het_mean - het_targets) / (1 + het_targets)))),
+            "nmad": 1.48
+            * float(torch.median(torch.abs((het_mean - het_targets) / (1 + het_targets)))),
             "crps": float(het_crps),
             "picp_95": float(het_picp),
             "mpiw_95": float(torch.mean(het_upper - het_lower)),
@@ -1278,14 +1300,19 @@ def main():
     mdn_ensemble_size = 3
     mdn_ensemble_models = []
     for i in range(mdn_ensemble_size):
-        print(f"  Training member {i+1}/{mdn_ensemble_size}...")
+        print(f"  Training member {i + 1}/{mdn_ensemble_size}...")
         torch.manual_seed(42 + i)
         model = MDNPhotoZModel(input_dim=input_dim, n_components=3)
         loss_fn = MixtureDensityLoss(n_components=3, n_features=1, reduction="mean")
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
         train_model(
-            model, train_loader, val_loader, loss_fn, optimizer,
-            num_epochs=NUM_EPOCHS // 2, device=DEVICE
+            model,
+            train_loader,
+            val_loader,
+            loss_fn,
+            optimizer,
+            num_epochs=NUM_EPOCHS // 2,
+            device=DEVICE,
         )
         mdn_ensemble_models.append(model)
 
@@ -1333,7 +1360,8 @@ def main():
             "rmse": float(mdn_rmse),
             "mae": float(mae(mdn_ens_mean, mdn_targets)),
             "bias": float(bias(mdn_ens_mean, mdn_targets)),
-            "nmad": 1.48 * float(torch.median(torch.abs((mdn_ens_mean - mdn_targets) / (1 + mdn_targets)))),
+            "nmad": 1.48
+            * float(torch.median(torch.abs((mdn_ens_mean - mdn_targets) / (1 + mdn_targets)))),
             "crps": float(mdn_crps),
             "picp_95": float(mdn_picp),
             "mpiw_95": float(torch.mean(mdn_upper - mdn_lower)),
@@ -1354,7 +1382,7 @@ def main():
 
     # MultiSWAG: Train multiple SWAG models with different seeds
     print("\n--- Training MultiSWAG (3 SWAG models) ---")
-    from torchregress.ensemble import SWAG, MultiSWAG
+    from torchregress.ensemble import SWAG
 
     swag_ensemble_size = 3
     swag_models = []
@@ -1362,7 +1390,7 @@ def main():
     swag_epochs = NUM_EPOCHS // 3
 
     for i in range(swag_ensemble_size):
-        print(f"  Training SWAG member {i+1}/{swag_ensemble_size}...")
+        print(f"  Training SWAG member {i + 1}/{swag_ensemble_size}...")
         torch.manual_seed(42 + i)
 
         # Create model and SWAG wrapper
@@ -1434,7 +1462,8 @@ def main():
             "rmse": float(swag_rmse),
             "mae": float(mae(swag_mean, swag_targets)),
             "bias": float(bias(swag_mean, swag_targets)),
-            "nmad": 1.48 * float(torch.median(torch.abs((swag_mean - swag_targets) / (1 + swag_targets)))),
+            "nmad": 1.48
+            * float(torch.median(torch.abs((swag_mean - swag_targets) / (1 + swag_targets)))),
             "crps": float(swag_crps),
             "picp_95": float(swag_picp),
             "mpiw_95": float(torch.mean(swag_upper - swag_lower)),
@@ -1505,7 +1534,8 @@ def main():
             "rmse": float(mc_rmse),
             "mae": float(mae(mc_means, mc_targets)),
             "bias": float(bias(mc_means, mc_targets)),
-            "nmad": 1.48 * float(torch.median(torch.abs((mc_means - mc_targets) / (1 + mc_targets)))),
+            "nmad": 1.48
+            * float(torch.median(torch.abs((mc_means - mc_targets) / (1 + mc_targets)))),
             "crps": float(mc_crps),
             "picp_95": float(mc_picp),
             "mpiw_95": float(torch.mean(mc_upper - mc_lower)),
@@ -1576,7 +1606,8 @@ def main():
             "rmse": float(bnn_rmse),
             "mae": float(mae(bnn_means, bnn_targets)),
             "bias": float(bias(bnn_means, bnn_targets)),
-            "nmad": 1.48 * float(torch.median(torch.abs((bnn_means - bnn_targets) / (1 + bnn_targets)))),
+            "nmad": 1.48
+            * float(torch.median(torch.abs((bnn_means - bnn_targets) / (1 + bnn_targets)))),
             "crps": float(bnn_crps),
             "picp_95": float(bnn_picp),
             "mpiw_95": float(torch.mean(bnn_upper - bnn_lower)),
@@ -1615,8 +1646,13 @@ def main():
     lds_optimizer = optim.Adam(lds_model.parameters(), lr=0.001, weight_decay=1e-5)
 
     lds_train_losses, lds_val_losses = train_model(
-        lds_model, train_loader, val_loader, lds_loss_fn, lds_optimizer,
-        num_epochs=NUM_EPOCHS, device=DEVICE
+        lds_model,
+        train_loader,
+        val_loader,
+        lds_loss_fn,
+        lds_optimizer,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
     )
     lds_metrics = evaluate_model(lds_model, test_loader, DEVICE, model_type="point")
     results["LDS"] = {
@@ -1636,8 +1672,13 @@ def main():
     dw_optimizer = optim.Adam(dw_model.parameters(), lr=0.001, weight_decay=1e-5)
 
     dw_train_losses, dw_val_losses = train_model(
-        dw_model, train_loader, val_loader, dw_loss_fn, dw_optimizer,
-        num_epochs=NUM_EPOCHS, device=DEVICE
+        dw_model,
+        train_loader,
+        val_loader,
+        dw_loss_fn,
+        dw_optimizer,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
     )
     dw_metrics = evaluate_model(dw_model, test_loader, DEVICE, model_type="point")
     results["DensityWeighted"] = {
@@ -1646,7 +1687,9 @@ def main():
         "val_losses": dw_val_losses,
         "metrics": dw_metrics,
     }
-    print(f"  DensityWeighted RMSE: {dw_metrics['rmse']:.4f}, PICP@95%: {dw_metrics['picp_95']:.3f}")
+    print(
+        f"  DensityWeighted RMSE: {dw_metrics['rmse']:.4f}, PICP@95%: {dw_metrics['picp_95']:.3f}"
+    )
 
     # FocalRLoss: Focus on hard samples (larger errors)
     print("\n--- Training with FocalRLoss (focus on hard samples) ---")
@@ -1656,8 +1699,13 @@ def main():
     focal_optimizer = optim.Adam(focal_model.parameters(), lr=0.001, weight_decay=1e-5)
 
     focal_train_losses, focal_val_losses = train_model(
-        focal_model, train_loader, val_loader, focal_loss_fn, focal_optimizer,
-        num_epochs=NUM_EPOCHS, device=DEVICE
+        focal_model,
+        train_loader,
+        val_loader,
+        focal_loss_fn,
+        focal_optimizer,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
     )
     focal_metrics = evaluate_model(focal_model, test_loader, DEVICE, model_type="point")
     results["FocalR"] = {
@@ -1675,13 +1723,17 @@ def main():
     bmc_loss_fn = BalancedMSELoss(init_noise_sigma=0.1, learnable=True)
     # Add loss parameters to optimizer for learnable sigma
     bmc_optimizer = optim.Adam(
-        list(bmc_model.parameters()) + list(bmc_loss_fn.parameters()),
-        lr=0.001, weight_decay=1e-5
+        list(bmc_model.parameters()) + list(bmc_loss_fn.parameters()), lr=0.001, weight_decay=1e-5
     )
 
     bmc_train_losses, bmc_val_losses = train_model(
-        bmc_model, train_loader, val_loader, bmc_loss_fn, bmc_optimizer,
-        num_epochs=NUM_EPOCHS, device=DEVICE
+        bmc_model,
+        train_loader,
+        val_loader,
+        bmc_loss_fn,
+        bmc_optimizer,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
     )
     bmc_metrics = evaluate_model(bmc_model, test_loader, DEVICE, model_type="point")
     results["BalancedMSE"] = {
@@ -1702,8 +1754,13 @@ def main():
     sqinv_optimizer = optim.Adam(sqinv_model.parameters(), lr=0.001, weight_decay=1e-5)
 
     sqinv_train_losses, sqinv_val_losses = train_model(
-        sqinv_model, train_loader, val_loader, sqinv_loss_fn, sqinv_optimizer,
-        num_epochs=NUM_EPOCHS, device=DEVICE
+        sqinv_model,
+        train_loader,
+        val_loader,
+        sqinv_loss_fn,
+        sqinv_optimizer,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
     )
     sqinv_metrics = evaluate_model(sqinv_model, test_loader, DEVICE, model_type="point")
     results["SQINV"] = {
@@ -1723,8 +1780,13 @@ def main():
     freq_optimizer = optim.Adam(freq_model.parameters(), lr=0.001, weight_decay=1e-5)
 
     freq_train_losses, freq_val_losses = train_model(
-        freq_model, train_loader, val_loader, freq_loss_fn, freq_optimizer,
-        num_epochs=NUM_EPOCHS, device=DEVICE
+        freq_model,
+        train_loader,
+        val_loader,
+        freq_loss_fn,
+        freq_optimizer,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
     )
     freq_metrics = evaluate_model(freq_model, test_loader, DEVICE, model_type="point")
     results["FreqWeighted"] = {
@@ -1733,7 +1795,9 @@ def main():
         "val_losses": freq_val_losses,
         "metrics": freq_metrics,
     }
-    print(f"  FreqWeighted RMSE: {freq_metrics['rmse']:.4f}, PICP@95%: {freq_metrics['picp_95']:.3f}")
+    print(
+        f"  FreqWeighted RMSE: {freq_metrics['rmse']:.4f}, PICP@95%: {freq_metrics['picp_95']:.3f}"
+    )
 
     # DistLoss: Distribution distance constraint (ICLR 2025)
     print("\n--- Training with DistLoss (distribution constraint, ICLR 2025) ---")
@@ -1744,8 +1808,13 @@ def main():
     dist_optimizer = optim.Adam(dist_model.parameters(), lr=0.001, weight_decay=1e-5)
 
     dist_train_losses, dist_val_losses = train_model(
-        dist_model, train_loader, val_loader, dist_loss_fn, dist_optimizer,
-        num_epochs=NUM_EPOCHS, device=DEVICE
+        dist_model,
+        train_loader,
+        val_loader,
+        dist_loss_fn,
+        dist_optimizer,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
     )
     dist_metrics = evaluate_model(dist_model, test_loader, DEVICE, model_type="point")
     results["DistLoss"] = {
@@ -1758,7 +1827,16 @@ def main():
 
     # Compare tail performance across all imbalanced methods
     print("\n--- Comparing Tail Performance: Imbalanced Methods vs MSE Baseline ---")
-    imb_methods = ["MSE", "LDS", "DensityWeighted", "FocalR", "BalancedMSE", "SQINV", "FreqWeighted", "DistLoss"]
+    imb_methods = [
+        "MSE",
+        "LDS",
+        "DensityWeighted",
+        "FocalR",
+        "BalancedMSE",
+        "SQINV",
+        "FreqWeighted",
+        "DistLoss",
+    ]
     for name in imb_methods:
         if name not in results:
             continue
@@ -1773,16 +1851,29 @@ def main():
         low_mask = targets <= q20
         high_mask = targets >= q80
 
-        low_rmse = np.sqrt(np.mean((preds[low_mask] - targets[low_mask])**2))
-        high_rmse = np.sqrt(np.mean((preds[high_mask] - targets[high_mask])**2))
+        low_rmse = np.sqrt(np.mean((preds[low_mask] - targets[low_mask]) ** 2))
+        high_rmse = np.sqrt(np.mean((preds[high_mask] - targets[high_mask]) ** 2))
         ratio = high_rmse / (low_rmse + 1e-8)
 
-        print(f"  {name:<15} Low-z RMSE: {low_rmse:.4f}, High-z RMSE: {high_rmse:.4f}, Ratio: {ratio:.2f}x")
+        print(
+            f"  {name:<15} Low-z RMSE: {low_rmse:.4f}, High-z RMSE: {high_rmse:.4f}, Ratio: {ratio:.2f}x"
+        )
 
     # Plot and compare results
     all_methods = list(loss_configs.keys()) + [
-        "DeepEnsemble", "HetEnsemble", "MDNEnsemble", "MultiSWAG", "MCDropout", "BNN",
-        "LDS", "DensityWeighted", "FocalR", "BalancedMSE", "SQINV", "FreqWeighted", "DistLoss"
+        "DeepEnsemble",
+        "HetEnsemble",
+        "MDNEnsemble",
+        "MultiSWAG",
+        "MCDropout",
+        "BNN",
+        "LDS",
+        "DensityWeighted",
+        "FocalR",
+        "BalancedMSE",
+        "SQINV",
+        "FreqWeighted",
+        "DistLoss",
     ]
     plot_results(results, all_methods)
 
@@ -1794,9 +1885,7 @@ def main():
     )
 
     # Print comprehensive metrics table (all categories)
-    print_comprehensive_metrics_table(
-        {name: res["metrics"] for name, res in results.items()}
-    )
+    print_comprehensive_metrics_table({name: res["metrics"] for name, res in results.items()})
 
     # === ADDITIONAL VISUALIZATIONS ===
     print("\n" + "=" * 90)
@@ -1836,9 +1925,7 @@ def main():
         if model_name not in results:
             continue
         m = results[model_name]["metrics"]
-        binned = compute_binned_metrics(
-            m["predictions"], m["pred_stds"], m["targets"], n_bins=5
-        )
+        binned = compute_binned_metrics(m["predictions"], m["pred_stds"], m["targets"], n_bins=5)
         print(f"\n{model_name}:")
         print(f"  {'Bin':<20} {'n':<6} {'RMSE':<8} {'PICP@95%':<10}")
         print("  " + "-" * 50)
@@ -1851,9 +1938,7 @@ def main():
     # Create binned metrics plot for GaussianNLL
     if "GaussianNLL" in results:
         m = results["GaussianNLL"]["metrics"]
-        binned = compute_binned_metrics(
-            m["predictions"], m["pred_stds"], m["targets"], n_bins=5
-        )
+        binned = compute_binned_metrics(m["predictions"], m["pred_stds"], m["targets"], n_bins=5)
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
         plot_binned_metrics(binned, "rmse", ax=axes[0], label="GaussianNLL")
         plot_binned_metrics(binned, "picp_95", ax=axes[1], label="GaussianNLL")

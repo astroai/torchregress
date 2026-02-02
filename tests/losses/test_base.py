@@ -455,7 +455,8 @@ class TestGradientFlow:
         # Test gradient flows properly in distribution loss
         loss_fn = SimpleDistributionLoss(reduction="mean")
         y_pred = torch.tensor(
-            [[0.0, 0.0], [1.0, 0.0]], requires_grad=True  # mean=0, log_var=0  # mean=1, log_var=0
+            [[0.0, 0.0], [1.0, 0.0]],
+            requires_grad=True,  # mean=0, log_var=0  # mean=1, log_var=0
         )
         target = torch.tensor([0.0, 0.0])
 

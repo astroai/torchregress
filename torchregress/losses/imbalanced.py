@@ -450,7 +450,7 @@ class LDSLoss(RegressionLoss):
         """
         if self.lds_weights is None:
             raise ValueError(
-                "Must call fit() before using LDSLoss. " "Example: loss_fn.fit(train_targets)"
+                "Must call fit() before using LDSLoss. Example: loss_fn.fit(train_targets)"
             )
 
         self._validate_inputs(y_pred, target, mask)
@@ -655,7 +655,7 @@ class BalancedMSELoss(RegressionLoss):
         batch_size = pred_flat.shape[0]
 
         # Compute noise variance
-        noise_var = self.noise_sigma ** 2
+        noise_var = self.noise_sigma**2
 
         # Compute pairwise logits: -(pred[i] - target[j])^2 / (2 * noise_var)
         # Shape: [batch_size, batch_size]
@@ -758,7 +758,7 @@ class BalancedMSELossMD(RegressionLoss):
         from torch.distributions import MultivariateNormal
 
         batch_size = y_pred.shape[0]
-        noise_var = self.noise_sigma ** 2
+        noise_var = self.noise_sigma**2
 
         # Create isotropic covariance matrix
         cov = noise_var * torch.eye(self.n_features, device=y_pred.device)
@@ -1297,9 +1297,7 @@ class DistLoss(RegressionLoss):
 
         # Ensure same length (handle edge cases)
         min_len = min(len(sorted_pred), len(pseudo_labels))
-        dist_loss = self._compute_dist_loss(
-            sorted_pred[:min_len], pseudo_labels[:min_len]
-        )
+        dist_loss = self._compute_dist_loss(sorted_pred[:min_len], pseudo_labels[:min_len])
 
         # Combined loss
         total_loss = sample_loss_mean + self.alpha * dist_loss

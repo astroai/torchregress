@@ -23,7 +23,11 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
 from torchregress.losses import GaussianNLLLoss, WeightedMSELoss
-from torchregress.metrics import ensemble_mean, ensemble_std, ensemble_variance_decomposition
+from torchregress.metrics import (
+    ensemble_mean,
+    ensemble_std,
+    ensemble_variance_decomposition,
+)
 from torchregress.utils import set_seed
 
 
