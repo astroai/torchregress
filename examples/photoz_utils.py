@@ -649,7 +649,8 @@ def print_comprehensive_metrics_table(
     print("├" + "─" * 20 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┼" + "─" * 14 + "┤")
     for name, m in all_metrics.items():
         print(
-            f"│ {name:<18} │ {m['mae']:^12.4f} │ {m['rmse']:^12.4f} │ {m['bias']:^12.4f} │ {m['nmad']:^12.4f} │"
+            f"│ {name:<18} │ {m['mae']:^12.4f} │ {m['rmse']:^12.4f} │ "
+            f"{m['bias']:^12.4f} │ {m['nmad']:^12.4f} │"
         )
     print("└" + "─" * 20 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┘")
 
@@ -662,7 +663,8 @@ def print_comprehensive_metrics_table(
     for name, m in all_metrics.items():
         mce_str = f"{m['mce']:.4f}" if not np.isnan(m["mce"]) else "N/A"
         print(
-            f"│ {name:<18} │ {m['crps']:^12.4f} │ {m['picp_95']:^12.3f} │ {m['mpiw']:^12.4f} │ {mce_str:^12} │"
+            f"│ {name:<18} │ {m['crps']:^12.4f} │ {m['picp_95']:^12.3f} │ "
+            f"{m['mpiw']:^12.4f} │ {mce_str:^12} │"
         )
     print("└" + "─" * 20 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┴" + "─" * 14 + "┘")
 
