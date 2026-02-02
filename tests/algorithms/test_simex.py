@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-import pytest
+
 from torchregress.algorithms.simex import SIMEX
+
 
 class SimpleLinear(nn.Module):
     def __init__(self):
@@ -10,6 +11,7 @@ class SimpleLinear(nn.Module):
 
     def forward(self, x):
         return self.linear(x)
+
 
 def train_linear(model, X, y):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
@@ -23,14 +25,12 @@ def train_linear(model, X, y):
         optimizer.step()
     return model
 
+
 def test_simex_initialization():
-    simex = SIMEX(
-        model_factory=SimpleLinear,
-        train_func=train_linear,
-        sigma_u=0.1
-    )
+    simex = SIMEX(model_factory=SimpleLinear, train_func=train_linear, sigma_u=0.1)
     assert simex.sigma_u_input == 0.1
     assert len(simex.lambdas) == 4
+
 
 def test_simex_correction():
     torch.manual_seed(42)
@@ -62,7 +62,7 @@ def test_simex_correction():
         train_func=train_linear,
         sigma_u=noise_std,
         lambdas=[0.5, 1.0, 1.5, 2.0],
-        extrapolation_order=2
+        extrapolation_order=2,
     )
 
     simex.fit(W_obs, Y)
@@ -89,6 +89,7 @@ def test_simex_correction():
     assert simex_slope.item() > 2.6
     assert simex_slope.item() < 3.4
 
+
 def test_simex_multivariate():
     torch.manual_seed(42)
     n_samples = 500
@@ -97,7 +98,7 @@ def test_simex_multivariate():
     X_true = torch.randn(n_samples, n_features)
     Y = (X_true.sum(dim=1, keepdim=True) * 2) + torch.randn(n_samples, 1) * 0.1
 
-    sigma_u = torch.tensor([[0.1, 0.0], [0.0, 0.1]]) # Diagonal noise
+    sigma_u = torch.tensor([[0.1, 0.0], [0.0, 0.1]])  # Diagonal noise
     noise = torch.randn(n_samples, n_features) * torch.sqrt(torch.tensor(0.1))
     W_obs = X_true + noise
 
@@ -105,14 +106,12 @@ def test_simex_multivariate():
         def __init__(self):
             super().__init__()
             self.linear = nn.Linear(2, 1)
+
         def forward(self, x):
             return self.linear(x)
 
     simex = SIMEX(
-        model_factory=MultiLinear,
-        train_func=train_linear,
-        sigma_u=sigma_u,
-        lambdas=[0.5, 1.0]
+        model_factory=MultiLinear, train_func=train_linear, sigma_u=sigma_u, lambdas=[0.5, 1.0]
     )
 
     simex.fit(W_obs, Y)

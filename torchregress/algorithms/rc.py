@@ -5,10 +5,9 @@ Regression Calibration is a method for correcting measurement error in inputs
 (Errors-in-Variables) by estimating the true values of the inputs before training.
 """
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import torch
-import torch.nn as nn
 
 
 class RegressionCalibration:
@@ -60,7 +59,8 @@ class RegressionCalibration:
             if sigma.ndim == 2:
                 if sigma.shape != (n_features, n_features):
                     raise ValueError(
-                        f"sigma_u matrix shape {sigma.shape} doesn't match ({n_features}, {n_features})"
+                        f"sigma_u matrix shape {sigma.shape} "
+                        f"doesn't match ({n_features}, {n_features})"
                     )
                 return sigma  # Assumed to be covariance matrix already, not std
             raise ValueError(f"sigma_u must be scalar, vector, or matrix, got {sigma.ndim}D tensor")

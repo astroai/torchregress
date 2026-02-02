@@ -1,7 +1,5 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
-import pytest
 import torch
 from matplotlib.figure import Figure
 
@@ -75,9 +73,7 @@ class TestVizDiagnostic:
         y_true_bin = np.random.randint(0, 2, self.n_samples)
         y_pred_probs = np.random.rand(self.n_samples)
 
-        fig = plot_calibration_curve(
-            y_pred_probs, y_true_bin, return_figure=True, add_hist=True
-        )
+        fig = plot_calibration_curve(y_pred_probs, y_true_bin, return_figure=True, add_hist=True)
         assert isinstance(fig, Figure)
         plt.close(fig)
 
@@ -89,9 +85,7 @@ class TestVizDiagnostic:
             0.5: self.y_pred,
             0.9: self.y_pred + 0.5,
         }
-        fig = plot_reliability_diagram(
-            y_pred_quantiles, self.y_true, return_figure=True
-        )
+        fig = plot_reliability_diagram(y_pred_quantiles, self.y_true, return_figure=True)
         assert isinstance(fig, Figure)
         plt.close(fig)
 
@@ -106,7 +100,7 @@ class TestVizDiagnostic:
             self.y_true,
             n_samples_to_show=2,
             return_figure=True,
-            plot_type="histogram" # Avoid KDE issues in test env
+            plot_type="histogram",  # Avoid KDE issues in test env
         )
         assert isinstance(fig, Figure)
         plt.close(fig)

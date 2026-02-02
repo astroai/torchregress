@@ -1,6 +1,8 @@
-import torch
 import pytest
+import torch
+
 from torchregress.algorithms.rc import RegressionCalibration
+
 
 def test_rc_initialization():
     # Scalar
@@ -10,6 +12,7 @@ def test_rc_initialization():
     # Vector
     rc = RegressionCalibration(sigma_u=torch.tensor([0.1, 0.2]))
     assert torch.equal(rc.sigma_u_input, torch.tensor([0.1, 0.2]))
+
 
 def test_rc_synthetic_correction():
     # Generate data similar to the prompt
@@ -52,8 +55,9 @@ def test_rc_synthetic_correction():
     print(f"Naive Slope: {naive_slope.item():.4f}")
     print(f"RC Slope: {cal_slope.item():.4f}")
 
-    assert naive_slope.item() < 2.6 # Expect attenuation (approx 2.4)
-    assert cal_slope.item() > 2.8 and cal_slope.item() < 3.2 # Expect correction (approx 3.0)
+    assert naive_slope.item() < 2.6  # Expect attenuation (approx 2.4)
+    assert cal_slope.item() > 2.8 and cal_slope.item() < 3.2  # Expect correction (approx 3.0)
+
 
 def test_rc_multivariate():
     torch.manual_seed(42)
@@ -78,10 +82,11 @@ def test_rc_multivariate():
     # Verify reliability matrix shape
     assert rc.reliability_matrix.shape == (n_features, n_features)
 
+
 def test_rc_error_handling():
     rc = RegressionCalibration(sigma_u=0.1)
     with pytest.raises(RuntimeError):
         rc.transform(torch.randn(10, 1))
 
     with pytest.raises(ValueError):
-        rc.fit(torch.randn(10, 1, 1)) # Wrong dim
+        rc.fit(torch.randn(10, 1, 1))  # Wrong dim

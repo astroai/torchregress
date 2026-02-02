@@ -264,6 +264,7 @@ class TestGaussianLosses(unittest.TestCase):
             covariance_type="diagonal",
             model_predicts_variance=False,
             fixed_variance=1.0,
+            use_mse_for_unit_variance=True,
         ).to(self.device)
         # WeightedMSELoss is a partial, so check the wrapper type
         self.assertIsInstance(mse_case, WeightedLossWrapper)

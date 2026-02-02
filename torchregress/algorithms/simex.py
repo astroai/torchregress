@@ -6,7 +6,7 @@ It works by adding additional measurement error to the data, establishing a tren
 of how the error affects predictions, and extrapolating back to the case of no error.
 """
 
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -27,8 +27,8 @@ class SIMEX:
         sigma_u: Standard deviation (scalar/vector) or covariance matrix of measurement error.
         lambdas: List of noise multipliers to simulate. Default is [0.5, 1.0, 1.5, 2.0].
                  Lambda represents the added variance ratio: Var_added = lambda * Sigma_u.
-        extrapolation_order: Order of the polynomial for extrapolation (1 for linear, 2 for quadratic).
-                             Default is 2.
+        extrapolation_order: Order of the polynomial for extrapolation (1 for linear,
+                             2 for quadratic). Default is 2.
     """
 
     def __init__(
@@ -68,7 +68,8 @@ class SIMEX:
             if sigma.ndim == 2:
                 if sigma.shape != (n_features, n_features):
                     raise ValueError(
-                        f"sigma_u matrix shape {sigma.shape} doesn't match ({n_features}, {n_features})"
+                        f"sigma_u matrix shape {sigma.shape} "
+                        f"doesn't match ({n_features}, {n_features})"
                     )
                 return sigma
             raise ValueError(f"sigma_u must be scalar, vector, or matrix, got {sigma.ndim}D tensor")
@@ -99,10 +100,10 @@ class SIMEX:
         # We will explicitly include lambda=0 (original data) in our list for simulation
         # to ensure the curve is anchored at the observed data.
 
-        all_lambdas = [0.0] + [l for l in self.lambdas if l > 0.0]
+        all_lambdas = [0.0] + [lam for lam in self.lambdas if lam > 0.0]
         # Remove duplicates and sort
         all_lambdas = sorted(list(set(all_lambdas)))
-        self.lambdas_used = all_lambdas # Store for prediction
+        self.lambdas_used = all_lambdas  # Store for prediction
 
         # Pre-calculate Cholesky for noise generation
         # Add small epsilon for stability
@@ -157,7 +158,7 @@ class SIMEX:
 
         # Prepare for vectorization
         M, N, K = Y_stack.shape
-        Y_flat = Y_stack.reshape(M, -1) # (M, N*K)
+        Y_flat = Y_stack.reshape(M, -1)  # (M, N*K)
 
         lambdas = torch.tensor(self.lambdas_used, device=self.device, dtype=X.dtype)
 
@@ -165,9 +166,9 @@ class SIMEX:
         # Rows are [1, lambda, lambda^2, ...]
         A_cols = [torch.ones_like(lambdas)]
         for order in range(1, self.extrapolation_order + 1):
-            A_cols.append(lambdas ** order)
+            A_cols.append(lambdas**order)
 
-        A = torch.stack(A_cols, dim=1) # (M, order+1)
+        A = torch.stack(A_cols, dim=1)  # (M, order+1)
 
         # Solve A * Beta = Y_flat for Beta
         # Beta = (A.T A)^-1 A.T Y_flat
@@ -181,8 +182,8 @@ class SIMEX:
         target_vec = torch.tensor(
             [lambda_target**i for i in range(self.extrapolation_order + 1)],
             device=self.device,
-            dtype=X.dtype
-        ) # (order+1,)
+            dtype=X.dtype,
+        )  # (order+1,)
 
         # Prediction = target_vec @ Beta
         # (order+1,) @ (order+1, N*K) -> (N*K,)
