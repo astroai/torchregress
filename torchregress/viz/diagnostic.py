@@ -682,6 +682,7 @@ def plot_distribution_comparison(
                 va="bottom",
                 rotation=90,
                 fontweight="bold",
+                transform=ax.get_xaxis_transform(),
             )
 
         # Add additional vertical lines for mean and median
