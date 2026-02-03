@@ -122,7 +122,7 @@ def add_identity_line(
     ax: plt.Axes,
     color: str = "gray",
     linestyle: str = "--",
-    alpha: float = 0.5,
+    alpha: float = 0.8,
     label: Optional[str] = None,
 ) -> None:
     """
@@ -168,7 +168,7 @@ def add_zero_line(
     axis: str = "y",
     color: str = "gray",
     linestyle: str = "--",
-    alpha: float = 0.5,
+    alpha: float = 0.8,
     label: Optional[str] = None,
 ) -> None:
     """

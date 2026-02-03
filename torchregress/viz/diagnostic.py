@@ -973,7 +973,7 @@ def plot_pit_histogram(
     )
 
     # Add reference line for uniform distribution
-    ax.axhline(y=1.0, color="red", linestyle="--", linewidth=2, label="Uniform (ideal)")
+    ax.axhline(y=1.0, color="gray", linestyle="--", alpha=0.8, label="Uniform (ideal)")
 
     # Add statistics
     ks_stat, ks_pval = stats.kstest(pit_values, "uniform")
@@ -1340,7 +1340,7 @@ def plot_gaussian_reliability_diagram(
         fig = ax.figure
 
     # Plot diagonal (perfect calibration)
-    ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration", alpha=0.5)
+    add_identity_line(ax, label="Perfectly Calibrated")
 
     # Plot calibration curve
     ax.plot(

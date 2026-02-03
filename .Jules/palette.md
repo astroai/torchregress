@@ -13,3 +13,7 @@
 ## 2025-02-17 - Reference Line Labels
 **Learning:** Users rely on legends to interpret reference lines (e.g., identity lines, zero lines). Inconsistent or missing labels (e.g., "Perfect calibration" vs "Perfectly Calibrated", or no label for zero lines) increase cognitive load.
 **Action:** Explicitly label all reference lines in diagnostic plots (e.g., "Perfectly Calibrated", "Perfect Prediction") and ensure they appear in the legend.
+
+## 2025-02-17 - Reference Line Contrast
+**Learning:** Standard gray reference lines (gray, alpha=0.5) fail WCAG contrast requirements on white backgrounds (ratio < 2:1). To meet the 3:1 requirement for UI components, lines must be darker or more opaque.
+**Action:** Use `alpha=0.8` or higher when using `color="gray"` for reference lines to ensure visibility and accessibility.
