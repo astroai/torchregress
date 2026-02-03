@@ -109,14 +109,10 @@ class MarginalCalibrationError(Metric):
         obs_hist = torch.histogram(y_true_cpu, bin_edges)[0]
         obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true))
 
-        pred_cdfs = []
-        for i in range(y_pred_samples.shape[0]):
-            pred_samples_cpu = y_pred_samples[i].cpu()
-            pred_hist = torch.histogram(pred_samples_cpu, bin_edges)[0]
-            pred_cdf = torch.cumsum(pred_hist, dim=0) / max(1, len(y_pred_samples[i]))
-            pred_cdfs.append(pred_cdf)
-
-        pred_cdf_mean = torch.stack(pred_cdfs).mean(dim=0)
+        # Vectorized calculation: flatten all samples and compute one histogram
+        y_pred_cpu = y_pred_samples.cpu().view(-1)
+        pred_hist_all = torch.histogram(y_pred_cpu, bin_edges)[0]
+        pred_cdf_mean = torch.cumsum(pred_hist_all, dim=0) / max(1, y_pred_cpu.numel())
 
         abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
         mce = torch.mean(abs_errors)
@@ -220,14 +216,12 @@ def marginal_calibration_error(
     obs_hist = torch.histogram(y_true_cpu, bin_edges)[0]
     obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true_flat))
 
-    pred_cdfs = []
-    for i in range(samples_flat.shape[0]):
-        pred_samples_cpu = samples_flat[i].detach().cpu()
-        pred_hist = torch.histogram(pred_samples_cpu, bin_edges)[0]
-        pred_cdf = torch.cumsum(pred_hist, dim=0) / max(1, pred_samples_cpu.numel())
-        pred_cdfs.append(pred_cdf)
-
-    pred_cdf_mean = torch.stack(pred_cdfs).mean(dim=0)
+    # Vectorized calculation: flatten all samples and compute one histogram
+    # This is equivalent to averaging histograms of individual samples
+    # but much faster (avoiding loop and repeated CPU transfers)
+    y_pred_cpu = samples_flat.detach().cpu().view(-1)
+    pred_hist_all = torch.histogram(y_pred_cpu, bin_edges)[0]
+    pred_cdf_mean = torch.cumsum(pred_hist_all, dim=0) / max(1, y_pred_cpu.numel())
     abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
 
     mce = torch.mean(abs_errors)
