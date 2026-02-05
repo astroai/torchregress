@@ -13,3 +13,7 @@
 ## 2025-02-17 - Reference Line Labels
 **Learning:** Users rely on legends to interpret reference lines (e.g., identity lines, zero lines). Inconsistent or missing labels (e.g., "Perfect calibration" vs "Perfectly Calibrated", or no label for zero lines) increase cognitive load.
 **Action:** Explicitly label all reference lines in diagnostic plots (e.g., "Perfectly Calibrated", "Perfect Prediction") and ensure they appear in the legend.
+
+## 2025-02-18 - Visual Separation in Composite Plots
+**Learning:** When combining two distinct plot types (e.g., a line plot and a histogram) in the same axes, using a visual separator (like a zero line) significantly improves readability by grounding the secondary plot and preventing visual bleeding.
+**Action:** Always include a subtle separator line (e.g., at y=0) when appending secondary visualizations like histograms to the bottom of a main plot.

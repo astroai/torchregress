@@ -838,6 +838,9 @@ def plot_calibration_curve(
 
     # Add histogram of predicted probabilities as a barplot at the bottom
     if add_hist:
+        # Add a zero line to separate the calibration curve from the histogram
+        add_zero_line(ax, axis="y", color="black", linestyle="-", alpha=0.3)
+
         # Use same color as calibration curve if not specified
         if hist_color is None:
             hist_color = color
