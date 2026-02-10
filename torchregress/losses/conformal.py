@@ -200,19 +200,10 @@ class MultiDimensionalConformalLoss(ConformalLoss):
             y_pred = y_pred[mask_1d]
             target = target[mask_1d]
 
-        n_features = target.shape[-1]
-        q_hats = []
-
-        for i in range(n_features):
-            y_pred_i = y_pred[..., i].unsqueeze(-1)
-            target_i = target[..., i].unsqueeze(-1)
-            scores = self._predictor.calculate_score(y_pred_i, target_i)
-            n = scores.numel()
-            q = math.ceil((n + 1) * (1 - self.alpha)) / n
-            q_hat_i = torch.quantile(scores, q, interpolation="higher")
-            q_hats.append(q_hat_i)
-
-        self.q_hat = torch.stack(q_hats)
+        scores = self._predictor.calculate_score(y_pred, target)
+        n = scores.shape[0]
+        q = math.ceil((n + 1) * (1 - self.alpha)) / n
+        self.q_hat = torch.quantile(scores, q, dim=0, interpolation="higher")
         self._is_calibrated = True
 
     def predict_interval(
