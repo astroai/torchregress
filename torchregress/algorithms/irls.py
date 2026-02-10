@@ -37,6 +37,7 @@ except ImportError:
 from ..losses.base import (
     WeightedHuberLoss,
     WeightedL1Loss,
+    WeightedLossWrapper,
 )
 from ..losses.gaussian import (
     GaussianNLLLoss,
@@ -143,6 +144,8 @@ def estimate_variance(
         # Handle DiagonalGaussianNLL case with learnable variances
         elif hasattr(loss_fn, "log_variances"):
             variance = torch.exp(loss_fn.log_variances.data)  # Use .data to avoid gradient tracking
+            if variance.device != residuals.device:
+                variance = variance.to(residuals.device)
             return variance.unsqueeze(0).expand(residuals.shape[0], -1)
 
         # Handle heteroscedastic output case (mean and log_std outputs)
@@ -521,8 +524,8 @@ def _setup_irls(
 
 
 def _perform_irls_iteration(
-    model: nn.Module,
-    x: torch.Tensor,
+    y_pred: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
+    residuals: torch.Tensor,
     y_true: torch.Tensor,
     precision: torch.Tensor,
     loss_fn: nn.Module,
@@ -537,12 +540,17 @@ def _perform_irls_iteration(
     all_predictions: Optional[List[torch.Tensor]],
 ) -> Tuple[torch.Tensor, float, Optional[List[torch.Tensor]]]:
     """Helper function to perform a single IRLS iteration."""
+    # Note: y_pred is now passed in, not computed from model(x)
+
     with torch.no_grad():
-        y_pred = model(x)
         if return_all_predictions and all_predictions is not None:
+            # We store clones if predictions were changing, but here they are constant
+            # unless we were updating the model, which we are not in this inner loop.
             all_predictions.append(y_pred)
 
-        mean, residuals = extract_mean_and_residuals(y_pred, y_true)
+        # residuals are also passed in or we can use y_pred to compute them?
+        # The caller computes residuals once.
+        # But wait, extract_mean_and_residuals does logic on y_pred.
 
         if base_loss == "gaussian":
             current_loss = loss_fn(
@@ -564,6 +572,74 @@ def _perform_irls_iteration(
     return precision, loss_value, all_predictions
 
 
+def _batched_predict(
+    model: nn.Module,
+    x: torch.Tensor,
+    batch_size: int = 1024,
+    device: Optional[Union[str, torch.device]] = None
+) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+    """
+    Predicts in batches to avoid OOM.
+
+    Args:
+        model: The model to use for prediction
+        x: Input tensor (can be on CPU or GPU)
+        batch_size: Batch size for inference
+        device: Target device for output (defaults to x.device)
+
+    Returns:
+        Prediction tensor(s) on target device
+    """
+    model_device = next(model.parameters()).device
+    target_device = device if device is not None else x.device
+
+    # If x fits in memory or is already on model device, just run
+    # Note: We rely on batch_size to decide if we should split,
+    # but here we force batching if x is not on model device to be safe,
+    # or just respect batch_size.
+
+    num_samples = x.shape[0]
+
+    # Simple case: if x is on correct device and small enough, or if we don't want to batch
+    if x.device == model_device and num_samples <= batch_size:
+        with torch.no_grad():
+            pred = model(x)
+            if isinstance(pred, tuple):
+                 return tuple(p.to(target_device) for p in pred)
+            return pred.to(target_device)
+
+    # Batched inference
+    batch_preds = []
+    num_batches = (num_samples + batch_size - 1) // batch_size
+
+    with torch.no_grad():
+        for i in range(num_batches):
+            start_idx = i * batch_size
+            end_idx = min((i + 1) * batch_size, num_samples)
+
+            batch_x = x[start_idx:end_idx].to(model_device)
+            batch_pred = model(batch_x)
+
+            # Handle tuple output
+            if isinstance(batch_pred, tuple):
+                batch_preds.append(tuple(p.to(target_device) for p in batch_pred))
+            else:
+                batch_preds.append(batch_pred.to(target_device))
+
+    # Concatenate results
+    if not batch_preds:
+        return torch.tensor([]).to(target_device)
+
+    if isinstance(batch_preds[0], tuple):
+        num_outputs = len(batch_preds[0])
+        outputs = []
+        for i in range(num_outputs):
+             outputs.append(torch.cat([b[i] for b in batch_preds], dim=0))
+        return tuple(outputs)
+    else:
+        return torch.cat(batch_preds, dim=0)
+
+
 def iteratively_reweighted_least_squares(
     model: nn.Module,
     x: torch.Tensor,
@@ -580,6 +656,7 @@ def iteratively_reweighted_least_squares(
     variance_type: str = "predicted",
     epsilon: float = EPS,
     return_all_predictions: bool = False,
+    batch_size: int = 1024,
 ) -> Union[
     Tuple[torch.Tensor, List[float], torch.Tensor],
     Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]],
@@ -607,6 +684,7 @@ def iteratively_reweighted_least_squares(
         variance_type: Variance estimation method: 'predicted', 'fixed', or 'robust'
         epsilon: Small value for numerical stability
         return_all_predictions: Whether to return predictions from all iterations
+        batch_size: Batch size for inference (default: 1024)
 
     Returns:
         y_pred: Final predicted values
@@ -614,7 +692,12 @@ def iteratively_reweighted_least_squares(
         final_precision: Final precision tensor
         [optional] all_predictions: List of predictions from all iterations
     """
-    x = x.detach().clone()
+    # x might be on CPU. We keep it there if so.
+    x = x.detach() # No clone needed if we don't modify in place, but safer?
+    # Actually, we don't need clone if we are careful. But to be safe vs side effects:
+    # x = x.clone() # Maybe skip clone to save memory if x is large?
+    # The original code did clone. Let's trust user not to modify x in place or we treat it read-only.
+
     device = x.device
 
     model, loss_fn, _weight_fn, weight_params = _setup_irls(
@@ -642,13 +725,22 @@ def iteratively_reweighted_least_squares(
     loss_history = []
     all_predictions = [] if return_all_predictions else None
 
+    # --- Precompute Predictions and Residuals ---
+    # This avoids running the model repeatedly in the loop, which is redundant
+    # since model weights are not updated within this function.
+    # We use batched inference to avoid OOM if x is large.
+    y_pred = _batched_predict(model, x, batch_size=batch_size, device=device)
+
+    # Compute residuals once
+    _, residuals = extract_mean_and_residuals(y_pred, y_true)
+
     iter_range = range(max_iter)
 
     # --- IRLS Iterations ---
     for iteration in iter_range:
         precision, loss_value, all_predictions = _perform_irls_iteration(
-            model,
-            x,
+            y_pred,
+            residuals,
             y_true,
             precision,
             loss_fn,
@@ -667,9 +759,7 @@ def iteratively_reweighted_least_squares(
         if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
             break
 
-    # Get final predictions if we didn't run all iterations
-    with torch.no_grad():
-        final_y_pred = model(x)
+    final_y_pred = y_pred # Already computed
 
     if return_all_predictions:
         return final_y_pred, loss_history, precision, all_predictions
@@ -734,7 +824,7 @@ def calculate_loss(
 
     # Handle robust losses with weights
     elif (
-        isinstance(loss_fn, (WeightedHuberLoss, WeightedL1Loss, TukeyBiweightLoss))
+        (isinstance(loss_fn, WeightedLossWrapper) or isinstance(loss_fn, TukeyBiweightLoss))
         and precision is not None
     ):
         return loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
@@ -823,7 +913,7 @@ def IRLS(
         irls_tol: Convergence tolerance for IRLS
         delta: Huber loss delta parameter
         weight_fn: Weight function ('huber', 'tukey', 'power', or callable)
-        weight_params: Parameters for weight function
+        weight_params: Parameters for the weighting function
         variance_type: Variance estimation method ('predicted', 'fixed', 'robust')
         initial_precision: Initial precision weights
         mask: Optional mask for ignoring values
@@ -860,9 +950,9 @@ def IRLS(
         # Infer base loss type from loss_fn
         if isinstance(loss_fn, (GaussianNLLLoss, MultivariateGaussianLoss)):
             base_loss = "gaussian"
-        elif isinstance(loss_fn, WeightedHuberLoss):
+        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(loss_fn.torch_loss, nn.HuberLoss):
             base_loss = "huber"
-        elif isinstance(loss_fn, WeightedL1Loss):
+        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(loss_fn.torch_loss, nn.L1Loss):
             base_loss = "l1"
         else:
             # Default to gaussian if we can't determine
@@ -900,7 +990,9 @@ def IRLS(
         # --- Buffer data for epoch-level IRLS if needed ---
         all_x = all_y_true = all_cov = all_masks = None
         if is_minibatch and update_type == "epoch":
-            all_x, all_y_true, all_cov, all_masks = buffer_data(data_loader, device)
+            # OPTIMIZATION: Buffer data to CPU to avoid GPU OOM for large datasets
+            buffer_device = "cpu"
+            all_x, all_y_true, all_cov, all_masks = buffer_data(data_loader, buffer_device)
             # Skip epoch if no data (possible with IterableDataset)
             if len(all_x) == 0:
                 if verbose:
@@ -914,6 +1006,7 @@ def IRLS(
                 print(f"Epoch {epoch + 1}: Performing IRLS reweighting with {base_loss} base loss")
 
             # Use buffered data for full-dataset IRLS
+            # Note: These might be on CPU now
             x_for_irls = all_x if is_minibatch else next(iter(data_loader))[0].to(device)
             y_for_irls = all_y_true if is_minibatch else next(iter(data_loader))[1].to(device)
             cov_for_irls = all_cov if is_minibatch else covariance_matrices
@@ -936,6 +1029,7 @@ def IRLS(
                     "variance_type": variance_type,
                     "epsilon": epsilon,
                     "return_all_predictions": return_all_iterations,
+                    "batch_size": batch_size,
                 }
 
                 if return_all_iterations:
