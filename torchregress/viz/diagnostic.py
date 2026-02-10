@@ -980,16 +980,11 @@ def plot_pit_histogram(
 
     # Add statistics
     ks_stat, ks_pval = stats.kstest(pit_values, "uniform")
-    stats_text = f"KS statistic: {ks_stat:.4f}\np-value: {ks_pval:.4f}"
-    ax.text(
-        0.95,
-        0.95,
-        stats_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "KS statistic": ks_stat,
+        "p-value": ks_pval,
+    }
+    add_annotations(ax, annotations, loc="upper right")
 
     ax.set_xlabel("PIT Value")
     ax.set_ylabel("Density")
@@ -1087,16 +1082,11 @@ def plot_uncertainty_vs_error(
         ax.legend()
 
     # Add statistics text
-    stats_text = f"Spearman ρ: {correlation:.4f}\np-value: {p_value:.2e}"
-    ax.text(
-        0.05,
-        0.95,
-        stats_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="left",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "Spearman ρ": correlation,
+        "p-value": f"{p_value:.2e}",
+    }
+    add_annotations(ax, annotations, loc="upper left")
 
     ax.set_xlabel("Predicted Uncertainty (σ)")
     ax.set_ylabel("Absolute Error |ŷ - y|")
@@ -1343,7 +1333,7 @@ def plot_gaussian_reliability_diagram(
         fig = ax.figure
 
     # Plot diagonal (perfect calibration)
-    ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration", alpha=0.5)
+    add_identity_line(ax, label="Perfectly Calibrated")
 
     # Plot calibration curve
     ax.plot(
