@@ -838,6 +838,9 @@ def plot_calibration_curve(
 
     # Add histogram of predicted probabilities as a barplot at the bottom
     if add_hist:
+        # Add a zero line to separate the calibration curve from the histogram
+        add_zero_line(ax, axis="y", color="black", linestyle="-", alpha=0.3)
+
         # Use same color as calibration curve if not specified
         if hist_color is None:
             hist_color = color
@@ -977,16 +980,11 @@ def plot_pit_histogram(
 
     # Add statistics
     ks_stat, ks_pval = stats.kstest(pit_values, "uniform")
-    stats_text = f"KS statistic: {ks_stat:.4f}\np-value: {ks_pval:.4f}"
-    ax.text(
-        0.95,
-        0.95,
-        stats_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "KS statistic": ks_stat,
+        "p-value": ks_pval,
+    }
+    add_annotations(ax, annotations, loc="upper right")
 
     ax.set_xlabel("PIT Value")
     ax.set_ylabel("Density")
@@ -1084,16 +1082,11 @@ def plot_uncertainty_vs_error(
         ax.legend()
 
     # Add statistics text
-    stats_text = f"Spearman ρ: {correlation:.4f}\np-value: {p_value:.2e}"
-    ax.text(
-        0.05,
-        0.95,
-        stats_text,
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="left",
-        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
-    )
+    annotations = {
+        "Spearman ρ": correlation,
+        "p-value": f"{p_value:.2e}",
+    }
+    add_annotations(ax, annotations, loc="upper left")
 
     ax.set_xlabel("Predicted Uncertainty (σ)")
     ax.set_ylabel("Absolute Error |ŷ - y|")

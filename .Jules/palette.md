@@ -17,3 +17,7 @@
 ## 2025-02-17 - Reference Line Contrast
 **Learning:** Standard gray reference lines (gray, alpha=0.5) fail WCAG contrast requirements on white backgrounds (ratio < 2:1). To meet the 3:1 requirement for UI components, lines must be darker or more opaque.
 **Action:** Use `alpha=0.8` or higher when using `color="gray"` for reference lines to ensure visibility and accessibility.
+
+## 2025-02-18 - Visual Separation in Composite Plots
+**Learning:** When combining two distinct plot types (e.g., a line plot and a histogram) in the same axes, using a visual separator (like a zero line) significantly improves readability by grounding the secondary plot and preventing visual bleeding.
+**Action:** Always include a subtle separator line (e.g., at y=0) when appending secondary visualizations like histograms to the bottom of a main plot.

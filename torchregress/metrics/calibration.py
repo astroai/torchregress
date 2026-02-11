@@ -15,6 +15,31 @@ from torchregress.metrics.utils import (
 )
 
 
+def _compute_histograms(samples: torch.Tensor, bin_edges: torch.Tensor) -> torch.Tensor:
+    """
+    Compute histograms for each row in samples using bin_edges.
+
+    Args:
+        samples: Tensor of shape (S, N) containing S samples of N predictions.
+        bin_edges: Tensor of shape (B+1,) defining B bins.
+
+    Returns:
+        Tensor of shape (S, B) containing counts.
+    """
+    S, N = samples.shape
+    n_bins = bin_edges.shape[0] - 1
+
+    indices = torch.bucketize(samples, bin_edges, right=True)
+    indices = indices - 1
+    indices.clamp_(0, n_bins - 1)
+
+    offset = torch.arange(S, device=samples.device).unsqueeze(1) * n_bins
+    flat_indices = (indices + offset).view(-1)
+
+    counts_flat = torch.bincount(flat_indices, minlength=S * n_bins)
+    return counts_flat.view(S, n_bins).float()
+
+
 class ExpectedCalibrationError(Metric):
     """
     Calculate Expected Calibration Error (ECE) for quantile regression.
@@ -102,32 +127,19 @@ class MarginalCalibrationError(Metric):
             min_val = min_val - 1e-5
             max_val = max_val + 1e-5
 
-        bin_edges = torch.linspace(min_val, max_val, self.n_bins + 1, device="cpu")
+        device = y_true.device
+        bin_edges = torch.linspace(min_val, max_val, self.n_bins + 1, device=device)
 
-        y_true_cpu = y_true.cpu()
-
-        obs_hist = torch.histogram(y_true_cpu, bin_edges)[0]
+        obs_hist = torch.histogram(y_true.float(), bin_edges)[0]
         obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true))
-
-        pred_cdfs = []
-        for i in range(y_pred_samples.shape[0]):
-            pred_samples_cpu = y_pred_samples[i].cpu()
-            pred_hist = torch.histogram(pred_samples_cpu, bin_edges)[0]
-            pred_cdf = torch.cumsum(pred_hist, dim=0) / max(1, len(y_pred_samples[i]))
-            pred_cdfs.append(pred_cdf)
-
-        pred_cdf_mean = torch.stack(pred_cdfs).mean(dim=0)
+        pred_hists = _compute_histograms(y_pred_samples, bin_edges)
+        pred_cdfs = torch.cumsum(pred_hists, dim=1) / max(1, y_pred_samples.shape[1])
+        pred_cdf_mean = pred_cdfs.mean(dim=0)
 
         abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
         mce = torch.mean(abs_errors)
         rmsce = torch.sqrt(torch.mean((obs_cdf - pred_cdf_mean) ** 2))
         max_mce = torch.max(abs_errors)
-
-        device = y_true.device
-        if device.type != "cpu":
-            mce = mce.to(device)
-            rmsce = rmsce.to(device)
-            max_mce = max_mce.to(device)
 
         return {
             "marginal_calibration_error": mce,
@@ -214,30 +226,19 @@ def marginal_calibration_error(
         min_val = min_val - 1e-5
         max_val = max_val + 1e-5
 
-    bin_edges = torch.linspace(min_val, max_val, n_bins + 1, device="cpu")
-    y_true_cpu = y_true_flat.detach().cpu()
+    device = y_true_t.device
+    bin_edges = torch.linspace(min_val, max_val, n_bins + 1, device=device)
 
-    obs_hist = torch.histogram(y_true_cpu, bin_edges)[0]
+    obs_hist = torch.histogram(y_true_flat.float(), bin_edges)[0]
     obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true_flat))
 
-    pred_cdfs = []
-    for i in range(samples_flat.shape[0]):
-        pred_samples_cpu = samples_flat[i].detach().cpu()
-        pred_hist = torch.histogram(pred_samples_cpu, bin_edges)[0]
-        pred_cdf = torch.cumsum(pred_hist, dim=0) / max(1, pred_samples_cpu.numel())
-        pred_cdfs.append(pred_cdf)
-
-    pred_cdf_mean = torch.stack(pred_cdfs).mean(dim=0)
+    pred_hists = _compute_histograms(samples_flat, bin_edges)
+    pred_cdfs = torch.cumsum(pred_hists, dim=1) / max(1, samples_flat.shape[1])
+    pred_cdf_mean = pred_cdfs.mean(dim=0)
     abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
-
     mce = torch.mean(abs_errors)
     rmsce = torch.sqrt(torch.mean((obs_cdf - pred_cdf_mean) ** 2))
     max_mce = torch.max(abs_errors)
-
-    device = y_true_t.device
-    mce = mce.to(device)
-    rmsce = rmsce.to(device)
-    max_mce = max_mce.to(device)
 
     result = {
         "marginal_calibration_error": mce,

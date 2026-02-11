@@ -85,16 +85,14 @@ class BaseLoss(nn.Module):
             if weights is not None:
                 # Broadcast weights to match loss shape if needed for masking
                 if weights.dim() < loss.dim():
-                    for _ in range(loss.dim() - weights.dim()):
-                        weights = weights.unsqueeze(-1)
+                    weights = weights.reshape(weights.shape + (1,) * (loss.dim() - weights.dim()))
                 weights = weights.expand_as(loss)
                 weights = weights[mask]
             loss = loss[mask]
         elif weights is not None:
             # Broadcast weights to match loss shape if needed
             if weights.dim() < loss.dim():
-                for _ in range(loss.dim() - weights.dim()):
-                    weights = weights.unsqueeze(-1)
+                weights = weights.reshape(weights.shape + (1,) * (loss.dim() - weights.dim()))
 
         # No reduction: return raw values (potentially weighted)
         if self.reduction == "none":

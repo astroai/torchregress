@@ -294,9 +294,29 @@ def _batched_entropy(samples: torch.Tensor, n_bins: int) -> torch.Tensor:
     bin_idx = (norm_samples * n_bins).long()  # [n_samples, batch_size, output_dim]
 
     # 4. Count bins
-    # Shape: [n_samples, batch_size, output_dim, n_bins]
-    one_hot = torch.nn.functional.one_hot(bin_idx, n_bins).float()
-    counts = one_hot.sum(dim=0)  # [batch_size, output_dim, n_bins]
+    # Memory optimization: Use bincount on flattened tensor instead of one_hot
+    # This avoids creating [n_samples, batch_size, output_dim, n_bins] tensor
+
+    # Flatten batch and output dims: [n_samples, M] where M = batch_size * output_dim
+    M = batch_size * output_dim
+    bin_idx_flat = bin_idx.reshape(n_samples, M)
+
+    # Add offsets to bin indices to separate histograms
+    # offsets: [1, M]
+    offsets = (torch.arange(M, device=samples.device) * n_bins).unsqueeze(0)
+
+    # Global bin indices: [n_samples, M]
+    global_bin_idx = bin_idx_flat + offsets
+
+    # Flatten everything: [n_samples * M]
+    global_bin_idx_flat = global_bin_idx.reshape(-1)
+
+    # Compute counts using bincount
+    # Result size: M * n_bins
+    counts_flat = torch.bincount(global_bin_idx_flat, minlength=M * n_bins).float()
+
+    # Reshape back to [batch_size, output_dim, n_bins]
+    counts = counts_flat.reshape(batch_size, output_dim, n_bins)
 
     # 5. Compute probs and entropy
     probs = counts / n_samples

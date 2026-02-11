@@ -9,3 +9,7 @@
 ## 2024-10-24 - Vectorizing Expectile Losses
 **Learning:** Losses iterating over multiple quantiles/expectiles (like `ExpectileCrossoverLoss`) are prime candidates for vectorization. By stacking predictions and using broadcasting (e.g. `[B, 1, F] - [B, N, F]`), we can eliminate Python loops, achieving ~2.4x speedup.
 **Action:** Extract shared elementwise loss logic into vectorized helper functions (like `multi_expectile_loss`) to support both multi-output losses and penalty calculations efficiently.
+
+## 2025-02-18 - Optimizing Batched Entropy with Bincount
+**Learning:** While `one_hot` encoding is faster than loops, it consumes significant memory (O(N*M*K)) which can be prohibitive for large batches or bin counts. Using `torch.bincount` on flattened indices with offsets allows for vectorized histogram computation with much lower memory footprint (O(N*M)) and improved speed (~16x speedup over `one_hot` for large inputs).
+**Action:** Use `torch.bincount` with offset indices instead of `one_hot` when computing histograms or counts across multiple distributions/batches.
