@@ -1,14 +1,16 @@
+import pytest
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-import pytest
+
 from torchregress.algorithms.irls import (
     IRLS,
-    iteratively_reweighted_least_squares,
+    _batched_predict,
     buffer_data,
-    _batched_predict
+    iteratively_reweighted_least_squares,
 )
 from torchregress.losses.gaussian import GaussianNLLLoss
+
 
 class SimpleModel(nn.Module):
     def __init__(self):

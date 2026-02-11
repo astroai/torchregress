@@ -696,7 +696,7 @@ def iteratively_reweighted_least_squares(
     x = x.detach() # No clone needed if we don't modify in place, but safer?
     # Actually, we don't need clone if we are careful. But to be safe vs side effects:
     # x = x.clone() # Maybe skip clone to save memory if x is large?
-    # The original code did clone. Let's trust user not to modify x in place or we treat it read-only.
+    # The original code did clone. Let's trust user not to modify x in place.
 
     device = x.device
 
@@ -950,7 +950,9 @@ def IRLS(
         # Infer base loss type from loss_fn
         if isinstance(loss_fn, (GaussianNLLLoss, MultivariateGaussianLoss)):
             base_loss = "gaussian"
-        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(loss_fn.torch_loss, nn.HuberLoss):
+        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(
+            loss_fn.torch_loss, nn.HuberLoss
+        ):
             base_loss = "huber"
         elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(loss_fn.torch_loss, nn.L1Loss):
             base_loss = "l1"

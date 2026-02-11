@@ -1,7 +1,8 @@
-import torch
 import math
 import time
-from typing import Tuple
+
+import torch
+
 
 class MockPredictor:
     def calculate_score(self, y_pred, target):
