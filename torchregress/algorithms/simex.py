@@ -48,6 +48,7 @@ class SIMEX:
         self.trained_models: List[nn.Module] = []
         self.device: Optional[torch.device] = None
         self.sigma_u: Optional[torch.Tensor] = None
+        self.extrapolation_weights: Optional[torch.Tensor] = None
 
     def _prepare_sigma_u(self, n_features: int, device: torch.device) -> torch.Tensor:
         """Converts input sigma_u to a full covariance matrix."""
@@ -125,6 +126,29 @@ class SIMEX:
             trained_model = self.train_func(model, X_sim, y_train)
             self.trained_models.append(trained_model)
 
+        # Precompute extrapolation weights
+        # We solve A * Beta = Y for Beta, then predict y_target = target_vec @ Beta.
+        # This is equivalent to y_target = (target_vec @ pinv(A)) @ Y
+        # So weights = target_vec @ pinv(A)
+        lambdas = torch.tensor(self.lambdas_used, device=self.device, dtype=X_train.dtype)
+
+        # Design matrix A for polynomial fit
+        A_cols = [torch.ones_like(lambdas)]
+        for order in range(1, self.extrapolation_order + 1):
+            A_cols.append(lambdas**order)
+
+        A = torch.stack(A_cols, dim=1)  # (M, order+1)
+        A_pinv = torch.linalg.pinv(A)
+
+        lambda_target = -1.0
+        target_vec = torch.tensor(
+            [lambda_target**i for i in range(self.extrapolation_order + 1)],
+            device=self.device,
+            dtype=X_train.dtype,
+        )  # (order+1,)
+
+        self.extrapolation_weights = target_vec @ A_pinv
+
         return self
 
     def predict(self, X: torch.Tensor) -> torch.Tensor:
@@ -156,37 +180,8 @@ class SIMEX:
         # (M, N, K) where M is num lambdas
         Y_stack = torch.stack(preds_list, dim=0)
 
-        # Prepare for vectorization
-        M, N, K = Y_stack.shape
-        Y_flat = Y_stack.reshape(M, -1)  # (M, N*K)
-
-        lambdas = torch.tensor(self.lambdas_used, device=self.device, dtype=X.dtype)
-
-        # Design matrix A for polynomial fit
-        # Rows are [1, lambda, lambda^2, ...]
-        A_cols = [torch.ones_like(lambdas)]
-        for order in range(1, self.extrapolation_order + 1):
-            A_cols.append(lambdas**order)
-
-        A = torch.stack(A_cols, dim=1)  # (M, order+1)
-
-        # Solve A * Beta = Y_flat for Beta
-        # Beta = (A.T A)^-1 A.T Y_flat
-        # Using pseudoinverse for stability and version compatibility
-        # A is small (M x order+1), so this is efficient
-        A_pinv = torch.linalg.pinv(A)
-        Beta = A_pinv @ Y_flat
-
-        # We want to extrapolate to lambda = -1
-        lambda_target = -1.0
-        target_vec = torch.tensor(
-            [lambda_target**i for i in range(self.extrapolation_order + 1)],
-            device=self.device,
-            dtype=X.dtype,
-        )  # (order+1,)
-
-        # Prediction = target_vec @ Beta
-        # (order+1,) @ (order+1, N*K) -> (N*K,)
-        Y_pred_flat = target_vec @ Beta
-
-        return Y_pred_flat.reshape(N, K)
+        # Use precomputed weights to combine predictions
+        # weights: (M,)
+        # Y_stack: (M, N, K)
+        # result: (N, K)
+        return torch.tensordot(self.extrapolation_weights, Y_stack, dims=([0], [0]))

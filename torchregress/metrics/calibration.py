@@ -132,7 +132,6 @@ class MarginalCalibrationError(Metric):
 
         obs_hist = torch.histogram(y_true.float(), bin_edges)[0]
         obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true))
-
         pred_hists = _compute_histograms(y_pred_samples, bin_edges)
         pred_cdfs = torch.cumsum(pred_hists, dim=1) / max(1, y_pred_samples.shape[1])
         pred_cdf_mean = pred_cdfs.mean(dim=0)
@@ -236,7 +235,6 @@ def marginal_calibration_error(
     pred_hists = _compute_histograms(samples_flat, bin_edges)
     pred_cdfs = torch.cumsum(pred_hists, dim=1) / max(1, samples_flat.shape[1])
     pred_cdf_mean = pred_cdfs.mean(dim=0)
-
     abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
     mce = torch.mean(abs_errors)
     rmsce = torch.sqrt(torch.mean((obs_cdf - pred_cdf_mean) ** 2))
