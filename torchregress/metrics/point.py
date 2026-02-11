@@ -105,9 +105,9 @@ class NormalizedRMSE(Metric):
         return rmse / norm_factor
 
 
-class HuberLoss(Metric):
+class HuberMetric(Metric):
     """
-    Huber loss - a robust loss function that's less sensitive to outliers.
+    Huber loss metric - a robust loss function that's less sensitive to outliers.
     """
 
     is_differentiable = True
@@ -137,6 +137,10 @@ class HuberLoss(Metric):
     def compute(self) -> torch.Tensor:
         """Compute Huber loss."""
         return self.loss / self.total
+
+
+# Backward-compatible alias
+HuberLoss = HuberMetric
 
 
 class TrimmedMeanSquaredError(Metric):

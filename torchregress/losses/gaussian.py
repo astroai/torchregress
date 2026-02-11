@@ -64,6 +64,7 @@ class GaussianNLLLoss(DistributionLoss):
         min_variance: float = 1e-6,
         eps: float = 1e-8,
         reduction: str = "mean",
+        split_dim: int = -1,
     ) -> None:
         super().__init__(reduction=reduction)
         if covariance_type != "diagonal":
@@ -74,6 +75,7 @@ class GaussianNLLLoss(DistributionLoss):
         self.covariance_type = covariance_type
         self.min_variance = min_variance
         self.eps = eps
+        self.split_dim = split_dim
 
         if fixed_variance is not None:
             fixed_tensor = torch.as_tensor(fixed_variance, dtype=torch.float32)
@@ -100,12 +102,13 @@ class GaussianNLLLoss(DistributionLoss):
                 )
             mean, log_var = y_pred
         else:
-            if y_pred.shape[-1] % 2 != 0:
+            dim = self.split_dim
+            if y_pred.shape[dim] % 2 != 0:
                 raise ValueError(
-                    f"Concatenated predictions must have even last dimension "
-                    f"([mean, log_variance]), but got dimension {y_pred.shape[-1]}."
+                    f"Concatenated predictions must have even size along split_dim={dim} "
+                    f"([mean, log_variance]), but got size {y_pred.shape[dim]}."
                 )
-            mean, log_var = torch.chunk(y_pred, 2, dim=-1)
+            mean, log_var = torch.chunk(y_pred, 2, dim=dim)
         var = torch.exp(log_var).clamp(min=self.min_variance)
         return mean, var
 

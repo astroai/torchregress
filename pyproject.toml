@@ -32,7 +32,6 @@ dependencies = [
     "torchmetrics>=1.0.0",
     "scikit-learn>=1.0.0",
     "tqdm>=4.60.0",
-    "zuko>=1.4.0",
 ]
 
 [project.urls]
@@ -56,17 +55,10 @@ docs = [
     "mkdocstrings[python]>=0.20.0",
     "pymdown-extensions>=10.0.0",
 ]
-conformal = [
-    "torchcp>=1.2.0",
-    "torchsort>=0.1.10",
-    "torch-geometric>=2.7.0",
-    "torch-scatter>=2.1.2",
-    "torch-sparse>=0.6.18",
-    "torch-cluster>=1.6.3",
-    "torch-spline-conv>=1.2.2",
-    "transformers>=4.40.0",
+flows = [
+    "zuko>=1.4.0",
 ]
-all = ["torchregress[test,dev,docs,conformal]"]
+all = ["torchregress[test,dev,docs,flows]"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -124,15 +116,7 @@ module = "pandas.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "torchcp.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = "torchmetrics.*"
 ignore_missing_imports = true
 
-[tool.uv.extra-build-dependencies]
-torch-cluster = ["torch", "setuptools"]
-torch-scatter = ["torch", "setuptools"]
-torch-sparse = ["torch", "setuptools"]
-torch-spline-conv = ["torch", "setuptools"]
+

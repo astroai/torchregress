@@ -133,13 +133,7 @@ def test_reduction_behavior():
         "PoissonGaussianLikelihoodRatioLoss",
         "QuantileCrossoverLoss",
         "ConformalLoss",  # Needs special input shape
-        "AdaptiveConformalLoss",  # Needs special input shape
-        "ConformalizedQuantileLoss",  # Needs special input shape
         "MultiDimensionalConformalLoss",  # Needs special input shape
-        "TorchCPConformalLoss",  # Needs special input shape
-        "TorchCPAdaptiveConformalLoss",  # Needs special input shape
-        "TorchCPConformalizedQuantileLoss",  # Needs special input shape
-        "TorchCPMultiDimensionalConformalLoss",  # Needs special input shape
         "DiagonalGaussianNLL",  # Needs variance input
         "WeightedLossWrapper",  # Wrapper class
         "NormalizingFlowLoss",  # Needs flow parameters

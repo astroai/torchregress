@@ -29,6 +29,19 @@ from .base import (
     WeightedPoissonNLLLoss,
     WeightedSmoothL1Loss,
 )
+
+# Conformal prediction
+from .conformal import (
+    CQR,
+    CTI,
+    ConformalLoss,
+    ConformalPredictor,
+    DistributionalConformal,
+    MultiDimensionalConformalLoss,
+    MultiTargetConformal,
+    R2CConformal,
+    SplitConformal,
+)
 from .eiv import (
     BaseEIVLoss,
     EnsembleEIVLoss,
@@ -74,8 +87,11 @@ from .loss_registry import get_regression_loss, list_regression_losses
 # Mixture Density Networks
 from .mdn import MixtureDensityLoss, create_mdn_loss
 
-# Normalizing flows
-from .nflows import NormalizingFlowLoss, create_flow_loss, create_flow_model
+# Normalizing flows (zuko is an optional dependency)
+try:
+    from .nflows import NormalizingFlowLoss, create_flow_loss, create_flow_model
+except ImportError:
+    pass  # zuko not installed; normalizing flow features unavailable
 
 # Noisy label losses
 from .noisy import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
@@ -153,6 +169,7 @@ def create_loss_from_config(config: Dict[str, Any]) -> BaseLoss:
         >>> }
         >>> loss_fn = create_loss_from_config(loss_config)
     """
+    config = dict(config)  # Don't mutate caller's dict
     loss_type = config.pop("type", "").lower()
 
     if not loss_type:
@@ -319,6 +336,16 @@ __all__ = [
     "CrossEntropyLoss",
     "NLLLoss",
     "KLDivLoss",
+    # Conformal prediction
+    "ConformalPredictor",
+    "SplitConformal",
+    "CQR",
+    "CTI",
+    "DistributionalConformal",
+    "R2CConformal",
+    "MultiTargetConformal",
+    "ConformalLoss",
+    "MultiDimensionalConformalLoss",
     # Factory function
     "create_loss_from_config",
 ]

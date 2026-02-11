@@ -94,20 +94,14 @@ torchregress/
 ├── algorithms/      # Training algorithms (IRLS)
 ├── metrics/         # Evaluation metrics (point, interval, calibration, etc.)
 ├── utils/           # Utilities (masking, validation, transformations)
-├── wrappers.py      # High-level factory functions
-└── models/          # Pre-built model architectures
+└── wrappers.py      # Convenience functions (wrap_pytorch_loss)
 ```
 
 ### Key Abstractions
 
-**Wrapper Functions** (`torchregress/wrappers.py`): High-level factory functions that create (model, loss) tuples:
-- `create_gaussian_model()`: Heteroscedastic regression with learned variance
-- `create_quantile_model()`: Quantile regression
-- `create_robust_model()`: Robust regression with outlier-resistant losses
-- `create_mdn_model()`: Mixture Density Networks
-- `create_deep_ensemble()`: Deep ensemble uncertainty estimation
+**`wrap_pytorch_loss()`** (`torchregress/wrappers.py`): Wraps any standard PyTorch loss with torchregress's masking and weighting capabilities.
 
-**WeightedLossWrapper** (`torchregress/losses/base.py`): Wraps any PyTorch loss to add mask and weight support (e.g., `WeightedMSELoss`, `WeightedMAELoss`).
+**WeightedLossWrapper** (`torchregress/losses/base.py`): Wraps any PyTorch loss to add mask and weight support. Convenience subclasses include `WeightedMSELoss`, `WeightedL1Loss`, `WeightedHuberLoss`, etc.
 
 **Ensemble Models** (`torchregress/ensemble/`):
 - `DeepEnsemble`: Multiple independently trained models
@@ -182,9 +176,8 @@ Core dependencies:
 - matplotlib, pandas (for visualization/data handling)
 - scikit-learn (density weighting utilities)
 
-Required (feature-specific) dependencies:
-- **torchcp >= 1.2.0** (conformal prediction)
-- **zuko >= 1.4.0** (normalizing flows)
+Optional (feature-specific) dependencies:
+- **zuko >= 1.4.0** (normalizing flows, install via `pip install torchregress[flows]`)
 
 ### Import Policy
 
@@ -192,17 +185,12 @@ All imports must be direct/unconditional. NO conditional imports like:
 ```python
 # ❌ WRONG - Do not use try/except for optional dependencies
 try:
-    import torchcp
-    TORCHCP_AVAILABLE = True
+    import some_module
+    AVAILABLE = True
 except ImportError:
-    TORCHCP_AVAILABLE = False
-```
-
-Instead:
-```python
-# ✅ CORRECT - Direct imports
-import torchcp
-from torchcp.regression import CQR, ACIPredictor
+    AVAILABLE = False
 ```
 
 If a module is not installed, the import will fail immediately - this is the desired behavior. Users must install required dependencies for the features they use.
+
+**Exception:** `zuko` (normalizing flows) is an optional dependency. The `nflows` module uses a guarded `try/except ImportError` in `losses/__init__.py` so that `import torchregress` works without zuko installed.
