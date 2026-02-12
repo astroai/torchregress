@@ -35,7 +35,7 @@ def test_gradient_flow(loss_fn_factory):
 
     # Create tensors requiring gradients
     y_pred = torch.randn(10, requires_grad=True)
-    y_true = torch.abs(torch.randn(10)) # Ensure positive for Poisson/Tweedie
+    y_true = torch.abs(torch.randn(10))  # Ensure positive for Poisson/Tweedie
 
     # Forward pass
     loss = loss_fn(y_pred, y_true)
@@ -85,7 +85,7 @@ def test_extreme_values_stability():
     ]
 
     # Extremely large values
-    y_pred_large = torch.tensor([1e20]) # Reduced from 1e30 to avoid immediate overflow in MSE
+    y_pred_large = torch.tensor([1e20])  # Reduced from 1e30 to avoid immediate overflow in MSE
     y_true_large = torch.tensor([1e20])
 
     # Extremely small values
@@ -95,7 +95,7 @@ def test_extreme_values_stability():
     for loss_fn in losses:
         # Large values
         loss_large = loss_fn(y_pred_large, y_true_large)
-        # MSE of 1e20 is 1e40 which overflows float32. 
+        # MSE of 1e20 is 1e40 which overflows float32.
         # But for test purposes we want to check it doesn't crash or maybe check
         # for inf if expected.
         # However, 1e20 is safely representable. (1e20-1e20)^2 is 0.

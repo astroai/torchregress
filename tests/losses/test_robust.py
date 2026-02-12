@@ -121,22 +121,16 @@ class TestL1Loss:
         data = setup_data
 
         # None reduction
-        loss_none = WeightedLossWrapper(nn.L1Loss, reduction="none")(
-            data["y_pred"], data["y_true"]
-        )
+        loss_none = WeightedLossWrapper(nn.L1Loss, reduction="none")(data["y_pred"], data["y_true"])
         assert loss_none.shape == data["y_true"].shape
 
         # Sum reduction
-        loss_sum = WeightedLossWrapper(nn.L1Loss, reduction="sum")(
-            data["y_pred"], data["y_true"]
-        )
+        loss_sum = WeightedLossWrapper(nn.L1Loss, reduction="sum")(data["y_pred"], data["y_true"])
         assert loss_sum.numel() == 1
         assert loss_sum.item() == pytest.approx(loss_none.sum().item(), abs=1e-5)
 
         # Mean reduction
-        loss_mean = WeightedLossWrapper(nn.L1Loss, reduction="mean")(
-            data["y_pred"], data["y_true"]
-        )
+        loss_mean = WeightedLossWrapper(nn.L1Loss, reduction="mean")(data["y_pred"], data["y_true"])
         assert loss_mean.numel() == 1
         assert loss_mean.item() == pytest.approx(loss_none.mean().item(), abs=1e-5)
 

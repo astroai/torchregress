@@ -502,6 +502,3 @@ class WeightedGaussianNLLLoss(BaseLoss):
 
         loss = self.torch_loss(mean, target, var)
         return self._reduce(loss, mask, weights)
-
-
-

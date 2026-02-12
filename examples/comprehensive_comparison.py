@@ -342,7 +342,9 @@ def scenario_1_clean_data():
 
     # Deep Ensemble
     print("\n3. Training Deep Ensemble...")
-    ensemble_models = train_ensemble(5, dataloader, create_mlp, WeightedLossWrapper(nn.MSELoss), epochs=100)
+    ensemble_models = train_ensemble(
+        5, dataloader, create_mlp, WeightedLossWrapper(nn.MSELoss), epochs=100
+    )
     pred_mean, pred_std = evaluate_ensemble_predictions(
         ensemble_models, x_test_t, None, "Deep Ensemble"
     )

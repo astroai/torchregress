@@ -5,8 +5,6 @@ This module contains a variety of loss functions designed for regression problem
 including weighted losses, Gaussian-based losses, robust losses, and more.
 """
 
-
-
 # Base classes and wrappers
 from .base import (
     BaseLoss,
@@ -74,7 +72,6 @@ try:
     from .nflows import NormalizingFlowLoss
 except ImportError:
     pass  # zuko not installed; normalizing flow features unavailable
-
 
 
 # Poisson losses
@@ -152,7 +149,6 @@ __all__ = [
     "poisson_gaussian_mixture_loss",
     "enhanced_poisson_gaussian_loss",
     "poisson_gaussian_likelihood_ratio_loss",
-
     # Imbalanced regression losses
     "DensityWeightedLoss",
     "FocalRLoss",

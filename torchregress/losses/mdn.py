@@ -520,6 +520,3 @@ class MixtureDensityLoss(DistributionLoss):
 
         # Transpose to [n_samples, batch, n_features]
         return samples.transpose(0, 1)
-
-
-

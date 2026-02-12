@@ -42,7 +42,7 @@ if HAS_ZUKO:
             )
         elif flow_type == "realnvp":
             if hasattr(zuko.flows, "NICE"):
-                 return zuko.flows.NICE(
+                return zuko.flows.NICE(
                     features=n_features,
                     context=context_dim,
                     transforms=n_transforms,
@@ -56,7 +56,7 @@ if HAS_ZUKO:
                 hidden_features=[hidden_features] * n_hidden_layers,
             )
         else:
-             raise ValueError(f"Invalid flow_type: {flow_type}")
+            raise ValueError(f"Invalid flow_type: {flow_type}")
 
 else:
     # Dummy classes for collection
@@ -335,7 +335,7 @@ def test_gradient_flow_end_to_end():
 
 
 # Test factory function
-    # Removed test_create_flow_loss as factory function was removed.
+# Removed test_create_flow_loss as factory function was removed.
 
 
 # Test numerical stability

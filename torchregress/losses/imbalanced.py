@@ -577,6 +577,3 @@ class FocalRLoss(RegressionLoss):
             weighted_loss = weighted_loss * weights
 
         return self._reduce_with_mask(weighted_loss, mask, None)
-
-
-

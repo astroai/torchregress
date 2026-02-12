@@ -260,6 +260,3 @@ class NormalizingFlowLoss(DistributionLoss):
                 samples = dist.sample((batch_size, n_samples))
 
         return samples
-
-
-

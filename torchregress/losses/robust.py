@@ -187,9 +187,6 @@ class CharbonnierLoss(RegressionLoss):
         return self._reduce_with_mask(loss, mask, weights)
 
 
-
-
-
 @register_regression_loss("tukey_biweight")
 class TukeyBiweightLoss(RegressionLoss):
     """
@@ -261,21 +258,6 @@ class TukeyBiweightLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @register_regression_loss("cauchy")
