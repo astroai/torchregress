@@ -31,6 +31,7 @@ from .ensemble import (
 )
 from .interval import (
     IntervalScore,
+    MeanPredictionIntervalWidth,
     PredictionIntervalCoverageProbability,
     interval_metrics_report,
     interval_score,
@@ -97,6 +98,7 @@ __all__ = [
     "uncertainty_decomposition",
     # Interval
     "IntervalScore",
+    "MeanPredictionIntervalWidth",
     "PredictionIntervalCoverageProbability",
     "interval_score",
     "prediction_interval_coverage_probability",

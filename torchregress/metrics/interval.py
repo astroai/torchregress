@@ -67,8 +67,8 @@ class PredictionIntervalCoverageProbability(Metric):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.add_state("covered", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("covered", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(
         self,
@@ -88,6 +88,38 @@ class PredictionIntervalCoverageProbability(Metric):
     def compute(self) -> torch.Tensor:
         """Compute PICP."""
         return self.covered / self.total
+
+
+class MeanPredictionIntervalWidth(Metric):
+    """
+    Calculate Mean Prediction Interval Width (MPIW).
+    """
+
+    is_differentiable = True
+    higher_is_better = False
+    full_state_update = False
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("width_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
+
+    def update(
+        self,
+        lower_bound: torch.Tensor,
+        upper_bound: torch.Tensor,
+    ) -> None:
+        """Update state with predictions."""
+        lower_bound = convert_to_tensor(lower_bound)
+        upper_bound = convert_to_tensor(upper_bound)
+
+        width = upper_bound - lower_bound
+        self.width_sum += torch.sum(width)
+        self.total += lower_bound.numel()
+
+    def compute(self) -> torch.Tensor:
+        """Compute MPIW."""
+        return self.width_sum / self.total
 
 
 def interval_score(

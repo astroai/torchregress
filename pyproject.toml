@@ -39,6 +39,9 @@ dependencies = [
 "Bug Tracker" = "https://github.com/sfabbro/torchregress/issues"
 "Documentation" = "https://github.com/sfabbro/torchregress#readme"
 
+[project.scripts]
+torchregress-health = "torchregress.health:check_health"
+
 [project.optional-dependencies]
 test = [
     "pytest>=7.0.0",

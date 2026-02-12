@@ -32,6 +32,11 @@ from .quantile import (
     multi_quantile_loss,
     quantile_loss,
 )
+from .scaling import (
+    AMP,
+    GradientAccumulation,
+    compile_model,
+)
 from .tensor_ops import (
     apply_mask,
     batched_linalg_solve,
@@ -111,6 +116,10 @@ __all__ = [
     "compute_model_gradients",
     "calculate_gaussian_nll",
     "calculate_propagated_variance",
+    # scaling
+    "AMP",
+    "GradientAccumulation",
+    "compile_model",
     # transform
     "log_transform",
     "log_inverse",
