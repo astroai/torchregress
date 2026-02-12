@@ -1,6 +1,7 @@
 import pytest
 import torch
 import torch.nn as nn
+
 from torchregress.losses import (
     CharbonnierLoss,
     GaussianNLLLoss,
@@ -9,6 +10,7 @@ from torchregress.losses import (
     QuantileLoss,
     WeightedLossWrapper,
 )
+
 
 # Define standard regression losses using the wrapper for testing
 def WeightedMSELoss(): return WeightedLossWrapper(nn.MSELoss())

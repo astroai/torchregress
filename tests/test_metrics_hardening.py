@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from torchregress.metrics import (
     ContinuousRankedProbabilityScore,
     ExpectedCalibrationError,
@@ -10,6 +11,7 @@ from torchregress.metrics import (
     median_absolute_deviation,
     prediction_interval_coverage_probability,
 )
+
 
 def test_metrics_consistency_mad():
     """Test consistency between class and functional MAD."""

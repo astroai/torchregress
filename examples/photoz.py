@@ -23,6 +23,12 @@ import requests
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
+# Import visualization utilities
+from photoz_utils import (
+    compare_calibration,
+    print_comprehensive_metrics_table,
+)
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
@@ -42,13 +48,7 @@ from torchregress.metrics import (
     MeanPredictionIntervalWidth,
     MeanSquaredError,
     MedianAbsoluteDeviation,
-    PredictionIntervalCoverageCoverageProbability,
-)
-
-# Import visualization utilities
-from photoz_utils import (
-    compare_calibration,
-    print_comprehensive_metrics_table,
+    PredictionIntervalCoverageProbability,
 )
 
 # Constants
@@ -147,7 +147,8 @@ def download_sdss_data(force_download=False, sample_size=10000):
         response = requests.post(SDSS_API_URL, data={"cmd": sql_query, "format": "csv"}, timeout=120)
         response.raise_for_status()
         df = pd.read_csv(StringIO(response.text), comment="#")
-        if len(df) == 0: raise ValueError("No data returned")
+        if len(df) == 0:
+            raise ValueError("No data returned")
 
         # Add colors
         df["u_g"] = df["u"] - df["g"]

@@ -6,6 +6,7 @@ import torch
 import torchregress
 from torchregress.losses import WeightedLossWrapper
 
+
 def check_health():
     """Run a system health check for torchregress."""
     print(f"torchregress version: {torchregress.__version__}")
@@ -17,9 +18,11 @@ def check_health():
     
     print("\n--- Import Check ---")
     try:
-        from torchregress import algorithms  # noqa: F401
-        from torchregress import losses  # noqa: F401
-        from torchregress import metrics  # noqa: F401
+        from torchregress import (
+            algorithms,  # noqa: F401
+            losses,  # noqa: F401
+            metrics,  # noqa: F401
+        )
         print("Imports: OK")
     except ImportError as e:
         print(f"Imports: FAILED ({e})")
