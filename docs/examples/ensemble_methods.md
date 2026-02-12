@@ -253,7 +253,7 @@ risk_score = epistemic + aleatoric
 
 ## Complete Example
 
-See [`examples/ensemble_tutorial.py`](../../examples/ensemble_tutorial.py) for a complete working example comparing all ensemble methods.
+See [`examples/ensemble_tutorial.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ensemble_tutorial.py) for a complete working example comparing all ensemble methods.
 
 ## Metrics for Ensembles
 
@@ -303,7 +303,7 @@ calibration = calibration_score(y_true, pred_mean, pred_std)
 
 ## Further Reading
 
-- [Uncertainty Estimation Guide](../guides/uncertainty_estimation.md) (if exists)
+- [Core Concepts Guide](../guides/concepts.md)
 - [Ensemble Metrics](../metrics/ensemble.md)
 - [Best Practices](../guides/best-practices.md)
 - Paper: "Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles" (Lakshminarayanan et al., 2017)

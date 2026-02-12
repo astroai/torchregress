@@ -211,9 +211,9 @@ model = model.to(device)
 X = X.to(device)
 y = y.to(device)
 
-# Use mixed precision for speed (requires PyTorch >= 1.6)
-from torch.cuda.amp import autocast, GradScaler
-scaler = GradScaler()
+# Use mixed precision for speed (PyTorch >= 2.0)
+from torch.amp import GradScaler, autocast
+scaler = GradScaler("cuda")
 
 # Training loop with mixed precision
 for epoch in range(100):
@@ -222,7 +222,7 @@ for epoch in range(100):
         y_batch = y_batch.to(device)
         
         # Use mixed precision
-        with autocast():
+        with autocast(device_type="cuda", dtype=torch.float16):
             mean, logvar = model(X_batch)
             var = torch.exp(logvar)
             loss = loss_fn(mean, y_batch, var)

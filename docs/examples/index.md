@@ -58,7 +58,7 @@ losses = {
 # ...
 ```
 
-### [Comprehensive Comparison](../../examples/comprehensive_comparison.py) 🆕
+### [Comprehensive Comparison](https://github.com/sfabbro/torchregress/blob/main/examples/comprehensive_comparison.py) 🆕
 
 **All-in-one comparison** demonstrating the three main capabilities of torchregress:
 
@@ -91,7 +91,7 @@ losses = {
 - **Batch Ensemble** - Efficient alternative for limited compute
 - **Uncertainty Decomposition** - Separating model vs. data uncertainty
 
-Includes decision trees, comparison tables, and complete working example ([`ensemble_tutorial.py`](../../examples/ensemble_tutorial.py)).
+Includes decision trees, comparison tables, and complete working example ([`ensemble_tutorial.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ensemble_tutorial.py)).
 
 ```python
 # Train heteroscedastic ensemble with uncertainty decomposition

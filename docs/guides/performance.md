@@ -10,11 +10,11 @@ Using `float16` or `bfloat16` can significantly reduce memory usage and speed up
 
 ```python
 from torchregress.utils import AMP
-from torch.cuda.amp import GradScaler
+from torch.amp import GradScaler
 
 # 1. Initialize
 amp = AMP(device_type="cuda", dtype=torch.float16)
-scaler = GradScaler()
+scaler = GradScaler("cuda")
 
 # 2. Training Loop
 for x, y in dataloader:
@@ -30,7 +30,9 @@ for x, y in dataloader:
     scaler.update()
 ```
 
-> **Note**: For A100/H100 GPUs, prefer `torch.bfloat16` as it doesn't strictly require a GradScaler, though using one is still safe.
+`AMP` automatically disables itself when the requested runtime device is unavailable (for example, `device_type="cuda"` on a CPU-only machine).
+
+> **Note**: For A100/H100 GPUs, prefer `torch.bfloat16` as it doesn't strictly require a GradScaler, though using one is still safe. For CPU autocast, prefer `torch.bfloat16`.
 
 ## 2. Gradient Accumulation
 

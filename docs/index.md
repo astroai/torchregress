@@ -77,7 +77,9 @@ with torch.no_grad():
 ### For Practitioners
 - **[Practical Usage Guide](usage/practical_usage.md)** - Decision trees for choosing losses and methods
 - **[Best Practices](guides/best-practices.md)** - 7-phase development workflow and common pitfalls
-- **[Comprehensive Comparison](examples/comprehensive_comparison.py)** 🆕 - All-in-one comparison of robustness, uncertainty, and ensembles
+- **[Debugging Guide](guides/debugging.md)** - Symptom-to-fix matrix for fast diagnosis
+- **[Performance Playbook](guides/performance.md)** - AMP, accumulation, and compile scaling recipes
+- **[Comprehensive Comparison](https://github.com/sfabbro/torchregress/blob/main/examples/comprehensive_comparison.py)** 🆕 - All-in-one comparison of robustness, uncertainty, and ensembles
 
 ### Deep Dives
 - **[Ensemble Methods](examples/ensemble_methods.md)** 🆕 - Complete guide to uncertainty quantification with ensembles

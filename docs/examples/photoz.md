@@ -2,7 +2,7 @@
 
 This example demonstrates using torchregress for a real-world astronomy application: estimating galaxy redshifts from photometric observations. It serves as a template for any physics problem where you need to handle **measurement errors in both inputs and outputs** (errors-in-variables regression).
 
-**Full Example:** See [`examples/photoz.py`](../../examples/photoz.py) for a complete runnable example that compares 12+ methods and generates calibration diagnostics.
+**Full Example:** See [`examples/photoz.py`](https://github.com/sfabbro/torchregress/blob/main/examples/photoz.py) for a complete runnable example that compares 12+ methods and generates calibration diagnostics.
 
 ## Background
 

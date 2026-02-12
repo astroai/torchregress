@@ -336,7 +336,7 @@ loss = WeightedMSELoss()
 
 **Learn:** Basic usage, training loop, evaluation
 
-**Example:** [`examples/basic_usage.py`](../../examples/basic_usage.py)
+**Example:** [`examples/basic_usage.py`](https://github.com/sfabbro/torchregress/blob/main/examples/basic_usage.py)
 
 ### 2. Add Uncertainty (Day 2)
 
@@ -349,7 +349,7 @@ loss = GaussianNLLLoss()
 
 **Learn:** Heteroscedastic uncertainty, prediction intervals
 
-**Example:** [`examples/basic_usage.py`](../../examples/basic_usage.py) (Example 2)
+**Example:** [`examples/basic_usage.py`](https://github.com/sfabbro/torchregress/blob/main/examples/basic_usage.py) (Example 2)
 
 ### 3. Handle Outliers (Day 3)
 
@@ -362,7 +362,7 @@ loss = HuberLoss(delta=1.0)
 
 **Learn:** Robust regression, loss comparison
 
-**Example:** [`examples/loss_comparison.py`](../../examples/loss_comparison.py)
+**Example:** [`examples/loss_comparison.py`](https://github.com/sfabbro/torchregress/blob/main/examples/loss_comparison.py)
 
 ### 4. Advanced Uncertainty (Week 2)
 
@@ -375,16 +375,16 @@ ensemble = train_ensemble(n_models=5)
 
 **Learn:** Ensemble methods, uncertainty decomposition
 
-**Example:** [`examples/ensemble_tutorial.py`](../../examples/ensemble_tutorial.py)
+**Example:** [`examples/ensemble_tutorial.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ensemble_tutorial.py)
 
 ### 5. Specialized Methods (Week 3+)
 
 Explore based on your needs:
 
-- **Conformal Prediction:** [`examples/conformal_regression_example.py`](../../examples/conformal_regression_example.py)
-- **Evidential Regression:** [`examples/evidential_regression.py`](../../examples/evidential_regression.py)
-- **Normalizing Flows:** [`examples/normalizing_flows_multitarget.py`](../../examples/normalizing_flows_multitarget.py)
-- **Imbalanced Data:** [`examples/imbalanced_regression.py`](../../examples/imbalanced_regression.py)
+- **Conformal Prediction:** [`examples/conformal_regression_example.py`](https://github.com/sfabbro/torchregress/blob/main/examples/conformal_regression_example.py)
+- **Evidential Regression:** [`examples/evidential_regression.py`](https://github.com/sfabbro/torchregress/blob/main/examples/evidential_regression.py)
+- **Normalizing Flows:** [`examples/normalizing_flows_multitarget.py`](https://github.com/sfabbro/torchregress/blob/main/examples/normalizing_flows_multitarget.py)
+- **Imbalanced Data:** [`examples/imbalanced_regression.py`](https://github.com/sfabbro/torchregress/blob/main/examples/imbalanced_regression.py)
 
 ## Common Pitfalls
 
@@ -481,7 +481,7 @@ loss = loss_fn(y_pred, y, mask=mask)
 
 ## Questions?
 
-- Check [FAQ](../usage/faq.md) (if exists)
+- Check [Practical Usage](../usage/practical_usage.md)
 - See [Examples Index](../examples/index.md) for all examples
 - Read [Best Practices](best-practices.md) for detailed guidance
 

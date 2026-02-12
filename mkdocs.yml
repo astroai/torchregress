@@ -75,7 +75,10 @@ nav:
       - Quick Start: usage/quickstart.md
       - Practical Usage: usage/practical_usage.md
   - Guides:
+      - Concepts: guides/concepts.md
       - Best Practices: guides/best-practices.md
+      - Debugging: guides/debugging.md
+      - Performance: guides/performance.md
   - Algorithms:
       - IRLS: algorithms/irls.md
   - Visualization:
@@ -111,6 +114,7 @@ nav:
       - Overview: examples/index.md
       - Basic Usage: examples/basic_usage.md
       - Loss Comparison: examples/loss_comparison.md
+      - Ensemble Methods: examples/ensemble_methods.md
       - Photometric Redshift: examples/photoz.md
       - Conformal Regression: examples/conformal_regression_example.md
       - Evidential Regression: examples/evidential_regression.md

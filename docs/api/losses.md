@@ -6,10 +6,6 @@ This page provides a complete API reference for all loss functions in torchregre
 
 ---
 
-::: torchregress.losses.barron
-
----
-
 ::: torchregress.losses.conformal
 
 ---
@@ -46,10 +42,6 @@ This page provides a complete API reference for all loss functions in torchregre
 
 ---
 
-::: torchregress.losses.noisy
-
----
-
 ::: torchregress.losses.poisson_gaussian
 
 ---
@@ -63,14 +55,6 @@ This page provides a complete API reference for all loss functions in torchregre
 ---
 
 ::: torchregress.losses.robust
-
----
-
-::: torchregress.losses.sqr
-
----
-
-::: torchregress.losses.transform
 
 ---
 
