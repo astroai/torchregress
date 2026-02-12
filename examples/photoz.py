@@ -14,7 +14,7 @@ import json
 import os
 import time
 from io import StringIO
-from typing import Dict, List, Optional, Tuple, Any
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,36 +24,31 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.preprocessing import StandardScaler
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset
 
 # Import torchregress components
 from torchregress.losses import (
-    CauchyLoss,
-    DensityWeightedLoss,
     EvidentialRegressionLoss,
-    FocalRLoss,
     GaussianNLLLoss,
     MultiQuantileLoss,
-    WeightedLossWrapper,
 )
 from torchregress.losses.eiv import (
     BaseEIVLoss,
     FunctionalEIVLoss,
 )
 from torchregress.metrics import (
-    MeanSquaredError,
-    MeanAbsoluteError,
-    MedianAbsoluteDeviation,
-    PredictionIntervalCoverageProbability,
-    MeanPredictionIntervalWidth,
     ExpectedCalibrationError,
+    MeanAbsoluteError,
+    MeanPredictionIntervalWidth,
+    MeanSquaredError,
+    MedianAbsoluteDeviation,
+    PredictionIntervalCoverageCoverageProbability,
 )
 
 # Import visualization utilities
 from photoz_utils import (
     compare_calibration,
     print_comprehensive_metrics_table,
-    plot_binned_metrics,
 )
 
 # Constants
@@ -350,7 +345,7 @@ class PhotoZExperiment:
         # Splits
         train_size = int(0.7 * len(self.df))
         val_size = int(0.15 * len(self.df))
-        test_size = len(self.df) - train_size - val_size
+        # test_size = len(self.df) - train_size - val_size
         
         # Create full dataset first to fit scaler
         full_ds = SDSSDataset(self.df, self.feature_cols, self.error_cols)
@@ -556,7 +551,7 @@ class PhotoZExperiment:
                  0.84: preds + stds
              }
              ece = ExpectedCalibrationError()(q_dict, targets)["expected_calibration_error"]
-        except:
+        except Exception:
              ece = float("nan")
 
         return {

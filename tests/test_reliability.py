@@ -2,12 +2,12 @@ import pytest
 import torch
 import torch.nn as nn
 from torchregress.losses import (
-    WeightedLossWrapper,
-    QuantileLoss,
-    GaussianNLLLoss,
-    PseudoHuberLoss,
-    LogCoshLoss,
     CharbonnierLoss,
+    GaussianNLLLoss,
+    LogCoshLoss,
+    PseudoHuberLoss,
+    QuantileLoss,
+    WeightedLossWrapper,
 )
 
 # Define standard regression losses using the wrapper for testing

@@ -48,7 +48,9 @@ def test_metrics_consistency_ece():
     
     # Check all keys
     for key in results_class:
-        assert torch.isclose(results_class[key], torch.tensor(results_func[key])), f"Mismatch in {key}"
+        assert torch.isclose(results_class[key], torch.tensor(results_func[key])), (
+            f"Mismatch in {key}"
+        )
 
 def test_metrics_stateful_behavior():
     """Test standard torchmetrics state management."""
