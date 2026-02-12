@@ -390,13 +390,9 @@ class TestMondrianCP:
 
         for g in [0, 1]:
             g_mask = groups_test == g
-            covered = (truth_test[g_mask] >= lower[g_mask]) & (
-                truth_test[g_mask] <= upper[g_mask]
-            )
+            covered = (truth_test[g_mask] >= lower[g_mask]) & (truth_test[g_mask] <= upper[g_mask])
             coverage = covered.float().mean().item()
-            assert coverage >= (1 - alpha) - 0.10, (
-                f"Group {g} coverage {coverage:.3f} too low"
-            )
+            assert coverage >= (1 - alpha) - 0.10, f"Group {g} coverage {coverage:.3f} too low"
 
 
 class TestWeightedCP:
@@ -474,9 +470,7 @@ class TestCTI:
             return -0.5 * (y_grid - mu) ** 2
 
         x_test = torch.randn(20, 2)
-        lower, upper = cti.predict_intervals_from_density(
-            density_fn, x_test, y_min=-5, y_max=5
-        )
+        lower, upper = cti.predict_intervals_from_density(density_fn, x_test, y_min=-5, y_max=5)
         assert lower.shape == (20, 1)
         assert upper.shape == (20, 1)
         assert (lower <= upper).all()
@@ -634,13 +628,9 @@ class TestMultiTargetConformal:
         lower, upper = cp.predict_interval(preds_test)
 
         for d in range(3):
-            covered = (targets_test[:, d] >= lower[:, d]) & (
-                targets_test[:, d] <= upper[:, d]
-            )
+            covered = (targets_test[:, d] >= lower[:, d]) & (targets_test[:, d] <= upper[:, d])
             coverage = covered.float().mean().item()
-            assert coverage >= (1 - alpha) - 0.05, (
-                f"Dim {d} coverage {coverage:.3f} too low"
-            )
+            assert coverage >= (1 - alpha) - 0.05, f"Dim {d} coverage {coverage:.3f} too low"
 
 
 class TestConformalLossCQRDebias:

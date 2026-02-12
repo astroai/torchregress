@@ -8,6 +8,7 @@ class MockPredictor:
     def calculate_score(self, y_pred, target):
         return torch.abs(y_pred - target)
 
+
 def calibrate_original(y_pred, target, alpha, predictor):
     n_features = target.shape[-1]
     q_hats = []
@@ -21,6 +22,7 @@ def calibrate_original(y_pred, target, alpha, predictor):
         q_hats.append(q_hat_i)
     return torch.stack(q_hats)
 
+
 def calibrate_vectorized(y_pred, target, alpha, predictor):
     scores = predictor.calculate_score(y_pred, target)
     n = scores.shape[0]
@@ -28,6 +30,7 @@ def calibrate_vectorized(y_pred, target, alpha, predictor):
     # For safety with torch.quantile, though not in original
     q = min(max(q, 0.0), 1.0)
     return torch.quantile(scores, q, dim=0, interpolation="higher")
+
 
 def run_benchmark():
     N = 10000
@@ -55,7 +58,7 @@ def run_benchmark():
     vec_time = (time.time() - start) / 10
     print(f"Vectorized time (avg of 10): {vec_time:.4f}s")
 
-    speedup = orig_time / vec_time if vec_time > 0 else float('inf')
+    speedup = orig_time / vec_time if vec_time > 0 else float("inf")
     print(f"Speedup: {speedup:.2f}x")
 
     # Correctness check
@@ -65,6 +68,7 @@ def run_benchmark():
     q_hat_vec = calibrate_vectorized(y_pred, target, alpha, predictor)
     correct = torch.allclose(q_hat_orig, q_hat_vec)
     print(f"Correctness: {correct}")
+
 
 if __name__ == "__main__":
     try:

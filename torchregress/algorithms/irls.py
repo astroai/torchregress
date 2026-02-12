@@ -35,8 +35,6 @@ except ImportError:
     CallbackFn = Callable
 
 from ..losses.base import (
-    WeightedHuberLoss,
-    WeightedL1Loss,
     WeightedLossWrapper,
 )
 from ..losses.gaussian import (
@@ -493,9 +491,9 @@ def _setup_irls(
             else GaussianNLLLoss(fixed_variance=1.0)
         )
     elif base_loss == "huber":
-        loss_fn = WeightedHuberLoss(delta=delta)
+        loss_fn = WeightedLossWrapper(nn.HuberLoss, delta=delta)
     elif base_loss == "l1":
-        loss_fn = WeightedL1Loss()
+        loss_fn = WeightedLossWrapper(nn.L1Loss)
     else:
         raise ValueError(f"Invalid base_loss: {base_loss}. Must be 'gaussian', 'huber', or 'l1'.")
 
@@ -576,7 +574,7 @@ def _batched_predict(
     model: nn.Module,
     x: torch.Tensor,
     batch_size: int = 1024,
-    device: Optional[Union[str, torch.device]] = None
+    device: Optional[Union[str, torch.device]] = None,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
     """
     Predicts in batches to avoid OOM.
@@ -605,7 +603,7 @@ def _batched_predict(
         with torch.no_grad():
             pred = model(x)
             if isinstance(pred, tuple):
-                 return tuple(p.to(target_device) for p in pred)
+                return tuple(p.to(target_device) for p in pred)
             return pred.to(target_device)
 
     # Batched inference
@@ -634,7 +632,7 @@ def _batched_predict(
         num_outputs = len(batch_preds[0])
         outputs = []
         for i in range(num_outputs):
-             outputs.append(torch.cat([b[i] for b in batch_preds], dim=0))
+            outputs.append(torch.cat([b[i] for b in batch_preds], dim=0))
         return tuple(outputs)
     else:
         return torch.cat(batch_preds, dim=0)
@@ -693,7 +691,7 @@ def iteratively_reweighted_least_squares(
         [optional] all_predictions: List of predictions from all iterations
     """
     # x might be on CPU. We keep it there if so.
-    x = x.detach() # No clone needed if we don't modify in place, but safer?
+    x = x.detach()  # No clone needed if we don't modify in place, but safer?
     # Actually, we don't need clone if we are careful. But to be safe vs side effects:
     # x = x.clone() # Maybe skip clone to save memory if x is large?
     # The original code did clone. Let's trust user not to modify x in place.
@@ -759,7 +757,7 @@ def iteratively_reweighted_least_squares(
         if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
             break
 
-    final_y_pred = y_pred # Already computed
+    final_y_pred = y_pred  # Already computed
 
     if return_all_predictions:
         return final_y_pred, loss_history, precision, all_predictions
@@ -824,9 +822,8 @@ def calculate_loss(
 
     # Handle robust losses with weights
     elif (
-        (isinstance(loss_fn, WeightedLossWrapper) or isinstance(loss_fn, TukeyBiweightLoss))
-        and precision is not None
-    ):
+        isinstance(loss_fn, WeightedLossWrapper) or isinstance(loss_fn, TukeyBiweightLoss)
+    ) and precision is not None:
         return loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
 
     # Standard case

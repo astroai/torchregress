@@ -31,22 +31,16 @@ from torch.utils.data import DataLoader, Dataset, random_split
 
 # Import torchregress losses and metrics
 from torchregress.losses import (
-    BalancedMSELoss,
     CauchyLoss,
     DensityWeightedLoss,
-    DistLoss,
     EvidentialRegressionLoss,
     FocalRLoss,
-    FrequencyWeightedLoss,
     GaussianNLLLoss,
-    HuberLoss,
     LDSLoss,
     LogCoshLoss,
     MixtureDensityLoss,
-    MSELoss,
     MultiQuantileLoss,
-    SQINVLoss,
-    WeightedMAELoss,
+    WeightedLossWrapper,
 )
 from torchregress.losses.eiv import (
     BaseEIVLoss,
@@ -768,19 +762,10 @@ def plot_results(results, loss_names):
 
     # Group losses by scale
     error_based = [
-        "MSE",
-        "MAE",
-        "Huber",
-        "Cauchy",
-        "LogCosh",
         "EnsembleEIV",
         "LDS",
         "DensityWeighted",
         "FocalR",
-        "BalancedMSE",
-        "SQINV",
-        "FreqWeighted",
-        "DistLoss",
     ]
     # likelihood_based = ["GaussianNLL", "FunctionalEIV", "OrthogonalEIV", "Quantile", "MDN", "Evidential"]
 
@@ -798,16 +783,10 @@ def plot_results(results, loss_names):
         "Quantile": "purple",
         "MDN": "magenta",
         "Evidential": "brown",
-        "LDS": "lime",
+        "LDS": "olive",
         "DensityWeighted": "gold",
         "MCDropout": "coral",
-        "BNN": "slateblue",
-        # Imbalanced regression losses
-        "FocalR": "darkgreen",
-        "BalancedMSE": "olive",
-        "SQINV": "peru",
-        "FreqWeighted": "darkorange",
-        "DistLoss": "indigo",
+        "FocalR": "crimson",
     }
 
     for name in loss_names:
@@ -1031,17 +1010,17 @@ def main():
     loss_configs = {
         # === Point prediction losses ===
         "MSE": (
-            lambda _: MSELoss(reduction="mean"),
+            lambda _: nn.MSELoss(reduction="mean"),
             lambda: PhotoZModel(input_dim=input_dim),
             "point",
         ),
         "MAE": (
-            lambda _: WeightedMAELoss(reduction="mean"),
+            lambda _: WeightedLossWrapper(nn.L1Loss, reduction="mean"),
             lambda: PhotoZModel(input_dim=input_dim),
             "point",
         ),
         "Huber": (
-            lambda _: HuberLoss(delta=0.1, reduction="mean"),
+            lambda _: WeightedLossWrapper(nn.HuberLoss, delta=0.1, reduction="mean"),
             lambda: PhotoZModel(input_dim=input_dim),
             "point",
         ),
@@ -1157,7 +1136,7 @@ def main():
         print(f"  Training member {i + 1}/{ensemble_size}...")
         torch.manual_seed(42 + i)  # Different seed for each member
         model = PhotoZModel(input_dim=input_dim)
-        loss_fn = MSELoss(reduction="mean")
+        loss_fn = nn.MSELoss(reduction="mean")
         optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
         train_model(
             model,
@@ -1396,7 +1375,7 @@ def main():
         # Create model and SWAG wrapper
         base_model = PhotoZModel(input_dim=input_dim)
         swag_model = SWAG(base_model, max_num_models=10)
-        loss_fn = MSELoss(reduction="mean")
+        loss_fn = nn.MSELoss(reduction="mean")
         optimizer = optim.Adam(base_model.parameters(), lr=0.001, weight_decay=1e-5)
 
         # Warmup phase
@@ -1492,7 +1471,7 @@ def main():
         n_samples=30,
     ).to(DEVICE)
 
-    mc_loss_fn = MSELoss(reduction="mean")
+    mc_loss_fn = nn.MSELoss(reduction="mean")
     mc_optimizer = optim.Adam(mc_dropout_model.parameters(), lr=0.001, weight_decay=1e-5)
 
     # Training
@@ -1716,114 +1695,7 @@ def main():
     }
     print(f"  FocalR RMSE: {focal_metrics['rmse']:.4f}, PICP@95%: {focal_metrics['picp_95']:.3f}")
 
-    # BalancedMSELoss: Contrastive formulation (CVPR 2022)
-    print("\n--- Training with BalancedMSELoss (contrastive, CVPR 2022) ---")
-    torch.manual_seed(42)
-    bmc_model = PhotoZModel(input_dim=input_dim)
-    bmc_loss_fn = BalancedMSELoss(init_noise_sigma=0.1, learnable=True)
-    # Add loss parameters to optimizer for learnable sigma
-    bmc_optimizer = optim.Adam(
-        list(bmc_model.parameters()) + list(bmc_loss_fn.parameters()), lr=0.001, weight_decay=1e-5
-    )
 
-    bmc_train_losses, bmc_val_losses = train_model(
-        bmc_model,
-        train_loader,
-        val_loader,
-        bmc_loss_fn,
-        bmc_optimizer,
-        num_epochs=NUM_EPOCHS,
-        device=DEVICE,
-    )
-    bmc_metrics = evaluate_model(bmc_model, test_loader, DEVICE, model_type="point")
-    results["BalancedMSE"] = {
-        "model": bmc_model,
-        "train_losses": bmc_train_losses,
-        "val_losses": bmc_val_losses,
-        "metrics": bmc_metrics,
-    }
-    print(f"  BalancedMSE RMSE: {bmc_metrics['rmse']:.4f}, PICP@95%: {bmc_metrics['picp_95']:.3f}")
-    print(f"  Learned noise_sigma: {bmc_loss_fn.noise_sigma.item():.4f}")
-
-    # SQINVLoss: Square-root inverse frequency (safer than full inverse)
-    print("\n--- Training with SQINVLoss (sqrt inverse frequency) ---")
-    torch.manual_seed(42)
-    sqinv_model = PhotoZModel(input_dim=input_dim)
-    sqinv_loss_fn = SQINVLoss(kernel_width=0.5, base_loss="mse", max_weight_ratio=100.0)
-    sqinv_loss_fn.fit(train_targets_tensor)  # Fit SQINV weights
-    sqinv_optimizer = optim.Adam(sqinv_model.parameters(), lr=0.001, weight_decay=1e-5)
-
-    sqinv_train_losses, sqinv_val_losses = train_model(
-        sqinv_model,
-        train_loader,
-        val_loader,
-        sqinv_loss_fn,
-        sqinv_optimizer,
-        num_epochs=NUM_EPOCHS,
-        device=DEVICE,
-    )
-    sqinv_metrics = evaluate_model(sqinv_model, test_loader, DEVICE, model_type="point")
-    results["SQINV"] = {
-        "model": sqinv_model,
-        "train_losses": sqinv_train_losses,
-        "val_losses": sqinv_val_losses,
-        "metrics": sqinv_metrics,
-    }
-    print(f"  SQINV RMSE: {sqinv_metrics['rmse']:.4f}, PICP@95%: {sqinv_metrics['picp_95']:.3f}")
-
-    # FrequencyWeightedLoss: Simple per-bin frequency weighting
-    print("\n--- Training with FrequencyWeightedLoss (per-bin weighting) ---")
-    torch.manual_seed(42)
-    freq_model = PhotoZModel(input_dim=input_dim)
-    freq_loss_fn = FrequencyWeightedLoss(n_bins=50, weighting="inv", max_weight=10.0)
-    freq_loss_fn.fit(train_targets_tensor)  # Fit frequency weights
-    freq_optimizer = optim.Adam(freq_model.parameters(), lr=0.001, weight_decay=1e-5)
-
-    freq_train_losses, freq_val_losses = train_model(
-        freq_model,
-        train_loader,
-        val_loader,
-        freq_loss_fn,
-        freq_optimizer,
-        num_epochs=NUM_EPOCHS,
-        device=DEVICE,
-    )
-    freq_metrics = evaluate_model(freq_model, test_loader, DEVICE, model_type="point")
-    results["FreqWeighted"] = {
-        "model": freq_model,
-        "train_losses": freq_train_losses,
-        "val_losses": freq_val_losses,
-        "metrics": freq_metrics,
-    }
-    print(
-        f"  FreqWeighted RMSE: {freq_metrics['rmse']:.4f}, PICP@95%: {freq_metrics['picp_95']:.3f}"
-    )
-
-    # DistLoss: Distribution distance constraint (ICLR 2025)
-    print("\n--- Training with DistLoss (distribution constraint, ICLR 2025) ---")
-    torch.manual_seed(42)
-    dist_model = PhotoZModel(input_dim=input_dim)
-    dist_loss_fn = DistLoss(n_bins=50, alpha=1.0, base_loss="mse", dist_loss="mae")
-    dist_loss_fn.fit(train_targets_tensor)  # Fit distribution
-    dist_optimizer = optim.Adam(dist_model.parameters(), lr=0.001, weight_decay=1e-5)
-
-    dist_train_losses, dist_val_losses = train_model(
-        dist_model,
-        train_loader,
-        val_loader,
-        dist_loss_fn,
-        dist_optimizer,
-        num_epochs=NUM_EPOCHS,
-        device=DEVICE,
-    )
-    dist_metrics = evaluate_model(dist_model, test_loader, DEVICE, model_type="point")
-    results["DistLoss"] = {
-        "model": dist_model,
-        "train_losses": dist_train_losses,
-        "val_losses": dist_val_losses,
-        "metrics": dist_metrics,
-    }
-    print(f"  DistLoss RMSE: {dist_metrics['rmse']:.4f}, PICP@95%: {dist_metrics['picp_95']:.3f}")
 
     # Compare tail performance across all imbalanced methods
     print("\n--- Comparing Tail Performance: Imbalanced Methods vs MSE Baseline ---")
@@ -1832,10 +1704,6 @@ def main():
         "LDS",
         "DensityWeighted",
         "FocalR",
-        "BalancedMSE",
-        "SQINV",
-        "FreqWeighted",
-        "DistLoss",
     ]
     for name in imb_methods:
         if name not in results:
@@ -1870,10 +1738,6 @@ def main():
         "LDS",
         "DensityWeighted",
         "FocalR",
-        "BalancedMSE",
-        "SQINV",
-        "FreqWeighted",
-        "DistLoss",
     ]
     plot_results(results, all_methods)
 

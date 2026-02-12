@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from torchregress.losses.mdn import MixtureDensityLoss, create_mdn_loss
+from torchregress.losses.mdn import MixtureDensityLoss
 
 # Alias for tests
 MDNLoss = MixtureDensityLoss
@@ -292,30 +292,7 @@ class TestMixtureDensityLoss:
         with pytest.raises(ValueError, match="Model output size .* doesn't match expected size"):
             loss_fn(invalid_pred, target)
 
-    def test_factory_function(self):
-        """Test create_mdn_loss factory function."""
-        # Basic initialization
-        loss_fn = create_mdn_loss(n_components=3, n_features=2)
-        assert isinstance(loss_fn, MixtureDensityLoss)
-        assert loss_fn.n_components == 3
-        assert loss_fn.n_features == 2
-        assert loss_fn.covariance_type == "diagonal"  # default
-
-        # Custom parameters
-        loss_fn = create_mdn_loss(
-            n_components=2,
-            n_features=4,
-            covariance_type="full",
-            min_std=0.1,
-            eps=1e-6,
-            reduction="sum",
-        )
-        assert loss_fn.n_components == 2
-        assert loss_fn.n_features == 4
-        assert loss_fn.covariance_type == "full"
-        assert loss_fn.min_std == 0.1
-        assert loss_fn.eps == 1e-6
-        assert loss_fn.reduction == "sum"
+    # Removed test_factory_function as create_mdn_loss was removed.
 
     def test_mdn_edge_cases(self):
         """Test MDNLoss with edge cases: zeros, empty tensors, extreme values, NaN/Inf."""

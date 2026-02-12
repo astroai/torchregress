@@ -139,10 +139,6 @@ class HuberMetric(Metric):
         return self.loss / self.total
 
 
-# Backward-compatible alias
-HuberLoss = HuberMetric
-
-
 class TrimmedMeanSquaredError(Metric):
     """
     Trimmed Mean Squared Error - robust to outliers.

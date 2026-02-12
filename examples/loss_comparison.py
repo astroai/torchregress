@@ -6,9 +6,7 @@ from torch import optim
 from torchregress.losses import (
     LogCoshLoss,
     QuantileLoss,
-    WeightedHuberLoss,
-    WeightedL1Loss,
-    WeightedMSELoss,
+    WeightedLossWrapper,
 )
 
 
@@ -86,9 +84,9 @@ def main():
 
     # Define loss functions to compare
     loss_functions = {
-        "MSE": WeightedMSELoss(reduction="mean"),
-        "MAE": WeightedL1Loss(reduction="mean"),
-        "Huber": WeightedHuberLoss(reduction="mean"),
+        "MSE": WeightedLossWrapper(torch.nn.MSELoss, reduction="mean"),
+        "MAE": WeightedLossWrapper(torch.nn.L1Loss, reduction="mean"),
+        "Huber": WeightedLossWrapper(torch.nn.HuberLoss, reduction="mean"),
         "LogCosh": LogCoshLoss(reduction="mean"),
         "Quantile (0.5)": QuantileLoss(quantile=0.5, reduction="mean"),
     }

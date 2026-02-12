@@ -20,7 +20,7 @@ from torchregress.losses import (
     CauchyLoss,
     GaussianNLLLoss,
     HuberLoss,
-    WeightedMSELoss,
+    WeightedLossWrapper,
 )
 from torchregress.metrics import (
     ensemble_mean,
@@ -324,7 +324,7 @@ def scenario_1_clean_data():
     print("\n1. Training MSE model...")
     set_seed(42)
     model_mse = create_mlp()
-    model_mse = train_model(model_mse, dataloader, WeightedMSELoss(), epochs=100)
+    model_mse = train_model(model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100)
     pred_mse, _ = evaluate_point_predictions(model_mse, x_test_t, None, "MSE")
     results["MSE (Baseline)"] = (pred_mse, None, None)
 
@@ -342,7 +342,7 @@ def scenario_1_clean_data():
 
     # Deep Ensemble
     print("\n3. Training Deep Ensemble...")
-    ensemble_models = train_ensemble(5, dataloader, create_mlp, WeightedMSELoss(), epochs=100)
+    ensemble_models = train_ensemble(5, dataloader, create_mlp, WeightedLossWrapper(nn.MSELoss), epochs=100)
     pred_mean, pred_std = evaluate_ensemble_predictions(
         ensemble_models, x_test_t, None, "Deep Ensemble"
     )
@@ -386,7 +386,7 @@ def scenario_2_outliers():
     print("\n1. Training MSE model (sensitive to outliers)...")
     set_seed(42)
     model_mse = create_mlp()
-    model_mse = train_model(model_mse, dataloader, WeightedMSELoss(), epochs=100)
+    model_mse = train_model(model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100)
     pred_mse, _ = evaluate_point_predictions(model_mse, x_test_t, None, "MSE")
     results["MSE (Sensitive)"] = (pred_mse, None, None)
 

@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import LowRankMultivariateNormal
 
-from .base import DistributionLoss, WeightedMSELoss
+from .base import DistributionLoss
 from .loss_registry import register_regression_loss
 
 
@@ -412,71 +412,4 @@ class LowRankGaussianLoss(DistributionLoss):
         return self._reduce_with_mask(nll, sample_mask, weights)
 
 
-def create_gaussian_nll(
-    n_features: int,
-    covariance_type: str = "diagonal",
-    model_predicts_variance: bool = True,
-    fixed_variance: Optional[float] = None,
-    use_mse_for_unit_variance: bool = False,
-    jitter: float = 1e-6,
-    reduction: str = "mean",
-    **kwargs,
-) -> nn.Module:
-    """
-    Factory function to create a Gaussian NLL loss for common configurations.
 
-    Args:
-        n_features: Output dimension.
-        covariance_type: 'diagonal', 'full', or 'low_rank'.
-        model_predicts_variance: Whether the model outputs variance parameters.
-        fixed_variance: Fixed variance for homoscedastic models.
-        use_mse_for_unit_variance: If True and fixed_variance is 1.0, return MSE instead
-            of Gaussian NLL (changes the optimization objective).
-        jitter: Diagonal jitter for stability.
-        reduction: Reduction to apply.
-    """
-    if covariance_type not in {"diagonal", "full", "low_rank"}:
-        raise ValueError(
-            f"Invalid covariance_type: {covariance_type}. "
-            f"Must be 'diagonal', 'full', or 'low_rank'."
-        )
-
-    extra_kwargs = dict(kwargs)
-    min_variance = extra_kwargs.pop("min_variance", 1e-6)
-    eps = extra_kwargs.pop("eps", 1e-8)
-
-    if covariance_type == "full":
-        return MultivariateGaussianLoss(
-            n_features=n_features,
-            jitter=jitter,
-            eps=eps,
-            reduction=reduction,
-            **extra_kwargs,
-        )
-    if covariance_type == "low_rank":
-        return LowRankGaussianLoss(
-            min_variance=min_variance,
-            jitter=jitter,
-            eps=eps,
-            reduction=reduction,
-            **extra_kwargs,
-        )
-
-    if model_predicts_variance:
-        if fixed_variance is not None:
-            raise ValueError("fixed_variance should be None when model_predicts_variance=True")
-        return GaussianNLLLoss(
-            fixed_variance=None, min_variance=min_variance, eps=eps, reduction=reduction
-        )
-
-    if fixed_variance is None:
-        raise ValueError("fixed_variance must be provided when model_predicts_variance=False")
-
-    if use_mse_for_unit_variance and math.isclose(
-        float(fixed_variance), 1.0, rel_tol=0.0, abs_tol=0.0
-    ):
-        return WeightedMSELoss(reduction=reduction)
-
-    return GaussianNLLLoss(
-        fixed_variance=fixed_variance, min_variance=min_variance, eps=eps, reduction=reduction
-    )

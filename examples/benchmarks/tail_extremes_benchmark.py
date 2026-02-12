@@ -20,8 +20,6 @@ from torchregress.losses import (
     ExpectileLoss,
     FunctionalEIVLoss,
     GaussianNLLLoss,
-    HuberLoss,
-    MSELoss,
     QuantileLoss,
     TukeyBiweightLoss,
 )
@@ -201,11 +199,11 @@ def build_methods(train_targets: torch.Tensor, sigma_x: float, sigma_y: float) -
     return [
         Method(
             "MSE",
-            lambda: (MLP(1, 1), MSELoss(reduction="mean"), False, False),
+            lambda: (MLP(1, 1), nn.MSELoss(reduction="mean"), False, False),
         ),
         Method(
             "Huber",
-            lambda: (MLP(1, 1), HuberLoss(reduction="mean"), False, False),
+            lambda: (MLP(1, 1), nn.HuberLoss(reduction="mean"), False, False),
         ),
         Method(
             "Cauchy",

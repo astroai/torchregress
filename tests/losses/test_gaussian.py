@@ -3,14 +3,10 @@ import unittest
 
 import torch
 
-from torchregress.losses.base import (
-    WeightedLossWrapper,
-)
 from torchregress.losses.gaussian import (
     GaussianNLLLoss,
     LowRankGaussianLoss,
     MultivariateGaussianLoss,
-    create_gaussian_nll,
     low_rank_output_dim,
     split_low_rank_gaussian_output,
 )
@@ -222,56 +218,7 @@ class TestGaussianLosses(unittest.TestCase):
         with self.assertRaises(ValueError):
             split_low_rank_gaussian_output(y_pred, self.n_features_cov, rank + 1)
 
-    def test_create_gaussian_nll_factory(self):
-        """Test the factory function for creating Gaussian NLL losses."""
-        # Test diagonal with model predicting variance (default)
-        diag_default = create_gaussian_nll(
-            n_features=self.n_features_diag,
-            covariance_type="diagonal",
-        ).to(self.device)
-        self.assertIsInstance(diag_default, GaussianNLLLoss)
-
-        # Test diagonal with fixed variance
-        diag_fixed = create_gaussian_nll(
-            n_features=self.n_features_diag,
-            covariance_type="diagonal",
-            model_predicts_variance=False,
-            fixed_variance=0.5,
-        ).to(self.device)
-        self.assertIsInstance(diag_fixed, GaussianNLLLoss)
-
-        # Test full covariance
-        full_cov = create_gaussian_nll(
-            n_features=self.n_features_cov,
-            covariance_type="full",
-            jitter=1e-5,
-        ).to(self.device)
-        self.assertIsInstance(full_cov, MultivariateGaussianLoss)
-        self.assertEqual(full_cov.jitter, 1e-5)
-
-        # Test low-rank covariance
-        low_rank_cov = create_gaussian_nll(
-            n_features=self.n_features_cov,
-            covariance_type="low_rank",
-            jitter=1e-5,
-        ).to(self.device)
-        self.assertIsInstance(low_rank_cov, LowRankGaussianLoss)
-        self.assertEqual(low_rank_cov.jitter, 1e-5)
-
-        # Test with MSELoss case (simplified diagonal with unit variance)
-        mse_case = create_gaussian_nll(
-            n_features=self.n_features_diag,
-            covariance_type="diagonal",
-            model_predicts_variance=False,
-            fixed_variance=1.0,
-            use_mse_for_unit_variance=True,
-        ).to(self.device)
-        # WeightedMSELoss is a partial, so check the wrapper type
-        self.assertIsInstance(mse_case, WeightedLossWrapper)
-
-        # Test invalid covariance type
-        with self.assertRaises(ValueError):
-            create_gaussian_nll(n_features=self.n_features_diag, covariance_type="invalid")
+    # Removed test_create_gaussian_nll_factory as the factory function was removed.
 
     def test_gaussian_nll_numerical_stability(self):
         """Test numerical stability of GaussianNLLLoss."""

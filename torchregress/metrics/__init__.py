@@ -52,7 +52,6 @@ from .ood import (
     typicality_score,
 )
 from .point import (
-    HuberLoss,
     HuberMetric,
     MedianAbsoluteDeviation,
     MedianAbsoluteError,
@@ -117,7 +116,6 @@ __all__ = [
     "ood_metrics_report",
     # Point
     "HuberMetric",
-    "HuberLoss",  # backward-compatible alias for HuberMetric
     "MedianAbsoluteError",
     "MedianAbsoluteDeviation",
     "NormalizedMedianAbsoluteDeviation",

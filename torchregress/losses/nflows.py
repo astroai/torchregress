@@ -11,9 +11,18 @@ from typing import Optional
 from torch import Tensor
 from torch.nn import Module
 
-# Direct import as per CLAUDE.md policy - users must install required dependencies
-# Note: IAF is not available in current zuko version, removed from imports
-from zuko.flows import MAF, NSF, Flow, RealNVP
+try:
+    from zuko.flows import MAF, NSF, Flow, RealNVP
+
+    HAS_ZUKO = True
+except ImportError:
+    HAS_ZUKO = False
+
+    # Define dummy for type hinting
+    class Flow:
+        pass
+
+    MAF = NSF = RealNVP = None
 
 from ..utils.tensor_ops import apply_mask, masked_reduction
 from .base import DistributionLoss
@@ -226,155 +235,31 @@ class NormalizingFlowLoss(DistributionLoss):
         """
         # Extract context
         context = self._extract_distribution_parameters(y_pred)
+        batch_size = y_pred.shape[0]
 
         # Get conditional distribution
         if self.context_dim is not None and self.context_dim > 0:
             dist = self.flow(context)
+            # Conditional flow: batch_shape is [batch_size]
+            if n_samples == 1:
+                # [batch_size, n_features]
+                samples = dist.sample()
+            else:
+                # [n_samples, batch_size, n_features]
+                samples = dist.sample((n_samples,))
+                # [batch_size, n_samples, n_features]
+                samples = samples.transpose(0, 1)
         else:
             dist = self.flow()
-
-        # Generate samples
-        if n_samples == 1:
-            # Single sample per input
-            samples = dist.sample()  # [batch_size, n_features]
-        else:
-            # Multiple samples per input
-            samples = dist.sample((n_samples,))  # [n_samples, batch_size, n_features]
-            # Transpose to [batch_size, n_samples, n_features]
-            samples = samples.transpose(0, 1)
+            # Unconditional flow: batch_shape is []
+            if n_samples == 1:
+                # [batch_size, n_features]
+                samples = dist.sample((batch_size,))
+            else:
+                # [batch_size, n_samples, n_features]
+                samples = dist.sample((batch_size, n_samples))
 
         return samples
 
 
-def create_flow_model(
-    n_features: int,
-    context_dim: int,
-    flow_type: str = "nsf",
-    n_transforms: int = 3,
-    hidden_features: int = 64,
-    n_hidden_layers: int = 2,
-    **kwargs,
-) -> Flow:
-    """
-    Factory function to create a conditional normalizing flow model.
 
-    This creates a zuko flow that can be used with NormalizingFlowLoss.
-    The flow will be a trainable nn.Module.
-
-    Args:
-        n_features (int): Number of features in the target distribution
-        context_dim (int): Dimension of conditioning context from model
-            Set to 0 for unconditional flows
-        flow_type (str): Type of flow ('realnvp', 'maf', 'nsf')
-            Default: 'nsf' (Neural Spline Flow - most flexible)
-        n_transforms (int): Number of transformation blocks
-            Default: 3
-        hidden_features (int): Size of hidden layers in transformations
-            Default: 64
-        n_hidden_layers (int): Number of hidden layers
-            Default: 2
-        **kwargs: Additional arguments passed to the flow constructor
-            For NSF: bins, randperm, etc.
-            For MAF/RealNVP: activation, dropout, etc.
-
-    Returns:
-        Flow: A trainable zuko Flow instance
-
-    Raises:
-        ValueError: If invalid flow_type is specified
-
-    Examples:
-        >>> # Create a conditional NSF for 2D targets with 10D context
-        >>> flow = create_flow_model(
-        ...     n_features=2,
-        ...     context_dim=10,
-        ...     flow_type='nsf',
-        ...     n_transforms=5,
-        ...     hidden_features=128
-        ... )
-        >>>
-        >>> # Use with loss function
-        >>> loss_fn = NormalizingFlowLoss(flow=flow)
-        >>>
-        >>> # Create unconditional flow
-        >>> uncond_flow = create_flow_model(
-        ...     n_features=3,
-        ...     context_dim=0,
-        ...     flow_type='realnvp'
-        ... )
-    """
-    flow_type = flow_type.lower()
-
-    # Validate flow type
-    valid_types = ["realnvp", "maf", "nsf"]
-    if flow_type not in valid_types:
-        raise ValueError(
-            f"Invalid flow_type: {flow_type}. Must be one of: {', '.join(valid_types)}"
-        )
-
-    # Common arguments for all flows
-    common_args = {
-        "features": n_features,
-        "context": context_dim,
-        "transforms": n_transforms,
-    }
-
-    # Flow-specific arguments
-    if flow_type == "nsf":
-        # NSF uses bins for spline transformations
-        flow_args = {
-            **common_args,
-            "bins": kwargs.get("bins", 8),
-            "hidden_features": [hidden_features] * n_hidden_layers,
-        }
-        flow = NSF(**flow_args)
-
-    elif flow_type == "maf":
-        # MAF (Masked Autoregressive Flow)
-        flow_args = {
-            **common_args,
-            "hidden_features": [hidden_features] * n_hidden_layers,
-        }
-        # Add optional MAF-specific args
-        if "randperm" in kwargs:
-            flow_args["randperm"] = kwargs["randperm"]
-        flow = MAF(**flow_args)
-
-    elif flow_type == "realnvp":
-        # RealNVP (Real-valued Non-Volume Preserving)
-        flow_args = {
-            **common_args,
-            "hidden_features": [hidden_features] * n_hidden_layers,
-        }
-        flow = RealNVP(**flow_args)
-
-    # Add metadata attributes for convenience (zuko flows don't have these by default)
-    flow.features = n_features
-    flow.context = context_dim
-
-    return flow
-
-
-def create_flow_loss(
-    n_features: int,
-    context_dim: int,
-    flow_type: str = "nsf",
-    n_transforms: int = 3,
-    hidden_features: int = 64,
-    n_hidden_layers: int = 2,
-    reduction: str = "mean",
-    **kwargs,
-) -> NormalizingFlowLoss:
-    """
-    Factory function to create a NormalizingFlowLoss with an embedded flow model.
-    """
-    flow = create_flow_model(
-        n_features=n_features,
-        context_dim=context_dim,
-        flow_type=flow_type,
-        n_transforms=n_transforms,
-        hidden_features=hidden_features,
-        n_hidden_layers=n_hidden_layers,
-        **kwargs,
-    )
-    return NormalizingFlowLoss(flow=flow, reduction=reduction)

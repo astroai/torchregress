@@ -20,11 +20,13 @@ class SimpleModel(nn.Module):
     def forward(self, x):
         return self.linear(x)
 
+
 @pytest.fixture
 def data():
     x = torch.randn(100, 10)
     y = torch.randn(100, 1)
     return x, y
+
 
 def test_buffer_data_cpu(data):
     x, y = data
@@ -38,6 +40,7 @@ def test_buffer_data_cpu(data):
     assert bx.shape == x.shape
     assert by.shape == y.shape
 
+
 def test_batched_predict(data):
     x, y = data
     model = SimpleModel()
@@ -50,6 +53,7 @@ def test_batched_predict(data):
     # Verify correctness against full forward pass
     y_pred_full = model(x)
     assert torch.allclose(y_pred, y_pred_full, atol=1e-5)
+
 
 def test_irls_integration(data):
     x, y = data
@@ -66,12 +70,13 @@ def test_irls_integration(data):
         verbose=False,
         base_loss="gaussian",
         loss_fn=GaussianNLLLoss(fixed_variance=1.0),
-        variance_type="fixed"
+        variance_type="fixed",
     )
 
     assert "model" in res
     assert "train_loss_history" in res
     assert len(res["train_loss_history"]) > 0
+
 
 def test_iteratively_reweighted_least_squares_logic(data):
     x, y = data
@@ -86,7 +91,7 @@ def test_iteratively_reweighted_least_squares_logic(data):
         max_iter=3,
         base_loss="gaussian",
         variance_type="fixed",
-        weight_fn="huber"
+        weight_fn="huber",
     )
 
     assert y_pred.shape == (100, 1)

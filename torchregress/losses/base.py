@@ -13,7 +13,6 @@ All losses follow PyTorch conventions with forward methods expecting
 inputs in the form of (y_pred, target, ...).
 """
 
-
 from typing import Any, Callable, Dict, Optional, Union
 
 import torch
@@ -505,63 +504,4 @@ class WeightedGaussianNLLLoss(BaseLoss):
         return self._reduce(loss, mask, weights)
 
 
-# Weighted versions of standard PyTorch losses
-# Proper subclasses so isinstance(), type checking, and stack traces work correctly.
-
-
-class WeightedMSELoss(WeightedLossWrapper):
-    """Weighted wrapper for torch.nn.MSELoss with mask support."""
-
-    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
-        super().__init__(nn.MSELoss, reduction=reduction, **kwargs)
-
-
-class WeightedL1Loss(WeightedLossWrapper):
-    """Weighted wrapper for torch.nn.L1Loss with mask support."""
-
-    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
-        super().__init__(nn.L1Loss, reduction=reduction, **kwargs)
-
-
-WeightedMAELoss = WeightedL1Loss
-
-
-class WeightedSmoothL1Loss(WeightedLossWrapper):
-    """Weighted wrapper for torch.nn.SmoothL1Loss with mask support."""
-
-    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
-        super().__init__(nn.SmoothL1Loss, reduction=reduction, **kwargs)
-
-
-class WeightedHuberLoss(WeightedLossWrapper):
-    """Weighted wrapper for torch.nn.HuberLoss with mask support."""
-
-    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
-        super().__init__(nn.HuberLoss, reduction=reduction, **kwargs)
-
-
-class WeightedPoissonNLLLoss(WeightedLossWrapper):
-    """Weighted wrapper for torch.nn.PoissonNLLLoss with mask support."""
-
-    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
-        super().__init__(nn.PoissonNLLLoss, reduction=reduction, **kwargs)
-
-
-class WeightedKLDivLoss(WeightedLossWrapper):
-    """Weighted wrapper for torch.nn.KLDivLoss with mask support."""
-
-    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
-        super().__init__(nn.KLDivLoss, reduction=reduction, **kwargs)
-
-
-# Register standard weighted losses in the loss registry
-from .loss_registry import loss_registry as _loss_registry  # noqa: E402
-
-_loss_registry["mse"] = WeightedMSELoss
-_loss_registry["l1"] = WeightedL1Loss
-_loss_registry["mae"] = WeightedL1Loss
-_loss_registry["smooth_l1"] = WeightedSmoothL1Loss
-_loss_registry["huber"] = WeightedHuberLoss
-_loss_registry["poisson_nll"] = WeightedPoissonNLLLoss
-_loss_registry["kl_div"] = WeightedKLDivLoss
 

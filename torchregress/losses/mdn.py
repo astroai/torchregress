@@ -522,24 +522,4 @@ class MixtureDensityLoss(DistributionLoss):
         return samples.transpose(0, 1)
 
 
-def create_mdn_loss(
-    n_components: int,
-    n_features: int,
-    covariance_type: str = "diagonal",
-    min_std: float = 1e-3,
-    eps: float = 1e-8,
-    reduction: str = "mean",
-    **kwargs,
-) -> MixtureDensityLoss:
-    """
-    Factory function to create a MixtureDensityLoss instance.
-    """
-    return MixtureDensityLoss(
-        n_components=n_components,
-        n_features=n_features,
-        covariance_type=covariance_type,
-        min_std=min_std,
-        eps=eps,
-        reduction=reduction,
-        **kwargs,
-    )
+

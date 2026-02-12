@@ -17,9 +17,7 @@ from .losses import (
     BaseLoss,
     DistributionLoss,
     RegressionLoss,
-    create_loss_from_config,
 )
-from .wrappers import wrap_pytorch_loss
 
 __all__ = [
     # Main modules
@@ -35,7 +33,5 @@ __all__ = [
     "DistributionLoss",
     # Core functions
     "iteratively_reweighted_least_squares",
-    "create_loss_from_config",
-    "wrap_pytorch_loss",
     "__version__",
 ]

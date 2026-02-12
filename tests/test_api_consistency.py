@@ -139,14 +139,9 @@ def test_reduction_behavior():
         "NormalizingFlowLoss",  # Needs flow parameters
         "CoTeachingLoss",  # Needs two predictions
         "RENTLoss",  # Needs ensemble predictions
-        "DeepARLoss",  # Needs special input shape (mean and scale)
         "DensityWeightedLoss",  # Needs to be fitted first
-        "DistLoss",  # Needs to be fitted first
-        "FrequencyWeightedLoss",  # Needs to be fitted first
         "LDSLoss",  # Needs to be fitted first
-        "SQINVLoss",  # Needs to be fitted first
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
-        "SQRLoss",  # Needs special input shape (quantiles)
     ]
 
     for loss_class in get_all_loss_classes():

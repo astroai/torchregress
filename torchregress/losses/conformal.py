@@ -205,8 +205,7 @@ class ConformalPredictor:
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError(
-                "Predictor must be calibrated before making predictions. "
-                "Call calibrate() first."
+                "Predictor must be calibrated before making predictions. " "Call calibrate() first."
             )
 
         difficulty = None
@@ -216,23 +215,15 @@ class ConformalPredictor:
         if isinstance(self.q_hat, dict):
             # Mondrian: build per-sample q from group assignment
             if groups is None:
-                raise ValueError(
-                    "groups must be provided at prediction time for Mondrian CP"
-                )
-            q_per_sample = torch.empty(
-                y_pred.shape[0], device=y_pred.device, dtype=y_pred.dtype
-            )
+                raise ValueError("groups must be provided at prediction time for Mondrian CP")
+            q_per_sample = torch.empty(y_pred.shape[0], device=y_pred.device, dtype=y_pred.dtype)
             # Vectorized group lookup: build a lookup tensor if groups
             # are integer-like, otherwise fall back to scatter
             group_keys = list(self.q_hat.keys())
-            group_vals = torch.stack(
-                [self.q_hat[g].to(y_pred.device) for g in group_keys]
-            )
+            group_vals = torch.stack([self.q_hat[g].to(y_pred.device) for g in group_keys])
             if all(isinstance(g, int) for g in group_keys):
                 max_g = max(group_keys)
-                lut = torch.zeros(
-                    max_g + 1, device=y_pred.device, dtype=y_pred.dtype
-                )
+                lut = torch.zeros(max_g + 1, device=y_pred.device, dtype=y_pred.dtype)
                 gk = torch.tensor(group_keys, device=y_pred.device)
                 lut[gk] = group_vals
                 q_per_sample = lut[groups.long()]
@@ -354,14 +345,10 @@ class CQR(ConformalPredictor):
             # Finite-sample correction: slightly tighter quantile
             alpha_orig = self.alpha
             self.alpha = self.alpha * n / (n + 1)
-            super().calibrate(
-                y_pred, target, mask=mask, groups=groups, weights=weights, x=x
-            )
+            super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
             self.alpha = alpha_orig
         else:
-            super().calibrate(
-                y_pred, target, mask=mask, groups=groups, weights=weights, x=x
-            )
+            super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
 
     def _build_intervals(
         self,
@@ -445,9 +432,7 @@ class CTI(ConformalPredictor):
         # Bypass normalize_fn — CTI uses density directly
         norm_fn_backup = self.normalize_fn
         self.normalize_fn = None
-        super().calibrate(
-            log_density_cal, target, mask=mask, groups=groups, weights=weights
-        )
+        super().calibrate(log_density_cal, target, mask=mask, groups=groups, weights=weights)
         self.normalize_fn = norm_fn_backup
 
     def _build_intervals(
@@ -489,9 +474,7 @@ class CTI(ConformalPredictor):
             raise RuntimeError("Call calibrate() first.")
 
         q = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
-        y_grid = torch.linspace(
-            y_min, y_max, self.grid_size, device=x.device, dtype=x.dtype
-        )
+        y_grid = torch.linspace(y_min, y_max, self.grid_size, device=x.device, dtype=x.dtype)
 
         n_test = x.shape[0]
         lower = torch.full((n_test, 1), y_max, device=x.device, dtype=x.dtype)
@@ -587,9 +570,7 @@ class DistributionalConformal(ConformalPredictor):
         q_val = q.item()
         alpha_low = max((1 - q_val) / 2, 0.0)
         alpha_high = min((1 + q_val) / 2, 1.0)
-        levels = torch.tensor(
-            [alpha_low, alpha_high], device=x.device, dtype=x.dtype
-        )
+        levels = torch.tensor([alpha_low, alpha_high], device=x.device, dtype=x.dtype)
 
         n_test = x.shape[0]
         lower = torch.empty(n_test, 1, device=x.device, dtype=x.dtype)
@@ -703,15 +684,18 @@ class R2CConformal(ConformalPredictor):
         # Mask: bins to include (cum_prob < threshold PLUS one more)
         # Shift cumsum right by one (first bin is always included)
         shifted = torch.cat(
-            [torch.zeros(y_pred.shape[0], 1, device=y_pred.device, dtype=y_pred.dtype),
-             cum_probs[:, :-1]], dim=1
+            [
+                torch.zeros(y_pred.shape[0], 1, device=y_pred.device, dtype=y_pred.dtype),
+                cum_probs[:, :-1],
+            ],
+            dim=1,
         )
         included_mask = shifted < threshold  # (n_test, n_bins)
 
         # Map sorted indices back to bin indices, then to centers
         # Use large/small sentinel for excluded bins
         bin_centers_sorted = centers[sorted_idx]  # (n_test, n_bins)
-        INF = float('inf')
+        INF = float("inf")
         # For lower: excluded bins → +inf, take min
         lower_vals = torch.where(
             included_mask, bin_centers_sorted, torch.tensor(INF, device=y_pred.device)
@@ -773,9 +757,7 @@ class MultiTargetConformal(ConformalPredictor):
         scores = torch.abs(y_pred - target)
         n = scores.shape[0]
         q_level = min(math.ceil((n + 1) * (1 - self.alpha)) / n, 1.0)
-        self.q_hat = torch.quantile(
-            scores, q_level, dim=0, interpolation="higher"
-        )
+        self.q_hat = torch.quantile(scores, q_level, dim=0, interpolation="higher")
         self._is_calibrated = True
 
     def _build_intervals(
@@ -844,21 +826,15 @@ class ConformalLoss(RegressionLoss):
         super().__init__(reduction=reduction)
         method = method.lower()
         if method not in ("split", "cqr"):
-            raise ValueError(
-                f"Unknown method: {method}. Supported methods: 'split', 'cqr'"
-            )
+            raise ValueError(f"Unknown method: {method}. Supported methods: 'split', 'cqr'")
         self.method = method
         self.alpha = alpha
 
         # Create the underlying predictor
         if method == "cqr":
-            self._predictor = CQR(
-                alpha=alpha, debias=debias, normalize_fn=normalize_fn
-            )
+            self._predictor = CQR(alpha=alpha, debias=debias, normalize_fn=normalize_fn)
         else:
-            self._predictor = SplitConformal(
-                alpha=alpha, normalize_fn=normalize_fn
-            )
+            self._predictor = SplitConformal(alpha=alpha, normalize_fn=normalize_fn)
 
     @property
     def _is_calibrated(self) -> bool:
@@ -889,21 +865,16 @@ class ConformalLoss(RegressionLoss):
             n_feat = target.shape[-1] if target.dim() > 1 else 1
             if y_pred.shape[-1] != 2 * n_feat:
                 raise ValueError(
-                    f"CQR expects y_pred shape [..., 2*features], "
-                    f"got {y_pred.shape}"
+                    f"CQR expects y_pred shape [..., 2*features], " f"got {y_pred.shape}"
                 )
             lower_pred = y_pred[..., :n_feat]
             upper_pred = y_pred[..., n_feat:]
             lower_q = self.alpha / 2
             upper_q = 1 - self.alpha / 2
             lower_err = target - lower_pred
-            lower_loss = torch.maximum(
-                lower_q * lower_err, (lower_q - 1) * lower_err
-            )
+            lower_loss = torch.maximum(lower_q * lower_err, (lower_q - 1) * lower_err)
             upper_err = target - upper_pred
-            upper_loss = torch.maximum(
-                upper_q * upper_err, (upper_q - 1) * upper_err
-            )
+            upper_loss = torch.maximum(upper_q * upper_err, (upper_q - 1) * upper_err)
             loss = lower_loss + upper_loss
         else:
             self._validate_inputs(y_pred, target, mask)
@@ -931,9 +902,7 @@ class ConformalLoss(RegressionLoss):
             weights: Optional importance weights.
             x: Optional features for normalized CP.
         """
-        self._predictor.calibrate(
-            y_pred, target, mask=mask, groups=groups, weights=weights, x=x
-        )
+        self._predictor.calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
 
     def predict_interval(
         self,

@@ -22,7 +22,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
-from torchregress.losses import GaussianNLLLoss, WeightedMSELoss
+from torchregress.losses import GaussianNLLLoss, WeightedLossWrapper
 from torchregress.metrics import (
     ensemble_mean,
     ensemble_std,
@@ -108,7 +108,7 @@ def train_deep_ensemble(n_models, dataloader, hidden_dim=64, epochs=100, lr=0.01
     )
     ensemble.fit(
         train_loader=dataloader,
-        criterion=WeightedMSELoss(),
+        criterion=WeightedLossWrapper(nn.MSELoss),
         epochs=epochs,
         lr=lr,
         verbose=True,
@@ -261,7 +261,7 @@ def main():
     print("=" * 60)
     set_seed(42)
     single_model = create_mlp()
-    loss_fn = WeightedMSELoss()
+    loss_fn = WeightedLossWrapper(nn.MSELoss)
     single_model = train_model(single_model, dataloader, loss_fn, epochs=100)
 
     single_model.eval()

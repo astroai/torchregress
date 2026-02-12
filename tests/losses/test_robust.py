@@ -1,9 +1,9 @@
 import pytest
 import torch
+import torch.nn as nn
 from torch.autograd import gradcheck
 
-from torchregress.losses.base import WeightedHuberLoss as HuberLoss
-from torchregress.losses.base import WeightedL1Loss as L1Loss
+from torchregress.losses.base import WeightedLossWrapper
 from torchregress.losses.robust import (
     CauchyLoss,
     LogCoshLoss,
@@ -60,12 +60,12 @@ def setup_data(device):
 
 
 class TestL1Loss:
-    """Test suite for L1Loss."""
+    """Test suite for WeightedLossWrapper(nn.L1Loss)."""
 
     def test_basic_functionality(self, setup_data, device):
         """Test L1Loss (Mean Absolute Error) behavior."""
         data = setup_data
-        loss_fn = L1Loss().to(device)
+        loss_fn = WeightedLossWrapper(nn.L1Loss).to(device)
 
         # Test with mask
         loss = loss_fn(data["y_pred"], data["y_true"], data["mask"])
@@ -86,7 +86,7 @@ class TestL1Loss:
     def test_outlier_robustness(self, setup_data):
         """Test that L1 is less affected by outliers than MSE."""
         data = setup_data
-        l1_loss = L1Loss()
+        l1_loss = WeightedLossWrapper(nn.L1Loss)
 
         # Calculate losses with and without outliers
         mse = torch.nn.MSELoss()(data["y_pred"], data["y_true_outliers"])
@@ -102,7 +102,7 @@ class TestL1Loss:
     def test_zero_behavior(self, setup_data):
         """Test that L1 at zero is actually zero."""
         data = setup_data
-        loss_at_zero = L1Loss()(data["y_pred_zero"], data["y_true_zero"])
+        loss_at_zero = WeightedLossWrapper(nn.L1Loss)(data["y_pred_zero"], data["y_true_zero"])
         assert loss_at_zero.item() == pytest.approx(0.0, abs=1e-5)
 
     def test_gradient_behavior(self, device):
@@ -110,7 +110,7 @@ class TestL1Loss:
         scalar_pred = torch.tensor(3.0, device=device, requires_grad=True)
         scalar_true = torch.tensor(5.0, device=device)
 
-        loss = L1Loss()(scalar_pred, scalar_true)
+        loss = WeightedLossWrapper(nn.L1Loss)(scalar_pred, scalar_true)
         loss.backward()
 
         # Gradient should be sign(pred - true) = sign(3 - 5) = -1
@@ -121,16 +121,22 @@ class TestL1Loss:
         data = setup_data
 
         # None reduction
-        loss_none = L1Loss(reduction="none")(data["y_pred"], data["y_true"])
+        loss_none = WeightedLossWrapper(nn.L1Loss, reduction="none")(
+            data["y_pred"], data["y_true"]
+        )
         assert loss_none.shape == data["y_true"].shape
 
         # Sum reduction
-        loss_sum = L1Loss(reduction="sum")(data["y_pred"], data["y_true"])
+        loss_sum = WeightedLossWrapper(nn.L1Loss, reduction="sum")(
+            data["y_pred"], data["y_true"]
+        )
         assert loss_sum.numel() == 1
         assert loss_sum.item() == pytest.approx(loss_none.sum().item(), abs=1e-5)
 
         # Mean reduction
-        loss_mean = L1Loss(reduction="mean")(data["y_pred"], data["y_true"])
+        loss_mean = WeightedLossWrapper(nn.L1Loss, reduction="mean")(
+            data["y_pred"], data["y_true"]
+        )
         assert loss_mean.numel() == 1
         assert loss_mean.item() == pytest.approx(loss_none.mean().item(), abs=1e-5)
 
@@ -140,14 +146,14 @@ class TestL1Loss:
 
 class TestRobustLossesNumericalStability:
     def test_huber_gradient_flow(self):
-        """Test that gradients flow through HuberLoss properly."""
+        """Test that gradients flow through WeightedLossWrapper(nn.HuberLoss) properly."""
 
         # Create inputs that require gradients
         y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
         y_true = torch.randn(10, 1, dtype=torch.double)
 
         # Test with gradcheck
-        loss_fn = HuberLoss(reduction="mean", delta=1.0)
+        loss_fn = WeightedLossWrapper(nn.HuberLoss, reduction="mean", delta=1.0)
         assert gradcheck(loss_fn, (y_pred, y_true), eps=1e-6, atol=1e-5)
 
     def test_pseudo_huber_gradient_flow(self):
@@ -190,8 +196,8 @@ class TestRobustLossesNumericalStability:
         y_pred = torch.tensor([100.0, 1000.0, 10000.0], requires_grad=True)
         y_true = torch.tensor([101.0, 1010.0, 10100.0])
 
-        # Test HuberLoss with extreme values
-        huber = HuberLoss(reduction="mean", delta=1.0)
+        # Test WeightedLossWrapper(nn.HuberLoss) with extreme values
+        huber = WeightedLossWrapper(nn.HuberLoss, reduction="mean", delta=1.0)
         loss = huber(y_pred, y_true)
         assert torch.isfinite(loss)
         loss.backward()
@@ -229,7 +235,7 @@ class TestRobustLossesNumericalStability:
         y_true = torch.tensor([1.1, 2.0, 3.0, 4.0])
         mask = torch.tensor([True, False, False, False])  # Mask out some elements
 
-        huber = HuberLoss(reduction="mean")
+        huber = WeightedLossWrapper(nn.HuberLoss, reduction="mean")
 
         # This should only use the valid elements
         loss = huber(y_pred, y_true, mask=mask)
@@ -249,21 +255,21 @@ class TestRobustLossesNumericalStability:
         y_true = torch.randn(10, 1)
 
         # Test mean reduction
-        huber_mean = HuberLoss(reduction="mean")
+        huber_mean = WeightedLossWrapper(nn.HuberLoss, reduction="mean")
         loss = huber_mean(y_pred, y_true)
         loss.backward()
         mean_grad = y_pred.grad.clone()
 
         # Test sum reduction
         y_pred.grad = None
-        huber_sum = HuberLoss(reduction="sum")
+        huber_sum = WeightedLossWrapper(nn.HuberLoss, reduction="sum")
         loss = huber_sum(y_pred, y_true)
         loss.backward()
         sum_grad = y_pred.grad.clone()
 
         # Test none reduction
         y_pred.grad = None
-        huber_none = HuberLoss(reduction="none")
+        huber_none = WeightedLossWrapper(nn.HuberLoss, reduction="none")
         loss = huber_none(y_pred, y_true)
         loss.mean().backward()
         none_grad = y_pred.grad.clone()
