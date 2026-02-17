@@ -116,7 +116,7 @@ X_train = torch.cat([X_dense, X_rare])
 y_train = torch.cat([y_dense, y_rare])
 
 # Shuffle
-indices = torch.randperm(len(X_train))
+indices = torch.randperm(len(X_train), device=X_train.device)
 X_train, y_train = X_train[indices], y_train[indices]
 
 # Create model
@@ -556,7 +556,7 @@ X_train = torch.cat([X_common, X_rare])
 y_train = torch.cat([y_common, y_rare])
 
 # Shuffle
-idx = torch.randperm(len(X_train))
+idx = torch.randperm(len(X_train), device=X_train.device)
 X_train, y_train = X_train[idx], y_train[idx]
 
 # Separate test data

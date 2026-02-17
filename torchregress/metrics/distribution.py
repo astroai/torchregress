@@ -108,7 +108,7 @@ class EnergyScore(Metric):
         batch_size = y_true.shape[0]
 
         if self.max_pairs is not None and n_samples > self.max_pairs:
-            indices = torch.randperm(n_samples)[: self.max_pairs]
+            indices = torch.randperm(n_samples, device=y_samples.device)[: self.max_pairs]
             y_samples = y_samples[indices]
             n_samples = self.max_pairs
 
@@ -264,7 +264,7 @@ def energy_score(
     n_samples = y_samples_t.shape[0]
 
     if max_pairs is not None and n_samples > max_pairs:
-        indices = torch.randperm(n_samples)[:max_pairs]
+        indices = torch.randperm(n_samples, device=y_samples_t.device)[:max_pairs]
         y_samples_t = y_samples_t[indices]
         n_samples = max_pairs
 

@@ -218,7 +218,7 @@ class LinearModel(nn.Module):
 X = torch.randn(1000, 5)
 y_true = X @ torch.tensor([1.0, -0.5, 0.2, 0.7, -0.3]) + 0.1 * torch.randn(1000)
 # Add some outliers
-outlier_idx = torch.randperm(1000)[:50]
+outlier_idx = torch.randperm(1000, device=X.device)[:50]
 y_true[outlier_idx] += 5.0 * torch.randn(50)
 
 # Create and train the model
