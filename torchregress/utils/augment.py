@@ -168,7 +168,7 @@ class FeatureMask(Augmentation):
             return x, y
 
         for i in range(x.shape[0]):
-            mask_indices = torch.randperm(x.shape[1])[:n_mask]
+            mask_indices = torch.randperm(x.shape[1], device=x.device)[:n_mask]
             x_aug[i, mask_indices] = 0.0
 
         return x_aug, y

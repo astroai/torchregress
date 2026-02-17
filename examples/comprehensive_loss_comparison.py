@@ -54,7 +54,7 @@ def generate_data_with_outliers(n_samples=200, outlier_ratio=0.1, seed=42):
     y_true = 2 * x + 1 + torch.sin(x * 2)
     noise = torch.randn_like(x) * 0.5
     n_outliers = int(n_samples * outlier_ratio)
-    outlier_idx = torch.randperm(n_samples)[:n_outliers]
+    outlier_idx = torch.randperm(n_samples, device=x.device)[:n_outliers]
     noise[outlier_idx] = torch.randn(n_outliers, 1) * 5
     y = y_true + noise
     return x, y, y_true, outlier_idx
