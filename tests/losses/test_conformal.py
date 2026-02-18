@@ -535,6 +535,70 @@ class TestDistributionalConformal:
         assert upper.shape == (30, 1)
         assert (lower < upper).all()
 
+    def test_vectorized_icdf(self):
+        """Test that vectorized path is used when icdf_fn supports it."""
+        torch.manual_seed(42)
+        dcp = DistributionalConformal(alpha=0.1)
+        dcp.q_hat = torch.tensor(0.9)
+        dcp._is_calibrated = True
+
+        n_test = 10
+        n_features = 2
+        x_test = torch.randn(n_test, n_features)
+
+        # Flag to verify vectorized call
+        vectorized_called = False
+
+        def icdf_fn_vectorized(levels, x):
+            nonlocal vectorized_called
+            if x.shape[0] == n_test and x.ndim == 2:
+                vectorized_called = True
+            mu = x[:, 0]
+            # levels: (2,) -> (2, 1) broadcast with (N,) -> (2, N) -> T -> (N, 2)
+            from torch.distributions import Normal
+            return Normal(mu, 1.0).icdf(levels.unsqueeze(-1)).T
+
+        lower, upper = dcp.predict_intervals_from_cdf(icdf_fn_vectorized, x_test)
+
+        assert vectorized_called, "Vectorized path was not used"
+        assert lower.shape == (n_test, 1)
+        assert upper.shape == (n_test, 1)
+
+    def test_fallback_logic(self):
+        """Test fallback when vectorized call fails or returns wrong shape."""
+        torch.manual_seed(42)
+        dcp = DistributionalConformal(alpha=0.1)
+        dcp.q_hat = torch.tensor(0.9)
+        dcp._is_calibrated = True
+
+        n_test = 10
+        x_test = torch.randn(n_test, 2)
+        from torch.distributions import Normal
+
+        # Case 1: Exception triggers fallback
+        loop_calls = 0
+        def icdf_fn_fail(levels, x):
+            nonlocal loop_calls
+            if x.ndim == 2 and x.shape[0] > 1:
+                raise ValueError("No batch support")
+            loop_calls += 1
+            return Normal(x[0], 1.0).icdf(levels)
+
+        dcp.predict_intervals_from_cdf(icdf_fn_fail, x_test)
+        assert loop_calls == n_test
+
+        # Case 2: Wrong shape triggers fallback
+        loop_calls = 0
+        def icdf_fn_wrong_shape(levels, x):
+            nonlocal loop_calls
+            if x.ndim == 2 and x.shape[0] > 1:
+                return torch.zeros(2)  # Wrong shape (should be N, 2)
+            loop_calls += 1
+            return Normal(x[0], 1.0).icdf(levels)
+
+        dcp.predict_intervals_from_cdf(icdf_fn_wrong_shape, x_test)
+        assert loop_calls == n_test
+
 
 class TestR2CConformal:
     """Tests for Regression-as-Classification Conformal."""
