@@ -556,6 +556,7 @@ class TestDistributionalConformal:
             mu = x[:, 0]
             # levels: (2,) -> (2, 1) broadcast with (N,) -> (2, N) -> T -> (N, 2)
             from torch.distributions import Normal
+
             return Normal(mu, 1.0).icdf(levels.unsqueeze(-1)).T
 
         lower, upper = dcp.predict_intervals_from_cdf(icdf_fn_vectorized, x_test)
@@ -577,6 +578,7 @@ class TestDistributionalConformal:
 
         # Case 1: Exception triggers fallback
         loop_calls = 0
+
         def icdf_fn_fail(levels, x):
             nonlocal loop_calls
             if x.ndim == 2 and x.shape[0] > 1:
@@ -589,6 +591,7 @@ class TestDistributionalConformal:
 
         # Case 2: Wrong shape triggers fallback
         loop_calls = 0
+
         def icdf_fn_wrong_shape(levels, x):
             nonlocal loop_calls
             if x.ndim == 2 and x.shape[0] > 1:

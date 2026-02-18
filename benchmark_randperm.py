@@ -1,4 +1,3 @@
-
 import time
 
 import torch
@@ -6,7 +5,7 @@ import torch
 
 def benchmark_randperm():
     n_samples = 1000000
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print(f"Benchmarking on {device}")
 
@@ -29,6 +28,7 @@ def benchmark_randperm():
         _ = y_samples[indices[:1000]]
     end_time = time.time()
     print(f"With device specified: {end_time - start_time:.4f}s")
+
 
 if __name__ == "__main__":
     try:
