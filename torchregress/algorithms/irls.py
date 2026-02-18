@@ -441,7 +441,7 @@ def validate_model(
         float: Average validation loss
     """
     model.eval()
-    total_loss = 0.0
+    losses = []
     total_samples = 0
 
     with torch.no_grad():
@@ -465,11 +465,15 @@ def validate_model(
                 # Fallback for standard PyTorch losses
                 loss = loss_fn(y_pred, batch_y)
 
-            total_loss += loss.item() * batch_size
+            losses.append(loss * batch_size)
             total_samples += batch_size
 
     model.train()  # Set back to training mode
-    return total_loss / max(1, total_samples)
+
+    if not losses:
+        return 0.0
+
+    return torch.sum(torch.stack(losses)).item() / max(1, total_samples)
 
 
 def _setup_irls(
