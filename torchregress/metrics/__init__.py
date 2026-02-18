@@ -12,6 +12,11 @@ from .calibration import (
     expected_calibration_error,
     marginal_calibration_error,
 )
+from .decision import (
+    RejectionPolicy,
+    RiskCoverageCurve,
+    risk_coverage_curve,
+)
 from .distribution import (
     ContinuousRankedProbabilityScore,
     EnergyScore,
@@ -88,6 +93,10 @@ __all__ = [
     "energy_score",
     "probability_integral_transform",
     "distribution_metrics_report",
+    # Decision
+    "RiskCoverageCurve",
+    "RejectionPolicy",
+    "risk_coverage_curve",
     # Ensemble
     "GaussianNLLEnsemble",
     "EnsembleIntervalMetrics",
