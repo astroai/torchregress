@@ -1,6 +1,8 @@
 
-import torch
 import time
+
+import torch
+
 
 def benchmark_randperm():
     n_samples = 1000000
@@ -33,4 +35,4 @@ if __name__ == "__main__":
         benchmark_randperm()
     except Exception as e:
         print(f"Could not run benchmark: {e}")
-        print("Rationale: Specifying device in torch.randperm avoids unnecessary host-to-device transfers.")
+        print("Rationale: Specifying device in torch.randperm avoids host-to-device transfers.")
