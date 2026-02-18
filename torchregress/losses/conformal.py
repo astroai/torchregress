@@ -550,10 +550,12 @@ class DistributionalConformal(ConformalPredictor):
         """Build prediction intervals by inverting the calibrated CDF.
 
         Args:
-            icdf_fn: Inverse CDF function ``(quantile_levels, x) -> y``
-                where ``quantile_levels`` has shape ``(2,)`` containing
-                ``[alpha_low, alpha_high]`` and ``x`` is a single input.
-                Returns ``(2,)`` tensor ``[y_low, y_high]``.
+            icdf_fn: Inverse CDF function ``(quantile_levels, x) -> y``.
+                Can accept either a single input ``x`` (shape ``(features,)``)
+                returning ``(2,)``, or a batch of inputs ``x`` (shape
+                ``(batch, features)``) returning ``(batch, 2)``.
+                ``quantile_levels`` has shape ``(2,)`` containing
+                ``[alpha_low, alpha_high]``.
             x: Test inputs, shape ``(n_test, n_features)``.
 
         Returns:
@@ -573,6 +575,15 @@ class DistributionalConformal(ConformalPredictor):
         levels = torch.tensor([alpha_low, alpha_high], device=x.device, dtype=x.dtype)
 
         n_test = x.shape[0]
+
+        # Try vectorized execution first
+        try:
+            bounds = icdf_fn(levels, x)
+            if bounds.shape == (n_test, 2):
+                return bounds[:, 0:1], bounds[:, 1:2]
+        except Exception:
+            pass
+
         lower = torch.empty(n_test, 1, device=x.device, dtype=x.dtype)
         upper = torch.empty(n_test, 1, device=x.device, dtype=x.dtype)
 
