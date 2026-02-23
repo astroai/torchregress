@@ -58,6 +58,8 @@ def _weighted_quantile(
     """
     if weights is None:
         n = scores.numel()
+        if n == 0:
+            raise ValueError("Input scores tensor is empty.")
         q_adj = min(math.ceil((n + 1) * q) / n, 1.0)
         return torch.quantile(scores, q_adj, interpolation="higher")
 
@@ -65,6 +67,8 @@ def _weighted_quantile(
     sorted_idx = scores.argsort()
     sorted_scores = scores[sorted_idx]
     sorted_weights = weights[sorted_idx]
+    if sorted_weights.numel() == 0:
+        raise ValueError("Input weights tensor is empty.")
     cum_weights = torch.cumsum(sorted_weights, dim=0)
     cum_weights = cum_weights / cum_weights[-1]  # normalize to [0, 1]
     # First index where cumulative weight >= q
@@ -160,6 +164,12 @@ class ConformalPredictor:
                 weights = weights[mask_1d]
             if x is not None:
                 x = x[mask_1d]
+
+        if y_pred.shape[0] == 0:
+            raise ValueError(
+                "Calibration set is empty (after masking, if applicable). "
+                "Cannot calibrate with zero samples."
+            )
 
         scores = self._compute_scores(y_pred, target)
 
