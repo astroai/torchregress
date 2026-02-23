@@ -11,6 +11,7 @@ from torchregress.losses.conformal import (
     CQR,
     CTI,
     ConformalLoss,
+    ConformalPredictor,
     DistributionalConformal,
     MultiDimensionalConformalLoss,
     MultiTargetConformal,
@@ -758,6 +759,43 @@ class TestConformalLossMondrianWeighted:
 
         lower, upper = loss_fn.predict_interval(preds)
         assert (lower <= upper).all()
+
+
+class TestEmptyInputs:
+    """Tests for handling empty inputs in conformal prediction."""
+
+    class MyPredictor(ConformalPredictor):
+        def _compute_scores(self, y_pred, target):
+            return torch.abs(y_pred - target)
+
+        def _build_intervals(self, y_pred, q, difficulty=None):
+            return y_pred - q, y_pred + q
+
+    def test_empty_calibration(self):
+        """Test that calibration raises ValueError on empty input."""
+        cp = self.MyPredictor(alpha=0.1)
+        y_pred = torch.tensor([])
+        target = torch.tensor([])
+
+        with pytest.raises(ValueError, match="Calibration set is empty"):
+            cp.calibrate(y_pred, target)
+
+    def test_weighted_quantile_empty_scores(self):
+        """Test that _weighted_quantile raises ValueError on empty scores."""
+        from torchregress.losses.conformal import _weighted_quantile
+
+        scores = torch.tensor([])
+        with pytest.raises(ValueError, match="Input scores tensor is empty"):
+            _weighted_quantile(scores, 0.9)
+
+    def test_weighted_quantile_empty_weights(self):
+        """Test that _weighted_quantile raises ValueError on empty weights."""
+        from torchregress.losses.conformal import _weighted_quantile
+
+        scores = torch.tensor([])
+        weights = torch.tensor([])
+        with pytest.raises(ValueError, match="Input weights tensor is empty"):
+            _weighted_quantile(scores, 0.9, weights=weights)
 
 
 if __name__ == "__main__":
