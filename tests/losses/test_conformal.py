@@ -577,7 +577,7 @@ class TestDistributionalConformal:
         x_test = torch.randn(n_test, 2)
         from torch.distributions import Normal
 
-        # Case 1: Exception triggers fallback
+        # Case 1: Exception triggers vmap (optimization)
         loop_calls = 0
 
         def icdf_fn_fail(levels, x):
@@ -588,9 +588,10 @@ class TestDistributionalConformal:
             return Normal(x[0], 1.0).icdf(levels)
 
         dcp.predict_intervals_from_cdf(icdf_fn_fail, x_test)
-        assert loop_calls == n_test
+        # vmap traces the function once, so loop_calls should be 1, not n_test
+        assert loop_calls == 1
 
-        # Case 2: Wrong shape triggers fallback
+        # Case 2: Wrong shape triggers vmap (optimization)
         loop_calls = 0
 
         def icdf_fn_wrong_shape(levels, x):
@@ -601,6 +602,31 @@ class TestDistributionalConformal:
             return Normal(x[0], 1.0).icdf(levels)
 
         dcp.predict_intervals_from_cdf(icdf_fn_wrong_shape, x_test)
+        # vmap also fixes the shape issue by vectorizing the single-sample path
+        assert loop_calls == 1
+
+        # Case 3: vmap failure triggers explicit loop (true fallback)
+        loop_calls = 0
+
+        def icdf_fn_hard_fail(levels, x):
+            nonlocal loop_calls
+            if x.ndim == 2 and x.shape[0] > 1:
+                raise ValueError("No batch support")
+
+            # Trigger vmap failure: .item() is not allowed in vmap
+            # But allowed in standard loop
+            try:
+                # We need to be careful not to fail in the loop case.
+                # In loop case, x is (features,), x[0] is scalar tensor.
+                _ = x[0].item()
+            except RuntimeError:
+                # This catches the vmap error and propagates it (or rather the function fails)
+                raise
+
+            loop_calls += 1
+            return Normal(x[0], 1.0).icdf(levels)
+
+        dcp.predict_intervals_from_cdf(icdf_fn_hard_fail, x_test)
         assert loop_calls == n_test
 
 
