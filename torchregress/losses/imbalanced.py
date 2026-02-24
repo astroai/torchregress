@@ -327,6 +327,8 @@ class LDSLoss(RegressionLoss):
 
         self.lds_weights: Optional[Tensor] = None
         self._train_targets: Optional[Tensor] = None
+        self._bins: Optional[Tensor] = None
+        self._weights_per_bin: Optional[Tensor] = None
 
     def _get_kernel_window(self, kernel_width: float) -> np.ndarray:
         """Generate kernel window for smoothing."""
@@ -393,22 +395,27 @@ class LDSLoss(RegressionLoss):
         sample_weights = weights[bin_indices]
 
         self.lds_weights = torch.tensor(sample_weights, dtype=torch.float32)
-        self._bins = bins
+        self._bins = torch.tensor(bins, dtype=torch.float32)
         self._weights_per_bin = torch.tensor(weights, dtype=torch.float32)
 
     def _compute_weight_for_target(self, target: Tensor) -> Tensor:
         """Compute LDS weight for given target values."""
-        if self._weights_per_bin is None or not hasattr(self, "_bins"):
+        if self._weights_per_bin is None or self._bins is None:
             raise ValueError("Must call fit() before computing weights")
 
-        # Digitize targets
-        targets_np = target.detach().cpu().numpy().flatten()
-        bin_indices = np.digitize(targets_np, self._bins) - 1
-        bin_indices = np.clip(bin_indices, 0, len(self._weights_per_bin) - 1)
+        # Move bins and weights to target device if needed
+        if self._bins.device != target.device:
+            self._bins = self._bins.to(target.device)
+        if self._weights_per_bin.device != target.device:
+            self._weights_per_bin = self._weights_per_bin.to(target.device)
+
+        # Digitize targets using torch.bucketize to stay on device
+        bin_indices = torch.bucketize(target.flatten(), self._bins) - 1
+        bin_indices = torch.clamp(bin_indices, 0, len(self._weights_per_bin) - 1)
 
         # Get weights
         weights = self._weights_per_bin[bin_indices]
-        return weights.to(target.device)
+        return weights
 
     def _compute_base_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
         """Compute base loss without reduction."""
