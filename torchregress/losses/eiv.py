@@ -188,9 +188,9 @@ class BaseEIVLoss(RegressionLoss):
             sigma_x_inv = 1.0 / (sigma_x_tensor + self.eps)
         else:
             try:
-                jitter = torch.eye(
-                    n_features_x, device=device, dtype=sigma_x_tensor.dtype
-                ) * self.eps
+                jitter = (
+                    torch.eye(n_features_x, device=device, dtype=sigma_x_tensor.dtype) * self.eps
+                )
                 sigma_x_stable = sigma_x_tensor + jitter
                 chol = torch.linalg.cholesky(sigma_x_stable)
                 sigma_x_inv = torch.cholesky_inverse(chol)
@@ -204,9 +204,10 @@ class BaseEIVLoss(RegressionLoss):
                 sigma_y_inv = 1.0 / (sigma_y_tensor + self.eps)
             else:
                 try:
-                    jitter = torch.eye(
-                        n_features_y, device=device, dtype=sigma_y_tensor.dtype
-                    ) * self.eps
+                    jitter = (
+                        torch.eye(n_features_y, device=device, dtype=sigma_y_tensor.dtype)
+                        * self.eps
+                    )
                     sigma_y_stable = sigma_y_tensor + jitter
                     chol = torch.linalg.cholesky(sigma_y_stable)
                     sigma_y_inv = torch.cholesky_inverse(chol)

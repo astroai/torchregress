@@ -50,9 +50,7 @@ class TestEIVLoss(unittest.TestCase):
 
         # Test with per-sample diagonal sigma
         sigma_x_sample = torch.ones(self.batch_size, self.n_features_x, device=self.device) * 0.1
-        loss_fn = FunctionalEIVLoss(self.model, sigma_x=sigma_x_sample, sigma_y=0.1).to(
-            self.device
-        )
+        loss_fn = FunctionalEIVLoss(self.model, sigma_x=sigma_x_sample, sigma_y=0.1).to(self.device)
         loss = loss_fn(self.x_obs, self.y_obs)
         self.assertFalse(torch.isnan(loss))
 
@@ -70,9 +68,9 @@ class TestEIVLoss(unittest.TestCase):
         self.assertFalse(torch.isnan(loss))
 
         # Test with Monte Carlo mode
-        loss_fn_mc = FunctionalEIVLoss(
-            self.model, sigma_x=0.1, sigma_y=0.1, monte_carlo=True
-        ).to(self.device)
+        loss_fn_mc = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1, monte_carlo=True).to(
+            self.device
+        )
         loss_mc = loss_fn_mc(self.x_obs, self.y_obs)
         self.assertFalse(torch.isnan(loss_mc))
 
@@ -133,9 +131,7 @@ class TestEIVLoss(unittest.TestCase):
         x_with_nan = torch.randn(3, self.n_features_x, device=self.device)
         x_with_nan[1, 0] = float("nan")
         y_obs = torch.randn(3, self.n_features_y, device=self.device)
-        mask = torch.tensor(
-            [[True, True], [False, False], [True, True]], device=self.device
-        ).bool()
+        mask = torch.tensor([[True, True], [False, False], [True, True]], device=self.device).bool()
 
         # We need to make sure FunctionalEIVLoss handles mask correctly during gradient computation
         # In current implementation, apply_mask is used on target and model_output.
@@ -162,7 +158,7 @@ class TestEIVLossNumericalStability(unittest.TestCase):
 
         # Analytical mode
         loss_fn = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="mean")
-        
+
         # Ensure we use double for gradcheck
         x_obs.data = x_obs.data.to(torch.double)
         y_obs.data = y_obs.data.to(torch.double)
@@ -193,7 +189,9 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         n_features_y = 2
 
         weight = torch.randn(n_features_x, n_features_y, requires_grad=True, dtype=torch.double)
-        def model(x): return x @ weight
+
+        def model(x):
+            return x @ weight
 
         x_obs = torch.randn(batch_size, n_features_x, requires_grad=True, dtype=torch.double)
         y_obs = torch.randn(batch_size, n_features_y, requires_grad=True, dtype=torch.double)
@@ -210,7 +208,9 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         n_features_y = 2
 
         weight = torch.randn(n_features_x, n_features_y, requires_grad=True, dtype=torch.double)
-        def model(x): return x @ weight
+
+        def model(x):
+            return x @ weight
 
         x_obs = torch.randn(batch_size, n_features_x, requires_grad=True, dtype=torch.double)
         y_obs = torch.randn(batch_size, n_features_y, requires_grad=True, dtype=torch.double)
@@ -233,7 +233,9 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         n_features_y = 2
 
         weight = torch.randn(n_features_x, n_features_y, requires_grad=True, dtype=torch.double)
-        def model(x): return x @ weight
+
+        def model(x):
+            return x @ weight
 
         x_obs = torch.randn(batch_size, n_features_x, requires_grad=True, dtype=torch.double)
         y_obs = torch.randn(batch_size, n_features_y, requires_grad=True, dtype=torch.double)
@@ -251,6 +253,7 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         """Test stability with extreme values."""
         n_features_x = 3
         n_features_y = 2
+
         def model(x):
             return x[:, :n_features_y] * 2.0
 
@@ -267,7 +270,9 @@ class TestEIVLossNumericalStability(unittest.TestCase):
     def test_nan_inf_handling(self):
         """Test how EIV loss handles NaN and Inf values with masks."""
         n_features_y = 1
-        def model(x): return x[:, :n_features_y] * 2.0
+
+        def model(x):
+            return x[:, :n_features_y] * 2.0
 
         x_obs = torch.tensor(
             [[1.0, 2.0, 3.0], [float("nan"), 5.0, 6.0], [7.0, 8.0, 9.0]], requires_grad=True
@@ -288,6 +293,7 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         """Test handling of zero or very small variance values."""
         n_features_x = 3
         n_features_y = 2
+
         def model(x):
             return x[:, :n_features_y] * 2.0
 
