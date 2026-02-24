@@ -69,8 +69,13 @@ def _weighted_quantile(
     sorted_weights = weights[sorted_idx]
     if sorted_weights.numel() == 0:
         raise ValueError("Input weights tensor is empty.")
+    if torch.any(sorted_weights < 0):
+        raise ValueError("Sample weights must be non-negative.")
+    total_weight = sorted_weights.sum()
+    if total_weight <= 0:
+        raise ValueError("Sum of sample weights must be positive.")
     cum_weights = torch.cumsum(sorted_weights, dim=0)
-    cum_weights = cum_weights / cum_weights[-1]  # normalize to [0, 1]
+    cum_weights = cum_weights / total_weight  # normalize to [0, 1]
     # First index where cumulative weight >= q
     idx = torch.searchsorted(cum_weights, q)
     idx = idx.clamp(max=len(sorted_scores) - 1)

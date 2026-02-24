@@ -798,5 +798,27 @@ class TestEmptyInputs:
             _weighted_quantile(scores, 0.9, weights=weights)
 
 
+class TestInvalidWeights:
+    """Tests for invalid weights in conformal prediction."""
+
+    def test_weighted_quantile_negative_weights(self):
+        """Test that _weighted_quantile raises ValueError on negative weights."""
+        from torchregress.losses.conformal import _weighted_quantile
+
+        scores = torch.tensor([1.0, 2.0, 3.0])
+        weights = torch.tensor([1.0, -0.5, 0.5])
+        with pytest.raises(ValueError, match="Sample weights must be non-negative"):
+            _weighted_quantile(scores, 0.9, weights=weights)
+
+    def test_weighted_quantile_zero_sum_weights(self):
+        """Test that _weighted_quantile raises ValueError on zero sum weights."""
+        from torchregress.losses.conformal import _weighted_quantile
+
+        scores = torch.tensor([1.0, 2.0, 3.0])
+        weights = torch.tensor([0.0, 0.0, 0.0])
+        with pytest.raises(ValueError, match="Sum of sample weights must be positive"):
+            _weighted_quantile(scores, 0.9, weights=weights)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
