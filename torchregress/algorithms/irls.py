@@ -540,7 +540,7 @@ def _perform_irls_iteration(
     iteration: int,
     return_all_predictions: bool,
     all_predictions: Optional[List[torch.Tensor]],
-) -> Tuple[torch.Tensor, float, Optional[List[torch.Tensor]]]:
+) -> Tuple[torch.Tensor, torch.Tensor, Optional[List[torch.Tensor]]]:
     """Helper function to perform a single IRLS iteration."""
     # Note: y_pred is now passed in, not computed from model(x)
 
@@ -564,7 +564,8 @@ def _perform_irls_iteration(
         else:
             current_loss = loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
 
-        loss_value = current_loss.item()
+        # We return the loss tensor directly to avoid sync points within the function.
+        loss_value = current_loss
 
         variance = estimate_variance(residuals, y_pred, covariance_matrices, variance_type, loss_fn)
         scaled_residuals = residuals / (torch.sqrt(variance) + EPS)
@@ -740,7 +741,7 @@ def iteratively_reweighted_least_squares(
 
     # --- IRLS Iterations ---
     for iteration in iter_range:
-        precision, loss_value, all_predictions = _perform_irls_iteration(
+        precision, loss_tensor, all_predictions = _perform_irls_iteration(
             y_pred,
             residuals,
             y_true,
@@ -756,6 +757,10 @@ def iteratively_reweighted_least_squares(
             return_all_predictions,
             all_predictions,
         )
+        # Deferring .item() call to here allows GPU to execute subsequent operations
+        # (variance estimation, weight calculation, precision update) which were
+        # queued in _perform_irls_iteration, while CPU waits for the loss value.
+        loss_value = loss_tensor.item()
         loss_history.append(loss_value)
 
         if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
