@@ -243,9 +243,37 @@ class ConformalPredictor:
                 lut[gk] = group_vals
                 q_per_sample = lut[groups.long()]
             else:
-                for g, q_val in self.q_hat.items():
-                    g_mask = groups == g
-                    q_per_sample[g_mask] = q_val.to(y_pred.device)
+                # Optimized vectorized lookup for non-integer keys (e.g., floats)
+                # Fall back to loop if keys are incompatible with tensor operations
+                try:
+                    # Convert keys and values to tensors
+                    keys = list(self.q_hat.keys())
+                    keys_tensor = torch.tensor(keys, device=y_pred.device)
+                    vals_tensor = torch.stack([self.q_hat[k].to(y_pred.device) for k in keys])
+
+                    # Sort for searchsorted
+                    sorted_idx = torch.argsort(keys_tensor)
+                    sorted_keys = keys_tensor[sorted_idx]
+                    sorted_vals = vals_tensor[sorted_idx]
+
+                    # Find indices of groups in sorted keys
+                    # Ensure groups has same dtype for comparison
+                    groups_cast = groups.to(keys_tensor.dtype)
+                    idx = torch.searchsorted(sorted_keys, groups_cast)
+                    idx = idx.clamp(max=len(sorted_keys) - 1)
+
+                    # Only update valid matches (mimic original behavior of skipping unknown groups)
+                    matches = sorted_keys[idx] == groups_cast
+
+                    if matches.all():
+                        q_per_sample = sorted_vals[idx]
+                    else:
+                        q_per_sample[matches] = sorted_vals[idx[matches]]
+
+                except (TypeError, RuntimeError, ValueError):
+                    for g, q_val in self.q_hat.items():
+                        g_mask = groups == g
+                        q_per_sample[g_mask] = q_val.to(y_pred.device)
             # Reshape for broadcasting
             q = q_per_sample.view(-1, *([1] * (y_pred.dim() - 1)))
         else:

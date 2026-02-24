@@ -395,6 +395,42 @@ class TestMondrianCP:
             coverage = covered.float().mean().item()
             assert coverage >= (1 - alpha) - 0.10, f"Group {g} coverage {coverage:.3f} too low"
 
+    def test_mondrian_float_groups(self):
+        """Mondrian CP should work with float groups (vectorized path)."""
+        torch.manual_seed(42)
+        cp = SplitConformal(alpha=0.1)
+
+        n = 200
+        preds = torch.randn(n, 1)
+        targets = preds + torch.randn(n, 1) * 0.5
+        # Float groups
+        groups = torch.randint(0, 3, (n,)).float()
+        # Make them distinct floats
+        groups_uniq = torch.tensor([0.1, 0.2, 0.3])
+        groups = groups_uniq[groups.long()]
+
+        cp.calibrate(preds, targets, groups=groups)
+        assert isinstance(cp.q_hat, dict)
+        assert len(cp.q_hat) == 3
+        # Check keys are floats
+        assert all(isinstance(k, float) for k in cp.q_hat.keys())
+
+        # Prediction
+        n_test = 500
+        preds_test = torch.randn(n_test, 1)
+        targets_test = preds_test + torch.randn(n_test, 1) * 0.5
+        groups_test_idx = torch.randint(0, 3, (n_test,))
+        groups_test = groups_uniq[groups_test_idx]
+
+        lower_test, upper_test = cp.predict_interval(preds_test, groups=groups_test)
+
+        assert lower_test.shape == (n_test, 1)
+        assert (lower_test <= upper_test).all()
+
+        covered = (targets_test >= lower_test) & (targets_test <= upper_test)
+        coverage = covered.float().mean().item()
+        assert coverage >= 0.85  # Expect ~0.9
+
 
 class TestWeightedCP:
     """Tests for weighted (covariate-shift) conformal prediction."""
