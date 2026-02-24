@@ -490,6 +490,52 @@ class CTI(ConformalPredictor):
         lower = torch.full((n_test, 1), y_max, device=x.device, dtype=x.dtype)
         upper = torch.full((n_test, 1), y_min, device=x.device, dtype=x.dtype)
 
+        # Try vectorized execution first
+        try:
+            log_dens_batch = density_fn(y_grid, x)  # (n_test, grid_size)
+            if log_dens_batch.shape == (n_test, self.grid_size):
+                neg_log_dens = -log_dens_batch
+                in_set = neg_log_dens <= q  # (n_test, grid_size)
+
+                # Grid indices for masking
+                grid_indices = torch.arange(self.grid_size, device=x.device)
+
+                # For valid rows (where in_set has any True), find first and last index
+                has_valid = in_set.any(dim=1)
+
+                # To find min index: replace False with large number
+                min_candidates = torch.where(
+                    in_set,
+                    grid_indices,
+                    torch.tensor(self.grid_size, device=x.device),
+                )
+                start_indices = min_candidates.min(dim=1).values
+
+                # To find max index: replace False with small number
+                max_candidates = torch.where(
+                    in_set,
+                    grid_indices,
+                    torch.tensor(-1, device=x.device),
+                )
+                end_indices = max_candidates.max(dim=1).values
+
+                # Fill valid entries
+                valid_mask = has_valid
+                if valid_mask.any():
+                    lower[valid_mask, 0] = y_grid[start_indices[valid_mask]]
+                    upper[valid_mask, 0] = y_grid[end_indices[valid_mask]]
+
+                # Fill invalid entries (fallback to mode)
+                invalid_mask = ~has_valid
+                if invalid_mask.any():
+                    mode_indices = log_dens_batch[invalid_mask].argmax(dim=1)
+                    lower[invalid_mask, 0] = y_grid[mode_indices]
+                    upper[invalid_mask, 0] = y_grid[mode_indices]
+
+                return lower, upper
+        except Exception:
+            pass
+
         for i in range(n_test):
             log_dens = density_fn(y_grid, x[i])  # (grid_size,)
             neg_log_dens = -log_dens
