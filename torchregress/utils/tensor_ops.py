@@ -32,7 +32,7 @@ def apply_mask(tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tens
     if mask is None:
         return tensor
 
-    return tensor * mask
+    return torch.where(mask, tensor, torch.zeros_like(tensor))
 
 
 def masked_reduction(
@@ -194,16 +194,16 @@ def prepare_covariance(
 
 
 def prepare_cross_covariance(
-    cov_xy: torch.Tensor, n_dims_x: int, n_dims_y: int, device: torch.device
+    cov_xy: torch.Tensor, n_dims_x: int, n_dims_y: int, device: torch.device, dtype: Optional[torch.dtype] = None
 ) -> torch.Tensor:
     """
     Prepare cross-covariance matrix for correlated input-output noise.
     """
     if cov_xy is None:
-        return torch.zeros((n_dims_y, n_dims_x), device=device)
+        return torch.zeros((n_dims_y, n_dims_x), device=device, dtype=dtype)
 
     if isinstance(cov_xy, torch.Tensor):
-        cov_xy = cov_xy.to(device)
+        cov_xy = cov_xy.to(device=device, dtype=dtype)
         if cov_xy.shape == (n_dims_y, n_dims_x):
             return cov_xy
         raise ValueError(
@@ -218,7 +218,9 @@ def prepare_model_input_for_gradients(x: torch.Tensor) -> torch.Tensor:
     """
     Prepare model input for gradient calculation.
     """
-    return x.detach().clone().requires_grad_(True)
+    if x.requires_grad:
+        return x
+    return x.clone().requires_grad_(True)
 
 
 def batched_linalg_solve(
@@ -264,18 +266,40 @@ def compute_model_gradients(
     y_pred: torch.Tensor, x: torch.Tensor, n_features_y: int
 ) -> torch.Tensor:
     """
-    Compute gradients of model predictions with respect to inputs.
+    Compute gradients of model predictions with respect to inputs (Jacobian per sample).
     """
-    grads = torch.autograd.grad(
-        outputs=y_pred,
-        inputs=x,
-        grad_outputs=torch.ones_like(y_pred),
-        create_graph=True,
-        retain_graph=True,
-        only_inputs=True,
-    )[0]
+    batch_size = x.shape[0]
+    n_features_x = x.shape[1]
 
-    return grads.view(-1, n_features_y, x.shape[-1])
+    if n_features_y == 1:
+        grads = torch.autograd.grad(
+            outputs=y_pred,
+            inputs=x,
+            grad_outputs=torch.ones_like(y_pred),
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+        return grads.view(batch_size, 1, n_features_x)
+    else:
+        # Multi-output case: need Jacobian per sample
+        # We assume independent samples (y_i only depends on x_i)
+        jacobian = torch.zeros(
+            batch_size, n_features_y, n_features_x, device=x.device, dtype=x.dtype
+        )
+        for i in range(n_features_y):
+            grad_outputs = torch.zeros_like(y_pred)
+            grad_outputs[:, i] = 1.0
+            grads = torch.autograd.grad(
+                outputs=y_pred,
+                inputs=x,
+                grad_outputs=grad_outputs,
+                create_graph=True,
+                retain_graph=True,
+                only_inputs=True,
+            )[0]
+            jacobian[:, i, :] = grads
+        return jacobian
 
 
 def calculate_gaussian_nll(
@@ -284,15 +308,26 @@ def calculate_gaussian_nll(
     """
     Calculate Gaussian negative log-likelihood.
     """
+    if residuals.numel() == 0:
+        return torch.zeros(0, device=residuals.device, dtype=residuals.dtype)
+
+    device = residuals.device
+    dtype = residuals.dtype
+
     if var.dim() <= 2:
         # Diagonal covariance case
         nll = 0.5 * (torch.log(var + eps) + (residuals**2) / (var + eps))
         nll = torch.sum(nll, dim=1)
         nll = nll + 0.5 * residuals.shape[1] * math.log(2 * math.pi)
     else:
-        # Full covariance case
+        # Full covariance case [batch, Dy, Dy]
+        # Add jitter for stability
+        Dy = residuals.shape[1]
+        jitter = torch.eye(Dy, device=device, dtype=dtype) * eps
+        var_stable = var + jitter
+
         mvn = torch.distributions.MultivariateNormal(
-            torch.zeros_like(residuals), covariance_matrix=var
+            torch.zeros_like(residuals), covariance_matrix=var_stable
         )
         nll = -mvn.log_prob(residuals)
 

@@ -81,6 +81,11 @@ class BaseLoss(nn.Module):
         """
         # First, apply mask if provided
         if mask is not None:
+            # Handle cases where mask has more dimensions than loss (e.g. [B, Dy] for loss [B])
+            if mask.dim() > loss.dim():
+                for _ in range(mask.dim() - loss.dim()):
+                    mask = mask.any(dim=-1)
+
             if weights is not None:
                 # Broadcast weights to match loss shape if needed for masking
                 if weights.dim() < loss.dim():

@@ -82,6 +82,7 @@ class BaseEIVLoss(RegressionLoss):
         n_features_y: int,
         device: torch.device,
         batch_size: Optional[int] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
         Prepare covariance matrices for features and targets.
@@ -90,17 +91,19 @@ class BaseEIVLoss(RegressionLoss):
             n_features_x: Number of features in input
             n_features_y: Number of features in output
             device: Device to create tensors on
+            batch_size: Optional batch size for per-sample noise
+            dtype: Optional dtype for the tensors
 
         Returns:
             Tuple of (sigma_x_tensor, sigma_y_tensor)
         """
         sigma_x_tensor = self._prepare_covariance_from_sigma(
-            self.sigma_x, n_features_x, device, batch_size
+            self.sigma_x, n_features_x, device, batch_size, dtype
         )
         sigma_y_tensor = None
         if self.sigma_y is not None:
             sigma_y_tensor = self._prepare_covariance_from_sigma(
-                self.sigma_y, n_features_y, device, batch_size
+                self.sigma_y, n_features_y, device, batch_size, dtype
             )
         return sigma_x_tensor, sigma_y_tensor
 
@@ -110,6 +113,7 @@ class BaseEIVLoss(RegressionLoss):
         n_features: int,
         device: torch.device,
         batch_size: Optional[int] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> torch.Tensor:
         """
         Interpret sigma as a standard deviation or covariance and return covariance.
@@ -118,12 +122,12 @@ class BaseEIVLoss(RegressionLoss):
         or [batch, n_features, n_features] (full covariance).
         """
         if isinstance(sigma, (int, float)):
-            return torch.eye(n_features, device=device) * float(sigma) ** 2
+            return torch.eye(n_features, device=device, dtype=dtype) * float(sigma) ** 2
 
         if isinstance(sigma, torch.Tensor):
             sigma = sigma.to(device)
             if sigma.numel() == 1:
-                return torch.eye(n_features, device=device) * float(sigma.item()) ** 2
+                return torch.eye(n_features, device=device, dtype=dtype) * float(sigma.item()) ** 2
             if sigma.ndim == 1:
                 if sigma.shape[0] != n_features:
                     raise ValueError(
@@ -184,7 +188,7 @@ class BaseEIVLoss(RegressionLoss):
             sigma_x_inv = 1.0 / (sigma_x_tensor + self.eps)
         else:
             try:
-                jitter = torch.eye(n_features_x, device=device) * self.eps
+                jitter = torch.eye(n_features_x, device=device, dtype=sigma_x_tensor.dtype) * self.eps
                 sigma_x_stable = sigma_x_tensor + jitter
                 chol = torch.linalg.cholesky(sigma_x_stable)
                 sigma_x_inv = torch.cholesky_inverse(chol)
@@ -198,7 +202,7 @@ class BaseEIVLoss(RegressionLoss):
                 sigma_y_inv = 1.0 / (sigma_y_tensor + self.eps)
             else:
                 try:
-                    jitter = torch.eye(n_features_y, device=device) * self.eps
+                    jitter = torch.eye(n_features_y, device=device, dtype=sigma_y_tensor.dtype) * self.eps
                     sigma_y_stable = sigma_y_tensor + jitter
                     chol = torch.linalg.cholesky(sigma_y_stable)
                     sigma_y_inv = torch.cholesky_inverse(chol)
@@ -325,7 +329,7 @@ class FunctionalEIVLoss(BaseEIVLoss):
 
         # Prepare noise parameters
         sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(
-            n_features_x, n_features_y, device, batch_size
+            n_features_x, n_features_y, device, batch_size, dtype=x_obs.dtype
         )
 
         if not self.monte_carlo:
@@ -383,37 +387,36 @@ class FunctionalEIVLoss(BaseEIVLoss):
         # Vectorized sampling around observed values
         if sigma_x_tensor.ndim <= 1:
             noise = torch.randn(
-                self.n_samples, batch_size, n_features_x, device=device
+                self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype
             ) * sigma_x_tensor.view(1, 1, n_features_x)
         elif sigma_x_tensor.ndim == 2:
             chol = torch.linalg.cholesky(
-                sigma_x_tensor + torch.eye(n_features_x, device=device) * self.eps
+                sigma_x_tensor + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
             )
-            base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device)
+            base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype)
             noise = base_noise @ chol.T
         else:
             chol = torch.linalg.cholesky(
-                sigma_x_tensor + torch.eye(n_features_x, device=device) * self.eps
+                sigma_x_tensor + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
             )
-            base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device)
+            base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype)
             noise = torch.einsum("sbn,bnm->sbm", base_noise, chol)
         x_samples = x_obs.unsqueeze(0) + noise
         x_flat = x_samples.reshape(-1, n_features_x)
 
         # Forward pass for all samples
-        with torch.no_grad():
-            y_preds_flat = self.model(x_flat)
+        y_preds_flat = self.model(x_flat)
 
-            # Reshape predictions [n_samples, batch_size, n_features_y]
-            if y_preds_flat.shape[-1] != n_features_y and n_features_y == 1:
-                y_preds = y_preds_flat.reshape(self.n_samples, batch_size, 1)
-            else:
-                y_preds = y_preds_flat.reshape(self.n_samples, batch_size, n_features_y)
+        # Reshape predictions [n_samples, batch_size, n_features_y]
+        if y_preds_flat.shape[-1] != n_features_y and n_features_y == 1:
+            y_preds = y_preds_flat.reshape(self.n_samples, batch_size, 1)
+        else:
+            y_preds = y_preds_flat.reshape(self.n_samples, batch_size, n_features_y)
 
-            # Apply mask if provided
-            if mask is not None:
-                mask_expanded = mask.unsqueeze(0).expand(self.n_samples, -1, -1)
-                y_preds = torch.where(mask_expanded, y_preds, torch.zeros_like(y_preds))
+        # Apply mask if provided
+        if mask is not None:
+            mask_expanded = mask.unsqueeze(0).expand(self.n_samples, -1, -1)
+            y_preds = torch.where(mask_expanded, y_preds, torch.zeros_like(y_preds))
 
         # Calculate mean prediction across samples
         mean_pred = torch.mean(y_preds, dim=0)  # [batch_size, n_features_y]
@@ -552,10 +555,10 @@ class StructuralEIVLoss(BaseEIVLoss):
 
         # Prepare covariance matrices
         sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(
-            n_features_x, n_features_y, device, batch_size
+            n_features_x, n_features_y, device, batch_size, dtype=x_obs.dtype
         )
         sigma_xy_tensor = prepare_cross_covariance(
-            self.sigma_xy, n_features_x, n_features_y, device
+            self.sigma_xy, n_features_x, n_features_y, device, dtype=x_obs.dtype
         )
 
         # Calculate gradients of predictions with respect to inputs
@@ -670,7 +673,7 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
         # Prepare covariance matrices
         sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(
-            n_features_x, n_features_y, device, batch_size
+            n_features_x, n_features_y, device, batch_size, dtype=x_obs.dtype
         )
 
         # Prepare inverse covariance matrices for Mahalanobis distance
