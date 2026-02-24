@@ -594,6 +594,16 @@ class DistributionalConformal(ConformalPredictor):
         except Exception:
             pass
 
+        # Try auto-vectorization with vmap (handles user functions written for single samples)
+        try:
+            # Map over x (dim 0) but keep levels constant (None)
+            vmapped_fn = torch.vmap(icdf_fn, in_dims=(None, 0))
+            bounds = vmapped_fn(levels, x)
+            if bounds.shape == (n_test, 2):
+                return bounds[:, 0:1], bounds[:, 1:2]
+        except Exception:
+            pass
+
         lower = torch.empty(n_test, 1, device=x.device, dtype=x.dtype)
         upper = torch.empty(n_test, 1, device=x.device, dtype=x.dtype)
 
