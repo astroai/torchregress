@@ -1,8 +1,10 @@
+import math
 
 import pytest
 import torch
-import math
+
 from torchregress.losses.conformal import CTI
+
 
 def gaussian_log_pdf_batched(y_grid, x_features):
     # Mock Gaussian where mean depends on x
@@ -55,11 +57,11 @@ def test_cti_fallback_trigger(cti_calibrated):
     x_test = torch.randn(5, 5)
 
     # Ensure fallback works without error
-    l, u = cti_calibrated.predict_intervals_from_density(
+    lower, upper = cti_calibrated.predict_intervals_from_density(
         gaussian_log_pdf_loop_only, x_test, -5, 5
     )
-    assert l.shape == (5, 1)
-    assert u.shape == (5, 1)
+    assert lower.shape == (5, 1)
+    assert upper.shape == (5, 1)
 
 def test_cti_empty_set_fallback(cti_calibrated):
     # Create a scenario where density is very low everywhere -> empty set
@@ -79,10 +81,10 @@ def test_cti_empty_set_fallback(cti_calibrated):
     # All densities equal (-1000) -> argmax is 0 (first index)
     # So expected value is -5.0
 
-    l, u = cti_calibrated.predict_intervals_from_density(
+    lower, upper = cti_calibrated.predict_intervals_from_density(
         low_density_fn, x_test, -5, 5
     )
 
     target = torch.full((5, 1), -5.0)
-    assert torch.allclose(l, target), "Should fallback to mode (index 0)"
-    assert torch.allclose(u, target), "Should fallback to mode (index 0)"
+    assert torch.allclose(lower, target), "Should fallback to mode (index 0)"
+    assert torch.allclose(upper, target), "Should fallback to mode (index 0)"

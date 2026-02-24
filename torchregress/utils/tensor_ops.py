@@ -194,7 +194,11 @@ def prepare_covariance(
 
 
 def prepare_cross_covariance(
-    cov_xy: torch.Tensor, n_dims_x: int, n_dims_y: int, device: torch.device, dtype: Optional[torch.dtype] = None
+    cov_xy: torch.Tensor,
+    n_dims_x: int,
+    n_dims_y: int,
+    device: torch.device,
+    dtype: Optional[torch.dtype] = None,
 ) -> torch.Tensor:
     """
     Prepare cross-covariance matrix for correlated input-output noise.

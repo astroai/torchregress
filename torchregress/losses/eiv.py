@@ -188,7 +188,9 @@ class BaseEIVLoss(RegressionLoss):
             sigma_x_inv = 1.0 / (sigma_x_tensor + self.eps)
         else:
             try:
-                jitter = torch.eye(n_features_x, device=device, dtype=sigma_x_tensor.dtype) * self.eps
+                jitter = torch.eye(
+                    n_features_x, device=device, dtype=sigma_x_tensor.dtype
+                ) * self.eps
                 sigma_x_stable = sigma_x_tensor + jitter
                 chol = torch.linalg.cholesky(sigma_x_stable)
                 sigma_x_inv = torch.cholesky_inverse(chol)
@@ -202,7 +204,9 @@ class BaseEIVLoss(RegressionLoss):
                 sigma_y_inv = 1.0 / (sigma_y_tensor + self.eps)
             else:
                 try:
-                    jitter = torch.eye(n_features_y, device=device, dtype=sigma_y_tensor.dtype) * self.eps
+                    jitter = torch.eye(
+                        n_features_y, device=device, dtype=sigma_y_tensor.dtype
+                    ) * self.eps
                     sigma_y_stable = sigma_y_tensor + jitter
                     chol = torch.linalg.cholesky(sigma_y_stable)
                     sigma_y_inv = torch.cholesky_inverse(chol)
@@ -391,15 +395,21 @@ class FunctionalEIVLoss(BaseEIVLoss):
             ) * sigma_x_tensor.view(1, 1, n_features_x)
         elif sigma_x_tensor.ndim == 2:
             chol = torch.linalg.cholesky(
-                sigma_x_tensor + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
+                sigma_x_tensor
+                + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
             )
-            base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype)
+            base_noise = torch.randn(
+                self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype
+            )
             noise = base_noise @ chol.T
         else:
             chol = torch.linalg.cholesky(
-                sigma_x_tensor + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
+                sigma_x_tensor
+                + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
             )
-            base_noise = torch.randn(self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype)
+            base_noise = torch.randn(
+                self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype
+            )
             noise = torch.einsum("sbn,bnm->sbm", base_noise, chol)
         x_samples = x_obs.unsqueeze(0) + noise
         x_flat = x_samples.reshape(-1, n_features_x)

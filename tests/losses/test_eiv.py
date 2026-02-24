@@ -1,11 +1,13 @@
 import unittest
+
 import torch
 from torch.autograd import gradcheck
+
 from torchregress.losses.eiv import (
-    FunctionalEIVLoss,
-    StructuralEIVLoss,
-    OrthogonalDistanceRegressionLoss,
     EnsembleEIVLoss,
+    FunctionalEIVLoss,
+    OrthogonalDistanceRegressionLoss,
+    StructuralEIVLoss,
 )
 
 
@@ -56,7 +58,9 @@ class TestEIVLoss(unittest.TestCase):
 
         # Test with per-sample full covariance sigma
         sigma_x_sample_mat = (
-            torch.eye(self.n_features_x, device=self.device).unsqueeze(0).expand(self.batch_size, -1, -1)
+            torch.eye(self.n_features_x, device=self.device)
+            .unsqueeze(0)
+            .expand(self.batch_size, -1, -1)
             * 0.01
         )
         loss_fn = FunctionalEIVLoss(self.model, sigma_x=sigma_x_sample_mat, sigma_y=0.1).to(
@@ -247,7 +251,8 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         """Test stability with extreme values."""
         n_features_x = 3
         n_features_y = 2
-        model = lambda x: x[:, :n_features_y] * 2.0
+        def model(x):
+            return x[:, :n_features_y] * 2.0
 
         # Large values
         x_obs_large = (torch.ones(2, n_features_x) * 1e4).requires_grad_(True)
@@ -261,9 +266,8 @@ class TestEIVLossNumericalStability(unittest.TestCase):
 
     def test_nan_inf_handling(self):
         """Test how EIV loss handles NaN and Inf values with masks."""
-        n_features_x = 3
         n_features_y = 1
-        model = lambda x: x[:, :n_features_y] * 2.0
+        def model(x): return x[:, :n_features_y] * 2.0
 
         x_obs = torch.tensor(
             [[1.0, 2.0, 3.0], [float("nan"), 5.0, 6.0], [7.0, 8.0, 9.0]], requires_grad=True
@@ -284,7 +288,8 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         """Test handling of zero or very small variance values."""
         n_features_x = 3
         n_features_y = 2
-        model = lambda x: x[:, :n_features_y] * 2.0
+        def model(x):
+            return x[:, :n_features_y] * 2.0
 
         x_obs = torch.randn(5, n_features_x, requires_grad=True)
         y_obs = torch.randn(5, n_features_y, requires_grad=True)
