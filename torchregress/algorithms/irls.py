@@ -37,6 +37,7 @@ except ImportError:
 from ..losses.base import (
     WeightedLossWrapper,
 )
+from ..utils.validation import check_tensor
 from ..losses.gaussian import (
     GaussianNLLLoss,
     LowRankGaussianLoss,
@@ -695,6 +696,12 @@ def iteratively_reweighted_least_squares(
         final_precision: Final precision tensor
         [optional] all_predictions: List of predictions from all iterations
     """
+    # Validate inputs
+    check_tensor(x, "x")
+    check_tensor(y_true, "y_true")
+    if initial_precision is not None:
+        check_tensor(initial_precision, "initial_precision")
+
     # x might be on CPU. We keep it there if so.
     x = x.detach()  # No clone needed if we don't modify in place, but safer?
     # Actually, we don't need clone if we are careful. But to be safe vs side effects:
