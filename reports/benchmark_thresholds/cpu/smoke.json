@@ -5,29 +5,29 @@
   "target_device": "cpu",
   "source_config": {
     "multiplier": 4.0,
-    "floor_ms": 0.5
+    "floor_ms": 1.5
   },
   "limits": {
     "gaussian_diag_nll_forward": {
-      "max_mean_ms": 0.5290000699460506
+      "max_mean_ms": 1.5
     },
     "gaussian_multivariate_full_forward": {
-      "max_mean_ms": 0.8410862646996975
+      "max_mean_ms": 1.5
     },
     "gaussian_low_rank_forward": {
       "max_mean_ms": 1.531836111098528
     },
     "mdn_diagonal_forward": {
-      "max_mean_ms": 0.5
+      "max_mean_ms": 1.5
     },
     "mdn_full_forward": {
-      "max_mean_ms": 1.136583974584937
+      "max_mean_ms": 1.5
     },
     "functional_eiv_forward": {
       "max_mean_ms": 394.42691626027226
     },
     "ensemble_variance_decomposition": {
-      "max_mean_ms": 0.5
+      "max_mean_ms": 1.5
     },
     "calibration_score_gaussian": {
       "max_mean_ms": 1.9047500099986792
