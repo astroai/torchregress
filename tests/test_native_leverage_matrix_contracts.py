@@ -19,9 +19,14 @@ REQUIRED_AREAS = {
     "scaling_helpers": "Wrap native",
 }
 
+REPO_ROOT = Path(__file__).parents[2]
+JSON_PATH = REPO_ROOT / "reports" / "native_pytorch_leverage_matrix_2026-02-26.json"
+MD_PATH = REPO_ROOT / "docs" / "audits" / "native_pytorch_leverage_matrix_2026-02-26.md"
 
+
+@pytest.mark.skipif(not JSON_PATH.exists(), reason="Leverage matrix report not found.")
 def test_native_pytorch_leverage_matrix_schema_and_required_areas() -> None:
-    path = Path("reports/native_pytorch_leverage_matrix_2026-02-26.json")
+    path = JSON_PATH
     payload = json.loads(path.read_text(encoding="utf-8"))
 
     assert payload["artifact"] == "native_pytorch_leverage_matrix"

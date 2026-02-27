@@ -33,7 +33,7 @@ jobs:
 
     - name: Install package with test dependencies
       run: |
-        uv pip install --system -e ".[test]"
+        uv pip install --system -e ".[test,flows]"
 
     - name: Run tests
       run: |
