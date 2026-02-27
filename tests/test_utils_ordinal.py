@@ -33,10 +33,12 @@ def test_cumulative_probs_to_pmf_rows_sum_to_one() -> None:
 def test_ordinal_predict_supports_multiple_encodings() -> None:
     class_logits = torch.tensor([[2.0, 0.5, -0.5], [0.1, 0.3, 1.4]])
     pred_class = ordinal_predict(class_logits, encoding="class_logits")
+    assert isinstance(pred_class, torch.Tensor)
     assert pred_class.tolist() == [0, 2]
 
     cum_logits = torch.tensor([[4.0, 2.0], [-1.0, -2.0]])
     pred_cum = ordinal_predict(cum_logits, encoding="cumulative_logits", strategy="threshold")
+    assert isinstance(pred_cum, torch.Tensor)
     assert pred_cum.tolist() == [2, 0]
 
     pmf = cumulative_logits_to_pmf(cum_logits)

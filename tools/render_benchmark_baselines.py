@@ -6,18 +6,26 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-try:
-    from tools import benchmark_report_summary
-except ModuleNotFoundError:
-    import benchmark_report_summary
+from tools import benchmark_report_summary
 
 START_MARKER = "<!-- BENCHMARK-BASELINE-GENERATED:START -->"
 END_MARKER = "<!-- BENCHMARK-BASELINE-GENERATED:END -->"
 
+
+def _find_latest(directory: Path, pattern: str) -> Path:
+    matches = list(directory.glob(pattern))
+    if not matches:
+        return directory / f"MISSING_{pattern}"
+    return max(matches, key=lambda p: p.name)
+
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DOC_PATH = REPO_ROOT / "docs" / "audits" / "benchmark_cpu_baselines_2026-02-26.md"
-DEFAULT_SMOKE_JSON = REPO_ROOT / "reports" / "benchmark_smoke_2026-02-26.json"
-DEFAULT_SWEEP_JSON = REPO_ROOT / "reports" / "benchmark_sweep_cpu_2026-02-26.json"
+REPORTS_DIR = REPO_ROOT / "reports"
+AUDITS_DIR = REPO_ROOT / "docs" / "audits"
+
+DEFAULT_DOC_PATH = _find_latest(AUDITS_DIR, "benchmark_cpu_baselines_*.md")
+DEFAULT_SMOKE_JSON = _find_latest(REPORTS_DIR, "benchmark_smoke_*.json")
+DEFAULT_SWEEP_JSON = _find_latest(REPORTS_DIR, "benchmark_sweep_cpu_*.json")
 
 
 def _replace_marked_section(text: str, replacement: str) -> str:

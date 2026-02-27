@@ -11,27 +11,28 @@ authors = [
     {name = "Sébastien Fabbro", email = "sebfabbro@gmail.com"}
 ]
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.12, <3.16"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 keywords = ["pytorch", "regression", "machine learning", "deep learning", "loss functions"]
 dependencies = [
-    "torch>=2.0.0",
-    "numpy>=1.21.0",
-    "matplotlib>=3.5.0",
-    "pandas>=1.4.0",
-    "torchmetrics>=1.0.0",
-    "scikit-learn>=1.0.0",
-    "tqdm>=4.60.0",
+    "torch>=2.4.0",
+    "numpy>=2.0.0",
+    "matplotlib>=3.8.0",
+    "pandas>=2.2.0",
+    "torchmetrics>=1.4.0",
+    "scikit-learn>=1.5.0",
+    "tqdm>=4.66.0",
 ]
 
 [project.urls]
@@ -44,23 +45,23 @@ torchregress-health = "torchregress.health:check_health"
 
 [project.optional-dependencies]
 test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
 ]
 dev = [
-    "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
+    "black>=24.0.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
 ]
 docs = [
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.0.0",
-    "mkdocstrings[python]>=0.20.0",
-    "pymdown-extensions>=10.0.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.25.0",
+    "pymdown-extensions>=10.7.0",
 ]
 conformal = []
 flows = [
-    "zuko>=1.4.0",
+    "zuko>=1.5.0",
 ]
 all = ["torchregress[test,dev,docs,conformal,flows]"]
 
@@ -83,10 +84,38 @@ filterwarnings = [
 
 [tool.black]
 line-length = 100
-target-version = ["py310", "py311", "py312"]
+target-version = ["py312"]
+extend-exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | \.uv-cache
+  | \.pytest_cache
+  | \.ruff_cache
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
 
 [tool.ruff]
 line-length = 100
+target-version = "py312"
+extend-exclude = [
+    ".git",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    ".uv-cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "build",
+    "dist",
+]
 
 [tool.ruff.lint]
 select = [
@@ -101,25 +130,34 @@ ignore = []
 "docs/*" = ["E501"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+exclude = ["examples", "tools", "docs"]
+
+[[tool.mypy.overrides]]
+module = ["examples.*", "tools.*", "docs.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "torchregress.*"
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
-module = "torch.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "matplotlib.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "pandas.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "torchmetrics.*"
+module = [
+    "torch.*",
+    "matplotlib.*",
+    "pandas.*",
+    "torchmetrics.*",
+    "scipy.*",
+    "sklearn.*",
+    "requests.*",
+    "zuko.*",
+    "tqdm.*",
+    "numpy.*",
+]
 ignore_missing_imports = true
 

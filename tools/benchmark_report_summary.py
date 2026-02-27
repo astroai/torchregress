@@ -10,7 +10,11 @@ from typing import Any
 
 
 def load_report(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    """Load a benchmark report from JSON."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {}
+    return data
 
 
 def _format_ms(value: Any) -> str:

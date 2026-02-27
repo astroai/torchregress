@@ -60,10 +60,14 @@ def load_manifest(
     template_path: Path | None = None,
 ) -> dict[str, Any]:
     if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
     candidate_template = template_path or DEFAULT_TEMPLATE_BY_PRESET.get(preset)
     if candidate_template is not None and candidate_template.exists():
-        return json.loads(candidate_template.read_text(encoding="utf-8"))
+        data = json.loads(candidate_template.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
     return _default_manifest(preset)
 
 

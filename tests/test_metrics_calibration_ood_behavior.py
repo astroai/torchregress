@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, cast
+
 import numpy as np
 import torch
 
@@ -118,8 +122,9 @@ def test_expected_calibration_error_as_numpy_returns_numpy_diagnostics() -> None
         0.5: np.array([[0.0], [1.0], [2.0]], dtype=np.float32),
         0.9: np.array([[0.5], [1.5], [2.5]], dtype=np.float32),
     }
+    # cast to avoid dict variance issues in mypy
     result = expected_calibration_error(
-        y_pred_quantiles, y_true, return_diagnostics=True, as_numpy=True
+        cast(dict[float, Any], y_pred_quantiles), y_true, return_diagnostics=True, as_numpy=True
     )
     assert isinstance(result["mean_absolute_calibration_error"], float)
     assert isinstance(result["bin_errors"], np.ndarray)

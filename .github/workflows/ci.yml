@@ -70,7 +70,7 @@ jobs:
 
     - name: Run black
       run: |
-        black --check --exclude examples .
+        black --check .
 
   benchmark-thresholds-cpu:
     runs-on: ubuntu-latest

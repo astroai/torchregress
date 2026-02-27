@@ -8,8 +8,8 @@ import pytest
 from tools import render_review_packet
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-REVIEW_PACKET_MD = REPO_ROOT / "docs" / "audits" / "review_readiness_packet_2026-02-26.md"
-REVIEW_PACKET_JSON = REPO_ROOT / "reports" / "review_readiness_packet_latest.json"
+REVIEW_PACKET_MD = render_review_packet.REVIEW_PACKET_MD
+REVIEW_PACKET_JSON = render_review_packet.REVIEW_PACKET_JSON
 
 
 def test_build_review_packet_contains_expected_governance_fields() -> None:

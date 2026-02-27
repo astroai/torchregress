@@ -8,36 +8,60 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+
+def _find_latest(directory: Path, pattern: str) -> Path:
+    """Find the file with the lexicographically largest name matching the pattern."""
+    matches = list(directory.glob(pattern))
+    if not matches:
+        # Return a non-existent path so _load_optional_json handles it
+        return directory / f"MISSING_{pattern}"
+    return max(matches, key=lambda p: p.name)
+
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-ADOPTION_AUDIT_MD = REPO_ROOT / "docs" / "audits" / "adoption_readiness_2026-02-25.md"
-ADOPTION_AUDIT_JSON = REPO_ROOT / "reports" / "adoption_readiness_2026-02-25.json"
-COMPARATIVE_EVIDENCE_JSON = REPO_ROOT / "reports" / "comparative_evidence_matrix_latest.json"
-METHOD_CATALOG_JSON = REPO_ROOT / "reports" / "method_catalog_latest.json"
-NATIVE_LEVERAGE_JSON = REPO_ROOT / "reports" / "native_pytorch_leverage_matrix_2026-02-26.json"
-MYPY_TRIAGE_JSON = REPO_ROOT / "reports" / "mypy_triage_latest.json"
+REPORTS_DIR = REPO_ROOT / "reports"
+AUDITS_DIR = REPO_ROOT / "docs" / "audits"
+
+ADOPTION_AUDIT_MD = _find_latest(AUDITS_DIR, "adoption_readiness_*.md")
+ADOPTION_AUDIT_JSON = _find_latest(REPORTS_DIR, "adoption_readiness_*.json")
+COMPARATIVE_EVIDENCE_JSON = REPORTS_DIR / "comparative_evidence_matrix_latest.json"
+METHOD_CATALOG_JSON = REPORTS_DIR / "method_catalog_latest.json"
+NATIVE_LEVERAGE_JSON = _find_latest(REPORTS_DIR, "native_pytorch_leverage_matrix_*.json")
+MYPY_TRIAGE_JSON = REPORTS_DIR / "mypy_triage_latest.json"
 EXAMPLE_PROFILE_COMPARE_JSON = (
-    REPO_ROOT / "reports" / "example_summaries" / "profile_comparison_audit_vs_full.json"
+    REPORTS_DIR / "example_summaries" / "profile_comparison_audit_vs_full.json"
 )
-EXAMPLE_THRESH_VERDICT_JSON = (
-    REPO_ROOT / "reports" / "example_summaries" / "threshold_check_full_latest.json"
-)
-EXAMPLE_THRESHOLDS_JSON = REPO_ROOT / "reports" / "example_summaries" / "thresholds_full.json"
+EXAMPLE_THRESH_VERDICT_JSON = REPORTS_DIR / "example_summaries" / "threshold_check_full_latest.json"
+EXAMPLE_THRESHOLDS_JSON = REPORTS_DIR / "example_summaries" / "thresholds_full.json"
 EXAMPLE_THRESH_REVIEW_STRICT_VERDICT_JSON = (
-    REPO_ROOT / "reports" / "example_summaries" / "threshold_check_full_review_strict_latest.json"
+    REPORTS_DIR / "example_summaries" / "threshold_check_full_review_strict_latest.json"
 )
 EXAMPLE_THRESHOLDS_REVIEW_STRICT_JSON = (
-    REPO_ROOT / "reports" / "example_summaries" / "thresholds_full_review_strict.json"
+    REPORTS_DIR / "example_summaries" / "thresholds_full_review_strict.json"
 )
-BENCH_THRESH_SMOKE_JSON = REPO_ROOT / "reports" / "benchmark_thresholds" / "cpu" / "smoke.json"
-BENCH_THRESH_SWEEP_JSON = REPO_ROOT / "reports" / "benchmark_thresholds" / "cpu" / "sweep.json"
-BENCH_BASELINE_JSON = REPO_ROOT / "reports" / "benchmark_sweep_cpu_2026-02-26.json"
-REVIEW_PACKET_JSON = REPO_ROOT / "reports" / "review_readiness_packet_latest.json"
-REVIEW_PACKET_MD = REPO_ROOT / "docs" / "audits" / "review_readiness_packet_2026-02-26.md"
+BENCH_THRESH_SMOKE_JSON = REPORTS_DIR / "benchmark_thresholds" / "cpu" / "smoke.json"
+BENCH_THRESH_SWEEP_JSON = REPORTS_DIR / "benchmark_thresholds" / "cpu" / "sweep.json"
+BENCH_BASELINE_JSON = _find_latest(REPORTS_DIR, "benchmark_sweep_cpu_*.json")
+REVIEW_PACKET_JSON = REPORTS_DIR / "review_readiness_packet_latest.json"
+
+
+def _get_review_packet_md_path() -> Path:
+    """Generate review packet path with current date."""
+    import datetime
+
+    date_str = datetime.date.today().strftime("%Y-%m-%d")
+    return AUDITS_DIR / f"review_readiness_packet_{date_str}.md"
+
+
+REVIEW_PACKET_MD = _get_review_packet_md_path()
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {}
+    return data
 
 
 def _load_optional_json(path: Path) -> dict[str, Any] | None:
@@ -109,10 +133,10 @@ def _comparative_gaps(payload: dict[str, Any]) -> list[dict[str, str]]:
 
 def _review_focus_files() -> list[str]:
     return [
-        "docs/audits/adoption_readiness_2026-02-25.md",
+        str(ADOPTION_AUDIT_MD.relative_to(REPO_ROOT)),
         "docs/guides/method_selection_matrix.md",
         "docs/guides/comparative_evidence_matrix.md",
-        "reports/native_pytorch_leverage_matrix_2026-02-26.json",
+        str(NATIVE_LEVERAGE_JSON.relative_to(REPO_ROOT)),
         "tests/test_native_parity.py",
         "tests/test_loss_forward_signature_contracts.py",
         "reports/example_summaries/profile_comparison_audit_vs_full.json",
@@ -150,10 +174,10 @@ def build_review_packet() -> dict[str, Any]:
     packet: dict[str, Any] = {
         "artifact": "review_readiness_packet",
         "version": 1,
-        "date": "2026-02-26",
+        "date": REVIEW_PACKET_MD.stem.split("_")[-1],
         "audit_v1_status": {
             "closed_v1": True,
-            "closeout_date": "2026-02-26",
+            "closeout_date": REVIEW_PACKET_MD.stem.split("_")[-1],
             "closed_actionables": [
                 "docs_example_api_drift_zero",
                 "full_repo_mypy_zero",
@@ -330,17 +354,19 @@ def render_markdown(packet: dict[str, Any]) -> str:
         "they hide important assumptions behind metadata?"
     )
 
-    return f"""# Review Readiness Packet (2026-02-26)
+    today = REVIEW_PACKET_MD.stem.split("_")[-1]
+    return f"""# Review Readiness Packet ({today})
 
 This page consolidates the highest-value audit and governance artifacts for a deep review pass.
 
 _Generated provenance_: `tools/render_review_packet.py:render_markdown`
-_Source artifacts_: `reports/adoption_readiness_2026-02-25.json`,
-`reports/comparative_evidence_matrix_latest.json`, `reports/method_catalog_latest.json`,
-`reports/native_pytorch_leverage_matrix_2026-02-26.json`,
-`reports/example_summaries/profile_comparison_audit_vs_full.json`,
-`reports/example_summaries/threshold_check_full_latest.json`
-_Generated date_: `2026-02-26`
+_Source artifacts_: `{ADOPTION_AUDIT_JSON.relative_to(REPO_ROOT)}`,
+`{COMPARATIVE_EVIDENCE_JSON.relative_to(REPO_ROOT)}`,
+`{METHOD_CATALOG_JSON.relative_to(REPO_ROOT)}`,
+`{NATIVE_LEVERAGE_JSON.relative_to(REPO_ROOT)}`,
+`{EXAMPLE_PROFILE_COMPARE_JSON.relative_to(REPO_ROOT)}`,
+`{EXAMPLE_THRESH_VERDICT_JSON.relative_to(REPO_ROOT)}`
+_Generated date_: `{today}`
 
 ## Audit v1 Status
 

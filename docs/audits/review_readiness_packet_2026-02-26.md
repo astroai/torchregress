@@ -4,7 +4,8 @@ This page consolidates the highest-value audit and governance artifacts for a de
 
 _Generated provenance_: `tools/render_review_packet.py:render_markdown`
 _Source artifacts_: `reports/adoption_readiness_2026-02-25.json`,
-`reports/comparative_evidence_matrix_latest.json`, `reports/method_catalog_latest.json`,
+`reports/comparative_evidence_matrix_latest.json`,
+`reports/method_catalog_latest.json`,
 `reports/native_pytorch_leverage_matrix_2026-02-26.json`,
 `reports/example_summaries/profile_comparison_audit_vs_full.json`,
 `reports/example_summaries/threshold_check_full_latest.json`

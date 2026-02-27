@@ -44,7 +44,10 @@ def _assert_summary_schema(path: Path, *, task_substring: str, required_methods:
 
 
 def _load_payload(path: Path) -> dict[str, object]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {}
+    return data
 
 
 def _rows_by_method(payload: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -72,11 +75,13 @@ def _assert_finite_numeric(value: object) -> None:
 
 def _assert_non_negative(value: object) -> None:
     _assert_finite_numeric(value)
+    assert isinstance(value, (int, float))
     assert float(value) >= 0.0
 
 
 def _assert_probability(value: object) -> None:
     _assert_finite_numeric(value)
+    assert isinstance(value, (int, float))
     v = float(value)
     assert 0.0 <= v <= 1.0
 

@@ -8,8 +8,11 @@ from pathlib import Path
 from typing import Any
 
 
-def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+def load_json(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {}
+    return data
 
 
 def _summary_paths(base_dir: Path, profile: str) -> list[Path]:
@@ -19,7 +22,7 @@ def _summary_paths(base_dir: Path, profile: str) -> list[Path]:
         if not p.is_file() or p.name.startswith("profile_comparison_"):
             continue
         try:
-            payload = _load_json(p)
+            payload = load_json(p)
         except Exception:
             continue
         if payload.get("artifact") == "comparison_example_summary":
@@ -133,7 +136,7 @@ def derive_thresholds_from_artifacts(
     limits: dict[str, dict[str, Any]] = {}
     files = _summary_paths(base_dir, profile)
     for path in files:
-        payload = _load_json(path)
+        payload = load_json(path)
         example = _stem_without_profile(path, profile)
         for method, key, value in _iter_numeric_row_metrics(payload):
             lo, hi, policy = _derive_bounds(
@@ -187,7 +190,7 @@ def evaluate_artifacts_against_thresholds(
     seen: set[str] = set()
 
     for path in _summary_paths(base_dir, profile):
-        payload = _load_json(path)
+        payload = load_json(path)
         example = _stem_without_profile(path, profile)
         for method, key, value in _iter_numeric_row_metrics(payload):
             case_key = f"{example}|{method}|{key}"
@@ -278,7 +281,7 @@ def main() -> None:
         print(f"Wrote thresholds: {args.write_thresholds}")
 
     if args.thresholds is not None:
-        thresholds = _load_json(args.thresholds)
+        thresholds = load_json(args.thresholds)
         verdict = evaluate_artifacts_against_thresholds(
             args.base_dir,
             profile=args.profile,

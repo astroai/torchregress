@@ -5,7 +5,9 @@ import torch
 from torchregress.inference import ppi_diagnostics, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 
 
-def _synthetic(seed: int = 123) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+def _synthetic(
+    seed: int = 123,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     torch.manual_seed(seed)
     n_l, n_u = 120, 600
     x_l = torch.randn(n_l, 3)
