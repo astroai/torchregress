@@ -489,6 +489,34 @@ def test_ppi_photoz_inference_comparison_writes_summary_json(tmp_path: Path) -> 
         _assert_non_negative(row["eval_s"])
 
 
+def test_ordinal_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("ordinal_regression_comparison")
+    out = tmp_path / "ordinal_comparison_summary.json"
+    cfg = mod.OrdinalComparisonConfig(
+        n_train=96,
+        n_test=48,
+        hidden=12,
+        epochs=2,
+        batch_size=24,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="ordinal",
+        required_methods={"OrdinalCrossEntropy", "CumulativeLink", "CORAL"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("OrdinalCrossEntropy", "CumulativeLink", "CORAL"):
+        row = rows[method]
+        _assert_row_has_keys(row, ["Accuracy", "OrdinalMAE", "QWK", "train_s", "eval_s", "Notes"])
+        _assert_probability(row["Accuracy"])
+        _assert_non_negative(row["OrdinalMAE"])
+        _assert_finite_numeric(row["QWK"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_noisy_label_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("noisy_label_comparison")
     out = tmp_path / "noisy_label_summary.json"

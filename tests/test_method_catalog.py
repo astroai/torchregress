@@ -32,6 +32,10 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     inference_names = {row["name"] for row in inference}
     assert "PredictionPoweredInference" in inference_names
 
+    ordinal = method_catalog.list_methods(task_tag="ordinal")
+    ordinal_names = {row["name"] for row in ordinal}
+    assert {"OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"} <= ordinal_names
+
 
 def test_method_catalog_is_exposed_via_top_level_module_namespace() -> None:
     assert hasattr(tr, "method_catalog")
@@ -50,6 +54,7 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
         "Imbalanced / rare-target regression",
         "Calibrated intervals with coverage guarantees",
         "Population inference with few labels",
+        "Ordinal / ordered targets",
         "OOD scoring / selective prediction",
         "Noisy features / measurement error",
         "Multimodal targets",
@@ -72,6 +77,7 @@ def test_decision_workflow_and_comparative_evidence_metadata_cover_hard_tasks() 
     assert {
         "Imbalanced / rare-target regression",
         "Calibrated intervals / coverage",
+        "Ordinal regression / ordered targets",
         "OOD robustness / selective prediction",
         "Noisy features / EIV",
         "Multimodal / multi-target non-Gaussian",

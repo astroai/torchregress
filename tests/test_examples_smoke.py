@@ -47,6 +47,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("photoz_benchmark_comparison")
     _load_example_module("photoz_nnc_crps_rail_comparison")
     _load_example_module("ppi_photoz_inference_comparison")
+    _load_example_module("ordinal_regression_comparison")
 
     # Optional dependency path (zuko/flow backend) may not be present in all environments.
     try:
@@ -351,5 +352,17 @@ def test_ppi_photoz_inference_comparison_main_smoke() -> None:
         n_labeled=64,
         n_unlabeled=320,
         n_boot=120,
+    )
+    mod.main(cfg)
+
+
+def test_ordinal_regression_comparison_main_smoke() -> None:
+    mod = _load_example_module("ordinal_regression_comparison")
+    cfg = mod.OrdinalComparisonConfig(
+        n_train=96,
+        n_test=48,
+        hidden=12,
+        epochs=2,
+        batch_size=24,
     )
     mod.main(cfg)

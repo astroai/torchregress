@@ -155,6 +155,9 @@ def test_reduction_behavior():
         "DensityWeightedLoss",  # Needs to be fitted first
         "LDSLoss",  # Needs to be fitted first
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
+        "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
+        "CumulativeLinkLoss",  # Needs discrete ordinal targets
+        "CORALLoss",  # Needs discrete ordinal targets
     ]
 
     for loss_class in get_all_loss_classes():

@@ -20,6 +20,12 @@ from .labels import (
     label_smoothing,
     soft_to_hard_labels,
 )
+from .ordinal import (
+    cumulative_logits_to_pmf,
+    cumulative_probs_to_pmf,
+    labels_to_levels,
+    ordinal_predict,
+)
 from .pytorch_compat import (
     convert_reduction_type,
     convert_to_pytorch_loss,
@@ -90,6 +96,11 @@ __all__ = [
     "soft_to_hard_labels",
     "combine_binary_average",
     "combine_binary_weighted_average",
+    # ordinal
+    "labels_to_levels",
+    "cumulative_probs_to_pmf",
+    "cumulative_logits_to_pmf",
+    "ordinal_predict",
     # pytorch_compat
     "convert_reduction_type",
     "convert_to_pytorch_loss",

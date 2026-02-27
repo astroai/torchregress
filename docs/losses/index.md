@@ -54,6 +54,16 @@ Distribution-free alternatives that target specific parts of the conditional dis
 
 [Learn more about quantile & expectile losses →](quantile_expectile.md)
 
+### Ordinal Losses
+
+Losses for ordered discrete targets (for example ratings/bins where class distance matters):
+
+- **OrdinalCrossEntropyLoss**: class-logit baseline for ordinal labels
+- **CumulativeLinkLoss**: cumulative-threshold objective with `K-1` logits
+- **CORALLoss**: CORAL-style cumulative objective
+
+[Learn more about ordinal losses →](ordinal.md)
+
 ### Poisson & Tweedie Losses
 
 Specialized losses for count data and data with non-normal distributions:

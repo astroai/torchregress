@@ -36,6 +36,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/EIV tradeoffs with photo-z metrics
 - `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison (examples-only) with calibration + PDF metrics
 - `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
+- `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 
 When comparing methods, prefer examples that document:
@@ -170,6 +171,12 @@ A real-world application for astronomy:
 - Compares labeled-only vs prediction-powered confidence intervals for mean and high-quantile targets.
 - Designed for low-label settings where a larger prediction-only pool is available.
 - Emits summary artifacts with estimate error, CI width, and truth-coverage diagnostics.
+
+### [Ordinal Regression Comparison](ordinal_regression_comparison.md)
+
+- Shared-budget comparison for ordered targets.
+- Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
+- Reports ordinal accuracy, class-index MAE, QWK, and runtime.
 
 ### [Conformal Regression](conformal_regression_example.md)
 

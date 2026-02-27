@@ -166,6 +166,36 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="OrdinalCrossEntropyLoss",
+        family="ordinal",
+        public_path="torchregress.losses.OrdinalCrossEntropyLoss",
+        task_tags=("ordinal", "ordered_targets"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="Class-logit baseline for ordered targets; pair with ordinal-aware metrics.",
+    ),
+    MethodMetadata(
+        name="CumulativeLinkLoss",
+        family="ordinal",
+        public_path="torchregress.losses.CumulativeLinkLoss",
+        task_tags=("ordinal", "ordered_targets", "calibration"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="Cumulative-threshold objective with K-1 logits for ordinal labels.",
+    ),
+    MethodMetadata(
+        name="CORALLoss",
+        family="ordinal",
+        public_path="torchregress.losses.CORALLoss",
+        task_tags=("ordinal", "ordered_targets", "calibration"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="CORAL-style cumulative ordinal objective.",
+    ),
+    MethodMetadata(
         name="MDNLoss",
         family="mdn",
         public_path="torchregress.losses.MDNLoss",
@@ -381,6 +411,12 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         notes="Use PPI for means/quantiles/regression coefficients with limited labels.",
     ),
     TaskRecommendation(
+        task="Ordinal / ordered targets",
+        recommended_start="CumulativeLinkLoss",
+        strong_alternatives=("CORALLoss", "OrdinalCrossEntropyLoss"),
+        notes="Prefer cumulative objectives when rank-distance errors matter.",
+    ),
+    TaskRecommendation(
         task="OOD scoring / selective prediction",
         recommended_start="DeepEnsemble + OOD metrics",
         strong_alternatives=("SWAG + OOD metrics", "BayesianNeuralNetwork + OOD metrics"),
@@ -509,6 +545,22 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         notes=(
             "Prediction-powered inference example demonstrates mean/quantile/OLS coefficient "
             "intervals with diagnostics under small-label settings."
+        ),
+    ),
+    ComparativeEvidenceRow(
+        task="Ordinal regression / ordered targets",
+        examples=("examples/ordinal_regression_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=("fixed seed", "shared synthetic split", "matched model capacity"),
+        metrics_coverage=("accuracy", "ordinal class MAE", "QWK", "runtime"),
+        peer_methods_visible=("OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"),
+        gaps=(
+            "Needs at least one real-data ordered-target benchmark for stronger external "
+            "validity."
+        ),
+        notes=(
+            "Comparison example evaluates class-logit and cumulative objectives under shared "
+            "training budgets and ordinal-aware metrics."
         ),
     ),
     ComparativeEvidenceRow(

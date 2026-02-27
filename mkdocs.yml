@@ -93,6 +93,7 @@ nav:
       - Gaussian Losses: losses/gaussian.md
       - Robust Losses: losses/robust.md
       - Quantile & Expectile: losses/quantile_expectile.md
+      - Ordinal Losses: losses/ordinal.md
       - Poisson & Tweedie: losses/poisson_tweedie.md
       - Poisson-Gaussian: losses/poisson_gaussian.md
       - Advanced Losses: losses/advanced.md
@@ -106,6 +107,7 @@ nav:
   - Metrics:
       - Overview: metrics/index.md
       - Point Metrics: metrics/point.md
+      - Ordinal Metrics: metrics/ordinal.md
       - Distribution Metrics: metrics/distribution.md
       - Interval Metrics: metrics/interval.md
       - Calibration Metrics: metrics/calibration.md
@@ -124,6 +126,7 @@ nav:
       - Photo-z NNC-CRPS + RAIL-Ready Comparison: examples/photoz_nnc_crps_rail_comparison.md
       - Photo-z RAIL Baseline Comparison: examples/photoz_rail_baseline_comparison.md
       - PPI Photo-z Inference Comparison: examples/ppi_photoz_inference_comparison.md
+      - Ordinal Regression Comparison: examples/ordinal_regression_comparison.md
       - Conformal Regression: examples/conformal_regression_example.md
       - Evidential Regression: examples/evidential_regression.md
       - Imbalanced Regression: examples/imbalanced_regression.md

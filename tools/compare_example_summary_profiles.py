@@ -129,12 +129,15 @@ _LOWER_BETTER_KEYS = {
     "clean_mse",
     "obs_mse",
     "obs_input_clean_target_mse",
+    "OrdinalMAE",
 }
 
 _UPPER_BETTER_KEYS = {
     "rej20_cov",
     "R2",
     "ood_unc_gap",
+    "Accuracy",
+    "QWK",
 }
 
 

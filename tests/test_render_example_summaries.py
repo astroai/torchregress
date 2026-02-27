@@ -130,6 +130,20 @@ def test_render_example_summaries_ppi_photoz_subset(tmp_path: Path) -> None:
     } <= methods
 
 
+def test_render_example_summaries_ordinal_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["ordinal_regression_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "ordinal" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {"OrdinalCrossEntropy", "CumulativeLink", "CORAL"} <= methods
+
+
 def test_render_photoz_rail_merge_helper(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
     tr_summary = tmp_path / "tr_summary.json"

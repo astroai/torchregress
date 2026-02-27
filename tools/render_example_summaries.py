@@ -282,6 +282,26 @@ def _ppi_photoz_config(module: Any, profile: str) -> Any:
     )
 
 
+def _ordinal_comparison_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.OrdinalComparisonConfig(
+            n_train=128,
+            n_test=64,
+            hidden=16,
+            epochs=4,
+            batch_size=32,
+        )
+    if profile == "audit":
+        return module.OrdinalComparisonConfig(
+            n_train=512,
+            n_test=256,
+            hidden=32,
+            epochs=20,
+            batch_size=64,
+        )
+    return module.OrdinalComparisonConfig()
+
+
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ood_selective_prediction_comparison": {
         "filename": "ood_selective_prediction_comparison",
@@ -326,6 +346,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ppi_photoz_inference_comparison": {
         "filename": "ppi_photoz_inference_comparison",
         "config_factory": _ppi_photoz_config,
+    },
+    "ordinal_regression_comparison": {
+        "filename": "ordinal_regression_comparison",
+        "config_factory": _ordinal_comparison_config,
     },
 }
 

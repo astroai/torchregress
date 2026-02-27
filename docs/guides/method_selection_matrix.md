@@ -55,6 +55,7 @@ _Generated date_: `2026-02-26`
 | Imbalanced / rare-target regression | `DensityWeightedLoss` | `LDSLoss` | Check calibration after aggressive reweighting. |
 | Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
+| Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
 | OOD scoring / selective prediction | `DeepEnsemble + OOD metrics` | `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics` | Use multiple signals; no single OOD score is sufficient. |
 <!-- END:TASK_MATRIX_GENERATED -->
 
@@ -82,6 +83,7 @@ _Generated date_: `2026-02-26`
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` (1) | yes | yes | yes | no | yes | yes | partial | partial | no | no |
+| `ordinal` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` (3) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
@@ -134,6 +136,9 @@ _Generated date_: `2026-02-26`
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | yes | no | yes | partial | partial | partial | partial |
 | `MDNLoss` | `mdn` | `Available` | yes | yes | no | yes | yes | partial | partial |
+| `CORALLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
+| `CumulativeLinkLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
+| `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `WeightedMSELoss` | `point_loss` | `Core` | yes | no | no | no | no | partial | partial |
 | `GaussianNLLLoss` | `probabilistic_loss` | `Core` | yes | no | no | yes | no | partial | partial |
 | `LowRankGaussianLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
@@ -158,6 +163,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` | 1 | yes | yes | yes | no | yes | yes | partial | partial | no | no |
+| `ordinal` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` | 3 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |

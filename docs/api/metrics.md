@@ -26,6 +26,10 @@ This page provides a complete API reference for all metrics in torchregress.
 
 ---
 
+::: torchregress.metrics.ordinal
+
+---
+
 ::: torchregress.metrics.point
 
 ---

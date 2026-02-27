@@ -85,6 +85,8 @@ except ImportError:
 
 
 # Poisson losses
+# Ordinal losses
+from .ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from .poisson import (
     NegativeBinomialNLLLoss,
     PoissonDevianceLoss,
@@ -185,6 +187,10 @@ __all__ = [
     "MultiQuantileLoss",
     "QuantileCrossover",
     "QuantileCrossoverLoss",
+    # Ordinal losses
+    "OrdinalCrossEntropyLoss",
+    "CumulativeLinkLoss",
+    "CORALLoss",
     # Tweedie losses
     "TweedieLoss",
     "GammaLoss",

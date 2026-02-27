@@ -61,6 +61,11 @@ from .ood import (
     ood_metrics_report,
     typicality_score,
 )
+from .ordinal import (
+    mean_absolute_class_error,
+    ordinal_accuracy,
+    quadratic_weighted_kappa,
+)
 from .point import (
     HuberMetric,
     MedianAbsoluteDeviation,
@@ -134,6 +139,10 @@ __all__ = [
     "mahalanobis_distance",
     "typicality_score",
     "ood_metrics_report",
+    # Ordinal
+    "ordinal_accuracy",
+    "mean_absolute_class_error",
+    "quadratic_weighted_kappa",
     # Point
     "HuberMetric",
     "MedianAbsoluteError",
