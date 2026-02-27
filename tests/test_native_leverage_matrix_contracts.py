@@ -21,7 +21,7 @@ REQUIRED_AREAS = {
     "scaling_helpers": "Wrap native",
 }
 
-REPO_ROOT = Path(__file__).parents[2]
+REPO_ROOT = Path(__file__).parents[1]
 JSON_PATH = REPO_ROOT / "reports" / "native_pytorch_leverage_matrix_2026-02-26.json"
 MD_PATH = REPO_ROOT / "docs" / "audits" / "native_pytorch_leverage_matrix_2026-02-26.md"
 

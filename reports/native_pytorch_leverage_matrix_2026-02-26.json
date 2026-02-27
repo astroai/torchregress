@@ -1,0 +1,185 @@
+{
+  "artifact": "native_pytorch_leverage_matrix",
+  "version": 1,
+  "date": "2026-02-26",
+  "decisions": [
+    {
+      "area": "standard_point_losses",
+      "surface": ["WeightedMSELoss", "WeightedL1Loss", "WeightedHuberLoss"],
+      "native_candidate": ["torch.nn.MSELoss", "torch.nn.L1Loss", "torch.nn.HuberLoss"],
+      "decision": "Hybrid",
+      "rationale": "Keep mask/weight wrappers while delegating core math semantics to native losses.",
+      "action": "Maintain wrapper APIs and enforce parity checks.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_native_parity.py::test_weighted_point_loss_wrappers_match_native_without_mask_or_weights"
+        ],
+        "known_divergences": [
+          "torchregress wrappers add mask and sample-weight handling not present in raw native losses"
+        ]
+      }
+    },
+    {
+      "area": "gaussian_nll_diagonal",
+      "surface": ["WeightedGaussianNLLLoss", "gaussian_nll"],
+      "native_candidate": ["torch.nn.GaussianNLLLoss"],
+      "decision": "Hybrid",
+      "rationale": "Native Gaussian NLL kernel is strong; wrappers provide ergonomic mask/weight support and log-variance handling.",
+      "action": "Keep wrappers and lock numerical agreement against native behavior.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_native_parity.py::test_weighted_gaussian_nll_wrapper_matches_native_for_var_and_logvar_inputs",
+          "tests/test_native_parity.py::test_functional_gaussian_nll_matches_torch_full_gaussian_nll_loss"
+        ],
+        "known_divergences": [
+          "wrapper accepts both variance and log-variance conventions while native API expects variance"
+        ]
+      }
+    },
+    {
+      "area": "classification_weighted_wrappers",
+      "surface": ["WeightedCrossEntropyLoss", "WeightedNLLLoss"],
+      "native_candidate": ["torch.nn.CrossEntropyLoss", "torch.nn.NLLLoss"],
+      "decision": "Hybrid",
+      "rationale": "Needed for regression-as-classification workflows with consistent masking/weighting semantics.",
+      "action": "Retain wrappers and parity tests, document intended scope.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_native_parity.py::test_weighted_cross_entropy_wrapper_matches_native_without_mask_or_weights",
+          "tests/test_native_parity.py::test_weighted_nll_wrapper_matches_native_without_mask_or_weights"
+        ],
+        "known_divergences": [
+          "wrappers add mask support and weighted reduction controls beyond native classification losses"
+        ]
+      }
+    },
+    {
+      "area": "point_metrics_baseline",
+      "surface": ["mean_squared_error", "mean_absolute_error", "rmse", "r2_score"],
+      "native_candidate": ["torchmetrics.functional"],
+      "decision": "Wrap native",
+      "rationale": "Avoid reinvention; align baseline metric behavior with community-standard implementations.",
+      "action": "Prefer thin wrappers and parity checks against torchmetrics.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_native_parity.py::test_point_metric_functions_match_torchmetrics_baselines"
+        ],
+        "known_divergences": [
+          "torchregress wrappers preserve package-wide tensor-shape and dtype conventions"
+        ]
+      }
+    },
+    {
+      "area": "calibration_metrics_regression",
+      "surface": ["quantile_calibration_error", "pit_uniformity_score"],
+      "native_candidate": ["torchmetrics calibration primitives"],
+      "decision": "Keep custom",
+      "rationale": "Regression calibration/PIT metrics require task-specific semantics not fully covered by native classification-focused primitives.",
+      "action": "Keep custom implementations with explicit contracts and targeted tests.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_compare_example_summary_profiles.py::test_compare_profiles_detects_constraints_calibration_blowup"
+        ],
+        "known_divergences": [
+          "metrics operate on continuous predictive distributions instead of class-probability calibration"
+        ]
+      }
+    },
+    {
+      "area": "ood_metrics",
+      "surface": ["ood_detection_metrics", "typicality_score"],
+      "native_candidate": ["AUROC/AUPRC primitives"],
+      "decision": "Hybrid",
+      "rationale": "Composite OOD reporting is task-specific, but core discrimination primitives should remain native-backed.",
+      "action": "Use native primitives underneath while retaining task-level report assembly.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_compare_example_summary_profiles.py::test_compare_profiles_detects_ood_uncertainty_gap_mismatch"
+        ],
+        "known_divergences": [
+          "package computes multi-metric OOD summaries rather than exposing only raw AUROC/AUPRC"
+        ]
+      }
+    },
+    {
+      "area": "ensemble_decomposition",
+      "surface": ["uncertainty decomposition utilities"],
+      "native_candidate": ["tensor reductions"],
+      "decision": "Keep custom",
+      "rationale": "Epistemic/aleatoric decomposition contract is user-facing library value, not a direct native API replacement.",
+      "action": "Retain custom API while relying on vectorized native tensor ops internally.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_compare_example_summary_profiles.py::test_compare_profiles_reports_method_and_budget_consistency"
+        ],
+        "known_divergences": [
+          "outputs structured decomposition artifacts rather than single scalar reductions"
+        ]
+      }
+    },
+    {
+      "area": "conformal_prediction",
+      "surface": ["conformal losses/utilities"],
+      "native_candidate": ["none"],
+      "decision": "Keep custom",
+      "rationale": "No direct native equivalent exists for regression conformal workflows and interval-generation policy.",
+      "action": "Keep custom conformal stack and maintain coverage/width governance tests.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_example_summary_thresholds.py::test_committed_example_summary_threshold_baseline_schema_and_pass"
+        ],
+        "known_divergences": [
+          "implements split/density/prevalence/MC conformal logic absent in base PyTorch"
+        ]
+      }
+    },
+    {
+      "area": "mdn_and_flows",
+      "surface": ["MixtureDensityLoss", "NormalizingFlowLoss"],
+      "native_candidate": ["torch.distributions", "zuko"],
+      "decision": "Hybrid",
+      "rationale": "Keep task APIs while relying on native distribution math and external flow backends.",
+      "action": "Avoid bespoke primitive distribution kernels; keep high-level task wrappers.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_compare_example_summary_profiles.py::test_compare_profiles_detects_multimodal_nll_mce_blowup"
+        ],
+        "known_divergences": [
+          "flow path is optional-dependency mediated and can be skipped when backend is unavailable"
+        ]
+      }
+    },
+    {
+      "area": "eiv_losses",
+      "surface": ["EIV losses"],
+      "native_candidate": ["none"],
+      "decision": "Keep custom",
+      "rationale": "EIV formulations are specialized and not covered by native torch loss modules.",
+      "action": "Keep custom implementations with targeted stability and comparison coverage.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_compare_example_summary_profiles.py::test_compare_profiles_reports_method_and_budget_consistency"
+        ],
+        "known_divergences": [
+          "loss call patterns consume noisy inputs and model references, unlike standard supervised losses"
+        ]
+      }
+    },
+    {
+      "area": "scaling_helpers",
+      "surface": ["compile_model", "AMP helpers"],
+      "native_candidate": ["torch.compile", "torch.autocast", "GradScaler"],
+      "decision": "Wrap native",
+      "rationale": "These utilities should remain compatibility wrappers around native performance primitives.",
+      "action": "Keep wrappers minimal and behavior-aligned with upstream.",
+      "coverage_evidence": {
+        "parity_tests": [
+          "tests/test_verify_scaling.py::test_compile_model_returns_original_on_compile_failure"
+        ],
+        "known_divergences": [
+          "wrapper includes graceful fallback paths for unsupported devices/runtime failures"
+        ]
+      }
+    }
+  ]
+}

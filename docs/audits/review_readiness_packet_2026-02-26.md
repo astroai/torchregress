@@ -37,7 +37,9 @@ _Generated date_: `2026-02-26`
 
 ## Native Leverage Decisions (Counts)
 
-- unavailable
+- `Hybrid`: 5
+- `Keep custom`: 4
+- `Wrap native`: 2
 
 ## Review Focus Files
 
