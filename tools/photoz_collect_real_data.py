@@ -21,14 +21,18 @@ from urllib.request import Request, urlopen
 import numpy as np
 import pandas as pd
 
+from torchregress.utils.security import validate_url
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DP02_TAP_SYNC_URL = "https://data.lsst.cloud/api/tap/sync"
 DEFAULT_NNC_ZENODO_RECORD = 18410731
 
 
 def _http_get(url: str, *, headers: dict[str, str] | None = None) -> bytes:
+    # Ensure scheme is http/https
+    url = validate_url(url)
     request = Request(url, headers=headers or {})
-    with urlopen(request) as response:  # nosec: URLs are user-selected public endpoints
+    with urlopen(request) as response:  # nosec: validated above
         return cast(bytes, response.read())
 
 

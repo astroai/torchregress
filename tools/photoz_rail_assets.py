@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
+from torchregress.utils.security import validate_url
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = REPO_ROOT / "configs" / "photoz"
 DEFAULT_TEMPLATE_BY_PRESET = {
@@ -195,7 +197,9 @@ def _resolve_path(path_value: str, *, repo_root: Path) -> Path:
 
 def _download_to_path(url: str, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    with urlopen(url) as response, target.open("wb") as out:  # nosec: manifest-driven URL
+    # Ensure scheme is http/https
+    url = validate_url(url)
+    with urlopen(url) as response, target.open("wb") as out:  # nosec: validated above
         out.write(response.read())
 
 

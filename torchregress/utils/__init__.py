@@ -47,6 +47,7 @@ from .scaling import (
     GradientAccumulation,
     compile_model,
 )
+from .security import validate_url
 from .tensor_ops import (
     apply_mask,
     batched_linalg_solve,
@@ -156,4 +157,6 @@ __all__ = [
     "validate_same_device",
     "validate_weights",
     "check_tensor",
+    # security
+    "validate_url",
 ]
