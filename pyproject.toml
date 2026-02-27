@@ -58,10 +58,11 @@ docs = [
     "mkdocstrings[python]>=0.20.0",
     "pymdown-extensions>=10.0.0",
 ]
+conformal = []
 flows = [
     "zuko>=1.4.0",
 ]
-all = ["torchregress[test,dev,docs,flows]"]
+all = ["torchregress[test,dev,docs,conformal,flows]"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -121,5 +122,4 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "torchmetrics.*"
 ignore_missing_imports = true
-
 
