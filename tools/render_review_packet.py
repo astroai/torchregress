@@ -123,22 +123,24 @@ def _review_focus_files() -> list[str]:
 
 
 def build_review_packet() -> dict[str, Any]:
-    audit_md_text = ADOPTION_AUDIT_MD.read_text(encoding="utf-8")
+    audit_md_text = ADOPTION_AUDIT_MD.read_text(encoding="utf-8") if ADOPTION_AUDIT_MD.exists() else ""
     audit_scores = _parse_adoption_scores(audit_md_text)
-    baseline_score, provisional_score = _require_adoption_scores(audit_scores)
-    adoption_audit = _load_json(ADOPTION_AUDIT_JSON)
-    comparative = _load_json(COMPARATIVE_EVIDENCE_JSON)
-    method_catalog = _load_json(METHOD_CATALOG_JSON)
-    native = _load_json(NATIVE_LEVERAGE_JSON)
-    mypy = _load_json(MYPY_TRIAGE_JSON)
-    ex_compare = _load_json(EXAMPLE_PROFILE_COMPARE_JSON)
-    ex_thresh_verdict = _load_json(EXAMPLE_THRESH_VERDICT_JSON)
-    ex_thresholds = _load_json(EXAMPLE_THRESHOLDS_JSON)
+    baseline_score = audit_scores.get("baseline", 0.0)
+    provisional_score = audit_scores.get("provisional", 0.0)
+
+    adoption_audit = _load_optional_json(ADOPTION_AUDIT_JSON) or {}
+    comparative = _load_optional_json(COMPARATIVE_EVIDENCE_JSON) or {}
+    method_catalog = _load_optional_json(METHOD_CATALOG_JSON) or {}
+    native = _load_optional_json(NATIVE_LEVERAGE_JSON) or {}
+    mypy = _load_optional_json(MYPY_TRIAGE_JSON) or {}
+    ex_compare = _load_optional_json(EXAMPLE_PROFILE_COMPARE_JSON) or {}
+    ex_thresh_verdict = _load_optional_json(EXAMPLE_THRESH_VERDICT_JSON) or {}
+    ex_thresholds = _load_optional_json(EXAMPLE_THRESHOLDS_JSON) or {}
     ex_thresh_review_strict_verdict = _load_optional_json(EXAMPLE_THRESH_REVIEW_STRICT_VERDICT_JSON)
     ex_thresholds_review_strict = _load_optional_json(EXAMPLE_THRESHOLDS_REVIEW_STRICT_JSON)
-    bench_smoke_thresh = _load_json(BENCH_THRESH_SMOKE_JSON)
-    bench_sweep_thresh = _load_json(BENCH_THRESH_SWEEP_JSON)
-    bench_baseline = _load_json(BENCH_BASELINE_JSON)
+    bench_smoke_thresh = _load_optional_json(BENCH_THRESH_SMOKE_JSON) or {}
+    bench_sweep_thresh = _load_optional_json(BENCH_THRESH_SWEEP_JSON) or {}
+    bench_baseline = _load_optional_json(BENCH_BASELINE_JSON) or {}
 
     mypy_summary = mypy.get("summary", {})
     comparative_summary = comparative.get("summary", {})
