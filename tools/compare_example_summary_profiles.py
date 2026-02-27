@@ -137,6 +137,9 @@ _LOWER_BETTER_KEYS = {
     "CrossingRate",
     "BoundViolation",
     "PITChi2",
+    "NoisyTargetNLL",
+    "ConsistencyLoss",
+    "PseudoLabelNLL",
 }
 
 _UPPER_BETTER_KEYS = {

@@ -356,6 +356,22 @@ def _constraints_calibration_config(module: Any, profile: str) -> Any:
     return module.ConstraintCalibrationConfig()
 
 
+def _uncertain_gt_density_conformal_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.UncertainGTConformalConfig(
+            n_cal=192,
+            n_test=128,
+            n_mc_samples=12,
+        )
+    if profile == "audit":
+        return module.UncertainGTConformalConfig(
+            n_cal=400,
+            n_test=300,
+            n_mc_samples=24,
+        )
+    return module.UncertainGTConformalConfig()
+
+
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ood_selective_prediction_comparison": {
         "filename": "ood_selective_prediction_comparison",
@@ -416,6 +432,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "constraints_calibration_comparison": {
         "filename": "constraints_calibration_comparison",
         "config_factory": _constraints_calibration_config,
+    },
+    "uncertain_gt_density_conformal_comparison": {
+        "filename": "uncertain_gt_density_conformal_comparison",
+        "config_factory": _uncertain_gt_density_conformal_config,
     },
 }
 

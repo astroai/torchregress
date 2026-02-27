@@ -51,6 +51,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("censored_regression_comparison")
     _load_example_module("propensity_tail_regression_comparison")
     _load_example_module("constraints_calibration_comparison")
+    _load_example_module("uncertain_gt_density_conformal_comparison")
 
     # Optional dependency path (zuko/flow backend) may not be present in all environments.
     try:
@@ -400,5 +401,15 @@ def test_constraints_calibration_comparison_main_smoke() -> None:
     cfg = mod.ConstraintCalibrationConfig(
         n_cal=192,
         n_test=96,
+    )
+    mod.main(cfg)
+
+
+def test_uncertain_gt_density_conformal_comparison_main_smoke() -> None:
+    mod = _load_example_module("uncertain_gt_density_conformal_comparison")
+    cfg = mod.UncertainGTConformalConfig(
+        n_cal=160,
+        n_test=96,
+        n_mc_samples=10,
     )
     mod.main(cfg)

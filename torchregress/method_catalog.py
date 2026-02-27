@@ -163,6 +163,70 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Coverage guarantees, not epistemic/aleatoric decomposition.",
     ),
     MethodMetadata(
+        name="DensityConformal",
+        family="conformal",
+        public_path="torchregress.losses.DensityConformal",
+        task_tags=("coverage_guarantees", "density_conformal", "imbalance"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="yes",
+        imbalance="yes",
+        notes="Density-adaptive conformal intervals for long-tail target regions.",
+    ),
+    MethodMetadata(
+        name="PrevalenceAdjustedCP",
+        family="conformal",
+        public_path="torchregress.losses.PrevalenceAdjustedCP",
+        task_tags=("coverage_guarantees", "density_conformal", "imbalance"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="yes",
+        imbalance="yes",
+        notes="Group-prevalence adjusted conformal intervals for rare-target coverage.",
+    ),
+    MethodMetadata(
+        name="MonteCarloConformal",
+        family="conformal",
+        public_path="torchregress.losses.MonteCarloConformal",
+        task_tags=("coverage_guarantees", "density_conformal", "epistemic_uq"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="yes",
+        epistemic="partial",
+        notes="Conformal on MC predictive samples with uncertainty-normalized residual scores.",
+    ),
+    MethodMetadata(
+        name="NoisyTargetGaussianNLL",
+        family="uncertain_gt",
+        public_path="torchregress.losses.NoisyTargetGaussianNLL",
+        task_tags=("uncertain_ground_truth", "noisy_labels", "weak_supervision"),
+        maturity="Available",
+        non_gaussian="partial",
+        aleatoric="yes",
+        calibration="partial",
+        notes="Adds target-noise variance to predictive variance before NLL scoring.",
+    ),
+    MethodMetadata(
+        name="ConsistencyRegLoss",
+        family="uncertain_gt",
+        public_path="torchregress.losses.ConsistencyRegLoss",
+        task_tags=("uncertain_ground_truth", "weak_supervision", "noisy_labels"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Teacher/student consistency regularization with regression base loss.",
+    ),
+    MethodMetadata(
+        name="PseudoLabelNLL",
+        family="uncertain_gt",
+        public_path="torchregress.losses.PseudoLabelNLL",
+        task_tags=("uncertain_ground_truth", "weak_supervision", "noisy_labels"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Blends observed labels and pseudo-labels with confidence weighting.",
+    ),
+    MethodMetadata(
         name="PredictionPoweredInference",
         family="inference",
         public_path="torchregress.inference.ppi_mean_ci",
@@ -510,6 +574,21 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         notes="Conformal gives coverage, not UQ decomposition.",
     ),
     TaskRecommendation(
+        task="Density-aware conformal under long-tail targets",
+        recommended_start="DensityConformal",
+        strong_alternatives=("PrevalenceAdjustedCP", "MonteCarloConformal"),
+        notes="Prefer density/prevalence variants when tail-region coverage is a key objective.",
+    ),
+    TaskRecommendation(
+        task="Uncertain ground-truth / weak labels",
+        recommended_start="NoisyTargetGaussianNLL",
+        strong_alternatives=("PseudoLabelNLL", "ConsistencyRegLoss"),
+        notes=(
+            "Model target uncertainty explicitly and blend pseudo labels with "
+            "confidence weights."
+        ),
+    ),
+    TaskRecommendation(
         task="Population inference with few labels",
         recommended_start="PredictionPoweredInference",
         strong_alternatives=("ConformalLoss", "QuantileLoss"),
@@ -584,6 +663,16 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         ),
         caveat="Use multiple signals and benchmark runtime against deployment latency targets.",
     ),
+    DecisionWorkflowStep(
+        order=7,
+        question="Are labels uncertain or weak (noisy targets, pseudo-labels, partial trust)?",
+        primary_recommendation="NoisyTargetGaussianNLL",
+        alternatives=("PseudoLabelNLL", "ConsistencyRegLoss"),
+        caveat=(
+            "Retain held-out clean-label evaluation where available to avoid "
+            "self-confirming loops."
+        ),
+    ),
 )
 
 
@@ -645,6 +734,34 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "PITCalibrator",
         ),
         gaps="Needs additional domain benchmarks beyond synthetic stress tests.",
+    ),
+    ComparativeEvidenceRow(
+        task="Uncertain ground-truth + density-aware conformal",
+        examples=("examples/uncertain_gt_density_conformal_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=("fixed seed", "shared synthetic split", "shared calibration budget"),
+        metrics_coverage=(
+            "coverage",
+            "interval width",
+            "noisy-target NLL",
+            "consistency loss",
+            "pseudo-label NLL",
+            "runtime",
+        ),
+        peer_methods_visible=(
+            "SplitConformal",
+            "DensityConformal",
+            "PrevalenceAdjustedCP",
+            "MonteCarloConformal",
+            "NoisyTargetGaussianNLL",
+            "PseudoLabelNLL",
+            "ConsistencyRegLoss",
+        ),
+        gaps="Needs real-data uncertain-label benchmarks for external validity.",
+        notes=(
+            "Current evidence is synthetic but compares uncertain-GT losses and "
+            "density/prevalence/MC conformal variants under matched budgets."
+        ),
     ),
     ComparativeEvidenceRow(
         task="Calibrated intervals / coverage",

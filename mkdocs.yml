@@ -104,6 +104,7 @@ nav:
       - Error-in-Variables: losses/eiv.md
       - Imbalanced Regression: losses/imbalanced.md
       - Noisy Labels: losses/noisy_labels.md
+      - Uncertain Ground Truth: losses/uncertain_ground_truth.md
       - Transform Losses: losses/transforms.md
   - Metrics:
       - Overview: metrics/index.md
@@ -132,6 +133,7 @@ nav:
       - Censored Regression Comparison: examples/censored_regression_comparison.md
       - Propensity + Tail Regression Comparison: examples/propensity_tail_regression_comparison.md
       - Constraints + Calibration Comparison: examples/constraints_calibration_comparison.md
+      - Uncertain-GT + Density Conformal Comparison: examples/uncertain_gt_density_conformal_comparison.md
       - Conformal Regression: examples/conformal_regression_example.md
       - Evidential Regression: examples/evidential_regression.md
       - Imbalanced Regression: examples/imbalanced_regression.md

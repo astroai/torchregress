@@ -52,6 +52,14 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
         "PITCalibrator",
     } <= posthoc_names
 
+    uncertain_gt = method_catalog.list_methods(task_tag="uncertain_ground_truth")
+    uncertain_gt_names = {row["name"] for row in uncertain_gt}
+    assert {"NoisyTargetGaussianNLL", "PseudoLabelNLL", "ConsistencyRegLoss"} <= uncertain_gt_names
+
+    density_cp = method_catalog.list_methods(task_tag="density_conformal")
+    density_cp_names = {row["name"] for row in density_cp}
+    assert {"DensityConformal", "PrevalenceAdjustedCP", "MonteCarloConformal"} <= density_cp_names
+
 
 def test_method_catalog_is_exposed_via_top_level_module_namespace() -> None:
     assert hasattr(tr, "method_catalog")
@@ -75,6 +83,8 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
         "Selection bias / covariate-dependent missing labels",
         "Output constraints / monotonicity",
         "Post-hoc calibration transforms",
+        "Density-aware conformal under long-tail targets",
+        "Uncertain ground-truth / weak labels",
         "OOD scoring / selective prediction",
         "Noisy features / measurement error",
         "Multimodal targets",
@@ -101,6 +111,7 @@ def test_decision_workflow_and_comparative_evidence_metadata_cover_hard_tasks() 
         "Censored / interval-censored regression",
         "Selection bias / long-tail with missing labels",
         "Output constraints + post-hoc calibration transforms",
+        "Uncertain ground-truth + density-aware conformal",
         "OOD robustness / selective prediction",
         "Noisy features / EIV",
         "Multimodal / multi-target non-Gaussian",

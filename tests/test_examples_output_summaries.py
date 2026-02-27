@@ -617,6 +617,56 @@ def test_constraints_calibration_comparison_writes_summary_json(tmp_path: Path) 
         _assert_non_negative(row["eval_s"])
 
 
+def test_uncertain_gt_density_conformal_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("uncertain_gt_density_conformal_comparison")
+    out = tmp_path / "uncertain_gt_density_conformal_summary.json"
+    cfg = mod.UncertainGTConformalConfig(
+        n_cal=192,
+        n_test=96,
+        n_mc_samples=12,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="uncertain ground-truth",
+        required_methods={
+            "SplitConformal",
+            "DensityConformal",
+            "PrevalenceAdjustedCP",
+            "MonteCarloConformal",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "SplitConformal",
+        "DensityConformal",
+        "PrevalenceAdjustedCP",
+        "MonteCarloConformal",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Coverage90",
+                "Width90",
+                "NoisyTargetNLL",
+                "ConsistencyLoss",
+                "PseudoLabelNLL",
+                "train_s",
+                "eval_s",
+                "Notes",
+            ],
+        )
+        _assert_probability(row["Coverage90"])
+        _assert_non_negative(row["Width90"])
+        _assert_finite_numeric(row["NoisyTargetNLL"])
+        _assert_non_negative(row["ConsistencyLoss"])
+        _assert_finite_numeric(row["PseudoLabelNLL"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_noisy_label_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("noisy_label_comparison")
     out = tmp_path / "noisy_label_summary.json"

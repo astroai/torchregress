@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `34`
+- Total methods: `40`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -18,7 +18,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `bnn` | 2 |
 | `calibration_transform` | 3 |
 | `censored` | 3 |
-| `conformal` | 1 |
+| `conformal` | 4 |
 | `constraints` | 2 |
 | `eiv` | 3 |
 | `ensemble` | 2 |
@@ -33,6 +33,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `quantile` | 1 |
 | `robust_loss` | 1 |
 | `swag` | 2 |
+| `uncertain_gt` | 3 |
 
 ### By Maturity
 
@@ -40,7 +41,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 6 |
 | `Strong` | 5 |
-| `Available` | 23 |
+| `Available` | 29 |
 
 ## Method Rows
 
@@ -57,6 +58,9 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `CensoredGaussianNLLLoss` | `censored` | `Available` | `censored`, `interval_censored`, `survival_regression` | `calibration*`, `ood*` | `torchregress.losses.CensoredGaussianNLLLoss` |
 | `CensoredQuantileLoss` | `censored` | `Available` | `censored`, `interval_censored`, `non_gaussian` | `calibration*`, `ood*` | `torchregress.losses.CensoredQuantileLoss` |
 | `ConformalLoss` | `conformal` | `Core` | `coverage_guarantees`, `calibration` | `calibration`, `ood*` | `torchregress.losses.ConformalLoss` |
+| `DensityConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.DensityConformal` |
+| `MonteCarloConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `epistemic_uq` | `epistemic*`, `calibration`, `ood*` | `torchregress.losses.MonteCarloConformal` |
+| `PrevalenceAdjustedCP` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.PrevalenceAdjustedCP` |
 | `BoundedHead` | `constraints` | `Available` | `constraints`, `bounded_outputs` | `calibration*`, `ood*` | `torchregress.constraints.BoundedHead` |
 | `NonCrossingSort` | `constraints` | `Available` | `constraints`, `ordered_outputs` | `calibration*`, `ood*` | `torchregress.constraints.NonCrossingSort` |
 | `FunctionalEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.FunctionalEIVLoss` |
@@ -82,6 +86,9 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `HuberLoss` | `robust_loss` | `Core` | `outliers`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.HuberLoss` |
 | `MultiSWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MultiSWAG` |
 | `SWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.SWAG` |
+| `ConsistencyRegLoss` | `uncertain_gt` | `Available` | `uncertain_ground_truth`, `weak_supervision`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.ConsistencyRegLoss` |
+| `NoisyTargetGaussianNLL` | `uncertain_gt` | `Available` | `uncertain_ground_truth`, `noisy_labels`, `weak_supervision` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.NoisyTargetGaussianNLL` |
+| `PseudoLabelNLL` | `uncertain_gt` | `Available` | `uncertain_ground_truth`, `weak_supervision`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.PseudoLabelNLL` |
 
 ## Capability-Focused Shortlists
 

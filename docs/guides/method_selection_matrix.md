@@ -57,6 +57,8 @@ _Generated date_: `2026-02-26`
 | Output constraints / monotonicity | `BoundedHead` / `NonNegativeHead` / `NonCrossingSort` | `SimplexHead`, `SpectralNormWrapper` | Apply structural constraints in the head before post-hoc calibration. |
 | Post-hoc calibration transforms | `VarianceTemperatureScaler` | `IsotonicMeanCalibrator`, `PITCalibrator` | Fit transforms on a held-out calibration split. |
 | Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
+| Density-aware conformal under long-tail targets | `DensityConformal` | `PrevalenceAdjustedCP`, `MonteCarloConformal` | Prefer density/prevalence variants when tail-region coverage is a key objective. |
+| Uncertain ground-truth / weak labels | `NoisyTargetGaussianNLL` | `PseudoLabelNLL`, `ConsistencyRegLoss` | Model target uncertainty explicitly and blend pseudo labels with confidence weights. |
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
 | Censored / interval-censored regression | `CensoredGaussianNLLLoss` | `AFTLoss`, `CensoredQuantileLoss` | Use censoring code 0/1/-1 and explicit interval bounds when available. |
@@ -81,7 +83,7 @@ _Generated date_: `2026-02-26`
 | `bnn` (2) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` (3) | yes | no | partial | no | no | no | yes | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
+| `conformal` (4) | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` (3) | yes | no | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` (2) | yes | no | partial | yes | yes | yes | partial | yes | no | no |
@@ -96,6 +98,7 @@ _Generated date_: `2026-02-26`
 | `quantile` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
+| `uncertain_gt` (3) | yes | no | partial | no | yes | no | partial | partial | no | no |
 <!-- END:FAMILY_CAPABILITY_MATRIX_GENERATED -->
 
 ## Code-Driven Catalog (Discovery API)
@@ -138,6 +141,9 @@ _Generated date_: `2026-02-26`
 | `CensoredGaussianNLLLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `CensoredQuantileLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `ConformalLoss` | `conformal` | `Core` | yes | no | no | no | no | yes | partial |
+| `DensityConformal` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
+| `MonteCarloConformal` | `conformal` | `Available` | yes | no | partial | no | no | yes | partial |
+| `PrevalenceAdjustedCP` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `BoundedHead` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
 | `NonCrossingSort` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
 | `FunctionalEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
@@ -163,6 +169,9 @@ _Generated date_: `2026-02-26`
 | `HuberLoss` | `robust_loss` | `Core` | yes | no | no | no | no | partial | partial |
 | `MultiSWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `SWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
+| `ConsistencyRegLoss` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
+| `NoisyTargetGaussianNLL` | `uncertain_gt` | `Available` | yes | no | no | yes | no | partial | partial |
+| `PseudoLabelNLL` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
 
 Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
@@ -173,7 +182,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `bnn` | 2 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` | 3 | yes | no | partial | no | no | no | yes | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |
+| `conformal` | 4 | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` | 3 | yes | no | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` | 2 | yes | no | partial | yes | yes | yes | partial | yes | no | no |
@@ -188,15 +197,16 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `quantile` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
+| `uncertain_gt` | 3 | yes | no | partial | no | yes | no | partial | partial | no | no |
 
 ### Generated Hard-Task Shortlists
 
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
-| Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `QuantileLoss` |
+| Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `QuantileLoss` |
 | Multimodal targets | `multimodal=yes` | `NormalizingFlowLoss`, `MDNLoss` |
-| Imbalanced / rare targets | `imbalance=yes` | `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
+| Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->
 
@@ -286,6 +296,11 @@ _Generated date_: `2026-02-26`
    Use `DeepEnsemble + OOD metrics`.
    Alternatives: `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics`, `MCDropoutWrapper`.
    Caveat: Use multiple signals and benchmark runtime against deployment latency targets.
+
+7. Are labels uncertain or weak (noisy targets, pseudo-labels, partial trust)?
+   Use `NoisyTargetGaussianNLL`.
+   Alternatives: `PseudoLabelNLL`, `ConsistencyRegLoss`.
+   Caveat: Retain held-out clean-label evaluation where available to avoid self-confirming loops.
 <!-- END:DECISION_WORKFLOW_GENERATED -->
 
 ## Important Clarification: Conformal vs Uncertainty Decomposition

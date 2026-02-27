@@ -40,6 +40,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
 - `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`)
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
+- `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 
 When comparing methods, prefer examples that document:
@@ -198,6 +199,12 @@ A real-world application for astronomy:
 - Demonstrates output-head constraints and post-hoc calibration transforms in one workflow.
 - Compares raw outputs against calibrated + constrained outputs.
 - Reports MAE, NLL, PIT chi-square, crossing-rate, bound-violation, and runtime.
+
+### [Uncertain-GT + Density Conformal Comparison](uncertain_gt_density_conformal_comparison.md)
+
+- Shared-budget comparison for uncertain ground-truth supervision and density-aware conformal intervals.
+- Compares `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, and `MonteCarloConformal`.
+- Reports coverage/width plus uncertain-GT objective values (`NoisyTargetNLL`, `ConsistencyLoss`, `PseudoLabelNLL`).
 
 ### [Conformal Regression](conformal_regression_example.md)
 

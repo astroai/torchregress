@@ -95,6 +95,12 @@ from .point import (
     tail_rmse,
     trimmed_mean_squared_error,
 )
+from .uncertain import (
+    consistency_error,
+    noisy_target_gaussian_nll,
+    pseudo_label_acceptance_rate,
+    uncertain_gt_metrics_report,
+)
 
 __all__ = [
     # Calibration
@@ -178,6 +184,11 @@ __all__ = [
     "tail_mae",
     "tail_rmse",
     "regression_metrics_report",
+    # Uncertain/weak ground-truth metrics
+    "noisy_target_gaussian_nll",
+    "consistency_error",
+    "pseudo_label_acceptance_rate",
+    "uncertain_gt_metrics_report",
     # Torchmetrics direct exports
     "MeanSquaredError",
     "MeanAbsoluteError",

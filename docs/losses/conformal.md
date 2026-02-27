@@ -1,69 +1,43 @@
 # Conformal Prediction
 
-The `torchregress.losses.conformal` module provides a unified interface for modern conformal prediction methods for regression, leveraging the `torchcp` library as a backend.
+`torchregress.losses.conformal` provides conformal predictors for calibrated interval
+regression.
 
-## Installation
+## Core APIs
 
-Conformal prediction relies on `torchcp` and its dependencies. Install the extra:
+- `ConformalLoss(method="split" | "cqr")`
+- `SplitConformal`
+- `CQR`
+- `MultiTargetConformal`
+- `DensityConformal`
+- `PrevalenceAdjustedCP`
+- `MonteCarloConformal`
+- `DistributionalConformal`
+- `CTI`
+- `R2CConformal`
 
-```bash
-uv pip install -e ".[conformal]"
-```
-
-`torch-geometric` and its compiled dependencies may require the PyG wheel index; see the
-official installation guide if your environment needs it.
-
-## Unified Conformal Prediction Module
-
-The `ConformalLoss` class is a wrapper around various conformal prediction methods. It provides a consistent API for training, calibrating, and generating prediction intervals.
-
-### Supported Methods
-
-- **Split Conformal Prediction (`'split'`)**: A simple and general method for conformal prediction.
-- **Conformalized Quantile Regression (`'cqr'`)**: A method that combines quantile regression with conformal prediction to produce more efficient prediction intervals.
-- **Adaptive Conformal Inference (`'aci'`)**: A method that adapts the prediction intervals to the difficulty of the input data.
-
-### Usage
-
-To use the unified conformal prediction module, you create a `ConformalLoss` object, specifying the desired `method` and the target miscoverage level `alpha`.
-
-For `'split'` and `'cqr'`:
-```python
-from torchregress.losses.conformal import ConformalLoss
-
-# Create a CQR loss with a target coverage of 90%
-loss_fn = ConformalLoss(method='cqr', alpha=0.1)
-```
-
-For `'aci'`, you also need to pass the model to the constructor:
-```python
-# Create an ACI loss with a target coverage of 90%
-loss_fn = ConformalLoss(method='aci', alpha=0.1, model=my_model)
-```
-
-During training, the `ConformalLoss` object can be used like any other loss function in PyTorch.
-
-After training, you need to calibrate the conformal predictor on a hold-out calibration set.
+## Quick Start
 
 ```python
-# Calibrate the predictor on the calibration set
-loss_fn.calibrate(cal_preds, y_cal)
+import torch
+from torchregress.losses import DensityConformal
+
+cp = DensityConformal(alpha=0.1)
+cp.calibrate(y_pred_cal, y_cal)
+lower, upper = cp.predict_interval(y_pred_test)
 ```
 
-During calibration, the conformal correction uses
-`q = ceil((n + 1) * (1 - alpha)) / n` with `n = scores.numel()` and selects
-`torch.quantile(scores, q, interpolation="higher")` to match standard conformal
-coverage guarantees.
+## Method Notes
 
-Finally, you can use the calibrated predictor to generate prediction intervals for new data.
+- `SplitConformal`: residual-based baseline.
+- `CQR`: conformalized quantile heads (`[q_lo, q_hi]` predictions).
+- `DensityConformal`: widens intervals in low-density target regions.
+- `PrevalenceAdjustedCP`: group-prevalence aware thresholds for rare regimes.
+- `MonteCarloConformal`: uses MC predictive samples (e.g., dropout/ensembles).
+- `DistributionalConformal` and `CTI`: for CDF/density-driven workflows.
 
-```python
-# Get prediction intervals for the test set
-lower, upper = loss_fn.predict_interval(test_preds)
-```
+## Calibration Contract
 
-### Choosing the Right Method
-
-- **`'split'`**: Use this method when you have a simple model and you want a general-purpose conformal prediction method.
-- **`'cqr'`**: Use this method when you are using a quantile regression model and you want to produce more efficient prediction intervals.
-- **`'aci'`**: Use this method when you have a model that can estimate the difficulty of the input data and you want to produce adaptive prediction intervals.
+- Calibrate on held-out data only.
+- Use shared train/cal/test splits for fair method comparisons.
+- Coverage guarantees apply under exchangeability assumptions.

@@ -30,9 +30,12 @@ from .conformal import (
     CTI,
     ConformalLoss,
     ConformalPredictor,
+    DensityConformal,
     DistributionalConformal,
+    MonteCarloConformal,
     MultiDimensionalConformalLoss,
     MultiTargetConformal,
+    PrevalenceAdjustedCP,
     R2CConformal,
     SplitConformal,
 )
@@ -121,6 +124,7 @@ from .robust import (
 
 # Tweedie losses
 from .tweedie import CompoundPoissonLoss, GammaLoss, InverseGaussianLoss, TweedieLoss
+from .uncertain_gt import ConsistencyRegLoss, NoisyTargetGaussianNLL, PseudoLabelNLL
 
 __all__ = [
     # Base classes
@@ -204,15 +208,22 @@ __all__ = [
     "CTI",
     "ConformalLoss",
     "ConformalPredictor",
+    "DensityConformal",
     "DistributionalConformal",
+    "MonteCarloConformal",
     "MultiDimensionalConformalLoss",
     "MultiTargetConformal",
+    "PrevalenceAdjustedCP",
     "R2CConformal",
     "SplitConformal",
     # Censored regression
     "CensoredGaussianNLLLoss",
     "CensoredQuantileLoss",
     "AFTLoss",
+    # Uncertain/weak ground-truth losses
+    "NoisyTargetGaussianNLL",
+    "ConsistencyRegLoss",
+    "PseudoLabelNLL",
     # Registry
     "get_regression_loss",
     "list_regression_losses",
