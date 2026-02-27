@@ -444,7 +444,8 @@ class DeepARModel(nn.Module):
 
 # Create model and loss
 model = DeepARModel(input_size=10, hidden_size=32, num_layers=2)
-loss_fn = tr.losses.DeepARLoss()
+# DeepAR-style objectives are not currently implemented in torchregress.
+# Consider GaussianNLLLoss or quantile/conformal methods for forecasting intervals.
 
 # Training
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)

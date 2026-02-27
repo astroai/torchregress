@@ -2,6 +2,20 @@
 
 This guide covers different ensemble methods in torchregress for uncertainty estimation.
 
+## Task-First Context
+
+Use this page when your main requirement is **epistemic uncertainty**, **uncertainty
+decomposition**, or **OOD/selective prediction**. For broader method selection (including
+`SWAG`, `BNN`, `MDN`, conformal, and flows), start with the
+[Task-First Method Selection Matrix](../guides/method_selection_matrix.md).
+
+## Evidence / Tradeoff Notes
+
+- Deep and heteroscedastic ensembles are strong practical defaults, but train/inference cost scales with ensemble size.
+- `SWAG` and `BNN` should be evaluated as peer methods when weight-posterior uncertainty is a better fit for your constraints.
+- Always compare calibration and decision metrics (coverage, risk-coverage, OOD scores), not just point error.
+- Use the comparison examples and benchmark smoke/sweep reports to validate runtime assumptions for your deployment budget.
+
 ## Overview
 
 Ensemble methods combine multiple models to improve predictions and quantify uncertainty. torchregress supports several ensemble approaches, each with different trade-offs and use cases.
@@ -286,6 +300,13 @@ calibration = calibration_score(y_true, pred_mean, pred_std)
 3. **Check calibration** on validation set before trusting uncertainties
 4. **Visualize uncertainty** to verify it makes sense
 5. **Consider computational budget** early in design
+
+## When Ensembles Can Fail
+
+- Overconfident uncertainty can still occur if all ensemble members share the same data leakage or misspecification.
+- Small ensembles can produce unstable epistemic estimates.
+- Heteroscedastic heads can improve decomposition but still require calibration checks.
+- OOD detection should use multiple signals (uncertainty + OOD metrics + decision metrics), not a single threshold.
 
 ## Comparison with Other Methods
 

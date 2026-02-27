@@ -4,6 +4,12 @@ This example demonstrates using torchregress for a real-world astronomy applicat
 
 **Full Example:** See [`examples/photoz.py`](https://github.com/sfabbro/torchregress/blob/main/examples/photoz.py) for a complete runnable example that compares 12+ methods and generates calibration diagnostics.
 
+For a **standardized shared-budget comparison benchmark** (with machine-readable summary artifacts and audit integration), see [Photo-z Benchmark Comparison (SDSS-style)](photoz_benchmark_comparison.md) / `examples/photoz_benchmark_comparison.py`.
+
+For an **ordered-bin regression-as-classification track** (NNC-CRPS-style, intentionally examples-only), see [Photo-z NNC-CRPS + RAIL-Ready Comparison](photoz_nnc_crps_rail_comparison.md) / `examples/photoz_nnc_crps_rail_comparison.py`.
+
+For cross-framework baseline merging against RAIL tabular methods, see [Photo-z RAIL Baseline Comparison](photoz_rail_baseline_comparison.md) / `tools/photoz_rail_compare.py`.
+
 ## Background
 
 **Photometric redshift (photo-z)** estimation is a fundamental problem in modern cosmology. Spectroscopic redshifts are the gold standard but require expensive telescope time. Photometric redshifts use broadband imaging (just a few flux measurements through filters) to estimate redshift—enabling surveys of billions of galaxies.

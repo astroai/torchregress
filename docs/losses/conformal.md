@@ -1,6 +1,6 @@
 # Conformal Prediction
 
-The `torchregress.losses.conformal` module provides a unified interface for state-of-the-art conformal prediction methods for regression, leveraging the `torchcp` library as a backend.
+The `torchregress.losses.conformal` module provides a unified interface for modern conformal prediction methods for regression, leveraging the `torchcp` library as a backend.
 
 ## Installation
 

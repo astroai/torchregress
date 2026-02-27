@@ -2,6 +2,9 @@
 
 This guide provides practical advice on using torchregress effectively for various regression tasks.
 
+For a task-first shortlist before diving into implementation details, use the
+[Task-First Method Selection Matrix](../guides/method_selection_matrix.md).
+
 ## Choosing the Right Loss Function
 
 Selecting the appropriate loss function is crucial for successful regression modeling. Here's a decision tree to help you choose:
@@ -18,7 +21,7 @@ Selecting the appropriate loss function is crucial for successful regression mod
    - **No**: Standard point prediction losses are sufficient
 
 3. **Are you working with count data or non-negative values?**
-   - **Yes**: Consider `PoissonLoss` or `TweedieLoss`
+   - **Yes**: Consider `PoissonDevianceLoss` or `TweedieLoss`
    - **No**: Standard losses are appropriate
 
 4. **Do you need prediction intervals without distributional assumptions?**
@@ -26,7 +29,7 @@ Selecting the appropriate loss function is crucial for successful regression mod
    - **No**: Parametric uncertainty methods may be more efficient
 
 5. **Is there uncertainty in your input features (not just targets)?**
-   - **Yes**: Consider error-in-variables methods like `DemingLoss`
+   - **Yes**: Consider error-in-variables methods like `OrthogonalDistanceRegressionLoss`
    - **No**: Standard methods are appropriate
 
 ## Common Loss Function Combinations
@@ -67,7 +70,7 @@ loss_fn = tr.losses.CauchyLoss(scale=1.0)
 
 ```python
 # For robust keypoint regression
-loss_fn = tr.losses.WingLoss(width=5.0, curvature=0.5)
+loss_fn = tr.losses.CharbonnierLoss(eps=1e-3)
 
 # OR: For multi-modal outputs (e.g., multiple possible hand positions)
 loss_fn = tr.losses.MDNLoss(components=5)
@@ -120,7 +123,7 @@ for epoch in range(100):
         # Convert log variance to variance
         var = torch.exp(logvar)
         # Calculate loss
-        loss = loss_fn(mean, y_batch, var)
+        loss = loss_fn((mean, logvar), y_batch)
         # Backward and optimize
         optimizer.zero_grad()
         loss.backward()
@@ -166,7 +169,7 @@ with torch.no_grad():
     mpiw = torch.mean(upper - lower)
 
 # Visualization
-tr.viz.plot_predictions(X_test, y_test, mean, lower, upper)
+tr.viz.plot_prediction_intervals(mean, lower, upper, y_true=y_test)
 tr.viz.plot_calibration_curve(mean, std, y_test)
 tr.viz.plot_residuals(mean, y_test)
 ```
@@ -186,11 +189,11 @@ torchregress provides several ensemble approaches:
 models = [create_model() for _ in range(5)]
 ensemble = tr.ensemble.DeepEnsemble(models)
 
-# Snapshot ensemble (collect models during training)
-ensemble = tr.ensemble.SnapshotEnsemble(base_model, n_snapshots=5, cycle_length=20)
+# SWAG (posterior approximation over weights)
+ensemble = tr.ensemble.SWAG(base_model)
 
-# Bootstrapped ensemble (train on different bootstrap samples)
-ensemble = tr.ensemble.BootstrappedEnsemble(base_model, n_models=5)
+# MC-Dropout wrapper (cheap uncertainty baseline)
+ensemble = tr.ensemble.MCDropoutWrapper(base_model, n_samples=30)
 ```
 
 ## Performance Optimization
@@ -225,7 +228,7 @@ for epoch in range(100):
         with autocast(device_type="cuda", dtype=torch.float16):
             mean, logvar = model(X_batch)
             var = torch.exp(logvar)
-            loss = loss_fn(mean, y_batch, var)
+            loss = loss_fn((mean, logvar), y_batch)
         
         optimizer.zero_grad()
         scaler.scale(loss).backward()

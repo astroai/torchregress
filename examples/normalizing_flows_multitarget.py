@@ -20,6 +20,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from comparison_utils import (
+    compute_point_metrics,
+    print_comparison_summary,
+    print_fairness_notes,
+    timed_call,
+)
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
@@ -407,20 +413,68 @@ def main():
     # 3. Train
     print("\n3. Training model and flow jointly...")
     print("   (Both model and flow parameters are optimized together)")
-    train_flow_model(model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3)
+    _, train_s = timed_call(
+        train_flow_model, model, flow, loss_fn, train_loader, n_epochs=100, lr=1e-3
+    )
 
     # 4. Evaluate
     print("\n4. Generating predictions on test set...")
-    samples, mean, std = predict_with_flow(model, flow, loss_fn, x_test, n_samples=200)
+    (samples, mean, std), eval_s = timed_call(
+        predict_with_flow, model, flow, loss_fn, x_test, n_samples=200
+    )
 
     # Compute metrics
     mse_target1 = ((mean[:, 0] - y_test[:, 0]) ** 2).mean().item()
     mse_target2 = ((mean[:, 1] - y_test[:, 1]) ** 2).mean().item()
+    mae_target1 = (mean[:, 0] - y_test[:, 0]).abs().mean().item()
+    mae_target2 = (mean[:, 1] - y_test[:, 1]).abs().mean().item()
+    joint_point_metrics = compute_point_metrics(mean, y_test)
 
     print(f"\n   Test MSE (Target 1): {mse_target1:.4f}")
     print(f"   Test MSE (Target 2): {mse_target2:.4f}")
+    print(f"   Test MAE (Target 1): {mae_target1:.4f}")
+    print(f"   Test MAE (Target 2): {mae_target2:.4f}")
     print(f"   Mean uncertainty (Target 1): {std[:, 0].mean().item():.4f}")
     print(f"   Mean uncertainty (Target 2): {std[:, 1].mean().item():.4f}")
+    print_fairness_notes(
+        title="Normalizing Flows (Multi-Target)",
+        seed_policy="fixed seeds for synthetic train/test generation and training initialization",
+        train_budget="100 epochs, batch_size=64, joint optimization of backbone+flow",
+        metric_policy="per-target MSE/MAE plus aggregate point metrics and uncertainty means; runtime reported",
+    )
+    print_comparison_summary(
+        "Multi-Target Flow Summary",
+        [
+            {
+                "Method": "Conditional NF (NSF)",
+                "MSE": joint_point_metrics["MSE"],
+                "MAE": joint_point_metrics["MAE"],
+                "R2": joint_point_metrics["R2"],
+                "mse_t1": mse_target1,
+                "mse_t2": mse_target2,
+                "mae_t1": mae_target1,
+                "mae_t2": mae_target2,
+                "unc_t1": std[:, 0].mean().item(),
+                "unc_t2": std[:, 1].mean().item(),
+                "train_s": train_s,
+                "eval_s": eval_s,
+                "Notes": "single-method demo; compare against Gaussian/MDN baseline in a follow-up benchmark",
+            }
+        ],
+        metric_order=[
+            "MSE",
+            "MAE",
+            "R2",
+            "mse_t1",
+            "mse_t2",
+            "mae_t1",
+            "mae_t2",
+            "unc_t1",
+            "unc_t2",
+            "train_s",
+            "eval_s",
+        ],
+    )
 
     # 5. Visualize
     print("\n5. Creating visualizations...")

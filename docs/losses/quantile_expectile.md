@@ -186,7 +186,7 @@ import torch
 import torchregress as tr
 
 # Create SQR loss for 10th and 90th percentiles
-loss_fn = tr.losses.SQRLoss(lower_quantile=0.1, upper_quantile=0.9)
+loss_fn = SQRLoss(lower_quantile=0.1, upper_quantile=0.9)  # concept example
 
 # Model predictions: [batch_size, 2*n_features]
 # Here: 1 batch, 2 features

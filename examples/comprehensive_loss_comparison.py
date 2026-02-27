@@ -11,6 +11,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from comparison_utils import (
+    compute_point_metrics,
+    print_comparison_summary,
+    print_fairness_notes,
+    set_comparison_seed,
+    timed_call,
+)
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import (
@@ -22,9 +29,6 @@ from torchregress.losses import (
 from torchregress.metrics import (
     ContinuousRankedProbabilityScore,
     ExpectedCalibrationError,
-    MeanAbsoluteError,
-    MeanSquaredError,
-    R2Score,
 )
 
 
@@ -48,8 +52,7 @@ class SimpleMLP(nn.Module):
 
 def generate_data_with_outliers(n_samples=200, outlier_ratio=0.1, seed=42):
     """Generate synthetic data with outliers."""
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    set_comparison_seed(seed)
     x = torch.linspace(-5, 5, n_samples).reshape(-1, 1)
     y_true = 2 * x + 1 + torch.sin(x * 2)
     noise = torch.randn_like(x) * 0.5
@@ -77,7 +80,9 @@ def main():
     # --- 1. Data Preparation ---
     x, y, y_true, outlier_idx = generate_data_with_outliers()
     dataset = TensorDataset(x, y)
-    train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+    batch_size = 32
+    epochs = 100
+    learning_rate = 0.01
 
     # --- 2. Model and Loss Definitions ---
     losses_to_compare = {
@@ -93,7 +98,16 @@ def main():
 
     # --- 3. Training and Evaluation ---
     results = {}
-    for name, loss_fn in losses_to_compare.items():
+    summary_rows = []
+    for idx, (name, loss_fn) in enumerate(losses_to_compare.items()):
+        method_seed = 1000 + idx
+        set_comparison_seed(method_seed)
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            generator=torch.Generator().manual_seed(method_seed),
+        )
         print(f"Training with {name}...")
         if name == "GaussianNLL":
             model = SimpleMLP(output_dim=2)  # Predict mean and variance
@@ -103,42 +117,77 @@ def main():
         if isinstance(loss_fn, DensityWeightedLoss):
             loss_fn.fit_density(y)
 
-        train_model(model, loss_fn, train_loader)
+        _, train_seconds = timed_call(
+            train_model,
+            model,
+            loss_fn,
+            loader,
+            epochs=epochs,
+            lr=learning_rate,
+        )
 
         # Evaluation
-        model.eval()
-        with torch.no_grad():
-            y_pred = model(x)
-            if name == "GaussianNLL":
-                mean, log_var = torch.chunk(y_pred, 2, dim=-1)
-                var = torch.exp(log_var)
-                samples = torch.distributions.Normal(mean, var.sqrt()).sample((100,))
-                y_pred = mean
-            else:
-                samples = None
+        def _evaluate():
+            model.eval()
+            with torch.no_grad():
+                raw_pred = model(x)
+                if name == "GaussianNLL":
+                    mean, log_var = torch.chunk(raw_pred, 2, dim=-1)
+                    var = torch.exp(log_var)
+                    # Fix sampling RNG per method for stable comparison metrics.
+                    set_comparison_seed(method_seed + 10_000)
+                    samples = torch.distributions.Normal(mean, var.sqrt()).sample((100,))
+                    y_pred_local = mean
+                else:
+                    samples = None
+                    y_pred_local = raw_pred
 
-            # Point metrics
-            mse = MeanSquaredError()(y_pred, y).item()
-            mae = MeanAbsoluteError()(y_pred, y).item()
-            r2 = R2Score()(y_pred, y).item()
+                point_metrics = compute_point_metrics(y_pred_local, y)
+                mse = point_metrics["MSE"]
+                mae = point_metrics["MAE"]
+                r2 = point_metrics["R2"]
 
-            # Distribution and calibration metrics
-            crps = None
-            ece = None
-            if samples is not None:
-                quantiles = {q: torch.quantile(samples, q, dim=0) for q in np.arange(0.1, 1.0, 0.1)}
-                crps = ContinuousRankedProbabilityScore()(quantiles, y).item()
-                ece_quantiles = {
-                    q: torch.quantile(samples, q, dim=0) for q in np.arange(0.05, 1.0, 0.05)
-                }
-                ece_metrics = ExpectedCalibrationError()(ece_quantiles, y)
-                ece = ece_metrics["mean_absolute_calibration_error"].item()
+                crps = None
+                ece = None
+                if samples is not None:
+                    quantiles = {
+                        q: torch.quantile(samples, q, dim=0) for q in np.arange(0.1, 1.0, 0.1)
+                    }
+                    crps = ContinuousRankedProbabilityScore()(quantiles, y).item()
+                    ece_quantiles = {
+                        q: torch.quantile(samples, q, dim=0) for q in np.arange(0.05, 1.0, 0.05)
+                    }
+                    ece_metrics = ExpectedCalibrationError()(ece_quantiles, y)
+                    ece = ece_metrics["mean_absolute_calibration_error"].item()
 
-            results[name] = {
-                "model": model,
-                "y_pred": y_pred,
-                "metrics": {"MSE": mse, "MAE": mae, "R2": r2, "CRPS": crps, "ECE": ece},
+                return y_pred_local, {"MSE": mse, "MAE": mae, "R2": r2, "CRPS": crps, "ECE": ece}
+
+        (y_pred, metric_values), eval_seconds = timed_call(_evaluate)
+
+        results[name] = {
+            "model": model,
+            "y_pred": y_pred,
+            "metrics": {
+                **metric_values,
+                "train_s": train_seconds,
+                "eval_s": eval_seconds,
+            },
+        }
+        summary_rows.append(
+            {
+                "Method": name,
+                **results[name]["metrics"],
+                "Notes": "mean+variance head" if name == "GaussianNLL" else "",
             }
+        )
+
+    print_fairness_notes(
+        title="Comprehensive Loss Comparison",
+        seed_policy="per-method fixed seed; deterministic data generation and Gaussian sampling",
+        train_budget=f"{epochs} epochs, batch_size={batch_size}, lr={learning_rate}",
+        metric_policy="Common point metrics for all methods; CRPS/ECE only for probabilistic outputs",
+    )
+    print_comparison_summary("Comparison Summary (All Losses)", summary_rows)
 
     # --- 4. Visualization ---
     n_losses = len(losses_to_compare)

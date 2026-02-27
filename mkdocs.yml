@@ -76,6 +76,10 @@ nav:
       - Practical Usage: usage/practical_usage.md
   - Guides:
       - Concepts: guides/concepts.md
+      - Method Selection Matrix: guides/method_selection_matrix.md
+      - Choosing Methods by Constraint: guides/choosing_by_constraint.md
+      - Comparative Evidence Matrix: guides/comparative_evidence_matrix.md
+      - Method Catalog Snapshot: guides/method_catalog_generated.md
       - Best Practices: guides/best-practices.md
       - Debugging: guides/debugging.md
       - Performance: guides/performance.md
@@ -116,11 +120,22 @@ nav:
       - Loss Comparison: examples/loss_comparison.md
       - Ensemble Methods: examples/ensemble_methods.md
       - Photometric Redshift: examples/photoz.md
+      - Photo-z Benchmark Comparison (SDSS-style): examples/photoz_benchmark_comparison.md
+      - Photo-z NNC-CRPS + RAIL-Ready Comparison: examples/photoz_nnc_crps_rail_comparison.md
+      - Photo-z RAIL Baseline Comparison: examples/photoz_rail_baseline_comparison.md
       - Conformal Regression: examples/conformal_regression_example.md
       - Evidential Regression: examples/evidential_regression.md
       - Imbalanced Regression: examples/imbalanced_regression.md
       - Noisy Labels Regression: examples/noisy_labels_regression.md
+      - Noisy Label Comparison: examples/noisy_label_comparison.md
+      - Noisy Label Real-Data Comparison: examples/noisy_label_realdata_comparison.md
       - Normalizing Flows: examples/normalizing_flows_multitarget.md
+      - Multimodal Method Comparison: examples/multimodal_method_comparison.md
+      - Multimodal Method Comparison (Real Data Features): examples/multimodal_method_realdata_comparison.md
+      - OOD / Selective Prediction Comparison: examples/ood_selective_prediction_comparison.md
+      - OOD / Selective Prediction Comparison (Real Data): examples/ood_selective_prediction_realdata_comparison.md
+      - EIV Method Comparison: examples/eiv_method_comparison.md
+      - EIV Method Comparison (Real Data): examples/eiv_method_realdata_comparison.md
   - API Reference:
       - Overview: api/index.md
       - Losses: api/losses.md

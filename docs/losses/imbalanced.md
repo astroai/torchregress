@@ -166,8 +166,8 @@ with torch.no_grad():
     print(f"MAE on rare values: {mae_rare:.4f}")
 
 # Validate calibration (IMPORTANT!)
-from torchregress.metrics import calibration_error
-# cal_err = calibration_error(model, val_loader)
+from torchregress.metrics import calibration_score
+# cal = calibration_score(y_val, pred_mean, pred_std)
 # print(f"Calibration error: {cal_err:.4f}")
 ```
 
@@ -385,7 +385,8 @@ Balanced MSE (BMC) from CVPR 2022. Converts regression into a contrastive-like l
 **Example**:
 
 ```python
-from torchregress.losses import BalancedMSELoss
+# Concept example (not currently implemented in torchregress):
+# from torchregress.losses import BalancedMSELoss
 
 loss_fn = BalancedMSELoss(init_noise_sigma=0.1, learnable=True)
 
@@ -426,7 +427,8 @@ Uses sqrt(1/frequency) weighting instead of 1/frequency. This is safer than full
 **Example**:
 
 ```python
-from torchregress.losses import SQINVLoss
+# Concept example (not currently implemented in torchregress):
+# from torchregress.losses import SQINVLoss
 
 loss_fn = SQINVLoss(kernel_width=0.5, max_weight_ratio=100.0)
 loss_fn.fit(train_targets)  # Fit on training data
@@ -463,7 +465,8 @@ Simple and interpretable: bins targets and weights inversely by bin frequency. S
 **Example**:
 
 ```python
-from torchregress.losses import FrequencyWeightedLoss
+# Concept example (not currently implemented in torchregress):
+# from torchregress.losses import FrequencyWeightedLoss
 
 loss_fn = FrequencyWeightedLoss(n_bins=50, weighting="inv", max_weight=10.0)
 loss_fn.fit(train_targets)  # Compute bin frequencies
@@ -485,7 +488,7 @@ loss = loss_fn(y_pred, y_true)
 class DistLoss(RegressionLoss)
 ```
 
-State-of-the-art method from ICLR 2025. Combines sample-wise loss with a distribution alignment term that constrains sorted predictions to match the expected target distribution.
+Recent research method from ICLR 2025. Combines sample-wise loss with a distribution alignment term that constrains sorted predictions to match the expected target distribution.
 
 **Formula**: `L_total = L_sample(pred, target) + α * L_dist(sorted_pred, pseudo_labels)`
 
@@ -500,7 +503,8 @@ State-of-the-art method from ICLR 2025. Combines sample-wise loss with a distrib
 **Example**:
 
 ```python
-from torchregress.losses import DistLoss
+# Concept example (not currently implemented in torchregress):
+# from torchregress.losses import DistLoss
 
 loss_fn = DistLoss(n_bins=50, alpha=1.0, base_loss="mse", dist_loss="mae")
 loss_fn.fit(train_targets)  # Estimate label distribution
@@ -512,7 +516,7 @@ loss = loss_fn(y_pred, y_true)
 
 - ✅ Few-shot regions need improvement
 - ✅ Larger batch sizes (256+) for best results
-- ✅ Want latest SOTA method
+- ✅ Want a recent research method for few-shot regions
 
 **Reference**: Nie et al. "Dist Loss: Enhancing Regression in Few-shot Region through Distribution Distance Constraint" (ICLR 2025)
 
@@ -529,7 +533,7 @@ loss = loss_fn(y_pred, y_true)
 | **BalancedMSELoss** | ⭐⭐ Mostly preserved | ⭐⭐⭐ Excellent | Medium | Contrastive approach, learnable sigma |
 | **SQINVLoss** | ⚠️ May break | ⭐⭐⭐ Excellent | Medium | Safer than full inverse |
 | **FrequencyWeightedLoss** | ⚠️ May break | ⭐⭐ Good | Simple | Simple, interpretable |
-| **DistLoss** | ⚠️ May break | ⭐⭐⭐ Excellent | Medium | SOTA (ICLR 2025), few-shot regions |
+| **DistLoss** | ⚠️ May break | ⭐⭐⭐ Excellent | Medium | Recent research method (ICLR 2025), few-shot regions |
 
 ## Complete Example: Comparison
 

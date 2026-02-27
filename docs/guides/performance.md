@@ -81,3 +81,104 @@ model = compile_model(model, mode="default") # or "reduce-overhead"
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     ```
+
+## 5. Benchmark Regression Checks (CI)
+
+`torchregress` includes a lightweight benchmark harness for performance smoke checks and
+small scale sweeps:
+
+- `tools/benchmark_smoke.py`
+
+### Stable CI Invocation (CPU)
+
+Use warmup and at least 2 iterations to reduce cold-start noise:
+
+```bash
+python -m tools.benchmark_smoke \
+  --mode smoke \
+  --iterations 2 \
+  --warmup 1 \
+  --device cpu \
+  --thresholds reports/benchmark_thresholds/cpu/smoke.json \
+  --fail-on-thresholds
+
+python -m tools.benchmark_smoke \
+  --mode sweep \
+  --iterations 2 \
+  --warmup 1 \
+  --device cpu \
+  --thresholds reports/benchmark_thresholds/cpu/sweep.json \
+  --fail-on-thresholds
+```
+
+### Threshold Baseline Layout (Per Device)
+
+- CPU smoke thresholds: `reports/benchmark_thresholds/cpu/smoke.json`
+- CPU sweep thresholds: `reports/benchmark_thresholds/cpu/sweep.json`
+- CUDA sweep thresholds (reserved path for future CI/hardware baselines): `reports/benchmark_thresholds/cuda/sweep.json`
+
+### Benchmark Report Summaries
+
+Convert JSON benchmark reports into Markdown tables for audit/docs updates:
+
+```bash
+python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json
+python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name
+```
+
+CI also renders and uploads Markdown summaries as artifacts (`benchmark-cpu-summaries`):
+
+- `reports/benchmark_smoke_latest.md`
+- `reports/benchmark_sweep_latest.md`
+
+Committed baseline snapshot (docs-visible):
+
+- [Benchmark CPU Baselines (2026-02-26)](../audits/benchmark_cpu_baselines_2026-02-26.md)
+
+### Refreshing Threshold Baselines
+
+Re-generate a sweep report and derive thresholds (example for CPU):
+
+```bash
+python -m tools.benchmark_smoke \
+  --mode sweep \
+  --iterations 2 \
+  --warmup 0 \
+  --device cpu \
+  --output reports/benchmark_sweep_cpu_YYYY-MM-DD.json \
+  --write-thresholds reports/benchmark_thresholds/cpu/sweep.json \
+  --threshold-multiplier 6.0 \
+  --threshold-floor-ms 3.0
+```
+
+Re-generate a smoke report and derive smoke thresholds:
+
+```bash
+python -m tools.benchmark_smoke \
+  --mode smoke \
+  --iterations 2 \
+  --warmup 1 \
+  --device cpu \
+  --output reports/benchmark_smoke_YYYY-MM-DD.json \
+  --write-thresholds reports/benchmark_thresholds/cpu/smoke.json \
+  --threshold-multiplier 6.0 \
+  --threshold-floor-ms 3.0
+```
+
+### CUDA-Ready Benchmark Plan (Placeholder)
+
+`torchregress` currently enforces CPU benchmark thresholds in CI. For future GPU CI:
+
+- keep separate baselines per GPU class / runner image
+- derive thresholds with higher iteration counts than CPU smoke checks
+- version and document the runner hardware in the benchmark artifact
+- only enable hard failures after baseline stability is confirmed
+
+The reserved path for a future CUDA sweep baseline is `reports/benchmark_thresholds/cuda/sweep.json`.
+
+Notes:
+
+- The threshold multiplier/floor are intentionally conservative for CI stability on hosted runners
+  (small sub-millisecond kernels can show occasional jitter spikes).
+- For local profiling or true performance comparisons, use a dedicated benchmark workflow with
+  more iterations, repeated runs, and controlled hardware.

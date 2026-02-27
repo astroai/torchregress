@@ -2,6 +2,11 @@
 
 torchregress provides a comprehensive collection of loss functions for regression tasks, ranging from basic losses to advanced uncertainty-aware losses.
 
+Task-first entry point (recommended): use the
+[Task-First Method Selection Matrix](../guides/method_selection_matrix.md) when you are
+choosing between loss families for outliers, multimodal targets, calibration, OOD
+robustness, imbalance, or noisy features.
+
 ## Loss Categories
 
 The library organizes loss functions into several categories:
@@ -122,3 +127,5 @@ Apply transformations to the target variable before computing the loss:
 | Accounting for input errors | `DemingLoss` or `ODRLoss` |
 
 For detailed guidance on loss selection, see the [practical usage guide](../usage/practical_usage.md).
+
+For end-to-end comparisons and runtime tradeoffs, see the [examples index](../examples/index.md).

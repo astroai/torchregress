@@ -2,6 +2,9 @@
 
 This guide provides a quick introduction to torchregress for regression and uncertainty estimation.
 
+For task-first method selection (outliers, calibration, OOD, multimodal, imbalance, noisy
+features), see the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md).
+
 ## Basic Usage
 
 Here's a minimal example to get started with torchregress:
@@ -136,7 +139,7 @@ for epoch in range(200):
     # Forward pass
     mean, logvar = model(X_train)
     var = torch.exp(logvar)
-    loss = loss_fn(mean, y_train, var)
+    loss = loss_fn((mean, logvar), y_train)
     
     # Backward pass and optimize
     optimizer.zero_grad()

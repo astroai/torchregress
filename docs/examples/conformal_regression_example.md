@@ -2,6 +2,26 @@
 
 This example demonstrates how to use the conformal prediction methods in torchregress to obtain prediction intervals with guaranteed coverage.
 
+## Task-First Context
+
+Use this example when you need **prediction intervals with coverage guarantees**. For
+task-level comparison across conformal, quantile, Gaussian, and ensemble methods, start
+with the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md) and
+the comparison script `examples/evaluate_conformal_methods.py`.
+
+## Comparison / Fairness Notes
+
+- Compare methods on the same train/calibration/test split.
+- Report both empirical coverage and interval width (coverage alone is not enough).
+- Keep base model capacity and training budget comparable across conformal variants.
+- Re-run across multiple seeds when using learned quantile models (CQR).
+
+## When This Approach Fails
+
+- Conformal can produce very wide intervals if the base model is poor or the problem is highly shifted.
+- Coverage guarantees do not provide epistemic/aleatoric decomposition.
+- Multi-output conformal intervals can be conservative; check per-dimension coverage and width.
+
 ## Code
 
 ```python
