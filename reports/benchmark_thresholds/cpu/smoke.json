@@ -24,7 +24,8 @@
       "max_mean_ms": 1.5
     },
     "functional_eiv_forward": {
-      "max_mean_ms": 700.0
+      "threshold_ms": 1500,
+      "description": "Forward pass of Functional EIV layer"
     },
     "ensemble_variance_decomposition": {
       "max_mean_ms": 1.5

@@ -16,28 +16,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        python-version: "3.12"
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
-
-    - name: Install torch CPU-only first
-      run: |
-        uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
-
-    - name: Install package with test dependencies
-      run: |
-        uv pip install --system -e ".[test,flows]"
+        pixi-version: v0.41.4
+        cache: true
 
     - name: Run tests
       run: |
-        pytest --cov=torchregress --cov-report=xml --cov-report=term
+        pixi run pytest --cov=torchregress --cov-report=xml --cov-report=term
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -49,59 +36,37 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        python-version: "3.12"
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
-
-    - name: Install dev dependencies
-      run: |
-        uv pip install --system -e ".[dev]"
+        pixi-version: v0.41.4
+        cache: true
 
     - name: Run ruff
       run: |
-        ruff check .
+        pixi run ruff check .
 
     - name: Run black
       run: |
-        black --check .
+        pixi run black --check .
 
   benchmark-thresholds-cpu:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        python-version: "3.12"
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
-
-    - name: Install torch CPU-only first
-      run: |
-        uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
-
-    - name: Install package with test dependencies
-      run: |
-        uv pip install --system -e ".[test]"
+        pixi-version: v0.41.4
+        cache: true
 
     - name: Run benchmark smoke threshold check (CPU)
       env:
         OMP_NUM_THREADS: "1"
         MKL_NUM_THREADS: "1"
       run: |
-        python -m tools.benchmark_smoke \
+        pixi run python -m tools.benchmark_smoke \
           --mode smoke \
           --iterations 2 \
           --warmup 1 \
@@ -114,7 +79,7 @@ jobs:
         OMP_NUM_THREADS: "1"
         MKL_NUM_THREADS: "1"
       run: |
-        python -m tools.benchmark_smoke \
+        pixi run python -m tools.benchmark_smoke \
           --mode sweep \
           --iterations 2 \
           --warmup 1 \
@@ -135,8 +100,8 @@ jobs:
     - name: Render benchmark markdown summaries (CPU)
       if: always()
       run: |
-        python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
-        python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
+        pixi run python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
+        pixi run python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
 
     - name: Upload benchmark markdown summaries (CPU)
       uses: actions/upload-artifact@v4
@@ -151,7 +116,7 @@ jobs:
     - name: Render review readiness packet
       if: always()
       run: |
-        python tools/render_review_packet.py
+        pixi run python tools/render_review_packet.py
 
     - name: Upload review readiness packet artifacts
       uses: actions/upload-artifact@v4
@@ -174,42 +139,28 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        python-version: "3.12"
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
-
-    - name: Install torch CPU-only first
-      run: |
-        uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
-
-    - name: Install package with test + flow dependencies
-      run: |
-        uv pip install --system -e ".[test,flows]"
+        pixi-version: v0.41.4
+        cache: true
 
     - name: Run flow-enabled example smoke tests
       run: |
-        pytest -q \
+        pixi run pytest -q \
           tests/test_examples_smoke.py::test_normalizing_flows_multitarget_main_smoke \
           tests/test_examples_smoke.py::test_multimodal_method_comparison_main_smoke
 
     - name: Render comparison example summaries (audit profile)
       run: |
-        python tools/render_example_summaries.py --profile audit
+        pixi run python tools/render_example_summaries.py --profile audit
 
     - name: Render comparison example summaries (full profile)
       run: |
-        python tools/render_example_summaries.py --profile full
+        pixi run python tools/render_example_summaries.py --profile full
 
     - name: Compare audit vs full example summary profiles
       run: |
-        python tools/compare_example_summary_profiles.py \
+        pixi run python tools/compare_example_summary_profiles.py \
           --base-dir reports/example_summaries \
           --source-profile audit \
           --target-profile full \
@@ -217,7 +168,7 @@ jobs:
 
     - name: Check full-profile example summary thresholds
       run: |
-        python tools/example_summary_thresholds.py \
+        pixi run python tools/example_summary_thresholds.py \
           --base-dir reports/example_summaries \
           --profile full \
           --thresholds reports/example_summaries/thresholds_full.json \
