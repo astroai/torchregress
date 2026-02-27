@@ -81,6 +81,7 @@ docs/api/
 
 # Local datasets and experiment outputs
 data/
+!tests/data/
 output/
 results/
 benchmarks/output/
