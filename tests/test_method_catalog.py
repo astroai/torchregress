@@ -28,6 +28,10 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     decomp_names = {row["name"] for row in decomposition}
     assert {"HeteroscedasticEnsembleModel", "HeteroscedasticBNN", "MDNLoss"} <= decomp_names
 
+    inference = method_catalog.list_methods(task_tag="inference")
+    inference_names = {row["name"] for row in inference}
+    assert "PredictionPoweredInference" in inference_names
+
 
 def test_method_catalog_is_exposed_via_top_level_module_namespace() -> None:
     assert hasattr(tr, "method_catalog")
@@ -45,6 +49,7 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
     assert {
         "Imbalanced / rare-target regression",
         "Calibrated intervals with coverage guarantees",
+        "Population inference with few labels",
         "OOD scoring / selective prediction",
         "Noisy features / measurement error",
         "Multimodal targets",

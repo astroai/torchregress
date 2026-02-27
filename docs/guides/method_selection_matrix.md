@@ -54,6 +54,7 @@ _Generated date_: `2026-02-26`
 | Noisy labels / label corruption | `HuberLoss` | `DeepEnsemble`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
 | Imbalanced / rare-target regression | `DensityWeightedLoss` | `LDSLoss` | Check calibration after aggressive reweighting. |
 | Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
+| Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | OOD scoring / selective prediction | `DeepEnsemble + OOD metrics` | `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics` | Use multiple signals; no single OOD score is sufficient. |
 <!-- END:TASK_MATRIX_GENERATED -->
 
@@ -78,6 +79,7 @@ _Generated date_: `2026-02-26`
 | `ensemble` (2) | yes | no | partial | yes | yes | yes | partial | yes | no | no |
 | `flow` (1) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` (2) | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` (1) | yes | yes | yes | no | yes | yes | partial | partial | no | no |
 | `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
@@ -129,6 +131,7 @@ _Generated date_: `2026-02-26`
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Strong` | yes | no | no | no | no | partial | partial |
 | `LDSLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | yes | no | yes | partial | partial | partial | partial |
 | `MDNLoss` | `mdn` | `Available` | yes | yes | no | yes | yes | partial | partial |
 | `WeightedMSELoss` | `point_loss` | `Core` | yes | no | no | no | no | partial | partial |
@@ -152,6 +155,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `ensemble` | 2 | yes | no | partial | yes | yes | yes | partial | yes | no | no |
 | `flow` | 1 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` | 2 | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` | 1 | yes | yes | yes | no | yes | yes | partial | partial | no | no |
 | `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |

@@ -14,6 +14,7 @@ EXPECTED_EXPORTS = {
         "algorithms",
         "ensemble",
         "method_catalog",
+        "inference",
         "viz",
         "utils",
         "BaseLoss",

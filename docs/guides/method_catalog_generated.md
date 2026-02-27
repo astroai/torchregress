@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `21`
+- Total methods: `22`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -21,6 +21,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `ensemble` | 2 |
 | `flow` | 1 |
 | `imbalanced_loss` | 2 |
+| `inference` | 1 |
 | `mc_dropout` | 1 |
 | `mdn` | 1 |
 | `point_loss` | 1 |
@@ -35,7 +36,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 6 |
 | `Strong` | 5 |
-| `Available` | 10 |
+| `Available` | 11 |
 
 ## Method Rows
 
@@ -54,6 +55,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Strong` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.DensityWeightedLoss` |
 | `LDSLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.LDSLoss` |
+| `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | `epistemic_uq`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MCDropoutWrapper` |
 | `MDNLoss` | `mdn` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.losses.MDNLoss` |
 | `WeightedMSELoss` | `point_loss` | `Core` | `baseline` | `calibration*`, `ood*` | `torchregress.losses.WeightedMSELoss` |

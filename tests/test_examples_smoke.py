@@ -46,6 +46,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("multimodal_method_realdata_comparison")
     _load_example_module("photoz_benchmark_comparison")
     _load_example_module("photoz_nnc_crps_rail_comparison")
+    _load_example_module("ppi_photoz_inference_comparison")
 
     # Optional dependency path (zuko/flow backend) may not be present in all environments.
     try:
@@ -340,5 +341,15 @@ def test_multimodal_method_realdata_comparison_main_smoke() -> None:
         eval_samples=8,
         flow_context_dim=4,
         flow_transforms=2,
+    )
+    mod.main(cfg)
+
+
+def test_ppi_photoz_inference_comparison_main_smoke() -> None:
+    mod = _load_example_module("ppi_photoz_inference_comparison")
+    cfg = mod.PPIPhotoZConfig(
+        n_labeled=64,
+        n_unlabeled=320,
+        n_boot=120,
     )
     mod.main(cfg)

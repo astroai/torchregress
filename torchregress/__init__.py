@@ -25,6 +25,7 @@ _LAZY_SUBMODULES = {
     "algorithms",
     "ensemble",
     "method_catalog",
+    "inference",
     "viz",
     "utils",
 }
@@ -49,6 +50,7 @@ __all__ = [
     "algorithms",
     "ensemble",
     "method_catalog",
+    "inference",
     "viz",
     "utils",
     # Core classes

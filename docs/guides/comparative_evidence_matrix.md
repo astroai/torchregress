@@ -6,9 +6,9 @@ _Generated date_: `2026-02-26`
 
 ## Summary
 
-- Task rows: `7`
+- Task rows: `8`
 - Decision-grade rows: `2`
-- Strong-or-better rows: `7`
+- Strong-or-better rows: `8`
 
 ## Coverage Matrix
 
@@ -19,6 +19,8 @@ _Generated date_: `2026-02-26`
 | Imbalanced / rare-target regression | `Strong` | `examples/imbalanced_regression.py` | shared split, summary tables | tail vs dense metrics, calibration, runtime | `DensityWeightedLoss`, `LDSLoss` | Needs more model-family comparisons beyond reweighting losses. |
 | Calibrated intervals / coverage | `Strong` | `examples/evaluate_conformal_methods.py`, `examples/photoz_benchmark_comparison.py`, `examples/photoz_nnc_crps_rail_comparison.py` | shared evaluation budget, coverage/width summaries, shared train budget | coverage, interval width, runtime, domain error metrics | `ConformalLoss`, `QuantileLoss`, `GaussianNLLLoss` | Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) needed for stronger generalization claims. |
 |  |  |  |  |  |  | _Note_: Photo-z benchmark adds domain-realistic coverage/width evaluation for Gaussian and quantile intervals alongside photo-z metrics; conformal method comparisons remain the primary coverage-guarantee benchmark. Ordered-bin NNC-CRPS-style comparisons are available in examples/photoz_nnc_crps_rail_comparison.py. |
+| Population/parameter inference (few labels) | `Strong` | `examples/ppi_photoz_inference_comparison.py` | fixed seed, shared labeled/unlabeled split, runtime summaries | estimate bias, CI width, CI coverage, runtime | `PredictionPoweredInference`, `labeled-only baseline` | Needs more than one real-data benchmark for generalization claims. |
+|  |  |  |  |  |  | _Note_: Prediction-powered inference example demonstrates mean/quantile/OLS coefficient intervals with diagnostics under small-label settings. |
 | OOD robustness / selective prediction | `Decision-grade` | `examples/ood_selective_prediction_comparison.py`, `examples/ood_selective_prediction_realdata_comparison.py`, `examples/comprehensive_comparison.py` | fixed seeds, shared synthetic ID/OOD splits, shared train budget | ID/OOD MSE, AURC, rejection policy, OOD uncertainty gap, runtime | `DeepEnsemble`, `HeteroscedasticEnsembleModel`, `MCDropoutWrapper`, `SWAG`, `BayesianNeuralNetwork` | Needs multiple real-data OOD/selective benchmarks (beyond one covariate-shift proxy) for stronger external validity and regression tracking. |
 |  |  |  |  |  |  | _Note_: Dedicated OOD/selective examples now include synthetic and real-data (Diabetes covariate-shift proxy) comparisons with SWAG and BNN under shared budgets; committed smoke/audit/full JSON summary artifacts are available. |
 | Multimodal / multi-target non-Gaussian | `Strong` | `examples/multimodal_method_comparison.py`, `examples/multimodal_method_realdata_comparison.py`, `examples/normalizing_flows_multitarget.py` | fixed seeds, shared synthetic / real-covariate multimodal splits, shared train budget | point metrics, NLL, energy score, marginal calibration error, runtime | `GaussianNLLLoss`, `MDNLoss`, `NormalizingFlowLoss` | Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal targets on real covariates) and optional-dependency CI coverage for zuko flow runs. |

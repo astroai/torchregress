@@ -153,6 +153,19 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Coverage guarantees, not epistemic/aleatoric decomposition.",
     ),
     MethodMetadata(
+        name="PredictionPoweredInference",
+        family="inference",
+        public_path="torchregress.inference.ppi_mean_ci",
+        task_tags=("inference", "limited_labels", "population_estimation"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes=(
+            "Frequentist population/parameter inference layer that combines "
+            "small labeled sets with larger prediction-only sets."
+        ),
+    ),
+    MethodMetadata(
         name="MDNLoss",
         family="mdn",
         public_path="torchregress.losses.MDNLoss",
@@ -362,6 +375,12 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         notes="Conformal gives coverage, not UQ decomposition.",
     ),
     TaskRecommendation(
+        task="Population inference with few labels",
+        recommended_start="PredictionPoweredInference",
+        strong_alternatives=("ConformalLoss", "QuantileLoss"),
+        notes="Use PPI for means/quantiles/regression coefficients with limited labels.",
+    ),
+    TaskRecommendation(
         task="OOD scoring / selective prediction",
         recommended_start="DeepEnsemble + OOD metrics",
         strong_alternatives=("SWAG + OOD metrics", "BayesianNeuralNetwork + OOD metrics"),
@@ -477,6 +496,19 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "quantile intervals alongside photo-z metrics; conformal method comparisons remain "
             "the primary coverage-guarantee benchmark. Ordered-bin NNC-CRPS-style comparisons "
             "are available in examples/photoz_nnc_crps_rail_comparison.py."
+        ),
+    ),
+    ComparativeEvidenceRow(
+        task="Population/parameter inference (few labels)",
+        examples=("examples/ppi_photoz_inference_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=("fixed seed", "shared labeled/unlabeled split", "runtime summaries"),
+        metrics_coverage=("estimate bias", "CI width", "CI coverage", "runtime"),
+        peer_methods_visible=("PredictionPoweredInference", "labeled-only baseline"),
+        gaps="Needs more than one real-data benchmark for generalization claims.",
+        notes=(
+            "Prediction-powered inference example demonstrates mean/quantile/OLS coefficient "
+            "intervals with diagnostics under small-label settings."
         ),
     ),
     ComparativeEvidenceRow(

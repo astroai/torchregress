@@ -262,6 +262,26 @@ def _photoz_nnc_config(module: Any, profile: str) -> Any:
     )
 
 
+def _ppi_photoz_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.PPIPhotoZConfig(
+            n_labeled=64,
+            n_unlabeled=320,
+            n_boot=120,
+        )
+    if profile == "audit":
+        return module.PPIPhotoZConfig(
+            n_labeled=160,
+            n_unlabeled=1200,
+            n_boot=320,
+        )
+    return module.PPIPhotoZConfig(
+        n_labeled=256,
+        n_unlabeled=3000,
+        n_boot=600,
+    )
+
+
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ood_selective_prediction_comparison": {
         "filename": "ood_selective_prediction_comparison",
@@ -302,6 +322,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "photoz_nnc_crps_rail_comparison": {
         "filename": "photoz_nnc_crps_rail_comparison",
         "config_factory": _photoz_nnc_config,
+    },
+    "ppi_photoz_inference_comparison": {
+        "filename": "ppi_photoz_inference_comparison",
+        "config_factory": _ppi_photoz_config,
     },
 }
 

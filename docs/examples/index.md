@@ -35,6 +35,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/noisy_label_realdata_comparison.py`: real-data (Diabetes) label-corruption comparison with shared calibration metrics
 - `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/EIV tradeoffs with photo-z metrics
 - `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison (examples-only) with calibration + PDF metrics
+- `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 
 When comparing methods, prefer examples that document:
@@ -163,6 +164,12 @@ A real-world application for astronomy:
 - Adapter workflow to merge torchregress photo-z summary artifacts with RAIL tabular baseline outputs.
 - Core baseline set: `flexzboost`, `pzflow`, `delight`, `bpz` (optional `lephare`).
 - Manifest-based parity mode enforces dataset/split/method consistency with the intended paper-comparison setup.
+
+### [PPI Photo-z Inference Comparison](ppi_photoz_inference_comparison.md)
+
+- Compares labeled-only vs prediction-powered confidence intervals for mean and high-quantile targets.
+- Designed for low-label settings where a larger prediction-only pool is available.
+- Emits summary artifacts with estimate error, CI width, and truth-coverage diagnostics.
 
 ### [Conformal Regression](conformal_regression_example.md)
 

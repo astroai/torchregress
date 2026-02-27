@@ -450,6 +450,45 @@ def test_photoz_nnc_crps_rail_comparison_writes_summary_json(tmp_path: Path) -> 
         _assert_non_negative(rows[method]["PITChi2"])
 
 
+def test_ppi_photoz_inference_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("ppi_photoz_inference_comparison")
+    out = tmp_path / "ppi_photoz_summary.json"
+    cfg = mod.PPIPhotoZConfig(
+        n_labeled=64,
+        n_unlabeled=320,
+        n_boot=120,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="inference",
+        required_methods={
+            "LabeledOnlyMeanCI",
+            "PPIMeanCI",
+            "LabeledOnlyQuantileCI",
+            "PPIQuantileCI",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "LabeledOnlyMeanCI",
+        "PPIMeanCI",
+        "LabeledOnlyQuantileCI",
+        "PPIQuantileCI",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            ["Estimate", "AbsError", "CIWidth", "CoversTruth", "train_s", "eval_s", "Notes"],
+        )
+        _assert_non_negative(row["AbsError"])
+        _assert_non_negative(row["CIWidth"])
+        _assert_probability(row["CoversTruth"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_noisy_label_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("noisy_label_comparison")
     out = tmp_path / "noisy_label_summary.json"
