@@ -15,13 +15,13 @@ from torch.utils.data import DataLoader, IterableDataset, TensorDataset
 from ..losses.base import (
     WeightedLossWrapper,
 )
-from ..utils.validation import check_tensor
 from ..losses.gaussian import (
     GaussianNLLLoss,
     LowRankGaussianLoss,
     MultivariateGaussianLoss,
 )
 from ..losses.robust import TukeyBiweightLoss
+from ..utils.validation import check_tensor
 
 
 class CallbackFn(Protocol):
