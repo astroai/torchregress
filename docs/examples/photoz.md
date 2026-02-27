@@ -9,6 +9,7 @@ For a **standardized shared-budget comparison benchmark** (with machine-readable
 For an **ordered-bin regression-as-classification track** (NNC-CRPS-style, intentionally examples-only), see [Photo-z NNC-CRPS + RAIL-Ready Comparison](photoz_nnc_crps_rail_comparison.md) / `examples/photoz_nnc_crps_rail_comparison.py`.
 
 For cross-framework baseline merging against RAIL tabular methods, see [Photo-z RAIL Baseline Comparison](photoz_rail_baseline_comparison.md) / `tools/photoz_rail_compare.py`.
+For one-command manifest-driven collection + merge (including `nnc_crps` preset bootstrap), use `tools/photoz_rail_pipeline.py`.
 
 ## Background
 

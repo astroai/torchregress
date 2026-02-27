@@ -34,3 +34,9 @@ Metrics in the summary rows include:
 - `CRPS`, `PDF_NLL`, `PITChi2`
 - `NativeCov90`, `NativeWidth90`
 - `train_s`, `eval_s`, `calibrate_s`
+
+For manifest-driven RAIL data collection + merged baseline comparison, run:
+
+```bash
+uv run python tools/photoz_rail_pipeline.py --preset nnc_crps --profile full
+```

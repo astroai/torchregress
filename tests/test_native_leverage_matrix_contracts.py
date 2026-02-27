@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 ALLOWED_DECISIONS = {"Keep custom", "Wrap native", "Replace with native", "Hybrid"}
 REQUIRED_AREAS = {
     "standard_point_losses": "Hybrid",

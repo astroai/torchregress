@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import sys
 from pathlib import Path
 from typing import Any
 
+from tools import photoz_rail_compare
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "reports" / "example_summaries"
+DEFAULT_PHOTOZ_RAIL_MANIFEST = REPO_ROOT / "data" / "rail" / "rail_photoz_manifest.json"
 
 
 def _import_example_module(module_name: str) -> Any:
@@ -325,6 +329,10 @@ def render_all(
     profile: str,
     output_dir: Path,
     examples: list[str] | None = None,
+    photoz_rail_inputs: list[Path] | None = None,
+    photoz_rail_manifest: Path | None = None,
+    photoz_rail_output: Path | None = None,
+    photoz_rail_paper_parity: bool = True,
 ) -> list[Path]:
     names = examples or list(EXAMPLE_SPECS.keys())
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -333,7 +341,51 @@ def render_all(
         path = render_example_summary(name, profile=profile, output_dir=output_dir)
         print(f"Wrote {name} summary -> {path}")
         paths.append(path)
+
+    if photoz_rail_inputs:
+        manifest_path = photoz_rail_manifest or DEFAULT_PHOTOZ_RAIL_MANIFEST
+        tr_summary_path = output_dir / f"photoz_nnc_crps_rail_comparison_{profile}.json"
+        if not tr_summary_path.exists():
+            raise FileNotFoundError(
+                "RAIL merge requested but torchregress photo-z summary is missing: "
+                f"{tr_summary_path}. Include `photoz_nnc_crps_rail_comparison` in --examples "
+                "or render it first."
+            )
+        out_path = photoz_rail_output or (
+            output_dir / f"photoz_rail_baseline_comparison_{profile}.json"
+        )
+        merged_path = render_photoz_rail_merge(
+            manifest_path=manifest_path,
+            torchregress_summary_path=tr_summary_path,
+            rail_input_paths=photoz_rail_inputs,
+            output_path=out_path,
+            paper_parity=photoz_rail_paper_parity,
+        )
+        print(f"Wrote photo-z RAIL merged summary -> {merged_path}")
+        paths.append(merged_path)
     return paths
+
+
+def render_photoz_rail_merge(
+    *,
+    manifest_path: Path,
+    torchregress_summary_path: Path,
+    rail_input_paths: list[Path],
+    output_path: Path,
+    paper_parity: bool,
+) -> Path:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    tr_summary = json.loads(torchregress_summary_path.read_text(encoding="utf-8"))
+    rail_payloads = [json.loads(path.read_text(encoding="utf-8")) for path in rail_input_paths]
+    merged = photoz_rail_compare.merge_summaries(
+        manifest=manifest,
+        torchregress_summary=tr_summary,
+        rail_payloads=rail_payloads,
+        paper_parity=paper_parity,
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+    return output_path
 
 
 def main() -> None:
@@ -358,8 +410,42 @@ def main() -> None:
         choices=sorted(EXAMPLE_SPECS.keys()),
         help="Optional subset of examples to render",
     )
+    parser.add_argument(
+        "--photoz-rail-inputs",
+        type=Path,
+        nargs="+",
+        help=(
+            "Optional RAIL payload JSON files. When set, also emits merged "
+            "photo-z comparison artifact."
+        ),
+    )
+    parser.add_argument(
+        "--photoz-rail-manifest",
+        type=Path,
+        default=DEFAULT_PHOTOZ_RAIL_MANIFEST,
+        help="Manifest used for paper-parity checks during RAIL merge.",
+    )
+    parser.add_argument(
+        "--photoz-rail-output",
+        type=Path,
+        default=None,
+        help="Optional explicit output path for merged photo-z RAIL artifact.",
+    )
+    parser.add_argument(
+        "--no-photoz-rail-parity",
+        action="store_true",
+        help="Disable strict manifest parity checks for the optional RAIL merge.",
+    )
     args = parser.parse_args()
-    render_all(profile=args.profile, output_dir=args.output_dir, examples=args.examples)
+    render_all(
+        profile=args.profile,
+        output_dir=args.output_dir,
+        examples=args.examples,
+        photoz_rail_inputs=args.photoz_rail_inputs,
+        photoz_rail_manifest=args.photoz_rail_manifest,
+        photoz_rail_output=args.photoz_rail_output,
+        photoz_rail_paper_parity=not args.no_photoz_rail_parity,
+    )
 
 
 if __name__ == "__main__":
