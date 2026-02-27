@@ -2,7 +2,7 @@
 Advanced ensemble methods for regression with uncertainty quantification.
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
 import torch
 import torch.nn as nn
@@ -89,7 +89,7 @@ class StackingEnsemble(nn.Module):
         Calculate stacking ensemble loss.
         """
         preds = torch.cat([model(x) for model in self.models], dim=1)
-        return self.meta_learner(preds)
+        return cast(Tensor, self.meta_learner(preds))
 
 
 class DynamicEnsembleWeighting(nn.Module):

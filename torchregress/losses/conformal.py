@@ -13,6 +13,9 @@ Predictors
 - DistributionalConformal: PIT-based approximate conditional coverage
 - R2CConformal: regression-as-classification for multimodal targets
 - MultiTargetConformal: per-dimension calibration for multi-output
+- DensityConformal: density-adaptive split conformal for long-tail targets
+- PrevalenceAdjustedCP: group-prevalence adjusted split conformal
+- MonteCarloConformal: MC-sample conformal with uncertainty-normalized scores
 
 Composable features (all predictors):
 - Normalized scores (difficulty-adaptive intervals)
@@ -220,7 +223,7 @@ class ConformalPredictor:
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError(
-                "Predictor must be calibrated before making predictions. " "Call calibrate() first."
+                "Predictor must be calibrated before making predictions. Call calibrate() first."
             )
 
         difficulty = None
@@ -888,8 +891,358 @@ class MultiTargetConformal(ConformalPredictor):
         """Return per-dimension calibrated intervals."""
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Call calibrate() first.")
+        if isinstance(self.q_hat, dict):
+            raise RuntimeError("MultiTargetConformal expects tensor q_hat, got grouped thresholds.")
         q = self.q_hat.to(y_pred.device)
         return self._build_intervals(y_pred, q)
+
+
+# ---------------------------------------------------------------------------
+# Density-/prevalence-aware Conformal Predictors
+# ---------------------------------------------------------------------------
+
+
+class DensityConformal(ConformalPredictor):
+    """Density-adaptive split conformal prediction.
+
+    Calibrates residual scores normalized by local target density so that low-density
+    regions receive wider intervals by default.
+
+    Args:
+        alpha: Miscoverage rate.
+        bandwidth: Gaussian KDE bandwidth for 1-D density estimates.
+        min_density: Lower clamp for numerical stability.
+        adapt_prediction: If True, estimate density at prediction time from y_pred.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        bandwidth: float = 0.25,
+        min_density: float = 1e-4,
+        adapt_prediction: bool = True,
+    ) -> None:
+        if bandwidth <= 0:
+            raise ValueError("bandwidth must be positive")
+        super().__init__(alpha=alpha, normalize_fn=self._density_normalizer)
+        self.bandwidth = bandwidth
+        self.min_density = min_density
+        self.adapt_prediction = adapt_prediction
+        self._reference_target_1d: Optional[Tensor] = None
+        self._calibration_density_mean: Optional[float] = None
+
+    def _density_normalizer(self, y_pred: Tensor, x: Tensor) -> Tensor:
+        return x.clamp(min=self.min_density).sqrt()
+
+    @staticmethod
+    def _to_1d(values: Tensor) -> Tensor:
+        if values.dim() == 1:
+            return values
+        return values.reshape(values.shape[0], -1).mean(dim=-1)
+
+    def _kde_density_1d(self, query: Tensor, reference: Tensor) -> Tensor:
+        q = query.reshape(-1, 1)
+        r = reference.reshape(1, -1)
+        z = (q - r) / self.bandwidth
+        kernel = torch.exp(-0.5 * z**2) / math.sqrt(2.0 * math.pi)
+        density = kernel.mean(dim=1) / self.bandwidth
+        return density.clamp(min=self.min_density)
+
+    def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        scores = torch.abs(y_pred - target)
+        if scores.dim() > 1:
+            scores = scores.max(dim=-1).values
+        return scores
+
+    def _build_intervals(
+        self,
+        y_pred: Tensor,
+        q: Tensor,
+        difficulty: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if difficulty is not None:
+            width = q * difficulty.view(-1, *([1] * (y_pred.dim() - 1)))
+        else:
+            width = q
+        return y_pred - width, y_pred + width
+
+    def calibrate(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        groups: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+        density: Optional[Tensor] = None,
+    ) -> None:
+        target_1d = self._to_1d(target.detach())
+        if mask is not None:
+            mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
+            target_1d = target_1d[mask_1d]
+
+        self._reference_target_1d = target_1d.detach()
+
+        if density is None:
+            density = self._kde_density_1d(target_1d, target_1d)
+        if density.shape[0] != target_1d.shape[0]:
+            raise ValueError("density must have length equal to calibration batch size")
+
+        self._calibration_density_mean = float(density.mean().item())
+        super().calibrate(
+            y_pred,
+            target,
+            mask=mask,
+            groups=groups,
+            weights=weights,
+            x=density,
+        )
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+        density: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if density is None and self.adapt_prediction:
+            if self._reference_target_1d is not None:
+                pred_1d = self._to_1d(y_pred.detach())
+                ref = self._reference_target_1d.to(y_pred.device)
+                density = self._kde_density_1d(pred_1d, ref)
+        if density is None:
+            fill = self._calibration_density_mean if self._calibration_density_mean else 1.0
+            density = torch.full(
+                (y_pred.shape[0],),
+                fill_value=float(fill),
+                dtype=y_pred.dtype,
+                device=y_pred.device,
+            )
+        return super().predict_interval(y_pred, groups=groups, x=density)
+
+
+class PrevalenceAdjustedCP(ConformalPredictor):
+    """Group-prevalence adjusted split conformal prediction.
+
+    Rare groups receive tighter miscoverage rates (larger intervals), while common
+    groups use less conservative thresholds.
+
+    Args:
+        alpha: Global miscoverage rate.
+        n_bins: Number of target bins when explicit groups are not provided.
+        min_group_size: Minimum per-group sample count.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        n_bins: int = 5,
+        min_group_size: int = 8,
+    ) -> None:
+        super().__init__(alpha=alpha)
+        if n_bins < 2:
+            raise ValueError("n_bins must be >= 2")
+        self.n_bins = n_bins
+        self.min_group_size = min_group_size
+        self._bin_edges: Optional[Tensor] = None
+
+    @staticmethod
+    def _to_1d(values: Tensor) -> Tensor:
+        if values.dim() == 1:
+            return values
+        return values.reshape(values.shape[0], -1).mean(dim=-1)
+
+    def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        scores = torch.abs(y_pred - target)
+        if scores.dim() > 1:
+            scores = scores.max(dim=-1).values
+        return scores
+
+    def _build_intervals(
+        self,
+        y_pred: Tensor,
+        q: Tensor,
+        difficulty: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        return y_pred - q, y_pred + q
+
+    def _auto_groups_from_target(self, target: Tensor) -> Tensor:
+        target_1d = self._to_1d(target.detach())
+        quantiles = torch.linspace(0.0, 1.0, self.n_bins + 1, device=target.device)
+        edges = torch.quantile(target_1d, quantiles)
+        # Ensure strictly increasing edges for bucketize.
+        edges = torch.unique(edges, sorted=True)
+        if edges.numel() < 3:
+            edges = torch.linspace(
+                target_1d.min() - 1e-6,
+                target_1d.max() + 1e-6,
+                self.n_bins + 1,
+                device=target.device,
+            )
+        self._bin_edges = edges
+        return torch.bucketize(target_1d, edges[1:-1])
+
+    def calibrate(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        groups: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> None:
+        if mask is not None:
+            mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
+            y_pred = y_pred[mask_1d]
+            target = target[mask_1d]
+            if groups is not None:
+                groups = groups[mask_1d]
+            if weights is not None:
+                weights = weights[mask_1d]
+
+        if groups is None:
+            groups = self._auto_groups_from_target(target)
+
+        scores = self._compute_scores(y_pred, target)
+        unique_groups = groups.unique()
+        n_total = max(int(scores.shape[0]), 1)
+        q_map: Dict[Any, Tensor] = {}
+
+        for g in unique_groups.tolist():
+            g_mask = groups == g
+            g_scores = scores[g_mask]
+            if g_scores.numel() == 0:
+                continue
+            if g_scores.numel() < self.min_group_size:
+                q_level = 1.0 - self.alpha
+            else:
+                prevalence = g_scores.numel() / n_total
+                alpha_g = max(self.alpha * math.sqrt(prevalence), 1e-3)
+                q_level = 1.0 - alpha_g
+            g_weights = weights[g_mask] if weights is not None else None
+            q_map[g] = _weighted_quantile(g_scores, q_level, g_weights)
+
+        if not q_map:
+            raise ValueError("No groups available for prevalence-adjusted calibration")
+
+        self.q_hat = q_map
+        self._groups_list = list(q_map.keys())
+        self._is_calibrated = True
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if not self._is_calibrated or self.q_hat is None:
+            raise RuntimeError("Predictor must be calibrated before making predictions.")
+        if not isinstance(self.q_hat, dict):
+            raise RuntimeError("PrevalenceAdjustedCP expects groupwise q_hat values.")
+
+        if groups is None:
+            if self._bin_edges is None:
+                raise ValueError("groups must be provided when no calibration bin edges exist")
+            pred_1d = self._to_1d(y_pred.detach())
+            edges = self._bin_edges.to(y_pred.device)
+            groups = torch.bucketize(pred_1d, edges[1:-1])
+
+        q_default = max(self.q_hat.values(), key=lambda x: float(x.item()))
+        q_per_sample = torch.full(
+            (y_pred.shape[0],),
+            fill_value=float(q_default.item()),
+            dtype=y_pred.dtype,
+            device=y_pred.device,
+        )
+        for g, q_val in self.q_hat.items():
+            q_per_sample[groups == g] = float(q_val.item())
+        q = q_per_sample.view(-1, *([1] * (y_pred.dim() - 1)))
+        return self._build_intervals(y_pred, q)
+
+
+class MonteCarloConformal(ConformalPredictor):
+    """Conformal prediction from Monte-Carlo predictive samples.
+
+    Uses MC sample mean/median as the point predictor and MC sample standard
+    deviation as the difficulty normalizer.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        center: str = "mean",
+        min_uncertainty: float = 1e-6,
+    ) -> None:
+        self.center = center.lower()
+        if self.center not in {"mean", "median"}:
+            raise ValueError("center must be 'mean' or 'median'")
+        self.min_uncertainty = min_uncertainty
+        super().__init__(alpha=alpha, normalize_fn=self._uncertainty_normalizer)
+
+    def _uncertainty_normalizer(self, y_pred: Tensor, x: Tensor) -> Tensor:
+        return x.clamp(min=self.min_uncertainty)
+
+    def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        scores = torch.abs(y_pred - target)
+        if scores.dim() > 1:
+            scores = scores.max(dim=-1).values
+        return scores
+
+    def _build_intervals(
+        self,
+        y_pred: Tensor,
+        q: Tensor,
+        difficulty: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if difficulty is not None:
+            width = q * difficulty.view(-1, *([1] * (y_pred.dim() - 1)))
+        else:
+            width = q
+        return y_pred - width, y_pred + width
+
+    def _extract_center_and_uncertainty(self, mc_samples: Tensor) -> Tuple[Tensor, Tensor]:
+        if mc_samples.dim() < 2:
+            raise ValueError("mc_samples must have shape [n_samples, batch, ...]")
+        if self.center == "median":
+            center = mc_samples.median(dim=0).values
+        else:
+            center = mc_samples.mean(dim=0)
+        uncertainty = mc_samples.std(dim=0, unbiased=False).clamp(min=self.min_uncertainty)
+        return center, uncertainty
+
+    def calibrate(
+        self,
+        mc_samples: Tensor,
+        target: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        groups: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> None:
+        center, uncertainty = self._extract_center_and_uncertainty(mc_samples)
+        super().calibrate(
+            center,
+            target,
+            mask=mask,
+            groups=groups,
+            weights=weights,
+            x=uncertainty,
+        )
+
+    def predict_interval(
+        self,
+        mc_samples: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        center, uncertainty = self._extract_center_and_uncertainty(mc_samples)
+        return super().predict_interval(center, groups=groups, x=uncertainty)
 
 
 # ---------------------------------------------------------------------------
@@ -941,6 +1294,7 @@ class ConformalLoss(RegressionLoss):
         self.alpha = alpha
 
         # Create the underlying predictor
+        self._predictor: ConformalPredictor
         if method == "cqr":
             self._predictor = CQR(alpha=alpha, debias=debias, normalize_fn=normalize_fn)
         else:
@@ -974,9 +1328,7 @@ class ConformalLoss(RegressionLoss):
         if self.method == "cqr":
             n_feat = target.shape[-1] if target.dim() > 1 else 1
             if y_pred.shape[-1] != 2 * n_feat:
-                raise ValueError(
-                    f"CQR expects y_pred shape [..., 2*features], " f"got {y_pred.shape}"
-                )
+                raise ValueError(f"CQR expects y_pred shape [..., 2*features], got {y_pred.shape}")
             lower_pred = y_pred[..., :n_feat]
             upper_pred = y_pred[..., n_feat:]
             lower_q = self.alpha / 2
@@ -1042,6 +1394,7 @@ class MultiDimensionalConformalLoss(ConformalLoss):
         RegressionLoss.__init__(self, reduction=reduction)
         self.method = "split"
         self.alpha = alpha
+        self._predictor: ConformalPredictor
         self._predictor = MultiTargetConformal(alpha=alpha)
 
     def forward(

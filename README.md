@@ -3,7 +3,8 @@
 [![PyPI](https://img.shields.io/pypi/v/torchregress.svg)](https://pypi.org/project/torchregress/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive PyTorch library for regression and uncertainty estimation.
+A comprehensive PyTorch library for regression, uncertainty estimation, calibration,
+and hard regression settings (outliers, imbalance, noisy features, multimodal targets).
 
 ## Overview
 
@@ -13,6 +14,24 @@ A comprehensive PyTorch library for regression and uncertainty estimation.
 - Estimate uncertainty in regression predictions
 - Evaluate regression models with appropriate metrics
 - Visualize regression results and uncertainty
+
+## Start By Task (Recommended)
+
+Use the library from the problem you need to solve, not from a method family:
+
+- **Outliers / robust regression**: `HuberLoss`, `CauchyLoss`, `TukeyBiweightLoss`
+- **Prediction intervals with coverage guarantees**: conformal prediction (`split`, `CQR`, `ACI`)
+- **Uncertainty decomposition (epistemic + aleatoric)**: heteroscedastic ensembles
+- **Multimodal targets**: `MDN` first, normalizing flows when you need more flexibility
+- **Imbalanced / rare-target regression**: `DensityWeightedLoss` (then validate calibration)
+- **Noisy features / measurement error**: EIV / ODR losses
+- **OOD robustness / selective prediction**: ensemble uncertainty + OOD + decision metrics
+
+Task-first method matrix (recommended entry point):
+
+- [`docs/guides/method_selection_matrix.md`](docs/guides/method_selection_matrix.md)
+
+This matrix treats `SWAG`, `BNN`, `MDN`, ensembles, conformal, quantile, and flows as peer options.
 
 ## Key Features
 
@@ -29,7 +48,12 @@ A comprehensive PyTorch library for regression and uncertainty estimation.
 pip install torchregress
 ```
 
-## Quickstart
+Optional extras:
+
+- Flows (`zuko`): `pip install torchregress[flows]`
+- Local dev/docs/tests: `uv pip install -e ".[all]"`
+
+## Quickstart (Heteroscedastic Gaussian Regression)
 
 ```python
 import torch
@@ -111,6 +135,25 @@ lower_interval, upper_interval = loss_fn.predict_interval(y_pred_test)
 
 For more advanced usage and API details, refer to the [full documentation](https://github.com/sfabbro/torchregress).
 
+## Choosing a Method (Examples by Problem)
+
+- **Robustness + uncertainty + ensembles**:
+  [`examples/comprehensive_comparison.py`](examples/comprehensive_comparison.py)
+- **Loss comparison on outliers**:
+  [`examples/comprehensive_loss_comparison.py`](examples/comprehensive_loss_comparison.py)
+- **Imbalanced regression + calibration validation**:
+  [`examples/imbalanced_regression.py`](examples/imbalanced_regression.py)
+- **Conformal method comparison (coverage vs interval width)**:
+  [`examples/evaluate_conformal_methods.py`](examples/evaluate_conformal_methods.py)
+- **Multi-target multimodal regression (flows)**:
+  [`examples/normalizing_flows_multitarget.py`](examples/normalizing_flows_multitarget.py)
+
+Docs entry points:
+
+- Concepts: [`docs/guides/concepts.md`](docs/guides/concepts.md)
+- Method matrix: [`docs/guides/method_selection_matrix.md`](docs/guides/method_selection_matrix.md)
+- Examples index: [`docs/examples/index.md`](docs/examples/index.md)
+
 ## Examples
 
 - `examples/gaussian_full_covariance_regression.py` - full-covariance Gaussian regression
@@ -120,6 +163,7 @@ For more advanced usage and API details, refer to the [full documentation](https
 
 - `examples/benchmarks/tail_extremes_benchmark.py` - tail performance under noisy labels (robust, density-weighted, CVaR)
 - `examples/benchmarks/tail_extremes_sweep.py` - sweep feature/label noise to identify best tail method
+- `tools/benchmark_smoke.py` - fast smoke/sweep performance checks with CI threshold support
 
 ## License
 

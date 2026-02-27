@@ -7,7 +7,7 @@ estimates by enabling dropout at inference time and running multiple forward pas
 Reference: Gal & Ghahramani, "Dropout as a Bayesian Approximation" (ICML 2016)
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import torch
 import torch.nn as nn
@@ -70,7 +70,7 @@ class MCDropoutWrapper(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         """Standard forward pass (dropout disabled)."""
         self.model.eval()
-        return self.model(x)
+        return cast(Tensor, self.model(x))
 
     def mc_forward(self, x: Tensor, n_samples: Optional[int] = None) -> Tensor:
         """
@@ -164,7 +164,7 @@ class MCDropoutModel(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: list,
+        hidden_dims: list[int],
         output_dim: int,
         dropout_rate: float = 0.2,
         n_samples: int = 30,
@@ -191,7 +191,7 @@ class MCDropoutModel(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         """Standard forward pass."""
-        return self.network(x)
+        return cast(Tensor, self.network(x))
 
     def mc_forward(self, x: Tensor, n_samples: Optional[int] = None) -> Tensor:
         """

@@ -13,7 +13,7 @@ Common special cases:
 - 1<p<2: Compound Poisson-Gamma (useful for mixed discrete-continuous data)
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 
@@ -203,6 +203,7 @@ class TweedieLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Tweedie loss.

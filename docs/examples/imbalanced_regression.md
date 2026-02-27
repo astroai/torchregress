@@ -2,6 +2,25 @@
 
 This example demonstrates how to use `DensityWeightedLoss` and `LDSLoss` for imbalanced regression tasks.
 
+## Task-First Context
+
+Use this example when your main problem is **rare-target / tail performance**. For method
+selection across other hard tasks (calibration, OOD, multimodal, noisy features), start
+with the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md).
+
+## Comparison / Fairness Notes
+
+- Use fixed seeds and shared splits when comparing reweighting methods.
+- Keep model architecture and epoch budget constant across methods.
+- Report both tail-region accuracy and dense-region accuracy (tail gains can hide center degradation).
+- Validate calibration after aggressive reweighting (especially `LDSLoss`).
+
+## When This Approach Fails
+
+- If tail improvement comes with large calibration error, add post-hoc calibration or use a less aggressive reweighting strategy.
+- If tails are extremely sparse, uncertainty estimates may look overconfident; use ensemble/conformal checks in addition to point metrics.
+- If the target is multimodal, density weighting alone is not enough; compare against `MDN` or flow-based methods.
+
 ## Code
 
 ```python

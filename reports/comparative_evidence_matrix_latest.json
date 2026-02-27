@@ -1,0 +1,397 @@
+{
+  "artifact": "comparative_evidence_matrix",
+  "version": 1,
+  "summary": {
+    "task_rows": 14,
+    "grade_counts": {
+      "Decision-grade": 2,
+      "Strong": 12
+    },
+    "decision_grade_tasks": 2,
+    "strong_or_better_tasks": 14
+  },
+  "rows": [
+    {
+      "task": "Robust regression / outliers",
+      "examples": [
+        "examples/comprehensive_comparison.py",
+        "examples/comprehensive_loss_comparison.py",
+        "examples/photoz_benchmark_comparison.py"
+      ],
+      "comparison_grade": "Decision-grade",
+      "fairness_controls": [
+        "fixed seeds",
+        "shared scenarios / domain split",
+        "runtime summaries"
+      ],
+      "metrics_coverage": [
+        "MSE",
+        "MAE",
+        "R2",
+        "NMAD",
+        "catastrophic outlier rate",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "HuberLoss",
+        "CauchyLoss",
+        "WeightedMSELoss",
+        "WeightedHuberLoss"
+      ],
+      "gaps": "Only one domain benchmark (photo-z) so far; needs broader domain coverage.",
+      "notes": "Photo-z benchmark adds SDSS-style domain metrics (NMAD, catastrophic outlier rate, high-z MAE) and robust/probabilistic/EIV comparisons under shared budgets; RAIL baseline merge support is available via tools/photoz_rail_compare.py."
+    },
+    {
+      "task": "Imbalanced / rare-target regression",
+      "examples": [
+        "examples/imbalanced_regression.py",
+        "examples/propensity_tail_regression_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "shared split",
+        "summary tables"
+      ],
+      "metrics_coverage": [
+        "tail vs dense metrics",
+        "tail MAE/RMSE",
+        "calibration",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "DensityWeightedLoss",
+        "PropensityWeightedLoss",
+        "LDSLoss"
+      ],
+      "gaps": "Needs more model-family comparisons beyond reweighting losses.",
+      "notes": ""
+    },
+    {
+      "task": "Selection bias / long-tail with missing labels",
+      "examples": [
+        "examples/propensity_tail_regression_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seed",
+        "shared selection process",
+        "matched model capacity"
+      ],
+      "metrics_coverage": [
+        "MAE",
+        "tail MAE/RMSE",
+        "observed-rate diagnostics",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "PropensityWeightedLoss",
+        "DensityWeightedLoss",
+        "WeightedMSELoss"
+      ],
+      "gaps": "Needs real-data selection-bias benchmarks beyond synthetic generation.",
+      "notes": ""
+    },
+    {
+      "task": "Output constraints + post-hoc calibration transforms",
+      "examples": [
+        "examples/constraints_calibration_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seed",
+        "shared synthetic split",
+        "shared calibrator fit budget"
+      ],
+      "metrics_coverage": [
+        "MAE",
+        "NLL",
+        "PIT chi-square",
+        "crossing/bound violations",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "BoundedHead",
+        "NonCrossingSort",
+        "VarianceTemperatureScaler",
+        "IsotonicMeanCalibrator",
+        "PITCalibrator"
+      ],
+      "gaps": "Needs additional domain benchmarks beyond synthetic stress tests.",
+      "notes": ""
+    },
+    {
+      "task": "Uncertain ground-truth + density-aware conformal",
+      "examples": [
+        "examples/uncertain_gt_density_conformal_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seed",
+        "shared synthetic split",
+        "shared calibration budget"
+      ],
+      "metrics_coverage": [
+        "coverage",
+        "interval width",
+        "noisy-target NLL",
+        "consistency loss",
+        "pseudo-label NLL",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "SplitConformal",
+        "DensityConformal",
+        "PrevalenceAdjustedCP",
+        "MonteCarloConformal",
+        "NoisyTargetGaussianNLL",
+        "PseudoLabelNLL",
+        "ConsistencyRegLoss"
+      ],
+      "gaps": "Needs real-data uncertain-label benchmarks for external validity.",
+      "notes": "Current evidence is synthetic but compares uncertain-GT losses and density/prevalence/MC conformal variants under matched budgets."
+    },
+    {
+      "task": "Causal inference regression (DR ATE/CATE)",
+      "examples": [
+        "examples/causal_dr_uplift_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seed",
+        "shared synthetic scenarios",
+        "matched nuisance models"
+      ],
+      "metrics_coverage": [
+        "ATE absolute error",
+        "CI contains true ATE",
+        "CI width",
+        "overlap rate",
+        "effective sample size",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "dr_ate",
+        "dr_cate",
+        "naive difference-in-means"
+      ],
+      "gaps": "Needs real treatment-effect benchmarks beyond synthetic scenarios.",
+      "notes": "Current evidence includes synthetic uplift and astronomy-style selection-bias proxies with cross-fitted DR estimators and overlap diagnostics."
+    },
+    {
+      "task": "Calibrated intervals / coverage",
+      "examples": [
+        "examples/evaluate_conformal_methods.py",
+        "examples/photoz_benchmark_comparison.py",
+        "examples/photoz_nnc_crps_rail_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "shared evaluation budget",
+        "coverage/width summaries",
+        "shared train budget"
+      ],
+      "metrics_coverage": [
+        "coverage",
+        "interval width",
+        "runtime",
+        "domain error metrics"
+      ],
+      "peer_methods_visible": [
+        "ConformalLoss",
+        "QuantileLoss",
+        "GaussianNLLLoss"
+      ],
+      "gaps": "Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) needed for stronger generalization claims.",
+      "notes": "Photo-z benchmark adds domain-realistic coverage/width evaluation for Gaussian and quantile intervals alongside photo-z metrics; conformal method comparisons remain the primary coverage-guarantee benchmark. Ordered-bin NNC-CRPS-style comparisons are available in examples/photoz_nnc_crps_rail_comparison.py."
+    },
+    {
+      "task": "Population/parameter inference (few labels)",
+      "examples": [
+        "examples/ppi_photoz_inference_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seed",
+        "shared labeled/unlabeled split",
+        "runtime summaries"
+      ],
+      "metrics_coverage": [
+        "estimate bias",
+        "CI width",
+        "CI coverage",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "PredictionPoweredInference",
+        "labeled-only baseline"
+      ],
+      "gaps": "Needs more than one real-data benchmark for generalization claims.",
+      "notes": "Prediction-powered inference example demonstrates mean/quantile/OLS coefficient intervals with diagnostics under small-label settings."
+    },
+    {
+      "task": "Ordinal regression / ordered targets",
+      "examples": [
+        "examples/ordinal_regression_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seed",
+        "shared synthetic split",
+        "matched model capacity"
+      ],
+      "metrics_coverage": [
+        "accuracy",
+        "ordinal class MAE",
+        "QWK",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "OrdinalCrossEntropyLoss",
+        "CumulativeLinkLoss",
+        "CORALLoss"
+      ],
+      "gaps": "Needs at least one real-data ordered-target benchmark for stronger external validity.",
+      "notes": "Comparison example evaluates class-logit and cumulative objectives under shared training budgets and ordinal-aware metrics."
+    },
+    {
+      "task": "Censored / interval-censored regression",
+      "examples": [
+        "examples/censored_regression_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seed",
+        "shared censoring split",
+        "matched model capacity"
+      ],
+      "metrics_coverage": [
+        "true-target MAE",
+        "observed MAE",
+        "concordance index",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "CensoredGaussianNLLLoss",
+        "CensoredQuantileLoss",
+        "AFTLoss"
+      ],
+      "gaps": "Needs real-data censored benchmark(s) beyond synthetic generation.",
+      "notes": "Example includes right/left censoring plus explicit interval-censored samples under a shared training budget."
+    },
+    {
+      "task": "OOD robustness / selective prediction",
+      "examples": [
+        "examples/ood_selective_prediction_comparison.py",
+        "examples/ood_selective_prediction_realdata_comparison.py",
+        "examples/comprehensive_comparison.py"
+      ],
+      "comparison_grade": "Decision-grade",
+      "fairness_controls": [
+        "fixed seeds",
+        "shared synthetic ID/OOD splits",
+        "shared train budget"
+      ],
+      "metrics_coverage": [
+        "ID/OOD MSE",
+        "AURC",
+        "rejection policy",
+        "OOD uncertainty gap",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "DeepEnsemble",
+        "HeteroscedasticEnsembleModel",
+        "MCDropoutWrapper",
+        "SWAG",
+        "BayesianNeuralNetwork"
+      ],
+      "gaps": "Needs multiple real-data OOD/selective benchmarks (beyond one covariate-shift proxy) for stronger external validity and regression tracking.",
+      "notes": "Dedicated OOD/selective examples now include synthetic and real-data (Diabetes covariate-shift proxy) comparisons with SWAG and BNN under shared budgets; committed smoke/audit/full JSON summary artifacts are available."
+    },
+    {
+      "task": "Multimodal / multi-target non-Gaussian",
+      "examples": [
+        "examples/multimodal_method_comparison.py",
+        "examples/multimodal_method_realdata_comparison.py",
+        "examples/normalizing_flows_multitarget.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seeds",
+        "shared synthetic / real-covariate multimodal splits",
+        "shared train budget"
+      ],
+      "metrics_coverage": [
+        "point metrics",
+        "NLL",
+        "energy score",
+        "marginal calibration error",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "GaussianNLLLoss",
+        "MDNLoss",
+        "NormalizingFlowLoss"
+      ],
+      "gaps": "Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal targets on real covariates) and optional-dependency CI coverage for zuko flow runs.",
+      "notes": "Dedicated comparisons now include synthetic and real-covariate tracks; flow path is optional and may be skipped in minimal environments without zuko."
+    },
+    {
+      "task": "Noisy features / EIV",
+      "examples": [
+        "examples/eiv_method_comparison.py",
+        "examples/eiv_method_realdata_comparison.py",
+        "examples/photoz_benchmark_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seeds",
+        "shared synthetic/real-data measurement-error splits",
+        "shared train budget"
+      ],
+      "metrics_coverage": [
+        "clean test MSE",
+        "observed test MSE",
+        "stress MSE",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "FunctionalEIVLoss",
+        "StructuralEIVLoss",
+        "OrthogonalDistanceRegressionLoss",
+        "EnsembleEIVLoss"
+      ],
+      "gaps": "Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one photo-z domain benchmark) for stronger external validity.",
+      "notes": "EIV comparisons now include synthetic and real-data (Diabetes with synthetic measurement-error injection) tracks, plus a photo-z benchmark with SDSS-style feature errors."
+    },
+    {
+      "task": "Noisy labels / corruption",
+      "examples": [
+        "examples/noisy_label_comparison.py",
+        "examples/noisy_label_realdata_comparison.py",
+        "examples/comprehensive_loss_comparison.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seeds",
+        "shared corrupted train/cal/test splits",
+        "shared train budget"
+      ],
+      "metrics_coverage": [
+        "clean/observed point metrics",
+        "split-conformal coverage/width",
+        "interval score",
+        "runtime"
+      ],
+      "peer_methods_visible": [
+        "WeightedHuberLoss",
+        "CauchyLoss",
+        "TukeyBiweightLoss",
+        "GaussianNLLLoss",
+        "MultiQuantileLoss"
+      ],
+      "gaps": "Needs comparisons against explicit noisy-label algorithms (co-teaching / sample-weight meta-learning) if/when implemented, plus more than one real dataset for stronger external validity.",
+      "notes": "Dedicated runnable comparisons now include synthetic and real-data (Diabetes with synthetic corruption) calibration-aware evaluations via shared split-conformal metrics."
+    }
+  ]
+}

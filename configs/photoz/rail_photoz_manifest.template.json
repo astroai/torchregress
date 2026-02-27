@@ -1,0 +1,79 @@
+{
+  "artifact": "rail_photoz_manifest",
+  "version": 1,
+  "dataset_id": "rail_photoz_paper_reference_dataset",
+  "split_id": "rail_photoz_paper_reference_split_v1",
+  "core_baselines": [
+    "flexzboost",
+    "pzflow",
+    "delight",
+    "bpz"
+  ],
+  "optional_baselines": [
+    "lephare"
+  ],
+  "dataset_files": [
+    {
+      "key": "train_catalog_sha256",
+      "path": "data/rail/datasets/train_catalog.parquet",
+      "url": "",
+      "required": true
+    },
+    {
+      "key": "test_catalog_sha256",
+      "path": "data/rail/datasets/test_catalog.parquet",
+      "url": "",
+      "required": true
+    },
+    {
+      "key": "calibration_catalog_sha256",
+      "path": "data/rail/datasets/calibration_catalog.parquet",
+      "url": "",
+      "required": true
+    }
+  ],
+  "baseline_payloads": [
+    {
+      "method": "flexzboost",
+      "path": "data/rail/baselines/flexzboost.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "pzflow",
+      "path": "data/rail/baselines/pzflow.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "delight",
+      "path": "data/rail/baselines/delight.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "bpz",
+      "path": "data/rail/baselines/bpz.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "lephare",
+      "path": "data/rail/baselines/lephare.json",
+      "url": "",
+      "required": false
+    }
+  ],
+  "checksum_policy": {
+    "train_catalog_sha256": "",
+    "test_catalog_sha256": "",
+    "calibration_catalog_sha256": ""
+  },
+  "notes": [
+    "Fill dataset/split ids plus dataset/baseline URLs once; collection scripts can then materialize all assets automatically.",
+    "Use tools/photoz_rail_assets.py to download + hash assets and update checksum metadata.",
+    "Use tools/photoz_rail_pipeline.py for one-command collect + torchregress summary + RAIL merge.",
+    "paper-parity mode enforces manifest dataset/split/core-baseline constraints at merge time."
+  ]
+}
+

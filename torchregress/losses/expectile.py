@@ -9,7 +9,7 @@ properties:
 - Expectiles minimize the expected asymmetric squared error
 """
 
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union, cast
 
 import torch
 import torch.nn.functional as F
@@ -95,6 +95,7 @@ class ExpectileLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate expectile loss.
@@ -163,8 +164,11 @@ class MultiExpectileLoss(RegressionLoss):
             expectiles = torch.tensor(expectiles, dtype=torch.float32)
 
         # Validate expectile levels
-        self.register_buffer("expectiles", validate_range(expectiles, 0.0, 1.0, "expectiles"))
-        self.num_expectiles = self.expectiles.size(0)
+        validated_expectiles = cast(
+            torch.Tensor, validate_range(expectiles, 0.0, 1.0, "expectiles")
+        )
+        self.register_buffer("expectiles", validated_expectiles)
+        self.num_expectiles = validated_expectiles.size(0)
         self.joint_prediction = joint_prediction
 
     def forward(
@@ -173,6 +177,7 @@ class MultiExpectileLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate combined expectile loss for multiple levels.
@@ -226,7 +231,7 @@ class MultiExpectileLoss(RegressionLoss):
             # Handle separate predictions (list of tensors)
             if isinstance(y_pred, (list, tuple)) and len(y_pred) == self.num_expectiles:
                 # Stack predictions [batch_size, num_expectiles, n_features]
-                expectile_preds = torch.stack(y_pred, dim=1)
+                expectile_preds = torch.stack(cast(List[torch.Tensor], y_pred), dim=1)
             else:
                 raise TypeError(
                     f"With joint_prediction=False, y_pred must be a list or tuple "
@@ -234,7 +239,9 @@ class MultiExpectileLoss(RegressionLoss):
                 )
 
         # Elementwise multi-expectile loss via shared utility
-        stacked_losses = multi_expectile_loss(expectile_preds, target, self.expectiles)
+        stacked_losses = multi_expectile_loss(
+            expectile_preds, target, cast(torch.Tensor, self.expectiles)
+        )
 
         # Apply mask if provided
         if mask is not None:
@@ -350,6 +357,7 @@ class ExpectileCrossoverLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate expectile loss with crossover penalty.
@@ -372,7 +380,7 @@ class ExpectileCrossoverLoss(RegressionLoss):
 
         # 1. Calculate Base Loss (Standard Expectile Loss) using vectorized utility
         # [batch_size, num_expectiles, n_features]
-        level_losses = multi_expectile_loss(y_pred, target, self.expectiles)
+        level_losses = multi_expectile_loss(y_pred, target, cast(torch.Tensor, self.expectiles))
 
         # Apply mask and weights to base loss
         if mask is not None:
@@ -427,3 +435,7 @@ class ExpectileCrossoverLoss(RegressionLoss):
             return torch.sum(final_loss)
         else:  # 'none'
             return final_loss
+
+
+# Compatibility alias used in docs.
+ExpectileCrossover = ExpectileCrossoverLoss

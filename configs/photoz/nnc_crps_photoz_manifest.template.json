@@ -1,0 +1,77 @@
+{
+  "artifact": "rail_photoz_manifest",
+  "version": 1,
+  "dataset_id": "nnc_crps_photoz_paper_reference_dataset",
+  "split_id": "nnc_crps_photoz_paper_reference_split_v1",
+  "core_baselines": [
+    "flexzboost",
+    "pzflow",
+    "delight",
+    "bpz"
+  ],
+  "optional_baselines": [
+    "lephare"
+  ],
+  "dataset_files": [
+    {
+      "key": "train_catalog_sha256",
+      "path": "data/nnc_crps/datasets/train_catalog.parquet",
+      "url": "",
+      "required": true
+    },
+    {
+      "key": "test_catalog_sha256",
+      "path": "data/nnc_crps/datasets/test_catalog.parquet",
+      "url": "",
+      "required": true
+    },
+    {
+      "key": "calibration_catalog_sha256",
+      "path": "data/nnc_crps/datasets/calibration_catalog.parquet",
+      "url": "",
+      "required": true
+    }
+  ],
+  "baseline_payloads": [
+    {
+      "method": "flexzboost",
+      "path": "data/nnc_crps/baselines/flexzboost.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "pzflow",
+      "path": "data/nnc_crps/baselines/pzflow.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "delight",
+      "path": "data/nnc_crps/baselines/delight.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "bpz",
+      "path": "data/nnc_crps/baselines/bpz.json",
+      "url": "",
+      "required": true
+    },
+    {
+      "method": "lephare",
+      "path": "data/nnc_crps/baselines/lephare.json",
+      "url": "",
+      "required": false
+    }
+  ],
+  "checksum_policy": {
+    "train_catalog_sha256": "",
+    "test_catalog_sha256": "",
+    "calibration_catalog_sha256": ""
+  },
+  "notes": [
+    "Template for the NNC-CRPS paper dataset track.",
+    "Populate URLs/checksums for exact paper-protocol assets to enforce parity."
+  ]
+}
+

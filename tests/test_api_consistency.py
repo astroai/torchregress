@@ -18,6 +18,13 @@ from torchregress.losses.base import BaseLoss
 
 # Alias for tests expecting a ReductionLoss base
 ReductionLoss = BaseLoss
+SKIP_META_LOSS_CLASS_NAMES = {
+    "BaseLoss",
+    "RegressionLoss",
+    "DistributionLoss",
+    "BaseEIVLoss",
+    "WeightedLossWrapper",
+}
 
 
 def get_all_loss_classes() -> List[Type[BaseLoss]]:
@@ -47,7 +54,13 @@ def get_all_loss_classes() -> List[Type[BaseLoss]]:
 
             # Find all classes in the module that inherit from Loss
             for name, obj in module.__dict__.items():
-                if isinstance(obj, type) and issubclass(obj, BaseLoss) and obj != BaseLoss:
+                if (
+                    isinstance(obj, type)
+                    and issubclass(obj, BaseLoss)
+                    and obj not in {BaseLoss, ReductionLoss}
+                    and obj.__name__ not in SKIP_META_LOSS_CLASS_NAMES
+                    and not inspect.isabstract(obj)
+                ):
                     loss_classes.append(obj)
         except ImportError:
             print(f"Skipping module {module_name} due to import error")
@@ -140,8 +153,14 @@ def test_reduction_behavior():
         "CoTeachingLoss",  # Needs two predictions
         "RENTLoss",  # Needs ensemble predictions
         "DensityWeightedLoss",  # Needs to be fitted first
+        "PropensityWeightedLoss",  # Needs propensity scores
         "LDSLoss",  # Needs to be fitted first
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
+        "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
+        "CumulativeLinkLoss",  # Needs discrete ordinal targets
+        "CORALLoss",  # Needs discrete ordinal targets
+        "CensoredGaussianNLLLoss",  # Needs mean+variance inputs
+        "AFTLoss",  # Needs loc+log-scale inputs
     ]
 
     for loss_class in get_all_loss_classes():

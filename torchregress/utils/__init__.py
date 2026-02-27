@@ -20,6 +20,16 @@ from .labels import (
     label_smoothing,
     soft_to_hard_labels,
 )
+from .ordinal import (
+    cumulative_logits_to_pmf,
+    cumulative_probs_to_pmf,
+    labels_to_levels,
+    ordinal_predict,
+)
+from .propensity import (
+    PropensityEstimator,
+    ipw_weights,
+)
 from .pytorch_compat import (
     convert_reduction_type,
     convert_to_pytorch_loss,
@@ -37,6 +47,7 @@ from .scaling import (
     GradientAccumulation,
     compile_model,
 )
+from .security import validate_url
 from .tensor_ops import (
     apply_mask,
     batched_linalg_solve,
@@ -90,6 +101,14 @@ __all__ = [
     "soft_to_hard_labels",
     "combine_binary_average",
     "combine_binary_weighted_average",
+    # ordinal
+    "labels_to_levels",
+    "cumulative_probs_to_pmf",
+    "cumulative_logits_to_pmf",
+    "ordinal_predict",
+    # propensity
+    "PropensityEstimator",
+    "ipw_weights",
     # pytorch_compat
     "convert_reduction_type",
     "convert_to_pytorch_loss",
@@ -138,4 +157,6 @@ __all__ = [
     "validate_same_device",
     "validate_weights",
     "check_tensor",
+    # security
+    "validate_url",
 ]

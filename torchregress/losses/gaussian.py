@@ -3,13 +3,13 @@ Gaussian loss functions for regression tasks.
 """
 
 import math
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from torch.distributions import LowRankMultivariateNormal
 
-from .base import DistributionLoss
+from .base import DistributionLoss, WeightedMSELoss
 from .loss_registry import register_regression_loss
 
 
@@ -46,6 +46,41 @@ def split_low_rank_gaussian_output(
     cov_factor = factor_flat.reshape(*y_pred.shape[:-1], n_features, rank)
     cov_diag = y_pred[..., -n_features:]
     return mean, cov_factor, cov_diag
+
+
+def create_gaussian_nll(
+    covariance_type: str = "diagonal",
+    *,
+    use_mse_for_unit_variance: bool = False,
+    rank: Optional[int] = None,
+    **kwargs: Any,
+) -> Union["GaussianNLLLoss", "MultivariateGaussianLoss", "LowRankGaussianLoss", WeightedMSELoss]:
+    """
+    Convenience factory for Gaussian-family regression losses.
+
+    Args:
+        covariance_type: ``"diagonal"``, ``"full"``, or ``"low_rank"``.
+        use_mse_for_unit_variance: If True with diagonal covariance and no learned
+            variance, return ``WeightedMSELoss`` for a point-regression objective.
+        rank: Included for API symmetry with low-rank heads (not required by the loss).
+        **kwargs: Forwarded to the selected loss constructor.
+    """
+    _ = rank  # Rank is determined by model outputs, not the loss constructor.
+    covariance_type = covariance_type.lower()
+
+    if covariance_type == "diagonal":
+        if use_mse_for_unit_variance:
+            return WeightedMSELoss(**kwargs)
+        return GaussianNLLLoss(**kwargs)
+    if covariance_type in {"full", "multivariate"}:
+        return MultivariateGaussianLoss(**kwargs)
+    if covariance_type in {"low_rank", "low-rank"}:
+        return LowRankGaussianLoss(**kwargs)
+
+    raise ValueError(
+        "covariance_type must be one of {'diagonal', 'full', 'low_rank'}, "
+        f"got {covariance_type!r}"
+    )
 
 
 @register_regression_loss("gaussian_nll")
@@ -116,11 +151,24 @@ class GaussianNLLLoss(DistributionLoss):
         self,
         y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
         target: torch.Tensor,
+        covariance_matrices: Optional[torch.Tensor] = None,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
-        covariance_matrices: Optional[torch.Tensor] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
+        # Backward compatibility for legacy positional ordering:
+        # forward(y_pred, target, mask, weights, covariance_matrices)
+        # This diagonal Gaussian implementation ignores covariance_matrices, so if the third
+        # positional tensor looks like a mask-shaped tensor, reinterpret it as ``mask``.
+        if covariance_matrices is not None and covariance_matrices.dim() <= target.dim():
+            # Treat this as a legacy positional mask; optional legacy weights may currently live in
+            # the ``mask`` slot after signature reordering.
+            legacy_mask = covariance_matrices
+            legacy_weights = mask if isinstance(mask, torch.Tensor) else None
+            mask = legacy_mask
+            weights = legacy_weights
+            covariance_matrices = None
+
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)
 
@@ -219,7 +267,7 @@ class MultivariateGaussianLoss(DistributionLoss):
         covariance_matrices: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         if target.dim() == 1:
             target = target.unsqueeze(1)
@@ -350,7 +398,7 @@ class LowRankGaussianLoss(DistributionLoss):
         cov_diag: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         if target.dim() == 1:
             target = target.unsqueeze(1)

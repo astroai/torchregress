@@ -1,137 +1,120 @@
-# Byte-compiled / optimized / DLL files
+# Python bytecode / extensions
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
 
-# Distribution / packaging
-dist/
+# Packaging artifacts
 build/
+dist/
 *.egg-info/
 *.egg
 
 # Virtual environments
+.venv/
 venv/
 env/
 ENV/
-.env
-.venv
-env/
 env.bak/
 venv.bak/
+.env
 
-# Unit test / coverage reports
-htmlcov/
+# Test, coverage, and tool caches
+.pytest_cache/
+.hypothesis/
 .tox/
 .coverage
 .coverage.*
+coverage.xml
+htmlcov/
 .cache
 nosetests.xml
-coverage.xml
 *.cover
-.hypothesis/
-.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.black_cache/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Notebook artifacts
+.ipynb_checkpoints/
 
-# PyTorch specific
+# OS/editor files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+*~
+
+# Logs / temp / profiling
+*.log
+*.tmp
+*.temp
+*.prof
+
+# Model and training outputs
 *.pt
 *.pth
 *.onnx
 *.h5
+*.model
+*.weights
+*.checkpoint
 checkpoint/
 runs/
 logs/
 tensorboard/
 lightning_logs/
 
-# IDE specific files
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-
-# Project specific
-data/
-output/
-results/
-
-# Build system artifacts
+# Generated docs
 site/
-*.html
-*.css
-*.js
-
-# Documentation build artifacts
 docs/_build/
 docs/api/
-docs/assets/
 
-# Coverage reports
-.coverage
-coverage.xml
-htmlcov/
-
-# MyPy cache
-.mypy_cache/
-
-# Ruff cache
-.ruff_cache/
-
-# Black cache
-.black_cache/
-
-# UV cache and lock files
-.uv-cache/
-uv.lock
-
-# Temporary files
-*.tmp
-*.temp
-*~
-
-# Log files
-*.log
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Editor backup files
-*~
-*.bak
-*.orig
-*.rej
-
-# MkDocs generated files
-site/
-
-# Python profiling
-*.prof
-
-# TorchRegress specific
-*.model
-*.weights
-*.checkpoint
-
-# Package build artifacts
-torchregress.egg-info/
-
-# Generated plots and benchmark outputs
-*.png
-*.svg
-.mplconfig/
+# Local datasets and experiment outputs
+data/
+!tests/data/
+output/
+results/
 benchmarks/output/
 benchmarks/outputs/
 benchmarks/*.csv
 benchmarks/*.json
 benchmarks/*.npz
+
+# Generated reports (track only governance baselines)
+reports/*
+!reports/benchmark_thresholds/
+!reports/benchmark_thresholds/**
+!reports/adoption_readiness_2026-02-25.json
+!reports/comparative_evidence_matrix_latest.json
+!reports/method_catalog_latest.json
+!reports/review_readiness_packet_latest.json
+!reports/native_pytorch_leverage_matrix_2026-02-26.json
+!reports/example_summaries/
+reports/example_summaries/*
+!reports/example_summaries/profile_comparison_audit_vs_full.json
+!reports/example_summaries/thresholds_full.json
+!reports/example_summaries/thresholds_full_review_strict.json
+!reports/example_summaries/threshold_check_full_latest.json
+!reports/example_summaries/threshold_check_full_review_strict_latest.json
+
+# Local backups and ad-hoc artifacts
+reports_backup/
+photoz_metrics.json
+.mplconfig/
+
+# UV cache / lock
+.uv-cache/
+uv.lock
+# pixi environments
+.pixi/*
+!.pixi/config.toml

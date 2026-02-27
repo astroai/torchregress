@@ -6,7 +6,7 @@ It works by adding additional measurement error to the data, establishing a tren
 of how the error affects predictions, and extrapolating back to the case of no error.
 """
 
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, cast
 
 import torch
 import torch.nn as nn
@@ -184,4 +184,7 @@ class SIMEX:
         # weights: (M,)
         # Y_stack: (M, N, K)
         # result: (N, K)
-        return torch.tensordot(self.extrapolation_weights, Y_stack, dims=([0], [0]))
+        return cast(
+            torch.Tensor,
+            torch.tensordot(self.extrapolation_weights, Y_stack, dims=([0], [0])),
+        )

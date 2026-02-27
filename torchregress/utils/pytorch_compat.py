@@ -6,7 +6,7 @@ different PyTorch versions.
 """
 
 import random
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import torch
@@ -25,7 +25,10 @@ def convert_reduction_type(reduction: str) -> str:
     raise ValueError(f"Unsupported reduction type: {reduction}")
 
 
-def convert_to_pytorch_loss(loss_fn: Union[nn.Module, Callable], **kwargs) -> nn.Module:
+def convert_to_pytorch_loss(
+    loss_fn: Union[nn.Module, Callable[..., torch.Tensor]],
+    **kwargs: Any,
+) -> nn.Module:
     """
     Convert a loss function (callable or module) to a PyTorch loss module.
     """
@@ -33,13 +36,13 @@ def convert_to_pytorch_loss(loss_fn: Union[nn.Module, Callable], **kwargs) -> nn
         return loss_fn
 
     class LossFunctionWrapper(nn.Module):
-        def __init__(self, loss_fn, **kwargs):
+        def __init__(self, loss_fn: Callable[..., torch.Tensor], **kwargs: Any) -> None:
             super().__init__()
             self.loss_fn = loss_fn
             self.kwargs = kwargs
 
-        def forward(self, output, target):
-            return self.loss_fn(output, target, **self.kwargs)
+        def forward(self, output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+            return cast(torch.Tensor, self.loss_fn(output, target, **self.kwargs))
 
     return LossFunctionWrapper(loss_fn, **kwargs)
 

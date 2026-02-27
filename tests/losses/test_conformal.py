@@ -12,9 +12,12 @@ from torchregress.losses.conformal import (
     CTI,
     ConformalLoss,
     ConformalPredictor,
+    DensityConformal,
     DistributionalConformal,
+    MonteCarloConformal,
     MultiDimensionalConformalLoss,
     MultiTargetConformal,
+    PrevalenceAdjustedCP,
     R2CConformal,
     SplitConformal,
 )
@@ -821,6 +824,87 @@ class TestConformalLossMondrianWeighted:
 
         lower, upper = loss_fn.predict_interval(preds)
         assert (lower <= upper).all()
+
+
+class TestDensityConformal:
+    """Tests for density-adaptive conformal intervals."""
+
+    def test_density_conformal_basic(self):
+        torch.manual_seed(42)
+        cp = DensityConformal(alpha=0.1, bandwidth=0.3)
+        pred_cal = torch.randn(200, 1)
+        target_cal = pred_cal + 0.35 * torch.randn(200, 1)
+        cp.calibrate(pred_cal, target_cal)
+        lower, upper = cp.predict_interval(pred_cal)
+        assert lower.shape == pred_cal.shape
+        assert upper.shape == pred_cal.shape
+        assert (lower <= upper).all()
+
+    def test_density_conformal_coverage(self):
+        torch.manual_seed(42)
+        cp = DensityConformal(alpha=0.1, bandwidth=0.25)
+        pred_cal = torch.randn(300, 1)
+        target_cal = pred_cal + 0.4 * torch.randn(300, 1)
+        pred_test = torch.randn(600, 1)
+        target_test = pred_test + 0.4 * torch.randn(600, 1)
+        cp.calibrate(pred_cal, target_cal)
+        lower, upper = cp.predict_interval(pred_test)
+        cov = ((target_test >= lower) & (target_test <= upper)).float().mean().item()
+        assert cov >= 0.82
+
+
+class TestPrevalenceAdjustedCP:
+    """Tests for prevalence-adjusted group conformal intervals."""
+
+    def test_prevalence_adjusted_basic(self):
+        torch.manual_seed(42)
+        cp = PrevalenceAdjustedCP(alpha=0.1, n_bins=4)
+        pred_cal = torch.randn(240, 1)
+        target_cal = pred_cal + 0.5 * torch.randn(240, 1)
+        cp.calibrate(pred_cal, target_cal)
+        lower, upper = cp.predict_interval(pred_cal)
+        assert lower.shape == pred_cal.shape
+        assert (lower <= upper).all()
+
+    def test_prevalence_adjusted_with_groups(self):
+        torch.manual_seed(42)
+        cp = PrevalenceAdjustedCP(alpha=0.1, n_bins=3)
+        pred_cal = torch.randn(180, 1)
+        target_cal = pred_cal + 0.45 * torch.randn(180, 1)
+        groups = torch.cat([torch.zeros(120), torch.ones(60)]).long()
+        cp.calibrate(pred_cal, target_cal, groups=groups)
+        lower, upper = cp.predict_interval(pred_cal, groups=groups)
+        assert lower.shape == pred_cal.shape
+        assert (lower <= upper).all()
+
+
+class TestMonteCarloConformal:
+    """Tests for MC-sample conformal intervals."""
+
+    def test_mc_conformal_basic(self):
+        torch.manual_seed(42)
+        cp = MonteCarloConformal(alpha=0.1)
+        n_mc, n = 20, 200
+        true = torch.randn(n, 1)
+        mc_cal = true.unsqueeze(0) + 0.4 * torch.randn(n_mc, n, 1)
+        cp.calibrate(mc_cal, true)
+        lower, upper = cp.predict_interval(mc_cal)
+        assert lower.shape == true.shape
+        assert upper.shape == true.shape
+        assert (lower <= upper).all()
+
+    def test_mc_conformal_coverage(self):
+        torch.manual_seed(42)
+        cp = MonteCarloConformal(alpha=0.1)
+        n_mc = 24
+        true_cal = torch.randn(240, 1)
+        mc_cal = true_cal.unsqueeze(0) + 0.45 * torch.randn(n_mc, 240, 1)
+        true_test = torch.randn(600, 1)
+        mc_test = true_test.unsqueeze(0) + 0.45 * torch.randn(n_mc, 600, 1)
+        cp.calibrate(mc_cal, true_cal)
+        lower, upper = cp.predict_interval(mc_test)
+        cov = ((true_test >= lower) & (true_test <= upper)).float().mean().item()
+        assert cov >= 0.82
 
 
 class TestEmptyInputs:

@@ -10,7 +10,7 @@ from torch.distributions import Normal
 from torchmetrics import Metric
 
 from .interval import IntervalScore, PredictionIntervalCoverageProbability
-from .utils import convert_to_tensor
+from .utils import convert_to_tensor, metric_state_tensor
 
 
 def ensemble_statistics(
@@ -99,12 +99,12 @@ class GaussianNLLEnsemble(Metric):
         total_var = torch.clamp(total_var, min=1e-6)
         diff2 = (y - mean) ** 2
         nll = 0.5 * (torch.log(2 * np.pi * total_var) + diff2 / total_var)
-        self.nll_sum += torch.sum(nll)
-        self.total += y.numel()
+        metric_state_tensor(self.nll_sum).add_(torch.sum(nll))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y.numel(), device=y.device))
 
     def compute(self) -> torch.Tensor:
         """Compute NLL."""
-        return self.nll_sum / self.total
+        return metric_state_tensor(self.nll_sum) / metric_state_tensor(self.total)
 
 
 class EnsembleIntervalMetrics(Metric):
@@ -149,3 +149,47 @@ class EnsembleIntervalMetrics(Metric):
         lower = mean - z * sd
         upper = mean + z * sd
         return lower, upper
+
+
+def gaussian_nll_ensemble(
+    means: Union[torch.Tensor, np.ndarray],
+    variances: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    """
+    Functional Gaussian NLL for ensemble mean/variance predictions.
+    """
+    metric = GaussianNLLEnsemble()
+    metric.update(convert_to_tensor(means), convert_to_tensor(variances), convert_to_tensor(y_true))
+    return metric.compute()
+
+
+def ensemble_interval_bounds(
+    means: Union[torch.Tensor, np.ndarray],
+    variances: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+    dim: int = 0,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Functional symmetric Gaussian prediction intervals from ensemble statistics.
+    """
+    stats = uncertainty_decomposition(means, variances, dim=dim)
+    mean = stats["mean"]
+    total_var = torch.clamp(stats["total_uncertainty"], min=1e-6)
+    sd = torch.sqrt(total_var)
+    z = Normal(0, 1).icdf(torch.tensor(1 - alpha / 2, device=mean.device))
+    return mean - z * sd, mean + z * sd
+
+
+def ensemble_interval_metrics(
+    means: Union[torch.Tensor, np.ndarray],
+    variances: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+) -> Dict[str, torch.Tensor]:
+    """
+    Functional interval score + coverage for ensemble predictions.
+    """
+    metric = EnsembleIntervalMetrics(alpha=alpha)
+    metric.update(convert_to_tensor(means), convert_to_tensor(variances), convert_to_tensor(y_true))
+    return metric.compute()

@@ -9,8 +9,15 @@ from .calibration import (
     MarginalCalibrationError,
     bias,
     calibration_metrics_report,
+    calibration_score,
     expected_calibration_error,
     marginal_calibration_error,
+)
+from .censored import (
+    censoring_rate,
+    concordance_index,
+    interval_overlap_rate,
+    observed_mae,
 )
 from .decision import (
     RejectionPolicy,
@@ -21,8 +28,10 @@ from .distribution import (
     ContinuousRankedProbabilityScore,
     EnergyScore,
     continuous_ranked_probability_score,
+    crps_gaussian,
     distribution_metrics_report,
     energy_score,
+    gaussian_nll,
     probability_integral_transform,
 )
 from .ensemble import (
@@ -40,6 +49,7 @@ from .interval import (
     PredictionIntervalCoverageProbability,
     interval_metrics_report,
     interval_score,
+    prediction_interval_coverage,
     prediction_interval_coverage_probability,
 )
 from .multivariate import (
@@ -57,6 +67,11 @@ from .ood import (
     ood_metrics_report,
     typicality_score,
 )
+from .ordinal import (
+    mean_absolute_class_error,
+    ordinal_accuracy,
+    quadratic_weighted_kappa,
+)
 from .point import (
     HuberMetric,
     MedianAbsoluteDeviation,
@@ -73,9 +88,18 @@ from .point import (
     median_absolute_error,
     mse,
     normalized_rmse,
+    r2_score,
     regression_metrics_report,
     rmse,
+    tail_mae,
+    tail_rmse,
     trimmed_mean_squared_error,
+)
+from .uncertain import (
+    consistency_error,
+    noisy_target_gaussian_nll,
+    pseudo_label_acceptance_rate,
+    uncertain_gt_metrics_report,
 )
 
 __all__ = [
@@ -85,12 +109,20 @@ __all__ = [
     "bias",
     "expected_calibration_error",
     "marginal_calibration_error",
+    "calibration_score",
     "calibration_metrics_report",
+    # Censored
+    "censoring_rate",
+    "observed_mae",
+    "concordance_index",
+    "interval_overlap_rate",
     # Distribution
     "ContinuousRankedProbabilityScore",
     "EnergyScore",
     "continuous_ranked_probability_score",
     "energy_score",
+    "gaussian_nll",
+    "crps_gaussian",
     "probability_integral_transform",
     "distribution_metrics_report",
     # Decision
@@ -110,6 +142,7 @@ __all__ = [
     "MeanPredictionIntervalWidth",
     "PredictionIntervalCoverageProbability",
     "interval_score",
+    "prediction_interval_coverage",
     "prediction_interval_coverage_probability",
     "interval_metrics_report",
     # Multivariate
@@ -125,6 +158,10 @@ __all__ = [
     "mahalanobis_distance",
     "typicality_score",
     "ood_metrics_report",
+    # Ordinal
+    "ordinal_accuracy",
+    "mean_absolute_class_error",
+    "quadratic_weighted_kappa",
     # Point
     "HuberMetric",
     "MedianAbsoluteError",
@@ -140,10 +177,18 @@ __all__ = [
     "median_absolute_error",
     "huber_loss",
     "rmse",
+    "r2_score",
     "trimmed_mean_squared_error",
     "median_absolute_deviation",
     "normalized_rmse",
+    "tail_mae",
+    "tail_rmse",
     "regression_metrics_report",
+    # Uncertain/weak ground-truth metrics
+    "noisy_target_gaussian_nll",
+    "consistency_error",
+    "pseudo_label_acceptance_rate",
+    "uncertain_gt_metrics_report",
     # Torchmetrics direct exports
     "MeanSquaredError",
     "MeanAbsoluteError",

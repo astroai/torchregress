@@ -12,7 +12,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 
-from torchregress.losses import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
+# Conceptual example: these noisy-label losses are documented for roadmap coverage
+# but are not currently available in torchregress.
+# from torchregress.losses import CoTeachingLoss, NoiseAdaptiveLoss, RENTLoss
 
 # ============================================================================
 # Synthetic Dataset with Noisy Labels

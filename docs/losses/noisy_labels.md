@@ -35,7 +35,7 @@ import torchregress as tr
 model = nn.Sequential(nn.Linear(10, 1))
 
 # Create loss for a dataset with 1000 samples
-loss_fn = tr.losses.NoiseAdaptiveLoss(n_samples=1000)
+loss_fn = NoiseAdaptiveLoss(n_samples=1000)  # concept example (not currently in torchregress)
 
 # Separate optimizer for the sample weights
 weight_optimizer = torch.optim.SGD([loss_fn.sample_weight_logits], lr=1e-3)
@@ -87,7 +87,7 @@ model1 = nn.Sequential(nn.Linear(10, 1))
 model2 = nn.Sequential(nn.Linear(10, 1))
 
 # Create loss function
-loss_fn = tr.losses.CoTeachingLoss(forget_rate=0.2)
+loss_fn = CoTeachingLoss(forget_rate=0.2)  # concept example (not currently in torchregress)
 
 # Optimizers for each model
 optimizer1 = torch.optim.Adam(model1.parameters(), lr=1e-3)
@@ -140,7 +140,7 @@ base_model = nn.Sequential(nn.Linear(10, 1))
 ensemble = DeepEnsemble(base_model, ensemble_size=5)
 
 # Create loss function
-loss_fn = tr.losses.RENTLoss(ensemble_size=5)
+loss_fn = RENTLoss(ensemble_size=5)  # concept example (not currently in torchregress)
 
 # Optimizer for the ensemble
 optimizer = torch.optim.Adam(ensemble.parameters(), lr=1e-3)

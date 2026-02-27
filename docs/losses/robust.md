@@ -236,7 +236,7 @@ import torch
 import torchregress as tr
 
 # Create Lq loss with q=1.5 (between L1 and L2)
-loss_fn = tr.losses.LqLoss(q=1.5)
+loss_fn = LqLoss(q=1.5)  # concept example (not currently in torchregress)
 
 # Predictions and y_trues
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
@@ -312,7 +312,7 @@ import torch
 import torchregress as tr
 
 # Create Winsorized loss
-loss_fn = tr.losses.WinsorizedLoss(quantile_low=0.25, quantile_high=0.75)
+loss_fn = WinsorizedLoss(quantile_low=0.25, quantile_high=0.75)  # concept example
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 2.0, 3.0, 4.0])
@@ -382,7 +382,7 @@ import torch
 import torchregress as tr
 
 # Create Adaptive Huber loss
-loss_fn = tr.losses.AdaptiveHuberLoss(quantile=0.8)
+loss_fn = AdaptiveHuberLoss(quantile=0.8)  # concept example (not currently in torchregress)
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 2.0, 10.0])
@@ -417,7 +417,7 @@ import torch
 import torchregress as tr
 
 # Create Clipped loss
-loss_fn = tr.losses.ClippedLoss(threshold=1.0, base_loss='mse')
+loss_fn = ClippedLoss(threshold=1.0, base_loss='mse')  # concept example
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 3.0])
@@ -456,7 +456,7 @@ import torch
 import torchregress as tr
 
 # Create Fair loss
-loss_fn = tr.losses.FairLoss(c=1.0)
+loss_fn = FairLoss(c=1.0)  # concept example
 
 # Predictions and targets
 y_pred = torch.tensor([0.0, 1.0, 3.0])
@@ -542,7 +542,7 @@ import torch
 import torchregress as tr
 
 # Create Barron loss with alpha=1.0 (between L1 and L2)
-loss_fn = tr.losses.BarronLoss(alpha=1.0)
+loss_fn = BarronLoss(alpha=1.0)  # concept example (not currently in torchregress)
 
 # Predictions and targets
 y_pred = torch.tensor([1.0, 2.0, 3.0, 4.0])

@@ -10,6 +10,10 @@ This page provides a complete API reference for all loss functions in torchregre
 
 ---
 
+::: torchregress.losses.censored
+
+---
+
 ::: torchregress.losses.eiv
 
 ---
@@ -42,6 +46,10 @@ This page provides a complete API reference for all loss functions in torchregre
 
 ---
 
+::: torchregress.losses.ordinal
+
+---
+
 ::: torchregress.losses.poisson_gaussian
 
 ---
@@ -59,3 +67,7 @@ This page provides a complete API reference for all loss functions in torchregre
 ---
 
 ::: torchregress.losses.tweedie
+
+---
+
+::: torchregress.losses.uncertain_gt

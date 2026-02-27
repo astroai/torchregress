@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
 
 jobs:
   test:
@@ -13,28 +16,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        python-version: "3.12"
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
-
-    - name: Install torch CPU-only first
-      run: |
-        uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
-
-    - name: Install package with test dependencies
-      run: |
-        uv pip install --system -e ".[test]"
+        pixi-version: v0.63.0
+        cache: true
 
     - name: Run tests
       run: |
-        pytest --cov=torchregress --cov-report=xml --cov-report=term
+        pixi run pytest --cov=torchregress --cov-report=xml --cov-report=term
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -46,25 +36,151 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        python-version: "3.12"
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
-
-    - name: Install dev dependencies
-      run: |
-        uv pip install --system -e ".[dev]"
+        pixi-version: v0.63.0
+        cache: true
 
     - name: Run ruff
       run: |
-        ruff check .
+        pixi run ruff check .
 
     - name: Run black
       run: |
-        black --check --exclude examples .
+        pixi run black --check .
+
+  benchmark-thresholds-cpu:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install pixi
+      uses: prefix-dev/setup-pixi@v0.8.1
+      with:
+        pixi-version: v0.63.0
+        cache: true
+
+    - name: Run benchmark smoke threshold check (CPU)
+      env:
+        OMP_NUM_THREADS: "1"
+        MKL_NUM_THREADS: "1"
+      run: |
+        pixi run python -m tools.benchmark_smoke \
+          --mode smoke \
+          --iterations 2 \
+          --warmup 1 \
+          --device cpu \
+          --thresholds reports/benchmark_thresholds/cpu/smoke.json \
+          --fail-on-thresholds
+
+    - name: Run benchmark sweep threshold check (CPU)
+      env:
+        OMP_NUM_THREADS: "1"
+        MKL_NUM_THREADS: "1"
+      run: |
+        pixi run python -m tools.benchmark_smoke \
+          --mode sweep \
+          --iterations 2 \
+          --warmup 1 \
+          --device cpu \
+          --thresholds reports/benchmark_thresholds/cpu/sweep.json \
+          --fail-on-thresholds
+
+    - name: Upload benchmark artifacts (CPU)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: benchmark-cpu-reports
+        path: |
+          reports/benchmark_smoke_latest.json
+          reports/benchmark_sweep_latest.json
+        if-no-files-found: warn
+
+    - name: Render benchmark markdown summaries (CPU)
+      if: always()
+      run: |
+        pixi run python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
+        pixi run python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
+
+    - name: Upload benchmark markdown summaries (CPU)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: benchmark-cpu-summaries
+        path: |
+          reports/benchmark_smoke_latest.md
+          reports/benchmark_sweep_latest.md
+        if-no-files-found: warn
+
+    - name: Render review readiness packet
+      if: always()
+      run: |
+        pixi run python tools/render_review_packet.py
+
+    - name: Upload review readiness packet artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: review-readiness-packet
+        path: |
+          reports/review_readiness_packet_latest.json
+          docs/audits/review_readiness_packet_2026-02-26.md
+        if-no-files-found: warn
+
+    # CUDA benchmark thresholds can be added later when a stable GPU runner is available.
+    # Suggested future job:
+    # - run tools.benchmark_smoke --mode smoke/sweep --device cuda
+    # - compare against reports/benchmark_thresholds/cuda/sweep.json
+
+  flow-examples-optional:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: prefix-dev/setup-pixi@v0.8.1
+      with:
+        pixi-version: v0.63.0
+        cache: true
+
+    - name: Run flow-enabled example smoke tests
+      run: |
+        pixi run pytest -q \
+          tests/test_examples_smoke.py::test_normalizing_flows_multitarget_main_smoke \
+          tests/test_examples_smoke.py::test_multimodal_method_comparison_main_smoke
+
+    - name: Render comparison example summaries (audit profile)
+      run: |
+        pixi run python tools/render_example_summaries.py --profile audit
+
+    - name: Render comparison example summaries (full profile)
+      run: |
+        pixi run python tools/render_example_summaries.py --profile full
+
+    - name: Compare audit vs full example summary profiles
+      run: |
+        pixi run python tools/compare_example_summary_profiles.py \
+          --base-dir reports/example_summaries \
+          --source-profile audit \
+          --target-profile full \
+          --output reports/example_summaries/profile_comparison_audit_vs_full.json
+
+    - name: Check full-profile example summary thresholds
+      run: |
+        pixi run python tools/example_summary_thresholds.py \
+          --base-dir reports/example_summaries \
+          --profile full \
+          --thresholds reports/example_summaries/thresholds_full.json \
+          --output-verdict reports/example_summaries/threshold_check_full_latest.json \
+          --fail-on-thresholds
+
+    - name: Upload comparison example summary artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: comparison-example-summaries
+        path: |
+          reports/example_summaries/*.json
+          reports/example_summaries/*.md
+        if-no-files-found: warn

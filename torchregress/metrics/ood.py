@@ -2,14 +2,14 @@
 Out-of-distribution (OOD) detection metrics for regression models.
 """
 
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import numpy as np
 import torch
 from torch.distributions import Normal
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, ensure_batch_dim
+from torchregress.metrics.utils import convert_to_tensor, ensure_batch_dim, metric_state_list
 
 
 class MahalanobisDistance(Metric):
@@ -52,11 +52,11 @@ class MahalanobisDistance(Metric):
             md_squared = torch.sum(scaled_diff**2, dim=1)
             md = torch.sqrt(md_squared)
 
-        self.distances.append(md)
+        metric_state_list[torch.Tensor](self.distances).append(md)
 
     def compute(self) -> torch.Tensor:
         """Compute Mahalanobis distance."""
-        return torch.mean(torch.cat(self.distances))
+        return torch.mean(torch.cat(metric_state_list[torch.Tensor](self.distances)))
 
 
 class TypicalityScore(Metric):
@@ -80,8 +80,12 @@ class TypicalityScore(Metric):
         if isinstance(model_output, tuple):
             mean, var = model_output
         elif isinstance(model_output, dict):
-            mean = model_output.get("mean", model_output.get("loc"))
-            var = model_output.get("variance", model_output.get("var"))
+            mean_opt = model_output.get("mean", model_output.get("loc"))
+            var_opt = model_output.get("variance", model_output.get("var"))
+            if mean_opt is None or var_opt is None:
+                raise ValueError("model_output dict must contain mean/loc and variance/var entries")
+            mean = mean_opt
+            var = var_opt
         else:
             raise ValueError(
                 "model_output must be a tuple (mean, var) or a dict with 'mean'/'variance' keys"
@@ -95,11 +99,11 @@ class TypicalityScore(Metric):
             log_probs = log_probs.sum(dim=-1)
 
         typicality = torch.mean(log_probs, dim=0)
-        self.scores.append(typicality)
+        metric_state_list[torch.Tensor](self.scores).append(typicality)
 
     def compute(self) -> torch.Tensor:
         """Compute typicality score."""
-        return torch.mean(torch.cat(self.scores))
+        return torch.mean(torch.cat(metric_state_list[torch.Tensor](self.scores)))
 
 
 class EntropyScore(Metric):
@@ -124,11 +128,11 @@ class EntropyScore(Metric):
         entropies = _batched_entropy(samples, self.n_bins)
 
         total_entropy = torch.sum(entropies, dim=1)
-        self.entropies.append(total_entropy)
+        metric_state_list[torch.Tensor](self.entropies).append(total_entropy)
 
     def compute(self) -> torch.Tensor:
         """Compute entropy score."""
-        return torch.mean(torch.cat(self.entropies))
+        return torch.mean(torch.cat(metric_state_list[torch.Tensor](self.entropies)))
 
 
 class KernelDensityScore(Metric):
@@ -158,11 +162,11 @@ class KernelDensityScore(Metric):
 
         kernel_values = torch.exp(-dist_sq / (2 * self.bandwidth**2))
         density_scores = torch.mean(kernel_values, dim=1)
-        self.scores.append(density_scores)
+        metric_state_list[torch.Tensor](self.scores).append(density_scores)
 
     def compute(self) -> torch.Tensor:
         """Compute kernel density score."""
-        return torch.mean(torch.cat(self.scores))
+        return torch.mean(torch.cat(metric_state_list[torch.Tensor](self.scores)))
 
 
 def mahalanobis_distance(
@@ -211,8 +215,12 @@ def typicality_score(
     if isinstance(model_output, tuple):
         mean, var = model_output
     elif isinstance(model_output, dict):
-        mean = model_output.get("mean", model_output.get("loc"))
-        var = model_output.get("variance", model_output.get("var"))
+        mean_opt = model_output.get("mean", model_output.get("loc"))
+        var_opt = model_output.get("variance", model_output.get("var"))
+        if mean_opt is None or var_opt is None:
+            raise ValueError("model_output dict must contain mean/loc and variance/var entries")
+        mean = mean_opt
+        var = var_opt
     else:
         raise ValueError(
             "model_output must be a tuple (mean, var) or a dict with 'mean'/'variance' keys"
@@ -238,7 +246,7 @@ def typicality_score(
         return torch.mean(log_prob)
     if reduction == "sum":
         return torch.sum(log_prob)
-    return log_prob
+    return cast(torch.Tensor, log_prob)
 
 
 def entropy_score(

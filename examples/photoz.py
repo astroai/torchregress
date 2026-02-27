@@ -495,7 +495,7 @@ class PhotoZExperiment:
                 total_loss += loss.item()
 
             if epoch % 10 == 0:
-                print(f"  Epoch {epoch}: Loss {total_loss/len(self.train_loader):.4f}")
+                print(f"  Epoch {epoch}: Loss {total_loss / len(self.train_loader):.4f}")
 
         return model, loss_fn
 

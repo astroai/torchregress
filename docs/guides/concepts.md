@@ -2,6 +2,9 @@
 
 This guide introduces the key concepts in torchregress for beginners. If you're new to uncertainty quantification and robust regression, start here!
 
+If you already know the basics and need to choose a method quickly for a specific task,
+use the [Task-First Method Selection Matrix](method_selection_matrix.md).
+
 ## What is torchregress?
 
 torchregress is a PyTorch library that extends standard regression to handle:
@@ -10,6 +13,15 @@ torchregress is a PyTorch library that extends standard regression to handle:
 2. **Robust Regression** - Handle outliers gracefully
 3. **Missing Data** - Work with incomplete datasets
 4. **Advanced Distributions** - Model complex data patterns
+
+## Recommended Navigation (Task-First)
+
+After this guide:
+
+1. Use the [Task-First Method Selection Matrix](method_selection_matrix.md) to shortlist methods.
+2. Use [Choosing Methods by Constraint](choosing_by_constraint.md) to narrow by compute/guarantees/reliability constraints.
+3. Open the matching example in [Examples](../examples/index.md).
+4. Validate with calibration/OOD/decision metrics before deployment.
 
 ## Core Concepts
 

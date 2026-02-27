@@ -6,7 +6,7 @@ common operations used across different visualization functions.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ def set_style(
         rc: Dictionary of rc parameter mappings to override
     """
     try:
-        import seaborn as sns
+        import seaborn as sns  # type: ignore[import-untyped]
 
         has_seaborn = True
     except ImportError:
@@ -94,9 +94,13 @@ def create_grid_figure(
         ncols = min(3, n_plots)
         nrows = int(np.ceil(n_plots / ncols))
     elif nrows is None:
+        assert ncols is not None
         nrows = int(np.ceil(n_plots / ncols))
     elif ncols is None:
+        assert nrows is not None
         ncols = int(np.ceil(n_plots / nrows))
+    assert nrows is not None
+    assert ncols is not None
 
     # Create figure and axes
     fig, axes = plt.subplots(
@@ -115,7 +119,7 @@ def create_grid_figure(
     for i in range(n_plots, nrows * ncols):
         axes_flat[i].set_visible(False)
 
-    return fig, axes_flat[:n_plots]
+    return fig, cast(List[plt.Axes], axes_flat[:n_plots].tolist())
 
 
 def add_identity_line(
@@ -287,13 +291,13 @@ def create_color_palette(
     """
     # Handle common case of needing a qualitative palette
     try:
-        import seaborn as sns
+        import seaborn as sns  # type: ignore[import-untyped]
 
         if not palette_name.endswith("_r") and not as_cmap:
             colors = sns.color_palette(palette_name, n_colors)
             if as_hex:
                 colors = [mpl.colors.rgb2hex(rgb) for rgb in colors]
-            return colors
+            return cast(Union[List[Tuple[float, float, float]], List[str]], colors)
     except ImportError:
         pass
 

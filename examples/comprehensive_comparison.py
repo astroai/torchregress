@@ -14,6 +14,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from comparison_utils import (
+    compute_point_metrics,
+    print_comparison_summary,
+    print_fairness_notes,
+    timed_call,
+)
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import (
@@ -314,41 +320,104 @@ def scenario_1_clean_data():
     x_train_t = torch.from_numpy(x_train)
     y_train_t = torch.from_numpy(y_train)
     x_test_t = torch.from_numpy(x_test)
+    y_test_t = torch.sin(x_test_t)
 
     dataset = TensorDataset(x_train_t, y_train_t)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     results = {}
+    summary_rows = []
 
     # MSE baseline
     print("\n1. Training MSE model...")
     set_seed(42)
     model_mse = create_mlp()
-    model_mse = train_model(model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100)
-    pred_mse, _ = evaluate_point_predictions(model_mse, x_test_t, None, "MSE")
+    model_mse, train_s = timed_call(
+        train_model, model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100
+    )
+    (pred_mse, _), eval_s = timed_call(
+        evaluate_point_predictions, model_mse, x_test_t, y_test_t, "MSE"
+    )
     results["MSE (Baseline)"] = (pred_mse, None, None)
+    summary_rows.append(
+        {
+            "Method": "MSE (Baseline)",
+            **compute_point_metrics(pred_mse, y_test_t),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "fast baseline",
+        }
+    )
 
     # Heteroscedastic
     print("\n2. Training Heteroscedastic model...")
     set_seed(42)
     model_hetero = create_heteroscedastic_mlp()
-    model_hetero = train_model(model_hetero, dataloader, GaussianNLLLoss(), epochs=100)
-    model_hetero.eval()
-    with torch.no_grad():
-        pred = model_hetero(x_test_t)
-        pred_mean, pred_log_var = pred[:, 0:1], pred[:, 1:2]
-        pred_std = torch.exp(0.5 * pred_log_var)
+    model_hetero, train_s = timed_call(
+        train_model, model_hetero, dataloader, GaussianNLLLoss(), epochs=100
+    )
+
+    def _eval_hetero_single():
+        model_hetero.eval()
+        with torch.no_grad():
+            pred = model_hetero(x_test_t)
+            pred_mean_local, pred_log_var_local = pred[:, 0:1], pred[:, 1:2]
+            pred_std_local = torch.exp(0.5 * pred_log_var_local)
+        return pred_mean_local, pred_std_local
+
+    (pred_mean, pred_std), eval_s = timed_call(_eval_hetero_single)
     results["Heteroscedastic"] = (pred_mean, pred_std, None)
+    summary_rows.append(
+        {
+            "Method": "Heteroscedastic",
+            **compute_point_metrics(pred_mean, y_test_t),
+            "mean_uncertainty": pred_std.mean().item(),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "aleatoric only",
+        }
+    )
 
     # Deep Ensemble
     print("\n3. Training Deep Ensemble...")
-    ensemble_models = train_ensemble(
-        5, dataloader, create_mlp, WeightedLossWrapper(nn.MSELoss), epochs=100
+    ensemble_models, train_s = timed_call(
+        train_ensemble,
+        5,
+        dataloader,
+        create_mlp,
+        WeightedLossWrapper(nn.MSELoss),
+        epochs=100,
     )
-    pred_mean, pred_std = evaluate_ensemble_predictions(
-        ensemble_models, x_test_t, None, "Deep Ensemble"
+    (pred_mean, pred_std), eval_s = timed_call(
+        evaluate_ensemble_predictions,
+        ensemble_models,
+        x_test_t,
+        y_test_t,
+        "Deep Ensemble",
     )
     results["Deep Ensemble"] = (pred_mean, pred_std, None)
+    summary_rows.append(
+        {
+            "Method": "Deep Ensemble",
+            **compute_point_metrics(pred_mean, y_test_t),
+            "mean_uncertainty": pred_std.mean().item(),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "epistemic uncertainty",
+        }
+    )
+
+    print_fairness_notes(
+        title="Scenario 1",
+        seed_policy="fixed seeds before each method/ensemble member",
+        train_budget="100 epochs, same MLP width, batch_size=32",
+        metric_policy="MSE/MAE/R2 vs noiseless sin(x) on shared test grid; uncertainty where available",
+    )
+    print_comparison_summary(
+        "Scenario 1 Summary (Clean Data)",
+        summary_rows,
+        metric_order=["MSE", "MAE", "R2", "mean_uncertainty", "train_s", "eval_s"],
+    )
 
     plot_comparison(
         x_train_t,
@@ -378,35 +447,88 @@ def scenario_2_outliers():
     x_train_t = torch.from_numpy(x_train)
     y_train_t = torch.from_numpy(y_train)
     x_test_t = torch.from_numpy(x_test)
+    y_test_t = torch.sin(x_test_t)
 
     dataset = TensorDataset(x_train_t, y_train_t)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     results = {}
+    summary_rows = []
 
     # MSE (sensitive to outliers)
     print("\n1. Training MSE model (sensitive to outliers)...")
     set_seed(42)
     model_mse = create_mlp()
-    model_mse = train_model(model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100)
-    pred_mse, _ = evaluate_point_predictions(model_mse, x_test_t, None, "MSE")
+    model_mse, train_s = timed_call(
+        train_model, model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100
+    )
+    (pred_mse, _), eval_s = timed_call(
+        evaluate_point_predictions, model_mse, x_test_t, y_test_t, "MSE"
+    )
     results["MSE (Sensitive)"] = (pred_mse, None, None)
+    summary_rows.append(
+        {
+            "Method": "MSE (Sensitive)",
+            **compute_point_metrics(pred_mse, y_test_t),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "outlier-sensitive baseline",
+        }
+    )
 
     # Huber (balanced)
     print("\n2. Training Huber model (balanced robustness)...")
     set_seed(42)
     model_huber = create_mlp()
-    model_huber = train_model(model_huber, dataloader, HuberLoss(delta=1.0), epochs=100)
-    pred_huber, _ = evaluate_point_predictions(model_huber, x_test_t, None, "Huber")
+    model_huber, train_s = timed_call(
+        train_model, model_huber, dataloader, HuberLoss(delta=1.0), epochs=100
+    )
+    (pred_huber, _), eval_s = timed_call(
+        evaluate_point_predictions, model_huber, x_test_t, y_test_t, "Huber"
+    )
     results["Huber (Balanced)"] = (pred_huber, None, None)
+    summary_rows.append(
+        {
+            "Method": "Huber (Balanced)",
+            **compute_point_metrics(pred_huber, y_test_t),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "robust default",
+        }
+    )
 
     # Cauchy (very robust)
     print("\n3. Training Cauchy model (very robust)...")
     set_seed(42)
     model_cauchy = create_mlp()
-    model_cauchy = train_model(model_cauchy, dataloader, CauchyLoss(c=0.5), epochs=100)
-    pred_cauchy, _ = evaluate_point_predictions(model_cauchy, x_test_t, None, "Cauchy")
+    model_cauchy, train_s = timed_call(
+        train_model, model_cauchy, dataloader, CauchyLoss(c=0.5), epochs=100
+    )
+    (pred_cauchy, _), eval_s = timed_call(
+        evaluate_point_predictions, model_cauchy, x_test_t, y_test_t, "Cauchy"
+    )
     results["Cauchy (Very Robust)"] = (pred_cauchy, None, None)
+    summary_rows.append(
+        {
+            "Method": "Cauchy (Very Robust)",
+            **compute_point_metrics(pred_cauchy, y_test_t),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "strong outlier resistance",
+        }
+    )
+
+    print_fairness_notes(
+        title="Scenario 2",
+        seed_policy="fixed seed reset before each method",
+        train_budget="100 epochs, identical architecture, batch_size=32",
+        metric_policy="MSE/MAE/R2 vs noiseless sin(x) to measure outlier robustness",
+    )
+    print_comparison_summary(
+        "Scenario 2 Summary (Outliers)",
+        summary_rows,
+        metric_order=["MSE", "MAE", "R2", "train_s", "eval_s"],
+    )
 
     plot_comparison(
         x_train_t,
@@ -437,33 +559,93 @@ def scenario_3_heteroscedastic():
     x_train_t = torch.from_numpy(x_train)
     y_train_t = torch.from_numpy(y_train)
     x_test_t = torch.from_numpy(x_test)
+    y_test_t = torch.sin(x_test_t)
 
     dataset = TensorDataset(x_train_t, y_train_t)
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     results = {}
+    summary_rows = []
 
     # Simple Gaussian (assumes homoscedastic)
     print("\n1. Training simple Gaussian (assumes constant noise)...")
     set_seed(42)
     model_simple = create_heteroscedastic_mlp()
-    model_simple = train_model(model_simple, dataloader, GaussianNLLLoss(), epochs=100)
-    model_simple.eval()
-    with torch.no_grad():
-        pred = model_simple(x_test_t)
-        pred_mean, pred_log_var = pred[:, 0:1], pred[:, 1:2]
-        pred_std = torch.exp(0.5 * pred_log_var)
+    model_simple, train_s = timed_call(
+        train_model, model_simple, dataloader, GaussianNLLLoss(), epochs=100
+    )
+
+    def _eval_simple_gaussian():
+        model_simple.eval()
+        with torch.no_grad():
+            pred = model_simple(x_test_t)
+            pred_mean_local, pred_log_var_local = pred[:, 0:1], pred[:, 1:2]
+            pred_std_local = torch.exp(0.5 * pred_log_var_local)
+        return pred_mean_local, pred_std_local
+
+    (pred_mean, pred_std), eval_s = timed_call(_eval_simple_gaussian)
     results["Gaussian NLL"] = (pred_mean, pred_std, None)
+    summary_rows.append(
+        {
+            "Method": "Gaussian NLL",
+            **compute_point_metrics(pred_mean, y_test_t),
+            "mean_uncertainty": pred_std.mean().item(),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "single heteroscedastic model",
+        }
+    )
 
     # Heteroscedastic Ensemble
     print("\n2. Training Heteroscedastic Ensemble...")
-    ensemble_models = train_ensemble(
-        5, dataloader, create_heteroscedastic_mlp, GaussianNLLLoss(), epochs=100
+    ensemble_models, train_s = timed_call(
+        train_ensemble,
+        5,
+        dataloader,
+        create_heteroscedastic_mlp,
+        GaussianNLLLoss(),
+        epochs=100,
     )
-    pred_mean, total_std, epistemic, aleatoric = evaluate_heteroscedastic_ensemble(
-        ensemble_models, x_test_t, None
+    (pred_mean, total_std, epistemic, aleatoric), eval_s = timed_call(
+        evaluate_heteroscedastic_ensemble,
+        ensemble_models,
+        x_test_t,
+        y_test_t,
     )
     results["Hetero Ensemble"] = (pred_mean, total_std, None)
+    summary_rows.append(
+        {
+            "Method": "Hetero Ensemble",
+            **compute_point_metrics(pred_mean, y_test_t),
+            "mean_uncertainty": total_std.mean().item(),
+            "epistemic_mean": torch.sqrt(epistemic).mean().item(),
+            "aleatoric_mean": torch.sqrt(aleatoric).mean().item(),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "epistemic + aleatoric",
+        }
+    )
+
+    print_fairness_notes(
+        title="Scenario 3",
+        seed_policy="fixed seeds per method and per ensemble member",
+        train_budget="100 epochs, comparable backbone size, batch_size=32",
+        metric_policy="MSE/MAE/R2 vs noiseless sin(x); uncertainty summary includes decomposition means",
+    )
+    print_comparison_summary(
+        "Scenario 3 Summary (Heteroscedastic Data)",
+        summary_rows,
+        metric_order=[
+            "MSE",
+            "MAE",
+            "R2",
+            "mean_uncertainty",
+            "epistemic_mean",
+            "aleatoric_mean",
+            "train_s",
+            "eval_s",
+        ],
+    )
 
     # Show uncertainty decomposition separately
     results_decomp = {

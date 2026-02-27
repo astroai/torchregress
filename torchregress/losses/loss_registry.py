@@ -1,11 +1,12 @@
 """
-Registry for regression loss classes.
+Registry and helpers for regression loss classes.
 
 Use @register_regression_loss(name) to register custom loss classes.
-
 """
 
-from typing import Callable, Dict, List, Type
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, List, Type
 
 # Global registry dictionary
 loss_registry: Dict[str, Type] = {}
@@ -57,3 +58,43 @@ def list_regression_losses() -> List[str]:
         A list of registered loss identifiers.
     """
     return list(loss_registry.keys())
+
+
+def create_loss_from_config(config: Dict[str, Any]) -> Any:
+    """
+    Create a loss instance from a lightweight config dictionary.
+
+    Examples:
+        >>> create_loss_from_config({"type": "mse"})
+        >>> create_loss_from_config({"type": "huber", "delta": 1.0})
+        >>> create_loss_from_config({"type": "gaussian_nll"})
+    """
+    if "type" not in config:
+        raise KeyError("config must include a 'type' key")
+
+    cfg = dict(config)
+    loss_type = str(cfg.pop("type")).lower()
+
+    # Local imports avoid circular dependencies with losses.__init__.
+    from .base import WeightedHuberLoss, WeightedL1Loss, WeightedMSELoss
+    from .gaussian import GaussianNLLLoss
+
+    aliases: Dict[str, Any] = {
+        "mse": WeightedMSELoss,
+        "l2": WeightedMSELoss,
+        "l1": WeightedL1Loss,
+        "mae": WeightedL1Loss,
+        "huber": WeightedHuberLoss,
+        "gaussian_nll": GaussianNLLLoss,
+        "gaussian": GaussianNLLLoss,
+    }
+
+    if loss_type in aliases:
+        cls = aliases[loss_type]
+        return cls(**cfg)
+
+    if loss_type in loss_registry:
+        return loss_registry[loss_type](**cfg)
+
+    available = sorted(set(list(aliases) + list(loss_registry)))
+    raise KeyError(f"Unknown loss type '{loss_type}'. Available types: {available}")

@@ -17,6 +17,27 @@ Metrics for evaluating point predictions (without uncertainty):
 
 [Learn more about point metrics →](point.md)
 
+### Ordinal Metrics
+
+Metrics for ordered-target predictions:
+
+- **Ordinal Accuracy**: exact class-index match rate
+- **Mean Absolute Class Error**: average class-index distance
+- **Quadratic Weighted Kappa (QWK)**: agreement metric with stronger penalty for larger ordinal mistakes
+
+[Learn more about ordinal metrics →](ordinal.md)
+
+### Censored Metrics
+
+Metrics for censored and interval-censored targets:
+
+- **Censoring Rate**
+- **Observed MAE**
+- **Concordance Index**
+- **Interval Overlap Rate**
+
+[Learn more about censored metrics →](censored.md)
+
 ### Distribution Metrics
 
 Metrics for evaluating full predictive distributions:

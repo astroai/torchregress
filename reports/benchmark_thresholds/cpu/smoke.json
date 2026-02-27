@@ -1,0 +1,43 @@
+{
+  "artifact": "benchmark_thresholds",
+  "version": 1,
+  "target_artifact": "benchmark_smoke",
+  "target_device": "cpu",
+  "source_config": {
+    "multiplier": 4.0,
+    "floor_ms": 1.5
+  },
+  "limits": {
+    "gaussian_diag_nll_forward": {
+      "max_mean_ms": 1.5
+    },
+    "gaussian_multivariate_full_forward": {
+      "max_mean_ms": 1.5
+    },
+    "gaussian_low_rank_forward": {
+      "max_mean_ms": 1.531836111098528
+    },
+    "mdn_diagonal_forward": {
+      "max_mean_ms": 1.5
+    },
+    "mdn_full_forward": {
+      "max_mean_ms": 1.5
+    },
+    "functional_eiv_forward": {
+      "threshold_ms": 1500,
+      "description": "Forward pass of Functional EIV layer"
+    },
+    "ensemble_variance_decomposition": {
+      "max_mean_ms": 1.5
+    },
+    "calibration_score_gaussian": {
+      "max_mean_ms": 4.0
+    },
+    "ood_metrics_report_combo": {
+      "max_mean_ms": 4.293334204703569
+    },
+    "normalizing_flow_forward_optional": {
+      "max_mean_ms": 10.0
+    }
+  }
+}

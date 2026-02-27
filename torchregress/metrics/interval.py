@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.utils import convert_to_tensor, metric_state_tensor, validate_inputs
 
 
 class IntervalScore(Metric):
@@ -48,12 +48,12 @@ class IntervalScore(Metric):
 
         score = interval_width + (2 / self.alpha) * (below_lower + above_upper)
 
-        self.score += torch.sum(score)
-        self.total += y_true.numel()
+        metric_state_tensor(self.score).add_(torch.sum(score))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y_true.numel(), device=y_true.device))
 
     def compute(self) -> torch.Tensor:
         """Compute interval score."""
-        return self.score / self.total
+        return metric_state_tensor(self.score) / metric_state_tensor(self.total)
 
 
 class PredictionIntervalCoverageProbability(Metric):
@@ -82,12 +82,12 @@ class PredictionIntervalCoverageProbability(Metric):
         y_true = convert_to_tensor(y_true)
 
         coverage = ((y_true >= lower_bound) & (y_true <= upper_bound)).float()
-        self.covered += torch.sum(coverage)
-        self.total += y_true.numel()
+        metric_state_tensor(self.covered).add_(torch.sum(coverage))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y_true.numel(), device=y_true.device))
 
     def compute(self) -> torch.Tensor:
         """Compute PICP."""
-        return self.covered / self.total
+        return metric_state_tensor(self.covered) / metric_state_tensor(self.total)
 
 
 class MeanPredictionIntervalWidth(Metric):
@@ -114,12 +114,14 @@ class MeanPredictionIntervalWidth(Metric):
         upper_bound = convert_to_tensor(upper_bound)
 
         width = upper_bound - lower_bound
-        self.width_sum += torch.sum(width)
-        self.total += lower_bound.numel()
+        metric_state_tensor(self.width_sum).add_(torch.sum(width))
+        metric_state_tensor(self.total).add_(
+            torch.as_tensor(lower_bound.numel(), device=lower_bound.device)
+        )
 
     def compute(self) -> torch.Tensor:
         """Compute MPIW."""
-        return self.width_sum / self.total
+        return metric_state_tensor(self.width_sum) / metric_state_tensor(self.total)
 
 
 def interval_score(
@@ -206,11 +208,11 @@ def interval_metrics_report(
     predictions: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]],
     y_true: Union[torch.Tensor, np.ndarray],
     alpha: float = 0.1,
-) -> Dict[str, Dict[str, torch.Tensor]]:
+) -> Dict[str, Dict[str, Any]]:
     """
     Generate interval metrics report for multiple models.
     """
-    report: Dict[str, Dict[str, torch.Tensor]] = {}
+    report: Dict[str, Dict[str, Any]] = {}
     for name, bounds in predictions.items():
         lower = bounds["lower"]
         upper = bounds["upper"]
@@ -221,3 +223,20 @@ def interval_metrics_report(
         mpiw = torch.mean(convert_to_tensor(upper) - convert_to_tensor(lower))
         report[name] = {"score": score, "picp": picp, "mpiw": mpiw}
     return report
+
+
+def prediction_interval_coverage(
+    lower_bound: Union[torch.Tensor, np.ndarray],
+    upper_bound: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+    return_diagnostics: bool = False,
+) -> Union[torch.Tensor, float, Dict[str, torch.Tensor]]:
+    """Compatibility alias for :func:`prediction_interval_coverage_probability`."""
+    return prediction_interval_coverage_probability(
+        lower_bound=lower_bound,
+        upper_bound=upper_bound,
+        y_true=y_true,
+        alpha=alpha,
+        return_diagnostics=return_diagnostics,
+    )

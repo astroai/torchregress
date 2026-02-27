@@ -2,6 +2,11 @@
 
 torchregress provides a comprehensive collection of loss functions for regression tasks, ranging from basic losses to advanced uncertainty-aware losses.
 
+Task-first entry point (recommended): use the
+[Task-First Method Selection Matrix](../guides/method_selection_matrix.md) when you are
+choosing between loss families for outliers, multimodal targets, calibration, OOD
+robustness, imbalance, or noisy features.
+
 ## Loss Categories
 
 The library organizes loss functions into several categories:
@@ -49,6 +54,16 @@ Distribution-free alternatives that target specific parts of the conditional dis
 
 [Learn more about quantile & expectile losses →](quantile_expectile.md)
 
+### Ordinal Losses
+
+Losses for ordered discrete targets (for example ratings/bins where class distance matters):
+
+- **OrdinalCrossEntropyLoss**: class-logit baseline for ordinal labels
+- **CumulativeLinkLoss**: cumulative-threshold objective with `K-1` logits
+- **CORALLoss**: CORAL-style cumulative objective
+
+[Learn more about ordinal losses →](ordinal.md)
+
 ### Poisson & Tweedie Losses
 
 Specialized losses for count data and data with non-normal distributions:
@@ -89,6 +104,16 @@ Losses that account for uncertainty in both inputs and outputs:
 
 [Learn more about error-in-variables losses →](eiv.md)
 
+### Censored Regression Losses
+
+Losses for right/left and interval-censored outcomes:
+
+- **CensoredGaussianNLLLoss**
+- **CensoredQuantileLoss**
+- **AFTLoss**
+
+[Learn more about censored regression losses →](censored.md)
+
 ### Conformal Prediction Losses
 
 Methods that provide rigorous prediction intervals with statistical guarantees:
@@ -122,3 +147,5 @@ Apply transformations to the target variable before computing the loss:
 | Accounting for input errors | `DemingLoss` or `ODRLoss` |
 
 For detailed guidance on loss selection, see the [practical usage guide](../usage/practical_usage.md).
+
+For end-to-end comparisons and runtime tradeoffs, see the [examples index](../examples/index.md).

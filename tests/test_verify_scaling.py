@@ -54,3 +54,23 @@ def test_amp_device_enablement():
     cpu_amp = AMP(device_type="cpu", enabled=True)
     assert cpu_amp.enabled is True
     assert cpu_amp.dtype == torch.bfloat16
+
+
+def test_amp_mps_enablement_matches_runtime():
+    amp = AMP(device_type="mps", enabled=True)
+    expected = bool(hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
+    assert amp.enabled == expected
+
+
+def test_compile_model_returns_original_on_compile_failure(monkeypatch):
+    model = nn.Linear(3, 1)
+
+    if not hasattr(torch, "compile"):
+        pytest.skip("torch.compile not available")
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("compile failed")
+
+    monkeypatch.setattr(torch, "compile", _boom)
+    compiled = compile_model(model)
+    assert compiled is model

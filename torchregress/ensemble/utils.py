@@ -9,6 +9,7 @@ and uncertainty estimation.
 from typing import Callable, Dict, List, Tuple, Union
 
 import torch
+import torch.nn as nn
 
 
 def parse_heteroscedastic_output(
@@ -181,7 +182,7 @@ def run_heteroscedastic_ensemble_model(
 
 
 def generate_prediction_samples(
-    model: Callable, x: torch.Tensor, n_samples: int = 10, return_samples: bool = False
+    model: nn.Module, x: torch.Tensor, n_samples: int = 10, return_samples: bool = False
 ) -> Dict[str, torch.Tensor]:
     """
     Generate multiple predictions using dropout at inference time (MC Dropout).

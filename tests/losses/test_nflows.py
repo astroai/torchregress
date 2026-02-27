@@ -2,6 +2,7 @@
 Tests for the normalizing flow loss module with conditional flows.
 """
 
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -60,10 +61,10 @@ if HAS_ZUKO:
 
 else:
     # Dummy classes for collection
-    class NormalizingFlowLoss:
+    class NormalizingFlowLoss:  # type: ignore[no-redef]
         pass
 
-    def create_flow_model(*args, **kwargs):
+    def create_flow_model(*args: Any, **kwargs: Any) -> Any:  # type: ignore[no-redef, misc]
         pass
 
 

@@ -5,7 +5,7 @@ This module provides concrete implementations of ensemble models
 for regression tasks with uncertainty estimation.
 """
 
-from typing import Dict
+from typing import Any, Dict, Union
 
 import torch
 import torch.nn as nn
@@ -100,7 +100,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             # Epistemic covariance: variance of means
             p = stacked_means.permute(1, 0, 2)  # [B, M, D]
             p_centered = p - mean.unsqueeze(1)
-            epi_cov = torch.einsum("bmd,bnd->bmn", p_centered, p_centered) / (
+            epi_cov = torch.einsum("bmd,bme->bde", p_centered, p_centered) / (
                 self.ensemble_size - 1
             )
             # Aleatoric covariance: mean of member variances as diagonal
@@ -132,8 +132,19 @@ class DeepEnsemble(BaseEnsembleModel):
         device: Device to use
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        base_model: Union[nn.Module, type],
+        ensemble_size: int = 5,
+        device: str = "cpu",
+        **base_model_kwargs: Any,
+    ) -> None:
+        super().__init__(
+            base_model=base_model,
+            ensemble_size=ensemble_size,
+            device=device,
+            **base_model_kwargs,
+        )
 
 
 class HeteroscedasticBatchEnsembleModel(nn.Module):

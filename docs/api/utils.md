@@ -10,6 +10,14 @@ This page provides a complete API reference for all utility functions in torchre
 
 ---
 
+::: torchregress.utils.ordinal
+
+---
+
+::: torchregress.utils.propensity
+
+---
+
 ::: torchregress.utils.pytorch_compat
 
 ---

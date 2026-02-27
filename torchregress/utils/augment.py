@@ -34,16 +34,22 @@ class Augmentation(nn.Module):
         Apply augmentation to input data.
         """
         if torch.rand(1) < self.probability:
-            return self.apply(x, y)
+            return self.augment(x, y)
         return x, y
 
-    def apply(
+    def augment(
         self, x: torch.Tensor, y: Optional[torch.Tensor]
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
         Apply the actual augmentation. Must be implemented by subclasses.
         """
         raise NotImplementedError("Subclasses must implement this method")
+
+    def apply(  # type: ignore[override]
+        self, x: torch.Tensor, y: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """Compatibility shim for older torchregress augmentation usage."""
+        return self.augment(x, y)
 
 
 class GaussianNoise(Augmentation):
@@ -59,7 +65,7 @@ class GaussianNoise(Augmentation):
         super().__init__(probability)
         self.std = std
 
-    def apply(
+    def augment(
         self, x: torch.Tensor, y: Optional[torch.Tensor]
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
@@ -90,7 +96,7 @@ class Adversarial(Augmentation):
         self.steps = steps
         self.alpha = alpha
 
-    def apply(
+    def augment(
         self, x: torch.Tensor, y: Optional[torch.Tensor]
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
@@ -108,12 +114,19 @@ class Adversarial(Augmentation):
                 self.model.zero_grad()
                 loss.backward()
                 with torch.no_grad():
-                    grad_sign = torch.sign(x_adv.grad)
+                    grad = x_adv.grad
+                    if grad is None:
+                        raise RuntimeError(
+                            "Adversarial augmentation expected gradients but got None"
+                        )
+                    grad_sign = torch.sign(grad)
                     x_adv.data = x_adv.data + self.alpha * grad_sign
                     x_adv.data = torch.min(
                         torch.max(x_adv.data, x - self.epsilon), x + self.epsilon
                     )
-                x_adv.grad.zero_()
+                grad = x_adv.grad
+                if grad is not None:
+                    grad.zero_()
 
         return x_adv.detach(), y
 
@@ -127,7 +140,7 @@ class MixUp(Augmentation):
         super().__init__(probability)
         self.alpha = alpha
 
-    def apply(
+    def augment(
         self, x: torch.Tensor, y: Optional[torch.Tensor]
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
@@ -156,7 +169,7 @@ class FeatureMask(Augmentation):
             raise ValueError(f"Mask ratio must be between 0 and 1, got {mask_ratio}")
         self.mask_ratio = mask_ratio
 
-    def apply(
+    def augment(
         self, x: torch.Tensor, y: Optional[torch.Tensor]
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """

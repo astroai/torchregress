@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+from comparison_utils import print_comparison_summary, print_fairness_notes, timed_call
 from torch import Tensor
 
 from torchregress.losses.conformal import ConformalLoss
@@ -70,15 +71,18 @@ def main():
     # Train a model for CQR (outputs two quantiles)
     cqr_model = SimpleModel(in_features=1, out_features=2)
     train_loss_cqr = MultiQuantileLoss(quantiles=[0.05, 0.95])
-    cqr_model = train_model(cqr_model, X_train, y_train, train_loss_cqr)
+    cqr_model, cqr_train_s = timed_call(train_model, cqr_model, X_train, y_train, train_loss_cqr)
 
     # Train a model for Split and ACI (outputs a point prediction)
     point_model = SimpleModel(in_features=1, out_features=1)
     train_loss_mse = nn.MSELoss()
-    point_model = train_model(point_model, X_train, y_train, train_loss_mse)
+    point_model, point_train_s = timed_call(
+        train_model, point_model, X_train, y_train, train_loss_mse
+    )
 
     alphas = [0.05, 0.1, 0.2]
     results = []
+    summary_rows = []
 
     for alpha in alphas:
         methods_config = {
@@ -93,21 +97,20 @@ def main():
         for name, config in methods_config.items():
             loss_fn = config["loss"]
             model = config["model"]
+            train_s = cqr_train_s if name == "CQR" else point_train_s
 
-            # Generate predictions with the trained model
-            with torch.no_grad():
-                pred_cal = model(X_cal)
-                pred_test = model(X_test)
+            def _evaluate_method():
+                with torch.no_grad():
+                    pred_cal = model(X_cal)
+                    pred_test = model(X_test)
+                loss_fn.calibrate(pred_cal, y_cal)
+                lower, upper = loss_fn.predict_interval(pred_test)
+                coverage = ((y_test >= lower) & (y_test <= upper)).float().mean().item()
+                width = (upper - lower).mean().item()
+                return coverage, width
 
-            # Calibrate (uses conformal correction for q-hat)
-            loss_fn.calibrate(pred_cal, y_cal)
-
-            # Predict intervals
-            lower, upper = loss_fn.predict_interval(pred_test)
-
-            # Evaluate
-            coverage = ((y_test >= lower) & (y_test <= upper)).float().mean().item()
-            width = (upper - lower).mean().item()
+            (coverage, width), eval_s = timed_call(_evaluate_method)
+            coverage_gap = abs(coverage - (1 - alpha))
 
             results.append(
                 {
@@ -117,10 +120,33 @@ def main():
                     "Interval Width": width,
                 }
             )
+            summary_rows.append(
+                {
+                    "Method": f"{name} (alpha={alpha:.2f})",
+                    "target_cov": 1 - alpha,
+                    "actual_cov": coverage,
+                    "coverage_gap": coverage_gap,
+                    "width": width,
+                    "train_s": train_s,
+                    "eval_s": eval_s,
+                    "Notes": "quantile head" if name == "CQR" else "point head",
+                }
+            )
 
     # Print results
     results_df = pd.DataFrame(results)
     print(results_df)
+    print_fairness_notes(
+        title="Conformal Methods",
+        seed_policy="fixed data generation seed and shared train/cal/test splits",
+        train_budget="same architecture/depth; CQR and point models each trained once for 50 epochs",
+        metric_policy="coverage gap and interval width across alpha values; per-method evaluation timed including calibration",
+    )
+    print_comparison_summary(
+        "Conformal Comparison Summary",
+        summary_rows,
+        metric_order=["target_cov", "actual_cov", "coverage_gap", "width", "train_s", "eval_s"],
+    )
 
     # Plot results
     plt.figure(figsize=(10, 6))

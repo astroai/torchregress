@@ -6,6 +6,10 @@ This page provides a complete API reference for all metrics in torchregress.
 
 ---
 
+::: torchregress.metrics.censored
+
+---
+
 ::: torchregress.metrics.distribution
 
 ---
@@ -23,6 +27,10 @@ This page provides a complete API reference for all metrics in torchregress.
 ---
 
 ::: torchregress.metrics.ood
+
+---
+
+::: torchregress.metrics.ordinal
 
 ---
 

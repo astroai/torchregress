@@ -6,7 +6,7 @@ in the torchregress library.
 """
 
 from copy import deepcopy
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
 import torch
 import torch.nn as nn
@@ -29,7 +29,7 @@ class BaseEnsembleModel(nn.Module):
         base_model: Union[nn.Module, type],
         ensemble_size: int = 5,
         device: str = "cpu",
-        **base_model_kwargs,
+        **base_model_kwargs: Any,
     ) -> None:
         super().__init__()
         self.ensemble_size = ensemble_size
@@ -46,7 +46,7 @@ class BaseEnsembleModel(nn.Module):
                 model = deepcopy(base_model)
             self.models.append(model)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> Union[torch.Tensor, list[Any]]:
         """
         Forward pass computes predictions from all ensemble members.
 

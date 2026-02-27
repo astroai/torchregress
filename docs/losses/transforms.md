@@ -84,7 +84,7 @@ $$\hat{y} = \exp(z) - \epsilon$$
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import LogTransformLoss
+from torchregress.utils import log_transform, log_inverse
 
 # Generate data with multiplicative noise
 # True relationship: y = 2^x (exponential growth)
@@ -220,7 +220,7 @@ This subsumes several common transforms:
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import BoxCoxTransformLoss
+from torchregress.utils import boxcox_transform, boxcox_inverse
 import matplotlib.pyplot as plt
 
 # Generate data with power-law relationship
@@ -347,7 +347,7 @@ $$\hat{y} = z^2 - \epsilon$$
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import SqrtTransformLoss
+from torchregress.utils import sqrt_transform, sqrt_inverse
 
 # Generate Poisson-like count data
 torch.manual_seed(42)
@@ -446,7 +446,14 @@ with torch.no_grad():
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import LogTransformLoss, BoxCoxTransformLoss, SqrtTransformLoss
+from torchregress.utils import (
+    boxcox_inverse,
+    boxcox_transform,
+    log_inverse,
+    log_transform,
+    sqrt_inverse,
+    sqrt_transform,
+)
 import matplotlib.pyplot as plt
 
 # Generate data with heteroscedastic multiplicative noise

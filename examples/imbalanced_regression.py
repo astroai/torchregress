@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from comparison_utils import print_comparison_summary, print_fairness_notes, timed_call
 from torch.utils.data import DataLoader, Dataset
 
 from torchregress.losses import DensityWeightedLoss, LDSLoss
@@ -351,24 +352,58 @@ def main():
     print(f"Dataset: {len(dataset)} samples")
     print(f"  Dense region [-1, 1]: {(np.abs(dataset.x) <= 1).sum()} samples")
     print(f"  Sparse tails: {(np.abs(dataset.x) > 1).sum()} samples")
+    summary_rows = []
 
     # 1. Baseline
-    model_baseline = train_baseline(dataset, n_epochs=100)
+    model_baseline, train_s = timed_call(train_baseline, dataset, n_epochs=100)
     print("\nBaseline evaluation:")
-    evaluate_on_regions(model_baseline, dataset)
+    (mse_dense, mse_sparse), eval_s = timed_call(evaluate_on_regions, model_baseline, dataset)
     visualize_predictions(model_baseline, dataset, "Baseline (Standard MSE)")
+    summary_rows.append(
+        {
+            "Method": "Baseline MSE",
+            "dense_mse": mse_dense,
+            "sparse_mse": mse_sparse,
+            "tail_ratio": mse_sparse / max(mse_dense, 1e-12),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "point-loss baseline",
+        }
+    )
 
     # 2. DensityWeightedLoss (safe)
-    model_density = train_density_weighted(dataset, n_epochs=100)
+    model_density, train_s = timed_call(train_density_weighted, dataset, n_epochs=100)
     print("\nDensityWeightedLoss evaluation:")
-    evaluate_on_regions(model_density, dataset)
+    (mse_dense, mse_sparse), eval_s = timed_call(evaluate_on_regions, model_density, dataset)
     visualize_predictions(model_density, dataset, "DensityWeightedLoss (Safe)")
+    summary_rows.append(
+        {
+            "Method": "DensityWeightedLoss",
+            "dense_mse": mse_dense,
+            "sparse_mse": mse_sparse,
+            "tail_ratio": mse_sparse / max(mse_dense, 1e-12),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "imbalance-aware, calibration-safe claim",
+        }
+    )
 
     # 3. LDSLoss (may affect calibration)
-    model_lds = train_lds(dataset, n_epochs=100)
+    model_lds, train_s = timed_call(train_lds, dataset, n_epochs=100)
     print("\nLDSLoss evaluation:")
-    evaluate_on_regions(model_lds, dataset)
+    (mse_dense, mse_sparse), eval_s = timed_call(evaluate_on_regions, model_lds, dataset)
     visualize_predictions(model_lds, dataset, "LDSLoss (Aggressive)")
+    summary_rows.append(
+        {
+            "Method": "LDSLoss",
+            "dense_mse": mse_dense,
+            "sparse_mse": mse_sparse,
+            "tail_ratio": mse_sparse / max(mse_dense, 1e-12),
+            "train_s": train_s,
+            "eval_s": eval_s,
+            "Notes": "aggressive reweighting; calibration risk",
+        }
+    )
 
     # Calibration validation
     print("\n" + "=" * 70)
@@ -402,9 +437,36 @@ def main():
             optimizer.step()
 
     # Compute calibration
-    cal_error, expected, observed = compute_calibration_error(model_baseline_het, dataset)
+    calibration_result, cal_eval_s = timed_call(
+        compute_calibration_error, model_baseline_het, dataset
+    )
+    cal_error, expected, observed = calibration_result
     print(f"\nCalibration Error (Baseline): {cal_error:.4f}")
     plot_calibration_curve(expected, observed, "Baseline Calibration")
+    summary_rows.append(
+        {
+            "Method": "Baseline GaussianNLL (calibration check)",
+            "dense_mse": None,
+            "sparse_mse": None,
+            "tail_ratio": None,
+            "cal_error": cal_error,
+            "train_s": None,
+            "eval_s": cal_eval_s,
+            "Notes": "separate heteroscedastic retrain for interval calibration",
+        }
+    )
+
+    print_fairness_notes(
+        title="Imbalanced Regression",
+        seed_policy="dataset fixed seed; per-method training run uses same dataset and epoch budget",
+        train_budget="100 epochs for point-loss methods; separate 50-epoch heteroscedastic baseline for calibration check",
+        metric_policy="dense/tail MSE split + tail/dense ratio; calibration error reported only for dedicated GaussianNLL retrain",
+    )
+    print_comparison_summary(
+        "Imbalanced Regression Summary",
+        summary_rows,
+        metric_order=["dense_mse", "sparse_mse", "tail_ratio", "cal_error", "train_s", "eval_s"],
+    )
 
     # Summary
     print("\n" + "=" * 70)

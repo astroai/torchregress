@@ -76,6 +76,10 @@ nav:
       - Practical Usage: usage/practical_usage.md
   - Guides:
       - Concepts: guides/concepts.md
+      - Method Selection Matrix: guides/method_selection_matrix.md
+      - Choosing Methods by Constraint: guides/choosing_by_constraint.md
+      - Comparative Evidence Matrix: guides/comparative_evidence_matrix.md
+      - Method Catalog Snapshot: guides/method_catalog_generated.md
       - Best Practices: guides/best-practices.md
       - Debugging: guides/debugging.md
       - Performance: guides/performance.md
@@ -89,6 +93,8 @@ nav:
       - Gaussian Losses: losses/gaussian.md
       - Robust Losses: losses/robust.md
       - Quantile & Expectile: losses/quantile_expectile.md
+      - Ordinal Losses: losses/ordinal.md
+      - Censored Losses: losses/censored.md
       - Poisson & Tweedie: losses/poisson_tweedie.md
       - Poisson-Gaussian: losses/poisson_gaussian.md
       - Advanced Losses: losses/advanced.md
@@ -98,10 +104,13 @@ nav:
       - Error-in-Variables: losses/eiv.md
       - Imbalanced Regression: losses/imbalanced.md
       - Noisy Labels: losses/noisy_labels.md
+      - Uncertain Ground Truth: losses/uncertain_ground_truth.md
       - Transform Losses: losses/transforms.md
   - Metrics:
       - Overview: metrics/index.md
       - Point Metrics: metrics/point.md
+      - Ordinal Metrics: metrics/ordinal.md
+      - Censored Metrics: metrics/censored.md
       - Distribution Metrics: metrics/distribution.md
       - Interval Metrics: metrics/interval.md
       - Calibration Metrics: metrics/calibration.md
@@ -116,14 +125,36 @@ nav:
       - Loss Comparison: examples/loss_comparison.md
       - Ensemble Methods: examples/ensemble_methods.md
       - Photometric Redshift: examples/photoz.md
+      - Photo-z Benchmark Comparison (SDSS-style): examples/photoz_benchmark_comparison.md
+      - Photo-z NNC-CRPS + RAIL-Ready Comparison: examples/photoz_nnc_crps_rail_comparison.md
+      - Photo-z RAIL Baseline Comparison: examples/photoz_rail_baseline_comparison.md
+      - PPI Photo-z Inference Comparison: examples/ppi_photoz_inference_comparison.md
+      - Ordinal Regression Comparison: examples/ordinal_regression_comparison.md
+      - Censored Regression Comparison: examples/censored_regression_comparison.md
+      - Propensity + Tail Regression Comparison: examples/propensity_tail_regression_comparison.md
+      - Constraints + Calibration Comparison: examples/constraints_calibration_comparison.md
+      - Uncertain-GT + Density Conformal Comparison: examples/uncertain_gt_density_conformal_comparison.md
+      - Causal DR Uplift Comparison: examples/causal_dr_uplift_comparison.md
       - Conformal Regression: examples/conformal_regression_example.md
       - Evidential Regression: examples/evidential_regression.md
       - Imbalanced Regression: examples/imbalanced_regression.md
       - Noisy Labels Regression: examples/noisy_labels_regression.md
+      - Noisy Label Comparison: examples/noisy_label_comparison.md
+      - Noisy Label Real-Data Comparison: examples/noisy_label_realdata_comparison.md
       - Normalizing Flows: examples/normalizing_flows_multitarget.md
+      - Multimodal Method Comparison: examples/multimodal_method_comparison.md
+      - Multimodal Method Comparison (Real Data Features): examples/multimodal_method_realdata_comparison.md
+      - OOD / Selective Prediction Comparison: examples/ood_selective_prediction_comparison.md
+      - OOD / Selective Prediction Comparison (Real Data): examples/ood_selective_prediction_realdata_comparison.md
+      - EIV Method Comparison: examples/eiv_method_comparison.md
+      - EIV Method Comparison (Real Data): examples/eiv_method_realdata_comparison.md
   - API Reference:
       - Overview: api/index.md
       - Losses: api/losses.md
       - Metrics: api/metrics.md
+      - Inference: api/inference.md
+      - Causal: api/causal.md
+      - Constraints: api/constraints.md
+      - Calibration Transforms: api/calibration.md
       - Visualization: api/viz.md
       - Utilities: api/utils.md

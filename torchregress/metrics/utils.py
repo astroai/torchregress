@@ -2,7 +2,9 @@
 Utility functions for metrics calculations.
 """
 
-from typing import Callable, Dict, List, Optional, Union
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
 
 import numpy as np
 import torch
@@ -43,25 +45,47 @@ def ensure_batch_dim(x: torch.Tensor) -> torch.Tensor:
     return x
 
 
-def create_metric_result(
-    result: Union[torch.Tensor, float, Dict], as_numpy: bool
-) -> Union[torch.Tensor, float, np.ndarray, Dict]:
+def create_metric_result(result: Any, as_numpy: bool) -> Any:
     """Convert result to appropriate type based on input."""
-    if isinstance(result, Dict):
-        # Convert dict values - always convert scalar tensors to float
-        return {
-            k: (
-                float(v.item())
-                if isinstance(v, torch.Tensor) and v.numel() == 1
-                else v.cpu().numpy() if isinstance(v, torch.Tensor) and as_numpy else v
-            )
-            for k, v in result.items()
-        }
+    if isinstance(result, dict):
+        converted: dict[str, Any] = {}
+        for k, v in result.items():
+            if isinstance(v, dict):
+                converted[k] = create_metric_result(v, as_numpy=as_numpy)
+            elif isinstance(v, torch.Tensor) and v.numel() == 1:
+                converted[k] = float(v.item())
+            elif isinstance(v, torch.Tensor) and as_numpy:
+                converted[k] = v.cpu().numpy()
+            else:
+                converted[k] = v
+        return converted
     elif isinstance(result, torch.Tensor):
         if result.numel() == 1:
             return float(result.item())
         return result.cpu().numpy() if as_numpy else result
     return result
+
+
+T = TypeVar("T")
+
+
+def metric_state_tensor(state: Any) -> torch.Tensor:
+    """Cast a TorchMetrics state attribute to a tensor for mypy-friendly arithmetic."""
+    return cast(torch.Tensor, state)
+
+
+class _MetricStateListCaster:
+    """Runtime-safe caster supporting plain and generic-style metric state list casting."""
+
+    def __call__(self, state: Any) -> list[Any]:
+        return cast(list[Any], state)
+
+    def __getitem__(self, _item: Any) -> Callable[[Any], list[Any]]:
+        # Enable generic-style runtime syntax used for typing readability.
+        return self.__call__
+
+
+metric_state_list = _MetricStateListCaster()
 
 
 def validate_inputs(y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
@@ -124,7 +148,7 @@ def compose_metrics(
     metrics: Dict[str, Callable],
     sample_weight: Optional[torch.Tensor] = None,
     as_numpy: bool = False,
-) -> Dict[str, Union[torch.Tensor, float, np.ndarray]]:
+) -> Dict[str, Any]:
     """
     Compose multiple metric functions into a single report.
     Args:
@@ -136,7 +160,7 @@ def compose_metrics(
     Returns:
         Dictionary of metric results
     """
-    results: Dict[str, Union[torch.Tensor, float, np.ndarray]] = {}
+    results: Dict[str, Any] = {}
     for name, fn in metrics.items():
         try:
             if sample_weight is not None:

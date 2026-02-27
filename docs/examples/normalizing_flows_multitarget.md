@@ -2,6 +2,25 @@
 
 This example demonstrates how to use normalizing flows for multi-target regression with complex, potentially multimodal distributions.
 
+## Task-First Context
+
+Use this example when you need **multi-target** and **multimodal/non-Gaussian** predictive
+distributions. Start with the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md)
+to compare against `MDN`, multivariate Gaussian (full/low-rank), and ensemble-based options.
+
+## Comparison / Fairness Notes
+
+- This page is a single-method deep dive, not a full decision-grade comparison.
+- For fair comparison vs `MDN`/Gaussian baselines, keep backbone capacity, training epochs, and evaluation metrics aligned.
+- Report runtime and calibration in addition to point metrics (`MSE`, `MAE`, `R2`) because expressive models can overfit tails.
+- Use fixed seeds and the same synthetic data generation parameters when comparing flow types.
+
+## When This Approach Fails
+
+- Flows add complexity and optional dependencies; use `MDN` first unless Gaussian/MDN clearly miss structure.
+- Small datasets can make flow models unstable or poorly calibrated.
+- If latency/throughput is constrained, benchmark against Gaussian/MDN alternatives before adopting flows.
+
 ## Code
 
 ```python
