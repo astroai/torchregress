@@ -1,0 +1,42 @@
+{
+  "artifact": "benchmark_thresholds",
+  "version": 1,
+  "target_artifact": "benchmark_smoke",
+  "target_device": "cpu",
+  "source_config": {
+    "multiplier": 4.0,
+    "floor_ms": 0.5
+  },
+  "limits": {
+    "gaussian_diag_nll_forward": {
+      "max_mean_ms": 0.5290000699460506
+    },
+    "gaussian_multivariate_full_forward": {
+      "max_mean_ms": 0.8410862646996975
+    },
+    "gaussian_low_rank_forward": {
+      "max_mean_ms": 1.531836111098528
+    },
+    "mdn_diagonal_forward": {
+      "max_mean_ms": 0.5
+    },
+    "mdn_full_forward": {
+      "max_mean_ms": 1.136583974584937
+    },
+    "functional_eiv_forward": {
+      "max_mean_ms": 394.42691626027226
+    },
+    "ensemble_variance_decomposition": {
+      "max_mean_ms": 0.5
+    },
+    "calibration_score_gaussian": {
+      "max_mean_ms": 1.9047500099986792
+    },
+    "ood_metrics_report_combo": {
+      "max_mean_ms": 4.293334204703569
+    },
+    "normalizing_flow_forward_optional": {
+      "max_mean_ms": 8.24058405123651
+    }
+  }
+}

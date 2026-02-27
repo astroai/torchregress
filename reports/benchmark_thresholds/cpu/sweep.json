@@ -1,0 +1,72 @@
+{
+  "artifact": "benchmark_thresholds",
+  "version": 1,
+  "target_artifact": "benchmark_sweep",
+  "target_device": "cpu",
+  "source_config": {
+    "multiplier": 4.0,
+    "floor_ms": 0.5
+  },
+  "limits": {
+    "sweep_gaussian_multivariate_full_forward|batch=16|target_dim=2": {
+      "max_mean_ms": 1.7801681533455849
+    },
+    "sweep_gaussian_multivariate_full_forward|batch=16|target_dim=8": {
+      "max_mean_ms": 0.5339998751878738
+    },
+    "sweep_gaussian_multivariate_full_forward|batch=64|target_dim=2": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_gaussian_multivariate_full_forward|batch=64|target_dim=8": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_gaussian_low_rank_forward|batch=16|rank=2|target_dim=4": {
+      "max_mean_ms": 1.1229999363422394
+    },
+    "sweep_gaussian_low_rank_forward|batch=16|rank=2|target_dim=8": {
+      "max_mean_ms": 0.6903316825628281
+    },
+    "sweep_gaussian_low_rank_forward|batch=64|rank=2|target_dim=4": {
+      "max_mean_ms": 0.6338320672512054
+    },
+    "sweep_gaussian_low_rank_forward|batch=64|rank=2|target_dim=8": {
+      "max_mean_ms": 0.6174999289214611
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=2|target_dim=2": {
+      "max_mean_ms": 0.5393316969275475
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=2|target_dim=4": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=5|target_dim=2": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=5|target_dim=4": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=2|target_dim=2": {
+      "max_mean_ms": 0.6716679781675339
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=2|target_dim=4": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=5|target_dim=2": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=5|target_dim=4": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_ensemble_variance_decomposition|batch=32|ensemble_size=3": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_ensemble_variance_decomposition|batch=128|ensemble_size=3": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_ensemble_variance_decomposition|batch=32|ensemble_size=10": {
+      "max_mean_ms": 0.5
+    },
+    "sweep_ensemble_variance_decomposition|batch=128|ensemble_size=10": {
+      "max_mean_ms": 0.5
+    }
+  }
+}

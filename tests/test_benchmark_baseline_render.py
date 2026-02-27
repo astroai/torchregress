@@ -22,6 +22,10 @@ def test_render_generated_section_contains_expected_headers() -> None:
 
 
 def test_committed_benchmark_baseline_doc_is_in_sync() -> None:
+    if not BASELINE_DOC.exists() or not SMOKE_JSON.exists() or not SWEEP_JSON.exists():
+        import pytest
+        pytest.skip("Benchmark baseline artifacts (ignored) are missing")
+
     text = BASELINE_DOC.read_text(encoding="utf-8")
     smoke = benchmark_report_summary.load_report(SMOKE_JSON)
     sweep = benchmark_report_summary.load_report(SWEEP_JSON)

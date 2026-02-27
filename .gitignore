@@ -137,7 +137,7 @@ benchmarks/*.json
 benchmarks/*.npz
 
 # Additional ignores for commit readiness
-reports/
+reports/*
 !reports/benchmark_thresholds/
 docs/audits/
 photoz_metrics.json
