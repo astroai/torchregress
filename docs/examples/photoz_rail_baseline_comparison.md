@@ -67,6 +67,19 @@ uv run python tools/photoz_rail_assets.py \
   --report reports/example_summaries/photoz_rail_materialization_latest.json
 ```
 
+For real-data bootstrap helpers (no manual URL hunting), use:
+
+```bash
+# Rubin DP0.2 sample (requires Rubin token in RSP_TOKEN)
+uv run python -m tools.photoz_collect_real_data dp02 \
+  --limit 250000 \
+  --report reports/example_summaries/photoz_dp02_collection_latest.json
+
+# NNC paper released catalog (Zenodo record 18410731 by default)
+uv run python -m tools.photoz_collect_real_data nnc \
+  --report reports/example_summaries/photoz_nnc_catalog_collection_latest.json
+```
+
 Without editing the manifest file, you can also inject URLs/paths directly:
 
 ```bash

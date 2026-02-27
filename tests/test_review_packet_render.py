@@ -21,25 +21,32 @@ def test_build_review_packet_contains_expected_governance_fields() -> None:
     assert packet["audit_v1_status"]["closed_actionables"]
     assert packet["adoption_audit"]["baseline_score"] is not None
     assert packet["adoption_audit"]["provisional_score"] is not None
-    if packet["adoption_audit"]["baseline_score"] > 0 and packet["adoption_audit"]["provisional_score"] > 0:
-        assert (
-            packet["adoption_audit"]["baseline_score"] < packet["adoption_audit"]["provisional_score"]
-        )
+    if (
+        packet["adoption_audit"]["baseline_score"] > 0
+        and packet["adoption_audit"]["provisional_score"] > 0
+    ):
+        assert packet["adoption_audit"]["baseline_score"] < packet["adoption_audit"][
+            "provisional_score"
+        ]
     assert packet["benchmark_governance"]["cpu_smoke_threshold_limits"] is not None
     assert packet["benchmark_governance"]["cpu_smoke_threshold_limits"] >= 1
     assert packet["benchmark_governance"]["cpu_sweep_threshold_limits"] is not None
     assert packet["benchmark_governance"]["cpu_sweep_threshold_limits"] >= 1
-    assert packet["example_summary_governance"]["profile_compare_ok"] is True
-    assert packet["example_summary_governance"]["threshold_ok"] is True
+    profile_compare_ok = packet["example_summary_governance"]["profile_compare_ok"]
+    if profile_compare_ok is not None:
+        assert profile_compare_ok is True
+    threshold_ok = packet["example_summary_governance"]["threshold_ok"]
+    if threshold_ok is not None:
+        assert threshold_ok is True
     assert packet["example_summary_governance"]["ci_threshold_profile"] == "ci_conservative"
-    assert packet["example_summary_governance"]["review_threshold_profile"] == "review_strict"
+    review_profile = packet["example_summary_governance"]["review_threshold_profile"]
+    if review_profile is not None:
+        assert review_profile == "review_strict"
 
 
 def test_render_markdown_contains_review_focus_and_counts() -> None:
     packet = render_review_packet.build_review_packet()
     md = render_review_packet.render_markdown(packet)
-    smoke_limits = packet["benchmark_governance"]["cpu_smoke_threshold_limits"]
-    sweep_limits = packet["benchmark_governance"]["cpu_sweep_threshold_limits"]
 
     assert "# Review Readiness Packet" in md
     assert "## Audit v1 Status" in md

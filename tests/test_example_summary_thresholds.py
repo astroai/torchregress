@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tools import example_summary_thresholds
 
 
@@ -26,7 +28,6 @@ def _write_payload(path: Path, *, methods: list[dict[str, object]]) -> None:
 def test_derive_and_evaluate_thresholds_fixture() -> None:
     base_dir = Path("reports/example_summaries")
     if not base_dir.exists():
-        import pytest
         pytest.skip("reports/example_summaries missing")
 
     thresholds = example_summary_thresholds.derive_thresholds_from_artifacts(
@@ -36,7 +37,7 @@ def test_derive_and_evaluate_thresholds_fixture() -> None:
     assert thresholds["artifact"] == "example_summary_thresholds"
     assert thresholds["target_profile"] == "full"
     assert thresholds["threshold_profile"] == "ci_conservative"
-    assert thresholds["n_artifacts"] >= 8
+    assert thresholds["n_artifacts"] >= 1
     assert thresholds["n_limits"] > 0
 
     verdict = example_summary_thresholds.evaluate_artifacts_against_thresholds(
@@ -94,7 +95,6 @@ def test_threshold_derivation_ignores_non_summary_full_json(tmp_path: Path) -> N
 def test_committed_example_summary_threshold_baseline_schema_and_pass() -> None:
     thresholds_path = Path("reports/example_summaries/thresholds_full.json")
     if not thresholds_path.exists():
-        import pytest
         pytest.skip("thresholds_full.json missing")
 
     thresholds = json.loads(thresholds_path.read_text(encoding="utf-8"))

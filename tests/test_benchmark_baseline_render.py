@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tools import benchmark_report_summary, render_benchmark_baselines
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -11,6 +13,9 @@ SWEEP_JSON = REPO_ROOT / "reports" / "benchmark_sweep_cpu_2026-02-26.json"
 
 
 def test_render_generated_section_contains_expected_headers() -> None:
+    if not SMOKE_JSON.exists() or not SWEEP_JSON.exists():
+        pytest.skip("Benchmark baseline artifacts (ignored) are missing")
+
     smoke = benchmark_report_summary.load_report(SMOKE_JSON)
     sweep = benchmark_report_summary.load_report(SWEEP_JSON)
     section = render_benchmark_baselines.render_generated_section(smoke, sweep)
@@ -23,7 +28,6 @@ def test_render_generated_section_contains_expected_headers() -> None:
 
 def test_committed_benchmark_baseline_doc_is_in_sync() -> None:
     if not BASELINE_DOC.exists() or not SMOKE_JSON.exists() or not SWEEP_JSON.exists():
-        import pytest
         pytest.skip("Benchmark baseline artifacts (ignored) are missing")
 
     text = BASELINE_DOC.read_text(encoding="utf-8")

@@ -123,7 +123,9 @@ def _review_focus_files() -> list[str]:
 
 
 def build_review_packet() -> dict[str, Any]:
-    audit_md_text = ADOPTION_AUDIT_MD.read_text(encoding="utf-8") if ADOPTION_AUDIT_MD.exists() else ""
+    audit_md_text = (
+        ADOPTION_AUDIT_MD.read_text(encoding="utf-8") if ADOPTION_AUDIT_MD.exists() else ""
+    )
     audit_scores = _parse_adoption_scores(audit_md_text)
     baseline_score = audit_scores.get("baseline", 0.0)
     provisional_score = audit_scores.get("provisional", 0.0)

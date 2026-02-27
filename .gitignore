@@ -1,143 +1,104 @@
-# Byte-compiled / optimized / DLL files
+# Python bytecode / extensions
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
 
-# Distribution / packaging
-dist/
+# Packaging artifacts
 build/
+dist/
 *.egg-info/
 *.egg
 
 # Virtual environments
+.venv/
 venv/
 env/
 ENV/
-.env
-.venv
-env/
 env.bak/
 venv.bak/
+.env
 
-# Unit test / coverage reports
-htmlcov/
+# Test, coverage, and tool caches
+.pytest_cache/
+.hypothesis/
 .tox/
 .coverage
 .coverage.*
+coverage.xml
+htmlcov/
 .cache
 nosetests.xml
-coverage.xml
 *.cover
-.hypothesis/
-.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.black_cache/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Notebook artifacts
+.ipynb_checkpoints/
 
-# PyTorch specific
+# OS/editor files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+*~
+
+# Logs / temp / profiling
+*.log
+*.tmp
+*.temp
+*.prof
+
+# Model and training outputs
 *.pt
 *.pth
 *.onnx
 *.h5
+*.model
+*.weights
+*.checkpoint
 checkpoint/
 runs/
 logs/
 tensorboard/
 lightning_logs/
 
-# IDE specific files
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
+# Generated docs
+site/
+docs/_build/
+docs/api/
 
-# Project specific
+# Local datasets and experiment outputs
 data/
 output/
 results/
-
-# Build system artifacts
-site/
-*.html
-*.css
-*.js
-
-# Documentation build artifacts
-docs/_build/
-docs/api/
-docs/assets/
-
-# Coverage reports
-.coverage
-coverage.xml
-htmlcov/
-
-# MyPy cache
-.mypy_cache/
-
-# Ruff cache
-.ruff_cache/
-
-# Black cache
-.black_cache/
-
-# UV cache and lock files
-.uv-cache/
-uv.lock
-
-# Temporary files
-*.tmp
-*.temp
-*~
-
-# Log files
-*.log
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Editor backup files
-*~
-*.bak
-*.orig
-*.rej
-
-# MkDocs generated files
-site/
-
-# Python profiling
-*.prof
-
-# TorchRegress specific
-*.model
-*.weights
-*.checkpoint
-
-# Package build artifacts
-torchregress.egg-info/
-
-# Generated plots and benchmark outputs
-*.png
-*.svg
-.mplconfig/
 benchmarks/output/
 benchmarks/outputs/
 benchmarks/*.csv
 benchmarks/*.json
 benchmarks/*.npz
 
-# Additional ignores for commit readiness
+# Generated reports (keep committed benchmark thresholds)
 reports/*
 !reports/benchmark_thresholds/
-docs/audits/
+!reports/benchmark_thresholds/**
+
+# Local backups and ad-hoc artifacts
+reports_backup/
 photoz_metrics.json
+.mplconfig/
+
+# UV cache / lock
+.uv-cache/
+uv.lock
