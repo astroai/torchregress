@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 This file provides merged guidance to coding agents (Claude, Gemini, Codex) when working in this repository.
 
@@ -194,3 +194,159 @@ except ImportError:
 If a module is not installed, the import will fail immediately - this is the desired behavior. Users must install required dependencies for the features they use.
 
 **Exception:** `zuko` (normalizing flows) is an optional dependency. The `nflows` module uses a guarded `try/except ImportError` in `losses/__init__.py` so that `import torchregress` works without zuko installed.
+
+## Adoption and Audit Standards (Required)
+
+The repository now follows a capability-first adoption-readiness standard.
+
+### Method Framing Policy
+
+- Use **task-first** method framing in docs/examples.
+- Treat `SWAG`, `BNN`, and `MDN` as peer methods in selection matrices.
+- Do not label a method family as experimental by default.
+- Assign maturity only from evidence: API stability, tests, docs/examples, and runtime behavior.
+- Keep Bayesian methods available without making Bayesian concepts mandatory for onboarding.
+
+### Claim Discipline
+
+Any capability claim should map to at least one method that is:
+
+- implemented
+- tested
+- documented
+- represented in examples/comparison artifacts
+
+If one is missing, downgrade/remove the claim until evidence exists.
+
+## Hard-Problem Coverage Expectations
+
+When auditing or extending methods/examples, include:
+
+- noisy labels
+- noisy features / EIV
+- uncertainty quantification (epistemic, aleatoric, total)
+- non-Gaussian targets
+- multi-target regression
+- multimodal outputs
+- imbalance / rare-target regression
+- calibration quality
+- OOD robustness / detection support
+- robust outlier handling
+
+## Comparative Example Standards
+
+Comparison examples are decision artifacts, not API demos.
+
+- Use fixed seeds and shared splits.
+- Keep model capacity and training budgets comparable across methods.
+- Report explicit tradeoffs: error, calibration/coverage, robustness, and runtime.
+- Include caveats/failure modes in example notes.
+- Emit machine-readable artifacts through `comparison_utils.write_comparison_summary_json(...)`.
+
+### Summary Governance
+
+Keep profile governance active:
+
+- `smoke`, `audit`, `full` example summaries
+- profile comparison: `audit -> full`
+- thresholds:
+  - `ci_conservative` (blocking CI profile)
+  - `review_strict` (review/release profile)
+
+## Native PyTorch Leverage Policy
+
+Default to wrapping/using native primitives unless custom logic adds clear value.
+
+- Prefer `torch.nn`, `torchmetrics`, `torch.distributions`, `torch.linalg`, AMP/compile APIs.
+- Keep custom code where required for:
+  - masks/weights/reduction semantics
+  - EIV objectives
+  - multimodal/task-specific outputs
+  - uncertainty decomposition/reporting contracts
+- Maintain parity and divergence evidence in:
+  - `reports/native_pytorch_leverage_matrix_2026-02-26.json`
+  - `tests/test_native_leverage_matrix_contracts.py`
+  - `tests/test_native_parity.py`
+
+Each matrix row must carry `coverage_evidence` with:
+
+- `parity_tests`
+- `known_divergences`
+
+## Photo-z / RAIL / NNC-CRPS Workflow
+
+Do not require manual data staging for photo-z baseline comparison.
+
+Primary tools:
+
+- `tools/photoz_rail_assets.py` (materialize dataset/baseline assets + checksum updates)
+- `tools/photoz_rail_pipeline.py` (end-to-end collect + torchregress summary + RAIL merge)
+- `tools/photoz_rail_compare.py` (merge-only adapter)
+
+Presets:
+
+- `rail`
+- `nnc_crps`
+
+Tracked manifest templates:
+
+- `configs/photoz/rail_photoz_manifest.template.json`
+- `configs/photoz/nnc_crps_photoz_manifest.template.json`
+
+The runtime manifest path defaults to `data/rail/rail_photoz_manifest.json`. Since `data/` is ignored,
+prefer CLI overrides and/or template bootstrap for reproducible automation.
+
+Useful override flags (both assets and pipeline tools):
+
+- `--dataset-url KEY=URL`
+- `--baseline-url METHOD=URL`
+- `--dataset-path KEY=PATH`
+- `--baseline-path METHOD=PATH`
+
+## Regeneration and Gate Checklist
+
+Before handoff for audit/governance changes, run:
+
+```bash
+uv run python tools/render_example_summaries.py --profile smoke
+uv run python tools/render_example_summaries.py --profile audit
+uv run python tools/render_example_summaries.py --profile full
+uv run python tools/compare_example_summary_profiles.py \
+  --base-dir reports/example_summaries \
+  --source-profile audit \
+  --target-profile full \
+  --output reports/example_summaries/profile_comparison_audit_vs_full.json
+uv run python tools/example_summary_thresholds.py \
+  --base-dir reports/example_summaries \
+  --profile full \
+  --threshold-profile ci_conservative \
+  --write-thresholds reports/example_summaries/thresholds_full.json \
+  --thresholds reports/example_summaries/thresholds_full.json \
+  --output-verdict reports/example_summaries/threshold_check_full_latest.json
+uv run python tools/example_summary_thresholds.py \
+  --base-dir reports/example_summaries \
+  --profile full \
+  --threshold-profile review_strict \
+  --write-thresholds reports/example_summaries/thresholds_full_review_strict.json \
+  --thresholds reports/example_summaries/thresholds_full_review_strict.json \
+  --output-verdict reports/example_summaries/threshold_check_full_review_strict_latest.json \
+  --runtime-multiplier 6.0 \
+  --runtime-floor 0.35 \
+  --metric-multiplier 3.0 \
+  --metric-floor 0.2 \
+  --prob-delta 0.25 \
+  --r2-delta 1.0
+uv run python tools/render_method_catalog.py \
+  --markdown-out docs/guides/method_catalog_generated.md \
+  --json-out reports/method_catalog_latest.json \
+  --update-method-matrix docs/guides/method_selection_matrix.md \
+  --comparative-evidence-md-out docs/guides/comparative_evidence_matrix.md \
+  --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
+uv run python tools/adoption_audit.py --json reports/adoption_readiness_2026-02-25.json --print-summary
+uv run python tools/render_review_packet.py
+uv run pytest -q
+# Lint Python packages only (not markdown/docs files).
+uv run ruff check torchregress tests tools
+uv run mypy torchregress
+uv run mkdocs build
+```
