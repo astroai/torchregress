@@ -769,8 +769,7 @@ def print_expected_metrics_guide() -> None:
     print("\n" + "=" * 80)
     print("EXPECTED METRICS GUIDE")
     print("=" * 80)
-    print(
-        """
+    print("""
 For a well-calibrated probabilistic regression model:
 
 POINT METRICS:
@@ -806,5 +805,4 @@ COMMON ISSUES:
   │ High-z RMSE >> low-z    │ Tail undersampling     │ Use LDSLoss or weights  │
   │ Low uncertainty-error ρ │ Uninformative uncert.  │ Check heteroscedastic   │
   └─────────────────────────┴────────────────────────┴─────────────────────────┘
-"""
-    )
+""")

@@ -81,6 +81,7 @@ docs/api/
 
 # Local datasets and experiment outputs
 data/
+!tests/data/
 output/
 results/
 benchmarks/output/
@@ -114,3 +115,6 @@ photoz_metrics.json
 # UV cache / lock
 .uv-cache/
 uv.lock
+# pixi environments
+.pixi/*
+!.pixi/config.toml

@@ -143,14 +143,14 @@ EXPECTED_EXPORTS = {
 EXPECTED_SIGNATURES = {
     "algorithms.iteratively_reweighted_least_squares": (
         "(model: torch.nn.modules.module.Module, x: torch.Tensor, y_true: torch.Tensor, "
-        "initial_precision: Optional[torch.Tensor] = None, "
-        "covariance_matrices: Optional[torch.Tensor] = None, "
-        "mask: Optional[torch.Tensor] = None, base_loss: str = 'gaussian', max_iter: int = 10, "
-        "tol: float = 0.0001, delta: float = 1.0, weight_fn: Union[str, Callable] = 'huber', "
-        "weight_params: Optional[Dict[str, Any]] = None, variance_type: str = 'predicted', "
+        "initial_precision: torch.Tensor | None = None, "
+        "covariance_matrices: torch.Tensor | None = None, "
+        "mask: torch.Tensor | None = None, base_loss: str = 'gaussian', max_iter: int = 10, "
+        "tol: float = 0.0001, delta: float = 1.0, weight_fn: str | Callable = 'huber', "
+        "weight_params: Dict[str, Any] | None = None, variance_type: str = 'predicted', "
         "epsilon: float = 1.1920928955078125e-07, return_all_predictions: bool = False, "
-        "batch_size: int = 1024) -> Union[Tuple[torch.Tensor, List[float], torch.Tensor], "
-        "Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]]"
+        "batch_size: int = 1024) -> Tuple[torch.Tensor, List[float], torch.Tensor] | "
+        "Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]"
     ),
     "algorithms.RegressionCalibration.fit": (
         "(self, X_observed: torch.Tensor) -> 'RegressionCalibration'"
@@ -161,43 +161,43 @@ EXPECTED_SIGNATURES = {
     "algorithms.SIMEX.fit": "(self, X_train: torch.Tensor, y_train: torch.Tensor) -> 'SIMEX'",
     "algorithms.SIMEX.predict": "(self, X: torch.Tensor) -> torch.Tensor",
     "metrics.mse": (
-        "(y_pred: Union[torch.Tensor, numpy.ndarray], y_true: Union[torch.Tensor, numpy.ndarray], "
-        "sample_weight: Union[torch.Tensor, numpy.ndarray, NoneType] = None, "
+        "(y_pred: torch.Tensor | numpy.ndarray, y_true: torch.Tensor | numpy.ndarray, "
+        "sample_weight: torch.Tensor | numpy.ndarray | None = None, "
         "reduction: str = 'mean', "
-        "as_numpy: bool = False) -> Union[torch.Tensor, float, numpy.ndarray]"
+        "as_numpy: bool = False) -> torch.Tensor | float | numpy.ndarray"
     ),
     "metrics.rmse": (
-        "(y_pred: Union[torch.Tensor, numpy.ndarray], y_true: Union[torch.Tensor, numpy.ndarray], "
-        "sample_weight: Union[torch.Tensor, numpy.ndarray, NoneType] = None, "
+        "(y_pred: torch.Tensor | numpy.ndarray, y_true: torch.Tensor | numpy.ndarray, "
+        "sample_weight: torch.Tensor | numpy.ndarray | None = None, "
         "reduction: str = 'mean', "
-        "as_numpy: bool = False) -> Union[torch.Tensor, float, numpy.ndarray]"
+        "as_numpy: bool = False) -> torch.Tensor | float | numpy.ndarray"
     ),
     "metrics.expected_calibration_error": (
-        "(y_pred_quantiles: Dict[float, Union[torch.Tensor, numpy.ndarray]], "
-        "y_true: Union[torch.Tensor, numpy.ndarray], return_diagnostics: bool = False, "
-        "as_numpy: bool = False) -> Dict[str, Union[torch.Tensor, float, numpy.ndarray]]"
+        "(y_pred_quantiles: Dict[float, torch.Tensor | numpy.ndarray], "
+        "y_true: torch.Tensor | numpy.ndarray, return_diagnostics: bool = False, "
+        "as_numpy: bool = False) -> Dict[str, torch.Tensor | float | numpy.ndarray]"
     ),
     "metrics.calibration_score": (
-        "(y_true: Union[torch.Tensor, numpy.ndarray], "
-        "pred_mean: Union[torch.Tensor, numpy.ndarray], "
-        "pred_std: Union[torch.Tensor, numpy.ndarray], n_levels: int = 19, as_numpy: bool = False) "
-        "-> Dict[str, Union[torch.Tensor, float, numpy.ndarray]]"
+        "(y_true: torch.Tensor | numpy.ndarray, "
+        "pred_mean: torch.Tensor | numpy.ndarray, "
+        "pred_std: torch.Tensor | numpy.ndarray, n_levels: int = 19, as_numpy: bool = False) "
+        "-> Dict[str, torch.Tensor | float | numpy.ndarray]"
     ),
     "metrics.prediction_interval_coverage_probability": (
-        "(lower_bound: Union[torch.Tensor, numpy.ndarray], "
-        "upper_bound: Union[torch.Tensor, numpy.ndarray], "
-        "y_true: Union[torch.Tensor, numpy.ndarray], alpha: float = 0.1, "
+        "(lower_bound: torch.Tensor | numpy.ndarray, "
+        "upper_bound: torch.Tensor | numpy.ndarray, "
+        "y_true: torch.Tensor | numpy.ndarray, alpha: float = 0.1, "
         "return_diagnostics: bool = False) "
-        "-> Union[torch.Tensor, float, Dict[str, torch.Tensor]]"
+        "-> torch.Tensor | float | Dict[str, torch.Tensor]"
     ),
     "metrics.ensemble_variance_decomposition": (
-        "(means: Union[torch.Tensor, numpy.ndarray], "
-        "variances: Union[torch.Tensor, numpy.ndarray], "
+        "(means: torch.Tensor | numpy.ndarray, "
+        "variances: torch.Tensor | numpy.ndarray, "
         "dim: int = 0) -> Tuple[torch.Tensor, torch.Tensor]"
     ),
     "metrics.mahalanobis_distance": (
-        "(x: Union[torch.Tensor, numpy.ndarray], mean: Union[torch.Tensor, numpy.ndarray], "
-        "cov: Union[torch.Tensor, numpy.ndarray], reduction: str = 'none') -> torch.Tensor"
+        "(x: torch.Tensor | numpy.ndarray, mean: torch.Tensor | numpy.ndarray, "
+        "cov: torch.Tensor | numpy.ndarray, reduction: str = 'none') -> torch.Tensor"
     ),
     "ensemble.BaseEnsembleModel.predict": "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]",
     "ensemble.HeteroscedasticEnsembleModel.predict": (
@@ -207,7 +207,7 @@ EXPECTED_SIGNATURES = {
         "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]"
     ),
     "ensemble.MCDropoutWrapper.predict_with_uncertainty": (
-        "(self, x: torch.Tensor, n_samples: Optional[int] = None) -> "
+        "(self, x: torch.Tensor, n_samples: int | None = None) -> "
         "Tuple[torch.Tensor, torch.Tensor]"
     ),
     "ensemble.SWAG.sample": "(self, scale: float = 1.0, diag_noise: bool = True) -> None",

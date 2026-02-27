@@ -229,7 +229,7 @@ def run_comparison(cfg: EIVConfig) -> list[dict[str, float | str]]:
         mode, trainer, params = builder(model)
 
         if mode == "baseline":
-            (_, train_s) = timed_call(
+            _, train_s = timed_call(
                 trainer,
                 model,
                 data["x_train_obs"],
@@ -239,7 +239,7 @@ def run_comparison(cfg: EIVConfig) -> list[dict[str, float | str]]:
             )
         else:
             loss_fn = params["loss"]
-            (_, train_s) = timed_call(
+            _, train_s = timed_call(
                 trainer,
                 model,
                 loss_fn,

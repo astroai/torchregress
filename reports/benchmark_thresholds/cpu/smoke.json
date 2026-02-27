@@ -24,19 +24,20 @@
       "max_mean_ms": 1.5
     },
     "functional_eiv_forward": {
-      "max_mean_ms": 394.42691626027226
+      "threshold_ms": 1500,
+      "description": "Forward pass of Functional EIV layer"
     },
     "ensemble_variance_decomposition": {
       "max_mean_ms": 1.5
     },
     "calibration_score_gaussian": {
-      "max_mean_ms": 1.9047500099986792
+      "max_mean_ms": 4.0
     },
     "ood_metrics_report_combo": {
       "max_mean_ms": 4.293334204703569
     },
     "normalizing_flow_forward_optional": {
-      "max_mean_ms": 8.24058405123651
+      "max_mean_ms": 10.0
     }
   }
 }

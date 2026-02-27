@@ -437,7 +437,7 @@ def main():
             optimizer.step()
 
     # Compute calibration
-    (calibration_result, cal_eval_s) = timed_call(
+    calibration_result, cal_eval_s = timed_call(
         compute_calibration_error, model_baseline_het, dataset
     )
     cal_error, expected, observed = calibration_result
