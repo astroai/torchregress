@@ -18,6 +18,13 @@ from torchregress.losses.base import BaseLoss
 
 # Alias for tests expecting a ReductionLoss base
 ReductionLoss = BaseLoss
+SKIP_META_LOSS_CLASS_NAMES = {
+    "BaseLoss",
+    "RegressionLoss",
+    "DistributionLoss",
+    "BaseEIVLoss",
+    "WeightedLossWrapper",
+}
 
 
 def get_all_loss_classes() -> List[Type[BaseLoss]]:
@@ -47,7 +54,13 @@ def get_all_loss_classes() -> List[Type[BaseLoss]]:
 
             # Find all classes in the module that inherit from Loss
             for name, obj in module.__dict__.items():
-                if isinstance(obj, type) and issubclass(obj, BaseLoss) and obj != BaseLoss:
+                if (
+                    isinstance(obj, type)
+                    and issubclass(obj, BaseLoss)
+                    and obj not in {BaseLoss, ReductionLoss}
+                    and obj.__name__ not in SKIP_META_LOSS_CLASS_NAMES
+                    and not inspect.isabstract(obj)
+                ):
                     loss_classes.append(obj)
         except ImportError:
             print(f"Skipping module {module_name} due to import error")
@@ -91,9 +104,9 @@ def test_parameter_ordering():
 def test_base_class_inheritance():
     """Test that all loss classes inherit from the base Loss class."""
     for loss_class in get_all_loss_classes():
-        assert issubclass(
-            loss_class, BaseLoss
-        ), f"{loss_class.__name__} should inherit from BaseLoss"
+        assert issubclass(loss_class, BaseLoss), (
+            f"{loss_class.__name__} should inherit from BaseLoss"
+        )
 
 
 def test_reduction_behavior():
@@ -168,9 +181,9 @@ def test_reduction_behavior():
                         "should return non-scalar tensor"
                     )
                 elif reduction in ("mean", "sum"):
-                    assert (
-                        result.ndim == 0
-                    ), f"{loss_class.__name__} with reduction='{reduction}' should return scalar"
+                    assert result.ndim == 0, (
+                        f"{loss_class.__name__} with reduction='{reduction}' should return scalar"
+                    )
 
             except Exception as e:
                 pytest.fail(
@@ -196,9 +209,9 @@ def test_consistent_init_parameters():
 
         # Check that common parameters are present with expected names
         for param in common_params:
-            assert (
-                param in param_names
-            ), f"{loss_class.__name__}.__init__() should have parameter named '{param}'"
+            assert param in param_names, (
+                f"{loss_class.__name__}.__init__() should have parameter named '{param}'"
+            )
 
 
 def _get_default_args(cls):

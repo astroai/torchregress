@@ -50,6 +50,31 @@ class TestRiskCoverageMetrics:
         assert len(result["risk"]) == 5
         assert result["aurc"] > 0
 
+    def test_risk_coverage_curve_class_functional_consistency(self):
+        """Class and functional interfaces should agree on the same inputs."""
+        metric = RiskCoverageCurve(n_points=7)
+        metric.update(self.y_pred, self.y_true, self.perfect_uncertainty)
+        class_res = metric.compute()
+        func_res = risk_coverage_curve(
+            self.y_pred, self.y_true, self.perfect_uncertainty, n_points=7
+        )
+
+        assert torch.allclose(class_res["coverage"], func_res["coverage"])
+        assert torch.allclose(class_res["risk"], func_res["risk"])
+        assert torch.allclose(class_res["aurc"], func_res["aurc"])
+
+    def test_risk_coverage_curve_multitarget_reduces_feature_dims(self):
+        """RCC should reduce non-batch dimensions when computing per-sample risk."""
+        y_true = torch.randn(20, 3)
+        y_pred = y_true + 0.1 * torch.randn(20, 3)
+        uncertainty = torch.rand(20)
+
+        result = risk_coverage_curve(y_pred, y_true, uncertainty, n_points=6)
+        assert result["risk"].shape == (6,)
+
+        full_mse = ((y_pred - y_true) ** 2).mean()
+        assert torch.allclose(result["risk"][-1], full_mse, atol=1e-6)
+
     def test_rejection_policy_fraction(self):
         """Test rejection policy with fixed fraction."""
         # Reject 20%, should keep 80 samples
@@ -74,6 +99,31 @@ class TestRiskCoverageMetrics:
 
         assert result["coverage"] == pytest.approx(0.5, abs=0.02)
         assert result["mean_risk"] < torch.mean((self.y_pred - self.y_true) ** 2)
+
+    def test_rejection_policy_fraction_precedence_over_threshold(self):
+        """If both are set, fraction should take precedence."""
+        policy = RejectionPolicy(fraction=0.3, threshold=-1.0)
+        policy.update(self.y_pred, self.y_true, self.perfect_uncertainty)
+        result = policy.compute()
+
+        assert result["coverage"] == pytest.approx(0.7, abs=0.02)
+
+    def test_rejection_policy_requires_fraction_or_threshold(self):
+        """Policy should error if neither threshold nor fraction is provided."""
+        policy = RejectionPolicy()
+        policy.update(self.y_pred, self.y_true, self.perfect_uncertainty)
+        with pytest.raises(ValueError):
+            policy.compute()
+
+    def test_rejection_policy_all_rejected_returns_nan_risk(self):
+        """Threshold below all uncertainties should reject everything."""
+        policy = RejectionPolicy(threshold=float(self.perfect_uncertainty.min().item() - 1.0))
+        policy.update(self.y_pred, self.y_true, self.perfect_uncertainty)
+        result = policy.compute()
+
+        assert torch.isnan(result["mean_risk"])
+        assert result["coverage"] == 0
+        assert int(result["n_rejected"]) == self.n_samples
 
     def test_empty_case(self):
         """Test behavior with no updates."""

@@ -1,0 +1,235 @@
+"""Export and signature contract tests for non-loss public modules."""
+
+from __future__ import annotations
+
+import importlib
+import inspect
+
+import torchregress as tr
+
+EXPECTED_EXPORTS = {
+    "torchregress": [
+        "losses",
+        "metrics",
+        "algorithms",
+        "ensemble",
+        "method_catalog",
+        "viz",
+        "utils",
+        "BaseLoss",
+        "RegressionLoss",
+        "DistributionLoss",
+        "iteratively_reweighted_least_squares",
+        "__version__",
+    ],
+    "metrics": [
+        "ExpectedCalibrationError",
+        "MarginalCalibrationError",
+        "bias",
+        "expected_calibration_error",
+        "marginal_calibration_error",
+        "calibration_score",
+        "calibration_metrics_report",
+        "ContinuousRankedProbabilityScore",
+        "EnergyScore",
+        "continuous_ranked_probability_score",
+        "energy_score",
+        "gaussian_nll",
+        "crps_gaussian",
+        "probability_integral_transform",
+        "distribution_metrics_report",
+        "RiskCoverageCurve",
+        "RejectionPolicy",
+        "risk_coverage_curve",
+        "GaussianNLLEnsemble",
+        "EnsembleIntervalMetrics",
+        "ensemble_mean",
+        "ensemble_std",
+        "ensemble_statistics",
+        "ensemble_variance_decomposition",
+        "uncertainty_decomposition",
+        "IntervalScore",
+        "MeanPredictionIntervalWidth",
+        "PredictionIntervalCoverageProbability",
+        "interval_score",
+        "prediction_interval_coverage",
+        "prediction_interval_coverage_probability",
+        "interval_metrics_report",
+        "MultivariateMAE",
+        "MultivariateRMSE",
+        "EntropyScore",
+        "KernelDensityScore",
+        "MahalanobisDistance",
+        "TypicalityScore",
+        "entropy_score",
+        "kernel_density_score",
+        "mahalanobis_distance",
+        "typicality_score",
+        "ood_metrics_report",
+        "HuberMetric",
+        "MedianAbsoluteError",
+        "MedianAbsoluteDeviation",
+        "NormalizedMedianAbsoluteDeviation",
+        "NormalizedRMSE",
+        "OutlierFraction",
+        "TrimmedMeanSquaredError",
+        "mse",
+        "mean_squared_error",
+        "mae",
+        "mean_absolute_error",
+        "median_absolute_error",
+        "huber_loss",
+        "rmse",
+        "r2_score",
+        "trimmed_mean_squared_error",
+        "median_absolute_deviation",
+        "normalized_rmse",
+        "regression_metrics_report",
+        "MeanSquaredError",
+        "MeanAbsoluteError",
+        "R2Score",
+    ],
+    "ensemble": [
+        "BaseEnsembleModel",
+        "BatchEnsembleLinear",
+        "HeteroscedasticEnsembleModel",
+        "DeepEnsemble",
+        "HeteroscedasticBatchEnsembleModel",
+        "BayesianModelAveraging",
+        "StackingEnsemble",
+        "DynamicEnsembleWeighting",
+        "SWAG",
+        "MultiSWAG",
+        "parse_heteroscedastic_output",
+        "MCDropoutWrapper",
+        "MCDropoutModel",
+        "enable_dropout",
+        "VariationalLinear",
+        "BayesianNeuralNetwork",
+        "HeteroscedasticBNN",
+    ],
+    "algorithms": [
+        "iteratively_reweighted_least_squares",
+        "IRLS",
+        "RegressionCalibration",
+        "SIMEX",
+    ],
+}
+
+
+EXPECTED_SIGNATURES = {
+    "algorithms.iteratively_reweighted_least_squares": (
+        "(model: torch.nn.modules.module.Module, x: torch.Tensor, y_true: torch.Tensor, "
+        "initial_precision: Optional[torch.Tensor] = None, "
+        "covariance_matrices: Optional[torch.Tensor] = None, "
+        "mask: Optional[torch.Tensor] = None, base_loss: str = 'gaussian', max_iter: int = 10, "
+        "tol: float = 0.0001, delta: float = 1.0, weight_fn: Union[str, Callable] = 'huber', "
+        "weight_params: Optional[Dict[str, Any]] = None, variance_type: str = 'predicted', "
+        "epsilon: float = 1.1920928955078125e-07, return_all_predictions: bool = False, "
+        "batch_size: int = 1024) -> Union[Tuple[torch.Tensor, List[float], torch.Tensor], "
+        "Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]]"
+    ),
+    "algorithms.RegressionCalibration.fit": (
+        "(self, X_observed: torch.Tensor) -> 'RegressionCalibration'"
+    ),
+    "algorithms.RegressionCalibration.transform": (
+        "(self, X_observed: torch.Tensor) -> torch.Tensor"
+    ),
+    "algorithms.SIMEX.fit": "(self, X_train: torch.Tensor, y_train: torch.Tensor) -> 'SIMEX'",
+    "algorithms.SIMEX.predict": "(self, X: torch.Tensor) -> torch.Tensor",
+    "metrics.mse": (
+        "(y_pred: Union[torch.Tensor, numpy.ndarray], y_true: Union[torch.Tensor, numpy.ndarray], "
+        "sample_weight: Union[torch.Tensor, numpy.ndarray, NoneType] = None, "
+        "reduction: str = 'mean', "
+        "as_numpy: bool = False) -> Union[torch.Tensor, float, numpy.ndarray]"
+    ),
+    "metrics.rmse": (
+        "(y_pred: Union[torch.Tensor, numpy.ndarray], y_true: Union[torch.Tensor, numpy.ndarray], "
+        "sample_weight: Union[torch.Tensor, numpy.ndarray, NoneType] = None, "
+        "reduction: str = 'mean', "
+        "as_numpy: bool = False) -> Union[torch.Tensor, float, numpy.ndarray]"
+    ),
+    "metrics.expected_calibration_error": (
+        "(y_pred_quantiles: Dict[float, Union[torch.Tensor, numpy.ndarray]], "
+        "y_true: Union[torch.Tensor, numpy.ndarray], return_diagnostics: bool = False, "
+        "as_numpy: bool = False) -> Dict[str, Union[torch.Tensor, float, numpy.ndarray]]"
+    ),
+    "metrics.calibration_score": (
+        "(y_true: Union[torch.Tensor, numpy.ndarray], "
+        "pred_mean: Union[torch.Tensor, numpy.ndarray], "
+        "pred_std: Union[torch.Tensor, numpy.ndarray], n_levels: int = 19, as_numpy: bool = False) "
+        "-> Dict[str, Union[torch.Tensor, float, numpy.ndarray]]"
+    ),
+    "metrics.prediction_interval_coverage_probability": (
+        "(lower_bound: Union[torch.Tensor, numpy.ndarray], "
+        "upper_bound: Union[torch.Tensor, numpy.ndarray], "
+        "y_true: Union[torch.Tensor, numpy.ndarray], alpha: float = 0.1, "
+        "return_diagnostics: bool = False) "
+        "-> Union[torch.Tensor, float, Dict[str, torch.Tensor]]"
+    ),
+    "metrics.ensemble_variance_decomposition": (
+        "(means: Union[torch.Tensor, numpy.ndarray], "
+        "variances: Union[torch.Tensor, numpy.ndarray], "
+        "dim: int = 0) -> Tuple[torch.Tensor, torch.Tensor]"
+    ),
+    "metrics.mahalanobis_distance": (
+        "(x: Union[torch.Tensor, numpy.ndarray], mean: Union[torch.Tensor, numpy.ndarray], "
+        "cov: Union[torch.Tensor, numpy.ndarray], reduction: str = 'none') -> torch.Tensor"
+    ),
+    "ensemble.BaseEnsembleModel.predict": "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]",
+    "ensemble.HeteroscedasticEnsembleModel.predict": (
+        "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]"
+    ),
+    "ensemble.HeteroscedasticBatchEnsembleModel.predict": (
+        "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]"
+    ),
+    "ensemble.MCDropoutWrapper.predict_with_uncertainty": (
+        "(self, x: torch.Tensor, n_samples: Optional[int] = None) -> "
+        "Tuple[torch.Tensor, torch.Tensor]"
+    ),
+    "ensemble.SWAG.sample": "(self, scale: float = 1.0, diag_noise: bool = True) -> None",
+    "ensemble.MultiSWAG.predict_with_uncertainty": (
+        "(self, x: torch.Tensor, n_samples: int = 30, scale: float = 1.0) -> "
+        "tuple[torch.Tensor, torch.Tensor, torch.Tensor]"
+    ),
+}
+
+
+def _resolve(name: str):
+    obj = tr
+    for part in name.split("."):
+        obj = getattr(obj, part)
+    return obj
+
+
+def test_public_exports_snapshot_non_losses() -> None:
+    module_map = {
+        "torchregress": tr,
+        "metrics": tr.metrics,
+        "ensemble": tr.ensemble,
+        "algorithms": tr.algorithms,
+    }
+    for module_name, expected in EXPECTED_EXPORTS.items():
+        actual = list(module_map[module_name].__all__)
+        assert actual == expected, module_name
+        for symbol in actual:
+            assert hasattr(module_map[module_name], symbol), f"{module_name}.{symbol}"
+
+
+def test_signature_snapshots_non_losses() -> None:
+    for path, expected in EXPECTED_SIGNATURES.items():
+        actual = str(inspect.signature(_resolve(path)))
+        assert actual == expected, f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
+
+
+def test_top_level_submodules_are_lazy_loaded() -> None:
+    module = importlib.import_module("torchregress")
+    module.__dict__.pop("viz", None)
+    module.__dict__.pop("metrics", None)
+    module = importlib.reload(module)
+    assert "viz" not in module.__dict__
+    assert "metrics" not in module.__dict__
+    _ = module.viz
+    _ = module.metrics
+    assert "viz" in module.__dict__
+    assert "metrics" in module.__dict__
