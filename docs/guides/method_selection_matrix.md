@@ -56,6 +56,7 @@ _Generated date_: `2026-02-26`
 | Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
+| Censored / interval-censored regression | `CensoredGaussianNLLLoss` | `AFTLoss`, `CensoredQuantileLoss` | Use censoring code 0/1/-1 and explicit interval bounds when available. |
 | OOD scoring / selective prediction | `DeepEnsemble + OOD metrics` | `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics` | Use multiple signals; no single OOD score is sufficient. |
 <!-- END:TASK_MATRIX_GENERATED -->
 
@@ -75,6 +76,7 @@ _Generated date_: `2026-02-26`
 | Method Family | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD Support | Imbalance | Noisy Features (EIV) |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `bnn` (2) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `eiv` (3) | yes | no | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` (2) | yes | no | partial | yes | yes | yes | partial | yes | no | no |
@@ -124,6 +126,9 @@ _Generated date_: `2026-02-26`
 |---|---|---|---|---|---|---|---|---|---|
 | `BayesianNeuralNetwork` | `bnn` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `HeteroscedasticBNN` | `bnn` | `Available` | yes | no | yes | yes | yes | partial | partial |
+| `AFTLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
+| `CensoredGaussianNLLLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
+| `CensoredQuantileLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `ConformalLoss` | `conformal` | `Core` | yes | no | no | no | no | yes | partial |
 | `FunctionalEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
@@ -155,6 +160,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | Family | # Methods | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD | Imbalance | EIV |
 |---|---:|---|---|---|---|---|---|---|---|---|---|
 | `bnn` | 2 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `eiv` | 3 | yes | no | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` | 2 | yes | no | partial | yes | yes | yes | partial | yes | no | no |

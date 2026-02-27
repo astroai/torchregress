@@ -6,9 +6,9 @@ _Generated date_: `2026-02-26`
 
 ## Summary
 
-- Task rows: `9`
+- Task rows: `10`
 - Decision-grade rows: `2`
-- Strong-or-better rows: `9`
+- Strong-or-better rows: `10`
 
 ## Coverage Matrix
 
@@ -23,6 +23,8 @@ _Generated date_: `2026-02-26`
 |  |  |  |  |  |  | _Note_: Prediction-powered inference example demonstrates mean/quantile/OLS coefficient intervals with diagnostics under small-label settings. |
 | Ordinal regression / ordered targets | `Strong` | `examples/ordinal_regression_comparison.py` | fixed seed, shared synthetic split, matched model capacity | accuracy, ordinal class MAE, QWK, runtime | `OrdinalCrossEntropyLoss`, `CumulativeLinkLoss`, `CORALLoss` | Needs at least one real-data ordered-target benchmark for stronger external validity. |
 |  |  |  |  |  |  | _Note_: Comparison example evaluates class-logit and cumulative objectives under shared training budgets and ordinal-aware metrics. |
+| Censored / interval-censored regression | `Strong` | `examples/censored_regression_comparison.py` | fixed seed, shared censoring split, matched model capacity | true-target MAE, observed MAE, concordance index, runtime | `CensoredGaussianNLLLoss`, `CensoredQuantileLoss`, `AFTLoss` | Needs real-data censored benchmark(s) beyond synthetic generation. |
+|  |  |  |  |  |  | _Note_: Example includes right/left censoring plus explicit interval-censored samples under a shared training budget. |
 | OOD robustness / selective prediction | `Decision-grade` | `examples/ood_selective_prediction_comparison.py`, `examples/ood_selective_prediction_realdata_comparison.py`, `examples/comprehensive_comparison.py` | fixed seeds, shared synthetic ID/OOD splits, shared train budget | ID/OOD MSE, AURC, rejection policy, OOD uncertainty gap, runtime | `DeepEnsemble`, `HeteroscedasticEnsembleModel`, `MCDropoutWrapper`, `SWAG`, `BayesianNeuralNetwork` | Needs multiple real-data OOD/selective benchmarks (beyond one covariate-shift proxy) for stronger external validity and regression tracking. |
 |  |  |  |  |  |  | _Note_: Dedicated OOD/selective examples now include synthetic and real-data (Diabetes covariate-shift proxy) comparisons with SWAG and BNN under shared budgets; committed smoke/audit/full JSON summary artifacts are available. |
 | Multimodal / multi-target non-Gaussian | `Strong` | `examples/multimodal_method_comparison.py`, `examples/multimodal_method_realdata_comparison.py`, `examples/normalizing_flows_multitarget.py` | fixed seeds, shared synthetic / real-covariate multimodal splits, shared train budget | point metrics, NLL, energy score, marginal calibration error, runtime | `GaussianNLLLoss`, `MDNLoss`, `NormalizingFlowLoss` | Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal targets on real covariates) and optional-dependency CI coverage for zuko flow runs. |

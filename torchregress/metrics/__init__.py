@@ -13,6 +13,12 @@ from .calibration import (
     expected_calibration_error,
     marginal_calibration_error,
 )
+from .censored import (
+    censoring_rate,
+    concordance_index,
+    interval_overlap_rate,
+    observed_mae,
+)
 from .decision import (
     RejectionPolicy,
     RiskCoverageCurve,
@@ -97,6 +103,11 @@ __all__ = [
     "marginal_calibration_error",
     "calibration_score",
     "calibration_metrics_report",
+    # Censored
+    "censoring_rate",
+    "observed_mae",
+    "concordance_index",
+    "interval_overlap_rate",
     # Distribution
     "ContinuousRankedProbabilityScore",
     "EnergyScore",

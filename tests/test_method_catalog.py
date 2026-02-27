@@ -36,6 +36,10 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     ordinal_names = {row["name"] for row in ordinal}
     assert {"OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"} <= ordinal_names
 
+    censored = method_catalog.list_methods(task_tag="censored")
+    censored_names = {row["name"] for row in censored}
+    assert {"CensoredGaussianNLLLoss", "CensoredQuantileLoss", "AFTLoss"} <= censored_names
+
 
 def test_method_catalog_is_exposed_via_top_level_module_namespace() -> None:
     assert hasattr(tr, "method_catalog")
@@ -55,6 +59,7 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
         "Calibrated intervals with coverage guarantees",
         "Population inference with few labels",
         "Ordinal / ordered targets",
+        "Censored / interval-censored regression",
         "OOD scoring / selective prediction",
         "Noisy features / measurement error",
         "Multimodal targets",
@@ -78,6 +83,7 @@ def test_decision_workflow_and_comparative_evidence_metadata_cover_hard_tasks() 
         "Imbalanced / rare-target regression",
         "Calibrated intervals / coverage",
         "Ordinal regression / ordered targets",
+        "Censored / interval-censored regression",
         "OOD robustness / selective prediction",
         "Noisy features / EIV",
         "Multimodal / multi-target non-Gaussian",

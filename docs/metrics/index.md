@@ -27,6 +27,17 @@ Metrics for ordered-target predictions:
 
 [Learn more about ordinal metrics →](ordinal.md)
 
+### Censored Metrics
+
+Metrics for censored and interval-censored targets:
+
+- **Censoring Rate**
+- **Observed MAE**
+- **Concordance Index**
+- **Interval Overlap Rate**
+
+[Learn more about censored metrics →](censored.md)
+
 ### Distribution Metrics
 
 Metrics for evaluating full predictive distributions:

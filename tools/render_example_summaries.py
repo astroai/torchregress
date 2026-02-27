@@ -302,6 +302,26 @@ def _ordinal_comparison_config(module: Any, profile: str) -> Any:
     return module.OrdinalComparisonConfig()
 
 
+def _censored_comparison_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.CensoredComparisonConfig(
+            n_train=192,
+            n_test=96,
+            hidden=16,
+            epochs=4,
+            batch_size=32,
+        )
+    if profile == "audit":
+        return module.CensoredComparisonConfig(
+            n_train=768,
+            n_test=256,
+            hidden=32,
+            epochs=20,
+            batch_size=64,
+        )
+    return module.CensoredComparisonConfig()
+
+
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ood_selective_prediction_comparison": {
         "filename": "ood_selective_prediction_comparison",
@@ -350,6 +370,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ordinal_regression_comparison": {
         "filename": "ordinal_regression_comparison",
         "config_factory": _ordinal_comparison_config,
+    },
+    "censored_regression_comparison": {
+        "filename": "censored_regression_comparison",
+        "config_factory": _censored_comparison_config,
     },
 }
 

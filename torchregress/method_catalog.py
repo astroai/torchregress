@@ -196,6 +196,36 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="CORAL-style cumulative ordinal objective.",
     ),
     MethodMetadata(
+        name="CensoredGaussianNLLLoss",
+        family="censored",
+        public_path="torchregress.losses.CensoredGaussianNLLLoss",
+        task_tags=("censored", "interval_censored", "survival_regression"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Gaussian censored likelihood for left/right/interval-censored targets.",
+    ),
+    MethodMetadata(
+        name="CensoredQuantileLoss",
+        family="censored",
+        public_path="torchregress.losses.CensoredQuantileLoss",
+        task_tags=("censored", "interval_censored", "non_gaussian"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="Quantile-style objective for censored and bounded target intervals.",
+    ),
+    MethodMetadata(
+        name="AFTLoss",
+        family="censored",
+        public_path="torchregress.losses.AFTLoss",
+        task_tags=("censored", "interval_censored", "survival_regression"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Log-normal accelerated failure-time objective with censoring support.",
+    ),
+    MethodMetadata(
         name="MDNLoss",
         family="mdn",
         public_path="torchregress.losses.MDNLoss",
@@ -417,6 +447,12 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         notes="Prefer cumulative objectives when rank-distance errors matter.",
     ),
     TaskRecommendation(
+        task="Censored / interval-censored regression",
+        recommended_start="CensoredGaussianNLLLoss",
+        strong_alternatives=("AFTLoss", "CensoredQuantileLoss"),
+        notes="Use censoring code 0/1/-1 and explicit interval bounds when available.",
+    ),
+    TaskRecommendation(
         task="OOD scoring / selective prediction",
         recommended_start="DeepEnsemble + OOD metrics",
         strong_alternatives=("SWAG + OOD metrics", "BayesianNeuralNetwork + OOD metrics"),
@@ -561,6 +597,19 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         notes=(
             "Comparison example evaluates class-logit and cumulative objectives under shared "
             "training budgets and ordinal-aware metrics."
+        ),
+    ),
+    ComparativeEvidenceRow(
+        task="Censored / interval-censored regression",
+        examples=("examples/censored_regression_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=("fixed seed", "shared censoring split", "matched model capacity"),
+        metrics_coverage=("true-target MAE", "observed MAE", "concordance index", "runtime"),
+        peer_methods_visible=("CensoredGaussianNLLLoss", "CensoredQuantileLoss", "AFTLoss"),
+        gaps="Needs real-data censored benchmark(s) beyond synthetic generation.",
+        notes=(
+            "Example includes right/left censoring plus explicit interval-censored samples "
+            "under a shared training budget."
         ),
     ),
     ComparativeEvidenceRow(

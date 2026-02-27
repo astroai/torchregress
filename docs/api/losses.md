@@ -10,6 +10,10 @@ This page provides a complete API reference for all loss functions in torchregre
 
 ---
 
+::: torchregress.losses.censored
+
+---
+
 ::: torchregress.losses.eiv
 
 ---

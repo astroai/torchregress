@@ -37,6 +37,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison (examples-only) with calibration + PDF metrics
 - `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
+- `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 
 When comparing methods, prefer examples that document:
@@ -177,6 +178,12 @@ A real-world application for astronomy:
 - Shared-budget comparison for ordered targets.
 - Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
 - Reports ordinal accuracy, class-index MAE, QWK, and runtime.
+
+### [Censored Regression Comparison](censored_regression_comparison.md)
+
+- Shared-budget comparison for right/left and interval-censored targets.
+- Compares Gaussian NLL, quantile, and AFT censored losses.
+- Reports true-target MAE, observed MAE, concordance index, censoring rate, and runtime.
 
 ### [Conformal Regression](conformal_regression_example.md)
 

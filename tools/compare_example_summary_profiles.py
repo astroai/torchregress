@@ -130,6 +130,8 @@ _LOWER_BETTER_KEYS = {
     "obs_mse",
     "obs_input_clean_target_mse",
     "OrdinalMAE",
+    "MAE_true",
+    "ObsMAE",
 }
 
 _UPPER_BETTER_KEYS = {
@@ -138,6 +140,7 @@ _UPPER_BETTER_KEYS = {
     "ood_unc_gap",
     "Accuracy",
     "QWK",
+    "CIndex",
 }
 
 

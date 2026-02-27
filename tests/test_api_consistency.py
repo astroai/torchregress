@@ -158,6 +158,8 @@ def test_reduction_behavior():
         "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
         "CumulativeLinkLoss",  # Needs discrete ordinal targets
         "CORALLoss",  # Needs discrete ordinal targets
+        "CensoredGaussianNLLLoss",  # Needs mean+variance inputs
+        "AFTLoss",  # Needs loc+log-scale inputs
     ]
 
     for loss_class in get_all_loss_classes():

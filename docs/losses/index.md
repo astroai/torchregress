@@ -104,6 +104,16 @@ Losses that account for uncertainty in both inputs and outputs:
 
 [Learn more about error-in-variables losses →](eiv.md)
 
+### Censored Regression Losses
+
+Losses for right/left and interval-censored outcomes:
+
+- **CensoredGaussianNLLLoss**
+- **CensoredQuantileLoss**
+- **AFTLoss**
+
+[Learn more about censored regression losses →](censored.md)
+
 ### Conformal Prediction Losses
 
 Methods that provide rigorous prediction intervals with statistical guarantees:

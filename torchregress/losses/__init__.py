@@ -22,6 +22,7 @@ from .base import (
     WeightedMSELoss,
     WeightedNLLLoss,
 )
+from .censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
 
 # Conformal prediction
 from .conformal import (
@@ -206,6 +207,10 @@ __all__ = [
     "MultiTargetConformal",
     "R2CConformal",
     "SplitConformal",
+    # Censored regression
+    "CensoredGaussianNLLLoss",
+    "CensoredQuantileLoss",
+    "AFTLoss",
     # Registry
     "get_regression_loss",
     "list_regression_losses",

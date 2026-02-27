@@ -517,6 +517,38 @@ def test_ordinal_regression_comparison_writes_summary_json(tmp_path: Path) -> No
         _assert_non_negative(row["eval_s"])
 
 
+def test_censored_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("censored_regression_comparison")
+    out = tmp_path / "censored_comparison_summary.json"
+    cfg = mod.CensoredComparisonConfig(
+        n_train=192,
+        n_test=96,
+        hidden=12,
+        epochs=2,
+        batch_size=32,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="censored",
+        required_methods={"CensoredGaussianNLL", "CensoredQuantile", "AFT"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("CensoredGaussianNLL", "CensoredQuantile", "AFT"):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            ["MAE_true", "ObsMAE", "CIndex", "CensorRate", "train_s", "eval_s", "Notes"],
+        )
+        _assert_non_negative(row["MAE_true"])
+        _assert_finite_numeric(row["ObsMAE"])
+        _assert_finite_numeric(row["CIndex"])
+        _assert_probability(row["CensorRate"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_noisy_label_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("noisy_label_comparison")
     out = tmp_path / "noisy_label_summary.json"
