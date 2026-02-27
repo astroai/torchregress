@@ -372,6 +372,20 @@ def _uncertain_gt_density_conformal_config(module: Any, profile: str) -> Any:
     return module.UncertainGTConformalConfig()
 
 
+def _causal_dr_uplift_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.CausalDRConfig(
+            n_samples=600,
+            folds=2,
+        )
+    if profile == "audit":
+        return module.CausalDRConfig(
+            n_samples=1200,
+            folds=3,
+        )
+    return module.CausalDRConfig()
+
+
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ood_selective_prediction_comparison": {
         "filename": "ood_selective_prediction_comparison",
@@ -436,6 +450,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "uncertain_gt_density_conformal_comparison": {
         "filename": "uncertain_gt_density_conformal_comparison",
         "config_factory": _uncertain_gt_density_conformal_config,
+    },
+    "causal_dr_uplift_comparison": {
+        "filename": "causal_dr_uplift_comparison",
+        "config_factory": _causal_dr_uplift_config,
     },
 }
 

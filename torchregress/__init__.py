@@ -28,6 +28,7 @@ _LAZY_SUBMODULES = {
     "inference",
     "constraints",
     "calibration",
+    "causal",
     "viz",
     "utils",
 }
@@ -55,6 +56,7 @@ __all__ = [
     "inference",
     "constraints",
     "calibration",
+    "causal",
     "viz",
     "utils",
     # Core classes

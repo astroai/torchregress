@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `40`
+- Total methods: `42`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -17,6 +17,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `bnn` | 2 |
 | `calibration_transform` | 3 |
+| `causal` | 2 |
 | `censored` | 3 |
 | `conformal` | 4 |
 | `constraints` | 2 |
@@ -41,7 +42,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 6 |
 | `Strong` | 5 |
-| `Available` | 29 |
+| `Available` | 31 |
 
 ## Method Rows
 
@@ -54,6 +55,8 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `IsotonicMeanCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.IsotonicMeanCalibrator` |
 | `PITCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration`, `distribution_calibration` | `calibration`, `ood*` | `torchregress.calibration.PITCalibrator` |
 | `VarianceTemperatureScaler` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.VarianceTemperatureScaler` |
+| `dr_ate` | `causal` | `Available` | `causal_inference`, `ate`, `selection_bias` | `calibration*`, `ood*` | `torchregress.causal.dr_ate` |
+| `dr_cate` | `causal` | `Available` | `causal_inference`, `cate`, `selection_bias` | `calibration*`, `ood*` | `torchregress.causal.dr_cate` |
 | `AFTLoss` | `censored` | `Available` | `censored`, `interval_censored`, `survival_regression` | `calibration*`, `ood*` | `torchregress.losses.AFTLoss` |
 | `CensoredGaussianNLLLoss` | `censored` | `Available` | `censored`, `interval_censored`, `survival_regression` | `calibration*`, `ood*` | `torchregress.losses.CensoredGaussianNLLLoss` |
 | `CensoredQuantileLoss` | `censored` | `Available` | `censored`, `interval_censored`, `non_gaussian` | `calibration*`, `ood*` | `torchregress.losses.CensoredQuantileLoss` |

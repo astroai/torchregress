@@ -17,6 +17,7 @@ EXPECTED_EXPORTS = {
         "inference",
         "constraints",
         "calibration",
+        "causal",
         "viz",
         "utils",
         "BaseLoss",
@@ -130,6 +131,12 @@ EXPECTED_EXPORTS = {
         "RegressionCalibration",
         "SIMEX",
     ],
+    "causal": [
+        "dr_ate",
+        "dr_cate",
+        "dr_policy_value",
+        "causal_overlap_report",
+    ],
 }
 
 
@@ -224,6 +231,7 @@ def test_public_exports_snapshot_non_losses() -> None:
         "metrics": tr.metrics,
         "ensemble": tr.ensemble,
         "algorithms": tr.algorithms,
+        "causal": tr.causal,
     }
     for module_name, expected in EXPECTED_EXPORTS.items():
         actual = list(module_map[module_name].__all__)

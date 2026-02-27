@@ -240,6 +240,26 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="dr_ate",
+        family="causal",
+        public_path="torchregress.causal.dr_ate",
+        task_tags=("causal_inference", "ate", "selection_bias"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Cross-fitted doubly-robust ATE with overlap diagnostics and robust CI.",
+    ),
+    MethodMetadata(
+        name="dr_cate",
+        family="causal",
+        public_path="torchregress.causal.dr_cate",
+        task_tags=("causal_inference", "cate", "selection_bias"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Cross-fitted DR pseudo-outcome regression for heterogeneous treatment effects.",
+    ),
+    MethodMetadata(
         name="OrdinalCrossEntropyLoss",
         family="ordinal",
         public_path="torchregress.losses.OrdinalCrossEntropyLoss",
@@ -589,6 +609,12 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         ),
     ),
     TaskRecommendation(
+        task="Causal inference regression (ATE/CATE)",
+        recommended_start="dr_ate / dr_cate",
+        strong_alternatives=("PredictionPoweredInference",),
+        notes="Use cross-fitting and overlap diagnostics before interpreting treatment effects.",
+    ),
+    TaskRecommendation(
         task="Population inference with few labels",
         recommended_start="PredictionPoweredInference",
         strong_alternatives=("ConformalLoss", "QuantileLoss"),
@@ -671,6 +697,16 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         caveat=(
             "Retain held-out clean-label evaluation where available to avoid "
             "self-confirming loops."
+        ),
+    ),
+    DecisionWorkflowStep(
+        order=8,
+        question="Need treatment-effect estimation under confounding (ATE/CATE)?",
+        primary_recommendation="dr_ate / dr_cate",
+        alternatives=("PredictionPoweredInference",),
+        caveat=(
+            "Check overlap/ESS diagnostics and avoid causal claims under severe "
+            "positivity violations."
         ),
     ),
 )
@@ -761,6 +797,26 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         notes=(
             "Current evidence is synthetic but compares uncertain-GT losses and "
             "density/prevalence/MC conformal variants under matched budgets."
+        ),
+    ),
+    ComparativeEvidenceRow(
+        task="Causal inference regression (DR ATE/CATE)",
+        examples=("examples/causal_dr_uplift_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=("fixed seed", "shared synthetic scenarios", "matched nuisance models"),
+        metrics_coverage=(
+            "ATE absolute error",
+            "CI contains true ATE",
+            "CI width",
+            "overlap rate",
+            "effective sample size",
+            "runtime",
+        ),
+        peer_methods_visible=("dr_ate", "dr_cate", "naive difference-in-means"),
+        gaps="Needs real treatment-effect benchmarks beyond synthetic scenarios.",
+        notes=(
+            "Current evidence includes synthetic uplift and astronomy-style selection-bias "
+            "proxies with cross-fitted DR estimators and overlap diagnostics."
         ),
     ),
     ComparativeEvidenceRow(

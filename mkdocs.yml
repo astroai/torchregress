@@ -134,6 +134,7 @@ nav:
       - Propensity + Tail Regression Comparison: examples/propensity_tail_regression_comparison.md
       - Constraints + Calibration Comparison: examples/constraints_calibration_comparison.md
       - Uncertain-GT + Density Conformal Comparison: examples/uncertain_gt_density_conformal_comparison.md
+      - Causal DR Uplift Comparison: examples/causal_dr_uplift_comparison.md
       - Conformal Regression: examples/conformal_regression_example.md
       - Evidential Regression: examples/evidential_regression.md
       - Imbalanced Regression: examples/imbalanced_regression.md
@@ -152,6 +153,7 @@ nav:
       - Losses: api/losses.md
       - Metrics: api/metrics.md
       - Inference: api/inference.md
+      - Causal: api/causal.md
       - Constraints: api/constraints.md
       - Calibration Transforms: api/calibration.md
       - Visualization: api/viz.md

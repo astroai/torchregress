@@ -54,7 +54,11 @@ def _extract_budget_signals(payload: dict[str, Any]) -> dict[str, float]:
 
 def _is_probability_key(key: str) -> bool:
     k = key.lower()
-    return ("cov" in k or "coverage" in k) and "covariance" not in k
+    return (
+        (("cov" in k or "coverage" in k) and "covariance" not in k)
+        or "contains_true" in k
+        or k in {"overlaprate"}
+    )
 
 
 def _row_domain_issues(row: dict[str, Any]) -> list[str]:
@@ -140,6 +144,8 @@ _LOWER_BETTER_KEYS = {
     "NoisyTargetNLL",
     "ConsistencyLoss",
     "PseudoLabelNLL",
+    "ATE_abs_error",
+    "CI_width",
 }
 
 _UPPER_BETTER_KEYS = {
@@ -149,6 +155,7 @@ _UPPER_BETTER_KEYS = {
     "Accuracy",
     "QWK",
     "CIndex",
+    "CI_contains_true",
 }
 
 

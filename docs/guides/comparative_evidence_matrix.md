@@ -6,9 +6,9 @@ _Generated date_: `2026-02-26`
 
 ## Summary
 
-- Task rows: `13`
+- Task rows: `14`
 - Decision-grade rows: `2`
-- Strong-or-better rows: `13`
+- Strong-or-better rows: `14`
 
 ## Coverage Matrix
 
@@ -21,6 +21,8 @@ _Generated date_: `2026-02-26`
 | Output constraints + post-hoc calibration transforms | `Strong` | `examples/constraints_calibration_comparison.py` | fixed seed, shared synthetic split, shared calibrator fit budget | MAE, NLL, PIT chi-square, crossing/bound violations, runtime | `BoundedHead`, `NonCrossingSort`, `VarianceTemperatureScaler`, `IsotonicMeanCalibrator`, `PITCalibrator` | Needs additional domain benchmarks beyond synthetic stress tests. |
 | Uncertain ground-truth + density-aware conformal | `Strong` | `examples/uncertain_gt_density_conformal_comparison.py` | fixed seed, shared synthetic split, shared calibration budget | coverage, interval width, noisy-target NLL, consistency loss, pseudo-label NLL, runtime | `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, `MonteCarloConformal`, `NoisyTargetGaussianNLL`, `PseudoLabelNLL`, `ConsistencyRegLoss` | Needs real-data uncertain-label benchmarks for external validity. |
 |  |  |  |  |  |  | _Note_: Current evidence is synthetic but compares uncertain-GT losses and density/prevalence/MC conformal variants under matched budgets. |
+| Causal inference regression (DR ATE/CATE) | `Strong` | `examples/causal_dr_uplift_comparison.py` | fixed seed, shared synthetic scenarios, matched nuisance models | ATE absolute error, CI contains true ATE, CI width, overlap rate, effective sample size, runtime | `dr_ate`, `dr_cate`, `naive difference-in-means` | Needs real treatment-effect benchmarks beyond synthetic scenarios. |
+|  |  |  |  |  |  | _Note_: Current evidence includes synthetic uplift and astronomy-style selection-bias proxies with cross-fitted DR estimators and overlap diagnostics. |
 | Calibrated intervals / coverage | `Strong` | `examples/evaluate_conformal_methods.py`, `examples/photoz_benchmark_comparison.py`, `examples/photoz_nnc_crps_rail_comparison.py` | shared evaluation budget, coverage/width summaries, shared train budget | coverage, interval width, runtime, domain error metrics | `ConformalLoss`, `QuantileLoss`, `GaussianNLLLoss` | Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) needed for stronger generalization claims. |
 |  |  |  |  |  |  | _Note_: Photo-z benchmark adds domain-realistic coverage/width evaluation for Gaussian and quantile intervals alongside photo-z metrics; conformal method comparisons remain the primary coverage-guarantee benchmark. Ordered-bin NNC-CRPS-style comparisons are available in examples/photoz_nnc_crps_rail_comparison.py. |
 | Population/parameter inference (few labels) | `Strong` | `examples/ppi_photoz_inference_comparison.py` | fixed seed, shared labeled/unlabeled split, runtime summaries | estimate bias, CI width, CI coverage, runtime | `PredictionPoweredInference`, `labeled-only baseline` | Needs more than one real-data benchmark for generalization claims. |

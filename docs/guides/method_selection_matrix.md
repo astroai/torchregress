@@ -59,6 +59,7 @@ _Generated date_: `2026-02-26`
 | Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
 | Density-aware conformal under long-tail targets | `DensityConformal` | `PrevalenceAdjustedCP`, `MonteCarloConformal` | Prefer density/prevalence variants when tail-region coverage is a key objective. |
 | Uncertain ground-truth / weak labels | `NoisyTargetGaussianNLL` | `PseudoLabelNLL`, `ConsistencyRegLoss` | Model target uncertainty explicitly and blend pseudo labels with confidence weights. |
+| Causal inference regression (ATE/CATE) | `dr_ate` / `dr_cate` | `PredictionPoweredInference` | Use cross-fitting and overlap diagnostics before interpreting treatment effects. |
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
 | Censored / interval-censored regression | `CensoredGaussianNLLLoss` | `AFTLoss`, `CensoredQuantileLoss` | Use censoring code 0/1/-1 and explicit interval bounds when available. |
@@ -82,6 +83,7 @@ _Generated date_: `2026-02-26`
 |---|---|---|---|---|---|---|---|---|---|---|
 | `bnn` (2) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` (3) | yes | no | partial | no | no | no | yes | partial | no | no |
+| `causal` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` (4) | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
@@ -137,6 +139,8 @@ _Generated date_: `2026-02-26`
 | `IsotonicMeanCalibrator` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
 | `PITCalibrator` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
 | `VarianceTemperatureScaler` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
+| `dr_ate` | `causal` | `Available` | yes | no | no | no | no | partial | partial |
+| `dr_cate` | `causal` | `Available` | yes | no | no | no | no | partial | partial |
 | `AFTLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `CensoredGaussianNLLLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `CensoredQuantileLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
@@ -181,6 +185,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 |---|---:|---|---|---|---|---|---|---|---|---|---|
 | `bnn` | 2 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` | 3 | yes | no | partial | no | no | no | yes | partial | no | no |
+| `causal` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` | 4 | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
@@ -301,6 +306,11 @@ _Generated date_: `2026-02-26`
    Use `NoisyTargetGaussianNLL`.
    Alternatives: `PseudoLabelNLL`, `ConsistencyRegLoss`.
    Caveat: Retain held-out clean-label evaluation where available to avoid self-confirming loops.
+
+8. Need treatment-effect estimation under confounding (ATE/CATE)?
+   Use `dr_ate / dr_cate`.
+   Alternatives: `PredictionPoweredInference`.
+   Caveat: Check overlap/ESS diagnostics and avoid causal claims under severe positivity violations.
 <!-- END:DECISION_WORKFLOW_GENERATED -->
 
 ## Important Clarification: Conformal vs Uncertainty Decomposition
