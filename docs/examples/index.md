@@ -39,6 +39,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
 - `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`)
+- `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 
 When comparing methods, prefer examples that document:
@@ -191,6 +192,12 @@ A real-world application for astronomy:
 - Shared-budget comparison under covariate-dependent label observation.
 - Compares naive observed-only MSE, density weighting, and propensity weighting.
 - Reports overall MAE plus upper-tail MAE/RMSE and runtime.
+
+### [Constraints + Calibration Comparison](constraints_calibration_comparison.md)
+
+- Demonstrates output-head constraints and post-hoc calibration transforms in one workflow.
+- Compares raw outputs against calibrated + constrained outputs.
+- Reports MAE, NLL, PIT chi-square, crossing-rate, bound-violation, and runtime.
 
 ### [Conformal Regression](conformal_regression_example.md)
 

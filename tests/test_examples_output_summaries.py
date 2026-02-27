@@ -581,6 +581,42 @@ def test_propensity_tail_regression_comparison_writes_summary_json(tmp_path: Pat
         _assert_non_negative(row["eval_s"])
 
 
+def test_constraints_calibration_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("constraints_calibration_comparison")
+    out = tmp_path / "constraints_calibration_summary.json"
+    cfg = mod.ConstraintCalibrationConfig(n_cal=192, n_test=96)
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="calibration transforms",
+        required_methods={"Raw", "Calibrated+Constrained"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("Raw", "Calibrated+Constrained"):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "MAE",
+                "NLL",
+                "PITChi2",
+                "CrossingRate",
+                "BoundViolation",
+                "train_s",
+                "eval_s",
+                "Notes",
+            ],
+        )
+        _assert_non_negative(row["MAE"])
+        _assert_non_negative(row["NLL"])
+        _assert_non_negative(row["PITChi2"])
+        _assert_probability(row["CrossingRate"])
+        _assert_probability(row["BoundViolation"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_noisy_label_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("noisy_label_comparison")
     out = tmp_path / "noisy_label_summary.json"

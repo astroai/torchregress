@@ -342,6 +342,20 @@ def _propensity_tail_config(module: Any, profile: str) -> Any:
     return module.PropensityTailConfig()
 
 
+def _constraints_calibration_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.ConstraintCalibrationConfig(
+            n_cal=256,
+            n_test=128,
+        )
+    if profile == "audit":
+        return module.ConstraintCalibrationConfig(
+            n_cal=512,
+            n_test=256,
+        )
+    return module.ConstraintCalibrationConfig()
+
+
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ood_selective_prediction_comparison": {
         "filename": "ood_selective_prediction_comparison",
@@ -398,6 +412,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "propensity_tail_regression_comparison": {
         "filename": "propensity_tail_regression_comparison",
         "config_factory": _propensity_tail_config,
+    },
+    "constraints_calibration_comparison": {
+        "filename": "constraints_calibration_comparison",
+        "config_factory": _constraints_calibration_config,
     },
 }
 

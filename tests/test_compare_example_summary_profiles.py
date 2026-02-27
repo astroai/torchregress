@@ -516,3 +516,61 @@ def test_compare_profiles_detects_propensity_tail_blowup(tmp_path: Path) -> None
         (not row["directionality_ok"]) and "propensity_tail_regression_comparison" in row["example"]
         for row in report["rows"]
     )
+
+
+def test_compare_profiles_detects_constraints_calibration_blowup(tmp_path: Path) -> None:
+    for (
+        example_name,
+        spec,
+    ) in compare_example_summary_profiles.render_example_summaries.EXAMPLE_SPECS.items():
+        stem = spec["filename"]
+        task = (
+            "Output constraints + post-hoc calibration transforms"
+            if "constraints_calibration" in stem
+            else example_name
+        )
+        if "constraints_calibration" in stem:
+            audit_row = {
+                "Method": "A",
+                "MAE": 0.3,
+                "NLL": 0.5,
+                "PITChi2": 8.0,
+                "CrossingRate": 0.05,
+                "BoundViolation": 0.1,
+                "train_s": 1.0,
+            }
+            full_row = {
+                "Method": "A",
+                "MAE": 4.0,
+                "NLL": 9.0,
+                "PITChi2": 60.0,
+                "CrossingRate": 0.7,
+                "BoundViolation": 0.8,
+                "train_s": 2.0,
+            }
+        else:
+            audit_row = {"Method": "A", "MSE": 1.0, "train_s": 1.0}
+            full_row = {"Method": "A", "MSE": 0.9, "train_s": 2.0}
+        _write_payload(
+            tmp_path / f"{stem}_audit.json",
+            task=task,
+            cfg={"epochs": 10, "n_train": 100},
+            methods=[audit_row],
+        )
+        _write_payload(
+            tmp_path / f"{stem}_full.json",
+            task=task,
+            cfg={"epochs": 20, "n_train": 200},
+            methods=[full_row],
+        )
+
+    report = compare_example_summary_profiles.compare_profiles(
+        base_dir=tmp_path,
+        source_profile="audit",
+        target_profile="full",
+    )
+    assert report["ok"] is False
+    assert any(
+        (not row["directionality_ok"]) and "constraints_calibration_comparison" in row["example"]
+        for row in report["rows"]
+    )

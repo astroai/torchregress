@@ -50,6 +50,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("ordinal_regression_comparison")
     _load_example_module("censored_regression_comparison")
     _load_example_module("propensity_tail_regression_comparison")
+    _load_example_module("constraints_calibration_comparison")
 
     # Optional dependency path (zuko/flow backend) may not be present in all environments.
     try:
@@ -390,5 +391,14 @@ def test_propensity_tail_regression_comparison_main_smoke() -> None:
         hidden=12,
         epochs=2,
         batch_size=32,
+    )
+    mod.main(cfg)
+
+
+def test_constraints_calibration_comparison_main_smoke() -> None:
+    mod = _load_example_module("constraints_calibration_comparison")
+    cfg = mod.ConstraintCalibrationConfig(
+        n_cal=192,
+        n_test=96,
     )
     mod.main(cfg)

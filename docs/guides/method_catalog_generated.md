@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `29`
+- Total methods: `34`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -16,8 +16,10 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Family | Count |
 |---|---:|
 | `bnn` | 2 |
+| `calibration_transform` | 3 |
 | `censored` | 3 |
 | `conformal` | 1 |
+| `constraints` | 2 |
 | `eiv` | 3 |
 | `ensemble` | 2 |
 | `flow` | 1 |
@@ -38,7 +40,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 6 |
 | `Strong` | 5 |
-| `Available` | 18 |
+| `Available` | 23 |
 
 ## Method Rows
 
@@ -48,10 +50,15 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 |---|---|---|---|---|---|
 | `BayesianNeuralNetwork` | `bnn` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BayesianNeuralNetwork` |
 | `HeteroscedasticBNN` | `bnn` | `Available` | `uq_decomposition`, `ood`, `calibration` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.HeteroscedasticBNN` |
+| `IsotonicMeanCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.IsotonicMeanCalibrator` |
+| `PITCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration`, `distribution_calibration` | `calibration`, `ood*` | `torchregress.calibration.PITCalibrator` |
+| `VarianceTemperatureScaler` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.VarianceTemperatureScaler` |
 | `AFTLoss` | `censored` | `Available` | `censored`, `interval_censored`, `survival_regression` | `calibration*`, `ood*` | `torchregress.losses.AFTLoss` |
 | `CensoredGaussianNLLLoss` | `censored` | `Available` | `censored`, `interval_censored`, `survival_regression` | `calibration*`, `ood*` | `torchregress.losses.CensoredGaussianNLLLoss` |
 | `CensoredQuantileLoss` | `censored` | `Available` | `censored`, `interval_censored`, `non_gaussian` | `calibration*`, `ood*` | `torchregress.losses.CensoredQuantileLoss` |
 | `ConformalLoss` | `conformal` | `Core` | `coverage_guarantees`, `calibration` | `calibration`, `ood*` | `torchregress.losses.ConformalLoss` |
+| `BoundedHead` | `constraints` | `Available` | `constraints`, `bounded_outputs` | `calibration*`, `ood*` | `torchregress.constraints.BoundedHead` |
+| `NonCrossingSort` | `constraints` | `Available` | `constraints`, `ordered_outputs` | `calibration*`, `ood*` | `torchregress.constraints.NonCrossingSort` |
 | `FunctionalEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.FunctionalEIVLoss` |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.OrthogonalDistanceRegressionLoss` |
 | `StructuralEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.StructuralEIVLoss` |

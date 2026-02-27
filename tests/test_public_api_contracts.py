@@ -15,6 +15,8 @@ EXPECTED_EXPORTS = {
         "ensemble",
         "method_catalog",
         "inference",
+        "constraints",
+        "calibration",
         "viz",
         "utils",
         "BaseLoss",

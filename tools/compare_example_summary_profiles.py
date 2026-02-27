@@ -134,6 +134,9 @@ _LOWER_BETTER_KEYS = {
     "ObsMAE",
     "TailMAE90",
     "TailRMSE90",
+    "CrossingRate",
+    "BoundViolation",
+    "PITChi2",
 }
 
 _UPPER_BETTER_KEYS = {
