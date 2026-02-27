@@ -76,9 +76,13 @@ def _is_nonnegative_metric_key(key: str) -> bool:
     k = key.lower()
     if _is_probability_key(key) or _is_runtime_key(key) or _is_r2_key(key):
         return False
+    # Continuous-density log-likelihood metrics (often labeled NLL/loss) may be negative.
+    # Keep those on signed bounds so we don't force an invalid 0.0 lower bound.
+    if "nll" in k or "loss" in k:
+        return False
     return any(
         token in k
-        for token in ("mse", "mae", "nll", "loss", "width", "energy", "aurc", "risk", "is")
+        for token in ("mse", "mae", "width", "energy", "aurc", "risk", "is")
     )
 
 

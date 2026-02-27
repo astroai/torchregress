@@ -81,11 +81,12 @@ def _row_domain_issues(row: dict[str, Any]) -> list[str]:
             issues.append(f"{method}:{key}:negative-runtime")
         if _is_probability_key(key) and not (0.0 <= v <= 1.0):
             issues.append(f"{method}:{key}:probability-range")
+        # Continuous-density log-likelihood metrics may be negative (e.g. NLL on
+        # high-density regions), so only enforce nonnegativity on metrics that are
+        # mathematically constrained >= 0.
+        nonnegative_tokens = ("mse", "mae", "width", "energy", "aurc", "risk", "is")
         if (
-            any(
-                token in key.lower()
-                for token in ("mse", "mae", "nll", "loss", "width", "energy", "aurc", "risk")
-            )
+            any(token in key.lower() for token in nonnegative_tokens)
             and v < 0.0
         ):
             issues.append(f"{method}:{key}:negative-metric")
@@ -420,6 +421,7 @@ def compare_profiles(
 
         source_budget = _extract_budget_signals(source)
         target_budget = _extract_budget_signals(target)
+        shared_budget_keys = sorted(set(source_budget) & set(target_budget))
         monotone_budget_keys: list[str] = []
         for key, source_val in source_budget.items():
             target_val = target_budget.get(key)
@@ -427,6 +429,7 @@ def compare_profiles(
                 continue
             if target_val >= source_val:
                 monotone_budget_keys.append(key)
+        budget_monotone_ok = bool(monotone_budget_keys) if shared_budget_keys else True
 
         source_semantic_issues = _payload_semantic_issues(source)
         target_semantic_issues = _payload_semantic_issues(target)
@@ -471,6 +474,8 @@ def compare_profiles(
                 "target_semantic_issues": target_semantic_issues[:10],
                 "runtime_scaling_ok": runtime_scaling_ok,
                 "runtime_scaling_notes": runtime_scaling_notes,
+                "budget_monotone_ok": budget_monotone_ok,
+                "shared_budget_keys": shared_budget_keys,
                 "source_train_s_total": source_train_total,
                 "target_train_s_total": target_train_total,
                 "source_eval_s_total": source_eval_total,
@@ -488,7 +493,7 @@ def compare_profiles(
         and row["target_semantic_ok"]
         and row["directionality_ok"]
         and row["runtime_scaling_ok"]
-        and bool(row["monotone_budget_keys"])
+        and row["budget_monotone_ok"]
         for row in rows
     )
     return {

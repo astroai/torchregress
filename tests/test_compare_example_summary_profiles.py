@@ -574,3 +574,30 @@ def test_compare_profiles_detects_constraints_calibration_blowup(tmp_path: Path)
         (not row["directionality_ok"]) and "constraints_calibration_comparison" in row["example"]
         for row in report["rows"]
     )
+
+
+def test_compare_profiles_allows_missing_budget_signals(tmp_path: Path) -> None:
+    example_specs = compare_example_summary_profiles.render_example_summaries.EXAMPLE_SPECS
+    for example_name, spec in example_specs.items():
+        stem = spec["filename"]
+        _write_payload(
+            tmp_path / f"{stem}_audit.json",
+            task=example_name,
+            cfg={},
+            methods=[{"Method": "A", "MSE": 1.0, "train_s": 0.2}],
+        )
+        _write_payload(
+            tmp_path / f"{stem}_full.json",
+            task=example_name,
+            cfg={},
+            methods=[{"Method": "A", "MSE": 0.9, "train_s": 0.3}],
+        )
+
+    report = compare_example_summary_profiles.compare_profiles(
+        base_dir=tmp_path,
+        source_profile="audit",
+        target_profile="full",
+    )
+    assert report["ok"] is True
+    assert all(row["budget_monotone_ok"] is True for row in report["rows"])
+    assert all(row["shared_budget_keys"] == [] for row in report["rows"])

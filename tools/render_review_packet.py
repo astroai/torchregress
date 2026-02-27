@@ -142,7 +142,6 @@ def build_review_packet() -> dict[str, Any]:
     ex_thresholds_review_strict = _load_optional_json(EXAMPLE_THRESHOLDS_REVIEW_STRICT_JSON)
     bench_smoke_thresh = _load_optional_json(BENCH_THRESH_SMOKE_JSON) or {}
     bench_sweep_thresh = _load_optional_json(BENCH_THRESH_SWEEP_JSON) or {}
-    bench_baseline = _load_optional_json(BENCH_BASELINE_JSON) or {}
 
     mypy_summary = mypy.get("summary", {})
     comparative_summary = comparative.get("summary", {})
@@ -235,7 +234,10 @@ def build_review_packet() -> dict[str, Any]:
         "benchmark_governance": {
             "cpu_smoke_threshold_limits": _count_limits(bench_smoke_thresh),
             "cpu_sweep_threshold_limits": _count_limits(bench_sweep_thresh),
-            "cpu_sweep_baseline_summary": bench_baseline.get("aggregate", {}),
+            # Keep review packet deterministic against committed threshold artifacts.
+            # Raw benchmark sweep reports are optional local artifacts and may not exist
+            # in clean checkouts, so we avoid environment-sensitive summary drift here.
+            "cpu_sweep_baseline_summary": {},
         },
         "review_focus_files": _review_focus_files(),
     }
@@ -269,7 +271,7 @@ def render_markdown(packet: dict[str, Any]) -> str:
     decision_counts = native.get("decision_counts", {})
     decision_lines = (
         "\n".join(f"- `{k}`: {v}" for k, v in decision_counts.items())
-        if isinstance(decision_counts, dict)
+        if isinstance(decision_counts, dict) and decision_counts
         else "- unavailable"
     )
 

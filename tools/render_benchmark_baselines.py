@@ -6,7 +6,10 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from tools import benchmark_report_summary
+try:
+    from tools import benchmark_report_summary
+except ModuleNotFoundError:
+    import benchmark_report_summary
 
 START_MARKER = "<!-- BENCHMARK-BASELINE-GENERATED:START -->"
 END_MARKER = "<!-- BENCHMARK-BASELINE-GENERATED:END -->"

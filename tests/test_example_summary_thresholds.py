@@ -92,6 +92,27 @@ def test_threshold_derivation_ignores_non_summary_full_json(tmp_path: Path) -> N
     assert thresholds["n_limits"] == 1
 
 
+def test_negative_nll_thresholds_are_treated_as_signed_metrics(tmp_path: Path) -> None:
+    _write_payload(
+        tmp_path / "toy_full.json",
+        methods=[{"Method": "A", "PseudoLabelNLL": -0.25, "MSE": 1.0}],
+    )
+    thresholds = example_summary_thresholds.derive_thresholds_from_artifacts(
+        tmp_path,
+        profile="full",
+    )
+    nll_limit = thresholds["limits"]["toy|A|PseudoLabelNLL"]
+    assert nll_limit["min"] is not None and nll_limit["min"] < 0.0
+    assert nll_limit["policy"] == "signed"
+
+    verdict = example_summary_thresholds.evaluate_artifacts_against_thresholds(
+        tmp_path,
+        profile="full",
+        thresholds=thresholds,
+    )
+    assert verdict["ok"] is True
+
+
 def test_committed_example_summary_threshold_baseline_schema_and_pass() -> None:
     thresholds_path = Path("reports/example_summaries/thresholds_full.json")
     if not thresholds_path.exists():

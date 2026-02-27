@@ -9,7 +9,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from tools import photoz_rail_compare
+try:
+    from tools import photoz_rail_compare
+except ModuleNotFoundError:  # pragma: no cover - script execution path
+    import photoz_rail_compare  # type: ignore[no-redef]
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"

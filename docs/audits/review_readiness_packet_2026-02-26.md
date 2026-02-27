@@ -22,24 +22,22 @@ _Generated date_: `2026-02-26`
 - Adoption audit score (baseline -> provisional): `59.6 -> 84.8`
 - Full repo mypy status: `0 errors`
 - Docs/example drift checks: `attr=0`, `imports=0`, `extras=0`, `example_imports=0`
-- Examples tracked by audit: `32`
-- Comparative evidence coverage (strong-or-better): `7 / 7`
+- Examples tracked by audit: `39`
+- Comparative evidence coverage (strong-or-better): `14 / 14`
 - Method catalog peer methods present (`SWAG`/`BNN`/`MDN`): `{'SWAG': True, 'BayesianNeuralNetwork': True, 'MDNLoss': True}`
 
 ## Governance Status
 
-- Example summary profile comparison (`audit -> full`): `ok=True`, rows=`10`
-- Example summary thresholds (full, CI conservative): `ok=True`, checked=`466`, failed=`0`, missing=`0`
-- Example summary thresholds (full, review strict): `ok=True`, checked=`466`, failed=`0`, missing=`0`
-- Example summary threshold baselines: limits=`466`, artifacts=`10`
+- Example summary profile comparison (`audit -> full`): `ok=True`, rows=`17`
+- Example summary thresholds (full, CI conservative): `ok=True`, checked=`722`, failed=`0`, missing=`0`
+- Example summary thresholds (full, review strict): `ok=True`, checked=`722`, failed=`0`, missing=`0`
+- Example summary threshold baselines: limits=`722`, artifacts=`18`
 - Benchmark threshold baselines (CPU): smoke limits=`10`, sweep limits=`20`
-- Benchmark sweep baseline summary (CPU): `{'n_cases': 20, 'n_ok': 20, 'n_skipped': 0, 'n_error': 0, 'mean_of_means_ms': 0.1331812934949994}`
+- Benchmark sweep baseline summary (CPU): `{}`
 
 ## Native Leverage Decisions (Counts)
 
-- `Hybrid`: 5
-- `Keep custom`: 4
-- `Wrap native`: 2
+- unavailable
 
 ## Review Focus Files
 
@@ -58,11 +56,14 @@ _Generated date_: `2026-02-26`
 
 - `Robust regression / outliers` (`Decision-grade`): Only one domain benchmark (photo-z) so far; needs broader domain coverage.
 - `Imbalanced / rare-target regression` (`Strong`): Needs more model-family comparisons beyond reweighting losses.
+- `Selection bias / long-tail with missing labels` (`Strong`): Needs real-data selection-bias benchmarks beyond synthetic generation.
+- `Output constraints + post-hoc calibration transforms` (`Strong`): Needs additional domain benchmarks beyond synthetic stress tests.
+- `Uncertain ground-truth + density-aware conformal` (`Strong`): Needs real-data uncertain-label benchmarks for external validity.
+- `Causal inference regression (DR ATE/CATE)` (`Strong`): Needs real treatment-effect benchmarks beyond synthetic scenarios.
 - `Calibrated intervals / coverage` (`Strong`): Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) needed for stronger generalization claims.
-- `OOD robustness / selective prediction` (`Decision-grade`): Needs multiple real-data OOD/selective benchmarks (beyond one covariate-shift proxy) for stronger external validity and regression tracking.
-- `Multimodal / multi-target non-Gaussian` (`Strong`): Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal targets on real covariates) and optional-dependency CI coverage for zuko flow runs.
-- `Noisy features / EIV` (`Strong`): Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one photo-z domain benchmark) for stronger external validity.
-- `Noisy labels / corruption` (`Strong`): Needs comparisons against explicit noisy-label algorithms (co-teaching / sample-weight meta-learning) if/when implemented, plus more than one real dataset for stronger external validity.
+- `Population/parameter inference (few labels)` (`Strong`): Needs more than one real-data benchmark for generalization claims.
+- `Ordinal regression / ordered targets` (`Strong`): Needs at least one real-data ordered-target benchmark for stronger external validity.
+- `Censored / interval-censored regression` (`Strong`): Needs real-data censored benchmark(s) beyond synthetic generation.
 
 ## Reviewer Questions (Suggested)
 
