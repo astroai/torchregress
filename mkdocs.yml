@@ -130,6 +130,7 @@ nav:
       - PPI Photo-z Inference Comparison: examples/ppi_photoz_inference_comparison.md
       - Ordinal Regression Comparison: examples/ordinal_regression_comparison.md
       - Censored Regression Comparison: examples/censored_regression_comparison.md
+      - Propensity + Tail Regression Comparison: examples/propensity_tail_regression_comparison.md
       - Conformal Regression: examples/conformal_regression_example.md
       - Evidential Regression: examples/evidential_regression.md
       - Imbalanced Regression: examples/imbalanced_regression.md

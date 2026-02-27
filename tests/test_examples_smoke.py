@@ -49,6 +49,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("ppi_photoz_inference_comparison")
     _load_example_module("ordinal_regression_comparison")
     _load_example_module("censored_regression_comparison")
+    _load_example_module("propensity_tail_regression_comparison")
 
     # Optional dependency path (zuko/flow backend) may not be present in all environments.
     try:
@@ -373,6 +374,18 @@ def test_censored_regression_comparison_main_smoke() -> None:
     mod = _load_example_module("censored_regression_comparison")
     cfg = mod.CensoredComparisonConfig(
         n_train=192,
+        n_test=96,
+        hidden=12,
+        epochs=2,
+        batch_size=32,
+    )
+    mod.main(cfg)
+
+
+def test_propensity_tail_regression_comparison_main_smoke() -> None:
+    mod = _load_example_module("propensity_tail_regression_comparison")
+    cfg = mod.PropensityTailConfig(
+        n_train_pool=256,
         n_test=96,
         hidden=12,
         epochs=2,

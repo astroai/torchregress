@@ -92,6 +92,8 @@ EXPECTED_EXPORTS = {
         "trimmed_mean_squared_error",
         "median_absolute_deviation",
         "normalized_rmse",
+        "tail_mae",
+        "tail_rmse",
         "regression_metrics_report",
         "MeanSquaredError",
         "MeanAbsoluteError",

@@ -132,6 +132,8 @@ _LOWER_BETTER_KEYS = {
     "OrdinalMAE",
     "MAE_true",
     "ObsMAE",
+    "TailMAE90",
+    "TailRMSE90",
 }
 
 _UPPER_BETTER_KEYS = {

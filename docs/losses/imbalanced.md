@@ -814,3 +814,19 @@ loss_fn = DensityWeightedLoss(kernel_width=0.01)
 - Nie et al. "Dist Loss: Enhancing Regression in Few-shot Region through Distribution Distance Constraint" (ICLR 2025) - DistLoss
 - Steininger et al. "Density-based weighting for imbalanced regression" (Machine Learning 2021)
 - Branco et al. "A Survey of Predictive Modeling on Imbalanced Domains" (ACM Computing Surveys 2016)
+
+### PropensityWeightedLoss (Selection-Bias Aware)
+
+```python
+from torchregress.losses import PropensityWeightedLoss
+from torchregress.utils import PropensityEstimator
+```
+
+Use inverse-probability weighting when label observation is biased by covariates
+(`p(observed | x)` is not uniform). Typical workflow:
+
+1. Fit `PropensityEstimator` on features + observed-indicator.
+2. Predict propensity scores for labeled training samples.
+3. Train with `PropensityWeightedLoss(..., propensity=..., observed=...)`.
+
+This is useful for covariate-dependent missing labels and survey-style weighting.

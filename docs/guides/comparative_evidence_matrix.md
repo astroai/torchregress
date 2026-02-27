@@ -6,9 +6,9 @@ _Generated date_: `2026-02-26`
 
 ## Summary
 
-- Task rows: `10`
+- Task rows: `11`
 - Decision-grade rows: `2`
-- Strong-or-better rows: `10`
+- Strong-or-better rows: `11`
 
 ## Coverage Matrix
 
@@ -16,7 +16,8 @@ _Generated date_: `2026-02-26`
 |---|---|---|---|---|---|---|
 | Robust regression / outliers | `Decision-grade` | `examples/comprehensive_comparison.py`, `examples/comprehensive_loss_comparison.py`, `examples/photoz_benchmark_comparison.py` | fixed seeds, shared scenarios / domain split, runtime summaries | MSE, MAE, R2, NMAD, catastrophic outlier rate, runtime | `HuberLoss`, `CauchyLoss`, `WeightedMSELoss`, `WeightedHuberLoss` | Only one domain benchmark (photo-z) so far; needs broader domain coverage. |
 |  |  |  |  |  |  | _Note_: Photo-z benchmark adds SDSS-style domain metrics (NMAD, catastrophic outlier rate, high-z MAE) and robust/probabilistic/EIV comparisons under shared budgets; RAIL baseline merge support is available via tools/photoz_rail_compare.py. |
-| Imbalanced / rare-target regression | `Strong` | `examples/imbalanced_regression.py` | shared split, summary tables | tail vs dense metrics, calibration, runtime | `DensityWeightedLoss`, `LDSLoss` | Needs more model-family comparisons beyond reweighting losses. |
+| Imbalanced / rare-target regression | `Strong` | `examples/imbalanced_regression.py`, `examples/propensity_tail_regression_comparison.py` | shared split, summary tables | tail vs dense metrics, tail MAE/RMSE, calibration, runtime | `DensityWeightedLoss`, `PropensityWeightedLoss`, `LDSLoss` | Needs more model-family comparisons beyond reweighting losses. |
+| Selection bias / long-tail with missing labels | `Strong` | `examples/propensity_tail_regression_comparison.py` | fixed seed, shared selection process, matched model capacity | MAE, tail MAE/RMSE, observed-rate diagnostics, runtime | `PropensityWeightedLoss`, `DensityWeightedLoss`, `WeightedMSELoss` | Needs real-data selection-bias benchmarks beyond synthetic generation. |
 | Calibrated intervals / coverage | `Strong` | `examples/evaluate_conformal_methods.py`, `examples/photoz_benchmark_comparison.py`, `examples/photoz_nnc_crps_rail_comparison.py` | shared evaluation budget, coverage/width summaries, shared train budget | coverage, interval width, runtime, domain error metrics | `ConformalLoss`, `QuantileLoss`, `GaussianNLLLoss` | Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) needed for stronger generalization claims. |
 |  |  |  |  |  |  | _Note_: Photo-z benchmark adds domain-realistic coverage/width evaluation for Gaussian and quantile intervals alongside photo-z metrics; conformal method comparisons remain the primary coverage-guarantee benchmark. Ordered-bin NNC-CRPS-style comparisons are available in examples/photoz_nnc_crps_rail_comparison.py. |
 | Population/parameter inference (few labels) | `Strong` | `examples/ppi_photoz_inference_comparison.py` | fixed seed, shared labeled/unlabeled split, runtime summaries | estimate bias, CI width, CI coverage, runtime | `PredictionPoweredInference`, `labeled-only baseline` | Needs more than one real-data benchmark for generalization claims. |

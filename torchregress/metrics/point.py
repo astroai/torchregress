@@ -551,6 +551,83 @@ def normalized_rmse(
     return cast(MetricValue, create_metric_result(result, as_numpy=False))
 
 
+def _tail_mask(
+    y_true: torch.Tensor,
+    *,
+    quantile: float,
+    tail: str,
+) -> torch.Tensor:
+    if not 0.0 < quantile < 1.0:
+        raise ValueError("quantile must be in (0, 1)")
+    if tail not in {"upper", "lower", "both"}:
+        raise ValueError("tail must be one of {'upper', 'lower', 'both'}")
+
+    y_sample = _per_sample_mean(y_true)
+    if tail == "upper":
+        threshold = torch.quantile(y_sample, quantile)
+        return y_sample >= threshold
+    if tail == "lower":
+        threshold = torch.quantile(y_sample, 1.0 - quantile)
+        return y_sample <= threshold
+
+    median = torch.quantile(y_sample, 0.5)
+    abs_dev = torch.abs(y_sample - median)
+    threshold = torch.quantile(abs_dev, quantile)
+    return abs_dev >= threshold
+
+
+def tail_mae(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    *,
+    quantile: float = 0.9,
+    tail: str = "upper",
+    as_numpy: bool = False,
+) -> MetricValue:
+    """Compute MAE on target-tail samples."""
+    y_pred_t = convert_to_tensor(y_pred)
+    y_true_t = convert_to_tensor(y_true)
+    validate_inputs(y_pred_t, y_true_t)
+
+    mask = _tail_mask(y_true_t, quantile=quantile, tail=tail)
+    pred_sample = _per_sample_mean(y_pred_t)
+    true_sample = _per_sample_mean(y_true_t)
+    if mask.sum() == 0:
+        result = torch.tensor(float("nan"), device=y_true_t.device, dtype=y_true_t.dtype)
+    else:
+        result = torch.mean(torch.abs(pred_sample[mask] - true_sample[mask]))
+
+    if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
+        return cast(MetricValue, create_metric_result(result, as_numpy=True))
+    return cast(MetricValue, create_metric_result(result, as_numpy=False))
+
+
+def tail_rmse(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    *,
+    quantile: float = 0.9,
+    tail: str = "upper",
+    as_numpy: bool = False,
+) -> MetricValue:
+    """Compute RMSE on target-tail samples."""
+    y_pred_t = convert_to_tensor(y_pred)
+    y_true_t = convert_to_tensor(y_true)
+    validate_inputs(y_pred_t, y_true_t)
+
+    mask = _tail_mask(y_true_t, quantile=quantile, tail=tail)
+    pred_sample = _per_sample_mean(y_pred_t)
+    true_sample = _per_sample_mean(y_true_t)
+    if mask.sum() == 0:
+        result = torch.tensor(float("nan"), device=y_true_t.device, dtype=y_true_t.dtype)
+    else:
+        result = torch.sqrt(torch.mean((pred_sample[mask] - true_sample[mask]) ** 2))
+
+    if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
+        return cast(MetricValue, create_metric_result(result, as_numpy=True))
+    return cast(MetricValue, create_metric_result(result, as_numpy=False))
+
+
 def regression_metrics_report(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],

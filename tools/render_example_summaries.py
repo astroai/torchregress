@@ -322,6 +322,26 @@ def _censored_comparison_config(module: Any, profile: str) -> Any:
     return module.CensoredComparisonConfig()
 
 
+def _propensity_tail_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.PropensityTailConfig(
+            n_train_pool=384,
+            n_test=128,
+            hidden=16,
+            epochs=4,
+            batch_size=32,
+        )
+    if profile == "audit":
+        return module.PropensityTailConfig(
+            n_train_pool=1200,
+            n_test=400,
+            hidden=32,
+            epochs=20,
+            batch_size=64,
+        )
+    return module.PropensityTailConfig()
+
+
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ood_selective_prediction_comparison": {
         "filename": "ood_selective_prediction_comparison",
@@ -374,6 +394,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "censored_regression_comparison": {
         "filename": "censored_regression_comparison",
         "config_factory": _censored_comparison_config,
+    },
+    "propensity_tail_regression_comparison": {
+        "filename": "propensity_tail_regression_comparison",
+        "config_factory": _propensity_tail_config,
     },
 }
 

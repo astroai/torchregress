@@ -72,6 +72,7 @@ from .imbalanced import (
     DensityWeightedLoss,
     FocalRLoss,
     LDSLoss,
+    PropensityWeightedLoss,
 )
 from .loss_registry import create_loss_from_config, get_regression_loss, list_regression_losses
 
@@ -175,6 +176,7 @@ __all__ = [
     "DensityWeightedLoss",
     "FocalRLoss",
     "LDSLoss",
+    "PropensityWeightedLoss",
     # Evidential regression
     "EvidentialRegressionLoss",
     # Expectile losses

@@ -162,6 +162,18 @@ of = outlier_fraction(y_pred, y_true, threshold=0.15)
 of_photo = outlier_fraction(y_pred, y_true, threshold=0.15, mode="photometric")
 ```
 
+### Tail Metrics
+
+Evaluate performance specifically on rare/long-tail target regions:
+
+```python
+from torchregress.metrics import tail_mae, tail_rmse
+
+# Top 10% target values
+mae_tail = tail_mae(y_pred, y_true, quantile=0.9, tail="upper")
+rmse_tail = tail_rmse(y_pred, y_true, quantile=0.9, tail="upper")
+```
+
 ## Comprehensive Reporting
 
 ### Regression Metrics Report

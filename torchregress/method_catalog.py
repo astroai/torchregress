@@ -94,6 +94,16 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Validate calibration after reweighting.",
     ),
     MethodMetadata(
+        name="PropensityWeightedLoss",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.PropensityWeightedLoss",
+        task_tags=("imbalance", "selection_bias", "missing_labels"),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes="IPW-style loss for covariate-dependent label observation bias.",
+    ),
+    MethodMetadata(
         name="LDSLoss",
         family="imbalanced_loss",
         public_path="torchregress.losses.LDSLoss",
@@ -425,8 +435,14 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Imbalanced / rare-target regression",
         recommended_start="DensityWeightedLoss",
-        strong_alternatives=("LDSLoss",),
+        strong_alternatives=("PropensityWeightedLoss", "LDSLoss"),
         notes="Check calibration after aggressive reweighting.",
+    ),
+    TaskRecommendation(
+        task="Selection bias / covariate-dependent missing labels",
+        recommended_start="PropensityWeightedLoss",
+        strong_alternatives=("DensityWeightedLoss",),
+        notes="Estimate p(observed|x) and apply IPW to reduce selection bias.",
     ),
     TaskRecommendation(
         task="Calibrated intervals with coverage guarantees",
@@ -537,12 +553,24 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
     ),
     ComparativeEvidenceRow(
         task="Imbalanced / rare-target regression",
-        examples=("examples/imbalanced_regression.py",),
+        examples=(
+            "examples/imbalanced_regression.py",
+            "examples/propensity_tail_regression_comparison.py",
+        ),
         comparison_grade="Strong",
         fairness_controls=("shared split", "summary tables"),
-        metrics_coverage=("tail vs dense metrics", "calibration", "runtime"),
-        peer_methods_visible=("DensityWeightedLoss", "LDSLoss"),
+        metrics_coverage=("tail vs dense metrics", "tail MAE/RMSE", "calibration", "runtime"),
+        peer_methods_visible=("DensityWeightedLoss", "PropensityWeightedLoss", "LDSLoss"),
         gaps="Needs more model-family comparisons beyond reweighting losses.",
+    ),
+    ComparativeEvidenceRow(
+        task="Selection bias / long-tail with missing labels",
+        examples=("examples/propensity_tail_regression_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=("fixed seed", "shared selection process", "matched model capacity"),
+        metrics_coverage=("MAE", "tail MAE/RMSE", "observed-rate diagnostics", "runtime"),
+        peer_methods_visible=("PropensityWeightedLoss", "DensityWeightedLoss", "WeightedMSELoss"),
+        gaps="Needs real-data selection-bias benchmarks beyond synthetic generation.",
     ),
     ComparativeEvidenceRow(
         task="Calibrated intervals / coverage",

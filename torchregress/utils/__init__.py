@@ -26,6 +26,10 @@ from .ordinal import (
     labels_to_levels,
     ordinal_predict,
 )
+from .propensity import (
+    PropensityEstimator,
+    ipw_weights,
+)
 from .pytorch_compat import (
     convert_reduction_type,
     convert_to_pytorch_loss,
@@ -101,6 +105,9 @@ __all__ = [
     "cumulative_probs_to_pmf",
     "cumulative_logits_to_pmf",
     "ordinal_predict",
+    # propensity
+    "PropensityEstimator",
+    "ipw_weights",
     # pytorch_compat
     "convert_reduction_type",
     "convert_to_pytorch_loss",

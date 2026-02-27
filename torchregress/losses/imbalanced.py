@@ -20,6 +20,7 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from ..utils.propensity import ipw_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
@@ -248,6 +249,85 @@ class DensityWeightedLoss(RegressionLoss):
             weighted_loss = weighted_loss * weights
 
         return self._reduce_with_mask(weighted_loss, mask, None)
+
+
+@register_regression_loss("propensity_weighted")
+class PropensityWeightedLoss(RegressionLoss):
+    """Inverse-propensity weighted regression loss for selection bias correction."""
+
+    def __init__(
+        self,
+        base_loss: str = "mse",
+        clip_min: float = 0.01,
+        clip_max: float = 0.99,
+        normalize_weights: bool = True,
+        reduction: str = "mean",
+    ) -> None:
+        super().__init__(reduction=reduction)
+        self.base_loss = base_loss.lower()
+        self.clip_min = clip_min
+        self.clip_max = clip_max
+        self.normalize_weights = normalize_weights
+
+        if self.base_loss not in ["mse", "mae", "huber"]:
+            raise ValueError(f"base_loss must be 'mse', 'mae', or 'huber', got {base_loss}")
+
+        if not (0.0 < clip_min < clip_max < 1.0):
+            raise ValueError("clip_min/clip_max must satisfy 0 < clip_min < clip_max < 1")
+
+    def _compute_base_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        if self.base_loss == "mse":
+            return (y_pred - target) ** 2
+        if self.base_loss == "mae":
+            return torch.abs(y_pred - target)
+        if self.base_loss == "huber":
+            diff = torch.abs(y_pred - target)
+            return torch.where(diff < 1.0, 0.5 * diff**2, diff - 0.5)
+        raise ValueError(f"Unknown base_loss: {self.base_loss}")
+
+    def forward(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        propensity: Optional[Tensor] = None,
+        observed: Optional[Tensor] = None,
+        mask: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        self._validate_inputs(y_pred, target, mask)
+
+        p = propensity if propensity is not None else kwargs.get("propensity_scores")
+        if p is None:
+            raise ValueError("propensity (or propensity_scores) must be provided")
+        if not isinstance(p, torch.Tensor):
+            raise TypeError("propensity must be a torch.Tensor")
+        if p.shape != target.shape:
+            if p.shape == target.shape[:1]:
+                # Broadcast sample-level propensity across target dimensions.
+                p = p.view(p.shape[0], *([1] * (target.dim() - 1))).expand_as(target)
+            else:
+                raise ValueError("propensity shape must match target or batch dimension")
+
+        obs = observed
+        if obs is not None and obs.shape != target.shape:
+            if obs.shape == target.shape[:1]:
+                obs = obs.view(obs.shape[0], *([1] * (target.dim() - 1))).expand_as(target)
+            else:
+                raise ValueError("observed shape must match target or batch dimension")
+
+        ipw = ipw_weights(
+            p,
+            observed=obs,
+            clip_min=self.clip_min,
+            clip_max=self.clip_max,
+            normalize=self.normalize_weights,
+        ).to(device=target.device, dtype=target.dtype)
+
+        loss = self._compute_base_loss(y_pred, target) * ipw
+        if weights is not None:
+            loss = loss * weights
+        return self._reduce_with_mask(loss, mask, None)
 
 
 @register_regression_loss("lds")

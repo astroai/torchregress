@@ -91,6 +91,8 @@ from .point import (
     r2_score,
     regression_metrics_report,
     rmse,
+    tail_mae,
+    tail_rmse,
     trimmed_mean_squared_error,
 )
 
@@ -173,6 +175,8 @@ __all__ = [
     "trimmed_mean_squared_error",
     "median_absolute_deviation",
     "normalized_rmse",
+    "tail_mae",
+    "tail_rmse",
     "regression_metrics_report",
     # Torchmetrics direct exports
     "MeanSquaredError",

@@ -38,6 +38,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
+- `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`)
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 
 When comparing methods, prefer examples that document:
@@ -184,6 +185,12 @@ A real-world application for astronomy:
 - Shared-budget comparison for right/left and interval-censored targets.
 - Compares Gaussian NLL, quantile, and AFT censored losses.
 - Reports true-target MAE, observed MAE, concordance index, censoring rate, and runtime.
+
+### [Propensity + Tail Regression Comparison](propensity_tail_regression_comparison.md)
+
+- Shared-budget comparison under covariate-dependent label observation.
+- Compares naive observed-only MSE, density weighting, and propensity weighting.
+- Reports overall MAE plus upper-tail MAE/RMSE and runtime.
 
 ### [Conformal Regression](conformal_regression_example.md)
 

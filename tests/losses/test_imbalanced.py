@@ -7,6 +7,7 @@ from torchregress.losses import (
     DensityWeightedLoss,
     FocalRLoss,
     LDSLoss,
+    PropensityWeightedLoss,
 )
 
 
@@ -160,3 +161,28 @@ class TestDensityWeightedLoss:
 
         # With factor=1, weights should vary
         assert loss_fn_1.density_weights.std() > 0
+
+
+class TestPropensityWeightedLoss:
+    """Tests for PropensityWeightedLoss."""
+
+    def test_forward_with_propensity(self):
+        loss_fn = PropensityWeightedLoss(base_loss="mse")
+        pred = torch.randn(32, 1)
+        target = torch.randn(32, 1)
+        propensity = torch.rand(32, 1) * 0.8 + 0.1
+        observed = torch.ones(32, 1)
+
+        loss = loss_fn(pred, target, propensity=propensity, observed=observed)
+        assert torch.isfinite(loss)
+
+    def test_missing_propensity_raises(self):
+        loss_fn = PropensityWeightedLoss()
+        pred = torch.randn(16, 1)
+        target = torch.randn(16, 1)
+        try:
+            loss_fn(pred, target)
+        except ValueError as exc:
+            assert "propensity" in str(exc).lower()
+        else:
+            raise AssertionError("Expected ValueError when propensity is missing")

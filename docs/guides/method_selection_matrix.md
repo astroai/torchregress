@@ -52,7 +52,8 @@ _Generated date_: `2026-02-26`
 | Multi-target correlated outputs | `MultivariateGaussianLoss` / `LowRankGaussianLoss` | `MDNLoss`, `NormalizingFlowLoss` | Prefer low-rank/full covariance when Gaussian is enough. |
 | Noisy features / measurement error | `FunctionalEIVLoss` / `StructuralEIVLoss` / `OrthogonalDistanceRegressionLoss` | `EnsembleEIVLoss` | EIV losses change the call pattern (input noise is modeled). |
 | Noisy labels / label corruption | `HuberLoss` | `DeepEnsemble`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
-| Imbalanced / rare-target regression | `DensityWeightedLoss` | `LDSLoss` | Check calibration after aggressive reweighting. |
+| Imbalanced / rare-target regression | `DensityWeightedLoss` | `PropensityWeightedLoss`, `LDSLoss` | Check calibration after aggressive reweighting. |
+| Selection bias / covariate-dependent missing labels | `PropensityWeightedLoss` | `DensityWeightedLoss` | Estimate p(observed|x) and apply IPW to reduce selection bias. |
 | Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
@@ -81,7 +82,7 @@ _Generated date_: `2026-02-26`
 | `eiv` (3) | yes | no | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` (2) | yes | no | partial | yes | yes | yes | partial | yes | no | no |
 | `flow` (1) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
-| `imbalanced_loss` (2) | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `imbalanced_loss` (3) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` (1) | yes | yes | yes | no | yes | yes | partial | partial | no | no |
@@ -138,6 +139,7 @@ _Generated date_: `2026-02-26`
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Strong` | yes | no | no | no | no | partial | partial |
 | `LDSLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | yes | no | yes | partial | partial | partial | partial |
 | `MDNLoss` | `mdn` | `Available` | yes | yes | no | yes | yes | partial | partial |
@@ -165,7 +167,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `eiv` | 3 | yes | no | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` | 2 | yes | no | partial | yes | yes | yes | partial | yes | no | no |
 | `flow` | 1 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
-| `imbalanced_loss` | 2 | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `imbalanced_loss` | 3 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` | 1 | yes | yes | yes | no | yes | yes | partial | partial | no | no |
@@ -183,7 +185,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
 | Coverage / calibration | `calibration=yes` | `ConformalLoss`, `QuantileLoss` |
 | Multimodal targets | `multimodal=yes` | `NormalizingFlowLoss`, `MDNLoss` |
-| Imbalanced / rare targets | `imbalance=yes` | `DensityWeightedLoss`, `LDSLoss` |
+| Imbalanced / rare targets | `imbalance=yes` | `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->
 

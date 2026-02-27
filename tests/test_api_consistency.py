@@ -153,6 +153,7 @@ def test_reduction_behavior():
         "CoTeachingLoss",  # Needs two predictions
         "RENTLoss",  # Needs ensemble predictions
         "DensityWeightedLoss",  # Needs to be fitted first
+        "PropensityWeightedLoss",  # Needs propensity scores
         "LDSLoss",  # Needs to be fitted first
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
         "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
