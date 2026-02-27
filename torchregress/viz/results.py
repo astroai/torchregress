@@ -5,7 +5,7 @@ This module provides visualization utilities for presenting
 and comparing regression model results.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -102,7 +102,7 @@ def plot_performance_comparison(
                 best_values[metric] = df[metric].min()
 
     # Determine colors for models
-    colors = create_color_palette(len(df.index), palette_name=color_palette)
+    colors = cast(List[Any], create_color_palette(len(df.index), palette_name=color_palette))
 
     # Create plot based on specified type
     if plot_type == "bar":
@@ -136,7 +136,7 @@ def _plot_performance_bar(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Number of models and metrics
     n_models = len(df.index)
@@ -302,7 +302,7 @@ def _plot_performance_radar(
     # Set y-ticks
     ax.set_yticks([0.25, 0.5, 0.75, 1.0])
     ax.set_yticklabels(["0.25", "0.5", "0.75", "1.0"], color="grey", size=8)
-    ax.set_rlabel_position(0)
+    cast(Any, ax).set_rlabel_position(0)
 
     # Add title and legend
     plt.title(title, size=14, y=1.1)
@@ -465,11 +465,10 @@ def plot_parameter_sensitivity(
 
             # Sort values by parameter if parameter is numeric
             if all(isinstance(p, (int, float)) for p in param_values):
-                sorted_indices = np.argsort(param_values)
-                sorted_params = [param_values[j] for j in sorted_indices]
-                sorted_values = [values[j] for j in sorted_indices]
+                sorted_order = [int(j) for j in np.argsort(param_values)]
+                sorted_params = [param_values[j] for j in sorted_order]
+                sorted_values = [values[j] for j in sorted_order]
             else:
-                sorted_indices = range(len(param_values))
                 sorted_params = param_values
                 sorted_values = values
 
@@ -621,7 +620,7 @@ def plot_feature_importance(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Set positions for bars
     y_pos = np.arange(len(feature_names))
@@ -731,14 +730,14 @@ def plot_model_ensemble_contributions(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Create x values if not provided
     if x is None:
         x = np.arange(len(ensemble_prediction))
 
     # Get colors
-    colors = create_color_palette(len(predictions), palette_name=color_palette)
+    colors = cast(List[Any], create_color_palette(len(predictions), palette_name=color_palette))
 
     # Plot individual model predictions
     for i, (model_name, preds) in enumerate(predictions.items()):

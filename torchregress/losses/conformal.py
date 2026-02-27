@@ -220,7 +220,7 @@ class ConformalPredictor:
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError(
-                "Predictor must be calibrated before making predictions. " "Call calibrate() first."
+                "Predictor must be calibrated before making predictions. Call calibrate() first."
             )
 
         difficulty = None
@@ -888,6 +888,8 @@ class MultiTargetConformal(ConformalPredictor):
         """Return per-dimension calibrated intervals."""
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Call calibrate() first.")
+        if isinstance(self.q_hat, dict):
+            raise RuntimeError("MultiTargetConformal expects tensor q_hat, got grouped thresholds.")
         q = self.q_hat.to(y_pred.device)
         return self._build_intervals(y_pred, q)
 
@@ -941,6 +943,7 @@ class ConformalLoss(RegressionLoss):
         self.alpha = alpha
 
         # Create the underlying predictor
+        self._predictor: ConformalPredictor
         if method == "cqr":
             self._predictor = CQR(alpha=alpha, debias=debias, normalize_fn=normalize_fn)
         else:
@@ -974,9 +977,7 @@ class ConformalLoss(RegressionLoss):
         if self.method == "cqr":
             n_feat = target.shape[-1] if target.dim() > 1 else 1
             if y_pred.shape[-1] != 2 * n_feat:
-                raise ValueError(
-                    f"CQR expects y_pred shape [..., 2*features], " f"got {y_pred.shape}"
-                )
+                raise ValueError(f"CQR expects y_pred shape [..., 2*features], got {y_pred.shape}")
             lower_pred = y_pred[..., :n_feat]
             upper_pred = y_pred[..., n_feat:]
             lower_q = self.alpha / 2
@@ -1042,6 +1043,7 @@ class MultiDimensionalConformalLoss(ConformalLoss):
         RegressionLoss.__init__(self, reduction=reduction)
         self.method = "split"
         self.alpha = alpha
+        self._predictor: ConformalPredictor
         self._predictor = MultiTargetConformal(alpha=alpha)
 
     def forward(

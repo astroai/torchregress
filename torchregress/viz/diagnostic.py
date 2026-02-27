@@ -2,7 +2,7 @@
 Diagnostic plotting utilities for regression and uncertainty quantification.
 """
 
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -63,7 +63,7 @@ def plot_reliability_diagram(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Plot data points
     ax.plot(
@@ -82,8 +82,8 @@ def plot_reliability_diagram(
 
     ax.set_xlabel("Expected proportion")
     ax.set_ylabel("Observed proportion")
-    ax.set_xlim([0, 1])
-    ax.set_ylim([0, 1])
+    ax.set_xlim((0.0, 1.0))
+    ax.set_ylim((0.0, 1.0))
     ax.set_title(title)
     ax.legend(loc="best")
 
@@ -182,7 +182,7 @@ def plot_residuals(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Scatter plot of residuals vs predictions
     if len(y_pred) > 1000:
@@ -305,7 +305,7 @@ def plot_prediction_intervals(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Plot prediction intervals
     ax.fill_between(
@@ -379,7 +379,7 @@ def plot_qq_plot(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Generate theoretical quantiles from standard normal distribution
     n = len(residuals)
@@ -458,7 +458,7 @@ def plot_residual_histogram(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Plot histogram
     _, bin_edges, _ = ax.hist(residuals, bins=bins, color=color, alpha=0.7, density=True)
@@ -466,14 +466,14 @@ def plot_residual_histogram(
     # Add KDE if requested
     if show_kde:
         try:
-            from scipy.stats import gaussian_kde
+            from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
 
             kde = gaussian_kde(residuals)
             x_range = np.linspace(min(residuals), max(residuals), 1000)
             ax.plot(x_range, kde(x_range), color=kde_color, linewidth=2, label="Density")
 
             # Add normal distribution for comparison
-            from scipy.stats import norm
+            from scipy.stats import norm  # type: ignore[import-untyped]
 
             mu, std = norm.fit(residuals)
             ax.plot(
@@ -756,7 +756,7 @@ def plot_calibration_curve(
     return_figure: bool = False,
     return_diagnostics: bool = False,
     ax: Optional[plt.Axes] = None,
-) -> Union[Optional[Figure], Tuple[Optional[Figure], Dict[str, Any]]]:
+) -> Union[Optional[Figure], Dict[str, Any], Tuple[Optional[Figure], Dict[str, Any]]]:
     """
     Plot calibration curve (reliability diagram) for probabilistic predictions.
 
@@ -823,7 +823,7 @@ def plot_calibration_curve(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Plot calibration curve
     ax.plot(prob_pred, prob_true, marker="o", linewidth=2, color=color, label="Calibration Curve")
@@ -901,7 +901,7 @@ def plot_calibration_curve(
         if ax is None:
             plt.tight_layout()
             plt.show()
-        return diagnostics
+        return cast(Dict[str, Any], diagnostics)
     elif return_figure:
         return fig
     elif ax is None:  # Only show if we created the figure here
@@ -948,7 +948,7 @@ def plot_pit_histogram(
     Example:
         >>> plot_pit_histogram(preds, pred_stds, targets, return_figure=True)
     """
-    from scipy import stats
+    from scipy import stats  # type: ignore[import-untyped]
 
     y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
     y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
@@ -962,7 +962,7 @@ def plot_pit_histogram(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Plot histogram
     ax.hist(
@@ -1014,7 +1014,7 @@ def plot_uncertainty_vs_error(
     show_correlation: bool = True,
     return_figure: bool = False,
     ax: Optional[plt.Axes] = None,
-) -> Optional[Union[Figure, Tuple[Figure, float]]]:
+) -> Optional[Union[Figure, float, Tuple[Figure, float]]]:
     """
     Plot predicted uncertainty vs absolute error.
 
@@ -1067,7 +1067,7 @@ def plot_uncertainty_vs_error(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Scatter plot
     ax.scatter(y_pred_std_plot, abs_errors_plot, alpha=0.3, s=10, color=color)
@@ -1095,14 +1095,14 @@ def plot_uncertainty_vs_error(
 
     if return_figure:
         if show_correlation:
-            return fig, correlation
+            return fig, float(correlation)
         return fig
     elif ax is None:
         plt.tight_layout()
         plt.show()
 
     if show_correlation:
-        return correlation
+        return float(correlation)
     return None
 
 
@@ -1118,7 +1118,9 @@ def plot_binned_metrics(
     return_figure: bool = False,
     return_metrics: bool = False,
     ax: Optional[plt.Axes] = None,
-) -> Optional[Union[Figure, Dict[str, Dict[str, float]]]]:
+) -> Optional[
+    Union[Figure, Dict[str, Dict[str, float]], Tuple[Figure, Dict[str, Dict[str, float]]]]
+]:
     """
     Compute and plot metrics in bins of the target variable.
 
@@ -1215,7 +1217,7 @@ def plot_binned_metrics(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     bins = list(binned_metrics.keys())
     values = [binned_metrics[b][metric] for b in bins]
@@ -1330,7 +1332,7 @@ def plot_gaussian_reliability_diagram(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = cast(Figure, ax.figure)
 
     # Plot diagonal (perfect calibration)
     add_identity_line(ax, label="Perfectly Calibrated")

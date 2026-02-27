@@ -15,7 +15,7 @@ References:
 """
 
 import math
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, cast
 
 import torch
 from torch import Tensor
@@ -374,7 +374,7 @@ class EvidentialRegressionLoss(DistributionLoss):
         pred_dist = Normal(mean_samples, torch.sqrt(variance_samples))
         prediction_samples = pred_dist.sample()
 
-        return prediction_samples
+        return cast(Tensor, prediction_samples)
 
     def predict_interval(
         self,
@@ -427,7 +427,7 @@ class EvidentialRegressionLoss(DistributionLoss):
 
         # Student-t quantile using scipy
         # For large batches, this is computed element-wise
-        from scipy import stats as scipy_stats
+        from scipy import stats as scipy_stats  # type: ignore[import-untyped]
 
         # Compute t-quantile for each sample (may have different df)
         df_np = df.detach().cpu().numpy()

@@ -13,7 +13,7 @@ All losses follow PyTorch conventions with forward methods expecting
 inputs in the form of (y_pred, target, ...).
 """
 
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -49,10 +49,7 @@ class BaseLoss(nn.Module):
 
     def forward(
         self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
+        *args: Any,
         **kwargs: Any,
     ) -> torch.Tensor:
         """
@@ -188,10 +185,7 @@ class RegressionLoss(BaseLoss):
 
     def forward(
         self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
+        *args: Any,
         **kwargs: Any,
     ) -> torch.Tensor:
         """
@@ -232,7 +226,7 @@ class DistributionLoss(BaseLoss):
     def __init__(self, reduction: str = "mean") -> None:
         super().__init__(reduction)
 
-    def _extract_distribution_parameters(self, y_pred: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _extract_distribution_parameters(self, y_pred: Any) -> Any:
         """
         Extract distribution parameters from model outputs.
 
@@ -247,9 +241,7 @@ class DistributionLoss(BaseLoss):
         """
         raise NotImplementedError("Subclasses must implement this method")
 
-    def _calculate_nll(
-        self, y_pred: torch.Tensor, target: torch.Tensor, mask: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
+    def _calculate_nll(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         """
         Calculate negative log likelihood.
 
@@ -268,10 +260,7 @@ class DistributionLoss(BaseLoss):
 
     def forward(
         self,
-        y_pred: torch.Tensor,
-        target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
+        *args: Any,
         **kwargs: Any,
     ) -> torch.Tensor:
         """
@@ -477,11 +466,21 @@ class WeightedGaussianNLLLoss(BaseLoss):
         self,
         y_pred: Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]],
         target: torch.Tensor,
+        log_variance: Optional[bool] = None,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
-        log_variance: Optional[bool] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
+        # Backward compatibility for legacy positional ordering:
+        # forward(y_pred, target, mask, weights, log_variance)
+        if isinstance(log_variance, torch.Tensor):
+            legacy_mask = log_variance
+            legacy_weights = mask if isinstance(mask, torch.Tensor) else None
+            legacy_log_variance = weights if isinstance(weights, bool) else None
+            mask = legacy_mask
+            weights = legacy_weights
+            log_variance = legacy_log_variance
+
         if isinstance(y_pred, (tuple, list)):
             if len(y_pred) != 2:
                 raise ValueError(
@@ -507,3 +506,32 @@ class WeightedGaussianNLLLoss(BaseLoss):
 
         loss = self.torch_loss(mean, target, var)
         return self._reduce(loss, mask, weights)
+
+
+class WeightedMSELoss(WeightedLossWrapper):
+    """Masked/weighted wrapper around ``torch.nn.MSELoss``."""
+
+    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
+        super().__init__(nn.MSELoss, reduction=reduction, **kwargs)
+
+
+class WeightedL1Loss(WeightedLossWrapper):
+    """Masked/weighted wrapper around ``torch.nn.L1Loss``."""
+
+    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
+        super().__init__(nn.L1Loss, reduction=reduction, **kwargs)
+
+
+class WeightedHuberLoss(WeightedLossWrapper):
+    """Masked/weighted wrapper around ``torch.nn.HuberLoss``."""
+
+    def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
+        super().__init__(nn.HuberLoss, reduction=reduction, **kwargs)
+
+
+# Compatibility aliases used throughout the docs/examples. The weighted variants
+# are the canonical wrappers because they preserve torchregress mask/weight support.
+WeightedMAELoss = WeightedL1Loss
+MSELoss = WeightedMSELoss
+L1Loss = WeightedL1Loss
+HuberLoss = WeightedHuberLoss

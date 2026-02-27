@@ -7,7 +7,7 @@ linear algebra operations.
 """
 
 import math
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, cast
 
 import torch
 
@@ -234,13 +234,13 @@ def batched_linalg_solve(
     Solve multiple linear systems in batched mode.
     """
     try:
-        return torch.linalg.solve(A, b)
+        return cast(torch.Tensor, torch.linalg.solve(A, b))
     except RuntimeError:
         try:
             A_jitter = A + ridge_factor * torch.eye(A.shape[-1], device=A.device)
-            return torch.linalg.solve(A_jitter, b)
+            return cast(torch.Tensor, torch.linalg.solve(A_jitter, b))
         except RuntimeError:
-            return torch.linalg.pinv(A) @ b
+            return cast(torch.Tensor, torch.linalg.pinv(A) @ b)
 
 
 def standardize(

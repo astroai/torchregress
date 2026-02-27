@@ -6,12 +6,15 @@ which model outputs as mixtures of Gaussian distributions.
 """
 
 import math
+from typing import Any
 
 import torch
 import torch.nn.functional as F
 
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
+
+TensorTriplet = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
 @register_regression_loss("mdn")
@@ -93,7 +96,7 @@ class MixtureDensityLoss(DistributionLoss):
                 + n_components * n_features * (n_features + 1) // 2
             )
 
-    def _extract_distribution_parameters(self, y_pred):
+    def _extract_distribution_parameters(self, y_pred: torch.Tensor) -> TensorTriplet:
         """
         Extract mixture parameters from model predictions.
 
@@ -170,7 +173,12 @@ class MixtureDensityLoss(DistributionLoss):
 
             return mixture_weights, means, L_matrices
 
-    def _log_prob_diagonal(self, target, means, stds):
+    def _log_prob_diagonal(
+        self,
+        target: torch.Tensor,
+        means: torch.Tensor,
+        stds: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Calculate log probability for diagonal covariance components.
 
@@ -198,7 +206,12 @@ class MixtureDensityLoss(DistributionLoss):
 
         return log_probs
 
-    def _log_prob_full(self, target, means, L_matrices):
+    def _log_prob_full(
+        self,
+        target: torch.Tensor,
+        means: torch.Tensor,
+        L_matrices: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Calculate log probability for full covariance components using Cholesky factors.
 
@@ -269,7 +282,12 @@ class MixtureDensityLoss(DistributionLoss):
 
         return log_probs
 
-    def _calculate_nll(self, target, params, mask=None):
+    def _calculate_nll(
+        self,
+        target: torch.Tensor,
+        params: TensorTriplet,
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """
         Calculate negative log likelihood for mixture model.
 
@@ -300,7 +318,14 @@ class MixtureDensityLoss(DistributionLoss):
         # Return negative log likelihood
         return -mixture_log_prob
 
-    def forward(self, y_pred, target, mask=None, weights=None):
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        weights: torch.Tensor | None = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
         """
         Calculate mixture density negative log-likelihood loss.
 
@@ -520,3 +545,12 @@ class MixtureDensityLoss(DistributionLoss):
 
         # Transpose to [n_samples, batch, n_features]
         return samples.transpose(0, 1)
+
+
+def create_mdn_loss(**kwargs: Any) -> MixtureDensityLoss:
+    """Convenience factory for :class:`MixtureDensityLoss`."""
+    return MixtureDensityLoss(**kwargs)
+
+
+# Compatibility alias used in docs/examples.
+MDNLoss = MixtureDensityLoss

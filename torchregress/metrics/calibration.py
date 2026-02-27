@@ -2,7 +2,7 @@
 Calibration metrics for evaluating probabilistic regression models.
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, cast
 
 import numpy as np
 import torch
@@ -11,6 +11,7 @@ from torchmetrics import Metric
 from torchregress.metrics.utils import (
     convert_to_tensor,
     create_metric_result,
+    metric_state_list,
     validate_inputs,
 )
 
@@ -57,30 +58,30 @@ class ExpectedCalibrationError(Metric):
 
     def update(self, y_pred_quantiles: Dict[float, torch.Tensor], y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
-        self.y_pred_quantiles.append(y_pred_quantiles)
-        self.y_true.append(y_true)
+        metric_state_list[dict[float, torch.Tensor]](self.y_pred_quantiles).append(y_pred_quantiles)
+        metric_state_list[torch.Tensor](self.y_true).append(y_true)
 
     def compute(self) -> Dict[str, torch.Tensor]:
         """Compute ECE."""
-        y_true = torch.cat([convert_to_tensor(y) for y in self.y_true])
+        y_true_state = metric_state_list[torch.Tensor](self.y_true)
+        y_true = torch.cat([convert_to_tensor(y) for y in y_true_state])
 
         y_pred_quantiles = {}
-        for q in self.y_pred_quantiles[0].keys():
-            y_pred_quantiles[q] = torch.cat(
-                [convert_to_tensor(d[q]) for d in self.y_pred_quantiles]
-            )
+        y_pred_state = metric_state_list[dict[float, torch.Tensor]](self.y_pred_quantiles)
+        for q in y_pred_state[0].keys():
+            y_pred_quantiles[q] = torch.cat([convert_to_tensor(d[q]) for d in y_pred_state])
 
         quantiles = sorted(y_pred_quantiles.keys())
         expected_proportions = torch.tensor(quantiles, device=y_true.device)
-        actual_proportions = []
+        actual_proportions_list: list[torch.Tensor] = []
 
         for q in quantiles:
             q_pred = y_pred_quantiles[q]
             validate_inputs(q_pred, y_true)
             proportion_below = torch.mean((y_true <= q_pred).float())
-            actual_proportions.append(proportion_below)
+            actual_proportions_list.append(proportion_below)
 
-        actual_proportions = torch.stack(actual_proportions)
+        actual_proportions = torch.stack(actual_proportions_list)
 
         abs_errors = torch.abs(actual_proportions - expected_proportions)
         mace = torch.mean(abs_errors)
@@ -111,13 +112,18 @@ class MarginalCalibrationError(Metric):
 
     def update(self, y_pred_samples: torch.Tensor, y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
-        self.y_pred_samples.append(y_pred_samples)
-        self.y_true.append(y_true)
+        metric_state_list[torch.Tensor](self.y_pred_samples).append(y_pred_samples)
+        metric_state_list[torch.Tensor](self.y_true).append(y_true)
 
     def compute(self) -> Dict[str, torch.Tensor]:
         """Compute MCE."""
-        y_true = torch.cat([convert_to_tensor(y) for y in self.y_true])
-        y_pred_samples = torch.cat([convert_to_tensor(y) for y in self.y_pred_samples], dim=1)
+        y_true = torch.cat(
+            [convert_to_tensor(y) for y in metric_state_list[torch.Tensor](self.y_true)]
+        )
+        y_pred_samples = torch.cat(
+            [convert_to_tensor(y) for y in metric_state_list[torch.Tensor](self.y_pred_samples)],
+            dim=1,
+        )
 
         all_values = torch.cat([y_true, y_pred_samples.view(-1)])
         min_val = torch.min(all_values)
@@ -162,14 +168,14 @@ def expected_calibration_error(
 
     quantiles = sorted(y_pred_quantiles.keys())
     expected_proportions = torch.tensor(quantiles, device=device)
-    actual_proportions = []
+    actual_proportions_list: list[torch.Tensor] = []
 
     for q in quantiles:
         q_pred = convert_to_tensor(y_pred_quantiles[q]).to(device)
         validate_inputs(q_pred, y_true_t)
-        actual_proportions.append(torch.mean((y_true_t <= q_pred).float()))
+        actual_proportions_list.append(torch.mean((y_true_t <= q_pred).float()))
 
-    actual_proportions = torch.stack(actual_proportions)
+    actual_proportions = torch.stack(actual_proportions_list)
     abs_errors = torch.abs(actual_proportions - expected_proportions)
 
     result = {
@@ -190,8 +196,14 @@ def expected_calibration_error(
         )
 
     if as_numpy or isinstance(y_true, np.ndarray):
-        return create_metric_result(result, as_numpy=True)
-    return create_metric_result(result, as_numpy=False)
+        return cast(
+            Dict[str, Union[torch.Tensor, float, np.ndarray]],
+            create_metric_result(result, as_numpy=True),
+        )
+    return cast(
+        Dict[str, Union[torch.Tensor, float, np.ndarray]],
+        create_metric_result(result, as_numpy=False),
+    )
 
 
 def marginal_calibration_error(
@@ -258,8 +270,42 @@ def marginal_calibration_error(
         )
 
     if as_numpy or isinstance(y_true, np.ndarray):
-        return create_metric_result(result, as_numpy=True)
-    return create_metric_result(result, as_numpy=False)
+        return cast(
+            Dict[str, Union[torch.Tensor, float, np.ndarray]],
+            create_metric_result(result, as_numpy=True),
+        )
+    return cast(
+        Dict[str, Union[torch.Tensor, float, np.ndarray]],
+        create_metric_result(result, as_numpy=False),
+    )
+
+
+def calibration_score(
+    y_true: Union[torch.Tensor, np.ndarray],
+    pred_mean: Union[torch.Tensor, np.ndarray],
+    pred_std: Union[torch.Tensor, np.ndarray],
+    n_levels: int = 19,
+    as_numpy: bool = False,
+) -> Dict[str, Union[torch.Tensor, float, np.ndarray]]:
+    """
+    Convenience calibration score for Gaussian predictive outputs.
+
+    Builds quantile predictions from ``pred_mean`` and ``pred_std`` and then computes
+    quantile calibration errors via :func:`expected_calibration_error`.
+    """
+    mean_t = convert_to_tensor(pred_mean)
+    std_t = convert_to_tensor(pred_std).to(mean_t.device).clamp(min=1e-8)
+    levels = torch.linspace(0.05, 0.95, n_levels, device=mean_t.device)
+    standard = torch.distributions.Normal(
+        torch.tensor(0.0, device=mean_t.device),
+        torch.tensor(1.0, device=mean_t.device),
+    )
+    quantiles = {}
+    for q in levels:
+        z = standard.icdf(q)
+        quantiles[float(q.item())] = mean_t + z * std_t
+
+    return expected_calibration_error(quantiles, y_true, as_numpy=as_numpy)
 
 
 def bias(
@@ -276,8 +322,14 @@ def bias(
     result = torch.mean(y_pred_t - y_true_t)
 
     if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
-        return create_metric_result(result, as_numpy=True)
-    return create_metric_result(result, as_numpy=False)
+        return cast(
+            Union[torch.Tensor, float, np.ndarray],
+            create_metric_result(result, as_numpy=True),
+        )
+    return cast(
+        Union[torch.Tensor, float, np.ndarray],
+        create_metric_result(result, as_numpy=False),
+    )
 
 
 def calibration_metrics_report(
@@ -303,14 +355,19 @@ def calibration_metrics_report(
 
     if dist_or_samples is not None:
         if isinstance(dist_or_samples, dict):
-            loc = convert_to_tensor(dist_or_samples.get("loc", dist_or_samples.get("mean")))
-            scale = convert_to_tensor(dist_or_samples.get("scale", dist_or_samples.get("std")))
+            loc_raw = dist_or_samples.get("loc", dist_or_samples.get("mean"))
+            scale_raw = dist_or_samples.get("scale", dist_or_samples.get("std"))
+            if loc_raw is None or scale_raw is None:
+                raise ValueError("dist_or_samples dict must contain loc/mean and scale/std")
+            loc = convert_to_tensor(loc_raw)
+            scale = convert_to_tensor(scale_raw)
             dist_or_samples = torch.distributions.Normal(loc, scale)
 
+        samples: Union[torch.Tensor, np.ndarray]
         if isinstance(dist_or_samples, torch.distributions.Distribution):
             samples = dist_or_samples.sample((n_samples,))
         else:
-            samples = dist_or_samples
+            samples = cast(Union[torch.Tensor, np.ndarray], dist_or_samples)
 
         results.update(
             marginal_calibration_error(samples, y_true, n_bins=n_bins, return_diagnostics=False)

@@ -7,7 +7,7 @@ import torchregress
 from torchregress.losses import WeightedLossWrapper
 
 
-def check_health():
+def check_health() -> None:
     """Run a system health check for torchregress."""
     print(f"torchregress version: {torchregress.__version__}")
     print(f"PyTorch version: {torch.__version__}")

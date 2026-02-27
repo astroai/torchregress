@@ -11,7 +11,7 @@ import contextlib
 import logging
 import math
 import os
-from typing import Any, Generator, Optional
+from typing import Any, Generator, Optional, cast
 
 import torch
 import torch.nn as nn
@@ -161,7 +161,7 @@ def compile_model(
         compiled_model = torch.compile(
             model, mode=mode, fullgraph=fullgraph, dynamic=dynamic, backend=backend
         )
-        return compiled_model
+        return cast(nn.Module, compiled_model)
     except Exception as e:
         logger.warning(f"Model compilation failed: {e}. Returning original model.")
         return model

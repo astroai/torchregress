@@ -130,8 +130,9 @@ class MultiQuantileLoss(RegressionLoss):
             quantiles = torch.tensor(quantiles, dtype=torch.float32)
 
         # Validate quantile levels
-        self.register_buffer("quantiles", validate_quantile(quantiles))
-        self.num_quantiles = self.quantiles.size(0)
+        validated_quantiles = validate_quantile(quantiles)
+        self.register_buffer("quantiles", validated_quantiles)
+        self.num_quantiles = validated_quantiles.size(0)
         self.joint_prediction = joint_prediction
 
         # Handle quantile weights
@@ -224,7 +225,10 @@ class MultiQuantileLoss(RegressionLoss):
 
         # Elementwise multi-quantile loss via shared utility
         loss = multi_quantile_loss(
-            quantile_preds, target, self.quantiles, quantile_weights=self.quantile_weights
+            quantile_preds,
+            target,
+            cast(torch.Tensor, self.quantiles),
+            quantile_weights=cast(torch.Tensor, self.quantile_weights),
         )
         return self._reduce_with_mask(loss, mask, weights)
 
@@ -314,7 +318,9 @@ class QuantileCrossoverLoss(RegressionLoss):
 
         # Calculate standard quantile losses using vectorized utility
         # multi_quantile_loss returns [batch_size, n_features] (mean over quantiles)
-        base_loss = multi_quantile_loss(y_pred, target, self.quantiles, quantile_weights=None)
+        base_loss = multi_quantile_loss(
+            y_pred, target, cast(torch.Tensor, self.quantiles), quantile_weights=None
+        )
 
         # Calculate crossover penalties vectorized
         # violations: [batch_size, num_quantiles - 1, n_features]
@@ -345,3 +351,7 @@ class QuantileCrossoverLoss(RegressionLoss):
 
         # Apply final reduction
         return self._reduce(final_loss, mask, weights)
+
+
+# Compatibility alias used in docs.
+QuantileCrossover = QuantileCrossoverLoss

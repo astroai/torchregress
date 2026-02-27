@@ -14,7 +14,7 @@ Warning:
     calibration validation when using these losses. See documentation for details.
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 import torch
@@ -108,7 +108,7 @@ class DensityWeightedLoss(RegressionLoss):
             >>> # Fit density
             >>> loss_fn.fit_density(train_targets)
         """
-        from sklearn.neighbors import KernelDensity
+        from sklearn.neighbors import KernelDensity  # type: ignore[import-untyped]
 
         # Store targets for potential reuse
         self._train_targets = train_targets.detach().cpu()
@@ -334,7 +334,7 @@ class LDSLoss(RegressionLoss):
         """Generate kernel window for smoothing."""
         # Create symmetric kernel window
         half_width = int(np.ceil(kernel_width * 3))  # 3 sigma for gaussian
-        x = np.arange(-half_width, half_width + 1, dtype=np.float32)
+        x: np.ndarray = np.arange(-half_width, half_width + 1, dtype=np.float32)
 
         if self.kernel == "gaussian":
             window = np.exp(-0.5 * (x / kernel_width) ** 2)
@@ -347,7 +347,7 @@ class LDSLoss(RegressionLoss):
 
         # Normalize
         window = window / window.sum()
-        return window
+        return cast(np.ndarray, window)
 
     def fit(self, train_targets: Tensor, n_bins: int = 100) -> None:
         """
@@ -550,7 +550,7 @@ class FocalRLoss(RegressionLoss):
         target: Tensor,
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Tensor:
         """
         Compute Focal-R loss.

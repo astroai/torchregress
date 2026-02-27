@@ -5,6 +5,8 @@ This module provides specialized layer implementations that are used
 in ensemble models, such as BatchEnsemble layers.
 """
 
+from typing import Any, Optional
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -36,10 +38,10 @@ class BatchEnsembleLinear(nn.Module):
         out_features: int,
         ensemble_size: int = 4,
         bias: bool = True,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device | str] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
-        factory_kwargs = {"device": device, "dtype": dtype}
+        factory_kwargs: dict[str, Any] = {"device": device, "dtype": dtype}
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features

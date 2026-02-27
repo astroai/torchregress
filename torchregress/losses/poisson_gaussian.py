@@ -12,7 +12,7 @@ These models are especially useful for:
 """
 
 import math
-from typing import Optional, Union
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 import torch
@@ -97,9 +97,10 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         self,
         y_pred: torch.Tensor,
         target: torch.Tensor,
+        extra_var: Optional[torch.Tensor] = None,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
-        extra_var: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate the Poisson-Gaussian mixture loss.
@@ -144,6 +145,8 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         )
 
         # Calculate mixture weights
+        poisson_weight: float | torch.Tensor
+        gaussian_weight: float | torch.Tensor
         if self.mixture_weights is None:
             # Equal weights (0.5, 0.5)
             poisson_weight = 0.5
@@ -154,8 +157,9 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
             gaussian_weight = 1 - poisson_weight
         else:
             # Fixed weights
-            poisson_weight = self.mixture_weights
-            gaussian_weight = 1 - self.mixture_weights
+            fixed_weight = cast(float, self.mixture_weights)
+            poisson_weight = fixed_weight
+            gaussian_weight = 1 - fixed_weight
 
         # Calculate weighted mixture
         mixture_nll = poisson_weight * poisson_nll + gaussian_weight * gaussian_nll
@@ -264,6 +268,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate enhanced Poisson-Gaussian mixture loss.
@@ -290,16 +295,18 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
             rate = self.calib_mult * rate + self.calib_add
 
         # Get gain parameter
+        gain: torch.Tensor
         if self.learn_gain:
             gain = torch.exp(self.log_gain)
         else:
-            gain = self.fixed_gain.to(y_pred.device)
+            gain = cast(torch.Tensor, self.fixed_gain).to(y_pred.device)
 
         # Get offset parameter
+        offset: torch.Tensor
         if self.learn_offset:
             offset = self.offset
         else:
-            offset = self.fixed_offset.to(y_pred.device)
+            offset = cast(torch.Tensor, self.fixed_offset).to(y_pred.device)
 
         # Apply gain and offset to rate
         scaled_rate = gain * rate + offset
@@ -309,15 +316,17 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         poisson_loss = self.poisson_nll(scaled_rate, target)
 
         # Calculate variance components for Gaussian
+        read_var: torch.Tensor
         if self.learn_read_noise:
             read_var = torch.exp(self.log_read_noise)
         else:
-            read_var = self.fixed_read_noise.to(y_pred.device)
+            read_var = cast(torch.Tensor, self.fixed_read_noise).to(y_pred.device)
 
+        shot_coef: torch.Tensor
         if self.learn_shot_noise:
             shot_coef = torch.exp(self.log_shot_noise)
         else:
-            shot_coef = self.fixed_shot_noise.to(y_pred.device)
+            shot_coef = cast(torch.Tensor, self.fixed_shot_noise).to(y_pred.device)
 
         # Total variance: read noise + shot noise * signal
         total_var = read_var + shot_coef * scaled_rate
@@ -394,6 +403,7 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate combined Poisson-Gaussian likelihood ratio loss.
@@ -446,7 +456,7 @@ def poisson_gaussian_mixture_loss(
     mixture_weights: Optional[Union[float, str]] = None,
     extra_variance_model: bool = False,
     reduction: str = "mean",
-    **kwargs,
+    **kwargs: Any,
 ) -> PoissonGaussianMixtureLoss:
     """
     Factory function to create a PoissonGaussianMixtureLoss instance.
@@ -472,7 +482,7 @@ def enhanced_poisson_gaussian_loss(
     log_input: bool = False,
     calibration: bool = False,
     reduction: str = "mean",
-    **kwargs,
+    **kwargs: Any,
 ) -> EnhancedPoissonGaussianMixtureLoss:
     """
     Factory function to create an EnhancedPoissonGaussianMixtureLoss instance.
@@ -494,7 +504,7 @@ def poisson_gaussian_likelihood_ratio_loss(
     learn_variance: bool = False,
     initial_variance: float = 1.0,
     reduction: str = "mean",
-    **kwargs,
+    **kwargs: Any,
 ) -> PoissonGaussianLikelihoodRatioLoss:
     """
     Factory function to create a PoissonGaussianLikelihoodRatioLoss instance.

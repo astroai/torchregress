@@ -8,7 +8,7 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.utils import convert_to_tensor, metric_state_list, validate_inputs
 
 
 class RiskCoverageCurve(Metric):
@@ -79,8 +79,8 @@ class RiskCoverageCurve(Metric):
         if risk.dim() > 1:
             risk = risk.mean(dim=list(range(1, risk.dim())))
 
-        self.risks.append(risk)
-        self.uncertainties.append(uncertainty)
+        metric_state_list[Tensor](self.risks).append(risk)
+        metric_state_list[Tensor](self.uncertainties).append(uncertainty)
 
     def compute(self) -> Dict[str, Tensor]:
         """
@@ -92,15 +92,17 @@ class RiskCoverageCurve(Metric):
                 - 'risk': Tensor of mean risk at each coverage level
                 - 'aurc': Area Under the Risk-Coverage Curve
         """
-        if not self.risks:
+        risks_state = metric_state_list[Tensor](self.risks)
+        uncertainties_state = metric_state_list[Tensor](self.uncertainties)
+        if not risks_state:
             return {
                 "coverage": torch.tensor([]),
                 "risk": torch.tensor([]),
                 "aurc": torch.tensor(0.0),
             }
 
-        risks = torch.cat(self.risks)
-        uncertainties = torch.cat(self.uncertainties)
+        risks = torch.cat(risks_state)
+        uncertainties = torch.cat(uncertainties_state)
 
         n_samples = risks.shape[0]
         if n_samples == 0:
@@ -116,17 +118,17 @@ class RiskCoverageCurve(Metric):
 
         # Define coverage levels
         coverage_levels = torch.linspace(1.0 / n_samples, 1.0, self.n_points, device=risks.device)
-        risk_at_coverage = []
+        risk_at_coverage_list: list[Tensor] = []
 
         # Cumulative sum of risks for efficient mean calculation
         risk_cumsum = torch.cumsum(sorted_risks, dim=0)
 
         for cov in coverage_levels:
-            n_kept = max(1, int(torch.round(cov * n_samples)))
+            n_kept = max(1, int(torch.round(cov * n_samples).item()))
             mean_risk = risk_cumsum[n_kept - 1] / n_kept
-            risk_at_coverage.append(mean_risk)
+            risk_at_coverage_list.append(mean_risk)
 
-        risk_at_coverage = torch.stack(risk_at_coverage)
+        risk_at_coverage = torch.stack(risk_at_coverage_list)
 
         # Compute AURC (Area Under Risk-Coverage Curve)
         # We use a simple trapezoidal rule over the computed points
@@ -176,17 +178,20 @@ class RejectionPolicy(Metric):
         y_true: Tensor,
         uncertainty: Tensor,
     ) -> None:
-        self.y_pred.append(convert_to_tensor(y_pred))
-        self.y_true.append(convert_to_tensor(y_true))
-        self.uncertainty.append(convert_to_tensor(uncertainty).view(-1))
+        metric_state_list[Tensor](self.y_pred).append(convert_to_tensor(y_pred))
+        metric_state_list[Tensor](self.y_true).append(convert_to_tensor(y_true))
+        metric_state_list[Tensor](self.uncertainty).append(convert_to_tensor(uncertainty).view(-1))
 
     def compute(self) -> Dict[str, Tensor]:
-        if not self.y_pred:
+        y_pred_state = metric_state_list[Tensor](self.y_pred)
+        y_true_state = metric_state_list[Tensor](self.y_true)
+        unc_state = metric_state_list[Tensor](self.uncertainty)
+        if not y_pred_state:
             return {}
 
-        y_pred = torch.cat(self.y_pred)
-        y_true = torch.cat(self.y_true)
-        uncertainty = torch.cat(self.uncertainty)
+        y_pred = torch.cat(y_pred_state)
+        y_true = torch.cat(y_true_state)
+        uncertainty = torch.cat(unc_state)
 
         n_samples = y_pred.shape[0]
         if n_samples == 0:

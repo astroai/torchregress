@@ -9,6 +9,7 @@ from .calibration import (
     MarginalCalibrationError,
     bias,
     calibration_metrics_report,
+    calibration_score,
     expected_calibration_error,
     marginal_calibration_error,
 )
@@ -21,8 +22,10 @@ from .distribution import (
     ContinuousRankedProbabilityScore,
     EnergyScore,
     continuous_ranked_probability_score,
+    crps_gaussian,
     distribution_metrics_report,
     energy_score,
+    gaussian_nll,
     probability_integral_transform,
 )
 from .ensemble import (
@@ -40,6 +43,7 @@ from .interval import (
     PredictionIntervalCoverageProbability,
     interval_metrics_report,
     interval_score,
+    prediction_interval_coverage,
     prediction_interval_coverage_probability,
 )
 from .multivariate import (
@@ -73,6 +77,7 @@ from .point import (
     median_absolute_error,
     mse,
     normalized_rmse,
+    r2_score,
     regression_metrics_report,
     rmse,
     trimmed_mean_squared_error,
@@ -85,12 +90,15 @@ __all__ = [
     "bias",
     "expected_calibration_error",
     "marginal_calibration_error",
+    "calibration_score",
     "calibration_metrics_report",
     # Distribution
     "ContinuousRankedProbabilityScore",
     "EnergyScore",
     "continuous_ranked_probability_score",
     "energy_score",
+    "gaussian_nll",
+    "crps_gaussian",
     "probability_integral_transform",
     "distribution_metrics_report",
     # Decision
@@ -110,6 +118,7 @@ __all__ = [
     "MeanPredictionIntervalWidth",
     "PredictionIntervalCoverageProbability",
     "interval_score",
+    "prediction_interval_coverage",
     "prediction_interval_coverage_probability",
     "interval_metrics_report",
     # Multivariate
@@ -140,6 +149,7 @@ __all__ = [
     "median_absolute_error",
     "huber_loss",
     "rmse",
+    "r2_score",
     "trimmed_mean_squared_error",
     "median_absolute_deviation",
     "normalized_rmse",

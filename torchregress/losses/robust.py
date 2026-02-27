@@ -12,7 +12,7 @@ from the base module instead.
 """
 
 import math
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import torch
 
@@ -422,6 +422,7 @@ class CVaRLoss(RegressionLoss):
 
         if weights is not None:
             weights = validate_weights(weights, per_sample.shape[0])
+            weights = cast(torch.Tensor, weights)
             per_sample = per_sample * weights
 
         if self.reduction == "none":

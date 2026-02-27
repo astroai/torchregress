@@ -11,7 +11,7 @@ References:
       of Generalization" (NeurIPS 2020)
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List, cast
 
 import torch
 import torch.nn as nn
@@ -121,7 +121,7 @@ class SWAG(nn.Module):
             >>>     swag_model.collect_model(model)
         """
         # Update running mean and second moment
-        n = self.n_models.item()
+        n = int(cast(torch.Tensor, self.n_models).item())
         for (name, param), (_, base_param) in zip(
             model.named_parameters(), self.base_model.named_parameters()
         ):
@@ -158,7 +158,7 @@ class SWAG(nn.Module):
                 deviation[name] = (param.data - mean_buffer).cpu().clone()
             self.deviations[idx] = deviation
 
-        self.n_models.add_(1)
+        cast(torch.Tensor, self.n_models).add_(1)
 
     def sample(self, scale: float = 1.0, diag_noise: bool = True) -> None:
         """
@@ -186,7 +186,7 @@ class SWAG(nn.Module):
             >>>         pred = swag_model(x_test)
             >>>     predictions.append(pred)
         """
-        if self.n_models.item() == 0:
+        if int(cast(torch.Tensor, self.n_models).item()) == 0:
             raise ValueError("No models collected yet. Call collect_model() first.")
 
         # Sample from diagonal Gaussian (per-parameter variance)
@@ -232,7 +232,7 @@ class SWAG(nn.Module):
 
                 param.data.add_(scale * low_rank_sample)
 
-    def forward(self, *args, **kwargs):
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
         """Forward pass through base model with current sampled weights."""
         return self.base_model(*args, **kwargs)
 
@@ -333,7 +333,8 @@ class MultiSWAG(nn.Module):
         all_swag_means = []
 
         # Sample from each SWAG
-        for swag_model in self.swag_models:
+        for swag_model_module in self.swag_models:
+            swag_model = cast(SWAG, swag_model_module)
             swag_samples = []
             for _ in range(n_samples):
                 swag_model.sample(scale=scale)
@@ -388,7 +389,8 @@ class MultiSWAG(nn.Module):
         """
         all_samples = []
 
-        for swag_model in self.swag_models:
+        for swag_model_module in self.swag_models:
+            swag_model = cast(SWAG, swag_model_module)
             for _ in range(n_samples):
                 swag_model.sample(scale=scale)
                 with torch.no_grad():

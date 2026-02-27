@@ -5,7 +5,7 @@ This module implements various approaches to Error-in-Variables regression,
 where both inputs (x) and outputs (y) contain measurement errors.
 """
 
-from typing import Callable, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union, cast
 
 import torch
 
@@ -306,6 +306,7 @@ class FunctionalEIVLoss(BaseEIVLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Functional EIV loss.
@@ -525,6 +526,7 @@ class StructuralEIVLoss(BaseEIVLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Structural EIV loss.
@@ -656,6 +658,7 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate the ODR loss by optimizing latent true x values.
@@ -689,7 +692,11 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
         # Prepare inverse covariance matrices for Mahalanobis distance
         sigma_x_inv, sigma_y_inv = self._prepare_inverse_covariances(
-            sigma_x_tensor, sigma_y_tensor, n_features_x, n_features_y, device
+            sigma_x_tensor,
+            cast(torch.Tensor, sigma_y_tensor),
+            n_features_x,
+            n_features_y,
+            device,
         )
 
         # Initialize latent true x as observed x with gradient tracking enabled
@@ -756,6 +763,7 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
         # Apply weights
         if weights is not None:
             weights = validate_weights(weights, batch_size)
+            weights = cast(torch.Tensor, weights)
             loss = loss * weights
 
         # Apply reduction
@@ -815,6 +823,7 @@ class EnsembleEIVLoss(BaseEIVLoss):
         target: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """
         Calculate Ensemble EIV loss.
@@ -859,3 +868,32 @@ class EnsembleEIVLoss(BaseEIVLoss):
 
         # Apply weights and reduction
         return self._reduce_with_mask(loss, mask, weights)
+
+
+def create_eiv_loss(
+    model: Callable[..., torch.Tensor],
+    loss_type: str = "functional",
+    **kwargs: Any,
+) -> BaseEIVLoss:
+    """
+    Convenience factory for EIV loss variants.
+
+    Args:
+        model: Predictive model/function used by the EIV loss.
+        loss_type: One of ``functional``, ``structural``, ``odr``/``orthogonal``,
+            or ``ensemble``.
+        **kwargs: Constructor kwargs for the selected loss class.
+    """
+    key = loss_type.lower()
+    if key == "functional":
+        return FunctionalEIVLoss(model=model, **kwargs)
+    if key == "structural":
+        return StructuralEIVLoss(model=model, **kwargs)
+    if key in {"odr", "orthogonal", "orthogonal_distance_regression"}:
+        return OrthogonalDistanceRegressionLoss(model=model, **kwargs)
+    if key == "ensemble":
+        return EnsembleEIVLoss(model=model, **kwargs)
+    raise ValueError(
+        "loss_type must be one of {'functional', 'structural', 'odr', 'ensemble'}, "
+        f"got {loss_type!r}"
+    )

@@ -2,13 +2,13 @@
 Distribution metrics for evaluating probabilistic regression models.
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, cast
 
 import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor
+from torchregress.metrics.utils import convert_to_tensor, metric_state_tensor
 
 
 class ContinuousRankedProbabilityScore(Metric):
@@ -75,12 +75,12 @@ class ContinuousRankedProbabilityScore(Metric):
         weights_tensor = weights[1:].view(*view_shape)
         crps_values = torch.sum(weights_tensor * quantile_loss, dim=0)
 
-        self.crps_sum += torch.sum(crps_values)
-        self.total += y_true.numel()
+        metric_state_tensor(self.crps_sum).add_(torch.sum(crps_values))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y_true.numel(), device=y_true.device))
 
     def compute(self) -> torch.Tensor:
         """Compute CRPS."""
-        return self.crps_sum / self.total
+        return metric_state_tensor(self.crps_sum) / metric_state_tensor(self.total)
 
 
 class EnergyScore(Metric):
@@ -138,12 +138,12 @@ class EnergyScore(Metric):
             term2 = torch.zeros_like(term2)
 
         energy_scores = term1 - term2
-        self.score_sum += torch.sum(energy_scores)
-        self.total += batch_size
+        metric_state_tensor(self.score_sum).add_(torch.sum(energy_scores))
+        metric_state_tensor(self.total).add_(torch.as_tensor(batch_size, device=y_true.device))
 
     def compute(self) -> torch.Tensor:
         """Compute energy score."""
-        return self.score_sum / self.total
+        return metric_state_tensor(self.score_sum) / metric_state_tensor(self.total)
 
 
 def probability_integral_transform(
@@ -157,7 +157,7 @@ def probability_integral_transform(
     Compute Probability Integral Transform (PIT) values for a given CDF.
     """
     y_true_t = convert_to_tensor(y_true)
-    pit_values = cdf_fn(y_true_t)
+    pit_values = convert_to_tensor(cdf_fn(y_true_t))
 
     if not return_histogram:
         if as_numpy or isinstance(y_true, np.ndarray):
@@ -169,7 +169,7 @@ def probability_integral_transform(
     expected = pit_values.numel() / n_bins
     uniformity_chi2 = torch.sum((counts - expected) ** 2 / max(expected, 1.0))
 
-    result = {
+    result: Dict[str, Union[torch.Tensor, np.ndarray, float]] = {
         "pit_values": pit_values,
         "histogram_counts": counts,
         "bin_edges": bin_edges,
@@ -184,6 +184,56 @@ def probability_integral_transform(
             "uniformity_chi2": float(uniformity_chi2.item()),
         }
     return result
+
+
+def gaussian_nll(
+    mean: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    var: Union[torch.Tensor, np.ndarray],
+    reduction: str = "mean",
+) -> Union[torch.Tensor, float]:
+    """
+    Functional Gaussian negative log-likelihood for diagonal Gaussian predictions.
+    """
+    mean_t = convert_to_tensor(mean)
+    y_true_t = convert_to_tensor(y_true).to(mean_t.device)
+    var_t = convert_to_tensor(var).to(mean_t.device).clamp(min=1e-8)
+
+    nll = 0.5 * (torch.log(2 * torch.pi * var_t) + (y_true_t - mean_t) ** 2 / var_t)
+    if reduction == "none":
+        return nll
+    if reduction == "sum":
+        return float(torch.sum(nll).item())
+    return float(torch.mean(nll).item())
+
+
+def crps_gaussian(
+    mean: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    std: Union[torch.Tensor, np.ndarray],
+    reduction: str = "mean",
+) -> Union[torch.Tensor, float]:
+    """
+    Analytic CRPS for a univariate Gaussian predictive distribution.
+    """
+    mean_t = convert_to_tensor(mean)
+    y_true_t = convert_to_tensor(y_true).to(mean_t.device)
+    std_t = convert_to_tensor(std).to(mean_t.device).clamp(min=1e-8)
+
+    z = (y_true_t - mean_t) / std_t
+    standard = torch.distributions.Normal(
+        torch.tensor(0.0, device=mean_t.device),
+        torch.tensor(1.0, device=mean_t.device),
+    )
+    pdf = torch.exp(standard.log_prob(z))
+    cdf = standard.cdf(z)
+    crps = std_t * (z * (2 * cdf - 1) + 2 * pdf - 1 / np.sqrt(np.pi))
+
+    if reduction == "none":
+        return cast(torch.Tensor, crps)
+    if reduction == "sum":
+        return float(torch.sum(crps).item())
+    return float(torch.mean(crps).item())
 
 
 def continuous_ranked_probability_score(
@@ -313,18 +363,25 @@ def distribution_metrics_report(
     y_true_t = convert_to_tensor(y_true)
 
     if dist is not None:
+        dist_obj: torch.distributions.Distribution
         if isinstance(dist, dict):
-            loc = convert_to_tensor(dist.get("loc", dist.get("mean")))
-            scale = convert_to_tensor(dist.get("scale", dist.get("std")))
-            dist = torch.distributions.Normal(loc, scale)
+            loc_raw = dist.get("loc", dist.get("mean"))
+            scale_raw = dist.get("scale", dist.get("std"))
+            if loc_raw is None or scale_raw is None:
+                raise ValueError("dist dict must provide loc/mean and scale/std")
+            loc = convert_to_tensor(loc_raw)
+            scale = convert_to_tensor(scale_raw)
+            dist_obj = torch.distributions.Normal(loc, scale)
+        else:
+            dist_obj = dist
 
-        log_prob = dist.log_prob(y_true_t)
+        log_prob = dist_obj.log_prob(y_true_t)
         if log_prob.dim() > 1:
             log_prob = log_prob.sum(dim=-1)
         results["log_prob"] = float(torch.mean(log_prob).item())
 
         if samples is None:
-            samples = dist.sample((n_samples,))
+            samples = dist_obj.sample((n_samples,))
 
     if y_pred_quantiles is None and samples is not None:
         q_levels = [0.1, 0.3, 0.5, 0.7, 0.9]

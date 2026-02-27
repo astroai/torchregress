@@ -2,12 +2,13 @@
 Multivariate regression metrics for vector-valued outputs.
 """
 
-from typing import Any
+from typing import Any, Union
 
+import numpy as np
 import torch
 from torchmetrics import Metric
 
-from .utils import convert_to_tensor, validate_inputs
+from .utils import convert_to_tensor, metric_state_tensor, validate_inputs
 
 
 class MultivariateRMSE(Metric):
@@ -31,12 +32,14 @@ class MultivariateRMSE(Metric):
         validate_inputs(y_pred, y_true)
 
         errs = torch.norm(y_pred - y_true, dim=1)
-        self.sum_squared_error += torch.sum(errs**2)
-        self.total += y_true.shape[0]
+        metric_state_tensor(self.sum_squared_error).add_(torch.sum(errs**2))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y_true.shape[0], device=y_true.device))
 
     def compute(self) -> torch.Tensor:
         """Compute multivariate RMSE."""
-        return torch.sqrt(self.sum_squared_error / self.total)
+        return torch.sqrt(
+            metric_state_tensor(self.sum_squared_error) / metric_state_tensor(self.total)
+        )
 
 
 class MultivariateMAE(Metric):
@@ -60,9 +63,29 @@ class MultivariateMAE(Metric):
         validate_inputs(y_pred, y_true)
 
         errs = torch.sum(torch.abs(y_pred - y_true), dim=1)
-        self.sum_abs_error += torch.sum(errs)
-        self.total += y_true.shape[0]
+        metric_state_tensor(self.sum_abs_error).add_(torch.sum(errs))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y_true.shape[0], device=y_true.device))
 
     def compute(self) -> torch.Tensor:
         """Compute multivariate MAE."""
-        return self.sum_abs_error / self.total
+        return metric_state_tensor(self.sum_abs_error) / metric_state_tensor(self.total)
+
+
+def multivariate_rmse(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    """Functional wrapper for :class:`MultivariateRMSE`."""
+    metric = MultivariateRMSE()
+    metric.update(convert_to_tensor(y_pred), convert_to_tensor(y_true))
+    return metric.compute()
+
+
+def multivariate_mae(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    """Functional wrapper for :class:`MultivariateMAE`."""
+    metric = MultivariateMAE()
+    metric.update(convert_to_tensor(y_pred), convert_to_tensor(y_true))
+    return metric.compute()

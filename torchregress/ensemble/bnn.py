@@ -8,7 +8,7 @@ Reference: Blundell et al., "Weight Uncertainty in Neural Networks" (ICML 2015)
 """
 
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import torch
 import torch.nn as nn
@@ -127,7 +127,7 @@ class VariationalLinear(nn.Module):
             )
             kl_sum = kl_sum + kl_bias.sum()
 
-        return kl_sum
+        return cast(Tensor, kl_sum)
 
 
 class BayesianNeuralNetwork(nn.Module):
@@ -157,7 +157,7 @@ class BayesianNeuralNetwork(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: list,
+        hidden_dims: list[int],
         output_dim: int,
         prior_sigma: float = 1.0,
         n_samples: int = 30,
@@ -166,7 +166,7 @@ class BayesianNeuralNetwork(nn.Module):
         self.n_samples = n_samples
         self.prior_sigma = prior_sigma
 
-        layers = []
+        layers: list[nn.Module] = []
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims:
@@ -178,13 +178,13 @@ class BayesianNeuralNetwork(nn.Module):
         self.network = nn.Sequential(*layers)
 
         # Store variational layers for KL computation
-        self.variational_layers = [
+        self.variational_layers: list[VariationalLinear] = [
             layer for layer in self.network if isinstance(layer, VariationalLinear)
         ]
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass with weight sampling."""
-        return self.network(x)
+        return cast(Tensor, self.network(x))
 
     def kl_divergence(self) -> Tensor:
         """Compute total KL divergence across all variational layers."""
@@ -307,7 +307,7 @@ class HeteroscedasticBNN(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: list,
+        hidden_dims: list[int],
         output_dim: int,
         prior_sigma: float = 1.0,
         n_samples: int = 30,
@@ -316,7 +316,7 @@ class HeteroscedasticBNN(nn.Module):
         self.n_samples = n_samples
         self.output_dim = output_dim
 
-        layers = []
+        layers: list[nn.Module] = []
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims:
@@ -328,7 +328,7 @@ class HeteroscedasticBNN(nn.Module):
         layers.append(VariationalLinear(prev_dim, 2 * output_dim, prior_sigma))
         self.network = nn.Sequential(*layers)
 
-        self.variational_layers = [
+        self.variational_layers: list[VariationalLinear] = [
             layer for layer in self.network if isinstance(layer, VariationalLinear)
         ]
 
