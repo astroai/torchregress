@@ -79,12 +79,7 @@ def interval_overlap_rate(
     upper_bound: Tensor,
 ) -> Tensor:
     """Fraction of samples where predicted interval overlaps censor interval bounds."""
-    if not (
-        pred_lower.shape
-        == pred_upper.shape
-        == lower_bound.shape
-        == upper_bound.shape
-    ):
+    if not (pred_lower.shape == pred_upper.shape == lower_bound.shape == upper_bound.shape):
         raise ValueError("all interval tensors must share identical shapes")
 
     overlap = (pred_upper >= lower_bound) & (pred_lower <= upper_bound)

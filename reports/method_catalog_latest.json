@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 42,
+    "total_methods": 43,
     "families": {
       "bnn": 2,
       "calibration_transform": 3,
@@ -11,7 +11,7 @@
       "conformal": 4,
       "constraints": 2,
       "eiv": 3,
-      "ensemble": 2,
+      "ensemble": 3,
       "flow": 1,
       "imbalanced_loss": 3,
       "inference": 1,
@@ -27,7 +27,7 @@
     },
     "maturity": {
       "Core": 6,
-      "Strong": 5,
+      "Strong": 6,
       "Available": 31
     },
     "peer_uq_methods_present": {
@@ -832,6 +832,30 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": ""
+    },
+    {
+      "name": "HeteroscedasticBatchEnsembleModel",
+      "family": "ensemble",
+      "public_path": "torchregress.ensemble.HeteroscedasticBatchEnsembleModel",
+      "task_tags": [
+        "uq_decomposition",
+        "epistemic_uq",
+        "aleatoric_uq",
+        "ood",
+        "low_compute"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "yes",
+      "aleatoric": "yes",
+      "decomposition": "yes",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Shared-weight ensemble variant for lower-latency uncertainty decomposition."
     },
     {
       "name": "MCDropoutWrapper",

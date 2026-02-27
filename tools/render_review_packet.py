@@ -195,9 +195,11 @@ def build_review_packet() -> dict[str, Any]:
         },
         "example_summary_governance": {
             "profile_compare_ok": ex_compare.get("ok"),
-            "profile_compare_rows": len(ex_compare.get("rows", []))
-            if isinstance(ex_compare.get("rows"), list)
-            else None,
+            "profile_compare_rows": (
+                len(ex_compare.get("rows", []))
+                if isinstance(ex_compare.get("rows"), list)
+                else None
+            ),
             "threshold_ok": ex_thresh_verdict.get("ok"),
             "checked_limits": ex_thresh_verdict.get("checked_limits"),
             "failed_limits": ex_thresh_verdict.get("failed_limits"),

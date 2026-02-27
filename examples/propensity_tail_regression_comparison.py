@@ -98,7 +98,9 @@ def _train_mse(model: torch.nn.Module, data: dict[str, Tensor], cfg: PropensityT
             opt.step()
 
 
-def _train_density(model: torch.nn.Module, data: dict[str, Tensor], cfg: PropensityTailConfig) -> None:
+def _train_density(
+    model: torch.nn.Module, data: dict[str, Tensor], cfg: PropensityTailConfig
+) -> None:
     loss_fn = DensityWeightedLoss(kernel_width=0.5, reweight_factor=1.0)
     loss_fn.fit_density(data["y_obs"])
 

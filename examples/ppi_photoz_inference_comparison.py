@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
-from comparison_utils import print_comparison_summary, print_fairness_notes, write_comparison_summary_json
+from comparison_utils import (
+    print_comparison_summary,
+    print_fairness_notes,
+    write_comparison_summary_json,
+)
 
 from torchregress.inference import ppi_diagnostics, ppi_mean_ci, ppi_quantile_ci
 

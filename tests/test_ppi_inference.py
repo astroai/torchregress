@@ -54,4 +54,3 @@ def test_ppi_diagnostics_fields_present() -> None:
     assert out["n_unlabeled"] == float(pred_u.numel())
     assert -1.0 <= out["prediction_label_correlation"] <= 1.0
     assert 0.0 <= out["prediction_range_overlap_ratio"] <= 1.0
-

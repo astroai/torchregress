@@ -710,7 +710,7 @@
         "conformal": 4,
         "constraints": 2,
         "eiv": 3,
-        "ensemble": 2,
+        "ensemble": 3,
         "flow": 1,
         "imbalanced_loss": 3,
         "inference": 1,
@@ -727,14 +727,14 @@
       "maturity": {
         "Available": 31,
         "Core": 6,
-        "Strong": 5
+        "Strong": 6
       },
       "peer_uq_methods_present": {
         "BayesianNeuralNetwork": true,
         "MDNLoss": true,
         "SWAG": true
       },
-      "total_methods": 42
+      "total_methods": 43
     }
   },
   "native_leverage": {

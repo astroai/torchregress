@@ -256,8 +256,11 @@ class AFTLoss(BaseLoss):
         z = (log_t - loc) / scale
         cdf = _normal_cdf(z).clamp(self.eps, 1.0 - self.eps)
         surv = (1.0 - cdf).clamp_min(self.eps)
-        logpdf = -torch.log(safe_target) - torch.log(scale) - 0.5 * z.pow(2) - _LOG_SQRT_2PI.to(
-            scale.device, scale.dtype
+        logpdf = (
+            -torch.log(safe_target)
+            - torch.log(scale)
+            - 0.5 * z.pow(2)
+            - _LOG_SQRT_2PI.to(scale.device, scale.dtype)
         )
 
         observed_mask = censoring_i == 0

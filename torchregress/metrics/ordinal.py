@@ -84,10 +84,14 @@ def quadratic_weighted_kappa(
     if torch.any(true_labels < 0) or torch.any(true_labels >= num_classes):
         raise ValueError("y_true labels must be in [0, num_classes - 1]")
 
-    cm = torch.bincount(
-        true_labels * num_classes + pred_labels,
-        minlength=num_classes * num_classes,
-    ).reshape(num_classes, num_classes).float()
+    cm = (
+        torch.bincount(
+            true_labels * num_classes + pred_labels,
+            minlength=num_classes * num_classes,
+        )
+        .reshape(num_classes, num_classes)
+        .float()
+    )
 
     total = cm.sum().clamp_min(1.0)
     observed = cm / total

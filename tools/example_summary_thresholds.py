@@ -80,10 +80,7 @@ def _is_nonnegative_metric_key(key: str) -> bool:
     # Keep those on signed bounds so we don't force an invalid 0.0 lower bound.
     if "nll" in k or "loss" in k:
         return False
-    return any(
-        token in k
-        for token in ("mse", "mae", "width", "energy", "aurc", "risk", "is")
-    )
+    return any(token in k for token in ("mse", "mae", "width", "energy", "aurc", "risk", "is"))
 
 
 def _derive_bounds(

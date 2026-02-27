@@ -37,6 +37,7 @@ def test_render_method_matrix_generated_section_contains_hard_task_shortlists() 
     assert "`swag`" in section
     assert "`SWAG`" in section
     assert "`MDNLoss`" in section
+    assert "`HeteroscedasticBatchEnsembleModel`" in section
 
 
 def test_render_task_matrix_table_contains_peer_rows() -> None:
@@ -48,6 +49,7 @@ def test_render_task_matrix_table_contains_peer_rows() -> None:
     assert "_Source artifacts_:" in table
     assert "_Generated date_:" in table
     assert "OOD scoring / selective prediction" in table
+    assert "`HeteroscedasticBatchEnsembleModel + OOD metrics`" in table
     assert "`SWAG + OOD metrics`" in table
     assert "`BayesianNeuralNetwork + OOD metrics`" in table
     assert "Calibrated intervals with coverage guarantees" in table
@@ -60,6 +62,7 @@ def test_render_decision_workflow_and_evidence_markdown() -> None:
     assert "Need coverage guarantees?" in workflow_md
     assert "`ConformalLoss (split / CQR / ACI patterns)`" in workflow_md
     assert "Need OOD scoring / selective prediction under a latency budget?" in workflow_md
+    assert "`HeteroscedasticBatchEnsembleModel + OOD metrics`" in workflow_md
     assert "`SWAG + OOD metrics`" in workflow_md
 
     evidence_rows = render_method_catalog.load_comparative_evidence_rows()

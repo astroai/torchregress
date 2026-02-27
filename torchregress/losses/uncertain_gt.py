@@ -61,9 +61,7 @@ def _gaussian_nll(
     min_variance: float = 1e-8,
 ) -> Tensor:
     safe_var = variance.clamp_min(min_variance)
-    return 0.5 * (
-        torch.log(safe_var) + (target - mean) ** 2 / safe_var + math.log(2.0 * math.pi)
-    )
+    return 0.5 * (torch.log(safe_var) + (target - mean) ** 2 / safe_var + math.log(2.0 * math.pi))
 
 
 @register_regression_loss("noisy_target_gaussian_nll")

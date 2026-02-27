@@ -471,9 +471,7 @@ def test_compare_profiles_detects_propensity_tail_blowup(tmp_path: Path) -> None
     ) in compare_example_summary_profiles.render_example_summaries.EXAMPLE_SPECS.items():
         stem = spec["filename"]
         task = (
-            "Selection bias + long-tail regression"
-            if "propensity_tail" in stem
-            else example_name
+            "Selection bias + long-tail regression" if "propensity_tail" in stem else example_name
         )
         if "propensity_tail" in stem:
             audit_row = {

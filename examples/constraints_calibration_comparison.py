@@ -36,7 +36,11 @@ class ConstraintCalibrationConfig:
 
 def _gaussian_nll(mean: Tensor, var: Tensor, target: Tensor, eps: float = 1e-8) -> Tensor:
     safe_var = var.clamp_min(eps)
-    return 0.5 * (torch.log(safe_var) + (target - mean) ** 2 / safe_var + torch.log(torch.tensor(2.0 * torch.pi)))
+    return 0.5 * (
+        torch.log(safe_var)
+        + (target - mean) ** 2 / safe_var
+        + torch.log(torch.tensor(2.0 * torch.pi))
+    )
 
 
 def _pit_chi2(pit_values: Tensor, bins: int = 10) -> float:
@@ -178,7 +182,15 @@ def main(
     print_comparison_summary(
         "Constraint/calibration summary",
         rows,
-        metric_order=["MAE", "NLL", "PITChi2", "CrossingRate", "BoundViolation", "train_s", "eval_s"],
+        metric_order=[
+            "MAE",
+            "NLL",
+            "PITChi2",
+            "CrossingRate",
+            "BoundViolation",
+            "train_s",
+            "eval_s",
+        ],
     )
 
     if summary_json_path is not None:

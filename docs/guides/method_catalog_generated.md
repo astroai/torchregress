@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `42`
+- Total methods: `43`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -22,7 +22,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `conformal` | 4 |
 | `constraints` | 2 |
 | `eiv` | 3 |
-| `ensemble` | 2 |
+| `ensemble` | 3 |
 | `flow` | 1 |
 | `imbalanced_loss` | 3 |
 | `inference` | 1 |
@@ -41,7 +41,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Maturity | Count |
 |---|---:|
 | `Core` | 6 |
-| `Strong` | 5 |
+| `Strong` | 6 |
 | `Available` | 31 |
 
 ## Method Rows
@@ -70,6 +70,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.OrthogonalDistanceRegressionLoss` |
 | `StructuralEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.StructuralEIVLoss` |
 | `DeepEnsemble` | `ensemble` | `Core` | `epistemic_uq`, `ood`, `selective_prediction` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood` | `torchregress.ensemble.DeepEnsemble` |
+| `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.HeteroscedasticBatchEnsembleModel` |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `ood`, `calibration` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood` | `torchregress.ensemble.HeteroscedasticEnsembleModel` |
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Strong` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.DensityWeightedLoss` |
@@ -105,5 +106,5 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Decomposition (`decomposition=yes`)
 
-`HeteroscedasticBNN`, `HeteroscedasticEnsembleModel`, `MDNLoss`
+`HeteroscedasticBNN`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNLoss`
 

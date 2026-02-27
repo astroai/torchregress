@@ -85,10 +85,7 @@ def _row_domain_issues(row: dict[str, Any]) -> list[str]:
         # high-density regions), so only enforce nonnegativity on metrics that are
         # mathematically constrained >= 0.
         nonnegative_tokens = ("mse", "mae", "width", "energy", "aurc", "risk", "is")
-        if (
-            any(token in key.lower() for token in nonnegative_tokens)
-            and v < 0.0
-        ):
+        if any(token in key.lower() for token in nonnegative_tokens) and v < 0.0:
             issues.append(f"{method}:{key}:negative-metric")
     return issues
 

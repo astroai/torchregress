@@ -442,6 +442,19 @@ _METHODS: tuple[MethodMetadata, ...] = (
         calibration="partial",
     ),
     MethodMetadata(
+        name="HeteroscedasticBatchEnsembleModel",
+        family="ensemble",
+        public_path="torchregress.ensemble.HeteroscedasticBatchEnsembleModel",
+        task_tags=("uq_decomposition", "epistemic_uq", "aleatoric_uq", "ood", "low_compute"),
+        maturity="Strong",
+        epistemic="yes",
+        aleatoric="yes",
+        decomposition="yes",
+        ood_support="partial",
+        calibration="partial",
+        notes="Shared-weight ensemble variant for lower-latency uncertainty decomposition.",
+    ),
+    MethodMetadata(
         name="MCDropoutWrapper",
         family="mc_dropout",
         public_path="torchregress.ensemble.MCDropoutWrapper",
@@ -522,7 +535,12 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Epistemic uncertainty",
         recommended_start="DeepEnsemble",
-        strong_alternatives=("SWAG", "BayesianNeuralNetwork", "MCDropoutWrapper"),
+        strong_alternatives=(
+            "HeteroscedasticBatchEnsembleModel",
+            "SWAG",
+            "BayesianNeuralNetwork",
+            "MCDropoutWrapper",
+        ),
         notes="Deep ensembles are easiest operationally.",
     ),
     TaskRecommendation(
@@ -635,7 +653,11 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="OOD scoring / selective prediction",
         recommended_start="DeepEnsemble + OOD metrics",
-        strong_alternatives=("SWAG + OOD metrics", "BayesianNeuralNetwork + OOD metrics"),
+        strong_alternatives=(
+            "HeteroscedasticBatchEnsembleModel + OOD metrics",
+            "SWAG + OOD metrics",
+            "BayesianNeuralNetwork + OOD metrics",
+        ),
         notes="Use multiple signals; no single OOD score is sufficient.",
     ),
 )
@@ -683,6 +705,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         question="Need OOD scoring / selective prediction under a latency budget?",
         primary_recommendation="DeepEnsemble + OOD metrics",
         alternatives=(
+            "HeteroscedasticBatchEnsembleModel + OOD metrics",
             "SWAG + OOD metrics",
             "BayesianNeuralNetwork + OOD metrics",
             "MCDropoutWrapper",

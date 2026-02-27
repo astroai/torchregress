@@ -124,18 +124,19 @@ def _crossfit_nuisances(
 
 
 def _normal_ci(estimate: float, se: float, *, alpha: float) -> Tuple[float, float]:
-    z = 1.959963984540054 if abs(alpha - 0.05) < 1e-9 else float(
-        torch.distributions.Normal(0.0, 1.0).icdf(torch.tensor(1.0 - alpha / 2.0)).item()
+    z = (
+        1.959963984540054
+        if abs(alpha - 0.05) < 1e-9
+        else float(
+            torch.distributions.Normal(0.0, 1.0).icdf(torch.tensor(1.0 - alpha / 2.0)).item()
+        )
     )
     return estimate - z * se, estimate + z * se
 
 
 def _dr_scores(y: Tensor, t: Tensor, mu1_hat: Tensor, mu0_hat: Tensor, e_hat: Tensor) -> Tensor:
     dr: Tensor = (
-        mu1_hat
-        - mu0_hat
-        + t * (y - mu1_hat) / e_hat
-        - (1.0 - t) * (y - mu0_hat) / (1.0 - e_hat)
+        mu1_hat - mu0_hat + t * (y - mu1_hat) / e_hat - (1.0 - t) * (y - mu0_hat) / (1.0 - e_hat)
     )
     return dr
 

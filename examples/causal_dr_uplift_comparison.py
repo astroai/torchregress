@@ -24,7 +24,10 @@ class CausalDRConfig:
 
 
 def _fit_models():
-    from sklearn.linear_model import LinearRegression, LogisticRegression  # type: ignore[import-untyped]
+    from sklearn.linear_model import (  # type: ignore[import-untyped]
+        LinearRegression,
+        LogisticRegression,
+    )
 
     return LinearRegression, LogisticRegression
 

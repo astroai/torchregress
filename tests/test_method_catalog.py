@@ -64,6 +64,10 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     causal_names = {row["name"] for row in causal}
     assert {"dr_ate", "dr_cate"} <= causal_names
 
+    low_compute = method_catalog.list_methods(task_tag="low_compute")
+    low_compute_names = {row["name"] for row in low_compute}
+    assert {"HeteroscedasticBatchEnsembleModel", "MCDropoutWrapper"} <= low_compute_names
+
 
 def test_method_catalog_is_exposed_via_top_level_module_namespace() -> None:
     assert hasattr(tr, "method_catalog")
@@ -97,6 +101,7 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
 
     ood_row = next(row for row in rows if row["task"] == "OOD scoring / selective prediction")
     assert ood_row["recommended_start"] == "DeepEnsemble + OOD metrics"
+    assert any("HeteroscedasticBatchEnsembleModel" in alt for alt in ood_row["strong_alternatives"])
     assert any("SWAG" in alt for alt in ood_row["strong_alternatives"])
     assert any("BayesianNeuralNetwork" in alt for alt in ood_row["strong_alternatives"])
 

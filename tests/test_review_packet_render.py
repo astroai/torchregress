@@ -25,9 +25,10 @@ def test_build_review_packet_contains_expected_governance_fields() -> None:
         packet["adoption_audit"]["baseline_score"] > 0
         and packet["adoption_audit"]["provisional_score"] > 0
     ):
-        assert packet["adoption_audit"]["baseline_score"] < packet["adoption_audit"][
-            "provisional_score"
-        ]
+        assert (
+            packet["adoption_audit"]["baseline_score"]
+            < packet["adoption_audit"]["provisional_score"]
+        )
     assert packet["benchmark_governance"]["cpu_smoke_threshold_limits"] is not None
     assert packet["benchmark_governance"]["cpu_smoke_threshold_limits"] >= 1
     assert packet["benchmark_governance"]["cpu_sweep_threshold_limits"] is not None

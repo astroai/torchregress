@@ -8,4 +8,3 @@ __all__ = [
     "ppi_ols_ci",
     "ppi_diagnostics",
 ]
-

@@ -45,7 +45,7 @@ _Generated date_: `2026-02-26`
 | Clean regression baseline | `WeightedMSELoss` | `HuberLoss` | Start simple; add UQ only if needed. |
 | Outliers / robust regression | `HuberLoss` | `CauchyLoss`, `TukeyBiweightLoss`, `CharbonnierLoss` | Huber is the best default tradeoff. |
 | Heteroscedastic noise (aleatoric UQ) | `GaussianNLLLoss` | `HeteroscedasticEnsembleModel`, `MDNLoss`, `NormalizingFlowLoss` | Single-model heteroscedastic is the cheapest upgrade. |
-| Epistemic uncertainty | `DeepEnsemble` | `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
+| Epistemic uncertainty | `DeepEnsemble` | `HeteroscedasticBatchEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
 | Epistemic + aleatoric decomposition | `HeteroscedasticEnsembleModel` | `HeteroscedasticBNN`, `MDNLoss`, `NormalizingFlowLoss` | Requires variance/distribution modeling. |
 | Multimodal targets | `MDNLoss` | `NormalizingFlowLoss` | MDN is usually easier to debug first. |
 | Non-Gaussian / skewed tails | `QuantileLoss` / `ExpectileLoss` / `TweedieLoss` | `MDNLoss`, `NormalizingFlowLoss` | Choose by target support and evaluation metric. |
@@ -63,7 +63,7 @@ _Generated date_: `2026-02-26`
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
 | Censored / interval-censored regression | `CensoredGaussianNLLLoss` | `AFTLoss`, `CensoredQuantileLoss` | Use censoring code 0/1/-1 and explicit interval bounds when available. |
-| OOD scoring / selective prediction | `DeepEnsemble + OOD metrics` | `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics` | Use multiple signals; no single OOD score is sufficient. |
+| OOD scoring / selective prediction | `DeepEnsemble + OOD metrics` | `HeteroscedasticBatchEnsembleModel + OOD metrics`, `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics` | Use multiple signals; no single OOD score is sufficient. |
 <!-- END:TASK_MATRIX_GENERATED -->
 
 ## Method Capability Matrix (Peer Framing)
@@ -88,7 +88,7 @@ _Generated date_: `2026-02-26`
 | `conformal` (4) | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` (3) | yes | no | partial | no | no | no | partial | partial | no | yes |
-| `ensemble` (2) | yes | no | partial | yes | yes | yes | partial | yes | no | no |
+| `ensemble` (3) | yes | no | partial | yes | yes | yes | partial | yes | no | no |
 | `flow` (1) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` (3) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
@@ -154,6 +154,7 @@ _Generated date_: `2026-02-26`
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `StructuralEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `DeepEnsemble` | `ensemble` | `Core` | yes | no | yes | partial | partial | partial | yes |
+| `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | partial |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | yes |
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Strong` | yes | no | no | no | no | partial | partial |
@@ -190,7 +191,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `conformal` | 4 | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` | 3 | yes | no | partial | no | no | no | partial | partial | no | yes |
-| `ensemble` | 2 | yes | no | partial | yes | yes | yes | partial | yes | no | no |
+| `ensemble` | 3 | yes | no | partial | yes | yes | yes | partial | yes | no | no |
 | `flow` | 1 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` | 3 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
@@ -208,7 +209,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
-| OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
+| OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
 | Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `QuantileLoss` |
 | Multimodal targets | `multimodal=yes` | `NormalizingFlowLoss`, `MDNLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
@@ -299,7 +300,7 @@ _Generated date_: `2026-02-26`
 
 6. Need OOD scoring / selective prediction under a latency budget?
    Use `DeepEnsemble + OOD metrics`.
-   Alternatives: `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics`, `MCDropoutWrapper`.
+   Alternatives: `HeteroscedasticBatchEnsembleModel + OOD metrics`, `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics`, `MCDropoutWrapper`.
    Caveat: Use multiple signals and benchmark runtime against deployment latency targets.
 
 7. Are labels uncertain or weak (noisy targets, pseudo-labels, partial trust)?

@@ -116,8 +116,12 @@ def _uncertain_losses(
     noisy_nll = NoisyTargetGaussianNLL()
     consistency = ConsistencyRegLoss(consistency_weight=0.6)
     pseudo_nll = PseudoLabelNLL(pseudo_weight=0.6)
-    noisy_val = noisy_nll(y_pred_gauss, y_obs.unsqueeze(-1), target_variance=y_obs_var.unsqueeze(-1))
-    consistency_val = consistency(mean.unsqueeze(-1), y_obs.unsqueeze(-1), teacher_mean.unsqueeze(-1))
+    noisy_val = noisy_nll(
+        y_pred_gauss, y_obs.unsqueeze(-1), target_variance=y_obs_var.unsqueeze(-1)
+    )
+    consistency_val = consistency(
+        mean.unsqueeze(-1), y_obs.unsqueeze(-1), teacher_mean.unsqueeze(-1)
+    )
     pseudo_val = pseudo_nll(
         y_pred_gauss,
         y_obs.unsqueeze(-1),
@@ -169,7 +173,9 @@ def run_comparison(cfg: UncertainGTConformalConfig) -> tuple[list[dict[str, obje
 
     density_cp = DensityConformal(alpha=cfg.alpha, bandwidth=0.25)
     _, density_train_s = timed_call(density_cp.calibrate, pred_cal, y_cal)
-    (density_lower, density_upper), density_eval_s = timed_call(density_cp.predict_interval, pred_test)
+    (density_lower, density_upper), density_eval_s = timed_call(
+        density_cp.predict_interval, pred_test
+    )
     density_cov, density_w = _coverage_and_width(density_lower, density_upper, y_test_true)
     rows.append(
         {
@@ -184,8 +190,12 @@ def run_comparison(cfg: UncertainGTConformalConfig) -> tuple[list[dict[str, obje
     )
 
     prev_cp = PrevalenceAdjustedCP(alpha=cfg.alpha, n_bins=5)
-    cal_groups = torch.bucketize(data["y_obs_cal"], torch.quantile(data["y_obs_cal"], torch.linspace(0, 1, 6))[1:-1])
-    test_groups = torch.bucketize(data["pred_mean_test"], torch.quantile(data["y_obs_cal"], torch.linspace(0, 1, 6))[1:-1])
+    cal_groups = torch.bucketize(
+        data["y_obs_cal"], torch.quantile(data["y_obs_cal"], torch.linspace(0, 1, 6))[1:-1]
+    )
+    test_groups = torch.bucketize(
+        data["pred_mean_test"], torch.quantile(data["y_obs_cal"], torch.linspace(0, 1, 6))[1:-1]
+    )
     _, prev_train_s = timed_call(prev_cp.calibrate, pred_cal, y_cal, groups=cal_groups)
     (prev_lower, prev_upper), prev_eval_s = timed_call(
         prev_cp.predict_interval,

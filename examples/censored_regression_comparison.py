@@ -165,9 +165,7 @@ def _predict(model: torch.nn.Module, x: Tensor, *, loss_name: str) -> Tensor:
     if loss_name == "quantile":
         return torch.nan_to_num(out[:, 0], nan=0.0, posinf=1e3, neginf=-1e3)
     # AFT: E[time] proxy from median exp(loc)
-    return torch.exp(torch.nan_to_num(out[:, 0], nan=0.0, posinf=7.0, neginf=-7.0)).clamp(
-        max=1e3
-    )
+    return torch.exp(torch.nan_to_num(out[:, 0], nan=0.0, posinf=7.0, neginf=-7.0)).clamp(max=1e3)
 
 
 def run_comparison(cfg: CensoredComparisonConfig) -> list[dict[str, object]]:

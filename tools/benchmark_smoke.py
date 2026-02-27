@@ -599,9 +599,11 @@ def evaluate_report_against_thresholds(
                     "case_key": key,
                     "mean_ms": float(case["mean_ms"]),
                     "max_mean_ms": float(max_mean_ms),
-                    "ratio": float(case["mean_ms"]) / float(max_mean_ms)
-                    if float(max_mean_ms) > 0
-                    else None,
+                    "ratio": (
+                        float(case["mean_ms"]) / float(max_mean_ms)
+                        if float(max_mean_ms) > 0
+                        else None
+                    ),
                 }
             )
 

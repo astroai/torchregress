@@ -201,9 +201,11 @@ def _make_splits(cfg: PhotoZBenchmarkConfig) -> dict[str, torch.Tensor]:
         "y_test_raw": y_test,
         "y_scale": y_std,
         "y_shift": y_mean,
-        "data_source": "real_sdss_cache"
-        if (Path("data/sdss/sdss_photoz_real.csv").exists() and not cfg.force_simulated)
-        else "simulated_sdss",
+        "data_source": (
+            "real_sdss_cache"
+            if (Path("data/sdss/sdss_photoz_real.csv").exists() and not cfg.force_simulated)
+            else "simulated_sdss"
+        ),
     }
 
 
