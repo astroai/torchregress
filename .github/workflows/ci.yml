@@ -19,7 +19,7 @@ jobs:
     - name: Install pixi
       uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        pixi-version: v0.41.4
+        pixi-version: v0.63.0
         cache: true
 
     - name: Run tests
@@ -39,7 +39,7 @@ jobs:
     - name: Install pixi
       uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        pixi-version: v0.41.4
+        pixi-version: v0.63.0
         cache: true
 
     - name: Run ruff
@@ -58,7 +58,7 @@ jobs:
     - name: Install pixi
       uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        pixi-version: v0.41.4
+        pixi-version: v0.63.0
         cache: true
 
     - name: Run benchmark smoke threshold check (CPU)
@@ -141,7 +141,7 @@ jobs:
 
     - uses: prefix-dev/setup-pixi@v0.8.1
       with:
-        pixi-version: v0.41.4
+        pixi-version: v0.63.0
         cache: true
 
     - name: Run flow-enabled example smoke tests
