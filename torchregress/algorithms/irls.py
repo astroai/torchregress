@@ -657,22 +657,21 @@ def iteratively_reweighted_least_squares(
     model: nn.Module,
     x: torch.Tensor,
     y_true: torch.Tensor,
-    initial_precision: Optional[torch.Tensor] = None,
-    covariance_matrices: Optional[torch.Tensor] = None,
-    mask: Optional[torch.Tensor] = None,
+    initial_precision: torch.Tensor | None = None,
+    covariance_matrices: torch.Tensor | None = None,
+    mask: torch.Tensor | None = None,
     base_loss: str = "gaussian",
     max_iter: int = 10,
     tol: float = 1e-4,
     delta: float = 1.0,
-    weight_fn: Union[str, Callable] = "huber",
-    weight_params: Optional[Dict[str, Any]] = None,
+    weight_fn: str | Callable = "huber",
+    weight_params: Dict[str, Any] | None = None,
     variance_type: str = "predicted",
     epsilon: float = EPS,
     return_all_predictions: bool = False,
     batch_size: int = 1024,
-) -> Union[
-    Tuple[torch.Tensor, List[float], torch.Tensor],
-    Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]],
+) -> Tuple[torch.Tensor, List[float], torch.Tensor] | Tuple[
+    torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]
 ]:
     """
     Applies iteratively reweighted least squares (IRLS) for robust regression.

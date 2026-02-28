@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import re
 
 import torchregress as tr
 
@@ -146,11 +147,11 @@ EXPECTED_SIGNATURES = {
         "initial_precision: torch.Tensor | None = None, "
         "covariance_matrices: torch.Tensor | None = None, "
         "mask: torch.Tensor | None = None, base_loss: str = 'gaussian', max_iter: int = 10, "
-        "tol: float = 0.0001, delta: float = 1.0, weight_fn: str | Callable = 'huber', "
-        "weight_params: Dict[str, Any] | None = None, variance_type: str = 'predicted', "
+        "tol: float = 0.0001, delta: float = 1.0, weight_fn: Union[str, Callable] = 'huber', "
+        "weight_params: Optional[Dict[str, Any]] = None, variance_type: str = 'predicted', "
         "epsilon: float = 1.1920928955078125e-07, return_all_predictions: bool = False, "
-        "batch_size: int = 1024) -> Tuple[torch.Tensor, List[float], torch.Tensor] | "
-        "Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]"
+        "batch_size: int = 1024) -> Union[Tuple[torch.Tensor, List[float], torch.Tensor], "
+        "Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]]"
     ),
     "algorithms.RegressionCalibration.fit": (
         "(self, X_observed: torch.Tensor) -> 'RegressionCalibration'"
@@ -225,6 +226,64 @@ def _resolve(name: str):
     return obj
 
 
+def _split_top_level(text: str, delimiter: str = ",") -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for idx, ch in enumerate(text):
+        if ch in "[(":
+            depth += 1
+        elif ch in "])":
+            depth -= 1
+        elif ch == delimiter and depth == 0:
+            parts.append(text[start:idx].strip())
+            start = idx + 1
+    parts.append(text[start:].strip())
+    return [p for p in parts if p]
+
+
+def _find_matching_bracket(text: str, open_idx: int) -> int:
+    depth = 0
+    for idx in range(open_idx, len(text)):
+        if text[idx] == "[":
+            depth += 1
+        elif text[idx] == "]":
+            depth -= 1
+            if depth == 0:
+                return idx
+    raise ValueError(f"Unmatched bracket in signature text: {text!r}")
+
+
+def _normalize_union_optional(text: str) -> str:
+    i = 0
+    out: list[str] = []
+    while i < len(text):
+        if text.startswith("Union[", i):
+            open_idx = i + len("Union")
+            close_idx = _find_matching_bracket(text, open_idx)
+            inner = text[open_idx + 1 : close_idx]
+            parts = _split_top_level(inner)
+            normalized_parts = [_normalize_union_optional(part) for part in parts]
+            out.append(" | ".join(normalized_parts))
+            i = close_idx + 1
+            continue
+        if text.startswith("Optional[", i):
+            open_idx = i + len("Optional")
+            close_idx = _find_matching_bracket(text, open_idx)
+            inner = text[open_idx + 1 : close_idx]
+            out.append(f"{_normalize_union_optional(inner)} | None")
+            i = close_idx + 1
+            continue
+        out.append(text[i])
+        i += 1
+
+    normalized = "".join(out).replace("NoneType", "None")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized = re.sub(r"\s*\|\s*", " | ", normalized)
+    normalized = re.sub(r"\s*,\s*", ", ", normalized)
+    return normalized
+
+
 def test_public_exports_snapshot_non_losses() -> None:
     module_map = {
         "torchregress": tr,
@@ -243,7 +302,9 @@ def test_public_exports_snapshot_non_losses() -> None:
 def test_signature_snapshots_non_losses() -> None:
     for path, expected in EXPECTED_SIGNATURES.items():
         actual = str(inspect.signature(_resolve(path)))
-        assert actual == expected, f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
+        assert _normalize_union_optional(actual) == _normalize_union_optional(expected), (
+            f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
+        )
 
 
 def test_top_level_submodules_are_lazy_loaded() -> None:
