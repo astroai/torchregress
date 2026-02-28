@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ import torch
 
 CORE_BASELINES = ("flexzboost", "pzflow", "delight", "bpz")
 OPTIONAL_BASELINES = ("lephare",)
+TARGET_COVERAGE = 0.90
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -171,6 +173,130 @@ def _extract_rail_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
 
+def _to_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        out = float(value)
+        if math.isnan(out) or math.isinf(out):
+            return None
+        return out
+    return None
+
+
+def _metric_spec(metric: str) -> tuple[str, str]:
+    """Return (objective, display_direction) for a metric.
+
+    objective:
+      - min: lower is better
+      - cov90_target: closer to 0.90 is better
+    """
+    if metric == "NativeCov90":
+        return "cov90_target", "closer_to_0.90"
+    return "min", "lower_is_better"
+
+
+def _metric_score(metric: str, value: float) -> float:
+    objective, _ = _metric_spec(metric)
+    if objective == "cov90_target":
+        return abs(value - TARGET_COVERAGE)
+    return value
+
+
+def _best_row(rows: list[dict[str, Any]], metric: str) -> dict[str, Any] | None:
+    best: dict[str, Any] | None = None
+    best_score: float | None = None
+    for row in rows:
+        value = _to_float(row.get(metric))
+        if value is None:
+            continue
+        score = _metric_score(metric, value)
+        if best_score is None or score < best_score:
+            best = row
+            best_score = score
+    return best
+
+
+def _analysis_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    metrics = [
+        "NMAD",
+        "CatastrophicRate",
+        "HighZ_MAE",
+        "CRPS",
+        "PDF_NLL",
+        "PITChi2",
+        "NativeCov90",
+        "NativeWidth90",
+    ]
+    torch_rows = [
+        r
+        for r in rows
+        if isinstance(r, dict) and str(r.get("Framework", "torchregress")) == "torchregress"
+    ]
+    rail_rows = [
+        r for r in rows if isinstance(r, dict) and str(r.get("Framework", "")) == "RAIL"
+    ]
+
+    best_overall: dict[str, dict[str, Any]] = {}
+    best_by_framework: dict[str, dict[str, dict[str, Any]]] = {
+        "torchregress": {},
+        "RAIL": {},
+    }
+    torch_vs_rail: dict[str, dict[str, Any]] = {}
+
+    for metric in metrics:
+        direction = _metric_spec(metric)[1]
+        overall = _best_row(rows, metric)
+        if overall is not None:
+            best_overall[metric] = {
+                "method": overall.get("Method"),
+                "framework": overall.get("Framework", "torchregress"),
+                "value": _to_float(overall.get(metric)),
+                "direction": direction,
+            }
+
+        best_torch = _best_row(torch_rows, metric)
+        best_rail = _best_row(rail_rows, metric)
+        if best_torch is not None:
+            best_by_framework["torchregress"][metric] = {
+                "method": best_torch.get("Method"),
+                "value": _to_float(best_torch.get(metric)),
+                "direction": direction,
+            }
+        if best_rail is not None:
+            best_by_framework["RAIL"][metric] = {
+                "method": best_rail.get("Method"),
+                "value": _to_float(best_rail.get(metric)),
+                "direction": direction,
+            }
+
+        t_val = _to_float(best_torch.get(metric) if best_torch is not None else None)
+        r_val = _to_float(best_rail.get(metric) if best_rail is not None else None)
+        if t_val is None or r_val is None:
+            continue
+        t_score = _metric_score(metric, t_val)
+        r_score = _metric_score(metric, r_val)
+        torch_vs_rail[metric] = {
+            "direction": direction,
+            "torchregress_best": t_val,
+            "torchregress_method": best_torch.get("Method"),
+            "rail_best": r_val,
+            "rail_method": best_rail.get("Method"),
+            "score_delta_torch_minus_rail": t_score - r_score,
+            "torch_better": t_score < r_score,
+        }
+
+    return {
+        "n_rows_total": len(rows),
+        "n_torchregress_rows": len(torch_rows),
+        "n_rail_rows": len(rail_rows),
+        "metrics_considered": metrics,
+        "best_overall": best_overall,
+        "best_by_framework": best_by_framework,
+        "torchregress_best_vs_rail_best": torch_vs_rail,
+    }
+
+
 def _check_manifest_parity(
     *,
     manifest: dict[str, Any],
@@ -247,6 +373,7 @@ def merge_summaries(
 
     for payload in rail_payloads:
         merged_rows.extend(_extract_rail_rows(payload))
+    analysis = _analysis_summary(merged_rows)
 
     return {
         "artifact": "comparison_example_summary",
@@ -261,9 +388,14 @@ def merge_summaries(
             "optional_baselines": list(manifest.get("optional_baselines", OPTIONAL_BASELINES)),
         },
         "rows": merged_rows,
+        "analysis": analysis,
         "notes": [
             "Merged torchregress and RAIL tabular baseline summaries for audit comparison.",
             "RAIL baseline core set: flexzboost, pzflow, delight, bpz (lephare optional).",
+            (
+                "Includes machine-readable analysis: best-overall metrics and "
+                "torchregress-vs-RAIL deltas."
+            ),
             *parity_notes,
         ],
     }

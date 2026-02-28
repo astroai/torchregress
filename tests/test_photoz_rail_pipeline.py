@@ -117,6 +117,10 @@ def test_photoz_rail_pipeline_end_to_end_without_manual_staging(tmp_path: Path) 
     )
 
     assert report["artifact"] == "photoz_rail_pipeline_report"
+    merge_analysis = report.get("merge_analysis")
+    assert isinstance(merge_analysis, dict)
+    assert merge_analysis["n_rail_rows"] == 4
+    assert merge_analysis["n_torchregress_rows"] == 1
     merged_path = Path(report["merged_output_path"])
     assert merged_path.exists()
     payload = json.loads(merged_path.read_text(encoding="utf-8"))
@@ -204,6 +208,9 @@ def test_photoz_rail_pipeline_supports_override_only_manifest(tmp_path: Path) ->
 
     merged = Path(report["merged_output_path"])
     assert merged.exists()
+    merge_analysis = report.get("merge_analysis")
+    assert isinstance(merge_analysis, dict)
+    assert merge_analysis["n_rail_rows"] == 4
     payload = json.loads(merged.read_text(encoding="utf-8"))
     methods = {row["Method"] for row in payload["rows"]}
     assert {"BinnedCE", "flexzboost", "pzflow", "delight", "bpz"} <= methods
@@ -275,3 +282,6 @@ def test_photoz_rail_pipeline_can_bootstrap_missing_manifest_with_preset(tmp_pat
     assert manifest_payload["split_id"] == "nnc_crps_photoz_paper_reference_split_v1"
     merged = Path(report["merged_output_path"])
     assert merged.exists()
+    merge_analysis = report.get("merge_analysis")
+    assert isinstance(merge_analysis, dict)
+    assert merge_analysis["n_rail_rows"] == 4

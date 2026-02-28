@@ -9,6 +9,12 @@ This adapter merges:
 
 into one consolidated `comparison_example_summary` artifact.
 
+The merged artifact also includes an `analysis` section with:
+
+- best method per metric (overall + per framework)
+- metric-direction metadata (`lower_is_better` or `closer_to_0.90`)
+- `torchregress` best-vs-RAIL best deltas for fast leaderboard checks
+
 Core RAIL baseline set:
 
 - `flexzboost`
@@ -127,3 +133,6 @@ This writes:
 - `reports/example_summaries/photoz_rail_baseline_comparison_full.json`
 - `reports/example_summaries/photoz_rail_materialization_latest.json`
 - `reports/example_summaries/photoz_rail_pipeline_latest.json`
+
+`photoz_rail_pipeline_latest.json` now includes `merge_analysis` so you can inspect
+cross-framework winners/deltas without a separate post-processing step.

@@ -101,6 +101,8 @@ def run_pipeline(
         output_path=merged_output,
         paper_parity=paper_parity,
     )
+    merged_payload = json.loads(merged_path.read_text(encoding="utf-8"))
+    merge_analysis = merged_payload.get("analysis", {})
 
     return {
         "artifact": "photoz_rail_pipeline_report",
@@ -109,6 +111,7 @@ def run_pipeline(
         "torchregress_summary_path": str(torchregress_summary_path),
         "merged_output_path": str(merged_path),
         "baseline_inputs": [str(p) for p in rail_inputs],
+        "merge_analysis": merge_analysis,
         "materialization": materialization,
     }
 

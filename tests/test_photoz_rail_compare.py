@@ -57,6 +57,17 @@ def test_merge_summaries_with_prediction_payloads() -> None:
     assert rail_row["CRPS"] is not None
     assert rail_row["PDF_NLL"] is not None
     assert rail_row["PITChi2"] is not None
+    analysis = merged.get("analysis")
+    assert isinstance(analysis, dict)
+    assert analysis["n_rail_rows"] == 4
+    assert analysis["n_torchregress_rows"] == 1
+    best_overall = analysis["best_overall"]
+    assert "NMAD" in best_overall
+    assert best_overall["NMAD"]["direction"] == "lower_is_better"
+    assert best_overall["NativeCov90"]["direction"] == "closer_to_0.90"
+    delta = analysis["torchregress_best_vs_rail_best"]
+    assert "NMAD" in delta
+    assert isinstance(delta["NMAD"]["torch_better"], bool)
 
 
 def test_merge_summaries_raises_for_manifest_mismatch() -> None:
