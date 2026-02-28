@@ -51,12 +51,40 @@ uv run mypy torchregress
 
 ### Documentation
 ```bash
-# Build docs
-uv run mkdocs build
+# Build docs (strict mode catches broken refs)
+uv run mkdocs build --strict
 
 # Serve docs locally
 uv run mkdocs serve
 ```
+
+## Documentation Quality Standards
+
+All documentation must stay **synchronized with the codebase**. When modifying code, update the corresponding docs.
+
+### Code-Documentation Sync
+
+- Every **exported class/function** in `__init__.py` must appear in the relevant docs page.
+- Never document classes or features that don't exist in code ("phantom classes").
+- API usage in examples must match actual call signatures — verify with source.
+- When adding/removing exports, update both the specific loss/method page **and** the overview `index.md`.
+
+### Content Requirements
+
+- **Mathematical rigor**: include LaTeX formulas for every loss/metric with the optimisation objective or scoring rule definition.
+- **Reference tables**: use `| # | Reference |` / `|:-:|:----------|` header format. Include at least the seminal paper for each method.
+- **Comparison tables**: every category page should include a "when to use which" comparison table.
+- **Complete examples**: each page should have a self-contained, runnable code example (not just API snippets).
+- **Cross-links**: link to related pages (→ See [page](path)), API reference (`[`Class`](../api/module.md#anchor)`), and examples.
+- **Decision aids**: use mermaid flowcharts for method selection where appropriate.
+- **Admonitions**: use `!!! tip`, `!!! warning`, `!!! info` for practical advice, gotchas, and context.
+
+### Formatting Rules
+
+- Reference tables must have a proper markdown header row (not `...` or bare rows).
+- LaTeX: use `$$...$$` for display math, `$...$` for inline math. Verify formulas render correctly.
+- Build must pass `mkdocs build --strict` with zero errors before commit.
+- Target audience: both ML practitioners and statisticians. Be rigorous but accessible.
 
 ### Build & Publish
 ```bash

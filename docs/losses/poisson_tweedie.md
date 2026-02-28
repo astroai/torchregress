@@ -1,149 +1,231 @@
-# Poisson & Tweedie Loss Functions
+# Poisson, Tweedie & Count Losses
 
-This page covers loss functions for modeling count data, and data with complex mean-variance relationships.
+Loss functions for **count data**, **positive-continuous targets**, and distributions with **power mean-variance relationships**.
 
-## Poisson Loss Functions
+---
 
-Poisson loss functions are designed for modeling count data and events that occur with a known average rate in a fixed interval of time or space. These losses are appropriate for scenarios where the target variable represents:
+## Mathematical Background
 
-- Count data (non-negative integers)
-- Event frequencies
-- Rate data (events per unit time/space)
-- Rare event occurrences
+The **Tweedie family** unifies many common models through a single power-variance relationship:
 
-### Mathematical Background
+$$\boxed{\;\text{Var}(Y) = \phi\,\mu^p\;}$$
 
-The Poisson distribution models the probability of observing $k$ events in a fixed interval when events occur independently at a constant rate $\lambda$:
+| Power $p$ | Distribution | Domain | Classic Use Case |
+|:---------:|:------------|:-------|:----------------|
+| $0$ | Normal | $\mathbb{R}$ | Standard regression |
+| $1$ | Poisson | $\{0,1,2,\ldots\}$ | Event counts |
+| $1 < p < 2$ | Compound Poisson-Gamma | $\{0\} \cup \mathbb{R}^+$ | Insurance claims, rainfall |
+| $2$ | Gamma | $\mathbb{R}^+$ | Prices, durations, intensities |
+| $3$ | Inverse Gaussian | $\mathbb{R}^+$ | Highly right-skewed positives |
 
-$$P(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}$$
+---
 
-Where:
-- $\lambda$ is the rate parameter (expected number of occurrences)
-- $k$ is the number of occurrences (target value)
+## Poisson Losses
 
-The negative log-likelihood of the Poisson distribution is:
+### PoissonDevianceLoss
 
-$$\mathcal{L}_{\text{Poisson}}(y, \lambda) = \lambda - y \log(\lambda) + \log(y!)$$
+The Poisson deviance (G-statistic) — measures goodness-of-fit for count data:
 
-In practice, the $\log(y!)$ term is often omitted during optimization as it doesn't depend on the model parameters.
-
-### Available Poisson Losses
-
-#### PoissonNLLLoss
-
-For standard Poisson Negative Log-Likelihood, use `torch.nn.PoissonNLLLoss`.
-
-#### PoissonDevianceLoss
-
-Poisson deviance loss function, also known as G-statistic, which measures the goodness-of-fit for Poisson models. This loss is useful for assessing how well a model fits count data.
-
-**Mathematical Formulation:**
-
-The deviance is defined mathematically as:
-
-$$D(y, \lambda) = 2 \sum_i \left[ y_i \log\left(\frac{y_i}{\lambda_i}\right) - (y_i - \lambda_i) \right]$$
-
-For implementation, we use the equivalent form (without the factor of 2):
-
-$$\mathcal{L}_{\text{Deviance}}(y, \lambda) = \lambda - y + y \log\left(\frac{y}{\lambda}\right)$$
-
-Where $y=0$, the term $y \log(y/\lambda) = 0$.
-
-**Example:**
+$$D(y, \lambda) = 2\sum_i\!\left[y_i \log\!\left(\frac{y_i}{\lambda_i}\right) - (y_i - \lambda_i)\right]$$
 
 ```python
-import torch
-import torchregress as tr
+from torchregress.losses import PoissonDevianceLoss
 
-# Create deviance loss
-loss_fn = tr.losses.PoissonDevianceLoss(log_input=True)
-
-# For a model that predicts log(λ)
-y_pred = torch.tensor([[0.0, 1.0, 2.0], [1.0, 1.5, 0.5]])  # log(λ) values
-y_true = torch.tensor([[1.0, 2.0, 7.0], [2.0, 5.0, 1.0]])  # count data
-
-# Calculate deviance
-loss = loss_fn(y_pred, y_true)
+loss_fn = PoissonDevianceLoss(log_input=True)  # model predicts log(λ)
+loss = loss_fn(log_lambda, y_counts)
 ```
 
-## Tweedie Loss Functions
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `log_input` | `bool` | `True` | If `True`, `y_pred` = $\log\lambda$ |
+| `learn_variance` | `bool` | `False` | Learn a variance parameter |
 
-Tweedie loss functions are derived from the Tweedie family of distributions, which include many common distributions as special cases. These losses are particularly valuable for modeling data with complex variance-mean relationships.
+### PoissonLikelihoodRatioLoss
 
-### Mathematical Background
+Baker–Cousins likelihood ratio for **binned data** (PDG-standard):
 
-The Tweedie distribution is defined by its variance function:
-
-$$\text{Var}(Y) = \phi \cdot \mu^p$$
-
-Where:
-- $\mu$ is the mean
-- $\phi$ is the dispersion parameter
-- $p$ is the power parameter
-
-This power parameter $p$ determines the specific distribution:
-- $p = 0$: Normal distribution
-- $p = 1$: Poisson distribution
-- $p = 2$: Gamma distribution
-- $p = 3$: Inverse Gaussian distribution
-- $1 < p < 2$: Compound Poisson-Gamma (handles continuous data with exact zeros)
-
-### Available Tweedie Losses
-
-#### TweedieLoss
-
-General-purpose Tweedie loss function for regression with configurable power parameter.
-
-**Mathematical Formulation:**
-
-The Tweedie deviance (loss) depends on the power parameter $p$:
-
-For $p = 0$ (Normal):
-$$\mathcal{L}(y, \mu) = \frac{1}{2}(y - \mu)^2$$
-
-For $p = 1$ (Poisson):
-$$\mathcal{L}(y, \mu) = \mu - y\log(\mu) + \log(y!)$$
-
-For $p = 2$ (Gamma):
-$$\mathcal{L}(y, \mu) = \log\left(\frac{\mu}{y}\right) + \frac{y}{\mu} - 1$$
-
-For $1 < p < 2$ (Compound Poisson-Gamma):
-$$\mathcal{L}(y, \mu) = \frac{2}{(2-p)(1-p)}\left[y^{2-p} - (2-p)y\mu^{1-p} + (1-p)\mu^{2-p}\right]$$
-
-**Example:**
+$$-2\ln \Lambda = 2\sum_i\!\left[f_i - n_i + n_i \ln\!\left(\frac{n_i}{f_i}\right)\right]$$
 
 ```python
-import torch
-import torchregress as tr
+from torchregress.losses import PoissonLikelihoodRatioLoss
 
-# For regression with compound Poisson-Gamma distribution (p=1.5)
-loss_fn = tr.losses.TweedieLoss(p=1.5, link='log')
-
-# Model predicts log of mean parameter
-y_pred = torch.tensor([[0.0, 1.0, 2.0], [0.5, 1.5, 2.5]])  # log(μ) values
-y_true = torch.tensor([[0.0, 2.0, 8.0], [1.0, 4.0, 12.0]])  # response values
-
-# Calculate loss
-loss = loss_fn(y_pred, y_true)
+loss_fn = PoissonLikelihoodRatioLoss(log_input=True)
+loss = loss_fn(log_expected, observed_counts)
 ```
 
-#### GammaLoss
+!!! info "When to use"
+    Preferred over Poisson deviance for histogram fitting (binned spectra, histograms) where the goodness-of-fit interpretation matters.  Standard in particle physics.
 
-Specialized loss for gamma regression (p=2), suitable for positive continuous response variables with constant coefficient of variation.
+### ZeroInflatedPoissonNLLLoss
 
-**Example:**
+For count data with **excess zeros** beyond what a standard Poisson would predict:
+
+$$P(Y = 0) = \pi + (1 - \pi)\,e^{-\lambda}, \qquad P(Y = k) = (1 - \pi)\,\frac{\lambda^k e^{-\lambda}}{k!}, \; k \geq 1$$
 
 ```python
-import torch
-import torchregress as tr
+from torchregress.losses import ZeroInflatedPoissonNLLLoss
 
-# For modeling positive continuous data like prices or durations
-loss_fn = tr.losses.GammaLoss(link='log')
+loss_fn = ZeroInflatedPoissonNLLLoss(log_input=True)
+# Model outputs [log(λ), logit(π)] concatenated
+loss = loss_fn(model_output, y_counts)
+```
+
+!!! tip "When to use"
+    Species counts (most plots have zero detections), manufacturing defects, rare disease incidence.
+
+### NegativeBinomialNLLLoss
+
+For **overdispersed** count data where $\text{Var}(Y) > \mathbb{E}[Y]$:
+
+$$\text{Var}(Y) = \mu + \frac{\mu^2}{\theta}$$
+
+```python
+from torchregress.losses import NegativeBinomialNLLLoss
+
+loss_fn = NegativeBinomialNLLLoss(learn_theta=True)  # learn dispersion
+loss = loss_fn(y_pred_mean, y_counts)
+```
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `learn_theta` | `bool` | `False` | Learn the dispersion parameter $\theta$ |
+| `min_theta` | `float` | `1e-6` | Minimum $\theta$ for stability |
+
+!!! tip "When to use"
+    When Poisson is a poor fit (residual variance >> mean): gene expression counts (RNA-seq), ecological overdispersion, web traffic.
+
+---
+
+## Tweedie Losses
+
+### TweedieLoss
+
+General-purpose Tweedie deviance for any power $p$:
+
+=== "$p = 0$ (Normal)"
+
+    $$D(y, \mu) = \frac{1}{2}(y - \mu)^2$$
+
+=== "$p = 1$ (Poisson)"
+
+    $$D(y, \mu) = 2\bigl[\mu - y + y\log(y/\mu)\bigr]$$
+
+=== "$p = 2$ (Gamma)"
+
+    $$D(y, \mu) = 2\!\left[\log(\mu/y) + y/\mu - 1\right]$$
+
+=== "$1 < p < 2$ (Compound Poisson)"
+
+    $$D(y, \mu) = \frac{2}{(2-p)(1-p)}\!\left[y^{2-p} - (2-p)\,y\,\mu^{1-p} + (1-p)\,\mu^{2-p}\right]$$
+
+```python
+from torchregress.losses import TweedieLoss
+
+# Compound Poisson-Gamma (zeros + positive continuous)
+loss_fn = TweedieLoss(p=1.5, link="log")
 
 # Model predicts log(μ)
-y_pred = torch.tensor([[1.0, 2.0, 3.0]])  # log(μ) values
-y_true = torch.tensor([[3.0, 7.5, 20.0]])  # positive response values
-
-# Calculate loss
-loss = loss_fn(y_pred, y_true)
+loss = loss_fn(log_mu, y_target)
 ```
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `p` | `float` | `1.5` | Power parameter |
+| `link` | `str` or `None` | `None` | `"log"` or `"identity"` |
+
+### GammaLoss
+
+Convenience class for $p = 2$ (positive continuous targets with constant CV):
+
+```python
+from torchregress.losses import GammaLoss
+
+loss_fn = GammaLoss(link="log")
+```
+
+!!! tip "When to use"
+    Prices, durations, insurance payouts — positive targets where the coefficient of variation is roughly constant.
+
+### InverseGaussianLoss
+
+For $p = 3$ (highly right-skewed positive targets):
+
+```python
+from torchregress.losses import InverseGaussianLoss
+
+loss_fn = InverseGaussianLoss(link="log")
+```
+
+### CompoundPoissonLoss
+
+For $1 < p < 2$ — handles data with a **point mass at zero** and positive continuous values:
+
+```python
+from torchregress.losses import CompoundPoissonLoss
+
+loss_fn = CompoundPoissonLoss(p=1.5, link="log")
+```
+
+!!! info "Insurance example"
+    In insurance, most policies have zero claims (point mass at 0), but claims that do occur are continuous and right-skewed — exactly the compound Poisson-Gamma model.
+
+---
+
+## Decision Guide
+
+```mermaid
+graph TD
+    A["Count / positive data?"] -->|Counts ∈ ℤ⁺| B{"Overdispersed?"}
+    A -->|"Positive continuous"| C{"Zeros present?"}
+    A -->|"Mixed: zeros + continuous"| D["CompoundPoissonLoss"]
+    B -->|No| E["PoissonDevianceLoss"]
+    B -->|"Var >> mean"| F["NegativeBinomialNLLLoss"]
+    B -->|"Excess zeros"| G["ZeroInflatedPoissonNLLLoss"]
+    C -->|No| H{"CV constant?"}
+    C -->|Yes| D
+    H -->|Yes| I["GammaLoss"]
+    H -->|"Highly skewed"| J["InverseGaussianLoss"]
+```
+
+---
+
+## Complete Example
+
+```python
+import torch
+import torch.nn as nn
+from torchregress.losses import TweedieLoss, NegativeBinomialNLLLoss
+
+# Insurance claims: many zeros, occasional large payouts
+class ClaimsModel(nn.Module):
+    def __init__(self, in_dim):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(in_dim, 64), nn.ReLU(),
+            nn.Linear(64, 32), nn.ReLU(),
+            nn.Linear(32, 1),
+        )
+
+    def forward(self, x):
+        return self.net(x)  # predicts log(μ)
+
+model = ClaimsModel(in_dim=20)
+loss_fn = TweedieLoss(p=1.6, link="log")  # compound Poisson-Gamma
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+for x, y in train_loader:
+    loss = loss_fn(model(x), y)
+    optimizer.zero_grad(); loss.backward(); optimizer.step()
+```
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | B. Jørgensen. "Exponential Dispersion Models." *JRSS-B*, 49(2):127–162, **1987**. |
+| 2 | P. Dunn, G. Smyth. "Evaluation of Tweedie Exponential Dispersion Model Densities." *J. Stat. Comp. Sim.*, 73(4):325–349, **2005**. |
+| 3 | G.W. Corder, D.I. Foreman. *Nonparametric Statistics for Non-Statisticians*. Wiley, **2009**. |
+| 4 | S. Baker, R.D. Cousins. "Clarification of the Use of Chi-square and Likelihood Functions in Fits to Histograms." *Nucl. Instr. Meth.*, 221(2):437–442, **1984**. |
+| 5 | J. Nelder, R. Wedderburn. "Generalized Linear Models." *JRSS-A*, 135(3):370–384, **1972**. |

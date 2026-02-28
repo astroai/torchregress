@@ -7,49 +7,67 @@ repo_name: sfabbro/torchregress
 theme:
   name: material
   font:
-    text: Roboto
-    code: Roboto Mono
+    text: Inter
+    code: JetBrains Mono
   palette:
     - scheme: default
       toggle:
         icon: material/weather-sunny
         name: Switch to dark mode
-        primary: deep purple
-        accent: deep orange
+      primary: indigo
+      accent: amber
     - scheme: slate
       toggle:
         icon: material/weather-night
         name: Switch to light mode
-      primary: deep purple
-      accent: lime
+      primary: indigo
+      accent: amber
   icon:
     repo: fontawesome/brands/github
+    logo: material/chart-bell-curve-cumulative
   features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.expand
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
     - navigation.indexes
     - navigation.top
+    - navigation.path
+    - navigation.tracking
     - search.highlight
-    - search.share
+    - search.suggest
     - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - toc.follow
 
 markdown_extensions:
   - admonition
+  - pymdownx.details
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - tables
   - footnotes
   - attr_list
   - md_in_html
   - def_list
+  - toc:
+      permalink: true
 
 plugins:
   - search
@@ -68,46 +86,86 @@ extra_javascript:
   - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/sfabbro/torchregress
+
+# ─────────────────────────────────────────────────────────────
+# Navigation — 6 horizontal tabs
+# ─────────────────────────────────────────────────────────────
 nav:
-  - Home: index.md
-  - Getting Started:
-      - Installation: usage/installation.md
-      - Quick Start: usage/quickstart.md
-      - Practical Usage: usage/practical_usage.md
-  - Guides:
-      - Concepts: guides/concepts.md
-      - Method Selection Matrix: guides/method_selection_matrix.md
-      - Choosing Methods by Constraint: guides/choosing_by_constraint.md
-      - Comparative Evidence Matrix: guides/comparative_evidence_matrix.md
-      - Method Catalog Snapshot: guides/method_catalog_generated.md
-      - Best Practices: guides/best-practices.md
-      - Debugging: guides/debugging.md
-      - Performance: guides/performance.md
-  - Algorithms:
-      - IRLS: algorithms/irls.md
-  - Visualization:
-      - Overview: visualization/index.md
+  # ── Tab 1: Learn ────────────────────────────────────────────
+  - Learn:
+      - learn/index.md
+      - Getting Started:
+          - Installation: usage/installation.md
+          - Quick Start: usage/quickstart.md
+          - Practical Usage: usage/practical_usage.md
+      - User Guide:
+          - Overview: learn/user_guide.md
+          - Core Concepts: guides/concepts.md
+          - Method Selection: guides/method_selection_matrix.md
+          - Choosing by Constraint: guides/choosing_by_constraint.md
+      - Mathematical Foundations: math/index.md
+      - Best Practices:
+          - Tips & Tricks: guides/best-practices.md
+          - Debugging: guides/debugging.md
+          - Performance: guides/performance.md
+      - Reference Tables:
+          - Comparative Evidence Matrix: guides/comparative_evidence_matrix.md
+          - Method Catalog: guides/method_catalog_generated.md
+
+  # ── Tab 2: Losses ───────────────────────────────────────────
   - Losses:
-      - Overview: losses/index.md
-      - Base Classes: losses/base.md
-      - Gaussian Losses: losses/gaussian.md
-      - Robust Losses: losses/robust.md
-      - Quantile & Expectile: losses/quantile_expectile.md
-      - Ordinal Losses: losses/ordinal.md
-      - Censored Losses: losses/censored.md
-      - Poisson & Tweedie: losses/poisson_tweedie.md
-      - Poisson-Gaussian: losses/poisson_gaussian.md
-      - Advanced Losses: losses/advanced.md
-      - Conformal Prediction: losses/conformal.md
-      - Mixture Density Networks: losses/mdn.md
-      - Normalizing Flows: losses/nflows.md
-      - Error-in-Variables: losses/eiv.md
-      - Imbalanced Regression: losses/imbalanced.md
-      - Noisy Labels: losses/noisy_labels.md
-      - Uncertain Ground Truth: losses/uncertain_ground_truth.md
-      - Transform Losses: losses/transforms.md
+      - losses/index.md
+      - Gaussian:
+          - Gaussian Losses: losses/gaussian.md
+      - Robust:
+          - Robust Losses: losses/robust.md
+      - Intervals & Quantiles:
+          - Quantile & Expectile: losses/quantile_expectile.md
+      - Distributional:
+          - Mixture Density Networks: losses/mdn.md
+          - Normalizing Flows: losses/nflows.md
+          - Evidential Regression: losses/advanced.md
+      - Structured Targets:
+          - Ordinal: losses/ordinal.md
+          - Censored / Survival: losses/censored.md
+          - Poisson & Tweedie: losses/poisson_tweedie.md
+          - Poisson-Gaussian: losses/poisson_gaussian.md
+      - Data Quality:
+          - Imbalanced Regression: losses/imbalanced.md
+          - Noisy Labels: losses/noisy_labels.md
+          - Uncertain Ground Truth: losses/uncertain_ground_truth.md
+      - Specialised:
+          - Error-in-Variables: losses/eiv.md
+          - Transform Losses: losses/transforms.md
+      - Internals:
+          - Base Classes: losses/base.md
+
+  # ── Tab 3: Methods ──────────────────────────────────────────
+  - Methods:
+      - Conformal Prediction:
+          - Overview: conformal/index.md
+          - Predictors: conformal/predictors.md
+          - Distributional: conformal/distributional.md
+      - Ensemble & UQ:
+          - Overview: ensemble/index.md
+          - Methods: ensemble/methods.md
+      - Algorithms:
+          - IRLS: algorithms/irls.md
+          - Regression Calibration: algorithms/rc.md
+          - SIMEX: algorithms/simex.md
+      - Post-Hoc Calibration: methods/calibration.md
+      - Constraints: methods/constraints.md
+      - Causal Inference: methods/causal.md
+      - Prediction-Powered Inference: methods/inference.md
+      - Visualization: visualization/index.md
+
+  # ── Tab 4: Metrics ──────────────────────────────────────────
   - Metrics:
-      - Overview: metrics/index.md
+      - metrics/index.md
       - Point Metrics: metrics/point.md
       - Ordinal Metrics: metrics/ordinal.md
       - Censored Metrics: metrics/censored.md
@@ -117,44 +175,55 @@ nav:
       - OOD Detection: metrics/ood.md
       - Ensemble Metrics: metrics/ensemble.md
       - Multivariate Metrics: metrics/multivariate.md
-  - Math:
-      - Mathematical Foundations: math/index.md
+
+  # ── Tab 5: Examples ─────────────────────────────────────────
   - Examples:
-      - Overview: examples/index.md
-      - Basic Usage: examples/basic_usage.md
-      - Loss Comparison: examples/loss_comparison.md
-      - Ensemble Methods: examples/ensemble_methods.md
-      - Photometric Redshift: examples/photoz.md
-      - Photo-z Benchmark Comparison (SDSS-style): examples/photoz_benchmark_comparison.md
-      - Photo-z NNC-CRPS + RAIL-Ready Comparison: examples/photoz_nnc_crps_rail_comparison.md
-      - Photo-z RAIL Baseline Comparison: examples/photoz_rail_baseline_comparison.md
-      - PPI Photo-z Inference Comparison: examples/ppi_photoz_inference_comparison.md
-      - Ordinal Regression Comparison: examples/ordinal_regression_comparison.md
-      - Censored Regression Comparison: examples/censored_regression_comparison.md
-      - Propensity + Tail Regression Comparison: examples/propensity_tail_regression_comparison.md
-      - Constraints + Calibration Comparison: examples/constraints_calibration_comparison.md
-      - Uncertain-GT + Density Conformal Comparison: examples/uncertain_gt_density_conformal_comparison.md
-      - Causal DR Uplift Comparison: examples/causal_dr_uplift_comparison.md
-      - Conformal Regression: examples/conformal_regression_example.md
-      - Evidential Regression: examples/evidential_regression.md
-      - Imbalanced Regression: examples/imbalanced_regression.md
-      - Noisy Labels Regression: examples/noisy_labels_regression.md
-      - Noisy Label Comparison: examples/noisy_label_comparison.md
-      - Noisy Label Real-Data Comparison: examples/noisy_label_realdata_comparison.md
-      - Normalizing Flows: examples/normalizing_flows_multitarget.md
-      - Multimodal Method Comparison: examples/multimodal_method_comparison.md
-      - Multimodal Method Comparison (Real Data Features): examples/multimodal_method_realdata_comparison.md
-      - OOD / Selective Prediction Comparison: examples/ood_selective_prediction_comparison.md
-      - OOD / Selective Prediction Comparison (Real Data): examples/ood_selective_prediction_realdata_comparison.md
-      - EIV Method Comparison: examples/eiv_method_comparison.md
-      - EIV Method Comparison (Real Data): examples/eiv_method_realdata_comparison.md
-  - API Reference:
-      - Overview: api/index.md
+      - examples/index.md
+      - Getting Started:
+          - Basic Usage: examples/basic_usage.md
+          - Loss Comparison: examples/loss_comparison.md
+      - Uncertainty & Ensembles:
+          - Ensemble Methods: examples/ensemble_methods.md
+          - Evidential Regression: examples/evidential_regression.md
+          - OOD / Selective Prediction: examples/ood_selective_prediction_comparison.md
+          - OOD / Selective (Real Data): examples/ood_selective_prediction_realdata_comparison.md
+      - Prediction Intervals:
+          - Conformal Regression: examples/conformal_regression_example.md
+          - Normalizing Flows: examples/normalizing_flows_multitarget.md
+          - Multimodal Methods: examples/multimodal_method_comparison.md
+          - Multimodal (Real Data): examples/multimodal_method_realdata_comparison.md
+      - Robustness & Imbalance:
+          - Imbalanced Regression: examples/imbalanced_regression.md
+          - Noisy Labels: examples/noisy_labels_regression.md
+          - Noisy Label Comparison: examples/noisy_label_comparison.md
+          - Noisy Label (Real Data): examples/noisy_label_realdata_comparison.md
+          - Propensity + Tail: examples/propensity_tail_regression_comparison.md
+          - Uncertain-GT + Conformal: examples/uncertain_gt_density_conformal_comparison.md
+      - Structured & Specialised:
+          - Ordinal Regression: examples/ordinal_regression_comparison.md
+          - Censored Regression: examples/censored_regression_comparison.md
+          - EIV Methods: examples/eiv_method_comparison.md
+          - EIV (Real Data): examples/eiv_method_realdata_comparison.md
+          - Constraints + Calibration: examples/constraints_calibration_comparison.md
+      - Domain Applications:
+          - Photometric Redshift: examples/photoz.md
+          - Photo-z Benchmark (SDSS): examples/photoz_benchmark_comparison.md
+          - Photo-z NNC-CRPS + RAIL: examples/photoz_nnc_crps_rail_comparison.md
+          - Photo-z RAIL Baseline: examples/photoz_rail_baseline_comparison.md
+          - PPI Photo-z Inference: examples/ppi_photoz_inference_comparison.md
+          - Causal DR Uplift: examples/causal_dr_uplift_comparison.md
+
+  # ── Tab 6: API Reference ────────────────────────────────────
+  - API:
+      - api/index.md
       - Losses: api/losses.md
+      - Ensemble: api/ensemble.md
+      - Conformal: api/conformal.md
+      - Algorithms: api/algorithms.md
       - Metrics: api/metrics.md
+      - Calibration: api/calibration.md
+      - Constraints: api/constraints.md
       - Inference: api/inference.md
       - Causal: api/causal.md
-      - Constraints: api/constraints.md
-      - Calibration Transforms: api/calibration.md
       - Visualization: api/viz.md
       - Utilities: api/utils.md

@@ -1,90 +1,134 @@
 # torchregress
 
-A comprehensive PyTorch library for regression and uncertainty estimation.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sfabbro/torchregress/main/docs/assets/logo.png" width="200" alt="torchregress logo">
+</p>
 
-## What is torchregress?
+<p align="center">
+    <em>Deep Learning for Regression & Uncertainty Estimation in PyTorch</em>
+</p>
 
-**torchregress** is a PyTorch-based library that provides a comprehensive set of tools for regression tasks, with a special focus on uncertainty estimation. It offers a wide range of loss functions, metrics, and visualization tools to help you build, evaluate, and understand your regression models.
+<p align="center">
+<a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" target="_blank">
+    <img src="https://github.com/sfabbro/torchregress/workflows/CI/badge.svg" alt="CI">
+</a>
+<a href="https://pypi.org/project/torchregress" target="_blank">
+    <img src="https://img.shields.io/pypi/v/torchregress?color=%2334D058&label=pypi%20package" alt="Package version">
+</a>
+<a href="https://pypi.org/project/torchregress" target="_blank">
+    <img src="https://img.shields.io/pypi/pyversions/torchregress.svg?color=%2334D058" alt="Supported Python versions">
+</a>
+<a href="https://opensource.org/licenses/MIT" target="_blank">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+</a>
+</p>
 
-Whether you're a researcher exploring new uncertainty quantification techniques or a practitioner building a production-level regression pipeline, torchregress has the tools you need to get the job done.
+---
+
+**torchregress** is a comprehensive PyTorch library designed for researchers and practitioners working on complex regression problems. It goes beyond standard Mean Squared Error, providing a unified toolkit for **probabilistic modeling**, **uncertainty quantification**, and **robust estimation**.
+
+---
+
+## Why torchregress?
+
+Regression in the real world is rarely just about predicting a single number. Data is noisy, distributions are skewed, and knowing *how much to trust* a prediction is often as important as the prediction itself. 
+
+- **Probabilistic by Design**: Built-in support for estimating aleatoric and epistemic uncertainty.
+- **Robust to Real-World Data**: Advanced losses for noisy labels, outliers, and imbalanced targets.
+- **Scientifically Rigorous**: Implements seminal methods with verified mathematical correctness.
+- **Production Ready**: Seamlessly integrates with existing PyTorch workflows, supporting `torch.compile`, AMP, and distributed training.
+
+---
 
 ## Key Features
 
-- **Diverse Loss Functions**: Move beyond standard Mean Squared Error with a rich collection of loss functions, including robust losses for noisy data, quantile and expectile losses for distributional modeling, and advanced losses for evidential regression and normalizing flows.
-- **Uncertainty Quantification**: Easily estimate and work with uncertainty in your predictions. torchregress provides built-in support for various uncertainty estimation techniques, from simple variance prediction to more advanced methods like ensembles and conformal prediction.
-- **Comprehensive Metrics**: Evaluate your regression models with a wide range of metrics. Assess not only the accuracy of your point predictions but also the quality of your predictive distributions and the calibration of your uncertainty estimates.
-- **Insightful Visualization**: Gain deeper insights into your models with a powerful set of visualization tools. Diagnose model behavior, analyze residuals, visualize prediction intervals, and assess uncertainty calibration with just a few lines of code.
-- **Seamless PyTorch Integration**: torchregress is designed to integrate seamlessly into your existing PyTorch workflows. Use it with your favorite PyTorch models and training loops without any friction.
+<div class="grid cards" markdown>
 
-## Getting Started
+-   :material-chart-bell-curve-cumulative: __Probabilistic Losses__
 
-### Installation
+    -   [Gaussian NLL (Heteroscedastic)](losses/gaussian.md)
+    -   [Multivariate & Low-Rank Covariance](losses/gaussian.md#2-multivariate-full-covariance-multivariategaussianloss)
+    -   [Mixture Density Networks (MDN)](losses/mdn.md)
+    -   [Normalizing Flows](losses/nflows.md)
+
+-   :material-shield-check: __Uncertainty Quantification__
+
+    -   [**Deep Ensembles** & SWAG](ensemble/index.md)
+    -   [**Conformal Prediction** (CQR, Dist-Free)](conformal/index.md)
+    -   [**Evidential Regression**](examples/evidential_regression.md)
+    -   [MC-Dropout & Bayesian Neural Networks](ensemble/index.md#method-selection-matrix)
+
+-   :material-flask-outline: __Robust Estimation__
+
+    -   [Quantile & Expectile Regression](losses/quantile_expectile.md)
+    -   [Robust M-Estimators (Tukey, Huber, Cauchy)](losses/robust.md)
+    -   [Noisy Label & Outlier Mitigation](losses/robust.md#redescending-losses-cauchy-tukey)
+    -   [Measurement Error (EIV) Correction](math/index.md#specialized-regression-tasks)
+
+
+-   :material-chart-line: __Advanced Metrics__
+
+    -   [Proper Scoring Rules (CRPS, Energy Score)](metrics/distribution.md)
+    -   [Calibration Curves & Sharpness](metrics/calibration.md)
+    -   [OOD Detection & Selective Prediction](metrics/ood.md)
+    -   [Interval Coverage & Efficiency](metrics/interval.md)
+
+</div>
+
+---
+
+## Installation
 
 ```bash
 pip install torchregress
 ```
 
-### Quickstart
+*Requires PyTorch 2.0+ and Python 3.9+.*
 
-Here's a simple, self-contained example of how to use torchregress to train a model and make predictions:
+---
+
+## Quickstart in 30 Seconds
+
+Train a model that predicts both the **mean** ($\mu$) and **uncertainty** ($\sigma^2$) using the Heteroscedastic Gaussian NLL loss.
 
 ```python
 import torch
 import torch.nn as nn
 from torchregress.losses import GaussianNLLLoss
-from torchregress.metrics import rmse, gaussian_nll
 
-# 1. Create a simple dataset
-X = torch.linspace(0, 1, 100).unsqueeze(1)
-y = 2 * X + torch.randn_like(X) * 0.1
+# 1. Define a model with two outputs (mean and log-variance)
+model = nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 2))
 
-# 2. Define a simple model with two outputs (mean and variance)
-model = nn.Sequential(
-    nn.Linear(1, 32),
-    nn.ReLU(),
-    nn.Linear(32, 2)
-)
-
-# 3. Choose a loss function
+# 2. Use the specialized Gaussian NLL loss
 loss_fn = GaussianNLLLoss()
 
-# 4. Train the model
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-for epoch in range(100):
-    optimizer.zero_grad()
-    output = model(X)
-    mean, var = output.chunk(2, dim=-1)
-    loss = loss_fn(mean, y, var)
-    loss.backward()
-    optimizer.step()
-
-# 5. Make predictions and evaluate
-with torch.no_grad():
-    output = model(X)
-    mean, var = output.chunk(2, dim=-1)
-    
-    print(f"RMSE: {rmse(mean, y):.4f}")
-    print(f"NLL: {gaussian_nll(mean, y, var):.4f}")
+# 3. Standard PyTorch training loop
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+for x, y in dataloader:
+    pred = model(x) # [batch, 2]
+    loss = loss_fn(pred, y)
+    loss.backward(); optimizer.step(); optimizer.zero_grad()
 ```
 
-## Next Steps
+---
 
-### For Beginners
-- **[Core Concepts Guide](guides/concepts.md)** 🆕 - Start here! Learn key concepts: uncertainty types, robustness, ensembles, and more
-- **[Quick Start](usage/quickstart.md)** - Three runnable examples to get started quickly
-- **[Basic Examples](examples/basic_usage.md)** - Four detailed tutorials covering common use cases
+## Getting Started
 
-### For Practitioners
-- **[Practical Usage Guide](usage/practical_usage.md)** - Decision trees for choosing losses and methods
-- **[Best Practices](guides/best-practices.md)** - 7-phase development workflow and common pitfalls
-- **[Debugging Guide](guides/debugging.md)** - Symptom-to-fix matrix for fast diagnosis
-- **[Performance Playbook](guides/performance.md)** - AMP, accumulation, and compile scaling recipes
-- **[Comprehensive Comparison](https://github.com/sfabbro/torchregress/blob/main/examples/comprehensive_comparison.py)** 🆕 - All-in-one comparison of robustness, uncertainty, and ensembles
+<div class="grid cards" markdown>
 
-### Deep Dives
-- **[Ensemble Methods](examples/ensemble_methods.md)** 🆕 - Complete guide to uncertainty quantification with ensembles
-- **[Browse All Examples](examples/index.md)** - Real-world examples including astronomy, computer vision, and more
-- **[API Reference](api/index.md)** - Detailed documentation of all available functions
+-   __New to Uncertainty?__
+    -   Read the [Core Concepts Guide](guides/concepts.md)
+    -   Check the [Mathematical Foundations](math/index.md)
+    -   Follow the [Basic Usage Tutorial](examples/basic_usage.md)
+
+-   __Advanced Users__
+    -   Explore [Conformal Prediction](conformal/index.md)
+    -   Master [Deep Ensembles](ensemble/index.md)
+    -   View the [Method Selection Matrix](guides/method_selection_matrix.md)
+
+</div>
+
+---
 
 ## Citation
 
@@ -99,7 +143,3 @@ If you use torchregress in your research, please cite:
   year = {2024},
 }
 ```
-
-## License
-
-torchregress is released under the MIT License.

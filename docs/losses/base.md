@@ -1,192 +1,141 @@
-# Base Loss Functions
+# Base Loss Classes
 
-This page documents the foundational loss function classes that serve as building blocks for all loss functions in torchregress.
+The foundation of all torchregress loss functions — providing **unified masking**, **sample weighting**, and **consistent reduction** semantics.
+
+---
 
 ## Class Hierarchy
 
-torchregress implements a hierarchical structure of loss functions with the following inheritance tree:
+```mermaid
+graph TD
+    A["BaseLoss (nn.Module)"] --> B["RegressionLoss"]
+    A --> C["DistributionLoss"]
+    D["WeightedLossWrapper"] --> A
+    B --> E["HuberLoss, MSELoss, L1Loss"]
+    C --> F["GaussianNLLLoss, MDNLoss, ..."]
+```
 
-```
-BaseLoss
-├── RegressionLoss
-└── DistributionLoss
-```
+| Base Class | Purpose | Model Output |
+|:-----------|:--------|:-------------|
+| `RegressionLoss` | Point-prediction losses | $\hat{y}$ |
+| `DistributionLoss` | Distributional losses (NLL) | $(\mu, \log\sigma^2)$ or distribution params |
+| `WeightedLossWrapper` | Adapts any PyTorch loss | Same as wrapped loss |
+
+---
 
 ## BaseLoss
 
-```python
-class BaseLoss(torch.nn.Module)
-```
+Root class extending `nn.Module`.  All subclasses inherit:
 
-`BaseLoss` is the root class for all loss functions in torchregress. It extends PyTorch's `nn.Module` and provides common functionality for reduction operations.
-
-**Parameters:**
-
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `forward(y_pred, y_true, **kwargs)`: Abstract method that subclasses must implement
-- `_reduce(loss, mask=None, weights=None)`: Applies specified reduction to the loss tensor
-
-**Example:**
+- `reduction`: `"mean"` (default), `"sum"`, or `"none"`
+- `_reduce(loss, mask, weights)`: applies reduction with masking and weighting
 
 ```python
-# Custom loss implementation
 class CustomLoss(BaseLoss):
-    def forward(self, y_pred, y_true, **kwargs):
-        # Calculate point-wise loss
-        loss = (y_pred - y_true)**2
-        # Apply reduction
-        return self._reduce(loss)
+    def forward(self, y_pred, y_true, mask=None, weights=None, **kwargs):
+        loss = (y_pred - y_true) ** 2
+        return self._reduce(loss, mask, weights)
 ```
+
+---
 
 ## RegressionLoss
 
-```python
-class RegressionLoss(BaseLoss)
-```
-
-`RegressionLoss` is a base class specifically designed for standard regression loss functions that operate on point predictions.
-
-**Parameters:**
-
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `forward(y_pred, y_true, mask=None, weights=None)`: Abstract method for computing regression loss
-
-**Example:**
+For losses that operate on **point predictions** $\hat{y}$:
 
 ```python
-# Using a regression loss with weights
-loss_fn = tr.losses.L1Loss()  # Inherits from RegressionLoss
+from torchregress.losses import MSELoss, L1Loss, HuberLoss
 
-y_pred = torch.tensor([1.0, 2.0, 3.0])
-y_true = torch.tensor([0.0, 2.0, 4.0])
-weights = torch.tensor([0.5, 1.0, 2.0])  # Emphasize the importance of the 3rd sample
-
-loss = loss_fn(y_pred, y_true, weights=weights)
+loss_fn = MSELoss()
+loss = loss_fn(y_pred, y_true, mask=valid_mask, weights=sample_weights)
 ```
+
+All `RegressionLoss` subclasses accept:
+
+| Argument | Type | Description |
+|:---------|:-----|:------------|
+| `y_pred` | `Tensor` | Model predictions |
+| `y_true` / `target` | `Tensor` | Ground truth |
+| `mask` | `Tensor` (bool) | Valid-sample mask |
+| `weights` | `Tensor` | Per-sample importance weights |
+
+---
 
 ## DistributionLoss
 
-```python
-class DistributionLoss(BaseLoss)
-```
-
-`DistributionLoss` serves as a base class for losses that model full probability distributions rather than just point predictions. These losses take distribution parameters as inputs and calculate proper scoring rules.
-
-**Parameters:**
-
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-
-**Methods:**
-
-- `_extract_distribution_parameters(y_pred)`: Extract distribution parameters from model outputs
-- `_calculate_nll(y_pred, y_true, mask)`: Calculate negative log-likelihood
-- `forward(y_pred, y_true, mask=None, weights=None)`: Abstract method for computing distributional loss
-
-**Example:**
+For losses that model **full probability distributions**:
 
 ```python
-# Using a distributional loss for uncertainty modeling
-loss_fn = tr.losses.GaussianNLLLoss()  # Inherits from DistributionLoss
+from torchregress.losses import GaussianNLLLoss
 
-# Model outputs mean and log-variance
-mean = torch.tensor([1.0, 2.0, 3.0])
-log_var = torch.tensor([-1.0, 0.0, 1.0])
-y_true = torch.tensor([0.8, 2.2, 2.7])
+loss_fn = GaussianNLLLoss()
 
-# Calculate NLL loss using both mean and variance predictions
+# Model outputs (mean, log_var) — either as tuple or concatenated
+mean = torch.randn(64, 1)
+log_var = torch.randn(64, 1)
 loss = loss_fn((mean, log_var), y_true)
 ```
 
+Key methods:
+
+| Method | Description |
+|:-------|:------------|
+| `_extract_distribution_parameters(y_pred)` | Split model output into distribution params |
+| `_calculate_nll(y_pred, y_true, mask)` | Compute negative log-likelihood |
+
+---
+
 ## WeightedLossWrapper
 
-```python
-class WeightedLossWrapper(BaseLoss)
-```
-
-`WeightedLossWrapper` adapts standard PyTorch loss functions to torchregress's interface, adding support for masks and weights.
-
-**Parameters:**
-
-- `loss_fn` (Callable or nn.Module): PyTorch loss function class or instance
-- `reduction` (str, optional): Specifies the reduction to apply: 'none' | 'mean' | 'sum'. Default: 'mean'
-- `**kwargs`: Additional arguments to pass to the loss function
-
-**Example:**
+Adapts **any PyTorch loss** to the torchregress interface (mask + weights support):
 
 ```python
+from torchregress.losses import WeightedLossWrapper
 import torch.nn as nn
-import torchregress as tr
 
-# Wrap a standard PyTorch loss
-torch_mse = nn.MSELoss()
-wrapped_mse = tr.losses.WeightedLossWrapper(torch_mse)
-
-# Now we can use it with masks and weights
-y_pred = torch.tensor([1.0, 2.0, 3.0])
-y_true = torch.tensor([1.5, 2.0, 2.5])
-mask = torch.tensor([True, False, True])
-
-loss = wrapped_mse(y_pred, y_true, mask=mask)
+# Wrap standard PyTorch loss
+wrapped = WeightedLossWrapper(nn.MSELoss)
+loss = wrapped(y_pred, y_true, mask=mask, weights=weights)
 ```
 
-## Pre-defined Weighted Loss Functions
+### Pre-Defined Weighted Losses
 
-torchregress provides weighted versions of all standard PyTorch loss functions:
+| torchregress | Wraps |
+|:-------------|:------|
+| `WeightedMSELoss` | `nn.MSELoss` |
+| `WeightedL1Loss` / `WeightedMAELoss` | `nn.L1Loss` |
+| `WeightedHuberLoss` | `nn.HuberLoss` |
+| `WeightedGaussianNLLLoss` | `nn.GaussianNLLLoss` |
+| `WeightedCrossEntropyLoss` | `nn.CrossEntropyLoss` |
+| `WeightedNLLLoss` | `nn.NLLLoss` |
 
-```python
-# Available weighted versions of PyTorch losses
-WeightedMSELoss = WeightedLossWrapper(nn.MSELoss)
-WeightedL1Loss = WeightedLossWrapper(nn.L1Loss)
-WeightedCrossEntropyLoss = WeightedLossWrapper(nn.CrossEntropyLoss)
-WeightedBCELoss = WeightedLossWrapper(nn.BCELoss)
-WeightedBCEWithLogitsLoss = WeightedLossWrapper(nn.BCEWithLogitsLoss)
-WeightedKLDivLoss = WeightedLossWrapper(nn.KLDivLoss)
-WeightedNLLLoss = WeightedLossWrapper(nn.NLLLoss)
-WeightedSmoothL1Loss = WeightedLossWrapper(nn.SmoothL1Loss)
-WeightedHuberLoss = WeightedLossWrapper(nn.HuberLoss)
-WeightedPoissonNLLLoss = WeightedLossWrapper(nn.PoissonNLLLoss)
-WeightedGaussianNLLLoss = WeightedLossWrapper(nn.GaussianNLLLoss)
-# ...and many more
-```
+---
 
-These can be used directly with mask and weight arguments:
+## Implementing Custom Losses
 
 ```python
 import torch
-import torchregress as tr
+from torchregress.losses.base import RegressionLoss
 
-# Use weighted version of standard PyTorch loss
-loss_fn = tr.losses.WeightedMSELoss()
+class AsymmetricLoss(RegressionLoss):
+    """Penalise under-prediction more than over-prediction."""
 
-# Calculate with masks and weights
-y_pred = torch.tensor([1.0, 2.0, 3.0])
-y_true = torch.tensor([0.0, 2.0, 4.0])
-mask = torch.tensor([True, False, True])
-weights = torch.tensor([0.5, 1.0, 2.0])
+    def __init__(self, alpha=0.7, reduction="mean"):
+        super().__init__(reduction=reduction)
+        self.alpha = alpha
 
-loss = loss_fn(y_pred, y_true, mask=mask, weights=weights)
+    def forward(self, y_pred, y_true, mask=None, weights=None, **kwargs):
+        error = y_true - y_pred
+        loss = torch.where(
+            error > 0,
+            self.alpha * error ** 2,        # under-prediction
+            (1 - self.alpha) * error ** 2,   # over-prediction
+        )
+        return self._reduce(loss, mask, weights)
 ```
 
-## Best Practices for Custom Loss Functions
-
-When implementing custom loss functions using the torchregress framework:
-
-1. **Inherit from the right base class**:
-   - For standard regression losses: `RegressionLoss`
-   - For distribution-based losses: `DistributionLoss`
-   
-2. **Always validate inputs** by calling `self._validate_inputs(y_pred, y_true, mask)` in your `forward` method
-
-3. **Handle reduction properly**:
-   - For RegressionLoss, use `return self._reduce_with_mask(loss, mask, weights)`
-   - For DistributionLoss, calculate NLL first, then use `self._reduce_with_mask()`
-   
-4. **Support masking and weighting** to make your loss function compatible with missing data scenarios
-
-5. **Document the mathematical formulation** clearly in docstrings
+!!! tip "Best practices"
+    1. Inherit from `RegressionLoss` (point) or `DistributionLoss` (distributional)
+    2. Always call `self._reduce(loss, mask, weights)` — don't manually reduce
+    3. Accept `**kwargs` in `forward` for compatibility with the loss registry
+    4. Document the math in docstrings

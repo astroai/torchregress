@@ -1,104 +1,117 @@
-# Distribution Metrics
+# Distributional Metrics
 
-Distribution metrics evaluate the quality of probabilistic forecasts by comparing the predicted distributions with observed outcomes.
+Distributional metrics evaluate **probabilistic forecasts** — how well does the predicted probability distribution $F$ match the true (but unknown) data-generating process $G$? Unlike point metrics, these assess both **calibration** (reliability) and **sharpness** (precision).
 
-## Probability Integral Transform (PIT)
+---
 
-PIT evaluates calibration by transforming observations through the predicted CDF. For perfectly calibrated forecasts, PIT values follow a uniform distribution.
+## Proper Scoring Rules
 
-```python
-from torchregress.metrics.distribution import probability_integral_transform
-from torch.distributions import Normal
+A scoring rule $S(F, y)$ is **proper** if its expected value is minimised when the predicted distribution $F$ is equal to the true distribution $G$ [1].
 
-# Create a simple CDF function for a normal distribution
-def cdf_fn(y):
-    dist = Normal(loc=model_mean, scale=model_std)
-    return dist.cdf(y)
+$$\mathbb{E}_{y \sim G} [S(G, y)] \leq \mathbb{E}_{y \sim G} [S(F, y)]$$
 
-# Get PIT values
-pit = probability_integral_transform(cdf_fn, y_true)
+In **torchregress**, we prioritise proper scoring rules for evaluating all probabilistic models.
 
-# Get PIT values with histogram for assessing uniformity
-pit_results = probability_integral_transform(cdf_fn, y_true, 
-                                            n_bins=20, return_histogram=True)
-print(f"Uniformity chi-squared: {pit_results['uniformity_chi2']}")
-```
+---
 
 ## Continuous Ranked Probability Score (CRPS)
 
-CRPS measures the integrated squared difference between the predicted CDF and the empirical CDF of the observation. Lower values indicate better performance.
+The CRPS is the most widely used proper scoring rule for univariate regression. It can be viewed as the integral of the pinball loss over all possible quantiles $\tau \in [0, 1]$.
+
+$$\text{CRPS}(F, y) = \int_{-\infty}^{\infty} [F(z) - \mathbf{1}_{z \geq y}]^2 dz$$
+
+### Properties
+
+- **Units**: Same as the target variable $y$.
+- **Point Mass**: Reduces to Mean Absolute Error (MAE) if $F$ is a point mass.
+- **Duality**: Simultaneously rewards **calibration** (is the truth within the predicted range?) and **sharpness** (is the predicted range narrow?).
+
+### Implementation
 
 ```python
-from torchregress.metrics.distribution import continuous_ranked_probability_score
+from torchregress.metrics import crps_gaussian, crps_from_samples
 
-# Create a dictionary of quantile predictions
-quantiles = {0.1: q10_pred, 0.5: q50_pred, 0.9: q90_pred}
+# For Gaussian models
+loss = crps_gaussian(mu, sigma, y_true)
 
-# Calculate CRPS
-crps = continuous_ranked_probability_score(quantiles, y_true)
-
-# Calculate CRPS with custom reduction
-crps_per_sample = continuous_ranked_probability_score(quantiles, y_true, reduction="none")
+# For non-parametric models (e.g., Ensembles, BNNs)
+loss = crps_from_samples(y_samples, y_true)
 ```
 
-## Energy Score
+→ See [Mathematical Foundations](../math/index.md) for the Gaussian closed-form derivation. API Reference: [`crps_gaussian`](../api/metrics.md#torchregress.metrics.distribution.crps_gaussian).
 
-Energy Score is a multivariate generalization of CRPS, suitable for evaluating joint distributions.
+---
+
+## Multivariate: Energy Score
+
+The **Energy Score (ES)** [2] is the multivariate generalisation of CRPS to $\mathbb{R}^d$. It evaluates the joint distribution of multiple targets, capturing correlations that univariate CRPS misses.
+
+$$\text{ES}(F, y) = \mathbb{E}_{Y \sim F} \|Y - y\|^\beta - \frac{1}{2} \mathbb{E}_{Y, Y' \sim F} \|Y - Y'\|^\beta$$
+
+where $\beta \in (0, 2)$ (default is $\beta=1$).
+
+### Implementation
 
 ```python
-from torchregress.metrics.distribution import energy_score
+from torchregress.metrics import energy_score
 
-# y_samples has shape [n_samples, batch_size, n_dimensions]
-# y_true has shape [batch_size, n_dimensions]
-es = energy_score(y_samples, y_true)
-
-# Use a different value of beta (default is 1.0)
-es_beta_half = energy_score(y_samples, y_true, beta=0.5)
-
-# For large sample sizes, limit computation
-es_limited = energy_score(y_samples, y_true, max_pairs=1000)
+# y_samples: [num_samples, batch_size, num_targets]
+score = energy_score(y_samples, y_true)
 ```
 
-## Comprehensive Reporting
+API Reference: [`energy_score`](../api/metrics.md#torchregress.metrics.distribution.energy_score).
 
-### Distribution Metrics Report
+---
 
-Generate a comprehensive report of distribution evaluation metrics.
+## Calibration: Probability Integral Transform (PIT)
+
+A model is **perfectly calibrated** if its predictive CDF $F(y \mid x)$, when evaluated at the true value $y$, is uniformly distributed on $[0, 1]$ [3].
+
+$$U = F(Y \mid X) \sim \text{Uniform}(0, 1)$$
+
+### Diagnosing Miscalibration
+
+- **U-Shaped**: The model is **overconfident** (true values fall in the tails too often).
+- **Hump-Shaped**: The model is **underconfident** (true values fall in the center too often).
+- **Skewed**: The model has a consistent bias (predicting too high or too low).
+
+### Implementation
+
+To visualise calibration, use the **PIT Histogram** diagnostic from the visualization module:
 
 ```python
-from torchregress.metrics.distribution import distribution_metrics_report
-from torch.distributions import Normal
+from torchregress.viz import plot_pit_histogram
 
-# Using a PyTorch distribution
-dist = Normal(mean_pred, std_pred)
-report = distribution_metrics_report(dist, y_true)
-
-# Using quantile predictions
-quantiles = {0.1: q10_pred, 0.5: q50_pred, 0.9: q90_pred}
-report = distribution_metrics_report(None, y_true, y_pred_quantiles=quantiles)
-
-# Using samples from predictive distribution
-report = distribution_metrics_report(None, y_true, samples=pred_samples)
-
-print(f"CRPS: {report['crps']}")
+# Generate a PIT histogram to visualize calibration
+plot_pit_histogram(y_pred_dist, y_true, bins=20)
 ```
 
-## Advanced Usage
+API Reference: [`plot_pit_histogram`](../api/viz.md#torchregress.viz.diagnostic.plot_pit_histogram).
 
-### Custom Quantile Levels
+---
 
-You can use custom quantile levels for more detailed evaluation:
+## Summary Matrix
 
-```python
-from torchregress.metrics.distribution import continuous_ranked_probability_score
+| Metric | Best For | Proper? | API Reference |
+|:-------|:---------|:-------:|:--------------|
+| **NLL** | Parametric models | ✅ | [`gaussian_nll`](../api/metrics.md#torchregress.metrics.distribution.gaussian_nll) |
+| **CRPS** | Univariate UQ | ✅ | [`crps_gaussian`](../api/metrics.md#torchregress.metrics.distribution.crps_gaussian) |
+| **Energy Score** | Multivariate UQ | ✅ | [`energy_score`](../api/metrics.md#torchregress.metrics.distribution.energy_score) |
+| **PIT** | Calibration check | — | [`plot_pit_histogram`](../api/viz.md#torchregress.viz.diagnostic.plot_pit_histogram) |
 
-# More detailed quantiles
-detailed_quantiles = {
-    0.01: q01_pred, 0.05: q05_pred, 0.1: q10_pred, 
-    0.25: q25_pred, 0.5: q50_pred, 
-    0.75: q75_pred, 0.9: q90_pred, 0.95: q95_pred, 0.99: q99_pred
-}
+---
 
-# Calculate CRPS with detailed quantiles
-detailed_crps = continuous_ranked_probability_score(detailed_quantiles, y_true)
-```
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Gneiting & Raftery. ["Strictly Proper Scoring Rules, Prediction, and Estimation."](https://www.tandfonline.com/doi/abs/10.1198/016214506000001437) *JASA*, 2007. |
+| 2 | Gneiting & Katzfuss. ["Probabilistic Forecasting."](https://www.annualreviews.org/doi/abs/10.1146/annurev-statistics-062713-085831) *Annual Review of Statistics*, 2014. |
+| 3 | Dawid, A. P. ["Statistical Theory: The Prequential Approach."](https://www.jstor.org/stable/2345714) *JRSS A*, 1984. |
+
+---
+
+## Next Steps
+- Learn about [Calibration Metrics](calibration.md)
+- View the [Distributional Conformal Tutorial](../conformal/distributional.md)
+- Explore [Normalizing Flow Examples](../examples/normalizing_flows_multitarget.md)
