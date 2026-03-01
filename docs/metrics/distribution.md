@@ -29,13 +29,13 @@ $$\text{CRPS}(F, y) = \int_{-\infty}^{\infty} [F(z) - \mathbf{1}_{z \geq y}]^2 d
 ### Implementation
 
 ```python
-from torchregress.metrics import crps_gaussian, crps_from_samples
+from torchregress.metrics import crps_gaussian, energy_score
 
 # For Gaussian models
 loss = crps_gaussian(mu, sigma, y_true)
 
-# For non-parametric models (e.g., Ensembles, BNNs)
-loss = crps_from_samples(y_samples, y_true)
+# For non-parametric models (e.g., Ensembles, BNNs) using samples
+loss = energy_score(y_samples, y_true)
 ```
 
 → See [Mathematical Foundations](../math/index.md) for the Gaussian closed-form derivation. API Reference: [`crps_gaussian`](../api/metrics.md#torchregress.metrics.distribution.crps_gaussian).

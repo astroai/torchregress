@@ -43,13 +43,13 @@ loss_fn = CVaRLoss(alpha=0.5, base_loss="huber")  # focus on harder 50%
 When label noise has **known or estimable variance**, use losses that explicitly model the noise:
 
 ```python
-from torchregress.losses import NoisyGaussianNLLLoss
+from torchregress.losses import NoisyTargetGaussianNLL
 
 # Known label noise variance
-loss_fn = NoisyGaussianNLLLoss(label_noise_variance=0.1)
+loss_fn = NoisyTargetGaussianNLL()
 ```
 
-See [Uncertain Ground Truth](uncertain_ground_truth.md) for `NoisyGaussianNLLLoss`, `NoisyLaplacianNLLLoss`, and `PropensityAwareNLLLoss`.
+See [Uncertain Ground Truth](uncertain_ground_truth.md) for `NoisyTargetGaussianNLL`, `ConsistencyRegLoss`, and `PseudoLabelNLL`.
 
 ### 4. Density / Propensity Weighting
 
@@ -89,7 +89,7 @@ See [Ensemble Methods](../ensemble/methods.md).
 ```mermaid
 graph LR
     A["Noisy labels?"] --> B{"Noise magnitude known?"}
-    B -->|Yes| C["NoisyGaussianNLLLoss"]
+    B -->|Yes| C["NoisyTargetGaussianNLL"]
     B -->|No| D{"How severe?"}
     D -->|Mild| E["HuberLoss / LogCoshLoss"]
     D -->|Moderate| F["CVaRLoss + Huber"]
