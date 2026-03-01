@@ -233,9 +233,7 @@ def _analysis_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         for r in rows
         if isinstance(r, dict) and str(r.get("Framework", "torchregress")) == "torchregress"
     ]
-    rail_rows = [
-        r for r in rows if isinstance(r, dict) and str(r.get("Framework", "")) == "RAIL"
-    ]
+    rail_rows = [r for r in rows if isinstance(r, dict) and str(r.get("Framework", "")) == "RAIL"]
 
     best_overall: dict[str, dict[str, Any]] = {}
     best_by_framework: dict[str, dict[str, dict[str, Any]]] = {

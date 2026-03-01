@@ -670,9 +670,10 @@ def iteratively_reweighted_least_squares(
     epsilon: float = EPS,
     return_all_predictions: bool = False,
     batch_size: int = 1024,
-) -> Tuple[torch.Tensor, List[float], torch.Tensor] | Tuple[
-    torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]
-]:
+) -> (
+    Tuple[torch.Tensor, List[float], torch.Tensor]
+    | Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]
+):
     """
     Applies iteratively reweighted least squares (IRLS) for robust regression.
 

@@ -302,9 +302,9 @@ def test_public_exports_snapshot_non_losses() -> None:
 def test_signature_snapshots_non_losses() -> None:
     for path, expected in EXPECTED_SIGNATURES.items():
         actual = str(inspect.signature(_resolve(path)))
-        assert _normalize_union_optional(actual) == _normalize_union_optional(expected), (
-            f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
-        )
+        assert _normalize_union_optional(actual) == _normalize_union_optional(
+            expected
+        ), f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
 
 
 def test_top_level_submodules_are_lazy_loaded() -> None:
