@@ -69,10 +69,18 @@ def _load_photoz_df(cfg: PhotoZBenchmarkConfig):
     data_dir = Path("data/sdss")
     real_path = data_dir / "sdss_photoz_real.csv"
     sim_path = data_dir / "sdss_photoz_simulated.csv"
+
     if not cfg.force_simulated and real_path.exists():
         return pd.read_csv(real_path)
+
+    # Check if existing simulated data meets the size requirements for the current profile.
+    # This prevents CI failures where a small 'audit' file is reused by a larger 'full' profile.
     if sim_path.exists():
-        return pd.read_csv(sim_path)
+        df = pd.read_csv(sim_path)
+        need = max(cfg.sample_size_if_generate, cfg.n_train + cfg.n_cal + cfg.n_test)
+        if len(df) >= need:
+            return df
+
     return _create_simulated_sdss_data(
         n_galaxies=max(cfg.sample_size_if_generate, cfg.n_train + cfg.n_cal + cfg.n_test),
         out_path=sim_path,
