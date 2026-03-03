@@ -188,3 +188,10 @@ flows = { features = ["flows"], solve-group = "default" }
 test = { features = ["test"], solve-group = "default" }
 
 [tool.pixi.tasks]
+check = "bash pre-check.sh"
+lint = "ruff check . && black --check ."
+test = "pytest"
+mypy = "mypy torchregress && mypy tests --explicit-package-bases"
+examples-audit = "python tools/render_example_summaries.py --profile audit"
+examples-full = "python tools/render_example_summaries.py --profile full"
+examples-check = "python tools/render_example_summaries.py --profile audit && python tools/render_example_summaries.py --profile full"

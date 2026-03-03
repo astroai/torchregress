@@ -4761,7 +4761,7 @@ packages:
 - pypi: ./
   name: torchregress
   version: 0.1.0
-  sha256: ed86b5978d090209cad283e2114e67a0ca89a8e2bb1011be76cdbcf2011ba37a
+  sha256: c68a855ea285e37c08c438f7a12695a7c020cbd679807c09aa5845a0ba074869
   requires_dist:
   - torch>=2.4.0
   - numpy>=2.0.0
