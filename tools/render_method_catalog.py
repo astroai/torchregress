@@ -79,11 +79,11 @@ def _capability_marks(row: dict[str, Any]) -> str:
 
 def _family_counts(rows: list[dict[str, Any]]) -> list[tuple[str, int]]:
     counts = Counter(str(row["family"]) for row in rows)
-    return sorted(counts.items(), key=lambda item: (item[0]))
+    return sorted(counts.items(), key=lambda item: item[0])
 
 
 def _maturity_counts(rows: list[dict[str, Any]]) -> list[tuple[str, int]]:
-    counts = Counter(str(row["maturity"]) for row in rows)
+    counts = Counter(row["maturity"] for row in rows)
     order = {"Core": 0, "Strong": 1, "Available": 2, "Advanced": 3}
     return sorted(counts.items(), key=lambda item: (order.get(item[0], 99), item[0]))
 
@@ -99,7 +99,7 @@ def _aggregate_capability(values: list[str]) -> str:
 def _family_capability_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        grouped.setdefault(str(row["family"]), []).append(row)
+        grouped.setdefault(row["family"], []).append(row)
 
     aggregated: list[dict[str, Any]] = []
     for family in sorted(grouped):
@@ -107,7 +107,7 @@ def _family_capability_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         agg_row: dict[str, Any] = {
             "family": family,
             "n_methods": len(fam_rows),
-            "methods": [r["name"] for r in sorted(fam_rows, key=lambda x: str(x["name"]))],
+            "methods": [r["name"] for r in sorted(fam_rows, key=lambda x: x["name"])],
         }
         for key in CAPABILITY_COLUMNS:
             agg_row[key] = _aggregate_capability([str(r.get(key, "no")) for r in fam_rows])
@@ -317,7 +317,7 @@ def build_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def render_markdown(rows: list[dict[str, Any]]) -> str:
     """Render a deterministic markdown snapshot from the catalog rows."""
-    rows_sorted = sorted(rows, key=lambda r: (str(r["family"]), str(r["name"])))
+    rows_sorted = sorted(rows, key=lambda r: (r["family"], r["name"]))
 
     lines: list[str] = []
     lines.append("# Generated Method Catalog Snapshot")
@@ -411,7 +411,7 @@ def render_markdown(rows: list[dict[str, Any]]) -> str:
 
 def render_method_matrix_generated_section(rows: list[dict[str, Any]]) -> str:
     """Render a compact code-backed subsection for the task-first method matrix page."""
-    rows_sorted = sorted(rows, key=lambda r: (str(r["family"]), str(r["name"])))
+    rows_sorted = sorted(rows, key=lambda r: (r["family"], r["name"]))
     lines: list[str] = []
     lines.append("### Catalog-Backed Peer Method Snapshot (Generated)")
     lines.append("")

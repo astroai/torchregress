@@ -22,6 +22,6 @@ def validate_url(url: str, allowed_schemes: tuple = ("http", "https")) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in allowed_schemes:
         raise ValueError(
-            f"URL scheme '{parsed.scheme}' is not allowed. " f"Allowed schemes: {allowed_schemes}"
+            f"URL scheme '{parsed.scheme}' is not allowed. Allowed schemes: {allowed_schemes}"
         )
     return url

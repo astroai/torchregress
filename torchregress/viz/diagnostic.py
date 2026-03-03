@@ -850,12 +850,12 @@ def plot_calibration_curve(
         scaled_hist = hist * hist_height
 
         # Create histogram bars
-        for i in range(len(scaled_hist)):
+        for i, h in enumerate(scaled_hist):
             ax.bar(
                 bin_centers[i],
-                scaled_hist[i],
+                h,
                 width=(1 / n_bins),
-                bottom=-scaled_hist[i],
+                bottom=-h,
                 align="center",
                 alpha=hist_alpha,
                 color=hist_color,

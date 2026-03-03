@@ -366,10 +366,13 @@ def _plot_performance_heatmap(
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
     # Loop over data and add annotations with actual values
-    for i in range(len(df.index)):
-        for j in range(len(df.columns)):
-            metric_value = df.iloc[i, j]
-            is_best = best_values and np.isclose(metric_value, best_values[df.columns[j]])
+    df_values = df.values
+    df_norm_values = df_normalized.values
+    columns = df.columns
+
+    for i, row in enumerate(df_values):
+        for j, metric_value in enumerate(row):
+            is_best = best_values and np.isclose(metric_value, best_values[columns[j]])
 
             # Format text based on value type
             if isinstance(metric_value, float):
@@ -387,7 +390,7 @@ def _plot_performance_heatmap(
                 text,
                 ha="center",
                 va="center",
-                color="black" if df_normalized.iloc[i, j] > 0.5 else "white",
+                color="black" if df_norm_values[i, j] > 0.5 else "white",
             )
 
     # Add title
@@ -435,7 +438,7 @@ def plot_parameter_sensitivity(
     # Determine if higher or lower is better for each metric
     if higher_is_better is None:
         higher_is_better = {}
-        for metric in metric_values.keys():
+        for metric in metric_values:
             # Default: higher is better unless metric contains 'error', 'loss', or 'mae'
             is_higher_better = not any(
                 term in metric.lower() for term in ["error", "loss", "mae", "mse", "rmse", "mape"]
