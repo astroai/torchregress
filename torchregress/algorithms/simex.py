@@ -11,6 +11,8 @@ from typing import Callable, List, Optional, Union, cast
 import torch
 import torch.nn as nn
 
+from ..utils.validation import check_tensor
+
 
 class SIMEX:
     """
@@ -88,6 +90,10 @@ class SIMEX:
         Returns:
             self
         """
+
+        check_tensor(X_train, "X_train")
+        check_tensor(y_train, "y_train")
+
         self.device = X_train.device
         n_features = X_train.shape[1]
         self.sigma_u = self._prepare_sigma_u(n_features, self.device)
@@ -161,6 +167,9 @@ class SIMEX:
         Returns:
             Extrapolated predictions
         """
+
+        check_tensor(X, "X")
+
         if not self.trained_models:
             raise RuntimeError("SIMEX must be fit before predicting")
 
