@@ -68,7 +68,7 @@ class ExpectedCalibrationError(Metric):
 
         y_pred_quantiles = {}
         y_pred_state = metric_state_list[dict[float, torch.Tensor]](self.y_pred_quantiles)
-        for q in y_pred_state[0].keys():
+        for q in y_pred_state[0]:
             y_pred_quantiles[q] = torch.cat([convert_to_tensor(d[q]) for d in y_pred_state])
 
         quantiles = sorted(y_pred_quantiles.keys())

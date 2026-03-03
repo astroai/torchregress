@@ -435,7 +435,7 @@ def plot_parameter_sensitivity(
     # Determine if higher or lower is better for each metric
     if higher_is_better is None:
         higher_is_better = {}
-        for metric in metric_values.keys():
+        for metric in metric_values:
             # Default: higher is better unless metric contains 'error', 'loss', or 'mae'
             is_higher_better = not any(
                 term in metric.lower() for term in ["error", "loss", "mae", "mse", "rmse", "mape"]
