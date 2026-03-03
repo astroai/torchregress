@@ -4,11 +4,6 @@ import pytest
 import torch
 
 
-def pytest_configure(config):
-    """Set environment variables for the entire test session."""
-    os.environ["TORCHREGRESS_SECURITY_ALLOW_FILE_URL"] = "1"
-
-
 @pytest.fixture
 def device():
     """Return the device to use for tensor operations."""
