@@ -198,7 +198,8 @@ def _resolve_path(path_value: str, *, repo_root: Path) -> Path:
 def _download_to_path(url: str, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     # Ensure scheme is http/https
-    url = validate_url(url)
+    # Allow file:// for local tests
+    url = validate_url(url, allowed_schemes=("http", "https", "file"))
     with urlopen(url) as response, target.open("wb") as out:  # nosec: validated above
         out.write(response.read())
 
