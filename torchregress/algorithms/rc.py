@@ -9,6 +9,8 @@ from typing import Optional, Union
 
 import torch
 
+from ..utils.validation import check_tensor
+
 
 class RegressionCalibration:
     """
@@ -77,6 +79,8 @@ class RegressionCalibration:
         Returns:
             self
         """
+        check_tensor(X_observed, "X_observed")
+
         if X_observed.ndim != 2:
             raise ValueError("X_observed must be a 2D tensor (N, D)")
 
@@ -131,6 +135,8 @@ class RegressionCalibration:
         Returns:
             Calibrated input tensor of shape (N, D)
         """
+        check_tensor(X_observed, "X_observed")
+
         if self.reliability_matrix is None or self.mu_w is None:
             raise RuntimeError("RegressionCalibration must be fit before calling transform")
 

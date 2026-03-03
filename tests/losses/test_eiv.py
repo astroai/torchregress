@@ -174,7 +174,7 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         loss_fn_mc = FunctionalEIVLoss(
             model, sigma_x=0.1, sigma_y=0.1, monte_carlo=True, n_samples=100
         )
-        # Fix: MC gradients are stochastic, don't use gradcheck.
+        # Note: MC gradients are stochastic, don't use gradcheck.
         # Ensure we check finite gradients on leaf.
         x_obs = torch.randn(batch_size, n_features_x, requires_grad=True, dtype=torch.double)
         loss_mc = loss_fn_mc(x_obs, y_obs)

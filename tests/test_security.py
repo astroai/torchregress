@@ -17,10 +17,8 @@ def test_validate_url_valid() -> None:
     )
 
 
-def test_validate_url_invalid_scheme(monkeypatch) -> None:
+def test_validate_url_invalid_scheme() -> None:
     """Test that URLs with invalid schemes raise ValueError."""
-    # Temporarily disable the global allow-file for this test
-    monkeypatch.setenv("TORCHREGRESS_SECURITY_ALLOW_FILE_URL", "0")
     with pytest.raises(ValueError, match="URL scheme 'file' is not allowed"):
         validate_url("file:///etc/passwd")
 
