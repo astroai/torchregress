@@ -1,16 +1,18 @@
 import time
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 # Try to silence matplotlib plots
-plt.switch_backend('Agg')
+plt.switch_backend("Agg")
+
 
 # Original code snippet
 def original_method(df, df_normalized, best_values):
     fig, ax = plt.subplots()
     start = time.time()
-    for _ in range(10): # Run multiple times for better measurement
+    for _ in range(10):  # Run multiple times for better measurement
         for i in range(len(df.index)):
             for j in range(len(df.columns)):
                 metric_value = df.iloc[i, j]
@@ -38,11 +40,12 @@ def original_method(df, df_normalized, best_values):
     plt.close(fig)
     return end - start
 
+
 # Optimized code snippet
 def optimized_method(df, df_normalized, best_values):
     fig, ax = plt.subplots()
     start = time.time()
-    for _ in range(10): # Run multiple times for better measurement
+    for _ in range(10):  # Run multiple times for better measurement
         df_values = df.values
         df_norm_values = df_normalized.values
         columns = df.columns
@@ -72,13 +75,18 @@ def optimized_method(df, df_normalized, best_values):
     plt.close(fig)
     return end - start
 
+
 # Setup data
 n_models = 20
 n_metrics = 10
 
-df = pd.DataFrame(np.random.rand(n_models, n_metrics), columns=[f'metric_{i}' for i in range(n_metrics)])
-df_normalized = pd.DataFrame(np.random.rand(n_models, n_metrics), columns=[f'metric_{i}' for i in range(n_metrics)])
-best_values = {f'metric_{i}': np.random.rand() for i in range(n_metrics)}
+df = pd.DataFrame(
+    np.random.rand(n_models, n_metrics), columns=[f"metric_{i}" for i in range(n_metrics)]
+)
+df_normalized = pd.DataFrame(
+    np.random.rand(n_models, n_metrics), columns=[f"metric_{i}" for i in range(n_metrics)]
+)
+best_values = {f"metric_{i}": np.random.rand() for i in range(n_metrics)}
 
 orig_time = original_method(df, df_normalized, best_values)
 opt_time = optimized_method(df, df_normalized, best_values)
