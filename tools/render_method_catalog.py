@@ -79,7 +79,7 @@ def _capability_marks(row: dict[str, Any]) -> str:
 
 def _family_counts(rows: list[dict[str, Any]]) -> list[tuple[str, int]]:
     counts = Counter(str(row["family"]) for row in rows)
-    return sorted(counts.items(), key=lambda item: (item[0]))
+    return sorted(counts.items(), key=lambda item: item[0])
 
 
 def _maturity_counts(rows: list[dict[str, Any]]) -> list[tuple[str, int]]:

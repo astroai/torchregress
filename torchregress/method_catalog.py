@@ -622,8 +622,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         recommended_start="NoisyTargetGaussianNLL",
         strong_alternatives=("PseudoLabelNLL", "ConsistencyRegLoss"),
         notes=(
-            "Model target uncertainty explicitly and blend pseudo labels with "
-            "confidence weights."
+            "Model target uncertainty explicitly and blend pseudo labels with confidence weights."
         ),
     ),
     TaskRecommendation(
@@ -718,8 +717,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         primary_recommendation="NoisyTargetGaussianNLL",
         alternatives=("PseudoLabelNLL", "ConsistencyRegLoss"),
         caveat=(
-            "Retain held-out clean-label evaluation where available to avoid "
-            "self-confirming loops."
+            "Retain held-out clean-label evaluation where available to avoid self-confirming loops."
         ),
     ),
     DecisionWorkflowStep(
@@ -889,8 +887,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         metrics_coverage=("accuracy", "ordinal class MAE", "QWK", "runtime"),
         peer_methods_visible=("OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"),
         gaps=(
-            "Needs at least one real-data ordered-target benchmark for stronger external "
-            "validity."
+            "Needs at least one real-data ordered-target benchmark for stronger external validity."
         ),
         notes=(
             "Comparison example evaluates class-logit and cumulative objectives under shared "

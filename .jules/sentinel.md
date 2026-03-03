@@ -1,0 +1,4 @@
+## 2025-03-03 - [Fix SSRF risk by removing env var security bypass]
+**Vulnerability:** A vulnerability was found in `torchregress/utils/security.py` where an environment variable (`TORCHREGRESS_SECURITY_ALLOW_FILE_URL`) could be used to bypass URL scheme checks. This could allow an attacker to bypass the checks and potentially access local files (SSRF/LFI).
+**Learning:** Security validations should not rely on environment variables to bypass checks. Internal tools or tests that require relaxed constraints must explicitly pass the allowed overrides via arguments (e.g., `allowed_schemes=("http", "https", "file")`) to prevent SSRF or Local File Inclusion vulnerabilities.
+**Prevention:** To prevent this, environment variables shouldn't control security boundaries in library code. Instead, use explicit arguments for overriding behavior, primarily for tools or tests.
