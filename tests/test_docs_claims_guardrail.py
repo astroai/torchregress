@@ -23,8 +23,11 @@ def test_docs_avoid_unqualified_sota_claims() -> None:
     offenders: list[str] = []
     for path in _markdown_files():
         text = path.read_text(encoding="utf-8")
+        line_no = 1
+        last_idx = 0
         for match in FORBIDDEN_CLAIM_RE.finditer(text):
-            line = text.count("\n", 0, match.start()) + 1
-            offenders.append(f"{path.relative_to(REPO_ROOT)}:{line}: {match.group(0)!r}")
+            line_no += text.count("\n", last_idx, match.start())
+            last_idx = match.start()
+            offenders.append(f"{path.relative_to(REPO_ROOT)}:{line_no}: {match.group(0)!r}")
 
     assert not offenders, "Unqualified SOTA/state-of-the-art claims found:\n" + "\n".join(offenders)
