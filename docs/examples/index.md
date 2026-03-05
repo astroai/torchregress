@@ -37,11 +37,15 @@ Use the comparison examples first when making implementation decisions:
 - `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison (examples-only) with calibration + PDF metrics
 - `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
+- `examples/ordinal_regression_realdata_comparison.py`: real-data ordinal comparison on Diabetes with train-quantile binning
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
+- `examples/censored_regression_realdata_comparison.py`: real-data censored comparison on Diabetes with shared censoring overlays
 - `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`)
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
 - `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison
+- `examples/uncertain_gt_density_conformal_realdata_comparison.py`: real-data uncertain-label + conformal comparison on Diabetes
 - `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics
+- `examples/causal_dr_realdata_comparison.py`: real-covariate DR ATE/CATE comparison with overlap diagnostics
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 
 When comparing methods, prefer examples that document:
@@ -183,9 +187,21 @@ A real-world application for astronomy:
 - Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
 - Reports ordinal accuracy, class-index MAE, QWK, and runtime.
 
+### [Ordinal Regression Comparison (Real Data)](ordinal_regression_realdata_comparison.md)
+
+- Shared-budget comparison on real Diabetes covariates/targets with train-quantile binning.
+- Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
+- Reports ordinal accuracy, class-index MAE, QWK, and runtime.
+
 ### [Censored Regression Comparison](censored_regression_comparison.md)
 
 - Shared-budget comparison for right/left and interval-censored targets.
+- Compares Gaussian NLL, quantile, and AFT censored losses.
+- Reports true-target MAE, observed MAE, concordance index, censoring rate, and runtime.
+
+### [Censored Regression Comparison (Real Data)](censored_regression_realdata_comparison.md)
+
+- Shared-budget comparison on real Diabetes covariates/targets with synthetic censoring overlays.
 - Compares Gaussian NLL, quantile, and AFT censored losses.
 - Reports true-target MAE, observed MAE, concordance index, censoring rate, and runtime.
 
@@ -207,10 +223,22 @@ A real-world application for astronomy:
 - Compares `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, and `MonteCarloConformal`.
 - Reports coverage/width plus uncertain-GT objective values (`NoisyTargetNLL`, `ConsistencyLoss`, `PseudoLabelNLL`).
 
+### [Uncertain-GT + Density Conformal Comparison (Real Data)](uncertain_gt_density_conformal_realdata_comparison.md)
+
+- Shared-budget comparison on real Diabetes covariates/targets with feature-dependent annotation noise.
+- Compares `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, and `MonteCarloConformal`.
+- Reports coverage/width plus uncertain-GT objective values (`NoisyTargetNLL`, `ConsistencyLoss`, `PseudoLabelNLL`).
+
 ### [Causal DR Uplift Comparison](causal_dr_uplift_comparison.md)
 
 - Shared-budget comparison for doubly-robust causal regression (`dr_ate`, `dr_cate`).
 - Includes synthetic uplift and astronomy-style selection-bias scenarios.
+- Reports ATE error, CI quality, overlap-rate, and effective sample size diagnostics.
+
+### [Causal DR Comparison (Real Covariates)](causal_dr_realdata_comparison.md)
+
+- Shared-budget comparison for doubly-robust causal regression (`dr_ate`, `dr_cate`) on real covariates.
+- Uses Diabetes features/baseline outcomes with confounded treatment assignment and known effect construction.
 - Reports ATE error, CI quality, overlap-rate, and effective sample size diagnostics.
 
 ### [Conformal Regression](conformal_regression_example.md)

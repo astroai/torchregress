@@ -169,6 +169,7 @@ with torch.no_grad():
 
 - [Ordinal Metrics](../metrics/ordinal.md) — MAE, Quadratic Weighted Kappa, Spearman $\rho$
 - [Ordinal Regression Comparison](../examples/ordinal_regression_comparison.md) — side-by-side benchmark
+- [Ordinal Regression Comparison (Real Data)](../examples/ordinal_regression_realdata_comparison.md) — real-data benchmark
 
 ---
 

@@ -175,6 +175,7 @@ for epoch in range(300):
 - [Noisy Labels](noisy_labels.md) — additional robustness approaches
 - [Imbalanced Regression](imbalanced.md) — propensity-based reweighting
 - [Uncertain-GT + Density Conformal](../examples/uncertain_gt_density_conformal_comparison.md) — end-to-end example
+- [Uncertain-GT + Density Conformal (Real Data)](../examples/uncertain_gt_density_conformal_realdata_comparison.md) — real-data benchmark
 
 ---
 

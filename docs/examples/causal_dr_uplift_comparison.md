@@ -32,3 +32,5 @@ uv run python examples/causal_dr_uplift_comparison.py
 uv run python examples/causal_dr_uplift_comparison.py \
   --summary-json-path reports/example_summaries/causal_dr_uplift_comparison_full.json
 ```
+
+See also: [Causal DR Comparison (Real Covariates)](causal_dr_realdata_comparison.md)

@@ -144,6 +144,20 @@ def test_render_example_summaries_ordinal_subset(tmp_path: Path) -> None:
     assert {"OrdinalCrossEntropy", "CumulativeLink", "CORAL"} <= methods
 
 
+def test_render_example_summaries_ordinal_realdata_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["ordinal_regression_realdata_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "real-data" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {"OrdinalCrossEntropy", "CumulativeLink", "CORAL"} <= methods
+
+
 def test_render_example_summaries_censored_subset(tmp_path: Path) -> None:
     paths = render_example_summaries.render_all(
         profile="smoke",
@@ -154,6 +168,20 @@ def test_render_example_summaries_censored_subset(tmp_path: Path) -> None:
     payload = json.loads(paths[0].read_text(encoding="utf-8"))
     assert payload["artifact"] == "comparison_example_summary"
     assert "censored" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {"CensoredGaussianNLL", "CensoredQuantile", "AFT"} <= methods
+
+
+def test_render_example_summaries_censored_realdata_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["censored_regression_realdata_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "real-data" in payload["task"].lower()
     methods = {row["Method"] for row in payload["rows"]}
     assert {"CensoredGaussianNLL", "CensoredQuantile", "AFT"} <= methods
 
@@ -205,6 +233,27 @@ def test_render_example_summaries_uncertain_gt_density_conformal_subset(tmp_path
     } <= methods
 
 
+def test_render_example_summaries_uncertain_gt_density_conformal_realdata_subset(
+    tmp_path: Path,
+) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["uncertain_gt_density_conformal_realdata_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "real-data" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {
+        "SplitConformal",
+        "DensityConformal",
+        "PrevalenceAdjustedCP",
+        "MonteCarloConformal",
+    } <= methods
+
+
 def test_render_example_summaries_causal_dr_subset(tmp_path: Path) -> None:
     paths = render_example_summaries.render_all(
         profile="smoke",
@@ -217,6 +266,24 @@ def test_render_example_summaries_causal_dr_subset(tmp_path: Path) -> None:
     assert "causal" in payload["task"].lower()
     methods = {row["Method"] for row in payload["rows"]}
     assert {"Uplift-NaiveDiff", "Uplift-DRATE", "AstronomyBias-DRATE"} <= methods
+
+
+def test_render_example_summaries_causal_dr_realdata_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["causal_dr_realdata_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "real covariates" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {
+        "DiabetesProxy-NaiveDiff",
+        "DiabetesProxy-DRATE",
+        "DiabetesSelectionBias-DRATE",
+    } <= methods
 
 
 def test_render_photoz_rail_merge_helper(tmp_path: Path) -> None:

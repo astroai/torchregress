@@ -27,3 +27,5 @@ uv run python examples/ordinal_regression_comparison.py
 uv run python examples/ordinal_regression_comparison.py \
   --summary-json-path reports/example_summaries/ordinal_regression_comparison_full.json
 ```
+
+See also: [Ordinal Regression Comparison (Real Data)](ordinal_regression_realdata_comparison.md)

@@ -122,12 +122,13 @@
     {
       "task": "Uncertain ground-truth + density-aware conformal",
       "examples": [
-        "examples/uncertain_gt_density_conformal_comparison.py"
+        "examples/uncertain_gt_density_conformal_comparison.py",
+        "examples/uncertain_gt_density_conformal_realdata_comparison.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
         "fixed seed",
-        "shared synthetic split",
+        "shared synthetic/real-data split",
         "shared calibration budget"
       ],
       "metrics_coverage": [
@@ -147,18 +148,19 @@
         "PseudoLabelNLL",
         "ConsistencyRegLoss"
       ],
-      "gaps": "Needs real-data uncertain-label benchmarks for external validity.",
-      "notes": "Current evidence is synthetic but compares uncertain-GT losses and density/prevalence/MC conformal variants under matched budgets."
+      "gaps": "Includes one real-data proxy benchmark; needs domain-native uncertain-label datasets for stronger external validity.",
+      "notes": "Evidence now includes synthetic and real-data (Diabetes) uncertain-label tracks with matched conformal variants and uncertain-GT objective reporting."
     },
     {
       "task": "Causal inference regression (DR ATE/CATE)",
       "examples": [
-        "examples/causal_dr_uplift_comparison.py"
+        "examples/causal_dr_uplift_comparison.py",
+        "examples/causal_dr_realdata_comparison.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
         "fixed seed",
-        "shared synthetic scenarios",
+        "shared synthetic/real-covariate scenarios",
         "matched nuisance models"
       ],
       "metrics_coverage": [
@@ -174,8 +176,8 @@
         "dr_cate",
         "naive difference-in-means"
       ],
-      "gaps": "Needs real treatment-effect benchmarks beyond synthetic scenarios.",
-      "notes": "Current evidence includes synthetic uplift and astronomy-style selection-bias proxies with cross-fitted DR estimators and overlap diagnostics."
+      "gaps": "Includes real-covariate proxy benchmarks; needs external treatment-effect datasets for stronger external validity.",
+      "notes": "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap diagnostics."
     },
     {
       "task": "Calibrated intervals / coverage",
@@ -231,12 +233,13 @@
     {
       "task": "Ordinal regression / ordered targets",
       "examples": [
-        "examples/ordinal_regression_comparison.py"
+        "examples/ordinal_regression_comparison.py",
+        "examples/ordinal_regression_realdata_comparison.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
         "fixed seed",
-        "shared synthetic split",
+        "shared synthetic/real-data split",
         "matched model capacity"
       ],
       "metrics_coverage": [
@@ -250,18 +253,19 @@
         "CumulativeLinkLoss",
         "CORALLoss"
       ],
-      "gaps": "Needs at least one real-data ordered-target benchmark for stronger external validity.",
-      "notes": "Comparison example evaluates class-logit and cumulative objectives under shared training budgets and ordinal-aware metrics."
+      "gaps": "Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label datasets for stronger external validity.",
+      "notes": "Comparison examples evaluate class-logit and cumulative objectives under shared training budgets and ordinal-aware metrics on synthetic and real-data tracks."
     },
     {
       "task": "Censored / interval-censored regression",
       "examples": [
-        "examples/censored_regression_comparison.py"
+        "examples/censored_regression_comparison.py",
+        "examples/censored_regression_realdata_comparison.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
         "fixed seed",
-        "shared censoring split",
+        "shared synthetic/real-data censoring split",
         "matched model capacity"
       ],
       "metrics_coverage": [
@@ -275,8 +279,8 @@
         "CensoredQuantileLoss",
         "AFTLoss"
       ],
-      "gaps": "Needs real-data censored benchmark(s) beyond synthetic generation.",
-      "notes": "Example includes right/left censoring plus explicit interval-censored samples under a shared training budget."
+      "gaps": "Includes one real-data synthetic-censoring benchmark; needs naturally censored datasets for stronger external validity.",
+      "notes": "Examples include right/left censoring plus explicit interval-censored samples under shared training budgets on synthetic and real-data tracks."
     },
     {
       "task": "OOD robustness / selective prediction",

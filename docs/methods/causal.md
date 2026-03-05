@@ -101,4 +101,5 @@ For causal estimates to be valid, three assumptions must hold:
 ## Next Steps
 - Learn about [Propensity Weighted Losses](../losses/imbalanced.md)
 - View the [Causal DR Uplift Comparison](../examples/causal_dr_uplift_comparison.md)
+- View the [Causal DR Comparison (Real Covariates)](../examples/causal_dr_realdata_comparison.md)
 - Explore [Inference Methods Detail](inference.md)

@@ -522,6 +522,34 @@ def test_ordinal_regression_comparison_writes_summary_json(tmp_path: Path) -> No
         _assert_non_negative(row["eval_s"])
 
 
+def test_ordinal_regression_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("ordinal_regression_realdata_comparison")
+    out = tmp_path / "ordinal_realdata_comparison_summary.json"
+    cfg = mod.OrdinalRealDataConfig(
+        n_train=128,
+        n_test=64,
+        hidden=12,
+        epochs=2,
+        batch_size=24,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="real-data",
+        required_methods={"OrdinalCrossEntropy", "CumulativeLink", "CORAL"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("OrdinalCrossEntropy", "CumulativeLink", "CORAL"):
+        row = rows[method]
+        _assert_row_has_keys(row, ["Accuracy", "OrdinalMAE", "QWK", "train_s", "eval_s", "Notes"])
+        _assert_probability(row["Accuracy"])
+        _assert_non_negative(row["OrdinalMAE"])
+        _assert_finite_numeric(row["QWK"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_censored_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("censored_regression_comparison")
     out = tmp_path / "censored_comparison_summary.json"
@@ -536,6 +564,38 @@ def test_censored_regression_comparison_writes_summary_json(tmp_path: Path) -> N
     _assert_summary_schema(
         out,
         task_substring="censored",
+        required_methods={"CensoredGaussianNLL", "CensoredQuantile", "AFT"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("CensoredGaussianNLL", "CensoredQuantile", "AFT"):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            ["MAE_true", "ObsMAE", "CIndex", "CensorRate", "train_s", "eval_s", "Notes"],
+        )
+        _assert_non_negative(row["MAE_true"])
+        _assert_finite_numeric(row["ObsMAE"])
+        _assert_finite_numeric(row["CIndex"])
+        _assert_probability(row["CensorRate"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
+def test_censored_regression_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("censored_regression_realdata_comparison")
+    out = tmp_path / "censored_realdata_comparison_summary.json"
+    cfg = mod.CensoredRealDataConfig(
+        n_train=128,
+        n_test=64,
+        hidden=12,
+        epochs=2,
+        batch_size=24,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="real-data",
         required_methods={"CensoredGaussianNLL", "CensoredQuantile", "AFT"},
     )
     payload = _load_payload(out)
@@ -672,6 +732,61 @@ def test_uncertain_gt_density_conformal_comparison_writes_summary_json(tmp_path:
         _assert_non_negative(row["eval_s"])
 
 
+def test_uncertain_gt_density_conformal_realdata_comparison_writes_summary_json(
+    tmp_path: Path,
+) -> None:
+    mod = _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
+    out = tmp_path / "uncertain_gt_density_conformal_realdata_summary.json"
+    cfg = mod.UncertainGTConformalRealDataConfig(
+        n_train=128,
+        n_cal=64,
+        n_test=64,
+        hidden=12,
+        epochs=2,
+        n_mc_samples=8,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="real-data",
+        required_methods={
+            "SplitConformal",
+            "DensityConformal",
+            "PrevalenceAdjustedCP",
+            "MonteCarloConformal",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "SplitConformal",
+        "DensityConformal",
+        "PrevalenceAdjustedCP",
+        "MonteCarloConformal",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Coverage90",
+                "Width90",
+                "NoisyTargetNLL",
+                "ConsistencyLoss",
+                "PseudoLabelNLL",
+                "train_s",
+                "eval_s",
+                "Notes",
+            ],
+        )
+        _assert_probability(row["Coverage90"])
+        _assert_non_negative(row["Width90"])
+        _assert_finite_numeric(row["NoisyTargetNLL"])
+        _assert_non_negative(row["ConsistencyLoss"])
+        _assert_finite_numeric(row["PseudoLabelNLL"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_causal_dr_uplift_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("causal_dr_uplift_comparison")
     out = tmp_path / "causal_dr_uplift_summary.json"
@@ -698,6 +813,56 @@ def test_causal_dr_uplift_comparison_writes_summary_json(tmp_path: Path) -> None
         "AstronomyBias-NaiveDiff",
         "AstronomyBias-DRATE",
         "AstronomyBias-DRCATE",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "ATE_true",
+                "ATE_hat",
+                "ATE_abs_error",
+                "CI_contains_true",
+                "CI_width",
+                "OverlapRate",
+                "MinESS",
+                "train_s",
+                "Notes",
+            ],
+        )
+        _assert_non_negative(row["ATE_abs_error"])
+        _assert_probability(row["CI_contains_true"])
+        _assert_non_negative(row["CI_width"])
+        _assert_probability(row["OverlapRate"])
+        _assert_non_negative(row["MinESS"])
+        _assert_non_negative(row["train_s"])
+
+
+def test_causal_dr_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("causal_dr_realdata_comparison")
+    out = tmp_path / "causal_dr_realdata_summary.json"
+    cfg = mod.CausalDRRealDataConfig(n_samples=320, folds=2)
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="real covariates",
+        required_methods={
+            "DiabetesProxy-NaiveDiff",
+            "DiabetesProxy-DRATE",
+            "DiabetesProxy-DRCATE",
+            "DiabetesSelectionBias-NaiveDiff",
+            "DiabetesSelectionBias-DRATE",
+            "DiabetesSelectionBias-DRCATE",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "DiabetesProxy-NaiveDiff",
+        "DiabetesProxy-DRATE",
+        "DiabetesProxy-DRCATE",
+        "DiabetesSelectionBias-NaiveDiff",
+        "DiabetesSelectionBias-DRATE",
+        "DiabetesSelectionBias-DRCATE",
     ):
         row = rows[method]
         _assert_row_has_keys(

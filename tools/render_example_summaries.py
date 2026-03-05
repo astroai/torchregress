@@ -305,6 +305,26 @@ def _ordinal_comparison_config(module: Any, profile: str) -> Any:
     return module.OrdinalComparisonConfig()
 
 
+def _ordinal_realdata_comparison_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.OrdinalRealDataConfig(
+            n_train=128,
+            n_test=64,
+            hidden=16,
+            epochs=4,
+            batch_size=32,
+        )
+    if profile == "audit":
+        return module.OrdinalRealDataConfig(
+            n_train=280,
+            n_test=120,
+            hidden=32,
+            epochs=20,
+            batch_size=64,
+        )
+    return module.OrdinalRealDataConfig()
+
+
 def _censored_comparison_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.CensoredComparisonConfig(
@@ -323,6 +343,26 @@ def _censored_comparison_config(module: Any, profile: str) -> Any:
             batch_size=64,
         )
     return module.CensoredComparisonConfig()
+
+
+def _censored_realdata_comparison_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.CensoredRealDataConfig(
+            n_train=128,
+            n_test=64,
+            hidden=16,
+            epochs=4,
+            batch_size=32,
+        )
+    if profile == "audit":
+        return module.CensoredRealDataConfig(
+            n_train=280,
+            n_test=120,
+            hidden=32,
+            epochs=20,
+            batch_size=64,
+        )
+    return module.CensoredRealDataConfig()
 
 
 def _propensity_tail_config(module: Any, profile: str) -> Any:
@@ -375,6 +415,28 @@ def _uncertain_gt_density_conformal_config(module: Any, profile: str) -> Any:
     return module.UncertainGTConformalConfig()
 
 
+def _uncertain_gt_density_conformal_realdata_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.UncertainGTConformalRealDataConfig(
+            n_train=128,
+            n_cal=64,
+            n_test=64,
+            hidden=16,
+            epochs=4,
+            n_mc_samples=12,
+        )
+    if profile == "audit":
+        return module.UncertainGTConformalRealDataConfig(
+            n_train=220,
+            n_cal=110,
+            n_test=90,
+            hidden=24,
+            epochs=16,
+            n_mc_samples=18,
+        )
+    return module.UncertainGTConformalRealDataConfig()
+
+
 def _causal_dr_uplift_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.CausalDRConfig(
@@ -387,6 +449,20 @@ def _causal_dr_uplift_config(module: Any, profile: str) -> Any:
             folds=3,
         )
     return module.CausalDRConfig()
+
+
+def _causal_dr_realdata_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.CausalDRRealDataConfig(
+            n_samples=280,
+            folds=2,
+        )
+    if profile == "audit":
+        return module.CausalDRRealDataConfig(
+            n_samples=360,
+            folds=3,
+        )
+    return module.CausalDRRealDataConfig()
 
 
 EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
@@ -438,9 +514,17 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
         "filename": "ordinal_regression_comparison",
         "config_factory": _ordinal_comparison_config,
     },
+    "ordinal_regression_realdata_comparison": {
+        "filename": "ordinal_regression_realdata_comparison",
+        "config_factory": _ordinal_realdata_comparison_config,
+    },
     "censored_regression_comparison": {
         "filename": "censored_regression_comparison",
         "config_factory": _censored_comparison_config,
+    },
+    "censored_regression_realdata_comparison": {
+        "filename": "censored_regression_realdata_comparison",
+        "config_factory": _censored_realdata_comparison_config,
     },
     "propensity_tail_regression_comparison": {
         "filename": "propensity_tail_regression_comparison",
@@ -454,9 +538,17 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
         "filename": "uncertain_gt_density_conformal_comparison",
         "config_factory": _uncertain_gt_density_conformal_config,
     },
+    "uncertain_gt_density_conformal_realdata_comparison": {
+        "filename": "uncertain_gt_density_conformal_realdata_comparison",
+        "config_factory": _uncertain_gt_density_conformal_realdata_config,
+    },
     "causal_dr_uplift_comparison": {
         "filename": "causal_dr_uplift_comparison",
         "config_factory": _causal_dr_uplift_config,
+    },
+    "causal_dr_realdata_comparison": {
+        "filename": "causal_dr_realdata_comparison",
+        "config_factory": _causal_dr_realdata_config,
     },
 }
 

@@ -158,6 +158,7 @@ for epoch in range(200):
 
 - [Censored Metrics](../metrics/censored.md) — concordance index, Brier score, etc.
 - [Censored Regression Comparison](../examples/censored_regression_comparison.md) — end-to-end benchmark
+- [Censored Regression Comparison (Real Data)](../examples/censored_regression_realdata_comparison.md) — real-data benchmark
 
 ---
 

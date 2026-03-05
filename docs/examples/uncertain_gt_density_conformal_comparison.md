@@ -36,3 +36,5 @@ uv run python examples/uncertain_gt_density_conformal_comparison.py
 uv run python examples/uncertain_gt_density_conformal_comparison.py \
   --summary-json-path reports/example_summaries/uncertain_gt_density_conformal_comparison_full.json
 ```
+
+See also: [Uncertain-GT + Density Conformal Comparison (Real Data)](uncertain_gt_density_conformal_realdata_comparison.md)

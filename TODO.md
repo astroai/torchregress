@@ -35,13 +35,15 @@ atomic tranche roadmap.
 ## P0 (Current highest leverage)
 
 ### 1) Real-data benchmark depth for adoption claims
-- [ ] Add at least one additional real dataset each for:
+- [x] Add at least one additional real dataset each for:
   - OOD/selective prediction
   - uncertain ground-truth
   - censored regression
   - ordinal regression
   - causal effect estimation
-- [ ] Keep synthetic tracks for fast CI; run heavier real-data tracks manually/scheduled.
+- [x] Keep synthetic tracks for fast CI; run heavier real-data tracks manually/scheduled.
+  - Real-data comparison tracks now exist for ordinal, censored, uncertain-GT, and causal DR.
+  - Synthetic tracks remain in place as CI-friendly baselines.
 
 ### 2) Photo-z benchmark parity hardening (RAIL + NNC-CRPS track)
 - [x] Finalize manifest-backed dataset parity checks for paper-comparable runs.

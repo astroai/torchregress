@@ -794,9 +794,16 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
     ),
     ComparativeEvidenceRow(
         task="Uncertain ground-truth + density-aware conformal",
-        examples=("examples/uncertain_gt_density_conformal_comparison.py",),
+        examples=(
+            "examples/uncertain_gt_density_conformal_comparison.py",
+            "examples/uncertain_gt_density_conformal_realdata_comparison.py",
+        ),
         comparison_grade="Strong",
-        fairness_controls=("fixed seed", "shared synthetic split", "shared calibration budget"),
+        fairness_controls=(
+            "fixed seed",
+            "shared synthetic/real-data split",
+            "shared calibration budget",
+        ),
         metrics_coverage=(
             "coverage",
             "interval width",
@@ -814,17 +821,27 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "PseudoLabelNLL",
             "ConsistencyRegLoss",
         ),
-        gaps="Needs real-data uncertain-label benchmarks for external validity.",
+        gaps=(
+            "Includes one real-data proxy benchmark; needs domain-native uncertain-label datasets "
+            "for stronger external validity."
+        ),
         notes=(
-            "Current evidence is synthetic but compares uncertain-GT losses and "
-            "density/prevalence/MC conformal variants under matched budgets."
+            "Evidence now includes synthetic and real-data (Diabetes) uncertain-label tracks with "
+            "matched conformal variants and uncertain-GT objective reporting."
         ),
     ),
     ComparativeEvidenceRow(
         task="Causal inference regression (DR ATE/CATE)",
-        examples=("examples/causal_dr_uplift_comparison.py",),
+        examples=(
+            "examples/causal_dr_uplift_comparison.py",
+            "examples/causal_dr_realdata_comparison.py",
+        ),
         comparison_grade="Strong",
-        fairness_controls=("fixed seed", "shared synthetic scenarios", "matched nuisance models"),
+        fairness_controls=(
+            "fixed seed",
+            "shared synthetic/real-covariate scenarios",
+            "matched nuisance models",
+        ),
         metrics_coverage=(
             "ATE absolute error",
             "CI contains true ATE",
@@ -834,10 +851,13 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "runtime",
         ),
         peer_methods_visible=("dr_ate", "dr_cate", "naive difference-in-means"),
-        gaps="Needs real treatment-effect benchmarks beyond synthetic scenarios.",
+        gaps=(
+            "Includes real-covariate proxy benchmarks; needs external treatment-effect datasets "
+            "for stronger external validity."
+        ),
         notes=(
-            "Current evidence includes synthetic uplift and astronomy-style selection-bias "
-            "proxies with cross-fitted DR estimators and overlap diagnostics."
+            "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate "
+            "Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap diagnostics."
         ),
     ),
     ComparativeEvidenceRow(
@@ -881,30 +901,48 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
     ),
     ComparativeEvidenceRow(
         task="Ordinal regression / ordered targets",
-        examples=("examples/ordinal_regression_comparison.py",),
+        examples=(
+            "examples/ordinal_regression_comparison.py",
+            "examples/ordinal_regression_realdata_comparison.py",
+        ),
         comparison_grade="Strong",
-        fairness_controls=("fixed seed", "shared synthetic split", "matched model capacity"),
+        fairness_controls=(
+            "fixed seed",
+            "shared synthetic/real-data split",
+            "matched model capacity",
+        ),
         metrics_coverage=("accuracy", "ordinal class MAE", "QWK", "runtime"),
         peer_methods_visible=("OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"),
         gaps=(
-            "Needs at least one real-data ordered-target benchmark for stronger external validity."
+            "Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label "
+            "datasets for stronger external validity."
         ),
         notes=(
-            "Comparison example evaluates class-logit and cumulative objectives under shared "
-            "training budgets and ordinal-aware metrics."
+            "Comparison examples evaluate class-logit and cumulative objectives under shared "
+            "training budgets and ordinal-aware metrics on synthetic and real-data tracks."
         ),
     ),
     ComparativeEvidenceRow(
         task="Censored / interval-censored regression",
-        examples=("examples/censored_regression_comparison.py",),
+        examples=(
+            "examples/censored_regression_comparison.py",
+            "examples/censored_regression_realdata_comparison.py",
+        ),
         comparison_grade="Strong",
-        fairness_controls=("fixed seed", "shared censoring split", "matched model capacity"),
+        fairness_controls=(
+            "fixed seed",
+            "shared synthetic/real-data censoring split",
+            "matched model capacity",
+        ),
         metrics_coverage=("true-target MAE", "observed MAE", "concordance index", "runtime"),
         peer_methods_visible=("CensoredGaussianNLLLoss", "CensoredQuantileLoss", "AFTLoss"),
-        gaps="Needs real-data censored benchmark(s) beyond synthetic generation.",
+        gaps=(
+            "Includes one real-data synthetic-censoring benchmark; needs naturally censored "
+            "datasets for stronger external validity."
+        ),
         notes=(
-            "Example includes right/left censoring plus explicit interval-censored samples "
-            "under a shared training budget."
+            "Examples include right/left censoring plus explicit interval-censored samples "
+            "under shared training budgets on synthetic and real-data tracks."
         ),
     ),
     ComparativeEvidenceRow(

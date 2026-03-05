@@ -13,7 +13,7 @@
     "python": "3.12.12"
   },
   "examples": {
-    "count": 39,
+    "count": 43,
     "counts": {
       "invalid_imports": 0
     },
@@ -77,6 +77,18 @@
           "seeded": true,
           "uses_argparse": true
         },
+        "path": "examples/causal_dr_realdata_comparison.py",
+        "topics": [
+          "benchmark_or_compare"
+        ]
+      },
+      {
+        "comparability_signals": {
+          "compares_multiple_methods": true,
+          "prints_metrics": false,
+          "seeded": true,
+          "uses_argparse": true
+        },
         "path": "examples/causal_dr_uplift_comparison.py",
         "topics": [
           "benchmark_or_compare"
@@ -90,6 +102,18 @@
           "uses_argparse": true
         },
         "path": "examples/censored_regression_comparison.py",
+        "topics": [
+          "benchmark_or_compare"
+        ]
+      },
+      {
+        "comparability_signals": {
+          "compares_multiple_methods": true,
+          "prints_metrics": true,
+          "seeded": true,
+          "uses_argparse": true
+        },
+        "path": "examples/censored_regression_realdata_comparison.py",
         "topics": [
           "benchmark_or_compare"
         ]
@@ -428,6 +452,18 @@
       },
       {
         "comparability_signals": {
+          "compares_multiple_methods": true,
+          "prints_metrics": true,
+          "seeded": true,
+          "uses_argparse": true
+        },
+        "path": "examples/ordinal_regression_realdata_comparison.py",
+        "topics": [
+          "benchmark_or_compare"
+        ]
+      },
+      {
+        "comparability_signals": {
           "compares_multiple_methods": false,
           "prints_metrics": true,
           "seeded": true,
@@ -552,19 +588,33 @@
           "uncertainty",
           "benchmark_or_compare"
         ]
+      },
+      {
+        "comparability_signals": {
+          "compares_multiple_methods": true,
+          "prints_metrics": false,
+          "seeded": true,
+          "uses_argparse": true
+        },
+        "path": "examples/uncertain_gt_density_conformal_realdata_comparison.py",
+        "topics": [
+          "calibration",
+          "uncertainty",
+          "benchmark_or_compare"
+        ]
       }
     ],
     "invalid_imports": [],
     "topic_totals": {
-      "benchmark_or_compare": 35,
-      "calibration": 16,
+      "benchmark_or_compare": 39,
+      "calibration": 17,
       "imbalance": 6,
       "multi_target": 4,
       "multimodal": 5,
       "noisy_features_eiv": 6,
       "noisy_labels": 11,
       "ood": 8,
-      "uncertainty": 16
+      "uncertainty": 17
     }
   },
   "public_exports": {
@@ -1901,6 +1951,11 @@
       },
       {
         "kind": "function",
+        "name": "validate_url",
+        "object_module": "torchregress.utils.security"
+      },
+      {
+        "kind": "function",
         "name": "validate_weights",
         "object_module": "torchregress.utils.validation"
       }
@@ -2045,9 +2100,9 @@
   },
   "tests": {
     "direct_file_coverage": {
-      "count": 62,
-      "direct_count": 26,
-      "direct_fraction": 0.41935483870967744,
+      "count": 63,
+      "direct_count": 27,
+      "direct_fraction": 0.42857142857142855,
       "rows": [
         {
           "direct_test": "yes",
@@ -2268,6 +2323,10 @@
         {
           "direct_test": "no",
           "path": "torchregress/utils/scaling.py"
+        },
+        {
+          "direct_test": "yes",
+          "path": "torchregress/utils/security.py"
         },
         {
           "direct_test": "no",

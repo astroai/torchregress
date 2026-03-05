@@ -28,3 +28,5 @@ uv run python examples/censored_regression_comparison.py
 uv run python examples/censored_regression_comparison.py \
   --summary-json-path reports/example_summaries/censored_regression_comparison_full.json
 ```
+
+See also: [Censored Regression Comparison (Real Data)](censored_regression_realdata_comparison.md)
