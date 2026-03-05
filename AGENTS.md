@@ -378,3 +378,73 @@ uv run ruff check torchregress tests tools
 uv run mypy torchregress
 uv run mkdocs build
 ```
+
+## Scheduled Governance Automation
+
+Heavy governance refresh runs should stay outside default PR/push CI.
+
+- Scheduled/manual workflow: `.github/workflows/governance-refresh.yml`
+- Trigger policy:
+  - `schedule` for recurring artifact refresh
+  - `workflow_dispatch` for manual refresh
+  - **no** `push`/`pull_request` triggers for this workflow
+
+Manual local equivalent (full governance refresh):
+
+```bash
+uv run python tools/render_example_summaries.py --profile smoke
+uv run python tools/render_example_summaries.py --profile audit
+uv run python tools/render_example_summaries.py --profile full
+uv run python tools/compare_example_summary_profiles.py \
+  --base-dir reports/example_summaries \
+  --source-profile audit \
+  --target-profile full \
+  --output reports/example_summaries/profile_comparison_audit_vs_full.json
+uv run python tools/example_summary_thresholds.py \
+  --base-dir reports/example_summaries \
+  --profile full \
+  --threshold-profile ci_conservative \
+  --write-thresholds reports/example_summaries/thresholds_full.json \
+  --thresholds reports/example_summaries/thresholds_full.json \
+  --output-verdict reports/example_summaries/threshold_check_full_latest.json
+uv run python tools/example_summary_thresholds.py \
+  --base-dir reports/example_summaries \
+  --profile full \
+  --threshold-profile review_strict \
+  --write-thresholds reports/example_summaries/thresholds_full_review_strict.json \
+  --thresholds reports/example_summaries/thresholds_full_review_strict.json \
+  --output-verdict reports/example_summaries/threshold_check_full_review_strict_latest.json \
+  --runtime-multiplier 6.0 \
+  --runtime-floor 0.35 \
+  --metric-multiplier 3.0 \
+  --metric-floor 0.2 \
+  --prob-delta 0.25 \
+  --r2-delta 1.0
+uv run python -m tools.benchmark_smoke \
+  --mode smoke \
+  --iterations 2 \
+  --warmup 1 \
+  --device cpu \
+  --thresholds reports/benchmark_thresholds/cpu/smoke.json \
+  --fail-on-thresholds
+uv run python -m tools.benchmark_smoke \
+  --mode sweep \
+  --iterations 2 \
+  --warmup 1 \
+  --device cpu \
+  --thresholds reports/benchmark_thresholds/cpu/sweep.json \
+  --fail-on-thresholds
+uv run python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
+uv run python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
+uv run python tools/render_method_catalog.py \
+  --markdown-out docs/guides/method_catalog_generated.md \
+  --json-out reports/method_catalog_latest.json \
+  --update-method-matrix docs/guides/method_selection_matrix.md \
+  --comparative-evidence-md-out docs/guides/comparative_evidence_matrix.md \
+  --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
+uv run python -m tools.render_realdata_recommendation_guide \
+  --doc docs/guides/real_data_recommendation_guide.md \
+  --comparative-json reports/comparative_evidence_matrix_latest.json
+uv run python tools/adoption_audit.py --json reports/adoption_readiness_2026-02-25.json --print-summary
+uv run python tools/render_review_packet.py
+```

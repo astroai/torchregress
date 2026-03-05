@@ -83,12 +83,12 @@ atomic tranche roadmap.
 - [x] Split “works in synthetic”, “works in real proxy”, “decision-grade real-data” explicitly.
 
 ### 8) Scheduled benchmark automation
-- [ ] Add lightweight scheduled jobs to refresh governed artifacts.
-- [ ] Keep PR CI fast; perform heavy data runs outside default PR path.
+- [x] Add lightweight scheduled jobs to refresh governed artifacts.
+- [x] Keep PR CI fast; perform heavy data runs outside default PR path.
 
 ## Not planned right now
 - [ ] New major algorithm families without evidence-backed benchmark need.
 - [ ] Feature expansion that increases API surface before real-data evidence catches up.
 
 ## Next execution order
-1. Scheduled benchmark automation (P2.8)
+1. Maintain and expand real-data external-validity tracks from comparative-evidence gaps.
