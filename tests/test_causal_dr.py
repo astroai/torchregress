@@ -41,6 +41,9 @@ def test_dr_ate_runs_and_returns_ci() -> None:
         seed=2,
     )
     assert "estimate" in out and "ci_low" in out and "ci_high" in out
+    assert "ci_lower" in out and "ci_upper" in out
+    assert out["ci_low"] == out["ci_lower"]
+    assert out["ci_high"] == out["ci_upper"]
     assert out["ci_low"] <= out["estimate"] <= out["ci_high"]
     assert out["diagnostics"]["overlap_rate"] >= 0.0
 
@@ -60,6 +63,8 @@ def test_dr_cate_returns_vector_and_aggregate() -> None:
     )
     cate_hat = out["cate_hat"]
     assert cate_hat.shape == (700,)
+    assert out["ate_ci_low"] == out["ate_ci_lower"]
+    assert out["ate_ci_high"] == out["ate_ci_upper"]
     assert out["ate_ci_low"] <= out["ate_estimate"] <= out["ate_ci_high"]
 
 

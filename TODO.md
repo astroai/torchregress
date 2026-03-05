@@ -73,8 +73,8 @@ atomic tranche roadmap.
 - [x] Add regression thresholds for these paths where signal/noise ratio is acceptable.
 
 ### 6) API consistency sweep (final polish)
-- [ ] Re-check naming/signature consistency across old/new modules.
-- [ ] Tighten public contract tests for any newly exposed helper APIs.
+- [x] Re-check naming/signature consistency across old/new modules.
+- [x] Tighten public contract tests for any newly exposed helper APIs.
 
 ## P2 (Strategic)
 

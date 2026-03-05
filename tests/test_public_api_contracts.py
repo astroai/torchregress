@@ -138,6 +138,24 @@ EXPECTED_EXPORTS = {
         "dr_policy_value",
         "causal_overlap_report",
     ],
+    "inference": [
+        "ppi_mean_ci",
+        "ppi_quantile_ci",
+        "ppi_ols_ci",
+        "ppi_diagnostics",
+    ],
+    "constraints": [
+        "NonNegativeHead",
+        "BoundedHead",
+        "SimplexHead",
+        "NonCrossingSort",
+        "SpectralNormWrapper",
+    ],
+    "calibration": [
+        "VarianceTemperatureScaler",
+        "IsotonicMeanCalibrator",
+        "PITCalibrator",
+    ],
 }
 
 
@@ -218,6 +236,85 @@ EXPECTED_SIGNATURES = {
 }
 
 
+EXPECTED_PARAM_ORDERS = {
+    "inference.ppi_mean_ci": [
+        "y_labeled",
+        "pred_labeled",
+        "pred_unlabeled",
+        "alpha",
+        "method",
+        "n_boot",
+        "seed",
+    ],
+    "inference.ppi_quantile_ci": [
+        "y_labeled",
+        "pred_labeled",
+        "pred_unlabeled",
+        "q",
+        "alpha",
+        "method",
+        "n_boot",
+        "seed",
+    ],
+    "inference.ppi_ols_ci": [
+        "x_labeled",
+        "y_labeled",
+        "x_unlabeled",
+        "pred_labeled",
+        "pred_unlabeled",
+        "alpha",
+        "add_intercept",
+        "n_boot",
+        "seed",
+    ],
+    "inference.ppi_diagnostics": ["y_labeled", "pred_labeled", "pred_unlabeled"],
+    "causal.dr_ate": [
+        "x",
+        "t",
+        "y",
+        "outcome_model",
+        "propensity_model",
+        "folds",
+        "alpha",
+        "seed",
+        "trim_threshold",
+        "eps",
+    ],
+    "causal.dr_cate": [
+        "x",
+        "t",
+        "y",
+        "cate_model",
+        "outcome_model",
+        "propensity_model",
+        "folds",
+        "alpha",
+        "seed",
+        "trim_threshold",
+        "eps",
+    ],
+    "calibration.VarianceTemperatureScaler.fit": [
+        "self",
+        "pred_mean",
+        "pred_var",
+        "target",
+        "max_iter",
+        "lr",
+    ],
+    "calibration.VarianceTemperatureScaler.transform": ["self", "pred_var"],
+    "calibration.IsotonicMeanCalibrator.fit": ["self", "pred_mean", "target"],
+    "calibration.IsotonicMeanCalibrator.transform": ["self", "pred_mean"],
+    "calibration.PITCalibrator.fit": ["self", "pit_values"],
+    "calibration.PITCalibrator.transform": ["self", "pit_values"],
+    "calibration.PITCalibrator.pit_from_gaussian": ["pred_mean", "pred_std", "target"],
+    "constraints.NonNegativeHead.forward": ["self", "x", "args", "kwargs"],
+    "constraints.BoundedHead.forward": ["self", "x", "args", "kwargs"],
+    "constraints.SimplexHead.forward": ["self", "x", "args", "kwargs"],
+    "constraints.NonCrossingSort.forward": ["self", "x"],
+    "constraints.SpectralNormWrapper.forward": ["self", "args", "kwargs"],
+}
+
+
 def _resolve(name: str):
     obj = tr
     for part in name.split("."):
@@ -290,6 +387,9 @@ def test_public_exports_snapshot_non_losses() -> None:
         "ensemble": tr.ensemble,
         "algorithms": tr.algorithms,
         "causal": tr.causal,
+        "inference": tr.inference,
+        "constraints": tr.constraints,
+        "calibration": tr.calibration,
     }
     for module_name, expected in EXPECTED_EXPORTS.items():
         actual = list(module_map[module_name].__all__)
@@ -304,6 +404,14 @@ def test_signature_snapshots_non_losses() -> None:
         assert _normalize_union_optional(actual) == _normalize_union_optional(
             expected
         ), f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
+
+
+def test_parameter_order_contracts_for_new_helper_apis() -> None:
+    for path, expected_order in EXPECTED_PARAM_ORDERS.items():
+        actual_order = list(inspect.signature(_resolve(path)).parameters.keys())
+        assert actual_order == expected_order, (
+            f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
+        )
 
 
 def test_top_level_submodules_are_lazy_loaded() -> None:

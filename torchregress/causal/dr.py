@@ -181,6 +181,8 @@ def dr_ate(
     return {
         "estimate": ate,
         "se": se,
+        "ci_lower": ci_low,
+        "ci_upper": ci_high,
         "ci_low": ci_low,
         "ci_high": ci_high,
         "alpha": alpha,
@@ -237,6 +239,8 @@ def dr_cate(
     return {
         "ate_estimate": ate,
         "ate_se": se,
+        "ate_ci_lower": ci_low,
+        "ate_ci_upper": ci_high,
         "ate_ci_low": ci_low,
         "ate_ci_high": ci_high,
         "alpha": alpha,
