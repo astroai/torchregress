@@ -17,6 +17,7 @@ Script: `examples/ood_selective_prediction_comparison.py`
 - ID / OOD MSE
 - Risk-Coverage Curve (`AURC`)
 - Rejection policy risk / coverage at fixed rejection fraction
+- Split-conformal interval metrics (`ConformalCov90_ID`, `ConformalCov90_OOD`, `ConformalWidth90_ID`)
 - OOD uncertainty gap (ID vs OOD average uncertainty)
 - Runtime (`train_s`, `eval_s`)
 

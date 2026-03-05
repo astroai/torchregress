@@ -61,9 +61,12 @@ atomic tranche roadmap.
 ## P1 (Near-term)
 
 ### 4) Comparative evidence quality uplift
-- [ ] Broaden model-family comparisons for imbalance/long-tail tasks (beyond reweighting-only comparisons).
-- [ ] Expand conformal+ensemble/BNN/SWAG combinations in calibrated interval benchmarks.
-- [ ] Add stronger failure-mode notes per example for user decision support.
+- [x] Broaden model-family comparisons for imbalance/long-tail tasks (beyond reweighting-only comparisons).
+- [x] Expand conformal+ensemble/BNN/SWAG combinations in calibrated interval benchmarks.
+- [x] Add stronger failure-mode notes per example for user decision support.
+  - Propensity/long-tail comparison now includes GaussianNLL and quantile-family baselines with interval diagnostics.
+  - OOD/selective comparisons now report split-conformal interval metrics across DeepEnsemble, MC dropout, SWAG, and BNN.
+  - Example docs and summary notes now include explicit failure-mode guidance.
 
 ### 5) Performance governance
 - [ ] Add stable microbenchmark baselines for newly added cores (ordinal/censored/uncertain_gt/causal/ppi).
@@ -88,7 +91,7 @@ atomic tranche roadmap.
 - [ ] Feature expansion that increases API surface before real-data evidence catches up.
 
 ## Next execution order
-1. Comparative evidence quality uplift (P1.4)
-2. Performance governance (P1.5)
-3. API consistency sweep (P1.6)
-4. Real-data-first recommendation guide (P2.7)
+1. Performance governance (P1.5)
+2. API consistency sweep (P1.6)
+3. Real-data-first recommendation guide (P2.7)
+4. Scheduled benchmark automation (P2.8)

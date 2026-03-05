@@ -197,7 +197,7 @@ def test_render_example_summaries_propensity_tail_subset(tmp_path: Path) -> None
     assert payload["artifact"] == "comparison_example_summary"
     assert "selection bias" in payload["task"].lower()
     methods = {row["Method"] for row in payload["rows"]}
-    assert {"MSE", "DensityWeighted", "PropensityWeighted"} <= methods
+    assert {"MSE", "DensityWeighted", "PropensityWeighted", "GaussianNLL", "Quantile90"} <= methods
 
 
 def test_render_example_summaries_constraints_calibration_subset(tmp_path: Path) -> None:

@@ -40,7 +40,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/ordinal_regression_realdata_comparison.py`: real-data ordinal comparison on Diabetes with train-quantile binning
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
 - `examples/censored_regression_realdata_comparison.py`: real-data censored comparison on Diabetes with shared censoring overlays
-- `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`)
+- `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`, `GaussianNLL`, `Quantile90`)
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
 - `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison
 - `examples/uncertain_gt_density_conformal_realdata_comparison.py`: real-data uncertain-label + conformal comparison on Diabetes
@@ -208,8 +208,8 @@ A real-world application for astronomy:
 ### [Propensity + Tail Regression Comparison](propensity_tail_regression_comparison.md)
 
 - Shared-budget comparison under covariate-dependent label observation.
-- Compares naive observed-only MSE, density weighting, and propensity weighting.
-- Reports overall MAE plus upper-tail MAE/RMSE and runtime.
+- Compares reweighting methods plus distributional/quantile families.
+- Reports overall MAE, upper-tail MAE/RMSE, native interval coverage/width, and runtime.
 
 ### [Constraints + Calibration Comparison](constraints_calibration_comparison.md)
 
@@ -287,12 +287,12 @@ A real-world application for astronomy:
 ### [OOD / Selective Prediction Comparison](ood_selective_prediction_comparison.md)
 
 - Shared-budget comparison of uncertainty methods for risk-coverage and OOD signal behavior.
-- Includes AURC, rejection-policy risk/coverage, and OOD uncertainty-gap summaries.
+- Includes AURC, rejection-policy risk/coverage, split-conformal interval metrics, and OOD uncertainty-gap summaries.
 
 ### [OOD / Selective Prediction Comparison (Real Data)](ood_selective_prediction_realdata_comparison.md)
 
 - Shared-budget comparison on Diabetes with deterministic covariate-shift OOD split.
-- Adds real-data evidence breadth for OOD/selective tradeoffs across DeepEnsemble/MCDropout/`SWAG`/`BNN`.
+- Adds real-data evidence breadth for OOD/selective tradeoffs across DeepEnsemble/MCDropout/`SWAG`/`BNN` with split-conformal interval diagnostics.
 
 ### [EIV Method Comparison](eiv_method_comparison.md)
 

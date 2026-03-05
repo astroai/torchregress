@@ -91,6 +91,7 @@ def test_ood_comparison_writes_summary_json(tmp_path: Path) -> None:
     out = tmp_path / "ood_summary.json"
     cfg = mod.OODConfig(
         n_train=24,
+        n_cal=12,
         n_id_test=16,
         n_ood_test=16,
         epochs=1,
@@ -129,6 +130,9 @@ def test_ood_comparison_writes_summary_json(tmp_path: Path) -> None:
                 "AURC",
                 "rej20_risk",
                 "rej20_cov",
+                "ConformalCov90_ID",
+                "ConformalCov90_OOD",
+                "ConformalWidth90_ID",
                 "ood_unc_gap",
                 "train_s",
                 "eval_s",
@@ -137,6 +141,9 @@ def test_ood_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_finite_numeric(row["MSE_ID"])
         _assert_finite_numeric(row["AURC"])
         _assert_probability(row["rej20_cov"])
+        _assert_probability(row["ConformalCov90_ID"])
+        _assert_probability(row["ConformalCov90_OOD"])
+        _assert_non_negative(row["ConformalWidth90_ID"])
         _assert_non_negative(row["rej20_risk"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
@@ -147,6 +154,7 @@ def test_ood_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
     out = tmp_path / "ood_realdata_summary.json"
     cfg = mod.OODRealDataConfig(
         n_train=64,
+        n_cal=24,
         n_id_test=24,
         n_ood_test=24,
         epochs=1,
@@ -185,6 +193,9 @@ def test_ood_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
                 "AURC",
                 "rej20_risk",
                 "rej20_cov",
+                "ConformalCov90_ID",
+                "ConformalCov90_OOD",
+                "ConformalWidth90_ID",
                 "ood_unc_gap",
                 "train_s",
                 "eval_s",
@@ -194,6 +205,9 @@ def test_ood_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_non_negative(row["MSE_OOD"])
         _assert_non_negative(row["AURC"])
         _assert_probability(row["rej20_cov"])
+        _assert_probability(row["ConformalCov90_ID"])
+        _assert_probability(row["ConformalCov90_OOD"])
+        _assert_non_negative(row["ConformalWidth90_ID"])
         _assert_non_negative(row["rej20_risk"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
@@ -628,15 +642,32 @@ def test_propensity_tail_regression_comparison_writes_summary_json(tmp_path: Pat
     _assert_summary_schema(
         out,
         task_substring="selection bias",
-        required_methods={"MSE", "DensityWeighted", "PropensityWeighted"},
+        required_methods={
+            "MSE",
+            "DensityWeighted",
+            "PropensityWeighted",
+            "GaussianNLL",
+            "Quantile90",
+        },
     )
     payload = _load_payload(out)
     rows = _rows_by_method(payload)
-    for method in ("MSE", "DensityWeighted", "PropensityWeighted"):
+    for method in ("MSE", "DensityWeighted", "PropensityWeighted", "GaussianNLL", "Quantile90"):
         row = rows[method]
         _assert_row_has_keys(
             row,
-            ["MAE", "TailMAE90", "TailRMSE90", "ObservedRate", "train_s", "eval_s", "Notes"],
+            [
+                "MAE",
+                "TailMAE90",
+                "TailRMSE90",
+                "NativeCov90",
+                "NativeWidth90",
+                "TailCov90",
+                "ObservedRate",
+                "train_s",
+                "eval_s",
+                "Notes",
+            ],
         )
         _assert_non_negative(row["MAE"])
         _assert_non_negative(row["TailMAE90"])
@@ -644,6 +675,10 @@ def test_propensity_tail_regression_comparison_writes_summary_json(tmp_path: Pat
         _assert_probability(row["ObservedRate"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
+        if method in {"GaussianNLL", "Quantile90"}:
+            _assert_probability(row["NativeCov90"])
+            _assert_non_negative(row["NativeWidth90"])
+            _assert_probability(row["TailCov90"])
 
 
 def test_constraints_calibration_comparison_writes_summary_json(tmp_path: Path) -> None:

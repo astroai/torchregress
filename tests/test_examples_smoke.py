@@ -225,6 +225,7 @@ def test_ood_selective_prediction_comparison_main_smoke() -> None:
     mod = _load_example_module("ood_selective_prediction_comparison")
     cfg = mod.OODConfig(
         n_train=24,
+        n_cal=12,
         n_id_test=16,
         n_ood_test=16,
         epochs=1,
@@ -240,6 +241,7 @@ def test_ood_selective_prediction_realdata_comparison_main_smoke() -> None:
     mod = _load_example_module("ood_selective_prediction_realdata_comparison")
     cfg = mod.OODRealDataConfig(
         n_train=64,
+        n_cal=24,
         n_id_test=24,
         n_ood_test=24,
         epochs=1,

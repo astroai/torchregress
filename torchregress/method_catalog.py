@@ -764,17 +764,40 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         ),
         comparison_grade="Strong",
         fairness_controls=("shared split", "summary tables"),
-        metrics_coverage=("tail vs dense metrics", "tail MAE/RMSE", "calibration", "runtime"),
-        peer_methods_visible=("DensityWeightedLoss", "PropensityWeightedLoss", "LDSLoss"),
-        gaps="Needs more model-family comparisons beyond reweighting losses.",
+        metrics_coverage=(
+            "tail vs dense metrics",
+            "tail MAE/RMSE",
+            "native interval coverage/width",
+            "runtime",
+        ),
+        peer_methods_visible=(
+            "DensityWeightedLoss",
+            "PropensityWeightedLoss",
+            "LDSLoss",
+            "GaussianNLLLoss",
+            "MultiQuantileLoss",
+        ),
+        gaps="Needs additional real-data long-tail benchmarks beyond synthetic selection proxies.",
     ),
     ComparativeEvidenceRow(
         task="Selection bias / long-tail with missing labels",
         examples=("examples/propensity_tail_regression_comparison.py",),
         comparison_grade="Strong",
         fairness_controls=("fixed seed", "shared selection process", "matched model capacity"),
-        metrics_coverage=("MAE", "tail MAE/RMSE", "observed-rate diagnostics", "runtime"),
-        peer_methods_visible=("PropensityWeightedLoss", "DensityWeightedLoss", "WeightedMSELoss"),
+        metrics_coverage=(
+            "MAE",
+            "tail MAE/RMSE",
+            "native interval coverage/width",
+            "observed-rate diagnostics",
+            "runtime",
+        ),
+        peer_methods_visible=(
+            "PropensityWeightedLoss",
+            "DensityWeightedLoss",
+            "WeightedMSELoss",
+            "GaussianNLLLoss",
+            "MultiQuantileLoss",
+        ),
         gaps="Needs real-data selection-bias benchmarks beyond synthetic generation.",
     ),
     ComparativeEvidenceRow(
@@ -864,6 +887,8 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Calibrated intervals / coverage",
         examples=(
             "examples/evaluate_conformal_methods.py",
+            "examples/ood_selective_prediction_comparison.py",
+            "examples/ood_selective_prediction_realdata_comparison.py",
             "examples/photoz_benchmark_comparison.py",
             "examples/photoz_nnc_crps_rail_comparison.py",
         ),
@@ -874,16 +899,24 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "shared train budget",
         ),
         metrics_coverage=("coverage", "interval width", "runtime", "domain error metrics"),
-        peer_methods_visible=("ConformalLoss", "QuantileLoss", "GaussianNLLLoss"),
+        peer_methods_visible=(
+            "ConformalLoss",
+            "QuantileLoss",
+            "GaussianNLLLoss",
+            "DeepEnsemble",
+            "SWAG",
+            "BayesianNeuralNetwork",
+        ),
         gaps=(
-            "Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) "
-            "needed for stronger generalization claims."
+            "Coverage evidence now spans ensemble/SWAG/BNN base models; still needs "
+            "multi-domain real-data calibration benchmarks under stronger shift."
         ),
         notes=(
             "Photo-z benchmark adds domain-realistic coverage/width evaluation for Gaussian and "
-            "quantile intervals alongside photo-z metrics; conformal method comparisons remain "
-            "the primary coverage-guarantee benchmark. Ordered-bin NNC-CRPS-style comparisons "
-            "are available in examples/photoz_nnc_crps_rail_comparison.py."
+            "quantile intervals alongside photo-z metrics; OOD/selective comparisons now include "
+            "split-conformal interval diagnostics across DeepEnsemble/MCDropout/SWAG/BNN. "
+            "Ordered-bin NNC-CRPS-style comparisons are available in "
+            "examples/photoz_nnc_crps_rail_comparison.py."
         ),
     ),
     ComparativeEvidenceRow(

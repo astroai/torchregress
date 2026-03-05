@@ -419,6 +419,7 @@
         },
         "path": "examples/ood_selective_prediction_comparison.py",
         "topics": [
+          "calibration",
           "ood",
           "uncertainty",
           "benchmark_or_compare"
@@ -433,6 +434,7 @@
         },
         "path": "examples/ood_selective_prediction_realdata_comparison.py",
         "topics": [
+          "calibration",
           "ood",
           "uncertainty",
           "benchmark_or_compare"
@@ -572,6 +574,8 @@
         "path": "examples/propensity_tail_regression_comparison.py",
         "topics": [
           "imbalance",
+          "multimodal",
+          "uncertainty",
           "benchmark_or_compare"
         ]
       },
@@ -607,14 +611,14 @@
     "invalid_imports": [],
     "topic_totals": {
       "benchmark_or_compare": 39,
-      "calibration": 17,
+      "calibration": 19,
       "imbalance": 6,
       "multi_target": 4,
-      "multimodal": 5,
+      "multimodal": 6,
       "noisy_features_eiv": 6,
       "noisy_labels": 11,
       "ood": 8,
-      "uncertainty": 17
+      "uncertainty": 18
     }
   },
   "public_exports": {

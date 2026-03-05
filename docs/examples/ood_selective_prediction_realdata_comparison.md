@@ -19,6 +19,7 @@ Script: `examples/ood_selective_prediction_realdata_comparison.py`
 - `MSE_ID`, `MSE_OOD`
 - `AURC` (risk-coverage)
 - `rej20_risk`, `rej20_cov`
+- `ConformalCov90_ID`, `ConformalCov90_OOD`, `ConformalWidth90_ID`
 - `ood_unc_gap`
 - `train_s`, `eval_s`
 
@@ -38,6 +39,7 @@ Script: `examples/ood_selective_prediction_realdata_comparison.py`
 
 - This is **real data**, but not a labeled OOD benchmark suite.
 - OOD is a **feature-shift proxy**; it may not match your deployment failure modes.
+- Split-conformal intervals calibrated on ID-style data can under-cover under severe shift.
 - Validate on domain-specific shifts and use multiple signals (not uncertainty-gap alone).
 
 ## Run

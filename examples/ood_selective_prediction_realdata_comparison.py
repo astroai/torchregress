@@ -34,6 +34,7 @@ from torchregress.metrics import (
 class OODRealDataConfig:
     seed: int = 321
     n_train: int = 240
+    n_cal: int = 80
     n_id_test: int = 80
     n_ood_test: int = 80
     epochs: int = 20
@@ -46,6 +47,7 @@ class OODRealDataConfig:
     bnn_beta: float = 0.2
     shift_feature_idx: int = 2
     train_target_noise: float = 0.03
+    conformal_alpha: float = 0.1
 
 
 class PointMLP(nn.Module):
@@ -85,7 +87,7 @@ def _make_realdata_splits(cfg: OODRealDataConfig) -> dict[str, torch.Tensor]:
     x_all = torch.tensor(x_np, dtype=torch.float32)
     y_all = torch.tensor(y_np, dtype=torch.float32).unsqueeze(1)
     n_total = x_all.shape[0]
-    need = cfg.n_train + cfg.n_id_test + cfg.n_ood_test
+    need = cfg.n_train + cfg.n_cal + cfg.n_id_test + cfg.n_ood_test
     if need > n_total:
         raise ValueError(f"Requested {need} samples but diabetes dataset has {n_total}.")
 
@@ -98,13 +100,16 @@ def _make_realdata_splits(cfg: OODRealDataConfig) -> dict[str, torch.Tensor]:
     g = torch.Generator().manual_seed(cfg.seed)
     non_ood_perm = non_ood_idx[torch.randperm(non_ood_idx.shape[0], generator=g)]
     train_idx = non_ood_perm[: cfg.n_train]
-    id_idx = non_ood_perm[cfg.n_train : cfg.n_train + cfg.n_id_test]
+    cal_idx = non_ood_perm[cfg.n_train : cfg.n_train + cfg.n_cal]
+    id_idx = non_ood_perm[cfg.n_train + cfg.n_cal : cfg.n_train + cfg.n_cal + cfg.n_id_test]
     ood_idx = ood_idx[torch.randperm(ood_idx.shape[0], generator=g)]
 
     x_train = x_all[train_idx]
+    x_cal = x_all[cal_idx]
     x_id = x_all[id_idx]
     x_ood = x_all[ood_idx]
     y_train_raw = y_all[train_idx]
+    y_cal_raw = y_all[cal_idx]
     y_id_raw = y_all[id_idx]
     y_ood_raw = y_all[ood_idx]
 
@@ -112,6 +117,7 @@ def _make_realdata_splits(cfg: OODRealDataConfig) -> dict[str, torch.Tensor]:
     y_mean = y_train_raw.mean()
     y_std = y_train_raw.std(unbiased=False).clamp_min(1e-6)
     y_train = (y_train_raw - y_mean) / y_std
+    y_cal = (y_cal_raw - y_mean) / y_std
     y_id = (y_id_raw - y_mean) / y_std
     y_ood = (y_ood_raw - y_mean) / y_std
 
@@ -123,6 +129,8 @@ def _make_realdata_splits(cfg: OODRealDataConfig) -> dict[str, torch.Tensor]:
     return {
         "x_train": x_train,
         "y_train": y_train,
+        "x_cal": x_cal,
+        "y_cal": y_cal,
         "x_id": x_id,
         "y_id": y_id,
         "x_ood": x_ood,
@@ -261,6 +269,32 @@ def _compute_selective_metrics(
     }
 
 
+def _conformal_interval_metrics(
+    pred_cal: torch.Tensor,
+    y_cal: torch.Tensor,
+    pred_id: torch.Tensor,
+    y_id: torch.Tensor,
+    pred_ood: torch.Tensor,
+    y_ood: torch.Tensor,
+    *,
+    alpha: float,
+) -> dict[str, float]:
+    residuals = (y_cal - pred_cal).abs().view(-1)
+    q = torch.quantile(residuals, 1.0 - alpha)
+    lower_id = pred_id - q
+    upper_id = pred_id + q
+    lower_ood = pred_ood - q
+    upper_ood = pred_ood + q
+    cov_id = ((y_id >= lower_id) & (y_id <= upper_id)).float().mean()
+    cov_ood = ((y_ood >= lower_ood) & (y_ood <= upper_ood)).float().mean()
+    width = torch.mean(upper_id - lower_id)
+    return {
+        "ConformalCov90_ID": float(cov_id.item()),
+        "ConformalCov90_OOD": float(cov_ood.item()),
+        "ConformalWidth90_ID": float(width.item()),
+    }
+
+
 def _ood_summary_stats(
     x_train: torch.Tensor,
     x_id: torch.Tensor,
@@ -310,6 +344,8 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
     data = _make_realdata_splits(cfg)
     x_train = data["x_train"]
     y_train = data["y_train"]
+    x_cal = data["x_cal"]
+    y_cal = data["y_cal"]
     x_id = data["x_id"]
     y_id = data["y_id"]
     x_ood = data["x_ood"]
@@ -329,8 +365,10 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
         ensemble_models.append(model)
 
     def _eval_deep_ensemble() -> dict[str, float]:
+        preds_cal = torch.stack([m(x_cal) for m in ensemble_models])
         preds_id = torch.stack([m(x_id) for m in ensemble_models])
         preds_ood = torch.stack([m(x_ood) for m in ensemble_models])
+        mean_cal = ensemble_mean(preds_cal)
         mean_id = ensemble_mean(preds_id)
         mean_ood = ensemble_mean(preds_ood)
         std_id = preds_id.std(dim=0).clamp(min=1e-8)
@@ -340,6 +378,17 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
             "MSE_OOD": float(torch.mean((mean_ood - y_ood) ** 2).item()),
         }
         out.update(_compute_selective_metrics(mean_id, y_id, std_id))
+        out.update(
+            _conformal_interval_metrics(
+                mean_cal,
+                y_cal,
+                mean_id,
+                y_id,
+                mean_ood,
+                y_ood,
+                alpha=cfg.conformal_alpha,
+            )
+        )
         out.update(_ood_summary_stats(x_train, x_id, x_ood, mean_id, std_id, mean_ood, std_ood))
         return out
 
@@ -367,12 +416,15 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
         hetero_models.append(model)
 
     def _eval_hetero_ensemble() -> dict[str, float]:
+        outs_cal = [m(x_cal) for m in hetero_models]
         outs_id = [m(x_id) for m in hetero_models]
         outs_ood = [m(x_ood) for m in hetero_models]
+        means_cal = torch.stack([o[:, :1] for o in outs_cal])
         means_id = torch.stack([o[:, :1] for o in outs_id])
         vars_id = torch.stack([torch.exp(o[:, 1:2].clamp(-8.0, 4.0)) for o in outs_id])
         means_ood = torch.stack([o[:, :1] for o in outs_ood])
         vars_ood = torch.stack([torch.exp(o[:, 1:2].clamp(-8.0, 4.0)) for o in outs_ood])
+        pred_cal = ensemble_mean(means_cal)
         pred_id = ensemble_mean(means_id)
         pred_ood = ensemble_mean(means_ood)
         epi_id, ale_id = ensemble_variance_decomposition(means_id, vars_id)
@@ -386,6 +438,17 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
             "ale_id": float(torch.sqrt(ale_id.clamp(min=1e-8)).mean().item()),
         }
         out.update(_compute_selective_metrics(pred_id, y_id, std_id))
+        out.update(
+            _conformal_interval_metrics(
+                pred_cal,
+                y_cal,
+                pred_id,
+                y_id,
+                pred_ood,
+                y_ood,
+                alpha=cfg.conformal_alpha,
+            )
+        )
         out.update(_ood_summary_stats(x_train, x_id, x_ood, pred_id, std_id, pred_ood, std_ood))
         return out
 
@@ -408,6 +471,7 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
     )
 
     def _eval_mc() -> dict[str, float]:
+        mean_cal, _ = _mc_dropout_predict(mc_model, x_cal, cfg.mc_samples)
         mean_id, std_id = _mc_dropout_predict(mc_model, x_id, cfg.mc_samples)
         mean_ood, std_ood = _mc_dropout_predict(mc_model, x_ood, cfg.mc_samples)
         out = {
@@ -415,6 +479,17 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
             "MSE_OOD": float(torch.mean((mean_ood - y_ood) ** 2).item()),
         }
         out.update(_compute_selective_metrics(mean_id, y_id, std_id))
+        out.update(
+            _conformal_interval_metrics(
+                mean_cal,
+                y_cal,
+                mean_id,
+                y_id,
+                mean_ood,
+                y_ood,
+                alpha=cfg.conformal_alpha,
+            )
+        )
         out.update(_ood_summary_stats(x_train, x_id, x_ood, mean_id, std_id, mean_ood, std_ood))
         return out
 
@@ -437,6 +512,7 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
     )
 
     def _eval_swag() -> dict[str, float]:
+        mean_cal, _ = _swag_predict(swag, x_cal, cfg.swag_samples, cfg.swag_scale)
         mean_id, std_id = _swag_predict(swag, x_id, cfg.swag_samples, cfg.swag_scale)
         mean_ood, std_ood = _swag_predict(swag, x_ood, cfg.swag_samples, cfg.swag_scale)
         out = {
@@ -444,6 +520,17 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
             "MSE_OOD": float(torch.mean((mean_ood - y_ood) ** 2).item()),
         }
         out.update(_compute_selective_metrics(mean_id, y_id, std_id))
+        out.update(
+            _conformal_interval_metrics(
+                mean_cal,
+                y_cal,
+                mean_id,
+                y_id,
+                mean_ood,
+                y_ood,
+                alpha=cfg.conformal_alpha,
+            )
+        )
         out.update(_ood_summary_stats(x_train, x_id, x_ood, mean_id, std_id, mean_ood, std_ood))
         return out
 
@@ -477,6 +564,7 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
     )
 
     def _eval_bnn() -> dict[str, float]:
+        mean_cal, _ = bnn.predict_with_uncertainty(x_cal, n_samples=cfg.bnn_samples)
         mean_id, std_id = bnn.predict_with_uncertainty(x_id, n_samples=cfg.bnn_samples)
         mean_ood, std_ood = bnn.predict_with_uncertainty(x_ood, n_samples=cfg.bnn_samples)
         std_id = std_id.clamp(min=1e-8)
@@ -486,6 +574,17 @@ def run_comparison(cfg: OODRealDataConfig) -> list[dict[str, float | str]]:
             "MSE_OOD": float(torch.mean((mean_ood - y_ood) ** 2).item()),
         }
         out.update(_compute_selective_metrics(mean_id, y_id, std_id))
+        out.update(
+            _conformal_interval_metrics(
+                mean_cal,
+                y_cal,
+                mean_id,
+                y_id,
+                mean_ood,
+                y_ood,
+                alpha=cfg.conformal_alpha,
+            )
+        )
         out.update(_ood_summary_stats(x_train, x_id, x_ood, mean_id, std_id, mean_ood, std_ood))
         return out
 
@@ -517,7 +616,7 @@ def main(cfg: OODRealDataConfig | None = None, summary_json_path: str | None = N
         ),
         metric_policy=(
             "ID/OOD MSE, risk-coverage AURC, rejection-policy risk/coverage, OOD uncertainty gap, "
-            "and aggregate OOD metrics runtime-tracked"
+            "split-conformal interval coverage/width, and aggregate OOD metrics runtime-tracked"
         ),
     )
     print_comparison_summary(
@@ -529,6 +628,9 @@ def main(cfg: OODRealDataConfig | None = None, summary_json_path: str | None = N
             "AURC",
             "rej20_risk",
             "rej20_cov",
+            "ConformalCov90_ID",
+            "ConformalCov90_OOD",
+            "ConformalWidth90_ID",
             "unc_id",
             "unc_ood",
             "ood_unc_gap",
@@ -546,6 +648,7 @@ def main(cfg: OODRealDataConfig | None = None, summary_json_path: str | None = N
     print(
         "- Use multiple signals (risk-coverage, uncertainty gap, task error), not a single OOD score."
     )
+    print("- Conformal coverage can degrade under shift; track ID and OOD coverage separately.")
 
     if summary_json_path is not None:
         out = write_comparison_summary_json(
@@ -557,6 +660,7 @@ def main(cfg: OODRealDataConfig | None = None, summary_json_path: str | None = N
             notes=[
                 "Real-data OOD split on sklearn Diabetes via extreme-value covariate shift",
                 "Shared budget includes DeepEnsemble, HeteroscedasticEnsemble, MCDropout, SWAG, BNN",
+                "Each method reports split-conformal interval quality from a shared calibration split",
             ],
         )
         print(f"\nWrote summary JSON: {out}")

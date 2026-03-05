@@ -32,6 +32,7 @@ def _ood_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.OODConfig(
             n_train=48,
+            n_cal=16,
             n_id_test=32,
             n_ood_test=32,
             epochs=2,
@@ -43,6 +44,7 @@ def _ood_config(module: Any, profile: str) -> Any:
     if profile == "audit":
         return module.OODConfig(
             n_train=160,
+            n_cal=48,
             n_id_test=80,
             n_ood_test=80,
             epochs=12,
@@ -58,6 +60,7 @@ def _ood_realdata_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.OODRealDataConfig(
             n_train=96,
+            n_cal=32,
             n_id_test=32,
             n_ood_test=32,
             epochs=2,
@@ -69,6 +72,7 @@ def _ood_realdata_config(module: Any, profile: str) -> Any:
     if profile == "audit":
         return module.OODRealDataConfig(
             n_train=192,
+            n_cal=64,
             n_id_test=64,
             n_ood_test=64,
             epochs=10,
