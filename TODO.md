@@ -79,8 +79,8 @@ atomic tranche roadmap.
 ## P2 (Strategic)
 
 ### 7) Real-data-first recommendation guide
-- [ ] Publish task-to-method guidance grounded in measured evidence (not capability-only claims).
-- [ ] Split “works in synthetic”, “works in real proxy”, “decision-grade real-data” explicitly.
+- [x] Publish task-to-method guidance grounded in measured evidence (not capability-only claims).
+- [x] Split “works in synthetic”, “works in real proxy”, “decision-grade real-data” explicitly.
 
 ### 8) Scheduled benchmark automation
 - [ ] Add lightweight scheduled jobs to refresh governed artifacts.
@@ -91,7 +91,4 @@ atomic tranche roadmap.
 - [ ] Feature expansion that increases API surface before real-data evidence catches up.
 
 ## Next execution order
-1. Performance governance (P1.5)
-2. API consistency sweep (P1.6)
-3. Real-data-first recommendation guide (P2.7)
-4. Scheduled benchmark automation (P2.8)
+1. Scheduled benchmark automation (P2.8)

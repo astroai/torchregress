@@ -114,6 +114,7 @@ nav:
           - Performance: guides/performance.md
       - Reference Tables:
           - Comparative Evidence Matrix: guides/comparative_evidence_matrix.md
+          - Real-Data Recommendation Guide: guides/real_data_recommendation_guide.md
           - Method Catalog: guides/method_catalog_generated.md
 
   # ── Tab 2: Losses ───────────────────────────────────────────

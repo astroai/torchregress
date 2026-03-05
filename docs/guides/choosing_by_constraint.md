@@ -11,6 +11,8 @@ when you already know the task category but need to choose based on practical co
 
 This page is audit-driven: recommendations are organized around adoption concerns
 (reliability, performance, interpretability, deployment fit), not modeling ideology.
+For evidence-grade claim boundaries, pair this page with the
+[Real-Data Recommendation Guide](real_data_recommendation_guide.md).
 
 ## Fast Constraint Triage
 
