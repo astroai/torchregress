@@ -20,7 +20,12 @@ from torchregress.losses import (
     PropensityWeightedLoss,
     WeightedMSELoss,
 )
-from torchregress.metrics import mean_absolute_error, prediction_interval_coverage, tail_mae, tail_rmse
+from torchregress.metrics import (
+    mean_absolute_error,
+    prediction_interval_coverage,
+    tail_mae,
+    tail_rmse,
+)
 from torchregress.utils import PropensityEstimator
 
 
