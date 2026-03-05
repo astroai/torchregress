@@ -163,7 +163,9 @@ def run_comparison(
 
     g = torch.Generator().manual_seed(cfg.seed + 13)
     teacher_mean_test = 0.7 * pred_test + 0.3 * data["y_obs_test"]
-    pseudo_target_test = teacher_mean_test + 0.05 * torch.randn(teacher_mean_test.shape, generator=g)
+    pseudo_target_test = teacher_mean_test + 0.05 * torch.randn(
+        teacher_mean_test.shape, generator=g
+    )
     pseudo_conf_test = torch.sigmoid(2.0 - 3.0 * torch.abs(pseudo_target_test - data["y_obs_test"]))
     pseudo_conf_test = pseudo_conf_test.clamp(0.05, 0.95)
 
@@ -233,7 +235,9 @@ def run_comparison(
     test_groups = torch.bucketize(pred_test.view(-1), bins)
 
     _, prev_train_s = timed_call(prev_cp.calibrate, pred_cal, data["y_obs_cal"], groups=cal_groups)
-    (prev_l, prev_u), prev_eval_s = timed_call(prev_cp.predict_interval, pred_test, groups=test_groups)
+    (prev_l, prev_u), prev_eval_s = timed_call(
+        prev_cp.predict_interval, pred_test, groups=test_groups
+    )
     prev_cov, prev_w = _coverage_and_width(prev_l, prev_u, data["y_clean_test"])
     rows.append(
         {

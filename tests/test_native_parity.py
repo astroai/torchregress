@@ -80,8 +80,9 @@ def test_weighted_cross_entropy_wrapper_matches_native_without_mask_or_weights()
     assert torch.allclose(tr_loss, native_loss, atol=1e-6, rtol=1e-6)
 
 
-def test_weighted_cross_entropy_wrapper_matches_native_with_class_weights_and_ignore_index(
-) -> None:
+def test_weighted_cross_entropy_wrapper_matches_native_with_class_weights_and_ignore_index() -> (
+    None
+):
     torch.manual_seed(0)
     logits = torch.randn(10, 4)
     target = torch.tensor([0, 1, 2, 3, 1, 2, -100, 0, 3, 1], dtype=torch.long)

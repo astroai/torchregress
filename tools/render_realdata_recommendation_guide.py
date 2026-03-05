@@ -90,9 +90,7 @@ def _render_recommendation_table(rows: list[dict[str, Any]]) -> str:
         band = _evidence_band(row)
         methods = _recommended_methods(row)
         gap = str(row.get("gaps", "")).strip() or "Maintain regression tracking."
-        lines.append(
-            f"| {task} | {methods} | `{band}` | {_claim_boundary(band)} | {gap} |"
-        )
+        lines.append(f"| {task} | {methods} | `{band}` | {_claim_boundary(band)} | {gap} |")
     return "\n".join(lines)
 
 

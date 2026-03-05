@@ -409,9 +409,9 @@ def test_signature_snapshots_non_losses() -> None:
 def test_parameter_order_contracts_for_new_helper_apis() -> None:
     for path, expected_order in EXPECTED_PARAM_ORDERS.items():
         actual_order = list(inspect.signature(_resolve(path)).parameters.keys())
-        assert actual_order == expected_order, (
-            f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
-        )
+        assert (
+            actual_order == expected_order
+        ), f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
 
 
 def test_top_level_submodules_are_lazy_loaded() -> None:

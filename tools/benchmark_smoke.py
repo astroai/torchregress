@@ -791,9 +791,11 @@ def run_benchmark_sweep(
             mean_t = torch.randn(batch, dim, device=device_obj)
             log_var_t = torch.randn(batch, dim, device=device_obj) * 0.2
             target_t = torch.randn(batch, dim, device=device_obj)
-            codes = torch.tensor([0, 1, -1], device=device_obj).repeat((batch * dim + 2) // 3)[
-                : batch * dim
-            ].view(batch, dim)
+            codes = (
+                torch.tensor([0, 1, -1], device=device_obj)
+                .repeat((batch * dim + 2) // 3)[: batch * dim]
+                .view(batch, dim)
+            )
             loss = CensoredGaussianNLLLoss(reduction="mean", log_variance=True).to(device_obj)
             results.append(
                 _time_case(
