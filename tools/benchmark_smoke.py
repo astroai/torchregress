@@ -23,12 +23,22 @@ from typing import Any, Callable
 import torch
 import torch.nn as nn
 
+from torchregress.causal import dr_ate
+from torchregress.inference import ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 from torchregress.losses import (
+    AFTLoss,
+    CensoredGaussianNLLLoss,
+    CumulativeLinkLoss,
+    DensityConformal,
     FunctionalEIVLoss,
     GaussianNLLLoss,
     LowRankGaussianLoss,
     MDNLoss,
+    MonteCarloConformal,
     MultivariateGaussianLoss,
+    NoisyTargetGaussianNLL,
+    OrdinalCrossEntropyLoss,
+    PseudoLabelNLL,
 )
 from torchregress.metrics import (
     calibration_score,
@@ -165,6 +175,64 @@ def _make_spd_cov(batch: int, dim: int, device: torch.device) -> torch.Tensor:
     return a @ a.transpose(-1, -2) + 0.1 * eye
 
 
+def _add_intercept(x: torch.Tensor) -> torch.Tensor:
+    return torch.cat([torch.ones(x.shape[0], 1, device=x.device, dtype=x.dtype), x], dim=1)
+
+
+class _RidgeLinearModel:
+    """Tiny deterministic fit/predict model for causal smoke benchmarks."""
+
+    def __init__(self, ridge: float = 1e-3) -> None:
+        self.ridge = float(ridge)
+        self._coef: torch.Tensor | None = None
+
+    def fit(self, x: Any, y: Any) -> "_RidgeLinearModel":
+        x_t = torch.as_tensor(x, dtype=torch.float32)
+        y_t = torch.as_tensor(y, dtype=torch.float32).reshape(-1, 1)
+        x_aug = _add_intercept(x_t)
+        xtx = x_aug.T @ x_aug
+        xty = x_aug.T @ y_t
+        eye = torch.eye(xtx.shape[0], dtype=x_t.dtype, device=x_t.device)
+        self._coef = torch.linalg.solve(xtx + self.ridge * eye, xty).squeeze(1)
+        return self
+
+    def predict(self, x: Any) -> Any:
+        if self._coef is None:
+            raise RuntimeError("Model must be fit before predict")
+        x_t = torch.as_tensor(x, dtype=torch.float32)
+        x_aug = _add_intercept(x_t)
+        return (x_aug @ self._coef).detach().cpu().numpy()
+
+
+def _make_ppi_fixture(
+    *,
+    device: torch.device,
+    n_labeled: int,
+    n_unlabeled: int,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    x_l = torch.randn(n_labeled, 3, device=device)
+    x_u = torch.randn(n_unlabeled, 3, device=device)
+    beta = torch.tensor([0.9, -0.6, 0.25], device=device)
+    y_l = x_l @ beta + 0.15 * torch.randn(n_labeled, device=device)
+    pred_l = x_l @ beta + 0.25 * torch.randn(n_labeled, device=device)
+    pred_u = x_u @ beta + 0.25 * torch.randn(n_unlabeled, device=device)
+    return x_l, y_l, x_u, pred_l, pred_u
+
+
+def _make_causal_fixture(
+    *,
+    device: torch.device,
+    n: int,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    x = torch.randn(n, 4, device=device)
+    logit = 0.4 * x[:, 0] - 0.2 * x[:, 1]
+    p = torch.sigmoid(logit).clamp(0.15, 0.85)
+    t = torch.bernoulli(p).float()
+    tau = 0.8 + 0.25 * x[:, 2]
+    y = 0.5 * x[:, 0] - 0.3 * x[:, 1] + tau * t + 0.2 * torch.randn(n, device=device)
+    return x, t, y
+
+
 def _aggregate_case_results(results: list[BenchCaseResult]) -> dict[str, Any]:
     ok_cases = [r for r in results if r.status == "ok"]
     return {
@@ -245,6 +313,54 @@ def run_benchmark_smoke(
     ood_samples = torch.randn(24, 64, 1, device=device_obj)
     ood_maha_mean = torch.tensor([0.0], device=device_obj)
     ood_maha_cov = torch.eye(1, device=device_obj)
+
+    ordinal_logits = torch.randn(64, 5, device=device_obj)
+    ordinal_target = torch.randint(0, 5, (64,), device=device_obj)
+    ordinal_ce = OrdinalCrossEntropyLoss(reduction="mean").to(device_obj)
+    ordinal_cum_logits = torch.randn(64, 4, device=device_obj)
+    ordinal_cum = CumulativeLinkLoss(reduction="mean").to(device_obj)
+
+    censored_mean = torch.randn(48, 1, device=device_obj)
+    censored_log_var = torch.randn(48, 1, device=device_obj) * 0.2
+    censored_target = torch.randn(48, 1, device=device_obj)
+    censored_codes = torch.tensor([0, 1, -1], device=device_obj).repeat(16).view(-1, 1)
+    censored_gauss = CensoredGaussianNLLLoss(reduction="mean", log_variance=True).to(device_obj)
+
+    aft_loc = torch.randn(48, 1, device=device_obj)
+    aft_log_scale = torch.randn(48, 1, device=device_obj) * 0.05 - 0.8
+    aft_target = torch.exp(torch.randn(48, 1, device=device_obj) * 0.3)
+    aft_codes = torch.tensor([0, 1, -1], device=device_obj).repeat(16).view(-1, 1)
+    aft_loss = AFTLoss(reduction="mean").to(device_obj)
+
+    noisy_target_loss = NoisyTargetGaussianNLL(reduction="mean").to(device_obj)
+    noisy_mean = torch.randn(64, 2, device=device_obj)
+    noisy_log_var = torch.randn(64, 2, device=device_obj) * 0.15
+    noisy_target = torch.randn(64, 2, device=device_obj)
+    noisy_target_var = torch.rand(64, 2, device=device_obj) * 0.1
+
+    pseudo_loss = PseudoLabelNLL(reduction="mean", pseudo_weight=0.4).to(device_obj)
+    pseudo_mean = torch.randn(64, 2, device=device_obj)
+    pseudo_log_var = torch.randn(64, 2, device=device_obj) * 0.2
+    pseudo_target = torch.randn(64, 2, device=device_obj)
+    pseudo_aux = pseudo_target + 0.3 * torch.randn_like(pseudo_target)
+    pseudo_label_mask = torch.rand(64, 2, device=device_obj) > 0.35
+
+    density_conformal = DensityConformal(alpha=0.1, bandwidth=0.3, adapt_prediction=True)
+    density_cal_pred = torch.randn(96, 1, device=device_obj)
+    density_cal_target = density_cal_pred + 0.25 * torch.randn_like(density_cal_pred)
+    density_test_pred = torch.randn(64, 1, device=device_obj)
+
+    mc_conformal = MonteCarloConformal(alpha=0.1, center="mean")
+    mc_samples_cal = torch.randn(10, 80, 1, device=device_obj)
+    mc_target = mc_samples_cal.mean(dim=0) + 0.2 * torch.randn(80, 1, device=device_obj)
+    mc_samples_test = torch.randn(10, 64, 1, device=device_obj)
+
+    ppi_x_l, ppi_y_l, ppi_x_u, ppi_pred_l, ppi_pred_u = _make_ppi_fixture(
+        device=device_obj,
+        n_labeled=48,
+        n_unlabeled=192,
+    )
+    causal_x, causal_t, causal_y = _make_causal_fixture(device=device_obj, n=96)
 
     results.append(
         _time_case(
@@ -332,6 +448,167 @@ def run_benchmark_smoke(
             device=device_obj,
             iterations=iterations,
             warmup=warmup,
+        )
+    )
+    results.append(
+        _time_case(
+            name="ordinal_cross_entropy_forward",
+            fn=lambda: ordinal_ce(ordinal_logits, ordinal_target),
+            device=device_obj,
+            iterations=iterations,
+            warmup=warmup,
+        )
+    )
+    results.append(
+        _time_case(
+            name="ordinal_cumulative_link_forward",
+            fn=lambda: ordinal_cum(ordinal_cum_logits, ordinal_target),
+            device=device_obj,
+            iterations=iterations,
+            warmup=warmup,
+        )
+    )
+    results.append(
+        _time_case(
+            name="censored_gaussian_nll_forward",
+            fn=lambda: censored_gauss(
+                (censored_mean, censored_log_var),
+                censored_target,
+                censoring=censored_codes,
+            ),
+            device=device_obj,
+            iterations=iterations,
+            warmup=warmup,
+        )
+    )
+    results.append(
+        _time_case(
+            name="censored_aft_forward",
+            fn=lambda: aft_loss((aft_loc, aft_log_scale), aft_target, censoring=aft_codes),
+            device=device_obj,
+            iterations=iterations,
+            warmup=warmup,
+        )
+    )
+    results.append(
+        _time_case(
+            name="uncertain_gt_noisy_target_gaussian_nll_forward",
+            fn=lambda: noisy_target_loss(
+                (noisy_mean, noisy_log_var),
+                noisy_target,
+                target_variance=noisy_target_var,
+            ),
+            device=device_obj,
+            iterations=iterations,
+            warmup=warmup,
+        )
+    )
+    results.append(
+        _time_case(
+            name="uncertain_gt_pseudo_label_nll_forward",
+            fn=lambda: pseudo_loss(
+                (pseudo_mean, pseudo_log_var),
+                target=pseudo_target,
+                pseudo_target=pseudo_aux,
+                label_mask=pseudo_label_mask,
+            ),
+            device=device_obj,
+            iterations=iterations,
+            warmup=warmup,
+        )
+    )
+    results.append(
+        _time_case(
+            name="conformal_density_calibrate_predict",
+            fn=lambda: (
+                density_conformal.calibrate(density_cal_pred, density_cal_target),
+                density_conformal.predict_interval(density_test_pred),
+            ),
+            device=device_obj,
+            iterations=max(1, min(2, iterations)),
+            warmup=0,
+        )
+    )
+    results.append(
+        _time_case(
+            name="conformal_monte_carlo_calibrate_predict",
+            fn=lambda: (
+                mc_conformal.calibrate(mc_samples_cal, mc_target),
+                mc_conformal.predict_interval(mc_samples_test),
+            ),
+            device=device_obj,
+            iterations=max(1, min(2, iterations)),
+            warmup=0,
+        )
+    )
+    results.append(
+        _time_case(
+            name="ppi_mean_ci",
+            fn=lambda: ppi_mean_ci(
+                ppi_y_l,
+                ppi_pred_l,
+                ppi_pred_u,
+                alpha=0.1,
+                n_boot=64,
+                seed=13,
+            ),
+            device=device_obj,
+            iterations=max(1, min(2, iterations)),
+            warmup=0,
+        )
+    )
+    results.append(
+        _time_case(
+            name="ppi_quantile_ci",
+            fn=lambda: ppi_quantile_ci(
+                ppi_y_l,
+                ppi_pred_l,
+                ppi_pred_u,
+                q=0.9,
+                alpha=0.1,
+                n_boot=64,
+                seed=17,
+            ),
+            device=device_obj,
+            iterations=max(1, min(2, iterations)),
+            warmup=0,
+        )
+    )
+    results.append(
+        _time_case(
+            name="ppi_ols_ci",
+            fn=lambda: ppi_ols_ci(
+                ppi_x_l,
+                ppi_y_l,
+                ppi_x_u,
+                ppi_pred_l,
+                ppi_pred_u,
+                alpha=0.1,
+                n_boot=64,
+                seed=19,
+            ),
+            device=device_obj,
+            iterations=max(1, min(2, iterations)),
+            warmup=0,
+        )
+    )
+    results.append(
+        _time_case(
+            name="causal_dr_ate_crossfit",
+            fn=lambda: dr_ate(
+                causal_x,
+                causal_t,
+                causal_y,
+                outcome_model=_RidgeLinearModel,
+                propensity_model=_RidgeLinearModel,
+                folds=2,
+                alpha=0.1,
+                seed=23,
+                trim_threshold=0.05,
+            ),
+            device=device_obj,
+            iterations=max(1, min(2, iterations)),
+            warmup=0,
         )
     )
 
@@ -490,6 +767,119 @@ def run_benchmark_sweep(
                     params={"ensemble_size": ensemble_size, "batch": batch},
                 )
             )
+
+    # 5) Batch size and class count sweeps (ordinal)
+    for batch in (16, 64):
+        for n_classes in (4, 8):
+            logits = torch.randn(batch, n_classes, device=device_obj)
+            target_t = torch.randint(0, n_classes, (batch,), device=device_obj)
+            ce_loss = OrdinalCrossEntropyLoss(reduction="mean").to(device_obj)
+            results.append(
+                _time_case(
+                    name="sweep_ordinal_cross_entropy_forward",
+                    fn=lambda y=logits, t=target_t, loss_fn=ce_loss: loss_fn(y, t),
+                    device=device_obj,
+                    iterations=iterations,
+                    warmup=warmup,
+                    params={"batch": batch, "n_classes": n_classes},
+                )
+            )
+
+    # 6) Batch size and target dimension sweeps (censored Gaussian)
+    for batch in (16, 64):
+        for dim in (1, 4):
+            mean_t = torch.randn(batch, dim, device=device_obj)
+            log_var_t = torch.randn(batch, dim, device=device_obj) * 0.2
+            target_t = torch.randn(batch, dim, device=device_obj)
+            codes = torch.tensor([0, 1, -1], device=device_obj).repeat((batch * dim + 2) // 3)[
+                : batch * dim
+            ].view(batch, dim)
+            loss = CensoredGaussianNLLLoss(reduction="mean", log_variance=True).to(device_obj)
+            results.append(
+                _time_case(
+                    name="sweep_censored_gaussian_nll_forward",
+                    fn=lambda m=mean_t, lv=log_var_t, t=target_t, c=codes, loss_fn=loss: loss_fn(
+                        (m, lv), t, censoring=c
+                    ),
+                    device=device_obj,
+                    iterations=iterations,
+                    warmup=warmup,
+                    params={"batch": batch, "target_dim": dim},
+                )
+            )
+
+    # 7) Batch size and target dimension sweeps (uncertain GT)
+    for batch in (16, 64):
+        for dim in (1, 4):
+            mean_t = torch.randn(batch, dim, device=device_obj)
+            log_var_t = torch.randn(batch, dim, device=device_obj) * 0.15
+            target_t = torch.randn(batch, dim, device=device_obj)
+            target_var_t = torch.rand(batch, dim, device=device_obj) * 0.1
+            loss = NoisyTargetGaussianNLL(reduction="mean").to(device_obj)
+            results.append(
+                _time_case(
+                    name="sweep_uncertain_gt_noisy_target_gaussian_nll_forward",
+                    fn=lambda m=mean_t, lv=log_var_t, t=target_t, tv=target_var_t, loss_fn=loss: (
+                        loss_fn((m, lv), t, target_variance=tv)
+                    ),
+                    device=device_obj,
+                    iterations=iterations,
+                    warmup=warmup,
+                    params={"batch": batch, "target_dim": dim},
+                )
+            )
+
+    # 8) Labeled/unlabeled size sweeps (PPI OLS)
+    for n_labeled in (24, 64):
+        for n_unlabeled in (96, 256):
+            x_l, y_l, x_u, pred_l, pred_u = _make_ppi_fixture(
+                device=device_obj,
+                n_labeled=n_labeled,
+                n_unlabeled=n_unlabeled,
+            )
+            results.append(
+                _time_case(
+                    name="sweep_ppi_ols_ci",
+                    fn=lambda xl=x_l, yl=y_l, xu=x_u, pl=pred_l, pu=pred_u: ppi_ols_ci(
+                        xl,
+                        yl,
+                        xu,
+                        pl,
+                        pu,
+                        alpha=0.1,
+                        n_boot=24,
+                        seed=31,
+                    ),
+                    device=device_obj,
+                    iterations=1,
+                    warmup=0,
+                    params={"n_labeled": n_labeled, "n_unlabeled": n_unlabeled},
+                )
+            )
+
+    # 9) Sample-size sweeps (cross-fitted DR ATE)
+    for n_samples in (64, 128):
+        x_t, t_t, y_t = _make_causal_fixture(device=device_obj, n=n_samples)
+        results.append(
+            _time_case(
+                name="sweep_causal_dr_ate_crossfit",
+                fn=lambda x=x_t, t=t_t, y=y_t: dr_ate(
+                    x,
+                    t,
+                    y,
+                    outcome_model=_RidgeLinearModel,
+                    propensity_model=_RidgeLinearModel,
+                    folds=2,
+                    alpha=0.1,
+                    seed=37,
+                    trim_threshold=0.05,
+                ),
+                device=device_obj,
+                iterations=1,
+                warmup=0,
+                params={"n_samples": n_samples, "folds": 2},
+            )
+        )
 
     aggregate = _aggregate_case_results(results)
     return {

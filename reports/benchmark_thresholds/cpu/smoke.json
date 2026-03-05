@@ -5,39 +5,74 @@
   "target_device": "cpu",
   "source_config": {
     "multiplier": 4.0,
-    "floor_ms": 1.5
+    "floor_ms": 0.5
   },
   "limits": {
     "gaussian_diag_nll_forward": {
-      "max_mean_ms": 1.5
+      "max_mean_ms": 0.5
     },
     "gaussian_multivariate_full_forward": {
-      "max_mean_ms": 1.5
+      "max_mean_ms": 0.8297659456729889
     },
     "gaussian_low_rank_forward": {
-      "max_mean_ms": 1.531836111098528
+      "max_mean_ms": 2.869933657348156
     },
     "mdn_diagonal_forward": {
-      "max_mean_ms": 1.5
+      "max_mean_ms": 0.7906334474682808
     },
     "mdn_full_forward": {
-      "max_mean_ms": 1.5
+      "max_mean_ms": 1.045665703713894
     },
     "functional_eiv_forward": {
-      "threshold_ms": 1500,
-      "description": "Forward pass of Functional EIV layer"
+      "max_mean_ms": 2.4001330137252808
     },
     "ensemble_variance_decomposition": {
-      "max_mean_ms": 1.5
+      "max_mean_ms": 2.9363665729761124
     },
     "calibration_score_gaussian": {
-      "max_mean_ms": 4.0
+      "max_mean_ms": 5.07013276219368
     },
     "ood_metrics_report_combo": {
-      "max_mean_ms": 4.293334204703569
+      "max_mean_ms": 2.6544326916337013
+    },
+    "ordinal_cross_entropy_forward": {
+      "max_mean_ms": 0.5
+    },
+    "ordinal_cumulative_link_forward": {
+      "max_mean_ms": 0.5
+    },
+    "censored_gaussian_nll_forward": {
+      "max_mean_ms": 3.319666348397732
+    },
+    "censored_aft_forward": {
+      "max_mean_ms": 1.0884670540690422
+    },
+    "uncertain_gt_noisy_target_gaussian_nll_forward": {
+      "max_mean_ms": 0.5
+    },
+    "uncertain_gt_pseudo_label_nll_forward": {
+      "max_mean_ms": 0.6360674276947975
+    },
+    "conformal_density_calibrate_predict": {
+      "max_mean_ms": 3.042165655642748
+    },
+    "conformal_monte_carlo_calibrate_predict": {
+      "max_mean_ms": 2.8443322516977787
+    },
+    "ppi_mean_ci": {
+      "max_mean_ms": 2.1649999544024467
+    },
+    "ppi_quantile_ci": {
+      "max_mean_ms": 5.117584019899368
+    },
+    "ppi_ols_ci": {
+      "max_mean_ms": 64.68091579154134
+    },
+    "causal_dr_ate_crossfit": {
+      "max_mean_ms": 17.315749544650316
     },
     "normalizing_flow_forward_optional": {
-      "max_mean_ms": 10.0
+      "max_mean_ms": 21.43150009214878
     }
   }
 }

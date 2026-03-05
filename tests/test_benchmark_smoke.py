@@ -32,6 +32,18 @@ def test_benchmark_smoke_harness_runs_and_writes_json(tmp_path: Path) -> None:
         "ensemble_variance_decomposition",
         "calibration_score_gaussian",
         "ood_metrics_report_combo",
+        "ordinal_cross_entropy_forward",
+        "ordinal_cumulative_link_forward",
+        "censored_gaussian_nll_forward",
+        "censored_aft_forward",
+        "uncertain_gt_noisy_target_gaussian_nll_forward",
+        "uncertain_gt_pseudo_label_nll_forward",
+        "conformal_density_calibrate_predict",
+        "conformal_monte_carlo_calibrate_predict",
+        "ppi_mean_ci",
+        "ppi_quantile_ci",
+        "ppi_ols_ci",
+        "causal_dr_ate_crossfit",
         "normalizing_flow_forward_optional",
     }
     by_name = {c["name"]: c for c in payload["cases"]}
@@ -71,6 +83,11 @@ def test_benchmark_sweep_harness_runs_and_emits_params(tmp_path: Path) -> None:
         "sweep_mdn_diagonal_forward",
         "sweep_mdn_full_forward",
         "sweep_ensemble_variance_decomposition",
+        "sweep_ordinal_cross_entropy_forward",
+        "sweep_censored_gaussian_nll_forward",
+        "sweep_uncertain_gt_noisy_target_gaussian_nll_forward",
+        "sweep_ppi_ols_ci",
+        "sweep_causal_dr_ate_crossfit",
     } <= case_names
 
     for case in payload["cases"]:

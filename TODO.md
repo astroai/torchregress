@@ -69,8 +69,8 @@ atomic tranche roadmap.
   - Example docs and summary notes now include explicit failure-mode guidance.
 
 ### 5) Performance governance
-- [ ] Add stable microbenchmark baselines for newly added cores (ordinal/censored/uncertain_gt/causal/ppi).
-- [ ] Add regression thresholds for these paths where signal/noise ratio is acceptable.
+- [x] Add stable microbenchmark baselines for newly added cores (ordinal/censored/uncertain_gt/causal/ppi).
+- [x] Add regression thresholds for these paths where signal/noise ratio is acceptable.
 
 ### 6) API consistency sweep (final polish)
 - [ ] Re-check naming/signature consistency across old/new modules.
