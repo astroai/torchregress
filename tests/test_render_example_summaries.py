@@ -233,6 +233,22 @@ def test_render_photoz_rail_merge_helper(tmp_path: Path) -> None:
                 "split_id": "split",
                 "core_baselines": ["flexzboost", "pzflow", "delight", "bpz"],
                 "optional_baselines": ["lephare"],
+                "checksum_policy": {
+                    "train_catalog_sha256": "a" * 64,
+                    "test_catalog_sha256": "b" * 64,
+                    "calibration_catalog_sha256": "c" * 64,
+                },
+                "dataset_files": [
+                    {"key": "train_catalog_sha256", "required": True},
+                    {"key": "test_catalog_sha256", "required": True},
+                    {"key": "calibration_catalog_sha256", "required": True},
+                ],
+                "baseline_payloads": [
+                    {"method": "flexzboost", "required": True, "sha256": "1" * 64},
+                    {"method": "pzflow", "required": True, "sha256": "2" * 64},
+                    {"method": "delight", "required": True, "sha256": "3" * 64},
+                    {"method": "bpz", "required": True, "sha256": "4" * 64},
+                ],
             }
         ),
         encoding="utf-8",

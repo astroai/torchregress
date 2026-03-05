@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ import torch
 CORE_BASELINES = ("flexzboost", "pzflow", "delight", "bpz")
 OPTIONAL_BASELINES = ("lephare",)
 TARGET_COVERAGE = 0.90
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -173,6 +175,91 @@ def _extract_rail_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
 
+def _normalize_method(method: Any) -> str | None:
+    if isinstance(method, str):
+        cleaned = method.strip().lower()
+        if cleaned:
+            return cleaned
+    return None
+
+
+def _validate_manifest_paper_parity_contract(manifest: dict[str, Any]) -> list[str]:
+    notes: list[str] = []
+    required_dataset_keys = (
+        "train_catalog_sha256",
+        "test_catalog_sha256",
+        "calibration_catalog_sha256",
+    )
+    checksum_policy = manifest.get("checksum_policy")
+    if not isinstance(checksum_policy, dict):
+        raise ValueError(
+            "Paper parity mode requires manifest.checksum_policy with dataset checksum keys."
+        )
+    for key in required_dataset_keys:
+        value = checksum_policy.get(key)
+        if not isinstance(value, str) or not _HEX64_RE.match(value):
+            raise ValueError(
+                "Paper parity mode requires non-empty 64-char hex checksum_policy values for "
+                f"{required_dataset_keys}. Missing/invalid key: {key}."
+            )
+
+    dataset_files = manifest.get("dataset_files")
+    if not isinstance(dataset_files, list):
+        raise ValueError("Paper parity mode requires manifest.dataset_files list.")
+    dataset_declared: set[str] = set()
+    for entry in dataset_files:
+        if not isinstance(entry, dict):
+            continue
+        key = entry.get("key")
+        if isinstance(key, str):
+            dataset_declared.add(key)
+    missing_dataset_decls = sorted(set(required_dataset_keys) - dataset_declared)
+    if missing_dataset_decls:
+        raise ValueError(
+            "Paper parity mode requires dataset_files declarations for keys: "
+            + ", ".join(missing_dataset_decls)
+        )
+
+    core_baselines = {
+        m
+        for m in (_normalize_method(x) for x in manifest.get("core_baselines", CORE_BASELINES))
+        if m is not None
+    }
+    canonical_core = set(CORE_BASELINES)
+    if core_baselines != canonical_core:
+        raise ValueError(
+            "Paper parity mode requires core_baselines to match canonical set "
+            f"{sorted(canonical_core)}. Got {sorted(core_baselines)}."
+        )
+
+    baseline_payloads = manifest.get("baseline_payloads")
+    if not isinstance(baseline_payloads, list):
+        raise ValueError("Paper parity mode requires manifest.baseline_payloads list.")
+    required_declared: set[str] = set()
+    for entry in baseline_payloads:
+        if not isinstance(entry, dict):
+            continue
+        method = _normalize_method(entry.get("method"))
+        required = bool(entry.get("required", True))
+        if method is None or not required:
+            continue
+        sha = entry.get("sha256")
+        if not isinstance(sha, str) or not _HEX64_RE.match(sha):
+            raise ValueError(
+                "Paper parity mode requires required baseline_payload entries to include "
+                f"64-char hex sha256 values. Missing/invalid method: {method}."
+            )
+        required_declared.add(method)
+    missing_required_declared = sorted(canonical_core - required_declared)
+    if missing_required_declared:
+        raise ValueError(
+            "Paper parity mode requires required baseline_payload declarations for methods: "
+            + ", ".join(missing_required_declared)
+        )
+    notes.append("manifest_checksum_contract_validated")
+    return notes
+
+
 def _to_float(value: Any) -> float | None:
     if isinstance(value, bool):
         return None
@@ -306,6 +393,8 @@ def _check_manifest_parity(
         notes.append("paper_parity_mode_disabled")
         return notes
 
+    notes.extend(_validate_manifest_paper_parity_contract(manifest))
+
     expected_dataset = str(manifest.get("dataset_id", "")).strip()
     expected_split = str(manifest.get("split_id", "")).strip()
     if not expected_dataset or not expected_split:
@@ -323,15 +412,20 @@ def _check_manifest_parity(
 
     required = {m.lower() for m in manifest.get("core_baselines", CORE_BASELINES)}
     seen: set[str] = set()
+    seen_counts: dict[str, int] = {}
     for payload in payloads:
-        method = payload.get("method")
-        if isinstance(method, str):
-            seen.add(method.lower())
+        method = _normalize_method(payload.get("method"))
+        if method is not None:
+            seen.add(method)
+            seen_counts[method] = seen_counts.get(method, 0) + 1
         rows = payload.get("rows")
         if isinstance(rows, list):
             for row in rows:
                 if isinstance(row, dict) and isinstance(row.get("Method"), str):
-                    seen.add(str(row["Method"]).lower())
+                    row_method = _normalize_method(row["Method"])
+                    if row_method is not None:
+                        seen.add(row_method)
+                        seen_counts[row_method] = seen_counts.get(row_method, 0) + 1
 
     missing = sorted(required - seen)
     if missing:
@@ -339,6 +433,11 @@ def _check_manifest_parity(
             "Paper parity mode failed: missing required RAIL baseline methods: "
             + ", ".join(missing)
         )
+    duplicates = sorted(
+        method for method, count in seen_counts.items() if method in required and count > 1
+    )
+    if duplicates:
+        notes.append(f"duplicate_required_methods={duplicates}")
     optional_seen = sorted({m for m in OPTIONAL_BASELINES if m in seen})
     notes.append(f"optional_baselines_present={optional_seen}")
     return notes

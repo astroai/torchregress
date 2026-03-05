@@ -44,7 +44,7 @@ atomic tranche roadmap.
 - [ ] Keep synthetic tracks for fast CI; run heavier real-data tracks manually/scheduled.
 
 ### 2) Photo-z benchmark parity hardening (RAIL + NNC-CRPS track)
-- [ ] Finalize manifest-backed dataset parity checks for paper-comparable runs.
+- [x] Finalize manifest-backed dataset parity checks for paper-comparable runs.
 - [x] Ensure baseline ingestion covers core RAIL set (`flexzboost`, `pzflow`, `delight`, `bpz`; `lephare` optional).
 - [x] Publish one consolidated comparison report with runtime + quality metrics.
 

@@ -12,13 +12,33 @@ def _write(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_merge_summaries_with_prediction_payloads() -> None:
-    manifest = {
-        "dataset_id": "dset",
-        "split_id": "split",
-        "core_baselines": ["flexzboost", "pzflow", "delight", "bpz"],
+def _paper_parity_manifest(dataset_id: str, split_id: str) -> dict[str, object]:
+    core = ["flexzboost", "pzflow", "delight", "bpz"]
+    return {
+        "artifact": "rail_photoz_manifest",
+        "dataset_id": dataset_id,
+        "split_id": split_id,
+        "core_baselines": core,
         "optional_baselines": ["lephare"],
+        "checksum_policy": {
+            "train_catalog_sha256": "a" * 64,
+            "test_catalog_sha256": "b" * 64,
+            "calibration_catalog_sha256": "c" * 64,
+        },
+        "dataset_files": [
+            {"key": "train_catalog_sha256", "required": True, "path": "data/train.parquet"},
+            {"key": "test_catalog_sha256", "required": True, "path": "data/test.parquet"},
+            {"key": "calibration_catalog_sha256", "required": True, "path": "data/cal.parquet"},
+        ],
+        "baseline_payloads": [
+            {"method": method, "required": True, "sha256": f"{idx + 1:x}" * 64}
+            for idx, method in enumerate(core)
+        ],
     }
+
+
+def test_merge_summaries_with_prediction_payloads() -> None:
+    manifest = _paper_parity_manifest("dset", "split")
     tr_summary = {
         "artifact": "comparison_example_summary",
         "version": 1,
@@ -71,7 +91,7 @@ def test_merge_summaries_with_prediction_payloads() -> None:
 
 
 def test_merge_summaries_raises_for_manifest_mismatch() -> None:
-    manifest = {"dataset_id": "dset", "split_id": "split", "core_baselines": ["flexzboost"]}
+    manifest = _paper_parity_manifest("dset", "split")
     tr_summary = {"artifact": "comparison_example_summary", "rows": [{"Method": "A"}]}
     rail_payloads = [
         {
@@ -96,16 +116,7 @@ def test_cli_round_trip_with_summary_payloads(tmp_path: Path) -> None:
     tr_summary = tmp_path / "tr.json"
     rail_summary = tmp_path / "rail.json"
     out = tmp_path / "merged.json"
-    _write(
-        manifest,
-        {
-            "artifact": "rail_photoz_manifest",
-            "dataset_id": "dset",
-            "split_id": "split",
-            "core_baselines": ["flexzboost", "pzflow", "delight", "bpz"],
-            "optional_baselines": ["lephare"],
-        },
-    )
+    _write(manifest, _paper_parity_manifest("dset", "split"))
     _write(tr_summary, {"artifact": "comparison_example_summary", "rows": [{"Method": "BinnedCE"}]})
     _write(
         rail_summary,
@@ -133,3 +144,28 @@ def test_cli_round_trip_with_summary_payloads(tmp_path: Path) -> None:
     assert payload["artifact"] == "comparison_example_summary"
     methods = {row["Method"] for row in payload["rows"]}
     assert {"BinnedCE", "flexzboost", "pzflow", "delight", "bpz"} <= methods
+
+
+def test_merge_summaries_raises_for_missing_manifest_checksum_contract() -> None:
+    manifest = {
+        "dataset_id": "dset",
+        "split_id": "split",
+        "core_baselines": ["flexzboost", "pzflow", "delight", "bpz"],
+        "optional_baselines": ["lephare"],
+    }
+    tr_summary = {"artifact": "comparison_example_summary", "rows": [{"Method": "BinnedCE"}]}
+    rail_payloads = [
+        {
+            "artifact": "rail_photoz_summary",
+            "dataset_id": "dset",
+            "split_id": "split",
+            "rows": [{"Method": "flexzboost", "NMAD": 0.05}],
+        }
+    ]
+    with pytest.raises(ValueError, match="checksum_policy"):
+        photoz_rail_compare.merge_summaries(
+            manifest=manifest,
+            torchregress_summary=tr_summary,
+            rail_payloads=rail_payloads,
+            paper_parity=True,
+        )

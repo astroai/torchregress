@@ -43,6 +43,9 @@ In `paper-parity` mode (default), the tool enforces:
 - dataset id match
 - split id match
 - required core baseline methods present
+- manifest checksum contract present:
+  - dataset `checksum_policy` keys with 64-char SHA256 values
+  - required `baseline_payloads` entries for core methods with 64-char SHA256 values
 
 ## Run
 
