@@ -51,9 +51,12 @@ atomic tranche roadmap.
 - [x] Publish one consolidated comparison report with runtime + quality metrics.
 
 ### 3) Native-vs-custom closure (remaining API surfaces)
-- [ ] Extend parity checks where overlap exists with `torchmetrics`/`torch.nn`.
-- [ ] Confirm no accidental reinvention remains in high-traffic metrics/loss wrappers.
-- [ ] Document intentional divergences with explicit tests.
+- [x] Extend parity checks where overlap exists with `torchmetrics`/`torch.nn`.
+- [x] Confirm no accidental reinvention remains in high-traffic metrics/loss wrappers.
+- [x] Document intentional divergences with explicit tests.
+  - Added class-weight + `ignore_index` parity checks for classification loss wrappers.
+  - Added broader reduction-mode parity checks for core point-loss wrappers.
+  - Point-metric wrappers now take native torchmetrics fast-paths for baseline mean reductions.
 
 ## P1 (Near-term)
 
@@ -85,7 +88,7 @@ atomic tranche roadmap.
 - [ ] Feature expansion that increases API surface before real-data evidence catches up.
 
 ## Next execution order
-1. Real-data benchmark depth (P0.1)
-2. Photo-z parity hardening (P0.2)
-3. Native-vs-custom closure sweep (P0.3)
-4. Comparative evidence quality uplift (P1.4)
+1. Comparative evidence quality uplift (P1.4)
+2. Performance governance (P1.5)
+3. API consistency sweep (P1.6)
+4. Real-data-first recommendation guide (P2.7)

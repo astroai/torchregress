@@ -73,12 +73,21 @@ def test_native_strategy_guardrails_have_backing_tests_for_key_wraps() -> None:
     assert "WeightedLossWrapper" in native_parity
     assert "WeightedCrossEntropyLoss" in native_parity
     assert "WeightedNLLLoss" in native_parity
+    assert (
+        "test_weighted_cross_entropy_wrapper_matches_native_with_class_weights_and_ignore_index"
+        in native_parity
+    )
+    assert (
+        "test_weighted_nll_wrapper_matches_native_with_class_weights_and_ignore_index"
+        in native_parity
+    )
     assert "WeightedGaussianNLLLoss" in native_parity
     assert "gaussian_nll" in native_parity
     assert "mean_squared_error" in native_parity
     assert "mean_absolute_error" in native_parity
     assert "r2_score" in native_parity
     assert "rmse" in native_parity
+    assert "regression_metrics_report" in native_parity
 
     # Native wrapper strategy for scaling helpers should remain test-backed.
     assert "compile_model" in verify_scaling

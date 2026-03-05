@@ -28,3 +28,5 @@ contains `coverage_evidence` with:
 - `known_divergences`: intentional behavior differences from native APIs
 
 This includes explicit coverage for classification wrappers (`WeightedCrossEntropyLoss`, `WeightedNLLLoss`).
+Parity coverage now explicitly includes class-weight + `ignore_index` agreement checks
+against native `torch.nn` losses.

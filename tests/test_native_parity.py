@@ -20,6 +20,7 @@ from torchregress.metrics import (
     mean_absolute_error,
     mean_squared_error,
     r2_score,
+    regression_metrics_report,
     rmse,
 )
 
@@ -79,6 +80,27 @@ def test_weighted_cross_entropy_wrapper_matches_native_without_mask_or_weights()
     assert torch.allclose(tr_loss, native_loss, atol=1e-6, rtol=1e-6)
 
 
+def test_weighted_cross_entropy_wrapper_matches_native_with_class_weights_and_ignore_index(
+) -> None:
+    torch.manual_seed(0)
+    logits = torch.randn(10, 4)
+    target = torch.tensor([0, 1, 2, 3, 1, 2, -100, 0, 3, 1], dtype=torch.long)
+    class_weight = torch.tensor([1.0, 2.5, 0.7, 1.8], dtype=logits.dtype)
+
+    tr_mean = WeightedCrossEntropyLoss(weight=class_weight, ignore_index=-100, reduction="mean")
+    tr_sum = WeightedCrossEntropyLoss(weight=class_weight, ignore_index=-100, reduction="sum")
+    native_mean = nn.CrossEntropyLoss(weight=class_weight, ignore_index=-100, reduction="mean")
+    native_sum = nn.CrossEntropyLoss(weight=class_weight, ignore_index=-100, reduction="sum")
+
+    assert torch.allclose(
+        tr_mean(logits, target),
+        native_mean(logits, target),
+        atol=1e-6,
+        rtol=1e-6,
+    )
+    assert torch.allclose(tr_sum(logits, target), native_sum(logits, target), atol=1e-6, rtol=1e-6)
+
+
 def test_weighted_nll_wrapper_matches_native_without_mask_or_weights() -> None:
     torch.manual_seed(0)
     logits = torch.randn(12, 3)
@@ -90,6 +112,32 @@ def test_weighted_nll_wrapper_matches_native_without_mask_or_weights() -> None:
     assert torch.allclose(tr_loss, native_loss, atol=1e-6, rtol=1e-6)
 
 
+def test_weighted_nll_wrapper_matches_native_with_class_weights_and_ignore_index() -> None:
+    torch.manual_seed(0)
+    logits = torch.randn(12, 3)
+    log_probs = torch.log_softmax(logits, dim=-1)
+    target = torch.tensor([0, 1, 2, -100, 1, 0, 2, 1, 0, 2, 1, 0], dtype=torch.long)
+    class_weight = torch.tensor([1.0, 0.8, 2.2], dtype=log_probs.dtype)
+
+    tr_mean = WeightedNLLLoss(weight=class_weight, ignore_index=-100, reduction="mean")
+    tr_sum = WeightedNLLLoss(weight=class_weight, ignore_index=-100, reduction="sum")
+    native_mean = nn.NLLLoss(weight=class_weight, ignore_index=-100, reduction="mean")
+    native_sum = nn.NLLLoss(weight=class_weight, ignore_index=-100, reduction="sum")
+
+    assert torch.allclose(
+        tr_mean(log_probs, target),
+        native_mean(log_probs, target),
+        atol=1e-6,
+        rtol=1e-6,
+    )
+    assert torch.allclose(
+        tr_sum(log_probs, target),
+        native_sum(log_probs, target),
+        atol=1e-6,
+        rtol=1e-6,
+    )
+
+
 def test_generic_weighted_loss_wrapper_matches_native_smooth_l1_without_mask_or_weights() -> None:
     torch.manual_seed(0)
     y_pred = torch.randn(14, 2)
@@ -99,6 +147,36 @@ def test_generic_weighted_loss_wrapper_matches_native_smooth_l1_without_mask_or_
     tr_loss = WeightedLossWrapper(nn.SmoothL1Loss(beta=beta))(y_pred, y_true)
     native_loss = nn.SmoothL1Loss(beta=beta)(y_pred, y_true)
     assert torch.allclose(tr_loss, native_loss, atol=1e-6, rtol=1e-6)
+
+
+def test_weighted_point_loss_wrappers_match_native_for_sum_and_none_reductions() -> None:
+    torch.manual_seed(0)
+    y_pred = torch.randn(8, 2)
+    y_true = torch.randn(8, 2)
+    delta = 1.2
+
+    for tr_cls, native_cls, kwargs in (
+        (WeightedMSELoss, nn.MSELoss, {}),
+        (WeightedL1Loss, nn.L1Loss, {}),
+        (WeightedHuberLoss, nn.HuberLoss, {"delta": delta}),
+    ):
+        tr_sum = tr_cls(reduction="sum", **kwargs)
+        native_sum = native_cls(reduction="sum", **kwargs)
+        assert torch.allclose(
+            tr_sum(y_pred, y_true),
+            native_sum(y_pred, y_true),
+            atol=1e-6,
+            rtol=1e-6,
+        )
+
+        tr_none = tr_cls(reduction="none", **kwargs)
+        native_none = native_cls(reduction="none", **kwargs)
+        assert torch.allclose(
+            tr_none(y_pred, y_true),
+            native_none(y_pred, y_true),
+            atol=1e-6,
+            rtol=1e-6,
+        )
 
 
 def test_point_metric_functions_match_torchmetrics_baselines() -> None:
@@ -121,3 +199,25 @@ def test_point_metric_functions_match_torchmetrics_baselines() -> None:
     tr_rmse = float(cast(float, rmse(y_pred, y_true)))
     tm_rmse = float(TMMeanSquaredError(squared=False)(y_pred, y_true).item())
     assert abs(tr_rmse - tm_rmse) < 1e-6
+
+
+def test_regression_metrics_report_core_keys_match_torchmetrics_baselines() -> None:
+    torch.manual_seed(0)
+    y_pred = torch.randn(48, 2)
+    y_true = torch.randn(48, 2)
+
+    report = regression_metrics_report(y_pred, y_true, as_numpy=False)
+    tr_mse = float(cast(float, report["mse"]))
+    tr_rmse = float(cast(float, report["rmse"]))
+    tr_mae = float(cast(float, report["mae"]))
+    tr_r2 = float(cast(float, report["r2"]))
+
+    tm_mse = float(TMMeanSquaredError()(y_pred, y_true).item())
+    tm_rmse = float(TMMeanSquaredError(squared=False)(y_pred, y_true).item())
+    tm_mae = float(TMMeanAbsoluteError()(y_pred, y_true).item())
+    tm_r2 = float(TMR2Score()(y_pred, y_true).item())
+
+    assert abs(tr_mse - tm_mse) < 1e-6
+    assert abs(tr_rmse - tm_rmse) < 1e-6
+    assert abs(tr_mae - tm_mae) < 1e-6
+    assert abs(tr_r2 - tm_r2) < 1e-6

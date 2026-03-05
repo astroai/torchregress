@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Union, cast
 import numpy as np
 import torch
 from torchmetrics import (
+    MeanAbsoluteError,
     MeanSquaredError,
     Metric,
     R2Score,
@@ -324,6 +325,12 @@ def mean_squared_error(
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
+    if sample_weight is None and reduction == "mean":
+        result = MeanSquaredError()(y_pred_t, y_true_t)
+        if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
+            return cast(MetricValue, create_metric_result(result, as_numpy=True))
+        return cast(MetricValue, create_metric_result(result, as_numpy=False))
+
     squared_error = (y_pred_t - y_true_t) ** 2
     per_sample = _per_sample_mean(squared_error)
     per_sample = _apply_sample_weight(per_sample, sample_weight)
@@ -359,6 +366,12 @@ def rmse(
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
+    if sample_weight is None and reduction == "mean":
+        result = MeanSquaredError(squared=False)(y_pred_t, y_true_t)
+        if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
+            return cast(MetricValue, create_metric_result(result, as_numpy=True))
+        return cast(MetricValue, create_metric_result(result, as_numpy=False))
+
     squared_error = (y_pred_t - y_true_t) ** 2
     per_sample = _per_sample_mean(squared_error)
     per_sample = _apply_sample_weight(per_sample, sample_weight)
@@ -388,6 +401,12 @@ def mean_absolute_error(
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
+
+    if sample_weight is None and reduction == "mean":
+        result = MeanAbsoluteError()(y_pred_t, y_true_t)
+        if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
+            return cast(MetricValue, create_metric_result(result, as_numpy=True))
+        return cast(MetricValue, create_metric_result(result, as_numpy=False))
 
     abs_error = torch.abs(y_pred_t - y_true_t)
     per_sample = _per_sample_mean(abs_error)

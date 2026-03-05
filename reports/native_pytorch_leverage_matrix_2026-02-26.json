@@ -12,7 +12,8 @@
       "action": "Maintain wrapper APIs and enforce parity checks.",
       "coverage_evidence": {
         "parity_tests": [
-          "tests/test_native_parity.py::test_weighted_point_loss_wrappers_match_native_without_mask_or_weights"
+          "tests/test_native_parity.py::test_weighted_point_loss_wrappers_match_native_without_mask_or_weights",
+          "tests/test_native_parity.py::test_weighted_point_loss_wrappers_match_native_for_sum_and_none_reductions"
         ],
         "known_divergences": [
           "torchregress wrappers add mask and sample-weight handling not present in raw native losses"
@@ -46,10 +47,12 @@
       "coverage_evidence": {
         "parity_tests": [
           "tests/test_native_parity.py::test_weighted_cross_entropy_wrapper_matches_native_without_mask_or_weights",
-          "tests/test_native_parity.py::test_weighted_nll_wrapper_matches_native_without_mask_or_weights"
+          "tests/test_native_parity.py::test_weighted_cross_entropy_wrapper_matches_native_with_class_weights_and_ignore_index",
+          "tests/test_native_parity.py::test_weighted_nll_wrapper_matches_native_without_mask_or_weights",
+          "tests/test_native_parity.py::test_weighted_nll_wrapper_matches_native_with_class_weights_and_ignore_index"
         ],
         "known_divergences": [
-          "wrappers add mask support and weighted reduction controls beyond native classification losses"
+          "wrappers add mask and sample-weight support beyond native classification losses"
         ]
       }
     },
@@ -62,10 +65,11 @@
       "action": "Prefer thin wrappers and parity checks against torchmetrics.",
       "coverage_evidence": {
         "parity_tests": [
-          "tests/test_native_parity.py::test_point_metric_functions_match_torchmetrics_baselines"
+          "tests/test_native_parity.py::test_point_metric_functions_match_torchmetrics_baselines",
+          "tests/test_native_parity.py::test_regression_metrics_report_core_keys_match_torchmetrics_baselines"
         ],
         "known_divergences": [
-          "torchregress wrappers preserve package-wide tensor-shape and dtype conventions"
+          "sample_weight and non-mean reductions remain torchregress-specific wrapper semantics"
         ]
       }
     },

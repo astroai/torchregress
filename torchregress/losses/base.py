@@ -13,7 +13,7 @@ All losses follow PyTorch conventions with forward methods expecting
 inputs in the form of (y_pred, target, ...).
 """
 
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union, cast
 
 import torch
 import torch.nn as nn
@@ -364,8 +364,10 @@ class WeightedCrossEntropyLoss(BaseLoss):
 
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(reduction="none")
-        kwargs["reduction"] = "none"
-        self.torch_loss = nn.CrossEntropyLoss(**kwargs)
+        base_kwargs = dict(kwargs)
+        self.torch_loss = nn.CrossEntropyLoss(reduction="none", **base_kwargs)
+        self._torch_loss_mean = nn.CrossEntropyLoss(reduction="mean", **base_kwargs)
+        self._torch_loss_sum = nn.CrossEntropyLoss(reduction="sum", **base_kwargs)
         self.reduction = validate_reduction(reduction)
 
     def _validate_classification_inputs(
@@ -396,6 +398,14 @@ class WeightedCrossEntropyLoss(BaseLoss):
 
         if weights is not None:
             weights = validate_weights(weights, y_pred.shape[0])
+
+        # Keep exact native semantics when no torchregress-specific mask/weight
+        # behavior is requested.
+        if mask is None and weights is None:
+            if self.reduction == "mean":
+                return cast(torch.Tensor, self._torch_loss_mean(y_pred, target))
+            if self.reduction == "sum":
+                return cast(torch.Tensor, self._torch_loss_sum(y_pred, target))
 
         loss = self.torch_loss(y_pred, target)
         return self._reduce(loss, mask, weights)
@@ -410,8 +420,10 @@ class WeightedNLLLoss(BaseLoss):
 
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(reduction="none")
-        kwargs["reduction"] = "none"
-        self.torch_loss = nn.NLLLoss(**kwargs)
+        base_kwargs = dict(kwargs)
+        self.torch_loss = nn.NLLLoss(reduction="none", **base_kwargs)
+        self._torch_loss_mean = nn.NLLLoss(reduction="mean", **base_kwargs)
+        self._torch_loss_sum = nn.NLLLoss(reduction="sum", **base_kwargs)
         self.reduction = validate_reduction(reduction)
 
     def _validate_classification_inputs(
@@ -442,6 +454,14 @@ class WeightedNLLLoss(BaseLoss):
 
         if weights is not None:
             weights = validate_weights(weights, y_pred.shape[0])
+
+        # Keep exact native semantics when no torchregress-specific mask/weight
+        # behavior is requested.
+        if mask is None and weights is None:
+            if self.reduction == "mean":
+                return cast(torch.Tensor, self._torch_loss_mean(y_pred, target))
+            if self.reduction == "sum":
+                return cast(torch.Tensor, self._torch_loss_sum(y_pred, target))
 
         loss = self.torch_loss(y_pred, target)
         return self._reduce(loss, mask, weights)
