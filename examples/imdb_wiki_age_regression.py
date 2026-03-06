@@ -85,6 +85,12 @@ def download_and_extract_dataset():
     if not os.path.exists(os.path.join(DATA_DIR, "wiki_crop")):
         print("Extracting dataset...")
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            # Prevent Zip Slip vulnerability by validating paths
+            target_dir = os.path.abspath(DATA_DIR)
+            for member in zip_ref.namelist():
+                member_path = os.path.abspath(os.path.join(target_dir, member))
+                if os.path.commonpath([target_dir, member_path]) != target_dir:
+                    raise Exception("Attempted Path Traversal in Zip File")
             zip_ref.extractall(DATA_DIR)
         print("Extraction completed.")
 
