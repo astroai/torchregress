@@ -98,6 +98,7 @@ def render_generated_section(
     comparative_payload: dict[str, Any],
     *,
     source_json_path: Path = DEFAULT_COMPARATIVE_JSON,
+    generated_date: str | None = None,
 ) -> str:
     source_json_resolved = source_json_path.resolve()
     try:
@@ -110,12 +111,13 @@ def render_generated_section(
     for row in rows:
         band_counts[_evidence_band(row)] += 1
 
+    current_date = generated_date or date.today().isoformat()
     generated_header = "\n".join(
         [
             "_Generated provenance_: "
             "`tools/render_realdata_recommendation_guide.py:render_generated_section`",
             f"_Source artifact_: `{source_display}`",
-            f"_Generated date_: `{date.today().isoformat()}`",
+            f"_Generated date_: `{current_date}`",
         ]
     )
     band_summary = "\n".join(
@@ -154,8 +156,13 @@ def render_recommendation_guide(
     *,
     comparative_payload: dict[str, Any],
     source_json_path: Path = DEFAULT_COMPARATIVE_JSON,
+    generated_date: str | None = None,
 ) -> str:
-    generated = render_generated_section(comparative_payload, source_json_path=source_json_path)
+    generated = render_generated_section(
+        comparative_payload,
+        source_json_path=source_json_path,
+        generated_date=generated_date,
+    )
     return _replace_marked_section(doc_text, generated)
 
 

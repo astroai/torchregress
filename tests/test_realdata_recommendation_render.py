@@ -58,9 +58,17 @@ def test_committed_realdata_guide_is_in_sync() -> None:
 
     text = GUIDE_DOC.read_text(encoding="utf-8")
     payload = render_realdata_recommendation_guide._load_json(COMPARATIVE_JSON)
+
+    # Extract date from existing doc to avoid timezone/date-flip issues in CI
+    import re
+
+    date_match = re.search(r"_Generated date_: `(\d{4}-\d{2}-\d{2})`", text)
+    committed_date = date_match.group(1) if date_match else None
+
     expected = render_realdata_recommendation_guide.render_recommendation_guide(
         text,
         comparative_payload=payload,
         source_json_path=COMPARATIVE_JSON,
+        generated_date=committed_date,
     )
     assert text == expected
