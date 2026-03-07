@@ -8,7 +8,33 @@ import pytest
 from tools import photoz_rail_assets
 
 
-def test_materialize_manifest_assets_downloads_and_updates_checksums(tmp_path: Path) -> None:
+def test_materialize_manifest_assets_downloads_and_updates_checksums(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def mock_download(url: str, target: Path) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if "train" in url:
+            target.write_bytes(b"train-bytes")
+        elif "test" in url:
+            target.write_bytes(b"test-bytes")
+        elif "cal" in url:
+            target.write_bytes(b"cal-bytes")
+        elif "json" in url:
+            method = url.split("/")[-1].replace("src_", "").replace(".json", "")
+            target.write_text(
+                json.dumps(
+                    {
+                        "artifact": "rail_photoz_summary",
+                        "dataset_id": "dset",
+                        "split_id": "split",
+                        "rows": [{"Method": method, "NMAD": 0.05}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+    monkeypatch.setattr(photoz_rail_assets, "_download_to_path", mock_download)
+
     src_train = tmp_path / "src_train.parquet"
     src_test = tmp_path / "src_test.parquet"
     src_cal = tmp_path / "src_cal.parquet"
@@ -49,19 +75,19 @@ def test_materialize_manifest_assets_downloads_and_updates_checksums(tmp_path: P
             {
                 "key": "train_catalog_sha256",
                 "path": "data/rail/datasets/train.parquet",
-                "url": src_train.as_uri(),
+                "url": f"http://localhost/{src_train.name}",
                 "required": True,
             },
             {
                 "key": "test_catalog_sha256",
                 "path": "data/rail/datasets/test.parquet",
-                "url": src_test.as_uri(),
+                "url": f"http://localhost/{src_test.name}",
                 "required": True,
             },
             {
                 "key": "calibration_catalog_sha256",
                 "path": "data/rail/datasets/calibration.parquet",
-                "url": src_cal.as_uri(),
+                "url": f"http://localhost/{src_cal.name}",
                 "required": True,
             },
         ],
@@ -69,25 +95,25 @@ def test_materialize_manifest_assets_downloads_and_updates_checksums(tmp_path: P
             {
                 "method": "flexzboost",
                 "path": "data/rail/baselines/flexzboost.json",
-                "url": src_flex.as_uri(),
+                "url": f"http://localhost/{src_flex.name}",
                 "required": True,
             },
             {
                 "method": "pzflow",
                 "path": "data/rail/baselines/pzflow.json",
-                "url": src_pzflow.as_uri(),
+                "url": f"http://localhost/{src_pzflow.name}",
                 "required": True,
             },
             {
                 "method": "delight",
                 "path": "data/rail/baselines/delight.json",
-                "url": src_delight.as_uri(),
+                "url": f"http://localhost/{src_delight.name}",
                 "required": True,
             },
             {
                 "method": "bpz",
                 "path": "data/rail/baselines/bpz.json",
-                "url": src_bpz.as_uri(),
+                "url": f"http://localhost/{src_bpz.name}",
                 "required": True,
             },
             {
