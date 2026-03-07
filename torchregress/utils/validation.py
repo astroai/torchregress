@@ -357,34 +357,46 @@ def validate_weights(
     return weights
 
 
-def check_tensor(tensor: torch.Tensor, name: str = "tensor") -> torch.Tensor:
+def check_tensor(
+    tensor: torch.Tensor,
+    name: str = "tensor",
+    max_elements: Optional[int] = int(2e8),  # ~800MB limit for float32
+) -> torch.Tensor:
     """
-    Validates a tensor for common issues - checks for NaNs, infs, and ensures it's
-    a proper torch tensor.
+    Validates a tensor for common issues - checks for NaNs, infs, max elements (DoS protection),
+    and ensures it's a proper torch tensor.
 
     Args:
         tensor: The tensor to validate
         name: Name of the tensor for error messages
+        max_elements: Maximum number of elements allowed (default 2e8). Set to None to disable.
 
     Returns:
         The validated tensor
 
     Raises:
-        ValueError: If tensor contains NaN or inf values
+        ValueError: If tensor contains NaN or inf values, or exceeds max_elements limit
         TypeError: If input is not a torch.Tensor
 
     Examples:
         >>> x = torch.tensor([1.0, 2.0, 3.0])
-        >>> validate_tensor(x)
+        >>> check_tensor(x)
         tensor([1., 2., 3.])
         >>> y = torch.tensor([1.0, float('nan'), 3.0])
-        >>> validate_tensor(y)
+        >>> check_tensor(y)
         Traceback (most recent call last):
             ...
         ValueError: tensor contains NaN values
     """
     if not isinstance(tensor, torch.Tensor):
         raise TypeError(f"{name} must be a torch.Tensor, got {type(tensor)}")
+
+    # Defense against Denial of Service via Resource Exhaustion (OOM)
+    if max_elements is not None and tensor.numel() > max_elements:
+        raise ValueError(
+            f"{name} contains {tensor.numel()} elements, "
+            f"which exceeds the maximum allowed limit of {max_elements}."
+        )
 
     if torch.isnan(tensor).any():
         raise ValueError(f"{name} contains NaN values")
