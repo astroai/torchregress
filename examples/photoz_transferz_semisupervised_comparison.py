@@ -1,6 +1,7 @@
 """Real-data semi-supervised photo-z benchmark on TransferZ fixed splits."""
 
 import argparse
+import copy
 from dataclasses import dataclass
 from typing import Literal
 
@@ -16,8 +17,8 @@ from comparison_utils import (
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.calibration import VarianceTemperatureScaler
-from torchregress.losses import GaussianNLLLoss, WeightedHuberLoss
-from torchregress.utils import generate_pseudo_labels
+from torchregress.losses import GaussianNLLLoss, PseudoLabelConsistencyLoss, WeightedHuberLoss
+from torchregress.utils import generate_pseudo_labels, update_ema_teacher_
 
 LabelPolicy = Literal["random", "highz_scarce"]
 
@@ -43,6 +44,8 @@ class PhotoZTransferZSemiSupervisedConfig:
     highz_threshold_boost: float = 0.12
     teacher_ensemble_size: int = 3
     perturbation_samples: int = 3
+    ema_momentum: float = 0.985
+    consistency_noise_scale: float = 0.6
     variance_temperature_max_iter: int = 200
     variance_temperature_lr: float = 0.05
     train_dataset_path: str | None = None
@@ -385,6 +388,65 @@ def _evaluate_point_row(
     }
 
 
+def _train_ema_selective_consistency(
+    model: torch.nn.Module,
+    splits: dict[str, torch.Tensor],
+    *,
+    pseudo_target: torch.Tensor,
+    pseudo_confidence: torch.Tensor,
+    label_mask: torch.Tensor,
+    epochs: int,
+    lr: float,
+    batch_size: int,
+    ema_momentum: float,
+    consistency_noise_scale: float,
+) -> torch.nn.Module:
+    ema_teacher = copy.deepcopy(model)
+    ema_teacher.eval()
+    loss_fn = PseudoLabelConsistencyLoss(
+        pseudo_weight=0.9,
+        consistency_weight=0.35,
+        supervised_loss="huber",
+        confidence_threshold=0.05,
+    )
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    loader = DataLoader(
+        TensorDataset(
+            splits["x_train"],
+            splits["xerr_train"],
+            splits["y_train"],
+            pseudo_target,
+            pseudo_confidence,
+            label_mask,
+        ),
+        batch_size=min(batch_size, int(splits["x_train"].shape[0])),
+        shuffle=True,
+    )
+    model.train()
+    for _ in range(epochs):
+        for xb, xerr_b, yb, pseudo_b, conf_b, label_b in loader:
+            opt.zero_grad()
+            x_student = xb + consistency_noise_scale * torch.randn_like(xb) * xerr_b
+            x_teacher = xb + 0.25 * consistency_noise_scale * torch.randn_like(xb) * xerr_b
+            pred = model(x_student)
+            with torch.no_grad():
+                teacher_pred = ema_teacher(x_teacher)
+            loss = loss_fn(
+                pred,
+                yb,
+                pseudo_target=pseudo_b,
+                pseudo_confidence=conf_b,
+                teacher_pred=teacher_pred,
+                label_mask=label_b.to(torch.bool),
+            )
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            opt.step()
+            update_ema_teacher_(ema_teacher, model, momentum=ema_momentum)
+    model.eval()
+    return model
+
+
 def _evaluate_gaussian_row(
     *,
     method: str,
@@ -669,6 +731,51 @@ def run_comparison(
                 notes=(
                     "point student with selective pseudo labels and feature-error-aware "
                     "prediction averaging at evaluation"
+                ),
+            )
+        )
+
+        ema_selective = pzbase.PhotoZRegressor(
+            int(splits["x_train"].shape[1]),
+            hidden=cfg.hidden,
+        )
+        _, ema_train_s = timed_call(
+            _train_ema_selective_consistency,
+            ema_selective,
+            splits,
+            pseudo_target=selective_pseudo_target,
+            pseudo_confidence=selective_pseudo_confidence,
+            label_mask=label_mask,
+            epochs=cfg.epochs,
+            lr=cfg.lr,
+            batch_size=cfg.batch_size,
+            ema_momentum=cfg.ema_momentum,
+            consistency_noise_scale=cfg.consistency_noise_scale,
+        )
+        with torch.no_grad():
+            ema_clean = ema_selective(splits["x_test"])
+            ema_preds = [ema_clean]
+            for _ in range(max(cfg.perturbation_samples, 2)):
+                x_aug = (
+                    splits["x_test"]
+                    + 0.5
+                    * cfg.consistency_noise_scale
+                    * torch.randn_like(splits["x_test"])
+                    * splits["xerr_test"]
+                )
+                ema_preds.append(ema_selective(x_aug))
+            ema_pred = torch.stack(ema_preds, dim=0).mean(dim=0)
+        rows.append(
+            _evaluate_point_row(
+                method="EMASelectiveConsistency",
+                pred=ema_pred,
+                splits=splits,
+                meta=selective_ssl_meta,
+                train_s=selective_teacher_s + ema_train_s,
+                eval_s=0.0,
+                notes=(
+                    "EMA teacher-student consistency with feature-error perturbations and "
+                    "selective pseudo labels"
                 ),
             )
         )

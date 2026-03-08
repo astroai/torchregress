@@ -24,6 +24,7 @@ The default protocol is intentionally difficult:
 - `PseudoLabelConsistency`
 - `SelectivePseudoLabelNLL`
 - `FeatureAwarePseudoLabelConsistency`
+- `EMASelectiveConsistency`
 
 ## Reported metrics
 
@@ -73,7 +74,7 @@ reports/example_summaries/transferz/photoz_transferz_semisupervised_comparison_f
 ## Notes
 
 !!! info
-    The benchmark uses `VALIDATION` to calibrate Gaussian teacher uncertainty before pseudo-label confidence thresholding. The stronger SSL rows also use the catalogued feature errors (`*_err`) to reject pseudo labels that are unstable under feature perturbations.
+    The benchmark uses `VALIDATION` to calibrate Gaussian teacher uncertainty before pseudo-label confidence thresholding. The stronger SSL rows also use the catalogued feature errors (`*_err`) to reject pseudo labels that are unstable under feature perturbations. `EMASelectiveConsistency` adds a mean-teacher-style consistency path on top of the same selective pseudo-label pool.
 
 !!! warning
     If pseudo-label rows lose to labeled-only baselines here, that is useful evidence. On public tabular photo-z data with real shift and tail scarcity, semi-supervision is not automatically a win.

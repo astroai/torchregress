@@ -101,6 +101,16 @@ def render_report(
         best_overall = rows[0] if rows else None
         best_tail = _best_row(rows, ["HighZ_MAE", "NMAD"])
         best_high_err = _best_row(rows, ["HighErr_NMAD", "HighErr_CatastrophicRate", "NMAD"])
+        best_robust = _best_row(
+            rows,
+            ["CatastrophicRate", "NMAD", "HighZ_MAE"],
+            predicate=lambda row: "Huber" in str(row.get("Method", "")),
+        )
+        best_noisy_label = _best_row(
+            rows,
+            ["NLL", "NMAD", "CatastrophicRate"],
+            predicate=lambda row: "NoisyTarget" in str(row.get("Method", "")),
+        )
         best_prob = _best_row(
             rows,
             ["NLL", "NMAD", "CatastrophicRate"],
@@ -133,6 +143,17 @@ def render_report(
                 "HighErr_CatastrophicRate "
                 f"{_format_cell(best_high_err.get('HighErr_CatastrophicRate'))}"
                 ")"
+            )
+        if best_robust is not None:
+            lines.append(
+                f"- Best robust row: `{best_robust['Method']}` "
+                f"(CatastrophicRate {_format_cell(best_robust.get('CatastrophicRate'))})"
+            )
+        if best_noisy_label is not None:
+            lines.append(
+                f"- Best noisy-label-aware row: `{best_noisy_label['Method']}` "
+                f"(NLL {_format_cell(best_noisy_label.get('NLL'))}, "
+                f"NMAD {_format_cell(best_noisy_label.get('NMAD'))})"
             )
         if best_prob is not None:
             lines.append(
@@ -275,11 +296,25 @@ def render_report(
                 predicate=lambda row, frac=frac: abs(float(row.get("LabeledFraction", -1.0)) - frac)
                 < 1e-8,
             )
+            best_ssl = _best_row(
+                rows,
+                ["NMAD", "CatastrophicRate", "HighZ_MAE"],
+                predicate=lambda row, frac=frac: (
+                    abs(float(row.get("LabeledFraction", -1.0)) - frac) < 1e-8
+                    and str(row.get("Method")) not in {"HuberLabeledOnly", "GaussianLabeledOnly"}
+                ),
+            )
             if best_frac is not None:
                 lines.append(
                     f"- Best at labeled fraction `{frac:.4f}`: `{best_frac['Method']}` "
                     f"(NMAD {_format_cell(best_frac.get('NMAD'))}, "
                     f"PseudoAcceptRate {_format_cell(best_frac.get('PseudoAcceptRate'))})"
+                )
+            if best_ssl is not None:
+                lines.append(
+                    f"- Best SSL-only at labeled fraction `{frac:.4f}`: `{best_ssl['Method']}` "
+                    f"(NMAD {_format_cell(best_ssl.get('NMAD'))}, "
+                    f"PseudoAcceptRate {_format_cell(best_ssl.get('PseudoAcceptRate'))})"
                 )
         lines.append("")
         lines.extend(

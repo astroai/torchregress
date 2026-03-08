@@ -448,9 +448,12 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
             "MSE",
             "Huber",
             "DensityWeightedHuber",
+            "TailAdaptiveHuber",
             "LogTransform",
             "GaussianNLL",
+            "FeatureAwareGaussianNLL",
             "NoisyTargetGaussianNLL",
+            "AugmentedNoisyTargetGaussianNLL",
             "Quantile90",
             "PseudoLabelNLL",
             "PseudoLabelConsistency",
@@ -463,9 +466,12 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
         "MSE",
         "Huber",
         "DensityWeightedHuber",
+        "TailAdaptiveHuber",
         "LogTransform",
         "GaussianNLL",
+        "FeatureAwareGaussianNLL",
         "NoisyTargetGaussianNLL",
+        "AugmentedNoisyTargetGaussianNLL",
         "Quantile90",
         "PseudoLabelNLL",
         "PseudoLabelConsistency",
@@ -499,13 +505,22 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
         _assert_probability(row["LowErr_CatastrophicRate"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
-    for method in ("GaussianNLL", "NoisyTargetGaussianNLL", "Quantile90", "PseudoLabelNLL"):
+    for method in (
+        "GaussianNLL",
+        "FeatureAwareGaussianNLL",
+        "NoisyTargetGaussianNLL",
+        "AugmentedNoisyTargetGaussianNLL",
+        "Quantile90",
+        "PseudoLabelNLL",
+    ):
         row = rows[method]
         _assert_row_has_keys(row, ["Cov90", "Width90"])
         _assert_probability(row["Cov90"])
         _assert_non_negative(row["Width90"])
     _assert_non_negative(rows["GaussianNLL"]["NLL"])
+    _assert_non_negative(rows["FeatureAwareGaussianNLL"]["NLL"])
     _assert_non_negative(rows["NoisyTargetGaussianNLL"]["NLL"])
+    _assert_non_negative(rows["AugmentedNoisyTargetGaussianNLL"]["NLL"])
     _assert_non_negative(rows["PseudoLabelNLL"]["NLL"])
     for method in ("PseudoLabelNLL", "PseudoLabelConsistency"):
         row = rows[method]
@@ -748,12 +763,13 @@ def test_photoz_transferz_semisupervised_comparison_writes_summary_json(tmp_path
             "PseudoLabelConsistency",
             "SelectivePseudoLabelNLL",
             "FeatureAwarePseudoLabelConsistency",
+            "EMASelectiveConsistency",
         },
     )
     payload = _load_payload(out)
     rows = payload["rows"]
     assert isinstance(rows, list)
-    assert len(rows) == 12
+    assert len(rows) == 14
     for row in rows:
         assert isinstance(row, dict)
         _assert_row_has_keys(

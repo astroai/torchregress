@@ -31,6 +31,24 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
                         "HighZ_MAE": 0.2,
                         "HighErr_NMAD": 0.12,
                         "HighErr_CatastrophicRate": 0.10,
+                        "NLL": 0.15,
+                    },
+                    {
+                        "Method": "Huber",
+                        "NMAD": 0.13,
+                        "CatastrophicRate": 0.07,
+                        "HighZ_MAE": 0.22,
+                        "HighErr_NMAD": 0.13,
+                        "HighErr_CatastrophicRate": 0.11,
+                    },
+                    {
+                        "Method": "NoisyTargetGaussianNLL",
+                        "NMAD": 0.14,
+                        "CatastrophicRate": 0.09,
+                        "HighZ_MAE": 0.24,
+                        "HighErr_NMAD": 0.15,
+                        "HighErr_CatastrophicRate": 0.12,
+                        "NLL": 0.18,
                     },
                 ],
             }
@@ -151,7 +169,10 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
     assert "TransferZ Conformal Track" in text
     assert "Best overall" in text
     assert "Best high-feature-error row" in text
+    assert "Best robust row" in text
+    assert "Best noisy-label-aware row" in text
     assert "Best at labeled fraction" in text
+    assert "Best SSL-only at labeled fraction" in text
     assert "GaussianNLL" in text
     assert "SoftBinnedCE" in text
     assert "PseudoLabelNLL" in text

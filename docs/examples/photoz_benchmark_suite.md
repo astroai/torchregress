@@ -193,8 +193,9 @@ The suite markdown report is the fastest first pass:
 - `reports/example_summaries/photoz_benchmark_suite_latest.md`
 - it ranks the standard track by `NMAD`, `CatastrophicRate`, `HighZ_MAE`
 - it also calls out the best row on the highest-feature-error slice using the catalogued `*_err` columns
+- it also calls out best robust and noisy-label-aware rows inside the standard track
 - it ranks the ordered-bin track by `CRPS`, `PDF_NLL`, `PITChi2`
-- it ranks the TransferZ semi-supervised track by `LabeledFraction`, `NMAD`, `CatastrophicRate`
+- it ranks the TransferZ semi-supervised track by `LabeledFraction`, `NMAD`, `CatastrophicRate`, and also shows the best SSL-only row at each labeled fraction
 - it includes the PPI track when that track was run
 
 For the ordered-bin track specifically:

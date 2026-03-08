@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from tools import photoz_transferz_pipeline
 
@@ -14,7 +15,7 @@ def test_photoz_transferz_pipeline_runs_suite(monkeypatch, tmp_path: Path) -> No
     suite_report_path = tmp_path / "transferz_suite.json"
     markdown_report_path = tmp_path / "transferz_suite.md"
 
-    collection_payload = {
+    collection_payload: dict[str, Any] = {
         "artifact": "photoz_transferz_collection_report",
         "normalized_paths": {},
     }

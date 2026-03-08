@@ -538,6 +538,45 @@ def _train_density_weighted(
     return model
 
 
+def _train_tail_adaptive_huber(
+    model: nn.Module,
+    splits: dict[str, torch.Tensor],
+    *,
+    epochs: int,
+    lr: float,
+) -> nn.Module:
+    loss_fn = WeightedHuberLoss(delta=1.0, reduction="none")
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    y_raw = splits["y_train_raw"][:, 0]
+    tail_cut = torch.quantile(y_raw, 0.80)
+    tail_mask = y_raw >= tail_cut
+    y_rank = torch.argsort(torch.argsort(y_raw)).to(torch.float32)
+    rank_weight = 1.0 + 0.75 * (y_rank / max(float(y_raw.numel() - 1), 1.0))
+    feature_error_mag = splits["xerr_train"].pow(2).mean(dim=1).sqrt()
+    error_q75 = torch.quantile(feature_error_mag, 0.75).clamp_min(1e-6)
+    feature_reliability = (1.0 - feature_error_mag / error_q75).clamp(min=0.4, max=1.0)
+    tail_boost = torch.where(
+        tail_mask, torch.full_like(rank_weight, 1.35), torch.ones_like(rank_weight)
+    )
+    sample_weight = (rank_weight * tail_boost * feature_reliability).clamp(max=2.5)
+    loader = DataLoader(
+        TensorDataset(splits["x_train"], splits["y_train"], sample_weight.unsqueeze(-1)),
+        batch_size=min(64, int(splits["x_train"].shape[0])),
+        shuffle=True,
+    )
+    model.train()
+    for _ in range(epochs):
+        for xb, yb, wb in loader:
+            opt.zero_grad()
+            pred = model(xb)
+            per_sample = loss_fn(pred, yb)
+            loss = (per_sample * wb).mean()
+            loss.backward()
+            opt.step()
+    model.eval()
+    return model
+
+
 def _train_noisy_target_gaussian(
     model: nn.Module,
     splits: dict[str, torch.Tensor],
@@ -560,6 +599,69 @@ def _train_noisy_target_gaussian(
             mean, logvar = out[:, :1], out[:, 1:2].clamp(-8.0, 6.0)
             loss = loss_fn((mean, logvar), yb, target_variance=yvar_b)
             loss.backward()
+            opt.step()
+    model.eval()
+    return model
+
+
+def _train_feature_aware_gaussian(
+    model: nn.Module,
+    splits: dict[str, torch.Tensor],
+    *,
+    epochs: int,
+    lr: float,
+) -> nn.Module:
+    loss_fn = GaussianNLLLoss()
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    loader = DataLoader(
+        TensorDataset(splits["x_train"], splits["xerr_train"], splits["y_train"]),
+        batch_size=min(64, int(splits["x_train"].shape[0])),
+        shuffle=True,
+    )
+    model.train()
+    for _ in range(epochs):
+        for xb, xerr_b, yb in loader:
+            opt.zero_grad()
+            x_aug = xb + torch.randn_like(xb) * xerr_b
+            out = model(x_aug)
+            mean, logvar = out[:, :1], out[:, 1:2].clamp(-8.0, 6.0)
+            loss = loss_fn((mean, logvar), yb)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            opt.step()
+    model.eval()
+    return model
+
+
+def _train_augmented_noisy_target_gaussian(
+    model: nn.Module,
+    splits: dict[str, torch.Tensor],
+    *,
+    epochs: int,
+    lr: float,
+) -> nn.Module:
+    loss_fn = NoisyTargetGaussianNLL()
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    loader = DataLoader(
+        TensorDataset(
+            splits["x_train"],
+            splits["xerr_train"],
+            splits["y_train"],
+            splits["yerr_train"].pow(2),
+        ),
+        batch_size=min(64, int(splits["x_train"].shape[0])),
+        shuffle=True,
+    )
+    model.train()
+    for _ in range(epochs):
+        for xb, xerr_b, yb, yvar_b in loader:
+            opt.zero_grad()
+            x_aug = xb + torch.randn_like(xb) * xerr_b
+            out = model(x_aug)
+            mean, logvar = out[:, :1], out[:, 1:2].clamp(-8.0, 6.0)
+            loss = loss_fn((mean, logvar), yb, target_variance=yvar_b)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             opt.step()
     model.eval()
     return model
@@ -768,6 +870,45 @@ def _evaluate_gaussian_method(
     }
 
 
+def _evaluate_gaussian_method_tta(
+    model: nn.Module,
+    splits: dict[str, torch.Tensor],
+    *,
+    n_samples: int = 8,
+) -> dict[str, object]:
+    means: list[torch.Tensor] = []
+    vars_: list[torch.Tensor] = []
+    with torch.no_grad():
+        for _ in range(n_samples):
+            x_aug = splits["x_test"] + torch.randn_like(splits["x_test"]) * splits["xerr_test"]
+            out = model(x_aug)
+            mean = out[:, :1]
+            logvar = out[:, 1:2].clamp(-8.0, 6.0)
+            means.append(mean)
+            vars_.append(torch.exp(logvar))
+    mean_stack = torch.stack(means, dim=0)
+    var_stack = torch.stack(vars_, dim=0)
+    mean = mean_stack.mean(dim=0)
+    var = var_stack.mean(dim=0) + mean_stack.var(dim=0, unbiased=False)
+    std = var.sqrt()
+
+    point = _point_metrics(mean, splits["y_test"])
+    pz = _photoz_metrics(mean, splits["y_test"], splits)
+    resid2 = (splits["y_test"] - mean) ** 2
+    nll = (0.5 * (torch.log(var.clamp_min(1e-8)) + resid2 / var.clamp_min(1e-8))).mean().item()
+    lower90 = mean - 1.645 * std
+    upper90 = mean + 1.645 * std
+    cov90, width90 = _coverage_width(lower90, upper90, splits["y_test"])
+    return {
+        "Method": "GaussianNLL",
+        **point,
+        **pz,
+        "NLL": float(nll),
+        "Cov90": cov90,
+        "Width90": width90,
+    }
+
+
 def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], list[str]]:
     splits = _make_splits(cfg)
     train_loader = DataLoader(
@@ -797,13 +938,24 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
         ("MSE", PhotoZRegressor(d_in, hidden=cfg.hidden), "mse"),
         ("Huber", PhotoZRegressor(d_in, hidden=cfg.hidden), "huber"),
         ("DensityWeightedHuber", PhotoZRegressor(d_in, hidden=cfg.hidden), "density_huber"),
+        ("TailAdaptiveHuber", PhotoZRegressor(d_in, hidden=cfg.hidden), "tail_huber"),
         ("LogTransform", PhotoZRegressor(d_in, hidden=cfg.hidden, positive_output=True), "log"),
         ("Quantile90", PhotoZRegressor(d_in, out_dim=3, hidden=cfg.hidden), "quantile"),
         ("GaussianNLL", PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden), "gaussian"),
         (
+            "FeatureAwareGaussianNLL",
+            PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden),
+            "feature_gaussian",
+        ),
+        (
             "NoisyTargetGaussianNLL",
             PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden),
             "noisy_gaussian",
+        ),
+        (
+            "AugmentedNoisyTargetGaussianNLL",
+            PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden),
+            "aug_noisy_gaussian",
         ),
         ("PseudoLabelNLL", PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden), "pseudo_gaussian"),
         (
@@ -821,7 +973,8 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
         "Photo-z metrics include NMAD, catastrophic outlier rate, and high-z MAE",
         "Feature-noise diagnostics are computed from catalogued color-error columns on the test split.",
         "Pseudo-label rows use a partial-spec-z track: only part of the train split is treated as labeled.",
-        "DensityWeightedHuber targets train-target imbalance; NoisyTargetGaussianNLL uses observed target-variance metadata.",
+        "TailAdaptiveHuber and DensityWeightedHuber target imbalance; feature-aware Gaussian rows use catalogued color errors for augmentation/test-time averaging.",
+        "NoisyTargetGaussianNLL rows use observed target-variance metadata.",
     ]
     for idx, (name, model, kind) in enumerate(specs):
         set_comparison_seed(cfg.seed + idx)
@@ -859,6 +1012,19 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
             result["Notes"] = (
                 "tail-aware density-weighted Huber with capped rarity weighting and "
                 "catalog feature-error reliability weights"
+            )
+        elif kind == "tail_huber":
+            _, train_s = timed_call(
+                _train_tail_adaptive_huber,
+                model,
+                splits,
+                epochs=cfg.epochs,
+                lr=cfg.lr,
+            )
+            result, eval_s = timed_call(_evaluate_point_method, name, model, splits)
+            result["Notes"] = (
+                "quantile-rank tail-adaptive Huber with capped high-z emphasis and "
+                "catalog feature-reliability weighting"
             )
         elif kind == "log":
             _, train_s = timed_call(
@@ -902,6 +1068,20 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
             )
             result, eval_s = timed_call(_evaluate_gaussian_method, model, splits)
             result["Notes"] = "heteroscedastic Gaussian"
+        elif kind == "feature_gaussian":
+            _, train_s = timed_call(
+                _train_feature_aware_gaussian,
+                model,
+                splits,
+                epochs=cfg.epochs,
+                lr=cfg.lr,
+            )
+            result, eval_s = timed_call(_evaluate_gaussian_method_tta, model, splits)
+            result["Method"] = name
+            result["Notes"] = (
+                "heteroscedastic Gaussian with catalog feature-error augmentation and "
+                "test-time perturbation averaging"
+            )
         elif kind == "noisy_gaussian":
             _, train_s = timed_call(
                 _train_noisy_target_gaussian,
@@ -913,6 +1093,20 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
             result, eval_s = timed_call(_evaluate_gaussian_method, model, splits)
             result["Method"] = name
             result["Notes"] = "heteroscedastic Gaussian with observed target-variance term"
+        elif kind == "aug_noisy_gaussian":
+            _, train_s = timed_call(
+                _train_augmented_noisy_target_gaussian,
+                model,
+                splits,
+                epochs=cfg.epochs,
+                lr=cfg.lr,
+            )
+            result, eval_s = timed_call(_evaluate_gaussian_method_tta, model, splits)
+            result["Method"] = name
+            result["Notes"] = (
+                "noisy-target Gaussian with catalog feature-error augmentation and "
+                "test-time perturbation averaging"
+            )
         elif kind == "pseudo_gaussian":
             _, train_s = timed_call(
                 _train_pseudo_label_gaussian,

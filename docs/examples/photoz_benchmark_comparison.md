@@ -24,10 +24,13 @@ The benchmark compares a shared-budget set of methods:
 - `MSE`
 - `Huber`
 - `DensityWeightedHuber`
+- `TailAdaptiveHuber`
 - `LogTransform`
 - `Quantile90` (`MultiQuantileLoss`)
 - `GaussianNLL`
+- `FeatureAwareGaussianNLL`
 - `NoisyTargetGaussianNLL`
+- `AugmentedNoisyTargetGaussianNLL`
 - `PseudoLabelNLL`
 - `PseudoLabelConsistency`
 - `FunctionalEIV`
@@ -81,8 +84,10 @@ main(cfg, summary_json_path="reports/example_summaries/photoz_benchmark_comparis
 - This benchmark improves domain realism and external-validity evidence, but it is still a compact MLP-based benchmark rather than a production astronomy pipeline.
 - `PseudoLabelNLL` and `PseudoLabelConsistency` use a partial-spec-z protocol inside the train split: a bootstrap Gaussian teacher is fitted on the labeled subset, then pseudo labels are generated for the remainder.
 - `DensityWeightedHuber` is the tail-imbalance row: it reweights train targets by rarity so the benchmark exposes the accuracy-vs-tail tradeoff directly.
+- `TailAdaptiveHuber` is the cheaper long-tail row: it uses quantile-rank target weighting with capped high-z emphasis and catalog feature-reliability weighting instead of KDE.
 - The current `DensityWeightedHuber` row is feature-reliability-aware: it combines train-target rarity with the catalogued feature errors so high-z examples with very poor photometry are not overweighted blindly.
 - The benchmark report now highlights the best row on the highest-feature-error slice separately from the best overall row, so noisy-feature robustness is visible instead of being hidden inside aggregate `NMAD`.
 - `NoisyTargetGaussianNLL` uses the observed `spec_z_err` metadata as an additive target-variance term rather than pretending the labels are exact.
+- `FeatureAwareGaussianNLL` and `AugmentedNoisyTargetGaussianNLL` use the catalogued feature errors during training and test-time perturbation averaging to show what noisy-feature-aware probabilistic regression buys on this dataset.
 - `LogTransform` is included as a positive-support skew ablation, not as a claim that log-space is universally best for photo-z.
 - For a broader astronomy walkthrough and diagnostics, see `examples/photoz.py` and this docs section’s `Photo-z` page.
