@@ -16,9 +16,15 @@ def test_photoz_benchmark_suite_runs_core_examples(monkeypatch, tmp_path: Path) 
         output_dir: Path,
         real_data_only: bool,
         dataset_path: Path | None,
+        train_dataset_path: Path | None,
+        cal_dataset_path: Path | None,
+        test_dataset_path: Path | None,
     ) -> Path:
         del real_data_only
         del dataset_path
+        del train_dataset_path
+        del cal_dataset_path
+        del test_dataset_path
         path = output_dir / f"{module_name}_{profile}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
@@ -64,9 +70,15 @@ def test_photoz_benchmark_suite_can_include_rail_merge(monkeypatch, tmp_path: Pa
         output_dir: Path,
         real_data_only: bool,
         dataset_path: Path | None,
+        train_dataset_path: Path | None,
+        cal_dataset_path: Path | None,
+        test_dataset_path: Path | None,
     ) -> Path:
         del real_data_only
         del dataset_path
+        del train_dataset_path
+        del cal_dataset_path
+        del test_dataset_path
         path = output_dir / f"{module_name}_{profile}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
@@ -128,9 +140,15 @@ def test_photoz_benchmark_suite_real_data_only_skips_ppi(monkeypatch, tmp_path: 
         output_dir: Path,
         real_data_only: bool,
         dataset_path: Path | None,
+        train_dataset_path: Path | None,
+        cal_dataset_path: Path | None,
+        test_dataset_path: Path | None,
     ) -> Path:
         assert real_data_only is True
         assert dataset_path is None
+        assert train_dataset_path is None
+        assert cal_dataset_path is None
+        assert test_dataset_path is None
         seen.append(module_name)
         path = output_dir / f"{module_name}_{profile}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,8 +196,14 @@ def test_photoz_benchmark_suite_passes_dataset_path(monkeypatch, tmp_path: Path)
         output_dir: Path,
         real_data_only: bool,
         dataset_path: Path | None,
+        train_dataset_path: Path | None,
+        cal_dataset_path: Path | None,
+        test_dataset_path: Path | None,
     ) -> Path:
         assert real_data_only is True
+        assert train_dataset_path is None
+        assert cal_dataset_path is None
+        assert test_dataset_path is None
         seen.append((module_name, dataset_path))
         path = output_dir / f"{module_name}_{profile}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -208,4 +232,65 @@ def test_photoz_benchmark_suite_passes_dataset_path(monkeypatch, tmp_path: Path)
     assert seen == [
         ("photoz_benchmark_comparison", dataset_path),
         ("photoz_nnc_crps_rail_comparison", dataset_path),
+    ]
+
+
+def test_photoz_benchmark_suite_passes_explicit_split_paths(
+    monkeypatch, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "reports/example_summaries"
+    train_path = tmp_path / "transferz_train.csv"
+    cal_path = tmp_path / "transferz_cal.csv"
+    test_path = tmp_path / "transferz_test.csv"
+    header = "spec_z,spec_z_err,g_r,r_i,i_z,z_y,g_r_err,r_i_err,i_z_err,z_y_err\n"
+    for path in (train_path, cal_path, test_path):
+        path.write_text(header, encoding="utf-8")
+
+    seen: list[tuple[str, Path | None, Path | None, Path | None]] = []
+
+    def _fake_run_example(
+        module_name: str,
+        *,
+        profile: str,
+        output_dir: Path,
+        real_data_only: bool,
+        dataset_path: Path | None,
+        train_dataset_path: Path | None,
+        cal_dataset_path: Path | None,
+        test_dataset_path: Path | None,
+    ) -> Path:
+        assert real_data_only is True
+        assert dataset_path is None
+        seen.append((module_name, train_dataset_path, cal_dataset_path, test_dataset_path))
+        path = output_dir / f"{module_name}_{profile}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "artifact": "comparison_example_summary",
+                    "version": 1,
+                    "rows": [{"Method": module_name}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return path
+
+    monkeypatch.setattr(photoz_benchmark_suite, "_run_example", _fake_run_example)
+
+    report = photoz_benchmark_suite.run_suite(
+        profile="smoke",
+        output_dir=output_dir,
+        real_data_only=True,
+        train_dataset_path=train_path,
+        cal_dataset_path=cal_path,
+        test_dataset_path=test_path,
+    )
+
+    assert report["train_dataset_path"] == str(train_path)
+    assert report["cal_dataset_path"] == str(cal_path)
+    assert report["test_dataset_path"] == str(test_path)
+    assert seen == [
+        ("photoz_benchmark_comparison", train_path, cal_path, test_path),
+        ("photoz_nnc_crps_rail_comparison", train_path, cal_path, test_path),
     ]

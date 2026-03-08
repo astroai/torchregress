@@ -54,6 +54,9 @@ class PhotoZBenchmarkConfig:
     teacher_epochs: int = 8
     pseudo_confidence_threshold: float = 0.35
     dataset_path: str | None = None
+    train_dataset_path: str | None = None
+    cal_dataset_path: str | None = None
+    test_dataset_path: str | None = None
     force_simulated: bool = False
     require_real_data: bool = False
     allow_download: bool = False
@@ -84,28 +87,46 @@ class PhotoZRegressor(nn.Module):
         return self.net(x)
 
 
+def _load_photoz_table(dataset_path: Path) -> pd.DataFrame:
+    if not dataset_path.exists():
+        raise FileNotFoundError(f"Configured photo-z dataset path does not exist: {dataset_path}")
+    suffix = dataset_path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(dataset_path)
+    if suffix in {".json", ".jsonl"}:
+        return pd.read_json(dataset_path, lines=(suffix == ".jsonl"))
+    if suffix in {".pkl", ".pickle"}:
+        return pd.read_pickle(dataset_path)
+    raise ValueError(
+        f"Unsupported photo-z dataset format `{suffix}` for {dataset_path}. "
+        "Use CSV, JSON, JSONL, or pickle."
+    )
+
+
+def _has_explicit_splits(cfg: PhotoZBenchmarkConfig) -> bool:
+    provided = [
+        cfg.train_dataset_path is not None,
+        cfg.cal_dataset_path is not None,
+        cfg.test_dataset_path is not None,
+    ]
+    if any(provided) and not all(provided):
+        raise ValueError(
+            "Explicit split mode requires all of train_dataset_path, cal_dataset_path, "
+            "and test_dataset_path."
+        )
+    return all(provided)
+
+
 def _load_photoz_df(cfg: PhotoZBenchmarkConfig):
     data_dir = Path("data/sdss")
     real_path = data_dir / "sdss_photoz_real.csv"
     sim_path = data_dir / "sdss_photoz_simulated.csv"
 
+    if _has_explicit_splits(cfg):
+        raise ValueError("Use explicit split loading via _make_splits; dataset_path is ignored.")
+
     if cfg.dataset_path is not None:
-        dataset_path = Path(cfg.dataset_path)
-        if not dataset_path.exists():
-            raise FileNotFoundError(
-                f"Configured photo-z dataset path does not exist: {dataset_path}"
-            )
-        suffix = dataset_path.suffix.lower()
-        if suffix == ".csv":
-            return pd.read_csv(dataset_path)
-        if suffix in {".json", ".jsonl"}:
-            return pd.read_json(dataset_path, lines=(suffix == ".jsonl"))
-        if suffix in {".pkl", ".pickle"}:
-            return pd.read_pickle(dataset_path)
-        raise ValueError(
-            f"Unsupported photo-z dataset format `{suffix}` for {dataset_path}. "
-            "Use CSV, JSON, JSONL, or pickle."
-        )
+        return _load_photoz_table(Path(cfg.dataset_path))
 
     if not cfg.force_simulated and real_path.exists():
         return pd.read_csv(real_path)
@@ -186,36 +207,74 @@ def _create_simulated_sdss_data(
 
 
 def _make_splits(cfg: PhotoZBenchmarkConfig) -> dict[str, torch.Tensor]:
-    df = _load_photoz_df(cfg)
-    feature_cols, error_cols = _infer_feature_columns(df)
-    target_col = "spec_z"
-    target_err_col = "spec_z_err"
+    if _has_explicit_splits(cfg):
+        train_df = _load_photoz_table(Path(cfg.train_dataset_path or ""))
+        cal_df = _load_photoz_table(Path(cfg.cal_dataset_path or ""))
+        test_df = _load_photoz_table(Path(cfg.test_dataset_path or ""))
+        feature_cols, error_cols = _infer_feature_columns(train_df)
+        for name, frame in (("cal", cal_df), ("test", test_df)):
+            frame_features, frame_errors = _infer_feature_columns(frame)
+            if frame_features != feature_cols or frame_errors != error_cols:
+                raise ValueError(
+                    f"Explicit {name} split feature columns do not match train split. "
+                    f"train={feature_cols}, {name}={frame_features}"
+                )
+        target_col = "spec_z"
+        target_err_col = "spec_z_err"
+        if cfg.n_train > len(train_df) or cfg.n_cal > len(cal_df) or cfg.n_test > len(test_df):
+            raise ValueError(
+                "Explicit split files are smaller than the requested benchmark sizes: "
+                f"train={len(train_df)}/{cfg.n_train}, "
+                f"cal={len(cal_df)}/{cfg.n_cal}, "
+                f"test={len(test_df)}/{cfg.n_test}."
+            )
 
-    need = cfg.n_train + cfg.n_cal + cfg.n_test
-    if len(df) < need:
-        raise ValueError(f"Need {need} rows but dataset only has {len(df)}.")
+        rng = np.random.default_rng(cfg.seed)
+        train_df = train_df.iloc[rng.permutation(len(train_df))[: cfg.n_train]].reset_index(drop=True)
+        cal_df = cal_df.iloc[rng.permutation(len(cal_df))[: cfg.n_cal]].reset_index(drop=True)
+        test_df = test_df.iloc[rng.permutation(len(test_df))[: cfg.n_test]].reset_index(drop=True)
 
-    rng = np.random.default_rng(cfg.seed)
-    idx = rng.permutation(len(df))[:need]
-    df = df.iloc[idx].reset_index(drop=True)
+        def _frame_to_tensors(frame: pd.DataFrame) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+            x_t = torch.tensor(frame[feature_cols].to_numpy(dtype="float32"))
+            xerr_t = torch.tensor(frame[error_cols].to_numpy(dtype="float32"))
+            y_t = torch.tensor(frame[target_col].to_numpy(dtype="float32")).unsqueeze(1)
+            yerr_t = torch.tensor(frame[target_err_col].to_numpy(dtype="float32")).unsqueeze(1)
+            return x_t, xerr_t, y_t, yerr_t
 
-    x = torch.tensor(df[feature_cols].to_numpy(dtype="float32"))
-    x_err = torch.tensor(df[error_cols].to_numpy(dtype="float32"))
-    y = torch.tensor(df[target_col].to_numpy(dtype="float32")).unsqueeze(1)
-    y_err = torch.tensor(df[target_err_col].to_numpy(dtype="float32")).unsqueeze(1)
+        x_train, xerr_train, y_train, yerr_train = _frame_to_tensors(train_df)
+        x_cal, xerr_cal, y_cal, yerr_cal = _frame_to_tensors(cal_df)
+        x_test, xerr_test, y_test, yerr_test = _frame_to_tensors(test_df)
+    else:
+        df = _load_photoz_df(cfg)
+        feature_cols, error_cols = _infer_feature_columns(df)
+        target_col = "spec_z"
+        target_err_col = "spec_z_err"
 
-    x_train = x[: cfg.n_train]
-    x_cal = x[cfg.n_train : cfg.n_train + cfg.n_cal]
-    x_test = x[cfg.n_train + cfg.n_cal :]
-    xerr_train = x_err[: cfg.n_train]
-    xerr_cal = x_err[cfg.n_train : cfg.n_train + cfg.n_cal]
-    xerr_test = x_err[cfg.n_train + cfg.n_cal :]
-    y_train = y[: cfg.n_train]
-    y_cal = y[cfg.n_train : cfg.n_train + cfg.n_cal]
-    y_test = y[cfg.n_train + cfg.n_cal :]
-    yerr_train = y_err[: cfg.n_train]
-    yerr_cal = y_err[cfg.n_train : cfg.n_train + cfg.n_cal]
-    yerr_test = y_err[cfg.n_train + cfg.n_cal :]
+        need = cfg.n_train + cfg.n_cal + cfg.n_test
+        if len(df) < need:
+            raise ValueError(f"Need {need} rows but dataset only has {len(df)}.")
+
+        rng = np.random.default_rng(cfg.seed)
+        idx = rng.permutation(len(df))[:need]
+        df = df.iloc[idx].reset_index(drop=True)
+
+        x = torch.tensor(df[feature_cols].to_numpy(dtype="float32"))
+        x_err = torch.tensor(df[error_cols].to_numpy(dtype="float32"))
+        y = torch.tensor(df[target_col].to_numpy(dtype="float32")).unsqueeze(1)
+        y_err = torch.tensor(df[target_err_col].to_numpy(dtype="float32")).unsqueeze(1)
+
+        x_train = x[: cfg.n_train]
+        x_cal = x[cfg.n_train : cfg.n_train + cfg.n_cal]
+        x_test = x[cfg.n_train + cfg.n_cal :]
+        xerr_train = x_err[: cfg.n_train]
+        xerr_cal = x_err[cfg.n_train : cfg.n_train + cfg.n_cal]
+        xerr_test = x_err[cfg.n_train + cfg.n_cal :]
+        y_train = y[: cfg.n_train]
+        y_cal = y[cfg.n_train : cfg.n_train + cfg.n_cal]
+        y_test = y[cfg.n_train + cfg.n_cal :]
+        yerr_train = y_err[: cfg.n_train]
+        yerr_cal = y_err[cfg.n_train : cfg.n_train + cfg.n_cal]
+        yerr_test = y_err[cfg.n_train + cfg.n_cal :]
 
     x_mean = x_train.mean(dim=0, keepdim=True)
     x_std = x_train.std(dim=0, keepdim=True, unbiased=False).clamp_min(1e-6)
@@ -258,6 +317,12 @@ def _make_splits(cfg: PhotoZBenchmarkConfig) -> dict[str, torch.Tensor]:
 
 
 def _data_source_name(cfg: PhotoZBenchmarkConfig) -> str:
+    if _has_explicit_splits(cfg):
+        train_path = Path(cfg.train_dataset_path or "")
+        stem = train_path.stem
+        if stem.startswith("transferz_"):
+            return "external_splits:transferz"
+        return f"external_splits:{stem}"
     if cfg.dataset_path is not None:
         return f"external:{Path(cfg.dataset_path).stem}"
     if Path("data/sdss/sdss_photoz_real.csv").exists() and not cfg.force_simulated:
@@ -800,6 +865,10 @@ def main(
     print(
         "- Real SDSS cache is used if present; otherwise deterministic simulated SDSS-style data is used."
     )
+    if _has_explicit_splits(cfg):
+        print(
+            "- Explicit split files were used; released train/cal/test partitions were preserved and only subsampled to the requested profile size."
+        )
 
     if summary_json_path is not None:
         out = write_comparison_summary_json(
@@ -819,9 +888,15 @@ if __name__ == "__main__":
     parser.add_argument("--force-simulated", action="store_true")
     parser.add_argument("--require-real-data", action="store_true")
     parser.add_argument("--dataset-path", type=str, default=None)
+    parser.add_argument("--train-dataset-path", type=str, default=None)
+    parser.add_argument("--cal-dataset-path", type=str, default=None)
+    parser.add_argument("--test-dataset-path", type=str, default=None)
     args = parser.parse_args()
     cfg = PhotoZBenchmarkConfig(
         dataset_path=args.dataset_path,
+        train_dataset_path=args.train_dataset_path,
+        cal_dataset_path=args.cal_dataset_path,
+        test_dataset_path=args.test_dataset_path,
         force_simulated=args.force_simulated,
         require_real_data=args.require_real_data,
     )

@@ -132,3 +132,45 @@ def test_collect_nnc_catalog_falls_back_from_stale_default(
     assert report["source"] == "nnc_zenodo_fallback"
     assert report["record_id"] == collect.DEFAULT_NNC_FALLBACK_RECORD
     assert report["requested_record_id"] == collect.DEFAULT_NNC_ZENODO_RECORD
+
+
+def test_collect_transferz_splits_downloads_and_normalizes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = {
+        "metadata": {"doi": "10.5281/zenodo.16541823"},
+        "files": [
+            {
+                "key": key,
+                "links": {"self": f"https://example.org/{key}"},
+                "checksum": "md5:stub",
+            }
+            for key in collect.TRANSFERZ_SPLIT_KEYS.values()
+        ],
+    }
+    csv_payload = (
+        "hsc_id,g_cmodel_mag,r_cmodel_mag,i_cmodel_mag,z_cmodel_mag,y_cmodel_mag,"
+        "g_cmodel_magsigma,r_cmodel_magsigma,i_cmodel_magsigma,z_cmodel_magsigma,"
+        "y_cmodel_magsigma,z\n"
+        "1,22.1,21.8,21.5,21.2,21.0,0.05,0.04,0.04,0.05,0.06,0.42\n"
+        "2,23.1,22.6,22.1,21.7,21.4,0.06,0.05,0.05,0.06,0.07,0.91\n"
+    ).encode("utf-8")
+
+    monkeypatch.setattr(collect, "_load_zenodo_record", lambda record_id: record)
+    monkeypatch.setattr(collect, "_http_get", lambda url, headers=None: csv_payload)
+
+    report = collect.collect_transferz_splits(
+        record_id=collect.DEFAULT_TRANSFERZ_ZENODO_RECORD,
+        raw_output_dir=tmp_path / "raw",
+        normalized_output_dir=tmp_path / "normalized",
+        default_target_err=0.02,
+    )
+
+    assert report["artifact"] == "photoz_transferz_collection_report"
+    assert report["record_id"] == collect.DEFAULT_TRANSFERZ_ZENODO_RECORD
+    for split in ("train", "cal", "test", "conformal"):
+        normalized_path = Path(report["normalized_paths"][split])
+        assert normalized_path.exists()
+        frame = pd.read_csv(normalized_path)
+        assert {"spec_z", "spec_z_err", "g_r", "r_i", "i_z", "z_y"} <= set(frame.columns)
+        assert frame["spec_z_err"].iloc[0] == pytest.approx(0.02)

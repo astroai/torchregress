@@ -1,9 +1,10 @@
 """Collect real photo-z datasets without manual URL hunting.
 
-This tool supports two sources:
+This tool supports:
 
 1) Rubin DP0.2 simulated-but-realistic sample via TAP query
 2) NNC paper released catalog via Zenodo record API
+3) TransferZ released train/validation/test/conformal splits via Zenodo
 """
 
 from __future__ import annotations
@@ -28,6 +29,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DP02_TAP_SYNC_URL = "https://data.lsst.cloud/api/tap/sync"
 DEFAULT_NNC_ZENODO_RECORD = 18410731
 DEFAULT_NNC_FALLBACK_RECORD = 5528827
+DEFAULT_TRANSFERZ_ZENODO_RECORD = 16541823
+TRANSFERZ_SPLIT_KEYS = {
+    "train": "transferz_TRAINING.csv",
+    "cal": "transferz_VALIDATION.csv",
+    "test": "transferz_TESTING.csv",
+    "conformal": "transferz_CONFORMAL.csv",
+}
 
 
 def _http_get(url: str, *, headers: dict[str, str] | None = None) -> bytes:
@@ -224,6 +232,47 @@ def _select_zenodo_file(record: dict[str, Any], *, preferred_suffix: str) -> dic
     return selected
 
 
+def _zenodo_file_map(record: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    files = record.get("files")
+    if not isinstance(files, list):
+        raise ValueError("Zenodo record has no files list.")
+    mapping: dict[str, dict[str, Any]] = {}
+    for entry in files:
+        if not isinstance(entry, dict):
+            continue
+        key = entry.get("key")
+        if isinstance(key, str):
+            mapping[key] = entry
+    return mapping
+
+
+def _download_zenodo_entry(
+    file_entry: dict[str, Any],
+    *,
+    output_path: Path,
+) -> dict[str, Any]:
+    key = file_entry.get("key")
+    if not isinstance(key, str) or not key.strip():
+        raise ValueError("Selected Zenodo file is missing `key`.")
+    links = file_entry.get("links")
+    if not isinstance(links, dict):
+        raise ValueError("Selected Zenodo file is missing `links`.")
+    download_url = links.get("download") or links.get("self")
+    if not isinstance(download_url, str) or not download_url.strip():
+        raise ValueError("Selected Zenodo file does not expose download URL.")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = _http_get(download_url)
+    output_path.write_bytes(payload)
+    return {
+        "key": key,
+        "download_url": download_url,
+        "output_path": str(output_path),
+        "bytes_written": int(len(payload)),
+        "checksum": file_entry.get("checksum"),
+    }
+
+
 def collect_nnc_catalog(
     *,
     record_id: int,
@@ -244,20 +293,10 @@ def collect_nnc_catalog(
     file_entry = _select_zenodo_file(record, preferred_suffix=preferred_suffix)
 
     key = file_entry.get("key")
-    if not isinstance(key, str) or not key.strip():
+    if not isinstance(key, str):
         raise ValueError("Selected Zenodo file is missing `key`.")
-    links = file_entry.get("links")
-    if not isinstance(links, dict):
-        raise ValueError("Selected Zenodo file is missing `links`.")
-    download_url = links.get("download") or links.get("self")
-    if not isinstance(download_url, str) or not download_url.strip():
-        raise ValueError("Selected Zenodo file does not expose download URL.")
-
     target_name = output_filename or key
-    output_dir.mkdir(parents=True, exist_ok=True)
-    target_path = output_dir / target_name
-    payload = _http_get(download_url)
-    target_path.write_bytes(payload)
+    download_meta = _download_zenodo_entry(file_entry, output_path=output_dir / target_name)
 
     metadata = record.get("metadata")
     doi = metadata.get("doi") if isinstance(metadata, dict) else None
@@ -267,9 +306,130 @@ def collect_nnc_catalog(
         "requested_record_id": int(record_id),
         "doi": doi,
         "selected_file_key": key,
-        "download_url": download_url,
-        "output_path": str(target_path),
-        "bytes_written": int(len(payload)),
+        "download_url": download_meta["download_url"],
+        "output_path": download_meta["output_path"],
+        "bytes_written": download_meta["bytes_written"],
+    }
+
+
+def _convert_transferz_to_photoz_frame(
+    frame: pd.DataFrame,
+    *,
+    default_target_err: float,
+) -> pd.DataFrame:
+    needed = {
+        "z",
+        "g_cmodel_mag",
+        "r_cmodel_mag",
+        "i_cmodel_mag",
+        "z_cmodel_mag",
+        "y_cmodel_mag",
+        "g_cmodel_magsigma",
+        "r_cmodel_magsigma",
+        "i_cmodel_magsigma",
+        "z_cmodel_magsigma",
+        "y_cmodel_magsigma",
+    }
+    missing = sorted(needed - set(frame.columns))
+    if missing:
+        raise ValueError(f"TransferZ payload missing required columns: {missing}")
+
+    objid_col = "hsc_id" if "hsc_id" in frame.columns else None
+    out = pd.DataFrame(
+        {
+            "objid": frame[objid_col] if objid_col is not None else np.arange(len(frame)),
+            "spec_z": pd.to_numeric(frame["z"], errors="coerce"),
+            "spec_z_err": float(default_target_err),
+            "g": pd.to_numeric(frame["g_cmodel_mag"], errors="coerce"),
+            "r": pd.to_numeric(frame["r_cmodel_mag"], errors="coerce"),
+            "i": pd.to_numeric(frame["i_cmodel_mag"], errors="coerce"),
+            "z_mag": pd.to_numeric(frame["z_cmodel_mag"], errors="coerce"),
+            "y": pd.to_numeric(frame["y_cmodel_mag"], errors="coerce"),
+            "g_err": pd.to_numeric(frame["g_cmodel_magsigma"], errors="coerce"),
+            "r_err": pd.to_numeric(frame["r_cmodel_magsigma"], errors="coerce"),
+            "i_err": pd.to_numeric(frame["i_cmodel_magsigma"], errors="coerce"),
+            "z_mag_err": pd.to_numeric(frame["z_cmodel_magsigma"], errors="coerce"),
+            "y_err": pd.to_numeric(frame["y_cmodel_magsigma"], errors="coerce"),
+        }
+    )
+    required = [
+        "spec_z",
+        "g",
+        "r",
+        "i",
+        "z_mag",
+        "y",
+        "g_err",
+        "r_err",
+        "i_err",
+        "z_mag_err",
+        "y_err",
+    ]
+    out = out.dropna(subset=required).reset_index(drop=True)
+    out["g_r"] = out["g"] - out["r"]
+    out["r_i"] = out["r"] - out["i"]
+    out["i_z"] = out["i"] - out["z_mag"]
+    out["z_y"] = out["z_mag"] - out["y"]
+    out["g_r_err"] = np.sqrt(out["g_err"] ** 2 + out["r_err"] ** 2)
+    out["r_i_err"] = np.sqrt(out["r_err"] ** 2 + out["i_err"] ** 2)
+    out["i_z_err"] = np.sqrt(out["i_err"] ** 2 + out["z_mag_err"] ** 2)
+    out["z_y_err"] = np.sqrt(out["z_mag_err"] ** 2 + out["y_err"] ** 2)
+    return out
+
+
+def collect_transferz_splits(
+    *,
+    record_id: int,
+    raw_output_dir: Path,
+    normalized_output_dir: Path,
+    default_target_err: float = 0.01,
+) -> dict[str, Any]:
+    record = _load_zenodo_record(record_id)
+    file_map = _zenodo_file_map(record)
+    missing = sorted(set(TRANSFERZ_SPLIT_KEYS.values()) - set(file_map))
+    if missing:
+        raise ValueError(f"TransferZ record missing expected files: {missing}")
+
+    raw_output_dir.mkdir(parents=True, exist_ok=True)
+    normalized_output_dir.mkdir(parents=True, exist_ok=True)
+    split_reports: dict[str, dict[str, Any]] = {}
+    normalized_paths: dict[str, str] = {}
+
+    for split_name, key in TRANSFERZ_SPLIT_KEYS.items():
+        raw_path = raw_output_dir / key
+        download_meta = _download_zenodo_entry(file_map[key], output_path=raw_path)
+        raw_df = pd.read_csv(raw_path)
+        normalized = _convert_transferz_to_photoz_frame(
+            raw_df,
+            default_target_err=default_target_err,
+        )
+        normalized_path = normalized_output_dir / f"transferz_{split_name}_photoz.csv"
+        normalized.to_csv(normalized_path, index=False)
+        split_reports[split_name] = {
+            **download_meta,
+            "rows_raw": int(len(raw_df)),
+            "rows_normalized": int(len(normalized)),
+            "normalized_output_path": str(normalized_path),
+        }
+        normalized_paths[split_name] = str(normalized_path)
+
+    metadata = record.get("metadata")
+    doi = metadata.get("doi") if isinstance(metadata, dict) else None
+    return {
+        "artifact": "photoz_transferz_collection_report",
+        "version": 1,
+        "source": "transferz_zenodo",
+        "record_id": int(record_id),
+        "doi": doi,
+        "default_target_err": float(default_target_err),
+        "split_policy": {
+            "train": "transferz_TRAINING.csv",
+            "cal": "transferz_VALIDATION.csv",
+            "test": "transferz_TESTING.csv",
+            "conformal": "transferz_CONFORMAL.csv",
+        },
+        "normalized_paths": normalized_paths,
+        "splits": split_reports,
     }
 
 
@@ -279,7 +439,9 @@ def _write_report(path: Path, report: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Collect DP0.2/NNC real-data assets for photo-z.")
+    parser = argparse.ArgumentParser(
+        description="Collect DP0.2/NNC/TransferZ real-data assets for photo-z."
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     dp02 = subparsers.add_parser("dp02", help="Collect Rubin DP0.2 sample via TAP.")
@@ -326,6 +488,33 @@ def main() -> None:
         default=Path("reports/example_summaries/photoz_nnc_catalog_collection_latest.json"),
     )
 
+    transferz = subparsers.add_parser(
+        "transferz",
+        help="Download and normalize TransferZ released train/cal/test/conformal splits.",
+    )
+    transferz.add_argument("--record-id", type=int, default=DEFAULT_TRANSFERZ_ZENODO_RECORD)
+    transferz.add_argument(
+        "--raw-output-dir",
+        type=Path,
+        default=Path("data/transferz/raw"),
+    )
+    transferz.add_argument(
+        "--normalized-output-dir",
+        type=Path,
+        default=Path("data/transferz/normalized"),
+    )
+    transferz.add_argument(
+        "--default-target-err",
+        type=float,
+        default=0.01,
+        help="Proxy target uncertainty used for ordered-bin soft-label workflows.",
+    )
+    transferz.add_argument(
+        "--report",
+        type=Path,
+        default=Path("reports/example_summaries/photoz_transferz_collection_latest.json"),
+    )
+
     args = parser.parse_args()
     if args.command == "dp02":
         token = args.token or os.environ.get(args.token_env)
@@ -349,6 +538,13 @@ def main() -> None:
             preferred_suffix=args.preferred_suffix,
             output_dir=args.output_dir,
             output_filename=args.output_filename,
+        )
+    elif args.command == "transferz":
+        report = collect_transferz_splits(
+            record_id=args.record_id,
+            raw_output_dir=args.raw_output_dir,
+            normalized_output_dir=args.normalized_output_dir,
+            default_target_err=args.default_target_err,
         )
     else:
         raise ValueError(f"Unknown command: {args.command}")

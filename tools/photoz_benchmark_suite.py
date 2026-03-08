@@ -34,6 +34,19 @@ REAL_DATA_EXAMPLES = [
 ]
 
 
+def _has_explicit_split_paths(
+    *,
+    train_dataset_path: Path | None,
+    cal_dataset_path: Path | None,
+    test_dataset_path: Path | None,
+) -> bool:
+    return (
+        train_dataset_path is not None
+        and cal_dataset_path is not None
+        and test_dataset_path is not None
+    )
+
+
 def _import_example_module(module_name: str) -> Any:
     sys.path.insert(0, str(EXAMPLES_DIR))
     try:
@@ -48,10 +61,26 @@ def _example_config(
     *,
     real_data_only: bool,
     dataset_path: Path | None = None,
+    train_dataset_path: Path | None = None,
+    cal_dataset_path: Path | None = None,
+    test_dataset_path: Path | None = None,
 ) -> Any:
     if module_name == "photoz_benchmark_comparison":
         module = _import_example_module(module_name)
         cfg = render_example_summaries._photoz_benchmark_config(module, profile)
+        if _has_explicit_split_paths(
+            train_dataset_path=train_dataset_path,
+            cal_dataset_path=cal_dataset_path,
+            test_dataset_path=test_dataset_path,
+        ):
+            return replace(
+                cfg,
+                train_dataset_path=str(train_dataset_path),
+                cal_dataset_path=str(cal_dataset_path),
+                test_dataset_path=str(test_dataset_path),
+                force_simulated=False,
+                require_real_data=True,
+            )
         if dataset_path is not None:
             return replace(
                 cfg,
@@ -65,6 +94,19 @@ def _example_config(
     if module_name == "photoz_nnc_crps_rail_comparison":
         module = _import_example_module(module_name)
         cfg = render_example_summaries._photoz_nnc_config(module, profile)
+        if _has_explicit_split_paths(
+            train_dataset_path=train_dataset_path,
+            cal_dataset_path=cal_dataset_path,
+            test_dataset_path=test_dataset_path,
+        ):
+            return replace(
+                cfg,
+                train_dataset_path=str(train_dataset_path),
+                cal_dataset_path=str(cal_dataset_path),
+                test_dataset_path=str(test_dataset_path),
+                force_simulated=False,
+                require_real_data=True,
+            )
         if dataset_path is not None:
             return replace(
                 cfg,
@@ -88,6 +130,9 @@ def _run_example(
     output_dir: Path,
     real_data_only: bool,
     dataset_path: Path | None = None,
+    train_dataset_path: Path | None = None,
+    cal_dataset_path: Path | None = None,
+    test_dataset_path: Path | None = None,
 ) -> Path:
     module = _import_example_module(module_name)
     cfg = _example_config(
@@ -95,6 +140,9 @@ def _run_example(
         profile,
         real_data_only=real_data_only,
         dataset_path=dataset_path,
+        train_dataset_path=train_dataset_path,
+        cal_dataset_path=cal_dataset_path,
+        test_dataset_path=test_dataset_path,
     )
     output_path = output_dir / f"{module_name}_{profile}.json"
     module.main(cfg, summary_json_path=str(output_path))
@@ -114,6 +162,9 @@ def run_suite(
     paper_parity: bool = True,
     real_data_only: bool = False,
     dataset_path: Path | None = None,
+    train_dataset_path: Path | None = None,
+    cal_dataset_path: Path | None = None,
+    test_dataset_path: Path | None = None,
     markdown_report_path: Path | None = None,
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -126,6 +177,9 @@ def run_suite(
             output_dir=output_dir,
             real_data_only=real_data_only,
             dataset_path=dataset_path,
+            train_dataset_path=train_dataset_path,
+            cal_dataset_path=cal_dataset_path,
+            test_dataset_path=test_dataset_path,
         )
         for name in example_names
     ]
@@ -140,6 +194,11 @@ def run_suite(
         "core_examples": list(example_names),
         "real_data_only": real_data_only,
         "dataset_path": str(dataset_path) if dataset_path is not None else None,
+        "train_dataset_path": (
+            str(train_dataset_path) if train_dataset_path is not None else None
+        ),
+        "cal_dataset_path": str(cal_dataset_path) if cal_dataset_path is not None else None,
+        "test_dataset_path": str(test_dataset_path) if test_dataset_path is not None else None,
         "skipped_examples": skipped_examples,
         "summary_paths": suite_rows,
         "recommended_read_order": list(example_names),
@@ -240,6 +299,9 @@ def main() -> None:
         default=None,
         help="Explicit photo-z dataset file for the standard and ordered-bin tracks.",
     )
+    parser.add_argument("--train-dataset-path", type=Path, default=None)
+    parser.add_argument("--cal-dataset-path", type=Path, default=None)
+    parser.add_argument("--test-dataset-path", type=Path, default=None)
     args = parser.parse_args()
 
     report = run_suite(
@@ -254,6 +316,9 @@ def main() -> None:
         paper_parity=not args.no_paper_parity,
         real_data_only=args.real_data_only,
         dataset_path=args.dataset_path,
+        train_dataset_path=args.train_dataset_path,
+        cal_dataset_path=args.cal_dataset_path,
+        test_dataset_path=args.test_dataset_path,
         markdown_report_path=args.markdown_report,
     )
     _write_suite_report(report, args.report)

@@ -216,6 +216,7 @@ nav:
       - Domain Applications:
           - Photometric Redshift: examples/photoz.md
           - Photo-z Benchmark Suite: examples/photoz_benchmark_suite.md
+          - Photo-z TransferZ Pipeline: examples/photoz_transferz_pipeline.md
           - Photo-z NNC Pipeline: examples/photoz_nnc_pipeline.md
           - Photo-z Benchmark (SDSS): examples/photoz_benchmark_comparison.md
           - Photo-z NNC-CRPS + RAIL: examples/photoz_nnc_crps_rail_comparison.md

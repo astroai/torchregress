@@ -67,6 +67,17 @@ uv run python tools/photoz_benchmark_suite.py \
   --dataset-path data/nnc_crps/nnc_photoz_real.csv
 ```
 
+Real-data-only suite on explicit released split files:
+
+```bash
+uv run python tools/photoz_benchmark_suite.py \
+  --profile full \
+  --real-data-only \
+  --train-dataset-path data/transferz/normalized/transferz_train_photoz.csv \
+  --cal-dataset-path data/transferz/normalized/transferz_cal_photoz.csv \
+  --test-dataset-path data/transferz/normalized/transferz_test_photoz.csv
+```
+
 This writes:
 
 - `reports/example_summaries/photoz_benchmark_comparison_<profile>.json`
@@ -130,6 +141,21 @@ uv run python -m tools.photoz_collect_real_data nnc \
   --report reports/example_summaries/photoz_nnc_catalog_collection_latest.json
 ```
 
+TransferZ split collection and normalization:
+
+```bash
+uv run python -m tools.photoz_collect_real_data transferz \
+  --report reports/example_summaries/photoz_transferz_collection_latest.json
+```
+
+TransferZ end-to-end tabular benchmark:
+
+```bash
+uv run python tools/photoz_transferz_pipeline.py \
+  --profile full \
+  --download-if-missing
+```
+
 After the real data exists locally, the standard benchmark will consume `data/sdss/sdss_photoz_real.csv` automatically unless `--force-simulated` is set.
 
 If you want the benchmark to fail instead of silently simulating, use:
@@ -180,3 +206,6 @@ For the ordered-bin track specifically:
 
 !!! warning
     Do not compare the ordered-bin rows to the point-regression rows on a single metric only. Use the photo-z domain metrics together with `CRPS`, `PDF_NLL`, `PITChi2`, and interval width/coverage.
+
+!!! info
+    `TransferZ` should be preferred over the older ad hoc NNC fallback when you want a public tabular benchmark with released train/validation/test/conformal splits and explicit domain-shift motivation.

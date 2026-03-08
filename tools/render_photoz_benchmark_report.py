@@ -62,6 +62,22 @@ def render_report(
         "",
     ]
 
+    if suite.get("dataset_path"):
+        lines.extend([f"- Shared dataset path: `{suite['dataset_path']}`", ""])
+    elif (
+        suite.get("train_dataset_path")
+        and suite.get("cal_dataset_path")
+        and suite.get("test_dataset_path")
+    ):
+        lines.extend(
+            [
+                f"- Train split: `{suite['train_dataset_path']}`",
+                f"- Cal split: `{suite['cal_dataset_path']}`",
+                f"- Test split: `{suite['test_dataset_path']}`",
+                "",
+            ]
+        )
+
     if suite.get("skipped_examples"):
         skipped = ", ".join(f"`{name}`" for name in suite["skipped_examples"])
         lines.append(f"- Skipped examples: {skipped}")

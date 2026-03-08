@@ -55,6 +55,9 @@ class PhotoZNNCConfig:
     n_bins: int = 48
     binning_strategy: str = "quantile"
     dataset_path: str | None = None
+    train_dataset_path: str | None = None
+    cal_dataset_path: str | None = None
+    test_dataset_path: str | None = None
     force_simulated: bool = False
     require_real_data: bool = False
     allow_download: bool = False
@@ -373,6 +376,9 @@ def run_comparison(cfg: PhotoZNNCConfig) -> tuple[list[dict[str, object]], list[
             lr=cfg.lr,
             hidden=cfg.hidden,
             dataset_path=cfg.dataset_path,
+            train_dataset_path=cfg.train_dataset_path,
+            cal_dataset_path=cfg.cal_dataset_path,
+            test_dataset_path=cfg.test_dataset_path,
             force_simulated=cfg.force_simulated,
             require_real_data=cfg.require_real_data,
             allow_download=cfg.allow_download,
@@ -714,9 +720,15 @@ if __name__ == "__main__":
     parser.add_argument("--force-simulated", action="store_true")
     parser.add_argument("--require-real-data", action="store_true")
     parser.add_argument("--dataset-path", type=str, default=None)
+    parser.add_argument("--train-dataset-path", type=str, default=None)
+    parser.add_argument("--cal-dataset-path", type=str, default=None)
+    parser.add_argument("--test-dataset-path", type=str, default=None)
     args = parser.parse_args()
     cfg = PhotoZNNCConfig(
         dataset_path=args.dataset_path,
+        train_dataset_path=args.train_dataset_path,
+        cal_dataset_path=args.cal_dataset_path,
+        test_dataset_path=args.test_dataset_path,
         force_simulated=args.force_simulated,
         require_real_data=args.require_real_data,
     )

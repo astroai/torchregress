@@ -166,6 +166,12 @@ A real-world application for astronomy:
 - Uses `tools/photoz_benchmark_suite.py` to run the standard benchmark, ordered-bin benchmark, and PPI benchmark together.
 - Optional RAIL merge path is included when external baseline assets are available.
 
+### [Photo-z TransferZ Pipeline](photoz_transferz_pipeline.md)
+
+- Downloads the public TransferZ tabular release, normalizes the released splits, and runs the real-data-only benchmark suite on those fixed partitions.
+- Uses `tools/photoz_transferz_pipeline.py`.
+- This is the preferred public tabular benchmark path for domain-shift-oriented photo-z evaluation.
+
 ### [Photo-z NNC End-to-End Pipeline](photoz_nnc_pipeline.md)
 
 - Downloads or reads a raw NNC-style catalog, normalizes it into the canonical photo-z frame, and runs the real-data benchmark tracks.
