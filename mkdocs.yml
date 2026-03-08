@@ -142,6 +142,7 @@ nav:
       - Specialised:
           - Error-in-Variables: losses/eiv.md
           - Transform Losses: losses/transforms.md
+          - Conformal Wrapper: losses/conformal.md
       - Internals:
           - Base Classes: losses/base.md
 
@@ -199,9 +200,12 @@ nav:
           - Noisy Label Comparison: examples/noisy_label_comparison.md
           - Noisy Label (Real Data): examples/noisy_label_realdata_comparison.md
           - Propensity + Tail: examples/propensity_tail_regression_comparison.md
+          - Transformed Targets: examples/transformed_target_regression_comparison.md
+          - Semi-Supervised Regression: examples/semi_supervised_regression_comparison.md
           - Uncertain-GT + Conformal: examples/uncertain_gt_density_conformal_comparison.md
       - Structured & Specialised:
           - Ordinal Regression: examples/ordinal_regression_comparison.md
+          - Ordinal + Uncertain-GT: examples/ordinal_uncertain_ground_truth_comparison.md
           - Ordinal Regression (Real Data): examples/ordinal_regression_realdata_comparison.md
           - Censored Regression: examples/censored_regression_comparison.md
           - Censored Regression (Real Data): examples/censored_regression_realdata_comparison.md
@@ -211,6 +215,8 @@ nav:
           - Uncertain-GT + Conformal (Real Data): examples/uncertain_gt_density_conformal_realdata_comparison.md
       - Domain Applications:
           - Photometric Redshift: examples/photoz.md
+          - Photo-z Benchmark Suite: examples/photoz_benchmark_suite.md
+          - Photo-z NNC Pipeline: examples/photoz_nnc_pipeline.md
           - Photo-z Benchmark (SDSS): examples/photoz_benchmark_comparison.md
           - Photo-z NNC-CRPS + RAIL: examples/photoz_nnc_crps_rail_comparison.md
           - Photo-z RAIL Baseline: examples/photoz_rail_baseline_comparison.md
