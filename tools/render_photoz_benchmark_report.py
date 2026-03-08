@@ -45,6 +45,18 @@ def _render_table(rows: list[dict[str, Any]], columns: list[str]) -> list[str]:
     return lines
 
 
+def _best_row(
+    rows: list[dict[str, Any]],
+    metrics: list[str],
+    *,
+    predicate: Any = None,
+) -> dict[str, Any] | None:
+    filtered = rows if predicate is None else [row for row in rows if predicate(row)]
+    if not filtered:
+        return None
+    return _sort_rows(filtered, metrics)[0]
+
+
 def render_report(
     *,
     suite_report_path: Path,
@@ -86,6 +98,14 @@ def render_report(
     if "photoz_benchmark_comparison" in summary_paths:
         payload = _load_summary(summary_paths["photoz_benchmark_comparison"])
         rows = _sort_rows(payload["rows"], ["NMAD", "CatastrophicRate", "HighZ_MAE"])
+        best_overall = rows[0] if rows else None
+        best_tail = _best_row(rows, ["HighZ_MAE", "NMAD"])
+        best_high_err = _best_row(rows, ["HighErr_NMAD", "HighErr_CatastrophicRate", "NMAD"])
+        best_prob = _best_row(
+            rows,
+            ["NLL", "NMAD", "CatastrophicRate"],
+            predicate=lambda row: row.get("NLL") is not None,
+        )
         lines.extend(
             [
                 "## Standard Regression Track",
@@ -94,6 +114,33 @@ def render_report(
                 "",
             ]
         )
+        if best_overall is not None:
+            lines.append(
+                f"- Best overall: `{best_overall['Method']}` "
+                f"(NMAD {_format_cell(best_overall.get('NMAD'))}, "
+                f"CatastrophicRate {_format_cell(best_overall.get('CatastrophicRate'))})"
+            )
+        if best_tail is not None:
+            lines.append(
+                f"- Best high-z tail: `{best_tail['Method']}` "
+                f"(HighZ_MAE {_format_cell(best_tail.get('HighZ_MAE'))})"
+            )
+        if best_high_err is not None:
+            lines.append(
+                f"- Best high-feature-error row: `{best_high_err['Method']}` "
+                "("
+                f"HighErr_NMAD {_format_cell(best_high_err.get('HighErr_NMAD'))}, "
+                "HighErr_CatastrophicRate "
+                f"{_format_cell(best_high_err.get('HighErr_CatastrophicRate'))}"
+                ")"
+            )
+        if best_prob is not None:
+            lines.append(
+                f"- Best probabilistic row: `{best_prob['Method']}` "
+                f"(NLL {_format_cell(best_prob.get('NLL'))}, "
+                f"Cov90 {_format_cell(best_prob.get('Cov90'))})"
+            )
+        lines.append("")
         lines.extend(
             _render_table(
                 rows,
@@ -102,6 +149,8 @@ def render_report(
                     "NMAD",
                     "CatastrophicRate",
                     "HighZ_MAE",
+                    "HighErr_NMAD",
+                    "HighErr_CatastrophicRate",
                     "Cov90",
                     "Width90",
                     "train_s",
@@ -195,6 +244,62 @@ def render_report(
                     "HighZWidth90",
                     "train_s",
                     "eval_s",
+                    "DataSource",
+                ],
+            )
+        )
+
+    if "photoz_transferz_semisupervised_comparison" in summary_paths:
+        payload = _load_summary(summary_paths["photoz_transferz_semisupervised_comparison"])
+        rows = sorted(
+            payload["rows"],
+            key=lambda row: (
+                _metric_key(row.get("LabeledFraction")),
+                _metric_key(row.get("NMAD")),
+                _metric_key(row.get("CatastrophicRate")),
+            ),
+        )
+        lines.extend(
+            [
+                "## TransferZ Semi-Supervised Track",
+                "",
+                "Sorted by `LabeledFraction`, `NMAD`, `CatastrophicRate`.",
+                "",
+            ]
+        )
+        fractions = sorted({float(row.get("LabeledFraction", 0.0)) for row in rows})
+        for frac in fractions:
+            best_frac = _best_row(
+                rows,
+                ["NMAD", "CatastrophicRate", "HighZ_MAE"],
+                predicate=lambda row, frac=frac: abs(float(row.get("LabeledFraction", -1.0)) - frac)
+                < 1e-8,
+            )
+            if best_frac is not None:
+                lines.append(
+                    f"- Best at labeled fraction `{frac:.4f}`: `{best_frac['Method']}` "
+                    f"(NMAD {_format_cell(best_frac.get('NMAD'))}, "
+                    f"PseudoAcceptRate {_format_cell(best_frac.get('PseudoAcceptRate'))})"
+                )
+        lines.append("")
+        lines.extend(
+            _render_table(
+                rows,
+                [
+                    "Method",
+                    "LabeledFraction",
+                    "NMAD",
+                    "CatastrophicRate",
+                    "HighZ_MAE",
+                    "PseudoAcceptRate",
+                    "PseudoMeanConfidence",
+                    "AcceptedHighZShare",
+                    "AcceptedLowErrShare",
+                    "TeacherDisagreement",
+                    "FeatureStability",
+                    "LabeledHighZShare",
+                    "TrainHighZShare",
+                    "train_s",
                     "DataSource",
                 ],
             )

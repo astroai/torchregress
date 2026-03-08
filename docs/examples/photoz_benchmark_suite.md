@@ -14,6 +14,7 @@ Core local suite:
 
 Dedicated TransferZ-only extension:
 
+- `examples/photoz_transferz_semisupervised_comparison.py`
 - `examples/photoz_transferz_conformal_comparison.py`
 
 Optional external merge:
@@ -24,9 +25,10 @@ Optional external merge:
 
 | Track | Purpose | Main methods | Output artifact |
 |---|---|---|---|
-| `photoz_benchmark_comparison` | tabular regression benchmark with robust/probabilistic/EIV/SSL methods | `MSE`, `Huber`, `LogTransform`, `GaussianNLL`, `Quantile90`, `PseudoLabelNLL`, `PseudoLabelConsistency`, `FunctionalEIV` | `photoz_benchmark_comparison_<profile>.json` |
+| `photoz_benchmark_comparison` | tabular regression benchmark with robust/probabilistic/uncertain-target/imbalance/EIV/SSL methods | `MSE`, `Huber`, `DensityWeightedHuber`, `LogTransform`, `GaussianNLL`, `NoisyTargetGaussianNLL`, `Quantile90`, `PseudoLabelNLL`, `PseudoLabelConsistency`, `FunctionalEIV` | `photoz_benchmark_comparison_<profile>.json` |
 | `photoz_nnc_crps_rail_comparison` | ordered-bin regression-as-classification benchmark | `BinnedCE`, `SoftBinnedCE`, `SoftBinnedCE+Pseudo`, `SoftCumulativeLink`, `OrderedBinCRPS`, anchors | `photoz_nnc_crps_rail_comparison_<profile>.json` |
 | `ppi_photoz_inference_comparison` | low-label inference benchmark | labeled-only vs `PPI` mean/quantile CIs | `ppi_photoz_inference_comparison_<profile>.json` |
+| `photoz_transferz_semisupervised_comparison` | dedicated real-data SSL benchmark on released `TransferZ` splits | labeled-only baselines plus bootstrap and feature-error-aware selective pseudo-label methods across labeled fractions | `transferz/photoz_transferz_semisupervised_comparison_<profile>.json` |
 | `photoz_transferz_conformal_comparison` | dedicated real-data conformal benchmark on released `TransferZ` splits | `SplitConformal`, `CQR`, `DensityConformal`, `PrevalenceAdjustedCP`, `MonteCarloConformal`, `R2CConformal` | `transferz/photoz_transferz_conformal_comparison_<profile>.json` |
 | `photoz_rail_pipeline` | cross-framework comparison against RAIL baselines | torchregress ordered-bin summary + `flexzboost`, `pzflow`, `delight`, `bpz` | `photoz_rail_baseline_comparison_<profile>.json` |
 
@@ -190,7 +192,9 @@ The suite markdown report is the fastest first pass:
 
 - `reports/example_summaries/photoz_benchmark_suite_latest.md`
 - it ranks the standard track by `NMAD`, `CatastrophicRate`, `HighZ_MAE`
+- it also calls out the best row on the highest-feature-error slice using the catalogued `*_err` columns
 - it ranks the ordered-bin track by `CRPS`, `PDF_NLL`, `PITChi2`
+- it ranks the TransferZ semi-supervised track by `LabeledFraction`, `NMAD`, `CatastrophicRate`
 - it includes the PPI track when that track was run
 
 For the ordered-bin track specifically:

@@ -217,6 +217,7 @@ nav:
           - Photometric Redshift: examples/photoz.md
           - Photo-z Benchmark Suite: examples/photoz_benchmark_suite.md
           - Photo-z TransferZ Pipeline: examples/photoz_transferz_pipeline.md
+          - TransferZ Semi-Supervised Photo-z: examples/photoz_transferz_semisupervised_comparison.md
           - TransferZ Conformal Photo-z: examples/photoz_transferz_conformal_comparison.md
           - Photo-z NNC Pipeline: examples/photoz_nnc_pipeline.md
           - Photo-z Benchmark (SDSS): examples/photoz_benchmark_comparison.md

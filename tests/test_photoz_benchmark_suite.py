@@ -235,9 +235,7 @@ def test_photoz_benchmark_suite_passes_dataset_path(monkeypatch, tmp_path: Path)
     ]
 
 
-def test_photoz_benchmark_suite_passes_explicit_split_paths(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_photoz_benchmark_suite_passes_explicit_split_paths(monkeypatch, tmp_path: Path) -> None:
     output_dir = tmp_path / "reports/example_summaries"
     train_path = tmp_path / "transferz_train.csv"
     cal_path = tmp_path / "transferz_cal.csv"

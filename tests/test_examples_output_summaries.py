@@ -7,6 +7,8 @@ from pathlib import Path
 from types import ModuleType
 
 import matplotlib
+import numpy as np
+import pandas as pd
 
 matplotlib.use("Agg", force=True)
 
@@ -84,6 +86,30 @@ def _assert_probability(value: object) -> None:
     assert isinstance(value, (int, float))
     v = float(value)
     assert 0.0 <= v <= 1.0
+
+
+def _write_tiny_photoz_csv(path: Path, *, n_rows: int, seed: int) -> None:
+    rng = np.random.default_rng(seed)
+    z = np.clip(rng.lognormal(mean=-1.2, sigma=0.45, size=n_rows), 0.01, 1.2)
+    g_r = 0.45 + 0.7 * z + rng.normal(0, 0.03, size=n_rows)
+    r_i = 0.25 + 0.45 * z + rng.normal(0, 0.02, size=n_rows)
+    i_z = 0.18 + 0.35 * z + rng.normal(0, 0.02, size=n_rows)
+    z_y = 0.08 + 0.22 * z + rng.normal(0, 0.02, size=n_rows)
+    frame = pd.DataFrame(
+        {
+            "spec_z": z.astype("float32"),
+            "spec_z_err": (0.01 + 0.01 * z).astype("float32"),
+            "g_r": g_r.astype("float32"),
+            "r_i": r_i.astype("float32"),
+            "i_z": i_z.astype("float32"),
+            "z_y": z_y.astype("float32"),
+            "g_r_err": (0.02 + 0.01 * rng.random(n_rows)).astype("float32"),
+            "r_i_err": (0.02 + 0.01 * rng.random(n_rows)).astype("float32"),
+            "i_z_err": (0.02 + 0.01 * rng.random(n_rows)).astype("float32"),
+            "z_y_err": (0.02 + 0.01 * rng.random(n_rows)).astype("float32"),
+        }
+    )
+    frame.to_csv(path, index=False)
 
 
 def test_ood_comparison_writes_summary_json(tmp_path: Path) -> None:
@@ -421,8 +447,10 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
         required_methods={
             "MSE",
             "Huber",
+            "DensityWeightedHuber",
             "LogTransform",
             "GaussianNLL",
+            "NoisyTargetGaussianNLL",
             "Quantile90",
             "PseudoLabelNLL",
             "PseudoLabelConsistency",
@@ -434,8 +462,10 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
     for method in (
         "MSE",
         "Huber",
+        "DensityWeightedHuber",
         "LogTransform",
         "GaussianNLL",
+        "NoisyTargetGaussianNLL",
         "Quantile90",
         "PseudoLabelNLL",
         "PseudoLabelConsistency",
@@ -450,6 +480,10 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
                 "NMAD",
                 "CatastrophicRate",
                 "HighZ_MAE",
+                "HighErr_NMAD",
+                "LowErr_NMAD",
+                "HighErr_CatastrophicRate",
+                "LowErr_CatastrophicRate",
                 "train_s",
                 "eval_s",
             ],
@@ -459,14 +493,19 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
         _assert_non_negative(row["NMAD"])
         _assert_probability(row["CatastrophicRate"])
         _assert_non_negative(row["HighZ_MAE"])
+        _assert_non_negative(row["HighErr_NMAD"])
+        _assert_non_negative(row["LowErr_NMAD"])
+        _assert_probability(row["HighErr_CatastrophicRate"])
+        _assert_probability(row["LowErr_CatastrophicRate"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
-    for method in ("GaussianNLL", "Quantile90", "PseudoLabelNLL"):
+    for method in ("GaussianNLL", "NoisyTargetGaussianNLL", "Quantile90", "PseudoLabelNLL"):
         row = rows[method]
         _assert_row_has_keys(row, ["Cov90", "Width90"])
         _assert_probability(row["Cov90"])
         _assert_non_negative(row["Width90"])
     _assert_non_negative(rows["GaussianNLL"]["NLL"])
+    _assert_non_negative(rows["NoisyTargetGaussianNLL"]["NLL"])
     _assert_non_negative(rows["PseudoLabelNLL"]["NLL"])
     for method in ("PseudoLabelNLL", "PseudoLabelConsistency"):
         row = rows[method]
@@ -670,6 +709,87 @@ def test_photoz_transferz_conformal_comparison_writes_summary_json(tmp_path: Pat
         _assert_non_negative(row["NMAD"])
         _assert_probability(row["CatastrophicRate"])
         _assert_non_negative(row["HighZ_MAE"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
+def test_photoz_transferz_semisupervised_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("photoz_transferz_semisupervised_comparison")
+    out = tmp_path / "photoz_transferz_semisup_summary.json"
+    train_path = tmp_path / "transferz_train_photoz.csv"
+    cal_path = tmp_path / "transferz_cal_photoz.csv"
+    test_path = tmp_path / "transferz_test_photoz.csv"
+    _write_tiny_photoz_csv(train_path, n_rows=96, seed=11)
+    _write_tiny_photoz_csv(cal_path, n_rows=40, seed=12)
+    _write_tiny_photoz_csv(test_path, n_rows=40, seed=13)
+
+    cfg = mod.PhotoZTransferZSemiSupervisedConfig(
+        n_train=64,
+        n_cal=24,
+        n_test=24,
+        batch_size=16,
+        epochs=1,
+        teacher_epochs=2,
+        hidden=8,
+        labeled_fractions=(0.2, 0.5),
+        train_dataset_path=str(train_path),
+        cal_dataset_path=str(cal_path),
+        test_dataset_path=str(test_path),
+        require_real_data=True,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="semi-supervised photometric redshift",
+        required_methods={
+            "HuberLabeledOnly",
+            "GaussianLabeledOnly",
+            "PseudoLabelNLL",
+            "PseudoLabelConsistency",
+            "SelectivePseudoLabelNLL",
+            "FeatureAwarePseudoLabelConsistency",
+        },
+    )
+    payload = _load_payload(out)
+    rows = payload["rows"]
+    assert isinstance(rows, list)
+    assert len(rows) == 12
+    for row in rows:
+        assert isinstance(row, dict)
+        _assert_row_has_keys(
+            row,
+            [
+                "Method",
+                "LabeledFraction",
+                "LabeledCount",
+                "LabeledHighZShare",
+                "TrainHighZShare",
+                "NMAD",
+                "CatastrophicRate",
+                "HighZ_MAE",
+                "PseudoAcceptRate",
+                "PseudoMeanConfidence",
+                "AcceptedHighZShare",
+                "AcceptedLowErrShare",
+                "TeacherDisagreement",
+                "FeatureStability",
+                "train_s",
+                "eval_s",
+            ],
+        )
+        _assert_probability(row["LabeledFraction"])
+        _assert_non_negative(row["LabeledCount"])
+        _assert_probability(row["LabeledHighZShare"])
+        _assert_probability(row["TrainHighZShare"])
+        _assert_non_negative(row["NMAD"])
+        _assert_probability(row["CatastrophicRate"])
+        _assert_non_negative(row["HighZ_MAE"])
+        _assert_probability(row["PseudoAcceptRate"])
+        _assert_probability(row["PseudoMeanConfidence"])
+        _assert_probability(row["AcceptedHighZShare"])
+        _assert_probability(row["AcceptedLowErrShare"])
+        _assert_non_negative(row["TeacherDisagreement"])
+        _assert_non_negative(row["FeatureStability"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
 

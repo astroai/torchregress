@@ -16,12 +16,21 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
             {
                 "artifact": "comparison_example_summary",
                 "rows": [
-                    {"Method": "MSE", "NMAD": 0.2, "CatastrophicRate": 0.1, "HighZ_MAE": 0.3},
+                    {
+                        "Method": "MSE",
+                        "NMAD": 0.2,
+                        "CatastrophicRate": 0.1,
+                        "HighZ_MAE": 0.3,
+                        "HighErr_NMAD": 0.25,
+                        "HighErr_CatastrophicRate": 0.14,
+                    },
                     {
                         "Method": "GaussianNLL",
                         "NMAD": 0.1,
                         "CatastrophicRate": 0.08,
                         "HighZ_MAE": 0.2,
+                        "HighErr_NMAD": 0.12,
+                        "HighErr_CatastrophicRate": 0.10,
                     },
                 ],
             }
@@ -80,6 +89,32 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    semisup = output_dir / "photoz_transferz_semisupervised_comparison_smoke.json"
+    semisup.write_text(
+        json.dumps(
+            {
+                "artifact": "comparison_example_summary",
+                "rows": [
+                    {
+                        "Method": "PseudoLabelNLL",
+                        "LabeledFraction": 0.1,
+                        "NMAD": 0.12,
+                        "CatastrophicRate": 0.18,
+                        "HighZ_MAE": 0.31,
+                        "PseudoAcceptRate": 0.66,
+                        "PseudoMeanConfidence": 0.54,
+                        "AcceptedHighZShare": 0.22,
+                        "AcceptedLowErrShare": 0.71,
+                        "TeacherDisagreement": 0.08,
+                        "FeatureStability": 0.06,
+                        "LabeledHighZShare": 0.08,
+                        "TrainHighZShare": 0.20,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     suite_report = output_dir / "photoz_benchmark_suite_latest.json"
     suite_report.write_text(
         json.dumps(
@@ -92,6 +127,7 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
                     "photoz_benchmark_comparison": str(standard),
                     "photoz_nnc_crps_rail_comparison": str(ordered),
                     "ppi_photoz_inference_comparison": str(ppi),
+                    "photoz_transferz_semisupervised_comparison": str(semisup),
                     "photoz_transferz_conformal_comparison": str(conformal),
                 },
                 "skipped_examples": [],
@@ -111,7 +147,12 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
     assert "Standard Regression Track" in text
     assert "Ordered-Bin / PDF Track" in text
     assert "Prediction-Powered Inference Track" in text
+    assert "TransferZ Semi-Supervised Track" in text
     assert "TransferZ Conformal Track" in text
+    assert "Best overall" in text
+    assert "Best high-feature-error row" in text
+    assert "Best at labeled fraction" in text
     assert "GaussianNLL" in text
     assert "SoftBinnedCE" in text
+    assert "PseudoLabelNLL" in text
     assert "SplitConformal" in text

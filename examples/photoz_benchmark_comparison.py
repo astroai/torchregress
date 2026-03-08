@@ -28,10 +28,12 @@ from comparison_utils import (
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import (
+    DensityWeightedLoss,
     FunctionalEIVLoss,
     GaussianNLLLoss,
     LogTransformLoss,
     MultiQuantileLoss,
+    NoisyTargetGaussianNLL,
     PseudoLabelConsistencyLoss,
     PseudoLabelNLL,
     WeightedHuberLoss,
@@ -230,11 +232,15 @@ def _make_splits(cfg: PhotoZBenchmarkConfig) -> dict[str, torch.Tensor]:
             )
 
         rng = np.random.default_rng(cfg.seed)
-        train_df = train_df.iloc[rng.permutation(len(train_df))[: cfg.n_train]].reset_index(drop=True)
+        train_df = train_df.iloc[rng.permutation(len(train_df))[: cfg.n_train]].reset_index(
+            drop=True
+        )
         cal_df = cal_df.iloc[rng.permutation(len(cal_df))[: cfg.n_cal]].reset_index(drop=True)
         test_df = test_df.iloc[rng.permutation(len(test_df))[: cfg.n_test]].reset_index(drop=True)
 
-        def _frame_to_tensors(frame: pd.DataFrame) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        def _frame_to_tensors(
+            frame: pd.DataFrame,
+        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             x_t = torch.tensor(frame[feature_cols].to_numpy(dtype="float32"))
             xerr_t = torch.tensor(frame[error_cols].to_numpy(dtype="float32"))
             y_t = torch.tensor(frame[target_col].to_numpy(dtype="float32")).unsqueeze(1)
@@ -367,15 +373,61 @@ def _photoz_metrics(
     catastrophic = (torch.abs(y_pred - y_true) > (0.15 * (1.0 + y_true))).float().mean().item()
     q80 = torch.quantile(y_true[:, 0], 0.80)
     high_mask = y_true[:, 0] >= q80
+    feature_error_mag = splits["xerr_test"].pow(2).mean(dim=1).sqrt()
+    high_err_cut = torch.quantile(feature_error_mag, 0.75)
+    high_err_mask = feature_error_mag >= high_err_cut
+    low_err_mask = ~high_err_mask
     high_mae = (
         torch.abs(y_pred[high_mask] - y_true[high_mask]).mean().item()
         if high_mask.any()
+        else float("nan")
+    )
+    high_err_nmad = (
+        1.48
+        * torch.median(
+            torch.abs(residual[high_err_mask] - torch.median(residual[high_err_mask]))
+        ).item()
+        if high_err_mask.any()
+        else float("nan")
+    )
+    low_err_nmad = (
+        1.48
+        * torch.median(
+            torch.abs(residual[low_err_mask] - torch.median(residual[low_err_mask]))
+        ).item()
+        if low_err_mask.any()
+        else float("nan")
+    )
+    high_err_cat = (
+        (
+            torch.abs(y_pred[high_err_mask] - y_true[high_err_mask])
+            > (0.15 * (1.0 + y_true[high_err_mask]))
+        )
+        .float()
+        .mean()
+        .item()
+        if high_err_mask.any()
+        else float("nan")
+    )
+    low_err_cat = (
+        (
+            torch.abs(y_pred[low_err_mask] - y_true[low_err_mask])
+            > (0.15 * (1.0 + y_true[low_err_mask]))
+        )
+        .float()
+        .mean()
+        .item()
+        if low_err_mask.any()
         else float("nan")
     )
     return {
         "NMAD": float(nmad),
         "CatastrophicRate": float(catastrophic),
         "HighZ_MAE": float(high_mae),
+        "HighErr_NMAD": float(high_err_nmad),
+        "LowErr_NMAD": float(low_err_nmad),
+        "HighErr_CatastrophicRate": float(high_err_cat),
+        "LowErr_CatastrophicRate": float(low_err_cat),
     }
 
 
@@ -451,6 +503,64 @@ def _train_eiv(
         loss = loss_fn(x_obs, y_obs)
         loss.backward()
         opt.step()
+    model.eval()
+    return model
+
+
+def _train_density_weighted(
+    model: nn.Module,
+    splits: dict[str, torch.Tensor],
+    *,
+    epochs: int,
+    lr: float,
+) -> nn.Module:
+    loss_fn = DensityWeightedLoss(base_loss="huber", kernel_width=0.5, reweight_factor=0.35)
+    loss_fn.fit_density(splits["y_train_raw"])
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    sample_idx = torch.arange(splits["x_train"].shape[0])
+    feature_error_mag = splits["xerr_train"].pow(2).mean(dim=1).sqrt()
+    error_scale = torch.quantile(feature_error_mag, 0.75).clamp_min(1e-6)
+    feature_reliability = (1.0 - feature_error_mag / error_scale).clamp(min=0.35, max=1.0)
+    loader = DataLoader(
+        TensorDataset(splits["x_train"], splits["y_train"], sample_idx, feature_reliability),
+        batch_size=min(64, int(splits["x_train"].shape[0])),
+        shuffle=True,
+    )
+    model.train()
+    for _ in range(epochs):
+        for xb, yb, idxb, fb in loader:
+            opt.zero_grad()
+            pred = model(xb)
+            loss = loss_fn(pred, yb, sample_indices=idxb, weights=fb.unsqueeze(-1))
+            loss.backward()
+            opt.step()
+    model.eval()
+    return model
+
+
+def _train_noisy_target_gaussian(
+    model: nn.Module,
+    splits: dict[str, torch.Tensor],
+    *,
+    epochs: int,
+    lr: float,
+) -> nn.Module:
+    loss_fn = NoisyTargetGaussianNLL()
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    loader = DataLoader(
+        TensorDataset(splits["x_train"], splits["y_train"], splits["yerr_train"].pow(2)),
+        batch_size=min(64, int(splits["x_train"].shape[0])),
+        shuffle=True,
+    )
+    model.train()
+    for _ in range(epochs):
+        for xb, yb, yvar_b in loader:
+            opt.zero_grad()
+            out = model(xb)
+            mean, logvar = out[:, :1], out[:, 1:2].clamp(-8.0, 6.0)
+            loss = loss_fn((mean, logvar), yb, target_variance=yvar_b)
+            loss.backward()
+            opt.step()
     model.eval()
     return model
 
@@ -686,9 +796,15 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
     specs: list[tuple[str, nn.Module, str]] = [
         ("MSE", PhotoZRegressor(d_in, hidden=cfg.hidden), "mse"),
         ("Huber", PhotoZRegressor(d_in, hidden=cfg.hidden), "huber"),
+        ("DensityWeightedHuber", PhotoZRegressor(d_in, hidden=cfg.hidden), "density_huber"),
         ("LogTransform", PhotoZRegressor(d_in, hidden=cfg.hidden, positive_output=True), "log"),
         ("Quantile90", PhotoZRegressor(d_in, out_dim=3, hidden=cfg.hidden), "quantile"),
         ("GaussianNLL", PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden), "gaussian"),
+        (
+            "NoisyTargetGaussianNLL",
+            PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden),
+            "noisy_gaussian",
+        ),
         ("PseudoLabelNLL", PhotoZRegressor(d_in, out_dim=2, hidden=cfg.hidden), "pseudo_gaussian"),
         (
             "PseudoLabelConsistency",
@@ -703,7 +819,9 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
         "SDSS-style photo-z benchmark with cached-real or deterministic simulated fallback",
         "Shared train/cal/test splits and shared training budget across methods",
         "Photo-z metrics include NMAD, catastrophic outlier rate, and high-z MAE",
+        "Feature-noise diagnostics are computed from catalogued color-error columns on the test split.",
         "Pseudo-label rows use a partial-spec-z track: only part of the train split is treated as labeled.",
+        "DensityWeightedHuber targets train-target imbalance; NoisyTargetGaussianNLL uses observed target-variance metadata.",
     ]
     for idx, (name, model, kind) in enumerate(specs):
         set_comparison_seed(cfg.seed + idx)
@@ -729,6 +847,19 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
             )
             result, eval_s = timed_call(_evaluate_point_method, name, model, splits)
             result["Notes"] = "robust point loss"
+        elif kind == "density_huber":
+            _, train_s = timed_call(
+                _train_density_weighted,
+                model,
+                splits,
+                epochs=cfg.epochs,
+                lr=cfg.lr,
+            )
+            result, eval_s = timed_call(_evaluate_point_method, name, model, splits)
+            result["Notes"] = (
+                "tail-aware density-weighted Huber with capped rarity weighting and "
+                "catalog feature-error reliability weights"
+            )
         elif kind == "log":
             _, train_s = timed_call(
                 _train_supervised,
@@ -771,6 +902,17 @@ def run_benchmark(cfg: PhotoZBenchmarkConfig) -> tuple[list[dict[str, object]], 
             )
             result, eval_s = timed_call(_evaluate_gaussian_method, model, splits)
             result["Notes"] = "heteroscedastic Gaussian"
+        elif kind == "noisy_gaussian":
+            _, train_s = timed_call(
+                _train_noisy_target_gaussian,
+                model,
+                splits,
+                epochs=cfg.epochs,
+                lr=cfg.lr,
+            )
+            result, eval_s = timed_call(_evaluate_gaussian_method, model, splits)
+            result["Method"] = name
+            result["Notes"] = "heteroscedastic Gaussian with observed target-variance term"
         elif kind == "pseudo_gaussian":
             _, train_s = timed_call(
                 _train_pseudo_label_gaussian,

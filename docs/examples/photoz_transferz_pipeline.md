@@ -14,7 +14,8 @@ Use this when you want a public tabular real-data photo-z benchmark with release
    - `TESTING` -> test
    - `CONFORMAL` -> dedicated conformal calibration
 4. Runs `tools/photoz_benchmark_suite.py` in real-data-only mode on train/validation/test.
-5. Runs `examples/photoz_transferz_conformal_comparison.py` on train/validation/conformal/test.
+5. Runs `examples/photoz_transferz_semisupervised_comparison.py` on train/validation/test.
+6. Runs `examples/photoz_transferz_conformal_comparison.py` on train/validation/conformal/test.
 
 ## Run it
 
@@ -38,6 +39,7 @@ uv run python tools/photoz_transferz_pipeline.py \
 - `reports/example_summaries/transferz/photoz_transferz_pipeline_latest.json`
 - `reports/example_summaries/transferz/photoz_transferz_suite_latest.json`
 - `reports/example_summaries/transferz/photoz_transferz_suite_latest.md`
+- `reports/example_summaries/transferz/photoz_transferz_semisupervised_comparison_<profile>.json`
 - `reports/example_summaries/transferz/photoz_transferz_conformal_comparison_<profile>.json`
 - `data/transferz/raw/transferz_*.csv`
 - `data/transferz/normalized/transferz_*_photoz.csv`
@@ -52,3 +54,6 @@ uv run python tools/photoz_transferz_pipeline.py \
 
 !!! tip
     The pipeline now uses `CONFORMAL` explicitly in the dedicated conformal photo-z benchmark, while keeping the standard regression and ordered-bin tracks on the original train/validation/test protocol.
+
+!!! info
+    The semi-supervised TransferZ benchmark intentionally stresses the high-z tail by default: labeled samples are selected with a `highz_scarce` policy rather than purely at random.

@@ -167,7 +167,9 @@ def _make_splits(cfg: PhotoZTransferZConformalConfig) -> dict[str, torch.Tensor]
             idx = rng.permutation(len(frame))[:limit]
             split_frames[name] = frame.iloc[idx].reset_index(drop=True)
     else:
-        df = _simulate_dataframe(cfg) if cfg.dataset_path is None else _load_single_or_simulated(cfg)
+        df = (
+            _simulate_dataframe(cfg) if cfg.dataset_path is None else _load_single_or_simulated(cfg)
+        )
         assert df is not None
         feature_cols, error_cols = pzbase._infer_feature_columns(df)
         need = cfg.n_train + cfg.n_cal + cfg.n_conformal + cfg.n_test
@@ -408,7 +410,9 @@ def _selection_objective(
     if high_cov == high_cov:
         penalty += 45.0 * max(coverage_floor - high_cov, 0.0)
     if high_interval_score == high_interval_score:
-        return float(high_interval_score + 0.35 * interval_score + 0.05 * width + 0.05 * high_width + penalty)
+        return float(
+            high_interval_score + 0.35 * interval_score + 0.05 * width + 0.05 * high_width + penalty
+        )
     return float(interval_score + 0.1 * width + penalty)
 
 
@@ -592,7 +596,9 @@ def run_comparison(
     var_conf = var_scaler.transform(torch.exp(logvar_conf))
     var_test = var_scaler.transform(torch.exp(logvar_test))
 
-    bin_edges = make_bins_from_train_targets(splits["y_train"], n_bins=cfg.n_bins, strategy="quantile")
+    bin_edges = make_bins_from_train_targets(
+        splits["y_train"], n_bins=cfg.n_bins, strategy="quantile"
+    )
     binned_model = pzbase.PhotoZRegressor(d_in, out_dim=cfg.n_bins, hidden=cfg.hidden)
     _, binned_train_s = timed_call(
         _train_binned,

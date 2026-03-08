@@ -105,6 +105,57 @@ def _run_conformal_example(
     return output_path
 
 
+def _run_semisupervised_example(
+    *,
+    profile: str,
+    output_dir: Path,
+    train_path: Path,
+    cal_path: Path,
+    test_path: Path,
+) -> Path:
+    module = _import_example_module("photoz_transferz_semisupervised_comparison")
+    if profile == "smoke":
+        cfg = module.PhotoZTransferZSemiSupervisedConfig(
+            n_train=96,
+            n_cal=32,
+            n_test=48,
+            batch_size=16,
+            epochs=1,
+            teacher_epochs=2,
+            hidden=16,
+            labeled_fractions=(0.15, 0.4),
+            train_dataset_path=str(train_path),
+            cal_dataset_path=str(cal_path),
+            test_dataset_path=str(test_path),
+            require_real_data=True,
+        )
+    elif profile == "audit":
+        cfg = module.PhotoZTransferZSemiSupervisedConfig(
+            n_train=256,
+            n_cal=96,
+            n_test=128,
+            batch_size=32,
+            epochs=5,
+            teacher_epochs=6,
+            hidden=32,
+            labeled_fractions=(0.1, 0.25, 0.5),
+            train_dataset_path=str(train_path),
+            cal_dataset_path=str(cal_path),
+            test_dataset_path=str(test_path),
+            require_real_data=True,
+        )
+    else:
+        cfg = module.PhotoZTransferZSemiSupervisedConfig(
+            train_dataset_path=str(train_path),
+            cal_dataset_path=str(cal_path),
+            test_dataset_path=str(test_path),
+            require_real_data=True,
+        )
+    output_path = output_dir / f"photoz_transferz_semisupervised_comparison_{profile}.json"
+    module.main(cfg, summary_json_path=str(output_path))
+    return output_path
+
+
 def run_pipeline(
     *,
     profile: str,
@@ -134,8 +185,7 @@ def run_pipeline(
             default_target_err=default_target_err,
         )
         normalized_paths = {
-            name: Path(path_str)
-            for name, path_str in collection_report["normalized_paths"].items()
+            name: Path(path_str) for name, path_str in collection_report["normalized_paths"].items()
         }
 
     suite_report = photoz_benchmark_suite.run_suite(
@@ -155,11 +205,22 @@ def run_pipeline(
         conformal_path=normalized_paths["conformal"],
         test_path=normalized_paths["test"],
     )
+    semisup_summary_path = _run_semisupervised_example(
+        profile=profile,
+        output_dir=suite_output_dir,
+        train_path=normalized_paths["train"],
+        cal_path=normalized_paths["cal"],
+        test_path=normalized_paths["test"],
+    )
     suite_report["summary_paths"]["photoz_transferz_conformal_comparison"] = str(
         conformal_summary_path
     )
+    suite_report["summary_paths"]["photoz_transferz_semisupervised_comparison"] = str(
+        semisup_summary_path
+    )
     suite_report["recommended_read_order"] = [
         *suite_report.get("recommended_read_order", []),
+        "photoz_transferz_semisupervised_comparison",
         "photoz_transferz_conformal_comparison",
     ]
     suite_report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -182,6 +243,7 @@ def run_pipeline(
         "suite_report_path": str(suite_report_path),
         "markdown_report_path": str(markdown_report_path),
         "suite_summary_paths": suite_report["summary_paths"],
+        "semisupervised_summary_path": str(semisup_summary_path),
         "conformal_summary_path": str(conformal_summary_path),
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)

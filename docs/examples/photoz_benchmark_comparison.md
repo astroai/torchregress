@@ -4,7 +4,7 @@ This example provides a standardized comparison benchmark for **photometric reds
 
 - Script: `examples/photoz_benchmark_comparison.py`
 - Output: shared-budget comparison table + optional machine-readable summary JSON
-- Benchmark focus: robust losses, probabilistic intervals, transforms, pseudo-label semi-supervision, and EIV under a domain-realistic workload
+- Benchmark focus: robust losses, probabilistic intervals, uncertain targets, tail imbalance, transforms, pseudo-label semi-supervision, and EIV under a domain-realistic workload
 
 ## Why this benchmark matters
 
@@ -23,9 +23,11 @@ The benchmark compares a shared-budget set of methods:
 
 - `MSE`
 - `Huber`
+- `DensityWeightedHuber`
 - `LogTransform`
 - `Quantile90` (`MultiQuantileLoss`)
 - `GaussianNLL`
+- `NoisyTargetGaussianNLL`
 - `PseudoLabelNLL`
 - `PseudoLabelConsistency`
 - `FunctionalEIV`
@@ -43,6 +45,7 @@ The benchmark compares a shared-budget set of methods:
 - `NMAD` (photo-z standard)
 - catastrophic outlier rate (`|Δz| > 0.15(1+z)`)
 - high-z MAE (tail slice)
+- high-feature-error and low-feature-error `NMAD` / catastrophic-rate slices derived from the catalogued `*_err` columns
 - interval coverage/width (`Cov90`, `Width90`) for uncertainty-capable methods
 - labeled-fraction and pseudo-label diagnostics for the SSL rows
 - runtime (`train_s`, `eval_s`)
@@ -77,5 +80,9 @@ main(cfg, summary_json_path="reports/example_summaries/photoz_benchmark_comparis
 
 - This benchmark improves domain realism and external-validity evidence, but it is still a compact MLP-based benchmark rather than a production astronomy pipeline.
 - `PseudoLabelNLL` and `PseudoLabelConsistency` use a partial-spec-z protocol inside the train split: a bootstrap Gaussian teacher is fitted on the labeled subset, then pseudo labels are generated for the remainder.
+- `DensityWeightedHuber` is the tail-imbalance row: it reweights train targets by rarity so the benchmark exposes the accuracy-vs-tail tradeoff directly.
+- The current `DensityWeightedHuber` row is feature-reliability-aware: it combines train-target rarity with the catalogued feature errors so high-z examples with very poor photometry are not overweighted blindly.
+- The benchmark report now highlights the best row on the highest-feature-error slice separately from the best overall row, so noisy-feature robustness is visible instead of being hidden inside aggregate `NMAD`.
+- `NoisyTargetGaussianNLL` uses the observed `spec_z_err` metadata as an additive target-variance term rather than pretending the labels are exact.
 - `LogTransform` is included as a positive-support skew ablation, not as a claim that log-space is universally best for photo-z.
 - For a broader astronomy walkthrough and diagnostics, see `examples/photoz.py` and this docs section’s `Photo-z` page.

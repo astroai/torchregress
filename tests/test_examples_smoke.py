@@ -47,6 +47,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("multimodal_method_realdata_comparison")
     _load_example_module("photoz_benchmark_comparison")
     _load_example_module("photoz_nnc_crps_rail_comparison")
+    _load_example_module("photoz_transferz_semisupervised_comparison")
     _load_example_module("photoz_transferz_conformal_comparison")
     _load_example_module("ppi_photoz_inference_comparison")
     _load_example_module("ordinal_regression_comparison")

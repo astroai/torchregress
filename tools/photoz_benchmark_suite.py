@@ -194,9 +194,7 @@ def run_suite(
         "core_examples": list(example_names),
         "real_data_only": real_data_only,
         "dataset_path": str(dataset_path) if dataset_path is not None else None,
-        "train_dataset_path": (
-            str(train_dataset_path) if train_dataset_path is not None else None
-        ),
+        "train_dataset_path": (str(train_dataset_path) if train_dataset_path is not None else None),
         "cal_dataset_path": str(cal_dataset_path) if cal_dataset_path is not None else None,
         "test_dataset_path": str(test_dataset_path) if test_dataset_path is not None else None,
         "skipped_examples": skipped_examples,

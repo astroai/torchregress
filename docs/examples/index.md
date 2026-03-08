@@ -33,7 +33,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/multimodal_method_realdata_comparison.py`: real-data features + synthetic multimodal targets for Gaussian/MDN/flow comparison
 - `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics
 - `examples/noisy_label_realdata_comparison.py`: real-data (Diabetes) label-corruption comparison with shared calibration metrics
-- `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/SSL/EIV tradeoffs with photo-z metrics
+- `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/uncertain-target/imbalance/SSL/EIV tradeoffs with photo-z metrics
 - `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison with hard bins, soft bins, pseudo labels, calibration, and PDF metrics
 - `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
@@ -176,6 +176,11 @@ A real-world application for astronomy:
 
 - Dedicated conformal benchmark on the public TransferZ release using the reserved `CONFORMAL` split correctly.
 - Compares native intervals against `SplitConformal`, `CQR`, `DensityConformal`, `PrevalenceAdjustedCP`, `MonteCarloConformal`, and `R2CConformal`.
+
+### [TransferZ Semi-Supervised Photo-z Comparison](photoz_transferz_semisupervised_comparison.md)
+
+- Dedicated real-data semi-supervised benchmark on the public TransferZ release using fixed train/validation/test splits.
+- Compares labeled-only baselines against calibrated pseudo-label and pseudo-label+consistency students under label scarcity and high-z-tail undercoverage.
 
 ### [Photo-z NNC End-to-End Pipeline](photoz_nnc_pipeline.md)
 
