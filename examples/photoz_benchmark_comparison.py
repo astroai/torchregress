@@ -267,7 +267,9 @@ def _data_source_name(cfg: PhotoZBenchmarkConfig) -> str:
 
 def _infer_feature_columns(df: pd.DataFrame) -> tuple[list[str], list[str]]:
     candidates = ["u_g", "g_r", "r_i", "i_z", "z_y"]
-    feature_cols = [name for name in candidates if name in df.columns and f"{name}_err" in df.columns]
+    feature_cols = [
+        name for name in candidates if name in df.columns and f"{name}_err" in df.columns
+    ]
     if len(feature_cols) < 3:
         raise ValueError(
             "Photo-z dataset must provide at least three color features with propagated errors. "
