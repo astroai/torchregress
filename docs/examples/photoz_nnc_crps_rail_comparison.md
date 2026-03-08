@@ -8,12 +8,21 @@ Included methods:
 
 - `BinnedCE`
 - `BinnedCE+TempScaling`
+- `SoftBinnedCE`
+- `SoftBinnedCE+Pseudo`
+- `SoftCumulativeLink`
 - `OrderedBinCRPS`
 - `OrderedBinCRPS+TempScaling`
 - `GaussianNLL`
 - `MultiQuantileLoss`
 
 The ordered-bin CRPS utilities are intentionally implemented in `examples/photoz_binned_utils.py` (not core API).
+The soft-target ordered-bin rows reuse the core ordinal losses:
+
+- `OrdinalCrossEntropyLoss`
+- `CumulativeLinkLoss`
+
+Soft targets are built from spectroscopic-redshift uncertainty, and the pseudo-label row uses a partial-label teacher-student track.
 
 ## Run
 
@@ -34,6 +43,7 @@ Metrics in the summary rows include:
 - `CRPS`, `PDF_NLL`, `PITChi2`
 - `NativeCov90`, `NativeWidth90`
 - `train_s`, `eval_s`, `calibrate_s`
+- `LabeledFraction`, `PseudoAcceptRate` for the soft pseudo-label row
 
 For manifest-driven RAIL data collection + merged baseline comparison, run:
 

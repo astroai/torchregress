@@ -215,8 +215,22 @@ For targets with significant **distribution imbalance**:
 | `NoisyTargetGaussianNLL` | Adds known target-noise $\sigma_y^2$ to predicted variance |
 | `ConsistencyRegLoss` | Teacher-student consistency |
 | `PseudoLabelNLL` | Blends observed + pseudo labels |
+| `PseudoLabelConsistencyLoss` | Single objective for pseudo-label + teacher-consistency point-regression training |
 
 → [Noisy Labels reference](noisy_labels.md) · [Uncertain GT reference](uncertain_ground_truth.md)
+
+---
+
+## Transform Losses
+
+| Loss | Strategy |
+|:-----|:---------|
+| `LogTransformLoss` | Optimize in log space for positive multiplicative-noise targets |
+| `BoxCoxTransformLoss` | Tunable positive-support power transform |
+| `SqrtTransformLoss` | Variance-stabilizing square-root transform |
+| `YeoJohnsonTransformLoss` | Signed-target power transform |
+
+→ [Transform Losses reference](transforms.md)
 
 ---
 
@@ -234,6 +248,8 @@ For targets with significant **distribution imbalance**:
 | Data with zeros | `TweedieLoss` | `CompoundPoissonLoss` for mixed |
 | Imbalanced targets | `DensityWeightedLoss` | `FocalRLoss` or `LDSLoss` |
 | Noisy labels | `NoisyTargetGaussianNLL` | `ConsistencyRegLoss` |
+| Semi-supervised regression | `PseudoLabelConsistencyLoss` | `PseudoLabelNLL` |
+| Strong target skew / multiplicative noise | `LogTransformLoss` | `BoxCoxTransformLoss` or `SqrtTransformLoss` |
 | Measurement error | `StructuralEIVLoss` | [RC](../algorithms/rc.md) or [SIMEX](../algorithms/simex.md) |
 | Ordered categories | `CumulativeLinkLoss` | `CORALLoss` |
 | Censored/survival | `CensoredGaussianNLLLoss` | `AFTLoss` |

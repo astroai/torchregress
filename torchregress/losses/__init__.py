@@ -121,10 +121,22 @@ from .robust import (
     PseudoHuberLoss,
     TukeyBiweightLoss,
 )
+from .transforms import (
+    BoxCoxTransformLoss,
+    LogTransformLoss,
+    SqrtTransformLoss,
+    TransformedTargetLoss,
+    YeoJohnsonTransformLoss,
+)
 
 # Tweedie losses
 from .tweedie import CompoundPoissonLoss, GammaLoss, InverseGaussianLoss, TweedieLoss
-from .uncertain_gt import ConsistencyRegLoss, NoisyTargetGaussianNLL, PseudoLabelNLL
+from .uncertain_gt import (
+    ConsistencyRegLoss,
+    NoisyTargetGaussianNLL,
+    PseudoLabelConsistencyLoss,
+    PseudoLabelNLL,
+)
 
 __all__ = [
     # Base classes
@@ -203,6 +215,12 @@ __all__ = [
     "GammaLoss",
     "InverseGaussianLoss",
     "CompoundPoissonLoss",
+    # Transformed-target losses
+    "TransformedTargetLoss",
+    "LogTransformLoss",
+    "BoxCoxTransformLoss",
+    "SqrtTransformLoss",
+    "YeoJohnsonTransformLoss",
     # Conformal prediction
     "CQR",
     "CTI",
@@ -224,6 +242,7 @@ __all__ = [
     "NoisyTargetGaussianNLL",
     "ConsistencyRegLoss",
     "PseudoLabelNLL",
+    "PseudoLabelConsistencyLoss",
     # Registry
     "get_regression_loss",
     "list_regression_losses",

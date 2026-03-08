@@ -54,6 +54,31 @@ def bin_targets(targets: torch.Tensor, bin_edges: torch.Tensor) -> torch.Tensor:
     return bins.clamp(min=0, max=edges.numel() - 2).long()
 
 
+def soft_bin_targets(
+    targets: torch.Tensor,
+    bin_edges: torch.Tensor,
+    *,
+    sigma: torch.Tensor | float,
+    min_sigma: float = 1e-4,
+    eps: float = 1e-8,
+) -> torch.Tensor:
+    """Approximate bin plausibilities by integrating a Gaussian label model."""
+    y = targets.reshape(-1, 1).float()
+    edges = bin_edges.reshape(1, -1).float().to(y.device)
+    sigma_t = torch.as_tensor(sigma, dtype=y.dtype, device=y.device).reshape(-1, 1)
+    if sigma_t.shape[0] == 1 and y.shape[0] > 1:
+        sigma_t = sigma_t.expand(y.shape[0], 1)
+    if sigma_t.shape[0] != y.shape[0]:
+        raise ValueError("sigma must be scalar or match targets batch size")
+    sigma_t = sigma_t.clamp_min(min_sigma)
+
+    z_lo = (edges[:, :-1] - y) / (sigma_t * (2.0**0.5))
+    z_hi = (edges[:, 1:] - y) / (sigma_t * (2.0**0.5))
+    probs = 0.5 * (torch.erf(z_hi) - torch.erf(z_lo))
+    probs = probs.clamp_min(0.0)
+    return probs / probs.sum(dim=-1, keepdim=True).clamp_min(eps)
+
+
 def logits_to_pdf(logits: torch.Tensor, temperature: float | torch.Tensor = 1.0) -> torch.Tensor:
     """Convert logits [B, K] to normalized PDF probabilities."""
     if logits.dim() != 2:
@@ -145,6 +170,7 @@ def fit_temperature_scaler(
     targets: torch.Tensor,
     bin_edges: torch.Tensor,
     *,
+    target_probs: torch.Tensor | None = None,
     max_iter: int = 200,
     lr: float = 0.05,
 ) -> float:
@@ -152,13 +178,21 @@ def fit_temperature_scaler(
     if logits.dim() != 2:
         raise ValueError("logits must have shape [B, K]")
     y_bin = bin_targets(targets, bin_edges).to(logits.device)
+    if target_probs is not None:
+        if target_probs.shape != logits.shape:
+            raise ValueError("target_probs must match logits shape")
+        target_probs = target_probs.to(device=logits.device, dtype=logits.dtype)
     log_t = torch.nn.Parameter(torch.zeros((), device=logits.device, dtype=logits.dtype))
     opt = torch.optim.Adam([log_t], lr=lr)
 
     for _ in range(max_iter):
         opt.zero_grad()
         temp = torch.exp(log_t).clamp_min(1e-6)
-        loss = F.cross_entropy(logits / temp, y_bin, reduction="mean")
+        if target_probs is None:
+            loss = F.cross_entropy(logits / temp, y_bin, reduction="mean")
+        else:
+            log_probs = F.log_softmax(logits / temp, dim=-1)
+            loss = -(target_probs * log_probs).sum(dim=-1).mean()
         loss.backward()
         opt.step()
 

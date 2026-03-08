@@ -48,7 +48,10 @@ $$\mathcal{L}_{\text{CORAL}} = -\sum_{k=1}^{K-1} \Bigl[\mathbf{1}_{y > k}\,\log\
 
 ### OrdinalCrossEntropyLoss
 
-Standard cross-entropy baseline.  Treats each level as an independent class — **does not** exploit ordering.
+Standard cross-entropy baseline.  Treats each level as an independent class, but now supports both:
+
+- hard class-index labels, and
+- soft class-probability targets for ambiguous ordered labels or soft pseudo labels.
 
 ```python
 import torch
@@ -62,12 +65,25 @@ loss_fn = OrdinalCrossEntropyLoss()
 loss = loss_fn(logits, labels)
 ```
 
+Soft-target usage:
+
+```python
+soft_targets = torch.tensor(
+    [
+        [0.70, 0.25, 0.05, 0.00, 0.00],
+        [0.00, 0.10, 0.65, 0.20, 0.05],
+    ]
+)
+loss = loss_fn(logits[:2], soft_targets)
+```
+
 !!! tip "When to use"
     As a **baseline** to compare against ordering-aware losses.
 
 ### CumulativeLinkLoss
 
-Cumulative-threshold model with $K-1$ logits.
+Cumulative-threshold model with $K-1$ logits.  It accepts either hard ordinal labels
+or soft per-class PMF targets, which are internally converted to cumulative levels.
 
 ```python
 from torchregress.losses import CumulativeLinkLoss
@@ -79,6 +95,29 @@ loss = loss_fn(logits, labels)
 
 !!! tip "When to use"
     When you want a **principled ordinal model** with the fewest parameters.
+
+## Soft / Uncertain Ordinal Targets
+
+When ordered targets are ambiguous, weakly supervised, or represented as ordered-bin plausibilities,
+you do not need a separate loss family.  The ordinal losses can consume soft targets directly.
+
+For a soft target vector $p \in \Delta^{K-1}$:
+
+$$
+\mathcal{L}_{\text{soft-CE}} = - \sum_{k=1}^{K} p_k \log \hat{p}_k
+$$
+
+and for cumulative objectives the target levels are the expected cumulative events:
+
+$$
+\tilde{\ell}_j = P(Y > j) = \sum_{k=j+1}^{K} p_k.
+$$
+
+This is the right fit for:
+
+- ambiguous labels near ordinal boundaries,
+- regression-as-classification with uncertain ordered bins,
+- soft pseudo labels from a teacher model.
 
 ### CORALLoss
 
@@ -158,7 +197,7 @@ with torch.no_grad():
 !!! tip "Choosing between losses"
     - **Start with CORALLoss** — best empirical performance
     - Use **CumulativeLinkLoss** for interpretable threshold parameters
-    - Use **OrdinalCrossEntropyLoss** only as a baseline
+    - Use **OrdinalCrossEntropyLoss** as a baseline or when you already have soft bin targets
 
 !!! warning "Don't use standard classification metrics"
     Ordinal accuracy ignores ordering.  Use **MAE**, **Quadratic Weighted Kappa**, or **Spearman $\rho$** instead.
@@ -170,6 +209,7 @@ with torch.no_grad():
 - [Ordinal Metrics](../metrics/ordinal.md) — MAE, Quadratic Weighted Kappa, Spearman $\rho$
 - [Ordinal Regression Comparison](../examples/ordinal_regression_comparison.md) — side-by-side benchmark
 - [Ordinal Regression Comparison (Real Data)](../examples/ordinal_regression_realdata_comparison.md) — real-data benchmark
+- [Ordinal Uncertain Ground Truth Comparison](../examples/ordinal_uncertain_ground_truth_comparison.md) — soft plausibility targets and soft pseudo labels
 
 ---
 

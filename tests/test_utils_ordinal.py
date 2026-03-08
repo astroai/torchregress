@@ -3,9 +3,11 @@ from __future__ import annotations
 import torch
 
 from torchregress.utils import (
+    class_probs_to_levels,
     cumulative_logits_to_pmf,
     cumulative_probs_to_pmf,
     labels_to_levels,
+    normalize_class_probs,
     ordinal_predict,
 )
 
@@ -43,3 +45,25 @@ def test_ordinal_predict_supports_multiple_encodings() -> None:
 
     pmf = cumulative_logits_to_pmf(cum_logits)
     assert torch.allclose(pmf.sum(dim=-1), torch.ones(2), atol=1e-6)
+
+
+def test_soft_class_prob_utilities_normalize_and_convert_to_levels() -> None:
+    target_probs = torch.tensor(
+        [
+            [2.0, 1.0, 1.0],
+            [0.0, 3.0, 1.0],
+        ],
+        dtype=torch.float32,
+    )
+    normalized = normalize_class_probs(target_probs, class_dim=1)
+    assert torch.allclose(normalized.sum(dim=1), torch.ones(2), atol=1e-6)
+
+    levels = class_probs_to_levels(normalized, class_dim=1)
+    expected = torch.tensor(
+        [
+            [0.5, 0.25],
+            [1.0, 0.25],
+        ],
+        dtype=torch.float32,
+    )
+    assert torch.allclose(levels, expected, atol=1e-6)

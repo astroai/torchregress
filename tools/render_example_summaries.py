@@ -329,6 +329,28 @@ def _ordinal_realdata_comparison_config(module: Any, profile: str) -> Any:
     return module.OrdinalRealDataConfig()
 
 
+def _ordinal_ugt_comparison_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.OrdinalUGTComparisonConfig(
+            n_train=128,
+            n_test=64,
+            hidden=16,
+            epochs=4,
+            teacher_epochs=4,
+            batch_size=32,
+        )
+    if profile == "audit":
+        return module.OrdinalUGTComparisonConfig(
+            n_train=512,
+            n_test=256,
+            hidden=32,
+            epochs=20,
+            teacher_epochs=16,
+            batch_size=64,
+        )
+    return module.OrdinalUGTComparisonConfig()
+
+
 def _censored_comparison_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.CensoredComparisonConfig(
@@ -401,6 +423,46 @@ def _constraints_calibration_config(module: Any, profile: str) -> Any:
             n_test=256,
         )
     return module.ConstraintCalibrationConfig()
+
+
+def _transformed_target_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.TransformComparisonConfig(
+            n_train=128,
+            n_test=64,
+            hidden=16,
+            epochs=4,
+        )
+    if profile == "audit":
+        return module.TransformComparisonConfig(
+            n_train=384,
+            n_test=192,
+            hidden=24,
+            epochs=18,
+        )
+    return module.TransformComparisonConfig()
+
+
+def _semi_supervised_regression_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.SemiSupervisedRegressionConfig(
+            n_labeled=48,
+            n_unlabeled=96,
+            n_test=64,
+            hidden=16,
+            teacher_epochs=6,
+            student_epochs=8,
+        )
+    if profile == "audit":
+        return module.SemiSupervisedRegressionConfig(
+            n_labeled=80,
+            n_unlabeled=180,
+            n_test=90,
+            hidden=24,
+            teacher_epochs=20,
+            student_epochs=24,
+        )
+    return module.SemiSupervisedRegressionConfig()
 
 
 def _uncertain_gt_density_conformal_config(module: Any, profile: str) -> Any:
@@ -522,6 +584,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
         "filename": "ordinal_regression_realdata_comparison",
         "config_factory": _ordinal_realdata_comparison_config,
     },
+    "ordinal_uncertain_ground_truth_comparison": {
+        "filename": "ordinal_uncertain_ground_truth_comparison",
+        "config_factory": _ordinal_ugt_comparison_config,
+    },
     "censored_regression_comparison": {
         "filename": "censored_regression_comparison",
         "config_factory": _censored_comparison_config,
@@ -537,6 +603,14 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "constraints_calibration_comparison": {
         "filename": "constraints_calibration_comparison",
         "config_factory": _constraints_calibration_config,
+    },
+    "transformed_target_regression_comparison": {
+        "filename": "transformed_target_regression_comparison",
+        "config_factory": _transformed_target_config,
+    },
+    "semi_supervised_regression_comparison": {
+        "filename": "semi_supervised_regression_comparison",
+        "config_factory": _semi_supervised_regression_config,
     },
     "uncertain_gt_density_conformal_comparison": {
         "filename": "uncertain_gt_density_conformal_comparison",

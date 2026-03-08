@@ -33,15 +33,18 @@ Use the comparison examples first when making implementation decisions:
 - `examples/multimodal_method_realdata_comparison.py`: real-data features + synthetic multimodal targets for Gaussian/MDN/flow comparison
 - `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics
 - `examples/noisy_label_realdata_comparison.py`: real-data (Diabetes) label-corruption comparison with shared calibration metrics
-- `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/EIV tradeoffs with photo-z metrics
-- `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison (examples-only) with calibration + PDF metrics
+- `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/SSL/EIV tradeoffs with photo-z metrics
+- `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison with hard bins, soft bins, pseudo labels, calibration, and PDF metrics
 - `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
 - `examples/ordinal_regression_realdata_comparison.py`: real-data ordinal comparison on Diabetes with train-quantile binning
+- `examples/ordinal_uncertain_ground_truth_comparison.py`: ordered-bin ambiguous-label comparison with soft plausibility targets and soft pseudo labels
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
 - `examples/censored_regression_realdata_comparison.py`: real-data censored comparison on Diabetes with shared censoring overlays
 - `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`, `GaussianNLL`, `Quantile90`)
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
+- `examples/transformed_target_regression_comparison.py`: skewed-target transform comparison (`MSE`, `LogTransform`, `BoxCox`, `Sqrt`)
+- `examples/semi_supervised_regression_comparison.py`: masked-label semi-supervised regression with pseudo labels and teacher consistency
 - `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison
 - `examples/uncertain_gt_density_conformal_realdata_comparison.py`: real-data uncertain-label + conformal comparison on Diabetes
 - `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics
@@ -157,15 +160,27 @@ A real-world application for astronomy:
 - Creating calibrated prediction intervals
 - Evaluating results with domain-specific metrics
 
+### [Photo-z Benchmark Suite](photoz_benchmark_suite.md)
+
+- Operator-facing runbook for the main photo-z benchmark tracks.
+- Uses `tools/photoz_benchmark_suite.py` to run the standard benchmark, ordered-bin benchmark, and PPI benchmark together.
+- Optional RAIL merge path is included when external baseline assets are available.
+
+### [Photo-z NNC End-to-End Pipeline](photoz_nnc_pipeline.md)
+
+- Downloads or reads a raw NNC-style catalog, normalizes it into the canonical photo-z frame, and runs the real-data benchmark tracks.
+- Uses `tools/photoz_nnc_pipeline.py`.
+- This is the direct path for “download NNC and run full training/test/eval”.
+
 ### [Photo-z Benchmark Comparison (SDSS-style)](photoz_benchmark_comparison.md)
 
 - Shared-budget comparison benchmark for photo-z on SDSS-style features and measurement errors.
-- Includes robust/probabilistic/EIV methods with NMAD, catastrophic-outlier rate, high-z MAE, interval coverage/width, and runtime.
+- Includes robust/probabilistic/transform/pseudo-label/EIV methods with NMAD, catastrophic-outlier rate, high-z MAE, interval coverage/width, pseudo-label diagnostics, and runtime.
 - Uses cached real SDSS data if available, otherwise deterministic simulated SDSS-style fallback (CI/offline-friendly).
 
 ### [Photo-z NNC-CRPS + RAIL-Ready Comparison](photoz_nnc_crps_rail_comparison.md)
 
-- Ordered-bin regression-as-classification comparison (`BinnedCE` vs `OrderedBinCRPS`) with optional post-hoc temperature scaling.
+- Ordered-bin regression-as-classification comparison spanning hard-bin CE, soft-bin ordinal losses, soft pseudo labels, and `OrderedBinCRPS`, with optional post-hoc temperature scaling for hard-bin CE/CRPS rows.
 - Kept intentionally in `examples/` (specialized setup; no new core public API).
 - Emits machine-readable summary rows with photo-z domain metrics plus PDF metrics (`CRPS`, `PDF_NLL`, `PITChi2`).
 
@@ -193,6 +208,12 @@ A real-world application for astronomy:
 - Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
 - Reports ordinal accuracy, class-index MAE, QWK, and runtime.
 
+### [Ordinal Uncertain Ground Truth Comparison](ordinal_uncertain_ground_truth_comparison.md)
+
+- Ordered-bin regression-as-classification comparison for ambiguous labels represented as soft class probabilities.
+- Compares hard sampled labels, soft plausibility targets, soft pseudo labels, and a cumulative-link soft-target variant.
+- Reports ordinal accuracy, class-index MAE, QWK, true-class NLL, plausibility cross-entropy, pseudo-label acceptance, and runtime.
+
 ### [Censored Regression Comparison](censored_regression_comparison.md)
 
 - Shared-budget comparison for right/left and interval-censored targets.
@@ -216,6 +237,18 @@ A real-world application for astronomy:
 - Demonstrates output-head constraints and post-hoc calibration transforms in one workflow.
 - Compares raw outputs against calibrated + constrained outputs.
 - Reports MAE, NLL, PIT chi-square, crossing-rate, bound-violation, and runtime.
+
+### [Transformed-Target Regression Comparison](transformed_target_regression_comparison.md)
+
+- Shared-budget benchmark for skewed positive targets with multiplicative noise.
+- Compares `MSE` against `LogTransformLoss`, `BoxCoxTransformLoss`, and `SqrtTransformLoss`.
+- Reports MSE, MAE, R2, MAPE, upper-tail MAE, and runtime.
+
+### [Semi-Supervised Regression Comparison](semi_supervised_regression_comparison.md)
+
+- Real-data proxy benchmark on Diabetes with train-label masking.
+- Compares `SupervisedMSE`, `PseudoLabelConsistencyLoss`, and `PseudoLabelNLL`.
+- Reports MSE, MAE, R2, pseudo-label acceptance/confidence, and runtime.
 
 ### [Uncertain-GT + Density Conformal Comparison](uncertain_gt_density_conformal_comparison.md)
 

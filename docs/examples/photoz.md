@@ -8,6 +8,9 @@ For a **standardized shared-budget comparison benchmark** (with machine-readable
 
 For an **ordered-bin regression-as-classification track** (NNC-CRPS-style, intentionally examples-only), see [Photo-z NNC-CRPS + RAIL-Ready Comparison](photoz_nnc_crps_rail_comparison.md) / `examples/photoz_nnc_crps_rail_comparison.py`.
 
+For a **single runbook and orchestrator** over the main local photo-z benchmarks, see [Photo-z Benchmark Suite](photoz_benchmark_suite.md) / `tools/photoz_benchmark_suite.py`.
+For a **one-command NNC real-data path** (download/normalize/train/evaluate), see [Photo-z NNC End-to-End Pipeline](photoz_nnc_pipeline.md) / `tools/photoz_nnc_pipeline.py`.
+
 For cross-framework baseline merging against RAIL tabular methods, see [Photo-z RAIL Baseline Comparison](photoz_rail_baseline_comparison.md) / `tools/photoz_rail_compare.py`.
 For one-command manifest-driven collection + merge (including `nnc_crps` preset bootstrap), use `tools/photoz_rail_pipeline.py`.
 For real-data acquisition helpers, use `tools/photoz_collect_real_data.py` (`dp02` and `nnc` subcommands).

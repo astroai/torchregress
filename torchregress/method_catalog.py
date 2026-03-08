@@ -227,6 +227,56 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Blends observed labels and pseudo-labels with confidence weighting.",
     ),
     MethodMetadata(
+        name="PseudoLabelConsistencyLoss",
+        family="uncertain_gt",
+        public_path="torchregress.losses.PseudoLabelConsistencyLoss",
+        task_tags=("uncertain_ground_truth", "weak_supervision", "semi_supervised"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Composite point-regression loss for pseudo-label and teacher-consistency training.",
+    ),
+    MethodMetadata(
+        name="LogTransformLoss",
+        family="target_transform",
+        public_path="torchregress.losses.LogTransformLoss",
+        task_tags=("target_transform", "skewed_targets"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Positive-support log-space loss for multiplicative noise and strong right skew.",
+    ),
+    MethodMetadata(
+        name="BoxCoxTransformLoss",
+        family="target_transform",
+        public_path="torchregress.losses.BoxCoxTransformLoss",
+        task_tags=("target_transform", "skewed_targets"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Tunable positive-support power transform for skewed targets.",
+    ),
+    MethodMetadata(
+        name="SqrtTransformLoss",
+        family="target_transform",
+        public_path="torchregress.losses.SqrtTransformLoss",
+        task_tags=("target_transform", "skewed_targets"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Square-root-space loss for count-like or moderate variance-growth targets.",
+    ),
+    MethodMetadata(
+        name="YeoJohnsonTransformLoss",
+        family="target_transform",
+        public_path="torchregress.losses.YeoJohnsonTransformLoss",
+        task_tags=("target_transform", "skewed_targets"),
+        maturity="Available",
+        non_gaussian="partial",
+        calibration="partial",
+        notes="Signed-target power transform when Box-Cox/log are invalid.",
+    ),
+    MethodMetadata(
         name="PredictionPoweredInference",
         family="inference",
         public_path="torchregress.inference.ppi_mean_ci",
@@ -267,7 +317,10 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Available",
         non_gaussian="yes",
         calibration="partial",
-        notes="Class-logit baseline for ordered targets; pair with ordinal-aware metrics.",
+        notes=(
+            "Class-logit baseline for ordered targets; also accepts soft bin targets "
+            "for ambiguous labels and soft pseudo labels."
+        ),
     ),
     MethodMetadata(
         name="CumulativeLinkLoss",
@@ -277,7 +330,10 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Available",
         non_gaussian="yes",
         calibration="partial",
-        notes="Cumulative-threshold objective with K-1 logits for ordinal labels.",
+        notes=(
+            "Cumulative-threshold objective with K-1 logits for ordinal labels or "
+            "soft ordered-bin PMFs."
+        ),
     ),
     MethodMetadata(
         name="CORALLoss",
@@ -620,10 +676,30 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Uncertain ground-truth / weak labels",
         recommended_start="NoisyTargetGaussianNLL",
-        strong_alternatives=("PseudoLabelNLL", "ConsistencyRegLoss"),
+        strong_alternatives=(
+            "PseudoLabelConsistencyLoss",
+            "PseudoLabelNLL",
+            "ConsistencyRegLoss",
+        ),
         notes=(
             "Model target uncertainty explicitly and blend pseudo labels with confidence weights."
         ),
+    ),
+    TaskRecommendation(
+        task="Semi-supervised regression",
+        recommended_start="PseudoLabelConsistencyLoss",
+        strong_alternatives=("PseudoLabelNLL", "NoisyTargetGaussianNLL"),
+        notes="Use confidence-gated pseudo labels and keep a clean held-out evaluation split.",
+    ),
+    TaskRecommendation(
+        task="Target transforms for skewed / multiplicative-noise regression",
+        recommended_start="LogTransformLoss",
+        strong_alternatives=(
+            "BoxCoxTransformLoss",
+            "SqrtTransformLoss",
+            "YeoJohnsonTransformLoss",
+        ),
+        notes="Match transform support to target support before tuning model complexity.",
     ),
     TaskRecommendation(
         task="Causal inference regression (ATE/CATE)",
@@ -816,8 +892,52 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         gaps="Needs additional domain benchmarks beyond synthetic stress tests.",
     ),
     ComparativeEvidenceRow(
+        task="Target transforms for skewed regression",
+        examples=("examples/transformed_target_regression_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=("fixed seed", "shared architecture", "shared optimizer/epoch budget"),
+        metrics_coverage=("MSE", "MAE", "R2", "MAPE", "upper-tail MAE", "runtime"),
+        peer_methods_visible=(
+            "WeightedMSELoss",
+            "LogTransformLoss",
+            "BoxCoxTransformLoss",
+            "SqrtTransformLoss",
+        ),
+        gaps=(
+            "Needs real-data positive-target benchmarks beyond synthetic "
+            "multiplicative-noise tasks."
+        ),
+        notes="Focused evidence for target-transform choice under skewed positive targets.",
+    ),
+    ComparativeEvidenceRow(
+        task="Semi-supervised regression / limited labels",
+        examples=("examples/semi_supervised_regression_comparison.py",),
+        comparison_grade="Strong",
+        fairness_controls=(
+            "fixed seed",
+            "shared architecture",
+            "shared labeled/unlabeled split",
+            "shared teacher bootstrap",
+        ),
+        metrics_coverage=("MSE", "MAE", "R2", "pseudo-label acceptance", "runtime"),
+        peer_methods_visible=(
+            "PseudoLabelConsistencyLoss",
+            "PseudoLabelNLL",
+            "WeightedMSELoss",
+        ),
+        gaps=(
+            "Current evidence is one real-data proxy benchmark; add domain-native "
+            "SSL regression tracks."
+        ),
+        notes=(
+            "Real-data proxy benchmark uses Diabetes with masked labels and "
+            "confidence-gated pseudo labels."
+        ),
+    ),
+    ComparativeEvidenceRow(
         task="Uncertain ground-truth + density-aware conformal",
         examples=(
+            "examples/semi_supervised_regression_comparison.py",
             "examples/uncertain_gt_density_conformal_comparison.py",
             "examples/uncertain_gt_density_conformal_realdata_comparison.py",
         ),
@@ -843,14 +963,16 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "NoisyTargetGaussianNLL",
             "PseudoLabelNLL",
             "ConsistencyRegLoss",
+            "PseudoLabelConsistencyLoss",
         ),
         gaps=(
             "Includes one real-data proxy benchmark; needs domain-native uncertain-label datasets "
             "for stronger external validity."
         ),
         notes=(
-            "Evidence now includes synthetic and real-data (Diabetes) uncertain-label tracks with "
-            "matched conformal variants and uncertain-GT objective reporting."
+            "Evidence now includes synthetic conformal tracks plus a real-data "
+            "masked-label SSL proxy benchmark and real-data (Diabetes) "
+            "uncertain-label evaluation."
         ),
     ),
     ComparativeEvidenceRow(
@@ -937,6 +1059,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         examples=(
             "examples/ordinal_regression_comparison.py",
             "examples/ordinal_regression_realdata_comparison.py",
+            "examples/ordinal_uncertain_ground_truth_comparison.py",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -944,15 +1067,15 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "shared synthetic/real-data split",
             "matched model capacity",
         ),
-        metrics_coverage=("accuracy", "ordinal class MAE", "QWK", "runtime"),
+        metrics_coverage=("accuracy", "ordinal class MAE", "QWK", "true-class NLL", "runtime"),
         peer_methods_visible=("OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"),
         gaps=(
             "Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label "
             "datasets for stronger external validity."
         ),
         notes=(
-            "Comparison examples evaluate class-logit and cumulative objectives under shared "
-            "training budgets and ordinal-aware metrics on synthetic and real-data tracks."
+            "Comparison examples evaluate hard-label, soft-plausibility, and cumulative "
+            "objectives under shared training budgets and ordinal-aware metrics."
         ),
     ),
     ComparativeEvidenceRow(

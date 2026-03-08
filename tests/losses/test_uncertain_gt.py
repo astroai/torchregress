@@ -5,6 +5,7 @@ import torch
 from torchregress.losses.uncertain_gt import (
     ConsistencyRegLoss,
     NoisyTargetGaussianNLL,
+    PseudoLabelConsistencyLoss,
     PseudoLabelNLL,
 )
 from torchregress.utils.propensity import ipw_weights
@@ -85,3 +86,51 @@ def test_pseudo_label_nll_requires_some_supervision_source() -> None:
         assert "At least one of target or pseudo_target must be provided" in str(exc)
     else:
         raise AssertionError("Expected ValueError for missing target and pseudo_target")
+
+
+def test_pseudo_label_nll_backward_stays_finite_when_some_blend_weights_are_zero() -> None:
+    y_pred, target = _gaussian_head_inputs(n=16)
+    y_pred = y_pred.clone().requires_grad_(True)
+    label_mask = torch.zeros_like(target, dtype=torch.bool)
+    label_mask[:8] = True
+    pseudo_confidence = torch.zeros_like(target)
+    pseudo_confidence[8:10] = 0.8
+    loss = PseudoLabelNLL()(
+        y_pred,
+        target,
+        pseudo_target=target,
+        pseudo_confidence=pseudo_confidence,
+        label_mask=label_mask,
+    )
+    loss.backward()
+    assert torch.isfinite(loss)
+    assert y_pred.grad is not None
+    assert torch.isfinite(y_pred.grad).all()
+
+
+def test_semi_supervised_regression_loss_uses_masks_and_pseudo_targets() -> None:
+    torch.manual_seed(0)
+    y_pred = torch.randn(32, 1)
+    target = y_pred + 0.2 * torch.randn(32, 1)
+    pseudo = y_pred + 0.1 * torch.randn(32, 1)
+    teacher = y_pred + 0.05 * torch.randn(32, 1)
+    label_mask = torch.zeros_like(target, dtype=torch.bool)
+    label_mask[:12] = True
+    pseudo_confidence = torch.ones_like(target)
+    pseudo_confidence[20:] = 0.0
+
+    loss_fn = PseudoLabelConsistencyLoss(
+        pseudo_weight=0.8,
+        consistency_weight=0.4,
+        confidence_threshold=0.1,
+    )
+    loss = loss_fn(
+        y_pred,
+        target,
+        pseudo_target=pseudo,
+        pseudo_confidence=pseudo_confidence,
+        teacher_pred=teacher,
+        label_mask=label_mask,
+    )
+    assert torch.isfinite(loss)
+    assert float(loss.item()) > 0.0

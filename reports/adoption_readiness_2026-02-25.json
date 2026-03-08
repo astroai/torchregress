@@ -13,7 +13,7 @@
     "python": "3.12.12"
   },
   "examples": {
-    "count": 43,
+    "count": 45,
     "counts": {
       "invalid_imports": 0
     },
@@ -492,6 +492,7 @@
         "topics": [
           "noisy_labels",
           "noisy_features_eiv",
+          "uncertainty",
           "benchmark_or_compare"
         ]
       },
@@ -582,6 +583,31 @@
       {
         "comparability_signals": {
           "compares_multiple_methods": true,
+          "prints_metrics": true,
+          "seeded": false,
+          "uses_argparse": true
+        },
+        "path": "examples/semi_supervised_regression_comparison.py",
+        "topics": [
+          "uncertainty",
+          "benchmark_or_compare"
+        ]
+      },
+      {
+        "comparability_signals": {
+          "compares_multiple_methods": true,
+          "prints_metrics": true,
+          "seeded": false,
+          "uses_argparse": true
+        },
+        "path": "examples/transformed_target_regression_comparison.py",
+        "topics": [
+          "benchmark_or_compare"
+        ]
+      },
+      {
+        "comparability_signals": {
+          "compares_multiple_methods": true,
           "prints_metrics": false,
           "seeded": true,
           "uses_argparse": true
@@ -610,7 +636,7 @@
     ],
     "invalid_imports": [],
     "topic_totals": {
-      "benchmark_or_compare": 39,
+      "benchmark_or_compare": 41,
       "calibration": 19,
       "imbalance": 6,
       "multi_target": 4,
@@ -618,7 +644,7 @@
       "noisy_features_eiv": 6,
       "noisy_labels": 11,
       "ood": 8,
-      "uncertainty": 18
+      "uncertainty": 20
     }
   },
   "public_exports": {
@@ -751,6 +777,11 @@
         "kind": "type",
         "name": "BaseLoss",
         "object_module": "torchregress.losses.base"
+      },
+      {
+        "kind": "type",
+        "name": "BoxCoxTransformLoss",
+        "object_module": "torchregress.losses.transforms"
       },
       {
         "kind": "type",
@@ -914,6 +945,11 @@
       },
       {
         "kind": "type",
+        "name": "LogTransformLoss",
+        "object_module": "torchregress.losses.transforms"
+      },
+      {
+        "kind": "type",
         "name": "LowRankGaussianLoss",
         "object_module": "torchregress.losses.gaussian"
       },
@@ -1024,6 +1060,11 @@
       },
       {
         "kind": "type",
+        "name": "PseudoLabelConsistencyLoss",
+        "object_module": "torchregress.losses.uncertain_gt"
+      },
+      {
+        "kind": "type",
         "name": "PseudoLabelNLL",
         "object_module": "torchregress.losses.uncertain_gt"
       },
@@ -1059,8 +1100,18 @@
       },
       {
         "kind": "type",
+        "name": "SqrtTransformLoss",
+        "object_module": "torchregress.losses.transforms"
+      },
+      {
+        "kind": "type",
         "name": "StructuralEIVLoss",
         "object_module": "torchregress.losses.eiv"
+      },
+      {
+        "kind": "type",
+        "name": "TransformedTargetLoss",
+        "object_module": "torchregress.losses.transforms"
       },
       {
         "kind": "type",
@@ -1111,6 +1162,11 @@
         "kind": "type",
         "name": "WeightedNLLLoss",
         "object_module": "torchregress.losses.base"
+      },
+      {
+        "kind": "type",
+        "name": "YeoJohnsonTransformLoss",
+        "object_module": "torchregress.losses.transforms"
       },
       {
         "kind": "type",
@@ -1675,6 +1731,11 @@
       },
       {
         "kind": "type",
+        "name": "BoxCoxTransform",
+        "object_module": "torchregress.utils.transform"
+      },
+      {
+        "kind": "type",
         "name": "EnsemblePerturbationAugmenter",
         "object_module": "torchregress.utils.augment"
       },
@@ -1695,6 +1756,16 @@
       },
       {
         "kind": "type",
+        "name": "IdentityTransform",
+        "object_module": "torchregress.utils.transform"
+      },
+      {
+        "kind": "type",
+        "name": "LogTransform",
+        "object_module": "torchregress.utils.transform"
+      },
+      {
+        "kind": "type",
         "name": "MixUp",
         "object_module": "torchregress.utils.augment"
       },
@@ -1702,6 +1773,21 @@
         "kind": "type",
         "name": "PropensityEstimator",
         "object_module": "torchregress.utils.propensity"
+      },
+      {
+        "kind": "type",
+        "name": "SqrtTransform",
+        "object_module": "torchregress.utils.transform"
+      },
+      {
+        "kind": "type",
+        "name": "TargetTransform",
+        "object_module": "torchregress.utils.transform"
+      },
+      {
+        "kind": "type",
+        "name": "YeoJohnsonTransform",
+        "object_module": "torchregress.utils.transform"
       },
       {
         "kind": "function",
@@ -1795,6 +1881,11 @@
       },
       {
         "kind": "function",
+        "name": "generate_pseudo_labels",
+        "object_module": "torchregress.utils.semisupervised"
+      },
+      {
+        "kind": "function",
         "name": "get_device",
         "object_module": "torchregress.utils.pytorch_compat"
       },
@@ -1821,6 +1912,11 @@
       {
         "kind": "function",
         "name": "log_transform",
+        "object_module": "torchregress.utils.transform"
+      },
+      {
+        "kind": "function",
+        "name": "make_target_transform",
         "object_module": "torchregress.utils.transform"
       },
       {
@@ -1915,6 +2011,11 @@
       },
       {
         "kind": "function",
+        "name": "update_ema_teacher_",
+        "object_module": "torchregress.utils.semisupervised"
+      },
+      {
+        "kind": "function",
         "name": "validate_batch_consistency",
         "object_module": "torchregress.utils.validation"
       },
@@ -1962,6 +2063,16 @@
         "kind": "function",
         "name": "validate_weights",
         "object_module": "torchregress.utils.validation"
+      },
+      {
+        "kind": "function",
+        "name": "yeojohnson_inverse",
+        "object_module": "torchregress.utils.transform"
+      },
+      {
+        "kind": "function",
+        "name": "yeojohnson_transform",
+        "object_module": "torchregress.utils.transform"
       }
     ],
     "viz": [
@@ -2104,9 +2215,9 @@
   },
   "tests": {
     "direct_file_coverage": {
-      "count": 63,
-      "direct_count": 27,
-      "direct_fraction": 0.42857142857142855,
+      "count": 65,
+      "direct_count": 28,
+      "direct_fraction": 0.4307692307692308,
       "rows": [
         {
           "direct_test": "yes",
@@ -2242,6 +2353,10 @@
         },
         {
           "direct_test": "yes",
+          "path": "torchregress/losses/transforms.py"
+        },
+        {
+          "direct_test": "yes",
           "path": "torchregress/losses/tweedie.py"
         },
         {
@@ -2331,6 +2446,10 @@
         {
           "direct_test": "yes",
           "path": "torchregress/utils/security.py"
+        },
+        {
+          "direct_test": "no",
+          "path": "torchregress/utils/semisupervised.py"
         },
         {
           "direct_test": "no",

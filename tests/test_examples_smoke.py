@@ -49,10 +49,13 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("ppi_photoz_inference_comparison")
     _load_example_module("ordinal_regression_comparison")
     _load_example_module("ordinal_regression_realdata_comparison")
+    _load_example_module("ordinal_uncertain_ground_truth_comparison")
     _load_example_module("censored_regression_comparison")
     _load_example_module("censored_regression_realdata_comparison")
     _load_example_module("propensity_tail_regression_comparison")
     _load_example_module("constraints_calibration_comparison")
+    _load_example_module("transformed_target_regression_comparison")
+    _load_example_module("semi_supervised_regression_comparison")
     _load_example_module("uncertain_gt_density_conformal_comparison")
     _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
     _load_example_module("causal_dr_uplift_comparison")
@@ -253,6 +256,30 @@ def test_ood_selective_prediction_realdata_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
+def test_transformed_target_regression_comparison_main_smoke() -> None:
+    mod = _load_example_module("transformed_target_regression_comparison")
+    cfg = mod.TransformComparisonConfig(
+        n_train=64,
+        n_test=32,
+        hidden=8,
+        epochs=2,
+    )
+    mod.main(cfg)
+
+
+def test_semi_supervised_regression_comparison_main_smoke() -> None:
+    mod = _load_example_module("semi_supervised_regression_comparison")
+    cfg = mod.SemiSupervisedRegressionConfig(
+        n_labeled=32,
+        n_unlabeled=64,
+        n_test=32,
+        hidden=8,
+        teacher_epochs=2,
+        student_epochs=3,
+    )
+    mod.main(cfg)
+
+
 def test_eiv_method_comparison_main_smoke() -> None:
     mod = _load_example_module("eiv_method_comparison")
     cfg = mod.EIVConfig(n_train=24, n_test=24, epochs=1, hidden=8)
@@ -386,6 +413,19 @@ def test_ordinal_regression_realdata_comparison_main_smoke() -> None:
         n_test=64,
         hidden=12,
         epochs=2,
+        batch_size=24,
+    )
+    mod.main(cfg)
+
+
+def test_ordinal_uncertain_ground_truth_comparison_main_smoke() -> None:
+    mod = _load_example_module("ordinal_uncertain_ground_truth_comparison")
+    cfg = mod.OrdinalUGTComparisonConfig(
+        n_train=96,
+        n_test=48,
+        hidden=12,
+        epochs=2,
+        teacher_epochs=2,
         batch_size=24,
     )
     mod.main(cfg)

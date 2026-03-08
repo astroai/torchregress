@@ -17,6 +17,17 @@ def test_ordinal_cross_entropy_matches_torch_cross_entropy() -> None:
     assert torch.allclose(actual, expected)
 
 
+def test_ordinal_cross_entropy_accepts_soft_targets() -> None:
+    logits = torch.tensor([[2.0, 0.5, -1.0], [0.2, 1.4, 0.3]], dtype=torch.float32)
+    hard_target = torch.tensor([0, 1], dtype=torch.long)
+    soft_target = F.one_hot(hard_target, num_classes=3).to(dtype=torch.float32)
+
+    loss_fn = OrdinalCrossEntropyLoss(reduction="mean")
+    actual = loss_fn(logits, soft_target)
+    expected = F.cross_entropy(logits, hard_target, reduction="mean")
+    assert torch.allclose(actual, expected)
+
+
 def test_cumulative_link_loss_respects_mask_and_weights() -> None:
     logits = torch.tensor([[3.0, 2.5], [0.1, -0.2], [2.0, 1.5]], dtype=torch.float32)
     target = torch.tensor([2, 1, 2], dtype=torch.long)
@@ -31,6 +42,17 @@ def test_cumulative_link_loss_respects_mask_and_weights() -> None:
     per_sample = per_level.mean(dim=-1)
     expected = (per_sample[mask] * weights[mask]).sum() / weights[mask].sum()
     assert torch.allclose(loss, expected)
+
+
+def test_cumulative_link_accepts_soft_class_prob_targets() -> None:
+    logits = torch.tensor([[3.0, 2.5], [0.1, -0.2], [2.0, 1.5]], dtype=torch.float32)
+    target = torch.tensor([2, 1, 2], dtype=torch.long)
+    soft_target = F.one_hot(target, num_classes=3).to(dtype=torch.float32)
+
+    loss_fn = CumulativeLinkLoss(reduction="mean")
+    actual = loss_fn(logits, soft_target)
+    expected = loss_fn(logits, target)
+    assert torch.allclose(actual, expected)
 
 
 def test_coral_loss_forward_and_backward() -> None:
@@ -64,3 +86,12 @@ def test_ordinal_losses_validate_shapes() -> None:
         assert "target shape" in str(exc)
     else:
         raise AssertionError("Expected ValueError for invalid target shape")
+
+    cum = CumulativeLinkLoss()
+    soft_target_bad = torch.rand(4, 5)
+    try:
+        cum(logits, soft_target_bad)
+    except ValueError as exc:
+        assert "soft target shape" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for invalid soft ordinal target shape")

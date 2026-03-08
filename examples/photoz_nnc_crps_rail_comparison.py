@@ -27,11 +27,19 @@ from photoz_binned_utils import (
     ordered_bin_crps_loss,
     pdf_quantiles,
     pdf_to_point_estimate,
+    soft_bin_targets,
 )
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.losses import GaussianNLLLoss, MultiQuantileLoss, WeightedCrossEntropyLoss
+from torchregress.losses import (
+    CumulativeLinkLoss,
+    GaussianNLLLoss,
+    MultiQuantileLoss,
+    OrdinalCrossEntropyLoss,
+    WeightedCrossEntropyLoss,
+)
 from torchregress.metrics import continuous_ranked_probability_score, crps_gaussian, gaussian_nll
+from torchregress.utils import cumulative_logits_to_pmf
 
 
 @dataclass(frozen=True)
@@ -46,11 +54,17 @@ class PhotoZNNCConfig:
     hidden: int = 64
     n_bins: int = 48
     binning_strategy: str = "quantile"
+    dataset_path: str | None = None
     force_simulated: bool = False
+    require_real_data: bool = False
     allow_download: bool = False
     sample_size_if_generate: int = 5000
     temperature_max_iter: int = 200
     temperature_lr: float = 0.05
+    labeled_fraction: float = 0.35
+    teacher_epochs: int = 8
+    pseudo_confidence_threshold: float = 0.45
+    pseudo_weight: float = 0.7
 
 
 def _pit_chi2_from_pdf(pdf: torch.Tensor, targets: torch.Tensor, bin_edges: torch.Tensor) -> float:
@@ -91,6 +105,80 @@ def _train_binned(
             opt.step()
     model.eval()
     return model
+
+
+def _train_soft_binned(
+    model: nn.Module,
+    loader: DataLoader[tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+    *,
+    loss_fn: nn.Module,
+    epochs: int,
+    lr: float,
+) -> nn.Module:
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    model.train()
+    for _ in range(epochs):
+        for xb, yb, wb in loader:
+            opt.zero_grad()
+            logits = model(xb)
+            loss = loss_fn(logits, yb, weights=wb.reshape(-1))
+            loss.backward()
+            opt.step()
+    model.eval()
+    return model
+
+
+def _build_soft_loader(
+    x: torch.Tensor,
+    target_probs: torch.Tensor,
+    weights: torch.Tensor,
+    *,
+    batch_size: int,
+    seed: int,
+) -> DataLoader[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    return DataLoader(
+        TensorDataset(x, target_probs, weights),
+        batch_size=batch_size,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(seed),
+    )
+
+
+def _make_label_mask(cfg: PhotoZNNCConfig, n_train: int) -> torch.Tensor:
+    n_labeled = max(16, int(round(cfg.labeled_fraction * n_train)))
+    n_labeled = min(max(n_labeled, 1), n_train - 1)
+    perm = torch.randperm(n_train, generator=torch.Generator().manual_seed(cfg.seed + 41))
+    mask = torch.zeros(n_train, dtype=torch.bool)
+    mask[perm[:n_labeled]] = True
+    return mask
+
+
+def _build_soft_targets(
+    targets: torch.Tensor,
+    target_sigma: torch.Tensor,
+    bin_edges: torch.Tensor,
+) -> torch.Tensor:
+    return soft_bin_targets(targets, bin_edges, sigma=target_sigma.reshape(-1, 1))
+
+
+def _build_soft_pseudo_targets(
+    teacher_model: nn.Module,
+    x_train: torch.Tensor,
+    labeled_mask: torch.Tensor,
+    labeled_soft_targets: torch.Tensor,
+    cfg: PhotoZNNCConfig,
+) -> tuple[torch.Tensor, torch.Tensor, float]:
+    with torch.no_grad():
+        teacher_probs = logits_to_pdf(teacher_model(x_train))
+    confidence = teacher_probs.max(dim=-1).values
+    accepted = (~labeled_mask) & (confidence >= cfg.pseudo_confidence_threshold)
+    if not bool(accepted.any().item()):
+        accepted = ~labeled_mask
+    target_probs = labeled_soft_targets.clone()
+    target_probs[~labeled_mask] = teacher_probs[~labeled_mask]
+    weights = labeled_mask.float() + cfg.pseudo_weight * confidence * accepted.float()
+    accept_rate = float(accepted.float().mean().item())
+    return target_probs, weights, accept_rate
 
 
 def _train_supervised_tuple(
@@ -175,6 +263,53 @@ def _evaluate_binned_row(
     }
 
 
+def _evaluate_soft_binned_row(
+    *,
+    name: str,
+    model: nn.Module,
+    splits: dict[str, torch.Tensor],
+    bin_edges: torch.Tensor,
+    encoding: str,
+) -> dict[str, object]:
+    with torch.no_grad():
+        logits = model(splits["x_test"])
+    if encoding == "class_logits":
+        pdf = logits_to_pdf(logits)
+    elif encoding == "cumulative_logits":
+        pdf = cumulative_logits_to_pmf(logits)
+    else:
+        raise ValueError(f"Unknown encoding: {encoding}")
+
+    point = pdf_to_point_estimate(pdf, bin_edges)
+    q = pdf_quantiles(pdf, bin_edges, quantiles=[0.05, 0.95])
+    q05, q95 = q[0.05], q[0.95]
+    q05, q95 = torch.minimum(q05, q95), torch.maximum(q05, q95)
+    cov90, width90 = pzbase._coverage_width(q05, q95, splits["y_test"])
+
+    y_bin = bin_targets(splits["y_test"], bin_edges)
+    pdf_nll = float((-torch.log(pdf.gather(1, y_bin.unsqueeze(1)).clamp_min(1e-8))).mean().item())
+
+    point_metrics = pzbase._point_metrics(point, splits["y_test"])
+    photoz_metrics = pzbase._photoz_metrics(point, splits["y_test"], splits)
+    pit_chi2 = _pit_chi2_from_pdf(pdf, splits["y_test"], bin_edges)
+    cdf_pred = torch.cumsum(pdf, dim=-1)
+    target_bins = bin_targets(splits["y_test"], bin_edges)
+    grid = torch.arange(cdf_pred.shape[-1], device=pdf.device).unsqueeze(0)
+    cdf_true = (grid >= target_bins.unsqueeze(1)).to(cdf_pred.dtype)
+    widths = (bin_edges[1:] - bin_edges[:-1]).to(pdf.device).clamp_min(1e-8)
+    crps = float((((cdf_pred - cdf_true) ** 2) * widths.unsqueeze(0)).sum(dim=-1).mean().item())
+    return {
+        "Method": name,
+        **point_metrics,
+        **photoz_metrics,
+        "CRPS": crps,
+        "PDF_NLL": pdf_nll,
+        "PITChi2": pit_chi2,
+        "NativeCov90": cov90,
+        "NativeWidth90": width90,
+    }
+
+
 def _evaluate_gaussian_row(model: nn.Module, splits: dict[str, torch.Tensor]) -> dict[str, object]:
     with torch.no_grad():
         out = model(splits["x_test"])
@@ -237,7 +372,9 @@ def run_comparison(cfg: PhotoZNNCConfig) -> tuple[list[dict[str, object]], list[
             epochs=cfg.epochs,
             lr=cfg.lr,
             hidden=cfg.hidden,
+            dataset_path=cfg.dataset_path,
             force_simulated=cfg.force_simulated,
+            require_real_data=cfg.require_real_data,
             allow_download=cfg.allow_download,
             sample_size_if_generate=cfg.sample_size_if_generate,
         )
@@ -254,10 +391,23 @@ def run_comparison(cfg: PhotoZNNCConfig) -> tuple[list[dict[str, object]], list[
         generator=torch.Generator().manual_seed(cfg.seed),
     )
     d_in = int(splits["x_train"].shape[1])
+    soft_train = _build_soft_targets(splits["y_train"], splits["yerr_train"], bin_edges)
+    label_mask = _make_label_mask(cfg, int(splits["x_train"].shape[0]))
+    x_labeled = splits["x_train"][label_mask]
+    soft_labeled = soft_train[label_mask]
+    soft_labeled_loader = _build_soft_loader(
+        x_labeled,
+        soft_labeled,
+        torch.ones(x_labeled.shape[0], dtype=splits["x_train"].dtype),
+        batch_size=cfg.batch_size,
+        seed=cfg.seed + 11,
+    )
 
     rows: list[dict[str, object]] = []
     notes = [
         "Ordered-bin CRPS setup is examples-only and aligned with regression-as-classification flow.",
+        "SoftBinnedCE and SoftCumulativeLink reuse core ordinal losses with measurement-error soft targets.",
+        "SoftBinnedCE+Pseudo adds a partial-label ordered-bin teacher-student track with soft pseudo labels.",
         "RAIL baseline adapter is handled by tools/photoz_rail_compare.py for cross-framework comparison.",
         "Shared train/cal/test split and training budget across methods.",
     ]
@@ -313,6 +463,112 @@ def run_comparison(cfg: PhotoZNNCConfig) -> tuple[list[dict[str, object]], list[
     ce_temp_row["DataSource"] = splits["data_source"]
     ce_temp_row["Notes"] = "post-hoc scalar temperature on calibration split"
     rows.append(ce_temp_row)
+
+    # Soft-binned CE on measurement-error soft labels
+    set_comparison_seed(cfg.seed + 11)
+    soft_ce_model = pzbase.PhotoZRegressor(d_in, out_dim=cfg.n_bins, hidden=cfg.hidden)
+    _, soft_ce_train_s = timed_call(
+        _train_soft_binned,
+        soft_ce_model,
+        soft_labeled_loader,
+        loss_fn=OrdinalCrossEntropyLoss(),
+        epochs=cfg.epochs,
+        lr=cfg.lr,
+    )
+    soft_ce_row, soft_ce_eval_s = timed_call(
+        _evaluate_soft_binned_row,
+        name="SoftBinnedCE",
+        model=soft_ce_model,
+        splits=splits,
+        bin_edges=bin_edges,
+        encoding="class_logits",
+    )
+    soft_ce_row["train_s"] = float(soft_ce_train_s)
+    soft_ce_row["eval_s"] = float(soft_ce_eval_s)
+    soft_ce_row["calibrate_s"] = 0.0
+    soft_ce_row["DataSource"] = splits["data_source"]
+    soft_ce_row["Notes"] = "core ordinal CE trained on measurement-error soft bin targets"
+    rows.append(soft_ce_row)
+
+    # Soft-binned CE + teacher soft pseudo labels
+    teacher_model = pzbase.PhotoZRegressor(d_in, out_dim=cfg.n_bins, hidden=cfg.hidden)
+    _train_soft_binned(
+        teacher_model,
+        soft_labeled_loader,
+        loss_fn=OrdinalCrossEntropyLoss(),
+        epochs=max(cfg.teacher_epochs, cfg.epochs),
+        lr=cfg.lr,
+    )
+    pseudo_target_probs, pseudo_weights, pseudo_accept_rate = _build_soft_pseudo_targets(
+        teacher_model,
+        splits["x_train"],
+        label_mask,
+        soft_train,
+        cfg,
+    )
+    soft_pseudo_loader = _build_soft_loader(
+        splits["x_train"],
+        pseudo_target_probs,
+        pseudo_weights,
+        batch_size=cfg.batch_size,
+        seed=cfg.seed + 13,
+    )
+    set_comparison_seed(cfg.seed + 12)
+    soft_pseudo_model = pzbase.PhotoZRegressor(d_in, out_dim=cfg.n_bins, hidden=cfg.hidden)
+    _, soft_pseudo_train_s = timed_call(
+        _train_soft_binned,
+        soft_pseudo_model,
+        soft_pseudo_loader,
+        loss_fn=OrdinalCrossEntropyLoss(),
+        epochs=cfg.epochs,
+        lr=cfg.lr,
+    )
+    soft_pseudo_row, soft_pseudo_eval_s = timed_call(
+        _evaluate_soft_binned_row,
+        name="SoftBinnedCE+Pseudo",
+        model=soft_pseudo_model,
+        splits=splits,
+        bin_edges=bin_edges,
+        encoding="class_logits",
+    )
+    soft_pseudo_row["train_s"] = float(soft_pseudo_train_s)
+    soft_pseudo_row["eval_s"] = float(soft_pseudo_eval_s)
+    soft_pseudo_row["calibrate_s"] = 0.0
+    soft_pseudo_row["DataSource"] = splits["data_source"]
+    soft_pseudo_row["LabeledFraction"] = float(label_mask.float().mean().item())
+    soft_pseudo_row["PseudoAcceptRate"] = pseudo_accept_rate
+    soft_pseudo_row["Notes"] = (
+        "core ordinal CE with measurement-error soft labels and teacher pseudo labels"
+    )
+    rows.append(soft_pseudo_row)
+
+    # Soft cumulative-link on measurement-error soft labels
+    set_comparison_seed(cfg.seed + 13)
+    soft_cl_model = pzbase.PhotoZRegressor(d_in, out_dim=cfg.n_bins - 1, hidden=cfg.hidden)
+    _, soft_cl_train_s = timed_call(
+        _train_soft_binned,
+        soft_cl_model,
+        soft_labeled_loader,
+        loss_fn=CumulativeLinkLoss(),
+        epochs=cfg.epochs,
+        lr=cfg.lr,
+    )
+    soft_cl_row, soft_cl_eval_s = timed_call(
+        _evaluate_soft_binned_row,
+        name="SoftCumulativeLink",
+        model=soft_cl_model,
+        splits=splits,
+        bin_edges=bin_edges,
+        encoding="cumulative_logits",
+    )
+    soft_cl_row["train_s"] = float(soft_cl_train_s)
+    soft_cl_row["eval_s"] = float(soft_cl_eval_s)
+    soft_cl_row["calibrate_s"] = 0.0
+    soft_cl_row["DataSource"] = splits["data_source"]
+    soft_cl_row["Notes"] = (
+        "core cumulative-link ordinal loss trained on measurement-error soft bin targets"
+    )
+    rows.append(soft_cl_row)
 
     # Ordered-bin CRPS
     set_comparison_seed(cfg.seed + 2)
@@ -456,6 +712,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Photo-z ordered-bin NNC-CRPS style comparison.")
     parser.add_argument("--summary-json-path", type=str, default=None)
     parser.add_argument("--force-simulated", action="store_true")
+    parser.add_argument("--require-real-data", action="store_true")
+    parser.add_argument("--dataset-path", type=str, default=None)
     args = parser.parse_args()
-    cfg = PhotoZNNCConfig(force_simulated=args.force_simulated)
+    cfg = PhotoZNNCConfig(
+        dataset_path=args.dataset_path,
+        force_simulated=args.force_simulated,
+        require_real_data=args.require_real_data,
+    )
     main(cfg, summary_json_path=args.summary_json_path)

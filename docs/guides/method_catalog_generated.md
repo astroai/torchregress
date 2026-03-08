@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `43`
+- Total methods: `48`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -34,7 +34,8 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `quantile` | 1 |
 | `robust_loss` | 1 |
 | `swag` | 2 |
-| `uncertain_gt` | 3 |
+| `target_transform` | 4 |
+| `uncertain_gt` | 4 |
 
 ### By Maturity
 
@@ -42,7 +43,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 6 |
 | `Strong` | 6 |
-| `Available` | 31 |
+| `Available` | 36 |
 
 ## Method Rows
 
@@ -90,8 +91,13 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `HuberLoss` | `robust_loss` | `Core` | `outliers`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.HuberLoss` |
 | `MultiSWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MultiSWAG` |
 | `SWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.SWAG` |
+| `BoxCoxTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.BoxCoxTransformLoss` |
+| `LogTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.LogTransformLoss` |
+| `SqrtTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.SqrtTransformLoss` |
+| `YeoJohnsonTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.YeoJohnsonTransformLoss` |
 | `ConsistencyRegLoss` | `uncertain_gt` | `Available` | `uncertain_ground_truth`, `weak_supervision`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.ConsistencyRegLoss` |
 | `NoisyTargetGaussianNLL` | `uncertain_gt` | `Available` | `uncertain_ground_truth`, `noisy_labels`, `weak_supervision` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.NoisyTargetGaussianNLL` |
+| `PseudoLabelConsistencyLoss` | `uncertain_gt` | `Available` | `uncertain_ground_truth`, `weak_supervision`, `semi_supervised` | `calibration*`, `ood*` | `torchregress.losses.PseudoLabelConsistencyLoss` |
 | `PseudoLabelNLL` | `uncertain_gt` | `Available` | `uncertain_ground_truth`, `weak_supervision`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.PseudoLabelNLL` |
 
 ## Capability-Focused Shortlists

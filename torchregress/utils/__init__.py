@@ -21,9 +21,11 @@ from .labels import (
     soft_to_hard_labels,
 )
 from .ordinal import (
+    class_probs_to_levels,
     cumulative_logits_to_pmf,
     cumulative_probs_to_pmf,
     labels_to_levels,
+    normalize_class_probs,
     ordinal_predict,
 )
 from .propensity import (
@@ -48,6 +50,10 @@ from .scaling import (
     compile_model,
 )
 from .security import validate_url
+from .semisupervised import (
+    generate_pseudo_labels,
+    update_ema_teacher_,
+)
 from .tensor_ops import (
     apply_mask,
     batched_linalg_solve,
@@ -66,12 +72,21 @@ from .tensor_ops import (
     unstandardize,
 )
 from .transform import (
+    BoxCoxTransform,
+    IdentityTransform,
+    LogTransform,
+    SqrtTransform,
+    TargetTransform,
+    YeoJohnsonTransform,
     boxcox_inverse,
     boxcox_transform,
     log_inverse,
     log_transform,
+    make_target_transform,
     sqrt_inverse,
     sqrt_transform,
+    yeojohnson_inverse,
+    yeojohnson_transform,
 )
 from .validation import (
     check_tensor,
@@ -103,6 +118,8 @@ __all__ = [
     "combine_binary_weighted_average",
     # ordinal
     "labels_to_levels",
+    "normalize_class_probs",
+    "class_probs_to_levels",
     "cumulative_probs_to_pmf",
     "cumulative_logits_to_pmf",
     "ordinal_predict",
@@ -139,13 +156,25 @@ __all__ = [
     "AMP",
     "GradientAccumulation",
     "compile_model",
+    # semi-supervised
+    "generate_pseudo_labels",
+    "update_ema_teacher_",
     # transform
+    "TargetTransform",
+    "IdentityTransform",
+    "LogTransform",
+    "BoxCoxTransform",
+    "SqrtTransform",
+    "YeoJohnsonTransform",
     "log_transform",
     "log_inverse",
     "boxcox_transform",
     "boxcox_inverse",
     "sqrt_transform",
     "sqrt_inverse",
+    "yeojohnson_transform",
+    "yeojohnson_inverse",
+    "make_target_transform",
     # validation
     "validate_reduction",
     "validate_shape",

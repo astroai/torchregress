@@ -58,7 +58,9 @@ _Generated date_: `2026-02-26`
 | Post-hoc calibration transforms | `VarianceTemperatureScaler` | `IsotonicMeanCalibrator`, `PITCalibrator` | Fit transforms on a held-out calibration split. |
 | Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
 | Density-aware conformal under long-tail targets | `DensityConformal` | `PrevalenceAdjustedCP`, `MonteCarloConformal` | Prefer density/prevalence variants when tail-region coverage is a key objective. |
-| Uncertain ground-truth / weak labels | `NoisyTargetGaussianNLL` | `PseudoLabelNLL`, `ConsistencyRegLoss` | Model target uncertainty explicitly and blend pseudo labels with confidence weights. |
+| Uncertain ground-truth / weak labels | `NoisyTargetGaussianNLL` | `PseudoLabelConsistencyLoss`, `PseudoLabelNLL`, `ConsistencyRegLoss` | Model target uncertainty explicitly and blend pseudo labels with confidence weights. |
+| Semi-supervised regression | `PseudoLabelConsistencyLoss` | `PseudoLabelNLL`, `NoisyTargetGaussianNLL` | Use confidence-gated pseudo labels and keep a clean held-out evaluation split. |
+| Target transforms for skewed / multiplicative-noise regression | `LogTransformLoss` | `BoxCoxTransformLoss`, `SqrtTransformLoss`, `YeoJohnsonTransformLoss` | Match transform support to target support before tuning model complexity. |
 | Causal inference regression (ATE/CATE) | `dr_ate` / `dr_cate` | `PredictionPoweredInference` | Use cross-fitting and overlap diagnostics before interpreting treatment effects. |
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
@@ -100,7 +102,8 @@ _Generated date_: `2026-02-26`
 | `quantile` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
-| `uncertain_gt` (3) | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `target_transform` (4) | yes | no | partial | no | no | no | partial | partial | no | no |
+| `uncertain_gt` (4) | yes | no | partial | no | yes | no | partial | partial | no | no |
 <!-- END:FAMILY_CAPABILITY_MATRIX_GENERATED -->
 
 ## Code-Driven Catalog (Discovery API)
@@ -174,8 +177,13 @@ _Generated date_: `2026-02-26`
 | `HuberLoss` | `robust_loss` | `Core` | yes | no | no | no | no | partial | partial |
 | `MultiSWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `SWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
+| `BoxCoxTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
+| `LogTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
+| `SqrtTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
+| `YeoJohnsonTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `ConsistencyRegLoss` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
 | `NoisyTargetGaussianNLL` | `uncertain_gt` | `Available` | yes | no | no | yes | no | partial | partial |
+| `PseudoLabelConsistencyLoss` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
 | `PseudoLabelNLL` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
 
 Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
@@ -203,7 +211,8 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `quantile` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
-| `uncertain_gt` | 3 | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `target_transform` | 4 | yes | no | partial | no | no | no | partial | partial | no | no |
+| `uncertain_gt` | 4 | yes | no | partial | no | yes | no | partial | partial | no | no |
 
 ### Generated Hard-Task Shortlists
 

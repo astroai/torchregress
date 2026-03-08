@@ -17,7 +17,7 @@ _Generated date_: `2026-03-05`
 
 ## Evidence Band Summary
 
-- Synthetic only: `3`
+- Synthetic only: `5`
 - Real proxy: `11`
 - Decision-grade real-data: `0`
 
@@ -35,6 +35,8 @@ _Generated date_: `2026-03-05`
 | Imbalanced / rare-target regression | `DensityWeightedLoss`, `PropensityWeightedLoss`, `LDSLoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs additional real-data long-tail benchmarks beyond synthetic selection proxies. |
 | Selection bias / long-tail with missing labels | `PropensityWeightedLoss`, `DensityWeightedLoss`, `WeightedMSELoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs real-data selection-bias benchmarks beyond synthetic generation. |
 | Output constraints + post-hoc calibration transforms | `BoundedHead`, `NonCrossingSort`, `VarianceTemperatureScaler` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs additional domain benchmarks beyond synthetic stress tests. |
+| Target transforms for skewed regression | `WeightedMSELoss`, `LogTransformLoss`, `BoxCoxTransformLoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs real-data positive-target benchmarks beyond synthetic multiplicative-noise tasks. |
+| Semi-supervised regression / limited labels | `PseudoLabelConsistencyLoss`, `PseudoLabelNLL`, `WeightedMSELoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Current evidence is one real-data proxy benchmark; add domain-native SSL regression tracks. |
 | Uncertain ground-truth + density-aware conformal | `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Includes one real-data proxy benchmark; needs domain-native uncertain-label datasets for stronger external validity. |
 | Causal inference regression (DR ATE/CATE) | `dr_ate`, `dr_cate`, `naive difference-in-means` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Includes real-covariate proxy benchmarks; needs external treatment-effect datasets for stronger external validity. |
 | Calibrated intervals / coverage | `ConformalLoss`, `QuantileLoss`, `GaussianNLLLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Coverage evidence now spans ensemble/SWAG/BNN base models; still needs multi-domain real-data calibration benchmarks under stronger shift. |

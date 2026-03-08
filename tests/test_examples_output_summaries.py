@@ -213,6 +213,67 @@ def test_ood_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_non_negative(row["eval_s"])
 
 
+def test_transformed_target_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("transformed_target_regression_comparison")
+    out = tmp_path / "transformed_target_summary.json"
+    cfg = mod.TransformComparisonConfig(
+        n_train=64,
+        n_test=32,
+        hidden=8,
+        epochs=2,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="target transforms",
+        required_methods={"MSE", "LogTransform", "BoxCox(0.25)", "SqrtTransform"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("MSE", "LogTransform", "BoxCox(0.25)", "SqrtTransform"):
+        row = rows[method]
+        _assert_row_has_keys(row, ["MSE", "MAE", "R2", "MAPE", "TailMAE80", "train_s", "eval_s"])
+        _assert_non_negative(row["MSE"])
+        _assert_non_negative(row["MAE"])
+        _assert_non_negative(row["MAPE"])
+        _assert_non_negative(row["TailMAE80"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
+def test_semi_supervised_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("semi_supervised_regression_comparison")
+    out = tmp_path / "semi_supervised_summary.json"
+    cfg = mod.SemiSupervisedRegressionConfig(
+        n_labeled=32,
+        n_unlabeled=64,
+        n_test=32,
+        hidden=8,
+        teacher_epochs=2,
+        student_epochs=3,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="semi-supervised",
+        required_methods={"SupervisedMSE", "PseudoLabelConsistency", "PseudoLabelNLL"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("SupervisedMSE", "PseudoLabelConsistency", "PseudoLabelNLL"):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            ["MSE", "MAE", "R2", "PseudoAcceptRate", "PseudoMeanConf", "train_s", "eval_s"],
+        )
+        _assert_non_negative(row["MSE"])
+        _assert_non_negative(row["MAE"])
+        _assert_probability(row["PseudoAcceptRate"])
+        _assert_probability(row["PseudoMeanConf"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_eiv_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("eiv_method_comparison")
     out = tmp_path / "eiv_summary.json"
@@ -357,11 +418,29 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
     _assert_summary_schema(
         out,
         task_substring="photo-z",
-        required_methods={"MSE", "Huber", "GaussianNLL", "Quantile90", "FunctionalEIV"},
+        required_methods={
+            "MSE",
+            "Huber",
+            "LogTransform",
+            "GaussianNLL",
+            "Quantile90",
+            "PseudoLabelNLL",
+            "PseudoLabelConsistency",
+            "FunctionalEIV",
+        },
     )
     payload = _load_payload(out)
     rows = _rows_by_method(payload)
-    for method in ("MSE", "Huber", "GaussianNLL", "Quantile90", "FunctionalEIV"):
+    for method in (
+        "MSE",
+        "Huber",
+        "LogTransform",
+        "GaussianNLL",
+        "Quantile90",
+        "PseudoLabelNLL",
+        "PseudoLabelConsistency",
+        "FunctionalEIV",
+    ):
         row = rows[method]
         _assert_row_has_keys(
             row,
@@ -382,12 +461,19 @@ def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None
         _assert_non_negative(row["HighZ_MAE"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
-    for method in ("GaussianNLL", "Quantile90"):
+    for method in ("GaussianNLL", "Quantile90", "PseudoLabelNLL"):
         row = rows[method]
         _assert_row_has_keys(row, ["Cov90", "Width90"])
         _assert_probability(row["Cov90"])
         _assert_non_negative(row["Width90"])
     _assert_non_negative(rows["GaussianNLL"]["NLL"])
+    _assert_non_negative(rows["PseudoLabelNLL"]["NLL"])
+    for method in ("PseudoLabelNLL", "PseudoLabelConsistency"):
+        row = rows[method]
+        _assert_row_has_keys(row, ["LabeledFraction", "PseudoAcceptRate", "PseudoMeanConf"])
+        _assert_probability(row["LabeledFraction"])
+        _assert_probability(row["PseudoAcceptRate"])
+        _assert_probability(row["PseudoMeanConf"])
 
 
 def test_photoz_nnc_crps_rail_comparison_writes_summary_json(tmp_path: Path) -> None:
@@ -413,6 +499,9 @@ def test_photoz_nnc_crps_rail_comparison_writes_summary_json(tmp_path: Path) -> 
         required_methods={
             "BinnedCE",
             "BinnedCE+TempScaling",
+            "SoftBinnedCE",
+            "SoftBinnedCE+Pseudo",
+            "SoftCumulativeLink",
             "OrderedBinCRPS",
             "OrderedBinCRPS+TempScaling",
             "GaussianNLL",
@@ -424,6 +513,9 @@ def test_photoz_nnc_crps_rail_comparison_writes_summary_json(tmp_path: Path) -> 
     for method in (
         "BinnedCE",
         "BinnedCE+TempScaling",
+        "SoftBinnedCE",
+        "SoftBinnedCE+Pseudo",
+        "SoftCumulativeLink",
         "OrderedBinCRPS",
         "OrderedBinCRPS+TempScaling",
         "GaussianNLL",
@@ -461,12 +553,17 @@ def test_photoz_nnc_crps_rail_comparison_writes_summary_json(tmp_path: Path) -> 
     for method in (
         "BinnedCE",
         "BinnedCE+TempScaling",
+        "SoftBinnedCE",
+        "SoftBinnedCE+Pseudo",
+        "SoftCumulativeLink",
         "OrderedBinCRPS",
         "OrderedBinCRPS+TempScaling",
     ):
         _assert_non_negative(rows[method]["CRPS"])
         _assert_non_negative(rows[method]["PDF_NLL"])
         _assert_non_negative(rows[method]["PITChi2"])
+    _assert_probability(rows["SoftBinnedCE+Pseudo"]["LabeledFraction"])
+    _assert_probability(rows["SoftBinnedCE+Pseudo"]["PseudoAcceptRate"])
 
 
 def test_ppi_photoz_inference_comparison_writes_summary_json(tmp_path: Path) -> None:
@@ -562,6 +659,56 @@ def test_ordinal_regression_realdata_comparison_writes_summary_json(tmp_path: Pa
         _assert_finite_numeric(row["QWK"])
         _assert_non_negative(row["train_s"])
         _assert_non_negative(row["eval_s"])
+
+
+def test_ordinal_uncertain_ground_truth_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("ordinal_uncertain_ground_truth_comparison")
+    out = tmp_path / "ordinal_uncertain_ground_truth_comparison_summary.json"
+    cfg = mod.OrdinalUGTComparisonConfig(
+        n_train=96,
+        n_test=48,
+        hidden=12,
+        epochs=2,
+        teacher_epochs=2,
+        batch_size=24,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="ordinal",
+        required_methods={
+            "HardOrdinalCE",
+            "SoftOrdinalCE",
+            "SoftOrdinalCE+Pseudo",
+            "SoftCumulativeLink",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("HardOrdinalCE", "SoftOrdinalCE", "SoftOrdinalCE+Pseudo", "SoftCumulativeLink"):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Accuracy",
+                "OrdinalMAE",
+                "QWK",
+                "TrueNLL",
+                "PlausibilityCE",
+                "train_s",
+                "eval_s",
+                "Notes",
+            ],
+        )
+        _assert_probability(row["Accuracy"])
+        _assert_non_negative(row["OrdinalMAE"])
+        _assert_finite_numeric(row["QWK"])
+        _assert_non_negative(row["TrueNLL"])
+        _assert_non_negative(row["PlausibilityCE"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+    _assert_probability(rows["SoftOrdinalCE+Pseudo"]["PseudoAcceptRate"])
 
 
 def test_censored_regression_comparison_writes_summary_json(tmp_path: Path) -> None:

@@ -87,7 +87,16 @@ def test_render_example_summaries_photoz_subset(tmp_path: Path) -> None:
     assert payload["artifact"] == "comparison_example_summary"
     assert "photo-z" in payload["task"].lower()
     methods = {row["Method"] for row in payload["rows"]}
-    assert {"MSE", "Huber", "GaussianNLL", "Quantile90", "FunctionalEIV"} <= methods
+    assert {
+        "MSE",
+        "Huber",
+        "LogTransform",
+        "GaussianNLL",
+        "Quantile90",
+        "PseudoLabelNLL",
+        "PseudoLabelConsistency",
+        "FunctionalEIV",
+    } <= methods
 
 
 def test_render_example_summaries_photoz_nnc_subset(tmp_path: Path) -> None:
@@ -104,6 +113,9 @@ def test_render_example_summaries_photoz_nnc_subset(tmp_path: Path) -> None:
     assert {
         "BinnedCE",
         "BinnedCE+TempScaling",
+        "SoftBinnedCE",
+        "SoftBinnedCE+Pseudo",
+        "SoftCumulativeLink",
         "OrderedBinCRPS",
         "OrderedBinCRPS+TempScaling",
         "GaussianNLL",
@@ -156,6 +168,25 @@ def test_render_example_summaries_ordinal_realdata_subset(tmp_path: Path) -> Non
     assert "real-data" in payload["task"].lower()
     methods = {row["Method"] for row in payload["rows"]}
     assert {"OrdinalCrossEntropy", "CumulativeLink", "CORAL"} <= methods
+
+
+def test_render_example_summaries_ordinal_ugt_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["ordinal_uncertain_ground_truth_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "ordinal" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {
+        "HardOrdinalCE",
+        "SoftOrdinalCE",
+        "SoftOrdinalCE+Pseudo",
+        "SoftCumulativeLink",
+    } <= methods
 
 
 def test_render_example_summaries_censored_subset(tmp_path: Path) -> None:
@@ -212,6 +243,34 @@ def test_render_example_summaries_constraints_calibration_subset(tmp_path: Path)
     assert "calibration transforms" in payload["task"].lower()
     methods = {row["Method"] for row in payload["rows"]}
     assert {"Raw", "Calibrated+Constrained"} <= methods
+
+
+def test_render_example_summaries_transformed_target_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["transformed_target_regression_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "target transforms" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {"MSE", "LogTransform", "BoxCox(0.25)", "SqrtTransform"} <= methods
+
+
+def test_render_example_summaries_semi_supervised_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["semi_supervised_regression_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "semi-supervised" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {"SupervisedMSE", "PseudoLabelConsistency", "PseudoLabelNLL"} <= methods
 
 
 def test_render_example_summaries_uncertain_gt_density_conformal_subset(tmp_path: Path) -> None:

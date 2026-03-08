@@ -28,6 +28,36 @@ def labels_to_levels(target: Tensor, num_classes: int) -> Tensor:
     return (target_i.unsqueeze(-1) > thresholds).to(dtype=torch.float32)
 
 
+def normalize_class_probs(
+    target_probs: Tensor,
+    *,
+    class_dim: int = -1,
+    eps: float = 1e-8,
+) -> Tensor:
+    """Normalize non-negative class probabilities along ``class_dim``."""
+    if target_probs.shape[class_dim] < 2:
+        raise ValueError("target_probs class dimension must have at least 2 entries")
+    if torch.any(target_probs < 0):
+        raise ValueError("target_probs must be non-negative")
+    denom = target_probs.sum(dim=class_dim, keepdim=True).clamp_min(eps)
+    return target_probs / denom
+
+
+def class_probs_to_levels(
+    target_probs: Tensor,
+    *,
+    class_dim: int = -1,
+    eps: float = 1e-8,
+) -> Tensor:
+    """Convert per-class PMF targets to cumulative ordinal levels ``P(y > k)``."""
+    pmf = normalize_class_probs(target_probs, class_dim=class_dim, eps=eps)
+    moved = torch.movedim(pmf, class_dim, -1)
+    flipped = torch.flip(moved, dims=[-1])
+    tail = torch.cumsum(flipped, dim=-1)
+    levels = torch.flip(tail[..., :-1], dims=[-1])
+    return torch.movedim(levels, -1, class_dim)
+
+
 def cumulative_probs_to_pmf(cumulative_probs: Tensor, eps: float = 1e-8) -> Tensor:
     """Convert cumulative ordinal probabilities to per-class PMF probabilities."""
     if cumulative_probs.shape[-1] < 1:
@@ -109,6 +139,8 @@ def ordinal_predict(
 
 __all__ = [
     "labels_to_levels",
+    "normalize_class_probs",
+    "class_probs_to_levels",
     "cumulative_probs_to_pmf",
     "cumulative_logits_to_pmf",
     "ordinal_predict",

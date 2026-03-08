@@ -54,7 +54,21 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
 
     uncertain_gt = method_catalog.list_methods(task_tag="uncertain_ground_truth")
     uncertain_gt_names = {row["name"] for row in uncertain_gt}
-    assert {"NoisyTargetGaussianNLL", "PseudoLabelNLL", "ConsistencyRegLoss"} <= uncertain_gt_names
+    assert {
+        "NoisyTargetGaussianNLL",
+        "PseudoLabelNLL",
+        "ConsistencyRegLoss",
+        "PseudoLabelConsistencyLoss",
+    } <= uncertain_gt_names
+
+    target_transforms = method_catalog.list_methods(task_tag="target_transform")
+    transform_names = {row["name"] for row in target_transforms}
+    assert {
+        "LogTransformLoss",
+        "BoxCoxTransformLoss",
+        "SqrtTransformLoss",
+        "YeoJohnsonTransformLoss",
+    } <= transform_names
 
     density_cp = method_catalog.list_methods(task_tag="density_conformal")
     density_cp_names = {row["name"] for row in density_cp}
@@ -93,6 +107,8 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
         "Post-hoc calibration transforms",
         "Density-aware conformal under long-tail targets",
         "Uncertain ground-truth / weak labels",
+        "Semi-supervised regression",
+        "Target transforms for skewed / multiplicative-noise regression",
         "Causal inference regression (ATE/CATE)",
         "OOD scoring / selective prediction",
         "Noisy features / measurement error",
@@ -121,6 +137,8 @@ def test_decision_workflow_and_comparative_evidence_metadata_cover_hard_tasks() 
         "Censored / interval-censored regression",
         "Selection bias / long-tail with missing labels",
         "Output constraints + post-hoc calibration transforms",
+        "Target transforms for skewed regression",
+        "Semi-supervised regression / limited labels",
         "Uncertain ground-truth + density-aware conformal",
         "Causal inference regression (DR ATE/CATE)",
         "OOD robustness / selective prediction",

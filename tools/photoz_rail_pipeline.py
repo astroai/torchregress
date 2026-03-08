@@ -7,7 +7,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from tools import photoz_rail_assets, render_example_summaries
+try:
+    from tools import photoz_rail_assets, render_example_summaries
+except ModuleNotFoundError:  # pragma: no cover - script execution path
+    import photoz_rail_assets  # type: ignore[no-redef]
+    import render_example_summaries  # type: ignore[no-redef]
 
 
 def _parse_overrides(items: list[str], *, label: str) -> dict[str, str]:

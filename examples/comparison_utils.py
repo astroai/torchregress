@@ -128,7 +128,7 @@ def write_comparison_summary_json(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     config_payload: Any
-    if is_dataclass(config):
+    if is_dataclass(config) and not isinstance(config, type):
         config_payload = asdict(config)
     elif hasattr(config, "__dict__"):
         config_payload = dict(vars(config))

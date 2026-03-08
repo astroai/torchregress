@@ -247,7 +247,12 @@ class PseudoLabelNLL(RegressionLoss):
         if target is None and pseudo_target is None:
             raise ValueError("At least one of target or pseudo_target must be provided")
 
-        loss = torch.where(blend_weight > 0, blended_loss / blend_weight, zero)
+        safe_blend_weight = torch.where(
+            blend_weight > 0,
+            blend_weight,
+            torch.ones_like(blend_weight),
+        )
+        loss = torch.where(blend_weight > 0, blended_loss / safe_blend_weight, zero)
         effective_weights = _combine_external_weights(
             weights=weights,
             propensity_weights=propensity_weights,
@@ -257,8 +262,137 @@ class PseudoLabelNLL(RegressionLoss):
         return self._reduce_with_mask(loss, mask, effective_weights)
 
 
+@register_regression_loss("pseudo_label_consistency")
+class PseudoLabelConsistencyLoss(RegressionLoss):
+    """Composite regression loss for labeled + pseudo-labeled training.
+
+    This loss keeps the target tensor in the public second-argument position and
+    uses ``label_mask`` to mark which entries are truly labeled. Unlabeled entries
+    can be filled with any placeholder value because they are ignored by the
+    supervised term.
+    """
+
+    def __init__(
+        self,
+        pseudo_weight: float = 0.5,
+        consistency_weight: float = 0.25,
+        supervised_loss: str = "mse",
+        detach_teacher: bool = True,
+        confidence_threshold: float = 0.0,
+        reduction: str = "mean",
+        propensity_clip: float = 20.0,
+    ) -> None:
+        super().__init__(reduction=reduction)
+        self.pseudo_weight = pseudo_weight
+        self.consistency_weight = consistency_weight
+        self.supervised_loss = supervised_loss.lower()
+        self.detach_teacher = detach_teacher
+        self.confidence_threshold = confidence_threshold
+        self.propensity_clip = propensity_clip
+        if self.supervised_loss not in {"mse", "mae", "huber"}:
+            raise ValueError(
+                "supervised_loss must be one of ['mse', 'mae', 'huber'], "
+                f"got {supervised_loss!r}"
+            )
+
+    def _point_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        residual = y_pred - target
+        if self.supervised_loss == "mae":
+            return residual.abs()
+        if self.supervised_loss == "huber":
+            abs_residual = residual.abs()
+            quadratic = torch.minimum(abs_residual, torch.ones_like(abs_residual))
+            linear = abs_residual - quadratic
+            return 0.5 * quadratic.square() + linear
+        return residual.square()
+
+    def forward(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        pseudo_target: Optional[Tensor] = None,
+        pseudo_confidence: Optional[Tensor] = None,
+        teacher_pred: Optional[Tensor] = None,
+        label_mask: Optional[Tensor] = None,
+        unlabeled_mask: Optional[Tensor] = None,
+        propensity_weights: Optional[Tensor] = None,
+        propensity_scores: Optional[Tensor] = None,
+        mask: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        self._validate_inputs(y_pred, target, mask)
+        if label_mask is None:
+            label_mask_t = torch.ones_like(target, dtype=torch.bool)
+        else:
+            if label_mask.shape != target.shape:
+                raise ValueError("label_mask shape must match target shape")
+            label_mask_t = label_mask.to(dtype=torch.bool, device=target.device)
+
+        if unlabeled_mask is None:
+            unlabeled_mask_t = ~label_mask_t
+        else:
+            if unlabeled_mask.shape != target.shape:
+                raise ValueError("unlabeled_mask shape must match target shape")
+            unlabeled_mask_t = unlabeled_mask.to(dtype=torch.bool, device=target.device)
+
+        total = torch.zeros_like(y_pred)
+        blend_weight = torch.zeros_like(y_pred)
+
+        supervised = self._point_loss(y_pred, target)
+        supervised_w = label_mask_t.to(y_pred.dtype)
+        total = total + supervised * supervised_w
+        blend_weight = blend_weight + supervised_w
+
+        if pseudo_target is not None:
+            if pseudo_target.shape != y_pred.shape:
+                raise ValueError("pseudo_target shape must match y_pred shape")
+            pseudo = pseudo_target.detach()
+            pseudo_w = torch.full_like(y_pred, self.pseudo_weight)
+            pseudo_w = pseudo_w * unlabeled_mask_t.to(y_pred.dtype)
+            if pseudo_confidence is not None:
+                if pseudo_confidence.shape != y_pred.shape:
+                    raise ValueError("pseudo_confidence shape must match y_pred shape")
+                pseudo_w = pseudo_w * pseudo_confidence.clamp(min=0.0, max=1.0)
+            if self.confidence_threshold > 0.0:
+                pseudo_w = torch.where(
+                    pseudo_w >= self.confidence_threshold,
+                    pseudo_w,
+                    torch.zeros_like(pseudo_w),
+                )
+            total = total + self._point_loss(y_pred, pseudo) * pseudo_w
+            blend_weight = blend_weight + pseudo_w
+
+        if teacher_pred is not None and self.consistency_weight > 0.0:
+            if teacher_pred.shape != y_pred.shape:
+                raise ValueError("teacher_pred shape must match y_pred shape")
+            teacher = teacher_pred.detach() if self.detach_teacher else teacher_pred
+            consistency_w = self.consistency_weight * unlabeled_mask_t.to(y_pred.dtype)
+            total = total + (y_pred - teacher).square() * consistency_w
+            blend_weight = blend_weight + consistency_w
+
+        effective_weights = _combine_external_weights(
+            weights=weights,
+            propensity_weights=propensity_weights,
+            propensity_scores=propensity_scores,
+            propensity_clip=self.propensity_clip,
+        )
+        safe_blend_weight = torch.where(
+            blend_weight > 0,
+            blend_weight,
+            torch.ones_like(blend_weight),
+        )
+        loss = torch.where(
+            blend_weight > 0,
+            total / safe_blend_weight,
+            torch.zeros_like(total),
+        )
+        return self._reduce_with_mask(loss, mask, effective_weights)
+
+
 __all__ = [
     "NoisyTargetGaussianNLL",
     "ConsistencyRegLoss",
     "PseudoLabelNLL",
+    "PseudoLabelConsistencyLoss",
 ]

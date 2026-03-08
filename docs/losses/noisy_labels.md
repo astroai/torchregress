@@ -49,7 +49,7 @@ from torchregress.losses import NoisyTargetGaussianNLL
 loss_fn = NoisyTargetGaussianNLL()
 ```
 
-See [Uncertain Ground Truth](uncertain_ground_truth.md) for `NoisyTargetGaussianNLL`, `ConsistencyRegLoss`, and `PseudoLabelNLL`.
+See [Uncertain Ground Truth](uncertain_ground_truth.md) for `NoisyTargetGaussianNLL`, `ConsistencyRegLoss`, `PseudoLabelNLL`, and `PseudoLabelConsistencyLoss`.
 
 ### 4. Density / Propensity Weighting
 
