@@ -17,8 +17,8 @@ Split semantics are preserved:
 - `NativeGaussian90`
 - `SplitConformal`
 - `CQR`
-- `DensityConformal`
-- `PrevalenceAdjustedCP`
+- `DensityConformal` (validation-tuned bandwidth)
+- `PrevalenceAdjustedCP` (validation-tuned group structure)
 - `MonteCarloConformal`
 - `R2CConformal`
 
@@ -66,7 +66,7 @@ reports/example_summaries/transferz/photoz_transferz_conformal_comparison_full.j
 ## Notes
 
 !!! info
-    `DensityConformal` and `PrevalenceAdjustedCP` are the two methods to watch when the high-redshift tail is sparse and exchangeability is only plausible marginally.
+    `DensityConformal` and `PrevalenceAdjustedCP` are tuned on `VALIDATION` for high-z interval efficiency, then recalibrated on the reserved `CONFORMAL` split before `TESTING`.
 
 !!! warning
     `TransferZ` targets are COSMOS2020-derived photo-z values, not spectroscopic redshifts. Coverage conclusions are still useful for public tabular benchmarking, but they are not a substitute for a spectroscopic external-validity benchmark.

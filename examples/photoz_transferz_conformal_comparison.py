@@ -62,6 +62,11 @@ class PhotoZTransferZConformalConfig:
     temperature_lr: float = 0.05
     variance_temperature_max_iter: int = 200
     variance_temperature_lr: float = 0.05
+    density_bandwidth_grid: tuple[float, ...] = (0.15, 0.25, 0.35, 0.5, 0.75)
+    prevalence_n_bins_grid: tuple[int, ...] = (4, 5, 6, 8)
+    prevalence_min_group_grid: tuple[int, ...] = (8, 16, 32)
+    tuning_highz_quantile: float = 0.8
+    tuning_coverage_floor: float = 0.88
 
 
 def _default_transferz_paths() -> dict[str, Path]:
@@ -349,6 +354,161 @@ def _interval_metrics(
     }
 
 
+def _interval_summary_raw(
+    *,
+    lower_raw: torch.Tensor,
+    upper_raw: torch.Tensor,
+    y_raw: torch.Tensor,
+    alpha: float,
+    highz_quantile: float,
+) -> dict[str, float]:
+    cov, width = pzbase._coverage_width(lower_raw, upper_raw, y_raw)
+    under = (lower_raw - y_raw).clamp_min(0.0)
+    over = (y_raw - upper_raw).clamp_min(0.0)
+    interval_score = torch.mean((upper_raw - lower_raw) + (2.0 / alpha) * (under + over)).item()
+    q_hi = torch.quantile(y_raw[:, 0], highz_quantile)
+    high_mask = y_raw[:, 0] >= q_hi
+    if bool(high_mask.any().item()):
+        high_cov, high_width = pzbase._coverage_width(
+            lower_raw[high_mask],
+            upper_raw[high_mask],
+            y_raw[high_mask],
+        )
+        high_under = (lower_raw[high_mask] - y_raw[high_mask]).clamp_min(0.0)
+        high_over = (y_raw[high_mask] - upper_raw[high_mask]).clamp_min(0.0)
+        high_is = torch.mean(
+            (upper_raw[high_mask] - lower_raw[high_mask]) + (2.0 / alpha) * (high_under + high_over)
+        ).item()
+    else:
+        high_cov, high_width, high_is = float("nan"), float("nan"), float("nan")
+    return {
+        "Coverage90": float(cov),
+        "Width90": float(width),
+        "IntervalScore90": float(interval_score),
+        "HighZCoverage90": float(high_cov),
+        "HighZWidth90": float(high_width),
+        "HighZIntervalScore90": float(high_is),
+    }
+
+
+def _selection_objective(
+    summary: dict[str, float],
+    *,
+    coverage_floor: float,
+) -> float:
+    coverage = summary["Coverage90"]
+    high_cov = summary["HighZCoverage90"]
+    interval_score = summary["IntervalScore90"]
+    high_interval_score = summary["HighZIntervalScore90"]
+    width = summary["Width90"]
+    high_width = summary["HighZWidth90"]
+
+    penalty = 0.0
+    penalty += 30.0 * max(coverage_floor - coverage, 0.0)
+    if high_cov == high_cov:
+        penalty += 45.0 * max(coverage_floor - high_cov, 0.0)
+    if high_interval_score == high_interval_score:
+        return float(high_interval_score + 0.35 * interval_score + 0.05 * width + 0.05 * high_width + penalty)
+    return float(interval_score + 0.1 * width + penalty)
+
+
+def _summarize_candidate(
+    *,
+    lower: torch.Tensor,
+    upper: torch.Tensor,
+    y_eval: torch.Tensor,
+    splits: dict[str, torch.Tensor],
+    alpha: float,
+    highz_quantile: float,
+) -> dict[str, float]:
+    lower_raw = _to_raw_y(lower, splits)
+    upper_raw = _to_raw_y(upper, splits)
+    y_raw = _to_raw_y(y_eval, splits)
+    return _interval_summary_raw(
+        lower_raw=lower_raw,
+        upper_raw=upper_raw,
+        y_raw=y_raw,
+        alpha=alpha,
+        highz_quantile=highz_quantile,
+    )
+
+
+def _tune_density_conformal(
+    *,
+    pred_conf: torch.Tensor,
+    y_conf: torch.Tensor,
+    pred_eval: torch.Tensor,
+    y_eval: torch.Tensor,
+    splits: dict[str, torch.Tensor],
+    cfg: PhotoZTransferZConformalConfig,
+) -> tuple[DensityConformal, float, dict[str, float]]:
+    best_model: DensityConformal | None = None
+    best_score = float("inf")
+    best_meta: dict[str, float] = {}
+    for bandwidth in cfg.density_bandwidth_grid:
+        candidate = DensityConformal(alpha=cfg.alpha, bandwidth=bandwidth)
+        candidate.calibrate(pred_conf, y_conf)
+        lower, upper = candidate.predict_interval(pred_eval)
+        summary = _summarize_candidate(
+            lower=lower,
+            upper=upper,
+            y_eval=y_eval,
+            splits=splits,
+            alpha=cfg.alpha,
+            highz_quantile=cfg.tuning_highz_quantile,
+        )
+        score = _selection_objective(summary, coverage_floor=cfg.tuning_coverage_floor)
+        if score < best_score:
+            best_model = candidate
+            best_score = score
+            best_meta = {"bandwidth": float(bandwidth), **summary, "selection_score": float(score)}
+    assert best_model is not None
+    return best_model, best_score, best_meta
+
+
+def _tune_prevalence_adjusted(
+    *,
+    pred_conf: torch.Tensor,
+    y_conf: torch.Tensor,
+    pred_eval: torch.Tensor,
+    y_eval: torch.Tensor,
+    splits: dict[str, torch.Tensor],
+    cfg: PhotoZTransferZConformalConfig,
+) -> tuple[PrevalenceAdjustedCP, float, dict[str, float]]:
+    best_model: PrevalenceAdjustedCP | None = None
+    best_score = float("inf")
+    best_meta: dict[str, float] = {}
+    for n_bins in cfg.prevalence_n_bins_grid:
+        for min_group_size in cfg.prevalence_min_group_grid:
+            candidate = PrevalenceAdjustedCP(
+                alpha=cfg.alpha,
+                n_bins=n_bins,
+                min_group_size=min_group_size,
+            )
+            candidate.calibrate(pred_conf, y_conf)
+            lower, upper = candidate.predict_interval(pred_eval)
+            summary = _summarize_candidate(
+                lower=lower,
+                upper=upper,
+                y_eval=y_eval,
+                splits=splits,
+                alpha=cfg.alpha,
+                highz_quantile=cfg.tuning_highz_quantile,
+            )
+            score = _selection_objective(summary, coverage_floor=cfg.tuning_coverage_floor)
+            if score < best_score:
+                best_model = candidate
+                best_score = score
+                best_meta = {
+                    "n_bins": float(n_bins),
+                    "min_group_size": float(min_group_size),
+                    **summary,
+                    "selection_score": float(score),
+                }
+    assert best_model is not None
+    return best_model, best_score, best_meta
+
+
 def _mc_samples(
     mean: torch.Tensor,
     var: torch.Tensor,
@@ -388,6 +548,7 @@ def run_comparison(
         lr=cfg.lr,
     )
     with torch.no_grad():
+        pred_cal = huber_model(splits["x_cal"])
         pred_conf = huber_model(splits["x_conf"])
         pred_test = huber_model(splits["x_test"])
 
@@ -526,7 +687,14 @@ def run_comparison(
         )
     )
 
-    density_cp = DensityConformal(alpha=cfg.alpha, bandwidth=0.25)
+    density_cp, _, density_meta = _tune_density_conformal(
+        pred_conf=pred_conf,
+        y_conf=splits["y_conf"],
+        pred_eval=pred_cal,
+        y_eval=splits["y_cal"],
+        splits=splits,
+        cfg=cfg,
+    )
     _, density_cal_s = timed_call(density_cp.calibrate, pred_conf, splits["y_conf"])
     (density_l, density_u), density_eval_s = timed_call(density_cp.predict_interval, pred_test)
     rows.append(
@@ -538,11 +706,21 @@ def run_comparison(
             splits=splits,
             train_s=huber_train_s + density_cal_s,
             eval_s=density_eval_s,
-            notes="density-aware split conformal for long-tail/high-z efficiency",
+            notes=(
+                "density-aware split conformal tuned on validation high-z interval score; "
+                f"bandwidth={density_meta['bandwidth']:.2f}"
+            ),
         )
     )
 
-    prev_cp = PrevalenceAdjustedCP(alpha=cfg.alpha, n_bins=5)
+    prev_cp, _, prev_meta = _tune_prevalence_adjusted(
+        pred_conf=pred_conf,
+        y_conf=splits["y_conf"],
+        pred_eval=pred_cal,
+        y_eval=splits["y_cal"],
+        splits=splits,
+        cfg=cfg,
+    )
     _, prev_cal_s = timed_call(prev_cp.calibrate, pred_conf, splits["y_conf"])
     (prev_l, prev_u), prev_eval_s = timed_call(prev_cp.predict_interval, pred_test)
     rows.append(
@@ -554,7 +732,10 @@ def run_comparison(
             splits=splits,
             train_s=huber_train_s + prev_cal_s,
             eval_s=prev_eval_s,
-            notes="group-prevalence-adjusted conformal for rare-target coverage",
+            notes=(
+                "group-prevalence-adjusted conformal tuned on validation high-z interval score; "
+                f"n_bins={prev_meta['n_bins']:.0f}, min_group={prev_meta['min_group_size']:.0f}"
+            ),
         )
     )
 
@@ -595,7 +776,8 @@ def run_comparison(
     notes = [
         "TransferZ split semantics are preserved: TRAINING fit, VALIDATION post-hoc calibration, CONFORMAL conformal calibration, TESTING evaluation.",
         "Coverage and width are reported on the raw photo-z scale; point metrics use interval centers.",
-        "DensityConformal and PrevalenceAdjustedCP target long-tail/high-z robustness; MonteCarloConformal and R2CConformal test richer uncertainty structures.",
+        "DensityConformal and PrevalenceAdjustedCP are tuned on the validation split for high-z interval efficiency before final conformal calibration on the reserved conformal split.",
+        "MonteCarloConformal and R2CConformal test richer uncertainty structures.",
     ]
     return rows, notes
 
