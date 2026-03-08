@@ -6,7 +6,37 @@ from pathlib import Path
 from tools import photoz_rail_pipeline
 
 
-def test_photoz_rail_pipeline_end_to_end_without_manual_staging(tmp_path: Path) -> None:
+def test_photoz_rail_pipeline_end_to_end_without_manual_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tools import photoz_rail_assets
+
+    def mock_download(url: str, target: Path) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if "train.parquet" in url:
+            target.write_bytes(b"train")
+        elif "test.parquet" in url:
+            target.write_bytes(b"test")
+        elif "cal.parquet" in url or "calibration.parquet" in url:
+            target.write_bytes(b"cal")
+        elif ".json" in url:
+            method = url.split("/")[-1].replace(".json", "")
+            target.write_text(
+                json.dumps(
+                    {
+                        "artifact": "rail_photoz_summary",
+                        "dataset_id": "dset",
+                        "split_id": "split",
+                        "rows": [{"Method": method, "NMAD": 0.05}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        else:
+            target.write_bytes(b"dummy")
+
+    monkeypatch.setattr(photoz_rail_assets, "_download_to_path", mock_download)
+
     dataset_src = tmp_path / "dataset_src"
     baseline_src = tmp_path / "baseline_src"
     output_dir = tmp_path / "reports/example_summaries"
@@ -16,9 +46,6 @@ def test_photoz_rail_pipeline_end_to_end_without_manual_staging(tmp_path: Path) 
     train_src = dataset_src / "train.parquet"
     test_src = dataset_src / "test.parquet"
     cal_src = dataset_src / "cal.parquet"
-    train_src.write_bytes(b"train")
-    test_src.write_bytes(b"test")
-    cal_src.write_bytes(b"cal")
 
     dataset_id = "dset"
     split_id = "split"
@@ -28,18 +55,6 @@ def test_photoz_rail_pipeline_end_to_end_without_manual_staging(tmp_path: Path) 
         "delight": baseline_src / "delight.json",
         "bpz": baseline_src / "bpz.json",
     }
-    for method, path in method_files.items():
-        path.write_text(
-            json.dumps(
-                {
-                    "artifact": "rail_photoz_summary",
-                    "dataset_id": dataset_id,
-                    "split_id": split_id,
-                    "rows": [{"Method": method, "NMAD": 0.05}],
-                }
-            ),
-            encoding="utf-8",
-        )
 
     tr_summary = tmp_path / "precomputed_tr_summary.json"
     tr_summary.write_text(
@@ -67,19 +82,19 @@ def test_photoz_rail_pipeline_end_to_end_without_manual_staging(tmp_path: Path) 
             {
                 "key": "train_catalog_sha256",
                 "path": str(materialized_train),
-                "url": train_src.as_uri(),
+                "url": f"http://localhost/{train_src.name}",
                 "required": True,
             },
             {
                 "key": "test_catalog_sha256",
                 "path": str(materialized_test),
-                "url": test_src.as_uri(),
+                "url": f"http://localhost/{test_src.name}",
                 "required": True,
             },
             {
                 "key": "calibration_catalog_sha256",
                 "path": str(materialized_cal),
-                "url": cal_src.as_uri(),
+                "url": f"http://localhost/{cal_src.name}",
                 "required": True,
             },
         ],
@@ -87,7 +102,7 @@ def test_photoz_rail_pipeline_end_to_end_without_manual_staging(tmp_path: Path) 
             {
                 "method": method,
                 "path": str(tmp_path / f"data/rail/baselines/{method}.json"),
-                "url": path.as_uri(),
+                "url": f"http://localhost/{path.name}",
                 "required": True,
             }
             for method, path in method_files.items()
@@ -130,7 +145,37 @@ def test_photoz_rail_pipeline_end_to_end_without_manual_staging(tmp_path: Path) 
     assert Path(tmp_path / "materialization.json").exists()
 
 
-def test_photoz_rail_pipeline_supports_override_only_manifest(tmp_path: Path) -> None:
+def test_photoz_rail_pipeline_supports_override_only_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tools import photoz_rail_assets
+
+    def mock_download(url: str, target: Path) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if "train.parquet" in url:
+            target.write_bytes(b"train")
+        elif "test.parquet" in url:
+            target.write_bytes(b"test")
+        elif "cal.parquet" in url or "calibration.parquet" in url:
+            target.write_bytes(b"cal")
+        elif ".json" in url:
+            method = url.split("/")[-1].replace(".json", "")
+            target.write_text(
+                json.dumps(
+                    {
+                        "artifact": "rail_photoz_summary",
+                        "dataset_id": "dset",
+                        "split_id": "split",
+                        "rows": [{"Method": method, "NMAD": 0.05}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        else:
+            target.write_bytes(b"dummy")
+
+    monkeypatch.setattr(photoz_rail_assets, "_download_to_path", mock_download)
+
     dataset_src = tmp_path / "dataset_src"
     baseline_src = tmp_path / "baseline_src"
     dataset_src.mkdir(parents=True)
@@ -139,24 +184,9 @@ def test_photoz_rail_pipeline_supports_override_only_manifest(tmp_path: Path) ->
     train_src = dataset_src / "train.parquet"
     test_src = dataset_src / "test.parquet"
     cal_src = dataset_src / "calibration.parquet"
-    train_src.write_bytes(b"train")
-    test_src.write_bytes(b"test")
-    cal_src.write_bytes(b"cal")
 
     dataset_id = "dset"
     split_id = "split"
-    for method in ("flexzboost", "pzflow", "delight", "bpz"):
-        (baseline_src / f"{method}.json").write_text(
-            json.dumps(
-                {
-                    "artifact": "rail_photoz_summary",
-                    "dataset_id": dataset_id,
-                    "split_id": split_id,
-                    "rows": [{"Method": method, "NMAD": 0.05}],
-                }
-            ),
-            encoding="utf-8",
-        )
 
     tr_summary = tmp_path / "tr_summary.json"
     tr_summary.write_text(
@@ -194,12 +224,12 @@ def test_photoz_rail_pipeline_supports_override_only_manifest(tmp_path: Path) ->
         render_torchregress_summary=False,
         allow_download=True,
         dataset_urls={
-            "train_catalog_sha256": train_src.as_uri(),
-            "test_catalog_sha256": test_src.as_uri(),
-            "calibration_catalog_sha256": cal_src.as_uri(),
+            "train_catalog_sha256": f"http://localhost/{train_src.name}",
+            "test_catalog_sha256": f"http://localhost/{test_src.name}",
+            "calibration_catalog_sha256": f"http://localhost/{cal_src.name}",
         },
         baseline_urls={
-            method: (baseline_src / f"{method}.json").as_uri()
+            method: f"http://localhost/{method}.json"
             for method in ("flexzboost", "pzflow", "delight", "bpz")
         },
         strict_checksums=False,
@@ -216,7 +246,37 @@ def test_photoz_rail_pipeline_supports_override_only_manifest(tmp_path: Path) ->
     assert {"BinnedCE", "flexzboost", "pzflow", "delight", "bpz"} <= methods
 
 
-def test_photoz_rail_pipeline_can_bootstrap_missing_manifest_with_preset(tmp_path: Path) -> None:
+def test_photoz_rail_pipeline_can_bootstrap_missing_manifest_with_preset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tools import photoz_rail_assets
+
+    def mock_download(url: str, target: Path) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if "train.parquet" in url:
+            target.write_bytes(b"train")
+        elif "test.parquet" in url:
+            target.write_bytes(b"test")
+        elif "cal.parquet" in url or "calibration.parquet" in url:
+            target.write_bytes(b"cal")
+        elif ".json" in url:
+            method = url.split("/")[-1].replace(".json", "")
+            target.write_text(
+                json.dumps(
+                    {
+                        "artifact": "rail_photoz_summary",
+                        "dataset_id": "nnc_crps_photoz_paper_reference_dataset",
+                        "split_id": "nnc_crps_photoz_paper_reference_split_v1",
+                        "rows": [{"Method": method, "NMAD": 0.05}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        else:
+            target.write_bytes(b"dummy")
+
+    monkeypatch.setattr(photoz_rail_assets, "_download_to_path", mock_download)
+
     dataset_src = tmp_path / "dataset_src"
     baseline_src = tmp_path / "baseline_src"
     dataset_src.mkdir(parents=True)
@@ -225,22 +285,6 @@ def test_photoz_rail_pipeline_can_bootstrap_missing_manifest_with_preset(tmp_pat
     train_src = dataset_src / "train.parquet"
     test_src = dataset_src / "test.parquet"
     cal_src = dataset_src / "calibration.parquet"
-    train_src.write_bytes(b"train")
-    test_src.write_bytes(b"test")
-    cal_src.write_bytes(b"cal")
-
-    for method in ("flexzboost", "pzflow", "delight", "bpz"):
-        (baseline_src / f"{method}.json").write_text(
-            json.dumps(
-                {
-                    "artifact": "rail_photoz_summary",
-                    "dataset_id": "nnc_crps_photoz_paper_reference_dataset",
-                    "split_id": "nnc_crps_photoz_paper_reference_split_v1",
-                    "rows": [{"Method": method, "NMAD": 0.05}],
-                }
-            ),
-            encoding="utf-8",
-        )
 
     tr_summary = tmp_path / "tr_summary.json"
     tr_summary.write_text(
@@ -263,12 +307,12 @@ def test_photoz_rail_pipeline_can_bootstrap_missing_manifest_with_preset(tmp_pat
         render_torchregress_summary=False,
         allow_download=True,
         dataset_urls={
-            "train_catalog_sha256": train_src.as_uri(),
-            "test_catalog_sha256": test_src.as_uri(),
-            "calibration_catalog_sha256": cal_src.as_uri(),
+            "train_catalog_sha256": f"http://localhost/{train_src.name}",
+            "test_catalog_sha256": f"http://localhost/{test_src.name}",
+            "calibration_catalog_sha256": f"http://localhost/{cal_src.name}",
         },
         baseline_urls={
-            method: (baseline_src / f"{method}.json").as_uri()
+            method: f"http://localhost/{method}.json"
             for method in ("flexzboost", "pzflow", "delight", "bpz")
         },
         strict_checksums=False,
