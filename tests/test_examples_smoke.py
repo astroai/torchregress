@@ -47,6 +47,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("multimodal_method_realdata_comparison")
     _load_example_module("photoz_benchmark_comparison")
     _load_example_module("photoz_nnc_crps_rail_comparison")
+    _load_example_module("photoz_transferz_conformal_comparison")
     _load_example_module("ppi_photoz_inference_comparison")
     _load_example_module("ordinal_regression_comparison")
     _load_example_module("ordinal_regression_realdata_comparison")
@@ -399,6 +400,24 @@ def test_photoz_nnc_crps_rail_comparison_main_smoke() -> None:
         force_simulated=True,
         allow_download=False,
         temperature_max_iter=30,
+    )
+    mod.main(cfg)
+
+
+def test_photoz_transferz_conformal_comparison_main_smoke() -> None:
+    mod = _load_example_module("photoz_transferz_conformal_comparison")
+    cfg = mod.PhotoZTransferZConformalConfig(
+        n_train=48,
+        n_cal=16,
+        n_conformal=16,
+        n_test=16,
+        batch_size=16,
+        epochs=1,
+        hidden=8,
+        n_mc_samples=6,
+        n_bins=16,
+        sample_size_if_generate=160,
+        force_simulated=True,
     )
     mod.main(cfg)
 

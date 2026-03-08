@@ -60,6 +60,26 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    conformal = output_dir / "photoz_transferz_conformal_comparison_smoke.json"
+    conformal.write_text(
+        json.dumps(
+            {
+                "artifact": "comparison_example_summary",
+                "rows": [
+                    {
+                        "Method": "SplitConformal",
+                        "Coverage90": 0.91,
+                        "Width90": 0.4,
+                        "IntervalScore90": 0.5,
+                        "NMAD": 0.08,
+                        "CatastrophicRate": 0.11,
+                        "HighZ_MAE": 0.19,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     suite_report = output_dir / "photoz_benchmark_suite_latest.json"
     suite_report.write_text(
         json.dumps(
@@ -72,6 +92,7 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
                     "photoz_benchmark_comparison": str(standard),
                     "photoz_nnc_crps_rail_comparison": str(ordered),
                     "ppi_photoz_inference_comparison": str(ppi),
+                    "photoz_transferz_conformal_comparison": str(conformal),
                 },
                 "skipped_examples": [],
                 "rail_merge": None,
@@ -90,5 +111,7 @@ def test_render_photoz_benchmark_report_writes_markdown(tmp_path: Path) -> None:
     assert "Standard Regression Track" in text
     assert "Ordered-Bin / PDF Track" in text
     assert "Prediction-Powered Inference Track" in text
+    assert "TransferZ Conformal Track" in text
     assert "GaussianNLL" in text
     assert "SoftBinnedCE" in text
+    assert "SplitConformal" in text

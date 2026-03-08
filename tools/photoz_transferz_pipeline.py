@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,7 @@ DEFAULT_SUITE_OUTPUT_DIR = Path("reports/example_summaries/transferz")
 DEFAULT_SUITE_REPORT = DEFAULT_SUITE_OUTPUT_DIR / "photoz_transferz_suite_latest.json"
 DEFAULT_MARKDOWN_REPORT = DEFAULT_SUITE_OUTPUT_DIR / "photoz_transferz_suite_latest.md"
 DEFAULT_REPORT = DEFAULT_SUITE_OUTPUT_DIR / "photoz_transferz_pipeline_latest.json"
+EXAMPLES_DIR = Path(__file__).resolve().parents[1] / "examples"
 
 
 def _expected_normalized_paths(normalized_dir: Path) -> dict[str, Path]:
@@ -35,6 +38,71 @@ def _existing_normalized_paths(normalized_dir: Path) -> dict[str, Path] | None:
     if all(path.exists() for path in paths.values()):
         return paths
     return None
+
+
+def _import_example_module(module_name: str) -> Any:
+    sys.path.insert(0, str(EXAMPLES_DIR))
+    try:
+        return importlib.import_module(module_name)
+    finally:
+        sys.path.pop(0)
+
+
+def _run_conformal_example(
+    *,
+    profile: str,
+    output_dir: Path,
+    train_path: Path,
+    cal_path: Path,
+    conformal_path: Path,
+    test_path: Path,
+) -> Path:
+    module = _import_example_module("photoz_transferz_conformal_comparison")
+    if profile == "smoke":
+        cfg = module.PhotoZTransferZConformalConfig(
+            n_train=64,
+            n_cal=24,
+            n_conformal=24,
+            n_test=24,
+            batch_size=16,
+            epochs=1,
+            hidden=16,
+            n_mc_samples=8,
+            n_bins=24,
+            train_dataset_path=str(train_path),
+            cal_dataset_path=str(cal_path),
+            conformal_dataset_path=str(conformal_path),
+            test_dataset_path=str(test_path),
+            require_real_data=True,
+        )
+    elif profile == "audit":
+        cfg = module.PhotoZTransferZConformalConfig(
+            n_train=192,
+            n_cal=64,
+            n_conformal=64,
+            n_test=64,
+            batch_size=32,
+            epochs=6,
+            hidden=32,
+            n_mc_samples=16,
+            n_bins=32,
+            train_dataset_path=str(train_path),
+            cal_dataset_path=str(cal_path),
+            conformal_dataset_path=str(conformal_path),
+            test_dataset_path=str(test_path),
+            require_real_data=True,
+        )
+    else:
+        cfg = module.PhotoZTransferZConformalConfig(
+            train_dataset_path=str(train_path),
+            cal_dataset_path=str(cal_path),
+            conformal_dataset_path=str(conformal_path),
+            test_dataset_path=str(test_path),
+            require_real_data=True,
+        )
+    output_path = output_dir / f"photoz_transferz_conformal_comparison_{profile}.json"
+    module.main(cfg, summary_json_path=str(output_path))
+    return output_path
 
 
 def run_pipeline(
@@ -79,6 +147,21 @@ def run_pipeline(
         test_dataset_path=normalized_paths["test"],
         markdown_report_path=markdown_report_path,
     )
+    conformal_summary_path = _run_conformal_example(
+        profile=profile,
+        output_dir=suite_output_dir,
+        train_path=normalized_paths["train"],
+        cal_path=normalized_paths["cal"],
+        conformal_path=normalized_paths["conformal"],
+        test_path=normalized_paths["test"],
+    )
+    suite_report["summary_paths"]["photoz_transferz_conformal_comparison"] = str(
+        conformal_summary_path
+    )
+    suite_report["recommended_read_order"] = [
+        *suite_report.get("recommended_read_order", []),
+        "photoz_transferz_conformal_comparison",
+    ]
     suite_report_path.parent.mkdir(parents=True, exist_ok=True)
     suite_report_path.write_text(json.dumps(suite_report, indent=2), encoding="utf-8")
 
@@ -99,6 +182,7 @@ def run_pipeline(
         "suite_report_path": str(suite_report_path),
         "markdown_report_path": str(markdown_report_path),
         "suite_summary_paths": suite_report["summary_paths"],
+        "conformal_summary_path": str(conformal_summary_path),
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")

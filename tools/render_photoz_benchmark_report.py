@@ -169,6 +169,37 @@ def render_report(
             )
         )
 
+    if "photoz_transferz_conformal_comparison" in summary_paths:
+        payload = _load_summary(summary_paths["photoz_transferz_conformal_comparison"])
+        rows = _sort_rows(payload["rows"], ["IntervalScore90", "Coverage90", "Width90"])
+        lines.extend(
+            [
+                "## TransferZ Conformal Track",
+                "",
+                "Sorted by `IntervalScore90`, `Coverage90`, `Width90`.",
+                "",
+            ]
+        )
+        lines.extend(
+            _render_table(
+                rows,
+                [
+                    "Method",
+                    "Coverage90",
+                    "Width90",
+                    "IntervalScore90",
+                    "NMAD",
+                    "CatastrophicRate",
+                    "HighZ_MAE",
+                    "HighZCoverage90",
+                    "HighZWidth90",
+                    "train_s",
+                    "eval_s",
+                    "DataSource",
+                ],
+            )
+        )
+
     rail_merge = suite.get("rail_merge")
     if isinstance(rail_merge, dict):
         merged_path = rail_merge.get("merged_output_path")

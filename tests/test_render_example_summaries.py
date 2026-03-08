@@ -142,6 +142,29 @@ def test_render_example_summaries_ppi_photoz_subset(tmp_path: Path) -> None:
     } <= methods
 
 
+def test_render_example_summaries_photoz_transferz_conformal_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["photoz_transferz_conformal_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "conformal photometric redshift" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {
+        "NativeQuantile90",
+        "NativeGaussian90",
+        "SplitConformal",
+        "CQR",
+        "DensityConformal",
+        "PrevalenceAdjustedCP",
+        "MonteCarloConformal",
+        "R2CConformal",
+    } <= methods
+
+
 def test_render_example_summaries_ordinal_subset(tmp_path: Path) -> None:
     paths = render_example_summaries.render_all(
         profile="smoke",

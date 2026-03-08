@@ -605,6 +605,75 @@ def test_ppi_photoz_inference_comparison_writes_summary_json(tmp_path: Path) -> 
         _assert_non_negative(row["eval_s"])
 
 
+def test_photoz_transferz_conformal_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("photoz_transferz_conformal_comparison")
+    out = tmp_path / "photoz_transferz_conformal_summary.json"
+    cfg = mod.PhotoZTransferZConformalConfig(
+        n_train=48,
+        n_cal=16,
+        n_conformal=16,
+        n_test=16,
+        batch_size=16,
+        epochs=1,
+        hidden=8,
+        n_mc_samples=6,
+        n_bins=16,
+        sample_size_if_generate=160,
+        force_simulated=True,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="conformal photometric redshift",
+        required_methods={
+            "NativeQuantile90",
+            "NativeGaussian90",
+            "SplitConformal",
+            "CQR",
+            "DensityConformal",
+            "PrevalenceAdjustedCP",
+            "MonteCarloConformal",
+            "R2CConformal",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "NativeQuantile90",
+        "NativeGaussian90",
+        "SplitConformal",
+        "CQR",
+        "DensityConformal",
+        "PrevalenceAdjustedCP",
+        "MonteCarloConformal",
+        "R2CConformal",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Coverage90",
+                "Width90",
+                "IntervalScore90",
+                "NMAD",
+                "CatastrophicRate",
+                "HighZ_MAE",
+                "HighZCoverage90",
+                "HighZWidth90",
+                "train_s",
+                "eval_s",
+            ],
+        )
+        _assert_probability(row["Coverage90"])
+        _assert_non_negative(row["Width90"])
+        _assert_non_negative(row["IntervalScore90"])
+        _assert_non_negative(row["NMAD"])
+        _assert_probability(row["CatastrophicRate"])
+        _assert_non_negative(row["HighZ_MAE"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_ordinal_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("ordinal_regression_comparison")
     out = tmp_path / "ordinal_comparison_summary.json"

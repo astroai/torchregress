@@ -39,7 +39,18 @@ def test_photoz_transferz_pipeline_runs_suite(monkeypatch, tmp_path: Path) -> No
         return {
             "artifact": "photoz_benchmark_suite_report",
             "summary_paths": {"photoz_benchmark_comparison": str(summary_path)},
+            "recommended_read_order": ["photoz_benchmark_comparison"],
         }
+
+    def _fake_run_conformal_example(**kwargs):
+        path = suite_output_dir / "photoz_transferz_conformal_comparison_smoke.json"
+        path.write_text(
+            json.dumps(
+                {"artifact": "comparison_example_summary", "rows": [{"Method": "SplitConformal"}]}
+            ),
+            encoding="utf-8",
+        )
+        return path
 
     monkeypatch.setattr(
         photoz_transferz_pipeline.photoz_collect_real_data,
@@ -50,6 +61,11 @@ def test_photoz_transferz_pipeline_runs_suite(monkeypatch, tmp_path: Path) -> No
         photoz_transferz_pipeline.photoz_benchmark_suite,
         "run_suite",
         _fake_run_suite,
+    )
+    monkeypatch.setattr(
+        photoz_transferz_pipeline,
+        "_run_conformal_example",
+        _fake_run_conformal_example,
     )
 
     report = photoz_transferz_pipeline.run_pipeline(
@@ -65,5 +81,8 @@ def test_photoz_transferz_pipeline_runs_suite(monkeypatch, tmp_path: Path) -> No
 
     assert report["artifact"] == "photoz_transferz_pipeline_report"
     assert report["split_policy"]["conformal_reserved"].endswith("transferz_conformal_photoz.csv")
+    assert report["conformal_summary_path"].endswith(
+        "photoz_transferz_conformal_comparison_smoke.json"
+    )
     assert suite_report_path.exists()
     assert report_path.exists()

@@ -289,6 +289,50 @@ def _ppi_photoz_config(module: Any, profile: str) -> Any:
     )
 
 
+def _photoz_transferz_conformal_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.PhotoZTransferZConformalConfig(
+            n_train=64,
+            n_cal=24,
+            n_conformal=24,
+            n_test=24,
+            batch_size=16,
+            epochs=1,
+            hidden=16,
+            n_mc_samples=8,
+            n_bins=24,
+            sample_size_if_generate=256,
+            force_simulated=True,
+        )
+    if profile == "audit":
+        return module.PhotoZTransferZConformalConfig(
+            n_train=192,
+            n_cal=64,
+            n_conformal=64,
+            n_test=64,
+            batch_size=32,
+            epochs=6,
+            hidden=32,
+            n_mc_samples=16,
+            n_bins=32,
+            sample_size_if_generate=768,
+            force_simulated=True,
+        )
+    return module.PhotoZTransferZConformalConfig(
+        n_train=512,
+        n_cal=192,
+        n_conformal=192,
+        n_test=192,
+        batch_size=64,
+        epochs=8,
+        hidden=64,
+        n_mc_samples=24,
+        n_bins=40,
+        sample_size_if_generate=1600,
+        force_simulated=True,
+    )
+
+
 def _ordinal_comparison_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.OrdinalComparisonConfig(
@@ -575,6 +619,10 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "ppi_photoz_inference_comparison": {
         "filename": "ppi_photoz_inference_comparison",
         "config_factory": _ppi_photoz_config,
+    },
+    "photoz_transferz_conformal_comparison": {
+        "filename": "photoz_transferz_conformal_comparison",
+        "config_factory": _photoz_transferz_conformal_config,
     },
     "ordinal_regression_comparison": {
         "filename": "ordinal_regression_comparison",

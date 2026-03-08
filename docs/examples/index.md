@@ -172,6 +172,11 @@ A real-world application for astronomy:
 - Uses `tools/photoz_transferz_pipeline.py`.
 - This is the preferred public tabular benchmark path for domain-shift-oriented photo-z evaluation.
 
+### [TransferZ Conformal Photo-z Comparison](photoz_transferz_conformal_comparison.md)
+
+- Dedicated conformal benchmark on the public TransferZ release using the reserved `CONFORMAL` split correctly.
+- Compares native intervals against `SplitConformal`, `CQR`, `DensityConformal`, `PrevalenceAdjustedCP`, `MonteCarloConformal`, and `R2CConformal`.
+
 ### [Photo-z NNC End-to-End Pipeline](photoz_nnc_pipeline.md)
 
 - Downloads or reads a raw NNC-style catalog, normalizes it into the canonical photo-z frame, and runs the real-data benchmark tracks.

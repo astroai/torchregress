@@ -12,6 +12,10 @@ Core local suite:
 - `examples/photoz_nnc_crps_rail_comparison.py`
 - `examples/ppi_photoz_inference_comparison.py`
 
+Dedicated TransferZ-only extension:
+
+- `examples/photoz_transferz_conformal_comparison.py`
+
 Optional external merge:
 
 - `tools/photoz_rail_pipeline.py` on top of the ordered-bin benchmark
@@ -23,6 +27,7 @@ Optional external merge:
 | `photoz_benchmark_comparison` | tabular regression benchmark with robust/probabilistic/EIV/SSL methods | `MSE`, `Huber`, `LogTransform`, `GaussianNLL`, `Quantile90`, `PseudoLabelNLL`, `PseudoLabelConsistency`, `FunctionalEIV` | `photoz_benchmark_comparison_<profile>.json` |
 | `photoz_nnc_crps_rail_comparison` | ordered-bin regression-as-classification benchmark | `BinnedCE`, `SoftBinnedCE`, `SoftBinnedCE+Pseudo`, `SoftCumulativeLink`, `OrderedBinCRPS`, anchors | `photoz_nnc_crps_rail_comparison_<profile>.json` |
 | `ppi_photoz_inference_comparison` | low-label inference benchmark | labeled-only vs `PPI` mean/quantile CIs | `ppi_photoz_inference_comparison_<profile>.json` |
+| `photoz_transferz_conformal_comparison` | dedicated real-data conformal benchmark on released `TransferZ` splits | `SplitConformal`, `CQR`, `DensityConformal`, `PrevalenceAdjustedCP`, `MonteCarloConformal`, `R2CConformal` | `transferz/photoz_transferz_conformal_comparison_<profile>.json` |
 | `photoz_rail_pipeline` | cross-framework comparison against RAIL baselines | torchregress ordered-bin summary + `flexzboost`, `pzflow`, `delight`, `bpz` | `photoz_rail_baseline_comparison_<profile>.json` |
 
 ## Recommended run order
