@@ -112,7 +112,7 @@ def test_collect_nnc_catalog_falls_back_from_stale_default(
                 url=f"https://zenodo.org/api/records/{record_id}",
                 code=404,
                 msg="Not Found",
-                hdrs=None,
+                hdrs=None,  # type: ignore[arg-type]
                 fp=None,
             )
         if record_id == collect.DEFAULT_NNC_FALLBACK_RECORD:

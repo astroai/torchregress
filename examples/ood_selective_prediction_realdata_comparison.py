@@ -33,10 +33,10 @@ from torchregress.metrics import (
 @dataclass(frozen=True)
 class OODRealDataConfig:
     seed: int = 321
-    n_train: int = 240
-    n_cal: int = 80
-    n_id_test: int = 80
-    n_ood_test: int = 80
+    n_train: int = 200
+    n_cal: int = 60
+    n_id_test: int = 60
+    n_ood_test: int = 60
     epochs: int = 20
     ensemble_size: int = 3
     mc_samples: int = 12
