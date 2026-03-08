@@ -6,6 +6,7 @@ from pathlib import Path
 from types import ModuleType
 
 import matplotlib
+import pandas as pd
 import pytest
 import torch
 
@@ -345,6 +346,40 @@ def test_photoz_benchmark_comparison_main_smoke() -> None:
         hidden=8,
         sample_size_if_generate=160,
         force_simulated=True,
+        allow_download=False,
+    )
+    mod.main(cfg)
+
+
+def test_photoz_benchmark_comparison_accepts_grizy_external_data(tmp_path: Path) -> None:
+    mod = _load_example_module("photoz_benchmark_comparison")
+    dataset = tmp_path / "hsc_like.csv"
+    rows = 96
+    pd.DataFrame(
+        {
+            "objid": list(range(rows)),
+            "spec_z": [0.05 + 0.002 * i for i in range(rows)],
+            "spec_z_err": [0.01] * rows,
+            "g_r": [0.3 + 0.001 * i for i in range(rows)],
+            "r_i": [0.2 + 0.001 * i for i in range(rows)],
+            "i_z": [0.15 + 0.001 * i for i in range(rows)],
+            "z_y": [0.1 + 0.001 * i for i in range(rows)],
+            "g_r_err": [0.02] * rows,
+            "r_i_err": [0.02] * rows,
+            "i_z_err": [0.02] * rows,
+            "z_y_err": [0.02] * rows,
+        }
+    ).to_csv(dataset, index=False)
+
+    cfg = mod.PhotoZBenchmarkConfig(
+        n_train=48,
+        n_cal=16,
+        n_test=16,
+        batch_size=16,
+        epochs=1,
+        hidden=8,
+        dataset_path=str(dataset),
+        require_real_data=True,
         allow_download=False,
     )
     mod.main(cfg)

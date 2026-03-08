@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, cast
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -26,6 +27,7 @@ from torchregress.utils.security import validate_url
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DP02_TAP_SYNC_URL = "https://data.lsst.cloud/api/tap/sync"
 DEFAULT_NNC_ZENODO_RECORD = 18410731
+DEFAULT_NNC_FALLBACK_RECORD = 5528827
 
 
 def _http_get(url: str, *, headers: dict[str, str] | None = None) -> bytes:
@@ -229,7 +231,16 @@ def collect_nnc_catalog(
     output_dir: Path,
     output_filename: str | None = None,
 ) -> dict[str, Any]:
-    record = _load_zenodo_record(record_id)
+    effective_record_id = record_id
+    source = "nnc_zenodo"
+    try:
+        record = _load_zenodo_record(record_id)
+    except HTTPError as exc:
+        if exc.code != 404 or record_id != DEFAULT_NNC_ZENODO_RECORD:
+            raise
+        effective_record_id = DEFAULT_NNC_FALLBACK_RECORD
+        record = _load_zenodo_record(effective_record_id)
+        source = "nnc_zenodo_fallback"
     file_entry = _select_zenodo_file(record, preferred_suffix=preferred_suffix)
 
     key = file_entry.get("key")
@@ -251,8 +262,9 @@ def collect_nnc_catalog(
     metadata = record.get("metadata")
     doi = metadata.get("doi") if isinstance(metadata, dict) else None
     return {
-        "source": "nnc_zenodo",
-        "record_id": int(record_id),
+        "source": source,
+        "record_id": int(effective_record_id),
+        "requested_record_id": int(record_id),
         "doi": doi,
         "selected_file_key": key,
         "download_url": download_url,

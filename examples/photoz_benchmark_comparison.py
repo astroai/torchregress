@@ -187,8 +187,7 @@ def _create_simulated_sdss_data(
 
 def _make_splits(cfg: PhotoZBenchmarkConfig) -> dict[str, torch.Tensor]:
     df = _load_photoz_df(cfg)
-    feature_cols = ["u_g", "g_r", "r_i", "i_z"]
-    error_cols = ["u_g_err", "g_r_err", "r_i_err", "i_z_err"]
+    feature_cols, error_cols = _infer_feature_columns(df)
     target_col = "spec_z"
     target_err_col = "spec_z_err"
 
@@ -264,6 +263,18 @@ def _data_source_name(cfg: PhotoZBenchmarkConfig) -> str:
     if Path("data/sdss/sdss_photoz_real.csv").exists() and not cfg.force_simulated:
         return "real_sdss_cache"
     return "simulated_sdss"
+
+
+def _infer_feature_columns(df: pd.DataFrame) -> tuple[list[str], list[str]]:
+    candidates = ["u_g", "g_r", "r_i", "i_z", "z_y"]
+    feature_cols = [name for name in candidates if name in df.columns and f"{name}_err" in df.columns]
+    if len(feature_cols) < 3:
+        raise ValueError(
+            "Photo-z dataset must provide at least three color features with propagated errors. "
+            f"Available columns: {list(df.columns)}"
+        )
+    error_cols = [f"{name}_err" for name in feature_cols]
+    return feature_cols, error_cols
 
 
 def _to_raw_y(y_scaled: torch.Tensor, splits: dict[str, torch.Tensor]) -> torch.Tensor:

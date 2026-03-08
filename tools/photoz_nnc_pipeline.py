@@ -21,11 +21,17 @@ DEFAULT_NORMALIZED_OUTPUT = Path("data/nnc_crps/nnc_photoz_real.csv")
 DEFAULT_SUITE_REPORT = Path("reports/example_summaries/photoz_nnc_suite_latest.json")
 DEFAULT_MARKDOWN_REPORT = Path("reports/example_summaries/photoz_nnc_suite_latest.md")
 DEFAULT_REPORT = Path("reports/example_summaries/photoz_nnc_pipeline_latest.json")
+MIN_ROWS_BY_PROFILE = {
+    "smoke": 112,
+    "audit": 320,
+    "full": 1024,
+}
 
 BANDS = ("u", "g", "r", "i", "z", "y")
 TARGET_CANDIDATES = (
     "spec_z",
     "z_spec",
+    "specz_redshift",
     "redshift",
     "redshift_true",
     "true_redshift",
@@ -35,6 +41,7 @@ TARGET_CANDIDATES = (
 TARGET_ERR_CANDIDATES = (
     "spec_z_err",
     "z_spec_err",
+    "specz_redshift_err",
     "redshift_err",
     "redshift_true_err",
     "z_true_err",
@@ -52,8 +59,24 @@ def _find_column(columns: list[str], candidates: tuple[str, ...]) -> str | None:
 
 def _band_mag_candidates(band: str) -> tuple[str, ...]:
     if band == "z":
-        return ("z_mag", "z", "mag_z", "zmag", "lsst_z", "z_lsst")
-    return (band, f"{band}_mag", f"mag_{band}", f"{band}mag", f"lsst_{band}", f"{band}_lsst")
+        return (
+            "z_mag",
+            "z",
+            "mag_z",
+            "zmag",
+            "lsst_z",
+            "z_lsst",
+            "z_cmodel_mag",
+        )
+    return (
+        band,
+        f"{band}_mag",
+        f"mag_{band}",
+        f"{band}mag",
+        f"lsst_{band}",
+        f"{band}_lsst",
+        f"{band}_cmodel_mag",
+    )
 
 
 def _band_err_candidates(band: str) -> tuple[str, ...]:
@@ -66,6 +89,7 @@ def _band_err_candidates(band: str) -> tuple[str, ...]:
         f"magerr_{band}",
         f"{band}_magerr",
         f"lsst_{band}_err",
+        f"{band}_cmodel_magsigma",
     )
 
 
@@ -109,6 +133,30 @@ def _load_raw_table(path: Path) -> pd.DataFrame:
         f"Unsupported raw NNC catalog format `{suffix}` for {path}. "
         "Use CSV, JSON, JSONL, pickle, or FITS."
     )
+
+
+def _count_rows(path: Path) -> int | None:
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        with path.open("r", encoding="utf-8") as handle:
+            return max(sum(1 for _ in handle) - 1, 0)
+    if suffix in {".json", ".jsonl", ".pkl", ".pickle"}:
+        return int(len(_load_raw_table(path)))
+    return None
+
+
+def _select_local_catalog(*, profile: str) -> Path | None:
+    min_rows = MIN_ROWS_BY_PROFILE[profile]
+    candidates = sorted(path for path in DEFAULT_RAW_DIR.iterdir() if path.is_file())
+    valid: list[tuple[int, Path]] = []
+    for path in candidates:
+        rows = _count_rows(path)
+        if rows is not None and rows >= min_rows:
+            valid.append((rows, path))
+    if not valid:
+        return None
+    valid.sort(key=lambda item: (item[0], item[1].name))
+    return valid[-1][1]
 
 
 def _flux_to_mag(flux: pd.Series) -> pd.Series:
@@ -236,19 +284,27 @@ def run_pipeline(
     download_report: dict[str, Any] | None = None
     if raw_path is None:
         DEFAULT_RAW_DIR.mkdir(parents=True, exist_ok=True)
-        existing = sorted(path for path in DEFAULT_RAW_DIR.iterdir() if path.is_file())
-        if existing:
-            raw_path = existing[0]
-        elif download_if_missing:
-            download_report = photoz_collect_real_data.collect_nnc_catalog(
-                record_id=record_id,
-                preferred_suffix=preferred_suffix,
-                output_dir=DEFAULT_RAW_DIR,
-            )
+        raw_path = _select_local_catalog(profile=profile)
+        if raw_path is None and download_if_missing:
+            try:
+                download_report = photoz_collect_real_data.collect_nnc_catalog(
+                    record_id=record_id,
+                    preferred_suffix=preferred_suffix,
+                    output_dir=DEFAULT_RAW_DIR,
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    "Unable to acquire a usable NNC catalog. "
+                    "No local catalog met the minimum row requirement and the "
+                    "download step failed. "
+                    "Provide --raw-catalog explicitly or override --record-id/--preferred-suffix."
+                ) from exc
             raw_path = Path(download_report["output_path"])
-        else:
+        if raw_path is None:
+            min_rows = MIN_ROWS_BY_PROFILE[profile]
             raise FileNotFoundError(
-                "No raw NNC catalog available. "
+                "No usable raw NNC catalog available. "
+                f"Need at least {min_rows} rows for profile `{profile}`. "
                 "Supply --raw-catalog or enable --download-if-missing."
             )
 
@@ -295,7 +351,7 @@ def main() -> None:
         type=int,
         default=photoz_collect_real_data.DEFAULT_NNC_ZENODO_RECORD,
     )
-    parser.add_argument("--preferred-suffix", type=str, default=".fits")
+    parser.add_argument("--preferred-suffix", type=str, default=".csv")
     parser.add_argument("--normalized-output", type=Path, default=DEFAULT_NORMALIZED_OUTPUT)
     parser.add_argument("--suite-report", type=Path, default=DEFAULT_SUITE_REPORT)
     parser.add_argument("--markdown-report", type=Path, default=DEFAULT_MARKDOWN_REPORT)

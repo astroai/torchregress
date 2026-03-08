@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.error import HTTPError
 
 import pandas as pd
 import pytest
@@ -88,3 +89,46 @@ def test_collect_nnc_catalog_writes_selected_file(
     assert out.exists()
     assert out.read_bytes() == b"fits-bytes"
     assert report["doi"] == "10.5281/zenodo.18410731"
+
+
+def test_collect_nnc_catalog_falls_back_from_stale_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[int] = []
+    fallback_record = {
+        "metadata": {"doi": "10.5281/zenodo.5528827"},
+        "files": [
+            {
+                "key": "HSC_v6.csv",
+                "links": {"download": "https://example.org/HSC_v6.csv"},
+            }
+        ],
+    }
+
+    def _fake_load(record_id: int):
+        calls.append(record_id)
+        if record_id == collect.DEFAULT_NNC_ZENODO_RECORD:
+            raise HTTPError(
+                url=f"https://zenodo.org/api/records/{record_id}",
+                code=404,
+                msg="Not Found",
+                hdrs=None,
+                fp=None,
+            )
+        if record_id == collect.DEFAULT_NNC_FALLBACK_RECORD:
+            return fallback_record
+        raise AssertionError(record_id)
+
+    monkeypatch.setattr(collect, "_load_zenodo_record", _fake_load)
+    monkeypatch.setattr(collect, "_http_get", lambda url, headers=None: b"csv-bytes")
+
+    report = collect.collect_nnc_catalog(
+        record_id=collect.DEFAULT_NNC_ZENODO_RECORD,
+        preferred_suffix=".csv",
+        output_dir=tmp_path,
+    )
+
+    assert calls == [collect.DEFAULT_NNC_ZENODO_RECORD, collect.DEFAULT_NNC_FALLBACK_RECORD]
+    assert report["source"] == "nnc_zenodo_fallback"
+    assert report["record_id"] == collect.DEFAULT_NNC_FALLBACK_RECORD
+    assert report["requested_record_id"] == collect.DEFAULT_NNC_ZENODO_RECORD

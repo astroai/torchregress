@@ -99,3 +99,42 @@ def test_photoz_nnc_pipeline_runs_suite(monkeypatch, tmp_path: Path) -> None:
     assert Path(report["suite_markdown_report_path"]).exists()
     normalized = Path(report["normalization_report"]["normalized_output_path"])
     assert normalized.exists()
+
+
+def test_photoz_nnc_pipeline_rejects_too_small_local_catalog(tmp_path: Path) -> None:
+    raw_dir = tmp_path / "catalogs"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    small = raw_dir / "tiny.csv"
+    pd.DataFrame(
+        {
+            "id": [1, 2],
+            "redshift": [0.1, 0.2],
+            "u_mag": [22.1, 22.2],
+            "g_mag": [21.7, 21.8],
+            "r_mag": [21.2, 21.3],
+            "i_mag": [20.8, 20.9],
+            "z_mag": [20.4, 20.5],
+        }
+    ).to_csv(small, index=False)
+
+    old_dir = photoz_nnc_pipeline.DEFAULT_RAW_DIR
+    photoz_nnc_pipeline.DEFAULT_RAW_DIR = raw_dir
+    try:
+        try:
+            photoz_nnc_pipeline.run_pipeline(
+                profile="smoke",
+                output_dir=tmp_path / "reports",
+                raw_catalog_path=None,
+                normalized_output_path=tmp_path / "nnc_photoz_real.csv",
+                download_if_missing=False,
+                record_id=0,
+                preferred_suffix=".csv",
+                suite_report_path=tmp_path / "reports" / "suite.json",
+                markdown_report_path=tmp_path / "reports" / "suite.md",
+            )
+        except FileNotFoundError as exc:
+            assert "Need at least 112 rows" in str(exc)
+        else:
+            raise AssertionError("Expected insufficient-row FileNotFoundError")
+    finally:
+        photoz_nnc_pipeline.DEFAULT_RAW_DIR = old_dir
