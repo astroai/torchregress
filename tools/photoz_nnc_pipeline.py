@@ -185,7 +185,7 @@ def normalize_nnc_catalog(
     resolved_target = target_col or _find_column(columns, TARGET_CANDIDATES)
     if resolved_target is None:
         raise ValueError(
-            "Could not infer the target redshift column. " f"Available columns: {columns}"
+            f"Could not infer the target redshift column. Available columns: {columns}"
         )
     resolved_target_err = target_err_col or _find_column(columns, TARGET_ERR_CANDIDATES)
 

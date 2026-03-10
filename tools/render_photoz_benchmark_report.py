@@ -293,8 +293,9 @@ def render_report(
             best_frac = _best_row(
                 rows,
                 ["NMAD", "CatastrophicRate", "HighZ_MAE"],
-                predicate=lambda row, frac=frac: abs(float(row.get("LabeledFraction", -1.0)) - frac)
-                < 1e-8,
+                predicate=lambda row, frac=frac: (
+                    abs(float(row.get("LabeledFraction", -1.0)) - frac) < 1e-8
+                ),
             )
             best_ssl = _best_row(
                 rows,
