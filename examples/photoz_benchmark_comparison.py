@@ -97,11 +97,9 @@ def _load_photoz_table(dataset_path: Path) -> pd.DataFrame:
         return pd.read_csv(dataset_path)
     if suffix in {".json", ".jsonl"}:
         return pd.read_json(dataset_path, lines=(suffix == ".jsonl"))
-    if suffix in {".pkl", ".pickle"}:
-        return pd.read_pickle(dataset_path)
     raise ValueError(
         f"Unsupported photo-z dataset format `{suffix}` for {dataset_path}. "
-        "Use CSV, JSON, JSONL, or pickle."
+        "Use CSV, JSON, or JSONL."
     )
 
 
