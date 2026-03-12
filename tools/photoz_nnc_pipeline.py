@@ -118,20 +118,18 @@ def _load_raw_table(path: Path) -> pd.DataFrame:
         return pd.read_csv(path)
     if suffix in {".json", ".jsonl"}:
         return pd.read_json(path, lines=(suffix == ".jsonl"))
-    if suffix in {".pkl", ".pickle"}:
-        return pd.read_pickle(path)
     if suffix == ".fits":
         try:
             from astropy.table import Table
         except ImportError as exc:  # pragma: no cover - environment dependent
             raise ImportError(
                 "Reading NNC FITS catalogs requires `astropy`. "
-                "Install it or supply a CSV/JSON/pickle catalog."
+                "Install it or supply a CSV/JSON/JSONL catalog."
             ) from exc
         return Table.read(path).to_pandas()
     raise ValueError(
         f"Unsupported raw NNC catalog format `{suffix}` for {path}. "
-        "Use CSV, JSON, JSONL, pickle, or FITS."
+        "Use CSV, JSON, JSONL, or FITS."
     )
 
 
@@ -140,7 +138,7 @@ def _count_rows(path: Path) -> int | None:
     if suffix == ".csv":
         with path.open("r", encoding="utf-8") as handle:
             return max(sum(1 for _ in handle) - 1, 0)
-    if suffix in {".json", ".jsonl", ".pkl", ".pickle"}:
+    if suffix in {".json", ".jsonl"}:
         return int(len(_load_raw_table(path)))
     return None
 
