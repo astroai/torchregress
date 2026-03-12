@@ -291,8 +291,7 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
         self.propensity_clip = propensity_clip
         if self.supervised_loss not in {"mse", "mae", "huber"}:
             raise ValueError(
-                "supervised_loss must be one of ['mse', 'mae', 'huber'], "
-                f"got {supervised_loss!r}"
+                f"supervised_loss must be one of ['mse', 'mae', 'huber'], got {supervised_loss!r}"
             )
 
     def _point_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
