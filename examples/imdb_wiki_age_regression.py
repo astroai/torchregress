@@ -91,7 +91,7 @@ def download_and_extract_dataset():
                 member_path = os.path.abspath(os.path.join(target_dir, member))
                 if os.path.commonpath([target_dir, member_path]) != target_dir:
                     raise Exception("Attempted Path Traversal in Zip File")
-            zip_ref.extractall(DATA_DIR)
+                zip_ref.extract(member, DATA_DIR)
         print("Extraction completed.")
 
 
