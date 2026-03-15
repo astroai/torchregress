@@ -97,9 +97,25 @@ def _load_photoz_table(dataset_path: Path) -> pd.DataFrame:
         return pd.read_csv(dataset_path)
     if suffix in {".json", ".jsonl"}:
         return pd.read_json(dataset_path, lines=(suffix == ".jsonl"))
+    if suffix == ".parquet":
+        try:
+            import polars as pl
+
+            return pl.read_parquet(dataset_path).to_pandas()
+        except ImportError:
+            return pd.read_parquet(dataset_path)
+    if suffix == ".fits":
+        try:
+            from astropy.table import Table
+
+            return Table.read(dataset_path).to_pandas()
+        except ImportError as e:
+            raise ImportError(
+                "Reading FITS catalogs requires `astropy`. Install it or use CSV/Parquet."
+            ) from e
     raise ValueError(
         f"Unsupported photo-z dataset format `{suffix}` for {dataset_path}. "
-        "Use CSV, JSON, or JSONL."
+        "Use CSV, JSON, JSONL, Parquet, or FITS."
     )
 
 
@@ -298,7 +314,7 @@ def _make_splits(cfg: PhotoZBenchmarkConfig) -> dict[str, torch.Tensor]:
     yerr_cal_s = yerr_cal / y_std
     yerr_test_s = yerr_test / y_std
 
-    return {
+    out = {
         "x_train": x_train_s,
         "x_cal": x_cal_s,
         "x_test": x_test_s,
@@ -318,6 +334,19 @@ def _make_splits(cfg: PhotoZBenchmarkConfig) -> dict[str, torch.Tensor]:
         "y_shift": y_mean,
         "data_source": _data_source_name(cfg),
     }
+    # Catalog photo-z on test set (same samples) for baseline comparison
+    if _has_explicit_splits(cfg):
+        test_df = _load_photoz_table(Path(cfg.test_dataset_path or ""))
+        rng = np.random.default_rng(cfg.seed)
+        test_df = test_df.iloc[rng.permutation(len(test_df))[: cfg.n_test]].reset_index(drop=True)
+        if "z_phot" in test_df.columns and "z_phot_err" in test_df.columns:
+            y_phot_raw = torch.tensor(test_df["z_phot"].to_numpy(dtype="float32")).unsqueeze(1)
+            y_phot_err_raw = torch.tensor(
+                test_df["z_phot_err"].to_numpy(dtype="float32")
+            ).unsqueeze(1)
+            out["y_phot_test"] = (y_phot_raw - y_mean) / y_std
+            out["y_phot_err_test"] = y_phot_err_raw / y_std
+    return out
 
 
 def _data_source_name(cfg: PhotoZBenchmarkConfig) -> str:
@@ -334,15 +363,49 @@ def _data_source_name(cfg: PhotoZBenchmarkConfig) -> str:
     return "simulated_sdss"
 
 
-def _infer_feature_columns(df: pd.DataFrame) -> tuple[list[str], list[str]]:
-    candidates = ["u_g", "g_r", "r_i", "i_z", "z_y"]
+def _infer_feature_columns(
+    df: pd.DataFrame,
+    color_candidates: list[str] | None = None,
+    min_colors: int = 3,
+) -> tuple[list[str], list[str]]:
+    """Infer feature (color or magnitude+mask) and error columns. Supports extended NIR and all-bands-missing schema."""
+    # All-bands-with-mask schema (CLAUDS outer join): mags, mag_errs, obs, obs_err, mag_err_err (placeholders)
+    all_bands = ["u", "g", "r", "i", "z", "y", "Y", "J", "H", "Ks"]
+    if "u" in df.columns and "u_err" in df.columns and "obs_u" in df.columns:
+        present = [
+            b
+            for b in all_bands
+            if b in df.columns and f"{b}_err" in df.columns and f"obs_{b}" in df.columns
+        ]
+        err_err_ok = all(f"{b}_err_err" in df.columns for b in present)
+        if len(present) >= min_colors and err_err_ok:
+            feature_cols = present + [f"{b}_err" for b in present] + [f"obs_{b}" for b in present]
+            error_cols = (
+                [f"{b}_err" for b in present]
+                + [f"{b}_err_err" for b in present]
+                + [f"obs_{b}_err" for b in present]
+            )
+            return feature_cols, error_cols
+    # Color-based schema
+    if color_candidates is None:
+        color_candidates = [
+            "u_g",
+            "g_r",
+            "r_i",
+            "i_z",
+            "z_y",
+            "z_Y",
+            "Y_J",
+            "J_H",
+            "H_Ks",
+        ]
     feature_cols = [
-        name for name in candidates if name in df.columns and f"{name}_err" in df.columns
+        name for name in color_candidates if name in df.columns and f"{name}_err" in df.columns
     ]
-    if len(feature_cols) < 3:
+    if len(feature_cols) < min_colors:
         raise ValueError(
-            "Photo-z dataset must provide at least three color features with propagated errors. "
-            f"Available columns: {list(df.columns)}"
+            f"Photo-z dataset must provide at least {min_colors} color features with propagated errors, "
+            f"or magnitude+mask columns (u, u_err, obs_u, ...). Available columns: {list(df.columns)}"
         )
     error_cols = [f"{name}_err" for name in feature_cols]
     return feature_cols, error_cols

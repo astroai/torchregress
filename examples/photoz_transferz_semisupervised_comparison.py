@@ -388,6 +388,37 @@ def _evaluate_point_row(
     }
 
 
+def _evaluate_catalog_photoz_row(
+    splits: dict[str, torch.Tensor],
+    meta: dict[str, float],
+    labeled_fraction: float,
+) -> dict[str, object] | None:
+    """Evaluate catalog photo-z (z_phot from table) on the same test samples as all other methods."""
+    if "y_phot_test" not in splits or "y_phot_err_test" not in splits:
+        return None
+    mean_test = splits["y_phot_test"]
+    err_test = splits["y_phot_err_test"].clamp_min(1e-8)
+    point = pzbase._point_metrics(mean_test, splits["y_test"])
+    pz = pzbase._photoz_metrics(mean_test, splits["y_test"], splits)
+    lower = mean_test - 1.645 * err_test
+    upper = mean_test + 1.645 * err_test
+    cov90, width90 = pzbase._coverage_width(lower, upper, splits["y_test"])
+    return {
+        "Method": "CatalogPhotoZ",
+        **meta,
+        "LabeledFraction": labeled_fraction,
+        **point,
+        **pz,
+        "NLL": None,
+        "Cov90": cov90,
+        "Width90": width90,
+        "train_s": 0.0,
+        "eval_s": 0.0,
+        "DataSource": splits["data_source"],
+        "Notes": "Catalog photo-z (e.g. Phosphoros) on same test set; all metrics comparable.",
+    }
+
+
 def _train_ema_selective_consistency(
     model: torch.nn.Module,
     splits: dict[str, torch.Tensor],
@@ -525,6 +556,10 @@ def run_comparison(
             "TeacherDisagreement": 0.0,
             "FeatureStability": 0.0,
         }
+        # Catalog photo-z baseline on same test samples (so all metrics are comparable)
+        catalog_row = _evaluate_catalog_photoz_row(splits, meta, labeled_fraction)
+        if catalog_row is not None:
+            rows.append(catalog_row)
         labeled_loader = _labeled_loader(
             splits,
             label_mask,
@@ -834,9 +869,23 @@ if __name__ == "__main__":
     parser.add_argument("--cal-dataset-path", type=str, default=None)
     parser.add_argument("--test-dataset-path", type=str, default=None)
     parser.add_argument("--require-real-data", action="store_true")
+    parser.add_argument("--n-train", type=int, default=1024)
+    parser.add_argument("--n-cal", type=int, default=256)
+    parser.add_argument("--n-test", type=int, default=512)
+    parser.add_argument(
+        "--labeled-fractions",
+        type=float,
+        nargs="+",
+        default=[0.1, 0.25, 0.5],
+        help="Labeled fractions for SSL (e.g. 0.05 0.1 0.25 0.5 0.75 1.0).",
+    )
     args = parser.parse_args()
     main(
         PhotoZTransferZSemiSupervisedConfig(
+            n_train=args.n_train,
+            n_cal=args.n_cal,
+            n_test=args.n_test,
+            labeled_fractions=tuple(args.labeled_fractions),
             train_dataset_path=args.train_dataset_path,
             cal_dataset_path=args.cal_dataset_path,
             test_dataset_path=args.test_dataset_path,
