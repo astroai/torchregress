@@ -107,6 +107,9 @@ reports/example_summaries/*
 !reports/example_summaries/threshold_check_full_latest.json
 !reports/example_summaries/threshold_check_full_review_strict_latest.json
 
+# Legacy / old example scripts (not part of main tree)
+examples/old_scripts/
+
 # Local backups and ad-hoc artifacts
 reports_backup/
 photoz_metrics.json
