@@ -86,13 +86,8 @@ class MCDropoutWrapper(nn.Module):
         n = n_samples or self.n_samples
         enable_dropout(self.model)
 
-        samples = []
-        for _ in range(n):
-            with torch.no_grad():
-                pred = self.model(x)
-            samples.append(pred)
-
-        return torch.stack(samples, dim=0)
+        with torch.no_grad():
+            return torch.stack([self.model(x) for _ in range(n)], dim=0)
 
     def predict_with_uncertainty(
         self,
@@ -207,13 +202,8 @@ class MCDropoutModel(nn.Module):
         n = n_samples or self.n_samples
         enable_dropout(self)
 
-        samples = []
-        for _ in range(n):
-            with torch.no_grad():
-                pred = self.network(x)
-            samples.append(pred)
-
-        return torch.stack(samples, dim=0)
+        with torch.no_grad():
+            return torch.stack([self.network(x) for _ in range(n)], dim=0)
 
     def predict_with_uncertainty(
         self,
