@@ -244,7 +244,7 @@ class EnsemblePerturbationAugmenter(nn.Module):
                 noise = torch.randn(
                     self.n_samples, batch_size, n_features, device=device, dtype=x.dtype
                 ) * sigma_vec.view(1, 1, -1)
-                return list((x + noise).unbind(0))
+                return list((x.unsqueeze(0) + noise).unbind(0))
 
             # Full covariance Gaussian
             try:
@@ -252,13 +252,13 @@ class EnsemblePerturbationAugmenter(nn.Module):
                     torch.zeros(n_features, device=device, dtype=x.dtype), sigma_tensor
                 )
                 noise = mvn.sample((self.n_samples, batch_size))
-                return list((x + noise).unbind(0))
+                return list((x.unsqueeze(0) + noise).unbind(0))
             except (RuntimeError, ValueError):
                 diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
                 noise = torch.randn(
                     self.n_samples, batch_size, n_features, device=device, dtype=x.dtype
                 ) * torch.sqrt(diag).view(1, 1, -1)
-                return list((x + noise).unbind(0))
+                return list((x.unsqueeze(0) + noise).unbind(0))
 
         # uniform
         scale_factor = 1.732  # sqrt(3)
@@ -266,18 +266,23 @@ class EnsemblePerturbationAugmenter(nn.Module):
             sigma_vec = sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
             half_range = sigma_vec.view(1, 1, -1) * scale_factor
             noise = (
-                torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype) * 2
+                torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype)
+                * 2
                 - 1
             ) * half_range
-            return list((x + noise).unbind(0))
+            return list((x.unsqueeze(0) + noise).unbind(0))
 
         diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
         half_range = torch.sqrt(diag).view(1, 1, -1) * scale_factor
         noise = (
             torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype) * 2 - 1
         ) * half_range
-        return list((x + noise).unbind(0))
+        return list((x.unsqueeze(0) + noise).unbind(0))
 
     def generate_and_stack(self, x: torch.Tensor) -> torch.Tensor:
+        # Instead of calling forward and stacking a list, we can compute directly
+        # or we can reuse forward and torch.stack.
+        # Since forward now internally unbinds, we might be slightly less efficient here,
+        # but the optimization to forward benefits both cases significantly.
         samples = self.forward(x)
         return torch.stack(samples)
