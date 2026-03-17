@@ -234,6 +234,7 @@ class BayesianNeuralNetwork(nn.Module):
             Stacked predictions [n_samples, batch_size, output_dim]
         """
         n = n_samples or self.n_samples
+
         with torch.no_grad():
             samples = [self.forward(x) for _ in range(n)]
 
@@ -355,10 +356,12 @@ class HeteroscedasticBNN(nn.Module):
             Tuple of (means, log_vars) each [n_samples, batch_size, output_dim]
         """
         n = n_samples or self.n_samples
-        with torch.no_grad():
-            outputs = [self.forward(x) for _ in range(n)]
 
-        return torch.stack([m for m, _ in outputs]), torch.stack([v for _, v in outputs])
+        with torch.no_grad():
+            results = [self.forward(x) for _ in range(n)]
+            means, log_vars = zip(*results)
+
+        return torch.stack(means), torch.stack(log_vars)
 
     def predict_with_decomposition(
         self,
