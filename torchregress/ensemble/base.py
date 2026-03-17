@@ -137,9 +137,19 @@ class BaseEnsembleModel(nn.Module):
         device = device or self.device
         member_histories = []
 
-        for idx, model in enumerate(self.models):
+        for model in self.models:
             model.to(device)
-            optimizer = optimizer_cls(model.parameters(), lr=lr)
+
+        if not hasattr(self, "_optimizers") or getattr(self, "_optimizer_cls", None) is not optimizer_cls:
+            self._optimizers = [optimizer_cls(model.parameters(), lr=lr) for model in self.models]
+            self._optimizer_cls = optimizer_cls
+        else:
+            for opt in self._optimizers:
+                for param_group in opt.param_groups:
+                    param_group["lr"] = lr
+
+        for idx, model in enumerate(self.models):
+            optimizer = self._optimizers[idx]
             history = []
 
             for epoch in range(epochs):
