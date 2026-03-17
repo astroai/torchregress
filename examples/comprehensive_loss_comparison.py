@@ -99,8 +99,8 @@ def main():
     # --- 3. Training and Evaluation ---
     results = {}
     summary_rows = []
-    for idx, (name, loss_fn) in enumerate(losses_to_compare.items()):
-        method_seed = 1000 + idx
+    for i, (name, loss_fn) in enumerate(losses_to_compare.items()):
+        method_seed = 1000 + i
         set_comparison_seed(method_seed)
         loader = DataLoader(
             dataset,
@@ -131,7 +131,23 @@ def main():
             model.eval()
             with torch.no_grad():
                 raw_pred = model(x)
-                if name == "GaussianNLL":
+                method_name = name
+                output = raw_pred
+                if method_name in [
+                    "NormalizingFlow",
+                    "MDN",
+                    "PseudoLabelNLL (Flow)",
+                    "PrevalenceAdjustedCP",
+                ]:
+                    with torch.no_grad():
+                        # Fix sampling RNG per method for stable comparison metrics.
+                        torch.manual_seed(2025 + i)
+                        samples = output.sample(1000)
+                        pred_mean = samples.mean(dim=0)
+                    y_pred_local = pred_mean
+                elif method_name == "MonteCarloConformal":
+                    pass
+                elif name == "GaussianNLL":
                     mean, log_var = torch.chunk(raw_pred, 2, dim=-1)
                     var = torch.exp(log_var)
                     # Fix sampling RNG per method for stable comparison metrics.
