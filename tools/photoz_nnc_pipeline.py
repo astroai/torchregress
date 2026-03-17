@@ -128,8 +128,7 @@ def _load_raw_table(path: Path) -> pd.DataFrame:
             ) from exc
         return Table.read(path).to_pandas()
     raise ValueError(
-        f"Unsupported raw NNC catalog format `{suffix}` for {path}. "
-        "Use CSV, JSON, JSONL, or FITS."
+        f"Unsupported raw NNC catalog format `{suffix}` for {path}. Use CSV, JSON, JSONL, or FITS."
     )
 
 
