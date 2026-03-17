@@ -236,53 +236,53 @@ class EnsemblePerturbationAugmenter(nn.Module):
                     f"expected shape ({n_features}, {n_features})"
                 )
 
-        samples: List[torch.Tensor] = []
         if self.perturb_method == "gaussian":
             if sigma_tensor.ndim <= 1:
                 sigma_vec = (
                     sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
                 )
-                for _ in range(self.n_samples):
-                    noise = torch.randn(batch_size, n_features, device=device) * sigma_vec.view(
-                        1, -1
-                    )
-                    samples.append(x + noise)
-                return samples
+                noise = torch.randn(
+                    self.n_samples, batch_size, n_features, device=device, dtype=x.dtype
+                ) * sigma_vec.view(1, 1, -1)
+                return list((x.unsqueeze(0) + noise).unbind(0))
 
             # Full covariance Gaussian
             try:
                 mvn = MultivariateNormal(
                     torch.zeros(n_features, device=device, dtype=x.dtype), sigma_tensor
                 )
-                for _ in range(self.n_samples):
-                    noise = mvn.sample((batch_size,))
-                    samples.append(x + noise)
+                noise = mvn.sample((self.n_samples, batch_size))
+                return list((x.unsqueeze(0) + noise).unbind(0))
             except (RuntimeError, ValueError):
                 diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
-                noise = torch.randn(batch_size, n_features, device=device) * torch.sqrt(diag).view(
-                    1, -1
-                )
-                for _ in range(self.n_samples):
-                    samples.append(x + noise)
-            return samples
+                noise = torch.randn(
+                    self.n_samples, batch_size, n_features, device=device, dtype=x.dtype
+                ) * torch.sqrt(diag).view(1, 1, -1)
+                return list((x.unsqueeze(0) + noise).unbind(0))
 
         # uniform
         scale_factor = 1.732  # sqrt(3)
         if sigma_tensor.ndim <= 1:
             sigma_vec = sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
-            half_range = sigma_vec.view(1, -1) * scale_factor
-            for _ in range(self.n_samples):
-                noise = (torch.rand(batch_size, n_features, device=device) * 2 - 1) * half_range
-                samples.append(x + noise)
-            return samples
+            half_range = sigma_vec.view(1, 1, -1) * scale_factor
+            noise = (
+                torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype)
+                * 2
+                - 1
+            ) * half_range
+            return list((x.unsqueeze(0) + noise).unbind(0))
 
         diag = torch.diagonal(sigma_tensor, dim1=-2, dim2=-1)
-        half_range = torch.sqrt(diag).view(1, -1) * scale_factor
-        for _ in range(self.n_samples):
-            noise = (torch.rand(batch_size, n_features, device=device) * 2 - 1) * half_range
-            samples.append(x + noise)
-        return samples
+        half_range = torch.sqrt(diag).view(1, 1, -1) * scale_factor
+        noise = (
+            torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype) * 2 - 1
+        ) * half_range
+        return list((x.unsqueeze(0) + noise).unbind(0))
 
     def generate_and_stack(self, x: torch.Tensor) -> torch.Tensor:
+        # Instead of calling forward and stacking a list, we can compute directly
+        # or we can reuse forward and torch.stack.
+        # Since forward now internally unbinds, we might be slightly less efficient here,
+        # but the optimization to forward benefits both cases significantly.
         samples = self.forward(x)
         return torch.stack(samples)
