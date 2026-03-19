@@ -179,8 +179,9 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         x_obs = torch.randn(batch_size, n_features_x, requires_grad=True, dtype=torch.double)
         loss_mc = loss_fn_mc(x_obs, y_obs)
         loss_mc.backward()
-        assert x_obs.grad is not None
-        assert torch.isfinite(x_obs.grad).all()
+        for param in (x_obs, y_obs, weight, bias):
+            assert param.grad is not None
+            assert torch.isfinite(param.grad).all()
 
     def test_structural_eiv_gradient_flow(self):
         """Test that gradients flow through StructuralEIVLoss properly."""
@@ -223,8 +224,9 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         # or for the input itself.
         loss = loss_fn(x_obs, y_obs)
         loss.backward()
-        assert x_obs.grad is not None
-        assert torch.isfinite(x_obs.grad).all()
+        for param in (x_obs, y_obs, weight):
+            assert param.grad is not None
+            assert torch.isfinite(param.grad).all()
 
     def test_ensemble_eiv_gradient_flow(self):
         """Test that gradients flow through EnsembleEIVLoss properly."""
@@ -247,7 +249,9 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         # unless we fix the seed. Let's at least check gradients are finite.
         loss = loss_fn(x_obs, y_obs)
         loss.backward()
-        assert torch.isfinite(x_obs.grad).all()
+        for param in (x_obs, y_obs, weight):
+            assert param.grad is not None
+            assert torch.isfinite(param.grad).all()
 
     def test_extreme_values(self):
         """Test stability with extreme values."""
