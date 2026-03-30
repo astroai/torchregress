@@ -168,12 +168,14 @@ def probability_integral_transform(
     counts = torch.histogram(pit_values, bin_edges)[0]
     expected = pit_values.numel() / n_bins
     uniformity_chi2 = torch.sum((counts - expected) ** 2 / max(expected, 1.0))
+    ks_statistic = kolmogorov_smirnov_uniform_statistic(pit_values)
 
     result: Dict[str, Union[torch.Tensor, np.ndarray, float]] = {
         "pit_values": pit_values,
         "histogram_counts": counts,
         "bin_edges": bin_edges,
         "uniformity_chi2": uniformity_chi2,
+        "uniformity_ks": ks_statistic,
     }
 
     if as_numpy or isinstance(y_true, np.ndarray):
@@ -182,8 +184,118 @@ def probability_integral_transform(
             "histogram_counts": counts.cpu().numpy(),
             "bin_edges": bin_edges.cpu().numpy(),
             "uniformity_chi2": float(uniformity_chi2.item()),
+            "uniformity_ks": float(ks_statistic.item()),
         }
     return result
+
+
+def kolmogorov_smirnov_uniform_statistic(
+    pit_values: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    """Kolmogorov-Smirnov statistic against Uniform(0, 1)."""
+    values = convert_to_tensor(pit_values).flatten()
+    if values.numel() == 0:
+        raise ValueError("pit_values must contain at least one value")
+    values = torch.sort(values.clamp(0.0, 1.0))[0]
+    n = values.numel()
+    ranks = torch.arange(1, n + 1, device=values.device, dtype=values.dtype)
+    cdf_upper = ranks / n
+    cdf_lower = (ranks - 1) / n
+    d_plus = torch.max(cdf_upper - values)
+    d_minus = torch.max(values - cdf_lower)
+    return torch.maximum(d_plus, d_minus)
+
+
+def conditional_density_estimation_loss(
+    support: Union[torch.Tensor, np.ndarray],
+    density: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    reduction: str = "mean",
+) -> Union[torch.Tensor, float]:
+    """Empirical conditional density estimation loss on a 1D support grid.
+
+    This implements the standard CDE benchmark score up to an additive constant:
+
+    ``L = ∫ f_hat(y | x)^2 dy - 2 f_hat(y_true | x)``
+
+    The support is treated as an ordered 1D grid and the integral is approximated
+    with a trapezoidal rule. ``density`` must therefore represent density values,
+    not probabilities.
+    """
+    support_t = convert_to_tensor(support).flatten()
+    density_t = convert_to_tensor(density)
+    y_true_t = convert_to_tensor(y_true).to(density_t.device).flatten()
+
+    if support_t.ndim != 1 or support_t.numel() < 2:
+        raise ValueError("support must be a 1D tensor with at least two points")
+    if density_t.ndim != 2:
+        raise ValueError("density must have shape [batch, support]")
+    if density_t.shape[1] != support_t.numel():
+        raise ValueError(
+            f"density support mismatch: got {density_t.shape[1]} support values for "
+            f"{support_t.numel()} support points"
+        )
+    if density_t.shape[0] != y_true_t.shape[0]:
+        raise ValueError(
+            f"batch mismatch: density has {density_t.shape[0]} rows but y_true has "
+            f"{y_true_t.shape[0]} values"
+        )
+
+    support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
+    if not torch.all(support_t[1:] > support_t[:-1]):
+        raise ValueError("support must be strictly increasing")
+
+    integral_term = torch.trapezoid(density_t.square(), support_t, dim=-1)
+    density_at_y = _interp1d(support_t, density_t, y_true_t)
+    loss = integral_term - 2.0 * density_at_y
+
+    if reduction == "none":
+        return loss
+    if reduction == "sum":
+        return float(loss.sum().item())
+    return float(loss.mean().item())
+
+
+def highest_posterior_density_level(
+    support: Union[torch.Tensor, np.ndarray],
+    density: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    """Return HPD calibration levels for 1D predictive densities.
+
+    For a calibrated predictive density, these levels should be uniformly distributed
+    on ``[0, 1]``. Lower values indicate that the observed target lies in a denser,
+    more central region of the predictive distribution.
+    """
+    support_t = convert_to_tensor(support).flatten()
+    density_t = convert_to_tensor(density)
+    y_true_t = convert_to_tensor(y_true).to(density_t.device).flatten()
+
+    if support_t.ndim != 1 or support_t.numel() < 2:
+        raise ValueError("support must be a 1D tensor with at least two points")
+    if density_t.ndim != 2 or density_t.shape[1] != support_t.numel():
+        raise ValueError("density must have shape [batch, support]")
+    if density_t.shape[0] != y_true_t.shape[0]:
+        raise ValueError("density and y_true must share the batch dimension")
+
+    support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
+    delta = _support_widths(support_t)
+    normalized_density = density_t / torch.trapezoid(density_t, support_t, dim=-1).clamp_min(1.0e-8).unsqueeze(-1)
+    density_at_y = _interp1d(support_t, normalized_density, y_true_t)
+    mask = normalized_density >= density_at_y.unsqueeze(-1)
+    mass = torch.sum(normalized_density * delta.unsqueeze(0) * mask.to(normalized_density.dtype), dim=-1)
+    return mass.clamp(0.0, 1.0)
+
+
+def highest_posterior_density_coverage(
+    support: Union[torch.Tensor, np.ndarray],
+    density: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    alpha: float = 0.1,
+) -> float:
+    """Coverage of the HPD region with nominal mass ``alpha``."""
+    levels = highest_posterior_density_level(support, density, y_true)
+    return float((levels <= float(alpha)).to(levels.dtype).mean().item())
 
 
 def gaussian_nll(
@@ -234,6 +346,33 @@ def crps_gaussian(
     if reduction == "sum":
         return float(torch.sum(crps).item())
     return float(torch.mean(crps).item())
+
+
+def _support_widths(support: torch.Tensor) -> torch.Tensor:
+    widths = torch.empty_like(support)
+    widths[1:-1] = 0.5 * (support[2:] - support[:-2])
+    widths[0] = support[1] - support[0]
+    widths[-1] = support[-1] - support[-2]
+    return widths.clamp_min(1.0e-8)
+
+
+def _interp1d(
+    support: torch.Tensor,
+    values: torch.Tensor,
+    query: torch.Tensor,
+) -> torch.Tensor:
+    support = support.to(device=values.device, dtype=values.dtype)
+    query = query.to(device=values.device, dtype=values.dtype)
+    idx = torch.searchsorted(support, query, right=False)
+    idx = idx.clamp(1, support.numel() - 1)
+    left_idx = idx - 1
+    right_idx = idx
+    x0 = support[left_idx]
+    x1 = support[right_idx]
+    y0 = values.gather(1, left_idx.unsqueeze(-1)).squeeze(-1)
+    y1 = values.gather(1, right_idx.unsqueeze(-1)).squeeze(-1)
+    weight = ((query - x0) / (x1 - x0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
+    return y0 + weight * (y1 - y0)
 
 
 def continuous_ranked_probability_score(

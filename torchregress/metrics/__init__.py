@@ -27,12 +27,16 @@ from .decision import (
 from .distribution import (
     ContinuousRankedProbabilityScore,
     EnergyScore,
+    conditional_density_estimation_loss,
     continuous_ranked_probability_score,
     crps_from_samples,
     crps_gaussian,
     distribution_metrics_report,
     energy_score,
     gaussian_nll,
+    highest_posterior_density_coverage,
+    highest_posterior_density_level,
+    kolmogorov_smirnov_uniform_statistic,
     probability_integral_transform,
 )
 from .ensemble import (
@@ -123,11 +127,15 @@ __all__ = [
     # Distribution
     "ContinuousRankedProbabilityScore",
     "EnergyScore",
+    "conditional_density_estimation_loss",
     "continuous_ranked_probability_score",
     "crps_from_samples",
     "energy_score",
     "gaussian_nll",
     "crps_gaussian",
+    "highest_posterior_density_coverage",
+    "highest_posterior_density_level",
+    "kolmogorov_smirnov_uniform_statistic",
     "probability_integral_transform",
     "distribution_metrics_report",
     # Decision

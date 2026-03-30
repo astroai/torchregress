@@ -174,7 +174,7 @@ The current real tabular photo-z benchmark program in `torchz` is useful as a de
 - `MDN` and calibrated ensembles are the strongest all-around probabilistic methods on the current GalaxiesML benchmark.
 - `DensityWeightedLoss` and `LDSLoss` are not yet good default advice for photo-z tails; they need benchmark-backed wins before being the recommended first move.
 - Jacobian-style EIV methods are promising but not yet the easiest production surface; explicit input-noise marginalization is often a better first benchmark.
-- Always report `CRPS` alongside `NLL`, calibration, and classical point metrics when comparing probabilistic regressors.
+- Always report `CRPS` alongside `NLL`, calibration, classical point metrics, and density-specific diagnostics such as empirical `CDE` loss and `HPD` calibration when comparing probabilistic regressors.
 
 ## License
 
