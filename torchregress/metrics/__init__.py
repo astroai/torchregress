@@ -28,6 +28,7 @@ from .distribution import (
     ContinuousRankedProbabilityScore,
     EnergyScore,
     continuous_ranked_probability_score,
+    crps_from_samples,
     crps_gaussian,
     distribution_metrics_report,
     energy_score,
@@ -37,10 +38,13 @@ from .distribution import (
 from .ensemble import (
     EnsembleIntervalMetrics,
     GaussianNLLEnsemble,
+    ensemble_interval_bounds,
+    ensemble_interval_metrics,
     ensemble_mean,
     ensemble_statistics,
     ensemble_std,
     ensemble_variance_decomposition,
+    gaussian_nll_ensemble,
     uncertainty_decomposition,
 )
 from .interval import (
@@ -120,6 +124,7 @@ __all__ = [
     "ContinuousRankedProbabilityScore",
     "EnergyScore",
     "continuous_ranked_probability_score",
+    "crps_from_samples",
     "energy_score",
     "gaussian_nll",
     "crps_gaussian",
@@ -132,6 +137,9 @@ __all__ = [
     # Ensemble
     "GaussianNLLEnsemble",
     "EnsembleIntervalMetrics",
+    "gaussian_nll_ensemble",
+    "ensemble_interval_bounds",
+    "ensemble_interval_metrics",
     "ensemble_mean",
     "ensemble_std",
     "ensemble_statistics",

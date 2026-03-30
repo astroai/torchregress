@@ -14,10 +14,14 @@ from torchregress.metrics.calibration import (
 )
 from torchregress.metrics.distribution import (
     continuous_ranked_probability_score,
+    crps_from_samples,
+    crps_gaussian,
     distribution_metrics_report,
     energy_score,
+    gaussian_nll,
     probability_integral_transform,
 )
+from torchregress.metrics.ensemble import ensemble_interval_metrics, gaussian_nll_ensemble
 from torchregress.metrics.interval import (
     interval_metrics_report,
     interval_score,
@@ -265,6 +269,28 @@ class TestDistributionMetrics:
         result_np = probability_integral_transform(cdf_fn, y_true_np, return_histogram=True)
         assert isinstance(result_np["pit_values"], np.ndarray)
 
+    def test_gaussian_crps_and_ensemble_metrics(self):
+        mean = torch.linspace(-0.5, 0.5, steps=self.batch_size)
+        std = torch.full_like(mean, 0.4)
+        y_true = mean + 0.1
+
+        crps = crps_gaussian(mean, y_true, std)
+        nll = gaussian_nll(mean, y_true, std.square())
+        assert isinstance(crps, float)
+        assert isinstance(nll, float)
+        assert crps >= 0.0
+
+        ensemble_means = torch.stack([mean - 0.05, mean + 0.05, mean])
+        ensemble_vars = torch.stack([std.square(), (1.1 * std).square(), (0.9 * std).square()])
+        ensemble_nll = gaussian_nll_ensemble(ensemble_means, ensemble_vars, y_true)
+        ensemble_intervals = ensemble_interval_metrics(ensemble_means, ensemble_vars, y_true, alpha=0.2)
+
+        assert torch.is_tensor(ensemble_nll)
+        assert torch.isfinite(ensemble_nll)
+        assert set(ensemble_intervals) == {"interval_score", "picp"}
+        assert torch.isfinite(ensemble_intervals["interval_score"])
+        assert torch.isfinite(ensemble_intervals["picp"])
+
     def test_continuous_ranked_probability_score(self):
         """Test CRPS metric."""
         # Test basic CRPS calculation
@@ -289,6 +315,23 @@ class TestDistributionMetrics:
             # Test with too few quantiles
             bad_quantiles = {0.5: self.y_pred_quantiles[0.5]}
             continuous_ranked_probability_score(bad_quantiles, self.y_true)
+
+    def test_crps_from_samples(self):
+        samples = torch.stack(
+            [
+                self.y_true - 0.1,
+                self.y_true,
+                self.y_true + 0.1,
+            ],
+            dim=0,
+        )
+        crps = crps_from_samples(samples, self.y_true)
+        assert isinstance(crps, float)
+        assert crps >= 0
+
+        crps_none = crps_from_samples(samples, self.y_true, reduction="none")
+        assert isinstance(crps_none, torch.Tensor)
+        assert crps_none.shape == self.y_true.shape
 
     def test_energy_score(self):
         """Test energy score metric."""

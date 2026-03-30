@@ -298,6 +298,43 @@ def continuous_ranked_probability_score(
     return float(torch.mean(crps_values).item())
 
 
+def crps_from_samples(
+    y_samples: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    reduction: str = "mean",
+) -> Union[torch.Tensor, float]:
+    """Empirical CRPS from predictive samples for univariate regression.
+
+    Uses the standard sample approximation:
+
+    ``CRPS = E|X - y| - 0.5 E|X - X'|``
+    """
+    y_true_t = convert_to_tensor(y_true)
+    samples_t = convert_to_tensor(y_samples)
+    if samples_t.dim() == y_true_t.dim():
+        samples_t = samples_t.unsqueeze(0)
+    if samples_t.dim() != y_true_t.dim() + 1:
+        raise ValueError(
+            "y_samples must have shape [n_samples, batch, ...] matching y_true shape [batch, ...]"
+        )
+    if samples_t.shape[1:] != y_true_t.shape:
+        raise ValueError(
+            f"y_samples trailing shape {tuple(samples_t.shape[1:])} must match y_true "
+            f"shape {tuple(y_true_t.shape)}"
+        )
+
+    term1 = torch.mean(torch.abs(samples_t - y_true_t.unsqueeze(0)), dim=0)
+    pairwise = torch.abs(samples_t.unsqueeze(0) - samples_t.unsqueeze(1))
+    term2 = 0.5 * torch.mean(pairwise, dim=(0, 1))
+    crps = term1 - term2
+
+    if reduction == "none":
+        return crps
+    if reduction == "sum":
+        return float(torch.sum(crps).item())
+    return float(torch.mean(crps).item())
+
+
 def energy_score(
     y_samples: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -392,6 +429,8 @@ def distribution_metrics_report(
         results["crps"] = continuous_ranked_probability_score(
             y_pred_quantiles, y_true_t, reduction="mean"
         )
+    elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+        results["crps"] = crps_from_samples(samples, y_true_t, reduction="mean")
 
     if samples is not None and y_true_t.dim() > 1:
         results["energy_score"] = energy_score(samples, y_true_t, reduction="mean")

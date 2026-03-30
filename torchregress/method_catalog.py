@@ -91,7 +91,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Strong",
         imbalance="yes",
         calibration="partial",
-        notes="Validate calibration after reweighting.",
+        notes="Validate calibration after reweighting; photo-z benchmarks currently show this is highly data- and protocol-sensitive.",
     ),
     MethodMetadata(
         name="PropensityWeightedLoss",
@@ -204,7 +204,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         non_gaussian="partial",
         aleatoric="yes",
         calibration="partial",
-        notes="Adds target-noise variance to predictive variance before NLL scoring.",
+        notes="Adds target-noise variance to predictive variance before NLL scoring; strongest when probabilistic label uncertainty is genuinely available.",
     ),
     MethodMetadata(
         name="ConsistencyRegLoss",
@@ -455,6 +455,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Available",
         noisy_features_eiv="yes",
         calibration="partial",
+        notes="Powerful but ergonomically awkward; explicit adapters or simpler MC input-noise baselines can be easier to debug in practice.",
     ),
     MethodMetadata(
         name="StructuralEIVLoss",
@@ -509,6 +510,45 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ood_support="partial",
         calibration="partial",
         notes="Shared-weight ensemble variant for lower-latency uncertainty decomposition.",
+    ),
+    MethodMetadata(
+        name="BinnedPDFEnsembleModel",
+        family="ensemble",
+        public_path="torchregress.ensemble.BinnedPDFEnsembleModel",
+        task_tags=("multimodal_targets", "non_gaussian", "calibration"),
+        maturity="Available",
+        epistemic="yes",
+        aleatoric="partial",
+        decomposition="partial",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="Averages per-member bin probabilities in predictive-distribution space; strongest when discrete PDFs are the desired output surface.",
+    ),
+    MethodMetadata(
+        name="CumulativeLinkEnsembleModel",
+        family="ensemble",
+        public_path="torchregress.ensemble.CumulativeLinkEnsembleModel",
+        task_tags=("ordinal", "non_gaussian", "calibration"),
+        maturity="Available",
+        epistemic="yes",
+        aleatoric="partial",
+        decomposition="partial",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="Averages ordinal CDF / PMF predictions across members rather than averaging thresholds.",
+    ),
+    MethodMetadata(
+        name="MDNEnsembleModel",
+        family="ensemble",
+        public_path="torchregress.ensemble.MDNEnsembleModel",
+        task_tags=("multimodal_targets", "non_gaussian", "calibration", "uq_decomposition"),
+        maturity="Available",
+        epistemic="yes",
+        aleatoric="yes",
+        decomposition="yes",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="Uses a mixture-of-mixtures aggregation to avoid MDN component label-switching across members.",
     ),
     MethodMetadata(
         name="MCDropoutWrapper",
@@ -584,15 +624,17 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Heteroscedastic noise (aleatoric UQ)",
-        recommended_start="GaussianNLLLoss",
-        strong_alternatives=("HeteroscedasticEnsembleModel", "MDNLoss", "NormalizingFlowLoss"),
-        notes="Single-model heteroscedastic is the cheapest upgrade.",
+        recommended_start="GaussianCRPSLoss",
+        strong_alternatives=("GaussianNLLLoss", "HeteroscedasticEnsembleModel", "MDNLoss"),
+        notes="Photo-z benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline.",
     ),
     TaskRecommendation(
         task="Epistemic uncertainty",
         recommended_start="DeepEnsemble",
         strong_alternatives=(
             "HeteroscedasticBatchEnsembleModel",
+            "BinnedPDFEnsembleModel",
+            "MDNEnsembleModel",
             "SWAG",
             "BayesianNeuralNetwork",
             "MCDropoutWrapper",
@@ -608,8 +650,8 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Multimodal targets",
         recommended_start="MDNLoss",
-        strong_alternatives=("NormalizingFlowLoss",),
-        notes="MDN is usually easier to debug first.",
+        strong_alternatives=("MDNEnsembleModel", "BinnedPDFEnsembleModel", "NormalizingFlowLoss"),
+        notes="MDN is usually easier to debug first; ensembles of MDN or ordered-bin heads are the next move when mode averaging matters.",
     ),
     TaskRecommendation(
         task="Non-Gaussian / skewed tails",
@@ -625,11 +667,13 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Noisy features / measurement error",
-        recommended_start=(
-            "FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss"
+        recommended_start="InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF",
+        strong_alternatives=(
+            "FunctionalEIVLoss",
+            "StructuralEIVLoss",
+            "OrthogonalDistanceRegressionLoss",
         ),
-        strong_alternatives=("EnsembleEIVLoss",),
-        notes="EIV losses change the call pattern (input noise is modeled).",
+        notes="Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help.",
     ),
     TaskRecommendation(
         task="Noisy labels / label corruption",
@@ -639,9 +683,9 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Imbalanced / rare-target regression",
-        recommended_start="DensityWeightedLoss",
-        strong_alternatives=("PropensityWeightedLoss", "LDSLoss"),
-        notes="Check calibration after aggressive reweighting.",
+        recommended_start="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
+        strong_alternatives=("DensityConformal", "DensityWeightedLoss", "LDSLoss"),
+        notes="Photo-z benchmarks do not yet justify density weighting as the default first move; check whether tail gains survive calibration and shift slices.",
     ),
     TaskRecommendation(
         task="Selection bias / covariate-dependent missing labels",
@@ -663,27 +707,21 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Calibrated intervals with coverage guarantees",
-        recommended_start="ConformalLoss",
-        strong_alternatives=("QuantileLoss",),
-        notes="Conformal gives coverage, not UQ decomposition.",
+        recommended_start="ConformalLoss on top of a strong probabilistic backbone",
+        strong_alternatives=("QuantileLoss", "MonteCarloConformal", "DensityConformal"),
+        notes="Conformal gives coverage, not density estimation; keep CRPS/NLL reporting from the underlying predictive model.",
     ),
     TaskRecommendation(
         task="Density-aware conformal under long-tail targets",
         recommended_start="DensityConformal",
         strong_alternatives=("PrevalenceAdjustedCP", "MonteCarloConformal"),
-        notes="Prefer density/prevalence variants when tail-region coverage is a key objective.",
+        notes="Prefer density/prevalence variants when tail-region coverage is a key objective; point-accuracy gains are not guaranteed.",
     ),
     TaskRecommendation(
         task="Uncertain ground-truth / weak labels",
         recommended_start="NoisyTargetGaussianNLL",
-        strong_alternatives=(
-            "PseudoLabelConsistencyLoss",
-            "PseudoLabelNLL",
-            "ConsistencyRegLoss",
-        ),
-        notes=(
-            "Model target uncertainty explicitly and blend pseudo labels with confidence weights."
-        ),
+        strong_alternatives=("OrdinalCrossEntropyLoss", "PseudoLabelConsistencyLoss", "PseudoLabelNLL"),
+        notes="Use NoisyTargetGaussianNLL for Gaussian label uncertainty and soft-bin / PMF supervision when target PDFs or intervals are the natural label form.",
     ),
     TaskRecommendation(
         task="Semi-supervised regression",
@@ -762,18 +800,18 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
     DecisionWorkflowStep(
         order=4,
         question="Have noisy features / measurement error?",
-        primary_recommendation=(
-            "FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss"
+        primary_recommendation="InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF",
+        alternatives=(
+            "FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss",
         ),
-        alternatives=("EnsembleEIVLoss",),
-        caveat="EIV losses use a different call pattern (observed x passed as loss input).",
+        caveat="Use the simpler explicit input-noise path first, including test-time predictive averaging; Jacobian-style EIV losses are more fragile and need careful benchmarking.",
     ),
     DecisionWorkflowStep(
         order=5,
         question="Have imbalanced tails / rare targets?",
-        primary_recommendation="DensityWeightedLoss",
-        alternatives=("LDSLoss",),
-        caveat="Validate calibration after aggressive reweighting.",
+        primary_recommendation="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
+        alternatives=("DensityConformal", "DensityWeightedLoss", "LDSLoss"),
+        caveat="Density-aware weighting is not yet a universally strong default on photo-z benchmarks.",
     ),
     DecisionWorkflowStep(
         order=6,
@@ -791,7 +829,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         order=7,
         question="Are labels uncertain or weak (noisy targets, pseudo-labels, partial trust)?",
         primary_recommendation="NoisyTargetGaussianNLL",
-        alternatives=("PseudoLabelNLL", "ConsistencyRegLoss"),
+        alternatives=("OrdinalCrossEntropyLoss", "PseudoLabelNLL", "ConsistencyRegLoss"),
         caveat=(
             "Retain held-out clean-label evaluation where available to avoid self-confirming loops."
         ),

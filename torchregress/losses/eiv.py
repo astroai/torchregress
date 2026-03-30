@@ -83,6 +83,8 @@ class BaseEIVLoss(RegressionLoss):
         device: torch.device,
         batch_size: Optional[int] = None,
         dtype: Optional[torch.dtype] = None,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        sigma_y: Optional[Union[float, torch.Tensor]] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
         Prepare covariance matrices for features and targets.
@@ -97,15 +99,21 @@ class BaseEIVLoss(RegressionLoss):
         Returns:
             Tuple of (sigma_x_tensor, sigma_y_tensor)
         """
+        sigma_x_value = self.sigma_x if sigma_x is None else sigma_x
+        sigma_y_value = self.sigma_y if sigma_y is None else sigma_y
         sigma_x_tensor = self._prepare_covariance_from_sigma(
-            self.sigma_x, n_features_x, device, batch_size, dtype
+            sigma_x_value, n_features_x, device, batch_size, dtype
         )
         sigma_y_tensor = None
-        if self.sigma_y is not None:
+        if sigma_y_value is not None:
             sigma_y_tensor = self._prepare_covariance_from_sigma(
-                self.sigma_y, n_features_y, device, batch_size, dtype
+                sigma_y_value, n_features_y, device, batch_size, dtype
             )
         return sigma_x_tensor, sigma_y_tensor
+
+    def explicit(self) -> "ExplicitEIVAdapter":
+        """Return an explicit-call adapter with ``x_obs`` as the first argument."""
+        return ExplicitEIVAdapter(self)
 
     def _prepare_covariance_from_sigma(
         self,
@@ -236,6 +244,215 @@ class BaseEIVLoss(RegressionLoss):
         return torch.sum(diff * torch.bmm(diff.unsqueeze(1), sigma_inv).squeeze(1), dim=1)
 
 
+class ExplicitEIVAdapter:
+    """Adapter exposing EIV losses with an explicit ``(x_obs, target)`` call surface."""
+
+    def __init__(self, loss: BaseEIVLoss):
+        self.loss = loss
+
+    def __call__(
+        self,
+        x_obs: torch.Tensor,
+        target: torch.Tensor,
+        *,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        sigma_y: Optional[Union[float, torch.Tensor]] = None,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        return self.loss(
+            x_obs,
+            target,
+            mask=mask,
+            weights=weights,
+            sigma_x=sigma_x,
+            sigma_y=sigma_y,
+            **kwargs,
+        )
+
+
+@register_regression_loss("input_noise_marginalization")
+class InputNoiseMarginalizationLoss(RegressionLoss):
+    """Monte-Carlo input-noise marginalization with an explicit ``x_obs`` entry surface.
+
+    This is a simpler EIV-style baseline for tabular measurement-error problems:
+    perturb observed inputs according to their reported uncertainties, run the model on
+    those perturbations, and average the chosen downstream loss.
+    """
+
+    def __init__(
+        self,
+        model: Callable,
+        base_loss: Callable[..., torch.Tensor],
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        *,
+        n_samples: int = 4,
+        min_sigma: float = 1.0e-4,
+        antithetic: bool = False,
+        reduction: str = "mean",
+    ) -> None:
+        super().__init__(reduction=reduction)
+        self.model = model
+        self.base_loss = base_loss
+        self.sigma_x = sigma_x
+        self.n_samples = int(n_samples)
+        self.min_sigma = float(min_sigma)
+        self.antithetic = bool(antithetic)
+
+    def _sigma_tensor(
+        self,
+        x_obs: torch.Tensor,
+        sigma_x: Optional[Union[float, torch.Tensor]],
+    ) -> torch.Tensor:
+        sigma_value = self.sigma_x if sigma_x is None else sigma_x
+        if sigma_value is None:
+            raise ValueError("sigma_x must be provided either at init time or in forward()")
+        if isinstance(sigma_value, (int, float)):
+            return torch.full_like(x_obs, float(sigma_value)).clamp_min(self.min_sigma)
+        sigma = sigma_value.to(device=x_obs.device, dtype=x_obs.dtype)
+        if sigma.numel() == 1:
+            return torch.full_like(x_obs, float(sigma.item())).clamp_min(self.min_sigma)
+        if sigma.ndim == 1:
+            if sigma.shape[0] != x_obs.shape[-1]:
+                raise ValueError(
+                    f"sigma_x shape {tuple(sigma.shape)} must match feature dim {x_obs.shape[-1]}"
+                )
+            return sigma.view(1, -1).expand_as(x_obs).clamp_min(self.min_sigma)
+        if sigma.ndim == 2:
+            if sigma.shape == x_obs.shape:
+                return sigma.clamp_min(self.min_sigma)
+            if sigma.shape == (x_obs.shape[-1], x_obs.shape[-1]):
+                return (
+                    torch.sqrt(torch.diag(sigma).clamp_min(0.0))
+                    .view(1, -1)
+                    .expand_as(x_obs)
+                    .clamp_min(self.min_sigma)
+                )
+        if sigma.ndim == 3:
+            if sigma.shape[0] != x_obs.shape[0] or sigma.shape[-2:] != (
+                x_obs.shape[-1],
+                x_obs.shape[-1],
+            ):
+                raise ValueError(
+                    "sigma_x with 3 dimensions must have shape "
+                    f"({x_obs.shape[0]}, {x_obs.shape[-1]}, {x_obs.shape[-1]})"
+                )
+            return (
+                torch.sqrt(torch.diagonal(sigma, dim1=-2, dim2=-1).clamp_min(0.0))
+                .clamp_min(self.min_sigma)
+            )
+        raise ValueError(
+            "sigma_x must be scalar, [features], [batch, features], [features, features], "
+            "or [batch, features, features]"
+        )
+
+    def _draw_perturbations(
+        self,
+        observed: torch.Tensor,
+        sigma: torch.Tensor,
+        *,
+        n_samples: Optional[int] = None,
+        antithetic: Optional[bool] = None,
+    ) -> torch.Tensor:
+        """Draw Gaussian perturbations for explicit input-noise marginalization."""
+        sample_count = int(self.n_samples if n_samples is None else n_samples)
+        use_antithetic = self.antithetic if antithetic is None else bool(antithetic)
+        if sample_count <= 0:
+            raise ValueError("n_samples must be >= 1")
+        if not use_antithetic:
+            noise = torch.randn(
+                sample_count,
+                *observed.shape,
+                device=observed.device,
+                dtype=observed.dtype,
+            )
+            return observed.unsqueeze(0) + noise * sigma.unsqueeze(0)
+
+        half = (sample_count + 1) // 2
+        base_noise = torch.randn(
+            half,
+            *observed.shape,
+            device=observed.device,
+            dtype=observed.dtype,
+        )
+        paired = torch.cat([base_noise, -base_noise], dim=0)[:sample_count]
+        return observed.unsqueeze(0) + paired * sigma.unsqueeze(0)
+
+    def sample_predictions(
+        self,
+        x_obs: torch.Tensor,
+        *,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        n_samples: Optional[int] = None,
+        antithetic: Optional[bool] = None,
+    ) -> Union[torch.Tensor, list[Any]]:
+        """Return model predictions under input-noise perturbations.
+
+        Tensor outputs are stacked to ``[n_samples, batch, ...]``. Structured outputs are
+        returned as a list aligned with the perturbation draws.
+        """
+        sigma = self._sigma_tensor(x_obs, sigma_x)
+        perturbed = self._draw_perturbations(
+            x_obs,
+            sigma,
+            n_samples=n_samples,
+            antithetic=antithetic,
+        )
+        outputs = [self.model(sample) for sample in perturbed]
+        if outputs and isinstance(outputs[0], torch.Tensor):
+            return torch.stack(cast(list[torch.Tensor], outputs))
+        return outputs
+
+    def predictive_average(
+        self,
+        x_obs: torch.Tensor,
+        *,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        n_samples: Optional[int] = None,
+        antithetic: Optional[bool] = None,
+        transform: Optional[Callable[[Union[torch.Tensor, list[Any]]], Any]] = None,
+    ) -> Any:
+        """Average predictions over perturbed inputs for test-time marginalization.
+
+        If ``transform`` is provided, it is applied to the stacked predictions and its
+        result is returned. Otherwise tensor outputs are averaged across the sample axis.
+        """
+        outputs = self.sample_predictions(
+            x_obs,
+            sigma_x=sigma_x,
+            n_samples=n_samples,
+            antithetic=antithetic,
+        )
+        if transform is not None:
+            return transform(outputs)
+        if isinstance(outputs, torch.Tensor):
+            return outputs.mean(dim=0)
+        raise ValueError(
+            "predictive_average requires a transform when model outputs are not tensors."
+        )
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        *,
+        x_obs: Optional[torch.Tensor] = None,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        observed = y_pred if x_obs is None else x_obs
+        predictions = self.sample_predictions(observed, sigma_x=sigma_x)
+        if not isinstance(predictions, torch.Tensor):
+            raise ValueError("InputNoiseMarginalizationLoss currently expects tensor model outputs.")
+        losses = []
+        for prediction in predictions:
+            losses.append(self.base_loss(prediction, target, mask=mask, weights=weights, **kwargs))
+        return torch.stack(losses).mean(dim=0)
+
+
 @register_regression_loss("functional_eiv")
 class FunctionalEIVLoss(BaseEIVLoss):
     """
@@ -328,6 +545,8 @@ class FunctionalEIVLoss(BaseEIVLoss):
         # target is the observed y values (with noise)
         x_obs = y_pred
         y_true = apply_mask(target, mask)
+        sigma_x_override = kwargs.pop("sigma_x", None)
+        sigma_y_override = kwargs.pop("sigma_y", None)
 
         batch_size, n_features_x = x_obs.shape
         n_features_y = y_true.shape[1]
@@ -335,7 +554,13 @@ class FunctionalEIVLoss(BaseEIVLoss):
 
         # Prepare noise parameters
         sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(
-            n_features_x, n_features_y, device, batch_size, dtype=x_obs.dtype
+            n_features_x,
+            n_features_y,
+            device,
+            batch_size,
+            dtype=x_obs.dtype,
+            sigma_x=sigma_x_override,
+            sigma_y=sigma_y_override,
         )
 
         if not self.monte_carlo:
@@ -548,6 +773,8 @@ class StructuralEIVLoss(BaseEIVLoss):
         # target is the observed y values (with noise)
         x_obs = y_pred
         y_true = apply_mask(target, mask)
+        sigma_x_override = kwargs.pop("sigma_x", None)
+        sigma_y_override = kwargs.pop("sigma_y", None)
 
         batch_size, n_features_x = x_obs.shape
         n_features_y = y_true.shape[1]
@@ -568,7 +795,13 @@ class StructuralEIVLoss(BaseEIVLoss):
 
         # Prepare covariance matrices
         sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(
-            n_features_x, n_features_y, device, batch_size, dtype=x_obs.dtype
+            n_features_x,
+            n_features_y,
+            device,
+            batch_size,
+            dtype=x_obs.dtype,
+            sigma_x=sigma_x_override,
+            sigma_y=sigma_y_override,
         )
         sigma_xy_tensor = prepare_cross_covariance(
             self.sigma_xy, n_features_x, n_features_y, device, dtype=x_obs.dtype
@@ -680,6 +913,8 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
         # target is the observed y values (with noise)
         x_obs = y_pred
         y_true = apply_mask(target, mask)
+        sigma_x_override = kwargs.pop("sigma_x", None)
+        sigma_y_override = kwargs.pop("sigma_y", None)
 
         batch_size, n_features_x = x_obs.shape
         n_features_y = y_true.shape[1]
@@ -687,7 +922,13 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
         # Prepare covariance matrices
         sigma_x_tensor, sigma_y_tensor = self._prepare_covariances(
-            n_features_x, n_features_y, device, batch_size, dtype=x_obs.dtype
+            n_features_x,
+            n_features_y,
+            device,
+            batch_size,
+            dtype=x_obs.dtype,
+            sigma_x=sigma_x_override,
+            sigma_y=sigma_y_override,
         )
 
         # Prepare inverse covariance matrices for Mahalanobis distance
@@ -893,7 +1134,10 @@ def create_eiv_loss(
         return OrthogonalDistanceRegressionLoss(model=model, **kwargs)
     if key == "ensemble":
         return EnsembleEIVLoss(model=model, **kwargs)
+    if key in {"input_noise_marginalization", "mc_input_noise"}:
+        return InputNoiseMarginalizationLoss(model=model, **kwargs)
     raise ValueError(
-        "loss_type must be one of {'functional', 'structural', 'odr', 'ensemble'}, "
+        "loss_type must be one of {'functional', 'structural', 'odr', 'ensemble', "
+        "'input_noise_marginalization'}, "
         f"got {loss_type!r}"
     )
