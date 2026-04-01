@@ -41,10 +41,12 @@ def _stack_member_tensors(outputs: Union[torch.Tensor, list[Any]]) -> torch.Tens
     return torch.stack(tensors)
 
 
-def _variance_across_members(stacked: torch.Tensor, *, dim: int) -> torch.Tensor:
+def _variance_across_members(
+    stacked: torch.Tensor, *, dim: int, eps: float = 1.0e-8
+) -> torch.Tensor:
     """Sample variance with a stable fallback for singleton ensembles."""
     unbiased = stacked.shape[dim] > 1
-    return torch.var(stacked, dim=dim, unbiased=unbiased)
+    return torch.var(stacked, dim=dim, unbiased=unbiased).clamp_min(eps)
 
 
 def _support_moments(
@@ -115,7 +117,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             epistemic_var = _variance_across_members(stacked_means, dim=0)
 
             # Total predictive variance is sum of epistemic and aleatoric
-            total_var = epistemic_var + aleatoric_var
+            total_var = (epistemic_var + aleatoric_var).clamp_min(1.0e-8)
 
             return {
                 "mean": ensemble_mean,
@@ -157,6 +159,9 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             avg_vars = torch.mean(stacked_vars, dim=0)  # [B, D]
             ale_cov = torch.diag_embed(avg_vars)
             total_cov = epi_cov + ale_cov
+            # Ensure diagonal is strictly positive for numerical stability
+            d_idx = torch.arange(total_cov.shape[-1], device=total_cov.device)
+            total_cov[..., d_idx, d_idx] = total_cov[..., d_idx, d_idx].clamp_min(1.0e-8)
             return {
                 "mean": mean,
                 "epistemic_covariance": epi_cov,
@@ -327,9 +332,13 @@ class MDNEnsembleModel(BaseEnsembleModel):
             covariance_type=self.covariance_type,
         )
         if self.covariance_type != "diagonal":
-            raise NotImplementedError("MDNEnsembleModel currently supports diagonal covariance only.")
+            raise NotImplementedError(
+                "MDNEnsembleModel currently supports diagonal covariance only."
+            )
 
-    def _predict_components(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _predict_components(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         raw_outputs = _stack_member_tensors(self.forward(x))
         weight_list = []
         mean_list = []
@@ -349,7 +358,9 @@ class MDNEnsembleModel(BaseEnsembleModel):
         with torch.no_grad():
             weights, means, stds = self._predict_components(x)
             mixture_mean = torch.sum(weights.unsqueeze(-1) * means, dim=-2)
-            second_moment = torch.sum(weights.unsqueeze(-1) * (stds.square() + means.square()), dim=-2)
+            second_moment = torch.sum(
+                weights.unsqueeze(-1) * (stds.square() + means.square()), dim=-2
+            )
             mixture_var = (second_moment - mixture_mean.square()).clamp_min(1.0e-8)
             return {
                 "mixture_weights": weights,
@@ -473,7 +484,7 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
             epistemic_var = _variance_across_members(means, dim=1)  # [batch_size, output_size]
 
             # Total predictive variance is sum of epistemic and aleatoric
-            total_var = epistemic_var + aleatoric_var  # [batch_size, output_size]
+            total_var = (epistemic_var + aleatoric_var).clamp_min(1.0e-8)
 
             return {
                 "mean": ensemble_mean,

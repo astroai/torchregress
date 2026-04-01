@@ -273,7 +273,9 @@ class TestHeteroscedasticEnsembleModel:
 
 class TestNonGaussianEnsembles:
     def test_binned_pdf_ensemble_averages_probabilities(self):
-        ensemble = BinnedPDFEnsembleModel(base_model=ConstantLogitModel(torch.tensor([0.0, 0.0, 0.0])), ensemble_size=2)
+        ensemble = BinnedPDFEnsembleModel(
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0, 0.0])), ensemble_size=2
+        )
         ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, 0.0, -1.0]))
         ensemble.models[1] = ConstantLogitModel(torch.tensor([-1.0, 1.0, 0.5]))
         x = torch.randn(4, 3)
@@ -288,7 +290,9 @@ class TestNonGaussianEnsembles:
         assert torch.allclose(result["probabilities"].sum(dim=-1), torch.ones(x.shape[0]))
 
     def test_cumulative_link_ensemble_averages_ordinal_probabilities(self):
-        ensemble = CumulativeLinkEnsembleModel(base_model=ConstantLogitModel(torch.tensor([0.0, 0.0])), ensemble_size=2)
+        ensemble = CumulativeLinkEnsembleModel(
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0])), ensemble_size=2
+        )
         ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, -1.0]))
         ensemble.models[1] = ConstantLogitModel(torch.tensor([0.5, 1.5]))
         x = torch.randn(3, 2)

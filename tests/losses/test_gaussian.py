@@ -139,7 +139,9 @@ class TestGaussianLosses(unittest.TestCase):
         log_var = torch.zeros_like(self.x)
         weights = torch.rand(self.batch_size, self.n_features_diag, device=self.device)
 
-        elementwise = loss_fn((self.x, log_var), self.x_reconstructed, mask=self.mask, weights=weights)
+        elementwise = loss_fn(
+            (self.x, log_var), self.x_reconstructed, mask=self.mask, weights=weights
+        )
         self.assertTrue(torch.is_tensor(elementwise))
         self.assertEqual(elementwise.numel(), int(self.mask.sum().item()))
         self.assertFalse(torch.isnan(elementwise).any())

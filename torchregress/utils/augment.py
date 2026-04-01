@@ -266,8 +266,7 @@ class EnsemblePerturbationAugmenter(nn.Module):
             sigma_vec = sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
             half_range = sigma_vec.view(1, 1, -1) * scale_factor
             noise = (
-                torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype)
-                * 2
+                torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype) * 2
                 - 1
             ) * half_range
             return list((x.unsqueeze(0) + noise).unbind(0))

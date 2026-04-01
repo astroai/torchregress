@@ -104,9 +104,9 @@ def test_parameter_ordering():
 def test_base_class_inheritance():
     """Test that all loss classes inherit from the base Loss class."""
     for loss_class in get_all_loss_classes():
-        assert issubclass(loss_class, BaseLoss), (
-            f"{loss_class.__name__} should inherit from BaseLoss"
-        )
+        assert issubclass(
+            loss_class, BaseLoss
+        ), f"{loss_class.__name__} should inherit from BaseLoss"
 
 
 def test_reduction_behavior():
@@ -161,6 +161,10 @@ def test_reduction_behavior():
         "CORALLoss",  # Needs discrete ordinal targets
         "CensoredGaussianNLLLoss",  # Needs mean+variance inputs
         "AFTLoss",  # Needs loc+log-scale inputs
+        "InputNoiseMarginalizationLoss",  # Meta-loss (needs model/base_loss)
+        "InputNoiseMDNLoss",  # Meta-loss (needs model/n_components)
+        "InputNoiseBinnedPDFLoss",  # Meta-loss (needs model)
+        "GaussianCRPSLoss",  # Needs concatenated [mean, log_var] input
     ]
 
     for loss_class in get_all_loss_classes():
@@ -187,9 +191,9 @@ def test_reduction_behavior():
                         "should return non-scalar tensor"
                     )
                 elif reduction in ("mean", "sum"):
-                    assert result.ndim == 0, (
-                        f"{loss_class.__name__} with reduction='{reduction}' should return scalar"
-                    )
+                    assert (
+                        result.ndim == 0
+                    ), f"{loss_class.__name__} with reduction='{reduction}' should return scalar"
 
             except Exception as e:
                 pytest.fail(
@@ -215,9 +219,9 @@ def test_consistent_init_parameters():
 
         # Check that common parameters are present with expected names
         for param in common_params:
-            assert param in param_names, (
-                f"{loss_class.__name__}.__init__() should have parameter named '{param}'"
-            )
+            assert (
+                param in param_names
+            ), f"{loss_class.__name__}.__init__() should have parameter named '{param}'"
 
 
 def _get_default_args(cls):

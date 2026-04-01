@@ -280,10 +280,14 @@ def highest_posterior_density_level(
 
     support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
     delta = _support_widths(support_t)
-    normalized_density = density_t / torch.trapezoid(density_t, support_t, dim=-1).clamp_min(1.0e-8).unsqueeze(-1)
+    normalized_density = density_t / torch.trapezoid(density_t, support_t, dim=-1).clamp_min(
+        1.0e-8
+    ).unsqueeze(-1)
     density_at_y = _interp1d(support_t, normalized_density, y_true_t)
     mask = normalized_density >= density_at_y.unsqueeze(-1)
-    mass = torch.sum(normalized_density * delta.unsqueeze(0) * mask.to(normalized_density.dtype), dim=-1)
+    mass = torch.sum(
+        normalized_density * delta.unsqueeze(0) * mask.to(normalized_density.dtype), dim=-1
+    )
     return mass.clamp(0.0, 1.0)
 
 
@@ -526,18 +530,46 @@ def energy_score(
 
 
 def distribution_metrics_report(
-    dist: Optional[Union[torch.distributions.Distribution, Dict[str, Any]]],
-    y_true: Union[torch.Tensor, np.ndarray],
+    dist: Optional[Union[torch.distributions.Distribution, Dict[str, Any]]] = None,
+    y_true: Optional[Union[torch.Tensor, np.ndarray]] = None,
     y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]] = None,
     samples: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    support: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    density: Optional[Union[torch.Tensor, np.ndarray]] = None,
     n_samples: int = 100,
 ) -> Dict[str, Union[torch.Tensor, float, np.ndarray]]:
     """
-    Generate distribution metrics for probabilistic regression outputs.
+    Generate a universal distribution metrics report for probabilistic regression.
+
+    This helper consolidates density estimation (NLL, CDE), distance-based (CRPS, Energy),
+    and calibration (PIT, Coverage) metrics into a single dictionary.
+
+    Args:
+        dist: Optional torch Distribution or dict with 'loc'/'scale' keys.
+        y_true: Target values.
+        y_pred_quantiles: Optional dict mapping quantile levels to predictions.
+        samples: Optional predictive samples [n_samples, batch, ...].
+        support: Optional 1D support grid for density-based metrics.
+        density: Optional predictive densities [batch, support].
+        n_samples: Number of samples to draw from `dist` if `samples` is None.
+
+    Returns:
+        Dict of results:
+            - log_prob: Mean log-likelihood (if dist is available)
+            - crps: Continuous Ranked Probability Score
+            - energy_score: Energy Score (for multivariate targets)
+            - pit_chi2: PIT uniformity chi-square statistic
+            - pit_ks: PIT uniformity Kolmogorov-Smirnov statistic
+            - cde_loss: Conditional Density Estimation loss (if support/density available)
+            - coverage_90: Fraction of targets within [q0.05, q0.95]
+            - interval_width_90: Mean width of the [q0.05, q0.95] interval
     """
     results: Dict[str, Union[torch.Tensor, float, np.ndarray]] = {}
+    if y_true is None:
+        raise ValueError("y_true must be provided either as a Tensor or ndarray.")
     y_true_t = convert_to_tensor(y_true)
 
+    # 1. Log-likelihood and Sampling
     if dist is not None:
         dist_obj: torch.distributions.Distribution
         if isinstance(dist, dict):
@@ -551,16 +583,42 @@ def distribution_metrics_report(
         else:
             dist_obj = dist
 
-        log_prob = dist_obj.log_prob(y_true_t)
+        # Ensure y_true matches distribution batch shape as best as possible
+        try:
+            log_prob = dist_obj.log_prob(y_true_t)
+        except RuntimeError:
+            # Try squeezing/unsqueezing if shapes are [N] vs [N, 1]
+            if y_true_t.ndim == 2 and y_true_t.shape[-1] == 1:
+                log_prob = dist_obj.log_prob(y_true_t.squeeze(-1))
+            elif y_true_t.ndim == 1:
+                log_prob = dist_obj.log_prob(y_true_t.unsqueeze(-1))
+            else:
+                raise
+
         if log_prob.dim() > 1:
-            log_prob = log_prob.sum(dim=-1)
+            # Sum log probs across event dimensions, but keep batch dimension
+            event_dims = list(range(1, log_prob.dim()))
+            log_prob = log_prob.sum(dim=event_dims)
         results["log_prob"] = float(torch.mean(log_prob).item())
 
         if samples is None:
             samples = dist_obj.sample((n_samples,))
 
+        # PIT from distribution
+        try:
+            # Most standard distributions have cdf
+            pit_res = probability_integral_transform(
+                dist_obj.cdf, y_true_t, return_histogram=True, as_numpy=True
+            )
+            if isinstance(pit_res, dict):
+                results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
+                results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
+        except (AttributeError, NotImplementedError):
+            pass
+
+    # 2. Distance-based metrics (CRPS / Energy)
     if y_pred_quantiles is None and samples is not None:
-        q_levels = [0.1, 0.3, 0.5, 0.7, 0.9]
+        q_levels = [0.05, 0.1, 0.3, 0.5, 0.7, 0.9, 0.95]
         samples_t = convert_to_tensor(samples)
         y_pred_quantiles = {q: torch.quantile(samples_t, q, dim=0) for q in q_levels}
 
@@ -568,10 +626,24 @@ def distribution_metrics_report(
         results["crps"] = continuous_ranked_probability_score(
             y_pred_quantiles, y_true_t, reduction="mean"
         )
+        # Coverage and width (90% interval)
+        if 0.05 in y_pred_quantiles and 0.95 in y_pred_quantiles:
+            q05 = convert_to_tensor(y_pred_quantiles[0.05])
+            q95 = convert_to_tensor(y_pred_quantiles[0.95])
+            within = (y_true_t >= q05) & (y_true_t <= q95)
+            results["coverage_90"] = float(within.to(torch.float32).mean().item())
+            results["interval_width_90"] = float((q95 - q05).mean().item())
+
     elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
         results["crps"] = crps_from_samples(samples, y_true_t, reduction="mean")
 
     if samples is not None and y_true_t.dim() > 1:
         results["energy_score"] = energy_score(samples, y_true_t, reduction="mean")
+
+    # 3. Density-based metrics (CDE loss)
+    if support is not None and density is not None:
+        results["cde_loss"] = conditional_density_estimation_loss(
+            support, density, y_true_t, reduction="mean"
+        )
 
     return results

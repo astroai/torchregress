@@ -41,10 +41,15 @@ EXPECTED_EXPORTS = {
         "interval_overlap_rate",
         "ContinuousRankedProbabilityScore",
         "EnergyScore",
+        "conditional_density_estimation_loss",
         "continuous_ranked_probability_score",
+        "crps_from_samples",
         "energy_score",
         "gaussian_nll",
         "crps_gaussian",
+        "highest_posterior_density_coverage",
+        "highest_posterior_density_level",
+        "kolmogorov_smirnov_uniform_statistic",
         "probability_integral_transform",
         "distribution_metrics_report",
         "RiskCoverageCurve",
@@ -52,6 +57,9 @@ EXPECTED_EXPORTS = {
         "risk_coverage_curve",
         "GaussianNLLEnsemble",
         "EnsembleIntervalMetrics",
+        "gaussian_nll_ensemble",
+        "ensemble_interval_bounds",
+        "ensemble_interval_metrics",
         "ensemble_mean",
         "ensemble_std",
         "ensemble_statistics",
@@ -112,6 +120,9 @@ EXPECTED_EXPORTS = {
         "BatchEnsembleLinear",
         "HeteroscedasticEnsembleModel",
         "DeepEnsemble",
+        "BinnedPDFEnsembleModel",
+        "CumulativeLinkEnsembleModel",
+        "MDNEnsembleModel",
         "HeteroscedasticBatchEnsembleModel",
         "BayesianModelAveraging",
         "StackingEnsemble",
@@ -401,17 +412,17 @@ def test_public_exports_snapshot_non_losses() -> None:
 def test_signature_snapshots_non_losses() -> None:
     for path, expected in EXPECTED_SIGNATURES.items():
         actual = str(inspect.signature(_resolve(path)))
-        assert _normalize_union_optional(actual) == _normalize_union_optional(expected), (
-            f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
-        )
+        assert _normalize_union_optional(actual) == _normalize_union_optional(
+            expected
+        ), f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
 
 
 def test_parameter_order_contracts_for_new_helper_apis() -> None:
     for path, expected_order in EXPECTED_PARAM_ORDERS.items():
         actual_order = list(inspect.signature(_resolve(path)).parameters.keys())
-        assert actual_order == expected_order, (
-            f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
-        )
+        assert (
+            actual_order == expected_order
+        ), f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
 
 
 def test_top_level_submodules_are_lazy_loaded() -> None:

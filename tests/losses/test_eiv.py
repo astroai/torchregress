@@ -6,8 +6,8 @@ from torch.autograd import gradcheck
 from torchregress.losses import GaussianCRPSLoss
 from torchregress.losses.eiv import (
     EnsembleEIVLoss,
-    InputNoiseMarginalizationLoss,
     FunctionalEIVLoss,
+    InputNoiseMarginalizationLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
 )
@@ -146,7 +146,11 @@ class TestEIVLoss(unittest.TestCase):
             transform=lambda stacked: torch.softmax(stacked, dim=-1).mean(dim=0),
         )
         self.assertTrue(torch.is_tensor(probs))
-        self.assertTrue(torch.allclose(probs.sum(dim=-1), torch.ones(probs.shape[0], device=probs.device), atol=1.0e-5))
+        self.assertTrue(
+            torch.allclose(
+                probs.sum(dim=-1), torch.ones(probs.shape[0], device=probs.device), atol=1.0e-5
+            )
+        )
 
     def test_input_noise_marginalization_rejects_malformed_batch_covariance(self):
         class GaussianHead(torch.nn.Module):

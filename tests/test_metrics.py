@@ -301,7 +301,9 @@ class TestDistributionMetrics:
         ensemble_means = torch.stack([mean - 0.05, mean + 0.05, mean])
         ensemble_vars = torch.stack([std.square(), (1.1 * std).square(), (0.9 * std).square()])
         ensemble_nll = gaussian_nll_ensemble(ensemble_means, ensemble_vars, y_true)
-        ensemble_intervals = ensemble_interval_metrics(ensemble_means, ensemble_vars, y_true, alpha=0.2)
+        ensemble_intervals = ensemble_interval_metrics(
+            ensemble_means, ensemble_vars, y_true, alpha=0.2
+        )
 
         assert torch.is_tensor(ensemble_nll)
         assert torch.isfinite(ensemble_nll)
@@ -313,7 +315,9 @@ class TestDistributionMetrics:
         support = torch.linspace(-2.0, 2.0, 201)
         y_true = torch.tensor([0.0, 0.5])
         centered = torch.exp(-0.5 * ((support.unsqueeze(0) - y_true.unsqueeze(1)) / 0.2) ** 2)
-        shifted = torch.exp(-0.5 * ((support.unsqueeze(0) - (y_true.unsqueeze(1) + 1.0)) / 0.2) ** 2)
+        shifted = torch.exp(
+            -0.5 * ((support.unsqueeze(0) - (y_true.unsqueeze(1) + 1.0)) / 0.2) ** 2
+        )
         better = conditional_density_estimation_loss(support, centered, y_true)
         worse = conditional_density_estimation_loss(support, shifted, y_true)
         assert better < worse

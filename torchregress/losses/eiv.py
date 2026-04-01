@@ -21,6 +21,8 @@ from ..utils.tensor_ops import (
 from ..utils.validation import validate_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
+from .mdn import MDNLoss
+from .ordinal import OrdinalCrossEntropyLoss
 
 
 class BaseEIVLoss(RegressionLoss):
@@ -261,14 +263,18 @@ class ExplicitEIVAdapter:
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        return self.loss(
-            x_obs,
-            target,
-            mask=mask,
-            weights=weights,
-            sigma_x=sigma_x,
-            sigma_y=sigma_y,
-            **kwargs,
+
+        return cast(
+            torch.Tensor,
+            self.loss(
+                x_obs,
+                target,
+                mask=mask,
+                weights=weights,
+                sigma_x=sigma_x,
+                sigma_y=sigma_y,
+                **kwargs,
+            ),
         )
 
 
@@ -338,10 +344,9 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
                     "sigma_x with 3 dimensions must have shape "
                     f"({x_obs.shape[0]}, {x_obs.shape[-1]}, {x_obs.shape[-1]})"
                 )
-            return (
-                torch.sqrt(torch.diagonal(sigma, dim1=-2, dim2=-1).clamp_min(0.0))
-                .clamp_min(self.min_sigma)
-            )
+            return torch.sqrt(
+                torch.diagonal(sigma, dim1=-2, dim2=-1).clamp_min(self.min_sigma)
+            ).clamp_min(self.min_sigma)
         raise ValueError(
             "sigma_x must be scalar, [features], [batch, features], [features, features], "
             "or [batch, features, features]"
@@ -392,10 +397,13 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         Tensor outputs are stacked to ``[n_samples, batch, ...]``. Structured outputs are
         returned as a list aligned with the perturbation draws.
         """
-        sigma = self._sigma_tensor(x_obs, sigma_x)
+        if isinstance(sigma_x, torch.nn.Module):
+            raise TypeError("sigma_x cannot be a Module in this context")
+        sigma_x_t = cast(torch.Tensor, self._sigma_tensor(x_obs, sigma_x))
+        sigma_x_t = sigma_x_t.clamp_min(self.min_sigma)
         perturbed = self._draw_perturbations(
             x_obs,
-            sigma,
+            sigma_x_t,
             n_samples=n_samples,
             antithetic=antithetic,
         )
@@ -436,21 +444,212 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         self,
         y_pred: torch.Tensor,
         target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-        *,
         x_obs: Optional[torch.Tensor] = None,
         sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
         observed = y_pred if x_obs is None else x_obs
         predictions = self.sample_predictions(observed, sigma_x=sigma_x)
+
         if not isinstance(predictions, torch.Tensor):
-            raise ValueError("InputNoiseMarginalizationLoss currently expects tensor model outputs.")
-        losses = []
-        for prediction in predictions:
-            losses.append(self.base_loss(prediction, target, mask=mask, weights=weights, **kwargs))
-        return torch.stack(losses).mean(dim=0)
+            # Fallback to loop for structured outputs (e.g. lists of tuples/dicts)
+            losses = []
+            kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
+            for prediction in predictions:
+                losses.append(
+                    cast(
+                        torch.Tensor,
+                        self.base_loss(
+                            prediction,
+                            target,
+                            mask=mask,
+                            weights=weights,
+                            reduction="none",
+                            **kwargs_no_red,
+                        ),
+                    )
+                )
+            return torch.stack(losses).mean(dim=0)
+
+        # Vectorized path for standard Tensor outputs (much faster)
+        n_samples, batch_size = predictions.shape[:2]
+        # Flatten: [n_samples * batch_size, ...]
+        flat_preds = predictions.reshape(-1, *predictions.shape[2:])
+
+        # Tile target/mask/weights: [batch_size, ...] -> [n_samples * batch_size, ...]
+        def tile(t: torch.Tensor) -> torch.Tensor:
+            repeat_dims = [n_samples] + [1] * (t.dim() - 1)
+            return t.repeat(*repeat_dims)
+
+        flat_target = tile(target)
+        flat_mask = tile(mask) if mask is not None else None
+        flat_weights = tile(weights) if weights is not None else None
+
+        # Force reduction='none' to average over samples properly before final reduction
+        kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
+        flat_losses = self.base_loss(
+            flat_preds,
+            flat_target,
+            mask=flat_mask,
+            weights=flat_weights,
+            reduction="none",
+            **kwargs_no_red,
+        )
+
+        # If base_loss already reduced (e.g. mean), we just return it.
+        # But for EIV we expect base_loss usually to be 'none' when called internally
+        # so we can average over samples ourselves.
+        # Check if reduction is applied inside base_loss
+        if flat_losses.dim() == 0:
+            return flat_losses
+
+        # Reshape losses back to [n_samples, batch_size, ...] and average over samples
+        sample_losses = flat_losses.reshape(n_samples, batch_size, *flat_losses.shape[1:])
+        return self._reduce(sample_losses.mean(dim=0), mask, weights)
+
+
+class NoisyInputPredictor(torch.nn.Module):
+    """High-level wrapper for models generating predictions under noisy inputs.
+
+    This simplifies the 'input-noise marginalization' pattern for test-time inference.
+
+    Args:
+        model: Underlying model receiving (possibly perturbed) inputs.
+        sigma_x: Standard deviation or covariance of feature noise.
+        n_samples: Number of MC perturbations to draw.
+        antithetic: Use antithetic sampling if supported.
+    """
+
+    def __init__(
+        self,
+        model: Callable,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        n_samples: int = 16,
+        antithetic: bool = True,
+    ) -> None:
+        super().__init__()
+        self.model = model
+        self.marginalizer = InputNoiseMarginalizationLoss(
+            model=model,
+            base_loss=lambda p, t: p,  # Dummy base loss; unused by predictive methods
+            sigma_x=sigma_x,
+            n_samples=n_samples,
+            antithetic=antithetic,
+        )
+
+    def forward(
+        self,
+        x_obs: torch.Tensor,
+        *,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        n_samples: Optional[int] = None,
+        antithetic: Optional[bool] = None,
+        transform: Optional[Callable[[Union[torch.Tensor, list[Any]]], Any]] = None,
+    ) -> Any:
+        """Return the marginalized predictive output across noise perturbations.
+
+        Defaults to the mean over perturbations. If ``transform`` is provided, it is
+        applied to the stacked predictions (either a tensor [n_samples, batch, features]
+        or a list of structured outputs).
+        """
+        return self.marginalizer.predictive_average(
+            x_obs,
+            sigma_x=sigma_x,
+            n_samples=n_samples,
+            antithetic=antithetic,
+            transform=transform,
+        )
+
+    def sample_predictions(
+        self,
+        x_obs: torch.Tensor,
+        *,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        n_samples: Optional[int] = None,
+        antithetic: Optional[bool] = None,
+    ) -> torch.Tensor:
+        """Return the raw stacked predictions [n_samples, batch_size, ...]."""
+        res = self.marginalizer.sample_predictions(
+            x_obs,
+            sigma_x=sigma_x,
+            n_samples=n_samples,
+            antithetic=antithetic,
+        )
+        if not isinstance(res, torch.Tensor):
+            raise TypeError(
+                "NoisyInputPredictor expects the model to return a Tensor for raw sampling."
+            )
+        return res
+
+
+@register_regression_loss("input_noise_mdn")
+class InputNoiseMDNLoss(InputNoiseMarginalizationLoss):
+    """Input-noise marginalization specifically for MDN heads.
+
+    Args:
+        model: Underlying model predicting MDN parameters.
+        n_components: Number of mixture components.
+        n_features: Number of output features.
+        sigma_x: Standard deviation or covariance of feature noise.
+        **kwargs: Passed to InputNoiseMarginalizationLoss and MixtureDensityLoss.
+    """
+
+    def __init__(
+        self,
+        model: Callable,
+        n_components: int,
+        n_features: int = 1,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        reduction: str = "mean",
+        **kwargs: Any,
+    ) -> None:
+        mdn_kwargs = {
+            "n_components": n_components,
+            "n_features": n_features,
+            "covariance_type": kwargs.pop("covariance_type", "diagonal"),
+            "min_std": kwargs.pop("min_std", 1e-3),
+            "eps": kwargs.pop("eps", 1e-8),
+        }
+        base_loss = MDNLoss(**mdn_kwargs)
+        super().__init__(
+            model=model,
+            base_loss=base_loss,
+            sigma_x=sigma_x,
+            reduction=reduction,
+            **kwargs,
+        )
+
+
+@register_regression_loss("input_noise_binned_pdf")
+class InputNoiseBinnedPDFLoss(InputNoiseMarginalizationLoss):
+    """Input-noise marginalization specifically for binned-PDF / ordinal heads.
+
+    Args:
+        model: Underlying model predicting class logits.
+        sigma_x: Standard deviation or covariance of feature noise.
+        **kwargs: Passed to InputNoiseMarginalizationLoss and OrdinalCrossEntropyLoss.
+    """
+
+    def __init__(
+        self,
+        model: Callable,
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        reduction: str = "mean",
+        **kwargs: Any,
+    ) -> None:
+        ordinal_kwargs = {
+            "label_smoothing": kwargs.pop("label_smoothing", 0.0),
+        }
+        base_loss = OrdinalCrossEntropyLoss(**ordinal_kwargs)
+        super().__init__(
+            model=model,
+            base_loss=base_loss,
+            sigma_x=sigma_x,
+            reduction=reduction,
+            **kwargs,
+        )
 
 
 @register_regression_loss("functional_eiv")
@@ -1115,7 +1314,7 @@ def create_eiv_loss(
     model: Callable[..., torch.Tensor],
     loss_type: str = "functional",
     **kwargs: Any,
-) -> BaseEIVLoss:
+) -> torch.nn.Module:
     """
     Convenience factory for EIV loss variants.
 
@@ -1136,8 +1335,12 @@ def create_eiv_loss(
         return EnsembleEIVLoss(model=model, **kwargs)
     if key in {"input_noise_marginalization", "mc_input_noise"}:
         return InputNoiseMarginalizationLoss(model=model, **kwargs)
+    if key in {"input_noise_mdn", "eiv_mdn"}:
+        return InputNoiseMDNLoss(model=model, **kwargs)
+    if key in {"input_noise_binned_pdf", "eiv_binned_pdf"}:
+        return InputNoiseBinnedPDFLoss(model=model, **kwargs)
     raise ValueError(
         "loss_type must be one of {'functional', 'structural', 'odr', 'ensemble', "
-        "'input_noise_marginalization'}, "
+        "'input_noise_marginalization', 'input_noise_mdn', 'input_noise_binned_pdf'}, "
         f"got {loss_type!r}"
     )

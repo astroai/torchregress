@@ -88,10 +88,14 @@ _METHODS: tuple[MethodMetadata, ...] = (
         family="imbalanced_loss",
         public_path="torchregress.losses.DensityWeightedLoss",
         task_tags=("imbalance", "rare_targets"),
-        maturity="Strong",
+        maturity="Available",
         imbalance="yes",
         calibration="partial",
-        notes="Validate calibration after reweighting; photo-z benchmarks currently show this is highly data- and protocol-sensitive.",
+        notes=(
+            "Research/Advanced method. Validate calibration after reweighting; "
+            "photo-z benchmarks currently show this is highly data- and "
+            "protocol-sensitive. Not recommended as a default."
+        ),
     ),
     MethodMetadata(
         name="PropensityWeightedLoss",
@@ -111,7 +115,10 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Available",
         imbalance="yes",
         calibration="partial",
-        notes="Aggressive reweighting can distort calibration; check intervals post-hoc.",
+        notes=(
+            "Research/Advanced method. Aggressive reweighting can distort "
+            "calibration; check intervals post-hoc."
+        ),
     ),
     MethodMetadata(
         name="GaussianNLLLoss",
@@ -204,7 +211,10 @@ _METHODS: tuple[MethodMetadata, ...] = (
         non_gaussian="partial",
         aleatoric="yes",
         calibration="partial",
-        notes="Adds target-noise variance to predictive variance before NLL scoring; strongest when probabilistic label uncertainty is genuinely available.",
+        notes=(
+            "Adds target-noise variance to predictive variance before NLL scoring; "
+            "strongest when probabilistic label uncertainty is genuinely available."
+        ),
     ),
     MethodMetadata(
         name="ConsistencyRegLoss",
@@ -455,7 +465,54 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Available",
         noisy_features_eiv="yes",
         calibration="partial",
-        notes="Powerful but ergonomically awkward; explicit adapters or simpler MC input-noise baselines can be easier to debug in practice.",
+        notes=(
+            "Research/Advanced method. Powerful but ergonomically awkward; explicit "
+            "adapters or simpler MC input-noise baselines can be easier to debug in "
+            "practice."
+        ),
+    ),
+    MethodMetadata(
+        name="InputNoiseMarginalizationLoss",
+        family="eiv",
+        public_path="torchregress.losses.InputNoiseMarginalizationLoss",
+        task_tags=("noisy_features", "measurement_error", "marginalization"),
+        maturity="Strong",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=(
+            "Recommended default interface for Noisy-Input models. Integrates over "
+            "expected input errors using Monte Carlo sampling instead of explicit "
+            "Jacobian structures."
+        ),
+    ),
+    MethodMetadata(
+        name="NoisyInputPredictor",
+        family="eiv",
+        public_path="torchregress.losses.NoisyInputPredictor",
+        task_tags=("noisy_features", "measurement_error", "inference"),
+        maturity="Strong",
+        noisy_features_eiv="yes",
+        notes="High-level wrapper for performing inference on noisy inputs via marginalization.",
+    ),
+    MethodMetadata(
+        name="InputNoiseMDNLoss",
+        family="eiv",
+        public_path="torchregress.losses.InputNoiseMDNLoss",
+        task_tags=("noisy_features", "measurement_error", "multimodal"),
+        maturity="Available",
+        multimodal="yes",
+        noisy_features_eiv="yes",
+        notes="Marginalization for MDN heads; robust to input noise in multimodal scenarios.",
+    ),
+    MethodMetadata(
+        name="InputNoiseBinnedPDFLoss",
+        family="eiv",
+        public_path="torchregress.losses.InputNoiseBinnedPDFLoss",
+        task_tags=("noisy_features", "measurement_error", "multimodal"),
+        maturity="Available",
+        multimodal="yes",
+        noisy_features_eiv="yes",
+        notes="Marginalization for binned-PDF/ordinal heads.",
     ),
     MethodMetadata(
         name="StructuralEIVLoss",
@@ -522,7 +579,10 @@ _METHODS: tuple[MethodMetadata, ...] = (
         decomposition="partial",
         non_gaussian="yes",
         calibration="partial",
-        notes="Averages per-member bin probabilities in predictive-distribution space; strongest when discrete PDFs are the desired output surface.",
+        notes=(
+            "Averages bin-wise probabilities in predictive-distribution space; "
+            "strongest when discrete PDFs are the desired output surface."
+        ),
     ),
     MethodMetadata(
         name="CumulativeLinkEnsembleModel",
@@ -535,7 +595,10 @@ _METHODS: tuple[MethodMetadata, ...] = (
         decomposition="partial",
         non_gaussian="yes",
         calibration="partial",
-        notes="Averages ordinal CDF / PMF predictions across members rather than averaging thresholds.",
+        notes=(
+            "Averages ordinal CDF / PMF predictions across members rather than "
+            "averaging thresholds."
+        ),
     ),
     MethodMetadata(
         name="MDNEnsembleModel",
@@ -548,7 +611,10 @@ _METHODS: tuple[MethodMetadata, ...] = (
         decomposition="yes",
         non_gaussian="yes",
         calibration="partial",
-        notes="Uses a mixture-of-mixtures aggregation to avoid MDN component label-switching across members.",
+        notes=(
+            "Uses a mixture-of-mixtures aggregation to avoid MDN component "
+            "label-switching across members."
+        ),
     ),
     MethodMetadata(
         name="MCDropoutWrapper",
@@ -626,7 +692,10 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         task="Heteroscedastic noise (aleatoric UQ)",
         recommended_start="GaussianCRPSLoss",
         strong_alternatives=("GaussianNLLLoss", "HeteroscedasticEnsembleModel", "MDNLoss"),
-        notes="Photo-z benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline.",
+        notes=(
+            "Photo-z benchmarks favor CRPS-trained Gaussian heads as the safest "
+            "calibrated Gaussian baseline."
+        ),
     ),
     TaskRecommendation(
         task="Epistemic uncertainty",
@@ -651,7 +720,10 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         task="Multimodal targets",
         recommended_start="MDNLoss",
         strong_alternatives=("MDNEnsembleModel", "BinnedPDFEnsembleModel", "NormalizingFlowLoss"),
-        notes="MDN is usually easier to debug first; ensembles of MDN or ordered-bin heads are the next move when mode averaging matters.",
+        notes=(
+            "MDN is usually easier to debug first; ensembles of MDN or ordered-bin "
+            "heads are the next move when mode averaging matters."
+        ),
     ),
     TaskRecommendation(
         task="Non-Gaussian / skewed tails",
@@ -667,13 +739,19 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Noisy features / measurement error",
-        recommended_start="InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF",
+        recommended_start=(
+            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF"
+        ),
         strong_alternatives=(
             "FunctionalEIVLoss",
             "StructuralEIVLoss",
             "OrthogonalDistanceRegressionLoss",
         ),
-        notes="Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help.",
+        notes=(
+            "Start with explicit input-noise marginalization and test-time "
+            "predictive averaging, then escalate to Jacobian-based EIV losses "
+            "only if they clearly help."
+        ),
     ),
     TaskRecommendation(
         task="Noisy labels / label corruption",
@@ -684,8 +762,12 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Imbalanced / rare-target regression",
         recommended_start="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
-        strong_alternatives=("DensityConformal", "DensityWeightedLoss", "LDSLoss"),
-        notes="Photo-z benchmarks do not yet justify density weighting as the default first move; check whether tail gains survive calibration and shift slices.",
+        strong_alternatives=("DensityConformal",),
+        notes=(
+            "Photo-z benchmarks do not justify density weighting as default. "
+            "Advanced research methods (DensityWeightedLoss, LDSLoss) should "
+            "only be tried if coverage/calibration allow for tail gains."
+        ),
     ),
     TaskRecommendation(
         task="Selection bias / covariate-dependent missing labels",
@@ -709,25 +791,38 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         task="Calibrated intervals with coverage guarantees",
         recommended_start="ConformalLoss on top of a strong probabilistic backbone",
         strong_alternatives=("QuantileLoss", "MonteCarloConformal", "DensityConformal"),
-        notes="Conformal gives coverage, not density estimation; keep CRPS/NLL reporting from the underlying predictive model.",
+        notes=(
+            "Conformal gives coverage, not density estimation; keep CRPS/NLL "
+            "reporting from the underlying predictive model."
+        ),
     ),
     TaskRecommendation(
         task="Density-aware conformal under long-tail targets",
         recommended_start="DensityConformal",
         strong_alternatives=("PrevalenceAdjustedCP", "MonteCarloConformal"),
-        notes="Prefer density/prevalence variants when tail-region coverage is a key objective; point-accuracy gains are not guaranteed.",
+        notes=(
+            "Prefer density/prevalence variants when tail-region coverage is a "
+            "key objective; point-accuracy gains are not guaranteed."
+        ),
     ),
     TaskRecommendation(
         task="Uncertain ground-truth / weak labels",
         recommended_start="NoisyTargetGaussianNLL",
-        strong_alternatives=("OrdinalCrossEntropyLoss", "PseudoLabelConsistencyLoss", "PseudoLabelNLL"),
-        notes="Use NoisyTargetGaussianNLL for Gaussian label uncertainty and soft-bin / PMF supervision when target PDFs or intervals are the natural label form.",
+        strong_alternatives=(
+            "OrdinalCrossEntropyLoss",
+            "PseudoLabelConsistencyLoss",
+            "PseudoLabelNLL",
+        ),
+        notes=(
+            "Use NoisyTargetGaussianNLL for Gaussian label uncertainty and soft-bin / "
+            "PMF supervision when target PDFs or intervals are the natural label form."
+        ),
     ),
     TaskRecommendation(
         task="Semi-supervised regression",
         recommended_start="PseudoLabelConsistencyLoss",
         strong_alternatives=("PseudoLabelNLL", "NoisyTargetGaussianNLL"),
-        notes="Use confidence-gated pseudo labels and keep a clean held-out evaluation split.",
+        notes=("Use confidence-gated pseudo labels and keep a clean held-out " "evaluation split."),
     ),
     TaskRecommendation(
         task="Target transforms for skewed / multiplicative-noise regression",
@@ -737,19 +832,21 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "SqrtTransformLoss",
             "YeoJohnsonTransformLoss",
         ),
-        notes="Match transform support to target support before tuning model complexity.",
+        notes=("Match transform support to target support before tuning model " "complexity."),
     ),
     TaskRecommendation(
         task="Causal inference regression (ATE/CATE)",
         recommended_start="dr_ate / dr_cate",
         strong_alternatives=("PredictionPoweredInference",),
-        notes="Use cross-fitting and overlap diagnostics before interpreting treatment effects.",
+        notes=(
+            "Use cross-fitting and overlap diagnostics before interpreting " "treatment effects."
+        ),
     ),
     TaskRecommendation(
         task="Population inference with few labels",
         recommended_start="PredictionPoweredInference",
         strong_alternatives=("ConformalLoss", "QuantileLoss"),
-        notes="Use PPI for means/quantiles/regression coefficients with limited labels.",
+        notes=("Use PPI for means/quantiles/regression coefficients with limited labels."),
     ),
     TaskRecommendation(
         task="Ordinal / ordered targets",
@@ -800,18 +897,25 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
     DecisionWorkflowStep(
         order=4,
         question="Have noisy features / measurement error?",
-        primary_recommendation="InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF",
-        alternatives=(
-            "FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss",
+        primary_recommendation=(
+            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF"
         ),
-        caveat="Use the simpler explicit input-noise path first, including test-time predictive averaging; Jacobian-style EIV losses are more fragile and need careful benchmarking.",
+        alternatives=("FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss",),
+        caveat=(
+            "Use the simpler explicit input-noise path first, including test-time "
+            "predictive averaging; Jacobian-style EIV losses are more fragile and "
+            "need careful benchmarking."
+        ),
     ),
     DecisionWorkflowStep(
         order=5,
         question="Have imbalanced tails / rare targets?",
         primary_recommendation="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
         alternatives=("DensityConformal", "DensityWeightedLoss", "LDSLoss"),
-        caveat="Density-aware weighting is not yet a universally strong default on photo-z benchmarks.",
+        caveat=(
+            "Density-aware weighting is not yet a universally strong default on "
+            "photo-z benchmarks."
+        ),
     ),
     DecisionWorkflowStep(
         order=6,

@@ -10,8 +10,8 @@ pytest.importorskip("polars")
 pytest.importorskip("astropy")
 
 import numpy as np
-import polars as pl
-from astropy.table import Table
+import polars as pl  # type: ignore
+from astropy.table import Table  # type: ignore
 
 from tools import clauds_catalog_validate, clauds_merge, clauds_specz_crossmatch
 
@@ -257,7 +257,7 @@ def test_build_all_bands_with_mask_df() -> None:
     examples_dir = Path(__file__).resolve().parents[1] / "examples"
     if str(examples_dir) not in sys.path:
         sys.path.insert(0, str(examples_dir))
-    import photoz_clauds_specz_comparison as clauds_ex
+    import photoz_clauds_specz_comparison as clauds_ex  # type: ignore
 
     build_all_bands_with_mask_df = clauds_ex.build_all_bands_with_mask_df
     ALL_BANDS = clauds_ex.ALL_BANDS
