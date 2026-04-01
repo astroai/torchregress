@@ -644,9 +644,11 @@ def _batched_predict(
         return cast(torch.Tensor, torch.tensor([]).to(target_device))
 
     if isinstance(batch_preds[0], tuple):
+        # Using zip(*batch_preds) to transpose and then cat column-wise
         return tuple(torch.cat(column, dim=0) for column in zip(*batch_preds))
     else:
-        return torch.cat([cast(torch.Tensor, b) for b in batch_preds], dim=0)
+        # Direct cat of the list of tensors for single-output models
+        return torch.cat(cast(List[torch.Tensor], batch_preds), dim=0)
 
 
 def iteratively_reweighted_least_squares(
