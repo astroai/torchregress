@@ -140,7 +140,10 @@ class BaseEnsembleModel(nn.Module):
         for model in self.models:
             model.to(device)
 
-        if not hasattr(self, "_optimizers") or getattr(self, "_optimizer_cls", None) is not optimizer_cls:
+        if (
+            not hasattr(self, "_optimizers")
+            or getattr(self, "_optimizer_cls", None) is not optimizer_cls
+        ):
             self._optimizers = [optimizer_cls(model.parameters(), lr=lr) for model in self.models]
             self._optimizer_cls = optimizer_cls
         else:

@@ -22,9 +22,10 @@ Use the library from the problem you need to solve, not from a method family:
 - **Outliers / robust regression**: `HuberLoss`, `CauchyLoss`, `TukeyBiweightLoss`
 - **Prediction intervals with coverage guarantees**: conformal prediction (`split`, `CQR`, `ACI`)
 - **Uncertainty decomposition (epistemic + aleatoric)**: heteroscedastic ensembles
-- **Multimodal targets**: `MDN` first, normalizing flows when you need more flexibility
-- **Imbalanced / rare-target regression**: `DensityWeightedLoss` (then validate calibration)
-- **Noisy features / measurement error**: EIV / ODR losses
+- **Well-calibrated Gaussian training**: `GaussianNLLLoss` for likelihood training, `GaussianCRPSLoss` when you want a proper scoring rule that directly rewards sharp calibrated predictive CDFs
+- **Multimodal targets**: `MDN` first, then `MDNEnsembleModel` or `BinnedPDFEnsembleModel` when you want predictive-distribution averaging across members
+- **Imbalanced / rare-target regression**: start with `GaussianCRPSLoss` or quantiles plus tail-slice evaluation; add density-aware methods only if they win on your benchmark
+- **Noisy features / measurement error**: start with explicit input-noise marginalization and predictive averaging, then escalate to EIV / ODR losses if it clearly helps
 - **OOD robustness / selective prediction**: ensemble uncertainty + OOD + decision metrics
 
 Task-first method matrix (recommended entry point):
@@ -164,6 +165,16 @@ Docs entry points:
 - `examples/benchmarks/tail_extremes_benchmark.py` - tail performance under noisy labels (robust, density-weighted, CVaR)
 - `examples/benchmarks/tail_extremes_sweep.py` - sweep feature/label noise to identify best tail method
 - `tools/benchmark_smoke.py` - fast smoke/sweep performance checks with CI threshold support
+
+## Photo-z Takeaways
+
+The current real tabular photo-z benchmark program in `torchz` is useful as a debugging signal for `torchregress`.
+
+- `GaussianCRPSLoss` is the safest Gaussian-family baseline so far.
+- `MDN` and calibrated ensembles are the strongest all-around probabilistic methods on the current GalaxiesML benchmark.
+- `DensityWeightedLoss` and `LDSLoss` are not yet good default advice for photo-z tails; they need benchmark-backed wins before being the recommended first move.
+- Jacobian-style EIV methods are promising but not yet the easiest production surface; explicit input-noise marginalization is often a better first benchmark.
+- Always report `CRPS` alongside `NLL`, calibration, classical point metrics, and density-specific diagnostics such as empirical `CDE` loss and `HPD` calibration when comparing probabilistic regressors.
 
 ## License
 

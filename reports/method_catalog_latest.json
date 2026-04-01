@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 48,
+    "total_methods": 55,
     "families": {
       "bnn": 2,
       "calibration_transform": 3,
@@ -10,8 +10,8 @@
       "censored": 3,
       "conformal": 4,
       "constraints": 2,
-      "eiv": 3,
-      "ensemble": 3,
+      "eiv": 7,
+      "ensemble": 6,
       "flow": 1,
       "imbalanced_loss": 3,
       "inference": 1,
@@ -28,8 +28,8 @@
     },
     "maturity": {
       "Core": 6,
-      "Strong": 6,
-      "Available": 36
+      "Strong": 7,
+      "Available": 42
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -87,7 +87,7 @@
         "imbalance",
         "rare_targets"
       ],
-      "maturity": "Strong",
+      "maturity": "Available",
       "multimodal": "no",
       "multi_target": "yes",
       "non_gaussian": "partial",
@@ -98,7 +98,7 @@
       "ood_support": "partial",
       "imbalance": "yes",
       "noisy_features_eiv": "no",
-      "notes": "Validate calibration after reweighting."
+      "notes": "Research/Advanced method. Validate calibration after reweighting; photo-z benchmarks currently show this is highly data- and protocol-sensitive. Not recommended as a default."
     },
     {
       "name": "PropensityWeightedLoss",
@@ -141,7 +141,7 @@
       "ood_support": "partial",
       "imbalance": "yes",
       "noisy_features_eiv": "no",
-      "notes": "Aggressive reweighting can distort calibration; check intervals post-hoc."
+      "notes": "Research/Advanced method. Aggressive reweighting can distort calibration; check intervals post-hoc."
     },
     {
       "name": "GaussianNLLLoss",
@@ -334,7 +334,7 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Adds target-noise variance to predictive variance before NLL scoring."
+      "notes": "Adds target-noise variance to predictive variance before NLL scoring; strongest when probabilistic label uncertainty is genuinely available."
     },
     {
       "name": "ConsistencyRegLoss",
@@ -852,7 +852,95 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "yes",
-      "notes": ""
+      "notes": "Research/Advanced method. Powerful but ergonomically awkward; explicit adapters or simpler MC input-noise baselines can be easier to debug in practice."
+    },
+    {
+      "name": "InputNoiseMarginalizationLoss",
+      "family": "eiv",
+      "public_path": "torchregress.losses.InputNoiseMarginalizationLoss",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "marginalization"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Recommended default interface for Noisy-Input models. Integrates over expected input errors using Monte Carlo sampling instead of explicit Jacobian structures."
+    },
+    {
+      "name": "NoisyInputPredictor",
+      "family": "eiv",
+      "public_path": "torchregress.losses.NoisyInputPredictor",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "inference"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "High-level wrapper for performing inference on noisy inputs via marginalization."
+    },
+    {
+      "name": "InputNoiseMDNLoss",
+      "family": "eiv",
+      "public_path": "torchregress.losses.InputNoiseMDNLoss",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "multimodal"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Marginalization for MDN heads; robust to input noise in multimodal scenarios."
+    },
+    {
+      "name": "InputNoiseBinnedPDFLoss",
+      "family": "eiv",
+      "public_path": "torchregress.losses.InputNoiseBinnedPDFLoss",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "multimodal"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Marginalization for binned-PDF/ordinal heads."
     },
     {
       "name": "StructuralEIVLoss",
@@ -963,6 +1051,73 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Shared-weight ensemble variant for lower-latency uncertainty decomposition."
+    },
+    {
+      "name": "BinnedPDFEnsembleModel",
+      "family": "ensemble",
+      "public_path": "torchregress.ensemble.BinnedPDFEnsembleModel",
+      "task_tags": [
+        "multimodal_targets",
+        "non_gaussian",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "yes",
+      "aleatoric": "partial",
+      "decomposition": "partial",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Averages bin-wise probabilities in predictive-distribution space; strongest when discrete PDFs are the desired output surface."
+    },
+    {
+      "name": "CumulativeLinkEnsembleModel",
+      "family": "ensemble",
+      "public_path": "torchregress.ensemble.CumulativeLinkEnsembleModel",
+      "task_tags": [
+        "ordinal",
+        "non_gaussian",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "yes",
+      "aleatoric": "partial",
+      "decomposition": "partial",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Averages ordinal CDF / PMF predictions across members rather than averaging thresholds."
+    },
+    {
+      "name": "MDNEnsembleModel",
+      "family": "ensemble",
+      "public_path": "torchregress.ensemble.MDNEnsembleModel",
+      "task_tags": [
+        "multimodal_targets",
+        "non_gaussian",
+        "calibration",
+        "uq_decomposition"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "yes",
+      "aleatoric": "yes",
+      "decomposition": "yes",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Uses a mixture-of-mixtures aggregation to avoid MDN component label-switching across members."
     },
     {
       "name": "MCDropoutWrapper",

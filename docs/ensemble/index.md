@@ -37,6 +37,8 @@ where $\bar\mu(x) = \frac{1}{M}\sum_m \mu_m(x)$ is the ensemble mean.
 | **`DeepEnsemble`** | ✅ | ❌ | [`DeepEnsemble`](../api/ensemble.md#torchregress.ensemble.DeepEnsemble) | High-accuracy baseline |
 | **`HeteroEnsemble`** | ✅ | ✅ | [`HeteroscedasticEnsembleModel`](../api/ensemble.md#torchregress.ensemble.HeteroscedasticEnsembleModel) | Full uncertainty |
 | **`BatchEnsemble`** | ✅ | ✅ | [`HeteroscedasticBatchEnsembleModel`](../api/ensemble.md#torchregress.ensemble.HeteroscedasticBatchEnsembleModel) | Production (fast) |
+| **`BinnedPDFEnsemble`** | ✅ | ⚠️ | [`BinnedPDFEnsembleModel`](../api/ensemble.md#torchregress.ensemble.BinnedPDFEnsembleModel) | Ordered-bin / non-Gaussian PDFs |
+| **`MDNEnsemble`** | ✅ | ✅ | [`MDNEnsembleModel`](../api/ensemble.md#torchregress.ensemble.MDNEnsembleModel) | Multimodal predictive densities |
 | **`SWAG`** [2] | ✅ | ❌ | [`SWAG`](../api/ensemble.md#torchregress.ensemble.SWAG) | Large-scale Bayesian |
 | **`MCDropout`** [3] | ✅ | ❌ | [`MCDropoutModel`](../api/ensemble.md#torchregress.ensemble.MCDropoutModel) | Legacy / Cheap UQ |
 

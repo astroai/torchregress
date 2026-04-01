@@ -9,9 +9,12 @@ from torch import nn
 from torchregress.ensemble.base import BaseEnsembleModel
 from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.models import (
+    BinnedPDFEnsembleModel,
+    CumulativeLinkEnsembleModel,
     DeepEnsemble,
     HeteroscedasticBatchEnsembleModel,
     HeteroscedasticEnsembleModel,
+    MDNEnsembleModel,
 )
 from torchregress.ensemble.utils import (
     generate_prediction_samples,
@@ -73,6 +76,28 @@ class BatchEnsembleBackbone(nn.Module):
 
     def forward(self, x):
         return torch.relu(self.layer(x))
+
+
+class ConstantLogitModel(nn.Module):
+    """Model that returns fixed logits regardless of input."""
+
+    def __init__(self, logits: torch.Tensor):
+        super().__init__()
+        self.register_buffer("logits", logits.clone().detach().view(1, -1))
+
+    def forward(self, x):
+        return self.logits.expand(x.shape[0], -1)
+
+
+class ConstantMDNModel(nn.Module):
+    """Model that returns fixed MDN parameters regardless of input."""
+
+    def __init__(self, packed: torch.Tensor):
+        super().__init__()
+        self.register_buffer("packed", packed.clone().detach().view(1, -1))
+
+    def forward(self, x):
+        return self.packed.expand(x.shape[0], -1)
 
 
 class TestBaseEnsembleModel:
@@ -221,6 +246,79 @@ class TestHeteroscedasticEnsembleModel:
             result["variance"], result["epistemic_variance"] + result["aleatoric_variance"]
         )
 
+    def test_predict_clamps_extreme_log_variance(self):
+        class ExtremeHeteroscedastic(nn.Module):
+            def forward(self, x):
+                mean = x[:, :1]
+                logvar = torch.full_like(mean, 50.0)
+                return mean, logvar
+
+        model = HeteroscedasticEnsembleModel(base_model=ExtremeHeteroscedastic(), ensemble_size=3)
+        result = model.predict(torch.randn(5, 4))
+        assert torch.isfinite(result["variance"]).all()
+        assert torch.isfinite(result["aleatoric_variance"]).all()
+
+    def test_predict_full_covariance_clamps_extreme_log_variance(self):
+        class ExtremeHeteroscedastic(nn.Module):
+            def forward(self, x):
+                mean = x[:, :2]
+                logvar = torch.full_like(mean, 50.0)
+                return mean, logvar
+
+        model = HeteroscedasticEnsembleModel(base_model=ExtremeHeteroscedastic(), ensemble_size=3)
+        result = model.predict_full_covariance(torch.randn(4, 4))
+        assert torch.isfinite(result["total_covariance"]).all()
+        assert torch.isfinite(result["aleatoric_covariance"]).all()
+
+
+class TestNonGaussianEnsembles:
+    def test_binned_pdf_ensemble_averages_probabilities(self):
+        ensemble = BinnedPDFEnsembleModel(
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0, 0.0])), ensemble_size=2
+        )
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, 0.0, -1.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([-1.0, 1.0, 0.5]))
+        x = torch.randn(4, 3)
+        result = ensemble.predict(x)
+        expected = torch.stack(
+            [
+                torch.softmax(torch.tensor([2.0, 0.0, -1.0]), dim=0),
+                torch.softmax(torch.tensor([-1.0, 1.0, 0.5]), dim=0),
+            ]
+        ).mean(dim=0)
+        assert torch.allclose(result["probabilities"][0], expected, atol=1.0e-6)
+        assert torch.allclose(result["probabilities"].sum(dim=-1), torch.ones(x.shape[0]))
+
+    def test_cumulative_link_ensemble_averages_ordinal_probabilities(self):
+        ensemble = CumulativeLinkEnsembleModel(
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0])), ensemble_size=2
+        )
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, -1.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([0.5, 1.5]))
+        x = torch.randn(3, 2)
+        result = ensemble.predict(x)
+        assert result["probabilities"].shape == (3, 3)
+        assert torch.allclose(result["probabilities"].sum(dim=-1), torch.ones(3), atol=1.0e-6)
+
+    def test_mdn_ensemble_builds_mixture_of_mixtures(self):
+        packed_a = torch.tensor([4.0, -2.0, 0.0, 1.0, -4.0, -4.0])
+        packed_b = torch.tensor([-3.0, 3.0, 2.0, 3.0, -4.0, -4.0])
+        ensemble = MDNEnsembleModel(
+            base_model=ConstantMDNModel(packed_a),
+            ensemble_size=2,
+            n_components=2,
+            n_features=1,
+        )
+        ensemble.models[0] = ConstantMDNModel(packed_a)
+        ensemble.models[1] = ConstantMDNModel(packed_b)
+        x = torch.randn(5, 4)
+        result = ensemble.predict(x)
+        assert result["mixture_weights"].shape == (5, 4)
+        assert torch.allclose(result["mixture_weights"].sum(dim=-1), torch.ones(5), atol=1.0e-6)
+        assert result["component_means"].shape == (5, 4, 1)
+        samples = ensemble.sample(x, n_samples=8)
+        assert samples.shape == (8, 5, 1)
+
 
 class TestBatchEnsembleLinear:
     """Tests for BatchEnsembleLinear layer."""
@@ -337,6 +435,20 @@ class TestHeteroscedasticBatchEnsembleModel:
         assert torch.allclose(
             result["variance"], result["epistemic_variance"] + result["aleatoric_variance"]
         )
+
+    def test_predict_clamps_extreme_log_variance(self):
+        class ExtremeBackbone(nn.Module):
+            def forward(self, x):
+                return torch.zeros(x.shape[0], 20, device=x.device, dtype=x.dtype)
+
+        model = HeteroscedasticBatchEnsembleModel(
+            backbone=ExtremeBackbone(), input_size=20, output_size=1, ensemble_size=4
+        )
+        with torch.no_grad():
+            model.output_layer.bias[1] = 50.0
+        result = model.predict(torch.randn(5, 10))
+        assert torch.isfinite(result["variance"]).all()
+        assert torch.isfinite(result["aleatoric_variance"]).all()
 
 
 class TestUtilityFunctions:

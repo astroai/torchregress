@@ -90,6 +90,26 @@ API Reference: [`plot_pit_histogram`](../api/viz.md#torchregress.viz.diagnostic.
 
 ---
 
+## Unified Metrics Report
+
+For comprehensive evaluation, use the `distribution_metrics_report` helper. It consolidates NLL, CRPS, Energy Score, PIT uniformity, and coverage into a single dictionary.
+
+```python
+from torchregress.metrics import distribution_metrics_report
+
+# dist: torch.distributions.Distribution
+# y_true: Ground truth tensor
+results = distribution_metrics_report(dist=dist, y_true=y_true)
+
+print(f"CRPS: {results['crps']:.4f}")
+print(f"PIT KS: {results['pit_ks']:.4f}")
+print(f"90% Coverage: {results['coverage_90']:.2%}")
+```
+
+This is the recommended way to evaluate Photo-Z and other complex probabilistic models, as it provides a multi-faceted view of model performance.
+
+---
+
 ## Summary Matrix
 
 | Metric | Best For | Proper? | API Reference |

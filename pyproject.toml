@@ -68,7 +68,10 @@ clauds = [
     "astropy>=6.0.0",
     "pyarrow>=18.0.0",
 ]
-all = ["torchregress[test,dev,docs,conformal,flows]"]
+foundation_models = [
+    "tabpfn>=0.1.9",
+]
+all = ["torchregress[test,dev,docs,conformal,flows,foundation_models]"]
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -30,10 +30,78 @@ where $\lambda \in (0, 1)$ is the **reliability ratio**.  This is known as **att
 
 | Loss | Approach | Key Feature |
 |:-----|:---------|:------------|
-| `FunctionalEIVLoss` | Taylor expansion of $f$ around $X_{\text{obs}}$ | Gradient-based, differentiable models |
-| `StructuralEIVLoss` | Joint Gaussian model with cross-covariance | Handles correlated $\varepsilon_X, \varepsilon_Y$ |
+| `InputNoiseMarginalizationLoss` | MC sampling over input noise | **Recommended Default** for non-linear/probabilistic models |
+| `FunctionalEIVLoss` | Taylor expansion of $f$ around $X_{\text{obs}}$ | Fast, gradient-based (Point estimates) |
+| `InputNoiseMDNLoss` | MC marginalization for MDN heads | Handles multimodal targets with noisy inputs |
+| `InputNoiseBinnedPDFLoss` | MC marginalization for classification/binning | Reliable uncertainty for binned PDF models |
 | `OrthogonalDistanceRegressionLoss` | Optimises latent $X^*$ per sample | Classical ODR, inner loop |
-| `EnsembleEIVLoss` | Monte Carlo perturbation averaging | No gradients needed |
+
+---
+
+### InputNoiseMarginalizationLoss
+
+The **recommended starting point** for modern probabilistic models. Instead of relying on local Taylor expansions, it uses Monte Carlo sampling to approximate the marginal likelihood:
+
+$$p(y|x_{\text{obs}}) = \int p(y|x) p(x|x_{\text{obs}}) dx \approx \frac{1}{N} \sum_{i=1}^N p(y|x_i)$$
+
+where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extremely stable and works naturally with complex predictive heads like MDNs or Binned PDFs.
+
+```python
+from torchregress.losses import InputNoiseMarginalizationLoss
+
+loss_fn = InputNoiseMarginalizationLoss(
+    model=my_model,
+    base_loss=GaussianNLLLoss(), # Any standard regression loss
+    sigma_x=0.2,                 # Input noise std
+    n_samples=16,                # Number of MC samples
+    antithetic=True,             # Use antithetic sampling for variance reduction
+)
+```
+
+#### NoisyInputPredictor (Wrapper)
+
+For easy test-time inference, use the high-level wrapper which automatically handles the marginalization logic:
+
+```python
+from torchregress.losses import NoisyInputPredictor
+
+# Wrap your model
+predictive = NoisyInputPredictor(model, sigma_x=0.2, n_samples=32)
+
+# Normal forward pass now returns the marginalized mean prediction
+y_pred_mean = predictive(x_obs)
+
+# Get raw samples for ensemble/density estimation
+y_samples = predictive.sample_predictions(x_obs)
+```
+
+---
+
+### Multimodal EIV Variants
+
+For complex predictive distributions (like photo-z estimation), use specialized marginalizers:
+
+**InputNoiseMDNLoss**
+Combines Input-Noise Marginalization with Mixture Density Networks.
+
+```python
+from torchregress.losses import InputNoiseMDNLoss
+
+loss_fn = InputNoiseMDNLoss(
+    model=my_mdn, 
+    n_components=5, 
+    sigma_x=0.1
+)
+```
+
+**InputNoiseBinnedPDFLoss**
+Marginalizes over inputs for models predicting discrete probability bins.
+
+```python
+from torchregress.losses import InputNoiseBinnedPDFLoss
+
+loss_fn = InputNoiseBinnedPDFLoss(model=my_classifier, sigma_x=0.1)
+```
 
 ---
 
@@ -97,38 +165,6 @@ loss_fn = OrthogonalDistanceRegressionLoss(
 )
 ```
 
-!!! info "Computational cost"
-    ODR has an **inner optimisation loop** per forward pass.  Use `FunctionalEIVLoss` for large-scale training and reserve ODR for final refinement or when Taylor approximation is poor.
-
-### EnsembleEIVLoss
-
-Generates $N$ perturbed copies of the input, runs the model on each, and averages — a **sampling-based** approach that works even with non-differentiable models:
-
-```python
-from torchregress.losses import EnsembleEIVLoss
-
-loss_fn = EnsembleEIVLoss(
-    model=my_model,
-    sigma_x=torch.tensor([0.2, 0.1]),
-    n_samples=30,
-    perturb_method="gaussian",  # or "uniform"
-)
-```
-
----
-
-## Factory Function
-
-```python
-from torchregress.losses import create_eiv_loss
-
-loss_fn = create_eiv_loss(
-    model=my_model,
-    loss_type="functional",  # "functional" | "structural" | "odr" | "ensemble"
-    sigma_x=0.2, sigma_y=0.1,
-)
-```
-
 ---
 
 ## Decision Guide
@@ -136,17 +172,17 @@ loss_fn = create_eiv_loss(
 ```mermaid
 graph TD
     A["Measurement errors in X?"] -->|No| B["Use standard loss"]
-    A -->|Yes| C{"X-Y errors correlated?"}
-    C -->|Yes| D["StructuralEIVLoss"]
-    C -->|No| E{"Model differentiable?"}
-    E -->|Yes| F{"Need classical ODR?"}
-    E -->|No| G["EnsembleEIVLoss"]
-    F -->|Yes| H["OrthogonalDistanceRegressionLoss"]
-    F -->|No| I["FunctionalEIVLoss"]
+    A -->|Yes| C{"Predictive Model Type?"}
+    C -->|Point Estimate| D{"Need correlated errors?"}
+    D -->|Yes| E["StructuralEIVLoss"]
+    D -->|No| F["FunctionalEIVLoss"]
+    C -->|Probabilistic/Complex| G{"Model Differentiable?"}
+    G -->|Yes| H["InputNoiseMarginalizationLoss"]
+    G -->|No| I["EnsembleEIVLoss"]
 ```
 
-!!! tip "Rule of thumb"
-    Use EIV methods when $\sigma_X / \sigma_Y > 0.2$.  Below this threshold, standard regression bias is negligible.
+!!! tip "Photo-Z Recommendation"
+    For astronomical photo-z estimation, **InputNoiseMarginalizationLoss** with an MDN or BinnedPDF head is considered a highly effective approach, as it correctly handles the non-linear relationship between magnitudes and redshift while accounting for flux errors.
 
 ---
 
@@ -155,7 +191,7 @@ graph TD
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import FunctionalEIVLoss
+from torchregress.losses import InputNoiseMarginalizationLoss
 
 # True relationship: y = 2x + 1
 torch.manual_seed(42)
@@ -169,8 +205,8 @@ y_obs = y_true + 0.3 * torch.randn_like(y_true)
 # Model
 model = nn.Sequential(nn.Linear(1, 32), nn.ReLU(), nn.Linear(32, 1))
 
-# EIV loss with known noise levels
-loss_fn = FunctionalEIVLoss(model=model, sigma_x=0.5, sigma_y=0.3)
+# EIV loss using marginalization (the modern default)
+loss_fn = InputNoiseMarginalizationLoss(model=model, sigma_x=0.5)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 for epoch in range(200):
@@ -178,8 +214,6 @@ for epoch in range(200):
     loss = loss_fn(x_obs, y_obs)
     loss.backward()
     optimizer.step()
-
-# Compare with standard MSE (will show attenuation bias!)
 ```
 
 ---

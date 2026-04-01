@@ -3,9 +3,11 @@ import unittest
 import torch
 from torch.autograd import gradcheck
 
+from torchregress.losses import GaussianCRPSLoss
 from torchregress.losses.eiv import (
     EnsembleEIVLoss,
     FunctionalEIVLoss,
+    InputNoiseMarginalizationLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
 )
@@ -73,6 +75,104 @@ class TestEIVLoss(unittest.TestCase):
         )
         loss_mc = loss_fn_mc(self.x_obs, self.y_obs)
         self.assertFalse(torch.isnan(loss_mc))
+
+    def test_explicit_adapter_supports_batch_sigma_override(self):
+        loss_fn = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1).to(self.device).explicit()
+        sigma_x = torch.full((self.batch_size, self.n_features_x), 0.2, device=self.device)
+        loss = loss_fn(self.x_obs, self.y_obs, sigma_x=sigma_x)
+        self.assertTrue(torch.is_tensor(loss))
+        self.assertTrue(torch.isfinite(loss))
+
+    def test_input_noise_marginalization_loss(self):
+        class GaussianHead(torch.nn.Module):
+            def __init__(self, n_features_x, n_features_y):
+                super().__init__()
+                self.linear = torch.nn.Linear(n_features_x, 2 * n_features_y)
+
+            def forward(self, x):
+                return self.linear(x)
+
+        model = GaussianHead(self.n_features_x, self.n_features_y).to(self.device)
+        base_loss = GaussianCRPSLoss()
+        loss_fn = InputNoiseMarginalizationLoss(
+            model,
+            base_loss,
+            sigma_x=torch.full((self.n_features_x,), 0.05, device=self.device),
+            n_samples=3,
+        ).to(self.device)
+        target = torch.randn(self.batch_size, self.n_features_y, device=self.device)
+        loss = loss_fn(self.x_obs, target)
+        self.assertTrue(torch.is_tensor(loss))
+        self.assertTrue(torch.isfinite(loss))
+
+    def test_input_noise_predictive_average_supports_test_time_marginalization(self):
+        class GaussianHead(torch.nn.Module):
+            def __init__(self, n_features_x, n_features_y):
+                super().__init__()
+                self.linear = torch.nn.Linear(n_features_x, 2 * n_features_y)
+
+            def forward(self, x):
+                return self.linear(x)
+
+        model = GaussianHead(self.n_features_x, self.n_features_y).to(self.device)
+        loss_fn = InputNoiseMarginalizationLoss(
+            model,
+            GaussianCRPSLoss(),
+            sigma_x=torch.full((self.n_features_x,), 0.05, device=self.device),
+            n_samples=5,
+            antithetic=True,
+        ).to(self.device)
+        stacked = loss_fn.sample_predictions(self.x_obs)
+        self.assertTrue(torch.is_tensor(stacked))
+        self.assertEqual(stacked.shape[0], 5)
+        averaged = loss_fn.predictive_average(self.x_obs)
+        self.assertTrue(torch.is_tensor(averaged))
+        self.assertEqual(tuple(averaged.shape), tuple(stacked.shape[1:]))
+
+    def test_input_noise_predictive_average_accepts_probability_transform(self):
+        class LogitHead(torch.nn.Module):
+            def forward(self, x):
+                return x[:, :3]
+
+        loss_fn = InputNoiseMarginalizationLoss(
+            LogitHead(),
+            torch.nn.CrossEntropyLoss(),
+            sigma_x=0.02,
+            n_samples=4,
+            antithetic=True,
+        ).to(self.device)
+        probs = loss_fn.predictive_average(
+            self.x_obs,
+            transform=lambda stacked: torch.softmax(stacked, dim=-1).mean(dim=0),
+        )
+        self.assertTrue(torch.is_tensor(probs))
+        self.assertTrue(
+            torch.allclose(
+                probs.sum(dim=-1), torch.ones(probs.shape[0], device=probs.device), atol=1.0e-5
+            )
+        )
+
+    def test_input_noise_marginalization_rejects_malformed_batch_covariance(self):
+        class GaussianHead(torch.nn.Module):
+            def __init__(self, n_features_x, n_features_y):
+                super().__init__()
+                self.linear = torch.nn.Linear(n_features_x, 2 * n_features_y)
+
+            def forward(self, x):
+                return self.linear(x)
+
+        model = GaussianHead(self.n_features_x, self.n_features_y).to(self.device)
+        loss_fn = InputNoiseMarginalizationLoss(model, GaussianCRPSLoss(), n_samples=3).to(
+            self.device
+        )
+        bad_sigma = torch.ones(
+            self.batch_size,
+            self.n_features_x,
+            self.n_features_x + 1,
+            device=self.device,
+        )
+        with self.assertRaises(ValueError):
+            loss_fn.sample_predictions(self.x_obs, sigma_x=bad_sigma)
 
     def test_structural_eiv_loss(self):
         sigma_x = 0.1

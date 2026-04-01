@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `48`
+- Total methods: `55`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -21,8 +21,8 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `censored` | 3 |
 | `conformal` | 4 |
 | `constraints` | 2 |
-| `eiv` | 3 |
-| `ensemble` | 3 |
+| `eiv` | 7 |
+| `ensemble` | 6 |
 | `flow` | 1 |
 | `imbalanced_loss` | 3 |
 | `inference` | 1 |
@@ -42,8 +42,8 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Maturity | Count |
 |---|---:|
 | `Core` | 6 |
-| `Strong` | 6 |
-| `Available` | 36 |
+| `Strong` | 7 |
+| `Available` | 42 |
 
 ## Method Rows
 
@@ -68,13 +68,20 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `BoundedHead` | `constraints` | `Available` | `constraints`, `bounded_outputs` | `calibration*`, `ood*` | `torchregress.constraints.BoundedHead` |
 | `NonCrossingSort` | `constraints` | `Available` | `constraints`, `ordered_outputs` | `calibration*`, `ood*` | `torchregress.constraints.NonCrossingSort` |
 | `FunctionalEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.FunctionalEIVLoss` |
+| `InputNoiseBinnedPDFLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `multimodal` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseBinnedPDFLoss` |
+| `InputNoiseMDNLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `multimodal` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseMDNLoss` |
+| `InputNoiseMarginalizationLoss` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `marginalization` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseMarginalizationLoss` |
+| `NoisyInputPredictor` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `inference` | `calibration*`, `ood*` | `torchregress.losses.NoisyInputPredictor` |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.OrthogonalDistanceRegressionLoss` |
 | `StructuralEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.StructuralEIVLoss` |
+| `BinnedPDFEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BinnedPDFEnsembleModel` |
+| `CumulativeLinkEnsembleModel` | `ensemble` | `Available` | `ordinal`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.CumulativeLinkEnsembleModel` |
 | `DeepEnsemble` | `ensemble` | `Core` | `epistemic_uq`, `ood`, `selective_prediction` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood` | `torchregress.ensemble.DeepEnsemble` |
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.HeteroscedasticBatchEnsembleModel` |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `ood`, `calibration` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood` | `torchregress.ensemble.HeteroscedasticEnsembleModel` |
+| `MDNEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration`, `uq_decomposition` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.MDNEnsembleModel` |
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
-| `DensityWeightedLoss` | `imbalanced_loss` | `Strong` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.DensityWeightedLoss` |
+| `DensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.DensityWeightedLoss` |
 | `LDSLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.LDSLoss` |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `selection_bias`, `missing_labels` | `calibration*`, `ood*` | `torchregress.losses.PropensityWeightedLoss` |
 | `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
@@ -104,13 +111,13 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`NormalizingFlowLoss`, `MDNLoss`
+`InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `NormalizingFlowLoss`, `MDNLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 
-`FunctionalEIVLoss`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss`
+`FunctionalEIVLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss`
 
 ### Decomposition (`decomposition=yes`)
 
-`HeteroscedasticBNN`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNLoss`
+`HeteroscedasticBNN`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNEnsembleModel`, `MDNLoss`
 

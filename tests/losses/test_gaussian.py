@@ -4,12 +4,14 @@ import unittest
 import torch
 
 from torchregress.losses.gaussian import (
+    GaussianCRPSLoss,
     GaussianNLLLoss,
     LowRankGaussianLoss,
     MultivariateGaussianLoss,
     low_rank_output_dim,
     split_low_rank_gaussian_output,
 )
+from torchregress.metrics import crps_gaussian
 
 
 class TestGaussianLosses(unittest.TestCase):
@@ -116,6 +118,33 @@ class TestGaussianLosses(unittest.TestCase):
                 self.assertEqual(red_loss.shape[0], self.batch_size)
             else:
                 self.assertEqual(red_loss.dim(), 0)
+
+    def test_gaussian_crps_loss_matches_metric(self):
+        """GaussianCRPSLoss should match the shared analytic CRPS metric."""
+        loss_fn = GaussianCRPSLoss(reduction="mean").to(self.device)
+        log_var = torch.full_like(self.x, math.log(0.25))
+
+        loss = loss_fn((self.x, log_var), self.x_reconstructed)
+        expected = crps_gaussian(
+            self.x.detach().cpu(),
+            self.x_reconstructed.detach().cpu(),
+            torch.full_like(self.x.detach().cpu(), 0.5),
+        )
+        assert isinstance(expected, float)
+        self.assertAlmostEqual(float(loss.item()), expected, places=5)
+
+    def test_gaussian_crps_loss_supports_mask_and_weights(self):
+        """GaussianCRPSLoss should support the shared mask/weight contract."""
+        loss_fn = GaussianCRPSLoss(reduction="none").to(self.device)
+        log_var = torch.zeros_like(self.x)
+        weights = torch.rand(self.batch_size, self.n_features_diag, device=self.device)
+
+        elementwise = loss_fn(
+            (self.x, log_var), self.x_reconstructed, mask=self.mask, weights=weights
+        )
+        self.assertTrue(torch.is_tensor(elementwise))
+        self.assertEqual(elementwise.numel(), int(self.mask.sum().item()))
+        self.assertFalse(torch.isnan(elementwise).any())
 
     def test_multivariate_gaussian_loss(self):
         """Test MultivariateGaussianLoss with and without mask."""
