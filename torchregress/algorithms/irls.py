@@ -644,9 +644,10 @@ def _batched_predict(
         return cast(torch.Tensor, torch.tensor([]).to(target_device))
 
     if isinstance(batch_preds[0], tuple):
-        # Using zip(*batch_preds) to transpose and then cat
-        return tuple(torch.cat(outputs, dim=0) for outputs in zip(*batch_preds))
+        # Using zip(*batch_preds) to transpose and then cat column-wise
+        return tuple(torch.cat(column, dim=0) for column in zip(*batch_preds))
     else:
+        # Direct cat of the list of tensors for single-output models
         return torch.cat(cast(List[torch.Tensor], batch_preds), dim=0)
 
 
