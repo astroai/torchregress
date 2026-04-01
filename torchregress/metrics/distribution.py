@@ -379,6 +379,125 @@ def _interp1d(
     return y0 + weight * (y1 - y0)
 
 
+def _pit_from_samples(
+    samples: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    samples_t = convert_to_tensor(samples)
+    y_true_t = convert_to_tensor(y_true)
+    if samples_t.ndim == 3 and samples_t.shape[-1] == 1:
+        samples_t = samples_t.squeeze(-1)
+    if y_true_t.ndim == 2 and y_true_t.shape[-1] == 1:
+        y_true_t = y_true_t.squeeze(-1)
+    if samples_t.ndim != 2 or y_true_t.ndim != 1:
+        raise ValueError("PIT from samples currently supports scalar targets only.")
+    return (samples_t <= y_true_t.unsqueeze(0)).to(torch.float32).mean(dim=0)
+
+
+def _pit_from_density(
+    support: Union[torch.Tensor, np.ndarray],
+    density: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    support_t = convert_to_tensor(support).flatten()
+    density_t = convert_to_tensor(density)
+    y_true_t = convert_to_tensor(y_true).flatten()
+    if density_t.ndim != 2:
+        raise ValueError("density must have shape [batch, support]")
+    if density_t.shape[1] != support_t.numel():
+        raise ValueError("density support mismatch")
+    support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
+    if not torch.all(support_t[1:] > support_t[:-1]):
+        raise ValueError("support must be strictly increasing")
+    cdf_grid = _cdf_from_density(support_t, density_t)
+    return _interp1d(support_t, cdf_grid, y_true_t).clamp(0.0, 1.0)
+
+
+def _pit_from_quantiles(
+    y_pred_quantiles: Dict[float, Union[torch.Tensor, np.ndarray]],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    quantile_levels = sorted(y_pred_quantiles.keys())
+    if len(quantile_levels) < 2:
+        raise ValueError("At least two quantile levels are required for PIT from quantiles.")
+
+    quantile_values = [
+        convert_to_tensor(y_pred_quantiles[level]).reshape(-1).to(torch.float32)
+        for level in quantile_levels
+    ]
+    quantile_matrix = torch.stack(quantile_values, dim=1)
+    quantile_matrix = torch.cummax(quantile_matrix, dim=1).values
+    y_true_t = convert_to_tensor(y_true).reshape(-1).to(torch.float32)
+    if quantile_matrix.shape[0] != y_true_t.shape[0]:
+        raise ValueError("Quantile predictions and targets must have matching batch size.")
+
+    level_tensor = torch.tensor(quantile_levels, device=quantile_matrix.device, dtype=torch.float32)
+    pit = torch.empty_like(y_true_t)
+    for idx in range(y_true_t.shape[0]):
+        qvals = quantile_matrix[idx]
+        y_val = y_true_t[idx]
+        if y_val <= qvals[0]:
+            pit[idx] = level_tensor[0] if torch.isclose(qvals[0], y_val) else torch.tensor(
+                0.0, device=qvals.device, dtype=qvals.dtype
+            )
+            continue
+        if y_val >= qvals[-1]:
+            pit[idx] = level_tensor[-1] if torch.isclose(qvals[-1], y_val) else torch.tensor(
+                1.0, device=qvals.device, dtype=qvals.dtype
+            )
+            continue
+        upper_idx = torch.searchsorted(qvals, y_val, right=False).item()
+        lower_idx = max(0, upper_idx - 1)
+        q0 = qvals[lower_idx]
+        q1 = qvals[upper_idx]
+        p0 = level_tensor[lower_idx]
+        p1 = level_tensor[upper_idx]
+        weight = ((y_val - q0) / (q1 - q0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
+        pit[idx] = p0 + weight * (p1 - p0)
+    return pit.clamp(0.0, 1.0)
+
+
+def _cdf_from_density(support: torch.Tensor, density: torch.Tensor) -> torch.Tensor:
+    trapezoids = 0.5 * (density[:, 1:] + density[:, :-1]) * (support[1:] - support[:-1]).unsqueeze(0)
+    cdf_grid = torch.cat(
+        [
+            torch.zeros(density.shape[0], 1, device=density.device, dtype=density.dtype),
+            torch.cumsum(trapezoids, dim=-1),
+        ],
+        dim=-1,
+    )
+    return cdf_grid / cdf_grid[:, -1:].clamp_min(1.0e-8)
+
+
+def _quantiles_from_density(
+    support: Union[torch.Tensor, np.ndarray],
+    density: Union[torch.Tensor, np.ndarray],
+    probs: list[float],
+) -> torch.Tensor:
+    support_t = convert_to_tensor(support).flatten()
+    density_t = convert_to_tensor(density)
+    if density_t.ndim != 2:
+        raise ValueError("density must have shape [batch, support]")
+    support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
+    cdf_grid = _cdf_from_density(support_t, density_t)
+    prob_t = torch.tensor(probs, device=density_t.device, dtype=density_t.dtype)
+    quantiles = torch.empty(density_t.shape[0], len(probs), device=density_t.device, dtype=density_t.dtype)
+    for row in range(density_t.shape[0]):
+        cdf_row = cdf_grid[row]
+        for col, prob in enumerate(prob_t):
+            idx = torch.searchsorted(cdf_row, prob, right=False).item()
+            idx = max(1, min(idx, support_t.numel() - 1))
+            left = idx - 1
+            right = idx
+            c0 = cdf_row[left]
+            c1 = cdf_row[right]
+            s0 = support_t[left]
+            s1 = support_t[right]
+            weight = ((prob - c0) / (c1 - c0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
+            quantiles[row, col] = s0 + weight * (s1 - s0)
+    return quantiles
+
+
 def continuous_ranked_probability_score(
     y_pred_quantiles: Dict[float, Union[torch.Tensor, np.ndarray]],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -568,6 +687,7 @@ def distribution_metrics_report(
     if y_true is None:
         raise ValueError("y_true must be provided either as a Tensor or ndarray.")
     y_true_t = convert_to_tensor(y_true)
+    pit_values: Optional[torch.Tensor] = None
 
     # 1. Log-likelihood and Sampling
     if dist is not None:
@@ -613,6 +733,7 @@ def distribution_metrics_report(
             if isinstance(pit_res, dict):
                 results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
                 results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
+                pit_values = convert_to_tensor(pit_res["pit_values"])
         except (AttributeError, NotImplementedError):
             pass
 
@@ -642,8 +763,48 @@ def distribution_metrics_report(
 
     # 3. Density-based metrics (CDE loss)
     if support is not None and density is not None:
+        support_t = convert_to_tensor(support).flatten()
+        density_t = convert_to_tensor(density)
         results["cde_loss"] = conditional_density_estimation_loss(
-            support, density, y_true_t, reduction="mean"
+            support_t, density_t, y_true_t, reduction="mean"
         )
+        if "log_prob" not in results:
+            density_at_y = _interp1d(
+                support_t.to(device=density_t.device, dtype=density_t.dtype),
+                density_t,
+                y_true_t.reshape(-1).to(device=density_t.device, dtype=density_t.dtype),
+            )
+            results["log_prob"] = float(torch.log(density_at_y.clamp_min(1.0e-8)).mean().item())
+        if "coverage_90" not in results and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+            q05_q95 = _quantiles_from_density(support_t, density_t, [0.05, 0.95])
+            lower = q05_q95[:, 0]
+            upper = q05_q95[:, 1]
+            y_flat = y_true_t.reshape(-1).to(device=lower.device, dtype=lower.dtype)
+            within = (y_flat >= lower) & (y_flat <= upper)
+            results["coverage_90"] = float(within.to(torch.float32).mean().item())
+            results["interval_width_90"] = float((upper - lower).mean().item())
+
+    # 4. PIT fallback for non-cdf predictive representations
+    if pit_values is None:
+        try:
+            if support is not None and density is not None:
+                pit_values = _pit_from_density(support, density, y_true_t)
+            elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+                pit_values = _pit_from_samples(samples, y_true_t)
+            elif y_pred_quantiles is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+                pit_values = _pit_from_quantiles(y_pred_quantiles, y_true_t)
+        except ValueError:
+            pit_values = None
+
+    if pit_values is not None and "pit_chi2" not in results:
+        pit_res = probability_integral_transform(
+            lambda _: pit_values,
+            pit_values,
+            return_histogram=True,
+            as_numpy=True,
+        )
+        if isinstance(pit_res, dict):
+            results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
+            results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
 
     return results

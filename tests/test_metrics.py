@@ -311,6 +311,35 @@ class TestDistributionMetrics:
         assert torch.isfinite(ensemble_intervals["interval_score"])
         assert torch.isfinite(ensemble_intervals["picp"])
 
+    def test_distribution_metrics_report_adds_pit_for_samples(self):
+        y_true = torch.linspace(-1.0, 1.0, steps=40)
+        samples = y_true.unsqueeze(0) + 0.1 * torch.randn(64, 40)
+        report = distribution_metrics_report(samples=samples, y_true=y_true)
+        assert "crps" in report
+        assert "pit_chi2" in report
+        assert "pit_ks" in report
+
+    def test_distribution_metrics_report_adds_pit_for_quantiles_and_density(self):
+        y_true = torch.linspace(-1.0, 1.0, steps=25)
+        quantiles = {
+            0.1: y_true - 0.4,
+            0.5: y_true,
+            0.9: y_true + 0.4,
+        }
+        report_q = distribution_metrics_report(y_pred_quantiles=quantiles, y_true=y_true)
+        assert "pit_chi2" in report_q
+        assert "pit_ks" in report_q
+
+        support = torch.linspace(-2.0, 2.0, steps=101)
+        density = torch.exp(-0.5 * (support.unsqueeze(0) - y_true.unsqueeze(1)).pow(2) / 0.2**2)
+        density = density / torch.trapezoid(density, support, dim=-1).unsqueeze(-1)
+        report_d = distribution_metrics_report(support=support, density=density, y_true=y_true)
+        assert "cde_loss" in report_d
+        assert "log_prob" in report_d
+        assert "coverage_90" in report_d
+        assert "pit_chi2" in report_d
+        assert "pit_ks" in report_d
+
     def test_conditional_density_estimation_loss_prefers_better_density(self):
         support = torch.linspace(-2.0, 2.0, 201)
         y_true = torch.tensor([0.0, 0.5])
