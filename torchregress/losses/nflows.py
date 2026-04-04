@@ -8,6 +8,7 @@ Uses the zuko package for efficient implementation of various flows.
 
 from typing import Any, Callable, Optional, cast
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 
@@ -175,6 +176,78 @@ class NormalizingFlowLoss(DistributionLoss):
         """
         return y_pred
 
+    def distribution(self, y_pred: Tensor) -> Any:
+        """Return the conditional distribution induced by ``y_pred`` context."""
+        context = self._extract_distribution_parameters(y_pred)
+        if self.context_dim is None and context.numel() > 0:
+            self.context_dim = context.shape[-1] if context.dim() > 0 else 0
+        if self.context_dim is not None and self.context_dim > 0:
+            return cast(Any, self.flow(context))
+        return cast(Any, self.flow())
+
+    def log_prob(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        """Return per-sample log probability for ``target`` under the flow."""
+        if target.dim() == 1:
+            target = target.unsqueeze(-1)
+        if target.shape[-1] != self.n_features:
+            raise ValueError(
+                f"Expected {self.n_features} features in target, got {target.shape[-1]}"
+            )
+        dist = self.distribution(y_pred)
+        return cast(Tensor, dist.log_prob(target))
+
+    def _sample_tensor(self, y_pred: Tensor, n_samples: int) -> Tensor:
+        samples = self.sample(y_pred, n_samples=n_samples)
+        if samples.dim() == 2:
+            return samples.unsqueeze(1)
+        return samples
+
+    def quantile(
+        self,
+        y_pred: Tensor,
+        levels: Tensor | list[float] | tuple[float, ...],
+        *,
+        n_samples: int = 512,
+    ) -> Tensor:
+        """Approximate scalar predictive quantiles using flow samples."""
+        if self.n_features != 1:
+            raise ValueError("quantile currently only supports scalar normalizing-flow targets")
+        level_tensor = torch.as_tensor(levels, dtype=y_pred.dtype, device=y_pred.device).reshape(-1)
+        level_tensor = level_tensor.clamp(0.0, 1.0)
+        samples = self._sample_tensor(y_pred, n_samples=n_samples)[..., 0]
+        sorted_samples = torch.sort(samples, dim=1).values
+        n_draws = sorted_samples.shape[1]
+        if n_draws <= 1:
+            return sorted_samples.expand(-1, level_tensor.numel())
+        positions = level_tensor * float(n_draws - 1)
+        lower_idx = torch.floor(positions).long().clamp(0, n_draws - 1)
+        upper_idx = torch.ceil(positions).long().clamp(0, n_draws - 1)
+        weight = (positions - lower_idx.to(positions.dtype)).view(1, -1)
+        lower = sorted_samples.index_select(1, lower_idx)
+        upper = sorted_samples.index_select(1, upper_idx)
+        return lower + (upper - lower) * weight
+
+    def cdf(
+        self,
+        y_pred: Tensor,
+        values: Tensor,
+        *,
+        n_samples: int = 512,
+    ) -> Tensor:
+        """Approximate scalar predictive CDF values using flow samples."""
+        if self.n_features != 1:
+            raise ValueError("cdf currently only supports scalar normalizing-flow targets")
+        value_tensor = values
+        squeeze_last = False
+        if value_tensor.dim() == 1:
+            value_tensor = value_tensor.unsqueeze(-1)
+            squeeze_last = True
+        elif value_tensor.dim() == 2 and value_tensor.shape[-1] == 1:
+            squeeze_last = True
+        samples = self._sample_tensor(y_pred, n_samples=n_samples)[..., 0]
+        cdf = (samples.unsqueeze(-1) <= value_tensor.unsqueeze(1)).to(samples.dtype).mean(dim=1)
+        return cdf.squeeze(-1) if squeeze_last else cdf
+
     def _calculate_nll(
         self,
         target: Tensor,
@@ -192,20 +265,8 @@ class NormalizingFlowLoss(DistributionLoss):
         Returns:
             Negative log-likelihood [batch_size]
         """
-        # Get conditional distribution from flow
-        # zuko flows: flow(context) returns a Distribution
-        if self.context_dim is not None and self.context_dim > 0:
-            # Conditional flow
-            dist = cast(Any, self.flow(context))
-        else:
-            # Unconditional flow (context_dim=0 or None with empty context)
-            dist = cast(Any, self.flow())
-
-        # Calculate log probability
-        log_prob = cast(Tensor, dist.log_prob(target))
-
-        # Return negative log-likelihood
-        return cast(Tensor, -log_prob)
+        del mask
+        return cast(Tensor, -self.log_prob(context, target))
 
     def forward(
         self,
@@ -277,30 +338,18 @@ class NormalizingFlowLoss(DistributionLoss):
         Returns:
             Samples [batch_size, n_samples, n_features] or [batch_size, n_features] if n_samples=1
         """
-        # Extract context
-        context = self._extract_distribution_parameters(y_pred)
         batch_size = y_pred.shape[0]
+        dist = self.distribution(y_pred)
 
-        # Get conditional distribution
         if self.context_dim is not None and self.context_dim > 0:
-            dist = cast(Any, self.flow(context))
-            # Conditional flow: batch_shape is [batch_size]
             if n_samples == 1:
-                # [batch_size, n_features]
                 samples = cast(Tensor, dist.sample())
             else:
-                # [n_samples, batch_size, n_features]
-                samples = cast(Tensor, dist.sample((n_samples,)))
-                # [batch_size, n_samples, n_features]
-                samples = samples.transpose(0, 1)
+                samples = cast(Tensor, dist.sample((n_samples,))).transpose(0, 1)
         else:
-            dist = cast(Any, self.flow())
-            # Unconditional flow: batch_shape is []
             if n_samples == 1:
-                # [batch_size, n_features]
                 samples = cast(Tensor, dist.sample((batch_size,)))
             else:
-                # [batch_size, n_samples, n_features]
                 samples = cast(Tensor, dist.sample((batch_size, n_samples)))
 
         return cast(Tensor, samples)

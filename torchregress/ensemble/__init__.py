@@ -19,6 +19,7 @@ from .models import (
     HeteroscedasticBatchEnsembleModel,
     HeteroscedasticEnsembleModel,
     MDNEnsembleModel,
+    RandomPartitionEnsembleModel,
 )
 from .swag import SWAG, MultiSWAG
 from .utils import parse_heteroscedastic_output
@@ -31,6 +32,7 @@ __all__ = [
     "BinnedPDFEnsembleModel",
     "CumulativeLinkEnsembleModel",
     "MDNEnsembleModel",
+    "RandomPartitionEnsembleModel",
     "HeteroscedasticBatchEnsembleModel",
     "BayesianModelAveraging",
     "StackingEnsemble",
