@@ -17,7 +17,11 @@ class ParameterEMA:
         self.shadow: dict[str, torch.Tensor] = {}
 
     def initialize(self, model: torch.nn.Module) -> None:
-        self.shadow = {name: param.detach().clone() for name, param in model.named_parameters() if param.requires_grad}
+        self.shadow = {
+            name: param.detach().clone()
+            for name, param in model.named_parameters()
+            if param.requires_grad
+        }
 
     def update(self, model: torch.nn.Module) -> None:
         if not self.shadow:

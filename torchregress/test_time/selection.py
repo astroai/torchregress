@@ -75,7 +75,9 @@ def local_consistency_weights(
     np.fill_diagonal(dists, np.inf)
     nbr_idx = np.argpartition(dists, kth=k - 1, axis=1)[:, :k]
     neighbor_probs = probs[nbr_idx].mean(axis=1)
-    agreement = np.sum(np.sqrt(np.clip(probs, eps, None) * np.clip(neighbor_probs, eps, None)), axis=1)
+    agreement = np.sum(
+        np.sqrt(np.clip(probs, eps, None) * np.clip(neighbor_probs, eps, None)), axis=1
+    )
     weights = np.exp((agreement - 1.0) / max(float(temperature), eps))
     return weights / np.clip(weights.mean(), eps, None)
 

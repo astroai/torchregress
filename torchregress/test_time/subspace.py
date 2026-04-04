@@ -43,7 +43,9 @@ class SignificantSubspaceAligner:
         self.eps = float(eps)
         self.state_: SubspaceAlignmentState | None = None
 
-    def fit(self, X_source: np.ndarray, y_source: np.ndarray | None = None) -> "SignificantSubspaceAligner":
+    def fit(
+        self, X_source: np.ndarray, y_source: np.ndarray | None = None
+    ) -> "SignificantSubspaceAligner":
         X = np.asarray(X_source, dtype=float)
         y = None if y_source is None else np.asarray(y_source, dtype=float).reshape(-1)
         if X.ndim != 2:
@@ -86,7 +88,9 @@ class SignificantSubspaceAligner:
         proj = Xw @ self.state_.components.T
         tgt_mean = proj.mean(axis=0)
         tgt_scale = np.clip(proj.std(axis=0), self.eps, None)
-        aligned_proj = (proj - tgt_mean[None, :]) * (self.state_.source_scale[None, :] / tgt_scale[None, :])
+        aligned_proj = (proj - tgt_mean[None, :]) * (
+            self.state_.source_scale[None, :] / tgt_scale[None, :]
+        )
         aligned_proj = aligned_proj + self.state_.source_mean[None, :]
         residual = Xw - (proj @ self.state_.components)
         Xw_aligned = residual + (aligned_proj @ self.state_.components)
@@ -102,7 +106,9 @@ class SignificantSubspaceAligner:
         )
         return X_aligned
 
-    def fit_transform(self, X_source: np.ndarray, X_target: np.ndarray, y_source: np.ndarray | None = None) -> np.ndarray:
+    def fit_transform(
+        self, X_source: np.ndarray, X_target: np.ndarray, y_source: np.ndarray | None = None
+    ) -> np.ndarray:
         return self.fit(X_source, y_source=y_source).transform(X_target)
 
 
@@ -126,7 +132,9 @@ class FeatureStatNormalizer:
         X = np.asarray(X_target, dtype=float)
         tgt_mean = X.mean(axis=0)
         tgt_std = np.clip(X.std(axis=0), self.eps, None)
-        return (X - tgt_mean[None, :]) * (self.source_std_[None, :] / tgt_std[None, :]) + self.source_mean_[None, :]
+        return (X - tgt_mean[None, :]) * (
+            self.source_std_[None, :] / tgt_std[None, :]
+        ) + self.source_mean_[None, :]
 
 
 __all__ = [

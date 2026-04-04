@@ -29,7 +29,9 @@ def test_predictive_batch_density_helpers_normalize() -> None:
     assert support_b.shape == density_b.shape == (1, 64)
     assert np.isclose(np.trapezoid(density_b[0], support_b[0]), 1.0, atol=1.0e-3)
 
-    batch = PredictiveBatch(quantiles=quantiles, quantile_levels=[0.1, 0.5, 0.9]).with_density(n_support=64)
+    batch = PredictiveBatch(quantiles=quantiles, quantile_levels=[0.1, 0.5, 0.9]).with_density(
+        n_support=64
+    )
     assert batch.support is not None
     assert batch.density is not None
 
