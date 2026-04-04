@@ -54,6 +54,45 @@ Optional extras:
 - Flows (`zuko`): `pip install torchregress[flows]`
 - Local dev/docs/tests: `uv pip install -e ".[all]"`
 
+## Test-Time Tooling
+
+`torchregress` now includes reusable test-time tooling designed to sit on top of
+models owned by application repos such as `torchz`, rather than owning tabular
+architectures itself.
+
+Available building blocks:
+
+- `PredictiveBatch`: a normalized prediction container for points, quantiles, bar
+  distributions, samples, and support-grid densities
+- label-shift correction via `PosteriorLabelShiftAdapter`
+- confidence filtering and local-consistency weights for FTAT/PFT3A-style pipelines
+- regression-oriented subspace alignment via `SignificantSubspaceAligner`
+- lightweight dynamic ensembling via `ParameterEMA`
+
+These tools live under `torchregress.prediction` and `torchregress.test_time` and
+are meant to plug into existing predictors at test time:
+
+- point predictions
+- means and standard deviations
+- quantiles
+- bar logits plus bin edges
+- support-grid densities
+- samples
+
+Minimal usage:
+
+```python
+from torchregress.prediction import PredictiveBatch
+from torchregress.test_time import PosteriorLabelShiftAdapter, SignificantSubspaceAligner
+
+adapter = PosteriorLabelShiftAdapter(source_prior=[0.5, 0.5, 0.0 + 1e-6])
+aligner = SignificantSubspaceAligner(rank=8)
+```
+
+The intended stack is:
+
+`application model -> PredictiveBatch -> test_time modules -> calibration / conformal / monitoring`
+
 ## Quickstart (Heteroscedastic Gaussian Regression)
 
 ```python

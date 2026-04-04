@@ -117,3 +117,22 @@ def test_simex_multivariate():
     simex.fit(W_obs, Y)
     preds = simex.predict(W_obs)
     assert preds.shape == (n_samples, 1)
+
+
+def test_simex_supports_multiple_simulations_per_lambda():
+    torch.manual_seed(0)
+    X = torch.randn(128, 1)
+    y = 2.0 * X + 0.1 * torch.randn(128, 1)
+    simex = SIMEX(
+        model_factory=SimpleLinear,
+        train_func=train_linear,
+        sigma_u=0.1,
+        lambdas=[0.5, 1.0],
+        n_simulations=3,
+    )
+    simex.fit(X, y)
+    assert len(simex.models_by_lambda) == 3
+    assert all(len(models) == 3 for models in simex.models_by_lambda)
+    preds = simex.predict(X[:10])
+    assert preds.shape == (10, 1)
+    assert torch.isfinite(preds).all()

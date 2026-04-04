@@ -39,6 +39,7 @@ from torchregress.metrics.ood import (
     typicality_score,
 )
 from torchregress.metrics.point import (
+    attenuation_factor,
     huber_loss,
     mae,
     mean_absolute_error,
@@ -729,6 +730,20 @@ class TestIntervalMetrics:
         assert "score" in report["model1"]
         assert "picp" in report["model1"]
         assert "mpiw" in report["model1"]
+
+
+class TestAttenuationFactor:
+    def test_attenuation_factor_is_one_for_identity(self):
+        y_true = torch.linspace(-2.0, 2.0, 16)
+        y_pred = y_true.clone()
+        lam = attenuation_factor(y_pred, y_true)
+        assert float(lam) == pytest.approx(1.0, abs=1.0e-6)
+
+    def test_attenuation_factor_detects_compression(self):
+        y_true = torch.linspace(-2.0, 2.0, 32)
+        y_pred = 0.6 * y_true + 0.2
+        lam = attenuation_factor(y_pred, y_true)
+        assert float(lam) == pytest.approx(0.6, rel=1.0e-3)
 
 
 if __name__ == "__main__":

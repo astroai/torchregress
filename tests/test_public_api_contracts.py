@@ -14,11 +14,13 @@ EXPECTED_EXPORTS = {
         "metrics",
         "algorithms",
         "ensemble",
+        "test_time",
         "method_catalog",
         "inference",
         "constraints",
         "calibration",
         "causal",
+        "prediction",
         "viz",
         "utils",
         "BaseLoss",
@@ -93,6 +95,7 @@ EXPECTED_EXPORTS = {
         "NormalizedRMSE",
         "OutlierFraction",
         "TrimmedMeanSquaredError",
+        "attenuation_factor",
         "mse",
         "mean_squared_error",
         "mae",
@@ -142,6 +145,9 @@ EXPECTED_EXPORTS = {
         "IRLS",
         "RegressionCalibration",
         "SIMEX",
+        "LatentNN",
+        "ErrorAwareFeatureEncoder",
+        "NoiseAwareRegressor",
     ],
     "causal": [
         "dr_ate",
@@ -167,6 +173,32 @@ EXPECTED_EXPORTS = {
         "IsotonicMeanCalibrator",
         "PITCalibrator",
     ],
+    "test_time": [
+        "AdaptationBatch",
+        "FeatureStatNormalizer",
+        "LabelShiftEstimate",
+        "ParameterEMA",
+        "PosteriorLabelShiftAdapter",
+        "RepresentationShiftCalibrator",
+        "SignificantSubspaceAligner",
+        "SubspaceAlignmentState",
+        "SupportsAdaptationParameters",
+        "SupportsPredictiveBatch",
+        "SupportsRepresentation",
+        "apply_label_shift_correction",
+        "confidence_scores",
+        "entropy_scores",
+        "estimate_target_prior_em",
+        "flatten_adaptation_parameters",
+        "local_consistency_weights",
+        "pseudo_label_targets",
+        "select_high_confidence",
+    ],
+    "prediction": [
+        "PredictiveBatch",
+        "bars_to_density_grid",
+        "quantiles_to_density_grid",
+    ],
 }
 
 
@@ -190,6 +222,17 @@ EXPECTED_SIGNATURES = {
     ),
     "algorithms.SIMEX.fit": "(self, X_train: torch.Tensor, y_train: torch.Tensor) -> 'SIMEX'",
     "algorithms.SIMEX.predict": "(self, X: torch.Tensor) -> torch.Tensor",
+    "algorithms.LatentNN.fit": (
+        "(self, X_observed: 'torch.Tensor', y_observed: 'torch.Tensor', *, "
+        "X_val: 'torch.Tensor | None' = None, y_val: 'torch.Tensor | None' = None) -> \"'LatentNN'\""
+    ),
+    "algorithms.LatentNN.predict": "(self, X: 'torch.Tensor') -> 'torch.Tensor'",
+    "algorithms.ErrorAwareFeatureEncoder.forward": (
+        "(self, x: 'torch.Tensor', sigma_x: 'float | torch.Tensor') -> 'torch.Tensor'"
+    ),
+    "algorithms.NoiseAwareRegressor.forward": (
+        "(self, x: 'torch.Tensor', sigma_x: 'float | torch.Tensor') -> 'torch.Tensor'"
+    ),
     "metrics.mse": (
         "(y_pred: torch.Tensor | numpy.ndarray, y_true: torch.Tensor | numpy.ndarray, "
         "sample_weight: torch.Tensor | numpy.ndarray | None = None, "
@@ -397,6 +440,8 @@ def test_public_exports_snapshot_non_losses() -> None:
         "metrics": tr.metrics,
         "ensemble": tr.ensemble,
         "algorithms": tr.algorithms,
+        "test_time": tr.test_time,
+        "prediction": tr.prediction,
         "causal": tr.causal,
         "inference": tr.inference,
         "constraints": tr.constraints,

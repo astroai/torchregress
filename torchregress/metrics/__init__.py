@@ -81,6 +81,7 @@ from .ordinal import (
     quadratic_weighted_kappa,
 )
 from .point import (
+    attenuation_factor,
     HuberMetric,
     MedianAbsoluteDeviation,
     MedianAbsoluteError,
@@ -186,6 +187,7 @@ __all__ = [
     "NormalizedRMSE",
     "OutlierFraction",
     "TrimmedMeanSquaredError",
+    "attenuation_factor",
     "mse",
     "mean_squared_error",
     "mae",

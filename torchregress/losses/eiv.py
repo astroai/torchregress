@@ -296,6 +296,7 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         n_samples: int = 4,
         min_sigma: float = 1.0e-4,
         antithetic: bool = False,
+        pass_sigma_x_to_model: bool = False,
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
@@ -305,36 +306,32 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         self.n_samples = int(n_samples)
         self.min_sigma = float(min_sigma)
         self.antithetic = bool(antithetic)
+        self.pass_sigma_x_to_model = bool(pass_sigma_x_to_model)
 
-    def _sigma_tensor(
+    def _sigma_spec(
         self,
         x_obs: torch.Tensor,
         sigma_x: Optional[Union[float, torch.Tensor]],
-    ) -> torch.Tensor:
+    ) -> tuple[str, torch.Tensor]:
         sigma_value = self.sigma_x if sigma_x is None else sigma_x
         if sigma_value is None:
             raise ValueError("sigma_x must be provided either at init time or in forward()")
         if isinstance(sigma_value, (int, float)):
-            return torch.full_like(x_obs, float(sigma_value)).clamp_min(self.min_sigma)
+            return "diag", torch.full_like(x_obs, float(sigma_value)).clamp_min(self.min_sigma)
         sigma = sigma_value.to(device=x_obs.device, dtype=x_obs.dtype)
         if sigma.numel() == 1:
-            return torch.full_like(x_obs, float(sigma.item())).clamp_min(self.min_sigma)
+            return "diag", torch.full_like(x_obs, float(sigma.item())).clamp_min(self.min_sigma)
         if sigma.ndim == 1:
             if sigma.shape[0] != x_obs.shape[-1]:
                 raise ValueError(
                     f"sigma_x shape {tuple(sigma.shape)} must match feature dim {x_obs.shape[-1]}"
                 )
-            return sigma.view(1, -1).expand_as(x_obs).clamp_min(self.min_sigma)
+            return "diag", sigma.view(1, -1).expand_as(x_obs).clamp_min(self.min_sigma)
         if sigma.ndim == 2:
             if sigma.shape == x_obs.shape:
-                return sigma.clamp_min(self.min_sigma)
+                return "diag", sigma.clamp_min(self.min_sigma)
             if sigma.shape == (x_obs.shape[-1], x_obs.shape[-1]):
-                return (
-                    torch.sqrt(torch.diag(sigma).clamp_min(0.0))
-                    .view(1, -1)
-                    .expand_as(x_obs)
-                    .clamp_min(self.min_sigma)
-                )
+                return "full_shared", sigma
         if sigma.ndim == 3:
             if sigma.shape[0] != x_obs.shape[0] or sigma.shape[-2:] != (
                 x_obs.shape[-1],
@@ -344,9 +341,7 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
                     "sigma_x with 3 dimensions must have shape "
                     f"({x_obs.shape[0]}, {x_obs.shape[-1]}, {x_obs.shape[-1]})"
                 )
-            return torch.sqrt(
-                torch.diagonal(sigma, dim1=-2, dim2=-1).clamp_min(self.min_sigma)
-            ).clamp_min(self.min_sigma)
+            return "full_batched", sigma
         raise ValueError(
             "sigma_x must be scalar, [features], [batch, features], [features, features], "
             "or [batch, features, features]"
@@ -357,6 +352,7 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         observed: torch.Tensor,
         sigma: torch.Tensor,
         *,
+        mode: str = "diag",
         n_samples: Optional[int] = None,
         antithetic: Optional[bool] = None,
     ) -> torch.Tensor:
@@ -365,24 +361,30 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         use_antithetic = self.antithetic if antithetic is None else bool(antithetic)
         if sample_count <= 0:
             raise ValueError("n_samples must be >= 1")
-        if not use_antithetic:
-            noise = torch.randn(
-                sample_count,
-                *observed.shape,
-                device=observed.device,
-                dtype=observed.dtype,
-            )
-            return observed.unsqueeze(0) + noise * sigma.unsqueeze(0)
-
-        half = (sample_count + 1) // 2
+        draw_count = sample_count if not use_antithetic else (sample_count + 1) // 2
         base_noise = torch.randn(
-            half,
+            draw_count,
             *observed.shape,
             device=observed.device,
             dtype=observed.dtype,
         )
-        paired = torch.cat([base_noise, -base_noise], dim=0)[:sample_count]
-        return observed.unsqueeze(0) + paired * sigma.unsqueeze(0)
+        if use_antithetic:
+            base_noise = torch.cat([base_noise, -base_noise], dim=0)[:sample_count]
+
+        if mode == "diag":
+            return observed.unsqueeze(0) + base_noise * sigma.unsqueeze(0)
+
+        dim = observed.shape[-1]
+        eye = torch.eye(dim, device=observed.device, dtype=observed.dtype)
+        if mode == "full_shared":
+            chol = torch.linalg.cholesky(sigma + eye * (self.min_sigma**2))
+            noise = torch.einsum("sbd,de->sbe", base_noise, chol.transpose(0, 1))
+            return observed.unsqueeze(0) + noise
+        if mode == "full_batched":
+            chol = torch.linalg.cholesky(sigma + eye.unsqueeze(0) * (self.min_sigma**2))
+            noise = torch.einsum("sbd,bde->sbe", base_noise, chol.transpose(-1, -2))
+            return observed.unsqueeze(0) + noise
+        raise ValueError(f"Unknown sigma_x sampling mode: {mode}")
 
     def sample_predictions(
         self,
@@ -399,18 +401,29 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         """
         if isinstance(sigma_x, torch.nn.Module):
             raise TypeError("sigma_x cannot be a Module in this context")
-        sigma_x_t = cast(torch.Tensor, self._sigma_tensor(x_obs, sigma_x))
-        sigma_x_t = sigma_x_t.clamp_min(self.min_sigma)
+        mode, sigma_x_t = self._sigma_spec(x_obs, sigma_x)
+        if mode == "diag":
+            sigma_x_t = sigma_x_t.clamp_min(self.min_sigma)
         perturbed = self._draw_perturbations(
             x_obs,
             sigma_x_t,
+            mode=mode,
             n_samples=n_samples,
             antithetic=antithetic,
         )
-        outputs = [self.model(sample) for sample in perturbed]
+        outputs = [self._model_forward(sample, sigma_x_t) for sample in perturbed]
         if outputs and isinstance(outputs[0], torch.Tensor):
             return torch.stack(cast(list[torch.Tensor], outputs))
         return outputs
+
+    def _model_forward(
+        self,
+        sample: torch.Tensor,
+        sigma_x_t: torch.Tensor,
+    ) -> Any:
+        if self.pass_sigma_x_to_model:
+            return self.model(sample, sigma_x_t)
+        return self.model(sample)
 
     def predictive_average(
         self,
