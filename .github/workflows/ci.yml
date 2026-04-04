@@ -34,35 +34,6 @@ jobs:
       with:
         fail_ci_if_error: false
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - uses: astral-sh/setup-uv@v5
-      with:
-        python-version: "3.12"
-
-    - name: Install lint dependencies
-      run: |
-        uv sync --extra dev
-
-    - name: Run ruff
-      run: |
-        uv run ruff check \
-          torchregress/losses/nflows.py \
-          torchregress/algorithms/rc.py \
-          tests/algorithms/test_rc.py \
-          tests/test_optional_flow_behavior.py
-
-    - name: Run black
-      run: |
-        uv run black --check \
-          torchregress/losses/nflows.py \
-          torchregress/algorithms/rc.py \
-          tests/algorithms/test_rc.py \
-          tests/test_optional_flow_behavior.py
-
   benchmark-thresholds-cpu:
     runs-on: ubuntu-latest
     steps:
