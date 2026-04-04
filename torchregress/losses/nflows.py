@@ -6,6 +6,7 @@ normalizing flows to model complex output distributions.
 Uses the zuko package for efficient implementation of various flows.
 """
 
+from collections.abc import Sequence
 from typing import Any, Callable, Optional, cast
 
 import torch
@@ -31,7 +32,8 @@ def create_flow_model(
     context_dim: int = 0,
     flow_type: str = "nsf",
     n_transforms: int = 5,
-    hidden_features: Optional[list[int]] = None,
+    hidden_features: Optional[int | Sequence[int]] = None,
+    n_hidden_layers: int | None = None,
     **kwargs: Any,
 ) -> Module:
     """
@@ -54,7 +56,10 @@ def create_flow_model(
             f"Unsupported flow_type {flow_type!r}. Expected one of {sorted(flow_cls_map)}."
         )
 
-    hidden = [64, 64] if hidden_features is None else hidden_features
+    hidden = _resolve_hidden_features(
+        hidden_features=hidden_features,
+        n_hidden_layers=n_hidden_layers,
+    )
     flow_cls = flow_cls_map[flow_type_key]
     assert flow_cls is not None
     flow = flow_cls(
@@ -67,6 +72,27 @@ def create_flow_model(
     # Store context dim in a stable attribute used by NormalizingFlowLoss.
     setattr(flow, "context", context_dim)
     return cast(Module, flow)
+
+
+def _resolve_hidden_features(
+    *,
+    hidden_features: Optional[int | Sequence[int]],
+    n_hidden_layers: int | None,
+) -> list[int]:
+    if hidden_features is None:
+        width = 64
+        depth = 2 if n_hidden_layers is None else int(n_hidden_layers)
+        return [width] * max(depth, 1)
+
+    if isinstance(hidden_features, Sequence) and not isinstance(hidden_features, (str, bytes)):
+        resolved = [int(width) for width in hidden_features]
+        if not resolved:
+            raise ValueError("hidden_features sequence must contain at least one layer width")
+        return resolved
+
+    width = int(hidden_features)
+    depth = 1 if n_hidden_layers is None else int(n_hidden_layers)
+    return [width] * max(depth, 1)
 
 
 def create_flow_loss(*, reduction: str = "mean", **flow_kwargs: Any) -> "NormalizingFlowLoss":
