@@ -21,6 +21,9 @@ jobs:
       with:
         pixi-version: v0.63.0
         cache: true
+        locked: false
+
+
 
     - name: Run tests
       run: |
@@ -42,6 +45,9 @@ jobs:
       with:
         pixi-version: v0.63.0
         cache: true
+        locked: false
+
+
 
     - name: Run ruff
       run: |
@@ -61,6 +67,9 @@ jobs:
       with:
         pixi-version: v0.63.0
         cache: true
+        locked: false
+
+
 
     - name: Run benchmark smoke threshold check (CPU)
       env:
@@ -144,6 +153,9 @@ jobs:
       with:
         pixi-version: v0.63.0
         cache: true
+        locked: false
+
+
 
     - name: Run flow-enabled example smoke tests
       run: |

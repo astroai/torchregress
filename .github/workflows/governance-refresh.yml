@@ -32,6 +32,9 @@ jobs:
         with:
           pixi-version: v0.63.0
           cache: true
+        locked: false
+
+
 
       - name: Render comparison summaries (smoke + audit)
         run: |
