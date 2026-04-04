@@ -9,6 +9,7 @@ from torch import nn
 from torchregress.ensemble.base import BaseEnsembleModel
 from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.models import (
+    BatchEnsembleMLPBackbone,
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
     DeepEnsemble,
@@ -450,6 +451,44 @@ class TestHeteroscedasticBatchEnsembleModel:
         result = model.predict(torch.randn(5, 10))
         assert torch.isfinite(result["variance"]).all()
         assert torch.isfinite(result["aleatoric_variance"]).all()
+
+
+class TestBatchEnsembleMLPBackbone:
+    def test_forward_returns_memberwise_features(self):
+        backbone = BatchEnsembleMLPBackbone(
+            input_size=6,
+            hidden_size=12,
+            ensemble_size=3,
+            hidden_dims=[12, 12],
+            activation="ReLU",
+            layer_norm=True,
+            dropout=0.0,
+            residual=True,
+        )
+        x = torch.randn(5, 6)
+        features = backbone(x)
+        assert features.shape == (5, 3, 12)
+
+    def test_works_with_heteroscedastic_batch_ensemble_model(self):
+        backbone = BatchEnsembleMLPBackbone(
+            input_size=6,
+            hidden_size=10,
+            ensemble_size=2,
+            hidden_dims=[10, 10],
+            activation="GELU",
+            layer_norm=True,
+            dropout=0.0,
+            residual=True,
+        )
+        model = HeteroscedasticBatchEnsembleModel(
+            backbone=backbone,
+            input_size=backbone.feature_dim,
+            output_size=1,
+            ensemble_size=2,
+        )
+        result = model.predict(torch.randn(4, 6))
+        assert result["mean"].shape == (4, 1)
+        assert torch.isfinite(result["variance"]).all()
 
 
 class TestUtilityFunctions:

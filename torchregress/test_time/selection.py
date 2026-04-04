@@ -5,6 +5,14 @@ from __future__ import annotations
 import numpy as np
 
 
+def _sample_reference_indices(n_rows: int, reference_size: int | None, *, random_state: int | None) -> np.ndarray:
+    if reference_size is None or reference_size <= 0 or reference_size >= n_rows:
+        return np.arange(n_rows, dtype=np.int64)
+    rng = np.random.default_rng(random_state)
+    idx = rng.choice(n_rows, size=int(reference_size), replace=False)
+    return np.sort(idx.astype(np.int64, copy=False))
+
+
 def entropy_scores(probabilities: np.ndarray, *, eps: float = 1.0e-8) -> np.ndarray:
     probs = np.asarray(probabilities, dtype=float)
     probs = np.clip(probs, eps, None)
@@ -61,6 +69,10 @@ def local_consistency_weights(
     *,
     k: int = 5,
     temperature: float = 1.0,
+    reference_size: int | None = None,
+    max_exact_rows: int = 4096,
+    query_chunk_size: int | None = 2048,
+    random_state: int | None = 0,
     eps: float = 1.0e-8,
 ) -> np.ndarray:
     """Compute FTAT-style neighborhood consistency weights from feature space."""
@@ -70,11 +82,29 @@ def local_consistency_weights(
         raise ValueError("features and probabilities must have matching batch dimensions")
     if x.shape[0] == 1:
         return np.ones(1, dtype=float)
-    k = max(1, min(int(k), x.shape[0] - 1))
-    dists = np.sum((x[:, None, :] - x[None, :, :]) ** 2, axis=-1)
-    np.fill_diagonal(dists, np.inf)
-    nbr_idx = np.argpartition(dists, kth=k - 1, axis=1)[:, :k]
-    neighbor_probs = probs[nbr_idx].mean(axis=1)
+    reference_idx = (
+        np.arange(x.shape[0], dtype=np.int64)
+        if x.shape[0] <= int(max_exact_rows) and reference_size is None
+        else _sample_reference_indices(x.shape[0], reference_size or max_exact_rows, random_state=random_state)
+    )
+    ref_x = x[reference_idx]
+    ref_probs = probs[reference_idx]
+    k = max(1, min(int(k), ref_x.shape[0]))
+    neighbor_probs = np.empty_like(probs, dtype=float)
+    chunk_size = x.shape[0] if query_chunk_size is None or query_chunk_size <= 0 else int(query_chunk_size)
+    exact_self_reference = reference_idx.shape[0] == x.shape[0] and np.array_equal(
+        reference_idx, np.arange(x.shape[0], dtype=np.int64)
+    )
+    if exact_self_reference:
+        k = max(1, min(int(k), x.shape[0] - 1))
+    for start in range(0, x.shape[0], chunk_size):
+        stop = min(start + chunk_size, x.shape[0])
+        dists = np.sum((x[start:stop, None, :] - ref_x[None, :, :]) ** 2, axis=-1)
+        if exact_self_reference:
+            row_idx = np.arange(start, stop, dtype=np.int64)
+            dists[np.arange(stop - start), row_idx] = np.inf
+        nbr_idx = np.argpartition(dists, kth=k - 1, axis=1)[:, :k]
+        neighbor_probs[start:stop] = ref_probs[nbr_idx].mean(axis=1)
     agreement = np.sum(np.sqrt(np.clip(probs, eps, None) * np.clip(neighbor_probs, eps, None)), axis=1)
     weights = np.exp((agreement - 1.0) / max(float(temperature), eps))
     return weights / np.clip(weights.mean(), eps, None)

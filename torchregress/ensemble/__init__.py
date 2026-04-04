@@ -13,6 +13,7 @@ from .combiners import (
 from .layers import BatchEnsembleLinear
 from .mc_dropout import MCDropoutModel, MCDropoutWrapper, enable_dropout
 from .models import (
+    BatchEnsembleMLPBackbone,
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
     DeepEnsemble,
@@ -29,6 +30,7 @@ __all__ = [
     "BatchEnsembleLinear",
     "HeteroscedasticEnsembleModel",
     "DeepEnsemble",
+    "BatchEnsembleMLPBackbone",
     "BinnedPDFEnsembleModel",
     "CumulativeLinkEnsembleModel",
     "MDNEnsembleModel",

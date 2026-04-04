@@ -419,6 +419,92 @@ class RandomPartitionEnsembleModel(BaseEnsembleModel):
         return samples.transpose(0, 1)
 
 
+class BatchEnsembleMLPBackbone(nn.Module):
+    """Shared-backbone BatchEnsemble MLP.
+
+    This is a parameter-efficient ensemble backbone that applies BatchEnsemble
+    rank-1 perturbations throughout the hidden stack, rather than only in the
+    output layer. It is a practical shared-backbone ensemble path that maps
+    cleanly to tabular architectures such as TabM-like efficient ensembles.
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        *,
+        ensemble_size: int = 4,
+        hidden_dims: Optional[Sequence[int]] = None,
+        activation: str = "ReLU",
+        layer_norm: bool = True,
+        dropout: float = 0.0,
+        residual: bool = True,
+        device: str | torch.device = "cpu",
+    ) -> None:
+        super().__init__()
+        dims = [int(dim) for dim in (hidden_dims or [hidden_size, hidden_size])]
+        if not dims:
+            raise ValueError("BatchEnsembleMLPBackbone requires at least one hidden dimension")
+        act_cls = getattr(nn, activation)
+        self.feature_dim = dims[-1]
+        self.activation = act_cls()
+        self.dropout = nn.Dropout(float(dropout)) if dropout > 0 else nn.Identity()
+        self.layer_norm = bool(layer_norm)
+        self.residual = bool(residual)
+        self.input_layer = BatchEnsembleLinear(
+            input_size,
+            dims[0],
+            ensemble_size=ensemble_size,
+            device=device,
+        )
+        self.input_norm = nn.LayerNorm(dims[0]) if self.layer_norm else nn.Identity()
+        self.hidden_layers = nn.ModuleList()
+        self.hidden_norms = nn.ModuleList()
+        self.shortcuts = nn.ModuleList()
+        prev_dim = dims[0]
+        for dim in dims[1:]:
+            self.hidden_layers.append(
+                BatchEnsembleLinear(
+                    prev_dim,
+                    dim,
+                    ensemble_size=ensemble_size,
+                    device=device,
+                )
+            )
+            self.hidden_norms.append(nn.LayerNorm(dim) if self.layer_norm else nn.Identity())
+            if self.residual:
+                if prev_dim == dim:
+                    self.shortcuts.append(nn.Identity())
+                else:
+                    self.shortcuts.append(
+                        BatchEnsembleLinear(
+                            prev_dim,
+                            dim,
+                            ensemble_size=ensemble_size,
+                            device=device,
+                        )
+                    )
+            else:
+                self.shortcuts.append(nn.Identity())
+            prev_dim = dim
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = self.input_layer(x)
+        out = self.input_norm(out)
+        out = self.activation(out)
+        out = self.dropout(out)
+        for layer, norm, shortcut in zip(self.hidden_layers, self.hidden_norms, self.shortcuts):
+            residual = out
+            out = layer(out)
+            out = norm(out)
+            if self.residual:
+                residual = shortcut(residual)
+                out = out + residual
+            out = self.activation(out)
+            out = self.dropout(out)
+        return out
+
+
 class CumulativeLinkEnsembleModel(BaseEnsembleModel):
     """Deep-ensemble averaging for cumulative-link / ordinal heads."""
 
