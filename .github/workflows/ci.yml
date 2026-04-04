@@ -16,15 +16,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install pixi
-      uses: prefix-dev/setup-pixi@v0.8.1
+    - uses: astral-sh/setup-uv@v5
       with:
-        pixi-version: v0.63.0
-        cache: true
+        python-version: "3.12"
+
+    - name: Install test dependencies
+      run: |
+        uv sync --extra test --extra flows
 
     - name: Run tests
       run: |
-        pixi run pytest --cov=torchregress --cov-report=xml --cov-report=term
+        uv run python -m pytest --cov=torchregress --cov-report=xml --cov-report=term
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -37,37 +39,41 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install pixi
-      uses: prefix-dev/setup-pixi@v0.8.1
+    - uses: astral-sh/setup-uv@v5
       with:
-        pixi-version: v0.63.0
-        cache: true
+        python-version: "3.12"
+
+    - name: Install lint dependencies
+      run: |
+        uv sync --extra dev
 
     - name: Run ruff
       run: |
-        pixi run ruff check .
+        uv run ruff check .
 
     - name: Run black
       run: |
-        pixi run black --check .
+        uv run black --check .
 
   benchmark-thresholds-cpu:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install pixi
-      uses: prefix-dev/setup-pixi@v0.8.1
+    - uses: astral-sh/setup-uv@v5
       with:
-        pixi-version: v0.63.0
-        cache: true
+        python-version: "3.12"
+
+    - name: Install benchmark dependencies
+      run: |
+        uv sync --extra test --extra flows
 
     - name: Run benchmark smoke threshold check (CPU)
       env:
         OMP_NUM_THREADS: "1"
         MKL_NUM_THREADS: "1"
       run: |
-        pixi run python -m tools.benchmark_smoke \
+        uv run python -m tools.benchmark_smoke \
           --mode smoke \
           --iterations 2 \
           --warmup 1 \
@@ -80,7 +86,7 @@ jobs:
         OMP_NUM_THREADS: "1"
         MKL_NUM_THREADS: "1"
       run: |
-        pixi run python -m tools.benchmark_smoke \
+        uv run python -m tools.benchmark_smoke \
           --mode sweep \
           --iterations 2 \
           --warmup 1 \
@@ -101,8 +107,8 @@ jobs:
     - name: Render benchmark markdown summaries (CPU)
       if: always()
       run: |
-        pixi run python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
-        pixi run python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
+        uv run python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
+        uv run python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
 
     - name: Upload benchmark markdown summaries (CPU)
       uses: actions/upload-artifact@v4
@@ -117,7 +123,7 @@ jobs:
     - name: Render review readiness packet
       if: always()
       run: |
-        pixi run python tools/render_review_packet.py
+        uv run python tools/render_review_packet.py
 
     - name: Upload review readiness packet artifacts
       uses: actions/upload-artifact@v4
@@ -140,28 +146,31 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - uses: prefix-dev/setup-pixi@v0.8.1
+    - uses: astral-sh/setup-uv@v5
       with:
-        pixi-version: v0.63.0
-        cache: true
+        python-version: "3.12"
+
+    - name: Install flow example dependencies
+      run: |
+        uv sync --extra test --extra flows
 
     - name: Run flow-enabled example smoke tests
       run: |
-        pixi run pytest -q \
+        uv run python -m pytest -q \
           tests/test_examples_smoke.py::test_normalizing_flows_multitarget_main_smoke \
           tests/test_examples_smoke.py::test_multimodal_method_comparison_main_smoke
 
     - name: Render comparison example summaries (audit profile)
       run: |
-        pixi run python tools/render_example_summaries.py --profile audit
+        uv run python tools/render_example_summaries.py --profile audit
 
     - name: Render comparison example summaries (full profile)
       run: |
-        pixi run python tools/render_example_summaries.py --profile full
+        uv run python tools/render_example_summaries.py --profile full
 
     - name: Compare audit vs full example summary profiles
       run: |
-        pixi run python tools/compare_example_summary_profiles.py \
+        uv run python tools/compare_example_summary_profiles.py \
           --base-dir reports/example_summaries \
           --source-profile audit \
           --target-profile full \
@@ -169,7 +178,7 @@ jobs:
 
     - name: Check full-profile example summary thresholds
       run: |
-        pixi run python tools/example_summary_thresholds.py \
+        uv run python tools/example_summary_thresholds.py \
           --base-dir reports/example_summaries \
           --profile full \
           --thresholds reports/example_summaries/thresholds_full.json \
