@@ -12,6 +12,13 @@ import torch
 from ..utils.validation import check_tensor
 
 
+def _project_covariance_psd(covariance: torch.Tensor, *, min_eigenvalue: float = 1.0e-6) -> torch.Tensor:
+    covariance = 0.5 * (covariance + covariance.transpose(-1, -2))
+    eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
+    clipped = eigenvalues.clamp_min(float(min_eigenvalue))
+    return eigenvectors @ torch.diag_embed(clipped) @ eigenvectors.transpose(-1, -2)
+
+
 class RegressionCalibration:
     """
     Regression Calibration (RC) for correcting measurement error.
@@ -208,7 +215,7 @@ class RegressionCalibration:
             centered = (X_observed - self.mu_w).unsqueeze(-1)
             post_mean = self.mu_w.unsqueeze(0) + (gain @ centered).squeeze(-1)
             post_cov = signal.unsqueeze(0) - gain @ signal.unsqueeze(0)
-            post_cov = 0.5 * (post_cov + post_cov.transpose(-1, -2))
+            post_cov = _project_covariance_psd(post_cov)
             return post_mean, post_cov
 
         sigma_u_cov = self.sigma_u
@@ -219,5 +226,5 @@ class RegressionCalibration:
         gain = signal @ torch.linalg.pinv(signal + sigma_u_cov)
         post_mean = self.mu_w + (X_observed - self.mu_w) @ gain.T
         post_cov = signal - gain @ signal
-        post_cov = 0.5 * (post_cov + post_cov.T)
+        post_cov = _project_covariance_psd(post_cov)
         return post_mean, post_cov

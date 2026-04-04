@@ -114,6 +114,7 @@ def test_rc_posterior_returns_mean_and_covariance():
     assert post_cov.shape == (2, 2)
     assert torch.isfinite(post_mean).all()
     assert torch.isfinite(post_cov).all()
+    assert float(torch.linalg.eigvalsh(post_cov).min()) >= 0.0
 
 
 def test_rc_posterior_supports_per_sample_diagonal_noise():
@@ -126,3 +127,5 @@ def test_rc_posterior_supports_per_sample_diagonal_noise():
     assert post_mean.shape == x_obs.shape
     assert post_cov.shape == (64, 3, 3)
     assert torch.isfinite(post_cov).all()
+    min_eigs = torch.linalg.eigvalsh(post_cov).min(dim=-1).values
+    assert torch.all(min_eigs >= 0.0)
