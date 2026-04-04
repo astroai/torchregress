@@ -128,14 +128,38 @@ class BaseEnsembleModel(nn.Module):
         epochs: int = 10,
         lr: float = 1e-3,
         optimizer_cls: type = torch.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
         verbose: bool = True,
         device: Union[str, torch.device, None] = None,
+        adversarial_training: bool = False,
+        adversarial_epsilon: float = 0.0,
+        adversarial_steps: int = 1,
+        adversarial_alpha: float | None = None,
+        adversarial_probability: float = 1.0,
+        adversarial_loss_weight: float = 1.0,
+        adversarial_random_start: bool = False,
     ) -> Dict[str, list]:
         """
         Train each ensemble member independently.
+
+        When ``adversarial_training`` is enabled, each member is trained on the
+        standard objective plus an optional FGSM/PGD-style adversarial term using
+        the same criterion. This matches the original deep-ensemble recipe while
+        keeping the ensemble members otherwise independent.
         """
+        from torchregress.utils.augment import Adversarial
+
         device = device or self.device
         member_histories = []
+        member_clean_histories = []
+        member_adversarial_histories = []
+        optimizer_kwargs = dict(optimizer_kwargs or {})
+        optimizer_signature = tuple(sorted((str(key), repr(value)) for key, value in optimizer_kwargs.items()))
+
+        if adversarial_loss_weight < 0:
+            raise ValueError(
+                f"adversarial_loss_weight must be non-negative, got {adversarial_loss_weight}"
+            )
 
         for model in self.models:
             model.to(device)
@@ -143,9 +167,14 @@ class BaseEnsembleModel(nn.Module):
         if (
             not hasattr(self, "_optimizers")
             or getattr(self, "_optimizer_cls", None) is not optimizer_cls
+            or getattr(self, "_optimizer_kwargs_signature", None) != optimizer_signature
         ):
-            self._optimizers = [optimizer_cls(model.parameters(), lr=lr) for model in self.models]
+            self._optimizers = [
+                optimizer_cls(model.parameters(), lr=lr, **optimizer_kwargs)
+                for model in self.models
+            ]
             self._optimizer_cls = optimizer_cls
+            self._optimizer_kwargs_signature = optimizer_signature
         else:
             for opt in self._optimizers:
                 for param_group in opt.param_groups:
@@ -154,10 +183,25 @@ class BaseEnsembleModel(nn.Module):
         for idx, model in enumerate(self.models):
             optimizer = self._optimizers[idx]
             history = []
+            clean_history = []
+            adversarial_history = []
+            augmenter = None
+            if adversarial_training and adversarial_loss_weight > 0:
+                augmenter = Adversarial(
+                    model=model,
+                    loss_fn=criterion,
+                    epsilon=adversarial_epsilon,
+                    steps=adversarial_steps,
+                    alpha=adversarial_alpha,
+                    probability=adversarial_probability,
+                    random_start=adversarial_random_start,
+                )
 
             for epoch in range(epochs):
                 model.train()
                 running_loss = 0.0
+                running_clean_loss = 0.0
+                running_adversarial_loss = 0.0
                 batch_count = 0
 
                 for batch in train_loader:
@@ -171,23 +215,51 @@ class BaseEnsembleModel(nn.Module):
 
                     optimizer.zero_grad()
                     preds = model(x)
-                    loss = criterion(preds, y)
+                    clean_loss = criterion(preds, y)
+                    loss = clean_loss
+
+                    if augmenter is not None:
+                        x_adv, _ = augmenter(x, y)
+                        preds_adv = model(x_adv)
+                        adversarial_loss = criterion(preds_adv, y)
+                        loss = clean_loss + (adversarial_loss_weight * adversarial_loss)
+                        running_adversarial_loss += float(adversarial_loss.detach().item())
+
                     loss.backward()
                     optimizer.step()
 
                     running_loss += float(loss.detach().item())
+                    running_clean_loss += float(clean_loss.detach().item())
                     batch_count += 1
 
                 epoch_loss = running_loss / max(batch_count, 1)
+                epoch_clean_loss = running_clean_loss / max(batch_count, 1)
                 history.append(epoch_loss)
+                clean_history.append(epoch_clean_loss)
+                if augmenter is not None:
+                    epoch_adversarial_loss = running_adversarial_loss / max(batch_count, 1)
+                    adversarial_history.append(epoch_adversarial_loss)
 
                 if verbose:
-                    print(
+                    message = (
                         f"Member {idx + 1}/{self.ensemble_size} "
                         f"Epoch {epoch + 1}/{epochs} "
                         f"Loss {epoch_loss:.6f}"
                     )
+                    if augmenter is not None:
+                        message += (
+                            f" Clean {epoch_clean_loss:.6f}"
+                            f" Adv {epoch_adversarial_loss:.6f}"
+                        )
+                    print(message)
 
             member_histories.append(history)
+            member_clean_histories.append(clean_history)
+            if augmenter is not None:
+                member_adversarial_histories.append(adversarial_history)
 
-        return {"member_histories": member_histories}
+        result: Dict[str, list] = {"member_histories": member_histories}
+        if adversarial_training and adversarial_loss_weight > 0:
+            result["member_clean_histories"] = member_clean_histories
+            result["member_adversarial_histories"] = member_adversarial_histories
+        return result

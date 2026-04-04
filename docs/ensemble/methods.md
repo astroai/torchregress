@@ -25,6 +25,20 @@ mean = torch.stack(preds).mean(dim=0)    # ensemble mean
 epi  = torch.stack(preds).var(dim=0)     # epistemic variance
 ```
 
+Optional adversarial smoothing during member training:
+
+```python
+ensemble.fit(
+    train_loader,
+    loss_fn,
+    epochs=20,
+    adversarial_training=True,
+    adversarial_epsilon=0.01,
+    adversarial_steps=1,
+    adversarial_loss_weight=1.0,
+)
+```
+
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
 | `base_model` | `type` or `nn.Module` | — | Model class or instance to ensemble |
@@ -33,6 +47,9 @@ epi  = torch.stack(preds).var(dim=0)     # epistemic variance
 
 !!! tip "When to use"
     Use when your base model outputs **only point predictions** ($\hat{y}$) and you want epistemic uncertainty via disagreement.  For **aleatoric + epistemic**, use `HeteroscedasticEnsembleModel`.
+
+!!! note "Adversarial training"
+    The original deep-ensemble recipe adds an optional adversarial loss term on FGSM-style perturbed inputs. `torchregress` now exposes that directly in `fit(...)`, including multi-step and random-start variants for stronger smoothing.
 
 ---
 
