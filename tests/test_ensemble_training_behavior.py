@@ -96,6 +96,37 @@ def test_deep_ensemble_fit_supports_optional_adversarial_training() -> None:
         assert torch.isfinite(torch.tensor(member_history[0]))
 
 
+def test_deep_ensemble_fit_supports_optimizer_factory_tuple() -> None:
+    """Per-member ``optimizer_factory`` may return multiple optimizers (e.g. AdamW + Muon)."""
+    torch.manual_seed(0)
+    x = torch.randn(16, 3)
+    y = (x.sum(dim=1, keepdim=True) + 0.1 * torch.randn(16, 1)).detach()
+    loader = DataLoader(TensorDataset(x, y), batch_size=4, shuffle=False)
+    lr = 1e-2
+
+    def optimizer_factory(model: nn.Module) -> tuple[torch.optim.Adam, torch.optim.Adam]:
+        plist = list(model.parameters())
+        return (
+            torch.optim.Adam(plist[:2], lr=lr),
+            torch.optim.Adam(plist[2:], lr=lr),
+        )
+
+    ensemble = DeepEnsemble(_tiny_regressor(), ensemble_size=2)
+    history = ensemble.fit(
+        loader,
+        nn.MSELoss(),
+        epochs=1,
+        lr=lr,
+        optimizer_factory=optimizer_factory,
+        verbose=False,
+    )
+
+    assert "member_histories" in history
+    assert len(history["member_histories"]) == 2
+    assert hasattr(ensemble, "_optimizers")
+    assert all(isinstance(o, tuple) and len(o) == 2 for o in ensemble._optimizers)
+
+
 def test_deep_ensemble_fit_supports_optimizer_kwargs() -> None:
     torch.manual_seed(0)
     x = torch.randn(16, 3)

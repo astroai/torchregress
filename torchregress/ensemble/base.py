@@ -5,11 +5,31 @@ This module provides foundation classes and abstractions for all ensemble techni
 in the torchregress library.
 """
 
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Any, Dict, Union
 
 import torch
 import torch.nn as nn
+
+Optimizer = torch.optim.Optimizer
+OptimizerLike = Optimizer | tuple[Optimizer, ...]
+
+
+def _optimizer_like_zero_grad(opt: OptimizerLike) -> None:
+    for o in (opt if isinstance(opt, tuple) else (opt,)):
+        o.zero_grad()
+
+
+def _optimizer_like_step(opt: OptimizerLike) -> None:
+    for o in (opt if isinstance(opt, tuple) else (opt,)):
+        o.step()
+
+
+def _optimizer_like_set_lr(opt: OptimizerLike, lr: float) -> None:
+    for o in (opt if isinstance(opt, tuple) else (opt,)):
+        for param_group in o.param_groups:
+            param_group["lr"] = lr
 
 
 class BaseEnsembleModel(nn.Module):
@@ -129,6 +149,7 @@ class BaseEnsembleModel(nn.Module):
         lr: float = 1e-3,
         optimizer_cls: type = torch.optim.Adam,
         optimizer_kwargs: dict[str, Any] | None = None,
+        optimizer_factory: Callable[[nn.Module], OptimizerLike] | None = None,
         verbose: bool = True,
         device: Union[str, torch.device, None] = None,
         adversarial_training: bool = False,
@@ -146,6 +167,11 @@ class BaseEnsembleModel(nn.Module):
         standard objective plus an optional FGSM/PGD-style adversarial term using
         the same criterion. This matches the original deep-ensemble recipe while
         keeping the ensemble members otherwise independent.
+
+        When ``optimizer_factory`` is set, it is called as ``factory(model)`` for
+        each member and must return a single ``torch.optim.Optimizer`` or a tuple
+        of optimizers (e.g. AdamW + Muon). In that case ``optimizer_cls`` and
+        ``optimizer_kwargs`` are ignored.
         """
         from torchregress.utils.augment import Adversarial
 
@@ -164,10 +190,14 @@ class BaseEnsembleModel(nn.Module):
         for model in self.models:
             model.to(device)
 
-        if (
+        if optimizer_factory is not None:
+            self._optimizers = [optimizer_factory(model) for model in self.models]
+            self._optimizer_uses_factory = True
+        elif (
             not hasattr(self, "_optimizers")
             or getattr(self, "_optimizer_cls", None) is not optimizer_cls
             or getattr(self, "_optimizer_kwargs_signature", None) != optimizer_signature
+            or getattr(self, "_optimizer_uses_factory", False)
         ):
             self._optimizers = [
                 optimizer_cls(model.parameters(), lr=lr, **optimizer_kwargs)
@@ -175,10 +205,10 @@ class BaseEnsembleModel(nn.Module):
             ]
             self._optimizer_cls = optimizer_cls
             self._optimizer_kwargs_signature = optimizer_signature
+            self._optimizer_uses_factory = False
         else:
             for opt in self._optimizers:
-                for param_group in opt.param_groups:
-                    param_group["lr"] = lr
+                _optimizer_like_set_lr(opt, lr)
 
         for idx, model in enumerate(self.models):
             optimizer = self._optimizers[idx]
@@ -213,7 +243,7 @@ class BaseEnsembleModel(nn.Module):
                     x = x.to(device)
                     y = y.to(device)
 
-                    optimizer.zero_grad()
+                    _optimizer_like_zero_grad(optimizer)
                     preds = model(x)
                     clean_loss = criterion(preds, y)
                     loss = clean_loss
@@ -226,7 +256,7 @@ class BaseEnsembleModel(nn.Module):
                         running_adversarial_loss += float(adversarial_loss.detach().item())
 
                     loss.backward()
-                    optimizer.step()
+                    _optimizer_like_step(optimizer)
 
                     running_loss += float(loss.detach().item())
                     running_clean_loss += float(clean_loss.detach().item())
