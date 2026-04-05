@@ -309,7 +309,7 @@ def main():
     }
 
     results = {}
-    for name, build in loss_builders.items():
+    for i, (name, build) in enumerate(loss_builders.items()):
         print(f"\n--- Training {name} ---")
         model, loss_fn = build()
         if name == "Ensemble (MSE)":
@@ -326,6 +326,7 @@ def main():
         if name == "GaussianNLL":
             mean, log_var = torch.chunk(y_pred, 2, dim=-1)
             var = torch.exp(log_var)
+            torch.manual_seed(2025 + i)
             samples = torch.distributions.Normal(mean, var.sqrt()).sample((100,))
             y_pred = mean
         elif name == "Ensemble (MSE)":
