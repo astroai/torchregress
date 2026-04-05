@@ -5,7 +5,7 @@ This module provides foundation classes and abstractions for all ensemble techni
 in the torchregress library.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from typing import Any, Dict, Union
 
@@ -159,6 +159,7 @@ class BaseEnsembleModel(nn.Module):
         adversarial_probability: float = 1.0,
         adversarial_loss_weight: float = 1.0,
         adversarial_random_start: bool = False,
+        batch_regularizer: Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor] | None = None,
     ) -> Dict[str, list]:
         """
         Train each ensemble member independently.
@@ -172,6 +173,14 @@ class BaseEnsembleModel(nn.Module):
         each member and must return a single ``torch.optim.Optimizer`` or a tuple
         of optimizers (e.g. AdamW + Muon). In that case ``optimizer_cls`` and
         ``optimizer_kwargs`` are ignored.
+
+        Optional ``batch_regularizer`` adds a per-batch term after ``criterion``
+        outputs (e.g. population-level stacked n(z) penalties). It is called as
+        ``batch_regularizer(member_logits, extra_tensors)`` where ``extra_tensors``
+        is ``batch[2:]`` from each loader batch (empty tuple if only inputs and
+        targets are present). The regularizer should return a scalar tensor.
+        It is applied to the clean forward pass only (not recomputed on adversarial
+        inputs).
         """
         from torchregress.utils.augment import Adversarial
 
@@ -237,6 +246,9 @@ class BaseEnsembleModel(nn.Module):
                 for batch in train_loader:
                     if isinstance(batch, (tuple, list)) and len(batch) >= 2:
                         x, y = batch[0], batch[1]
+                        extra_tensors: tuple[torch.Tensor, ...] = tuple(
+                            t.to(device) for t in batch[2:]
+                        )
                     else:
                         raise ValueError("train_loader must yield (inputs, targets) tuples")
 
@@ -247,6 +259,8 @@ class BaseEnsembleModel(nn.Module):
                     preds = model(x)
                     clean_loss = criterion(preds, y)
                     loss = clean_loss
+                    if batch_regularizer is not None:
+                        loss = loss + batch_regularizer(preds, extra_tensors)
 
                     if augmenter is not None:
                         x_adv, _ = augmenter(x, y)
