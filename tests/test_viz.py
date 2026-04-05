@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -12,6 +14,7 @@ from torchregress.viz.diagnostic import (
     plot_residual_histogram,
     plot_residuals,
 )
+from torchregress.viz.utils import create_grid_figure
 
 
 class TestVizDiagnostic:
@@ -104,3 +107,115 @@ class TestVizDiagnostic:
         )
         assert isinstance(fig, Figure)
         plt.close(fig)
+
+
+class TestVizUtils:
+    @patch("matplotlib.pyplot.subplots")
+    def test_create_grid_figure_auto_dims(self, mock_subplots):
+        """Test create_grid_figure automatically determines dimensions correctly."""
+        # Setup mock
+        mock_fig = MagicMock(spec=Figure)
+
+        # When plt.subplots is called, we return a 2D array of mocked Axes
+        def side_effect(nrows, ncols, **kwargs):
+            # Create a properly dimensioned list of lists first, then convert to numpy object array
+            # so flatten() works as expected.
+            axes_list = []
+            for r in range(nrows):
+                row = []
+                for c in range(ncols):
+                    row.append(MagicMock())
+                axes_list.append(row)
+
+            mock_axes = np.empty((nrows, ncols), dtype=object)
+            for r in range(nrows):
+                for c in range(ncols):
+                    mock_axes[r, c] = axes_list[r][c]
+            return mock_fig, mock_axes
+
+        mock_subplots.side_effect = side_effect
+
+        # Test 1: n_plots = 4
+        # expected: ncols = 3, nrows = ceil(4/3) = 2
+        fig, axes = create_grid_figure(n_plots=4)
+        mock_subplots.assert_called_with(
+            2, 3, figsize=(12, 8), sharex=False, sharey=False, squeeze=False
+        )
+        assert len(axes) == 4
+
+        # Test 2: n_plots = 2
+        # expected: ncols = 2, nrows = ceil(2/2) = 1
+        fig, axes = create_grid_figure(n_plots=2)
+        mock_subplots.assert_called_with(
+            1, 2, figsize=(12, 8), sharex=False, sharey=False, squeeze=False
+        )
+        assert len(axes) == 2
+
+    @patch("matplotlib.pyplot.subplots")
+    def test_create_grid_figure_provided_dims(self, mock_subplots):
+        """Test create_grid_figure uses provided dimensions."""
+        mock_fig = MagicMock(spec=Figure)
+
+        def side_effect(nrows, ncols, **kwargs):
+            mock_axes = np.empty((nrows, ncols), dtype=object)
+            for r in range(nrows):
+                for c in range(ncols):
+                    mock_axes[r, c] = MagicMock()
+            return mock_fig, mock_axes
+
+        mock_subplots.side_effect = side_effect
+
+        # Test with nrows provided
+        # expected: nrows = 2, ncols = ceil(4/2) = 2
+        fig, axes = create_grid_figure(n_plots=4, nrows=2)
+        mock_subplots.assert_called_with(
+            2, 2, figsize=(12, 8), sharex=False, sharey=False, squeeze=False
+        )
+
+        # Test with ncols provided
+        # expected: ncols = 2, nrows = ceil(4/2) = 2
+        fig, axes = create_grid_figure(n_plots=4, ncols=2)
+        mock_subplots.assert_called_with(
+            2, 2, figsize=(12, 8), sharex=False, sharey=False, squeeze=False
+        )
+
+        # Test with both provided
+        fig, axes = create_grid_figure(n_plots=4, nrows=3, ncols=3)
+        mock_subplots.assert_called_with(
+            3, 3, figsize=(12, 8), sharex=False, sharey=False, squeeze=False
+        )
+
+    @patch("matplotlib.pyplot.subplots")
+    def test_create_grid_figure_hide_unused(self, mock_subplots):
+        """Test create_grid_figure hides unused subplots."""
+        mock_fig = MagicMock(spec=Figure)
+
+        # Create persistent mock axes to verify calls later
+        mock_ax_list = [MagicMock() for _ in range(6)]
+
+        def side_effect(nrows, ncols, **kwargs):
+            # Shape it to 2x3 for n_plots=4 default
+            mock_axes = np.empty((nrows, ncols), dtype=object)
+            idx = 0
+            for r in range(nrows):
+                for c in range(ncols):
+                    if idx < len(mock_ax_list):
+                        mock_axes[r, c] = mock_ax_list[idx]
+                        idx += 1
+            return mock_fig, mock_axes
+
+        mock_subplots.side_effect = side_effect
+
+        # Test with 4 plots in a 2x3 grid (6 axes total)
+        fig, axes = create_grid_figure(n_plots=4)
+
+        # Verify first 4 axes are returned
+        assert len(axes) == 4
+
+        # Verify the 5th and 6th axes are hidden
+        mock_ax_list[4].set_visible.assert_called_once_with(False)
+        mock_ax_list[5].set_visible.assert_called_once_with(False)
+
+        # Verify first 4 are NOT hidden
+        for i in range(4):
+            mock_ax_list[i].set_visible.assert_not_called()
