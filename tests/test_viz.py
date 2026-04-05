@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from matplotlib.figure import Figure
 
+import pytest
 from torchregress.viz.diagnostic import (
     plot_calibration_curve,
     plot_distribution_comparison,
@@ -14,7 +15,7 @@ from torchregress.viz.diagnostic import (
     plot_residual_histogram,
     plot_residuals,
 )
-from torchregress.viz.utils import create_grid_figure
+from torchregress.viz.utils import add_zero_line, create_grid_figure
 
 
 class TestVizDiagnostic:
@@ -110,6 +111,23 @@ class TestVizDiagnostic:
 
 
 class TestVizUtils:
+    """Test visualization utility functions."""
+
+    def test_add_zero_line_invalid_axis(self):
+        """Test add_zero_line raises ValueError on invalid axis."""
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError, match="axis must be 'x' or 'y', got z"):
+            add_zero_line(ax, axis="z")
+        plt.close(fig)
+
+    def test_add_zero_line_valid_axis(self):
+        """Test add_zero_line works with valid axes."""
+        fig, ax = plt.subplots()
+        # Should not raise any exceptions
+        add_zero_line(ax, axis="x")
+        add_zero_line(ax, axis="y")
+        plt.close(fig)
+
     @patch("matplotlib.pyplot.subplots")
     def test_create_grid_figure_auto_dims(self, mock_subplots):
         """Test create_grid_figure automatically determines dimensions correctly."""
