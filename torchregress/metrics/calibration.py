@@ -66,10 +66,16 @@ class ExpectedCalibrationError(Metric):
         y_true_state = metric_state_list[torch.Tensor](self.y_true)
         y_true = torch.cat([convert_to_tensor(y) for y in y_true_state])
 
-        y_pred_quantiles = {}
         y_pred_state = metric_state_list[dict[float, torch.Tensor]](self.y_pred_quantiles)
-        for q in y_pred_state[0]:
-            y_pred_quantiles[q] = torch.cat([convert_to_tensor(d[q]) for d in y_pred_state])
+        y_pred_lists: Dict[float, list[torch.Tensor]] = {q: [] for q in y_pred_state[0]}
+
+        for d in y_pred_state:
+            for q, v in d.items():
+                y_pred_lists[q].append(convert_to_tensor(v))
+
+        y_pred_quantiles: Dict[float, torch.Tensor] = {
+            q: torch.cat(tensors) for q, tensors in y_pred_lists.items()
+        }
 
         quantiles = sorted(y_pred_quantiles.keys())
         expected_proportions = torch.tensor(quantiles, device=y_true.device)

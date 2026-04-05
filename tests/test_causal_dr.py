@@ -187,3 +187,123 @@ def test_dr_ate_missing_arms_in_fold() -> None:
             folds=2,
             seed=0,
         )
+
+
+def test_dr_ate_with_2d_x_and_callable_model_factory() -> None:
+    x, t, y, _ = _sim_data(200, seed=6)
+
+    # Pass a factory function instead of a class or an instance
+    def make_lr():
+        return LinearRegression()
+
+    # Test `_as_2d` when it IS 1D by passing 1D x
+    x_1d = x[:, 0]
+    out = dr_ate(
+        x_1d,
+        t,
+        y,
+        outcome_model=make_lr,
+        propensity_model=LogisticRegression(max_iter=100),
+        folds=2,
+    )
+    assert "estimate" in out
+
+
+class BadModelNoFit:
+    pass
+
+
+class BadModelNoPredict:
+    def fit(self, x, y):
+        pass
+
+
+class BadModelNoPredictProba:
+    def fit(self, x, y):
+        pass
+
+
+class BadModelPropensityFallback:
+    def fit(self, x, y):
+        pass
+
+    def predict(self, x):
+        import numpy as np
+
+        return np.zeros(len(x))
+
+
+class BadModelPredictProba1D:
+    def fit(self, x, y):
+        pass
+
+    def predict_proba(self, x):
+        import numpy as np
+
+        return np.zeros(len(x))
+
+
+def test_dr_exceptions() -> None:
+    x, t, y, _ = _sim_data(100, seed=7)
+
+    # TypeError in _fit_model
+    with pytest.raises(TypeError, match="Model must implement fit"):
+        dr_ate(x, t, y, outcome_model=BadModelNoFit, propensity_model=LogisticRegression)
+
+    # TypeError in _predict_outcome
+    with pytest.raises(TypeError, match="Outcome model must implement predict"):
+        dr_ate(x, t, y, outcome_model=BadModelNoPredict, propensity_model=LogisticRegression)
+
+    # TypeError in _predict_propensity
+    with pytest.raises(
+        TypeError, match="Propensity model must implement predict_proba.*or predict"
+    ):
+        dr_ate(x, t, y, outcome_model=LinearRegression, propensity_model=BadModelNoPredictProba)
+
+    # Test _predict_propensity fallback to predict
+    dr_ate(x, t, y, outcome_model=LinearRegression, propensity_model=BadModelPropensityFallback)
+
+    # Test _predict_propensity with 1D predict_proba
+    dr_ate(x, t, y, outcome_model=LinearRegression, propensity_model=BadModelPredictProba1D)
+
+    # ValueError for folds < 2
+    with pytest.raises(ValueError, match="folds must be >= 2"):
+        dr_ate(
+            x, t, y, outcome_model=LinearRegression, propensity_model=LogisticRegression, folds=1
+        )
+
+    # ValueError for fold with only one treatment arm
+    t_all_treated = torch.ones_like(t)
+    with pytest.raises(ValueError, match="Each fold must contain both treatment arms"):
+        dr_ate(
+            x, t_all_treated, y, outcome_model=LinearRegression, propensity_model=LogisticRegression
+        )
+
+
+def test_dr_shape_mismatches() -> None:
+    x, t, y, _ = _sim_data(100, seed=8)
+
+    # Mismatch in x, t, y
+    with pytest.raises(ValueError, match="x, t, and y must share sample dimension"):
+        dr_ate(x[:90], t, y, outcome_model=LinearRegression, propensity_model=LogisticRegression)
+
+    with pytest.raises(ValueError, match="x, t, and y must share sample dimension"):
+        dr_cate(
+            x,
+            t[:90],
+            y,
+            cate_model=LinearRegression,
+            outcome_model=LinearRegression,
+            propensity_model=LogisticRegression,
+        )
+
+    policy = torch.ones_like(t)
+    with pytest.raises(ValueError, match="x, t, y, and policy must share sample dimension"):
+        dr_policy_value(
+            x,
+            t,
+            y,
+            policy=policy[:90],
+            outcome_model=LinearRegression,
+            propensity_model=LogisticRegression,
+        )

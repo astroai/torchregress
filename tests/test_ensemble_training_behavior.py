@@ -96,6 +96,45 @@ def test_deep_ensemble_fit_supports_optional_adversarial_training() -> None:
         assert torch.isfinite(torch.tensor(member_history[0]))
 
 
+def test_deep_ensemble_fit_supports_batch_regularizer() -> None:
+    torch.manual_seed(0)
+    x = torch.randn(16, 3)
+    y = (x.sum(dim=1, keepdim=True) + 0.1 * torch.randn(16, 1)).detach()
+    w = torch.randn(16, 1)
+    loader = DataLoader(TensorDataset(x, y, w), batch_size=4, shuffle=False)
+
+    def reg(pred: torch.Tensor, extra: tuple[torch.Tensor, ...]) -> torch.Tensor:
+        assert len(extra) == 1
+        return 0.01 * (pred * extra[0]).mean()
+
+    ensemble = DeepEnsemble(_tiny_regressor(), ensemble_size=2)
+    history = ensemble.fit(
+        loader,
+        nn.MSELoss(),
+        epochs=1,
+        lr=1e-2,
+        verbose=False,
+        batch_regularizer=reg,
+    )
+    assert len(history["member_histories"]) == 2
+
+    loader_plain = DataLoader(TensorDataset(x, y), batch_size=4, shuffle=False)
+
+    def reg_no_extra(pred: torch.Tensor, extra: tuple[torch.Tensor, ...]) -> torch.Tensor:
+        assert len(extra) == 0
+        return 0.001 * pred.abs().mean()
+
+    ensemble2 = DeepEnsemble(_tiny_regressor(), ensemble_size=1)
+    ensemble2.fit(
+        loader_plain,
+        nn.MSELoss(),
+        epochs=1,
+        lr=1e-2,
+        verbose=False,
+        batch_regularizer=reg_no_extra,
+    )
+
+
 def test_deep_ensemble_fit_supports_optimizer_factory_tuple() -> None:
     """Per-member ``optimizer_factory`` may return multiple optimizers (e.g. AdamW + Muon)."""
     torch.manual_seed(0)

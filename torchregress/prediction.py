@@ -94,7 +94,9 @@ def bars_to_density_grid(
     for idx in range(logits.shape[0]):
         widths = np.clip(np.diff(edges[idx]), 1.0e-8, None)
         bar_density = probs[idx] / widths
-        bin_idx = np.clip(np.digitize(support[idx], edges[idx][1:-1], right=False), 0, logits.shape[1] - 1)
+        bin_idx = np.clip(
+            np.digitize(support[idx], edges[idx][1:-1], right=False), 0, logits.shape[1] - 1
+        )
         dens = np.clip(bar_density[bin_idx], 0.0, None)
         integral = np.trapezoid(dens, support[idx])
         density[idx] = dens / max(integral, 1.0e-8)
@@ -132,7 +134,11 @@ class PredictiveBatch:
                 n_support=n_support,
                 range_margin=range_margin,
             )
-            if support.ndim == 2 and support.shape[0] > 0 and np.allclose(support, support[:1], atol=1.0e-8):
+            if (
+                support.ndim == 2
+                and support.shape[0] > 0
+                and np.allclose(support, support[:1], atol=1.0e-8)
+            ):
                 support = support[0]
             return replace(self, support=support, density=density)
         if self.quantiles is not None and self.quantile_levels is not None:
@@ -142,7 +148,11 @@ class PredictiveBatch:
                 n_support=n_support,
                 range_margin=range_margin,
             )
-            if support.ndim == 2 and support.shape[0] > 0 and np.allclose(support, support[:1], atol=1.0e-8):
+            if (
+                support.ndim == 2
+                and support.shape[0] > 0
+                and np.allclose(support, support[:1], atol=1.0e-8)
+            ):
                 support = support[0]
             return replace(self, support=support, density=density)
         return self

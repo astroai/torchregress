@@ -822,7 +822,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         task="Semi-supervised regression",
         recommended_start="PseudoLabelConsistencyLoss",
         strong_alternatives=("PseudoLabelNLL", "NoisyTargetGaussianNLL"),
-        notes=("Use confidence-gated pseudo labels and keep a clean held-out " "evaluation split."),
+        notes=("Use confidence-gated pseudo labels and keep a clean held-out evaluation split."),
     ),
     TaskRecommendation(
         task="Target transforms for skewed / multiplicative-noise regression",
@@ -832,15 +832,13 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "SqrtTransformLoss",
             "YeoJohnsonTransformLoss",
         ),
-        notes=("Match transform support to target support before tuning model " "complexity."),
+        notes=("Match transform support to target support before tuning model complexity."),
     ),
     TaskRecommendation(
         task="Causal inference regression (ATE/CATE)",
         recommended_start="dr_ate / dr_cate",
         strong_alternatives=("PredictionPoweredInference",),
-        notes=(
-            "Use cross-fitting and overlap diagnostics before interpreting " "treatment effects."
-        ),
+        notes=("Use cross-fitting and overlap diagnostics before interpreting treatment effects."),
     ),
     TaskRecommendation(
         task="Population inference with few labels",
@@ -913,8 +911,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         primary_recommendation="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
         alternatives=("DensityConformal", "DensityWeightedLoss", "LDSLoss"),
         caveat=(
-            "Density-aware weighting is not yet a universally strong default on "
-            "photo-z benchmarks."
+            "Density-aware weighting is not yet a universally strong default on photo-z benchmarks."
         ),
     ),
     DecisionWorkflowStep(

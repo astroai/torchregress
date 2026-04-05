@@ -163,7 +163,12 @@ class TestEIVLoss(unittest.TestCase):
                 return self.linear(x)
 
         model = GaussianHead(self.n_features_x, self.n_features_y).to(self.device)
-        cov = torch.eye(self.n_features_x, device=self.device).unsqueeze(0).repeat(self.batch_size, 1, 1) * 0.01
+        cov = (
+            torch.eye(self.n_features_x, device=self.device)
+            .unsqueeze(0)
+            .repeat(self.batch_size, 1, 1)
+            * 0.01
+        )
         cov[:, 0, 1] = 0.003
         cov[:, 1, 0] = 0.003
         loss_fn = InputNoiseMarginalizationLoss(

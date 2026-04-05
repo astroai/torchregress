@@ -38,9 +38,14 @@ def _expand_sigma(
         if sigma.shape[0] == x.shape[0]:
             return diag.clamp_min(eps)
         return diag.view(1, -1).expand_as(x).clamp_min(eps)
-    if sigma.ndim == 3 and sigma.shape[0] == x.shape[0] and sigma.shape[-2:] == (
-        x.shape[-1],
-        x.shape[-1],
+    if (
+        sigma.ndim == 3
+        and sigma.shape[0] == x.shape[0]
+        and sigma.shape[-2:]
+        == (
+            x.shape[-1],
+            x.shape[-1],
+        )
     ):
         return torch.diagonal(sigma, dim1=-2, dim2=-1).clamp_min(eps**2).sqrt()
     raise ValueError(
@@ -107,9 +112,13 @@ class ErrorAwareFeatureEncoder(nn.Module):
         gate, _ = self._raw_features(x, sigma)
         return gate
 
-    def _raw_features(self, x: torch.Tensor, sigma: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def _raw_features(
+        self, x: torch.Tensor, sigma: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         log_sigma = sigma.log()
-        temperature = torch.nn.functional.softplus(self.log_sigma_temperature).view(1, -1) + self.eps
+        temperature = (
+            torch.nn.functional.softplus(self.log_sigma_temperature).view(1, -1) + self.eps
+        )
         gate = torch.sigmoid((self.log_sigma_ref.view(1, -1) - log_sigma) / temperature)
         signed_snr = x / sigma
         precision = sigma.reciprocal()

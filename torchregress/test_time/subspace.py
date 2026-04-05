@@ -81,7 +81,9 @@ class SignificantSubspaceAligner:
         self.eps = float(eps)
         self.state_: SubspaceAlignmentState | None = None
 
-    def fit(self, X_source: np.ndarray, y_source: np.ndarray | None = None) -> "SignificantSubspaceAligner":
+    def fit(
+        self, X_source: np.ndarray, y_source: np.ndarray | None = None
+    ) -> "SignificantSubspaceAligner":
         X = np.asarray(X_source, dtype=float)
         y = None if y_source is None else np.asarray(y_source, dtype=float).reshape(-1)
         if X.ndim != 2:
@@ -143,7 +145,9 @@ class SignificantSubspaceAligner:
         )
         return X_aligned
 
-    def fit_transform(self, X_source: np.ndarray, X_target: np.ndarray, y_source: np.ndarray | None = None) -> np.ndarray:
+    def fit_transform(
+        self, X_source: np.ndarray, X_target: np.ndarray, y_source: np.ndarray | None = None
+    ) -> np.ndarray:
         return self.fit(X_source, y_source=y_source).transform(X_target)
 
 
