@@ -25,6 +25,20 @@ mean = torch.stack(preds).mean(dim=0)    # ensemble mean
 epi  = torch.stack(preds).var(dim=0)     # epistemic variance
 ```
 
+Optional adversarial smoothing during member training:
+
+```python
+ensemble.fit(
+    train_loader,
+    loss_fn,
+    epochs=20,
+    adversarial_training=True,
+    adversarial_epsilon=0.01,
+    adversarial_steps=1,
+    adversarial_loss_weight=1.0,
+)
+```
+
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
 | `base_model` | `type` or `nn.Module` | — | Model class or instance to ensemble |
@@ -33,6 +47,9 @@ epi  = torch.stack(preds).var(dim=0)     # epistemic variance
 
 !!! tip "When to use"
     Use when your base model outputs **only point predictions** ($\hat{y}$) and you want epistemic uncertainty via disagreement.  For **aleatoric + epistemic**, use `HeteroscedasticEnsembleModel`.
+
+!!! note "Adversarial training"
+    The original deep-ensemble recipe adds an optional adversarial loss term on FGSM-style perturbed inputs. `torchregress` now exposes that directly in `fit(...)`, including multi-step and random-start variants for stronger smoothing.
 
 ---
 
@@ -95,6 +112,72 @@ result = batch_ens.predict(x_test)
 
 !!! quote "Reference"
     Y. Wen, D. Tran, J. Ba. "BatchEnsemble: An Alternative Approach to Efficient Ensemble and Lifelong Learning." *ICLR*, **2020**.
+
+---
+
+## BinnedPDFEnsembleModel
+
+!!! abstract "Summary"
+    Average member predictions in **probability space** for discrete PDFs or regression-as-classification heads.
+
+```python
+from torchregress.ensemble import BinnedPDFEnsembleModel
+
+ensemble = BinnedPDFEnsembleModel(
+    base_model=MyBinLogitModel,
+    ensemble_size=5,
+    support_values=torch.linspace(0.0, 4.0, 64),
+)
+result = ensemble.predict(x_test)
+# result: {"probabilities", "log_probabilities", "mean", "variance"}
+```
+
+!!! tip "When to use"
+    Prefer this over averaging logits when each member predicts a **binned predictive PDF**.  The ensemble should average the predictive distribution, not the pre-softmax parameters.
+
+---
+
+## CumulativeLinkEnsembleModel
+
+!!! abstract "Summary"
+    Average **ordinal CDF / PMF predictions** across members for cumulative-link heads.
+
+```python
+from torchregress.ensemble import CumulativeLinkEnsembleModel
+
+ensemble = CumulativeLinkEnsembleModel(
+    base_model=MyOrdinalModel,
+    ensemble_size=5,
+    support_values=torch.arange(64, dtype=torch.float32),
+)
+result = ensemble.predict(x_test)
+```
+
+!!! tip "When to use"
+    Use when the model predicts ordered thresholds / cumulative logits and you want ensemble averaging in the implied probability space rather than averaging thresholds directly.
+
+---
+
+## MDNEnsembleModel
+
+!!! abstract "Summary"
+    Ensemble an MDN by forming a **mixture of mixtures**, not by naively averaging component parameters.
+
+```python
+from torchregress.ensemble import MDNEnsembleModel
+
+ensemble = MDNEnsembleModel(
+    base_model=MyMDNModel,
+    ensemble_size=5,
+    n_components=4,
+    n_features=1,
+)
+result = ensemble.predict(x_test)
+# result: {"mixture_weights", "component_means", "component_stds", "mean", "variance"}
+```
+
+!!! warning "Do not average MDN weights component-wise"
+    Component 1 in member A is not generally the same mode as component 1 in member B. `MDNEnsembleModel` avoids this label-switching problem by concatenating all member components with a `1 / M` weight factor.
 
 ---
 

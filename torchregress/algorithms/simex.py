@@ -29,6 +29,9 @@ class SIMEX:
         sigma_u: Standard deviation (scalar/vector) or covariance matrix of measurement error.
         lambdas: List of noise multipliers to simulate. Default is [0.5, 1.0, 1.5, 2.0].
                  Lambda represents the added variance ratio: Var_added = lambda * Sigma_u.
+        n_simulations: Number of Monte Carlo replicates per lambda. Public SIMEX
+                 implementations typically average over many perturbation replicates;
+                 values larger than 1 materially reduce extrapolation variance.
         extrapolation_order: Order of the polynomial for extrapolation (1 for linear,
                              2 for quadratic). Default is 2.
     """
@@ -39,15 +42,18 @@ class SIMEX:
         train_func: Callable[[nn.Module, torch.Tensor, torch.Tensor], nn.Module],
         sigma_u: Union[float, torch.Tensor],
         lambdas: Optional[List[float]] = None,
+        n_simulations: int = 1,
         extrapolation_order: int = 2,
     ):
         self.model_factory = model_factory
         self.train_func = train_func
         self.sigma_u_input = sigma_u
         self.lambdas = lambdas if lambdas is not None else [0.5, 1.0, 1.5, 2.0]
+        self.n_simulations = int(n_simulations)
         self.extrapolation_order = extrapolation_order
 
         self.trained_models: List[nn.Module] = []
+        self.models_by_lambda: List[List[nn.Module]] = []
         self.device: Optional[torch.device] = None
         self.sigma_u: Optional[torch.Tensor] = None
         self.extrapolation_weights: Optional[torch.Tensor] = None
@@ -98,7 +104,11 @@ class SIMEX:
         n_features = X_train.shape[1]
         self.sigma_u = self._prepare_sigma_u(n_features, self.device)
 
+        if self.n_simulations < 1:
+            raise ValueError("n_simulations must be >= 1")
+
         self.trained_models = []
+        self.models_by_lambda = []
 
         # Train base model (lambda=0) if not included in lambdas, but usually SIMEX
         # uses the original data as lambda=0 point.
@@ -117,20 +127,23 @@ class SIMEX:
         L = torch.linalg.cholesky(self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6)
 
         for lam in self.lambdas_used:
-            model = self.model_factory().to(self.device)
+            lambda_models: List[nn.Module] = []
+            for _ in range(self.n_simulations):
+                model = self.model_factory().to(self.device)
 
-            if lam == 0.0:
-                X_sim = X_train
-            else:
-                # Add noise: Variance_added = lambda * Sigma_u
-                # Noise = N(0, lambda * Sigma_u) = sqrt(lambda) * N(0, Sigma_u)
-                #       = sqrt(lambda) * epsilon @ L.T
-                noise = torch.randn_like(X_train) @ L.T
-                X_sim = X_train + torch.sqrt(torch.tensor(lam, device=self.device)) * noise
+                if lam == 0.0:
+                    X_sim = X_train
+                else:
+                    # Add noise: Variance_added = lambda * Sigma_u
+                    # Noise = N(0, lambda * Sigma_u) = sqrt(lambda) * N(0, Sigma_u)
+                    #       = sqrt(lambda) * epsilon @ L.T
+                    noise = torch.randn_like(X_train) @ L.T
+                    X_sim = X_train + torch.sqrt(torch.tensor(lam, device=self.device)) * noise
 
-            # Train the model
-            trained_model = self.train_func(model, X_sim, y_train)
-            self.trained_models.append(trained_model)
+                trained_model = self.train_func(model, X_sim, y_train)
+                lambda_models.append(trained_model)
+                self.trained_models.append(trained_model)
+            self.models_by_lambda.append(lambda_models)
 
         # Precompute extrapolation weights
         # We solve A * Beta = Y for Beta, then predict y_target = target_vec @ Beta.
@@ -170,7 +183,7 @@ class SIMEX:
 
         check_tensor(X, "X")
 
-        if not self.trained_models:
+        if not self.models_by_lambda:
             raise RuntimeError("SIMEX must be fit before predicting")
 
         if X.device != self.device:
@@ -180,10 +193,12 @@ class SIMEX:
         # Shape: (n_lambdas, n_samples, n_outputs)
         preds_list = []
         with torch.no_grad():
-            for model in self.trained_models:
-                model.eval()
-                preds = model(X)
-                preds_list.append(preds)
+            for lambda_models in self.models_by_lambda:
+                lambda_preds = []
+                for model in lambda_models:
+                    model.eval()
+                    lambda_preds.append(model(X))
+                preds_list.append(torch.stack(lambda_preds, dim=0).mean(dim=0))
 
         # Stack predictions
         # (M, N, K) where M is num lambdas

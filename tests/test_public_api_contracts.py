@@ -14,11 +14,13 @@ EXPECTED_EXPORTS = {
         "metrics",
         "algorithms",
         "ensemble",
+        "test_time",
         "method_catalog",
         "inference",
         "constraints",
         "calibration",
         "causal",
+        "prediction",
         "viz",
         "utils",
         "BaseLoss",
@@ -41,10 +43,15 @@ EXPECTED_EXPORTS = {
         "interval_overlap_rate",
         "ContinuousRankedProbabilityScore",
         "EnergyScore",
+        "conditional_density_estimation_loss",
         "continuous_ranked_probability_score",
+        "crps_from_samples",
         "energy_score",
         "gaussian_nll",
         "crps_gaussian",
+        "highest_posterior_density_coverage",
+        "highest_posterior_density_level",
+        "kolmogorov_smirnov_uniform_statistic",
         "probability_integral_transform",
         "distribution_metrics_report",
         "RiskCoverageCurve",
@@ -52,6 +59,9 @@ EXPECTED_EXPORTS = {
         "risk_coverage_curve",
         "GaussianNLLEnsemble",
         "EnsembleIntervalMetrics",
+        "gaussian_nll_ensemble",
+        "ensemble_interval_bounds",
+        "ensemble_interval_metrics",
         "ensemble_mean",
         "ensemble_std",
         "ensemble_statistics",
@@ -85,6 +95,7 @@ EXPECTED_EXPORTS = {
         "NormalizedRMSE",
         "OutlierFraction",
         "TrimmedMeanSquaredError",
+        "attenuation_factor",
         "mse",
         "mean_squared_error",
         "mae",
@@ -112,6 +123,10 @@ EXPECTED_EXPORTS = {
         "BatchEnsembleLinear",
         "HeteroscedasticEnsembleModel",
         "DeepEnsemble",
+        "BinnedPDFEnsembleModel",
+        "CumulativeLinkEnsembleModel",
+        "MDNEnsembleModel",
+        "RandomPartitionEnsembleModel",
         "HeteroscedasticBatchEnsembleModel",
         "BayesianModelAveraging",
         "StackingEnsemble",
@@ -131,6 +146,9 @@ EXPECTED_EXPORTS = {
         "IRLS",
         "RegressionCalibration",
         "SIMEX",
+        "LatentNN",
+        "ErrorAwareFeatureEncoder",
+        "NoiseAwareRegressor",
     ],
     "causal": [
         "dr_ate",
@@ -156,6 +174,32 @@ EXPECTED_EXPORTS = {
         "IsotonicMeanCalibrator",
         "PITCalibrator",
     ],
+    "test_time": [
+        "AdaptationBatch",
+        "FeatureStatNormalizer",
+        "LabelShiftEstimate",
+        "ParameterEMA",
+        "PosteriorLabelShiftAdapter",
+        "RepresentationShiftCalibrator",
+        "SignificantSubspaceAligner",
+        "SubspaceAlignmentState",
+        "SupportsAdaptationParameters",
+        "SupportsPredictiveBatch",
+        "SupportsRepresentation",
+        "apply_label_shift_correction",
+        "confidence_scores",
+        "entropy_scores",
+        "estimate_target_prior_em",
+        "flatten_adaptation_parameters",
+        "local_consistency_weights",
+        "pseudo_label_targets",
+        "select_high_confidence",
+    ],
+    "prediction": [
+        "PredictiveBatch",
+        "bars_to_density_grid",
+        "quantiles_to_density_grid",
+    ],
 }
 
 
@@ -179,6 +223,17 @@ EXPECTED_SIGNATURES = {
     ),
     "algorithms.SIMEX.fit": "(self, X_train: torch.Tensor, y_train: torch.Tensor) -> 'SIMEX'",
     "algorithms.SIMEX.predict": "(self, X: torch.Tensor) -> torch.Tensor",
+    "algorithms.LatentNN.fit": (
+        "(self, X_observed: 'torch.Tensor', y_observed: 'torch.Tensor', *, "
+        "X_val: 'torch.Tensor | None' = None, y_val: 'torch.Tensor | None' = None) -> \"'LatentNN'\""
+    ),
+    "algorithms.LatentNN.predict": "(self, X: 'torch.Tensor') -> 'torch.Tensor'",
+    "algorithms.ErrorAwareFeatureEncoder.forward": (
+        "(self, x: 'torch.Tensor', sigma_x: 'float | torch.Tensor') -> 'torch.Tensor'"
+    ),
+    "algorithms.NoiseAwareRegressor.forward": (
+        "(self, x: 'torch.Tensor', sigma_x: 'float | torch.Tensor') -> 'torch.Tensor'"
+    ),
     "metrics.mse": (
         "(y_pred: torch.Tensor | numpy.ndarray, y_true: torch.Tensor | numpy.ndarray, "
         "sample_weight: torch.Tensor | numpy.ndarray | None = None, "
@@ -386,6 +441,8 @@ def test_public_exports_snapshot_non_losses() -> None:
         "metrics": tr.metrics,
         "ensemble": tr.ensemble,
         "algorithms": tr.algorithms,
+        "test_time": tr.test_time,
+        "prediction": tr.prediction,
         "causal": tr.causal,
         "inference": tr.inference,
         "constraints": tr.constraints,
@@ -401,17 +458,17 @@ def test_public_exports_snapshot_non_losses() -> None:
 def test_signature_snapshots_non_losses() -> None:
     for path, expected in EXPECTED_SIGNATURES.items():
         actual = str(inspect.signature(_resolve(path)))
-        assert _normalize_union_optional(actual) == _normalize_union_optional(expected), (
-            f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
-        )
+        assert _normalize_union_optional(actual) == _normalize_union_optional(
+            expected
+        ), f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
 
 
 def test_parameter_order_contracts_for_new_helper_apis() -> None:
     for path, expected_order in EXPECTED_PARAM_ORDERS.items():
         actual_order = list(inspect.signature(_resolve(path)).parameters.keys())
-        assert actual_order == expected_order, (
-            f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
-        )
+        assert (
+            actual_order == expected_order
+        ), f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
 
 
 def test_top_level_submodules_are_lazy_loaded() -> None:

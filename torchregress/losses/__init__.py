@@ -42,7 +42,12 @@ from .conformal import (
 from .eiv import (
     BaseEIVLoss,
     EnsembleEIVLoss,
+    ExplicitEIVAdapter,
     FunctionalEIVLoss,
+    InputNoiseBinnedPDFLoss,
+    InputNoiseMarginalizationLoss,
+    InputNoiseMDNLoss,
+    NoisyInputPredictor,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
     create_eiv_loss,
@@ -62,6 +67,7 @@ from .expectile import (
 
 # Gaussian losses
 from .gaussian import (
+    GaussianCRPSLoss,
     GaussianNLLLoss,
     LowRankGaussianLoss,
     MultivariateGaussianLoss,
@@ -158,11 +164,17 @@ __all__ = [
     # EIV losses
     "BaseEIVLoss",
     "EnsembleEIVLoss",
+    "ExplicitEIVAdapter",
     "FunctionalEIVLoss",
+    "InputNoiseMarginalizationLoss",
+    "InputNoiseMDNLoss",
+    "InputNoiseBinnedPDFLoss",
+    "NoisyInputPredictor",
     "OrthogonalDistanceRegressionLoss",
     "StructuralEIVLoss",
     "create_eiv_loss",
     # Gaussian losses
+    "GaussianCRPSLoss",
     "GaussianNLLLoss",
     "LowRankGaussianLoss",
     "MultivariateGaussianLoss",

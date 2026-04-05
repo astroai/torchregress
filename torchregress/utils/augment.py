@@ -86,15 +86,21 @@ class Adversarial(Augmentation):
         loss_fn: nn.Module,
         epsilon: float = 0.05,
         steps: int = 3,
-        alpha: float = 0.01,
+        alpha: Optional[float] = None,
         probability: float = 0.5,
+        random_start: bool = False,
     ):
         super().__init__(probability)
+        if epsilon < 0:
+            raise ValueError(f"epsilon must be non-negative, got {epsilon}")
+        if steps <= 0:
+            raise ValueError(f"steps must be positive, got {steps}")
         self.model = model
         self.loss_fn = loss_fn
-        self.epsilon = epsilon
-        self.steps = steps
-        self.alpha = alpha
+        self.epsilon = float(epsilon)
+        self.steps = int(steps)
+        self.alpha = float(alpha) if alpha is not None else float(epsilon) / float(steps)
+        self.random_start = random_start
 
     def augment(
         self, x: torch.Tensor, y: Optional[torch.Tensor]
@@ -105,28 +111,24 @@ class Adversarial(Augmentation):
         if y is None:
             raise ValueError("Target values must be provided for adversarial augmentation")
 
-        x_adv = x.clone().detach().requires_grad_(True)
+        x_base = x.detach()
+        if self.random_start and self.epsilon > 0.0:
+            noise = torch.empty_like(x_base).uniform_(-self.epsilon, self.epsilon)
+            x_adv = (x_base + noise).detach()
+        else:
+            x_adv = x_base.clone()
 
         if self.model.training:
             for _ in range(self.steps):
+                x_adv = x_adv.detach().requires_grad_(True)
                 output = self.model(x_adv)
                 loss = self.loss_fn(output, y)
-                self.model.zero_grad()
-                loss.backward()
+                grad = torch.autograd.grad(loss, x_adv, retain_graph=False, create_graph=False)[0]
                 with torch.no_grad():
-                    grad = x_adv.grad
-                    if grad is None:
-                        raise RuntimeError(
-                            "Adversarial augmentation expected gradients but got None"
-                        )
                     grad_sign = torch.sign(grad)
-                    x_adv.data = x_adv.data + self.alpha * grad_sign
-                    x_adv.data = torch.min(
-                        torch.max(x_adv.data, x - self.epsilon), x + self.epsilon
-                    )
-                grad = x_adv.grad
-                if grad is not None:
-                    grad.zero_()
+                    x_adv = x_adv + self.alpha * grad_sign
+                    delta = torch.clamp(x_adv - x_base, min=-self.epsilon, max=self.epsilon)
+                    x_adv = x_base + delta
 
         return x_adv.detach(), y
 
@@ -266,8 +268,7 @@ class EnsemblePerturbationAugmenter(nn.Module):
             sigma_vec = sigma_tensor if sigma_tensor.ndim == 1 else sigma_tensor.expand(n_features)
             half_range = sigma_vec.view(1, 1, -1) * scale_factor
             noise = (
-                torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype)
-                * 2
+                torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype) * 2
                 - 1
             ) * half_range
             return list((x.unsqueeze(0) + noise).unbind(0))

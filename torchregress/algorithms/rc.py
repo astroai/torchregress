@@ -12,6 +12,13 @@ import torch
 from ..utils.validation import check_tensor
 
 
+def _project_covariance_psd(covariance: torch.Tensor, *, min_eigenvalue: float = 1.0e-6) -> torch.Tensor:
+    covariance = 0.5 * (covariance + covariance.transpose(-1, -2))
+    eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
+    clipped = eigenvalues.clamp_min(float(min_eigenvalue))
+    return eigenvectors @ torch.diag_embed(clipped) @ eigenvectors.transpose(-1, -2)
+
+
 class RegressionCalibration:
     """
     Regression Calibration (RC) for correcting measurement error.
@@ -39,6 +46,7 @@ class RegressionCalibration:
         self.mu_w: Optional[torch.Tensor] = None
         self.sigma_w: Optional[torch.Tensor] = None
         self.sigma_u: Optional[torch.Tensor] = None
+        self.signal_covariance: Optional[torch.Tensor] = None
         self.reliability_matrix: Optional[torch.Tensor] = None
         self.device: Optional[torch.device] = None
 
@@ -121,7 +129,28 @@ class RegressionCalibration:
             # Fallback to pseudoinverse or add jitter
             denom_inv = torch.linalg.pinv(denominator)
 
-        self.reliability_matrix = sigma_x_psd @ denom_inv
+        reliability = sigma_x_psd @ denom_inv
+
+        # In high-dimensional or badly conditioned tabular settings, the full
+        # multivariate reliability matrix can become numerically unstable and
+        # cease to behave like an attenuation operator. Fall back to a clipped
+        # diagonal reliability ratio in those cases.
+        reliability_absmax = float(reliability.abs().max())
+        reliability_diag = torch.diagonal(reliability)
+        unstable = (
+            not torch.isfinite(reliability).all()
+            or reliability_absmax > 10.0
+            or float(reliability_diag.min()) < -1.0e-3
+            or float(reliability_diag.max()) > 1.5
+        )
+        if unstable:
+            sigma_x_diag = torch.diagonal(sigma_x_psd).clamp_min(1.0e-6)
+            sigma_u_diag = torch.diagonal(self.sigma_u).clamp_min(1.0e-6)
+            reliability_ratio = (sigma_x_diag / (sigma_x_diag + sigma_u_diag)).clamp(0.0, 1.0)
+            reliability = torch.diag(reliability_ratio)
+
+        self.signal_covariance = sigma_x_psd
+        self.reliability_matrix = reliability
 
         return self
 
@@ -157,3 +186,45 @@ class RegressionCalibration:
     def fit_transform(self, X_observed: torch.Tensor) -> torch.Tensor:
         """Fit and transform in one step."""
         return self.fit(X_observed).transform(X_observed)
+
+    def posterior(
+        self,
+        X_observed: torch.Tensor,
+        sigma_u: Optional[Union[float, torch.Tensor]] = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return posterior mean and covariance for latent clean inputs.
+
+        When ``sigma_u`` is omitted, this uses the noise specification stored during ``fit``.
+        If ``sigma_u`` is a ``(N, D)`` tensor it is interpreted as per-sample diagonal
+        standard deviations and a batched posterior covariance is returned.
+        """
+        check_tensor(X_observed, "X_observed")
+        if self.mu_w is None or self.signal_covariance is None or self.device is None:
+            raise RuntimeError("RegressionCalibration must be fit before calling posterior")
+
+        X_observed = X_observed.to(self.device)
+        signal = self.signal_covariance
+        n_features = X_observed.shape[-1]
+
+        sigma_value = self.sigma_u_input if sigma_u is None else sigma_u
+        if isinstance(sigma_value, torch.Tensor) and sigma_value.ndim == 2 and sigma_value.shape == X_observed.shape:
+            sigma_diag = sigma_value.to(self.device, dtype=X_observed.dtype).clamp_min(1.0e-6)
+            sigma_u_cov = torch.diag_embed(sigma_diag.pow(2))
+            denom = signal.unsqueeze(0) + sigma_u_cov
+            gain = signal.unsqueeze(0) @ torch.linalg.pinv(denom)
+            centered = (X_observed - self.mu_w).unsqueeze(-1)
+            post_mean = self.mu_w.unsqueeze(0) + (gain @ centered).squeeze(-1)
+            post_cov = signal.unsqueeze(0) - gain @ signal.unsqueeze(0)
+            post_cov = _project_covariance_psd(post_cov)
+            return post_mean, post_cov
+
+        sigma_u_cov = self.sigma_u
+        if sigma_value is not None and sigma_u is not None:
+            sigma_u_cov = self._prepare_sigma_u(n_features, self.device)
+        if sigma_u_cov is None:
+            raise RuntimeError("sigma_u is not available; fit the calibrator first")
+        gain = signal @ torch.linalg.pinv(signal + sigma_u_cov)
+        post_mean = self.mu_w + (X_observed - self.mu_w) @ gain.T
+        post_cov = signal - gain @ signal
+        post_cov = _project_covariance_psd(post_cov)
+        return post_mean, post_cov

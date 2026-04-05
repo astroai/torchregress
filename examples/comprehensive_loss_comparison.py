@@ -141,7 +141,7 @@ def main():
                 ]:
                     with torch.no_grad():
                         # Fix sampling RNG per method for stable comparison metrics.
-                        torch.manual_seed(2025 + i)
+                        torch.manual_seed(2025 + i)  # Fix RNG per method
                         samples = output.sample(1000)
                         pred_mean = samples.mean(dim=0)
                     y_pred_local = pred_mean

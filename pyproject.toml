@@ -61,7 +61,7 @@ docs = [
 ]
 conformal = []
 flows = [
-    "zuko>=1.5.0",
+    "zuko>=1.6.0",
 ]
 clauds = [
     "polars>=0.20.0",

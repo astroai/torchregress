@@ -431,6 +431,47 @@ def mae(
     )
 
 
+def attenuation_factor(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    as_numpy: bool = False,
+) -> Union[torch.Tensor, float, np.ndarray]:
+    """Estimate the attenuation factor as slope(prediction | truth).
+
+    This returns the least-squares slope from the regression of ``y_pred`` on
+    ``y_true`` with an intercept. Values near ``1`` indicate no attenuation,
+    while values below ``1`` indicate compressed predictive dynamic range.
+    """
+    y_pred_t = convert_to_tensor(y_pred).reshape(-1)
+    y_true_t = convert_to_tensor(y_true).reshape(-1)
+    validate_inputs(y_pred_t, y_true_t)
+
+    if sample_weight is None:
+        w = torch.ones_like(y_true_t)
+    else:
+        w = convert_to_tensor(sample_weight).reshape(-1).to(y_true_t.dtype)
+        if w.shape != y_true_t.shape:
+            raise ValueError(
+                f"sample_weight shape {tuple(w.shape)} must match inputs {tuple(y_true_t.shape)}"
+            )
+        if not torch.isfinite(w).all():
+            raise ValueError("sample_weight contains NaN or Inf values")
+        w = w.clamp_min(0.0)
+
+    w_sum = w.sum().clamp_min(1.0e-12)
+    x_bar = (w * y_true_t).sum() / w_sum
+    y_bar = (w * y_pred_t).sum() / w_sum
+    x_centered = y_true_t - x_bar
+    y_centered = y_pred_t - y_bar
+    denom = (w * x_centered.pow(2)).sum().clamp_min(1.0e-12)
+    slope = (w * x_centered * y_centered).sum() / denom
+
+    if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
+        return cast(MetricValue, create_metric_result(slope, as_numpy=True))
+    return cast(MetricValue, create_metric_result(slope, as_numpy=False))
+
+
 def huber_loss(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],

@@ -5,6 +5,9 @@ Mixture Density Networks model the conditional distribution $p(y \mid x)$ as a *
 !!! abstract "When to use"
     When the output distribution has **multiple modes** — e.g., inverse problems with multiple solutions, financial regimes, or multi-path trajectory prediction.
 
+!!! tip "Noisy Inputs"
+    If your input features ($X$) are noisy, standard MDNs may produce biased results. Use [**InputNoiseMDNLoss**](eiv.md#multimodal-eiv-variants) to marginalize over the input noise for more robust predictions.
+
 ---
 
 ## Mathematical Background

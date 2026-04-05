@@ -44,21 +44,21 @@ _Generated date_: `2026-02-26`
 |---|---|---|---|
 | Clean regression baseline | `WeightedMSELoss` | `HuberLoss` | Start simple; add UQ only if needed. |
 | Outliers / robust regression | `HuberLoss` | `CauchyLoss`, `TukeyBiweightLoss`, `CharbonnierLoss` | Huber is the best default tradeoff. |
-| Heteroscedastic noise (aleatoric UQ) | `GaussianNLLLoss` | `HeteroscedasticEnsembleModel`, `MDNLoss`, `NormalizingFlowLoss` | Single-model heteroscedastic is the cheapest upgrade. |
-| Epistemic uncertainty | `DeepEnsemble` | `HeteroscedasticBatchEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
+| Heteroscedastic noise (aleatoric UQ) | `GaussianCRPSLoss` | `GaussianNLLLoss`, `HeteroscedasticEnsembleModel`, `MDNLoss` | Photo-z benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline. |
+| Epistemic uncertainty | `DeepEnsemble` | `HeteroscedasticBatchEnsembleModel`, `BinnedPDFEnsembleModel`, `MDNEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
 | Epistemic + aleatoric decomposition | `HeteroscedasticEnsembleModel` | `HeteroscedasticBNN`, `MDNLoss`, `NormalizingFlowLoss` | Requires variance/distribution modeling. |
-| Multimodal targets | `MDNLoss` | `NormalizingFlowLoss` | MDN is usually easier to debug first. |
+| Multimodal targets | `MDNLoss` | `MDNEnsembleModel`, `BinnedPDFEnsembleModel`, `NormalizingFlowLoss` | MDN is usually easier to debug first; ensembles of MDN or ordered-bin heads are the next move when mode averaging matters. |
 | Non-Gaussian / skewed tails | `QuantileLoss` / `ExpectileLoss` / `TweedieLoss` | `MDNLoss`, `NormalizingFlowLoss` | Choose by target support and evaluation metric. |
 | Multi-target correlated outputs | `MultivariateGaussianLoss` / `LowRankGaussianLoss` | `MDNLoss`, `NormalizingFlowLoss` | Prefer low-rank/full covariance when Gaussian is enough. |
-| Noisy features / measurement error | `FunctionalEIVLoss` / `StructuralEIVLoss` / `OrthogonalDistanceRegressionLoss` | `EnsembleEIVLoss` | EIV losses change the call pattern (input noise is modeled). |
+| Noisy features / measurement error | `InputNoiseMarginalizationLoss + GaussianCRPSLoss` / `MDNLoss` / `BinnedPDF` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. |
 | Noisy labels / label corruption | `HuberLoss` | `DeepEnsemble`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
-| Imbalanced / rare-target regression | `DensityWeightedLoss` | `PropensityWeightedLoss`, `LDSLoss` | Check calibration after aggressive reweighting. |
+| Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal` | Photo-z benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. |
 | Selection bias / covariate-dependent missing labels | `PropensityWeightedLoss` | `DensityWeightedLoss` | Estimate p(observed|x) and apply IPW to reduce selection bias. |
 | Output constraints / monotonicity | `BoundedHead` / `NonNegativeHead` / `NonCrossingSort` | `SimplexHead`, `SpectralNormWrapper` | Apply structural constraints in the head before post-hoc calibration. |
 | Post-hoc calibration transforms | `VarianceTemperatureScaler` | `IsotonicMeanCalibrator`, `PITCalibrator` | Fit transforms on a held-out calibration split. |
-| Calibrated intervals with coverage guarantees | `ConformalLoss` | `QuantileLoss` | Conformal gives coverage, not UQ decomposition. |
-| Density-aware conformal under long-tail targets | `DensityConformal` | `PrevalenceAdjustedCP`, `MonteCarloConformal` | Prefer density/prevalence variants when tail-region coverage is a key objective. |
-| Uncertain ground-truth / weak labels | `NoisyTargetGaussianNLL` | `PseudoLabelConsistencyLoss`, `PseudoLabelNLL`, `ConsistencyRegLoss` | Model target uncertainty explicitly and blend pseudo labels with confidence weights. |
+| Calibrated intervals with coverage guarantees | `ConformalLoss on top of a strong probabilistic backbone` | `QuantileLoss`, `MonteCarloConformal`, `DensityConformal` | Conformal gives coverage, not density estimation; keep CRPS/NLL reporting from the underlying predictive model. |
+| Density-aware conformal under long-tail targets | `DensityConformal` | `PrevalenceAdjustedCP`, `MonteCarloConformal` | Prefer density/prevalence variants when tail-region coverage is a key objective; point-accuracy gains are not guaranteed. |
+| Uncertain ground-truth / weak labels | `NoisyTargetGaussianNLL` | `OrdinalCrossEntropyLoss`, `PseudoLabelConsistencyLoss`, `PseudoLabelNLL` | Use NoisyTargetGaussianNLL for Gaussian label uncertainty and soft-bin / PMF supervision when target PDFs or intervals are the natural label form. |
 | Semi-supervised regression | `PseudoLabelConsistencyLoss` | `PseudoLabelNLL`, `NoisyTargetGaussianNLL` | Use confidence-gated pseudo labels and keep a clean held-out evaluation split. |
 | Target transforms for skewed / multiplicative-noise regression | `LogTransformLoss` | `BoxCoxTransformLoss`, `SqrtTransformLoss`, `YeoJohnsonTransformLoss` | Match transform support to target support before tuning model complexity. |
 | Causal inference regression (ATE/CATE) | `dr_ate` / `dr_cate` | `PredictionPoweredInference` | Use cross-fitting and overlap diagnostics before interpreting treatment effects. |
@@ -89,8 +89,8 @@ _Generated date_: `2026-02-26`
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` (4) | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
-| `eiv` (3) | yes | no | partial | no | no | no | partial | partial | no | yes |
-| `ensemble` (3) | yes | no | partial | yes | yes | yes | partial | yes | no | no |
+| `eiv` (7) | yes | yes | partial | no | no | no | partial | partial | no | yes |
+| `ensemble` (6) | yes | no | yes | yes | yes | yes | partial | yes | no | no |
 | `flow` (1) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` (3) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
@@ -154,13 +154,20 @@ _Generated date_: `2026-02-26`
 | `BoundedHead` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
 | `NonCrossingSort` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
 | `FunctionalEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
+| `InputNoiseBinnedPDFLoss` | `eiv` | `Available` | yes | yes | no | no | no | partial | partial |
+| `InputNoiseMDNLoss` | `eiv` | `Available` | yes | yes | no | no | no | partial | partial |
+| `InputNoiseMarginalizationLoss` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
+| `NoisyInputPredictor` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `StructuralEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
+| `BinnedPDFEnsembleModel` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
+| `CumulativeLinkEnsembleModel` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `DeepEnsemble` | `ensemble` | `Core` | yes | no | yes | partial | partial | partial | yes |
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | partial |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | yes |
+| `MDNEnsembleModel` | `ensemble` | `Available` | yes | no | yes | yes | yes | partial | partial |
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
-| `DensityWeightedLoss` | `imbalanced_loss` | `Strong` | yes | no | no | no | no | partial | partial |
+| `DensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `LDSLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
@@ -198,8 +205,8 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` | 4 | yes | no | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
-| `eiv` | 3 | yes | no | partial | no | no | no | partial | partial | no | yes |
-| `ensemble` | 3 | yes | no | partial | yes | yes | yes | partial | yes | no | no |
+| `eiv` | 7 | yes | yes | partial | no | no | no | partial | partial | no | yes |
+| `ensemble` | 6 | yes | no | yes | yes | yes | yes | partial | yes | no | no |
 | `flow` | 1 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` | 3 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
@@ -220,9 +227,9 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
 | Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `QuantileLoss` |
-| Multimodal targets | `multimodal=yes` | `NormalizingFlowLoss`, `MDNLoss` |
+| Multimodal targets | `multimodal=yes` | `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `NormalizingFlowLoss`, `MDNLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
-| Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
+| Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->
 
 ## Evidence-Based Maturity Labels (Current Audit Guidance)
@@ -298,14 +305,14 @@ _Generated date_: `2026-02-26`
    Caveat: Move to flows when MDN component count/training stability is the bottleneck.
 
 4. Have noisy features / measurement error?
-   Use `FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss`.
-   Alternatives: `EnsembleEIVLoss`.
-   Caveat: EIV losses use a different call pattern (observed x passed as loss input).
+   Use `InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF`.
+   Alternatives: `FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss`.
+   Caveat: Use the simpler explicit input-noise path first, including test-time predictive averaging; Jacobian-style EIV losses are more fragile and need careful benchmarking.
 
 5. Have imbalanced tails / rare targets?
-   Use `DensityWeightedLoss`.
-   Alternatives: `LDSLoss`.
-   Caveat: Validate calibration after aggressive reweighting.
+   Use `GaussianCRPSLoss / QuantileLoss + tail-slice evaluation`.
+   Alternatives: `DensityConformal`, `DensityWeightedLoss`, `LDSLoss`.
+   Caveat: Density-aware weighting is not yet a universally strong default on photo-z benchmarks.
 
 6. Need OOD scoring / selective prediction under a latency budget?
    Use `DeepEnsemble + OOD metrics`.
@@ -314,7 +321,7 @@ _Generated date_: `2026-02-26`
 
 7. Are labels uncertain or weak (noisy targets, pseudo-labels, partial trust)?
    Use `NoisyTargetGaussianNLL`.
-   Alternatives: `PseudoLabelNLL`, `ConsistencyRegLoss`.
+   Alternatives: `OrdinalCrossEntropyLoss`, `PseudoLabelNLL`, `ConsistencyRegLoss`.
    Caveat: Retain held-out clean-label evaluation where available to avoid self-confirming loops.
 
 8. Need treatment-effect estimation under confounding (ATE/CATE)?

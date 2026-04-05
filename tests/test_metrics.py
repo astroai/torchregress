@@ -13,11 +13,19 @@ from torchregress.metrics.calibration import (
     marginal_calibration_error,
 )
 from torchregress.metrics.distribution import (
+    conditional_density_estimation_loss,
     continuous_ranked_probability_score,
+    crps_from_samples,
+    crps_gaussian,
     distribution_metrics_report,
     energy_score,
+    gaussian_nll,
+    highest_posterior_density_coverage,
+    highest_posterior_density_level,
+    kolmogorov_smirnov_uniform_statistic,
     probability_integral_transform,
 )
+from torchregress.metrics.ensemble import ensemble_interval_metrics, gaussian_nll_ensemble
 from torchregress.metrics.interval import (
     interval_metrics_report,
     interval_score,
@@ -31,6 +39,7 @@ from torchregress.metrics.ood import (
     typicality_score,
 )
 from torchregress.metrics.point import (
+    attenuation_factor,
     huber_loss,
     mae,
     mean_absolute_error,
@@ -252,18 +261,107 @@ class TestDistributionMetrics:
         assert pit_values.shape == self.y_true.shape
         assert torch.all((pit_values >= 0) & (pit_values <= 1))
 
+        histogram = probability_integral_transform(cdf_fn, self.y_true, return_histogram=True)
+        assert "uniformity_ks" in histogram
+        assert float(histogram["uniformity_ks"]) >= 0.0
+
+    def test_kolmogorov_smirnov_uniform_statistic(self):
+        near_uniform = torch.linspace(0.01, 0.99, steps=100)
+        skewed = torch.zeros(100)
+        assert float(kolmogorov_smirnov_uniform_statistic(near_uniform)) < 0.1
+        assert float(kolmogorov_smirnov_uniform_statistic(skewed)) > 0.4
+
         # Test with histogram
+        def cdf_fn(x):
+            return 0.5 * (1 + torch.erf(x / torch.sqrt(torch.tensor(2.0))))
+
         result = probability_integral_transform(cdf_fn, self.y_true, return_histogram=True)
         assert isinstance(result, dict)
         assert "pit_values" in result
         assert "histogram_counts" in result
         assert "bin_edges" in result
         assert "uniformity_chi2" in result
+        assert "uniformity_ks" in result
 
         # Test with numpy output
         y_true_np = self.y_true.numpy()
         result_np = probability_integral_transform(cdf_fn, y_true_np, return_histogram=True)
         assert isinstance(result_np["pit_values"], np.ndarray)
+
+    def test_gaussian_crps_and_ensemble_metrics(self):
+        mean = torch.linspace(-0.5, 0.5, steps=self.batch_size)
+        std = torch.full_like(mean, 0.4)
+        y_true = mean + 0.1
+
+        crps = crps_gaussian(mean, y_true, std)
+        nll = gaussian_nll(mean, y_true, std.square())
+        assert isinstance(crps, float)
+        assert isinstance(nll, float)
+        assert crps >= 0.0
+
+        ensemble_means = torch.stack([mean - 0.05, mean + 0.05, mean])
+        ensemble_vars = torch.stack([std.square(), (1.1 * std).square(), (0.9 * std).square()])
+        ensemble_nll = gaussian_nll_ensemble(ensemble_means, ensemble_vars, y_true)
+        ensemble_intervals = ensemble_interval_metrics(
+            ensemble_means, ensemble_vars, y_true, alpha=0.2
+        )
+
+        assert torch.is_tensor(ensemble_nll)
+        assert torch.isfinite(ensemble_nll)
+        assert set(ensemble_intervals) == {"interval_score", "picp"}
+        assert torch.isfinite(ensemble_intervals["interval_score"])
+        assert torch.isfinite(ensemble_intervals["picp"])
+
+    def test_distribution_metrics_report_adds_pit_for_samples(self):
+        y_true = torch.linspace(-1.0, 1.0, steps=40)
+        samples = y_true.unsqueeze(0) + 0.1 * torch.randn(64, 40)
+        report = distribution_metrics_report(samples=samples, y_true=y_true)
+        assert "crps" in report
+        assert "pit_chi2" in report
+        assert "pit_ks" in report
+
+    def test_distribution_metrics_report_adds_pit_for_quantiles_and_density(self):
+        y_true = torch.linspace(-1.0, 1.0, steps=25)
+        quantiles = {
+            0.1: y_true - 0.4,
+            0.5: y_true,
+            0.9: y_true + 0.4,
+        }
+        report_q = distribution_metrics_report(y_pred_quantiles=quantiles, y_true=y_true)
+        assert "pit_chi2" in report_q
+        assert "pit_ks" in report_q
+
+        support = torch.linspace(-2.0, 2.0, steps=101)
+        density = torch.exp(-0.5 * (support.unsqueeze(0) - y_true.unsqueeze(1)).pow(2) / 0.2**2)
+        density = density / torch.trapezoid(density, support, dim=-1).unsqueeze(-1)
+        report_d = distribution_metrics_report(support=support, density=density, y_true=y_true)
+        assert "cde_loss" in report_d
+        assert "log_prob" in report_d
+        assert "coverage_90" in report_d
+        assert "pit_chi2" in report_d
+        assert "pit_ks" in report_d
+
+    def test_conditional_density_estimation_loss_prefers_better_density(self):
+        support = torch.linspace(-2.0, 2.0, 201)
+        y_true = torch.tensor([0.0, 0.5])
+        centered = torch.exp(-0.5 * ((support.unsqueeze(0) - y_true.unsqueeze(1)) / 0.2) ** 2)
+        shifted = torch.exp(
+            -0.5 * ((support.unsqueeze(0) - (y_true.unsqueeze(1) + 1.0)) / 0.2) ** 2
+        )
+        better = conditional_density_estimation_loss(support, centered, y_true)
+        worse = conditional_density_estimation_loss(support, shifted, y_true)
+        assert better < worse
+
+    def test_highest_posterior_density_metrics_are_bounded(self):
+        support = torch.linspace(-3.0, 3.0, 301)
+        centers = torch.tensor([[0.0], [1.0]])
+        density = torch.exp(-0.5 * ((support.unsqueeze(0) - centers) / 0.5) ** 2)
+        y_true = torch.tensor([0.1, 1.2])
+        levels = highest_posterior_density_level(support, density, y_true)
+        assert torch.all(levels >= 0.0)
+        assert torch.all(levels <= 1.0)
+        coverage = highest_posterior_density_coverage(support, density, y_true, alpha=0.5)
+        assert 0.0 <= coverage <= 1.0
 
     def test_continuous_ranked_probability_score(self):
         """Test CRPS metric."""
@@ -289,6 +387,23 @@ class TestDistributionMetrics:
             # Test with too few quantiles
             bad_quantiles = {0.5: self.y_pred_quantiles[0.5]}
             continuous_ranked_probability_score(bad_quantiles, self.y_true)
+
+    def test_crps_from_samples(self):
+        samples = torch.stack(
+            [
+                self.y_true - 0.1,
+                self.y_true,
+                self.y_true + 0.1,
+            ],
+            dim=0,
+        )
+        crps = crps_from_samples(samples, self.y_true)
+        assert isinstance(crps, float)
+        assert crps >= 0
+
+        crps_none = crps_from_samples(samples, self.y_true, reduction="none")
+        assert isinstance(crps_none, torch.Tensor)
+        assert crps_none.shape == self.y_true.shape
 
     def test_energy_score(self):
         """Test energy score metric."""
@@ -615,6 +730,20 @@ class TestIntervalMetrics:
         assert "score" in report["model1"]
         assert "picp" in report["model1"]
         assert "mpiw" in report["model1"]
+
+
+class TestAttenuationFactor:
+    def test_attenuation_factor_is_one_for_identity(self):
+        y_true = torch.linspace(-2.0, 2.0, 16)
+        y_pred = y_true.clone()
+        lam = attenuation_factor(y_pred, y_true)
+        assert float(lam) == pytest.approx(1.0, abs=1.0e-6)
+
+    def test_attenuation_factor_detects_compression(self):
+        y_true = torch.linspace(-2.0, 2.0, 32)
+        y_pred = 0.6 * y_true + 0.2
+        lam = attenuation_factor(y_pred, y_true)
+        assert float(lam) == pytest.approx(0.6, rel=1.0e-3)
 
 
 if __name__ == "__main__":

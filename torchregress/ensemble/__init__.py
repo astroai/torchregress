@@ -13,9 +13,14 @@ from .combiners import (
 from .layers import BatchEnsembleLinear
 from .mc_dropout import MCDropoutModel, MCDropoutWrapper, enable_dropout
 from .models import (
+    BatchEnsembleMLPBackbone,
+    BinnedPDFEnsembleModel,
+    CumulativeLinkEnsembleModel,
     DeepEnsemble,
     HeteroscedasticBatchEnsembleModel,
     HeteroscedasticEnsembleModel,
+    MDNEnsembleModel,
+    RandomPartitionEnsembleModel,
 )
 from .swag import SWAG, MultiSWAG
 from .utils import parse_heteroscedastic_output
@@ -25,6 +30,11 @@ __all__ = [
     "BatchEnsembleLinear",
     "HeteroscedasticEnsembleModel",
     "DeepEnsemble",
+    "BatchEnsembleMLPBackbone",
+    "BinnedPDFEnsembleModel",
+    "CumulativeLinkEnsembleModel",
+    "MDNEnsembleModel",
+    "RandomPartitionEnsembleModel",
     "HeteroscedasticBatchEnsembleModel",
     "BayesianModelAveraging",
     "StackingEnsemble",

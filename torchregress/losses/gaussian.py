@@ -181,6 +181,45 @@ class GaussianNLLLoss(DistributionLoss):
         return self._reduce_with_mask(nll, mask, weights)
 
 
+@register_regression_loss("gaussian_crps")
+class GaussianCRPSLoss(GaussianNLLLoss):
+    """
+    Analytic Continuous Ranked Probability Score for diagonal Gaussian predictions.
+
+    Supports the same prediction formats as ``GaussianNLLLoss``:
+    - tuple ``(mean, log_variance)``
+    - concatenated tensor ``[mean, log_variance]``
+    - mean-only tensor when ``fixed_variance`` is set
+    """
+
+    def forward(
+        self,
+        y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+        target: torch.Tensor,
+        covariance_matrices: Optional[torch.Tensor] = None,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        if covariance_matrices is not None and covariance_matrices.dim() <= target.dim():
+            legacy_mask = covariance_matrices
+            legacy_weights = mask if isinstance(mask, torch.Tensor) else None
+            mask = legacy_mask
+            weights = legacy_weights
+            covariance_matrices = None
+
+        mean, var = self._extract_distribution_parameters(y_pred)
+        self._validate_inputs(mean, target, mask)
+
+        std = torch.sqrt(var + self.eps)
+        z = (target - mean) / (std + self.eps)
+        pdf = torch.exp(-0.5 * z.square()) / math.sqrt(2.0 * math.pi)
+        cdf = 0.5 * (1.0 + torch.erf(z / math.sqrt(2.0)))
+        crps = std * (z * (2.0 * cdf - 1.0) + 2.0 * pdf - 1.0 / math.sqrt(math.pi))
+
+        return self._reduce_with_mask(crps, mask, weights)
+
+
 @register_regression_loss("multivariate_gaussian_nll")
 class MultivariateGaussianLoss(DistributionLoss):
     """

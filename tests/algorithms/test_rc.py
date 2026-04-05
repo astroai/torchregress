@@ -90,3 +90,42 @@ def test_rc_error_handling():
 
     with pytest.raises(ValueError):
         rc.fit(torch.randn(10, 1, 1))  # Wrong dim
+
+
+def test_rc_falls_back_to_stable_diagonal_reliability_when_full_matrix_is_unstable():
+    torch.manual_seed(0)
+    X = torch.randn(512, 3)
+    # Use an unrealistically large error covariance to force the fallback path.
+    rc = RegressionCalibration(sigma_u=torch.eye(3) * 50.0)
+    rc.fit(X)
+    diag = torch.diagonal(rc.reliability_matrix)
+    assert torch.isfinite(rc.reliability_matrix).all()
+    assert torch.all(diag >= 0.0)
+    assert torch.all(diag <= 1.0)
+
+
+def test_rc_posterior_returns_mean_and_covariance():
+    torch.manual_seed(0)
+    x_true = torch.randn(128, 2)
+    x_obs = x_true + 0.2 * torch.randn_like(x_true)
+    rc = RegressionCalibration(sigma_u=0.2).fit(x_obs)
+    post_mean, post_cov = rc.posterior(x_obs)
+    assert post_mean.shape == x_obs.shape
+    assert post_cov.shape == (2, 2)
+    assert torch.isfinite(post_mean).all()
+    assert torch.isfinite(post_cov).all()
+    assert float(torch.linalg.eigvalsh(post_cov).min()) >= 0.0
+
+
+def test_rc_posterior_supports_per_sample_diagonal_noise():
+    torch.manual_seed(1)
+    x_true = torch.randn(64, 3)
+    x_obs = x_true + 0.1 * torch.randn_like(x_true)
+    rc = RegressionCalibration(sigma_u=0.1).fit(x_obs)
+    sigma_u = torch.full_like(x_obs, 0.15)
+    post_mean, post_cov = rc.posterior(x_obs, sigma_u=sigma_u)
+    assert post_mean.shape == x_obs.shape
+    assert post_cov.shape == (64, 3, 3)
+    assert torch.isfinite(post_cov).all()
+    min_eigs = torch.linalg.eigvalsh(post_cov).min(dim=-1).values
+    assert torch.all(min_eigs >= 0.0)

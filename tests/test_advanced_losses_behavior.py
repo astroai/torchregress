@@ -170,6 +170,9 @@ def test_normalizing_flow_loss_behavior_with_dummy_flow_and_factory(
     assert samples.shape == (5, 4, 2)
     one_sample = loss_fn.sample(context, n_samples=1)
     assert one_sample.shape == (5, 2)
+    log_prob = loss_fn.log_prob(context, target)
+    assert log_prob.shape == (5,)
+    assert torch.allclose(log_prob, -(target**2).sum(dim=-1))
 
     feature_mask = torch.tensor(
         [[True, True], [True, False], [True, True], [False, False], [True, True]]
@@ -186,6 +189,22 @@ def test_normalizing_flow_loss_behavior_with_dummy_flow_and_factory(
     unconditional_samples = unconditional_loss.sample(torch.randn(6, 1), n_samples=3)
     assert unconditional_samples.shape == (6, 3, 2)
     assert unconditional_flow.calls and unconditional_flow.calls[-1] is None
+
+    scalar_flow = _DummyFlow(1)
+    scalar_loss = nflows.NormalizingFlowLoss(flow=scalar_flow, reduction="mean")
+    scalar_context = torch.randn(4, 2)
+    quantiles = scalar_loss.quantile(scalar_context, [0.1, 0.5, 0.9], n_samples=16)
+    assert quantiles.shape == (4, 3)
+    assert torch.allclose(quantiles, torch.zeros_like(quantiles))
+    cdf = scalar_loss.cdf(
+        scalar_context,
+        torch.tensor([[-1.0], [0.0], [0.5], [1.0]], dtype=scalar_context.dtype),
+        n_samples=16,
+    )
+    assert cdf.shape == (4,)
+    assert torch.all((cdf >= 0.0) & (cdf <= 1.0))
+    assert cdf[0].item() == 0.0
+    assert cdf[1].item() == 1.0
 
     def _fake_create_flow_model(**_: object) -> nn.Module:
         return _DummyFlow(2, context_attr=4)
