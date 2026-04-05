@@ -148,14 +148,18 @@ class PosteriorLabelShiftAdapter:
             self.source_prior = estimate.source_prior
         return estimate
 
-    def transform(self, probabilities: np.ndarray, *, target_prior: np.ndarray | None = None) -> np.ndarray:
+    def transform(
+        self, probabilities: np.ndarray, *, target_prior: np.ndarray | None = None
+    ) -> np.ndarray:
         if target_prior is None:
             if self.last_estimate is None:
                 self.estimate(probabilities)
             assert self.last_estimate is not None
             target_prior = self.last_estimate.target_prior
         if self.source_prior is None:
-            raise RuntimeError("source_prior is unavailable; call estimate() first or pass source_prior")
+            raise RuntimeError(
+                "source_prior is unavailable; call estimate() first or pass source_prior"
+            )
         return apply_label_shift_correction(
             probabilities,
             source_prior=self.source_prior,

@@ -437,13 +437,17 @@ def _pit_from_quantiles(
         qvals = quantile_matrix[idx]
         y_val = y_true_t[idx]
         if y_val <= qvals[0]:
-            pit[idx] = level_tensor[0] if torch.isclose(qvals[0], y_val) else torch.tensor(
-                0.0, device=qvals.device, dtype=qvals.dtype
+            pit[idx] = (
+                level_tensor[0]
+                if torch.isclose(qvals[0], y_val)
+                else torch.tensor(0.0, device=qvals.device, dtype=qvals.dtype)
             )
             continue
         if y_val >= qvals[-1]:
-            pit[idx] = level_tensor[-1] if torch.isclose(qvals[-1], y_val) else torch.tensor(
-                1.0, device=qvals.device, dtype=qvals.dtype
+            pit[idx] = (
+                level_tensor[-1]
+                if torch.isclose(qvals[-1], y_val)
+                else torch.tensor(1.0, device=qvals.device, dtype=qvals.dtype)
             )
             continue
         upper_idx = torch.searchsorted(qvals, y_val, right=False).item()
@@ -458,7 +462,9 @@ def _pit_from_quantiles(
 
 
 def _cdf_from_density(support: torch.Tensor, density: torch.Tensor) -> torch.Tensor:
-    trapezoids = 0.5 * (density[:, 1:] + density[:, :-1]) * (support[1:] - support[:-1]).unsqueeze(0)
+    trapezoids = (
+        0.5 * (density[:, 1:] + density[:, :-1]) * (support[1:] - support[:-1]).unsqueeze(0)
+    )
     cdf_grid = torch.cat(
         [
             torch.zeros(density.shape[0], 1, device=density.device, dtype=density.dtype),
@@ -481,7 +487,9 @@ def _quantiles_from_density(
     support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
     cdf_grid = _cdf_from_density(support_t, density_t)
     prob_t = torch.tensor(probs, device=density_t.device, dtype=density_t.dtype)
-    quantiles = torch.empty(density_t.shape[0], len(probs), device=density_t.device, dtype=density_t.dtype)
+    quantiles = torch.empty(
+        density_t.shape[0], len(probs), device=density_t.device, dtype=density_t.dtype
+    )
     for row in range(density_t.shape[0]):
         cdf_row = cdf_grid[row]
         for col, prob in enumerate(prob_t):

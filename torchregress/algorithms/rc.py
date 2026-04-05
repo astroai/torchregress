@@ -207,7 +207,11 @@ class RegressionCalibration:
         n_features = X_observed.shape[-1]
 
         sigma_value = self.sigma_u_input if sigma_u is None else sigma_u
-        if isinstance(sigma_value, torch.Tensor) and sigma_value.ndim == 2 and sigma_value.shape == X_observed.shape:
+        if (
+            isinstance(sigma_value, torch.Tensor)
+            and sigma_value.ndim == 2
+            and sigma_value.shape == X_observed.shape
+        ):
             sigma_diag = sigma_value.to(self.device, dtype=X_observed.dtype).clamp_min(1.0e-6)
             sigma_u_cov = torch.diag_embed(sigma_diag.pow(2))
             denom = signal.unsqueeze(0) + sigma_u_cov
