@@ -287,23 +287,22 @@ def compute_model_gradients(
         return grads.view(batch_size, 1, n_features_x)
     else:
         # Multi-output case: need Jacobian per sample
-        # We assume independent samples (y_i only depends on x_i)
-        jacobian = torch.zeros(
-            batch_size, n_features_y, n_features_x, device=x.device, dtype=x.dtype
+        # We compute this efficiently using batched gradients over the output dimension
+        grad_outputs = (
+            torch.eye(n_features_y, device=x.device, dtype=x.dtype)
+            .unsqueeze(1)
+            .expand(-1, batch_size, -1)
         )
-        for i in range(n_features_y):
-            grad_outputs = torch.zeros_like(y_pred)
-            grad_outputs[:, i] = 1.0
-            grads = torch.autograd.grad(
-                outputs=y_pred,
-                inputs=x,
-                grad_outputs=grad_outputs,
-                create_graph=True,
-                retain_graph=True,
-                only_inputs=True,
-            )[0]
-            jacobian[:, i, :] = grads
-        return jacobian
+        grads = torch.autograd.grad(
+            outputs=y_pred,
+            inputs=x,
+            grad_outputs=grad_outputs,
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+            is_grads_batched=True,
+        )[0]
+        return grads.transpose(0, 1)
 
 
 def calculate_gaussian_nll(
