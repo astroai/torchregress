@@ -518,6 +518,144 @@ def plot_residual_histogram(
     return None
 
 
+def _plot_single_distribution(
+    ax: plt.Axes,
+    samples: np.ndarray,
+    true_value: float,
+    idx: int,
+    is_first: bool,
+    credible_interval: float,
+    plot_type: str,
+    has_kde: bool,
+    color_samples: str,
+    color_true: str,
+    alpha: float,
+    xlabel: str,
+    ylabel: str,
+) -> None:
+    """Helper function to plot a single distribution comparison."""
+    # Remove any NaN or Inf values
+    valid_samples = samples[np.isfinite(samples)]
+    if len(valid_samples) < len(samples):
+        removed = len(samples) - len(valid_samples)
+        print(f"Warning: {removed} non-finite values removed from samples")
+
+    # Make sure we have data to plot
+    if len(valid_samples) == 0:
+        ax.text(
+            0.5,
+            0.5,
+            "No valid samples",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        return
+
+    samples = valid_samples
+
+    # Compute credible interval
+    lower_ci = np.percentile(samples, (1 - credible_interval) * 100 / 2)
+    upper_ci = np.percentile(samples, 100 - (1 - credible_interval) * 100 / 2)
+    mean_pred = np.mean(samples)
+    median_pred = np.median(samples)
+
+    # Plot the predicted distribution
+    if plot_type in ["kde", "both"] and has_kde and len(samples) >= 3:
+        try:
+            from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
+
+            # Create KDE
+            kde = gaussian_kde(samples)
+            x_range = np.linspace(min(samples), max(samples), 1000)
+            ax.plot(x_range, kde(x_range), color=color_samples, linewidth=2, label="Predicted")
+
+            # Add credible interval shading
+            x_ci = x_range[(x_range >= lower_ci) & (x_range <= upper_ci)]
+            if len(x_ci) > 0:
+                y_ci = kde(x_ci)
+                ax.fill_between(
+                    x_ci,
+                    0,
+                    y_ci,
+                    color=color_samples,
+                    alpha=0.2,
+                    label=f"{int(credible_interval * 100)}% CI",
+                )
+
+            # Add sample curves with low alpha for uncertainty visualization
+            if len(samples) <= 100:  # Only if we have a reasonable number of samples
+                for sample in samples:
+                    ax.axvline(x=sample, color=color_samples, alpha=alpha, linewidth=1)
+        except Exception as e:
+            print(f"Warning: KDE failed: {e}")
+            # Fall back to histogram
+            ax.hist(
+                samples,
+                bins=min(20, len(samples) // 5 + 1),
+                alpha=0.3,
+                color=color_samples,
+                density=True,
+            )
+
+    if plot_type in ["histogram", "both"] or (plot_type == "kde" and not has_kde):
+        # Plot histogram
+        ax.hist(
+            samples,
+            bins=min(20, len(samples) // 5 + 1),
+            alpha=0.3,
+            color=color_samples,
+            density=True,
+        )
+
+    # Add true value as vertical line
+    if np.isfinite(true_value):
+        ax.axvline(x=true_value, color=color_true, linewidth=2, label="True Value")
+
+        # Add text showing true value
+        ax.text(
+            true_value,
+            0.01,
+            f"{true_value:.2f}",
+            color=color_true,
+            ha="center",
+            va="bottom",
+            rotation=90,
+            fontweight="bold",
+            transform=ax.get_xaxis_transform(),
+        )
+
+    # Add additional vertical lines for mean and median
+    ax.axvline(x=mean_pred, color="green", linestyle="--", linewidth=1.5, label="Mean")
+    ax.axvline(x=median_pred, color="purple", linestyle=":", linewidth=1.5, label="Median")
+
+    # Add CI boundaries
+    ax.axvline(
+        x=lower_ci, color="orange", linestyle="-.", linewidth=1, alpha=0.7, label="CI Bounds"
+    )
+    ax.axvline(x=upper_ci, color="orange", linestyle="-.", linewidth=1, alpha=0.7)
+
+    # Add metrics as text
+    if np.isfinite(true_value):
+        error = mean_pred - true_value
+        in_ci = lower_ci <= true_value <= upper_ci
+        ci_text = "in CI" if in_ci else "outside CI"
+
+        annotations = {
+            "Mean": f"{mean_pred:.2f}",
+            "Median": f"{median_pred:.2f}",
+            "Error": f"{error:.2f}",
+            "True": f"{true_value:.2f} ({ci_text})",
+        }
+        add_annotations(ax, annotations, loc="upper left")
+
+    # Add labels and legend
+    ax.set_xlabel(xlabel)
+    if is_first:
+        ax.set_ylabel(ylabel)
+    ax.set_title(f"Sample {idx}")
+
+
 def plot_distribution_comparison(
     predicted_samples: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -582,138 +720,32 @@ def plot_distribution_comparison(
 
     # For KDE plotting
     try:
-        from scipy.stats import gaussian_kde
+        import scipy.stats  # type: ignore[import-untyped]
 
-        has_kde = True
+        has_kde = hasattr(scipy.stats, "gaussian_kde")
     except ImportError:
         has_kde = False
-        if plot_type == "kde" or plot_type == "both":
-            print("scipy not available, using histogram instead of KDE")
-            plot_type = "histogram"
+
+    if not has_kde and plot_type in ["kde", "both"]:
+        print("scipy not available, using histogram instead of KDE")
+        plot_type = "histogram"
 
     for i, idx in enumerate(indices):
-        ax = axes[i]
-        samples = pred_samples[:, idx]
-        true_value = y_true[idx]
-
-        # Remove any NaN or Inf values
-        valid_samples = samples[np.isfinite(samples)]
-        if len(valid_samples) < len(samples):
-            removed = len(samples) - len(valid_samples)
-            print(f"Warning: {removed} non-finite values removed from samples")
-
-        # Make sure we have data to plot
-        if len(valid_samples) == 0:
-            ax.text(
-                0.5,
-                0.5,
-                "No valid samples",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            continue
-
-        samples = valid_samples
-
-        # Compute credible interval
-        lower_ci = np.percentile(samples, (1 - credible_interval) * 100 / 2)
-        upper_ci = np.percentile(samples, 100 - (1 - credible_interval) * 100 / 2)
-        mean_pred = np.mean(samples)
-        median_pred = np.median(samples)
-
-        # Plot the predicted distribution
-        if plot_type in ["kde", "both"] and has_kde and len(samples) >= 3:
-            try:
-                # Create KDE
-                kde = gaussian_kde(samples)
-                x_range = np.linspace(min(samples), max(samples), 1000)
-                ax.plot(x_range, kde(x_range), color=color_samples, linewidth=2, label="Predicted")
-
-                # Add credible interval shading
-                x_ci = x_range[(x_range >= lower_ci) & (x_range <= upper_ci)]
-                if len(x_ci) > 0:
-                    y_ci = kde(x_ci)
-                    ax.fill_between(
-                        x_ci,
-                        0,
-                        y_ci,
-                        color=color_samples,
-                        alpha=0.2,
-                        label=f"{int(credible_interval * 100)}% CI",
-                    )
-
-                # Add sample curves with low alpha for uncertainty visualization
-                if len(samples) <= 100:  # Only if we have a reasonable number of samples
-                    for sample in samples:
-                        ax.axvline(x=sample, color=color_samples, alpha=alpha, linewidth=1)
-            except Exception as e:
-                print(f"Warning: KDE failed: {e}")
-                # Fall back to histogram
-                ax.hist(
-                    samples,
-                    bins=min(20, len(samples) // 5 + 1),
-                    alpha=0.3,
-                    color=color_samples,
-                    density=True,
-                )
-
-        if plot_type in ["histogram", "both"] or (plot_type == "kde" and not has_kde):
-            # Plot histogram
-            ax.hist(
-                samples,
-                bins=min(20, len(samples) // 5 + 1),
-                alpha=0.3,
-                color=color_samples,
-                density=True,
-            )
-
-        # Add true value as vertical line
-        if np.isfinite(true_value):
-            ax.axvline(x=true_value, color=color_true, linewidth=2, label="True Value")
-
-            # Add text showing true value
-            ax.text(
-                true_value,
-                0.01,
-                f"{true_value:.2f}",
-                color=color_true,
-                ha="center",
-                va="bottom",
-                rotation=90,
-                fontweight="bold",
-                transform=ax.get_xaxis_transform(),
-            )
-
-        # Add additional vertical lines for mean and median
-        ax.axvline(x=mean_pred, color="green", linestyle="--", linewidth=1.5, label="Mean")
-        ax.axvline(x=median_pred, color="purple", linestyle=":", linewidth=1.5, label="Median")
-
-        # Add CI boundaries
-        ax.axvline(
-            x=lower_ci, color="orange", linestyle="-.", linewidth=1, alpha=0.7, label="CI Bounds"
+        _plot_single_distribution(
+            ax=axes[i],
+            samples=pred_samples[:, idx],
+            true_value=y_true[idx],
+            idx=int(idx),
+            is_first=(i == 0),
+            credible_interval=credible_interval,
+            plot_type=plot_type,
+            has_kde=has_kde,
+            color_samples=color_samples,
+            color_true=color_true,
+            alpha=alpha,
+            xlabel=xlabel,
+            ylabel=ylabel,
         )
-        ax.axvline(x=upper_ci, color="orange", linestyle="-.", linewidth=1, alpha=0.7)
-
-        # Add metrics as text
-        if np.isfinite(true_value):
-            error = mean_pred - true_value
-            in_ci = lower_ci <= true_value <= upper_ci
-            ci_text = "in CI" if in_ci else "outside CI"
-
-            annotations = {
-                "Mean": f"{mean_pred:.2f}",
-                "Median": f"{median_pred:.2f}",
-                "Error": f"{error:.2f}",
-                "True": f"{true_value:.2f} ({ci_text})",
-            }
-            add_annotations(ax, annotations, loc="upper left")
-
-        # Add labels and legend
-        ax.set_xlabel(xlabel)
-        if i == 0:
-            ax.set_ylabel(ylabel)
-        ax.set_title(f"Sample {idx}")
 
     # Add common legend
     handles, labels = axes[0].get_legend_handles_labels()
