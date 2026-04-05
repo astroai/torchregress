@@ -2,7 +2,7 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_comparative_evidence_markdown`
 _Source artifacts_: `reports/comparative_evidence_matrix_latest.json`, `reports/method_catalog_latest.json`
-_Generated date_: `2026-02-26`
+_Generated date_: `2026-04-05`
 
 ## Summary
 

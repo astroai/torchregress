@@ -4,6 +4,21 @@ Detailed API reference for all ensemble and Bayesian UQ methods.
 
 ---
 
+## BaseEnsembleModel
+
+!!! abstract "Summary"
+    Shared base for member-based ensembles: builds `ensemble_size` copies of a base module, runs them in parallel, and stacks outputs.
+
+```python
+from torchregress.ensemble import BaseEnsembleModel
+
+# Subclasses (DeepEnsemble, HeteroscedasticEnsembleModel, …) wrap this pattern.
+```
+
+→ Full API: [`BaseEnsembleModel`](../api/ensemble.md#torchregress.ensemble.BaseEnsembleModel).
+
+---
+
 ## DeepEnsemble
 
 !!! abstract "Summary"
@@ -115,6 +130,42 @@ result = batch_ens.predict(x_test)
 
 ---
 
+## BatchEnsembleLinear
+
+!!! abstract "Summary"
+    Rank-1 **BatchEnsemble** perturbation of a linear layer: shared weight $W$ plus per-member vectors $r_m, s_m$ so each virtual member uses an effective weight $W \circ (r_m s_m^\top)$ (see Wen et al., 2020).
+
+```python
+from torchregress.ensemble import BatchEnsembleLinear
+
+layer = BatchEnsembleLinear(in_features=10, out_features=64, ensemble_size=4)
+```
+
+→ API: [`BatchEnsembleLinear`](../api/ensemble.md#torchregress.ensemble.BatchEnsembleLinear).
+
+---
+
+## BatchEnsembleMLPBackbone
+
+!!! abstract "Summary"
+    Shared-backbone MLP that applies **BatchEnsemble** perturbations through the hidden stack (not only the readout). Suited to tabular-style deep models and efficient ensemble backbones.
+
+```python
+from torchregress.ensemble import BatchEnsembleMLPBackbone
+
+backbone = BatchEnsembleMLPBackbone(
+    input_size=20,
+    hidden_size=128,
+    ensemble_size=4,
+    hidden_dims=(128, 64),
+)
+features = backbone(x)  # (batch, ensemble_size, feature_dim)
+```
+
+→ API: [`BatchEnsembleMLPBackbone`](../api/ensemble.md#torchregress.ensemble.BatchEnsembleMLPBackbone).
+
+---
+
 ## BinnedPDFEnsembleModel
 
 !!! abstract "Summary"
@@ -134,6 +185,28 @@ result = ensemble.predict(x_test)
 
 !!! tip "When to use"
     Prefer this over averaging logits when each member predicts a **binned predictive PDF**.  The ensemble should average the predictive distribution, not the pre-softmax parameters.
+
+---
+
+## RandomPartitionEnsembleModel
+
+!!! abstract "Summary"
+    Each member predicts a softmax PDF on **its own bin edges**. The ensemble averages **CDFs** mapped to a common evaluation grid, then differencing yields a coherent aggregate PDF (avoids averaging incompatible logits).
+
+```python
+from torchregress.ensemble import RandomPartitionEnsembleModel
+
+member_edges = [torch.linspace(0.0, 1.0, 33) for _ in range(5)]
+ensemble = RandomPartitionEnsembleModel(
+    base_model=MyPartitionHead,
+    ensemble_size=5,
+    member_bin_edges=member_edges,
+)
+result = ensemble.predict(x_test)
+# result: "probabilities", "cdf_at_edges", "bin_edges", "mean", "variance", ...
+```
+
+→ API: [`RandomPartitionEnsembleModel`](../api/ensemble.md#torchregress.ensemble.RandomPartitionEnsembleModel).
 
 ---
 
