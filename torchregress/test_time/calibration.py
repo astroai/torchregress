@@ -5,6 +5,27 @@ from __future__ import annotations
 import numpy as np
 
 
+def _subsample_rows(X: np.ndarray, max_rows: int | None, *, random_state: int | None) -> np.ndarray:
+    if max_rows is None or max_rows <= 0 or X.shape[0] <= int(max_rows):
+        return X
+    rng = np.random.default_rng(random_state)
+    idx = rng.choice(X.shape[0], size=int(max_rows), replace=False)
+    return X[np.sort(idx.astype(np.int64, copy=False))]
+
+
+def _winsorize(X: np.ndarray, clip_quantile: float | None) -> np.ndarray:
+    if clip_quantile is None:
+        return X
+    q = float(clip_quantile)
+    if not 0.0 <= q < 0.5:
+        raise ValueError("clip_quantile must be in [0, 0.5)")
+    if q == 0.0:
+        return X
+    lo = np.quantile(X, q, axis=0)
+    hi = np.quantile(X, 1.0 - q, axis=0)
+    return np.clip(X, lo[None, :], hi[None, :])
+
+
 class RepresentationShiftCalibrator:
     """Map representation shift magnitude to a conservative temperature factor."""
 
@@ -14,11 +35,17 @@ class RepresentationShiftCalibrator:
         base_temperature: float = 1.0,
         slope: float = 1.0,
         max_temperature: float = 5.0,
+        source_sample_size: int | None = None,
+        random_state: int | None = 0,
+        clip_quantile: float | None = None,
         eps: float = 1.0e-6,
     ) -> None:
         self.base_temperature = float(base_temperature)
         self.slope = float(slope)
         self.max_temperature = float(max_temperature)
+        self.source_sample_size = source_sample_size
+        self.random_state = random_state
+        self.clip_quantile = clip_quantile
         self.eps = float(eps)
         self.source_mean_: np.ndarray | None = None
         self.source_var_: np.ndarray | None = None
@@ -26,9 +53,11 @@ class RepresentationShiftCalibrator:
 
     def fit(self, source_representations: np.ndarray) -> "RepresentationShiftCalibrator":
         reps = np.asarray(source_representations, dtype=float)
-        self.source_mean_ = reps.mean(axis=0)
-        self.source_var_ = np.clip(reps.var(axis=0), self.eps, None)
-        d2 = self._squared_mahalanobis(reps)
+        reps_stats = _subsample_rows(reps, self.source_sample_size, random_state=self.random_state)
+        reps_stats = _winsorize(reps_stats, self.clip_quantile)
+        self.source_mean_ = reps_stats.mean(axis=0)
+        self.source_var_ = np.clip(reps_stats.var(axis=0), self.eps, None)
+        d2 = self._squared_mahalanobis(reps_stats)
         self.reference_scale_ = float(np.median(np.sqrt(np.clip(d2, 0.0, None))))
         return self
 

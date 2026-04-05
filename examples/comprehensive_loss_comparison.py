@@ -151,7 +151,7 @@ def main():
                     mean, log_var = torch.chunk(raw_pred, 2, dim=-1)
                     var = torch.exp(log_var)
                     # Fix sampling RNG per method for stable comparison metrics.
-                    set_comparison_seed(method_seed + 10_000)
+                    torch.manual_seed(2025 + i)
                     samples = torch.distributions.Normal(mean, var.sqrt()).sample((100,))
                     y_pred_local = mean
                 else:

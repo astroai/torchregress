@@ -150,6 +150,7 @@ def _gaussian_predict_and_metrics(
     y_test: torch.Tensor,
     *,
     n_samples: int,
+    seed: int | None = None,
 ) -> tuple[dict[str, float], dict[str, str]]:
     loss_fn = create_gaussian_nll(covariance_type="diagonal")
     model.eval()
@@ -158,6 +159,8 @@ def _gaussian_predict_and_metrics(
         mean, log_var = torch.chunk(raw, 2, dim=-1)
         std = torch.exp(0.5 * log_var).clamp_min(1e-4)
         dist = torch.distributions.Normal(mean, std)
+        if seed is not None:
+            torch.manual_seed(seed)
         samples = dist.sample((n_samples,))
         point = compute_point_metrics(mean, y_test)
         nll = float(loss_fn(raw, y_test).item())
@@ -176,10 +179,13 @@ def _mdn_predict_and_metrics(
     y_test: torch.Tensor,
     *,
     n_samples: int,
+    seed: int | None = None,
 ) -> tuple[dict[str, float], dict[str, str]]:
     model.eval()
     with torch.no_grad():
         raw = model(x_test)
+        if seed is not None:
+            torch.manual_seed(seed)
         samples = loss_fn.sample(raw, n_samples=n_samples)
         mean = samples.mean(dim=0)
         point = compute_point_metrics(mean, y_test)
@@ -222,11 +228,14 @@ def _flow_predict_and_metrics(
     y_test: torch.Tensor,
     *,
     n_samples: int,
+    seed: int | None = None,
 ) -> tuple[dict[str, float], dict[str, str]]:
     context_model.eval()
     with torch.no_grad():
         context = context_model(x_test)
         nll = float(loss_fn(context, y_test).item())
+        if seed is not None:
+            torch.manual_seed(seed)
         flow_samples = loss_fn.sample(context, n_samples=n_samples)  # [B, S, D]
         samples = flow_samples.transpose(0, 1)
         mean = samples.mean(dim=0)
@@ -265,6 +274,7 @@ def main(
         x_test,
         y_test,
         n_samples=cfg.eval_samples,
+        seed=2025 + 0,
     )
     summary_rows.append(
         {
@@ -286,6 +296,7 @@ def main(
         x_test,
         y_test,
         n_samples=cfg.eval_samples,
+        seed=2025 + 1,
     )
     summary_rows.append(
         {"Method": "MDN", **mdn_metrics, "train_s": train_s, "eval_s": eval_s, **mdn_meta}
@@ -315,6 +326,7 @@ def main(
             x_test,
             y_test,
             n_samples=cfg.eval_samples,
+            seed=2025 + 2,
         )
         summary_rows.append(
             {

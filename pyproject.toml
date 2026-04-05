@@ -61,14 +61,17 @@ docs = [
 ]
 conformal = []
 flows = [
-    "zuko>=1.5.0",
+    "zuko>=1.6.0",
 ]
 clauds = [
     "polars>=0.20.0",
     "astropy>=6.0.0",
     "pyarrow>=18.0.0",
 ]
-all = ["torchregress[test,dev,docs,conformal,flows]"]
+foundation-models = [
+    "tabpfn>=0.1.9",
+]
+all = ["torchregress[test,dev,docs,conformal,flows,foundation-models]"]
 
 [tool.setuptools.packages.find]
 where = ["."]

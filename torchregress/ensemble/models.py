@@ -5,7 +5,7 @@ This module provides concrete implementations of ensemble models
 for regression tasks with uncertainty estimation.
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -65,6 +65,69 @@ def _support_moments(
     second_moment = torch.sum(probs * support.square(), dim=-1)
     variance = (second_moment - mean.square()).clamp_min(1.0e-8)
     return mean, variance
+
+
+def _piecewise_uniform_cdf_at_edges(
+    probs: torch.Tensor,
+    source_edges: torch.Tensor,
+    query_edges: torch.Tensor,
+) -> torch.Tensor:
+    """Evaluate the CDF of a piecewise-uniform discrete PDF at arbitrary edges."""
+    src_edges = source_edges.to(device=probs.device, dtype=probs.dtype)
+    queries = query_edges.to(device=probs.device, dtype=probs.dtype)
+    cdf = torch.cumsum(probs, dim=-1)
+    out = torch.empty(
+        probs.shape[:-1] + (queries.numel(),),
+        device=probs.device,
+        dtype=probs.dtype,
+    )
+    out[..., 0] = 0.0
+    out[..., -1] = 1.0
+    if queries.numel() <= 2:
+        return out
+
+    body = queries[1:-1]
+    bin_idx = torch.searchsorted(src_edges[1:-1], body, right=False)
+    bin_idx = bin_idx.clamp(min=0, max=probs.shape[-1] - 1)
+    lower_edge = src_edges[bin_idx]
+    upper_edge = src_edges[bin_idx + 1]
+    widths = (upper_edge - lower_edge).clamp_min(1.0e-8)
+    frac = ((body - lower_edge) / widths).clamp(0.0, 1.0)
+    if cdf.ndim == 1:
+        prev_cdf = torch.where(
+            bin_idx > 0,
+            cdf.index_select(0, (bin_idx - 1).clamp_min(0)),
+            torch.zeros_like(frac),
+        )
+        prev_cdf = torch.where(bin_idx > 0, prev_cdf, torch.zeros_like(prev_cdf))
+        out[..., 1:-1] = prev_cdf + probs.index_select(0, bin_idx) * frac
+        return out
+
+    expanded_idx = bin_idx.view(*((1,) * (probs.ndim - 1)), -1).expand(*probs.shape[:-1], -1)
+    gathered_probs = probs.gather(-1, expanded_idx)
+    prev_idx = (bin_idx - 1).clamp_min(0)
+    gathered_prev = cdf.gather(
+        -1,
+        prev_idx.view(*((1,) * (probs.ndim - 1)), -1).expand(*probs.shape[:-1], -1),
+    )
+    zero_prev = torch.zeros_like(gathered_prev)
+    prev_cdf = torch.where(expanded_idx > 0, gathered_prev, zero_prev)
+    out[..., 1:-1] = prev_cdf + gathered_probs * frac.view(
+        *((1,) * (probs.ndim - 1)),
+        -1,
+    )
+    return out
+
+
+def _random_partition_union(member_bin_edges: Sequence[torch.Tensor]) -> torch.Tensor:
+    """Create a shared evaluation grid from the union of member edges."""
+    if not member_bin_edges:
+        raise ValueError("member_bin_edges must not be empty")
+    merged = torch.cat([edges.detach().cpu().reshape(-1) for edges in member_bin_edges])
+    unique = torch.unique(merged, sorted=True)
+    if unique.numel() < 2:
+        raise ValueError("member_bin_edges must define at least one interval")
+    return unique
 
 
 class HeteroscedasticEnsembleModel(BaseEnsembleModel):
@@ -249,6 +312,197 @@ class BinnedPDFEnsembleModel(BaseEnsembleModel):
         indices = torch.multinomial(probs, n_samples, replacement=True)
         samples = support[indices]
         return samples.transpose(0, 1)
+
+
+class RandomPartitionEnsembleModel(BaseEnsembleModel):
+    """Deep ensemble over randomized irregular target partitions.
+
+    Each member predicts probabilities on its own target partition. Predictions
+    are aggregated by projecting each member's piecewise-uniform CDF onto a
+    common evaluation grid and averaging those CDFs. This avoids the incoherent
+    averaging that would come from directly combining logits defined on different
+    bin edges.
+    """
+
+    def __init__(
+        self,
+        base_model: Union[nn.Module, type],
+        ensemble_size: int = 5,
+        device: str = "cpu",
+        *,
+        member_bin_edges: Sequence[torch.Tensor],
+        evaluation_bin_edges: Optional[torch.Tensor] = None,
+        **base_model_kwargs: Any,
+    ) -> None:
+        if len(member_bin_edges) != ensemble_size:
+            raise ValueError(
+                "member_bin_edges length must match ensemble_size for RandomPartitionEnsembleModel"
+            )
+        super().__init__(
+            base_model=base_model,
+            ensemble_size=ensemble_size,
+            device=device,
+            **base_model_kwargs,
+        )
+        for idx, edges in enumerate(member_bin_edges):
+            self.register_buffer(
+                f"_member_bin_edges_{idx}",
+                edges.detach().clone().float(),
+            )
+        resolved_eval_edges = (
+            _random_partition_union(member_bin_edges)
+            if evaluation_bin_edges is None
+            else evaluation_bin_edges.detach().clone().float()
+        )
+        self.register_buffer("_evaluation_bin_edges", resolved_eval_edges)
+
+    @property
+    def member_bin_edges(self) -> list[torch.Tensor]:
+        return [getattr(self, f"_member_bin_edges_{idx}") for idx in range(self.ensemble_size)]
+
+    @property
+    def evaluation_bin_edges(self) -> torch.Tensor:
+        return self._evaluation_bin_edges
+
+    def predict(
+        self,
+        x: torch.Tensor,
+        *,
+        evaluation_bin_edges: Optional[torch.Tensor] = None,
+    ) -> Dict[str, torch.Tensor]:
+        with torch.no_grad():
+            logits = self.forward(x)
+            if not isinstance(logits, torch.Tensor):
+                logits = _stack_member_tensors(logits)
+            member_probs = torch.softmax(logits, dim=-1)
+            eval_edges = (
+                self.evaluation_bin_edges
+                if evaluation_bin_edges is None
+                else evaluation_bin_edges.to(device=x.device, dtype=member_probs.dtype)
+            )
+            member_cdfs = []
+            for idx in range(self.ensemble_size):
+                member_cdfs.append(
+                    _piecewise_uniform_cdf_at_edges(
+                        member_probs[idx],
+                        self.member_bin_edges[idx].to(device=x.device, dtype=member_probs.dtype),
+                        eval_edges,
+                    )
+                )
+            mean_cdf = torch.stack(member_cdfs, dim=0).mean(dim=0)
+            probs = torch.diff(mean_cdf, dim=-1).clamp_min(0.0)
+            probs = probs / probs.sum(dim=-1, keepdim=True).clamp_min(1.0e-8)
+            centers = 0.5 * (eval_edges[:-1] + eval_edges[1:])
+            mean, variance = _support_moments(probs, centers)
+            return {
+                "probabilities": probs,
+                "log_probabilities": torch.log(probs.clamp_min(1.0e-8)),
+                "cdf_at_edges": mean_cdf,
+                "bin_edges": eval_edges,
+                "mean": mean,
+                "variance": variance,
+            }
+
+    def sample(
+        self,
+        x: torch.Tensor,
+        n_samples: int = 100,
+        *,
+        evaluation_bin_edges: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        prediction = self.predict(x, evaluation_bin_edges=evaluation_bin_edges)
+        probs = prediction["probabilities"]
+        edges = prediction["bin_edges"]
+        centers = 0.5 * (edges[:-1] + edges[1:])
+        indices = torch.multinomial(probs, n_samples, replacement=True)
+        samples = centers[indices]
+        return samples.transpose(0, 1)
+
+
+class BatchEnsembleMLPBackbone(nn.Module):
+    """Shared-backbone BatchEnsemble MLP.
+
+    This is a parameter-efficient ensemble backbone that applies BatchEnsemble
+    rank-1 perturbations throughout the hidden stack, rather than only in the
+    output layer. It is a practical shared-backbone ensemble path that maps
+    cleanly to tabular architectures such as TabM-like efficient ensembles.
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        *,
+        ensemble_size: int = 4,
+        hidden_dims: Optional[Sequence[int]] = None,
+        activation: str = "ReLU",
+        layer_norm: bool = True,
+        dropout: float = 0.0,
+        residual: bool = True,
+        device: str | torch.device = "cpu",
+    ) -> None:
+        super().__init__()
+        dims = [int(dim) for dim in (hidden_dims or [hidden_size, hidden_size])]
+        if not dims:
+            raise ValueError("BatchEnsembleMLPBackbone requires at least one hidden dimension")
+        act_cls = getattr(nn, activation)
+        self.feature_dim = dims[-1]
+        self.activation = act_cls()
+        self.dropout = nn.Dropout(float(dropout)) if dropout > 0 else nn.Identity()
+        self.layer_norm = bool(layer_norm)
+        self.residual = bool(residual)
+        self.input_layer = BatchEnsembleLinear(
+            input_size,
+            dims[0],
+            ensemble_size=ensemble_size,
+            device=device,
+        )
+        self.input_norm = nn.LayerNorm(dims[0]) if self.layer_norm else nn.Identity()
+        self.hidden_layers = nn.ModuleList()
+        self.hidden_norms = nn.ModuleList()
+        self.shortcuts = nn.ModuleList()
+        prev_dim = dims[0]
+        for dim in dims[1:]:
+            self.hidden_layers.append(
+                BatchEnsembleLinear(
+                    prev_dim,
+                    dim,
+                    ensemble_size=ensemble_size,
+                    device=device,
+                )
+            )
+            self.hidden_norms.append(nn.LayerNorm(dim) if self.layer_norm else nn.Identity())
+            if self.residual:
+                if prev_dim == dim:
+                    self.shortcuts.append(nn.Identity())
+                else:
+                    self.shortcuts.append(
+                        BatchEnsembleLinear(
+                            prev_dim,
+                            dim,
+                            ensemble_size=ensemble_size,
+                            device=device,
+                        )
+                    )
+            else:
+                self.shortcuts.append(nn.Identity())
+            prev_dim = dim
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = self.input_layer(x)
+        out = self.input_norm(out)
+        out = self.activation(out)
+        out = self.dropout(out)
+        for layer, norm, shortcut in zip(self.hidden_layers, self.hidden_norms, self.shortcuts):
+            residual = out
+            out = layer(out)
+            out = norm(out)
+            if self.residual:
+                residual = shortcut(residual)
+                out = out + residual
+            out = self.activation(out)
+            out = self.dropout(out)
+        return out
 
 
 class CumulativeLinkEnsembleModel(BaseEnsembleModel):

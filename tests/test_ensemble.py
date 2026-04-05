@@ -9,12 +9,14 @@ from torch import nn
 from torchregress.ensemble.base import BaseEnsembleModel
 from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.models import (
+    BatchEnsembleMLPBackbone,
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
     DeepEnsemble,
     HeteroscedasticBatchEnsembleModel,
     HeteroscedasticEnsembleModel,
     MDNEnsembleModel,
+    RandomPartitionEnsembleModel,
 )
 from torchregress.ensemble.utils import (
     generate_prediction_samples,
@@ -451,6 +453,44 @@ class TestHeteroscedasticBatchEnsembleModel:
         assert torch.isfinite(result["aleatoric_variance"]).all()
 
 
+class TestBatchEnsembleMLPBackbone:
+    def test_forward_returns_memberwise_features(self):
+        backbone = BatchEnsembleMLPBackbone(
+            input_size=6,
+            hidden_size=12,
+            ensemble_size=3,
+            hidden_dims=[12, 12],
+            activation="ReLU",
+            layer_norm=True,
+            dropout=0.0,
+            residual=True,
+        )
+        x = torch.randn(5, 6)
+        features = backbone(x)
+        assert features.shape == (5, 3, 12)
+
+    def test_works_with_heteroscedastic_batch_ensemble_model(self):
+        backbone = BatchEnsembleMLPBackbone(
+            input_size=6,
+            hidden_size=10,
+            ensemble_size=2,
+            hidden_dims=[10, 10],
+            activation="GELU",
+            layer_norm=True,
+            dropout=0.0,
+            residual=True,
+        )
+        model = HeteroscedasticBatchEnsembleModel(
+            backbone=backbone,
+            input_size=backbone.feature_dim,
+            output_size=1,
+            ensemble_size=2,
+        )
+        result = model.predict(torch.randn(4, 6))
+        assert result["mean"].shape == (4, 1)
+        assert torch.isfinite(result["variance"]).all()
+
+
 class TestUtilityFunctions:
     """Tests for utility functions."""
 
@@ -534,3 +574,46 @@ class TestUtilityFunctions:
         result = generate_prediction_samples(model, x, n_samples=10, return_samples=True)
         assert "samples" in result
         assert result["samples"].shape == (10, 5, 2)  # [n_samples, batch_size, output_size]
+
+
+class TestRandomPartitionEnsembleModel:
+    def test_predict_projects_members_onto_shared_grid(self):
+        ensemble = RandomPartitionEnsembleModel(
+            base_model=SimpleModel,
+            ensemble_size=2,
+            member_bin_edges=[
+                torch.tensor([0.0, 1.0, 3.0]),
+                torch.tensor([0.0, 2.0, 3.0]),
+            ],
+            input_size=2,
+            hidden_size=4,
+            output_size=2,
+        )
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([10.0, -10.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([-10.0, 10.0]))
+
+        prediction = ensemble.predict(torch.randn(3, 2))
+        assert torch.allclose(prediction["bin_edges"], torch.tensor([0.0, 1.0, 2.0, 3.0]))
+        assert prediction["probabilities"].shape == (3, 3)
+        expected = torch.tensor([[0.5, 0.0, 0.5]]).expand(3, -1)
+        assert torch.allclose(prediction["probabilities"], expected, atol=1.0e-4)
+        assert torch.allclose(prediction["mean"], torch.full((3,), 1.5), atol=1.0e-4)
+
+    def test_sample_uses_shared_partition_distribution(self):
+        ensemble = RandomPartitionEnsembleModel(
+            base_model=SimpleModel,
+            ensemble_size=2,
+            member_bin_edges=[
+                torch.tensor([0.0, 1.0, 2.0]),
+                torch.tensor([0.0, 1.5, 2.0]),
+            ],
+            input_size=2,
+            hidden_size=4,
+            output_size=2,
+        )
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([10.0, -10.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([10.0, -10.0]))
+        draws = ensemble.sample(torch.randn(2, 2), n_samples=8)
+        assert draws.shape == (8, 2)
+        assert torch.all(draws >= 0.0)
+        assert torch.all(draws <= 2.0)

@@ -20,3 +20,17 @@ def test_flow_helpers_raise_clear_importerror_when_backend_marked_unavailable(mo
 
     with pytest.raises(ImportError, match="torchregress\\[flows\\]"):
         nflows.create_flow_loss(n_features=2, context_dim=4)
+
+
+@pytest.mark.skipif(not nflows.HAS_ZUKO, reason="zuko not installed")
+def test_create_flow_model_accepts_scalar_hidden_features_and_depth() -> None:
+    flow = nflows.create_flow_model(
+        n_features=2,
+        context_dim=4,
+        flow_type="nsf",
+        n_transforms=2,
+        hidden_features=32,
+        n_hidden_layers=3,
+    )
+
+    assert flow.base().event_shape[0] == 2

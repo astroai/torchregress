@@ -8,8 +8,6 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
 
 import numpy as np
 import torch
-import torchmetrics  # noqa: F401
-from torchmetrics import Metric  # noqa: F401
 
 
 def convert_to_tensor(x: Union[torch.Tensor, np.ndarray, List, float, int]) -> torch.Tensor:

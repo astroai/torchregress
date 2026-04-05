@@ -126,6 +126,7 @@ EXPECTED_EXPORTS = {
         "BinnedPDFEnsembleModel",
         "CumulativeLinkEnsembleModel",
         "MDNEnsembleModel",
+        "RandomPartitionEnsembleModel",
         "HeteroscedasticBatchEnsembleModel",
         "BayesianModelAveraging",
         "StackingEnsemble",

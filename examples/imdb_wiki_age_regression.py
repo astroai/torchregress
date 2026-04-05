@@ -59,7 +59,7 @@ def download_and_extract_dataset():
         print("This may take a while as the file is ~1GB...")
 
         # Stream download with progress
-        with requests.get(IMDB_WIKI_URL, stream=True) as r:
+        with requests.get(IMDB_WIKI_URL, stream=True, timeout=30) as r:
             r.raise_for_status()
             total_size = int(r.headers.get("content-length", 0))
 
