@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
@@ -98,3 +99,91 @@ def test_dr_policy_value_runs() -> None:
     )
     assert out["n_samples"] == 500.0
     assert out["se"] >= 0.0
+
+
+def test_dr_ate_synthetic_exact() -> None:
+    # 20 lines of synthetic data for a clean exact test
+    torch.manual_seed(42)
+    n = 1000
+    x = torch.randn(n, 2)
+    # Binary treatment assignment depends on x
+    logits = x[:, 0] + x[:, 1]
+    p = torch.sigmoid(logits)
+    t = torch.bernoulli(p)
+
+    # Simple linear outcomes with a constant treatment effect of 2.5
+    true_ate = 2.5
+    y0 = 1.0 + 2.0 * x[:, 0] - 1.5 * x[:, 1]
+    y1 = y0 + true_ate
+    y = torch.where(t > 0.5, y1, y0)
+
+    # Ensure models are correctly specified
+    out = dr_ate(
+        x,
+        t,
+        y,
+        outcome_model=LinearRegression,
+        propensity_model=LogisticRegression(penalty=None),  # No regularization for exactness
+        folds=2,
+        seed=42,
+    )
+
+    # Since models are correctly specified and DR is unbiased, the estimate should be very close to true_ate
+    assert abs(out["estimate"] - true_ate) < 0.15
+    assert out["ci_low"] <= true_ate <= out["ci_high"]
+
+
+def test_dr_ate_dimension_mismatch() -> None:
+    x = torch.randn(100, 2)
+    t = torch.randint(0, 2, (99,))
+    y = torch.randn(100)
+    with pytest.raises(ValueError, match="x, t, and y must share sample dimension"):
+        dr_ate(
+            x,
+            t,
+            y,
+            outcome_model=LinearRegression,
+            propensity_model=LogisticRegression(),
+        )
+
+
+def test_dr_ate_callable_and_instantiated_models() -> None:
+    x, t, y, _ = _sim_data(200, seed=10)
+
+    # Pass an instantiated model instead of a class
+    instantiated_lr = LinearRegression()
+
+    # Pass a factory lambda
+    def factory_lr() -> LogisticRegression:
+        return LogisticRegression(max_iter=1000)
+
+    out = dr_ate(
+        x,
+        t,
+        y,
+        outcome_model=instantiated_lr,
+        propensity_model=factory_lr,
+        folds=2,
+        seed=10,
+    )
+    assert out["estimate"] is not None
+
+
+def test_dr_ate_missing_arms_in_fold() -> None:
+    x = torch.randn(20, 2)
+    y = torch.randn(20)
+
+    # We need to force a ValueError by making t all zeros.
+    t_all_zero = torch.zeros(20)
+    with pytest.raises(
+        ValueError, match="Each fold must contain both treatment arms for DR estimation"
+    ):
+        dr_ate(
+            x,
+            t_all_zero,
+            y,
+            outcome_model=LinearRegression,
+            propensity_model=LogisticRegression(),
+            folds=2,
+            seed=0,
+        )
