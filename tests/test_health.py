@@ -23,14 +23,19 @@ def test_check_health_success(capsys):
 
 def test_check_health_import_error(capsys, monkeypatch):
     """Test check_health handles import errors."""
-    real_import = builtins.__import__
+    import torchregress
 
-    def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "torchregress" and fromlist and "algorithms" in fromlist:
+    # Other tests may have lazy-loaded submodules; uncache so __getattr__ runs again.
+    monkeypatch.delitem(torchregress.__dict__, "algorithms", raising=False)
+
+    real_getattr = torchregress.__getattr__
+
+    def mock_getattr(name: str):
+        if name == "algorithms":
             raise ImportError("Mocked import error")
-        return real_import(name, globals, locals, fromlist, level)
+        return real_getattr(name)
 
-    monkeypatch.setattr(builtins, "__import__", mock_import)
+    monkeypatch.setattr(torchregress, "__getattr__", mock_getattr)
 
     with pytest.raises(SystemExit) as excinfo:
         check_health()
