@@ -45,27 +45,15 @@ def concordance_index(y_pred: Tensor, target: Tensor, censoring: Tensor | None =
         if c.shape != y.shape:
             raise ValueError("censoring must have same number of samples as target")
 
-    concordant = torch.tensor(0.0, dtype=torch.float32, device=y.device)
-    comparable = torch.tensor(0.0, dtype=torch.float32, device=y.device)
+    y_less = y.unsqueeze(1) < y.unsqueeze(0)
+    c_mask = c.unsqueeze(1) == 0
+    comparable_mask = y_less & c_mask
 
-    n = y.shape[0]
-    for i in range(n):
-        for j in range(i + 1, n):
-            if y[i] == y[j]:
-                continue
+    y_hat_less = y_hat.unsqueeze(1) < y_hat.unsqueeze(0)
+    y_hat_eq = y_hat.unsqueeze(1) == y_hat.unsqueeze(0)
 
-            if y[i] < y[j] and c[i] == 0:
-                comparable = comparable + 1.0
-                if y_hat[i] < y_hat[j]:
-                    concordant = concordant + 1.0
-                elif y_hat[i] == y_hat[j]:
-                    concordant = concordant + 0.5
-            elif y[j] < y[i] and c[j] == 0:
-                comparable = comparable + 1.0
-                if y_hat[j] < y_hat[i]:
-                    concordant = concordant + 1.0
-                elif y_hat[i] == y_hat[j]:
-                    concordant = concordant + 0.5
+    comparable = comparable_mask.sum(dtype=torch.float32)
+    concordant = (comparable_mask & y_hat_less).sum(dtype=torch.float32) + 0.5 * (comparable_mask & y_hat_eq).sum(dtype=torch.float32)
 
     if comparable <= 0:
         return torch.tensor(float("nan"), dtype=torch.float32, device=y.device)
