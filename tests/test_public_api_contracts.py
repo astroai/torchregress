@@ -123,6 +123,7 @@ EXPECTED_EXPORTS = {
         "BatchEnsembleLinear",
         "HeteroscedasticEnsembleModel",
         "DeepEnsemble",
+        "BatchEnsembleMLPBackbone",
         "BinnedPDFEnsembleModel",
         "CumulativeLinkEnsembleModel",
         "MDNEnsembleModel",
@@ -188,9 +189,13 @@ EXPECTED_EXPORTS = {
         "SupportsRepresentation",
         "apply_label_shift_correction",
         "confidence_scores",
+        "correct_gaussian_predictions_for_label_shift",
         "entropy_scores",
         "estimate_target_prior_em",
         "flatten_adaptation_parameters",
+        "gaussian_bin_edges_from_targets",
+        "gaussian_bin_probabilities",
+        "gaussian_moments_from_binned_probabilities",
         "local_consistency_weights",
         "pseudo_label_targets",
         "select_high_confidence",
@@ -458,17 +463,17 @@ def test_public_exports_snapshot_non_losses() -> None:
 def test_signature_snapshots_non_losses() -> None:
     for path, expected in EXPECTED_SIGNATURES.items():
         actual = str(inspect.signature(_resolve(path)))
-        assert _normalize_union_optional(actual) == _normalize_union_optional(
-            expected
-        ), f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
+        assert _normalize_union_optional(actual) == _normalize_union_optional(expected), (
+            f"{path}\nEXPECTED: {expected}\nACTUAL:   {actual}"
+        )
 
 
 def test_parameter_order_contracts_for_new_helper_apis() -> None:
     for path, expected_order in EXPECTED_PARAM_ORDERS.items():
         actual_order = list(inspect.signature(_resolve(path)).parameters.keys())
-        assert (
-            actual_order == expected_order
-        ), f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
+        assert actual_order == expected_order, (
+            f"{path}\nEXPECTED PARAMS: {expected_order}\nACTUAL PARAMS:   {actual_order}"
+        )
 
 
 def test_top_level_submodules_are_lazy_loaded() -> None:
