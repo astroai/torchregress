@@ -40,24 +40,26 @@ def quantiles_to_density_grid(
     width = np.maximum(q_hi - q_lo, 1.0e-6)
     lo = q_lo - range_margin * width
     hi = q_hi + range_margin * width
-    support = np.stack(
-        [np.linspace(a, b, n_support, dtype=float) for a, b in zip(lo, hi, strict=False)],
-        axis=0,
-    )
-    density = np.empty_like(support)
+
+    steps = np.linspace(0, 1, n_support, dtype=float)
+    support = lo[:, None] + (hi - lo)[:, None] * steps[None, :]
+
     slopes = np.diff(levels) / np.clip(np.diff(q, axis=1), 1.0e-8, None)
 
-    for idx in range(q.shape[0]):
-        dens = np.empty(n_support, dtype=float)
-        dens.fill(slopes[idx, 0])
-        for seg_idx in range(levels.size - 1):
-            left = q[idx, seg_idx]
-            right = q[idx, seg_idx + 1]
-            mask = (support[idx] >= left) & (support[idx] <= right)
-            dens[mask] = slopes[idx, seg_idx]
-        dens = np.clip(dens, 0.0, None)
-        integral = np.trapezoid(dens, support[idx])
-        density[idx] = dens / max(integral, 1.0e-8)
+    dens = np.broadcast_to(slopes[:, 0:1], support.shape).copy()
+
+    for seg_idx in range(levels.size - 1):
+        left = q[:, seg_idx : seg_idx + 1]
+        right = q[:, seg_idx + 1 : seg_idx + 2]
+        mask = (support >= left) & (support <= right)
+        np.copyto(dens, slopes[:, seg_idx : seg_idx + 1], where=mask)
+
+    dens = np.clip(dens, 0.0, None)
+
+    integral = np.trapezoid(dens, support, axis=1)
+    integral = np.maximum(integral, 1.0e-8)
+
+    density = dens / integral[:, None]
     return support, density
 
 
@@ -94,7 +96,9 @@ def bars_to_density_grid(
     for idx in range(logits.shape[0]):
         widths = np.clip(np.diff(edges[idx]), 1.0e-8, None)
         bar_density = probs[idx] / widths
-        bin_idx = np.clip(np.digitize(support[idx], edges[idx][1:-1], right=False), 0, logits.shape[1] - 1)
+        bin_idx = np.clip(
+            np.digitize(support[idx], edges[idx][1:-1], right=False), 0, logits.shape[1] - 1
+        )
         dens = np.clip(bar_density[bin_idx], 0.0, None)
         integral = np.trapezoid(dens, support[idx])
         density[idx] = dens / max(integral, 1.0e-8)
@@ -132,7 +136,11 @@ class PredictiveBatch:
                 n_support=n_support,
                 range_margin=range_margin,
             )
-            if support.ndim == 2 and support.shape[0] > 0 and np.allclose(support, support[:1], atol=1.0e-8):
+            if (
+                support.ndim == 2
+                and support.shape[0] > 0
+                and np.allclose(support, support[:1], atol=1.0e-8)
+            ):
                 support = support[0]
             return replace(self, support=support, density=density)
         if self.quantiles is not None and self.quantile_levels is not None:
@@ -142,7 +150,11 @@ class PredictiveBatch:
                 n_support=n_support,
                 range_margin=range_margin,
             )
-            if support.ndim == 2 and support.shape[0] > 0 and np.allclose(support, support[:1], atol=1.0e-8):
+            if (
+                support.ndim == 2
+                and support.shape[0] > 0
+                and np.allclose(support, support[:1], atol=1.0e-8)
+            ):
                 support = support[0]
             return replace(self, support=support, density=density)
         return self
