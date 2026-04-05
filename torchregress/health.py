@@ -18,11 +18,10 @@ def check_health() -> None:
 
     print("\n--- Import Check ---")
     try:
-        from torchregress import (
-            algorithms,  # noqa: F401
-            losses,  # noqa: F401
-            metrics,  # noqa: F401
-        )
+        # Trigger lazy imports to verify they work
+        _ = torchregress.algorithms
+        _ = torchregress.losses
+        _ = torchregress.metrics
 
         print("Imports: OK")
     except ImportError as e:

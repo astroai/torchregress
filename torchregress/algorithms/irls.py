@@ -870,6 +870,201 @@ def calculate_loss(
         return cast(torch.Tensor, loss_fn(y_pred=y_pred, target=y_true, mask=mask))
 
 
+def _setup_irls_loss(
+    loss_fn: Optional[nn.Module],
+    base_loss: Optional[str],
+    covariance_matrices: Optional[torch.Tensor],
+    delta: float,
+) -> Tuple[str, nn.Module]:
+    """Helper to determine base_loss type and set up loss_fn for IRLS if not provided."""
+    if base_loss is None:
+        if isinstance(loss_fn, (GaussianNLLLoss, MultivariateGaussianLoss)):
+            base_loss = "gaussian"
+        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(
+            loss_fn.torch_loss, nn.HuberLoss
+        ):
+            base_loss = "huber"
+        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(loss_fn.torch_loss, nn.L1Loss):
+            base_loss = "l1"
+        else:
+            base_loss = "gaussian"
+            cls_name = getattr(loss_fn, "__class__", type(None)).__name__
+            warnings.warn(
+                f"Could not determine base_loss type from {cls_name}. "
+                f"Using default 'gaussian'. Specify base_loss explicitly if needed."
+            )
+
+    if loss_fn is None:
+        if base_loss == "gaussian":
+            loss_fn = (
+                MultivariateGaussianLoss()
+                if covariance_matrices is not None
+                else GaussianNLLLoss(fixed_variance=1.0)
+            )
+        elif base_loss == "huber":
+            loss_fn = WeightedLossWrapper(nn.HuberLoss, delta=delta)
+        elif base_loss == "l1":
+            loss_fn = WeightedLossWrapper(nn.L1Loss)
+        else:
+            raise ValueError(f"Unsupported base_loss for IRLS training API: {base_loss}")
+
+    return base_loss, loss_fn
+
+
+def _perform_epoch_reweighting(
+    model: nn.Module,
+    data_loader: DataLoader,
+    is_minibatch: bool,
+    device: Union[str, torch.device],
+    all_x: Optional[torch.Tensor],
+    all_y_true: Optional[torch.Tensor],
+    all_cov: Optional[torch.Tensor],
+    all_masks: Optional[torch.Tensor],
+    covariance_matrices: Optional[torch.Tensor],
+    mask: Optional[torch.Tensor],
+    previous_epoch_precision: Optional[torch.Tensor],
+    base_loss: str,
+    irls_max_iter: int,
+    irls_tol: float,
+    delta: float,
+    weight_fn: Union[str, Callable],
+    weight_params: Optional[Dict[str, Any]],
+    variance_type: str,
+    epsilon: float,
+    return_all_iterations: bool,
+    batch_size: int,
+    epoch: int,
+    all_iterations_data: Optional[List[Dict[str, Any]]],
+    train_loss_history: List[float],
+) -> torch.Tensor:
+    """Helper to perform epoch-level IRLS reweighting."""
+    x_for_irls = all_x if is_minibatch else next(iter(data_loader))[0].to(device)
+    y_for_irls = all_y_true if is_minibatch else next(iter(data_loader))[1].to(device)
+    cov_for_irls = all_cov if is_minibatch else covariance_matrices
+    mask_for_irls = all_masks if is_minibatch else mask
+    assert x_for_irls is not None
+    assert y_for_irls is not None
+
+    with torch.no_grad():
+        irls_result = iteratively_reweighted_least_squares(
+            model=model,
+            x=x_for_irls,
+            y_true=y_for_irls,
+            initial_precision=previous_epoch_precision,
+            covariance_matrices=cov_for_irls,
+            mask=mask_for_irls,
+            base_loss=base_loss,
+            max_iter=irls_max_iter,
+            tol=irls_tol,
+            delta=delta,
+            weight_fn=weight_fn,
+            weight_params=weight_params,
+            variance_type=variance_type,
+            epsilon=epsilon,
+            return_all_predictions=return_all_iterations,
+            batch_size=batch_size,
+        )
+        if return_all_iterations:
+            (
+                _,
+                epoch_loss_history,
+                new_precision,
+                epoch_iterations,
+            ) = cast(
+                Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]],
+                irls_result,
+            )
+            if all_iterations_data is not None:
+                all_iterations_data.append({"epoch": epoch, "iterations": epoch_iterations})
+        else:
+            _, epoch_loss_history, new_precision = cast(
+                Tuple[torch.Tensor, List[float], torch.Tensor],
+                irls_result,
+            )
+
+    if not is_minibatch:
+        train_loss_history.extend(epoch_loss_history)
+
+    return new_precision
+
+
+def _perform_batch_reweighting(
+    model: nn.Module,
+    batch_x: torch.Tensor,
+    batch_y: torch.Tensor,
+    batch_cov: Optional[torch.Tensor],
+    batch_mask: Optional[torch.Tensor],
+    previous_epoch_precision: Optional[torch.Tensor],
+    base_loss: str,
+    irls_max_iter: int,
+    irls_tol: float,
+    delta: float,
+    weight_fn: Union[str, Callable],
+    weight_params: Optional[Dict[str, Any]],
+    variance_type: str,
+    epsilon: float,
+    return_all_iterations: bool,
+    epoch: int,
+    batch_idx: int,
+    all_iterations_data: Optional[List[Dict[str, Any]]],
+    is_minibatch: bool,
+    all_x: Optional[torch.Tensor],
+    batch_size: int,
+    batch_size_current: int,
+    device: Union[str, torch.device],
+) -> torch.Tensor:
+    """Helper to perform batch-level IRLS reweighting and update global precision."""
+    with torch.no_grad():
+        irls_result = iteratively_reweighted_least_squares(
+            model=model,
+            x=batch_x,
+            y_true=batch_y,
+            initial_precision=previous_epoch_precision,
+            covariance_matrices=batch_cov,
+            mask=batch_mask,
+            base_loss=base_loss,
+            max_iter=irls_max_iter,
+            tol=irls_tol,
+            delta=delta,
+            weight_fn=weight_fn,
+            weight_params=weight_params,
+            variance_type=variance_type,
+            epsilon=epsilon,
+            return_all_predictions=return_all_iterations,
+        )
+        if return_all_iterations:
+            _, _, batch_precision, batch_iterations = cast(
+                Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]],
+                irls_result,
+            )
+            if all_iterations_data is not None:
+                all_iterations_data.append(
+                    {"epoch": epoch, "batch": batch_idx, "iterations": batch_iterations}
+                )
+        else:
+            _, _, batch_precision = cast(
+                Tuple[torch.Tensor, List[float], torch.Tensor],
+                irls_result,
+            )
+
+        if previous_epoch_precision is not None and is_minibatch and all_x is not None:
+            start_idx = (batch_idx * batch_size) % all_x.shape[0]
+            end_idx = min(start_idx + batch_size_current, all_x.shape[0])
+
+            if previous_epoch_precision is None:
+                previous_epoch_precision = torch.ones_like(
+                    batch_y
+                    if all_x is None
+                    else torch.zeros((all_x.shape[0], batch_y.shape[1]), device=device)
+                )
+
+            if start_idx < end_idx:
+                previous_epoch_precision[start_idx:end_idx] = batch_precision
+            return previous_epoch_precision
+        else:
+            return batch_precision
+
+
 def _train_step(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
@@ -981,41 +1176,9 @@ def IRLS(
     val_loss_history: list[float] = []
     all_iterations_data: Optional[list[dict[str, Any]]] = [] if return_all_iterations else None
 
-    # --- Determine base loss type ---
-    if base_loss is None:
-        # Infer base loss type from loss_fn
-        if isinstance(loss_fn, (GaussianNLLLoss, MultivariateGaussianLoss)):
-            base_loss = "gaussian"
-        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(
-            loss_fn.torch_loss, nn.HuberLoss
-        ):
-            base_loss = "huber"
-        elif isinstance(loss_fn, WeightedLossWrapper) and isinstance(loss_fn.torch_loss, nn.L1Loss):
-            base_loss = "l1"
-        else:
-            # Default to gaussian if we can't determine
-            base_loss = "gaussian"
-            warnings.warn(
-                f"Could not determine base_loss type from {loss_fn.__class__.__name__}. "
-                f"Using default 'gaussian'. Specify base_loss explicitly if needed."
-            )
-
-    if loss_fn is None:
-        if base_loss == "gaussian":
-            loss_fn = (
-                MultivariateGaussianLoss()
-                if covariance_matrices is not None
-                else GaussianNLLLoss(fixed_variance=1.0)
-            )
-        elif base_loss == "huber":
-            loss_fn = WeightedLossWrapper(nn.HuberLoss, delta=delta)
-        elif base_loss == "l1":
-            loss_fn = WeightedLossWrapper(nn.L1Loss)
-        else:
-            raise ValueError(f"Unsupported base_loss for IRLS training API: {base_loss}")
-
+    # --- Determine base loss type and setup loss function ---
+    base_loss, loss_fn = _setup_irls_loss(loss_fn, base_loss, covariance_matrices, delta)
     assert optimizer is not None
-    assert loss_fn is not None
 
     # --- Parse update_weights ---
     update_type, update_freq = parse_update_frequency(update_weights)
@@ -1060,54 +1223,32 @@ def IRLS(
             if should_print_epoch:
                 print(f"Epoch {epoch + 1}: Performing IRLS reweighting with {base_loss} base loss")
 
-            # Use buffered data for full-dataset IRLS
-            # Note: These might be on CPU now
-            x_for_irls = all_x if is_minibatch else next(iter(data_loader))[0].to(device)
-            y_for_irls = all_y_true if is_minibatch else next(iter(data_loader))[1].to(device)
-            cov_for_irls = all_cov if is_minibatch else covariance_matrices
-            mask_for_irls = all_masks if is_minibatch else mask
-            assert x_for_irls is not None
-            assert y_for_irls is not None
-
-            with torch.no_grad():
-                irls_result = iteratively_reweighted_least_squares(
-                    model=model,
-                    x=x_for_irls,
-                    y_true=y_for_irls,
-                    initial_precision=previous_epoch_precision,
-                    covariance_matrices=cov_for_irls,
-                    mask=mask_for_irls,
-                    base_loss=base_loss,  # Use determined or user-provided base_loss
-                    max_iter=irls_max_iter,
-                    tol=irls_tol,
-                    delta=delta,
-                    weight_fn=weight_fn,
-                    weight_params=weight_params,
-                    variance_type=variance_type,
-                    epsilon=epsilon,
-                    return_all_predictions=return_all_iterations,
-                    batch_size=batch_size,
-                )
-                if return_all_iterations:
-                    (
-                        _,
-                        epoch_loss_history,
-                        previous_epoch_precision,
-                        epoch_iterations,
-                    ) = cast(
-                        Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]],
-                        irls_result,
-                    )
-                    if all_iterations_data is not None:
-                        all_iterations_data.append({"epoch": epoch, "iterations": epoch_iterations})
-                else:
-                    _, epoch_loss_history, previous_epoch_precision = cast(
-                        Tuple[torch.Tensor, List[float], torch.Tensor],
-                        irls_result,
-                    )
-
-            if not is_minibatch:
-                train_loss_history.extend(epoch_loss_history)
+            previous_epoch_precision = _perform_epoch_reweighting(
+                model=model,
+                data_loader=data_loader,
+                is_minibatch=is_minibatch,
+                device=device,
+                all_x=all_x,
+                all_y_true=all_y_true,
+                all_cov=all_cov,
+                all_masks=all_masks,
+                covariance_matrices=covariance_matrices,
+                mask=mask,
+                previous_epoch_precision=previous_epoch_precision,
+                base_loss=base_loss,
+                irls_max_iter=irls_max_iter,
+                irls_tol=irls_tol,
+                delta=delta,
+                weight_fn=weight_fn,
+                weight_params=weight_params,
+                variance_type=variance_type,
+                epsilon=epsilon,
+                return_all_iterations=return_all_iterations,
+                batch_size=batch_size,
+                epoch=epoch,
+                all_iterations_data=all_iterations_data,
+                train_loss_history=train_loss_history,
+            )
 
         # --- Training Loop ---
         for i, batch_data in enumerate(iterate_batches(data_loader)):
@@ -1116,73 +1257,40 @@ def IRLS(
 
             # --- Batch-level IRLS reweighting if requested ---
             if update_type == "batch" and global_step % update_freq == 0:
-                # Determine if we should print batch reweighting info
                 should_print_batch = verbose and (
                     i % (len(data_loader) // verbose_batch_freq + 1) == 0
                 )
-
                 if should_print_batch:
                     print(
                         f"Epoch {epoch + 1}, Batch {i + 1}/{len(data_loader)}: "
                         f"Performing IRLS reweighting with {base_loss} base loss"
                     )
 
-                with torch.no_grad():
-                    irls_result = iteratively_reweighted_least_squares(
-                        model=model,
-                        x=batch_x,
-                        y_true=batch_y,
-                        initial_precision=previous_epoch_precision,
-                        covariance_matrices=batch_cov,
-                        mask=batch_mask,
-                        base_loss=base_loss,
-                        max_iter=irls_max_iter,
-                        tol=irls_tol,
-                        delta=delta,
-                        weight_fn=weight_fn,
-                        weight_params=weight_params,
-                        variance_type=variance_type,
-                        epsilon=epsilon,
-                        return_all_predictions=return_all_iterations,
-                    )
-                    if return_all_iterations:
-                        _, batch_loss_history, batch_precision, batch_iterations = cast(
-                            Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]],
-                            irls_result,
-                        )
-                        if all_iterations_data is not None:
-                            all_iterations_data.append(
-                                {"epoch": epoch, "batch": i, "iterations": batch_iterations}
-                            )
-                    else:
-                        _, batch_loss_history, batch_precision = cast(
-                            Tuple[torch.Tensor, List[float], torch.Tensor],
-                            irls_result,
-                        )
-
-                    # If we're doing batch-level updates, update the previous_epoch_precision
-                    # but only for the current batch indices
-                    if previous_epoch_precision is not None and is_minibatch and all_x is not None:
-                        # Extract indices for current batch
-                        start_idx = (i * batch_size) % all_x.shape[0]
-                        end_idx = min(
-                            start_idx + batch_size_current,
-                            all_x.shape[0],
-                        )
-
-                        # Create a new precision tensor if it doesn't exist yet
-                        if previous_epoch_precision is None:
-                            previous_epoch_precision = torch.ones_like(
-                                batch_y
-                                if all_x is None
-                                else torch.zeros((all_x.shape[0], batch_y.shape[1]), device=device)
-                            )
-
-                        # Update just the relevant portion
-                        if start_idx < end_idx:
-                            previous_epoch_precision[start_idx:end_idx] = batch_precision
-                    else:
-                        previous_epoch_precision = batch_precision
+                previous_epoch_precision = _perform_batch_reweighting(
+                    model=model,
+                    batch_x=batch_x,
+                    batch_y=batch_y,
+                    batch_cov=batch_cov,
+                    batch_mask=batch_mask,
+                    previous_epoch_precision=previous_epoch_precision,
+                    base_loss=base_loss,
+                    irls_max_iter=irls_max_iter,
+                    irls_tol=irls_tol,
+                    delta=delta,
+                    weight_fn=weight_fn,
+                    weight_params=weight_params,
+                    variance_type=variance_type,
+                    epsilon=epsilon,
+                    return_all_iterations=return_all_iterations,
+                    epoch=epoch,
+                    batch_idx=i,
+                    all_iterations_data=all_iterations_data,
+                    is_minibatch=is_minibatch,
+                    all_x=all_x,
+                    batch_size=batch_size,
+                    batch_size_current=batch_size_current,
+                    device=device,
+                )
 
             # --- Standard optimization step ---
             batch_precision = get_batch_precision(

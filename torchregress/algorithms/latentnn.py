@@ -10,7 +10,6 @@ inputs close to the observed values.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -147,8 +146,12 @@ class LatentNN:
         model = self.model_factory().to(self.device)
         x_latent = nn.Parameter(X_observed.clone())
 
-        sigma_x = self._expand_sigma(self.sigma_x_input, X_observed, name="sigma_x").clamp_min(1.0e-6)
-        sigma_y = self._expand_sigma(self.sigma_y_input, y_observed, name="sigma_y").clamp_min(1.0e-6)
+        sigma_x = self._expand_sigma(self.sigma_x_input, X_observed, name="sigma_x").clamp_min(
+            1.0e-6
+        )
+        sigma_y = self._expand_sigma(self.sigma_y_input, y_observed, name="sigma_y").clamp_min(
+            1.0e-6
+        )
 
         indices = torch.arange(X_observed.shape[0], device=self.device)
         batch_size = min(int(self.batch_size or X_observed.shape[0]), X_observed.shape[0])
@@ -206,7 +209,9 @@ class LatentNN:
             )
             if validation_loss < best_loss:
                 best_loss = validation_loss
-                best_state = {name: tensor.detach().clone() for name, tensor in model.state_dict().items()}
+                best_state = {
+                    name: tensor.detach().clone() for name, tensor in model.state_dict().items()
+                }
                 best_latent = x_latent.detach().clone()
 
         if best_state is not None:

@@ -78,9 +78,9 @@ def test_masking_invariance(loss_factory):
     expected_loss = loss_vals[:5].mean()
 
     # Depending on implementation, loss_masked might be scalar or tensor
-    assert torch.allclose(
-        loss_masked, expected_loss
-    ), f"{loss_fn.__class__.__name__} masking failed"
+    assert torch.allclose(loss_masked, expected_loss), (
+        f"{loss_fn.__class__.__name__} masking failed"
+    )
 
 
 @pytest.mark.parametrize("loss_factory", REGRESSION_LOSSES)
@@ -102,9 +102,9 @@ def test_monotonicity(loss_factory):
 
     # Check if any element in far is greater than near
     # Most losses should be strictly increasing with error magnitude
-    assert (
-        loss_far > loss_near
-    ).all(), f"{loss_fn.__class__.__name__} is not monotonic increasing with error"
+    assert (loss_far > loss_near).all(), (
+        f"{loss_fn.__class__.__name__} is not monotonic increasing with error"
+    )
 
 
 def test_gaussian_nll_finite():

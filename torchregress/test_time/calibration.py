@@ -77,7 +77,9 @@ class RepresentationShiftCalibrator:
         temps = self.base_temperature * (1.0 + self.slope * scores / ref)
         return np.clip(temps, self.base_temperature, self.max_temperature)
 
-    def calibrate_probabilities(self, probabilities: np.ndarray, target_representations: np.ndarray) -> np.ndarray:
+    def calibrate_probabilities(
+        self, probabilities: np.ndarray, target_representations: np.ndarray
+    ) -> np.ndarray:
         probs = np.asarray(probabilities, dtype=float)
         temps = self.temperatures(target_representations)[:, None]
         logits = np.log(np.clip(probs, self.eps, None))

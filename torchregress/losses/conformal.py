@@ -27,6 +27,7 @@ Loss wrappers (backward-compatible):
 - MultiDimensionalConformalLoss: multi-output variant
 """
 
+import logging
 import math
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -35,6 +36,8 @@ from torch import Tensor
 
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Utilities
@@ -569,8 +572,8 @@ class CTI(ConformalPredictor):
                     upper[invalid_mask, 0] = y_grid[mode_indices]
 
                 return lower, upper
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"CTI vectorized execution failed, falling back to loop: {e}")
 
         for i in range(n_test):
             log_dens = density_fn(y_grid, x[i])  # (grid_size,)
@@ -673,8 +676,8 @@ class DistributionalConformal(ConformalPredictor):
             bounds = icdf_fn(levels, x)
             if bounds.shape == (n_test, 2):
                 return bounds[:, 0:1], bounds[:, 1:2]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"DistributionalConformal vectorized execution failed: {e}")
 
         # Try auto-vectorization with vmap (handles user functions written for single samples)
         try:
@@ -683,8 +686,10 @@ class DistributionalConformal(ConformalPredictor):
             bounds = vmapped_fn(levels, x)
             if bounds.shape == (n_test, 2):
                 return bounds[:, 0:1], bounds[:, 1:2]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(
+                f"DistributionalConformal vmap execution failed, falling back to loop: {e}"
+            )
 
         lower = torch.empty(n_test, 1, device=x.device, dtype=x.dtype)
         upper = torch.empty(n_test, 1, device=x.device, dtype=x.dtype)
