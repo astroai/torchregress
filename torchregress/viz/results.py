@@ -193,28 +193,32 @@ def _plot_performance_bar(
     ax.set_xticks(indices + bar_width * (n_models - 1) / 2)
     ax.set_xticklabels(df.columns, rotation=45, ha="right", fontweight="bold")
 
-    # Use LaTeX for proper math rendering if available
+    # Skip LaTeX rendering if not available or fails
     try:
-        plt.rcParams.update(
-            {
-                "text.usetex": True,
-                "font.family": "serif",
-                "font.serif": ["Computer Modern Roman"],
-            }
-        )
-        # Replace common metric names with LaTeX
-        metric_labels = []
-        for metric in df.columns:
-            if "rmse" in metric.lower():
-                metric_labels.append(r"$\mathrm{RMSE}$")
-            elif "mae" in metric.lower():
-                metric_labels.append(r"$\mathrm{MAE}$")
-            elif "r2" in metric.lower():
-                metric_labels.append(r"$R^2$")
-            else:
-                metric_labels.append(metric)
-        ax.set_xticklabels(metric_labels, rotation=45, ha="right")
-    except (ImportError, RuntimeError):
+        # Check if latex is available before trying to update rcParams
+        import shutil
+
+        if shutil.which("latex") is not None:
+            plt.rcParams.update(
+                {
+                    "text.usetex": True,
+                    "font.family": "serif",
+                    "font.serif": ["Computer Modern Roman"],
+                }
+            )
+            # Replace common metric names with LaTeX
+            metric_labels = []
+            for metric in df.columns:
+                if "rmse" in metric.lower():
+                    metric_labels.append(r"$\mathrm{RMSE}$")
+                elif "mae" in metric.lower():
+                    metric_labels.append(r"$\mathrm{MAE}$")
+                elif "r2" in metric.lower():
+                    metric_labels.append(r"$R^2$")
+                else:
+                    metric_labels.append(metric)
+            ax.set_xticklabels(metric_labels, rotation=45, ha="right")
+    except (ImportError, RuntimeError, Exception):
         pass  # Skip LaTeX rendering if not available
 
     ax.legend(loc="best", frameon=True, fancybox=True, framealpha=0.9)
