@@ -53,7 +53,9 @@ def concordance_index(y_pred: Tensor, target: Tensor, censoring: Tensor | None =
     y_hat_eq = y_hat.unsqueeze(1) == y_hat.unsqueeze(0)
 
     comparable = comparable_mask.sum(dtype=torch.float32)
-    concordant = (comparable_mask & y_hat_less).sum(dtype=torch.float32) + 0.5 * (comparable_mask & y_hat_eq).sum(dtype=torch.float32)
+    concordant = (comparable_mask & y_hat_less).sum(dtype=torch.float32) + 0.5 * (
+        comparable_mask & y_hat_eq
+    ).sum(dtype=torch.float32)
 
     if comparable <= 0:
         return torch.tensor(float("nan"), dtype=torch.float32, device=y.device)

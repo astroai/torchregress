@@ -23,9 +23,17 @@ def test_check_health_success(capsys):
 
 def test_check_health_import_error(capsys, monkeypatch):
     """Test check_health handles import errors."""
+    import sys
+
     import torchregress
 
-    # Other tests may have lazy-loaded submodules; uncache so __getattr__ runs again.
+    # Drop submodule caches so `torchregress.algorithms` is resolved via __getattr__ again
+    # (e.g. after other tests or eager imports from `from torchregress.algorithms.*`).
+    for mod in (
+        "torchregress.algorithms",
+        "torchregress.algorithms.irls",
+    ):
+        monkeypatch.delitem(sys.modules, mod, raising=False)
     monkeypatch.delitem(torchregress.__dict__, "algorithms", raising=False)
 
     real_getattr = torchregress.__getattr__

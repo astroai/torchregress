@@ -123,7 +123,10 @@ def test_dr_ate_synthetic_exact() -> None:
         t,
         y,
         outcome_model=LinearRegression,
-        propensity_model=LogisticRegression(penalty=None),  # No regularization for exactness
+        propensity_model=LogisticRegression(
+            max_iter=1000,
+            C=float("inf"),
+        ),  # sklearn>=1.8: use C=inf instead of penalty=None for unregularized fit
         folds=2,
         seed=42,
     )

@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 
-def _sample_reference_indices(n_rows: int, reference_size: int | None, *, random_state: int | None) -> np.ndarray:
+def _sample_reference_indices(
+    n_rows: int, reference_size: int | None, *, random_state: int | None
+) -> np.ndarray:
     if reference_size is None or reference_size <= 0 or reference_size >= n_rows:
         return np.arange(n_rows, dtype=np.int64)
     rng = np.random.default_rng(random_state)
@@ -85,13 +87,17 @@ def local_consistency_weights(
     reference_idx = (
         np.arange(x.shape[0], dtype=np.int64)
         if x.shape[0] <= int(max_exact_rows) and reference_size is None
-        else _sample_reference_indices(x.shape[0], reference_size or max_exact_rows, random_state=random_state)
+        else _sample_reference_indices(
+            x.shape[0], reference_size or max_exact_rows, random_state=random_state
+        )
     )
     ref_x = x[reference_idx]
     ref_probs = probs[reference_idx]
     k = max(1, min(int(k), ref_x.shape[0]))
     neighbor_probs = np.empty_like(probs, dtype=float)
-    chunk_size = x.shape[0] if query_chunk_size is None or query_chunk_size <= 0 else int(query_chunk_size)
+    chunk_size = (
+        x.shape[0] if query_chunk_size is None or query_chunk_size <= 0 else int(query_chunk_size)
+    )
     exact_self_reference = reference_idx.shape[0] == x.shape[0] and np.array_equal(
         reference_idx, np.arange(x.shape[0], dtype=np.int64)
     )
@@ -105,7 +111,8 @@ def local_consistency_weights(
             dists[np.arange(stop - start), row_idx] = np.inf
         nbr_idx = np.argpartition(dists, kth=k - 1, axis=1)[:, :k]
         neighbor_probs[start:stop] = ref_probs[nbr_idx].mean(axis=1)
-    agreement = np.sum(np.sqrt(np.clip(probs, eps, None) * np.clip(neighbor_probs, eps, None)), axis=1)
+    sqrt_prod = np.sqrt(np.clip(probs, eps, None) * np.clip(neighbor_probs, eps, None))
+    agreement = np.sum(sqrt_prod, axis=1)
     weights = np.exp((agreement - 1.0) / max(float(temperature), eps))
     return weights / np.clip(weights.mean(), eps, None)
 

@@ -1,9 +1,7 @@
 import os
-from unittest import mock
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
 from matplotlib.figure import Figure
 

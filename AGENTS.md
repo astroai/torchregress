@@ -49,6 +49,27 @@ uv run ruff check .
 uv run mypy torchregress
 ```
 
+### CI parity before push (recommended)
+
+GitHub Actions on `main` runs **ruff + black**, **pytest with coverage**, and **CPU benchmark threshold jobs** (see `.github/workflows/ci.yml`). Match that locally so pushes do not fail CI unexpectedly:
+
+```bash
+./scripts/ci_local.sh
+```
+
+This installs `test` + `flows` + `dev` extras, then runs **ruff**, **black --check**, **pytest --cov=…**, and both **benchmark_smoke** threshold passes (same flags as CI).
+
+### Pre-commit / pre-push hooks
+
+Fast checks on **commit** (ruff + black + basic file hygiene) and full **CI parity on push**:
+
+```bash
+uvx pre-commit install
+uvx pre-commit install --hook-type pre-push
+```
+
+After this, `git push` runs `./scripts/ci_local.sh` via the pre-push hook (requires `uv` on your `PATH`).
+
 ### Documentation
 ```bash
 # Build docs (strict mode catches broken refs)

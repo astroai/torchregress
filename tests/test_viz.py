@@ -2,10 +2,10 @@ from unittest.mock import MagicMock, patch
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 import torch
 from matplotlib.figure import Figure
 
-import pytest
 from torchregress.viz.diagnostic import (
     plot_calibration_curve,
     plot_distribution_comparison,

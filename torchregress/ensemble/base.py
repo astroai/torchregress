@@ -159,7 +159,9 @@ class BaseEnsembleModel(nn.Module):
         adversarial_probability: float = 1.0,
         adversarial_loss_weight: float = 1.0,
         adversarial_random_start: bool = False,
-        batch_regularizer: Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor] | None = None,
+        batch_regularizer: (
+            Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor] | None
+        ) = None,
     ) -> Dict[str, list]:
         """
         Train each ensemble member independently.
@@ -189,7 +191,9 @@ class BaseEnsembleModel(nn.Module):
         member_clean_histories = []
         member_adversarial_histories = []
         optimizer_kwargs = dict(optimizer_kwargs or {})
-        optimizer_signature = tuple(sorted((str(key), repr(value)) for key, value in optimizer_kwargs.items()))
+        optimizer_signature = tuple(
+            sorted((str(key), repr(value)) for key, value in optimizer_kwargs.items())
+        )
 
         if adversarial_loss_weight < 0:
             raise ValueError(
@@ -292,8 +296,7 @@ class BaseEnsembleModel(nn.Module):
                     )
                     if augmenter is not None:
                         message += (
-                            f" Clean {epoch_clean_loss:.6f}"
-                            f" Adv {epoch_adversarial_loss:.6f}"
+                            f" Clean {epoch_clean_loss:.6f}" f" Adv {epoch_adversarial_loss:.6f}"
                         )
                     print(message)
 

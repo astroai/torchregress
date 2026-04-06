@@ -1,4 +1,6 @@
 #!/bin/bash
+# Legacy Pixi-based check. For CI parity with GitHub Actions, prefer:
+#   ./scripts/ci_local.sh
 set -e
 
 echo "--- Run Ruff ---"

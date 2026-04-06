@@ -10,6 +10,27 @@ on:
     - cron: "0 6 * * 1"
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: astral-sh/setup-uv@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dev dependencies
+      run: |
+        uv sync --extra dev
+
+    - name: Ruff
+      run: |
+        uv run ruff check torchregress tests tools
+
+    - name: Black
+      run: |
+        uv run black --check torchregress tests tools
+
   test:
     runs-on: ubuntu-latest
 

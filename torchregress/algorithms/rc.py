@@ -12,7 +12,9 @@ import torch
 from ..utils.validation import check_tensor
 
 
-def _project_covariance_psd(covariance: torch.Tensor, *, min_eigenvalue: float = 1.0e-6) -> torch.Tensor:
+def _project_covariance_psd(
+    covariance: torch.Tensor, *, min_eigenvalue: float = 1.0e-6
+) -> torch.Tensor:
     covariance = 0.5 * (covariance + covariance.transpose(-1, -2))
     eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
     clipped = eigenvalues.clamp_min(float(min_eigenvalue))

@@ -132,7 +132,9 @@ class PosteriorLabelShiftAdapter:
         self.eps = float(eps)
         self.last_estimate: LabelShiftEstimate | None = None
 
-    def estimate(self, probabilities: np.ndarray, *, sample_weights: np.ndarray | None = None) -> LabelShiftEstimate:
+    def estimate(
+        self, probabilities: np.ndarray, *, sample_weights: np.ndarray | None = None
+    ) -> LabelShiftEstimate:
         estimate = estimate_target_prior_em(
             probabilities,
             source_prior=self.source_prior,
@@ -192,7 +194,13 @@ def gaussian_bin_edges_from_targets(targets: np.ndarray, n_bins: int) -> np.ndar
     return edges.astype(np.float64, copy=False)
 
 
-def gaussian_bin_probabilities(mean: np.ndarray, std: np.ndarray, bin_edges: np.ndarray, *, eps: float = 1.0e-8) -> np.ndarray:
+def gaussian_bin_probabilities(
+    mean: np.ndarray,
+    std: np.ndarray,
+    bin_edges: np.ndarray,
+    *,
+    eps: float = 1.0e-8,
+) -> np.ndarray:
     mu = np.asarray(mean, dtype=np.float64).reshape(-1, 1)
     sigma = np.clip(np.asarray(std, dtype=np.float64).reshape(-1, 1), eps, None)
     z = (bin_edges[None, :] - mu) / sigma
@@ -230,7 +238,8 @@ def correct_gaussian_predictions_for_label_shift(
     eps: float = 1.0e-8,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
     bin_edges = gaussian_bin_edges_from_targets(source_targets, n_bins)
-    source_prior = np.histogram(np.asarray(source_targets, dtype=np.float64), bins=bin_edges)[0].astype(np.float64)
+    src_t = np.asarray(source_targets, dtype=np.float64)
+    source_prior = np.histogram(src_t, bins=bin_edges)[0].astype(np.float64)
     source_prior = np.clip(source_prior, eps, None)
     source_prior = source_prior / source_prior.sum()
     probs = gaussian_bin_probabilities(mean, std, bin_edges, eps=eps)
@@ -263,7 +272,9 @@ def correct_gaussian_predictions_for_label_shift(
         sample_weights=weights[mask] if weights is not None else None,
     )
     corrected = adapter.transform(probs, target_prior=estimate.target_prior)
-    corrected_mean, corrected_std = gaussian_moments_from_binned_probabilities(corrected, bin_edges, eps=eps)
+    corrected_mean, corrected_std = gaussian_moments_from_binned_probabilities(
+        corrected, bin_edges, eps=eps
+    )
     metadata: dict[str, object] = {
         "target_prior": estimate.target_prior.tolist(),
         "source_prior": estimate.source_prior.tolist(),
