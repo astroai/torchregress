@@ -97,7 +97,7 @@ LogCosh         0.0914     0.2399     0.9845
 
 ## Scenario 2: Data with Outliers
 
-Outliers significantly affect different losses. Robust losses (MAE, Huber, Cauchy) handle outliers better.
+Outliers significantly affect different losses. Robust losses (MAE, Huber, Barron, Cauchy) handle outliers better.
 
 ```python
 import torch
@@ -127,15 +127,20 @@ losses_to_test = {
     'MAE (L1)': tr.losses.L1Loss(),
     'Huber (δ=0.5)': tr.losses.HuberLoss(delta=0.5),
     'Huber (δ=1.0)': tr.losses.HuberLoss(delta=1.0),
+    'Barron (α=1.0)': tr.losses.BarronLoss(alpha=1.0, scale=1.0),
     'Cauchy (γ=0.5)': tr.losses.CauchyLoss(scale=0.5),
     'Tukey Biweight': tr.losses.TukeyBiweightLoss(c=4.685),
+    'Adaptive Robust': tr.losses.AdaptiveRobustLoss(alpha_init=1.0, scale_init=1.0),
 }
 
 results = {}
 
 for loss_name, loss_fn in losses_to_test.items():
     model = SimpleModel()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(
+        list(model.parameters()) + list(loss_fn.parameters()),
+        lr=1e-3,
+    )
 
     for epoch in range(300):
         y_pred = model(X_tensor)
@@ -212,10 +217,11 @@ plt.show()
 1. **MSE**: Heavily influenced by outliers, tries to fit them
 2. **MAE**: More robust, but can still be affected by extreme outliers
 3. **Huber**: Good balance - quadratic for small errors, linear for large
-4. **Cauchy**: Very robust to outliers, almost ignores them
-5. **Tukey Biweight**: Completely ignores errors beyond threshold
+4. **Barron**: Smoothly interpolates between near-Huber and Cauchy-like behavior
+5. **Cauchy**: Very robust to outliers, almost ignores them
+6. **Tukey Biweight**: Completely ignores errors beyond threshold
 
-**Recommendation:** For data with moderate outliers, use Huber (δ=1.0). For extreme outliers, use Cauchy or Tukey.
+**Recommendation:** For data with moderate outliers, use Huber (δ=1.0). If tail severity is uncertain, try Barron or AdaptiveRobust. For extreme outliers, use Cauchy or Tukey.
 
 ## Scenario 3: Heteroscedastic Data
 

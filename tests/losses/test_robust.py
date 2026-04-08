@@ -5,6 +5,8 @@ from torch.autograd import gradcheck
 
 from torchregress.losses.base import WeightedLossWrapper
 from torchregress.losses.robust import (
+    AdaptiveRobustLoss,
+    BarronLoss,
     CauchyLoss,
     LogCoshLoss,
     PseudoHuberLoss,
@@ -139,6 +141,58 @@ class TestL1Loss:
 
 
 class TestRobustLossesNumericalStability:
+    def test_barron_alpha_two_matches_half_squared_error(self):
+        y_pred = torch.tensor([[1.5], [-0.5]], dtype=torch.double, requires_grad=True)
+        y_true = torch.tensor([[0.5], [1.0]], dtype=torch.double)
+
+        loss_fn = BarronLoss(alpha=2.0, scale=1.0, reduction="none")
+        loss = loss_fn(y_pred, y_true)
+        expected = 0.5 * (y_true - y_pred) ** 2
+
+        assert torch.allclose(loss, expected)
+
+    def test_barron_alpha_zero_matches_cauchy_like_limit(self):
+        y_pred = torch.tensor([[1.5], [-0.5]], dtype=torch.double)
+        y_true = torch.tensor([[0.5], [1.0]], dtype=torch.double)
+
+        loss_fn = BarronLoss(alpha=0.0, scale=2.0, reduction="none")
+        loss = loss_fn(y_pred, y_true)
+        expected = torch.log1p(0.5 * ((y_true - y_pred) / 2.0) ** 2)
+
+        assert torch.allclose(loss, expected)
+
+    def test_adaptive_robust_parameters_stay_in_range(self):
+        loss_fn = AdaptiveRobustLoss(alpha_init=0.5, scale_init=1.5, alpha_min=-4.0, alpha_max=2.0)
+
+        assert -4.0 <= loss_fn.alpha.item() <= 2.0
+        assert loss_fn.scale.item() > 0.0
+
+    def test_adaptive_robust_parameters_can_be_optimized(self):
+        y_pred = torch.tensor([[2.0], [1.0], [8.0]], requires_grad=True)
+        y_true = torch.tensor([[1.5], [1.1], [0.0]])
+        loss_fn = AdaptiveRobustLoss(alpha_init=1.5, scale_init=1.0)
+        optimizer = torch.optim.SGD([y_pred, *loss_fn.parameters()], lr=0.05)
+
+        initial_alpha = loss_fn.alpha.detach().item()
+        initial_scale = loss_fn.scale.detach().item()
+
+        optimizer.zero_grad()
+        loss = loss_fn(y_pred, y_true)
+        loss.backward()
+        optimizer.step()
+
+        assert loss_fn.alpha.detach().item() != pytest.approx(initial_alpha)
+        assert loss_fn.scale.detach().item() != pytest.approx(initial_scale)
+
+    def test_cauchy_scale_alias_matches_c_parameter(self):
+        y_pred = torch.tensor([[1.5], [-0.5]], dtype=torch.double)
+        y_true = torch.tensor([[0.5], [1.0]], dtype=torch.double)
+
+        loss_with_c = CauchyLoss(c=2.0, reduction="none")(y_pred, y_true)
+        loss_with_scale = CauchyLoss(scale=2.0, reduction="none")(y_pred, y_true)
+
+        assert torch.allclose(loss_with_c, loss_with_scale)
+
     def test_huber_gradient_flow(self):
         """Test that gradients flow through WeightedLossWrapper(nn.HuberLoss) properly."""
 
@@ -181,6 +235,15 @@ class TestRobustLossesNumericalStability:
 
         # Test with gradcheck
         loss_fn = CauchyLoss(reduction="mean", c=1.0)
+        assert gradcheck(loss_fn, (y_pred, y_true), eps=1e-6, atol=1e-4)
+
+    def test_barron_gradient_flow(self):
+        """Test that gradients flow through BarronLoss properly."""
+
+        y_pred = torch.randn(10, 1, requires_grad=True, dtype=torch.double)
+        y_true = torch.randn(10, 1, dtype=torch.double)
+
+        loss_fn = BarronLoss(reduction="mean", alpha=1.0, scale=1.0)
         assert gradcheck(loss_fn, (y_pred, y_true), eps=1e-6, atol=1e-4)
 
     def test_extreme_values(self):

@@ -103,6 +103,7 @@ losses = {
     "MSE": tr.losses.MSELoss(),
     "MAE": tr.losses.L1Loss(),
     "Huber": tr.losses.HuberLoss(),
+    "Barron": tr.losses.BarronLoss(alpha=1.0, scale=1.0),
     "LogCosh": tr.losses.LogCoshLoss(),
 }
 
@@ -128,6 +129,7 @@ Three challenging scenarios:
 losses = {
     "MSE": WeightedMSELoss(),      # Sensitive to outliers
     "Huber": HuberLoss(delta=1.0),  # Balanced
+    "Barron": BarronLoss(alpha=1.0, scale=1.0),  # Smooth adaptive family
     "Cauchy": CauchyLoss(scale=0.5) # Very robust
 }
 ```

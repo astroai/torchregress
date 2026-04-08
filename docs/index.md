@@ -61,7 +61,7 @@ Regression in the real world is rarely just about predicting a single number. Da
 -   :material-flask-outline: __Robust Estimation__
 
     -   [Quantile & Expectile Regression](losses/quantile_expectile.md)
-    -   [Robust M-Estimators (Tukey, Huber, Cauchy)](losses/robust.md)
+    -   [Robust M-Estimators (Huber, Cauchy, Tukey, Barron)](losses/robust.md)
     -   [Noisy Label & Outlier Mitigation](losses/robust.md#redescending-losses-cauchy-tukey)
     -   [Measurement Error (EIV) Correction](math/index.md#specialized-regression-tasks)
 

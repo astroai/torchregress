@@ -135,6 +135,8 @@ Below is a complete listing of all public classes in torchregress:
 - `HuberLoss` - Huber loss
 - `LogCoshLoss` - Log-Cosh loss
 - `CauchyLoss` - Cauchy loss
+- `BarronLoss` - General robust loss family with fixed shape
+- `AdaptiveRobustLoss` - Trainable Barron-style robust loss
 - `QuantileLoss` - Quantile regression loss
 - `MultiQuantileLoss` - Multiple quantile regression loss
 - `ExpectileLoss` - Expectile regression loss

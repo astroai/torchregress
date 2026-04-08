@@ -15,12 +15,65 @@ import math
 from typing import Any, Optional, cast
 
 import torch
+import torch.nn as nn
 
 from ..utils.validation import validate_positive, validate_range, validate_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
 # Remove HuberLoss as it's redundant with WeightedHuberLoss in base
+
+_BARRON_ALPHA_EPS = 1e-6
+_BARRON_SCALE_EPS = 1e-8
+
+
+def _inverse_softplus(value: float) -> float:
+    """Stable inverse of softplus for positive scalars."""
+    return value + math.log(-math.expm1(-value))
+
+
+def _inverse_sigmoid(prob: float) -> float:
+    """Inverse of the logistic sigmoid on (0, 1)."""
+    return math.log(prob) - math.log1p(-prob)
+
+
+def _barron_elementwise(
+    residuals: torch.Tensor,
+    alpha: torch.Tensor | float,
+    scale: torch.Tensor | float,
+    eps: float = _BARRON_SCALE_EPS,
+) -> torch.Tensor:
+    """
+    Barron's general robust loss.
+
+    Reference:
+        Barron, J. T. "A General and Adaptive Robust Loss Function." CVPR, 2019.
+    """
+    alpha_tensor = torch.as_tensor(alpha, dtype=residuals.dtype, device=residuals.device)
+    scale_tensor = torch.as_tensor(scale, dtype=residuals.dtype, device=residuals.device).clamp(
+        min=eps
+    )
+
+    squared_scaled = (residuals / scale_tensor) ** 2
+
+    alpha_is_two = torch.isclose(
+        alpha_tensor, torch.tensor(2.0, dtype=residuals.dtype, device=residuals.device), atol=1e-6
+    )
+    alpha_is_zero = torch.isclose(
+        alpha_tensor, torch.tensor(0.0, dtype=residuals.dtype, device=residuals.device), atol=1e-6
+    )
+
+    beta = torch.abs(alpha_tensor - 2.0).clamp(min=_BARRON_ALPHA_EPS)
+    alpha_safe = torch.where(
+        alpha_tensor >= 0,
+        alpha_tensor.clamp(min=_BARRON_ALPHA_EPS),
+        alpha_tensor.clamp(max=-_BARRON_ALPHA_EPS),
+    )
+    generic = (beta / alpha_safe) * ((squared_scaled / beta + 1.0) ** (alpha_tensor / 2.0) - 1.0)
+    cauchy_like = torch.log1p(0.5 * squared_scaled)
+    quadratic = 0.5 * squared_scaled
+
+    return torch.where(alpha_is_two, quadratic, torch.where(alpha_is_zero, cauchy_like, generic))
 
 
 @register_regression_loss("pseudo_huber")
@@ -76,6 +129,131 @@ class PseudoHuberLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
+
+
+@register_regression_loss("barron")
+class BarronLoss(RegressionLoss):
+    """
+    Barron's general robust loss.
+
+    This is a continuous family that interpolates between quadratic,
+    Cauchy-like, and redescending robust penalties through the shape
+    parameter ``alpha``.
+
+    Args:
+        alpha: Robustness shape parameter. ``alpha=2`` recovers quadratic loss,
+            ``alpha=0`` gives a Cauchy-like penalty, and smaller values become
+            increasingly outlier-robust.
+        scale: Positive scale parameter controlling the transition point.
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+    """
+
+    def __init__(self, alpha: float = 1.0, scale: float = 1.0, reduction: str = "mean") -> None:
+        super().__init__(reduction=reduction)
+        if not math.isfinite(alpha):
+            raise ValueError(f"alpha must be finite, got {alpha}")
+        self.alpha = alpha
+        self.scale = validate_positive(scale, "scale")
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        """Calculate Barron's robust loss."""
+        self._validate_inputs(y_pred, target, mask)
+        residuals = target - y_pred
+        loss = _barron_elementwise(residuals, self.alpha, self.scale)
+        return self._reduce_with_mask(loss, mask, weights)
+
+
+@register_regression_loss("adaptive_robust")
+class AdaptiveRobustLoss(RegressionLoss):
+    """
+    Trainable Barron-style robust loss.
+
+    ``alpha`` and ``scale`` are stored as constrained parameters so they can be
+    optimized jointly with the model by adding ``loss_fn.parameters()`` to the
+    optimizer parameter list.
+
+    Args:
+        alpha_init: Initial shape parameter.
+        scale_init: Initial positive scale parameter.
+        alpha_min: Lower bound for the learned alpha.
+        alpha_max: Upper bound for the learned alpha.
+        learn_alpha: Whether to optimize alpha.
+        learn_scale: Whether to optimize scale.
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+    """
+
+    def __init__(
+        self,
+        alpha_init: float = 1.0,
+        scale_init: float = 1.0,
+        alpha_min: float = -8.0,
+        alpha_max: float = 2.0,
+        learn_alpha: bool = True,
+        learn_scale: bool = True,
+        reduction: str = "mean",
+    ) -> None:
+        super().__init__(reduction=reduction)
+        if not math.isfinite(alpha_init):
+            raise ValueError(f"alpha_init must be finite, got {alpha_init}")
+        if not math.isfinite(alpha_min) or not math.isfinite(alpha_max):
+            raise ValueError("alpha_min and alpha_max must be finite")
+        if alpha_min >= alpha_max:
+            raise ValueError("alpha_min must be strictly less than alpha_max")
+        validate_range(alpha_init, alpha_min, alpha_max, "alpha_init")
+        validate_positive(scale_init, "scale_init")
+
+        self.alpha_min = alpha_min
+        self.alpha_max = alpha_max
+
+        alpha_prob = (alpha_init - alpha_min) / (alpha_max - alpha_min)
+        alpha_prob = min(max(alpha_prob, _BARRON_ALPHA_EPS), 1.0 - _BARRON_ALPHA_EPS)
+        scale_raw = _inverse_softplus(scale_init - _BARRON_SCALE_EPS)
+
+        self._alpha_logits = nn.Parameter(
+            torch.tensor(_inverse_sigmoid(alpha_prob), dtype=torch.float32),
+            requires_grad=learn_alpha,
+        )
+        self._scale_raw = nn.Parameter(
+            torch.tensor(scale_raw, dtype=torch.float32),
+            requires_grad=learn_scale,
+        )
+
+    @property
+    def alpha(self) -> torch.Tensor:
+        alpha_prob = torch.sigmoid(self._alpha_logits)
+        return self.alpha_min + (self.alpha_max - self.alpha_min) * alpha_prob
+
+    @property
+    def scale(self) -> torch.Tensor:
+        return torch.nn.functional.softplus(self._scale_raw) + _BARRON_SCALE_EPS
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        """Calculate the adaptive robust loss with the current learned parameters."""
+        self._validate_inputs(y_pred, target, mask)
+        residuals = target - y_pred
+        loss = _barron_elementwise(residuals, self.alpha, self.scale)
+        return self._reduce_with_mask(loss, mask, weights)
+
+    def extra_repr(self) -> str:
+        return (
+            f"alpha={self.alpha.detach().item():.4f}, "
+            f"scale={self.scale.detach().item():.4f}, "
+            f"alpha_range=({self.alpha_min}, {self.alpha_max})"
+        )
 
 
 @register_regression_loss("log_cosh")
@@ -284,8 +462,19 @@ class CauchyLoss(RegressionLoss):
         tensor(1.7009)  # Large outliers have limited impact
     """
 
-    def __init__(self, c: float = 1.0, reduction: str = "mean") -> None:
+    def __init__(
+        self,
+        c: Optional[float] = None,
+        scale: Optional[float] = None,
+        reduction: str = "mean",
+    ) -> None:
         super().__init__(reduction=reduction)
+        if c is not None and scale is not None:
+            raise ValueError("Provide either c or scale for CauchyLoss, not both.")
+        if scale is not None:
+            c = scale
+        if c is None:
+            c = 1.0
         self.c = validate_positive(c, "c")
 
     def forward(

@@ -4,6 +4,8 @@ import torch
 from torch import optim
 
 from torchregress.losses import (
+    AdaptiveRobustLoss,
+    BarronLoss,
     LogCoshLoss,
     QuantileLoss,
     WeightedLossWrapper,
@@ -47,7 +49,9 @@ def generate_data_with_outliers(n_samples=100, outlier_ratio=0.1, seed=42):
 
 def train_and_evaluate(model, loss_fn, x_train, y_train, x_test, y_test, epochs=100):
     """Train a model using the specified loss function and evaluate it."""
-    optimizer = optim.SGD(model.parameters(), lr=0.01)
+    parameters = list(model.parameters())
+    parameters.extend(param for param in loss_fn.parameters() if param.requires_grad)
+    optimizer = optim.SGD(parameters, lr=0.01)
 
     train_losses = []
 
@@ -88,12 +92,14 @@ def main():
         "MAE": WeightedLossWrapper(torch.nn.L1Loss, reduction="mean"),
         "Huber": WeightedLossWrapper(torch.nn.HuberLoss, reduction="mean"),
         "LogCosh": LogCoshLoss(reduction="mean"),
+        "Barron": BarronLoss(alpha=1.0, scale=1.0, reduction="mean"),
+        "AdaptiveRobust": AdaptiveRobustLoss(alpha_init=1.0, scale_init=1.0, reduction="mean"),
         "Quantile (0.5)": QuantileLoss(quantile=0.5, reduction="mean"),
     }
 
     # Train models with different loss functions
     results = {}
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(18, 12))
 
     for i, (name, loss_fn) in enumerate(loss_functions.items()):
         model = SimpleModel()
@@ -104,7 +110,7 @@ def main():
         results[name] = {"train_losses": train_losses, "test_loss": test_loss, "y_pred": y_pred}
 
         # Plot training curves
-        plt.subplot(2, 3, 1)
+        plt.subplot(3, 3, 1)
         plt.plot(train_losses, label=f"{name}")
         plt.title("Training Loss Curves")
         plt.xlabel("Epoch")
@@ -112,7 +118,7 @@ def main():
         plt.legend()
 
         # Plot predictions
-        plt.subplot(2, 3, i + 2)
+        plt.subplot(3, 3, i + 2)
         plt.scatter(x_train.numpy(), y_train.numpy(), alpha=0.5, label="Train data")
         # Filter outlier indices to only those in training set
         train_outliers = outlier_idx[outlier_idx < train_size]

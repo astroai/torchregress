@@ -120,6 +120,8 @@ from .quantile import MultiQuantileLoss, QuantileCrossover, QuantileCrossoverLos
 
 # Robust losses
 from .robust import (
+    AdaptiveRobustLoss,
+    BarronLoss,
     CauchyLoss,
     CharbonnierLoss,
     CVaRLoss,
@@ -187,6 +189,8 @@ __all__ = [
     "CharbonnierLoss",
     "TukeyBiweightLoss",
     "CauchyLoss",
+    "BarronLoss",
+    "AdaptiveRobustLoss",
     "CVaRLoss",
     # Poisson losses
     "PoissonDevianceLoss",

@@ -15,6 +15,7 @@ To understand robustness, we examine the **influence function** $\psi(r) = \frac
 | **Huber** | Piecewise $L_2/L_1$ | $\text{clamp}(r, -\delta, \delta)$ | [`WeightedHuberLoss`](../api/losses.md#torchregress.losses.base.WeightedHuberLoss) |
 | **Cauchy** | $\log(1 + r^2/c^2)$ | $\frac{2r}{c^2 + r^2} \rightarrow 0$ | [`CauchyLoss`](../api/losses.md#torchregress.losses.robust.CauchyLoss) |
 | **Tukey** | Redescending | $0$ for $|r| > c$ | [`TukeyBiweightLoss`](../api/losses.md#torchregress.losses.robust.TukeyBiweightLoss) |
+| **Barron** | General robust family | Varies with $\alpha$ | [`BarronLoss`](../api/losses.md#torchregress.losses.robust.BarronLoss) |
 
 ---
 
@@ -60,16 +61,58 @@ $$\mathcal{L}_{\text{Tukey}}(r; c) = \begin{cases} \frac{c^2}{6} \left[ 1 - (1 -
 
 ---
 
+### General Robust Family (Barron & AdaptiveRobust)
+
+[`BarronLoss`](../api/losses.md#torchregress.losses.robust.BarronLoss) provides a single smooth family that spans several useful robustness regimes through the shape parameter $\alpha$ [4]:
+
+$$
+\mathcal{L}_{\text{Barron}}(r; \alpha, c) =
+\begin{cases}
+\frac{1}{2}(r/c)^2 & \alpha = 2 \\
+\log\left(1 + \frac{1}{2}(r/c)^2\right) & \alpha = 0 \\
+\frac{|\alpha - 2|}{\alpha}\left(\left(\frac{(r/c)^2}{|\alpha - 2|} + 1\right)^{\alpha/2} - 1\right) & \text{otherwise}
+\end{cases}
+$$
+
+Practical reading:
+
+- $\alpha \approx 2$: near-quadratic, fastest on clean data
+- $\alpha \approx 1$: Huber-like compromise
+- $\alpha \approx 0$: Cauchy-like heavy-tail robustness
+- $\alpha < 0$: increasingly redescending behavior
+
+[`AdaptiveRobustLoss`](../api/losses.md#torchregress.losses.robust.AdaptiveRobustLoss) keeps the same loss family but makes $\alpha$ and $c$ trainable. This is useful when the tail behavior is unknown up front and you want the optimizer to learn a robust regime jointly with the model.
+
+```python
+import torch
+from torchregress.losses import AdaptiveRobustLoss, BarronLoss
+
+# Fixed-shape Barron loss
+loss_fn = BarronLoss(alpha=0.5, scale=1.0)
+
+# Jointly learn the robust shape and scale with the model
+adaptive_loss = AdaptiveRobustLoss(alpha_init=1.0, scale_init=1.0)
+optimizer = torch.optim.Adam(
+    list(model.parameters()) + list(adaptive_loss.parameters()),
+    lr=1e-3,
+)
+```
+
+!!! tip
+    Start with `BarronLoss(alpha=1.0, scale=1.0)` when you want one default that sits between Huber and Cauchy. Use `AdaptiveRobustLoss` when the residual tail shape is unclear and you are willing to optimize a few extra parameters.
+
+---
+
 ## Comparison & Selection
 
 ### Tradeoff Matrix
 
-| Metric | MSE | Huber | Cauchy | Tukey |
-|:-------|:---:|:-----:|:------:|:-----:|
-| **Convergence Speed** | 🚀 | 🚄 | 🚗 | 🐢 |
-| **Outlier Rejection** | ❌ | 🆗 | ✅ | 🏆 |
-| **Convexity** | ✅ | ✅ | ❌ | ❌ |
-| **Smoothness ($C^2$)** | ✅ | ❌ | ✅ | ❌ |
+| Metric | MSE | Huber | Barron | Cauchy | Tukey |
+|:-------|:---:|:-----:|:------:|:------:|:-----:|
+| **Convergence Speed** | 🚀 | 🚄 | 🚄 | 🚗 | 🐢 |
+| **Outlier Rejection** | ❌ | 🆗 | ✅ | ✅ | 🏆 |
+| **Convexity** | ✅ | ✅ | depends on $\alpha$ | ❌ | ❌ |
+| **Smoothness ($C^2$)** | ✅ | ❌ | ✅ | ✅ | ❌ |
 
 ### Decision Flowchart
 
@@ -78,9 +121,13 @@ graph TD
     Start["New Regression Problem"] --> Outliers{"Contains Outliers?"}
     Outliers -->|No| MSE["MSELoss (Standard)"]
     Outliers -->|Maybe/Mild| Huber["HuberLoss (delta=1.0)"]
+    Outliers -->|Unknown tail shape| Barron["BarronLoss (alpha≈1.0)"]
     Outliers -->|Confirmed/Severe| Redescending{"Severe/Adversarial?"}
     Redescending -->|Aggressive| Cauchy["CauchyLoss (c=1.0)"]
     Redescending -->|Extreme| Tukey["TukeyBiweight (c=4.685)"]
+    Barron --> Adaptive{"Need alpha/scale learned?"}
+    Adaptive -->|Yes| ABarron["AdaptiveRobustLoss"]
+    Adaptive -->|No| Barron
     
     Huber --> Smooth{"Need Smoothness?"}
     Smooth -->|Yes| PHuber["PseudoHuberLoss"]

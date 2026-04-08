@@ -21,6 +21,8 @@ from comparison_utils import (
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import (
+    AdaptiveRobustLoss,
+    BarronLoss,
     CharbonnierLoss,
     DensityWeightedLoss,
     TukeyBiweightLoss,
@@ -65,7 +67,9 @@ def generate_data_with_outliers(n_samples=200, outlier_ratio=0.1, seed=42):
 
 def train_model(model, loss_fn, train_loader, epochs=100, lr=0.01):
     """Train a model."""
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    parameters = list(model.parameters())
+    parameters.extend(param for param in loss_fn.parameters() if param.requires_grad)
+    optimizer = optim.Adam(parameters, lr=lr)
     model.train()
     for epoch in range(epochs):
         for x_batch, y_batch in train_loader:
@@ -90,6 +94,8 @@ def main():
         "MAE": create_loss_from_config({"type": "l1"}),
         "Huber": create_loss_from_config({"type": "huber", "delta": 1.0}),
         "LogCosh": create_loss_from_config({"type": "log_cosh"}),
+        "Barron": BarronLoss(alpha=1.0, scale=1.0),
+        "AdaptiveRobust": AdaptiveRobustLoss(alpha_init=1.0, scale_init=1.0),
         "GaussianNLL": create_loss_from_config({"type": "gaussian_nll"}),
         "TukeyBiweight": TukeyBiweightLoss(c=4.685),
         "Charbonnier": CharbonnierLoss(eps=1e-3),
@@ -193,7 +199,11 @@ def main():
             {
                 "Method": name,
                 **results[name]["metrics"],
-                "Notes": "mean+variance head" if name == "GaussianNLL" else "",
+                "Notes": (
+                    "mean+variance head"
+                    if name == "GaussianNLL"
+                    else "jointly learned alpha/scale" if name == "AdaptiveRobust" else ""
+                ),
             }
         )
 
