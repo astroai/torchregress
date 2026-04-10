@@ -90,7 +90,13 @@ from .mdn import MDNLoss, MixtureDensityLoss, create_mdn_loss
 
 # Normalizing flows (zuko is an optional dependency)
 try:
-    from .nflows import NormalizingFlowLoss, create_flow_loss, create_flow_model
+    from .nflows import (
+        ContrastiveFlowLoss,
+        NormalizingFlowLoss,
+        create_contrastive_flow_loss,
+        create_flow_loss,
+        create_flow_model,
+    )
 except ImportError:
     pass  # zuko not installed; normalizing flow features unavailable
 
@@ -265,14 +271,22 @@ __all__ = [
     "create_loss_from_config",
     # Normalizing flows
     "NormalizingFlowLoss",
+    "ContrastiveFlowLoss",
     "create_flow_model",
     "create_flow_loss",
+    "create_contrastive_flow_loss",
     # Mixture density networks
     "MixtureDensityLoss",
     "MDNLoss",
     "create_mdn_loss",
 ]
 
-for _optional_name in ["NormalizingFlowLoss", "create_flow_model", "create_flow_loss"]:
+for _optional_name in [
+    "NormalizingFlowLoss",
+    "ContrastiveFlowLoss",
+    "create_flow_model",
+    "create_flow_loss",
+    "create_contrastive_flow_loss",
+]:
     if _optional_name not in globals() and _optional_name in __all__:
         __all__.remove(_optional_name)

@@ -22,7 +22,7 @@ except ImportError:
 
     MAF = NSF = RealNVP = None
 
-from ..utils.tensor_ops import apply_mask, masked_reduction
+from ..utils.tensor_ops import masked_reduction
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
 
@@ -99,6 +99,23 @@ def create_flow_loss(*, reduction: str = "mean", **flow_kwargs: Any) -> "Normali
     """Create a normalizing-flow loss from flow constructor arguments."""
     flow = create_flow_model(**flow_kwargs)
     return NormalizingFlowLoss(flow=flow, reduction=reduction)
+
+
+def create_contrastive_flow_loss(
+    *,
+    reduction: str = "mean",
+    temperature: float = 1.0,
+    margin: float = 0.0,
+    **flow_kwargs: Any,
+) -> "ContrastiveFlowLoss":
+    """Create a contrastive normalizing-flow loss from flow constructor arguments."""
+    flow = create_flow_model(**flow_kwargs)
+    return ContrastiveFlowLoss(
+        flow=flow,
+        reduction=reduction,
+        temperature=temperature,
+        margin=margin,
+    )
 
 
 @register_regression_loss("nflow")
@@ -294,6 +311,35 @@ class NormalizingFlowLoss(DistributionLoss):
         del mask
         return cast(Tensor, -self.log_prob(context, target))
 
+    @staticmethod
+    def _sample_mask(mask: Optional[Tensor], target: Tensor) -> Optional[Tensor]:
+        """Collapse masks to the sample dimension and reject partial feature masking."""
+        if mask is None:
+            return None
+        if mask.shape[0] != target.shape[0]:
+            raise ValueError("mask batch dimension must match target batch dimension")
+        mask_bool = mask.bool()
+        if mask_bool.dim() == 1:
+            return mask_bool
+        flattened = mask_bool.reshape(mask_bool.shape[0], -1)
+        row_all = flattened.all(dim=1)
+        row_any = flattened.any(dim=1)
+        if not torch.equal(row_all, row_any):
+            raise ValueError(
+                "NormalizingFlowLoss only supports sample-level masks; "
+                "feature-wise masking is not valid for joint flow densities"
+            )
+        return row_all
+
+    @staticmethod
+    def _mask_invalid_samples(target: Tensor, sample_mask: Optional[Tensor]) -> Tensor:
+        """Replace fully masked samples with zeros to avoid NaNs during ignored evaluations."""
+        if sample_mask is None:
+            return target
+        expand_shape = (sample_mask.shape[0],) + (1,) * max(target.dim() - 1, 0)
+        expanded = sample_mask.reshape(expand_shape)
+        return torch.where(expanded, target, torch.zeros_like(target))
+
     def forward(
         self,
         y_pred: Tensor,
@@ -318,23 +364,24 @@ class NormalizingFlowLoss(DistributionLoss):
             ValueError: If shapes don't match expected dimensions
         """
         # Validate target shape
-        if target.shape[-1] != self.n_features:
+        target_feature_dim = 1 if target.dim() == 1 else target.shape[-1]
+        if target_feature_dim != self.n_features:
             raise ValueError(
-                f"Expected {self.n_features} features in target, got {target.shape[-1]}"
+                f"Expected {self.n_features} features in target, got {target_feature_dim}"
             )
 
         # Infer and store context_dim on first forward pass
         if self.context_dim is None and y_pred.numel() > 0:
             self.context_dim = y_pred.shape[-1] if y_pred.dim() > 0 else 0
 
-        # Apply mask to targets if provided
-        target_masked = apply_mask(target, mask) if mask is not None else target
+        sample_mask = self._sample_mask(mask, target)
+        target_eval = self._mask_invalid_samples(target, sample_mask)
 
         # Extract context
         context = self._extract_distribution_parameters(y_pred)
 
         # Calculate negative log-likelihood
-        nll = self._calculate_nll(target_masked, context, mask)
+        nll = self._calculate_nll(target_eval, context, sample_mask)
 
         # Apply weights if provided
         if weights is not None:
@@ -344,13 +391,8 @@ class NormalizingFlowLoss(DistributionLoss):
                 weights = weights.mean(dim=1)
             nll = nll * weights
 
-        # Handle mask shape - reduce to match nll shape if needed
-        if mask is not None and mask.dim() > nll.dim():
-            # If mask is per-feature, reduce to per-sample (all features must be valid)
-            mask = mask.all(dim=1)
-
         # Apply reduction
-        return masked_reduction(nll, mask, self.reduction)
+        return masked_reduction(nll, sample_mask, self.reduction)
 
     def sample(self, y_pred: Tensor, n_samples: int = 1) -> Tensor:
         """
@@ -379,3 +421,205 @@ class NormalizingFlowLoss(DistributionLoss):
                 samples = cast(Tensor, dist.sample((batch_size, n_samples)))
 
         return cast(Tensor, samples)
+
+
+@register_regression_loss("contrastive_nflow")
+class ContrastiveFlowLoss(NormalizingFlowLoss):
+    """
+    Contrastive likelihood-ratio loss for parameter-conditioned normalizing flows.
+
+    This loss extends :class:`NormalizingFlowLoss` from plain conditional density
+    estimation to ranking-style training. Each observed target is scored under:
+
+    - a ``positive`` context corresponding to the generating parameter setting, and
+    - one or more ``negative`` contexts corresponding to alternative hypotheses.
+
+    The loss is a multiclass InfoNCE-style objective over flow log-likelihoods:
+
+    .. math::
+
+        \\mathcal{L}(x, c^+, \\{c^-_k\\}) =
+        -\\log \\frac{\\exp((\\log p(x \\mid c^+) - m)/T)}
+        {\\exp((\\log p(x \\mid c^+) - m)/T) + \\sum_k \\exp(\\log p(x \\mid c^-_k)/T)}
+
+    where ``T`` is the temperature and ``m`` is an optional positive-class margin.
+
+    This is useful when the downstream task is parameter estimation or robust
+    hypothesis ranking under nuisance/domain-shift conditions rather than generic
+    density modeling alone.
+    """
+
+    def __init__(
+        self,
+        flow: Module,
+        reduction: str = "mean",
+        *,
+        temperature: float = 1.0,
+        margin: float = 0.0,
+    ) -> None:
+        super().__init__(flow=flow, reduction=reduction)
+        if temperature <= 0:
+            raise ValueError(f"temperature must be > 0, got {temperature}")
+        if margin < 0:
+            raise ValueError(f"margin must be >= 0, got {margin}")
+        self.temperature = float(temperature)
+        self.margin = float(margin)
+
+    def _prepare_negative_context(
+        self,
+        negative_context: Tensor,
+        batch_size: int,
+        *,
+        shared_negative_context: bool | None = None,
+    ) -> Tensor:
+        """Normalize negative-context inputs to shape ``[batch, n_negatives, context_dim]``."""
+        context_dim = 0 if self.context_dim is None else int(self.context_dim)
+        if negative_context.dim() == 2:
+            if negative_context.shape[0] == 0:
+                raise ValueError("negative_context must include at least one negative hypothesis")
+            if negative_context.shape[-1] != context_dim:
+                raise ValueError(
+                    "negative_context last dimension must match the positive context dimension"
+                )
+            if shared_negative_context is None and negative_context.shape[0] == batch_size:
+                raise ValueError(
+                    "negative_context with shape [N, context_dim] is ambiguous when N matches "
+                    "the batch size. Pass [batch, 1, context_dim] for per-sample negatives, "
+                    "[1, n_negatives, context_dim] for a shared bank, or set "
+                    "shared_negative_context explicitly."
+                )
+            if shared_negative_context is False:
+                if negative_context.shape[0] != batch_size:
+                    raise ValueError(
+                        "Per-sample negative_context must have batch dimension matching y_pred"
+                    )
+                return negative_context.unsqueeze(1)
+            return negative_context.unsqueeze(0).expand(batch_size, -1, -1)
+        if negative_context.dim() == 3:
+            if negative_context.shape[1] == 0:
+                raise ValueError("negative_context must include at least one negative hypothesis")
+            if negative_context.shape[-1] != context_dim:
+                raise ValueError(
+                    "negative_context last dimension must match the positive context dimension"
+                )
+            if negative_context.shape[0] == batch_size:
+                return negative_context
+            if negative_context.shape[0] == 1:
+                return negative_context.expand(batch_size, -1, -1)
+            raise ValueError(
+                "3D negative_context must have shape [batch, n_negatives, context_dim] "
+                "or [1, n_negatives, context_dim]"
+            )
+        raise ValueError(
+            "negative_context must have shape [batch, context_dim], "
+            "[n_negatives, context_dim], [1, n_negatives, context_dim], "
+            "or [batch, n_negatives, context_dim]"
+        )
+
+    def negative_log_likelihoods(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        negative_context: Tensor,
+        *,
+        shared_negative_context: bool | None = None,
+    ) -> Tensor:
+        """Return per-sample log-likelihoods under negative contexts."""
+        if self.context_dim is None and y_pred.numel() > 0:
+            self.context_dim = y_pred.shape[-1] if y_pred.dim() > 0 else 0
+
+        normalized_neg = self._prepare_negative_context(
+            negative_context,
+            batch_size=y_pred.shape[0],
+            shared_negative_context=shared_negative_context,
+        )
+        batch_size, n_negatives, _ = normalized_neg.shape
+        flat_context = normalized_neg.reshape(batch_size * n_negatives, -1)
+        target_matrix = target if target.dim() > 1 else target.unsqueeze(-1)
+        flat_target = (
+            target_matrix.unsqueeze(1)
+            .expand(-1, n_negatives, -1)
+            .reshape(batch_size * n_negatives, -1)
+        )
+        return self.log_prob(flat_context, flat_target).reshape(batch_size, n_negatives)
+
+    def log_likelihood_ratio(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        negative_context: Tensor,
+        *,
+        shared_negative_context: bool | None = None,
+    ) -> Tensor:
+        """Return ``log p(target|positive) - log p(target|negative)`` for each negative context."""
+        positive = self.log_prob(y_pred, target).unsqueeze(1)
+        negative = self.negative_log_likelihoods(
+            y_pred,
+            target,
+            negative_context,
+            shared_negative_context=shared_negative_context,
+        )
+        return positive - negative
+
+    def forward(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        mask: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        """
+        Calculate a contrastive flow loss using positive and negative contexts.
+
+        Keyword Args:
+            negative_context: Alternative contexts/hypotheses with shape
+                ``[batch, context_dim]``, ``[n_negatives, context_dim]``, or
+                ``[batch, n_negatives, context_dim]``. Prefer
+                ``[batch, n_negatives, context_dim]`` or
+                ``[1, n_negatives, context_dim]`` to avoid ambiguity.
+            negative_y_pred: Alias for ``negative_context``.
+            shared_negative_context: Set to ``True`` to interpret a 2-D
+                ``negative_context`` as a shared bank.
+        """
+        negative_context = cast(
+            Optional[Tensor],
+            kwargs.pop("negative_context", kwargs.pop("negative_y_pred", None)),
+        )
+        shared_negative_context = cast(
+            Optional[bool],
+            kwargs.pop("shared_negative_context", None),
+        )
+        if negative_context is None:
+            raise ValueError("ContrastiveFlowLoss requires negative_context in forward()")
+
+        target_feature_dim = 1 if target.dim() == 1 else target.shape[-1]
+        if target_feature_dim != self.n_features:
+            raise ValueError(
+                f"Expected {self.n_features} features in target, got {target_feature_dim}"
+            )
+
+        if self.context_dim is None and y_pred.numel() > 0:
+            self.context_dim = y_pred.shape[-1] if y_pred.dim() > 0 else 0
+
+        sample_mask = self._sample_mask(mask, target)
+        target_eval = self._mask_invalid_samples(target, sample_mask)
+        positive_log_prob = self.log_prob(y_pred, target_eval)
+        negative_log_prob = self.negative_log_likelihoods(
+            y_pred,
+            target_eval,
+            negative_context,
+            shared_negative_context=shared_negative_context,
+        )
+
+        pos_score = (positive_log_prob - self.margin) / self.temperature
+        neg_score = negative_log_prob / self.temperature
+        logits = torch.cat([pos_score.unsqueeze(1), neg_score], dim=1)
+        loss = -pos_score + torch.logsumexp(logits, dim=1)
+
+        if weights is not None:
+            if weights.dim() > 1 and weights.shape[1] > 1:
+                weights = weights.mean(dim=1)
+            loss = loss * weights
+
+        return masked_reduction(loss, sample_mask, self.reduction)

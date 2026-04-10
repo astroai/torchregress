@@ -458,6 +458,23 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Optional dependency (`zuko`); often compared after MDN baselines.",
     ),
     MethodMetadata(
+        name="ContrastiveFlowLoss",
+        family="flow",
+        public_path="torchregress.losses.ContrastiveFlowLoss",
+        task_tags=("parameter_estimation", "domain_shift", "simulation_based_inference"),
+        maturity="Available",
+        multimodal="yes",
+        multi_target="yes",
+        non_gaussian="yes",
+        aleatoric="yes",
+        decomposition="partial",
+        calibration="partial",
+        notes=(
+            "Likelihood-ratio style flow objective for parameter ranking against alternate "
+            "hypotheses; strongest when simulation under alternate settings is available."
+        ),
+    ),
+    MethodMetadata(
         name="FunctionalEIVLoss",
         family="eiv",
         public_path="torchregress.losses.FunctionalEIVLoss",

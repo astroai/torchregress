@@ -3,12 +3,15 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+import torchregress.test_time.transport as transport_mod
 from torchregress.prediction import PredictiveBatch, bars_to_density_grid, quantiles_to_density_grid
 from torchregress.test_time import (
     FeatureStatNormalizer,
     ParameterEMA,
     PosteriorLabelShiftAdapter,
     RepresentationShiftCalibrator,
+    ShiftFactoredPredictiveTransport,
+    ShiftFactoredTransportConfig,
     SignificantSubspaceAligner,
     confidence_scores,
     correct_gaussian_predictions_for_label_shift,
@@ -241,3 +244,253 @@ def test_representation_shift_calibrator_supports_subsampled_robust_fit() -> Non
     assert calibrated_std.shape == std.shape
     assert np.all(np.isfinite(calibrated_std))
     assert np.all(calibrated_std >= std)
+
+
+class _DummyPredictor:
+    def predict_distribution(self, X: np.ndarray, **kwargs: object) -> PredictiveBatch:
+        del kwargs
+        x = np.asarray(X, dtype=float)
+        mean = (1.2 * x[:, 0] - 0.4 * x[:, 1]).astype(np.float32)
+        std = np.full(x.shape[0], 0.15, dtype=np.float32)
+        return PredictiveBatch(mean=mean, std=std)
+
+
+def test_shift_factored_transport_adapts_gaussian_predictions() -> None:
+    rng = np.random.default_rng(7)
+    source_x = rng.normal(size=(48, 3))
+    source_y = 0.8 * source_x[:, 0] - 0.3 * source_x[:, 1] + 0.05 * rng.normal(size=48)
+    target_x = source_x + np.array([0.4, -0.2, 0.1])
+    predictor = _DummyPredictor()
+
+    source_batch = predictor.predict_distribution(source_x)
+    target_batch = predictor.predict_distribution(target_x)
+
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(n_support=96, random_state=0)
+    ).fit_source(
+        source_batch,
+        source_y,
+        source_inputs=source_x,
+    )
+    adapted = transport.adapt_unlabeled_target(
+        target_predictions=target_batch,
+        target_inputs=target_x,
+        predictor=predictor,
+    )
+
+    assert adapted.support is None
+    assert adapted.density is None
+    assert adapted.mean is not None
+    assert adapted.std is not None
+    assert np.all(np.isfinite(np.asarray(adapted.mean)))
+    assert np.all(np.isfinite(np.asarray(adapted.std)))
+    assert adapted.extra is not None
+    assert "target_prior" in adapted.extra
+    assert "target_prior_raw" in adapted.extra
+    assert "prior_shrink_weight" in adapted.extra
+    assert adapted.extra["alignment_applied"] is False
+
+
+def test_shift_factored_transport_supports_opt_in_input_alignment_rerun() -> None:
+    rng = np.random.default_rng(17)
+    source_x = rng.normal(size=(48, 3))
+    source_y = 0.8 * source_x[:, 0] - 0.3 * source_x[:, 1] + 0.05 * rng.normal(size=48)
+    target_x = source_x + np.array([0.4, -0.2, 0.1])
+    predictor = _DummyPredictor()
+
+    source_batch = predictor.predict_distribution(source_x)
+    target_batch = predictor.predict_distribution(target_x)
+
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(
+            n_support=96,
+            random_state=0,
+            allow_input_alignment_rerun=True,
+        )
+    ).fit_source(
+        source_batch,
+        source_y,
+        source_inputs=source_x,
+    )
+    adapted = transport.adapt_unlabeled_target(
+        target_predictions=target_batch,
+        target_inputs=target_x,
+        predictor=predictor,
+    )
+
+    assert adapted.extra is not None
+    assert adapted.extra["alignment_applied"] is True
+
+
+def test_shift_factored_transport_can_disable_prior_shift_update() -> None:
+    rng = np.random.default_rng(19)
+    source_x = rng.normal(size=(48, 3))
+    source_y = 0.8 * source_x[:, 0] - 0.3 * source_x[:, 1] + 0.05 * rng.normal(size=48)
+    target_x = source_x + np.array([0.4, -0.2, 0.1])
+    predictor = _DummyPredictor()
+
+    source_batch = predictor.predict_distribution(source_x)
+    target_batch = predictor.predict_distribution(target_x)
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(
+            n_support=96,
+            random_state=0,
+            prior_transport_strength=0.0,
+            enable_alignment=False,
+            enable_uncertainty_inflation=False,
+        )
+    ).fit_source(
+        source_batch,
+        source_y,
+        source_inputs=source_x,
+    )
+    adapted = transport.adapt_unlabeled_target(
+        target_predictions=target_batch,
+        target_inputs=target_x,
+    )
+
+    assert adapted.extra is not None
+    assert np.allclose(adapted.extra["target_prior"], adapted.extra["source_prior"])
+    assert float(adapted.extra["prior_shrink_weight"]) == 0.0
+    assert adapted.extra["transport_applied"] is False
+    assert np.allclose(np.asarray(adapted.mean), np.asarray(target_batch.mean))
+    assert np.allclose(np.asarray(adapted.std), np.asarray(target_batch.std))
+
+
+def test_shift_factored_transport_skips_nonconverged_prior_update_by_default() -> None:
+    source_prior = np.array([0.5, 0.5], dtype=float)
+    target_prior = np.array([0.1, 0.9], dtype=float)
+    probs = np.array([[0.95, 0.05], [0.92, 0.08]], dtype=float)
+    stabilized, meta = transport_mod._stabilize_target_prior(
+        source_prior=source_prior,
+        target_prior=target_prior,
+        selected_probabilities=probs,
+        converged=False,
+        config=ShiftFactoredTransportConfig(),
+    )
+    assert np.allclose(stabilized, source_prior)
+    assert float(meta["prior_shrink_weight"]) == 0.0
+    assert float(meta["prior_transport_skipped"]) == 1.0
+
+
+def test_shift_factored_transport_preserves_quantile_family_outputs() -> None:
+    rng = np.random.default_rng(11)
+    source_y = rng.normal(size=40)
+    quantiles = np.stack(
+        [
+            np.linspace(-0.5, 0.5, 24),
+            np.linspace(-0.25, 0.75, 24),
+            np.linspace(0.0, 1.0, 24),
+        ],
+        axis=1,
+    )
+    target_features = rng.normal(size=(24, 2))
+
+    batch = PredictiveBatch(
+        quantiles=quantiles.astype(np.float32),
+        quantile_levels=[0.1, 0.5, 0.9],
+    )
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(n_support=80, random_state=0)
+    ).fit_source(
+        batch,
+        source_y,
+        source_representations=rng.normal(size=(40, 2)),
+    )
+    adapted = transport.adapt_unlabeled_target(
+        target_predictions=batch,
+        target_representations=target_features,
+    )
+
+    assert adapted.quantiles is not None
+    assert adapted.quantile_levels == [0.1, 0.5, 0.9]
+    assert adapted.extra is not None
+    assert adapted.extra["family"] == "quantile"
+
+
+def test_shift_factored_transport_supports_conformal_and_ppi() -> None:
+    rng = np.random.default_rng(13)
+    source_x = rng.normal(size=(36, 2))
+    source_y = 0.7 * source_x[:, 0] + 0.2 * rng.normal(size=36)
+    predictor = _DummyPredictor()
+    source_batch = predictor.predict_distribution(source_x)
+
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(alpha=0.1, n_support=96, random_state=0)
+    ).fit_source(source_batch, source_y, source_inputs=source_x)
+
+    cal_x = rng.normal(size=(18, 2))
+    cal_batch = predictor.predict_distribution(cal_x)
+    cal_y = 0.7 * cal_x[:, 0] + 0.2 * rng.normal(size=18)
+    transport.calibrate_target(cal_batch, cal_y)
+
+    pred_batch = transport.predict(target_inputs=cal_x, predictor=predictor)
+    assert pred_batch.extra is not None
+    assert "interval_lower" in pred_batch.extra
+    assert "interval_upper" in pred_batch.extra
+
+    labeled = pred_batch
+    unlabeled = transport.adapt_unlabeled_target(
+        target_inputs=rng.normal(size=(32, 2)), predictor=predictor
+    )
+    mean_ci = transport.ppi_target_ci(
+        "mean",
+        cal_y,
+        labeled,
+        unlabeled,
+        alpha=0.1,
+        n_boot=200,
+        seed=0,
+    )
+    quantile_ci = transport.ppi_target_ci(
+        "quantile",
+        cal_y,
+        labeled,
+        unlabeled,
+        q=0.9,
+        alpha=0.1,
+        n_boot=200,
+        seed=0,
+    )
+    assert mean_ci["method"] == "ppi_mean_ci"
+    assert quantile_ci["method"] == "ppi_quantile_ci"
+
+
+def test_shift_factored_transport_preserves_gaussian_family_for_conformal() -> None:
+    rng = np.random.default_rng(23)
+    source_x = rng.normal(size=(36, 2))
+    source_y = 0.7 * source_x[:, 0] + 0.2 * rng.normal(size=36)
+    target_x = rng.normal(size=(18, 2))
+    target_y = 0.7 * target_x[:, 0] + 0.2 * rng.normal(size=18)
+    predictor = _DummyPredictor()
+
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(alpha=0.1, n_support=96, random_state=0)
+    ).fit_source(
+        predictor.predict_distribution(source_x),
+        source_y,
+        source_inputs=source_x,
+    )
+    adapted = transport.adapt_unlabeled_target(
+        target_predictions=predictor.predict_distribution(target_x),
+        target_inputs=target_x,
+        predictor=predictor,
+    )
+    assert adapted.extra is not None
+    assert adapted.extra["family"] == "gaussian"
+
+    transport.calibrate_target(adapted, target_y)
+    assert transport.state_ is not None
+    assert transport.state_.conformal_method == "interval"
+
+    native_lower, native_upper = transport_mod._native_interval(
+        adapted,
+        alpha=transport.config.alpha,
+        eps=transport.config.eps,
+        family_hint="gaussian",
+    )
+    conformed = transport.apply_conformal(adapted)
+    assert conformed.extra is not None
+    lower = np.asarray(conformed.extra["interval_lower"], dtype=float)
+    upper = np.asarray(conformed.extra["interval_upper"], dtype=float)
+    assert np.all(upper - lower >= native_upper - native_lower - 1.0e-8)

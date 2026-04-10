@@ -62,6 +62,34 @@ def test_render_example_summaries_multimodal_realdata_subset(tmp_path: Path) -> 
     assert {"GaussianNLL", "MDN", "NormalizingFlow"} <= methods
 
 
+def test_render_example_summaries_contrastive_flow_synth_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["contrastive_flow_parameter_estimation_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "parameter estimation" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {"GaussianSummary", "NormalizingFlow", "ContrastiveFlow"} <= methods
+
+
+def test_render_example_summaries_contrastive_flow_photoz_subset(tmp_path: Path) -> None:
+    paths = render_example_summaries.render_all(
+        profile="smoke",
+        output_dir=tmp_path,
+        examples=["contrastive_flow_photoz_proxy_comparison"],
+    )
+    assert len(paths) == 1
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    assert payload["artifact"] == "comparison_example_summary"
+    assert "photo-z proxy" in payload["task"].lower()
+    methods = {row["Method"] for row in payload["rows"]}
+    assert {"GaussianSummary", "NormalizingFlow", "ContrastiveFlow"} <= methods
+
+
 def test_render_example_summaries_realdata_subset(tmp_path: Path) -> None:
     paths = render_example_summaries.render_all(
         profile="smoke",

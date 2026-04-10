@@ -156,6 +156,82 @@ def _multimodal_realdata_config(module: Any, profile: str) -> Any:
     return module.MultimodalRealDataConfig()
 
 
+def _contrastive_flow_synth_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.ContrastiveFlowComparisonConfig(
+            n_train=64,
+            n_test=24,
+            events_per_experiment=48,
+            batch_size=16,
+            epochs=2,
+            hidden=16,
+            flow_context_dim=8,
+            flow_transforms=2,
+            n_negatives=2,
+            mu_grid_size=11,
+            nuisance_grid_size=9,
+        )
+    if profile == "audit":
+        return module.ContrastiveFlowComparisonConfig(
+            n_train=192,
+            n_test=64,
+            events_per_experiment=96,
+            batch_size=32,
+            epochs=12,
+            hidden=48,
+            flow_context_dim=16,
+            flow_transforms=4,
+            n_negatives=4,
+            mu_grid_size=21,
+            nuisance_grid_size=17,
+        )
+    return module.ContrastiveFlowComparisonConfig()
+
+
+def _contrastive_flow_photoz_config(module: Any, profile: str) -> Any:
+    if profile == "smoke":
+        return module.ContrastivePhotoZProxyConfig(
+            n_train=64,
+            n_cal=24,
+            n_test=24,
+            batch_size=16,
+            epochs=2,
+            hidden=16,
+            flow_context_dim=8,
+            flow_transforms=2,
+            n_negatives=2,
+            n_train_experiments=48,
+            n_test_experiments=24,
+            catalog_size=24,
+            force_simulated=True,
+            allow_download=False,
+            sample_size_if_generate=256,
+        )
+    if profile == "audit":
+        return module.ContrastivePhotoZProxyConfig(
+            n_train=128,
+            n_cal=48,
+            n_test=48,
+            batch_size=32,
+            epochs=10,
+            hidden=32,
+            flow_context_dim=16,
+            flow_transforms=4,
+            n_negatives=4,
+            n_train_experiments=160,
+            n_test_experiments=64,
+            catalog_size=40,
+            force_simulated=True,
+            allow_download=False,
+            sample_size_if_generate=640,
+        )
+    return module.ContrastivePhotoZProxyConfig(
+        force_simulated=True,
+        allow_download=False,
+        sample_size_if_generate=1200,
+    )
+
+
 def _noisy_label_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.NoisyLabelComparisonConfig(
@@ -599,6 +675,14 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "multimodal_method_realdata_comparison": {
         "filename": "multimodal_method_realdata_comparison",
         "config_factory": _multimodal_realdata_config,
+    },
+    "contrastive_flow_parameter_estimation_comparison": {
+        "filename": "contrastive_flow_parameter_estimation_comparison",
+        "config_factory": _contrastive_flow_synth_config,
+    },
+    "contrastive_flow_photoz_proxy_comparison": {
+        "filename": "contrastive_flow_photoz_proxy_comparison",
+        "config_factory": _contrastive_flow_photoz_config,
     },
     "noisy_label_comparison": {
         "filename": "noisy_label_comparison",

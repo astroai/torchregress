@@ -172,7 +172,8 @@ For **arbitrarily complex** conditional distributions:
 | Loss | Description |
 |:-----|:-----------|
 | `NormalizingFlowLoss` | NLL via change-of-variables (requires `zuko`) |
-| `create_flow_model()` / `create_flow_loss()` | Factory functions |
+| `ContrastiveFlowLoss` | Contrastive likelihood-ratio training over positive vs alternate contexts |
+| `create_flow_model()` / `create_flow_loss()` / `create_contrastive_flow_loss()` | Factory functions |
 
 → [Normalizing Flows reference](nflows.md)
 

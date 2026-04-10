@@ -112,6 +112,23 @@ def _write_tiny_photoz_csv(path: Path, *, n_rows: int, seed: int) -> None:
     frame.to_csv(path, index=False)
 
 
+def _write_tiny_tabular_csv(
+    path: Path,
+    *,
+    n_rows: int,
+    n_features: int,
+    seed: int,
+    target_column: str = "target",
+) -> None:
+    rng = np.random.default_rng(seed)
+    x = rng.normal(size=(n_rows, n_features)).astype("float32")
+    weights = rng.normal(size=n_features).astype("float32")
+    y = (x @ weights + 0.1 * rng.normal(size=n_rows)).astype("float32")
+    frame = pd.DataFrame(x, columns=[f"f{i}" for i in range(n_features)])
+    frame[target_column] = y
+    frame.to_csv(path, index=False)
+
+
 def test_ood_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("ood_selective_prediction_comparison")
     out = tmp_path / "ood_summary.json"
@@ -267,6 +284,148 @@ def test_transformed_target_regression_comparison_writes_summary_json(tmp_path: 
         _assert_non_negative(row["eval_s"])
 
 
+def test_spt_reg_synthetic_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("spt_reg_synthetic_comparison")
+    out = tmp_path / "spt_reg_synthetic_summary.json"
+    cfg = mod.SPTRegSyntheticConfig(
+        n_source=96,
+        n_target_unlabeled=48,
+        n_target_cal=24,
+        n_target_test=24,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="spt-reg",
+        required_methods={
+            "SourceGaussian",
+            "SPTRegGaussian",
+            "TargetRefitSmallGaussian",
+            "SourceBinnedPDF",
+            "SPTRegBinnedPDF",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "SourceGaussian",
+        "SPTRegGaussian",
+        "TargetRefitSmallGaussian",
+        "SourceBinnedPDF",
+        "SPTRegBinnedPDF",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Family",
+                "MSE",
+                "MAE",
+                "TailRMSE90",
+                "NLL",
+                "CRPS",
+                "Cov90",
+                "Width90",
+                "AURC",
+                "PPIMeanCIWidth",
+                "PPIMeanCICovers",
+                "PPIQuantileCIWidth",
+                "PPIQuantileCICovers",
+                "train_s",
+                "eval_s",
+            ],
+        )
+        _assert_non_negative(row["MSE"])
+        _assert_non_negative(row["MAE"])
+        _assert_non_negative(row["TailRMSE90"])
+        _assert_finite_numeric(row["NLL"])
+        _assert_non_negative(row["CRPS"])
+        _assert_probability(row["Cov90"])
+        _assert_non_negative(row["Width90"])
+        _assert_non_negative(row["AURC"])
+        _assert_non_negative(row["PPIMeanCIWidth"])
+        _assert_probability(row["PPIMeanCICovers"])
+        _assert_non_negative(row["PPIQuantileCIWidth"])
+        _assert_probability(row["PPIQuantileCICovers"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
+def test_spt_reg_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("spt_reg_realdata_comparison")
+    out = tmp_path / "spt_reg_realdata_summary.json"
+    cfg = mod.SPTRegRealDataConfig(
+        n_source=160,
+        n_target_unlabeled=32,
+        n_target_cal=24,
+        n_target_test=24,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="real-data",
+        required_methods={
+            "SourceGaussian",
+            "SPTRegGaussian",
+            "TargetRefitSmallGaussian",
+            "SourceBinnedPDF",
+            "SPTRegBinnedPDF",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "SourceGaussian",
+        "SPTRegGaussian",
+        "TargetRefitSmallGaussian",
+        "SourceBinnedPDF",
+        "SPTRegBinnedPDF",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Family",
+                "MSE",
+                "MAE",
+                "TailRMSE90",
+                "NLL",
+                "CRPS",
+                "Cov90",
+                "Width90",
+                "AURC",
+                "PPIMeanCIWidth",
+                "PPIMeanCICovers",
+                "PPIQuantileCIWidth",
+                "PPIQuantileCICovers",
+                "train_s",
+                "eval_s",
+            ],
+        )
+        _assert_non_negative(row["MSE"])
+        _assert_non_negative(row["MAE"])
+        _assert_non_negative(row["TailRMSE90"])
+        _assert_finite_numeric(row["NLL"])
+        _assert_non_negative(row["CRPS"])
+        _assert_probability(row["Cov90"])
+        _assert_non_negative(row["Width90"])
+        _assert_non_negative(row["AURC"])
+        _assert_non_negative(row["PPIMeanCIWidth"])
+        _assert_probability(row["PPIMeanCICovers"])
+        _assert_non_negative(row["PPIQuantileCIWidth"])
+        _assert_probability(row["PPIQuantileCICovers"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_semi_supervised_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("semi_supervised_regression_comparison")
     out = tmp_path / "semi_supervised_summary.json"
@@ -350,6 +509,163 @@ def test_eiv_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_non_negative(row["eval_s"])
 
 
+def test_spt_reg_year_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("spt_reg_year_comparison")
+    out = tmp_path / "spt_reg_year_summary.json"
+    data_path = tmp_path / "year_like.csv"
+    _write_tiny_tabular_csv(data_path, n_rows=320, n_features=10, seed=41)
+    cfg = mod.SPTRegYearConfig(
+        dataset_path=str(data_path),
+        allow_download=False,
+        n_source=160,
+        n_target_unlabeled=32,
+        n_target_cal=24,
+        n_target_test=24,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="yearpredictionmsd-style",
+        required_methods={
+            "SourceGaussian",
+            "SPTRegGaussian",
+            "TargetRefitSmallGaussian",
+            "SourceBinnedPDF",
+            "SPTRegBinnedPDF",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "SourceGaussian",
+        "SPTRegGaussian",
+        "TargetRefitSmallGaussian",
+        "SourceBinnedPDF",
+        "SPTRegBinnedPDF",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Family",
+                "MSE",
+                "MAE",
+                "TailRMSE90",
+                "NLL",
+                "CRPS",
+                "Cov90",
+                "Width90",
+                "AURC",
+                "PPIMeanCIWidth",
+                "PPIMeanCICovers",
+                "PPIQuantileCIWidth",
+                "PPIQuantileCICovers",
+                "train_s",
+                "eval_s",
+            ],
+        )
+        _assert_non_negative(row["MSE"])
+        _assert_non_negative(row["MAE"])
+        _assert_non_negative(row["TailRMSE90"])
+        _assert_finite_numeric(row["NLL"])
+        _assert_non_negative(row["CRPS"])
+        _assert_probability(row["Cov90"])
+        _assert_non_negative(row["Width90"])
+        _assert_non_negative(row["AURC"])
+        _assert_non_negative(row["PPIMeanCIWidth"])
+        _assert_probability(row["PPIMeanCICovers"])
+        _assert_non_negative(row["PPIQuantileCIWidth"])
+        _assert_probability(row["PPIQuantileCICovers"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
+def test_spt_reg_photoz_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("spt_reg_photoz_comparison")
+    out = tmp_path / "spt_reg_photoz_summary.json"
+    cfg = mod.SPTRegPhotoZConfig(
+        n_train=96,
+        n_target_unlabeled=24,
+        n_target_cal=24,
+        n_target_test=24,
+        epochs=2,
+        hidden=16,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+        sample_size_if_generate=256,
+        force_simulated=True,
+        allow_download=False,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="photo-z",
+        required_methods={
+            "SourceGaussian",
+            "SPTRegGaussian",
+            "TargetRefitSmallGaussian",
+            "SourceBinnedPDF",
+            "SPTRegBinnedPDF",
+        },
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in (
+        "SourceGaussian",
+        "SPTRegGaussian",
+        "TargetRefitSmallGaussian",
+        "SourceBinnedPDF",
+        "SPTRegBinnedPDF",
+    ):
+        row = rows[method]
+        _assert_row_has_keys(
+            row,
+            [
+                "Family",
+                "MSE",
+                "MAE",
+                "TailRMSE90",
+                "NMAD",
+                "CatastrophicRate",
+                "HighZ_MAE",
+                "NLL",
+                "CRPS",
+                "Cov90",
+                "Width90",
+                "AURC",
+                "PPIMeanCIWidth",
+                "PPIMeanCICovers",
+                "PPIQuantileCIWidth",
+                "PPIQuantileCICovers",
+                "train_s",
+                "eval_s",
+            ],
+        )
+        _assert_non_negative(row["MSE"])
+        _assert_non_negative(row["MAE"])
+        _assert_non_negative(row["TailRMSE90"])
+        _assert_non_negative(row["NMAD"])
+        _assert_probability(row["CatastrophicRate"])
+        _assert_non_negative(row["HighZ_MAE"])
+        _assert_non_negative(row["NLL"])
+        _assert_non_negative(row["CRPS"])
+        _assert_probability(row["Cov90"])
+        _assert_non_negative(row["Width90"])
+        _assert_non_negative(row["AURC"])
+        _assert_non_negative(row["PPIMeanCIWidth"])
+        _assert_probability(row["PPIMeanCICovers"])
+        _assert_non_negative(row["PPIQuantileCIWidth"])
+        _assert_probability(row["PPIQuantileCICovers"])
+        _assert_non_negative(row["train_s"])
+        _assert_non_negative(row["eval_s"])
+
+
 def test_multimodal_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("multimodal_method_comparison")
     out = tmp_path / "multimodal_summary.json"
@@ -424,6 +740,84 @@ def test_multimodal_realdata_comparison_writes_summary_json(tmp_path: Path) -> N
         _assert_non_negative(rows[method]["NLL"])
         _assert_non_negative(rows[method]["Energy"])
         _assert_non_negative(rows[method]["MCE"])
+
+
+def test_contrastive_flow_parameter_estimation_comparison_writes_summary_json(
+    tmp_path: Path,
+) -> None:
+    mod = _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    out = tmp_path / "contrastive_flow_synth_summary.json"
+    cfg = mod.ContrastiveFlowComparisonConfig(
+        n_train=48,
+        n_test=16,
+        events_per_experiment=24,
+        batch_size=8,
+        epochs=1,
+        hidden=8,
+        flow_context_dim=4,
+        flow_transforms=2,
+        n_negatives=2,
+        mu_grid_size=9,
+        nuisance_grid_size=7,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="parameter estimation",
+        required_methods={"GaussianSummary", "NormalizingFlow", "ContrastiveFlow"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("GaussianSummary", "NormalizingFlow", "ContrastiveFlow"):
+        row = rows[method]
+        _assert_row_has_keys(row, ["train_s", "eval_s", "Notes"])
+        if row["train_s"] is not None:
+            _assert_non_negative(row["train_s"])
+        if row["eval_s"] is not None:
+            _assert_non_negative(row["eval_s"])
+    _assert_non_negative(rows["GaussianSummary"]["ParamMAE"])
+    _assert_non_negative(rows["GaussianSummary"]["Dim0_MAE"])
+    _assert_non_negative(rows["GaussianSummary"]["Dim1_MAE"])
+
+
+def test_contrastive_flow_photoz_proxy_comparison_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("contrastive_flow_photoz_proxy_comparison")
+    out = tmp_path / "contrastive_flow_photoz_proxy_summary.json"
+    cfg = mod.ContrastivePhotoZProxyConfig(
+        n_train=48,
+        n_cal=16,
+        n_test=16,
+        batch_size=8,
+        epochs=1,
+        hidden=8,
+        flow_context_dim=4,
+        flow_transforms=2,
+        n_negatives=2,
+        n_train_experiments=16,
+        n_test_experiments=8,
+        catalog_size=12,
+        force_simulated=True,
+        allow_download=False,
+        sample_size_if_generate=160,
+    )
+    mod.main(cfg, summary_json_path=str(out))
+    _assert_summary_schema(
+        out,
+        task_substring="photo-z proxy",
+        required_methods={"GaussianSummary", "NormalizingFlow", "ContrastiveFlow"},
+    )
+    payload = _load_payload(out)
+    rows = _rows_by_method(payload)
+    for method in ("GaussianSummary", "NormalizingFlow", "ContrastiveFlow"):
+        row = rows[method]
+        _assert_row_has_keys(row, ["train_s", "eval_s", "Notes"])
+        if row["train_s"] is not None:
+            _assert_non_negative(row["train_s"])
+        if row["eval_s"] is not None:
+            _assert_non_negative(row["eval_s"])
+    _assert_non_negative(rows["GaussianSummary"]["ParamMAE"])
+    _assert_non_negative(rows["GaussianSummary"]["Dim0_MAE"])
+    _assert_non_negative(rows["GaussianSummary"]["Dim1_MAE"])
 
 
 def test_photoz_benchmark_comparison_writes_summary_json(tmp_path: Path) -> None:

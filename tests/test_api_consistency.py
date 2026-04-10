@@ -150,6 +150,7 @@ def test_reduction_behavior():
         "DiagonalGaussianNLL",  # Needs variance input
         "WeightedLossWrapper",  # Wrapper class
         "NormalizingFlowLoss",  # Needs flow parameters
+        "ContrastiveFlowLoss",  # Needs flow parameters and negative contexts
         "CoTeachingLoss",  # Needs two predictions
         "RENTLoss",  # Needs ensemble predictions
         "DensityWeightedLoss",  # Needs to be fitted first

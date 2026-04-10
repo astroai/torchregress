@@ -62,6 +62,42 @@ loss_fn = create_flow_loss(
 )
 ```
 
+### Contrastive Flow Variant
+
+When the downstream task is **parameter ranking** rather than generic density estimation,
+use `ContrastiveFlowLoss`. It compares the observed target under the correct context against
+one or more alternate contexts:
+
+```python
+from torchregress.losses import ContrastiveFlowLoss
+
+loss_fn = ContrastiveFlowLoss(flow=flow, temperature=0.7, margin=0.2)
+loss = loss_fn(
+    positive_context,
+    target,
+    negative_context=negative_context,  # [batch, n_negatives, context_dim]
+)
+```
+
+This is useful for nuisance-aware parameter estimation, simulator calibration, and domain-shift
+settings where you care about the **likelihood ratio between hypotheses**, not only `p(y|x)`.
+
+In practice, expect `ContrastiveFlowLoss` to help only when:
+
+- the evaluation task is parameter ranking, scanning, or retrieval over hypotheses
+- you can generate informative alternate contexts during training
+- the parameter space is low-dimensional enough that discrimination between nearby hypotheses matters
+- full-density calibration and sampling quality are secondary to getting the ordering right
+
+If you mainly want a well-calibrated conditional density model, start with `NormalizingFlowLoss`.
+`ContrastiveFlowLoss` is a task-specific objective, not a stronger default flow loss.
+
+!!! info "Negative-context shapes"
+    Use `[batch, n_negatives, context_dim]` for per-sample negative hypotheses or
+    `[1, n_negatives, context_dim]` for a shared bank broadcast across the batch.
+    A 2-D tensor `[N, context_dim]` is ambiguous when `N == batch_size`; the implementation now
+    raises in that case unless you disambiguate explicitly.
+
 ### Step 3: Train
 
 ```python
@@ -103,6 +139,18 @@ with torch.no_grad():
     # samples shape: [batch, 1000, n_features]
 ```
 
+For a challenge-style parameter scan built on top of `ContrastiveFlowLoss`, see
+[Contrastive Flow Parameter Estimation](../examples/contrastive_flow_parameter_estimation.md).
+For shared-budget comparisons against Gaussian-summary and plain-flow baselines, see
+[Contrastive Flow Parameter Estimation Comparison](../examples/contrastive_flow_parameter_estimation_comparison.md)
+and [Contrastive Flow Photo-z Proxy Comparison](../examples/contrastive_flow_photoz_proxy_comparison.md).
+
+!!! warning "Mask semantics"
+    Flow objectives model a **joint density** over all target dimensions. `NormalizingFlowLoss`
+    and `ContrastiveFlowLoss` therefore only support **sample-level** masking, not partial
+    feature-wise masking. If one target dimension is missing, drop the whole sample or switch to
+    a model with an explicit missing-data strategy.
+
 ---
 
 ## Flow Architectures
@@ -113,6 +161,13 @@ with torch.no_grad():
 | **MAF** | ⭐⭐⭐ | Slow | Fast | Conditional density estimation |
 | **NSF** | ⭐⭐⭐⭐ | Medium | Medium | Complex multimodal distributions |
 
+## When To Use Which Flow Objective
+
+| Objective | Start Here When | Tradeoff |
+|:--|:--|:--|
+| `NormalizingFlowLoss` | You need calibrated conditional densities, sampling, or a strong general-purpose flow baseline | Does not directly optimize parameter discrimination |
+| `ContrastiveFlowLoss` | You need to rank the true hypothesis above alternate parameter settings with meaningful training negatives | Can underperform plain NLL when density calibration is the real objective |
+
 ---
 
 ## References
@@ -122,3 +177,4 @@ with torch.no_grad():
 | 1 | D. Rezende, S. Mohamed. "Variational Inference with Normalizing Flows." *ICML*, **2015**. |
 | 2 | G. Papamakarios et al. "Normalizing Flows for Probabilistic Modeling and Inference." *JMLR*, 22(57):1–64, **2021**. |
 | 3 | F. Rozet et al. "Zuko: Normalizing Flows in PyTorch." **2022**. |
+| 4 | I. Elsharkawy, Y. Kahn. "Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation." *arXiv:2505.08709*, **2025**. |

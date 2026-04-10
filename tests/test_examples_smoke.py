@@ -6,6 +6,7 @@ from pathlib import Path
 from types import ModuleType
 
 import matplotlib
+import numpy as np
 import pandas as pd
 import pytest
 import torch
@@ -33,6 +34,23 @@ def _load_example_module(stem: str) -> ModuleType:
     return module
 
 
+def _write_tiny_tabular_csv(
+    path: Path,
+    *,
+    n_rows: int,
+    n_features: int,
+    seed: int,
+    target_column: str = "target",
+) -> None:
+    rng = np.random.default_rng(seed)
+    x = rng.normal(size=(n_rows, n_features)).astype("float32")
+    weights = rng.normal(size=n_features).astype("float32")
+    y = (x @ weights + 0.1 * rng.normal(size=n_rows)).astype("float32")
+    frame = pd.DataFrame(x, columns=[f"f{i}" for i in range(n_features)])
+    frame[target_column] = y
+    frame.to_csv(path, index=False)
+
+
 def test_hard_problem_examples_import_smoke() -> None:
     # Import-only smoke checks for examples touched in the audit-priority pass.
     _load_example_module("imbalanced_regression")
@@ -45,11 +63,14 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("noisy_label_realdata_comparison")
     _load_example_module("multimodal_method_comparison")
     _load_example_module("multimodal_method_realdata_comparison")
+    _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    _load_example_module("contrastive_flow_photoz_proxy_comparison")
     _load_example_module("photoz_benchmark_comparison")
     _load_example_module("photoz_nnc_crps_rail_comparison")
     _load_example_module("photoz_transferz_semisupervised_comparison")
     _load_example_module("photoz_transferz_conformal_comparison")
     _load_example_module("ppi_photoz_inference_comparison")
+    _load_example_module("spt_reg_photoz_comparison")
     _load_example_module("ordinal_regression_comparison")
     _load_example_module("ordinal_regression_realdata_comparison")
     _load_example_module("ordinal_uncertain_ground_truth_comparison")
@@ -58,6 +79,9 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("propensity_tail_regression_comparison")
     _load_example_module("constraints_calibration_comparison")
     _load_example_module("transformed_target_regression_comparison")
+    _load_example_module("spt_reg_synthetic_comparison")
+    _load_example_module("spt_reg_realdata_comparison")
+    _load_example_module("spt_reg_year_comparison")
     _load_example_module("semi_supervised_regression_comparison")
     _load_example_module("uncertain_gt_density_conformal_comparison")
     _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
@@ -270,6 +294,74 @@ def test_transformed_target_regression_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
+def test_spt_reg_synthetic_comparison_main_smoke() -> None:
+    mod = _load_example_module("spt_reg_synthetic_comparison")
+    cfg = mod.SPTRegSyntheticConfig(
+        n_source=96,
+        n_target_unlabeled=48,
+        n_target_cal=24,
+        n_target_test=24,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+    )
+    mod.main(cfg)
+
+
+def test_spt_reg_realdata_comparison_main_smoke() -> None:
+    mod = _load_example_module("spt_reg_realdata_comparison")
+    cfg = mod.SPTRegRealDataConfig(
+        n_source=160,
+        n_target_unlabeled=32,
+        n_target_cal=24,
+        n_target_test=24,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+    )
+    mod.main(cfg)
+
+
+def test_spt_reg_year_comparison_main_smoke(tmp_path: Path) -> None:
+    mod = _load_example_module("spt_reg_year_comparison")
+    data_path = tmp_path / "year_like.csv"
+    _write_tiny_tabular_csv(data_path, n_rows=320, n_features=10, seed=42)
+    cfg = mod.SPTRegYearConfig(
+        dataset_path=str(data_path),
+        allow_download=False,
+        n_source=160,
+        n_target_unlabeled=32,
+        n_target_cal=24,
+        n_target_test=24,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+    )
+    mod.main(cfg)
+
+
+def test_spt_reg_photoz_comparison_main_smoke() -> None:
+    mod = _load_example_module("spt_reg_photoz_comparison")
+    cfg = mod.SPTRegPhotoZConfig(
+        n_train=96,
+        n_target_unlabeled=24,
+        n_target_cal=24,
+        n_target_test=24,
+        epochs=2,
+        hidden=16,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+        sample_size_if_generate=256,
+        force_simulated=True,
+    )
+    mod.main(cfg)
+
+
 def test_semi_supervised_regression_comparison_main_smoke() -> None:
     mod = _load_example_module("semi_supervised_regression_comparison")
     cfg = mod.SemiSupervisedRegressionConfig(
@@ -435,6 +527,46 @@ def test_multimodal_method_realdata_comparison_main_smoke() -> None:
         eval_samples=8,
         flow_context_dim=4,
         flow_transforms=2,
+    )
+    mod.main(cfg)
+
+
+def test_contrastive_flow_parameter_estimation_comparison_main_smoke() -> None:
+    mod = _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    cfg = mod.ContrastiveFlowComparisonConfig(
+        n_train=32,
+        n_test=16,
+        events_per_experiment=24,
+        batch_size=8,
+        epochs=1,
+        hidden=8,
+        flow_context_dim=4,
+        flow_transforms=2,
+        n_negatives=2,
+        mu_grid_size=9,
+        nuisance_grid_size=7,
+    )
+    mod.main(cfg)
+
+
+def test_contrastive_flow_photoz_proxy_comparison_main_smoke() -> None:
+    mod = _load_example_module("contrastive_flow_photoz_proxy_comparison")
+    cfg = mod.ContrastivePhotoZProxyConfig(
+        n_train=48,
+        n_cal=16,
+        n_test=16,
+        batch_size=8,
+        epochs=1,
+        hidden=8,
+        flow_context_dim=4,
+        flow_transforms=2,
+        n_negatives=2,
+        n_train_experiments=16,
+        n_test_experiments=8,
+        catalog_size=12,
+        force_simulated=True,
+        allow_download=False,
+        sample_size_if_generate=160,
     )
     mod.main(cfg)
 

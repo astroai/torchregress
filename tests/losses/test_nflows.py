@@ -224,6 +224,17 @@ def test_forward_with_mask(simple_conditional_flow, mock_context, mock_target):
     assert torch.isfinite(loss)
 
 
+def test_forward_rejects_partial_feature_mask(simple_conditional_flow):
+    """Feature-wise masking is not valid for joint flow densities."""
+    loss_fn = NormalizingFlowLoss(flow=simple_conditional_flow)
+    context = torch.randn(2, 5)
+    target = torch.randn(2, 2)
+    mask = torch.tensor([[True, False], [True, True]])
+
+    with pytest.raises(ValueError, match="sample-level masks"):
+        loss_fn(context, target, mask=mask)
+
+
 def test_forward_with_weights(simple_conditional_flow, mock_context, mock_target, mock_weights):
     """Test forward pass with sample weights."""
     loss_fn = NormalizingFlowLoss(flow=simple_conditional_flow)

@@ -130,3 +130,12 @@ def test_gaussian_nll_loss_legacy_positional_mask_weights_remain_supported() -> 
     legacy = loss((mean, log_var), target, mask, weights)
     canonical = loss((mean, log_var), target, None, mask, weights)
     assert torch.allclose(legacy, canonical)
+
+
+def test_optional_flow_loss_exports_include_contrastive_symbols_when_available() -> None:
+    if "NormalizingFlowLoss" not in losses.__all__:
+        return
+    assert "ContrastiveFlowLoss" in losses.__all__
+    assert "create_contrastive_flow_loss" in losses.__all__
+    assert getattr(losses, "ContrastiveFlowLoss", None) is not None
+    assert getattr(losses, "create_contrastive_flow_loss", None) is not None

@@ -192,6 +192,9 @@ nav:
       - Prediction Intervals:
           - Conformal Regression: examples/conformal_regression_example.md
           - Normalizing Flows: examples/normalizing_flows_multitarget.md
+          - Contrastive Flow Parameter Estimation: examples/contrastive_flow_parameter_estimation.md
+          - Contrastive Flow Comparison: examples/contrastive_flow_parameter_estimation_comparison.md
+          - Contrastive Flow Photo-z Proxy: examples/contrastive_flow_photoz_proxy_comparison.md
           - Multimodal Methods: examples/multimodal_method_comparison.md
           - Multimodal (Real Data): examples/multimodal_method_realdata_comparison.md
       - Robustness & Imbalance:

@@ -17,7 +17,7 @@ def test_method_catalog_includes_peer_uq_methods_without_experimental_default_la
 def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     multimodal = method_catalog.list_methods(capability_filters={"multimodal": "yes"})
     multimodal_names = {row["name"] for row in multimodal}
-    assert {"MDNLoss", "NormalizingFlowLoss"} <= multimodal_names
+    assert {"MDNLoss", "NormalizingFlowLoss", "ContrastiveFlowLoss"} <= multimodal_names
 
     eiv = method_catalog.list_methods(task_tag="noisy_features")
     eiv_names = {row["name"] for row in eiv}
@@ -31,6 +31,10 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     inference = method_catalog.list_methods(task_tag="inference")
     inference_names = {row["name"] for row in inference}
     assert "PredictionPoweredInference" in inference_names
+
+    param_est = method_catalog.list_methods(task_tag="parameter_estimation")
+    param_est_names = {row["name"] for row in param_est}
+    assert "ContrastiveFlowLoss" in param_est_names
 
     ordinal = method_catalog.list_methods(task_tag="ordinal")
     ordinal_names = {row["name"] for row in ordinal}

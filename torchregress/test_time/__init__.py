@@ -27,6 +27,11 @@ from .selection import (
     select_high_confidence,
 )
 from .subspace import FeatureStatNormalizer, SignificantSubspaceAligner, SubspaceAlignmentState
+from .transport import (
+    ShiftFactoredPredictiveTransport,
+    ShiftFactoredTransportConfig,
+    ShiftFactoredTransportState,
+)
 
 __all__ = [
     "AdaptationBatch",
@@ -36,6 +41,9 @@ __all__ = [
     "PosteriorLabelShiftAdapter",
     "RepresentationShiftCalibrator",
     "SignificantSubspaceAligner",
+    "ShiftFactoredPredictiveTransport",
+    "ShiftFactoredTransportConfig",
+    "ShiftFactoredTransportState",
     "SubspaceAlignmentState",
     "SupportsAdaptationParameters",
     "SupportsPredictiveBatch",

@@ -31,6 +31,8 @@ Use the comparison examples first when making implementation decisions:
 - `examples/eiv_method_realdata_comparison.py`: real-data EIV tradeoffs on Diabetes with synthetic measurement-error injection
 - `examples/multimodal_method_comparison.py`: Gaussian vs MDN vs optional flow on multimodal multi-target data
 - `examples/multimodal_method_realdata_comparison.py`: real-data features + synthetic multimodal targets for Gaussian/MDN/flow comparison
+- `examples/contrastive_flow_parameter_estimation_comparison.py`: shared-budget synthetic comparison for Gaussian summary density vs plain flow vs contrastive flow
+- `examples/contrastive_flow_photoz_proxy_comparison.py`: photo-z proxy benchmark for catalog-shift parameter recovery
 - `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics
 - `examples/noisy_label_realdata_comparison.py`: real-data (Diabetes) label-corruption comparison with shared calibration metrics
 - `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/uncertain-target/imbalance/SSL/EIV tradeoffs with photo-z metrics
@@ -50,6 +52,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics
 - `examples/causal_dr_realdata_comparison.py`: real-covariate DR ATE/CATE comparison with overlap diagnostics
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
+- `examples/contrastive_flow_parameter_estimation.py`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
 
 When comparing methods, prefer examples that document:
 
