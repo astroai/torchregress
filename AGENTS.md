@@ -469,3 +469,9 @@ uv run python -m tools.render_realdata_recommendation_guide \
 uv run python tools/adoption_audit.py --json reports/adoption_readiness_2026-02-25.json --print-summary
 uv run python tools/render_review_packet.py
 ```
+
+## Agent PR hygiene and lint gates
+
+- Do **not** open PRs that only fix a single unused import or whitespace in isolation. Use **one** repo-wide Ruff/Black pass or attach cleanup to a substantive change.
+- **Before every push**, run `uv run ruff check .`, `uv run black --check .`, and tests appropriate to your edit (or `./scripts/ci_local.sh` when you need full parity).
+- Optional: `pre-commit install` and `pre-commit install --hook-type pre-push` when configured in this repo.
