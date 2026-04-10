@@ -473,5 +473,19 @@ uv run python tools/render_review_packet.py
 ## Agent PR hygiene and lint gates
 
 - Do **not** open PRs that only fix a single unused import or whitespace in isolation. Use **one** repo-wide Ruff/Black pass or attach cleanup to a substantive change.
-- **Before every push**, run `uv run ruff check .`, `uv run black --check .`, and tests appropriate to your edit (or `./scripts/ci_local.sh` when you need full parity).
 - Optional: `pre-commit install` and `pre-commit install --hook-type pre-push` when configured in this repo.
+
+### Mandatory pre-push gate (save GitHub Actions minutes)
+
+**Do not `git push`** until local checks pass (automated agents: **blocking**). CI is expensive here; avoid burning minutes on **F401**, **Black** drift, or **SyntaxError**.
+
+**Preferred (matches GitHub Actions):** `./scripts/ci_local.sh`
+
+**Minimal** when you need a faster loop (small, localized edits only — widen if anything fails in CI):
+
+1. `python -m compileall -q torchregress tests tools`
+2. `uv run ruff check torchregress tests tools`
+3. `uv run black --check torchregress tests tools`
+4. `uv run pytest` (or a **narrow** file/`::test` path that covers your change)
+
+If you have the pre-push hook installed, `git push` already runs `./scripts/ci_local.sh` — keep it that way for routine work.
