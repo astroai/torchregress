@@ -1,0 +1,410 @@
+from __future__ import annotations
+
+import importlib.util
+import math
+import sys
+from pathlib import Path
+from types import ModuleType
+
+import pytest
+import torch
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.prediction import PredictiveBatch
+from torchregress.semi_supervised import (
+    SelfAgreementTrainer,
+    build_consensus_predictive_batch,
+    disagreement_to_weight,
+    distributional_pseudo_loss,
+    predictive_agreement_score,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EXAMPLES_DIR = REPO_ROOT / "examples"
+
+
+def _load_example_module(stem: str) -> ModuleType:
+    path = EXAMPLES_DIR / f"{stem}.py"
+    spec = importlib.util.spec_from_file_location(f"_example_{stem}", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load example module from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    sys.path.insert(0, str(EXAMPLES_DIR))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.pop(0)
+    return module
+
+
+def test_build_consensus_predictive_batch_for_gaussian_views() -> None:
+    mean = torch.tensor([[0.0], [1.0], [2.0]], dtype=torch.float32)
+    std = torch.full_like(mean, 0.2)
+    consensus = build_consensus_predictive_batch(
+        [
+            PredictiveBatch(mean=mean - 0.1, std=std),
+            PredictiveBatch(mean=mean, std=std),
+            PredictiveBatch(mean=mean + 0.1, std=std),
+        ],
+        n_support=96,
+    )
+    assert consensus.support is not None
+    assert consensus.density is not None
+    assert consensus.mean is not None
+    integral = torch.trapezoid(consensus.density, consensus.support, dim=-1)
+    assert torch.allclose(integral, torch.ones_like(integral), atol=1e-3)
+    assert torch.allclose(consensus.mean, mean, atol=0.08)
+
+
+def test_build_consensus_predictive_batch_for_quantile_and_bar_views() -> None:
+    quantile_consensus = build_consensus_predictive_batch(
+        [
+            PredictiveBatch(
+                quantiles=torch.tensor([[0.0, 0.4, 0.8], [0.2, 0.5, 1.0]], dtype=torch.float32),
+                quantile_levels=[0.1, 0.5, 0.9],
+            ),
+            PredictiveBatch(
+                quantiles=torch.tensor(
+                    [[0.05, 0.45, 0.85], [0.15, 0.55, 0.95]], dtype=torch.float32
+                ),
+                quantile_levels=[0.1, 0.5, 0.9],
+            ),
+        ],
+        n_support=80,
+    )
+    assert quantile_consensus.density is not None
+    q_integral = torch.trapezoid(quantile_consensus.density, quantile_consensus.support, dim=-1)
+    assert torch.allclose(q_integral, torch.ones_like(q_integral), atol=1e-3)
+
+    bin_edges = torch.tensor([-1.0, -0.2, 0.4, 1.1], dtype=torch.float32)
+    bar_consensus = build_consensus_predictive_batch(
+        [
+            PredictiveBatch(
+                bar_logits=torch.tensor([[2.5, 0.2, -1.0], [0.5, 1.0, -0.2]], dtype=torch.float32),
+                bin_edges=bin_edges,
+            ),
+            PredictiveBatch(
+                bar_logits=torch.tensor([[2.1, 0.3, -0.6], [0.2, 1.2, -0.1]], dtype=torch.float32),
+                bin_edges=bin_edges,
+            ),
+        ],
+        n_support=80,
+    )
+    assert bar_consensus.density is not None
+    b_integral = torch.trapezoid(bar_consensus.density, bar_consensus.support, dim=-1)
+    assert torch.allclose(b_integral, torch.ones_like(b_integral), atol=1e-3)
+
+
+def test_predictive_agreement_score_tracks_mismatch_and_weights() -> None:
+    mean = torch.tensor([[0.0], [1.0], [2.0]], dtype=torch.float32)
+    std = torch.full_like(mean, 0.2)
+    identical = predictive_agreement_score(
+        [
+            PredictiveBatch(mean=mean, std=std),
+            PredictiveBatch(mean=mean, std=std),
+            PredictiveBatch(mean=mean, std=std),
+        ],
+        n_support=96,
+    )
+    shifted = predictive_agreement_score(
+        [
+            PredictiveBatch(mean=mean - 0.5, std=std),
+            PredictiveBatch(mean=mean, std=std),
+            PredictiveBatch(mean=mean + 0.5, std=std),
+        ],
+        n_support=96,
+    )
+    assert torch.allclose(identical, torch.zeros_like(identical), atol=1e-4)
+    assert float(shifted.mean().item()) > float(identical.mean().item())
+
+    stable_weight = torch.exp(-identical / 0.15).mean()
+    unstable_weight = torch.exp(-shifted / 0.15).mean()
+    assert float(stable_weight.item()) > float(unstable_weight.item())
+
+
+def test_disagreement_to_weight_supports_tempered_and_hard_gates() -> None:
+    disagreement = torch.tensor([0.0, 0.05, 0.20, 0.50], dtype=torch.float32)
+    base = disagreement_to_weight(disagreement, 0.2)
+    tempered = disagreement_to_weight(disagreement, 0.2, power=2.0)
+    gated = disagreement_to_weight(disagreement, 0.2, power=2.0, hard_weight_threshold=0.8)
+    assert torch.all(tempered <= base)
+    assert float(gated[-1].item()) == 0.0
+    assert float(gated[0].item()) > 0.0
+
+
+def test_distributional_pseudo_loss_is_small_for_matching_predictions() -> None:
+    consensus = build_consensus_predictive_batch(
+        [
+            PredictiveBatch(
+                mean=torch.tensor([[0.1], [0.8]], dtype=torch.float32), std=torch.full((2, 1), 0.2)
+            ),
+            PredictiveBatch(
+                mean=torch.tensor([[0.1], [0.8]], dtype=torch.float32), std=torch.full((2, 1), 0.2)
+            ),
+        ],
+        n_support=96,
+    )
+    matching = PredictiveBatch(
+        mean=torch.tensor([[0.1], [0.8]], dtype=torch.float32),
+        std=torch.full((2, 1), 0.2),
+    )
+    mismatched = PredictiveBatch(
+        mean=torch.tensor([[0.8], [0.1]], dtype=torch.float32),
+        std=torch.full((2, 1), 0.2),
+    )
+    match_loss = distributional_pseudo_loss(matching, consensus, n_support=96)
+    mismatch_loss = distributional_pseudo_loss(mismatched, consensus, n_support=96)
+    assert float(match_loss.item()) < float(mismatch_loss.item())
+
+
+def test_distributional_pseudo_loss_supports_quantile_density_cross_entropy() -> None:
+    consensus = build_consensus_predictive_batch(
+        [
+            PredictiveBatch(
+                quantiles=torch.tensor([[0.0, 0.5, 1.0], [0.2, 0.6, 1.1]], dtype=torch.float32),
+                quantile_levels=[0.1, 0.5, 0.9],
+            ),
+            PredictiveBatch(
+                quantiles=torch.tensor([[0.05, 0.45, 0.95], [0.25, 0.65, 1.15]], dtype=torch.float32),
+                quantile_levels=[0.1, 0.5, 0.9],
+            ),
+        ],
+        n_support=96,
+    )
+    matching = PredictiveBatch(
+        quantiles=torch.tensor([[0.0, 0.5, 1.0], [0.2, 0.6, 1.1]], dtype=torch.float32),
+        quantile_levels=[0.1, 0.5, 0.9],
+    )
+    mismatched = PredictiveBatch(
+        quantiles=torch.tensor([[0.9, 1.4, 1.9], [-0.4, 0.0, 0.4]], dtype=torch.float32),
+        quantile_levels=[0.1, 0.5, 0.9],
+    )
+    assert float(distributional_pseudo_loss(matching, consensus, n_support=96).item()) < float(
+        distributional_pseudo_loss(mismatched, consensus, n_support=96).item()
+    )
+
+
+def test_distributional_pseudo_loss_supports_bar_pmf_cross_entropy() -> None:
+    edges = torch.tensor([-1.0, -0.2, 0.4, 1.2], dtype=torch.float32)
+    consensus = build_consensus_predictive_batch(
+        [
+            PredictiveBatch(
+                bar_logits=torch.tensor([[2.8, 0.1, -1.0], [0.4, 1.2, -0.5]], dtype=torch.float32),
+                bin_edges=edges,
+            ),
+            PredictiveBatch(
+                bar_logits=torch.tensor([[2.4, 0.2, -0.8], [0.2, 1.3, -0.4]], dtype=torch.float32),
+                bin_edges=edges,
+            ),
+        ],
+        n_support=96,
+    )
+    matching = PredictiveBatch(
+        bar_logits=torch.tensor([[2.6, 0.2, -0.9], [0.3, 1.1, -0.4]], dtype=torch.float32),
+        bin_edges=edges,
+    )
+    mismatched = PredictiveBatch(
+        bar_logits=torch.tensor([[-1.0, 0.1, 2.6], [1.4, -0.5, 0.0]], dtype=torch.float32),
+        bin_edges=edges,
+    )
+    assert float(distributional_pseudo_loss(matching, consensus, n_support=96).item()) < float(
+        distributional_pseudo_loss(mismatched, consensus, n_support=96).item()
+    )
+
+
+class _TinyBackbone(torch.nn.Module):
+    def __init__(self, hidden: int = 8) -> None:
+        super().__init__()
+        self.net = torch.nn.Sequential(
+            torch.nn.Linear(1, hidden),
+            torch.nn.Tanh(),
+            torch.nn.Linear(hidden, hidden),
+            torch.nn.Tanh(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+class _TinyGaussian(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.backbone = _TinyBackbone()
+        self.mean_head = torch.nn.Linear(8, 1)
+        self.log_var_head = torch.nn.Linear(8, 1)
+
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        h = self.backbone(x)
+        return self.mean_head(h), self.log_var_head(h).clamp(min=-4.0, max=2.0)
+
+
+class _TinyQuantile(torch.nn.Module):
+    levels = [0.1, 0.5, 0.9]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.backbone = _TinyBackbone()
+        self.head = torch.nn.Linear(8, len(self.levels))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.sort(self.head(self.backbone(x)), dim=-1).values
+
+
+class _TinyBar(torch.nn.Module):
+    def __init__(self, bin_edges: torch.Tensor) -> None:
+        super().__init__()
+        self.backbone = _TinyBackbone()
+        self.head = torch.nn.Linear(8, bin_edges.numel() - 1)
+        self.register_buffer("bin_edges", bin_edges)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.head(self.backbone(x))
+
+
+@pytest.mark.parametrize("backbone", ["gaussian", "quantile", "bar"])
+def test_self_agreement_trainer_runs_all_target_backbones(backbone: str) -> None:
+    torch.manual_seed(0)
+    x_labeled = torch.linspace(-1.0, 1.0, 18).unsqueeze(-1)
+    y_labeled = torch.sin(1.3 * x_labeled) + 0.1 * x_labeled
+    x_unlabeled = torch.linspace(-1.2, 1.2, 24).unsqueeze(-1)
+
+    labeled_loader = DataLoader(TensorDataset(x_labeled, y_labeled), batch_size=6, shuffle=False)
+    unlabeled_loader = DataLoader(TensorDataset(x_unlabeled), batch_size=6, shuffle=False)
+
+    if backbone == "gaussian":
+        model = _TinyGaussian()
+        optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+
+        def supervised_loss_fn(model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            mean, log_var = model_(x)
+            var = torch.exp(log_var).clamp_min(1e-5)
+            return torch.nn.functional.gaussian_nll_loss(mean, y, var)
+
+        def predictive_batch_fn(model_: torch.nn.Module, x: torch.Tensor) -> PredictiveBatch:
+            mean, log_var = model_(x)
+            return PredictiveBatch(mean=mean, std=torch.exp(0.5 * log_var))
+
+    elif backbone == "quantile":
+        model = _TinyQuantile()
+        optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+
+        def supervised_loss_fn(model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            quantiles = model_(x)
+            diff = y - quantiles
+            levels = torch.tensor(_TinyQuantile.levels, dtype=quantiles.dtype, device=quantiles.device)
+            return torch.maximum(levels * diff, (levels - 1.0) * diff).mean()
+
+        def predictive_batch_fn(model_: torch.nn.Module, x: torch.Tensor) -> PredictiveBatch:
+            return PredictiveBatch(
+                quantiles=model_(x),
+                quantile_levels=list(_TinyQuantile.levels),
+            )
+
+    else:
+        bin_edges = torch.linspace(-1.5, 1.5, 9)
+        model = _TinyBar(bin_edges)
+        optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+
+        def supervised_loss_fn(model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            logits = model_(x)
+            targets = torch.bucketize(y.view(-1), bin_edges[1:-1]).long()
+            return F.cross_entropy(logits, targets)
+
+        def predictive_batch_fn(model_: torch.nn.Module, x: torch.Tensor) -> PredictiveBatch:
+            return PredictiveBatch(bar_logits=model_(x), bin_edges=bin_edges)
+
+    trainer = SelfAgreementTrainer(
+        optimizer=optimizer,
+        supervised_loss_fn=supervised_loss_fn,
+        predictive_batch_fn=predictive_batch_fn,
+        augment_fn=lambda x: x + 0.03 * torch.randn_like(x),
+        n_views=3,
+        tau=0.2,
+        agreement_weight=0.5,
+        ema_decay=0.95,
+        n_support=64,
+    )
+    history = trainer.fit(model, labeled_loader, unlabeled_loader, epochs=2)
+    assert history["total_loss"]
+    assert len(history["total_loss"]) == len(history["mean_weight"])
+    assert all(math.isfinite(v) for v in history["total_loss"])
+    assert all(math.isfinite(v) for v in history["unsupervised_loss"])
+    assert all(0.0 < v <= 1.0 for v in history["mean_weight"])
+
+
+def test_self_agreement_trainer_runs_tiny_fit_loop() -> None:
+    torch.manual_seed(0)
+    x_labeled = torch.linspace(-1.0, 1.0, 16).unsqueeze(-1)
+    y_labeled = (0.7 * x_labeled + 0.2).sin()
+    x_unlabeled = torch.linspace(-1.2, 1.2, 24).unsqueeze(-1)
+
+    labeled_loader = DataLoader(TensorDataset(x_labeled, y_labeled), batch_size=8, shuffle=False)
+    unlabeled_loader = DataLoader(TensorDataset(x_unlabeled), batch_size=8, shuffle=False)
+
+    model = torch.nn.Sequential(
+        torch.nn.Linear(1, 12),
+        torch.nn.Tanh(),
+        torch.nn.Linear(12, 2),
+    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+
+    def supervised_loss_fn(
+        model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor
+    ) -> torch.Tensor:
+        raw = model_(x)
+        mean = raw[:, :1]
+        std = torch.nn.functional.softplus(raw[:, 1:2]) + 1e-3
+        var = std.square()
+        return torch.nn.functional.gaussian_nll_loss(mean, y, var)
+
+    def predictive_batch_fn(model_: torch.nn.Module, x: torch.Tensor) -> PredictiveBatch:
+        raw = model_(x)
+        return PredictiveBatch(
+            mean=raw[:, :1],
+            std=torch.nn.functional.softplus(raw[:, 1:2]) + 1e-3,
+        )
+
+    trainer = SelfAgreementTrainer(
+        optimizer=optimizer,
+        supervised_loss_fn=supervised_loss_fn,
+        predictive_batch_fn=predictive_batch_fn,
+        augment_fn=lambda x: x + 0.03 * torch.randn_like(x),
+        n_views=3,
+        tau=0.2,
+        agreement_weight=0.5,
+        ema_decay=0.95,
+        n_support=64,
+    )
+    history = trainer.fit(model, labeled_loader, unlabeled_loader, epochs=2)
+    assert history["total_loss"]
+    assert len(history["total_loss"]) == len(history["mean_weight"])
+    assert all(math.isfinite(v) for v in history["total_loss"])
+    assert all(0.0 < v <= 1.0 for v in history["mean_weight"])
+
+
+def test_predictive_agreement_score_requires_multiple_views() -> None:
+    with pytest.raises(ValueError):
+        predictive_agreement_score([PredictiveBatch(mean=torch.zeros(4, 1), std=torch.ones(4, 1))])
+
+
+def test_self_agreement_regression_demo_runs_smoke() -> None:
+    mod = _load_example_module("self_agreement_regression_demo")
+    cfg = mod.DemoConfig(
+        n_labeled=24,
+        n_unlabeled=48,
+        n_test=24,
+        hidden=12,
+        epochs=2,
+        k_views=3,
+        n_bins=10,
+    )
+    results = mod.main(cfg)
+    assert set(results) == {"gaussian", "quantile", "bar"}
+    for row in results.values():
+        for key in ("test_mse", "supervised_loss", "agreement_loss", "mean_weight"):
+            value = row[key]
+            assert isinstance(value, float)
+            assert math.isfinite(value)
+        assert 0.0 < row["mean_weight"] <= 1.0
