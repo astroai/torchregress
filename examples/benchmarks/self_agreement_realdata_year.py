@@ -65,6 +65,7 @@ class YearRealDataConfig:
     dropout: float = 0.10
     unlabeled_noise: float = 0.03
     feature_drop_prob: float = 0.0
+    feature_mix_prob: float = 0.0
     tau: float = 0.18
     agreement_weight: float = 0.5
     pseudo_weight: float = 0.8
@@ -387,9 +388,14 @@ def _subsample_pair(x: Tensor, y: Tensor, fraction: float) -> tuple[Tensor, Tens
     return x[:count], y[:count]
 
 
-def _augment_fn(scale: float, feature_drop_prob: float):
+def _augment_fn(scale: float, feature_drop_prob: float, feature_mix_prob: float):
     def _augment(x: Tensor) -> Tensor:
         noisy = x + scale * torch.randn_like(x)
+        if feature_mix_prob > 0.0 and noisy.shape[0] > 1:
+            perm = torch.randperm(noisy.shape[0], device=noisy.device)
+            mixed = noisy[perm]
+            mix_mask = torch.rand_like(noisy).lt(feature_mix_prob)
+            noisy = torch.where(mix_mask, mixed, noisy)
         if feature_drop_prob <= 0.0:
             return noisy
         keep = torch.rand_like(noisy).ge(feature_drop_prob).to(noisy.dtype)
@@ -538,7 +544,11 @@ def _train_sage_student(
             cast(TabularGaussianRegressor, model_), x, y
         ),
         predictive_batch_fn=_predictive_batch,
-        augment_fn=_augment_fn(cfg.unlabeled_noise, cfg.feature_drop_prob),
+        augment_fn=_augment_fn(
+            cfg.unlabeled_noise,
+            cfg.feature_drop_prob,
+            cfg.feature_mix_prob,
+        ),
         n_views=cfg.n_views,
         tau=cfg.tau,
         agreement_weight=cfg.agreement_weight,
@@ -610,7 +620,11 @@ def _collect_unlabeled_diagnostics(
                 (
                     x_unlabeled
                     if idx == 0
-                    else _augment_fn(cfg.unlabeled_noise, cfg.feature_drop_prob)(x_unlabeled)
+                    else _augment_fn(
+                        cfg.unlabeled_noise,
+                        cfg.feature_drop_prob,
+                        cfg.feature_mix_prob,
+                    )(x_unlabeled)
                 ),
             )
             for idx in range(cfg.n_views)

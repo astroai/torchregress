@@ -79,6 +79,7 @@ class HiggsOODConfig:
     dropout: float = 0.10
     unlabeled_noise: float = 0.04
     feature_drop_prob: float = 0.0
+    feature_mix_prob: float = 0.0
     ood_perturb_boost: float = 2.0
     tau: float = 0.18
     agreement_weight: float = 0.5
@@ -407,10 +408,17 @@ def _augment_batch(
     base_scale: float,
     boost: float,
     feature_drop_prob: float,
+    feature_mix_prob: float,
 ) -> Tensor:
     scale = torch.full_like(x, base_scale)
     scale = scale * (1.0 + boost * is_ood.reshape(-1, 1).to(dtype=x.dtype))
     augmented = x + scale * torch.randn_like(x)
+    if feature_mix_prob > 0.0 and augmented.shape[0] > 1:
+        perm = torch.randperm(augmented.shape[0], device=augmented.device)
+        mixed = augmented[perm]
+        mix_prob = feature_mix_prob * (1.0 + boost * is_ood.reshape(-1, 1).to(dtype=x.dtype))
+        mix_mask = torch.rand_like(augmented).lt(mix_prob.clamp(max=1.0))
+        augmented = torch.where(mix_mask, mixed, augmented)
     if feature_drop_prob <= 0.0:
         return augmented
     keep_prob = 1.0 - feature_drop_prob * (1.0 + boost * is_ood.reshape(-1, 1).to(dtype=x.dtype))
@@ -555,6 +563,7 @@ def _train_sage_student(
             cfg.unlabeled_noise,
             0.0,
             cfg.feature_drop_prob,
+            cfg.feature_mix_prob,
         )
 
     trainer = SelfAgreementTrainer(
@@ -586,6 +595,7 @@ def _train_sage_student(
                         cfg.unlabeled_noise,
                         cfg.ood_perturb_boost,
                         cfg.feature_drop_prob,
+                        cfg.feature_mix_prob,
                     )
                 ),
             )

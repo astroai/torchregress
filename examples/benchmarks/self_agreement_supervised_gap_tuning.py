@@ -32,7 +32,9 @@ from comparison_utils import (  # noqa: E402
 @dataclass(frozen=True)
 class SupervisedGapTuningConfig:
     seed: int = 260410
-    out_dir: str = str(Path("docs/research/sage_reg_results") / str(date.today()) / "supervised_gap_tuning")
+    out_dir: str = str(
+        Path("docs/research/sage_reg_results") / str(date.today()) / "supervised_gap_tuning"
+    )
     year_dataset_path: str | None = None
     year_cache_path: str | None = None
     year_allow_download: bool = True
@@ -42,6 +44,7 @@ class SupervisedGapTuningConfig:
     tau_values: tuple[float, ...] = (0.12, 0.18, 0.28)
     unlabeled_noise_values: tuple[float, ...] = (0.02, 0.05, 0.10)
     feature_drop_prob_values: tuple[float, ...] = (0.0, 0.1, 0.2)
+    feature_mix_prob_values: tuple[float, ...] = (0.0, 0.1, 0.2)
     pseudo_weight_values: tuple[float, ...] = (0.4, 0.8)
     agreement_weight_values: tuple[float, ...] = (0.25, 0.5)
     weight_power_values: tuple[float, ...] = (1.0, 2.0)
@@ -109,6 +112,7 @@ def _row_key(
     tau: float,
     unlabeled_noise: float,
     feature_drop_prob: float,
+    feature_mix_prob: float,
     pseudo_weight: float,
     agreement_weight: float,
     weight_power: float,
@@ -119,6 +123,7 @@ def _row_key(
         float(tau),
         float(unlabeled_noise),
         float(feature_drop_prob),
+        float(feature_mix_prob),
         float(pseudo_weight),
         float(agreement_weight),
         float(weight_power),
@@ -136,6 +141,7 @@ def _completed_keys(rows: list[dict[str, object]]) -> set[tuple[object, ...]]:
                 tau=float(row["tau"]),
                 unlabeled_noise=float(row["unlabeled_noise"]),
                 feature_drop_prob=float(row["feature_drop_prob"]),
+                feature_mix_prob=float(row.get("feature_mix_prob", 0.0)),
                 pseudo_weight=float(row["pseudo_weight"]),
                 agreement_weight=float(row["agreement_weight"]),
                 weight_power=float(row["weight_power"]),
@@ -154,6 +160,7 @@ def _maybe_log_progress(
     tau: float,
     unlabeled_noise: float,
     feature_drop_prob: float,
+    feature_mix_prob: float,
     pseudo_weight: float,
     agreement_weight: float,
     weight_power: float,
@@ -165,6 +172,7 @@ def _maybe_log_progress(
     print(
         f"[{benchmark} {index}/{total}] "
         f"tau={tau:.2f} noise={unlabeled_noise:.2f} drop={feature_drop_prob:.2f} "
+        f"mix={feature_mix_prob:.2f} "
         f"pseudo={pseudo_weight:.2f} agree={agreement_weight:.2f} "
         f"power={weight_power:.2f} threshold={threshold_s}"
     )
@@ -215,6 +223,7 @@ def _summarize_run(
     tau: float,
     unlabeled_noise: float,
     feature_drop_prob: float,
+    feature_mix_prob: float,
     pseudo_weight: float,
     agreement_weight: float,
     weight_power: float,
@@ -231,6 +240,7 @@ def _summarize_run(
         "tau": tau,
         "unlabeled_noise": unlabeled_noise,
         "feature_drop_prob": feature_drop_prob,
+        "feature_mix_prob": feature_mix_prob,
         "pseudo_weight": pseudo_weight,
         "agreement_weight": agreement_weight,
         "weight_power": weight_power,
@@ -257,6 +267,7 @@ def _summarize_metrics(
     tau: float,
     unlabeled_noise: float,
     feature_drop_prob: float,
+    feature_mix_prob: float,
     pseudo_weight: float,
     agreement_weight: float,
     weight_power: float,
@@ -272,6 +283,7 @@ def _summarize_metrics(
         "tau": tau,
         "unlabeled_noise": unlabeled_noise,
         "feature_drop_prob": feature_drop_prob,
+        "feature_mix_prob": feature_mix_prob,
         "pseudo_weight": pseudo_weight,
         "agreement_weight": agreement_weight,
         "weight_power": weight_power,
@@ -298,7 +310,9 @@ def _best_confidence_row(
     best_pseudo_weight: float | None = None
     best_metrics: dict[str, float] | None = None
     for pseudo_weight, metrics in cache.items():
-        if best_metrics is None or float(metrics[objective_metric]) < float(best_metrics[objective_metric]):
+        if best_metrics is None or float(metrics[objective_metric]) < float(
+            best_metrics[objective_metric]
+        ):
             best_pseudo_weight = pseudo_weight
             best_metrics = metrics
     if best_pseudo_weight is None or best_metrics is None:
@@ -432,6 +446,7 @@ def _run_year_sweep(
             cfg.tau_values,
             cfg.unlabeled_noise_values,
             cfg.feature_drop_prob_values,
+            cfg.feature_mix_prob_values,
             cfg.agreement_weight_values,
             cfg.weight_power_values,
             cfg.hard_weight_threshold_values,
@@ -442,6 +457,7 @@ def _run_year_sweep(
         tau,
         unlabeled_noise,
         feature_drop_prob,
+        feature_mix_prob,
         agreement_weight,
         weight_power,
         hard_weight_threshold,
@@ -451,6 +467,7 @@ def _run_year_sweep(
             tau=tau,
             unlabeled_noise=unlabeled_noise,
             feature_drop_prob=feature_drop_prob,
+            feature_mix_prob=feature_mix_prob,
             pseudo_weight=best_conf_pseudo_weight,
             agreement_weight=agreement_weight,
             weight_power=weight_power,
@@ -466,6 +483,7 @@ def _run_year_sweep(
             tau=tau,
             unlabeled_noise=unlabeled_noise,
             feature_drop_prob=feature_drop_prob,
+            feature_mix_prob=feature_mix_prob,
             pseudo_weight=best_conf_pseudo_weight,
             agreement_weight=agreement_weight,
             weight_power=weight_power,
@@ -476,6 +494,7 @@ def _run_year_sweep(
                 **context["base_cfg"].__dict__,
                 "unlabeled_noise": unlabeled_noise,
                 "feature_drop_prob": feature_drop_prob,
+                "feature_mix_prob": feature_mix_prob,
                 "tau": tau,
                 "agreement_weight": agreement_weight,
                 "weight_power": weight_power,
@@ -490,7 +509,9 @@ def _run_year_sweep(
             context["x_unlabeled"],
         )
         sage_metrics = {
-            **year_benchmark._evaluate_model(model, context["split"].x_test, context["split"].y_test),
+            **year_benchmark._evaluate_model(
+                model, context["split"].x_test, context["split"].y_test
+            ),
             "MeanWeight": float(meta["mean_weight"]),
             "MeanDisagreement": float(meta["mean_disagreement"]),
         }
@@ -501,6 +522,7 @@ def _run_year_sweep(
             tau=tau,
             unlabeled_noise=unlabeled_noise,
             feature_drop_prob=feature_drop_prob,
+            feature_mix_prob=feature_mix_prob,
             pseudo_weight=best_conf_pseudo_weight,
             agreement_weight=agreement_weight,
             weight_power=weight_power,
@@ -534,6 +556,7 @@ def _run_higgs_sweep(
             cfg.tau_values,
             cfg.unlabeled_noise_values,
             cfg.feature_drop_prob_values,
+            cfg.feature_mix_prob_values,
             cfg.agreement_weight_values,
             cfg.weight_power_values,
             cfg.hard_weight_threshold_values,
@@ -544,6 +567,7 @@ def _run_higgs_sweep(
         tau,
         unlabeled_noise,
         feature_drop_prob,
+        feature_mix_prob,
         agreement_weight,
         weight_power,
         hard_weight_threshold,
@@ -553,6 +577,7 @@ def _run_higgs_sweep(
             tau=tau,
             unlabeled_noise=unlabeled_noise,
             feature_drop_prob=feature_drop_prob,
+            feature_mix_prob=feature_mix_prob,
             pseudo_weight=best_conf_pseudo_weight,
             agreement_weight=agreement_weight,
             weight_power=weight_power,
@@ -568,6 +593,7 @@ def _run_higgs_sweep(
             tau=tau,
             unlabeled_noise=unlabeled_noise,
             feature_drop_prob=feature_drop_prob,
+            feature_mix_prob=feature_mix_prob,
             pseudo_weight=best_conf_pseudo_weight,
             agreement_weight=agreement_weight,
             weight_power=weight_power,
@@ -578,6 +604,7 @@ def _run_higgs_sweep(
                 **context["base_cfg"].__dict__,
                 "unlabeled_noise": unlabeled_noise,
                 "feature_drop_prob": feature_drop_prob,
+                "feature_mix_prob": feature_mix_prob,
                 "tau": tau,
                 "agreement_weight": agreement_weight,
                 "weight_power": weight_power,
@@ -609,6 +636,7 @@ def _run_higgs_sweep(
             tau=tau,
             unlabeled_noise=unlabeled_noise,
             feature_drop_prob=feature_drop_prob,
+            feature_mix_prob=feature_mix_prob,
             pseudo_weight=best_conf_pseudo_weight,
             agreement_weight=agreement_weight,
             weight_power=weight_power,
@@ -644,7 +672,9 @@ def _best_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     for row in rows:
         benchmark = str(row["Benchmark"])
         current = seen.get(benchmark)
-        if current is None or float(row["SAGEMinusSupervised"]) < float(current["SAGEMinusSupervised"]):
+        if current is None or float(row["SAGEMinusSupervised"]) < float(
+            current["SAGEMinusSupervised"]
+        ):
             seen[benchmark] = row
     for key in sorted(seen):
         best.append({"Method": key, **seen[key]})
@@ -686,6 +716,7 @@ def main(
             "tau",
             "unlabeled_noise",
             "feature_drop_prob",
+            "feature_mix_prob",
             "pseudo_weight",
             "agreement_weight",
             "weight_power",
@@ -735,10 +766,18 @@ if __name__ == "__main__":
     parser.add_argument("--output-csv", type=str, default="")
     parser.add_argument("--figure-path", type=str, default="")
     parser.add_argument("--summary-json-path", type=str, default="")
-    parser.add_argument("--year-teacher-epochs", type=int, default=SupervisedGapTuningConfig.year_teacher_epochs)
-    parser.add_argument("--year-student-epochs", type=int, default=SupervisedGapTuningConfig.year_student_epochs)
-    parser.add_argument("--higgs-teacher-epochs", type=int, default=SupervisedGapTuningConfig.higgs_teacher_epochs)
-    parser.add_argument("--higgs-student-epochs", type=int, default=SupervisedGapTuningConfig.higgs_student_epochs)
+    parser.add_argument(
+        "--year-teacher-epochs", type=int, default=SupervisedGapTuningConfig.year_teacher_epochs
+    )
+    parser.add_argument(
+        "--year-student-epochs", type=int, default=SupervisedGapTuningConfig.year_student_epochs
+    )
+    parser.add_argument(
+        "--higgs-teacher-epochs", type=int, default=SupervisedGapTuningConfig.higgs_teacher_epochs
+    )
+    parser.add_argument(
+        "--higgs-student-epochs", type=int, default=SupervisedGapTuningConfig.higgs_student_epochs
+    )
     args = parser.parse_args()
 
     main(

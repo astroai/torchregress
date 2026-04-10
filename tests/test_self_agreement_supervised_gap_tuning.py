@@ -40,7 +40,10 @@ def test_self_agreement_supervised_gap_tuning_smoke(tmp_path: Path) -> None:
     n_year = 4096
     year_df = pd.DataFrame(
         {
-            **{f"f{i}": ((pd.Series(range(n_year)) * (i + 1)) % 101).astype("float32") for i in range(8)},
+            **{
+                f"f{i}": ((pd.Series(range(n_year)) * (i + 1)) % 101).astype("float32")
+                for i in range(8)
+            },
             "target": ((pd.Series(range(n_year)) % 17) / 8.0).astype("float32"),
         }
     )
@@ -66,6 +69,7 @@ def test_self_agreement_supervised_gap_tuning_smoke(tmp_path: Path) -> None:
         tau_values=(0.18,),
         unlabeled_noise_values=(0.03,),
         feature_drop_prob_values=(0.1,),
+        feature_mix_prob_values=(0.0,),
         pseudo_weight_values=(0.6,),
         agreement_weight_values=(0.5,),
         weight_power_values=(2.0,),
