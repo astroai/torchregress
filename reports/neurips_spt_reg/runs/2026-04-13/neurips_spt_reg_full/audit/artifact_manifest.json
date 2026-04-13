@@ -1,0 +1,13 @@
+{
+  "artifact": "spt_reg_paper_artifact_manifest",
+  "version": 1,
+  "profile": "audit",
+  "include_photoz": false,
+  "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit",
+  "summaries": {
+    "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/synthetic_competing_methods_audit.json",
+    "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/tabular_competing_methods_audit.json",
+    "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/year_competing_methods_audit.json"
+  },
+  "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_year.csv, allow_download=True"
+}

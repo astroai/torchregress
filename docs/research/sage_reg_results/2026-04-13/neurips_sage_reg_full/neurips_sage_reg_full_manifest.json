@@ -1,0 +1,21 @@
+{
+  "artifact": "neurips_sage_reg_full_manifest",
+  "version": 1,
+  "started_at_utc": "2026-04-13T20:58:30.814480+00:00",
+  "run_root": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full",
+  "year_cache": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv",
+  "quick": false,
+  "phases": {
+    "year_direct": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/sage/year_direct",
+    "multiseed": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/sage/multiseed",
+    "year_labeled_sweep": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/year_labeled_sweep",
+    "multiseed_year_nl2048": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/multiseed_year_nl2048",
+    "catboost": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/catboost",
+    "tabred": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/tabred",
+    "synthetic": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/synthetic",
+    "backbone": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/backbone",
+    "ablations": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-13/neurips_sage_reg_full/ablations",
+    "shifts": "skipped"
+  },
+  "finished_at_utc": "2026-04-13T21:31:57.975196+00:00"
+}

@@ -1,0 +1,457 @@
+{
+  "artifact": "tabular_paper_bundle_report",
+  "version": 1,
+  "generated_at_utc": "2026-04-12T07:33:27.274093+00:00",
+  "bundle_dir": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle",
+  "bundle_meta": {
+    "started_at_utc": "2026-04-12T07:20:41Z",
+    "finished_at_utc": "2026-04-12T07:33:27Z",
+    "smoke": false,
+    "year_cache": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+    "tuning_csv": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv",
+    "splits": {
+      "n_labeled": 4096,
+      "n_unlabeled": 131072,
+      "n_test": 32768,
+      "teacher_epochs": 32,
+      "student_epochs": 32
+    },
+    "seeds": [
+      260410,
+      260411,
+      260412
+    ],
+    "spt_profile": "full",
+    "higgs_parquet": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-09/higgs_public/extracted/FAIR_Universe_HiggsML_data.parquet",
+    "skip_higgs": false
+  },
+  "spt_other_summaries": {
+    "synthetic": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full/synthetic_competing_methods_full.json",
+    "tabular_small": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full/tabular_competing_methods_full.json"
+  },
+  "paths": {
+    "sage_year_direct": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/sage/year_direct/summary.json",
+    "sage_multiseed": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/sage/multiseed/multiseed_summary.json",
+    "spt_year_track": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full/year_competing_methods_full.json",
+    "spt_profile": "full",
+    "spt_manifest": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full/artifact_manifest.json"
+  },
+  "sage_year_direct": {
+    "task": "self-agreement real-data benchmark on OpenML/UCI YearPredictionMSD",
+    "example": "examples/benchmarks/self_agreement_realdata_year.py",
+    "config": {
+      "seed": 260408,
+      "dataset_path": null,
+      "allow_download": false,
+      "cache_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "target_column": "target",
+      "openml_data_id": null,
+      "openml_dataset_name": null,
+      "openml_version": 1,
+      "max_dataset_rows": null,
+      "weight_decay": 0.0,
+      "sage_batch_relative_mode": null,
+      "sage_batch_trust_top_k": null,
+      "canonical_test_size": 51630,
+      "n_labeled": 4096,
+      "n_unlabeled": 131072,
+      "n_test": 32768,
+      "hidden": 128,
+      "teacher_epochs": 32,
+      "student_epochs": 32,
+      "batch_size": 512,
+      "lr": 0.002,
+      "dropout": 0.1,
+      "unlabeled_noise": 0.03,
+      "feature_drop_prob": 0.0,
+      "feature_mix_prob": 0.0,
+      "tau": 0.18,
+      "agreement_weight": 0.5,
+      "pseudo_weight": 0.8,
+      "ema_decay": 0.96,
+      "n_views": 4,
+      "weight_power": 1.0,
+      "hard_weight_threshold": null,
+      "unlabeled_fractions": [
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    "by_method": {
+      "SupervisedOnly": [
+        {
+          "UnlabeledFraction": 0.25,
+          "RMSE": 0.8915620446205139,
+          "NLL": 2.1346349716186523,
+          "CRPS": 0.4479001462459564,
+          "Cov90": 0.75518798828125,
+          "CalibMAE": 0.0640101432800293,
+          "MeanWeight": 0.0,
+          "MeanDisagreement": 0.0,
+          "train_s": 1.9154236660106108,
+          "eval_s": 0.02207974999328144
+        },
+        {
+          "UnlabeledFraction": 0.5,
+          "RMSE": 0.8915620446205139,
+          "NLL": 2.1346349716186523,
+          "CRPS": 0.4479001462459564,
+          "Cov90": 0.75518798828125,
+          "CalibMAE": 0.0640101432800293,
+          "MeanWeight": 0.0,
+          "MeanDisagreement": 0.0,
+          "train_s": 1.3065770830144174,
+          "eval_s": 0.017284292000113055
+        },
+        {
+          "UnlabeledFraction": 1.0,
+          "RMSE": 0.8915620446205139,
+          "NLL": 2.1346349716186523,
+          "CRPS": 0.4479001462459564,
+          "Cov90": 0.75518798828125,
+          "CalibMAE": 0.0640101432800293,
+          "MeanWeight": 0.0,
+          "MeanDisagreement": 0.0,
+          "train_s": 1.322881458007032,
+          "eval_s": 0.016248458006884903
+        }
+      ],
+      "ConfidenceWeightedPseudoLabel": [
+        {
+          "UnlabeledFraction": 0.25,
+          "RMSE": 0.8946952223777771,
+          "NLL": 4.657982349395752,
+          "CRPS": 0.4772152900695801,
+          "Cov90": 0.508209228515625,
+          "CalibMAE": 0.12651945650577545,
+          "MeanWeight": 0.976573646068573,
+          "MeanDisagreement": 0.0,
+          "train_s": 14.354903208004544,
+          "eval_s": 0.017747542005963624
+        },
+        {
+          "UnlabeledFraction": 0.5,
+          "RMSE": 0.9131101965904236,
+          "NLL": 4.865184307098389,
+          "CRPS": 0.48633673787117004,
+          "Cov90": 0.4912109375,
+          "CalibMAE": 0.1308336704969406,
+          "MeanWeight": 0.976743221282959,
+          "MeanDisagreement": 0.0,
+          "train_s": 40.93781983302324,
+          "eval_s": 0.028310708003118634
+        },
+        {
+          "UnlabeledFraction": 1.0,
+          "RMSE": 0.9008802771568298,
+          "NLL": 3.969097137451172,
+          "CRPS": 0.4770316481590271,
+          "Cov90": 0.514007568359375,
+          "CalibMAE": 0.12850020825862885,
+          "MeanWeight": 0.9766166806221008,
+          "MeanDisagreement": 0.0,
+          "train_s": 49.21530091599561,
+          "eval_s": 0.016480083024362102
+        }
+      ],
+      "SAGE-Reg": [
+        {
+          "UnlabeledFraction": 0.25,
+          "RMSE": 0.9041783809661865,
+          "NLL": 2.587252616882324,
+          "CRPS": 0.460395872592926,
+          "Cov90": 0.6676025390625,
+          "CalibMAE": 0.09309884905815125,
+          "MeanWeight": 0.9652961492538452,
+          "MeanDisagreement": 0.006615001708269119,
+          "train_s": 7.049572582996916,
+          "eval_s": 0.01499337499262765
+        },
+        {
+          "UnlabeledFraction": 0.5,
+          "RMSE": 0.9020062685012817,
+          "NLL": 2.2187914848327637,
+          "CRPS": 0.45747408270835876,
+          "Cov90": 0.686859130859375,
+          "CalibMAE": 0.09163721650838852,
+          "MeanWeight": 0.9647586345672607,
+          "MeanDisagreement": 0.006670371629297733,
+          "train_s": 8.485300374013605,
+          "eval_s": 0.019773625012021512
+        },
+        {
+          "UnlabeledFraction": 1.0,
+          "RMSE": 0.9056075811386108,
+          "NLL": 2.0032472610473633,
+          "CRPS": 0.4581788182258606,
+          "Cov90": 0.7059326171875,
+          "CalibMAE": 0.08921123296022415,
+          "MeanWeight": 0.9683865308761597,
+          "MeanDisagreement": 0.00595441646873951,
+          "train_s": 6.714342541003134,
+          "eval_s": 0.015570832998491824
+        }
+      ]
+    }
+  },
+  "sage_multiseed": {
+    "tuning_csv_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv",
+    "seeds": [
+      260410,
+      260411,
+      260412
+    ],
+    "aggregate": [
+      {
+        "Benchmark": "higgs_public",
+        "Seeds": 3,
+        "SAGEMinusSupervisedMean": -63.77029895782471,
+        "SAGEMinusSupervisedMedian": -45.47712421417236,
+        "SAGEMinusSupervisedStd": 57.15299116112695,
+        "ConfidenceMinusSupervisedMean": 432.31563504536945,
+        "ConfidenceMinusSupervisedMedian": 453.43766021728516,
+        "ConfidenceMinusSupervisedStd": 71.65205133659249,
+        "SAGEMeanWeightMean": 0.28740619122982025,
+        "SAGEMeanDisagreementMean": 1.3423160314559937
+      },
+      {
+        "Benchmark": "year",
+        "Seeds": 3,
+        "SAGEMinusSupervisedMean": 0.10186127821604411,
+        "SAGEMinusSupervisedMedian": 0.07510685920715332,
+        "SAGEMinusSupervisedStd": 0.06959456341858436,
+        "ConfidenceMinusSupervisedMean": 1.7276114225387573,
+        "ConfidenceMinusSupervisedMedian": 1.6648507118225098,
+        "ConfidenceMinusSupervisedStd": 0.10694958119229861,
+        "SAGEMeanWeightMean": 0.27791962027549744,
+        "SAGEMeanDisagreementMean": 0.9022989273071289
+      }
+    ],
+    "per_seed": [
+      {
+        "Benchmark": "year",
+        "Seed": 260410,
+        "SAGEMinusSupervised": 0.07510685920715332,
+        "ConfidenceMinusSupervised": 1.6648507118225098,
+        "SupervisedObjective": 2.0363712310791016,
+        "SAGEObjective": 2.111478090286255,
+        "ConfidenceObjective": 3.7012219429016113,
+        "SupervisedExtra": 0.770294189453125,
+        "SAGEExtra": 0.717376708984375,
+        "ConfidenceExtra": 0.5716552734375
+      },
+      {
+        "Benchmark": "higgs_public",
+        "Seed": 260410,
+        "SAGEMinusSupervised": -141.09838247299194,
+        "ConfidenceMinusSupervised": 335.92677307128906,
+        "SupervisedObjective": 147.2608184814453,
+        "SAGEObjective": 6.162436008453369,
+        "ConfidenceObjective": 483.1875915527344,
+        "SupervisedExtra": 0.6269165277481079,
+        "SAGEExtra": 0.511059582233429,
+        "ConfidenceExtra": 0.2791503965854645
+      },
+      {
+        "Benchmark": "year",
+        "Seed": 260411,
+        "SAGEMinusSupervised": 0.1972644329071045,
+        "ConfidenceMinusSupervised": 1.639814853668213,
+        "SupervisedObjective": 2.037259578704834,
+        "SAGEObjective": 2.2345240116119385,
+        "ConfidenceObjective": 3.677074432373047,
+        "SupervisedExtra": 0.754608154296875,
+        "SAGEExtra": 0.707366943359375,
+        "ConfidenceExtra": 0.551483154296875
+      },
+      {
+        "Benchmark": "higgs_public",
+        "Seed": 260411,
+        "SAGEMinusSupervised": -45.47712421417236,
+        "ConfidenceMinusSupervised": 453.43766021728516,
+        "SupervisedObjective": 51.606346130371094,
+        "SAGEObjective": 6.1292219161987305,
+        "ConfidenceObjective": 505.04400634765625,
+        "SupervisedExtra": 0.580249011516571,
+        "SAGEExtra": 0.526562511920929,
+        "ConfidenceExtra": 0.2513671815395355
+      },
+      {
+        "Benchmark": "year",
+        "Seed": 260412,
+        "SAGEMinusSupervised": 0.03321254253387451,
+        "ConfidenceMinusSupervised": 1.8781687021255493,
+        "SupervisedObjective": 1.926531195640564,
+        "SAGEObjective": 1.9597437381744385,
+        "ConfidenceObjective": 3.8046998977661133,
+        "SupervisedExtra": 0.751190185546875,
+        "SAGEExtra": 0.73834228515625,
+        "ConfidenceExtra": 0.537811279296875
+      },
+      {
+        "Benchmark": "higgs_public",
+        "Seed": 260412,
+        "SAGEMinusSupervised": -4.7353901863098145,
+        "ConfidenceMinusSupervised": 507.5824718475342,
+        "SupervisedObjective": 11.54265022277832,
+        "SAGEObjective": 6.807260036468506,
+        "ConfidenceObjective": 519.1251220703125,
+        "SupervisedExtra": 0.5765625238418579,
+        "SAGEExtra": 0.5072265863418579,
+        "ConfidenceExtra": 0.15638427436351776
+      }
+    ]
+  },
+  "spt_year_full": {
+    "task": "SPT-Reg YearPredictionMSD-style real-data benchmark with BinnedPDF",
+    "config": {
+      "seed": 260410,
+      "dataset_path": null,
+      "cache_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "allow_download": false,
+      "target_column": "target",
+      "n_source": 4096,
+      "n_target_unlabeled": 8192,
+      "n_target_cal": 2048,
+      "n_target_test": 4096,
+      "shift_feature_idx": 0,
+      "alpha": 0.1,
+      "ppi_quantile": 0.9,
+      "n_support": 128,
+      "n_bins": 20,
+      "n_samples_eval": 64,
+      "target_label_budget": 512,
+      "openml_data_id": null,
+      "openml_dataset_name": null,
+      "openml_version": 1,
+      "max_dataset_rows": null
+    },
+    "methods": {
+      "SourceGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.7756375716059836,
+        "CRPS": 1.565695881843567,
+        "Cov90": 1.0,
+        "Width90": 20.995376586914062,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.009264374995836988,
+        "eval_s": 0.0
+      },
+      "FeatureStatNormGaussian": {
+        "MSE": 0.7885555624961853,
+        "MAE": 0.7426120042800903,
+        "NLL": 2.5998182261159353,
+        "CRPS": 1.3488633632659912,
+        "Cov90": 1.0,
+        "Width90": 17.502334594726562,
+        "TailRMSE90": 1.0779453048876144,
+        "train_s": 0.009264374995836988,
+        "eval_s": 0.0
+      },
+      "SignificantSubspaceGaussian": {
+        "MSE": 0.2635222375392914,
+        "MAE": 0.3573457598686218,
+        "NLL": 2.7300963978457906,
+        "CRPS": 1.4957623481750488,
+        "Cov90": 1.0,
+        "Width90": 20.062103271484375,
+        "TailRMSE90": 0.4981242093910791,
+        "train_s": 0.009264374995836988,
+        "eval_s": 0.0
+      },
+      "PriorTransportGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.7756375716059836,
+        "CRPS": 1.566078782081604,
+        "Cov90": 1.0,
+        "Width90": 20.995376586914062,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.009264374995836988,
+        "eval_s": 10.384670250001363
+      },
+      "RawSplitConformalGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.7756375716059836,
+        "CRPS": 1.5609984397888184,
+        "Cov90": 0.915283203125,
+        "Width90": 1.4269418716430664,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.009264374995836988,
+        "eval_s": 0.0
+      },
+      "SPTTransportGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.9365162763002957,
+        "CRPS": 1.8429841995239258,
+        "Cov90": 1.0,
+        "Width90": 24.701122283935547,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.009264374995836988,
+        "eval_s": 8.502441125019686
+      },
+      "SPTRegGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.9365162763002957,
+        "CRPS": 1.8363659381866455,
+        "Cov90": 1.0,
+        "Width90": 24.701122283935547,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.012761667021550238,
+        "eval_s": 8.502441125019686
+      },
+      "TargetRefitSmallGaussian": {
+        "MSE": 0.28186333179473877,
+        "MAE": 0.3724796772003174,
+        "NLL": 2.0665755522274436,
+        "CRPS": 0.7883169651031494,
+        "Cov90": 1.0,
+        "Width90": 10.215767860412598,
+        "TailRMSE90": 0.5028490931879873,
+        "train_s": 0.0030527090129908174,
+        "eval_s": 0.0
+      },
+      "SourceBinnedPDF": {
+        "MSE": 8.50908374786377,
+        "MAE": 2.8766841888427734,
+        "NLL": 1.9429357080277563,
+        "CRPS": 1.6971534490585327,
+        "Cov90": 1.0,
+        "Width90": 7.341760635375977,
+        "TailRMSE90": 3.3336660816142896,
+        "train_s": 0.009264374995836988,
+        "eval_s": 0.0
+      },
+      "SPTRegBinnedPDF": {
+        "MSE": 8.568313598632812,
+        "MAE": 2.8868207931518555,
+        "NLL": 1.9604624193089886,
+        "CRPS": 1.7150415182113647,
+        "Cov90": 0.943359375,
+        "Width90": 2.41935658454895,
+        "TailRMSE90": 3.344285883135285,
+        "train_s": 0.016698708990588784,
+        "eval_s": 8.731098666990874
+      }
+    }
+  },
+  "spt_artifact_manifest": {
+    "artifact": "spt_reg_paper_artifact_manifest",
+    "version": 1,
+    "profile": "full",
+    "include_photoz": false,
+    "output_dir": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full",
+    "summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full/synthetic_competing_methods_full.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full/tabular_competing_methods_full.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-12/overnight_all/paper_bundle/spt/full/year_competing_methods_full.json"
+    },
+    "year_track_data": "cache_path=/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv, allow_download=False"
+  },
+  "warnings": []
+}

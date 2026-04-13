@@ -43,7 +43,7 @@ uv run python scripts/run_neurips_sage_reg_full.py --quick
 
 **Shifts placeholder** (writes `README.txt` under `data/shifts/<dataset>/`) runs **by default**; use `--skip-shifts` or `--shifts-out-root` for a custom location. Photo-z is not part of this runner.
 
-OpenML Year cache defaults to `data/paper/openml_year.csv` (created on first run unless `--no-year-download`). **Mean Teacher** SSL baseline: benchmark row `MeanTeacher` in `examples/benchmarks/self_agreement_realdata_year.py` and Higgs track where enabled.
+OpenML Year cache defaults to `data/paper/openml_year.csv` (created on first run unless `--no-year-download`). Example commands below use `docs/research/sage_reg_results/.../openml_year.csv` as a **local** cache path; that CSV is **not** in git (too large). Committed trees under `docs/research/sage_reg_results/` are **metrics** (`*.json`, `*.csv` summaries, `*.md`, `*.png`) — see `docs/research/sage_reg_results/README.md`. **Mean Teacher** SSL baseline: benchmark row `MeanTeacher` in `examples/benchmarks/self_agreement_realdata_year.py` and Higgs track where enabled.
 
 Joint SPT+SAGE pass: `./scripts/run_neurips_paper_bundle.sh` (forwards args to both scripts; **no** `--run-root`).
 

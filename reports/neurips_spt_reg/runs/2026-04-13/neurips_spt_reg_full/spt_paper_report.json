@@ -1,0 +1,744 @@
+{
+  "artifact": "spt_paper_report",
+  "version": 1,
+  "generated_at_utc": "2026-04-13T23:10:59.232547+00:00",
+  "run_root": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full",
+  "paths": {
+    "full_manifest": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/artifact_manifest.json",
+    "audit_manifest": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/artifact_manifest.json"
+  },
+  "spt_year_full": {
+    "task": "SPT-Reg YearPredictionMSD-style real-data benchmark with BinnedPDF",
+    "config": {
+      "seed": 260410,
+      "dataset_path": null,
+      "cache_path": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv",
+      "allow_download": true,
+      "target_column": "target",
+      "n_source": 4096,
+      "n_target_unlabeled": 8192,
+      "n_target_cal": 2048,
+      "n_target_test": 4096,
+      "shift_feature_idx": 0,
+      "alpha": 0.1,
+      "ppi_quantile": 0.9,
+      "n_support": 128,
+      "n_bins": 20,
+      "n_samples_eval": 64,
+      "target_label_budget": 512,
+      "openml_data_id": null,
+      "openml_dataset_name": null,
+      "openml_version": 1,
+      "max_dataset_rows": null,
+      "prior_ratio_clip": 2.0,
+      "prior_transport_strength": 0.5
+    },
+    "methods": {
+      "SourceGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.7756375716059836,
+        "CRPS": 1.565695881843567,
+        "Cov90": 1.0,
+        "Width90": 20.995376586914062,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.008065834001172334,
+        "eval_s": 0.0
+      },
+      "FeatureStatNormGaussian": {
+        "MSE": 0.7885555624961853,
+        "MAE": 0.7426120042800903,
+        "NLL": 2.5998182261159353,
+        "CRPS": 1.3488633632659912,
+        "Cov90": 1.0,
+        "Width90": 17.502334594726562,
+        "TailRMSE90": 1.0779453048876144,
+        "train_s": 0.008065834001172334,
+        "eval_s": 0.0
+      },
+      "SignificantSubspaceGaussian": {
+        "MSE": 0.2635222375392914,
+        "MAE": 0.3573457598686218,
+        "NLL": 2.7300963978457906,
+        "CRPS": 1.4957623481750488,
+        "Cov90": 1.0,
+        "Width90": 20.062103271484375,
+        "TailRMSE90": 0.4981242093910791,
+        "train_s": 0.008065834001172334,
+        "eval_s": 0.0
+      },
+      "PriorTransportGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.7756375716059836,
+        "CRPS": 1.566078782081604,
+        "Cov90": 1.0,
+        "Width90": 20.995376586914062,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.008065834001172334,
+        "eval_s": 15.849451374990167
+      },
+      "RawSplitConformalGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.7756375716059836,
+        "CRPS": 1.5609984397888184,
+        "Cov90": 0.915283203125,
+        "Width90": 1.4269418716430664,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.008065834001172334,
+        "eval_s": 0.0
+      },
+      "WeightedSplitConformalGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.7756375716059836,
+        "CRPS": 1.5647200345993042,
+        "Cov90": 0.905517578125,
+        "Width90": 1.3907685279846191,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.008065834001172334,
+        "eval_s": 0.0
+      },
+      "SPTTransportGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.9365162763002957,
+        "CRPS": 1.8429841995239258,
+        "Cov90": 1.0,
+        "Width90": 24.701122283935547,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.008065834001172334,
+        "eval_s": 12.85754595900653
+      },
+      "SPTRegGaussian": {
+        "MSE": 0.2681511640548706,
+        "MAE": 0.38145580887794495,
+        "NLL": 2.9365162763002957,
+        "CRPS": 1.8363659381866455,
+        "Cov90": 1.0,
+        "Width90": 24.701122283935547,
+        "TailRMSE90": 0.5750944328875868,
+        "train_s": 0.011645334016066045,
+        "eval_s": 12.85754595900653
+      },
+      "TargetRefitSmallGaussian": {
+        "MSE": 0.28186333179473877,
+        "MAE": 0.3724796772003174,
+        "NLL": 2.0665755802660026,
+        "CRPS": 0.7883169651031494,
+        "Cov90": 1.0,
+        "Width90": 10.215768814086914,
+        "TailRMSE90": 0.5028490931879873,
+        "train_s": 0.0028049170214217156,
+        "eval_s": 0.0
+      },
+      "SourceBinnedPDF": {
+        "MSE": 8.50908374786377,
+        "MAE": 2.8766841888427734,
+        "NLL": 1.9429357080277563,
+        "CRPS": 1.6971534490585327,
+        "Cov90": 1.0,
+        "Width90": 7.341760635375977,
+        "TailRMSE90": 3.3336660816142896,
+        "train_s": 0.008065834001172334,
+        "eval_s": 0.0
+      },
+      "SPTRegBinnedPDF": {
+        "MSE": 8.568313598632812,
+        "MAE": 2.8868207931518555,
+        "NLL": 1.9604624193089886,
+        "CRPS": 1.7150415182113647,
+        "Cov90": 0.943359375,
+        "Width90": 2.41935658454895,
+        "TailRMSE90": 3.344285883135285,
+        "train_s": 0.0163000010070391,
+        "eval_s": 22.995503332989756
+      }
+    }
+  },
+  "spt_year_audit": {
+    "task": "SPT-Reg YearPredictionMSD-style real-data benchmark with BinnedPDF",
+    "config": {
+      "seed": 260410,
+      "dataset_path": null,
+      "cache_path": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv",
+      "allow_download": true,
+      "target_column": "target",
+      "n_source": 224,
+      "n_target_unlabeled": 96,
+      "n_target_cal": 48,
+      "n_target_test": 48,
+      "shift_feature_idx": 0,
+      "alpha": 0.1,
+      "ppi_quantile": 0.9,
+      "n_support": 96,
+      "n_bins": 16,
+      "n_samples_eval": 32,
+      "target_label_budget": 24,
+      "openml_data_id": null,
+      "openml_dataset_name": null,
+      "openml_version": 1,
+      "max_dataset_rows": null,
+      "prior_ratio_clip": 2.0,
+      "prior_transport_strength": 0.5
+    },
+    "methods": {
+      "SourceGaussian": {
+        "MSE": 1.1657780408859253,
+        "MAE": 0.7793715596199036,
+        "NLL": 2.551706304883234,
+        "CRPS": 1.317299723625183,
+        "Cov90": 1.0,
+        "Width90": 16.4547176361084,
+        "TailRMSE90": 0.47977581812259307,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.0
+      },
+      "FeatureStatNormGaussian": {
+        "MSE": 3.7329962253570557,
+        "MAE": 1.6148914098739624,
+        "NLL": 2.3765879101239427,
+        "CRPS": 1.2880851030349731,
+        "Cov90": 1.0,
+        "Width90": 12.4622802734375,
+        "TailRMSE90": 1.7879544817542294,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.0
+      },
+      "SignificantSubspaceGaussian": {
+        "MSE": 1.2468104362487793,
+        "MAE": 0.8050804138183594,
+        "NLL": 2.5115640229992255,
+        "CRPS": 1.3372493982315063,
+        "Cov90": 1.0,
+        "Width90": 15.743599891662598,
+        "TailRMSE90": 0.4495193322109824,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.0
+      },
+      "PriorTransportGaussian": {
+        "MSE": 1.1657780408859253,
+        "MAE": 0.7793715596199036,
+        "NLL": 2.551706304883234,
+        "CRPS": 1.3829755783081055,
+        "Cov90": 1.0,
+        "Width90": 16.4547176361084,
+        "TailRMSE90": 0.47977581812259307,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.012791041983291507
+      },
+      "RawSplitConformalGaussian": {
+        "MSE": 1.1657780408859253,
+        "MAE": 0.7793715596199036,
+        "NLL": 2.551706304883234,
+        "CRPS": 1.3373041152954102,
+        "Cov90": 0.875,
+        "Width90": 2.6957175731658936,
+        "TailRMSE90": 0.47977581812259307,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.0
+      },
+      "WeightedSplitConformalGaussian": {
+        "MSE": 1.1657780408859253,
+        "MAE": 0.7793715596199036,
+        "NLL": 2.551706304883234,
+        "CRPS": 1.3216406106948853,
+        "Cov90": 0.9375,
+        "Width90": 4.558216094970703,
+        "TailRMSE90": 0.47977581812259307,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.0
+      },
+      "SPTTransportGaussian": {
+        "MSE": 1.1657780408859253,
+        "MAE": 0.7793715596199036,
+        "NLL": 2.740708588448612,
+        "CRPS": 1.592706322669983,
+        "Cov90": 1.0,
+        "Width90": 20.122425079345703,
+        "TailRMSE90": 0.47977581812259307,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.012163708015577868
+      },
+      "SPTRegGaussian": {
+        "MSE": 1.1657780408859253,
+        "MAE": 0.7793715596199036,
+        "NLL": 2.740708588448612,
+        "CRPS": 1.576559066772461,
+        "Cov90": 1.0,
+        "Width90": 20.12242317199707,
+        "TailRMSE90": 0.47977581812259307,
+        "train_s": 0.0015350000176113099,
+        "eval_s": 0.012163708015577868
+      },
+      "TargetRefitSmallGaussian": {
+        "MSE": 0.5271857976913452,
+        "MAE": 0.486395925283432,
+        "NLL": 41.25950764513653,
+        "CRPS": 0.446468323469162,
+        "Cov90": 0.125,
+        "Width90": 0.25834473967552185,
+        "TailRMSE90": 0.46144697817706115,
+        "train_s": 0.0012144579959567636,
+        "eval_s": 0.0
+      },
+      "SourceBinnedPDF": {
+        "MSE": 4.870040416717529,
+        "MAE": 2.169865846633911,
+        "NLL": 1.6889909612960763,
+        "CRPS": 1.3953442573547363,
+        "Cov90": 1.0,
+        "Width90": 5.831790924072266,
+        "TailRMSE90": 2.5507228421827333,
+        "train_s": 0.00140974999521859,
+        "eval_s": 0.0
+      },
+      "SPTRegBinnedPDF": {
+        "MSE": 5.072740077972412,
+        "MAE": 2.2169320583343506,
+        "NLL": 1.717807085232703,
+        "CRPS": 1.4372814893722534,
+        "Cov90": 0.9583333134651184,
+        "Width90": 2.7478466033935547,
+        "TailRMSE90": 2.594982945729789,
+        "train_s": 0.0019048330141231418,
+        "eval_s": 0.016552040993701667
+      }
+    }
+  },
+  "spt_manifest_full": {
+    "artifact": "spt_reg_paper_artifact_manifest",
+    "version": 1,
+    "profile": "full",
+    "include_photoz": false,
+    "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full",
+    "summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/synthetic_competing_methods_full.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/tabular_competing_methods_full.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/year_competing_methods_full.json"
+    },
+    "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_year.csv, allow_download=True"
+  },
+  "spt_manifest_audit": {
+    "artifact": "spt_reg_paper_artifact_manifest",
+    "version": 1,
+    "profile": "audit",
+    "include_photoz": false,
+    "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit",
+    "summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/synthetic_competing_methods_audit.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/tabular_competing_methods_audit.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/year_competing_methods_audit.json"
+    },
+    "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_year.csv, allow_download=True"
+  },
+  "spt_other_summaries": {
+    "full_summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/synthetic_competing_methods_full.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/tabular_competing_methods_full.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/year_competing_methods_full.json"
+    },
+    "audit_summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/synthetic_competing_methods_audit.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/tabular_competing_methods_audit.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/year_competing_methods_audit.json"
+    }
+  },
+  "stage_a_sweep": {
+    "rows": [
+      {
+        "prior_ratio_clip": 1.5,
+        "SPTRegGaussian_NLL": 2.9365162763002957,
+        "SPTRegGaussian_CRPS": 1.8363659381866455,
+        "SPTRegGaussian_Cov90": 1.0,
+        "SourceGaussian_NLL": 2.7756375716059836
+      },
+      {
+        "prior_ratio_clip": 2.0,
+        "SPTRegGaussian_NLL": 2.9365162763002957,
+        "SPTRegGaussian_CRPS": 1.8363659381866455,
+        "SPTRegGaussian_Cov90": 1.0,
+        "SourceGaussian_NLL": 2.7756375716059836
+      },
+      {
+        "prior_ratio_clip": 3.0,
+        "SPTRegGaussian_NLL": 2.9365162763002957,
+        "SPTRegGaussian_CRPS": 1.8363659381866455,
+        "SPTRegGaussian_Cov90": 1.0,
+        "SourceGaussian_NLL": 2.7756375716059836
+      },
+      {
+        "prior_ratio_clip": 5.0,
+        "SPTRegGaussian_NLL": 2.9365162763002957,
+        "SPTRegGaussian_CRPS": 1.8363659381866455,
+        "SPTRegGaussian_Cov90": 1.0,
+        "SourceGaussian_NLL": 2.7756375716059836
+      }
+    ],
+    "cache_path": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv"
+  },
+  "large_tabular_year": {
+    "task": "SPT-Reg YearPredictionMSD-style real-data benchmark with BinnedPDF",
+    "config": {
+      "seed": 260410,
+      "dataset_path": null,
+      "cache_path": "/Users/fabbros/src/torchregress/data/paper/openml_large_tabular_diamonds.parquet",
+      "allow_download": true,
+      "target_column": "target",
+      "n_source": 4096,
+      "n_target_unlabeled": 8192,
+      "n_target_cal": 2048,
+      "n_target_test": 4096,
+      "shift_feature_idx": 0,
+      "alpha": 0.1,
+      "ppi_quantile": 0.9,
+      "n_support": 128,
+      "n_bins": 20,
+      "n_samples_eval": 64,
+      "target_label_budget": 512,
+      "openml_data_id": 42225,
+      "openml_dataset_name": null,
+      "openml_version": 1,
+      "max_dataset_rows": 250000,
+      "prior_ratio_clip": 2.0,
+      "prior_transport_strength": 0.5
+    },
+    "methods": {
+      "SourceGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.9901807904243469,
+        "Cov90": 0.44091796875,
+        "Width90": 1.6110140085220337,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "FeatureStatNormGaussian": {
+        "MSE": 20.518705368041992,
+        "MAE": 4.142515182495117,
+        "NLL": 50.51966893485037,
+        "CRPS": 3.8941352367401123,
+        "Cov90": 0.003173828125,
+        "Width90": 1.4689011573791504,
+        "TailRMSE90": 7.53992048695122,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "SignificantSubspaceGaussian": {
+        "MSE": 8.36998176574707,
+        "MAE": 2.4968414306640625,
+        "NLL": 20.154505980043368,
+        "CRPS": 2.252811908721924,
+        "Cov90": 0.07470703125,
+        "Width90": 1.5056071281433105,
+        "TailRMSE90": 4.377669293469844,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "PriorTransportGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.9899609088897705,
+        "Cov90": 0.44091796875,
+        "Width90": 1.6110140085220337,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 2.0407695419853553
+      },
+      "RawSplitConformalGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.989850640296936,
+        "Cov90": 0.90087890625,
+        "Width90": 5.001451015472412,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "WeightedSplitConformalGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.9890820980072021,
+        "Cov90": 0.91162109375,
+        "Width90": 5.270101547241211,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "SPTTransportGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 2.8002981326473364,
+        "CRPS": 0.9232907295227051,
+        "Cov90": 0.645751953125,
+        "Width90": 2.4657981395721436,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 1.9930265829898417
+      },
+      "SPTRegGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 2.8002981326473364,
+        "CRPS": 0.9253641366958618,
+        "Cov90": 0.9013671875,
+        "Width90": 5.000180244445801,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.0038472080195788294,
+        "eval_s": 1.9930265829898417
+      },
+      "TargetRefitSmallGaussian": {
+        "MSE": 5.651252269744873,
+        "MAE": 1.2265214920043945,
+        "NLL": 2.403053862624356,
+        "CRPS": 0.9086331129074097,
+        "Cov90": 0.93212890625,
+        "Width90": 5.426540851593018,
+        "TailRMSE90": 4.234693766324892,
+        "train_s": 0.00046137499157339334,
+        "eval_s": 0.0
+      },
+      "SourceBinnedPDF": {
+        "MSE": 5.4776411056518555,
+        "MAE": 1.9696941375732422,
+        "NLL": 3.513993038314822,
+        "CRPS": 1.3342493772506714,
+        "Cov90": 0.76513671875,
+        "Width90": 5.88250732421875,
+        "TailRMSE90": 4.242706073061153,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "SPTRegBinnedPDF": {
+        "MSE": 6.163236618041992,
+        "MAE": 2.1577696800231934,
+        "NLL": 3.507924553055876,
+        "CRPS": 1.4785571098327637,
+        "Cov90": 0.88427734375,
+        "Width90": 6.707716464996338,
+        "TailRMSE90": 3.909084870191748,
+        "train_s": 0.007879374985350296,
+        "eval_s": 1.948836791998474
+      }
+    }
+  },
+  "yolanda_year": {
+    "task": "SPT-Reg YearPredictionMSD-style real-data benchmark with BinnedPDF",
+    "config": {
+      "seed": 260410,
+      "dataset_path": null,
+      "cache_path": "/Users/fabbros/src/torchregress/data/paper/openml_large_tabular_diamonds.parquet",
+      "allow_download": true,
+      "target_column": "target",
+      "n_source": 4096,
+      "n_target_unlabeled": 8192,
+      "n_target_cal": 2048,
+      "n_target_test": 4096,
+      "shift_feature_idx": 0,
+      "alpha": 0.1,
+      "ppi_quantile": 0.9,
+      "n_support": 128,
+      "n_bins": 20,
+      "n_samples_eval": 64,
+      "target_label_budget": 512,
+      "openml_data_id": 42225,
+      "openml_dataset_name": null,
+      "openml_version": 1,
+      "max_dataset_rows": 250000,
+      "prior_ratio_clip": 2.0,
+      "prior_transport_strength": 0.5
+    },
+    "methods": {
+      "SourceGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.9901807904243469,
+        "Cov90": 0.44091796875,
+        "Width90": 1.6110140085220337,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "FeatureStatNormGaussian": {
+        "MSE": 20.518705368041992,
+        "MAE": 4.142515182495117,
+        "NLL": 50.51966893485037,
+        "CRPS": 3.8941352367401123,
+        "Cov90": 0.003173828125,
+        "Width90": 1.4689011573791504,
+        "TailRMSE90": 7.53992048695122,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "SignificantSubspaceGaussian": {
+        "MSE": 8.36998176574707,
+        "MAE": 2.4968414306640625,
+        "NLL": 20.154505980043368,
+        "CRPS": 2.252811908721924,
+        "Cov90": 0.07470703125,
+        "Width90": 1.5056071281433105,
+        "TailRMSE90": 4.377669293469844,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "PriorTransportGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.9899609088897705,
+        "Cov90": 0.44091796875,
+        "Width90": 1.6110140085220337,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 2.0407695419853553
+      },
+      "RawSplitConformalGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.989850640296936,
+        "Cov90": 0.90087890625,
+        "Width90": 5.001451015472412,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "WeightedSplitConformalGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 5.523201642631102,
+        "CRPS": 0.9890820980072021,
+        "Cov90": 0.91162109375,
+        "Width90": 5.270101547241211,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "SPTTransportGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 2.8002981326473364,
+        "CRPS": 0.9232907295227051,
+        "Cov90": 0.645751953125,
+        "Width90": 2.4657981395721436,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 1.9930265829898417
+      },
+      "SPTRegGaussian": {
+        "MSE": 2.6917648315429688,
+        "MAE": 1.2008240222930908,
+        "NLL": 2.8002981326473364,
+        "CRPS": 0.9253641366958618,
+        "Cov90": 0.9013671875,
+        "Width90": 5.000180244445801,
+        "TailRMSE90": 2.746382958782292,
+        "train_s": 0.0038472080195788294,
+        "eval_s": 1.9930265829898417
+      },
+      "TargetRefitSmallGaussian": {
+        "MSE": 5.651252269744873,
+        "MAE": 1.2265214920043945,
+        "NLL": 2.403053862624356,
+        "CRPS": 0.9086331129074097,
+        "Cov90": 0.93212890625,
+        "Width90": 5.426540851593018,
+        "TailRMSE90": 4.234693766324892,
+        "train_s": 0.00046137499157339334,
+        "eval_s": 0.0
+      },
+      "SourceBinnedPDF": {
+        "MSE": 5.4776411056518555,
+        "MAE": 1.9696941375732422,
+        "NLL": 3.513993038314822,
+        "CRPS": 1.3342493772506714,
+        "Cov90": 0.76513671875,
+        "Width90": 5.88250732421875,
+        "TailRMSE90": 4.242706073061153,
+        "train_s": 0.00047291599912568927,
+        "eval_s": 0.0
+      },
+      "SPTRegBinnedPDF": {
+        "MSE": 6.163236618041992,
+        "MAE": 2.1577696800231934,
+        "NLL": 3.507924553055876,
+        "CRPS": 1.4785571098327637,
+        "Cov90": 0.88427734375,
+        "Width90": 6.707716464996338,
+        "TailRMSE90": 3.909084870191748,
+        "train_s": 0.007879374985350296,
+        "eval_s": 1.948836791998474
+      }
+    }
+  },
+  "neurips_full_manifest": {
+    "artifact": "neurips_spt_reg_full_manifest",
+    "version": 1,
+    "started_at_utc": "2026-04-13T23:07:36.647254+00:00",
+    "run_root": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full",
+    "quick": false,
+    "year_cache": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv",
+    "defaults": {
+      "large_tabular_openml": true,
+      "large_tabular_openml_id": 42225,
+      "shifts": true,
+      "photoz": false
+    },
+    "phases": {
+      "render_full": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full",
+      "render_audit": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit",
+      "render_photoz": "skipped",
+      "render_large_tabular": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular",
+      "stage_a_sweep": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/stage_a_sweep/stage_a_sweep.json",
+      "shifts": "/Users/fabbros/src/torchregress/data/shifts/solar/README.txt"
+    },
+    "render_full_report": {
+      "artifact": "spt_reg_paper_artifact_manifest",
+      "version": 1,
+      "profile": "full",
+      "include_photoz": false,
+      "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full",
+      "summaries": {
+        "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/synthetic_competing_methods_full.json",
+        "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/tabular_competing_methods_full.json",
+        "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/year_competing_methods_full.json"
+      },
+      "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_year.csv, allow_download=True"
+    },
+    "render_audit_report": {
+      "artifact": "spt_reg_paper_artifact_manifest",
+      "version": 1,
+      "profile": "audit",
+      "include_photoz": false,
+      "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit",
+      "summaries": {
+        "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/synthetic_competing_methods_audit.json",
+        "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/tabular_competing_methods_audit.json",
+        "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/year_competing_methods_audit.json"
+      },
+      "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_year.csv, allow_download=True"
+    },
+    "render_large_tabular_report": {
+      "artifact": "spt_reg_paper_artifact_manifest",
+      "version": 1,
+      "profile": "full",
+      "include_photoz": false,
+      "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular",
+      "summaries": {
+        "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular/synthetic_competing_methods_full.json",
+        "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular/tabular_competing_methods_full.json",
+        "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular/year_competing_methods_full.json"
+      },
+      "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_large_tabular_diamonds.parquet, openml_data_id=42225, max_dataset_rows=250000, allow_download=True"
+    },
+    "finished_at_utc": "2026-04-13T23:10:59.191147+00:00"
+  },
+  "warnings": []
+}

@@ -28,6 +28,7 @@ This file links each manuscript artifact to generated outputs on the branch.
 
 ## Notes
 
+- **Committed artifacts:** `reports/neurips_spt_reg/**/*.json` (plus `README.md`, small `year_local_dataset_*.csv` stubs, `runs/…/METRICS.md`, etc.) and `docs/research/sage_reg_results/**/*.{json,csv,md,png}` hold paper-scale **results**. The **OpenML Year** table at paths like `docs/research/sage_reg_results/.../openml_year.csv` is a **local cache** (gitignored there); materialize with download flags or `tools/materialize_openml_year.py`. See `docs/research/sage_reg_results/README.md`.
 - **One command (full + audit + aggregation):**
 
 ```bash

@@ -1,0 +1,212 @@
+{
+  "tuning_csv_path": "docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv",
+  "tuning_config": {
+    "seed": 260410,
+    "out_dir": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3",
+    "year_dataset_path": null,
+    "year_cache_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+    "year_allow_download": true,
+    "higgs_dataset_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-09/higgs_public/extracted/FAIR_Universe_HiggsML_data.parquet",
+    "include_year": true,
+    "include_higgs": true,
+    "tau_values": [
+      0.12,
+      0.18,
+      0.28
+    ],
+    "unlabeled_noise_values": [
+      0.02,
+      0.05,
+      0.1
+    ],
+    "feature_drop_prob_values": [
+      0.0,
+      0.1,
+      0.2
+    ],
+    "feature_mix_prob_values": [
+      0.0,
+      0.1,
+      0.2
+    ],
+    "pseudo_weight_values": [
+      0.4,
+      0.8
+    ],
+    "agreement_weight_values": [
+      0.25,
+      0.5
+    ],
+    "weight_power_values": [
+      1.0,
+      2.0
+    ],
+    "hard_weight_threshold_values": [
+      null,
+      0.85
+    ],
+    "year_n_labeled": 4096,
+    "year_n_unlabeled": 65536,
+    "year_n_test": 32768,
+    "year_teacher_epochs": 16,
+    "year_student_epochs": 16,
+    "year_batch_size": 512,
+    "year_hidden": 128,
+    "year_unlabeled_fraction": 1.0,
+    "higgs_n_train": 4096,
+    "higgs_n_unlabeled_id": 16384,
+    "higgs_n_unlabeled_ood": 16384,
+    "higgs_n_id_test": 8192,
+    "higgs_n_ood_test": 8192,
+    "higgs_teacher_epochs": 16,
+    "higgs_student_epochs": 16,
+    "higgs_batch_size": 512,
+    "higgs_hidden": 128,
+    "log_progress": true
+  },
+  "seeds": [
+    260410
+  ],
+  "seed_rows": [
+    {
+      "Benchmark": "year",
+      "Seed": 260410,
+      "ObjectiveMetric": "NLL",
+      "ExtraMetric": "Cov90",
+      "SupervisedObjective": 1.4106026887893677,
+      "SAGEObjective": 1.2682325839996338,
+      "ConfidenceObjective": 1.2079581022262573,
+      "SAGEMinusSupervised": -0.1423701047897339,
+      "ConfidenceMinusSupervised": -0.20264458656311035,
+      "SupervisedExtra": 0.911468505859375,
+      "SAGEExtra": 0.918548583984375,
+      "ConfidenceExtra": 0.92364501953125,
+      "SAGEMeanWeight": 0.9585880041122437,
+      "SAGEMeanDisagreement": 0.012211085297167301
+    }
+  ],
+  "aggregate_rows": [
+    {
+      "Benchmark": "year",
+      "Seeds": 1,
+      "SAGEMinusSupervisedMean": -0.1423701047897339,
+      "SAGEMinusSupervisedStd": 0.0,
+      "ConfidenceMinusSupervisedMean": -0.20264458656311035,
+      "ConfidenceMinusSupervisedStd": 0.0,
+      "SAGEMeanWeightMean": 0.9585880041122437,
+      "SAGEMeanWeightStd": 0.0,
+      "SAGEMeanDisagreementMean": 0.012211085297167301,
+      "SAGEMeanDisagreementStd": 0.0
+    }
+  ],
+  "runs": [
+    {
+      "benchmark": "year",
+      "objective_metric": "NLL",
+      "extra_metric": "Cov90",
+      "selected_row": {
+        "Benchmark": "year",
+        "ObjectiveMetric": "NLL",
+        "ExtraMetric": "Cov90",
+        "tau": "0.28",
+        "unlabeled_noise": "0.02",
+        "feature_drop_prob": "0.1",
+        "feature_mix_prob": "0.1",
+        "pseudo_weight": "0.4",
+        "agreement_weight": "0.5",
+        "weight_power": "1.0",
+        "hard_weight_threshold": "-1.0",
+        "SupervisedObjective": "1.3018505573272705",
+        "ConfidenceObjective": "1.980907678604126",
+        "SAGEObjective": "1.403210163116455",
+        "SAGEMinusSupervised": "0.10135960578918457",
+        "ConfidenceMinusSupervised": "0.6790571212768555",
+        "SupervisedExtra": "0.860382080078125",
+        "SAGEExtra": "0.839111328125",
+        "ConfidenceExtra": "0.703216552734375",
+        "SAGEMeanWeight": "0.3961053788661957",
+        "SAGEMeanDisagreement": "0.5293428897857666"
+      },
+      "config": {
+        "seed": 260410,
+        "dataset_path": null,
+        "allow_download": true,
+        "cache_path": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+        "target_column": "target",
+        "canonical_test_size": 51630,
+        "n_labeled": 4096,
+        "n_unlabeled": 65536,
+        "n_test": 32768,
+        "hidden": 128,
+        "teacher_epochs": 1,
+        "student_epochs": 1,
+        "batch_size": 512,
+        "lr": 0.002,
+        "dropout": 0.1,
+        "unlabeled_noise": 0.02,
+        "feature_drop_prob": 0.1,
+        "feature_mix_prob": 0.1,
+        "tau": 0.28,
+        "agreement_weight": 0.5,
+        "pseudo_weight": 0.4,
+        "ema_decay": 0.96,
+        "n_views": 4,
+        "weight_power": 1.0,
+        "hard_weight_threshold": null,
+        "unlabeled_fractions": [
+          1.0
+        ]
+      },
+      "rows": [
+        {
+          "Method": "SupervisedOnly",
+          "Dataset": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+          "UnlabeledFraction": 1.0,
+          "RMSE": 0.9690564870834351,
+          "NLL": 1.4106026887893677,
+          "CRPS": 0.5263392329216003,
+          "Cov90": 0.911468505859375,
+          "Width90": 3.402182102203369,
+          "CoverageGap90": 0.011468505859374978,
+          "CalibMAE": 0.067749984562397,
+          "MeanWeight": 0.0,
+          "MeanDisagreement": 0.0,
+          "train_s": 0.4901814170007128,
+          "eval_s": 0.014488249988062307
+        },
+        {
+          "Method": "ConfidenceWeightedPseudoLabel",
+          "Dataset": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+          "UnlabeledFraction": 1.0,
+          "RMSE": 0.9078747034072876,
+          "NLL": 1.2079581022262573,
+          "CRPS": 0.47139304876327515,
+          "Cov90": 0.92364501953125,
+          "Width90": 2.693533420562744,
+          "CoverageGap90": 0.023645019531249978,
+          "CalibMAE": 0.08695358037948608,
+          "MeanWeight": 0.9370043277740479,
+          "MeanDisagreement": 0.0,
+          "train_s": 1.2149820839986205,
+          "eval_s": 0.014261292002629489
+        },
+        {
+          "Method": "SAGE-Reg",
+          "Dataset": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+          "UnlabeledFraction": 1.0,
+          "RMSE": 0.9268959164619446,
+          "NLL": 1.2682325839996338,
+          "CRPS": 0.48777908086776733,
+          "Cov90": 0.918548583984375,
+          "Width90": 2.9453017711639404,
+          "CoverageGap90": 0.018548583984374978,
+          "CalibMAE": 0.06900602579116821,
+          "MeanWeight": 0.9585880041122437,
+          "MeanDisagreement": 0.012211085297167301,
+          "train_s": 0.6691922920144862,
+          "eval_s": 0.0129845839983318
+        }
+      ]
+    }
+  ]
+}

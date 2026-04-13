@@ -1,0 +1,92 @@
+{
+  "artifact": "comparison_example_summary",
+  "version": 1,
+  "example": "examples/benchmarks/self_agreement_realdata_year.py",
+  "task": "self-agreement real-data benchmark on OpenML/UCI YearPredictionMSD",
+  "config": {
+    "seed": 260410,
+    "dataset_path": null,
+    "allow_download": true,
+    "cache_path": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+    "target_column": "target",
+    "canonical_test_size": 51630,
+    "n_labeled": 4096,
+    "n_unlabeled": 65536,
+    "n_test": 32768,
+    "hidden": 128,
+    "teacher_epochs": 16,
+    "student_epochs": 32,
+    "batch_size": 512,
+    "lr": 0.002,
+    "dropout": 0.1,
+    "unlabeled_noise": 0.02,
+    "feature_drop_prob": 0.1,
+    "feature_mix_prob": 0.1,
+    "tau": 0.28,
+    "agreement_weight": 0.5,
+    "pseudo_weight": 0.4,
+    "ema_decay": 0.96,
+    "n_views": 4,
+    "weight_power": 1.0,
+    "hard_weight_threshold": null,
+    "unlabeled_fractions": [
+      1.0
+    ]
+  },
+  "rows": [
+    {
+      "Method": "SupervisedOnly",
+      "Dataset": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "UnlabeledFraction": 1.0,
+      "RMSE": 0.8986951112747192,
+      "NLL": 1.3018505573272705,
+      "CRPS": 0.45041394233703613,
+      "Cov90": 0.860382080078125,
+      "Width90": 2.229085922241211,
+      "CoverageGap90": 0.03961791992187502,
+      "CalibMAE": 0.0696076974272728,
+      "MeanWeight": 0.0,
+      "MeanDisagreement": 0.0,
+      "train_s": 0.8149275000032503,
+      "eval_s": 0.011315458003082313
+    },
+    {
+      "Method": "ConfidenceWeightedPseudoLabel",
+      "Dataset": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "UnlabeledFraction": 1.0,
+      "RMSE": 0.8983508348464966,
+      "NLL": 3.126695156097412,
+      "CRPS": 0.4759320318698883,
+      "Cov90": 0.569976806640625,
+      "Width90": 1.1384961605072021,
+      "CoverageGap90": 0.330023193359375,
+      "CalibMAE": 0.11585789918899536,
+      "MeanWeight": 0.9593966007232666,
+      "MeanDisagreement": 0.0,
+      "train_s": 20.213983791007195,
+      "eval_s": 0.013951374989119358
+    },
+    {
+      "Method": "SAGE-Reg",
+      "Dataset": "docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "UnlabeledFraction": 1.0,
+      "RMSE": 0.904104471206665,
+      "NLL": 1.6787563562393188,
+      "CRPS": 0.456112802028656,
+      "Cov90": 0.7764892578125,
+      "Width90": 1.7534055709838867,
+      "CoverageGap90": 0.12351074218750002,
+      "CalibMAE": 0.07419465482234955,
+      "MeanWeight": 0.34237533807754517,
+      "MeanDisagreement": 0.6959578394889832,
+      "train_s": 5.19588895799825,
+      "eval_s": 0.013524916997994296
+    }
+  ],
+  "notes": [
+    "Uses OpenML/UCI YearPredictionMSD when no local dataset_path is provided.",
+    "The first real-data pass stays narrow: Gaussian head only, with supervised, confidence-weighted pseudo-labeling, and SAGE-Reg.",
+    "Use dataset_path for offline or smoke-test runs; local CSV/Parquet paths bypass network access.",
+    "Optional diagnostic figure compares confidence and SAGE agreement-weight rankings against pseudo-label error on the unlabeled pool."
+  ]
+}

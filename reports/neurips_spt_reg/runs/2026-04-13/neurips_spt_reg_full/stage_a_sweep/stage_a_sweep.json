@@ -1,0 +1,33 @@
+{
+  "rows": [
+    {
+      "prior_ratio_clip": 1.5,
+      "SPTRegGaussian_NLL": 2.9365162763002957,
+      "SPTRegGaussian_CRPS": 1.8363659381866455,
+      "SPTRegGaussian_Cov90": 1.0,
+      "SourceGaussian_NLL": 2.7756375716059836
+    },
+    {
+      "prior_ratio_clip": 2.0,
+      "SPTRegGaussian_NLL": 2.9365162763002957,
+      "SPTRegGaussian_CRPS": 1.8363659381866455,
+      "SPTRegGaussian_Cov90": 1.0,
+      "SourceGaussian_NLL": 2.7756375716059836
+    },
+    {
+      "prior_ratio_clip": 3.0,
+      "SPTRegGaussian_NLL": 2.9365162763002957,
+      "SPTRegGaussian_CRPS": 1.8363659381866455,
+      "SPTRegGaussian_Cov90": 1.0,
+      "SourceGaussian_NLL": 2.7756375716059836
+    },
+    {
+      "prior_ratio_clip": 5.0,
+      "SPTRegGaussian_NLL": 2.9365162763002957,
+      "SPTRegGaussian_CRPS": 1.8363659381866455,
+      "SPTRegGaussian_Cov90": 1.0,
+      "SourceGaussian_NLL": 2.7756375716059836
+    }
+  ],
+  "cache_path": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv"
+}

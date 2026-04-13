@@ -1,0 +1,62 @@
+{
+  "artifact": "neurips_spt_reg_full_manifest",
+  "version": 1,
+  "started_at_utc": "2026-04-13T23:07:36.647254+00:00",
+  "run_root": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full",
+  "quick": false,
+  "year_cache": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv",
+  "defaults": {
+    "large_tabular_openml": true,
+    "large_tabular_openml_id": 42225,
+    "shifts": true,
+    "photoz": false
+  },
+  "phases": {
+    "render_full": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full",
+    "render_audit": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit",
+    "render_photoz": "skipped",
+    "render_large_tabular": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular",
+    "stage_a_sweep": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/stage_a_sweep/stage_a_sweep.json",
+    "shifts": "/Users/fabbros/src/torchregress/data/shifts/solar/README.txt"
+  },
+  "render_full_report": {
+    "artifact": "spt_reg_paper_artifact_manifest",
+    "version": 1,
+    "profile": "full",
+    "include_photoz": false,
+    "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full",
+    "summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/synthetic_competing_methods_full.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/tabular_competing_methods_full.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/full/year_competing_methods_full.json"
+    },
+    "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_year.csv, allow_download=True"
+  },
+  "render_audit_report": {
+    "artifact": "spt_reg_paper_artifact_manifest",
+    "version": 1,
+    "profile": "audit",
+    "include_photoz": false,
+    "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit",
+    "summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/synthetic_competing_methods_audit.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/tabular_competing_methods_audit.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/audit/year_competing_methods_audit.json"
+    },
+    "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_year.csv, allow_download=True"
+  },
+  "render_large_tabular_report": {
+    "artifact": "spt_reg_paper_artifact_manifest",
+    "version": 1,
+    "profile": "full",
+    "include_photoz": false,
+    "output_dir": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular",
+    "summaries": {
+      "synthetic": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular/synthetic_competing_methods_full.json",
+      "tabular_small": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular/tabular_competing_methods_full.json",
+      "tabular_large": "/Users/fabbros/src/torchregress/reports/neurips_spt_reg/runs/2026-04-13/neurips_spt_reg_full/large_tabular/year_competing_methods_full.json"
+    },
+    "year_track_data": "cache_path=/Users/fabbros/src/torchregress/data/paper/openml_large_tabular_diamonds.parquet, openml_data_id=42225, max_dataset_rows=250000, allow_download=True"
+  },
+  "finished_at_utc": "2026-04-13T23:10:59.191147+00:00"
+}

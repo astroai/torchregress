@@ -1,0 +1,2 @@
+Benchmark,Seeds,SAGEMinusSupervisedMean,SAGEMinusSupervisedStd,ConfidenceMinusSupervisedMean,ConfidenceMinusSupervisedStd,SAGEMeanWeightMean,SAGEMeanWeightStd,SAGEMeanDisagreementMean,SAGEMeanDisagreementStd
+higgs_public,3,-21.669045448303223,14.508240001958585,325.21437581380206,53.105802689774066,0.18294547498226166,0.040497388527364994,1.923726201057434,0.3616173977403511

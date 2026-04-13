@@ -1,0 +1,92 @@
+{
+  "artifact": "comparison_example_summary",
+  "version": 1,
+  "example": "examples/benchmarks/self_agreement_realdata_year.py",
+  "task": "self-agreement real-data benchmark on OpenML/UCI YearPredictionMSD",
+  "config": {
+    "seed": 260411,
+    "dataset_path": null,
+    "allow_download": true,
+    "cache_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+    "target_column": "target",
+    "canonical_test_size": 51630,
+    "n_labeled": 4096,
+    "n_unlabeled": 65536,
+    "n_test": 32768,
+    "hidden": 128,
+    "teacher_epochs": 16,
+    "student_epochs": 16,
+    "batch_size": 512,
+    "lr": 0.002,
+    "dropout": 0.1,
+    "unlabeled_noise": 0.02,
+    "feature_drop_prob": 0.1,
+    "feature_mix_prob": 0.1,
+    "tau": 0.28,
+    "agreement_weight": 0.5,
+    "pseudo_weight": 0.4,
+    "ema_decay": 0.96,
+    "n_views": 4,
+    "weight_power": 1.0,
+    "hard_weight_threshold": null,
+    "unlabeled_fractions": [
+      1.0
+    ]
+  },
+  "rows": [
+    {
+      "Method": "SupervisedOnly",
+      "Dataset": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "UnlabeledFraction": 1.0,
+      "RMSE": 0.8618209362030029,
+      "NLL": 1.70076322555542,
+      "CRPS": 0.43094590306282043,
+      "Cov90": 0.83392333984375,
+      "Width90": 2.0244386196136475,
+      "CoverageGap90": 0.06607666015625002,
+      "CalibMAE": 0.05124351382255554,
+      "MeanWeight": 0.0,
+      "MeanDisagreement": 0.0,
+      "train_s": 1.0575492090065381,
+      "eval_s": 0.028222750006534625
+    },
+    {
+      "Method": "ConfidenceWeightedPseudoLabel",
+      "Dataset": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "UnlabeledFraction": 1.0,
+      "RMSE": 0.879022479057312,
+      "NLL": 2.220195770263672,
+      "CRPS": 0.453779935836792,
+      "Cov90": 0.6544189453125,
+      "Width90": 1.3613965511322021,
+      "CoverageGap90": 0.24558105468750002,
+      "CalibMAE": 0.09874138981103897,
+      "MeanWeight": 0.9665988683700562,
+      "MeanDisagreement": 0.0,
+      "train_s": 20.798475084011443,
+      "eval_s": 0.023097375000361353
+    },
+    {
+      "Method": "SAGE-Reg",
+      "Dataset": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv",
+      "UnlabeledFraction": 1.0,
+      "RMSE": 0.8626415133476257,
+      "NLL": 1.677417278289795,
+      "CRPS": 0.43043142557144165,
+      "Cov90": 0.80975341796875,
+      "Width90": 1.8503532409667969,
+      "CoverageGap90": 0.09024658203125002,
+      "CalibMAE": 0.0545802041888237,
+      "MeanWeight": 0.37167856097221375,
+      "MeanDisagreement": 0.5973492860794067,
+      "train_s": 8.096876126008283,
+      "eval_s": 0.030202750000171363
+    }
+  ],
+  "notes": [
+    "Uses OpenML/UCI YearPredictionMSD when no local dataset_path is provided.",
+    "The first real-data pass stays narrow: Gaussian head only, with supervised, confidence-weighted pseudo-labeling, and SAGE-Reg.",
+    "Use dataset_path for offline or smoke-test runs; local CSV/Parquet paths bypass network access.",
+    "Optional diagnostic figure compares confidence and SAGE agreement-weight rankings against pseudo-label error on the unlabeled pool."
+  ]
+}

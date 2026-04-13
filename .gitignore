@@ -107,16 +107,21 @@ reports/example_summaries/*
 !reports/example_summaries/threshold_check_full_latest.json
 !reports/example_summaries/threshold_check_full_review_strict_latest.json
 
-# NeurIPS paper artifact summaries (tracked manifests + profile JSON only)
+# NeurIPS paper artifacts: track JSON/CSV/MD/PNG only (no model weights, parquets, zips)
 !reports/neurips_spt_reg/
 reports/neurips_spt_reg/*
-!reports/neurips_spt_reg/artifact_manifest_latest.json
-!reports/neurips_spt_reg/synthetic_competing_methods_smoke.json
-!reports/neurips_spt_reg/tabular_competing_methods_smoke.json
-!reports/neurips_spt_reg/year_competing_methods_smoke.json
-!reports/neurips_spt_reg/README.md
+!reports/neurips_spt_reg/**/
+!reports/neurips_spt_reg/**/*.json
+!reports/neurips_spt_reg/**/*.md
+!reports/neurips_spt_reg/**/*.csv
+!reports/neurips_spt_reg/**/*.png
 !reports/neurips_sage_reg/
 reports/neurips_sage_reg/*
+!reports/neurips_sage_reg/**/
+!reports/neurips_sage_reg/**/*.json
+!reports/neurips_sage_reg/**/*.md
+!reports/neurips_sage_reg/**/*.csv
+!reports/neurips_sage_reg/**/*.png
 !reports/neurips_sage_reg/.gitkeep
 
 # NeurIPS manuscript LaTeX build outputs (keep only .tex / .bib / README)
@@ -138,8 +143,15 @@ papers/neurips_spt_reg/main.toc
 # Legacy / old example scripts (not part of main tree)
 examples/old_scripts/
 
-# Dated SAGE/SPT experiment dumps (CSVs, parquets, PNGs); cite paths in docs only
-docs/research/sage_reg_results/
+# Dated SAGE/SPT experiment trees: commit metrics + figures, not raw downloads
+docs/research/sage_reg_results/**
+!docs/research/sage_reg_results/**/
+!docs/research/sage_reg_results/**/*.json
+!docs/research/sage_reg_results/**/*.csv
+!docs/research/sage_reg_results/**/*.md
+!docs/research/sage_reg_results/**/*.png
+# OpenML Year cache is huge; materialize locally (tools/materialize_openml_year.py, etc.)
+docs/research/sage_reg_results/**/openml_year.csv
 
 # Local backups and ad-hoc artifacts
 reports_backup/
