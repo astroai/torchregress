@@ -216,6 +216,33 @@ def run_comparison(cfg: SPTRegRealDataConfig) -> tuple[list[dict[str, object]], 
         )
     )
 
+    w_cal = sptbase._covariate_density_ratio_weights(
+        source_x,
+        target_pool_x[:unlabeled_stop],
+        target_pool_x[unlabeled_stop:cal_stop],
+        seed=cfg.seed,
+    )
+    weighted_split = sptbase._weighted_split_conformal(
+        source_gaussian_cal, y_cal, source_gaussian_test, cfg.alpha, w_cal
+    )
+    rows.append(
+        sptbase._evaluate_row(
+            method="WeightedSplitConformalGaussian",
+            family="Gaussian",
+            batch_cal=source_gaussian_cal,
+            batch_test=weighted_split,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=fit_s,
+            eval_s=0.0,
+            notes=(
+                "source Gaussian + covariate-weighted split conformal "
+                "(logistic density-ratio on target-unlabeled vs source)"
+            ),
+        )
+    )
+
     spt = ShiftFactoredPredictiveTransport(
         ShiftFactoredTransportConfig(
             n_support=cfg.n_support,
@@ -235,6 +262,20 @@ def run_comparison(cfg: SPTRegRealDataConfig) -> tuple[list[dict[str, object]], 
     )
     spt_cal = sptbase._slice_batch(spt_pool, unlabeled_stop, cal_stop)
     spt_test = sptbase._slice_batch(spt_pool, cal_stop, target_pool_x.shape[0])
+    rows.append(
+        sptbase._evaluate_row(
+            method="SPTTransportGaussian",
+            family="Gaussian",
+            batch_cal=spt_cal,
+            batch_test=spt_test,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=fit_s,
+            eval_s=spt_eval_s,
+            notes="SPT adaptation without conformal wrapping (transport-only path)",
+        )
+    )
     _, spt_cal_s = timed_call(spt.calibrate_target, spt_cal, y_cal)
     rows.append(
         sptbase._evaluate_row(

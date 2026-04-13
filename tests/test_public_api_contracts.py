@@ -208,6 +208,7 @@ EXPECTED_EXPORTS = {
         "PredictiveBatch",
         "bars_to_density_grid",
         "quantiles_to_density_grid",
+        "samples_to_density_grid",
     ],
     "semi_supervised": [
         "SAGERegAgreement",

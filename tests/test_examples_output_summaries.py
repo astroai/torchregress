@@ -303,20 +303,26 @@ def test_spt_reg_synthetic_comparison_writes_summary_json(tmp_path: Path) -> Non
         task_substring="spt-reg",
         required_methods={
             "SourceGaussian",
+            "WeightedSplitConformalGaussian",
             "SPTRegGaussian",
             "TargetRefitSmallGaussian",
             "SourceBinnedPDF",
             "SPTRegBinnedPDF",
+            "SourceMDN",
+            "SPTRegMDN",
         },
     )
     payload = _load_payload(out)
     rows = _rows_by_method(payload)
     for method in (
         "SourceGaussian",
+        "WeightedSplitConformalGaussian",
         "SPTRegGaussian",
         "TargetRefitSmallGaussian",
         "SourceBinnedPDF",
         "SPTRegBinnedPDF",
+        "SourceMDN",
+        "SPTRegMDN",
     ):
         row = rows[method]
         _assert_row_has_keys(
@@ -374,6 +380,7 @@ def test_spt_reg_realdata_comparison_writes_summary_json(tmp_path: Path) -> None
         task_substring="real-data",
         required_methods={
             "SourceGaussian",
+            "WeightedSplitConformalGaussian",
             "SPTRegGaussian",
             "TargetRefitSmallGaussian",
             "SourceBinnedPDF",
@@ -384,6 +391,7 @@ def test_spt_reg_realdata_comparison_writes_summary_json(tmp_path: Path) -> None
     rows = _rows_by_method(payload)
     for method in (
         "SourceGaussian",
+        "WeightedSplitConformalGaussian",
         "SPTRegGaussian",
         "TargetRefitSmallGaussian",
         "SourceBinnedPDF",
@@ -532,6 +540,7 @@ def test_spt_reg_year_comparison_writes_summary_json(tmp_path: Path) -> None:
         task_substring="yearpredictionmsd-style",
         required_methods={
             "SourceGaussian",
+            "WeightedSplitConformalGaussian",
             "SPTRegGaussian",
             "TargetRefitSmallGaussian",
             "SourceBinnedPDF",
@@ -542,6 +551,7 @@ def test_spt_reg_year_comparison_writes_summary_json(tmp_path: Path) -> None:
     rows = _rows_by_method(payload)
     for method in (
         "SourceGaussian",
+        "WeightedSplitConformalGaussian",
         "SPTRegGaussian",
         "TargetRefitSmallGaussian",
         "SourceBinnedPDF",

@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.nn as nn
 from comparison_utils import (
     compute_point_metrics,
     print_comparison_summary,
@@ -14,8 +15,10 @@ from comparison_utils import (
     timed_call,
     write_comparison_summary_json,
 )
+from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.inference import ppi_mean_ci, ppi_quantile_ci
+from torchregress.losses import MDNLoss
 from torchregress.metrics import (
     crps_from_samples,
     prediction_interval_coverage_probability,
@@ -44,6 +47,12 @@ class SPTRegSyntheticConfig:
     n_bins: int = 20
     n_samples_eval: int = 64
     target_label_budget: int = 64
+    mdn_hidden: int = 48
+    mdn_components: int = 5
+    mdn_epochs: int = 32
+    mdn_batch_size: int = 64
+    mdn_lr: float = 3.0e-3
+    mdn_predict_samples: int = 192
 
 
 def _rng(seed: int) -> np.random.Generator:
@@ -137,12 +146,99 @@ class SyntheticPredictor:
         raise ValueError(f"Unsupported family: {family}")
 
 
+class _MDNBackbone(nn.Module):
+    def __init__(self, in_dim: int, hidden: int, n_components: int) -> None:
+        super().__init__()
+        out_dim = n_components + 2 * n_components
+        self.net = nn.Sequential(
+            nn.Linear(in_dim, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, out_dim),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+class MDNSyntheticPredictor:
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: MDNLoss,
+        *,
+        n_predict_samples: int,
+    ) -> None:
+        self.model = model.eval()
+        self.loss_fn = loss_fn
+        self.n_predict_samples = int(n_predict_samples)
+
+    def predict_distribution(self, x: np.ndarray, family: str = "mdn") -> PredictiveBatch:
+        del family
+        x_tensor = torch.tensor(np.asarray(x, dtype=np.float32))
+        with torch.no_grad():
+            raw = self.model(x_tensor)
+            mean, std = self.loss_fn.predict_mean_std(raw)
+            samples = self.loss_fn.sample(raw, n_samples=self.n_predict_samples)
+        mean_np = mean.squeeze(-1).cpu().numpy().astype(np.float32)
+        std_np = std.squeeze(-1).cpu().numpy().astype(np.float32)
+        samples_np = samples.squeeze(-1).transpose(0, 1).cpu().numpy().astype(np.float32)
+        return PredictiveBatch(
+            point=mean_np,
+            mean=mean_np,
+            std=std_np,
+            samples=samples_np,
+            extra={"family": "mdn"},
+        )
+
+
+def _fit_mdn_predictor(
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    cfg: SPTRegSyntheticConfig,
+) -> MDNSyntheticPredictor:
+    torch.manual_seed(cfg.seed)
+    model = _MDNBackbone(
+        in_dim=x_train.shape[1],
+        hidden=cfg.mdn_hidden,
+        n_components=cfg.mdn_components,
+    )
+    loss_fn = MDNLoss(
+        n_components=cfg.mdn_components,
+        n_features=1,
+        covariance_type="diagonal",
+    )
+    x_tensor = torch.tensor(x_train, dtype=torch.float32)
+    y_tensor = torch.tensor(y_train[:, None], dtype=torch.float32)
+    loader = DataLoader(
+        TensorDataset(x_tensor, y_tensor),
+        batch_size=min(cfg.mdn_batch_size, x_train.shape[0]),
+        shuffle=True,
+    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.mdn_lr)
+    for _ in range(cfg.mdn_epochs):
+        model.train()
+        for xb, yb in loader:
+            optimizer.zero_grad()
+            loss = loss_fn(model(xb), yb)
+            loss.backward()
+            optimizer.step()
+    return MDNSyntheticPredictor(
+        model,
+        loss_fn,
+        n_predict_samples=cfg.mdn_predict_samples,
+    )
+
+
 def _dense_batch(batch: PredictiveBatch) -> PredictiveBatch:
     if batch.support is not None and batch.density is not None:
         return batch
     if batch.bar_logits is not None and batch.bin_edges is not None:
         return batch.with_density(n_support=128)
     if batch.quantiles is not None and batch.quantile_levels is not None:
+        return batch.with_density(n_support=128)
+    if batch.samples is not None:
         return batch.with_density(n_support=128)
     return batch
 
@@ -197,13 +293,21 @@ def _batch_mean_std(batch: PredictiveBatch) -> tuple[np.ndarray, np.ndarray]:
         ).reshape(-1)
     if batch.support is None or batch.density is None:
         raise ValueError("batch must expose either mean/std or support/density")
-    support = np.asarray(batch.support, dtype=float).reshape(-1)
+    support = np.asarray(batch.support, dtype=float)
     density = np.asarray(batch.density, dtype=float)
-    dx = max(float(np.mean(np.diff(support))), 1.0e-8)
+    if support.ndim == 1:
+        dx = max(float(np.mean(np.diff(support))), 1.0e-8)
+        probs = density * dx
+        probs = probs / np.clip(probs.sum(axis=1, keepdims=True), 1.0e-8, None)
+        mean = probs @ support
+        second = probs @ (support**2)
+        std = np.sqrt(np.clip(second - mean**2, 1.0e-8, None))
+        return mean, std
+    dx = np.clip(np.mean(np.diff(support, axis=1), axis=1, keepdims=True), 1.0e-8, None)
     probs = density * dx
     probs = probs / np.clip(probs.sum(axis=1, keepdims=True), 1.0e-8, None)
-    mean = probs @ support
-    second = probs @ (support**2)
+    mean = np.sum(probs * support, axis=1)
+    second = np.sum(probs * (support**2), axis=1)
     std = np.sqrt(np.clip(second - mean**2, 1.0e-8, None))
     return mean, std
 
@@ -226,15 +330,32 @@ def _batch_quantiles(
         mean, std = _batch_mean_std(batch)
         z = 1.6448536269514722
         return mean - z * std, mean + z * std
-    support = np.asarray(batch.support, dtype=float).reshape(-1)
+    support = np.asarray(batch.support, dtype=float)
     density = np.asarray(batch.density, dtype=float)
-    dx = max(float(np.mean(np.diff(support))), 1.0e-8)
+    if support.ndim == 1:
+        dx = max(float(np.mean(np.diff(support))), 1.0e-8)
+        probs = density * dx
+        probs = probs / np.clip(probs.sum(axis=1, keepdims=True), 1.0e-8, None)
+        cdf = np.cumsum(probs, axis=1)
+        cdf[:, -1] = 1.0
+        lower = np.stack(
+            [np.interp(levels[0], cdf[i], support) for i in range(cdf.shape[0])], axis=0
+        )
+        upper = np.stack(
+            [np.interp(levels[1], cdf[i], support) for i in range(cdf.shape[0])], axis=0
+        )
+        return lower, upper
+    dx = np.clip(np.mean(np.diff(support, axis=1), axis=1, keepdims=True), 1.0e-8, None)
     probs = density * dx
     probs = probs / np.clip(probs.sum(axis=1, keepdims=True), 1.0e-8, None)
     cdf = np.cumsum(probs, axis=1)
     cdf[:, -1] = 1.0
-    lower = np.stack([np.interp(levels[0], cdf[i], support) for i in range(cdf.shape[0])], axis=0)
-    upper = np.stack([np.interp(levels[1], cdf[i], support) for i in range(cdf.shape[0])], axis=0)
+    lower = np.stack(
+        [np.interp(levels[0], cdf[i], support[i]) for i in range(cdf.shape[0])], axis=0
+    )
+    upper = np.stack(
+        [np.interp(levels[1], cdf[i], support[i]) for i in range(cdf.shape[0])], axis=0
+    )
     return lower, upper
 
 
@@ -242,15 +363,24 @@ def _batch_samples(batch: PredictiveBatch, n_samples: int, seed: int) -> np.ndar
     batch = _dense_batch(batch)
     rng = _rng(seed)
     if batch.support is not None and batch.density is not None:
-        support = np.asarray(batch.support, dtype=float).reshape(-1)
+        support = np.asarray(batch.support, dtype=float)
         density = np.asarray(batch.density, dtype=float)
-        dx = max(float(np.mean(np.diff(support))), 1.0e-8)
+        if support.ndim == 1:
+            dx = max(float(np.mean(np.diff(support))), 1.0e-8)
+            probs = density * dx
+            probs = probs / np.clip(probs.sum(axis=1, keepdims=True), 1.0e-8, None)
+            out = np.empty((n_samples, probs.shape[0]), dtype=float)
+            idx = np.arange(support.shape[0], dtype=int)
+            for row in range(probs.shape[0]):
+                out[:, row] = support[rng.choice(idx, size=n_samples, replace=True, p=probs[row])]
+            return out
+        dx = np.clip(np.mean(np.diff(support, axis=1), axis=1, keepdims=True), 1.0e-8, None)
         probs = density * dx
         probs = probs / np.clip(probs.sum(axis=1, keepdims=True), 1.0e-8, None)
         out = np.empty((n_samples, probs.shape[0]), dtype=float)
-        idx = np.arange(support.shape[0], dtype=int)
         for row in range(probs.shape[0]):
-            out[:, row] = support[rng.choice(idx, size=n_samples, replace=True, p=probs[row])]
+            idx = np.arange(support.shape[1], dtype=int)
+            out[:, row] = support[row, rng.choice(idx, size=n_samples, replace=True, p=probs[row])]
         return out
     mean, std = _batch_mean_std(batch)
     return rng.normal(loc=mean[None, :], scale=std[None, :], size=(n_samples, mean.shape[0]))
@@ -260,15 +390,24 @@ def _batch_log_density(batch: PredictiveBatch, targets: np.ndarray) -> np.ndarra
     batch = _dense_batch(batch)
     y = np.asarray(targets, dtype=float).reshape(-1)
     if batch.support is not None and batch.density is not None:
-        support = np.asarray(batch.support, dtype=float).reshape(-1)
+        support = np.asarray(batch.support, dtype=float)
         density = np.asarray(batch.density, dtype=float)
-        vals = np.array(
-            [
-                np.interp(y[i], support, density[i], left=1.0e-8, right=1.0e-8)
-                for i in range(y.shape[0])
-            ],
-            dtype=float,
-        )
+        if support.ndim == 1:
+            vals = np.array(
+                [
+                    np.interp(y[i], support, density[i], left=1.0e-8, right=1.0e-8)
+                    for i in range(y.shape[0])
+                ],
+                dtype=float,
+            )
+        else:
+            vals = np.array(
+                [
+                    np.interp(y[i], support[i], density[i], left=1.0e-8, right=1.0e-8)
+                    for i in range(y.shape[0])
+                ],
+                dtype=float,
+            )
         return np.log(np.clip(vals, 1.0e-8, None))
     mean, std = _batch_mean_std(batch)
     var = np.clip(std**2, 1.0e-8, None)
@@ -436,16 +575,122 @@ def _manual_split_conformal(
     )
 
 
+def _covariate_density_ratio_weights(
+    x_source: np.ndarray,
+    x_target: np.ndarray,
+    x_query: np.ndarray,
+    *,
+    seed: int,
+    max_fit_rows: int = 8000,
+) -> np.ndarray:
+    """Estimate \\hat w(x) \\propto p_{\\mathrm{tgt}}(x) / p_{\\mathrm{src}}(x) from a logistic discriminator.
+
+    Uses a scaled logistic regression (Tibshirani-style density-ratio heuristic for weighted CP).
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    xs = np.asarray(x_source, dtype=np.float64)
+    xt = np.asarray(x_target, dtype=np.float64)
+    rng = np.random.default_rng(int(seed))
+    half = max(256, max_fit_rows // 2)
+    if xs.shape[0] > half:
+        xs = xs[rng.choice(xs.shape[0], half, replace=False)]
+    if xt.shape[0] > half:
+        xt = xt[rng.choice(xt.shape[0], half, replace=False)]
+    x_fit = np.vstack([xs, xt])
+    y_fit = np.concatenate(
+        [np.zeros(xs.shape[0], dtype=np.int64), np.ones(xt.shape[0], dtype=np.int64)]
+    )
+    clf = make_pipeline(
+        StandardScaler(),
+        LogisticRegression(
+            max_iter=1000,
+            random_state=int(seed) % (2**31),
+            solver="lbfgs",
+        ),
+    )
+    clf.fit(x_fit, y_fit)
+    xq = np.asarray(x_query, dtype=np.float64)
+    p_t = clf.predict_proba(xq)[:, 1]
+    p_s = np.clip(1.0 - p_t, 1e-6, 1.0 - 1e-6)
+    p_t = np.clip(p_t, 1e-6, 1.0 - 1e-6)
+    pi_t = float(xt.shape[0] / (xs.shape[0] + xt.shape[0]))
+    pi_s = 1.0 - pi_t
+    odds = p_t / p_s
+    w = odds * (pi_s / max(pi_t, 1e-12))
+    return np.clip(w, 1e-3, 1e3).astype(np.float64)
+
+
+def _weighted_split_conformal(
+    batch_cal: PredictiveBatch,
+    y_cal: np.ndarray,
+    batch_test: PredictiveBatch,
+    alpha: float,
+    weights_cal: np.ndarray,
+) -> PredictiveBatch:
+    """Split conformal with nonnegative calibration weights (weighted residual quantile)."""
+    mean_cal, std_cal = _batch_mean_std(batch_cal)
+    scores = np.abs(np.asarray(y_cal, dtype=np.float64).ravel() - mean_cal) / np.clip(
+        std_cal, 1.0e-8, None
+    )
+    w = np.asarray(weights_cal, dtype=np.float64).ravel()
+    if w.shape[0] != scores.shape[0]:
+        raise ValueError("weights_cal must match number of calibration scores")
+    w = np.clip(w, 1e-12, None)
+    w = w / float(np.sum(w))
+    order = np.argsort(scores)
+    s_sorted = scores[order]
+    w_sorted = w[order]
+    cum = np.cumsum(w_sorted)
+    level = min(float(np.ceil((scores.size + 1) * (1.0 - alpha)) / max(scores.size, 1)), 1.0)
+    idx = int(np.searchsorted(cum, level, side="left"))
+    idx = min(max(idx, 0), s_sorted.size - 1)
+    q_hat = float(s_sorted[idx])
+    mean_test, std_test = _batch_mean_std(batch_test)
+    extra = dict(batch_test.extra or {})
+    extra["interval_lower"] = (mean_test - q_hat * std_test).tolist()
+    extra["interval_upper"] = (mean_test + q_hat * std_test).tolist()
+    extra["conformal_method"] = "weighted_split"
+    return PredictiveBatch(
+        point=batch_test.point,
+        mean=batch_test.mean,
+        std=batch_test.std,
+        quantiles=batch_test.quantiles,
+        quantile_levels=batch_test.quantile_levels,
+        bar_logits=batch_test.bar_logits,
+        bin_edges=batch_test.bin_edges,
+        samples=batch_test.samples,
+        support=batch_test.support,
+        density=batch_test.density,
+        extra=extra,
+    )
+
+
 def _refit_batch(
     x_train: np.ndarray,
     y_train: np.ndarray,
     x_eval: np.ndarray,
 ) -> PredictiveBatch:
-    beta, sigma = _fit_linear_gaussian(x_train, y_train)
+    """Ridge when n_samples is small vs dimension (stabilizes Year high-d + small cal)."""
+    design = _add_intercept(np.asarray(x_train, dtype=float))
+    y = np.asarray(y_train, dtype=float).reshape(-1)
+    n, d = design.shape
+    if n < d + 8:
+        lam = 1e-2 * float(n)
+        reg = lam * np.eye(d, dtype=float)
+        reg[0, 0] = 0.0
+        beta = np.linalg.solve(design.T @ design + reg, design.T @ y)
+    else:
+        beta, *_ = np.linalg.lstsq(design, y, rcond=None)
+    pred = design @ beta
+    sigma = float(np.sqrt(np.mean((y - pred) ** 2)))
+    sigma = max(sigma, 1.0e-2)
     predictor = SyntheticPredictor(
-        beta, sigma, np.linspace(y_train.min() - 1.0, y_train.max() + 1.0, 10)
+        beta, sigma, np.linspace(float(y.min()) - 1.0, float(y.max()) + 1.0, 10)
     )
-    return predictor.predict_distribution(x_eval, family="gaussian")
+    return predictor.predict_distribution(np.asarray(x_eval, dtype=float), family="gaussian")
 
 
 def run_comparison(cfg: SPTRegSyntheticConfig) -> tuple[list[dict[str, object]], list[str]]:
@@ -471,13 +716,17 @@ def run_comparison(cfg: SPTRegSyntheticConfig) -> tuple[list[dict[str, object]],
     if bin_edges.size < 3:
         bin_edges = np.linspace(source_y.min() - 1.0, source_y.max() + 1.0, cfg.n_bins + 1)
     predictor = SyntheticPredictor(beta, sigma, bin_edges)
+    mdn_predictor, mdn_fit_s = timed_call(_fit_mdn_predictor, source_x, source_y, cfg)
 
     source_gaussian_pool = predictor.predict_distribution(target_pool_x, family="gaussian")
     source_binned_pool = predictor.predict_distribution(target_pool_x, family="binnedpdf")
+    source_mdn_pool = mdn_predictor.predict_distribution(target_pool_x)
     source_gaussian_cal = _slice_batch(source_gaussian_pool, unlabeled_stop, cal_stop)
     source_gaussian_test = _slice_batch(source_gaussian_pool, cal_stop, n_pool)
     source_binned_cal = _slice_batch(source_binned_pool, unlabeled_stop, cal_stop)
     source_binned_test = _slice_batch(source_binned_pool, cal_stop, n_pool)
+    source_mdn_cal = _slice_batch(source_mdn_pool, unlabeled_stop, cal_stop)
+    source_mdn_test = _slice_batch(source_mdn_pool, cal_stop, n_pool)
 
     rows: list[dict[str, object]] = []
 
@@ -604,6 +853,33 @@ def run_comparison(cfg: SPTRegSyntheticConfig) -> tuple[list[dict[str, object]],
         )
     )
 
+    w_cal = _covariate_density_ratio_weights(
+        source_x,
+        target_pool_x[:unlabeled_stop],
+        x_cal,
+        seed=cfg.seed,
+    )
+    weighted_split = _weighted_split_conformal(
+        source_gaussian_cal, y_cal, source_gaussian_test, cfg.alpha, w_cal
+    )
+    rows.append(
+        _evaluate_row(
+            method="WeightedSplitConformalGaussian",
+            family="Gaussian",
+            batch_cal=source_gaussian_cal,
+            batch_test=weighted_split,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=fit_s,
+            eval_s=0.0,
+            notes=(
+                "source Gaussian + covariate-weighted split conformal "
+                "(logistic density-ratio on target-unlabeled vs source)"
+            ),
+        )
+    )
+
     spt = ShiftFactoredPredictiveTransport(
         ShiftFactoredTransportConfig(
             n_support=cfg.n_support,
@@ -623,6 +899,20 @@ def run_comparison(cfg: SPTRegSyntheticConfig) -> tuple[list[dict[str, object]],
     )
     spt_cal = _slice_batch(spt_pool, unlabeled_stop, cal_stop)
     spt_test = _slice_batch(spt_pool, cal_stop, n_pool)
+    rows.append(
+        _evaluate_row(
+            method="SPTTransportGaussian",
+            family="Gaussian",
+            batch_cal=spt_cal,
+            batch_test=spt_test,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=fit_s,
+            eval_s=spt_eval_s,
+            notes="SPT adaptation without conformal wrapping (isolates transport + inflation path)",
+        )
+    )
     _, spt_cal_s = timed_call(spt.calibrate_target, spt_cal, y_cal)
     spt_test_conf = spt.apply_conformal(spt_test)
     rows.append(
@@ -693,6 +983,51 @@ def run_comparison(cfg: SPTRegSyntheticConfig) -> tuple[list[dict[str, object]],
         )
     )
 
+    rows.append(
+        _evaluate_row(
+            method="SourceMDN",
+            family="MDN",
+            batch_cal=source_mdn_cal,
+            batch_test=source_mdn_test,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=mdn_fit_s,
+            eval_s=0.0,
+            notes="source MDN predictive law evaluated via Monte Carlo samples",
+        )
+    )
+
+    raw_mdn_transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(
+            n_support=cfg.n_support,
+            alpha=cfg.alpha,
+            random_state=cfg.seed,
+        )
+    ).fit_source(
+        mdn_predictor.predict_distribution(source_x),
+        source_y,
+        source_inputs=source_x,
+    )
+    raw_mdn_cal_dense = source_mdn_cal.with_density(n_support=cfg.n_support)
+    raw_mdn_test_dense = source_mdn_test.with_density(n_support=cfg.n_support)
+    _, raw_mdn_cal_s = timed_call(raw_mdn_transport.calibrate_target, raw_mdn_cal_dense, y_cal)
+    raw_mdn_test_conf = raw_mdn_transport.apply_conformal(raw_mdn_test_dense)
+    rows.append(
+        _evaluate_row(
+            method="RawConformalMDN",
+            family="MDN",
+            batch_cal=source_mdn_cal,
+            batch_test=raw_mdn_test_conf,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=mdn_fit_s + raw_mdn_cal_s,
+            eval_s=0.0,
+            notes="source MDN with conformal only (no prior transport; family-matched score routing)",
+        )
+    )
+
     spt_binned = ShiftFactoredPredictiveTransport(
         ShiftFactoredTransportConfig(
             n_support=cfg.n_support,
@@ -728,10 +1063,62 @@ def run_comparison(cfg: SPTRegSyntheticConfig) -> tuple[list[dict[str, object]],
         )
     )
 
+    spt_mdn = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(
+            n_support=cfg.n_support,
+            alpha=cfg.alpha,
+            random_state=cfg.seed,
+        )
+    ).fit_source(
+        mdn_predictor.predict_distribution(source_x),
+        source_y,
+        source_inputs=source_x,
+    )
+    spt_mdn_pool, spt_mdn_eval_s = timed_call(
+        spt_mdn.adapt_unlabeled_target,
+        target_predictions=source_mdn_pool,
+        target_inputs=target_pool_x,
+        predictor=None,
+    )
+    spt_mdn_cal = _slice_batch(spt_mdn_pool, unlabeled_stop, cal_stop)
+    spt_mdn_test = _slice_batch(spt_mdn_pool, cal_stop, n_pool)
+    rows.append(
+        _evaluate_row(
+            method="SPTTransportMDN",
+            family="MDN",
+            batch_cal=spt_mdn_cal,
+            batch_test=spt_mdn_test,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=mdn_fit_s,
+            eval_s=spt_mdn_eval_s,
+            notes="SPT prior transport on MDN predictive law without conformal wrapping",
+        )
+    )
+    _, spt_mdn_cal_s = timed_call(spt_mdn.calibrate_target, spt_mdn_cal, y_cal)
+    rows.append(
+        _evaluate_row(
+            method="SPTRegMDN",
+            family="MDN",
+            batch_cal=spt_mdn_cal,
+            batch_test=spt_mdn.apply_conformal(spt_mdn_test),
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=mdn_fit_s + spt_mdn_cal_s,
+            eval_s=spt_mdn_eval_s,
+            notes="SPT-Reg applied to a sampled MDN predictive law",
+        )
+    )
+
     notes = [
         "Synthetic target shift combines predictive-subspace covariate drift and residual variance inflation.",
         "Competing-method rows use a shared source linear-Gaussian backbone and the same target calibration budget.",
         "BinnedPDF rows reuse the same source backbone but expose the predictive law as ordered-bin probabilities.",
+        "MDN rows use source-trained mixture density predictions transported through the same support-grid SPT operator.",
+        "RawConformalMDN applies conformal scores to the source MDN without running prior transport.",
+        "SPTTransportGaussian / SPTTransportMDN report post-adaptation laws before conformal widening.",
     ]
     return rows, notes
 

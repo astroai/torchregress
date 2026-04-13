@@ -7,6 +7,15 @@ This benchmark is intentionally narrow:
 
 If ``dataset_path`` is provided, the script loads a local CSV/Parquet table.
 Otherwise it runs on a built-in Higgs-like proxy with systematic covariate shift.
+
+Public FAIR-style tabular dumps are *hierarchical* in feature construction: ``PRI_*``
+columns are reconstructed primary inputs, ``DER_*`` are derived kinematics, plus
+simulation ``weights`` and label columns (e.g. ``labels``, ``detailed_labels``). Use
+``--scale-split-factor`` (and parquet sampling flags) for larger-than-default splits on
+very large parquet files without loading the full row count into RAM. Parquet loads use
+**Polars** ``scan_parquet`` (lazy) plus an inner join on a seeded random subset of row
+indices, then ``collect(engine="streaming")`` so only the requested rows are
+materialized.
 """
 
 from __future__ import annotations
@@ -16,7 +25,7 @@ import copy
 import csv
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
@@ -30,7 +39,9 @@ if str(EXAMPLES_DIR) not in sys.path:
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+import polars as pl  # noqa: E402
 import torch  # noqa: E402
+import torch.nn.functional as F  # noqa: E402
 from comparison_utils import (  # noqa: E402
     print_comparison_summary,
     print_fairness_notes,
@@ -70,6 +81,7 @@ class HiggsOODConfig:
     n_ood_test: int = 8_192
     parquet_sample_factor: int = 8
     parquet_max_sample_rows: int = 250_000
+    parquet_full_read_row_limit: int = 15_000_000
     proxy_dim: int = 24
     hidden: int = 128
     teacher_epochs: int = 24
@@ -88,6 +100,26 @@ class HiggsOODConfig:
     n_views: int = 4
     weight_power: float = 1.0
     hard_weight_threshold: float | None = None
+
+
+def higgs_split_row_budget(cfg: HiggsOODConfig) -> int:
+    return cfg.n_train + cfg.n_unlabeled_id + cfg.n_unlabeled_ood + cfg.n_id_test + cfg.n_ood_test
+
+
+def higgs_scale_split_sizes(cfg: HiggsOODConfig, factor: int) -> HiggsOODConfig:
+    """Multiply all split cardinalities by ``factor`` (for larger public-Higgs runs)."""
+    if factor < 1:
+        raise ValueError("factor must be >= 1")
+    if factor == 1:
+        return cfg
+    return replace(
+        cfg,
+        n_train=cfg.n_train * factor,
+        n_unlabeled_id=cfg.n_unlabeled_id * factor,
+        n_unlabeled_ood=cfg.n_unlabeled_ood * factor,
+        n_id_test=cfg.n_id_test * factor,
+        n_ood_test=cfg.n_ood_test * factor,
+    )
 
 
 @dataclass(frozen=True)
@@ -193,46 +225,72 @@ def _plot_calibration(path: str | Path, rows: list[dict[str, object]]) -> Path:
     return out_path
 
 
+def _parquet_total_rows(path: Path) -> int:
+    """Row count from parquet footer metadata (Polars lazy scan, no full read)."""
+    return int(pl.scan_parquet(str(path)).select(pl.len()).collect(engine="streaming").item())
+
+
+def _load_parquet_frame_polars(path: Path, cfg: HiggsOODConfig) -> pd.DataFrame:
+    """Reservoir-style row subsample via lazy scan + inner join on row indices."""
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Higgs parquet not found: {path}\n"
+            "Pass a real --higgs-dataset-path / --dataset-path (the tutorial "
+            "`/path/to/FAIR_Universe_HiggsML_data.parquet` is only a placeholder). "
+            "If you already staged the FAIR dump in this repo, try:\n"
+            "  docs/research/sage_reg_results/2026-04-09/higgs_public/extracted/"
+            "FAIR_Universe_HiggsML_data.parquet\n"
+            "See papers/neurips_sage_reg/reproducibility.md (section “Higgs parquet”)."
+        )
+    total_rows = _parquet_total_rows(path)
+    need = higgs_split_row_budget(cfg)
+    sample_rows = min(
+        total_rows,
+        max(
+            need,
+            min(cfg.parquet_max_sample_rows, need * cfg.parquet_sample_factor),
+        ),
+    )
+    if sample_rows < need:
+        raise ValueError(
+            f"Parquet reservoir sample_rows={sample_rows} is smaller than split budget need={need}. "
+            "Increase parquet_max_sample_rows / parquet_sample_factor or reduce split sizes."
+        )
+
+    lf = pl.scan_parquet(str(path))
+    if sample_rows >= total_rows:
+        if total_rows > cfg.parquet_full_read_row_limit:
+            raise ValueError(
+                f"Refusing to read all {total_rows} parquet rows into memory (limit "
+                f"{cfg.parquet_full_read_row_limit}). Raise parquet_full_read_row_limit only on "
+                "machines with enough RAM, or keep partial sampling below the full row count."
+            )
+        out = lf.collect(engine="streaming")
+    else:
+        rng = np.random.default_rng(cfg.seed)
+        selected = np.sort(rng.choice(total_rows, size=sample_rows, replace=False))
+        if total_rows >= 2**32:
+            idx_np = selected.astype(np.uint64, copy=False)
+            idx_dtype: pl.DataType = pl.UInt64
+        else:
+            idx_np = selected.astype(np.uint32, copy=False)
+            idx_dtype = pl.UInt32
+        idx_lf = pl.LazyFrame({"row_idx": pl.Series(idx_np, dtype=idx_dtype)})
+        out = (
+            lf.with_row_index("row_idx")
+            .join(idx_lf, on="row_idx", how="inner")
+            .drop("row_idx")
+            .collect(engine="streaming")
+        )
+    return out.to_pandas()
+
+
 def _load_local_frame(cfg: HiggsOODConfig) -> tuple[pd.DataFrame, str]:
     if cfg.dataset_path is None:
         raise FileNotFoundError("dataset_path is required for local dataset loading")
     path = Path(cfg.dataset_path)
     if path.suffix.lower() == ".parquet":
-        import pyarrow.parquet as pq
-
-        parquet = pq.ParquetFile(path)
-        total_rows = parquet.metadata.num_rows
-        need = (
-            cfg.n_train + cfg.n_unlabeled_id + cfg.n_unlabeled_ood + cfg.n_id_test + cfg.n_ood_test
-        )
-        sample_rows = min(
-            total_rows,
-            max(
-                need,
-                min(cfg.parquet_max_sample_rows, need * cfg.parquet_sample_factor),
-            ),
-        )
-        if sample_rows >= total_rows:
-            frame = parquet.read().to_pandas()
-        else:
-            rng = np.random.default_rng(cfg.seed)
-            selected_indices = np.sort(rng.choice(total_rows, size=sample_rows, replace=False))
-            parts: list[pd.DataFrame] = []
-            current_row = 0
-            for row_group_index in range(parquet.num_row_groups):
-                row_group_rows = parquet.metadata.row_group(row_group_index).num_rows
-                in_group = (
-                    selected_indices[
-                        (selected_indices >= current_row)
-                        & (selected_indices < current_row + row_group_rows)
-                    ]
-                    - current_row
-                )
-                if in_group.size > 0:
-                    row_group = parquet.read_row_group(row_group_index).to_pandas()
-                    parts.append(row_group.iloc[in_group])
-                current_row += row_group_rows
-            frame = pd.concat(parts, ignore_index=True)
+        frame = _load_parquet_frame_polars(path, cfg)
     else:
         frame = pd.read_csv(path)
     return frame, str(path)
@@ -324,7 +382,7 @@ def _make_local_split(cfg: HiggsOODConfig) -> HiggsOODSplit:
     x_all = torch.tensor(feature_frame.to_numpy(copy=True), dtype=torch.float32)
     y_all = torch.tensor(target.to_numpy(copy=True), dtype=torch.float32).unsqueeze(1)
     n_total = x_all.shape[0]
-    need = cfg.n_train + cfg.n_unlabeled_id + cfg.n_unlabeled_ood + cfg.n_id_test + cfg.n_ood_test
+    need = higgs_split_row_budget(cfg)
     if need > n_total:
         raise ValueError(f"Requested {need} rows but dataset has {n_total}")
 
@@ -616,6 +674,60 @@ def _train_sage_student(
     return student.eval(), stats
 
 
+def _train_mean_teacher_student(
+    cfg: HiggsOODConfig,
+    split: HiggsOODSplit,
+    teacher: TabularGaussianRegressor,
+) -> tuple[TabularGaussianRegressor, dict[str, float]]:
+    _training_seed(cfg.seed, 3)
+    student = copy.deepcopy(teacher).train()
+    teacher_ema = copy.deepcopy(teacher).eval()
+    for param in teacher_ema.parameters():
+        param.requires_grad_(False)
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr)
+    labeled_loader, unlabeled_loader = _build_loaders(split, batch_size=cfg.batch_size)
+    decay = float(cfg.ema_decay)
+    lambda_u = float(cfg.pseudo_weight)
+
+    for _ in range(cfg.student_epochs):
+        ul_iter = iter(unlabeled_loader)
+        for xb_l, yb_l in labeled_loader:
+            try:
+                xb_u, ood_u = next(ul_iter)
+                is_ood = ood_u.squeeze(-1) > 0.5
+            except StopIteration:
+                ul_iter = iter(unlabeled_loader)
+                xb_u, ood_u = next(ul_iter)
+                is_ood = ood_u.squeeze(-1) > 0.5
+            optimizer.zero_grad()
+            loss_sup = _supervised_loss(student, xb_l, yb_l)
+            xu_aug = _augment_batch(
+                xb_u,
+                is_ood,
+                cfg.unlabeled_noise,
+                cfg.ood_perturb_boost,
+                cfg.feature_drop_prob,
+                cfg.feature_mix_prob,
+            )
+            mean_s, _ = student(xb_u)
+            with torch.no_grad():
+                mean_t, _ = teacher_ema(xu_aug)
+            loss_u = F.mse_loss(mean_s, mean_t)
+            loss = loss_sup + lambda_u * loss_u
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=5.0)
+            optimizer.step()
+            with torch.no_grad():
+                for ps, pt in zip(student.parameters(), teacher_ema.parameters(), strict=True):
+                    pt.data.mul_(decay).add_(ps.data, alpha=1.0 - decay)
+
+    zeros = torch.zeros(
+        split.x_unlabeled.shape[0], device=split.x_unlabeled.device, dtype=torch.float32
+    )
+    stats = _batch_weight_stats(zeros, zeros, split.unlabeled_is_ood)
+    return student.eval(), stats
+
+
 def _evaluate_regime(model: TabularGaussianRegressor, x: Tensor, y: Tensor) -> dict[str, float]:
     model.eval()
     with torch.no_grad():
@@ -662,6 +774,10 @@ def run_benchmark(cfg: HiggsOODConfig) -> list[dict[str, object]]:
                 ),
                 0.0,
             ),
+        ),
+        (
+            "MeanTeacher",
+            lambda: (*timed_call(_train_mean_teacher_student, cfg, split, teacher),),
         ),
         (
             "ConfidenceWeightedPseudoLabel",
@@ -791,25 +907,56 @@ if __name__ == "__main__":
     parser.add_argument("--n-unlabeled-ood", type=int, default=HiggsOODConfig.n_unlabeled_ood)
     parser.add_argument("--n-id-test", type=int, default=HiggsOODConfig.n_id_test)
     parser.add_argument("--n-ood-test", type=int, default=HiggsOODConfig.n_ood_test)
+    parser.add_argument(
+        "--scale-split-factor",
+        type=int,
+        default=1,
+        help="Multiply all split sizes (train/unlabeled/tests) by this factor after CLI n_* values.",
+    )
+    parser.add_argument(
+        "--parquet-max-sample-rows",
+        type=int,
+        default=HiggsOODConfig.parquet_max_sample_rows,
+        help="Upper cap on random parquet reservoir size (raised automatically with larger splits).",
+    )
+    parser.add_argument(
+        "--parquet-sample-factor",
+        type=int,
+        default=HiggsOODConfig.parquet_sample_factor,
+        help="Target reservoir size is at least need and up to min(max_rows, need * factor).",
+    )
+    parser.add_argument(
+        "--parquet-full-read-row-limit",
+        type=int,
+        default=HiggsOODConfig.parquet_full_read_row_limit,
+        help="Refuse full-file parquet reads above this row count (safety on 100M+ row dumps).",
+    )
     parser.add_argument("--teacher-epochs", type=int, default=HiggsOODConfig.teacher_epochs)
     parser.add_argument("--student-epochs", type=int, default=HiggsOODConfig.student_epochs)
     args = parser.parse_args()
 
+    bench_cfg = HiggsOODConfig(
+        dataset_path=args.dataset_path or None,
+        target_column=args.target_column,
+        ood_score_column=args.ood_score_column or None,
+        drop_columns=tuple(args.drop_column),
+        shift_feature_idx=args.shift_feature_idx,
+        n_train=args.n_train,
+        n_unlabeled_id=args.n_unlabeled_id,
+        n_unlabeled_ood=args.n_unlabeled_ood,
+        n_id_test=args.n_id_test,
+        n_ood_test=args.n_ood_test,
+        parquet_max_sample_rows=args.parquet_max_sample_rows,
+        parquet_sample_factor=args.parquet_sample_factor,
+        parquet_full_read_row_limit=args.parquet_full_read_row_limit,
+        teacher_epochs=args.teacher_epochs,
+        student_epochs=args.student_epochs,
+    )
+    if args.scale_split_factor != 1:
+        bench_cfg = higgs_scale_split_sizes(bench_cfg, args.scale_split_factor)
+
     main(
-        HiggsOODConfig(
-            dataset_path=args.dataset_path or None,
-            target_column=args.target_column,
-            ood_score_column=args.ood_score_column or None,
-            drop_columns=tuple(args.drop_column),
-            shift_feature_idx=args.shift_feature_idx,
-            n_train=args.n_train,
-            n_unlabeled_id=args.n_unlabeled_id,
-            n_unlabeled_ood=args.n_unlabeled_ood,
-            n_id_test=args.n_id_test,
-            n_ood_test=args.n_ood_test,
-            teacher_epochs=args.teacher_epochs,
-            student_epochs=args.student_epochs,
-        ),
+        bench_cfg,
         output_csv=args.output_csv or None,
         performance_figure_path=args.performance_figure_path or None,
         calibration_figure_path=args.calibration_figure_path or None,

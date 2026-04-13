@@ -42,15 +42,37 @@ def disagreement_to_weight(
     *,
     power: float = 1.0,
     hard_weight_threshold: float | None = None,
+    batch_relative_mode: str | None = None,
+    batch_trust_top_k: int | None = None,
+    eps: float = 1e-8,
 ) -> Tensor:
     """Convert disagreement scores into trust weights."""
     if tau <= 0.0:
         raise ValueError("tau must be positive")
     if power <= 0.0:
         raise ValueError("power must be positive")
-    weight = torch.exp(-disagreement / tau)
+    if batch_relative_mode is not None and batch_relative_mode not in {"zscore"}:
+        raise ValueError("batch_relative_mode must be None or 'zscore'")
+    if batch_trust_top_k is not None and batch_trust_top_k < 1:
+        raise ValueError("batch_trust_top_k must be positive when set")
+    d = disagreement
+    if batch_relative_mode == "zscore":
+        if d.numel() == 0:
+            raise ValueError("disagreement must be non-empty for batch z-score weighting")
+        centered = d - d.mean()
+        scale = centered.std(unbiased=False).clamp_min(eps)
+        d = centered / scale
+    weight = torch.exp(-d / tau)
     if power != 1.0:
         weight = weight.pow(power)
+    if batch_trust_top_k is not None:
+        n = int(disagreement.shape[0])
+        k = min(int(batch_trust_top_k), max(n, 1))
+        if n > 0:
+            _, idx = torch.topk(disagreement, k=k, largest=False, dim=0)
+            gate = torch.zeros_like(weight)
+            gate[idx] = 1.0
+            weight = weight * gate
     if hard_weight_threshold is not None:
         if not 0.0 <= hard_weight_threshold <= 1.0:
             raise ValueError("hard_weight_threshold must lie in [0, 1]")
@@ -707,6 +729,8 @@ class SAGERegLoss(nn.Module):
         detach_weights: bool = True,
         weight_power: float = 1.0,
         hard_weight_threshold: float | None = None,
+        batch_relative_mode: str | None = None,
+        batch_trust_top_k: int | None = None,
     ) -> None:
         super().__init__()
         if tau <= 0.0:
@@ -719,6 +743,10 @@ class SAGERegLoss(nn.Module):
             raise ValueError("weight_power must be positive")
         if hard_weight_threshold is not None and not 0.0 <= hard_weight_threshold <= 1.0:
             raise ValueError("hard_weight_threshold must lie in [0, 1]")
+        if batch_relative_mode is not None and batch_relative_mode not in {"zscore"}:
+            raise ValueError("batch_relative_mode must be None or 'zscore'")
+        if batch_trust_top_k is not None and batch_trust_top_k < 1:
+            raise ValueError("batch_trust_top_k must be positive when set")
         self.tau = tau
         self.agreement_weight = agreement_weight
         self.n_support = n_support
@@ -729,6 +757,8 @@ class SAGERegLoss(nn.Module):
         self.detach_weights = detach_weights
         self.weight_power = weight_power
         self.hard_weight_threshold = hard_weight_threshold
+        self.batch_relative_mode = batch_relative_mode
+        self.batch_trust_top_k = batch_trust_top_k
 
     def agreement(self, unlabeled_views: Sequence[PredictiveBatch]) -> SAGERegAgreement:
         consensus = build_consensus_predictive_batch(
@@ -753,6 +783,9 @@ class SAGERegLoss(nn.Module):
             self.tau,
             power=self.weight_power,
             hard_weight_threshold=self.hard_weight_threshold,
+            batch_relative_mode=self.batch_relative_mode,
+            batch_trust_top_k=self.batch_trust_top_k,
+            eps=self.eps,
         )
         weights = raw_weights.detach() if self.detach_weights else raw_weights
         anchor_prediction = unlabeled_views[0]
@@ -823,6 +856,8 @@ class SelfAgreementTrainer:
         detach_weights: bool = True,
         weight_power: float = 1.0,
         hard_weight_threshold: float | None = None,
+        batch_relative_mode: str | None = None,
+        batch_trust_top_k: int | None = None,
     ) -> None:
         if n_views < 2:
             raise ValueError("n_views must be at least 2")
@@ -842,6 +877,8 @@ class SelfAgreementTrainer:
             detach_weights=detach_weights,
             weight_power=weight_power,
             hard_weight_threshold=hard_weight_threshold,
+            batch_relative_mode=batch_relative_mode,
+            batch_trust_top_k=batch_trust_top_k,
         )
         self.ema_decay = ema_decay
 
@@ -930,6 +967,9 @@ class SelfAgreementTrainer:
                     self.objective.tau,
                     power=self.objective.weight_power,
                     hard_weight_threshold=self.objective.hard_weight_threshold,
+                    batch_relative_mode=self.objective.batch_relative_mode,
+                    batch_trust_top_k=self.objective.batch_trust_top_k,
+                    eps=self.objective.eps,
                 )
                 consensus = self.compute_consensus(predictive_views)
                 unsupervised_loss = self.unsupervised_loss(student_pred, consensus, weight)

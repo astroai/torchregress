@@ -47,17 +47,22 @@ output prevalence, and uncertainty scale. This paper develops the hypothesis
 that these failures can often be repaired by transporting the source predictive
 law rather than retraining the regressor from scratch.
 
-The branch implementation targets four predictive families already exposed by
-\texttt{torchregress}: Gaussian, quantile, bar/histogram, and ordered-bin
-predictors. The paper focus is calibration, coverage, selective prediction, and
-target-domain inference under limited labels, rather than raw RMSE alone.
+The branch implementation targets the predictive families that currently carry
+the most credible evidence in \texttt{torchregress}: Gaussian, quantile,
+bar/histogram, ordered-bin, and sampled predictive laws such as MDNs. The
+empirical narrative must separate \emph{finite-sample validity} (coverage,
+calibration, conformal and PPI guarantees) from \emph{efficiency} (sharpness,
+NLL, CRPS, interval width). At present, the in-repo evidence is often strongest
+on validity preservation; claims that transport improves sharpness at fixed
+validity should be stated only where the JSON summaries support them.
 
 Our empirical position is deliberately strong: SPT-Reg should be evaluated as a
 competing method against target fine-tuning, raw conformalization, feature-only
 normalization, and family-matched BinnedPDF baselines, not as an isolated
-ablation stack. This framing matters for NeurIPS review because it turns the
-paper from a library integration story into a concrete claim about
-label-efficient target adaptation for predictive laws.
+ablation stack. Benchmark rows now include \emph{transport-only} paths (adapted
+laws before conformal widening) and, for MDN, a \emph{conformal-only} baseline
+on the source law, so tables do not attribute interval widening solely to
+transport when conformal correction dominates.
 
 \section{Method}
 
@@ -77,18 +82,81 @@ The current branch implementation exposes this flow through a reusable
 Internally, the method maps each predictive family to a common
 \texttt{PredictiveBatch} representation and then to a shared support-grid
 density. This lets the same transport operator act on Gaussian, quantile,
-histogram, and ordered-bin / BinnedPDF outputs without changing the surrounding
-evaluation contract. In the current implementation, prior transport is driven
-by confidence-filtered and locally consistent target rows, significance-weighted
-subspace alignment is only applied when the predictor can be rerun on aligned
-inputs, and representation-shift calibration inflates either Gaussian variance
-or density temperature depending on the predictive family.
+histogram, ordered-bin / BinnedPDF, and sampled / MDN outputs without changing
+the surrounding evaluation contract. In the current implementation, prior
+transport is driven by confidence-filtered and locally consistent target rows,
+significance-weighted subspace alignment is only applied when the predictor can
+be rerun on aligned inputs, and representation-shift calibration inflates
+either Gaussian variance or density temperature depending on the predictive
+family. Stage~A (prior transport) can be weakened or skipped when target
+evidence is weak: configurable floors on the selected-row fraction and caps on
+prior divergence (total variation between estimated source and target priors)
+reduce shrink weight so transport does not over-react to noisy target histograms.
 
 The branch also treats conformal wrapping and prediction-powered inference as
 first-class method stages rather than post-processing afterthoughts. This is
 important for the paper narrative: transport is used to improve sharpness and
 residual quality under shift, while conformal prediction and PPI restore
 finite-sample validity for intervals and downstream estimands.
+
+\section{Related work}
+
+\paragraph{Dataset shift and covariate shift.}
+Training and deployment distributions often differ; the resulting bias is
+standardly analyzed as covariate shift, label shift, or broader dataset
+shift~\citep{quinonero2009dataset}. Importance-weighting and kernel mean
+matching reweight source data to match target feature
+marginals~\citep{huang2007correcting}. These methods typically operate on
+\emph{inputs} or losses for \emph{retraining}; SPT-Reg instead keeps a fixed
+source predictor and transports \emph{output-side} predictive laws using target
+unlabeled structure, which is closer in spirit to post-hoc calibration and
+correction pipelines than to full domain-adversarial
+retraining~\citep{ganin2016domain}.
+
+\paragraph{Conformal and distribution-free uncertainty.}
+Split and full conformal prediction yield finite-sample coverage under
+exchangeability~\citep{angelopoulos2021gentle}. Under covariate shift, coverage
+can fail unless scores or weights are adjusted; weighted and shifted conformal
+variants explicitly model tilted test
+distributions~\citep{tibshirani2019conformal}. Recent work pushes this line into
+\emph{online} and arbitrarily drifting regimes by adaptively tuning conformal
+updates rather than assuming a static tilt~\citep{gibbs2024conformal}. SPT-Reg is
+complementary: we first transport predictive laws on the target domain, then
+apply split conformal as an explicit, auditable stage. \texttt{RawSplitConformalGaussian}
+isolates conformal-only widening on the source law; \texttt{SPTTransportGaussian}
+isolates transport + inflation \emph{without} conformal, so tables separate
+geometric adaptation from validity repair.
+
+\paragraph{Test-time adaptation and target fine-tuning.}
+Modern TTA research increasingly documents how adaptation changes not only error
+but also the reliability of linear OOD extrapolation
+heuristics~\citep{kim2024test}. A strong operational competitor for regression
+under shift is still to fine-tune (or refit) on a small labeled target set; our
+\texttt{TargetRefitSmallGaussian} row matches that protocol at the calibration
+budget. Subspace-aware feature alignment is also an active 2024--2025 theme for
+regression TTA (often CV / pose pipelines); our
+\texttt{SignificantSubspaceGaussian} row isolates a related \emph{significance-weighted}
+alignment path inside the same evaluation harness. Deep ensembles remain a
+generic probabilistic baseline~\citep{lakshminarayanan2017deep}; we emphasize
+family-matched Gaussian and BinnedPDF rows before claiming dominance over
+ensembling in the wild.
+
+\paragraph{Prediction-powered inference.}
+PPI uses a small labeled target sample together with unlabeled predictions to
+construct valid uncertainty intervals for downstream
+estimands~\citep{chernozhukov2023ppi}. In \texttt{torchregress}, PPI metrics are
+reported alongside predictive scores when enabled, but the core SPT-Reg narrative
+centers on repairing $p(y \mid x)$ under shift before such inferential layers.
+
+\paragraph{Positioning summary.}
+Table~\ref{tab:spt_baseline_map} summarizes the large-tabular (Year) Gaussian
+comparison rows and their interpretive role; extended rows (BinnedPDF family,
+synthetic MDN stress tests) and literature we do \emph{not} yet instantiate as
+code baselines are documented in
+\texttt{papers/neurips\_spt\_reg/related\_work\_notes.md}.
+The conformal and TTA paragraphs above cite post-2023 work~\citep{gibbs2024conformal,kim2024test}
+to anchor SPT-Reg relative to current shift and adaptation research, even where
+we have not reimplemented every SOTA conformal or TTA variant as a row.
 
 \section{Experiments}
 
@@ -108,12 +176,46 @@ under \texttt{reports/neurips\_spt\_reg/}.
 \paragraph{Competing methods.}
 The main comparison set includes raw source predictors, feature-stat
 normalization, significant-subspace alignment alone, prior transport alone,
-raw split conformal, small-label target refitting, and the full SPT-Reg
+raw split conformal, \textbf{covariate-weighted} split conformal (logistic
+density-ratio adapter; \citealp{tibshirani2019conformal}), small-label target
+refitting, and the full SPT-Reg
 pipeline. We report each of these on Gaussian predictors where applicable, and
 we additionally compare ordered-bin / BinnedPDF predictors with and without
-SPT-Reg in the synthetic and tabular tracks. In \texttt{torchregress}, the
-photo-$z$ track is treated as an optional compatibility benchmark rather than
-the core submission path.
+SPT-Reg in the synthetic and tabular tracks. Sampled MDN predictors are
+included as a synthetic multimodal stress test and a competing predictive-law
+family, but they are not yet the primary real-data claim path in
+\texttt{torchregress}. In \texttt{torchregress}, the photo-$z$ track is treated
+as an optional compatibility benchmark rather than the core submission path.
+
+\begin{table}[t]
+  \caption{Gaussian comparison taxonomy for the OpenML Year track (JSON
+  \texttt{Method} strings in \texttt{year\_competing\_methods\_*.json}). Each
+  row uses the same source-fit linear-Gaussian simulator and covariate-shift
+  split unless noted in code; conformal stages use a shared target calibration
+  budget.}
+  \label{tab:spt_baseline_map}
+  \centering
+  \footnotesize
+  \begin{tabular}{@{}p{0.26\linewidth}p{0.68\linewidth}@{}}
+    \toprule
+    Row (\texttt{Method}) & Role (what factor is isolated) \\
+    \midrule
+    \texttt{SourceGaussian} & No adaptation: source law evaluated on target features. \\
+    \texttt{FeatureStatNormGaussian} & Input-space moment matching (feature normalization) before re-evaluating the source predictor. \\
+    \texttt{SignificantSubspaceGaussian} & Significance-weighted subspace alignment only (no prior transport / inflation). \\
+    \texttt{PriorTransportGaussian} & Stage~A output prior transport only (alignment + inflation disabled). \\
+    \texttt{RawSplitConformalGaussian} & Source law + split conformal on target labels (conformal-only widening). \\
+    \texttt{WeightedSplitConformalGaussian} & Same source law + \textbf{weighted} split conformal on calibration residuals (estimated $p_{\mathrm{tgt}}/p_{\mathrm{src}}$ via logistic discriminator on features; \citealp{tibshirani2019conformal}). \\
+    \texttt{SPTTransportGaussian} & Full transport stack \emph{without} conformal wrapping (adaptation path in isolation). \\
+    \texttt{SPTRegGaussian} & End-to-end SPT-Reg including conformal wrapping. \\
+    \texttt{TargetRefitSmallGaussian} & Ridge refit on the small labeled target budget (strong TTA-style competitor). \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\noindent\textbf{BinnedPDF family.} The same protocol includes
+\texttt{SourceBinnedPDF} and \texttt{SPTRegBinnedPDF}, holding the ordered-bin
+head fixed while toggling the transport + conformal stack.
 
 \paragraph{Metrics.}
 The primary tables emphasize probabilistic and decision-facing quantities:
@@ -130,7 +232,17 @@ The branch includes a single render entrypoint,
 \texttt{tools/render\_spt\_reg\_paper\_artifacts.py}, which writes the
 synthetic, small-tabular, and larger YearPredictionMSD-style summary JSON
 files by default, plus an artifact manifest used by the paper reproducibility
-notes. An optional flag adds the local photo-$z$ compatibility benchmark. This
+notes. The default Year slot uses a \textbf{synthetic} local CSV unless
+\texttt{--year-cache-path} (or OpenML fetch flags) points at real OpenML Year;
+manuscript numbers for the large-tabular track must come from a
+\textbf{real-cache} run (see \texttt{reproducibility.md} and local bundle output
+under \texttt{docs/research/sage\_reg\_results/.../tabular\_paper\_bundle/spt/full/}).
+Paper-scale SPT-only refresh (full + audit profiles, optional extras, Stage-A sweep hook)
+is \texttt{scripts/run\_neurips\_spt\_reg\_full.py}. A legacy combined SAGE+SPT
+bundle remains \texttt{scripts/run\_tabular\_paper\_bundle.sh}. A longer-run
+competitiveness plan (extra DA baselines, datasets) is in
+\texttt{docs/research/paper\_strong\_experiment\_suite.md}.
+An optional flag adds the local photo-$z$ compatibility benchmark. This
 keeps the manuscript tied to committed outputs rather than ad hoc notebook
 tables while avoiding a hard dependency on the older photo-$z$ surface in this
 repository.
@@ -158,7 +270,7 @@ refitting remains the stronger option.
 This appendix will collect:
 \begin{itemize}
   \item theorem and proposition proof sketches,
-  \item full competing-method tables,
+  \item extended competing-method tables (MDN / additional profiles),
   \item ablations for each transport stage,
   \item dataset split details,
   \item additional photo-$z$ diagnostics, and

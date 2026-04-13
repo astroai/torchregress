@@ -134,6 +134,19 @@ def test_disagreement_to_weight_supports_tempered_and_hard_gates() -> None:
     assert float(gated[0].item()) > 0.0
 
 
+def test_disagreement_to_weight_batch_zscore_and_top_k() -> None:
+    flat = torch.tensor([1.0, 1.0, 1.0, 1.0], dtype=torch.float32)
+    z_flat = disagreement_to_weight(flat, 0.5, batch_relative_mode="zscore")
+    assert torch.allclose(z_flat, torch.ones_like(z_flat), atol=1e-4)
+
+    d = torch.tensor([0.0, 0.1, 0.9, 1.0], dtype=torch.float32)
+    top2 = disagreement_to_weight(d, 0.5, batch_trust_top_k=2)
+    assert float(top2[2].item()) == 0.0
+    assert float(top2[3].item()) == 0.0
+    assert float(top2[0].item()) > 0.0
+    assert float(top2[1].item()) > 0.0
+
+
 def test_distributional_pseudo_loss_is_small_for_matching_predictions() -> None:
     consensus = build_consensus_predictive_batch(
         [
@@ -167,7 +180,9 @@ def test_distributional_pseudo_loss_supports_quantile_density_cross_entropy() ->
                 quantile_levels=[0.1, 0.5, 0.9],
             ),
             PredictiveBatch(
-                quantiles=torch.tensor([[0.05, 0.45, 0.95], [0.25, 0.65, 1.15]], dtype=torch.float32),
+                quantiles=torch.tensor(
+                    [[0.05, 0.45, 0.95], [0.25, 0.65, 1.15]], dtype=torch.float32
+                ),
                 quantile_levels=[0.1, 0.5, 0.9],
             ),
         ],
@@ -277,7 +292,9 @@ def test_self_agreement_trainer_runs_all_target_backbones(backbone: str) -> None
         model = _TinyGaussian()
         optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
 
-        def supervised_loss_fn(model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        def supervised_loss_fn(
+            model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor
+        ) -> torch.Tensor:
             mean, log_var = model_(x)
             var = torch.exp(log_var).clamp_min(1e-5)
             return torch.nn.functional.gaussian_nll_loss(mean, y, var)
@@ -290,10 +307,14 @@ def test_self_agreement_trainer_runs_all_target_backbones(backbone: str) -> None
         model = _TinyQuantile()
         optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
 
-        def supervised_loss_fn(model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        def supervised_loss_fn(
+            model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor
+        ) -> torch.Tensor:
             quantiles = model_(x)
             diff = y - quantiles
-            levels = torch.tensor(_TinyQuantile.levels, dtype=quantiles.dtype, device=quantiles.device)
+            levels = torch.tensor(
+                _TinyQuantile.levels, dtype=quantiles.dtype, device=quantiles.device
+            )
             return torch.maximum(levels * diff, (levels - 1.0) * diff).mean()
 
         def predictive_batch_fn(model_: torch.nn.Module, x: torch.Tensor) -> PredictiveBatch:
@@ -307,7 +328,9 @@ def test_self_agreement_trainer_runs_all_target_backbones(backbone: str) -> None
         model = _TinyBar(bin_edges)
         optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
 
-        def supervised_loss_fn(model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        def supervised_loss_fn(
+            model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor
+        ) -> torch.Tensor:
             logits = model_(x)
             targets = torch.bucketize(y.view(-1), bin_edges[1:-1]).long()
             return F.cross_entropy(logits, targets)

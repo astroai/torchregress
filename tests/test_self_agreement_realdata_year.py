@@ -76,11 +76,12 @@ def test_self_agreement_realdata_year_smoke(tmp_path: Path) -> None:
     assert calib_path.exists()
     assert diag_path.exists()
     assert summary_path.exists()
-    assert len(rows) == 6
+    assert len(rows) == 8
 
     methods = {str(row["Method"]) for row in rows}
     assert methods == {
         "SupervisedOnly",
+        "MeanTeacher",
         "ConfidenceWeightedPseudoLabel",
         "SAGE-Reg",
     }

@@ -207,18 +207,19 @@ def _try_make_flow(
 ) -> tuple[Optional[nn.Module], Optional[object], Optional[str]]:
     try:
         from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+        context_model = MLP(in_dim, context_dim, hidden=64)
+        flow = create_flow_model(
+            n_features=n_features,
+            context_dim=context_dim,
+            flow_type="nsf",
+            n_transforms=n_transforms,
+            hidden_features=[64, 64],
+        )
+        loss_fn = NormalizingFlowLoss(flow=flow, reduction="mean")
+        return context_model, loss_fn, None
     except ImportError as exc:
         return None, None, str(exc)
-    context_model = MLP(in_dim, context_dim, hidden=64)
-    flow = create_flow_model(
-        n_features=n_features,
-        context_dim=context_dim,
-        flow_type="nsf",
-        n_transforms=n_transforms,
-        hidden_features=[64, 64],
-    )
-    loss_fn = NormalizingFlowLoss(flow=flow, reduction="mean")
-    return context_model, loss_fn, None
 
 
 def _flow_predict_and_metrics(

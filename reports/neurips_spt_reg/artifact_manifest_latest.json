@@ -1,0 +1,13 @@
+{
+  "artifact": "spt_reg_paper_artifact_manifest",
+  "version": 1,
+  "profile": "full",
+  "include_photoz": false,
+  "output_dir": "reports/neurips_spt_reg",
+  "summaries": {
+    "synthetic": "reports/neurips_spt_reg/synthetic_competing_methods_full.json",
+    "tabular_small": "reports/neurips_spt_reg/tabular_competing_methods_full.json",
+    "tabular_large": "reports/neurips_spt_reg/year_competing_methods_full.json"
+  },
+  "year_track_data": "cache_path=/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-10/openml_year.csv, allow_download=True"
+}

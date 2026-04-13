@@ -1,7 +1,7 @@
 """YearPredictionMSD-style real-data benchmark for Shift-Factored Predictive Transport."""
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
@@ -14,7 +14,6 @@ from comparison_utils import (
     timed_call,
     write_comparison_summary_json,
 )
-from sklearn.datasets import fetch_openml
 
 from torchregress.test_time import (
     FeatureStatNormalizer,
@@ -22,6 +21,7 @@ from torchregress.test_time import (
     ShiftFactoredTransportConfig,
     SignificantSubspaceAligner,
 )
+from torchregress.utils.openml_relaxed import fetch_openml_regression_with_sklearn_fallback
 
 
 @dataclass(frozen=True)
@@ -42,9 +42,59 @@ class SPTRegYearConfig:
     n_bins: int = 20
     n_samples_eval: int = 64
     target_label_budget: int = 512
+    openml_data_id: int | None = None
+    openml_dataset_name: str | None = None
+    openml_version: int = 1
+    max_dataset_rows: int | None = None
+    prior_ratio_clip: float = 2.0
+    prior_transport_strength: float = 0.5
+
+
+def _spt_transport_config(cfg: SPTRegYearConfig) -> ShiftFactoredTransportConfig:
+    return ShiftFactoredTransportConfig(
+        n_support=cfg.n_support,
+        alpha=cfg.alpha,
+        random_state=cfg.seed,
+        prior_ratio_clip=float(cfg.prior_ratio_clip),
+        prior_transport_strength=float(cfg.prior_transport_strength),
+    )
+
+
+def spt_year_split_row_budget(cfg: SPTRegYearConfig) -> int:
+    return cfg.n_source + cfg.n_target_unlabeled + cfg.n_target_cal + cfg.n_target_test
+
+
+def spt_year_scale_split_sizes(cfg: SPTRegYearConfig, factor: int) -> SPTRegYearConfig:
+    """Multiply pool sizes (and label budget) for stronger Year-track experiments."""
+    if factor < 1:
+        raise ValueError("factor must be >= 1")
+    if factor == 1:
+        return cfg
+    return replace(
+        cfg,
+        n_source=cfg.n_source * factor,
+        n_target_unlabeled=cfg.n_target_unlabeled * factor,
+        n_target_cal=cfg.n_target_cal * factor,
+        n_target_test=cfg.n_target_test * factor,
+        target_label_budget=max(1, cfg.target_label_budget * factor),
+    )
+
+
+def _openml_regression_frame_spt(cfg: SPTRegYearConfig) -> tuple[pd.DataFrame, str]:
+    if cfg.openml_data_id is None and cfg.openml_dataset_name is None:
+        raise ValueError("openml regression fetch requires openml_data_id or openml_dataset_name")
+    return fetch_openml_regression_with_sklearn_fallback(
+        data_id=cfg.openml_data_id,
+        name=cfg.openml_dataset_name,
+        version=int(cfg.openml_version),
+        target_column=cfg.target_column,
+    )
 
 
 def _load_dataset_frame(cfg: SPTRegYearConfig) -> tuple[pd.DataFrame, str]:
+    if cfg.dataset_path and (cfg.openml_data_id is not None or cfg.openml_dataset_name is not None):
+        raise ValueError("dataset_path cannot be combined with openml_data_id/openml_dataset_name")
+
     if cfg.dataset_path:
         path = Path(cfg.dataset_path)
         if path.suffix.lower() == ".parquet":
@@ -57,8 +107,24 @@ def _load_dataset_frame(cfg: SPTRegYearConfig) -> tuple[pd.DataFrame, str]:
             return pd.read_parquet(cache_path), str(cache_path)
         return pd.read_csv(cache_path), str(cache_path)
 
+    if cfg.openml_data_id is not None or cfg.openml_dataset_name is not None:
+        if not cfg.allow_download:
+            raise FileNotFoundError(
+                "OpenML fetch requested but allow_download is False and cache is missing"
+            )
+        frame, tag = _openml_regression_frame_spt(cfg)
+        if cache_path is not None:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            if cache_path.suffix.lower() == ".parquet":
+                frame.to_parquet(cache_path, index=False)
+            else:
+                frame.to_csv(cache_path, index=False)
+        return frame, tag
+
     if not cfg.allow_download:
         raise FileNotFoundError("dataset_path/cache_path missing and allow_download is False")
+
+    from sklearn.datasets import fetch_openml
 
     bunch = fetch_openml(name="year", version=1, as_frame=True)
     features = cast(pd.DataFrame, bunch.data).copy()
@@ -85,13 +151,20 @@ def _make_year_split(cfg: SPTRegYearConfig) -> tuple[dict[str, np.ndarray], str]
     x = feature_frame.to_numpy(dtype=np.float32, copy=True)
     y = frame[cfg.target_column].to_numpy(dtype=np.float32, copy=True)
 
-    need = cfg.n_source + cfg.n_target_unlabeled + cfg.n_target_cal + cfg.n_target_test
-    if need > x.shape[0]:
-        raise ValueError(f"Requested {need} rows but dataset has {x.shape[0]}.")
+    n_total = int(x.shape[0])
+    rng = np.random.default_rng(cfg.seed)
+    if cfg.max_dataset_rows is not None and n_total > cfg.max_dataset_rows:
+        pick = rng.choice(n_total, size=cfg.max_dataset_rows, replace=False)
+        x = x[pick]
+        y = y[pick]
+        n_total = int(x.shape[0])
+
+    need = spt_year_split_row_budget(cfg)
+    if need > n_total:
+        raise ValueError(f"Requested {need} rows but dataset has {n_total}.")
     if not 0 <= cfg.shift_feature_idx < x.shape[1]:
         raise ValueError("shift_feature_idx is out of bounds for the dataset features")
 
-    rng = np.random.default_rng(cfg.seed)
     shift_scores = np.abs(x[:, cfg.shift_feature_idx])
     sorted_idx = np.argsort(shift_scores)[::-1]
     target_pool_size = cfg.n_target_unlabeled + cfg.n_target_cal + cfg.n_target_test
@@ -216,12 +289,10 @@ def run_comparison(cfg: SPTRegYearConfig) -> tuple[list[dict[str, object]], list
     )
 
     prior_transport = ShiftFactoredPredictiveTransport(
-        ShiftFactoredTransportConfig(
-            n_support=cfg.n_support,
-            alpha=cfg.alpha,
+        replace(
+            _spt_transport_config(cfg),
             enable_alignment=False,
             enable_uncertainty_inflation=False,
-            random_state=cfg.seed,
         )
     ).fit_source(
         predictor.predict_distribution(source_x, family="gaussian"),
@@ -269,13 +340,38 @@ def run_comparison(cfg: SPTRegYearConfig) -> tuple[list[dict[str, object]], list
         )
     )
 
-    spt = ShiftFactoredPredictiveTransport(
-        ShiftFactoredTransportConfig(
-            n_support=cfg.n_support,
-            alpha=cfg.alpha,
-            random_state=cfg.seed,
+    w_cal = sptbase._covariate_density_ratio_weights(
+        source_x,
+        target_pool_x[:unlabeled_stop],
+        target_pool_x[unlabeled_stop:cal_stop],
+        seed=cfg.seed,
+    )
+    weighted_split = sptbase._weighted_split_conformal(
+        source_gaussian_cal,
+        y_cal,
+        source_gaussian_test,
+        cfg.alpha,
+        w_cal,
+    )
+    rows.append(
+        sptbase._evaluate_row(
+            method="WeightedSplitConformalGaussian",
+            family="Gaussian",
+            batch_cal=source_gaussian_cal,
+            batch_test=weighted_split,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=fit_s,
+            eval_s=0.0,
+            notes=(
+                f"source Gaussian + covariate-weighted split conformal on {dataset_name} "
+                f"(logistic density-ratio: target-unlabeled vs source)"
+            ),
         )
-    ).fit_source(
+    )
+
+    spt = ShiftFactoredPredictiveTransport(_spt_transport_config(cfg)).fit_source(
         predictor.predict_distribution(source_x, family="gaussian"),
         source_y,
         source_inputs=source_x,
@@ -288,6 +384,20 @@ def run_comparison(cfg: SPTRegYearConfig) -> tuple[list[dict[str, object]], list
     )
     spt_cal = sptbase._slice_batch(spt_pool, unlabeled_stop, cal_stop)
     spt_test = sptbase._slice_batch(spt_pool, cal_stop, target_pool_x.shape[0])
+    rows.append(
+        sptbase._evaluate_row(
+            method="SPTTransportGaussian",
+            family="Gaussian",
+            batch_cal=spt_cal,
+            batch_test=spt_test,
+            y_cal=y_cal,
+            y_test=y_test,
+            cfg=cfg,
+            train_s=fit_s,
+            eval_s=spt_eval_s,
+            notes="SPT adaptation without conformal wrapping (transport-only path)",
+        )
+    )
     _, spt_cal_s = timed_call(spt.calibrate_target, spt_cal, y_cal)
     rows.append(
         sptbase._evaluate_row(
@@ -344,13 +454,7 @@ def run_comparison(cfg: SPTRegYearConfig) -> tuple[list[dict[str, object]], list
         )
     )
 
-    spt_binned = ShiftFactoredPredictiveTransport(
-        ShiftFactoredTransportConfig(
-            n_support=cfg.n_support,
-            alpha=cfg.alpha,
-            random_state=cfg.seed,
-        )
-    ).fit_source(
+    spt_binned = ShiftFactoredPredictiveTransport(_spt_transport_config(cfg)).fit_source(
         predictor.predict_distribution(source_x, family="binnedpdf"),
         source_y,
         source_inputs=source_x,
@@ -437,12 +541,45 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-path", type=str, default="")
     parser.add_argument("--cache-path", type=str, default="")
     parser.add_argument("--allow-download", action="store_true")
-    args = parser.parse_args()
-    main(
-        SPTRegYearConfig(
-            dataset_path=args.dataset_path or None,
-            cache_path=args.cache_path or None,
-            allow_download=args.allow_download,
-        ),
-        summary_json_path=args.summary_json_path,
+    parser.add_argument(
+        "--scale-split-factor",
+        type=int,
+        default=1,
+        help="Multiply n_source / n_target_* pools and target_label_budget after base config.",
     )
+    parser.add_argument("--openml-data-id", type=int, default=None)
+    parser.add_argument("--openml-dataset-name", type=str, default="")
+    parser.add_argument("--openml-version", type=int, default=SPTRegYearConfig.openml_version)
+    parser.add_argument(
+        "--max-dataset-rows",
+        type=int,
+        default=None,
+        help="Subsample rows before covariate-shift split (large OpenML dumps).",
+    )
+    parser.add_argument(
+        "--prior-ratio-clip",
+        type=float,
+        default=SPTRegYearConfig.prior_ratio_clip,
+        help="Clip factor for Stage-A prior ratio stabilization.",
+    )
+    parser.add_argument(
+        "--prior-transport-strength",
+        type=float,
+        default=SPTRegYearConfig.prior_transport_strength,
+        help="Strength of prior transport update (0-1 style blend in transport).",
+    )
+    args = parser.parse_args()
+    cfg = SPTRegYearConfig(
+        dataset_path=args.dataset_path or None,
+        cache_path=args.cache_path or None,
+        allow_download=args.allow_download,
+        openml_data_id=args.openml_data_id,
+        openml_dataset_name=args.openml_dataset_name or None,
+        openml_version=args.openml_version,
+        max_dataset_rows=args.max_dataset_rows,
+        prior_ratio_clip=float(args.prior_ratio_clip),
+        prior_transport_strength=float(args.prior_transport_strength),
+    )
+    if args.scale_split_factor != 1:
+        cfg = spt_year_scale_split_sizes(cfg, args.scale_split_factor)
+    main(cfg, summary_json_path=args.summary_json_path)

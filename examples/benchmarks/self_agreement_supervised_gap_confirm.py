@@ -6,7 +6,7 @@ import argparse
 import csv
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -48,6 +48,9 @@ class SupervisedGapConfirmConfig:
     higgs_batch_size: int | None = None
     higgs_teacher_epochs: int | None = None
     higgs_student_epochs: int | None = None
+    higgs_split_scale_factor: int = 1
+    higgs_parquet_max_sample_rows: int | None = None
+    higgs_parquet_full_read_row_limit: int | None = None
 
 
 def _read_rows(path: str | Path) -> list[dict[str, str]]:
@@ -314,6 +317,14 @@ def _confirm_higgs(
         weight_power=float(row["weight_power"]),
         hard_weight_threshold=_parse_optional_threshold(row["hard_weight_threshold"]),
     )
+    if cfg.higgs_split_scale_factor != 1:
+        bench_cfg = higgs_benchmark.higgs_scale_split_sizes(bench_cfg, cfg.higgs_split_scale_factor)
+    if cfg.higgs_parquet_max_sample_rows is not None:
+        bench_cfg = replace(bench_cfg, parquet_max_sample_rows=cfg.higgs_parquet_max_sample_rows)
+    if cfg.higgs_parquet_full_read_row_limit is not None:
+        bench_cfg = replace(
+            bench_cfg, parquet_full_read_row_limit=cfg.higgs_parquet_full_read_row_limit
+        )
     result_rows = higgs_benchmark.main(
         bench_cfg,
         output_csv=str(out_dir / "higgs_confirm.csv"),
@@ -365,7 +376,15 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--year-cache-path", type=str, default="")
     parser.add_argument("--no-year-download", action="store_true")
-    parser.add_argument("--higgs-dataset-path", type=str, default="")
+    parser.add_argument(
+        "--higgs-dataset-path",
+        type=str,
+        default="",
+        help=(
+            "Path to FAIR Higgs parquet. "
+            "See papers/neurips_sage_reg/reproducibility.md section ‘Higgs parquet’."
+        ),
+    )
     parser.add_argument("--skip-year", action="store_true")
     parser.add_argument("--skip-higgs", action="store_true")
     parser.add_argument("--year-n-labeled", type=int, default=None)
@@ -392,6 +411,24 @@ if __name__ == "__main__":
     parser.add_argument("--higgs-batch-size", type=int, default=None)
     parser.add_argument("--higgs-teacher-epochs", type=int, default=None)
     parser.add_argument("--higgs-student-epochs", type=int, default=None)
+    parser.add_argument(
+        "--higgs-split-scale-factor",
+        type=int,
+        default=1,
+        help="Multiply Higgs split cardinalities after tuning/json n_* resolution.",
+    )
+    parser.add_argument(
+        "--higgs-parquet-max-sample-rows",
+        type=int,
+        default=None,
+        help="Override HiggsOODConfig.parquet_max_sample_rows for large parquet reservoirs.",
+    )
+    parser.add_argument(
+        "--higgs-parquet-full-read-row-limit",
+        type=int,
+        default=None,
+        help="Override parquet full-read safety limit (use only with enough RAM).",
+    )
     args = parser.parse_args()
     main(
         SupervisedGapConfirmConfig(
@@ -420,5 +457,8 @@ if __name__ == "__main__":
             higgs_batch_size=args.higgs_batch_size,
             higgs_teacher_epochs=args.higgs_teacher_epochs,
             higgs_student_epochs=args.higgs_student_epochs,
+            higgs_split_scale_factor=args.higgs_split_scale_factor,
+            higgs_parquet_max_sample_rows=args.higgs_parquet_max_sample_rows,
+            higgs_parquet_full_read_row_limit=args.higgs_parquet_full_read_row_limit,
         )
     )

@@ -1,0 +1,12 @@
+{
+  "source": "Paste from FAIR Universe Higgs Uncertainty Challenge leaderboard or winning writeup",
+  "url": "https://fair-universe.lbl.gov/Higgs-Uncertainty-Challenge.html",
+  "entries": [
+    {
+      "team_or_note": "example: 1st place (season X)",
+      "metric": "AMS or log-loss or AUC — name explicitly",
+      "value": null,
+      "notes": "Challenge metrics are classification-oriented; our script reports CatBoost log-loss ID/OOD + regression NLL for the Gaussian-head protocol."
+    }
+  ]
+}

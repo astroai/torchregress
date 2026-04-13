@@ -4,7 +4,12 @@ import numpy as np
 import torch
 
 import torchregress.test_time.transport as transport_mod
-from torchregress.prediction import PredictiveBatch, bars_to_density_grid, quantiles_to_density_grid
+from torchregress.prediction import (
+    PredictiveBatch,
+    bars_to_density_grid,
+    quantiles_to_density_grid,
+    samples_to_density_grid,
+)
 from torchregress.test_time import (
     FeatureStatNormalizer,
     ParameterEMA,
@@ -38,6 +43,17 @@ def test_predictive_batch_density_helpers_normalize() -> None:
     )
     assert batch.support is not None
     assert batch.density is not None
+
+    rng = np.random.default_rng(0)
+    samples = rng.normal(loc=np.array([[0.0], [1.0]]), scale=0.15, size=(2, 256))
+    support_s, density_s = samples_to_density_grid(samples, n_support=64)
+    assert support_s.shape == density_s.shape == (2, 64)
+    assert np.allclose(np.trapezoid(density_s, support_s, axis=1), 1.0, atol=1.0e-3)
+
+    sample_batch = PredictiveBatch(samples=samples.astype(np.float32), extra={"family": "mdn"})
+    dense_sample_batch = sample_batch.with_density(n_support=64)
+    assert dense_sample_batch.support is not None
+    assert dense_sample_batch.density is not None
 
 
 def test_label_shift_adapter_estimates_and_corrects_target_prior() -> None:
@@ -255,6 +271,44 @@ class _DummyPredictor:
         return PredictiveBatch(mean=mean, std=std)
 
 
+def _slice_predictive_batch(batch: PredictiveBatch, start: int, stop: int) -> PredictiveBatch:
+    batch_size = None
+    for value in (
+        batch.mean,
+        batch.point,
+        batch.std,
+        batch.quantiles,
+        batch.bar_logits,
+        batch.density,
+        batch.samples,
+    ):
+        if value is not None:
+            batch_size = int(np.asarray(value).shape[0])
+            break
+
+    def _slice(value: object) -> object:
+        if value is None:
+            return None
+        arr = np.asarray(value)
+        if batch_size is not None and arr.ndim >= 1 and arr.shape[0] == batch_size:
+            return arr[start:stop]
+        return value
+
+    return PredictiveBatch(
+        point=_slice(batch.point),
+        mean=_slice(batch.mean),
+        std=_slice(batch.std),
+        quantiles=_slice(batch.quantiles),
+        quantile_levels=batch.quantile_levels,
+        bar_logits=_slice(batch.bar_logits),
+        bin_edges=_slice(batch.bin_edges),
+        samples=_slice(batch.samples),
+        support=_slice(batch.support),
+        density=_slice(batch.density),
+        extra=dict(batch.extra or {}),
+    )
+
+
 def test_shift_factored_transport_adapts_gaussian_predictions() -> None:
     rng = np.random.default_rng(7)
     source_x = rng.normal(size=(48, 3))
@@ -371,6 +425,56 @@ def test_shift_factored_transport_skips_nonconverged_prior_update_by_default() -
     assert np.allclose(stabilized, source_prior)
     assert float(meta["prior_shrink_weight"]) == 0.0
     assert float(meta["prior_transport_skipped"]) == 1.0
+    assert float(meta["prior_evidence_scale"]) == 1.0
+
+
+def test_stabilize_target_prior_respects_evidence_scale() -> None:
+    source_prior = np.array([0.5, 0.5], dtype=float)
+    target_prior = np.array([0.2, 0.8], dtype=float)
+    probs = np.array([[0.6, 0.4], [0.55, 0.45]], dtype=float)
+    stabilized, meta = transport_mod._stabilize_target_prior(
+        source_prior=source_prior,
+        target_prior=target_prior,
+        selected_probabilities=probs,
+        converged=True,
+        config=ShiftFactoredTransportConfig(prior_transport_strength=1.0),
+        evidence_scale=0.0,
+    )
+    assert np.allclose(stabilized, source_prior)
+    assert float(meta["prior_shrink_weight"]) == 0.0
+    assert float(meta["prior_evidence_scale"]) == 0.0
+
+
+def test_shift_factored_transport_skips_prior_when_selection_fraction_too_low() -> None:
+    rng = np.random.default_rng(31)
+    source_x = rng.normal(size=(48, 3))
+    source_y = 0.8 * source_x[:, 0] - 0.3 * source_x[:, 1] + 0.05 * rng.normal(size=48)
+    target_x = source_x + np.array([0.4, -0.2, 0.1])
+    predictor = _DummyPredictor()
+
+    source_batch = predictor.predict_distribution(source_x)
+    target_batch = predictor.predict_distribution(target_x)
+
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(
+            n_support=96,
+            random_state=0,
+            prior_transport_min_selected_fraction=1.01,
+        )
+    ).fit_source(
+        source_batch,
+        source_y,
+        source_inputs=source_x,
+    )
+    adapted = transport.adapt_unlabeled_target(
+        target_predictions=target_batch,
+        target_inputs=target_x,
+        predictor=predictor,
+    )
+    assert adapted.extra is not None
+    assert adapted.extra.get("prior_transport_skip_reason") == "low_selection_fraction"
+    assert float(adapted.extra["prior_evidence_scale"]) == 0.0
+    assert float(adapted.extra["prior_shrink_weight"]) == 0.0
 
 
 def test_shift_factored_transport_preserves_quantile_family_outputs() -> None:
@@ -406,6 +510,37 @@ def test_shift_factored_transport_preserves_quantile_family_outputs() -> None:
     assert adapted.quantile_levels == [0.1, 0.5, 0.9]
     assert adapted.extra is not None
     assert adapted.extra["family"] == "quantile"
+
+
+def test_shift_factored_transport_supports_sampled_predictive_batches() -> None:
+    rng = np.random.default_rng(29)
+    source_x = rng.normal(size=(32, 2))
+    source_y = 0.8 * source_x[:, 0] - 0.3 * source_x[:, 1] + rng.normal(scale=0.2, size=32)
+    target_x = rng.normal(loc=0.2, scale=1.1, size=(20, 2))
+    target_mean = 0.7 * target_x[:, 0] - 0.2 * target_x[:, 1]
+    target_samples = rng.normal(loc=target_mean[:, None], scale=0.3, size=(20, 128))
+
+    transport = ShiftFactoredPredictiveTransport(
+        ShiftFactoredTransportConfig(n_support=96, alpha=0.1, random_state=0)
+    ).fit_source(PredictiveBatch(mean=source_y, std=np.full_like(source_y, 0.2)), source_y)
+
+    adapted = transport.adapt_unlabeled_target(
+        target_predictions=PredictiveBatch(
+            samples=target_samples.astype(np.float32),
+            extra={"family": "mdn"},
+        ),
+        target_inputs=target_x,
+    )
+    assert adapted.support is not None
+    assert adapted.density is not None
+    assert adapted.extra is not None
+    assert adapted.extra["family"] == "mdn"
+
+    cal_targets = target_mean[:10] + rng.normal(scale=0.2, size=10)
+    transport.calibrate_target(_slice_predictive_batch(adapted, 0, 10), cal_targets)
+    conformed = transport.apply_conformal(_slice_predictive_batch(adapted, 10, 20))
+    assert conformed.support is not None
+    assert conformed.density is not None
 
 
 def test_shift_factored_transport_supports_conformal_and_ppi() -> None:

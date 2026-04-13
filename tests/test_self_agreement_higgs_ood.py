@@ -58,10 +58,15 @@ def test_self_agreement_higgs_ood_smoke(tmp_path: Path) -> None:
     assert perf_path.exists()
     assert calib_path.exists()
     assert summary_path.exists()
-    assert len(rows) == 3
+    assert len(rows) == 4
 
     methods = {str(row["Method"]) for row in rows}
-    assert methods == {"SupervisedOnly", "ConfidenceWeightedPseudoLabel", "SAGE-Reg"}
+    assert methods == {
+        "SupervisedOnly",
+        "MeanTeacher",
+        "ConfidenceWeightedPseudoLabel",
+        "SAGE-Reg",
+    }
 
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["artifact"] == "comparison_example_summary"
@@ -85,7 +90,7 @@ def test_self_agreement_higgs_ood_smoke(tmp_path: Path) -> None:
 
 
 def test_self_agreement_higgs_ood_local_parquet_sampling(tmp_path: Path) -> None:
-    pytest.importorskip("pyarrow")
+    pytest.importorskip("polars")
     import pandas as pd
 
     mod = _load_module("self_agreement_higgs_ood")
@@ -122,7 +127,49 @@ def test_self_agreement_higgs_ood_local_parquet_sampling(tmp_path: Path) -> None
     )
     rows = mod.run_benchmark(cfg)
     assert rows
-    assert len(rows) == 3
+    assert len(rows) == 4
+
+
+def test_higgs_scale_split_sizes_and_budget() -> None:
+    mod = _load_module("self_agreement_higgs_ood")
+    base = mod.HiggsOODConfig()
+    scaled = mod.higgs_scale_split_sizes(base, 10)
+    assert scaled.n_train == base.n_train * 10
+    assert scaled.n_unlabeled_id == base.n_unlabeled_id * 10
+    assert mod.higgs_split_row_budget(scaled) == mod.higgs_split_row_budget(base) * 10
+    assert mod.higgs_scale_split_sizes(base, 1) is base
+
+
+def test_higgs_parquet_full_read_row_guard(tmp_path: Path) -> None:
+    pytest.importorskip("polars")
+    import pandas as pd
+
+    mod = _load_module("self_agreement_higgs_ood")
+    parquet_path = tmp_path / "tiny.parquet"
+    n_rows = 12
+    pd.DataFrame(
+        {
+            "f0": [float(i) for i in range(n_rows)],
+            "PRI_met": [float(i % 5) for i in range(n_rows)],
+            "labels": [float(i % 2) for i in range(n_rows)],
+        }
+    ).to_parquet(parquet_path, index=False)
+
+    cfg = mod.HiggsOODConfig(
+        dataset_path=str(parquet_path),
+        target_column="labels",
+        ood_score_column="PRI_met",
+        n_train=2,
+        n_unlabeled_id=2,
+        n_unlabeled_ood=2,
+        n_id_test=2,
+        n_ood_test=2,
+        parquet_max_sample_rows=500,
+        parquet_sample_factor=2,
+        parquet_full_read_row_limit=8,
+    )
+    with pytest.raises(ValueError, match="Refusing to read all"):
+        mod._load_local_frame(cfg)
 
 
 def test_self_agreement_higgs_ood_repeatable_metrics() -> None:

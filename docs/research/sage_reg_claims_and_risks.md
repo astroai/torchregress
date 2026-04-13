@@ -8,7 +8,7 @@
 
 ## Claims We Should Not Make Yet
 
-- broad state-of-the-art superiority
+- broad claims of beating every competing method on standard benchmarks
 - robustness across domains
 - theoretical guarantees
 - benefits for multimodal density families beyond the current supported heads

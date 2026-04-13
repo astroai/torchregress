@@ -105,6 +105,45 @@ def bars_to_density_grid(
     return support, density
 
 
+def samples_to_density_grid(
+    samples: np.ndarray | torch.Tensor,
+    *,
+    n_support: int = 200,
+    range_margin: float = 0.05,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Convert scalar predictive samples to a regular density grid."""
+    draws = _to_numpy(samples)
+    if draws.ndim == 3 and draws.shape[-1] == 1:
+        draws = draws[..., 0]
+    if draws.ndim != 2:
+        raise ValueError("samples must have shape [batch, n_samples] or [batch, n_samples, 1]")
+    if draws.shape[1] < 2:
+        raise ValueError("at least two samples per example are required")
+
+    sample_lo = draws.min(axis=1)
+    sample_hi = draws.max(axis=1)
+    width = np.maximum(sample_hi - sample_lo, 1.0e-6)
+    lo = sample_lo - range_margin * width
+    hi = sample_hi + range_margin * width
+
+    support = np.stack(
+        [np.linspace(a, b, n_support, dtype=float) for a, b in zip(lo, hi, strict=False)],
+        axis=0,
+    )
+    density = np.empty_like(support)
+    for idx in range(draws.shape[0]):
+        edges = np.linspace(lo[idx], hi[idx], n_support + 1, dtype=float)
+        hist, _ = np.histogram(draws[idx], bins=edges, density=False)
+        widths = np.clip(np.diff(edges), 1.0e-8, None)
+        dens = hist.astype(float) / max(float(draws.shape[1]), 1.0) / widths
+        row = np.repeat(dens, 2)
+        edge_support = np.repeat(edges, 2)[1:-1]
+        density[idx] = np.interp(support[idx], edge_support, row, left=0.0, right=0.0)
+        integral = np.trapezoid(density[idx], support[idx])
+        density[idx] = density[idx] / max(integral, 1.0e-8)
+    return support, density
+
+
 @dataclass(frozen=True)
 class PredictiveBatch:
     """Normalized predictive container across regression/test-time tooling."""
@@ -157,6 +196,19 @@ class PredictiveBatch:
             ):
                 support = support[0]
             return replace(self, support=support, density=density)
+        if self.samples is not None:
+            support, density = samples_to_density_grid(
+                self.samples,
+                n_support=n_support,
+                range_margin=range_margin,
+            )
+            if (
+                support.ndim == 2
+                and support.shape[0] > 0
+                and np.allclose(support, support[:1], atol=1.0e-8)
+            ):
+                support = support[0]
+            return replace(self, support=support, density=density)
         return self
 
 
@@ -164,4 +216,5 @@ __all__ = [
     "PredictiveBatch",
     "bars_to_density_grid",
     "quantiles_to_density_grid",
+    "samples_to_density_grid",
 ]

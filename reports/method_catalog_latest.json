@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 55,
+    "total_methods": 56,
     "families": {
       "bnn": 2,
       "calibration_transform": 3,
@@ -12,7 +12,7 @@
       "constraints": 2,
       "eiv": 7,
       "ensemble": 6,
-      "flow": 1,
+      "flow": 2,
       "imbalanced_loss": 3,
       "inference": 1,
       "mc_dropout": 1,
@@ -29,7 +29,7 @@
     "maturity": {
       "Core": 6,
       "Strong": 7,
-      "Available": 42
+      "Available": 43
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -832,6 +832,28 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Optional dependency (`zuko`); often compared after MDN baselines."
+    },
+    {
+      "name": "ContrastiveFlowLoss",
+      "family": "flow",
+      "public_path": "torchregress.losses.ContrastiveFlowLoss",
+      "task_tags": [
+        "parameter_estimation",
+        "domain_shift",
+        "simulation_based_inference"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "partial",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Likelihood-ratio style flow objective for parameter ranking against alternate hypotheses; strongest when simulation under alternate settings is available."
     },
     {
       "name": "FunctionalEIVLoss",

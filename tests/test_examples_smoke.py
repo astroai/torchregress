@@ -343,6 +343,39 @@ def test_spt_reg_year_comparison_main_smoke(tmp_path: Path) -> None:
     mod.main(cfg)
 
 
+def test_spt_reg_year_scale_split_sizes() -> None:
+    mod = _load_example_module("spt_reg_year_comparison")
+    base = mod.SPTRegYearConfig()
+    scaled = mod.spt_year_scale_split_sizes(base, 3)
+    assert scaled.n_source == base.n_source * 3
+    assert scaled.n_target_unlabeled == base.n_target_unlabeled * 3
+    assert scaled.target_label_budget == base.target_label_budget * 3
+    assert mod.spt_year_split_row_budget(scaled) == mod.spt_year_split_row_budget(base) * 3
+
+
+def test_spt_reg_year_max_dataset_rows_subsamples(tmp_path: Path) -> None:
+    mod = _load_example_module("spt_reg_year_comparison")
+    data_path = tmp_path / "year_many.csv"
+    _write_tiny_tabular_csv(data_path, n_rows=500, n_features=10, seed=43)
+    cfg = mod.SPTRegYearConfig(
+        dataset_path=str(data_path),
+        allow_download=False,
+        max_dataset_rows=200,
+        n_source=80,
+        n_target_unlabeled=32,
+        n_target_cal=24,
+        n_target_test=24,
+        n_support=64,
+        n_bins=12,
+        n_samples_eval=16,
+        target_label_budget=16,
+        seed=99,
+    )
+    splits, _ = mod._make_year_split(cfg)
+    assert splits["source_x"].shape[0] == 80
+    assert splits["target_pool_x"].shape[0] == 32 + 24 + 24
+
+
 def test_spt_reg_photoz_comparison_main_smoke() -> None:
     mod = _load_example_module("spt_reg_photoz_comparison")
     cfg = mod.SPTRegPhotoZConfig(

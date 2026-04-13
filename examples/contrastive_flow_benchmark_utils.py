@@ -178,37 +178,37 @@ def try_make_flow_losses(
     try:
         from torchregress.losses import ContrastiveFlowLoss
         from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+
+        flow_context_model = MLP(param_dim, context_dim, hidden=hidden)
+        flow = create_flow_model(
+            n_features=summary_dim,
+            context_dim=context_dim,
+            flow_type="nsf",
+            n_transforms=n_transforms,
+            hidden_features=[hidden, hidden],
+        )
+        flow_loss = NormalizingFlowLoss(flow=flow, reduction="mean")
+
+        contrastive_context_model = MLP(param_dim, context_dim, hidden=hidden)
+        contrastive_flow = create_flow_model(
+            n_features=summary_dim,
+            context_dim=context_dim,
+            flow_type="nsf",
+            n_transforms=n_transforms,
+            hidden_features=[hidden, hidden],
+        )
+        contrastive_loss = ContrastiveFlowLoss(
+            flow=contrastive_flow,
+            reduction="mean",
+            temperature=0.7,
+            margin=0.2,
+        )
+        return (
+            flow_context_model,
+            flow_loss,
+            contrastive_context_model,
+            contrastive_loss,
+            None,
+        )
     except ImportError as exc:
         return None, None, None, None, str(exc)
-
-    flow_context_model = MLP(param_dim, context_dim, hidden=hidden)
-    flow = create_flow_model(
-        n_features=summary_dim,
-        context_dim=context_dim,
-        flow_type="nsf",
-        n_transforms=n_transforms,
-        hidden_features=[hidden, hidden],
-    )
-    flow_loss = NormalizingFlowLoss(flow=flow, reduction="mean")
-
-    contrastive_context_model = MLP(param_dim, context_dim, hidden=hidden)
-    contrastive_flow = create_flow_model(
-        n_features=summary_dim,
-        context_dim=context_dim,
-        flow_type="nsf",
-        n_transforms=n_transforms,
-        hidden_features=[hidden, hidden],
-    )
-    contrastive_loss = ContrastiveFlowLoss(
-        flow=contrastive_flow,
-        reduction="mean",
-        temperature=0.7,
-        margin=0.2,
-    )
-    return (
-        flow_context_model,
-        flow_loss,
-        contrastive_context_model,
-        contrastive_loss,
-        None,
-    )

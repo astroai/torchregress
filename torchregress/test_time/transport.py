@@ -209,6 +209,18 @@ def _batch_to_support_density(
         metadata["family"] = "quantile"
         metadata["quantile_levels"] = list(batch.quantile_levels)
         return density, metadata
+    if batch.samples is not None:
+        converted = batch.with_density(n_support=len(support))
+        assert converted.support is not None
+        assert converted.density is not None
+        density = _resample_density(
+            _to_numpy(converted.support),
+            _to_numpy(converted.density),
+            support,
+            eps,
+        )
+        metadata["family"] = hinted_family or "samples"
+        return density, metadata
     if batch.mean is not None and batch.std is not None:
         density = _gaussian_density_on_support(
             _to_numpy(batch.mean),
@@ -296,6 +308,11 @@ def _native_interval(
     return mean - z * std, mean + z * std
 
 
+def _discrete_tv(p: np.ndarray, q: np.ndarray) -> float:
+    """Total variation distance for discrete distributions on the same support."""
+    return 0.5 * float(np.sum(np.abs(np.asarray(p, dtype=float) - np.asarray(q, dtype=float))))
+
+
 def _stabilize_target_prior(
     *,
     source_prior: np.ndarray,
@@ -303,6 +320,7 @@ def _stabilize_target_prior(
     selected_probabilities: np.ndarray,
     converged: bool,
     config: "ShiftFactoredTransportConfig",
+    evidence_scale: float = 1.0,
 ) -> tuple[np.ndarray, dict[str, float]]:
     src = np.asarray(source_prior, dtype=float)
     tgt = np.asarray(target_prior, dtype=float)
@@ -323,8 +341,13 @@ def _stabilize_target_prior(
         converged_scale = 0.0
     elif not converged:
         converged_scale = 0.5
+    ev = float(np.clip(evidence_scale, 0.0, 1.0))
     shrink_weight = float(
-        np.clip(config.prior_transport_strength * confidence_scale * converged_scale, 0.0, 1.0)
+        np.clip(
+            config.prior_transport_strength * confidence_scale * converged_scale * ev,
+            0.0,
+            1.0,
+        )
     )
     shrunk = (1.0 - shrink_weight) * src + shrink_weight * tgt
     ratio = shrunk / np.clip(src, config.eps, None)
@@ -337,6 +360,7 @@ def _stabilize_target_prior(
         "prior_confidence_scale": confidence_scale,
         "prior_shrink_weight": shrink_weight,
         "prior_transport_skipped": float(converged_scale == 0.0),
+        "prior_evidence_scale": ev,
     }
     return stabilized, metadata
 
@@ -353,6 +377,8 @@ class ShiftFactoredTransportConfig:
     prior_transport_strength: float = 0.5
     prior_ratio_clip: float = 2.0
     prior_transport_requires_convergence: bool = True
+    prior_transport_min_selected_fraction: float | None = None
+    prior_transport_max_prior_tv: float | None = None
     random_state: int | None = 0
     enable_alignment: bool = True
     allow_input_alignment_rerun: bool = False
@@ -509,13 +535,33 @@ class ShiftFactoredPredictiveTransport:
             probabilities[mask],
             sample_weights=sample_weights[mask] if sample_weights is not None else None,
         )
+        selected_fraction = float(mask.mean()) if mask.size else 0.0
+        prior_tv = _discrete_tv(estimate.source_prior, estimate.target_prior)
+        evidence_scale = 1.0
+        skip_reason: str | None = None
+        if cfg.prior_transport_min_selected_fraction is not None:
+            if selected_fraction + cfg.eps < float(cfg.prior_transport_min_selected_fraction):
+                evidence_scale = 0.0
+                skip_reason = "low_selection_fraction"
+        if cfg.prior_transport_max_prior_tv is not None:
+            if prior_tv > float(cfg.prior_transport_max_prior_tv):
+                evidence_scale = 0.0
+                skip_reason = "high_prior_tv"
         stabilized_prior, prior_meta = _stabilize_target_prior(
             source_prior=estimate.source_prior,
             target_prior=estimate.target_prior,
             selected_probabilities=probabilities[mask],
             converged=bool(estimate.converged),
             config=cfg,
+            evidence_scale=evidence_scale,
         )
+        prior_meta = {
+            **prior_meta,
+            "prior_selection_fraction": selected_fraction,
+            "prior_source_target_tv": prior_tv,
+        }
+        if skip_reason is not None:
+            prior_meta["prior_transport_skip_reason"] = skip_reason
         transport_applied = not np.allclose(
             stabilized_prior,
             estimate.source_prior,
@@ -657,7 +703,7 @@ class ShiftFactoredPredictiveTransport:
         if chosen_method is None:
             if metadata.get("family") == "quantile":
                 chosen_method = "cqr"
-            elif metadata.get("family") in {"density", "bar"}:
+            elif metadata.get("family") in {"density", "bar", "samples", "mdn"}:
                 chosen_method = "cti"
             elif (
                 metadata.get("family") == "gaussian" and cfg.gaussian_conformal_uses_native_interval
@@ -762,17 +808,33 @@ class ShiftFactoredPredictiveTransport:
             lower = q[:, 0] - q_hat
             upper = q[:, -1] + q_hat
         elif method == "cti":
-            support = _to_numpy(batch.support).reshape(-1)
             density = _to_numpy(batch.density)
-            neg_log = -np.log(np.clip(density, self.config.eps, None))
-            mask = neg_log <= q_hat
-            lower = np.full(density.shape[0], support[0], dtype=float)
-            upper = np.full(density.shape[0], support[-1], dtype=float)
-            for idx in range(density.shape[0]):
-                if np.any(mask[idx]):
-                    valid = support[mask[idx]]
-                    lower[idx] = valid[0]
-                    upper[idx] = valid[-1]
+            support_arr = _to_numpy(batch.support)
+            lower = np.empty(density.shape[0], dtype=float)
+            upper = np.empty(density.shape[0], dtype=float)
+            if support_arr.ndim == 1:
+                support = support_arr.reshape(-1)
+                neg_log = -np.log(np.clip(density, self.config.eps, None))
+                mask = neg_log <= q_hat
+                lower.fill(support[0])
+                upper.fill(support[-1])
+                for idx in range(density.shape[0]):
+                    if np.any(mask[idx]):
+                        valid = support[mask[idx]]
+                        lower[idx] = valid[0]
+                        upper[idx] = valid[-1]
+            else:
+                for idx in range(density.shape[0]):
+                    sup = support_arr[idx]
+                    neg_log = -np.log(np.clip(density[idx], self.config.eps, None))
+                    mask = neg_log <= q_hat
+                    if np.any(mask):
+                        valid = sup[mask]
+                        lower[idx] = valid[0]
+                        upper[idx] = valid[-1]
+                    else:
+                        lower[idx] = sup[0]
+                        upper[idx] = sup[-1]
         else:
             raise ValueError(f"Unsupported conformal method: {method}")
 

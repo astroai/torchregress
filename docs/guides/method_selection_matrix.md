@@ -91,7 +91,7 @@ _Generated date_: `2026-04-05`
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` (7) | yes | yes | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` (6) | yes | no | yes | yes | yes | yes | partial | yes | no | no |
-| `flow` (1) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
+| `flow` (2) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` (3) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
@@ -166,6 +166,7 @@ _Generated date_: `2026-04-05`
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | partial |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | yes |
 | `MDNEnsembleModel` | `ensemble` | `Available` | yes | no | yes | yes | yes | partial | partial |
+| `ContrastiveFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `LDSLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
@@ -207,7 +208,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` | 7 | yes | yes | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` | 6 | yes | no | yes | yes | yes | yes | partial | yes | no | no |
-| `flow` | 1 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
+| `flow` | 2 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` | 3 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
@@ -227,7 +228,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
 | Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `QuantileLoss` |
-| Multimodal targets | `multimodal=yes` | `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `NormalizingFlowLoss`, `MDNLoss` |
+| Multimodal targets | `multimodal=yes` | `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `MDNLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->

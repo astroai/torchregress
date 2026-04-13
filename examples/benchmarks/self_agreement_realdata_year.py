@@ -21,6 +21,7 @@ if str(EXAMPLES_DIR) not in sys.path:
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
+import torch.nn.functional as F  # noqa: E402
 from comparison_utils import (  # noqa: E402
     print_comparison_summary,
     print_fairness_notes,
@@ -44,6 +45,9 @@ from torchregress.semi_supervised import (  # noqa: E402
     disagreement_to_weight,
     predictive_agreement_score,
 )
+from torchregress.utils.openml_relaxed import (  # noqa: E402
+    fetch_openml_regression_with_sklearn_fallback,
+)
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,13 @@ class YearRealDataConfig:
     allow_download: bool = True
     cache_path: str | None = None
     target_column: str = "target"
+    openml_data_id: int | None = None
+    openml_dataset_name: str | None = None
+    openml_version: int = 1
+    max_dataset_rows: int | None = None
+    weight_decay: float = 0.0
+    sage_batch_relative_mode: str | None = None
+    sage_batch_trust_top_k: int | None = None
     canonical_test_size: int = 51_630
     n_labeled: int = 4_096
     n_unlabeled: int = 65_536
@@ -278,7 +289,22 @@ def _plot_unlabeled_diagnostics(
     return out_path
 
 
+def _openml_regression_frame(cfg: YearRealDataConfig) -> tuple[pd.DataFrame, str]:
+    """Load a generic OpenML regression dataset (numeric features + single target)."""
+    if cfg.openml_data_id is None and cfg.openml_dataset_name is None:
+        raise ValueError("openml regression fetch requires openml_data_id or openml_dataset_name")
+    return fetch_openml_regression_with_sklearn_fallback(
+        data_id=cfg.openml_data_id,
+        name=cfg.openml_dataset_name,
+        version=int(cfg.openml_version),
+        target_column=cfg.target_column,
+    )
+
+
 def _load_dataset_frame(cfg: YearRealDataConfig) -> tuple[pd.DataFrame, str]:
+    if cfg.dataset_path and (cfg.openml_data_id is not None or cfg.openml_dataset_name is not None):
+        raise ValueError("dataset_path cannot be combined with openml_data_id/openml_dataset_name")
+
     if cfg.dataset_path:
         path = Path(cfg.dataset_path)
         if path.suffix.lower() == ".parquet":
@@ -303,6 +329,25 @@ def _load_dataset_frame(cfg: YearRealDataConfig) -> tuple[pd.DataFrame, str]:
         csv_fallback = cache_path.with_suffix(".csv")
         if csv_fallback.exists():
             return pd.read_csv(csv_fallback), str(csv_fallback)
+
+    if cfg.openml_data_id is not None or cfg.openml_dataset_name is not None:
+        if not cfg.allow_download:
+            raise FileNotFoundError(
+                "OpenML fetch requested but allow_download is False and cache is missing"
+            )
+        frame, tag = _openml_regression_frame(cfg)
+        if cache_path is not None:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            if cache_path.suffix.lower() == ".parquet":
+                try:
+                    frame.to_parquet(cache_path, index=False)
+                except ImportError:
+                    csv_fallback = cache_path.with_suffix(".csv")
+                    frame.to_csv(csv_fallback, index=False)
+                    return frame, str(csv_fallback)
+            else:
+                frame.to_csv(cache_path, index=False)
+        return frame, tag
 
     if not cfg.allow_download:
         raise FileNotFoundError("dataset_path/cache_path missing and allow_download is False")
@@ -339,12 +384,19 @@ def _make_split(cfg: YearRealDataConfig) -> YearSplit:
     y_all = torch.tensor(target.to_numpy(copy=True), dtype=torch.float32).unsqueeze(1)
 
     n_total = x_all.shape[0]
+    g = torch.Generator().manual_seed(cfg.seed)
+    if cfg.max_dataset_rows is not None and n_total > cfg.max_dataset_rows:
+        perm = torch.randperm(n_total, generator=g)
+        pick = perm[: cfg.max_dataset_rows]
+        x_all = x_all[pick]
+        y_all = y_all[pick]
+        n_total = int(x_all.shape[0])
+
     need = cfg.n_labeled + cfg.n_unlabeled + cfg.n_test
     if need > n_total:
         raise ValueError(f"Requested {need} rows but dataset has {n_total}")
 
     canonical_like = n_total >= cfg.canonical_test_size + cfg.n_labeled + cfg.n_unlabeled
-    g = torch.Generator().manual_seed(cfg.seed)
     if canonical_like:
         train_pool_end = n_total - cfg.canonical_test_size
         train_pool_idx = torch.arange(train_pool_end)
@@ -443,7 +495,7 @@ def _train_supervised_teacher(
 ) -> TabularGaussianRegressor:
     _training_seed(cfg.seed, 0)
     model = TabularGaussianRegressor(input_dim, cfg.hidden, cfg.dropout)
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     loader = DataLoader(
         TensorDataset(x_labeled, y_labeled),
         batch_size=cfg.batch_size,
@@ -469,7 +521,7 @@ def _train_confidence_weighted_student(
 ) -> tuple[TabularGaussianRegressor, dict[str, float]]:
     _training_seed(cfg.seed, 1)
     student = copy.deepcopy(teacher).train()
-    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr)
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
     with torch.no_grad():
         teacher_mean, teacher_log_var = teacher(x_unlabeled)
@@ -531,7 +583,7 @@ def _train_sage_student(
 ) -> tuple[TabularGaussianRegressor, dict[str, float]]:
     _training_seed(cfg.seed, 2)
     student = copy.deepcopy(teacher)
-    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr)
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     labeled_loader, unlabeled_loader = _build_loaders(
         x_labeled,
         y_labeled,
@@ -555,11 +607,70 @@ def _train_sage_student(
         ema_decay=cfg.ema_decay,
         weight_power=cfg.weight_power,
         hard_weight_threshold=cfg.hard_weight_threshold,
+        batch_relative_mode=cfg.sage_batch_relative_mode,
+        batch_trust_top_k=cfg.sage_batch_trust_top_k,
     )
     history = trainer.fit(student, labeled_loader, unlabeled_loader, epochs=cfg.student_epochs)
     return student.eval(), {
         "mean_weight": float(history["mean_weight"][-1]),
         "mean_disagreement": float(history["mean_disagreement"][-1]),
+        "n_labeled": float(x_labeled.shape[0]),
+    }
+
+
+def _train_mean_teacher_student(
+    cfg: YearRealDataConfig,
+    teacher: TabularGaussianRegressor,
+    x_labeled: Tensor,
+    y_labeled: Tensor,
+    x_unlabeled: Tensor,
+) -> tuple[TabularGaussianRegressor, dict[str, float]]:
+    """EMA teacher + consistency on Gaussian mean (standard Mean Teacher for regression)."""
+    _training_seed(cfg.seed, 3)
+    student = copy.deepcopy(teacher).train()
+    teacher_ema = copy.deepcopy(teacher).eval()
+    for param in teacher_ema.parameters():
+        param.requires_grad_(False)
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    labeled_loader, unlabeled_loader = _build_loaders(
+        x_labeled,
+        y_labeled,
+        x_unlabeled,
+        batch_size=cfg.batch_size,
+    )
+    augment = _augment_fn(
+        cfg.unlabeled_noise,
+        cfg.feature_drop_prob,
+        cfg.feature_mix_prob,
+    )
+    decay = float(cfg.ema_decay)
+    lambda_u = float(cfg.pseudo_weight)
+
+    for _ in range(cfg.student_epochs):
+        ul_iter = iter(unlabeled_loader)
+        for xb_l, yb_l in labeled_loader:
+            try:
+                (xb_u,) = next(ul_iter)
+            except StopIteration:
+                ul_iter = iter(unlabeled_loader)
+                (xb_u,) = next(ul_iter)
+            optimizer.zero_grad()
+            loss_sup = _supervised_loss(student, xb_l, yb_l)
+            mean_s, _ = student(xb_u)
+            with torch.no_grad():
+                mean_t, _ = teacher_ema(augment(xb_u))
+            loss_u = F.mse_loss(mean_s, mean_t)
+            loss = loss_sup + lambda_u * loss_u
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=5.0)
+            optimizer.step()
+            with torch.no_grad():
+                for ps, pt in zip(student.parameters(), teacher_ema.parameters(), strict=True):
+                    pt.data.mul_(decay).add_(ps.data, alpha=1.0 - decay)
+
+    return student.eval(), {
+        "mean_weight": lambda_u,
+        "mean_disagreement": 0.0,
         "n_labeled": float(x_labeled.shape[0]),
     }
 
@@ -572,6 +683,20 @@ def _evaluate_model(
         mean, log_var = model(x_test)
         std = torch.exp(0.5 * log_var).clamp_min(1e-4)
         var = std.square()
+
+    # High-dimensional tabular (e.g. TabReD) can sporadically yield non-finite Gaussian
+    # parameters; calibration_score rejects NaN quantiles. Keep metrics on finite rows only.
+    ok = (torch.isfinite(mean) & torch.isfinite(std) & torch.isfinite(y_test)).squeeze(-1)
+    if not bool(ok.any().item()):
+        raise ValueError(
+            "Gaussian evaluation produced no finite (mean, std, y) rows; "
+            "check inputs for NaN/Inf or reduce LR / stabilize features."
+        )
+    if not bool(ok.all().item()):
+        mean = mean[ok]
+        std = std[ok]
+        var = var[ok]
+        y_test = y_test[ok]
 
     normal = torch.distributions.Normal(
         torch.tensor(0.0, device=mean.device, dtype=mean.dtype),
@@ -668,6 +793,19 @@ def _run_fraction(
         (
             "SupervisedOnly",
             lambda: (teacher, {"mean_weight": 0.0, "mean_disagreement": 0.0}, 0.0),
+        ),
+        (
+            "MeanTeacher",
+            lambda: (
+                *timed_call(
+                    _train_mean_teacher_student,
+                    cfg,
+                    teacher,
+                    split.x_labeled,
+                    split.y_labeled,
+                    x_unlabeled,
+                ),
+            ),
         ),
         (
             "ConfidenceWeightedPseudoLabel",
@@ -800,7 +938,7 @@ def main(
             rows=rows,
             notes=[
                 "Uses OpenML/UCI YearPredictionMSD when no local dataset_path is provided.",
-                "The first real-data pass stays narrow: Gaussian head only, with supervised, confidence-weighted pseudo-labeling, and SAGE-Reg.",
+                "Gaussian head: supervised, Mean Teacher (EMA consistency), confidence-weighted pseudo-labeling, and SAGE-Reg.",
                 "Use dataset_path for offline or smoke-test runs; local CSV/Parquet paths bypass network access.",
                 "Optional diagnostic figure compares confidence and SAGE agreement-weight rankings against pseudo-label error on the unlabeled pool.",
             ],
@@ -825,6 +963,53 @@ if __name__ == "__main__":
     parser.add_argument("--n-test", type=int, default=YearRealDataConfig.n_test)
     parser.add_argument("--teacher-epochs", type=int, default=YearRealDataConfig.teacher_epochs)
     parser.add_argument("--student-epochs", type=int, default=YearRealDataConfig.student_epochs)
+    parser.add_argument(
+        "--openml-data-id",
+        type=int,
+        default=None,
+        help="Fetch this OpenML regression dataset (e.g. 42225 diamonds) when no dataset/cache.",
+    )
+    parser.add_argument(
+        "--openml-dataset-name",
+        type=str,
+        default="",
+        help="Alternatively fetch by OpenML name; ignored if --openml-data-id is set.",
+    )
+    parser.add_argument("--openml-version", type=int, default=YearRealDataConfig.openml_version)
+    parser.add_argument(
+        "--max-dataset-rows",
+        type=int,
+        default=None,
+        help="Random subsample cap before splitting (large OpenML dumps).",
+    )
+    parser.add_argument(
+        "--weight-decay",
+        type=float,
+        default=YearRealDataConfig.weight_decay,
+        help="Adam L2 penalty on all training phases (teacher, student, baselines).",
+    )
+    parser.add_argument(
+        "--sage-batch-relative-mode",
+        type=str,
+        default="",
+        help="Optional SAGE disagreement mode, e.g. zscore (see SelfAgreementTrainer).",
+    )
+    parser.add_argument(
+        "--sage-batch-trust-top-k",
+        type=int,
+        default=None,
+        help="Optional SAGE batch trust top-k (positive int).",
+    )
+    parser.add_argument(
+        "--unlabeled-fractions",
+        type=float,
+        nargs="+",
+        default=list(YearRealDataConfig.unlabeled_fractions),
+        help=(
+            "Fractions of the unlabeled pool to use per sub-run (e.g. 0.25 0.5 1.0). "
+            "Useful for semi-sup curves without changing n_labeled/n_unlabeled splits."
+        ),
+    )
     args = parser.parse_args()
 
     cfg = YearRealDataConfig(
@@ -836,6 +1021,14 @@ if __name__ == "__main__":
         n_test=args.n_test,
         teacher_epochs=args.teacher_epochs,
         student_epochs=args.student_epochs,
+        openml_data_id=args.openml_data_id,
+        openml_dataset_name=args.openml_dataset_name or None,
+        openml_version=args.openml_version,
+        max_dataset_rows=args.max_dataset_rows,
+        weight_decay=args.weight_decay,
+        sage_batch_relative_mode=args.sage_batch_relative_mode or None,
+        sage_batch_trust_top_k=args.sage_batch_trust_top_k,
+        unlabeled_fractions=tuple(args.unlabeled_fractions),
     )
     main(
         cfg,

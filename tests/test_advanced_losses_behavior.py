@@ -178,7 +178,11 @@ def test_normalizing_flow_loss_behavior_with_dummy_flow_and_factory(
         [[True, True], [True, False], [True, True], [False, False], [True, True]]
     )
     feature_weights = torch.ones(5, 2)
-    masked_loss = loss_fn(context, target, mask=feature_mask, weights=feature_weights)
+    with pytest.raises(ValueError, match="sample-level masks"):
+        loss_fn(context, target, mask=feature_mask, weights=feature_weights)
+
+    sample_mask = torch.tensor([True, True, False, True, True])
+    masked_loss = loss_fn(context, target, mask=sample_mask, weights=torch.ones(5))
     assert torch.isfinite(masked_loss)
 
     with pytest.raises(ValueError, match="Expected 2 features"):
