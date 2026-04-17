@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_comparative_evidence_markdown`
 _Source artifacts_: `reports/comparative_evidence_matrix_latest.json`, `reports/method_catalog_latest.json`
-_Generated date_: `2026-04-05`
+_Generated date_: `2026-04-16`
 
 ## Summary
 
-- Task rows: `16`
+- Task rows: `17`
 - Decision-grade rows: `2`
-- Strong-or-better rows: `16`
+- Strong-or-better rows: `17`
 
 ## Coverage Matrix
 
@@ -43,6 +43,8 @@ _Generated date_: `2026-04-05`
 |  |  |  |  |  |  | _Note_: EIV comparisons now include synthetic and real-data (Diabetes with synthetic measurement-error injection) tracks, plus a photo-z benchmark with SDSS-style feature errors. |
 | Noisy labels / corruption | `Strong` | `examples/noisy_label_comparison.py`, `examples/noisy_label_realdata_comparison.py`, `examples/comprehensive_loss_comparison.py` | fixed seeds, shared corrupted train/cal/test splits, shared train budget | clean/observed point metrics, split-conformal coverage/width, interval score, runtime | `WeightedHuberLoss`, `CauchyLoss`, `TukeyBiweightLoss`, `GaussianNLLLoss`, `MultiQuantileLoss` | Needs comparisons against explicit noisy-label algorithms (co-teaching / sample-weight meta-learning) if/when implemented, plus more than one real dataset for stronger external validity. |
 |  |  |  |  |  |  | _Note_: Dedicated runnable comparisons now include synthetic and real-data (Diabetes with synthetic corruption) calibration-aware evaluations via shared split-conformal metrics. |
+| Low-shot linear adaptation on fixed features (last layer) | `Strong` | `examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py`, `examples/benchmarks/bayesian_linear_head_online_drift.py` | fixed seeds, matched ridge L2 vs conjugate prior in low-shot script, tabular stdout summaries (RMSE / NLL / streaming RMSE) | RMSE, Gaussian NLL, streaming RMSE under forgetting | `BayesianLinearHead`, `RecursiveBayesianHead`, `WeightedMSELoss` | Synthetic Gaussian linear benchmarks only; needs real frozen-backbone protocols before deployment-grade ranking against ensembles or SWAG. |
+|  |  |  |  |  |  | _Note_: CPU-only benchmarks: low-shot path aligns BLR posterior mean with ridge MAP under matched L2 and contrasts predictive NLL with an oracle homoscedastic ridge baseline; drift path evaluates recursive partial_fit versus a phase-only batch oracle. |
 
 ## Programmatic Access
 

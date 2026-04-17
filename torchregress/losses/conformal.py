@@ -9,6 +9,7 @@ Predictors
 ----------
 - SplitConformal: absolute residual scores, ŷ ± q_hat
 - CQR: conformalized quantile regression with optional debiasing
+- UACQR: CQR with scores normalized by predicted quantile band width (thin wrapper)
 - CTI: conformal thresholded intervals (density-level sets, smallest intervals)
 - DistributionalConformal: PIT-based approximate conditional coverage
 - R2CConformal: regression-as-classification for multimodal targets
@@ -413,6 +414,82 @@ class CQR(ConformalPredictor):
         else:
             width = q
         return lower_pred - width, upper_pred + width
+
+
+class UACQR(CQR):
+    """Uncertainty-aware CQR: normalize nonconformity scores by predicted band width.
+
+    This is a thin wrapper over :class:`CQR` that sets ``normalize_fn`` to divide
+    scores by the predicted quantile interval width :math:`(q_{\\mathrm{hi}} -
+    q_{\\mathrm{lo}})` (clamped).  Wider model-predicted bands therefore receive
+    proportionally wider conformal corrections—an uncertainty-aware adaptive
+    variant of CQR without changing the score definition.
+
+    Training and calibration use the same pinball / CQR conventions as
+    :class:`CQR`.  If ``x`` is omitted on :meth:`calibrate` or
+    :meth:`predict_interval`, a dummy tensor is supplied so normalization runs
+    from ``y_pred`` alone (the base class only applies ``normalize_fn`` when
+    ``x`` is not ``None``).
+
+    Args:
+        alpha: Miscoverage rate.
+        debias: Same as :class:`CQR`.
+        min_width: Floor on :math:`q_{\\mathrm{hi}} - q_{\\mathrm{lo}}` for division.
+        aggregation: ``\"mean\"`` or ``\"max\"`` across output dimensions for multi-target.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        debias: bool = False,
+        *,
+        min_width: float = 1e-6,
+        aggregation: str = "mean",
+    ) -> None:
+        self._uacqr_min_width = float(min_width)
+        if aggregation not in ("mean", "max"):
+            raise ValueError('aggregation must be "mean" or "max".')
+        self._uacqr_aggregation = aggregation
+        super().__init__(alpha=alpha, debias=debias, normalize_fn=self._uacqr_difficulty)
+
+    def _uacqr_difficulty(self, y_pred: Tensor, x: Tensor) -> Tensor:
+        del x
+        n_feat = y_pred.shape[-1] // 2
+        lower_pred = y_pred[..., :n_feat]
+        upper_pred = y_pred[..., n_feat:]
+        width = (upper_pred - lower_pred).clamp(min=self._uacqr_min_width)
+        if self._uacqr_aggregation == "max":
+            return width.max(dim=-1).values
+        return width.mean(dim=-1)
+
+    def calibrate(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        groups: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> None:
+        if x is None:
+            x = torch.zeros(
+                (y_pred.shape[0], 1), device=y_pred.device, dtype=y_pred.dtype
+            )
+        super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if x is None:
+            x = torch.zeros(
+                (y_pred.shape[0], 1), device=y_pred.device, dtype=y_pred.dtype
+            )
+        return super().predict_interval(y_pred, groups=groups, x=x)
 
 
 # ---------------------------------------------------------------------------
@@ -1264,16 +1341,20 @@ class ConformalLoss(RegressionLoss):
 
     - ``split``: MSE loss (point prediction) + SplitConformal calibration.
     - ``cqr``: Pinball loss (quantile prediction) + CQR calibration.
+    - ``uacqr``: Same training loss as ``cqr`` + :class:`UACQR` calibration
+      (width-normalized scores).
 
     All composable features (normalized scores, Mondrian groups, covariate
     shift weighting) are available through the ``calibrate`` method.
 
     Args:
-        method: ``'split'`` or ``'cqr'``.
+        method: ``'split'``, ``'cqr'``, or ``'uacqr'``.
         alpha: Miscoverage rate.
-        debias: If True and method='cqr', apply coverage bias correction.
+        debias: If True and method is ``'cqr'`` or ``'uacqr'``, apply coverage bias correction.
         reduction: Reduction for training loss.
-        normalize_fn: Optional difficulty normalization.
+        normalize_fn: Optional difficulty normalization (not used for ``'uacqr'``).
+        uacqr_min_width: For ``method='uacqr'``, floor on predicted quantile width.
+        uacqr_aggregation: For ``method='uacqr'``, ``\"mean\"`` or ``\"max\"`` across targets.
 
     Example:
         >>> loss_fn = ConformalLoss(method='cqr', alpha=0.1)
@@ -1289,12 +1370,17 @@ class ConformalLoss(RegressionLoss):
         debias: bool = False,
         reduction: str = "mean",
         normalize_fn: Optional[Callable[..., Tensor]] = None,
+        *,
+        uacqr_min_width: float = 1e-6,
+        uacqr_aggregation: str = "mean",
         **kwargs: Any,
     ) -> None:
         super().__init__(reduction=reduction)
         method = method.lower()
-        if method not in ("split", "cqr"):
-            raise ValueError(f"Unknown method: {method}. Supported methods: 'split', 'cqr'")
+        if method not in ("split", "cqr", "uacqr"):
+            raise ValueError(
+                f"Unknown method: {method}. Supported methods: 'split', 'cqr', 'uacqr'"
+            )
         self.method = method
         self.alpha = alpha
 
@@ -1302,6 +1388,17 @@ class ConformalLoss(RegressionLoss):
         self._predictor: ConformalPredictor
         if method == "cqr":
             self._predictor = CQR(alpha=alpha, debias=debias, normalize_fn=normalize_fn)
+        elif method == "uacqr":
+            if normalize_fn is not None:
+                raise ValueError(
+                    "normalize_fn is not supported for method='uacqr'; use UACQR directly."
+                )
+            self._predictor = UACQR(
+                alpha=alpha,
+                debias=debias,
+                min_width=uacqr_min_width,
+                aggregation=uacqr_aggregation,
+            )
         else:
             self._predictor = SplitConformal(alpha=alpha, normalize_fn=normalize_fn)
 
@@ -1330,7 +1427,7 @@ class ConformalLoss(RegressionLoss):
         **kwargs: Any,
     ) -> Tensor:
         """Training loss (MSE for split, pinball for CQR)."""
-        if self.method == "cqr":
+        if self.method in ("cqr", "uacqr"):
             n_feat = target.shape[-1] if target.dim() > 1 else 1
             if y_pred.shape[-1] != 2 * n_feat:
                 raise ValueError(f"CQR expects y_pred shape [..., 2*features], got {y_pred.shape}")

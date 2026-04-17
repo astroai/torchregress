@@ -191,6 +191,8 @@ model = nn.Sequential(
 - Real-time or embedded applications
 - Rapid prototyping
 
+For a single module that combines a [`BatchEnsembleMLPBackbone`](https://github.com/sfabbro/torchregress/blob/main/torchregress/ensemble/models.py) with a heteroscedastic batch head, optional `alpha` scaling of fast weights, and structured access to `mean` / `std_epistemic` via `predict_output()`, see [`PackedEnsembleRegressor`](https://github.com/sfabbro/torchregress/blob/main/torchregress/ensemble/packed.py).
+
 ## Uncertainty Decomposition Math
 
 For heteroscedastic ensembles:

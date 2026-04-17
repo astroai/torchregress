@@ -107,6 +107,9 @@ nav:
           - Core Concepts: guides/concepts.md
           - Method Selection: guides/method_selection_matrix.md
           - Choosing by Constraint: guides/choosing_by_constraint.md
+      - Test-Time & Shift:
+          - Bayesian linear regression (heads): test_time/bayesian_linear_regression.md
+          - OT shift conformal (experimental): test_time/ot_shift_conformal.md
       - Mathematical Foundations: math/index.md
       - Best Practices:
           - Tips & Tricks: guides/best-practices.md
@@ -122,6 +125,8 @@ nav:
       - losses/index.md
       - Gaussian:
           - Gaussian Losses: losses/gaussian.md
+          - Beta-NLL: losses/beta_nll.md
+          - Gaussian Wasserstein bound: losses/gaussian_wasserstein.md
       - Robust:
           - Robust Losses: losses/robust.md
       - Intervals & Quantiles:
@@ -185,6 +190,12 @@ nav:
           - Basic Usage: examples/basic_usage.md
           - Loss Comparison: examples/loss_comparison.md
       - Uncertainty & Ensembles:
+          - OT Shift Conformal Demo: examples/ot_shift_conformal_demo.md
+          - Bayesian Linear Head Demo: examples/test_time_bayesian_linear_head.md
+          - BLR Predictive Adapter Demo: examples/test_time_blr_predictive_adapter.md
+          - Gaussian Wasserstein Bound Demo: examples/gaussian_wasserstein_bound.md
+          - Wasserstein Hybrid Pretrain Demo: examples/wasserstein_bound_hybrid_pretrain.md
+          - Beta-NLL Heteroscedastic Demo: examples/heteroscedastic_beta_nll.md
           - Ensemble Methods: examples/ensemble_methods.md
           - Evidential Regression: examples/evidential_regression.md
           - OOD / Selective Prediction: examples/ood_selective_prediction_comparison.md
@@ -199,6 +210,7 @@ nav:
           - Multimodal (Real Data): examples/multimodal_method_realdata_comparison.md
       - Robustness & Imbalance:
           - Imbalanced Regression: examples/imbalanced_regression.md
+          - Balanced MSE (bin reweighting): examples/balanced_mse.md
           - Noisy Labels: examples/noisy_labels_regression.md
           - Noisy Label Comparison: examples/noisy_label_comparison.md
           - Noisy Label (Real Data): examples/noisy_label_realdata_comparison.md

@@ -6,6 +6,8 @@ including weighted losses, Gaussian-based losses, robust losses, and more.
 """
 
 # Base classes and wrappers
+# Balanced MSE (imbalanced targets)
+from .balanced_mse import BalancedMSELoss, BMCLoss
 from .base import (
     BaseLoss,
     DistributionLoss,
@@ -22,12 +24,18 @@ from .base import (
     WeightedMSELoss,
     WeightedNLLLoss,
 )
+
+# Heteroscedastic Gaussian: β-NLL
+from .beta_nll import BetaNLLLoss, beta_nll_loss
+
+# Censored regression
 from .censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
 
 # Conformal prediction
 from .conformal import (
     CQR,
     CTI,
+    UACQR,
     ConformalLoss,
     ConformalPredictor,
     DensityConformal,
@@ -65,7 +73,8 @@ from .expectile import (
     MultiExpectileLoss,
 )
 
-# Gaussian losses
+# Faithful heteroscedastic (mean / variance decoupling)
+from .faithful_gaussian import FaithfulGaussianLoss
 from .gaussian import (
     GaussianCRPSLoss,
     GaussianNLLLoss,
@@ -74,6 +83,11 @@ from .gaussian import (
     create_gaussian_nll,
     low_rank_output_dim,
     split_low_rank_gaussian_output,
+)
+from .gaussian_wasserstein import (
+    GaussianWassersteinBoundLoss,
+    gaussian_wasserstein_bound_loss,
+    symmetric_spd_matrix_sqrt,
 )
 
 # Imbalanced regression losses
@@ -182,6 +196,12 @@ __all__ = [
     "StructuralEIVLoss",
     "create_eiv_loss",
     # Gaussian losses
+    "BetaNLLLoss",
+    "beta_nll_loss",
+    "FaithfulGaussianLoss",
+    "GaussianWassersteinBoundLoss",
+    "gaussian_wasserstein_bound_loss",
+    "symmetric_spd_matrix_sqrt",
     "GaussianCRPSLoss",
     "GaussianNLLLoss",
     "LowRankGaussianLoss",
@@ -211,6 +231,8 @@ __all__ = [
     "enhanced_poisson_gaussian_loss",
     "poisson_gaussian_likelihood_ratio_loss",
     # Imbalanced regression losses
+    "BalancedMSELoss",
+    "BMCLoss",
     "DensityWeightedLoss",
     "FocalRLoss",
     "LDSLoss",
@@ -256,6 +278,7 @@ __all__ = [
     "PrevalenceAdjustedCP",
     "R2CConformal",
     "SplitConformal",
+    "UACQR",
     # Censored regression
     "CensoredGaussianNLLLoss",
     "CensoredQuantileLoss",

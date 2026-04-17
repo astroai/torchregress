@@ -352,6 +352,10 @@ Useful override flags (both assets and pipeline tools):
 - `--dataset-path KEY=PATH`
 - `--baseline-path METHOD=PATH`
 
+## Plan-driven features and method catalog
+
+When implementing items under `docs/research/plans/`, prefer **batched** method-catalog updates: add `MethodMetadata` / evidence rows and run `tools/render_method_catalog.py` (plus `render_realdata_recommendation_guide`) **once per tranche** when the slice is feature-complete, not on every intermediate PR. See `docs/research/plans/README.md`.
+
 ## Regeneration and Gate Checklist
 
 Before handoff for audit/governance changes, run:

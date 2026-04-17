@@ -13,11 +13,11 @@ This guide is evidence-first and claim-bounded. It is generated from committed c
 
 _Generated provenance_: `tools/render_realdata_recommendation_guide.py:render_generated_section`
 _Source artifact_: `reports/comparative_evidence_matrix_latest.json`
-_Generated date_: `2026-04-05`
+_Generated date_: `2026-04-16`
 
 ## Evidence Band Summary
 
-- Synthetic only: `5`
+- Synthetic only: `6`
 - Real proxy: `11`
 - Decision-grade real-data: `0`
 
@@ -47,6 +47,7 @@ _Generated date_: `2026-04-05`
 | Multimodal / multi-target non-Gaussian | `GaussianNLLLoss`, `MDNLoss`, `NormalizingFlowLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal targets on real covariates) and optional-dependency CI coverage for zuko flow runs. |
 | Noisy features / EIV | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one photo-z domain benchmark) for stronger external validity. |
 | Noisy labels / corruption | `WeightedHuberLoss`, `CauchyLoss`, `TukeyBiweightLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs comparisons against explicit noisy-label algorithms (co-teaching / sample-weight meta-learning) if/when implemented, plus more than one real dataset for stronger external validity. |
+| Low-shot linear adaptation on fixed features (last layer) | `BayesianLinearHead`, `RecursiveBayesianHead`, `WeightedMSELoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Synthetic Gaussian linear benchmarks only; needs real frozen-backbone protocols before deployment-grade ranking against ensembles or SWAG. |
 <!-- REALDATA-RECOMMENDATION-GENERATED:END -->
 
 ## Usage

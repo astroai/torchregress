@@ -59,6 +59,7 @@ lower, upper = cp.predict_interval(y_pred_test)
 |:-------|:---------|:---------------:|:--------------|
 | **`SplitConformal`** | Baseline, homoscedastic noise | ❌ | [`SplitConformal`](../api/losses.md#torchregress.losses.conformal.SplitConformal) |
 | **`CQR`** [2] | Heteroscedasticity, skewed noise | ✅ | [`CQR`](../api/losses.md#torchregress.losses.conformal.CQR) |
+| **`UACQR`** | Same as CQR + width-normalized scores | ✅ | [`UACQR`](../api/losses.md#torchregress.losses.conformal.UACQR) |
 | **`DensityConformal`** | Imbalanced or long-tail data | ✅ | [`DensityConformal`](../api/losses.md#torchregress.losses.conformal.DensityConformal) |
 | **`MonteCarloConformal`** | Ensembles, Bayesian models | ✅ | [`MonteCarloConformal`](../api/losses.md#torchregress.losses.conformal.MonteCarloConformal) |
 | **`CTI`** [3] | Multimodal, complex distributions | ✅ | [`CTI`](../api/losses.md#torchregress.losses.conformal.CTI) |

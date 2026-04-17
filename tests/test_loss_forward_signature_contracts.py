@@ -22,6 +22,11 @@ ABSTRACT_OR_META = {
 # after `weights` in the public signature. Keep this list small and explicit.
 POST_WEIGHTS_EXTRA_EXCEPTIONS: dict[str, set[str]] = {}
 
+# Losses whose forward uses explicit mean/covariance supervision names instead of y_pred/target.
+FORWARD_PRIMARY_ARG_NAMES: dict[str, tuple[str, str]] = {
+    "GaussianWassersteinBoundLoss": ("pred_mean", "target_mean"),
+}
+
 
 def _iter_public_loss_classes() -> list[tuple[str, type[BaseLoss]]]:
     out: list[tuple[str, type[BaseLoss]]] = []
@@ -46,8 +51,9 @@ def test_public_loss_forward_signatures_follow_core_ordering() -> None:
         user_params = params[1:]
         names = [p.name for p in user_params]
         assert len(user_params) >= 2, export_name
-        assert names[0] == "y_pred", f"{export_name}.forward first arg must be y_pred"
-        assert names[1] == "target", f"{export_name}.forward second arg must be target"
+        first, second = FORWARD_PRIMARY_ARG_NAMES.get(export_name, ("y_pred", "target"))
+        assert names[0] == first, f"{export_name}.forward first arg must be {first}"
+        assert names[1] == second, f"{export_name}.forward second arg must be {second}"
 
         if "mask" in names:
             mask = sig.parameters["mask"]

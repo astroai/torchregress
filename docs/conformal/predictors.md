@@ -80,6 +80,20 @@ lower, upper = cqr.predict_interval(y_pred_test)
 
 ---
 
+## UACQR
+
+**Uncertainty-aware CQR** — same CQR score and interval construction as [`CQR`](../api/losses.md#torchregress.losses.conformal.CQR), but nonconformity scores are divided by the predicted quantile band width \((\hat{q}_{\mathrm{hi}} - \hat{q}_{\mathrm{lo}})\) (clamped), so calibration respects the model’s own uncertainty scale. Implemented as a thin subclass; training uses the same pinball loss as CQR via [`ConformalLoss(method="uacqr")`](../api/losses.md#torchregress.losses.conformal.ConformalLoss).
+
+```python
+from torchregress.losses import UACQR
+
+u = UACQR(alpha=0.1, debias=False, min_width=1e-6, aggregation="mean")
+u.calibrate(y_pred_cal, y_cal)  # x optional; width from y_pred only
+lower, upper = u.predict_interval(y_pred_test)
+```
+
+---
+
 ## DensityConformal
 
 Density-adaptive split conformal — widens intervals where the **target distribution is sparse**.

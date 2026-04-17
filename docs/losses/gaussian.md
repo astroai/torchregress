@@ -21,6 +21,9 @@ $$\boxed{\;\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2}\log(2\pi\sig
 |:-----|:----------------|:--------|:--------------|:---------|
 | **`MSELoss`** | Fixed ($\sigma^2=1$) | $\mu$ | [`WeightedMSELoss`](../api/losses.md#torchregress.losses.base.WeightedMSELoss) | Homoscedastic, clean data |
 | **`GaussianNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`GaussianNLLLoss`](../api/losses.md#torchregress.losses.gaussian.GaussianNLLLoss) | Heteroscedastic, independent targets |
+| **`BetaNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`BetaNLLLoss`](../api/losses.md#torchregress.losses.beta_nll.BetaNLLLoss) | Same head as NLL; detached variance rescaling (β-NLL) |
+| **`FaithfulGaussianLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`FaithfulGaussianLoss`](../api/losses.md#torchregress.losses.faithful_gaussian.FaithfulGaussianLoss) | MSE on $\mu$ + NLL on variance with **detach($\mu$)** in residual |
+| **`GaussianWassersteinBoundLoss`** | Configurable | $\mu$, cov / Cholesky / root | [`GaussianWassersteinBoundLoss`](../api/losses.md#torchregress.losses.gaussian_wasserstein.GaussianWassersteinBoundLoss) | Supervise mean + covariance vs labels or pseudo-labels |
 | **`MultivariateLoss`** | Full | $(\mu, \Sigma)$ | [`MultivariateGaussianLoss`](../api/losses.md#torchregress.losses.gaussian.MultivariateGaussianLoss) | Correlated multi-output (small $k$) |
 | **`LowRankLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [`LowRankGaussianLoss`](../api/losses.md#torchregress.losses.gaussian.LowRankGaussianLoss) | Correlated multi-output (large $k$) |
 
@@ -40,6 +43,21 @@ loss = loss_fn(y_pred, y_true)
 
 !!! tip "Numerical Stability"
     Always predict **log-variance** ($s$) rather than raw variance ($\sigma^2$). This ensures positivity ($e^s > 0$) and provides a more stable loss landscape for optimization.
+
+---
+
+## 1b. Faithful heteroscedastic: [`FaithfulGaussianLoss`](../api/losses.md#torchregress.losses.faithful_gaussian.FaithfulGaussianLoss)
+
+Joint Gaussian NLL couples gradients from the variance head into the mean through the residual $(y-\mu)^2/\sigma^2$. **FaithfulGaussianLoss** adds a direct MSE term on the mean and uses **stop-gradient** on $\mu$ inside the NLL residual so variance calibration does not distort point prediction.
+
+```python
+from torchregress.losses import FaithfulGaussianLoss
+
+loss_fn = FaithfulGaussianLoss(mean_weight=1.0, variance_weight=1.0)
+loss = loss_fn((mean, log_var), y_true)
+```
+
+Compare with [`BetaNLLLoss`](beta_nll.md): β-NLL keeps a single joint NLL and rescales it with a detached variance; faithful loss **explicitly splits** mean vs variance terms.
 
 ---
 
@@ -96,6 +114,8 @@ loss = loss_fn(mu, y_true, W, d)
 ---
 
 ## Next Steps
+- [Beta-NLL](beta_nll.md) for stabilised heteroscedastic likelihood training
+- [Gaussian Wasserstein bound surrogate](gaussian_wasserstein.md) for covariance supervision
 - Learn about [Robust Loss Functions](robust.md)
 - Explore [Ensemble Methods](../ensemble/index.md)
 - View the [Multivariate UQ Example](../examples/normalizing_flows_multitarget.md)

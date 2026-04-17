@@ -13,7 +13,7 @@ torchregress provides a comprehensive library of loss functions for regression �
 graph LR
     A["Your Data"] --> B{"What do you need?"}
     B -->|Point prediction| C["MSELoss / HuberLoss"]
-    B -->|Uncertainty| D["GaussianNLLLoss"]
+    B -->|Uncertainty| D["GaussianNLLLoss / BetaNLLLoss"]
     B -->|Robustness| E["CauchyLoss / TukeyBiweightLoss"]
     B -->|Intervals| F["QuantileLoss + CQR"]
     B -->|Full distribution| G["MDNLoss / NormalizingFlowLoss"]
@@ -45,6 +45,8 @@ Parametric losses for the Gaussian family — supporting **heteroscedastic** (in
 | Loss | Outputs Predicted | Use Case |
 |:-----|:-----------------|:---------|
 | `GaussianNLLLoss` | $\mu, \log\sigma^2$ | Heteroscedastic uncertainty per sample |
+| `BetaNLLLoss` | $\mu, \log\sigma^2$ | Heteroscedastic NLL with detached variance rescaling (β-NLL) |
+| `GaussianWassersteinBoundLoss` | $\mu$, covariance params | Mean + matrix-root Frobenius surrogate vs target covariance |
 | `GaussianNLLLoss(fixed_variance=σ²)` | $\mu$ only | Homoscedastic (reduces to scaled MSE) |
 | `MultivariateGaussianLoss` | $\boldsymbol{\mu}, \mathbf{L}$ | Correlated multi-output regression |
 | `LowRankGaussianLoss` | $\boldsymbol{\mu}, \mathbf{U}, \mathbf{d}$ | Scalable multivariate ($\Sigma = UU^\top + \text{diag}(d)$) |
@@ -53,7 +55,7 @@ Parametric losses for the Gaussian family — supporting **heteroscedastic** (in
 !!! info "GaussianNLL ↔ WeightedMSE continuum"
     Setting `GaussianNLLLoss(fixed_variance=σ²)` makes the model predict **only the mean**, and the loss reduces to a **scaled MSE**.  The factory `create_gaussian_nll(use_mse_for_unit_variance=True)` returns `WeightedMSELoss` when variance is fixed at 1.  This means GaussianNLL and MSE are endpoints of a **single continuum**.
 
-→ [Gaussian Losses reference](gaussian.md)
+→ [Gaussian Losses reference](gaussian.md) · [Beta-NLL](beta_nll.md) · [Wasserstein bound surrogate](gaussian_wasserstein.md)
 
 ---
 

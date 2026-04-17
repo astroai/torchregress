@@ -5,6 +5,10 @@ This module provides implementations of algorithms for various
 regression tasks, including IRLS, RC, SIMEX, and latent-input EIV training.
 """
 
+from .covariance_pseudo_labels import (
+    NeighborhoodCovariancePseudoLabeler,
+    mahalanobis_covariance_pseudo_labels,
+)
 from .error_aware import ErrorAwareFeatureEncoder, NoiseAwareRegressor
 from .irls import (
     IRLS,
@@ -23,5 +27,7 @@ __all__ = [
     "SIMEX",
     "LatentNN",
     "ErrorAwareFeatureEncoder",
+    "NeighborhoodCovariancePseudoLabeler",
     "NoiseAwareRegressor",
+    "mahalanobis_covariance_pseudo_labels",
 ]

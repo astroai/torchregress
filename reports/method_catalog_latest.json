@@ -2,34 +2,35 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 56,
+    "total_methods": 70,
     "families": {
       "bnn": 2,
       "calibration_transform": 3,
       "causal": 2,
       "censored": 3,
-      "conformal": 4,
+      "conformal": 5,
       "constraints": 2,
       "eiv": 7,
-      "ensemble": 6,
+      "ensemble": 7,
       "flow": 2,
-      "imbalanced_loss": 3,
+      "imbalanced_loss": 5,
       "inference": 1,
       "mc_dropout": 1,
       "mdn": 1,
       "ordinal": 3,
       "point_loss": 1,
-      "probabilistic_loss": 3,
+      "probabilistic_loss": 7,
       "quantile": 1,
       "robust_loss": 1,
       "swag": 2,
       "target_transform": 4,
+      "test_time": 6,
       "uncertain_gt": 4
     },
     "maturity": {
       "Core": 6,
       "Strong": 7,
-      "Available": 43
+      "Available": 57
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -247,6 +248,28 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Coverage guarantees, not epistemic/aleatoric decomposition."
+    },
+    {
+      "name": "UACQR",
+      "family": "conformal",
+      "public_path": "torchregress.losses.UACQR",
+      "task_tags": [
+        "coverage_guarantees",
+        "calibration",
+        "heteroscedastic_noise"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "CQR with nonconformity scores divided by predicted quantile band width."
     },
     {
       "name": "DensityConformal",
@@ -1075,6 +1098,30 @@
       "notes": "Shared-weight ensemble variant for lower-latency uncertainty decomposition."
     },
     {
+      "name": "PackedEnsembleRegressor",
+      "family": "ensemble",
+      "public_path": "torchregress.ensemble.PackedEnsembleRegressor",
+      "task_tags": [
+        "uq_decomposition",
+        "epistemic_uq",
+        "aleatoric_uq",
+        "ood",
+        "low_compute"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "yes",
+      "aleatoric": "partial",
+      "decomposition": "partial",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Facade over batch-ensemble heads with optional alpha scaling and PackedEnsembleOutput for mean/std_epistemic-style access."
+    },
+    {
       "name": "BinnedPDFEnsembleModel",
       "family": "ensemble",
       "public_path": "torchregress.ensemble.BinnedPDFEnsembleModel",
@@ -1246,6 +1293,272 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": ""
+    },
+    {
+      "name": "BayesianLinearHead",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.BayesianLinearHead",
+      "task_tags": [
+        "low_shot",
+        "test_time_adaptation",
+        "last_layer",
+        "linear_head"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "partial",
+      "aleatoric": "partial",
+      "decomposition": "partial",
+      "calibration": "partial",
+      "ood_support": "no",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Exact conjugate Gaussian linear regression on fixed features; pairs with frozen representations. See examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py and bayesian_linear_head_online_drift.py for synthetic adaptation baselines."
+    },
+    {
+      "name": "RecursiveBayesianHead",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.RecursiveBayesianHead",
+      "task_tags": [
+        "low_shot",
+        "test_time_adaptation",
+        "last_layer",
+        "streaming"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "partial",
+      "aleatoric": "partial",
+      "decomposition": "partial",
+      "calibration": "partial",
+      "ood_support": "no",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Streaming conjugate updates with optional precision forgetting; not a substitute for ensembles/SWAG/BNN when nonlinear epistemic UQ is required."
+    },
+    {
+      "name": "BetaNLLLoss",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.losses.BetaNLLLoss",
+      "task_tags": [
+        "heteroscedastic_noise",
+        "aleatoric_uq",
+        "optimization_stability"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Variance-detached weighting on Gaussian NLL for heteroscedastic heads."
+    },
+    {
+      "name": "FaithfulGaussianLoss",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.losses.FaithfulGaussianLoss",
+      "task_tags": [
+        "heteroscedastic_noise",
+        "aleatoric_uq",
+        "mean_variance_decoupling"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "MSE on mean plus NLL on variance with detached mean in the residual."
+    },
+    {
+      "name": "BalancedMSELoss",
+      "family": "imbalanced_loss",
+      "public_path": "torchregress.losses.BalancedMSELoss",
+      "task_tags": [
+        "imbalance",
+        "rare_targets",
+        "long_tail"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "Inverse bin-frequency weighted MSE; call fit(train_targets) on fixed bin edges."
+    },
+    {
+      "name": "BMCLoss",
+      "family": "imbalanced_loss",
+      "public_path": "torchregress.losses.BMCLoss",
+      "task_tags": [
+        "imbalance",
+        "rare_targets",
+        "long_tail"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "Inverse bin counts with Laplace-style noise_sigma smoothing; optional quantile bins."
+    },
+    {
+      "name": "GaussianWassersteinBoundLoss",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.losses.GaussianWassersteinBoundLoss",
+      "task_tags": [
+        "heteroscedastic_noise",
+        "multivariate_targets",
+        "mean_covariance_supervision"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "partial",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Frobenius surrogate on matrix roots for mean+covariance supervision; pair with pseudo-labels or oracle covariance targets."
+    },
+    {
+      "name": "NeighborhoodCovariancePseudoLabeler",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.algorithms.NeighborhoodCovariancePseudoLabeler",
+      "task_tags": [
+        "pseudo_labels",
+        "heteroscedastic_noise",
+        "self_supervision"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "partial",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Heuristic local target-covariance estimates from input-space neighbours; experimental. See examples/wasserstein_bound_hybrid_pretrain_demo.py."
+    },
+    {
+      "name": "OptimalTransportCoverageGap",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.OptimalTransportCoverageGap",
+      "task_tags": [
+        "distribution_shift",
+        "conformal",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Score ECDF gap diagnostics between calibration and target pools."
+    },
+    {
+      "name": "OTShiftReweighter",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.OTShiftReweighter",
+      "task_tags": [
+        "distribution_shift",
+        "conformal",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Simplex weights on calibration scores via CDF matching (OT-inspired surrogate)."
+    },
+    {
+      "name": "WeightedSplitConformalAdapter",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.WeightedSplitConformalAdapter",
+      "task_tags": [
+        "distribution_shift",
+        "conformal",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Weighted split conformal threshold for classification-style nonconformity scores."
+    },
+    {
+      "name": "weighted_split_classification_predictive_batch",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.weighted_split_classification_predictive_batch",
+      "task_tags": [
+        "distribution_shift",
+        "conformal",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Builds PredictiveBatch from a calibrated WeightedSplitConformalAdapter."
     }
   ]
 }

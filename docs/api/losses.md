@@ -30,6 +30,14 @@ This page provides a complete API reference for all loss functions in torchregre
 
 ---
 
+::: torchregress.losses.gaussian_wasserstein
+
+---
+
+::: torchregress.losses.beta_nll
+
+---
+
 ::: torchregress.losses.imbalanced
 
 ---

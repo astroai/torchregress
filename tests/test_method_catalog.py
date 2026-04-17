@@ -7,11 +7,17 @@ from torchregress import method_catalog
 def test_method_catalog_includes_peer_uq_methods_without_experimental_default_label() -> None:
     names = set(method_catalog.list_method_names())
     assert {"SWAG", "BayesianNeuralNetwork", "MDNLoss"} <= names
+    assert {"BayesianLinearHead", "RecursiveBayesianHead"} <= names
 
     for name in ("SWAG", "BayesianNeuralNetwork", "MDNLoss"):
         meta = method_catalog.get_method_metadata(name)
         assert meta["maturity"] != "Experimental"
         assert meta["family"] in {"swag", "bnn", "mdn"}
+
+    for name in ("BayesianLinearHead", "RecursiveBayesianHead"):
+        meta = method_catalog.get_method_metadata(name)
+        assert meta["maturity"] == "Available"
+        assert meta["family"] == "test_time"
 
 
 def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
@@ -86,6 +92,10 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     low_compute_names = {row["name"] for row in low_compute}
     assert {"HeteroscedasticBatchEnsembleModel", "MCDropoutWrapper"} <= low_compute_names
 
+    low_shot = method_catalog.list_methods(task_tag="low_shot")
+    low_shot_names = {row["name"] for row in low_shot}
+    assert {"BayesianLinearHead", "RecursiveBayesianHead"} <= low_shot_names
+
 
 def test_method_catalog_is_exposed_via_top_level_module_namespace() -> None:
     assert hasattr(tr, "method_catalog")
@@ -117,6 +127,7 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
         "OOD scoring / selective prediction",
         "Noisy features / measurement error",
         "Multimodal targets",
+        "Low-shot / streaming linear head on fixed features",
     } <= tasks
 
     ood_row = next(row for row in rows if row["task"] == "OOD scoring / selective prediction")
@@ -148,6 +159,7 @@ def test_decision_workflow_and_comparative_evidence_metadata_cover_hard_tasks() 
         "OOD robustness / selective prediction",
         "Noisy features / EIV",
         "Multimodal / multi-target non-Gaussian",
+        "Low-shot linear adaptation on fixed features (last layer)",
     } <= tasks
     grades = {row["comparison_grade"] for row in evidence}
     assert {"Decision-grade", "Strong"} <= grades

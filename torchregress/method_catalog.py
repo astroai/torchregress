@@ -170,6 +170,16 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Coverage guarantees, not epistemic/aleatoric decomposition.",
     ),
     MethodMetadata(
+        name="UACQR",
+        family="conformal",
+        public_path="torchregress.losses.UACQR",
+        task_tags=("coverage_guarantees", "calibration", "heteroscedastic_noise"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="yes",
+        notes="CQR with nonconformity scores divided by predicted quantile band width.",
+    ),
+    MethodMetadata(
         name="DensityConformal",
         family="conformal",
         public_path="torchregress.losses.DensityConformal",
@@ -586,6 +596,22 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Shared-weight ensemble variant for lower-latency uncertainty decomposition.",
     ),
     MethodMetadata(
+        name="PackedEnsembleRegressor",
+        family="ensemble",
+        public_path="torchregress.ensemble.PackedEnsembleRegressor",
+        task_tags=("uq_decomposition", "epistemic_uq", "aleatoric_uq", "ood", "low_compute"),
+        maturity="Available",
+        epistemic="yes",
+        aleatoric="partial",
+        decomposition="partial",
+        ood_support="partial",
+        calibration="partial",
+        notes=(
+            "Facade over batch-ensemble heads with optional alpha scaling and "
+            "PackedEnsembleOutput for mean/std_epistemic-style access."
+        ),
+    ),
+    MethodMetadata(
         name="BinnedPDFEnsembleModel",
         family="ensemble",
         public_path="torchregress.ensemble.BinnedPDFEnsembleModel",
@@ -689,6 +715,146 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ood_support="partial",
         calibration="partial",
     ),
+    MethodMetadata(
+        name="BayesianLinearHead",
+        family="test_time",
+        public_path="torchregress.test_time.BayesianLinearHead",
+        task_tags=("low_shot", "test_time_adaptation", "last_layer", "linear_head"),
+        maturity="Available",
+        epistemic="partial",
+        aleatoric="partial",
+        decomposition="partial",
+        calibration="partial",
+        ood_support="no",
+        notes=(
+            "Exact conjugate Gaussian linear regression on fixed features; pairs with frozen "
+            "representations. See examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py "
+            "and bayesian_linear_head_online_drift.py for synthetic adaptation baselines."
+        ),
+    ),
+    MethodMetadata(
+        name="RecursiveBayesianHead",
+        family="test_time",
+        public_path="torchregress.test_time.RecursiveBayesianHead",
+        task_tags=("low_shot", "test_time_adaptation", "last_layer", "streaming"),
+        maturity="Available",
+        epistemic="partial",
+        aleatoric="partial",
+        decomposition="partial",
+        calibration="partial",
+        ood_support="no",
+        notes=(
+            "Streaming conjugate updates with optional precision forgetting; not a substitute "
+            "for ensembles/SWAG/BNN when nonlinear epistemic UQ is required."
+        ),
+    ),
+    MethodMetadata(
+        name="BetaNLLLoss",
+        family="probabilistic_loss",
+        public_path="torchregress.losses.BetaNLLLoss",
+        task_tags=("heteroscedastic_noise", "aleatoric_uq", "optimization_stability"),
+        maturity="Available",
+        aleatoric="yes",
+        calibration="partial",
+        notes="Variance-detached weighting on Gaussian NLL for heteroscedastic heads.",
+    ),
+    MethodMetadata(
+        name="FaithfulGaussianLoss",
+        family="probabilistic_loss",
+        public_path="torchregress.losses.FaithfulGaussianLoss",
+        task_tags=("heteroscedastic_noise", "aleatoric_uq", "mean_variance_decoupling"),
+        maturity="Available",
+        aleatoric="yes",
+        calibration="partial",
+        notes="MSE on mean plus NLL on variance with detached mean in the residual.",
+    ),
+    MethodMetadata(
+        name="BalancedMSELoss",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.BalancedMSELoss",
+        task_tags=("imbalance", "rare_targets", "long_tail"),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes="Inverse bin-frequency weighted MSE; call fit(train_targets) on fixed bin edges.",
+    ),
+    MethodMetadata(
+        name="BMCLoss",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.BMCLoss",
+        task_tags=("imbalance", "rare_targets", "long_tail"),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "Inverse bin counts with Laplace-style noise_sigma smoothing; "
+            "optional quantile bins."
+        ),
+    ),
+    MethodMetadata(
+        name="GaussianWassersteinBoundLoss",
+        family="probabilistic_loss",
+        public_path="torchregress.losses.GaussianWassersteinBoundLoss",
+        task_tags=("heteroscedastic_noise", "multivariate_targets", "mean_covariance_supervision"),
+        maturity="Available",
+        aleatoric="partial",
+        calibration="partial",
+        notes=(
+            "Frobenius surrogate on matrix roots for mean+covariance supervision; pair with "
+            "pseudo-labels or oracle covariance targets."
+        ),
+    ),
+    MethodMetadata(
+        name="NeighborhoodCovariancePseudoLabeler",
+        family="probabilistic_loss",
+        public_path="torchregress.algorithms.NeighborhoodCovariancePseudoLabeler",
+        task_tags=("pseudo_labels", "heteroscedastic_noise", "self_supervision"),
+        maturity="Available",
+        aleatoric="partial",
+        calibration="partial",
+        notes=(
+            "Heuristic local target-covariance estimates from input-space neighbours; "
+            "experimental. See examples/wasserstein_bound_hybrid_pretrain_demo.py."
+        ),
+    ),
+    MethodMetadata(
+        name="OptimalTransportCoverageGap",
+        family="test_time",
+        public_path="torchregress.test_time.OptimalTransportCoverageGap",
+        task_tags=("distribution_shift", "conformal", "calibration"),
+        maturity="Available",
+        calibration="partial",
+        ood_support="partial",
+        notes="Score ECDF gap diagnostics between calibration and target pools.",
+    ),
+    MethodMetadata(
+        name="OTShiftReweighter",
+        family="test_time",
+        public_path="torchregress.test_time.OTShiftReweighter",
+        task_tags=("distribution_shift", "conformal", "calibration"),
+        maturity="Available",
+        calibration="partial",
+        ood_support="partial",
+        notes="Simplex weights on calibration scores via CDF matching (OT-inspired surrogate).",
+    ),
+    MethodMetadata(
+        name="WeightedSplitConformalAdapter",
+        family="test_time",
+        public_path="torchregress.test_time.WeightedSplitConformalAdapter",
+        task_tags=("distribution_shift", "conformal", "calibration"),
+        maturity="Available",
+        calibration="partial",
+        notes="Weighted split conformal threshold for classification-style nonconformity scores.",
+    ),
+    MethodMetadata(
+        name="weighted_split_classification_predictive_batch",
+        family="test_time",
+        public_path="torchregress.test_time.weighted_split_classification_predictive_batch",
+        task_tags=("distribution_shift", "conformal", "calibration"),
+        maturity="Available",
+        calibration="partial",
+        notes="Builds PredictiveBatch from a calibrated WeightedSplitConformalAdapter.",
+    ),
 )
 
 
@@ -726,6 +892,19 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "MCDropoutWrapper",
         ),
         notes="Deep ensembles are easiest operationally.",
+    ),
+    TaskRecommendation(
+        task="Low-shot / streaming linear head on fixed features",
+        recommended_start="BayesianLinearHead",
+        strong_alternatives=(
+            "RecursiveBayesianHead",
+            "WeightedMSELoss (ridge MAP, matched L2)",
+        ),
+        notes=(
+            "Conjugate exact BLR for last-layer adaptation; synthetic RMSE/NLL and drift sweeps "
+            "live under examples/benchmarks/. Prefer ensembles/SWAG/BNN when epistemic UQ must "
+            "track representation-level ambiguity."
+        ),
     ),
     TaskRecommendation(
         task="Epistemic + aleatoric decomposition",
@@ -1390,6 +1569,34 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "Dedicated runnable comparisons now include synthetic and real-data (Diabetes with "
             "synthetic corruption) calibration-aware evaluations via shared split-conformal "
             "metrics."
+        ),
+    ),
+    ComparativeEvidenceRow(
+        task="Low-shot linear adaptation on fixed features (last layer)",
+        examples=(
+            "examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py",
+            "examples/benchmarks/bayesian_linear_head_online_drift.py",
+        ),
+        comparison_grade="Strong",
+        fairness_controls=(
+            "fixed seeds",
+            "matched ridge L2 vs conjugate prior in low-shot script",
+            "tabular stdout summaries (RMSE / NLL / streaming RMSE)",
+        ),
+        metrics_coverage=("RMSE", "Gaussian NLL", "streaming RMSE under forgetting"),
+        peer_methods_visible=(
+            "BayesianLinearHead",
+            "RecursiveBayesianHead",
+            "WeightedMSELoss",
+        ),
+        gaps=(
+            "Synthetic Gaussian linear benchmarks only; needs real frozen-backbone protocols "
+            "before deployment-grade ranking against ensembles or SWAG."
+        ),
+        notes=(
+            "CPU-only benchmarks: low-shot path aligns BLR posterior mean with ridge MAP under "
+            "matched L2 and contrasts predictive NLL with an oracle homoscedastic ridge baseline; "
+            "drift path evaluates recursive partial_fit versus a phase-only batch oracle."
         ),
     ),
 )

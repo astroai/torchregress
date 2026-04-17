@@ -74,6 +74,7 @@ def test_parameter_ordering():
     # Special cases that have different parameter patterns
     special_cases = {
         "CoTeachingLoss": "y_pred1",  # Takes two predictions
+        "GaussianWassersteinBoundLoss": "pred_mean",  # Mean + covariance supervision
         "RENTLoss": "ensemble_preds",  # Takes ensemble predictions
     }
 
@@ -127,7 +128,9 @@ def test_reduction_behavior():
         "StructuralEIVLoss",
         "OrthogonalDistanceRegressionLoss",
         "EnsembleEIVLoss",
-        "GaussianNLLLoss",
+            "GaussianNLLLoss",
+            "FaithfulGaussianLoss",
+            "BetaNLLLoss",
         "LowRankGaussianLoss",
         "MultivariateGaussianLoss",
         "MixtureDensityLoss",
@@ -153,9 +156,11 @@ def test_reduction_behavior():
         "ContrastiveFlowLoss",  # Needs flow parameters and negative contexts
         "CoTeachingLoss",  # Needs two predictions
         "RENTLoss",  # Needs ensemble predictions
-        "DensityWeightedLoss",  # Needs to be fitted first
-        "PropensityWeightedLoss",  # Needs propensity scores
-        "LDSLoss",  # Needs to be fitted first
+            "DensityWeightedLoss",  # Needs to be fitted first
+            "BalancedMSELoss",  # Needs bin_edges + fit(train_targets)
+            "BMCLoss",  # Needs fit(train_targets)
+            "PropensityWeightedLoss",  # Needs propensity scores
+            "LDSLoss",  # Needs to be fitted first
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
         "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
         "CumulativeLinkLoss",  # Needs discrete ordinal targets
@@ -166,6 +171,7 @@ def test_reduction_behavior():
         "InputNoiseMDNLoss",  # Meta-loss (needs model/n_components)
         "InputNoiseBinnedPDFLoss",  # Meta-loss (needs model)
         "GaussianCRPSLoss",  # Needs concatenated [mean, log_var] input
+        "GaussianWassersteinBoundLoss",  # Needs pred/target mean + covariance tensors
     ]
 
     for loss_class in get_all_loss_classes():

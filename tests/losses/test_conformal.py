@@ -10,6 +10,7 @@ import torch
 from torchregress.losses.conformal import (
     CQR,
     CTI,
+    UACQR,
     ConformalLoss,
     ConformalPredictor,
     DensityConformal,
@@ -27,7 +28,7 @@ from torchregress.losses.conformal import (
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("method", ["cqr", "split"])
+@pytest.mark.parametrize("method", ["cqr", "uacqr", "split"])
 def test_conformal_loss_initialization(method):
     """Test initialization of ConformalLoss for different methods."""
     loss_fn = ConformalLoss(method=method, alpha=0.1)
@@ -64,13 +65,13 @@ def test_conformal_loss_forward_split():
     assert loss.dim() == 0
 
 
-@pytest.mark.parametrize("method", ["cqr", "split"])
+@pytest.mark.parametrize("method", ["cqr", "uacqr", "split"])
 def test_conformal_loss_calibration_and_prediction(method):
     """Test calibration and prediction flow."""
     loss_fn = ConformalLoss(method=method, alpha=0.1)
     batch_size, n_features = 50, 1
 
-    if method == "cqr":
+    if method in ("cqr", "uacqr"):
         y_pred_cal = torch.randn(batch_size, 2 * n_features)
         y_pred_test = torch.randn(batch_size, 2 * n_features)
     else:
@@ -117,6 +118,28 @@ def test_conformal_coverage():
     coverage = covered.float().mean().item()
 
     assert coverage >= (1 - alpha) - 0.05, f"Coverage {coverage:.3f} too low"
+
+
+def test_uacqr_calibrate_and_predict_interval() -> None:
+    n = 60
+    target = torch.randn(n, 1)
+    lower = target - torch.rand(n, 1).abs()
+    upper = target + torch.rand(n, 1).abs()
+    y_pred_cal = torch.cat([lower, upper], dim=-1)
+    u = UACQR(alpha=0.1, debias=False)
+    u.calibrate(y_pred_cal, target)
+    y_pred_test = torch.cat([torch.zeros(7, 1), torch.ones(7, 1)], dim=-1)
+    lo, hi = u.predict_interval(y_pred_test)
+    assert lo.shape == (7, 1) and hi.shape == (7, 1)
+    assert (lo <= hi).all()
+
+
+def test_conformal_loss_uacqr_rejects_external_normalize_fn() -> None:
+    with pytest.raises(ValueError, match="normalize_fn"):
+        ConformalLoss(
+            method="uacqr",
+            normalize_fn=lambda y, x: torch.ones(y.shape[0], device=y.device),
+        )
 
 
 def test_cqr_coverage():

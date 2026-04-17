@@ -22,6 +22,7 @@ from .models import (
     MDNEnsembleModel,
     RandomPartitionEnsembleModel,
 )
+from .packed import PackedEnsembleOutput, PackedEnsembleRegressor
 from .swag import SWAG, MultiSWAG
 from .utils import parse_heteroscedastic_output
 
@@ -36,6 +37,8 @@ __all__ = [
     "MDNEnsembleModel",
     "RandomPartitionEnsembleModel",
     "HeteroscedasticBatchEnsembleModel",
+    "PackedEnsembleRegressor",
+    "PackedEnsembleOutput",
     "BayesianModelAveraging",
     "StackingEnsemble",
     "DynamicEnsembleWeighting",

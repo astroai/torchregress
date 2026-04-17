@@ -17,10 +17,34 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 
 | Loss | Method | Calibration | Pre-fitting |
 |:-----|:-------|:-----------:|:-----------:|
+| `BalancedMSELoss` | Inverse **bin** frequency (fixed edges) | ⚠️ Check | `fit(y)` |
+| `BMCLoss` | Inverse bin frequency + count smoothing | ⚠️ Check | `fit(y)` |
 | `DensityWeightedLoss` | Inverse kernel-density weights | ✅ Safe | `fit_density(y)` |
 | `LDSLoss` | Smoothed label distribution | ⚠️ May break | `fit(y)` |
 | `PropensityWeightedLoss` | Inverse propensity scores | ✅ With correct scores | None |
 | `FocalRLoss` | Sigmoid-scaled error emphasis | ✅ Mostly | None |
+
+---
+
+## BalancedMSELoss and BMCLoss
+
+**Bin-based** balanced MSE: partition the target range into histogram bins on training data, then weight each sample by roughly `1 / (bin count)` (with optional additive smoothing). `BalancedMSELoss` uses **your** `bin_edges`; `BMCLoss` builds **equal-width** or **quantile** edges from `num_bins` and uses `noise_sigma` as a pseudocount when inverting counts (Laplace-style).
+
+```python
+from torchregress.losses import BalancedMSELoss, BMCLoss
+
+edges = torch.linspace(y_train.min(), y_train.max(), 11)  # 10 bins
+loss_bal = BalancedMSELoss(bin_edges=edges).fit(y_train)
+
+loss_bmc = BMCLoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y_train)
+
+loss = loss_bal(model(x), y_batch)
+```
+
+Multi-output targets use the **mean coordinate** for bin assignment; the weighted squared error still applies elementwise to `y_pred - target`.
+
+!!! warning "Calibration"
+    Like other reweighting schemes, these losses change the training objective. Validate calibration on held-out data before relying on variance or interval outputs.
 
 ---
 

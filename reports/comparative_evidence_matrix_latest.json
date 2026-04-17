@@ -2,13 +2,13 @@
   "artifact": "comparative_evidence_matrix",
   "version": 1,
   "summary": {
-    "task_rows": 16,
+    "task_rows": 17,
     "grade_counts": {
       "Decision-grade": 2,
-      "Strong": 14
+      "Strong": 15
     },
     "decision_grade_tasks": 2,
-    "strong_or_better_tasks": 16
+    "strong_or_better_tasks": 17
   },
   "rows": [
     {
@@ -465,6 +465,31 @@
       ],
       "gaps": "Needs comparisons against explicit noisy-label algorithms (co-teaching / sample-weight meta-learning) if/when implemented, plus more than one real dataset for stronger external validity.",
       "notes": "Dedicated runnable comparisons now include synthetic and real-data (Diabetes with synthetic corruption) calibration-aware evaluations via shared split-conformal metrics."
+    },
+    {
+      "task": "Low-shot linear adaptation on fixed features (last layer)",
+      "examples": [
+        "examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py",
+        "examples/benchmarks/bayesian_linear_head_online_drift.py"
+      ],
+      "comparison_grade": "Strong",
+      "fairness_controls": [
+        "fixed seeds",
+        "matched ridge L2 vs conjugate prior in low-shot script",
+        "tabular stdout summaries (RMSE / NLL / streaming RMSE)"
+      ],
+      "metrics_coverage": [
+        "RMSE",
+        "Gaussian NLL",
+        "streaming RMSE under forgetting"
+      ],
+      "peer_methods_visible": [
+        "BayesianLinearHead",
+        "RecursiveBayesianHead",
+        "WeightedMSELoss"
+      ],
+      "gaps": "Synthetic Gaussian linear benchmarks only; needs real frozen-backbone protocols before deployment-grade ranking against ensembles or SWAG.",
+      "notes": "CPU-only benchmarks: low-shot path aligns BLR posterior mean with ridge MAP under matched L2 and contrasts predictive NLL with an oracle homoscedastic ridge baseline; drift path evaluates recursive partial_fit versus a phase-only batch oracle."
     }
   ]
 }

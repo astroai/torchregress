@@ -53,7 +53,14 @@ def _write_tiny_tabular_csv(
 
 def test_hard_problem_examples_import_smoke() -> None:
     # Import-only smoke checks for examples touched in the audit-priority pass.
+    _load_example_module("ot_shift_conformal_demo")
+    _load_example_module("test_time_bayesian_linear_head_demo")
+    _load_example_module("test_time_blr_predictive_adapter_demo")
+    _load_example_module("gaussian_wasserstein_bound_demo")
+    _load_example_module("wasserstein_bound_hybrid_pretrain_demo")
+    _load_example_module("heteroscedastic_beta_nll_demo")
     _load_example_module("imbalanced_regression")
+    _load_example_module("balanced_mse_demo")
     _load_example_module("evaluate_conformal_methods")
     _load_example_module("ood_selective_prediction_comparison")
     _load_example_module("ood_selective_prediction_realdata_comparison")
@@ -172,6 +179,114 @@ def test_imbalanced_regression_main_smoke(monkeypatch) -> None:
     monkeypatch.setattr(mod, "DataLoader", lambda *args, **kwargs: [])
     monkeypatch.setattr(mod.plt, "show", lambda *args, **kwargs: None)
 
+    mod.main()
+
+
+def test_balanced_mse_demo_main_smoke(monkeypatch) -> None:
+    import sys
+
+    mod = _load_example_module("balanced_mse_demo")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["balanced_mse_demo.py", "--steps", "5", "--n", "64", "--seed", "0"],
+    )
+    mod.main()
+
+
+def test_ot_shift_conformal_demo_main_smoke(monkeypatch) -> None:
+    import sys
+
+    mod = _load_example_module("ot_shift_conformal_demo")
+    monkeypatch.setattr(sys, "argv", ["ot_shift_conformal_demo.py", "--seed", "1"])
+    mod.main()
+
+
+def test_test_time_bayesian_linear_head_demo_main_smoke(monkeypatch) -> None:
+    import sys
+
+    mod = _load_example_module("test_time_bayesian_linear_head_demo")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "test_time_bayesian_linear_head_demo.py",
+            "--n-train",
+            "40",
+            "--n-test",
+            "30",
+            "--dim",
+            "3",
+            "--seed",
+            "2",
+        ],
+    )
+    mod.main()
+
+
+def test_test_time_blr_predictive_adapter_demo_main_smoke(monkeypatch) -> None:
+    import sys
+
+    mod = _load_example_module("test_time_blr_predictive_adapter_demo")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "test_time_blr_predictive_adapter_demo.py",
+            "--n-train",
+            "32",
+            "--n-test",
+            "16",
+            "--dim",
+            "3",
+            "--seed",
+            "1",
+        ],
+    )
+    mod.main()
+
+
+def test_gaussian_wasserstein_bound_demo_main_smoke(monkeypatch) -> None:
+    import sys
+
+    mod = _load_example_module("gaussian_wasserstein_bound_demo")
+    monkeypatch.setattr(
+        sys, "argv", ["gaussian_wasserstein_bound_demo.py", "--batch", "2", "--dim", "2"]
+    )
+    mod.main()
+
+
+def test_wasserstein_bound_hybrid_pretrain_demo_main_smoke(monkeypatch) -> None:
+    import sys
+
+    mod = _load_example_module("wasserstein_bound_hybrid_pretrain_demo")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "wasserstein_bound_hybrid_pretrain_demo.py",
+            "--pretrain-steps",
+            "3",
+            "--finetune-steps",
+            "3",
+            "--n",
+            "48",
+            "--seed",
+            "1",
+        ],
+    )
+    mod.main()
+
+
+def test_heteroscedastic_beta_nll_demo_main_smoke(monkeypatch) -> None:
+    import sys
+
+    mod = _load_example_module("heteroscedastic_beta_nll_demo")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["heteroscedastic_beta_nll_demo.py", "--epochs", "1", "--seed", "0"],
+    )
     mod.main()
 
 

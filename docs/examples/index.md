@@ -139,6 +139,38 @@ losses = {
 
 ## Advanced Examples
 
+### [OT shift conformal demo](ot_shift_conformal_demo.md)
+
+- Synthetic calibration vs shifted target scores; prints CDF-gap diagnostic, weighted split-conformal threshold, and mean prediction-set size on random candidate score matrices.
+- Script: [`examples/ot_shift_conformal_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ot_shift_conformal_demo.py).
+
+### [Bayesian linear head (test-time) demo](test_time_bayesian_linear_head.md)
+
+- Synthetic linear targets on fixed features; compares batch `BayesianLinearHead.fit` to two-step `RecursiveBayesianHead.partial_fit` with `forgetting_factor=1`, reports posterior error vs a known weight vector, and prints rough held-out Gaussian interval coverage.
+- Script: [`examples/test_time_bayesian_linear_head_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/test_time_bayesian_linear_head_demo.py).
+
+### [BLR predictive adapter (SupportsPredictiveBatch)](test_time_blr_predictive_adapter.md)
+
+- Thin wrapper exposing `predict_distribution(...)` around `BayesianLinearHead.predictive_batch`.
+- Runtime protocol-check against `SupportsPredictiveBatch` and prints `PredictiveBatch` diagnostics.
+- Script: [`examples/test_time_blr_predictive_adapter_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/test_time_blr_predictive_adapter_demo.py).
+
+### [Gaussian Wasserstein bound demo](gaussian_wasserstein_bound.md)
+
+- One-step mean + full-covariance supervision with [`GaussianWassersteinBoundLoss`](../losses/gaussian_wasserstein.md); prints loss and gradient norms.
+- Script: [`examples/gaussian_wasserstein_bound_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/gaussian_wasserstein_bound_demo.py).
+
+### [Wasserstein-bound hybrid pretrain](wasserstein_bound_hybrid_pretrain.md)
+
+- Tiny scalar head: neighbourhood covariance pseudo-labels + diagonal Wasserstein-bound pretrain, then Gaussian NLL fine-tune; prints NLL before/after the second phase.
+- Script: [`examples/wasserstein_bound_hybrid_pretrain_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/wasserstein_bound_hybrid_pretrain_demo.py).
+
+### [Beta-NLL heteroscedastic demo](heteroscedastic_beta_nll.md)
+
+- Small Gaussian-head MLP on synthetic heteroscedastic noise (scale grows with $|x|$).
+- Trains with [`GaussianNLLLoss`](../losses/gaussian.md) vs [`BetaNLLLoss`](../losses/beta_nll.md) from the **same** initial weights; reports validation RMSE and validation Gaussian NLL.
+- Script: [`examples/heteroscedastic_beta_nll_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/heteroscedastic_beta_nll_demo.py).
+
 ### [Ensemble Methods](ensemble_methods.md) 🆕
 
 **Complete guide to uncertainty quantification with ensembles:**
@@ -307,6 +339,10 @@ A real-world application for astronomy:
 ### [Imbalanced Regression](imbalanced_regression.md)
 
 - Handling imbalanced datasets in regression tasks.
+
+### [Balanced MSE / BMC](balanced_mse.md)
+
+- Skewed targets: [`BalancedMSELoss`](../losses/imbalanced.md) and [`BMCLoss`](../losses/imbalanced.md) vs plain MSE; script [`examples/balanced_mse_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/balanced_mse_demo.py).
 - Includes calibration-validation guidance because aggressive reweighting can distort uncertainty.
 
 ### [Noisy Labels Regression](noisy_labels_regression.md)
