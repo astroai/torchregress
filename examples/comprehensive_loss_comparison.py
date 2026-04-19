@@ -202,9 +202,7 @@ def main():
                 "Notes": (
                     "mean+variance head"
                     if name == "GaussianNLL"
-                    else "jointly learned alpha/scale"
-                    if name == "AdaptiveRobust"
-                    else ""
+                    else "jointly learned alpha/scale" if name == "AdaptiveRobust" else ""
                 ),
             }
         )
