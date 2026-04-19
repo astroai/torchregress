@@ -11,6 +11,20 @@ from torchregress.utils import (
     normalize_class_probs,
     ordinal_predict,
 )
+from torchregress.utils.ordinal import _validate_num_classes
+
+
+def test_validate_num_classes_rejects_invalid_inputs() -> None:
+    with pytest.raises(ValueError, match="num_classes must be >= 2"):
+        _validate_num_classes(-1)
+    with pytest.raises(ValueError, match="num_classes must be >= 2"):
+        _validate_num_classes(0)
+    with pytest.raises(ValueError, match="num_classes must be >= 2"):
+        _validate_num_classes(1)
+
+    # Should not raise
+    _validate_num_classes(2)
+    _validate_num_classes(10)
 
 
 def test_labels_to_levels_encoding() -> None:
