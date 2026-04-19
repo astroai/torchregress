@@ -15,7 +15,7 @@ from torchregress.prediction import PredictiveBatch
 
 from .base import SupportsPredictiveBatch
 from .calibration import RepresentationShiftCalibrator
-from .label_shift import PosteriorLabelShiftAdapter
+from .label_shift import LabelShiftEMConfig, PosteriorLabelShiftAdapter
 from .selection import local_consistency_weights, select_high_confidence
 from .subspace import SignificantSubspaceAligner
 
@@ -529,7 +529,7 @@ class ShiftFactoredPredictiveTransport:
             source_prior=self.state_.source_prior,
             sample_size=cfg.prior_estimation_rows,
             random_state=cfg.random_state,
-            eps=cfg.eps,
+            config=LabelShiftEMConfig(eps=cfg.eps),
         )
         estimate = adapter.estimate(
             probabilities[mask],

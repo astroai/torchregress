@@ -42,6 +42,14 @@ def _subsample_probabilities(
     return probabilities[idx], np.asarray(sample_weights, dtype=float).reshape(-1)[idx]
 
 
+
+@dataclass(frozen=True)
+class LabelShiftEMConfig:
+    max_iter: int = 100
+    tol: float = 1.0e-6
+    eps: float = 1.0e-8
+
+
 @dataclass(frozen=True)
 class LabelShiftEstimate:
     source_prior: np.ndarray
@@ -74,12 +82,11 @@ def estimate_target_prior_em(
     sample_weights: np.ndarray | None = None,
     sample_size: int | None = None,
     random_state: int | None = 0,
-    max_iter: int = 100,
-    tol: float = 1.0e-6,
-    eps: float = 1.0e-8,
+    config: LabelShiftEMConfig | None = None,
 ) -> LabelShiftEstimate:
     """Estimate target priors from unlabeled predictions via EM."""
-    probs = _normalize_rows(probabilities, eps)
+    cfg = config or LabelShiftEMConfig()
+    probs = _normalize_rows(probabilities, cfg.eps)
     probs, weights = _subsample_probabilities(
         probs,
         sample_weights,
@@ -88,27 +95,29 @@ def estimate_target_prior_em(
     )
     n_classes = probs.shape[1]
     if source_prior is None:
-        src = _weighted_average(probs, weights, eps=eps)
+        src = _weighted_average(probs, weights, eps=cfg.eps)
     else:
         src = np.asarray(source_prior, dtype=float)
     if src.shape != (n_classes,):
         raise ValueError("source_prior must have shape [n_classes]")
-    src = np.clip(src, eps, None)
+    src = np.clip(src, cfg.eps, None)
     src = src / src.sum()
 
     tgt = src.copy()
     converged = False
-    for step in range(1, max_iter + 1):
-        corrected = apply_label_shift_correction(probs, source_prior=src, target_prior=tgt, eps=eps)
-        new_tgt = _weighted_average(corrected, weights, eps=eps)
-        new_tgt = np.clip(new_tgt, eps, None)
+    for step in range(1, cfg.max_iter + 1):
+        corrected = apply_label_shift_correction(
+            probs, source_prior=src, target_prior=tgt, eps=cfg.eps
+        )
+        new_tgt = _weighted_average(corrected, weights, eps=cfg.eps)
+        new_tgt = np.clip(new_tgt, cfg.eps, None)
         new_tgt = new_tgt / new_tgt.sum()
-        if np.max(np.abs(new_tgt - tgt)) < tol:
+        if np.max(np.abs(new_tgt - tgt)) < cfg.tol:
             tgt = new_tgt
             converged = True
             return LabelShiftEstimate(src, tgt, step, converged)
         tgt = new_tgt
-    return LabelShiftEstimate(src, tgt, max_iter, converged)
+    return LabelShiftEstimate(src, tgt, cfg.max_iter, converged)
 
 
 class PosteriorLabelShiftAdapter:
@@ -120,16 +129,12 @@ class PosteriorLabelShiftAdapter:
         source_prior: np.ndarray | None = None,
         sample_size: int | None = None,
         random_state: int | None = 0,
-        max_iter: int = 100,
-        tol: float = 1.0e-6,
-        eps: float = 1.0e-8,
+        config: LabelShiftEMConfig | None = None,
     ) -> None:
         self.source_prior = None if source_prior is None else np.asarray(source_prior, dtype=float)
         self.sample_size = sample_size
         self.random_state = random_state
-        self.max_iter = int(max_iter)
-        self.tol = float(tol)
-        self.eps = float(eps)
+        self.config = config or LabelShiftEMConfig()
         self.last_estimate: LabelShiftEstimate | None = None
 
     def estimate(
@@ -141,9 +146,7 @@ class PosteriorLabelShiftAdapter:
             sample_weights=sample_weights,
             sample_size=self.sample_size,
             random_state=self.random_state,
-            max_iter=self.max_iter,
-            tol=self.tol,
-            eps=self.eps,
+            config=self.config,
         )
         self.last_estimate = estimate
         if self.source_prior is None:
@@ -166,7 +169,7 @@ class PosteriorLabelShiftAdapter:
             probabilities,
             source_prior=self.source_prior,
             target_prior=np.asarray(target_prior, dtype=float),
-            eps=self.eps,
+            eps=self.config.eps,
         )
 
     def fit_transform(
@@ -265,7 +268,7 @@ def correct_gaussian_predictions_for_label_shift(
         source_prior=source_prior,
         sample_size=estimation_rows,
         random_state=seed,
-        eps=eps,
+        config=LabelShiftEMConfig(eps=eps),
     )
     estimate = adapter.estimate(
         probs[mask],
@@ -286,6 +289,7 @@ def correct_gaussian_predictions_for_label_shift(
 
 
 __all__ = [
+    "LabelShiftEMConfig",
     "LabelShiftEstimate",
     "PosteriorLabelShiftAdapter",
     "apply_label_shift_correction",
