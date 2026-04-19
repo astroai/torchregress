@@ -42,7 +42,6 @@ def _subsample_probabilities(
     return probabilities[idx], np.asarray(sample_weights, dtype=float).reshape(-1)[idx]
 
 
-
 @dataclass(frozen=True)
 class LabelShiftEMConfig:
     max_iter: int = 100
