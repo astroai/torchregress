@@ -64,7 +64,7 @@ def test_native_pytorch_leverage_matrix_schema_and_required_areas() -> None:
 
 def test_native_strategy_guardrails_have_backing_tests_for_key_wraps() -> None:
     native_parity = Path("tests/test_native_parity.py").read_text(encoding="utf-8")
-    verify_scaling = Path("tests/test_verify_scaling.py").read_text(encoding="utf-8")
+    verify_scaling = Path("tests/test_scaling.py").read_text(encoding="utf-8")
 
     # Wrap/hybrid areas that should have concrete regression guards.
     assert "WeightedMSELoss" in native_parity
