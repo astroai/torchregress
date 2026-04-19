@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 import torch
 from torch import Tensor
@@ -90,6 +90,7 @@ def ordinal_predict(
     ] = "cumulative_logits",
     threshold: float = 0.5,
     strategy: Literal["argmax", "threshold"] = "argmax",
+    num_classes: Optional[int] = None,
     return_pmf: bool = False,
 ) -> Tensor | tuple[Tensor, Tensor]:
     """Decode ordinal outputs into class-index predictions.
@@ -99,8 +100,25 @@ def ordinal_predict(
         encoding: Output encoding used by the model.
         threshold: Threshold used by ``strategy='threshold'`` for cumulative encodings.
         strategy: ``argmax`` over PMF or thresholded cumulative decoding.
+        num_classes: Optional expected number of classes for validation.
         return_pmf: If True, return ``(labels, pmf)``.
     """
+    if num_classes is not None:
+        _validate_num_classes(num_classes)
+        # Expected shape depends on encoding
+        if encoding in {"cumulative_logits", "cumulative_probs"}:
+            if y_pred.shape[-1] != num_classes - 1:
+                raise ValueError(
+                    f"num_classes={num_classes} does not match input shape {y_pred.shape} "
+                    f"for cumulative encoding (expected {num_classes-1} columns)"
+                )
+        else:
+            if y_pred.shape[-1] != num_classes:
+                raise ValueError(
+                    f"num_classes={num_classes} does not match input shape {y_pred.shape} "
+                    f"for class-based encoding (expected {num_classes} columns)"
+                )
+
     if strategy not in {"argmax", "threshold"}:
         raise ValueError(f"Unknown strategy: {strategy}")
 
