@@ -38,13 +38,15 @@ def test_subsample_rows():
 
 
 def test_winsorize():
-    X = np.array([
-        [1.0, 10.0],
-        [2.0, 20.0],
-        [3.0, 30.0],
-        [4.0, 40.0],
-        [5.0, 50.0],
-    ])
+    X = np.array(
+        [
+            [1.0, 10.0],
+            [2.0, 20.0],
+            [3.0, 30.0],
+            [4.0, 40.0],
+            [5.0, 50.0],
+        ]
+    )
 
     # clip_quantile is None
     out = _winsorize(X, None)
@@ -62,13 +64,15 @@ def test_winsorize():
 
     # clip_quantile is 0.2
     out = _winsorize(X, 0.2)
-    expected = np.array([
-        [1.8, 18.0],
-        [2.0, 20.0],
-        [3.0, 30.0],
-        [4.0, 40.0],
-        [4.2, 42.0],
-    ])
+    expected = np.array(
+        [
+            [1.8, 18.0],
+            [2.0, 20.0],
+            [3.0, 30.0],
+            [4.0, 40.0],
+            [4.2, 42.0],
+        ]
+    )
     np.testing.assert_allclose(out, expected)
 
 
@@ -92,11 +96,7 @@ def test_representation_shift_calibrator_fit():
 
 def test_representation_shift_calibrator_shift_scores():
     calibrator = RepresentationShiftCalibrator(random_state=42)
-    X = np.array([
-        [0.0, 0.0],
-        [1.0, 1.0],
-        [2.0, -2.0]
-    ])
+    X = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, -2.0]])
     calibrator.fit(X)
 
     scores = calibrator.shift_scores(X)
@@ -106,19 +106,18 @@ def test_representation_shift_calibrator_shift_scores():
 
 def test_representation_shift_calibrator_temperatures():
     calibrator = RepresentationShiftCalibrator(
-        base_temperature=1.0,
-        slope=2.0,
-        max_temperature=4.0,
-        random_state=42
+        base_temperature=1.0, slope=2.0, max_temperature=4.0, random_state=42
     )
     X = np.random.RandomState(0).randn(100, 2)
     calibrator.fit(X)
 
-    target = np.array([
-        [0.0, 0.0],     # Close to mean
-        [10.0, 10.0],   # Far from mean
-        [100.0, 100.0], # Very far from mean
-    ])
+    target = np.array(
+        [
+            [0.0, 0.0],  # Close to mean
+            [10.0, 10.0],  # Far from mean
+            [100.0, 100.0],  # Very far from mean
+        ]
+    )
 
     temps = calibrator.temperatures(target)
     assert temps.shape == (3,)
@@ -132,14 +131,18 @@ def test_representation_shift_calibrator_calibrate_probabilities():
     X = np.random.RandomState(0).randn(100, 2)
     calibrator.fit(X)
 
-    target = np.array([
-        [0.0, 0.0],
-        [10.0, 10.0],
-    ])
-    probs = np.array([
-        [0.1, 0.9],
-        [0.1, 0.9],
-    ])
+    target = np.array(
+        [
+            [0.0, 0.0],
+            [10.0, 10.0],
+        ]
+    )
+    probs = np.array(
+        [
+            [0.1, 0.9],
+            [0.1, 0.9],
+        ]
+    )
 
     calibrated_probs = calibrator.calibrate_probabilities(probs, target)
     assert calibrated_probs.shape == (2, 2)
@@ -155,10 +158,12 @@ def test_representation_shift_calibrator_calibrate_std():
     X = np.random.RandomState(0).randn(100, 2)
     calibrator.fit(X)
 
-    target = np.array([
-        [0.0, 0.0],
-        [10.0, 10.0],
-    ])
+    target = np.array(
+        [
+            [0.0, 0.0],
+            [10.0, 10.0],
+        ]
+    )
     stds = np.array([1.0, 1.0])
 
     calibrated_stds = calibrator.calibrate_std(stds, target)
