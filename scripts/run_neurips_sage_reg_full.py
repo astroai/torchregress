@@ -8,8 +8,15 @@ Usage (repo root)::
     uv run python scripts/run_neurips_sage_reg_full.py
     uv run python scripts/run_neurips_sage_reg_full.py --quick
 
-Defaults need no flags. Large raw assets (Higgs parquet, TabReD/Kaggle) are
-skipped with logs if missing.
+Defaults need no flags. Large raw assets (Higgs parquet) are skipped with logs if missing.
+
+TabReD is optional in two modes:
+
+- If ``~/.kaggle/kaggle.json`` exists, we run ``tools/fetch_tabred_data.py`` (with
+  ``--skip-if-present``) and then the SSL probe.
+- If Kaggle credentials are missing but ``<tabred-data-root>/<dataset>/info.json``
+  exists for all default TabReD tasks, we **skip fetch** and still run the probe
+  against the local materialized tensors.
 """
 
 from __future__ import annotations
@@ -17,6 +24,8 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -25,6 +34,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Canonical caches / inputs (override with env or --run-root only changes output tree)
 YEAR_CACHE_DEFAULT = REPO_ROOT / "data" / "paper" / "openml_year.csv"
+OPENML_DIAMONDS_CACHE_DEFAULT = (
+    REPO_ROOT / "data" / "paper" / "openml_large_tabular_diamonds.parquet"
+)
 TUNING_CSV_DEFAULT = (
     REPO_ROOT / "docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv"
 )
@@ -34,20 +46,27 @@ HIGGS_PARQUET_DEFAULT = (
     / "FAIR_Universe_HiggsML_data.parquet"
 )
 TABRED_ROOT_DEFAULT = REPO_ROOT / "data" / "tabred"
+TABRED_DEFAULT_DATASETS = ("cooking-time", "delivery-eta", "maps-routing")
 SHIFTS_OUT_ROOT_DEFAULT = REPO_ROOT / "data" / "shifts"
 SHIFTS_DATASET_DEFAULT = "solar"
 
-FULL_SEEDS = (260410, 260411, 260412, 260413, 260414, 260415)
+# Ten fixed seeds for variance reporting (extends prior six-seed protocol).
+FULL_SEEDS = tuple(260410 + i for i in range(10))
 QUICK_SEEDS = (260410, 260411)
 
 
 def _uv_run(parts: list[str], *, cwd: Path | None = None, check: bool = True) -> int:
-    cmd = ["uv", "run", "python", *parts]
+    cmd = [sys.executable, *parts]
     print("==", " ".join(cmd), flush=True)
-    r = subprocess.run(cmd, cwd=str(cwd or REPO_ROOT), env=os.environ.copy(), check=False)
-    if check and r.returncode != 0:
-        raise subprocess.CalledProcessError(r.returncode, cmd, None, None)
-    return int(r.returncode)
+    env = os.environ.copy()
+    env.setdefault("PYTHONUNBUFFERED", "1")
+    r = subprocess.run(cmd, cwd=str(cwd or REPO_ROOT), env=env, check=False)
+    status = int(r.returncode)
+    print(f"==> subprocess exit {status}", flush=True)
+    if check and status != 0:
+        print(f"==> FAILED (raising): exit {status}\n    cmd: {cmd}", file=sys.stderr, flush=True)
+        raise subprocess.CalledProcessError(status, cmd, None, None)
+    return status
 
 
 def _ensure_year_cache(cache: Path, *, allow_download: bool) -> None:
@@ -65,6 +84,66 @@ def _ensure_year_cache(cache: Path, *, allow_download: bool) -> None:
     )
 
 
+def _ensure_openml_diamonds_cache(cache: Path, *, allow_download: bool) -> None:
+    if cache.is_file():
+        return
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    if not allow_download:
+        print(f"Skip OpenML diamonds multiseed: cache missing {cache}", flush=True)
+        return
+    _uv_run(
+        [
+            str(REPO_ROOT / "tools/materialize_openml_large_tabular.py"),
+            "--cache-path",
+            str(cache),
+            "--data-id",
+            "42225",
+        ]
+    )
+
+
+def _parquet_num_rows(path: Path) -> int:
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    return int(pq.read_metadata(str(path)).num_rows)
+
+
+def _scale_year_split_sizes_for_row_budget(
+    *,
+    n_labeled: int,
+    n_unlabeled: int,
+    n_test: int,
+    n_rows: int,
+) -> tuple[int, int, int]:
+    """Shrink (nu, nt) proportionally if nl+nu+nt exceeds a fixed-row dataset."""
+    nl = int(n_labeled)
+    nu = int(n_unlabeled)
+    nt = int(n_test)
+    need = nl + nu + nt
+    if need <= int(n_rows):
+        return nl, nu, nt
+    extra = int(n_rows) - nl
+    if extra <= 0:
+        raise ValueError(f"n_labeled={nl} exceeds dataset rows={n_rows}")
+    denom = nu + nt
+    if denom <= 0:
+        raise ValueError("n_unlabeled and n_test must be positive for proportional shrink")
+    nu2 = int(extra * (nu / denom))
+    nt2 = extra - nu2
+    if nu2 < 1 or nt2 < 1:
+        raise ValueError(
+            "Could not fit splits into "
+            f"n_rows={n_rows} with nl={nl}, nu={nu}, nt={nt} -> {nu2}, {nt2}"
+        )
+    return nl, nu2, nt2
+
+
+def _tabred_local_markers_present(tabred_root: Path) -> bool:
+    """Return True if local TabReD preprocessing outputs look complete (info.json per dataset)."""
+    root = tabred_root.expanduser().resolve()
+    return all((root / name / "info.json").is_file() for name in TABRED_DEFAULT_DATASETS)
+
+
 def main() -> None:
     import argparse
 
@@ -80,15 +159,37 @@ def main() -> None:
     )
     parser.add_argument("--quick", action="store_true", help="Small budgets for CI smoke")
     parser.add_argument("--no-year-download", action="store_true")
+    parser.add_argument(
+        "--no-openml-download",
+        action="store_true",
+        help="Do not materialize missing OpenML large-tabular caches (e.g., diamonds parquet).",
+    )
     parser.add_argument("--year-cache", type=Path, default=YEAR_CACHE_DEFAULT)
+    parser.add_argument(
+        "--openml-diamonds-cache",
+        type=Path,
+        default=OPENML_DIAMONDS_CACHE_DEFAULT,
+        help="Pinned OpenML diamonds (id 42225) table cache path (.parquet or .csv).",
+    )
     parser.add_argument("--tuning-csv", type=Path, default=TUNING_CSV_DEFAULT)
     parser.add_argument("--higgs-parquet", type=Path, default=HIGGS_PARQUET_DEFAULT)
     parser.add_argument("--skip-catboost", action="store_true")
     parser.add_argument("--skip-tabred", action="store_true")
+    parser.add_argument(
+        "--tabred-data-root",
+        type=Path,
+        default=TABRED_ROOT_DEFAULT,
+        help="Root containing TabReD dataset folders (default: data/tabred).",
+    )
     parser.add_argument("--skip-higgs", action="store_true")
     parser.add_argument("--skip-synthetic", action="store_true")
     parser.add_argument("--skip-backbone", action="store_true")
     parser.add_argument("--skip-ablations", action="store_true")
+    parser.add_argument(
+        "--include-image-rebuttal",
+        action="store_true",
+        help="Run optional synthetic image-regression rebuttal benchmark.",
+    )
     parser.add_argument(
         "--skip-shifts",
         action="store_true",
@@ -115,16 +216,30 @@ def main() -> None:
     run_root = run_root.resolve()
     run_root.mkdir(parents=True, exist_ok=True)
 
+    print(
+        "[run_neurips_sage_reg_full] starting",
+        f"resolved_run_root={run_root}",
+        f"quick={args.quick}",
+        f"year_cache={args.year_cache}",
+        f"skip_higgs={args.skip_higgs}",
+        flush=True,
+    )
+
     year_cache = args.year_cache.resolve()
     allow_y = not args.no_year_download
     _ensure_year_cache(year_cache, allow_download=allow_y)
+    diamonds_cache = args.openml_diamonds_cache.resolve()
+    allow_openml = not args.no_openml_download
+    _ensure_openml_diamonds_cache(diamonds_cache, allow_download=allow_openml)
+
+    tabred_root = args.tabred_data_root.resolve()
 
     quick = args.quick
     seeds = list(QUICK_SEEDS if quick else FULL_SEEDS)
     nl, nu, nt = (512, 4096, 1024) if quick else (4096, 131_072, 32_768)
     yteach, ystu = (1, 1) if quick else (32, 32)
     ufrac = ["0.25", "0.5", "1.0"] if not quick else ["1.0"]
-    n_labeled_sweep = [2048, 4096, 8192] if quick else [2048, 4096, 8192, 16384, 32768]
+    n_labeled_sweep = [2048, 4096, 8192] if quick else [1024, 2048, 4096, 8192, 16384, 32768]
     sweep_nu, sweep_nt = (8192, 2048) if quick else (131_072, 32_768)
     if quick:
         n_labeled_sweep = [2048]
@@ -221,6 +336,46 @@ def main() -> None:
     else:
         print(f"Skip multiseed: tuning CSV missing {args.tuning_csv}", flush=True)
         manifest["phases"]["multiseed"] = "skipped_no_tuning_csv"
+
+    # 2b) Second OpenML tabular track (ggplot2 diamonds / price); uses the same tuned Year row.
+    diamonds_out = run_root / "openml_diamonds"
+    if args.tuning_csv.is_file() and diamonds_cache.is_file():
+        manifest["phases"]["openml_diamonds_multiseed"] = str(diamonds_out)
+        d_rows = _parquet_num_rows(diamonds_cache)
+        d_nl, d_nu, d_nt = _scale_year_split_sizes_for_row_budget(
+            n_labeled=int(nl), n_unlabeled=int(nu), n_test=int(nt), n_rows=d_rows
+        )
+        diamonds_cmd = [
+            str(REPO_ROOT / "examples/benchmarks/self_agreement_supervised_gap_multiseed.py"),
+            "--tuning-csv",
+            str(args.tuning_csv),
+            "--year-dataset-path",
+            str(diamonds_cache),
+            "--no-year-download",
+            "--year-benchmark-label",
+            "openml_diamonds",
+            "--year-n-labeled",
+            str(d_nl),
+            "--year-n-unlabeled",
+            str(d_nu),
+            "--year-n-test",
+            str(d_nt),
+            "--year-teacher-epochs",
+            str(yteach),
+            "--year-student-epochs",
+            str(ystu),
+            "--out-dir",
+            str(diamonds_out),
+            "--skip-higgs",
+            "--seeds",
+            *[str(s) for s in seeds],
+        ]
+        _uv_run(diamonds_cmd)
+    else:
+        if not args.tuning_csv.is_file():
+            manifest["phases"]["openml_diamonds_multiseed"] = "skipped_no_tuning_csv"
+        else:
+            manifest["phases"]["openml_diamonds_multiseed"] = f"missing_cache:{diamonds_cache}"
 
     # 3) Labeled sweep + collate
     sweep_out = run_root / "year_labeled_sweep"
@@ -327,12 +482,14 @@ def main() -> None:
     tabred_out = run_root / "tabred"
     if not args.skip_tabred:
         kaggle = Path.home() / ".kaggle" / "kaggle.json"
-        if kaggle.is_file():
+        kaggle_ok = kaggle.is_file()
+        tabred_local_ok = _tabred_local_markers_present(tabred_root)
+        if kaggle_ok:
             if _uv_run(
                 [
                     str(REPO_ROOT / "tools/fetch_tabred_data.py"),
                     "--out-dir",
-                    str(TABRED_ROOT_DEFAULT),
+                    str(tabred_root),
                     "--skip-if-present",
                 ],
                 check=False,
@@ -345,7 +502,7 @@ def main() -> None:
                         [
                             str(REPO_ROOT / "examples/benchmarks/tabred_sage_ssl_probe.py"),
                             "--tabred-data-root",
-                            str(TABRED_ROOT_DEFAULT),
+                            str(tabred_root),
                             "--out-dir",
                             str(tabred_out),
                         ]
@@ -357,9 +514,41 @@ def main() -> None:
                     manifest["phases"]["tabred"] = "probe_failed"
                 else:
                     manifest["phases"]["tabred"] = str(tabred_out)
+        elif tabred_local_ok:
+            print(
+                f"TabReD: using local materialized data under {tabred_root} "
+                "(skip fetch; no ~/.kaggle/kaggle.json)",
+                flush=True,
+            )
+            manifest["phases"]["tabred_fetch"] = "skipped_no_kaggle_local_ok"
+            tabred_out.mkdir(parents=True, exist_ok=True)
+            if (
+                _uv_run(
+                    [
+                        str(REPO_ROOT / "examples/benchmarks/tabred_sage_ssl_probe.py"),
+                        "--tabred-data-root",
+                        str(tabred_root),
+                        "--out-dir",
+                        str(tabred_out),
+                    ]
+                    + (["--quick"] if quick else []),
+                    check=False,
+                )
+                != 0
+            ):
+                manifest["phases"]["tabred"] = "probe_failed"
+            else:
+                manifest["phases"]["tabred"] = str(tabred_out)
         else:
-            print("Skip TabReD: ~/.kaggle/kaggle.json not found", flush=True)
-            manifest["phases"]["tabred"] = "skipped_no_kaggle"
+            expected = ", ".join(
+                str(tabred_root / name / "info.json") for name in TABRED_DEFAULT_DATASETS
+            )
+            print(
+                "Skip TabReD: ~/.kaggle/kaggle.json not found and local TabReD markers missing "
+                f"(expected {expected})",
+                flush=True,
+            )
+            manifest["phases"]["tabred"] = "skipped_no_kaggle_no_local"
     else:
         manifest["phases"]["tabred"] = "skipped"
 
@@ -442,6 +631,24 @@ def main() -> None:
     else:
         manifest["phases"]["shifts"] = "skipped"
 
+    if args.include_image_rebuttal:
+        image_dir = run_root / "image_rebuttal"
+        image_dir.mkdir(parents=True, exist_ok=True)
+        _uv_run(
+            [
+                str(REPO_ROOT / "examples/benchmarks/image_regression_rebuttal.py"),
+                "--summary-json-path",
+                str(image_dir / "summary.json"),
+                "--teacher-epochs",
+                "1" if quick else "5",
+                "--student-epochs",
+                "1" if quick else "5",
+            ]
+        )
+        manifest["phases"]["image_rebuttal"] = str(image_dir)
+    else:
+        manifest["phases"]["image_rebuttal"] = "skipped"
+
     manifest["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
     (run_root / "neurips_sage_reg_full_manifest.json").write_text(
         json.dumps(manifest, indent=2), encoding="utf-8"
@@ -459,4 +666,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BaseException as exc:
+        print(
+            f"\n[run_neurips_sage_reg_full] FATAL {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+        traceback.print_exc()
+        raise

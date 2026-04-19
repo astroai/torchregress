@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -29,9 +30,7 @@ def main() -> None:
             tag = f"br_{mode or 'none'}_tk_{topk or 'none'}"
             summ = args.out_dir / f"summary_{tag}.json"
             cmd = [
-                "uv",
-                "run",
-                "python",
+                sys.executable,
                 str(repo / "examples/benchmarks/self_agreement_realdata_year.py"),
                 "--cache-path",
                 str(args.year_cache),

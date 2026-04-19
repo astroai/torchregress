@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,9 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_fetch_shifts_dataset_dry_run() -> None:
     r = subprocess.run(
         [
-            "uv",
-            "run",
-            "python",
+            sys.executable,
             str(REPO_ROOT / "tools/fetch_shifts_dataset.py"),
             "--dry-run",
         ],
@@ -29,9 +28,7 @@ def test_fetch_shifts_dataset_dry_run() -> None:
 def test_fetch_shifts_dataset_materialize_writes_readme(tmp_path: Path, extra: list[str]) -> None:
     out_root = tmp_path / "shifts_out"
     cmd = [
-        "uv",
-        "run",
-        "python",
+        sys.executable,
         str(REPO_ROOT / "tools/fetch_shifts_dataset.py"),
         "--out-root",
         str(out_root),

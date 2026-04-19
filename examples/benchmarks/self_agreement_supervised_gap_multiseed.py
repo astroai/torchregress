@@ -28,6 +28,10 @@ class SupervisedGapMultiSeedConfig:
     seeds: tuple[int, ...] = (260410, 260411, 260412)
     year_dataset_path: str | None = None
     year_cache_path: str | None = None
+    year_openml_data_id: int | None = None
+    year_openml_dataset_name: str | None = None
+    year_openml_version: int | None = None
+    year_benchmark_label: str = "year"
     year_allow_download: bool | None = None
     higgs_dataset_path: str | None = None
     include_year: bool = True
@@ -42,14 +46,16 @@ class SupervisedGapMultiSeedConfig:
     year_n_labeled: int | None = None
     year_n_unlabeled: int | None = None
     year_n_test: int | None = None
+    year_lr: float | None = None
+    year_lr_schedule: str | None = None
+    year_lr_min: float | None = None
 
 
 def _metric_names(benchmark: str) -> tuple[str, str]:
-    if benchmark == "year":
-        return "NLL", "Cov90"
     if benchmark == "higgs_public":
         return "NLL_OOD", "Cov90_OOD"
-    raise ValueError(f"unsupported benchmark: {benchmark}")
+    # Year-like OpenML regression tracks share the same reporting columns as `year`.
+    return "NLL", "Cov90"
 
 
 def _summarize_seed_run(
@@ -160,6 +166,9 @@ def main(cfg: SupervisedGapMultiSeedConfig) -> dict[str, Any]:
             seed=seed,
             year_dataset_path=cfg.year_dataset_path,
             year_cache_path=cfg.year_cache_path,
+            year_openml_data_id=cfg.year_openml_data_id,
+            year_openml_dataset_name=cfg.year_openml_dataset_name,
+            year_openml_version=cfg.year_openml_version,
             year_allow_download=cfg.year_allow_download,
             higgs_dataset_path=cfg.higgs_dataset_path,
             include_year=cfg.include_year,
@@ -167,6 +176,9 @@ def main(cfg: SupervisedGapMultiSeedConfig) -> dict[str, Any]:
             year_n_labeled=cfg.year_n_labeled,
             year_n_unlabeled=cfg.year_n_unlabeled,
             year_n_test=cfg.year_n_test,
+            year_lr=cfg.year_lr,
+            year_lr_schedule=cfg.year_lr_schedule,
+            year_lr_min=cfg.year_lr_min,
             year_teacher_epochs=cfg.year_teacher_epochs,
             year_student_epochs=cfg.year_student_epochs,
             higgs_teacher_epochs=cfg.higgs_teacher_epochs,
@@ -183,7 +195,7 @@ def main(cfg: SupervisedGapMultiSeedConfig) -> dict[str, Any]:
                 tuning_config,
             )
             benchmark_runs.append(run)
-            seed_rows.append(_summarize_seed_run("year", seed, run["rows"]))
+            seed_rows.append(_summarize_seed_run(cfg.year_benchmark_label, seed, run["rows"]))
         if cfg.include_higgs:
             run = confirm._confirm_higgs(
                 seed_cfg,
@@ -230,6 +242,30 @@ if __name__ == "__main__":
     )
     parser.add_argument("--year-dataset-path", type=str, default="")
     parser.add_argument("--year-cache-path", type=str, default="")
+    parser.add_argument(
+        "--year-openml-data-id",
+        type=int,
+        default=None,
+        help="Optional OpenML data_id for the Year-like regression track (mutually exclusive with --year-dataset-path).",
+    )
+    parser.add_argument(
+        "--year-openml-dataset-name",
+        type=str,
+        default="",
+        help="Optional OpenML dataset name for the Year-like regression track (mutually exclusive with --year-dataset-path).",
+    )
+    parser.add_argument(
+        "--year-openml-version",
+        type=int,
+        default=None,
+        help="OpenML version for --year-openml-dataset-name.",
+    )
+    parser.add_argument(
+        "--year-benchmark-label",
+        type=str,
+        default=SupervisedGapMultiSeedConfig.year_benchmark_label,
+        help="Label written into multiseed CSV/JSON under Benchmark (default: year).",
+    )
     parser.add_argument("--no-year-download", action="store_true")
     parser.add_argument(
         "--higgs-dataset-path",
@@ -282,7 +318,30 @@ if __name__ == "__main__":
         default=None,
         help="Override Year test set size for all seeds.",
     )
+    parser.add_argument(
+        "--year-lr",
+        type=float,
+        default=None,
+        help="Override Year base Adam LR for all seeds (else from tuning JSON).",
+    )
+    parser.add_argument(
+        "--year-lr-schedule",
+        type=str,
+        default=None,
+        help="Override Year LR schedule: constant or cosine (else from tuning JSON).",
+    )
+    parser.add_argument(
+        "--year-lr-min",
+        type=float,
+        default=None,
+        help="Override cosine LR floor for Year (else from tuning JSON).",
+    )
     args = parser.parse_args()
+    year_lr_schedule: str | None = args.year_lr_schedule
+    if year_lr_schedule is not None:
+        year_lr_schedule = year_lr_schedule.strip().lower()
+        if year_lr_schedule not in {"constant", "cosine"}:
+            parser.error("--year-lr-schedule must be 'constant' or 'cosine'")
     main(
         SupervisedGapMultiSeedConfig(
             tuning_csv_path=args.tuning_csv,
@@ -290,6 +349,10 @@ if __name__ == "__main__":
             seeds=tuple(args.seeds),
             year_dataset_path=args.year_dataset_path or None,
             year_cache_path=args.year_cache_path or None,
+            year_openml_data_id=args.year_openml_data_id,
+            year_openml_dataset_name=args.year_openml_dataset_name or None,
+            year_openml_version=args.year_openml_version,
+            year_benchmark_label=str(args.year_benchmark_label),
             year_allow_download=False if args.no_year_download else None,
             higgs_dataset_path=args.higgs_dataset_path or None,
             include_year=not args.skip_year,
@@ -297,6 +360,9 @@ if __name__ == "__main__":
             year_n_labeled=args.year_n_labeled,
             year_n_unlabeled=args.year_n_unlabeled,
             year_n_test=args.year_n_test,
+            year_lr=args.year_lr,
+            year_lr_schedule=year_lr_schedule,
+            year_lr_min=args.year_lr_min,
             year_teacher_epochs=args.year_teacher_epochs,
             year_student_epochs=args.year_student_epochs,
             higgs_teacher_epochs=args.higgs_teacher_epochs,

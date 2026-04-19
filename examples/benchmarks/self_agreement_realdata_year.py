@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -73,6 +74,8 @@ class YearRealDataConfig:
     student_epochs: int = 24
     batch_size: int = 512
     lr: float = 2e-3
+    lr_schedule: str = "constant"  # "constant" | "cosine"
+    lr_min: float = 1e-5
     dropout: float = 0.10
     unlabeled_noise: float = 0.03
     feature_drop_prob: float = 0.0
@@ -85,6 +88,15 @@ class YearRealDataConfig:
     weight_power: float = 1.0
     hard_weight_threshold: float | None = None
     unlabeled_fractions: tuple[float, ...] = (0.25, 0.5, 1.0)
+    dataloader_num_workers: int = 0
+    # RankUp (Huang, Fu, Tsao; NeurIPS 2024; arXiv:2410.22124): auxiliary quantile buckets.
+    rankup_n_buckets: int = 32
+    rankup_aux_weight: float = 0.35
+    rankup_min_teacher_precision: float = 0.12
+    # PabLO-SSL (Harit et al.; ICML 2025): batchwise precision quantile self-training gate.
+    pablo_precision_quantile: float = 0.35
+    # EMA smoothing of the batch quantile threshold (0 = disabled). Stabilizes early training.
+    pablo_tau_ema_momentum: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -119,8 +131,61 @@ class TabularGaussianRegressor(nn.Module):
         return self.mean_head(h), self.log_var_head(h).clamp(min=-6.0, max=3.0)
 
 
+class TabularGaussianRankUpRegressor(nn.Module):
+    """Gaussian regressor + auxiliary bucket logits (RankUp-style, NeurIPS 2024)."""
+
+    def __init__(self, input_dim: int, hidden: int, dropout: float, n_buckets: int) -> None:
+        super().__init__()
+        self.n_buckets = int(n_buckets)
+        self.backbone = nn.Sequential(
+            nn.Linear(input_dim, hidden),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+        self.mean_head = nn.Linear(hidden, 1)
+        self.log_var_head = nn.Linear(hidden, 1)
+        self.bucket_head = nn.Linear(hidden, self.n_buckets)
+        nn.init.constant_(self.log_var_head.bias, -1.2)
+
+    def forward(self, x: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+        h = self.backbone(x)
+        return (
+            self.mean_head(h),
+            self.log_var_head(h).clamp(min=-6.0, max=3.0),
+            self.bucket_head(h),
+        )
+
+
 def _training_seed(seed: int, offset: int) -> None:
     set_comparison_seed(seed + offset)
+
+
+def _set_epoch_lr(
+    optimizer: torch.optim.Optimizer,
+    *,
+    cfg: YearRealDataConfig,
+    epoch_idx: int,
+    total_epochs: int,
+) -> None:
+    """Set per-epoch learning rate for simple Adam loops (teacher / baselines)."""
+    base_lr = float(cfg.lr)
+    if cfg.lr_schedule == "constant":
+        lr = base_lr
+    elif cfg.lr_schedule == "cosine":
+        if total_epochs <= 1:
+            mult = 1.0
+        else:
+            mult = 0.5 * (1.0 + math.cos(math.pi * float(epoch_idx) / float(total_epochs - 1)))
+        lr = max(base_lr * mult, float(cfg.lr_min))
+    else:
+        raise ValueError(
+            f"unknown lr_schedule: {cfg.lr_schedule!r} (expected 'constant' or 'cosine')"
+        )
+    for g in optimizer.param_groups:
+        g["lr"] = lr
 
 
 def _write_csv(path: str | Path, rows: list[dict[str, object]]) -> Path:
@@ -372,7 +437,9 @@ def _load_dataset_frame(cfg: YearRealDataConfig) -> tuple[pd.DataFrame, str]:
     return frame, "OpenML:year"
 
 
-def _make_split(cfg: YearRealDataConfig) -> YearSplit:
+def _load_year_xy_for_split(
+    cfg: YearRealDataConfig,
+) -> tuple[Tensor, Tensor, str, torch.Generator, int]:
     set_comparison_seed(cfg.seed)
     frame, dataset_name = _load_dataset_frame(cfg)
     if cfg.target_column not in frame.columns:
@@ -383,7 +450,7 @@ def _make_split(cfg: YearRealDataConfig) -> YearSplit:
     x_all = torch.tensor(feature_frame.to_numpy(copy=True), dtype=torch.float32)
     y_all = torch.tensor(target.to_numpy(copy=True), dtype=torch.float32).unsqueeze(1)
 
-    n_total = x_all.shape[0]
+    n_total = int(x_all.shape[0])
     g = torch.Generator().manual_seed(cfg.seed)
     if cfg.max_dataset_rows is not None and n_total > cfg.max_dataset_rows:
         perm = torch.randperm(n_total, generator=g)
@@ -395,26 +462,34 @@ def _make_split(cfg: YearRealDataConfig) -> YearSplit:
     need = cfg.n_labeled + cfg.n_unlabeled + cfg.n_test
     if need > n_total:
         raise ValueError(f"Requested {need} rows but dataset has {n_total}")
+    return x_all, y_all, dataset_name, g, n_total
 
+
+def _year_train_test_indices(
+    cfg: YearRealDataConfig, *, n_total: int, g: torch.Generator
+) -> tuple[Tensor, Tensor]:
     canonical_like = n_total >= cfg.canonical_test_size + cfg.n_labeled + cfg.n_unlabeled
     if canonical_like:
         train_pool_end = n_total - cfg.canonical_test_size
         train_pool_idx = torch.arange(train_pool_end)
         test_pool_idx = torch.arange(train_pool_end, n_total)
-    else:
-        perm = torch.randperm(n_total, generator=g)
-        test_pool_idx = perm[: cfg.n_test]
-        train_pool_idx = perm[cfg.n_test :]
-
-    train_perm = train_pool_idx[torch.randperm(train_pool_idx.shape[0], generator=g)]
-    labeled_idx = train_perm[: cfg.n_labeled]
-    unlabeled_idx = train_perm[cfg.n_labeled : cfg.n_labeled + cfg.n_unlabeled]
-
-    if canonical_like:
         test_idx = test_pool_idx[: cfg.n_test]
     else:
-        test_idx = test_pool_idx
+        perm = torch.randperm(n_total, generator=g)
+        test_idx = perm[: cfg.n_test]
+        train_pool_idx = perm[cfg.n_test :]
+    return train_pool_idx, test_idx
 
+
+def _year_split_from_indices(
+    x_all: Tensor,
+    y_all: Tensor,
+    labeled_idx: Tensor,
+    unlabeled_idx: Tensor,
+    test_idx: Tensor,
+    *,
+    dataset_name: str,
+) -> YearSplit:
     x_train_pool = x_all[torch.cat([labeled_idx, unlabeled_idx], dim=0)]
     x_mean = x_train_pool.mean(dim=0, keepdim=True)
     x_std = x_train_pool.std(dim=0, keepdim=True).clamp_min(1e-6)
@@ -429,15 +504,133 @@ def _make_split(cfg: YearRealDataConfig) -> YearSplit:
         x_test=(x_all[test_idx] - x_mean) / x_std,
         y_test=(y_all[test_idx] - y_mean) / y_std,
         dataset_name=dataset_name,
-        n_features=x_all.shape[1],
+        n_features=int(x_all.shape[1]),
     )
 
 
-def _subsample_pair(x: Tensor, y: Tensor, fraction: float) -> tuple[Tensor, Tensor]:
+def make_year_split_label_pool_fraction(
+    cfg: YearRealDataConfig,
+    *,
+    label_pool_percent: float,
+    shift_mode: str = "none",
+    min_unlabeled: int = 1,
+) -> YearSplit:
+    """Split the full train pool into labeled vs unlabeled by labeled fraction.
+
+    Normalization matches :func:`_make_split`: ``x`` uses labeled+unlabeled train
+    moments; ``y`` uses labeled moments only.
+
+    ``label_pool_percent`` is interpreted as a percent of the **train pool** size
+    ``T`` (all rows not in the held-out test set). The number of labeled rows is
+    ``max(1, min(round(p/100*T), T - max(min_unlabeled, 1)))`` so SSL trainers
+    always retain at least one unlabeled row unless ``min_unlabeled`` is 0 (not
+    recommended for this benchmark's SSL code paths).
+
+    ``shift_mode``:
+    - ``none``: random permutation of the train pool (same generator seed policy
+      as the tail of :func:`_make_split` after train/test indices are fixed).
+    - ``covariate_high_labeled``: sort the train pool by descending mean raw feature.
+    - ``label_high_labeled``: sort the train pool by descending raw target.
+    """
+    if not 0.0 < float(label_pool_percent) <= 100.0:
+        raise ValueError("label_pool_percent must lie in (0, 100]")
+    mode = str(shift_mode).strip().lower().replace("-", "_")
+    aliases = {
+        "none": "none",
+        "covariate_high_labeled": "covariate_high_labeled",
+        "covariate": "covariate_high_labeled",
+        "label_high_labeled": "label_high_labeled",
+        "label": "label_high_labeled",
+    }
+    if mode not in aliases:
+        raise ValueError(
+            f"unknown shift_mode: {shift_mode!r} (expected one of {sorted(set(aliases))})"
+        )
+    resolved_mode = aliases[mode]
+
+    x_all, y_all, dataset_name, g, n_total = _load_year_xy_for_split(cfg)
+    train_pool_idx, test_idx = _year_train_test_indices(cfg, n_total=n_total, g=g)
+    t_pool = int(train_pool_idx.shape[0])
+    nu_floor = max(int(min_unlabeled), 1)
+    if t_pool < 1 + nu_floor:
+        raise ValueError(
+            f"train pool ({t_pool} rows) too small for min_unlabeled={min_unlabeled} "
+            f"(need at least {1 + nu_floor} rows)"
+        )
+    raw_nl = int(round(float(label_pool_percent) / 100.0 * float(t_pool)))
+    n_labeled = max(1, min(raw_nl, t_pool - nu_floor))
+    n_unlabeled = t_pool - n_labeled
+    if n_unlabeled < 1:
+        raise ValueError("internal split error: empty unlabeled pool")
+
+    if resolved_mode == "none":
+        ordered = train_pool_idx[torch.randperm(t_pool, generator=g)]
+    elif resolved_mode == "covariate_high_labeled":
+        pool_x = x_all[train_pool_idx]
+        score = pool_x.mean(dim=1)
+        order = torch.argsort(score, descending=True)
+        ordered = train_pool_idx[order]
+    else:
+        pool_y = y_all[train_pool_idx].reshape(-1)
+        order = torch.argsort(pool_y, descending=True)
+        ordered = train_pool_idx[order]
+
+    labeled_idx = ordered[:n_labeled]
+    unlabeled_idx = ordered[n_labeled : n_labeled + n_unlabeled]
+    return _year_split_from_indices(
+        x_all,
+        y_all,
+        labeled_idx,
+        unlabeled_idx,
+        test_idx,
+        dataset_name=dataset_name,
+    )
+
+
+def _make_split(cfg: YearRealDataConfig) -> YearSplit:
+    x_all, y_all, dataset_name, g, n_total = _load_year_xy_for_split(cfg)
+    train_pool_idx, test_idx = _year_train_test_indices(cfg, n_total=n_total, g=g)
+
+    train_perm = train_pool_idx[torch.randperm(train_pool_idx.shape[0], generator=g)]
+    labeled_idx = train_perm[: cfg.n_labeled]
+    unlabeled_idx = train_perm[cfg.n_labeled : cfg.n_labeled + cfg.n_unlabeled]
+
+    return _year_split_from_indices(
+        x_all,
+        y_all,
+        labeled_idx,
+        unlabeled_idx,
+        test_idx,
+        dataset_name=dataset_name,
+    )
+
+
+def _subsample_pair(
+    x: Tensor,
+    y: Tensor,
+    fraction: float,
+    *,
+    subsample_seed: int | None = None,
+) -> tuple[Tensor, Tensor]:
+    """Subsample the first dimension without replacement.
+
+    Uses a random subset when ``fraction < 1`` so unlabeled-fraction sweeps are not
+    biased toward a fixed prefix of the (already permuted) unlabeled tensor order.
+    """
     if not 0.0 < fraction <= 1.0:
         raise ValueError("fraction must lie in (0, 1]")
-    count = max(1, int(round(fraction * x.shape[0])))
-    return x[:count], y[:count]
+    n = int(x.shape[0])
+    count = max(1, int(round(fraction * n)))
+    if count >= n:
+        return x, y
+    if subsample_seed is not None:
+        g = torch.Generator(device=x.device)
+        g.manual_seed(int(subsample_seed) & 0x7FFF_FFFF)
+        perm = torch.randperm(n, generator=g, device=x.device)
+    else:
+        perm = torch.randperm(n, device=x.device)
+    pick = perm[:count]
+    return x[pick], y[pick]
 
 
 def _augment_fn(scale: float, feature_drop_prob: float, feature_mix_prob: float):
@@ -461,6 +654,37 @@ def _supervised_loss(model: TabularGaussianRegressor, x: Tensor, y: Tensor) -> T
     return torch.nn.functional.gaussian_nll_loss(mean, y, torch.exp(log_var).clamp_min(1e-6))
 
 
+def _sorted_y_reference(y_labeled: Tensor) -> Tensor:
+    return torch.sort(y_labeled.reshape(-1).float())[0]
+
+
+def _y_to_rank_buckets(y_query: Tensor, sorted_ref: Tensor, n_buckets: int) -> Tensor:
+    """Map scalar targets to ``[0, n_buckets-1]`` via normalized rank in ``sorted_ref``."""
+    s = sorted_ref
+    n = int(s.numel())
+    k = max(2, int(n_buckets))
+    if n <= 0:
+        raise ValueError("sorted_ref must be non-empty")
+    pos = torch.searchsorted(s, y_query.reshape(-1).float(), right=True).clamp(0, n)
+    pos = pos.clamp(min=1)
+    return ((pos.float() - 1.0) / float(max(n - 1, 1)) * float(k)).long().clamp(0, k - 1)
+
+
+def _build_rankup_from_teacher(
+    teacher: TabularGaussianRegressor,
+    *,
+    n_buckets: int,
+) -> TabularGaussianRankUpRegressor:
+    in_dim = int(teacher.backbone[0].in_features)
+    hidden = int(teacher.backbone[0].out_features)
+    drop_p = float(teacher.backbone[2].p)
+    student = TabularGaussianRankUpRegressor(in_dim, hidden, drop_p, n_buckets)
+    student.backbone.load_state_dict(teacher.backbone.state_dict())
+    student.mean_head.load_state_dict(teacher.mean_head.state_dict())
+    student.log_var_head.load_state_dict(teacher.log_var_head.state_dict())
+    return student
+
+
 def _predictive_batch(model_: nn.Module, x: Tensor) -> PredictiveBatch:
     mean, log_var = cast(TabularGaussianRegressor, model_)(x)
     return PredictiveBatch(mean=mean, std=torch.exp(0.5 * log_var))
@@ -472,16 +696,22 @@ def _build_loaders(
     x_unlabeled: Tensor,
     *,
     batch_size: int,
+    num_workers: int = 0,
 ) -> tuple[DataLoader[tuple[Tensor, Tensor]], DataLoader[tuple[Tensor]]]:
+    nw = max(0, int(num_workers))
     labeled_loader = DataLoader(
         TensorDataset(x_labeled, y_labeled),
         batch_size=batch_size,
         shuffle=True,
+        num_workers=nw,
+        persistent_workers=nw > 0,
     )
     unlabeled_loader = DataLoader(
         TensorDataset(x_unlabeled),
         batch_size=batch_size,
         shuffle=True,
+        num_workers=nw,
+        persistent_workers=nw > 0,
     )
     return labeled_loader, unlabeled_loader
 
@@ -496,13 +726,17 @@ def _train_supervised_teacher(
     _training_seed(cfg.seed, 0)
     model = TabularGaussianRegressor(input_dim, cfg.hidden, cfg.dropout)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    nw = int(cfg.dataloader_num_workers)
     loader = DataLoader(
         TensorDataset(x_labeled, y_labeled),
         batch_size=cfg.batch_size,
         shuffle=True,
+        num_workers=nw,
+        persistent_workers=nw > 0,
     )
     model.train()
-    for _ in range(cfg.teacher_epochs):
+    for epoch_idx in range(cfg.teacher_epochs):
+        _set_epoch_lr(optimizer, cfg=cfg, epoch_idx=epoch_idx, total_epochs=cfg.teacher_epochs)
         for xb, yb in loader:
             optimizer.zero_grad()
             loss = _supervised_loss(model, xb, yb)
@@ -531,14 +765,18 @@ def _train_confidence_weighted_student(
     y_all = torch.cat([y_labeled, teacher_mean.detach()], dim=0)
     weights_all = torch.cat([torch.zeros_like(y_labeled), pseudo_confidence], dim=0)
 
+    nw = int(cfg.dataloader_num_workers)
     train_loader = DataLoader(
         TensorDataset(x_all, y_all, weights_all),
         batch_size=cfg.batch_size,
         shuffle=True,
+        num_workers=nw,
+        persistent_workers=nw > 0,
     )
     n_labeled = x_labeled.shape[0]
 
-    for _ in range(cfg.student_epochs):
+    for epoch_idx in range(cfg.student_epochs):
+        _set_epoch_lr(optimizer, cfg=cfg, epoch_idx=epoch_idx, total_epochs=cfg.student_epochs)
         for xb, yb, wb in train_loader:
             optimizer.zero_grad()
             mean, log_var = student(xb)
@@ -589,6 +827,7 @@ def _train_sage_student(
         y_labeled,
         x_unlabeled,
         batch_size=cfg.batch_size,
+        num_workers=int(cfg.dataloader_num_workers),
     )
     trainer = SelfAgreementTrainer(
         optimizer=optimizer,
@@ -610,10 +849,201 @@ def _train_sage_student(
         batch_relative_mode=cfg.sage_batch_relative_mode,
         batch_trust_top_k=cfg.sage_batch_trust_top_k,
     )
-    history = trainer.fit(student, labeled_loader, unlabeled_loader, epochs=cfg.student_epochs)
+    history = trainer.fit(
+        student,
+        labeled_loader,
+        unlabeled_loader,
+        epochs=cfg.student_epochs,
+        lr_schedule=cfg.lr_schedule,
+        lr_min=cfg.lr_min,
+    )
     return student.eval(), {
         "mean_weight": float(history["mean_weight"][-1]),
         "mean_disagreement": float(history["mean_disagreement"][-1]),
+        "n_labeled": float(x_labeled.shape[0]),
+    }
+
+
+def _train_rankup_reg_student(
+    cfg: YearRealDataConfig,
+    teacher: TabularGaussianRegressor,
+    x_labeled: Tensor,
+    y_labeled: Tensor,
+    x_unlabeled: Tensor,
+) -> tuple[TabularGaussianRankUpRegressor, dict[str, float]]:
+    """RankUp-style SSL: auxiliary quantile buckets + self-training (Huang, Fu, Tsao; NeurIPS 2024).
+
+    Reference: https://arxiv.org/abs/2410.22124 — joint Gaussian NLL with an auxiliary bucket
+    classifier; unlabeled terms use frozen-teacher Gaussian pseudo-targets and buckets induced
+    from the teacher mean under the labeled marginal (rank bins), with a fixed minimum precision
+    mask (self-training gate).
+    """
+    _training_seed(cfg.seed, 11)
+    k0 = int(cfg.rankup_n_buckets)
+    k = min(max(2, k0), max(2, int(x_labeled.shape[0]) // 2))
+    sorted_ref = _sorted_y_reference(y_labeled)
+    student = _build_rankup_from_teacher(teacher, n_buckets=k).train()
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    labeled_loader, unlabeled_loader = _build_loaders(
+        x_labeled,
+        y_labeled,
+        x_unlabeled,
+        batch_size=cfg.batch_size,
+        num_workers=int(cfg.dataloader_num_workers),
+    )
+    weak_scale = 0.35 * float(cfg.unlabeled_noise)
+    strong_aug = _augment_fn(
+        cfg.unlabeled_noise,
+        cfg.feature_drop_prob,
+        cfg.feature_mix_prob,
+    )
+    lambda_u = float(cfg.pseudo_weight)
+    lambda_aux = float(cfg.rankup_aux_weight)
+    tau_prec = float(cfg.rankup_min_teacher_precision)
+    accept_sum = 0.0
+    accept_steps = 0
+
+    for epoch_idx in range(cfg.student_epochs):
+        _set_epoch_lr(optimizer, cfg=cfg, epoch_idx=epoch_idx, total_epochs=cfg.student_epochs)
+        ul_iter = iter(unlabeled_loader)
+        for xb_l, yb_l in labeled_loader:
+            try:
+                (xb_u,) = next(ul_iter)
+            except StopIteration:
+                ul_iter = iter(unlabeled_loader)
+                (xb_u,) = next(ul_iter)
+            optimizer.zero_grad()
+            mean_l, lv_l, blogits_l = student(xb_l)
+            loss_sup = F.gaussian_nll_loss(
+                mean_l,
+                yb_l,
+                torch.exp(lv_l).clamp_min(1e-6),
+            )
+            b_tgt = _y_to_rank_buckets(yb_l, sorted_ref, k)
+            loss_aux = F.cross_entropy(blogits_l, b_tgt)
+
+            x_w = xb_u + weak_scale * torch.randn_like(xb_u)
+            x_s = strong_aug(xb_u)
+            with torch.no_grad():
+                mu_t, lv_t = teacher(x_w)
+                prec = torch.exp(-0.5 * lv_t).squeeze(-1)
+                pseudo_bucket = _y_to_rank_buckets(mu_t, sorted_ref, k)
+            mask = prec >= tau_prec
+            accept_sum += float(mask.float().mean().item())
+            accept_steps += 1
+            mu_s, lv_s, blogits_s = student(x_s)
+            nll_u = F.gaussian_nll_loss(
+                mu_s,
+                mu_t.detach(),
+                torch.exp(lv_t).detach().clamp_min(1e-6),
+                reduction="none",
+            ).squeeze(-1)
+            ce_u = F.cross_entropy(blogits_s, pseudo_bucket, reduction="none")
+            if bool(mask.any().item()):
+                w = mask.float()
+                loss_u = (nll_u * w).sum() / w.sum().clamp_min(1.0)
+                loss_b = (ce_u * w).sum() / w.sum().clamp_min(1.0)
+            else:
+                loss_u = nll_u.mean() * 0.0
+                loss_b = ce_u.mean() * 0.0
+            loss = loss_sup + lambda_aux * loss_aux + lambda_u * (loss_u + lambda_aux * loss_b)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=5.0)
+            optimizer.step()
+
+    return student.eval(), {
+        "mean_weight": float(accept_sum / max(accept_steps, 1)),
+        "mean_disagreement": 0.0,
+        "n_labeled": float(x_labeled.shape[0]),
+    }
+
+
+def _train_padaptive_pseudolabel_student(
+    cfg: YearRealDataConfig,
+    teacher: TabularGaussianRegressor,
+    x_labeled: Tensor,
+    y_labeled: Tensor,
+    x_unlabeled: Tensor,
+) -> tuple[TabularGaussianRegressor, dict[str, float]]:
+    """PabLO-style batchwise self-training on Gaussian precision (Harit et al.; ICML 2025).
+
+    Reference: https://openreview.net/forum?id=w4c5bLkhsz — we adapt the *idea* of learning a
+    pseudo-label acceptance gate from batch statistics: accept teacher pseudo-labels whose
+    precision exceeds the ``pablo_precision_quantile`` empirical quantile of the batch, then
+    apply Gaussian NLL on strong views (tabular noise / feature dropout augmentations).
+    """
+    _training_seed(cfg.seed, 12)
+    student = copy.deepcopy(teacher).train()
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    labeled_loader, unlabeled_loader = _build_loaders(
+        x_labeled,
+        y_labeled,
+        x_unlabeled,
+        batch_size=cfg.batch_size,
+        num_workers=int(cfg.dataloader_num_workers),
+    )
+    weak_scale = 0.45 * float(cfg.unlabeled_noise)
+    strong_aug = _augment_fn(
+        cfg.unlabeled_noise,
+        cfg.feature_drop_prob,
+        cfg.feature_mix_prob,
+    )
+    lambda_u = float(cfg.pseudo_weight)
+    q = float(cfg.pablo_precision_quantile)
+    q = min(max(q, 0.05), 0.95)
+    ema_m = float(cfg.pablo_tau_ema_momentum)
+    ema_m = min(max(ema_m, 0.0), 0.999)
+    tau_state: Tensor | None = None
+    accept_sum = 0.0
+    accept_steps = 0
+
+    for epoch_idx in range(cfg.student_epochs):
+        _set_epoch_lr(optimizer, cfg=cfg, epoch_idx=epoch_idx, total_epochs=cfg.student_epochs)
+        ul_iter = iter(unlabeled_loader)
+        for xb_l, yb_l in labeled_loader:
+            try:
+                (xb_u,) = next(ul_iter)
+            except StopIteration:
+                ul_iter = iter(unlabeled_loader)
+                (xb_u,) = next(ul_iter)
+            optimizer.zero_grad()
+            loss_sup = _supervised_loss(student, xb_l, yb_l)
+            x_w = xb_u + weak_scale * torch.randn_like(xb_u)
+            x_s = strong_aug(xb_u)
+            with torch.no_grad():
+                mu_w, lv_w = teacher(x_w)
+                prec = torch.exp(-0.5 * lv_w).reshape(-1)
+                tau_b = torch.quantile(prec, q)
+                if 0.0 < ema_m < 1.0:
+                    if tau_state is None:
+                        tau_state = tau_b.detach()
+                    else:
+                        tau_state = ema_m * tau_state + (1.0 - ema_m) * tau_b.detach()
+                    tau_eff = tau_state
+                else:
+                    tau_eff = tau_b
+                mask = prec >= tau_eff
+            accept_sum += float(mask.float().mean().item())
+            accept_steps += 1
+            mu_s, lv_s = student(x_s)
+            nll_u = F.gaussian_nll_loss(
+                mu_s,
+                mu_w.detach(),
+                torch.exp(lv_w).detach().clamp_min(1e-6),
+                reduction="none",
+            ).squeeze(-1)
+            if bool(mask.any().item()):
+                loss_u = (nll_u * mask.float()).sum() / mask.float().sum().clamp_min(1.0)
+            else:
+                loss_u = nll_u.mean() * 0.0
+            loss = loss_sup + lambda_u * loss_u
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=5.0)
+            optimizer.step()
+
+    return student.eval(), {
+        "mean_weight": float(accept_sum / max(accept_steps, 1)),
+        "mean_disagreement": 0.0,
         "n_labeled": float(x_labeled.shape[0]),
     }
 
@@ -637,6 +1067,7 @@ def _train_mean_teacher_student(
         y_labeled,
         x_unlabeled,
         batch_size=cfg.batch_size,
+        num_workers=int(cfg.dataloader_num_workers),
     )
     augment = _augment_fn(
         cfg.unlabeled_noise,
@@ -646,7 +1077,8 @@ def _train_mean_teacher_student(
     decay = float(cfg.ema_decay)
     lambda_u = float(cfg.pseudo_weight)
 
-    for _ in range(cfg.student_epochs):
+    for epoch_idx in range(cfg.student_epochs):
+        _set_epoch_lr(optimizer, cfg=cfg, epoch_idx=epoch_idx, total_epochs=cfg.student_epochs)
         ul_iter = iter(unlabeled_loader)
         for xb_l, yb_l in labeled_loader:
             try:
@@ -675,12 +1107,65 @@ def _train_mean_teacher_student(
     }
 
 
-def _evaluate_model(
-    model: TabularGaussianRegressor, x_test: Tensor, y_test: Tensor
-) -> dict[str, float]:
+def _train_pi_model_student(
+    cfg: YearRealDataConfig,
+    teacher: TabularGaussianRegressor,
+    x_labeled: Tensor,
+    y_labeled: Tensor,
+    x_unlabeled: Tensor,
+) -> tuple[TabularGaussianRegressor, dict[str, float]]:
+    """Simple consistency baseline (Pi-model style, no EMA teacher)."""
+    _training_seed(cfg.seed, 4)
+    student = copy.deepcopy(teacher).train()
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    labeled_loader, unlabeled_loader = _build_loaders(
+        x_labeled,
+        y_labeled,
+        x_unlabeled,
+        batch_size=cfg.batch_size,
+        num_workers=int(cfg.dataloader_num_workers),
+    )
+    augment = _augment_fn(
+        cfg.unlabeled_noise,
+        cfg.feature_drop_prob,
+        cfg.feature_mix_prob,
+    )
+    lambda_u = float(cfg.pseudo_weight)
+
+    for epoch_idx in range(cfg.student_epochs):
+        _set_epoch_lr(optimizer, cfg=cfg, epoch_idx=epoch_idx, total_epochs=cfg.student_epochs)
+        ul_iter = iter(unlabeled_loader)
+        for xb_l, yb_l in labeled_loader:
+            try:
+                (xb_u,) = next(ul_iter)
+            except StopIteration:
+                ul_iter = iter(unlabeled_loader)
+                (xb_u,) = next(ul_iter)
+            optimizer.zero_grad()
+            loss_sup = _supervised_loss(student, xb_l, yb_l)
+            mean_a, _ = student(augment(xb_u))
+            mean_b, _ = student(augment(xb_u))
+            loss_u = F.mse_loss(mean_a, mean_b)
+            loss = loss_sup + lambda_u * loss_u
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=5.0)
+            optimizer.step()
+
+    return student.eval(), {
+        "mean_weight": lambda_u,
+        "mean_disagreement": 0.0,
+        "n_labeled": float(x_labeled.shape[0]),
+    }
+
+
+def _evaluate_model(model: nn.Module, x_test: Tensor, y_test: Tensor) -> dict[str, float]:
     model.eval()
     with torch.no_grad():
-        mean, log_var = model(x_test)
+        raw = model(x_test)
+        if isinstance(raw, tuple) and len(raw) == 3:
+            mean, log_var, _ = raw
+        else:
+            mean, log_var = cast(tuple[Tensor, Tensor], raw)
         std = torch.exp(0.5 * log_var).clamp_min(1e-4)
         var = std.square()
 
@@ -727,7 +1212,10 @@ def _collect_unlabeled_diagnostics(
     fraction: float,
 ) -> dict[str, Tensor]:
     x_unlabeled, y_unlabeled_true = _subsample_pair(
-        split.x_unlabeled, split.y_unlabeled_true, fraction
+        split.x_unlabeled,
+        split.y_unlabeled_true,
+        fraction,
+        subsample_seed=cfg.seed * 1_000_003 + int(round(fraction * 1_000_000)),
     )
     teacher = _train_supervised_teacher(
         cfg,
@@ -778,7 +1266,10 @@ def _run_fraction(
     cfg: YearRealDataConfig, split: YearSplit, fraction: float
 ) -> list[dict[str, object]]:
     x_unlabeled, y_unlabeled_true = _subsample_pair(
-        split.x_unlabeled, split.y_unlabeled_true, fraction
+        split.x_unlabeled,
+        split.y_unlabeled_true,
+        fraction,
+        subsample_seed=cfg.seed * 1_000_003 + int(round(fraction * 1_000_000)),
     )
     teacher, teacher_s = timed_call(
         _train_supervised_teacher,
@@ -808,10 +1299,49 @@ def _run_fraction(
             ),
         ),
         (
+            "PiModelConsistency",
+            lambda: (
+                *timed_call(
+                    _train_pi_model_student,
+                    cfg,
+                    teacher,
+                    split.x_labeled,
+                    split.y_labeled,
+                    x_unlabeled,
+                ),
+            ),
+        ),
+        (
             "ConfidenceWeightedPseudoLabel",
             lambda: (
                 *timed_call(
                     _train_confidence_weighted_student,
+                    cfg,
+                    teacher,
+                    split.x_labeled,
+                    split.y_labeled,
+                    x_unlabeled,
+                ),
+            ),
+        ),
+        (
+            "RankUp",
+            lambda: (
+                *timed_call(
+                    _train_rankup_reg_student,
+                    cfg,
+                    teacher,
+                    split.x_labeled,
+                    split.y_labeled,
+                    x_unlabeled,
+                ),
+            ),
+        ),
+        (
+            "PabLOPseudo",
+            lambda: (
+                *timed_call(
+                    _train_padaptive_pseudolabel_student,
                     cfg,
                     teacher,
                     split.x_labeled,
@@ -843,6 +1373,7 @@ def _run_fraction(
         metrics, eval_s = timed_call(_evaluate_model, model, split.x_test, split.y_test)
         rows.append(
             {
+                "Seed": int(cfg.seed),
                 "Method": method,
                 "Dataset": split.dataset_name,
                 "UnlabeledFraction": float(fraction),
@@ -856,12 +1387,27 @@ def _run_fraction(
     return rows
 
 
-def run_benchmark(cfg: YearRealDataConfig) -> list[dict[str, object]]:
-    split = _make_split(cfg)
+def run_benchmark_on_split(cfg: YearRealDataConfig, split: YearSplit) -> list[dict[str, object]]:
+    print(
+        "[self_agreement_realdata_year] run_benchmark_on_split "
+        f"seed={cfg.seed} dataset={split.dataset_name} "
+        f"n_labeled={int(split.x_labeled.shape[0])} n_unlabeled={int(split.x_unlabeled.shape[0])} "
+        f"n_test={int(split.x_test.shape[0])} unlabeled_fractions={cfg.unlabeled_fractions}",
+        flush=True,
+    )
     rows: list[dict[str, object]] = []
     for fraction in cfg.unlabeled_fractions:
+        print(
+            f"[self_agreement_realdata_year]   fraction={float(fraction):.4f} (training all methods)",
+            flush=True,
+        )
         rows.extend(_run_fraction(cfg, split, fraction))
+    print(f"[self_agreement_realdata_year] done; {len(rows)} rows", flush=True)
     return rows
+
+
+def run_benchmark(cfg: YearRealDataConfig) -> list[dict[str, object]]:
+    return run_benchmark_on_split(cfg, _make_split(cfg))
 
 
 def main(
@@ -875,6 +1421,12 @@ def main(
     summary_json_path: str | None = None,
 ) -> list[dict[str, object]]:
     resolved = YearRealDataConfig() if cfg is None else cfg
+    print(
+        "[self_agreement_realdata_year] main() "
+        f"seed={resolved.seed} nl/nu/nt={resolved.n_labeled}/{resolved.n_unlabeled}/{resolved.n_test} "
+        f"epochs={resolved.teacher_epochs}/{resolved.student_epochs} batch={resolved.batch_size}",
+        flush=True,
+    )
     rows = run_benchmark(resolved)
 
     perf_path = performance_figure_path or figure_path
@@ -896,6 +1448,8 @@ def main(
         "SAGE-Reg Real-Data Benchmark (YearPredictionMSD)",
         rows,
         metric_order=[
+            "Seed",
+            "Method",
             "UnlabeledFraction",
             "RMSE",
             "NLL",
@@ -939,6 +1493,7 @@ def main(
             notes=[
                 "Uses OpenML/UCI YearPredictionMSD when no local dataset_path is provided.",
                 "Gaussian head: supervised, Mean Teacher (EMA consistency), confidence-weighted pseudo-labeling, and SAGE-Reg.",
+                "Includes a Pi-model consistency baseline (no EMA teacher) for external SSL comparison breadth.",
                 "Use dataset_path for offline or smoke-test runs; local CSV/Parquet paths bypass network access.",
                 "Optional diagnostic figure compares confidence and SAGE agreement-weight rankings against pseudo-label error on the unlabeled pool.",
             ],
@@ -958,9 +1513,19 @@ if __name__ == "__main__":
     parser.add_argument("--calibration-figure-path", type=str, default="")
     parser.add_argument("--diagnostic-figure-path", type=str, default="")
     parser.add_argument("--summary-json-path", type=str, default="")
+    parser.add_argument(
+        "--seed", type=int, default=YearRealDataConfig.seed, help="Global split/train seed."
+    )
     parser.add_argument("--n-labeled", type=int, default=YearRealDataConfig.n_labeled)
     parser.add_argument("--n-unlabeled", type=int, default=YearRealDataConfig.n_unlabeled)
     parser.add_argument("--n-test", type=int, default=YearRealDataConfig.n_test)
+    parser.add_argument("--batch-size", type=int, default=YearRealDataConfig.batch_size)
+    parser.add_argument(
+        "--dataloader-num-workers",
+        type=int,
+        default=YearRealDataConfig.dataloader_num_workers,
+        help="DataLoader worker processes (0 = main process only).",
+    )
     parser.add_argument("--teacher-epochs", type=int, default=YearRealDataConfig.teacher_epochs)
     parser.add_argument("--student-epochs", type=int, default=YearRealDataConfig.student_epochs)
     parser.add_argument(
@@ -988,6 +1553,19 @@ if __name__ == "__main__":
         default=YearRealDataConfig.weight_decay,
         help="Adam L2 penalty on all training phases (teacher, student, baselines).",
     )
+    parser.add_argument("--lr", type=float, default=YearRealDataConfig.lr, help="Base Adam LR.")
+    parser.add_argument(
+        "--lr-schedule",
+        type=str,
+        default=YearRealDataConfig.lr_schedule,
+        help="Per-epoch schedule: constant or cosine (cosine uses --lr-min floor).",
+    )
+    parser.add_argument(
+        "--lr-min",
+        type=float,
+        default=YearRealDataConfig.lr_min,
+        help="Minimum LR when --lr-schedule cosine.",
+    )
     parser.add_argument(
         "--sage-batch-relative-mode",
         type=str,
@@ -1010,15 +1588,46 @@ if __name__ == "__main__":
             "Useful for semi-sup curves without changing n_labeled/n_unlabeled splits."
         ),
     )
+    parser.add_argument("--rankup-n-buckets", type=int, default=YearRealDataConfig.rankup_n_buckets)
+    parser.add_argument(
+        "--rankup-aux-weight",
+        type=float,
+        default=YearRealDataConfig.rankup_aux_weight,
+        help="RankUp auxiliary CE weight (labeled + partial unlabeled).",
+    )
+    parser.add_argument(
+        "--rankup-min-teacher-precision",
+        type=float,
+        default=YearRealDataConfig.rankup_min_teacher_precision,
+        help="Min teacher precision to keep an unlabeled pseudo-label for RankUp.",
+    )
+    parser.add_argument(
+        "--pablo-precision-quantile",
+        type=float,
+        default=YearRealDataConfig.pablo_precision_quantile,
+        help="Batch quantile q for tau=quantile(precision,q); accept prec>=tau (PabLO-style).",
+    )
+    parser.add_argument(
+        "--pablo-tau-ema-momentum",
+        type=float,
+        default=YearRealDataConfig.pablo_tau_ema_momentum,
+        help="EMA momentum for tau (0 disables).",
+    )
     args = parser.parse_args()
 
+    lr_schedule = str(args.lr_schedule).strip().lower()
+    if lr_schedule not in {"constant", "cosine"}:
+        raise SystemExit("--lr-schedule must be 'constant' or 'cosine'")
     cfg = YearRealDataConfig(
         dataset_path=args.dataset_path or None,
         cache_path=args.cache_path or None,
         allow_download=not args.no_download,
+        seed=int(args.seed),
         n_labeled=args.n_labeled,
         n_unlabeled=args.n_unlabeled,
         n_test=args.n_test,
+        batch_size=args.batch_size,
+        dataloader_num_workers=args.dataloader_num_workers,
         teacher_epochs=args.teacher_epochs,
         student_epochs=args.student_epochs,
         openml_data_id=args.openml_data_id,
@@ -1026,9 +1635,17 @@ if __name__ == "__main__":
         openml_version=args.openml_version,
         max_dataset_rows=args.max_dataset_rows,
         weight_decay=args.weight_decay,
+        lr=args.lr,
+        lr_schedule=lr_schedule,
+        lr_min=args.lr_min,
         sage_batch_relative_mode=args.sage_batch_relative_mode or None,
         sage_batch_trust_top_k=args.sage_batch_trust_top_k,
         unlabeled_fractions=tuple(args.unlabeled_fractions),
+        rankup_n_buckets=int(args.rankup_n_buckets),
+        rankup_aux_weight=float(args.rankup_aux_weight),
+        rankup_min_teacher_precision=float(args.rankup_min_teacher_precision),
+        pablo_precision_quantile=float(args.pablo_precision_quantile),
+        pablo_tau_ema_momentum=float(args.pablo_tau_ema_momentum),
     )
     main(
         cfg,

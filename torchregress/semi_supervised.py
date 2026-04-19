@@ -937,6 +937,8 @@ class SelfAgreementTrainer:
         val_loader: Sequence[Any] | torch.utils.data.DataLoader[Any] | None = None,
         *,
         epochs: int = 1,
+        lr_schedule: str = "constant",
+        lr_min: float = 0.0,
     ) -> dict[str, list[float]]:
         teacher = copy.deepcopy(model).eval() if self.ema_decay is not None else model
         history: dict[str, list[float]] = {
@@ -946,7 +948,23 @@ class SelfAgreementTrainer:
             "mean_weight": [],
             "mean_disagreement": [],
         }
-        for _ in range(epochs):
+        base_lr = float(self.optimizer.param_groups[0]["lr"])
+        for epoch_idx in range(epochs):
+            if lr_schedule == "cosine":
+                if epochs <= 1:
+                    mult = 1.0
+                else:
+                    mult = 0.5 * (1.0 + math.cos(math.pi * float(epoch_idx) / float(epochs - 1)))
+                lr = max(base_lr * mult, float(lr_min))
+                for g in self.optimizer.param_groups:
+                    g["lr"] = lr
+            elif lr_schedule == "constant":
+                for g in self.optimizer.param_groups:
+                    g["lr"] = base_lr
+            else:
+                raise ValueError(
+                    f"unknown lr_schedule: {lr_schedule!r} (expected 'constant' or 'cosine')"
+                )
             unlabeled_iter = cycle(unlabeled_loader)
             for labeled_batch, unlabeled_batch in zip(
                 labeled_loader,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -26,9 +27,7 @@ def test_neurips_spt_reg_full_quick_smoke(tmp_path: Path) -> None:
     _write_year_like_csv(year_csv)
     run_root = tmp_path / "spt_run"
     cmd = [
-        "uv",
-        "run",
-        "python",
+        sys.executable,
         str(REPO_ROOT / "scripts/run_neurips_spt_reg_full.py"),
         "--quick",
         "--run-root",

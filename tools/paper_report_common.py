@@ -3,8 +3,71 @@
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 from typing import Any
+
+
+def _bootstrap_mean_ci(
+    values: list[float],
+    *,
+    n_boot: int,
+    rng: random.Random,
+) -> tuple[float, float]:
+    """Percentile CI (2.5 / 97.5) on the bootstrap distribution of the sample mean."""
+    if not values:
+        return float("nan"), float("nan")
+    if len(values) == 1:
+        v = values[0]
+        return v, v
+    n = len(values)
+    means: list[float] = []
+    for _ in range(n_boot):
+        s = 0.0
+        for _i in range(n):
+            s += values[rng.randint(0, n - 1)]
+        means.append(s / n)
+    means.sort()
+    lo_i = max(0, int(0.025 * n_boot))
+    hi_i = min(n_boot - 1, int(0.975 * n_boot))
+    return means[lo_i], means[hi_i]
+
+
+def _multiseed_gap_bootstrap_table(
+    seed_rows: list[dict[str, Any]],
+    *,
+    n_boot: int,
+    rng_seed: int,
+) -> list[dict[str, Any]]:
+    if n_boot <= 0 or not seed_rows:
+        return []
+    grouped: dict[str, tuple[list[float], list[float]]] = {}
+    for row in seed_rows:
+        benchmark = str(row.get("Benchmark", ""))
+        if not benchmark:
+            continue
+        if benchmark not in grouped:
+            grouped[benchmark] = ([], [])
+        grouped[benchmark][0].append(float(row["SAGEMinusSupervised"]))
+        grouped[benchmark][1].append(float(row["ConfidenceMinusSupervised"]))
+    rng = random.Random(rng_seed)
+    out: list[dict[str, Any]] = []
+    for benchmark in sorted(grouped.keys()):
+        sage_gaps, conf_gaps = grouped[benchmark]
+        s_lo, s_hi = _bootstrap_mean_ci(sage_gaps, n_boot=n_boot, rng=rng)
+        c_lo, c_hi = _bootstrap_mean_ci(conf_gaps, n_boot=n_boot, rng=rng)
+        out.append(
+            {
+                "Benchmark": benchmark,
+                "SAGEMeanGapBoot95Low": s_lo,
+                "SAGEMeanGapBoot95High": s_hi,
+                "ConfidenceMeanGapBoot95Low": c_lo,
+                "ConfidenceMeanGapBoot95High": c_hi,
+                "BootstrapSamples": n_boot,
+            }
+        )
+    return out
+
 
 SAGE_YEAR_METRICS = (
     "UnlabeledFraction",
@@ -77,7 +140,12 @@ def summarize_sage_year_direct(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def summarize_multiseed(payload: dict[str, Any]) -> dict[str, Any]:
+def summarize_multiseed(
+    payload: dict[str, Any],
+    *,
+    multiseed_bootstrap_n: int = 2_000,
+    multiseed_bootstrap_seed: int = 42,
+) -> dict[str, Any]:
     aggregates = payload.get("aggregate_rows", [])
     agg_out = []
     for row in aggregates:
@@ -99,11 +167,22 @@ def summarize_multiseed(payload: dict[str, Any]) -> dict[str, Any]:
                 "ConfidenceExtra": row.get("ConfidenceExtra"),
             }
         )
+    gap_boot = _multiseed_gap_bootstrap_table(
+        seed_rows,
+        n_boot=multiseed_bootstrap_n,
+        rng_seed=multiseed_bootstrap_seed,
+    )
     return {
         "tuning_csv_path": payload.get("tuning_csv_path"),
         "seeds": payload.get("seeds"),
         "aggregate": agg_out,
         "per_seed": per_seed,
+        "gap_bootstrap_95": gap_boot,
+        "gap_bootstrap_meta": {
+            "n": multiseed_bootstrap_n,
+            "seed": multiseed_bootstrap_seed,
+            "method": "nonparametric_bootstrap_resample_seeds_mean_gap_percentile_95",
+        },
     }
 
 

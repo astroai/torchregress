@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,7 @@ SHIFTS_DATASET_DEFAULT = "solar"
 
 
 def _uv_run(parts: list[str], *, cwd: Path | None = None, check: bool = True) -> int:
-    cmd = ["uv", "run", "python", *parts]
+    cmd = [sys.executable, *parts]
     print("==", " ".join(cmd), flush=True)
     r = subprocess.run(cmd, cwd=str(cwd or REPO_ROOT), env=os.environ.copy(), check=False)
     if check and r.returncode != 0:
@@ -273,9 +274,7 @@ def main() -> None:
             large_tabular_max_rows=lt_rows,
         )
     else:
-        manifest["phases"]["render_large_tabular"] = (
-            "skipped_quick" if quick else "skipped_opt_out"
-        )
+        manifest["phases"]["render_large_tabular"] = "skipped_quick" if quick else "skipped_opt_out"
 
     # 4) Stage-A prior-ratio clip sweep
     stage_dir = run_root / "stage_a_sweep"
