@@ -63,9 +63,9 @@ def test_public_loss_forward_signatures_follow_core_ordering() -> None:
             assert weights.default is None, f"{export_name}.forward weights default should be None"
 
         if "mask" in names and "weights" in names:
-            assert names.index("mask") < names.index("weights"), (
-                f"{export_name}.forward should place mask before weights"
-            )
+            assert names.index("mask") < names.index(
+                "weights"
+            ), f"{export_name}.forward should place mask before weights"
 
 
 def test_public_loss_forward_signatures_accept_kwargs_or_are_explicitly_exempt() -> None:
