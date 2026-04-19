@@ -183,3 +183,39 @@ def _is_autocast_supported(device_type: str) -> bool:
         return bool(torch.amp.autocast_mode.is_autocast_available(device_type))
     # Conservative fallback for older PyTorch.
     return device_type in {"cuda", "cpu"}
+
+
+class StandardScaler:
+    """Standardize features by removing the mean and scaling to unit variance."""
+
+    def __init__(self, with_mean: bool = True, with_std: bool = True):
+        self.with_mean = with_mean
+        self.with_std = with_std
+        self.mean_ = None
+        self.var_ = None
+        self.scale_ = None
+
+    def fit(self, X: torch.Tensor, y: Any = None) -> "StandardScaler":
+        if self.with_mean:
+            self.mean_ = X.mean(dim=0)
+
+        if self.with_std:
+            self.var_ = X.var(dim=0, unbiased=False)
+            self.scale_ = torch.sqrt(self.var_)
+            # Handle zero variance
+            self.scale_[self.scale_ == 0.0] = 1.0
+
+        return self
+
+    def transform(self, X: torch.Tensor) -> torch.Tensor:
+        X_out = X.clone()
+        if self.with_mean and self.mean_ is not None:
+            X_out = X_out - self.mean_
+
+        if self.with_std and self.scale_ is not None:
+            X_out = X_out / self.scale_
+
+        return X_out
+
+    def fit_transform(self, X: torch.Tensor, y: Any = None) -> torch.Tensor:
+        return self.fit(X, y).transform(X)

@@ -47,6 +47,7 @@ from .quantile import (
 from .scaling import (
     AMP,
     GradientAccumulation,
+    StandardScaler,
     compile_model,
 )
 from .security import validate_url
@@ -155,6 +156,7 @@ __all__ = [
     # scaling
     "AMP",
     "GradientAccumulation",
+    "StandardScaler",
     "compile_model",
     # semi-supervised
     "generate_pseudo_labels",
