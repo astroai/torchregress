@@ -215,8 +215,8 @@ def test_fetch_openml_regression_frame_skip_checksum_no_numeric_features(
 def test_fetch_openml_regression_frame_skip_checksum_empty_after_dropna(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 
     def fake_desc(*args: object, **kwargs: object) -> dict[str, str]:
         return {"format": "ARFF", "url": "http://dummy.local/y.arff"}
