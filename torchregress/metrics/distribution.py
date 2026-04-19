@@ -487,22 +487,24 @@ def _quantiles_from_density(
     support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
     cdf_grid = _cdf_from_density(support_t, density_t)
     prob_t = torch.tensor(probs, device=density_t.device, dtype=density_t.dtype)
-    quantiles = torch.empty(
-        density_t.shape[0], len(probs), device=density_t.device, dtype=density_t.dtype
-    )
-    for row in range(density_t.shape[0]):
-        cdf_row = cdf_grid[row]
-        for col, prob in enumerate(prob_t):
-            idx = torch.searchsorted(cdf_row, prob, right=False).item()
-            idx = max(1, min(idx, support_t.numel() - 1))
-            left = idx - 1
-            right = idx
-            c0 = cdf_row[left]
-            c1 = cdf_row[right]
-            s0 = support_t[left]
-            s1 = support_t[right]
-            weight = ((prob - c0) / (c1 - c0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
-            quantiles[row, col] = s0 + weight * (s1 - s0)
+    batch_size = density_t.shape[0]
+    probs_expanded = prob_t.unsqueeze(0).expand(batch_size, -1).contiguous()
+
+    idx = torch.searchsorted(cdf_grid, probs_expanded, right=False)
+    idx = torch.clamp(idx, 1, support_t.numel() - 1)
+
+    left = idx - 1
+    right = idx
+
+    c0 = torch.gather(cdf_grid, 1, left)
+    c1 = torch.gather(cdf_grid, 1, right)
+
+    s0 = support_t[left]
+    s1 = support_t[right]
+
+    weight = ((probs_expanded - c0) / (c1 - c0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
+    quantiles = s0 + weight * (s1 - s0)
+
     return quantiles
 
 
