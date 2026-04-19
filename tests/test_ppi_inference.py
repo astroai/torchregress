@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import torch
 
-from torchregress.inference import ppi_diagnostics, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
+from torchregress.inference import (
+    PPIConfig,
+    ppi_diagnostics,
+    ppi_mean_ci,
+    ppi_ols_ci,
+    ppi_quantile_ci,
+)
 
 
 def _synthetic(
@@ -21,7 +27,7 @@ def _synthetic(
 
 def test_ppi_mean_ci_returns_expected_fields() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
-    out = ppi_mean_ci(y_l, pred_l, pred_u, alpha=0.1, n_boot=200, seed=1)
+    out = ppi_mean_ci(y_l, pred_l, pred_u, config=PPIConfig(alpha=0.1, n_boot=200, seed=1))
     assert out["method"] == "ppi_mean_ci"
     assert out["ci_lower"] <= out["estimate"] <= out["ci_upper"]
     assert out["n_labeled"] == y_l.numel()
@@ -30,7 +36,9 @@ def test_ppi_mean_ci_returns_expected_fields() -> None:
 
 def test_ppi_quantile_ci_returns_expected_fields() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
-    out = ppi_quantile_ci(y_l, pred_l, pred_u, q=0.9, alpha=0.1, n_boot=200, seed=1)
+    out = ppi_quantile_ci(
+        y_l, pred_l, pred_u, q=0.9, config=PPIConfig(alpha=0.1, n_boot=200, seed=1)
+    )
     assert out["method"] == "ppi_quantile_ci"
     assert out["ci_lower"] <= out["estimate"] <= out["ci_upper"]
     assert 0.0 < out["q"] < 1.0
@@ -38,7 +46,7 @@ def test_ppi_quantile_ci_returns_expected_fields() -> None:
 
 def test_ppi_ols_ci_returns_vector_coefficients() -> None:
     x_l, x_u, y_l, pred_l, pred_u = _synthetic()
-    out = ppi_ols_ci(x_l, y_l, x_u, pred_l, pred_u, n_boot=200, seed=1)
+    out = ppi_ols_ci(x_l, y_l, x_u, pred_l, pred_u, config=PPIConfig(n_boot=200, seed=1))
     coef = out["coef"]
     ci_lower = out["ci_lower"]
     ci_upper = out["ci_upper"]

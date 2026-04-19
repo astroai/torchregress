@@ -66,13 +66,13 @@ PPI's validity rests on a small number of assumptions:
 ### Population Mean
 
 ```python
-from torchregress.inference import ppi_mean_ci
+from torchregress.inference import PPIConfig, ppi_mean_ci
 
 ci = ppi_mean_ci(
     y_labelled=y_gold,
     y_pred_labelled=f_hat_gold,
     y_pred_unlabelled=f_hat_all,
-    alpha=0.05,
+    config=PPIConfig(alpha=0.05),
 )
 print(f"95% CI: [{ci.lower:.4f}, {ci.upper:.4f}]")
 ```
@@ -80,26 +80,26 @@ print(f"95% CI: [{ci.lower:.4f}, {ci.upper:.4f}]")
 ### Population Quantile
 
 ```python
-from torchregress.inference import ppi_quantile_ci
+from torchregress.inference import PPIConfig, ppi_quantile_ci
 
 ci = ppi_quantile_ci(
     y_labelled=y_gold,
     y_pred_labelled=f_hat_gold,
     y_pred_unlabelled=f_hat_all,
-    quantile=0.5,  # median
-    alpha=0.05,
+    q=0.5,  # median
+    config=PPIConfig(alpha=0.05),
 )
 ```
 
 ### OLS Coefficients
 
 ```python
-from torchregress.inference import ppi_ols_ci
+from torchregress.inference import PPIConfig, ppi_ols_ci
 
 ci = ppi_ols_ci(
-    x_labelled=x_gold, y_labelled=y_gold,
-    x_unlabelled=x_all, y_pred_unlabelled=f_hat_all,
-    alpha=0.05,
+    x_labeled=x_gold, y_labeled=y_gold,
+    x_unlabeled=x_all, pred_labeled=f_hat_gold, pred_unlabeled=f_hat_all,
+    config=PPIConfig(alpha=0.05),
 )
 ```
 
@@ -151,7 +151,8 @@ print(f"Gold-only 95% CI: [{gold_mean - 1.96*gold_se:.2f}, {gold_mean + 1.96*gol
 print(f"  Width: {2 * 1.96 * gold_se:.2f} days")
 
 # --- PPI CI (narrower) ---
-ci = ppi_mean_ci(y_gold, f_hat_gold, f_hat_all, alpha=0.05)
+from torchregress.inference import PPIConfig
+ci = ppi_mean_ci(y_gold, f_hat_gold, f_hat_all, config=PPIConfig(alpha=0.05))
 print(f"PPI      95% CI: [{ci.lower:.2f}, {ci.upper:.2f}]")
 print(f"  Width: {ci.upper - ci.lower:.2f} days")
 
