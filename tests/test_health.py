@@ -1,4 +1,5 @@
 import builtins
+import sys
 from unittest import mock
 
 import pytest
@@ -23,7 +24,6 @@ def test_check_health_success(capsys):
 
 def test_check_health_import_error(capsys, monkeypatch):
     """Test check_health handles import errors."""
-    import sys
 
     import torchregress
 
@@ -99,3 +99,13 @@ def test_check_health_metric_error(mock_metric, capsys, monkeypatch):
     assert excinfo.value.code == 1
     captured = capsys.readouterr()
     assert "Metric compute: FAILED (Metric failed)" in captured.out
+
+
+def test_check_health_main(capsys):
+    """Test that check_health is called when run as main."""
+    import runpy
+
+    # Running as __main__ will output the success message if check_health() was called.
+    runpy.run_module("torchregress.health", run_name="__main__")
+    captured = capsys.readouterr()
+    assert "[SUCCESS] System appears healthy." in captured.out
