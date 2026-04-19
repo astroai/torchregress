@@ -100,3 +100,30 @@ def test_normalize_class_probs_negative_values() -> None:
     )
     with pytest.raises(ValueError, match="target_probs must be non-negative"):
         normalize_class_probs(target_probs, class_dim=1)
+
+
+def test_labels_to_levels_invalid_indices() -> None:
+    num_classes = 4
+
+    with pytest.raises(ValueError, match=r"target class indices must be in \[0, num_classes - 1\]"):
+        labels_to_levels(torch.tensor([-1, 1, 2]), num_classes=num_classes)
+
+    with pytest.raises(ValueError, match=r"target class indices must be in \[0, num_classes - 1\]"):
+        labels_to_levels(torch.tensor([0, 1, 4]), num_classes=num_classes)
+
+
+def test_ordinal_predict_invalid_strategy() -> None:
+    y_pred = torch.tensor([[1.0, 2.0]])
+    with pytest.raises(ValueError, match="Unknown strategy: invalid_strategy"):
+        ordinal_predict(y_pred, strategy="invalid_strategy")  # type: ignore[arg-type]
+
+
+def test_ordinal_predict_validation_errors() -> None:
+    # Test invalid encoding
+    y_pred = torch.tensor([[0.1, 0.9]])
+    with pytest.raises(ValueError, match="Unknown encoding: invalid"):
+        ordinal_predict(y_pred, encoding="invalid")  # type: ignore[arg-type]
+
+    # Test mismatch between num_classes and prediction shape
+    with pytest.raises(ValueError, match="num_classes=5 does not match input shape"):
+        ordinal_predict(y_pred, encoding="class_probs", num_classes=5)
