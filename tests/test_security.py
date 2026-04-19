@@ -37,3 +37,7 @@ def test_validate_url_custom_schemes() -> None:
     # Should fail with default schemes
     with pytest.raises(ValueError, match="URL scheme 'ftp' is not allowed"):
         validate_url("ftp://example.com")
+
+    # Should fail when restricting allowed schemes
+    with pytest.raises(ValueError, match="URL scheme 'http' is not allowed"):
+        validate_url("http://example.com", allowed_schemes=("https",))
