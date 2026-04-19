@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from torchregress.utils import (
@@ -10,6 +11,7 @@ from torchregress.utils import (
     normalize_class_probs,
     ordinal_predict,
 )
+from torchregress.utils.ordinal import _validate_num_classes
 
 
 def test_labels_to_levels_encoding() -> None:
@@ -67,3 +69,19 @@ def test_soft_class_prob_utilities_normalize_and_convert_to_levels() -> None:
         dtype=torch.float32,
     )
     assert torch.allclose(levels, expected, atol=1e-6)
+
+
+def test_validate_num_classes_valid() -> None:
+    _validate_num_classes(2)
+    _validate_num_classes(10)
+
+
+def test_validate_num_classes_invalid() -> None:
+    with pytest.raises(ValueError, match="num_classes must be >= 2, got 1"):
+        _validate_num_classes(1)
+
+    with pytest.raises(ValueError, match="num_classes must be >= 2, got 0"):
+        _validate_num_classes(0)
+
+    with pytest.raises(ValueError, match="num_classes must be >= 2, got -5"):
+        _validate_num_classes(-5)
