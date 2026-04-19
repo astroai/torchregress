@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from torchregress.utils import (
@@ -67,3 +68,9 @@ def test_soft_class_prob_utilities_normalize_and_convert_to_levels() -> None:
         dtype=torch.float32,
     )
     assert torch.allclose(levels, expected, atol=1e-6)
+
+
+def test_ordinal_predict_invalid_strategy() -> None:
+    y_pred = torch.tensor([[1.0, 2.0]])
+    with pytest.raises(ValueError, match="Unknown strategy: invalid_strategy"):
+        ordinal_predict(y_pred, strategy="invalid_strategy")  # type: ignore[arg-type]
