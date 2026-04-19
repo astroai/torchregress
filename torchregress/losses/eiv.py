@@ -374,16 +374,13 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         if mode == "diag":
             return observed.unsqueeze(0) + base_noise * sigma.unsqueeze(0)
 
-        dim = observed.shape[-1]
-        eye = torch.eye(dim, device=observed.device, dtype=observed.dtype)
-        if mode == "full_shared":
+        if mode in ("full_shared", "full_batched"):
+            dim = observed.shape[-1]
+            eye = torch.eye(dim, device=observed.device, dtype=observed.dtype)
             chol = torch.linalg.cholesky(sigma + eye * (self.min_sigma**2))
-            noise = torch.einsum("sbd,de->sbe", base_noise, chol.transpose(0, 1))
+            noise = (base_noise.unsqueeze(-2) @ chol.transpose(-1, -2)).squeeze(-2)
             return observed.unsqueeze(0) + noise
-        if mode == "full_batched":
-            chol = torch.linalg.cholesky(sigma + eye.unsqueeze(0) * (self.min_sigma**2))
-            noise = torch.einsum("sbd,bde->sbe", base_noise, chol.transpose(-1, -2))
-            return observed.unsqueeze(0) + noise
+
         raise ValueError(f"Unknown sigma_x sampling mode: {mode}")
 
     def sample_predictions(
