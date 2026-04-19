@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from torchregress.utils import (
@@ -67,3 +68,15 @@ def test_soft_class_prob_utilities_normalize_and_convert_to_levels() -> None:
         dtype=torch.float32,
     )
     assert torch.allclose(levels, expected, atol=1e-6)
+
+
+def test_normalize_class_probs_negative_values() -> None:
+    target_probs = torch.tensor(
+        [
+            [2.0, -1.0, 1.0],
+            [0.0, 3.0, 1.0],
+        ],
+        dtype=torch.float32,
+    )
+    with pytest.raises(ValueError, match="target_probs must be non-negative"):
+        normalize_class_probs(target_probs, class_dim=1)
