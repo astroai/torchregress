@@ -47,6 +47,12 @@ def test_cumulative_probs_to_pmf_rows_sum_to_one() -> None:
     assert torch.allclose(pmf.sum(dim=-1), torch.ones(2), atol=1e-6)
 
 
+def test_cumulative_probs_to_pmf_error_dimension_less_than_one() -> None:
+    empty_probs = torch.empty((2, 0), dtype=torch.float32)
+    with pytest.raises(ValueError, match="cumulative_probs last dimension must be >= 1"):
+        cumulative_probs_to_pmf(empty_probs)
+
+
 def test_ordinal_predict_supports_multiple_encodings() -> None:
     class_logits = torch.tensor([[2.0, 0.5, -0.5], [0.1, 0.3, 1.4]])
     pred_class = ordinal_predict(class_logits, encoding="class_logits")
