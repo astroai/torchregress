@@ -30,8 +30,11 @@ def weighted_split_classification_predictive_batch(
     Args:
         adapter: Fitted adapter with ``threshold_`` set.
         candidate_scores: ``[batch, n_classes]`` scores (smaller is more conformant).
-        gap_diagnostics: Optional dict from :class:`~torchregress.test_time.ot_conformal.OptimalTransportCoverageGap` (or similar) for ``extra``.
-        calibration_ess_inv_square: Optional scalar ``1 / sum w_i^2`` from the reweighter for ``extra``.
+        gap_diagnostics:
+            Optional dict from ``torchregress.test_time.ot_conformal.OptimalTransportCoverageGap``
+            (or similar) for ``extra``.
+        calibration_ess_inv_square:
+            Optional scalar ``1 / sum w_i^2`` from the reweighter for ``extra``.
 
     Returns:
         ``PredictiveBatch`` with ``point`` / ``mean`` equal to **set size** per row (float),

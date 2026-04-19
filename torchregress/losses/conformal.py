@@ -473,9 +473,7 @@ class UACQR(CQR):
         x: Optional[Tensor] = None,
     ) -> None:
         if x is None:
-            x = torch.zeros(
-                (y_pred.shape[0], 1), device=y_pred.device, dtype=y_pred.dtype
-            )
+            x = torch.zeros((y_pred.shape[0], 1), device=y_pred.device, dtype=y_pred.dtype)
         super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
 
     def predict_interval(
@@ -486,9 +484,7 @@ class UACQR(CQR):
         x: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         if x is None:
-            x = torch.zeros(
-                (y_pred.shape[0], 1), device=y_pred.device, dtype=y_pred.dtype
-            )
+            x = torch.zeros((y_pred.shape[0], 1), device=y_pred.device, dtype=y_pred.dtype)
         return super().predict_interval(y_pred, groups=groups, x=x)
 
 

@@ -49,7 +49,9 @@ def test_covariance_matches_cholesky_path() -> None:
     spd = torch.randn(b, d, d)
     spd = spd @ spd.transpose(-1, -2) + 0.5 * torch.eye(d).expand(b, d, d)
     scale_tril = torch.linalg.cholesky(spd)
-    fn_cov = GaussianWassersteinBoundLoss(covariance_parameterization="covariance", reduction="mean")
+    fn_cov = GaussianWassersteinBoundLoss(
+        covariance_parameterization="covariance", reduction="mean"
+    )
     fn_ch = GaussianWassersteinBoundLoss(covariance_parameterization="cholesky", reduction="mean")
     torch.testing.assert_close(
         fn_cov(mu, mu, spd, spd),

@@ -128,9 +128,9 @@ def test_reduction_behavior():
         "StructuralEIVLoss",
         "OrthogonalDistanceRegressionLoss",
         "EnsembleEIVLoss",
-            "GaussianNLLLoss",
-            "FaithfulGaussianLoss",
-            "BetaNLLLoss",
+        "GaussianNLLLoss",
+        "FaithfulGaussianLoss",
+        "BetaNLLLoss",
         "LowRankGaussianLoss",
         "MultivariateGaussianLoss",
         "MixtureDensityLoss",
@@ -156,11 +156,11 @@ def test_reduction_behavior():
         "ContrastiveFlowLoss",  # Needs flow parameters and negative contexts
         "CoTeachingLoss",  # Needs two predictions
         "RENTLoss",  # Needs ensemble predictions
-            "DensityWeightedLoss",  # Needs to be fitted first
-            "BalancedMSELoss",  # Needs bin_edges + fit(train_targets)
-            "BMCLoss",  # Needs fit(train_targets)
-            "PropensityWeightedLoss",  # Needs propensity scores
-            "LDSLoss",  # Needs to be fitted first
+        "DensityWeightedLoss",  # Needs to be fitted first
+        "BalancedMSELoss",  # Needs bin_edges + fit(train_targets)
+        "BMCLoss",  # Needs fit(train_targets)
+        "PropensityWeightedLoss",  # Needs propensity scores
+        "LDSLoss",  # Needs to be fitted first
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
         "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
         "CumulativeLinkLoss",  # Needs discrete ordinal targets

@@ -77,9 +77,9 @@ def test_coverage_gap_smaller_when_same_pool() -> None:
         "l2_cdf_gap"
     ]
     t = torch.randn(100) * 3.0 + 1.0
-    gap_shift = OptimalTransportCoverageGap().estimate(calibration_scores=s, target_score_summary=t)[
-        "l2_cdf_gap"
-    ]
+    gap_shift = OptimalTransportCoverageGap().estimate(
+        calibration_scores=s, target_score_summary=t
+    )["l2_cdf_gap"]
     assert gap_same < 1e-5
     assert gap_shift > 0.05
 

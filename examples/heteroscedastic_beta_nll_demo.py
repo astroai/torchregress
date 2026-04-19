@@ -140,8 +140,18 @@ def main() -> None:
         lr=args.lr,
     )
 
-    print("Gaussian NLL — val RMSE:", round(n_metrics["rmse"], 5), "  val NLL:", round(n_metrics["val_nll"], 5))
-    print("Beta-NLL     — val RMSE:", round(b_metrics["rmse"], 5), "  val NLL:", round(b_metrics["val_nll"], 5))
+    print(
+        "Gaussian NLL — val RMSE:",
+        round(n_metrics["rmse"], 5),
+        "  val NLL:",
+        round(n_metrics["val_nll"], 5),
+    )
+    print(
+        "Beta-NLL     — val RMSE:",
+        round(b_metrics["rmse"], 5),
+        "  val NLL:",
+        round(b_metrics["val_nll"], 5),
+    )
 
 
 if __name__ == "__main__":

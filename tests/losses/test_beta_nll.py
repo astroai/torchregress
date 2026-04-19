@@ -102,11 +102,7 @@ def test_grads_match_manual_detached_prefactor() -> None:
     min_v = 1e-6
     beta = 0.5
     var = torch.exp(log_var).clamp(min=min_v)
-    nll = 0.5 * (
-        math.log(2 * math.pi)
-        + torch.log(var + eps)
-        + (target - mean) ** 2 / (var + eps)
-    )
+    nll = 0.5 * (math.log(2 * math.pi) + torch.log(var + eps) + (target - mean) ** 2 / (var + eps))
     coef = (var + eps).detach().pow(-beta)
     loss_m = (coef * nll).mean()
     g_mean_m, g_lv_m = torch.autograd.grad(loss_m, (mean, log_var))

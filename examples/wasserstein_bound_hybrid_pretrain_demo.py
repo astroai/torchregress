@@ -45,7 +45,9 @@ def main() -> None:
     y = 0.8 * x + 0.3 * (x**2) + noise_scale * torch.randn_like(x)
 
     head = ScalarGaussianHead()
-    labeler = NeighborhoodCovariancePseudoLabeler(n_neighbors=16, metric="euclidean", temperature=0.5)
+    labeler = NeighborhoodCovariancePseudoLabeler(
+        n_neighbors=16, metric="euclidean", temperature=0.5
+    )
     cov_pseudo = labeler.fit_predict(x, y)
     target_var = cov_pseudo.squeeze(-1).squeeze(-1).clamp(min=1e-4).unsqueeze(-1)
 

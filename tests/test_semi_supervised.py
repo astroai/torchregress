@@ -407,6 +407,62 @@ def test_self_agreement_trainer_runs_tiny_fit_loop() -> None:
     assert all(0.0 < v <= 1.0 for v in history["mean_weight"])
 
 
+def test_self_agreement_trainer_cosine_lr_schedule_runs() -> None:
+    torch.manual_seed(0)
+    x_labeled = torch.linspace(-1.0, 1.0, 16).unsqueeze(-1)
+    y_labeled = (0.7 * x_labeled + 0.2).sin()
+    x_unlabeled = torch.linspace(-1.2, 1.2, 24).unsqueeze(-1)
+
+    labeled_loader = DataLoader(TensorDataset(x_labeled, y_labeled), batch_size=8, shuffle=False)
+    unlabeled_loader = DataLoader(TensorDataset(x_unlabeled), batch_size=8, shuffle=False)
+
+    model = torch.nn.Sequential(
+        torch.nn.Linear(1, 12),
+        torch.nn.Tanh(),
+        torch.nn.Linear(12, 2),
+    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+
+    def supervised_loss_fn(
+        model_: torch.nn.Module, x: torch.Tensor, y: torch.Tensor
+    ) -> torch.Tensor:
+        raw = model_(x)
+        mean = raw[:, :1]
+        std = torch.nn.functional.softplus(raw[:, 1:2]) + 1e-3
+        var = std.square()
+        return torch.nn.functional.gaussian_nll_loss(mean, y, var)
+
+    def predictive_batch_fn(model_: torch.nn.Module, x: torch.Tensor) -> PredictiveBatch:
+        raw = model_(x)
+        return PredictiveBatch(
+            mean=raw[:, :1],
+            std=torch.nn.functional.softplus(raw[:, 1:2]) + 1e-3,
+        )
+
+    trainer = SelfAgreementTrainer(
+        optimizer=optimizer,
+        supervised_loss_fn=supervised_loss_fn,
+        predictive_batch_fn=predictive_batch_fn,
+        augment_fn=lambda x: x + 0.03 * torch.randn_like(x),
+        n_views=3,
+        tau=0.2,
+        agreement_weight=0.5,
+        ema_decay=0.95,
+        n_support=64,
+    )
+    epochs = 3
+    history = trainer.fit(
+        model,
+        labeled_loader,
+        unlabeled_loader,
+        epochs=epochs,
+        lr_schedule="cosine",
+        lr_min=1e-5,
+    )
+    assert len(history["total_loss"]) == epochs * len(labeled_loader)
+    assert all(math.isfinite(v) for v in history["total_loss"])
+
+
 def test_predictive_agreement_score_requires_multiple_views() -> None:
     with pytest.raises(ValueError):
         predictive_agreement_score([PredictiveBatch(mean=torch.zeros(4, 1), std=torch.ones(4, 1))])
