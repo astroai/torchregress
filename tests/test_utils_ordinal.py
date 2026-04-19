@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from torchregress.utils import (
@@ -67,3 +68,27 @@ def test_soft_class_prob_utilities_normalize_and_convert_to_levels() -> None:
         dtype=torch.float32,
     )
     assert torch.allclose(levels, expected, atol=1e-6)
+
+
+def test_ordinal_predict_invalid_strategy() -> None:
+    y_pred = torch.tensor([[0.0, 0.0]])
+    with pytest.raises(ValueError, match="Unknown strategy: foo"):
+        ordinal_predict(y_pred, strategy="foo")  # type: ignore
+
+
+def test_ordinal_predict_invalid_encoding() -> None:
+    y_pred = torch.tensor([[0.0, 0.0]])
+    with pytest.raises(ValueError, match="Unknown encoding: foo"):
+        ordinal_predict(y_pred, encoding="foo")  # type: ignore
+
+
+def test_ordinal_predict_threshold_strategy_invalid() -> None:
+    y_pred = torch.tensor([[0.0, 0.0]])
+    with pytest.raises(
+        ValueError, match="strategy='threshold' is only valid for cumulative encodings"
+    ):
+        ordinal_predict(y_pred, encoding="class_logits", strategy="threshold")
+    with pytest.raises(
+        ValueError, match="strategy='threshold' is only valid for cumulative encodings"
+    ):
+        ordinal_predict(y_pred, encoding="class_probs", strategy="threshold")
