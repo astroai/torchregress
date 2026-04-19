@@ -18,9 +18,9 @@ def convert_reduction_type(reduction: str) -> str:
     Convert between different reduction naming conventions.
     """
     reduction = reduction.lower()
-    if reduction in ["none", "mean", "sum"]:
+    if reduction in {"none", "mean", "sum"}:
         return reduction
-    if reduction in ["batch_mean", "average"]:
+    if reduction in {"batch_mean", "average"}:
         return "mean"
     raise ValueError(f"Unsupported reduction type: {reduction}")
 
