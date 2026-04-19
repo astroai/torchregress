@@ -157,8 +157,7 @@ class NeighborhoodCovariancePseudoLabeler:
         n_ref = xr.shape[0]
         if n_ref < self.n_neighbors:
             raise ValueError(
-                f"Reference set must have at least n_neighbors={self.n_neighbors} rows, "
-                f"got {n_ref}"
+                f"Reference set must have at least n_neighbors={self.n_neighbors} rows, got {n_ref}"
             )
         return self._pseudo_cov_batch(xq, xr, yr, exclude_self=False)
 

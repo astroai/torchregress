@@ -787,8 +787,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         imbalance="yes",
         calibration="partial",
         notes=(
-            "Inverse bin counts with Laplace-style noise_sigma smoothing; "
-            "optional quantile bins."
+            "Inverse bin counts with Laplace-style noise_sigma smoothing; optional quantile bins."
         ),
     ),
     MethodMetadata(

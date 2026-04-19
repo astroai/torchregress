@@ -111,8 +111,7 @@ def main() -> None:
         type=Path,
         default=None,
         help=(
-            "Output root (default: "
-            "reports/neurips_spt_reg/runs/<UTC-date>/neurips_spt_reg_full)."
+            "Output root (default: reports/neurips_spt_reg/runs/<UTC-date>/neurips_spt_reg_full)."
         ),
     )
     parser.add_argument(
