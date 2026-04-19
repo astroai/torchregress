@@ -1,6 +1,5 @@
 """Tests for multivariate metrics."""
 
-import numpy as np
 import pytest
 import torch
 
