@@ -310,3 +310,59 @@ def test_dr_shape_mismatches() -> None:
             outcome_model=LinearRegression,
             propensity_model=LogisticRegression,
         )
+
+
+def test_internal_helpers() -> None:
+    from torchregress.causal.dr import _as_1d, _as_2d, _build_model, _make_folds
+
+    # Test _as_2d
+    x_1d = torch.tensor([1, 2, 3])
+    x_2d_expected = torch.tensor([[1], [2], [3]])
+    assert torch.equal(_as_2d(x_1d), x_2d_expected)
+
+    x_2d_input = torch.tensor([[1, 2], [3, 4]])
+    assert torch.equal(_as_2d(x_2d_input), x_2d_input)
+
+    # Test _as_1d
+    x_2d_for_1d = torch.tensor([[1, 2], [3, 4]])
+    x_1d_expected = torch.tensor([1, 2, 3, 4])
+    assert torch.equal(_as_1d(x_2d_for_1d), x_1d_expected)
+
+    # Test _build_model
+    class DummyModel:
+        def fit(self, x, y):
+            pass
+
+    # Factory returning instance
+    def factory():
+        return DummyModel()
+
+    model1 = _build_model(factory)
+    assert isinstance(model1, DummyModel)
+
+    # Factory as class
+    model2 = _build_model(DummyModel)
+    assert isinstance(model2, DummyModel)
+
+    # Existing instance
+    existing_model = DummyModel()
+    model3 = _build_model(existing_model)
+    assert isinstance(model3, DummyModel)
+    assert model3 is not existing_model  # should be deepcopy
+
+    # Test _make_folds
+    n = 10
+    folds = 3
+    seed = 42
+    splits = _make_folds(n, folds, seed=seed)
+    assert len(splits) == folds
+
+    all_test_indices = []
+    for train_idx, test_idx in splits:
+        assert len(train_idx) + len(test_idx) == n
+        # Check no overlap
+        assert set(train_idx.tolist()).isdisjoint(set(test_idx.tolist()))
+        all_test_indices.extend(test_idx.tolist())
+
+    # Check all indices are present in exactly one test set
+    assert sorted(all_test_indices) == list(range(n))
