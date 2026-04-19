@@ -1,0 +1,16 @@
+{
+  "Track": "higgs_catboost_baselines",
+  "seed": 260410,
+  "scale_factor": 10,
+  "classifier": {
+    "logloss_id": 0.2521135351719635,
+    "logloss_ood": 1.4301068254966627
+  },
+  "regressor_rmse_uncertainty": {
+    "rmse_id": 0.8616262754276507,
+    "rmse_ood": 2.1236139930317295,
+    "nll_gaussian_id": 2.4548421895627572,
+    "nll_gaussian_ood": 16.607135085937085
+  },
+  "winning_solution_reference": null
+}

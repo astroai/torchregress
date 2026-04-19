@@ -1,0 +1,30 @@
+{
+  "artifact": "sage_year_ablations",
+  "version": 1,
+  "rows": [
+    {
+      "sage_batch_relative_mode": null,
+      "sage_batch_trust_top_k": null,
+      "SAGE_NLL_ufrac1": 2.0032472610473633,
+      "summary_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/neurips_sage_reg_full/ablations/summary_br_none_tk_none.json"
+    },
+    {
+      "sage_batch_relative_mode": null,
+      "sage_batch_trust_top_k": 16,
+      "SAGE_NLL_ufrac1": 2.322878360748291,
+      "summary_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/neurips_sage_reg_full/ablations/summary_br_none_tk_16.json"
+    },
+    {
+      "sage_batch_relative_mode": "zscore",
+      "sage_batch_trust_top_k": null,
+      "SAGE_NLL_ufrac1": 2.250699758529663,
+      "summary_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/neurips_sage_reg_full/ablations/summary_br_zscore_tk_none.json"
+    },
+    {
+      "sage_batch_relative_mode": "zscore",
+      "sage_batch_trust_top_k": 16,
+      "SAGE_NLL_ufrac1": 2.2398874759674072,
+      "summary_path": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/neurips_sage_reg_full/ablations/summary_br_zscore_tk_16.json"
+    }
+  ]
+}

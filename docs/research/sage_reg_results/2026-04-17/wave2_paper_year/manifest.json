@@ -1,0 +1,33 @@
+{
+  "artifact": "wave2_year_gap_experiment_manifest",
+  "version": 1,
+  "year_cache": "/Users/fabbros/src/torchregress/data/paper/openml_year.csv",
+  "tuning_out_dir": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/wave2_paper_year/gap_tune_medium",
+  "splits": {
+    "year_n_labeled": 2048,
+    "year_n_unlabeled": 131072,
+    "year_n_test": 32768
+  },
+  "epochs": {
+    "teacher": 32,
+    "student": 32
+  },
+  "lr": {
+    "schedule": "cosine",
+    "min": 1e-05
+  },
+  "grid_note": "12 combos: 3 tau \u00d7 2 noise \u00d7 2 hard threshold; agreement=0.5, mix=0, drop=0.1, power=2, pseudo=0.8",
+  "next_multiseed": {
+    "tuning_csv": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/wave2_paper_year/gap_tune_medium/sweep.csv",
+    "out_dir": "/Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/wave2_paper_year/multiseed_medium",
+    "seeds": [
+      260410,
+      260411,
+      260412,
+      260413,
+      260414,
+      260415
+    ],
+    "shell": "./scripts/wave2_year_gap_experiments.sh multiseed /Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/wave2_paper_year/gap_tune_medium/sweep.csv /Users/fabbros/src/torchregress/docs/research/sage_reg_results/2026-04-17/wave2_paper_year/multiseed_medium"
+  }
+}
