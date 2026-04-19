@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from torchregress.utils import (
@@ -67,3 +68,54 @@ def test_soft_class_prob_utilities_normalize_and_convert_to_levels() -> None:
         dtype=torch.float32,
     )
     assert torch.allclose(levels, expected, atol=1e-6)
+
+
+def test_ordinal_predict_invalid_strategy() -> None:
+    class_logits = torch.tensor([[2.0, 0.5, -0.5], [0.1, 0.3, 1.4]])
+
+    with pytest.raises(
+        ValueError, match="strategy='threshold' is only valid for cumulative encodings"
+    ):
+        ordinal_predict(class_logits, encoding="class_logits", strategy="threshold")
+
+    with pytest.raises(
+        ValueError, match="strategy='threshold' is only valid for cumulative encodings"
+    ):
+        ordinal_predict(class_logits, encoding="class_probs", strategy="threshold")
+
+    with pytest.raises(ValueError, match="Unknown strategy: invalid"):
+        ordinal_predict(class_logits, strategy="invalid")  # type: ignore
+
+
+def test_ordinal_predict_other_branches() -> None:
+    cum_probs = torch.tensor([[0.9, 0.4], [0.1, 0.05]])
+
+    # Test encoding="cumulative_probs" with strategy="argmax"
+    pred1 = ordinal_predict(cum_probs, encoding="cumulative_probs", strategy="argmax")
+    assert isinstance(pred1, torch.Tensor)
+
+    # Test encoding="cumulative_probs" with strategy="threshold"
+    pred2 = ordinal_predict(cum_probs, encoding="cumulative_probs", strategy="threshold")
+    assert isinstance(pred2, torch.Tensor)
+
+    # Test encoding="class_probs" with strategy="argmax"
+    class_probs = torch.tensor([[0.1, 0.7, 0.2], [0.8, 0.1, 0.1]])
+    pred3 = ordinal_predict(class_probs, encoding="class_probs", strategy="argmax")
+    assert isinstance(pred3, torch.Tensor)
+
+    # Test unknown encoding
+    with pytest.raises(ValueError, match="Unknown encoding: invalid"):
+        ordinal_predict(class_probs, encoding="invalid")  # type: ignore
+
+    # Test return_pmf
+    pred4, pmf = ordinal_predict(
+        class_probs, encoding="class_probs", strategy="argmax", return_pmf=True
+    )
+    assert isinstance(pred4, torch.Tensor)
+    assert isinstance(pmf, torch.Tensor)
+
+
+def test_ordinal_predict_cumulative_logits_argmax() -> None:
+    cum_logits = torch.tensor([[4.0, 2.0], [-1.0, -2.0]])
+    pred = ordinal_predict(cum_logits, encoding="cumulative_logits", strategy="argmax")
+    assert isinstance(pred, torch.Tensor)
