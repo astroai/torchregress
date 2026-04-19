@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 
 from torchregress.test_time.calibration import (
+    RepresentationShiftCalibrator,
     _subsample_rows,
     _winsorize,
-    RepresentationShiftCalibrator,
 )
 
 
@@ -46,6 +46,7 @@ def test_subsample_rows_random_state_reproducibility():
     # Different random state should likely yield different results
     out3 = _subsample_rows(X, 10, random_state=456)
     assert not np.array_equal(out1, out3)
+
 
 def test_winsorize_returns_original_if_clip_quantile_none():
     X = np.arange(10).reshape(5, 2)
@@ -144,22 +145,19 @@ def test_calibrator_methods_raise_error_before_fit():
 
 
 def test_calibrator_shift_scores():
-    source_reps = np.array([
-        [1.0, 1.0],
-        [1.0, 1.0],
-        [-1.0, -1.0],
-        [-1.0, -1.0]
-    ])
+    source_reps = np.array([[1.0, 1.0], [1.0, 1.0], [-1.0, -1.0], [-1.0, -1.0]])
     # mean is [0, 0], var is [1, 1]
 
     calibrator = RepresentationShiftCalibrator(eps=1e-6)
     calibrator.fit(source_reps)
 
-    target_reps = np.array([
-        [0.0, 0.0],  # At mean, dist = 0
-        [1.0, 0.0],  # dist = sqrt(1^2 / 1 + 0^2 / 1) = 1
-        [1.0, 1.0]   # dist = sqrt(1^2 / 1 + 1^2 / 1) = sqrt(2)
-    ])
+    target_reps = np.array(
+        [
+            [0.0, 0.0],  # At mean, dist = 0
+            [1.0, 0.0],  # dist = sqrt(1^2 / 1 + 0^2 / 1) = 1
+            [1.0, 1.0],  # dist = sqrt(1^2 / 1 + 1^2 / 1) = sqrt(2)
+        ]
+    )
 
     scores = calibrator.shift_scores(target_reps)
     assert scores.shape == (3,)
@@ -167,7 +165,6 @@ def test_calibrator_shift_scores():
 
 
 def test_calibrator_temperatures():
-    source_reps = np.zeros((10, 2))  # Will have small variance bounded by eps
 
     calibrator = RepresentationShiftCalibrator(base_temperature=1.0, max_temperature=5.0, slope=1.0)
     # Inject stats manually to easily test temperature calculation
@@ -180,11 +177,13 @@ def test_calibrator_temperatures():
     # if score = 2.0 -> temp = 2.0
     # if score = 10.0 -> temp = 6.0 (clipped to 5.0)
 
-    target_reps = np.array([
-        [0.0, 0.0],    # score = 0
-        [2.0, 0.0],    # score = 2
-        [10.0, 0.0],   # score = 10
-    ])
+    target_reps = np.array(
+        [
+            [0.0, 0.0],  # score = 0
+            [2.0, 0.0],  # score = 2
+            [10.0, 0.0],  # score = 10
+        ]
+    )
 
     temps = calibrator.temperatures(target_reps)
     np.testing.assert_array_almost_equal(temps, [1.0, 2.0, 5.0])
@@ -196,12 +195,9 @@ def test_calibrator_calibrate_probabilities():
     calibrator.source_var_ = np.array([1.0])
     calibrator.reference_scale_ = 1.0
 
-    probs = np.array([
-        [0.8, 0.2],
-        [0.9, 0.1]
-    ])
+    probs = np.array([[0.8, 0.2], [0.9, 0.1]])
 
-    target_reps = np.array([[0.0], [0.0]]) # Should yield temperature 1.0
+    target_reps = np.array([[0.0], [0.0]])  # Should yield temperature 1.0
 
     calibrated_probs = calibrator.calibrate_probabilities(probs, target_reps)
 
@@ -212,7 +208,7 @@ def test_calibrator_calibrate_probabilities():
     np.testing.assert_array_almost_equal(calibrated_probs.sum(axis=1), [1.0, 1.0])
 
     # With higher temperature, probabilities should become more uniform
-    target_reps_far = np.array([[10.0], [10.0]]) # Will yield max temp 5.0
+    target_reps_far = np.array([[10.0], [10.0]])  # Will yield max temp 5.0
     calibrated_probs_far = calibrator.calibrate_probabilities(probs, target_reps_far)
 
     assert calibrated_probs_far[0, 0] < 0.8
@@ -232,10 +228,10 @@ def test_calibrator_calibrate_std():
 
     stds = np.array([1.0, 2.0])
 
-    target_reps = np.array([[0.0], [0.0]]) # temp = 1.0
+    target_reps = np.array([[0.0], [0.0]])  # temp = 1.0
     calibrated_stds = calibrator.calibrate_std(stds, target_reps)
     np.testing.assert_array_almost_equal(calibrated_stds, stds)
 
-    target_reps_far = np.array([[10.0], [10.0]]) # temp = 5.0
+    target_reps_far = np.array([[10.0], [10.0]])  # temp = 5.0
     calibrated_stds_far = calibrator.calibrate_std(stds, target_reps_far)
     np.testing.assert_array_almost_equal(calibrated_stds_far, [5.0, 10.0])
