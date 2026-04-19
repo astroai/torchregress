@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from torchregress.utils import (
@@ -30,6 +31,12 @@ def test_cumulative_probs_to_pmf_rows_sum_to_one() -> None:
     pmf = cumulative_probs_to_pmf(probs)
     assert pmf.shape[-1] == 4
     assert torch.allclose(pmf.sum(dim=-1), torch.ones(2), atol=1e-6)
+
+
+def test_cumulative_probs_to_pmf_error_dimension_less_than_one() -> None:
+    empty_probs = torch.empty((2, 0), dtype=torch.float32)
+    with pytest.raises(ValueError, match="cumulative_probs last dimension must be >= 1"):
+        cumulative_probs_to_pmf(empty_probs)
 
 
 def test_ordinal_predict_supports_multiple_encodings() -> None:
