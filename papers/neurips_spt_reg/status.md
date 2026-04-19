@@ -9,6 +9,12 @@
 This note tracks the current state of the `torchregress` NeurIPS paper path for
 Shift-Factored Predictive Transport (SPT-Reg).
 
+Current portfolio policy for this cycle:
+
+- SPT-Reg is **research-first / submission-gated** while SAGE-Reg is the primary submission track.
+- Do not promote SPT-Reg to a NeurIPS main-track submission unless a real-data matched-validity efficiency win is shown against `RawSplitConformal`, `WeightedSplitConformal`, and `TargetRefitSmall`.
+- The explicit lock memo for this NeurIPS cycle lives in [docs/research/neurips_2026_submission_portfolio.md](../../docs/research/neurips_2026_submission_portfolio.md).
+
 Working rule:
 
 - stay on `main`
@@ -94,6 +100,10 @@ Implemented examples:
 Artifact renderer:
 
 - [render_spt_reg_paper_artifacts.py](/Users/fabbros/src/torchregress/tools/render_spt_reg_paper_artifacts.py)
+
+One-shot orchestration (renderer + bundled comparisons + optional large-tabular/shifts hooks):
+
+- [run_neurips_spt_reg_full.py](/Users/fabbros/src/torchregress/scripts/run_neurips_spt_reg_full.py)
 
 Current default artifact surface:
 

@@ -58,12 +58,13 @@ def test_self_agreement_higgs_ood_smoke(tmp_path: Path) -> None:
     assert perf_path.exists()
     assert calib_path.exists()
     assert summary_path.exists()
-    assert len(rows) == 4
+    assert len(rows) == 5
 
     methods = {str(row["Method"]) for row in rows}
     assert methods == {
         "SupervisedOnly",
         "MeanTeacher",
+        "PiModelConsistency",
         "ConfidenceWeightedPseudoLabel",
         "SAGE-Reg",
     }
@@ -127,7 +128,7 @@ def test_self_agreement_higgs_ood_local_parquet_sampling(tmp_path: Path) -> None
     )
     rows = mod.run_benchmark(cfg)
     assert rows
-    assert len(rows) == 4
+    assert len(rows) == 5
 
 
 def test_higgs_scale_split_sizes_and_budget() -> None:

@@ -76,13 +76,16 @@ def test_self_agreement_realdata_year_smoke(tmp_path: Path) -> None:
     assert calib_path.exists()
     assert diag_path.exists()
     assert summary_path.exists()
-    assert len(rows) == 8
+    assert len(rows) == 14
 
     methods = {str(row["Method"]) for row in rows}
     assert methods == {
         "SupervisedOnly",
         "MeanTeacher",
+        "PiModelConsistency",
         "ConfidenceWeightedPseudoLabel",
+        "RankUp",
+        "PabLOPseudo",
         "SAGE-Reg",
     }
 
@@ -90,6 +93,7 @@ def test_self_agreement_realdata_year_smoke(tmp_path: Path) -> None:
     assert payload["artifact"] == "comparison_example_summary"
     assert "yearpredictionmsd" in payload["task"].lower()
     first = payload["rows"][0]
+    assert "Seed" in first
     for key in (
         "Dataset",
         "UnlabeledFraction",
@@ -173,3 +177,16 @@ def test_self_agreement_realdata_year_repeatable_metrics(tmp_path: Path) -> None
         }
 
     assert _metrics(rows_a) == _metrics(rows_b)
+
+
+def test_subsample_pair_respects_seed() -> None:
+    mod = _load_module("self_agreement_realdata_year")
+    import torch
+
+    x = torch.arange(20, dtype=torch.float32).reshape(10, 2)
+    y = torch.arange(10, dtype=torch.float32).reshape(10, 1)
+    a_x, a_y = mod._subsample_pair(x, y, 0.5, subsample_seed=12345)
+    b_x, b_y = mod._subsample_pair(x, y, 0.5, subsample_seed=12345)
+    c_x, c_y = mod._subsample_pair(x, y, 0.5, subsample_seed=99999)
+    assert torch.equal(a_x, b_x) and torch.equal(a_y, b_y)
+    assert not torch.equal(a_x, c_x)

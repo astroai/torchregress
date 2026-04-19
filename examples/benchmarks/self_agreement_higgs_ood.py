@@ -728,6 +728,61 @@ def _train_mean_teacher_student(
     return student.eval(), stats
 
 
+def _train_pi_model_student(
+    cfg: HiggsOODConfig,
+    split: HiggsOODSplit,
+    teacher: TabularGaussianRegressor,
+) -> tuple[TabularGaussianRegressor, dict[str, float]]:
+    """Simple consistency baseline (Pi-model style, no EMA teacher)."""
+    _training_seed(cfg.seed, 4)
+    student = copy.deepcopy(teacher).train()
+    optimizer = torch.optim.Adam(student.parameters(), lr=cfg.lr)
+    labeled_loader, unlabeled_loader = _build_loaders(split, batch_size=cfg.batch_size)
+    lambda_u = float(cfg.pseudo_weight)
+
+    for _ in range(cfg.student_epochs):
+        ul_iter = iter(unlabeled_loader)
+        for xb_l, yb_l in labeled_loader:
+            try:
+                xb_u, ood_u = next(ul_iter)
+                is_ood = ood_u.squeeze(-1) > 0.5
+            except StopIteration:
+                ul_iter = iter(unlabeled_loader)
+                xb_u, ood_u = next(ul_iter)
+                is_ood = ood_u.squeeze(-1) > 0.5
+            optimizer.zero_grad()
+            loss_sup = _supervised_loss(student, xb_l, yb_l)
+            xa = _augment_batch(
+                xb_u,
+                is_ood,
+                cfg.unlabeled_noise,
+                cfg.ood_perturb_boost,
+                cfg.feature_drop_prob,
+                cfg.feature_mix_prob,
+            )
+            xb = _augment_batch(
+                xb_u,
+                is_ood,
+                cfg.unlabeled_noise,
+                cfg.ood_perturb_boost,
+                cfg.feature_drop_prob,
+                cfg.feature_mix_prob,
+            )
+            mean_a, _ = student(xa)
+            mean_b, _ = student(xb)
+            loss_u = F.mse_loss(mean_a, mean_b)
+            loss = loss_sup + lambda_u * loss_u
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=5.0)
+            optimizer.step()
+
+    zeros = torch.zeros(
+        split.x_unlabeled.shape[0], device=split.x_unlabeled.device, dtype=torch.float32
+    )
+    stats = _batch_weight_stats(zeros, zeros, split.unlabeled_is_ood)
+    return student.eval(), stats
+
+
 def _evaluate_regime(model: TabularGaussianRegressor, x: Tensor, y: Tensor) -> dict[str, float]:
     model.eval()
     with torch.no_grad():
@@ -778,6 +833,10 @@ def run_benchmark(cfg: HiggsOODConfig) -> list[dict[str, object]]:
         (
             "MeanTeacher",
             lambda: (*timed_call(_train_mean_teacher_student, cfg, split, teacher),),
+        ),
+        (
+            "PiModelConsistency",
+            lambda: (*timed_call(_train_pi_model_student, cfg, split, teacher),),
         ),
         (
             "ConfidenceWeightedPseudoLabel",

@@ -211,7 +211,12 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--year-cache", type=Path, required=True)
     p.add_argument("--out-dir", type=Path, required=True)
-    p.add_argument("--n-labeled", type=int, nargs="+", default=[2048, 4096, 8192, 16384, 32768])
+    p.add_argument(
+        "--n-labeled",
+        type=int,
+        nargs="+",
+        default=[1024, 2048, 4096, 8192, 16384, 32768],
+    )
     p.add_argument("--seeds", type=int, nargs="+", default=[260410, 260411, 260412])
     p.add_argument("--iterations", type=int, default=4000)
     p.add_argument("--higgs-parquet", type=Path, default=None)

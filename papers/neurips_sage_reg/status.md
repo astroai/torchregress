@@ -1,6 +1,6 @@
 # SAGE-Reg status
 
-Last updated: 2026-04-12
+Last updated: 2026-04-17
 
 Canonical location for paper-track status. Internal notes also live under `docs/research/`.
 
@@ -15,9 +15,10 @@ SAGE-Reg is a coherent paper prototype on `main` with:
 - a narrow core API in `torchregress/semi_supervised.py`
 - end-to-end support for Gaussian, quantile, and bar / binned-PDF predictors
 - synthetic benchmarks that validate the main safety claim
-- two real-data benchmarks:
+- two **primary** real-data tracks:
   - `year` as the first large IID tabular regression benchmark
   - FAIR Universe Higgs public data as an OOD-oriented stress benchmark
+- optional **extra IID-style tabular evidence** (not a third “headline” benchmark): OpenML diamonds (42225) multiseed + a **TabReD quick SSL probe bundle** (targets normalized inside the TabReD harness; use for breadth / sanity, not raw-number comparison to Year/Higgs)
 
 The current evidence is:
 
@@ -26,6 +27,9 @@ The current evidence is:
 - **good** for OOD-style downweighting on Higgs; **large-scale Higgs** (10× splits, 10M reservoir, 32 ep) shows **stable SAGE OOD NLL vs high-variance supervised OOD NLL** across three seeds (see table below)—use careful wording (variance, protocol).
 - **not yet sufficient** for a blanket "beats `SupervisedOnly`" claim on **Year** under **tuned-hyper multiseed** (mean NLL can favor supervised)
 - **new (2026-04-11):** a **single-seed labeled-budget sweep** on OpenML Year shows a **clear regime** — SAGE **wins NLL** at **`n_labeled` 2048–4096** (fixed `n_unlabeled=131072`), **loses** at **8192+** with default `YearRealDataConfig` training hypers; see collated `year_labeled_sweep_collated.json` under `docs/research/sage_reg_results/2026-04-11/tabular_runs/`. This supports an **honest "label-scarce IID"** claim rather than a universal NLL win.
+- **new (2026-04-17 quick pack):** `scripts/run_neurips_sage_reg_full.py --quick --skip-tabred` completed under `docs/research/sage_reg_results/2026-04-17/neurips_sage_reg_full/` and now includes a separate `PiModelConsistency` baseline in Year/Higgs rows. Treat this run as protocol/sanity evidence (1-epoch quick budget), not final paper numbers.
+- **new (2026-04-17 full pack refresh):** the same run root now also includes **`nl=1024` in the labeled sweep collate**, **CatBoost Year+Higgs ceilings** (requires `uv pip install catboost`), a **second OpenML tabular multiseed track** on **diamonds (42225)** under `openml_diamonds/` (split sizes are **scaled to the fixed-row table** by `scripts/run_neurips_sage_reg_full.py`), and an updated `sage_paper_report.json` / `METRICS.md` digest.
+- **new (2026-04-17 TabReD appendix bundle):** `examples/benchmarks/tabred_sage_ssl_probe.py --quick` was run post-hoc into `docs/research/sage_reg_results/2026-04-17/neurips_sage_reg_full/tabred/` so the aggregated digest includes `tabred_bundle` (the original one-shot manifest had TabReD skipped because the runner was invoked with `--skip-tabred` during the long orchestration pass).
 
 **Long-run competitiveness plan** (GBM ceilings, Mean Teacher, multi-seed × `n_labeled`, SPT DA baselines): [docs/research/paper_strong_experiment_suite.md](../../docs/research/paper_strong_experiment_suite.md).
 
@@ -153,7 +157,7 @@ Not yet supported: **tuned-hyper** multiseed **mean** superiority on Year at **`
 1. Execute **[paper_strong_experiment_suite.md](../../docs/research/paper_strong_experiment_suite.md)** Tier A: **multiseed × `n_labeled`**, **GBM labeled-only ceiling**, **paper-budget re-tune**, then **second IID OpenML** dataset.
 2. **Year narrative:** lead with **label-scarce regime** (sweep + multiseed at `nl∈{2048,4096}`) and **protocol consistency** (tuned row vs default hypers); avoid a single “beats supervised” sentence without those qualifiers.
 3. **Higgs:** optional **re-sweep at 10×**; **5+ seeds** / **medians** for supervised OOD NLL; **binary-target caveat** in `main.tex`.
-4. **External SSL** (Mean Teacher / Π-model, same backbone budget) when engineering bandwidth allows — see suite doc.
+4. Keep **external SSL parity rows** (Mean Teacher + Pi-model consistency) in all Year/Higgs confirms at matched budget.
 
 ## Stop / go
 

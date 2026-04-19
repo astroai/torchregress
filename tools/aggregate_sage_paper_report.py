@@ -5,6 +5,7 @@ Expected layout under ``run_root`` (from ``scripts/run_neurips_sage_reg_full.py`
     run_root/
       sage/year_direct/summary.json
       sage/multiseed/multiseed_summary.json
+      openml_diamonds/multiseed_summary.json                 # optional (OpenML id 42225)
       year_labeled_sweep/year_labeled_sweep_collated.json   # optional
       multiseed_year_nl2048/multiseed_summary.json          # optional
       catboost/year_catboost_labeled_only.json              # optional
@@ -50,6 +51,13 @@ def build_report(run_root: Path) -> dict[str, Any]:
     else:
         multiseed_summary = prc.summarize_multiseed(multiseed_raw)
 
+    diamonds_multiseed_path = run_root / "openml_diamonds" / "multiseed_summary.json"
+    diamonds_multiseed_raw = prc.read_json(diamonds_multiseed_path)
+    if diamonds_multiseed_raw is None:
+        diamonds_multiseed_summary = None
+    else:
+        diamonds_multiseed_summary = prc.summarize_multiseed(diamonds_multiseed_raw)
+
     collated = prc.read_json(run_root / "year_labeled_sweep" / "year_labeled_sweep_collated.json")
     if collated is None:
         collated = None
@@ -63,9 +71,11 @@ def build_report(run_root: Path) -> dict[str, Any]:
     backbone = prc.read_json(run_root / "backbone" / "summary.json")
     tabred = prc.read_json(run_root / "tabred" / "bundle_summary.json")
     ablations = prc.read_json(run_root / "ablations" / "summary.json")
+    image_rebuttal = prc.read_json(run_root / "image_rebuttal" / "summary.json")
     run_manifest = prc.read_json(run_root / "neurips_sage_reg_full_manifest.json")
 
     optional_paths = {
+        "openml_diamonds_multiseed": run_root / "openml_diamonds" / "multiseed_summary.json",
         "year_labeled_sweep_collated": run_root
         / "year_labeled_sweep"
         / "year_labeled_sweep_collated.json",
@@ -76,6 +86,7 @@ def build_report(run_root: Path) -> dict[str, Any]:
         "backbone": run_root / "backbone" / "summary.json",
         "tabred": run_root / "tabred" / "bundle_summary.json",
         "ablations": run_root / "ablations" / "summary.json",
+        "image_rebuttal": run_root / "image_rebuttal" / "summary.json",
     }
     paths_present = {k: str(p) for k, p in optional_paths.items() if p.is_file()}
 
@@ -91,6 +102,7 @@ def build_report(run_root: Path) -> dict[str, Any]:
         },
         "sage_year_direct": sage_direct_summary,
         "sage_multiseed": multiseed_summary,
+        "openml_diamonds_multiseed": diamonds_multiseed_summary,
         "year_labeled_sweep_collated": collated,
         "multiseed_year_nl2048": nl2048,
         "catboost_year": catboost_year,
@@ -99,6 +111,7 @@ def build_report(run_root: Path) -> dict[str, Any]:
         "backbone_summary": backbone,
         "tabred_bundle": tabred,
         "ablations": ablations,
+        "image_rebuttal": image_rebuttal,
         "neurips_full_manifest": run_manifest,
         "warnings": warnings,
     }
@@ -157,6 +170,20 @@ def _write_markdown(report: dict[str, Any], path: Path) -> None:
         lines.append("| Benchmark | Seeds | SAGE−Sup (mean) | SAGE−Sup (std) | Conf−Sup (mean) |")
         lines.append("|-----------|------:|----------------:|---------------:|----------------:|")
         for row in ms["aggregate"]:
+            lines.append(
+                f"| {row.get('Benchmark')} | {row.get('Seeds')} | "
+                f"{row.get('SAGEMinusSupervisedMean')} | {row.get('SAGEMinusSupervisedStd')} | "
+                f"{row.get('ConfidenceMinusSupervisedMean')} |"
+            )
+        lines.append("")
+
+    dm = report.get("openml_diamonds_multiseed")
+    if dm and dm.get("aggregate"):
+        lines.append("## OpenML diamonds multiseed (tuned Year row, aggregate)")
+        lines.append("")
+        lines.append("| Benchmark | Seeds | SAGE−Sup (mean) | SAGE−Sup (std) | Conf−Sup (mean) |")
+        lines.append("|-----------|------:|----------------:|---------------:|----------------:|")
+        for row in dm["aggregate"]:
             lines.append(
                 f"| {row.get('Benchmark')} | {row.get('Seeds')} | "
                 f"{row.get('SAGEMinusSupervisedMean')} | {row.get('SAGEMinusSupervisedStd')} | "

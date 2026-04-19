@@ -6,7 +6,7 @@ import argparse
 import csv
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from itertools import product
 from pathlib import Path
@@ -56,6 +56,9 @@ class SupervisedGapTuningConfig:
     year_student_epochs: int = 16
     year_batch_size: int = 512
     year_hidden: int = 128
+    year_lr: float = 2e-3
+    year_lr_schedule: str = "constant"
+    year_lr_min: float = 1e-5
     year_unlabeled_fraction: float = 1.0
     higgs_n_train: int = 4_096
     higgs_n_unlabeled_id: int = 16_384
@@ -129,6 +132,32 @@ def _row_key(
         float(weight_power),
         None if hard_weight_threshold is None else float(hard_weight_threshold),
     )
+
+
+def _row_key_from_sweep_row(row: dict[str, object]) -> tuple[object, ...]:
+    threshold = float(row["hard_weight_threshold"])
+    return _row_key(
+        str(row["Benchmark"]),
+        tau=float(row["tau"]),
+        unlabeled_noise=float(row["unlabeled_noise"]),
+        feature_drop_prob=float(row["feature_drop_prob"]),
+        feature_mix_prob=float(row.get("feature_mix_prob", 0.0)),
+        pseudo_weight=float(row["pseudo_weight"]),
+        agreement_weight=float(row["agreement_weight"]),
+        weight_power=float(row["weight_power"]),
+        hard_weight_threshold=None if threshold < 0.0 else threshold,
+    )
+
+
+def _dedupe_sweep_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Collapse duplicate hyperparameter rows (e.g. resume double-appends), keeping best gap."""
+    best: dict[tuple[object, ...], dict[str, object]] = {}
+    for row in rows:
+        key = _row_key_from_sweep_row(row)
+        cur = best.get(key)
+        if cur is None or float(row["SAGEMinusSupervised"]) < float(cur["SAGEMinusSupervised"]):
+            best[key] = row
+    return list(best.values())
 
 
 def _completed_keys(rows: list[dict[str, object]]) -> set[tuple[object, ...]]:
@@ -330,6 +359,9 @@ def _prepare_year_context(cfg: SupervisedGapTuningConfig) -> dict[str, Any]:
         n_unlabeled=cfg.year_n_unlabeled,
         n_test=cfg.year_n_test,
         hidden=cfg.year_hidden,
+        lr=cfg.year_lr,
+        lr_schedule=cfg.year_lr_schedule,
+        lr_min=cfg.year_lr_min,
         teacher_epochs=cfg.year_teacher_epochs,
         student_epochs=cfg.year_student_epochs,
         batch_size=cfg.year_batch_size,
@@ -337,7 +369,11 @@ def _prepare_year_context(cfg: SupervisedGapTuningConfig) -> dict[str, Any]:
     )
     split = year_benchmark._make_split(base_cfg)
     x_unlabeled, _ = year_benchmark._subsample_pair(
-        split.x_unlabeled, split.y_unlabeled_true, cfg.year_unlabeled_fraction
+        split.x_unlabeled,
+        split.y_unlabeled_true,
+        cfg.year_unlabeled_fraction,
+        subsample_seed=cfg.seed * 1_000_003
+        + int(round(float(cfg.year_unlabeled_fraction) * 1_000_000)),
     )
     teacher = year_benchmark._train_supervised_teacher(
         base_cfg,
@@ -697,12 +733,30 @@ def main(
     existing_rows: list[dict[str, object]] = []
     if Path(resolved_output_csv).exists():
         existing_rows = _read_csv_rows(resolved_output_csv)
+        deduped = _dedupe_sweep_rows(existing_rows)
+        if len(deduped) != len(existing_rows) and resolved.log_progress:
+            print(
+                f"Deduped sweep CSV rows: {len(existing_rows)} -> {len(deduped)} "
+                f"(duplicate hyperparameter keys in {resolved_output_csv})",
+                flush=True,
+            )
+        existing_rows = deduped
         if resolved.log_progress:
             print(
                 "Resuming from existing CSV with "
                 f"{len(existing_rows)} completed rows: {resolved_output_csv}"
             )
     rows = run_tuning(resolved, existing_rows=existing_rows, output_csv=resolved_output_csv)
+    before_n = len(rows)
+    rows = _dedupe_sweep_rows(rows)
+    if before_n > len(rows):
+        rows.sort(key=_row_key_from_sweep_row)
+        _write_csv(resolved_output_csv, rows)
+        if resolved.log_progress:
+            print(
+                f"Rewrote deduped sweep CSV: {before_n} -> {len(rows)} rows at {resolved_output_csv}",
+                flush=True,
+            )
     print_fairness_notes(
         title="SAGE-Reg Supervised-Gap Tuning",
         seed_policy=f"single fixed seed ({resolved.seed}) across all sweeps",
@@ -754,46 +808,110 @@ def main(
     return rows
 
 
+def _parse_hard_weight_threshold_token(raw: str) -> float | None:
+    s = raw.strip().lower()
+    if s in {"none", "null"}:
+        return None
+    return float(s)
+
+
 if __name__ == "__main__":
+    base = SupervisedGapTuningConfig()
     parser = argparse.ArgumentParser(description="Tune SAGE-Reg against the supervised-only gap.")
+    parser.add_argument("--seed", type=int, default=base.seed)
     parser.add_argument("--year-dataset-path", type=str, default="")
     parser.add_argument("--year-cache-path", type=str, default="")
     parser.add_argument("--no-year-download", action="store_true")
     parser.add_argument("--higgs-dataset-path", type=str, default="")
-    parser.add_argument("--out-dir", type=str, default=SupervisedGapTuningConfig.out_dir)
+    parser.add_argument("--out-dir", type=str, default=base.out_dir)
     parser.add_argument("--skip-year", action="store_true")
     parser.add_argument("--skip-higgs", action="store_true")
     parser.add_argument("--output-csv", type=str, default="")
     parser.add_argument("--figure-path", type=str, default="")
     parser.add_argument("--summary-json-path", type=str, default="")
+    parser.add_argument("--tau-values", type=float, nargs="*", default=None)
+    parser.add_argument("--unlabeled-noise-values", type=float, nargs="*", default=None)
+    parser.add_argument("--feature-drop-prob-values", type=float, nargs="*", default=None)
+    parser.add_argument("--feature-mix-prob-values", type=float, nargs="*", default=None)
+    parser.add_argument("--pseudo-weight-values", type=float, nargs="*", default=None)
+    parser.add_argument("--agreement-weight-values", type=float, nargs="*", default=None)
+    parser.add_argument("--weight-power-values", type=float, nargs="*", default=None)
     parser.add_argument(
-        "--year-teacher-epochs", type=int, default=SupervisedGapTuningConfig.year_teacher_epochs
+        "--hard-weight-threshold-values",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Per-threshold token: float or 'none' for no hard cap.",
     )
+    parser.add_argument("--year-n-labeled", type=int, default=None)
+    parser.add_argument("--year-n-unlabeled", type=int, default=None)
+    parser.add_argument("--year-n-test", type=int, default=None)
+    parser.add_argument("--year-lr", type=float, default=None)
     parser.add_argument(
-        "--year-student-epochs", type=int, default=SupervisedGapTuningConfig.year_student_epochs
+        "--year-lr-schedule",
+        type=str,
+        default=None,
+        help="Adam schedule for Year track phases: constant (default) or cosine.",
     )
-    parser.add_argument(
-        "--higgs-teacher-epochs", type=int, default=SupervisedGapTuningConfig.higgs_teacher_epochs
-    )
-    parser.add_argument(
-        "--higgs-student-epochs", type=int, default=SupervisedGapTuningConfig.higgs_student_epochs
-    )
+    parser.add_argument("--year-lr-min", type=float, default=None)
+    parser.add_argument("--year-teacher-epochs", type=int, default=base.year_teacher_epochs)
+    parser.add_argument("--year-student-epochs", type=int, default=base.year_student_epochs)
+    parser.add_argument("--higgs-teacher-epochs", type=int, default=base.higgs_teacher_epochs)
+    parser.add_argument("--higgs-student-epochs", type=int, default=base.higgs_student_epochs)
     args = parser.parse_args()
 
+    updates: dict[str, Any] = {
+        "out_dir": args.out_dir,
+        "year_dataset_path": args.year_dataset_path or None,
+        "year_cache_path": args.year_cache_path or None,
+        "year_allow_download": not args.no_year_download,
+        "higgs_dataset_path": args.higgs_dataset_path or None,
+        "include_year": not args.skip_year,
+        "include_higgs": not args.skip_higgs,
+        "year_teacher_epochs": args.year_teacher_epochs,
+        "year_student_epochs": args.year_student_epochs,
+        "higgs_teacher_epochs": args.higgs_teacher_epochs,
+        "higgs_student_epochs": args.higgs_student_epochs,
+        "seed": args.seed,
+    }
+    if args.tau_values is not None:
+        updates["tau_values"] = tuple(args.tau_values)
+    if args.unlabeled_noise_values is not None:
+        updates["unlabeled_noise_values"] = tuple(args.unlabeled_noise_values)
+    if args.feature_drop_prob_values is not None:
+        updates["feature_drop_prob_values"] = tuple(args.feature_drop_prob_values)
+    if args.feature_mix_prob_values is not None:
+        updates["feature_mix_prob_values"] = tuple(args.feature_mix_prob_values)
+    if args.pseudo_weight_values is not None:
+        updates["pseudo_weight_values"] = tuple(args.pseudo_weight_values)
+    if args.agreement_weight_values is not None:
+        updates["agreement_weight_values"] = tuple(args.agreement_weight_values)
+    if args.weight_power_values is not None:
+        updates["weight_power_values"] = tuple(args.weight_power_values)
+    if args.hard_weight_threshold_values is not None:
+        updates["hard_weight_threshold_values"] = tuple(
+            _parse_hard_weight_threshold_token(s) for s in args.hard_weight_threshold_values
+        )
+    if args.year_n_labeled is not None:
+        updates["year_n_labeled"] = args.year_n_labeled
+    if args.year_n_unlabeled is not None:
+        updates["year_n_unlabeled"] = args.year_n_unlabeled
+    if args.year_n_test is not None:
+        updates["year_n_test"] = args.year_n_test
+    if args.year_lr is not None:
+        updates["year_lr"] = args.year_lr
+    if args.year_lr_schedule is not None:
+        sched = args.year_lr_schedule.strip().lower()
+        if sched not in {"constant", "cosine"}:
+            parser.error("--year-lr-schedule must be 'constant' or 'cosine'")
+        updates["year_lr_schedule"] = sched
+    if args.year_lr_min is not None:
+        updates["year_lr_min"] = args.year_lr_min
+
+    cfg = replace(base, **updates)
+
     main(
-        SupervisedGapTuningConfig(
-            out_dir=args.out_dir,
-            year_dataset_path=args.year_dataset_path or None,
-            year_cache_path=args.year_cache_path or None,
-            year_allow_download=not args.no_year_download,
-            higgs_dataset_path=args.higgs_dataset_path or None,
-            include_year=not args.skip_year,
-            include_higgs=not args.skip_higgs,
-            year_teacher_epochs=args.year_teacher_epochs,
-            year_student_epochs=args.year_student_epochs,
-            higgs_teacher_epochs=args.higgs_teacher_epochs,
-            higgs_student_epochs=args.higgs_student_epochs,
-        ),
+        cfg,
         output_csv=args.output_csv or None,
         figure_path=args.figure_path or None,
         summary_json_path=args.summary_json_path or None,

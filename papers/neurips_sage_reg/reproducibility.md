@@ -43,9 +43,11 @@ uv run python scripts/run_neurips_sage_reg_full.py --quick
 
 **Shifts placeholder** (writes `README.txt` under `data/shifts/<dataset>/`) runs **by default**; use `--skip-shifts` or `--shifts-out-root` for a custom location. Photo-z is not part of this runner.
 
-OpenML Year cache defaults to `data/paper/openml_year.csv` (created on first run unless `--no-year-download`). Example commands below use `docs/research/sage_reg_results/.../openml_year.csv` as a **local** cache path; that CSV is **not** in git (too large). Committed trees under `docs/research/sage_reg_results/` are **metrics** (`*.json`, `*.csv` summaries, `*.md`, `*.png`) — see `docs/research/sage_reg_results/README.md`. **Mean Teacher** SSL baseline: benchmark row `MeanTeacher` in `examples/benchmarks/self_agreement_realdata_year.py` and Higgs track where enabled.
+OpenML Year cache defaults to `data/paper/openml_year.csv` (created on first run unless `--no-year-download`). Example commands below use `docs/research/sage_reg_results/.../openml_year.csv` as a **local** cache path; that CSV is **not** in git (too large). Committed trees under `docs/research/sage_reg_results/` are **metrics** (`*.json`, `*.csv` summaries, `*.md`, `*.png`) — see `docs/research/sage_reg_results/README.md`. External SSL baselines now include **Mean Teacher** (`MeanTeacher`) and a **Pi-model style consistency** row (`PiModelConsistency`) in Year/Higgs benchmark scripts.
 
 Joint SPT+SAGE pass: `./scripts/run_neurips_paper_bundle.sh` (forwards args to both scripts; **no** `--run-root`).
+
+Optional image rebuttal pack (synthetic, lightweight): `--include-image-rebuttal` on `scripts/run_neurips_sage_reg_full.py` or direct script `examples/benchmarks/image_regression_rebuttal.py`.
 
 Keep **stable filenames** once cited in `main.tex`. Large raw files (parquet, zip) are often local-only; see “What to commit” below.
 
@@ -79,7 +81,16 @@ For Higgs-only runs: `--skip-year`, `--higgs-dataset-path …`, and matching `--
 
 ### Extra-large OpenML tabular (e.g. diamonds 42225)
 
-`examples/benchmarks/self_agreement_realdata_year.py` can fetch a **large** OpenML regression dump via **`--openml-data-id`** (e.g. **42225** diamonds, or **42731** house sales; confirm on OpenML) and cap memory with **`--max-dataset-rows`**, optionally writing **`--cache-path`** for reuse. Multi-seed scripts take a **cached** table path (**`--year-cache-path`** on `self_agreement_supervised_gap_multiseed.py`); materialize the cache once with the real-data Year script or **`tools/materialize_openml_large_tabular.py`**, then point multiseed at that file.
+`examples/benchmarks/self_agreement_realdata_year.py` can fetch OpenML regression tables via **`--openml-data-id`** (e.g. **42225** diamonds, or **42731** house sales; confirm on OpenML) and cap memory with **`--max-dataset-rows`**, optionally writing **`--cache-path`** for reuse.
+
+For multi-seed supervised-gap confirmation, prefer passing a **materialized table path** to
+`self_agreement_supervised_gap_multiseed.py` via **`--year-dataset-path`** (works for `.csv` / `.parquet`),
+optionally with **`--year-benchmark-label`** so CSV/JSON rows are not mis-tagged as the Year MSD task.
+Materialize pinned bytes once with **`tools/materialize_openml_large_tabular.py`**, then reuse the file.
+
+The one-shot paper runner `scripts/run_neurips_sage_reg_full.py` includes an **OpenML diamonds** phase; because the
+diamonds table is small (53,940 rows in the default materialization), it **proportionally shrinks**
+`(n_unlabeled, n_test)` relative to the Year MSD protocol so `n_labeled+n_unlabeled+n_test` fits the table.
 
 ### Higgs parquet
 

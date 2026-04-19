@@ -170,7 +170,9 @@ The experimental program on the branch is organized into:
 \begin{enumerate}
   \item synthetic confidence-trap and self-agreement stress tests,
   \item backbone comparisons (Gaussian, quantile, bar / binned PDF),
-  \item real tabular tracks: OpenML YearPredictionMSD-style regression and an
+  \item real tabular tracks: OpenML YearPredictionMSD-style regression, a second
+  smaller OpenML tabular benchmark (ggplot2 diamonds / OpenML id 42225; split sizes
+  are scaled to the fixed-row table when running the full paper bundle), and an
   optional FAIR Universe Higgs public OOD-style stress benchmark, and
   \item supervised-gap confirmation and multi-seed aggregation over fixed
   configurations selected from tuning sweeps.
@@ -179,6 +181,7 @@ The experimental program on the branch is organized into:
 \paragraph{Competing methods and baselines.}
 Primary baselines include supervised-only training on labeled data,
 Mean Teacher--style consistency training (\texttt{MeanTeacher}),
+Pi-model consistency without EMA teacher (\texttt{PiModelConsistency}),
 confidence-weighted pseudo-labeling (scalar weighting), and ablations of SAGE-Reg
 (single view, no weighting, no EMA teacher) as implemented in the benchmark
 scripts.
@@ -198,6 +201,7 @@ scripts.
     \midrule
     \texttt{SupervisedOnly} & Labeled empirical risk & Ignores unlabeled pool (ceiling for label efficiency claims). \\
     \texttt{MeanTeacher} & EMA teacher consistency~\citep{tarvainen2017mean} & Same backbone; consistency on predictive \emph{mean} rather than full law. \\
+    \texttt{PiModelConsistency} & Consistency regularization (Pi-model family) & Same backbone; two-view consistency without EMA teacher. \\
     \texttt{ConfidenceWeightedPseudoLabel} & Scalar-weighted SSL / uncertainty cues~\citep{chapelle2006semisupervised,kendall2017multi} & Same unlabeled data; weights from a scalar confidence channel. \\
     \texttt{SAGE-Reg} & (proposed) & Distributional self-agreement + detached trust from view disagreement. \\
     \bottomrule

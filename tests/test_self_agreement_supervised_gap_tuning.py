@@ -116,3 +116,39 @@ def test_self_agreement_supervised_gap_tuning_smoke(tmp_path: Path) -> None:
         summary_json_path=str(summary_path),
     )
     assert len(resumed_rows) == len(rows)
+
+
+def test_dedupe_sweep_rows_keeps_best_sage_gap() -> None:
+    mod = _load_module("self_agreement_supervised_gap_tuning")
+    dup_a = {
+        "Benchmark": "year",
+        "ObjectiveMetric": "NLL",
+        "ExtraMetric": "Cov90",
+        "tau": 0.18,
+        "unlabeled_noise": 0.05,
+        "feature_drop_prob": 0.1,
+        "feature_mix_prob": 0.0,
+        "pseudo_weight": 0.8,
+        "agreement_weight": 0.5,
+        "weight_power": 2.0,
+        "hard_weight_threshold": -1.0,
+        "SupervisedObjective": 2.0,
+        "ConfidenceObjective": 4.0,
+        "SAGEObjective": 1.9,
+        "SAGEMinusSupervised": -0.1,
+        "ConfidenceMinusSupervised": 2.0,
+        "SupervisedExtra": 0.8,
+        "SAGEExtra": 0.8,
+        "ConfidenceExtra": 0.5,
+        "SAGEMeanWeight": 0.2,
+        "SAGEMeanDisagreement": 0.3,
+    }
+    dup_b = {**dup_a, "SAGEObjective": 2.5, "SAGEMinusSupervised": 0.5}
+    other = dict(dup_a)
+    other["tau"] = 0.28
+    other["SAGEMinusSupervised"] = 0.0
+    other["SAGEObjective"] = 2.0
+    out = mod._dedupe_sweep_rows([dup_a, dup_b, other])
+    assert len(out) == 2
+    kept = [r for r in out if float(r["tau"]) == 0.18][0]
+    assert float(kept["SAGEMinusSupervised"]) == -0.1

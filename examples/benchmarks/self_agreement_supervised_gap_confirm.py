@@ -28,6 +28,9 @@ class SupervisedGapConfirmConfig:
     seed: int | None = None
     year_dataset_path: str | None = None
     year_cache_path: str | None = None
+    year_openml_data_id: int | None = None
+    year_openml_dataset_name: str | None = None
+    year_openml_version: int | None = None
     year_allow_download: bool | None = None
     higgs_dataset_path: str | None = None
     include_year: bool = True
@@ -39,6 +42,9 @@ class SupervisedGapConfirmConfig:
     year_batch_size: int | None = None
     year_teacher_epochs: int | None = None
     year_student_epochs: int | None = None
+    year_lr: float | None = None
+    year_lr_schedule: str | None = None
+    year_lr_min: float | None = None
     higgs_n_train: int | None = None
     higgs_n_unlabeled_id: int | None = None
     higgs_n_unlabeled_ood: int | None = None
@@ -107,22 +113,45 @@ def _confirm_year(
     out_dir: Path,
     tuning_config: dict[str, Any],
 ) -> dict[str, Any]:
+    dataset_path = _resolve_value(
+        cfg.year_dataset_path,
+        tuning_config,
+        "year_dataset_path",
+        year_benchmark.YearRealDataConfig.dataset_path,
+    )
+    cache_path = _resolve_value(
+        cfg.year_cache_path,
+        tuning_config,
+        "year_cache_path",
+        year_benchmark.YearRealDataConfig.cache_path,
+    )
+    openml_data_id = _resolve_value(
+        cfg.year_openml_data_id,
+        tuning_config,
+        "year_openml_data_id",
+        year_benchmark.YearRealDataConfig.openml_data_id,
+    )
+    openml_dataset_name = _resolve_value(
+        cfg.year_openml_dataset_name,
+        tuning_config,
+        "year_openml_dataset_name",
+        year_benchmark.YearRealDataConfig.openml_dataset_name,
+    )
+    openml_version = _resolve_value(
+        cfg.year_openml_version,
+        tuning_config,
+        "year_openml_version",
+        year_benchmark.YearRealDataConfig.openml_version,
+    )
     bench_cfg = year_benchmark.YearRealDataConfig(
         seed=int(
             _resolve_value(cfg.seed, tuning_config, "seed", year_benchmark.YearRealDataConfig.seed)
         ),
-        dataset_path=_resolve_value(
-            cfg.year_dataset_path,
-            tuning_config,
-            "year_dataset_path",
-            year_benchmark.YearRealDataConfig.dataset_path,
-        ),
-        cache_path=_resolve_value(
-            cfg.year_cache_path,
-            tuning_config,
-            "year_cache_path",
-            year_benchmark.YearRealDataConfig.cache_path,
-        ),
+        dataset_path=dataset_path,
+        cache_path=cache_path,
+        openml_data_id=openml_data_id,
+        openml_dataset_name=openml_dataset_name,
+        openml_version=int(openml_version),
         allow_download=bool(
             _resolve_value(
                 cfg.year_allow_download,
@@ -185,6 +214,30 @@ def _confirm_year(
                 tuning_config,
                 "year_student_epochs",
                 year_benchmark.YearRealDataConfig.student_epochs,
+            )
+        ),
+        lr=float(
+            _resolve_value(
+                cfg.year_lr,
+                tuning_config,
+                "year_lr",
+                year_benchmark.YearRealDataConfig.lr,
+            )
+        ),
+        lr_schedule=str(
+            _resolve_value(
+                cfg.year_lr_schedule,
+                tuning_config,
+                "year_lr_schedule",
+                year_benchmark.YearRealDataConfig.lr_schedule,
+            )
+        ),
+        lr_min=float(
+            _resolve_value(
+                cfg.year_lr_min,
+                tuning_config,
+                "year_lr_min",
+                year_benchmark.YearRealDataConfig.lr_min,
             )
         ),
         tau=float(row["tau"]),
@@ -375,6 +428,24 @@ if __name__ == "__main__":
     parser.add_argument("--year-dataset-path", type=str, default="")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--year-cache-path", type=str, default="")
+    parser.add_argument(
+        "--year-openml-data-id",
+        type=int,
+        default=None,
+        help="Optional OpenML data_id for the Year-like regression track (mutually exclusive with --year-dataset-path).",
+    )
+    parser.add_argument(
+        "--year-openml-dataset-name",
+        type=str,
+        default="",
+        help="Optional OpenML dataset name for the Year-like regression track (mutually exclusive with --year-dataset-path).",
+    )
+    parser.add_argument(
+        "--year-openml-version",
+        type=int,
+        default=None,
+        help="OpenML version for --year-openml-dataset-name (ignored for --year-openml-data-id in most paths).",
+    )
     parser.add_argument("--no-year-download", action="store_true")
     parser.add_argument(
         "--higgs-dataset-path",
@@ -437,6 +508,9 @@ if __name__ == "__main__":
             seed=args.seed,
             year_dataset_path=args.year_dataset_path or None,
             year_cache_path=args.year_cache_path or None,
+            year_openml_data_id=args.year_openml_data_id,
+            year_openml_dataset_name=args.year_openml_dataset_name or None,
+            year_openml_version=args.year_openml_version,
             year_allow_download=False if args.no_year_download else None,
             higgs_dataset_path=args.higgs_dataset_path or None,
             include_year=not args.skip_year,

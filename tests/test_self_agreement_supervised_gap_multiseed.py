@@ -141,12 +141,17 @@ def test_self_agreement_supervised_gap_multiseed_smoke(tmp_path: Path) -> None:
             out_dir=str(out_dir),
             seeds=(260410, 260411),
             year_dataset_path=str(year_path),
+            year_benchmark_label="custom_openml_year",
             higgs_dataset_path=str(higgs_path),
         )
     )
     assert payload["seeds"] == [260410, 260411]
     assert len(payload["seed_rows"]) == 4
     assert len(payload["aggregate_rows"]) == 2
+    assert {str(r["Benchmark"]) for r in payload["seed_rows"]} == {
+        "custom_openml_year",
+        "higgs_public",
+    }
     assert (out_dir / "multiseed_rows.csv").exists()
     assert (out_dir / "multiseed_summary.csv").exists()
     assert (out_dir / "multiseed_summary.json").exists()
