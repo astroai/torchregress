@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from torchregress.utils import (
@@ -67,3 +68,13 @@ def test_soft_class_prob_utilities_normalize_and_convert_to_levels() -> None:
         dtype=torch.float32,
     )
     assert torch.allclose(levels, expected, atol=1e-6)
+
+
+def test_labels_to_levels_invalid_indices() -> None:
+    num_classes = 4
+
+    with pytest.raises(ValueError, match=r"target class indices must be in \[0, num_classes - 1\]"):
+        labels_to_levels(torch.tensor([-1, 1, 2]), num_classes=num_classes)
+
+    with pytest.raises(ValueError, match=r"target class indices must be in \[0, num_classes - 1\]"):
+        labels_to_levels(torch.tensor([0, 1, 4]), num_classes=num_classes)
