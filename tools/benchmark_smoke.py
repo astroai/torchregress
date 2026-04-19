@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 
 from torchregress.causal import dr_ate
-from torchregress.inference import ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
+from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 from torchregress.losses import (
     AFTLoss,
     CensoredGaussianNLLLoss,
@@ -548,9 +548,7 @@ def run_benchmark_smoke(
                 ppi_y_l,
                 ppi_pred_l,
                 ppi_pred_u,
-                alpha=0.1,
-                n_boot=64,
-                seed=13,
+                config=PPIConfig(alpha=0.1, n_boot=64, seed=13),
             ),
             device=device_obj,
             iterations=max(1, min(2, iterations)),
@@ -565,9 +563,7 @@ def run_benchmark_smoke(
                 ppi_pred_l,
                 ppi_pred_u,
                 q=0.9,
-                alpha=0.1,
-                n_boot=64,
-                seed=17,
+                config=PPIConfig(alpha=0.1, n_boot=64, seed=17),
             ),
             device=device_obj,
             iterations=max(1, min(2, iterations)),
@@ -583,9 +579,7 @@ def run_benchmark_smoke(
                 ppi_x_u,
                 ppi_pred_l,
                 ppi_pred_u,
-                alpha=0.1,
-                n_boot=64,
-                seed=19,
+                config=PPIConfig(alpha=0.1, n_boot=64, seed=19),
             ),
             device=device_obj,
             iterations=max(1, min(2, iterations)),
@@ -848,9 +842,7 @@ def run_benchmark_sweep(
                         xu,
                         pl,
                         pu,
-                        alpha=0.1,
-                        n_boot=24,
-                        seed=31,
+                        config=PPIConfig(alpha=0.1, n_boot=24, seed=31),
                     ),
                     device=device_obj,
                     iterations=1,

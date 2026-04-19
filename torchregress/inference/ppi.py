@@ -9,10 +9,27 @@ The implementation is intentionally lightweight and frequentist-first.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, cast
 
 import torch
 from torch import Tensor
+
+
+@dataclass(frozen=True)
+class PPIConfig:
+    """Configuration for Prediction-Powered Inference.
+
+    Attributes:
+        alpha: Target error rate (e.g., 0.1 for 90% confidence).
+        method: Method to compute CI (default: "bootstrap").
+        n_boot: Number of bootstrap samples.
+        seed: Random seed for reproducibility.
+    """
+    alpha: float = 0.1
+    method: str = "bootstrap"
+    n_boot: int = 2000
+    seed: int | None = None
 
 
 def _to_1d_tensor(x: Tensor | list[float]) -> Tensor:
@@ -44,22 +61,21 @@ def ppi_mean_ci(
     pred_labeled: Tensor | list[float],
     pred_unlabeled: Tensor | list[float],
     *,
-    alpha: float = 0.1,
-    method: str = "bootstrap",
-    n_boot: int = 2000,
-    seed: int | None = None,
+    config: PPIConfig | None = None,
 ) -> dict[str, Any]:
     """Prediction-powered CI for a population mean.
 
     Estimator:
         E[Y] ≈ mean(pred_unlabeled) + mean(y_labeled - pred_labeled)
     """
-    if not 0 < alpha < 1:
-        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
-    if n_boot < 10:
-        raise ValueError(f"n_boot must be >= 10, got {n_boot}")
-    if method not in {"bootstrap"}:
-        raise ValueError(f"Unsupported method: {method}")
+    cfg = config or PPIConfig()
+
+    if not 0 < cfg.alpha < 1:
+        raise ValueError(f"alpha must be in (0, 1), got {cfg.alpha}")
+    if cfg.n_boot < 10:
+        raise ValueError(f"n_boot must be >= 10, got {cfg.n_boot}")
+    if cfg.method not in {"bootstrap"}:
+        raise ValueError(f"Unsupported method: {cfg.method}")
 
     y_l = _to_1d_tensor(y_labeled)
     p_l = _to_1d_tensor(pred_labeled)
@@ -81,18 +97,18 @@ def ppi_mean_ci(
     )
 
     bootstrap_gen: torch.Generator | None = None
-    if seed is not None:
+    if cfg.seed is not None:
         bootstrap_gen = torch.Generator(device=y_l.device)
-        bootstrap_gen.manual_seed(seed)
+        bootstrap_gen.manual_seed(cfg.seed)
 
     boot_l_idx = _bootstrap_indices(
-        y_l.numel(), n_boot=n_boot, device=y_l.device, generator=bootstrap_gen
+        y_l.numel(), n_boot=cfg.n_boot, device=y_l.device, generator=bootstrap_gen
     )
     boot_u_idx = _bootstrap_indices(
-        p_u.numel(), n_boot=n_boot, device=p_u.device, generator=bootstrap_gen
+        p_u.numel(), n_boot=cfg.n_boot, device=p_u.device, generator=bootstrap_gen
     )
     boot_est = p_u[boot_u_idx].mean(dim=1) + residual[boot_l_idx].mean(dim=1)
-    ci_lower, ci_upper = _percentile_ci(boot_est, alpha)
+    ci_lower, ci_upper = _percentile_ci(boot_est, cfg.alpha)
 
     return {
         "method": "ppi_mean_ci",
@@ -100,10 +116,10 @@ def ppi_mean_ci(
         "se": se,
         "ci_lower": ci_lower,
         "ci_upper": ci_upper,
-        "alpha": alpha,
+        "alpha": cfg.alpha,
         "n_labeled": int(y_l.numel()),
         "n_unlabeled": int(p_u.numel()),
-        "bootstrap_samples": int(n_boot),
+        "bootstrap_samples": int(cfg.n_boot),
     }
 
 
@@ -113,24 +129,23 @@ def ppi_quantile_ci(
     pred_unlabeled: Tensor | list[float],
     *,
     q: float,
-    alpha: float = 0.1,
-    method: str = "bootstrap",
-    n_boot: int = 2000,
-    seed: int | None = None,
+    config: PPIConfig | None = None,
 ) -> dict[str, Any]:
     """Prediction-powered CI for a target quantile.
 
     Uses a robust location correction based on labeled residual median:
         Q_q(Y) ≈ Q_q(pred_unlabeled) + median(y_labeled - pred_labeled)
     """
+    cfg = config or PPIConfig()
+
     if not 0 < q < 1:
         raise ValueError(f"q must be in (0, 1), got {q}")
-    if not 0 < alpha < 1:
-        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
-    if n_boot < 10:
-        raise ValueError(f"n_boot must be >= 10, got {n_boot}")
-    if method not in {"bootstrap"}:
-        raise ValueError(f"Unsupported method: {method}")
+    if not 0 < cfg.alpha < 1:
+        raise ValueError(f"alpha must be in (0, 1), got {cfg.alpha}")
+    if cfg.n_boot < 10:
+        raise ValueError(f"n_boot must be >= 10, got {cfg.n_boot}")
+    if cfg.method not in {"bootstrap"}:
+        raise ValueError(f"Unsupported method: {cfg.method}")
 
     y_l = _to_1d_tensor(y_labeled)
     p_l = _to_1d_tensor(pred_labeled)
@@ -145,19 +160,19 @@ def ppi_quantile_ci(
     estimate = float((torch.quantile(p_u, q) + shift).item())
 
     bootstrap_gen: torch.Generator | None = None
-    if seed is not None:
+    if cfg.seed is not None:
         bootstrap_gen = torch.Generator(device=y_l.device)
-        bootstrap_gen.manual_seed(seed)
+        bootstrap_gen.manual_seed(cfg.seed)
     boot_l_idx = _bootstrap_indices(
-        y_l.numel(), n_boot=n_boot, device=y_l.device, generator=bootstrap_gen
+        y_l.numel(), n_boot=cfg.n_boot, device=y_l.device, generator=bootstrap_gen
     )
     boot_u_idx = _bootstrap_indices(
-        p_u.numel(), n_boot=n_boot, device=p_u.device, generator=bootstrap_gen
+        p_u.numel(), n_boot=cfg.n_boot, device=p_u.device, generator=bootstrap_gen
     )
     boot_shift = torch.median(residual[boot_l_idx], dim=1).values
     boot_q = torch.quantile(p_u[boot_u_idx], q, dim=1)
     boot_est = boot_q + boot_shift
-    ci_lower, ci_upper = _percentile_ci(boot_est, alpha)
+    ci_lower, ci_upper = _percentile_ci(boot_est, cfg.alpha)
     se = float(torch.std(boot_est, unbiased=True).item())
 
     return {
@@ -167,10 +182,10 @@ def ppi_quantile_ci(
         "ci_lower": ci_lower,
         "ci_upper": ci_upper,
         "q": q,
-        "alpha": alpha,
+        "alpha": cfg.alpha,
         "n_labeled": int(y_l.numel()),
         "n_unlabeled": int(p_u.numel()),
-        "bootstrap_samples": int(n_boot),
+        "bootstrap_samples": int(cfg.n_boot),
     }
 
 
@@ -192,17 +207,15 @@ def _ols_beta(x: Tensor, y: Tensor, ridge: float = 1e-6) -> Tensor:
     return cast(Tensor, torch.linalg.solve(xtx + ridge * eye, xty))
 
 
-def ppi_ols_ci(
+def ppi_ols_ci(  # noqa: PLR0913
     x_labeled: Tensor,
     y_labeled: Tensor,
     x_unlabeled: Tensor,
     pred_labeled: Tensor,
     pred_unlabeled: Tensor,
     *,
-    alpha: float = 0.1,
     add_intercept: bool = True,
-    n_boot: int = 1000,
-    seed: int | None = None,
+    config: PPIConfig | None = None,
 ) -> dict[str, Any]:
     """Prediction-powered CI for linear coefficients.
 
@@ -210,10 +223,14 @@ def ppi_ols_ci(
     - plugin regression on unlabeled predictions, and
     - labeled residual correction.
     """
-    if not 0 < alpha < 1:
-        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
-    if n_boot < 10:
-        raise ValueError(f"n_boot must be >= 10, got {n_boot}")
+    # Note: ppi_ols_ci historically used n_boot=1000 by default.
+    # We create a specific default config for it if none provided.
+    cfg = config or PPIConfig(n_boot=1000)
+
+    if not 0 < cfg.alpha < 1:
+        raise ValueError(f"alpha must be in (0, 1), got {cfg.alpha}")
+    if cfg.n_boot < 10:
+        raise ValueError(f"n_boot must be >= 10, got {cfg.n_boot}")
 
     x_l = _as_2d(x_labeled.detach().float())
     x_u = _as_2d(x_unlabeled.detach().float())
@@ -234,17 +251,17 @@ def ppi_ols_ci(
     beta = beta_pred + beta_delta
 
     bootstrap_gen: torch.Generator | None = None
-    if seed is not None:
+    if cfg.seed is not None:
         bootstrap_gen = torch.Generator(device=x_l.device)
-        bootstrap_gen.manual_seed(seed)
+        bootstrap_gen.manual_seed(cfg.seed)
     boot_l_idx = _bootstrap_indices(
-        x_l.shape[0], n_boot=n_boot, device=x_l.device, generator=bootstrap_gen
+        x_l.shape[0], n_boot=cfg.n_boot, device=x_l.device, generator=bootstrap_gen
     )
     boot_u_idx = _bootstrap_indices(
-        x_u.shape[0], n_boot=n_boot, device=x_u.device, generator=bootstrap_gen
+        x_u.shape[0], n_boot=cfg.n_boot, device=x_u.device, generator=bootstrap_gen
     )
-    boot_beta = torch.empty((n_boot, beta.numel()), device=beta.device, dtype=beta.dtype)
-    for i in range(n_boot):
+    boot_beta = torch.empty((cfg.n_boot, beta.numel()), device=beta.device, dtype=beta.dtype)
+    for i in range(cfg.n_boot):
         li = boot_l_idx[i]
         ui = boot_u_idx[i]
         b_pred = _ols_beta(x_u[ui], p_u[ui])
@@ -252,8 +269,8 @@ def ppi_ols_ci(
         boot_beta[i] = b_pred + b_delta
 
     se = torch.std(boot_beta, dim=0, unbiased=True)
-    ci_lo = torch.quantile(boot_beta, alpha / 2, dim=0)
-    ci_hi = torch.quantile(boot_beta, 1.0 - alpha / 2, dim=0)
+    ci_lo = torch.quantile(boot_beta, cfg.alpha / 2, dim=0)
+    ci_hi = torch.quantile(boot_beta, 1.0 - cfg.alpha / 2, dim=0)
 
     return {
         "method": "ppi_ols_ci",
@@ -261,11 +278,11 @@ def ppi_ols_ci(
         "se": se.detach().cpu().tolist(),
         "ci_lower": ci_lo.detach().cpu().tolist(),
         "ci_upper": ci_hi.detach().cpu().tolist(),
-        "alpha": alpha,
+        "alpha": cfg.alpha,
         "add_intercept": add_intercept,
         "n_labeled": int(x_labeled.shape[0]),
         "n_unlabeled": int(x_unlabeled.shape[0]),
-        "bootstrap_samples": int(n_boot),
+        "bootstrap_samples": int(cfg.n_boot),
     }
 
 
@@ -311,6 +328,7 @@ def ppi_diagnostics(
 
 
 __all__ = [
+    "PPIConfig",
     "ppi_mean_ci",
     "ppi_quantile_ci",
     "ppi_ols_ci",

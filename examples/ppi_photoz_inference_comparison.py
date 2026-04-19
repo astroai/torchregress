@@ -11,7 +11,7 @@ from comparison_utils import (
     write_comparison_summary_json,
 )
 
-from torchregress.inference import ppi_diagnostics, ppi_mean_ci, ppi_quantile_ci
+from torchregress.inference import PPIConfig, ppi_diagnostics, ppi_mean_ci, ppi_quantile_ci
 
 
 @dataclass(frozen=True)
@@ -56,15 +56,14 @@ def run_comparison(cfg: PPIPhotoZConfig) -> tuple[list[dict[str, object]], list[
     baseline_q_lo = float(torch.quantile(q_boot, cfg.alpha / 2).item())
     baseline_q_hi = float(torch.quantile(q_boot, 1 - cfg.alpha / 2).item())
 
-    ppi_mean = ppi_mean_ci(y_l, pred_l, pred_u, alpha=cfg.alpha, n_boot=cfg.n_boot, seed=cfg.seed)
+    config = PPIConfig(alpha=cfg.alpha, n_boot=cfg.n_boot, seed=cfg.seed)
+    ppi_mean = ppi_mean_ci(y_l, pred_l, pred_u, config=config)
     ppi_q = ppi_quantile_ci(
         y_l,
         pred_l,
         pred_u,
         q=cfg.q,
-        alpha=cfg.alpha,
-        n_boot=cfg.n_boot,
-        seed=cfg.seed,
+        config=config,
     )
     diag = ppi_diagnostics(y_l, pred_l, pred_u)
 

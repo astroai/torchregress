@@ -10,7 +10,7 @@ from typing import Any, Sequence
 import numpy as np
 import torch
 
-from torchregress.inference import ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
+from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 from torchregress.prediction import PredictiveBatch
 
 from .base import SupportsPredictiveBatch
@@ -867,8 +867,9 @@ class ShiftFactoredPredictiveTransport:
             self._ppi_vector(unlabeled_predictions, q=q),
             dtype=torch.float32,
         )
+        config = PPIConfig(alpha=alpha, n_boot=n_boot, seed=seed)
         if estimand == "mean":
-            return ppi_mean_ci(y_l, pred_l, pred_u, alpha=alpha, n_boot=n_boot, seed=seed)
+            return ppi_mean_ci(y_l, pred_l, pred_u, config=config)
         if estimand == "quantile":
             if q is None:
                 raise ValueError("q is required for quantile PPI")
@@ -877,9 +878,7 @@ class ShiftFactoredPredictiveTransport:
                 pred_l,
                 pred_u,
                 q=q,
-                alpha=alpha,
-                n_boot=n_boot,
-                seed=seed,
+                config=config,
             )
         if estimand == "ols":
             if x_labeled is None or x_unlabeled is None:
@@ -890,9 +889,7 @@ class ShiftFactoredPredictiveTransport:
                 torch.as_tensor(_as_2d(x_unlabeled), dtype=torch.float32),
                 pred_l,
                 pred_u,
-                alpha=alpha,
-                n_boot=max(1000, n_boot // 2),
-                seed=seed,
+                config=PPIConfig(alpha=alpha, n_boot=max(1000, n_boot // 2), seed=seed),
             )
         raise ValueError(f"Unsupported estimand: {estimand}")
 

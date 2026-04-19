@@ -17,7 +17,7 @@ from comparison_utils import (
 )
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.inference import ppi_mean_ci, ppi_quantile_ci
+from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_quantile_ci
 from torchregress.losses import MDNLoss
 from torchregress.metrics import (
     crps_from_samples,
@@ -442,13 +442,12 @@ def _ppi_summary(
 ) -> dict[str, float]:
     pred_cal, _ = _batch_mean_std(batch_cal)
     pred_test, _ = _batch_mean_std(batch_test)
+    config = PPIConfig(alpha=alpha, n_boot=n_boot, seed=seed)
     mean_ci = ppi_mean_ci(
         torch.tensor(y_cal, dtype=torch.float32),
         torch.tensor(pred_cal, dtype=torch.float32),
         torch.tensor(pred_test, dtype=torch.float32),
-        alpha=alpha,
-        n_boot=n_boot,
-        seed=seed,
+        config=config,
     )
     q_cal = _batch_quantiles(batch_cal, (q, q))[0]
     q_test = _batch_quantiles(batch_test, (q, q))[0]
@@ -457,9 +456,7 @@ def _ppi_summary(
         torch.tensor(q_cal, dtype=torch.float32),
         torch.tensor(q_test, dtype=torch.float32),
         q=q,
-        alpha=alpha,
-        n_boot=n_boot,
-        seed=seed,
+        config=config,
     )
     true_mean = float(np.mean(y_test))
     true_q = float(np.quantile(y_test, q))
