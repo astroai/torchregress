@@ -133,7 +133,8 @@ def _plot_performance_bar(
 ) -> Optional[Figure]:
     """Helper function for bar plot comparison."""
     # Create plot if no axes provided
-    if ax is None:
+    created_fig = ax is None
+    if created_fig:
         fig, ax = plt.subplots(figsize=figsize)
     else:
         fig = cast(Figure, ax.figure)
@@ -242,7 +243,7 @@ def _plot_performance_bar(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         plt.show()
 
     return None
@@ -624,7 +625,8 @@ def plot_feature_importance(
                 importance_errors = importance_errors[:top_n]
 
     # Create plot if no axes provided
-    if ax is None:
+    created_fig = ax is None
+    if created_fig:
         fig, ax = plt.subplots(figsize=figsize)
     else:
         fig = cast(Figure, ax.figure)
@@ -695,7 +697,7 @@ def plot_feature_importance(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         plt.show()
 
     return None
@@ -734,7 +736,8 @@ def plot_model_ensemble_contributions(
         If return_figure=True, returns matplotlib Figure object
     """
     # Create plot if no axes provided
-    if ax is None:
+    created_fig = ax is None
+    if created_fig:
         fig, ax = plt.subplots(figsize=figsize)
     else:
         fig = cast(Figure, ax.figure)
@@ -768,7 +771,7 @@ def plot_model_ensemble_contributions(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         plt.show()
 
     return None
