@@ -39,8 +39,8 @@ TRANSFERZ_SPLIT_KEYS = {
 
 
 def _http_get(url: str, *, headers: dict[str, str] | None = None) -> bytes:
-    # Ensure scheme is http/https or file (for local testing via these scripts)
-    url = validate_url(url, allowed_schemes=("http", "https", "file"))
+    # Ensure scheme is http/https
+    url = validate_url(url, allowed_schemes=("http", "https"))
     request = Request(url, headers=headers or {})
     with urlopen(request) as response:  # nosec: validated above
         return cast(bytes, response.read())
