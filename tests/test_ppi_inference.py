@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import torch
 
-from torchregress.inference import PPIConfig, ppi_diagnostics, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
+from torchregress.inference import (
+    PPIConfig,
+    ppi_diagnostics,
+    ppi_mean_ci,
+    ppi_ols_ci,
+    ppi_quantile_ci,
+)
 
 
 def _synthetic(
@@ -30,7 +36,9 @@ def test_ppi_mean_ci_returns_expected_fields() -> None:
 
 def test_ppi_quantile_ci_returns_expected_fields() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
-    out = ppi_quantile_ci(y_l, pred_l, pred_u, q=0.9, config=PPIConfig(alpha=0.1, n_boot=200, seed=1))
+    out = ppi_quantile_ci(
+        y_l, pred_l, pred_u, q=0.9, config=PPIConfig(alpha=0.1, n_boot=200, seed=1)
+    )
     assert out["method"] == "ppi_quantile_ci"
     assert out["ci_lower"] <= out["estimate"] <= out["ci_upper"]
     assert 0.0 < out["q"] < 1.0

@@ -26,6 +26,7 @@ class PPIConfig:
         n_boot: Number of bootstrap samples.
         seed: Random seed for reproducibility.
     """
+
     alpha: float = 0.1
     method: str = "bootstrap"
     n_boot: int = 2000

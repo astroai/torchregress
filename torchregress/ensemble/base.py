@@ -17,17 +17,17 @@ OptimizerLike = Optimizer | tuple[Optimizer, ...]
 
 
 def _optimizer_like_zero_grad(opt: OptimizerLike) -> None:
-    for o in (opt if isinstance(opt, tuple) else (opt,)):
+    for o in opt if isinstance(opt, tuple) else (opt,):
         o.zero_grad()
 
 
 def _optimizer_like_step(opt: OptimizerLike) -> None:
-    for o in (opt if isinstance(opt, tuple) else (opt,)):
+    for o in opt if isinstance(opt, tuple) else (opt,):
         o.step()
 
 
 def _optimizer_like_set_lr(opt: OptimizerLike, lr: float) -> None:
-    for o in (opt if isinstance(opt, tuple) else (opt,)):
+    for o in opt if isinstance(opt, tuple) else (opt,):
         for param_group in o.param_groups:
             param_group["lr"] = lr
 
@@ -295,9 +295,7 @@ class BaseEnsembleModel(nn.Module):
                         f"Loss {epoch_loss:.6f}"
                     )
                     if augmenter is not None:
-                        message += (
-                            f" Clean {epoch_clean_loss:.6f}" f" Adv {epoch_adversarial_loss:.6f}"
-                        )
+                        message += f" Clean {epoch_clean_loss:.6f} Adv {epoch_adversarial_loss:.6f}"
                     print(message)
 
             member_histories.append(history)
