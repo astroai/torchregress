@@ -186,6 +186,7 @@ EXPECTED_EXPORTS = {
         "AdaptationBatch",
         "BayesianLinearHead",
         "FeatureStatNormalizer",
+        "GaussianLabelShiftConfig",
         "LabelShiftEMConfig",
         "LabelShiftEstimate",
         "OptimalTransportCoverageGap",
