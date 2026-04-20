@@ -811,42 +811,41 @@ class FunctionalEIVLoss(BaseEIVLoss):
         # Apply weights and reduction
         return self._reduce_with_mask(loss, mask, weights)
 
-    def _monte_carlo_forward(
+    def _generate_monte_carlo_noise(
+        self,
+        sigma_x_tensor: torch.Tensor,
+        batch_size: int,
+        n_features_x: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        """Generate Monte Carlo noise based on sigma_x."""
+        if sigma_x_tensor.ndim <= 1:
+            return torch.randn(
+                self.n_samples, batch_size, n_features_x, device=device, dtype=dtype
+            ) * sigma_x_tensor.view(1, 1, n_features_x)
+
+        chol = torch.linalg.cholesky(
+            sigma_x_tensor + torch.eye(n_features_x, device=device, dtype=dtype) * self.eps
+        )
+        base_noise = torch.randn(
+            self.n_samples, batch_size, n_features_x, device=device, dtype=dtype
+        )
+
+        if sigma_x_tensor.ndim == 2:
+            return base_noise @ chol.T
+        return torch.einsum("sbn,bnm->sbm", base_noise, chol)
+
+    def _get_monte_carlo_predictions(
         self,
         x_obs: torch.Tensor,
-        y_true: torch.Tensor,
-        sigma_x_tensor: torch.Tensor,
-        sigma_y_tensor: Optional[torch.Tensor],
+        noise: torch.Tensor,
         batch_size: int,
         n_features_x: int,
         n_features_y: int,
-        device: torch.device,
         mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Monte Carlo implementation of variance propagation"""
-        # Vectorized sampling around observed values
-        if sigma_x_tensor.ndim <= 1:
-            noise = torch.randn(
-                self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype
-            ) * sigma_x_tensor.view(1, 1, n_features_x)
-        elif sigma_x_tensor.ndim == 2:
-            chol = torch.linalg.cholesky(
-                sigma_x_tensor
-                + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
-            )
-            base_noise = torch.randn(
-                self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype
-            )
-            noise = base_noise @ chol.T
-        else:
-            chol = torch.linalg.cholesky(
-                sigma_x_tensor
-                + torch.eye(n_features_x, device=device, dtype=x_obs.dtype) * self.eps
-            )
-            base_noise = torch.randn(
-                self.n_samples, batch_size, n_features_x, device=device, dtype=x_obs.dtype
-            )
-            noise = torch.einsum("sbn,bnm->sbm", base_noise, chol)
+        """Forward pass and reshape for Monte Carlo samples."""
         x_samples = x_obs.unsqueeze(0) + noise
         x_flat = x_samples.reshape(-1, n_features_x)
 
@@ -864,10 +863,16 @@ class FunctionalEIVLoss(BaseEIVLoss):
             mask_expanded = mask.unsqueeze(0).expand(self.n_samples, -1, -1)
             y_preds = torch.where(mask_expanded, y_preds, torch.zeros_like(y_preds))
 
-        # Calculate mean prediction across samples
-        mean_pred = torch.mean(y_preds, dim=0)  # [batch_size, n_features_y]
+        return y_preds
 
-        # Calculate covariance
+    def _calculate_monte_carlo_covariance(
+        self,
+        y_preds: torch.Tensor,
+        mean_pred: torch.Tensor,
+        sigma_y_tensor: Optional[torch.Tensor],
+        batch_size: int,
+    ) -> torch.Tensor:
+        """Calculate covariance from Monte Carlo samples and intrinsic noise."""
         y_centered = y_preds - mean_pred.unsqueeze(0)  # [n_samples, batch_size, n_features_y]
 
         # Efficient vectorized batch covariance: [n_samples, batch_size, n_features_y]
@@ -883,6 +888,39 @@ class FunctionalEIVLoss(BaseEIVLoss):
             else:
                 # Full covariance case
                 batch_cov = batch_cov + sigma_y_tensor
+
+        return batch_cov
+
+    def _monte_carlo_forward(
+        self,
+        x_obs: torch.Tensor,
+        y_true: torch.Tensor,
+        sigma_x_tensor: torch.Tensor,
+        sigma_y_tensor: Optional[torch.Tensor],
+        batch_size: int,
+        n_features_x: int,
+        n_features_y: int,
+        device: torch.device,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Monte Carlo implementation of variance propagation"""
+        # Vectorized sampling around observed values
+        noise = self._generate_monte_carlo_noise(
+            sigma_x_tensor, batch_size, n_features_x, device, x_obs.dtype
+        )
+
+        # Get predictions for all samples
+        y_preds = self._get_monte_carlo_predictions(
+            x_obs, noise, batch_size, n_features_x, n_features_y, mask
+        )
+
+        # Calculate mean prediction across samples
+        mean_pred = torch.mean(y_preds, dim=0)  # [batch_size, n_features_y]
+
+        # Calculate covariance
+        batch_cov = self._calculate_monte_carlo_covariance(
+            y_preds, mean_pred, sigma_y_tensor, batch_size
+        )
 
         # Calculate residuals from mean prediction
         residuals = y_true - mean_pred
