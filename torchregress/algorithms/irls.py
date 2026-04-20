@@ -452,17 +452,7 @@ def validate_model(
             y_pred = model(batch_x)
 
             # Calculate loss (without precision weighting for validation)
-            if hasattr(loss_fn, "forward"):
-                if (
-                    batch_cov is not None
-                    and "covariance_matrices" in loss_fn.forward.__code__.co_varnames
-                ):
-                    loss = loss_fn(y_pred, batch_y, covariance_matrices=batch_cov, mask=batch_mask)
-                else:
-                    loss = loss_fn(y_pred, batch_y, mask=batch_mask)
-            else:
-                # Fallback for standard PyTorch losses
-                loss = loss_fn(y_pred, batch_y)
+            loss = calculate_loss(loss_fn, y_pred, batch_y, None, batch_cov, batch_mask)
 
             losses.append(loss * batch_size)
             total_samples += batch_size
@@ -534,7 +524,6 @@ def _perform_irls_iteration(
     loss_fn: nn.Module,
     _weight_fn: Callable,
     weight_params: Dict[str, Any],
-    base_loss: str,
     variance_type: str,
     covariance_matrices: Optional[torch.Tensor],
     mask: Optional[torch.Tensor],
@@ -558,21 +547,14 @@ def _perform_irls_iteration(
         # The caller computes residuals once.
         # But wait, extract_mean_and_residuals does logic on y_pred.
 
-        if base_loss == "gaussian":
-            current_loss = cast(
-                torch.Tensor,
-                loss_fn(
-                    y_pred=y_pred,
-                    target=y_true,
-                    covariance_matrices=covariance_matrices,
-                    mask=mask,
-                ),
-            )
-        else:
-            current_loss = cast(
-                torch.Tensor,
-                loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision),
-            )
+        current_loss = calculate_loss(
+            loss_fn,
+            y_pred,
+            y_true,
+            precision,
+            covariance_matrices,
+            mask,
+        )
 
         # We return the loss tensor directly to avoid sync points within the function.
         loss_value = current_loss
@@ -763,7 +745,6 @@ def iteratively_reweighted_least_squares(
             loss_fn,
             _weight_fn,
             weight_params,
-            base_loss,
             variance_type,
             covariance_matrices,
             mask,
