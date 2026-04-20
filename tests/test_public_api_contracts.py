@@ -152,6 +152,7 @@ EXPECTED_EXPORTS = {
         "SIMEX",
         "LatentNN",
         "ErrorAwareFeatureEncoder",
+        "NeighborhoodCovarianceConfig",
         "NeighborhoodCovariancePseudoLabeler",
         "NoiseAwareRegressor",
         "mahalanobis_covariance_pseudo_labels",
