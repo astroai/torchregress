@@ -12,6 +12,7 @@ from torchregress.prediction import (
 )
 from torchregress.test_time import (
     FeatureStatNormalizer,
+    GaussianLabelShiftConfig,
     ParameterEMA,
     PosteriorLabelShiftAdapter,
     RepresentationShiftCalibrator,
@@ -109,11 +110,13 @@ def test_gaussian_label_shift_correction_returns_finite_moments() -> None:
         std=std,
         source_targets=source_targets,
         features=features,
-        n_bins=8,
-        estimation_rows=3,
-        top_fraction=0.5,
-        reference_size=2,
-        seed=0,
+        config=GaussianLabelShiftConfig(
+            n_bins=8,
+            estimation_rows=3,
+            top_fraction=0.5,
+            reference_size=2,
+            seed=0,
+        ),
     )
     assert corrected_mean.shape == mean.shape
     assert corrected_std.shape == std.shape

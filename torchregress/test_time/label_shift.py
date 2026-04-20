@@ -226,48 +226,54 @@ def gaussian_moments_from_binned_probabilities(
     return mean.astype(np.float32), np.sqrt(var).astype(np.float32)
 
 
+@dataclass(frozen=True)
+class GaussianLabelShiftConfig:
+    n_bins: int = 32
+    estimation_rows: int | None = None
+    top_fraction: float | None = 0.5
+    reference_size: int | None = 2048
+    seed: int | None = 0
+    eps: float = 1.0e-8
+
+
 def correct_gaussian_predictions_for_label_shift(
     *,
     mean: np.ndarray,
     std: np.ndarray,
     source_targets: np.ndarray,
     features: np.ndarray | None = None,
-    n_bins: int = 32,
-    estimation_rows: int | None = None,
-    top_fraction: float | None = 0.5,
-    reference_size: int | None = 2048,
-    seed: int | None = 0,
-    eps: float = 1.0e-8,
+    config: GaussianLabelShiftConfig | None = None,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
-    bin_edges = gaussian_bin_edges_from_targets(source_targets, n_bins)
+    cfg = config or GaussianLabelShiftConfig()
+    bin_edges = gaussian_bin_edges_from_targets(source_targets, cfg.n_bins)
     src_t = np.asarray(source_targets, dtype=np.float64)
     source_prior = np.histogram(src_t, bins=bin_edges)[0].astype(np.float64)
-    source_prior = np.clip(source_prior, eps, None)
+    source_prior = np.clip(source_prior, cfg.eps, None)
     source_prior = source_prior / source_prior.sum()
-    probs = gaussian_bin_probabilities(mean, std, bin_edges, eps=eps)
+    probs = gaussian_bin_probabilities(mean, std, bin_edges, eps=cfg.eps)
     weights = None
     if features is not None and len(features) == len(probs):
         weights = local_consistency_weights(
             features,
             probs,
             k=min(5, max(1, len(probs) - 1)),
-            reference_size=reference_size,
-            random_state=seed,
+            reference_size=cfg.reference_size,
+            random_state=cfg.seed,
         )
     mask = (
         select_high_confidence(
             probs,
-            top_fraction=top_fraction,
+            top_fraction=cfg.top_fraction,
             min_count=min(max(16, probs.shape[1] * 2), probs.shape[0]),
         )
-        if top_fraction is not None
+        if cfg.top_fraction is not None
         else np.ones(probs.shape[0], dtype=bool)
     )
     adapter = PosteriorLabelShiftAdapter(
         source_prior=source_prior,
-        sample_size=estimation_rows,
-        random_state=seed,
-        config=LabelShiftEMConfig(eps=eps),
+        sample_size=cfg.estimation_rows,
+        random_state=cfg.seed,
+        config=LabelShiftEMConfig(eps=cfg.eps),
     )
     estimate = adapter.estimate(
         probs[mask],
@@ -275,7 +281,7 @@ def correct_gaussian_predictions_for_label_shift(
     )
     corrected = adapter.transform(probs, target_prior=estimate.target_prior)
     corrected_mean, corrected_std = gaussian_moments_from_binned_probabilities(
-        corrected, bin_edges, eps=eps
+        corrected, bin_edges, eps=cfg.eps
     )
     metadata: dict[str, object] = {
         "target_prior": estimate.target_prior.tolist(),
@@ -288,6 +294,7 @@ def correct_gaussian_predictions_for_label_shift(
 
 
 __all__ = [
+    "GaussianLabelShiftConfig",
     "LabelShiftEMConfig",
     "LabelShiftEstimate",
     "PosteriorLabelShiftAdapter",

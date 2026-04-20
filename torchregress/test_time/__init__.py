@@ -11,6 +11,7 @@ from .bayes import BayesianLinearHead, RecursiveBayesianHead
 from .calibration import RepresentationShiftCalibrator
 from .dynamic import ParameterEMA
 from .label_shift import (
+    GaussianLabelShiftConfig,
     LabelShiftEMConfig,
     LabelShiftEstimate,
     PosteriorLabelShiftAdapter,
@@ -45,6 +46,7 @@ __all__ = [
     "AdaptationBatch",
     "BayesianLinearHead",
     "FeatureStatNormalizer",
+    "GaussianLabelShiftConfig",
     "LabelShiftEMConfig",
     "LabelShiftEstimate",
     "OptimalTransportCoverageGap",
