@@ -32,12 +32,12 @@ class NeighborhoodCovarianceConfig:
         regularization: Diagonal jitter on feature precision and on output covariances.
         temperature: Softmax temperature on negative squared distances.
     """
+
     n_neighbors: int = 32
     metric: Metric = "mahalanobis"
     weighting: Weighting = "softmax"
     regularization: float = 1e-5
     temperature: float = 1.0
-
 
 
 def _as_tensor_2d(x: Union[torch.Tensor, Any], *, name: str) -> torch.Tensor:

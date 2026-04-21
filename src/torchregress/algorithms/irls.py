@@ -687,7 +687,6 @@ def _batched_predict(
         return torch.cat(cast(List[torch.Tensor], batch_preds), dim=0)
 
 
-
 def _validate_irls_inputs(
     x: torch.Tensor,
     y_true: torch.Tensor,
@@ -764,6 +763,7 @@ def _run_irls_loop(
             break
 
     return precision, loss_history, all_predictions
+
 
 def iteratively_reweighted_least_squares(
     model: nn.Module,
