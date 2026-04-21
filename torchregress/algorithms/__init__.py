@@ -6,6 +6,7 @@ regression tasks, including IRLS, RC, SIMEX, and latent-input EIV training.
 """
 
 from .covariance_pseudo_labels import (
+    NeighborhoodCovarianceConfig,
     NeighborhoodCovariancePseudoLabeler,
     mahalanobis_covariance_pseudo_labels,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "SIMEX",
     "LatentNN",
     "ErrorAwareFeatureEncoder",
+    "NeighborhoodCovarianceConfig",
     "NeighborhoodCovariancePseudoLabeler",
     "NoiseAwareRegressor",
     "mahalanobis_covariance_pseudo_labels",
