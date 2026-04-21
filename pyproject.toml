@@ -85,7 +85,8 @@ foundation-models = [
 all = ["torchregress[test,dev,docs,conformal,flows,foundation-models]"]
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+[tool.setuptools.package-dir]
+"" = "src"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["torchregress*"]
