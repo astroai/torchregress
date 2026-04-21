@@ -28,6 +28,7 @@ from .ot_conformal import (
 )
 from .ot_conformal_predictive import weighted_split_classification_predictive_batch
 from .selection import (
+    LocalConsistencyConfig,
     confidence_scores,
     entropy_scores,
     local_consistency_weights,
@@ -72,6 +73,7 @@ __all__ = [
     "gaussian_bin_edges_from_targets",
     "gaussian_bin_probabilities",
     "gaussian_moments_from_binned_probabilities",
+    "LocalConsistencyConfig",
     "local_consistency_weights",
     "pseudo_label_targets",
     "select_high_confidence",

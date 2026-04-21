@@ -7,7 +7,7 @@ from math import erf
 
 import numpy as np
 
-from .selection import local_consistency_weights, select_high_confidence
+from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
 
 
 def _normalize_rows(probabilities: np.ndarray, eps: float) -> np.ndarray:
@@ -250,9 +250,11 @@ def correct_gaussian_predictions_for_label_shift(
         weights = local_consistency_weights(
             features,
             probs,
-            k=min(5, max(1, len(probs) - 1)),
-            reference_size=reference_size,
-            random_state=seed,
+            config=LocalConsistencyConfig(
+                k=min(5, max(1, len(probs) - 1)),
+                reference_size=reference_size,
+                random_state=seed,
+            ),
         )
     mask = (
         select_high_confidence(

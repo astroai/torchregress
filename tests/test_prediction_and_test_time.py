@@ -12,6 +12,7 @@ from torchregress.prediction import (
 )
 from torchregress.test_time import (
     FeatureStatNormalizer,
+    LocalConsistencyConfig,
     ParameterEMA,
     PosteriorLabelShiftAdapter,
     RepresentationShiftCalibrator,
@@ -129,7 +130,7 @@ def test_confidence_and_local_consistency_utilities_are_finite() -> None:
     assert mask.sum() == 2
     assert np.all(confidence_scores(probs) <= 1.0)
     assert np.all(entropy_scores(probs) >= 0.0)
-    weights = local_consistency_weights(features, probs, k=1)
+    weights = local_consistency_weights(features, probs, config=LocalConsistencyConfig(k=1))
     assert weights.shape == (4,)
     assert np.all(np.isfinite(weights))
     assert np.all(weights > 0.0)
@@ -143,9 +144,11 @@ def test_local_consistency_weights_supports_approximate_reference_subset() -> No
     weights = local_consistency_weights(
         features,
         probs,
-        k=3,
-        reference_size=16,
-        random_state=0,
+        config=LocalConsistencyConfig(
+            k=3,
+            reference_size=16,
+            random_state=0,
+        ),
     )
     assert weights.shape == (128,)
     assert np.all(np.isfinite(weights))
@@ -157,8 +160,12 @@ def test_local_consistency_weights_chunked_matches_unchunked() -> None:
     features = rng.normal(size=(64, 5))
     probs = rng.uniform(size=(64, 4))
     probs = probs / probs.sum(axis=1, keepdims=True)
-    full = local_consistency_weights(features, probs, k=3, query_chunk_size=None)
-    chunked = local_consistency_weights(features, probs, k=3, query_chunk_size=11)
+    full = local_consistency_weights(
+        features, probs, config=LocalConsistencyConfig(k=3, query_chunk_size=None)
+    )
+    chunked = local_consistency_weights(
+        features, probs, config=LocalConsistencyConfig(k=3, query_chunk_size=11)
+    )
     assert np.allclose(full, chunked, atol=1.0e-10)
 
 

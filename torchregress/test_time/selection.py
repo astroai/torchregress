@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 
@@ -65,19 +67,25 @@ def select_high_confidence(
     return mask
 
 
+@dataclass(frozen=True)
+class LocalConsistencyConfig:
+    k: int = 5
+    temperature: float = 1.0
+    reference_size: int | None = None
+    max_exact_rows: int = 4096
+    query_chunk_size: int | None = 2048
+    random_state: int | None = 0
+    eps: float = 1.0e-8
+
+
 def local_consistency_weights(
     features: np.ndarray,
     probabilities: np.ndarray,
-    *,
-    k: int = 5,
-    temperature: float = 1.0,
-    reference_size: int | None = None,
-    max_exact_rows: int = 4096,
-    query_chunk_size: int | None = 2048,
-    random_state: int | None = 0,
-    eps: float = 1.0e-8,
+    config: LocalConsistencyConfig | None = None,
 ) -> np.ndarray:
     """Compute FTAT-style neighborhood consistency weights from feature space."""
+    if config is None:
+        config = LocalConsistencyConfig()
     x = np.asarray(features, dtype=float)
     probs = np.asarray(probabilities, dtype=float)
     if x.ndim != 2 or probs.ndim != 2 or x.shape[0] != probs.shape[0]:
@@ -86,23 +94,27 @@ def local_consistency_weights(
         return np.ones(1, dtype=float)
     reference_idx = (
         np.arange(x.shape[0], dtype=np.int64)
-        if x.shape[0] <= int(max_exact_rows) and reference_size is None
+        if x.shape[0] <= int(config.max_exact_rows) and config.reference_size is None
         else _sample_reference_indices(
-            x.shape[0], reference_size or max_exact_rows, random_state=random_state
+            x.shape[0],
+            config.reference_size or config.max_exact_rows,
+            random_state=config.random_state,
         )
     )
     ref_x = x[reference_idx]
     ref_probs = probs[reference_idx]
-    k = max(1, min(int(k), ref_x.shape[0]))
+    k = max(1, min(int(config.k), ref_x.shape[0]))
     neighbor_probs = np.empty_like(probs, dtype=float)
     chunk_size = (
-        x.shape[0] if query_chunk_size is None or query_chunk_size <= 0 else int(query_chunk_size)
+        x.shape[0]
+        if config.query_chunk_size is None or config.query_chunk_size <= 0
+        else int(config.query_chunk_size)
     )
     exact_self_reference = reference_idx.shape[0] == x.shape[0] and np.array_equal(
         reference_idx, np.arange(x.shape[0], dtype=np.int64)
     )
     if exact_self_reference:
-        k = max(1, min(int(k), x.shape[0] - 1))
+        k = max(1, min(int(config.k), x.shape[0] - 1))
     for start in range(0, x.shape[0], chunk_size):
         stop = min(start + chunk_size, x.shape[0])
         dists = np.sum((x[start:stop, None, :] - ref_x[None, :, :]) ** 2, axis=-1)
@@ -111,10 +123,12 @@ def local_consistency_weights(
             dists[np.arange(stop - start), row_idx] = np.inf
         nbr_idx = np.argpartition(dists, kth=k - 1, axis=1)[:, :k]
         neighbor_probs[start:stop] = ref_probs[nbr_idx].mean(axis=1)
-    sqrt_prod = np.sqrt(np.clip(probs, eps, None) * np.clip(neighbor_probs, eps, None))
+    sqrt_prod = np.sqrt(
+        np.clip(probs, config.eps, None) * np.clip(neighbor_probs, config.eps, None)
+    )
     agreement = np.sum(sqrt_prod, axis=1)
-    weights = np.exp((agreement - 1.0) / max(float(temperature), eps))
-    return weights / np.clip(weights.mean(), eps, None)
+    weights = np.exp((agreement - 1.0) / max(float(config.temperature), config.eps))
+    return weights / np.clip(weights.mean(), config.eps, None)
 
 
 __all__ = [
@@ -123,4 +137,5 @@ __all__ = [
     "local_consistency_weights",
     "pseudo_label_targets",
     "select_high_confidence",
+    "LocalConsistencyConfig",
 ]

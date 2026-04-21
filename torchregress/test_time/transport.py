@@ -16,7 +16,7 @@ from torchregress.prediction import PredictiveBatch
 from .base import SupportsPredictiveBatch
 from .calibration import RepresentationShiftCalibrator
 from .label_shift import LabelShiftEMConfig, PosteriorLabelShiftAdapter
-from .selection import local_consistency_weights, select_high_confidence
+from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
 from .subspace import SignificantSubspaceAligner
 
 
@@ -510,9 +510,11 @@ class ShiftFactoredPredictiveTransport:
             sample_weights = local_consistency_weights(
                 target_features,
                 probabilities,
-                k=min(cfg.local_consistency_k, max(1, probabilities.shape[0] - 1)),
-                random_state=cfg.random_state,
-                eps=cfg.eps,
+                config=LocalConsistencyConfig(
+                    k=min(cfg.local_consistency_k, max(1, probabilities.shape[0] - 1)),
+                    random_state=cfg.random_state,
+                    eps=cfg.eps,
+                ),
             )
 
         min_count = min(
