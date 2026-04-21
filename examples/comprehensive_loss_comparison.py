@@ -146,8 +146,8 @@ def main():
                     "PrevalenceAdjustedCP",
                 ]:
                     with torch.no_grad():
-                        # Fix sampling RNG per method for stable comparison metrics.
-                        torch.manual_seed(2025 + i)  # Fix RNG per method
+                        # Set sampling RNG per method for stable comparison metrics.
+                        torch.manual_seed(2025 + i)  # Set RNG per method
                         samples = output.sample(1000)
                         pred_mean = samples.mean(dim=0)
                     y_pred_local = pred_mean
@@ -156,7 +156,7 @@ def main():
                 elif name == "GaussianNLL":
                     mean, log_var = torch.chunk(raw_pred, 2, dim=-1)
                     var = torch.exp(log_var)
-                    # Fix sampling RNG per method for stable comparison metrics.
+                    # Set sampling RNG per method for stable comparison metrics.
                     torch.manual_seed(2025 + i)
                     samples = torch.distributions.Normal(mean, var.sqrt()).sample((100,))
                     y_pred_local = mean
