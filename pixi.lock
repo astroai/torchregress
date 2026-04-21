@@ -6632,7 +6632,7 @@ packages:
 - pypi: ./
   name: torchregress
   version: 0.1.0
-  sha256: 4e9c7b67ed8759d7b1f322517da60d6d3122af3adaa8f141699318ea6f2d377e
+  sha256: 8d6c24f876b6d82658394611370bbe73c98e4419cb18696d92e18e8cfbe3d85e
   requires_dist:
   - torch>=2.4.0
   - numpy>=2.0.0
