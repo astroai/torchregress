@@ -57,7 +57,7 @@ GitHub Actions on `main` runs **ruff + black**, **pytest with coverage**, and **
 ./scripts/ci_local.sh
 ```
 
-This installs `test` + `flows` + `dev` extras, then runs **ruff**, **black --check**, **pytest --cov=…**, and both **benchmark_smoke** threshold passes (same flags as CI).
+This installs `test` + `flows` + `dev` extras, then runs **ruff** / **black** on **`src/torchregress`**, **tests**, and **tools**, then **pytest --cov=…** and both **benchmark_smoke** threshold passes (CPU smoke + sweep).
 
 ### Pre-commit / pre-push hooks
 

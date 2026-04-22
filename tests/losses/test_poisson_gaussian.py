@@ -2,10 +2,9 @@ import torch
 from torch import optim
 
 from torchregress.losses.poisson_gaussian import (
-    PoissonGaussianMixtureConfig,
     EnhancedPoissonGaussianConfig,
-    PoissonGaussianLikelihoodRatioConfig,
     EnhancedPoissonGaussianMixtureLoss,
+    PoissonGaussianLikelihoodRatioConfig,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureLoss,
     enhanced_poisson_gaussian_loss,

@@ -25,7 +25,7 @@ From your **local** torchregress clone (adjust `vos:` path if yours differs):
 vcp ./data/paper/openml_year.csv vos:sfabbro/torchregress/data/paper/openml_year.csv
 ```
 
-For **all** NeurIPS-sized inputs (Year, diamonds, tuning, optional Higgs) plus a ready-made `VCP_SPECS` snippet for headless jobs, use [`tools/canfar_vcp_prepare.py`](../tools/canfar_vcp_prepare.py) or [`scripts/canfar_vcp_push_local.sh`](../scripts/canfar_vcp_push_local.sh); see [canfar_neurips_batch.md](canfar_neurips_batch.md).
+For staging **`data/`** on VOS and optional `VCP_SPECS` generation, use [`scripts/canfar_vcp_prepare.py`](../scripts/canfar_vcp_prepare.py); see [canfar_neurips_batch.md](canfar_neurips_batch.md).
 
 If you later run benchmarks that need **Higgs** or **shifts** data on CANFAR, upload those files under the same `vos:sfabbro/torchregress/...` tree and extend [`scripts/canfar_headless_job.sh`](../scripts/canfar_headless_job.sh) with additional `vcp` lines (or set `YEAR_VOS_REL` / add env vars).
 

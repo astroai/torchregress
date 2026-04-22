@@ -70,21 +70,21 @@ def test_ppi_diagnostics_fields_present() -> None:
 def test_ppi_mean_ci_invalid_alpha() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="alpha must be in \\(0, 1\\)"):
-        ppi_mean_ci(y_l, pred_l, pred_u, alpha=-0.1)
+        ppi_mean_ci(y_l, pred_l, pred_u, config=PPIConfig(alpha=-0.1))
     with pytest.raises(ValueError, match="alpha must be in \\(0, 1\\)"):
-        ppi_mean_ci(y_l, pred_l, pred_u, alpha=1.1)
+        ppi_mean_ci(y_l, pred_l, pred_u, config=PPIConfig(alpha=1.1))
 
 
 def test_ppi_mean_ci_invalid_n_boot() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="n_boot must be >= 10"):
-        ppi_mean_ci(y_l, pred_l, pred_u, n_boot=5)
+        ppi_mean_ci(y_l, pred_l, pred_u, config=PPIConfig(n_boot=5))
 
 
 def test_ppi_mean_ci_invalid_method() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="Unsupported method: invalid"):
-        ppi_mean_ci(y_l, pred_l, pred_u, method="invalid")
+        ppi_mean_ci(y_l, pred_l, pred_u, config=PPIConfig(method="invalid"))
 
 
 def test_ppi_mean_ci_shape_mismatch() -> None:
@@ -118,19 +118,19 @@ def test_ppi_quantile_ci_invalid_q() -> None:
 def test_ppi_quantile_ci_invalid_alpha() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="alpha must be in \\(0, 1\\)"):
-        ppi_quantile_ci(y_l, pred_l, pred_u, q=0.5, alpha=-0.1)
+        ppi_quantile_ci(y_l, pred_l, pred_u, q=0.5, config=PPIConfig(alpha=-0.1))
 
 
 def test_ppi_quantile_ci_invalid_n_boot() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="n_boot must be >= 10"):
-        ppi_quantile_ci(y_l, pred_l, pred_u, q=0.5, n_boot=5)
+        ppi_quantile_ci(y_l, pred_l, pred_u, q=0.5, config=PPIConfig(n_boot=5))
 
 
 def test_ppi_quantile_ci_invalid_method() -> None:
     _, _, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="Unsupported method: invalid"):
-        ppi_quantile_ci(y_l, pred_l, pred_u, q=0.5, method="invalid")
+        ppi_quantile_ci(y_l, pred_l, pred_u, q=0.5, config=PPIConfig(method="invalid"))
 
 
 def test_ppi_quantile_ci_shape_mismatch() -> None:
@@ -156,13 +156,13 @@ def test_ppi_quantile_ci_too_few_samples() -> None:
 def test_ppi_ols_ci_invalid_alpha() -> None:
     x_l, x_u, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="alpha must be in \\(0, 1\\)"):
-        ppi_ols_ci(x_l, y_l, x_u, pred_l, pred_u, alpha=-0.1)
+        ppi_ols_ci(x_l, y_l, x_u, pred_l, pred_u, config=PPIConfig(alpha=-0.1))
 
 
 def test_ppi_ols_ci_invalid_n_boot() -> None:
     x_l, x_u, y_l, pred_l, pred_u = _synthetic()
     with pytest.raises(ValueError, match="n_boot must be >= 10"):
-        ppi_ols_ci(x_l, y_l, x_u, pred_l, pred_u, n_boot=5)
+        ppi_ols_ci(x_l, y_l, x_u, pred_l, pred_u, config=PPIConfig(n_boot=5))
 
 
 def test_ppi_ols_ci_shape_mismatch() -> None:

@@ -7,11 +7,11 @@ cd "$ROOT"
 
 uv sync --extra test --extra flows --extra dev
 
-echo "== ruff (torchregress, tests, tools) =="
-uv run ruff check torchregress tests tools
+echo "== ruff (src/torchregress, tests, tools) =="
+uv run ruff check src/torchregress tests tools
 
-echo "== black --check (torchregress, tests, tools) =="
-uv run black --check torchregress tests tools
+echo "== black --check (src/torchregress, tests, tools) =="
+uv run black --check src/torchregress tests tools
 
 echo "== pytest + coverage (CI test job) =="
 uv run python -m pytest --cov=torchregress --cov-report=xml --cov-report=term

@@ -14,8 +14,12 @@ For the **label-fraction sweep only** (40 shards), see also [canfar_batch_sweeps
 | [`scripts/canfar/canfar_work_plan.example.yaml`](../scripts/canfar/canfar_work_plan.example.yaml) | Example waves + jobs |
 | **VOS** | Authoritative copies of large inputs |
 | **`ARC_RUN_ROOT`** | One run directory shared by phase jobs that must complete before `aggregate` |
-| [`tools/canfar_vcp_prepare.py`](../tools/canfar_vcp_prepare.py) | Print or run **`vcp`** uploads from your laptop; emits **`VCP_SPECS`** for headless |
-| [`scripts/canfar_vcp_push_local.sh`](../scripts/canfar_vcp_push_local.sh) | Thin wrapper: `uv run python tools/canfar_vcp_prepare.py` |
+| [`scripts/canfar_vcp_prepare.py`](../scripts/canfar_vcp_prepare.py) | One-shot: mirror **`data/`** → VOS; optional **`--write-vcp-specs`** for headless |
+| [`scripts/canfar_vcp_push_local.sh`](../scripts/canfar_vcp_push_local.sh) | Thin wrapper: `uv run python scripts/canfar_vcp_prepare.py` |
+
+## Pre-cluster (local)
+
+Before sweeps on Skaha: (1) **`./scripts/ci_local.sh`** — same gates as GitHub (ruff, black, pytest + coverage, CPU benchmark thresholds). (2) Dry-run anything that shells out: e.g. **`uv run python scripts/canfar_vcp_prepare.py --dry-run --skip-auth-check`**. (3) **`uv run python scripts/canfar_launch_from_plan.py … --dry-run`** if your plan supports it. Then commit and push; pull on ARC and match **`VOS_BASE`** / **`VCP_SPECS`** to what you uploaded.
 
 ## Phase vocabulary (`--only-phases`)
 
@@ -43,13 +47,12 @@ To avoid keeping **multi-gigabyte** copies under `docs/research/` (and to mirror
 
 After **`vcp`** uploads the canonical copy to VOS and you have verified runs, you can delete the legacy **local** duplicates to reclaim disk (keep at least one copy until VOS + ARC are validated).
 
-**Generate commands and a headless `VCP_SPECS` block** (dry-run prints `vcp` lines):
+**Upload + `VCP_SPECS`:**
 
 ```bash
-./scripts/canfar_vcp_push_local.sh --vos-base vos:sfabbro/torchregress
-./scripts/canfar_vcp_push_local.sh --vos-base vos:sfabbro/torchregress --execute
-./scripts/canfar_vcp_push_local.sh --with-higgs --write-vcp-specs ./vcp_specs_for_headless.txt
-./scripts/canfar_vcp_push_local.sh --with-tabred --execute
+uv run python scripts/canfar_vcp_prepare.py                    # mirror ./data/ → vos:sfabbro/torchregress/data/
+uv run python scripts/canfar_vcp_prepare.py --dry-run --skip-auth-check
+uv run python scripts/canfar_vcp_prepare.py --write-vcp-specs ./vcp_specs_for_headless.txt
 ```
 
 | Asset | Default repo path | Purpose |
@@ -58,15 +61,13 @@ After **`vcp`** uploads the canonical copy to VOS and you have verified runs, yo
 | Supervised-gap tuning CSV | `data/neurips_inputs/supervised_gap_tuning_v3_sweep.csv` **or** `docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv` | Multiseed / nl2048 / diamonds |
 | OpenML diamonds | `data/neurips_inputs/openml_large_tabular_diamonds.parquet` **or** `data/paper/openml_large_tabular_diamonds.parquet` | `openml_diamonds_multiseed` |
 | Higgs parquet | `data/neurips_inputs/FAIR_Universe_HiggsML_data.parquet` **or** `docs/research/.../extracted/FAIR_Universe_HiggsML_data.parquet` | Higgs arm of multiseed (optional) |
-| TabReD layout | `data/tabred/<dataset>/...` (three default tasks) | TabReD probe (optional; one recursive **`vcp data/tabred/ vos:…/data/tabred/`** via `--with-tabred`) |
+| TabReD layout | `data/tabred/<dataset>/...` | Included in the **`data/`** mirror; **`data/tabred/.vendor/`** is excluded from VOS (local upstream clone only) |
 | Shifts | none (network fetch in driver) | `shifts` phase writes under `--shifts-out-root` |
 | Image rebuttal | Synthetic in-process data in [`image_regression_rebuttal.py`](../examples/benchmarks/image_regression_rebuttal.py) | Optional; no VOS assets |
 
-**Multi-file pulls in the container:** set `VCP_SPECS` to newline-separated `vos_rel|scratch_rel` pairs (see [`scripts/canfar_headless_job.sh`](../scripts/canfar_headless_job.sh)). Keys are **paths under your VOS URI** that mirror the clone (run `canfar_vcp_prepare.py --write-vcp-specs` after consolidating files so lines match disk).
+**Multi-file pulls in the container:** set `VCP_SPECS` to newline-separated `vos_rel|scratch_rel` pairs (see [`scripts/canfar_headless_job.sh`](../scripts/canfar_headless_job.sh)). Keys are **paths under your VOS URI** that mirror the clone; generate with **`uv run python scripts/canfar_vcp_prepare.py --write-vcp-specs FILE`** once `data/` matches what you need.
 
-**Dotfiles / caches outside the repo:** this tool only covers paths under the clone. Clear Kaggle, HuggingFace, or UV caches separately if you need space.
-
-TabReD uses one **recursive directory** `vcp` with trailing slashes (CADC semantics: copy the whole tree onto the VOS destination). Optional `--tabred-nstreams N` adds `--nstreams=N` where your `vos` build supports it.
+**Dotfiles / caches outside the repo:** keep only what you want uploaded under **`data/`**; the script prunes small junk locally before `vcp`.
 
 ### MkDocs `site/` bloat (local disk)
 
