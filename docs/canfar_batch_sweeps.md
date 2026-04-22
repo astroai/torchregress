@@ -1,5 +1,7 @@
 # CANFAR batch: Year label-fraction sweep
 
+For the **full NeurIPS + overnight** manifest (phase shards, label sweep, aggregate), see [canfar_neurips_batch.md](canfar_neurips_batch.md) and [`scripts/canfar_launch_from_plan.py`](../scripts/canfar_launch_from_plan.py).
+
 Run the expensive [`sage_year_label_fraction_sweep`](../examples/benchmarks/sage_year_label_fraction_sweep.py) grid (**240** outer cells = 10 seeds × 3 shifts × 8 label percents) as **40** Skaha **headless** sessions (**6** cells per shard), using the **CANFAR Python API** from your laptop.
 
 ## Layout

@@ -15,11 +15,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import shlex
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
+import canfar_common as cf  # noqa: E402
 
 
 def _parse_args() -> argparse.Namespace:
@@ -89,9 +94,12 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _arc_run_root(args: argparse.Namespace) -> str:
-    if args.arc_run_root:
-        return args.arc_run_root.rstrip("/")
-    return f"{args.arc_project_root.rstrip('/')}/{args.arc_runs_subdir.strip('/')}/{args.run_id}"
+    return cf.arc_run_root_from_args(
+        arc_project_root=args.arc_project_root,
+        arc_runs_subdir=args.arc_runs_subdir,
+        run_id=args.run_id,
+        arc_run_root_override=args.arc_run_root,
+    )
 
 
 def _submit_one(
@@ -109,9 +117,6 @@ def _submit_one(
     dry_run: bool,
 ) -> dict[str, Any]:
     name = f"torchregress-{run_id}-s{shard_id:02d}"
-    script_path = f"{torchregress_repo.rstrip('/')}/scripts/canfar_headless_job.sh"
-    inner = f"exec bash {shlex.quote(script_path)}"
-    args_str = "-lc " + shlex.quote(inner)
     env = {
         "ARC_RUN_ROOT": arc_run_root,
         "VOS_BASE": vos_base,
@@ -119,54 +124,26 @@ def _submit_one(
         "SHARD_COUNT": str(shards),
         "TORCHREGRESS_REPO": torchregress_repo,
         "RUN_ID": run_id,
+        "CANFAR_JOB_KIND": "year_label_shard",
     }
-    record: dict[str, Any] = {
-        "name": name,
-        "shard_id": shard_id,
-        "env": env,
-        "cmd": "/bin/bash",
-        "args": args_str,
-        "cores": cores,
-        "ram": ram,
-        "image": image,
-    }
-    if dry_run:
-        record["session_id"] = None
-        record["status"] = "dry_run"
-        return record
-
-    session = session_factory()
-    ids = session.create(
+    rec = cf.submit_headless_session(
+        session_factory=session_factory,
         name=name,
         image=image,
         cores=cores,
         ram=ram,
-        kind="headless",
-        cmd="/bin/bash",
-        args=args_str,
         env=env,
-        replicas=1,
+        torchregress_repo=torchregress_repo,
+        dry_run=dry_run,
     )
-    sid = ids[0] if ids else None
-    record["session_id"] = sid
-    record["status"] = "submitted" if sid else "create_failed"
-    return record
+    rec["shard_id"] = shard_id
+    return rec
 
 
 def main() -> int:
     args = _parse_args()
     if not args.dry_run:
-        try:
-            import importlib
-
-            importlib.import_module("canfar.sessions")
-        except ImportError:
-            print(
-                "Missing dependency: install with  uv pip install 'torchregress[canfar]'  "
-                "or  pip install 'canfar>=1.3'",
-                file=sys.stderr,
-            )
-            return 1
+        cf.ensure_canfar_import()
 
     arc_run_root = _arc_run_root(args)
     manifest_path = args.manifest_out or Path(f"canfar_sweep_{args.run_id}_manifest.json")
