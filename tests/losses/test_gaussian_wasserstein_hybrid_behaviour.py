@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import torch
 
-from torchregress.algorithms import NeighborhoodCovarianceConfig, NeighborhoodCovariancePseudoLabeler
+from torchregress.algorithms import (
+    NeighborhoodCovarianceConfig,
+    NeighborhoodCovariancePseudoLabeler,
+)
 from torchregress.losses import GaussianWassersteinBoundLoss
 
 
@@ -23,7 +26,9 @@ def test_diagonal_gw_with_pseudo_covariance_targets_is_finite_and_differentiable
     torch.manual_seed(0)
     x = torch.randn(24, 1, requires_grad=False)
     y = 0.5 * x + 0.2 * torch.randn(24, 1)
-    cov = NeighborhoodCovariancePseudoLabeler(NeighborhoodCovarianceConfig(n_neighbors=6, metric="euclidean")).fit_predict(x, y)
+    cov = NeighborhoodCovariancePseudoLabeler(
+        NeighborhoodCovarianceConfig(n_neighbors=6, metric="euclidean")
+    ).fit_predict(x, y)
     target_var = cov.squeeze(-1).squeeze(-1).clamp(min=1e-3).unsqueeze(-1).detach()
 
     mu = torch.randn(24, 1, requires_grad=True)

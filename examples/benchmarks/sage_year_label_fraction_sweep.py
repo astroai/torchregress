@@ -105,24 +105,43 @@ def run_sweep(
     catboost_iterations: int,
     out_csv: Path,
     summary_json: Path | None,
+    shard_id: int | None = None,
+    shard_count: int | None = None,
 ) -> list[dict[str, Any]]:
     rows_out: list[dict[str, Any]] = []
     total_outer = max(1, len(seeds) * len(shift_modes) * len(label_percents))
-    outer_i = 0
-    print(
-        "[sage_year_label_fraction_sweep] run_sweep "
-        f"seeds={len(seeds)} shifts={len(shift_modes)} pcts={len(label_percents)} "
-        f"outer_steps={total_outer}",
-        flush=True,
-    )
+    if shard_count is not None:
+        if shard_id is None or not (0 <= shard_id < shard_count):
+            raise ValueError("shard_id is required and must satisfy 0 <= shard_id < shard_count")
+        cells_in_shard = (total_outer + shard_count - 1 - shard_id) // shard_count
+        print(
+            "[sage_year_label_fraction_sweep] run_sweep "
+            f"seeds={len(seeds)} shifts={len(shift_modes)} pcts={len(label_percents)} "
+            f"outer_steps={total_outer} shard={shard_id}/{shard_count} (~{cells_in_shard} cells)",
+            flush=True,
+        )
+    else:
+        print(
+            "[sage_year_label_fraction_sweep] run_sweep "
+            f"seeds={len(seeds)} shifts={len(shift_modes)} pcts={len(label_percents)} "
+            f"outer_steps={total_outer}",
+            flush=True,
+        )
+    global_idx = 0
+    shard_step = 0
     for seed in seeds:
         cfg = year_mod.YearRealDataConfig(**{**asdict(base_cfg), "seed": int(seed)})
         for shift in shift_modes:
             for pct in label_percents:
-                outer_i += 1
+                if shard_count is not None:
+                    if global_idx % shard_count != shard_id:
+                        global_idx += 1
+                        continue
+                shard_step += 1
+                global_idx += 1
                 print(
-                    f"[sage_year_label_fraction_sweep] ({outer_i}/{total_outer}) "
-                    f"seed={seed} shift={shift!r} label_pct={pct}",
+                    f"[sage_year_label_fraction_sweep] ({shard_step}/{cells_in_shard if shard_count else total_outer}) "
+                    f"[flat_idx={global_idx - 1}] seed={seed} shift={shift!r} label_pct={pct}",
                     flush=True,
                 )
                 split = year_mod.make_year_split_label_pool_fraction(
@@ -160,7 +179,7 @@ def run_sweep(
 
     _write_csv(out_csv, rows_out)
     if summary_json is not None:
-        payload = {
+        payload: dict[str, Any] = {
             "example": "examples/benchmarks/sage_year_label_fraction_sweep.py",
             "out_csv": str(out_csv),
             "base_config": asdict(base_cfg),
@@ -171,6 +190,9 @@ def run_sweep(
             "catboost_iterations": catboost_iterations,
             "n_rows": len(rows_out),
         }
+        if shard_count is not None and shard_id is not None:
+            payload["shard_id"] = int(shard_id)
+            payload["shard_count"] = int(shard_count)
         summary_json.parent.mkdir(parents=True, exist_ok=True)
         summary_json.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     return rows_out
@@ -226,11 +248,29 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--openml-data-id", type=int, default=None)
     p.add_argument("--openml-dataset-name", type=str, default="")
     p.add_argument("--openml-version", type=int, default=year_mod.YearRealDataConfig.openml_version)
+    p.add_argument(
+        "--shard-id",
+        type=int,
+        default=None,
+        help="0-based shard index; must be used with --shard-count. Cells run where flat_idx %% shard_count == shard_id.",
+    )
+    p.add_argument(
+        "--shard-count",
+        type=int,
+        default=None,
+        help="Number of shards (e.g. 40 for CANFAR jobs). Must be used with --shard-id.",
+    )
     return p.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
+    if (args.shard_id is None) ^ (args.shard_count is None):
+        raise SystemExit("Provide both --shard-id and --shard-count, or neither.")
+    if args.shard_count is not None and args.shard_count < 1:
+        raise SystemExit("--shard-count must be >= 1")
+    if args.shard_id is not None and not (0 <= args.shard_id < args.shard_count):
+        raise SystemExit("--shard-id must satisfy 0 <= shard-id < shard-count")
     base_cfg = year_mod.YearRealDataConfig(
         dataset_path=args.dataset_path or None,
         cache_path=args.cache_path or None,
@@ -260,6 +300,8 @@ def main() -> None:
         catboost_iterations=int(args.catboost_iterations),
         out_csv=args.out_csv,
         summary_json=args.summary_json,
+        shard_id=args.shard_id,
+        shard_count=args.shard_count,
     )
     print(
         f"[sage_year_label_fraction_sweep] main() complete: {len(rows)} rows -> {args.out_csv}",
