@@ -2,6 +2,9 @@ import torch
 from torch import optim
 
 from torchregress.losses.poisson_gaussian import (
+    PoissonGaussianMixtureConfig,
+    EnhancedPoissonGaussianConfig,
+    PoissonGaussianLikelihoodRatioConfig,
     EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureLoss,
@@ -333,7 +336,7 @@ class TestEnhancedPoissonGaussianMixtureLoss:
 
     def test_factory_function(self):
         """Test the factory function for EnhancedPoissonGaussianMixtureLoss"""
-        loss_fn = enhanced_poisson_gaussian_loss(
+        config = EnhancedPoissonGaussianConfig(
             gain="learn",
             offset=0.1,
             read_noise="learn",
@@ -341,6 +344,7 @@ class TestEnhancedPoissonGaussianMixtureLoss:
             log_input=True,
             calibration=True,
         )
+        loss_fn = enhanced_poisson_gaussian_loss(config=config)
 
         assert isinstance(loss_fn, EnhancedPoissonGaussianMixtureLoss)
         assert loss_fn.learn_gain
@@ -505,9 +509,10 @@ class TestPoissonGaussianLikelihoodRatioLoss:
 
     def test_factory_function(self):
         """Test the factory function"""
-        loss_fn = poisson_gaussian_likelihood_ratio_loss(
+        config = PoissonGaussianLikelihoodRatioConfig(
             log_input=False, learn_variance=True, initial_variance=0.5
         )
+        loss_fn = poisson_gaussian_likelihood_ratio_loss(config=config)
 
         assert isinstance(loss_fn, PoissonGaussianLikelihoodRatioLoss)
         assert not loss_fn.log_input
