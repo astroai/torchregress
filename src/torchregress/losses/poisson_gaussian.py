@@ -12,6 +12,7 @@ These models are especially useful for:
 """
 
 import math
+from dataclasses import dataclass
 from typing import Any, Optional, Union, cast
 
 import numpy as np
@@ -21,6 +22,44 @@ from torch.nn import PoissonNLLLoss
 
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
+
+
+@dataclass(frozen=True)
+class PoissonGaussianMixtureConfig:
+    """Configuration for PoissonGaussianMixtureLoss."""
+
+    eps: float = 1e-8
+    learn_variance: bool = False
+    initial_variance: float = 1.0
+    min_variance: float = 1e-6
+    log_input: bool = False
+    mixture_weights: Optional[Union[float, str]] = None
+    extra_variance_model: bool = False
+    reduction: str = "mean"
+
+
+@dataclass(frozen=True)
+class EnhancedPoissonGaussianConfig:
+    """Configuration for EnhancedPoissonGaussianMixtureLoss."""
+
+    gain: Union[float, str] = 1.0
+    offset: Union[float, str] = 0.0
+    read_noise: Union[float, str] = 1.0
+    shot_noise: Union[float, str] = 0.0
+    log_input: bool = False
+    calibration: bool = False
+    reduction: str = "mean"
+
+
+@dataclass(frozen=True)
+class PoissonGaussianLikelihoodRatioConfig:
+    """Configuration for PoissonGaussianLikelihoodRatioLoss."""
+
+    log_input: bool = True
+    eps: float = 1e-8
+    learn_variance: bool = False
+    initial_variance: float = 1.0
+    reduction: str = "mean"
 
 
 @register_regression_loss("poisson_gaussian_mixture")
@@ -56,40 +95,40 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
 
     def __init__(
         self,
-        eps: float = 1e-8,
-        learn_variance: bool = False,
-        initial_variance: float = 1.0,
-        min_variance: float = 1e-6,
-        log_input: bool = False,
-        mixture_weights: Optional[Union[float, str]] = None,
-        extra_variance_model: bool = False,
+        config: Optional[PoissonGaussianMixtureConfig] = None,
         reduction: str = "mean",
+        **kwargs: Any,
     ) -> None:
-        super().__init__(reduction=reduction)
-        self.eps = eps
-        self.learn_variance = learn_variance
-        self.initial_variance = initial_variance
-        self.min_variance = min_variance
-        self.log_input = log_input
-        self.mixture_weights = mixture_weights
-        self.extra_variance_model = extra_variance_model
+        if "reduction" not in kwargs and config is None:
+            kwargs["reduction"] = reduction
+        if config is None:
+            config = PoissonGaussianMixtureConfig(**kwargs)
+        super().__init__(reduction=config.reduction)
+        self.config = config
+        self.eps = config.eps
+        self.learn_variance = config.learn_variance
+        self.initial_variance = config.initial_variance
+        self.min_variance = config.min_variance
+        self.log_input = config.log_input
+        self.mixture_weights = config.mixture_weights
+        self.extra_variance_model = config.extra_variance_model
 
         # Initialize learnable parameters if needed
-        if learn_variance:
+        if config.learn_variance:
             self.log_variance = nn.Parameter(
-                torch.ones(1) * torch.log(torch.tensor(initial_variance))
+                torch.ones(1) * torch.log(torch.tensor(config.initial_variance))
             )
 
-        if mixture_weights == "learn":
+        if config.mixture_weights == "learn":
             self.weight_logit = nn.Parameter(torch.zeros(1))
 
         # Initialize Poisson loss using torch.nn implementation
         # Note: torch.nn.PoissonNLLLoss has an additional 'full' parameter not present
         # in the local version
         self.poisson_loss = PoissonNLLLoss(
-            log_input=log_input,
+            log_input=config.log_input,
             full=True,  # Set full=True to match behavior of original implementation
-            eps=eps,
+            eps=config.eps,
             reduction="none",
         )
 
@@ -205,48 +244,49 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
 
     def __init__(
         self,
-        gain: Union[float, str] = 1.0,
-        offset: Union[float, str] = 0.0,
-        read_noise: Union[float, str] = 1.0,
-        shot_noise: Union[float, str] = 0.0,
-        log_input: bool = False,
-        calibration: bool = False,
+        config: Optional[EnhancedPoissonGaussianConfig] = None,
         reduction: str = "mean",
+        **kwargs: Any,
     ) -> None:
-        super().__init__(reduction=reduction)
-        self.log_input = log_input
-        self.calibration = calibration
+        if "reduction" not in kwargs and config is None:
+            kwargs["reduction"] = reduction
+        if config is None:
+            config = EnhancedPoissonGaussianConfig(**kwargs)
+        super().__init__(reduction=config.reduction)
+        self.config = config
+        self.log_input = config.log_input
+        self.calibration = config.calibration
         self.eps = 1e-8
 
         # Configure gain parameter
-        self.learn_gain = gain == "learn"
+        self.learn_gain = config.gain == "learn"
         if self.learn_gain:
             self.log_gain = nn.Parameter(torch.tensor(0.0))  # Initialize with gain=1.0
         else:
-            self.register_buffer("fixed_gain", torch.tensor(float(gain)))
+            self.register_buffer("fixed_gain", torch.tensor(float(config.gain)))
 
         # Configure offset parameter
-        self.learn_offset = offset == "learn"
+        self.learn_offset = config.offset == "learn"
         if self.learn_offset:
             self.offset = nn.Parameter(torch.tensor(0.0))  # Initialize with offset=0.0
         else:
-            self.register_buffer("fixed_offset", torch.tensor(float(offset)))
+            self.register_buffer("fixed_offset", torch.tensor(float(config.offset)))
 
         # Configure read noise (constant variance component)
-        self.learn_read_noise = read_noise == "learn"
+        self.learn_read_noise = config.read_noise == "learn"
         if self.learn_read_noise:
             # Initialize with log(1.0) = 0.0
             self.log_read_noise = nn.Parameter(torch.tensor(0.0))
         else:
-            self.register_buffer("fixed_read_noise", torch.tensor(float(read_noise)))
+            self.register_buffer("fixed_read_noise", torch.tensor(float(config.read_noise)))
 
         # Configure shot noise (signal-dependent variance component)
-        self.learn_shot_noise = shot_noise == "learn"
+        self.learn_shot_noise = config.shot_noise == "learn"
         if self.learn_shot_noise:
             # Initialize with log(small value) for stability
             self.log_shot_noise = nn.Parameter(torch.tensor(-4.0))  # exp(-4) ≈ 0.018
         else:
-            self.register_buffer("fixed_shot_noise", torch.tensor(float(shot_noise)))
+            self.register_buffer("fixed_shot_noise", torch.tensor(float(config.shot_noise)))
 
         # Calibration parameters (optional)
         if self.calibration:
@@ -372,21 +412,27 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
 
     def __init__(
         self,
-        log_input: bool = True,
-        eps: float = 1e-8,
-        learn_variance: bool = False,
-        initial_variance: float = 1.0,
+        config: Optional[PoissonGaussianLikelihoodRatioConfig] = None,
         reduction: str = "mean",
+        **kwargs: Any,
     ) -> None:
-        super().__init__(reduction=reduction)
-        self.log_input = log_input
-        self.eps = eps
-        self.learn_variance = learn_variance
-        self.initial_variance = initial_variance
+        if "reduction" not in kwargs and config is None:
+            kwargs["reduction"] = reduction
+        if config is None:
+            if "log_input" not in kwargs:
+                # Class default
+                kwargs["log_input"] = True
+            config = PoissonGaussianLikelihoodRatioConfig(**kwargs)
+        super().__init__(reduction=config.reduction)
+        self.config = config
+        self.log_input = config.log_input
+        self.eps = config.eps
+        self.learn_variance = config.learn_variance
+        self.initial_variance = config.initial_variance
 
-        if learn_variance:
+        if config.learn_variance:
             self.log_variance = nn.Parameter(
-                torch.ones(1) * torch.log(torch.tensor(initial_variance))
+                torch.ones(1) * torch.log(torch.tensor(config.initial_variance))
             )
 
         # Still import PoissonLikelihoodRatioLoss from local .poisson module
@@ -394,7 +440,7 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
         from .poisson import PoissonLikelihoodRatioLoss
 
         self.poisson_lr_loss = PoissonLikelihoodRatioLoss(
-            log_input=log_input, eps=eps, reduction="none"
+            log_input=config.log_input, eps=config.eps, reduction="none"
         )
 
     def forward(
@@ -448,71 +494,38 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
 
 
 def poisson_gaussian_mixture_loss(
-    eps: float = 1e-8,
-    learn_variance: bool = False,
-    initial_variance: float = 1.0,
-    min_variance: float = 1e-6,
-    log_input: bool = False,
-    mixture_weights: Optional[Union[float, str]] = None,
-    extra_variance_model: bool = False,
-    reduction: str = "mean",
+    config: Optional[PoissonGaussianMixtureConfig] = None,
     **kwargs: Any,
 ) -> PoissonGaussianMixtureLoss:
     """
     Factory function to create a PoissonGaussianMixtureLoss instance.
     """
-    return PoissonGaussianMixtureLoss(
-        eps=eps,
-        learn_variance=learn_variance,
-        initial_variance=initial_variance,
-        min_variance=min_variance,
-        log_input=log_input,
-        mixture_weights=mixture_weights,
-        extra_variance_model=extra_variance_model,
-        reduction=reduction,
-        **kwargs,
-    )
+    if config is None:
+        config = PoissonGaussianMixtureConfig(**kwargs)
+    return PoissonGaussianMixtureLoss(config=config)
 
 
 def enhanced_poisson_gaussian_loss(
-    gain: Union[float, str] = 1.0,
-    offset: Union[float, str] = 0.0,
-    read_noise: Union[float, str] = 1.0,
-    shot_noise: Union[float, str] = 0.0,
-    log_input: bool = False,
-    calibration: bool = False,
-    reduction: str = "mean",
+    config: Optional[EnhancedPoissonGaussianConfig] = None,
     **kwargs: Any,
 ) -> EnhancedPoissonGaussianMixtureLoss:
     """
     Factory function to create an EnhancedPoissonGaussianMixtureLoss instance.
     """
-    return EnhancedPoissonGaussianMixtureLoss(
-        gain=gain,
-        offset=offset,
-        read_noise=read_noise,
-        shot_noise=shot_noise,
-        log_input=log_input,
-        calibration=calibration,
-        reduction=reduction,
-        **kwargs,
-    )
+    if config is None:
+        config = EnhancedPoissonGaussianConfig(**kwargs)
+    return EnhancedPoissonGaussianMixtureLoss(config=config)
 
 
 def poisson_gaussian_likelihood_ratio_loss(
-    log_input: bool = False,
-    learn_variance: bool = False,
-    initial_variance: float = 1.0,
-    reduction: str = "mean",
+    config: Optional[PoissonGaussianLikelihoodRatioConfig] = None,
     **kwargs: Any,
 ) -> PoissonGaussianLikelihoodRatioLoss:
     """
     Factory function to create a PoissonGaussianLikelihoodRatioLoss instance.
     """
-    return PoissonGaussianLikelihoodRatioLoss(
-        log_input=log_input,
-        learn_variance=learn_variance,
-        initial_variance=initial_variance,
-        reduction=reduction,
-        **kwargs,
-    )
+    if config is None:
+        if "log_input" not in kwargs:
+            kwargs["log_input"] = False
+        config = PoissonGaussianLikelihoodRatioConfig(**kwargs)
+    return PoissonGaussianLikelihoodRatioLoss(config=config)
