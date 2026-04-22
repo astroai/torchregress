@@ -103,6 +103,70 @@ def test_label_fraction_sweep_smoke(tmp_path: Path) -> None:
     assert "SAGE-Reg" in methods
 
 
+def test_run_sweep_shards_partition_grid(tmp_path: Path) -> None:
+    """Sharded sweeps (flat_idx % K == shard_id) union to the same cells as one run."""
+    sweep = _load_benchmark("sage_year_label_fraction_sweep")
+    year = _load_benchmark("self_agreement_realdata_year")
+    dataset_path = tmp_path / "year_like.csv"
+    _write_year_like_csv(dataset_path)
+
+    base_cfg = year.YearRealDataConfig(
+        dataset_path=str(dataset_path),
+        allow_download=False,
+        n_labeled=16,
+        n_unlabeled=128,
+        n_test=48,
+        hidden=16,
+        teacher_epochs=1,
+        student_epochs=1,
+        batch_size=64,
+        unlabeled_fractions=(1.0,),
+        seed=7,
+    )
+    seeds = [7, 8]
+    label_percents = [10.0, 40.0]
+    shift_modes = ["none"]
+    shard_count = 2
+    rows_by_shard: list[list[dict[str, str]]] = []
+    for shard_id in range(shard_count):
+        out_csv = tmp_path / f"s{shard_id}.csv"
+        sweep.run_sweep(
+            base_cfg,
+            seeds=seeds,
+            label_percents=label_percents,
+            shift_modes=shift_modes,
+            min_unlabeled=32,
+            catboost_iterations=0,
+            out_csv=out_csv,
+            summary_json=None,
+            shard_id=shard_id,
+            shard_count=shard_count,
+        )
+        with out_csv.open(encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            rows_by_shard.append(list(reader))
+    full_csv = tmp_path / "full.csv"
+    sweep.run_sweep(
+        base_cfg,
+        seeds=seeds,
+        label_percents=label_percents,
+        shift_modes=shift_modes,
+        min_unlabeled=32,
+        catboost_iterations=0,
+        out_csv=full_csv,
+        summary_json=None,
+    )
+    with full_csv.open(encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        full_rows = list(reader)
+    merged = rows_by_shard[0] + rows_by_shard[1]
+    assert len(merged) == len(full_rows)
+    keys = ("Seed", "ShiftMode", "LabelPoolPercent_requested", "Method", "UnlabeledFraction")
+    sig_full = {(tuple(r[k] for k in keys)) for r in full_rows}
+    sig_merged = {(tuple(r[k] for k in keys)) for r in merged}
+    assert sig_merged == sig_full
+
+
 def test_run_benchmark_on_split_matches_run_benchmark(tmp_path: Path) -> None:
     year = _load_benchmark("self_agreement_realdata_year")
     dataset_path = tmp_path / "year_like.csv"

@@ -32,18 +32,31 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+# Optional single directory for large NeurIPS inputs (avoid duplicating multi-GB files
+# under docs/research). See docs/canfar_neurips_batch.md § Canonical inputs.
+NEURIPS_INPUTS_DIR = REPO_ROOT / "data" / "neurips_inputs"
+
+
+def _prefer_neurips_input(preferred: Path, legacy: Path) -> Path:
+    """Use ``preferred`` when present on disk; else ``legacy`` (CLI default anchor)."""
+    return preferred if preferred.is_file() else legacy
+
+
 # Canonical caches / inputs (override with env or --run-root only changes output tree)
 YEAR_CACHE_DEFAULT = REPO_ROOT / "data" / "paper" / "openml_year.csv"
-OPENML_DIAMONDS_CACHE_DEFAULT = (
-    REPO_ROOT / "data" / "paper" / "openml_large_tabular_diamonds.parquet"
+OPENML_DIAMONDS_CACHE_DEFAULT = _prefer_neurips_input(
+    NEURIPS_INPUTS_DIR / "openml_large_tabular_diamonds.parquet",
+    REPO_ROOT / "data" / "paper" / "openml_large_tabular_diamonds.parquet",
 )
-TUNING_CSV_DEFAULT = (
-    REPO_ROOT / "docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv"
+TUNING_CSV_DEFAULT = _prefer_neurips_input(
+    NEURIPS_INPUTS_DIR / "supervised_gap_tuning_v3_sweep.csv",
+    REPO_ROOT / "docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3" / "sweep.csv",
 )
-HIGGS_PARQUET_DEFAULT = (
+HIGGS_PARQUET_DEFAULT = _prefer_neurips_input(
+    NEURIPS_INPUTS_DIR / "FAIR_Universe_HiggsML_data.parquet",
     REPO_ROOT
     / "docs/research/sage_reg_results/2026-04-09/higgs_public/extracted"
-    / "FAIR_Universe_HiggsML_data.parquet"
+    / "FAIR_Universe_HiggsML_data.parquet",
 )
 TABRED_ROOT_DEFAULT = REPO_ROOT / "data" / "tabred"
 TABRED_DEFAULT_DATASETS = ("cooking-time", "delivery-eta", "maps-routing")
@@ -53,6 +66,59 @@ SHIFTS_DATASET_DEFAULT = "solar"
 # Ten fixed seeds for variance reporting (extends prior six-seed protocol).
 FULL_SEEDS = tuple(260410 + i for i in range(10))
 QUICK_SEEDS = (260410, 260411)
+
+# Keys for --only-phases / --skip-phases (must match manifest["phases"] / docs).
+NEURIPS_PHASE_KEYS: frozenset[str] = frozenset(
+    {
+        "year_direct",
+        "multiseed",
+        "openml_diamonds_multiseed",
+        "year_labeled_sweep",
+        "multiseed_year_nl2048",
+        "catboost",
+        "tabred",
+        "synthetic",
+        "backbone",
+        "ablations",
+        "shifts",
+        "image_rebuttal",
+        "aggregate",
+    }
+)
+NEURIPS_YEAR_CACHE_PHASES: frozenset[str] = frozenset(
+    {
+        "year_direct",
+        "multiseed",
+        "openml_diamonds_multiseed",
+        "year_labeled_sweep",
+        "multiseed_year_nl2048",
+        "catboost",
+        "ablations",
+    }
+)
+NEURIPS_OPENML_CACHE_PHASES: frozenset[str] = frozenset({"openml_diamonds_multiseed"})
+
+
+def _parse_phase_csv(value: str | None) -> frozenset[str] | None:
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    return frozenset(x.strip() for x in text.split(",") if x.strip())
+
+
+def _active_phases(only: frozenset[str] | None, skip: frozenset[str]) -> frozenset[str]:
+    """Phases that are eligible to run after applying only/skip."""
+    if only is not None:
+        return frozenset(p for p in only if p not in skip)
+    return frozenset(p for p in NEURIPS_PHASE_KEYS if p not in skip)
+
+
+def _phase_selected(phase: str, only: frozenset[str] | None, skip: frozenset[str]) -> bool:
+    if only is not None and phase not in only:
+        return False
+    return phase not in skip
 
 
 def _uv_run(parts: list[str], *, cwd: Path | None = None, check: bool = True) -> int:
@@ -207,7 +273,31 @@ def main() -> None:
         default=SHIFTS_DATASET_DEFAULT,
         help="Symbolic Shifts dataset key for placeholder layout (default: solar).",
     )
+    parser.add_argument(
+        "--only-phases",
+        default=None,
+        help=(
+            "Comma-separated phase names to run exclusively (omit for full pipeline). "
+            "Valid keys: " + ", ".join(sorted(NEURIPS_PHASE_KEYS))
+        ),
+    )
+    parser.add_argument(
+        "--skip-phases",
+        default="",
+        help="Comma-separated phase names to skip (applied together with --only-phases).",
+    )
     args = parser.parse_args()
+
+    only = _parse_phase_csv(args.only_phases)
+    skip = _parse_phase_csv(args.skip_phases) or frozenset()
+    unknown = ((only or frozenset()) | skip) - NEURIPS_PHASE_KEYS
+    if unknown:
+        raise SystemExit(
+            "Unknown --only-phases/--skip-phases name(s): "
+            + ", ".join(sorted(unknown))
+            + "\nValid: "
+            + ", ".join(sorted(NEURIPS_PHASE_KEYS))
+        )
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     run_root = args.run_root
@@ -222,15 +312,20 @@ def main() -> None:
         f"quick={args.quick}",
         f"year_cache={args.year_cache}",
         f"skip_higgs={args.skip_higgs}",
+        f"only_phases={sorted(only) if only else None}",
+        f"skip_phases={sorted(skip)}",
         flush=True,
     )
 
     year_cache = args.year_cache.resolve()
-    allow_y = not args.no_year_download
-    _ensure_year_cache(year_cache, allow_download=allow_y)
     diamonds_cache = args.openml_diamonds_cache.resolve()
+    allow_y = not args.no_year_download
     allow_openml = not args.no_openml_download
-    _ensure_openml_diamonds_cache(diamonds_cache, allow_download=allow_openml)
+    active_prefetch = _active_phases(only, skip)
+    if NEURIPS_YEAR_CACHE_PHASES & active_prefetch:
+        _ensure_year_cache(year_cache, allow_download=allow_y)
+    if NEURIPS_OPENML_CACHE_PHASES & active_prefetch:
+        _ensure_openml_diamonds_cache(diamonds_cache, allow_download=allow_openml)
 
     tabred_root = args.tabred_data_root.resolve()
 
@@ -253,6 +348,10 @@ def main() -> None:
         "year_cache": str(year_cache),
         "quick": quick,
         "defaults": {"shifts": not args.skip_shifts},
+        "phase_filter": {
+            "only_phases": sorted(only) if only else None,
+            "skip_phases": sorted(skip),
+        },
         "phases": {},
     }
 
@@ -260,38 +359,41 @@ def main() -> None:
     sage_dir.mkdir(parents=True, exist_ok=True)
 
     # 1) Year direct
-    manifest["phases"]["year_direct"] = str(sage_dir / "year_direct")
-    _uv_run(
-        [
-            str(REPO_ROOT / "examples/benchmarks/self_agreement_realdata_year.py"),
-            "--cache-path",
-            str(year_cache),
-            "--no-download",
-            "--n-labeled",
-            str(nl),
-            "--n-unlabeled",
-            str(nu),
-            "--n-test",
-            str(nt),
-            "--teacher-epochs",
-            str(yteach),
-            "--student-epochs",
-            str(ystu),
-            "--unlabeled-fractions",
-            *ufrac,
-            "--output-csv",
-            str(sage_dir / "year_direct/metrics.csv"),
-            "--performance-figure-path",
-            str(sage_dir / "year_direct/performance.png"),
-            "--calibration-figure-path",
-            str(sage_dir / "year_direct/calibration.png"),
-            "--summary-json-path",
-            str(sage_dir / "year_direct/summary.json"),
-        ]
-    )
+    if _phase_selected("year_direct", only, skip):
+        manifest["phases"]["year_direct"] = str(sage_dir / "year_direct")
+        _uv_run(
+            [
+                str(REPO_ROOT / "examples/benchmarks/self_agreement_realdata_year.py"),
+                "--cache-path",
+                str(year_cache),
+                "--no-download",
+                "--n-labeled",
+                str(nl),
+                "--n-unlabeled",
+                str(nu),
+                "--n-test",
+                str(nt),
+                "--teacher-epochs",
+                str(yteach),
+                "--student-epochs",
+                str(ystu),
+                "--unlabeled-fractions",
+                *ufrac,
+                "--output-csv",
+                str(sage_dir / "year_direct/metrics.csv"),
+                "--performance-figure-path",
+                str(sage_dir / "year_direct/performance.png"),
+                "--calibration-figure-path",
+                str(sage_dir / "year_direct/calibration.png"),
+                "--summary-json-path",
+                str(sage_dir / "year_direct/summary.json"),
+            ]
+        )
+    else:
+        manifest["phases"]["year_direct"] = "skipped_not_selected"
 
     # 2) Multiseed (tuned CSV)
-    if args.tuning_csv.is_file():
+    if _phase_selected("multiseed", only, skip) and args.tuning_csv.is_file():
         multi_cmd = [
             str(REPO_ROOT / "examples/benchmarks/self_agreement_supervised_gap_multiseed.py"),
             "--tuning-csv",
@@ -333,13 +435,19 @@ def main() -> None:
             ]
         manifest["phases"]["multiseed"] = str(sage_dir / "multiseed")
         _uv_run(multi_cmd)
-    else:
+    elif _phase_selected("multiseed", only, skip):
         print(f"Skip multiseed: tuning CSV missing {args.tuning_csv}", flush=True)
         manifest["phases"]["multiseed"] = "skipped_no_tuning_csv"
+    else:
+        manifest["phases"]["multiseed"] = "skipped_not_selected"
 
     # 2b) Second OpenML tabular track (ggplot2 diamonds / price); uses the same tuned Year row.
     diamonds_out = run_root / "openml_diamonds"
-    if args.tuning_csv.is_file() and diamonds_cache.is_file():
+    if (
+        _phase_selected("openml_diamonds_multiseed", only, skip)
+        and args.tuning_csv.is_file()
+        and diamonds_cache.is_file()
+    ):
         manifest["phases"]["openml_diamonds_multiseed"] = str(diamonds_out)
         d_rows = _parquet_num_rows(diamonds_cache)
         d_nl, d_nu, d_nt = _scale_year_split_sizes_for_row_budget(
@@ -371,58 +479,63 @@ def main() -> None:
             *[str(s) for s in seeds],
         ]
         _uv_run(diamonds_cmd)
-    else:
+    elif _phase_selected("openml_diamonds_multiseed", only, skip):
         if not args.tuning_csv.is_file():
             manifest["phases"]["openml_diamonds_multiseed"] = "skipped_no_tuning_csv"
         else:
             manifest["phases"]["openml_diamonds_multiseed"] = f"missing_cache:{diamonds_cache}"
+    else:
+        manifest["phases"]["openml_diamonds_multiseed"] = "skipped_not_selected"
 
     # 3) Labeled sweep + collate
     sweep_out = run_root / "year_labeled_sweep"
-    sweep_out.mkdir(parents=True, exist_ok=True)
-    manifest["phases"]["year_labeled_sweep"] = str(sweep_out)
-    for nl_s in n_labeled_sweep:
-        csv_p = sweep_out / f"year_direct_nl{nl_s}_nu{sweep_nu}_ufrac1.0.csv"
-        js_p = sweep_out / f"year_direct_nl{nl_s}_summary.json"
+    if _phase_selected("year_labeled_sweep", only, skip):
+        sweep_out.mkdir(parents=True, exist_ok=True)
+        manifest["phases"]["year_labeled_sweep"] = str(sweep_out)
+        for nl_s in n_labeled_sweep:
+            csv_p = sweep_out / f"year_direct_nl{nl_s}_nu{sweep_nu}_ufrac1.0.csv"
+            js_p = sweep_out / f"year_direct_nl{nl_s}_summary.json"
+            _uv_run(
+                [
+                    str(REPO_ROOT / "examples/benchmarks/self_agreement_realdata_year.py"),
+                    "--cache-path",
+                    str(year_cache),
+                    "--no-download",
+                    "--n-labeled",
+                    str(nl_s),
+                    "--n-unlabeled",
+                    str(sweep_nu),
+                    "--n-test",
+                    str(sweep_nt),
+                    "--teacher-epochs",
+                    str(yteach),
+                    "--student-epochs",
+                    str(ystu),
+                    "--unlabeled-fractions",
+                    "1.0",
+                    "--output-csv",
+                    str(csv_p),
+                    "--summary-json-path",
+                    str(js_p),
+                ]
+            )
         _uv_run(
             [
-                str(REPO_ROOT / "examples/benchmarks/self_agreement_realdata_year.py"),
-                "--cache-path",
-                str(year_cache),
-                "--no-download",
-                "--n-labeled",
-                str(nl_s),
-                "--n-unlabeled",
-                str(sweep_nu),
-                "--n-test",
-                str(sweep_nt),
-                "--teacher-epochs",
-                str(yteach),
-                "--student-epochs",
-                str(ystu),
-                "--unlabeled-fractions",
-                "1.0",
+                str(REPO_ROOT / "tools/collate_sage_year_labeled_sweep.py"),
+                "--input-dir",
+                str(sweep_out),
+                "--output-json",
+                str(sweep_out / "year_labeled_sweep_collated.json"),
                 "--output-csv",
-                str(csv_p),
-                "--summary-json-path",
-                str(js_p),
+                str(sweep_out / "year_labeled_sweep_collated.csv"),
             ]
         )
-    _uv_run(
-        [
-            str(REPO_ROOT / "tools/collate_sage_year_labeled_sweep.py"),
-            "--input-dir",
-            str(sweep_out),
-            "--output-json",
-            str(sweep_out / "year_labeled_sweep_collated.json"),
-            "--output-csv",
-            str(sweep_out / "year_labeled_sweep_collated.csv"),
-        ]
-    )
+    else:
+        manifest["phases"]["year_labeled_sweep"] = "skipped_not_selected"
 
     # 4) Low-label multiseed nl=2048
     low = run_root / "multiseed_year_nl2048"
-    if args.tuning_csv.is_file():
+    if _phase_selected("multiseed_year_nl2048", only, skip) and args.tuning_csv.is_file():
         manifest["phases"]["multiseed_year_nl2048"] = str(low)
         _uv_run(
             [
@@ -449,12 +562,14 @@ def main() -> None:
                 *[str(s) for s in seeds],
             ]
         )
-    else:
+    elif _phase_selected("multiseed_year_nl2048", only, skip):
         manifest["phases"]["multiseed_year_nl2048"] = "skipped_no_tuning_csv"
+    else:
+        manifest["phases"]["multiseed_year_nl2048"] = "skipped_not_selected"
 
     # 5) CatBoost
     cat_out = run_root / "catboost"
-    if not args.skip_catboost:
+    if _phase_selected("catboost", only, skip) and not args.skip_catboost:
         cmd = [
             str(REPO_ROOT / "tools/sage_catboost_baselines.py"),
             "--year-cache",
@@ -475,12 +590,14 @@ def main() -> None:
             manifest["phases"]["catboost"] = "failed_or_skipped"
         else:
             manifest["phases"]["catboost"] = str(cat_out)
-    else:
+    elif _phase_selected("catboost", only, skip):
         manifest["phases"]["catboost"] = "skipped"
+    else:
+        manifest["phases"]["catboost"] = "skipped_not_selected"
 
     # 6) TabReD
     tabred_out = run_root / "tabred"
-    if not args.skip_tabred:
+    if _phase_selected("tabred", only, skip) and not args.skip_tabred:
         kaggle = Path.home() / ".kaggle" / "kaggle.json"
         kaggle_ok = kaggle.is_file()
         tabred_local_ok = _tabred_local_markers_present(tabred_root)
@@ -549,12 +666,14 @@ def main() -> None:
                 flush=True,
             )
             manifest["phases"]["tabred"] = "skipped_no_kaggle_no_local"
-    else:
+    elif _phase_selected("tabred", only, skip):
         manifest["phases"]["tabred"] = "skipped"
+    else:
+        manifest["phases"]["tabred"] = "skipped_not_selected"
 
     # 7) Synthetic
     syn = run_root / "synthetic"
-    if not args.skip_synthetic:
+    if _phase_selected("synthetic", only, skip) and not args.skip_synthetic:
         syn.mkdir(parents=True, exist_ok=True)
         sj = syn / "summary.json"
         syn_cmd = [
@@ -570,12 +689,14 @@ def main() -> None:
             ]
         _uv_run(syn_cmd)
         manifest["phases"]["synthetic"] = str(syn)
-    else:
+    elif _phase_selected("synthetic", only, skip):
         manifest["phases"]["synthetic"] = "skipped"
+    else:
+        manifest["phases"]["synthetic"] = "skipped_not_selected"
 
     # 8) Backbone
     bb = run_root / "backbone"
-    if not args.skip_backbone:
+    if _phase_selected("backbone", only, skip) and not args.skip_backbone:
         bb.mkdir(parents=True, exist_ok=True)
         _uv_run(
             [
@@ -585,12 +706,14 @@ def main() -> None:
             ]
         )
         manifest["phases"]["backbone"] = str(bb)
-    else:
+    elif _phase_selected("backbone", only, skip):
         manifest["phases"]["backbone"] = "skipped"
+    else:
+        manifest["phases"]["backbone"] = "skipped_not_selected"
 
     # 9) Ablations
     abl = run_root / "ablations"
-    if not args.skip_ablations:
+    if _phase_selected("ablations", only, skip) and not args.skip_ablations:
         if (
             _uv_run(
                 [
@@ -608,10 +731,12 @@ def main() -> None:
             manifest["phases"]["ablations"] = "failed"
         else:
             manifest["phases"]["ablations"] = str(abl)
-    else:
+    elif _phase_selected("ablations", only, skip):
         manifest["phases"]["ablations"] = "skipped"
+    else:
+        manifest["phases"]["ablations"] = "skipped_not_selected"
 
-    if not args.skip_shifts:
+    if _phase_selected("shifts", only, skip) and not args.skip_shifts:
         shifts_out = args.shifts_out_root.resolve()
         sh_cmd = [
             str(REPO_ROOT / "tools/fetch_shifts_dataset.py"),
@@ -628,10 +753,12 @@ def main() -> None:
             manifest["phases"]["shifts"] = "helper_failed"
         else:
             manifest["phases"]["shifts"] = "incomplete"
-    else:
+    elif _phase_selected("shifts", only, skip):
         manifest["phases"]["shifts"] = "skipped"
+    else:
+        manifest["phases"]["shifts"] = "skipped_not_selected"
 
-    if args.include_image_rebuttal:
+    if _phase_selected("image_rebuttal", only, skip) and args.include_image_rebuttal:
         image_dir = run_root / "image_rebuttal"
         image_dir.mkdir(parents=True, exist_ok=True)
         _uv_run(
@@ -646,22 +773,30 @@ def main() -> None:
             ]
         )
         manifest["phases"]["image_rebuttal"] = str(image_dir)
-    else:
+    elif _phase_selected("image_rebuttal", only, skip):
         manifest["phases"]["image_rebuttal"] = "skipped"
+    else:
+        manifest["phases"]["image_rebuttal"] = "skipped_not_selected"
 
+    manifest["phases"]["aggregate"] = (
+        "selected" if _phase_selected("aggregate", only, skip) else "skipped_not_selected"
+    )
     manifest["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
     (run_root / "neurips_sage_reg_full_manifest.json").write_text(
         json.dumps(manifest, indent=2), encoding="utf-8"
     )
 
-    _uv_run(
-        [
-            str(REPO_ROOT / "tools/aggregate_sage_paper_report.py"),
-            "--run-root",
-            str(run_root),
-            "--write-markdown",
-        ]
-    )
+    if _phase_selected("aggregate", only, skip):
+        _uv_run(
+            [
+                str(REPO_ROOT / "tools/aggregate_sage_paper_report.py"),
+                "--run-root",
+                str(run_root),
+                "--write-markdown",
+            ]
+        )
+    else:
+        print("[run_neurips_sage_reg_full] skip aggregate (phase not selected)", flush=True)
     print(f"\nDone. Run root:\n  {run_root}", flush=True)
 
 

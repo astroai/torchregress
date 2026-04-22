@@ -14,7 +14,10 @@ import argparse
 import torch
 import torch.nn as nn
 
-from torchregress.algorithms import NeighborhoodCovariancePseudoLabeler
+from torchregress.algorithms import (
+    NeighborhoodCovarianceConfig,
+    NeighborhoodCovariancePseudoLabeler,
+)
 from torchregress.losses import GaussianNLLLoss, GaussianWassersteinBoundLoss
 
 
@@ -46,7 +49,7 @@ def main() -> None:
 
     head = ScalarGaussianHead()
     labeler = NeighborhoodCovariancePseudoLabeler(
-        n_neighbors=16, metric="euclidean", temperature=0.5
+        NeighborhoodCovarianceConfig(n_neighbors=16, metric="euclidean", temperature=0.5)
     )
     cov_pseudo = labeler.fit_predict(x, y)
     target_var = cov_pseudo.squeeze(-1).squeeze(-1).clamp(min=1e-4).unsqueeze(-1)

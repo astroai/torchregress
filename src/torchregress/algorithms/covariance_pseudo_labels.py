@@ -10,12 +10,34 @@ See ``docs/losses/gaussian_wasserstein.md`` for pairing with ``GaussianWasserste
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Literal, Union
 
 import torch
 
 Metric = Literal["mahalanobis", "euclidean"]
 Weighting = Literal["softmax"]
+
+
+@dataclass(frozen=True)
+class NeighborhoodCovarianceConfig:
+    """
+    Configuration for neighbourhood covariance pseudo-labeling.
+
+    Attributes:
+        n_neighbors: Neighbour count per row (excluding self).
+        metric: ``"mahalanobis"`` uses pooled feature precision; ``"euclidean"`` uses squared
+            Euclidean distances in ``x`` space.
+        weighting: Only ``"softmax"`` is supported in v1 (negative distance / temperature).
+        regularization: Diagonal jitter on feature precision and on output covariances.
+        temperature: Softmax temperature on negative squared distances.
+    """
+
+    n_neighbors: int = 32
+    metric: Metric = "mahalanobis"
+    weighting: Weighting = "softmax"
+    regularization: float = 1e-5
+    temperature: float = 1.0
 
 
 def _as_tensor_2d(x: Union[torch.Tensor, Any], *, name: str) -> torch.Tensor:
@@ -56,11 +78,7 @@ def mahalanobis_covariance_pseudo_labels(
     x: torch.Tensor,
     y: torch.Tensor,
     *,
-    n_neighbors: int = 32,
-    metric: Metric = "mahalanobis",
-    weighting: Weighting = "softmax",
-    regularization: float = 1e-5,
-    temperature: float = 1.0,
+    config: NeighborhoodCovarianceConfig | None = None,
 ) -> torch.Tensor:
     """
     Functional API for :class:`NeighborhoodCovariancePseudoLabeler.fit_predict`.
@@ -68,23 +86,14 @@ def mahalanobis_covariance_pseudo_labels(
     Args:
         x: Reference inputs ``[n, p]``.
         y: Reference targets ``[n, d]`` (use ``y.unsqueeze(-1)`` for scalar outputs).
-        n_neighbors: Neighbour count per row (excluding self).
-        metric: ``"mahalanobis"`` uses pooled feature precision; ``"euclidean"`` uses squared
-            Euclidean distances in ``x`` space.
-        weighting: Only ``"softmax"`` is supported in v1 (negative distance / temperature).
-        regularization: Diagonal jitter on feature precision and on output covariances.
-        temperature: Softmax temperature on negative squared distances.
+        config: Configuration for the pseudo-labeling. If None, uses default configuration.
 
     Returns:
         Tensor ``[n, d, d]`` SPD-ish per-row target covariances (symmetric, eigenvalues floored).
     """
-    labeler = NeighborhoodCovariancePseudoLabeler(
-        n_neighbors=n_neighbors,
-        metric=metric,
-        weighting=weighting,
-        regularization=regularization,
-        temperature=temperature,
-    )
+    if config is None:
+        config = NeighborhoodCovarianceConfig()
+    labeler = NeighborhoodCovariancePseudoLabeler(config=config)
     return labeler.fit_predict(x, y)
 
 
@@ -102,26 +111,19 @@ class NeighborhoodCovariancePseudoLabeler:
 
     def __init__(
         self,
-        n_neighbors: int = 32,
-        *,
-        metric: Metric = "mahalanobis",
-        weighting: Weighting = "softmax",
-        regularization: float = 1e-5,
-        temperature: float = 1.0,
+        config: NeighborhoodCovarianceConfig | None = None,
     ) -> None:
-        if n_neighbors < 1:
+        if config is None:
+            config = NeighborhoodCovarianceConfig()
+        if config.n_neighbors < 1:
             raise ValueError("n_neighbors must be >= 1")
-        if weighting != "softmax":
+        if config.weighting != "softmax":
             raise ValueError("weighting must be 'softmax' in v1")
-        if regularization <= 0:
+        if config.regularization <= 0:
             raise ValueError("regularization must be positive")
-        if temperature <= 0:
+        if config.temperature <= 0:
             raise ValueError("temperature must be positive")
-        self.n_neighbors = int(n_neighbors)
-        self.metric = metric
-        self.weighting = weighting
-        self.regularization = float(regularization)
-        self.temperature = float(temperature)
+        self.config = config
 
     @torch.no_grad()
     def fit_predict(
@@ -134,9 +136,9 @@ class NeighborhoodCovariancePseudoLabeler:
         if x0.shape[0] != y0.shape[0]:
             raise ValueError("x and y must have the same number of rows")
         n = x0.shape[0]
-        if n < self.n_neighbors + 1:
+        if n < self.config.n_neighbors + 1:
             raise ValueError(
-                f"Need at least n_neighbors + 1 = {self.n_neighbors + 1} rows, got {n}"
+                f"Need at least n_neighbors + 1 = {self.config.n_neighbors + 1} rows, got {n}"
             )
         return self._pseudo_cov_batch(x0, x0, y0, exclude_self=True)
 
@@ -155,9 +157,10 @@ class NeighborhoodCovariancePseudoLabeler:
         if xr.shape[0] != yr.shape[0]:
             raise ValueError("x_reference and y_reference must have the same number of rows")
         n_ref = xr.shape[0]
-        if n_ref < self.n_neighbors:
+        if n_ref < self.config.n_neighbors:
             raise ValueError(
-                f"Reference set must have at least n_neighbors={self.n_neighbors} rows, got {n_ref}"
+                f"Reference set must have at least n_neighbors={self.config.n_neighbors} "
+                f"rows, got {n_ref}"
             )
         return self._pseudo_cov_batch(xq, xr, yr, exclude_self=False)
 
@@ -173,21 +176,21 @@ class NeighborhoodCovariancePseudoLabeler:
         d = y_ref.shape[1]
         device = x_ref.device
         dtype = x_ref.dtype
-        reg = self.regularization
+        reg = self.config.regularization
         if exclude_self:
-            k = min(self.n_neighbors, n - 1)
+            k = min(self.config.n_neighbors, n - 1)
         else:
-            k = min(self.n_neighbors, n)
+            k = min(self.config.n_neighbors, n)
 
-        if self.metric == "mahalanobis":
+        if self.config.metric == "mahalanobis":
             prec = _precision_from_features(x_ref, reg=reg)
             diff = x_query.unsqueeze(1) - x_ref.unsqueeze(0)
             dist = _pairwise_quad_form(diff, prec)
-        elif self.metric == "euclidean":
+        elif self.config.metric == "euclidean":
             diff = x_query.unsqueeze(1) - x_ref.unsqueeze(0)
             dist = (diff * diff).sum(dim=-1)
         else:
-            raise ValueError(f"Unknown metric {self.metric!r}")
+            raise ValueError(f"Unknown metric {self.config.metric!r}")
 
         if exclude_self:
             mask_self = torch.eye(n, device=device, dtype=torch.bool)
@@ -197,7 +200,7 @@ class NeighborhoodCovariancePseudoLabeler:
         else:
             vals, idx = dist.topk(k, largest=False)
 
-        logits = -vals / self.temperature
+        logits = -vals / self.config.temperature
         w = torch.softmax(logits, dim=-1)
 
         neigh_y = y_ref[idx]

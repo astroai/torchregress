@@ -526,6 +526,61 @@ def _setup_irls(
     return model, loss_fn, _weight_fn, weight_params
 
 
+def _record_predictions(
+    y_pred: PredictionOutput,
+    return_all_predictions: bool,
+    all_predictions: Optional[List[torch.Tensor]],
+) -> Optional[List[torch.Tensor]]:
+    if return_all_predictions and all_predictions is not None:
+        if isinstance(y_pred, tuple):
+            all_predictions.append(y_pred[0])
+        else:
+            all_predictions.append(y_pred)
+    return all_predictions
+
+
+def _compute_irls_loss(
+    y_pred: PredictionOutput,
+    y_true: torch.Tensor,
+    precision: torch.Tensor,
+    loss_fn: nn.Module,
+    base_loss: str,
+    covariance_matrices: Optional[torch.Tensor],
+    mask: Optional[torch.Tensor],
+) -> torch.Tensor:
+    if base_loss == "gaussian":
+        return cast(
+            torch.Tensor,
+            loss_fn(
+                y_pred=y_pred,
+                target=y_true,
+                covariance_matrices=covariance_matrices,
+                mask=mask,
+            ),
+        )
+    else:
+        return cast(
+            torch.Tensor,
+            loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision),
+        )
+
+
+def _update_precision(
+    residuals: torch.Tensor,
+    y_pred: PredictionOutput,
+    precision: torch.Tensor,
+    loss_fn: nn.Module,
+    _weight_fn: Callable,
+    weight_params: Dict[str, Any],
+    variance_type: str,
+    covariance_matrices: Optional[torch.Tensor],
+) -> torch.Tensor:
+    variance = estimate_variance(residuals, y_pred, covariance_matrices, variance_type, loss_fn)
+    scaled_residuals = residuals / (torch.sqrt(variance) + EPS)
+    iter_weights = _weight_fn(scaled_residuals, **weight_params)
+    return precision * iter_weights
+
+
 def _perform_irls_iteration(
     y_pred: PredictionOutput,
     residuals: torch.Tensor,
@@ -546,41 +601,22 @@ def _perform_irls_iteration(
     # Note: y_pred is now passed in, not computed from model(x)
 
     with torch.no_grad():
-        if return_all_predictions and all_predictions is not None:
-            # We store clones if predictions were changing, but here they are constant
-            # unless we were updating the model, which we are not in this inner loop.
-            if isinstance(y_pred, tuple):
-                all_predictions.append(y_pred[0])
-            else:
-                all_predictions.append(y_pred)
+        all_predictions = _record_predictions(y_pred, return_all_predictions, all_predictions)
 
-        # residuals are also passed in or we can use y_pred to compute them?
-        # The caller computes residuals once.
-        # But wait, extract_mean_and_residuals does logic on y_pred.
+        loss_value = _compute_irls_loss(
+            y_pred, y_true, precision, loss_fn, base_loss, covariance_matrices, mask
+        )
 
-        if base_loss == "gaussian":
-            current_loss = cast(
-                torch.Tensor,
-                loss_fn(
-                    y_pred=y_pred,
-                    target=y_true,
-                    covariance_matrices=covariance_matrices,
-                    mask=mask,
-                ),
-            )
-        else:
-            current_loss = cast(
-                torch.Tensor,
-                loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision),
-            )
-
-        # We return the loss tensor directly to avoid sync points within the function.
-        loss_value = current_loss
-
-        variance = estimate_variance(residuals, y_pred, covariance_matrices, variance_type, loss_fn)
-        scaled_residuals = residuals / (torch.sqrt(variance) + EPS)
-        iter_weights = _weight_fn(scaled_residuals, **weight_params)
-        precision = precision * iter_weights
+        precision = _update_precision(
+            residuals,
+            y_pred,
+            precision,
+            loss_fn,
+            _weight_fn,
+            weight_params,
+            variance_type,
+            covariance_matrices,
+        )
 
     return precision, loss_value, all_predictions
 
@@ -651,6 +687,84 @@ def _batched_predict(
         return torch.cat(cast(List[torch.Tensor], batch_preds), dim=0)
 
 
+def _validate_irls_inputs(
+    x: torch.Tensor,
+    y_true: torch.Tensor,
+    initial_precision: torch.Tensor | None = None,
+) -> None:
+    """Validates inputs for iteratively reweighted least squares."""
+    check_tensor(x, "x")
+    check_tensor(y_true, "y_true")
+    if initial_precision is not None:
+        check_tensor(initial_precision, "initial_precision")
+
+
+def _initialize_precision(
+    initial_precision: torch.Tensor | None,
+    y_true: torch.Tensor,
+    device: torch.device | str,
+) -> torch.Tensor:
+    """Initializes or validates the precision tensor for IRLS."""
+    if initial_precision is None:
+        return torch.ones_like(y_true)  # Initialize equal precision weights
+
+    if initial_precision.shape != y_true.shape:
+        raise ValueError(
+            f"initial_precision shape {initial_precision.shape} must match "
+            f"y_true shape {y_true.shape}"
+        )
+    return initial_precision.clone().detach().to(device)
+
+
+def _run_irls_loop(
+    y_pred: PredictionOutput,
+    residuals: torch.Tensor,
+    y_true: torch.Tensor,
+    precision: torch.Tensor,
+    loss_fn: nn.Module,
+    _weight_fn: Callable,
+    weight_params: Dict[str, Any],
+    base_loss: str,
+    variance_type: str,
+    covariance_matrices: Optional[torch.Tensor],
+    mask: Optional[torch.Tensor],
+    max_iter: int,
+    tol: float,
+    return_all_predictions: bool,
+    all_predictions: Optional[List[torch.Tensor]],
+) -> Tuple[torch.Tensor, List[float], Optional[List[torch.Tensor]]]:
+    """Executes the main IRLS iteration loop."""
+    loss_history: List[float] = []
+
+    for iteration in range(max_iter):
+        precision, loss_tensor, all_predictions = _perform_irls_iteration(
+            y_pred,
+            residuals,
+            y_true,
+            precision,
+            loss_fn,
+            _weight_fn,
+            weight_params,
+            base_loss,
+            variance_type,
+            covariance_matrices,
+            mask,
+            iteration,
+            return_all_predictions,
+            all_predictions,
+        )
+        # Deferring .item() call to here allows GPU to execute subsequent operations
+        # (variance estimation, weight calculation, precision update) which were
+        # queued in _perform_irls_iteration, while CPU waits for the loss value.
+        loss_value = loss_tensor.item()
+        loss_history.append(loss_value)
+
+        if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
+            break
+
+    return precision, loss_history, all_predictions
+
+
 def iteratively_reweighted_least_squares(
     model: nn.Module,
     x: torch.Tensor,
@@ -703,17 +817,10 @@ def iteratively_reweighted_least_squares(
         final_precision: Final precision tensor
         [optional] all_predictions: List of predictions from all iterations
     """
-    # Validate inputs
-    check_tensor(x, "x")
-    check_tensor(y_true, "y_true")
-    if initial_precision is not None:
-        check_tensor(initial_precision, "initial_precision")
+    _validate_irls_inputs(x, y_true, initial_precision)
 
     # x might be on CPU. We keep it there if so.
-    x = x.detach()  # No clone needed if we don't modify in place, but safer?
-    # Actually, we don't need clone if we are careful. But to be safe vs side effects:
-    # x = x.clone() # Maybe skip clone to save memory if x is large?
-    # The original code did clone. Let's trust user not to modify x in place.
+    x = x.detach()
 
     device = x.device
 
@@ -728,18 +835,8 @@ def iteratively_reweighted_least_squares(
         covariance_matrices,
     )
 
-    # --- Initial Precision ---
-    if initial_precision is None:
-        precision = torch.ones_like(y_true)  # Initialize equal precision weights
-    else:
-        if initial_precision.shape != y_true.shape:
-            raise ValueError(
-                f"initial_precision shape {initial_precision.shape} must match "
-                f"y_true shape {y_true.shape}"
-            )
-        precision = initial_precision.clone().detach().to(device)
+    precision = _initialize_precision(initial_precision, y_true, device)
 
-    loss_history: List[float] = []
     all_predictions: Optional[List[torch.Tensor]] = [] if return_all_predictions else None
 
     # --- Precompute Predictions and Residuals ---
@@ -751,34 +848,24 @@ def iteratively_reweighted_least_squares(
     # Compute residuals once
     _, residuals = extract_mean_and_residuals(y_pred, y_true)
 
-    iter_range = range(max_iter)
-
     # --- IRLS Iterations ---
-    for iteration in iter_range:
-        precision, loss_tensor, all_predictions = _perform_irls_iteration(
-            y_pred,
-            residuals,
-            y_true,
-            precision,
-            loss_fn,
-            _weight_fn,
-            weight_params,
-            base_loss,
-            variance_type,
-            covariance_matrices,
-            mask,
-            iteration,
-            return_all_predictions,
-            all_predictions,
-        )
-        # Deferring .item() call to here allows GPU to execute subsequent operations
-        # (variance estimation, weight calculation, precision update) which were
-        # queued in _perform_irls_iteration, while CPU waits for the loss value.
-        loss_value = loss_tensor.item()
-        loss_history.append(loss_value)
-
-        if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
-            break
+    precision, loss_history, all_predictions = _run_irls_loop(
+        y_pred,
+        residuals,
+        y_true,
+        precision,
+        loss_fn,
+        _weight_fn,
+        weight_params,
+        base_loss,
+        variance_type,
+        covariance_matrices,
+        mask,
+        max_iter,
+        tol,
+        return_all_predictions,
+        all_predictions,
+    )
 
     final_y_pred = cast(torch.Tensor, y_pred)  # Public API contract returns Tensor
 

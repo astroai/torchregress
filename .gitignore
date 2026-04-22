@@ -34,6 +34,10 @@ nosetests.xml
 .ruff_cache/
 .black_cache/
 
+# CANFAR launcher (local manifests)
+canfar_sweep_*_manifest.json
+canfar_plan_*_manifest.json
+
 # Notebook artifacts
 .ipynb_checkpoints/
 

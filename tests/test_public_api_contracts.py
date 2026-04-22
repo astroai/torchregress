@@ -152,6 +152,7 @@ EXPECTED_EXPORTS = {
         "SIMEX",
         "LatentNN",
         "ErrorAwareFeatureEncoder",
+        "NeighborhoodCovarianceConfig",
         "NeighborhoodCovariancePseudoLabeler",
         "NoiseAwareRegressor",
         "mahalanobis_covariance_pseudo_labels",
@@ -212,6 +213,7 @@ EXPECTED_EXPORTS = {
         "gaussian_bin_edges_from_targets",
         "gaussian_bin_probabilities",
         "gaussian_moments_from_binned_probabilities",
+        "LocalConsistencyConfig",
         "local_consistency_weights",
         "pseudo_label_targets",
         "select_high_confidence",
@@ -402,6 +404,7 @@ EXPECTED_PARAM_ORDERS = {
         "calibration_scores",
         "calibration_weights",
     ],
+    "test_time.local_consistency_weights": ["features", "probabilities", "config"],
     "test_time.weighted_split_classification_predictive_batch": [
         "adapter",
         "candidate_scores",
