@@ -3,7 +3,7 @@
 #
 # Required env:
 #   ARC_RUN_ROOT   Durable output root (e.g. /arc/projects/ots/torchregress/runs/<run_id>)
-#   VOS_BASE       VOSpace directory prefix (e.g. vos:sfabbro/torchregress)
+#   VOS_BASE       Full VOSpace URI prefix (must start with vos:, e.g. vos:sfabbro/torchregress)
 #
 # Kind-specific:
 #   CANFAR_JOB_KIND  year_label_shard (default) | neurips_phase | overnight_year_multiseed |
@@ -26,8 +26,9 @@
 #   Writes under ${ARC_RUN_ROOT}/extras/split_export/ (override with EXPORT_SPLIT_OUT_DIR)
 #
 # Multi-file VOS pulls (all kinds):
-#   VCP_SPECS  newline-separated rows:  vos_relative_path|scratch_relative_path
-#              Paths are relative to VOS_BASE and SCRATCH_ROOT respectively.
+#   VCP_SPECS  newline-separated rows:  vos_path_suffix|scratch_path_suffix
+#              Left: appended to VOS_BASE (must not include the vos: prefix again).
+#              Right: path under SCRATCH_ROOT for the pulled file.
 #
 set -euo pipefail
 
@@ -67,7 +68,7 @@ vcp_safe() {
 }
 
 apply_vcp_specs() {
-  # Each non-empty line: vos_rel|scratch_rel (relative to VOS_BASE / SCRATCH_ROOT)
+  # Each non-empty line: vos_path_suffix|scratch_path_suffix (see header above)
   while IFS= read -r line || [[ -n "${line}" ]]; do
     [[ -z "${line// }" ]] && continue
     [[ "${line}" =~ ^# ]] && continue

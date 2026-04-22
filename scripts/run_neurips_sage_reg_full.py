@@ -32,18 +32,31 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+# Optional single directory for large NeurIPS inputs (avoid duplicating multi-GB files
+# under docs/research). See docs/canfar_neurips_batch.md § Canonical inputs.
+NEURIPS_INPUTS_DIR = REPO_ROOT / "data" / "neurips_inputs"
+
+
+def _prefer_neurips_input(preferred: Path, legacy: Path) -> Path:
+    """Use ``preferred`` when present on disk; else ``legacy`` (CLI default anchor)."""
+    return preferred if preferred.is_file() else legacy
+
+
 # Canonical caches / inputs (override with env or --run-root only changes output tree)
 YEAR_CACHE_DEFAULT = REPO_ROOT / "data" / "paper" / "openml_year.csv"
-OPENML_DIAMONDS_CACHE_DEFAULT = (
-    REPO_ROOT / "data" / "paper" / "openml_large_tabular_diamonds.parquet"
+OPENML_DIAMONDS_CACHE_DEFAULT = _prefer_neurips_input(
+    NEURIPS_INPUTS_DIR / "openml_large_tabular_diamonds.parquet",
+    REPO_ROOT / "data" / "paper" / "openml_large_tabular_diamonds.parquet",
 )
-TUNING_CSV_DEFAULT = (
-    REPO_ROOT / "docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv"
+TUNING_CSV_DEFAULT = _prefer_neurips_input(
+    NEURIPS_INPUTS_DIR / "supervised_gap_tuning_v3_sweep.csv",
+    REPO_ROOT / "docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3" / "sweep.csv",
 )
-HIGGS_PARQUET_DEFAULT = (
+HIGGS_PARQUET_DEFAULT = _prefer_neurips_input(
+    NEURIPS_INPUTS_DIR / "FAIR_Universe_HiggsML_data.parquet",
     REPO_ROOT
     / "docs/research/sage_reg_results/2026-04-09/higgs_public/extracted"
-    / "FAIR_Universe_HiggsML_data.parquet"
+    / "FAIR_Universe_HiggsML_data.parquet",
 )
 TABRED_ROOT_DEFAULT = REPO_ROOT / "data" / "tabred"
 TABRED_DEFAULT_DATASETS = ("cooking-time", "delivery-eta", "maps-routing")

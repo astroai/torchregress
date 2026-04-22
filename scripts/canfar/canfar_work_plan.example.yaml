@@ -3,6 +3,10 @@
 #
 #   python scripts/canfar_launch_from_plan.py --plan my_plan.yaml --run-id neurips_2026_0422_a
 #
+# Local → VOS uploads (repo-relative paths in VCP_SPECS): run
+#   ./scripts/canfar_vcp_push_local.sh --write-vcp-specs ./vcp_specs.txt
+# after consolidating large files (see docs/canfar_neurips_batch.md).
+#
 # Schema (version 1):
 #   defaults: optional { image, cores, ram_gb }
 #   jobs[]:

@@ -14,6 +14,8 @@ For the **label-fraction sweep only** (40 shards), see also [canfar_batch_sweeps
 | [`scripts/canfar/canfar_work_plan.example.yaml`](../scripts/canfar/canfar_work_plan.example.yaml) | Example waves + jobs |
 | **VOS** | Authoritative copies of large inputs |
 | **`ARC_RUN_ROOT`** | One run directory shared by phase jobs that must complete before `aggregate` |
+| [`tools/canfar_vcp_prepare.py`](../tools/canfar_vcp_prepare.py) | Print or run **`vcp`** uploads from your laptop; emits **`VCP_SPECS`** for headless |
+| [`scripts/canfar_vcp_push_local.sh`](../scripts/canfar_vcp_push_local.sh) | Thin wrapper: `uv run python tools/canfar_vcp_prepare.py` |
 
 ## Phase vocabulary (`--only-phases`)
 
@@ -25,19 +27,52 @@ Use **`aggregate` alone in the final wave** after all writers have finished; agg
 
 ## VOS upload table (defaults the driver expects)
 
-Stage files under your `VOS_BASE` (e.g. `vos:sfabbro/torchregress`) using **repo-relative** paths below unless you override flags / env in the headless job.
+Use a **full VOSpace URI** for uploads (must start with `vos:`, e.g. `vos:sfabbro/torchregress`). Each `vcp` destination is that URI plus the same **path suffix** as under your git clone (so headless `VCP_SPECS` keys match what you pushed — this is a **mirror of local layout on VOS**, not a “relative VOS” protocol).
+
+`canfar_vcp_prepare.py` rejects `--vos-base` without the `vos:` prefix.
+
+### Canonical inputs (deduplicate large files)
+
+To avoid keeping **multi-gigabyte** copies under `docs/research/` (and to mirror one tree on VOS), place optional overrides under **`data/neurips_inputs/`** (gitignored like the rest of `data/`). The NeurIPS driver resolves defaults in this order:
+
+| Role | Preferred (`data/neurips_inputs/`) | Legacy fallback |
+|------|-------------------------------------|-------------------|
+| Tuning CSV | `supervised_gap_tuning_v3_sweep.csv` | `docs/research/.../supervised_gap_tuning_v3/sweep.csv` |
+| Higgs parquet | `FAIR_Universe_HiggsML_data.parquet` | `docs/research/.../higgs_public/extracted/...` |
+| Diamonds parquet | `openml_large_tabular_diamonds.parquet` | `data/paper/openml_large_tabular_diamonds.parquet` |
+
+After **`vcp`** uploads the canonical copy to VOS and you have verified runs, you can delete the legacy **local** duplicates to reclaim disk (keep at least one copy until VOS + ARC are validated).
+
+**Generate commands and a headless `VCP_SPECS` block** (dry-run prints `vcp` lines):
+
+```bash
+./scripts/canfar_vcp_push_local.sh --vos-base vos:sfabbro/torchregress
+./scripts/canfar_vcp_push_local.sh --vos-base vos:sfabbro/torchregress --execute
+./scripts/canfar_vcp_push_local.sh --with-higgs --write-vcp-specs ./vcp_specs_for_headless.txt
+./scripts/canfar_vcp_push_local.sh --with-tabred --execute
+```
 
 | Asset | Default repo path | Purpose |
 |--------|-------------------|---------|
 | Year CSV | `data/paper/openml_year.csv` | Year track, ablations, catboost, multiseed, label sweep |
-| Supervised-gap tuning CSV | `docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv` | Multiseed / nl2048 / diamonds (same row selection) |
-| OpenML diamonds | `data/paper/openml_large_tabular_diamonds.parquet` | `openml_diamonds_multiseed` |
-| Higgs parquet | `docs/research/sage_reg_results/2026-04-09/higgs_public/extracted/FAIR_Universe_HiggsML_data.parquet` | Higgs arm of multiseed (optional) |
-| TabReD layout | `data/tabred/<dataset>/...` (three default tasks) | TabReD probe (optional fetch if Kaggle present in image) |
+| Supervised-gap tuning CSV | `data/neurips_inputs/supervised_gap_tuning_v3_sweep.csv` **or** `docs/research/sage_reg_results/2026-04-10/supervised_gap_tuning_v3/sweep.csv` | Multiseed / nl2048 / diamonds |
+| OpenML diamonds | `data/neurips_inputs/openml_large_tabular_diamonds.parquet` **or** `data/paper/openml_large_tabular_diamonds.parquet` | `openml_diamonds_multiseed` |
+| Higgs parquet | `data/neurips_inputs/FAIR_Universe_HiggsML_data.parquet` **or** `docs/research/.../extracted/FAIR_Universe_HiggsML_data.parquet` | Higgs arm of multiseed (optional) |
+| TabReD layout | `data/tabred/<dataset>/...` (three default tasks) | TabReD probe (optional; one recursive **`vcp data/tabred/ vos:…/data/tabred/`** via `--with-tabred`) |
 | Shifts | none (network fetch in driver) | `shifts` phase writes under `--shifts-out-root` |
-| Image rebuttal | per [`image_regression_rebuttal.py`](../examples/benchmarks/image_regression_rebuttal.py) | Optional; use `--include-image-rebuttal` via `NEURIPS_FLAGS` |
+| Image rebuttal | Synthetic in-process data in [`image_regression_rebuttal.py`](../examples/benchmarks/image_regression_rebuttal.py) | Optional; no VOS assets |
 
-**Multi-file pulls in the container:** set `VCP_SPECS` to newline-separated `vos_rel|scratch_rel` pairs (see headless script header). Then point `NEURIPS_*` paths at the scratch files if defaults inside the git checkout are wrong on ARC.
+**Multi-file pulls in the container:** set `VCP_SPECS` to newline-separated `vos_rel|scratch_rel` pairs (see [`scripts/canfar_headless_job.sh`](../scripts/canfar_headless_job.sh)). Keys are **paths under your VOS URI** that mirror the clone (run `canfar_vcp_prepare.py --write-vcp-specs` after consolidating files so lines match disk).
+
+**Dotfiles / caches outside the repo:** this tool only covers paths under the clone. Clear Kaggle, HuggingFace, or UV caches separately if you need space.
+
+TabReD uses one **recursive directory** `vcp` with trailing slashes (CADC semantics: copy the whole tree onto the VOS destination). Optional `--tabred-nstreams N` adds `--nstreams=N` where your `vos` build supports it.
+
+### MkDocs `site/` bloat (local disk)
+
+If `mkdocs build` copied **`docs/research/sage_reg_results/`** into `site/research/`, that directory can grow to **tens of GB** (parquets, zips). The repo **`mkdocs.yml`** now **`exclude_docs`** that tree so future builds stay small. Remove an old bloated build with **`rm -rf site/`** and rebuild.
+
+**`data/tabred/`** can be **very large** (materialized tensors); it is real benchmark input, not doc output. Do not delete unless you intend to re-fetch (e.g. `tools/fetch_tabred_data.py`). Smaller dirs under `data/paper/`, `data/nnc_crps/`, etc. are normal caches — prune only if you know you can regenerate them.
 
 ## Work plan schema (version 1)
 
