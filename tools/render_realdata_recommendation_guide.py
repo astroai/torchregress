@@ -12,7 +12,7 @@ START_MARKER = "<!-- REALDATA-RECOMMENDATION-GENERATED:START -->"
 END_MARKER = "<!-- REALDATA-RECOMMENDATION-GENERATED:END -->"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DOC = REPO_ROOT / "docs" / "guides" / "real_data_recommendation_guide.md"
+DEFAULT_DOC = REPO_ROOT / "docs" / "reports" / "real_data_recommendation_guide.md"
 DEFAULT_COMPARATIVE_JSON = REPO_ROOT / "reports" / "comparative_evidence_matrix_latest.json"
 
 

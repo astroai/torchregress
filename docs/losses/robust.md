@@ -151,7 +151,7 @@ from torchregress.losses import CVaRLoss
 loss_fn = CVaRLoss(alpha=0.05, base_loss="huber", delta=1.5)
 ```
 
-→ See [Mathematical Foundations](../math/index.md) for the derivation of CVaR and [Proper Scoring Rules](../metrics/distribution.md) for evaluation. See [`CVaRLoss`](../api/losses.md#torchregress.losses.robust.CVaRLoss).
+→ See [Mathematical Foundations](../guide/math/index.md) for the derivation of CVaR and [Proper Scoring Rules](../metrics/distribution.md) for evaluation. See [`CVaRLoss`](../api/losses.md#torchregress.losses.robust.CVaRLoss).
 
 ---
 

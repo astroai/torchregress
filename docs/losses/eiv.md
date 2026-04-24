@@ -79,7 +79,7 @@ y_samples = predictive.sample_predictions(x_obs)
 
 ### Multimodal EIV Variants
 
-For complex predictive distributions (like photo-z estimation), use specialized marginalizers:
+For complex predictive distributions (like scientific regression), use specialized marginalizers:
 
 **InputNoiseMDNLoss**
 Combines Input-Noise Marginalization with Mixture Density Networks.
@@ -181,8 +181,8 @@ graph TD
     G -->|No| I["EnsembleEIVLoss"]
 ```
 
-!!! tip "Photo-Z Recommendation"
-    For astronomical photo-z estimation, **InputNoiseMarginalizationLoss** with an MDN or BinnedPDF head is considered a highly effective approach, as it correctly handles the non-linear relationship between magnitudes and redshift while accounting for flux errors.
+!!! tip "Scientific Data Recommendation"
+    For astronomical scientific regression, **InputNoiseMarginalizationLoss** with an MDN or BinnedPDF head is considered a highly effective approach, as it correctly handles the non-linear relationship between features and targets while accounting for measurement errors.
 
 ---
 
@@ -220,8 +220,8 @@ for epoch in range(200):
 
 ## Related
 
-- [RC Algorithm](../algorithms/rc.md) — Regression Calibration for EIV correction
-- [SIMEX Algorithm](../algorithms/simex.md) — Simulation-Extrapolation for measurement error
+- [RC Algorithm](../methods/algorithms/rc.md) — Regression Calibration for EIV correction
+- [SIMEX Algorithm](../methods/algorithms/simex.md) — Simulation-Extrapolation for measurement error
 
 ---
 

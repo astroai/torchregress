@@ -7,7 +7,7 @@ import pytest
 from tools import render_realdata_recommendation_guide
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-GUIDE_DOC = REPO_ROOT / "docs" / "guides" / "real_data_recommendation_guide.md"
+GUIDE_DOC = REPO_ROOT / "docs" / "reports" / "real_data_recommendation_guide.md"
 COMPARATIVE_JSON = REPO_ROOT / "reports" / "comparative_evidence_matrix_latest.json"
 
 

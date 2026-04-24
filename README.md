@@ -205,15 +205,9 @@ Docs entry points:
 - `examples/benchmarks/tail_extremes_sweep.py` - sweep feature/label noise to identify best tail method
 - `tools/benchmark_smoke.py` - fast smoke/sweep performance checks with CI threshold support
 
-## Photo-z Takeaways
+## Real-World Application
 
-The current real tabular photo-z benchmark program in `torchz` is useful as a debugging signal for `torchregress`.
-
-- `GaussianCRPSLoss` is the safest Gaussian-family baseline so far.
-- `MDN` and calibrated ensembles are the strongest all-around probabilistic methods on the current GalaxiesML benchmark.
-- `DensityWeightedLoss` and `LDSLoss` are not yet good default advice for photo-z tails; they need benchmark-backed wins before being the recommended first move.
-- Jacobian-style EIV methods are promising but not yet the easiest production surface; explicit input-noise marginalization is often a better first benchmark.
-- Always report `CRPS` alongside `NLL`, calibration, classical point metrics, and density-specific diagnostics such as empirical `CDE` loss and `HPD` calibration when comparing probabilistic regressors.
+For a production example of torchregress applied to astronomical data (photometric redshift estimation), see [**torchz**](https://github.com/sfabbro/torchz) — a companion library that demonstrates the full capabilities of torchregress on real survey data.
 
 ## License
 

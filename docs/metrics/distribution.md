@@ -38,7 +38,7 @@ loss = crps_gaussian(mu, sigma, y_true)
 loss = energy_score(y_samples, y_true)
 ```
 
-→ See [Mathematical Foundations](../math/index.md) for the Gaussian closed-form derivation. API Reference: [`crps_gaussian`](../api/metrics.md#torchregress.metrics.distribution.crps_gaussian).
+→ See [Mathematical Foundations](../guide/math/index.md) for the Gaussian closed-form derivation. API Reference: [`crps_gaussian`](../api/metrics.md#torchregress.metrics.distribution.crps_gaussian).
 
 ---
 
@@ -106,7 +106,7 @@ print(f"PIT KS: {results['pit_ks']:.4f}")
 print(f"90% Coverage: {results['coverage_90']:.2%}")
 ```
 
-This is the recommended way to evaluate Photo-Z and other complex probabilistic models, as it provides a multi-faceted view of model performance.
+This is the recommended way to evaluate complex probabilistic models, as it provides a multi-faceted view of model performance.
 
 ---
 
@@ -133,5 +133,5 @@ This is the recommended way to evaluate Photo-Z and other complex probabilistic 
 
 ## Next Steps
 - Learn about [Calibration Metrics](calibration.md)
-- View the [Distributional Conformal Tutorial](../conformal/distributional.md)
+- View the [Distributional Conformal Tutorial](../methods/conformal/distributional.md)
 - Explore [Normalizing Flow Examples](../examples/normalizing_flows_multitarget.md)

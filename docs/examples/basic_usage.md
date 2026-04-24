@@ -515,5 +515,4 @@ plt.show()
 ## Next Steps
 
 - [Loss Comparison Examples](loss_comparison.md) - Detailed comparison of different loss functions
-- [Photometric Redshift Example](photoz.md) - Real-world astronomy application
 - [API Reference](../api/index.md) - Complete API documentation

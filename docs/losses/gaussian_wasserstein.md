@@ -10,7 +10,7 @@ This loss supervises a **predicted Gaussian** :math:`\mathcal{N}(\hat\mu, \hat\S
 |:----------|:-------|
 | Supervised / pseudo-supervised covariance targets | [`GaussianWassersteinBoundLoss`](../api/losses.md) with matching ``covariance_parameterization`` |
 | Likelihood training on :math:`(y \mid x)` with heteroscedastic noise | [`GaussianNLLLoss`](gaussian.md) or [`BetaNLLLoss`](beta_nll.md) |
-| Finite-sample **coverage** guarantees | [Conformal prediction](../conformal/index.md) on calibrated predictive models |
+| Finite-sample **coverage** guarantees | [Conformal prediction](../methods/conformal/index.md) on calibrated predictive models |
 
 ---
 

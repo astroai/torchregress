@@ -390,10 +390,10 @@ uv run python tools/example_summary_thresholds.py \
   --prob-delta 0.25 \
   --r2-delta 1.0
 uv run python tools/render_method_catalog.py \
-  --markdown-out docs/guides/method_catalog_generated.md \
+  --markdown-out docs/reports/method_catalog_generated.md \
   --json-out reports/method_catalog_latest.json \
-  --update-method-matrix docs/guides/method_selection_matrix.md \
-  --comparative-evidence-md-out docs/guides/comparative_evidence_matrix.md \
+  --update-method-matrix docs/guide/method-selection.md \
+  --comparative-evidence-md-out docs/reports/comparative_evidence_matrix.md \
   --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
 uv run python tools/adoption_audit.py --json reports/adoption_readiness_2026-02-25.json --print-summary
 uv run python tools/render_review_packet.py
@@ -462,13 +462,13 @@ uv run python -m tools.benchmark_smoke \
 uv run python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
 uv run python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
 uv run python tools/render_method_catalog.py \
-  --markdown-out docs/guides/method_catalog_generated.md \
+  --markdown-out docs/reports/method_catalog_generated.md \
   --json-out reports/method_catalog_latest.json \
-  --update-method-matrix docs/guides/method_selection_matrix.md \
-  --comparative-evidence-md-out docs/guides/comparative_evidence_matrix.md \
+  --update-method-matrix docs/guide/method-selection.md \
+  --comparative-evidence-md-out docs/reports/comparative_evidence_matrix.md \
   --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
 uv run python -m tools.render_realdata_recommendation_guide \
-  --doc docs/guides/real_data_recommendation_guide.md \
+  --doc docs/reports/real_data_recommendation_guide.md \
   --comparative-json reports/comparative_evidence_matrix_latest.json
 uv run python tools/adoption_audit.py --json reports/adoption_readiness_2026-02-25.json --print-summary
 uv run python tools/render_review_packet.py

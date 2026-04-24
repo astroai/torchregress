@@ -507,5 +507,5 @@ Is your data clean (no outliers)?
 ## Further Reading
 
 - [Basic Usage Examples](basic_usage.md) - Step-by-step tutorials
-- [Learn more about the mathematical formulations of these losses →](../math/index.md) - Theory behind each loss
+- [Learn more about the mathematical formulations of these losses →](../guide/math/index.md) - Theory behind each loss
 - [Robust Losses](../losses/robust.md) - Detailed robust loss documentation

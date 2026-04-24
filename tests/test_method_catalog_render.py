@@ -8,10 +8,10 @@ import pytest
 from tools import render_method_catalog
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-GENERATED_MD = REPO_ROOT / "docs" / "guides" / "method_catalog_generated.md"
+GENERATED_MD = REPO_ROOT / "docs" / "reports" / "method_catalog_generated.md"
 GENERATED_JSON = REPO_ROOT / "reports" / "method_catalog_latest.json"
-METHOD_MATRIX_MD = REPO_ROOT / "docs" / "guides" / "method_selection_matrix.md"
-EVIDENCE_MD = REPO_ROOT / "docs" / "guides" / "comparative_evidence_matrix.md"
+METHOD_MATRIX_MD = REPO_ROOT / "docs" / "guide" / "method-selection.md"
+EVIDENCE_MD = REPO_ROOT / "docs" / "reports" / "comparative_evidence_matrix.md"
 EVIDENCE_JSON = REPO_ROOT / "reports" / "comparative_evidence_matrix_latest.json"
 
 

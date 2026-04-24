@@ -109,4 +109,4 @@ Metrics for evaluating multivariate regression models:
 | Model calibration | `expected_calibration_error`, `calibration_curve` |
 | OOD detection capability | `auroc_ood`, `fpr_at_tpr` |
 
-For detailed guidance on metric selection and interpretation, see the [practical usage guide](../usage/practical_usage.md).
+For detailed guidance on metric selection and interpretation, see the [practical usage guide](../guide/practical-usage.md).

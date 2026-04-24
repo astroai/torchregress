@@ -150,7 +150,7 @@ for epoch in range(200):
     Use `0` for fully observed, `+1` for right-censored, `-1` for left-censored. For survival analysis, `censoring = (event_not_observed).long()`.
 
 !!! tip "Combining with conformal prediction"
-    Wrap censored quantile predictions with [CQR](../conformal/predictors.md) for **coverage-guaranteed** survival intervals.
+    Wrap censored quantile predictions with [CQR](../methods/conformal/predictors.md) for **coverage-guaranteed** survival intervals.
 
 ---
 

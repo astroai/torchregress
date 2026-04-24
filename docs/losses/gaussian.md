@@ -117,5 +117,5 @@ loss = loss_fn(mu, y_true, W, d)
 - [Beta-NLL](beta_nll.md) for stabilised heteroscedastic likelihood training
 - [Gaussian Wasserstein bound surrogate](gaussian_wasserstein.md) for covariance supervision
 - Learn about [Robust Loss Functions](robust.md)
-- Explore [Ensemble Methods](../ensemble/index.md)
+- Explore [Ensemble Methods](../methods/ensemble/index.md)
 - View the [Multivariate UQ Example](../examples/normalizing_flows_multitarget.md)

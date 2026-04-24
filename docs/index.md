@@ -1,10 +1,6 @@
 # torchregress
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sfabbro/torchregress/main/docs/assets/logo.png" width="200" alt="torchregress logo">
-</p>
-
-<p align="center">
     <em>Deep Learning for Regression & Uncertainty Estimation in PyTorch</em>
 </p>
 
@@ -25,53 +21,55 @@
 
 ---
 
-**torchregress** is a comprehensive PyTorch library designed for researchers and practitioners working on complex regression problems. It goes beyond standard Mean Squared Error, providing a unified toolkit for **probabilistic modeling**, **uncertainty quantification**, and **robust estimation**.
+**torchregress** is a comprehensive PyTorch library for researchers and practitioners working on complex regression problems. It goes beyond standard Mean Squared Error, providing a unified toolkit for **probabilistic modeling**, **uncertainty quantification**, and **robust estimation**.
 
 ---
 
-## Why torchregress?
+## Architecture
 
-Regression in the real world is rarely just about predicting a single number. Data is noisy, distributions are skewed, and knowing *how much to trust* a prediction is often as important as the prediction itself. 
-
-- **Probabilistic by Design**: Built-in support for estimating aleatoric and epistemic uncertainty.
-- **Robust to Real-World Data**: Advanced losses for noisy labels, outliers, and imbalanced targets.
-- **Scientifically Rigorous**: Implements seminal methods with verified mathematical correctness.
-- **Production Ready**: Seamlessly integrates with existing PyTorch workflows, supporting `torch.compile`, AMP, and distributed training.
+```mermaid
+graph TB
+    subgraph torchregress
+        direction TB
+        L["<b>Losses</b><br/>60+ functions<br/><i>Gaussian · Robust · Quantile<br/>MDN · Flows · EIV · Ordinal</i>"]
+        M["<b>Methods</b><br/>Ensemble · Conformal<br/>Algorithms · Calibration<br/>Causal · Constraints"]
+        Met["<b>Metrics</b><br/>50+ metrics<br/><i>Point · Distribution · Interval<br/>Calibration · OOD · Ensemble</i>"]
+    end
+    D["Your Data"] --> L
+    L --> M
+    M --> Met
+    Met --> R["Decisions"]
+```
 
 ---
 
-## Key Features
+## Key Capabilities
 
 <div class="grid cards" markdown>
 
 -   :material-chart-bell-curve-cumulative: __Probabilistic Losses__
 
-    -   [Gaussian NLL (Heteroscedastic)](losses/gaussian.md)
-    -   [Multivariate & Low-Rank Covariance](losses/gaussian.md#2-multivariate-full-covariance-multivariategaussianloss)
-    -   [Mixture Density Networks (MDN)](losses/mdn.md)
-    -   [Normalizing Flows](losses/nflows.md)
+    60+ loss functions from basic MSE to normalizing flows.
+
+    [:octicons-arrow-right-24: Losses Catalogue](losses/index.md)
 
 -   :material-shield-check: __Uncertainty Quantification__
 
-    -   [**Deep Ensembles** & SWAG](ensemble/index.md)
-    -   [**Conformal Prediction** (CQR, Dist-Free)](conformal/index.md)
-    -   [**Evidential Regression**](examples/evidential_regression.md)
-    -   [MC-Dropout & Bayesian Neural Networks](ensemble/index.md#method-selection-matrix)
+    Deep Ensembles, SWAG, Conformal Prediction, Evidential Regression.
+
+    [:octicons-arrow-right-24: Methods](methods/index.md)
 
 -   :material-flask-outline: __Robust Estimation__
 
-    -   [Quantile & Expectile Regression](losses/quantile_expectile.md)
-    -   [Robust M-Estimators (Huber, Cauchy, Tukey, Barron)](losses/robust.md)
-    -   [Noisy Label & Outlier Mitigation](losses/robust.md#redescending-losses-cauchy-tukey)
-    -   [Measurement Error (EIV) Correction](math/index.md#specialized-regression-tasks)
+    M-estimators, EIV correction, noisy-label mitigation, imbalance handling.
 
+    [:octicons-arrow-right-24: Robust Losses](losses/robust.md)
 
--   :material-chart-line: __Advanced Metrics__
+-   :material-chart-line: __Rigorous Evaluation__
 
-    -   [Proper Scoring Rules (CRPS, Energy Score)](metrics/distribution.md)
-    -   [Calibration Curves & Sharpness](metrics/calibration.md)
-    -   [OOD Detection & Selective Prediction](metrics/ood.md)
-    -   [Interval Coverage & Efficiency](metrics/interval.md)
+    Proper scoring rules, calibration curves, OOD detection, interval metrics.
+
+    [:octicons-arrow-right-24: Metrics](metrics/index.md)
 
 </div>
 
@@ -83,50 +81,63 @@ Regression in the real world is rarely just about predicting a single number. Da
 pip install torchregress
 ```
 
-*Requires PyTorch 2.0+ and Python 3.9+.*
+*Requires PyTorch 2.0+ and Python 3.10+.*
 
 ---
 
-## Quickstart in 30 Seconds
+## Quick Example
 
-Train a model that predicts both the **mean** ($\mu$) and **uncertainty** ($\sigma^2$) using the Heteroscedastic Gaussian NLL loss.
+Train a model that predicts both the **mean** ($\mu$) and **uncertainty** ($\sigma^2$):
 
 ```python
 import torch
 import torch.nn as nn
 from torchregress.losses import GaussianNLLLoss
 
-# 1. Define a model with two outputs (mean and log-variance)
+# 1. Model with two outputs (mean and log-variance)
 model = nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 2))
 
-# 2. Use the specialized Gaussian NLL loss
+# 2. Specialized Gaussian NLL loss
 loss_fn = GaussianNLLLoss()
 
 # 3. Standard PyTorch training loop
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 for x, y in dataloader:
-    pred = model(x) # [batch, 2]
+    pred = model(x)  # [batch, 2]
     loss = loss_fn(pred, y)
     loss.backward(); optimizer.step(); optimizer.zero_grad()
 ```
 
+[:octicons-arrow-right-24: Full Quick Start](getting-started/quickstart.md)
+
 ---
 
-## Getting Started
+## Start Here
 
 <div class="grid cards" markdown>
 
 -   __New to Uncertainty?__
-    -   Read the [Core Concepts Guide](guides/concepts.md)
-    -   Check the [Mathematical Foundations](math/index.md)
-    -   Follow the [Basic Usage Tutorial](examples/basic_usage.md)
+    -   Read the [Core Concepts](getting-started/concepts.md)
+    -   Follow the [Quick Start](getting-started/quickstart.md)
+    -   Try the [Basic Usage Tutorial](examples/basic_usage.md)
 
--   __Advanced Users__
-    -   Explore [Conformal Prediction](conformal/index.md)
-    -   Master [Deep Ensembles](ensemble/index.md)
-    -   View the [Method Selection Matrix](guides/method_selection_matrix.md)
+-   __Experienced Practitioner__
+    -   Use the [Method Selection Matrix](guide/method-selection.md)
+    -   Explore [Losses](losses/index.md) and [Methods](methods/index.md)
+    -   Run the [Comparison Examples](examples/index.md)
+
+-   __Researcher / Statistician__
+    -   Study the [Mathematical Foundations](guide/math/index.md)
+    -   Check the [Reports & Evidence](reports/index.md)
+    -   Browse the [API Reference](api/index.md)
 
 </div>
+
+---
+
+## Real-World Application
+
+For a production example of torchregress applied to astronomical data (photometric redshift estimation), see [**torchz**](https://github.com/sfabbro/torchz) — a companion library that demonstrates the full capabilities of torchregress on real survey data.
 
 ---
 

@@ -1,6 +1,6 @@
 # BLR predictive adapter (SupportsPredictiveBatch)
 
-Small adapter example wrapping [`BayesianLinearHead`](../test_time/bayesian_linear_regression.md) with a
+Small adapter example wrapping [`BayesianLinearHead`](../methods/test-time/bayesian-linear-regression.md) with a
 `predict_distribution(...)` method so it satisfies the
 `SupportsPredictiveBatch` protocol from `torchregress.test_time.base`.
 

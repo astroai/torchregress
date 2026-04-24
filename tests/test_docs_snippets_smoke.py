@@ -11,11 +11,11 @@ matplotlib.use("Agg", force=True)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOC_PAGES = [
-    REPO_ROOT / "docs" / "usage" / "quickstart.md",
-    REPO_ROOT / "docs" / "usage" / "practical_usage.md",
-    REPO_ROOT / "docs" / "guides" / "method_selection_matrix.md",
-    REPO_ROOT / "docs" / "guides" / "choosing_by_constraint.md",
-    REPO_ROOT / "docs" / "guides" / "comparative_evidence_matrix.md",
+    REPO_ROOT / "docs" / "getting-started" / "quickstart.md",
+    REPO_ROOT / "docs" / "guide" / "practical-usage.md",
+    REPO_ROOT / "docs" / "guide" / "method-selection.md",
+    REPO_ROOT / "docs" / "guide" / "choosing-by-constraint.md",
+    REPO_ROOT / "docs" / "reports" / "comparative_evidence_matrix.md",
 ]
 PYTHON_FENCE_RE = re.compile(r"```python\s*\n(.*?)```", re.DOTALL)
 

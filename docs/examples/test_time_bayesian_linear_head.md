@@ -1,8 +1,8 @@
 # Bayesian linear head (test-time) demo
 
-This script fits a [`BayesianLinearHead`](../test_time/bayesian_linear_regression.md) on
+This script fits a [`BayesianLinearHead`](../methods/test-time/bayesian-linear-regression.md) on
 synthetic linear data, checks agreement with a two-step
-[`RecursiveBayesianHead`](../test_time/bayesian_linear_regression.md) at `forgetting_factor=1`,
+[`RecursiveBayesianHead`](../methods/test-time/bayesian-linear-regression.md) at `forgetting_factor=1`,
 and prints a rough held-out coverage statistic for Gaussian predictive intervals.
 
 ## Run
@@ -17,5 +17,5 @@ uv run python examples/test_time_bayesian_linear_head_demo.py --n-train 200 --n-
 
 ## See also
 
-- [Bayesian linear regression (test-time)](../test_time/bayesian_linear_regression.md) (includes **benchmark scripts** under `examples/benchmarks/`)
+- [Bayesian linear regression (test-time)](../methods/test-time/bayesian-linear-regression.md) (includes **benchmark scripts** under `examples/benchmarks/`)
 - [OT shift conformal demo](ot_shift_conformal_demo.md)

@@ -105,5 +105,5 @@ calibrated_dist = cal.transform_dist(mu_test, std_test)
 
 ## Next Steps
 - Learn about [Calibration Metrics](../metrics/calibration.md)
-- Explore [Conformal Prediction](../conformal/index.md) (an alternative to post-hoc calibration)
+- Explore [Conformal Prediction](../methods/conformal/index.md) (an alternative to post-hoc calibration)
 - View the [Calibration Example](../examples/constraints_calibration_comparison.md)

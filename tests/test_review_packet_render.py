@@ -55,7 +55,7 @@ def test_render_markdown_contains_review_focus_and_counts() -> None:
     if packet["adoption_audit"]["docs_drift_counts"].get("invalid_attr_refs") is not None:
         assert "Docs/example drift checks: `attr=0`" in md
     assert "## Review Focus Files" in md
-    assert "`docs/guides/method_selection_matrix.md`" in md
+    assert "`docs/guide/method-selection.md`" in md
 
 
 def test_committed_review_packet_artifacts_are_in_sync() -> None:

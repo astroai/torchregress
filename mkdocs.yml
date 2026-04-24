@@ -4,11 +4,6 @@ site_author: Sébastien Fabbro
 repo_url: https://github.com/sfabbro/torchregress
 repo_name: sfabbro/torchregress
 
-# Omit large local experiment trees from the static site (they are not browsable docs;
-# copying them here once bloated site/research/sage_reg_results to tens of GB).
-exclude_docs: |
-  research/sage_reg_results/**
-
 theme:
   name: material
   font:
@@ -86,6 +81,7 @@ plugins:
             show_if_no_docstring: false
             show_root_heading: true
             heading_level: 3
+            layer: api
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -97,36 +93,32 @@ extra:
       link: https://github.com/sfabbro/torchregress
 
 # ─────────────────────────────────────────────────────────────
-# Navigation — 6 horizontal tabs
+# Navigation — 8 horizontal tabs (reduced to 7 in next pass if requested)
 # ─────────────────────────────────────────────────────────────
 nav:
-  # ── Tab 1: Learn ────────────────────────────────────────────
-  - Learn:
-      - learn/index.md
-      - Getting Started:
-          - Installation: usage/installation.md
-          - Quick Start: usage/quickstart.md
-          - Practical Usage: usage/practical_usage.md
-      - User Guide:
-          - Overview: learn/user_guide.md
-          - Core Concepts: guides/concepts.md
-          - Method Selection: guides/method_selection_matrix.md
-          - Choosing by Constraint: guides/choosing_by_constraint.md
-      - Test-Time & Shift:
-          - Regression under shift roadmap: test_time/regression_shift_adaptation_roadmap.md
-          - Bayesian linear regression (heads): test_time/bayesian_linear_regression.md
-          - OT shift conformal (experimental): test_time/ot_shift_conformal.md
-      - Mathematical Foundations: math/index.md
-      - Best Practices:
-          - Tips & Tricks: guides/best-practices.md
-          - Debugging: guides/debugging.md
-          - Performance: guides/performance.md
-      - Reference Tables:
-          - Comparative Evidence Matrix: guides/comparative_evidence_matrix.md
-          - Real-Data Recommendation Guide: guides/real_data_recommendation_guide.md
-          - Method Catalog: guides/method_catalog_generated.md
+  # ── Tab 1: Home ──────────────────────────────────────────
+  - Home:
+      - index.md
 
-  # ── Tab 2: Losses ───────────────────────────────────────────
+  # ── Tab 2: Getting Started ───────────────────────────────
+  - Getting Started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Core Concepts: getting-started/concepts.md
+
+  # ── Tab 3: Guide ────────────────────────────────────────
+  - Guide:
+      - guide/index.md
+      - Practical Usage: guide/practical-usage.md
+      - Method Selection: guide/method-selection.md
+      - Choosing by Constraint: guide/choosing-by-constraint.md
+      - Mathematical Foundations: guide/math/index.md
+      - Best Practices: guide/best-practices.md
+      - Debugging: guide/debugging.md
+      - Performance: guide/performance.md
+
+  # ── Tab 4: Losses ───────────────────────────────────────
   - Losses:
       - losses/index.md
       - Gaussian:
@@ -157,26 +149,31 @@ nav:
       - Internals:
           - Base Classes: losses/base.md
 
-  # ── Tab 3: Methods ──────────────────────────────────────────
+  # ── Tab 5: Methods ──────────────────────────────────────
   - Methods:
+      - methods/index.md
       - Conformal Prediction:
-          - Overview: conformal/index.md
-          - Predictors: conformal/predictors.md
-          - Distributional: conformal/distributional.md
+          - Overview: methods/conformal/index.md
+          - Predictors: methods/conformal/predictors.md
+          - Distributional: methods/conformal/distributional.md
       - Ensemble & UQ:
-          - Overview: ensemble/index.md
-          - Methods: ensemble/methods.md
+          - Overview: methods/ensemble/index.md
+          - Methods: methods/ensemble/methods.md
       - Algorithms:
-          - IRLS: algorithms/irls.md
-          - Regression Calibration: algorithms/rc.md
-          - SIMEX: algorithms/simex.md
+          - IRLS: methods/algorithms/irls.md
+          - Regression Calibration: methods/algorithms/rc.md
+          - SIMEX: methods/algorithms/simex.md
+      - Test-Time & Shift:
+          - Roadmap: methods/test-time/regression-shift-adaptation-roadmap.md
+          - Bayesian Linear Regression: methods/test-time/bayesian-linear-regression.md
+          - OT Shift Conformal: methods/test-time/ot-shift-conformal.md
       - Post-Hoc Calibration: methods/calibration.md
       - Constraints: methods/constraints.md
       - Causal Inference: methods/causal.md
       - Prediction-Powered Inference: methods/inference.md
-      - Visualization: visualization/index.md
+      - Visualization: methods/visualization.md
 
-  # ── Tab 4: Metrics ──────────────────────────────────────────
+  # ── Tab 6: Metrics ──────────────────────────────────────
   - Metrics:
       - metrics/index.md
       - Point Metrics: metrics/point.md
@@ -189,7 +186,7 @@ nav:
       - Ensemble Metrics: metrics/ensemble.md
       - Multivariate Metrics: metrics/multivariate.md
 
-  # ── Tab 5: Examples ─────────────────────────────────────────
+  # ── Tab 7: Examples ─────────────────────────────────────
   - Examples:
       - examples/index.md
       - Getting Started:
@@ -211,7 +208,6 @@ nav:
           - Normalizing Flows: examples/normalizing_flows_multitarget.md
           - Contrastive Flow Parameter Estimation: examples/contrastive_flow_parameter_estimation.md
           - Contrastive Flow Comparison: examples/contrastive_flow_parameter_estimation_comparison.md
-          - Contrastive Flow Photo-z Proxy: examples/contrastive_flow_photoz_proxy_comparison.md
           - Multimodal Methods: examples/multimodal_method_comparison.md
           - Multimodal (Real Data): examples/multimodal_method_realdata_comparison.md
       - Robustness & Imbalance:
@@ -234,21 +230,11 @@ nav:
           - EIV (Real Data): examples/eiv_method_realdata_comparison.md
           - Constraints + Calibration: examples/constraints_calibration_comparison.md
           - Uncertain-GT + Conformal (Real Data): examples/uncertain_gt_density_conformal_realdata_comparison.md
-      - Domain Applications:
-          - Photometric Redshift: examples/photoz.md
-          - Photo-z Benchmark Suite: examples/photoz_benchmark_suite.md
-          - Photo-z TransferZ Pipeline: examples/photoz_transferz_pipeline.md
-          - TransferZ Semi-Supervised Photo-z: examples/photoz_transferz_semisupervised_comparison.md
-          - TransferZ Conformal Photo-z: examples/photoz_transferz_conformal_comparison.md
-          - Photo-z NNC Pipeline: examples/photoz_nnc_pipeline.md
-          - Photo-z Benchmark (SDSS): examples/photoz_benchmark_comparison.md
-          - Photo-z NNC-CRPS + RAIL: examples/photoz_nnc_crps_rail_comparison.md
-          - Photo-z RAIL Baseline: examples/photoz_rail_baseline_comparison.md
-          - PPI Photo-z Inference: examples/ppi_photoz_inference_comparison.md
+      - Causal:
           - Causal DR Uplift: examples/causal_dr_uplift_comparison.md
           - Causal DR (Real Covariates): examples/causal_dr_realdata_comparison.md
 
-  # ── Tab 6: API Reference ────────────────────────────────────
+  # ── Tab 8: API Reference ────────────────────────────────
   - API:
       - api/index.md
       - Losses: api/losses.md

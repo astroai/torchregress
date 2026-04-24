@@ -6,7 +6,7 @@ This example demonstrates how to use `DensityWeightedLoss` and `LDSLoss` for imb
 
 Use this example when your main problem is **rare-target / tail performance**. For method
 selection across other hard tasks (calibration, OOD, multimodal, noisy features), start
-with the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md).
+with the [Task-First Method Selection Matrix](../guide/method-selection.md).
 
 ## Comparison / Fairness Notes
 

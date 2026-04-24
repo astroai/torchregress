@@ -98,7 +98,7 @@ model = SpectralNormWrapper(base_model, coeff=1.0)
 
 !!! warning "Sorting vs Monotonicity"
 
-    `NonCrossingSort` enforces ordering across different output units. If you need a model to be monotonic with respect to an **input** feature, see our [Monotonic Regression Guide](../guides/concepts.md).
+    `NonCrossingSort` enforces ordering across different output units. If you need a model to be monotonic with respect to an **input** feature, see our [Monotonic Regression Guide](../getting-started/concepts.md).
 
 ---
 

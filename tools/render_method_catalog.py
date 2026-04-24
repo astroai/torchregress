@@ -285,7 +285,7 @@ def render_comparative_evidence_markdown(rows: list[dict[str, Any]]) -> str:
     lines.append("## Usage")
     lines.append("")
     lines.append(
-        "- Use this page with the [Task-First Method Selection Matrix](method_selection_matrix.md) "
+        "- Use this page with the [Task-First Method Selection Matrix](../guide/method-selection.md) "
         "to distinguish API support from decision-grade comparative evidence."
     )
     lines.append(
@@ -419,7 +419,7 @@ def render_method_matrix_generated_section(rows: list[dict[str, Any]]) -> str:
         _provenance_lines(
             source_fn="tools/render_method_catalog.py:render_method_matrix_generated_section",
             source_artifacts=[
-                "docs/guides/method_catalog_generated.md",
+                "docs/reports/method_catalog_generated.md",
                 "reports/method_catalog_latest.json",
             ],
         )

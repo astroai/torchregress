@@ -1,25 +1,41 @@
-# NeurIPS-track papers (`papers/`)
+# Papers (`papers/`)
 
-Two parallel manuscript workspaces in **torchregress**, each with the same layout convention.
+All NeurIPS manuscript workspaces, research memos, experiment results, and operational
+infrastructure for the torchregress paper tracks.
 
-| Track | Folder | One-line topic |
-|-------|--------|----------------|
-| **SPT-Reg** | [neurips_spt_reg/](neurips_spt_reg/) | Test-time shift-factored transport of predictive laws + conformal / PPI |
+## Paper Tracks
+
+| Track | Folder | Topic |
+|-------|--------|-------|
 | **SAGE-Reg** | [neurips_sage_reg/](neurips_sage_reg/) | Semi-supervised regression via distributional self-agreement across views |
+| **SPT-Reg** | [neurips_spt_reg/](neurips_spt_reg/) | Test-time shift-factored transport of predictive laws + conformal / PPI |
+| **CURE** (rejected) | [neurips_cure/](neurips_cure/) | Datasets / metrics / baselines crosswalk from the rejected CURE paper |
 
-Shared conventions:
+## Shared Resources
 
-- **`main.tex`** — single-file manuscript (NeurIPS 2026 style when `neurips_2026.sty` is on `TEXINPUTS`).
-- **`refs.bib`** — bibliography for that paper only (standalone `pdflatex` + `bibtex` per folder).
-- **`reproducibility.md`** — map figures/tables to scripts and artifact paths.
-- **`status.md`** — claim boundary, experiment stage, stop/go (living document).
-- **`README.md`** — layout + working rules + link to the sibling track.
+Cross-paper planning, CANFAR operations, and dataset registry live in [shared/](shared/):
 
-Cross-cutting registry: [neurips_dataset_registry.md](neurips_dataset_registry.md).
+| File | Purpose |
+|------|---------|
+| `submission_portfolio.md` | NeurIPS 2026 allocation and submit gates |
+| `empirical_priorities.md` | Cross-track empirical roadmap |
+| `experiment_suite.md` | Long-run competitiveness suite (baselines, multi-dataset, tiers) |
+| `dataset_registry.md` | Shared dataset registry across tracks |
+| `canfar_batch_sweeps.md` | CANFAR batch: Year label-fraction sweep (40 shards) |
+| `canfar_neurips_batch.md` | CANFAR batch: full NeurIPS SAGE-Reg + overnight scope |
 
-Research memos and dated result trees often live under [docs/research/](../docs/research/README.md).
+## Per-Paper Layout Convention
 
-## LaTeX build
+Each paper folder follows:
+
+- **`main.tex`** — single-file manuscript (NeurIPS 2026 style)
+- **`refs.bib`** — bibliography
+- **`reproducibility.md`** — map figures/tables to scripts and artifact paths
+- **`status.md`** — claim boundary, experiment stage, stop/go (living document)
+- **`related_work_notes.md`** — literature notes
+- **`README.md`** — layout + working rules
+
+## LaTeX Build
 
 Vendored style: [neurips_tex/README.md](neurips_tex/README.md). From repo root:
 
@@ -28,4 +44,4 @@ Vendored style: [neurips_tex/README.md](neurips_tex/README.md). From repo root:
 ./papers/compile_tex.sh neurips_spt_reg
 ```
 
-Build artifacts (`main.pdf`, `.aux`, `.log`, …) are gitignored under each paper folder.
+Build artifacts (`main.pdf`, `.aux`, `.log`, …) are gitignored.

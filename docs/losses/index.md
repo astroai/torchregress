@@ -3,7 +3,7 @@
 torchregress provides a comprehensive library of loss functions for regression — from simple point predictions to full distributional models with uncertainty quantification.
 
 !!! tip "Where to start?"
-    Use the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md) to shortlist losses by problem type.  For prediction intervals with coverage guarantees, see [Conformal Prediction](../conformal/index.md).
+    Use the [Task-First Method Selection Matrix](../guide/method-selection.md) to shortlist losses by problem type.  For prediction intervals with coverage guarantees, see [Conformal Prediction](../methods/conformal/index.md).
 
 ---
 
@@ -192,7 +192,7 @@ For regression when **inputs have measurement uncertainty**:
 | `OrthogonalDistanceRegressionLoss` | Perpendicular distances | General EIV |
 | `EnsembleEIVLoss` | Ensemble disagreement | No known error model |
 
-→ [EIV Losses reference](eiv.md) · [RC algorithm](../algorithms/rc.md) · [SIMEX algorithm](../algorithms/simex.md)
+→ [EIV Losses reference](eiv.md) · [RC algorithm](../methods/algorithms/rc.md) · [SIMEX algorithm](../methods/algorithms/simex.md)
 
 ---
 
@@ -243,8 +243,8 @@ For targets with significant **distribution imbalance**:
 |:-------------|:-----------|:--------------|
 | Simple regression | `MSELoss` | `HuberLoss` for robustness |
 | Outlier robustness | `HuberLoss` | `CauchyLoss` or `TukeyBiweightLoss` |
-| Prediction intervals | `MultiQuantileLoss` | + [CQR](../conformal/predictors.md#cqr) for guarantees |
-| Heteroscedastic uncertainty | `GaussianNLLLoss` | + [Ensemble](../ensemble/index.md) for epistemic |
+| Prediction intervals | `MultiQuantileLoss` | + [CQR](../methods/conformal/predictors.md#cqr) for guarantees |
+| Heteroscedastic uncertainty | `GaussianNLLLoss` | + [Ensemble](../methods/ensemble/index.md) for epistemic |
 | Full distribution | `MixtureDensityLoss` | `NormalizingFlowLoss` for more flexibility |
 | Single-pass UQ | `EvidentialRegressionLoss` | Ensemble for better calibration |
 | Count data | `PoissonDevianceLoss` | `NegativeBinomialNLLLoss` for overdispersion |
@@ -253,6 +253,6 @@ For targets with significant **distribution imbalance**:
 | Noisy labels | `NoisyTargetGaussianNLL` | `ConsistencyRegLoss` |
 | Semi-supervised regression | `PseudoLabelConsistencyLoss` | `PseudoLabelNLL` |
 | Strong target skew / multiplicative noise | `LogTransformLoss` | `BoxCoxTransformLoss` or `SqrtTransformLoss` |
-| Measurement error | `StructuralEIVLoss` | [RC](../algorithms/rc.md) or [SIMEX](../algorithms/simex.md) |
+| Measurement error | `StructuralEIVLoss` | [RC](../methods/algorithms/rc.md) or [SIMEX](../methods/algorithms/simex.md) |
 | Ordered categories | `CumulativeLinkLoss` | `CORALLoss` |
 | Censored/survival | `CensoredGaussianNLLLoss` | `AFTLoss` |

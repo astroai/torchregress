@@ -205,5 +205,4 @@ diag = ppi_diagnostics(y_gold, f_hat_gold)
 ## Next Steps
 
 - [Calibration Metrics](../metrics/calibration.md) — evaluate your model's predictive quality for PPI
-- [PPI Photo-z Inference Example](../examples/ppi_photoz_inference_comparison.md) — end-to-end domain application
 - [Causal Inference](causal.md) — doubly-robust estimation (related methodology)

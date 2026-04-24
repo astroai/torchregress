@@ -80,7 +80,7 @@ ensemble = DeepEnsemble(base_model, n_members=5)
 # (large variance across members) are likely mislabelled
 ```
 
-See [Ensemble Methods](../ensemble/methods.md).
+See [Ensemble Methods](../methods/ensemble/methods.md).
 
 ---
 

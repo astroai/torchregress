@@ -5,7 +5,7 @@ This example demonstrates how to use normalizing flows for multi-target regressi
 ## Task-First Context
 
 Use this example when you need **multi-target** and **multimodal/non-Gaussian** predictive
-distributions. Start with the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md)
+distributions. Start with the [Task-First Method Selection Matrix](../guide/method-selection.md)
 to compare against `MDN`, multivariate Gaussian (full/low-rank), and ensemble-based options.
 
 ## Comparison / Fairness Notes

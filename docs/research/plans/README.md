@@ -10,7 +10,7 @@ Work that originates in these plans should land in **small, reviewable PRs** wit
 **Do not** update the task-first **method catalog** on every step:
 
 - Avoid adding rows to `torchregress/method_catalog.py` (`MethodMetadata`, `TaskRecommendation`, `ComparativeEvidenceRow`) or running the full catalog/evidence/real-data guide refresh (`tools/render_method_catalog.py`, `tools/render_realdata_recommendation_guide.py`) until a defined **implementation tranche** is complete.
-- When the tranche is done, run **one closing batch**: edit `method_catalog.py` for all net-new public symbols from that tranche, then run the refresh commands documented in [`AGENTS.md`](../../../AGENTS.md) (method catalog markdown/JSON, method matrix markers, comparative evidence artifacts, real-data recommendation guide) and `uv run pytest` so snapshot tests stay green.
+- When the tranche is done, run **one closing batch**: edit `method_catalog.py` for all net-new public symbols from that tranche, then run the refresh commands documented in [`AGENTS.md`](https://github.com/sfabbro/torchregress/blob/main/AGENTS.md) (method catalog markdown/JSON, method matrix markers, comparative evidence artifacts, real-data recommendation guide) and `uv run pytest` so snapshot tests stay green.
 
 This keeps governance diffs predictable and groups discovery metadata with the features it describes.
 

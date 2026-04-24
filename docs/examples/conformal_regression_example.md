@@ -6,7 +6,7 @@ This example demonstrates how to use the conformal prediction methods in torchre
 
 Use this example when you need **prediction intervals with coverage guarantees**. For
 task-level comparison across conformal, quantile, Gaussian, and ensemble methods, start
-with the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md) and
+with the [Task-First Method Selection Matrix](../guide/method-selection.md) and
 the comparison script `examples/evaluate_conformal_methods.py`.
 
 ## Comparison / Fairness Notes

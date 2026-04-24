@@ -143,7 +143,6 @@ For a challenge-style parameter scan built on top of `ContrastiveFlowLoss`, see
 [Contrastive Flow Parameter Estimation](../examples/contrastive_flow_parameter_estimation.md).
 For shared-budget comparisons against Gaussian-summary and plain-flow baselines, see
 [Contrastive Flow Parameter Estimation Comparison](../examples/contrastive_flow_parameter_estimation_comparison.md)
-and [Contrastive Flow Photo-z Proxy Comparison](../examples/contrastive_flow_photoz_proxy_comparison.md).
 
 !!! warning "Mask semantics"
     Flow objectives model a **joint density** over all target dimensions. `NormalizingFlowLoss`

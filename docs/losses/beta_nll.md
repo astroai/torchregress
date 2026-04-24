@@ -10,7 +10,7 @@
 |:----------|:-------|
 | Stable heteroscedastic training; variance collapse or trivial σ² | `BetaNLLLoss` with $\beta \in (0, 1)$ (often $0.5$); see [API: Losses](../api/losses.md) |
 | Standard NLL baseline; well-tuned optimisation | [`GaussianNLLLoss`](gaussian.md) |
-| Finite-sample **coverage** guarantees | [Conformal prediction](../conformal/index.md) on top of a calibrated probabilistic model — β-NLL is **not** conformal |
+| Finite-sample **coverage** guarantees | [Conformal prediction](../methods/conformal/index.md) on top of a calibrated probabilistic model — β-NLL is **not** conformal |
 
 ---
 
@@ -68,4 +68,4 @@ See the [Beta-NLL heteroscedastic demo](../examples/heteroscedastic_beta_nll.md)
 ## Next steps
 
 - [Gaussian losses](gaussian.md) — multivariate and low-rank variants
-- [Conformal prediction](../conformal/index.md) — intervals with coverage guarantees
+- [Conformal prediction](../methods/conformal/index.md) — intervals with coverage guarantees

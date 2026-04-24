@@ -21,7 +21,7 @@ def _find_latest(directory: Path, pattern: str) -> Path:
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPORTS_DIR = REPO_ROOT / "reports"
-AUDITS_DIR = REPO_ROOT / "docs" / "audits"
+AUDITS_DIR = REPO_ROOT / "docs" / "reports" / "audits"
 
 DEFAULT_DOC_PATH = _find_latest(AUDITS_DIR, "benchmark_cpu_baselines_*.md")
 DEFAULT_SMOKE_JSON = _find_latest(REPORTS_DIR, "benchmark_smoke_*.json")

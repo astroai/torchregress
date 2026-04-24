@@ -104,5 +104,5 @@ negative hypotheses accidentally matches the minibatch size.
 ## Related Pages
 
 - See [Normalizing Flows](../losses/nflows.md) for the base conditional flow API.
-- See [Task-First Method Selection Matrix](../guides/method_selection_matrix.md) for when to choose
+- See [Task-First Method Selection Matrix](../guide/method-selection.md) for when to choose
   flow-based methods over Gaussian, MDN, or conformal alternatives.

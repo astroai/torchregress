@@ -1,2 +1,0 @@
-Benchmark,Seeds,SAGEMinusSupervisedMean,SAGEMinusSupervisedMedian,SAGEMinusSupervisedStd,ConfidenceMinusSupervisedMean,ConfidenceMinusSupervisedMedian,ConfidenceMinusSupervisedStd,SAGEMeanWeightMean,SAGEMeanWeightStd,SAGEMeanDisagreementMean,SAGEMeanDisagreementStd
-year,3,-0.15698838233947754,0.029918432235717773,0.2871079101257037,1.220988670984904,1.2945878505706787,0.19913601858680874,0.26445643107096356,0.00679967159731758,0.9722025394439697,0.0069653539085161

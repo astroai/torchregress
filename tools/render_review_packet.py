@@ -21,7 +21,7 @@ def _find_latest(directory: Path, pattern: str) -> Path:
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 REPORTS_DIR = REPO_ROOT / "reports"
-AUDITS_DIR = REPO_ROOT / "docs" / "audits"
+AUDITS_DIR = REPO_ROOT / "docs" / "reports" / "audits"
 
 ADOPTION_AUDIT_MD = _find_latest(AUDITS_DIR, "adoption_readiness_*.md")
 ADOPTION_AUDIT_JSON = _find_latest(REPORTS_DIR, "adoption_readiness_*.json")
@@ -134,8 +134,8 @@ def _comparative_gaps(payload: dict[str, Any]) -> list[dict[str, str]]:
 def _review_focus_files() -> list[str]:
     return [
         str(ADOPTION_AUDIT_MD.relative_to(REPO_ROOT)),
-        "docs/guides/method_selection_matrix.md",
-        "docs/guides/comparative_evidence_matrix.md",
+        "docs/guide/method-selection.md",
+        "docs/reports/comparative_evidence_matrix.md",
         str(NATIVE_LEVERAGE_JSON.relative_to(REPO_ROOT)),
         "tests/test_native_parity.py",
         "tests/test_loss_forward_signature_contracts.py",

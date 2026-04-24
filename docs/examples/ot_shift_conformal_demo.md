@@ -14,4 +14,4 @@ uv run python examples/ot_shift_conformal_demo.py --seed 0
 
 ## See also
 
-- [OT shift conformal (experimental)](../test_time/ot_shift_conformal.md)
+- [OT shift conformal (experimental)](../methods/test-time/ot-shift-conformal.md)

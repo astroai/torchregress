@@ -7,7 +7,7 @@ This guide covers different ensemble methods in torchregress for uncertainty est
 Use this page when your main requirement is **epistemic uncertainty**, **uncertainty
 decomposition**, or **OOD/selective prediction**. For broader method selection (including
 `SWAG`, `BNN`, `MDN`, conformal, and flows), start with the
-[Task-First Method Selection Matrix](../guides/method_selection_matrix.md).
+[Task-First Method Selection Matrix](../guide/method-selection.md).
 
 ## Evidence / Tradeoff Notes
 
@@ -326,9 +326,9 @@ calibration = calibration_score(y_true, pred_mean, pred_std)
 
 ## Further Reading
 
-- [Core Concepts Guide](../guides/concepts.md)
+- [Core Concepts Guide](../getting-started/concepts.md)
 - [Ensemble Metrics](../metrics/ensemble.md)
-- [Best Practices](../guides/best-practices.md)
+- [Best Practices](../guide/best-practices.md)
 - Paper: "Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles" (Lakshminarayanan et al., 2017)
 
 ## See Also

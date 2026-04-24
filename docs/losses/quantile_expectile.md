@@ -182,7 +182,7 @@ loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)  # same as ExpectileLoss(0.75)
     - Computing Expected Shortfall (ES)
 
 !!! tip "Conformal calibration"
-    For **guaranteed coverage** on top of quantile regression, wrap your model with [Conformalized Quantile Regression (CQR)](../conformal/predictors.md).
+    For **guaranteed coverage** on top of quantile regression, wrap your model with [Conformalized Quantile Regression (CQR)](../methods/conformal/predictors.md).
 
 ---
 

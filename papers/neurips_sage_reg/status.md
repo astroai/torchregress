@@ -164,3 +164,10 @@ Not yet supported: **tuned-hyper** multiseed **mean** superiority on Year at **`
 **Go** for full paper draft when a clean real benchmark matches or beats supervised-only under multi-seed confirmation and the story is stable.
 
 **Stop** and iterate on method when `year` stays above supervised-only after budgeted confirms and gains are only OOD-proxy.
+# SAGE-Reg status (redirect)
+
+**Canonical status for the NeurIPS track:** [papers/neurips_sage_reg/status.md](../../papers/neurips_sage_reg/status.md)
+
+**Reproducibility (commands and paths):** [papers/neurips_sage_reg/reproducibility.md](../../papers/neurips_sage_reg/reproducibility.md)
+
+Supporting materials remain here under `docs/research/` (experiment plan, outlines, dated result trees).

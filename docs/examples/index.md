@@ -6,15 +6,15 @@ This section contains practical examples of using torchregress for various regre
 
 If you are choosing a method for a hard regression problem (outliers, multimodal targets,
 calibration, OOD robustness, noisy features, imbalance), start with the
-[Task-First Method Selection Matrix](../guides/method_selection_matrix.md) and then come
+[Task-First Method Selection Matrix](../guide/method-selection.md) and then come
 back to this page for runnable examples. For budget/latency/coverage constraints, use
-[Choosing Methods by Constraint](../guides/choosing_by_constraint.md) before selecting an example.
-Use the [Comparative Evidence Matrix](../guides/comparative_evidence_matrix.md) to see which hard
+[Choosing Methods by Constraint](../guide/choosing-by-constraint.md) before selecting an example.
+Use the [Comparative Evidence Matrix](../reports/comparative_evidence_matrix.md) to see which hard
 tasks currently have decision-grade comparisons vs demo-only examples.
 
 ## Getting Started
 
-**New to torchregress?** Start with the [Concepts Guide](../guides/concepts.md) to learn key concepts, then use the [Task-First Method Selection Matrix](../guides/method_selection_matrix.md) to pick a method family.
+**New to torchregress?** Start with the [Concepts Guide](../getting-started/concepts.md) to learn key concepts, then use the [Task-First Method Selection Matrix](../guide/method-selection.md) to pick a method family.
 
 ## Example Reading Guide (Audit Priority)
 
@@ -32,12 +32,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/multimodal_method_comparison.py`: Gaussian vs MDN vs optional flow on multimodal multi-target data
 - `examples/multimodal_method_realdata_comparison.py`: real-data features + synthetic multimodal targets for Gaussian/MDN/flow comparison
 - `examples/contrastive_flow_parameter_estimation_comparison.py`: shared-budget synthetic comparison for Gaussian summary density vs plain flow vs contrastive flow
-- `examples/contrastive_flow_photoz_proxy_comparison.py`: photo-z proxy benchmark for catalog-shift parameter recovery
 - `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics
-- `examples/noisy_label_realdata_comparison.py`: real-data (Diabetes) label-corruption comparison with shared calibration metrics
-- `examples/photoz_benchmark_comparison.py`: SDSS-style photo-z benchmark for robust/probabilistic/uncertain-target/imbalance/SSL/EIV tradeoffs with photo-z metrics
-- `examples/photoz_nnc_crps_rail_comparison.py`: ordered-bin NNC-CRPS-style photo-z comparison with hard bins, soft bins, pseudo labels, calibration, and PDF metrics
-- `examples/ppi_photoz_inference_comparison.py`: prediction-powered inference (mean/quantile CI) under limited labels
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
 - `examples/ordinal_regression_realdata_comparison.py`: real-data ordinal comparison on Diabetes with train-quantile binning
 - `examples/ordinal_uncertain_ground_truth_comparison.py`: ordered-bin ambiguous-label comparison with soft plausibility targets and soft pseudo labels
@@ -188,66 +183,8 @@ ensemble_models = train_heteroscedastic_ensemble(n_models=5, ...)
 epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 ```
 
-### [Photometric Redshift Estimation](photoz.md)
-
-A real-world application for astronomy:
-
-- Implementing uncertainty-aware regression for photometric redshift estimation
-- Using specialized loss functions for astronomical data
-- Creating calibrated prediction intervals
-- Evaluating results with domain-specific metrics
-
-### [Photo-z Benchmark Suite](photoz_benchmark_suite.md)
-
-- Operator-facing runbook for the main photo-z benchmark tracks.
-- Uses `tools/photoz_benchmark_suite.py` to run the standard benchmark, ordered-bin benchmark, and PPI benchmark together.
-- Optional RAIL merge path is included when external baseline assets are available.
-
-### [Photo-z TransferZ Pipeline](photoz_transferz_pipeline.md)
-
-- Downloads the public TransferZ tabular release, normalizes the released splits, and runs the real-data-only benchmark suite on those fixed partitions.
-- Uses `tools/photoz_transferz_pipeline.py`.
-- This is the preferred public tabular benchmark path for domain-shift-oriented photo-z evaluation.
-
-### [TransferZ Conformal Photo-z Comparison](photoz_transferz_conformal_comparison.md)
-
-- Dedicated conformal benchmark on the public TransferZ release using the reserved `CONFORMAL` split correctly.
-- Compares native intervals against `SplitConformal`, `CQR`, `DensityConformal`, `PrevalenceAdjustedCP`, `MonteCarloConformal`, and `R2CConformal`.
-
-### [TransferZ Semi-Supervised Photo-z Comparison](photoz_transferz_semisupervised_comparison.md)
-
-- Dedicated real-data semi-supervised benchmark on the public TransferZ release using fixed train/validation/test splits.
-- Compares labeled-only baselines against calibrated pseudo-label and pseudo-label+consistency students under label scarcity and high-z-tail undercoverage.
-
-### [Photo-z NNC End-to-End Pipeline](photoz_nnc_pipeline.md)
-
-- Downloads or reads a raw NNC-style catalog, normalizes it into the canonical photo-z frame, and runs the real-data benchmark tracks.
-- Uses `tools/photoz_nnc_pipeline.py`.
-- This is the direct path for “download NNC and run full training/test/eval”.
-
-### [Photo-z Benchmark Comparison (SDSS-style)](photoz_benchmark_comparison.md)
-
-- Shared-budget comparison benchmark for photo-z on SDSS-style features and measurement errors.
-- Includes robust/probabilistic/transform/pseudo-label/EIV methods with NMAD, catastrophic-outlier rate, high-z MAE, interval coverage/width, pseudo-label diagnostics, and runtime.
-- Uses cached real SDSS data if available, otherwise deterministic simulated SDSS-style fallback (CI/offline-friendly).
-
-### [Photo-z NNC-CRPS + RAIL-Ready Comparison](photoz_nnc_crps_rail_comparison.md)
-
-- Ordered-bin regression-as-classification comparison spanning hard-bin CE, soft-bin ordinal losses, soft pseudo labels, and `OrderedBinCRPS`, with optional post-hoc temperature scaling for hard-bin CE/CRPS rows.
-- Kept intentionally in `examples/` (specialized setup; no new core public API).
-- Emits machine-readable summary rows with photo-z domain metrics plus PDF metrics (`CRPS`, `PDF_NLL`, `PITChi2`).
-
-### [Photo-z RAIL Baseline Comparison](photoz_rail_baseline_comparison.md)
-
-- Adapter workflow to merge torchregress photo-z summary artifacts with RAIL tabular baseline outputs.
-- Core baseline set: `flexzboost`, `pzflow`, `delight`, `bpz` (optional `lephare`).
-- Manifest-based parity mode enforces dataset/split/method consistency with the intended paper-comparison setup.
-
-### [PPI Photo-z Inference Comparison](ppi_photoz_inference_comparison.md)
-
-- Compares labeled-only vs prediction-powered confidence intervals for mean and high-quantile targets.
-- Designed for low-label settings where a larger prediction-only pool is available.
-- Emits summary artifacts with estimate error, CI width, and truth-coverage diagnostics.
+!!! info "Real-World Domain Applications"
+    For production examples of torchregress applied to astronomical data (photometric redshift estimation), see [**torchz**](https://github.com/sfabbro/torchz) — a companion library that demonstrates the full capabilities on real survey data.
 
 ### [Ordinal Regression Comparison](ordinal_regression_comparison.md)
 
