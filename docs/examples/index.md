@@ -42,6 +42,8 @@ Use the comparison examples first when making implementation decisions:
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
 - `examples/transformed_target_regression_comparison.py`: skewed-target transform comparison (`MSE`, `LogTransform`, `BoxCox`, `Sqrt`)
 - `examples/semi_supervised_regression_comparison.py`: masked-label semi-supervised regression with pseudo labels and teacher consistency
+- `examples/ppi_calibrated_mean.py`: raw vs affinely calibrated prediction-powered mean inference (arXiv:2604.21260)
+- `examples/ppi_mean_plus_split_conformal.py`: PPI-style mean inference plus `SplitConformal` predictive bands with a labeled split (see `docs/methods/inference.md`)
 - `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison
 - `examples/uncertain_gt_density_conformal_realdata_comparison.py`: real-data uncertain-label + conformal comparison on Diabetes
 - `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics

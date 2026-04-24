@@ -57,6 +57,46 @@ def _percentile_ci(samples: Tensor, alpha: float) -> tuple[float, float]:
     return lo, hi
 
 
+def _rectified_mean_point(y_l: Tensor, p_l: Tensor, p_u: Tensor) -> Tensor:
+    """PPI rectified mean: mean(unlabeled score) + mean(labeled residual)."""
+    return p_u.mean() + (y_l - p_l).mean()
+
+
+def _rectified_mean_bootstrap(
+    y_l: Tensor,
+    p_l: Tensor,
+    p_u: Tensor,
+    *,
+    n_boot: int,
+    alpha: float,
+    generator: torch.Generator | None,
+) -> tuple[Tensor, float, float]:
+    """Nonparametric bootstrap for rectified mean with fixed calibrated scores."""
+    boot_l_idx = _bootstrap_indices(
+        y_l.numel(), n_boot=n_boot, device=y_l.device, generator=generator
+    )
+    boot_u_idx = _bootstrap_indices(
+        p_u.numel(), n_boot=n_boot, device=p_u.device, generator=generator
+    )
+    boot_est = p_u[boot_u_idx].mean(dim=1) + (y_l - p_l)[boot_l_idx].mean(dim=1)
+    ci_lower, ci_upper = _percentile_ci(boot_est, alpha)
+    return boot_est, ci_lower, ci_upper
+
+
+def _linear_calibrate_apply(m_fit: Tensor, y_fit: Tensor, m_apply: Tensor) -> Tensor:
+    """Affine map minimizing squared error on (m_fit, y_fit); applied to m_apply."""
+    mf = m_fit.reshape(-1).float()
+    yf = y_fit.reshape(-1).float()
+    ma = m_apply.reshape(-1).float()
+    m_cent = mf - mf.mean()
+    denom = (m_cent * m_cent).sum()
+    if float(denom.item()) < 1e-20:
+        return torch.full_like(ma, float(yf.mean().item())).reshape(m_apply.shape)
+    slope = ((m_cent * (yf - yf.mean())).sum() / denom).item()
+    intercept = (yf.mean() - mf.mean() * slope).item()
+    return (intercept + slope * ma).reshape(m_apply.shape)
+
+
 def ppi_mean_ci(
     y_labeled: Tensor | list[float],
     pred_labeled: Tensor | list[float],
@@ -87,7 +127,8 @@ def ppi_mean_ci(
         raise ValueError("ppi_mean_ci requires at least 2 labeled and 2 unlabeled samples")
 
     residual = y_l - p_l
-    estimate = float((p_u.mean() + residual.mean()).item())
+    point = _rectified_mean_point(y_l, p_l, p_u)
+    estimate = float(point.item())
 
     # Asymptotic-style standard error (for diagnostics).
     se = float(
@@ -102,17 +143,110 @@ def ppi_mean_ci(
         bootstrap_gen = torch.Generator(device=y_l.device)
         bootstrap_gen.manual_seed(cfg.seed)
 
+    boot_est, ci_lower, ci_upper = _rectified_mean_bootstrap(
+        y_l,
+        p_l,
+        p_u,
+        n_boot=cfg.n_boot,
+        alpha=cfg.alpha,
+        generator=bootstrap_gen,
+    )
+
+    return {
+        "method": "ppi_mean_ci",
+        "estimate": estimate,
+        "se": se,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "alpha": cfg.alpha,
+        "n_labeled": int(y_l.numel()),
+        "n_unlabeled": int(p_u.numel()),
+        "bootstrap_samples": int(cfg.n_boot),
+    }
+
+
+def ppi_calibrated_mean_ci(
+    y_labeled: Tensor | list[float],
+    pred_labeled: Tensor | list[float],
+    pred_unlabeled: Tensor | list[float],
+    *,
+    config: PPIConfig | None = None,
+) -> dict[str, Any]:
+    """Prediction-powered CI for a population mean with affine post-hoc calibration.
+
+    Fits an affine map :math:`m^\\star(x) = \\hat a + \\hat b\\, m(x)` by ordinary
+    least squares on labeled pairs :math:`(m(X_i), Y_i)`, then applies the usual
+    rectified PPI mean
+    :math:`\\mathbb{E}[m^\\star(\\tilde X)] + \\mathbb{E}[Y - m^\\star(X)]`
+    with paired bootstrap that **refits** :math:`(\\hat a, \\hat b)` on each labeled
+    resample.
+
+    This is the linearly calibrated PPI mean from Chen et al. (arXiv:2604.21260),
+    Section 3.3; they relate it to prognostic-score style adjustment and to PPI++
+    at first order.
+
+    Parameters
+    ----------
+    y_labeled, pred_labeled, pred_unlabeled
+        Same semantics as :func:`ppi_mean_ci`.
+    config
+        Same as :class:`PPIConfig` for :func:`ppi_mean_ci`.
+    """
+    cfg = config or PPIConfig()
+    if not 0 < cfg.alpha < 1:
+        raise ValueError(f"alpha must be in (0, 1), got {cfg.alpha}")
+    if cfg.n_boot < 10:
+        raise ValueError(f"n_boot must be >= 10, got {cfg.n_boot}")
+    if cfg.method not in {"bootstrap"}:
+        raise ValueError(f"Unsupported method: {cfg.method}")
+
+    y_l = _to_1d_tensor(y_labeled)
+    p_l = _to_1d_tensor(pred_labeled)
+    p_u = _to_1d_tensor(pred_unlabeled)
+    if y_l.numel() != p_l.numel():
+        raise ValueError("y_labeled and pred_labeled must have the same number of samples")
+    if y_l.numel() < 3 or p_u.numel() < 2:
+        raise ValueError(
+            "ppi_calibrated_mean_ci requires at least 3 labeled and 2 unlabeled samples"
+        )
+
+    p_l_cal = _linear_calibrate_apply(p_l, y_l, p_l)
+    p_u_cal = _linear_calibrate_apply(p_l, y_l, p_u)
+
+    point = _rectified_mean_point(y_l, p_l_cal, p_u_cal)
+    estimate = float(point.item())
+    residual_cal = y_l - p_l_cal
+    se = float(
+        torch.sqrt(
+            residual_cal.var(unbiased=True) / max(y_l.numel(), 1)
+            + p_u_cal.var(unbiased=True) / max(p_u.numel(), 1)
+        ).item()
+    )
+
+    bootstrap_gen: torch.Generator | None = None
+    if cfg.seed is not None:
+        bootstrap_gen = torch.Generator(device=y_l.device)
+        bootstrap_gen.manual_seed(cfg.seed)
     boot_l_idx = _bootstrap_indices(
         y_l.numel(), n_boot=cfg.n_boot, device=y_l.device, generator=bootstrap_gen
     )
     boot_u_idx = _bootstrap_indices(
         p_u.numel(), n_boot=cfg.n_boot, device=p_u.device, generator=bootstrap_gen
     )
-    boot_est = p_u[boot_u_idx].mean(dim=1) + residual[boot_l_idx].mean(dim=1)
+
+    boot_est = torch.empty(cfg.n_boot, device=y_l.device, dtype=torch.float32)
+    for b in range(cfg.n_boot):
+        li = boot_l_idx[b]
+        ui = boot_u_idx[b]
+        m_lb, y_lb = p_l[li], y_l[li]
+        m_ub = p_u[ui]
+        p_lb = _linear_calibrate_apply(m_lb, y_lb, m_lb)
+        p_ub = _linear_calibrate_apply(m_lb, y_lb, m_ub)
+        boot_est[b] = _rectified_mean_point(y_lb, p_lb, p_ub)
     ci_lower, ci_upper = _percentile_ci(boot_est, cfg.alpha)
 
     return {
-        "method": "ppi_mean_ci",
+        "method": "ppi_calibrated_mean_ci",
         "estimate": estimate,
         "se": se,
         "ci_lower": ci_lower,
@@ -330,6 +464,7 @@ def ppi_diagnostics(
 
 __all__ = [
     "PPIConfig",
+    "ppi_calibrated_mean_ci",
     "ppi_mean_ci",
     "ppi_quantile_ci",
     "ppi_ols_ci",

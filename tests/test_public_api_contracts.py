@@ -165,6 +165,7 @@ EXPECTED_EXPORTS = {
     ],
     "inference": [
         "PPIConfig",
+        "ppi_calibrated_mean_ci",
         "ppi_mean_ci",
         "ppi_quantile_ci",
         "ppi_ols_ci",
@@ -328,6 +329,12 @@ EXPECTED_SIGNATURES = {
 
 EXPECTED_PARAM_ORDERS = {
     "inference.ppi_mean_ci": [
+        "y_labeled",
+        "pred_labeled",
+        "pred_unlabeled",
+        "config",
+    ],
+    "inference.ppi_calibrated_mean_ci": [
         "y_labeled",
         "pred_labeled",
         "pred_unlabeled",

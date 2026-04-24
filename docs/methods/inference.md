@@ -59,6 +59,7 @@ PPI's validity rests on a small number of assumptions:
 | Function | Estimand | Typical Application |
 |:---------|:---------|:-------------------|
 | `ppi_mean_ci` | Population mean $\mathbb{E}[Y]$ | Average treatment effect, prevalence estimation |
+| `ppi_calibrated_mean_ci` | Same, with affine post-hoc calibration of the score | Mis-scaled but informative scores (OLS on labeled pairs) |
 | `ppi_quantile_ci` | Population quantile $Q_\tau$ | Median income, tail risk |
 | `ppi_ols_ci` | OLS coefficients $\beta$ | Regression with proxy labels |
 | `ppi_diagnostics` | — | Prediction quality assessment |
@@ -69,12 +70,12 @@ PPI's validity rests on a small number of assumptions:
 from torchregress.inference import PPIConfig, ppi_mean_ci
 
 ci = ppi_mean_ci(
-    y_labelled=y_gold,
-    y_pred_labelled=f_hat_gold,
-    y_pred_unlabelled=f_hat_all,
+    y_labeled=y_gold,
+    pred_labeled=f_hat_gold,
+    pred_unlabeled=f_hat_all,
     config=PPIConfig(alpha=0.05),
 )
-print(f"95% CI: [{ci.lower:.4f}, {ci.upper:.4f}]")
+print(f"95% CI: [{ci['ci_lower']:.4f}, {ci['ci_upper']:.4f}]")
 ```
 
 ### Population Quantile
@@ -83,9 +84,9 @@ print(f"95% CI: [{ci.lower:.4f}, {ci.upper:.4f}]")
 from torchregress.inference import PPIConfig, ppi_quantile_ci
 
 ci = ppi_quantile_ci(
-    y_labelled=y_gold,
-    y_pred_labelled=f_hat_gold,
-    y_pred_unlabelled=f_hat_all,
+    y_labeled=y_gold,
+    pred_labeled=f_hat_gold,
+    pred_unlabeled=f_hat_all,
     q=0.5,  # median
     config=PPIConfig(alpha=0.05),
 )
@@ -102,6 +103,64 @@ ci = ppi_ols_ci(
     config=PPIConfig(alpha=0.05),
 )
 ```
+
+### Calibrated PPI for the mean
+
+Chen et al. (*Calibeating Prediction-Powered Inference*, [arXiv:2604.21260](https://arxiv.org/abs/2604.21260)) study **post-hoc calibration** of a fixed scalar score $m(X)$ on the labeled sample before semisupervised mean estimation.  Torchregress implements their **linearly calibrated** mean (Section 3.3): fit an affine map by ordinary least squares on labeled pairs,
+
+$$
+m_n^\star(x) := \hat a + \hat b\, m(x), \qquad (\hat a, \hat b) \in \arg\min_{a,b \in \mathbb{R}} \;\sum_{i=1}^n \{Y_i - a - b\, m(X_i)\}^2.
+$$
+
+Then apply the **same rectified mean** as `ppi_mean_ci`, but with $m_n^\star$ in place of $m$:
+
+$$
+\hat\psi = \underbrace{\frac{1}{N}\sum_{j=1}^N m_n^\star(\tilde X_j)}_{\text{unlabeled plug-in}} + \underbrace{\frac{1}{n}\sum_{i=1}^n \bigl(Y_i - m_n^\star(X_i)\bigr)}_{\text{labeled residual}}.
+$$
+
+Bootstrap percentile intervals **refit** $(\hat a, \hat b)$ on each labeled bootstrap replicate (and draw independent unlabeled bootstrap rows), which accounts for calibration uncertainty.  The paper also analyzes isotonic calibration theoretically; we omit it here in favor of the lightweight affine map (pure PyTorch), which they relate to prognostic-score style adjustment and to PPI++ at first order.
+
+```python
+from torchregress.inference import PPIConfig, ppi_calibrated_mean_ci
+
+ci_cal = ppi_calibrated_mean_ci(
+    y_labeled=y_gold,
+    pred_labeled=f_hat_gold,
+    pred_unlabeled=f_hat_all,
+    config=PPIConfig(alpha=0.05, n_boot=2000, seed=0),
+)
+```
+
+!!! tip "When this helps"
+    Use calibrated PPI when the score tracks $Y$ but has the **wrong slope or intercept** (common for models trained on another population or loss).  If the score is already conditionally unbiased, gains over `ppi_mean_ci` may be modest.
+
+---
+
+## Inference vs prediction (and “better on all metrics”)
+
+Earlier guidance distinguished two kinds of follow-up work:
+
+| Track | What it meant | Role |
+|:------|:--------------|:-----|
+| **(b) Code** | Wire **existing** pieces together (e.g. `SplitConformal` + PPI) in a runnable workflow | Shows a **defensible pipeline**, not a single magic estimator |
+| **(c) Docs** | Explain **which metric** each method optimizes and where tradeoffs live | Sets expectations so “better everywhere” is not promised |
+
+**There is no single procedure that simultaneously maximizes every metric** (interval width vs coverage vs bias vs sharpness vs conditional validity).  What you *can* do is **separate estimands** and use the right tool per question:
+
+| Goal | Typical tool in torchregress | Contract (informal) |
+|:-----|:----------------------------|:--------------------|
+| **Uncertainty for a summary** (e.g. $\mathbb{E}[Y]$, OLS $\beta$) | `ppi_mean_ci`, `ppi_calibrated_mean_ci`, `ppi_ols_ci`, … | Uses labeled + unlabeled; **bias-aware** rectification |
+| **Finite-sample predictive bands** for individual $Y$ | `torchregress.losses.SplitConformal`, CQR, … | **Exchangeability / split** assumptions; calibrate scores on a **held-out** labeled fold |
+
+**Conformalizing** in the strict sense means building **nonconformity scores** on labeled data and extrapolating intervals to new predictions — it does **not** replace PPI’s job for $\mathbb{E}[Y]$, but it **complements** it when you also care about **per-unit** coverage.
+
+### Recommended composition
+
+1. **Split the labeled data** (at least two folds): one fold fits **affine calibration** (or any post-hoc map), another supports **PPI** bias correction together with unlabeled scores, and optionally a third (or reuse a fold carefully) feeds **split conformal** calibration.
+2. Use **`ppi_calibrated_mean_ci`** when you are comfortable refitting $(\hat a,\hat b)$ on every labeled bootstrap replicate (often good variance when $n$ is not tiny).
+3. Use **`SplitConformal`** on **residuals** $|Y - \hat Y|$ where $\hat Y$ is the **same** post-calibrated score you will deploy at test time, calibrated only on data **not** used to cherry-pick that map if you need clean marginal guarantees.
+
+A minimal end-to-end sketch is in [`examples/ppi_mean_plus_split_conformal.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ppi_mean_plus_split_conformal.py).
 
 ---
 
@@ -153,11 +212,11 @@ print(f"  Width: {2 * 1.96 * gold_se:.2f} days")
 # --- PPI CI (narrower) ---
 from torchregress.inference import PPIConfig
 ci = ppi_mean_ci(y_gold, f_hat_gold, f_hat_all, config=PPIConfig(alpha=0.05))
-print(f"PPI      95% CI: [{ci.lower:.2f}, {ci.upper:.2f}]")
-print(f"  Width: {ci.upper - ci.lower:.2f} days")
+print(f"PPI      95% CI: [{ci['ci_lower']:.2f}, {ci['ci_upper']:.2f}]")
+print(f"  Width: {ci['ci_upper'] - ci['ci_lower']:.2f} days")
 
 # Diagnostics
-diag = ppi_diagnostics(y_gold, f_hat_gold)
+diag = ppi_diagnostics(y_gold, f_hat_gold, f_hat_all)
 ```
 
 ---
@@ -171,6 +230,7 @@ diag = ppi_diagnostics(y_gold, f_hat_gold)
 | **Semi-supervised** | ✅ | ❌ (heuristic) | Partially | Model class |
 | **PPI** | ✅ | ✅ | ✅ | Exchangeability |
 | **PPI++** | ✅ | ✅ | ✅ | Same + tuned $\lambda$ |
+| **Calibrated PPI (mean)** | ✅ | ✅ (bootstrap) | ✅ | Post-hoc $f \circ m$ on labeled data [6] |
 
 ---
 
@@ -199,6 +259,7 @@ diag = ppi_diagnostics(y_gold, f_hat_gold)
 | 3 | T. Zrnic, E. Candès. ["Cross-Prediction-Powered Inference."](https://arxiv.org/abs/2402.04351) *PNAS*, **2024**. |
 | 4 | J. Gronsbell et al. "Efficient and Robust Semi-Supervised Estimation of ATE." *JASA*, **2024**. |
 | 5 | J. Miao et al. ["Demystifying Prediction Powered Inference."](https://arxiv.org/abs/2601.20819) *arXiv:2601.20819*, **2025**. |
+| 6 | Y. Chen et al. ["Calibeating Prediction-Powered Inference."](https://arxiv.org/abs/2604.21260) *arXiv:2604.21260*, **2026**. |
 
 ---
 

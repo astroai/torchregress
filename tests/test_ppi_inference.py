@@ -5,6 +5,7 @@ import torch
 
 from torchregress.inference import (
     PPIConfig,
+    ppi_calibrated_mean_ci,
     ppi_diagnostics,
     ppi_mean_ci,
     ppi_ols_ci,
@@ -221,3 +222,43 @@ def test_ppi_mean_dummy() -> None:
 
     out = ppi_mean([1.0, 2.0], [1.1, 1.9], [2.0, 4.0])
     assert out["method"] == "ppi_mean_ci"
+
+
+def test_ppi_calibrated_mean_ci_returns_expected_fields() -> None:
+    _, _, y_l, pred_l, pred_u = _synthetic()
+    out = ppi_calibrated_mean_ci(
+        y_l,
+        pred_l,
+        pred_u,
+        config=PPIConfig(alpha=0.1, n_boot=200, seed=3),
+    )
+    assert out["method"] == "ppi_calibrated_mean_ci"
+    assert out["ci_lower"] <= out["estimate"] <= out["ci_upper"]
+
+
+def test_ppi_calibrated_mean_ci_too_few_labeled() -> None:
+    _, _, y_l, pred_l, pred_u = _synthetic()
+    with pytest.raises(ValueError, match="ppi_calibrated_mean_ci requires at least 3 labeled"):
+        ppi_calibrated_mean_ci(y_l[:2], pred_l[:2], pred_u, config=PPIConfig(n_boot=50, seed=1))
+
+
+def test_ppi_calibrated_linear_narrower_than_raw_on_monotone_misscale() -> None:
+    """Affine miscalibration: linear post-hoc map should tighten rectified PPI intervals."""
+    torch.manual_seed(11)
+    true_mean = 2.0
+    n_l, n_u = 100, 2500
+    y_l = true_mean + 0.8 * torch.randn(n_l)
+    pred_l = 0.15 * y_l - 0.4 + 0.1 * torch.randn(n_l)
+    y_u = true_mean + 0.8 * torch.randn(n_u)
+    pred_u = 0.15 * y_u - 0.4 + 0.1 * torch.randn(n_u)
+    raw = ppi_mean_ci(y_l, pred_l, pred_u, config=PPIConfig(alpha=0.1, n_boot=400, seed=12))
+    cal = ppi_calibrated_mean_ci(
+        y_l,
+        pred_l,
+        pred_u,
+        config=PPIConfig(alpha=0.1, n_boot=400, seed=12),
+    )
+    w_raw = raw["ci_upper"] - raw["ci_lower"]
+    w_cal = cal["ci_upper"] - cal["ci_lower"]
+    assert w_cal < w_raw
+    assert abs(cal["estimate"] - true_mean) < 0.35
