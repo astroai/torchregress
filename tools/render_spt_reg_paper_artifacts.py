@@ -156,7 +156,6 @@ def _write_local_year_dataset(
 def run_render(
     *,
     profile: str,
-    include_photoz: bool = False,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     report_path: Path = DEFAULT_REPORT_PATH,
     year_cache_path: Path | None = None,
@@ -257,7 +256,6 @@ def run_render(
         "artifact": "spt_reg_paper_artifact_manifest",
         "version": 1,
         "profile": profile,
-        "include_photoz": False,
         "output_dir": str(output_dir),
         "summaries": summaries,
         "year_track_data": year_data_note,
@@ -318,7 +316,6 @@ def main() -> None:
 
     report = run_render(
         profile=args.profile,
-        include_photoz=False,
         output_dir=args.output_dir,
         report_path=args.report,
         year_cache_path=args.year_cache_path,

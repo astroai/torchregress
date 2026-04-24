@@ -32,7 +32,12 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
 
     decomposition = method_catalog.list_methods(capability_filters={"decomposition": "yes"})
     decomp_names = {row["name"] for row in decomposition}
-    assert {"HeteroscedasticEnsembleModel", "HeteroscedasticBNN", "MDNLoss"} <= decomp_names
+    assert {
+        "HeteroscedasticEnsembleModel",
+        "HeteroscedasticBNN",
+        "MDNEnsembleModel",
+    } <= decomp_names
+    assert "MDNLoss" not in decomp_names
 
     inference = method_catalog.list_methods(task_tag="inference")
     inference_names = {row["name"] for row in inference}

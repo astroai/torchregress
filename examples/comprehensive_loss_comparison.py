@@ -6,6 +6,8 @@ variety of loss functions from the torchregress library and compares their perfo
 using point, distribution, and calibration metrics.
 """
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -241,7 +243,10 @@ def main():
         ax.set_title(f"{name} - Metrics")
 
     plt.tight_layout()
-    plt.savefig("comprehensive_loss_comparison.png")
+    output_path = Path("docs/assets/images/examples/comprehensive_loss_comparison.png")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path)
+    print(f"Saved comparison figure to {output_path}")
     plt.show()
 
 

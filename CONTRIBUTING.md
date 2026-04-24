@@ -2,7 +2,7 @@
 
 ## Development Setup
 
-We use `uv` and `pixi` for environment management.
+We use `uv` for environment management.
 
 ### Installation
 

@@ -2,21 +2,20 @@
   "artifact": "comparative_evidence_matrix",
   "version": 1,
   "summary": {
-    "task_rows": 17,
+    "task_rows": 16,
     "grade_counts": {
       "Decision-grade": 2,
-      "Strong": 15
+      "Strong": 14
     },
     "decision_grade_tasks": 2,
-    "strong_or_better_tasks": 17
+    "strong_or_better_tasks": 16
   },
   "rows": [
     {
       "task": "Robust regression / outliers",
       "examples": [
         "examples/comprehensive_comparison.py",
-        "examples/comprehensive_loss_comparison.py",
-        "examples/photoz_benchmark_comparison.py"
+        "examples/comprehensive_loss_comparison.py"
       ],
       "comparison_grade": "Decision-grade",
       "fairness_controls": [
@@ -28,8 +27,6 @@
         "MSE",
         "MAE",
         "R2",
-        "NMAD",
-        "catastrophic outlier rate",
         "runtime"
       ],
       "peer_methods_visible": [
@@ -38,8 +35,8 @@
         "WeightedMSELoss",
         "WeightedHuberLoss"
       ],
-      "gaps": "Only one domain benchmark (astronomical) so far; needs broader domain coverage.",
-      "notes": "Astronomical benchmark adds SDSS-style domain metrics (NMAD, catastrophic outlier rate, high-z MAE) and robust/probabilistic/EIV comparisons under shared budgets; results are available in the reports directory."
+      "gaps": "Needs broader real-domain coverage beyond synthetic and tabular comparison tasks.",
+      "notes": "Robust/probabilistic/EIV comparisons run under shared budgets; results are available in the reports directory."
     },
     {
       "task": "Imbalanced / rare-target regression",
@@ -246,9 +243,7 @@
       "examples": [
         "examples/evaluate_conformal_methods.py",
         "examples/ood_selective_prediction_comparison.py",
-        "examples/ood_selective_prediction_realdata_comparison.py",
-        "examples/photoz_benchmark_comparison.py",
-        "examples/photoz_nnc_crps_rail_comparison.py"
+        "examples/ood_selective_prediction_realdata_comparison.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
@@ -271,31 +266,7 @@
         "BayesianNeuralNetwork"
       ],
       "gaps": "Coverage evidence now spans ensemble/SWAG/BNN base models; still needs multi-domain real-data calibration benchmarks under stronger shift.",
-      "notes": "Astronomical benchmark adds domain-realistic coverage/width evaluation for Gaussian and quantile intervals alongside astronomical benchmarks; OOD/selective comparisons now include split-conformal interval diagnostics across DeepEnsemble/MCDropout/SWAG/BNN."
-    },
-    {
-      "task": "Population/parameter inference (few labels)",
-      "examples": [
-        "examples/ppi_photoz_inference_comparison.py"
-      ],
-      "comparison_grade": "Strong",
-      "fairness_controls": [
-        "fixed seed",
-        "shared labeled/unlabeled split",
-        "runtime summaries"
-      ],
-      "metrics_coverage": [
-        "estimate bias",
-        "CI width",
-        "CI coverage",
-        "runtime"
-      ],
-      "peer_methods_visible": [
-        "PredictionPoweredInference",
-        "labeled-only baseline"
-      ],
-      "gaps": "Needs more than one real-data benchmark for generalization claims.",
-      "notes": "Prediction-powered inference example demonstrates mean/quantile/OLS coefficient intervals with diagnostics under small-label settings."
+      "notes": "OOD/selective comparisons now include split-conformal interval diagnostics across DeepEnsemble/MCDropout/SWAG/BNN."
     },
     {
       "task": "Ordinal regression / ordered targets",
@@ -413,8 +384,7 @@
       "task": "Noisy features / EIV",
       "examples": [
         "examples/eiv_method_comparison.py",
-        "examples/eiv_method_realdata_comparison.py",
-        "examples/photoz_benchmark_comparison.py"
+        "examples/eiv_method_realdata_comparison.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [

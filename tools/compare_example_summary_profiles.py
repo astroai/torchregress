@@ -333,58 +333,6 @@ def _directionality_issues(
                             f"conf_cov={conf_cov_f:.4g},native_cov={native_cov_f:.4g}"
                         )
 
-        # Task-specific photo-z sanity: if multiple photo-z quality metrics blow up at once,
-        # flag it as a likely broken training/eval path rather than benign budget noise.
-        if "photo-z" in task_lower or "photometric redshift" in task_lower:
-            s_nmad = srow.get("NMAD")
-            t_nmad = trow.get("NMAD")
-            s_cat = srow.get("CatastrophicRate")
-            t_cat = trow.get("CatastrophicRate")
-            s_highz = srow.get("HighZ_MAE")
-            t_highz = trow.get("HighZ_MAE")
-            if all(
-                isinstance(v, (int, float))
-                for v in (s_nmad, t_nmad, s_cat, t_cat, s_highz, t_highz)
-            ):
-                s_nmad_f = float(s_nmad)
-                t_nmad_f = float(t_nmad)
-                s_cat_f = float(s_cat)
-                t_cat_f = float(t_cat)
-                s_highz_f = float(s_highz)
-                t_highz_f = float(t_highz)
-                if all(
-                    v == v for v in (s_nmad_f, t_nmad_f, s_cat_f, t_cat_f, s_highz_f, t_highz_f)
-                ):
-                    nmad_blowup = t_nmad_f > max(0.03, 2.5 * max(0.01, s_nmad_f))
-                    cat_blowup = t_cat_f > min(1.0, s_cat_f + 0.35)
-                    highz_blowup = t_highz_f > max(0.05, 2.5 * max(0.02, s_highz_f))
-                    if nmad_blowup and (cat_blowup or highz_blowup):
-                        issues.append(
-                            f"{method}:photoz_quality:blowup:"
-                            f"NMAD={s_nmad_f:.4g}->{t_nmad_f:.4g},"
-                            f"Cat={s_cat_f:.4g}->{t_cat_f:.4g},"
-                            f"HighZ_MAE={s_highz_f:.4g}->{t_highz_f:.4g}"
-                        )
-            # Ordered-bin photo-z sanity: if both CRPS and PDF_NLL blow up heavily
-            # in target profile, flag likely regression in binned-PDF path.
-            s_crps = srow.get("CRPS")
-            t_crps = trow.get("CRPS")
-            s_pdf_nll = srow.get("PDF_NLL")
-            t_pdf_nll = trow.get("PDF_NLL")
-            if all(isinstance(v, (int, float)) for v in (s_crps, t_crps, s_pdf_nll, t_pdf_nll)):
-                s_crps_f = float(s_crps)
-                t_crps_f = float(t_crps)
-                s_pdf_nll_f = float(s_pdf_nll)
-                t_pdf_nll_f = float(t_pdf_nll)
-                if all(v == v for v in (s_crps_f, t_crps_f, s_pdf_nll_f, t_pdf_nll_f)):
-                    crps_blowup = t_crps_f > max(0.03, 3.0 * max(0.01, s_crps_f))
-                    nll_blowup = t_pdf_nll_f > max(0.1, 3.0 * max(0.02, s_pdf_nll_f))
-                    if crps_blowup and nll_blowup:
-                        issues.append(
-                            f"{method}:photoz_pdf_quality:blowup:"
-                            f"CRPS={s_crps_f:.4g}->{t_crps_f:.4g},"
-                            f"PDF_NLL={s_pdf_nll_f:.4g}->{t_pdf_nll_f:.4g}"
-                        )
     return issues
 
 

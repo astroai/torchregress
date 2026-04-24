@@ -827,12 +827,12 @@
       "non_gaussian": "yes",
       "epistemic": "no",
       "aleatoric": "yes",
-      "decomposition": "yes",
+      "decomposition": "no",
       "calibration": "partial",
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": ""
+      "notes": "Single-model mixture predictive spread is not epistemic/aleatoric decomposition; use MDNEnsembleModel for model-disagreement signals."
     },
     {
       "name": "NormalizingFlowLoss",

@@ -112,6 +112,7 @@ nav:
       - guide/index.md
       - Practical Usage: guide/practical-usage.md
       - Method Selection: guide/method-selection.md
+      - Uncertainty Decomposition: guide/uncertainty-decomposition.md
       - Choosing by Constraint: guide/choosing-by-constraint.md
       - Mathematical Foundations: guide/math/index.md
       - Best Practices: guide/best-practices.md

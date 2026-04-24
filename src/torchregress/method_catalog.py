@@ -452,7 +452,11 @@ _METHODS: tuple[MethodMetadata, ...] = (
         multi_target="yes",
         non_gaussian="yes",
         aleatoric="yes",
-        decomposition="yes",
+        decomposition="no",
+        notes=(
+            "Single-model mixture predictive spread is not epistemic/aleatoric "
+            "decomposition; use MDNEnsembleModel for model-disagreement signals."
+        ),
     ),
     MethodMetadata(
         name="NormalizingFlowLoss",
@@ -908,8 +912,12 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Epistemic + aleatoric decomposition",
         recommended_start="HeteroscedasticEnsembleModel",
-        strong_alternatives=("HeteroscedasticBNN", "MDNLoss", "NormalizingFlowLoss"),
-        notes="Requires variance/distribution modeling.",
+        strong_alternatives=(
+            "HeteroscedasticBNN",
+            "MDNEnsembleModel",
+            "HeteroscedasticBatchEnsembleModel",
+        ),
+        notes="Requires both model-disagreement and per-member variance/distribution modeling.",
     ),
     TaskRecommendation(
         task="Multimodal targets",
@@ -1077,7 +1085,11 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         order=2,
         question="Need epistemic + aleatoric decomposition?",
         primary_recommendation="HeteroscedasticEnsembleModel",
-        alternatives=("HeteroscedasticBNN", "MDNLoss", "NormalizingFlowLoss (+ ensemble)"),
+        alternatives=(
+            "HeteroscedasticBNN",
+            "MDNEnsembleModel",
+            "HeteroscedasticBatchEnsembleModel",
+        ),
         caveat="Requires variance/distribution modeling and stronger compute budget.",
     ),
     DecisionWorkflowStep(
@@ -1150,7 +1162,6 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         examples=(
             "examples/comprehensive_comparison.py",
             "examples/comprehensive_loss_comparison.py",
-            "examples/photoz_benchmark_comparison.py",
         ),
         comparison_grade="Decision-grade",
         fairness_controls=(
@@ -1158,13 +1169,12 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "shared scenarios / domain split",
             "runtime summaries",
         ),
-        metrics_coverage=("MSE", "MAE", "R2", "NMAD", "catastrophic outlier rate", "runtime"),
+        metrics_coverage=("MSE", "MAE", "R2", "runtime"),
         peer_methods_visible=("HuberLoss", "CauchyLoss", "WeightedMSELoss", "WeightedHuberLoss"),
-        gaps="Only one domain benchmark (astronomical) so far; needs broader domain coverage.",
+        gaps="Needs broader real-domain coverage beyond synthetic and tabular comparison tasks.",
         notes=(
-            "Astronomical benchmark adds SDSS-style domain metrics (NMAD, "
-            "catastrophic outlier rate, high-z MAE) and robust/probabilistic/EIV "
-            "comparisons under shared budgets; results are available in the reports directory."
+            "Robust/probabilistic/EIV comparisons run under shared budgets; results are "
+            "available in the reports directory."
         ),
     ),
     ComparativeEvidenceRow(
@@ -1346,8 +1356,6 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "examples/evaluate_conformal_methods.py",
             "examples/ood_selective_prediction_comparison.py",
             "examples/ood_selective_prediction_realdata_comparison.py",
-            "examples/photoz_benchmark_comparison.py",
-            "examples/photoz_nnc_crps_rail_comparison.py",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -1369,23 +1377,8 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "multi-domain real-data calibration benchmarks under stronger shift."
         ),
         notes=(
-            "Astronomical benchmark adds domain-realistic coverage/width evaluation for "
-            "Gaussian and quantile intervals alongside astronomical benchmarks; "
             "OOD/selective comparisons now include split-conformal interval diagnostics "
             "across DeepEnsemble/MCDropout/SWAG/BNN."
-        ),
-    ),
-    ComparativeEvidenceRow(
-        task="Population/parameter inference (few labels)",
-        examples=("examples/ppi_photoz_inference_comparison.py",),
-        comparison_grade="Strong",
-        fairness_controls=("fixed seed", "shared labeled/unlabeled split", "runtime summaries"),
-        metrics_coverage=("estimate bias", "CI width", "CI coverage", "runtime"),
-        peer_methods_visible=("PredictionPoweredInference", "labeled-only baseline"),
-        gaps="Needs more than one real-data benchmark for generalization claims.",
-        notes=(
-            "Prediction-powered inference example demonstrates mean/quantile/OLS coefficient "
-            "intervals with diagnostics under small-label settings."
         ),
     ),
     ComparativeEvidenceRow(
@@ -1507,7 +1500,6 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         examples=(
             "examples/eiv_method_comparison.py",
             "examples/eiv_method_realdata_comparison.py",
-            "examples/photoz_benchmark_comparison.py",
         ),
         comparison_grade="Strong",
         fairness_controls=(

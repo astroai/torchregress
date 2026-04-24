@@ -179,27 +179,22 @@ EIV losses treat `y_pred` as noisy inputs (`x_obs`) and require a model referenc
 
 ### Uncertainty Decomposition
 
-**Critical Distinction:** Not all uncertainty methods support epistemic/aleatoric decomposition.
-
-| Method | Epistemic | Aleatoric | Use Case |
-|--------|-----------|-----------|----------|
-| Heteroscedastic Ensemble | ✅ | ✅ | Decomposed uncertainty with variance prediction |
-| MDN (Mixture Density Network) | ✅ | ✅ | Multimodal distributions with decomposition |
-| Normalizing Flows (ensemble) | ✅ | ✅ | Flexible distributions via flow ensemble |
-| Deep Ensemble | ✅ | ❌ | Epistemic only (unless combined with variance prediction) |
-| Quantile Regression | ❌ | ❌ | Distribution-free intervals, no decomposition |
-| Conformal Prediction | ❌ | ❌ | Distribution-free coverage guarantees, NOT uncertainty decomposition |
-| SWAG/MultiSWAG | ✅ | ⚠️ | Epistemic via weight posterior (aleatoric requires additional modeling) |
-
-**Key Point:** Conformal prediction provides **coverage guarantees**, not uncertainty decomposition. Use it for calibrated intervals, not for separating epistemic/aleatoric uncertainty.
+Detailed semantics belong in docs, not in agent instructions. Keep
+`method_catalog.py` conservative and aligned with
+`docs/guide/uncertainty-decomposition.md`: conformal coverage, predictive
+spread, ensemble disagreement, and epistemic/aleatoric decomposition are
+different contracts. Single-model quantile/MDN/flow losses are not epistemic
+decomposition APIs; ensembles of those heads can expose epistemic disagreement,
+and full variance decomposition requires per-member variance or distributional
+spread plus member disagreement.
 
 ## Configuration
 
 **pyproject.toml settings**:
-- Python >= 3.10 required
+- Python >= 3.12 and < 3.16 required
 - Black line length: 100
 - Ruff: enforces E (pycodestyle), F (pyflakes), I (isort)
-- MyPy: strict typing enabled with `disallow_untyped_defs`
+- MyPy: strict typing for `torchregress.*`; examples/tools/docs are excluded or ignored
 
 **Test configuration**:
 - Tests in `tests/` directory
@@ -219,14 +214,14 @@ When adding new loss functions:
 ## Dependencies
 
 Core dependencies:
-- torch >= 2.0.0
-- numpy >= 1.21.0
-- torchmetrics >= 1.0.0
+- torch >= 2.4.0
+- numpy >= 2.0.0
+- torchmetrics >= 1.4.0
 - matplotlib, pandas (for visualization/data handling)
 - scikit-learn (density weighting utilities)
 
 Optional (feature-specific) dependencies:
-- **zuko >= 1.4.0** (normalizing flows, install via `pip install torchregress[flows]`)
+- **zuko >= 1.6.0** (normalizing flows, install via `pip install torchregress[flows]`)
 
 ### Import Policy
 
@@ -321,36 +316,6 @@ Each matrix row must carry `coverage_evidence` with:
 
 - `parity_tests`
 - `known_divergences`
-
-## Photo-z / RAIL / NNC-CRPS Workflow
-
-Do not require manual data staging for photo-z baseline comparison.
-
-Primary tools:
-
-- `tools/photoz_rail_assets.py` (materialize dataset/baseline assets + checksum updates)
-- `tools/photoz_rail_pipeline.py` (end-to-end collect + torchregress summary + RAIL merge)
-- `tools/photoz_rail_compare.py` (merge-only adapter)
-
-Presets:
-
-- `rail`
-- `nnc_crps`
-
-Tracked manifest templates:
-
-- `configs/photoz/rail_photoz_manifest.template.json`
-- `configs/photoz/nnc_crps_photoz_manifest.template.json`
-
-The runtime manifest path defaults to `data/rail/rail_photoz_manifest.json`. Since `data/` is ignored,
-prefer CLI overrides and/or template bootstrap for reproducible automation.
-
-Useful override flags (both assets and pipeline tools):
-
-- `--dataset-url KEY=URL`
-- `--baseline-url METHOD=URL`
-- `--dataset-path KEY=PATH`
-- `--baseline-path METHOD=PATH`
 
 ## Plan-driven features and method catalog
 

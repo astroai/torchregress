@@ -92,7 +92,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `selection_bias`, `missing_labels` | `calibration*`, `ood*` | `torchregress.losses.PropensityWeightedLoss` |
 | `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | `epistemic_uq`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MCDropoutWrapper` |
-| `MDNLoss` | `mdn` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.losses.MDNLoss` |
+| `MDNLoss` | `mdn` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.MDNLoss` |
 | `CORALLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets`, `calibration` | `calibration*`, `ood*` | `torchregress.losses.CORALLoss` |
 | `CumulativeLinkLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets`, `calibration` | `calibration*`, `ood*` | `torchregress.losses.CumulativeLinkLoss` |
 | `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets` | `calibration*`, `ood*` | `torchregress.losses.OrdinalCrossEntropyLoss` |
@@ -135,5 +135,5 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Decomposition (`decomposition=yes`)
 
-`HeteroscedasticBNN`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNEnsembleModel`, `MDNLoss`
+`HeteroscedasticBNN`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNEnsembleModel`
 

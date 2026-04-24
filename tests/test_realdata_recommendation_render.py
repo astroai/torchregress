@@ -23,7 +23,7 @@ def test_evidence_band_classification_split() -> None:
         "gaps": "Needs additional external datasets.",
     }
     decision_grade_row = {
-        "examples": ["examples/photoz_benchmark_comparison.py"],
+        "examples": ["examples/eiv_method_realdata_comparison.py"],
         "comparison_grade": "Decision-grade",
         "gaps": "",
     }

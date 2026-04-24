@@ -13,8 +13,15 @@ uv run ruff check src/torchregress tests tools
 echo "== black --check (src/torchregress, tests, tools) =="
 uv run black --check src/torchregress tests tools
 
+# Note: mypy is currently failing with 300+ errors in the codebase.
+# Type checking can be run manually with: uv run mypy src/torchregress
+
 echo "== pytest + coverage (CI test job) =="
 uv run python -m pytest --cov=torchregress --cov-report=xml --cov-report=term
+
+echo "== example multi-profile check =="
+uv run python tools/render_example_summaries.py --profile audit
+uv run python tools/render_example_summaries.py --profile full
 
 echo "== benchmark smoke thresholds (CI benchmark job) =="
 export OMP_NUM_THREADS=1

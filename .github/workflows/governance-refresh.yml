@@ -27,26 +27,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          pixi-version: v0.63.0
-          cache: true
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
 
       - name: Render comparison summaries (smoke + audit)
         run: |
-          pixi run python tools/render_example_summaries.py --profile smoke
-          pixi run python tools/render_example_summaries.py --profile audit
+          uv run python tools/render_example_summaries.py --profile smoke
+          uv run python tools/render_example_summaries.py --profile audit
 
       - name: Render comparison summaries (full)
         if: github.event_name == 'schedule' || inputs.run_full_profile == true
         run: |
-          pixi run python tools/render_example_summaries.py --profile full
+          uv run python tools/render_example_summaries.py --profile full
 
       - name: Compare audit vs full summary profiles
         if: github.event_name == 'schedule' || inputs.run_full_profile == true
         run: |
-          pixi run python tools/compare_example_summary_profiles.py \
+          uv run python tools/compare_example_summary_profiles.py \
             --base-dir reports/example_summaries \
             --source-profile audit \
             --target-profile full \
@@ -55,7 +57,7 @@ jobs:
       - name: Check example thresholds (CI conservative)
         if: github.event_name == 'schedule' || inputs.run_full_profile == true
         run: |
-          pixi run python tools/example_summary_thresholds.py \
+          uv run python tools/example_summary_thresholds.py \
             --base-dir reports/example_summaries \
             --profile full \
             --threshold-profile ci_conservative \
@@ -67,7 +69,7 @@ jobs:
       - name: Check example thresholds (review strict)
         if: github.event_name == 'schedule' || inputs.run_full_profile == true
         run: |
-          pixi run python tools/example_summary_thresholds.py \
+          uv run python tools/example_summary_thresholds.py \
             --base-dir reports/example_summaries \
             --profile full \
             --threshold-profile review_strict \
@@ -84,14 +86,14 @@ jobs:
 
       - name: Benchmark threshold checks (CPU)
         run: |
-          pixi run python -m tools.benchmark_smoke \
+          uv run python -m tools.benchmark_smoke \
             --mode smoke \
             --iterations 2 \
             --warmup 1 \
             --device cpu \
             --thresholds reports/benchmark_thresholds/cpu/smoke.json \
             --fail-on-thresholds
-          pixi run python -m tools.benchmark_smoke \
+          uv run python -m tools.benchmark_smoke \
             --mode sweep \
             --iterations 2 \
             --warmup 1 \
@@ -101,17 +103,17 @@ jobs:
 
       - name: Render benchmark markdown summaries
         run: |
-          pixi run python -m tools.benchmark_report_summary \
+          uv run python -m tools.benchmark_report_summary \
             reports/benchmark_smoke_latest.json \
             --output reports/benchmark_smoke_latest.md
-          pixi run python -m tools.benchmark_report_summary \
+          uv run python -m tools.benchmark_report_summary \
             reports/benchmark_sweep_latest.json \
             --group-by-name \
             --output reports/benchmark_sweep_latest.md
 
       - name: Render method catalog and comparative evidence
         run: |
-          pixi run python tools/render_method_catalog.py \
+          uv run python tools/render_method_catalog.py \
             --markdown-out docs/guides/method_catalog_generated.md \
             --json-out reports/method_catalog_latest.json \
             --update-method-matrix docs/guides/method_selection_matrix.md \
@@ -120,16 +122,16 @@ jobs:
 
       - name: Render real-data recommendation guide
         run: |
-          pixi run python -m tools.render_realdata_recommendation_guide \
+          uv run python -m tools.render_realdata_recommendation_guide \
             --doc docs/guides/real_data_recommendation_guide.md \
             --comparative-json reports/comparative_evidence_matrix_latest.json
 
       - name: Run adoption audit and render review packet
         run: |
-          pixi run python tools/adoption_audit.py \
+          uv run python tools/adoption_audit.py \
             --json reports/adoption_readiness_2026-02-25.json \
             --print-summary
-          pixi run python tools/render_review_packet.py
+          uv run python tools/render_review_packet.py
 
       - name: Upload governance artifacts
         uses: actions/upload-artifact@v4

@@ -18,9 +18,6 @@ This file links each manuscript artifact to generated outputs on the branch.
   - generator: `examples/spt_reg_realdata_comparison.py`
 - Main large-tabular table: `reports/neurips_spt_reg/year_competing_methods_<profile>.json`
   - generator: `examples/spt_reg_year_comparison.py`
-- Optional photo-z compatibility table in `torchregress`: `reports/neurips_spt_reg/photoz_competing_methods_<profile>.json`
-  - generator: `examples/spt_reg_photoz_comparison.py`
-  - render only with `--include-photoz`
 - Calibration/coverage figure: `reports/neurips_spt_reg/fig_calibration_coverage.png`
 - PPI efficiency figure: `reports/neurips_spt_reg/fig_ppi_efficiency.png`
 - Artifact manifest: `reports/neurips_spt_reg/artifact_manifest_latest.json`
@@ -41,7 +38,7 @@ Quick smoke (small renderer profile; the **extra-large OpenML** track is skipped
 uv run python scripts/run_neurips_spt_reg_full.py --quick
 ```
 
-**Default full run:** extra-large OpenML regression (**diamonds**, id **42225**) and **Shifts** README materialization are **on**; photo-z stays off unless `--include-photoz`. Opt out with `--skip-large-tabular` (alias `--skip-yolanda`) / `--skip-shifts`. Tunables: `--large-tabular-cache`, `--large-tabular-openml-id`, `--large-tabular-max-rows`. `--skip-stage-a-sweep` skips the Stage-A sweep.
+**Default full run:** extra-large OpenML regression (**diamonds**, id **42225**) and **Shifts** README materialization are **on**. Opt out with `--skip-large-tabular` (alias `--skip-yolanda`) / `--skip-shifts`. Tunables: `--large-tabular-cache`, `--large-tabular-openml-id`, `--large-tabular-max-rows`. `--skip-stage-a-sweep` skips the Stage-A sweep.
 
 **Both tracks in one shell pass** (same flags forwarded to SPT then SAGE; do not pass `--run-root`):
 
@@ -130,12 +127,6 @@ uv run python tools/materialize_openml_large_tabular.py \
 You can point **`--large-tabular-openml-id`** at another regression dataset (e.g. King County house sales **42731**); sanity-check targets/features for leakage before claiming results.
 
 **SAGE-Reg (semi-sup vs sup):** [papers/neurips_sage_reg/reproducibility.md](../neurips_sage_reg/reproducibility.md).
-
-- Optional photo-z compatibility render:
-
-```bash
-uv run python tools/render_spt_reg_paper_artifacts.py --profile smoke --include-photoz
-```
 
 - Profiles currently supported: `smoke`, `audit`, and `full`.
 - **Important:** `render_spt_reg_paper_artifacts.py` does **not** download OpenML Year by default. For the “large tabular” slot it materializes **`reports/neurips_spt_reg/year_local_dataset_<profile>.csv`**, a **synthetic** Gaussian linear CSV whose **row counts** match the profile’s `n_source` / `n_target_*` budgets (for `full`, that is 4096 + 8192 + 2048 + 4096 rows — “OpenML-scale” **sizes**, not the real Year feature distribution). For **actual** OpenML tables, pass **`--year-cache-path`** / **`--year-dataset-path`** / **`--year-openml-data-id`**, or run `examples/spt_reg_year_comparison.py` with the matching flags and **`--summary-json-path`** yourself.

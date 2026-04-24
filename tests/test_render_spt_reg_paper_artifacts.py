@@ -26,7 +26,6 @@ def test_render_spt_reg_paper_artifacts_smoke(tmp_path: Path) -> None:
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     summaries = payload["summaries"]
     assert isinstance(summaries, dict)
-    assert payload["include_photoz"] is False
     assert set(summaries) == {"synthetic", "tabular_small", "tabular_large"}
     for key in ("synthetic", "tabular_small", "tabular_large"):
         summary_path = Path(str(summaries[key]))

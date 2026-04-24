@@ -183,9 +183,6 @@ ensemble_models = train_heteroscedastic_ensemble(n_models=5, ...)
 epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 ```
 
-!!! info "Real-World Domain Applications"
-    For production examples of torchregress applied to astronomical data (photometric redshift estimation), see [**torchz**](https://github.com/sfabbro/torchz) — a companion library that demonstrates the full capabilities on real survey data.
-
 ### [Ordinal Regression Comparison](ordinal_regression_comparison.md)
 
 - Shared-budget comparison for ordered targets.

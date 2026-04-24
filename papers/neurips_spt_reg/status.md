@@ -30,7 +30,6 @@ The credible `torchregress` paper path is:
 - synthetic shift benchmark
 - small real tabular benchmark
 - larger Year-style real tabular benchmark
-- optional photo-z compatibility only, not a required core result in this repo
 
 The current paper should emphasize:
 
@@ -41,7 +40,6 @@ The current paper should emphasize:
 
 The current paper should **not** claim yet:
 
-- a strong photo-z result from `torchregress`
 - that SPT-Reg already beats strong source baselines across all families
 - that MDN is a solved in-repo flagship success path
 
@@ -95,7 +93,6 @@ Implemented examples:
 - [spt_reg_synthetic_comparison.py](/Users/fabbros/src/torchregress/examples/spt_reg_synthetic_comparison.py)
 - [spt_reg_realdata_comparison.py](/Users/fabbros/src/torchregress/examples/spt_reg_realdata_comparison.py)
 - [spt_reg_year_comparison.py](/Users/fabbros/src/torchregress/examples/spt_reg_year_comparison.py)
-- [spt_reg_photoz_comparison.py](/Users/fabbros/src/torchregress/examples/spt_reg_photoz_comparison.py)
 
 Artifact renderer:
 
@@ -124,7 +121,6 @@ Current paper source:
 The manuscript is now single-file and already reflects:
 
 - real-data-first default path in `torchregress`
-- optional photo-z wording
 - MDN as a supported extension, not a headline claim
 
 ## Current Empirical Status
@@ -194,14 +190,6 @@ Interpretation:
 
 - this track supports the claim that the implementation is stable
 - it does not yet support a strong claim that transport improves sharpness or NLL at fixed validity
-
-### Photo-z
-
-Current state:
-
-- keep it optional in `torchregress`
-- do not make it a required proof point here
-- if a flagship photo-z story is needed, it should come from `torchz`
 
 ## Main Blockers
 
@@ -278,8 +266,6 @@ Priority order:
 
 2. Once a promising configuration exists, run at least an `audit`-style pass for SPT artifacts instead of relying only on `smoke`.
 
-3. Keep photo-z out of the default `torchregress` success criteria.
-
 ## What To Write Next
 
 ### Immediate writing tasks
@@ -291,7 +277,6 @@ Priority order:
 
 2. Add a short paragraph in the experiments section explicitly stating:
    - real-data tabular is the default in-repo evidence path
-   - photo-z is a compatibility track here
    - MDN is currently an extension family, not the primary real-data claim path
 
 3. Draft a results paragraph template that can be filled from the JSON artifacts:

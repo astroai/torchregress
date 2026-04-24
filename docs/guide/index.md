@@ -42,6 +42,8 @@ epistemic = result["epistemic_variance"]   # model ignorance
 ```
 
 → See [Ensemble & UQ](../methods/ensemble/index.md) for full details.
+For terminology and edge cases such as quantile ensembles, see
+[Uncertainty Decomposition](uncertainty-decomposition.md).
 
 ### Single-pass decomposition
 

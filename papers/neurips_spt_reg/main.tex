@@ -164,10 +164,7 @@ The experimental program is organized into three tracks:
 \begin{enumerate}
   \item synthetic factorized-shift benchmarks,
   \item real tabular competing-method evaluations on both a small built-in
-  dataset and a larger YearPredictionMSD-style dataset, and
-  \item an optional photo-$z$ compatibility track kept lightweight in
-  \texttt{torchregress} because the main photo-$z$ effort has moved to
-  \texttt{torchz}.
+  dataset and a larger YearPredictionMSD-style dataset.
 \end{enumerate}
 
 All main tables and figures should be generated from machine-readable summaries
@@ -184,8 +181,7 @@ we additionally compare ordered-bin / BinnedPDF predictors with and without
 SPT-Reg in the synthetic and tabular tracks. Sampled MDN predictors are
 included as a synthetic multimodal stress test and a competing predictive-law
 family, but they are not yet the primary real-data claim path in
-\texttt{torchregress}. In \texttt{torchregress}, the photo-$z$ track is treated
-as an optional compatibility benchmark rather than the core submission path.
+\texttt{torchregress}.
 
 \begin{table}[t]
   \caption{Gaussian comparison taxonomy for the OpenML Year track (JSON
@@ -221,11 +217,6 @@ head fixed while toggling the transport + conformal stack.
 The primary tables emphasize probabilistic and decision-facing quantities:
 negative log-likelihood, CRPS, coverage at $90\%$, interval width,
 risk-coverage summaries, and target-domain PPI interval width and coverage.
-For the photo-$z$ benchmark we additionally report NMAD, catastrophic outlier
-rate, and high-redshift error slices so that improvements in predictive
-transport do not hide tail failures that matter in scientific deployment, but
-those diagnostics should be considered supporting evidence here unless the
-final photo-$z$ evaluation is pulled in from \texttt{torchz}.
 
 \paragraph{Artifact generation.}
 The branch includes a single render entrypoint,
@@ -242,10 +233,6 @@ is \texttt{scripts/run\_neurips\_spt\_reg\_full.py}. A legacy combined SAGE+SPT
 bundle remains \texttt{scripts/run\_tabular\_paper\_bundle.sh}. A longer-run
 competitiveness plan (extra DA baselines, datasets) is in
 \texttt{docs/research/paper\_strong\_experiment\_suite.md}.
-An optional flag adds the local photo-$z$ compatibility benchmark. This
-keeps the manuscript tied to committed outputs rather than ad hoc notebook
-tables while avoiding a hard dependency on the older photo-$z$ surface in this
-repository.
 
 \section{Limitations}
 
@@ -273,7 +260,6 @@ This appendix will collect:
   \item extended competing-method tables (MDN / additional profiles),
   \item ablations for each transport stage,
   \item dataset split details,
-  \item additional photo-$z$ diagnostics, and
   \item a reproducibility checklist keyed to
   \texttt{reports/neurips\_spt\_reg/artifact\_manifest\_latest.json}.
 \end{itemize}

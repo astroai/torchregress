@@ -205,10 +205,6 @@ Docs entry points:
 - `examples/benchmarks/tail_extremes_sweep.py` - sweep feature/label noise to identify best tail method
 - `tools/benchmark_smoke.py` - fast smoke/sweep performance checks with CI threshold support
 
-## Real-World Application
-
-For a production example of torchregress applied to astronomical data (photometric redshift estimation), see [**torchz**](https://github.com/sfabbro/torchz) — a companion library that demonstrates the full capabilities of torchregress on real survey data.
-
 ## License
 
 MIT License

@@ -33,15 +33,7 @@ def _replace_marked_section(text: str, replacement: str) -> str:
 
 def _has_real_proxy_example(example_path: str) -> bool:
     token = example_path.lower()
-    return any(
-        marker in token
-        for marker in (
-            "_realdata_",
-            "photoz_",
-            "_rail_",
-            "rail_",
-        )
-    )
+    return any(marker in token for marker in ("_realdata_",))
 
 
 def _evidence_band(row: dict[str, Any]) -> str:

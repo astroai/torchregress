@@ -135,12 +135,6 @@ for x, y in dataloader:
 
 ---
 
-## Real-World Application
-
-For a production example of torchregress applied to astronomical data (photometric redshift estimation), see [**torchz**](https://github.com/sfabbro/torchz) — a companion library that demonstrates the full capabilities of torchregress on real survey data.
-
----
-
 ## Citation
 
 If you use torchregress in your research, please cite:

@@ -190,37 +190,4 @@ module = [
 ignore_missing_imports = true
 
 
-[tool.pixi.workspace]
-channels = ["conda-forge"]
-platforms = ["osx-arm64", "linux-64", "win-64"]
 
-[tool.pixi.dependencies]
-pytorch = ">=2.4.0"
-python = ">=3.12"
-pip = "*"
-ruff = ">=0.5.0"
-black = ">=24.0.0"
-mypy = ">=1.10.0"
-pytest = ">=8.0.0"
-pytest-cov = ">=5.0.0"
-
-[tool.pixi.pypi-dependencies]
-torchregress = { path = ".", editable = true }
-
-[tool.pixi.environments]
-default = { features = ["all"], solve-group = "default" }
-all = { features = ["all"], solve-group = "default" }
-conformal = { features = ["conformal"], solve-group = "default" }
-dev = { features = ["dev"], solve-group = "default" }
-docs = { features = ["docs"], solve-group = "default" }
-flows = { features = ["flows"], solve-group = "default" }
-test = { features = ["test"], solve-group = "default" }
-
-[tool.pixi.tasks]
-check = "bash pre-check.sh"
-lint = "ruff check . && black --check ."
-test = "pytest"
-mypy = "mypy torchregress && mypy tests --explicit-package-bases"
-examples-audit = "python tools/render_example_summaries.py --profile audit"
-examples-full = "python tools/render_example_summaries.py --profile full"
-examples-check = "python tools/render_example_summaries.py --profile audit && python tools/render_example_summaries.py --profile full"

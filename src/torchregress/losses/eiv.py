@@ -699,9 +699,9 @@ class FunctionalEIVLoss(BaseEIVLoss):
         >>> # Create loss with diagonal covariance
         >>> loss_fn = FunctionalEIVLoss(model, sigma_x=torch.tensor([0.2, 0.1]), sigma_y=0.1)
         >>>
-        >>> # Per-sample photometric errors (e.g., photo-z inputs)
-        >>> phot_err = torch.tensor([[0.2, 0.1], [0.3, 0.05]])
-        >>> loss_fn = FunctionalEIVLoss(model, sigma_x=phot_err, sigma_y=0.1)
+        >>> # Per-sample feature measurement errors
+        >>> feature_err = torch.tensor([[0.2, 0.1], [0.3, 0.05]])
+        >>> loss_fn = FunctionalEIVLoss(model, sigma_x=feature_err, sigma_y=0.1)
         >>>
         >>> # Generate some data
         >>> y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])  # x_obs in EIV terminology

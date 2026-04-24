@@ -9,9 +9,9 @@ Usage (repo root)::
 Defaults use ``data/paper/openml_year.csv`` (materialized via OpenML when allowed).
 
 **Default (non-quick):** extra-large OpenML regression track (**diamonds**, OpenML **42225**)
-and **Shifts** placeholder layout are **on** (photo-z stays **off**). ``--quick`` skips
-that track; use ``--skip-large-tabular`` (alias ``--skip-yolanda``) / ``--skip-shifts``
-to opt out of full runs.
+and **Shifts** placeholder layout are **on**. ``--quick`` skips that track; use
+``--skip-large-tabular`` (alias ``--skip-yolanda``) / ``--skip-shifts`` to opt out of
+full runs.
 """
 
 from __future__ import annotations
@@ -64,7 +64,6 @@ def _render(
     run_subdir: Path,
     year_cache: Path,
     year_allow_download: bool,
-    include_photoz: bool,
     large_tabular_openml: bool,
     large_tabular_cache: Path,
     large_tabular_openml_id: int,
@@ -81,8 +80,6 @@ def _render(
         "--report",
         str(report_path),
     ]
-    if include_photoz:
-        parts.append("--include-photoz")
     if large_tabular_openml:
         parts += [
             "--year-openml-data-id",
@@ -122,7 +119,6 @@ def main() -> None:
     parser.add_argument("--no-year-download", action="store_true")
     parser.add_argument("--year-cache", type=Path, default=YEAR_CACHE_DEFAULT)
     parser.add_argument("--skip-stage-a-sweep", action="store_true")
-    parser.add_argument("--include-photoz", action="store_true")
     parser.add_argument(
         "--skip-large-tabular",
         "--skip-yolanda",
@@ -204,7 +200,6 @@ def main() -> None:
             "large_tabular_openml": include_large_tabular,
             "large_tabular_openml_id": int(args.large_tabular_openml_id),
             "shifts": include_shifts,
-            "photoz": bool(args.include_photoz),
         },
         "phases": {},
     }
@@ -217,7 +212,6 @@ def main() -> None:
         run_subdir=full_dir,
         year_cache=year_cache,
         year_allow_download=allow_y,
-        include_photoz=False,
         large_tabular_openml=False,
         large_tabular_cache=args.large_tabular_cache,
         large_tabular_openml_id=args.large_tabular_openml_id,
@@ -231,32 +225,13 @@ def main() -> None:
         run_subdir=audit_dir,
         year_cache=year_cache,
         year_allow_download=allow_y,
-        include_photoz=False,
         large_tabular_openml=False,
         large_tabular_cache=args.large_tabular_cache,
         large_tabular_openml_id=args.large_tabular_openml_id,
         large_tabular_max_rows=lt_rows,
     )
 
-    # 2) Optional photo-z (full renderer profile, separate tree)
-    if args.include_photoz:
-        pz = run_root / "photoz"
-        manifest["phases"]["render_photoz"] = str(pz)
-        manifest["render_photoz_report"] = _render(
-            profile=profile_main,
-            run_subdir=pz,
-            year_cache=year_cache,
-            year_allow_download=allow_y,
-            include_photoz=True,
-            large_tabular_openml=False,
-            large_tabular_cache=args.large_tabular_cache,
-            large_tabular_openml_id=args.large_tabular_openml_id,
-            large_tabular_max_rows=lt_rows,
-        )
-    else:
-        manifest["phases"]["render_photoz"] = "skipped"
-
-    # 3) Extra-large OpenML regression (default: diamonds / 42225)
+    # 2) Extra-large OpenML regression (default: diamonds / 42225)
     if include_large_tabular:
         ltdir = run_root / "large_tabular"
         manifest["phases"]["render_large_tabular"] = str(ltdir)
@@ -266,7 +241,6 @@ def main() -> None:
             run_subdir=ltdir,
             year_cache=year_cache,
             year_allow_download=allow_y,
-            include_photoz=False,
             large_tabular_openml=True,
             large_tabular_cache=args.large_tabular_cache.resolve(),
             large_tabular_openml_id=args.large_tabular_openml_id,
@@ -275,7 +249,7 @@ def main() -> None:
     else:
         manifest["phases"]["render_large_tabular"] = "skipped_quick" if quick else "skipped_opt_out"
 
-    # 4) Stage-A prior-ratio clip sweep
+    # 3) Stage-A prior-ratio clip sweep
     stage_dir = run_root / "stage_a_sweep"
     stage_json = stage_dir / "stage_a_sweep.json"
     if not args.skip_stage_a_sweep:
@@ -299,7 +273,7 @@ def main() -> None:
     else:
         manifest["phases"]["stage_a_sweep"] = "skipped"
 
-    # 5) Shifts helper (Phase-4 hook; does not gate aggregation)
+    # 4) Shifts helper (Phase-4 hook; does not gate aggregation)
     if include_shifts:
         shifts_out = args.shifts_out_root.resolve()
         sh_cmd = [

@@ -47,7 +47,7 @@ _Generated date_: `2026-04-16`
 | Heteroscedastic noise (aleatoric UQ) | `GaussianCRPSLoss` | `GaussianNLLLoss`, `HeteroscedasticEnsembleModel`, `MDNLoss` | Astronomical benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline. |
 | Epistemic uncertainty | `DeepEnsemble` | `HeteroscedasticBatchEnsembleModel`, `BinnedPDFEnsembleModel`, `MDNEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
 | Low-shot / streaming linear head on fixed features | `BayesianLinearHead` | `RecursiveBayesianHead`, `WeightedMSELoss (ridge MAP, matched L2)` | Conjugate exact BLR for last-layer adaptation; synthetic RMSE/NLL and drift sweeps live under examples/benchmarks/. Prefer ensembles/SWAG/BNN when epistemic UQ must track representation-level ambiguity. |
-| Epistemic + aleatoric decomposition | `HeteroscedasticEnsembleModel` | `HeteroscedasticBNN`, `MDNLoss`, `NormalizingFlowLoss` | Requires variance/distribution modeling. |
+| Epistemic + aleatoric decomposition | `HeteroscedasticEnsembleModel` | `HeteroscedasticBNN`, `MDNEnsembleModel`, `HeteroscedasticBatchEnsembleModel` | Requires both model-disagreement and per-member variance/distribution modeling. |
 | Multimodal targets | `MDNLoss` | `MDNEnsembleModel`, `BinnedPDFEnsembleModel`, `NormalizingFlowLoss` | MDN is usually easier to debug first; ensembles of MDN or ordered-bin heads are the next move when mode averaging matters. |
 | Non-Gaussian / skewed tails | `QuantileLoss` / `ExpectileLoss` / `TweedieLoss` | `MDNLoss`, `NormalizingFlowLoss` | Choose by target support and evaluation metric. |
 | Multi-target correlated outputs | `MultivariateGaussianLoss` / `LowRankGaussianLoss` | `MDNLoss`, `NormalizingFlowLoss` | Prefer low-rank/full covariance when Gaussian is enough. |
@@ -96,7 +96,7 @@ _Generated date_: `2026-04-16`
 | `imbalanced_loss` (5) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
-| `mdn` (1) | yes | yes | yes | no | yes | yes | partial | partial | no | no |
+| `mdn` (1) | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `ordinal` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` (7) | yes | no | partial | no | yes | no | partial | partial | no | no |
@@ -179,7 +179,7 @@ _Generated date_: `2026-04-16`
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | yes | no | yes | partial | partial | partial | partial |
-| `MDNLoss` | `mdn` | `Available` | yes | yes | no | yes | yes | partial | partial |
+| `MDNLoss` | `mdn` | `Available` | yes | yes | no | yes | no | partial | partial |
 | `CORALLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `CumulativeLinkLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
@@ -228,7 +228,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `imbalanced_loss` | 5 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
-| `mdn` | 1 | yes | yes | yes | no | yes | yes | partial | partial | no | no |
+| `mdn` | 1 | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `ordinal` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` | 7 | yes | no | partial | no | yes | no | partial | partial | no | no |
@@ -314,7 +314,7 @@ _Generated date_: `2026-04-16`
 
 2. Need epistemic + aleatoric decomposition?
    Use `HeteroscedasticEnsembleModel`.
-   Alternatives: `HeteroscedasticBNN`, `MDNLoss`, `NormalizingFlowLoss (+ ensemble)`.
+   Alternatives: `HeteroscedasticBNN`, `MDNEnsembleModel`, `HeteroscedasticBatchEnsembleModel`.
    Caveat: Requires variance/distribution modeling and stronger compute budget.
 
 3. Need multimodal outputs?
@@ -355,4 +355,7 @@ Conformal prediction provides interval coverage guarantees.
 It does **not** separate epistemic and aleatoric uncertainty.
 
 Use conformal for calibrated intervals.
-Use heteroscedastic/ensemble/MDN/flow approaches when you need decomposition or richer predictive distributions.
+Use heteroscedastic ensemble-style approaches when you need explicit decomposition.
+Use MDN, flow, quantile, or binned-PDF heads when you need richer predictive
+distributions. See [Uncertainty Decomposition](uncertainty-decomposition.md)
+for the difference, including quantile ensembles.

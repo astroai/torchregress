@@ -45,12 +45,7 @@ atomic tranche roadmap.
   - Real-data comparison tracks now exist for ordinal, censored, uncertain-GT, and causal DR.
   - Synthetic tracks remain in place as CI-friendly baselines.
 
-### 2) Photo-z benchmark parity hardening (RAIL + NNC-CRPS track)
-- [x] Finalize manifest-backed dataset parity checks for paper-comparable runs.
-- [x] Ensure baseline ingestion covers core RAIL set (`flexzboost`, `pzflow`, `delight`, `bpz`; `lephare` optional).
-- [x] Publish one consolidated comparison report with runtime + quality metrics.
-
-### 3) Native-vs-custom closure (remaining API surfaces)
+### 2) Native-vs-custom closure (remaining API surfaces)
 - [x] Extend parity checks where overlap exists with `torchmetrics`/`torch.nn`.
 - [x] Confirm no accidental reinvention remains in high-traffic metrics/loss wrappers.
 - [x] Document intentional divergences with explicit tests.

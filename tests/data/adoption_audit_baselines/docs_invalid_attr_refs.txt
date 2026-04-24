@@ -8,7 +8,6 @@ docs/examples/index.md|losses|MSELoss|markdown_attr
 docs/examples/loss_comparison.md|losses|HuberLoss|markdown_attr
 docs/examples/loss_comparison.md|losses|L1Loss|markdown_attr
 docs/examples/loss_comparison.md|losses|MSELoss|markdown_attr
-docs/examples/photoz.md|losses|MSELoss|markdown_attr
 docs/guides/best-practices.md|losses|MSELoss|markdown_attr
 docs/guides/best-practices.md|metrics|gaussian_nll|markdown_attr
 docs/losses/advanced.md|losses|DeepARLoss|markdown_attr

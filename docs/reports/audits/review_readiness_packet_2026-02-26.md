@@ -57,7 +57,7 @@ _Generated date_: `2026-02-26`
 
 ## Remaining Evidence/External-Validity Gaps (from Comparative Evidence Matrix)
 
-- `Robust regression / outliers` (`Decision-grade`): Only one domain benchmark (photo-z) so far; needs broader domain coverage.
+- `Robust regression / outliers` (`Decision-grade`): Needs broader domain coverage beyond the current benchmark mix.
 - `Imbalanced / rare-target regression` (`Strong`): Needs more model-family comparisons beyond reweighting losses.
 - `Selection bias / long-tail with missing labels` (`Strong`): Needs real-data selection-bias benchmarks beyond synthetic generation.
 - `Output constraints + post-hoc calibration transforms` (`Strong`): Needs additional domain benchmarks beyond synthetic stress tests.

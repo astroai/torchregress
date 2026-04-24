@@ -24,7 +24,7 @@ This document defines the roadmap for making regression-under-shift a coherent p
 ## 2. Design principles
 
 ### 2.1 Keep `torchregress` model-agnostic
-`torchregress` should not own domain-specific photo-z architectures or dataset preparation logic. It should expose components that can operate on:
+`torchregress` should not own domain-specific architectures or dataset preparation logic. It should expose components that can operate on:
 
 - point predictors,
 - Gaussian heads,
@@ -357,7 +357,7 @@ Start with:
 
 This roadmap does **not** aim for:
 
-- domain-specific photo-z models,
+- domain-specific models,
 - dataset ingestion pipelines,
 - image backbone fine-tuning recipes,
 - one-off paper reproductions without reusable abstractions.
