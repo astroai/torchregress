@@ -212,6 +212,7 @@ def main() -> None:
     report = build_report(bundle_dir)
 
     out_json = args.output or (bundle_dir / "tabular_paper_bundle_report.json")
+    out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote {out_json}")
 

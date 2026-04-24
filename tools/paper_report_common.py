@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import random
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,16 @@ def _bootstrap_mean_ci(
     return means[lo_i], means[hi_i]
 
 
+def _finite_float(value: Any) -> float | None:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(out):
+        return None
+    return out
+
+
 def _multiseed_gap_bootstrap_table(
     seed_rows: list[dict[str, Any]],
     *,
@@ -46,10 +57,14 @@ def _multiseed_gap_bootstrap_table(
         benchmark = str(row.get("Benchmark", ""))
         if not benchmark:
             continue
+        sage_gap = _finite_float(row.get("SAGEMinusSupervised"))
+        conf_gap = _finite_float(row.get("ConfidenceMinusSupervised"))
+        if sage_gap is None or conf_gap is None:
+            continue
         if benchmark not in grouped:
             grouped[benchmark] = ([], [])
-        grouped[benchmark][0].append(float(row["SAGEMinusSupervised"]))
-        grouped[benchmark][1].append(float(row["ConfidenceMinusSupervised"]))
+        grouped[benchmark][0].append(sage_gap)
+        grouped[benchmark][1].append(conf_gap)
     rng = random.Random(rng_seed)
     out: list[dict[str, Any]] = []
     for benchmark in sorted(grouped.keys()):

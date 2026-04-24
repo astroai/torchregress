@@ -3,7 +3,33 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export TEXINPUTS="${ROOT}/papers/neurips_tex//:${TEXINPUTS:-}"
-paper="${1:?usage: compile_tex.sh neurips_sage_reg|neurips_spt_reg}"
+
+usage() {
+  echo "usage: ${0##*/} neurips_sage_reg|neurips_spt_reg" >&2
+}
+
+if [[ $# -ne 1 ]]; then
+  usage
+  exit 2
+fi
+
+paper="$1"
+case "${paper}" in
+  neurips_sage_reg|neurips_spt_reg) ;;
+  *)
+    usage
+    echo "error: unknown paper '${paper}'" >&2
+    exit 2
+    ;;
+esac
+
+for tool in pdflatex bibtex; do
+  if ! command -v "${tool}" >/dev/null 2>&1; then
+    echo "error: required TeX command not found on PATH: ${tool}" >&2
+    exit 127
+  fi
+done
+
 dir="${ROOT}/papers/${paper}"
 if [[ ! -f "${dir}/main.tex" ]]; then
   echo "missing ${dir}/main.tex" >&2

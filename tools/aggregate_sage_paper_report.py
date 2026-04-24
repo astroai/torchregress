@@ -236,6 +236,7 @@ def main() -> None:
     args = parser.parse_args()
     report = build_report(args.run_root)
     out = args.output or (args.run_root / "sage_paper_report.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote {out}")
     if args.write_markdown:

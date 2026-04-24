@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 import torchregress.test_time.transport as transport_mod
@@ -56,6 +57,34 @@ def test_predictive_batch_density_helpers_normalize() -> None:
     dense_sample_batch = sample_batch.with_density(n_support=64)
     assert dense_sample_batch.support is not None
     assert dense_sample_batch.density is not None
+
+
+def test_shift_factored_transport_config_rejects_invalid_method_parameters() -> None:
+    invalid_kwargs = [
+        {"n_support": 8},
+        {"support_margin": -0.1},
+        {"alpha": 0.0},
+        {"alpha": 1.0},
+        {"top_fraction": 0.0},
+        {"top_fraction": 1.1},
+        {"min_selection_count": 0},
+        {"local_consistency_k": 0},
+        {"prior_estimation_rows": 0},
+        {"prior_transport_strength": -0.1},
+        {"prior_transport_strength": 1.1},
+        {"prior_ratio_clip": 0.9},
+        {"prior_transport_min_selected_fraction": -0.1},
+        {"prior_transport_max_prior_tv": 1.1},
+        {"uncertainty_base_temperature": 0.0},
+        {"uncertainty_slope": -0.1},
+        {"uncertainty_base_temperature": 2.0, "uncertainty_max_temperature": 1.0},
+        {"uncertainty_clip_quantile": 0.5},
+        {"eps": 0.0},
+    ]
+
+    for kwargs in invalid_kwargs:
+        with pytest.raises(ValueError):
+            ShiftFactoredTransportConfig(**kwargs)
 
 
 def test_label_shift_adapter_estimates_and_corrects_target_prior() -> None:

@@ -140,6 +140,11 @@ def test_disagreement_to_weight_batch_zscore_and_top_k() -> None:
     assert torch.allclose(z_flat, torch.ones_like(z_flat), atol=1e-4)
 
     d = torch.tensor([0.0, 0.1, 0.9, 1.0], dtype=torch.float32)
+    z = disagreement_to_weight(d, 0.5, batch_relative_mode="zscore")
+    assert torch.all(z <= 1.0)
+    assert torch.all(z > 0.0)
+    assert float(z[0].item()) == 1.0
+
     top2 = disagreement_to_weight(d, 0.5, batch_trust_top_k=2)
     assert float(top2[2].item()) == 0.0
     assert float(top2[3].item()) == 0.0

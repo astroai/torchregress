@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 for a in "$@"; do
-  if [[ "${a}" == "--run-root" ]]; then
+  if [[ "${a}" == "--run-root" || "${a}" == --run-root=* ]]; then
     echo "error: ${0##*/} does not support --run-root (outputs would collide)." >&2
     echo "Run scripts/run_neurips_spt_reg_full.py and scripts/run_neurips_sage_reg_full.py separately with custom paths." >&2
     exit 2

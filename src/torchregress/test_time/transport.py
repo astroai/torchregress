@@ -390,6 +390,51 @@ class ShiftFactoredTransportConfig:
     gaussian_conformal_uses_native_interval: bool = True
     eps: float = 1.0e-8
 
+    def __post_init__(self) -> None:
+        if self.n_support < 16:
+            raise ValueError("n_support must be at least 16")
+        if self.support_margin < 0.0:
+            raise ValueError("support_margin must be non-negative")
+        if not 0.0 < self.alpha < 1.0:
+            raise ValueError("alpha must lie in (0, 1)")
+        if not 0.0 < self.top_fraction <= 1.0:
+            raise ValueError("top_fraction must lie in (0, 1]")
+        if self.min_selection_count < 1:
+            raise ValueError("min_selection_count must be positive")
+        if self.local_consistency_k < 1:
+            raise ValueError("local_consistency_k must be positive")
+        if self.prior_estimation_rows is not None and self.prior_estimation_rows < 1:
+            raise ValueError("prior_estimation_rows must be positive when set")
+        if not 0.0 <= self.prior_transport_strength <= 1.0:
+            raise ValueError("prior_transport_strength must lie in [0, 1]")
+        if self.prior_ratio_clip < 1.0:
+            raise ValueError("prior_ratio_clip must be at least 1")
+        if (
+            self.prior_transport_min_selected_fraction is not None
+            and self.prior_transport_min_selected_fraction < 0.0
+        ):
+            raise ValueError("prior_transport_min_selected_fraction must be non-negative")
+        if (
+            self.prior_transport_max_prior_tv is not None
+            and not 0.0 <= self.prior_transport_max_prior_tv <= 1.0
+        ):
+            raise ValueError("prior_transport_max_prior_tv must lie in [0, 1]")
+        if self.uncertainty_base_temperature <= 0.0:
+            raise ValueError("uncertainty_base_temperature must be positive")
+        if self.uncertainty_slope < 0.0:
+            raise ValueError("uncertainty_slope must be non-negative")
+        if self.uncertainty_max_temperature < self.uncertainty_base_temperature:
+            raise ValueError(
+                "uncertainty_max_temperature must be at least uncertainty_base_temperature"
+            )
+        if (
+            self.uncertainty_clip_quantile is not None
+            and not 0.0 <= self.uncertainty_clip_quantile < 0.5
+        ):
+            raise ValueError("uncertainty_clip_quantile must lie in [0, 0.5)")
+        if self.eps <= 0.0:
+            raise ValueError("eps must be positive")
+
 
 @dataclass(frozen=True)
 class ShiftFactoredTransportState:

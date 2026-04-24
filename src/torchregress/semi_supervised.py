@@ -63,6 +63,7 @@ def disagreement_to_weight(
         scale = centered.std(unbiased=False).clamp_min(eps)
         d = centered / scale
     weight = torch.exp(-d / tau)
+    weight = weight.clamp_max(1.0)
     if power != 1.0:
         weight = weight.pow(power)
     if batch_trust_top_k is not None:
