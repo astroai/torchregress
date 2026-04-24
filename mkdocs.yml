@@ -113,6 +113,7 @@ nav:
           - Method Selection: guides/method_selection_matrix.md
           - Choosing by Constraint: guides/choosing_by_constraint.md
       - Test-Time & Shift:
+          - Regression under shift roadmap: test_time/regression_shift_adaptation_roadmap.md
           - Bayesian linear regression (heads): test_time/bayesian_linear_regression.md
           - OT shift conformal (experimental): test_time/ot_shift_conformal.md
       - Mathematical Foundations: math/index.md
