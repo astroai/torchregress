@@ -38,28 +38,6 @@ def test_render_spt_reg_paper_artifacts_smoke(tmp_path: Path) -> None:
         assert "SPTRegBinnedPDF" in methods
 
 
-def test_render_spt_reg_paper_artifacts_can_include_photoz(tmp_path: Path) -> None:
-    report_path = tmp_path / "artifact_manifest_photoz.json"
-    report = render_spt_reg_paper_artifacts.run_render(
-        profile="smoke",
-        include_photoz=True,
-        output_dir=tmp_path,
-        report_path=report_path,
-    )
-
-    assert report["include_photoz"] is True
-    payload = json.loads(report_path.read_text(encoding="utf-8"))
-    summaries = payload["summaries"]
-    assert isinstance(summaries, dict)
-    assert set(summaries) == {"synthetic", "tabular_small", "tabular_large", "photoz"}
-    photoz_path = Path(str(summaries["photoz"]))
-    assert photoz_path.exists()
-    photoz_payload = json.loads(photoz_path.read_text(encoding="utf-8"))
-    methods = {row["Method"] for row in photoz_payload["rows"]}
-    assert "SPTRegGaussian" in methods
-    assert "SPTRegBinnedPDF" in methods
-
-
 def test_render_spt_reg_paper_artifacts_year_external_dataset(tmp_path: Path) -> None:
     """Large-tabular track uses real path when year_dataset_path is passed to run_render."""
     rng = np.random.default_rng(0)

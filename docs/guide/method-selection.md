@@ -44,7 +44,7 @@ _Generated date_: `2026-04-16`
 |---|---|---|---|
 | Clean regression baseline | `WeightedMSELoss` | `HuberLoss` | Start simple; add UQ only if needed. |
 | Outliers / robust regression | `HuberLoss` | `CauchyLoss`, `TukeyBiweightLoss`, `CharbonnierLoss` | Huber is the best default tradeoff. |
-| Heteroscedastic noise (aleatoric UQ) | `GaussianCRPSLoss` | `GaussianNLLLoss`, `HeteroscedasticEnsembleModel`, `MDNLoss` | Photo-z benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline. |
+| Heteroscedastic noise (aleatoric UQ) | `GaussianCRPSLoss` | `GaussianNLLLoss`, `HeteroscedasticEnsembleModel`, `MDNLoss` | Astronomical benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline. |
 | Epistemic uncertainty | `DeepEnsemble` | `HeteroscedasticBatchEnsembleModel`, `BinnedPDFEnsembleModel`, `MDNEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
 | Low-shot / streaming linear head on fixed features | `BayesianLinearHead` | `RecursiveBayesianHead`, `WeightedMSELoss (ridge MAP, matched L2)` | Conjugate exact BLR for last-layer adaptation; synthetic RMSE/NLL and drift sweeps live under examples/benchmarks/. Prefer ensembles/SWAG/BNN when epistemic UQ must track representation-level ambiguity. |
 | Epistemic + aleatoric decomposition | `HeteroscedasticEnsembleModel` | `HeteroscedasticBNN`, `MDNLoss`, `NormalizingFlowLoss` | Requires variance/distribution modeling. |
@@ -53,7 +53,7 @@ _Generated date_: `2026-04-16`
 | Multi-target correlated outputs | `MultivariateGaussianLoss` / `LowRankGaussianLoss` | `MDNLoss`, `NormalizingFlowLoss` | Prefer low-rank/full covariance when Gaussian is enough. |
 | Noisy features / measurement error | `InputNoiseMarginalizationLoss + GaussianCRPSLoss` / `MDNLoss` / `BinnedPDF` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. |
 | Noisy labels / label corruption | `HuberLoss` | `DeepEnsemble`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
-| Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal` | Photo-z benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. |
+| Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal` | Astronomical benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. |
 | Selection bias / covariate-dependent missing labels | `PropensityWeightedLoss` | `DensityWeightedLoss` | Estimate p(observed|x) and apply IPW to reduce selection bias. |
 | Output constraints / monotonicity | `BoundedHead` / `NonNegativeHead` / `NonCrossingSort` | `SimplexHead`, `SpectralNormWrapper` | Apply structural constraints in the head before post-hoc calibration. |
 | Post-hoc calibration transforms | `VarianceTemperatureScaler` | `IsotonicMeanCalibrator`, `PITCalibrator` | Fit transforms on a held-out calibration split. |
@@ -330,7 +330,7 @@ _Generated date_: `2026-04-16`
 5. Have imbalanced tails / rare targets?
    Use `GaussianCRPSLoss / QuantileLoss + tail-slice evaluation`.
    Alternatives: `DensityConformal`, `DensityWeightedLoss`, `LDSLoss`.
-   Caveat: Density-aware weighting is not yet a universally strong default on photo-z benchmarks.
+   Caveat: Density-aware weighting is not yet a universally strong default on astronomical benchmarks.
 
 6. Need OOD scoring / selective prediction under a latency budget?
    Use `DeepEnsemble + OOD metrics`.

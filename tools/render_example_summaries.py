@@ -1,23 +1,14 @@
-"""Generate machine-readable summary artifacts for comparison examples."""
-
 from __future__ import annotations
 
 import argparse
 import importlib
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    from tools import photoz_rail_compare
-except ModuleNotFoundError:  # pragma: no cover - script execution path
-    import photoz_rail_compare  # type: ignore[no-redef]
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "reports" / "example_summaries"
-DEFAULT_PHOTOZ_RAIL_MANIFEST = REPO_ROOT / "data" / "rail" / "rail_photoz_manifest.json"
 
 
 def _import_example_module(module_name: str) -> Any:
@@ -188,50 +179,6 @@ def _contrastive_flow_synth_config(module: Any, profile: str) -> Any:
     return module.ContrastiveFlowComparisonConfig()
 
 
-def _contrastive_flow_photoz_config(module: Any, profile: str) -> Any:
-    if profile == "smoke":
-        return module.ContrastivePhotoZProxyConfig(
-            n_train=64,
-            n_cal=24,
-            n_test=24,
-            batch_size=16,
-            epochs=2,
-            hidden=16,
-            flow_context_dim=8,
-            flow_transforms=2,
-            n_negatives=2,
-            n_train_experiments=48,
-            n_test_experiments=24,
-            catalog_size=24,
-            force_simulated=True,
-            allow_download=False,
-            sample_size_if_generate=256,
-        )
-    if profile == "audit":
-        return module.ContrastivePhotoZProxyConfig(
-            n_train=128,
-            n_cal=48,
-            n_test=48,
-            batch_size=32,
-            epochs=10,
-            hidden=32,
-            flow_context_dim=16,
-            flow_transforms=4,
-            n_negatives=4,
-            n_train_experiments=160,
-            n_test_experiments=64,
-            catalog_size=40,
-            force_simulated=True,
-            allow_download=False,
-            sample_size_if_generate=640,
-        )
-    return module.ContrastivePhotoZProxyConfig(
-        force_simulated=True,
-        allow_download=False,
-        sample_size_if_generate=1200,
-    )
-
-
 def _noisy_label_config(module: Any, profile: str) -> Any:
     if profile == "smoke":
         return module.NoisyLabelComparisonConfig(
@@ -274,139 +221,6 @@ def _noisy_label_realdata_config(module: Any, profile: str) -> Any:
             hidden=32,
         )
     return module.NoisyLabelRealDataConfig()
-
-
-def _photoz_benchmark_config(module: Any, profile: str) -> Any:
-    if profile == "smoke":
-        return module.PhotoZBenchmarkConfig(
-            n_train=64,
-            n_cal=24,
-            n_test=24,
-            batch_size=16,
-            epochs=1,
-            hidden=16,
-            sample_size_if_generate=256,
-            force_simulated=True,
-            allow_download=False,
-        )
-    if profile == "audit":
-        return module.PhotoZBenchmarkConfig(
-            n_train=192,
-            n_cal=64,
-            n_test=64,
-            batch_size=32,
-            epochs=8,
-            hidden=32,
-            sample_size_if_generate=800,
-            force_simulated=True,
-            allow_download=False,
-        )
-    return module.PhotoZBenchmarkConfig(
-        force_simulated=True,
-        allow_download=False,
-        sample_size_if_generate=1600,
-    )
-
-
-def _photoz_nnc_config(module: Any, profile: str) -> Any:
-    if profile == "smoke":
-        return module.PhotoZNNCConfig(
-            n_train=64,
-            n_cal=24,
-            n_test=24,
-            batch_size=16,
-            epochs=1,
-            hidden=16,
-            n_bins=24,
-            sample_size_if_generate=256,
-            force_simulated=True,
-            allow_download=False,
-            temperature_max_iter=50,
-        )
-    if profile == "audit":
-        return module.PhotoZNNCConfig(
-            n_train=192,
-            n_cal=64,
-            n_test=64,
-            batch_size=32,
-            epochs=8,
-            hidden=32,
-            n_bins=32,
-            sample_size_if_generate=800,
-            force_simulated=True,
-            allow_download=False,
-            temperature_max_iter=120,
-        )
-    return module.PhotoZNNCConfig(
-        force_simulated=True,
-        allow_download=False,
-        sample_size_if_generate=1600,
-        n_bins=48,
-    )
-
-
-def _ppi_photoz_config(module: Any, profile: str) -> Any:
-    if profile == "smoke":
-        return module.PPIPhotoZConfig(
-            n_labeled=64,
-            n_unlabeled=320,
-            n_boot=120,
-        )
-    if profile == "audit":
-        return module.PPIPhotoZConfig(
-            n_labeled=160,
-            n_unlabeled=1200,
-            n_boot=320,
-        )
-    return module.PPIPhotoZConfig(
-        n_labeled=256,
-        n_unlabeled=3000,
-        n_boot=600,
-    )
-
-
-def _photoz_transferz_conformal_config(module: Any, profile: str) -> Any:
-    if profile == "smoke":
-        return module.PhotoZTransferZConformalConfig(
-            n_train=64,
-            n_cal=24,
-            n_conformal=24,
-            n_test=24,
-            batch_size=16,
-            epochs=1,
-            hidden=16,
-            n_mc_samples=8,
-            n_bins=24,
-            sample_size_if_generate=256,
-            force_simulated=True,
-        )
-    if profile == "audit":
-        return module.PhotoZTransferZConformalConfig(
-            n_train=192,
-            n_cal=64,
-            n_conformal=64,
-            n_test=64,
-            batch_size=32,
-            epochs=6,
-            hidden=32,
-            n_mc_samples=16,
-            n_bins=32,
-            sample_size_if_generate=768,
-            force_simulated=True,
-        )
-    return module.PhotoZTransferZConformalConfig(
-        n_train=512,
-        n_cal=192,
-        n_conformal=192,
-        n_test=192,
-        batch_size=64,
-        epochs=8,
-        hidden=64,
-        n_mc_samples=24,
-        n_bins=40,
-        sample_size_if_generate=1600,
-        force_simulated=True,
-    )
 
 
 def _ordinal_comparison_config(module: Any, profile: str) -> Any:
@@ -680,10 +494,6 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
         "filename": "contrastive_flow_parameter_estimation_comparison",
         "config_factory": _contrastive_flow_synth_config,
     },
-    "contrastive_flow_photoz_proxy_comparison": {
-        "filename": "contrastive_flow_photoz_proxy_comparison",
-        "config_factory": _contrastive_flow_photoz_config,
-    },
     "noisy_label_comparison": {
         "filename": "noisy_label_comparison",
         "config_factory": _noisy_label_config,
@@ -691,22 +501,6 @@ EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "noisy_label_realdata_comparison": {
         "filename": "noisy_label_realdata_comparison",
         "config_factory": _noisy_label_realdata_config,
-    },
-    "photoz_benchmark_comparison": {
-        "filename": "photoz_benchmark_comparison",
-        "config_factory": _photoz_benchmark_config,
-    },
-    "photoz_nnc_crps_rail_comparison": {
-        "filename": "photoz_nnc_crps_rail_comparison",
-        "config_factory": _photoz_nnc_config,
-    },
-    "ppi_photoz_inference_comparison": {
-        "filename": "ppi_photoz_inference_comparison",
-        "config_factory": _ppi_photoz_config,
-    },
-    "photoz_transferz_conformal_comparison": {
-        "filename": "photoz_transferz_conformal_comparison",
-        "config_factory": _photoz_transferz_conformal_config,
     },
     "ordinal_regression_comparison": {
         "filename": "ordinal_regression_comparison",
@@ -786,10 +580,6 @@ def render_all(
     profile: str,
     output_dir: Path,
     examples: list[str] | None = None,
-    photoz_rail_inputs: list[Path] | None = None,
-    photoz_rail_manifest: Path | None = None,
-    photoz_rail_output: Path | None = None,
-    photoz_rail_paper_parity: bool = True,
 ) -> list[Path]:
     names = examples or list(EXAMPLE_SPECS.keys())
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -799,50 +589,7 @@ def render_all(
         print(f"Wrote {name} summary -> {path}")
         paths.append(path)
 
-    if photoz_rail_inputs:
-        manifest_path = photoz_rail_manifest or DEFAULT_PHOTOZ_RAIL_MANIFEST
-        tr_summary_path = output_dir / f"photoz_nnc_crps_rail_comparison_{profile}.json"
-        if not tr_summary_path.exists():
-            raise FileNotFoundError(
-                "RAIL merge requested but torchregress photo-z summary is missing: "
-                f"{tr_summary_path}. Include `photoz_nnc_crps_rail_comparison` in --examples "
-                "or render it first."
-            )
-        out_path = photoz_rail_output or (
-            output_dir / f"photoz_rail_baseline_comparison_{profile}.json"
-        )
-        merged_path = render_photoz_rail_merge(
-            manifest_path=manifest_path,
-            torchregress_summary_path=tr_summary_path,
-            rail_input_paths=photoz_rail_inputs,
-            output_path=out_path,
-            paper_parity=photoz_rail_paper_parity,
-        )
-        print(f"Wrote photo-z RAIL merged summary -> {merged_path}")
-        paths.append(merged_path)
     return paths
-
-
-def render_photoz_rail_merge(
-    *,
-    manifest_path: Path,
-    torchregress_summary_path: Path,
-    rail_input_paths: list[Path],
-    output_path: Path,
-    paper_parity: bool,
-) -> Path:
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    tr_summary = json.loads(torchregress_summary_path.read_text(encoding="utf-8"))
-    rail_payloads = [json.loads(path.read_text(encoding="utf-8")) for path in rail_input_paths]
-    merged = photoz_rail_compare.merge_summaries(
-        manifest=manifest,
-        torchregress_summary=tr_summary,
-        rail_payloads=rail_payloads,
-        paper_parity=paper_parity,
-    )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(merged, indent=2), encoding="utf-8")
-    return output_path
 
 
 def main() -> None:
@@ -867,41 +614,11 @@ def main() -> None:
         choices=sorted(EXAMPLE_SPECS.keys()),
         help="Optional subset of examples to render",
     )
-    parser.add_argument(
-        "--photoz-rail-inputs",
-        type=Path,
-        nargs="+",
-        help=(
-            "Optional RAIL payload JSON files. When set, also emits merged "
-            "photo-z comparison artifact."
-        ),
-    )
-    parser.add_argument(
-        "--photoz-rail-manifest",
-        type=Path,
-        default=DEFAULT_PHOTOZ_RAIL_MANIFEST,
-        help="Manifest used for paper-parity checks during RAIL merge.",
-    )
-    parser.add_argument(
-        "--photoz-rail-output",
-        type=Path,
-        default=None,
-        help="Optional explicit output path for merged photo-z RAIL artifact.",
-    )
-    parser.add_argument(
-        "--no-photoz-rail-parity",
-        action="store_true",
-        help="Disable strict manifest parity checks for the optional RAIL merge.",
-    )
     args = parser.parse_args()
     render_all(
         profile=args.profile,
         output_dir=args.output_dir,
         examples=args.examples,
-        photoz_rail_inputs=args.photoz_rail_inputs,
-        photoz_rail_manifest=args.photoz_rail_manifest,
-        photoz_rail_output=args.photoz_rail_output,
-        photoz_rail_paper_parity=not args.no_photoz_rail_parity,
     )
 
 

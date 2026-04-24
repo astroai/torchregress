@@ -38,8 +38,8 @@
         "WeightedMSELoss",
         "WeightedHuberLoss"
       ],
-      "gaps": "Only one domain benchmark (photo-z) so far; needs broader domain coverage.",
-      "notes": "Photo-z benchmark adds SDSS-style domain metrics (NMAD, catastrophic outlier rate, high-z MAE) and robust/probabilistic/EIV comparisons under shared budgets; RAIL baseline merge support is available via tools/photoz_rail_compare.py."
+      "gaps": "Only one domain benchmark (astronomical) so far; needs broader domain coverage.",
+      "notes": "Astronomical benchmark adds SDSS-style domain metrics (NMAD, catastrophic outlier rate, high-z MAE) and robust/probabilistic/EIV comparisons under shared budgets; results are available in the reports directory."
     },
     {
       "task": "Imbalanced / rare-target regression",
@@ -271,7 +271,7 @@
         "BayesianNeuralNetwork"
       ],
       "gaps": "Coverage evidence now spans ensemble/SWAG/BNN base models; still needs multi-domain real-data calibration benchmarks under stronger shift.",
-      "notes": "Photo-z benchmark adds domain-realistic coverage/width evaluation for Gaussian and quantile intervals alongside photo-z metrics; OOD/selective comparisons now include split-conformal interval diagnostics across DeepEnsemble/MCDropout/SWAG/BNN. Ordered-bin NNC-CRPS-style comparisons are available in examples/photoz_nnc_crps_rail_comparison.py."
+      "notes": "Astronomical benchmark adds domain-realistic coverage/width evaluation for Gaussian and quantile intervals alongside astronomical benchmarks; OOD/selective comparisons now include split-conformal interval diagnostics across DeepEnsemble/MCDropout/SWAG/BNN."
     },
     {
       "task": "Population/parameter inference (few labels)",
@@ -434,8 +434,8 @@
         "OrthogonalDistanceRegressionLoss",
         "EnsembleEIVLoss"
       ],
-      "gaps": "Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one photo-z domain benchmark) for stronger external validity.",
-      "notes": "EIV comparisons now include synthetic and real-data (Diabetes with synthetic measurement-error injection) tracks, plus a photo-z benchmark with SDSS-style feature errors."
+      "gaps": "Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one astronomical domain benchmark) for stronger external validity.",
+      "notes": "EIV comparisons now include synthetic and real-data (Diabetes with synthetic measurement-error injection) tracks, plus an astronomical benchmark with SDSS-style feature errors."
     },
     {
       "task": "Noisy labels / corruption",

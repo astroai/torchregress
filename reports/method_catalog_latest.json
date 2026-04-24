@@ -99,7 +99,7 @@
       "ood_support": "partial",
       "imbalance": "yes",
       "noisy_features_eiv": "no",
-      "notes": "Research/Advanced method. Validate calibration after reweighting; photo-z benchmarks currently show this is highly data- and protocol-sensitive. Not recommended as a default."
+      "notes": "Research/Advanced method. Validate calibration after reweighting; astronomical benchmarks currently show this is highly data- and protocol-sensitive. Not recommended as a default."
     },
     {
       "name": "PropensityWeightedLoss",

@@ -93,7 +93,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         calibration="partial",
         notes=(
             "Research/Advanced method. Validate calibration after reweighting; "
-            "photo-z benchmarks currently show this is highly data- and "
+            "astronomical benchmarks currently show this is highly data- and "
             "protocol-sensitive. Not recommended as a default."
         ),
     ),
@@ -875,7 +875,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         recommended_start="GaussianCRPSLoss",
         strong_alternatives=("GaussianNLLLoss", "HeteroscedasticEnsembleModel", "MDNLoss"),
         notes=(
-            "Photo-z benchmarks favor CRPS-trained Gaussian heads as the safest "
+            "Astronomical benchmarks favor CRPS-trained Gaussian heads as the safest "
             "calibrated Gaussian baseline."
         ),
     ),
@@ -959,7 +959,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
         recommended_start="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
         strong_alternatives=("DensityConformal",),
         notes=(
-            "Photo-z benchmarks do not justify density weighting as default. "
+            "Astronomical benchmarks do not justify density weighting as default. "
             "Advanced research methods (DensityWeightedLoss, LDSLoss) should "
             "only be tried if coverage/calibration allow for tail gains."
         ),
@@ -1106,7 +1106,8 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         primary_recommendation="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
         alternatives=("DensityConformal", "DensityWeightedLoss", "LDSLoss"),
         caveat=(
-            "Density-aware weighting is not yet a universally strong default on photo-z benchmarks."
+            "Density-aware weighting is not yet a universally strong default "
+            "on astronomical benchmarks."
         ),
     ),
     DecisionWorkflowStep(
@@ -1159,11 +1160,11 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         ),
         metrics_coverage=("MSE", "MAE", "R2", "NMAD", "catastrophic outlier rate", "runtime"),
         peer_methods_visible=("HuberLoss", "CauchyLoss", "WeightedMSELoss", "WeightedHuberLoss"),
-        gaps="Only one domain benchmark (photo-z) so far; needs broader domain coverage.",
+        gaps="Only one domain benchmark (astronomical) so far; needs broader domain coverage.",
         notes=(
-            "Photo-z benchmark adds SDSS-style domain metrics (NMAD, catastrophic outlier rate, "
-            "high-z MAE) and robust/probabilistic/EIV comparisons under shared budgets; "
-            "RAIL baseline merge support is available via tools/photoz_rail_compare.py."
+            "Astronomical benchmark adds SDSS-style domain metrics (NMAD, "
+            "catastrophic outlier rate, high-z MAE) and robust/probabilistic/EIV "
+            "comparisons under shared budgets; results are available in the reports directory."
         ),
     ),
     ComparativeEvidenceRow(
@@ -1368,11 +1369,10 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "multi-domain real-data calibration benchmarks under stronger shift."
         ),
         notes=(
-            "Photo-z benchmark adds domain-realistic coverage/width evaluation for Gaussian and "
-            "quantile intervals alongside photo-z metrics; OOD/selective comparisons now include "
-            "split-conformal interval diagnostics across DeepEnsemble/MCDropout/SWAG/BNN. "
-            "Ordered-bin NNC-CRPS-style comparisons are available in "
-            "examples/photoz_nnc_crps_rail_comparison.py."
+            "Astronomical benchmark adds domain-realistic coverage/width evaluation for "
+            "Gaussian and quantile intervals alongside astronomical benchmarks; "
+            "OOD/selective comparisons now include split-conformal interval diagnostics "
+            "across DeepEnsemble/MCDropout/SWAG/BNN."
         ),
     ),
     ComparativeEvidenceRow(
@@ -1524,12 +1524,12 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         ),
         gaps=(
             "Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and "
-            "one photo-z domain benchmark) for stronger "
+            "one astronomical domain benchmark) for stronger "
             "external validity."
         ),
         notes=(
             "EIV comparisons now include synthetic and real-data (Diabetes with synthetic "
-            "measurement-error injection) tracks, plus a photo-z benchmark with SDSS-style "
+            "measurement-error injection) tracks, plus an astronomical benchmark with SDSS-style "
             "feature errors."
         ),
     ),
