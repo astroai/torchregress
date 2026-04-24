@@ -506,7 +506,7 @@ Use:
 
 Add a new guide page such as:
 
-* `docs/guides/modern_heteroscedastic_regression.md`
+* `docs/guide/modern_heteroscedastic_regression.md` after the guide is promoted from research notes
 
 It should explain:
 

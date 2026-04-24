@@ -65,8 +65,6 @@ Computes the Gaussian negative log-likelihood for an ensemble's predictions.
 - `means` (torch.Tensor or np.ndarray): The predicted means of the ensemble members.
 - `variances` (torch.Tensor or np.ndarray): The predicted aleatoric variances of the ensemble members.
 - `y_true` (torch.Tensor or np.ndarray): The ground truth values.
-- `dim` (int, optional): The dimension to aggregate over. Defaults to `0`.
-- `reduction` (str, optional): The reduction to apply to the output. Can be one of `'none'`, `'mean'`, or `'sum'`. Defaults to `'mean'`.
 
 **Returns:**
 

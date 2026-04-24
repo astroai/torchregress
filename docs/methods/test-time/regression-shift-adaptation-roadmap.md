@@ -311,10 +311,9 @@ Method-selection docs reflect benchmark evidence rather than method novelty.
 ## 7. Proposed file/API additions
 
 ### Docs
-- `docs/test_time/regression_shift_adaptation_roadmap.md` ← this file
-- `docs/guides/regression_under_shift.md`
-- `docs/examples/regression_shift_adaptation.md`
-- `docs/examples/imbalanced_regression_fds.md` (after FDS lands)
+- Keep this roadmap under `docs/methods/test-time/` while it summarizes implemented test-time APIs.
+- Keep future shift-adaptation designs under `docs/research/plans/` until the corresponding code and runnable examples exist.
+- Add public example pages under `docs/examples/` only when they are backed by runnable `examples/` scripts.
 
 ### Code
 Possible additions:

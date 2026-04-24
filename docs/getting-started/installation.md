@@ -1,6 +1,6 @@
 # Installation
 
-torchregress can be installed from PyPI or directly from the source code. The library requires Python 3.10 or newer and PyTorch.
+torchregress can be installed from PyPI or directly from the source code. The library requires Python 3.12 to <3.16 and PyTorch 2.4 or newer.
 
 ## From PyPI
 
@@ -24,8 +24,23 @@ pip install 'torchregress[dev]'
 # For documentation
 pip install 'torchregress[docs]'
 
-# For conformal prediction (torchcp + dependencies)
+# Compatibility extra for conformal workflows
 pip install 'torchregress[conformal]'
+
+# For normalizing-flow losses
+pip install 'torchregress[flows]'
+
+# For CANFAR Science Platform launch helpers
+pip install 'torchregress[canfar]'
+
+# For CLAUDS data tooling
+pip install 'torchregress[clauds]'
+
+# For TabReD data tooling
+pip install 'torchregress[tabred]'
+
+# For foundation-model experiments
+pip install 'torchregress[foundation-models]'
 
 # For all optional dependencies
 pip install 'torchregress[all]'
@@ -47,21 +62,29 @@ torchregress has the following dependencies:
 
 ### Core Dependencies
 
-- Python >= 3.10
-- PyTorch
-- NumPy
+- Python >= 3.12, < 3.16
+- PyTorch >= 2.4.0
+- NumPy >= 2.0.0
+- matplotlib >= 3.8.0
+- pandas >= 2.2.0
+- torchmetrics >= 1.4.0
+- scikit-learn >= 1.5.0
+- scipy >= 1.11.0
+- tqdm >= 4.66.0
 
 ### Optional Dependencies
 
 Testing:
-- pytest >= 7.0.0
-- pytest-cov >= 4.0.0
+- pytest >= 8.0.0
+- pytest-cov >= 5.0.0
+- polars >= 0.20.0
+- pyarrow >= 18.0.0
+- PyYAML >= 6.0.0
 
 Development:
 - black
 - ruff
 - mypy
-- pre-commit
 
 Documentation:
 - mkdocs
@@ -69,11 +92,14 @@ Documentation:
 - mkdocstrings[python]
 - pymdown-extensions
 
-Conformal prediction:
-- torchcp
-- torchsort
-- torch-geometric
-- transformers
+Normalizing flows:
+- zuko >= 1.6.0
+
+Science/data tooling extras:
+- `canfar`: CANFAR Science Platform launcher dependencies
+- `clauds`: CLAUDS data tooling dependencies
+- `tabred`: TabReD data tooling dependencies
+- `foundation-models`: TabPFN-backed experiment dependencies
 
 ## Verifying Installation
 

@@ -44,9 +44,9 @@ _Generated date_: `2026-02-26`
 
 ## Review Focus Files
 
-- `docs/audits/adoption_readiness_2026-02-25.md`
-- `docs/guides/method_selection_matrix.md`
-- `docs/guides/comparative_evidence_matrix.md`
+- `docs/reports/audits/adoption_readiness_2026-02-25.md`
+- `docs/guide/method-selection.md`
+- `docs/reports/comparative_evidence_matrix.md`
 - `reports/native_pytorch_leverage_matrix_2026-02-26.json`
 - `tests/test_native_parity.py`
 - `tests/test_loss_forward_signature_contracts.py`

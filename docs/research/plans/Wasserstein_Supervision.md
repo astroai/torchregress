@@ -388,7 +388,7 @@ Add docs:
 
 * `docs/losses/gaussian_wasserstein.md`
 * `docs/algorithms/covariance_pseudo_labels.md`
-* `docs/examples/self_supervised_covariance_regression.md`
+* Future runnable example page, promoted to `docs/examples/` only after a matching `examples/` script exists.
 
 Update method-selection docs if the method proves good enough.
 

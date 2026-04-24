@@ -11,9 +11,8 @@ Metrics for evaluating point predictions (without uncertainty):
 - **Mean Squared Error (MSE)**: Average squared difference
 - **Root Mean Squared Error (RMSE)**: Square root of MSE
 - **Mean Absolute Error (MAE)**: Average absolute difference
-- **Mean Absolute Percentage Error (MAPE)**: Percentage-based error
 - **R²**: Coefficient of determination
-- **Adjusted R²**: R² adjusted for model complexity
+- **Robust diagnostics**: median absolute error, Huber loss, trimmed MSE, tail MAE/RMSE
 
 [Learn more about point metrics →](point.md)
 
@@ -56,7 +55,6 @@ Metrics for evaluating prediction intervals:
 - **Prediction Interval Coverage Probability (PICP)**: Fraction of true values within the interval
 - **Mean Prediction Interval Width (MPIW)**: Average width of prediction intervals
 - **Interval Score**: Combined measure of interval width and coverage
-- **Normalized Interval Score**: Interval score normalized for comparison
 
 [Learn more about interval metrics →](interval.md)
 
@@ -65,20 +63,20 @@ Metrics for evaluating prediction intervals:
 Metrics for evaluating model calibration:
 
 - **Expected Calibration Error (ECE)**: Average calibration error across bins
-- **Maximum Calibration Error (MCE)**: Maximum calibration error across bins
-- **Sharpness**: Measure of prediction confidence
-- **Calibration Curve Statistics**: Metrics derived from reliability diagrams
+- **Marginal Calibration Error (MCE)**: Predictive marginal CDF mismatch
+- **Calibration Score**: Gaussian predictive quantile calibration summary
+- **Bias**: Mean prediction bias
 
 [Learn more about calibration metrics →](calibration.md)
 
 ### Out-of-Distribution Detection Metrics
 
-Metrics for evaluating OOD detection performance:
+Scores for flagging potential OOD or shifted samples:
 
-- **AUROC**: Area under the ROC curve for OOD detection
-- **AUPR**: Area under the precision-recall curve
-- **FPR at 95% TPR**: False positive rate at 95% true positive rate
-- **Detection Error**: Minimum misclassification probability
+- **Mahalanobis Distance**: Distance from reference feature statistics
+- **Typicality Score**: Predictive-distribution typicality
+- **Entropy Score**: Predictive-sample entropy
+- **Kernel Density Score**: Similarity to a reference sample
 
 [Learn more about OOD metrics →](ood.md)
 
@@ -86,8 +84,8 @@ Metrics for evaluating OOD detection performance:
 
 Metrics for evaluating ensemble models:
 
-- **Ensemble Variance**: Measures the disagreement among ensemble members.
-- **Ensemble Kurtosis**: Measures the "tailedness" of the ensemble predictions.
+- **Ensemble Statistics**: Mean, standard deviation, and variance across members.
+- **Uncertainty Decomposition**: Epistemic, aleatoric, and total uncertainty for heteroscedastic ensembles.
 
 [Learn more about ensemble metrics →](ensemble.md)
 
@@ -95,7 +93,8 @@ Metrics for evaluating ensemble models:
 
 Metrics for evaluating multivariate regression models:
 
-- **Multivariate NLL**: Negative log-likelihood for multivariate distributions.
+- **Multivariate RMSE**: Vector-output root mean squared error.
+- **Multivariate MAE**: Vector-output mean absolute error.
 
 [Learn more about multivariate metrics →](multivariate.md)
 
@@ -104,9 +103,9 @@ Metrics for evaluating multivariate regression models:
 | If you need to evaluate... | Consider using... |
 |---------------------------|-------------------|
 | Point prediction accuracy | `rmse`, `mae`, `r2_score` |
-| Prediction intervals | `picp`, `mpiw`, `interval_score` |
-| Full predictive distributions | `nll`, `crps` |
-| Model calibration | `expected_calibration_error`, `calibration_curve` |
-| OOD detection capability | `auroc_ood`, `fpr_at_tpr` |
+| Prediction intervals | `prediction_interval_coverage_probability`, `MeanPredictionIntervalWidth`, `interval_score` |
+| Full predictive distributions | `gaussian_nll`, `crps_gaussian`, `energy_score` |
+| Model calibration | `expected_calibration_error`, `marginal_calibration_error`, `calibration_score` |
+| OOD scoring | `mahalanobis_distance`, `typicality_score`, `entropy_score`, `kernel_density_score` |
 
 For detailed guidance on metric selection and interpretation, see the [practical usage guide](../guide/practical-usage.md).

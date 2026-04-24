@@ -114,16 +114,16 @@ jobs:
       - name: Render method catalog and comparative evidence
         run: |
           uv run python tools/render_method_catalog.py \
-            --markdown-out docs/guides/method_catalog_generated.md \
+            --markdown-out docs/reports/method_catalog_generated.md \
             --json-out reports/method_catalog_latest.json \
-            --update-method-matrix docs/guides/method_selection_matrix.md \
-            --comparative-evidence-md-out docs/guides/comparative_evidence_matrix.md \
+            --update-method-matrix docs/guide/method-selection.md \
+            --comparative-evidence-md-out docs/reports/comparative_evidence_matrix.md \
             --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
 
       - name: Render real-data recommendation guide
         run: |
           uv run python -m tools.render_realdata_recommendation_guide \
-            --doc docs/guides/real_data_recommendation_guide.md \
+            --doc docs/reports/real_data_recommendation_guide.md \
             --comparative-json reports/comparative_evidence_matrix_latest.json
 
       - name: Run adoption audit and render review packet
@@ -143,9 +143,9 @@ jobs:
             reports/*.md
             reports/example_summaries/*.json
             reports/example_summaries/*.md
-            docs/guides/comparative_evidence_matrix.md
-            docs/guides/method_selection_matrix.md
-            docs/guides/method_catalog_generated.md
-            docs/guides/real_data_recommendation_guide.md
-            docs/audits/review_readiness_packet_*.md
+            docs/reports/comparative_evidence_matrix.md
+            docs/guide/method-selection.md
+            docs/reports/method_catalog_generated.md
+            docs/reports/real_data_recommendation_guide.md
+            docs/reports/audits/review_readiness_packet_*.md
           if-no-files-found: warn

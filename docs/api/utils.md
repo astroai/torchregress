@@ -1,3 +1,9 @@
+# Utilities API
+
+::: torchregress.utils
+    options:
+      show_root_heading: true
+      show_source: true
 # Utility Functions API Reference
 
 This page provides a complete API reference for all utility functions in torchregress.

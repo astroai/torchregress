@@ -1,5 +1,20 @@
 # API Reference
 
+The API reference is generated from the installed `torchregress` package.
+
+- [Losses](losses.md)
+- [Ensemble](ensemble.md)
+- [Conformal](conformal.md)
+- [Algorithms](algorithms.md)
+- [Metrics](metrics.md)
+- [Calibration](calibration.md)
+- [Constraints](constraints.md)
+- [Inference](inference.md)
+- [Causal](causal.md)
+- [Visualization](viz.md)
+- [Utilities](utils.md)
+# API Reference
+
 This section contains detailed documentation for the torchregress API.
 
 ## Package Structure

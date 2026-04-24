@@ -31,9 +31,9 @@
 graph TB
     subgraph torchregress
         direction TB
-        L["<b>Losses</b><br/>60+ functions<br/><i>Gaussian · Robust · Quantile<br/>MDN · Flows · EIV · Ordinal</i>"]
+        L["<b>Losses</b><br/>PyTorch-style objectives<br/><i>Gaussian · Robust · Quantile<br/>MDN · Flows · EIV · Ordinal</i>"]
         M["<b>Methods</b><br/>Ensemble · Conformal<br/>Algorithms · Calibration<br/>Causal · Constraints"]
-        Met["<b>Metrics</b><br/>50+ metrics<br/><i>Point · Distribution · Interval<br/>Calibration · OOD · Ensemble</i>"]
+        Met["<b>Metrics</b><br/>Regression evaluation<br/><i>Point · Distribution · Interval<br/>Calibration · OOD · Ensemble</i>"]
     end
     D["Your Data"] --> L
     L --> M
@@ -49,7 +49,7 @@ graph TB
 
 -   :material-chart-bell-curve-cumulative: __Probabilistic Losses__
 
-    60+ loss functions from basic MSE to normalizing flows.
+    PyTorch-style loss functions from weighted MSE to normalizing flows.
 
     [:octicons-arrow-right-24: Losses Catalogue](losses/index.md)
 
@@ -81,7 +81,7 @@ graph TB
 pip install torchregress
 ```
 
-*Requires PyTorch 2.0+ and Python 3.10+.*
+*Requires PyTorch 2.4+ and Python 3.12 to <3.16.*
 
 ---
 

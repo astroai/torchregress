@@ -7,7 +7,10 @@ Interval metrics evaluate the quality of prediction intervals, focusing on cover
 Evaluates prediction intervals by rewarding narrow intervals and penalizing when observations fall outside the interval.
 
 ```python
-from torchregress.metrics.interval import interval_score
+from torchregress.metrics.interval import (
+    interval_score,
+    prediction_interval_coverage_probability,
+)
 
 # lower_bound and upper_bound typically represent a 90% prediction interval
 score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1)
@@ -39,7 +42,8 @@ picp_detailed = prediction_interval_coverage_probability(
 print(f"PICP: {picp_detailed['picp']}")
 print(f"Coverage error: {picp_detailed['coverage_error']}")
 print(f"Mean Prediction Interval Width: {picp_detailed['mpiw']}")
-print(f"Normalized MPIW: {picp_detailed['nmpiw']}")
+print(f"Lower miss rate: {picp_detailed['miss_rate_low']}")
+print(f"Upper miss rate: {picp_detailed['miss_rate_high']}")
 ```
 
 ## Mean Prediction Interval Width (MPIW)
@@ -77,9 +81,9 @@ predictions = {
 report = interval_metrics_report(predictions, y_true, alpha=0.1)
 
 # Access results for specific models
-model1_coverage = report['model1']['mean_coverage']
+model1_coverage = report['model1']['picp']
 model2_interval_score = report['model2']['score']
-model3_interval_width = report['model3']['mean_width']
+model3_interval_width = report['model3']['mpiw']
 ```
 
 ## Advanced Usage
@@ -94,9 +98,10 @@ from torchregress.metrics.interval import interval_score
 detailed_score = interval_score(lower_bound, upper_bound, y_true, 
                                alpha=0.1, reduction="full")
 
-# Check for asymmetric errors
-below_penalty = detailed_score['penalty_below']
-above_penalty = detailed_score['penalty_above']
-asymmetry_ratio = below_penalty / above_penalty if above_penalty > 0 else float('inf')
-print(f"Asymmetry ratio: {asymmetry_ratio}")
+# Compare low-side and high-side misses with coverage diagnostics
+coverage = prediction_interval_coverage_probability(
+    lower_bound, upper_bound, y_true, alpha=0.1, return_diagnostics=True
+)
+print(f"Lower miss rate: {coverage['miss_rate_low']}")
+print(f"Upper miss rate: {coverage['miss_rate_high']}")
 ```

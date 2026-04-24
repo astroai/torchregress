@@ -1,7 +1,7 @@
 # Draft plans
 
 Long-form design notes that are **not** committed API or documentation contracts.
-Promote content into `docs/guides/`, ADRs, or issues when a direction is adopted.
+Promote content into `docs/guide/`, ADRs, or issues when a direction is adopted.
 
 ## Method catalog and governance refresh (batched)
 

@@ -16,7 +16,7 @@ Welcome to **torchregress** — a PyTorch library for regression with built-in u
 === ":fontawesome-solid-flask: Experienced practitioner"
 
     1. [Method Selection Matrix](../guide/method-selection.md) — find the right loss for your problem
-    2. [Losses Catalogue](../losses/index.md) — browse all 60+ loss functions
+    2. [Losses Catalogue](../losses/index.md) — browse the implemented loss families
     3. [Examples](../examples/index.md) — runnable comparison scripts
     4. [API Reference](../api/index.md) — complete signatures
 

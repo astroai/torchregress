@@ -59,6 +59,6 @@ _Generated date_: `2026-04-24`
 
 ```bash
 uv run python -m tools.render_realdata_recommendation_guide \
-  --doc docs/guides/real_data_recommendation_guide.md \
+  --doc docs/reports/real_data_recommendation_guide.md \
   --comparative-json reports/comparative_evidence_matrix_latest.json
 ```

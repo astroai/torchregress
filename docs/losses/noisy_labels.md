@@ -6,8 +6,8 @@ When target labels contain measurement noise, annotation errors, or systematic c
 
 ## Approaches in torchregress
 
-!!! info "No dedicated noisy-label loss"
-    torchregress does not provide separate `NoiseAdaptiveLoss` or `CoTeachingLoss` classes.  Instead, label noise is handled through **composable building blocks** already in the library.
+!!! info "No dedicated noisy-label meta-loss"
+    torchregress handles label noise through **composable building blocks** already in the library: robust losses, tail-focused objectives, uncertain-target likelihoods, reweighting, and ensembles.
 
 ### 1. Robust Losses
 

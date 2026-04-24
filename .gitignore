@@ -81,7 +81,6 @@ lightning_logs/
 # Generated docs
 site/
 docs/_build/
-docs/api/
 
 # Local datasets and experiment outputs
 data/
