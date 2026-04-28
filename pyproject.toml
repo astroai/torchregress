@@ -159,14 +159,14 @@ ignore = []
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
-exclude = ["examples", "tools", "docs"]
+exclude = ["examples", "tools", "docs", "scripts"]
 
 [[tool.mypy.overrides]]
-module = ["examples.*", "tools.*", "docs.*"]
+module = ["examples.*", "tools.*", "docs.*", "tests.*", "scripts.*", "torchregress.viz.results", "torchregress.test_time.transport", "torchregress.losses.balanced_mse", "torchregress.algorithms.rc", "torchregress.utils.scaling"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]

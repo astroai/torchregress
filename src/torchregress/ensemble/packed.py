@@ -119,6 +119,8 @@ class PackedEnsembleRegressor(nn.Module):
     torch.Size([8, 1])
     """
 
+    _model: Union[HeteroscedasticBatchEnsembleModel, MeanOnlyBatchEnsembleModel]
+
     def __init__(
         self,
         backbone: nn.Module,

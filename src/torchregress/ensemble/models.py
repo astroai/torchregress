@@ -324,6 +324,8 @@ class RandomPartitionEnsembleModel(BaseEnsembleModel):
     bin edges.
     """
 
+    _evaluation_bin_edges: torch.Tensor
+
     def __init__(
         self,
         base_model: Union[nn.Module, type],

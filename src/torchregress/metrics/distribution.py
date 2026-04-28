@@ -450,7 +450,7 @@ def _pit_from_quantiles(
                 else torch.tensor(1.0, device=qvals.device, dtype=qvals.dtype)
             )
             continue
-        upper_idx = torch.searchsorted(qvals, y_val, right=False).item()
+        upper_idx = int(torch.searchsorted(qvals, y_val, right=False).item())
         lower_idx = max(0, upper_idx - 1)
         q0 = qvals[lower_idx]
         q1 = qvals[upper_idx]

@@ -110,7 +110,7 @@ def ordinal_predict(
             if y_pred.shape[-1] != num_classes - 1:
                 raise ValueError(
                     f"num_classes={num_classes} does not match input shape {y_pred.shape} "
-                    f"for cumulative encoding (expected {num_classes-1} columns)"
+                    f"for cumulative encoding (expected {num_classes - 1} columns)"
                 )
         else:
             if y_pred.shape[-1] != num_classes:

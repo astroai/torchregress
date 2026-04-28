@@ -110,7 +110,7 @@ def main() -> int:
     if args.dry_run:
         print("\nDry-run only. Re-run without --dry-run to delete.", flush=True)
     else:
-        print(f"\nRemoved {removed} file(s), ~{bytes_freed / (1024 ** 3):.2f} GiB.", flush=True)
+        print(f"\nRemoved {removed} file(s), ~{bytes_freed / (1024**3):.2f} GiB.", flush=True)
     return 0
 
 

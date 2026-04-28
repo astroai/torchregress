@@ -19,7 +19,7 @@ def arc_run_root_from_args(
 ) -> str:
     if arc_run_root_override.strip():
         return arc_run_root_override.rstrip("/")
-    return f"{arc_project_root.rstrip('/')}/" f"{arc_runs_subdir.strip('/')}/{run_id}"
+    return f"{arc_project_root.rstrip('/')}/{arc_runs_subdir.strip('/')}/{run_id}"
 
 
 def headless_bash_invocation(*, torchregress_repo: str) -> tuple[str, str]:

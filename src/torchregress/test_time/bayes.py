@@ -50,20 +50,27 @@ class BayesianLinearHead(nn.Module):
     """
     Batch conjugate Gaussian linear regression on fixed features.
 
-    Posterior precision :math:`\\Lambda` and canonical :math:`h = \\Lambda m` satisfy
-    :math:`\\Lambda = \\Lambda_0 + \\sigma^{-2}\\Phi^\\top W \\Phi` and
-    :math:`h = h_0 + \\sigma^{-2}\\Phi^\\top (W y)` after ``fit``.
+    Posterior precision :math:`\Lambda` and canonical :math:`h = \Lambda m` satisfy
+    :math:`\Lambda = \Lambda_0 + \sigma^{-2}\Phi^\top W \Phi` and
+    :math:`h = h_0 + \sigma^{-2}\Phi^\top (W y)` after ``fit``.
 
     Args:
         in_features: Input dimension before optional intercept column.
         out_features: Independent scalar outputs (separate :math:`h` rows).
         fit_intercept: Append a column of ones.
         prior_mean: Scalar broadcast or vector of length ``d_eff``.
-        prior_precision: Diagonal prior precision :math:`\\tau` with
-            :math:`\\Lambda_0=\\tau I`.
-        noise_variance: Homoscedastic :math:`\\sigma^2`.
-        jitter: Diagonal jitter on :math:`\\Lambda` before Cholesky solves.
+        prior_precision: Diagonal prior precision :math:`\tau` with
+            :math:`\Lambda_0=\tau I`.
+        noise_variance: Homoscedastic :math:`\sigma^2`.
+        jitter: Diagonal jitter on :math:`\Lambda` before Cholesky solves.
     """
+
+    _Lambda0: torch.Tensor
+    _h0: torch.Tensor
+    _Lambda: torch.Tensor
+    _h: torch.Tensor
+    _fitted: torch.Tensor
+    _n_obs: torch.Tensor
 
     def __init__(
         self,
