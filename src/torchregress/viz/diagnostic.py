@@ -99,7 +99,6 @@ def plot_reliability_diagram(
     return None
 
 
-
 def _filter_residual_data(
     y_pred: np.ndarray,
     residuals: np.ndarray,

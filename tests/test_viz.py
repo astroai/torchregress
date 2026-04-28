@@ -38,7 +38,6 @@ class TestVizDiagnostic:
         """Close all figures."""
         plt.close("all")
 
-
     def test_filter_residual_data(self):
         """Test _filter_residual_data helper."""
         y_pred = np.array([1.0, 2.0, np.nan, 4.0, 5.0, 100.0])
@@ -123,6 +122,7 @@ class TestVizDiagnostic:
 
         # Test polyfit exception with inf
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             fig2, ax2 = plt.subplots()
