@@ -87,7 +87,10 @@ class MCDropoutWrapper(nn.Module):
         enable_dropout(self.model)
 
         with torch.no_grad():
-            return torch.stack([self.model(x) for _ in range(n)], dim=0)
+            repeat_dims = [n] + [1] * (x.dim() - 1)
+            x_expanded = x.repeat(*repeat_dims)
+            preds = self.model(x_expanded)
+            return preds.view(n, x.shape[0], *preds.shape[1:])
 
     def predict_with_uncertainty(
         self,
@@ -203,7 +206,10 @@ class MCDropoutModel(nn.Module):
         enable_dropout(self)
 
         with torch.no_grad():
-            return torch.stack([self.network(x) for _ in range(n)], dim=0)
+            repeat_dims = [n] + [1] * (x.dim() - 1)
+            x_expanded = x.repeat(*repeat_dims)
+            preds = self.network(x_expanded)
+            return preds.view(n, x.shape[0], *preds.shape[1:])
 
     def predict_with_uncertainty(
         self,
