@@ -7,6 +7,7 @@ from torchregress.algorithms.irls import (
     IRLS,
     _batched_predict,
     buffer_data,
+    calculate_mad,
     iteratively_reweighted_least_squares,
 )
 from torchregress.losses.gaussian import GaussianNLLLoss
@@ -97,3 +98,50 @@ def test_iteratively_reweighted_least_squares_logic(data):
     assert y_pred.shape == (100, 1)
     assert len(loss_hist) <= 3
     assert precision.shape == y.shape
+
+
+def test_calculate_mad():
+    import scipy.stats as stats
+
+    # 1D case
+    t1 = torch.tensor([1.0, 1.0, 2.0, 2.0, 4.0, 6.0, 9.0])
+    mad1 = calculate_mad(t1)
+    sp_mad1 = stats.median_abs_deviation(t1.numpy(), scale=1.0)
+    assert torch.allclose(mad1, torch.tensor(sp_mad1, dtype=torch.float32))
+
+    # 2D case
+    t2 = torch.tensor(
+        [
+            [1.0, 1.0, 2.0, 2.0, 4.0, 6.0, 9.0],
+            [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        ]
+    )
+
+    # dim=1
+    mad2_dim1 = calculate_mad(t2, dim=1)
+    sp_mad2_dim1 = stats.median_abs_deviation(t2.numpy(), axis=1, scale=1.0)
+    assert torch.allclose(mad2_dim1.squeeze(), torch.tensor(sp_mad2_dim1, dtype=torch.float32))
+
+    # dim=0
+    mad2_dim0 = calculate_mad(t2, dim=0)
+    sp_mad2_dim0 = stats.median_abs_deviation(t2.numpy(), axis=0, scale=1.0)
+    assert torch.allclose(mad2_dim0.squeeze(), torch.tensor(sp_mad2_dim0, dtype=torch.float32))
+
+
+def test_calculate_mad_edge_cases():
+
+    # 0D case
+    t0 = torch.tensor(1.0)
+    mad0 = calculate_mad(t0)
+    assert torch.allclose(mad0, torch.tensor(0.0))
+
+    # All same values
+    t_same = torch.tensor([5.0, 5.0, 5.0, 5.0])
+    mad_same = calculate_mad(t_same)
+    assert torch.allclose(mad_same, torch.tensor(0.0))
+
+    # Empty tensor
+    t_empty = torch.tensor([])
+    with pytest.raises(IndexError):
+        calculate_mad(t_empty)
