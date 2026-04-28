@@ -68,6 +68,9 @@ def label_smoothing(onehot: Union[torch.Tensor, np.ndarray], alpha: float = 0.1)
     Returns:
         Smoothed labels tensor
     """
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError(f"alpha must be in [0, 1], got {alpha}")
+
     onehot = torch.as_tensor(onehot)
     num_classes = onehot.shape[-1]
     return (1.0 - alpha) * onehot + alpha / num_classes
