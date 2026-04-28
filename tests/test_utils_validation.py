@@ -1,29 +1,31 @@
 import pytest
 import torch
+
 from torchregress.utils.validation import (
-    validate_reduction,
-    validate_shape,
-    validate_positive,
-    validate_range,
-    validate_integer,
-    validate_quantile,
+    check_tensor,
     validate_batch_consistency,
+    validate_integer,
+    validate_positive,
+    validate_quantile,
+    validate_range,
+    validate_reduction,
     validate_same_device,
+    validate_shape,
     validate_weights,
-    check_tensor
 )
+
 
 def test_validate_reduction():
     # Happy paths
-    assert validate_reduction('mean') == 'mean'
-    assert validate_reduction('median', ['mean', 'median', 'sum']) == 'median'
+    assert validate_reduction("mean") == "mean"
+    assert validate_reduction("median", ["mean", "median", "sum"]) == "median"
 
     # Error paths
     with pytest.raises(ValueError, match="reduction must be one of .* got unknown"):
-        validate_reduction('unknown')
+        validate_reduction("unknown")
 
     with pytest.raises(ValueError, match="reduction must be one of .* got sum"):
-        validate_reduction('sum', ['mean', 'median'])
+        validate_reduction("sum", ["mean", "median"])
 
 
 def test_validate_shape():
@@ -69,14 +71,20 @@ def test_validate_positive():
     t_zero = torch.tensor([0.0, 2.0])
     assert validate_positive(t_zero, "weights", allow_zero=True) is t_zero
 
-    with pytest.raises(ValueError, match="weights must be positive, got tensor with minimum value 0.0"):
+    with pytest.raises(
+        ValueError, match="weights must be positive, got tensor with minimum value 0.0"
+    ):
         validate_positive(t_zero, "weights")
 
     t_neg = torch.tensor([-1.0, 2.0])
-    with pytest.raises(ValueError, match="weights must be positive, got tensor with minimum value -1.0"):
+    with pytest.raises(
+        ValueError, match="weights must be positive, got tensor with minimum value -1.0"
+    ):
         validate_positive(t_neg, "weights")
 
-    with pytest.raises(ValueError, match="weights must be non-negative, got tensor with minimum value -1.0"):
+    with pytest.raises(
+        ValueError, match="weights must be non-negative, got tensor with minimum value -1.0"
+    ):
         validate_positive(t_neg, "weights", allow_zero=True)
 
 
@@ -95,11 +103,17 @@ def test_validate_range():
     assert validate_range(t, 0.0, 1.0, "probs") is t
 
     t_high = torch.tensor([0.1, 1.5])
-    with pytest.raises(ValueError, match="probs must be between 0.0 and 1.0, got tensor with values outside range \\[0.1.*, 1.5.*\\]"):
+    with pytest.raises(
+        ValueError,
+        match="probs must be between 0.0 and 1.0, got tensor with values outside range \\[0.1.*, 1.5.*\\]",
+    ):
         validate_range(t_high, 0.0, 1.0, "probs")
 
     t_low = torch.tensor([-0.1, 0.9])
-    with pytest.raises(ValueError, match=r"probs must be between 0.0 and 1.0, got tensor with values outside range \[-0.1.*, 0.89.*\]"):
+    with pytest.raises(
+        ValueError,
+        match=r"probs must be between 0.0 and 1.0, got tensor with values outside range \[-0.1.*, 0.89.*\]",
+    ):
         validate_range(t_low, 0.0, 1.0, "probs")
 
 
@@ -132,10 +146,14 @@ def test_validate_quantile():
     assert torch.equal(res, t)
 
     # Errors
-    with pytest.raises(ValueError, match=r"Quantile\(s\) must be in range \[0, 1\], got -0.1.* to 0.5"):
+    with pytest.raises(
+        ValueError, match=r"Quantile\(s\) must be in range \[0, 1\], got -0.1.* to 0.5"
+    ):
         validate_quantile(torch.tensor([-0.1, 0.5]))
 
-    with pytest.raises(ValueError, match=r"Quantile\(s\) must be in range \[0, 1\], got 0.5 to 1.5"):
+    with pytest.raises(
+        ValueError, match=r"Quantile\(s\) must be in range \[0, 1\], got 0.5 to 1.5"
+    ):
         validate_quantile(torch.tensor([0.5, 1.5]))
 
 
@@ -154,10 +172,15 @@ def test_validate_batch_consistency():
 
     # Different batch sizes
     c = torch.randn(5, 4)
-    with pytest.raises(ValueError, match="Batch size mismatch: tensor_0 has batch size 3, but tensor_1 has batch size 5"):
+    with pytest.raises(
+        ValueError,
+        match="Batch size mismatch: tensor_0 has batch size 3, but tensor_1 has batch size 5",
+    ):
         validate_batch_consistency([a, c])
 
-    with pytest.raises(ValueError, match="Batch size mismatch: a has batch size 3, but c has batch size 5"):
+    with pytest.raises(
+        ValueError, match="Batch size mismatch: a has batch size 3, but c has batch size 5"
+    ):
         validate_batch_consistency([a, c], names=["a", "c"])
 
 
@@ -170,12 +193,14 @@ def test_validate_same_device():
         validate_same_device([])
 
     # Same device (CPU)
-    assert validate_same_device([a, b]) == torch.device('cpu')
+    assert validate_same_device([a, b]) == torch.device("cpu")
 
     # Different devices (mock)
     if torch.cuda.is_available():
-        c = torch.randn(3, 4, device='cuda:0')
-        with pytest.raises(ValueError, match="Device mismatch: tensor_0 is on cpu, but tensor_1 is on cuda:0"):
+        c = torch.randn(3, 4, device="cuda:0")
+        with pytest.raises(
+            ValueError, match="Device mismatch: tensor_0 is on cpu, but tensor_1 is on cuda:0"
+        ):
             validate_same_device([a, c])
 
         with pytest.raises(ValueError, match="Device mismatch: a is on cpu, but c is on cuda:0"):
@@ -196,7 +221,9 @@ def test_validate_weights():
     assert torch.equal(res, weights)
 
     # Invalid shape
-    with pytest.raises(ValueError, match="weights must have same batch size as inputs, got 4, expected 5"):
+    with pytest.raises(
+        ValueError, match="weights must have same batch size as inputs, got 4, expected 5"
+    ):
         validate_weights(torch.ones(4), 5)
 
     # Invalid dimensions
@@ -218,15 +245,18 @@ def test_check_tensor():
         check_tensor([1.0, 2.0])
 
     # Max elements exceeded
-    with pytest.raises(ValueError, match="tensor contains 3 elements, which exceeds the maximum allowed limit of 2."):
+    with pytest.raises(
+        ValueError,
+        match="tensor contains 3 elements, which exceeds the maximum allowed limit of 2.",
+    ):
         check_tensor(x, max_elements=2)
 
     # NaN
-    y = torch.tensor([1.0, float('nan'), 3.0])
+    y = torch.tensor([1.0, float("nan"), 3.0])
     with pytest.raises(ValueError, match="tensor contains NaN values"):
         check_tensor(y)
 
     # Inf
-    z = torch.tensor([1.0, float('inf'), 3.0])
+    z = torch.tensor([1.0, float("inf"), 3.0])
     with pytest.raises(ValueError, match="tensor contains infinite values"):
         check_tensor(z)
