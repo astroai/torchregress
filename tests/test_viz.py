@@ -7,6 +7,9 @@ import torch
 from matplotlib.figure import Figure
 
 from torchregress.viz.diagnostic import (
+    _add_residual_trend,
+    _filter_residual_data,
+    _plot_residual_scatter,
     plot_calibration_curve,
     plot_distribution_comparison,
     plot_prediction_intervals,
@@ -34,6 +37,104 @@ class TestVizDiagnostic:
     def teardown_method(self):
         """Close all figures."""
         plt.close("all")
+
+
+    def test_filter_residual_data(self):
+        """Test _filter_residual_data helper."""
+        y_pred = np.array([1.0, 2.0, np.nan, 4.0, 5.0, 100.0])
+        residuals = np.array([0.1, 0.2, 0.3, np.inf, 0.5, 100.0])
+
+        # Test NaN/Inf filtering
+        filtered_pred, filtered_res = _filter_residual_data(
+            y_pred, residuals, clip_outliers=False, downsample=False
+        )
+        assert len(filtered_pred) == 4
+        assert len(filtered_res) == 4
+        assert np.all(np.isfinite(filtered_pred))
+        assert np.all(np.isfinite(filtered_res))
+
+        # Test outlier clipping
+        filtered_pred_clip, filtered_res_clip = _filter_residual_data(
+            y_pred, residuals, clip_outliers=True, clip_percentile=90.0, downsample=False
+        )
+        # 10% clip on 4 items removes min and max
+        assert len(filtered_pred_clip) == 2
+        assert len(filtered_res_clip) == 2
+        assert 100.0 not in filtered_res_clip
+
+        # Test downsampling
+        np.random.seed(42)
+        large_pred = np.arange(1000)
+        large_res = np.random.randn(1000)
+        downsampled_pred, downsampled_res = _filter_residual_data(
+            large_pred, large_res, downsample=True, max_points=100
+        )
+        assert len(downsampled_pred) == 100
+        assert len(downsampled_res) == 100
+
+    def test_plot_residual_scatter(self):
+        """Test _plot_residual_scatter helper."""
+        fig, ax = plt.subplots()
+        y_pred = np.array([1.0, 2.0, 3.0])
+        residuals = np.array([0.1, -0.1, 0.0])
+
+        _plot_residual_scatter(ax, y_pred, residuals, alpha=0.5, color="blue")
+
+        # Check if scatter plot was created
+        assert len(ax.collections) > 0
+        plt.close(fig)
+
+        # Test large dataset (hexbin)
+        fig, ax = plt.subplots()
+        large_pred = np.arange(1500)
+        large_res = np.random.randn(1500)
+
+        _plot_residual_scatter(ax, large_pred, large_res, alpha=0.5, color="blue")
+
+        # Check if hexbin was created
+        assert len(ax.collections) > 0
+        plt.close(fig)
+
+    def test_add_residual_trend(self):
+        """Test _add_residual_trend helper."""
+        fig, ax = plt.subplots()
+        y_pred = np.array([1.0, 2.0, 3.0])
+        residuals = np.array([0.1, 0.2, 0.3])
+
+        _add_residual_trend(ax, y_pred, residuals, trend_color="red")
+
+        # Check if trend line was plotted
+        lines = ax.get_lines()
+        assert len(lines) == 1
+        assert lines[0].get_color() == "red"
+        assert lines[0].get_linestyle() == "--"
+        plt.close(fig)
+
+        # Test exception handling (e.g. identical x values causes error/warning)
+        fig, ax = plt.subplots()
+        # In modern numpy/matplotlib this might still plot a line if polyfit warns,
+        # but let's test with empty arrays to guarantee it fails gracefully
+        bad_pred = np.array([1.0])
+        bad_res = np.array([0.1])
+
+        # Should not raise (and not plot because len(y_pred) <= 1)
+        _add_residual_trend(ax, bad_pred, bad_res, trend_color="red")
+        assert len(ax.get_lines()) == 0
+
+        # Test polyfit exception with inf
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fig2, ax2 = plt.subplots()
+            # To force an exception in polyfit, we need something that causes np.linalg.lstsq to fail
+            # Forcing ValueError by using arrays of different lengths
+            bad_pred2 = np.array([1.0, 2.0])
+            bad_res2 = np.array([0.1, 0.2, 0.3])
+
+            _add_residual_trend(ax2, bad_pred2, bad_res2, trend_color="red")
+            assert len(ax2.get_lines()) == 0
+            plt.close(fig2)
+        plt.close(fig)
 
     def test_plot_residuals(self):
         """Test plot_residuals."""
