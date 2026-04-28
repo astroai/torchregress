@@ -99,6 +99,77 @@ def plot_reliability_diagram(
     return None
 
 
+def _filter_residual_data(
+    y_pred: np.ndarray,
+    residuals: np.ndarray,
+    clip_outliers: bool = False,
+    clip_percentile: float = 99.0,
+    downsample: bool = False,
+    max_points: int = 5000,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Helper to filter, clip, and downsample residual data."""
+    # Handle NaN and Inf values
+    valid_idx = np.isfinite(residuals) & np.isfinite(y_pred)
+    if not np.all(valid_idx):
+        print(f"Warning: {np.sum(~valid_idx)} non-finite values removed from residual plot")
+        y_pred = y_pred[valid_idx]
+        residuals = residuals[valid_idx]
+
+    # Clip outliers if requested
+    if clip_outliers and len(residuals) > 0:
+        lower = np.percentile(residuals, 100 - clip_percentile)
+        upper = np.percentile(residuals, clip_percentile)
+        clip_idx = (residuals >= lower) & (residuals <= upper)
+        y_pred = y_pred[clip_idx]
+        residuals = residuals[clip_idx]
+
+    # Downsample large datasets if requested
+    if downsample and len(residuals) > max_points:
+        idx = np.random.choice(len(residuals), max_points, replace=False)
+        y_pred = y_pred[idx]
+        residuals = residuals[idx]
+
+    return y_pred, residuals
+
+
+def _plot_residual_scatter(
+    ax: plt.Axes,
+    y_pred: np.ndarray,
+    residuals: np.ndarray,
+    alpha: float,
+    color: str,
+) -> None:
+    """Helper to plot residual scatter or hexbin for large datasets."""
+    if len(y_pred) > 1000:
+        # Use hexbin for large datasets
+        hb = ax.hexbin(y_pred, residuals, gridsize=50, cmap="Blues", bins="log")
+        plt.colorbar(hb, ax=ax, label="log10(count)")
+    else:
+        ax.scatter(y_pred, residuals, alpha=alpha, color=color, edgecolor="none")
+
+
+def _add_residual_trend(
+    ax: plt.Axes,
+    y_pred: np.ndarray,
+    residuals: np.ndarray,
+    trend_color: str,
+) -> None:
+    """Helper to fit and plot a polynomial trend line."""
+    if len(y_pred) > 1:
+        try:
+            z = np.polyfit(y_pred, residuals, 1)
+            p = np.poly1d(z)
+            ax.plot(
+                np.sort(y_pred),
+                p(np.sort(y_pred)),
+                color=trend_color,
+                linestyle="--",
+                label=f"Trend: y={z[0]:.3f}x{z[1]:+.3f}",
+            )
+        except Exception as e:
+            print(f"Warning: Could not fit trend line: {e}")
+
+
 def plot_residuals(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -157,26 +228,16 @@ def plot_residuals(
     # Calculate residuals
     residuals = y_true - y_pred
 
-    # Handle NaN and Inf values
-    valid_idx = np.isfinite(residuals) & np.isfinite(y_pred)
-    if not np.all(valid_idx):
-        print(f"Warning: {np.sum(~valid_idx)} non-finite values removed from residual plot")
-        y_pred = y_pred[valid_idx]
-        residuals = residuals[valid_idx]
+    y_pred, residuals = _filter_residual_data(
+        y_pred,
+        residuals,
+        clip_outliers=clip_outliers,
+        clip_percentile=clip_percentile,
+        downsample=downsample,
+        max_points=max_points,
+    )
 
-    # Clip outliers if requested
-    if clip_outliers and len(residuals) > 0:
-        lower = np.percentile(residuals, 100 - clip_percentile)
-        upper = np.percentile(residuals, clip_percentile)
-        clip_idx = (residuals >= lower) & (residuals <= upper)
-        y_pred = y_pred[clip_idx]
-        residuals = residuals[clip_idx]
-
-    # Downsample large datasets if requested
-    if downsample and len(residuals) > max_points:
-        idx = np.random.choice(len(residuals), max_points, replace=False)
-        y_pred = y_pred[idx]
-        residuals = residuals[idx]
+    created_fig = ax is None
 
     # Create plot if no axes provided
     if ax is None:
@@ -184,32 +245,15 @@ def plot_residuals(
     else:
         fig = cast(Figure, ax.figure)
 
-    # Scatter plot of residuals vs predictions
-    if len(y_pred) > 1000:
-        # Use hexbin for large datasets
-        hb = ax.hexbin(y_pred, residuals, gridsize=50, cmap="Blues", bins="log")
-        plt.colorbar(hb, ax=ax, label="log10(count)")
-    else:
-        ax.scatter(y_pred, residuals, alpha=alpha, color=color, edgecolor="none")
+    _plot_residual_scatter(ax, y_pred, residuals, alpha, color)
 
     # Add horizontal line at y=0 for reference
     if show_zero_line:
         add_zero_line(ax, axis="y", label="Perfect Prediction")
 
     # Add trend line using polynomial fit
-    if show_trend and len(y_pred) > 1:
-        try:
-            z = np.polyfit(y_pred, residuals, 1)
-            p = np.poly1d(z)
-            ax.plot(
-                np.sort(y_pred),
-                p(np.sort(y_pred)),
-                color=trend_color,
-                linestyle="--",
-                label=f"Trend: y={z[0]:.3f}x{z[1]:+.3f}",
-            )
-        except Exception as e:
-            print(f"Warning: Could not fit trend line: {e}")
+    if show_trend:
+        _add_residual_trend(ax, y_pred, residuals, trend_color)
 
     # Show legend if there are labeled elements
     if ax.get_legend_handles_labels()[0]:
@@ -223,7 +267,7 @@ def plot_residuals(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         plt.tight_layout()
         plt.show()
 
