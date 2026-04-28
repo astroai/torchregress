@@ -90,11 +90,16 @@ class SWAG(nn.Module):
         # Storage for number of collected models
         self.register_buffer("n_models", torch.zeros(1, dtype=torch.long))
 
+        # Cache parameter names replaced with underscore to avoid overhead
+        self._name_map = {}
+
         # Will store mean and second moment of parameters
         for name, param in self.base_model.named_parameters():
             if param.requires_grad:
-                self.register_buffer(f"{name.replace('.', '_')}_mean", torch.zeros_like(param))
-                self.register_buffer(f"{name.replace('.', '_')}_sq_mean", torch.zeros_like(param))
+                name_cleaned = name.replace(".", "_")
+                self._name_map[name] = name_cleaned
+                self.register_buffer(f"{name_cleaned}_mean", torch.zeros_like(param))
+                self.register_buffer(f"{name_cleaned}_sq_mean", torch.zeros_like(param))
 
         # Store deviations for low-rank approximation
         self.deviations: List[Dict[str, torch.Tensor]] = []
@@ -128,7 +133,7 @@ class SWAG(nn.Module):
             if not param.requires_grad:
                 continue
 
-            name_cleaned = name.replace(".", "_")
+            name_cleaned = self._name_map[name]
             mean_buffer = getattr(self, f"{name_cleaned}_mean")
             sq_mean_buffer = getattr(self, f"{name_cleaned}_sq_mean")
 
@@ -142,7 +147,7 @@ class SWAG(nn.Module):
             for name, param in model.named_parameters():
                 if not param.requires_grad:
                     continue
-                name_cleaned = name.replace(".", "_")
+                name_cleaned = self._name_map[name]
                 mean_buffer = getattr(self, f"{name_cleaned}_mean")
                 deviation[name] = (param.data - mean_buffer).cpu().clone()
             self.deviations.append(deviation)
@@ -153,7 +158,7 @@ class SWAG(nn.Module):
             for name, param in model.named_parameters():
                 if not param.requires_grad:
                     continue
-                name_cleaned = name.replace(".", "_")
+                name_cleaned = self._name_map[name]
                 mean_buffer = getattr(self, f"{name_cleaned}_mean")
                 deviation[name] = (param.data - mean_buffer).cpu().clone()
             self.deviations[idx] = deviation
@@ -194,7 +199,7 @@ class SWAG(nn.Module):
             if not param.requires_grad:
                 continue
 
-            name_cleaned = name.replace(".", "_")
+            name_cleaned = self._name_map[name]
             mean = getattr(self, f"{name_cleaned}_mean")
             sq_mean = getattr(self, f"{name_cleaned}_sq_mean")
 
