@@ -45,17 +45,18 @@ def concordance_index(y_pred: Tensor, target: Tensor, censoring: Tensor | None =
         if c.shape != y.shape:
             raise ValueError("censoring must have same number of samples as target")
 
-    y_less = y.unsqueeze(1) < y.unsqueeze(0)
-    c_mask = c.unsqueeze(1) == 0
-    comparable_mask = y_less & c_mask
+    observed_mask = c == 0
+    y_obs = y[observed_mask]
+    y_hat_obs = y_hat[observed_mask]
 
-    y_hat_less = y_hat.unsqueeze(1) < y_hat.unsqueeze(0)
-    y_hat_eq = y_hat.unsqueeze(1) == y_hat.unsqueeze(0)
+    y_less = y_obs.unsqueeze(1) < y.unsqueeze(0)
+    y_hat_less = y_hat_obs.unsqueeze(1) < y_hat.unsqueeze(0)
+    y_hat_eq = y_hat_obs.unsqueeze(1) == y_hat.unsqueeze(0)
 
-    comparable = comparable_mask.sum(dtype=torch.float32)
-    concordant = (comparable_mask & y_hat_less).sum(dtype=torch.float32) + 0.5 * (
-        comparable_mask & y_hat_eq
-    ).sum(dtype=torch.float32)
+    comparable = y_less.sum(dtype=torch.float32)
+    concordant = (y_less & y_hat_less).sum(dtype=torch.float32) + 0.5 * (y_less & y_hat_eq).sum(
+        dtype=torch.float32
+    )
 
     if comparable <= 0:
         return torch.tensor(float("nan"), dtype=torch.float32, device=y.device)
