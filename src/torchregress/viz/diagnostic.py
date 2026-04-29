@@ -1182,57 +1182,16 @@ def plot_uncertainty_vs_error(
     return None
 
 
-def plot_binned_metrics(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_pred_std: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    n_bins: int = 5,
-    metric: str = "rmse",
-    figsize: Tuple[int, int] = (10, 5),
-    title: Optional[str] = None,
-    color: str = "steelblue",
-    return_figure: bool = False,
-    return_metrics: bool = False,
-    ax: Optional[plt.Axes] = None,
-) -> Optional[
-    Union[Figure, Dict[str, Dict[str, float]], Tuple[Figure, Dict[str, Dict[str, float]]]]
-]:
-    """
-    Compute and plot metrics in bins of the target variable.
-
-    This reveals whether model performance degrades in certain regions,
-    particularly at the tails of the distribution.
-
-    Args:
-        y_pred: Predicted mean values
-        y_pred_std: Predicted standard deviations
-        y_true: Ground truth values
-        n_bins: Number of bins
-        metric: Which metric to plot ('rmse', 'mae', 'bias', 'nmad', 'picp_95', 'mpiw_95')
-        figsize: Figure size (width, height) when creating a new figure
-        title: Plot title (auto-generated if None)
-        color: Color for the bars
-        return_figure: If True, return figure object instead of displaying
-        return_metrics: If True, return the binned metrics dictionary
-        ax: Optional matplotlib axes for plotting
-
-    Returns:
-        If return_figure=True, returns matplotlib Figure object
-        If return_metrics=True, returns dict of metrics per bin
-
-    Example:
-        >>> metrics = plot_binned_metrics(preds, stds, targets, return_metrics=True)
-        >>> print(metrics)
-    """
+def _compute_binned_metrics(
+    y_pred: np.ndarray,
+    y_pred_std: np.ndarray,
+    y_true: np.ndarray,
+    n_bins: int,
+) -> Dict[str, Dict[str, float]]:
+    """Compute evaluation metrics across bins of the target variable."""
     from scipy import stats
 
-    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
-    y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
-    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
-
-    # Create bins using quantiles
     bin_edges = np.quantile(y_true, np.linspace(0, 1, n_bins + 1))
-
     binned_metrics: Dict[str, Dict[str, float]] = {}
 
     for i in range(len(bin_edges) - 1):
@@ -1286,10 +1245,18 @@ def plot_binned_metrics(
             "mpiw_95": float(mpiw),
         }
 
-    if return_metrics and not return_figure:
-        return binned_metrics
+    return binned_metrics
 
-    # Plot
+
+def _render_binned_metrics_plot(
+    binned_metrics: Dict[str, Dict[str, float]],
+    metric: str,
+    figsize: Tuple[int, int],
+    title: Optional[str],
+    color: str,
+    ax: Optional[plt.Axes],
+) -> Tuple[Figure, plt.Axes]:
+    """Render the binned metrics bar plot."""
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -1320,13 +1287,70 @@ def plot_binned_metrics(
     ax.set_title(title or f"{metric.upper()} by Target Bin")
     ax.grid(True, alpha=0.3, axis="y")
 
+    return fig, ax
+
+
+def plot_binned_metrics(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    n_bins: int = 5,
+    metric: str = "rmse",
+    figsize: Tuple[int, int] = (10, 5),
+    title: Optional[str] = None,
+    color: str = "steelblue",
+    return_figure: bool = False,
+    return_metrics: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[
+    Union[Figure, Dict[str, Dict[str, float]], Tuple[Figure, Dict[str, Dict[str, float]]]]
+]:
+    """
+    Compute and plot metrics in bins of the target variable.
+
+    This reveals whether model performance degrades in certain regions,
+    particularly at the tails of the distribution.
+
+    Args:
+        y_pred: Predicted mean values
+        y_pred_std: Predicted standard deviations
+        y_true: Ground truth values
+        n_bins: Number of bins
+        metric: Which metric to plot ('rmse', 'mae', 'bias', 'nmad', 'picp_95', 'mpiw_95')
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title (auto-generated if None)
+        color: Color for the bars
+        return_figure: If True, return figure object instead of displaying
+        return_metrics: If True, return the binned metrics dictionary
+        ax: Optional matplotlib axes for plotting
+
+    Returns:
+        If return_figure=True, returns matplotlib Figure object
+        If return_metrics=True, returns dict of metrics per bin
+
+    Example:
+        >>> metrics = plot_binned_metrics(preds, stds, targets, return_metrics=True)
+        >>> print(metrics)
+    """
+    y_pred_np = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    y_pred_std_np = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
+    y_true_np = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+
+    binned_metrics = _compute_binned_metrics(y_pred_np, y_pred_std_np, y_true_np, n_bins)
+
+    if return_metrics and not return_figure:
+        return binned_metrics
+
+    created_ax = ax is None
+    fig, ax = _render_binned_metrics_plot(binned_metrics, metric, figsize, title, color, ax)
+
     plt.tight_layout()
 
     if return_figure:
         if return_metrics:
             return fig, binned_metrics
         return fig
-    elif ax is None:
+    elif created_ax:
         plt.show()
 
     if return_metrics:
