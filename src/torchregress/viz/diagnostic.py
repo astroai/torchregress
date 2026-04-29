@@ -458,9 +458,7 @@ def plot_qq_plot(
     return None
 
 
-def _add_residual_density_curves(
-    ax: plt.Axes, residuals: np.ndarray, kde_color: str
-) -> None:
+def _add_residual_density_curves(ax: plt.Axes, residuals: np.ndarray, kde_color: str) -> None:
     """Add KDE and normal distribution fit to residual histogram."""
     try:
         from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
