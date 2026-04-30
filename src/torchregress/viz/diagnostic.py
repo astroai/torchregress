@@ -821,6 +821,87 @@ def plot_distribution_comparison(
     return None
 
 
+def _clean_calibration_data(
+    y_pred_probs: np.ndarray, y_true: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Helper to clean calibration data by removing NaNs and clipping to [0, 1]."""
+    # Remove NaN or Inf values
+    valid_idx = np.isfinite(y_pred_probs) & np.isfinite(y_true)
+    if not np.all(valid_idx):
+        print(f"Warning: {np.sum(~valid_idx)} non-finite values removed from calibration data")
+        y_true = y_true[valid_idx]
+        y_pred_probs = y_pred_probs[valid_idx]
+
+    # Ensure valid prediction probabilities
+    if np.min(y_pred_probs) < 0 or np.max(y_pred_probs) > 1:
+        min_prob = np.min(y_pred_probs)
+        max_prob = np.max(y_pred_probs)
+        print(
+            f"Warning: Predicted probabilities outside [0, 1] range: min={min_prob}, max={max_prob}"
+        )
+        y_pred_probs = np.clip(y_pred_probs, 0, 1)
+
+    return y_pred_probs, y_true
+
+
+def _calculate_calibration_bins(
+    y_pred_probs: np.ndarray, y_true: np.ndarray, n_bins: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Helper to calculate bins, centers, and probabilities for calibration curves."""
+    # Create bins and find bin edges
+    bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    binids = np.digitize(y_pred_probs, bins) - 1
+
+    # Calculate mean predicted probability and observed frequency in each bin
+    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=n_bins)
+    bin_true = np.bincount(binids, weights=y_true, minlength=n_bins)
+    bin_counts = np.bincount(binids, minlength=n_bins)
+
+    # Avoid division by zero
+    nonzero = bin_counts > 0
+
+    # Calculate mean predicted probability and observed frequency
+    prob_true = np.zeros(len(bins) - 1)
+    prob_pred = np.zeros(len(bins) - 1)
+    prob_true[nonzero] = bin_true[nonzero] / bin_counts[nonzero]
+    prob_pred[nonzero] = bin_sums[nonzero] / bin_counts[nonzero]
+
+    return bins, bin_centers, binids, prob_true, prob_pred, bin_counts
+
+
+def _add_calibration_histogram(
+    ax: plt.Axes,
+    bins: np.ndarray,
+    bin_centers: np.ndarray,
+    binids: np.ndarray,
+    hist_height: float,
+    hist_alpha: float,
+    hist_color: str,
+    n_bins: int,
+) -> None:
+    """Helper to add a histogram of predicted probabilities to the calibration plot."""
+    # Add a zero line to separate the calibration curve from the histogram
+    add_zero_line(ax, axis="y", color="black", linestyle="-", alpha=0.3)
+
+    # Calculate histogram heights
+    hist = np.bincount(binids, minlength=len(bins) - 1) / len(binids)
+    scaled_hist = hist * hist_height
+
+    # Create histogram bars
+    for i, h in enumerate(scaled_hist):
+        ax.bar(
+            bin_centers[i],
+            h,
+            width=(1 / n_bins),
+            bottom=-h,
+            align="center",
+            alpha=hist_alpha,
+            color=hist_color,
+            label="Prediction Dist." if i == 0 else None,
+        )
+
+
 def plot_calibration_curve(
     y_pred_probs: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -865,40 +946,11 @@ def plot_calibration_curve(
     y_pred_probs = convert_to_tensor(y_pred_probs).detach().cpu().numpy().flatten()
     y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
 
-    # Remove NaN or Inf values
-    valid_idx = np.isfinite(y_pred_probs) & np.isfinite(y_true)
-    if not np.all(valid_idx):
-        print(f"Warning: {np.sum(~valid_idx)} non-finite values removed from calibration data")
-        y_true = y_true[valid_idx]
-        y_pred_probs = y_pred_probs[valid_idx]
+    y_pred_probs, y_true = _clean_calibration_data(y_pred_probs, y_true)
 
-    # Ensure valid prediction probabilities
-    if np.min(y_pred_probs) < 0 or np.max(y_pred_probs) > 1:
-        min_prob = np.min(y_pred_probs)
-        max_prob = np.max(y_pred_probs)
-        print(
-            f"Warning: Predicted probabilities outside [0, 1] range: min={min_prob}, max={max_prob}"
-        )
-        y_pred_probs = np.clip(y_pred_probs, 0, 1)
-
-    # Create bins and find bin edges
-    bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
-    bin_centers = (bins[:-1] + bins[1:]) / 2
-    binids = np.digitize(y_pred_probs, bins) - 1
-
-    # Calculate mean predicted probability and observed frequency in each bin
-    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=n_bins)
-    bin_true = np.bincount(binids, weights=y_true, minlength=n_bins)
-    bin_counts = np.bincount(binids, minlength=n_bins)
-
-    # Avoid division by zero
-    nonzero = bin_counts > 0
-
-    # Calculate mean predicted probability and observed frequency
-    prob_true = np.zeros(len(bins) - 1)
-    prob_pred = np.zeros(len(bins) - 1)
-    prob_true[nonzero] = bin_true[nonzero] / bin_counts[nonzero]
-    prob_pred[nonzero] = bin_sums[nonzero] / bin_counts[nonzero]
+    bins, bin_centers, binids, prob_true, prob_pred, bin_counts = _calculate_calibration_bins(
+        y_pred_probs, y_true, n_bins
+    )
 
     # Create plot if no axes provided
     if ax is None:
@@ -919,29 +971,13 @@ def plot_calibration_curve(
 
     # Add histogram of predicted probabilities as a barplot at the bottom
     if add_hist:
-        # Add a zero line to separate the calibration curve from the histogram
-        add_zero_line(ax, axis="y", color="black", linestyle="-", alpha=0.3)
-
         # Use same color as calibration curve if not specified
         if hist_color is None:
             hist_color = color
 
-        # Calculate histogram heights
-        hist = np.bincount(binids, minlength=len(bins) - 1) / len(binids)
-        scaled_hist = hist * hist_height
-
-        # Create histogram bars
-        for i, h in enumerate(scaled_hist):
-            ax.bar(
-                bin_centers[i],
-                h,
-                width=(1 / n_bins),
-                bottom=-h,
-                align="center",
-                alpha=hist_alpha,
-                color=hist_color,
-                label="Prediction Dist." if i == 0 else None,
-            )
+        _add_calibration_histogram(
+            ax, bins, bin_centers, binids, hist_height, hist_alpha, hist_color, n_bins
+        )
 
         # Adjust ylimit to accommodate the histograms at the bottom
         ax.set_ylim(-hist_height, 1.0)
