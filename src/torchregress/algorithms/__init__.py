@@ -12,6 +12,7 @@ from .covariance_pseudo_labels import (
 )
 from .error_aware import ErrorAwareFeatureEncoder, NoiseAwareRegressor
 from .irls import (
+    IRLSConfig,
     IRLS,
     iteratively_reweighted_least_squares,
 )
@@ -23,6 +24,7 @@ __all__ = [
     # IRLS algorithm
     "iteratively_reweighted_least_squares",
     "IRLS",
+    "IRLSConfig",
     # EIV algorithms
     "RegressionCalibration",
     "SIMEX",
