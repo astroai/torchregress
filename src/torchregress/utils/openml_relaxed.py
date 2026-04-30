@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 from scipy.io import arff as scipy_arff
 
+from torchregress.utils.security import validate_url
+
 _OPENML_DATA = "https://api.openml.org/api/v1/json/data/{}"
 _OPENML_FEATURES = "https://api.openml.org/api/v1/json/data/features/{}"
 
@@ -118,7 +120,7 @@ def fetch_openml_regression_frame_skip_checksum(
         or _truthy_openml_flag(f.get("is_row_identifier"))
     }
 
-    url = str(desc["url"])
+    url = validate_url(str(desc["url"]))
     try:
         blob = _download_bytes(url, timeout=download_timeout)
     except (HTTPError, URLError, TimeoutError, OSError) as exc:
