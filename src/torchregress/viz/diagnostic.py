@@ -148,6 +148,48 @@ def _plot_residual_scatter(
         ax.scatter(y_pred, residuals, alpha=alpha, color=color, edgecolor="none")
 
 
+def _compute_uncertainty_stats(
+    y_pred: np.ndarray,
+    y_pred_std: np.ndarray,
+    y_true: np.ndarray,
+) -> Tuple[np.ndarray, float, float]:
+    """Helper to compute absolute errors and Spearman correlation."""
+    from scipy import stats
+
+    abs_errors = np.abs(y_pred - y_true)
+    correlation, p_value = stats.spearmanr(y_pred_std, abs_errors)
+    return abs_errors, correlation, p_value
+
+
+def _subsample_scatter_data(
+    x_data: np.ndarray,
+    y_data: np.ndarray,
+    max_points: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Helper to subsample data points for plotting performance."""
+    if len(x_data) > max_points:
+        idx = np.random.choice(len(x_data), max_points, replace=False)
+        return x_data[idx], y_data[idx]
+    return x_data, y_data
+
+
+def _add_uncertainty_trend(
+    ax: plt.Axes,
+    y_pred_std: np.ndarray,
+    abs_errors: np.ndarray,
+    correlation: float,
+    show_correlation: bool,
+) -> None:
+    """Helper to fit and plot a linear trend line for uncertainty vs error."""
+    if len(y_pred_std) > 1:
+        z = np.polyfit(y_pred_std, abs_errors, 1)
+        p = np.poly1d(z)
+        x_line = np.linspace(y_pred_std.min(), y_pred_std.max(), 100)
+        label = f"Trend (ρ={correlation:.3f})" if show_correlation else "Trend"
+        ax.plot(x_line, p(x_line), "r--", linewidth=2, label=label)
+        ax.legend()
+
+
 def _add_residual_trend(
     ax: plt.Axes,
     y_pred: np.ndarray,
@@ -1118,46 +1160,24 @@ def plot_uncertainty_vs_error(
         >>> fig, corr = plot_uncertainty_vs_error(preds, stds, targets, return_figure=True)
         >>> print(f"Correlation: {corr:.3f}")
     """
-    from scipy import stats
-
     y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
     y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
     y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
 
-    # Compute absolute errors
-    abs_errors = np.abs(y_pred - y_true)
+    abs_errors, correlation, p_value = _compute_uncertainty_stats(y_pred, y_pred_std, y_true)
 
-    # Compute Spearman correlation
-    correlation, p_value = stats.spearmanr(y_pred_std, abs_errors)
+    y_pred_std_plot, abs_errors_plot = _subsample_scatter_data(y_pred_std, abs_errors, max_points)
 
-    # Subsample if too many points
-    if len(y_pred) > max_points:
-        idx = np.random.choice(len(y_pred), max_points, replace=False)
-        y_pred_std_plot = y_pred_std[idx]
-        abs_errors_plot = abs_errors[idx]
-    else:
-        y_pred_std_plot = y_pred_std
-        abs_errors_plot = abs_errors
-
-    # Create plot if no axes provided
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
         fig = cast(Figure, ax.figure)
 
-    # Scatter plot
     ax.scatter(y_pred_std_plot, abs_errors_plot, alpha=0.3, s=10, color=color)
 
-    # Add trend line
     if show_trend:
-        z = np.polyfit(y_pred_std_plot, abs_errors_plot, 1)
-        p = np.poly1d(z)
-        x_line = np.linspace(y_pred_std_plot.min(), y_pred_std_plot.max(), 100)
-        label = f"Trend (ρ={correlation:.3f})" if show_correlation else "Trend"
-        ax.plot(x_line, p(x_line), "r--", linewidth=2, label=label)
-        ax.legend()
+        _add_uncertainty_trend(ax, y_pred_std_plot, abs_errors_plot, correlation, show_correlation)
 
-    # Add statistics text
     annotations = {
         "Spearman ρ": correlation,
         "p-value": f"{p_value:.2e}",
