@@ -2,7 +2,7 @@
 Distribution metrics for evaluating probabilistic regression models.
 """
 
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import numpy as np
 import torch
@@ -658,6 +658,145 @@ def energy_score(
     return float(torch.mean(scores).item())
 
 
+def _process_distribution_metrics(
+    dist_obj: torch.distributions.Distribution,
+    y_true_t: torch.Tensor,
+    samples: Optional[Union[torch.Tensor, np.ndarray]],
+    n_samples: int,
+    results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
+) -> Tuple[Optional[Union[torch.Tensor, np.ndarray]], Optional[torch.Tensor]]:
+    """Process distribution-based metrics (log-prob, samples, PIT)."""
+    pit_values = None
+
+    # Log-probability
+    try:
+        log_prob = dist_obj.log_prob(y_true_t)
+    except RuntimeError:
+        if y_true_t.ndim == 2 and y_true_t.shape[-1] == 1:
+            log_prob = dist_obj.log_prob(y_true_t.squeeze(-1))
+        elif y_true_t.ndim == 1:
+            log_prob = dist_obj.log_prob(y_true_t.unsqueeze(-1))
+        else:
+            raise
+
+    if log_prob.dim() > 1:
+        event_dims = list(range(1, log_prob.dim()))
+        log_prob = log_prob.sum(dim=event_dims)
+    results["log_prob"] = float(torch.mean(log_prob).item())
+
+    # Draw samples
+    if samples is None:
+        samples = dist_obj.sample((n_samples,))
+
+    # PIT from distribution
+    try:
+        pit_res = probability_integral_transform(
+            dist_obj.cdf, y_true_t, return_histogram=True, as_numpy=True
+        )
+        if isinstance(pit_res, dict):
+            results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
+            results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
+            pit_values = convert_to_tensor(pit_res["pit_values"])
+    except (AttributeError, NotImplementedError):
+        pass
+
+    return samples, pit_values
+
+
+def _process_distance_metrics(
+    y_true_t: torch.Tensor,
+    y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]],
+    samples: Optional[Union[torch.Tensor, np.ndarray]],
+    results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
+) -> Optional[Dict[float, Union[torch.Tensor, np.ndarray]]]:
+    """Process distance-based metrics (CRPS, Energy, Coverage)."""
+    if y_pred_quantiles is None and samples is not None:
+        q_levels = [0.05, 0.1, 0.3, 0.5, 0.7, 0.9, 0.95]
+        samples_t = convert_to_tensor(samples)
+        y_pred_quantiles = {q: torch.quantile(samples_t, q, dim=0) for q in q_levels}
+
+    if y_pred_quantiles is not None:
+        results["crps"] = continuous_ranked_probability_score(
+            y_pred_quantiles, y_true_t, reduction="mean"
+        )
+        if 0.05 in y_pred_quantiles and 0.95 in y_pred_quantiles:
+            q05 = convert_to_tensor(y_pred_quantiles[0.05])
+            q95 = convert_to_tensor(y_pred_quantiles[0.95])
+            within = (y_true_t >= q05) & (y_true_t <= q95)
+            results["coverage_90"] = float(within.to(torch.float32).mean().item())
+            results["interval_width_90"] = float((q95 - q05).mean().item())
+
+    elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+        results["crps"] = crps_from_samples(samples, y_true_t, reduction="mean")
+
+    if samples is not None and y_true_t.dim() > 1:
+        results["energy_score"] = energy_score(samples, y_true_t, reduction="mean")
+
+    return y_pred_quantiles
+
+
+def _process_density_metrics(
+    support: Union[torch.Tensor, np.ndarray],
+    density: Union[torch.Tensor, np.ndarray],
+    y_true_t: torch.Tensor,
+    results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
+) -> None:
+    """Process density-based metrics (CDE loss, coverage from density)."""
+    support_t = convert_to_tensor(support).flatten()
+    density_t = convert_to_tensor(density)
+    results["cde_loss"] = conditional_density_estimation_loss(
+        support_t, density_t, y_true_t, reduction="mean"
+    )
+    if "log_prob" not in results:
+        density_at_y = _interp1d(
+            support_t.to(device=density_t.device, dtype=density_t.dtype),
+            density_t,
+            y_true_t.reshape(-1).to(device=density_t.device, dtype=density_t.dtype),
+        )
+        results["log_prob"] = float(torch.log(density_at_y.clamp_min(1.0e-8)).mean().item())
+    if "coverage_90" not in results and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+        q05_q95 = _quantiles_from_density(support_t, density_t, [0.05, 0.95])
+        lower = q05_q95[:, 0]
+        upper = q05_q95[:, 1]
+        y_flat = y_true_t.reshape(-1).to(device=lower.device, dtype=lower.dtype)
+        within = (y_flat >= lower) & (y_flat <= upper)
+        results["coverage_90"] = float(within.to(torch.float32).mean().item())
+        results["interval_width_90"] = float((upper - lower).mean().item())
+
+
+def _process_fallback_pit(
+    pit_values: Optional[torch.Tensor],
+    support: Optional[Union[torch.Tensor, np.ndarray]],
+    density: Optional[Union[torch.Tensor, np.ndarray]],
+    samples: Optional[Union[torch.Tensor, np.ndarray]],
+    y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]],
+    y_true_t: torch.Tensor,
+    results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
+) -> None:
+    """Compute PIT values and uniformity statistics if not already computed."""
+    if pit_values is None:
+        try:
+            if support is not None and density is not None:
+                pit_values = _pit_from_density(support, density, y_true_t)
+            elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+                pit_values = _pit_from_samples(samples, y_true_t)
+            elif y_pred_quantiles is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
+                pit_values = _pit_from_quantiles(y_pred_quantiles, y_true_t)
+        except ValueError:
+            pit_values = None
+
+    if pit_values is not None and "pit_chi2" not in results:
+        pit_res = probability_integral_transform(
+            lambda _: pit_values,
+            pit_values,
+            return_histogram=True,
+            as_numpy=True,
+        )
+        if isinstance(pit_res, dict):
+            results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
+            results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
+
+
 def distribution_metrics_report(
     dist: Optional[Union[torch.distributions.Distribution, Dict[str, Any]]] = None,
     y_true: Optional[Union[torch.Tensor, np.ndarray]] = None,
@@ -713,108 +852,20 @@ def distribution_metrics_report(
         else:
             dist_obj = dist
 
-        # Ensure y_true matches distribution batch shape as best as possible
-        try:
-            log_prob = dist_obj.log_prob(y_true_t)
-        except RuntimeError:
-            # Try squeezing/unsqueezing if shapes are [N] vs [N, 1]
-            if y_true_t.ndim == 2 and y_true_t.shape[-1] == 1:
-                log_prob = dist_obj.log_prob(y_true_t.squeeze(-1))
-            elif y_true_t.ndim == 1:
-                log_prob = dist_obj.log_prob(y_true_t.unsqueeze(-1))
-            else:
-                raise
-
-        if log_prob.dim() > 1:
-            # Sum log probs across event dimensions, but keep batch dimension
-            event_dims = list(range(1, log_prob.dim()))
-            log_prob = log_prob.sum(dim=event_dims)
-        results["log_prob"] = float(torch.mean(log_prob).item())
-
-        if samples is None:
-            samples = dist_obj.sample((n_samples,))
-
-        # PIT from distribution
-        try:
-            # Most standard distributions have cdf
-            pit_res = probability_integral_transform(
-                dist_obj.cdf, y_true_t, return_histogram=True, as_numpy=True
-            )
-            if isinstance(pit_res, dict):
-                results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
-                results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
-                pit_values = convert_to_tensor(pit_res["pit_values"])
-        except (AttributeError, NotImplementedError):
-            pass
+        samples, pit_values = _process_distribution_metrics(
+            dist_obj, y_true_t, samples, n_samples, results
+        )
 
     # 2. Distance-based metrics (CRPS / Energy)
-    if y_pred_quantiles is None and samples is not None:
-        q_levels = [0.05, 0.1, 0.3, 0.5, 0.7, 0.9, 0.95]
-        samples_t = convert_to_tensor(samples)
-        y_pred_quantiles = {q: torch.quantile(samples_t, q, dim=0) for q in q_levels}
-
-    if y_pred_quantiles is not None:
-        results["crps"] = continuous_ranked_probability_score(
-            y_pred_quantiles, y_true_t, reduction="mean"
-        )
-        # Coverage and width (90% interval)
-        if 0.05 in y_pred_quantiles and 0.95 in y_pred_quantiles:
-            q05 = convert_to_tensor(y_pred_quantiles[0.05])
-            q95 = convert_to_tensor(y_pred_quantiles[0.95])
-            within = (y_true_t >= q05) & (y_true_t <= q95)
-            results["coverage_90"] = float(within.to(torch.float32).mean().item())
-            results["interval_width_90"] = float((q95 - q05).mean().item())
-
-    elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
-        results["crps"] = crps_from_samples(samples, y_true_t, reduction="mean")
-
-    if samples is not None and y_true_t.dim() > 1:
-        results["energy_score"] = energy_score(samples, y_true_t, reduction="mean")
+    y_pred_quantiles = _process_distance_metrics(y_true_t, y_pred_quantiles, samples, results)
 
     # 3. Density-based metrics (CDE loss)
     if support is not None and density is not None:
-        support_t = convert_to_tensor(support).flatten()
-        density_t = convert_to_tensor(density)
-        results["cde_loss"] = conditional_density_estimation_loss(
-            support_t, density_t, y_true_t, reduction="mean"
-        )
-        if "log_prob" not in results:
-            density_at_y = _interp1d(
-                support_t.to(device=density_t.device, dtype=density_t.dtype),
-                density_t,
-                y_true_t.reshape(-1).to(device=density_t.device, dtype=density_t.dtype),
-            )
-            results["log_prob"] = float(torch.log(density_at_y.clamp_min(1.0e-8)).mean().item())
-        if "coverage_90" not in results and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
-            q05_q95 = _quantiles_from_density(support_t, density_t, [0.05, 0.95])
-            lower = q05_q95[:, 0]
-            upper = q05_q95[:, 1]
-            y_flat = y_true_t.reshape(-1).to(device=lower.device, dtype=lower.dtype)
-            within = (y_flat >= lower) & (y_flat <= upper)
-            results["coverage_90"] = float(within.to(torch.float32).mean().item())
-            results["interval_width_90"] = float((upper - lower).mean().item())
+        _process_density_metrics(support, density, y_true_t, results)
 
     # 4. PIT fallback for non-cdf predictive representations
-    if pit_values is None:
-        try:
-            if support is not None and density is not None:
-                pit_values = _pit_from_density(support, density, y_true_t)
-            elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
-                pit_values = _pit_from_samples(samples, y_true_t)
-            elif y_pred_quantiles is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
-                pit_values = _pit_from_quantiles(y_pred_quantiles, y_true_t)
-        except ValueError:
-            pit_values = None
-
-    if pit_values is not None and "pit_chi2" not in results:
-        pit_res = probability_integral_transform(
-            lambda _: pit_values,
-            pit_values,
-            return_histogram=True,
-            as_numpy=True,
-        )
-        if isinstance(pit_res, dict):
-            results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
-            results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
+    _process_fallback_pit(
+        pit_values, support, density, samples, y_pred_quantiles, y_true_t, results
+    )
 
     return results
