@@ -22,6 +22,7 @@ from torchregress.viz.diagnostic import (
     plot_residuals,
     plot_uncertainty_vs_error,
 )
+from torchregress.viz.monitoring import _plot_single_metric, plot_validation_metrics
 from torchregress.viz.utils import add_zero_line, create_grid_figure
 
 
@@ -414,10 +415,27 @@ class TestVizUtils:
             mock_ax_list[i].set_visible.assert_not_called()
 
 
-def test_plot_binned_metrics_helpers():
-    import matplotlib.pyplot as plt
-    import numpy as np
+def test_plot_validation_metrics_basic():
+    epochs = [1, 2, 3]
+    metrics = {"loss": [0.5, 0.3, 0.2], "accuracy": [0.8, 0.85, 0.9]}
+    fig = plot_validation_metrics(epochs, metrics, return_figure=True)
+    assert fig is not None
+    # 2 metrics = 2 subplots (a 1x3 grid defaults with n_cols=3, so 3 axes total)
+    assert len(fig.axes) > 0
+    plt.close(fig)
 
+
+def test_plot_single_metric():
+    fig, ax = plt.subplots()
+    epochs = [1, 2, 3]
+    values = [0.5, 0.3, 0.2]
+    _plot_single_metric(ax, "val_loss", epochs, values, highlight_best=True)
+    # Check that a best point was annotated
+    assert len(ax.texts) > 0
+    plt.close(fig)
+
+
+def test_plot_binned_metrics_helpers():
     from torchregress.viz.diagnostic import _compute_binned_metrics, _render_binned_metrics_plot
 
     y_pred = np.array([1.0, 2.0, 3.0, 4.0, 5.0] * 20)
