@@ -316,6 +316,74 @@ def plot_residuals(
     return None
 
 
+def _prepare_interval_data(
+    y_pred: np.ndarray,
+    y_lower: np.ndarray,
+    y_upper: np.ndarray,
+    x: Optional[np.ndarray],
+    y_true: Optional[np.ndarray],
+    sorted_by_pred: bool,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Prepare and sort data for prediction interval plots."""
+    # Flatten arrays
+    y_pred = y_pred.reshape(-1)
+    y_lower = y_lower.reshape(-1)
+    y_upper = y_upper.reshape(-1)
+
+    if x is None:
+        x = np.arange(len(y_pred))
+    else:
+        x = x.reshape(-1)
+
+    if y_true is not None:
+        y_true = y_true.reshape(-1)
+
+    if sorted_by_pred:
+        sort_idx = np.argsort(y_pred)
+        y_pred = y_pred[sort_idx]
+        y_lower = y_lower[sort_idx]
+        y_upper = y_upper[sort_idx]
+        x = x[sort_idx]
+        if y_true is not None:
+            y_true = y_true[sort_idx]
+
+    return x, y_pred, y_lower, y_upper, y_true
+
+
+def _add_interval_elements(
+    ax: plt.Axes,
+    x: np.ndarray,
+    y_pred: np.ndarray,
+    y_lower: np.ndarray,
+    y_upper: np.ndarray,
+    y_true: Optional[np.ndarray],
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    color_pred: str,
+    color_interval: str,
+    color_true: str,
+    alpha: float,
+) -> None:
+    """Add lines, fill, scatter points, and formatting to prediction interval axes."""
+    ax.fill_between(
+        x, y_lower, y_upper, alpha=alpha, color=color_interval, label="Prediction Interval"
+    )
+    ax.plot(x, y_pred, color=color_pred, label="Predicted")
+
+    if y_true is not None:
+        ax.scatter(x, y_true, color=color_true, s=10, alpha=0.6, label="True")
+        coverage = np.mean((y_true >= y_lower) & (y_true <= y_upper)) * 100
+        ax.set_title(f"{title} (Coverage: {coverage:.1f}%)")
+    else:
+        ax.set_title(title)
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.legend(loc="best")
+    ax.grid(True, alpha=0.3)
+
+
 def plot_prediction_intervals(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_lower: Union[torch.Tensor, np.ndarray],
@@ -358,34 +426,26 @@ def plot_prediction_intervals(
     Returns:
         If return_figure=True, returns matplotlib Figure object
     """
-    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy()
-    y_lower = convert_to_tensor(y_lower).detach().cpu().numpy()
-    y_upper = convert_to_tensor(y_upper).detach().cpu().numpy()
+    y_pred_np = convert_to_tensor(y_pred).detach().cpu().numpy()
+    y_lower_np = convert_to_tensor(y_lower).detach().cpu().numpy()
+    y_upper_np = convert_to_tensor(y_upper).detach().cpu().numpy()
 
-    # Flatten arrays if multi-dimensional
-    y_pred = y_pred.reshape(-1)
-    y_lower = y_lower.reshape(-1)
-    y_upper = y_upper.reshape(-1)
+    x_np = None
+    if x is not None:
+        x_np = convert_to_tensor(x).detach().cpu().numpy()
 
-    # Create x values if not provided
-    if x is None:
-        x = np.arange(len(y_pred))
-    else:
-        x = convert_to_tensor(x).detach().cpu().numpy().reshape(-1)
-
-    # Process true values if provided
+    y_true_np = None
     if y_true is not None:
-        y_true = convert_to_tensor(y_true).detach().cpu().numpy().reshape(-1)
+        y_true_np = convert_to_tensor(y_true).detach().cpu().numpy()
 
-    # Sort by predicted values if requested
-    if sorted_by_pred:
-        sort_idx = np.argsort(y_pred)
-        y_pred = y_pred[sort_idx]
-        y_lower = y_lower[sort_idx]
-        y_upper = y_upper[sort_idx]
-        x = x[sort_idx]
-        if y_true is not None:
-            y_true = y_true[sort_idx]
+    x_plt, y_pred_plt, y_lower_plt, y_upper_plt, y_true_plt = _prepare_interval_data(
+        y_pred=y_pred_np,
+        y_lower=y_lower_np,
+        y_upper=y_upper_np,
+        x=x_np,
+        y_true=y_true_np,
+        sorted_by_pred=sorted_by_pred,
+    )
 
     # Create plot if no axes provided
     if ax is None:
@@ -393,30 +453,21 @@ def plot_prediction_intervals(
     else:
         fig = cast(Figure, ax.figure)
 
-    # Plot prediction intervals
-    ax.fill_between(
-        x, y_lower, y_upper, alpha=alpha, color=color_interval, label="Prediction Interval"
+    _add_interval_elements(
+        ax=ax,
+        x=x_plt,
+        y_pred=y_pred_plt,
+        y_lower=y_lower_plt,
+        y_upper=y_upper_plt,
+        y_true=y_true_plt,
+        title=title,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        color_pred=color_pred,
+        color_interval=color_interval,
+        color_true=color_true,
+        alpha=alpha,
     )
-
-    # Plot predicted values
-    ax.plot(x, y_pred, color=color_pred, label="Predicted")
-
-    # Plot true values if provided
-    if y_true is not None:
-        ax.scatter(x, y_true, color=color_true, s=10, alpha=0.6, label="True")
-
-    # Calculate coverage if true values provided
-    if y_true is not None:
-        coverage = np.mean((y_true >= y_lower) & (y_true <= y_upper)) * 100
-        ax.set_title(f"{title} (Coverage: {coverage:.1f}%)")
-    else:
-        ax.set_title(title)
-
-    # Add labels and legend
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.legend(loc="best")
-    ax.grid(True, alpha=0.3)
 
     if return_figure:
         return fig
