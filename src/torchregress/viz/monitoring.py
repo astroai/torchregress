@@ -220,6 +220,61 @@ def plot_learning_curves(
         return None
 
 
+def _plot_single_metric(
+    ax: plt.Axes,
+    metric_name: str,
+    epochs: List[int],
+    values: List[float],
+    highlight_best: bool = True,
+    yerr: Optional[List[float]] = None,
+) -> None:
+    """Helper function to plot a single metric."""
+    # Plot metric values
+    ax.errorbar(epochs, values, yerr=yerr, marker="o", linestyle="-")
+
+    # Highlight best value if requested
+    if highlight_best:
+        # Determine if lower or higher is better
+        is_loss = "loss" in metric_name.lower() or "error" in metric_name.lower()
+
+        if is_loss:
+            best_idx = np.argmin(values)
+        else:
+            best_idx = np.argmax(values)
+
+        best_epoch = epochs[best_idx]
+        best_value = values[best_idx]
+
+        # Highlight best point
+        ax.scatter(
+            [best_epoch],
+            [best_value],
+            color="red",
+            s=100,
+            marker="*",
+            label=f"Best: {best_value:.4f} (epoch {best_epoch})",
+        )
+
+        # Add text annotation
+        ax.annotate(
+            f"{best_value:.4f}",
+            xy=(best_epoch, best_value),
+            xytext=(10, 0),
+            textcoords="offset points",
+            color="red",
+        )
+
+    # Set labels and title
+    ax.set_title(metric_name)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel(metric_name)
+    ax.grid(True, alpha=0.3)
+
+    # Add legend if best value was highlighted
+    if highlight_best:
+        ax.legend(loc="best")
+
+
 def plot_validation_metrics(
     epochs: List[int],
     metrics: Dict[str, List[float]],
@@ -267,50 +322,14 @@ def plot_validation_metrics(
         if error_bars is not None and metric_name in error_bars:
             yerr = error_bars[metric_name]
 
-        # Plot metric values
-        ax.errorbar(epochs, values, yerr=yerr, marker="o", linestyle="-")
-
-        # Highlight best value if requested
-        if highlight_best:
-            # Determine if lower or higher is better
-            is_loss = "loss" in metric_name.lower() or "error" in metric_name.lower()
-
-            if is_loss:
-                best_idx = np.argmin(values)
-            else:
-                best_idx = np.argmax(values)
-
-            best_epoch = epochs[best_idx]
-            best_value = values[best_idx]
-
-            # Highlight best point
-            ax.scatter(
-                [best_epoch],
-                [best_value],
-                color="red",
-                s=100,
-                marker="*",
-                label=f"Best: {best_value:.4f} (epoch {best_epoch})",
-            )
-
-            # Add text annotation
-            ax.annotate(
-                f"{best_value:.4f}",
-                xy=(best_epoch, best_value),
-                xytext=(10, 0),
-                textcoords="offset points",
-                color="red",
-            )
-
-        # Set labels and title
-        ax.set_title(metric_name)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel(metric_name)
-        ax.grid(True, alpha=0.3)
-
-        # Add legend if best value was highlighted
-        if highlight_best:
-            ax.legend(loc="best")
+        _plot_single_metric(
+            ax=ax,
+            metric_name=metric_name,
+            epochs=epochs,
+            values=values,
+            highlight_best=highlight_best,
+            yerr=yerr,
+        )
 
     # Hide unused subplots
     for i in range(n_metrics, len(axes)):
