@@ -47,7 +47,7 @@ def _posterior_covariance_from_precision(
 
 
 class BayesianLinearHead(nn.Module):
-    """
+    r"""
     Batch conjugate Gaussian linear regression on fixed features.
 
     Posterior precision :math:`\Lambda` and canonical :math:`h = \Lambda m` satisfy

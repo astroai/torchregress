@@ -54,7 +54,7 @@ Optional extras:
 - Flows (`zuko`): `pip install torchregress[flows]`
 - Local dev/docs/tests: `uv pip install -e ".[all]"`
 
-CI on `main` runs **pre-commit**, then **`uv sync` + pytest**, then **CPU benchmark smoke/sweep** gates (see `.github/workflows/ci.yml`).
+CI on `main` runs **pre-commit**, then **`uv sync` + pytest + CPU benchmark smoke/sweep** in one test job (see `.github/workflows/ci.yml`).
 
 ## Test-Time Tooling
 

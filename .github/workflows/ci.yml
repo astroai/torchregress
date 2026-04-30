@@ -22,6 +22,9 @@ jobs:
   lint-test:
     needs: pre-commit
     runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@v4
       - name: Configure git for private repos
@@ -36,25 +39,7 @@ jobs:
       - name: Test
         run: uv run pytest
 
-  benchmark-smoke:
-    name: CPU benchmark smoke + sweep
-    needs: lint-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure git for private repos
-        run: git config --global url."https://x-access-token:${{ secrets.PAT_FOR_PRIVATE_REPOS }}@github.com/".insteadOf "https://github.com/"
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
-
-      - name: Benchmark smoke thresholds (CPU)
-        env:
-          OMP_NUM_THREADS: 1
-          MKL_NUM_THREADS: 1
+      - name: CPU benchmark smoke (thresholds)
         run: |
           uv run python -m tools.benchmark_smoke \
             --mode smoke \
@@ -64,10 +49,7 @@ jobs:
             --thresholds reports/benchmark_thresholds/cpu/smoke.json \
             --fail-on-thresholds
 
-      - name: Benchmark sweep thresholds (CPU)
-        env:
-          OMP_NUM_THREADS: 1
-          MKL_NUM_THREADS: 1
+      - name: CPU benchmark sweep (thresholds)
         run: |
           uv run python -m tools.benchmark_smoke \
             --mode sweep \

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local parity with `.github/workflows/ci.yml` (pytest + CPU benchmark_smoke gates)
+# Local parity with `.github/workflows/ci.yml` (`lint-test`: pytest + benchmark_smoke)
 # plus ruff/black on package code. Run before pushing: `./scripts/ci_local.sh`
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
