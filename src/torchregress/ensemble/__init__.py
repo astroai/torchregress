@@ -3,7 +3,7 @@ Ensemble models for regression tasks with uncertainty estimation.
 """
 
 # Make classes directly accessible from the ensemble module
-from .base import BaseEnsembleModel
+from .base import BaseEnsembleModel, EnsembleFitConfig
 from .bnn import BayesianNeuralNetwork, HeteroscedasticBNN, VariationalLinear
 from .combiners import (
     BayesianModelAveraging,
@@ -28,6 +28,7 @@ from .utils import parse_heteroscedastic_output
 
 __all__ = [
     "BaseEnsembleModel",
+    "EnsembleFitConfig",
     "BatchEnsembleLinear",
     "HeteroscedasticEnsembleModel",
     "DeepEnsemble",
