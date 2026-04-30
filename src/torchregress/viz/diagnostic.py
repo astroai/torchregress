@@ -458,6 +458,31 @@ def plot_qq_plot(
     return None
 
 
+def _add_residual_density_curves(ax: plt.Axes, residuals: np.ndarray, kde_color: str) -> None:
+    """Add KDE and normal distribution fit to residual histogram."""
+    try:
+        from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
+
+        kde = gaussian_kde(residuals)
+        x_range = np.linspace(min(residuals), max(residuals), 1000)
+        ax.plot(x_range, kde(x_range), color=kde_color, linewidth=2, label="Density")
+
+        # Add normal distribution for comparison
+        from scipy.stats import norm  # type: ignore[import-untyped]
+
+        mu, std = norm.fit(residuals)
+        ax.plot(
+            x_range,
+            norm.pdf(x_range, mu, std),
+            color="red",
+            linestyle="--",
+            linewidth=2,
+            label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
+        )
+    except ImportError:
+        pass  # Skip KDE if scipy not available
+
+
 def plot_residual_histogram(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -509,27 +534,7 @@ def plot_residual_histogram(
 
     # Add KDE if requested
     if show_kde:
-        try:
-            from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
-
-            kde = gaussian_kde(residuals)
-            x_range = np.linspace(min(residuals), max(residuals), 1000)
-            ax.plot(x_range, kde(x_range), color=kde_color, linewidth=2, label="Density")
-
-            # Add normal distribution for comparison
-            from scipy.stats import norm  # type: ignore[import-untyped]
-
-            mu, std = norm.fit(residuals)
-            ax.plot(
-                x_range,
-                norm.pdf(x_range, mu, std),
-                color="red",
-                linestyle="--",
-                linewidth=2,
-                label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
-            )
-        except ImportError:
-            pass  # Skip KDE if scipy not available
+        _add_residual_density_curves(ax, residuals, kde_color)
 
     # Add vertical line at zero
     add_zero_line(ax, axis="x", label="Perfect Prediction")
