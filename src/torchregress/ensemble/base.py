@@ -247,6 +247,7 @@ class BaseEnsembleModel(nn.Module):
             return None
 
         from torchregress.utils.augment import Adversarial
+
         return Adversarial(
             model=model,
             loss_fn=criterion,
