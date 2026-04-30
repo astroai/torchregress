@@ -172,7 +172,7 @@ def make_target_transform(name: str, **kwargs: float) -> TargetTransform:
         return IdentityTransform()
     if normalized == "log":
         return LogTransform(eps=float(kwargs.get("eps", 1e-6)))
-    if normalized == "boxcox":
+    if normalized in {"boxcox", "box_cox"}:
         return BoxCoxTransform(
             lam=float(kwargs.get("lam", 0.0)),
             eps=float(kwargs.get("eps", 1e-6)),
