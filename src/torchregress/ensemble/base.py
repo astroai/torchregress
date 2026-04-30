@@ -33,7 +33,6 @@ def _optimizer_like_set_lr(opt: OptimizerLike, lr: float) -> None:
             param_group["lr"] = lr
 
 
-
 @dataclass(frozen=True)
 class EnsembleFitConfig:
     epochs: int = 10
@@ -50,9 +49,9 @@ class EnsembleFitConfig:
     adversarial_probability: float = 1.0
     adversarial_loss_weight: float = 1.0
     adversarial_random_start: bool = False
-    batch_regularizer: Optional[
-        Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor]
-    ] = None
+    batch_regularizer: Optional[Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor]] = (
+        None
+    )
 
 
 class BaseEnsembleModel(nn.Module):

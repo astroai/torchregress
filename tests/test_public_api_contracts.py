@@ -121,7 +121,7 @@ EXPECTED_EXPORTS = {
     ],
     "ensemble": [
         "BaseEnsembleModel",
-    "EnsembleFitConfig",
+        "EnsembleFitConfig",
         "BatchEnsembleLinear",
         "HeteroscedasticEnsembleModel",
         "DeepEnsemble",
