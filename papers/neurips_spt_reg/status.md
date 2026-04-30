@@ -127,7 +127,7 @@ The manuscript is now single-file and already reflects:
 
 Default checked-in JSON under `reports/neurips_spt_reg/` is still **smoke**-profile unless you regenerate.
 
-**Authoritative full-profile + real OpenML Year (local run, 2026-04-11):**  
+**Authoritative full-profile + real OpenML Year (local run, 2026-04-11):**
 `scripts/run_tabular_paper_bundle.sh` (non-smoke) produced:
 
 - `docs/research/sage_reg_results/2026-04-11/tabular_paper_bundle/spt/full/year_competing_methods_full.json`

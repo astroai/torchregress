@@ -16,7 +16,7 @@ from torchregress.metrics.interval import (
 score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1)
 
 # Get detailed metrics
-detailed_score = interval_score(lower_bound, upper_bound, y_true, 
+detailed_score = interval_score(lower_bound, upper_bound, y_true,
                                 alpha=0.1, reduction="full")
 print(f"Mean width: {detailed_score['mean_width']}")
 print(f"Coverage: {detailed_score['mean_coverage']}")
@@ -95,7 +95,7 @@ The interval score can reveal asymmetries in the prediction intervals:
 ```python
 from torchregress.metrics.interval import interval_score
 
-detailed_score = interval_score(lower_bound, upper_bound, y_true, 
+detailed_score = interval_score(lower_bound, upper_bound, y_true,
                                alpha=0.1, reduction="full")
 
 # Compare low-side and high-side misses with coverage diagnostics

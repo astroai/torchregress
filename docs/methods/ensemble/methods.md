@@ -22,7 +22,7 @@ from torchregress.ensemble import BaseEnsembleModel
 ## DeepEnsemble
 
 !!! abstract "Summary"
-    Train $M$ **independently initialised** copies of a base model.  
+    Train $M$ **independently initialised** copies of a base model.
     Epistemic uncertainty = variance of member predictions.
 
 ```python
@@ -99,7 +99,7 @@ result = ensemble.predict(x_test)
 ## HeteroscedasticBatchEnsembleModel
 
 !!! abstract "Summary"
-    Memory-efficient ensemble via **rank-1 perturbations** of shared weights.  
+    Memory-efficient ensemble via **rank-1 perturbations** of shared weights.
     Each member applies $W_m = W \circ (r_m\, s_m^\top)$ where $r_m, s_m$ are per-member vectors.
 
 ```python
@@ -257,7 +257,7 @@ result = ensemble.predict(x_test)
 ## SWAG / MultiSWAG
 
 !!! abstract "Summary"
-    **S**tochastic **W**eight **A**veraging — **G**aussian.  
+    **S**tochastic **W**eight **A**veraging — **G**aussian.
     Fits a Gaussian over the SGD **weight trajectory**, then samples weight configurations for MC prediction.
 
 === "SWAG (single)"

@@ -9,7 +9,7 @@ Building reliable regression models requires more than just picking a loss funct
 Always follow this tiered approach to ensure stability and catch issues early.
 
 ### Phase 1: The Baseline (Day 1)
-Start with a simple model and standard `MSELoss`. 
+Start with a simple model and standard `MSELoss`.
 - **Goal**: Establish a performance floor.
 - **Check**: Can the model overfit a tiny subset (5-10 samples) of the data? If not, check your learning rate and architecture.
 - **Metric**: Root Mean Squared Error (RMSE) and $R^2$.

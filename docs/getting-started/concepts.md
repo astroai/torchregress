@@ -20,7 +20,7 @@ Traditional regression models produce a single value $\hat{y}$ (a **point predic
 We distinguish between two fundamentally different sources of uncertainty [1]:
 
 ### Aleatoric Uncertainty (Data Noise)
-This is the **irreducible** noise inherent in the observation process. 
+This is the **irreducible** noise inherent in the observation process.
 - **Homoscedastic**: The noise level is constant across all inputs.
 - **Heteroscedastic**: The noise level varies depending on the input $x$ (e.g., higher noise for faint objects in astronomy).
 - **Can it be reduced?** No, not even with infinite training data.

@@ -14,10 +14,10 @@ This proposal therefore aims to add a **fast, exact, low-maintenance Bayesian ad
 
 `torchregress` already exposes:
 
-* task-first method guidance rather than method-family ideology 
-* reusable test-time components sitting between an application model and downstream calibration / conformal / monitoring 
-* a normalised prediction container, `PredictiveBatch`, intended to standardise outputs across tools 
-* explicit test-time interfaces such as `SupportsPredictiveBatch` and `AdaptationBatch` for model-agnostic tooling 
+* task-first method guidance rather than method-family ideology
+* reusable test-time components sitting between an application model and downstream calibration / conformal / monitoring
+* a normalised prediction container, `PredictiveBatch`, intended to standardise outputs across tools
+* explicit test-time interfaces such as `SupportsPredictiveBatch` and `AdaptationBatch` for model-agnostic tooling
 
 BLR fits naturally into this architecture because it is most useful as:
 
@@ -803,10 +803,10 @@ Implement BLR in `torchregress` as a **small, exact, posterior-updating regressi
 
 That approach is well aligned with the current package structure:
 
-* `torchregress` already exposes lightweight, lazy-loaded modular subpackages including `test_time` and `prediction` 
-* `test_time` is already designed for reusable adaptation utilities 
-* `PredictiveBatch` already provides the right prediction abstraction for downstream interoperability 
-* public API contracts are already enforced and should be extended for BLR from the start 
+* `torchregress` already exposes lightweight, lazy-loaded modular subpackages including `test_time` and `prediction`
+* `test_time` is already designed for reusable adaptation utilities
+* `PredictiveBatch` already provides the right prediction abstraction for downstream interoperability
+* public API contracts are already enforced and should be extended for BLR from the start
 
 This plan keeps the feature focused, testable, and valuable without inflating the library’s conceptual surface area.
 

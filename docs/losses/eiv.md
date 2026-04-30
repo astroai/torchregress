@@ -88,8 +88,8 @@ Combines Input-Noise Marginalization with Mixture Density Networks.
 from torchregress.losses import InputNoiseMDNLoss
 
 loss_fn = InputNoiseMDNLoss(
-    model=my_mdn, 
-    n_components=5, 
+    model=my_mdn,
+    n_components=5,
     sigma_x=0.1
 )
 ```

@@ -128,7 +128,7 @@ graph TD
     Barron --> Adaptive{"Need alpha/scale learned?"}
     Adaptive -->|Yes| ABarron["AdaptiveRobustLoss"]
     Adaptive -->|No| Barron
-    
+
     Huber --> Smooth{"Need Smoothness?"}
     Smooth -->|Yes| PHuber["PseudoHuberLoss"]
     Smooth -->|No| Huber

@@ -3,9 +3,9 @@
 SIMEX is a simulation-based method for correcting **measurement error in inputs**.  Unlike [RC](rc.md) which analytically debiases, SIMEX works by **adding** progressively more noise then **extrapolating back** to zero noise.
 
 !!! abstract "The idea"
-    1. Simulate additional noise at increasing levels $\lambda$  
-    2. Train a separate model at each noise level  
-    3. Fit a polynomial through predictions vs. $\lambda$  
+    1. Simulate additional noise at increasing levels $\lambda$
+    2. Train a separate model at each noise level
+    3. Fit a polynomial through predictions vs. $\lambda$
     4. Extrapolate to $\lambda = -1$ (hypothetical zero-error case)
 
 ---

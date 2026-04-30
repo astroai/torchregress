@@ -26,7 +26,7 @@ for x, y in dataloader:
     pred = model(x)
     loss = loss_fn(pred, y)
     loss.backward(); optimizer.step(); optimizer.zero_grad()
-    
+
 # 4. Evaluate with high-level metrics
 with torch.no_grad():
     y_pred = model(x_test)

@@ -9,4 +9,3 @@
 ## Prediction-Powered Inference
 
 ::: torchregress.inference
-
