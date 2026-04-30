@@ -8,7 +8,8 @@ CI_WORKFLOW = Path(".github/workflows/ci.yml")
 def test_ci_workflow_uses_uv_and_pre_commit() -> None:
     text = CI_WORKFLOW.read_text(encoding="utf-8")
     assert "astral-sh/setup-uv" in text
-    assert "pre-commit/action" in text
+    assert "pip install" in text and "pre-commit" in text
+    assert "pre-commit run" in text
     assert "uv run pytest" in text
 
 

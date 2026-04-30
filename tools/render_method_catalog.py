@@ -406,7 +406,8 @@ def render_markdown(rows: list[dict[str, Any]]) -> str:
     lines.append(", ".join(f"`{row['name']}`" for row in decomp) if decomp else "-")
     lines.append("")
 
-    return "\n".join(lines) + "\n"
+    # Single trailing newline (end-of-file-fixer); join already ends with \n when last line is blank.
+    return "\n".join(lines).rstrip("\n") + "\n"
 
 
 def render_method_matrix_generated_section(rows: list[dict[str, Any]]) -> str:
