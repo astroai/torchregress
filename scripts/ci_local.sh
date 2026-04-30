@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Local parity with `.github/workflows/ci.yml` (test + CPU benchmarks) plus
-# ruff/black on package code. Run before pushing: `./scripts/ci_local.sh`
+# Local parity with `.github/workflows/ci.yml` (pytest + CPU benchmark_smoke gates)
+# plus ruff/black on package code. Run before pushing: `./scripts/ci_local.sh`
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"

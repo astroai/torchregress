@@ -13,7 +13,9 @@ def test_ci_workflow_uses_uv_and_pre_commit() -> None:
     assert "uv run pytest" in text
 
 
-def test_ci_workflow_has_single_test_job() -> None:
+def test_ci_workflow_has_core_jobs() -> None:
     text = CI_WORKFLOW.read_text(encoding="utf-8")
     assert "jobs:" in text
     assert "lint-test:" in text
+    assert "benchmark-smoke:" in text
+    assert "tools.benchmark_smoke" in text
