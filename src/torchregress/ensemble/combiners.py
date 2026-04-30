@@ -9,9 +9,7 @@ import torch.nn as nn
 from torch import Tensor
 
 
-def _batched_ensemble_forward(
-    models: nn.ModuleList, x: Tensor, method: str = "stack"
-) -> Tensor:
+def _batched_ensemble_forward(models: nn.ModuleList, x: Tensor, method: str = "stack") -> Tensor:
     """
     Fast batched forward pass for homogeneous ensembles.
     Falls back to sequential loops if models have different architectures or gradients are required.
