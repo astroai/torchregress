@@ -121,35 +121,15 @@ def plot_performance_comparison(
         raise ValueError(f"Unknown plot_type: {plot_type}")
 
 
-def _plot_performance_bar(
+def _add_performance_bars(
+    ax: plt.Axes,
     df: pd.DataFrame,
     best_values: Dict[str, float],
-    figsize: Tuple[int, int],
-    title: str,
-    higher_is_better: Dict[str, bool],
     colors: List,
-    return_figure: bool,
-    ax: Optional[plt.Axes],
-) -> Optional[Figure]:
-    """Helper function for bar plot comparison."""
-    # Create plot if no axes provided
-    created_fig = ax is None
-    if created_fig:
-        fig, ax = plt.subplots(figsize=figsize)
-    else:
-        fig = cast(Figure, ax.figure)
-
-    # Number of models and metrics
-    n_models = len(df.index)
-    n_metrics = len(df.columns)
-
-    # Set width of bars
-    bar_width = 0.8 / n_models
-
-    # Set positions of bars on x-axis
-    indices = np.arange(n_metrics)
-
-    # Create bars for each model
+    bar_width: float,
+    indices: np.ndarray,
+) -> None:
+    """Helper to add bars and value annotations."""
     for i, model_name in enumerate(df.index):
         values = df.loc[model_name].values
         bars = ax.bar(
@@ -187,6 +167,17 @@ def _plot_performance_bar(
                 rotation=45,
             )
 
+
+def _format_performance_axes(
+    ax: plt.Axes,
+    df: pd.DataFrame,
+    title: str,
+    indices: np.ndarray,
+    bar_width: float,
+    n_models: int,
+    higher_is_better: Dict[str, bool],
+) -> None:
+    """Helper to format axes and labels."""
     # Add labels, title and legend
     ax.set_xlabel("Metric", fontweight="bold")
     ax.set_ylabel("Value", fontweight="bold")
@@ -238,6 +229,38 @@ def _plot_performance_bar(
             ha="center",
             fontsize=12,
         )
+
+
+def _plot_performance_bar(
+    df: pd.DataFrame,
+    best_values: Dict[str, float],
+    figsize: Tuple[int, int],
+    title: str,
+    higher_is_better: Dict[str, bool],
+    colors: List,
+    return_figure: bool,
+    ax: Optional[plt.Axes],
+) -> Optional[Figure]:
+    """Helper function for bar plot comparison."""
+    # Create plot if no axes provided
+    created_fig = ax is None
+    if created_fig:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = cast(Figure, ax.figure)
+
+    # Number of models and metrics
+    n_models = len(df.index)
+    n_metrics = len(df.columns)
+
+    # Set width of bars
+    bar_width = 0.8 / n_models
+
+    # Set positions of bars on x-axis
+    indices = np.arange(n_metrics)
+
+    _add_performance_bars(ax, df, best_values, colors, bar_width, indices)
+    _format_performance_axes(ax, df, title, indices, bar_width, n_models, higher_is_better)
 
     plt.tight_layout()
 
