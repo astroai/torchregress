@@ -432,32 +432,39 @@ def _pit_from_quantiles(
         raise ValueError("Quantile predictions and targets must have matching batch size.")
 
     level_tensor = torch.tensor(quantile_levels, device=quantile_matrix.device, dtype=torch.float32)
-    pit = torch.empty_like(y_true_t)
-    for idx in range(y_true_t.shape[0]):
-        qvals = quantile_matrix[idx]
-        y_val = y_true_t[idx]
-        if y_val <= qvals[0]:
-            pit[idx] = (
-                level_tensor[0]
-                if torch.isclose(qvals[0], y_val)
-                else torch.tensor(0.0, device=qvals.device, dtype=qvals.dtype)
-            )
-            continue
-        if y_val >= qvals[-1]:
-            pit[idx] = (
-                level_tensor[-1]
-                if torch.isclose(qvals[-1], y_val)
-                else torch.tensor(1.0, device=qvals.device, dtype=qvals.dtype)
-            )
-            continue
-        upper_idx = int(torch.searchsorted(qvals, y_val, right=False).item())
-        lower_idx = max(0, upper_idx - 1)
-        q0 = qvals[lower_idx]
-        q1 = qvals[upper_idx]
-        p0 = level_tensor[lower_idx]
-        p1 = level_tensor[upper_idx]
-        weight = ((y_val - q0) / (q1 - q0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
-        pit[idx] = p0 + weight * (p1 - p0)
+
+    y_expanded = y_true_t.unsqueeze(1)
+
+    # Find insertion index for each element
+    upper_idx = torch.searchsorted(quantile_matrix, y_expanded, right=False).squeeze(1)
+
+    # Clamp to valid range [1, num_levels - 1] to get lower and upper bounds
+    num_levels = len(quantile_levels)
+    clamped_upper_idx = torch.clamp(upper_idx, 1, num_levels - 1)
+    lower_idx = clamped_upper_idx - 1
+
+    # Gather bounding quantiles and their corresponding levels
+    q0 = torch.gather(quantile_matrix, 1, lower_idx.unsqueeze(1)).squeeze(1)
+    q1 = torch.gather(quantile_matrix, 1, clamped_upper_idx.unsqueeze(1)).squeeze(1)
+    p0 = level_tensor[lower_idx]
+    p1 = level_tensor[clamped_upper_idx]
+
+    # Compute interpolation
+    weight = ((y_true_t - q0) / (q1 - q0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
+    pit = p0 + weight * (p1 - p0)
+
+    # Handle out-of-bounds: Below lowest quantile
+    q_min = quantile_matrix[:, 0]
+    is_below = y_true_t <= q_min
+    pit_below = torch.where(torch.isclose(y_true_t, q_min), level_tensor[0], torch.zeros_like(pit))
+    pit = torch.where(is_below, pit_below, pit)
+
+    # Handle out-of-bounds: Above highest quantile
+    q_max = quantile_matrix[:, -1]
+    is_above = y_true_t >= q_max
+    pit_above = torch.where(torch.isclose(y_true_t, q_max), level_tensor[-1], torch.ones_like(pit))
+    pit = torch.where(is_above, pit_above, pit)
+
     return pit.clamp(0.0, 1.0)
 
 
