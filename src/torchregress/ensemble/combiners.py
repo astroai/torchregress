@@ -9,6 +9,46 @@ import torch.nn as nn
 from torch import Tensor
 
 
+def _batched_ensemble_forward(
+    models: nn.ModuleList, x: Tensor, method: str = "stack"
+) -> Tensor:
+    """
+    Fast batched forward pass for homogeneous ensembles.
+    Falls back to sequential loops if models have different architectures or gradients are required.
+    """
+    if len(models) == 0:
+        return torch.empty(0, device=x.device)
+
+    # vmap execution loses the backward graph to original models' parameters.
+    # We only use the fast path if we don't need gradients for the base models.
+    requires_grad = torch.is_grad_enabled() and any(
+        p.requires_grad for m in models for p in m.parameters()
+    )
+
+    if not requires_grad:
+        try:
+            from torch.func import functional_call, stack_module_state, vmap
+
+            params, buffers = stack_module_state(models)
+            base_model = models[0]
+
+            def fmodel(p: dict, b: dict, x_val: Tensor) -> Tensor:
+                return functional_call(base_model, (p, b), (x_val,))
+
+            preds = vmap(fmodel, in_dims=(0, 0, None))(params, buffers, x)
+            preds = preds.transpose(0, 1)
+
+            if method == "cat":
+                return preds.reshape(x.shape[0], -1)
+            return preds
+        except Exception:
+            pass
+
+    if method == "cat":
+        return torch.cat([model(x) for model in models], dim=1)
+    return torch.stack([model(x) for model in models], dim=1)
+
+
 class BayesianModelAveraging(nn.Module):
     """
     Bayesian Model Averaging for ensemble regression.
@@ -34,7 +74,7 @@ class BayesianModelAveraging(nn.Module):
         model_probs = torch.softmax(self.model_weights, dim=0)
 
         # Get predictions from all models
-        preds = torch.stack([model(x) for model in self.models], dim=1)
+        preds = _batched_ensemble_forward(self.models, x, method="stack")
 
         # Weighted average of predictions
         weighted_pred = torch.sum(preds * model_probs.view(1, -1, 1), dim=1)
@@ -51,7 +91,7 @@ class BayesianModelAveraging(nn.Module):
         """
         model_probs = torch.softmax(self.model_weights, dim=0)
 
-        preds = torch.stack([model(x) for model in self.models], dim=1)
+        preds = _batched_ensemble_forward(self.models, x, method="stack")
 
         # Weighted mean
         mean_pred = torch.sum(preds * model_probs.view(1, -1, 1), dim=1)
@@ -88,7 +128,7 @@ class StackingEnsemble(nn.Module):
         """
         Calculate stacking ensemble loss.
         """
-        preds = torch.cat([model(x) for model in self.models], dim=1)
+        preds = _batched_ensemble_forward(self.models, x, method="cat")
         return cast(Tensor, self.meta_learner(preds))
 
 
@@ -123,7 +163,7 @@ class DynamicEnsembleWeighting(nn.Module):
         Calculate dynamically weighted ensemble loss.
         """
         # Store predictions and targets for dynamic weighting
-        preds = torch.stack([model(x) for model in self.models], dim=1)
+        preds = _batched_ensemble_forward(self.models, x, method="stack")
 
         # Get current weights
         current_weights = torch.softmax(self.model_weights, dim=0)
