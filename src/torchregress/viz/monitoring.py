@@ -437,6 +437,140 @@ def plot_early_stopping(
         return None
 
 
+def _smooth_losses(losses_arr: np.ndarray, smoothing: float) -> np.ndarray:
+    """Apply moving average smoothing to loss array."""
+    if smoothing <= 0:
+        return losses_arr
+
+    boundary_len = int(1 / smoothing)
+    weights = np.ones(boundary_len)
+    weights = weights / weights.sum()
+    smooth_losses = np.convolve(losses_arr, weights, mode="same")
+
+    # If len(weights) > len(losses_arr), convolve returns len(weights) elements.
+    # We must truncate to len(losses_arr) so it aligns with lrs_arr
+    if len(smooth_losses) > len(losses_arr):
+        start = (len(smooth_losses) - len(losses_arr)) // 2
+        smooth_losses = smooth_losses[start : start + len(losses_arr)]
+
+    # Fix boundaries
+    if boundary_len > 0:
+        safe_len = min(boundary_len, len(losses_arr))
+        if safe_len > 0:
+            smooth_losses[:safe_len] = losses_arr[:safe_len]
+            smooth_losses[-safe_len:] = losses_arr[-safe_len:]
+
+    return smooth_losses
+
+
+def _filter_lr_find_data(
+    lrs_arr: np.ndarray, losses_arr: np.ndarray, smooth_losses: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Filter inf/nan values and remove initial high loss spikes."""
+    # Remove inf/nan values
+    valid_idx = np.isfinite(smooth_losses)
+    lrs_arr = lrs_arr[valid_idx]
+    losses_arr = losses_arr[valid_idx]
+    smooth_losses = smooth_losses[valid_idx]
+
+    # Skip data points where loss is too high at the beginning
+    start_idx = 0
+    for i in range(len(losses_arr) - 1):
+        if i > 10 and losses_arr[i] > 3 * losses_arr[i + 1]:
+            start_idx = i + 1
+        else:
+            break
+
+    return lrs_arr[start_idx:], losses_arr[start_idx:], smooth_losses[start_idx:]
+
+
+def _suggest_learning_rate(
+    lrs_arr: np.ndarray, smooth_losses: np.ndarray, suggestion_method: str
+) -> Optional[float]:
+    """Suggest optimal learning rate based on loss curve."""
+    if len(lrs_arr) == 0:
+        return None
+
+    gradients = np.gradient(smooth_losses, np.log10(lrs_arr))
+    suggested_idx = None
+
+    if suggestion_method == "valley":
+        # Find point where gradient starts to increase sharply
+        for i in range(len(gradients) - 1):
+            if i > 2 and gradients[i] < 0 and gradients[i + 1] > 0:
+                suggested_idx = i
+                break
+
+    elif suggestion_method == "steepest":
+        # Find steepest downward slope
+        min_gradient_idx = int(np.argmin(gradients))
+        if min_gradient_idx > 0 and min_gradient_idx < len(lrs_arr) - 1:
+            suggested_idx = min_gradient_idx
+
+    # Fallback or minimum method
+    if suggested_idx is None or suggestion_method == "minimum":
+        suggested_idx = int(np.argmin(smooth_losses))
+
+    suggested_lr = float(lrs_arr[suggested_idx])
+
+    # Suggest slightly lower LR for better generalization
+    if suggested_idx > 0:
+        suggested_lr = suggested_lr * 0.1
+
+    return suggested_lr
+
+
+def _create_lr_plot(
+    lrs_arr: np.ndarray,
+    losses_arr: np.ndarray,
+    smooth_losses: np.ndarray,
+    suggested_lr: Optional[float],
+    figsize: Tuple[int, int],
+    title: str,
+) -> Figure:
+    """Create the learning rate finder plot."""
+    # Create plot
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Plot raw and smoothed losses
+    ax.plot(lrs_arr, losses_arr, "o", alpha=0.4, label="Raw loss")
+    ax.plot(lrs_arr, smooth_losses, "-", label="Smoothed loss")
+
+    # Mark suggested learning rate if found
+    if suggested_lr is not None:
+        ax.axvline(
+            x=suggested_lr, color="red", linestyle="--", label=f"Suggested LR: {suggested_lr:.1e}"
+        )
+
+    # Set scales, labels, and title
+    ax.set_xscale("log")
+    ax.set_xlabel("Learning Rate")
+    ax.set_ylabel("Loss")
+    ax.set_title(title)
+    ax.legend(loc="upper left")
+    ax.grid(True, alpha=0.3)
+
+    # Add annotations
+    if len(lrs_arr) > 0:
+        min_lr = float(lrs_arr[0])
+        max_lr = float(lrs_arr[-1])
+        min_loss = float(np.min(losses_arr))
+
+        annotations: Dict[str, Any] = {
+            "Min LR": f"{min_lr:.1e}",
+            "Max LR": f"{max_lr:.1e}",
+            "Min Loss": f"{min_loss:.4f}",
+        }
+
+        if suggested_lr is not None:
+            annotations["Suggested LR"] = f"{suggested_lr:.1e}"
+
+        add_annotations(ax, annotations, loc="upper right")
+
+    plt.tight_layout()
+    return fig
+
+
 def plot_lr_find_results(
     learning_rates: List[float],
     losses: List[float],
@@ -465,109 +599,17 @@ def plot_lr_find_results(
     lrs_arr = np.array(learning_rates)
     losses_arr = np.array(losses)
 
-    # Apply smoothing using moving average
-    if smoothing > 0:
-        weights = np.ones(int(1 / smoothing))
-        weights = weights / weights.sum()
-        smooth_losses = np.convolve(losses_arr, weights, mode="same")
-        # Fix boundaries
-        smooth_losses[: int(1 / smoothing)] = losses_arr[: int(1 / smoothing)]
-        smooth_losses[-int(1 / smoothing) :] = losses_arr[-int(1 / smoothing) :]
-    else:
-        smooth_losses = losses_arr
+    # Apply smoothing
+    smooth_losses = _smooth_losses(losses_arr, smoothing)
 
-    # Remove inf/nan values
-    valid_idx = np.isfinite(smooth_losses)
-    lrs_arr = lrs_arr[valid_idx]
-    losses_arr = losses_arr[valid_idx]
-    smooth_losses = smooth_losses[valid_idx]
-
-    # Skip data points where loss is too high at the beginning
-    start_idx = 0
-    for i in range(len(losses_arr) - 1):
-        if i > 10 and losses_arr[i] > 3 * losses_arr[i + 1]:
-            start_idx = i + 1
-        else:
-            break
-
-    lrs_arr = lrs_arr[start_idx:]
-    losses_arr = losses_arr[start_idx:]
-    smooth_losses = smooth_losses[start_idx:]
-
-    # Calculate gradients
-    gradients = np.gradient(smooth_losses, np.log10(lrs_arr))
+    # Filter data
+    lrs_arr, losses_arr, smooth_losses = _filter_lr_find_data(lrs_arr, losses_arr, smooth_losses)
 
     # Suggest learning rate
-    suggested_lr = None
-    suggested_idx = None
-
-    if suggestion_method == "valley":
-        # Find point where gradient starts to increase sharply
-        for i in range(len(gradients) - 1):
-            if i > 2 and gradients[i] < 0 and gradients[i + 1] > 0:
-                suggested_idx = i
-                break
-
-        if suggested_idx is None and len(lrs_arr) > 0:
-            # Fallback to minimum point
-            suggested_idx = int(np.argmin(smooth_losses))
-
-    elif suggestion_method == "steepest":
-        # Find steepest downward slope
-        min_gradient_idx = int(np.argmin(gradients))
-        if min_gradient_idx > 0 and min_gradient_idx < len(lrs_arr) - 1:
-            suggested_idx = min_gradient_idx
-
-    elif suggestion_method == "minimum":
-        # Simply use the minimum point
-        suggested_idx = int(np.argmin(smooth_losses))
-
-    if suggested_idx is not None:
-        suggested_lr = float(lrs_arr[suggested_idx])
-
-        # Suggest slightly lower LR for better generalization
-        if suggested_idx > 0:
-            suggested_lr = suggested_lr * 0.1
+    suggested_lr = _suggest_learning_rate(lrs_arr, smooth_losses, suggestion_method)
 
     # Create plot
-    fig, ax = plt.subplots(figsize=figsize)
-
-    # Plot raw and smoothed losses
-    ax.plot(lrs_arr, losses_arr, "o", alpha=0.4, label="Raw loss")
-    ax.plot(lrs_arr, smooth_losses, "-", label="Smoothed loss")
-
-    # Mark suggested learning rate if found
-    if suggested_lr is not None:
-        ax.axvline(
-            x=suggested_lr, color="red", linestyle="--", label=f"Suggested LR: {suggested_lr:.1e}"
-        )
-
-    # Set scales, labels, and title
-    ax.set_xscale("log")
-    ax.set_xlabel("Learning Rate")
-    ax.set_ylabel("Loss")
-    ax.set_title(title)
-    ax.legend(loc="upper left")
-    ax.grid(True, alpha=0.3)
-
-    # Add annotations
-    if len(lrs_arr) > 0:
-        min_lr = float(lrs_arr[0])
-        max_lr = float(lrs_arr[-1])
-        min_loss = float(np.min(losses_arr))
-
-        annotations = {
-            "Min LR": f"{min_lr:.1e}",
-            "Max LR": f"{max_lr:.1e}",
-            "Min Loss": f"{min_loss:.4f}",
-        }
-
-        if suggested_lr is not None:
-            annotations["Suggested LR"] = f"{suggested_lr:.1e}"
-
-        add_annotations(ax, annotations, loc="upper right")
-
-    plt.tight_layout()
+    fig = _create_lr_plot(lrs_arr, losses_arr, smooth_losses, suggested_lr, figsize, title)
 
     if return_figure:
         return fig, float(suggested_lr) if suggested_lr is not None else float("nan")
