@@ -51,7 +51,7 @@ uv run mypy torchregress
 
 ### CI parity before push (recommended)
 
-GitHub Actions on `main` runs **ruff + black**, **pytest with coverage**, and **CPU benchmark threshold jobs** (see `.github/workflows/ci.yml`). Match that locally so pushes do not fail CI unexpectedly:
+GitHub Actions on `main` is **two-stage**: a **`pre-commit run --all-files`** job (cheap Python image, no `uv sync` yet), then **`lint-test`** which **`uv sync --all-extras --dev`** and runs **pytest** (see `.github/workflows/ci.yml`). Match the full gate locally so pushes do not fail CI unexpectedly:
 
 ```bash
 ./scripts/ci_local.sh
