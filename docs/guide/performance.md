@@ -19,11 +19,11 @@ scaler = GradScaler("cuda")
 # 2. Training Loop
 for x, y in dataloader:
     optimizer.zero_grad()
-    
+
     # 3. Autocast context
     with amp():
         loss = model(x, y)
-    
+
     # 4. Scale and step
     scaler.scale(loss).backward()
     scaler.step(optimizer)
@@ -49,7 +49,7 @@ for i, (x, y) in enumerate(dataloader):
     with accumulator(i) as scale:
         loss = model(x, y)
         (loss * scale).backward()
-        
+
     # Only step optimizer on sync steps
     if accumulator.sync_step:
         optimizer.step()

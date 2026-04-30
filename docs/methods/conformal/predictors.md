@@ -1,6 +1,6 @@
 # Conformal Predictors
 
-Reference for all point-prediction and quantile-based conformal predictors.  
+Reference for all point-prediction and quantile-based conformal predictors.
 For distributional methods (CDF/density-based), see [Distributional Conformal](distributional.md).
 
 ---
@@ -31,8 +31,8 @@ class ConformalPredictor:
 The simplest and most widely used conformal predictor.
 
 !!! abstract "Summary"
-    **Score:**  $\;s_i = \lvert y_i - \hat{y}_i \rvert$  
-    **Interval:**  $\;\hat{y} \pm \hat{q}$  (constant width unless normalised)  
+    **Score:**  $\;s_i = \lvert y_i - \hat{y}_i \rvert$
+    **Interval:**  $\;\hat{y} \pm \hat{q}$  (constant width unless normalised)
     **Requires:**  Point predictions only
 
 ```python
@@ -44,7 +44,7 @@ lower, upper = cp.predict_interval(y_pred_test)
 ```
 
 !!! tip "When to use"
-    Use as a **baseline**.  If residuals are roughly homoscedastic, SplitConformal works well.  
+    Use as a **baseline**.  If residuals are roughly homoscedastic, SplitConformal works well.
     For heteroscedastic data, switch to CQR or add `normalize_fn`.
 
 ---
@@ -54,8 +54,8 @@ lower, upper = cp.predict_interval(y_pred_test)
 **Conformalized Quantile Regression** — the go-to method for heteroscedastic data.
 
 !!! abstract "Summary"
-    **Score:**  $\;s_i = \max\!\bigl(\hat{q}_{\mathrm{lo}}^{(i)} - y_i,\; y_i - \hat{q}_{\mathrm{hi}}^{(i)}\bigr)$  
-    **Interval:**  $\;[\hat{q}_{\mathrm{lo}} - \hat{q},\; \hat{q}_{\mathrm{hi}} + \hat{q}]$  
+    **Score:**  $\;s_i = \max\!\bigl(\hat{q}_{\mathrm{lo}}^{(i)} - y_i,\; y_i - \hat{q}_{\mathrm{hi}}^{(i)}\bigr)$
+    **Interval:**  $\;[\hat{q}_{\mathrm{lo}} - \hat{q},\; \hat{q}_{\mathrm{hi}} + \hat{q}]$
     **Requires:**  Model that predicts $[\hat{q}_{\mathrm{lo}},\, \hat{q}_{\mathrm{hi}}]$
 
 ```python
@@ -99,8 +99,8 @@ lower, upper = u.predict_interval(y_pred_test)
 Density-adaptive split conformal — widens intervals where the **target distribution is sparse**.
 
 !!! abstract "Summary"
-    **Score:**  Density-weighted absolute residuals  
-    **Interval:**  Wider in low-density target regions  
+    **Score:**  Density-weighted absolute residuals
+    **Interval:**  Wider in low-density target regions
     **Requires:**  Point predictions (density estimated internally)
 
 ```python
@@ -121,7 +121,7 @@ lower, upper = dcp.predict_interval(y_pred_test)
 Group-prevalence-aware conformal prediction.  Adjusts thresholds to account for **varying group sizes** so that rare groups still receive adequate coverage.
 
 !!! abstract "Summary"
-    **Score:**  Group-adjusted residuals  
+    **Score:**  Group-adjusted residuals
     **Requires:**  Group labels for both calibration and test data
 
 ```python
@@ -142,8 +142,8 @@ lower, upper = pacp.predict_interval(y_pred_test, groups=group_labels_test)
 Conformal prediction using **stochastic forward passes** (MC-Dropout, ensemble, variational inference) with uncertainty-normalised scores.
 
 !!! abstract "Summary"
-    **Score:**  $\;s_i = \lvert y_i - \hat{y}_i \rvert \,/\, \hat{\sigma}_i$  
-    **Interval:**  $\;\hat{y} \pm \hat{q}\cdot\hat{\sigma}$  
+    **Score:**  $\;s_i = \lvert y_i - \hat{y}_i \rvert \,/\, \hat{\sigma}_i$
+    **Interval:**  $\;\hat{y} \pm \hat{q}\cdot\hat{\sigma}$
     **Requires:**  Model providing predictive mean + std from multiple forward passes
 
 ```python
@@ -164,8 +164,8 @@ lower, upper = mccp.predict_interval(y_pred_test)
 Per-dimension conformal calibration for **multi-output** regression.  Each output dimension receives its own conformal quantile.
 
 !!! abstract "Summary"
-    **Score:**  Per-dimension residuals  
-    **Interval:**  Independent $[\mathrm{lo}_d, \mathrm{hi}_d]$ per output dimension  
+    **Score:**  Per-dimension residuals
+    **Interval:**  Independent $[\mathrm{lo}_d, \mathrm{hi}_d]$ per output dimension
     **Requires:**  Vector predictions of shape $(n, d)$
 
 ```python
@@ -184,7 +184,7 @@ lower, upper = mtcp.predict_interval(y_pred_test)  # each: (n_test, d)
 ## ConformalLoss (Legacy)
 
 !!! warning "Deprecated in favour of standalone predictors"
-    `ConformalLoss` mixes training-loss and calibration logic in one object.  
+    `ConformalLoss` mixes training-loss and calibration logic in one object.
     **Prefer the standalone classes above** for clarity and composability.
 
 ```python

@@ -54,6 +54,8 @@ Optional extras:
 - Flows (`zuko`): `pip install torchregress[flows]`
 - Local dev/docs/tests: `uv pip install -e ".[all]"`
 
+CI on `main` runs **pre-commit** first, then **`uv sync` + pytest** (see `.github/workflows/ci.yml`).
+
 ## Test-Time Tooling
 
 `torchregress` now includes reusable test-time tooling designed to sit on top of

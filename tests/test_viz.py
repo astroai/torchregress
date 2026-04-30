@@ -8,8 +8,11 @@ from matplotlib.figure import Figure
 
 from torchregress.viz.diagnostic import (
     _add_residual_trend,
+    _add_uncertainty_trend,
+    _compute_uncertainty_stats,
     _filter_residual_data,
     _plot_residual_scatter,
+    _subsample_scatter_data,
     plot_calibration_curve,
     plot_distribution_comparison,
     plot_prediction_intervals,
@@ -17,6 +20,7 @@ from torchregress.viz.diagnostic import (
     plot_reliability_diagram,
     plot_residual_histogram,
     plot_residuals,
+    plot_uncertainty_vs_error,
 )
 from torchregress.viz.utils import add_zero_line, create_grid_figure
 
@@ -93,6 +97,76 @@ class TestVizDiagnostic:
         # Check if hexbin was created
         assert len(ax.collections) > 0
         plt.close(fig)
+
+    def test_compute_uncertainty_stats(self):
+        """Test _compute_uncertainty_stats helper."""
+        y_pred = np.array([1.0, 2.0, 3.0])
+        y_pred_std = np.array([0.1, 0.2, 0.3])
+        y_true = np.array([0.9, 2.2, 2.7])
+
+        abs_errors, corr, p_val = _compute_uncertainty_stats(y_pred, y_pred_std, y_true)
+
+        assert len(abs_errors) == 3
+        assert np.allclose(abs_errors, np.array([0.1, 0.2, 0.3]))
+        assert isinstance(corr, float)
+        assert isinstance(p_val, float)
+
+    def test_subsample_scatter_data(self):
+        """Test _subsample_scatter_data helper."""
+        x_data = np.arange(100)
+        y_data = np.arange(100) * 2
+
+        # Test no subsampling
+        x_sub, y_sub = _subsample_scatter_data(x_data, y_data, max_points=150)
+        assert len(x_sub) == 100
+        assert len(y_sub) == 100
+
+        # Test subsampling
+        x_sub, y_sub = _subsample_scatter_data(x_data, y_data, max_points=50)
+        assert len(x_sub) == 50
+        assert len(y_sub) == 50
+        # Check correspondence is maintained
+        assert np.all(y_sub == x_sub * 2)
+
+    def test_add_uncertainty_trend(self):
+        """Test _add_uncertainty_trend helper."""
+        fig, ax = plt.subplots()
+        y_pred_std = np.array([0.1, 0.2, 0.3])
+        abs_errors = np.array([0.1, 0.2, 0.3])
+
+        _add_uncertainty_trend(ax, y_pred_std, abs_errors, correlation=1.0, show_correlation=True)
+
+        lines = ax.get_lines()
+        assert len(lines) == 1
+        assert lines[0].get_color() == "r"
+        assert lines[0].get_linestyle() == "--"
+        plt.close(fig)
+
+    def test_plot_uncertainty_vs_error(self):
+        """Test plot_uncertainty_vs_error."""
+        fig = plot_uncertainty_vs_error(
+            self.y_pred,
+            np.ones_like(self.y_pred) * 0.1,
+            self.y_true,
+            return_figure=True,
+            show_trend=True,
+            show_correlation=False,  # Set this to False to test just returning Figure
+        )
+        # return_figure=True without show_correlation returns a Figure
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+        fig_and_corr = plot_uncertainty_vs_error(
+            self.y_pred,
+            np.ones_like(self.y_pred) * 0.1,
+            self.y_true,
+            return_figure=True,
+            show_correlation=True,
+        )
+        assert isinstance(fig_and_corr, tuple)
+        assert isinstance(fig_and_corr[0], Figure)
+        assert isinstance(fig_and_corr[1], float)
+        plt.close(fig_and_corr[0])
 
     def test_add_residual_trend(self):
         """Test _add_residual_trend helper."""
@@ -338,3 +412,35 @@ class TestVizUtils:
         # Verify first 4 are NOT hidden
         for i in range(4):
             mock_ax_list[i].set_visible.assert_not_called()
+
+
+def test_plot_binned_metrics_helpers():
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    from torchregress.viz.diagnostic import _compute_binned_metrics, _render_binned_metrics_plot
+
+    y_pred = np.array([1.0, 2.0, 3.0, 4.0, 5.0] * 20)
+    y_pred_std = np.array([0.1, 0.2, 0.3, 0.4, 0.5] * 20)
+    y_true = np.array([1.1, 1.9, 3.2, 3.8, 5.1] * 20)
+
+    metrics = _compute_binned_metrics(y_pred, y_pred_std, y_true, n_bins=2)
+    assert isinstance(metrics, dict)
+    assert len(metrics) > 0
+    first_key = list(metrics.keys())[0]
+    assert "rmse" in metrics[first_key]
+    assert "n_samples" in metrics[first_key]
+
+    fig, ax = _render_binned_metrics_plot(
+        binned_metrics=metrics,
+        metric="rmse",
+        figsize=(8, 4),
+        title="Test Plot",
+        color="red",
+        ax=None,
+    )
+
+    assert ax.get_title() == "Test Plot"
+    assert ax.get_ylabel() == "RMSE"
+    assert len(ax.patches) == len(metrics)  # 1 bar per bin
+    plt.close(fig)

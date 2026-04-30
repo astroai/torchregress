@@ -4,8 +4,8 @@
 
 This document proposes a concrete implementation plan for adding two recent distribution-shift methods to `torchregress`:
 
-1. **Non-exchangeable conformal prediction with optimal transport**, which studies coverage degradation under shift through score-space optimal transport and uses unlabeled target data to learn calibration weights that reduce coverage loss 
-2. **Adaptive-prior Bayesian uncertainty under distribution shift (VIDS-style)**, which conditions the parameter prior on training and test covariates, approximates the resulting posterior with amortized variational inference, and uses synthetic bootstrap environments to train robustness to plausible covariate shifts 
+1. **Non-exchangeable conformal prediction with optimal transport**, which studies coverage degradation under shift through score-space optimal transport and uses unlabeled target data to learn calibration weights that reduce coverage loss
+2. **Adaptive-prior Bayesian uncertainty under distribution shift (VIDS-style)**, which conditions the parameter prior on training and test covariates, approximates the resulting posterior with amortized variational inference, and uses synthetic bootstrap environments to train robustness to plausible covariate shifts
 
 `torchregress` is already organised as a task-first regression and uncertainty library with reusable prediction containers, test-time tooling, conformal methods, and peer support for Bayesian, ensemble, and calibration families rather than a single modelling ideology  . It also already provides a normalised `PredictiveBatch` interface and model-agnostic test-time protocols that are a natural substrate for shift-aware uncertainty tooling  . Finally, the repo enforces strict public export and signature contracts, so any new abstraction must arrive with explicit API and tests from day one .
 
@@ -42,7 +42,7 @@ The two methods should **not** be treated identically.
 
 New methods should compose with the existing stack
 
-`application model -> PredictiveBatch -> test_time modules -> calibration / conformal / monitoring` 
+`application model -> PredictiveBatch -> test_time modules -> calibration / conformal / monitoring`
 
 rather than own the entire modelling workflow unless absolutely necessary.
 
@@ -79,7 +79,7 @@ This method is a very strong architectural fit:
 * it does not require retraining the base predictor
 * it works on top of calibration scores and target-time unlabeled inputs
 * it is naturally compatible with conformal prediction
-* it addresses **coverage under shift**, which is exactly where `torchregress` already positions conformal as a useful tool 
+* it addresses **coverage under shift**, which is exactly where `torchregress` already positions conformal as a useful tool
 
 ## A.3 Placement in the repo
 

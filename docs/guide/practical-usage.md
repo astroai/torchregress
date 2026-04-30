@@ -14,7 +14,7 @@ Selecting the appropriate loss function is crucial for successful regression mod
    - **No**: Standard losses like `MSELoss` or `L1Loss` may be sufficient
 
 2. **Do you need uncertainty estimates?**
-   - **Yes**: 
+   - **Yes**:
      - **Is your uncertainty heteroscedastic (varies with input)?** Use `GaussianNLLLoss`
      - **Is your distribution multi-modal?** Use `MDNLoss` (Mixture Density Networks)
      - **Do you need flexible distribution shapes?** Use `NormalizingFlowLoss`
@@ -103,7 +103,7 @@ class UncertaintyModel(torch.nn.Module):
         )
         self.mean_head = torch.nn.Linear(64, 1)
         self.logvar_head = torch.nn.Linear(64, 1)
-    
+
     def forward(self, x):
         features = self.backbone(x)
         mean = self.mean_head(features)
@@ -152,16 +152,16 @@ with torch.no_grad():
     mean, logvar = model(X_test)
     var = torch.exp(logvar)
     std = torch.sqrt(var)
-    
+
     # Point prediction metrics
     rmse = tr.metrics.rmse(mean, y_test)
     mae = tr.metrics.mae(mean, y_test)
     r2 = tr.metrics.R2Score()(mean, y_test)
-    
+
     # Distribution metrics
     nll = tr.metrics.gaussian_nll(mean, y_test, var)
     crps = tr.metrics.crps_gaussian(mean, y_test, std)
-    
+
     # Interval metrics (90% prediction intervals)
     lower = mean - 1.645 * std  # 5th percentile
     upper = mean + 1.645 * std  # 95th percentile
@@ -223,13 +223,13 @@ for epoch in range(100):
     for X_batch, y_batch in dataloader:
         X_batch = X_batch.to(device)
         y_batch = y_batch.to(device)
-        
+
         # Use mixed precision
         with autocast(device_type="cuda", dtype=torch.float16):
             mean, logvar = model(X_batch)
             var = torch.exp(logvar)
             loss = loss_fn((mean, logvar), y_batch)
-        
+
         optimizer.zero_grad()
         scaler.scale(loss).backward()
         scaler.step(optimizer)

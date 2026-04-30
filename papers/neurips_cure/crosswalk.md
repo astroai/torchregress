@@ -1,6 +1,6 @@
 # Crosswalk: CURE rejected manuscript → torchregress paper experiments
 
-Source: Overleaf project **`~/src/overleaf/cure`** (`neurips_2025.tex`, `appendix.tex`, `references.bib`).  
+Source: Overleaf project **`~/src/overleaf/cure`** (`neurips_2025.tex`, `appendix.tex`, `references.bib`).
 CURE = **Classification-guided self-training** with **Regression-as-Classification (RaC)**, **soft pseudo-labels**, **curriculum** thresholding, and **denoising-style self-supervision** on tabular SSR.
 
 This note is **ideas only** — no code from CURE was copied. Use it to align **datasets**, **metrics**, and **competitor lists** with SAGE-Reg / SPT-Reg.

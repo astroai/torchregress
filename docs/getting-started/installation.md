@@ -18,7 +18,7 @@ torchregress provides optional dependency sets for different use cases:
 # For testing capabilities
 pip install 'torchregress[test]'
 
-# For development 
+# For development
 pip install 'torchregress[dev]'
 
 # For documentation

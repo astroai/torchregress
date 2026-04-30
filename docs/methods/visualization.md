@@ -72,7 +72,7 @@ plot_prediction_intervals(
     y_pred=mean_predictions,
     y_lower=lower_bounds,    # E.g., mean - 1.96 * std_dev for 95% interval
     y_upper=upper_bounds,    # E.g., mean + 1.96 * std_dev for 95% interval
-    y_true=y_test           
+    y_true=y_test
 )
 ```
 

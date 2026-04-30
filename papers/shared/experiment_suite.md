@@ -91,11 +91,11 @@ torchregress examples are **tabular-first**; vision regression is optional glue 
 
 ## 4. Suggested execution order (wall-clock aware)
 
-1. **S-A5** (GBM ceiling) — cheap, anchors reader expectations.  
-2. **S-A1** (multiseed × nl) — expensive but highest scientific value for SAGE.  
-3. **S-A2** (re-tune) — only if S-A1 mean still crosses zero at `nl=4096`.  
-4. **P-A1** + **P-A4** — SPT.  
-5. **S-A3 / P-A3** — second dataset each track.  
+1. **S-A5** (GBM ceiling) — cheap, anchors reader expectations.
+2. **S-A1** (multiseed × nl) — expensive but highest scientific value for SAGE.
+3. **S-A2** (re-tune) — only if S-A1 mean still crosses zero at `nl=4096`.
+4. **P-A1** + **P-A4** — SPT.
+5. **S-A3 / P-A3** — second dataset each track.
 6. **S-A4 / P-A2** — external method parity (largest engineering lift).
 
 ---
@@ -104,8 +104,8 @@ torchregress examples are **tabular-first**; vision regression is optional glue 
 
 Not “every metric wins,” but:
 
-- **One** IID semi-sup story: **where** SAGE helps (label-scarce regime) + **variance** across seeds + **honest** ceiling vs GBM on labels-only.  
-- **One** shift story: SPT or SAGE-on-Higgs with **decomposed** transport vs conformal vs baselines.  
+- **One** IID semi-sup story: **where** SAGE helps (label-scarce regime) + **variance** across seeds + **honest** ceiling vs GBM on labels-only.
+- **One** shift story: SPT or SAGE-on-Higgs with **decomposed** transport vs conformal vs baselines.
 - **Zero** reliance on synthetic Year CSV posing as OpenML.
 
 Update `papers/neurips_*_reg/status.md` after each tier completes.
