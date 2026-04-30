@@ -1,14 +1,13 @@
-import pytest
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-import numpy as np
 
 from torchregress.viz.monitoring import (
+    _add_early_stopping_annotations,
     _find_early_stopping_point,
     _plot_early_stopping_markers,
-    _add_early_stopping_annotations,
     plot_early_stopping,
 )
+
 
 class TestMonitoringVizRefactored:
     """Test refactored early stopping visualization functions."""
@@ -19,7 +18,9 @@ class TestMonitoringVizRefactored:
         patience = 2
         delta = 0.0
 
-        best_epoch, best_val_loss, stop_epoch = _find_early_stopping_point(val_losses, patience, delta)
+        best_epoch, best_val_loss, stop_epoch = _find_early_stopping_point(
+            val_losses, patience, delta
+        )
 
         # best val loss is 0.8 at index 2 (epoch 3)
         assert best_epoch == 3
@@ -36,7 +37,7 @@ class TestMonitoringVizRefactored:
 
         # Check that vertical lines are drawn
         lines = ax.get_lines()
-        assert len(lines) == 2 # One for best epoch, one for stop epoch
+        assert len(lines) == 2  # One for best epoch, one for stop epoch
         assert lines[0].get_xdata()[0] == 3
         assert lines[1].get_xdata()[0] == 5
 
