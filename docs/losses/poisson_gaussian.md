@@ -4,7 +4,7 @@ Poisson-Gaussian mixture losses are specialized functions that model signals as 
 
 - Scientific imaging (astronomy, microscopy)
 - Medical imaging (CT scans, PET, low-dose X-ray)
-- Low-light photography 
+- Low-light photography
 - Any signal processing application where both shot noise and electronic noise are present
 
 ## Mathematical Background
@@ -206,12 +206,12 @@ loss_fn = tr.losses.enhanced_poisson_gaussian_loss(
 
 ## Mathematical Insights
 
-1. **Noise Regimes**: 
+1. **Noise Regimes**:
    - At high counts, the Poisson component dominates (shot noise)
    - At low counts, the Gaussian component can dominate (read noise)
 
 2. **Variance Structure**: The total variance in a Poisson-Gaussian model is:
-   
+
    $$\text{Var}(Y) = g^2 \cdot \lambda + \sigma^2$$
 
    which naturally models heteroscedasticity with both constant and signal-dependent terms.
@@ -229,7 +229,7 @@ loss_fn = tr.losses.enhanced_poisson_gaussian_loss(
 astro_loss = tr.losses.EnhancedPoissonGaussianMixtureLoss(
     gain=2.5,            # e-/ADU conversion
     read_noise=10.0,     # Read noise in e-
-    shot_noise=1.0,      # Shot noise coefficient 
+    shot_noise=1.0,      # Shot noise coefficient
     offset=100.0,        # Bias level
     log_input=True       # Model predicts log(photon counts)
 )

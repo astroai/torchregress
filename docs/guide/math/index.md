@@ -93,7 +93,7 @@ For an ensemble of $M$ models, each predicting a mean $\mu_m$ and variance $\sig
 
 $$\boxed{\;\sigma_{\text{total}}^2 = \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2}_{\text{Aleatoric}} + \underbrace{\frac{1}{M}\sum_{m=1}^{M}(\mu_m - \bar\mu)^2}_{\text{Epistemic}}\;}$$
 
-where $\bar\mu = \frac{1}{M}\sum \mu_m$. 
+where $\bar\mu = \frac{1}{M}\sum \mu_m$.
 
 → See [Ensemble & UQ](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [`DeepEnsemble`](../../api/ensemble.md#torchregress.ensemble.DeepEnsemble), SWAG, BNN).
 

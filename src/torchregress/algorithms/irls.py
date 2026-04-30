@@ -6,6 +6,7 @@ with support for various weighting schemes and loss functions.
 """
 
 import warnings
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterator, List, Optional, Protocol, Tuple, Union, cast
 
 import torch
@@ -22,6 +23,20 @@ from ..losses.gaussian import (
 )
 from ..losses.robust import TukeyBiweightLoss
 from ..utils.validation import check_tensor
+
+
+@dataclass(frozen=True)
+class IRLSConfig:
+    base_loss: str = "gaussian"
+    max_iter: int = 10
+    tol: float = 1e-4
+    delta: float = 1.0
+    weight_fn: Union[str, Callable] = "huber"
+    weight_params: Optional[Dict[str, Any]] = None
+    variance_type: str = "predicted"
+    epsilon: float = 1e-8
+    return_all_predictions: bool = False
+    batch_size: int = 1024
 
 
 class CallbackFn(Protocol):
@@ -389,7 +404,7 @@ def buffer_data(
     return x_tensor, y_tensor, cov_tensor, mask_tensor
 
 
-def get_batch_precision(
+def get_batch_precision(  # noqa: PLR0913
     previous_epoch_precision: Optional[torch.Tensor],
     batch_idx: int,
     batch_size: int,
@@ -475,51 +490,50 @@ def validate_model(
     return float(torch.sum(torch.stack(losses)).item() / max(1, total_samples))
 
 
-def _setup_irls(
+def _setup_irls(  # noqa: PLR0913
     model: nn.Module,
     x: torch.Tensor,
     y_true: torch.Tensor,
-    base_loss: str,
-    weight_fn: Union[str, Callable],
-    delta: float,
-    weight_params: Optional[Dict[str, Any]],
-    covariance_matrices: Optional[torch.Tensor] = None,
+    covariance_matrices: Optional[torch.Tensor],
+    config: IRLSConfig,
 ) -> Tuple[nn.Module, nn.Module, Callable, Dict[str, Any]]:
     """Helper function to set up IRLS components."""
     # Loss Function Setup
     loss_fn: nn.Module
-    if base_loss == "gaussian":
+    if config.base_loss == "gaussian":
         loss_fn = (
             MultivariateGaussianLoss()
             if covariance_matrices is not None
             else GaussianNLLLoss(fixed_variance=1.0)
         )
-    elif base_loss == "huber":
-        loss_fn = WeightedLossWrapper(nn.HuberLoss, delta=delta)
-    elif base_loss == "l1":
+    elif config.base_loss == "huber":
+        loss_fn = WeightedLossWrapper(nn.HuberLoss, delta=config.delta)
+    elif config.base_loss == "l1":
         loss_fn = WeightedLossWrapper(nn.L1Loss)
     else:
-        raise ValueError(f"Invalid base_loss: {base_loss}. Must be 'gaussian', 'huber', or 'l1'.")
+        raise ValueError(
+            f"Invalid base_loss: {config.base_loss}. Must be 'gaussian', 'huber', or 'l1'."
+        )
 
     # Weight Function Setup
-    weight_params = weight_params or {}
+    weight_params = config.weight_params or {}
     _weight_fn: Callable[..., torch.Tensor]
-    if isinstance(weight_fn, str):
-        if weight_fn == "huber":
+    if isinstance(config.weight_fn, str):
+        if config.weight_fn == "huber":
             _weight_fn = huber_weights
-            weight_params = {"delta": delta, **weight_params}
-        elif weight_fn == "tukey":
+            weight_params = {"delta": config.delta, **weight_params}
+        elif config.weight_fn == "tukey":
             _weight_fn = tukey_weights
             weight_params = {"c": 4.685, **weight_params}
-        elif weight_fn == "power":
+        elif config.weight_fn == "power":
             _weight_fn = power_weights
             weight_params = {"a": 1.0, "b": 2.0, **weight_params}
         else:
             raise ValueError(
-                f"Invalid weight_fn: {weight_fn}. Must be 'huber', 'tukey', or 'power'."
+                f"Invalid weight_fn: {config.weight_fn}. Must be 'huber', 'tukey', or 'power'."
             )
-    elif callable(weight_fn):
-        _weight_fn = weight_fn
+    elif callable(config.weight_fn):
+        _weight_fn = config.weight_fn
     else:
         raise TypeError("weight_fn must be a string or a callable")
 
@@ -539,16 +553,16 @@ def _record_predictions(
     return all_predictions
 
 
-def _compute_irls_loss(
+def _compute_irls_loss(  # noqa: PLR0913
     y_pred: PredictionOutput,
     y_true: torch.Tensor,
     precision: torch.Tensor,
     loss_fn: nn.Module,
-    base_loss: str,
     covariance_matrices: Optional[torch.Tensor],
     mask: Optional[torch.Tensor],
+    config: IRLSConfig,
 ) -> torch.Tensor:
-    if base_loss == "gaussian":
+    if config.base_loss == "gaussian":
         return cast(
             torch.Tensor,
             loss_fn(
@@ -565,23 +579,25 @@ def _compute_irls_loss(
         )
 
 
-def _update_precision(
+def _update_precision(  # noqa: PLR0913
     residuals: torch.Tensor,
     y_pred: PredictionOutput,
     precision: torch.Tensor,
     loss_fn: nn.Module,
     _weight_fn: Callable,
     weight_params: Dict[str, Any],
-    variance_type: str,
     covariance_matrices: Optional[torch.Tensor],
+    config: IRLSConfig,
 ) -> torch.Tensor:
-    variance = estimate_variance(residuals, y_pred, covariance_matrices, variance_type, loss_fn)
-    scaled_residuals = residuals / (torch.sqrt(variance) + EPS)
+    variance = estimate_variance(
+        residuals, y_pred, covariance_matrices, config.variance_type, loss_fn
+    )
+    scaled_residuals = residuals / (torch.sqrt(variance) + config.epsilon)
     iter_weights = _weight_fn(scaled_residuals, **weight_params)
     return precision * iter_weights
 
 
-def _perform_irls_iteration(
+def _perform_irls_iteration(  # noqa: PLR0913
     y_pred: PredictionOutput,
     residuals: torch.Tensor,
     y_true: torch.Tensor,
@@ -589,22 +605,22 @@ def _perform_irls_iteration(
     loss_fn: nn.Module,
     _weight_fn: Callable,
     weight_params: Dict[str, Any],
-    base_loss: str,
-    variance_type: str,
     covariance_matrices: Optional[torch.Tensor],
     mask: Optional[torch.Tensor],
     iteration: int,
-    return_all_predictions: bool,
     all_predictions: Optional[List[torch.Tensor]],
+    config: IRLSConfig,
 ) -> Tuple[torch.Tensor, torch.Tensor, Optional[List[torch.Tensor]]]:
     """Helper function to perform a single IRLS iteration."""
     # Note: y_pred is now passed in, not computed from model(x)
 
     with torch.no_grad():
-        all_predictions = _record_predictions(y_pred, return_all_predictions, all_predictions)
+        all_predictions = _record_predictions(
+            y_pred, config.return_all_predictions, all_predictions
+        )
 
         loss_value = _compute_irls_loss(
-            y_pred, y_true, precision, loss_fn, base_loss, covariance_matrices, mask
+            y_pred, y_true, precision, loss_fn, covariance_matrices, mask, config
         )
 
         precision = _update_precision(
@@ -614,8 +630,8 @@ def _perform_irls_iteration(
             loss_fn,
             _weight_fn,
             weight_params,
-            variance_type,
             covariance_matrices,
+            config,
         )
 
     return precision, loss_value, all_predictions
@@ -716,7 +732,7 @@ def _initialize_precision(
     return initial_precision.clone().detach().to(device)
 
 
-def _run_irls_loop(
+def _run_irls_loop(  # noqa: PLR0913
     y_pred: PredictionOutput,
     residuals: torch.Tensor,
     y_true: torch.Tensor,
@@ -724,19 +740,15 @@ def _run_irls_loop(
     loss_fn: nn.Module,
     _weight_fn: Callable,
     weight_params: Dict[str, Any],
-    base_loss: str,
-    variance_type: str,
     covariance_matrices: Optional[torch.Tensor],
     mask: Optional[torch.Tensor],
-    max_iter: int,
-    tol: float,
-    return_all_predictions: bool,
     all_predictions: Optional[List[torch.Tensor]],
+    config: IRLSConfig,
 ) -> Tuple[torch.Tensor, List[float], Optional[List[torch.Tensor]]]:
     """Executes the main IRLS iteration loop."""
     loss_history: List[float] = []
 
-    for iteration in range(max_iter):
+    for iteration in range(config.max_iter):
         precision, loss_tensor, all_predictions = _perform_irls_iteration(
             y_pred,
             residuals,
@@ -745,13 +757,11 @@ def _run_irls_loop(
             loss_fn,
             _weight_fn,
             weight_params,
-            base_loss,
-            variance_type,
             covariance_matrices,
             mask,
             iteration,
-            return_all_predictions,
             all_predictions,
+            config,
         )
         # Deferring .item() call to here allows GPU to execute subsequent operations
         # (variance estimation, weight calculation, precision update) which were
@@ -759,7 +769,7 @@ def _run_irls_loop(
         loss_value = loss_tensor.item()
         loss_history.append(loss_value)
 
-        if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < tol:
+        if iteration > 0 and abs(loss_history[-1] - loss_history[-2]) < config.tol:
             break
 
     return precision, loss_history, all_predictions
@@ -772,16 +782,8 @@ def iteratively_reweighted_least_squares(
     initial_precision: torch.Tensor | None = None,
     covariance_matrices: torch.Tensor | None = None,
     mask: torch.Tensor | None = None,
-    base_loss: str = "gaussian",
-    max_iter: int = 10,
-    tol: float = 1e-4,
-    delta: float = 1.0,
-    weight_fn: str | Callable = "huber",
-    weight_params: Dict[str, Any] | None = None,
-    variance_type: str = "predicted",
-    epsilon: float = EPS,
-    return_all_predictions: bool = False,
-    batch_size: int = 1024,
+    config: Optional[IRLSConfig] = None,
+    **kwargs: Any,
 ) -> (
     Tuple[torch.Tensor, List[float], torch.Tensor]
     | Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]
@@ -817,6 +819,9 @@ def iteratively_reweighted_least_squares(
         final_precision: Final precision tensor
         [optional] all_predictions: List of predictions from all iterations
     """
+    if config is None:
+        config = IRLSConfig(**kwargs)
+
     _validate_irls_inputs(x, y_true, initial_precision)
 
     # x might be on CPU. We keep it there if so.
@@ -828,22 +833,19 @@ def iteratively_reweighted_least_squares(
         model,
         x,
         y_true,
-        base_loss,
-        weight_fn,
-        delta,
-        weight_params,
         covariance_matrices,
+        config,
     )
 
     precision = _initialize_precision(initial_precision, y_true, device)
 
-    all_predictions: Optional[List[torch.Tensor]] = [] if return_all_predictions else None
+    all_predictions: Optional[List[torch.Tensor]] = [] if config.return_all_predictions else None
 
     # --- Precompute Predictions and Residuals ---
     # This avoids running the model repeatedly in the loop, which is redundant
     # since model weights are not updated within this function.
     # We use batched inference to avoid OOM if x is large.
-    y_pred = _batched_predict(model, x, batch_size=batch_size, device=device)
+    y_pred = _batched_predict(model, x, batch_size=config.batch_size, device=device)
 
     # Compute residuals once
     _, residuals = extract_mean_and_residuals(y_pred, y_true)
@@ -857,26 +859,22 @@ def iteratively_reweighted_least_squares(
         loss_fn,
         _weight_fn,
         weight_params,
-        base_loss,
-        variance_type,
         covariance_matrices,
         mask,
-        max_iter,
-        tol,
-        return_all_predictions,
         all_predictions,
+        config,
     )
 
     final_y_pred = cast(torch.Tensor, y_pred)  # Public API contract returns Tensor
 
-    if return_all_predictions:
+    if config.return_all_predictions:
         assert all_predictions is not None
         return final_y_pred, loss_history, precision, all_predictions
     else:
         return final_y_pred, loss_history, precision
 
 
-def calculate_loss(
+def calculate_loss(  # noqa: PLR0913
     loss_fn: nn.Module,
     y_pred: PredictionOutput,
     y_true: torch.Tensor,
@@ -998,7 +996,7 @@ def _setup_irls_loss(
     return base_loss, loss_fn
 
 
-def _perform_epoch_reweighting(
+def _perform_epoch_reweighting(  # noqa: PLR0913
     model: nn.Module,
     data_loader: DataLoader,
     is_minibatch: bool,
@@ -1010,19 +1008,10 @@ def _perform_epoch_reweighting(
     covariance_matrices: Optional[torch.Tensor],
     mask: Optional[torch.Tensor],
     previous_epoch_precision: Optional[torch.Tensor],
-    base_loss: str,
-    irls_max_iter: int,
-    irls_tol: float,
-    delta: float,
-    weight_fn: Union[str, Callable],
-    weight_params: Optional[Dict[str, Any]],
-    variance_type: str,
-    epsilon: float,
-    return_all_iterations: bool,
-    batch_size: int,
     epoch: int,
     all_iterations_data: Optional[List[Dict[str, Any]]],
     train_loss_history: List[float],
+    config: IRLSConfig,
 ) -> torch.Tensor:
     """Helper to perform epoch-level IRLS reweighting."""
     x_for_irls = all_x if is_minibatch else next(iter(data_loader))[0].to(device)
@@ -1040,18 +1029,9 @@ def _perform_epoch_reweighting(
             initial_precision=previous_epoch_precision,
             covariance_matrices=cov_for_irls,
             mask=mask_for_irls,
-            base_loss=base_loss,
-            max_iter=irls_max_iter,
-            tol=irls_tol,
-            delta=delta,
-            weight_fn=weight_fn,
-            weight_params=weight_params,
-            variance_type=variance_type,
-            epsilon=epsilon,
-            return_all_predictions=return_all_iterations,
-            batch_size=batch_size,
+            config=config,
         )
-        if return_all_iterations:
+        if config.return_all_predictions:
             (
                 _,
                 epoch_loss_history,
@@ -1075,22 +1055,13 @@ def _perform_epoch_reweighting(
     return new_precision
 
 
-def _perform_batch_reweighting(
+def _perform_batch_reweighting(  # noqa: PLR0913
     model: nn.Module,
     batch_x: torch.Tensor,
     batch_y: torch.Tensor,
     batch_cov: Optional[torch.Tensor],
     batch_mask: Optional[torch.Tensor],
     previous_epoch_precision: Optional[torch.Tensor],
-    base_loss: str,
-    irls_max_iter: int,
-    irls_tol: float,
-    delta: float,
-    weight_fn: Union[str, Callable],
-    weight_params: Optional[Dict[str, Any]],
-    variance_type: str,
-    epsilon: float,
-    return_all_iterations: bool,
     epoch: int,
     batch_idx: int,
     all_iterations_data: Optional[List[Dict[str, Any]]],
@@ -1099,6 +1070,7 @@ def _perform_batch_reweighting(
     batch_size: int,
     batch_size_current: int,
     device: Union[str, torch.device],
+    config: IRLSConfig,
 ) -> torch.Tensor:
     """Helper to perform batch-level IRLS reweighting and update global precision."""
     with torch.no_grad():
@@ -1109,17 +1081,17 @@ def _perform_batch_reweighting(
             initial_precision=previous_epoch_precision,
             covariance_matrices=batch_cov,
             mask=batch_mask,
-            base_loss=base_loss,
-            max_iter=irls_max_iter,
-            tol=irls_tol,
-            delta=delta,
-            weight_fn=weight_fn,
-            weight_params=weight_params,
-            variance_type=variance_type,
-            epsilon=epsilon,
-            return_all_predictions=return_all_iterations,
+            base_loss=config.base_loss,
+            max_iter=config.max_iter,
+            tol=config.tol,
+            delta=config.delta,
+            weight_fn=config.weight_fn,
+            weight_params=config.weight_params,
+            variance_type=config.variance_type,
+            epsilon=config.epsilon,
+            return_all_predictions=config.return_all_predictions,
         )
-        if return_all_iterations:
+        if config.return_all_predictions:
             _, _, batch_precision, batch_iterations = cast(
                 Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]],
                 irls_result,
@@ -1152,7 +1124,7 @@ def _perform_batch_reweighting(
             return batch_precision
 
 
-def _train_step(
+def _train_step(  # noqa: PLR0913
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
     loss_fn: nn.Module,
@@ -1176,7 +1148,7 @@ def _train_step(
     return float(loss.item())
 
 
-def IRLS(
+def IRLS(  # noqa: PLR0913
     model: nn.Module,
     train_data: Union[DataLoader, Tuple[torch.Tensor, torch.Tensor], IterableDataset],
     loss_fn: Optional[nn.Module] = None,
@@ -1267,6 +1239,19 @@ def IRLS(
     base_loss, loss_fn = _setup_irls_loss(loss_fn, base_loss, covariance_matrices, delta)
     assert optimizer is not None
 
+    irls_config = IRLSConfig(
+        base_loss=base_loss,
+        max_iter=irls_max_iter,
+        tol=irls_tol,
+        delta=delta,
+        weight_fn=weight_fn,
+        weight_params=weight_params,
+        variance_type=variance_type,
+        epsilon=epsilon,
+        return_all_predictions=return_all_iterations,
+        batch_size=batch_size,
+    )
+
     # --- Parse update_weights ---
     update_type, update_freq = parse_update_frequency(update_weights)
 
@@ -1322,19 +1307,10 @@ def IRLS(
                 covariance_matrices=covariance_matrices,
                 mask=mask,
                 previous_epoch_precision=previous_epoch_precision,
-                base_loss=base_loss,
-                irls_max_iter=irls_max_iter,
-                irls_tol=irls_tol,
-                delta=delta,
-                weight_fn=weight_fn,
-                weight_params=weight_params,
-                variance_type=variance_type,
-                epsilon=epsilon,
-                return_all_iterations=return_all_iterations,
-                batch_size=batch_size,
                 epoch=epoch,
                 all_iterations_data=all_iterations_data,
                 train_loss_history=train_loss_history,
+                config=irls_config,
             )
 
         # --- Training Loop ---
@@ -1360,15 +1336,6 @@ def IRLS(
                     batch_cov=batch_cov,
                     batch_mask=batch_mask,
                     previous_epoch_precision=previous_epoch_precision,
-                    base_loss=base_loss,
-                    irls_max_iter=irls_max_iter,
-                    irls_tol=irls_tol,
-                    delta=delta,
-                    weight_fn=weight_fn,
-                    weight_params=weight_params,
-                    variance_type=variance_type,
-                    epsilon=epsilon,
-                    return_all_iterations=return_all_iterations,
                     epoch=epoch,
                     batch_idx=i,
                     all_iterations_data=all_iterations_data,
@@ -1377,6 +1344,7 @@ def IRLS(
                     batch_size=batch_size,
                     batch_size_current=batch_size_current,
                     device=device,
+                    config=irls_config,
                 )
 
             # --- Standard optimization step ---

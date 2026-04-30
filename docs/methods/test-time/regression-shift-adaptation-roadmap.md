@@ -1,8 +1,8 @@
 # Regression under shift: roadmap
 
-Status: planning note  
-Scope: reusable regression methods and test-time utilities  
-Primary repo: `torchregress`  
+Status: planning note
+Scope: reusable regression methods and test-time utilities
+Primary repo: `torchregress`
 Downstream consumer: `torchz`
 
 ## 1. Motivation

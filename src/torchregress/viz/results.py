@@ -121,35 +121,15 @@ def plot_performance_comparison(
         raise ValueError(f"Unknown plot_type: {plot_type}")
 
 
-def _plot_performance_bar(
+def _add_performance_bars(
+    ax: plt.Axes,
     df: pd.DataFrame,
     best_values: Dict[str, float],
-    figsize: Tuple[int, int],
-    title: str,
-    higher_is_better: Dict[str, bool],
     colors: List,
-    return_figure: bool,
-    ax: Optional[plt.Axes],
-) -> Optional[Figure]:
-    """Helper function for bar plot comparison."""
-    # Create plot if no axes provided
-    created_fig = ax is None
-    if created_fig:
-        fig, ax = plt.subplots(figsize=figsize)
-    else:
-        fig = cast(Figure, ax.figure)
-
-    # Number of models and metrics
-    n_models = len(df.index)
-    n_metrics = len(df.columns)
-
-    # Set width of bars
-    bar_width = 0.8 / n_models
-
-    # Set positions of bars on x-axis
-    indices = np.arange(n_metrics)
-
-    # Create bars for each model
+    bar_width: float,
+    indices: np.ndarray,
+) -> None:
+    """Helper to add bars and value annotations."""
     for i, model_name in enumerate(df.index):
         values = df.loc[model_name].values
         bars = ax.bar(
@@ -187,6 +167,17 @@ def _plot_performance_bar(
                 rotation=45,
             )
 
+
+def _format_performance_axes(
+    ax: plt.Axes,
+    df: pd.DataFrame,
+    title: str,
+    indices: np.ndarray,
+    bar_width: float,
+    n_models: int,
+    higher_is_better: Dict[str, bool],
+) -> None:
+    """Helper to format axes and labels."""
     # Add labels, title and legend
     ax.set_xlabel("Metric", fontweight="bold")
     ax.set_ylabel("Value", fontweight="bold")
@@ -238,6 +229,38 @@ def _plot_performance_bar(
             ha="center",
             fontsize=12,
         )
+
+
+def _plot_performance_bar(
+    df: pd.DataFrame,
+    best_values: Dict[str, float],
+    figsize: Tuple[int, int],
+    title: str,
+    higher_is_better: Dict[str, bool],
+    colors: List,
+    return_figure: bool,
+    ax: Optional[plt.Axes],
+) -> Optional[Figure]:
+    """Helper function for bar plot comparison."""
+    # Create plot if no axes provided
+    created_fig = ax is None
+    if created_fig:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = cast(Figure, ax.figure)
+
+    # Number of models and metrics
+    n_models = len(df.index)
+    n_metrics = len(df.columns)
+
+    # Set width of bars
+    bar_width = 0.8 / n_models
+
+    # Set positions of bars on x-axis
+    indices = np.arange(n_metrics)
+
+    _add_performance_bars(ax, df, best_values, colors, bar_width, indices)
+    _format_performance_axes(ax, df, title, indices, bar_width, n_models, higher_is_better)
 
     plt.tight_layout()
 
@@ -553,6 +576,115 @@ def plot_parameter_sensitivity(
         return None
 
 
+def _normalize_importance_inputs(
+    importance_values: Union[np.ndarray, List[float], torch.Tensor],
+    importance_errors: Optional[Union[np.ndarray, List[float], torch.Tensor]] = None,
+) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    """Helper to convert importance inputs to numpy arrays."""
+    if isinstance(importance_values, torch.Tensor):
+        importance_values = importance_values.detach().cpu().numpy()
+    importance_values_np = np.array(importance_values)
+
+    importance_errors_np = None
+    if importance_errors is not None:
+        if isinstance(importance_errors, torch.Tensor):
+            importance_errors = importance_errors.detach().cpu().numpy()
+        importance_errors_np = np.array(importance_errors)
+
+    return importance_values_np, importance_errors_np
+
+
+def _sort_and_limit_features(
+    feature_names: List[str],
+    importance_values: np.ndarray,
+    importance_errors: Optional[np.ndarray],
+    sort_values: bool,
+    horizontal: bool,
+    top_n: Optional[int],
+) -> Tuple[List[str], np.ndarray, Optional[np.ndarray]]:
+    """Helper to sort and limit feature importance values."""
+    if sort_values:
+        idx = np.argsort(importance_values)
+        if not horizontal:  # For vertical, we want descending order
+            idx = idx[::-1]
+
+        feature_names = [feature_names[i] for i in idx]
+        importance_values = importance_values[idx]
+
+        if importance_errors is not None:
+            importance_errors = importance_errors[idx]
+
+    if top_n is not None and top_n < len(feature_names):
+        if horizontal:  # For horizontal, we want highest values at the top
+            feature_names = feature_names[-top_n:]
+            importance_values = importance_values[-top_n:]
+            if importance_errors is not None:
+                importance_errors = importance_errors[-top_n:]
+        else:  # For vertical, we've already sorted in descending order
+            feature_names = feature_names[:top_n]
+            importance_values = importance_values[:top_n]
+            if importance_errors is not None:
+                importance_errors = importance_errors[:top_n]
+
+    return feature_names, importance_values, importance_errors
+
+
+def _plot_importance_bars(
+    ax: plt.Axes,
+    feature_names: List[str],
+    importance_values: np.ndarray,
+    importance_errors: Optional[np.ndarray],
+    horizontal: bool,
+    color: str,
+    error_color: str,
+    show_values: bool,
+) -> None:
+    """Helper to plot the bars for feature importance."""
+    y_pos = np.arange(len(feature_names))
+
+    if horizontal:
+        bars = ax.barh(
+            y_pos,
+            importance_values,
+            color=color,
+            xerr=importance_errors,
+            error_kw=dict(ecolor=error_color),
+        )
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(feature_names)
+        ax.invert_yaxis()  # Highest values at the top
+
+        if show_values:
+            for bar in bars:
+                width = bar.get_width()
+                label_position = max(width * 1.05, 0.01)
+                ax.text(
+                    label_position, bar.get_y() + bar.get_height() / 2, f"{width:.3f}", va="center"
+                )
+    else:
+        bars = ax.bar(
+            y_pos,
+            importance_values,
+            color=color,
+            yerr=importance_errors,
+            error_kw=dict(ecolor=error_color),
+        )
+        ax.set_xticks(y_pos)
+        ax.set_xticklabels(feature_names, rotation=45, ha="right")
+
+        if show_values:
+            for bar in bars:
+                height = bar.get_height()
+                label_position = height * 1.05
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    label_position,
+                    f"{height:.3f}",
+                    ha="center",
+                    va="bottom",
+                )
+
+
 def plot_feature_importance(
     feature_names: List[str],
     importance_values: Union[np.ndarray, List[float], torch.Tensor],
@@ -590,39 +722,14 @@ def plot_feature_importance(
         If return_figure=True, returns matplotlib Figure object
     """
     # Convert to numpy array for easier manipulation
-    if isinstance(importance_values, torch.Tensor):
-        importance_values = importance_values.detach().cpu().numpy()
-    importance_values = np.array(importance_values)
+    importance_values_np, importance_errors_np = _normalize_importance_inputs(
+        importance_values, importance_errors
+    )
 
-    if importance_errors is not None:
-        if isinstance(importance_errors, torch.Tensor):
-            importance_errors = importance_errors.detach().cpu().numpy()
-        importance_errors = np.array(importance_errors)
-
-    # Sort by importance if requested
-    if sort_values:
-        idx = np.argsort(importance_values)
-        if not horizontal:  # For vertical, we want descending order
-            idx = idx[::-1]
-
-        feature_names = [feature_names[i] for i in idx]
-        importance_values = importance_values[idx]
-
-        if importance_errors is not None:
-            importance_errors = importance_errors[idx]
-
-    # Limit to top N features if specified
-    if top_n is not None and top_n < len(feature_names):
-        if horizontal:  # For horizontal, we want highest values at the top
-            feature_names = feature_names[-top_n:]
-            importance_values = importance_values[-top_n:]
-            if importance_errors is not None:
-                importance_errors = importance_errors[-top_n:]
-        else:  # For vertical, we've already sorted in descending order
-            feature_names = feature_names[:top_n]
-            importance_values = importance_values[:top_n]
-            if importance_errors is not None:
-                importance_errors = importance_errors[:top_n]
+    # Sort and limit features
+    feature_names, importance_values_np, importance_errors_np = _sort_and_limit_features(
+        feature_names, importance_values_np, importance_errors_np, sort_values, horizontal, top_n
+    )
 
     # Create plot if no axes provided
     created_fig = ax is None
@@ -631,53 +738,17 @@ def plot_feature_importance(
     else:
         fig = cast(Figure, ax.figure)
 
-    # Set positions for bars
-    y_pos = np.arange(len(feature_names))
-
     # Create bars
-    if horizontal:
-        bars = ax.barh(
-            y_pos,
-            importance_values,
-            color=color,
-            xerr=importance_errors,
-            error_kw=dict(ecolor=error_color),
-        )
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels(feature_names)
-        ax.invert_yaxis()  # Highest values at the top
-
-        # Add values on bars if requested
-        if show_values:
-            for i, bar in enumerate(bars):
-                width = bar.get_width()
-                label_position = max(width * 1.05, 0.01)
-                ax.text(
-                    label_position, bar.get_y() + bar.get_height() / 2, f"{width:.3f}", va="center"
-                )
-    else:
-        bars = ax.bar(
-            y_pos,
-            importance_values,
-            color=color,
-            yerr=importance_errors,
-            error_kw=dict(ecolor=error_color),
-        )
-        ax.set_xticks(y_pos)
-        ax.set_xticklabels(feature_names, rotation=45, ha="right")
-
-        # Add values on bars if requested
-        if show_values:
-            for i, bar in enumerate(bars):
-                height = bar.get_height()
-                label_position = height * 1.05
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    label_position,
-                    f"{height:.3f}",
-                    ha="center",
-                    va="bottom",
-                )
+    _plot_importance_bars(
+        ax,
+        feature_names,
+        importance_values_np,
+        importance_errors_np,
+        horizontal,
+        color,
+        error_color,
+        show_values,
+    )
 
     # Set labels and title
     if horizontal:

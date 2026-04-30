@@ -21,17 +21,18 @@ def _tiny_loader(n: int = 8, batch_size: int = 4) -> DataLoader:
 def _fake_irls_factory(call_log: list[dict[str, Any]]):
     def _fake_iteratively_reweighted_least_squares(**kwargs: Any):
         y_true = kwargs["y_true"]
+        config = kwargs.get("config")
         call_log.append(
             {
                 "update_context_batch": kwargs["x"].shape[0],
-                "return_all_predictions": kwargs.get("return_all_predictions", False),
-                "batch_size_arg": kwargs.get("batch_size"),
+                "return_all_predictions": config.return_all_predictions if config else False,
+                "batch_size_arg": config.batch_size if config else None,
             }
         )
         y_pred = torch.zeros_like(y_true)
         precision = torch.ones_like(y_true)
         history = [0.5, 0.25]
-        if kwargs.get("return_all_predictions", False):
+        if config and config.return_all_predictions:
             return y_pred, history, precision, [y_pred.clone(), y_pred.clone()]
         return y_pred, history, precision
 

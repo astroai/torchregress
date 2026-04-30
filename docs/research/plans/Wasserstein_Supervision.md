@@ -7,7 +7,7 @@ This document proposes a concrete implementation plan for adding the main ideas 
 The paper targets a central problem in deep heteroscedastic regression: learning a sample-dependent covariance when direct covariance labels are unavailable. It argues that standard negative log-likelihood training can be unstable because covariance learning is entangled with residual errors, and proposes two complementary ingredients :
 
 1. a **stable 2-Wasserstein-based supervision objective** for Gaussian mean-and-covariance prediction, using an upper bound that avoids eigendecomposition for non-commutative covariance matrices
-2. a **self-supervised pseudo-labeling scheme** that estimates local target covariance from neighbourhood structure in input space, enabling covariance supervision even without ground-truth covariance labels 
+2. a **self-supervised pseudo-labeling scheme** that estimates local target covariance from neighbourhood structure in input space, enabling covariance supervision even without ground-truth covariance labels
 
 This is a strong fit for `torchregress`. The library already positions heteroscedastic Gaussian regression, uncertainty estimation, and multivariate probabilistic regression as core use cases, and explicitly treats Gaussian, ensemble, conformal, and related methods as peer tools in a task-first framework  . The proposed additions therefore extend an existing strength of the package rather than opening an unrelated branch.
 
@@ -52,9 +52,9 @@ This paper is directly aligned with the library’s current scope.
 
 `torchregress` already emphasizes:
 
-* heteroscedastic Gaussian regression as a primary workflow 
-* decomposition-aware uncertainty methods and multivariate Gaussian losses as mainstream options 
-* modular building blocks rather than one-off end-to-end application code 
+* heteroscedastic Gaussian regression as a primary workflow
+* decomposition-aware uncertainty methods and multivariate Gaussian losses as mainstream options
+* modular building blocks rather than one-off end-to-end application code
 
 The paper’s main technical contribution is exactly the kind of reusable abstraction that libraries benefit from: a stable Gaussian-distribution loss for mean + covariance learning. Its strongest empirical claim is also relevant to library design: the 2-Wasserstein bound is much cheaper than heavier covariance-learning methods while remaining accurate on synthetic and UCI benchmarks .
 
@@ -89,7 +89,7 @@ This should implement the paper’s heuristic covariance pseudo-labeling algorit
 * compute neighbourhoods in input space
 * weight neighbours using a Mahalanobis-distance-based soft weighting
 * estimate a local target covariance from neighbour targets
-* use that covariance as pseudo-supervision for covariance prediction 
+* use that covariance as pseudo-supervision for covariance prediction
 
 This is useful, but should begin as experimental because its success depends strongly on geometry, representation quality, and modality.
 
@@ -273,7 +273,7 @@ The pseudo-labeler should estimate a local covariance by:
 1. finding nearest neighbours of (x_i)
 2. computing neighbour weights from Mahalanobis distance
 3. estimating a weighted local mean
-4. estimating a weighted local covariance of neighbour targets 
+4. estimating a weighted local covariance of neighbour targets
 
 The implementation should support shrinkage or diagonal jitter to ensure SPD outputs.
 
@@ -487,7 +487,7 @@ Metrics:
 
 Purpose:
 
-* verify the central claim that the 2-W bound is more stable for covariance learning than residual-sensitive alternatives 
+* verify the central claim that the 2-W bound is more stable for covariance learning than residual-sensitive alternatives
 
 ---
 

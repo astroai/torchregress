@@ -136,4 +136,3 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 ### Decomposition (`decomposition=yes`)
 
 `HeteroscedasticBNN`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNEnsembleModel`
-

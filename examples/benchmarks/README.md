@@ -15,7 +15,7 @@ These drive the SAGE-Reg NeurIPS track; see [papers/neurips_sage_reg/](../../pap
 | `self_agreement_supervised_gap_multiseed.py` | Multi-seed aggregation over confirms |
 | `tabred_sage_ssl_probe.py` | TabReD (preprocessed `.npy`) × SAGE vs baselines; loads wide ``X`` with **Polars** (requires `torchregress[tabred]`); morning script runs [fetch](../../tools/fetch_tabred_data.py) then [launcher](../../scripts/morning_tabred_bundle.sh) |
 
-Reproducibility and data paths: [papers/neurips_sage_reg/reproducibility.md](../../papers/neurips_sage_reg/reproducibility.md).  
+Reproducibility and data paths: [papers/neurips_sage_reg/reproducibility.md](../../papers/neurips_sage_reg/reproducibility.md).
 Paper index: [papers/README.md](../../papers/README.md).
 
 ## Other benchmarks

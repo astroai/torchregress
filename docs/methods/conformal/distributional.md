@@ -12,8 +12,8 @@ These methods leverage **full predictive distributions** — CDF, density, or cl
 Conformal prediction via the **Probability Integral Transform** (PIT).
 
 !!! abstract "Summary"
-    **Score:**  $\;s_i = \bigl\lvert 2\,F(y_i \mid x_i) - 1\bigr\rvert$  
-    **Interval:**  $\;\bigl[F^{-1}(\alpha_{\mathrm{lo}} \mid x),\; F^{-1}(\alpha_{\mathrm{hi}} \mid x)\bigr]$  
+    **Score:**  $\;s_i = \bigl\lvert 2\,F(y_i \mid x_i) - 1\bigr\rvert$
+    **Interval:**  $\;\bigl[F^{-1}(\alpha_{\mathrm{lo}} \mid x),\; F^{-1}(\alpha_{\mathrm{hi}} \mid x)\bigr]$
     **Requires:**  CDF values $F(y \mid x)$ and an inverse-CDF (ICDF) function
 
 ### Mathematical Details
@@ -112,8 +112,8 @@ lower, upper = dcp.predict_intervals_from_cdf(icdf_fn, x_test)
 **Conformal Thresholded Intervals** — produces the **smallest possible** prediction sets by using negative log-density as the nonconformity score.
 
 !!! abstract "Summary"
-    **Score:**  $\;s_i = -\log p(y_i \mid x_i)$  
-    **Interval:**  Density level set $\;\{y : -\log p(y\mid x) \leq \hat{q}\}$  
+    **Score:**  $\;s_i = -\log p(y_i \mid x_i)$
+    **Interval:**  Density level set $\;\{y : -\log p(y\mid x) \leq \hat{q}\}$
     **Requires:**  A log-density function $\log p(y \mid x)$
 
 ### Mathematical Details
@@ -168,8 +168,8 @@ lower, upper = cti.predict_intervals_from_density(
 **Regression-to-Classification Conformal Prediction.**  Discretises the target space into bins, treats regression as softmax classification, and applies the **Adaptive Prediction Sets** (APS) algorithm.
 
 !!! abstract "Summary"
-    **Score:**  Cumulative probability of bins ranked above the true bin  
-    **Interval:**  Union of high-probability bins  
+    **Score:**  Cumulative probability of bins ranked above the true bin
+    **Interval:**  Union of high-probability bins
     **Requires:**  Softmax probabilities over target bins
 
 ### Usage

@@ -17,11 +17,11 @@ The current package already covers a broad base of regression losses and uncerta
 
 The five recommended additions are:
 
-1. **β-NLL** for robust heteroscedastic training, from ICLR 2022, with official public code 
-2. **TIC-TAC** for improved covariance estimation in deep heteroscedastic regression, from ICML 2024, with official public code 
-3. **Effective Bayesian Heteroscedastic Regression** using natural heteroscedastic heads and Laplace-style posterior approximation, from NeurIPS 2023, with official public code 
-4. **Stable 2-Wasserstein bound supervision plus self-supervised covariance pseudo-labeling**, from ICLR 2025 
-5. **Faithful Heteroscedastic Regression**, an important modern baseline in the same family, also directly discussed as a relevant comparison in the 2025 covariance paper 
+1. **β-NLL** for robust heteroscedastic training, from ICLR 2022, with official public code
+2. **TIC-TAC** for improved covariance estimation in deep heteroscedastic regression, from ICML 2024, with official public code
+3. **Effective Bayesian Heteroscedastic Regression** using natural heteroscedastic heads and Laplace-style posterior approximation, from NeurIPS 2023, with official public code
+4. **Stable 2-Wasserstein bound supervision plus self-supervised covariance pseudo-labeling**, from ICLR 2025
+5. **Faithful Heteroscedastic Regression**, an important modern baseline in the same family, also directly discussed as a relevant comparison in the 2025 covariance paper
 
 ---
 

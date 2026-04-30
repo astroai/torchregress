@@ -123,7 +123,7 @@ uv run python examples/benchmarks/self_agreement_supervised_gap_multiseed.py \
 
 The public FAIR-style Higgs dump is **~220M rows** of tabular simulation: **PRI** (reconstructed primary) and **DER** (derived) blocks, plus **weights** and **labels** / **detailed_labels**. Confirm/multiseed already use `target_column=labels`, `ood_score_column=PRI_met`, and drop `weights` and `detailed_labels` to avoid obvious leakage into features.
 
-- **10× split sizes** (multiply train / unlabeled / test pools after tuning JSON resolution):  
+- **10× split sizes** (multiply train / unlabeled / test pools after tuning JSON resolution):
   `--higgs-split-scale-factor 10` on `self_agreement_supervised_gap_confirm.py` and `self_agreement_supervised_gap_multiseed.py`.
 - **Parquet reservoir**: loads use **Polars** `scan_parquet` (lazy) with a seeded random row-index join, then streaming collect—no full materialization of 100M+ row dumps. Raise `--higgs-parquet-max-sample-rows` when the split budget grows. The loader refuses **full-file** reads above `parquet_full_read_row_limit` (override with `--higgs-parquet-full-read-row-limit` only on large-memory machines).
 - **Direct benchmark** (single run): `examples/benchmarks/self_agreement_higgs_ood.py` exposes `--scale-split-factor`, `--parquet-max-sample-rows`, and related flags.

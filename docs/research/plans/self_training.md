@@ -103,4 +103,3 @@ The most directly relevant new paper for noisy scientific regression is probably
 [40]: https://arxiv.org/abs/2503.00884?utm_source=chatgpt.com "Re-Evaluating the Impact of Unseen-Class Unlabeled Data on Semi-Supervised Learning Model"
 [41]: https://openreview.net/forum?id=BND9CutZf6&utm_source=chatgpt.com "Geometric Imbalance in Semi-Supervised Node ..."
 [42]: https://openreview.net/forum?id=wHx7UuRm7G&utm_source=chatgpt.com "Segment Anything Model Meets Semi-supervised Medical ..."
-

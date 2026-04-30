@@ -1,6 +1,6 @@
 # Conformal Prediction
 
-Conformal Prediction (CP) is a modern framework for uncertainty quantification that provides **mathematically guaranteed** prediction intervals for any regression model. 
+Conformal Prediction (CP) is a modern framework for uncertainty quantification that provides **mathematically guaranteed** prediction intervals for any regression model.
 
 !!! abstract "The CP Guarantee"
 

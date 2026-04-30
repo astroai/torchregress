@@ -11,7 +11,7 @@ References:
       of Generalization" (NeurIPS 2020)
 """
 
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, cast
 
 import torch
 import torch.nn as nn
@@ -102,7 +102,12 @@ class SWAG(nn.Module):
                 self.register_buffer(f"{name_cleaned}_sq_mean", torch.zeros_like(param))
 
         # Store deviations for low-rank approximation
-        self.deviations: List[Dict[str, torch.Tensor]] = []
+        self.deviations: Dict[str, torch.Tensor] = {}
+        for name, param in self.base_model.named_parameters():
+            if param.requires_grad:
+                self.deviations[name] = torch.empty(
+                    (max_num_models,) + param.shape, dtype=param.dtype, device=torch.device("cpu")
+                )
 
     def collect_model(self, model: nn.Module) -> None:
         """
@@ -142,26 +147,13 @@ class SWAG(nn.Module):
             sq_mean_buffer.mul_(n / (n + 1)).add_(param.data**2 / (n + 1))
 
         # Store deviation from mean (for low-rank covariance)
-        if len(self.deviations) < self.max_num_models:
-            deviation = {}
-            for name, param in model.named_parameters():
-                if not param.requires_grad:
-                    continue
-                name_cleaned = self._name_map[name]
-                mean_buffer = getattr(self, f"{name_cleaned}_mean")
-                deviation[name] = (param.data - mean_buffer).cpu().clone()
-            self.deviations.append(deviation)
-        else:
-            # Circular buffer: overwrite oldest deviation
-            idx = n % self.max_num_models
-            deviation = {}
-            for name, param in model.named_parameters():
-                if not param.requires_grad:
-                    continue
-                name_cleaned = self._name_map[name]
-                mean_buffer = getattr(self, f"{name_cleaned}_mean")
-                deviation[name] = (param.data - mean_buffer).cpu().clone()
-            self.deviations[idx] = deviation
+        idx = n % self.max_num_models
+        for name, param in model.named_parameters():
+            if not param.requires_grad:
+                continue
+            name_cleaned = self._name_map[name]
+            mean_buffer = getattr(self, f"{name_cleaned}_mean")
+            self.deviations[name][idx] = (param.data - mean_buffer).cpu()
 
         cast(torch.Tensor, self.n_models).add_(1)
 
@@ -213,24 +205,24 @@ class SWAG(nn.Module):
                 param.data.copy_(mean)
 
         # Add low-rank component from stored deviations
-        if len(self.deviations) > 0:
+        n_models_val = int(cast(torch.Tensor, self.n_models).item())
+        num_deviations = min(n_models_val, self.max_num_models)
+
+        if num_deviations > 0:
             # Sample coefficients: z ~ N(0, 1)
             device = next(self.base_model.parameters()).device
-            z = torch.randn(len(self.deviations), device=device)
+            z = torch.randn(num_deviations, device=device)
 
             # Denominator for scaling. Avoid division by zero if only one model.
-            k = len(self.deviations)
+            k = num_deviations
             denom = (k - 1) ** 0.5 if k > 1 else 1.0
 
             for name, param in self.base_model.named_parameters():
                 if not param.requires_grad:
                     continue
 
-                # Stack all deviations for the current parameter
-                dev_stack = torch.stack([d[name] for d in self.deviations])
-
-                # Move the entire stack to the correct device at once
-                dev_stack = dev_stack.to(device)
+                # Get deviations for the current parameter and move to correct device
+                dev_stack = self.deviations[name][:num_deviations].to(device)
 
                 # Calculate low-rank sample with efficient tensor dot product
                 low_rank_sample = torch.tensordot(z, dev_stack, dims=([0], [0])) / denom

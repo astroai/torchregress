@@ -593,6 +593,134 @@ def predictive_agreement_score(
     return disagreement
 
 
+def _reduce_pseudo_loss_rows(
+    row_loss: Tensor,
+    sample_weights: Tensor | None,
+    reduction: str,
+    eps: float,
+) -> Tensor:
+    if sample_weights is not None:
+        weights = sample_weights.to(device=row_loss.device, dtype=row_loss.dtype).reshape(-1)
+        if weights.shape[0] != row_loss.shape[0]:
+            raise ValueError("sample_weights must match the batch dimension")
+        weighted = row_loss * weights
+        if reduction == "mean":
+            return weighted.sum() / weights.sum().clamp_min(eps)
+        if reduction == "sum":
+            return weighted.sum()
+        if reduction == "none":
+            return weighted
+        raise ValueError("reduction must be one of {'none', 'mean', 'sum'}")
+
+    if reduction == "mean":
+        return row_loss.mean()
+    if reduction == "sum":
+        return row_loss.sum()
+    if reduction == "none":
+        return row_loss
+    raise ValueError("reduction must be one of {'none', 'mean', 'sum'}")
+
+
+def _gaussian_pseudo_loss(
+    student_prediction: PredictiveBatch,
+    consensus_prediction: PredictiveBatch,
+    reference: Tensor,
+    min_scale: float,
+) -> Tensor:
+    student_mean = _scalar_head_tensor(
+        student_prediction.mean,
+        reference=reference,
+        name="mean",
+    )
+    student_std = _scalar_head_tensor(
+        student_prediction.std, reference=reference, name="std"
+    ).clamp_min(min_scale)
+    target_mean = _scalar_head_tensor(
+        consensus_prediction.mean, reference=reference, name="consensus_mean"
+    )
+    target_std = _scalar_head_tensor(
+        consensus_prediction.std, reference=reference, name="consensus_std"
+    ).clamp_min(min_scale)
+    student_var = student_std.square()
+    target_var = target_std.square()
+    return 0.5 * (
+        math.log(2.0 * math.pi)
+        + torch.log(student_var)
+        + (target_var + (target_mean - student_mean).square()) / student_var
+    )
+
+
+def _binned_pseudo_loss(
+    student_prediction: PredictiveBatch,
+    consensus_prediction: PredictiveBatch,
+    reference: Tensor,
+    n_support: int,
+    range_margin: float,
+    gaussian_std_span: float,
+    min_scale: float,
+    eps: float,
+) -> Tensor:
+    batch_size = _infer_batch_size([student_prediction, consensus_prediction])
+    edges = _grid_tensor(
+        student_prediction.bin_edges,
+        batch_size=batch_size,
+        reference=reference,
+        name="bin_edges",
+    )
+    support, densities = _common_density_stack(
+        [student_prediction, consensus_prediction],
+        n_support=n_support,
+        range_margin=range_margin,
+        gaussian_std_span=gaussian_std_span,
+        min_scale=min_scale,
+        eps=eps,
+    )
+    target_density = densities[1]
+    target_probs = []
+    for idx in range(edges.shape[1] - 1):
+        left = edges[:, idx : idx + 1]
+        right = edges[:, idx + 1 : idx + 2]
+        mask = (support >= left) & (
+            support <= right if idx == edges.shape[1] - 2 else support < right
+        )
+        bin_density = torch.where(mask, target_density, torch.zeros_like(target_density))
+        target_probs.append(torch.trapezoid(bin_density, support, dim=-1))
+    target_pmf = torch.stack(target_probs, dim=-1)
+    target_pmf = target_pmf / target_pmf.sum(dim=-1, keepdim=True).clamp_min(eps)
+    student_logits = _matrix_tensor(
+        student_prediction.bar_logits,
+        reference=reference,
+        name="bar_logits",
+    )
+    return -(target_pmf * torch.log_softmax(student_logits, dim=-1)).sum(dim=-1)
+
+
+def _general_pseudo_loss(
+    student_prediction: PredictiveBatch,
+    consensus_prediction: PredictiveBatch,
+    n_support: int,
+    range_margin: float,
+    gaussian_std_span: float,
+    min_scale: float,
+    eps: float,
+) -> Tensor:
+    support, densities = _common_density_stack(
+        [student_prediction, consensus_prediction],
+        n_support=n_support,
+        range_margin=range_margin,
+        gaussian_std_span=gaussian_std_span,
+        min_scale=min_scale,
+        eps=eps,
+    )
+    student_density = densities[0]
+    target_density = densities[1]
+    return -torch.trapezoid(
+        target_density * torch.log(student_density.clamp_min(eps)),
+        support,
+        dim=-1,
+    )
+
+
 def distributional_pseudo_loss(
     student_prediction: PredictiveBatch,
     consensus_prediction: PredictiveBatch,
@@ -606,29 +734,6 @@ def distributional_pseudo_loss(
     eps: float = 1e-8,
 ) -> Tensor:
     """Backbone-aware pseudo-supervision loss on a shared predictive representation."""
-
-    def _reduce_rows(row_loss: Tensor) -> Tensor:
-        if sample_weights is not None:
-            weights = sample_weights.to(device=row_loss.device, dtype=row_loss.dtype).reshape(-1)
-            if weights.shape[0] != row_loss.shape[0]:
-                raise ValueError("sample_weights must match the batch dimension")
-            weighted = row_loss * weights
-            if reduction == "mean":
-                return weighted.sum() / weights.sum().clamp_min(eps)
-            if reduction == "sum":
-                return weighted.sum()
-            if reduction == "none":
-                return weighted
-            raise ValueError("reduction must be one of {'none', 'mean', 'sum'}")
-
-        if reduction == "mean":
-            return row_loss.mean()
-        if reduction == "sum":
-            return row_loss.sum()
-        if reduction == "none":
-            return row_loss
-        raise ValueError("reduction must be one of {'none', 'mean', 'sum'}")
-
     reference = _reference_tensor([student_prediction, consensus_prediction])
 
     if (
@@ -637,81 +742,32 @@ def distributional_pseudo_loss(
         and consensus_prediction.mean is not None
         and consensus_prediction.std is not None
     ):
-        student_mean = _scalar_head_tensor(
-            student_prediction.mean,
-            reference=reference,
-            name="mean",
+        row_loss = _gaussian_pseudo_loss(
+            student_prediction, consensus_prediction, reference, min_scale
         )
-        student_std = _scalar_head_tensor(
-            student_prediction.std, reference=reference, name="std"
-        ).clamp_min(min_scale)
-        target_mean = _scalar_head_tensor(
-            consensus_prediction.mean, reference=reference, name="consensus_mean"
+    elif student_prediction.bar_logits is not None and student_prediction.bin_edges is not None:
+        row_loss = _binned_pseudo_loss(
+            student_prediction,
+            consensus_prediction,
+            reference,
+            n_support,
+            range_margin,
+            gaussian_std_span,
+            min_scale,
+            eps,
         )
-        target_std = _scalar_head_tensor(
-            consensus_prediction.std, reference=reference, name="consensus_std"
-        ).clamp_min(min_scale)
-        student_var = student_std.square()
-        target_var = target_std.square()
-        row_loss = 0.5 * (
-            math.log(2.0 * math.pi)
-            + torch.log(student_var)
-            + (target_var + (target_mean - student_mean).square()) / student_var
+    else:
+        row_loss = _general_pseudo_loss(
+            student_prediction,
+            consensus_prediction,
+            n_support,
+            range_margin,
+            gaussian_std_span,
+            min_scale,
+            eps,
         )
-        return _reduce_rows(row_loss)
 
-    if student_prediction.bar_logits is not None and student_prediction.bin_edges is not None:
-        batch_size = _infer_batch_size([student_prediction, consensus_prediction])
-        edges = _grid_tensor(
-            student_prediction.bin_edges,
-            batch_size=batch_size,
-            reference=reference,
-            name="bin_edges",
-        )
-        support, densities = _common_density_stack(
-            [student_prediction, consensus_prediction],
-            n_support=n_support,
-            range_margin=range_margin,
-            gaussian_std_span=gaussian_std_span,
-            min_scale=min_scale,
-            eps=eps,
-        )
-        target_density = densities[1]
-        target_probs = []
-        for idx in range(edges.shape[1] - 1):
-            left = edges[:, idx : idx + 1]
-            right = edges[:, idx + 1 : idx + 2]
-            mask = (support >= left) & (
-                support <= right if idx == edges.shape[1] - 2 else support < right
-            )
-            bin_density = torch.where(mask, target_density, torch.zeros_like(target_density))
-            target_probs.append(torch.trapezoid(bin_density, support, dim=-1))
-        target_pmf = torch.stack(target_probs, dim=-1)
-        target_pmf = target_pmf / target_pmf.sum(dim=-1, keepdim=True).clamp_min(eps)
-        student_logits = _matrix_tensor(
-            student_prediction.bar_logits,
-            reference=reference,
-            name="bar_logits",
-        )
-        row_loss = -(target_pmf * torch.log_softmax(student_logits, dim=-1)).sum(dim=-1)
-        return _reduce_rows(row_loss)
-
-    support, densities = _common_density_stack(
-        [student_prediction, consensus_prediction],
-        n_support=n_support,
-        range_margin=range_margin,
-        gaussian_std_span=gaussian_std_span,
-        min_scale=min_scale,
-        eps=eps,
-    )
-    student_density = densities[0]
-    target_density = densities[1]
-    row_loss = -torch.trapezoid(
-        target_density * torch.log(student_density.clamp_min(eps)),
-        support,
-        dim=-1,
-    )
-    return _reduce_rows(row_loss)
+    return _reduce_pseudo_loss_rows(row_loss, sample_weights, reduction, eps)
 
 
 class SAGERegLoss(nn.Module):

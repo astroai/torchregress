@@ -148,6 +148,48 @@ def _plot_residual_scatter(
         ax.scatter(y_pred, residuals, alpha=alpha, color=color, edgecolor="none")
 
 
+def _compute_uncertainty_stats(
+    y_pred: np.ndarray,
+    y_pred_std: np.ndarray,
+    y_true: np.ndarray,
+) -> Tuple[np.ndarray, float, float]:
+    """Helper to compute absolute errors and Spearman correlation."""
+    from scipy import stats
+
+    abs_errors = np.abs(y_pred - y_true)
+    correlation, p_value = stats.spearmanr(y_pred_std, abs_errors)
+    return abs_errors, correlation, p_value
+
+
+def _subsample_scatter_data(
+    x_data: np.ndarray,
+    y_data: np.ndarray,
+    max_points: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Helper to subsample data points for plotting performance."""
+    if len(x_data) > max_points:
+        idx = np.random.choice(len(x_data), max_points, replace=False)
+        return x_data[idx], y_data[idx]
+    return x_data, y_data
+
+
+def _add_uncertainty_trend(
+    ax: plt.Axes,
+    y_pred_std: np.ndarray,
+    abs_errors: np.ndarray,
+    correlation: float,
+    show_correlation: bool,
+) -> None:
+    """Helper to fit and plot a linear trend line for uncertainty vs error."""
+    if len(y_pred_std) > 1:
+        z = np.polyfit(y_pred_std, abs_errors, 1)
+        p = np.poly1d(z)
+        x_line = np.linspace(y_pred_std.min(), y_pred_std.max(), 100)
+        label = f"Trend (ρ={correlation:.3f})" if show_correlation else "Trend"
+        ax.plot(x_line, p(x_line), "r--", linewidth=2, label=label)
+        ax.legend()
+
+
 def _add_residual_trend(
     ax: plt.Axes,
     y_pred: np.ndarray,
@@ -274,6 +316,74 @@ def plot_residuals(
     return None
 
 
+def _prepare_interval_data(
+    y_pred: np.ndarray,
+    y_lower: np.ndarray,
+    y_upper: np.ndarray,
+    x: Optional[np.ndarray],
+    y_true: Optional[np.ndarray],
+    sorted_by_pred: bool,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Prepare and sort data for prediction interval plots."""
+    # Flatten arrays
+    y_pred = y_pred.reshape(-1)
+    y_lower = y_lower.reshape(-1)
+    y_upper = y_upper.reshape(-1)
+
+    if x is None:
+        x = np.arange(len(y_pred))
+    else:
+        x = x.reshape(-1)
+
+    if y_true is not None:
+        y_true = y_true.reshape(-1)
+
+    if sorted_by_pred:
+        sort_idx = np.argsort(y_pred)
+        y_pred = y_pred[sort_idx]
+        y_lower = y_lower[sort_idx]
+        y_upper = y_upper[sort_idx]
+        x = x[sort_idx]
+        if y_true is not None:
+            y_true = y_true[sort_idx]
+
+    return x, y_pred, y_lower, y_upper, y_true
+
+
+def _add_interval_elements(
+    ax: plt.Axes,
+    x: np.ndarray,
+    y_pred: np.ndarray,
+    y_lower: np.ndarray,
+    y_upper: np.ndarray,
+    y_true: Optional[np.ndarray],
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    color_pred: str,
+    color_interval: str,
+    color_true: str,
+    alpha: float,
+) -> None:
+    """Add lines, fill, scatter points, and formatting to prediction interval axes."""
+    ax.fill_between(
+        x, y_lower, y_upper, alpha=alpha, color=color_interval, label="Prediction Interval"
+    )
+    ax.plot(x, y_pred, color=color_pred, label="Predicted")
+
+    if y_true is not None:
+        ax.scatter(x, y_true, color=color_true, s=10, alpha=0.6, label="True")
+        coverage = np.mean((y_true >= y_lower) & (y_true <= y_upper)) * 100
+        ax.set_title(f"{title} (Coverage: {coverage:.1f}%)")
+    else:
+        ax.set_title(title)
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.legend(loc="best")
+    ax.grid(True, alpha=0.3)
+
+
 def plot_prediction_intervals(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_lower: Union[torch.Tensor, np.ndarray],
@@ -316,34 +426,26 @@ def plot_prediction_intervals(
     Returns:
         If return_figure=True, returns matplotlib Figure object
     """
-    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy()
-    y_lower = convert_to_tensor(y_lower).detach().cpu().numpy()
-    y_upper = convert_to_tensor(y_upper).detach().cpu().numpy()
+    y_pred_np = convert_to_tensor(y_pred).detach().cpu().numpy()
+    y_lower_np = convert_to_tensor(y_lower).detach().cpu().numpy()
+    y_upper_np = convert_to_tensor(y_upper).detach().cpu().numpy()
 
-    # Flatten arrays if multi-dimensional
-    y_pred = y_pred.reshape(-1)
-    y_lower = y_lower.reshape(-1)
-    y_upper = y_upper.reshape(-1)
+    x_np = None
+    if x is not None:
+        x_np = convert_to_tensor(x).detach().cpu().numpy()
 
-    # Create x values if not provided
-    if x is None:
-        x = np.arange(len(y_pred))
-    else:
-        x = convert_to_tensor(x).detach().cpu().numpy().reshape(-1)
-
-    # Process true values if provided
+    y_true_np = None
     if y_true is not None:
-        y_true = convert_to_tensor(y_true).detach().cpu().numpy().reshape(-1)
+        y_true_np = convert_to_tensor(y_true).detach().cpu().numpy()
 
-    # Sort by predicted values if requested
-    if sorted_by_pred:
-        sort_idx = np.argsort(y_pred)
-        y_pred = y_pred[sort_idx]
-        y_lower = y_lower[sort_idx]
-        y_upper = y_upper[sort_idx]
-        x = x[sort_idx]
-        if y_true is not None:
-            y_true = y_true[sort_idx]
+    x_plt, y_pred_plt, y_lower_plt, y_upper_plt, y_true_plt = _prepare_interval_data(
+        y_pred=y_pred_np,
+        y_lower=y_lower_np,
+        y_upper=y_upper_np,
+        x=x_np,
+        y_true=y_true_np,
+        sorted_by_pred=sorted_by_pred,
+    )
 
     # Create plot if no axes provided
     if ax is None:
@@ -351,30 +453,21 @@ def plot_prediction_intervals(
     else:
         fig = cast(Figure, ax.figure)
 
-    # Plot prediction intervals
-    ax.fill_between(
-        x, y_lower, y_upper, alpha=alpha, color=color_interval, label="Prediction Interval"
+    _add_interval_elements(
+        ax=ax,
+        x=x_plt,
+        y_pred=y_pred_plt,
+        y_lower=y_lower_plt,
+        y_upper=y_upper_plt,
+        y_true=y_true_plt,
+        title=title,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        color_pred=color_pred,
+        color_interval=color_interval,
+        color_true=color_true,
+        alpha=alpha,
     )
-
-    # Plot predicted values
-    ax.plot(x, y_pred, color=color_pred, label="Predicted")
-
-    # Plot true values if provided
-    if y_true is not None:
-        ax.scatter(x, y_true, color=color_true, s=10, alpha=0.6, label="True")
-
-    # Calculate coverage if true values provided
-    if y_true is not None:
-        coverage = np.mean((y_true >= y_lower) & (y_true <= y_upper)) * 100
-        ax.set_title(f"{title} (Coverage: {coverage:.1f}%)")
-    else:
-        ax.set_title(title)
-
-    # Add labels and legend
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.legend(loc="best")
-    ax.grid(True, alpha=0.3)
 
     if return_figure:
         return fig
@@ -458,6 +551,31 @@ def plot_qq_plot(
     return None
 
 
+def _add_residual_density_curves(ax: plt.Axes, residuals: np.ndarray, kde_color: str) -> None:
+    """Add KDE and normal distribution fit to residual histogram."""
+    try:
+        from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
+
+        kde = gaussian_kde(residuals)
+        x_range = np.linspace(min(residuals), max(residuals), 1000)
+        ax.plot(x_range, kde(x_range), color=kde_color, linewidth=2, label="Density")
+
+        # Add normal distribution for comparison
+        from scipy.stats import norm  # type: ignore[import-untyped]
+
+        mu, std = norm.fit(residuals)
+        ax.plot(
+            x_range,
+            norm.pdf(x_range, mu, std),
+            color="red",
+            linestyle="--",
+            linewidth=2,
+            label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
+        )
+    except ImportError:
+        pass  # Skip KDE if scipy not available
+
+
 def plot_residual_histogram(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -509,27 +627,7 @@ def plot_residual_histogram(
 
     # Add KDE if requested
     if show_kde:
-        try:
-            from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
-
-            kde = gaussian_kde(residuals)
-            x_range = np.linspace(min(residuals), max(residuals), 1000)
-            ax.plot(x_range, kde(x_range), color=kde_color, linewidth=2, label="Density")
-
-            # Add normal distribution for comparison
-            from scipy.stats import norm  # type: ignore[import-untyped]
-
-            mu, std = norm.fit(residuals)
-            ax.plot(
-                x_range,
-                norm.pdf(x_range, mu, std),
-                color="red",
-                linestyle="--",
-                linewidth=2,
-                label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
-            )
-        except ImportError:
-            pass  # Skip KDE if scipy not available
+        _add_residual_density_curves(ax, residuals, kde_color)
 
     # Add vertical line at zero
     add_zero_line(ax, axis="x", label="Perfect Prediction")
@@ -562,96 +660,72 @@ def plot_residual_histogram(
     return None
 
 
-def _plot_single_distribution(
+def _plot_kde_distribution(
     ax: plt.Axes,
     samples: np.ndarray,
-    true_value: float,
-    idx: int,
-    is_first: bool,
-    credible_interval: float,
-    plot_type: str,
-    has_kde: bool,
     color_samples: str,
-    color_true: str,
+    credible_interval: float,
+    lower_ci: float,
+    upper_ci: float,
     alpha: float,
-    xlabel: str,
-    ylabel: str,
-) -> None:
-    """Helper function to plot a single distribution comparison."""
-    # Remove any NaN or Inf values
-    valid_samples = samples[np.isfinite(samples)]
-    if len(valid_samples) < len(samples):
-        removed = len(samples) - len(valid_samples)
-        print(f"Warning: {removed} non-finite values removed from samples")
+) -> bool:
+    """Helper function to plot KDE for a distribution. Returns True if successful."""
+    try:
+        from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
 
-    # Make sure we have data to plot
-    if len(valid_samples) == 0:
-        ax.text(
-            0.5,
-            0.5,
-            "No valid samples",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-        )
-        return
+        # Create KDE
+        kde = gaussian_kde(samples)
+        x_range = np.linspace(min(samples), max(samples), 1000)
+        ax.plot(x_range, kde(x_range), color=color_samples, linewidth=2, label="Predicted")
 
-    samples = valid_samples
-
-    # Compute credible interval
-    lower_ci = np.percentile(samples, (1 - credible_interval) * 100 / 2)
-    upper_ci = np.percentile(samples, 100 - (1 - credible_interval) * 100 / 2)
-    mean_pred = np.mean(samples)
-    median_pred = np.median(samples)
-
-    # Plot the predicted distribution
-    if plot_type in ["kde", "both"] and has_kde and len(samples) >= 3:
-        try:
-            from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
-
-            # Create KDE
-            kde = gaussian_kde(samples)
-            x_range = np.linspace(min(samples), max(samples), 1000)
-            ax.plot(x_range, kde(x_range), color=color_samples, linewidth=2, label="Predicted")
-
-            # Add credible interval shading
-            x_ci = x_range[(x_range >= lower_ci) & (x_range <= upper_ci)]
-            if len(x_ci) > 0:
-                y_ci = kde(x_ci)
-                ax.fill_between(
-                    x_ci,
-                    0,
-                    y_ci,
-                    color=color_samples,
-                    alpha=0.2,
-                    label=f"{int(credible_interval * 100)}% CI",
-                )
-
-            # Add sample curves with low alpha for uncertainty visualization
-            if len(samples) <= 100:  # Only if we have a reasonable number of samples
-                for sample in samples:
-                    ax.axvline(x=sample, color=color_samples, alpha=alpha, linewidth=1)
-        except Exception as e:
-            print(f"Warning: KDE failed: {e}")
-            # Fall back to histogram
-            ax.hist(
-                samples,
-                bins=min(20, len(samples) // 5 + 1),
-                alpha=0.3,
+        # Add credible interval shading
+        x_ci = x_range[(x_range >= lower_ci) & (x_range <= upper_ci)]
+        if len(x_ci) > 0:
+            y_ci = kde(x_ci)
+            ax.fill_between(
+                x_ci,
+                0,
+                y_ci,
                 color=color_samples,
-                density=True,
+                alpha=0.2,
+                label=f"{int(credible_interval * 100)}% CI",
             )
 
-    if plot_type in ["histogram", "both"] or (plot_type == "kde" and not has_kde):
-        # Plot histogram
-        ax.hist(
-            samples,
-            bins=min(20, len(samples) // 5 + 1),
-            alpha=0.3,
-            color=color_samples,
-            density=True,
-        )
+        # Add sample curves with low alpha for uncertainty visualization
+        if len(samples) <= 100:  # Only if we have a reasonable number of samples
+            for sample in samples:
+                ax.axvline(x=sample, color=color_samples, alpha=alpha, linewidth=1)
+        return True
+    except Exception as e:
+        print(f"Warning: KDE failed: {e}")
+        return False
 
+
+def _plot_histogram_distribution(
+    ax: plt.Axes,
+    samples: np.ndarray,
+    color_samples: str,
+) -> None:
+    """Helper function to plot histogram for a distribution."""
+    ax.hist(
+        samples,
+        bins=min(20, len(samples) // 5 + 1),
+        alpha=0.3,
+        color=color_samples,
+        density=True,
+    )
+
+
+def _add_distribution_statistics(
+    ax: plt.Axes,
+    mean_pred: float,
+    median_pred: float,
+    lower_ci: float,
+    upper_ci: float,
+    true_value: float,
+    color_true: str,
+) -> None:
+    """Helper function to add statistical markers and text to a distribution plot."""
     # Add true value as vertical line
     if np.isfinite(true_value):
         ax.axvline(x=true_value, color=color_true, linewidth=2, label="True Value")
@@ -692,6 +766,64 @@ def _plot_single_distribution(
             "True": f"{true_value:.2f} ({ci_text})",
         }
         add_annotations(ax, annotations, loc="upper left")
+
+
+def _plot_single_distribution(
+    ax: plt.Axes,
+    samples: np.ndarray,
+    true_value: float,
+    idx: int,
+    is_first: bool,
+    credible_interval: float,
+    plot_type: str,
+    has_kde: bool,
+    color_samples: str,
+    color_true: str,
+    alpha: float,
+    xlabel: str,
+    ylabel: str,
+) -> None:
+    """Helper function to plot a single distribution comparison."""
+    # Remove any NaN or Inf values
+    valid_samples = samples[np.isfinite(samples)]
+    if len(valid_samples) < len(samples):
+        removed = len(samples) - len(valid_samples)
+        print(f"Warning: {removed} non-finite values removed from samples")
+
+    # Make sure we have data to plot
+    if len(valid_samples) == 0:
+        ax.text(
+            0.5,
+            0.5,
+            "No valid samples",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        return
+
+    samples = valid_samples
+
+    # Compute credible interval
+    lower_ci = float(np.percentile(samples, (1 - credible_interval) * 100 / 2))
+    upper_ci = float(np.percentile(samples, 100 - (1 - credible_interval) * 100 / 2))
+    mean_pred = float(np.mean(samples))
+    median_pred = float(np.median(samples))
+
+    # Plot the predicted distribution
+    if plot_type in ["kde", "both"] and has_kde and len(samples) >= 3:
+        success = _plot_kde_distribution(
+            ax, samples, color_samples, credible_interval, lower_ci, upper_ci, alpha
+        )
+        if not success:
+            _plot_histogram_distribution(ax, samples, color_samples)
+
+    if plot_type in ["histogram", "both"] or (plot_type == "kde" and not has_kde):
+        _plot_histogram_distribution(ax, samples, color_samples)
+
+    _add_distribution_statistics(
+        ax, mean_pred, median_pred, lower_ci, upper_ci, true_value, color_true
+    )
 
     # Add labels and legend
     ax.set_xlabel(xlabel)
@@ -816,6 +948,87 @@ def plot_distribution_comparison(
     return None
 
 
+def _clean_calibration_data(
+    y_pred_probs: np.ndarray, y_true: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Helper to clean calibration data by removing NaNs and clipping to [0, 1]."""
+    # Remove NaN or Inf values
+    valid_idx = np.isfinite(y_pred_probs) & np.isfinite(y_true)
+    if not np.all(valid_idx):
+        print(f"Warning: {np.sum(~valid_idx)} non-finite values removed from calibration data")
+        y_true = y_true[valid_idx]
+        y_pred_probs = y_pred_probs[valid_idx]
+
+    # Ensure valid prediction probabilities
+    if np.min(y_pred_probs) < 0 or np.max(y_pred_probs) > 1:
+        min_prob = np.min(y_pred_probs)
+        max_prob = np.max(y_pred_probs)
+        print(
+            f"Warning: Predicted probabilities outside [0, 1] range: min={min_prob}, max={max_prob}"
+        )
+        y_pred_probs = np.clip(y_pred_probs, 0, 1)
+
+    return y_pred_probs, y_true
+
+
+def _calculate_calibration_bins(
+    y_pred_probs: np.ndarray, y_true: np.ndarray, n_bins: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Helper to calculate bins, centers, and probabilities for calibration curves."""
+    # Create bins and find bin edges
+    bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    binids = np.digitize(y_pred_probs, bins) - 1
+
+    # Calculate mean predicted probability and observed frequency in each bin
+    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=n_bins)
+    bin_true = np.bincount(binids, weights=y_true, minlength=n_bins)
+    bin_counts = np.bincount(binids, minlength=n_bins)
+
+    # Avoid division by zero
+    nonzero = bin_counts > 0
+
+    # Calculate mean predicted probability and observed frequency
+    prob_true = np.zeros(len(bins) - 1)
+    prob_pred = np.zeros(len(bins) - 1)
+    prob_true[nonzero] = bin_true[nonzero] / bin_counts[nonzero]
+    prob_pred[nonzero] = bin_sums[nonzero] / bin_counts[nonzero]
+
+    return bins, bin_centers, binids, prob_true, prob_pred, bin_counts
+
+
+def _add_calibration_histogram(
+    ax: plt.Axes,
+    bins: np.ndarray,
+    bin_centers: np.ndarray,
+    binids: np.ndarray,
+    hist_height: float,
+    hist_alpha: float,
+    hist_color: str,
+    n_bins: int,
+) -> None:
+    """Helper to add a histogram of predicted probabilities to the calibration plot."""
+    # Add a zero line to separate the calibration curve from the histogram
+    add_zero_line(ax, axis="y", color="black", linestyle="-", alpha=0.3)
+
+    # Calculate histogram heights
+    hist = np.bincount(binids, minlength=len(bins) - 1) / len(binids)
+    scaled_hist = hist * hist_height
+
+    # Create histogram bars
+    for i, h in enumerate(scaled_hist):
+        ax.bar(
+            bin_centers[i],
+            h,
+            width=(1 / n_bins),
+            bottom=-h,
+            align="center",
+            alpha=hist_alpha,
+            color=hist_color,
+            label="Prediction Dist." if i == 0 else None,
+        )
+
+
 def plot_calibration_curve(
     y_pred_probs: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -860,40 +1073,11 @@ def plot_calibration_curve(
     y_pred_probs = convert_to_tensor(y_pred_probs).detach().cpu().numpy().flatten()
     y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
 
-    # Remove NaN or Inf values
-    valid_idx = np.isfinite(y_pred_probs) & np.isfinite(y_true)
-    if not np.all(valid_idx):
-        print(f"Warning: {np.sum(~valid_idx)} non-finite values removed from calibration data")
-        y_true = y_true[valid_idx]
-        y_pred_probs = y_pred_probs[valid_idx]
+    y_pred_probs, y_true = _clean_calibration_data(y_pred_probs, y_true)
 
-    # Ensure valid prediction probabilities
-    if np.min(y_pred_probs) < 0 or np.max(y_pred_probs) > 1:
-        min_prob = np.min(y_pred_probs)
-        max_prob = np.max(y_pred_probs)
-        print(
-            f"Warning: Predicted probabilities outside [0, 1] range: min={min_prob}, max={max_prob}"
-        )
-        y_pred_probs = np.clip(y_pred_probs, 0, 1)
-
-    # Create bins and find bin edges
-    bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
-    bin_centers = (bins[:-1] + bins[1:]) / 2
-    binids = np.digitize(y_pred_probs, bins) - 1
-
-    # Calculate mean predicted probability and observed frequency in each bin
-    bin_sums = np.bincount(binids, weights=y_pred_probs, minlength=n_bins)
-    bin_true = np.bincount(binids, weights=y_true, minlength=n_bins)
-    bin_counts = np.bincount(binids, minlength=n_bins)
-
-    # Avoid division by zero
-    nonzero = bin_counts > 0
-
-    # Calculate mean predicted probability and observed frequency
-    prob_true = np.zeros(len(bins) - 1)
-    prob_pred = np.zeros(len(bins) - 1)
-    prob_true[nonzero] = bin_true[nonzero] / bin_counts[nonzero]
-    prob_pred[nonzero] = bin_sums[nonzero] / bin_counts[nonzero]
+    bins, bin_centers, binids, prob_true, prob_pred, bin_counts = _calculate_calibration_bins(
+        y_pred_probs, y_true, n_bins
+    )
 
     # Create plot if no axes provided
     if ax is None:
@@ -914,29 +1098,13 @@ def plot_calibration_curve(
 
     # Add histogram of predicted probabilities as a barplot at the bottom
     if add_hist:
-        # Add a zero line to separate the calibration curve from the histogram
-        add_zero_line(ax, axis="y", color="black", linestyle="-", alpha=0.3)
-
         # Use same color as calibration curve if not specified
         if hist_color is None:
             hist_color = color
 
-        # Calculate histogram heights
-        hist = np.bincount(binids, minlength=len(bins) - 1) / len(binids)
-        scaled_hist = hist * hist_height
-
-        # Create histogram bars
-        for i, h in enumerate(scaled_hist):
-            ax.bar(
-                bin_centers[i],
-                h,
-                width=(1 / n_bins),
-                bottom=-h,
-                align="center",
-                alpha=hist_alpha,
-                color=hist_color,
-                label="Prediction Dist." if i == 0 else None,
-            )
+        _add_calibration_histogram(
+            ax, bins, bin_centers, binids, hist_height, hist_alpha, hist_color, n_bins
+        )
 
         # Adjust ylimit to accommodate the histograms at the bottom
         ax.set_ylim(-hist_height, 1.0)
@@ -1118,46 +1286,24 @@ def plot_uncertainty_vs_error(
         >>> fig, corr = plot_uncertainty_vs_error(preds, stds, targets, return_figure=True)
         >>> print(f"Correlation: {corr:.3f}")
     """
-    from scipy import stats
-
     y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
     y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
     y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
 
-    # Compute absolute errors
-    abs_errors = np.abs(y_pred - y_true)
+    abs_errors, correlation, p_value = _compute_uncertainty_stats(y_pred, y_pred_std, y_true)
 
-    # Compute Spearman correlation
-    correlation, p_value = stats.spearmanr(y_pred_std, abs_errors)
+    y_pred_std_plot, abs_errors_plot = _subsample_scatter_data(y_pred_std, abs_errors, max_points)
 
-    # Subsample if too many points
-    if len(y_pred) > max_points:
-        idx = np.random.choice(len(y_pred), max_points, replace=False)
-        y_pred_std_plot = y_pred_std[idx]
-        abs_errors_plot = abs_errors[idx]
-    else:
-        y_pred_std_plot = y_pred_std
-        abs_errors_plot = abs_errors
-
-    # Create plot if no axes provided
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
         fig = cast(Figure, ax.figure)
 
-    # Scatter plot
     ax.scatter(y_pred_std_plot, abs_errors_plot, alpha=0.3, s=10, color=color)
 
-    # Add trend line
     if show_trend:
-        z = np.polyfit(y_pred_std_plot, abs_errors_plot, 1)
-        p = np.poly1d(z)
-        x_line = np.linspace(y_pred_std_plot.min(), y_pred_std_plot.max(), 100)
-        label = f"Trend (ρ={correlation:.3f})" if show_correlation else "Trend"
-        ax.plot(x_line, p(x_line), "r--", linewidth=2, label=label)
-        ax.legend()
+        _add_uncertainty_trend(ax, y_pred_std_plot, abs_errors_plot, correlation, show_correlation)
 
-    # Add statistics text
     annotations = {
         "Spearman ρ": correlation,
         "p-value": f"{p_value:.2e}",
@@ -1182,57 +1328,16 @@ def plot_uncertainty_vs_error(
     return None
 
 
-def plot_binned_metrics(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_pred_std: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    n_bins: int = 5,
-    metric: str = "rmse",
-    figsize: Tuple[int, int] = (10, 5),
-    title: Optional[str] = None,
-    color: str = "steelblue",
-    return_figure: bool = False,
-    return_metrics: bool = False,
-    ax: Optional[plt.Axes] = None,
-) -> Optional[
-    Union[Figure, Dict[str, Dict[str, float]], Tuple[Figure, Dict[str, Dict[str, float]]]]
-]:
-    """
-    Compute and plot metrics in bins of the target variable.
-
-    This reveals whether model performance degrades in certain regions,
-    particularly at the tails of the distribution.
-
-    Args:
-        y_pred: Predicted mean values
-        y_pred_std: Predicted standard deviations
-        y_true: Ground truth values
-        n_bins: Number of bins
-        metric: Which metric to plot ('rmse', 'mae', 'bias', 'nmad', 'picp_95', 'mpiw_95')
-        figsize: Figure size (width, height) when creating a new figure
-        title: Plot title (auto-generated if None)
-        color: Color for the bars
-        return_figure: If True, return figure object instead of displaying
-        return_metrics: If True, return the binned metrics dictionary
-        ax: Optional matplotlib axes for plotting
-
-    Returns:
-        If return_figure=True, returns matplotlib Figure object
-        If return_metrics=True, returns dict of metrics per bin
-
-    Example:
-        >>> metrics = plot_binned_metrics(preds, stds, targets, return_metrics=True)
-        >>> print(metrics)
-    """
+def _compute_binned_metrics(
+    y_pred: np.ndarray,
+    y_pred_std: np.ndarray,
+    y_true: np.ndarray,
+    n_bins: int,
+) -> Dict[str, Dict[str, float]]:
+    """Compute evaluation metrics across bins of the target variable."""
     from scipy import stats
 
-    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
-    y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
-    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
-
-    # Create bins using quantiles
     bin_edges = np.quantile(y_true, np.linspace(0, 1, n_bins + 1))
-
     binned_metrics: Dict[str, Dict[str, float]] = {}
 
     for i in range(len(bin_edges) - 1):
@@ -1286,10 +1391,18 @@ def plot_binned_metrics(
             "mpiw_95": float(mpiw),
         }
 
-    if return_metrics and not return_figure:
-        return binned_metrics
+    return binned_metrics
 
-    # Plot
+
+def _render_binned_metrics_plot(
+    binned_metrics: Dict[str, Dict[str, float]],
+    metric: str,
+    figsize: Tuple[int, int],
+    title: Optional[str],
+    color: str,
+    ax: Optional[plt.Axes],
+) -> Tuple[Figure, plt.Axes]:
+    """Render the binned metrics bar plot."""
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -1320,13 +1433,70 @@ def plot_binned_metrics(
     ax.set_title(title or f"{metric.upper()} by Target Bin")
     ax.grid(True, alpha=0.3, axis="y")
 
+    return fig, ax
+
+
+def plot_binned_metrics(
+    y_pred: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    n_bins: int = 5,
+    metric: str = "rmse",
+    figsize: Tuple[int, int] = (10, 5),
+    title: Optional[str] = None,
+    color: str = "steelblue",
+    return_figure: bool = False,
+    return_metrics: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[
+    Union[Figure, Dict[str, Dict[str, float]], Tuple[Figure, Dict[str, Dict[str, float]]]]
+]:
+    """
+    Compute and plot metrics in bins of the target variable.
+
+    This reveals whether model performance degrades in certain regions,
+    particularly at the tails of the distribution.
+
+    Args:
+        y_pred: Predicted mean values
+        y_pred_std: Predicted standard deviations
+        y_true: Ground truth values
+        n_bins: Number of bins
+        metric: Which metric to plot ('rmse', 'mae', 'bias', 'nmad', 'picp_95', 'mpiw_95')
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title (auto-generated if None)
+        color: Color for the bars
+        return_figure: If True, return figure object instead of displaying
+        return_metrics: If True, return the binned metrics dictionary
+        ax: Optional matplotlib axes for plotting
+
+    Returns:
+        If return_figure=True, returns matplotlib Figure object
+        If return_metrics=True, returns dict of metrics per bin
+
+    Example:
+        >>> metrics = plot_binned_metrics(preds, stds, targets, return_metrics=True)
+        >>> print(metrics)
+    """
+    y_pred_np = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    y_pred_std_np = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
+    y_true_np = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+
+    binned_metrics = _compute_binned_metrics(y_pred_np, y_pred_std_np, y_true_np, n_bins)
+
+    if return_metrics and not return_figure:
+        return binned_metrics
+
+    created_ax = ax is None
+    fig, ax = _render_binned_metrics_plot(binned_metrics, metric, figsize, title, color, ax)
+
     plt.tight_layout()
 
     if return_figure:
         if return_metrics:
             return fig, binned_metrics
         return fig
-    elif ax is None:
+    elif created_ax:
         plt.show()
 
     if return_metrics:
