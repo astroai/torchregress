@@ -20,9 +20,7 @@ def test_apply_label_shift_correction_valid():
     src_prior = np.array([0.5, 0.5])
     tgt_prior = np.array([0.2, 0.8])
 
-    corrected = apply_label_shift_correction(
-        probs, source_prior=src_prior, target_prior=tgt_prior
-    )
+    corrected = apply_label_shift_correction(probs, source_prior=src_prior, target_prior=tgt_prior)
 
     # Check shape
     assert corrected.shape == probs.shape
@@ -44,16 +42,13 @@ def test_apply_label_shift_correction_mismatched_shapes():
     tgt_prior = np.array([0.5, 0.5])
 
     with pytest.raises(ValueError, match="prior shapes must match"):
-        apply_label_shift_correction(
-            probs, source_prior=src_prior, target_prior=tgt_prior
-        )
+        apply_label_shift_correction(probs, source_prior=src_prior, target_prior=tgt_prior)
 
     src_prior2 = np.array([0.5, 0.5])
     tgt_prior2 = np.array([0.5, 0.5, 0.0])
     with pytest.raises(ValueError, match="prior shapes must match"):
-        apply_label_shift_correction(
-            probs, source_prior=src_prior2, target_prior=tgt_prior2
-        )
+        apply_label_shift_correction(probs, source_prior=src_prior2, target_prior=tgt_prior2)
+
 
 def test_apply_label_shift_correction_zero_priors():
     probs = np.array([[1.0, 0.0], [0.0, 1.0]])
@@ -61,11 +56,10 @@ def test_apply_label_shift_correction_zero_priors():
     tgt_prior = np.array([0.0, 1.0])
 
     # With default eps (1e-8), this should not raise, but clip
-    corrected = apply_label_shift_correction(
-        probs, source_prior=src_prior, target_prior=tgt_prior
-    )
+    corrected = apply_label_shift_correction(probs, source_prior=src_prior, target_prior=tgt_prior)
     assert corrected.shape == probs.shape
     np.testing.assert_allclose(corrected.sum(axis=1), np.ones(probs.shape[0]))
+
 
 def test_estimate_target_prior_em_with_source_prior():
     probs = np.array([[0.8, 0.2], [0.1, 0.9], [0.5, 0.5]])
@@ -86,9 +80,7 @@ def test_estimate_target_prior_em_with_source_prior():
 def test_estimate_target_prior_em_no_source_prior():
     probs = np.array([[0.8, 0.2], [0.1, 0.9], [0.5, 0.5]])
 
-    estimate = estimate_target_prior_em(
-        probs, config=LabelShiftEMConfig(max_iter=10)
-    )
+    estimate = estimate_target_prior_em(probs, config=LabelShiftEMConfig(max_iter=10))
 
     assert estimate.source_prior.shape == (2,)
     assert estimate.target_prior.shape == (2,)
@@ -152,6 +144,7 @@ def test_posterior_label_shift_adapter_explicit_target_prior():
     corrected = adapter.transform(probs, target_prior=np.array([0.2, 0.8]))
     assert corrected.shape == probs.shape
 
+
 def test_estimate_target_prior_em_with_sample_weights():
     probs = np.array([[0.8, 0.2], [0.1, 0.9], [0.5, 0.5]])
     weights = np.array([1.0, 2.0, 0.0])
@@ -161,14 +154,14 @@ def test_estimate_target_prior_em_with_sample_weights():
     )
     assert estimate.target_prior.shape == (2,)
 
+
 def test_estimate_target_prior_em_with_subsampling():
     probs = np.random.rand(10, 2)
     probs = probs / probs.sum(axis=1, keepdims=True)
 
-    estimate = estimate_target_prior_em(
-        probs, sample_size=5, random_state=42
-    )
+    estimate = estimate_target_prior_em(probs, sample_size=5, random_state=42)
     assert estimate.target_prior.shape == (2,)
+
 
 def test_gaussian_bin_edges_from_targets():
     targets = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
@@ -230,10 +223,12 @@ def test_correct_gaussian_predictions_for_label_shift():
     assert c_mean_f.shape == (3,)
     assert c_std_f.shape == (3,)
 
+
 def test_gaussian_bin_edges_invalid_values():
     targets = np.array([np.inf, np.nan, np.inf])
     edges = gaussian_bin_edges_from_targets(targets, n_bins=2)
     assert edges.shape == (3,)
+
 
 def test_gaussian_bin_edges_constant():
     targets = np.array([5.0, 5.0, 5.0])
@@ -241,11 +236,13 @@ def test_gaussian_bin_edges_constant():
     assert edges.shape == (3,)
     assert edges[-1] == 6.0  # hi = lo + 1.0
 
+
 def test_weighted_average_error():
     probs = np.array([[0.8, 0.2]])
     weights = np.array([1.0, 1.0])
     with pytest.raises(ValueError, match="sample_weights must match"):
-                _weighted_average(probs, weights, eps=1e-8)
+        _weighted_average(probs, weights, eps=1e-8)
+
 
 def test_correct_gaussian_predictions_top_fraction_none():
     mean = np.array([0.0, 1.0])
@@ -268,6 +265,7 @@ def test_estimate_target_prior_em_with_subsampling_and_weights():
         probs, sample_weights=weights, sample_size=5, random_state=42
     )
     assert estimate.target_prior.shape == (2,)
+
 
 def test_posterior_adapter_transform_without_target_prior_and_estimate_not_called():
     probs = np.array([[0.8, 0.2]])
