@@ -660,96 +660,72 @@ def plot_residual_histogram(
     return None
 
 
-def _plot_single_distribution(
+def _plot_kde_distribution(
     ax: plt.Axes,
     samples: np.ndarray,
-    true_value: float,
-    idx: int,
-    is_first: bool,
-    credible_interval: float,
-    plot_type: str,
-    has_kde: bool,
     color_samples: str,
-    color_true: str,
+    credible_interval: float,
+    lower_ci: float,
+    upper_ci: float,
     alpha: float,
-    xlabel: str,
-    ylabel: str,
-) -> None:
-    """Helper function to plot a single distribution comparison."""
-    # Remove any NaN or Inf values
-    valid_samples = samples[np.isfinite(samples)]
-    if len(valid_samples) < len(samples):
-        removed = len(samples) - len(valid_samples)
-        print(f"Warning: {removed} non-finite values removed from samples")
+) -> bool:
+    """Helper function to plot KDE for a distribution. Returns True if successful."""
+    try:
+        from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
 
-    # Make sure we have data to plot
-    if len(valid_samples) == 0:
-        ax.text(
-            0.5,
-            0.5,
-            "No valid samples",
-            ha="center",
-            va="center",
-            transform=ax.transAxes,
-        )
-        return
+        # Create KDE
+        kde = gaussian_kde(samples)
+        x_range = np.linspace(min(samples), max(samples), 1000)
+        ax.plot(x_range, kde(x_range), color=color_samples, linewidth=2, label="Predicted")
 
-    samples = valid_samples
-
-    # Compute credible interval
-    lower_ci = np.percentile(samples, (1 - credible_interval) * 100 / 2)
-    upper_ci = np.percentile(samples, 100 - (1 - credible_interval) * 100 / 2)
-    mean_pred = np.mean(samples)
-    median_pred = np.median(samples)
-
-    # Plot the predicted distribution
-    if plot_type in ["kde", "both"] and has_kde and len(samples) >= 3:
-        try:
-            from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
-
-            # Create KDE
-            kde = gaussian_kde(samples)
-            x_range = np.linspace(min(samples), max(samples), 1000)
-            ax.plot(x_range, kde(x_range), color=color_samples, linewidth=2, label="Predicted")
-
-            # Add credible interval shading
-            x_ci = x_range[(x_range >= lower_ci) & (x_range <= upper_ci)]
-            if len(x_ci) > 0:
-                y_ci = kde(x_ci)
-                ax.fill_between(
-                    x_ci,
-                    0,
-                    y_ci,
-                    color=color_samples,
-                    alpha=0.2,
-                    label=f"{int(credible_interval * 100)}% CI",
-                )
-
-            # Add sample curves with low alpha for uncertainty visualization
-            if len(samples) <= 100:  # Only if we have a reasonable number of samples
-                for sample in samples:
-                    ax.axvline(x=sample, color=color_samples, alpha=alpha, linewidth=1)
-        except Exception as e:
-            print(f"Warning: KDE failed: {e}")
-            # Fall back to histogram
-            ax.hist(
-                samples,
-                bins=min(20, len(samples) // 5 + 1),
-                alpha=0.3,
+        # Add credible interval shading
+        x_ci = x_range[(x_range >= lower_ci) & (x_range <= upper_ci)]
+        if len(x_ci) > 0:
+            y_ci = kde(x_ci)
+            ax.fill_between(
+                x_ci,
+                0,
+                y_ci,
                 color=color_samples,
-                density=True,
+                alpha=0.2,
+                label=f"{int(credible_interval * 100)}% CI",
             )
 
-    if plot_type in ["histogram", "both"] or (plot_type == "kde" and not has_kde):
-        # Plot histogram
-        ax.hist(
-            samples,
-            bins=min(20, len(samples) // 5 + 1),
-            alpha=0.3,
-            color=color_samples,
-            density=True,
-        )
+        # Add sample curves with low alpha for uncertainty visualization
+        if len(samples) <= 100:  # Only if we have a reasonable number of samples
+            for sample in samples:
+                ax.axvline(x=sample, color=color_samples, alpha=alpha, linewidth=1)
+        return True
+    except Exception as e:
+        print(f"Warning: KDE failed: {e}")
+        return False
 
+
+def _plot_histogram_distribution(
+    ax: plt.Axes,
+    samples: np.ndarray,
+    color_samples: str,
+) -> None:
+    """Helper function to plot histogram for a distribution."""
+    ax.hist(
+        samples,
+        bins=min(20, len(samples) // 5 + 1),
+        alpha=0.3,
+        color=color_samples,
+        density=True,
+    )
+
+
+def _add_distribution_statistics(
+    ax: plt.Axes,
+    mean_pred: float,
+    median_pred: float,
+    lower_ci: float,
+    upper_ci: float,
+    true_value: float,
+    color_true: str,
+) -> None:
+    """Helper function to add statistical markers and text to a distribution plot."""
     # Add true value as vertical line
     if np.isfinite(true_value):
         ax.axvline(x=true_value, color=color_true, linewidth=2, label="True Value")
@@ -790,6 +766,64 @@ def _plot_single_distribution(
             "True": f"{true_value:.2f} ({ci_text})",
         }
         add_annotations(ax, annotations, loc="upper left")
+
+
+def _plot_single_distribution(
+    ax: plt.Axes,
+    samples: np.ndarray,
+    true_value: float,
+    idx: int,
+    is_first: bool,
+    credible_interval: float,
+    plot_type: str,
+    has_kde: bool,
+    color_samples: str,
+    color_true: str,
+    alpha: float,
+    xlabel: str,
+    ylabel: str,
+) -> None:
+    """Helper function to plot a single distribution comparison."""
+    # Remove any NaN or Inf values
+    valid_samples = samples[np.isfinite(samples)]
+    if len(valid_samples) < len(samples):
+        removed = len(samples) - len(valid_samples)
+        print(f"Warning: {removed} non-finite values removed from samples")
+
+    # Make sure we have data to plot
+    if len(valid_samples) == 0:
+        ax.text(
+            0.5,
+            0.5,
+            "No valid samples",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        return
+
+    samples = valid_samples
+
+    # Compute credible interval
+    lower_ci = float(np.percentile(samples, (1 - credible_interval) * 100 / 2))
+    upper_ci = float(np.percentile(samples, 100 - (1 - credible_interval) * 100 / 2))
+    mean_pred = float(np.mean(samples))
+    median_pred = float(np.median(samples))
+
+    # Plot the predicted distribution
+    if plot_type in ["kde", "both"] and has_kde and len(samples) >= 3:
+        success = _plot_kde_distribution(
+            ax, samples, color_samples, credible_interval, lower_ci, upper_ci, alpha
+        )
+        if not success:
+            _plot_histogram_distribution(ax, samples, color_samples)
+
+    if plot_type in ["histogram", "both"] or (plot_type == "kde" and not has_kde):
+        _plot_histogram_distribution(ax, samples, color_samples)
+
+    _add_distribution_statistics(
+        ax, mean_pred, median_pred, lower_ci, upper_ci, true_value, color_true
+    )
 
     # Add labels and legend
     ax.set_xlabel(xlabel)
