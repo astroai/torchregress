@@ -338,3 +338,35 @@ class TestVizUtils:
         # Verify first 4 are NOT hidden
         for i in range(4):
             mock_ax_list[i].set_visible.assert_not_called()
+
+
+def test_plot_binned_metrics_helpers():
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    from torchregress.viz.diagnostic import _compute_binned_metrics, _render_binned_metrics_plot
+
+    y_pred = np.array([1.0, 2.0, 3.0, 4.0, 5.0] * 20)
+    y_pred_std = np.array([0.1, 0.2, 0.3, 0.4, 0.5] * 20)
+    y_true = np.array([1.1, 1.9, 3.2, 3.8, 5.1] * 20)
+
+    metrics = _compute_binned_metrics(y_pred, y_pred_std, y_true, n_bins=2)
+    assert isinstance(metrics, dict)
+    assert len(metrics) > 0
+    first_key = list(metrics.keys())[0]
+    assert "rmse" in metrics[first_key]
+    assert "n_samples" in metrics[first_key]
+
+    fig, ax = _render_binned_metrics_plot(
+        binned_metrics=metrics,
+        metric="rmse",
+        figsize=(8, 4),
+        title="Test Plot",
+        color="red",
+        ax=None,
+    )
+
+    assert ax.get_title() == "Test Plot"
+    assert ax.get_ylabel() == "RMSE"
+    assert len(ax.patches) == len(metrics)  # 1 bar per bin
+    plt.close(fig)
