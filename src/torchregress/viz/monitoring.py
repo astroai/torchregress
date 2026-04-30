@@ -328,6 +328,87 @@ def plot_validation_metrics(
         return None
 
 
+def _find_early_stopping_point(
+    val_losses: List[float], patience: int, delta: float
+) -> Tuple[int, float, int]:
+    """Find the early stopping point and best epoch."""
+    best_val_loss = float("inf")
+    best_epoch = 0
+    counter = 0
+    stop_epoch = len(val_losses)
+
+    for i, val_loss in enumerate(val_losses):
+        if val_loss < best_val_loss - delta:
+            best_val_loss = val_loss
+            best_epoch = i + 1
+            counter = 0
+        else:
+            counter += 1
+            if counter >= patience:
+                stop_epoch = i + 1
+                break
+
+    return best_epoch, best_val_loss, stop_epoch
+
+
+def _plot_early_stopping_markers(
+    ax: plt.Axes, best_epoch: int, stop_epoch: int, n_epochs: int, patience: int
+) -> None:
+    """Plot vertical lines and highlighted regions for early stopping."""
+    ax.axvline(
+        x=best_epoch, color="green", linestyle="--", label=f"Best Model (epoch {best_epoch})"
+    )
+
+    if stop_epoch < n_epochs:
+        ax.axvline(
+            x=stop_epoch, color="red", linestyle="-", label=f"Early Stop (epoch {stop_epoch})"
+        )
+
+    # Fill the waiting period
+    waiting_start = best_epoch
+    waiting_end = min(stop_epoch, n_epochs)
+    ax.axvspan(
+        waiting_start,
+        waiting_end,
+        alpha=0.2,
+        color="red",
+        label=f"Patience Window ({patience} epochs)",
+    )
+
+
+def _add_early_stopping_annotations(
+    ax: plt.Axes,
+    best_epoch: int,
+    best_val_loss: float,
+    stop_epoch: int,
+    n_epochs: int,
+    patience: int,
+    delta: float,
+) -> None:
+    """Add text annotations for early stopping details."""
+    ax.annotate(
+        f"Best: {best_val_loss:.4f}",
+        xy=(best_epoch, best_val_loss),
+        xytext=(10, -20),
+        textcoords="offset points",
+        arrowprops=dict(arrowstyle="->", color="green"),
+        color="green",
+    )
+
+    annotations: Dict[str, Any] = {
+        "Best epoch": best_epoch,
+        "Best val loss": best_val_loss,
+        "Patience": patience,
+        "Delta": delta,
+    }
+
+    if stop_epoch < n_epochs:
+        annotations["Stopped at"] = stop_epoch
+        annotations["Training completed"] = f"{stop_epoch}/{n_epochs} epochs"
+
+    add_annotations(ax, annotations, loc="upper left")
+
+
 def plot_early_stopping(
     train_losses: List[float],
     val_losses: List[float],
@@ -361,42 +442,10 @@ def plot_early_stopping(
     ax.plot(epochs, val_losses, label="Validation Loss", color="orange")
 
     # Detect early stopping point
-    best_val_loss = float("inf")
-    best_epoch = 0
-    counter = 0
-    stop_epoch = len(val_losses)
-
-    for i, val_loss in enumerate(val_losses):
-        if val_loss < best_val_loss - delta:
-            best_val_loss = val_loss
-            best_epoch = i + 1
-            counter = 0
-        else:
-            counter += 1
-            if counter >= patience:
-                stop_epoch = i + 1
-                break
+    best_epoch, best_val_loss, stop_epoch = _find_early_stopping_point(val_losses, patience, delta)
 
     # Highlight best and stopping points
-    ax.axvline(
-        x=best_epoch, color="green", linestyle="--", label=f"Best Model (epoch {best_epoch})"
-    )
-
-    if stop_epoch < len(val_losses):
-        ax.axvline(
-            x=stop_epoch, color="red", linestyle="-", label=f"Early Stop (epoch {stop_epoch})"
-        )
-
-    # Fill the waiting period
-    waiting_start = best_epoch
-    waiting_end = min(stop_epoch, len(val_losses))
-    ax.axvspan(
-        waiting_start,
-        waiting_end,
-        alpha=0.2,
-        color="red",
-        label=f"Patience Window ({patience} epochs)",
-    )
+    _plot_early_stopping_markers(ax, best_epoch, stop_epoch, len(val_losses), patience)
 
     # Set labels, title and legend
     ax.set_xlabel("Epoch")
@@ -406,27 +455,9 @@ def plot_early_stopping(
     ax.grid(True, alpha=0.3)
 
     # Add annotations
-    ax.annotate(
-        f"Best: {best_val_loss:.4f}",
-        xy=(best_epoch, best_val_loss),
-        xytext=(10, -20),
-        textcoords="offset points",
-        arrowprops=dict(arrowstyle="->", color="green"),
-        color="green",
+    _add_early_stopping_annotations(
+        ax, best_epoch, best_val_loss, stop_epoch, len(val_losses), patience, delta
     )
-
-    annotations: Dict[str, Any] = {
-        "Best epoch": best_epoch,
-        "Best val loss": best_val_loss,
-        "Patience": patience,
-        "Delta": delta,
-    }
-
-    if stop_epoch < len(val_losses):
-        annotations["Stopped at"] = stop_epoch
-        annotations["Training completed"] = f"{stop_epoch}/{len(val_losses)} epochs"
-
-    add_annotations(ax, annotations, loc="upper left")
 
     plt.tight_layout()
 
