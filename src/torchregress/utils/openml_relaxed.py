@@ -166,11 +166,15 @@ def fetch_openml_regression_with_sklearn_fallback(
     if data_id is not None:
         try:
             bunch = fetch_openml(data_id=int(data_id), as_frame=True)
-        except ValueError as exc:
-            if "md5 checksum" not in str(exc).lower():
+        except (ValueError, HTTPError, URLError) as exc:
+            is_md5 = isinstance(exc, ValueError) and "md5 checksum" in str(exc).lower()
+            is_net = isinstance(exc, (HTTPError, URLError))
+            if not (is_md5 or is_net):
                 raise
+
+            reason = "MD5 check" if is_md5 else "network error"
             warnings.warn(
-                "sklearn.datasets.fetch_openml failed OpenML MD5 check; "
+                f"sklearn.datasets.fetch_openml failed OpenML {reason}; "
                 "parsing ARFF without checksum verification (stale OpenML MD5 metadata). "
                 "Prefer a verified local --cache-path when publishing numbers.",
                 UserWarning,
@@ -184,11 +188,15 @@ def fetch_openml_regression_with_sklearn_fallback(
     elif name is not None:
         try:
             bunch = fetch_openml(name=name, version=version, as_frame=True)
-        except ValueError as exc:
-            if "md5 checksum" not in str(exc).lower():
+        except (ValueError, HTTPError, URLError) as exc:
+            is_md5 = isinstance(exc, ValueError) and "md5 checksum" in str(exc).lower()
+            is_net = isinstance(exc, (HTTPError, URLError))
+            if not (is_md5 or is_net):
                 raise
+
+            reason = "MD5 check" if is_md5 else "network error"
             warnings.warn(
-                "sklearn.datasets.fetch_openml failed OpenML MD5 check; "
+                f"sklearn.datasets.fetch_openml failed OpenML {reason}; "
                 "resolving dataset id via OpenML API and parsing ARFF without checksum.",
                 UserWarning,
                 stacklevel=2,
