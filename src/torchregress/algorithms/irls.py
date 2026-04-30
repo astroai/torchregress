@@ -997,7 +997,6 @@ def _setup_irls_loss(
 
 
 def _perform_epoch_reweighting(  # noqa: PLR0913
-
     model: nn.Module,
     data_loader: DataLoader,
     is_minibatch: bool,
@@ -1057,7 +1056,6 @@ def _perform_epoch_reweighting(  # noqa: PLR0913
 
 
 def _perform_batch_reweighting(  # noqa: PLR0913
-
     model: nn.Module,
     batch_x: torch.Tensor,
     batch_y: torch.Tensor,
@@ -1127,7 +1125,6 @@ def _perform_batch_reweighting(  # noqa: PLR0913
 
 
 def _train_step(  # noqa: PLR0913
-
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
     loss_fn: nn.Module,
@@ -1152,7 +1149,6 @@ def _train_step(  # noqa: PLR0913
 
 
 def IRLS(  # noqa: PLR0913
-
     model: nn.Module,
     train_data: Union[DataLoader, Tuple[torch.Tensor, torch.Tensor], IterableDataset],
     loss_fn: Optional[nn.Module] = None,
@@ -1239,7 +1235,6 @@ def IRLS(  # noqa: PLR0913
     val_loss_history: list[float] = []
     all_iterations_data: Optional[list[dict[str, Any]]] = [] if return_all_iterations else None
 
-
     # --- Determine base loss type and setup loss function ---
     base_loss, loss_fn = _setup_irls_loss(loss_fn, base_loss, covariance_matrices, delta)
     assert optimizer is not None
@@ -1256,7 +1251,6 @@ def IRLS(  # noqa: PLR0913
         return_all_predictions=return_all_iterations,
         batch_size=batch_size,
     )
-
 
     # --- Parse update_weights ---
     update_type, update_freq = parse_update_frequency(update_weights)

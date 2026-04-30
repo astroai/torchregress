@@ -12,8 +12,8 @@ from .covariance_pseudo_labels import (
 )
 from .error_aware import ErrorAwareFeatureEncoder, NoiseAwareRegressor
 from .irls import (
-    IRLSConfig,
     IRLS,
+    IRLSConfig,
     iteratively_reweighted_least_squares,
 )
 from .latentnn import LatentNN
