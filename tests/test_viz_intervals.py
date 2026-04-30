@@ -1,7 +1,8 @@
-import pytest
-import numpy as np
 import matplotlib.pyplot as plt
-from torchregress.viz.diagnostic import _prepare_interval_data, _add_interval_elements
+import numpy as np
+
+from torchregress.viz.diagnostic import _add_interval_elements, _prepare_interval_data
+
 
 def test_prepare_interval_data():
     y_pred = np.array([3.0, 1.0, 2.0])
@@ -15,7 +16,7 @@ def test_prepare_interval_data():
         y_upper=y_upper.copy(),
         x=None,
         y_true=None,
-        sorted_by_pred=False
+        sorted_by_pred=False,
     )
     np.testing.assert_array_equal(x, [0, 1, 2])
     np.testing.assert_array_equal(pred, [3.0, 1.0, 2.0])
@@ -28,12 +29,13 @@ def test_prepare_interval_data():
         y_upper=y_upper.copy(),
         x=np.array([10, 20, 30]),
         y_true=np.array([3.1, 0.9, 2.1]),
-        sorted_by_pred=True
+        sorted_by_pred=True,
     )
     # Expected order based on sorted y_pred ([1.0, 2.0, 3.0] -> indices [1, 2, 0])
     np.testing.assert_array_equal(pred, [1.0, 2.0, 3.0])
     np.testing.assert_array_equal(x, [20, 30, 10])
     np.testing.assert_array_equal(true, [0.9, 2.1, 3.1])
+
 
 def test_add_interval_elements():
     fig, ax = plt.subplots()
@@ -55,7 +57,7 @@ def test_add_interval_elements():
         color_pred="blue",
         color_interval="red",
         color_true="green",
-        alpha=0.5
+        alpha=0.5,
     )
 
     # Check title
@@ -66,7 +68,7 @@ def test_add_interval_elements():
 
     # Test with y_true (coverage calculation)
     fig, ax = plt.subplots()
-    y_true = np.array([1.0, 2.0, 4.0]) # 2 out of 3 in interval -> 66.7% coverage
+    y_true = np.array([1.0, 2.0, 4.0])  # 2 out of 3 in interval -> 66.7% coverage
     _add_interval_elements(
         ax=ax,
         x=x,
@@ -80,9 +82,10 @@ def test_add_interval_elements():
         color_pred="blue",
         color_interval="red",
         color_true="green",
-        alpha=0.5
+        alpha=0.5,
     )
     assert ax.get_title() == "Test Plot (Coverage: 66.7%)"
     plt.close(fig)
+
 
 print("Tests prepared.")
