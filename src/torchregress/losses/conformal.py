@@ -609,27 +609,15 @@ class CTI(ConformalPredictor):
                 neg_log_dens = -log_dens_batch
                 in_set = neg_log_dens <= q  # (n_test, grid_size)
 
-                # Grid indices for masking
-                grid_indices = torch.arange(self.grid_size, device=x.device)
-
                 # For valid rows (where in_set has any True), find first and last index
                 has_valid = in_set.any(dim=1)
 
-                # To find min index: replace False with large number
-                min_candidates = torch.where(
-                    in_set,
-                    grid_indices,
-                    torch.tensor(self.grid_size, device=x.device),
-                )
-                start_indices = min_candidates.min(dim=1).values
+                # Vectorized min/max index lookup using argmax
+                # First True from left gives start index
+                start_indices = in_set.int().argmax(dim=1)
 
-                # To find max index: replace False with small number
-                max_candidates = torch.where(
-                    in_set,
-                    grid_indices,
-                    torch.tensor(-1, device=x.device),
-                )
-                end_indices = max_candidates.max(dim=1).values
+                # First True from right (flipped) gives end index
+                end_indices = self.grid_size - 1 - in_set.flip(dims=[1]).int().argmax(dim=1)
 
                 # Fill valid entries
                 valid_mask = has_valid
@@ -888,15 +876,13 @@ class R2CConformal(ConformalPredictor):
         bin_centers_sorted = centers[sorted_idx]  # (n_test, n_bins)
         INF = float("inf")
         # For lower: excluded bins → +inf, take min
-        lower_vals = torch.where(
-            included_mask, bin_centers_sorted, torch.tensor(INF, device=y_pred.device)
+        lower = torch.amin(
+            torch.where(included_mask, bin_centers_sorted, INF), dim=-1, keepdim=True
         )
-        lower = lower_vals.min(dim=-1).values.unsqueeze(1)
         # For upper: excluded bins → -inf, take max
-        upper_vals = torch.where(
-            included_mask, bin_centers_sorted, torch.tensor(-INF, device=y_pred.device)
+        upper = torch.amax(
+            torch.where(included_mask, bin_centers_sorted, -INF), dim=-1, keepdim=True
         )
-        upper = upper_vals.max(dim=-1).values.unsqueeze(1)
 
         return lower, upper
 
