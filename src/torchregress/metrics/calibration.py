@@ -174,14 +174,18 @@ def expected_calibration_error(
 
     quantiles = sorted(y_pred_quantiles.keys())
     expected_proportions = torch.tensor(quantiles, device=device)
-    actual_proportions_list: list[torch.Tensor] = []
 
+    q_preds_list: list[torch.Tensor] = []
     for q in quantiles:
         q_pred = convert_to_tensor(y_pred_quantiles[q]).to(device)
         validate_inputs(q_pred, y_true_t)
-        actual_proportions_list.append(torch.mean((y_true_t <= q_pred).float()))
+        q_preds_list.append(q_pred)
 
-    actual_proportions = torch.stack(actual_proportions_list)
+    q_preds = torch.stack(q_preds_list)
+
+    # Vectorized computation (O(Q x N) memory, much faster than python loop)
+    actual_proportions = (y_true_t.unsqueeze(0) <= q_preds).float().flatten(1).mean(dim=1)
+
     abs_errors = torch.abs(actual_proportions - expected_proportions)
 
     result = {
