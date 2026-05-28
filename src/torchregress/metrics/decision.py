@@ -118,17 +118,13 @@ class RiskCoverageCurve(Metric):
 
         # Define coverage levels
         coverage_levels = torch.linspace(1.0 / n_samples, 1.0, self.n_points, device=risks.device)
-        risk_at_coverage_list: list[Tensor] = []
 
         # Cumulative sum of risks for efficient mean calculation
         risk_cumsum = torch.cumsum(sorted_risks, dim=0)
 
-        for cov in coverage_levels:
-            n_kept = max(1, int(torch.round(cov * n_samples).item()))
-            mean_risk = risk_cumsum[n_kept - 1] / n_kept
-            risk_at_coverage_list.append(mean_risk)
-
-        risk_at_coverage = torch.stack(risk_at_coverage_list)
+        # Vectorized computation of risk at each coverage level
+        n_kept = torch.clamp(torch.round(coverage_levels * n_samples).long(), min=1)
+        risk_at_coverage = risk_cumsum[n_kept - 1] / n_kept.float()
 
         # Compute AURC (Area Under Risk-Coverage Curve)
         # We use a simple trapezoidal rule over the computed points

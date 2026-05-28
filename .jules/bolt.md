@@ -1,3 +1,6 @@
 ## 2024-04-30 - Vectorized _pit_from_quantiles in metrics
 **Learning:** PyTorch internal loops using `.item()` cause severe CPU-GPU synchronization bottlenecks. In this specific codebase (`src/torchregress/metrics/distribution.py`), the `_pit_from_quantiles` metric function was iterating row-by-row over tensors, causing unnecessary performance degradation for large batches.
 **Action:** Replaced the loop with vectorized PyTorch operations like `torch.searchsorted`, `torch.gather`, and `torch.where`. This eliminates $O(N)$ Python loop iterations and Python-to-C++ context switches, demonstrating that core metric computations should always be purely vectorized in PyTorch.
+## 2026-05-28 - Vectorized RiskCoverageCurve.compute
+**Learning:** The RiskCoverageCurve calculation inside the decision metrics was using a Python `for` loop over coverage levels with `.item()`, creating severe CPU-GPU synchronization overhead. Replacing this with purely vectorized tensor indexing (`torch.clamp`) removes all loop overhead.
+**Action:** Always eliminate scalar item extraction in inner metric calculations using full tensor indexing.
