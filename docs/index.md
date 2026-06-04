@@ -5,16 +5,16 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" target="_blank">
+<a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" target="_blank" aria-label="GitHub Actions CI status">
     <img src="https://github.com/sfabbro/torchregress/workflows/CI/badge.svg" alt="CI">
 </a>
-<a href="https://pypi.org/project/torchregress" target="_blank">
+<a href="https://pypi.org/project/torchregress" target="_blank" aria-label="PyPI package version">
     <img src="https://img.shields.io/pypi/v/torchregress?color=%2334D058&label=pypi%20package" alt="Package version">
 </a>
-<a href="https://pypi.org/project/torchregress" target="_blank">
+<a href="https://pypi.org/project/torchregress" target="_blank" aria-label="Supported Python versions">
     <img src="https://img.shields.io/pypi/pyversions/torchregress.svg?color=%2334D058" alt="Supported Python versions">
 </a>
-<a href="https://opensource.org/licenses/MIT" target="_blank">
+<a href="https://opensource.org/licenses/MIT" target="_blank" aria-label="License">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
 </a>
 </p>
