@@ -77,19 +77,18 @@ class ExpectedCalibrationError(Metric):
             q: torch.cat(tensors) for q, tensors in y_pred_lists.items()
         }
 
+        device = y_true.device
         quantiles = sorted(y_pred_quantiles.keys())
-        expected_proportions = torch.tensor(quantiles, device=y_true.device)
-        actual_proportions_list: list[torch.Tensor] = []
+        expected_proportions = torch.tensor(quantiles, device=device)
 
-        for q in quantiles:
-            q_pred = y_pred_quantiles[q]
-            validate_inputs(q_pred, y_true)
-            proportion_below = torch.mean((y_true <= q_pred).float())
-            actual_proportions_list.append(proportion_below)
+        preds = torch.stack([convert_to_tensor(y_pred_quantiles[q]).to(device) for q in quantiles])
 
-        actual_proportions = torch.stack(actual_proportions_list)
+        if len(preds) > 0:
+            validate_inputs(preds[0], y_true)
 
+        actual_proportions = (y_true.unsqueeze(0) <= preds).float().flatten(1).mean(dim=1)
         abs_errors = torch.abs(actual_proportions - expected_proportions)
+
         mace = torch.mean(abs_errors)
         rmsce = torch.sqrt(torch.mean((actual_proportions - expected_proportions) ** 2))
         max_ce = torch.max(abs_errors)
@@ -174,14 +173,13 @@ def expected_calibration_error(
 
     quantiles = sorted(y_pred_quantiles.keys())
     expected_proportions = torch.tensor(quantiles, device=device)
-    actual_proportions_list: list[torch.Tensor] = []
 
-    for q in quantiles:
-        q_pred = convert_to_tensor(y_pred_quantiles[q]).to(device)
-        validate_inputs(q_pred, y_true_t)
-        actual_proportions_list.append(torch.mean((y_true_t <= q_pred).float()))
+    preds = torch.stack([convert_to_tensor(y_pred_quantiles[q]).to(device) for q in quantiles])
 
-    actual_proportions = torch.stack(actual_proportions_list)
+    if len(preds) > 0:
+        validate_inputs(preds[0], y_true_t)
+
+    actual_proportions = (y_true_t.unsqueeze(0) <= preds).float().flatten(1).mean(dim=1)
     abs_errors = torch.abs(actual_proportions - expected_proportions)
 
     result = {
