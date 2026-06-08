@@ -74,6 +74,9 @@ def test_neurips_sage_reg_full_quick_smoke(tmp_path: Path) -> None:
         "--skip-synthetic",
         "--skip-backbone",
         "--skip-ablations",
+        "--no-openml-download",
+        "--openml-diamonds-cache",
+        str(tmp_path / "missing_diamonds.parquet"),
         "--shifts-out-root",
         str(tmp_path / "shifts_stub"),
     ]
