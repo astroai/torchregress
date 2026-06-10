@@ -989,5 +989,61 @@ class TestInvalidWeights:
             _weighted_quantile(scores, 0.9, weights=weights)
 
 
+class TestOneDimensionalTargets:
+    """Regression tests: 1-D targets must behave exactly like [N, 1] targets.
+
+    Previously ``target [N] - y_pred[..., :1] [N, 1]`` broadcast to
+    ``[N, N]`` and the per-row max silently produced garbage scores, so
+    CQR calibrated on 1-D targets massively over-covered.
+    """
+
+    def test_cqr_scores_match_column_targets(self):
+        torch.manual_seed(0)
+        n = 64
+        y = torch.randn(n)
+        pred = torch.stack([y - 0.5, y + 0.5], dim=-1) + 0.1 * torch.randn(n, 2)
+
+        cqr = CQR(alpha=0.2)
+        scores_1d = cqr._compute_scores(pred, y)
+        scores_2d = cqr._compute_scores(pred, y.unsqueeze(-1))
+        assert scores_1d.shape == (n,)
+        assert torch.allclose(scores_1d, scores_2d)
+        # Scores are bounded by the interval geometry, not the target scale.
+        assert scores_1d.abs().max() < 2.0
+
+    def test_cqr_coverage_with_1d_targets(self):
+        torch.manual_seed(1)
+        n_cal, n_test = 300, 500
+        alpha = 0.2
+
+        y_cal = torch.randn(n_cal)
+        pred_cal = torch.stack([y_cal - 0.2, y_cal + 0.2], dim=-1)
+        pred_cal = pred_cal + 0.3 * torch.randn(n_cal, 2)
+
+        y_test = torch.randn(n_test)
+        pred_test = torch.stack([y_test - 0.2, y_test + 0.2], dim=-1)
+        pred_test = pred_test + 0.3 * torch.randn(n_test, 2)
+
+        cqr = CQR(alpha=alpha)
+        cqr.calibrate(pred_cal, y_cal)
+        lower, upper = cqr.predict_interval(pred_test)
+        covered = (y_test.unsqueeze(-1) >= lower) & (y_test.unsqueeze(-1) <= upper)
+        coverage = covered.float().mean().item()
+        # Near-nominal coverage: neither under-covering nor the pathological
+        # ~100% over-coverage produced by the broadcasting bug.
+        assert abs(coverage - (1 - alpha)) < 0.07, f"coverage {coverage:.3f}"
+
+    def test_conformal_loss_cqr_forward_matches_column_targets(self):
+        torch.manual_seed(2)
+        n = 32
+        y = torch.randn(n)
+        pred = torch.stack([y - 0.3, y + 0.3], dim=-1)
+
+        loss_fn = ConformalLoss(method="cqr", alpha=0.1)
+        loss_1d = loss_fn(pred, y)
+        loss_2d = loss_fn(pred, y.unsqueeze(-1))
+        assert torch.allclose(loss_1d, loss_2d)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

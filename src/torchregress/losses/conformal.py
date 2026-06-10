@@ -362,6 +362,11 @@ class CQR(ConformalPredictor):
         self.debias = debias
 
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        # A 1-D target must gain a trailing feature axis before the
+        # arithmetic below: [N] - [N, 1] would broadcast to [N, N] and
+        # silently produce garbage scores (max over all targets per row).
+        if target.dim() == 1 and y_pred.dim() > 1:
+            target = target.unsqueeze(-1)
         n_feat = target.shape[-1] if target.dim() > 1 else 1
         lower_pred = y_pred[..., :n_feat]
         upper_pred = y_pred[..., n_feat:]
@@ -1410,6 +1415,10 @@ class ConformalLoss(RegressionLoss):
     ) -> Tensor:
         """Training loss (MSE for split, pinball for CQR)."""
         if self.method in ("cqr", "uacqr"):
+            # See CQR._compute_scores: 1-D targets need a feature axis or
+            # the subtraction against [N, n_feat] slices broadcasts wrongly.
+            if target.dim() == 1 and y_pred.dim() > 1:
+                target = target.unsqueeze(-1)
             n_feat = target.shape[-1] if target.dim() > 1 else 1
             if y_pred.shape[-1] != 2 * n_feat:
                 raise ValueError(f"CQR expects y_pred shape [..., 2*features], got {y_pred.shape}")
