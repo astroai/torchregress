@@ -1,3 +1,3 @@
-## 2025-02-27 - [Add aria-labels to external links in docs]
-**Learning:** Found that external link badges in the documentation homepage lack descriptive text for screen readers.
-**Action:** Always verify if image-based links (like shields/badges) have proper `aria-label` attributes or contextually descriptive text if they lack visible text.
+## 2024-06-11 - Use explicit HTML for image badges
+**Learning:** Using standard Markdown for image links (like CI or PyPI badges) lacks accessibility because standard Markdown formatting does not allow specifying an `aria-label` attribute on the resulting `<a>` tag.
+**Action:** When adding or maintaining image badges in documentation (like READMEs), use explicit HTML `<a>` and `<img>` tags to ensure screen readers receive proper context through `aria-label`.
