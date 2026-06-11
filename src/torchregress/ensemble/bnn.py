@@ -236,9 +236,10 @@ class BayesianNeuralNetwork(nn.Module):
         n = n_samples or self.n_samples
 
         with torch.no_grad():
-            samples = [self.forward(x) for _ in range(n)]
-
-        return torch.stack(samples, dim=0)
+            repeat_dims = [n] + [1] * (x.dim() - 1)
+            x_expanded = x.repeat(*repeat_dims)
+            preds = self.forward(x_expanded)
+            return preds.view(n, x.shape[0], *preds.shape[1:])
 
     def predict_with_uncertainty(
         self,
@@ -358,10 +359,14 @@ class HeteroscedasticBNN(nn.Module):
         n = n_samples or self.n_samples
 
         with torch.no_grad():
-            results = [self.forward(x) for _ in range(n)]
-            means, log_vars = zip(*results)
+            repeat_dims = [n] + [1] * (x.dim() - 1)
+            x_expanded = x.repeat(*repeat_dims)
+            means, log_vars = self.forward(x_expanded)
 
-        return torch.stack(means), torch.stack(log_vars)
+            means = means.view(n, x.shape[0], *means.shape[1:])
+            log_vars = log_vars.view(n, x.shape[0], *log_vars.shape[1:])
+
+        return means, log_vars
 
     def predict_with_decomposition(
         self,
