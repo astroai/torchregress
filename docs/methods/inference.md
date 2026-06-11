@@ -3,7 +3,7 @@
 PPI is a statistical framework for performing **valid inference** using a combination of a small set of gold-standard labels and a large set of machine learning predictions.  It produces confidence intervals that are (1) **narrower** than using gold labels alone and (2) **statistically valid** even if the ML model is arbitrarily biased.
 
 !!! abstract "Why this matters"
-    In many domains — healthcare, remote sensing, social science, NLP evaluation, astronomy — obtaining accurate labels is expensive, but cheap ML predictions are abundant.  PPI lets you exploit this asymmetry for rigorous statistical analysis.
+    In many domains — healthcare, remote sensing, social science, NLP evaluation — obtaining accurate labels is expensive, but cheap ML predictions are abundant.  PPI lets you exploit this asymmetry for rigorous statistical analysis.
 
 ---
 
@@ -240,7 +240,7 @@ diag = ppi_diagnostics(y_gold, f_hat_gold, f_hat_all)
     - **Model-agnostic** — valid even when $\hat{f}$ is arbitrarily wrong
     - **Never hurts** (PPI++) — asymptotically never increases variance over gold-only
     - **Modular** — works for means, quantiles, regression, classification
-    - **Broad applicability** — biomedicine, remote sensing, social science, NLP, astronomy
+    - **Broad applicability** — biomedicine, remote sensing, social science, NLP
 
 !!! warning "Limitations"
     - Requires **MCAR labelling** — if labels are obtained non-randomly, extensions are needed

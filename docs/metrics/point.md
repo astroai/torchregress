@@ -137,13 +137,13 @@ nrmse_range = normalized_rmse(y_pred, y_true, normalization='range')
 
 ### Normalized Median Absolute Deviation
 
-MAD normalized by the median or using a photometric normalization approach.
+MAD normalized by the median or by a shifted-relative error scheme for non-negative targets.
 
 ```python
 from torchregress.metrics.point import normalized_median_absolute_deviation
 
 nmad = normalized_median_absolute_deviation(y_pred, y_true)
-nmad_photo = normalized_median_absolute_deviation(y_pred, y_true, normalization="photometric")
+nmad_relative = normalized_median_absolute_deviation(y_pred, y_true, normalization="relative")
 ```
 
 ## Application-Specific Metrics
@@ -155,11 +155,11 @@ Fraction of predictions with errors exceeding a threshold.
 ```python
 from torchregress.metrics.point import outlier_fraction
 
-# Standard outlier detection
+# Standard outlier detection (scaled by std of y_true)
 of = outlier_fraction(y_pred, y_true, threshold=0.15)
 
-# Photometric redshift style
-of_photo = outlier_fraction(y_pred, y_true, threshold=0.15, mode="photometric")
+# Shifted-relative outlier detection (scaled by 1 + y_true, useful for non-negative targets)
+of_rel = outlier_fraction(y_pred, y_true, threshold=0.15, mode="relative")
 ```
 
 ### Tail Metrics

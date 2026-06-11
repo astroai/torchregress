@@ -77,6 +77,8 @@ EXPECTED_EXPORTS = {
         "interval_metrics_report",
         "MultivariateMAE",
         "MultivariateRMSE",
+        "TaskAgnosticCorrelations",
+        "task_agnostic_correlations",
         "EntropyScore",
         "KernelDensityScore",
         "MahalanobisDistance",
@@ -158,6 +160,13 @@ EXPECTED_EXPORTS = {
         "NeighborhoodCovariancePseudoLabeler",
         "NoiseAwareRegressor",
         "mahalanobis_covariance_pseudo_labels",
+        "TaylorInducedCovarianceHead",
+        "NaturalHeteroscedasticHead",
+        "NaturalReparamHead",
+        "HeteroscedasticLaplaceRegressor",
+        "SyntheticEnvironmentSampler",
+        "AdaptivePriorGuide",
+        "VIDSRegressor",
     ],
     "causal": [
         "dr_ate",
@@ -324,6 +333,18 @@ EXPECTED_SIGNATURES = {
         "(self, x: torch.Tensor, n_samples: int = 30, scale: float = 1.0) -> "
         "tuple[torch.Tensor, torch.Tensor, torch.Tensor]"
     ),
+    "metrics.task_agnostic_correlations": "(y_pred: 'torch.Tensor | np.ndarray', y_true: 'torch.Tensor | np.ndarray', covariance: 'torch.Tensor | np.ndarray') -> 'torch.Tensor'",
+    "algorithms.TaylorInducedCovarianceHead": "(base_model: 'nn.Module', target_dim: 'int', input_dim: 'int | None' = None, k1_init: 'float' = 1.0, k2_init: 'float' = 1.0, k3_init: 'float' = 1.0, jitter: 'float' = 1e-06) -> 'None'",
+    "algorithms.NaturalHeteroscedasticHead": "(in_features: 'int', out_features: 'int', link_fn: 'str' = 'exp') -> 'None'",
+    "algorithms.NaturalReparamHead": "(link_fn: 'str' = 'exp') -> 'None'",
+    "algorithms.HeteroscedasticLaplaceRegressor": "(base_model: 'nn.Module', head: 'nn.Module', prior_precision: 'float' = 1.0, n_samples: 'int' = 30, jitter: 'float' = 1e-06) -> 'None'",
+    "algorithms.HeteroscedasticLaplaceRegressor.fit": "(self, train_loader: 'DataLoader', lr: 'float' = 0.001, epochs: 'int' = 10, device: 'str | torch.device' = 'cpu') -> 'HeteroscedasticLaplaceRegressor'",
+    "algorithms.HeteroscedasticLaplaceRegressor.predict_distribution": "(self, x: 'torch.Tensor', n_samples: 'int | None' = None) -> 'PredictiveBatch'",
+    "algorithms.SyntheticEnvironmentSampler": "(bootstrap_fraction: 'float' = 0.3, n_environments: 'int' = 32) -> 'None'",
+    "algorithms.AdaptivePriorGuide": "(in_features: 'int', target_dim: 'int', param_dim: 'int', hidden_dim: 'int' = 64) -> 'None'",
+    "algorithms.VIDSRegressor": "(in_features: 'int', target_dim: 'int' = 1, hidden_dim: 'int' = 64, prior_variance_init: 'float' = 1.0, noise_variance_init: 'float' = 0.1, jitter: 'float' = 1e-06) -> 'None'",
+    "algorithms.VIDSRegressor.fit": "(self, x_train_features: 'torch.Tensor', y_train: 'torch.Tensor', n_environments: 'int' = 32, bootstrap_fraction: 'float' = 0.3, lr: 'float' = 0.001, epochs: 'int' = 50, beta: 'float' = 1.0, n_samples: 'int' = 10) -> 'VIDSRegressor'",
+    "algorithms.VIDSRegressor.predict_distribution": "(self, x_test: 'torch.Tensor', n_samples: 'int | None' = None) -> 'PredictiveBatch'",
 }
 
 
@@ -418,6 +439,25 @@ EXPECTED_PARAM_ORDERS = {
         "candidate_scores",
         "gap_diagnostics",
         "calibration_ess_inv_square",
+    ],
+    "metrics.task_agnostic_correlations": ["y_pred", "y_true", "covariance"],
+    "algorithms.HeteroscedasticLaplaceRegressor.fit": [
+        "self",
+        "train_loader",
+        "lr",
+        "epochs",
+        "device",
+    ],
+    "algorithms.VIDSRegressor.fit": [
+        "self",
+        "x_train_features",
+        "y_train",
+        "n_environments",
+        "bootstrap_fraction",
+        "lr",
+        "epochs",
+        "beta",
+        "n_samples",
     ],
 }
 

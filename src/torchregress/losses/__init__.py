@@ -40,12 +40,16 @@ from .conformal import (
     ConformalPredictor,
     DensityConformal,
     DistributionalConformal,
+    LocalConformal,
+    LocalConformalMAD,
     MonteCarloConformal,
     MultiDimensionalConformalLoss,
     MultiTargetConformal,
     PrevalenceAdjustedCP,
     R2CConformal,
+    SLSConformal,
     SplitConformal,
+    conformal_loss,
 )
 from .eiv import (
     BaseEIVLoss,
@@ -71,6 +75,7 @@ from .expectile import (
     ExpectileCrossoverLoss,
     ExpectileLoss,
     MultiExpectileLoss,
+    expectile_loss,
 )
 
 # Faithful heteroscedastic (mean / variance decoupling)
@@ -101,6 +106,14 @@ from .loss_registry import create_loss_from_config, get_regression_loss, list_re
 
 # Mixture Density Networks
 from .mdn import MDNLoss, MixtureDensityLoss, create_mdn_loss
+
+# SLS regression
+from .sls import (
+    MahalanobisFrontier,
+    SLSLoss,
+    UnionFrontier,
+    VolumePreservingFlow,
+)
 
 # Normalizing flows (zuko is an optional dependency)
 try:
@@ -136,7 +149,13 @@ from .poisson_gaussian import (
 )
 
 # Quantile losses
-from .quantile import MultiQuantileLoss, QuantileCrossover, QuantileCrossoverLoss, QuantileLoss
+from .quantile import (
+    MultiQuantileLoss,
+    QuantileCrossover,
+    QuantileCrossoverLoss,
+    QuantileLoss,
+    quantile_loss,
+)
 
 # Robust losses
 from .robust import (
@@ -158,7 +177,13 @@ from .transforms import (
 )
 
 # Tweedie losses
-from .tweedie import CompoundPoissonLoss, GammaLoss, InverseGaussianLoss, TweedieLoss
+from .tweedie import (
+    CompoundPoissonLoss,
+    GammaLoss,
+    InverseGaussianLoss,
+    TweedieLoss,
+    tweedie_loss,
+)
 from .uncertain_gt import (
     ConsistencyRegLoss,
     NoisyTargetGaussianNLL,
@@ -241,12 +266,14 @@ __all__ = [
     "EvidentialRegressionLoss",
     # Expectile losses
     "ExpectileLoss",
+    "expectile_loss",
     "MultiExpectileLoss",
     "AsymmetricLeastSquaresLoss",
     "ExpectileCrossover",
     "ExpectileCrossoverLoss",
     # Quantile losses
     "QuantileLoss",
+    "quantile_loss",
     "MultiQuantileLoss",
     "QuantileCrossover",
     "QuantileCrossoverLoss",
@@ -256,6 +283,7 @@ __all__ = [
     "CORALLoss",
     # Tweedie losses
     "TweedieLoss",
+    "tweedie_loss",
     "GammaLoss",
     "InverseGaussianLoss",
     "CompoundPoissonLoss",
@@ -268,7 +296,11 @@ __all__ = [
     # Conformal prediction
     "CQR",
     "CTI",
+    "SLSConformal",
+    "LocalConformal",
+    "LocalConformalMAD",
     "ConformalLoss",
+    "conformal_loss",
     "ConformalPredictor",
     "DensityConformal",
     "DistributionalConformal",
@@ -279,6 +311,11 @@ __all__ = [
     "R2CConformal",
     "SplitConformal",
     "UACQR",
+    # SLS regression
+    "SLSLoss",
+    "VolumePreservingFlow",
+    "MahalanobisFrontier",
+    "UnionFrontier",
     # Censored regression
     "CensoredGaussianNLLLoss",
     "CensoredQuantileLoss",

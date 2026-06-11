@@ -14,7 +14,8 @@ from typing import Any, List, Optional, Union, cast
 import torch
 import torch.nn.functional as F
 
-from ..utils.quantile import multi_quantile_loss, quantile_loss
+from ..utils.quantile import multi_quantile_loss
+from ..utils.quantile import quantile_loss as _util_quantile_loss
 from ..utils.validation import validate_quantile, validate_range
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
@@ -84,7 +85,7 @@ class QuantileLoss(RegressionLoss):
         self._validate_inputs(y_pred, target, mask)
 
         # Elementwise quantile loss via shared utility
-        loss = quantile_loss(y_pred, target, self.quantile)
+        loss = _util_quantile_loss(y_pred, target, self.quantile)
         return self._reduce_with_mask(loss, mask, weights)
 
 
@@ -351,6 +352,35 @@ class QuantileCrossoverLoss(RegressionLoss):
 
         # Apply final reduction
         return self._reduce(final_loss, mask, weights)
+
+
+def quantile_loss(
+    y_pred: torch.Tensor,
+    target: torch.Tensor,
+    quantile: float = 0.5,
+    mask: Optional[torch.Tensor] = None,
+    weights: Optional[torch.Tensor] = None,
+    reduction: str = "mean",
+) -> torch.Tensor:
+    """Functional wrapper for :class:`QuantileLoss` (pinball / quantile loss).
+
+    Equivalent to ``QuantileLoss(quantile=quantile, reduction=reduction)``
+    followed by a ``forward`` call.  ``quantile=0.5`` recovers MAE.
+
+    Args:
+        y_pred: Predicted values.
+        target: Ground truth.
+        quantile: Asymmetric loss level in (0, 1).  ``0.5`` = median.
+        mask: Optional boolean mask of valid entries.
+        weights: Optional per-element weights.
+        reduction: ``'mean'`` | ``'sum'`` | ``'none'``.
+
+    Returns:
+        Quantile (pinball) loss value.
+    """
+    return QuantileLoss(quantile=quantile, reduction=reduction)(
+        y_pred, target, mask=mask, weights=weights
+    )
 
 
 # Compatibility alias used in docs.

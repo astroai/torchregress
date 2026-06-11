@@ -2,7 +2,7 @@
 
 Poisson-Gaussian mixture losses are specialized functions that model signals as a combination of Poisson (counting) noise and Gaussian (readout) noise. These losses are particularly valuable for:
 
-- Scientific imaging (astronomy, microscopy)
+- Scientific imaging (microscopy)
 - Medical imaging (CT scans, PET, low-dose X-ray)
 - Low-light photography
 - Any signal processing application where both shot noise and electronic noise are present
@@ -222,11 +222,11 @@ loss_fn = tr.losses.enhanced_poisson_gaussian_loss(
 
 ## Practical Applications
 
-### Astronomy
+### Low-Light Imaging
 
 ```python
-# For astronomical image processing
-astro_loss = tr.losses.EnhancedPoissonGaussianMixtureLoss(
+# For low-light imaging (e.g. fluorescence microscopy, photon-counting)
+lowlight_loss = tr.losses.EnhancedPoissonGaussianMixtureLoss(
     gain=2.5,            # e-/ADU conversion
     read_noise=10.0,     # Read noise in e-
     shot_noise=1.0,      # Shot noise coefficient

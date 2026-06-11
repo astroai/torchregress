@@ -254,7 +254,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 ### [Causal DR Uplift Comparison](causal_dr_uplift_comparison.md)
 
 - Shared-budget comparison for doubly-robust causal regression (`dr_ate`, `dr_cate`).
-- Includes synthetic uplift and astronomy-style selection-bias scenarios.
+- Includes a synthetic uplift scenario.
 - Reports ATE error, CI quality, overlap-rate, and effective sample size diagnostics.
 
 ### [Causal DR Comparison (Real Covariates)](causal_dr_realdata_comparison.md)

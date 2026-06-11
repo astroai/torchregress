@@ -437,5 +437,34 @@ class ExpectileCrossoverLoss(RegressionLoss):
             return final_loss
 
 
+def expectile_loss(
+    y_pred: torch.Tensor,
+    target: torch.Tensor,
+    expectile: float = 0.5,
+    mask: Optional[torch.Tensor] = None,
+    weights: Optional[torch.Tensor] = None,
+    reduction: str = "mean",
+) -> torch.Tensor:
+    """Functional wrapper for :class:`ExpectileLoss`.
+
+    Equivalent to ``ExpectileLoss(expectile=expectile, reduction=reduction)``
+    followed by a ``forward`` call.  ``expectile=0.5`` recovers MSE.
+
+    Args:
+        y_pred: Predicted values.
+        target: Ground truth.
+        expectile: Asymmetry level in (0, 1).  ``0.5`` = mean.
+        mask: Optional boolean mask of valid entries.
+        weights: Optional per-element weights.
+        reduction: ``'mean'`` | ``'sum'`` | ``'none'``.
+
+    Returns:
+        Expectile loss value.
+    """
+    return ExpectileLoss(expectile=expectile, reduction=reduction)(
+        y_pred, target, mask=mask, weights=weights
+    )
+
+
 # Compatibility alias used in docs.
 ExpectileCrossover = ExpectileCrossoverLoss

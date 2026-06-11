@@ -967,7 +967,7 @@ class StructuralEIVLoss(BaseEIVLoss):
         >>> sigma_xy = torch.tensor([[0.005, 0.002]])  # 1x2 cross-covariance
         >>> loss_fn = StructuralEIVLoss(model, sigma_x, sigma_y, sigma_xy)
         >>>
-        >>> # Per-sample photometric errors (diagonal stddev per object)
+        >>> # Per-sample feature measurement errors (diagonal stddev per sample)
         >>> sigma_x = torch.tensor([[0.2, 0.1], [0.3, 0.05]])
         >>> loss_fn = StructuralEIVLoss(model, sigma_x, sigma_y, sigma_xy)
         >>>

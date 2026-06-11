@@ -20,6 +20,120 @@ import torch.nn as nn
 
 from ..utils.validation import validate_reduction, validate_weights
 
+# ---------------------------------------------------------------------------
+# Reduction strategy helpers (cached at __init__ to remove branch overhead
+# from the hot per-element reduction path).
+# ---------------------------------------------------------------------------
+
+
+def _broadcast_weights(weights: torch.Tensor, target_dim: int) -> torch.Tensor:
+    """Right-pad ``weights`` with singleton dims so it broadcasts to ``target_dim``."""
+    if weights.dim() < target_dim:
+        return weights.reshape(weights.shape + (1,) * (target_dim - weights.dim()))
+    return weights
+
+
+def _reduce_mean(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
+    if weights is not None:
+        return torch.sum(values * weights) / torch.sum(weights).clamp(min=1.0)
+    return torch.mean(values)
+
+
+def _reduce_sum(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
+    if weights is not None:
+        return torch.sum(values * weights)
+    return torch.sum(values)
+
+
+def _reduce_none(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
+    if weights is not None:
+        return values * weights
+    return values
+
+
+def _reduce_max(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
+    if weights is not None:
+        return torch.max(values * weights)
+    return torch.max(values)
+
+
+def _reduce_min(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
+    if weights is not None:
+        return torch.min(values * weights)
+    return torch.min(values)
+
+
+_REDUCERS: dict[str, Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]] = {
+    "mean": _reduce_mean,
+    "sum": _reduce_sum,
+    "none": _reduce_none,
+    "max": _reduce_max,
+    "min": _reduce_min,
+}
+
+
+def reduce_per_sample(
+    nll: torch.Tensor,
+    sample_mask: Optional[torch.Tensor],
+    weights: Optional[torch.Tensor],
+    reduction: str,
+) -> torch.Tensor:
+    """Apply the standard mask/weight/reduction contract to a per-sample NLL vector.
+
+    This is shared by multivariate / low-rank / count losses whose ``forward``
+    computes a 1-D ``[batch]`` NLL tensor and needs the *same* reduction
+    semantics as the rest of the library.  Keeping the logic in one place
+    avoids the four-way branch drift observed in earlier versions of
+    :class:`MultivariateGaussianLoss` and :class:`LowRankGaussianLoss`.
+
+    Args:
+        nll: ``[batch]`` (or broadcastable to it) tensor of per-sample losses.
+        sample_mask: Optional ``[batch]`` boolean mask of valid samples.
+        weights: Optional ``[batch]`` non-negative sample weights.
+        reduction: One of ``'none'``, ``'mean'``, ``'sum'``.
+
+    Returns:
+        Reduced loss tensor.
+    """
+    reducer = _REDUCERS[reduction]
+
+    # Collapse per-feature masks to per-sample mask once, here, instead of
+    # inside every subclass.
+    if sample_mask is not None:
+        if sample_mask.dtype != torch.bool:
+            sample_mask = sample_mask > 0
+        if sample_mask.dim() > 1:
+            sample_mask = sample_mask.all(dim=-1)
+
+    if sample_mask is not None and weights is not None:
+        masked_weights = weights.to(device=nll.device, dtype=nll.dtype)
+        if masked_weights.shape[0] != nll.shape[0]:
+            raise ValueError("weights must match batch size")
+        masked_nll = nll[sample_mask]
+        masked_weights = masked_weights[sample_mask]
+        if reduction == "none":
+            # Preserve shape: scatter back into a zeros tensor so the caller
+            # gets a length-``batch`` output.
+            result = torch.zeros_like(nll)
+            result[sample_mask] = masked_nll * masked_weights
+            return result
+        if reduction == "sum":
+            return torch.sum(masked_nll * masked_weights)
+        # mean
+        return torch.sum(masked_nll * masked_weights) / torch.sum(masked_weights).clamp(min=1.0)
+
+    if sample_mask is not None:
+        masked_nll = nll[sample_mask]
+        if reduction == "none":
+            result = torch.zeros_like(nll)
+            result[sample_mask] = masked_nll
+            return result
+        if reduction == "sum":
+            return torch.sum(masked_nll)
+        return torch.sum(masked_nll) / sample_mask.sum().clamp(min=1)
+
+    return reducer(nll, weights)
+
 
 class BaseLoss(nn.Module):
     """
@@ -45,7 +159,18 @@ class BaseLoss(nn.Module):
 
     def __init__(self, reduction: str = "mean") -> None:
         super().__init__()
-        self.reduction = validate_reduction(reduction)
+        self.reduction = reduction
+
+    @property
+    def reduction(self) -> str:
+        return self._reduction
+
+    @reduction.setter
+    def reduction(self, value: str) -> None:
+        self._reduction = validate_reduction(value)
+        self._reducer: Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor] = _REDUCERS[
+            self._reduction
+        ]
 
     def forward(
         self,
@@ -85,45 +210,15 @@ class BaseLoss(nn.Module):
 
             if weights is not None:
                 # Broadcast weights to match loss shape if needed for masking
-                if weights.dim() < loss.dim():
-                    weights = weights.reshape(weights.shape + (1,) * (loss.dim() - weights.dim()))
+                weights = _broadcast_weights(weights, loss.dim())
                 weights = weights.expand_as(loss)
                 weights = weights[mask]
             loss = loss[mask]
         elif weights is not None:
             # Broadcast weights to match loss shape if needed
-            if weights.dim() < loss.dim():
-                weights = weights.reshape(weights.shape + (1,) * (loss.dim() - weights.dim()))
+            weights = _broadcast_weights(weights, loss.dim())
 
-        # No reduction: return raw values (potentially weighted)
-        if self.reduction == "none":
-            return loss * weights if weights is not None else loss
-
-        # Sum reduction
-        if self.reduction == "sum":
-            if weights is not None:
-                return torch.sum(loss * weights)
-            return torch.sum(loss)
-
-        # Mean reduction
-        if self.reduction == "mean":
-            if weights is not None:
-                vals = loss * weights
-                return torch.sum(vals) / torch.sum(weights).clamp(min=1)
-            return torch.mean(loss)
-
-        # Max / Min reduction
-        if self.reduction == "max":
-            if weights is not None:
-                return torch.max(loss * weights)
-            return torch.max(loss)
-        if self.reduction == "min":
-            if weights is not None:
-                return torch.min(loss * weights)
-            return torch.min(loss)
-
-        # Default case - raise an error for unknown reduction types
-        raise ValueError(f"Unknown reduction type: {self.reduction}")
+        return self._reducer(loss, weights)
 
     def _apply_mask(self, tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
         """Filter tensor elements by boolean mask."""

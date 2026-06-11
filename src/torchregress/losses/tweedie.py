@@ -332,3 +332,34 @@ class CompoundPoissonLoss(TweedieLoss):
             raise ValueError(f"For CompoundPoissonLoss, p must be between 1 and 2, got {p}")
 
         super().__init__(p=p, eps=eps, reduction=reduction, link=link)
+
+
+def tweedie_loss(
+    y_pred: torch.Tensor,
+    target: torch.Tensor,
+    p: float = 1.5,
+    mask: Optional[torch.Tensor] = None,
+    weights: Optional[torch.Tensor] = None,
+    reduction: str = "mean",
+    link: Optional[str] = None,
+) -> torch.Tensor:
+    """Functional wrapper for :class:`TweedieLoss`.
+
+    Equivalent to ``TweedieLoss(p=p, reduction=reduction, link=link)``
+    followed by a ``forward`` call.
+
+    Args:
+        y_pred: Predicted values (log(μ) if ``link='log'``).
+        target: Non-negative target values.
+        p: Tweedie power parameter (0, 1, 2, 3, or in (1, 2)).
+        mask: Optional boolean mask of valid entries.
+        weights: Optional per-element weights.
+        reduction: ``'mean'`` | ``'sum'`` | ``'none'``.
+        link: ``'log'`` (default for p>0) or ``'identity'``.
+
+    Returns:
+        Tweedie deviance loss value.
+    """
+    return TweedieLoss(p=p, reduction=reduction, link=link)(
+        y_pred, target, mask=mask, weights=weights
+    )

@@ -177,7 +177,72 @@ lower, upper = mtcp.predict_interval(y_pred_test)  # each: (n_test, d)
 ```
 
 !!! tip "When to use"
-    Multi-output regression where you want per-dimension coverage guarantees (e.g., predicting RA + Dec + redshift simultaneously).
+    Multi-output regression where you want per-dimension coverage guarantees (e.g., predicting latitude + longitude + altitude simultaneously).
+
+---
+
+## LocalConformal
+
+**Locally Valid and Discriminative Conformal Prediction (LVD)** — constructs prediction intervals that are valid locally in the feature space by using a kernel-weighted conformal quantile.
+
+!!! abstract "Summary"
+    **Score:**  $\;s_i = \lvert y_i - \hat{y}_i \rvert$
+    **Interval:**  $\;\hat{y} \pm q(x)$ (width varies locally based on kernel similarity)
+    **Requires:**  Point predictions and representation/feature space embeddings ($x$)
+
+```python
+from torchregress.losses import LocalConformal
+
+# Initialize with alpha = 0.1 and a default Gaussian kernel with bandwidth = 0.5
+cp = LocalConformal(alpha=0.1, bandwidth=0.5)
+
+# x_cal: representation/embedding features for the calibration set
+cp.calibrate(y_pred_cal, y_cal, x=x_cal)
+
+# Predict intervals using test representations x_test
+lower, upper = cp.predict_interval(y_pred_test, x=x_test)
+```
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `K_obj` | `Any` | `None` | Optional custom kernel object implementing `K(x1, x2)` and `Ki(xi, Xs)`. |
+| `bandwidth` | `float` | `1.0` | Bandwidth $h$ of the default Gaussian kernel: $K(x_1, x_2) = \exp(-\|x_1 - x_2\|^2 / (2 h^2))$. |
+
+!!! tip "When to use"
+    Whenever you want **locally valid** coverage guarantees rather than standard marginal ones, meaning the coverage target is met even within localized neighborhoods in feature space. This is highly effective for deep learning models when using representation embeddings (e.g., from the penultimate layer).
+
+!!! quote "Reference"
+    Z. Lin, S. Trivedi, J. Sun. "Locally Valid and Discriminative Prediction Intervals for Deep Learning Models." *NeurIPS*, **2021**.
+
+---
+
+## LocalConformalMAD
+
+Difficulty-normalized variant of `LocalConformal` where residuals are scaled by a predicted mean absolute deviation (MAD) or local uncertainty scale, providing discriminative heteroscedastic local coverage.
+
+!!! abstract "Summary"
+    **Score:**  $\;s_i = \lvert y_i - \hat{y}_i \rvert \,/\, (\epsilon + \hat{\sigma}_i)$
+    **Interval:**  $\;\hat{y} \pm q(x) \cdot (\epsilon + \hat{\sigma})$
+    **Requires:**  Point predictions, features ($x$), and uncertainty/MAD estimates ($\hat{\sigma}$)
+
+```python
+from torchregress.losses import LocalConformalMAD
+
+cp = LocalConformalMAD(alpha=0.1, bandwidth=0.5, eps=1e-5)
+
+# x_cal: features, mad_cal: predicted residual/MAD scales
+cp.calibrate(y_pred_cal, y_cal, x=x_cal, mad=mad_cal)
+
+# Predict intervals using test features and predicted MAD scales
+lower, upper = cp.predict_interval(y_pred_test, x=x_test, mad=mad_test)
+```
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `eps` | `float` | `1e-5` | Small epsilon clamped for division stability. |
+
+!!! tip "When to use"
+    When you have a secondary model predicting local residual/error scales (MAD) and want local coverage that combines both local density weighting and heteroscedastic scaling.
 
 ---
 

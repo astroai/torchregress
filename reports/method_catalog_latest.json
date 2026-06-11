@@ -2,21 +2,22 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 70,
+    "total_methods": 78,
     "families": {
-      "bnn": 2,
+      "bnn": 6,
       "calibration_transform": 3,
       "causal": 2,
       "censored": 3,
-      "conformal": 5,
+      "conformal": 6,
       "constraints": 2,
       "eiv": 7,
       "ensemble": 7,
-      "flow": 2,
+      "flow": 3,
       "imbalanced_loss": 5,
       "inference": 1,
       "mc_dropout": 1,
       "mdn": 1,
+      "multivariate": 1,
       "ordinal": 3,
       "point_loss": 1,
       "probabilistic_loss": 7,
@@ -25,12 +26,13 @@
       "swag": 2,
       "target_transform": 4,
       "test_time": 6,
+      "tictac": 1,
       "uncertain_gt": 4
     },
     "maturity": {
       "Core": 6,
       "Strong": 7,
-      "Available": 57
+      "Available": 65
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -336,6 +338,28 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Conformal on MC predictive samples with uncertainty-normalized residual scores."
+    },
+    {
+      "name": "SLSConformal",
+      "family": "conformal",
+      "public_path": "torchregress.losses.SLSConformal",
+      "task_tags": [
+        "coverage_guarantees",
+        "multimodal",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Conformal prediction regions using Super-Level-Set regression frontiers."
     },
     {
       "name": "NoisyTargetGaussianNLL",
@@ -855,6 +879,28 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Optional dependency (`zuko`); often compared after MDN baselines."
+    },
+    {
+      "name": "SLSLoss",
+      "family": "flow",
+      "public_path": "torchregress.losses.SLSLoss",
+      "task_tags": [
+        "multimodal",
+        "non_gaussian",
+        "prediction_intervals"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Super-Level-Set Regression. Estimates minimum-volume prediction regions using strictly volume-preserving flows. Zero external dependencies."
     },
     {
       "name": "ContrastiveFlowLoss",
@@ -1559,6 +1605,136 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Builds PredictiveBatch from a calibrated WeightedSplitConformalAdapter."
+    },
+    {
+      "name": "TaylorInducedCovarianceHead",
+      "family": "tictac",
+      "public_path": "torchregress.algorithms.TaylorInducedCovarianceHead",
+      "task_tags": [
+        "heteroscedastic_noise",
+        "multivariate_targets",
+        "gradient_curvature_parameterization"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Taylor-Induced Covariance head tying predicted covariance to Jacobian and Hessian of the mean model."
+    },
+    {
+      "name": "NaturalHeteroscedasticHead",
+      "family": "bnn",
+      "public_path": "torchregress.algorithms.NaturalHeteroscedasticHead",
+      "task_tags": [
+        "natural_parameterization",
+        "optimization_stability"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Gaussian natural parameterization head mapping output to mean and log-variance."
+    },
+    {
+      "name": "NaturalReparamHead",
+      "family": "bnn",
+      "public_path": "torchregress.algorithms.NaturalReparamHead",
+      "task_tags": [
+        "natural_parameterization",
+        "optimization_stability"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Reparameterization helper mapping natural parameters to mean and log-variance."
+    },
+    {
+      "name": "HeteroscedasticLaplaceRegressor",
+      "family": "bnn",
+      "public_path": "torchregress.algorithms.HeteroscedasticLaplaceRegressor",
+      "task_tags": [
+        "laplace_approximation",
+        "epistemic_uq",
+        "aleatoric_uq",
+        "last_layer"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "yes",
+      "aleatoric": "yes",
+      "decomposition": "yes",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Last-layer Laplace posterior approximation over heteroscedastic heads."
+    },
+    {
+      "name": "VIDSRegressor",
+      "family": "bnn",
+      "public_path": "torchregress.algorithms.VIDSRegressor",
+      "task_tags": [
+        "distribution_shift",
+        "variational_inference",
+        "adaptive_prior"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "yes",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Variational inference regressor under distribution shift using covariate-conditional adaptive priors."
+    },
+    {
+      "name": "TaskAgnosticCorrelations",
+      "family": "multivariate",
+      "public_path": "torchregress.metrics.TaskAgnosticCorrelations",
+      "task_tags": [
+        "covariance_evaluation",
+        "conditioning"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Task-Agnostic Correlations metric to evaluate covariance prediction quality."
     }
   ]
 }

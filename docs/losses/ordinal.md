@@ -11,7 +11,7 @@ Ordinal regression is for targets with a **natural ordering** where the distance
     - **Quality ratings** — 1–5 stars (predicting 4 when truth is 5 is better than 2)
     - **Survey responses** — strongly disagree → strongly agree
     - **Disease severity** — mild / moderate / severe / critical
-    - **Binned continuous targets** — age groups, magnitude bins, discretised redshifts
+    - **Binned continuous targets** — age groups, magnitude bins, discretised income brackets
 
 ---
 

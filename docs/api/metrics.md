@@ -49,6 +49,13 @@
       show_root_heading: true
       show_source: true
 
+## Task-Agnostic Correlations (TAC)
+
+::: torchregress.metrics.tac
+    options:
+      show_root_heading: true
+      show_source: true
+
 ## Ordinal Metrics
 
 ::: torchregress.metrics.ordinal
@@ -117,3 +124,7 @@ This page provides a complete API reference for all metrics in torchregress.
 ---
 
 ::: torchregress.metrics.utils
+
+---
+
+::: torchregress.metrics.tac

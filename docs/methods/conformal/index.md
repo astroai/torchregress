@@ -62,6 +62,8 @@ lower, upper = cp.predict_interval(y_pred_test)
 | **`UACQR`** | Same as CQR + width-normalized scores | ✅ | [`UACQR`](../../api/losses.md#torchregress.losses.conformal.UACQR) |
 | **`DensityConformal`** | Imbalanced or long-tail data | ✅ | [`DensityConformal`](../../api/losses.md#torchregress.losses.conformal.DensityConformal) |
 | **`MonteCarloConformal`** | Ensembles, Bayesian models | ✅ | [`MonteCarloConformal`](../../api/losses.md#torchregress.losses.conformal.MonteCarloConformal) |
+| **`LocalConformal`** | Local feature-space coverage (LVD) | ✅ | [`LocalConformal`](../../api/losses.md#torchregress.losses.conformal.LocalConformal) |
+| **`LocalConformalMAD`** | Local feature-space + MAD scaling | ✅ | [`LocalConformalMAD`](../../api/losses.md#torchregress.losses.conformal.LocalConformalMAD) |
 | **`CTI`** [3] | Multimodal, complex distributions | ✅ | [`CTI`](../../api/losses.md#torchregress.losses.conformal.CTI) |
 
 ---

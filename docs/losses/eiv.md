@@ -5,7 +5,7 @@ Standard regression assumes that **inputs $X$ are measured perfectly** — only 
 $$X_{\text{obs}} = X^* + \varepsilon_X, \qquad Y_{\text{obs}} = f(X^*) + \varepsilon_Y$$
 
 !!! abstract "Where this matters"
-    - **Scientific measurement**: spectral features measured with instrument noise, photometric magnitudes with Poisson noise
+    - **Scientific measurement**: instrument readings with known per-sample noise, lab assays with reported precision
     - **Engineering**: sensor calibration with known tolerances, geolocation with GPS error
     - **Healthcare**: lab test results with assay precision, self-reported variables with recall error
     - **Remote sensing**: satellite-derived features with spatial/temporal averaging artefacts
@@ -182,7 +182,7 @@ graph TD
 ```
 
 !!! tip "Scientific Data Recommendation"
-    For astronomical scientific regression, **InputNoiseMarginalizationLoss** with an MDN or BinnedPDF head is considered a highly effective approach, as it correctly handles the non-linear relationship between features and targets while accounting for measurement errors.
+    For scientific regression with non-linear feature/target relationships and reported input uncertainties, **InputNoiseMarginalizationLoss** with an MDN or BinnedPDF head is a highly effective approach, as it correctly handles the non-linear relationship between features and targets while accounting for measurement errors.
 
 ---
 

@@ -5,7 +5,7 @@ This module provides loss functions that model signals as a mixture of
 Poisson process (for count/shot noise) and Gaussian readout noise.
 
 These models are especially useful for:
-- Scientific imaging (e.g., microscopy, astronomy)
+- Scientific imaging (e.g., microscopy)
 - Low-light photography
 - Medical imaging (e.g., CT scans, PET)
 - Sensor data with both counting noise and electronic noise

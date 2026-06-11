@@ -154,7 +154,7 @@
       "example": "causal_dr_realdata_comparison",
       "method": "DiabetesProxy-DRATE",
       "metric": "train_s",
-      "baseline": 0.00601620800443925,
+      "baseline": 0.004336042009526864,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -235,7 +235,7 @@
       "example": "causal_dr_realdata_comparison",
       "method": "DiabetesProxy-DRCATE",
       "metric": "train_s",
-      "baseline": 0.007627957995282486,
+      "baseline": 0.004459374991711229,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -397,7 +397,7 @@
       "example": "causal_dr_realdata_comparison",
       "method": "DiabetesSelectionBias-DRATE",
       "metric": "train_s",
-      "baseline": 0.006595708982786164,
+      "baseline": 0.004302249988541007,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -478,7 +478,7 @@
       "example": "causal_dr_realdata_comparison",
       "method": "DiabetesSelectionBias-DRCATE",
       "metric": "train_s",
-      "baseline": 0.006002999987686053,
+      "baseline": 0.005742709006881341,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -640,7 +640,7 @@
       "example": "causal_dr_uplift_comparison",
       "method": "Uplift-DRATE",
       "metric": "train_s",
-      "baseline": 0.006732916022883728,
+      "baseline": 0.00493712502066046,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -721,7 +721,7 @@
       "example": "causal_dr_uplift_comparison",
       "method": "Uplift-DRCATE",
       "metric": "train_s",
-      "baseline": 0.009213042008923367,
+      "baseline": 0.0038650420028716326,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -735,243 +735,243 @@
       "max": 0.35,
       "policy": "runtime"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|ATE_true": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|ATE_true": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "ATE_true",
       "baseline": 0.35063374042510986,
       "min": -0.7012674808502197,
       "max": 1.4025349617004395,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|ATE_hat": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|ATE_hat": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "ATE_hat",
       "baseline": 1.4031181931495667,
       "min": -2.8062363862991333,
       "max": 5.612472772598267,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|ATE_abs_error": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|ATE_abs_error": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "ATE_abs_error",
       "baseline": 1.0524844527244568,
       "min": -2.1049689054489136,
       "max": 4.209937810897827,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|CI_contains_true": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|CI_contains_true": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "CI_contains_true",
       "baseline": 0.0,
       "min": -0.2,
       "max": 0.2,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|CI_width": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|CI_width": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "CI_width",
       "baseline": 0.0,
       "min": 0.0,
       "max": 0.2,
       "policy": "nonnegative"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|OverlapRate": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|OverlapRate": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "OverlapRate",
       "baseline": 0.92166668176651,
       "min": -1.84333336353302,
       "max": 3.68666672706604,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|MinESS": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|MinESS": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "MinESS",
       "baseline": 283.6158752441406,
       "min": -567.2317504882812,
       "max": 1134.4635009765625,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|train_s": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|train_s": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "train_s",
       "baseline": 0.0,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-NaiveDiff|eval_s": {
+    "causal_dr_uplift_comparison|SelectionBias-NaiveDiff|eval_s": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-NaiveDiff",
+      "method": "SelectionBias-NaiveDiff",
       "metric": "eval_s",
       "baseline": 0.0,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|ATE_true": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|ATE_true": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "ATE_true",
       "baseline": 0.35063374042510986,
       "min": -0.7012674808502197,
       "max": 1.4025349617004395,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|ATE_hat": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|ATE_hat": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "ATE_hat",
       "baseline": 0.35585522651672363,
       "min": -0.7117104530334473,
       "max": 1.4234209060668945,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|ATE_abs_error": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|ATE_abs_error": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "ATE_abs_error",
       "baseline": 0.0052214860916137695,
       "min": -0.19477851390838624,
       "max": 0.20522148609161378,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|CI_contains_true": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|CI_contains_true": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "CI_contains_true",
       "baseline": 1.0,
       "min": -2.0,
       "max": 4.0,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|CI_width": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|CI_width": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "CI_width",
       "baseline": 0.1367618111022848,
       "min": 0.0,
       "max": 0.4102854333068544,
       "policy": "nonnegative"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|OverlapRate": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|OverlapRate": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "OverlapRate",
       "baseline": 0.8991666436195374,
       "min": -1.7983332872390747,
       "max": 3.5966665744781494,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|MinESS": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|MinESS": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "MinESS",
       "baseline": 85.81043243408203,
       "min": -171.62086486816406,
       "max": 343.2417297363281,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|train_s": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|train_s": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "train_s",
-      "baseline": 0.0057543330185581,
+      "baseline": 0.0036937909899279475,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRATE|eval_s": {
+    "causal_dr_uplift_comparison|SelectionBias-DRATE|eval_s": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRATE",
+      "method": "SelectionBias-DRATE",
       "metric": "eval_s",
       "baseline": 0.0,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|ATE_true": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|ATE_true": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "ATE_true",
       "baseline": 0.35063374042510986,
       "min": -0.7012674808502197,
       "max": 1.4025349617004395,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|ATE_hat": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|ATE_hat": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "ATE_hat",
       "baseline": 0.35585522651672363,
       "min": -0.7117104530334473,
       "max": 1.4234209060668945,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|ATE_abs_error": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|ATE_abs_error": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "ATE_abs_error",
       "baseline": 0.0052214860916137695,
       "min": -0.19477851390838624,
       "max": 0.20522148609161378,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|CI_contains_true": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|CI_contains_true": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "CI_contains_true",
       "baseline": 1.0,
       "min": -2.0,
       "max": 4.0,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|CI_width": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|CI_width": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "CI_width",
       "baseline": 0.1367618111022848,
       "min": 0.0,
       "max": 0.4102854333068544,
       "policy": "nonnegative"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|OverlapRate": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|OverlapRate": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "OverlapRate",
       "baseline": 0.8991666436195374,
       "min": -1.7983332872390747,
       "max": 3.5966665744781494,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|MinESS": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|MinESS": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "MinESS",
       "baseline": 85.81043243408203,
       "min": -171.62086486816406,
       "max": 343.2417297363281,
       "policy": "signed"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|train_s": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|train_s": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "train_s",
-      "baseline": 0.005458250001538545,
+      "baseline": 0.004301082983147353,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
     },
-    "causal_dr_uplift_comparison|AstronomyBias-DRCATE|eval_s": {
+    "causal_dr_uplift_comparison|SelectionBias-DRCATE|eval_s": {
       "example": "causal_dr_uplift_comparison",
-      "method": "AstronomyBias-DRCATE",
+      "method": "SelectionBias-DRCATE",
       "metric": "eval_s",
       "baseline": 0.0,
       "min": 0.0,
@@ -1018,16 +1018,16 @@
       "example": "censored_regression_comparison",
       "method": "CensoredGaussianNLL",
       "metric": "train_s",
-      "baseline": 0.5452750829863362,
+      "baseline": 0.4165694999974221,
       "min": 0.0,
-      "max": 3.271650497918017,
+      "max": 2.4994169999845326,
       "policy": "runtime"
     },
     "censored_regression_comparison|CensoredGaussianNLL|eval_s": {
       "example": "censored_regression_comparison",
       "method": "CensoredGaussianNLL",
       "metric": "eval_s",
-      "baseline": 0.00013662499259226024,
+      "baseline": 0.00010391700197942555,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1072,16 +1072,16 @@
       "example": "censored_regression_comparison",
       "method": "CensoredQuantile",
       "metric": "train_s",
-      "baseline": 0.4399788749869913,
+      "baseline": 0.33798579100403003,
       "min": 0.0,
-      "max": 2.6398732499219477,
+      "max": 2.02791474602418,
       "policy": "runtime"
     },
     "censored_regression_comparison|CensoredQuantile|eval_s": {
       "example": "censored_regression_comparison",
       "method": "CensoredQuantile",
       "metric": "eval_s",
-      "baseline": 8.412500028498471e-05,
+      "baseline": 6.629197741858661e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1126,16 +1126,16 @@
       "example": "censored_regression_comparison",
       "method": "AFT",
       "metric": "train_s",
-      "baseline": 0.5468218750029337,
+      "baseline": 0.41156833298737183,
       "min": 0.0,
-      "max": 3.280931250017602,
+      "max": 2.469409997924231,
       "policy": "runtime"
     },
     "censored_regression_comparison|AFT|eval_s": {
       "example": "censored_regression_comparison",
       "method": "AFT",
       "metric": "eval_s",
-      "baseline": 0.0001024999946821481,
+      "baseline": 9.720801608636975e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1180,16 +1180,16 @@
       "example": "censored_regression_realdata_comparison",
       "method": "CensoredGaussianNLL",
       "metric": "train_s",
-      "baseline": 0.23413995798910037,
+      "baseline": 0.17327704199124128,
       "min": 0.0,
-      "max": 1.4048397479346022,
+      "max": 1.0396622519474477,
       "policy": "runtime"
     },
     "censored_regression_realdata_comparison|CensoredGaussianNLL|eval_s": {
       "example": "censored_regression_realdata_comparison",
       "method": "CensoredGaussianNLL",
       "metric": "eval_s",
-      "baseline": 9.141702321358025e-05,
+      "baseline": 6.845800089649856e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1234,16 +1234,16 @@
       "example": "censored_regression_realdata_comparison",
       "method": "CensoredQuantile",
       "metric": "train_s",
-      "baseline": 0.18638800000189804,
+      "baseline": 0.1381524580065161,
       "min": 0.0,
-      "max": 1.1183280000113882,
+      "max": 0.8289147480390966,
       "policy": "runtime"
     },
     "censored_regression_realdata_comparison|CensoredQuantile|eval_s": {
       "example": "censored_regression_realdata_comparison",
       "method": "CensoredQuantile",
       "metric": "eval_s",
-      "baseline": 7.512498996220529e-05,
+      "baseline": 7.124998955987394e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1288,16 +1288,16 @@
       "example": "censored_regression_realdata_comparison",
       "method": "AFT",
       "metric": "train_s",
-      "baseline": 0.23570550000295043,
+      "baseline": 0.1772090420126915,
       "min": 0.0,
-      "max": 1.4142330000177026,
+      "max": 1.063254252076149,
       "policy": "runtime"
     },
     "censored_regression_realdata_comparison|AFT|eval_s": {
       "example": "censored_regression_realdata_comparison",
       "method": "AFT",
       "metric": "eval_s",
-      "baseline": 9.058398427441716e-05,
+      "baseline": 9.024998871609569e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1414,7 +1414,7 @@
       "example": "constraints_calibration_comparison",
       "method": "Calibrated+Constrained",
       "metric": "train_s",
-      "baseline": 0.036317250021966174,
+      "baseline": 0.028976041998248547,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1423,7 +1423,7 @@
       "example": "constraints_calibration_comparison",
       "method": "Calibrated+Constrained",
       "metric": "eval_s",
-      "baseline": 0.0007516670157201588,
+      "baseline": 0.0006526669894810766,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1486,16 +1486,16 @@
       "example": "contrastive_flow_parameter_estimation_comparison",
       "method": "GaussianSummary",
       "metric": "train_s",
-      "baseline": 0.17419841699302197,
+      "baseline": 0.11537841701647267,
       "min": 0.0,
-      "max": 1.0451905019581318,
+      "max": 0.692270502098836,
       "policy": "runtime"
     },
     "contrastive_flow_parameter_estimation_comparison|GaussianSummary|eval_s": {
       "example": "contrastive_flow_parameter_estimation_comparison",
       "method": "GaussianSummary",
       "metric": "eval_s",
-      "baseline": 0.04584537501796149,
+      "baseline": 0.02213566700811498,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1558,18 +1558,18 @@
       "example": "contrastive_flow_parameter_estimation_comparison",
       "method": "NormalizingFlow",
       "metric": "train_s",
-      "baseline": 2.0611479170038365,
+      "baseline": 1.6417149170010816,
       "min": 0.0,
-      "max": 12.366887502023019,
+      "max": 9.85028950200649,
       "policy": "runtime"
     },
     "contrastive_flow_parameter_estimation_comparison|NormalizingFlow|eval_s": {
       "example": "contrastive_flow_parameter_estimation_comparison",
       "method": "NormalizingFlow",
       "metric": "eval_s",
-      "baseline": 1.2445664170081727,
+      "baseline": 0.5409666250052396,
       "min": 0.0,
-      "max": 7.467398502049036,
+      "max": 3.2457997500314377,
       "policy": "runtime"
     },
     "contrastive_flow_parameter_estimation_comparison|ContrastiveFlow|MSE": {
@@ -1630,18 +1630,18 @@
       "example": "contrastive_flow_parameter_estimation_comparison",
       "method": "ContrastiveFlow",
       "metric": "train_s",
-      "baseline": 5.085005125001771,
+      "baseline": 3.9313802090182435,
       "min": 0.0,
-      "max": 30.51003075001063,
+      "max": 23.58828125410946,
       "policy": "runtime"
     },
     "contrastive_flow_parameter_estimation_comparison|ContrastiveFlow|eval_s": {
       "example": "contrastive_flow_parameter_estimation_comparison",
       "method": "ContrastiveFlow",
       "metric": "eval_s",
-      "baseline": 1.0212264169822447,
+      "baseline": 0.5359329999773763,
       "min": 0.0,
-      "max": 6.127358501893468,
+      "max": 3.215597999864258,
       "policy": "runtime"
     },
     "eiv_method_comparison|Baseline MSE|clean_mse": {
@@ -1675,7 +1675,7 @@
       "example": "eiv_method_comparison",
       "method": "Baseline MSE",
       "metric": "train_s",
-      "baseline": 0.0064841250132303685,
+      "baseline": 0.00370454098447226,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1684,7 +1684,7 @@
       "example": "eiv_method_comparison",
       "method": "Baseline MSE",
       "metric": "eval_s",
-      "baseline": 0.00010316699626855552,
+      "baseline": 7.529198774136603e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1720,7 +1720,7 @@
       "example": "eiv_method_comparison",
       "method": "FunctionalEIV (analytic)",
       "metric": "train_s",
-      "baseline": 0.028587166976649314,
+      "baseline": 0.013367833016673103,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1729,7 +1729,7 @@
       "example": "eiv_method_comparison",
       "method": "FunctionalEIV (analytic)",
       "metric": "eval_s",
-      "baseline": 0.00011750002158805728,
+      "baseline": 7.654199725948274e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1765,7 +1765,7 @@
       "example": "eiv_method_comparison",
       "method": "FunctionalEIV (MC)",
       "metric": "train_s",
-      "baseline": 0.021457916009239852,
+      "baseline": 0.020603167009539902,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1774,7 +1774,7 @@
       "example": "eiv_method_comparison",
       "method": "FunctionalEIV (MC)",
       "metric": "eval_s",
-      "baseline": 9.933300316333771e-05,
+      "baseline": 8.024999988265336e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1810,7 +1810,7 @@
       "example": "eiv_method_comparison",
       "method": "StructuralEIV",
       "metric": "train_s",
-      "baseline": 0.017316792014753446,
+      "baseline": 0.01374795800074935,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1819,7 +1819,7 @@
       "example": "eiv_method_comparison",
       "method": "StructuralEIV",
       "metric": "eval_s",
-      "baseline": 0.00010045801172964275,
+      "baseline": 7.254199590533972e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1855,7 +1855,7 @@
       "example": "eiv_method_comparison",
       "method": "ODR",
       "metric": "train_s",
-      "baseline": 0.018689999997150153,
+      "baseline": 0.014491667010588571,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1864,7 +1864,7 @@
       "example": "eiv_method_comparison",
       "method": "ODR",
       "metric": "eval_s",
-      "baseline": 0.00010154201299883425,
+      "baseline": 7.52079940866679e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1900,7 +1900,7 @@
       "example": "eiv_method_comparison",
       "method": "EnsembleEIV",
       "metric": "train_s",
-      "baseline": 0.008225750003475696,
+      "baseline": 0.0058484579785726964,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1909,7 +1909,7 @@
       "example": "eiv_method_comparison",
       "method": "EnsembleEIV",
       "metric": "eval_s",
-      "baseline": 9.68750100582838e-05,
+      "baseline": 6.812499486841261e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1945,7 +1945,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "Baseline MSE",
       "metric": "train_s",
-      "baseline": 0.010789583990117535,
+      "baseline": 0.009495917009189725,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1954,7 +1954,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "Baseline MSE",
       "metric": "eval_s",
-      "baseline": 0.0004414999857544899,
+      "baseline": 0.00042604198097251356,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1990,7 +1990,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "FunctionalEIV (analytic)",
       "metric": "train_s",
-      "baseline": 0.02509958401788026,
+      "baseline": 0.015662584017263725,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -1999,7 +1999,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "FunctionalEIV (analytic)",
       "metric": "eval_s",
-      "baseline": 0.0004154999915044755,
+      "baseline": 0.00019520899513736367,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2035,7 +2035,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "FunctionalEIV (MC)",
       "metric": "train_s",
-      "baseline": 0.029930083022918552,
+      "baseline": 0.01998700000694953,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2044,7 +2044,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "FunctionalEIV (MC)",
       "metric": "eval_s",
-      "baseline": 0.00027029099874198437,
+      "baseline": 0.00020208299974910915,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2080,7 +2080,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "StructuralEIV",
       "metric": "train_s",
-      "baseline": 0.01960433297790587,
+      "baseline": 0.013666958024259657,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2089,7 +2089,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "StructuralEIV",
       "metric": "eval_s",
-      "baseline": 0.00026324999635107815,
+      "baseline": 0.00018420800915919244,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2125,7 +2125,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "ODR",
       "metric": "train_s",
-      "baseline": 0.02788408298511058,
+      "baseline": 0.025242875010007992,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2134,7 +2134,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "ODR",
       "metric": "eval_s",
-      "baseline": 0.0002750420244410634,
+      "baseline": 0.00019262498244643211,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2170,7 +2170,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "EnsembleEIV",
       "metric": "train_s",
-      "baseline": 0.021815999993123114,
+      "baseline": 0.012599834008142352,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2179,7 +2179,7 @@
       "example": "eiv_method_realdata_comparison",
       "method": "EnsembleEIV",
       "metric": "eval_s",
-      "baseline": 0.0003097500011790544,
+      "baseline": 0.0001993750047404319,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2242,16 +2242,16 @@
       "example": "multimodal_method_comparison",
       "method": "GaussianNLL",
       "metric": "train_s",
-      "baseline": 0.17163020800217055,
+      "baseline": 0.14537800001562573,
       "min": 0.0,
-      "max": 1.0297812480130233,
+      "max": 0.8722680000937544,
       "policy": "runtime"
     },
     "multimodal_method_comparison|GaussianNLL|eval_s": {
       "example": "multimodal_method_comparison",
       "method": "GaussianNLL",
       "metric": "eval_s",
-      "baseline": 0.004357625002739951,
+      "baseline": 0.0032173750223591924,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2314,16 +2314,16 @@
       "example": "multimodal_method_comparison",
       "method": "MDN",
       "metric": "train_s",
-      "baseline": 0.2167181250115391,
+      "baseline": 0.19342270802007988,
       "min": 0.0,
-      "max": 1.3003087500692345,
+      "max": 1.1605362481204793,
       "policy": "runtime"
     },
     "multimodal_method_comparison|MDN|eval_s": {
       "example": "multimodal_method_comparison",
       "method": "MDN",
       "metric": "eval_s",
-      "baseline": 0.00549116701586172,
+      "baseline": 0.003866916988044977,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2386,18 +2386,18 @@
       "example": "multimodal_method_comparison",
       "method": "NormalizingFlow",
       "metric": "train_s",
-      "baseline": 1.752715165988775,
+      "baseline": 1.4117945420148317,
       "min": 0.0,
-      "max": 10.51629099593265,
+      "max": 8.47076725208899,
       "policy": "runtime"
     },
     "multimodal_method_comparison|NormalizingFlow|eval_s": {
       "example": "multimodal_method_comparison",
       "method": "NormalizingFlow",
       "metric": "eval_s",
-      "baseline": 0.17437100000097416,
+      "baseline": 0.08733795801526867,
       "min": 0.0,
-      "max": 1.046226000005845,
+      "max": 0.524027748091612,
       "policy": "runtime"
     },
     "multimodal_method_realdata_comparison|GaussianNLL|MSE": {
@@ -2458,16 +2458,16 @@
       "example": "multimodal_method_realdata_comparison",
       "method": "GaussianNLL",
       "metric": "train_s",
-      "baseline": 0.10327295897877775,
+      "baseline": 0.05901920798351057,
       "min": 0.0,
-      "max": 0.6196377538726665,
+      "max": 0.3541152479010634,
       "policy": "runtime"
     },
     "multimodal_method_realdata_comparison|GaussianNLL|eval_s": {
       "example": "multimodal_method_realdata_comparison",
       "method": "GaussianNLL",
       "metric": "eval_s",
-      "baseline": 0.003262083977460861,
+      "baseline": 0.0016619589878246188,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2530,16 +2530,16 @@
       "example": "multimodal_method_realdata_comparison",
       "method": "MDN",
       "metric": "train_s",
-      "baseline": 0.11022916698129848,
+      "baseline": 0.07259604099090211,
       "min": 0.0,
-      "max": 0.6613750018877909,
+      "max": 0.43557624594541267,
       "policy": "runtime"
     },
     "multimodal_method_realdata_comparison|MDN|eval_s": {
       "example": "multimodal_method_realdata_comparison",
       "method": "MDN",
       "metric": "eval_s",
-      "baseline": 0.0030467499746009707,
+      "baseline": 0.002075750002404675,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2602,18 +2602,18 @@
       "example": "multimodal_method_realdata_comparison",
       "method": "NormalizingFlow",
       "metric": "train_s",
-      "baseline": 0.8429327080084477,
+      "baseline": 0.624345042015193,
       "min": 0.0,
-      "max": 5.057596248050686,
+      "max": 3.746070252091158,
       "policy": "runtime"
     },
     "multimodal_method_realdata_comparison|NormalizingFlow|eval_s": {
       "example": "multimodal_method_realdata_comparison",
       "method": "NormalizingFlow",
       "metric": "eval_s",
-      "baseline": 0.06675300002098083,
+      "baseline": 0.03530716701061465,
       "min": 0.0,
-      "max": 0.400518000125885,
+      "max": 0.35,
       "policy": "runtime"
     },
     "noisy_label_comparison|MSE|CleanMSE": {
@@ -2674,16 +2674,16 @@
       "example": "noisy_label_comparison",
       "method": "MSE",
       "metric": "train_s",
-      "baseline": 0.23176633400726132,
+      "baseline": 0.16149774999939837,
       "min": 0.0,
-      "max": 1.390598004043568,
+      "max": 0.9689864999963902,
       "policy": "runtime"
     },
     "noisy_label_comparison|MSE|eval_s": {
       "example": "noisy_label_comparison",
       "method": "MSE",
       "metric": "eval_s",
-      "baseline": 0.0005541249993257225,
+      "baseline": 0.0005890830070711672,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2746,16 +2746,16 @@
       "example": "noisy_label_comparison",
       "method": "Huber",
       "metric": "train_s",
-      "baseline": 0.23024908400839195,
+      "baseline": 0.15996208300930448,
       "min": 0.0,
-      "max": 1.3814945040503517,
+      "max": 0.9597724980558269,
       "policy": "runtime"
     },
     "noisy_label_comparison|Huber|eval_s": {
       "example": "noisy_label_comparison",
       "method": "Huber",
       "metric": "eval_s",
-      "baseline": 0.0007765829795971513,
+      "baseline": 0.0003088749945163727,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2818,16 +2818,16 @@
       "example": "noisy_label_comparison",
       "method": "Cauchy",
       "metric": "train_s",
-      "baseline": 0.2462673749832902,
+      "baseline": 0.2120324999850709,
       "min": 0.0,
-      "max": 1.4776042498997413,
+      "max": 1.2721949999104254,
       "policy": "runtime"
     },
     "noisy_label_comparison|Cauchy|eval_s": {
       "example": "noisy_label_comparison",
       "method": "Cauchy",
       "metric": "eval_s",
-      "baseline": 0.0004965410043951124,
+      "baseline": 0.0006948329973965883,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2890,16 +2890,16 @@
       "example": "noisy_label_comparison",
       "method": "Tukey",
       "metric": "train_s",
-      "baseline": 0.28383670799667016,
+      "baseline": 0.2762417500198353,
       "min": 0.0,
-      "max": 1.703020247980021,
+      "max": 1.6574505001190118,
       "policy": "runtime"
     },
     "noisy_label_comparison|Tukey|eval_s": {
       "example": "noisy_label_comparison",
       "method": "Tukey",
       "metric": "eval_s",
-      "baseline": 0.0004978750075679272,
+      "baseline": 0.00044329100637696683,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -2989,16 +2989,16 @@
       "example": "noisy_label_comparison",
       "method": "GaussianNLL",
       "metric": "train_s",
-      "baseline": 0.3802432079974096,
+      "baseline": 0.25286024998058565,
       "min": 0.0,
-      "max": 2.2814592479844578,
+      "max": 1.517161499883514,
       "policy": "runtime"
     },
     "noisy_label_comparison|GaussianNLL|eval_s": {
       "example": "noisy_label_comparison",
       "method": "GaussianNLL",
       "metric": "eval_s",
-      "baseline": 0.001205375010613352,
+      "baseline": 0.0008402919920627028,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3079,16 +3079,16 @@
       "example": "noisy_label_comparison",
       "method": "Quantile90",
       "metric": "train_s",
-      "baseline": 0.39742004199069925,
+      "baseline": 0.2157947499945294,
       "min": 0.0,
-      "max": 2.3845202519441955,
+      "max": 1.2947684999671765,
       "policy": "runtime"
     },
     "noisy_label_comparison|Quantile90|eval_s": {
       "example": "noisy_label_comparison",
       "method": "Quantile90",
       "metric": "eval_s",
-      "baseline": 0.0012307500001043081,
+      "baseline": 0.001007374987239018,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3151,16 +3151,16 @@
       "example": "noisy_label_realdata_comparison",
       "method": "MSE",
       "metric": "train_s",
-      "baseline": 0.11124395800288767,
+      "baseline": 0.0737854590115603,
       "min": 0.0,
-      "max": 0.667463748017326,
+      "max": 0.44271275406936184,
       "policy": "runtime"
     },
     "noisy_label_realdata_comparison|MSE|eval_s": {
       "example": "noisy_label_realdata_comparison",
       "method": "MSE",
       "metric": "eval_s",
-      "baseline": 0.0005084589938633144,
+      "baseline": 0.00038829102413728833,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3223,16 +3223,16 @@
       "example": "noisy_label_realdata_comparison",
       "method": "Huber",
       "metric": "train_s",
-      "baseline": 0.09427370800403878,
+      "baseline": 0.07079241701285355,
       "min": 0.0,
-      "max": 0.5656422480242327,
+      "max": 0.4247545020771213,
       "policy": "runtime"
     },
     "noisy_label_realdata_comparison|Huber|eval_s": {
       "example": "noisy_label_realdata_comparison",
       "method": "Huber",
       "metric": "eval_s",
-      "baseline": 0.0005087500030640513,
+      "baseline": 0.00038704200414940715,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3295,16 +3295,16 @@
       "example": "noisy_label_realdata_comparison",
       "method": "Cauchy",
       "metric": "train_s",
-      "baseline": 0.10277933400357142,
+      "baseline": 0.07221662497613579,
       "min": 0.0,
-      "max": 0.6166760040214285,
+      "max": 0.43329974985681474,
       "policy": "runtime"
     },
     "noisy_label_realdata_comparison|Cauchy|eval_s": {
       "example": "noisy_label_realdata_comparison",
       "method": "Cauchy",
       "metric": "eval_s",
-      "baseline": 0.00047529200674034655,
+      "baseline": 0.00036916701355949044,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3394,16 +3394,16 @@
       "example": "noisy_label_realdata_comparison",
       "method": "GaussianNLL",
       "metric": "train_s",
-      "baseline": 0.114549291000003,
+      "baseline": 0.08072254099533893,
       "min": 0.0,
-      "max": 0.687295746000018,
+      "max": 0.4843352459720336,
       "policy": "runtime"
     },
     "noisy_label_realdata_comparison|GaussianNLL|eval_s": {
       "example": "noisy_label_realdata_comparison",
       "method": "GaussianNLL",
       "metric": "eval_s",
-      "baseline": 0.000786167016485706,
+      "baseline": 0.0006056669808458537,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3484,16 +3484,16 @@
       "example": "noisy_label_realdata_comparison",
       "method": "Quantile90",
       "metric": "train_s",
-      "baseline": 0.10962591698626056,
+      "baseline": 0.08536829199874774,
       "min": 0.0,
-      "max": 0.6577555019175634,
+      "max": 0.5122097519924864,
       "policy": "runtime"
     },
     "noisy_label_realdata_comparison|Quantile90|eval_s": {
       "example": "noisy_label_realdata_comparison",
       "method": "Quantile90",
       "metric": "eval_s",
-      "baseline": 0.000685166975017637,
+      "baseline": 0.0006342499982565641,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3628,16 +3628,16 @@
       "example": "ood_selective_prediction_comparison",
       "method": "DeepEnsemble",
       "metric": "train_s",
-      "baseline": 0.6029942910245154,
+      "baseline": 0.4278646669990849,
       "min": 0.0,
-      "max": 3.6179657461470924,
+      "max": 2.5671880019945092,
       "policy": "runtime"
     },
     "ood_selective_prediction_comparison|DeepEnsemble|eval_s": {
       "example": "ood_selective_prediction_comparison",
       "method": "DeepEnsemble",
       "metric": "eval_s",
-      "baseline": 0.004834082996239886,
+      "baseline": 0.0030655000009573996,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3790,7 +3790,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "HeteroscedasticEnsemble",
       "metric": "train_s",
-      "baseline": 0.033009876002324745,
+      "baseline": 0.023407749977195635,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3799,7 +3799,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "HeteroscedasticEnsemble",
       "metric": "eval_s",
-      "baseline": 0.0026266670029144734,
+      "baseline": 0.0015212500002235174,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3934,7 +3934,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "MCDropoutWrapper (proxy)",
       "metric": "train_s",
-      "baseline": 0.009837916994001716,
+      "baseline": 0.007464584021363407,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -3943,7 +3943,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "MCDropoutWrapper (proxy)",
       "metric": "eval_s",
-      "baseline": 0.0063034999766387045,
+      "baseline": 0.004160957993008196,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4078,7 +4078,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "SWAG",
       "metric": "train_s",
-      "baseline": 0.011311916983686388,
+      "baseline": 0.008150540990754962,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4087,7 +4087,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "SWAG",
       "metric": "eval_s",
-      "baseline": 0.014260000025387853,
+      "baseline": 0.009677875001216307,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4222,7 +4222,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "BayesianNeuralNetwork",
       "metric": "train_s",
-      "baseline": 0.038961874990491197,
+      "baseline": 0.02638450000085868,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4231,7 +4231,7 @@
       "example": "ood_selective_prediction_comparison",
       "method": "BayesianNeuralNetwork",
       "metric": "eval_s",
-      "baseline": 0.01304024999262765,
+      "baseline": 0.007894207985373214,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4366,7 +4366,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "DeepEnsemble",
       "metric": "train_s",
-      "baseline": 0.026654333021724597,
+      "baseline": 0.01976491598179564,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4375,7 +4375,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "DeepEnsemble",
       "metric": "eval_s",
-      "baseline": 0.002762374992016703,
+      "baseline": 0.0017281249747611582,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4528,7 +4528,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "HeteroscedasticEnsemble",
       "metric": "train_s",
-      "baseline": 0.029367249982897192,
+      "baseline": 0.029055334016447887,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4537,7 +4537,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "HeteroscedasticEnsemble",
       "metric": "eval_s",
-      "baseline": 0.0025957910111173987,
+      "baseline": 0.001688582997303456,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4672,7 +4672,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "MCDropoutWrapper (proxy)",
       "metric": "train_s",
-      "baseline": 0.011506459006341174,
+      "baseline": 0.008537791989510879,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4681,7 +4681,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "MCDropoutWrapper (proxy)",
       "metric": "eval_s",
-      "baseline": 0.005844707979122177,
+      "baseline": 0.0049237500061281025,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4816,7 +4816,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "SWAG",
       "metric": "train_s",
-      "baseline": 0.01097370800562203,
+      "baseline": 0.008183583006029949,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4825,7 +4825,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "SWAG",
       "metric": "eval_s",
-      "baseline": 0.015546417009318247,
+      "baseline": 0.011291749979136512,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4960,7 +4960,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "BayesianNeuralNetwork",
       "metric": "train_s",
-      "baseline": 0.04134041600627825,
+      "baseline": 0.03595516600762494,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -4969,7 +4969,7 @@
       "example": "ood_selective_prediction_realdata_comparison",
       "method": "BayesianNeuralNetwork",
       "metric": "eval_s",
-      "baseline": 0.012665916990954429,
+      "baseline": 0.009726500022225082,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5005,16 +5005,16 @@
       "example": "ordinal_regression_comparison",
       "method": "OrdinalCrossEntropy",
       "metric": "train_s",
-      "baseline": 0.191218874999322,
+      "baseline": 0.1190054579928983,
       "min": 0.0,
-      "max": 1.147313249995932,
+      "max": 0.7140327479573898,
       "policy": "runtime"
     },
     "ordinal_regression_comparison|OrdinalCrossEntropy|eval_s": {
       "example": "ordinal_regression_comparison",
       "method": "OrdinalCrossEntropy",
       "metric": "eval_s",
-      "baseline": 0.0004245830059517175,
+      "baseline": 0.0003124999930150807,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5050,16 +5050,16 @@
       "example": "ordinal_regression_comparison",
       "method": "CumulativeLink",
       "metric": "train_s",
-      "baseline": 0.16292579099535942,
+      "baseline": 0.11499466700479388,
       "min": 0.0,
-      "max": 0.9775547459721565,
+      "max": 0.6899680020287633,
       "policy": "runtime"
     },
     "ordinal_regression_comparison|CumulativeLink|eval_s": {
       "example": "ordinal_regression_comparison",
       "method": "CumulativeLink",
       "metric": "eval_s",
-      "baseline": 0.0003794170042965561,
+      "baseline": 0.0003220000071451068,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5095,16 +5095,16 @@
       "example": "ordinal_regression_comparison",
       "method": "CORAL",
       "metric": "train_s",
-      "baseline": 0.15340341598493978,
+      "baseline": 0.11404854099964723,
       "min": 0.0,
-      "max": 0.9204204959096387,
+      "max": 0.6842912459978834,
       "policy": "runtime"
     },
     "ordinal_regression_comparison|CORAL|eval_s": {
       "example": "ordinal_regression_comparison",
       "method": "CORAL",
       "metric": "eval_s",
-      "baseline": 0.00033725000685080886,
+      "baseline": 0.00027795799542218447,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5140,16 +5140,16 @@
       "example": "ordinal_regression_realdata_comparison",
       "method": "OrdinalCrossEntropy",
       "metric": "train_s",
-      "baseline": 0.12130270898342133,
+      "baseline": 0.07659787498414516,
       "min": 0.0,
-      "max": 0.727816253900528,
+      "max": 0.459587249904871,
       "policy": "runtime"
     },
     "ordinal_regression_realdata_comparison|OrdinalCrossEntropy|eval_s": {
       "example": "ordinal_regression_realdata_comparison",
       "method": "OrdinalCrossEntropy",
       "metric": "eval_s",
-      "baseline": 0.0003726250142790377,
+      "baseline": 0.00030479198903776705,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5185,16 +5185,16 @@
       "example": "ordinal_regression_realdata_comparison",
       "method": "CumulativeLink",
       "metric": "train_s",
-      "baseline": 0.10324133399990387,
+      "baseline": 0.07350658401264809,
       "min": 0.0,
-      "max": 0.6194480039994232,
+      "max": 0.44103950407588854,
       "policy": "runtime"
     },
     "ordinal_regression_realdata_comparison|CumulativeLink|eval_s": {
       "example": "ordinal_regression_realdata_comparison",
       "method": "CumulativeLink",
       "metric": "eval_s",
-      "baseline": 0.00036133400863036513,
+      "baseline": 0.0002504170115571469,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5230,16 +5230,16 @@
       "example": "ordinal_regression_realdata_comparison",
       "method": "CORAL",
       "metric": "train_s",
-      "baseline": 0.0991609999909997,
+      "baseline": 0.07198712500394322,
       "min": 0.0,
-      "max": 0.5949659999459982,
+      "max": 0.4319227500236593,
       "policy": "runtime"
     },
     "ordinal_regression_realdata_comparison|CORAL|eval_s": {
       "example": "ordinal_regression_realdata_comparison",
       "method": "CORAL",
       "metric": "eval_s",
-      "baseline": 0.0003467499918770045,
+      "baseline": 0.00027550000231713057,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5302,16 +5302,16 @@
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "HardOrdinalCE",
       "metric": "train_s",
-      "baseline": 0.09246179202455096,
+      "baseline": 0.07377304098918103,
       "min": 0.0,
-      "max": 0.5547707521473058,
+      "max": 0.44263824593508616,
       "policy": "runtime"
     },
     "ordinal_uncertain_ground_truth_comparison|HardOrdinalCE|eval_s": {
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "HardOrdinalCE",
       "metric": "eval_s",
-      "baseline": 0.0003791250055655837,
+      "baseline": 0.00030587500077672303,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5374,16 +5374,16 @@
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "SoftOrdinalCE",
       "metric": "train_s",
-      "baseline": 0.084638416999951,
+      "baseline": 0.06490804097848013,
       "min": 0.0,
-      "max": 0.507830501999706,
+      "max": 0.3894482458708808,
       "policy": "runtime"
     },
     "ordinal_uncertain_ground_truth_comparison|SoftOrdinalCE|eval_s": {
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "SoftOrdinalCE",
       "metric": "eval_s",
-      "baseline": 0.00042912500794045627,
+      "baseline": 0.0002970829955302179,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5455,16 +5455,16 @@
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "SoftOrdinalCE+Pseudo",
       "metric": "train_s",
-      "baseline": 0.19002466602250934,
+      "baseline": 0.135543125012191,
       "min": 0.0,
-      "max": 1.140147996135056,
+      "max": 0.8132587500731461,
       "policy": "runtime"
     },
     "ordinal_uncertain_ground_truth_comparison|SoftOrdinalCE+Pseudo|eval_s": {
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "SoftOrdinalCE+Pseudo",
       "metric": "eval_s",
-      "baseline": 0.00041845798841677606,
+      "baseline": 0.0002838750078808516,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5527,16 +5527,16 @@
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "SoftCumulativeLink",
       "metric": "train_s",
-      "baseline": 0.0793551669921726,
+      "baseline": 0.06493945900001563,
       "min": 0.0,
-      "max": 0.4761310019530356,
+      "max": 0.3896367540000938,
       "policy": "runtime"
     },
     "ordinal_uncertain_ground_truth_comparison|SoftCumulativeLink|eval_s": {
       "example": "ordinal_uncertain_ground_truth_comparison",
       "method": "SoftCumulativeLink",
       "metric": "eval_s",
-      "baseline": 0.000395957991713658,
+      "baseline": 0.0003034590044990182,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5581,16 +5581,16 @@
       "example": "propensity_tail_regression_comparison",
       "method": "MSE",
       "metric": "train_s",
-      "baseline": 0.14081499999156222,
+      "baseline": 0.10902033300953917,
       "min": 0.0,
-      "max": 0.8448899999493733,
+      "max": 0.654121998057235,
       "policy": "runtime"
     },
     "propensity_tail_regression_comparison|MSE|eval_s": {
       "example": "propensity_tail_regression_comparison",
       "method": "MSE",
       "metric": "eval_s",
-      "baseline": 0.0009230829891748726,
+      "baseline": 0.0005527909961529076,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5635,16 +5635,16 @@
       "example": "propensity_tail_regression_comparison",
       "method": "DensityWeighted",
       "metric": "train_s",
-      "baseline": 0.3935207499889657,
+      "baseline": 0.3124201250029728,
       "min": 0.0,
-      "max": 2.361124499933794,
+      "max": 1.8745207500178367,
       "policy": "runtime"
     },
     "propensity_tail_regression_comparison|DensityWeighted|eval_s": {
       "example": "propensity_tail_regression_comparison",
       "method": "DensityWeighted",
       "metric": "eval_s",
-      "baseline": 0.0008710830006748438,
+      "baseline": 0.0003785419976338744,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5689,16 +5689,16 @@
       "example": "propensity_tail_regression_comparison",
       "method": "PropensityWeighted",
       "metric": "train_s",
-      "baseline": 0.17744450000463985,
+      "baseline": 0.13531279101152904,
       "min": 0.0,
-      "max": 1.064667000027839,
+      "max": 0.8118767460691743,
       "policy": "runtime"
     },
     "propensity_tail_regression_comparison|PropensityWeighted|eval_s": {
       "example": "propensity_tail_regression_comparison",
       "method": "PropensityWeighted",
       "metric": "eval_s",
-      "baseline": 0.001037415990140289,
+      "baseline": 0.0004345840134192258,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5770,16 +5770,16 @@
       "example": "propensity_tail_regression_comparison",
       "method": "GaussianNLL",
       "metric": "train_s",
-      "baseline": 0.18208879200392403,
+      "baseline": 0.1422467090014834,
       "min": 0.0,
-      "max": 1.0925327520235442,
+      "max": 0.8534802540089004,
       "policy": "runtime"
     },
     "propensity_tail_regression_comparison|GaussianNLL|eval_s": {
       "example": "propensity_tail_regression_comparison",
       "method": "GaussianNLL",
       "metric": "eval_s",
-      "baseline": 0.0010212920024059713,
+      "baseline": 0.0006031669909134507,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5851,16 +5851,16 @@
       "example": "propensity_tail_regression_comparison",
       "method": "Quantile90",
       "metric": "train_s",
-      "baseline": 0.16790641599800438,
+      "baseline": 0.1248218750115484,
       "min": 0.0,
-      "max": 1.0074384959880263,
+      "max": 0.7489312500692904,
       "policy": "runtime"
     },
     "propensity_tail_regression_comparison|Quantile90|eval_s": {
       "example": "propensity_tail_regression_comparison",
       "method": "Quantile90",
       "metric": "eval_s",
-      "baseline": 0.0012204160157125443,
+      "baseline": 0.0005630420055240393,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5914,7 +5914,7 @@
       "example": "semi_supervised_regression_comparison",
       "method": "SupervisedMSE",
       "metric": "train_s",
-      "baseline": 0.02701720900950022,
+      "baseline": 0.009027291991515085,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5923,7 +5923,7 @@
       "example": "semi_supervised_regression_comparison",
       "method": "SupervisedMSE",
       "metric": "eval_s",
-      "baseline": 8.304198854602873e-05,
+      "baseline": 3.0834024073556066e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5977,7 +5977,7 @@
       "example": "semi_supervised_regression_comparison",
       "method": "PseudoLabelConsistency",
       "metric": "train_s",
-      "baseline": 0.026212041993858293,
+      "baseline": 0.019012833974556997,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -5986,7 +5986,7 @@
       "example": "semi_supervised_regression_comparison",
       "method": "PseudoLabelConsistency",
       "metric": "eval_s",
-      "baseline": 4.504199023358524e-05,
+      "baseline": 3.129200194962323e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6040,7 +6040,7 @@
       "example": "semi_supervised_regression_comparison",
       "method": "PseudoLabelNLL",
       "metric": "train_s",
-      "baseline": 0.031152250012382865,
+      "baseline": 0.02274162499816157,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6049,7 +6049,7 @@
       "example": "semi_supervised_regression_comparison",
       "method": "PseudoLabelNLL",
       "metric": "eval_s",
-      "baseline": 5.791700095869601e-05,
+      "baseline": 4.4167012674733996e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6103,7 +6103,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "MSE",
       "metric": "train_s",
-      "baseline": 0.015465042000869289,
+      "baseline": 0.0066235000267624855,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6112,7 +6112,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "MSE",
       "metric": "eval_s",
-      "baseline": 5.5832992075011134e-05,
+      "baseline": 4.0125014493241906e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6166,7 +6166,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "LogTransform",
       "metric": "train_s",
-      "baseline": 0.010466709005413577,
+      "baseline": 0.00864129199180752,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6175,7 +6175,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "LogTransform",
       "metric": "eval_s",
-      "baseline": 5.84589724894613e-05,
+      "baseline": 4.30419750045985e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6229,7 +6229,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "BoxCox(0.25)",
       "metric": "train_s",
-      "baseline": 0.012441458005923778,
+      "baseline": 0.007726250012638047,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6238,7 +6238,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "BoxCox(0.25)",
       "metric": "eval_s",
-      "baseline": 4.979199729859829e-05,
+      "baseline": 4.008298856206238e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6292,7 +6292,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "SqrtTransform",
       "metric": "train_s",
-      "baseline": 0.012417958001606166,
+      "baseline": 0.007537833007518202,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6301,7 +6301,7 @@
       "example": "transformed_target_regression_comparison",
       "method": "SqrtTransform",
       "metric": "eval_s",
-      "baseline": 5.750000127591193e-05,
+      "baseline": 4.620800609700382e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6355,7 +6355,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "SplitConformal",
       "metric": "train_s",
-      "baseline": 0.00015008298214524984,
+      "baseline": 0.00013591698370873928,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6364,7 +6364,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "SplitConformal",
       "metric": "eval_s",
-      "baseline": 6.95799826644361e-06,
+      "baseline": 7.291993824765086e-06,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6418,7 +6418,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "DensityConformal",
       "metric": "train_s",
-      "baseline": 0.0010587089927867055,
+      "baseline": 0.0003652079903986305,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6427,7 +6427,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "DensityConformal",
       "metric": "eval_s",
-      "baseline": 0.000490790989715606,
+      "baseline": 0.00020579100237227976,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6481,7 +6481,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "PrevalenceAdjustedCP",
       "metric": "train_s",
-      "baseline": 0.0005315000016707927,
+      "baseline": 0.00022704197908751667,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6490,7 +6490,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "PrevalenceAdjustedCP",
       "metric": "eval_s",
-      "baseline": 5.649999366141856e-05,
+      "baseline": 4.129199078306556e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6544,7 +6544,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "MonteCarloConformal",
       "metric": "train_s",
-      "baseline": 0.01566633299808018,
+      "baseline": 0.012139084021328017,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6553,7 +6553,7 @@
       "example": "uncertain_gt_density_conformal_comparison",
       "method": "MonteCarloConformal",
       "metric": "eval_s",
-      "baseline": 0.0001838750031311065,
+      "baseline": 0.0001847919775173068,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6607,7 +6607,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "SplitConformal",
       "metric": "train_s",
-      "baseline": 0.008904708025511354,
+      "baseline": 0.007162666996009648,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6616,7 +6616,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "SplitConformal",
       "metric": "eval_s",
-      "baseline": 8.707982487976551e-06,
+      "baseline": 8.292001439258456e-06,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6670,7 +6670,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "DensityConformal",
       "metric": "train_s",
-      "baseline": 0.009291041002143174,
+      "baseline": 0.007364332996075973,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6679,7 +6679,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "DensityConformal",
       "metric": "eval_s",
-      "baseline": 0.00029512500623241067,
+      "baseline": 6.541699985973537e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6733,7 +6733,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "PrevalenceAdjustedCP",
       "metric": "train_s",
-      "baseline": 0.009150708036031574,
+      "baseline": 0.007235083990963176,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6742,7 +6742,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "PrevalenceAdjustedCP",
       "metric": "eval_s",
-      "baseline": 0.00010733300587162375,
+      "baseline": 3.9207981899380684e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6796,7 +6796,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "MonteCarloConformal",
       "metric": "train_s",
-      "baseline": 0.010041750007076189,
+      "baseline": 0.008139749988913536,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"
@@ -6805,7 +6805,7 @@
       "example": "uncertain_gt_density_conformal_realdata_comparison",
       "method": "MonteCarloConformal",
       "metric": "eval_s",
-      "baseline": 7.033298606984317e-05,
+      "baseline": 5.412500468082726e-05,
       "min": 0.0,
       "max": 0.35,
       "policy": "runtime"

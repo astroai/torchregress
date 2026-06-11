@@ -22,7 +22,7 @@ We distinguish between two fundamentally different sources of uncertainty [1]:
 ### Aleatoric Uncertainty (Data Noise)
 This is the **irreducible** noise inherent in the observation process.
 - **Homoscedastic**: The noise level is constant across all inputs.
-- **Heteroscedastic**: The noise level varies depending on the input $x$ (e.g., higher noise for faint objects in astronomy).
+- **Heteroscedastic**: The noise level varies depending on the input $x$ (e.g., higher noise for faint sources in low-SNR regimes).
 - **Can it be reduced?** No, not even with infinite training data.
 
 ### Epistemic Uncertainty (Model Ignorance)

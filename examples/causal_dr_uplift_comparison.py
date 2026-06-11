@@ -44,16 +44,15 @@ def _simulate_uplift(cfg: CausalDRConfig) -> dict[str, torch.Tensor]:
     return {"x": x, "t": t, "y": y, "tau": tau, "p": p}
 
 
-def _simulate_astronomy_bias(cfg: CausalDRConfig) -> dict[str, torch.Tensor]:
+def _simulate_selection_bias(cfg: CausalDRConfig) -> dict[str, torch.Tensor]:
     torch.manual_seed(cfg.seed + 11)
     x = torch.randn(cfg.n_samples, cfg.n_features)
-    # Proxy for brightness/colors: treatment ~ spectroscopic follow-up probability.
-    brightness = 1.1 * x[:, 0] - 0.8 * x[:, 1]
-    redshift_proxy = 0.9 * x[:, 2] + 0.5 * x[:, 3]
-    p = torch.sigmoid(1.2 * brightness - 0.6 * redshift_proxy).clamp(0.03, 0.97)
+    f1 = 1.1 * x[:, 0] - 0.8 * x[:, 1]
+    f2 = 0.9 * x[:, 2] + 0.5 * x[:, 3]
+    p = torch.sigmoid(1.2 * f1 - 0.6 * f2).clamp(0.03, 0.97)
     t = torch.bernoulli(p)
-    tau = 0.25 + 0.2 * torch.sigmoid(redshift_proxy)
-    y0 = 0.7 * brightness + 0.4 * x[:, 4] - 0.2 * x[:, 5] + 0.3 * torch.randn(cfg.n_samples)
+    tau = 0.25 + 0.2 * torch.sigmoid(f2)
+    y0 = 0.7 * f1 + 0.4 * x[:, 4] - 0.2 * x[:, 5] + 0.3 * torch.randn(cfg.n_samples)
     y = y0 + t * tau
     return {"x": x, "t": t, "y": y, "tau": tau, "p": p}
 
@@ -160,12 +159,12 @@ def _scenario_rows(
 
 def run_comparison(cfg: CausalDRConfig) -> tuple[list[dict[str, object]], list[str]]:
     uplift = _simulate_uplift(cfg)
-    astro = _simulate_astronomy_bias(cfg)
-    rows = _scenario_rows("Uplift", uplift, cfg) + _scenario_rows("AstronomyBias", astro, cfg)
+    selection = _simulate_selection_bias(cfg)
+    rows = _scenario_rows("Uplift", uplift, cfg) + _scenario_rows("SelectionBias", selection, cfg)
     notes = [
         "Both scenarios use binary treatment with confounded assignment.",
         "DR methods use cross-fitting by default and report overlap diagnostics.",
-        "AstronomyBias simulates spectroscopic follow-up selection effects.",
+        "SelectionBias simulates selection effects based on covariate features.",
     ]
     return rows, notes
 

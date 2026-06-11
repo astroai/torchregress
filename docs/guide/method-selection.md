@@ -84,19 +84,20 @@ _Generated date_: `2026-04-16`
 
 | Method Family | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD Support | Imbalance | Noisy Features (EIV) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `bnn` (2) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `bnn` (6) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` (3) | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` (5) | yes | no | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` (6) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` (7) | yes | yes | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` (7) | yes | no | yes | yes | yes | yes | partial | yes | no | no |
-| `flow` (2) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
+| `flow` (3) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` (5) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` (1) | yes | yes | yes | no | yes | no | partial | partial | no | no |
+| `multivariate` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `ordinal` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` (7) | yes | no | partial | no | yes | no | partial | partial | no | no |
@@ -105,6 +106,7 @@ _Generated date_: `2026-04-16`
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` (4) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` (6) | yes | no | partial | partial | partial | partial | partial | partial | no | no |
+| `tictac` (1) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `uncertain_gt` (4) | yes | no | partial | no | yes | no | partial | partial | no | no |
 <!-- END:FAMILY_CAPABILITY_MATRIX_GENERATED -->
 
@@ -141,6 +143,10 @@ _Generated date_: `2026-04-16`
 |---|---|---|---|---|---|---|---|---|---|
 | `BayesianNeuralNetwork` | `bnn` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `HeteroscedasticBNN` | `bnn` | `Available` | yes | no | yes | yes | yes | partial | partial |
+| `HeteroscedasticLaplaceRegressor` | `bnn` | `Available` | yes | no | yes | yes | yes | partial | partial |
+| `NaturalHeteroscedasticHead` | `bnn` | `Available` | yes | no | no | yes | no | partial | partial |
+| `NaturalReparamHead` | `bnn` | `Available` | yes | no | no | yes | no | partial | partial |
+| `VIDSRegressor` | `bnn` | `Available` | yes | no | yes | yes | no | partial | partial |
 | `IsotonicMeanCalibrator` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
 | `PITCalibrator` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
 | `VarianceTemperatureScaler` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
@@ -153,6 +159,7 @@ _Generated date_: `2026-04-16`
 | `DensityConformal` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `MonteCarloConformal` | `conformal` | `Available` | yes | no | partial | no | no | yes | partial |
 | `PrevalenceAdjustedCP` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
+| `SLSConformal` | `conformal` | `Available` | yes | yes | no | no | no | yes | partial |
 | `UACQR` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `BoundedHead` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
 | `NonCrossingSort` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
@@ -172,6 +179,7 @@ _Generated date_: `2026-04-16`
 | `PackedEnsembleRegressor` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `ContrastiveFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
+| `SLSLoss` | `flow` | `Available` | yes | yes | no | no | no | partial | partial |
 | `BMCLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `BalancedMSELoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
@@ -180,6 +188,7 @@ _Generated date_: `2026-04-16`
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | yes | no | yes | partial | partial | partial | partial |
 | `MDNLoss` | `mdn` | `Available` | yes | yes | no | yes | no | partial | partial |
+| `TaskAgnosticCorrelations` | `multivariate` | `Available` | yes | no | no | no | no | partial | partial |
 | `CORALLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `CumulativeLinkLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
@@ -205,6 +214,7 @@ _Generated date_: `2026-04-16`
 | `RecursiveBayesianHead` | `test_time` | `Available` | yes | no | partial | partial | partial | partial | no |
 | `WeightedSplitConformalAdapter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `weighted_split_classification_predictive_batch` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
+| `TaylorInducedCovarianceHead` | `tictac` | `Available` | yes | no | no | yes | no | partial | partial |
 | `ConsistencyRegLoss` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
 | `NoisyTargetGaussianNLL` | `uncertain_gt` | `Available` | yes | no | no | yes | no | partial | partial |
 | `PseudoLabelConsistencyLoss` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
@@ -216,19 +226,20 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 | Family | # Methods | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD | Imbalance | EIV |
 |---|---:|---|---|---|---|---|---|---|---|---|---|
-| `bnn` | 2 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `bnn` | 6 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` | 3 | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` | 5 | yes | no | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` | 6 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` | 7 | yes | yes | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` | 7 | yes | no | yes | yes | yes | yes | partial | yes | no | no |
-| `flow` | 2 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
+| `flow` | 3 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_loss` | 5 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` | 1 | yes | yes | yes | no | yes | no | partial | partial | no | no |
+| `multivariate` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `ordinal` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` | 7 | yes | no | partial | no | yes | no | partial | partial | no | no |
@@ -237,6 +248,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` | 4 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` | 6 | yes | no | partial | partial | partial | partial | partial | partial | no | no |
+| `tictac` | 1 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `uncertain_gt` | 4 | yes | no | partial | no | yes | no | partial | partial | no | no |
 
 ### Generated Hard-Task Shortlists
@@ -244,8 +256,8 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `PackedEnsembleRegressor`, `MultiSWAG`, `SWAG` |
-| Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `UACQR`, `QuantileLoss` |
-| Multimodal targets | `multimodal=yes` | `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `MDNLoss` |
+| Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `SLSConformal`, `UACQR`, `QuantileLoss` |
+| Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `BMCLoss`, `BalancedMSELoss`, `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->

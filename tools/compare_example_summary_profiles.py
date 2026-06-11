@@ -64,7 +64,7 @@ def _is_probability_key(key: str) -> bool:
 def _row_domain_issues(row: dict[str, Any]) -> list[str]:
     issues: list[str] = []
     method = str(row.get("Method"))
-    allow_nan_keys = {"EvalLossOnObs"}
+    allow_nan_keys = {"EvalLossOnObs", "NativeCov90", "NativeWidth90", "TailCov90"}
     for key, value in row.items():
         if key == "Method" or value is None or isinstance(value, str):
             continue

@@ -213,6 +213,17 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Conformal on MC predictive samples with uncertainty-normalized residual scores.",
     ),
     MethodMetadata(
+        name="SLSConformal",
+        family="conformal",
+        public_path="torchregress.losses.SLSConformal",
+        task_tags=("coverage_guarantees", "multimodal", "calibration"),
+        maturity="Available",
+        multimodal="yes",
+        non_gaussian="yes",
+        calibration="yes",
+        notes="Conformal prediction regions using Super-Level-Set regression frontiers.",
+    ),
+    MethodMetadata(
         name="NoisyTargetGaussianNLL",
         family="uncertain_gt",
         public_path="torchregress.losses.NoisyTargetGaussianNLL",
@@ -470,6 +481,19 @@ _METHODS: tuple[MethodMetadata, ...] = (
         aleatoric="yes",
         decomposition="partial",
         notes="Optional dependency (`zuko`); often compared after MDN baselines.",
+    ),
+    MethodMetadata(
+        name="SLSLoss",
+        family="flow",
+        public_path="torchregress.losses.SLSLoss",
+        task_tags=("multimodal", "non_gaussian", "prediction_intervals"),
+        maturity="Available",
+        multimodal="yes",
+        non_gaussian="yes",
+        notes=(
+            "Super-Level-Set Regression. Estimates minimum-volume prediction regions using "
+            "strictly volume-preserving flows. Zero external dependencies."
+        ),
     ),
     MethodMetadata(
         name="ContrastiveFlowLoss",
@@ -857,6 +881,72 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Available",
         calibration="partial",
         notes="Builds PredictiveBatch from a calibrated WeightedSplitConformalAdapter.",
+    ),
+    MethodMetadata(
+        name="TaylorInducedCovarianceHead",
+        family="tictac",
+        public_path="torchregress.algorithms.TaylorInducedCovarianceHead",
+        task_tags=(
+            "heteroscedastic_noise",
+            "multivariate_targets",
+            "gradient_curvature_parameterization",
+        ),
+        maturity="Available",
+        aleatoric="yes",
+        notes=(
+            "Taylor-Induced Covariance head tying predicted covariance "
+            "to Jacobian and Hessian of the mean model."
+        ),
+    ),
+    MethodMetadata(
+        name="NaturalHeteroscedasticHead",
+        family="bnn",
+        public_path="torchregress.algorithms.NaturalHeteroscedasticHead",
+        task_tags=("natural_parameterization", "optimization_stability"),
+        maturity="Available",
+        aleatoric="yes",
+        notes="Gaussian natural parameterization head mapping output to mean and log-variance.",
+    ),
+    MethodMetadata(
+        name="NaturalReparamHead",
+        family="bnn",
+        public_path="torchregress.algorithms.NaturalReparamHead",
+        task_tags=("natural_parameterization", "optimization_stability"),
+        maturity="Available",
+        aleatoric="yes",
+        notes="Reparameterization helper mapping natural parameters to mean and log-variance.",
+    ),
+    MethodMetadata(
+        name="HeteroscedasticLaplaceRegressor",
+        family="bnn",
+        public_path="torchregress.algorithms.HeteroscedasticLaplaceRegressor",
+        task_tags=("laplace_approximation", "epistemic_uq", "aleatoric_uq", "last_layer"),
+        maturity="Available",
+        epistemic="yes",
+        aleatoric="yes",
+        decomposition="yes",
+        notes="Last-layer Laplace posterior approximation over heteroscedastic heads.",
+    ),
+    MethodMetadata(
+        name="VIDSRegressor",
+        family="bnn",
+        public_path="torchregress.algorithms.VIDSRegressor",
+        task_tags=("distribution_shift", "variational_inference", "adaptive_prior"),
+        maturity="Available",
+        epistemic="yes",
+        aleatoric="yes",
+        notes=(
+            "Variational inference regressor under distribution shift "
+            "using covariate-conditional adaptive priors."
+        ),
+    ),
+    MethodMetadata(
+        name="TaskAgnosticCorrelations",
+        family="multivariate",
+        public_path="torchregress.metrics.TaskAgnosticCorrelations",
+        task_tags=("covariance_evaluation", "conditioning"),
+        maturity="Available",
+        notes="Task-Agnostic Correlations metric to evaluate covariance prediction quality.",
     ),
 )
 

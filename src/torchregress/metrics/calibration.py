@@ -122,35 +122,47 @@ class MarginalCalibrationError(Metric):
 
     def compute(self) -> Dict[str, torch.Tensor]:
         """Compute MCE."""
-        y_true = torch.cat(
-            [convert_to_tensor(y) for y in metric_state_list[torch.Tensor](self.y_true)]
-        )
-        y_pred_samples = torch.cat(
-            [convert_to_tensor(y) for y in metric_state_list[torch.Tensor](self.y_pred_samples)],
-            dim=1,
-        )
+        with torch.no_grad():
+            y_true = torch.cat(
+                [convert_to_tensor(y) for y in metric_state_list[torch.Tensor](self.y_true)]
+            )
+            y_pred_samples = torch.cat(
+                [
+                    convert_to_tensor(y)
+                    for y in metric_state_list[torch.Tensor](self.y_pred_samples)
+                ],
+                dim=1,
+            )
 
-        all_values = torch.cat([y_true, y_pred_samples.view(-1)])
-        min_val = torch.min(all_values)
-        max_val = torch.max(all_values)
+            all_values = torch.cat([y_true, y_pred_samples.view(-1)])
+            min_val = torch.min(all_values)
+            max_val = torch.max(all_values)
 
-        if torch.isclose(min_val, max_val, rtol=1e-5):
-            min_val = min_val - 1e-5
-            max_val = max_val + 1e-5
+            if torch.isclose(min_val, max_val, rtol=1e-5):
+                min_val = min_val - 1e-5
+                max_val = max_val + 1e-5
 
-        device = y_true.device
-        bin_edges = torch.linspace(min_val, max_val, self.n_bins + 1, device=device)
+            device = y_true.device
+            bin_edges = torch.linspace(min_val, max_val, self.n_bins + 1, device=device)
 
-        obs_hist = torch.histogram(y_true.float(), bin_edges)[0]
-        obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true))
-        pred_hists = _compute_histograms(y_pred_samples, bin_edges)
-        pred_cdfs = torch.cumsum(pred_hists, dim=1) / max(1, y_pred_samples.shape[1])
-        pred_cdf_mean = pred_cdfs.mean(dim=0)
+            n_samples_per_point = y_pred_samples.shape[1]
+            obs_hist = torch.histogram(y_true.float(), bin_edges)[0]
+            obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true))
+            pred_hists = _compute_histograms(y_pred_samples, bin_edges)
+            # Normalize each row of histograms to a proper CDF *before*
+            # averaging across MC samples: the previous version divided by
+            # ``y_pred_samples.shape[1]`` which is the per-row sample count
+            # only when the sample axis is 1.  Use the row count explicitly
+            # so the average remains an average of CDFs (in [0, 1]).
+            row_sums = pred_hists.sum(dim=1, keepdim=True).clamp(min=1.0)
+            pred_cdfs = torch.cumsum(pred_hists, dim=1) / row_sums
+            pred_cdf_mean = pred_cdfs.mean(dim=0)
 
-        abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
-        mce = torch.mean(abs_errors)
-        rmsce = torch.sqrt(torch.mean((obs_cdf - pred_cdf_mean) ** 2))
-        max_mce = torch.max(abs_errors)
+            abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
+            mce = torch.mean(abs_errors)
+            rmsce = torch.sqrt(torch.mean((obs_cdf - pred_cdf_mean) ** 2))
+            max_mce = torch.max(abs_errors)
+            del n_samples_per_point  # kept for clarity; not needed for the new formula
 
         return {
             "marginal_calibration_error": mce,
@@ -249,7 +261,13 @@ def marginal_calibration_error(
     obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true_flat))
 
     pred_hists = _compute_histograms(samples_flat, bin_edges)
-    pred_cdfs = torch.cumsum(pred_hists, dim=1) / max(1, samples_flat.shape[1])
+    # Normalize each row of histograms to a proper CDF *before* averaging
+    # across MC samples: dividing by ``samples_flat.shape[1]`` is only
+    # correct when the sample axis is 1, which is not always the case for
+    # multi-dimensional ``y_true`` with leading sample axis.  Use the
+    # row-wise histogram sum to convert counts → probabilities.
+    row_sums = pred_hists.sum(dim=1, keepdim=True).clamp(min=1.0)
+    pred_cdfs = torch.cumsum(pred_hists, dim=1) / row_sums
     pred_cdf_mean = pred_cdfs.mean(dim=0)
     abs_errors = torch.abs(obs_cdf - pred_cdf_mean)
     mce = torch.mean(abs_errors)

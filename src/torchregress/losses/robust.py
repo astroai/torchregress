@@ -417,24 +417,20 @@ class TukeyBiweightLoss(RegressionLoss):
         """
         self._validate_inputs(y_pred, target, mask)
 
-        # Calculate residuals
+        # Tukey biweight:
+        #   L(r) = c²/6 * (1 - (1 - (r/c)²)³)              for |r| <= c
+        #        = c²/6                                    for |r| >  c
+        # Use ``torch.where`` (single fused kernel) rather than masked
+        # assignment: the latter allocates a full ``ones_like`` tensor and
+        # then writes to it from a CPU/GPU sync, which is unnecessary work
+        # and breaks some autograd paths.
         residuals = target - y_pred
         abs_residuals = torch.abs(residuals)
+        within = abs_residuals <= self.c
+        squared_scaled = (residuals / self.c) ** 2
+        inlier = self.c_squared_over_6 * (1.0 - (1.0 - squared_scaled) ** 3)
+        loss = torch.where(within, inlier, torch.full_like(residuals, self.c_squared_over_6))
 
-        # Calculate loss based on whether residuals exceed threshold
-        scaled_residuals = abs_residuals / self.c
-        squared_scaled_residuals = scaled_residuals**2
-
-        # For |r| <= c: c^2/6 * (1 - (1 - (r/c)^2)^3)
-        # For |r| >  c: c^2/6
-        mask_within = abs_residuals <= self.c
-        loss = torch.ones_like(residuals) * self.c_squared_over_6
-        if torch.any(mask_within):
-            loss[mask_within] = self.c_squared_over_6 * (
-                1.0 - (1.0 - squared_scaled_residuals[mask_within]) ** 3
-            )
-
-        # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
 
 

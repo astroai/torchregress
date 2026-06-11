@@ -269,14 +269,7 @@ class EvidentialRegressionLoss(DistributionLoss):
         # Total loss: NLL + coefficient * regularization
         loss = nll + self.coeff_nig * reg
 
-        # Apply weights if provided
-        if weights is not None:
-            if weights.dim() == 1:
-                # Expand to match loss shape
-                weights = weights.view(-1, 1).expand_as(loss)
-            loss = loss * weights
-
-        return self._reduce_with_mask(loss, mask, None)
+        return self._reduce_with_mask(loss, mask, weights)
 
     def predict_with_uncertainty(self, y_pred: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """
@@ -421,9 +414,9 @@ class EvidentialRegressionLoss(DistributionLoss):
         df = 2 * alpha
 
         # Scale parameter for Student-t predictive
-        # This is sqrt(β * (1 + 1/ν) / (α - 1))
+        # This is sqrt(β * (1 + 1/ν) / α)
         # which differs from sqrt(aleatoric + epistemic)
-        scale = torch.sqrt(beta * (1 + 1 / nu) / (alpha - 1.0 + 1e-6))
+        scale = torch.sqrt(beta * (1 + 1 / nu) / (alpha + 1e-6))
 
         # Student-t quantile using scipy
         # For large batches, this is computed element-wise

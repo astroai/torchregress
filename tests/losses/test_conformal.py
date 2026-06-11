@@ -15,6 +15,8 @@ from torchregress.losses.conformal import (
     ConformalPredictor,
     DensityConformal,
     DistributionalConformal,
+    LocalConformal,
+    LocalConformalMAD,
     MonteCarloConformal,
     MultiDimensionalConformalLoss,
     MultiTargetConformal,
@@ -1043,6 +1045,166 @@ class TestOneDimensionalTargets:
         loss_1d = loss_fn(pred, y)
         loss_2d = loss_fn(pred, y.unsqueeze(-1))
         assert torch.allclose(loss_1d, loss_2d)
+
+
+class TestLocalConformal:
+    """Tests for the LocalConformal predictor."""
+
+    def test_basic_calibrate_predict(self):
+        cp = LocalConformal(alpha=0.1, bandwidth=1.0)
+        torch.manual_seed(42)
+        preds = torch.randn(100, 1)
+        targets = preds + torch.randn(100, 1) * 0.3
+        x_cal = torch.randn(100, 2)
+
+        # Test validation of x
+        with pytest.raises(ValueError, match="requires features"):
+            cp.calibrate(preds, targets)
+
+        cp.calibrate(preds, targets, x=x_cal)
+        assert cp._is_calibrated
+
+        x_test = torch.randn(20, 2)
+        y_test_pred = torch.randn(20, 1)
+
+        with pytest.raises(ValueError, match="requires test features"):
+            cp.predict_interval(y_test_pred)
+
+        lower, upper = cp.predict_interval(y_test_pred, x=x_test)
+        assert lower.shape == (20, 1)
+        assert upper.shape == (20, 1)
+        assert (lower <= upper).all()
+
+    def test_coverage(self):
+        """LVD local conformal coverage check."""
+        torch.manual_seed(42)
+        alpha = 0.1
+        n_cal, n_test = 200, 500
+
+        # Features
+        x_cal = torch.randn(n_cal, 2)
+        x_test = torch.randn(n_test, 2)
+
+        # Labels (residual is larger when first feature is larger)
+        noise_cal = torch.randn(n_cal, 1) * (0.2 + torch.abs(x_cal[:, 0:1]))
+        noise_test = torch.randn(n_test, 1) * (0.2 + torch.abs(x_test[:, 0:1]))
+
+        preds_cal = torch.randn(n_cal, 1)
+        targets_cal = preds_cal + noise_cal
+
+        preds_test = torch.randn(n_test, 1)
+        targets_test = preds_test + noise_test
+
+        cp = LocalConformal(alpha=alpha, bandwidth=0.5)
+        cp.calibrate(preds_cal, targets_cal, x=x_cal)
+        lower, upper = cp.predict_interval(preds_test, x=x_test)
+
+        covered = (targets_test >= lower) & (targets_test <= upper)
+        coverage = covered.float().mean().item()
+        assert coverage >= (1 - alpha) - 0.05
+
+    def test_custom_kernel(self):
+        """Test with a custom kernel object."""
+
+        class MockKernel:
+            def K(self, x1, x2=None):
+                return 1.0
+
+            def Ki(self, xi, Xs):
+                # Return uniform weights
+                M = xi.shape[0] if xi.ndim > 1 else 1
+                N = Xs.shape[0]
+                return torch.ones((M, N), device=xi.device), Xs
+
+        cp = LocalConformal(alpha=0.1, K_obj=MockKernel())
+        preds = torch.randn(50, 1)
+        targets = preds + torch.randn(50, 1) * 0.2
+        x = torch.randn(50, 2)
+
+        cp.calibrate(preds, targets, x=x)
+        lower, upper = cp.predict_interval(preds, x=x)
+        assert (lower <= upper).all()
+
+    def test_mondrian_and_weights(self):
+        """Test Mondrian groups and importance weights with LocalConformal."""
+        cp = LocalConformal(alpha=0.1, bandwidth=1.0)
+        torch.manual_seed(42)
+        preds = torch.randn(100, 1)
+        targets = preds + torch.randn(100, 1) * 0.3
+        x = torch.randn(100, 2)
+        groups = torch.randint(0, 2, (100,))
+        weights = torch.rand(100) + 0.5
+
+        cp.calibrate(preds, targets, x=x, groups=groups, weights=weights)
+        assert cp._is_calibrated
+
+        lower, upper = cp.predict_interval(preds, x=x, groups=groups)
+        assert (lower <= upper).all()
+
+
+class TestLocalConformalMAD:
+    """Tests for the LocalConformalMAD predictor."""
+
+    def test_basic_calibrate_predict(self):
+        cp = LocalConformalMAD(alpha=0.1, bandwidth=1.0)
+        torch.manual_seed(42)
+        preds = torch.randn(100, 1)
+        targets = preds + torch.randn(100, 1) * 0.3
+        x_cal = torch.randn(100, 2)
+        mad_cal = torch.rand(100, 1) + 0.1
+
+        # Test validation of x and mad
+        with pytest.raises(ValueError, match="requires features"):
+            cp.calibrate(preds, targets)
+        with pytest.raises(ValueError, match="requires MAD"):
+            cp.calibrate(preds, targets, x=x_cal)
+
+        cp.calibrate(preds, targets, x=x_cal, mad=mad_cal)
+        assert cp._is_calibrated
+
+        x_test = torch.randn(20, 2)
+        y_test_pred = torch.randn(20, 1)
+        mad_test = torch.rand(20, 1) + 0.1
+
+        with pytest.raises(ValueError, match="requires test features"):
+            cp.predict_interval(y_test_pred)
+        with pytest.raises(ValueError, match="requires test MAD"):
+            cp.predict_interval(y_test_pred, x=x_test)
+
+        lower, upper = cp.predict_interval(y_test_pred, x=x_test, mad=mad_test)
+        assert lower.shape == (20, 1)
+        assert upper.shape == (20, 1)
+        assert (lower <= upper).all()
+
+    def test_coverage(self):
+        """LVD local conformal MAD coverage check."""
+        torch.manual_seed(42)
+        alpha = 0.1
+        n_cal, n_test = 200, 500
+
+        x_cal = torch.randn(n_cal, 2)
+        x_test = torch.randn(n_test, 2)
+
+        # Scale model predicts the exact noise std
+        mad_cal = 0.2 + torch.abs(x_cal[:, 0:1])
+        mad_test = 0.2 + torch.abs(x_test[:, 0:1])
+
+        noise_cal = torch.randn(n_cal, 1) * mad_cal
+        noise_test = torch.randn(n_test, 1) * mad_test
+
+        preds_cal = torch.randn(n_cal, 1)
+        targets_cal = preds_cal + noise_cal
+
+        preds_test = torch.randn(n_test, 1)
+        targets_test = preds_test + noise_test
+
+        cp = LocalConformalMAD(alpha=alpha, bandwidth=0.5)
+        cp.calibrate(preds_cal, targets_cal, x=x_cal, mad=mad_cal)
+        lower, upper = cp.predict_interval(preds_test, x=x_test, mad=mad_test)
+
+        covered = (targets_test >= lower) & (targets_test <= upper)
+        coverage = covered.float().mean().item()
+        assert coverage >= (1 - alpha) - 0.05
 
 
 if __name__ == "__main__":

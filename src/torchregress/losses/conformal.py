@@ -494,8 +494,300 @@ class UACQR(CQR):
 
 
 # ---------------------------------------------------------------------------
-# Conformal Thresholded Intervals (CTI)
+# Locally Valid and Discriminative Prediction Intervals (LVD)
 # ---------------------------------------------------------------------------
+
+
+class LocalConformal(ConformalPredictor):
+    """Locally Valid and Discriminative (LVD) Conformal Predictor.
+
+    Uses kernel regression to weigh calibration residuals based on the similarity
+    between the test point and calibration points in feature space, achieving local
+    coverage guarantees.
+
+    Args:
+        alpha: Miscoverage rate.
+        K_obj: Optional custom kernel object implementing `K(x1, x2)` and `Ki(xi, Xs)`.
+        bandwidth: Bandwidth parameter for the default Gaussian kernel.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        K_obj: Optional[Any] = None,
+        bandwidth: float = 1.0,
+    ) -> None:
+        super().__init__(alpha=alpha)
+        self.K_obj = K_obj
+        self.bandwidth = bandwidth
+        self.X_cal: Optional[Tensor] = None
+        self.resids: Optional[Tensor] = None
+        self.weights_cal: Optional[Tensor] = None
+        self.groups_cal: Optional[Tensor] = None
+
+    def calibrate(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        groups: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> None:
+        if x is None:
+            raise ValueError("LocalConformal requires features `x` at calibration time.")
+
+        # Apply mask
+        if mask is not None:
+            mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
+            y_pred = y_pred[mask_1d]
+            target = target[mask_1d]
+            x = x[mask_1d]
+            if groups is not None:
+                groups = groups[mask_1d]
+            if weights is not None:
+                weights = weights[mask_1d]
+
+        scores = torch.abs(y_pred - target)
+        if scores.dim() > 1:
+            scores = scores.max(dim=-1).values
+
+        # Sort residuals and features by residual score
+        sorted_idx = torch.argsort(scores)
+        sorted_scores = scores[sorted_idx]
+        sorted_x = x[sorted_idx]
+
+        # Append infinity to scores as per standard LVD to account for test point
+        device = y_pred.device
+        dtype = y_pred.dtype
+        self.resids = torch.cat(
+            [sorted_scores, torch.tensor([float("inf")], device=device, dtype=dtype)]
+        )
+        self.X_cal = sorted_x.detach().clone()
+        self.weights_cal = weights[sorted_idx] if weights is not None else None
+        self.groups_cal = groups[sorted_idx] if groups is not None else None
+        self._is_calibrated = True
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if not self._is_calibrated or self.resids is None or self.X_cal is None:
+            raise RuntimeError("Predictor must be calibrated before making predictions.")
+        if x is None:
+            raise ValueError("LocalConformal requires test features `x` at prediction time.")
+
+        M = x.shape[0]
+        N = self.X_cal.shape[0]
+        device = x.device
+        dtype = x.dtype
+
+        # Compute kernel weights
+        if self.K_obj is not None:
+            try:
+                kis, _ = self.K_obj.Ki(x, self.X_cal)
+                if kis.dim() == 1:
+                    kis = kis.unsqueeze(0)
+            except Exception:
+                kis_list = []
+                for i in range(M):
+                    ki, _ = self.K_obj.Ki(x[i], self.X_cal)
+                    kis_list.append(ki)
+                kis = torch.stack(kis_list, dim=0)
+        else:
+            dist_sq = torch.cdist(x.float(), self.X_cal.float(), p=2.0) ** 2
+            dist_sq = dist_sq.to(dtype)
+            kis = torch.exp(-dist_sq / (2 * self.bandwidth**2))
+
+        # Apply Mondrian group mask if present
+        if groups is not None and self.groups_cal is not None:
+            group_mask = groups.unsqueeze(1) == self.groups_cal.unsqueeze(0).to(groups.device)
+            kis = kis * group_mask.to(kis.dtype)
+
+        # Append self-similarity of test point (usually 1.0)
+        w_self = torch.ones((M, 1), device=device, dtype=dtype)
+        weights_all = torch.cat([kis, w_self], dim=1)  # (M, N + 1)
+
+        # Incorporate importance weights if present
+        if self.weights_cal is not None:
+            weights_all[:, :N] = weights_all[:, :N] * self.weights_cal.unsqueeze(0).to(device)
+
+        # Normalize weights
+        total_weights = weights_all.sum(dim=1, keepdim=True)
+        total_weights = torch.max(total_weights, torch.tensor(1e-8, device=device, dtype=dtype))
+        normalized_weights = weights_all / total_weights
+
+        # Compute cumulative sum
+        cum_weights = torch.cumsum(normalized_weights, dim=1)  # (M, N + 1)
+
+        # Find first index where cum_weights >= 1 - alpha
+        q_level = 1.0 - self.alpha
+        idx = torch.argmax((cum_weights >= q_level).to(torch.int8), dim=1)  # (M,)
+
+        # Fetch the corresponding quantiles
+        resids_device = self.resids.to(device)
+        q = resids_device[idx]  # (M,)
+
+        # Broadcast q to y_pred shape
+        q = q.view(-1, *([1] * (y_pred.dim() - 1)))
+
+        return y_pred - q, y_pred + q
+
+    def _build_intervals(
+        self,
+        y_pred: Tensor,
+        q: Tensor,
+        difficulty: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        raise NotImplementedError("Use predict_interval() directly.")
+
+
+class LocalConformalMAD(LocalConformal):
+    """Locally Valid and Discriminative Conformal Predictor with MAD scaling.
+
+    Uses normalized residuals scaled by a predicted local standard deviation/MAD,
+    achieving heteroscedastic local coverage.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        K_obj: Optional[Any] = None,
+        bandwidth: float = 1.0,
+        eps: float = 1e-5,
+    ) -> None:
+        super().__init__(alpha=alpha, K_obj=K_obj, bandwidth=bandwidth)
+        self.eps = eps
+
+    def calibrate(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        groups: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+        mad: Optional[Tensor] = None,
+    ) -> None:
+        if x is None:
+            raise ValueError("LocalConformalMAD requires features `x` at calibration time.")
+        if mad is None:
+            raise ValueError(
+                "LocalConformalMAD requires MAD/uncertainty estimates `mad` at calibration time."
+            )
+
+        # Apply mask
+        if mask is not None:
+            mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
+            y_pred = y_pred[mask_1d]
+            target = target[mask_1d]
+            x = x[mask_1d]
+            mad = mad[mask_1d]
+            if groups is not None:
+                groups = groups[mask_1d]
+            if weights is not None:
+                weights = weights[mask_1d]
+
+        raw_scores = torch.abs(y_pred - target)
+        if raw_scores.dim() > 1:
+            raw_scores = raw_scores.max(dim=-1).values
+
+        # Normalize residuals by MAD + eps
+        mad_flat = mad.squeeze(-1) if mad.dim() > 1 else mad
+        scores = raw_scores / (self.eps + torch.abs(mad_flat))
+
+        # Sort normalized residuals and features together
+        sorted_idx = torch.argsort(scores)
+        sorted_scores = scores[sorted_idx]
+        sorted_x = x[sorted_idx]
+
+        device = y_pred.device
+        dtype = y_pred.dtype
+        self.resids = torch.cat(
+            [sorted_scores, torch.tensor([float("inf")], device=device, dtype=dtype)]
+        )
+        self.X_cal = sorted_x.detach().clone()
+        self.weights_cal = weights[sorted_idx] if weights is not None else None
+        self.groups_cal = groups[sorted_idx] if groups is not None else None
+        self._is_calibrated = True
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+        mad: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if not self._is_calibrated or self.resids is None or self.X_cal is None:
+            raise RuntimeError("Predictor must be calibrated before making predictions.")
+        if x is None:
+            raise ValueError("LocalConformalMAD requires test features `x` at prediction time.")
+        if mad is None:
+            raise ValueError(
+                "LocalConformalMAD requires test MAD estimates `mad` at prediction time."
+            )
+
+        M = x.shape[0]
+        N = self.X_cal.shape[0]
+        device = x.device
+        dtype = x.dtype
+
+        # Compute kernel weights
+        if self.K_obj is not None:
+            try:
+                kis, _ = self.K_obj.Ki(x, self.X_cal)
+                if kis.dim() == 1:
+                    kis = kis.unsqueeze(0)
+            except Exception:
+                kis_list = []
+                for i in range(M):
+                    ki, _ = self.K_obj.Ki(x[i], self.X_cal)
+                    kis_list.append(ki)
+                kis = torch.stack(kis_list, dim=0)
+        else:
+            dist_sq = torch.cdist(x.float(), self.X_cal.float(), p=2.0) ** 2
+            dist_sq = dist_sq.to(dtype)
+            kis = torch.exp(-dist_sq / (2 * self.bandwidth**2))
+
+        # Apply Mondrian group mask if present
+        if groups is not None and self.groups_cal is not None:
+            group_mask = groups.unsqueeze(1) == self.groups_cal.unsqueeze(0).to(groups.device)
+            kis = kis * group_mask.to(kis.dtype)
+
+        # Append self-similarity of test point
+        w_self = torch.ones((M, 1), device=device, dtype=dtype)
+        weights_all = torch.cat([kis, w_self], dim=1)
+
+        if self.weights_cal is not None:
+            weights_all[:, :N] = weights_all[:, :N] * self.weights_cal.unsqueeze(0).to(device)
+
+        total_weights = weights_all.sum(dim=1, keepdim=True)
+        total_weights = torch.max(total_weights, torch.tensor(1e-8, device=device, dtype=dtype))
+        normalized_weights = weights_all / total_weights
+
+        cum_weights = torch.cumsum(normalized_weights, dim=1)
+        q_level = 1.0 - self.alpha
+        idx = torch.argmax((cum_weights >= q_level).to(torch.int8), dim=1)
+
+        resids_device = self.resids.to(device)
+        q = resids_device[idx]
+
+        # Reshape q to broadcast with y_pred
+        q = q.view(-1, *([1] * (y_pred.dim() - 1)))
+
+        # Widen the interval by the test MAD
+        mad_val = torch.abs(mad) + self.eps
+        while mad_val.dim() < y_pred.dim():
+            mad_val = mad_val.unsqueeze(-1)
+
+        width = q * mad_val
+        return y_pred - width, y_pred + width
 
 
 class CTI(ConformalPredictor):
@@ -1470,6 +1762,38 @@ class ConformalLoss(RegressionLoss):
         return self._predictor.predict_interval(y_pred, groups=groups, x=x)
 
 
+def conformal_loss(
+    y_pred: Tensor,
+    target: Tensor,
+    mask: Optional[Tensor] = None,
+    weights: Optional[Tensor] = None,
+    method: str = "cqr",
+    alpha: float = 0.1,
+    reduction: str = "mean",
+) -> Tensor:
+    """Functional wrapper for :class:`ConformalLoss`.
+
+    Equivalent to instantiating :class:`ConformalLoss` and calling
+    ``forward``, but avoids the module boilerplate for one-off uses.
+
+    Args:
+        y_pred: Model predictions (point predictions for ``'split'``;
+            ``[lower, upper]`` for ``'cqr'`` / ``'uacqr'``).
+        target: Ground truth.
+        mask: Optional boolean mask of valid samples.
+        weights: Optional per-sample weights.
+        method: ``'split'`` (MSE training loss) or ``'cqr'`` (pinball loss).
+        alpha: Miscoverage rate (only used to set the pinball quantiles).
+        reduction: ``'mean'`` | ``'sum'`` | ``'none'``.
+
+    Returns:
+        Training loss value.
+    """
+    return ConformalLoss(method=method, alpha=alpha, reduction=reduction)(
+        y_pred, target, mask=mask, weights=weights
+    )
+
+
 @register_regression_loss("multidim_conformal")
 class MultiDimensionalConformalLoss(ConformalLoss):
     """Multi-dimensional conformal prediction for multi-output regression.
@@ -1525,3 +1849,134 @@ class MultiDimensionalConformalLoss(ConformalLoss):
     ) -> Tuple[Tensor, Tensor]:
         """Return per-dimension calibrated intervals."""
         return self._predictor.predict_interval(y_pred)
+
+
+class SLSConformal(ConformalPredictor):
+    """Super-Level-Set (SLS) Conformal Predictor.
+
+    Uses the ratio of the learned frontier function G(X, Y) to the predicted
+    conditional quantile q_tau(X) as the nonconformity score:
+    S = G(X, Y) / q_tau(X)
+
+    The prediction set is the level set:
+    {y : G(X, y) <= r * q_tau(X)}
+    where r is the calibrated threshold ensuring (1 - alpha) marginal coverage.
+
+    Args:
+        sls_loss: An instance of `SLSLoss` containing the trained frontier and quantile networks.
+        alpha: Miscoverage rate.
+        grid_size: Number of grid points for constructing level-set intervals at prediction time.
+    """
+
+    def __init__(
+        self,
+        sls_loss: Any,
+        alpha: float = 0.1,
+        grid_size: int = 500,
+    ) -> None:
+        super().__init__(alpha=alpha)
+        self.sls_loss = sls_loss
+        self.grid_size = grid_size
+
+    def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        # Here, y_pred is the context/features X, and target is Y
+        with torch.no_grad():
+            G, _ = self.sls_loss.frontier(target, y_pred)
+            quantiles = self.sls_loss.quantile_net(y_pred)
+            q_tau = quantiles[..., 1]  # target quantile is at index 1
+        scores = G / q_tau.clamp(min=1e-8)
+        return scores.view(-1)
+
+    def calibrate(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        groups: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> None:
+        """Calibrate the conformal correction factor r.
+
+        Args:
+            y_pred: Features X for the calibration set.
+            target: True target values Y for the calibration set.
+            mask: Optional mask.
+            groups: Optional Mondrian groups.
+            weights: Optional importance weights.
+            x: Unused (y_pred serves as the features X).
+        """
+        super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights)
+
+    def _build_intervals(
+        self,
+        y_pred: Tensor,
+        q: Tensor,
+        difficulty: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        raise NotImplementedError(
+            "SLS prediction regions require evaluating a frontier function on a grid. "
+            "Use predict_interval_from_grid() instead."
+        )
+
+    def predict_interval_from_grid(
+        self,
+        x: Tensor,
+        y_min: float,
+        y_max: float,
+    ) -> Tuple[Tensor, Tensor]:
+        """Build prediction intervals from SLS level sets.
+
+        Evaluates the frontier function on a grid and returns the tightest [lower, upper]
+        bounding box of the level set {y : G(x, y) <= r * q_tau(x)}.
+
+        Args:
+            x: Test inputs/features, shape (n_test, context_dim).
+            y_min: Lower bound of the evaluation grid.
+            y_max: Upper bound of the evaluation grid.
+
+        Returns:
+            (lower, upper) tensors of shape (n_test, 1).
+        """
+        if not self._is_calibrated or self.q_hat is None:
+            raise RuntimeError("Call calibrate() first.")
+
+        r = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
+        device = x.device
+        dtype = x.dtype
+
+        y_grid = torch.linspace(y_min, y_max, self.grid_size, device=device, dtype=dtype)
+        n_test = x.shape[0]
+        lower = torch.full((n_test, 1), y_max, device=device, dtype=dtype)
+        upper = torch.full((n_test, 1), y_min, device=device, dtype=dtype)
+
+        with torch.no_grad():
+            quantiles = self.sls_loss.quantile_net(x)
+            q_tau = quantiles[..., 1]
+            threshold = r.to(device) * q_tau
+
+            x_expanded = x.unsqueeze(1).expand(-1, self.grid_size, -1).reshape(-1, x.shape[-1])
+            y_expanded = y_grid.unsqueeze(0).expand(n_test, -1).reshape(-1, self.sls_loss.d)
+
+            G_flat, _ = self.sls_loss.frontier(y_expanded, x_expanded)
+            G = G_flat.reshape(n_test, self.grid_size)
+
+            in_set = G <= threshold.unsqueeze(1)
+            has_valid = in_set.any(dim=1)
+
+            start_indices = in_set.int().argmax(dim=1)
+            end_indices = self.grid_size - 1 - in_set.flip(dims=[1]).int().argmax(dim=1)
+
+            valid_mask = has_valid
+            if valid_mask.any():
+                lower[valid_mask, 0] = y_grid[start_indices[valid_mask]]
+                upper[valid_mask, 0] = y_grid[end_indices[valid_mask]]
+
+            invalid_mask = ~has_valid
+            if invalid_mask.any():
+                min_indices = G[invalid_mask].argmin(dim=1)
+                lower[invalid_mask, 0] = y_grid[min_indices]
+                upper[invalid_mask, 0] = y_grid[min_indices]
+
+        return lower, upper

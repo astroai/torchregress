@@ -8,10 +8,9 @@ Compares:
 - `dr_ate` (cross-fitted doubly-robust ATE)
 - `dr_cate` (cross-fitted DR pseudo-outcome CATE)
 
-across two scenarios:
+across one scenario:
 
 - synthetic uplift
-- astronomy-style selection-bias proxy
 
 Reported metrics:
 

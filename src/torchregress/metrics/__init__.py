@@ -104,6 +104,10 @@ from .point import (
     tail_rmse,
     trimmed_mean_squared_error,
 )
+from .tac import (
+    TaskAgnosticCorrelations,
+    task_agnostic_correlations,
+)
 from .uncertain import (
     consistency_error,
     noisy_target_gaussian_nll,
@@ -165,6 +169,8 @@ __all__ = [
     # Multivariate
     "MultivariateMAE",
     "MultivariateRMSE",
+    "TaskAgnosticCorrelations",
+    "task_agnostic_correlations",
     # OOD
     "EntropyScore",
     "KernelDensityScore",

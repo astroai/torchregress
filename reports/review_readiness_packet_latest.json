@@ -20,11 +20,21 @@
       "invalid_imports": 0
     },
     "examples_summary": {
-      "count": 39,
+      "count": 112,
       "counts": {
         "invalid_imports": 0
       },
       "examples": [
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/balanced_mse_demo.py",
+          "topics": []
+        },
         {
           "comparability_signals": {
             "compares_multiple_methods": true,
@@ -47,6 +57,207 @@
           },
           "path": "examples/benchmarks/__init__.py",
           "topics": [
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py",
+          "topics": [
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/bayesian_linear_head_online_drift.py",
+          "topics": [
+            "noisy_labels",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/foundation_model_comparison.py",
+          "topics": [
+            "calibration",
+            "ood",
+            "multimodal",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/image_regression_rebuttal.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/ot_conformal_score_shift_benchmark.py",
+          "topics": [
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/sage_year_label_fraction_sweep.py",
+          "topics": [
+            "noisy_labels",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/self_agreement_backbone_comparison.py",
+          "topics": [
+            "noisy_labels",
+            "imbalance",
+            "calibration",
+            "multimodal",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/self_agreement_higgs_ood.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "ood",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/self_agreement_realdata_year.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/self_agreement_supervised_gap_confirm.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "ood",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/self_agreement_supervised_gap_multiseed.py",
+          "topics": [
+            "noisy_labels",
+            "ood",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/self_agreement_supervised_gap_tuning.py",
+          "topics": [
+            "noisy_labels",
+            "ood",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/self_agreement_synthetic.py",
+          "topics": [
+            "noisy_labels",
+            "imbalance",
+            "calibration",
+            "multimodal",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/benchmarks/tabred_sage_ssl_probe.py",
+          "topics": [
+            "noisy_labels",
             "benchmark_or_compare"
           ]
         },
@@ -84,6 +295,18 @@
             "seeded": true,
             "uses_argparse": true
           },
+          "path": "examples/causal_dr_realdata_comparison.py",
+          "topics": [
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
           "path": "examples/causal_dr_uplift_comparison.py",
           "topics": [
             "benchmark_or_compare"
@@ -97,6 +320,18 @@
             "uses_argparse": true
           },
           "path": "examples/censored_regression_comparison.py",
+          "topics": [
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/censored_regression_realdata_comparison.py",
           "topics": [
             "benchmark_or_compare"
           ]
@@ -139,8 +374,10 @@
           },
           "path": "examples/comprehensive_loss_comparison.py",
           "topics": [
+            "noisy_labels",
             "imbalance",
             "calibration",
+            "multimodal",
             "uncertainty",
             "benchmark_or_compare"
           ]
@@ -168,6 +405,45 @@
           "topics": [
             "calibration",
             "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/contrastive_flow_benchmark_utils.py",
+          "topics": [
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": false
+          },
+          "path": "examples/contrastive_flow_parameter_estimation.py",
+          "topics": [
+            "ood",
+            "multimodal"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/contrastive_flow_parameter_estimation_comparison.py",
+          "topics": [
+            "ood",
             "benchmark_or_compare"
           ]
         },
@@ -262,6 +538,32 @@
           },
           "path": "examples/gaussian_low_rank_regression.py",
           "topics": []
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/gaussian_wasserstein_bound_demo.py",
+          "topics": [
+            "multi_target",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/heteroscedastic_beta_nll_demo.py",
+          "topics": [
+            "uncertainty"
+          ]
         },
         {
           "comparability_signals": {
@@ -395,6 +697,559 @@
         },
         {
           "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/concat_two_parquet_with_different_columns.py",
+          "topics": [
+            "noisy_labels"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/contrastive_flow_photoz_proxy_comparison.py",
+          "topics": [
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/convert_clauds.py",
+          "topics": []
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/find_common_columns.py",
+          "topics": []
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/photoz.py",
+          "topics": [
+            "noisy_features_eiv",
+            "calibration",
+            "ood",
+            "multimodal",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/photoz_benchmark_comparison.py",
+          "topics": [
+            "noisy_labels",
+            "noisy_features_eiv",
+            "imbalance",
+            "calibration",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/photoz_binned_utils.py",
+          "topics": [
+            "calibration"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/photoz_clauds_specz_comparison.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/photoz_loss_comparison.py",
+          "topics": [
+            "noisy_labels",
+            "noisy_features_eiv",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/photoz_nnc_crps_rail_comparison.py",
+          "topics": [
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/photoz_transferz_conformal_comparison.py",
+          "topics": [
+            "calibration",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/photoz_transferz_semisupervised_comparison.py",
+          "topics": [
+            "calibration",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/photoz_utils.py",
+          "topics": [
+            "imbalance",
+            "calibration",
+            "ood",
+            "multimodal",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/ppi_photoz_inference_comparison.py",
+          "topics": [
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/spt_reg_photoz_comparison.py",
+          "topics": [
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_clauds_catalog.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz.py",
+          "topics": [
+            "multimodal"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_benchmark_suite.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_collect_real_data.py",
+          "topics": [
+            "calibration"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_fixed_splits.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_nnc_pipeline.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_rail_assets.py",
+          "topics": [
+            "noisy_labels",
+            "calibration"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_rail_compare.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_rail_pipeline.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_photoz_transferz_pipeline.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": false
+          },
+          "path": "examples/old_scripts/tests/photoz/test_render_photoz_benchmark_report.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_benchmark_suite.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_clauds_specz_pipeline.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_collect_real_data.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "uncertainty"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_nnc_pipeline.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_rail_assets.py",
+          "topics": [
+            "noisy_labels",
+            "calibration"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_rail_compare.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_rail_pipeline.py",
+          "topics": [
+            "noisy_labels",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/photoz_transferz_pipeline.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/tools/render_photoz_benchmark_report.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/torchregress_live_photoz/tools/clauds_catalog_validate.py",
+          "topics": [
+            "noisy_labels"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/torchregress_live_photoz/tools/clauds_download.py",
+          "topics": [
+            "noisy_labels"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/torchregress_live_photoz/tools/clauds_ensure_catalog.py",
+          "topics": [
+            "noisy_labels"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/torchregress_live_photoz/tools/clauds_merge.py",
+          "topics": [
+            "noisy_labels"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/torchregress_live_photoz/tools/clauds_photo_z_data_report.py",
+          "topics": [
+            "noisy_labels",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/torchregress_live_photoz/tools/clauds_specz_crossmatch.py",
+          "topics": [
+            "noisy_labels"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/old_scripts/torchregress_live_photoz/tools/specz_compilation_download.py",
+          "topics": [
+            "noisy_labels"
+          ]
+        },
+        {
+          "comparability_signals": {
             "compares_multiple_methods": true,
             "prints_metrics": true,
             "seeded": true,
@@ -402,6 +1257,7 @@
           },
           "path": "examples/ood_selective_prediction_comparison.py",
           "topics": [
+            "calibration",
             "ood",
             "uncertainty",
             "benchmark_or_compare"
@@ -416,6 +1272,7 @@
           },
           "path": "examples/ood_selective_prediction_realdata_comparison.py",
           "topics": [
+            "calibration",
             "ood",
             "uncertainty",
             "benchmark_or_compare"
@@ -435,18 +1292,13 @@
         },
         {
           "comparability_signals": {
-            "compares_multiple_methods": false,
+            "compares_multiple_methods": true,
             "prints_metrics": true,
             "seeded": true,
             "uses_argparse": true
           },
-          "path": "examples/photoz.py",
+          "path": "examples/ordinal_regression_realdata_comparison.py",
           "topics": [
-            "noisy_features_eiv",
-            "calibration",
-            "ood",
-            "multimodal",
-            "uncertainty",
             "benchmark_or_compare"
           ]
         },
@@ -455,82 +1307,50 @@
             "compares_multiple_methods": true,
             "prints_metrics": true,
             "seeded": true,
-            "uses_argparse": false
+            "uses_argparse": true
           },
-          "path": "examples/photoz_benchmark_comparison.py",
+          "path": "examples/ordinal_uncertain_ground_truth_comparison.py",
           "topics": [
-            "noisy_labels",
-            "noisy_features_eiv",
             "benchmark_or_compare"
           ]
         },
         {
           "comparability_signals": {
             "compares_multiple_methods": false,
-            "prints_metrics": true,
-            "seeded": false,
-            "uses_argparse": false
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
           },
-          "path": "examples/photoz_binned_utils.py",
+          "path": "examples/ot_shift_conformal_demo.py",
           "topics": [
             "calibration"
           ]
         },
         {
           "comparability_signals": {
-            "compares_multiple_methods": true,
-            "prints_metrics": true,
-            "seeded": true,
-            "uses_argparse": false
-          },
-          "path": "examples/photoz_loss_comparison.py",
-          "topics": [
-            "noisy_labels",
-            "noisy_features_eiv",
-            "calibration",
-            "benchmark_or_compare"
-          ]
-        },
-        {
-          "comparability_signals": {
-            "compares_multiple_methods": true,
-            "prints_metrics": true,
-            "seeded": true,
-            "uses_argparse": true
-          },
-          "path": "examples/photoz_nnc_crps_rail_comparison.py",
-          "topics": [
-            "calibration",
-            "benchmark_or_compare"
-          ]
-        },
-        {
-          "comparability_signals": {
-            "compares_multiple_methods": true,
-            "prints_metrics": true,
-            "seeded": false,
-            "uses_argparse": false
-          },
-          "path": "examples/photoz_utils.py",
-          "topics": [
-            "imbalance",
-            "calibration",
-            "ood",
-            "multimodal",
-            "uncertainty",
-            "benchmark_or_compare"
-          ]
-        },
-        {
-          "comparability_signals": {
-            "compares_multiple_methods": true,
+            "compares_multiple_methods": false,
             "prints_metrics": false,
             "seeded": true,
-            "uses_argparse": true
+            "uses_argparse": false
           },
-          "path": "examples/ppi_photoz_inference_comparison.py",
+          "path": "examples/ppi_calibrated_mean.py",
           "topics": [
+            "calibration",
             "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": false
+          },
+          "path": "examples/ppi_mean_plus_split_conformal.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "uncertainty"
           ]
         },
         {
@@ -543,6 +1363,126 @@
           "path": "examples/propensity_tail_regression_comparison.py",
           "topics": [
             "imbalance",
+            "multimodal",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/self_agreement_regression_demo.py",
+          "topics": []
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/semi_supervised_regression_comparison.py",
+          "topics": [
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/sls_multimodal_regression.py",
+          "topics": [
+            "calibration",
+            "multimodal",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/spt_reg_realdata_comparison.py",
+          "topics": [
+            "calibration",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/spt_reg_synthetic_comparison.py",
+          "topics": [
+            "calibration",
+            "multimodal",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/spt_reg_year_comparison.py",
+          "topics": [
+            "noisy_labels",
+            "calibration",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/test_time_bayesian_linear_head_demo.py",
+          "topics": [
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/test_time_blr_predictive_adapter_demo.py",
+          "topics": [
+            "uncertainty"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": true,
+            "seeded": false,
+            "uses_argparse": true
+          },
+          "path": "examples/transformed_target_regression_comparison.py",
+          "topics": [
             "benchmark_or_compare"
           ]
         },
@@ -559,19 +1499,46 @@
             "uncertainty",
             "benchmark_or_compare"
           ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": true,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/uncertain_gt_density_conformal_realdata_comparison.py",
+          "topics": [
+            "calibration",
+            "uncertainty",
+            "benchmark_or_compare"
+          ]
+        },
+        {
+          "comparability_signals": {
+            "compares_multiple_methods": false,
+            "prints_metrics": false,
+            "seeded": true,
+            "uses_argparse": true
+          },
+          "path": "examples/wasserstein_bound_hybrid_pretrain_demo.py",
+          "topics": [
+            "ood",
+            "uncertainty"
+          ]
         }
       ],
       "invalid_imports": [],
       "topic_totals": {
-        "benchmark_or_compare": 35,
-        "calibration": 16,
-        "imbalance": 6,
-        "multi_target": 4,
-        "multimodal": 5,
+        "benchmark_or_compare": 86,
+        "calibration": 48,
+        "imbalance": 9,
+        "multi_target": 5,
+        "multimodal": 14,
         "noisy_features_eiv": 6,
-        "noisy_labels": 11,
-        "ood": 8,
-        "uncertainty": 16
+        "noisy_labels": 52,
+        "ood": 16,
+        "uncertainty": 39
       }
     },
     "provisional_score": 84.8
@@ -587,7 +1554,7 @@
       "review_packet_artifact_in_always_on_ci"
     ],
     "closed_v1": true,
-    "closeout_date": "2026-02-26",
+    "closeout_date": "2026-06-10",
     "deferred_v2_backlog": [
       "additional_real_data_ood_selective_benchmarks",
       "domain_specific_multimodal_real_data_benchmarks",
@@ -596,19 +1563,19 @@
     ]
   },
   "benchmark_governance": {
-    "cpu_smoke_threshold_limits": 10,
+    "cpu_smoke_threshold_limits": 22,
     "cpu_sweep_baseline_summary": {},
-    "cpu_sweep_threshold_limits": 20
+    "cpu_sweep_threshold_limits": 38
   },
   "comparative_evidence": {
     "open_gaps": [
       {
-        "gap": "Only one domain benchmark (photo-z) so far; needs broader domain coverage.",
+        "gap": "Needs broader real-domain coverage beyond synthetic and tabular comparison tasks.",
         "grade": "Decision-grade",
         "task": "Robust regression / outliers"
       },
       {
-        "gap": "Needs more model-family comparisons beyond reweighting losses.",
+        "gap": "Needs additional real-data long-tail benchmarks beyond synthetic selection proxies.",
         "grade": "Strong",
         "task": "Imbalanced / rare-target regression"
       },
@@ -623,32 +1590,37 @@
         "task": "Output constraints + post-hoc calibration transforms"
       },
       {
-        "gap": "Needs real-data uncertain-label benchmarks for external validity.",
+        "gap": "Needs real-data positive-target benchmarks beyond synthetic multiplicative-noise tasks.",
+        "grade": "Strong",
+        "task": "Target transforms for skewed regression"
+      },
+      {
+        "gap": "Current evidence is one real-data proxy benchmark; add domain-native SSL regression tracks.",
+        "grade": "Strong",
+        "task": "Semi-supervised regression / limited labels"
+      },
+      {
+        "gap": "Includes one real-data proxy benchmark; needs domain-native uncertain-label datasets for stronger external validity.",
         "grade": "Strong",
         "task": "Uncertain ground-truth + density-aware conformal"
       },
       {
-        "gap": "Needs real treatment-effect benchmarks beyond synthetic scenarios.",
+        "gap": "Includes real-covariate proxy benchmarks; needs external treatment-effect datasets for stronger external validity.",
         "grade": "Strong",
         "task": "Causal inference regression (DR ATE/CATE)"
       },
       {
-        "gap": "Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) needed for stronger generalization claims.",
+        "gap": "Coverage evidence now spans ensemble/SWAG/BNN base models; still needs multi-domain real-data calibration benchmarks under stronger shift.",
         "grade": "Strong",
         "task": "Calibrated intervals / coverage"
       },
       {
-        "gap": "Needs more than one real-data benchmark for generalization claims.",
-        "grade": "Strong",
-        "task": "Population/parameter inference (few labels)"
-      },
-      {
-        "gap": "Needs at least one real-data ordered-target benchmark for stronger external validity.",
+        "gap": "Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label datasets for stronger external validity.",
         "grade": "Strong",
         "task": "Ordinal regression / ordered targets"
       },
       {
-        "gap": "Needs real-data censored benchmark(s) beyond synthetic generation.",
+        "gap": "Includes one real-data synthetic-censoring benchmark; needs naturally censored datasets for stronger external validity.",
         "grade": "Strong",
         "task": "Censored / interval-censored regression"
       },
@@ -663,7 +1635,7 @@
         "task": "Multimodal / multi-target non-Gaussian"
       },
       {
-        "gap": "Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one photo-z domain benchmark) for stronger external validity.",
+        "gap": "Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one astronomical domain benchmark) for stronger external validity.",
         "grade": "Strong",
         "task": "Noisy features / EIV"
       },
@@ -671,70 +1643,79 @@
         "gap": "Needs comparisons against explicit noisy-label algorithms (co-teaching / sample-weight meta-learning) if/when implemented, plus more than one real dataset for stronger external validity.",
         "grade": "Strong",
         "task": "Noisy labels / corruption"
+      },
+      {
+        "gap": "Synthetic Gaussian linear benchmarks only; needs real frozen-backbone protocols before deployment-grade ranking against ensembles or SWAG.",
+        "grade": "Strong",
+        "task": "Low-shot linear adaptation on fixed features (last layer)"
       }
     ],
     "summary": {
       "decision_grade_tasks": 2,
       "grade_counts": {
         "Decision-grade": 2,
-        "Strong": 12
+        "Strong": 14
       },
-      "strong_or_better_tasks": 14,
-      "task_rows": 14
+      "strong_or_better_tasks": 16,
+      "task_rows": 16
     }
   },
-  "date": "2026-02-26",
+  "date": "2026-06-10",
   "example_summary_governance": {
-    "checked_limits": 722,
+    "checked_limits": 756,
     "ci_threshold_profile": "ci_conservative",
     "failed_limits": 0,
     "missing_limits": 0,
     "profile_compare_ok": true,
-    "profile_compare_rows": 17,
-    "review_threshold_checked_limits": 722,
+    "profile_compare_rows": 22,
+    "review_threshold_checked_limits": 756,
     "review_threshold_failed_limits": 0,
     "review_threshold_missing_limits": 0,
     "review_threshold_ok": true,
     "review_threshold_profile": "review_strict",
-    "threshold_artifact_count": 18,
-    "threshold_limit_count": 722,
+    "threshold_artifact_count": 22,
+    "threshold_limit_count": 756,
     "threshold_ok": true
   },
   "method_catalog": {
     "summary": {
       "families": {
-        "bnn": 2,
+        "bnn": 6,
         "calibration_transform": 3,
         "causal": 2,
         "censored": 3,
-        "conformal": 4,
+        "conformal": 6,
         "constraints": 2,
-        "eiv": 3,
-        "ensemble": 3,
-        "flow": 1,
-        "imbalanced_loss": 3,
+        "eiv": 7,
+        "ensemble": 7,
+        "flow": 3,
+        "imbalanced_loss": 5,
         "inference": 1,
         "mc_dropout": 1,
         "mdn": 1,
+        "multivariate": 1,
         "ordinal": 3,
         "point_loss": 1,
-        "probabilistic_loss": 3,
+        "probabilistic_loss": 7,
         "quantile": 1,
         "robust_loss": 1,
         "swag": 2,
-        "uncertain_gt": 3
+        "target_transform": 4,
+        "test_time": 6,
+        "tictac": 1,
+        "uncertain_gt": 4
       },
       "maturity": {
-        "Available": 31,
+        "Available": 65,
         "Core": 6,
-        "Strong": 6
+        "Strong": 7
       },
       "peer_uq_methods_present": {
         "BayesianNeuralNetwork": true,
         "MDNLoss": true,
         "SWAG": true
       },
-      "total_methods": 43
+      "total_methods": 78
     }
   },
   "native_leverage": {
@@ -746,9 +1727,9 @@
     "n_areas": 11
   },
   "review_focus_files": [
-    "docs/audits/adoption_readiness_2026-02-25.md",
-    "docs/guides/method_selection_matrix.md",
-    "docs/guides/comparative_evidence_matrix.md",
+    "docs/reports/audits/adoption_readiness_2026-02-25.md",
+    "docs/guide/method-selection.md",
+    "docs/reports/comparative_evidence_matrix.md",
     "reports/native_pytorch_leverage_matrix_2026-02-26.json",
     "tests/test_native_parity.py",
     "tests/test_loss_forward_signature_contracts.py",
@@ -760,7 +1741,7 @@
   "typing": {
     "packages": {},
     "top_files": [],
-    "total_errors": 0
+    "total_errors": null
   },
   "version": 1
 }

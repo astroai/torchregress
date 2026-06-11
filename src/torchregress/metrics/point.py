@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional, Union, cast
 import numpy as np
 import torch
 from torchmetrics import (
-    MeanAbsoluteError,
     MeanSquaredError,
     Metric,
     R2Score,
@@ -220,7 +219,7 @@ class OutlierFraction(Metric):
     higher_is_better = False
     full_state_update = False
 
-    def __init__(self, threshold: float = 0.15, mode: str = "photometric", **kwargs: Any) -> None:
+    def __init__(self, threshold: float = 0.15, mode: str = "relative", **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.threshold = threshold
         self.mode = mode
@@ -235,7 +234,10 @@ class OutlierFraction(Metric):
 
         abs_error = torch.abs(y_true - y_pred)
 
-        if self.mode.lower() == "photometric":
+        if self.mode.lower() == "relative":
+            # Shifted relative error: |y - y_pred| / (1 + y).  Numerically stable
+            # for non-negative targets that may be exactly zero (counts, prices,
+            # populations) and naturally down-weights large-y samples.
             scaled_error = abs_error / (1.0 + y_true)
         else:
             scale = torch.std(y_true)
@@ -271,7 +273,7 @@ class NormalizedMedianAbsoluteDeviation(Metric):
         validate_inputs(y_pred, y_true)
 
         diff = y_pred - y_true
-        if self.normalization == "photometric":
+        if self.normalization == "relative":
             diff = diff / (1.0 + y_true)
         metric_state_list[torch.Tensor](self.diffs).append(diff.view(-1))
 
@@ -320,13 +322,20 @@ def mean_squared_error(
     reduction: str = "mean",
     as_numpy: bool = False,
 ) -> MetricValue:
-    """Compute Mean Squared Error (MSE)."""
+    """Compute Mean Squared Error (MSE).
+
+    Thin wrapper around :func:`torchmetrics.functional.mean_squared_error` for
+    the default ``reduction='mean'`` path; only diverges for sample-weighted or
+    non-mean reductions, which torchmetrics does not support directly.
+    """
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
     if sample_weight is None and reduction == "mean":
-        result = MeanSquaredError()(y_pred_t, y_true_t)
+        from torchmetrics.functional import mean_squared_error as _tm_mse
+
+        result = _tm_mse(y_pred_t, y_true_t)
         if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
             return cast(MetricValue, create_metric_result(result, as_numpy=True))
         return cast(MetricValue, create_metric_result(result, as_numpy=False))
@@ -348,7 +357,7 @@ def mse(
     reduction: str = "mean",
     as_numpy: bool = False,
 ) -> MetricValue:
-    """Alias for mean_squared_error."""
+    """Alias for :func:`mean_squared_error`."""
     return mean_squared_error(
         y_pred, y_true, sample_weight=sample_weight, reduction=reduction, as_numpy=as_numpy
     )
@@ -361,7 +370,12 @@ def rmse(
     reduction: str = "mean",
     as_numpy: bool = False,
 ) -> Union[torch.Tensor, float, np.ndarray]:
-    """Compute Root Mean Squared Error (RMSE)."""
+    """Compute Root Mean Squared Error (RMSE).
+
+    Uses :class:`torchmetrics.MeanSquaredError(squared=False)` for the
+    default unweighted mean path; falls back to a hand-rolled sqrt for
+    sample-weighted / non-mean reductions.
+    """
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
@@ -397,13 +411,20 @@ def mean_absolute_error(
     reduction: str = "mean",
     as_numpy: bool = False,
 ) -> MetricValue:
-    """Compute Mean Absolute Error (MAE)."""
+    """Compute Mean Absolute Error (MAE).
+
+    Thin wrapper around :func:`torchmetrics.functional.mean_absolute_error`
+    for the default ``reduction='mean'`` path; falls back to a hand-rolled
+    reduction for sample-weighted or non-mean reductions.
+    """
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
     if sample_weight is None and reduction == "mean":
-        result = MeanAbsoluteError()(y_pred_t, y_true_t)
+        from torchmetrics.functional import mean_absolute_error as _tm_mae
+
+        result = _tm_mae(y_pred_t, y_true_t)
         if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
             return cast(MetricValue, create_metric_result(result, as_numpy=True))
         return cast(MetricValue, create_metric_result(result, as_numpy=False))
@@ -425,7 +446,7 @@ def mae(
     reduction: str = "mean",
     as_numpy: bool = False,
 ) -> MetricValue:
-    """Alias for mean_absolute_error."""
+    """Alias for :func:`mean_absolute_error`."""
     return mean_absolute_error(
         y_pred, y_true, sample_weight=sample_weight, reduction=reduction, as_numpy=as_numpy
     )
@@ -760,7 +781,7 @@ def outlier_fraction(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
     threshold: float = 0.15,
-    mode: str = "photometric",
+    mode: str = "relative",
     as_numpy: bool = False,
 ) -> MetricValue:
     """Functional wrapper for :class:`OutlierFraction`."""

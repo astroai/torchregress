@@ -172,6 +172,7 @@ def test_reduction_behavior():
         "InputNoiseBinnedPDFLoss",  # Meta-loss (needs model)
         "GaussianCRPSLoss",  # Needs concatenated [mean, log_var] input
         "GaussianWassersteinBoundLoss",  # Needs pred/target mean + covariance tensors
+        "SLSLoss",  # Needs d and context_dim parameters
     ]
 
     for loss_class in get_all_loss_classes():

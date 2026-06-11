@@ -272,7 +272,7 @@ def test_render_example_summaries_causal_dr_subset(tmp_path: Path) -> None:
     assert payload["artifact"] == "comparison_example_summary"
     assert "causal" in payload["task"].lower()
     methods = {row["Method"] for row in payload["rows"]}
-    assert {"Uplift-NaiveDiff", "Uplift-DRATE", "AstronomyBias-DRATE"} <= methods
+    assert {"Uplift-NaiveDiff", "Uplift-DRATE", "SelectionBias-DRATE"} <= methods
 
 
 def test_render_example_summaries_causal_dr_realdata_subset(tmp_path: Path) -> None:

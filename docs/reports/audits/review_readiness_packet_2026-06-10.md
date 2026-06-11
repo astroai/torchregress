@@ -1,4 +1,4 @@
-# Review Readiness Packet (2026-02-26)
+# Review Readiness Packet (2026-06-10)
 
 This page consolidates the highest-value audit and governance artifacts for a deep review pass.
 
@@ -9,31 +9,31 @@ _Source artifacts_: `reports/adoption_readiness_2026-02-25.json`,
 `reports/native_pytorch_leverage_matrix_2026-02-26.json`,
 `reports/example_summaries/profile_comparison_audit_vs_full.json`,
 `reports/example_summaries/threshold_check_full_latest.json`
-_Generated date_: `2026-02-26`
+_Generated date_: `2026-06-10`
 
 ## Audit v1 Status
 
 - Audit v1 closed: `True`
-- Closeout date: `2026-02-26`
+- Closeout date: `2026-06-10`
 - Closed actionables: `['docs_example_api_drift_zero', 'full_repo_mypy_zero', 'native_leverage_matrix_with_parity_contracts', 'example_summary_profile_and_threshold_governance', 'benchmark_threshold_governance_cpu', 'review_packet_artifact_in_always_on_ci']`
 - Deferred v2 backlog: `['additional_real_data_ood_selective_benchmarks', 'domain_specific_multimodal_real_data_benchmarks', 'broader_noisy_features_noisy_labels_external_validity', 'zuko_flow_optional_ci_expansion']`
 
 ## Executive Snapshot
 
 - Adoption audit score (baseline -> provisional): `59.6 -> 84.8`
-- Full repo mypy status: `0 errors`
+- Full repo mypy status: `None errors`
 - Docs/example drift checks: `attr=0`, `imports=0`, `extras=0`, `example_imports=0`
-- Examples tracked by audit: `39`
-- Comparative evidence coverage (strong-or-better): `14 / 14`
+- Examples tracked by audit: `112`
+- Comparative evidence coverage (strong-or-better): `16 / 16`
 - Method catalog peer methods present (`SWAG`/`BNN`/`MDN`): `{'SWAG': True, 'BayesianNeuralNetwork': True, 'MDNLoss': True}`
 
 ## Governance Status
 
-- Example summary profile comparison (`audit -> full`): `ok=True`, rows=`17`
-- Example summary thresholds (full, CI conservative): `ok=True`, checked=`722`, failed=`0`, missing=`0`
-- Example summary thresholds (full, review strict): `ok=True`, checked=`722`, failed=`0`, missing=`0`
-- Example summary threshold baselines: limits=`722`, artifacts=`18`
-- Benchmark threshold baselines (CPU): smoke limits=`10`, sweep limits=`20`
+- Example summary profile comparison (`audit -> full`): `ok=True`, rows=`22`
+- Example summary thresholds (full, CI conservative): `ok=True`, checked=`756`, failed=`0`, missing=`0`
+- Example summary thresholds (full, review strict): `ok=True`, checked=`756`, failed=`0`, missing=`0`
+- Example summary threshold baselines: limits=`756`, artifacts=`22`
+- Benchmark threshold baselines (CPU): smoke limits=`22`, sweep limits=`38`
 - Benchmark sweep baseline summary (CPU): `{}`
 
 ## Native Leverage Decisions (Counts)
@@ -57,16 +57,16 @@ _Generated date_: `2026-02-26`
 
 ## Remaining Evidence/External-Validity Gaps (from Comparative Evidence Matrix)
 
-- `Robust regression / outliers` (`Decision-grade`): Needs broader domain coverage beyond the current benchmark mix.
-- `Imbalanced / rare-target regression` (`Strong`): Needs more model-family comparisons beyond reweighting losses.
+- `Robust regression / outliers` (`Decision-grade`): Needs broader real-domain coverage beyond synthetic and tabular comparison tasks.
+- `Imbalanced / rare-target regression` (`Strong`): Needs additional real-data long-tail benchmarks beyond synthetic selection proxies.
 - `Selection bias / long-tail with missing labels` (`Strong`): Needs real-data selection-bias benchmarks beyond synthetic generation.
 - `Output constraints + post-hoc calibration transforms` (`Strong`): Needs additional domain benchmarks beyond synthetic stress tests.
-- `Uncertain ground-truth + density-aware conformal` (`Strong`): Needs real-data uncertain-label benchmarks for external validity.
-- `Causal inference regression (DR ATE/CATE)` (`Strong`): Needs real treatment-effect benchmarks beyond synthetic scenarios.
-- `Calibrated intervals / coverage` (`Strong`): Broader base-model diversity (especially ensembles/BNN/SWAG + conformal wrappers) needed for stronger generalization claims.
-- `Population/parameter inference (few labels)` (`Strong`): Needs more than one real-data benchmark for generalization claims.
-- `Ordinal regression / ordered targets` (`Strong`): Needs at least one real-data ordered-target benchmark for stronger external validity.
-- `Censored / interval-censored regression` (`Strong`): Needs real-data censored benchmark(s) beyond synthetic generation.
+- `Target transforms for skewed regression` (`Strong`): Needs real-data positive-target benchmarks beyond synthetic multiplicative-noise tasks.
+- `Semi-supervised regression / limited labels` (`Strong`): Current evidence is one real-data proxy benchmark; add domain-native SSL regression tracks.
+- `Uncertain ground-truth + density-aware conformal` (`Strong`): Includes one real-data proxy benchmark; needs domain-native uncertain-label datasets for stronger external validity.
+- `Causal inference regression (DR ATE/CATE)` (`Strong`): Includes real-covariate proxy benchmarks; needs external treatment-effect datasets for stronger external validity.
+- `Calibrated intervals / coverage` (`Strong`): Coverage evidence now spans ensemble/SWAG/BNN base models; still needs multi-domain real-data calibration benchmarks under stronger shift.
+- `Ordinal regression / ordered targets` (`Strong`): Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label datasets for stronger external validity.
 
 ## Reviewer Questions (Suggested)
 

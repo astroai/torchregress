@@ -1060,9 +1060,9 @@ def test_causal_dr_uplift_comparison_writes_summary_json(tmp_path: Path) -> None
             "Uplift-NaiveDiff",
             "Uplift-DRATE",
             "Uplift-DRCATE",
-            "AstronomyBias-NaiveDiff",
-            "AstronomyBias-DRATE",
-            "AstronomyBias-DRCATE",
+            "SelectionBias-NaiveDiff",
+            "SelectionBias-DRATE",
+            "SelectionBias-DRCATE",
         },
     )
     payload = _load_payload(out)
@@ -1071,9 +1071,9 @@ def test_causal_dr_uplift_comparison_writes_summary_json(tmp_path: Path) -> None
         "Uplift-NaiveDiff",
         "Uplift-DRATE",
         "Uplift-DRCATE",
-        "AstronomyBias-NaiveDiff",
-        "AstronomyBias-DRATE",
-        "AstronomyBias-DRCATE",
+        "SelectionBias-NaiveDiff",
+        "SelectionBias-DRATE",
+        "SelectionBias-DRCATE",
     ):
         row = rows[method]
         _assert_row_has_keys(

@@ -38,7 +38,7 @@ Deep Ensembles, BatchEnsemble, SWAG, MC-Dropout, BNN — with aleatoric/epistemi
 
 ### [Algorithms](algorithms/irls.md)
 
-Classical statistical algorithms: IRLS for robust regression, Regression Calibration and SIMEX for measurement error correction.
+Algorithms for robust fitting and structured uncertainty: IRLS for robust regression, RC/SIMEX for measurement error correction, [TIC-TAC](algorithms/tictac.md) for covariance learning, [Heteroscedastic Laplace](algorithms/heteroscedastic_laplace.md) for last-layer Bayesian regression, and [VIDS Adaptive Prior VI](algorithms/adaptive_prior_vi.md) for covariate-shift robustness.
 
 ### [Test-Time & Shift](test-time/bayesian-linear-regression.md)
 

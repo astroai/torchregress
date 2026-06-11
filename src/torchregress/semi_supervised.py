@@ -627,6 +627,11 @@ def _gaussian_pseudo_loss(
     reference: Tensor,
     min_scale: float,
 ) -> Tensor:
+    assert student_prediction.mean is not None
+    assert student_prediction.std is not None
+    assert consensus_prediction.mean is not None
+    assert consensus_prediction.std is not None
+
     student_mean = _scalar_head_tensor(
         student_prediction.mean,
         reference=reference,
@@ -661,6 +666,9 @@ def _binned_pseudo_loss(
     eps: float,
 ) -> Tensor:
     batch_size = _infer_batch_size([student_prediction, consensus_prediction])
+    assert student_prediction.bin_edges is not None
+    assert student_prediction.bar_logits is not None
+
     edges = _grid_tensor(
         student_prediction.bin_edges,
         batch_size=batch_size,

@@ -164,6 +164,9 @@ nav:
           - IRLS: methods/algorithms/irls.md
           - Regression Calibration: methods/algorithms/rc.md
           - SIMEX: methods/algorithms/simex.md
+          - TIC-TAC: methods/algorithms/tictac.md
+          - Heteroscedastic Laplace: methods/algorithms/heteroscedastic_laplace.md
+          - VIDS Adaptive Prior: methods/algorithms/adaptive_prior_vi.md
       - Test-Time & Shift:
           - Roadmap: methods/test-time/regression-shift-adaptation-roadmap.md
           - Bayesian Linear Regression: methods/test-time/bayesian-linear-regression.md

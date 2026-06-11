@@ -484,7 +484,7 @@ Only after the core methods work:
 
 * pose/keypoint tasks
 * image-conditioned structured covariance
-* astronomy-specific multivariate regression if relevant
+* application-specific multivariate regression if relevant
 
 ## Common metrics
 
