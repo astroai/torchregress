@@ -3,7 +3,7 @@ Hybrid schedule: short ``GaussianWassersteinBoundLoss`` (diagonal) pretraining a
 neighbourhood covariance pseudo-labels, then ``GaussianNLLLoss`` fine-tuning.
 
 Uses a tiny ``nn.Linear(1, 2)`` head (mean + log-variance) on scalar synthetic data with
-heteroscedastic noise. Demonstrates the recipe from ``docs/research/plans/Wasserstein_Supervision.md``
+heteroscedastic noise. Demonstrates the Wasserstein-bound hybrid pretraining recipe
 Phase 3 without a full trainer abstraction.
 """
 

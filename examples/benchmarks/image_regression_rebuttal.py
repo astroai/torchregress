@@ -21,14 +21,13 @@ EXAMPLES_DIR = Path(__file__).resolve().parents[1]
 if str(EXAMPLES_DIR) not in sys.path:
     sys.path.insert(0, str(EXAMPLES_DIR))
 
-from comparison_utils import (  # noqa: E402
+from torchregress.comparison import (  # noqa: E402
     print_comparison_summary,
     print_fairness_notes,
     set_comparison_seed,
     timed_call,
     write_comparison_summary_json,
 )
-
 from torchregress.metrics import (  # noqa: E402
     crps_gaussian,
     gaussian_nll,

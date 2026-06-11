@@ -4,7 +4,9 @@ import argparse
 from dataclasses import dataclass
 
 import torch
-from comparison_utils import (
+from torch import Tensor, nn
+
+from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
     print_fairness_notes,
@@ -12,8 +14,6 @@ from comparison_utils import (
     timed_call,
     write_comparison_summary_json,
 )
-from torch import Tensor, nn
-
 from torchregress.losses import (
     BoxCoxTransformLoss,
     LogTransformLoss,

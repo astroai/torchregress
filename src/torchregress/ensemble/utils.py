@@ -6,51 +6,19 @@ ensemble implementations, including tools for prediction aggregation
 and uncertainty estimation.
 """
 
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Union
 
 import torch
 import torch.nn as nn
 
+from torchregress.utils.gaussian_output import parse_heteroscedastic_output, variance_from_logvar
 
-def parse_heteroscedastic_output(
-    output: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], Dict[str, torch.Tensor]],
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Parse heteroscedastic model output into mean and log_variance tensors.
-
-    Supports multiple output formats:
-    - Tuple: (mean, log_var)
-    - Dict: {"means": mean, "log_vars": log_var}
-    - Tensor: concatenated [mean, log_var] with even number of features
-
-    Args:
-        output: Model output in one of the supported formats
-
-    Returns:
-        Tuple of (mean, log_var) tensors
-
-    Raises:
-        ValueError: If output format is not recognized
-    """
-    if isinstance(output, tuple) and len(output) == 2:
-        # (mean, log_var) tuple format
-        mean, log_var = output
-    elif isinstance(output, dict) and "means" in output and "log_vars" in output:
-        # Dictionary format from BatchEnsemble
-        mean = output["means"]
-        log_var = output["log_vars"]
-    elif isinstance(output, torch.Tensor) and output.ndim >= 2 and output.shape[1] % 2 == 0:
-        # Concatenated [mean, log_var] format
-        dim = output.shape[1] // 2
-        mean, log_var = output[:, :dim], output[:, dim:]
-    else:
-        raise ValueError(
-            "Model output format not recognized for heteroscedastic uncertainty. "
-            "Expected tuple (mean, log_var), dict with 'means' and 'log_vars', "
-            "or tensor with even number of features [mean, log_var]."
-        )
-
-    return mean, log_var
+__all__ = [
+    "generate_prediction_samples",
+    "parse_heteroscedastic_output",
+    "run_ensemble_model",
+    "run_heteroscedastic_ensemble_model",
+]
 
 
 def run_ensemble_model(
@@ -72,7 +40,6 @@ def run_ensemble_model(
         - variance: Variance of predictions (epistemic uncertainty)
         - individual_preds: Individual predictions (if return_individual=True)
     """
-    # Convert list to stacked tensor if needed
     if isinstance(inputs, list):
         inputs_stacked = torch.stack(inputs)
     else:
@@ -80,34 +47,24 @@ def run_ensemble_model(
 
     n_samples = inputs_stacked.shape[0]
     batch_size = inputs_stacked.shape[1]
-
-    # Reshape for batch processing
     inputs_flat = inputs_stacked.reshape(-1, *inputs_stacked.shape[2:])
 
-    # Run model on all inputs
     with torch.no_grad():
         outputs_flat = model(inputs_flat)
 
-        # Handle different output types
         if isinstance(outputs_flat, tuple):
-            # Take first output if model returns multiple outputs
             outputs_flat = outputs_flat[0]
 
-        # Get output feature dimension
         if outputs_flat.ndim == 1:
-            # Handle scalar output case
             n_outputs = 1
             outputs = outputs_flat.reshape(n_samples, batch_size, 1)
         else:
-            # Normal tensor output case
             n_outputs = outputs_flat.shape[1]
             outputs = outputs_flat.reshape(n_samples, batch_size, n_outputs)
 
-    # Calculate mean and variance across samples
-    mean_pred = torch.mean(outputs, dim=0)  # [batch_size, n_outputs]
-    variance = torch.var(outputs, dim=0, unbiased=True)  # [batch_size, n_outputs]
+    mean_pred = torch.mean(outputs, dim=0)
+    variance = torch.var(outputs, dim=0, unbiased=True)
 
-    # Prepare results
     result = {"mean": mean_pred, "variance": variance}
 
     if return_individual:
@@ -123,19 +80,7 @@ def run_heteroscedastic_ensemble_model(
     Run a heteroscedastic model on multiple input variations and aggregate results.
 
     This assumes the model outputs both mean and variance predictions.
-
-    Args:
-        model: Heteroscedastic model function
-        inputs: List of input tensors or batched tensor [n_samples, batch_size, ...]
-
-    Returns:
-        Dictionary with:
-        - mean: Mean prediction across samples
-        - variance: Total variance
-        - epistemic_variance: Variance of means
-        - aleatoric_variance: Mean of variances
     """
-    # Convert list to stacked tensor if needed
     if isinstance(inputs, list):
         inputs_stacked = torch.stack(inputs)
     else:
@@ -143,35 +88,21 @@ def run_heteroscedastic_ensemble_model(
 
     n_samples = inputs_stacked.shape[0]
     batch_size = inputs_stacked.shape[1]
-
-    # Reshape for batch processing
     inputs_flat = inputs_stacked.reshape(-1, *inputs_stacked.shape[2:])
 
-    # Run model on all inputs
     with torch.no_grad():
         outputs_flat = model(inputs_flat)
-
-        # Extract means and variances using utility function
         means_flat, log_vars_flat = parse_heteroscedastic_output(outputs_flat)
-        variances_flat = torch.exp(log_vars_flat)
+        variances_flat = variance_from_logvar(log_vars_flat)
 
-        # Reshape to [n_samples, batch_size, n_outputs]
         n_outputs = means_flat.shape[1]
         means = means_flat.reshape(n_samples, batch_size, n_outputs)
         variances = variances_flat.reshape(n_samples, batch_size, n_outputs)
 
-    # Calculate ensemble statistics
-    # Mean prediction (average of means)
-    ensemble_mean = torch.mean(means, dim=0)  # [batch_size, n_outputs]
-
-    # Epistemic uncertainty (variance of means)
-    epistemic_var = torch.var(means, dim=0, unbiased=True)  # [batch_size, n_outputs]
-
-    # Aleatoric uncertainty (average of variances)
-    aleatoric_var = torch.mean(variances, dim=0)  # [batch_size, n_outputs]
-
-    # Total predictive variance
-    total_var = epistemic_var + aleatoric_var  # [batch_size, n_outputs]
+    ensemble_mean = torch.mean(means, dim=0)
+    epistemic_var = torch.var(means, dim=0, unbiased=True)
+    aleatoric_var = torch.mean(variances, dim=0)
+    total_var = epistemic_var + aleatoric_var
 
     return {
         "mean": ensemble_mean,
@@ -186,41 +117,22 @@ def generate_prediction_samples(
 ) -> Dict[str, torch.Tensor]:
     """
     Generate multiple predictions using dropout at inference time (MC Dropout).
-
-    Args:
-        model: Model with dropout layers
-        x: Input tensor [batch_size, ...]
-        n_samples: Number of samples to generate
-        return_samples: Whether to return individual samples
-
-    Returns:
-        Dictionary with:
-        - mean: Mean prediction across samples
-        - variance: Variance of predictions
-        - samples: Individual predictions (if return_samples=True)
     """
-    # Ensure model is in training mode to activate dropout
     model.train()
 
-    # Generate predictions
     samples = []
     with torch.no_grad():
         for _ in range(n_samples):
             outputs = model(x)
             samples.append(outputs)
 
-    # Stack predictions [n_samples, batch_size, n_outputs]
     stacked_samples = torch.stack(samples)
-
-    # Calculate statistics
     mean_pred = torch.mean(stacked_samples, dim=0)
     variance = torch.var(stacked_samples, dim=0, unbiased=True)
 
-    # Prepare output
     result = {"mean": mean_pred, "variance": variance}
 
     if return_samples:
         result["samples"] = stacked_samples
 
-    # Switch model back to evaluation mode
     return result

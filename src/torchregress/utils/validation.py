@@ -307,7 +307,11 @@ def validate_same_device(
 
 
 def validate_weights(
-    weights: Optional[torch.Tensor], batch_size: int, allow_none: bool = True
+    weights: Optional[torch.Tensor],
+    batch_size: int,
+    allow_none: bool = True,
+    *,
+    flatten: bool = False,
 ) -> Optional[torch.Tensor]:
     """
     Validates sample weights for loss functions.
@@ -316,6 +320,7 @@ def validate_weights(
         weights: Sample weights tensor or None
         batch_size: Expected batch size
         allow_none: Whether None is accepted as a valid value
+        flatten: When True, reshape ``(batch_size, 1)`` weights to 1D for metrics
 
     Returns:
         Validated weights or None
@@ -354,7 +359,47 @@ def validate_weights(
     # Check values
     validate_positive(weights, "weights", allow_zero=True)
 
+    if flatten:
+        if weights.ndim > 1 and weights.shape[1] != 1:
+            raise ValueError(
+                f"Sample weights should be 1D or have shape (batch_size, 1). Got {weights.shape}"
+            )
+        return weights.reshape(-1)
+
     return weights
+
+
+def validate_metric_inputs(y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
+    """Validate metric tensor pairs with broadcast-tolerant shape checks."""
+    if y_pred.dim() == 0 or y_true.dim() == 0:
+        raise ValueError("Inputs cannot be scalars, must have at least one dimension")
+
+    if y_pred.shape[0] != y_true.shape[0]:
+        raise ValueError(
+            f"y_pred and y_true must have same batch size. "
+            f"Got y_pred: {y_pred.shape}, y_true: {y_true.shape}"
+        )
+
+    if y_pred.shape != y_true.shape:
+        try:
+            _ = y_pred + y_true
+        except RuntimeError:
+            raise ValueError(
+                f"y_pred shape {y_pred.shape} and y_true shape {y_true.shape} are not compatible"
+            ) from None
+
+    if torch.isnan(y_pred).any() or torch.isinf(y_pred).any():
+        raise ValueError("y_pred contains NaN or infinite values")
+
+    if torch.isnan(y_true).any() or torch.isinf(y_true).any():
+        raise ValueError("y_true contains NaN or infinite values")
+
+
+def validate_sample_weight(sample_weight: torch.Tensor, batch_size: int) -> torch.Tensor:
+    """Validate and flatten per-sample metric weights."""
+    validated = validate_weights(sample_weight, batch_size, allow_none=False, flatten=True)
+    assert validated is not None
+    return validated
 
 
 def check_tensor(

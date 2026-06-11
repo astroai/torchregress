@@ -23,17 +23,17 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
-from comparison_utils import (  # noqa: E402
+from sklearn.datasets import fetch_openml  # noqa: E402
+from torch import Tensor, nn  # noqa: E402
+from torch.utils.data import DataLoader, TensorDataset  # noqa: E402
+
+from torchregress.comparison import (  # noqa: E402
     print_comparison_summary,
     print_fairness_notes,
     set_comparison_seed,
     timed_call,
     write_comparison_summary_json,
 )
-from sklearn.datasets import fetch_openml  # noqa: E402
-from torch import Tensor, nn  # noqa: E402
-from torch.utils.data import DataLoader, TensorDataset  # noqa: E402
-
 from torchregress.metrics import (  # noqa: E402
     calibration_score,
     crps_gaussian,

@@ -126,16 +126,6 @@ class TestBaseLoss:
         with pytest.raises(NotImplementedError):
             loss(y_pred, target)
 
-    def test_apply_mask(self):
-        loss = SimpleLoss()
-        tensor = torch.tensor([1.0, 2.0, 3.0, 4.0])
-        mask = torch.tensor([True, False, True, False])
-
-        masked = loss._apply_mask(tensor, mask)
-        # Masked values should be the tensor values where mask is True
-        assert masked.shape == torch.Size([2])
-        assert torch.allclose(masked, torch.tensor([1.0, 3.0]))
-
     def test_validate_inputs(self):
         loss = SimpleLoss()
         y_pred = torch.tensor([1.0, 2.0, 3.0])

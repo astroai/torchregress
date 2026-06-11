@@ -47,7 +47,7 @@ The current paper should **not** claim yet:
 
 ### Core method
 
-Implemented in [transport.py](/Users/fabbros/src/torchregress/torchregress/test_time/transport.py):
+Implemented in [transport.py](../../src/torchregress/test_time/transport.py):
 
 - `ShiftFactoredTransportConfig`
 - `ShiftFactoredTransportState`
@@ -71,7 +71,7 @@ Guardrails already added:
 
 ### Predictive-family support
 
-Implemented in [prediction.py](/Users/fabbros/src/torchregress/torchregress/prediction.py):
+Implemented in [prediction.py](../../src/torchregress/prediction.py):
 
 - `PredictiveBatch`
 - quantile-to-density conversion
@@ -90,33 +90,33 @@ Current supported SPT-facing predictive families:
 
 Implemented examples:
 
-- [spt_reg_synthetic_comparison.py](/Users/fabbros/src/torchregress/examples/spt_reg_synthetic_comparison.py)
-- [spt_reg_realdata_comparison.py](/Users/fabbros/src/torchregress/examples/spt_reg_realdata_comparison.py)
-- [spt_reg_year_comparison.py](/Users/fabbros/src/torchregress/examples/spt_reg_year_comparison.py)
+- [spt_reg_synthetic_comparison.py](examples/spt_reg_synthetic_comparison.py)
+- [spt_reg_realdata_comparison.py](examples/spt_reg_realdata_comparison.py)
+- [spt_reg_year_comparison.py](examples/spt_reg_year_comparison.py)
 
 Artifact renderer:
 
-- [render_spt_reg_paper_artifacts.py](/Users/fabbros/src/torchregress/tools/render_spt_reg_paper_artifacts.py)
+- [render_spt_reg_paper_artifacts.py](tools/render_spt_reg_paper_artifacts.py)
 
 One-shot orchestration (renderer + bundled comparisons + optional large-tabular/shifts hooks):
 
-- [run_neurips_spt_reg_full.py](/Users/fabbros/src/torchregress/scripts/run_neurips_spt_reg_full.py)
+- [run_neurips_spt_reg_full.py](scripts/run_neurips_spt_reg_full.py)
 
 Current default artifact surface:
 
-- [synthetic_competing_methods_smoke.json](/Users/fabbros/src/torchregress/reports/neurips_spt_reg/synthetic_competing_methods_smoke.json)
-- [tabular_competing_methods_smoke.json](/Users/fabbros/src/torchregress/reports/neurips_spt_reg/tabular_competing_methods_smoke.json)
-- [year_competing_methods_smoke.json](/Users/fabbros/src/torchregress/reports/neurips_spt_reg/year_competing_methods_smoke.json)
-- [artifact_manifest_latest.json](/Users/fabbros/src/torchregress/reports/neurips_spt_reg/artifact_manifest_latest.json)
+- [synthetic_competing_methods_smoke.json](reports/neurips_spt_reg/synthetic_competing_methods_smoke.json)
+- [tabular_competing_methods_smoke.json](reports/neurips_spt_reg/tabular_competing_methods_smoke.json)
+- [year_competing_methods_smoke.json](reports/neurips_spt_reg/year_competing_methods_smoke.json)
+- [artifact_manifest_latest.json](reports/neurips_spt_reg/artifact_manifest_latest.json)
 
 ### Manuscript
 
 Current paper source:
 
-- [main.tex](/Users/fabbros/src/torchregress/papers/neurips_spt_reg/main.tex)
-- [refs.bib](/Users/fabbros/src/torchregress/papers/neurips_spt_reg/refs.bib)
-- [reproducibility.md](/Users/fabbros/src/torchregress/papers/neurips_spt_reg/reproducibility.md)
-- [README.md](/Users/fabbros/src/torchregress/papers/neurips_spt_reg/README.md)
+- [main.tex](papers/neurips_spt_reg/main.tex)
+- [refs.bib](papers/neurips_spt_reg/refs.bib)
+- [reproducibility.md](papers/neurips_spt_reg/reproducibility.md)
+- [README.md](papers/neurips_spt_reg/README.md)
 
 The manuscript is now single-file and already reflects:
 
@@ -150,7 +150,7 @@ These are smoke-profile results below unless noted otherwise.
 
 ### Synthetic
 
-Current state from [synthetic_competing_methods_smoke.json](/Users/fabbros/src/torchregress/reports/neurips_spt_reg/synthetic_competing_methods_smoke.json):
+Current state from [synthetic_competing_methods_smoke.json](reports/neurips_spt_reg/synthetic_competing_methods_smoke.json):
 
 - `SourceGaussian` is still competitive and hard to beat cleanly.
 - `SPTRegGaussian` is now stable and valid, but not a decisive win.
@@ -166,7 +166,7 @@ Interpretation:
 
 ### Small real tabular
 
-Current state from [tabular_competing_methods_smoke.json](/Users/fabbros/src/torchregress/reports/neurips_spt_reg/tabular_competing_methods_smoke.json):
+Current state from [tabular_competing_methods_smoke.json](reports/neurips_spt_reg/tabular_competing_methods_smoke.json):
 
 - `SourceGaussian` remains strong.
 - `SPTRegGaussian` is usually best interpreted as a more conservative valid interval method, not a clear efficiency win.
@@ -180,7 +180,7 @@ Interpretation:
 
 ### Year-style real tabular
 
-Current state from [year_competing_methods_smoke.json](/Users/fabbros/src/torchregress/reports/neurips_spt_reg/year_competing_methods_smoke.json):
+Current state from [year_competing_methods_smoke.json](reports/neurips_spt_reg/year_competing_methods_smoke.json):
 
 - `SourceGaussian` is very strong.
 - `SPTRegGaussian` is now valid and no longer broken, but largely behaves like a conservative wrapper near raw conformal.
@@ -270,7 +270,7 @@ Priority order:
 
 ### Immediate writing tasks
 
-1. Tighten the introduction and method claims in [main.tex](/Users/fabbros/src/torchregress/papers/neurips_spt_reg/main.tex) around what is already defensible:
+1. Tighten the introduction and method claims in [main.tex](papers/neurips_spt_reg/main.tex) around what is already defensible:
    - predictive-law adaptation
    - family-agnostic transport interface
    - validity versus efficiency distinction

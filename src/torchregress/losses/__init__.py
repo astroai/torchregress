@@ -7,6 +7,7 @@ including weighted losses, Gaussian-based losses, robust losses, and more.
 
 # Base classes and wrappers
 # Balanced MSE (imbalanced targets)
+from ..utils.gaussian_output import low_rank_output_dim, split_low_rank_gaussian_output
 from .balanced_mse import BalancedMSELoss, BMCLoss
 from .base import (
     BaseLoss,
@@ -86,8 +87,6 @@ from .gaussian import (
     LowRankGaussianLoss,
     MultivariateGaussianLoss,
     create_gaussian_nll,
-    low_rank_output_dim,
-    split_low_rank_gaussian_output,
 )
 from .gaussian_wasserstein import (
     GaussianWassersteinBoundLoss,

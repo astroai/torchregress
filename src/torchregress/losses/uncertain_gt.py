@@ -8,26 +8,14 @@ from typing import Any, Optional, Tuple
 import torch
 from torch import Tensor
 
+from ..utils.gaussian_output import split_mean_log_variance
 from ..utils.propensity import ipw_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
 
 def _split_gaussian_params(y_pred: Tensor | Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
-    if isinstance(y_pred, tuple):
-        if len(y_pred) != 2:
-            raise ValueError("Gaussian tuple prediction must be (mean, log_variance)")
-        mean, log_var = y_pred
-        return mean, log_var
-    # Allow mean-only predictions for convenience by assuming unit-variance
-    # logits (log-variance = 0). This keeps API compatibility with generic
-    # regression call sites that pass a single-output tensor.
-    if y_pred.shape[-1] == 1 or y_pred.shape[-1] % 2 != 0:
-        return y_pred, torch.zeros_like(y_pred)
-    n_targets = y_pred.shape[-1] // 2
-    mean = y_pred[..., :n_targets]
-    log_var = y_pred[..., n_targets:]
-    return mean, log_var
+    return split_mean_log_variance(y_pred, mean_only_log_var="zeros")
 
 
 def _combine_external_weights(

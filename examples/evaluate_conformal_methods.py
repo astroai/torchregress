@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from comparison_utils import print_comparison_summary, print_fairness_notes, timed_call
 from torch import Tensor
 
+from torchregress.comparison import print_comparison_summary, print_fairness_notes, timed_call
 from torchregress.losses.conformal import ConformalLoss
 from torchregress.losses.quantile import MultiQuantileLoss
 

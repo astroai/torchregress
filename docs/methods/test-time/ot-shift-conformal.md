@@ -89,7 +89,7 @@ over :math:`w = \mathrm{softmax}(z)` with Adam (implementation detail).
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Non-exchangeable conformal prediction with optimal transport (see research plan `docs/research/plans/shift_aware_ot_conformal.md`). |
+| 1 | Non-exchangeable conformal prediction with optimal transport (see `torchregress.test_time.ot_conformal_predictive`). |
 
 ---
 

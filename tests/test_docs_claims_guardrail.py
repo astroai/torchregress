@@ -13,7 +13,7 @@ def _markdown_files() -> list[Path]:
         sorted(
             path
             for path in (REPO_ROOT / "docs").rglob("*.md")
-            if "docs/audits/" not in path.as_posix()
+            if "docs/reports/audits/" not in path.as_posix()
         )
     )
     return files

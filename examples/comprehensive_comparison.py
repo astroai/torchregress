@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from comparison_utils import (
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
 )
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.losses import (
     CauchyLoss,
     GaussianNLLLoss,

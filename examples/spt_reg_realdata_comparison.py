@@ -5,14 +5,14 @@ from dataclasses import dataclass
 
 import numpy as np
 import spt_reg_synthetic_comparison as sptbase
-from comparison_utils import (
+from sklearn.datasets import load_diabetes
+
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
     write_comparison_summary_json,
 )
-from sklearn.datasets import load_diabetes
-
 from torchregress.test_time import (
     FeatureStatNormalizer,
     ShiftFactoredPredictiveTransport,

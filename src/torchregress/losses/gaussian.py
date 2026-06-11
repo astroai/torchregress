@@ -9,7 +9,10 @@ import torch
 import torch.nn as nn
 from torch.distributions import LowRankMultivariateNormal
 
-from .base import DistributionLoss, WeightedMSELoss, reduce_per_sample
+from ..utils.gaussian_output import split_mean_log_variance
+from ..utils.reduction import reduce_per_sample
+from ._legacy_args import resolve_legacy_cov_mask_weights
+from .base import DistributionLoss, WeightedMSELoss
 from .loss_registry import register_regression_loss
 
 # Module-level constants hoisted out of the hot forward path. CRPS uses
@@ -18,67 +21,6 @@ from .loss_registry import register_regression_loss
 # per-call ``math.sqrt``.
 _LOG_2PI = math.log(2.0 * math.pi)
 _INV_SQRT_PI = 1.0 / math.sqrt(math.pi)
-
-
-def _is_legacy_mask_argument(covariance_matrices: Optional[torch.Tensor], mask: Any) -> bool:
-    """Heuristic for the legacy ``forward(y_pred, target, mask, weights, cov)`` ordering.
-
-    The diagonal / CRPS losses ignore ``covariance_matrices`` outright, so
-    historically callers passed an extra positional tensor that was really
-    a mask.  Rather than sniffing dim() comparisons (which silently broke
-    multi-feature masks because ``mask.dim() == target.dim()``), check
-    that the candidate is *not* a square / batched square covariance: a
-    genuine covariance has shape ``[D, D]`` or ``[B, D, D]``, while a
-    mask is broadcast-compatible with the target (``[B]`` or ``[B, D]``).
-    """
-    if covariance_matrices is None or not isinstance(covariance_matrices, torch.Tensor):
-        return False
-    if covariance_matrices.dtype == torch.bool:
-        return True
-    if covariance_matrices.dtype.is_floating_point is False:
-        return False
-    # A real covariance has trailing dims matching each other: [..., D, D].
-    if (
-        covariance_matrices.dim() >= 2
-        and covariance_matrices.shape[-1] == covariance_matrices.shape[-2]
-    ):
-        return False
-    return True
-
-
-def low_rank_output_dim(n_features: int, rank: int) -> int:
-    """
-    Compute output dimension for low-rank Gaussian heads.
-    """
-    if n_features <= 0 or rank <= 0:
-        raise ValueError("n_features and rank must be positive integers")
-    return n_features + n_features * rank + n_features
-
-
-def split_low_rank_gaussian_output(
-    y_pred: torch.Tensor,
-    n_features: int,
-    rank: int,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Split concatenated output into mean, low-rank factor, and diagonal.
-
-    Expected layout: [mean | cov_factor | cov_diag]
-    - mean: n_features
-    - cov_factor: n_features * rank
-    - cov_diag: n_features
-    """
-    expected = low_rank_output_dim(n_features, rank)
-    if y_pred.shape[-1] != expected:
-        raise ValueError(
-            f"Expected last dimension {expected} for low-rank output, got {y_pred.shape[-1]}"
-        )
-
-    mean = y_pred[..., :n_features]
-    factor_flat = y_pred[..., n_features : n_features + n_features * rank]
-    cov_factor = factor_flat.reshape(*y_pred.shape[:-1], n_features, rank)
-    cov_diag = y_pred[..., -n_features:]
-    return mean, cov_factor, cov_diag
 
 
 def create_gaussian_nll(
@@ -162,21 +104,7 @@ class GaussianNLLLoss(DistributionLoss):
             var = var + torch.zeros_like(mean)
             return mean, var.clamp(min=self.min_variance)
 
-        if isinstance(y_pred, (tuple, list)):
-            if len(y_pred) != 2:
-                raise ValueError(
-                    "Tuple predictions must be (mean, log_variance), "
-                    f"but got {len(y_pred)} elements"
-                )
-            mean, log_var = y_pred
-        else:
-            dim = self.split_dim
-            if y_pred.shape[dim] % 2 != 0:
-                raise ValueError(
-                    f"Concatenated predictions must have even size along split_dim={dim} "
-                    f"([mean, log_variance]), but got size {y_pred.shape[dim]}."
-                )
-            mean, log_var = torch.chunk(y_pred, 2, dim=dim)
+        mean, log_var = split_mean_log_variance(y_pred, split_dim=self.split_dim)
         var = torch.exp(log_var).clamp(min=self.min_variance)
         return mean, var
 
@@ -194,12 +122,9 @@ class GaussianNLLLoss(DistributionLoss):
         # The diagonal Gaussian loss ignores ``covariance_matrices``; if the
         # caller passed a mask-shaped tensor there by mistake, reinterpret it
         # using the legacy-mask heuristic (not a square covariance).
-        if _is_legacy_mask_argument(covariance_matrices, mask):
-            legacy_mask = covariance_matrices
-            legacy_weights = mask if isinstance(mask, torch.Tensor) else None
-            mask = legacy_mask
-            weights = legacy_weights
-            covariance_matrices = None
+        mask, weights, covariance_matrices = resolve_legacy_cov_mask_weights(
+            covariance_matrices, mask, weights
+        )
 
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)
@@ -233,12 +158,9 @@ class GaussianCRPSLoss(GaussianNLLLoss):
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        if _is_legacy_mask_argument(covariance_matrices, mask):
-            legacy_mask = covariance_matrices
-            legacy_weights = mask if isinstance(mask, torch.Tensor) else None
-            mask = legacy_mask
-            weights = legacy_weights
-            covariance_matrices = None
+        mask, weights, covariance_matrices = resolve_legacy_cov_mask_weights(
+            covariance_matrices, mask, weights
+        )
 
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)

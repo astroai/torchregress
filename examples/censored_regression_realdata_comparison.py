@@ -4,16 +4,16 @@ import argparse
 from dataclasses import dataclass
 
 import torch
-from comparison_utils import (
+from sklearn.datasets import load_diabetes
+from torch import Tensor
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
     write_comparison_summary_json,
 )
-from sklearn.datasets import load_diabetes
-from torch import Tensor
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.losses import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
 from torchregress.metrics import censoring_rate, concordance_index, observed_mae
 

@@ -1,11 +1,9 @@
 import numpy as np
 import pytest
 
-from torchregress.test_time.calibration import (
-    RepresentationShiftCalibrator,
-    _subsample_rows,
-    _winsorize,
-)
+from torchregress.test_time.calibration import RepresentationShiftCalibrator
+from torchregress.utils.numpy_stats import subsample_rows as _subsample_rows
+from torchregress.utils.numpy_stats import winsorize as _winsorize
 
 
 def test_subsample_rows_returns_original_if_max_rows_none_or_invalid():

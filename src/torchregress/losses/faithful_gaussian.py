@@ -13,6 +13,7 @@ from typing import Any, Optional, Tuple, Union
 
 import torch
 
+from ._legacy_args import resolve_legacy_cov_mask_weights
 from .gaussian import GaussianNLLLoss
 from .loss_registry import register_regression_loss
 
@@ -86,12 +87,9 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        if covariance_matrices is not None and covariance_matrices.dim() <= target.dim():
-            legacy_mask = covariance_matrices
-            legacy_weights = mask if isinstance(mask, torch.Tensor) else None
-            mask = legacy_mask
-            weights = legacy_weights
-            covariance_matrices = None
+        mask, weights, covariance_matrices = resolve_legacy_cov_mask_weights(
+            covariance_matrices, mask, weights
+        )
 
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)

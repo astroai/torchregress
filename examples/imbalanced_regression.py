@@ -14,9 +14,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from comparison_utils import print_comparison_summary, print_fairness_notes, timed_call
 from torch.utils.data import DataLoader, Dataset
 
+from torchregress.comparison import print_comparison_summary, print_fairness_notes, timed_call
 from torchregress.losses import DensityWeightedLoss, LDSLoss
 
 # ============================================================================

@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import torch.utils.data
 
 from torchregress.losses.mdn import MixtureDensityLoss
+from torchregress.utils.gaussian_output import variance_from_logvar
 from torchregress.utils.ordinal import cumulative_logits_to_pmf
 
 from .base import BaseEnsembleModel
@@ -27,8 +28,12 @@ def _variance_from_logvar(
     max_logvar: float = 6.0,
     eps: float = 1.0e-8,
 ) -> torch.Tensor:
-    """Convert log-variance to variance with the same stabilization used in training."""
-    return torch.exp(log_var.clamp(min=min_logvar, max=max_logvar)).clamp_min(eps)
+    return variance_from_logvar(
+        log_var,
+        min_logvar=min_logvar,
+        max_logvar=max_logvar,
+        eps=eps,
+    )
 
 
 def _stack_member_tensors(outputs: Union[torch.Tensor, list[Any]]) -> torch.Tensor:

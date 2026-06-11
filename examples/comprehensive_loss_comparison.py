@@ -13,15 +13,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from comparison_utils import (
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
     print_fairness_notes,
     set_comparison_seed,
     timed_call,
 )
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.losses import (
     AdaptiveRobustLoss,
     BarronLoss,

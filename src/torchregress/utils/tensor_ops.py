@@ -7,9 +7,30 @@ linear algebra operations.
 """
 
 import math
-from typing import Optional, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union, cast
 
+import numpy as np
 import torch
+
+
+def convert_to_tensor(x: Union[torch.Tensor, np.ndarray, List, float, int]) -> torch.Tensor:
+    """Convert common array-like inputs to float32 tensors."""
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).float()
+    if isinstance(x, (list, tuple)):
+        return torch.tensor(x, dtype=torch.float32)
+    if isinstance(x, (float, int)):
+        return torch.tensor([x], dtype=torch.float32)
+    if isinstance(x, torch.Tensor):
+        return x
+    raise TypeError(f"Cannot convert {type(x)} to torch.Tensor")
+
+
+def ensure_batch_dim(x: torch.Tensor) -> torch.Tensor:
+    """Ensure tensor has a batch dimension."""
+    if x.dim() == 1:
+        return x.unsqueeze(0)
+    return x
 
 
 def apply_mask(tensor: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:

@@ -64,11 +64,6 @@ docs = [
     "pymdown-extensions>=10.7.0",
 ]
 conformal = []
-# CANFAR Science Platform: submit headless Skaha jobs from scripts/canfar_launch_sweep.py
-canfar = [
-    "canfar>=1.3.0",
-    "PyYAML>=6.0.0",
-]
 flows = [
     "zuko>=1.6.0",
 ]

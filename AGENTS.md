@@ -40,7 +40,7 @@ If `uv` is not available, use the project venv directly:
 ### Code Quality
 ```bash
 # Format code
-uv run black .
+uv run ruff format src/torchregress tests tools
 
 # Lint code
 uv run ruff check .
@@ -57,11 +57,11 @@ GitHub Actions on `main` is **two-stage**: **`pre-commit run --all-files`** (no 
 ./scripts/ci_local.sh
 ```
 
-This installs `test` + `flows` + `dev` extras, then runs **ruff** / **black** on **`src/torchregress`**, **tests**, and **tools**, then **pytest --cov=…** and both **benchmark_smoke** threshold passes (CPU smoke + sweep).
+This installs `test` + `flows` + `dev` extras, then runs **ruff** / **ruff format** on **`src/torchregress`**, **tests**, and **tools**, then **pytest --cov=…** and both **benchmark_smoke** threshold passes (CPU smoke + sweep).
 
 ### Pre-commit / pre-push hooks
 
-Fast checks on **commit** (ruff + black + basic file hygiene) and full **CI parity on push**:
+Fast checks on **commit** (ruff + ruff-format + basic file hygiene) and full **CI parity on push**:
 
 ```bash
 uvx pre-commit install
@@ -132,25 +132,27 @@ All loss functions follow PyTorch conventions:
 - Parameter order: `forward(y_pred, target, mask=None, weights=None, **kwargs)`
 - Support for missing data via boolean `mask` parameter (False = missing)
 - Support for sample weighting via `weights` parameter
-- Reductions handled by `_reduce()` method from BaseLoss
+- Reductions handled by `_reduce()` / `utils.reduction.reduce_per_sample` for per-sample NLL
 
 ### Module Organization
 
 ```
 torchregress/
 ├── losses/          # Loss functions (gaussian, robust, quantile, conformal, etc.)
+├── metrics/         # Evaluation metrics (point, interval, distribution, OOD, etc.)
+├── calibration/     # Post-hoc transforms, calibration metrics, shift calibrator
 ├── ensemble/        # Ensemble models (DeepEnsemble, BatchEnsemble, etc.)
-├── algorithms/      # Training algorithms (IRLS)
-├── metrics/         # Evaluation metrics (point, interval, calibration, etc.)
-├── utils/           # Utilities (masking, validation, transformations)
-└── wrappers.py      # Convenience functions (wrap_pytorch_loss)
+├── algorithms/      # Training algorithms (IRLS, SIMEX, RC, etc.)
+├── test_time/       # Test-time adaptation (label shift, transport, subspace)
+├── comparison.py    # Reproducible comparison-example helpers and summary JSON
+├── prediction.py    # Predictive batch containers
+├── utils/           # Shared helpers (gaussian_output, validation, tensor_ops, reduction)
+└── losses/base.py   # WeightedLossWrapper and weighted point/Gaussian wrappers
 ```
 
 ### Key Abstractions
 
-**`wrap_pytorch_loss()`** (`torchregress/wrappers.py`): Wraps any standard PyTorch loss with torchregress's masking and weighting capabilities.
-
-**WeightedLossWrapper** (`torchregress/losses/base.py`): Wraps any PyTorch loss to add mask and weight support. Convenience subclasses include `WeightedMSELoss`, `WeightedL1Loss`, `WeightedHuberLoss`, etc.
+**Weighted loss wrappers** (`torchregress.losses.base`): `WeightedLossWrapper`, `WeightedMSELoss`, `WeightedGaussianNLLLoss`, and related subclasses add mask and sample-weight support around native PyTorch losses.
 
 **Ensemble Models** (`torchregress/ensemble/`):
 - `DeepEnsemble`: Multiple independently trained models
@@ -239,9 +241,9 @@ If a module is not installed, the import will fail immediately - this is the des
 
 **Exception:** `zuko` (normalizing flows) is an optional dependency. The `nflows` module uses a guarded `try/except ImportError` in `losses/__init__.py` so that `import torchregress` works without zuko installed.
 
-## Adoption and Audit Standards (Required)
+## Adoption Standards
 
-The repository now follows a capability-first adoption-readiness standard.
+The repository follows a capability-first documentation standard.
 
 ### Method Framing Policy
 
@@ -285,17 +287,7 @@ Comparison examples are decision artifacts, not API demos.
 - Keep model capacity and training budgets comparable across methods.
 - Report explicit tradeoffs: error, calibration/coverage, robustness, and runtime.
 - Include caveats/failure modes in example notes.
-- Emit machine-readable artifacts through `comparison_utils.write_comparison_summary_json(...)`.
-
-### Summary Governance
-
-Keep profile governance active:
-
-- `smoke`, `audit`, `full` example summaries
-- profile comparison: `audit -> full`
-- thresholds:
-  - `ci_conservative` (blocking CI profile)
-  - `review_strict` (review/release profile)
+- Emit machine-readable artifacts through `torchregress.comparison.write_comparison_summary_json(...)`.
 
 ## Native PyTorch Leverage Policy
 
@@ -317,115 +309,11 @@ Each matrix row must carry `coverage_evidence` with:
 - `parity_tests`
 - `known_divergences`
 
-## Plan-driven features and method catalog
+## Method catalog and docs refresh
 
-When implementing items under `docs/research/plans/`, prefer **batched** method-catalog updates: add `MethodMetadata` / evidence rows and run `tools/render_method_catalog.py` (plus `render_realdata_recommendation_guide`) **once per tranche** when the slice is feature-complete, not on every intermediate PR. See `docs/research/plans/README.md`.
-
-## Regeneration and Gate Checklist
-
-Before handoff for audit/governance changes, run:
+When adding or changing exported methods, update `src/torchregress/method_catalog.py` and regenerate docs artifacts:
 
 ```bash
-uv run python tools/render_example_summaries.py --profile smoke
-uv run python tools/render_example_summaries.py --profile audit
-uv run python tools/render_example_summaries.py --profile full
-uv run python tools/compare_example_summary_profiles.py \
-  --base-dir reports/example_summaries \
-  --source-profile audit \
-  --target-profile full \
-  --output reports/example_summaries/profile_comparison_audit_vs_full.json
-uv run python tools/example_summary_thresholds.py \
-  --base-dir reports/example_summaries \
-  --profile full \
-  --threshold-profile ci_conservative \
-  --write-thresholds reports/example_summaries/thresholds_full.json \
-  --thresholds reports/example_summaries/thresholds_full.json \
-  --output-verdict reports/example_summaries/threshold_check_full_latest.json
-uv run python tools/example_summary_thresholds.py \
-  --base-dir reports/example_summaries \
-  --profile full \
-  --threshold-profile review_strict \
-  --write-thresholds reports/example_summaries/thresholds_full_review_strict.json \
-  --thresholds reports/example_summaries/thresholds_full_review_strict.json \
-  --output-verdict reports/example_summaries/threshold_check_full_review_strict_latest.json \
-  --runtime-multiplier 6.0 \
-  --runtime-floor 0.35 \
-  --metric-multiplier 3.0 \
-  --metric-floor 0.2 \
-  --prob-delta 0.25 \
-  --r2-delta 1.0
-uv run python tools/render_method_catalog.py \
-  --markdown-out docs/reports/method_catalog_generated.md \
-  --json-out reports/method_catalog_latest.json \
-  --update-method-matrix docs/guide/method-selection.md \
-  --comparative-evidence-md-out docs/reports/comparative_evidence_matrix.md \
-  --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
-uv run python tools/adoption_audit.py --json reports/adoption_readiness_2026-02-25.json --print-summary
-uv run python tools/render_review_packet.py
-uv run pytest -q
-# Lint Python packages only (not markdown/docs files).
-uv run ruff check torchregress tests tools
-uv run mypy torchregress
-uv run mkdocs build
-```
-
-## Scheduled Governance Automation
-
-Heavy governance refresh runs should stay outside default PR/push CI.
-
-- Scheduled/manual workflow: `.github/workflows/governance-refresh.yml`
-- Trigger policy:
-  - `schedule` for recurring artifact refresh
-  - `workflow_dispatch` for manual refresh
-  - **no** `push`/`pull_request` triggers for this workflow
-
-Manual local equivalent (full governance refresh):
-
-```bash
-uv run python tools/render_example_summaries.py --profile smoke
-uv run python tools/render_example_summaries.py --profile audit
-uv run python tools/render_example_summaries.py --profile full
-uv run python tools/compare_example_summary_profiles.py \
-  --base-dir reports/example_summaries \
-  --source-profile audit \
-  --target-profile full \
-  --output reports/example_summaries/profile_comparison_audit_vs_full.json
-uv run python tools/example_summary_thresholds.py \
-  --base-dir reports/example_summaries \
-  --profile full \
-  --threshold-profile ci_conservative \
-  --write-thresholds reports/example_summaries/thresholds_full.json \
-  --thresholds reports/example_summaries/thresholds_full.json \
-  --output-verdict reports/example_summaries/threshold_check_full_latest.json
-uv run python tools/example_summary_thresholds.py \
-  --base-dir reports/example_summaries \
-  --profile full \
-  --threshold-profile review_strict \
-  --write-thresholds reports/example_summaries/thresholds_full_review_strict.json \
-  --thresholds reports/example_summaries/thresholds_full_review_strict.json \
-  --output-verdict reports/example_summaries/threshold_check_full_review_strict_latest.json \
-  --runtime-multiplier 6.0 \
-  --runtime-floor 0.35 \
-  --metric-multiplier 3.0 \
-  --metric-floor 0.2 \
-  --prob-delta 0.25 \
-  --r2-delta 1.0
-uv run python -m tools.benchmark_smoke \
-  --mode smoke \
-  --iterations 2 \
-  --warmup 1 \
-  --device cpu \
-  --thresholds reports/benchmark_thresholds/cpu/smoke.json \
-  --fail-on-thresholds
-uv run python -m tools.benchmark_smoke \
-  --mode sweep \
-  --iterations 2 \
-  --warmup 1 \
-  --device cpu \
-  --thresholds reports/benchmark_thresholds/cpu/sweep.json \
-  --fail-on-thresholds
-uv run python -m tools.benchmark_report_summary reports/benchmark_smoke_latest.json --output reports/benchmark_smoke_latest.md
-uv run python -m tools.benchmark_report_summary reports/benchmark_sweep_latest.json --group-by-name --output reports/benchmark_sweep_latest.md
 uv run python tools/render_method_catalog.py \
   --markdown-out docs/reports/method_catalog_generated.md \
   --json-out reports/method_catalog_latest.json \
@@ -435,13 +323,13 @@ uv run python tools/render_method_catalog.py \
 uv run python -m tools.render_realdata_recommendation_guide \
   --doc docs/reports/real_data_recommendation_guide.md \
   --comparative-json reports/comparative_evidence_matrix_latest.json
-uv run python tools/adoption_audit.py --json reports/adoption_readiness_2026-02-25.json --print-summary
-uv run python tools/render_review_packet.py
 ```
+
+Optional scheduled refresh: `.github/workflows/docs-refresh.yml` (manual or weekly).
 
 ## Agent PR hygiene and lint gates
 
-- Do **not** open PRs that only fix a single unused import or whitespace in isolation. Use **one** repo-wide Ruff/Black pass or attach cleanup to a substantive change.
+- Do **not** open PRs that only fix a single unused import or whitespace in isolation. Use **one** repo-wide Ruff pass or attach cleanup to a substantive change.
 - Optional: `pre-commit install` and `pre-commit install --hook-type pre-push` when configured in this repo.
 
 ### Mandatory pre-push gate (save GitHub Actions minutes)
@@ -452,9 +340,9 @@ uv run python tools/render_review_packet.py
 
 **Minimal** when you need a faster loop (small, localized edits only — widen if anything fails in CI):
 
-1. `python -m compileall -q torchregress tests tools`
-2. `uv run ruff check torchregress tests tools`
-3. `uv run black --check torchregress tests tools`
+1. `python -m compileall -q src/torchregress tests tools`
+2. `uv run ruff check src/torchregress tests tools`
+3. `uv run ruff format --check src/torchregress tests tools`
 4. `uv run pytest` (or a **narrow** file/`::test` path that covers your change)
 
 If you have the pre-push hook installed, `git push` already runs `./scripts/ci_local.sh` — keep it that way for routine work.

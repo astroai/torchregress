@@ -23,7 +23,6 @@ REQUIRED_AREAS = {
 
 REPO_ROOT = Path(__file__).parents[1]
 JSON_PATH = REPO_ROOT / "reports" / "native_pytorch_leverage_matrix_2026-02-26.json"
-MD_PATH = REPO_ROOT / "docs" / "audits" / "native_pytorch_leverage_matrix_2026-02-26.md"
 
 
 @pytest.mark.skipif(not JSON_PATH.exists(), reason="Leverage matrix report not found.")

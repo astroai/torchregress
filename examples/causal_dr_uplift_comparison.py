@@ -4,14 +4,14 @@ import argparse
 from dataclasses import dataclass
 
 import torch
-from comparison_utils import (
+
+from torchregress.causal import causal_overlap_report, dr_ate, dr_cate
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
     write_comparison_summary_json,
 )
-
-from torchregress.causal import causal_overlap_report, dr_ate, dr_cate
 
 
 @dataclass(frozen=True)

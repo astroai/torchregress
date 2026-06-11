@@ -4,123 +4,124 @@
   "target_artifact": "benchmark_sweep",
   "target_device": "cpu",
   "source_config": {
-    "multiplier": 4.0,
-    "floor_ms": 0.5
+    "multiplier": 5.0,
+    "floor_ms": 0.5,
+    "max_over_runs": 10
   },
   "limits": {
-    "sweep_gaussian_multivariate_full_forward|batch=16|target_dim=2": {
-      "max_mean_ms": 1.7937500961124897
+    "sweep_causal_dr_ate_crossfit|folds=2|n_samples=128": {
+      "max_mean_ms": 37.760834966320544
     },
-    "sweep_gaussian_multivariate_full_forward|batch=16|target_dim=8": {
-      "max_mean_ms": 0.6885835900902748
+    "sweep_causal_dr_ate_crossfit|folds=2|n_samples=64": {
+      "max_mean_ms": 22.898540046298876
     },
-    "sweep_gaussian_multivariate_full_forward|batch=64|target_dim=2": {
-      "max_mean_ms": 0.8310838602483273
+    "sweep_censored_gaussian_nll_forward|batch=16|target_dim=1": {
+      "max_mean_ms": 11.097187525592744
     },
-    "sweep_gaussian_multivariate_full_forward|batch=64|target_dim=8": {
-      "max_mean_ms": 0.778665766119957
+    "sweep_censored_gaussian_nll_forward|batch=16|target_dim=4": {
+      "max_mean_ms": 2.109165070578456
     },
-    "sweep_gaussian_low_rank_forward|batch=16|rank=2|target_dim=4": {
-      "max_mean_ms": 1.9694999791681767
+    "sweep_censored_gaussian_nll_forward|batch=64|target_dim=1": {
+      "max_mean_ms": 2.1391650079749525
     },
-    "sweep_gaussian_low_rank_forward|batch=16|rank=2|target_dim=8": {
-      "max_mean_ms": 1.286668237298727
-    },
-    "sweep_gaussian_low_rank_forward|batch=64|rank=2|target_dim=4": {
-      "max_mean_ms": 1.3124160468578339
-    },
-    "sweep_gaussian_low_rank_forward|batch=64|rank=2|target_dim=8": {
-      "max_mean_ms": 1.333415973931551
-    },
-    "sweep_mdn_diagonal_forward|batch=32|mixture_components=2|target_dim=2": {
-      "max_mean_ms": 1.0940819047391415
-    },
-    "sweep_mdn_diagonal_forward|batch=32|mixture_components=2|target_dim=4": {
-      "max_mean_ms": 0.9180842898786068
-    },
-    "sweep_mdn_diagonal_forward|batch=32|mixture_components=5|target_dim=2": {
-      "max_mean_ms": 0.7133316248655319
-    },
-    "sweep_mdn_diagonal_forward|batch=32|mixture_components=5|target_dim=4": {
-      "max_mean_ms": 0.7182499393820763
-    },
-    "sweep_mdn_full_forward|batch=32|mixture_components=2|target_dim=2": {
-      "max_mean_ms": 1.6895025037229061
-    },
-    "sweep_mdn_full_forward|batch=32|mixture_components=2|target_dim=4": {
-      "max_mean_ms": 0.9631677530705929
-    },
-    "sweep_mdn_full_forward|batch=32|mixture_components=5|target_dim=2": {
-      "max_mean_ms": 3.9392500184476376
-    },
-    "sweep_mdn_full_forward|batch=32|mixture_components=5|target_dim=4": {
-      "max_mean_ms": 2.6634163223206997
-    },
-    "sweep_ensemble_variance_decomposition|batch=32|ensemble_size=3": {
-      "max_mean_ms": 0.5308338440954685
-    },
-    "sweep_ensemble_variance_decomposition|batch=128|ensemble_size=3": {
-      "max_mean_ms": 0.5679158493876457
-    },
-    "sweep_ensemble_variance_decomposition|batch=32|ensemble_size=10": {
-      "max_mean_ms": 0.75133191421628
+    "sweep_censored_gaussian_nll_forward|batch=64|target_dim=4": {
+      "max_mean_ms": 5.835207484778948
     },
     "sweep_ensemble_variance_decomposition|batch=128|ensemble_size=10": {
-      "max_mean_ms": 1.163584180176258
+      "max_mean_ms": 1.9662499835249037
+    },
+    "sweep_ensemble_variance_decomposition|batch=128|ensemble_size=3": {
+      "max_mean_ms": 1.5792699559824541
+    },
+    "sweep_ensemble_variance_decomposition|batch=32|ensemble_size=10": {
+      "max_mean_ms": 0.7056275353534147
+    },
+    "sweep_ensemble_variance_decomposition|batch=32|ensemble_size=3": {
+      "max_mean_ms": 0.6474999827332795
+    },
+    "sweep_gaussian_low_rank_forward|batch=16|rank=2|target_dim=4": {
+      "max_mean_ms": 3.6655174335464835
+    },
+    "sweep_gaussian_low_rank_forward|batch=16|rank=2|target_dim=8": {
+      "max_mean_ms": 10.371980024501681
+    },
+    "sweep_gaussian_low_rank_forward|batch=64|rank=2|target_dim=4": {
+      "max_mean_ms": 4.861457418883219
+    },
+    "sweep_gaussian_low_rank_forward|batch=64|rank=2|target_dim=8": {
+      "max_mean_ms": 27.080625004600734
+    },
+    "sweep_gaussian_multivariate_full_forward|batch=16|target_dim=2": {
+      "max_mean_ms": 13.10353989538271
+    },
+    "sweep_gaussian_multivariate_full_forward|batch=16|target_dim=8": {
+      "max_mean_ms": 1.5741674724267796
+    },
+    "sweep_gaussian_multivariate_full_forward|batch=64|target_dim=2": {
+      "max_mean_ms": 31.718437530798838
+    },
+    "sweep_gaussian_multivariate_full_forward|batch=64|target_dim=8": {
+      "max_mean_ms": 4.693539958680049
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=2|target_dim=2": {
+      "max_mean_ms": 9.006457548821345
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=2|target_dim=4": {
+      "max_mean_ms": 3.2935399940470234
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=5|target_dim=2": {
+      "max_mean_ms": 8.54427256854251
+    },
+    "sweep_mdn_diagonal_forward|batch=32|mixture_components=5|target_dim=4": {
+      "max_mean_ms": 6.333542478387244
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=2|target_dim=2": {
+      "max_mean_ms": 10.874165018321946
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=2|target_dim=4": {
+      "max_mean_ms": 2.77802006166894
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=5|target_dim=2": {
+      "max_mean_ms": 3.5869774728780612
+    },
+    "sweep_mdn_full_forward|batch=32|mixture_components=5|target_dim=4": {
+      "max_mean_ms": 3.405625029699877
     },
     "sweep_ordinal_cross_entropy_forward|batch=16|n_classes=4": {
-      "max_mean_ms": 0.7693339139223099
+      "max_mean_ms": 3.832812435575761
     },
     "sweep_ordinal_cross_entropy_forward|batch=16|n_classes=8": {
-      "max_mean_ms": 0.5
+      "max_mean_ms": 5.5022924789227545
     },
     "sweep_ordinal_cross_entropy_forward|batch=64|n_classes=4": {
       "max_mean_ms": 0.5
     },
     "sweep_ordinal_cross_entropy_forward|batch=64|n_classes=8": {
-      "max_mean_ms": 0.5
-    },
-    "sweep_censored_gaussian_nll_forward|batch=16|target_dim=1": {
-      "max_mean_ms": 1.684666145592928
-    },
-    "sweep_censored_gaussian_nll_forward|batch=16|target_dim=4": {
-      "max_mean_ms": 1.0091657750308514
-    },
-    "sweep_censored_gaussian_nll_forward|batch=64|target_dim=1": {
-      "max_mean_ms": 0.9093359112739563
-    },
-    "sweep_censored_gaussian_nll_forward|batch=64|target_dim=4": {
-      "max_mean_ms": 0.9749997407197952
-    },
-    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=16|target_dim=1": {
-      "max_mean_ms": 0.5
-    },
-    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=16|target_dim=4": {
-      "max_mean_ms": 0.5
-    },
-    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=64|target_dim=1": {
-      "max_mean_ms": 0.5
-    },
-    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=64|target_dim=4": {
-      "max_mean_ms": 0.5728346295654774
-    },
-    "sweep_ppi_ols_ci|n_labeled=24|n_unlabeled=96": {
-      "max_mean_ms": 33.70949998497963
+      "max_mean_ms": 1.1409375292714685
     },
     "sweep_ppi_ols_ci|n_labeled=24|n_unlabeled=256": {
-      "max_mean_ms": 18.937336280941963
+      "max_mean_ms": 48.15729000256397
     },
-    "sweep_ppi_ols_ci|n_labeled=64|n_unlabeled=96": {
-      "max_mean_ms": 19.192668609321117
+    "sweep_ppi_ols_ci|n_labeled=24|n_unlabeled=96": {
+      "max_mean_ms": 88.2935400295537
     },
     "sweep_ppi_ols_ci|n_labeled=64|n_unlabeled=256": {
-      "max_mean_ms": 27.947168797254562
+      "max_mean_ms": 60.67000009352341
     },
-    "sweep_causal_dr_ate_crossfit|folds=2|n_samples=64": {
-      "max_mean_ms": 12.5749995931983
+    "sweep_ppi_ols_ci|n_labeled=64|n_unlabeled=96": {
+      "max_mean_ms": 65.03542012069374
     },
-    "sweep_causal_dr_ate_crossfit|folds=2|n_samples=128": {
-      "max_mean_ms": 7.765164598822594
+    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=16|target_dim=1": {
+      "max_mean_ms": 1.460625062463805
+    },
+    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=16|target_dim=4": {
+      "max_mean_ms": 0.9498949657427147
+    },
+    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=64|target_dim=1": {
+      "max_mean_ms": 0.7448974793078378
+    },
+    "sweep_uncertain_gt_noisy_target_gaussian_nll_forward|batch=64|target_dim=4": {
+      "max_mean_ms": 0.6315650534816086
     }
   }
 }

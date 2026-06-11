@@ -5,11 +5,13 @@ from torchregress.utils.validation import (
     check_tensor,
     validate_batch_consistency,
     validate_integer,
+    validate_metric_inputs,
     validate_positive,
     validate_quantile,
     validate_range,
     validate_reduction,
     validate_same_device,
+    validate_sample_weight,
     validate_shape,
     validate_weights,
 )
@@ -189,6 +191,36 @@ def test_validate_weights():
         ValueError, match=r"weights must be non-negative, got tensor with minimum value -1.0"
     ):
         validate_weights(bad_weights, 5)
+
+
+def test_validate_weights_flatten():
+    weights = torch.ones(5, 1)
+    flattened = validate_weights(weights, 5, flatten=True)
+    assert flattened.shape == (5,)
+
+    bad_shape = torch.ones(5, 2)
+    with pytest.raises(ValueError, match="Sample weights should be 1D"):
+        validate_weights(bad_shape, 5, flatten=True)
+
+
+def test_validate_sample_weight_delegates_to_validate_weights():
+    weights = torch.tensor([1.0, 2.0, 3.0])
+    assert torch.equal(validate_sample_weight(weights, 3), weights)
+
+
+def test_validate_metric_inputs():
+    y_pred = torch.randn(4, 2)
+    y_true = torch.randn(4, 2)
+    validate_metric_inputs(y_pred, y_true)
+
+    with pytest.raises(ValueError, match="same batch size"):
+        validate_metric_inputs(y_pred, torch.randn(3, 2))
+
+    with pytest.raises(ValueError, match="cannot be scalars"):
+        validate_metric_inputs(torch.tensor(1.0), torch.tensor(2.0))
+
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        validate_metric_inputs(torch.tensor([float("nan")]), torch.tensor([1.0]))
 
 
 def test_check_tensor():

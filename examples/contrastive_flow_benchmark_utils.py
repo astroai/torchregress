@@ -7,9 +7,9 @@ from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
-from comparison_utils import compute_point_metrics
 from torch.utils.data import DataLoader
 
+from torchregress.comparison import compute_point_metrics
 from torchregress.losses import create_gaussian_nll
 
 

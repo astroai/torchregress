@@ -13,13 +13,13 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
-from comparison_utils import (
+
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
     write_comparison_summary_json,
 )
-
 from torchregress.ensemble import SWAG, BayesianNeuralNetwork
 from torchregress.metrics import (
     RejectionPolicy,

@@ -10,7 +10,9 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from comparison_utils import (
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
     print_fairness_notes,
@@ -18,8 +20,6 @@ from comparison_utils import (
     timed_call,
     write_comparison_summary_json,
 )
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.losses import (
     CauchyLoss,
     GaussianNLLLoss,

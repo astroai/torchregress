@@ -8,6 +8,7 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+src/*.egg-info/
 *.egg
 
 # Virtual environments
@@ -93,22 +94,13 @@ benchmarks/*.csv
 benchmarks/*.json
 benchmarks/*.npz
 
-# Generated reports (track only governance baselines)
+# Generated reports (track only library evidence baselines)
 reports/*
 !reports/benchmark_thresholds/
 !reports/benchmark_thresholds/**
-!reports/adoption_readiness_2026-02-25.json
 !reports/comparative_evidence_matrix_latest.json
 !reports/method_catalog_latest.json
-!reports/review_readiness_packet_latest.json
 !reports/native_pytorch_leverage_matrix_2026-02-26.json
-!reports/example_summaries/
-reports/example_summaries/*
-!reports/example_summaries/profile_comparison_audit_vs_full.json
-!reports/example_summaries/thresholds_full.json
-!reports/example_summaries/thresholds_full_review_strict.json
-!reports/example_summaries/threshold_check_full_latest.json
-!reports/example_summaries/threshold_check_full_review_strict_latest.json
 
 # NeurIPS paper artifacts: track JSON/CSV/MD/PNG only (no model weights, parquets, zips)
 !reports/neurips_spt_reg/

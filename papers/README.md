@@ -1,7 +1,13 @@
 # Papers (`papers/`)
 
-All NeurIPS manuscript workspaces, research memos, experiment results, and operational
-infrastructure for the torchregress paper tracks.
+NeurIPS manuscript workspaces, literature notes, and **committed experiment artifacts**
+(JSON/CSV/figures) for the SAGE-Reg and SPT-Reg paper tracks.
+
+!!! note "Library vs papers"
+    The installable **torchregress** library lives under `src/torchregress/`. Paper-scale
+    batch runners and one-off aggregation scripts were removed from the repo root to keep
+    contributor workflows focused on the library, tests, and docs. Reproduce paper numbers
+    from the committed artifacts under each track's `results/` folder and `reports/neurips_*`.
 
 ## Paper Tracks
 
@@ -21,8 +27,6 @@ Cross-paper planning, CANFAR operations, and dataset registry live in [shared/](
 | `empirical_priorities.md` | Cross-track empirical roadmap |
 | `experiment_suite.md` | Long-run competitiveness suite (baselines, multi-dataset, tiers) |
 | `dataset_registry.md` | Shared dataset registry across tracks |
-| `canfar_batch_sweeps.md` | CANFAR batch: Year label-fraction sweep (40 shards) |
-| `canfar_neurips_batch.md` | CANFAR batch: full NeurIPS SAGE-Reg + overnight scope |
 
 ## Per-Paper Layout Convention
 

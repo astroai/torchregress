@@ -6,26 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-
-def _subsample_rows(X: np.ndarray, max_rows: int | None, *, random_state: int | None) -> np.ndarray:
-    if max_rows is None or max_rows <= 0 or X.shape[0] <= int(max_rows):
-        return X
-    rng = np.random.default_rng(random_state)
-    idx = rng.choice(X.shape[0], size=int(max_rows), replace=False)
-    return X[np.sort(idx)]
-
-
-def _winsorize(X: np.ndarray, clip_quantile: float | None) -> np.ndarray:
-    if clip_quantile is None:
-        return X
-    q = float(clip_quantile)
-    if not 0.0 <= q < 0.5:
-        raise ValueError("clip_quantile must be in [0, 0.5)")
-    if q == 0.0:
-        return X
-    lo = np.quantile(X, q, axis=0)
-    hi = np.quantile(X, 1.0 - q, axis=0)
-    return np.clip(X, lo[None, :], hi[None, :])
+from ..utils.numpy_stats import subsample_rows, winsorize
 
 
 def _feature_significance(X: np.ndarray, y: np.ndarray | None, eps: float) -> np.ndarray:
@@ -124,8 +105,8 @@ class SignificantSubspaceAligner:
         weights = self.state_.feature_weights
         Xw = (X - self._x_source_mean[None, :]) * np.sqrt(weights)[None, :]
         proj = Xw @ self.state_.components.T
-        proj_stats = _subsample_rows(proj, self.target_sample_size, random_state=self.random_state)
-        proj_stats = _winsorize(proj_stats, self.clip_quantile)
+        proj_stats = subsample_rows(proj, self.target_sample_size, random_state=self.random_state)
+        proj_stats = winsorize(proj_stats, self.clip_quantile)
         tgt_mean = proj_stats.mean(axis=0)
         tgt_scale = np.clip(proj_stats.std(axis=0), self.eps, None)
         scale_ratio = _clip_scale_ratio(self.state_.source_scale / tgt_scale, self.max_scale_ratio)
@@ -181,8 +162,8 @@ class FeatureStatNormalizer:
         if self.source_mean_ is None or self.source_std_ is None:
             raise RuntimeError("call fit() before transform()")
         X = np.asarray(X_target, dtype=float)
-        X_stats = _subsample_rows(X, self.target_sample_size, random_state=self.random_state)
-        X_stats = _winsorize(X_stats, self.clip_quantile)
+        X_stats = subsample_rows(X, self.target_sample_size, random_state=self.random_state)
+        X_stats = winsorize(X_stats, self.clip_quantile)
         tgt_mean = X_stats.mean(axis=0)
         tgt_std = np.clip(X_stats.std(axis=0), self.eps, None)
         scale_ratio = _clip_scale_ratio(self.source_std_ / tgt_std, self.max_scale_ratio)

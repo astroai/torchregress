@@ -4,13 +4,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
-from comparison_utils import (
-    print_comparison_summary,
-    print_fairness_notes,
-    set_comparison_seed,
-    timed_call,
-    write_comparison_summary_json,
-)
 from contrastive_flow_benchmark_utils import (
     MLP,
     ParameterGrid,
@@ -29,6 +22,14 @@ from contrastive_flow_parameter_estimation import (
     generate_parameterized_pseudoexperiments,
 )
 from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
+    print_comparison_summary,
+    print_fairness_notes,
+    set_comparison_seed,
+    timed_call,
+    write_comparison_summary_json,
+)
 
 
 @dataclass(frozen=True)

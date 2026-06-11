@@ -7,16 +7,12 @@ from typing import Any
 import torch
 from torch import Tensor
 
+from ..utils.distributions import normal_cdf
 from ..utils.validation import validate_range, validate_weights
 from .base import BaseLoss
 from .loss_registry import register_regression_loss
 
 _LOG_SQRT_2PI = 0.5 * torch.log(torch.tensor(2.0 * torch.pi))
-
-
-def _normal_cdf(z: Tensor) -> Tensor:
-    sqrt_two = torch.sqrt(torch.tensor(2.0, device=z.device, dtype=z.dtype))
-    return 0.5 * (1.0 + torch.erf(z / sqrt_two))
 
 
 def _extract_mean_and_var(
@@ -112,7 +108,7 @@ class CensoredGaussianNLLLoss(BaseLoss):
 
         std = torch.sqrt(var).clamp_min(self.eps)
         z_target = (target - mean) / std
-        cdf_target = _normal_cdf(z_target).clamp(self.eps, 1.0 - self.eps)
+        cdf_target = normal_cdf(z_target).clamp(self.eps, 1.0 - self.eps)
         surv_target = (1.0 - cdf_target).clamp_min(self.eps)
         logpdf = -0.5 * z_target.pow(2) - torch.log(std) - _LOG_SQRT_2PI.to(std.device, std.dtype)
 
@@ -137,8 +133,8 @@ class CensoredGaussianNLLLoss(BaseLoss):
             )
             z_low = (lower_bound - mean) / std
             z_up = (upper_bound - mean) / std
-            cdf_low = _normal_cdf(z_low)
-            cdf_up = _normal_cdf(z_up)
+            cdf_low = normal_cdf(z_low)
+            cdf_up = normal_cdf(z_up)
             interval_prob = (cdf_up - cdf_low).clamp_min(self.eps)
             nll[interval_mask] = -torch.log(interval_prob[interval_mask])
 
@@ -254,7 +250,7 @@ class AFTLoss(BaseLoss):
         log_t = torch.log(safe_target)
 
         z = (log_t - loc) / scale
-        cdf = _normal_cdf(z).clamp(self.eps, 1.0 - self.eps)
+        cdf = normal_cdf(z).clamp(self.eps, 1.0 - self.eps)
         surv = (1.0 - cdf).clamp_min(self.eps)
         logpdf = (
             -torch.log(safe_target)
@@ -274,7 +270,7 @@ class AFTLoss(BaseLoss):
             interval_mask = (upper_bound > lower_bound) & (upper_bound > 0) & (lower_bound > 0)
             z_low = (torch.log(lower_bound.clamp_min(self.eps)) - loc) / scale
             z_up = (torch.log(upper_bound.clamp_min(self.eps)) - loc) / scale
-            p_int = (_normal_cdf(z_up) - _normal_cdf(z_low)).clamp_min(self.eps)
+            p_int = (normal_cdf(z_up) - normal_cdf(z_low)).clamp_min(self.eps)
             nll[interval_mask] = -torch.log(p_int[interval_mask])
 
             observed_mask = observed_mask & (~interval_mask)

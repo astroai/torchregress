@@ -131,11 +131,12 @@ CI also renders and uploads Markdown summaries as artifacts (`benchmark-cpu-summ
 - `reports/benchmark_smoke_latest.md`
 - `reports/benchmark_sweep_latest.md`
 
-Committed baseline snapshot (docs-visible):
+Committed baseline thresholds (CI gate):
 
-- [Benchmark CPU Baselines (2026-02-26)](../reports/audits/benchmark_cpu_baselines_2026-02-26.md)
+- `reports/benchmark_thresholds/cpu/smoke.json`
+- `reports/benchmark_thresholds/cpu/sweep.json`
 
-### Refreshing Threshold Baselines
+See [Refreshing Threshold Baselines](#refreshing-threshold-baselines) below.
 
 Re-generate a sweep report and derive thresholds (example for CPU):
 

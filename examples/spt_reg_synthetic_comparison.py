@@ -8,15 +8,15 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
-from comparison_utils import (
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
     write_comparison_summary_json,
 )
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_quantile_ci
 from torchregress.losses import MDNLoss
 from torchregress.metrics import (

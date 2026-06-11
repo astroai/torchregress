@@ -23,6 +23,7 @@ EXPECTED_EXPORTS = {
         "causal",
         "prediction",
         "viz",
+        "comparison",
         "utils",
         "BaseLoss",
         "RegressionLoss",
@@ -189,10 +190,26 @@ EXPECTED_EXPORTS = {
         "NonCrossingSort",
         "SpectralNormWrapper",
     ],
+    "comparison": [
+        "compute_point_metrics",
+        "print_comparison_summary",
+        "print_fairness_notes",
+        "set_comparison_seed",
+        "timed_call",
+        "write_comparison_summary_json",
+    ],
     "calibration": [
         "VarianceTemperatureScaler",
         "IsotonicMeanCalibrator",
         "PITCalibrator",
+        "ExpectedCalibrationError",
+        "MarginalCalibrationError",
+        "bias",
+        "calibration_metrics_report",
+        "calibration_score",
+        "expected_calibration_error",
+        "marginal_calibration_error",
+        "RepresentationShiftCalibrator",
     ],
     "test_time": [
         "AdaptationBatch",
@@ -540,6 +557,7 @@ def test_public_exports_snapshot_non_losses() -> None:
         "inference": tr.inference,
         "constraints": tr.constraints,
         "calibration": tr.calibration,
+        "comparison": tr.comparison,
     }
     for module_name, expected in EXPECTED_EXPORTS.items():
         actual = list(module_map[module_name].__all__)

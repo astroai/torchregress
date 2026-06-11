@@ -312,7 +312,7 @@ Method-selection docs reflect benchmark evidence rather than method novelty.
 
 ### Docs
 - Keep this roadmap under `docs/methods/test-time/` while it summarizes implemented test-time APIs.
-- Keep future shift-adaptation designs under `docs/research/plans/` until the corresponding code and runnable examples exist.
+- Keep future shift-adaptation designs in method docs and runnable examples until the corresponding code ships.
 - Add public example pages under `docs/examples/` only when they are backed by runnable `examples/` scripts.
 
 ### Code

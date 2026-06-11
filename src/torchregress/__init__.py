@@ -33,6 +33,7 @@ _LAZY_SUBMODULES = {
     "causal",
     "prediction",
     "viz",
+    "comparison",
     "utils",
 }
 
@@ -64,6 +65,7 @@ __all__ = [
     "causal",
     "prediction",
     "viz",
+    "comparison",
     "utils",
     # Core classes
     "BaseLoss",

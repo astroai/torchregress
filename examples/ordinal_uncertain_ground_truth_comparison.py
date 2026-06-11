@@ -5,16 +5,16 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn.functional as F
-from comparison_utils import (
+from torch import Tensor
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     set_comparison_seed,
     timed_call,
     write_comparison_summary_json,
 )
-from torch import Tensor
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.losses import CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.metrics import (
     mean_absolute_class_error,

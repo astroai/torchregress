@@ -10,11 +10,11 @@ from typing import Any, Sequence
 import numpy as np
 import torch
 
+from torchregress.calibration.shift import RepresentationShiftCalibrator
 from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 from torchregress.prediction import PredictiveBatch
 
 from .base import SupportsPredictiveBatch
-from .calibration import RepresentationShiftCalibrator
 from .label_shift import LabelShiftEMConfig, PosteriorLabelShiftAdapter
 from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
 from .subspace import SignificantSubspaceAligner

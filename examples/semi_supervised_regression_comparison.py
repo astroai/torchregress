@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import cast
 
 import torch
-from comparison_utils import (
+from sklearn.datasets import load_diabetes
+from torch import Tensor, nn
+
+from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
     print_fairness_notes,
@@ -14,9 +17,6 @@ from comparison_utils import (
     timed_call,
     write_comparison_summary_json,
 )
-from sklearn.datasets import load_diabetes
-from torch import Tensor, nn
-
 from torchregress.losses import GaussianNLLLoss, PseudoLabelConsistencyLoss, PseudoLabelNLL
 from torchregress.utils import generate_pseudo_labels, update_ema_teacher_
 

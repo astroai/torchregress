@@ -8,13 +8,13 @@ from typing import cast
 import numpy as np
 import pandas as pd
 import spt_reg_synthetic_comparison as sptbase
-from comparison_utils import (
+
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
     write_comparison_summary_json,
 )
-
 from torchregress.test_time import (
     FeatureStatNormalizer,
     ShiftFactoredPredictiveTransport,

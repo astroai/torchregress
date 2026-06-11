@@ -12,6 +12,14 @@ from .augment import (
     GaussianNoise,
     MixUp,
 )
+from .distributions import normal_cdf
+from .gaussian_output import (
+    low_rank_output_dim,
+    parse_heteroscedastic_output,
+    split_low_rank_gaussian_output,
+    split_mean_log_variance,
+    variance_from_logvar,
+)
 from .labels import (
     combine_binary_average,
     combine_binary_weighted_average,
@@ -20,6 +28,7 @@ from .labels import (
     label_smoothing,
     soft_to_hard_labels,
 )
+from .numpy_stats import subsample_rows, winsorize
 from .ordinal import (
     class_probs_to_levels,
     cumulative_logits_to_pmf,
@@ -44,6 +53,7 @@ from .quantile import (
     multi_quantile_loss,
     quantile_loss,
 )
+from .reduction import reduce_per_sample
 from .scaling import (
     AMP,
     GradientAccumulation,
@@ -61,6 +71,8 @@ from .tensor_ops import (
     calculate_gaussian_nll,
     calculate_propagated_variance,
     compute_model_gradients,
+    convert_to_tensor,
+    ensure_batch_dim,
     masked_mean,
     masked_reduction,
     masked_sum,
@@ -93,16 +105,30 @@ from .validation import (
     check_tensor,
     validate_batch_consistency,
     validate_integer,
+    validate_metric_inputs,
     validate_positive,
     validate_quantile,
     validate_range,
     validate_reduction,
     validate_same_device,
+    validate_sample_weight,
     validate_shape,
     validate_weights,
 )
 
 __all__ = [
+    # distributions
+    "normal_cdf",
+    # gaussian_output
+    "parse_heteroscedastic_output",
+    "low_rank_output_dim",
+    "split_low_rank_gaussian_output",
+    "split_mean_log_variance",
+    "variance_from_logvar",
+    "reduce_per_sample",
+    # numpy_stats
+    "subsample_rows",
+    "winsorize",
     # augment
     "Augmentation",
     "GaussianNoise",
@@ -139,6 +165,8 @@ __all__ = [
     "multi_quantile_loss",
     # tensor_ops
     "apply_mask",
+    "convert_to_tensor",
+    "ensure_batch_dim",
     "masked_reduction",
     "masked_mean",
     "masked_sum",
@@ -187,6 +215,8 @@ __all__ = [
     "validate_batch_consistency",
     "validate_same_device",
     "validate_weights",
+    "validate_metric_inputs",
+    "validate_sample_weight",
     "check_tensor",
     # security
     "validate_url",

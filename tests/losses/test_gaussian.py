@@ -8,10 +8,9 @@ from torchregress.losses.gaussian import (
     GaussianNLLLoss,
     LowRankGaussianLoss,
     MultivariateGaussianLoss,
-    low_rank_output_dim,
-    split_low_rank_gaussian_output,
 )
 from torchregress.metrics import crps_gaussian
+from torchregress.utils.gaussian_output import low_rank_output_dim, split_low_rank_gaussian_output
 
 
 class TestGaussianLosses(unittest.TestCase):

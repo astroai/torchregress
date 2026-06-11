@@ -13,7 +13,10 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from comparison_utils import (
+from sklearn.datasets import load_diabetes
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
     print_fairness_notes,
@@ -21,9 +24,6 @@ from comparison_utils import (
     timed_call,
     write_comparison_summary_json,
 )
-from sklearn.datasets import load_diabetes
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.losses import MDNLoss, create_gaussian_nll
 from torchregress.metrics import energy_score, marginal_calibration_error
 

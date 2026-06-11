@@ -6,9 +6,9 @@ from torchregress.test_time.subspace import (
     SignificantSubspaceAligner,
     _clip_scale_ratio,
     _feature_significance,
-    _subsample_rows,
-    _winsorize,
 )
+from torchregress.utils.numpy_stats import subsample_rows as _subsample_rows
+from torchregress.utils.numpy_stats import winsorize as _winsorize
 
 
 def test_subsample_rows():

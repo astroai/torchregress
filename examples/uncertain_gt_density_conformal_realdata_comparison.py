@@ -4,15 +4,15 @@ import argparse
 from dataclasses import dataclass
 
 import torch
-from comparison_utils import (
+from sklearn.datasets import load_diabetes
+from torch import Tensor
+
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     timed_call,
     write_comparison_summary_json,
 )
-from sklearn.datasets import load_diabetes
-from torch import Tensor
-
 from torchregress.losses import (
     ConsistencyRegLoss,
     DensityConformal,

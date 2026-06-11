@@ -6,16 +6,16 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 import torch.nn as nn
-from comparison_utils import (
+from torch import Tensor
+from torch.utils.data import DataLoader, TensorDataset
+
+from torchregress.comparison import (
     print_comparison_summary,
     print_fairness_notes,
     set_comparison_seed,
     timed_call,
     write_comparison_summary_json,
 )
-from torch import Tensor
-from torch.utils.data import DataLoader, TensorDataset
-
 from torchregress.losses import CQR, CTI, SLSConformal, SLSLoss
 
 

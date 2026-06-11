@@ -66,16 +66,17 @@ DEFAULT_TABRED_DATA_ROOT = REPO_ROOT / "data" / "tabred"
 if str(EXAMPLES_DIR) not in sys.path:
     sys.path.insert(0, str(EXAMPLES_DIR))
 
-from comparison_utils import (  # noqa: E402
-    print_comparison_summary,
-    print_fairness_notes,
-    set_comparison_seed,
-)
 from self_agreement_realdata_year import (  # noqa: E402
     YearRealDataConfig,
     YearSplit,
     _run_fraction,
     _write_csv,
+)
+
+from torchregress.comparison import (  # noqa: E402
+    print_comparison_summary,
+    print_fairness_notes,
+    set_comparison_seed,
 )
 
 DEFAULT_DATASETS = ("cooking-time", "delivery-eta", "maps-routing")

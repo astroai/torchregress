@@ -22,7 +22,8 @@ if str(THIS_DIR) not in sys.path:
 import matplotlib.pyplot as plt  # noqa: E402
 import self_agreement_higgs_ood as higgs_benchmark  # noqa: E402
 import self_agreement_realdata_year as year_benchmark  # noqa: E402
-from comparison_utils import (  # noqa: E402
+
+from torchregress.comparison import (  # noqa: E402
     print_comparison_summary,
     print_fairness_notes,
     write_comparison_summary_json,
