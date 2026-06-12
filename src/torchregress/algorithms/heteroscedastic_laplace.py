@@ -9,6 +9,7 @@ with Deep Neural Networks" (NeurIPS 2023).
 from __future__ import annotations
 
 import math
+from collections.abc import Sized
 from typing import Optional, Tuple, Union
 
 import torch
@@ -89,6 +90,11 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
 
     Performs last-layer Laplace posterior approximation over the weight and bias parameters
     of the heteroscedastic head. Supports natural parameterization heads.
+
+    References
+    ----------
+    .. [1] Immer, A., et al. (2023). Effective Bayesian Heteroscedastic Regression.
+       In *NeurIPS 2023*. https://openreview.net/forum?id=uN49j3H0tY
     """
 
     def __init__(
@@ -159,7 +165,13 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
                         * self.prior_precision
                         * (head_linear.weight.square().sum() + head_linear.bias.square().sum())
                     )
-                    total_loss = loss + l2_reg / len(train_loader.dataset)
+                    dataset = train_loader.dataset
+                    dataset_len = (
+                        len(dataset)
+                        if isinstance(dataset, Sized)
+                        else len(train_loader) * (train_loader.batch_size or 1)
+                    )
+                    total_loss = loss + l2_reg / dataset_len
 
                     total_loss.backward()
                     optimizer.step()
@@ -177,7 +189,9 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
         fisher_bias = torch.zeros_like(head_linear.bias)
 
         # Extract all features and compute gradients per sample
-        def single_sample_loss(params, feat, y):
+        def single_sample_loss(
+            params: dict[str, torch.Tensor], feat: torch.Tensor, y: torch.Tensor
+        ) -> torch.Tensor:
             w = params["weight"]
             b = params["bias"]
             out = torch.nn.functional.linear(feat, w, b)

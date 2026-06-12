@@ -44,6 +44,19 @@ def _subsample_probabilities(
 
 @dataclass(frozen=True)
 class LabelShiftEMConfig:
+    """
+    Configuration options for EM-based target prior estimation.
+
+    Parameters
+    ----------
+    max_iter : int
+        Maximum EM iterations.
+    tol : float
+        Convergence tolerance for prior differences.
+    eps : float
+        Small constant for numerical stability.
+    """
+
     max_iter: int = 100
     tol: float = 1.0e-6
     eps: float = 1.0e-8
@@ -51,6 +64,21 @@ class LabelShiftEMConfig:
 
 @dataclass(frozen=True)
 class LabelShiftEstimate:
+    """
+    Results container for EM label shift estimation.
+
+    Parameters
+    ----------
+    source_prior : np.ndarray
+        Estimated or provided source label prior distribution.
+    target_prior : np.ndarray
+        Estimated target label prior distribution.
+    iterations : int
+        Number of EM iterations executed.
+    converged : bool
+        Whether the estimation converged within tolerance.
+    """
+
     source_prior: np.ndarray
     target_prior: np.ndarray
     iterations: int
@@ -120,7 +148,15 @@ def estimate_target_prior_em(
 
 
 class PosteriorLabelShiftAdapter:
-    """Reusable label-shift adapter for batch predictions."""
+    """
+    Reusable label-shift adapter for batch predictions.
+
+    References
+    ----------
+    .. [1] Lipton, Z. C., Wang, Y. X., & Smola, A. J. (2018). Detecting and Correcting
+       for Label Shift with Black Box Predictors. In *ICML 2018*.
+       https://arxiv.org/abs/1802.03916
+    """
 
     def __init__(
         self,
@@ -183,6 +219,21 @@ class PosteriorLabelShiftAdapter:
 
 
 def gaussian_bin_edges_from_targets(targets: np.ndarray, n_bins: int) -> np.ndarray:
+    """
+    Compute bin edges for continuous target discretization.
+
+    Parameters
+    ----------
+    targets : np.ndarray
+        Array of continuous target values.
+    n_bins : int
+        Desired number of bins.
+
+    Returns
+    -------
+    np.ndarray
+        Sorted array of unique bin edges.
+    """
     values = np.asarray(targets, dtype=np.float64).reshape(-1)
     quantiles = np.linspace(0.0, 1.0, max(2, int(n_bins)) + 1)
     edges = np.quantile(values, quantiles)
@@ -203,6 +254,25 @@ def gaussian_bin_probabilities(
     *,
     eps: float = 1.0e-8,
 ) -> np.ndarray:
+    """
+    Calculate probability mass in each bin for Gaussian predictions.
+
+    Parameters
+    ----------
+    mean : np.ndarray
+        Array of predicted Gaussian means.
+    std : np.ndarray
+        Array of predicted Gaussian standard deviations.
+    bin_edges : np.ndarray
+        Sorted array of bin edges.
+    eps : float
+        Small positive constant for numerical stability.
+
+    Returns
+    -------
+    np.ndarray
+        Bin probabilities of shape [batch, n_bins].
+    """
     mu = np.asarray(mean, dtype=np.float64).reshape(-1, 1)
     sigma = np.clip(np.asarray(std, dtype=np.float64).reshape(-1, 1), eps, None)
     z = (bin_edges[None, :] - mu) / sigma
@@ -218,6 +288,23 @@ def gaussian_moments_from_binned_probabilities(
     *,
     eps: float = 1.0e-8,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Reconstruct Gaussian mean and standard deviation from discrete bin probabilities.
+
+    Parameters
+    ----------
+    probabilities : np.ndarray
+        Bin probabilities of shape [batch, n_bins].
+    bin_edges : np.ndarray
+        Sorted array of bin edges.
+    eps : float
+        Small positive constant for numerical stability.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Reconstructed mean and standard deviation.
+    """
     probs = _normalize_rows(probabilities, eps)
     centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
     mean = probs @ centers
@@ -228,6 +315,25 @@ def gaussian_moments_from_binned_probabilities(
 
 @dataclass(frozen=True)
 class GaussianLabelShiftConfig:
+    """
+    Configuration options for continuous Gaussian label shift correction.
+
+    Parameters
+    ----------
+    n_bins : int
+        Number of bins for discretization.
+    estimation_rows : Optional[int]
+        Number of rows to subsample for prior estimation.
+    top_fraction : Optional[float]
+        Fraction of high-confidence predictions to select.
+    reference_size : Optional[int]
+        Reference sample size for local consistency calculation.
+    seed : Optional[int]
+        Random seed for reproducibility.
+    eps : float
+        Small positive constant.
+    """
+
     n_bins: int = 32
     estimation_rows: int | None = None
     top_fraction: float | None = 0.5
@@ -244,6 +350,31 @@ def correct_gaussian_predictions_for_label_shift(
     features: np.ndarray | None = None,
     config: GaussianLabelShiftConfig | None = None,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
+    """
+    Correct continuous Gaussian predictions for test-time label shift.
+
+    Discretizes the continuous targets into quantiles, runs EM target-prior
+    estimation on binned probabilities, and maps corrected probabilities
+    back to Gaussian mean and standard deviation.
+
+    Parameters
+    ----------
+    mean : np.ndarray
+        Predicted Gaussian means.
+    std : np.ndarray
+        Predicted Gaussian standard deviations.
+    source_targets : np.ndarray
+        Target labels from the source domain.
+    features : Optional[np.ndarray]
+        Input features for consistency weighting.
+    config : Optional[GaussianLabelShiftConfig]
+        Configuration options.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, dict[str, object]]
+        Corrected mean, corrected standard deviation, and metadata dictionary.
+    """
     cfg = config or GaussianLabelShiftConfig()
     bin_edges = gaussian_bin_edges_from_targets(source_targets, cfg.n_bins)
     src_t = np.asarray(source_targets, dtype=np.float64)

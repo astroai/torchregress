@@ -83,6 +83,12 @@ class ExpectileLoss(RegressionLoss):
         >>> target = torch.tensor([0.0, 2.0, 4.0])
         >>> loss_fn(y_pred, target)
         tensor(1.6000)  # Underestimation penalized 4x more than overestimation
+
+    References
+    ----------
+    .. [1] Newey, W. K., & Powell, J. L. (1987). Asymmetric Least Squares Estimation
+       and Testing. In *Econometrica*, 55(4), 819-847.
+       https://www.jstor.org/stable/1911031
     """
 
     def __init__(self, expectile: float = 0.5, reduction: str = "mean") -> None:
@@ -289,6 +295,12 @@ class AsymmetricLeastSquaresLoss(ExpectileLoss):
         >>> target = torch.tensor([0.0, 2.0, 4.0])
         >>> loss_fn(y_pred, target)
         tensor(1.5000)  # Underestimation penalized 3x more than overestimation
+
+    References
+    ----------
+    .. [1] Newey, W. K., & Powell, J. L. (1987). Asymmetric Least Squares Estimation
+       and Testing. In *Econometrica*, 55(4), 819-847.
+       https://www.jstor.org/stable/1911031
     """
 
     def __init__(self, tau: float = 0.5, reduction: str = "mean") -> None:

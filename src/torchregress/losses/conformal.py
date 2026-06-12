@@ -301,9 +301,14 @@ class SplitConformal(ConformalPredictor):
     Interval: ŷ ± q_hat (or ŷ ± q_hat * difficulty for normalized CP).
 
     Example:
-        >>> cp = SplitConformal(alpha=0.1)
-        >>> cp.calibrate(cal_preds, cal_targets)
         >>> lower, upper = cp.predict_interval(test_preds)
+
+    References
+    ----------
+    .. [1] Vovk, V., Gammerman, A., & Shafer, G. (2005). *Algorithmic Learning in a Random World*.
+       Springer. https://link.springer.com/book/10.1007/b106715
+    .. [2] Lei, J., Wasserman, L., Rinaldo, A., & Djolonga, J. (2018). Distribution-Free Predictive
+       Inference for Regression. In *JASA*, 113(523), 1094-1111. https://arxiv.org/abs/1604.04173
     """
 
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
@@ -350,6 +355,11 @@ class CQR(ConformalPredictor):
         >>> cqr = CQR(alpha=0.1, debias=True)
         >>> cqr.calibrate(cal_quantile_preds, cal_targets)
         >>> lower, upper = cqr.predict_interval(test_quantile_preds)
+
+    References
+    ----------
+    .. [1] Romano, Y., Patterson, E., & Candès, E. J. (2019). Conformalized Quantile Regression.
+       In *NeurIPS 2019*. https://arxiv.org/abs/1905.03222
     """
 
     def __init__(
@@ -441,6 +451,11 @@ class UACQR(CQR):
         debias: Same as :class:`CQR`.
         min_width: Floor on :math:`q_{\\mathrm{hi}} - q_{\\mathrm{lo}}` for division.
         aggregation: ``\"mean\"`` or ``\"max\"`` across output dimensions for multi-target.
+
+    References
+    ----------
+    .. [1] Rossellini, R., et al. (2023). Integrating Uncertainty Awareness into Conformalized
+       Quantile Regression. In *arXiv:2306.08693*. https://arxiv.org/abs/2306.08693
     """
 
     def __init__(
@@ -509,6 +524,12 @@ class LocalConformal(ConformalPredictor):
         alpha: Miscoverage rate.
         K_obj: Optional custom kernel object implementing `K(x1, x2)` and `Ki(xi, Xs)`.
         bandwidth: Bandwidth parameter for the default Gaussian kernel.
+
+    References
+    ----------
+    .. [1] Lin, Z., Trivedi, S., & Sun, J. (2021). Locally Valid and Discriminative Prediction
+       Intervals for Deep Learning Models. In *NeurIPS 2021*.
+       https://proceedings.neurips.cc/paper_files/paper/2021/file/46c7cb50b373877fb2f8d5c4517bb969-Paper.pdf
     """
 
     def __init__(
@@ -651,6 +672,12 @@ class LocalConformalMAD(LocalConformal):
 
     Uses normalized residuals scaled by a predicted local standard deviation/MAD,
     achieving heteroscedastic local coverage.
+
+    References
+    ----------
+    .. [1] Lin, Z., Trivedi, S., & Sun, J. (2021). Locally Valid and Discriminative Prediction
+       Intervals for Deep Learning Models. In *NeurIPS 2021*.
+       https://proceedings.neurips.cc/paper_files/paper/2021/file/46c7cb50b373877fb2f8d5c4517bb969-Paper.pdf
     """
 
     def __init__(
@@ -813,6 +840,11 @@ class CTI(ConformalPredictor):
         >>> # density_fn: (y_grid, x) -> log p(y_grid | x)
         >>> intervals = cti.predict_intervals_from_density(
         ...     density_fn, x_test, y_min=-5, y_max=5)
+
+    References
+    ----------
+    .. [1] Luo, R., & Zhou, Z. (2025). Conformal Thresholded Intervals for Efficient Regression.
+       In *AAAI 2025*. https://arxiv.org/abs/2407.14495
     """
 
     def __init__(
@@ -976,6 +1008,11 @@ class DistributionalConformal(ConformalPredictor):
         >>> dcp.calibrate(F_cal, y_cal)
         >>> lower, upper = dcp.predict_intervals_from_cdf(
         ...     cdf_fn, icdf_fn, x_test)
+
+    References
+    ----------
+    .. [1] Chernozhukov, V., Wüthrich, K., & Zhu, Y. (2021). Distributional Conformal Prediction.
+       In *PNAS*, 118(48). https://arxiv.org/abs/1909.07889
     """
 
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
@@ -1086,6 +1123,11 @@ class R2CConformal(ConformalPredictor):
         >>> # probs_cal: (n_cal, n_bins) softmax probabilities
         >>> r2c.calibrate(probs_cal, targets_cal)
         >>> lower, upper = r2c.predict_interval(probs_test)
+
+    References
+    ----------
+    .. [1] Cabi, S., et al. (2024). Conformal Prediction via Regression-as-Classification.
+       In *ICLR 2024*. https://arxiv.org/abs/2404.08168
     """
 
     def __init__(
@@ -1530,6 +1572,11 @@ class MonteCarloConformal(ConformalPredictor):
 
     Uses MC sample mean/median as the point predictor and MC sample standard
     deviation as the difficulty normalizer.
+
+    References
+    ----------
+    .. [1] Gibbs, I., Cherian, J. J., & Candès, E. J. (2025). Conformal prediction
+       with conditional guarantees. In *JRSSB 2025*. https://arxiv.org/abs/2305.12641
     """
 
     def __init__(
@@ -1866,6 +1913,11 @@ class SLSConformal(ConformalPredictor):
         sls_loss: An instance of `SLSLoss` containing the trained frontier and quantile networks.
         alpha: Miscoverage rate.
         grid_size: Number of grid points for constructing level-set intervals at prediction time.
+
+    References
+    ----------
+    .. [1] Slavutsky, et al. (2026). Super-Level-Set (SLS) Conformal Predictor.
+       In *NeurIPS 2026 Submission*. https://arxiv.org/abs/2605.06210
     """
 
     def __init__(

@@ -1,6 +1,6 @@
 # Noisy Labels Regression Example
 
-This example uses implemented robust losses for regression with corrupted targets. For future noisy-label methods that are not currently implemented as public APIs, see the research notes under [Research](../research/index.md).
+This example uses implemented robust losses for regression with corrupted targets. For future noisy-label methods that are not currently implemented as public APIs, see the research notes under [Reports](../reports/index.md).
 
 ## Code
 

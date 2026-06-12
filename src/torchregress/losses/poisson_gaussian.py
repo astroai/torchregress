@@ -91,6 +91,13 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         >>> target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])  # noisy measurements
         >>> loss_fn(y_pred, target)
         tensor(1.8241)
+
+    References
+    ----------
+    .. [1] Seifert, J., et al. (2023). Maximum-likelihood estimation in ptychography
+       in the presence of Poisson-Gaussian noise statistics.
+       In *Optics Letters*, 48(19), 5011-5014.
+       https://arxiv.org/abs/2308.02436
     """
 
     def __init__(
@@ -240,6 +247,13 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         >>> target = torch.tensor([[9.8, 21.2], [28.5, 41.3]])
         >>> loss_fn(y_pred, target)
         tensor(1.4208)
+
+    References
+    ----------
+    .. [1] Seifert, J., et al. (2023). Maximum-likelihood estimation in ptychography
+       in the presence of Poisson-Gaussian noise statistics.
+       In *Optics Letters*, 48(19), 5011-5014.
+       https://arxiv.org/abs/2308.02436
     """
 
     def __init__(

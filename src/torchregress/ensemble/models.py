@@ -242,9 +242,6 @@ class DeepEnsemble(BaseEnsembleModel):
     """
     Implementation of deep ensembles for uncertainty estimation.
 
-    Reference: "Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles"
-    by Lakshminarayanan, Pritzel, Blundell.
-
     This model creates an ensemble of independently trained models and combines
     their predictions for improved uncertainty estimation.
 
@@ -252,6 +249,12 @@ class DeepEnsemble(BaseEnsembleModel):
         base_model: Base model class or instance to ensemble
         ensemble_size: Number of ensemble members
         device: Device to use
+
+    References
+    ----------
+    .. [1] Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). Simple and Scalable
+       Predictive Uncertainty Estimation using Deep Ensembles. In *NeurIPS 2017*.
+       https://arxiv.org/abs/1612.01474
     """
 
     def __init__(

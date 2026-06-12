@@ -81,7 +81,6 @@ plugins:
             show_if_no_docstring: false
             show_root_heading: true
             heading_level: 3
-            layer: api
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -118,6 +117,11 @@ nav:
       - Best Practices: guide/best-practices.md
       - Debugging: guide/debugging.md
       - Performance: guide/performance.md
+      - Reports & Catalogs:
+          - Overview: reports/index.md
+          - Comparative Evidence: reports/comparative_evidence_matrix.md
+          - Method Catalog: reports/method_catalog_generated.md
+          - Real-Data Guide: reports/real_data_recommendation_guide.md
 
   # ── Tab 4: Losses ───────────────────────────────────────
   - Losses:
@@ -205,10 +209,13 @@ nav:
           - Beta-NLL Heteroscedastic Demo: examples/heteroscedastic_beta_nll.md
           - Ensemble Methods: examples/ensemble_methods.md
           - Evidential Regression: examples/evidential_regression.md
+          - Heteroscedastic Laplace: examples/heteroscedastic_laplace.md
           - OOD / Selective Prediction: examples/ood_selective_prediction_comparison.md
           - OOD / Selective (Real Data): examples/ood_selective_prediction_realdata_comparison.md
       - Prediction Intervals:
           - Conformal Regression: examples/conformal_regression_example.md
+          - Mondrian Conformal: examples/conformal_mondrian.md
+          - Expectile Regression: examples/expectile_regression.md
           - Normalizing Flows: examples/normalizing_flows_multitarget.md
           - Contrastive Flow Parameter Estimation: examples/contrastive_flow_parameter_estimation.md
           - Contrastive Flow Comparison: examples/contrastive_flow_parameter_estimation_comparison.md
@@ -225,6 +232,9 @@ nav:
           - Semi-Supervised Regression: examples/semi_supervised_regression_comparison.md
           - Uncertain-GT + Conformal: examples/uncertain_gt_density_conformal_comparison.md
       - Structured & Specialised:
+          - Poisson Regression: examples/poisson_regression.md
+          - Tweedie Regression: examples/tweedie_regression.md
+          - Poisson-Gaussian Mixture: examples/poisson_gaussian_mixture.md
           - Ordinal Regression: examples/ordinal_regression_comparison.md
           - Ordinal + Uncertain-GT: examples/ordinal_uncertain_ground_truth_comparison.md
           - Ordinal Regression (Real Data): examples/ordinal_regression_realdata_comparison.md
@@ -232,6 +242,7 @@ nav:
           - Censored Regression (Real Data): examples/censored_regression_realdata_comparison.md
           - EIV Methods: examples/eiv_method_comparison.md
           - EIV (Real Data): examples/eiv_method_realdata_comparison.md
+          - EIV Algorithms: examples/eiv_algorithms.md
           - Constraints + Calibration: examples/constraints_calibration_comparison.md
           - Uncertain-GT + Conformal (Real Data): examples/uncertain_gt_density_conformal_realdata_comparison.md
       - Causal:

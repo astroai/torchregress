@@ -27,6 +27,33 @@ from ..utils.validation import check_tensor
 
 @dataclass(frozen=True)
 class IRLSConfig:
+    """
+    Configuration options for Iteratively Reweighted Least Squares (IRLS) algorithm.
+
+    Parameters
+    ----------
+    base_loss : str
+        The base loss function to use ('gaussian', 'huber', or 'l1').
+    max_iter : int
+        Maximum number of IRLS iterations.
+    tol : float
+        Convergence tolerance for loss changes.
+    delta : float
+        Huber loss parameter delta.
+    weight_fn : Union[str, Callable]
+        Weighting function ('huber', 'tukey', 'power', or a callable).
+    weight_params : Optional[Dict[str, Any]]
+        Optional parameters for the weighting function.
+    variance_type : str
+        Variance estimation method ('predicted', 'fixed', or 'robust').
+    epsilon : float
+        Small constant for numerical stability.
+    return_all_predictions : bool
+        Whether to return intermediate predictions.
+    batch_size : int
+        Batch size for inference checks.
+    """
+
     base_loss: str = "gaussian"
     max_iter: int = 10
     tol: float = 1e-4
@@ -40,6 +67,10 @@ class IRLSConfig:
 
 
 class CallbackFn(Protocol):
+    """
+    Protocol for callback functions invoked during IRLS iterations.
+    """
+
     def __call__(
         self,
         *,
@@ -818,6 +849,13 @@ def iteratively_reweighted_least_squares(
         loss_history: List of loss values over iterations
         final_precision: Final precision tensor
         [optional] all_predictions: List of predictions from all iterations
+
+    References
+    ----------
+    .. [1] Beaton, A. E., & Tukey, J. W. (1974). The Fitting of Power Series,
+       Meaning Polynomials, Illustrated on Band-Spectroscopic Data.
+       In *Technometrics*, 16(2), 147-185.
+       https://doi.org/10.1080/00401706.1974.10489171
     """
     if config is None:
         config = IRLSConfig(**kwargs)
@@ -1180,12 +1218,6 @@ def IRLS(  # noqa: PLR0913
     verbose_batch_freq: int = 5,
     epsilon: float = EPS,
 ) -> Dict[str, Any]:
-    warnings.warn(
-        "The IRLS function is deprecated and will be removed in a future version. "
-        "Please use the iteratively_reweighted_least_squares function in your own training loop.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
     """
     Trains a PyTorch model using Iteratively Reweighted Least Squares (IRLS).
 
@@ -1222,6 +1254,12 @@ def IRLS(  # noqa: PLR0913
     Returns:
         Dictionary containing trained model and training history
     """
+    warnings.warn(
+        "The IRLS function is deprecated and will be removed in a future version. "
+        "Please use the iteratively_reweighted_least_squares function in your own training loop.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # Create optimizer if not provided
     if optimizer is None:
         optimizer = torch.optim.Adam(model.parameters())

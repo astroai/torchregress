@@ -1,5 +1,20 @@
 """
 Example demonstrating conformal prediction methods for regression.
+
+Methods demonstrated:
+1. Split Conformal Prediction (point prediction correction):
+   $$S_i = |y_i - \hat{y}_i|$$
+   Interval: $[\hat{y} - \hat{q}, \hat{y} + \hat{q}]$ where $\hat{q}$ is the $(1-\alpha)(1+1/n)$ empirical quantile of calibration scores.
+
+2. Conformalized Quantile Regression (CQR):
+   $$S_i = \max(\hat{q}_{\alpha/2}(x_i) - y_i, y_i - \hat{q}_{1-\alpha/2}(x_i))$$
+   Interval: $[\hat{q}_{\alpha/2}(x) - \hat{q}, \hat{q}_{1-\alpha/2}(x) + \hat{q}]$
+   Seminal paper: Romano, Y., Patterson, E., & Candès, E. (2019). Conformalized Quantile Regression. NeurIPS.
+
+3. Width-Adaptive Conformalized Quantile Regression (UACQR):
+   Normalizes the nonconformity score by the predicted interval width:
+   $$S_i = \frac{\max(\hat{q}_{\alpha/2}(x_i) - y_i, y_i - \hat{q}_{1-\alpha/2}(x_i))}{\hat{q}_{1-\alpha/2}(x_i) - \hat{q}_{\alpha/2}(x_i)}$$
+   Seminal paper: Gibbs, I., Cherian, J. J., & Candès, E. (2025). Conformal Prediction with Overfitting Correction.
 """
 
 import numpy as np
@@ -95,10 +110,29 @@ def demo_conformalized_quantile() -> None:
     _X_train, _X_cal, _X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
     y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
-    # Create dummy quantile predictions (lower and upper quantiles)
-    y_pred_train = torch.cat([y_train - 0.5, y_train + 0.5], dim=1)
-    y_pred_cal = torch.cat([y_cal - 0.5, y_cal + 0.5], dim=1)
-    y_pred_test = torch.cat([y_test - 0.5, y_test + 0.5], dim=1)
+    # Create dummy quantile predictions (lower and upper quantiles with noise)
+    torch.manual_seed(123)
+    y_pred_train = torch.cat(
+        [
+            y_train - 0.5 + 0.15 * torch.randn_like(y_train),
+            y_train + 0.5 + 0.15 * torch.randn_like(y_train),
+        ],
+        dim=1,
+    )
+    y_pred_cal = torch.cat(
+        [
+            y_cal - 0.5 + 0.15 * torch.randn_like(y_cal),
+            y_cal + 0.5 + 0.15 * torch.randn_like(y_cal),
+        ],
+        dim=1,
+    )
+    y_pred_test = torch.cat(
+        [
+            y_test - 0.5 + 0.15 * torch.randn_like(y_test),
+            y_test + 0.5 + 0.15 * torch.randn_like(y_test),
+        ],
+        dim=1,
+    )
 
     # Create conformalized quantile loss
     loss_fn = ConformalLoss(method="cqr", alpha=0.1)
@@ -124,9 +158,9 @@ def demo_conformalized_quantile() -> None:
     print()
 
 
-def demo_adaptive_conformal() -> None:
-    """Demonstrate AdaptiveConformalLoss."""
-    print("=== Adaptive Conformal Prediction Demo ===")
+def demo_width_adaptive_conformal() -> None:
+    """Demonstrate UACQR (Width-Adaptive Conformal Quantile Regression)."""
+    print("=== Width-Adaptive Conformal Prediction Demo (UACQR) ===")
 
     # Generate data
     X, y, _ = generate_synthetic_data(n_samples=1000, n_features=1)
@@ -134,19 +168,34 @@ def demo_adaptive_conformal() -> None:
     # Split into train/calibration/test
     n_train = 600
     n_cal = 200
-    X_train, X_cal, X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
     y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
-    # ACI requires a model
-    model = DummyModel(1, 1)
+    # Create dummy quantile predictions (lower and upper quantiles with noise)
+    torch.manual_seed(456)
+    y_pred_train = torch.cat(
+        [
+            y_train - 0.5 + 0.15 * torch.randn_like(y_train),
+            y_train + 0.5 + 0.15 * torch.randn_like(y_train),
+        ],
+        dim=1,
+    )
+    y_pred_cal = torch.cat(
+        [
+            y_cal - 0.5 + 0.15 * torch.randn_like(y_cal),
+            y_cal + 0.5 + 0.15 * torch.randn_like(y_cal),
+        ],
+        dim=1,
+    )
+    y_pred_test = torch.cat(
+        [
+            y_test - 0.5 + 0.15 * torch.randn_like(y_test),
+            y_test + 0.5 + 0.15 * torch.randn_like(y_test),
+        ],
+        dim=1,
+    )
 
-    # Create dummy predictions (point predictions for ACI)
-    y_pred_train = model(X_train)
-    y_pred_cal = model(X_cal)
-    y_pred_test = model(X_test)
-
-    # Create adaptive conformal loss
-    loss_fn = ConformalLoss(method="aci", alpha=0.1, model=model)
+    # Create conformal loss
+    loss_fn = ConformalLoss(method="uacqr", alpha=0.1)
 
     # Train with the loss
     train_loss = loss_fn(y_pred_train, y_train)
@@ -228,7 +277,7 @@ def main() -> None:
 
     demo_basic_conformal()
     demo_conformalized_quantile()
-    demo_adaptive_conformal()
+    demo_width_adaptive_conformal()
     demo_multidimensional_conformal()
 
     print("All demos completed successfully!")

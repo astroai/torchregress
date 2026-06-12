@@ -139,7 +139,9 @@ def run_torchregress(X_train, y_train, X_test, y_test, model_type="gaussian"):
         else:
             # For MDN, we use samples or compute specifically
             samples = loss_fn.sample(out_test, n_samples=100)
-            report = distribution_metrics_report(samples=samples, y_true=y_test_t.squeeze())
+            report = distribution_metrics_report(
+                samples=samples.squeeze(-1), y_true=y_test_t.squeeze()
+            )
 
     report["duration"] = duration
     return report

@@ -108,6 +108,12 @@ def ppi_mean_ci(
 
     Estimator:
         E[Y] ≈ mean(pred_unlabeled) + mean(y_labeled - pred_labeled)
+
+    References
+    ----------
+    .. [1] Angelopoulos, A. N., Bates, S., Fannjiang, C., Jordan, M. I., & Zrnic, T. (2023).
+       Prediction-Powered Inference. In *Science*, 382(6673), 903-907.
+       https://arxiv.org/abs/2301.09633
     """
     cfg = config or PPIConfig()
 
@@ -191,6 +197,11 @@ def ppi_calibrated_mean_ci(
         Same semantics as :func:`ppi_mean_ci`.
     config
         Same as :class:`PPIConfig` for :func:`ppi_mean_ci`.
+
+    References
+    ----------
+    .. [1] Chen, et al. (2026). Linearly Calibrated Prediction-Powered Inference.
+       In *arXiv:2604.21260*. https://arxiv.org/abs/2604.21260
     """
     cfg = config or PPIConfig()
     if not 0 < cfg.alpha < 1:
@@ -270,6 +281,12 @@ def ppi_quantile_ci(
 
     Uses a robust location correction based on labeled residual median:
         Q_q(Y) ≈ Q_q(pred_unlabeled) + median(y_labeled - pred_labeled)
+
+    References
+    ----------
+    .. [1] Angelopoulos, A. N., Bates, S., Fannjiang, C., Jordan, M. I., & Zrnic, T. (2023).
+       Prediction-Powered Inference. In *Science*, 382(6673), 903-907.
+       https://arxiv.org/abs/2301.09633
     """
     cfg = config or PPIConfig()
 
@@ -357,6 +374,12 @@ def ppi_ols_ci(  # noqa: PLR0913
     Beta estimate combines:
     - plugin regression on unlabeled predictions, and
     - labeled residual correction.
+
+    References
+    ----------
+    .. [1] Angelopoulos, A. N., Bates, S., Fannjiang, C., Jordan, M. I., & Zrnic, T. (2023).
+       Prediction-Powered Inference. In *Science*, 382(6673), 903-907.
+       https://arxiv.org/abs/2301.09633
     """
     # Note: ppi_ols_ci historically used n_boot=1000 by default.
     # We create a specific default config for it if none provided.

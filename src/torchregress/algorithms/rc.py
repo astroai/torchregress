@@ -41,6 +41,12 @@ class RegressionCalibration:
 
     Args:
         sigma_u: Standard deviation (scalar/vector) or covariance matrix of measurement error.
+
+    References
+    ----------
+    .. [1] Carroll, R. J., Ruppert, D., Stefanski, L. A., & Crainiceanu, C. M. (2006).
+       *Measurement Error in Nonlinear Models: A Modern Perspective* (2nd ed.).
+       Chapman & Hall/CRC. https://doi.org/10.1201/9781420010138
     """
 
     def __init__(self, sigma_u: Union[float, torch.Tensor]):

@@ -941,6 +941,23 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="IVON",
+        family="bnn",
+        public_path="torchregress.algorithms.IVON",
+        task_tags=(
+            "variational_inference",
+            "optimizer",
+            "natural_gradient",
+            "bayesian_learning_rule",
+        ),
+        maturity="Available",
+        epistemic="yes",
+        notes=(
+            "Improved Variational Online Newton optimizer "
+            "derived from the Bayesian Learning Rule framework."
+        ),
+    ),
+    MethodMetadata(
         name="TaskAgnosticCorrelations",
         family="multivariate",
         public_path="torchregress.metrics.TaskAgnosticCorrelations",

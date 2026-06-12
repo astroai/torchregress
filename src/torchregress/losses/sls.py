@@ -441,6 +441,11 @@ class SLSLoss(RegressionLoss):
 
     Directly estimates minimum-volume prediction regions with conditional coverage
     by optimizing the level-set boundary under a volume penalty.
+
+    References
+    ----------
+    .. [1] Slavutsky, et al. (2026). Super-Level-Set (SLS) Regression.
+       In *NeurIPS 2026 Submission*. https://arxiv.org/abs/2605.06210
     """
 
     frontier: Union[MahalanobisFrontier, UnionFrontier]

@@ -3,6 +3,22 @@ torchregress basic usage example.
 
 This example demonstrates how to use various regression loss functions
 from the torchregress library in a simple neural network training scenario.
+
+Losses demonstrated:
+1. Mean Squared Error (MSE):
+   $$L_{\text{MSE}}(y, \hat{y}) = (y - \hat{y})^2$$
+
+2. Huber Loss (Robust):
+   $$L_{\text{Huber}}(y, \hat{y}) = \begin{cases} \frac{1}{2}(y - \hat{y})^2 & \text{for } |y - \hat{y}| \le \delta \\ \delta(|y - \hat{y}| - \frac{1}{2}\delta) & \text{otherwise} \end{cases}$$
+   Seminal paper: Huber, P. J. (1964). Robust Estimation of a Location Parameter. Annals of Mathematical Statistics.
+
+3. Pinball / Quantile Loss:
+   $$L_q(y, \hat{y}) = \max(q(y - \hat{y}), (q-1)(y - \hat{y}))$$
+   Seminal paper: Koenker, R., & Bassett Jr, G. (1978). Regression Quantiles. Econometrica.
+
+4. Heteroscedastic Gaussian Negative Log-Likelihood (NLL):
+   $$L_{\text{NLL}}(y, \hat{y}, \sigma^2) = \frac{1}{2}\log\sigma^2 + \frac{(y - \hat{y})^2}{2\sigma^2} + \frac{1}{2}\log(2\pi)$$
+   Seminal paper: Nix, D. A., & Weigend, A. S. (1994). Estimating the mean and variance of target distributions. IEEE International Conference on Neural Networks.
 """
 
 import matplotlib.pyplot as plt

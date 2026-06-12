@@ -33,6 +33,12 @@ class VariationalLinear(nn.Module):
         >>> layer = VariationalLinear(64, 32)
         >>> output = layer(x)  # Different output each call due to sampling
         >>> kl_div = layer.kl_divergence()  # For ELBO loss
+
+    References
+    ----------
+    .. [1] Blundell, C., Cornebise, J., Kavukcuoglu, K., & Wierstra, D. (2015).
+       Weight Uncertainty in Neural Networks. In *ICML 2015*.
+       https://arxiv.org/abs/1505.05424
     """
 
     def __init__(
@@ -152,6 +158,12 @@ class BayesianNeuralNetwork(nn.Module):
         >>> total_loss = nll_loss + kl_loss / n_train  # ELBO
         >>> # Inference
         >>> mean, std = model.predict_with_uncertainty(x_test)
+
+    References
+    ----------
+    .. [1] Blundell, C., Cornebise, J., Kavukcuoglu, K., & Wierstra, D. (2015).
+       Weight Uncertainty in Neural Networks. In *ICML 2015*.
+       https://arxiv.org/abs/1505.05424
     """
 
     def __init__(
@@ -299,6 +311,12 @@ class HeteroscedasticBNN(nn.Module):
     Example:
         >>> model = HeteroscedasticBNN(input_dim=10, hidden_dims=[64, 32], output_dim=1)
         >>> mean, aleatoric, epistemic = model.predict_with_decomposition(x_test)
+
+    References
+    ----------
+    .. [1] Blundell, C., Cornebise, J., Kavukcuoglu, K., & Wierstra, D. (2015).
+       Weight Uncertainty in Neural Networks. In *ICML 2015*.
+       https://arxiv.org/abs/1505.05424
     """
 
     def __init__(

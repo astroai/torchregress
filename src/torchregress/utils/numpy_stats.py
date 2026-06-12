@@ -11,6 +11,24 @@ def subsample_rows(
     *,
     random_state: int | None,
 ) -> np.ndarray:
+    """
+    Subsample rows of a NumPy array to a maximum limit.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The input array.
+    max_rows : Optional[int]
+        The maximum number of rows to return. If None, <= 0, or greater
+        than the number of rows in X, the original array is returned.
+    random_state : Optional[int]
+        Random seed for the row selection.
+
+    Returns
+    -------
+    np.ndarray
+        The subsampled array with sorted indices to preserve sequence.
+    """
     if max_rows is None or max_rows <= 0 or X.shape[0] <= int(max_rows):
         return X
     rng = np.random.default_rng(random_state)
@@ -19,6 +37,22 @@ def subsample_rows(
 
 
 def winsorize(X: np.ndarray, clip_quantile: float | None) -> np.ndarray:
+    """
+    Clip array values along axis 0 to specified lower and upper quantiles.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The input array.
+    clip_quantile : Optional[float]
+        The quantile threshold to clip values. Must be in [0, 0.5).
+        If None or 0.0, the original array is returned.
+
+    Returns
+    -------
+    np.ndarray
+        The winsorized array with extreme values clipped.
+    """
     if clip_quantile is None:
         return X
     q = float(clip_quantile)

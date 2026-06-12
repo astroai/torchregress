@@ -35,6 +35,44 @@ def _optimizer_like_set_lr(opt: OptimizerLike, lr: float) -> None:
 
 @dataclass(frozen=True)
 class EnsembleFitConfig:
+    """
+    Configuration options for training an ensemble model.
+
+    Parameters
+    ----------
+    epochs : int
+        Number of training epochs.
+    lr : float
+        Learning rate.
+    optimizer_cls : type
+        The optimizer class to use (defaults to torch.optim.Adam).
+    optimizer_kwargs : Optional[dict[str, Any]]
+        Additional keyword arguments for the optimizer.
+    optimizer_factory : Optional[Callable[[nn.Module], OptimizerLike]]
+        A factory function to instantiate custom optimizer(s) for a member model.
+        If provided, `optimizer_cls` and `optimizer_kwargs` are ignored.
+    verbose : bool
+        Whether to print training progress.
+    device : Optional[Union[str, torch.device]]
+        The device to use for training.
+    adversarial_training : bool
+        Whether to enable adversarial training.
+    adversarial_epsilon : float
+        The epsilon perturbation magnitude for adversarial input generation.
+    adversarial_steps : int
+        Number of steps to run for multi-step adversarial perturbations.
+    adversarial_alpha : Optional[float]
+        Step size for multi-step adversarial perturbations.
+    adversarial_probability : float
+        Probability of applying adversarial perturbations to a batch.
+    adversarial_loss_weight : float
+        Loss scaling factor for the adversarial objective.
+    adversarial_random_start : bool
+        Whether to initialize the adversarial perturbation with a random start.
+    batch_regularizer : Optional[Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor]]
+        Optional regularization function applied to clean predictions.
+    """
+
     epochs: int = 10
     lr: float = 1e-3
     optimizer_cls: type = torch.optim.Adam

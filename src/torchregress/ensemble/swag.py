@@ -74,6 +74,12 @@ class SWAG(nn.Module):
         - Typical warmup: 75% of total training epochs
         - Collection phase: Use cyclical or constant learning rate
         - The scale parameter in sample() controls sampling variance (tune on validation)
+
+    References
+    ----------
+    .. [1] Maddox, W. J., Izmailov, P., Garipov, T., Vetrov, D. P., & Wilson, A. G. (2019).
+       A Simple Baseline for Bayesian Uncertainty Estimation in Deep Learning.
+       In *NeurIPS 2019*. https://arxiv.org/abs/1902.02476
     """
 
     def __init__(
@@ -280,6 +286,12 @@ class MultiSWAG(nn.Module):
         - Epistemic uncertainty comes from disagreement between SWAGs
         - Aleatoric uncertainty requires models to predict variance (e.g., heteroscedastic)
         - Total samples = n_models * n_samples_per_swag
+
+    References
+    ----------
+    .. [1] Maddox, W. J., Izmailov, P., Garipov, T., Vetrov, D. P., & Wilson, A. G. (2019).
+       A Simple Baseline for Bayesian Uncertainty Estimation in Deep Learning.
+       In *NeurIPS 2019*. https://arxiv.org/abs/1902.02476
     """
 
     def __init__(

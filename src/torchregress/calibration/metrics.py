@@ -8,12 +8,8 @@ import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import (
-    convert_to_tensor,
-    create_metric_result,
-    metric_state_list,
-    validate_inputs,
-)
+from torchregress.utils.tensor_ops import convert_to_tensor
+from torchregress.utils.validation import validate_metric_inputs as validate_inputs
 
 
 def _compute_histograms(samples: torch.Tensor, bin_edges: torch.Tensor) -> torch.Tensor:
@@ -44,6 +40,12 @@ def _compute_histograms(samples: torch.Tensor, bin_edges: torch.Tensor) -> torch
 class ExpectedCalibrationError(Metric):
     """
     Calculate Expected Calibration Error (ECE) for quantile regression.
+
+    References
+    ----------
+    .. [1] Naeini, M. P., Cooper, G. F., & Hauskrecht, M. (2015). Obtaining Well-Calibrated
+       Probabilities Using Bayesian Binning. In *AAAI 2015*.
+       https://ojs.aaai.org/index.php/AAAI/article/view/9602
     """
 
     is_differentiable = False
@@ -58,11 +60,15 @@ class ExpectedCalibrationError(Metric):
 
     def update(self, y_pred_quantiles: Dict[float, torch.Tensor], y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
+        from torchregress.metrics.utils import metric_state_list
+
         metric_state_list[dict[float, torch.Tensor]](self.y_pred_quantiles).append(y_pred_quantiles)
         metric_state_list[torch.Tensor](self.y_true).append(y_true)
 
     def compute(self) -> Dict[str, torch.Tensor]:
         """Compute ECE."""
+        from torchregress.metrics.utils import metric_state_list
+
         y_true_state = metric_state_list[torch.Tensor](self.y_true)
         y_true = torch.cat([convert_to_tensor(y) for y in y_true_state])
 
@@ -117,11 +123,15 @@ class MarginalCalibrationError(Metric):
 
     def update(self, y_pred_samples: torch.Tensor, y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
+        from torchregress.metrics.utils import metric_state_list
+
         metric_state_list[torch.Tensor](self.y_pred_samples).append(y_pred_samples)
         metric_state_list[torch.Tensor](self.y_true).append(y_true)
 
     def compute(self) -> Dict[str, torch.Tensor]:
         """Compute MCE."""
+        from torchregress.metrics.utils import metric_state_list
+
         with torch.no_grad():
             y_true = torch.cat(
                 [convert_to_tensor(y) for y in metric_state_list[torch.Tensor](self.y_true)]
@@ -212,10 +222,14 @@ def expected_calibration_error(
         )
 
     if as_numpy or isinstance(y_true, np.ndarray):
+        from torchregress.metrics.utils import create_metric_result
+
         return cast(
             Dict[str, Union[torch.Tensor, float, np.ndarray]],
             create_metric_result(result, as_numpy=True),
         )
+    from torchregress.metrics.utils import create_metric_result
+
     return cast(
         Dict[str, Union[torch.Tensor, float, np.ndarray]],
         create_metric_result(result, as_numpy=False),
@@ -292,10 +306,14 @@ def marginal_calibration_error(
         )
 
     if as_numpy or isinstance(y_true, np.ndarray):
+        from torchregress.metrics.utils import create_metric_result
+
         return cast(
             Dict[str, Union[torch.Tensor, float, np.ndarray]],
             create_metric_result(result, as_numpy=True),
         )
+    from torchregress.metrics.utils import create_metric_result
+
     return cast(
         Dict[str, Union[torch.Tensor, float, np.ndarray]],
         create_metric_result(result, as_numpy=False),
@@ -344,10 +362,14 @@ def bias(
     result = torch.mean(y_pred_t - y_true_t)
 
     if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
+        from torchregress.metrics.utils import create_metric_result
+
         return cast(
             Union[torch.Tensor, float, np.ndarray],
             create_metric_result(result, as_numpy=True),
         )
+    from torchregress.metrics.utils import create_metric_result
+
     return cast(
         Union[torch.Tensor, float, np.ndarray],
         create_metric_result(result, as_numpy=False),

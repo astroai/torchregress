@@ -18,6 +18,21 @@ def _sample_reference_indices(
 
 
 def entropy_scores(probabilities: np.ndarray, *, eps: float = 1.0e-8) -> np.ndarray:
+    """
+    Compute Shannon entropy scores over class probabilities.
+
+    Parameters
+    ----------
+    probabilities : np.ndarray
+        Array of probabilities of shape [batch, n_classes].
+    eps : float
+        Small positive constant for numerical stability.
+
+    Returns
+    -------
+    np.ndarray
+        1D array of Shannon entropy values per sample.
+    """
     probs = np.asarray(probabilities, dtype=float)
     probs = np.clip(probs, eps, None)
     probs = probs / np.clip(probs.sum(axis=1, keepdims=True), eps, None)
@@ -25,11 +40,37 @@ def entropy_scores(probabilities: np.ndarray, *, eps: float = 1.0e-8) -> np.ndar
 
 
 def confidence_scores(probabilities: np.ndarray) -> np.ndarray:
+    """
+    Extract the maximum probability score as confidence score.
+
+    Parameters
+    ----------
+    probabilities : np.ndarray
+        Array of probabilities of shape [batch, n_classes].
+
+    Returns
+    -------
+    np.ndarray
+        1D array of maximum probabilities per sample.
+    """
     probs = np.asarray(probabilities, dtype=float)
     return probs.max(axis=1)
 
 
 def pseudo_label_targets(probabilities: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate pseudo-labels and corresponding confidence weights.
+
+    Parameters
+    ----------
+    probabilities : np.ndarray
+        Array of probabilities of shape [batch, n_classes].
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        A tuple of (predicted_class_labels, max_probability_weights).
+    """
     probs = np.asarray(probabilities, dtype=float)
     labels = probs.argmax(axis=1)
     weights = probs[np.arange(probs.shape[0]), labels]
@@ -44,6 +85,27 @@ def select_high_confidence(
     top_fraction: float | None = None,
     min_count: int = 1,
 ) -> np.ndarray:
+    """
+    Filter predictions keeping only high-confidence or low-entropy instances.
+
+    Parameters
+    ----------
+    probabilities : np.ndarray
+        Array of probabilities of shape [batch, n_classes].
+    min_confidence : Optional[float]
+        Minimum confidence threshold.
+    max_entropy : Optional[float]
+        Maximum entropy threshold.
+    top_fraction : Optional[float]
+        Keep only this fraction of top-confidence instances.
+    min_count : int
+        Ensure at least this many instances are selected.
+
+    Returns
+    -------
+    np.ndarray
+        A boolean mask indicating selected instances.
+    """
     probs = np.asarray(probabilities, dtype=float)
     mask = np.ones(probs.shape[0], dtype=bool)
     if min_confidence is not None:
@@ -69,6 +131,27 @@ def select_high_confidence(
 
 @dataclass(frozen=True)
 class LocalConsistencyConfig:
+    """
+    Configuration options for neighborhood local feature consistency weights.
+
+    Parameters
+    ----------
+    k : int
+        Number of nearest neighbors.
+    temperature : float
+        Softmax temperature scale.
+    reference_size : Optional[int]
+        Subsample reference size for consistency search.
+    max_exact_rows : int
+        Maximum size before performing subsampled reference indexing.
+    query_chunk_size : Optional[int]
+        Batch chunk size to compute pairwise distances.
+    random_state : Optional[int]
+        Random seed.
+    eps : float
+        Small positive constant.
+    """
+
     k: int = 5
     temperature: float = 1.0
     reference_size: int | None = None

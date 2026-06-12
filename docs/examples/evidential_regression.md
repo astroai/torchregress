@@ -2,6 +2,30 @@
 
 This example demonstrates how to use evidential regression to decompose uncertainty into aleatoric and epistemic components.
 
+| # | Reference |
+|:-:|:----------|
+| 1 | Amini, A., Schwarting, W., Soleimany, A., & Rus, D. (2020). **Deep Evidential Regression**. *Advances in Neural Information Processing Systems (NeurIPS)*. |
+
+---
+
+## Evidential Formulation
+
+A neural network models the parameters $(\gamma, \nu, \alpha, \beta)$ of a Normal-Inverse-Gamma (NIG) distribution over the mean $\mu$ and variance $\sigma^2$ of the target:
+
+$$\mu \sim \mathcal{N}(\gamma, \sigma^2 / \nu), \quad \sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta)$$
+
+*   **Predicted Mean**:
+    $$\hat{y} = \gamma$$
+*   **Aleatoric Uncertainty** (expected data noise):
+    $$\text{Var}_{\text{aleatoric}} = \frac{\beta}{\alpha - 1}$$
+*   **Epistemic Uncertainty** (model parameter uncertainty):
+    $$\text{Var}_{\text{epistemic}} = \frac{\beta}{\nu(\alpha - 1)}$$
+*   **Loss Function**:
+    The loss function combines a Maximum Likelihood estimation of the NIG parameters with a regularization term scaled by `coeff_nig` to penalize overconfident predictions in regions with low evidence (low $\nu$):
+    $$L = L_{\text{NLL}} + \lambda L_{\text{reg}}$$
+
+---
+
 ## Code
 
 ```python

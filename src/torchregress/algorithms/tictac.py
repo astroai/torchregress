@@ -24,6 +24,12 @@ class TaylorInducedCovarianceHead(nn.Module):
     Specifically:
     cov = k1(x) * J(x) J(x)^T + k2(x) * H(x) + diag(k3(x)) + jitter * I
     where H(x)_ij = Tr(H_i(x) H_j(x)).
+
+    References
+    ----------
+    .. [1] Shukla, S., et al. (2024). TIC-TAC: A Framework For Improved Covariance
+       Estimation In Deep Heteroscedastic Regression. In *ICML 2024*.
+       https://arxiv.org/abs/2310.18953
     """
 
     def __init__(
@@ -90,7 +96,9 @@ class TaylorInducedCovarianceHead(nn.Module):
         params = dict(self.base_model.named_parameters())
         buffers = dict(self.base_model.named_buffers())
 
-        def functional_model_fn(p, b, x_val):
+        def functional_model_fn(
+            p: dict[str, torch.Tensor], b: dict[str, torch.Tensor], x_val: torch.Tensor
+        ) -> torch.Tensor:
             return torch.func.functional_call(
                 self.base_model, (p, b), (x_val.unsqueeze(0),)
             ).squeeze(0)

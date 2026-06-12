@@ -101,6 +101,15 @@ class EvidentialRegressionLoss(DistributionLoss):
         - E[μ] = γ
         - E[σ²] = β/(α-1) for α > 1  (aleatoric uncertainty)
         - Var[μ] = β/(ν(α-1)) for α > 1  (epistemic uncertainty)
+
+    References
+    ----------
+    .. [1] Amini, A., Schwarting, W., Soleimany, A., & Rus, D. (2020).
+       Deep Evidential Regression. In *NeurIPS 2020*.
+       https://arxiv.org/abs/1910.02600
+    .. [2] Sensoy, M., Kaplan, L., & Kandemir, M. (2018).
+       Evidential Deep Learning to Quantify Classification Uncertainty.
+       In *NeurIPS 2018*. https://arxiv.org/abs/1806.01768
     """
 
     def __init__(

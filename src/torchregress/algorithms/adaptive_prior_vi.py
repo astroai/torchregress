@@ -38,6 +38,11 @@ class SyntheticEnvironmentSampler:
 class AdaptivePriorGuide(nn.Module):
     """
     Posterior guide network that amortizes variational posterior parameters.
+
+    References
+    ----------
+    .. [1] Slavutsky, et al. (2025). VIDS: Variational Inference under Covariate Shift.
+       In *NeurIPS 2025*. https://arxiv.org/abs/2506.18283
     """
 
     def __init__(
@@ -109,6 +114,11 @@ class AdaptivePriorNetwork(nn.Module):
 class VIDSRegressor(nn.Module):
     """
     VIDS Variational Regressor under covariate shifts.
+
+    References
+    ----------
+    .. [1] Slavutsky, et al. (2025). VIDS: Variational Inference under Covariate Shift.
+       In *NeurIPS 2025*. https://arxiv.org/abs/2506.18283
     """
 
     def __init__(

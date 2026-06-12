@@ -84,7 +84,7 @@ _Generated date_: `2026-04-16`
 
 | Method Family | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD Support | Imbalance | Noisy Features (EIV) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `bnn` (6) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `bnn` (7) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` (3) | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
@@ -144,6 +144,7 @@ _Generated date_: `2026-04-16`
 | `BayesianNeuralNetwork` | `bnn` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `HeteroscedasticBNN` | `bnn` | `Available` | yes | no | yes | yes | yes | partial | partial |
 | `HeteroscedasticLaplaceRegressor` | `bnn` | `Available` | yes | no | yes | yes | yes | partial | partial |
+| `IVON` | `bnn` | `Available` | yes | no | yes | no | no | partial | partial |
 | `NaturalHeteroscedasticHead` | `bnn` | `Available` | yes | no | no | yes | no | partial | partial |
 | `NaturalReparamHead` | `bnn` | `Available` | yes | no | no | yes | no | partial | partial |
 | `VIDSRegressor` | `bnn` | `Available` | yes | no | yes | yes | no | partial | partial |
@@ -226,7 +227,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 | Family | # Methods | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD | Imbalance | EIV |
 |---|---:|---|---|---|---|---|---|---|---|---|---|
-| `bnn` | 6 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `bnn` | 7 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `calibration_transform` | 3 | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |

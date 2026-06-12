@@ -145,6 +145,13 @@ class PoissonLikelihoodRatioLoss(RegressionLoss):
         >>> target = torch.tensor([12.0, 18.0, 14.0])  # observed counts
         >>> loss_fn(y_pred, target)
         tensor(0.4749)
+
+    References
+    ----------
+    .. [1] Baker, S., & Cousins, R. D. (1984). Clarification of the use of chi-square
+       and likelihood functions in fits to histograms.
+       In *Nuclear Instruments and Methods in Physics Research*, 221(2), 437-442.
+       https://doi.org/10.1016/0167-5087(84)90016-4
     """
 
     def __init__(self, log_input: bool = True, eps: float = 1e-8, reduction: str = "mean") -> None:

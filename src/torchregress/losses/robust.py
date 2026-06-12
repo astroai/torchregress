@@ -146,6 +146,11 @@ class BarronLoss(RegressionLoss):
             increasingly outlier-robust.
         scale: Positive scale parameter controlling the transition point.
         reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+    References
+    ----------
+    .. [1] Barron, J. T. (2019). A General and Adaptive Robust Loss Function.
+       In *CVPR 2019*. https://arxiv.org/abs/1701.03077
     """
 
     def __init__(self, alpha: float = 1.0, scale: float = 1.0, reduction: str = "mean") -> None:
@@ -187,6 +192,11 @@ class AdaptiveRobustLoss(RegressionLoss):
         learn_alpha: Whether to optimize alpha.
         learn_scale: Whether to optimize scale.
         reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+    References
+    ----------
+    .. [1] Barron, J. T. (2019). A General and Adaptive Robust Loss Function.
+       In *CVPR 2019*. https://arxiv.org/abs/1701.03077
     """
 
     def __init__(
@@ -388,6 +398,13 @@ class TukeyBiweightLoss(RegressionLoss):
         >>> target = torch.tensor([0.0, 0.0, 0.0])
         >>> loss_fn(y_pred, target)
         tensor(1.8287)  # The large error is effectively capped
+
+    References
+    ----------
+    .. [1] Beaton, A. E., & Tukey, J. W. (1974). The Fitting of Power Series,
+       Meaning Polynomials, Illustrated on Band-Spectroscopic Data.
+       In *Technometrics*, 16(2), 147-185.
+       https://doi.org/10.1080/00401706.1974.10489171
     """
 
     def __init__(self, c: float = 4.685, reduction: str = "mean") -> None:
@@ -523,6 +540,12 @@ class CVaRLoss(RegressionLoss):
         c: Scale for base_loss in {"cauchy", "tukey"}.
         scale: Scale for base_loss="log_cosh".
         reduction: 'none' | 'mean' | 'sum'. For 'mean'/'sum', applies CVaR.
+
+    References
+    ----------
+    .. [1] Rockafellar, R. T., & Uryasev, S. (2000). Optimization of Conditional Value-at-Risk.
+       In *Journal of Risk*, 2(3), 21-41.
+       https://doi.org/10.1023/A:1008126422718
     """
 
     def __init__(

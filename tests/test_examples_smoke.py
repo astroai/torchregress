@@ -87,6 +87,19 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
     _load_example_module("causal_dr_uplift_comparison")
     _load_example_module("causal_dr_realdata_comparison")
+    _load_example_module("poisson_regression_demo")
+    _load_example_module("tweedie_regression_demo")
+    _load_example_module("poisson_gaussian_mixture_demo")
+    _load_example_module("expectile_regression_demo")
+    _load_example_module("conformal_mondrian_demo")
+    _load_example_module("eiv_algorithms_demo")
+    _load_example_module("heteroscedastic_laplace_demo")
+    _load_example_module("viz_diagnostic_gallery")
+    _load_example_module("metrics_suite_showcase")
+    _load_example_module("test_time_adaptation_suite")
+    _load_example_module("bnn_and_batch_ensemble_demo")
+    _load_example_module("transforms_and_augmentations_demo")
+    _load_example_module("bayesian_learning_rule_demo")
 
     # Optional dependency path (zuko/flow backend) may not be present in all environments.
     try:
@@ -706,3 +719,101 @@ def test_causal_dr_realdata_comparison_main_smoke() -> None:
         folds=2,
     )
     mod.main(cfg)
+
+
+def test_poisson_regression_demo_main_smoke(monkeypatch) -> None:
+    mod = _load_example_module("poisson_regression_demo")
+    orig_train_and_eval = mod.train_and_eval
+    monkeypatch.setattr(
+        mod,
+        "train_and_eval",
+        lambda *args, **kwargs: orig_train_and_eval(*args, epochs=1, **kwargs),
+    )
+    mod.main()
+
+
+def test_tweedie_regression_demo_main_smoke(monkeypatch) -> None:
+    mod = _load_example_module("tweedie_regression_demo")
+    orig_train_tweedie = mod.train_tweedie
+    monkeypatch.setattr(
+        mod,
+        "train_tweedie",
+        lambda *args, **kwargs: orig_train_tweedie(*args, epochs=1, **kwargs),
+    )
+    mod.main()
+
+
+def test_poisson_gaussian_mixture_demo_main_smoke(monkeypatch) -> None:
+    mod = _load_example_module("poisson_gaussian_mixture_demo")
+    orig_train_and_evaluate = mod.train_and_evaluate
+    monkeypatch.setattr(
+        mod,
+        "train_and_evaluate",
+        lambda *args, **kwargs: orig_train_and_evaluate(*args, epochs=1, **kwargs),
+    )
+    mod.main()
+
+
+def test_expectile_regression_demo_main_smoke(monkeypatch) -> None:
+    mod = _load_example_module("expectile_regression_demo")
+    orig_train_model = mod.train_model
+    monkeypatch.setattr(
+        mod,
+        "train_model",
+        lambda *args, **kwargs: orig_train_model(*args, epochs=1, **kwargs),
+    )
+    mod.main()
+
+
+def test_conformal_mondrian_demo_main_smoke() -> None:
+    mod = _load_example_module("conformal_mondrian_demo")
+    mod.main()
+
+
+def test_eiv_algorithms_demo_main_smoke(monkeypatch) -> None:
+    mod = _load_example_module("eiv_algorithms_demo")
+    orig_train_baseline_model = mod.train_baseline_model
+    orig_simex_train_wrapper = mod.simex_train_wrapper
+    monkeypatch.setattr(
+        mod,
+        "train_baseline_model",
+        lambda *args, **kwargs: orig_train_baseline_model(*args, epochs=1, **kwargs),
+    )
+    monkeypatch.setattr(
+        mod,
+        "simex_train_wrapper",
+        lambda *args, **kwargs: orig_simex_train_wrapper(*args, epochs=1, **kwargs),
+    )
+
+    from torchregress.algorithms import SIMEX as OriginalSIMEX
+
+    class FastSIMEX(OriginalSIMEX):
+        def __init__(self, *args, **kwargs):
+            kwargs["lambdas"] = [1.0]
+            kwargs["n_simulations"] = 1
+            super().__init__(*args, **kwargs)
+
+    from torchregress.algorithms import LatentNN as OriginalLatentNN
+
+    class FastLatentNN(OriginalLatentNN):
+        def __init__(self, *args, **kwargs):
+            kwargs["epochs"] = 1
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(mod, "SIMEX", FastSIMEX)
+    monkeypatch.setattr(mod, "LatentNN", FastLatentNN)
+    mod.main()
+
+
+def test_heteroscedastic_laplace_demo_main_smoke(monkeypatch) -> None:
+    mod = _load_example_module("heteroscedastic_laplace_demo")
+    from torchregress.algorithms import HeteroscedasticLaplaceRegressor
+
+    orig_fit = HeteroscedasticLaplaceRegressor.fit
+
+    def fast_fit(self, *args, **kwargs):
+        kwargs["epochs"] = 1
+        return orig_fit(self, *args, **kwargs)
+
+    monkeypatch.setattr(HeteroscedasticLaplaceRegressor, "fit", fast_fit)
+    mod.main()

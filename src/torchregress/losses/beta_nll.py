@@ -39,6 +39,12 @@ class BetaNLLLoss(GaussianNLLLoss):
         eps: Small constant inside ``log`` and divisions for numerical stability.
         reduction: ``"mean"``, ``"sum"``, ``"none"``, ``"min"``, or ``"max"``.
         split_dim: Dimension along which concatenated predictions are split in half.
+
+    References
+    ----------
+    .. [1] Seitzer, M., Tavakoli, A., Keurifon, D., & Peters, J. (2022).
+       On the Pitfalls of Heteroscedastic Uncertainty Estimation with NLL.
+       In *NeurIPS 2022*. https://arxiv.org/abs/2205.11310
     """
 
     def __init__(
@@ -104,6 +110,12 @@ def beta_nll_loss(
     Functional β-NLL for diagonal Gaussian predictions.
 
     See :class:`BetaNLLLoss` for argument semantics.
+
+    References
+    ----------
+    .. [1] Seitzer, M., Tavakoli, A., Keurifon, D., & Peters, J. (2022).
+       On the Pitfalls of Heteroscedastic Uncertainty Estimation with NLL.
+       In *NeurIPS 2022*. https://arxiv.org/abs/2205.11310
     """
     fn = BetaNLLLoss(
         beta=beta,

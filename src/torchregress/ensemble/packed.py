@@ -117,6 +117,12 @@ class PackedEnsembleRegressor(nn.Module):
     >>> y = model.predict_output(torch.randn(8, 3))
     >>> y.mean.shape
     torch.Size([8, 1])
+
+    References
+    ----------
+    .. [1] Wen, Y., Tran, D., & Ba, J. (2020). BatchEnsemble: An Alternative Approach
+       to Efficient Ensemble and Lifelong Learning. In *ICLR 2020*.
+       https://arxiv.org/abs/2002.06715
     """
 
     _model: Union[HeteroscedasticBatchEnsembleModel, MeanOnlyBatchEnsembleModel]

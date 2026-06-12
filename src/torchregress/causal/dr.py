@@ -154,7 +154,17 @@ def dr_ate(
     trim_threshold: float = 0.05,
     eps: float = 1e-4,
 ) -> Dict[str, Any]:
-    """Cross-fitted doubly-robust ATE with robust SE/CI and overlap diagnostics."""
+    """Cross-fitted doubly-robust ATE with robust SE/CI and overlap diagnostics.
+
+    References
+    ----------
+    .. [1] Robins, J. M., Rotnitzky, A., & Zhao, L. P. (1994). Estimation of Regression
+       Coefficients When Some Regressors are Not Always Observed. In *JASA*, 89(427), 846-866.
+       https://doi.org/10.1080/01621459.1994.10476818
+    .. [2] Chernozhukov, V., et al. (2018). Double/debiased machine learning for
+       treatment and structural parameters. In *The Econometrics Journal*, 21(1), C1-C68.
+       https://arxiv.org/abs/1701.02036
+    """
     x2 = _as_2d(x).float()
     t1 = _as_1d(t).float()
     y1 = _as_1d(y).float()
@@ -209,7 +219,17 @@ def dr_cate(
     trim_threshold: float = 0.05,
     eps: float = 1e-4,
 ) -> Dict[str, Any]:
-    """Cross-fitted DR CATE via pseudo-outcome regression."""
+    """Cross-fitted DR CATE via pseudo-outcome regression.
+
+    References
+    ----------
+    .. [1] Robins, J. M., Rotnitzky, A., & Zhao, L. P. (1994). Estimation of Regression
+       Coefficients When Some Regressors are Not Always Observed. In *JASA*, 89(427), 846-866.
+       https://doi.org/10.1080/01621459.1994.10476818
+    .. [2] Chernozhukov, V., et al. (2018). Double/debiased machine learning for
+       treatment and structural parameters. In *The Econometrics Journal*, 21(1), C1-C68.
+       https://arxiv.org/abs/1701.02036
+    """
     x2 = _as_2d(x).float()
     t1 = _as_1d(t).float()
     y1 = _as_1d(y).float()

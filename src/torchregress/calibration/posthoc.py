@@ -13,7 +13,13 @@ from torchregress.utils.distributions import normal_cdf
 
 @dataclass
 class VarianceTemperatureScaler:
-    """Scalar variance-temperature calibration for Gaussian predictive variance."""
+    """Scalar variance-temperature calibration for Gaussian predictive variance.
+
+    References
+    ----------
+    .. [1] Guo, C., Pleiss, G., Sun, Y., & Weinberger, K. Q. (2017). On Calibration
+       of Modern Neural Networks. In *ICML 2017*. https://arxiv.org/abs/1706.04599
+    """
 
     temperature: float = 1.0
     eps: float = 1e-8
@@ -57,7 +63,13 @@ class VarianceTemperatureScaler:
 
 @dataclass
 class IsotonicMeanCalibrator:
-    """Isotonic regression calibrator for point predictions."""
+    """Isotonic regression calibrator for point predictions.
+
+    References
+    ----------
+    .. [1] Zadrozny, B., & Elkan, C. (2002). Transforming classifier scores into accurate
+       multiclass probability estimates. In *KDD 2002*. https://doi.org/10.1145/775047.775151
+    """
 
     out_of_bounds: str = "clip"
 

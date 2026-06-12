@@ -210,7 +210,15 @@ class CumulativeLinkLoss(BaseLoss):
 
 @register_regression_loss("coral")
 class CORALLoss(CumulativeLinkLoss):
-    """CORAL ordinal loss (cumulative-link with CORAL encoding semantics)."""
+    """CORAL ordinal loss (cumulative-link with CORAL encoding semantics).
+
+    References
+    ----------
+    .. [1] Cao, W., Mirjalili, V., & Raschka, S. (2020). Rank consistent ordinal
+       regression for neural networks with application to age estimation.
+       In *Pattern Recognition Letters*, 140, 325-331.
+       https://arxiv.org/abs/1901.07884
+    """
 
 
 __all__ = [

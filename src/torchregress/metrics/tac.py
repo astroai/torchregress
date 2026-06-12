@@ -23,6 +23,12 @@ class TaskAgnosticCorrelations(Metric):
     Measures covariance accuracy by iteratively masking one dimension of target
     variables and predicting it from the remaining observed dimensions using
     conditional normal updates.
+
+    References
+    ----------
+    .. [1] Shukla, S., et al. (2024). TIC-TAC: A Framework For Improved Covariance
+       Estimation In Deep Heteroscedastic Regression. In *ICML 2024*.
+       https://arxiv.org/abs/2310.18953
     """
 
     is_differentiable = False
@@ -90,8 +96,8 @@ class TaskAgnosticCorrelations(Metric):
             tac_errors.append(err)
 
         # Stack along dimensions (B, d) and sum the total absolute error
-        tac_errors = torch.stack(tac_errors, dim=1)  # [B, d]
-        sum_error = torch.sum(tac_errors)
+        stacked_errors = torch.stack(tac_errors, dim=1)  # [B, d]
+        sum_error = torch.sum(stacked_errors)
 
         metric_state_tensor(self.sum_tac_error).add_(sum_error)
         metric_state_tensor(self.total).add_(torch.as_tensor(B * d, device=device))

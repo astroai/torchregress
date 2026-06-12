@@ -69,6 +69,12 @@ class BalancedMSELoss(RegressionLoss):
     Notes
     -----
     Call :meth:`fit` once on training targets before the optimization loop.
+
+    References
+    ----------
+    .. [1] Ren, J., Xiao, C., Chang, X., Huang, S., Li, G., & Wang, S. (2022).
+       Balanced MSE for Long-Tailed Visual Recognition. In *CVPR 2022*.
+       https://arxiv.org/abs/2203.16427
     """
 
     def __init__(
@@ -153,6 +159,12 @@ class BMCLoss(RegressionLoss):
     -----
     Call :meth:`fit` once before training. For quantile binning, ``min``/``max``
     are taken from the same ``train_targets`` used to build edges.
+
+    References
+    ----------
+    .. [1] Ren, J., Xiao, C., Chang, X., Huang, S., Li, G., & Wang, S. (2022).
+       Balanced MSE for Long-Tailed Visual Recognition. In *CVPR 2022*.
+       https://arxiv.org/abs/2203.16427
     """
 
     def __init__(

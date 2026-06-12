@@ -2,6 +2,27 @@
 
 This page provides comprehensive comparisons of different loss functions across various data scenarios, helping you choose the right loss for your application.
 
+| # | Reference |
+|:-:|:----------|
+| 1 | Barron, J. T. (2019). **A General and Adaptive Robust Loss Function**. *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*. |
+| 2 | Huber, P. J. (1964). **Robust Estimation of a Location Parameter**. *Annals of Mathematical Statistics*. |
+
+---
+
+## Robust Loss Formulations
+
+*   **Huber Loss**:
+    $$L_{\text{Huber}}(y, \hat{y}) = \begin{cases} \frac{1}{2}(y - \hat{y})^2 & \text{for } |y - \hat{y}| \le \delta \\ \delta(|y - \hat{y}| - \frac{1}{2}\delta) & \text{otherwise} \end{cases}$$
+*   **Log-Cosh Loss**:
+    $$L_{\text{LogCosh}}(y, \hat{y}) = \log(\cosh(y - \hat{y}))$$
+*   **Barron Robust Loss**:
+    $$\rho(x, \alpha, c) = \frac{|\alpha - 2|}{\alpha} \left( \left( \frac{(x/c)^2}{|\alpha - 2|} + 1 \right)^{\alpha/2} - 1 \right)$$
+    The parameter $\alpha$ determines the shape, interpolating between MSE ($\alpha=2$), Charbonnier/Pseudo-Huber ($\alpha=1$), Cauchy ($\alpha=0$), and Geman-McClure ($\alpha=-2$).
+*   **Adaptive Robust Loss**:
+    Treats $\alpha$ and $c$ as learnable parameters optimized dynamically alongside the neural network weights.
+
+---
+
 ## Scenario 1: Clean Data (No Outliers)
 
 When your data has no outliers and follows typical assumptions, different losses should perform similarly.

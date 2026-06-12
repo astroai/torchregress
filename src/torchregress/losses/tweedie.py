@@ -59,6 +59,13 @@ class TweedieLoss(RegressionLoss):
         >>> target = torch.tensor([1.0, 2.0, 3.0])
         >>> loss_fn(y_pred, target)
         tensor(0.0000)  # Perfect prediction
+
+    References
+    ----------
+    .. [1] Tweedie, M. C. K. (1984). An Index which Distinguishes between Some Important
+       Exponential Families. In *Statistics: Applications and New Directions*,
+       Indian Statistical Institute, Calcutta, 579–604.
+       https://en.wikipedia.org/wiki/Tweedie_distribution
     """
 
     def __init__(
@@ -266,6 +273,13 @@ class GammaLoss(TweedieLoss):
         >>> target = torch.tensor([1.0, 2.0, 3.0])
         >>> loss_fn(y_pred, target)
         tensor(0.0000)  # Perfect prediction
+
+    References
+    ----------
+    .. [1] Tweedie, M. C. K. (1984). An Index which Distinguishes between Some Important
+       Exponential Families. In *Statistics: Applications and New Directions*,
+       Indian Statistical Institute, Calcutta, 579–604.
+       https://en.wikipedia.org/wiki/Tweedie_distribution
     """
 
     def __init__(self, eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> None:
@@ -293,6 +307,13 @@ class InverseGaussianLoss(TweedieLoss):
         >>> target = torch.tensor([1.0, 2.0, 3.0])
         >>> loss_fn(y_pred, target)
         tensor(0.0000)  # Perfect prediction
+
+    References
+    ----------
+    .. [1] Tweedie, M. C. K. (1984). An Index which Distinguishes between Some Important
+       Exponential Families. In *Statistics: Applications and New Directions*,
+       Indian Statistical Institute, Calcutta, 579–604.
+       https://en.wikipedia.org/wiki/Tweedie_distribution
     """
 
     def __init__(self, eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> None:

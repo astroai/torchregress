@@ -49,6 +49,12 @@ class MCDropoutWrapper(nn.Module):
         ... )
         >>> mc_model = MCDropoutWrapper(base_model, n_samples=50)
         >>> mean, std = mc_model.predict_with_uncertainty(x)
+
+    References
+    ----------
+    .. [1] Gal, Y., & Ghahramani, Z. (2016). Dropout as a Bayesian Approximation:
+       Representing Model Uncertainty in Deep Learning. In *ICML 2016*.
+       https://arxiv.org/abs/1506.02142
     """
 
     def __init__(
@@ -157,6 +163,12 @@ class MCDropoutModel(nn.Module):
     Example:
         >>> model = MCDropoutModel(input_dim=10, hidden_dims=[64, 32], output_dim=1)
         >>> mean, std = model.predict_with_uncertainty(x)
+
+    References
+    ----------
+    .. [1] Gal, Y., & Ghahramani, Z. (2016). Dropout as a Bayesian Approximation:
+       Representing Model Uncertainty in Deep Learning. In *ICML 2016*.
+       https://arxiv.org/abs/1506.02142
     """
 
     def __init__(

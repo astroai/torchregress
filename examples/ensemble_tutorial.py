@@ -1,18 +1,29 @@
 """
-Ensemble Methods Tutorial for Uncertainty Quantification
+Ensemble Methods Tutorial for Uncertainty Quantification.
 
 This example demonstrates different ensemble methods in torchregress for uncertainty
 estimation, comparing:
 1. Single Model (baseline)
 2. Deep Ensemble (epistemic uncertainty)
 3. Heteroscedastic Ensemble (epistemic + aleatoric uncertainty)
-4. Batch Ensemble (efficient alternative)
 
-Key Concepts:
-- Epistemic uncertainty: Model uncertainty (what the model doesn't know)
-- Aleatoric uncertainty: Data uncertainty (inherent noise in the data)
-- Deep Ensemble: Multiple independently trained models
-- Heteroscedastic: Models that predict varying uncertainty across the input space
+Seminal paper: Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). Simple and Scalable
+Predictive Uncertainty Estimation using Deep Ensembles. NeurIPS.
+
+Mathematical Uncertainty Decomposition:
+Given predictions $\mu_m(x)$ and predicted variances $\sigma_m^2(x)$ for members $m=1,\dots,M$:
+
+- Predictive Mean:
+  $$\bar{\mu}(x) = \frac{1}{M}\sum_{m=1}^M \mu_m(x)$$
+
+- Epistemic Uncertainty (Model Disagreement):
+  $$\text{Var}_{\text{epistemic}}(x) = \frac{1}{M}\sum_{m=1}^M (\mu_m(x) - \bar{\mu}(x))^2$$
+
+- Aleatoric Uncertainty (Expected Data Noise):
+  $$\text{Var}_{\text{aleatoric}}(x) = \frac{1}{M}\sum_{m=1}^M \sigma_m^2(x)$$
+
+- Total Predictive Variance:
+  $$\text{Var}_{\text{total}}(x) = \text{Var}_{\text{epistemic}}(x) + \text{Var}_{\text{aleatoric}}(x)$$
 """
 
 import matplotlib.pyplot as plt

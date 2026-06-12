@@ -34,6 +34,12 @@ class SIMEX:
                  values larger than 1 materially reduce extrapolation variance.
         extrapolation_order: Order of the polynomial for extrapolation (1 for linear,
                              2 for quadratic). Default is 2.
+
+    References
+    ----------
+    .. [1] Cook, J. R., & Stefanski, L. A. (1994). Simulation-Extrapolation Estimation
+       in Parametric Measurement Error Models. In *JASA*, 89(428), 1314-1328.
+       https://www.jstor.org/stable/2290994
     """
 
     def __init__(

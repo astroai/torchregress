@@ -779,7 +779,9 @@ def distributional_pseudo_loss(
 
 
 class SAGERegLoss(nn.Module):
-    """Composite supervised + weighted distributional pseudo-supervision loss."""
+    """
+    Composite supervised + weighted distributional pseudo-supervision loss.
+    """
 
     def __init__(
         self,

@@ -138,6 +138,8 @@ Committed baseline thresholds (CI gate):
 
 See [Refreshing Threshold Baselines](#refreshing-threshold-baselines) below.
 
+### Refreshing Threshold Baselines
+
 Re-generate a sweep report and derive thresholds (example for CPU):
 
 ```bash

@@ -1,6 +1,28 @@
 # Basic Usage Examples
 
-This page provides complete, runnable examples for common regression tasks using torchregress.
+This page provides complete, runnable examples for common regression tasks using `torchregress`.
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Nix, D. A., & Weigend, A. S. (1994). **Estimating the mean and variance of target distributions**. *IEEE International Conference on Neural Networks*. |
+| 2 | Huber, P. J. (1964). **Robust Estimation of a Location Parameter**. *Annals of Mathematical Statistics*. |
+| 3 | Koenker, R., & Bassett Jr, G. (1978). **Regression Quantiles**. *Econometrica*. |
+
+---
+
+## Mathematical Formulations
+
+*   **Mean Squared Error (MSE)**:
+    $$L_{\text{MSE}}(y, \hat{y}) = (y - \hat{y})^2$$
+*   **Huber Loss (Robust)**:
+    $$L_{\text{Huber}}(y, \hat{y}) = \begin{cases} \frac{1}{2}(y - \hat{y})^2 & \text{for } |y - \hat{y}| \le \delta \\ \delta(|y - \hat{y}| - \frac{1}{2}\delta) & \text{otherwise} \end{cases}$$
+*   **Pinball / Quantile Loss**:
+    $$L_q(y, \hat{y}) = \max(q(y - \hat{y}), (q-1)(y - \hat{y}))$$
+*   **Gaussian Negative Log-Likelihood (NLL)**:
+    $$L_{\text{NLL}}(y, \hat{y}, \sigma^2) = \frac{1}{2}\log\sigma^2 + \frac{(y - \hat{y})^2}{2\sigma^2} + \frac{1}{2}\log(2\pi)$$
+
+---
+
 
 ## Example 1: Simple MSE Regression
 

@@ -67,6 +67,13 @@ class DensityWeightedLoss(RegressionLoss):
         - Requires sample indices during training to retrieve precomputed weights
         - Preserves calibration (safe method)
         - Alternative: Can pass target values directly without indices
+
+    References
+    ----------
+    .. [1] Steininger, M., Kobs, K., Padberg, P., & Hotho, A. (2021).
+       Density-based weighting for imbalanced regression.
+       In *Machine Learning*, 110(8), 2187-2209.
+       https://link.springer.com/article/10.1007/s10994-021-06024-2
     """
 
     def __init__(
@@ -380,6 +387,12 @@ class LDSLoss(RegressionLoss):
         - CAN BREAK CALIBRATION - always validate!
         - Best used with post-hoc calibration methods
         - More aggressive than DensityWeightedLoss
+
+    References
+    ----------
+    .. [1] Yang, Y., Zha, K., Chen, Y. C., Wang, H., & Katabi, D. (2021).
+       Delving into Deep Imbalanced Regression. In *ICML 2021*.
+       https://arxiv.org/abs/2102.09554
     """
 
     def __init__(

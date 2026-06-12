@@ -30,6 +30,27 @@ def _clip_scale_ratio(scale_ratio: np.ndarray, max_scale_ratio: float | None) ->
 
 @dataclass(frozen=True)
 class SubspaceAlignmentState:
+    """
+    State container for fitted SignificantSubspaceAligner parameters.
+
+    Parameters
+    ----------
+    source_mean : np.ndarray
+        Mean of source projections.
+    target_mean : np.ndarray
+        Mean of target projections.
+    source_scale : np.ndarray
+        Standard deviation of source projections.
+    target_scale : np.ndarray
+        Standard deviation of target projections.
+    components : np.ndarray
+        Projection components (low-rank projection matrix).
+    feature_weights : np.ndarray
+        Calculated feature significance weights.
+    rank : int
+        Subspace rank (dimension of the projection).
+    """
+
     source_mean: np.ndarray
     target_mean: np.ndarray
     source_scale: np.ndarray
@@ -40,7 +61,15 @@ class SubspaceAlignmentState:
 
 
 class SignificantSubspaceAligner:
-    """SSA-style low-rank alignment focused on significant regression structure."""
+    """
+    SSA-style low-rank alignment focused on significant regression structure.
+
+    References
+    ----------
+    .. [1] Fernando, B., Habrard, A., Sebban, M., & Tuytelaars, T. (2013). Unsupervised
+       Visual Domain Adaptation Using Subspace Alignment. In *ICCV 2013*.
+       https://arxiv.org/abs/1409.5241
+    """
 
     def __init__(
         self,

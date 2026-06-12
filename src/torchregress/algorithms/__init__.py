@@ -26,12 +26,15 @@ from .irls import (
     IRLSConfig,
     iteratively_reweighted_least_squares,
 )
+from .ivon import IVON
 from .latentnn import LatentNN
 from .rc import RegressionCalibration
 from .simex import SIMEX
 from .tictac import TaylorInducedCovarianceHead
 
 __all__ = [
+    # IVON optimizer (Bayesian Learning Rule)
+    "IVON",
     # IRLS algorithm
     "iteratively_reweighted_least_squares",
     "IRLS",

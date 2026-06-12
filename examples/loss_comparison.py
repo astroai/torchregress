@@ -1,3 +1,20 @@
+"""
+Loss Function Comparison on Noisy Data with Outliers.
+
+This example compares standard regression losses against robust losses (Huber, Log-Cosh,
+Barron, and Adaptive Robust) on a dataset with synthetic outliers.
+
+Losses compared:
+1. Mean Squared Error (MSE)
+2. Mean Absolute Error (MAE)
+3. Huber Loss
+4. Log-Cosh Loss
+5. Barron Robust Loss:
+   $$\rho(x, \alpha, c) = \frac{|\alpha - 2|}{\alpha} \left( \left( \frac{(x/c)^2}{|\alpha - 2|} + 1 \right)^{\alpha/2} - 1 \right)$$
+   Seminal paper: Barron, J. T. (2019). A General and Adaptive Robust Loss Function. CVPR.
+6. Adaptive Robust Loss (learns the shape parameter $\alpha$ dynamically)
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch

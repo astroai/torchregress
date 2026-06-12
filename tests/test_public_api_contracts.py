@@ -150,6 +150,7 @@ EXPECTED_EXPORTS = {
         "HeteroscedasticBNN",
     ],
     "algorithms": [
+        "IVON",
         "iteratively_reweighted_least_squares",
         "IRLS",
         "IRLSConfig",

@@ -1,16 +1,23 @@
 """
-Example: Evidential Deep Learning for Regression
+Example: Evidential Deep Learning for Regression.
 
 This example demonstrates Evidential Regression using Normal-Inverse-Gamma (NIG)
 priors for principled uncertainty quantification with epistemic/aleatoric decomposition.
 
-Key Features:
-1. Automatic uncertainty decomposition (epistemic vs aleatoric)
-2. Single forward pass (no ensembles or sampling needed)
-3. Uncertainty grows naturally in regions without data (OOD detection)
-4. Regularization prevents overconfident predictions
+Seminal paper: Amini, A., Schwarting, W., Soleimany, A., & Rus, D. (2020). Deep Evidential
+Regression. Advances in Neural Information Processing Systems (NeurIPS).
 
-Dataset: Synthetic 1D regression with gaps (to show OOD behavior)
+Mathematical Principles:
+A neural network models the parameters $(\gamma, \nu, \alpha, \beta)$ of a
+Normal-Inverse-Gamma (NIG) distribution over the mean and variance of the target:
+$$\mu \sim \mathcal{N}(\gamma, \sigma^2 / \nu), \quad \sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta)$$
+
+- Predicted Mean:
+  $$\hat{y} = \gamma$$
+- Aleatoric Uncertainty (Expected Data Noise):
+  $$\text{Var}_{\text{aleatoric}} = \frac{\beta}{\alpha - 1}$$
+- Epistemic Uncertainty (Model / Parameter Uncertainty):
+  $$\text{Var}_{\text{epistemic}} = \frac{\beta}{\nu(\alpha - 1)}$$
 """
 
 import matplotlib.pyplot as plt

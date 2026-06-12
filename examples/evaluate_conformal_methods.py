@@ -73,7 +73,7 @@ def main():
     train_loss_cqr = MultiQuantileLoss(quantiles=[0.05, 0.95])
     cqr_model, cqr_train_s = timed_call(train_model, cqr_model, X_train, y_train, train_loss_cqr)
 
-    # Train a model for Split and ACI (outputs a point prediction)
+    # Train a model for Split (outputs a point prediction)
     point_model = SimpleModel(in_features=1, out_features=1)
     train_loss_mse = nn.MSELoss()
     point_model, point_train_s = timed_call(
@@ -87,17 +87,14 @@ def main():
     for alpha in alphas:
         methods_config = {
             "CQR": {"loss": ConformalLoss(method="cqr", alpha=alpha), "model": cqr_model},
-            "ACI": {
-                "loss": ConformalLoss(method="aci", alpha=alpha, model=point_model),
-                "model": point_model,
-            },
+            "UACQR": {"loss": ConformalLoss(method="uacqr", alpha=alpha), "model": cqr_model},
             "SPLIT": {"loss": ConformalLoss(method="split", alpha=alpha), "model": point_model},
         }
 
         for name, config in methods_config.items():
             loss_fn = config["loss"]
             model = config["model"]
-            train_s = cqr_train_s if name == "CQR" else point_train_s
+            train_s = cqr_train_s if name in ("CQR", "UACQR") else point_train_s
 
             def _evaluate_method():
                 with torch.no_grad():
@@ -129,7 +126,7 @@ def main():
                     "width": width,
                     "train_s": train_s,
                     "eval_s": eval_s,
-                    "Notes": "quantile head" if name == "CQR" else "point head",
+                    "Notes": "quantile head" if name in ("CQR", "UACQR") else "point head",
                 }
             )
 

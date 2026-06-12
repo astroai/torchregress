@@ -367,6 +367,57 @@ def _stabilize_target_prior(
 
 @dataclass(frozen=True)
 class ShiftFactoredTransportConfig:
+    """
+    Configuration options for shift-factored predictive transport adaptation.
+
+    Parameters
+    ----------
+    n_support : int
+        Number of support grid points to discretize targets.
+    support_margin : float
+        Fractional boundary margin beyond targets range to pad support grid.
+    alpha : float
+        Nominal conformal coverage failure rate (1 - coverage probability).
+    top_fraction : float
+        Fraction of high-confidence predictions selected for EM target prior estimation.
+    min_selection_count : int
+        Minimum row count to select for EM estimation to prevent sample starvation.
+    local_consistency_k : int
+        Number of neighbors for local feature consistency weight updates.
+    prior_estimation_rows : Optional[int]
+        Max target rows to sample for EM prior iterations.
+    prior_transport_strength : float
+        Shrinkage weight in [0, 1] applied to target prior estimates toward source prior.
+    prior_ratio_clip : float
+        Maximum allowed density ratio multiplier between target and source priors.
+    prior_transport_requires_convergence : bool
+        If True, only applies target prior shift adjustments if EM converged.
+    prior_transport_min_selected_fraction : Optional[float]
+        Prior adjustment is skipped if selected rows ratio is below this floor.
+    prior_transport_max_prior_tv : Optional[float]
+        Prior adjustment is skipped if TV distance between priors exceeds this bound.
+    random_state : Optional[int]
+        Random seed.
+    enable_alignment : bool
+        If True, performs test-time feature/subspace alignment.
+    allow_input_alignment_rerun : bool
+        If True, re-evaluates student predictions on aligned feature space.
+    enable_uncertainty_inflation : bool
+        If True, applies temperature-scaling calibration to predicted std dev/variance.
+    uncertainty_base_temperature : float
+        Base temperature for variance scaling.
+    uncertainty_slope : float
+        Sensitivity slope mapping feature shifts to temperature adjustments.
+    uncertainty_max_temperature : float
+        Clipping ceiling for temperature adjustments.
+    uncertainty_clip_quantile : Optional[float]
+        Outlier Winsorization quantile threshold for variance calculations.
+    gaussian_conformal_uses_native_interval : bool
+        If True, wraps prediction intervals natively rather than running full CTI.
+    eps : float
+        Small positive constant.
+    """
+
     n_support: int = 256
     support_margin: float = 0.05
     alpha: float = 0.1
@@ -449,7 +500,14 @@ class ShiftFactoredTransportState:
 
 
 class ShiftFactoredPredictiveTransport:
-    """Model-agnostic transport of predictive laws under target shift."""
+    """
+    Model-agnostic transport of predictive laws under target shift.
+
+    References
+    ----------
+    .. [1] "Shift-Factored Predictive Transport for Probabilistic Regression."
+       *NeurIPS 2026 Submission Workspace*. (Reference workspace `papers/neurips_spt_reg/`).
+    """
 
     def __init__(self, config: ShiftFactoredTransportConfig | None = None) -> None:
         self.config = config or ShiftFactoredTransportConfig()

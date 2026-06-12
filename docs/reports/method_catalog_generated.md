@@ -8,14 +8,14 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `78`
+- Total methods: `79`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
 
 | Family | Count |
 |---|---:|
-| `bnn` | 6 |
+| `bnn` | 7 |
 | `calibration_transform` | 3 |
 | `causal` | 2 |
 | `censored` | 3 |
@@ -46,7 +46,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 6 |
 | `Strong` | 7 |
-| `Available` | 65 |
+| `Available` | 66 |
 
 ## Method Rows
 
@@ -57,6 +57,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `BayesianNeuralNetwork` | `bnn` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BayesianNeuralNetwork` |
 | `HeteroscedasticBNN` | `bnn` | `Available` | `uq_decomposition`, `ood`, `calibration` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.HeteroscedasticBNN` |
 | `HeteroscedasticLaplaceRegressor` | `bnn` | `Available` | `laplace_approximation`, `epistemic_uq`, `aleatoric_uq`, `last_layer` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.algorithms.HeteroscedasticLaplaceRegressor` |
+| `IVON` | `bnn` | `Available` | `variational_inference`, `optimizer`, `natural_gradient`, `bayesian_learning_rule` | `epistemic`, `calibration*`, `ood*` | `torchregress.algorithms.IVON` |
 | `NaturalHeteroscedasticHead` | `bnn` | `Available` | `natural_parameterization`, `optimization_stability` | `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.NaturalHeteroscedasticHead` |
 | `NaturalReparamHead` | `bnn` | `Available` | `natural_parameterization`, `optimization_stability` | `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.NaturalReparamHead` |
 | `VIDSRegressor` | `bnn` | `Available` | `distribution_shift`, `variational_inference`, `adaptive_prior` | `epistemic`, `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.VIDSRegressor` |
