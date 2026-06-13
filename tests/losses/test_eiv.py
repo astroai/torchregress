@@ -426,9 +426,8 @@ class TestEIVLossNumericalStability(unittest.TestCase):
 
         loss_fn = EnsembleEIVLoss(model, sigma_x=0.1, n_samples=10)
 
-        # Ensemble is just a sum of forward passes.
-        # It's stochastic if it uses random perturbations, so gradcheck might fail
-        # unless we fix the seed. Let's at least check gradients are finite.
+        # Stochastic perturbations: gradcheck is unreliable without a fixed generator
+        # per forward pass; verify finite gradients under a fixed seed instead.
         torch.manual_seed(42)
         loss = loss_fn(x_obs, y_obs)
         loss.backward()

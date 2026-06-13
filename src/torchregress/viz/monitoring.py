@@ -14,6 +14,22 @@ from matplotlib.figure import Figure
 from torchregress.viz.utils import add_annotations
 
 
+def _format_metric_value(x: float, *, scientific_notation: bool = True) -> str:
+    """Format a scalar metric value for axis annotations."""
+    if scientific_notation and (abs(x) < 0.001 or abs(x) >= 1000):
+        return f"{x:.2e}"
+
+    if abs(x) < 0.01:
+        return f"{x:.4f}"
+    if abs(x) < 0.1:
+        return f"{x:.3f}"
+    if abs(x) < 1:
+        return f"{x:.2f}"
+    if abs(x) < 10:
+        return f"{x:.1f}"
+    return f"{x:.0f}" if x == int(x) else f"{x:.1f}"
+
+
 def plot_learning_curves(
     train_history: Dict[str, List[float]],
     val_history: Optional[Dict[str, List[float]]] = None,
@@ -102,24 +118,6 @@ def plot_learning_curves(
             last = smoothed_val
         return smoothed
 
-    # Format number for display
-    def format_number(x: float) -> str:
-        if scientific_notation:
-            if abs(x) < 0.001 or abs(x) >= 1000:
-                return f"{x:.2e}"
-
-        # Standard formatting based on magnitude
-        if abs(x) < 0.01:
-            return f"{x:.4f}"
-        elif abs(x) < 0.1:
-            return f"{x:.3f}"
-        elif abs(x) < 1:
-            return f"{x:.2f}"
-        elif abs(x) < 10:
-            return f"{x:.1f}"
-        else:
-            return f"{x:.0f}" if x == int(x) else f"{x:.1f}"
-
     # Plot each metric
     for i, metric in enumerate(metrics_to_plot):
         ax = axes[i]
@@ -193,13 +191,19 @@ def plot_learning_curves(
 
             best_train_idx = np.argmin(train_values) if is_loss else np.argmax(train_values)
             best_train = train_values[best_train_idx]
-            annotations: Dict[str, Any] = {"Best train": format_number(best_train)}
+            annotations: Dict[str, Any] = {
+                "Best train": _format_metric_value(
+                    best_train, scientific_notation=scientific_notation
+                )
+            }
 
             if val_history is not None and metric in val_history and len(val_values) > 0:
                 val_best_idx = np.argmin(val_values) if is_loss else np.argmax(val_values)
                 best_val = val_values[val_best_idx]
                 best_epoch = val_epochs[val_best_idx]
-                annotations["Best val"] = format_number(best_val)
+                annotations["Best val"] = _format_metric_value(
+                    best_val, scientific_notation=scientific_notation
+                )
                 annotations["Best epoch"] = int(best_epoch)
 
             add_annotations(ax, annotations, loc="upper right")
@@ -503,9 +507,9 @@ def _smooth_losses(losses_arr: np.ndarray, smoothing: float) -> np.ndarray:
         start = (len(smooth_losses) - len(losses_arr)) // 2
         smooth_losses = smooth_losses[start : start + len(losses_arr)]
 
-    # Fix boundaries
+    # Fix boundaries: keep raw values at edges without overlapping regions.
     if boundary_len > 0:
-        safe_len = min(boundary_len, len(losses_arr))
+        safe_len = min(boundary_len, len(losses_arr) // 2)
         if safe_len > 0:
             smooth_losses[:safe_len] = losses_arr[:safe_len]
             smooth_losses[-safe_len:] = losses_arr[-safe_len:]

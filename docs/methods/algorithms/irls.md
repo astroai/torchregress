@@ -32,59 +32,34 @@ and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust
 
 ---
 
-## High-Level API: `IRLS`
+## API: `iteratively_reweighted_least_squares`
 
-The `IRLS` function is a complete training loop that wraps IRLS into standard PyTorch training:
-
-```python
-from torchregress.algorithms.irls import IRLS
-
-result = IRLS(
-    model=my_model,
-    train_data=(X, y),          # or a DataLoader
-    weight_fn="tukey",          # Tukey biweight
-    num_epochs=5,
-    irls_max_iter=10,           # IRLS iterations per reweighting
-    irls_tol=1e-4,
-    update_weights="epoch",     # "epoch", "batch", or "iter:N"
-    verbose=True,
-)
-
-trained_model = result["model"]
-```
-
-| Parameter | Type | Default | Description |
-|:----------|:-----|:--------|:------------|
-| `model` | `nn.Module` | — | PyTorch model |
-| `train_data` | `DataLoader` or `(X, y)` | — | Training data |
-| `weight_fn` | `str` or `Callable` | `"huber"` | Weight function |
-| `base_loss` | `str` | `"gaussian"` | `"gaussian"`, `"huber"`, or `"l1"` |
-| `num_epochs` | `int` | `1` | Training epochs |
-| `irls_max_iter` | `int` | `10` | IRLS iterations per reweighting |
-| `irls_tol` | `float` | `1e-4` | Convergence tolerance |
-| `update_weights` | `str` | `"epoch"` | When to reweight: `"epoch"`, `"batch"`, `"iter:N"` |
-| `variance_type` | `str` | `"predicted"` | `"predicted"`, `"fixed"`, or `"robust"` |
-| `use_compile` | `bool` | `False` | Use `torch.compile` for acceleration |
-
-**Returns:** dict with `model`, `train_loss_history`, `final_precision`, optionally `val_loss_history`.
-
----
-
-## Low-Level API: `iteratively_reweighted_least_squares`
-
-For fine-grained control:
+Use this function inside your own training loop to compute robust precision weights from current model predictions:
 
 ```python
 from torchregress.algorithms.irls import iteratively_reweighted_least_squares
 
 y_pred, loss_history, final_precision = iteratively_reweighted_least_squares(
     model=my_model,
-    x=X, y_true=y,
+    x=X,
+    y_true=y,
     weight_fn="tukey",
     max_iter=20,
     variance_type="robust",
 )
 ```
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `model` | `nn.Module` | — | PyTorch model (weights fixed during reweighting) |
+| `x`, `y_true` | `Tensor` | — | Batch of inputs and targets |
+| `weight_fn` | `str` or `Callable` | `"huber"` | Weight function |
+| `base_loss` | `str` | `"gaussian"` | `"gaussian"`, `"huber"`, or `"l1"` |
+| `max_iter` | `int` | `10` | IRLS iterations |
+| `tol` | `float` | `1e-4` | Convergence tolerance |
+| `variance_type` | `str` | `"predicted"` | `"predicted"`, `"fixed"`, or `"robust"` |
+
+**Returns:** `(y_pred, loss_history, final_precision)` — use `final_precision` as sample weights in a weighted loss step.
 
 ---
 
@@ -93,9 +68,10 @@ y_pred, loss_history, final_precision = iteratively_reweighted_least_squares(
 ```python
 import torch
 import torch.nn as nn
-from torchregress.algorithms.irls import IRLS
+import torch.optim as optim
+from torchregress.algorithms.irls import iteratively_reweighted_least_squares
+from torchregress.losses import WeightedMSELoss
 
-# Synthetic data with 5% gross outliers
 torch.manual_seed(42)
 n = 1000
 X = torch.randn(n, 5)
@@ -104,30 +80,27 @@ outliers = torch.randperm(n)[:50]
 y[outliers] += 5.0 * torch.randn(50)
 
 model = nn.Sequential(nn.Linear(5, 32), nn.ReLU(), nn.Linear(32, 1))
-
-# Standard training (biased by outliers)
-import torch.optim as optim
 opt = optim.Adam(model.parameters(), lr=1e-3)
-for _ in range(200):
-    opt.zero_grad(); nn.MSELoss()(model(X), y.unsqueeze(1)).backward(); opt.step()
-mse_pred = model(X).detach()
+loss_fn = WeightedMSELoss()
 
-# IRLS training (robust)
-model_robust = nn.Sequential(nn.Linear(5, 32), nn.ReLU(), nn.Linear(32, 1))
-result = IRLS(
-    model=model_robust,
-    train_data=(X, y.unsqueeze(1)),
-    weight_fn="tukey",
-    num_epochs=5,
-    irls_max_iter=15,
-    verbose=False,
-)
-irls_pred = result["model"](X).detach()
+for epoch in range(5):
+    _, _, precision = iteratively_reweighted_least_squares(
+        model,
+        X,
+        y.unsqueeze(1),
+        weight_fn="tukey",
+        max_iter=15,
+        variance_type="robust",
+    )
+    opt.zero_grad()
+    pred = model(X)
+    loss = loss_fn(pred, y.unsqueeze(1), weights=precision)
+    loss.backward()
+    opt.step()
 
-# IRLS is more accurate on clean data
 clean = ~torch.isin(torch.arange(n), outliers)
-print(f"MSE  MAE (clean): {(mse_pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4f}")
-print(f"IRLS MAE (clean): {(irls_pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4f}")
+pred = model(X).detach()
+print(f"IRLS MAE (clean): {(pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4f}")
 ```
 
 ---
@@ -137,11 +110,11 @@ print(f"IRLS MAE (clean): {(irls_pred[clean] - y[clean].unsqueeze(1)).abs().mean
 | Approach | Handles Outliers | Retraining | Best For |
 |:---------|:---------------:|:----------:|:---------|
 | **Robust losses** (Huber, Cauchy, Tukey) | During training | Requires retraining | End-to-end training |
-| **IRLS** | Post-hoc or iterative | Can refine existing model | Fine-tuning, classical statistics |
+| **IRLS reweighting** | Post-hoc or iterative | Can refine existing model | Fine-tuning, classical statistics |
 | **CVaR** | Tail focus | During training | Worst-case performance |
 
 !!! tip "When to use IRLS vs robust losses"
-    Use **robust losses** when training from scratch.  Use **IRLS** when you want to iteratively refine an existing model or when you need the classical M-estimation framework (e.g., for statistical inference with influence functions).
+    Use **robust losses** when training from scratch.  Use **IRLS reweighting** when you want to iteratively refine an existing model or when you need the classical M-estimation framework (e.g., for statistical inference with influence functions).
 
 ---
 

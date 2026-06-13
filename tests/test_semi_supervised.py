@@ -97,6 +97,56 @@ def test_build_consensus_predictive_batch_for_quantile_and_bar_views() -> None:
     assert torch.allclose(b_integral, torch.ones_like(b_integral), atol=1e-3)
 
 
+def test_build_consensus_predictive_batch_for_support_density_views() -> None:
+    support_a = torch.linspace(-1.0, 1.0, 32)
+    density_a = torch.exp(-0.5 * support_a.square())
+    density_a = density_a / density_a.sum()
+    support_b = torch.linspace(-0.8, 1.2, 40)
+    density_b = torch.exp(-0.5 * (support_b - 0.1).square())
+    density_b = density_b / density_b.sum()
+
+    consensus = build_consensus_predictive_batch(
+        [
+            PredictiveBatch(
+                support=support_a.unsqueeze(0).expand(2, -1),
+                density=density_a.unsqueeze(0).expand(2, -1),
+            ),
+            PredictiveBatch(
+                support=support_b.unsqueeze(0).expand(2, -1),
+                density=density_b.unsqueeze(0).expand(2, -1),
+            ),
+        ],
+        n_support=80,
+    )
+    assert consensus.support is not None
+    assert consensus.density is not None
+    integral = torch.trapezoid(consensus.density, consensus.support, dim=-1)
+    assert torch.allclose(integral, torch.ones_like(integral), atol=1e-3)
+
+
+def test_self_agreement_trainer_compute_consensus_and_agreement() -> None:
+    mean = torch.tensor([[0.0], [1.0]], dtype=torch.float32)
+    std = torch.full_like(mean, 0.2)
+    views = [
+        PredictiveBatch(mean=mean - 0.05, std=std),
+        PredictiveBatch(mean=mean, std=std),
+        PredictiveBatch(mean=mean + 0.05, std=std),
+    ]
+    trainer = SelfAgreementTrainer(
+        optimizer=torch.optim.Adam([torch.nn.Parameter(torch.zeros(1))]),
+        supervised_loss_fn=lambda model, x, y: torch.tensor(0.0),
+        predictive_batch_fn=lambda model, x: views[0],
+        n_views=3,
+        n_support=64,
+    )
+    consensus = trainer.compute_consensus(views)
+    agreement = trainer.compute_agreement(views)
+    assert consensus.density is not None
+    assert consensus.support is not None
+    assert agreement.shape == (2,)
+    assert torch.all(agreement >= 0.0)
+
+
 def test_predictive_agreement_score_tracks_mismatch_and_weights() -> None:
     mean = torch.tensor([[0.0], [1.0], [2.0]], dtype=torch.float32)
     std = torch.full_like(mean, 0.2)

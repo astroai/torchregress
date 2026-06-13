@@ -1,11 +1,15 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.figure import Figure
 
 from torchregress.viz.monitoring import (
     _add_early_stopping_annotations,
     _find_early_stopping_point,
+    _format_metric_value,
     _plot_early_stopping_markers,
+    _smooth_losses,
     plot_early_stopping,
+    plot_lr_find_results,
 )
 
 
@@ -75,4 +79,39 @@ class TestMonitoringVizRefactored:
         )
 
         assert isinstance(fig, Figure)
+        plt.close(fig)
+
+
+class TestMonitoringHelpers:
+    def test_format_metric_value(self) -> None:
+        assert _format_metric_value(0.0003) == "3.00e-04"
+        assert _format_metric_value(0.05, scientific_notation=False) == "0.050"
+        assert _format_metric_value(0.5, scientific_notation=False) == "0.50"
+        assert _format_metric_value(5.0, scientific_notation=False) == "5.0"
+        assert _format_metric_value(12.0, scientific_notation=False) == "12"
+
+    def test_smooth_losses_preserves_interior_smoothing(self) -> None:
+        losses = np.linspace(1.0, 0.4, 20, dtype=float)
+        smoothed = _smooth_losses(losses, smoothing=0.25)
+        assert smoothed.shape == losses.shape
+        assert np.isfinite(smoothed).all()
+        boundary_len = int(1 / 0.25)
+        safe_len = min(boundary_len, len(losses) // 2)
+        interior = slice(safe_len, len(losses) - safe_len)
+        assert interior.stop - interior.start > 0
+        assert not np.allclose(smoothed[interior], losses[interior])
+        assert np.allclose(smoothed[:safe_len], losses[:safe_len])
+        assert np.allclose(smoothed[-safe_len:], losses[-safe_len:])
+
+    def test_plot_lr_find_results(self) -> None:
+        lrs = np.logspace(-4, -1, 20).tolist()
+        losses = [1.0 / (lr * 100.0) + 0.1 for lr in lrs]
+        fig, suggested_lr = plot_lr_find_results(
+            lrs,
+            losses,
+            smoothing=0.05,
+            return_figure=True,
+        )
+        assert isinstance(fig, Figure)
+        assert np.isfinite(suggested_lr)
         plt.close(fig)

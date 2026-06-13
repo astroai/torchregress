@@ -22,7 +22,6 @@ from .heteroscedastic_laplace import (
     NaturalReparamHead,
 )
 from .irls import (
-    IRLS,
     IRLSConfig,
     iteratively_reweighted_least_squares,
 )
@@ -37,7 +36,6 @@ __all__ = [
     "IVON",
     # IRLS algorithm
     "iteratively_reweighted_least_squares",
-    "IRLS",
     "IRLSConfig",
     # EIV algorithms
     "RegressionCalibration",

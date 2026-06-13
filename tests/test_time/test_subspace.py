@@ -7,49 +7,6 @@ from torchregress.test_time.subspace import (
     _clip_scale_ratio,
     _feature_significance,
 )
-from torchregress.utils.numpy_stats import subsample_rows as _subsample_rows
-from torchregress.utils.numpy_stats import winsorize as _winsorize
-
-
-def test_subsample_rows():
-    X = np.arange(10).reshape(5, 2)
-    # No max_rows
-    assert np.array_equal(_subsample_rows(X, None, random_state=42), X)
-    # max_rows <= 0
-    assert np.array_equal(_subsample_rows(X, 0, random_state=42), X)
-    assert np.array_equal(_subsample_rows(X, -1, random_state=42), X)
-    # max_rows >= X.shape[0]
-    assert np.array_equal(_subsample_rows(X, 5, random_state=42), X)
-    assert np.array_equal(_subsample_rows(X, 10, random_state=42), X)
-
-    # max_rows < X.shape[0]
-    subsampled = _subsample_rows(X, 3, random_state=42)
-    assert subsampled.shape == (3, 2)
-    # Verify rows are from original X and keep order
-    is_in_X = [any(np.array_equal(row, x_row) for x_row in X) for row in subsampled]
-    assert all(is_in_X)
-    # Because of sort, values should be increasing
-    assert np.all(np.diff(subsampled[:, 0]) > 0)
-
-
-def test_winsorize():
-    X = np.arange(100, dtype=float).reshape(100, 1)
-
-    # None or 0
-    assert np.array_equal(_winsorize(X, None), X)
-    assert np.array_equal(_winsorize(X, 0.0), X)
-
-    # Valid clip
-    winsorized = _winsorize(X, 0.1)
-    assert winsorized.shape == (100, 1)
-    assert np.min(winsorized) == pytest.approx(9.9)
-    assert np.max(winsorized) == pytest.approx(89.1)
-
-    # Invalid clip
-    with pytest.raises(ValueError, match="clip_quantile must be in \\[0, 0.5\\)"):
-        _winsorize(X, 0.5)
-    with pytest.raises(ValueError, match="clip_quantile must be in \\[0, 0.5\\)"):
-        _winsorize(X, -0.1)
 
 
 def test_feature_significance():

@@ -301,21 +301,17 @@ def _density_from_support(
     if src_support.shape != src_density.shape:
         raise ValueError("support and density must share the same shape")
 
-    rows: list[Tensor] = []
-    for row_idx in range(batch_size):
-        x_src = src_support[row_idx]
-        y_src = src_density[row_idx]
-        x_dst = support[row_idx]
-        idx = torch.searchsorted(x_src, x_dst, right=False).clamp(1, x_src.shape[0] - 1)
-        x0 = x_src[idx - 1]
-        x1 = x_src[idx]
-        y0 = y_src[idx - 1]
-        y1 = y_src[idx]
-        weight = (x_dst - x0) / (x1 - x0).clamp_min(eps)
-        interp = y0 + weight * (y1 - y0)
-        valid = (x_dst >= x_src[0]) & (x_dst <= x_src[-1])
-        rows.append(torch.where(valid, interp, torch.zeros_like(interp)))
-    return _normalize_density(torch.stack(rows, dim=0), support, eps)
+    idx = torch.searchsorted(src_support, support, right=False).clamp(1, src_support.shape[1] - 1)
+    left = idx - 1
+    x0 = torch.gather(src_support, 1, left)
+    x1 = torch.gather(src_support, 1, idx)
+    y0 = torch.gather(src_density, 1, left)
+    y1 = torch.gather(src_density, 1, idx)
+    weight = (support - x0) / (x1 - x0).clamp_min(eps)
+    interp = y0 + weight * (y1 - y0)
+    valid = (support >= src_support[:, :1]) & (support <= src_support[:, -1:])
+    resampled = torch.where(valid, interp, torch.zeros_like(interp))
+    return _normalize_density(resampled, support, eps)
 
 
 def _density_from_gaussian(
@@ -367,16 +363,12 @@ def _density_from_quantiles(
 
     left_tail = slopes[:, :1]
     right_tail = slopes[:, -1:]
-    density = right_tail.expand(-1, support.shape[1]).clone()
+    bin_idx = (
+        torch.searchsorted(quantiles, support, right=False).clamp(1, quantiles.shape[1] - 1).sub(1)
+    )
+    density = torch.gather(slopes, 1, bin_idx)
     density = torch.where(support <= quantiles[:, :1], left_tail, density)
-    for idx in range(quantiles.shape[1] - 1):
-        left = quantiles[:, idx : idx + 1]
-        right = quantiles[:, idx + 1 : idx + 2]
-        density = torch.where(
-            (support >= left) & (support <= right),
-            slopes[:, idx : idx + 1],
-            density,
-        )
+    density = torch.where(support >= quantiles[:, -1:], right_tail, density)
     return _normalize_density(density, support, eps)
 
 
