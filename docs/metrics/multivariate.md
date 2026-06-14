@@ -77,7 +77,7 @@ A lower TAC score indicates that the predicted covariance matrix $\Sigma$ more a
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Shukla et al., "TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression" (ICML 2024). |
+| 1 | Shukla et al., ["TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression"](https://arxiv.org/abs/2407.00296) (ICML 2024). |
 
 ### Comparison Table: When to use which
 

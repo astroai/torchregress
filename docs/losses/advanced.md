@@ -117,8 +117,10 @@ samples = loss_fn.sample_predictions(params, n_samples=100)
 
 !!! warning "Limitations"
     - Assumes unimodal Gaussian observations — for multimodal data, use MDN or flows
-    - Regularisation coefficient $\lambda$ requires tuning
-    - Can be poorly calibrated without careful training
+    - Regularisation coefficient $\lambda$ requires tuning; too large and the model underfits by forcing all predictions toward a uniform prior; too small and the epistemic uncertainty estimates collapse to near-zero
+    - Can be poorly calibrated without careful training; the NIG-derived Student-t predictive distribution has $2\alpha$ degrees of freedom — when $\alpha$ is small (close to 1), the predictive distribution has heavy tails and infinite variance, making interval estimates unreliable
+    - The NIG regularizer uses batch-level statistics internally; very small batch sizes (< 16) produce noisy regularizer estimates that can destabilize training
+    - The model outputs 4 parameters per target dimension ($\gamma, \nu, \alpha, \beta$), so the output dimension is $4 \cdot d$, which becomes large for high-dimensional targets
 
 ---
 
@@ -126,5 +128,5 @@ samples = loss_fn.sample_predictions(params, n_samples=100)
 
 | # | Reference |
 |:-:|:----------|
-| 1 | A. Amini, W. Schwarting, A. Soleimany, D. Rus. "Deep Evidential Regression." *NeurIPS*, **2020**. |
-| 2 | M. Sensoy, L. Kaplan, M. Kandemir. "Evidential Deep Learning to Quantify Classification Uncertainty." *NeurIPS*, **2018**. |
+| 1 | A. Amini, W. Schwarting, A. Soleimany, D. Rus. ["Deep Evidential Regression."](https://arxiv.org/abs/1910.02600) *NeurIPS*, **2020**. |
+| 2 | M. Sensoy, L. Kaplan, M. Kandemir. ["Evidential Deep Learning to Quantify Classification Uncertainty."](https://arxiv.org/abs/1806.01768) *NeurIPS*, **2018**. |

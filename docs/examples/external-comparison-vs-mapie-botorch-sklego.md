@@ -14,11 +14,10 @@ runtime + primary-task metrics in a machine-readable JSON artifact under
 
 ## Setup
 
-All three external libraries are optional dependencies. Install them with the
-`external` extra:
+All three external libraries are optional dependencies. Install them directly:
 
 ```bash
-uv pip install "torchregress[external]"
+uv pip install mapie scikit-lego botorch gpytorch crepes torchcp
 ```
 
 If an external library is not installed, the corresponding script still runs

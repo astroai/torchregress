@@ -90,26 +90,31 @@ _Generated date_: `2026-04-16`
 | `calibration_transform` (5) | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` (6) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` (10) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
-| `eiv` (7) | yes | yes | partial | no | no | no | partial | partial | no | yes |
+| `eiv` (10) | yes | yes | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` (7) | yes | no | yes | yes | yes | yes | partial | yes | no | no |
+| `evidential` (1) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `expectile` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `flow` (3) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
-| `imbalanced_loss` (5) | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `imbalanced_loss` (6) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` (1) | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `multivariate` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `ordinal` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
-| `probabilistic_loss` (7) | yes | no | partial | no | yes | no | partial | partial | no | no |
-| `quantile` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
+| `poisson` (4) | yes | no | yes | no | no | no | partial | partial | no | no |
+| `poisson_gaussian` (3) | yes | yes | yes | no | no | no | partial | partial | no | no |
+| `probabilistic_loss` (8) | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `quantile` (2) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` (9) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `semi_supervised` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
-| `target_transform` (4) | yes | no | partial | no | no | no | partial | partial | no | no |
+| `target_transform` (5) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` (6) | yes | no | partial | partial | partial | partial | partial | partial | no | no |
 | `tictac` (1) | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `tweedie` (4) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `uncertain_gt` (4) | yes | no | partial | no | yes | no | partial | partial | no | no |
 <!-- END:FAMILY_CAPABILITY_MATRIX_GENERATED -->
 
@@ -161,18 +166,25 @@ _Generated date_: `2026-04-16`
 | `AFTLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `CensoredGaussianNLLLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `CensoredQuantileLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
+| `CQR` | `conformal` | `Strong` | yes | no | no | no | no | yes | partial |
+| `CTI` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `ConformalLoss` | `conformal` | `Core` | yes | no | no | no | no | yes | partial |
 | `DensityConformal` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `MonteCarloConformal` | `conformal` | `Available` | yes | no | partial | no | no | yes | partial |
+| `MultiDimensionalConformalLoss` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `PrevalenceAdjustedCP` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `SLSConformal` | `conformal` | `Available` | yes | yes | no | no | no | yes | partial |
+| `SplitConformal` | `conformal` | `Core` | yes | no | no | no | no | yes | partial |
 | `UACQR` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `BoundedHead` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
 | `NonCrossingSort` | `constraints` | `Available` | yes | no | no | no | no | partial | partial |
+| `ErrorAwareFeatureEncoder` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `FunctionalEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `InputNoiseBinnedPDFLoss` | `eiv` | `Available` | yes | yes | no | no | no | partial | partial |
 | `InputNoiseMDNLoss` | `eiv` | `Available` | yes | yes | no | no | no | partial | partial |
 | `InputNoiseMarginalizationLoss` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
+| `LatentNN` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
+| `NoiseAwareRegressor` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `NoisyInputPredictor` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `StructuralEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
@@ -183,12 +195,17 @@ _Generated date_: `2026-04-16`
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | yes |
 | `MDNEnsembleModel` | `ensemble` | `Available` | yes | no | yes | yes | yes | partial | partial |
 | `PackedEnsembleRegressor` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
+| `EvidentialRegressionLoss` | `evidential` | `Available` | yes | no | yes | yes | yes | partial | partial |
+| `AsymmetricLeastSquaresLoss` | `expectile` | `Available` | yes | no | no | no | no | partial | partial |
+| `ExpectileLoss` | `expectile` | `Available` | yes | no | no | no | no | partial | partial |
+| `MultiExpectileLoss` | `expectile` | `Available` | yes | no | no | no | no | partial | partial |
 | `ContrastiveFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `SLSLoss` | `flow` | `Available` | yes | yes | no | no | no | partial | partial |
 | `BMCLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `BalancedMSELoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `FocalRLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `LDSLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
@@ -199,13 +216,22 @@ _Generated date_: `2026-04-16`
 | `CumulativeLinkLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | yes | no | no | no | no | partial | partial |
 | `WeightedMSELoss` | `point_loss` | `Core` | yes | no | no | no | no | partial | partial |
+| `NegativeBinomialNLLLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
+| `PoissonDevianceLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
+| `PoissonLikelihoodRatioLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
+| `ZeroInflatedPoissonNLLLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
+| `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
+| `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian` | `Available` | yes | no | no | no | no | partial | partial |
+| `PoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
 | `BetaNLLLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
 | `FaithfulGaussianLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
+| `GaussianCRPSLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
 | `GaussianNLLLoss` | `probabilistic_loss` | `Core` | yes | no | no | yes | no | partial | partial |
 | `GaussianWassersteinBoundLoss` | `probabilistic_loss` | `Available` | yes | no | no | partial | no | partial | partial |
 | `LowRankGaussianLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
 | `MultivariateGaussianLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
 | `NeighborhoodCovariancePseudoLabeler` | `probabilistic_loss` | `Available` | yes | no | no | partial | no | partial | partial |
+| `MultiQuantileLoss` | `quantile` | `Strong` | yes | no | no | no | no | yes | partial |
 | `QuantileLoss` | `quantile` | `Core` | yes | no | no | no | no | yes | partial |
 | `AdaptiveRobustLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `BarronLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
@@ -222,6 +248,7 @@ _Generated date_: `2026-04-16`
 | `BoxCoxTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `LogTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `SqrtTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
+| `TransformedTargetLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `YeoJohnsonTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `BayesianLinearHead` | `test_time` | `Available` | yes | no | partial | partial | partial | partial | no |
 | `OTShiftReweighter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
@@ -230,6 +257,10 @@ _Generated date_: `2026-04-16`
 | `WeightedSplitConformalAdapter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `weighted_split_classification_predictive_batch` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `TaylorInducedCovarianceHead` | `tictac` | `Available` | yes | no | no | yes | no | partial | partial |
+| `CompoundPoissonLoss` | `tweedie` | `Available` | yes | no | no | no | no | partial | partial |
+| `GammaLoss` | `tweedie` | `Available` | yes | no | no | no | no | partial | partial |
+| `InverseGaussianLoss` | `tweedie` | `Available` | yes | no | no | no | no | partial | partial |
+| `TweedieLoss` | `tweedie` | `Available` | yes | no | no | no | no | partial | partial |
 | `ConsistencyRegLoss` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
 | `NoisyTargetGaussianNLL` | `uncertain_gt` | `Available` | yes | no | no | yes | no | partial | partial |
 | `PseudoLabelConsistencyLoss` | `uncertain_gt` | `Available` | yes | no | no | no | no | partial | partial |
@@ -245,26 +276,31 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `calibration_transform` | 5 | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` | 6 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` | 10 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
-| `eiv` | 7 | yes | yes | partial | no | no | no | partial | partial | no | yes |
+| `eiv` | 10 | yes | yes | partial | no | no | no | partial | partial | no | yes |
 | `ensemble` | 7 | yes | no | yes | yes | yes | yes | partial | yes | no | no |
+| `evidential` | 1 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
+| `expectile` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `flow` | 3 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
-| `imbalanced_loss` | 5 | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `imbalanced_loss` | 6 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` | 1 | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `multivariate` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `ordinal` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |
-| `probabilistic_loss` | 7 | yes | no | partial | no | yes | no | partial | partial | no | no |
-| `quantile` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |
+| `poisson` | 4 | yes | no | yes | no | no | no | partial | partial | no | no |
+| `poisson_gaussian` | 3 | yes | yes | yes | no | no | no | partial | partial | no | no |
+| `probabilistic_loss` | 8 | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `quantile` | 2 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` | 9 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `semi_supervised` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
-| `target_transform` | 4 | yes | no | partial | no | no | no | partial | partial | no | no |
+| `target_transform` | 5 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` | 6 | yes | no | partial | partial | partial | partial | partial | partial | no | no |
 | `tictac` | 1 | yes | no | partial | no | yes | no | partial | partial | no | no |
+| `tweedie` | 4 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `uncertain_gt` | 4 | yes | no | partial | no | yes | no | partial | partial | no | no |
 
 ### Generated Hard-Task Shortlists
@@ -272,10 +308,10 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `PackedEnsembleRegressor`, `MultiSWAG`, `SWAG` |
-| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `SLSConformal`, `UACQR`, `QuantileLoss` |
-| Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss` |
-| Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `BMCLoss`, `BalancedMSELoss`, `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
-| Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
+| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `MultiDimensionalConformalLoss`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `MultiQuantileLoss`, `QuantileLoss` |
+| Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss` |
+| Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `BMCLoss`, `BalancedMSELoss`, `DensityWeightedLoss`, `FocalRLoss`, `LDSLoss`, `PropensityWeightedLoss` |
+| Noisy features / EIV | `noisy_features_eiv=yes` | `ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->
 
 ## Evidence-Based Maturity Labels (Current Audit Guidance)

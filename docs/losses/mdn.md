@@ -94,7 +94,7 @@ mean, std = loss_fn.predict_mean_std(model(x_test))
 ```
 
 !!! warning "Multimodal caveat"
-    For genuinely multimodal distributions, the mean may fall **between** modes where no data exists.  Use `sample` or `predict_interval` instead.
+    For genuinely multimodal distributions, the mean may fall **between** modes where no data exists.  Use `sample` or `predict_interval` instead. Also note that `predict_interval` using MC sampling requires `n_samples` large enough to resolve all modes — for $K$ well-separated components, 10,000+ samples may be needed for stable interval boundaries.
 
 ### `predict_interval`
 
@@ -143,12 +143,22 @@ While MDNs are highly expressive, they present several training and optimization
    $$\log p(y \mid x) = \text{log-sum-exp}\left(\log \pi_k + \log \mathcal{N}(y \mid \mu_k, \sigma_k^2)\right)$$
    Always use a non-zero `min_std` (e.g., $10^{-3}$) to prevent variance collapse ($\sigma_k^2 \rightarrow 0$), which causes division by zero.
 
-2. **Mode Collapse**:
+2. **Computational Scaling**:
+   The forward pass cost is $\mathcal{O}(K \cdot d)$ for diagonal covariance and $\mathcal{O}(K \cdot d^2)$ for full covariance per sample. NLL evaluation adds determinant and solve operations that scale as $\mathcal{O}(d^3)$ for full covariance. For large $K$ or high-dimensional targets, prefer diagonal covariance or consider flow-based alternatives.
+
+3. **Mode Collapse**:
    The network may collapse into using only a single mixture component, effectively ignoring the others ($\pi_k \approx 0$ for $k > 1$). To monitor this, check active components during validation:
    $$\text{active\_fraction} = \frac{1}{B} \sum_{i=1}^B \sum_{k=1}^K \mathbf{1}_{\pi_k^{(i)} > 0.05}$$
+   Mode collapse is especially common with large $K$ (> 10) or strong regularization.
 
-3. **Initialization Sensitivity**:
+4. **Initialization Sensitivity**:
    If initialized poorly, components can "claim" the same regions of target space. Initialize the final output layer weight matrices with small random values to diversify components early in training.
+
+5. **Dtype Sensitivity**:
+   The log-sum-exp trick is numerically sensitive in `float16` or `bfloat16`. Use `float32` for the NLL computation and only cast down after the loss is computed. Mixed-precision training with MDNs requires careful gradient scaling.
+
+6. **Covariance Type Constraints**:
+   The `"full"` covariance mode is only supported for univariate targets ($d = 1$) in practice; for multivariate targets with full covariance, memory usage grows as $\mathcal{O}(K \cdot d^2)$ per sample, which becomes prohibitive beyond $d \approx 5$.
 
 ---
 
@@ -166,5 +176,5 @@ loss_fn = create_mdn_loss(n_components=5, n_features=3, covariance_type="full")
 
 | # | Reference |
 |:-:|:----------|
-| 1 | C.M. Bishop. "Mixture Density Networks." Neural Computing Research Group Report NCRG/94/004, **1994**. |
+| 1 | C.M. Bishop. ["Mixture Density Networks."](https://publications.aston.ac.uk/id/eprint/373/) Neural Computing Research Group Report NCRG/94/004, **1994**. |
 | 2 | C.M. Bishop. *Pattern Recognition and Machine Learning*, §5.6. Springer, **2006**. |

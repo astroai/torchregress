@@ -246,7 +246,7 @@ For targets with significant **distribution imbalance**:
 | Prediction intervals | `MultiQuantileLoss` | + [CQR](../methods/conformal/predictors.md#cqr) for guarantees |
 | Heteroscedastic uncertainty | `GaussianNLLLoss` | + [Ensemble](../methods/ensemble/index.md) for epistemic |
 | Full distribution | `MixtureDensityLoss` | `NormalizingFlowLoss` for more flexibility |
-| Single-pass UQ | `EvidentialRegressionLoss` | Ensemble for better calibration |
+| Single-pass uncertainty | `EvidentialRegressionLoss` | Ensemble for better calibration |
 | Count data | `PoissonDevianceLoss` | `NegativeBinomialNLLLoss` for overdispersion |
 | Data with zeros | `TweedieLoss` | `CompoundPoissonLoss` for mixed |
 | Imbalanced targets | `DensityWeightedLoss` | `FocalRLoss` or `LDSLoss` |

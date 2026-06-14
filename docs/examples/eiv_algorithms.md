@@ -4,8 +4,8 @@ This guide explains how to use input error correction algorithms, namely **Regre
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Carroll, R. J., Ruppert, D., Crainiceanu, C. M., & Stefanski, L. A. (2006). **Measurement Error in Nonlinear Models: A Modern Perspective**. *Chapman & Hall/CRC*. |
-| 2 | Cook, J. R., & Stefanski, L. A. (1994). **Simulation-Extrapolation Estimation in Parametric Measurement Error Models**. *Journal of the American Statistical Association*. |
+| 1 | Carroll, R. J., Ruppert, D., Crainiceanu, C. M., & Stefanski, L. A. (2006). [**Measurement Error in Nonlinear Models: A Modern Perspective**](https://doi.org/10.1201/9781420010138). *Chapman & Hall/CRC*. |
+| 2 | Cook, J. R., & Stefanski, L. A. (1994). [**Simulation-Extrapolation Estimation in Parametric Measurement Error Models**](https://doi.org/10.1080/01621459.1994.10476871). *Journal of the American Statistical Association*. |
 
 ---
 

@@ -107,7 +107,11 @@ See [Transformed-Target Regression Comparison](../examples/transformed_target_re
 ## Caveats
 
 !!! warning
-    `LogTransformLoss`, `BoxCoxTransformLoss`, and `SqrtTransformLoss` require positive-support predictions and targets. Use a positive output head such as `Softplus` when training directly in the original target space.
+    `LogTransformLoss`, `BoxCoxTransformLoss`, and `SqrtTransformLoss` require positive-support predictions and targets. Use a positive output head such as `Softplus` when training directly in the original target space. Zero or negative values produce **NaN** losses.
+
+!!! warning "Transform parameter sensitivity"
+    - **BoxCoxTransformLoss**: The lambda parameter $\lambda$ controls the shape of the transformation. If $\lambda$ is far from 0, the transform is close to a power transform ($y^\lambda$), which can produce extreme values for large targets. If $\lambda \approx 0$, the transform approximates $\log(y)$.
+    - **YeoJohnsonTransformLoss**: The transformation shape changes sharply with $\lambda$, which can affect the effective loss geometry (e.g., near-zero $\lambda$ gives near-log behavior, large $\lambda$ gives near-power behavior). The transform is always monotonic, but the steepness of the transformation for extreme $\lambda$ values can amplify small prediction errors into large loss gradients, causing optimization instability.
 
 !!! info
     Transform losses change the optimization geometry, not the model family. You still need calibration, OOD checks, and hard-problem evaluation just as you would for plain `WeightedMSELoss`.
@@ -116,5 +120,5 @@ See [Transformed-Target Regression Comparison](../examples/transformed_target_re
 
 | # | Reference |
 |:-:|:----------|
-| 1 | G.E.P. Box, D.R. Cox. "An Analysis of Transformations." *JRSS B*, **1964**. |
-| 2 | I.K. Yeo, R.A. Johnson. "A New Family of Power Transformations to Improve Normality or Symmetry." *Biometrika*, **2000**. |
+| 1 | G.E.P. Box, D.R. Cox. ["An Analysis of Transformations."](https://www.jstor.org/stable/2984418) *JRSS B*, **1964**. |
+| 2 | I.K. Yeo, R.A. Johnson. ["A New Family of Power Transformations to Improve Normality or Symmetry."](https://www.jstor.org/stable/2673623) *Biometrika*, **2000**. |

@@ -20,7 +20,7 @@ tasks currently have decision-grade comparisons vs demo-only examples.
 
 Use the comparison examples first when making implementation decisions:
 
-- `examples/comprehensive_comparison.py`: robust losses + UQ + ensemble behavior on multiple scenarios
+- `examples/comprehensive_comparison.py`: robust losses + uncertainty + ensemble behavior on multiple scenarios
 - `examples/comprehensive_loss_comparison.py`: controlled robust-loss comparisons
 - `examples/imbalanced_regression.py`: tail performance vs calibration tradeoffs
 - `examples/evaluate_conformal_methods.py`: coverage vs interval width tradeoffs
@@ -340,14 +340,14 @@ All examples can be run directly from the repository:
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/torchregress.git
+git clone https://github.com/sfabbro/torchregress.git
 cd torchregress
 
 # Install dependencies
-pip install -e '.[examples]'
+pip install -e '.[all]'
 
 # Run a specific example
 python examples/basic_usage.py
 ```
 
-For questions or issues with the examples, please [open an issue](https://github.com/username/torchregress/issues) in the repository.
+For questions or issues with the examples, please [open an issue](https://github.com/sfabbro/torchregress/issues) in the repository.

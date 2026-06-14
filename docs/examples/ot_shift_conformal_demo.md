@@ -4,7 +4,7 @@ This guide explains how to use optimal transport (OT) reweighting to restore val
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Tibshirani, R. J., Foygel Barber, R., Candès, E., & Ramdas, A. (2019). **Conformal prediction under covariate shift**. *NeurIPS*. |
+| 1 | Tibshirani, R. J., Foygel Barber, R., Candès, E., & Ramdas, A. (2019). [**Conformal prediction under covariate shift**](https://arxiv.org/abs/1904.06019). *NeurIPS*. |
 | 2 | Gibbs, I., & Candès, E. (2021). **Adaptive Conformal Predictions for Time Series**. *arXiv preprint arXiv:2102.10473*. |
 
 ---

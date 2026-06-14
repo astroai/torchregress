@@ -4,8 +4,8 @@ This guide demonstrates how to perform doubly robust estimation of Average Treat
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Robins, J. M., Rotnitzky, A., & Zhao, L. P. (1994). **Estimation of Regression Coefficients when Some Regressors are Quite Missing**. *Journal of the American Statistical Association*. |
-| 2 | Chernozhukov, V., et al. (2018). **Double/debiased machine learning for treatment and structural parameters**. *The Econometrics Journal*. |
+| 1 | Robins, J. M., Rotnitzky, A., & Zhao, L. P. (1994). [**Estimation of Regression Coefficients when Some Regressors Are Not Always Observed**](https://www.jstor.org/stable/2290910). *Journal of the American Statistical Association*. |
+| 2 | Chernozhukov, V., et al. (2018). [**Double/debiased machine learning for treatment and structural parameters**](https://arxiv.org/abs/1608.00060). *The Econometrics Journal*. |
 
 ---
 

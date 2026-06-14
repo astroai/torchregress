@@ -92,25 +92,25 @@ extra:
       link: https://github.com/sfabbro/torchregress
 
 # ─────────────────────────────────────────────────────────────
-# Navigation — 8 horizontal tabs (reduced to 7 in next pass if requested)
+# Navigation — 8 tabs, no acronyms in labels, task-first grouping
 # ─────────────────────────────────────────────────────────────
 nav:
   # ── Tab 1: Home ──────────────────────────────────────────
   - Home:
       - index.md
 
-  # ── Tab 2: Getting Started ───────────────────────────────
-  - Getting Started:
+  # ── Tab 2: Get Started ───────────────────────────────────
+  - Get Started:
       - getting-started/index.md
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
       - Core Concepts: getting-started/concepts.md
 
-  # ── Tab 3: Guide ────────────────────────────────────────
-  - Guide:
+  # ── Tab 3: User Guide ────────────────────────────────────
+  - User Guide:
       - guide/index.md
+      - How to Choose a Method: guide/method-selection.md
       - Practical Usage: guide/practical-usage.md
-      - Method Selection: guide/method-selection.md
       - Uncertainty Decomposition: guide/uncertainty-decomposition.md
       - Choosing by Constraint: guide/choosing-by-constraint.md
       - Multi-Target Regression: guide/multi-target-regression.md
@@ -118,146 +118,150 @@ nav:
       - Best Practices: guide/best-practices.md
       - Debugging: guide/debugging.md
       - Performance: guide/performance.md
-      - Reports & Catalogs:
+      - Reports & Evidence:
           - Overview: reports/index.md
-          - Comparative Evidence: reports/comparative_evidence_matrix.md
           - Method Catalog: reports/method_catalog_generated.md
+          - Comparative Evidence: reports/comparative_evidence_matrix.md
           - Real-Data Guide: reports/real_data_recommendation_guide.md
-      - Research & Roadmaps:
-          - torchz SSL Roadmap: research/torchz_sota_ssl_ranked_report.md
-          - Library SSL Roadmap: research/torchregress_sota_ssl_ranked_report.md
+      - Research Roadmaps:
+          - Semi-Supervised Learning (torchz): research/torchz_sota_ssl_ranked_report.md
+          - Library Semi-Supervised Strategy: research/torchregress_sota_ssl_ranked_report.md
 
-
-  # ── Tab 4: Losses ───────────────────────────────────────
-  - Losses:
+  # ── Tab 4: Loss Functions ────────────────────────────────
+  - Loss Functions:
       - losses/index.md
-      - Gaussian:
+      - Gaussian & Heteroscedastic:
           - Gaussian Losses: losses/gaussian.md
-          - Beta-NLL: losses/beta_nll.md
-          - Gaussian Wasserstein bound: losses/gaussian_wasserstein.md
-      - Robust:
-          - Robust Losses: losses/robust.md
-      - Intervals & Quantiles:
-          - Quantile & Expectile: losses/quantile_expectile.md
-      - Distributional:
+          - Faithful & Continuous Ranked Probability Score: losses/faithful_gaussian.md
+          - Beta Negative Log-Likelihood: losses/beta_nll.md
+          - Wasserstein Bound: losses/gaussian_wasserstein.md
+      - Outlier-Resistant: losses/robust.md
+      - Quantile & Expectile: losses/quantile_expectile.md
+      - Distributional Modeling:
           - Mixture Density Networks: losses/mdn.md
           - Normalizing Flows: losses/nflows.md
           - Evidential Regression: losses/advanced.md
-      - Structured Targets:
-          - Ordinal: losses/ordinal.md
-          - Censored / Survival: losses/censored.md
-          - Poisson & Tweedie: losses/poisson_tweedie.md
-          - Poisson-Gaussian: losses/poisson_gaussian.md
-      - Data Quality:
-          - Imbalanced Regression: losses/imbalanced.md
+          - Super-Level Set Regression: losses/sls.md
+      - Special Target Types:
+          - Ordinal (Ordered Categories): losses/ordinal.md
+          - Censored & Survival: losses/censored.md
+          - Count Data (Poisson & Tweedie): losses/poisson_tweedie.md
+          - Poisson-Gaussian Mixture: losses/poisson_gaussian.md
+      - Data Quality Issues:
+          - Imbalanced Targets: losses/imbalanced.md
           - Noisy Labels: losses/noisy_labels.md
           - Uncertain Ground Truth: losses/uncertain_ground_truth.md
-      - Specialised:
-          - Error-in-Variables: losses/eiv.md
-          - Transform Losses: losses/transforms.md
-          - Conformal Wrapper: losses/conformal.md
-      - Internals:
-          - Base Classes: losses/base.md
+          - Input Measurement Error: losses/eiv.md
+      - Target Transformations: losses/transforms.md
+      - Conformal Prediction Wrappers: losses/conformal.md
+      - Base Classes: losses/base.md
 
-  # ── Tab 5: Methods ──────────────────────────────────────
-  - Methods:
+  # ── Tab 5: Methods & Algorithms ──────────────────────────
+  - Methods & Algorithms:
       - methods/index.md
       - Conformal Prediction:
           - Overview: methods/conformal/index.md
-          - Predictors: methods/conformal/predictors.md
-          - Distributional: methods/conformal/distributional.md
-      - Ensemble & UQ:
+          - Prediction Intervals: methods/conformal/predictors.md
+          - Distributional Conformal: methods/conformal/distributional.md
+      - Ensembles for Uncertainty:
           - Overview: methods/ensemble/index.md
-          - Methods: methods/ensemble/methods.md
+          - Ensemble Methods: methods/ensemble/methods.md
       - Algorithms:
-          - IRLS: methods/algorithms/irls.md
-          - Regression Calibration: methods/algorithms/rc.md
-          - SIMEX: methods/algorithms/simex.md
-          - TIC-TAC: methods/algorithms/tictac.md
-          - Heteroscedastic Laplace: methods/algorithms/heteroscedastic_laplace.md
-          - VIDS Adaptive Prior: methods/algorithms/adaptive_prior_vi.md
-      - Test-Time & Shift:
-          - Roadmap: methods/test-time/regression-shift-adaptation-roadmap.md
+          - Robust Fitting: methods/algorithms/irls.md
+          - Measurement Error Correction:
+              - Regression Calibration: methods/algorithms/rc.md
+              - Simulation Extrapolation: methods/algorithms/simex.md
+              - Latent Input Regression: methods/algorithms/latentnn.md
+              - Error-Aware Encoding: methods/algorithms/error_aware.md
+          - Covariance Learning: methods/algorithms/tictac.md
+          - Bayesian Last Layer: methods/algorithms/heteroscedastic_laplace.md
+          - Adaptive Prior Inference: methods/algorithms/adaptive_prior_vi.md
+          - Bayesian Learning Rule: methods/algorithms/ivon.md
+      - Test-Time Adaptation:
+          - Overview: methods/test-time/regression-shift-adaptation-roadmap.md
           - Bayesian Linear Regression: methods/test-time/bayesian-linear-regression.md
-          - OT Shift Conformal: methods/test-time/ot-shift-conformal.md
-      - Post-Hoc Calibration: methods/calibration.md
-      - Constraints: methods/constraints.md
+          - Optimal Transport Conformal: methods/test-time/ot-shift-conformal.md
+      - Post-Training Calibration: methods/calibration.md
+      - Output Constraints: methods/constraints.md
       - Causal Inference: methods/causal.md
       - Prediction-Powered Inference: methods/inference.md
-      - Visualization: methods/visualization.md
+      - Semi-Supervised Regression: methods/semi_supervised.md
+      - Visualization & Diagnostics: methods/visualization.md
 
-  # ── Tab 6: Metrics ──────────────────────────────────────
+  # ── Tab 6: Metrics ───────────────────────────────────────
   - Metrics:
       - metrics/index.md
-      - Point Metrics: metrics/point.md
-      - Ordinal Metrics: metrics/ordinal.md
-      - Censored Metrics: metrics/censored.md
-      - Distribution Metrics: metrics/distribution.md
-      - Interval Metrics: metrics/interval.md
-      - Calibration Metrics: metrics/calibration.md
-      - OOD Detection: metrics/ood.md
-      - Ensemble Metrics: metrics/ensemble.md
-      - Multivariate Metrics: metrics/multivariate.md
+      - Point Prediction: metrics/point.md
+      - Ordinal: metrics/ordinal.md
+      - Censored: metrics/censored.md
+      - Distribution: metrics/distribution.md
+      - Prediction Intervals: metrics/interval.md
+      - Calibration: metrics/calibration.md
+      - Out-of-Distribution Detection: metrics/ood.md
+      - Ensemble: metrics/ensemble.md
+      - Multivariate: metrics/multivariate.md
 
-  # ── Tab 7: Examples ─────────────────────────────────────
+  # ── Tab 7: Examples ──────────────────────────────────────
   - Examples:
       - examples/index.md
       - Getting Started:
           - Basic Usage: examples/basic_usage.md
           - Loss Comparison: examples/loss_comparison.md
       - Uncertainty & Ensembles:
-          - OT Shift Conformal Demo: examples/ot_shift_conformal_demo.md
-          - Bayesian Linear Head Demo: examples/test_time_bayesian_linear_head.md
-          - BLR Predictive Adapter Demo: examples/test_time_blr_predictive_adapter.md
-          - Gaussian Wasserstein Bound Demo: examples/gaussian_wasserstein_bound.md
-          - Wasserstein Hybrid Pretrain Demo: examples/wasserstein_bound_hybrid_pretrain.md
-          - Beta-NLL Heteroscedastic Demo: examples/heteroscedastic_beta_nll.md
           - Ensemble Methods: examples/ensemble_methods.md
           - Evidential Regression: examples/evidential_regression.md
           - Heteroscedastic Laplace: examples/heteroscedastic_laplace.md
-          - OOD / Selective Prediction: examples/ood_selective_prediction_comparison.md
-          - OOD / Selective (Real Data): examples/ood_selective_prediction_realdata_comparison.md
+          - Beta Negative Log-Likelihood Demo: examples/heteroscedastic_beta_nll.md
+          - Wasserstein Bound Demo: examples/gaussian_wasserstein_bound.md
+          - Wasserstein Hybrid Pretraining: examples/wasserstein_bound_hybrid_pretrain.md
+          - Bayesian Linear Head: examples/test_time_bayesian_linear_head.md
+          - Bayesian Linear Adapter: examples/test_time_blr_predictive_adapter.md
+          - Optimal Transport Conformal: examples/ot_shift_conformal_demo.md
       - Prediction Intervals:
           - Conformal Regression: examples/conformal_regression_example.md
           - Mondrian Conformal: examples/conformal_mondrian.md
           - Expectile Regression: examples/expectile_regression.md
-          - Normalizing Flows: examples/normalizing_flows_multitarget.md
-          - Contrastive Flow Parameter Estimation: examples/contrastive_flow_parameter_estimation.md
+          - Normalizing Flows (Multi-Target): examples/normalizing_flows_multitarget.md
+          - Contrastive Flow Estimation: examples/contrastive_flow_parameter_estimation.md
           - Contrastive Flow Comparison: examples/contrastive_flow_parameter_estimation_comparison.md
           - Multimodal Methods: examples/multimodal_method_comparison.md
           - Multimodal (Real Data): examples/multimodal_method_realdata_comparison.md
-      - Robustness & Imbalance:
+      - Robustness & Data Quality:
           - Imbalanced Regression: examples/imbalanced_regression.md
-          - Balanced MSE (bin reweighting): examples/balanced_mse.md
+          - Balanced Reweighting: examples/balanced_mse.md
           - Noisy Labels: examples/noisy_labels_regression.md
           - Noisy Label Comparison: examples/noisy_label_comparison.md
           - Noisy Label (Real Data): examples/noisy_label_realdata_comparison.md
-          - Propensity + Tail: examples/propensity_tail_regression_comparison.md
+          - Propensity & Tail: examples/propensity_tail_regression_comparison.md
+          - Semi-Supervised: examples/semi_supervised_regression_comparison.md
+          - Uncertain Ground Truth: examples/uncertain_gt_density_conformal_comparison.md
+          - Uncertain Ground Truth (Real Data): examples/uncertain_gt_density_conformal_realdata_comparison.md
           - Transformed Targets: examples/transformed_target_regression_comparison.md
-          - Semi-Supervised Regression: examples/semi_supervised_regression_comparison.md
-          - Uncertain-GT + Conformal: examples/uncertain_gt_density_conformal_comparison.md
-      - Structured & Specialised:
-          - Poisson Regression: examples/poisson_regression.md
-          - Tweedie Regression: examples/tweedie_regression.md
+      - Special Target Types:
+          - Poisson: examples/poisson_regression.md
+          - Tweedie: examples/tweedie_regression.md
           - Poisson-Gaussian Mixture: examples/poisson_gaussian_mixture.md
-          - Ordinal Regression: examples/ordinal_regression_comparison.md
-          - Ordinal + Uncertain-GT: examples/ordinal_uncertain_ground_truth_comparison.md
-          - Ordinal Regression (Real Data): examples/ordinal_regression_realdata_comparison.md
-          - Censored Regression: examples/censored_regression_comparison.md
-          - Censored Regression (Real Data): examples/censored_regression_realdata_comparison.md
-          - EIV Methods: examples/eiv_method_comparison.md
-          - EIV (Real Data): examples/eiv_method_realdata_comparison.md
-          - EIV Algorithms: examples/eiv_algorithms.md
-          - Constraints + Calibration: examples/constraints_calibration_comparison.md
-          - Uncertain-GT + Conformal (Real Data): examples/uncertain_gt_density_conformal_realdata_comparison.md
-      - Causal:
-          - Causal DR Uplift: examples/causal_dr_uplift_comparison.md
-          - Causal DR (Real Covariates): examples/causal_dr_realdata_comparison.md
-      - External:
-          - vs MAPIE / BoTorch / scikit-lego: examples/external-comparison-vs-mapie-botorch-sklego.md
+          - Ordinal Comparison: examples/ordinal_regression_comparison.md
+          - Ordinal (Real Data): examples/ordinal_regression_realdata_comparison.md
+          - Ordinal with Uncertain Labels: examples/ordinal_uncertain_ground_truth_comparison.md
+          - Censored Comparison: examples/censored_regression_comparison.md
+          - Censored (Real Data): examples/censored_regression_realdata_comparison.md
+          - Input Measurement Error: examples/eiv_method_comparison.md
+          - Input Error (Real Data): examples/eiv_method_realdata_comparison.md
+          - Input Error Algorithms: examples/eiv_algorithms.md
+      - Out-of-Distribution:
+          - Out-of-Distribution Comparison: examples/ood_selective_prediction_comparison.md
+          - Out-of-Distribution (Real Data): examples/ood_selective_prediction_realdata_comparison.md
+      - Calibration & Constraints:
+          - Constraints & Calibration: examples/constraints_calibration_comparison.md
+      - Causal Inference:
+          - Doubly Robust Causal Uplift: examples/causal_dr_uplift_comparison.md
+          - Doubly Robust Causal (Real Data): examples/causal_dr_realdata_comparison.md
+      - External Comparisons:
+          - vs MAPIE, BoTorch, scikit-lego: examples/external-comparison-vs-mapie-botorch-sklego.md
 
-  # ── Tab 8: API Reference ────────────────────────────────
-  - API:
+  # ── Tab 8: API Reference ─────────────────────────────────
+  - API Reference:
       - api/index.md
       - Losses: api/losses.md
       - Ensemble: api/ensemble.md

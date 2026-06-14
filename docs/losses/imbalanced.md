@@ -43,6 +43,12 @@ loss = loss_bal(model(x), y_batch)
 
 Multi-output targets use the **mean coordinate** for bin assignment; the weighted squared error still applies elementwise to `y_pred - target`.
 
+!!! warning "Out-of-range targets"
+    If test targets fall outside the bin edges estimated from `fit(y_train)`, the weights for those samples are undefined. Always ensure `y_train` covers the full expected range of test targets, or use `DensityWeightedLoss` which handles out-of-range values gracefully via KDE.
+
+!!! warning "KDE scaling"
+    `DensityWeightedLoss.fit_density()` uses kernel density estimation (KDE) which scales as $\mathcal{O}(N^2)$ with the number of training targets for a naive implementation. For datasets with $N > 10^4$ targets, use a subsample for density estimation or switch to a bin-based method (`BalancedMSELoss`, `BMCLoss`).
+
 !!! warning "Calibration"
     Like other reweighting schemes, these losses change the training objective. Validate calibration on held-out data before relying on variance or interval outputs.
 
@@ -171,5 +177,5 @@ graph TD
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Y. Yang et al. "Delving into Deep Imbalanced Regression." *ICML*, **2021**. |
-| 2 | T.-Y. Lin et al. "Focal Loss for Dense Object Detection." *ICCV*, **2017**. |
+| 1 | Y. Yang et al. ["Delving into Deep Imbalanced Regression."](https://arxiv.org/abs/2102.09554) *ICML*, **2021**. |
+| 2 | T.-Y. Lin et al. ["Focal Loss for Dense Object Detection."](https://arxiv.org/abs/1708.02002) *ICCV*, **2017**. |

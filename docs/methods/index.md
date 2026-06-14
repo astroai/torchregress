@@ -32,13 +32,13 @@ graph LR
 
 Distribution-free prediction intervals with **finite-sample coverage guarantees**. Split conformal, CQR, CTI, distributional conformal.
 
-### [Ensemble & UQ](ensemble/index.md)
+### [Ensembles for Uncertainty](ensemble/index.md)
 
 Deep Ensembles, BatchEnsemble, SWAG, MC-Dropout, BNN — with aleatoric/epistemic decomposition.
 
 ### [Algorithms](algorithms/irls.md)
 
-Algorithms for robust fitting and structured uncertainty: IRLS for robust regression, RC/SIMEX for measurement error correction, [TIC-TAC](algorithms/tictac.md) for covariance learning, [Heteroscedastic Laplace](algorithms/heteroscedastic_laplace.md) for last-layer Bayesian regression, and [VIDS Adaptive Prior VI](algorithms/adaptive_prior_vi.md) for covariate-shift robustness.
+Algorithms for robust fitting and structured uncertainty: Robust Fitting for robust regression, RC/SIMEX for measurement error correction, [Covariance Learning](algorithms/tictac.md) for covariance learning, [Heteroscedastic Laplace](algorithms/heteroscedastic_laplace.md) for last-layer Bayesian regression, and [Adaptive Prior Inference](algorithms/adaptive_prior_vi.md) for covariate-shift robustness.
 
 ### [Test-Time & Shift](test-time/bayesian-linear-regression.md)
 

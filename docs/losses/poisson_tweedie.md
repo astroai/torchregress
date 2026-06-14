@@ -172,6 +172,11 @@ loss_fn = CompoundPoissonLoss(p=1.5, link="log")
 !!! warning "Numerical Limitations of Compound Poisson (1 < p < 2)"
     Evaluating the Tweedie likelihood for $1 < p < 2$ involves an infinite series representation of the density function (Dunn & Smyth, 2005). Because of this, evaluations can be computationally slower than plain Poisson or Gamma losses. Additionally, if the power parameter $p$ is close to 1 or 2, gradient computation can become numerically unstable. Ensure you set a stable `min_std` / jitter and monitor gradients.
 
+!!! warning "Numerical pitfalls across all Tweedie variants"
+    - **Negative log-rates**: When `log_input=True`, the model predicts $\log\lambda$. If predicted log-rates become negative and the link exponentiates them, the rate $\lambda = e^{\log\lambda}$ stays positive — but large negative log-rates produce near-zero rates that can cause log(0) operations in deviance terms. Clamp or use a minimum rate floor.
+    - **Near-boundary instability ($p \to 1$ or $p \to 2$)**: The Tweedie density normalizing constant involves the infinite series mentioned above. As $p$ approaches 1 (Poisson boundary) or 2 (Gamma boundary), the series converges very slowly, causing both runtime and gradient issues. For $p$ exactly 1 or 2, use the specialized `PoissonDevianceLoss` or `GammaLoss` instead.
+    - **Dispersion sensitivity (Negative Binomial)**: `NegativeBinomialNLLLoss` with a very small dispersion $\theta$ (< 0.01) produces extreme overdispersion where the variance-to-mean ratio becomes huge, leading to unstable gradients. Use `min_theta` to floor the dispersion parameter.
+
 ---
 
 ## Decision Guide
@@ -227,8 +232,8 @@ for x, y in train_loader:
 
 | # | Reference |
 |:-:|:----------|
-| 1 | B. Jørgensen. "Exponential Dispersion Models." *JRSS-B*, 49(2):127–162, **1987**. |
-| 2 | P. Dunn, G. Smyth. "Evaluation of Tweedie Exponential Dispersion Model Densities." *J. Stat. Comp. Sim.*, 73(4):325–349, **2005**. |
+| 1 | B. Jørgensen. ["Exponential Dispersion Models."](https://www.jstor.org/stable/2345173) *JRSS-B*, 49(2):127–162, **1987**. |
+| 2 | P. Dunn, G. Smyth. ["Evaluation of Tweedie Exponential Dispersion Model Densities."](https://doi.org/10.1080/00949650412331272171) *J. Stat. Comp. Sim.*, 73(4):325–349, **2005**. |
 | 3 | G.W. Corder, D.I. Foreman. *Nonparametric Statistics for Non-Statisticians*. Wiley, **2009**. |
-| 4 | S. Baker, R.D. Cousins. "Clarification of the Use of Chi-square and Likelihood Functions in Fits to Histograms." *Nucl. Instr. Meth.*, 221(2):437–442, **1984**. |
-| 5 | J. Nelder, R. Wedderburn. "Generalized Linear Models." *JRSS-A*, 135(3):370–384, **1972**. |
+| 4 | S. Baker, R.D. Cousins. ["Clarification of the Use of Chi-square and Likelihood Functions in Fits to Histograms."](https://doi.org/10.1016/0167-5087(84)90016-4) *Nucl. Instr. Meth.*, 221(2):437–442, **1984**. |
+| 5 | J. Nelder, R. Wedderburn. ["Generalized Linear Models."](https://www.jstor.org/stable/2344614) *JRSS-A*, 135(3):370–384, **1972**. |

@@ -115,8 +115,8 @@ This is the recommended way to evaluate complex probabilistic models, as it prov
 | Metric | Best For | Proper? | API Reference |
 |:-------|:---------|:-------:|:--------------|
 | **NLL** | Parametric models | ✅ | [`gaussian_nll`](../api/metrics.md#torchregress.metrics.distribution.gaussian_nll) |
-| **CRPS** | Univariate UQ | ✅ | [`crps_gaussian`](../api/metrics.md#torchregress.metrics.distribution.crps_gaussian) |
-| **Energy Score** | Multivariate UQ | ✅ | [`energy_score`](../api/metrics.md#torchregress.metrics.distribution.energy_score) |
+| **CRPS** | Univariate uncertainty | ✅ | [`crps_gaussian`](../api/metrics.md#torchregress.metrics.distribution.crps_gaussian) |
+| **Energy Score** | Multivariate uncertainty | ✅ | [`energy_score`](../api/metrics.md#torchregress.metrics.distribution.energy_score) |
 | **PIT** | Calibration check | — | [`plot_pit_histogram`](../api/viz.md#torchregress.viz.diagnostic.plot_pit_histogram) |
 
 ---

@@ -173,7 +173,7 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 
 | # | Reference |
 |:-:|:----------|
-| 1 | D. Rezende, S. Mohamed. "Variational Inference with Normalizing Flows." *ICML*, **2015**. |
-| 2 | G. Papamakarios et al. "Normalizing Flows for Probabilistic Modeling and Inference." *JMLR*, 22(57):1–64, **2021**. |
-| 3 | F. Rozet et al. "Zuko: Normalizing Flows in PyTorch." **2022**. |
-| 4 | I. Elsharkawy, Y. Kahn. "Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation." *arXiv:2505.08709*, **2025**. |
+| 1 | D. Rezende, S. Mohamed. ["Variational Inference with Normalizing Flows."](https://arxiv.org/abs/1505.05770) *ICML*, **2015**. |
+| 2 | G. Papamakarios et al. ["Normalizing Flows for Probabilistic Modeling and Inference."](https://arxiv.org/abs/1912.02762) *JMLR*, 22(57):1–64, **2021**. |
+| 3 | F. Rozet et al. ["Zuko: Normalizing Flows in PyTorch."](https://github.com/probabilists/zuko) **2022**. |
+| 4 | I. Elsharkawy, Y. Kahn. ["Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation."](https://arxiv.org/abs/2505.08709) *arXiv:2505.08709*, **2025**. |

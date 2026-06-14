@@ -4,8 +4,8 @@ This guide compares multiple methods for modeling ordered-target data (where tar
 
 | # | Reference |
 |:-:|:----------|
-| 1 | McCullagh, P. (1980). **Regression Models for Ordinal Data**. *Journal of the Royal Statistical Society: Series B*. |
-| 2 | Cao, W., Mirjalili, V., & Raschka, S. (2020). **Consistent Rank Logits for Ordinal Regression with Convolutional Neural Networks**. *Pattern Recognition*. |
+| 1 | McCullagh, P. (1980). [**Regression Models for Ordinal Data**](https://www.jstor.org/stable/2984952). *Journal of the Royal Statistical Society: Series B*. |
+| 2 | Cao, W., Mirjalili, V., & Raschka, S. (2020). [**Consistent Rank Logits for Ordinal Regression with Convolutional Neural Networks**](https://arxiv.org/abs/2001.07523). *Pattern Recognition*. |
 
 ---
 

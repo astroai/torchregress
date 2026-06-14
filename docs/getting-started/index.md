@@ -6,7 +6,7 @@ Welcome to **torchregress** — a PyTorch library for regression with built-in u
 
 ## Choose Your Path
 
-=== ":fontawesome-solid-graduation-cap: New to regression UQ"
+=== ":fontawesome-solid-graduation-cap: New to regression uncertainty"
 
     1. [Installation](installation.md) — get set up in 30 seconds
     2. [Quick Start](quickstart.md) — train your first uncertainty-aware model

@@ -4,7 +4,7 @@ This guide demonstrates how to use the bin-based reweighting losses `BalancedMSE
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Ren, J., Zhang, C., Liu, S., Yang, H., & Yang, M. H. (2022). **Balanced MSE for Long-Tailed Visual Recognition**. *CVPR*. |
+| 1 | Ren, J., Zhang, C., Liu, S., Yang, H., & Yang, M. H. (2022). [**Balanced MSE for Long-Tailed Visual Recognition**](https://arxiv.org/abs/2203.16427). *CVPR*. |
 
 ---
 

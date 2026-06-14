@@ -4,8 +4,8 @@ This guide demonstrates expectile regression and compares it with quantile regre
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Newey, W. K., & Powell, J. L. (1987). **Asymmetric Least Squares Estimation and Testing**. *Econometrica*. |
-| 2 | Koenker, R., & Bassett Jr, G. (1978). **Regression Quantiles**. *Econometrica*. |
+| 1 | Newey, W. K., & Powell, J. L. (1987). [**Asymmetric Least Squares Estimation and Testing**](https://www.jstor.org/stable/1913610). *Econometrica*. |
+| 2 | Koenker, R., & Bassett Jr, G. (1978). [**Regression Quantiles**](https://www.jstor.org/stable/1913643). *Econometrica*. |
 
 ---
 

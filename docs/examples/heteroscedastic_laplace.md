@@ -4,8 +4,8 @@ This guide explains how to perform Bayesian last-layer Laplace posterior approxi
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Immer, A., Postels, J., Lücke, J., Rätsch, G., & Mandt, S. (2023). **Effective Bayesian Heteroscedastic Regression with Deep Neural Networks**. *Advances in Neural Information Processing Systems (NeurIPS)*. |
-| 2 | Daxberger, E., Agustinus, K., Ostner, J., Ruin, L., & Hennig, P. (2021). **Laplace Redux - Effortless Bayesian Deep Learning**. *Advances in Neural Information Processing Systems (NeurIPS)*. |
+| 1 | Immer, A., Postels, J., Lücke, J., Rätsch, G., & Mandt, S. (2023). [**Effective Bayesian Heteroscedastic Regression with Deep Neural Networks**](https://arxiv.org/abs/2302.08498). *Advances in Neural Information Processing Systems (NeurIPS)*. |
+| 2 | Daxberger, E., Agustinus, K., Ostner, J., Ruin, L., & Hennig, P. (2021). [**Laplace Redux - Effortless Bayesian Deep Learning**](https://arxiv.org/abs/2106.14806). *Advances in Neural Information Processing Systems (NeurIPS)*. |
 
 ---
 

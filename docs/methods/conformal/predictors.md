@@ -47,6 +47,9 @@ lower, upper = cp.predict_interval(y_pred_test)
     Use as a **baseline**.  If residuals are roughly homoscedastic, SplitConformal works well.
     For heteroscedastic data, switch to CQR or add `normalize_fn`.
 
+!!! warning "Constant-width limitation"
+    `SplitConformal` produces intervals of **constant width** ($\pm \hat{q}$) for all test points (unless `normalize_fn` is provided). For heteroscedastic data where noise varies strongly with $x$, this is inefficient: intervals are unnecessarily wide in low-noise regions and risk under-coverage in high-noise regions. Use `CQR` or `MonteCarloConformal` for adaptive-width intervals.
+
 ---
 
 ## CQR
@@ -74,6 +77,9 @@ lower, upper = cqr.predict_interval(y_pred_test)
 
 !!! tip "When to use"
     Whenever you have a **quantile regression** model (e.g., `MultiQuantileLoss` with quantiles $[\alpha/2, 1-\alpha/2]$).  CQR inherits the model's adaptive width and adds the coverage guarantee.
+
+!!! warning "Base model quality matters"
+    CQR adds a conformal correction to a quantile regression model, but it cannot fix a fundamentally broken quantile model. If the base quantile predictions are extremely poor (e.g., the 90% quantile is consistently below the median), the conformal correction $\hat{q}$ grows very large, producing intervals that are technically valid but uselessly wide. Always validate the base quantile model's calibration before applying CQR.
 
 !!! quote "Reference"
     Y. Romano, E. Patterson, E. Candès. "Conformalized Quantile Regression." *NeurIPS*, **2019**.
@@ -113,6 +119,9 @@ lower, upper = dcp.predict_interval(y_pred_test)
 
 !!! tip "When to use"
     When the target distribution has **long tails** or extreme class imbalance (e.g., few samples at high magnitudes, rare ages).
+
+!!! warning "Extrapolation beyond calibration range"
+    `DensityConformal` estimates target density from the calibration set $y_{\text{cal}}$. If test targets fall outside the range of calibration targets, the density estimate extrapolates poorly, and the resulting intervals may be unreliable. Ensure the calibration set spans the full range of expected test targets.
 
 ---
 

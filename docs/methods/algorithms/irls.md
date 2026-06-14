@@ -23,6 +23,11 @@ and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust
 !!! warning "Vulnerability to Leverage Points"
     M-estimators (including those solved via IRLS) only downweight outliers based on residuals in the **response space** ($Y$). They are highly sensitive to **leverage points** (outliers in the feature space $X$). A single high-leverage outlier can attract the regression line completely, even if its response residual is relatively small. For robust handling of high-leverage points, bounded-influence estimators (e.g., GM-estimators or Schweppe-type weights) are required.
 
+!!! warning "Practical constraints"
+    - **Computational cost per iteration**: Each IRLS iteration requires re-evaluating the model on the full batch to compute residuals and weights, then re-fitting. For large models or datasets, the per-iteration cost is comparable to one full training epoch.
+    - **MAD scale collapse**: The robust scale estimate (MAD) can become **zero** if many residuals are identical (e.g., saturated predictions). Division by zero in weight computation produces `NaN` losses. Use `variance_type="predicted"` or `"fixed"` to avoid this, or add a `min_scale` floor.
+    - **Warm-start requirement**: For redescending losses (Tukey, Cauchy), IRLS must be warm-started from a convex loss (Huber, OLS). Starting directly with Tukey weights from a random model typically diverges.
+
 ---
 
 ## Weight Functions
@@ -126,7 +131,7 @@ print(f"IRLS MAE (clean): {(pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4
 
 | # | Reference |
 |:-:|:----------|
-| 1 | P.W. Holland, R.E. Welsch. "Robust Regression Using Iteratively Reweighted Least-Squares." *Commun. Stat. Theory Methods*, 6(9):813–827, **1977**. |
-| 2 | P.J. Huber. "Robust Regression: Asymptotics, Conjectures, and Monte Carlo." *Ann. Stat.*, 1(5):799–821, **1973**. |
-| 3 | A.E. Beaton, J.W. Tukey. "The Fitting of Power Series, Meaning Polynomials, Illustrated on Band-Spectroscopic Data." *Technometrics*, 16(2):147–185, **1974**. |
+| 1 | P.W. Holland, R.E. Welsch. ["Robust Regression Using Iteratively Reweighted Least-Squares."](https://doi.org/10.1080/03610927708827533) *Commun. Stat. Theory Methods*, 6(9):813–827, **1977**. |
+| 2 | P.J. Huber. ["Robust Regression: Asymptotics, Conjectures, and Monte Carlo."](https://doi.org/10.1214/aos/1176342503) *Ann. Stat.*, 1(5):799–821, **1973**. |
+| 3 | A.E. Beaton, J.W. Tukey. ["The Fitting of Power Series, Meaning Polynomials, Illustrated on Band-Spectroscopic Data."](https://doi.org/10.1080/00401706.1974.10489171) *Technometrics*, 16(2):147–185, **1974**. |
 | 4 | P.J. Huber. *Robust Statistics*. Wiley, **1981**. |

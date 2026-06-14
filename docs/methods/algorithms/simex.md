@@ -36,6 +36,8 @@ where $\hat\beta_j$ are polynomial coefficients from fitting predictions vs. $\l
     * **Polynomial Smoothness**: SIMEX assumes that the model parameters (or predictions) behave as a smooth, continuous function of the noise level $\lambda$ in the range $[-1, \lambda_{\max}]$, which can be well-approximated by a low-order (linear or quadratic) polynomial.
     * **Divergence Risk**: If the true relationship has high curvature or a singularity near $\lambda = -1$ (i.e. zero measurement error), polynomial fitting can lead to wild extrapolation errors. Higher-order polynomials ($p \geq 3$) are extremely sensitive to simulation noise and prone to overfitting/divergence (Runge's phenomenon).
     * **Covariance Specification**: SIMEX relies heavily on an accurately estimated measurement error covariance $\Sigma_u$. Over- or under-specifying $\Sigma_u$ directly biases the extrapolated values.
+    * **Computational Cost**: SIMEX trains $|\text{lambdas}| + 1$ complete models (one baseline at $\lambda = 0$, plus one for each $\lambda$ value). For deep networks, this multiplies training cost by the number of noise levels.
+    * **Negative Variance Artifacts**: When extrapolating polynomial fits to $\lambda = -1$, predicted variance estimates can become negative. Always clamp variance outputs to a minimum positive value after SIMEX correction.
 
 ---
 

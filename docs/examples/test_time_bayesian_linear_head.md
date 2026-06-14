@@ -4,7 +4,7 @@ This guide demonstrates how to use the conjugate `BayesianLinearHead` and its on
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Bishop, C. M. (2006). **Pattern Recognition and Machine Learning**. *Springer*. (Chapter 3: Linear Models for Regression). |
+| 1 | Bishop, C. M. (2006). [**Pattern Recognition and Machine Learning**](https://www.microsoft.com/en-us/research/publication/pattern-recognition-machine-learning/). *Springer*. (Chapter 3: Linear Models for Regression). |
 
 ---
 

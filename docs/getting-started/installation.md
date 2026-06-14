@@ -24,23 +24,8 @@ pip install 'torchregress[dev]'
 # For documentation
 pip install 'torchregress[docs]'
 
-# Compatibility extra for conformal workflows
-pip install 'torchregress[conformal]'
-
 # For normalizing-flow losses
 pip install 'torchregress[flows]'
-
-# For CANFAR Science Platform launch helpers
-pip install 'torchregress[canfar]'
-
-# For CLAUDS data tooling
-pip install 'torchregress[clauds]'
-
-# For TabReD data tooling
-pip install 'torchregress[tabred]'
-
-# For foundation-model experiments
-pip install 'torchregress[foundation-models]'
 
 # For all optional dependencies
 pip install 'torchregress[all]'
@@ -95,11 +80,6 @@ Documentation:
 Normalizing flows:
 - zuko >= 1.6.0
 
-Science/data tooling extras:
-- `canfar`: CANFAR Science Platform launcher dependencies
-- `clauds`: CLAUDS data tooling dependencies
-- `tabred`: TabReD data tooling dependencies
-- `foundation-models`: TabPFN-backed experiment dependencies
 
 ## Verifying Installation
 

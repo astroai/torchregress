@@ -63,35 +63,10 @@ docs = [
     "mkdocstrings[python]>=0.25.0",
     "pymdown-extensions>=10.7.0",
 ]
-conformal = []
 flows = [
     "zuko>=1.6.0",
 ]
-clauds = [
-    "polars>=0.20.0",
-    "astropy>=6.0.0",
-    "pyarrow>=18.0.0",
-]
-# TabReD fetch + wide-tabular probe (Polars/Kaggle/loguru align with yandex-research/tabred)
-tabred = [
-    "polars>=0.20.0",
-    "pyarrow>=18.0.0",
-    "kaggle>=1.6.0",
-    "loguru>=0.7.0",
-    "scikit-learn>=1.5.0",
-]
-foundation-models = [
-    "tabpfn>=0.1.9",
-]
-external = [
-    "mapie>=1.0.0",
-    "scikit-lego>=0.7.0",
-    "botorch>=0.11.0",
-    "gpytorch>=1.11.0",
-    "crepes>=0.4.0",
-    "torchcp>=0.1.0",
-]
-all = ["torchregress[test,dev,docs,conformal,flows,foundation-models,external]"]
+all = ["torchregress[test,dev,docs,flows]"]
 
 [tool.setuptools]
 [tool.setuptools.packages.find]

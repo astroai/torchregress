@@ -4,8 +4,8 @@ This guide explains how to use predictive uncertainty to perform selective predi
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). **Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles**. *NeurIPS*. |
-| 2 | Geifman, Y., & El-Yaniv, R. (2017). **Selective Classification for Deep Neural Networks**. *NeurIPS*. |
+| 1 | Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). [**Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles**](https://arxiv.org/abs/1612.01474). *NeurIPS*. |
+| 2 | Geifman, Y., & El-Yaniv, R. (2017). [**Selective Classification for Deep Neural Networks**](https://arxiv.org/abs/1705.08500). *NeurIPS*. |
 
 ---
 

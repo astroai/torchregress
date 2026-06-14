@@ -4,7 +4,7 @@ This example demonstrates how to use the `BetaNLLLoss` to train heteroscedastic 
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Seitzer, M., Tavakoli, A., Brown, D., & Peters, J. (2022). **Improving Generalization in Meta-Learning via Task-Level Uncertainty**. *NeurIPS*. |
+| 1 | Seitzer, M., Tavakoli, A., Brown, D., & Peters, J. (2022). [**On the Pitfalls of Heteroscedastic Uncertainty Estimation with Probabilistic Neural Networks**](https://openreview.net/forum?id=aPlHsXlwbd). *ICLR*. |
 
 ---
 

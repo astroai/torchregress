@@ -4,7 +4,7 @@ This example demonstrates how to use evidential regression to decompose uncertai
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Amini, A., Schwarting, W., Soleimany, A., & Rus, D. (2020). **Deep Evidential Regression**. *Advances in Neural Information Processing Systems (NeurIPS)*. |
+| 1 | Amini, A., Schwarting, W., Soleimany, A., & Rus, D. (2020). [**Deep Evidential Regression**](https://arxiv.org/abs/1910.02600). *Advances in Neural Information Processing Systems (NeurIPS)*. |
 
 ---
 

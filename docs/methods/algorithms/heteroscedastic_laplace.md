@@ -149,4 +149,4 @@ print("Aleatoric Variance:\n", pred_batch.extra["aleatoric_variance"].squeeze(-1
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Immer et al., "Effective Bayesian Heteroscedastic Regression with Deep Neural Networks" (NeurIPS 2023). |
+| 1 | Immer et al., ["Effective Bayesian Heteroscedastic Regression with Deep Neural Networks"](https://arxiv.org/abs/2302.08498) (NeurIPS 2023). |

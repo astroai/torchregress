@@ -73,6 +73,12 @@ $$\mathcal{L}_{\text{MV}}(y, \mu, \Sigma) = \frac{1}{2} \left[ \log|\Sigma| + (y
     - **Computational Scaling**: Solvers and determinants for a $K \times K$ covariance matrix scale as $\mathcal{O}(K^3)$ with target dimension, which makes full covariance impractical for high-dimensional outputs ($K > 10$).
     - **PSD Violations**: Cholesky factors must be regularized/clamped on the diagonal to prevent non-positive semi-definite covariance matrices during optimization.
 
+!!! warning "FaithfulGaussianLoss tradeoff"
+    The `stop_gradient` on $\mu$ inside the NLL residual decouples the variance head's gradients from the mean head. This prevents variance miscalibration from distorting point predictions, but also means the mean head does **not** receive curvature information from the NLL about heteroscedasticity — which can slow convergence on datasets where mean and variance are strongly coupled.
+
+!!! warning "LowRankGaussianLoss rank selection"
+    The rank $r$ is a fixed hyperparameter chosen before training. If $r$ is too small, the low-rank approximation fails to capture important correlation structure between targets, and the diagonal component $\text{diag}(d)$ must absorb all residual correlation, producing inflated marginal variances. If $r$ is too large, the parameter count approaches the full covariance case ($r \approx K$) and the computational benefits vanish. Start with $r = \lfloor K/3 \rfloor$ and tune on validation NLL.
+
 ```python
 from torchregress.losses import MultivariateGaussianLoss
 
@@ -125,4 +131,4 @@ loss = loss_fn(mu, y_true, W, d)
 - [Gaussian Wasserstein bound surrogate](gaussian_wasserstein.md) for covariance supervision
 - Learn about [Robust Loss Functions](robust.md)
 - Explore [Ensemble Methods](../methods/ensemble/index.md)
-- View the [Multivariate UQ Example](../examples/normalizing_flows_multitarget.md)
+- View the [Multivariate Uncertainty Example](../examples/normalizing_flows_multitarget.md)

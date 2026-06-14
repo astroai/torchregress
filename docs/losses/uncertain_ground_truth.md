@@ -149,10 +149,14 @@ update_ema_teacher_(ema_teacher, student, momentum=0.95)
     Pseudo-labeling is prone to **confirmation bias** — when a model repeatedly fits its own incorrect but highly confident predictions, amplifying errors over epochs.
     - **Mitigation**: Use an EMA teacher (via `update_ema_teacher_`) to smooth predictions, apply threshold gating on `pseudo_confidence` (e.g., via `generate_pseudo_labels`), and **never** include pseudo-labeled samples in the held-out validation or test splits. Always maintain a clean, fully-supervised evaluation set.
 
+!!! warning "Hyperparameter sensitivity"
+    - **Confidence threshold tuning**: `PseudoLabelNLL` and `PseudoLabelConsistencyLoss` use `confidence_threshold` to gate which pseudo-labels are trusted. Setting this too low admits noisy pseudo-labels; setting it too high rejects most unlabeled data, negating the semi-supervised benefit. Tune on a small held-out labeled set, not the unlabeled data.
+    - **Target variance quality**: `NoisyTargetGaussianNLL` requires `target_variance` to be reasonably accurate. If the target variance is poorly estimated (e.g., guessed rather than measured), the loss can perform **worse** than standard `GaussianNLLLoss` which learns variance from data. Only use when you trust the variance estimates more than the model's ability to learn them.
+
 ## References
 
 | # | Reference |
 |:-:|:----------|
-| 1 | D.-H. Lee. "Pseudo-Label: The Simple and Efficient Semi-Supervised Learning Method for Deep Neural Networks." *ICML Workshop*, **2013**. |
-| 2 | S. Laine, T. Aila. "Temporal Ensembling for Semi-Supervised Learning." *ICLR*, **2017**. |
-| 3 | A. Tarvainen, H. Valpola. "Mean Teachers are Better Role Models." *NeurIPS*, **2017**. |
+| 1 | D.-H. Lee. ["Pseudo-Label: The Simple and Efficient Semi-Supervised Learning Method for Deep Neural Networks."](https://www.researchgate.net/publication/280581078) *ICML Workshop*, **2013**. |
+| 2 | S. Laine, T. Aila. ["Temporal Ensembling for Semi-Supervised Learning."](https://arxiv.org/abs/1610.02242) *ICLR*, **2017**. |
+| 3 | A. Tarvainen, H. Valpola. ["Mean Teachers are Better Role Models."](https://arxiv.org/abs/1703.01780) *NeurIPS*, **2017**. |

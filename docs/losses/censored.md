@@ -166,6 +166,6 @@ for epoch in range(200):
 
 | # | Reference |
 |:-:|:----------|
-| 1 | J. Tobin. "Estimation of Relationships for Limited Dependent Variables." *Econometrica*, 26(1):24–36, **1958**. |
-| 2 | D.R. Cox. "Regression Models and Life-Tables." *JRSS B*, 34(2):187–220, **1972**. |
-| 3 | J.L. Buckley, I.R. James. "Linear Regression with Censored Data." *Biometrika*, 66(3):429–436, **1979**. |
+| 1 | J. Tobin. ["Estimation of Relationships for Limited Dependent Variables."](https://www.jstor.org/stable/1907382) *Econometrica*, 26(1):24–36, **1958**. |
+| 2 | D.R. Cox. ["Regression Models and Life-Tables."](https://www.jstor.org/stable/2985181) *JRSS B*, 34(2):187–220, **1972**. |
+| 3 | J.L. Buckley, I.R. James. ["Linear Regression with Censored Data."](https://www.jstor.org/stable/2335161) *Biometrika*, 66(3):429–436, **1979**. |

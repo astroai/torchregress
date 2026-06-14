@@ -4,8 +4,8 @@ This guide demonstrates how to combine post-hoc calibration transforms and outpu
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Guo, C., Pleiss, G., Sun, Y., & Weinberger, K. Q. (2017). **On Calibration of Modern Neural Networks**. *ICML*. |
-| 2 | Kuleshov, V., Fenner, N., & Ermon, S. (2018). **Accurate Uncertainties for Deep Learning Using Calibrated Regression**. *ICML*. |
+| 1 | Guo, C., Pleiss, G., Sun, Y., & Weinberger, K. Q. (2017). [**On Calibration of Modern Neural Networks**](https://arxiv.org/abs/1706.04599). *ICML*. |
+| 2 | Kuleshov, V., Fenner, N., & Ermon, S. (2018). [**Accurate Uncertainties for Deep Learning Using Calibrated Regression**](https://arxiv.org/abs/1807.00263). *ICML*. |
 
 ---
 

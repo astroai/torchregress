@@ -4,7 +4,7 @@ This guide covers different ensemble methods in torchregress for uncertainty est
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). **Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles**. *Advances in Neural Information Processing Systems (NeurIPS)*. |
+| 1 | Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). [**Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles**](https://arxiv.org/abs/1612.01474). *Advances in Neural Information Processing Systems (NeurIPS)*. |
 
 ---
 

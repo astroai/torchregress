@@ -4,8 +4,8 @@ This guide demonstrates how to model count data using Poisson and Zero-Inflated 
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Lambert, D. (1992). **Zero-Inflated Poisson Regression, With an Application to Defects on Silicon Wafers**. *Technometrics*. |
-| 2 | Cameron, A. C., & Trivedi, P. K. (2013). **Regression Analysis of Count Data**. *Cambridge University Press*. |
+| 1 | Lambert, D. (1992). [**Zero-Inflated Poisson Regression, With an Application to Defects on Silicon Wafers**](https://www.jstor.org/stable/1269547). *Technometrics*. |
+| 2 | Cameron, A. C., & Trivedi, P. K. (2013). [**Regression Analysis of Count Data**](https://doi.org/10.1017/CBO9781139013567). *Cambridge University Press*. |
 
 ---
 

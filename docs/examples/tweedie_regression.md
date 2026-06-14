@@ -4,8 +4,8 @@ This guide demonstrates how to perform Tweedie regression for modeling zero-infl
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Jorgensen, B. (1987). **Free Windings, Exponential Dispersion Models and Tweedie Convergence**. *Journal of the Royal Statistical Society: Series B (Methodological)*. |
-| 2 | Ohlsson, E., & Johansson, B. (2010). **Non-Life Insurance Pricing with Generalized Linear Models**. *Springer*. |
+| 1 | Jorgensen, B. (1987). [**Exponential Dispersion Models**](https://www.jstor.org/stable/2345173). *Journal of the Royal Statistical Society: Series B (Methodological)*. |
+| 2 | Ohlsson, E., & Johansson, B. (2010). [**Non-Life Insurance Pricing with Generalized Linear Models**](https://doi.org/10.1007/978-3-642-10791-7). *Springer*. |
 
 ---
 

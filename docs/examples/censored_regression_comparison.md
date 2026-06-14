@@ -4,8 +4,8 @@ This guide compares multiple regression loss functions designed to train models 
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Tobin, J. (1958). **Estimation of Relationships for Limited Dependent Variables**. *Econometrica*. (The Tobit model). |
-| 2 | Buckley, J., & James, I. (1979). **Linear Regression with Censored Data**. *Biometrika*. |
+| 1 | Tobin, J. (1958). [**Estimation of Relationships for Limited Dependent Variables**](https://www.jstor.org/stable/1907382). *Econometrica*. (The Tobit model). |
+| 2 | Buckley, J., & James, I. (1979). [**Linear Regression with Censored Data**](https://www.jstor.org/stable/2335161). *Biometrika*. |
 
 ---
 

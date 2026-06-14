@@ -56,6 +56,12 @@ where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extreme
     Monte Carlo marginalization requires $N_{\text{samples}}$ forward passes of the model for every training and evaluation step. If your model backbone is computationally expensive, this will multiply training time by $N_{\text{samples}}$.
     - **Mitigation**: Start with `n_samples=8` or `16` and `antithetic=True` (which generates correlated samples to reduce variance) rather than a large $N$.
 
+!!! warning "Model determinism during MC sampling"
+    MC marginalization calls the model multiple times per input with different noise perturbations. **Dropout and BatchNorm must be in eval mode** during these forward passes — otherwise each MC sample sees a different stochastic dropout mask or batch statistic, injecting unintended variance that biases the marginal likelihood estimate. Use `model.eval()` or manually disable stochastic layers before wrapping with EIV losses.
+
+!!! warning "FunctionalEIVLoss differentiability"
+    The Taylor expansion used by `FunctionalEIVLoss` requires the model $f(x)$ to be **twice differentiable** with respect to inputs. Activation functions like `ReLU` have zero second derivatives, causing the curvature term $\partial^2 f / \partial x^2$ to vanish. Prefer smooth activations (`GELU`, `Tanh`, `SiLU`) when using `FunctionalEIVLoss`.
+
 ```python
 from torchregress.losses import InputNoiseMarginalizationLoss
 

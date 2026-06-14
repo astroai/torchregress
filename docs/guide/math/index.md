@@ -95,7 +95,7 @@ $$\boxed{\;\sigma_{\text{total}}^2 = \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma
 
 where $\bar\mu = \frac{1}{M}\sum \mu_m$.
 
-→ See [Ensemble & UQ](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [`DeepEnsemble`](../../api/ensemble.md#torchregress.ensemble.DeepEnsemble), SWAG, BNN).
+→ See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [`DeepEnsemble`](../../api/ensemble.md#torchregress.ensemble.DeepEnsemble), SWAG, BNN).
 
 ---
 
@@ -166,4 +166,4 @@ where $\theta_1 < \theta_2 < \dots < \theta_{K-1}$ are learned thresholds. See [
 | 9 | Gneiting, T., & Raftery, A. E. ["Strictly Proper Scoring Rules, Prediction, and Estimation."](https://www.tandfonline.com/doi/abs/10.1198/016214506000001437) *JASA*, 2007. |
 | 10 | Carroll et al. *Measurement Error in Nonlinear Models*. Chapman & Hall, 2006. |
 | 11 | Kuleshov et al. ["Accurate Uncertainties for Deep Learning Using Calibrated Regression."](https://arxiv.org/abs/1807.00263) *ICML*, 2018. |
-| 12 | Nix, D. A., & Weigend, A. S. "Estimating the Mean and Variance of the Target Probability Distribution." *ICNN*, 1994. |
+| 12 | Nix, D. A., & Weigend, A. S. ["Estimating the Mean and Variance of the Target Probability Distribution."](https://ieeexplore.ieee.org/document/341257) *ICNN*, 1994. |

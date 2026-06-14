@@ -103,7 +103,7 @@ print(f"Task-Agnostic Correlation Error: {tac_error.item():.4f}")
 |:---|:---:|:---|
 | **Scalar regression ($D=1$)** | Avoid | TIC-TAC is designed for capturing multivariate correlation structures ($D \ge 2$). For $D=1$, standard Gaussian NLL or $\beta$-NLL is simpler. |
 | **Multivariate targets ($D \ge 2$) with correlated noise** | **Yes (Recommended)** | TIC-TAC ties covariance to mean-model sensitivity, preventing arbitrary covariance collapse. |
-| **Very high target dimensions ($D > 20$) or high input features** | **Warning** | Autograd w.r.t inputs (Jacobians/Hessians) can become memory-intensive. |
+| **Very high target dimensions ($D > 20$) or high input features** | **Warning** | Autograd w.r.t inputs (Jacobians/Hessians) can become memory-intensive. The Jacobian $J(x) \in \mathbb{R}^{D \times P}$ requires $D \cdot P$ elements, and the vectorized Hessian computation scales as $\mathcal{O}(D \cdot P^2)$ in memory. For large models or high input dimensions, this can cause Out-of-Memory (OOM) errors. |
 
 !!! tip "Activation Functions"
     For TIC-TAC, use smooth activation functions like `nn.Tanh()`, `nn.GELU()`, or `nn.SiLU()` in the backbone. Avoid standard `nn.ReLU()` since its second derivative is zero everywhere (which zero-out the Hessian term $H(x)$).
@@ -117,4 +117,4 @@ print(f"Task-Agnostic Correlation Error: {tac_error.item():.4f}")
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Shukla et al., "TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression" (ICML 2024). |
+| 1 | Shukla et al., ["TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression"](https://arxiv.org/abs/2407.00296) (ICML 2024). |

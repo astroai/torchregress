@@ -4,8 +4,8 @@ This guide explains how to perform Mondrian (group-conditional) conformal predic
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Vovk, V. (2002). **Conditional Conformal Prediction**. *International Conference on Algorithmic Learning Theory*. |
-| 2 | Vovk, V., Gammerman, A., & Shafer, G. (2005). **Algorithmic Learning in a Random World**. *Springer*. |
+| 1 | Vovk, V. (2002). [**Conditional Conformal Prediction**](https://link.springer.com/chapter/10.1007/3-540-36169-3_29). *International Conference on Algorithmic Learning Theory*. |
+| 2 | Vovk, V., Gammerman, A., & Shafer, G. (2005). [**Algorithmic Learning in a Random World**](https://doi.org/10.1007/b106715). *Springer*. |
 
 ---
 

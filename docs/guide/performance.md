@@ -168,7 +168,7 @@ python -m tools.benchmark_smoke \
   --threshold-floor-ms 3.0
 ```
 
-### CUDA-Ready Benchmark Plan (Placeholder)
+### CUDA Benchmark Plan
 
 `torchregress` currently enforces CPU benchmark thresholds in CI. For future GPU CI:
 

@@ -73,6 +73,8 @@ X_cal_new = rc.transform(X_new)
 !!! warning "Limitations"
     - Assumes the relationship between $X$ and $Y$ is approximately **linear** in the correction
     - For nonlinear models, [SIMEX](simex.md) is more flexible
+    - **PSD Clamping**: If measurement noise exceeds the observed signal ($\Sigma_u > \Sigma_w$), the estimated signal covariance $\hat\Sigma_x = \Sigma_w - \Sigma_u$ becomes negative. The implementation clamps to a small positive value, but this means RC cannot recover when noise dominates signal.
+    - **Homoscedastic noise only**: RC assumes a single measurement error covariance $\Sigma_u$ for all samples. It cannot handle heteroscedastic measurement error where different samples have different noise levels.
 
 ---
 

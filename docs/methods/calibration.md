@@ -47,6 +47,8 @@ calibrated_var = scaler.transform(var_test)
 !!! warning "Calibration Set Requirements & Risks"
     * **Independent Calibration Set**: The calibration dataset **must** be strictly held out from model training. If the model has seen the calibration data, its predicted variances $\sigma^2_{\text{pred}}$ will be artificially small relative to the residuals, forcing the scaler to converge to an excessively large temperature $T \gg 1$, which will over-inflate (make too wide) prediction intervals at test time.
     * **Covariate Representation**: The calibration set must share the same covariate distribution as the test set. Under covariate shift, a single global temperature $T$ may fail to calibrate variance uniformly across feature space.
+    * **Single-T limitation**: `VarianceTemperatureScaler` applies one global scale factor $T$ to all predictions. If the model is overconfident in some input regions and underconfident in others, a single $T$ cannot fix both simultaneously — it will be a compromise. For region-dependent miscalibration, consider `PITCalibrator`.
+    * **Small-set risks**: Non-parametric calibrators (`IsotonicMeanCalibrator`, `PITCalibrator`) can **overfit** the calibration set when it is small ($n < 500$), producing jagged mappings that don't generalize. For small calibration sets, prefer `VarianceTemperatureScaler` (1 parameter).
 
 
 ### 2. Isotonic Mean Calibration ([`IsotonicMeanCalibrator`](../api/calibration.md#torchregress.calibration.IsotonicMeanCalibrator))

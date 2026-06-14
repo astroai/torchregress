@@ -4,9 +4,9 @@ This page provides complete, runnable examples for common regression tasks using
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Nix, D. A., & Weigend, A. S. (1994). **Estimating the mean and variance of target distributions**. *IEEE International Conference on Neural Networks*. |
-| 2 | Huber, P. J. (1964). **Robust Estimation of a Location Parameter**. *Annals of Mathematical Statistics*. |
-| 3 | Koenker, R., & Bassett Jr, G. (1978). **Regression Quantiles**. *Econometrica*. |
+| 1 | Nix, D. A., & Weigend, A. S. (1994). [**Estimating the mean and variance of target distributions**](https://ieeexplore.ieee.org/document/341257). *IEEE International Conference on Neural Networks*. |
+| 2 | Huber, P. J. (1964). [**Robust Estimation of a Location Parameter**](https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/Robust-Estimation-of-a-Location-Parameter/10.1214/aoms/1177703732.full). *Annals of Mathematical Statistics*. |
+| 3 | Koenker, R., & Bassett Jr, G. (1978). [**Regression Quantiles**](https://www.jstor.org/stable/1913643). *Econometrica*. |
 
 ---
 

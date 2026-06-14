@@ -217,6 +217,6 @@ with torch.no_grad():
 
 | # | Reference |
 |:-:|:----------|
-| 1 | P. McCullagh. "Regression Models for Ordinal Data." *JRSS B*, 42(2):109–142, **1980**. |
-| 2 | W. Cao, V. Mirjalili, S. Raschka. "Rank Consistent Ordinal Regression for Neural Networks." *Pattern Recognition Letters*, 140:325–331, **2020**. |
-| 3 | E. Frank, M. Hall. "A Simple Approach to Ordinal Classification." *ECML*, **2001**. |
+| 1 | P. McCullagh. ["Regression Models for Ordinal Data."](https://www.jstor.org/stable/2984952) *JRSS B*, 42(2):109–142, **1980**. |
+| 2 | W. Cao, V. Mirjalili, S. Raschka. ["Rank Consistent Ordinal Regression for Neural Networks."](https://arxiv.org/abs/2001.07523) *Pattern Recognition Letters*, 140:325–331, **2020**. |
+| 3 | E. Frank, M. Hall. ["A Simple Approach to Ordinal Classification."](https://link.springer.com/chapter/10.1007/3-540-44795-4_13) *ECML*, **2001**. |

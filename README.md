@@ -37,9 +37,10 @@ Optional extras:
 
 ```bash
 pip install torchregress[flows]      # normalizing flows (requires zuko)
-pip install torchregress[external]   # MAPIE, BoTorch, scikit-lego baselines for comparison examples
 pip install torchregress[all]        # dev, docs, tests, and optional deps
 ```
+
+(Note: For running comparison examples, external packages like `mapie`, `botorch`, `scikit-lego`, etc., can be installed directly.)
 
 Requires Python 3.12+ and PyTorch 2.4+.
 

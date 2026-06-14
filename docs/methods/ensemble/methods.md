@@ -1,6 +1,6 @@
 # Ensemble Methods Reference
 
-Detailed API reference for all ensemble and Bayesian UQ methods.
+Detailed API reference for all ensemble and Bayesian uncertainty methods.
 
 ---
 
@@ -123,7 +123,10 @@ result = batch_ens.predict(x_test)
 | `ensemble_size` | `int` | 4 | Number of virtual members |
 
 !!! tip "When to use"
-    When compute or memory budget prohibits $M$ full models.  BatchEnsemble achieves ~80 % of full-ensemble UQ quality at ~20 % extra cost.
+    When compute or memory budget prohibits $M$ full models.  BatchEnsemble achieves ~80 % of full-ensemble uncertainty quality at ~20 % extra cost.
+
+!!! warning "Member diversity limitation"
+    Because BatchEnsemble members share the same base weights $W$ and differ only through rank-1 perturbations, member diversity is inherently lower than in a `DeepEnsemble` with independently trained members. For tasks where epistemic uncertainty requires exploring truly disjoint modes in the loss landscape, `DeepEnsemble` is preferred despite the higher cost.
 
 !!! quote "Reference"
     Y. Wen, D. Tran, J. Ba. "BatchEnsemble: An Alternative Approach to Efficient Ensemble and Lifelong Learning." *ICLR*, **2020**.
@@ -251,6 +254,9 @@ result = ensemble.predict(x_test)
 
 !!! warning "Do not average MDN weights component-wise"
     Component 1 in member A is not generally the same mode as component 1 in member B. `MDNEnsembleModel` avoids this label-switching problem by concatenating all member components with a `1 / M` weight factor.
+
+!!! warning "MDNEnsemble memory scaling"
+    `MDNEnsembleModel` creates a mixture with $K \cdot M$ components (where $K$ is per-member components and $M$ is ensemble size). Inference methods (`sample`, `predict_interval`) that evaluate all components scale as $\mathcal{O}(K \cdot M)$. For large ensembles with many components, memory usage during MC sampling can become prohibitive.
 
 ---
 

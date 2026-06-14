@@ -4,8 +4,8 @@ This page provides comprehensive comparisons of different loss functions across 
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Barron, J. T. (2019). **A General and Adaptive Robust Loss Function**. *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*. |
-| 2 | Huber, P. J. (1964). **Robust Estimation of a Location Parameter**. *Annals of Mathematical Statistics*. |
+| 1 | Barron, J. T. (2019). [**A General and Adaptive Robust Loss Function**](https://arxiv.org/abs/1701.03077). *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*. |
+| 2 | Huber, P. J. (1964). [**Robust Estimation of a Location Parameter**](https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/Robust-Estimation-of-a-Location-Parameter/10.1214/aoms/1177703732.full). *Annals of Mathematical Statistics*. |
 
 ---
 

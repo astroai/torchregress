@@ -189,12 +189,16 @@ loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)  # same as ExpectileLoss(0.75)
 !!! tip "Conformal calibration"
     For **guaranteed coverage** on top of quantile regression, wrap your model with [Conformalized Quantile Regression (CQR)](../methods/conformal/predictors.md).
 
+!!! warning "Optimization caveats"
+    - **Non-differentiability at zero**: The quantile (pinball) loss has a kink at $r = 0$ where the gradient is undefined. While adaptive optimizers like Adam handle this in practice, second-order methods (L-BFGS, Newton) may struggle. Expectile losses are fully smooth and work with any optimizer.
+    - **Output dimension scaling**: `MultiQuantileLoss` with $Q$ quantiles on a $d$-dimensional target produces output dimension $Q \cdot d$, which grows quickly. For fine-grained quantile grids (e.g., 99 quantiles), the output head becomes a memory and optimization bottleneck.
+
 ---
 
 ## References
 
 | # | Reference |
 |:-:|:----------|
-| 1 | R. Koenker, G. Bassett. "Regression Quantiles." *Econometrica*, 46(1):33–50, **1978**. |
-| 2 | W.K. Newey, J.L. Powell. "Asymmetric Least Squares Estimation and Testing." *Econometrica*, 55(4):819–847, **1987**. |
-| 3 | V. Chernozhukov, I. Fernández-Val, A. Galichon. "Quantile and Probability Curves without Crossing." *Econometrica*, 78(3):1093–1125, **2010**. |
+| 1 | R. Koenker, G. Bassett. ["Regression Quantiles."](https://www.jstor.org/stable/1913643) *Econometrica*, 46(1):33–50, **1978**. |
+| 2 | W.K. Newey, J.L. Powell. ["Asymmetric Least Squares Estimation and Testing."](https://www.jstor.org/stable/1913610) *Econometrica*, 55(4):819–847, **1987**. |
+| 3 | V. Chernozhukov, I. Fernández-Val, A. Galichon. ["Quantile and Probability Curves without Crossing."](https://arxiv.org/abs/0704.3167) *Econometrica*, 78(3):1093–1125, **2010**. |

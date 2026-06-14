@@ -4,7 +4,7 @@ This guide explains how to use `GaussianWassersteinBoundLoss` for joint supervis
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Givens, C. R., & Shortt, R. M. (1984). **A class of Wasserstein metrics for probability distributions**. *Michigan Mathematical Journal*. |
+| 1 | Givens, C. R., & Shortt, R. M. (1984). [**A class of Wasserstein metrics for probability distributions**](https://doi.org/10.1307/mmj/1029003026). *Michigan Mathematical Journal*. |
 
 ---
 

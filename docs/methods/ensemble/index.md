@@ -67,7 +67,7 @@ This increases computational latency and memory consumption linearly with $S$ ($
 | **`RandomPartitionEnsemble`** | ✅ | ⚠️ | [`RandomPartitionEnsembleModel`](../../api/ensemble.md#torchregress.ensemble.RandomPartitionEnsembleModel) | Members on different bin edges; CDF-averaged PDF |
 | **`MDNEnsemble`** | ✅ | ✅ | [`MDNEnsembleModel`](../../api/ensemble.md#torchregress.ensemble.MDNEnsembleModel) | Multimodal predictive densities |
 | **`SWAG`** [2] | ✅ | ❌ | [`SWAG`](../../api/ensemble.md#torchregress.ensemble.SWAG) | Large-scale Bayesian |
-| **`MCDropout`** [3] | ✅ | ❌ | [`MCDropoutModel`](../../api/ensemble.md#torchregress.ensemble.MCDropoutModel) | Legacy / Cheap UQ |
+| **`MCDropout`** [3] | ✅ | ❌ | [`MCDropoutModel`](../../api/ensemble.md#torchregress.ensemble.MCDropoutModel) | Affordable uncertainty baseline |
 
 ---
 

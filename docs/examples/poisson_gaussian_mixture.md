@@ -4,8 +4,8 @@ This guide demonstrates how to model data affected by both count (Poisson/shot) 
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Foi, A., Trimeche, M., Katkovnik, V., & Egiazarian, K. (2008). **Practical Poisson-Gaussian noise modeling and sensor calibration in single-image photometry**. *IEEE Transactions on Image Processing*. |
-| 2 | Luisier, F., Blu, T., & Unser, M. (2011). **Image denoising in mixed Poisson–Gaussian noise**. *IEEE Transactions on Image Processing*. |
+| 1 | Foi, A., Trimeche, M., Katkovnik, V., & Egiazarian, K. (2008). [**Practical Poisson-Gaussian noise modeling and sensor calibration in single-image photometry**](https://doi.org/10.1109/TIP.2008.2001397). *IEEE Transactions on Image Processing*. |
+| 2 | Luisier, F., Blu, T., & Unser, M. (2011). [**Image denoising in mixed Poisson–Gaussian noise**](https://doi.org/10.1109/TIP.2010.2052277). *IEEE Transactions on Image Processing*. |
 
 ---
 
