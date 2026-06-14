@@ -23,7 +23,7 @@ Core utilities:
 For a transform $T(\cdot)$ and a pointwise base loss $\ell(\cdot, \cdot)$:
 
 $$
-\mathcal{L}(\\hat{y}, y) = \ell(T(\\hat{y}), T(y)).
+\mathcal{L}(\hat{y}, y) = \ell(T(\hat{y}), T(y)).
 $$
 
 This is a pragmatic choice when the transformed target is closer to homoscedastic and closer to the geometry the downstream error metric actually cares about.

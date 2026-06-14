@@ -20,11 +20,11 @@ Quantile and expectile regression estimate **different points of the conditional
 
 ### Quantile loss (check / pinball)
 
-$$\boxed{\;\rho_\tau(r) = r\,(\tau - \mathbb{1}_{r < 0}) = \begin{cases} \tau\, r, & r \geq 0 \\ (\tau - 1)\, r, & r < 0 \end{cases}\;}$$
+$$\boxed{\;\rho_\tau(r) = r\,(\tau - \mathbf{1}_{r < 0}) = \begin{cases} \tau\, r, & r \geq 0 \\ (\tau - 1)\, r, & r < 0 \end{cases}\;}$$
 
 ### Expectile loss (asymmetric least squares)
 
-$$\boxed{\;L_\tau(r) = |\tau - \mathbb{1}_{r < 0}|\; r^2\;}$$
+$$\boxed{\;L_\tau(r) = |\tau - \mathbf{1}_{r < 0}|\; r^2\;}$$
 
 When $\tau = 0.5$ the expectile loss reduces to standard MSE.
 

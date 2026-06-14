@@ -145,7 +145,7 @@ While MDNs are highly expressive, they present several training and optimization
 
 2. **Mode Collapse**:
    The network may collapse into using only a single mixture component, effectively ignoring the others ($\pi_k \approx 0$ for $k > 1$). To monitor this, check active components during validation:
-   $$\text{active\_fraction} = \frac{1}{B} \sum_{i=1}^B \sum_{k=1}^K \mathbb{1}_{\pi_k^{(i)} > 0.05}$$
+   $$\text{active\_fraction} = \frac{1}{B} \sum_{i=1}^B \sum_{k=1}^K \mathbf{1}_{\pi_k^{(i)} > 0.05}$$
 
 3. **Initialization Sensitivity**:
    If initialized poorly, components can "claim" the same regions of target space. Initialize the final output layer weight matrices with small random values to diversify components early in training.
