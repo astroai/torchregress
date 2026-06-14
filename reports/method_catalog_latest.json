@@ -2,10 +2,10 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 87,
+    "total_methods": 90,
     "families": {
       "bnn": 7,
-      "calibration_transform": 3,
+      "calibration_transform": 5,
       "causal": 2,
       "censored": 3,
       "conformal": 6,
@@ -23,6 +23,7 @@
       "probabilistic_loss": 7,
       "quantile": 1,
       "robust_loss": 9,
+      "semi_supervised": 1,
       "swag": 2,
       "target_transform": 4,
       "test_time": 6,
@@ -31,7 +32,7 @@
     },
     "maturity": {
       "Core": 6,
-      "Strong": 10,
+      "Strong": 13,
       "Available": 71
     },
     "peer_uq_methods_present": {
@@ -1934,6 +1935,73 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Task-Agnostic Correlations metric to evaluate covariance prediction quality."
+    },
+    {
+      "name": "SemiConformalCalibrator",
+      "family": "calibration_transform",
+      "public_path": "torchregress.calibration.SemiConformalCalibrator",
+      "task_tags": [
+        "calibration",
+        "conformal",
+        "semi_supervised",
+        "shift_adaptation"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Semi-supervised conformal prediction intervals under covariate/label shift."
+    },
+    {
+      "name": "BinnedLabelShiftEstimator",
+      "family": "calibration_transform",
+      "public_path": "torchregress.calibration.BinnedLabelShiftEstimator",
+      "task_tags": [
+        "calibration",
+        "shift_adaptation",
+        "label_shift"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Estimates and corrects target prior distributions under label shift using BBSE or EM."
+    },
+    {
+      "name": "TeacherStudentTrainer",
+      "family": "semi_supervised",
+      "public_path": "torchregress.semi_supervised.TeacherStudentTrainer",
+      "task_tags": [
+        "semi_supervised",
+        "weak_supervision",
+        "pseudo_labeling"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Orchestrates teacher-student training with heteroscedastic weight gating and instability scoring."
     }
   ]
 }

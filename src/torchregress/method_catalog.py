@@ -1060,6 +1060,37 @@ _METHODS: tuple[MethodMetadata, ...] = (
         maturity="Available",
         notes="Task-Agnostic Correlations metric to evaluate covariance prediction quality.",
     ),
+    MethodMetadata(
+        name="SemiConformalCalibrator",
+        family="calibration_transform",
+        public_path="torchregress.calibration.SemiConformalCalibrator",
+        task_tags=("calibration", "conformal", "semi_supervised", "shift_adaptation"),
+        maturity="Strong",
+        calibration="yes",
+        notes="Semi-supervised conformal prediction intervals under covariate/label shift.",
+    ),
+    MethodMetadata(
+        name="BinnedLabelShiftEstimator",
+        family="calibration_transform",
+        public_path="torchregress.calibration.BinnedLabelShiftEstimator",
+        task_tags=("calibration", "shift_adaptation", "label_shift"),
+        maturity="Strong",
+        calibration="yes",
+        notes=(
+            "Estimates and corrects target prior distributions under label shift using BBSE or EM."
+        ),
+    ),
+    MethodMetadata(
+        name="TeacherStudentTrainer",
+        family="semi_supervised",
+        public_path="torchregress.semi_supervised.TeacherStudentTrainer",
+        task_tags=("semi_supervised", "weak_supervision", "pseudo_labeling"),
+        maturity="Strong",
+        notes=(
+            "Orchestrates teacher-student training with "
+            "heteroscedastic weight gating and instability scoring."
+        ),
+    ),
 )
 
 

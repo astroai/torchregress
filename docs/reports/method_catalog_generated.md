@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `87`
+- Total methods: `90`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -16,7 +16,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Family | Count |
 |---|---:|
 | `bnn` | 7 |
-| `calibration_transform` | 3 |
+| `calibration_transform` | 5 |
 | `causal` | 2 |
 | `censored` | 3 |
 | `conformal` | 6 |
@@ -34,6 +34,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `probabilistic_loss` | 7 |
 | `quantile` | 1 |
 | `robust_loss` | 9 |
+| `semi_supervised` | 1 |
 | `swag` | 2 |
 | `target_transform` | 4 |
 | `test_time` | 6 |
@@ -45,7 +46,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Maturity | Count |
 |---|---:|
 | `Core` | 6 |
-| `Strong` | 10 |
+| `Strong` | 13 |
 | `Available` | 71 |
 
 ## Method Rows
@@ -61,8 +62,10 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `NaturalHeteroscedasticHead` | `bnn` | `Available` | `natural_parameterization`, `optimization_stability` | `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.NaturalHeteroscedasticHead` |
 | `NaturalReparamHead` | `bnn` | `Available` | `natural_parameterization`, `optimization_stability` | `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.NaturalReparamHead` |
 | `VIDSRegressor` | `bnn` | `Available` | `distribution_shift`, `variational_inference`, `adaptive_prior` | `epistemic`, `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.VIDSRegressor` |
+| `BinnedLabelShiftEstimator` | `calibration_transform` | `Strong` | `calibration`, `shift_adaptation`, `label_shift` | `calibration`, `ood*` | `torchregress.calibration.BinnedLabelShiftEstimator` |
 | `IsotonicMeanCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.IsotonicMeanCalibrator` |
 | `PITCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration`, `distribution_calibration` | `calibration`, `ood*` | `torchregress.calibration.PITCalibrator` |
+| `SemiConformalCalibrator` | `calibration_transform` | `Strong` | `calibration`, `conformal`, `semi_supervised`, `shift_adaptation` | `calibration`, `ood*` | `torchregress.calibration.SemiConformalCalibrator` |
 | `VarianceTemperatureScaler` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.VarianceTemperatureScaler` |
 | `dr_ate` | `causal` | `Available` | `causal_inference`, `ate`, `selection_bias` | `calibration*`, `ood*` | `torchregress.causal.dr_ate` |
 | `dr_cate` | `causal` | `Available` | `causal_inference`, `cate`, `selection_bias` | `calibration*`, `ood*` | `torchregress.causal.dr_cate` |
@@ -124,6 +127,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `PseudoHuberLoss` | `robust_loss` | `Strong` | `outliers`, `noisy_labels`, `smooth_approx` | `calibration*`, `ood*` | `torchregress.losses.PseudoHuberLoss` |
 | `TukeyBiweightLoss` | `robust_loss` | `Available` | `outliers`, `redescending`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.TukeyBiweightLoss` |
 | `WeightedHuberLoss` | `robust_loss` | `Core` | `outliers`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.WeightedHuberLoss` |
+| `TeacherStudentTrainer` | `semi_supervised` | `Strong` | `semi_supervised`, `weak_supervision`, `pseudo_labeling` | `calibration*`, `ood*` | `torchregress.semi_supervised.TeacherStudentTrainer` |
 | `MultiSWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MultiSWAG` |
 | `SWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.SWAG` |
 | `BoxCoxTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.BoxCoxTransformLoss` |

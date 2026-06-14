@@ -87,7 +87,7 @@ _Generated date_: `2026-04-16`
 | Method Family | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD Support | Imbalance | Noisy Features (EIV) |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `bnn` (7) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
-| `calibration_transform` (3) | yes | no | partial | no | no | no | yes | partial | no | no |
+| `calibration_transform` (5) | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` (6) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
@@ -105,6 +105,7 @@ _Generated date_: `2026-04-16`
 | `probabilistic_loss` (7) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` (9) | yes | no | partial | no | no | no | partial | partial | no | no |
+| `semi_supervised` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` (4) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` (6) | yes | no | partial | partial | partial | partial | partial | partial | no | no |
@@ -150,8 +151,10 @@ _Generated date_: `2026-04-16`
 | `NaturalHeteroscedasticHead` | `bnn` | `Available` | yes | no | no | yes | no | partial | partial |
 | `NaturalReparamHead` | `bnn` | `Available` | yes | no | no | yes | no | partial | partial |
 | `VIDSRegressor` | `bnn` | `Available` | yes | no | yes | yes | no | partial | partial |
+| `BinnedLabelShiftEstimator` | `calibration_transform` | `Strong` | yes | no | no | no | no | yes | partial |
 | `IsotonicMeanCalibrator` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
 | `PITCalibrator` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
+| `SemiConformalCalibrator` | `calibration_transform` | `Strong` | yes | no | no | no | no | yes | partial |
 | `VarianceTemperatureScaler` | `calibration_transform` | `Available` | yes | no | no | no | no | yes | partial |
 | `dr_ate` | `causal` | `Available` | yes | no | no | no | no | partial | partial |
 | `dr_cate` | `causal` | `Available` | yes | no | no | no | no | partial | partial |
@@ -213,6 +216,7 @@ _Generated date_: `2026-04-16`
 | `PseudoHuberLoss` | `robust_loss` | `Strong` | yes | no | no | no | no | partial | partial |
 | `TukeyBiweightLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `WeightedHuberLoss` | `robust_loss` | `Core` | yes | no | no | no | no | partial | partial |
+| `TeacherStudentTrainer` | `semi_supervised` | `Strong` | yes | no | no | no | no | partial | partial |
 | `MultiSWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `SWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `BoxCoxTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
@@ -238,7 +242,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | Family | # Methods | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD | Imbalance | EIV |
 |---|---:|---|---|---|---|---|---|---|---|---|---|
 | `bnn` | 7 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
-| `calibration_transform` | 3 | yes | no | partial | no | no | no | yes | partial | no | no |
+| `calibration_transform` | 5 | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `conformal` | 6 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
@@ -256,6 +260,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `probabilistic_loss` | 7 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `robust_loss` | 9 | yes | no | partial | no | no | no | partial | partial | no | no |
+| `semi_supervised` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` | 4 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` | 6 | yes | no | partial | partial | partial | partial | partial | partial | no | no |
@@ -267,7 +272,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `PackedEnsembleRegressor`, `MultiSWAG`, `SWAG` |
-| Coverage / calibration | `calibration=yes` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `SLSConformal`, `UACQR`, `QuantileLoss` |
+| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `SLSConformal`, `UACQR`, `QuantileLoss` |
 | Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `BMCLoss`, `BalancedMSELoss`, `DensityWeightedLoss`, `LDSLoss`, `PropensityWeightedLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `FunctionalEIVLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `StructuralEIVLoss` |
