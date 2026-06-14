@@ -76,12 +76,107 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
-        name="HuberLoss",
+        name="WeightedHuberLoss",
         family="robust_loss",
-        public_path="torchregress.losses.HuberLoss",
+        public_path="torchregress.losses.WeightedHuberLoss",
         task_tags=("outliers", "noisy_labels"),
         maturity="Core",
         notes="Robust default for moderate outliers before heavier methods.",
+    ),
+    MethodMetadata(
+        name="PseudoHuberLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.PseudoHuberLoss",
+        task_tags=("outliers", "noisy_labels", "smooth_approx"),
+        maturity="Strong",
+        notes=(
+            "Smooth, everywhere-differentiable approximation to Huber. "
+            "Safer default than Huber when second-order optimisers or "
+            "automatic curvature estimation are in use."
+        ),
+    ),
+    MethodMetadata(
+        name="LogCoshLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.LogCoshLoss",
+        task_tags=("outliers", "noisy_labels", "smooth_approx"),
+        maturity="Strong",
+        notes=(
+            "Smooth log-cosh penalty; behaves like L2 near zero and L1 in the "
+            "tails.  Numerically stable variant using log1p for large residuals."
+        ),
+    ),
+    MethodMetadata(
+        name="CharbonnierLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.CharbonnierLoss",
+        task_tags=("outliers", "noisy_labels", "smooth_approx"),
+        maturity="Strong",
+        notes=(
+            "Smooth L1 surrogate sqrt(r² + ε²).  Differentiable at zero unlike "
+            "plain L1; tune ε for the expected noise floor."
+        ),
+    ),
+    MethodMetadata(
+        name="TukeyBiweightLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.TukeyBiweightLoss",
+        task_tags=("outliers", "redescending", "noisy_labels"),
+        maturity="Available",
+        notes=(
+            "Redescending M-estimator that caps and eventually ignores extreme "
+            "residuals.  Non-convex; start from a Huber/PseudoHuber warm-up "
+            "before switching."
+        ),
+    ),
+    MethodMetadata(
+        name="CauchyLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.CauchyLoss",
+        task_tags=("outliers", "redescending", "noisy_labels"),
+        maturity="Available",
+        notes=(
+            "Negative log-likelihood of the Cauchy distribution.  Very robust "
+            "to extreme outliers; heavier-tailed than Huber/PseudoHuber.  "
+            "Non-convex — prefer a convex warm-up."
+        ),
+    ),
+    MethodMetadata(
+        name="BarronLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.BarronLoss",
+        task_tags=("outliers", "adaptive_shape"),
+        maturity="Available",
+        notes=(
+            "Continuous family parameterised by shape α that interpolates "
+            "between L2 (α=2), Cauchy-like (α=0), and more robust penalties "
+            "(α<0).  Useful for ablations and hyper-parameter sweeps."
+        ),
+    ),
+    MethodMetadata(
+        name="AdaptiveRobustLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.AdaptiveRobustLoss",
+        task_tags=("outliers", "adaptive_shape", "learnable"),
+        maturity="Available",
+        notes=(
+            "Learnable Barron loss: α and scale are optimised jointly with "
+            "the model.  Add ``loss_fn.parameters()`` to the optimizer.  "
+            "Strongest when the noise regime is unknown a priori."
+        ),
+    ),
+    MethodMetadata(
+        name="CVaRLoss",
+        family="robust_loss",
+        public_path="torchregress.losses.CVaRLoss",
+        task_tags=("outliers", "tail_focused", "worst_case", "noisy_labels"),
+        maturity="Available",
+        notes=(
+            "Conditional Value-at-Risk: averages the worst α fraction of "
+            "per-sample losses.  Pairs with any base loss (MSE, Huber, "
+            "Cauchy, Tukey).  For multi-output targets, CVaR selects the "
+            "worst samples, not the worst per-element errors."
+        ),
     ),
     MethodMetadata(
         name="DensityWeightedLoss",
@@ -972,14 +1067,38 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Clean regression baseline",
         recommended_start="WeightedMSELoss",
-        strong_alternatives=("HuberLoss",),
+        strong_alternatives=("WeightedHuberLoss",),
         notes="Start simple; add UQ only if needed.",
     ),
     TaskRecommendation(
         task="Outliers / robust regression",
-        recommended_start="HuberLoss",
+        recommended_start="WeightedHuberLoss",
         strong_alternatives=("CauchyLoss", "TukeyBiweightLoss", "CharbonnierLoss"),
         notes="Huber is the best default tradeoff.",
+    ),
+    TaskRecommendation(
+        task="Worst-case / tail-focused robust regression",
+        recommended_start="CVaRLoss",
+        strong_alternatives=("WeightedHuberLoss", "CauchyLoss", "TukeyBiweightLoss"),
+        notes=(
+            "CVaR optimises the average of the worst α fraction of per-sample losses, "
+            "directly shrinking the upper tail of the error distribution.  Start with "
+            "CVaR(base_loss='mse', alpha=0.1) and tune alpha for the desired "
+            "tail-robustness tradeoff.  For multi-output targets, CVaR selects the "
+            "worst samples (not per-element errors), preserving sample-wise semantics."
+        ),
+    ),
+    TaskRecommendation(
+        task="Unknown noise regime / learnable loss shape",
+        recommended_start="AdaptiveRobustLoss",
+        strong_alternatives=("BarronLoss", "CVaRLoss", "WeightedHuberLoss"),
+        notes=(
+            "AdaptiveRobustLoss jointly optimises the Barron shape parameter α and scale "
+            "alongside the model weights so the penalty function adapts to the observed "
+            "noise.  Add ``loss_fn.parameters()`` to the optimizer.  Useful as a "
+            "diagnostic (what α does the data prefer?) or when the noise regime is "
+            "genuinely unknown a priori.  For a fixed α sweep instead, use BarronLoss."
+        ),
     ),
     TaskRecommendation(
         task="Heteroscedastic noise (aleatoric UQ)",
@@ -1050,7 +1169,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Noisy features / measurement error",
         recommended_start=(
-            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF"
+            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
         ),
         strong_alternatives=(
             "FunctionalEIVLoss",
@@ -1065,7 +1184,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Noisy labels / label corruption",
-        recommended_start="HuberLoss",
+        recommended_start="WeightedHuberLoss",
         strong_alternatives=("DeepEnsemble", "ConformalLoss"),
         notes="Prefer robust baselines before heavier methods.",
     ),
@@ -1210,7 +1329,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         order=4,
         question="Have noisy features / measurement error?",
         primary_recommendation=(
-            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF"
+            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
         ),
         alternatives=("FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss",),
         caveat=(
@@ -1277,7 +1396,18 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "runtime summaries",
         ),
         metrics_coverage=("MSE", "MAE", "R2", "runtime"),
-        peer_methods_visible=("HuberLoss", "CauchyLoss", "WeightedMSELoss", "WeightedHuberLoss"),
+        peer_methods_visible=(
+            "WeightedHuberLoss",
+            "PseudoHuberLoss",
+            "LogCoshLoss",
+            "CharbonnierLoss",
+            "CauchyLoss",
+            "TukeyBiweightLoss",
+            "BarronLoss",
+            "AdaptiveRobustLoss",
+            "CVaRLoss",
+            "WeightedMSELoss",
+        ),
         gaps="Needs broader real-domain coverage beyond synthetic and tabular comparison tasks.",
         notes=(
             "Robust/probabilistic/EIV comparisons run under shared budgets; results are "
@@ -1447,14 +1577,17 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "effective sample size",
             "runtime",
         ),
-        peer_methods_visible=("dr_ate", "dr_cate", "naive difference-in-means"),
+        peer_methods_visible=("dr_ate", "dr_cate"),
         gaps=(
             "Includes real-covariate proxy benchmarks; needs external treatment-effect datasets "
             "for stronger external validity."
         ),
         notes=(
             "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate "
-            "Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap diagnostics."
+            "Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap "
+            "diagnostics. A naive difference-in-means baseline is reported alongside "
+            "``dr_ate``/``dr_cate`` in both comparison examples (see ``_naive_ate`` "
+            "helper) for reference."
         ),
     ),
     ComparativeEvidenceRow(
@@ -1653,8 +1786,14 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         ),
         peer_methods_visible=(
             "WeightedHuberLoss",
+            "PseudoHuberLoss",
+            "LogCoshLoss",
+            "CharbonnierLoss",
             "CauchyLoss",
             "TukeyBiweightLoss",
+            "BarronLoss",
+            "AdaptiveRobustLoss",
+            "CVaRLoss",
             "GaussianNLLLoss",
             "MultiQuantileLoss",
         ),

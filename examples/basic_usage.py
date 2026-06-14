@@ -31,7 +31,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from torchregress.losses import (
     GaussianNLLLoss,  # For uncertainty estimation
     QuantileLoss,  # For quantile regression
-    WeightedLossWrapper,  # Wrapper for standard losses
+    WeightedHuberLoss,  # Robust loss with masking/weighting
+    WeightedMSELoss,  # MSE with masking/weighting
 )
 
 # Set random seeds for reproducibility
@@ -163,12 +164,12 @@ def main():
 
     # 4. Train with MSE loss (basic)
     model_mse = RegressionModel()
-    mse_loss = WeightedLossWrapper(nn.MSELoss)
+    mse_loss = WeightedMSELoss()
     mse_losses = train_model(model_mse, mse_loss, x_train, y_train, verbose=False)
 
     # 5. Train with Huber loss (robust)
     model_huber = RegressionModel()
-    huber_loss = WeightedLossWrapper(nn.HuberLoss, delta=1.0)
+    huber_loss = WeightedHuberLoss(delta=1.0)
     huber_losses = train_model(model_huber, huber_loss, x_train, y_train, verbose=False)
 
     # 6. Train with Quantile loss (asymmetric)

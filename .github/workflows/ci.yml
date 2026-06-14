@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
@@ -36,8 +39,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
-      - name: Test
-        run: uv run pytest
+      - name: Test with coverage
+        run: uv run pytest --cov=torchregress --cov-report=xml --cov-report=term
+
+      - name: Type-check (mypy)
+        run: uv run mypy src/torchregress
+
+      - name: Build docs (strict)
+        run: uv run mkdocs build --strict
 
       - name: CPU benchmark smoke (thresholds)
         run: |
@@ -58,3 +67,11 @@ jobs:
             --device cpu \
             --thresholds reports/benchmark_thresholds/cpu/sweep.json \
             --fail-on-thresholds
+
+      - name: Upload coverage to Codecov
+        if: ${{ always() }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          verbose: true

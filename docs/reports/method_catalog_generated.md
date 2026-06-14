@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `79`
+- Total methods: `87`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -33,7 +33,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `point_loss` | 1 |
 | `probabilistic_loss` | 7 |
 | `quantile` | 1 |
-| `robust_loss` | 1 |
+| `robust_loss` | 9 |
 | `swag` | 2 |
 | `target_transform` | 4 |
 | `test_time` | 6 |
@@ -45,8 +45,8 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Maturity | Count |
 |---|---:|
 | `Core` | 6 |
-| `Strong` | 7 |
-| `Available` | 66 |
+| `Strong` | 10 |
+| `Available` | 71 |
 
 ## Method Rows
 
@@ -115,7 +115,15 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `MultivariateGaussianLoss` | `probabilistic_loss` | `Strong` | `multi_target`, `correlated_targets` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.MultivariateGaussianLoss` |
 | `NeighborhoodCovariancePseudoLabeler` | `probabilistic_loss` | `Available` | `pseudo_labels`, `heteroscedastic_noise`, `self_supervision` | `aleatoric*`, `calibration*`, `ood*` | `torchregress.algorithms.NeighborhoodCovariancePseudoLabeler` |
 | `QuantileLoss` | `quantile` | `Core` | `prediction_intervals`, `non_gaussian` | `calibration`, `ood*` | `torchregress.losses.QuantileLoss` |
-| `HuberLoss` | `robust_loss` | `Core` | `outliers`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.HuberLoss` |
+| `AdaptiveRobustLoss` | `robust_loss` | `Available` | `outliers`, `adaptive_shape`, `learnable` | `calibration*`, `ood*` | `torchregress.losses.AdaptiveRobustLoss` |
+| `BarronLoss` | `robust_loss` | `Available` | `outliers`, `adaptive_shape` | `calibration*`, `ood*` | `torchregress.losses.BarronLoss` |
+| `CVaRLoss` | `robust_loss` | `Available` | `outliers`, `tail_focused`, `worst_case`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.CVaRLoss` |
+| `CauchyLoss` | `robust_loss` | `Available` | `outliers`, `redescending`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.CauchyLoss` |
+| `CharbonnierLoss` | `robust_loss` | `Strong` | `outliers`, `noisy_labels`, `smooth_approx` | `calibration*`, `ood*` | `torchregress.losses.CharbonnierLoss` |
+| `LogCoshLoss` | `robust_loss` | `Strong` | `outliers`, `noisy_labels`, `smooth_approx` | `calibration*`, `ood*` | `torchregress.losses.LogCoshLoss` |
+| `PseudoHuberLoss` | `robust_loss` | `Strong` | `outliers`, `noisy_labels`, `smooth_approx` | `calibration*`, `ood*` | `torchregress.losses.PseudoHuberLoss` |
+| `TukeyBiweightLoss` | `robust_loss` | `Available` | `outliers`, `redescending`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.TukeyBiweightLoss` |
+| `WeightedHuberLoss` | `robust_loss` | `Core` | `outliers`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.WeightedHuberLoss` |
 | `MultiSWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MultiSWAG` |
 | `SWAG` | `swag` | `Available` | `epistemic_uq`, `ood` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.SWAG` |
 | `BoxCoxTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.BoxCoxTransformLoss` |

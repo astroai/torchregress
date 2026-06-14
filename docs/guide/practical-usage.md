@@ -10,8 +10,8 @@ For a task-first shortlist before diving into implementation details, use the
 Selecting the appropriate loss function is crucial for successful regression modeling. Here's a decision tree to help you choose:
 
 1. **Are there outliers in your data?**
-   - **Yes**: Consider robust losses like `HuberLoss`, `LogCoshLoss`, or `CauchyLoss`
-   - **No**: Standard losses like `MSELoss` or `L1Loss` may be sufficient
+   - **Yes**: Consider robust losses like `WeightedHuberLoss`, `LogCoshLoss`, or `CauchyLoss`
+   - **No**: Standard losses like `WeightedMSELoss` or `WeightedL1Loss` may be sufficient
 
 2. **Do you need uncertainty estimates?**
    - **Yes**:
@@ -40,7 +40,7 @@ Here are some commonly used loss function combinations for different scenarios:
 
 ```python
 # Standard regression with robust loss
-loss_fn = tr.losses.HuberLoss(delta=1.0)
+loss_fn = tr.losses.WeightedHuberLoss(delta=1.0)
 
 # OR: With uncertainty estimation
 loss_fn = tr.losses.GaussianNLLLoss()

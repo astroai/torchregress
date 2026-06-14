@@ -23,7 +23,7 @@ For evidence-grade claim boundaries, pair this page with the
 3. **Need multimodal outputs?**
    Start with `MDN`, then move to normalizing flows if MDN is too rigid.
 4. **Need low operational complexity?**
-   Start with robust point losses (`HuberLoss`) or Gaussian NLL before Bayesian/flow methods.
+   Start with robust point losses (`WeightedHuberLoss`) or Gaussian NLL before Bayesian/flow methods.
 5. **Have noisy features / measurement error?**
    Use EIV/ODR losses; these change the call pattern (`loss(x_obs, y_obs)` with model in loss).
 
@@ -33,7 +33,7 @@ For evidence-grade claim boundaries, pair this page with the
 
 Recommended order:
 
-- `HuberLoss` / robust point losses
+- `WeightedHuberLoss` / robust point losses
 - `GaussianNLLLoss` (single-model aleatoric)
 - MC Dropout (`MCDropoutWrapper`)
 - Small deep ensembles (if latency budget allows)

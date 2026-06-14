@@ -66,7 +66,7 @@ Standard MSE is highly sensitive to outliers — a single extreme point can domi
 
 | Robustness | Loss | When to use |
 |:-----------|:-----|:------------|
-| ⭐⭐ | `HuberLoss(delta=1.0)` | Quick fix, moderate outliers |
+| ⭐⭐ | `WeightedHuberLoss(delta=1.0)` | Quick fix, moderate outliers |
 | ⭐⭐⭐ | `CauchyLoss(scale=1.0)` | Logarithmic suppression |
 | ⭐⭐⭐⭐ | `TukeyBiweightLoss(c=4.685)` | Complete rejection beyond threshold |
 

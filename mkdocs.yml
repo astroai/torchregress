@@ -248,6 +248,8 @@ nav:
       - Causal:
           - Causal DR Uplift: examples/causal_dr_uplift_comparison.md
           - Causal DR (Real Covariates): examples/causal_dr_realdata_comparison.md
+      - External:
+          - vs MAPIE / BoTorch / scikit-lego: examples/external-comparison-vs-mapie-botorch-sklego.md
 
   # ── Tab 8: API Reference ────────────────────────────────
   - API:

@@ -9,7 +9,7 @@ Building reliable regression models requires more than just picking a loss funct
 Always follow this tiered approach to ensure stability and catch issues early.
 
 ### Phase 1: The Baseline (Day 1)
-Start with a simple model and standard `MSELoss`.
+Start with a simple model and standard `WeightedMSELoss`.
 - **Goal**: Establish a performance floor.
 - **Check**: Can the model overfit a tiny subset (5-10 samples) of the data? If not, check your learning rate and architecture.
 - **Metric**: Root Mean Squared Error (RMSE) and $R^2$.
@@ -23,7 +23,7 @@ Switch to a heteroscedastic loss like `GaussianNLLLoss`.
 ### Phase 3: Robustness & Refinement (Week 1)
 Introduce robust losses or ensembles if needed.
 - **Goal**: Handle outliers and estimate epistemic uncertainty.
-- **Check**: Compare `HuberLoss` vs `MSELoss` on a held-out test set with known outliers.
+- **Check**: Compare `WeightedHuberLoss` vs `WeightedMSELoss` on a held-out test set with known outliers.
 - **Metric**: CRPS (Continuous Ranked Probability Score) for overall distributional quality.
 
 ---
@@ -74,7 +74,7 @@ Always plot a **Reliability Diagram** or **PIT Histogram**. If your 90% confiden
 
 | Pitfall | Solution |
 |:--------|:---------|
-| **NaN Losses** | Check for zero/negative variance or extreme outliers. Use `HuberLoss` or `min_variance` padding. |
+| **NaN Losses** | Check for zero/negative variance or extreme outliers. Use `WeightedHuberLoss` or `min_variance` padding. |
 | **Overfitting Uncertainty** | Use weight decay on the uncertainty head to prevent it from "explaining away" all training error as noise. |
 | **Quantile Crossing** | Use the `NonCrossingSort` layer to ensure $\hat{q}_{0.9} \geq \hat{q}_{0.5}$. |
 | **Data Leakage** | Ensure your **Calibration Set** (for Conformal Prediction or Post-Hoc Calibration) is never seen during training. |

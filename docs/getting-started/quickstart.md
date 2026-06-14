@@ -11,14 +11,14 @@ If you just need a standard point-prediction model, **torchregress** provides a 
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import MSELoss
+from torchregress.losses import WeightedMSELoss
 from torchregress.metrics import mae, r2_score
 
 # 1. Define a standard PyTorch model
 model = nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 1))
 
 # 2. Use a torchregress loss (supports weights and masking)
-loss_fn = MSELoss()
+loss_fn = WeightedMSELoss()
 
 # 3. Standard training loop
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -70,10 +70,10 @@ with torch.no_grad():
 If your data contains outliers or heavy-tailed noise, standard MSE will fail. Use a **Robust Loss** like Huber or Cauchy.
 
 ```python
-from torchregress.losses import HuberLoss, CauchyLoss
+from torchregress.losses import WeightedHuberLoss, CauchyLoss
 
 # Huber is a safe default for mild outliers
-loss_fn = HuberLoss(delta=1.0)
+loss_fn = WeightedHuberLoss(delta=1.0)
 
 # Cauchy is more aggressive for severe outliers (non-convex)
 loss_fn = CauchyLoss(c=1.0)

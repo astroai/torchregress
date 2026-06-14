@@ -32,10 +32,10 @@ The **Pseudo-Huber Loss** ([`PseudoHuberLoss`](../api/losses.md#torchregress.los
 $$\mathcal{L}_{\text{PH}}(r; \delta) = \delta^2 \left( \sqrt{1 + (r/\delta)^2} - 1 \right)$$
 
 ```python
-from torchregress.losses import HuberLoss, PseudoHuberLoss
+from torchregress.losses import WeightedHuberLoss, PseudoHuberLoss
 
-# Traditional Huber
-loss_fn = HuberLoss(delta=1.345) # 95% efficiency for Gaussian
+# Traditional Huber (weighted wrapper)
+loss_fn = WeightedHuberLoss(delta=1.345) # 95% efficiency for Gaussian
 
 # Smooth Pseudo-Huber
 loss_fn = PseudoHuberLoss(delta=1.0)
@@ -119,8 +119,8 @@ optimizer = torch.optim.Adam(
 ```mermaid
 graph TD
     Start["New Regression Problem"] --> Outliers{"Contains Outliers?"}
-    Outliers -->|No| MSE["MSELoss (Standard)"]
-    Outliers -->|Maybe/Mild| Huber["HuberLoss (delta=1.0)"]
+    Outliers -->|No| MSE["WeightedMSELoss (Standard)"]
+    Outliers -->|Maybe/Mild| Huber["WeightedHuberLoss (delta=1.0)"]
     Outliers -->|Unknown tail shape| Barron["BarronLoss (alpha≈1.0)"]
     Outliers -->|Confirmed/Severe| Redescending{"Severe/Adversarial?"}
     Redescending -->|Aggressive| Cauchy["CauchyLoss (c=1.0)"]

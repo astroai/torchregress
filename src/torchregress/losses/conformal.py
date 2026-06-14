@@ -290,6 +290,91 @@ class ConformalPredictor:
 
 
 # ---------------------------------------------------------------------------
+# Level-Set Conformal Predictor (base for functional/level-set methods)
+# ---------------------------------------------------------------------------
+
+
+class LevelSetConformalPredictor(ConformalPredictor):
+    """Base class for conformal predictors that build regions from a function.
+
+    Subclasses use a callable (density, CDF, frontier) to determine whether each
+    candidate ``y`` belongs to the prediction set.  The base class provides a
+    shared :meth:`_grid_search_level_set` utility for grid-based interval
+    construction, but subclasses that can invert the function analytically
+    (e.g. :class:`DistributionalConformal`) may bypass it entirely.
+
+    Subclasses must override :meth:`_build_intervals` and may accept additional
+    keyword arguments beyond ``difficulty``.
+    """
+
+    @staticmethod
+    def _grid_search_level_set(
+        eval_fn: Callable[[Tensor, Tensor], Tensor],
+        x: Tensor,
+        threshold: Tensor,
+        y_min: float,
+        y_max: float,
+        grid_size: int,
+    ) -> Tuple[Tensor, Tensor]:
+        """Find the bounding box of a level set via grid evaluation.
+
+        Evaluates ``eval_fn(y_grid, x)`` on a uniform grid, identifies grid
+        points where the output is at or below *threshold*, and returns the
+        tightest ``[lower, upper]`` enclosing box.
+
+        Args:
+            eval_fn: ``(y_grid, x) -> values`` where ``y_grid`` has shape
+                ``(grid_size,)`` and ``x`` has shape ``(n_test, n_features)``.
+                Returns a ``(n_test, grid_size)`` tensor.
+            x: Test inputs, shape ``(n_test, n_features)``.
+            threshold: Per-sample upper bound for the level set, shape
+                ``(n_test,)`` or broadcastable scalar.
+            y_min: Lower bound of the evaluation grid.
+            y_max: Upper bound of the evaluation grid.
+            grid_size: Number of grid points.
+
+        Returns:
+            ``(lower, upper)`` tensors of shape ``(n_test, 1)``.
+        """
+        device = x.device
+        dtype = x.dtype
+        n_test = x.shape[0]
+
+        y_grid = torch.linspace(y_min, y_max, grid_size, device=device, dtype=dtype)
+        values = eval_fn(y_grid, x)  # (n_test, grid_size)
+
+        # Ensure threshold broadcasts: (n_test,) or scalar -> (n_test, 1)
+        if threshold.dim() == 0 or threshold.shape[0] == 1:
+            threshold = threshold.expand(n_test)
+        threshold = threshold.view(-1, 1)
+
+        in_set = values <= threshold  # (n_test, grid_size)
+
+        lower = torch.full((n_test, 1), y_max, device=device, dtype=dtype)
+        upper = torch.full((n_test, 1), y_min, device=device, dtype=dtype)
+
+        has_valid = in_set.any(dim=1)
+
+        # First True from left → lower; last True (first True from right) → upper
+        start_indices = in_set.int().argmax(dim=1)
+        end_indices = grid_size - 1 - in_set.flip(dims=[1]).int().argmax(dim=1)
+
+        valid_mask = has_valid
+        if valid_mask.any():
+            lower[valid_mask, 0] = y_grid[start_indices[valid_mask]]
+            upper[valid_mask, 0] = y_grid[end_indices[valid_mask]]
+
+        # Fallback for samples with empty level sets: use argmin of values
+        invalid_mask = ~has_valid
+        if invalid_mask.any():
+            fallback_idx = values[invalid_mask].argmin(dim=1)
+            lower[invalid_mask, 0] = y_grid[fallback_idx]
+            upper[invalid_mask, 0] = y_grid[fallback_idx]
+
+        return lower, upper
+
+
+# ---------------------------------------------------------------------------
 # Split Conformal Prediction
 # ---------------------------------------------------------------------------
 
@@ -817,7 +902,7 @@ class LocalConformalMAD(LocalConformal):
         return y_pred - width, y_pred + width
 
 
-class CTI(ConformalPredictor):
+class CTI(LevelSetConformalPredictor):
     """Conformal Thresholded Intervals — smallest prediction sets.
 
     Uses negative log-density as the nonconformity score.  The prediction
@@ -925,56 +1010,31 @@ class CTI(ConformalPredictor):
             raise RuntimeError("Call calibrate() first.")
 
         q = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
-        y_grid = torch.linspace(y_min, y_max, self.grid_size, device=x.device, dtype=x.dtype)
+
+        def eval_fn(y_grid: Tensor, x_batch: Tensor) -> Tensor:
+            return -density_fn(y_grid, x_batch)
+
+        # Try vectorized level-set search first; fall back to per-sample
+        # loop if the user-provided density_fn does not support batching.
+        try:
+            return self._grid_search_level_set(eval_fn, x, q, y_min, y_max, self.grid_size)
+        except Exception as exc:
+            logger.debug(f"CTI grid search failed, falling back to per-sample loop: {exc}")
 
         n_test = x.shape[0]
+        y_grid = torch.linspace(y_min, y_max, self.grid_size, device=x.device, dtype=x.dtype)
         lower = torch.full((n_test, 1), y_max, device=x.device, dtype=x.dtype)
         upper = torch.full((n_test, 1), y_min, device=x.device, dtype=x.dtype)
 
-        # Try vectorized execution first
-        try:
-            log_dens_batch = density_fn(y_grid, x)  # (n_test, grid_size)
-            if log_dens_batch.shape == (n_test, self.grid_size):
-                neg_log_dens = -log_dens_batch
-                in_set = neg_log_dens <= q  # (n_test, grid_size)
-
-                # For valid rows (where in_set has any True), find first and last index
-                has_valid = in_set.any(dim=1)
-
-                # Vectorized min/max index lookup using argmax
-                # First True from left gives start index
-                start_indices = in_set.int().argmax(dim=1)
-
-                # First True from right (flipped) gives end index
-                end_indices = self.grid_size - 1 - in_set.flip(dims=[1]).int().argmax(dim=1)
-
-                # Fill valid entries
-                valid_mask = has_valid
-                if valid_mask.any():
-                    lower[valid_mask, 0] = y_grid[start_indices[valid_mask]]
-                    upper[valid_mask, 0] = y_grid[end_indices[valid_mask]]
-
-                # Fill invalid entries (fallback to mode)
-                invalid_mask = ~has_valid
-                if invalid_mask.any():
-                    mode_indices = log_dens_batch[invalid_mask].argmax(dim=1)
-                    lower[invalid_mask, 0] = y_grid[mode_indices]
-                    upper[invalid_mask, 0] = y_grid[mode_indices]
-
-                return lower, upper
-        except Exception as e:
-            logger.debug(f"CTI vectorized execution failed, falling back to loop: {e}")
-
         for i in range(n_test):
-            log_dens = density_fn(y_grid, x[i])  # (grid_size,)
+            log_dens = density_fn(y_grid, x[i])
             neg_log_dens = -log_dens
-            in_set = neg_log_dens <= q  # density level set
+            in_set = neg_log_dens <= q
             if in_set.any():
                 indices = in_set.nonzero(as_tuple=True)[0]
                 lower[i, 0] = y_grid[indices[0]]
                 upper[i, 0] = y_grid[indices[-1]]
             else:
-                # Fallback: use the mode
                 mode_idx = log_dens.argmax()
                 lower[i, 0] = y_grid[mode_idx]
                 upper[i, 0] = y_grid[mode_idx]
@@ -987,7 +1047,7 @@ class CTI(ConformalPredictor):
 # ---------------------------------------------------------------------------
 
 
-class DistributionalConformal(ConformalPredictor):
+class DistributionalConformal(LevelSetConformalPredictor):
     """Distributional conformal prediction via probability integral transform.
 
     Achieves approximate conditional coverage by using PIT residuals as
@@ -1898,7 +1958,7 @@ class MultiDimensionalConformalLoss(ConformalLoss):
         return self._predictor.predict_interval(y_pred)
 
 
-class SLSConformal(ConformalPredictor):
+class SLSConformal(LevelSetConformalPredictor):
     """Super-Level-Set (SLS) Conformal Predictor.
 
     Uses the ratio of the learned frontier function G(X, Y) to the predicted
@@ -1995,40 +2055,21 @@ class SLSConformal(ConformalPredictor):
             raise RuntimeError("Call calibrate() first.")
 
         r = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
-        device = x.device
-        dtype = x.dtype
-
-        y_grid = torch.linspace(y_min, y_max, self.grid_size, device=device, dtype=dtype)
-        n_test = x.shape[0]
-        lower = torch.full((n_test, 1), y_max, device=device, dtype=dtype)
-        upper = torch.full((n_test, 1), y_min, device=device, dtype=dtype)
 
         with torch.no_grad():
             quantiles = self.sls_loss.quantile_net(x)
             q_tau = quantiles[..., 1]
-            threshold = r.to(device) * q_tau
+            threshold = r.to(x.device) * q_tau
 
-            x_expanded = x.unsqueeze(1).expand(-1, self.grid_size, -1).reshape(-1, x.shape[-1])
-            y_expanded = y_grid.unsqueeze(0).expand(n_test, -1).reshape(-1, self.sls_loss.d)
+            def eval_fn(y_grid: Tensor, x_batch: Tensor) -> Tensor:
+                # Explicitly reshape to matching batch dims for the frontier
+                # function (preserves the contract from the original
+                # implementation).
+                n_test_b = x_batch.shape[0]
+                x_exp = x_batch.unsqueeze(1).expand(-1, self.grid_size, -1)
+                x_exp = x_exp.reshape(-1, x_batch.shape[-1])
+                y_exp = y_grid.unsqueeze(0).expand(n_test_b, -1).reshape(-1, self.sls_loss.d)
+                G_flat, _ = self.sls_loss.frontier(y_exp, x_exp)
+                return G_flat.reshape(n_test_b, self.grid_size)
 
-            G_flat, _ = self.sls_loss.frontier(y_expanded, x_expanded)
-            G = G_flat.reshape(n_test, self.grid_size)
-
-            in_set = G <= threshold.unsqueeze(1)
-            has_valid = in_set.any(dim=1)
-
-            start_indices = in_set.int().argmax(dim=1)
-            end_indices = self.grid_size - 1 - in_set.flip(dims=[1]).int().argmax(dim=1)
-
-            valid_mask = has_valid
-            if valid_mask.any():
-                lower[valid_mask, 0] = y_grid[start_indices[valid_mask]]
-                upper[valid_mask, 0] = y_grid[end_indices[valid_mask]]
-
-            invalid_mask = ~has_valid
-            if invalid_mask.any():
-                min_indices = G[invalid_mask].argmin(dim=1)
-                lower[invalid_mask, 0] = y_grid[min_indices]
-                upper[invalid_mask, 0] = y_grid[min_indices]
-
-        return lower, upper
+            return self._grid_search_level_set(eval_fn, x, threshold, y_min, y_max, self.grid_size)

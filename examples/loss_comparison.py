@@ -25,7 +25,9 @@ from torchregress.losses import (
     BarronLoss,
     LogCoshLoss,
     QuantileLoss,
-    WeightedLossWrapper,
+    WeightedHuberLoss,
+    WeightedL1Loss,
+    WeightedMSELoss,
 )
 
 
@@ -105,9 +107,9 @@ def main():
 
     # Define loss functions to compare
     loss_functions = {
-        "MSE": WeightedLossWrapper(torch.nn.MSELoss, reduction="mean"),
-        "MAE": WeightedLossWrapper(torch.nn.L1Loss, reduction="mean"),
-        "Huber": WeightedLossWrapper(torch.nn.HuberLoss, reduction="mean"),
+        "MSE": WeightedMSELoss(reduction="mean"),
+        "MAE": WeightedL1Loss(reduction="mean"),
+        "Huber": WeightedHuberLoss(reduction="mean"),
         "LogCosh": LogCoshLoss(reduction="mean"),
         "Barron": BarronLoss(alpha=1.0, scale=1.0, reduction="mean"),
         "AdaptiveRobust": AdaptiveRobustLoss(alpha_init=1.0, scale_init=1.0, reduction="mean"),

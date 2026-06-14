@@ -2,11 +2,6 @@ from __future__ import annotations
 
 import torch
 
-from torchregress.losses._legacy_args import (
-    is_legacy_mask_argument,
-    resolve_legacy_cov_mask_weights,
-    resolve_legacy_log_variance_kwarg,
-)
 from torchregress.utils.distributions import normal_cdf
 from torchregress.utils.gaussian_output import (
     parse_heteroscedastic_output,
@@ -48,28 +43,6 @@ def test_variance_from_logvar_clamps() -> None:
     log_var = torch.tensor([[-20.0, 10.0]])
     var = variance_from_logvar(log_var)
     assert var.min().item() >= 1e-8
-
-
-def test_legacy_mask_resolution() -> None:
-    legacy_mask = torch.ones(3, dtype=torch.bool)
-    weights = torch.tensor([1.0, 2.0, 3.0])
-    mask, w, cov = resolve_legacy_cov_mask_weights(legacy_mask, weights, None)
-    assert mask is legacy_mask
-    assert w is weights
-    assert cov is None
-    assert is_legacy_mask_argument(legacy_mask, None)
-
-
-def test_legacy_log_variance_kwarg_resolution() -> None:
-    legacy_mask = torch.ones(3, dtype=torch.bool)
-    weights = torch.tensor([1.0, 2.0, 3.0])
-    mask, w, log_var = resolve_legacy_log_variance_kwarg(legacy_mask, weights, False)
-    assert mask is legacy_mask
-    assert w is weights
-    assert log_var is False
-
-    mask2, w2, log_var2 = resolve_legacy_log_variance_kwarg(None, None, None)
-    assert mask2 is None and w2 is None and log_var2 is None
 
 
 def test_normal_cdf_matches_erf() -> None:

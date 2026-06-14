@@ -124,7 +124,7 @@ y = 2 * X.squeeze() + 1 + 0.1 * torch.randn(100)
 model = torch.nn.Linear(1, 1)
 
 # Choose a loss function
-loss_fn = tr.losses.HuberLoss()
+loss_fn = tr.losses.WeightedHuberLoss()
 
 # Train the model
 optimizer = torch.optim.SGD(model.parameters(), lr=0.1)

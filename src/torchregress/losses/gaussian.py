@@ -11,7 +11,6 @@ from torch.distributions import LowRankMultivariateNormal
 
 from ..utils.gaussian_output import split_mean_log_variance
 from ..utils.reduction import reduce_per_sample
-from ._legacy_args import resolve_legacy_cov_mask_weights
 from .base import DistributionLoss, WeightedMSELoss
 from .loss_registry import register_regression_loss
 
@@ -75,6 +74,7 @@ class GaussianNLLLoss(DistributionLoss):
         eps: float = 1e-8,
         reduction: str = "mean",
         split_dim: int = -1,
+        log_variance: bool = True,
     ) -> None:
         super().__init__(reduction=reduction)
         if covariance_type != "diagonal":
@@ -86,6 +86,7 @@ class GaussianNLLLoss(DistributionLoss):
         self.min_variance = min_variance
         self.eps = eps
         self.split_dim = split_dim
+        self.log_variance = log_variance
 
         if fixed_variance is not None:
             fixed_tensor = torch.as_tensor(fixed_variance, dtype=torch.float32)
@@ -104,28 +105,21 @@ class GaussianNLLLoss(DistributionLoss):
             var = var + torch.zeros_like(mean)
             return mean, var.clamp(min=self.min_variance)
 
-        mean, log_var = split_mean_log_variance(y_pred, split_dim=self.split_dim)
-        var = torch.exp(log_var).clamp(min=self.min_variance)
+        mean, log_or_var = split_mean_log_variance(y_pred, split_dim=self.split_dim)
+        if self.log_variance:
+            var = torch.exp(log_or_var).clamp(min=self.min_variance)
+        else:
+            var = log_or_var.clamp(min=self.min_variance)
         return mean, var
 
     def forward(
         self,
         y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
         target: torch.Tensor,
-        covariance_matrices: Optional[torch.Tensor] = None,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        # Backward compatibility for legacy positional ordering:
-        # forward(y_pred, target, mask, weights, covariance_matrices)
-        # The diagonal Gaussian loss ignores ``covariance_matrices``; if the
-        # caller passed a mask-shaped tensor there by mistake, reinterpret it
-        # using the legacy-mask heuristic (not a square covariance).
-        mask, weights, covariance_matrices = resolve_legacy_cov_mask_weights(
-            covariance_matrices, mask, weights
-        )
-
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)
 
@@ -153,15 +147,10 @@ class GaussianCRPSLoss(GaussianNLLLoss):
         self,
         y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
         target: torch.Tensor,
-        covariance_matrices: Optional[torch.Tensor] = None,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        mask, weights, covariance_matrices = resolve_legacy_cov_mask_weights(
-            covariance_matrices, mask, weights
-        )
-
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)
 

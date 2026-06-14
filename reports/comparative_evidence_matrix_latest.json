@@ -30,10 +30,16 @@
         "runtime"
       ],
       "peer_methods_visible": [
-        "HuberLoss",
+        "WeightedHuberLoss",
+        "PseudoHuberLoss",
+        "LogCoshLoss",
+        "CharbonnierLoss",
         "CauchyLoss",
-        "WeightedMSELoss",
-        "WeightedHuberLoss"
+        "TukeyBiweightLoss",
+        "BarronLoss",
+        "AdaptiveRobustLoss",
+        "CVaRLoss",
+        "WeightedMSELoss"
       ],
       "gaps": "Needs broader real-domain coverage beyond synthetic and tabular comparison tasks.",
       "notes": "Robust/probabilistic/EIV comparisons run under shared budgets; results are available in the reports directory."
@@ -232,11 +238,10 @@
       ],
       "peer_methods_visible": [
         "dr_ate",
-        "dr_cate",
-        "naive difference-in-means"
+        "dr_cate"
       ],
       "gaps": "Includes real-covariate proxy benchmarks; needs external treatment-effect datasets for stronger external validity.",
-      "notes": "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap diagnostics."
+      "notes": "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap diagnostics. A naive difference-in-means baseline is reported alongside ``dr_ate``/``dr_cate`` in both comparison examples (see ``_naive_ate`` helper) for reference."
     },
     {
       "task": "Calibrated intervals / coverage",
@@ -428,8 +433,14 @@
       ],
       "peer_methods_visible": [
         "WeightedHuberLoss",
+        "PseudoHuberLoss",
+        "LogCoshLoss",
+        "CharbonnierLoss",
         "CauchyLoss",
         "TukeyBiweightLoss",
+        "BarronLoss",
+        "AdaptiveRobustLoss",
+        "CVaRLoss",
         "GaussianNLLLoss",
         "MultiQuantileLoss"
       ],

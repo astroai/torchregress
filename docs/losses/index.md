@@ -12,7 +12,7 @@ torchregress provides a comprehensive library of loss functions for regression �
 ```mermaid
 graph LR
     A["Your Data"] --> B{"What do you need?"}
-    B -->|Point prediction| C["MSELoss / HuberLoss"]
+    B -->|Point prediction| C["WeightedMSELoss / WeightedHuberLoss"]
     B -->|Uncertainty| D["GaussianNLLLoss / BetaNLLLoss"]
     B -->|Robustness| E["CauchyLoss / TukeyBiweightLoss"]
     B -->|Intervals| F["QuantileLoss + CQR"]
@@ -28,10 +28,10 @@ The building blocks — these wrap PyTorch losses with unified support for **mas
 
 | Loss | Formula (per sample) | Implied Distribution |
 |:-----|:---------------------|:---------------------|
-| `MSELoss` | $(y - \hat{y})^2$ | Gaussian (fixed $\sigma$) |
-| `L1Loss` / `WeightedMAELoss` | $\lvert y - \hat{y}\rvert$ | Laplace |
-| `HuberLoss` | Quadratic core + linear tails | Gaussian-Laplace hybrid |
-| `WeightedGaussianNLLLoss` | PyTorch-compatible wrapper | Gaussian |
+| `WeightedMSELoss` | $(y - \hat{y})^2$ | Gaussian (fixed $\sigma$) |
+| `WeightedL1Loss` | $\lvert y - \hat{y}\rvert$ | Laplace |
+| `WeightedHuberLoss` | Quadratic core + linear tails | Gaussian-Laplace hybrid |
+| `GaussianNLLLoss` | Heteroscedastic NLL wrapper | Gaussian |
 | `WeightedCrossEntropyLoss` | Classification wrapper | Categorical |
 
 See [Base Classes](base.md) for foundations.
@@ -241,8 +241,8 @@ For targets with significant **distribution imbalance**:
 
 | If you need… | Start with… | Then consider… |
 |:-------------|:-----------|:--------------|
-| Simple regression | `MSELoss` | `HuberLoss` for robustness |
-| Outlier robustness | `HuberLoss` | `CauchyLoss` or `TukeyBiweightLoss` |
+| Simple regression | `WeightedMSELoss` | `WeightedHuberLoss` for robustness |
+| Outlier robustness | `WeightedHuberLoss` | `CauchyLoss` or `TukeyBiweightLoss` |
 | Prediction intervals | `MultiQuantileLoss` | + [CQR](../methods/conformal/predictors.md#cqr) for guarantees |
 | Heteroscedastic uncertainty | `GaussianNLLLoss` | + [Ensemble](../methods/ensemble/index.md) for epistemic |
 | Full distribution | `MixtureDensityLoss` | `NormalizingFlowLoss` for more flexibility |

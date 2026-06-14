@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 79,
+    "total_methods": 87,
     "families": {
       "bnn": 7,
       "calibration_transform": 3,
@@ -22,7 +22,7 @@
       "point_loss": 1,
       "probabilistic_loss": 7,
       "quantile": 1,
-      "robust_loss": 1,
+      "robust_loss": 9,
       "swag": 2,
       "target_transform": 4,
       "test_time": 6,
@@ -31,8 +31,8 @@
     },
     "maturity": {
       "Core": 6,
-      "Strong": 7,
-      "Available": 66
+      "Strong": 10,
+      "Available": 71
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -62,9 +62,9 @@
       "notes": "Strong clean-data baseline; pair with calibration/OOD metrics for deployment checks."
     },
     {
-      "name": "HuberLoss",
+      "name": "WeightedHuberLoss",
       "family": "robust_loss",
-      "public_path": "torchregress.losses.HuberLoss",
+      "public_path": "torchregress.losses.WeightedHuberLoss",
       "task_tags": [
         "outliers",
         "noisy_labels"
@@ -81,6 +81,182 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Robust default for moderate outliers before heavier methods."
+    },
+    {
+      "name": "PseudoHuberLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.PseudoHuberLoss",
+      "task_tags": [
+        "outliers",
+        "noisy_labels",
+        "smooth_approx"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Smooth, everywhere-differentiable approximation to Huber. Safer default than Huber when second-order optimisers or automatic curvature estimation are in use."
+    },
+    {
+      "name": "LogCoshLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.LogCoshLoss",
+      "task_tags": [
+        "outliers",
+        "noisy_labels",
+        "smooth_approx"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Smooth log-cosh penalty; behaves like L2 near zero and L1 in the tails.  Numerically stable variant using log1p for large residuals."
+    },
+    {
+      "name": "CharbonnierLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.CharbonnierLoss",
+      "task_tags": [
+        "outliers",
+        "noisy_labels",
+        "smooth_approx"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Smooth L1 surrogate sqrt(r\u00b2 + \u03b5\u00b2).  Differentiable at zero unlike plain L1; tune \u03b5 for the expected noise floor."
+    },
+    {
+      "name": "TukeyBiweightLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.TukeyBiweightLoss",
+      "task_tags": [
+        "outliers",
+        "redescending",
+        "noisy_labels"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Redescending M-estimator that caps and eventually ignores extreme residuals.  Non-convex; start from a Huber/PseudoHuber warm-up before switching."
+    },
+    {
+      "name": "CauchyLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.CauchyLoss",
+      "task_tags": [
+        "outliers",
+        "redescending",
+        "noisy_labels"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Negative log-likelihood of the Cauchy distribution.  Very robust to extreme outliers; heavier-tailed than Huber/PseudoHuber.  Non-convex \u2014 prefer a convex warm-up."
+    },
+    {
+      "name": "BarronLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.BarronLoss",
+      "task_tags": [
+        "outliers",
+        "adaptive_shape"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Continuous family parameterised by shape \u03b1 that interpolates between L2 (\u03b1=2), Cauchy-like (\u03b1=0), and more robust penalties (\u03b1<0).  Useful for ablations and hyper-parameter sweeps."
+    },
+    {
+      "name": "AdaptiveRobustLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.AdaptiveRobustLoss",
+      "task_tags": [
+        "outliers",
+        "adaptive_shape",
+        "learnable"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Learnable Barron loss: \u03b1 and scale are optimised jointly with the model.  Add ``loss_fn.parameters()`` to the optimizer.  Strongest when the noise regime is unknown a priori."
+    },
+    {
+      "name": "CVaRLoss",
+      "family": "robust_loss",
+      "public_path": "torchregress.losses.CVaRLoss",
+      "task_tags": [
+        "outliers",
+        "tail_focused",
+        "worst_case",
+        "noisy_labels"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Conditional Value-at-Risk: averages the worst \u03b1 fraction of per-sample losses.  Pairs with any base loss (MSE, Huber, Cauchy, Tukey).  For multi-output targets, CVaR selects the worst samples, not the worst per-element errors."
     },
     {
       "name": "DensityWeightedLoss",

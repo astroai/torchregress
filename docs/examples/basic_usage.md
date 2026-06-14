@@ -81,7 +81,7 @@ class SimpleRegressor(nn.Module):
 
 # Create model, loss, optimizer
 model = SimpleRegressor()
-loss_fn = tr.losses.MSELoss()
+loss_fn = tr.losses.WeightedMSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 # Training loop
@@ -327,9 +327,9 @@ class RobustModel(nn.Module):
 
 # Compare different loss functions
 loss_functions = {
-    'MSE': tr.losses.MSELoss(),
-    'MAE (L1)': tr.losses.L1Loss(),
-    'Huber': tr.losses.HuberLoss(delta=1.0),
+    'MSE': tr.losses.WeightedMSELoss(),
+    'MAE (L1)': tr.losses.WeightedL1Loss(),
+    'Huber': tr.losses.WeightedHuberLoss(delta=1.0),
     'Cauchy': tr.losses.CauchyLoss(scale=1.0),
     'LogCosh': tr.losses.LogCoshLoss()
 }

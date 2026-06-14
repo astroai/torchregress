@@ -37,7 +37,7 @@ torchregress/
 ```python
 import torchregress.losses as losses
 
-loss_fn = losses.HuberLoss(delta=1.0)
+loss_fn = losses.WeightedHuberLoss(delta=1.0)
 loss = loss_fn(y_pred, y_true)
 ```
 

@@ -26,6 +26,11 @@ def _load_example_module(stem: str) -> ModuleType:
         raise RuntimeError(f"Could not load example module from {path}")
 
     module = importlib.util.module_from_spec(spec)
+    # Register in sys.modules so the dataclasses decorator can resolve
+    # ``cls.__module__`` via ``sys.modules.get(cls.__module__).__dict__``
+    # (required for ``@dataclass(frozen=True)`` which triggers the
+    # ``_is_type`` check during __hash__ generation).
+    sys.modules[module.__name__] = module
     sys.path.insert(0, str(EXAMPLES_DIR))
     try:
         spec.loader.exec_module(module)
@@ -520,6 +525,100 @@ def test_eiv_method_realdata_comparison_main_smoke() -> None:
     mod = _load_example_module("eiv_method_realdata_comparison")
     cfg = mod.EIVRealDataConfig(n_train=64, n_test=32, epochs=1, hidden=8)
     mod.main(cfg)
+
+
+def test_external_comparison_conformal_vs_mapie_main_smoke() -> None:
+    import json
+    import tempfile
+
+    mod = _load_example_module("external_comparison_conformal_vs_mapie")
+    cfg = mod.ConformalExternalConfig(
+        n_train=80,
+        n_cal=40,
+        n_test=80,
+        epochs=2,
+        batch_size=32,
+        hidden=8,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        out = str(Path(tmp) / "summary.json")
+        mod.main(cfg, summary_json_path=out)
+        assert Path(out).exists()
+        payload = json.loads(Path(out).read_text())
+        rows = payload.get("rows") or []
+        # 3 torchregress rows (always) + up to 5 external rows (2 MAPIE + 2 crepes + 1 torchcp).
+        # Skipped external libraries still emit rows with null metrics, so the
+        # total row count is invariant across environments (this is the schema-
+        # stability contract the docs promise).
+        assert len(rows) == 8, f"expected 8 rows (3 tr + 5 ext), got {len(rows)}: {rows}"
+        libraries = sorted({r["Library"] for r in rows})
+        assert libraries == ["MAPIE", "crepes", "torchcp", "torchregress"], libraries
+
+
+@pytest.mark.skipif(
+    not _load_example_module("external_comparison_conformal_vs_mapie")._CREPES_AVAILABLE,
+    reason="crepes not installed (install via `uv pip install torchregress[external]`)",
+)
+def test_external_comparison_conformal_vs_mapie_crepes_paths_run() -> None:
+    """Exercise the crepes split + CQR code paths when crepes is installed.
+
+    The schema-stability smoke above only asserts row count + library set; it
+    does not validate the actual crepes wrappers because the soft-import
+    guard short-circuits when crepes is missing. This test forces the crepes
+    branches to run on a tiny synthetic split.
+    """
+    mod = _load_example_module("external_comparison_conformal_vs_mapie")
+    cfg = mod.ConformalExternalConfig(
+        n_train=80,
+        n_cal=40,
+        n_test=80,
+        epochs=2,
+        batch_size=32,
+        hidden=8,
+    )
+    splits = mod._simulate(cfg)
+    # Direct calls into the crepes helpers; raises if the API contract breaks.
+    lo_split, hi_split = mod._crepes_split_intervals(splits, alpha=cfg.alpha)
+    assert lo_split.shape == (cfg.n_test,)
+    assert hi_split.shape == (cfg.n_test,)
+    lo_cqr, hi_cqr = mod._crepes_cqr_intervals(splits, alpha=cfg.alpha, seed=cfg.seed)
+    assert lo_cqr.shape == (cfg.n_test,)
+    assert hi_cqr.shape == (cfg.n_test,)
+    # Sanity: intervals are well-ordered.
+    assert (lo_split <= hi_split).all()
+    assert (lo_cqr <= hi_cqr).all()
+
+
+def test_external_comparison_bayesian_linear_vs_botorch_main_smoke() -> None:
+    import tempfile
+
+    mod = _load_example_module("external_comparison_bayesian_linear_vs_botorch")
+    cfg = mod.BayesianLinearExternalConfig(
+        n_train=12,
+        n_test=32,
+        dim=3,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        out = str(Path(tmp) / "summary.json")
+        mod.main(cfg, summary_json_path=out)
+        assert Path(out).exists()
+
+
+def test_external_comparison_tweedie_vs_sklego_main_smoke() -> None:
+    import tempfile
+
+    mod = _load_example_module("external_comparison_tweedie_vs_sklego")
+    cfg = mod.TweedieExternalConfig(
+        n_train=200,
+        n_test=80,
+        epochs=2,
+        batch_size=32,
+        hidden=8,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        out = str(Path(tmp) / "summary.json")
+        mod.main(cfg, summary_json_path=out)
+        assert Path(out).exists()
 
 
 def test_noisy_label_comparison_main_smoke() -> None:

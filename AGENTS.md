@@ -152,7 +152,7 @@ torchregress/
 
 ### Key Abstractions
 
-**Weighted loss wrappers** (`torchregress.losses.base`): `WeightedLossWrapper`, `WeightedMSELoss`, `WeightedGaussianNLLLoss`, and related subclasses add mask and sample-weight support around native PyTorch losses.
+**Weighted loss wrappers** (`torchregress.losses.base`): `WeightedLossWrapper`, `WeightedMSELoss`, `GaussianNLLLoss`, and related subclasses add mask and sample-weight support around native PyTorch losses.
 
 **Ensemble Models** (`torchregress/ensemble/`):
 - `DeepEnsemble`: Multiple independently trained models

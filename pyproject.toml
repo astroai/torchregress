@@ -83,7 +83,15 @@ tabred = [
 foundation-models = [
     "tabpfn>=0.1.9",
 ]
-all = ["torchregress[test,dev,docs,conformal,flows,foundation-models]"]
+external = [
+    "mapie>=1.0.0",
+    "scikit-lego>=0.7.0",
+    "botorch>=0.11.0",
+    "gpytorch>=1.11.0",
+    "crepes>=0.4.0",
+    "torchcp>=0.1.0",
+]
+all = ["torchregress[test,dev,docs,conformal,flows,foundation-models,external]"]
 
 [tool.setuptools]
 [tool.setuptools.packages.find]
@@ -183,3 +191,27 @@ module = [
     "numpy.*",
 ]
 ignore_missing_imports = true
+
+# pytest-cov configuration (consumed by `uv run pytest --cov=...` and Codecov).
+# Mirrors the codecov.yml ignore list so local runs match CI reports.
+[tool.coverage.run]
+branch = false
+source = ["torchregress"]
+omit = [
+    "src/torchregress/__init__.py",
+    "**/__init__.py",
+    "**/conftest.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 2
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "\\.\\.\\.",
+]

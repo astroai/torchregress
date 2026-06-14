@@ -60,9 +60,9 @@ class SimpleModel(nn.Module):
 
 # Test multiple losses
 losses_to_test = {
-    'MSE': tr.losses.MSELoss(),
-    'MAE': tr.losses.L1Loss(),
-    'Huber (δ=1)': tr.losses.HuberLoss(delta=1.0),
+    'MSE': tr.losses.WeightedMSELoss(),
+    'MAE': tr.losses.WeightedL1Loss(),
+    'Huber (δ=1)': tr.losses.WeightedHuberLoss(delta=1.0),
     'LogCosh': tr.losses.LogCoshLoss(),
 }
 
@@ -144,10 +144,10 @@ y_tensor = torch.FloatTensor(y).reshape(-1, 1)
 
 # Test robust losses
 losses_to_test = {
-    'MSE (Least Squares)': tr.losses.MSELoss(),
-    'MAE (L1)': tr.losses.L1Loss(),
-    'Huber (δ=0.5)': tr.losses.HuberLoss(delta=0.5),
-    'Huber (δ=1.0)': tr.losses.HuberLoss(delta=1.0),
+    'MSE (Least Squares)': tr.losses.WeightedMSELoss(),
+    'MAE (L1)': tr.losses.WeightedL1Loss(),
+    'Huber (δ=0.5)': tr.losses.WeightedHuberLoss(delta=0.5),
+    'Huber (δ=1.0)': tr.losses.WeightedHuberLoss(delta=1.0),
     'Barron (α=1.0)': tr.losses.BarronLoss(alpha=1.0, scale=1.0),
     'Cauchy (γ=0.5)': tr.losses.CauchyLoss(scale=0.5),
     'Tukey Biweight': tr.losses.TukeyBiweightLoss(c=4.685),
@@ -298,7 +298,7 @@ class HeteroscedasticModel(nn.Module):
 
 # Train homoscedastic (MSE)
 homo_model = HomoscedasticModel()
-mse_loss = tr.losses.MSELoss()
+mse_loss = tr.losses.WeightedMSELoss()
 optimizer1 = torch.optim.Adam(homo_model.parameters(), lr=1e-3)
 
 for epoch in range(200):
@@ -435,7 +435,7 @@ class SimpleModel(nn.Module):
         return self.net(x)
 
 mse_model = SimpleModel()
-mse_loss = tr.losses.MSELoss()
+mse_loss = tr.losses.WeightedMSELoss()
 optimizer = torch.optim.Adam(mse_model.parameters(), lr=1e-3)
 
 for epoch in range(100):

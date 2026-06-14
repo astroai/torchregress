@@ -2,9 +2,76 @@
 
 <a href="https://pypi.org/project/torchregress/" aria-label="PyPI package version"><img src="https://img.shields.io/pypi/v/torchregress.svg" alt="PyPI"></a>
 <a href="https://opensource.org/licenses/MIT" aria-label="License"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+<a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" aria-label="CI status"><img src="https://img.shields.io/github/actions/workflow/status/sfabbro/torchregress/ci.yml?branch=main&label=CI" alt="CI"></a>
+<a href="https://github.com/sfabbro/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12+"><img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
+<a href="https://github.com/astral-sh/ruff" aria-label="Code style: ruff"><img src="https://img.shields.io/badge/code%20style-ruff-000000.svg" alt="Code style: ruff"></a>
+<a href="https://codecov.io/gh/sfabbro/torchregress" aria-label="Codecov coverage"><img src="https://codecov.io/gh/sfabbro/torchregress/branch/main/graph/badge.svg" alt="Codecov"></a>
 
 A comprehensive PyTorch library for regression, uncertainty estimation, calibration,
 and hard regression settings (outliers, imbalance, noisy features, multimodal targets).
+
+## Quick Links
+
+- 📋 **[Task-First Method Selection Matrix](docs/guide/method-selection.md)** — pick a method by problem (clean / robust / multimodal / OOD / censored / causal)
+- 💡 **[Choosing Methods by Constraint](docs/guide/choosing-by-constraint.md)** — pick by latency budget, coverage guarantees, decomposition, or operational complexity
+- 📊 **[Comparative Evidence Matrix](docs/reports/comparative_evidence_matrix.md)** — see which tasks have decision-grade vs demo-only evidence
+- 📚 **[Examples Index](docs/examples/index.md)** — runnable comparison examples for every category, including external baselines ([vs MAPIE / BoTorch / scikit-lego](docs/examples/external-comparison-vs-mapie-botorch-sklego.md))
+
+## Hello world (30 lines)
+
+```python
+import torch
+from torchregress.losses import WeightedMSELoss
+from torchregress.metrics import rmse, r2_score
+
+# 1. Synthetic data: y = x @ w + noise
+torch.manual_seed(0)
+x = torch.randn(200, 4)
+w = torch.tensor([1.0, -2.0, 0.5, 3.0])
+y = x @ w + 0.1 * torch.randn(200)
+
+# 2. A simple 2-layer MLP
+model = torch.nn.Sequential(
+    torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 1)
+)
+
+# 3. Pick a loss and optimizer
+loss_fn = WeightedMSELoss()
+opt = torch.optim.Adam(model.parameters(), lr=1e-2)
+
+# 4. Train (swap loss_fn for WeightedHuberLoss, CauchyLoss, QuantileLoss, …)
+for _ in range(150):
+    opt.zero_grad()
+    loss_fn(model(x), y).backward()
+    opt.step()
+
+# 5. Evaluate (in practice, evaluate on a held-out split)
+with torch.no_grad():
+    pred = model(x)
+print(f"RMSE = {rmse(pred, y):.4f}  R² = {r2_score(pred, y):.4f}")
+```
+
+For uncertainty quantification, swap `WeightedMSELoss` → `GaussianNLLLoss` (returns a
+`mean` + `log_var` head) or `QuantileLoss` (returns per-quantile outputs).
+For prediction intervals, wrap any backbone with `ConformalLoss`.
+For a full method-shortlist, jump to the
+[Task-First Method Selection Matrix](docs/guide/method-selection.md).
+
+## Next steps
+
+After the hello world, the four highest-leverage pages for new users are:
+
+1. 📋 **[Task-First Method Selection Matrix](docs/guide/method-selection.md)** — pick a method by problem (clean / robust / multimodal / OOD / censored / causal)
+2. 💡 **[Choosing Methods by Constraint](docs/guide/choosing-by-constraint.md)** — pick by latency budget, coverage guarantees, decomposition, or operational complexity
+3. 📊 **[Comparative Evidence Matrix](docs/reports/comparative_evidence_matrix.md)** — see which tasks have decision-grade vs demo-only evidence
+4. 📚 **[Examples Index](docs/examples/index.md)** — runnable comparison examples for every category, including external baselines ([vs MAPIE / crepes / torchcp / BoTorch / scikit-lego](docs/examples/external-comparison-vs-mapie-botorch-sklego.md))
+
+The external comparison page is the place to directly compare torchregress
+against MAPIE / crepes / torchcp on conformal prediction regression, against
+BoTorch on low-shot Bayesian linear regression, and against scikit-lego on
+Tweedie regression — all on shared splits, fixed seeds, and the fairness
+controls documented in the page. The numbers are an operational default, not
+a horse race: capacity is intentionally not matched between libraries.
 
 ## Overview
 
@@ -19,7 +86,7 @@ and hard regression settings (outliers, imbalance, noisy features, multimodal ta
 
 Use the library from the problem you need to solve, not from a method family:
 
-- **Outliers / robust regression**: `HuberLoss`, `CauchyLoss`, `TukeyBiweightLoss`
+- **Outliers / robust regression**: `WeightedHuberLoss`, `CauchyLoss`, `TukeyBiweightLoss`
 - **Prediction intervals with coverage guarantees**: conformal prediction (`split`, `CQR`, `ACI`)
 - **Uncertainty decomposition (epistemic + aleatoric)**: heteroscedastic ensembles
 - **Well-calibrated Gaussian training**: `GaussianNLLLoss` for likelihood training, `GaussianCRPSLoss` when you want a proper scoring rule that directly rewards sharp calibrated predictive CDFs
@@ -28,11 +95,8 @@ Use the library from the problem you need to solve, not from a method family:
 - **Noisy features / measurement error**: start with explicit input-noise marginalization and predictive averaging, then escalate to EIV / ODR losses if it clearly helps
 - **OOD robustness / selective prediction**: ensemble uncertainty + OOD + decision metrics
 
-Task-first method matrix (recommended entry point):
-
-- [`docs/guides/method_selection_matrix.md`](docs/guides/method_selection_matrix.md)
-
-This matrix treats `SWAG`, `BNN`, `MDN`, ensembles, conformal, quantile, and flows as peer options.
+For evidence-grade selection (what's decision-grade vs demo-only), pair this with the
+[Comparative Evidence Matrix](docs/reports/comparative_evidence_matrix.md).
 
 ## Key Features
 
@@ -52,13 +116,15 @@ pip install torchregress
 Optional extras:
 
 - Flows (`zuko`): `pip install torchregress[flows]`
+- Conformal: `pip install torchregress[conformal]`
+- External comparison baselines (MAPIE / BoTorch / scikit-lego): `pip install torchregress[external]`
 - Local dev/docs/tests: `uv pip install -e ".[all]"`
 
-CI on `main` runs **pre-commit**, then **`uv sync` + pytest + CPU benchmark smoke/sweep** in one test job (see `.github/workflows/ci.yml`).
+CI on `main` runs **pre-commit**, then **`uv sync` + pytest + mypy + `mkdocs build --strict` + codecov upload** in one test job (see `.github/workflows/ci.yml`).
 
 ## Test-Time Tooling
 
-`torchregress` now includes reusable test-time tooling designed to sit on top of
+`torchregress` includes reusable test-time tooling designed to sit on top of
 models owned by application repos such as `torchz`, rather than owning tabular
 architectures itself.
 
@@ -189,11 +255,13 @@ For more advanced usage and API details, refer to the [full documentation](https
   [`examples/evaluate_conformal_methods.py`](examples/evaluate_conformal_methods.py)
 - **Multi-target multimodal regression (flows)**:
   [`examples/normalizing_flows_multitarget.py`](examples/normalizing_flows_multitarget.py)
+- **External baselines (vs MAPIE / BoTorch / scikit-lego)**:
+  [`docs/examples/external-comparison-vs-mapie-botorch-sklego.md`](docs/examples/external-comparison-vs-mapie-botorch-sklego.md)
 
 Docs entry points:
 
-- Concepts: [`docs/guides/concepts.md`](docs/guides/concepts.md)
-- Method matrix: [`docs/guides/method_selection_matrix.md`](docs/guides/method_selection_matrix.md)
+- Concepts: [`docs/getting-started/concepts.md`](docs/getting-started/concepts.md)
+- Method matrix: [`docs/guide/method-selection.md`](docs/guide/method-selection.md)
 - Examples index: [`docs/examples/index.md`](docs/examples/index.md)
 
 ## Examples

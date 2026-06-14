@@ -56,7 +56,7 @@ Below is the complete, self-contained code demonstrating how to train models usi
 import argparse
 import torch
 import torch.nn as nn
-from torchregress.losses import BalancedMSELoss, BMCLoss, MSELoss
+from torchregress.losses import BalancedMSELoss, BMCLoss, WeightedMSELoss
 
 def make_skewed_targets(n: int, seed: int) -> tuple[torch.Tensor, torch.Tensor]:
     g = torch.Generator().manual_seed(seed)
@@ -96,7 +96,7 @@ def main() -> None:
     # Initialize losses
     bmc = BMCLoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y)
     bal = BalancedMSELoss(bin_edges=edges, count_smoothing=0.5).fit(y)
-    mse = MSELoss()
+    mse = WeightedMSELoss()
 
     # Train linear models
     rmse_mse = train_linear(x, y, mse, steps=80, lr=0.05)

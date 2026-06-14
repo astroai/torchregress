@@ -8,7 +8,6 @@ from torchmetrics import R2Score as TMR2Score
 
 from torchregress.losses import (
     WeightedCrossEntropyLoss,
-    WeightedGaussianNLLLoss,
     WeightedHuberLoss,
     WeightedL1Loss,
     WeightedLossWrapper,
@@ -38,23 +37,6 @@ def test_weighted_point_loss_wrappers_match_native_without_mask_or_weights() -> 
         WeightedHuberLoss(delta=delta)(y_pred, y_true),
         nn.HuberLoss(delta=delta)(y_pred, y_true),
     )
-
-
-def test_weighted_gaussian_nll_wrapper_matches_native_for_var_and_logvar_inputs() -> None:
-    torch.manual_seed(0)
-    mean = torch.randn(12, 2)
-    target = torch.randn(12, 2)
-    var = torch.rand(12, 2) + 0.1
-
-    native = nn.GaussianNLLLoss()
-
-    tr_var = WeightedGaussianNLLLoss(log_variance=False)
-    loss_var = tr_var((mean, var), target)
-    assert torch.allclose(loss_var, native(mean, target, var), atol=1e-6, rtol=1e-6)
-
-    tr_logvar = WeightedGaussianNLLLoss(log_variance=True)
-    loss_logvar = tr_logvar((mean, var.log()), target)
-    assert torch.allclose(loss_logvar, native(mean, target, var), atol=1e-6, rtol=1e-6)
 
 
 def test_functional_gaussian_nll_matches_torch_full_gaussian_nll_loss() -> None:

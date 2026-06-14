@@ -20,7 +20,6 @@ import torch.nn as nn
 
 from ..utils.reduction import REDUCERS
 from ..utils.validation import validate_reduction, validate_weights
-from ._legacy_args import resolve_legacy_log_variance_kwarg
 
 
 def _broadcast_weights(weights: torch.Tensor, target_dim: int) -> torch.Tensor:
@@ -451,59 +450,6 @@ class WeightedNLLLoss(BaseLoss):
         return self._reduce(loss, mask, weights)
 
 
-class WeightedGaussianNLLLoss(BaseLoss):
-    """
-    Weighted wrapper for torch.nn.GaussianNLLLoss with mask support.
-
-    Accepts (mean, var) or (mean, log_var) predictions. When log_variance=True,
-    the second element is treated as log-variance and exponentiated.
-    """
-
-    def __init__(self, reduction: str = "mean", log_variance: bool = True, **kwargs: Any) -> None:
-        super().__init__(reduction="none")
-        kwargs["reduction"] = "none"
-        self.torch_loss = nn.GaussianNLLLoss(**kwargs)
-        self.reduction = validate_reduction(reduction)
-        self.log_variance = log_variance
-
-    def forward(
-        self,
-        y_pred: Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]],
-        target: torch.Tensor,
-        log_variance: Optional[bool] = None,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-        **kwargs: Any,
-    ) -> torch.Tensor:
-        mask, weights, log_variance = resolve_legacy_log_variance_kwarg(log_variance, mask, weights)
-
-        if isinstance(y_pred, (tuple, list)):
-            if len(y_pred) != 2:
-                raise ValueError(
-                    "y_pred must be a tuple of (mean, var) or (mean, log_var) for "
-                    "WeightedGaussianNLLLoss"
-                )
-            mean, var_or_log = y_pred
-        else:
-            mean = y_pred
-            if "var" not in kwargs:
-                raise ValueError(
-                    "WeightedGaussianNLLLoss requires (mean, var) or (mean, log_var) inputs"
-                )
-            var_or_log = kwargs["var"]
-
-        variance_is_log = self.log_variance if log_variance is None else log_variance
-        var = torch.exp(var_or_log) if variance_is_log else var_or_log
-
-        self._validate_inputs(mean, target, mask)
-
-        if weights is not None:
-            weights = validate_weights(weights, target.shape[0])
-
-        loss = self.torch_loss(mean, target, var)
-        return self._reduce(loss, mask, weights)
-
-
 class WeightedMSELoss(WeightedLossWrapper):
     """Masked/weighted wrapper around ``torch.nn.MSELoss``."""
 
@@ -523,11 +469,3 @@ class WeightedHuberLoss(WeightedLossWrapper):
 
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(nn.HuberLoss, reduction=reduction, **kwargs)
-
-
-# Compatibility aliases used throughout the docs/examples. The weighted variants
-# are the canonical wrappers because they preserve torchregress mask/weight support.
-WeightedMAELoss = WeightedL1Loss
-MSELoss = WeightedMSELoss
-L1Loss = WeightedL1Loss
-HuberLoss = WeightedHuberLoss

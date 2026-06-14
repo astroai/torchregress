@@ -30,7 +30,7 @@ import torchregress as tr
 # - OOD / selective prediction
 #
 # Then choose a method family and validate with metrics/examples.
-loss = tr.losses.HuberLoss()
+loss = tr.losses.WeightedHuberLoss()
 ```
 
 ## Task Matrix (Recommended Starting Points)
@@ -42,8 +42,10 @@ _Generated date_: `2026-04-16`
 
 | Task / Constraint | Recommended Start | Strong Alternatives | Notes |
 |---|---|---|---|
-| Clean regression baseline | `WeightedMSELoss` | `HuberLoss` | Start simple; add UQ only if needed. |
-| Outliers / robust regression | `HuberLoss` | `CauchyLoss`, `TukeyBiweightLoss`, `CharbonnierLoss` | Huber is the best default tradeoff. |
+| Clean regression baseline | `WeightedMSELoss` | `WeightedHuberLoss` | Start simple; add UQ only if needed. |
+| Outliers / robust regression | `WeightedHuberLoss` | `CauchyLoss`, `TukeyBiweightLoss`, `CharbonnierLoss` | Huber is the best default tradeoff. |
+| Worst-case / tail-focused robust regression | `CVaRLoss` | `WeightedHuberLoss`, `CauchyLoss`, `TukeyBiweightLoss` | CVaR optimises the average of the worst α fraction of per-sample losses, directly shrinking the upper tail of the error distribution.  Start with CVaR(base_loss='mse', alpha=0.1) and tune alpha for the desired tail-robustness tradeoff.  For multi-output targets, CVaR selects the worst samples (not per-element errors), preserving sample-wise semantics. |
+| Unknown noise regime / learnable loss shape | `AdaptiveRobustLoss` | `BarronLoss`, `CVaRLoss`, `WeightedHuberLoss` | AdaptiveRobustLoss jointly optimises the Barron shape parameter α and scale alongside the model weights so the penalty function adapts to the observed noise.  Add ``loss_fn.parameters()`` to the optimizer.  Useful as a diagnostic (what α does the data prefer?) or when the noise regime is genuinely unknown a priori.  For a fixed α sweep instead, use BarronLoss. |
 | Heteroscedastic noise (aleatoric UQ) | `GaussianCRPSLoss` | `GaussianNLLLoss`, `HeteroscedasticEnsembleModel`, `MDNLoss` | Astronomical benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline. |
 | Epistemic uncertainty | `DeepEnsemble` | `HeteroscedasticBatchEnsembleModel`, `BinnedPDFEnsembleModel`, `MDNEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
 | Low-shot / streaming linear head on fixed features | `BayesianLinearHead` | `RecursiveBayesianHead`, `WeightedMSELoss (ridge MAP, matched L2)` | Conjugate exact BLR for last-layer adaptation; synthetic RMSE/NLL and drift sweeps live under examples/benchmarks/. Prefer ensembles/SWAG/BNN when epistemic UQ must track representation-level ambiguity. |
@@ -51,8 +53,8 @@ _Generated date_: `2026-04-16`
 | Multimodal targets | `MDNLoss` | `MDNEnsembleModel`, `BinnedPDFEnsembleModel`, `NormalizingFlowLoss` | MDN is usually easier to debug first; ensembles of MDN or ordered-bin heads are the next move when mode averaging matters. |
 | Non-Gaussian / skewed tails | `QuantileLoss` / `ExpectileLoss` / `TweedieLoss` | `MDNLoss`, `NormalizingFlowLoss` | Choose by target support and evaluation metric. |
 | Multi-target correlated outputs | `MultivariateGaussianLoss` / `LowRankGaussianLoss` | `MDNLoss`, `NormalizingFlowLoss` | Prefer low-rank/full covariance when Gaussian is enough. |
-| Noisy features / measurement error | `InputNoiseMarginalizationLoss + GaussianCRPSLoss` / `MDNLoss` / `BinnedPDF` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. |
-| Noisy labels / label corruption | `HuberLoss` | `DeepEnsemble`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
+| Noisy features / measurement error | `InputNoiseMarginalizationLoss + GaussianCRPSLoss` / `MDNLoss` / `InputNoiseBinnedPDFLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. |
+| Noisy labels / label corruption | `WeightedHuberLoss` | `DeepEnsemble`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
 | Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal` | Astronomical benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. |
 | Selection bias / covariate-dependent missing labels | `PropensityWeightedLoss` | `DensityWeightedLoss` | Estimate p(observed|x) and apply IPW to reduce selection bias. |
 | Output constraints / monotonicity | `BoundedHead` / `NonNegativeHead` / `NonCrossingSort` | `SimplexHead`, `SpectralNormWrapper` | Apply structural constraints in the head before post-hoc calibration. |
@@ -102,7 +104,7 @@ _Generated date_: `2026-04-16`
 | `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` (7) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` (1) | yes | no | yes | no | no | no | yes | partial | no | no |
-| `robust_loss` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
+| `robust_loss` (9) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` (4) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` (6) | yes | no | partial | partial | partial | partial | partial | partial | no | no |
@@ -202,7 +204,15 @@ _Generated date_: `2026-04-16`
 | `MultivariateGaussianLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
 | `NeighborhoodCovariancePseudoLabeler` | `probabilistic_loss` | `Available` | yes | no | no | partial | no | partial | partial |
 | `QuantileLoss` | `quantile` | `Core` | yes | no | no | no | no | yes | partial |
-| `HuberLoss` | `robust_loss` | `Core` | yes | no | no | no | no | partial | partial |
+| `AdaptiveRobustLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `BarronLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `CVaRLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `CauchyLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `CharbonnierLoss` | `robust_loss` | `Strong` | yes | no | no | no | no | partial | partial |
+| `LogCoshLoss` | `robust_loss` | `Strong` | yes | no | no | no | no | partial | partial |
+| `PseudoHuberLoss` | `robust_loss` | `Strong` | yes | no | no | no | no | partial | partial |
+| `TukeyBiweightLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `WeightedHuberLoss` | `robust_loss` | `Core` | yes | no | no | no | no | partial | partial |
 | `MultiSWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `SWAG` | `swag` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `BoxCoxTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
@@ -245,7 +255,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` | 7 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` | 1 | yes | no | yes | no | no | no | yes | partial | no | no |
-| `robust_loss` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
+| `robust_loss` | 9 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` | 4 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `test_time` | 6 | yes | no | partial | partial | partial | partial | partial | partial | no | no |
@@ -336,7 +346,7 @@ _Generated date_: `2026-04-16`
    Caveat: Move to flows when MDN component count/training stability is the bottleneck.
 
 4. Have noisy features / measurement error?
-   Use `InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / BinnedPDF`.
+   Use `InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss`.
    Alternatives: `FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss`.
    Caveat: Use the simpler explicit input-noise path first, including test-time predictive averaging; Jacobian-style EIV losses are more fragile and need careful benchmarking.
 

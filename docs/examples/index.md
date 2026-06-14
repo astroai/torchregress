@@ -48,6 +48,10 @@ Use the comparison examples first when making implementation decisions:
 - `examples/uncertain_gt_density_conformal_realdata_comparison.py`: real-data uncertain-label + conformal comparison on Diabetes
 - `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics
 - `examples/causal_dr_realdata_comparison.py`: real-covariate DR ATE/CATE comparison with overlap diagnostics
+- `examples/external_comparison_conformal_vs_mapie.py`: conformal intervals (split + CQR) vs MAPIE; JSON → `reports/external_comparison_conformal_vs_mapie_latest.json`
+- `examples/external_comparison_bayesian_linear_vs_botorch.py`: low-shot Bayesian linear head vs BoTorch `SingleTaskGP`; JSON → `reports/external_comparison_bayesian_linear_vs_botorch_latest.json`
+- `examples/external_comparison_tweedie_vs_sklego.py`: Tweedie / compound-Poisson regression vs scikit-lego `GLMRegressor`; JSON → `reports/external_comparison_tweedie_vs_sklego_latest.json`
+- [External comparison guide](external-comparison-vs-mapie-botorch-sklego.md): consolidated page for the three external benchmarks.
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 - `examples/contrastive_flow_parameter_estimation.py`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
 
@@ -76,7 +80,7 @@ import torchregress as tr
 # Example of basic torchregress usage
 X_train, y_train = load_data()
 model = MyRegressionModel()
-loss_fn = tr.losses.HuberLoss()
+loss_fn = tr.losses.WeightedHuberLoss()
 
 # Train model
 # ...
@@ -100,9 +104,9 @@ import torchregress as tr
 
 # Dictionary of loss functions to compare
 losses = {
-    "MSE": tr.losses.MSELoss(),
-    "MAE": tr.losses.L1Loss(),
-    "Huber": tr.losses.HuberLoss(),
+    "MSE": tr.losses.WeightedMSELoss(),
+    "MAE": tr.losses.WeightedL1Loss(),
+    "Huber": tr.losses.WeightedHuberLoss(),
     "Barron": tr.losses.BarronLoss(alpha=1.0, scale=1.0),
     "LogCosh": tr.losses.LogCoshLoss(),
 }
@@ -128,7 +132,7 @@ Three challenging scenarios:
 # Compare robust losses on outlier data
 losses = {
     "MSE": WeightedMSELoss(),      # Sensitive to outliers
-    "Huber": HuberLoss(delta=1.0),  # Balanced
+    "Huber": WeightedHuberLoss(delta=1.0),  # Balanced
     "Barron": BarronLoss(alpha=1.0, scale=1.0),  # Smooth adaptive family
     "Cauchy": CauchyLoss(scale=0.5) # Very robust
 }

@@ -64,7 +64,7 @@ Even the best probabilistic models can be "wrong" about their own uncertainty. *
 |:--------|:------------------|:---------------------------|
 | **Aleatoric** | Input-dependent noise | `GaussianNLLLoss` |
 | **Epistemic** | Model ignorance / OOD | `DeepEnsemble`, `SWAG` |
-| **Robustness** | Outliers / Heavy tails | `HuberLoss`, `CauchyLoss` |
+| **Robustness** | Outliers / Heavy tails | `WeightedHuberLoss`, `CauchyLoss` |
 | **Calibration** | Trustworthiness of intervals | `PITCalibrator`, `ConformalPrediction` |
 
 ---

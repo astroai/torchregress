@@ -22,7 +22,7 @@
     },
     {
       "area": "gaussian_nll_diagonal",
-      "surface": ["WeightedGaussianNLLLoss", "gaussian_nll"],
+      "surface": ["GaussianNLLLoss", "gaussian_nll"],
       "native_candidate": ["torch.nn.GaussianNLLLoss"],
       "decision": "Hybrid",
       "rationale": "Native Gaussian NLL kernel is strong; wrappers provide ergonomic mask/weight support and log-variance handling.",

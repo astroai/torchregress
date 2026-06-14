@@ -1,0 +1,44 @@
+# Codecov configuration for torchregress
+# Docs: https://docs.codecov.com/docs/codecov-yaml
+
+codecov:
+  require_ci_to_pass: true
+  notify:
+    after_n_builds: 1
+  status:
+    project:
+      default:
+        target: 70%
+        threshold: 1%
+        if_ci_failed: error
+        only_pulls: false
+    patch:
+      default:
+        target: 50%
+        threshold: 5%
+        if_ci_failed: error
+
+coverage:
+  precision: 2
+  round: down
+  range: "60...90"
+  status:
+    project: false
+    patch: false
+  # Paths are matched against the repository root.
+  ignore:
+    - "examples/**"
+    - "tools/**"
+    - "docs/**"
+    - "scripts/**"
+    - "tests/**"
+    - "**/__init__.py"
+    - "**/conftest.py"
+
+# Highlight the PR diff and project status in the Codecov bot comment.
+comment:
+  layout: "header, diff, flags, components, footer"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true

@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.losses import CauchyLoss, HuberLoss, MSELoss, TukeyBiweightLoss
+from torchregress.losses import CauchyLoss, TukeyBiweightLoss, WeightedHuberLoss, WeightedMSELoss
 from torchregress.metrics import mse
 
 
@@ -67,8 +67,8 @@ def train(loss_fn, x, y_noisy, n_epochs=80):
 
 x, y_noisy, y_clean, noisy_indices = make_noisy_regression()
 losses = {
-    "MSE": MSELoss(),
-    "Huber": HuberLoss(delta=1.0),
+    "MSE": WeightedMSELoss(),
+    "Huber": WeightedHuberLoss(delta=1.0),
     "Cauchy": CauchyLoss(scale=1.0),
     "Tukey": TukeyBiweightLoss(c=4.685),
 }

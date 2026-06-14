@@ -5,7 +5,7 @@ Examples demonstrating the PyTorch-native API usage patterns for torchregress.
 import torch
 import torch.nn as nn
 
-from torchregress.losses import GaussianNLLLoss, WeightedLossWrapper
+from torchregress.losses import GaussianNLLLoss, WeightedHuberLoss
 
 
 # Example 1: Standard regression model with MSE loss
@@ -76,7 +76,7 @@ def example_robust_regression():
     )
 
     # Use Huber loss for robustness
-    loss_fn = WeightedLossWrapper(nn.HuberLoss)
+    loss_fn = WeightedHuberLoss()
 
     # Example usage
     x = torch.randn(32, 10)  # 32 samples, 10 features

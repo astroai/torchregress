@@ -11,7 +11,7 @@ graph TD
     A["BaseLoss (nn.Module)"] --> B["RegressionLoss"]
     A --> C["DistributionLoss"]
     D["WeightedLossWrapper"] --> A
-    B --> E["HuberLoss, MSELoss, L1Loss"]
+    B --> E["WeightedHuberLoss, WeightedMSELoss, WeightedL1Loss"]
     C --> F["GaussianNLLLoss, MDNLoss, ..."]
 ```
 
@@ -44,9 +44,9 @@ class CustomLoss(BaseLoss):
 For losses that operate on **point predictions** $\hat{y}$:
 
 ```python
-from torchregress.losses import MSELoss, L1Loss, HuberLoss
+from torchregress.losses import WeightedMSELoss, WeightedL1Loss, WeightedHuberLoss
 
-loss_fn = MSELoss()
+loss_fn = WeightedMSELoss()
 loss = loss_fn(y_pred, y_true, mask=valid_mask, weights=sample_weights)
 ```
 
@@ -103,9 +103,9 @@ loss = wrapped(y_pred, y_true, mask=mask, weights=weights)
 | torchregress | Wraps |
 |:-------------|:------|
 | `WeightedMSELoss` | `nn.MSELoss` |
-| `WeightedL1Loss` / `WeightedMAELoss` | `nn.L1Loss` |
+| `WeightedL1Loss` | `nn.L1Loss` |
 | `WeightedHuberLoss` | `nn.HuberLoss` |
-| `WeightedGaussianNLLLoss` | `nn.GaussianNLLLoss` |
+| `GaussianNLLLoss` | `nn.GaussianNLLLoss` |
 | `WeightedCrossEntropyLoss` | `nn.CrossEntropyLoss` |
 | `WeightedNLLLoss` | `nn.NLLLoss` |
 

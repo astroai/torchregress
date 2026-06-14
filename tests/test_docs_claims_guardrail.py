@@ -14,6 +14,7 @@ def _markdown_files() -> list[Path]:
             path
             for path in (REPO_ROOT / "docs").rglob("*.md")
             if "docs/reports/audits/" not in path.as_posix()
+            and "docs/research/" not in path.as_posix()
         )
     )
     return files

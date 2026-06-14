@@ -23,7 +23,9 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from torchregress.losses import (
     LogCoshLoss,
     QuantileLoss,
-    WeightedLossWrapper,
+    WeightedHuberLoss,
+    WeightedL1Loss,
+    WeightedMSELoss,
 )
 from torchregress.metrics.point import mae, mse, rmse
 
@@ -328,9 +330,9 @@ def main():
 
     # Define different loss functions to compare
     loss_functions = {
-        "MSE": WeightedLossWrapper(nn.MSELoss, reduction="mean"),
-        "MAE": WeightedLossWrapper(nn.L1Loss, reduction="mean"),
-        "Huber": WeightedLossWrapper(nn.HuberLoss, reduction="mean"),
+        "MSE": WeightedMSELoss(reduction="mean"),
+        "MAE": WeightedL1Loss(reduction="mean"),
+        "Huber": WeightedHuberLoss(reduction="mean"),
         "LogCosh": LogCoshLoss(reduction="mean"),  # Missing reduction parameter
         "Quantile_50": QuantileLoss(quantile=0.5, reduction="mean"),  # Missing reduction parameter
     }

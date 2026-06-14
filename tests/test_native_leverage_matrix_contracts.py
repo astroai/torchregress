@@ -80,7 +80,6 @@ def test_native_strategy_guardrails_have_backing_tests_for_key_wraps() -> None:
         "test_weighted_nll_wrapper_matches_native_with_class_weights_and_ignore_index"
         in native_parity
     )
-    assert "WeightedGaussianNLLLoss" in native_parity
     assert "gaussian_nll" in native_parity
     assert "mean_squared_error" in native_parity
     assert "mean_absolute_error" in native_parity

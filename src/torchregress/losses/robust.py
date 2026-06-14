@@ -21,8 +21,6 @@ from ..utils.validation import validate_positive, validate_range, validate_weigh
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
-# Remove HuberLoss as it's redundant with WeightedHuberLoss in base
-
 _BARRON_ALPHA_EPS = 1e-6
 _BARRON_SCALE_EPS = 1e-8
 
@@ -636,7 +634,20 @@ class CVaRLoss(RegressionLoss):
         if self.reduction == "none":
             return per_sample
 
-        k = max(1, int(math.ceil(self.alpha * per_sample.numel())))
+        # CVaR selects the worst α fraction of *samples*; per_sample must
+        # already be 1‑D (one scalar loss per batch element).  Use the
+        # explicit batch dimension rather than .numel() so that a future
+        # refactoring that accidentally preserves multi-dimensional shape
+        # is caught by the guard below instead of silently producing
+        # wrong top‑k indices.
+        if per_sample.dim() != 1:
+            raise RuntimeError(
+                "Internal error: CVaRLoss per-sample loss tensor has shape "
+                f"{tuple(per_sample.shape)}; expected 1‑D [batch_size]. "
+                "This indicates a bug in the per-sample aggregation above."
+            )
+        batch_size = per_sample.shape[0]
+        k = max(1, int(math.ceil(self.alpha * batch_size)))
         topk = torch.topk(per_sample, k=k, largest=True).values
         if self.reduction == "sum":
             return torch.sum(topk)

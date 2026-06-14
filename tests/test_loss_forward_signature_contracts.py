@@ -5,8 +5,6 @@ from __future__ import annotations
 import inspect
 from inspect import Parameter
 
-import torch
-
 import torchregress.losses as losses
 from torchregress.losses.base import BaseLoss
 
@@ -106,36 +104,6 @@ def test_no_unexpected_optional_parameters_after_weights() -> None:
             f"{export_name}.forward has optional params after weights: {sorted(trailing_names)}; "
             "prefer extra params before mask/weights unless compatibility requires otherwise"
         )
-
-
-def test_weighted_gaussian_nll_loss_legacy_positional_mask_weights_remain_supported() -> None:
-    loss = losses.WeightedGaussianNLLLoss(log_variance=False)
-    mean = torch.randn(8, 2)
-    var = torch.rand(8, 2) + 0.1
-    target = torch.randn(8, 2)
-    mask = torch.tensor(
-        [[1, 1], [1, 1], [0, 0], [1, 1], [1, 1], [0, 0], [1, 1], [1, 1]], dtype=torch.bool
-    )
-    weights = torch.rand(8, 2) + 0.5
-
-    legacy = loss((mean, var), target, mask, weights)
-    canonical = loss((mean, var), target, None, mask, weights)
-    assert torch.allclose(legacy, canonical)
-
-
-def test_gaussian_nll_loss_legacy_positional_mask_weights_remain_supported() -> None:
-    loss = losses.GaussianNLLLoss()
-    mean = torch.randn(8, 2)
-    log_var = torch.randn(8, 2)
-    target = torch.randn(8, 2)
-    mask = torch.tensor(
-        [[1, 1], [1, 1], [0, 0], [1, 1], [1, 1], [0, 0], [1, 1], [1, 1]], dtype=torch.bool
-    )
-    weights = torch.rand(8, 2) + 0.5
-
-    legacy = loss((mean, log_var), target, mask, weights)
-    canonical = loss((mean, log_var), target, None, mask, weights)
-    assert torch.allclose(legacy, canonical)
 
 
 def test_optional_flow_loss_exports_include_contrastive_symbols_when_available() -> None:

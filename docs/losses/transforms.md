@@ -110,7 +110,7 @@ See [Transformed-Target Regression Comparison](../examples/transformed_target_re
     `LogTransformLoss`, `BoxCoxTransformLoss`, and `SqrtTransformLoss` require positive-support predictions and targets. Use a positive output head such as `Softplus` when training directly in the original target space.
 
 !!! info
-    Transform losses change the optimization geometry, not the model family. You still need calibration, OOD checks, and hard-problem evaluation just as you would for plain `MSELoss`.
+    Transform losses change the optimization geometry, not the model family. You still need calibration, OOD checks, and hard-problem evaluation just as you would for plain `WeightedMSELoss`.
 
 ## References
 

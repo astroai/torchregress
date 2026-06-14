@@ -25,8 +25,8 @@ from torchregress.comparison import (
 from torchregress.losses import (
     CauchyLoss,
     GaussianNLLLoss,
-    HuberLoss,
-    WeightedLossWrapper,
+    WeightedHuberLoss,
+    WeightedMSELoss,
 )
 from torchregress.metrics import (
     ensemble_mean,
@@ -333,7 +333,7 @@ def scenario_1_clean_data():
     set_seed(42)
     model_mse = create_mlp()
     model_mse, train_s = timed_call(
-        train_model, model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100
+        train_model, model_mse, dataloader, WeightedMSELoss(), epochs=100
     )
     (pred_mse, _), eval_s = timed_call(
         evaluate_point_predictions, model_mse, x_test_t, y_test_t, "MSE"
@@ -385,7 +385,7 @@ def scenario_1_clean_data():
         5,
         dataloader,
         create_mlp,
-        WeightedLossWrapper(nn.MSELoss),
+        WeightedMSELoss(),
         epochs=100,
     )
     (pred_mean, pred_std), eval_s = timed_call(
@@ -460,7 +460,7 @@ def scenario_2_outliers():
     set_seed(42)
     model_mse = create_mlp()
     model_mse, train_s = timed_call(
-        train_model, model_mse, dataloader, WeightedLossWrapper(nn.MSELoss), epochs=100
+        train_model, model_mse, dataloader, WeightedMSELoss(), epochs=100
     )
     (pred_mse, _), eval_s = timed_call(
         evaluate_point_predictions, model_mse, x_test_t, y_test_t, "MSE"
@@ -481,7 +481,7 @@ def scenario_2_outliers():
     set_seed(42)
     model_huber = create_mlp()
     model_huber, train_s = timed_call(
-        train_model, model_huber, dataloader, HuberLoss(delta=1.0), epochs=100
+        train_model, model_huber, dataloader, WeightedHuberLoss(delta=1.0), epochs=100
     )
     (pred_huber, _), eval_s = timed_call(
         evaluate_point_predictions, model_huber, x_test_t, y_test_t, "Huber"

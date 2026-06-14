@@ -19,7 +19,7 @@ $$\boxed{\;\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2}\log(2\pi\sig
 
 | Loss | Covariance Type | Outputs | API Reference | Best For |
 |:-----|:----------------|:--------|:--------------|:---------|
-| **`MSELoss`** | Fixed ($\sigma^2=1$) | $\mu$ | [`WeightedMSELoss`](../api/losses.md#torchregress.losses.base.WeightedMSELoss) | Homoscedastic, clean data |
+| **`WeightedMSELoss`** | Fixed ($\sigma^2=1$) | $\mu$ | [`WeightedMSELoss`](../api/losses.md#torchregress.losses.base.WeightedMSELoss) | Homoscedastic, clean data |
 | **`GaussianNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`GaussianNLLLoss`](../api/losses.md#torchregress.losses.gaussian.GaussianNLLLoss) | Heteroscedastic, independent targets |
 | **`BetaNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`BetaNLLLoss`](../api/losses.md#torchregress.losses.beta_nll.BetaNLLLoss) | Same head as NLL; detached variance rescaling (β-NLL) |
 | **`FaithfulGaussianLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`FaithfulGaussianLoss`](../api/losses.md#torchregress.losses.faithful_gaussian.FaithfulGaussianLoss) | MSE on $\mu$ + NLL on variance with **detach($\mu$)** in residual |

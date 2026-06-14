@@ -14,10 +14,10 @@ When target labels contain measurement noise, annotation errors, or systematic c
 The simplest defence — replace MSE with a loss that bounds the influence of large errors:
 
 ```python
-from torchregress.losses import HuberLoss, TukeyBiweightLoss, CauchyLoss
+from torchregress.losses import WeightedHuberLoss, TukeyBiweightLoss, CauchyLoss
 
 # Huber: linear penalty beyond δ
-loss_fn = HuberLoss(delta=1.0)
+loss_fn = WeightedHuberLoss(delta=1.0)
 
 # Tukey: completely ignores errors beyond c
 loss_fn = TukeyBiweightLoss(c=4.685)
@@ -91,7 +91,7 @@ graph LR
     A["Noisy labels?"] --> B{"Noise magnitude known?"}
     B -->|Yes| C["NoisyTargetGaussianNLL"]
     B -->|No| D{"How severe?"}
-    D -->|Mild| E["HuberLoss / LogCoshLoss"]
+    D -->|Mild| E["WeightedHuberLoss / LogCoshLoss"]
     D -->|Moderate| F["CVaRLoss + Huber"]
     D -->|Severe| G["TukeyBiweightLoss"]
     D -->|Unknown| H["Ensemble + discard high-uncertainty"]

@@ -12,7 +12,7 @@ import argparse
 import torch
 import torch.nn as nn
 
-from torchregress.losses import BalancedMSELoss, BMCLoss, MSELoss
+from torchregress.losses import BalancedMSELoss, BMCLoss, WeightedMSELoss
 
 
 def make_skewed_targets(n: int, seed: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -60,7 +60,7 @@ def main() -> None:
 
     bmc = BMCLoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y)
     bal = BalancedMSELoss(bin_edges=edges, count_smoothing=0.5).fit(y)
-    mse = MSELoss()
+    mse = WeightedMSELoss()
 
     rmse_mse = train_linear(x, y, mse, steps=args.steps, lr=args.lr)
     rmse_bal = train_linear(x, y, bal, steps=args.steps, lr=args.lr)

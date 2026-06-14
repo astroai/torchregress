@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-uv sync --extra test --extra flows --extra dev
+uv sync --extra test --extra flows --extra dev --extra docs
 
 echo "== ruff (src/torchregress, tests, tools) =="
 uv run ruff check src/torchregress tests tools
@@ -15,6 +15,12 @@ uv run ruff format --check src/torchregress tests tools
 
 echo "== pytest + coverage (CI test job) =="
 uv run python -m pytest --cov=torchregress --cov-report=xml --cov-report=term
+
+echo "== mypy (CI lint-test job) =="
+uv run mypy src/torchregress
+
+echo "== mkdocs build --strict (CI lint-test job) =="
+uv run mkdocs build --strict
 
 echo "== benchmark smoke thresholds (CI benchmark job) =="
 export OMP_NUM_THREADS=1
