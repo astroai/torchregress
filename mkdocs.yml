@@ -124,7 +124,7 @@ nav:
           - Method Catalog: reports/method_catalog_generated.md
           - Real-Data Guide: reports/real_data_recommendation_guide.md
       - Research & Roadmaps:
-          - Redshift SSL Roadmap: research/redshift_sota_ssl_ranked_report.md
+          - torchz SSL Roadmap: research/torchz_sota_ssl_ranked_report.md
           - Library SSL Roadmap: research/torchregress_sota_ssl_ranked_report.md
 
 

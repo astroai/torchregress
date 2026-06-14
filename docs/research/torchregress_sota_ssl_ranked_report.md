@@ -51,7 +51,7 @@ Every model should output a distribution, not just a point. First-class heads:
 | `LaplaceHead` | Robust median-like regression. |
 | `MixtureDensityHead` | Multimodal conditional targets. |
 | `QuantileHead` | Quantile regression and conformal intervals. |
-| `OrdinalCDFHead` | Ordered target bins; useful for redshift-like targets. |
+| `OrdinalCDFHead` | Ordered target bins; useful for torchz-like targets. |
 | `SplineCDFHead` | Flexible continuous distribution with calibrated CDF. |
 | `FlowHead` | High-capacity conditional density. |
 | `DirichletCategoricalHead` | Discrete probabilistic classification/binning. |

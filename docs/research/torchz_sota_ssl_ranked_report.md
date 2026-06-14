@@ -1,7 +1,7 @@
-# SOTA semi-supervised learning methods with high potential for photometric-redshift inference
+# SOTA semi-supervised learning methods with high potential for the torchz library (photometric-redshift inference)
 
 **Date:** 2026-06-13
-**Context:** billion-scale galaxy catalogues/images, tens-of-thousands of spectroscopic redshifts, strong label imbalance, label shift, covariate shift, noisy redshift labels, and a goal of beating SED fitting across diverse source populations.
+**Context:** billion-scale galaxy catalogues/images, tens-of-thousands of spectroscopic redshifts, strong label imbalance, label shift, covariate shift, noisy redshift labels, and a goal of beating SED fitting across diverse source populations. Primarily targeted at downstream tasks in the `torchz` library.
 
 ## 0. Executive takeaways
 

@@ -150,7 +150,7 @@ docs/research/sage_reg_results/**/openml_year.csv
 
 # Local backups and ad-hoc artifacts
 reports_backup/
-photoz_metrics.json
+torchz_metrics.json
 .mplconfig/
 
 # UV cache / lock
