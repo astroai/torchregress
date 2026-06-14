@@ -113,6 +113,7 @@ nav:
       - Method Selection: guide/method-selection.md
       - Uncertainty Decomposition: guide/uncertainty-decomposition.md
       - Choosing by Constraint: guide/choosing-by-constraint.md
+      - Multi-Target Regression: guide/multi-target-regression.md
       - Mathematical Foundations: guide/math/index.md
       - Best Practices: guide/best-practices.md
       - Debugging: guide/debugging.md
@@ -122,6 +123,10 @@ nav:
           - Comparative Evidence: reports/comparative_evidence_matrix.md
           - Method Catalog: reports/method_catalog_generated.md
           - Real-Data Guide: reports/real_data_recommendation_guide.md
+      - Research & Roadmaps:
+          - Redshift SSL Roadmap: research/redshift_sota_ssl_ranked_report.md
+          - Library SSL Roadmap: research/torchregress_sota_ssl_ranked_report.md
+
 
   # ── Tab 4: Losses ───────────────────────────────────────
   - Losses:

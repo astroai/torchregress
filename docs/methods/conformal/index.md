@@ -89,10 +89,43 @@ $$\hat{C}(x) = \{ y : s(x, y) \leq \hat{q} \}$$
 
 ### Marginal vs. Conditional Coverage
 
-Standard CP guarantees **marginal coverage**: $P(\text{coverage}) \geq 1-\alpha$ on average over all possible test points. To achieve **conditional coverage** (coverage for specific regions of feature space), **torchregress** supports:
+Standard CP guarantees **marginal coverage** on average over all possible test points:
+$$P\bigl(Y_{n+1} \in \hat{C}(X_{n+1})\bigr) \geq 1 - \alpha$$
 
-1. **Mondrian Groups**: Calibrate separately for different categories.
-2. **Normalised Scores**: Scale $s_i$ by a difficulty estimate $\hat{\sigma}(x)$.
+To achieve **conditional coverage** (validity within local regions of the feature space, i.e., $P(Y \in \hat{C}(x) \mid X=x) \geq 1-\alpha$), **torchregress** supports:
+
+1. **Mondrian Conformal Prediction**: Calibrate independently for discrete subgroups or categories.
+2. **Normalized/Adaptive Scores**: Divide residuals by a difficulty estimate $\hat{\sigma}(x)$ (e.g., in `UACQR` or `MonteCarloConformal`), adapting interval width locally.
+3. **Locally Valid Conformal Prediction**: Apply kernel-weighted local density estimators in the embedding space (e.g., in `LocalConformal`).
+
+### The Exchangeability Assumption & OOD Limits
+
+The mathematical guarantees of conformal prediction rely fundamentally on **exchangeability**.
+
+!!! info "Mathematical Definition of Exchangeability"
+    A sequence of random variables $Z_1, \dots, Z_{N}$ (where $Z_i = (X_i, Y_i)$) is exchangeable if their joint probability distribution is invariant under any permutation $\sigma$ of the indices:
+    $$P(Z_1, Z_2, \dots, Z_N) = P(Z_{\sigma(1)}, Z_{\sigma(2)}, \dots, Z_{\sigma(N)})$$
+    This is a weaker assumption than the independent and identically distributed (i.i.d.) assumption, as it allows for certain forms of global correlation (e.g., drawing without replacement) but excludes temporal ordering or systematic drifts.
+
+#### Out-of-Distribution (OOD) Failures
+If test samples violate exchangeability (e.g., due to concept drift, temporal autocorrelation, or shifted covariates), the empirical quantiles calculated on $\mathcal{D}_{\text{cal}}$ will not reflect the test distribution. This leads to **under-coverage** (actual coverage drops below $1 - \alpha$).
+
+#### Mitigating Covariate Shift
+When the feature distribution shifts ($P_{\text{test}}(X) \neq P_{\text{cal}}(X)$) but the label distribution condition holds ($P_{\text{test}}(Y \mid X) = P_{\text{cal}}(Y \mid X)$), **torchregress** allows passing importance weights $w(x) = \frac{p_{\text{test}}(x)}{p_{\text{cal}}(x)}$.
+Instead of a uniform quantile, the threshold $\hat{q}$ is computed by solving the weighted quantile equation:
+$$\sum_{i=1}^n \tilde{p}_i \mathbb{I}(s_i \leq s) \geq 1 - \alpha$$
+where the normalized weights are:
+$$\tilde{p}_i = \frac{w(X_i)}{\sum_{j=1}^n w(X_j) + w(X_{n+1})}, \quad \tilde{p}_{n+1} = \frac{w(X_{n+1})}{\sum_{j=1}^n w(X_j) + w(X_{n+1})}$$
+
+### Coordinate-wise vs. Joint Multi-Target Conformal
+
+For multi-output regression ($\mathbf{Y} \in \mathbb{R}^D$), calibrating each coordinate independently at level $1-\alpha$ (coordinate-wise conformal prediction) does not guarantee joint coverage of the vector.
+
+* **Coordinate-wise Coverage**: Guarantees $P(Y_{d, n+1} \in \hat{C}_d(X_{n+1})) \geq 1 - \alpha$ for each dimension $d$ individually.
+* **Joint Coverage (Bonferroni Bound)**: To guarantee that the entire true vector $\mathbf{Y}_{n+1}$ falls inside the hyperrectangle $\prod_{d=1}^D \hat{C}_d(X_{n+1})$ with probability at least $1 - \alpha$, we must apply the Bonferroni correction, calibrating each individual dimension at level $1 - \alpha / D$:
+  $$P\bigl(\mathbf{Y}_{n+1} \in \prod_{d=1}^D \hat{C}_d(X_{n+1})\bigr) \geq 1 - \sum_{d=1}^D \frac{\alpha}{D} = 1 - \alpha$$
+* **Joint Conformal Regions (Mahalanobis / Ellipsoidal)**: Rather than coordinate-wise hyperrectangles (which grow excessively wide under Bonferroni correction for large $D$), joint approaches map vector errors into a single scalar non-conformity score (e.g., Mahalanobis distance $s_i^2 = (\mathbf{y}_i - \hat{\mathbf{y}}_i)^\top \mathbf{\Sigma}^{-1} (\mathbf{y}_i - \hat{\mathbf{y}}_i)$). This yields an ellipsoidal joint confidence region that is significantly tighter when dimensions are highly correlated. (Note: `MultiTargetConformal` in **torchregress** performs coordinate-wise calibration; if joint coverage is needed, adjust the input `alpha` using the Bonferroni correction $\alpha/D$).
+
 
 ---
 

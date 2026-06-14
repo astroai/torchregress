@@ -145,8 +145,9 @@ update_ema_teacher_(ema_teacher, student, momentum=0.95)
 !!! tip
     Use `PseudoLabelConsistencyLoss` when you want a point-regression loss that explicitly matches the pseudo-label + teacher-consistency workflow. It is not meant to stand in for every semi-supervised regression method.
 
-!!! warning
-    Pseudo labels are not free information. Keep a held-out clean evaluation split and track pseudo-label acceptance rate so self-confirming failure modes are visible.
+!!! warning "Confirmation Bias & Error Propagation"
+    Pseudo-labeling is prone to **confirmation bias** — when a model repeatedly fits its own incorrect but highly confident predictions, amplifying errors over epochs.
+    - **Mitigation**: Use an EMA teacher (via `update_ema_teacher_`) to smooth predictions, apply threshold gating on `pseudo_confidence` (e.g., via `generate_pseudo_labels`), and **never** include pseudo-labeled samples in the held-out validation or test splits. Always maintain a clean, fully-supervised evaluation set.
 
 ## References
 

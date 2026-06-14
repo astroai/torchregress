@@ -50,6 +50,8 @@ loss = loss_fn(y_pred, y_true)
 
 Joint Gaussian NLL couples gradients from the variance head into the mean through the residual $(y-\mu)^2/\sigma^2$. **FaithfulGaussianLoss** adds a direct MSE term on the mean and uses **stop-gradient** on $\mu$ inside the NLL residual so variance calibration does not distort point prediction.
 
+$$\mathcal{L}_{\text{Faithful}}(y, \mu, \sigma^2) = w_{\text{mean}} (y - \mu)^2 + w_{\text{var}} \left[ \frac{1}{2}\log(2\pi\sigma^2) + \frac{(y - \text{stop\_gradient}(\mu))^2}{2\sigma^2} \right]$$
+
 ```python
 from torchregress.losses import FaithfulGaussianLoss
 
@@ -67,6 +69,10 @@ When targets are correlated (e.g., predicting $x, y, z$ coordinates), use `Multi
 
 $$\mathcal{L}_{\text{MV}}(y, \mu, \Sigma) = \frac{1}{2} \left[ \log|\Sigma| + (y - \mu)^\top \Sigma^{-1} (y - \mu) + k\log(2\pi) \right]$$
 
+!!! warning "Limitations"
+    - **Computational Scaling**: Solvers and determinants for a $K \times K$ covariance matrix scale as $\mathcal{O}(K^3)$ with target dimension, which makes full covariance impractical for high-dimensional outputs ($K > 10$).
+    - **PSD Violations**: Cholesky factors must be regularized/clamped on the diagonal to prevent non-positive semi-definite covariance matrices during optimization.
+
 ```python
 from torchregress.losses import MultivariateGaussianLoss
 
@@ -74,6 +80,7 @@ from torchregress.losses import MultivariateGaussianLoss
 loss_fn = MultivariateGaussianLoss()
 loss = loss_fn(y_mu, y_true, covariance_matrix)
 ```
+
 
 ---
 

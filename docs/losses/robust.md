@@ -51,13 +51,16 @@ loss_fn = PseudoHuberLoss(delta=1.0)
 
 $$\mathcal{L}_{\text{Cauchy}}(r; c) = \log\left(1 + \left(\frac{r}{c}\right)^2\right)$$
 
-*Note: This loss is non-convex and may require pre-training with MSE.*
-
 **Tukey Biweight** ([`TukeyBiweightLoss`](../api/losses.md#torchregress.losses.robust.TukeyBiweightLoss)):
 
 The ultimate outlier rejection tool [2]. Samples with $|r| > c$ contribute **zero gradient** to the model.
 
 $$\mathcal{L}_{\text{Tukey}}(r; c) = \begin{cases} \frac{c^2}{6} \left[ 1 - (1 - (r/c)^2)^3 \right] & |r| \leq c \\ \frac{c^2}{6} & |r| > c \end{cases}$$
+
+!!! warning "Optimization Limitations of Redescending Losses"
+    - **Non-Convexity & Local Minima**: Cauchy and Tukey losses are highly non-convex. If initialized randomly, optimization can get stuck in poor local minima or fail to converge.
+    - **Zero Gradients (Tukey)**: Tukey biweight completely zeroes out the gradients of samples with residuals $|r| > c$. If $c$ is set too small initially, the model may stop learning.
+    - **Warm-Up Strategy**: **Always** pre-train (warm-up) your model for a few epochs using a convex loss function like `WeightedMSELoss` or `WeightedHuberLoss` before switching to Cauchy or Tukey losses.
 
 ---
 

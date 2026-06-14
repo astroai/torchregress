@@ -134,6 +134,24 @@ samples = loss_fn.sample(model(x_test), n_samples=1000)
 
 ---
 
+## Limitations & Optimization Challenges
+
+While MDNs are highly expressive, they present several training and optimization challenges:
+
+1. **Numerical Instability & Log-Sum-Exp**:
+   Computing the NLL directly via $p(y \mid x) = \sum_k \pi_k \mathcal{N}(y \mid \mu_k, \sigma_k^2)$ involves exponentials that can easily underflow or overflow. **torchregress** internally utilizes the `log-sum-exp` trick:
+   $$\log p(y \mid x) = \text{log-sum-exp}\left(\log \pi_k + \log \mathcal{N}(y \mid \mu_k, \sigma_k^2)\right)$$
+   Always use a non-zero `min_std` (e.g., $10^{-3}$) to prevent variance collapse ($\sigma_k^2 \rightarrow 0$), which causes division by zero.
+
+2. **Mode Collapse**:
+   The network may collapse into using only a single mixture component, effectively ignoring the others ($\pi_k \approx 0$ for $k > 1$). To monitor this, check active components during validation:
+   $$\text{active\_fraction} = \frac{1}{B} \sum_{i=1}^B \sum_{k=1}^K \mathbb{1}_{\pi_k^{(i)} > 0.05}$$
+
+3. **Initialization Sensitivity**:
+   If initialized poorly, components can "claim" the same regions of target space. Initialize the final output layer weight matrices with small random values to diversify components early in training.
+
+---
+
 ## Factory Function
 
 ```python

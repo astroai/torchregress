@@ -19,14 +19,39 @@ In deep learning, a single model's point prediction $\hat{y}$ is often **overcon
 
 ## Uncertainty Decomposition
 
-When ensemble members predict both a mean $\mu_m(x)$ and a variance $\sigma_m^2(x)$, the total predictive uncertainty can be decomposed into two components [1]:
+When ensemble members predict both a mean $\mu(x; \mathbf{w}_m)$ and a variance $\sigma^2(x; \mathbf{w}_m)$, the total predictive uncertainty can be decomposed into two distinct components using the **Law of Total Variance** [1].
 
-$$\boxed{\; \sigma_{\text{total}}^2(x) \;=\; \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2(x)}_{\text{Aleatoric (Data Noise)}} \;+\; \underbrace{\frac{1}{M}\sum_{m=1}^{M}\bigl(\mu_m(x) - \bar\mu(x)\bigr)^2}_{\text{Epistemic (Model Disagreement)}} \;}$$
+### Mathematical Derivation
 
-where $\bar\mu(x) = \frac{1}{M}\sum_m \mu_m(x)$ is the ensemble mean.
+Let $\mathbf{w}$ represent the model weights, distributed according to the posterior distribution $p(\mathbf{w} \mid \mathcal{D})$ given the training dataset $\mathcal{D}$. The total predictive variance of the target $Y$ for a new input $x$ is:
+$$\text{Var}(Y \mid x, \mathcal{D}) = \mathbb{E}_{\mathbf{w} \mid \mathcal{D}}\left[\text{Var}(Y \mid x, \mathbf{w})\right] + \text{Var}_{\mathbf{w} \mid \mathcal{D}}\left(\mathbb{E}[Y \mid x, \mathbf{w}]\right)$$
 
-- **Aleatoric**: Irreducible noise inherent in the data. Does **not** shrink with more data.
-- **Epistemic**: Model's lack of knowledge. **Shrinks** as you add more training data.
+Replacing the expectations with empirical averages over $M$ ensemble members (or posterior samples) $\mathbf{w}_1, \dots, \mathbf{w}_M$, we obtain:
+$$\boxed{\; \sigma_{\text{total}}^2(x) \;=\; \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma^2(x; \mathbf{w}_m)}_{\text{Aleatoric (Expected Data Noise)}} \;+\; \underbrace{\frac{1}{M}\sum_{m=1}^{M}\bigl(\mu(x; \mathbf{w}_m) - \bar\mu(x)\bigr)^2}_{\text{Epistemic (Model Disagreement)}} \;}$$
+
+where $\bar\mu(x) = \frac{1}{M}\sum_{m=1}^{M} \mu(x; \mathbf{w}_m)$ is the ensemble mean prediction.
+
+* **Aleatoric Uncertainty**: Represents irreducible data noise (e.g., measurement error, stochastic physics). Because it is a property of the data-generating process, it **does not** shrink as the training dataset size $N \to \infty$.
+* **Epistemic Uncertainty**: Represents model parameters/structure ignorance. It **shrinks** to zero in regions covered by training data as $N \to \infty$, but remains high in out-of-distribution (OOD) or data-sparse regions.
+
+### Bayesian Sampling & Variational Limitations
+
+While SWAG and BNNs offer a principled Bayesian approach to approximate $p(\mathbf{w} \mid \mathcal{D})$, they carry significant practical and theoretical limitations:
+
+#### 1. Stochastic Weight Averaging Gaussian (SWAG) Limits
+* **Local Mode Bias**: SWAG fits a Gaussian distribution $\mathcal{N}(\boldsymbol\theta_{\text{SWA}}, \mathbf{\Sigma}_{\text{SWAG}})$ over the SGD weight trajectory. Since neural network loss landscapes are highly non-convex with many symmetric basins, SWAG only models a single local mode. It cannot capture disjoint global modes (unlike `MultiSWAG`, which runs multiple independent SWAG chains).
+* **Trajectory Dependency**: The quality of the covariance matrix $\mathbf{\Sigma}_{\text{SWAG}}$ depends heavily on the SGD learning rate schedule during the collection phase. A learning rate that is too small fails to explore the local basin boundary, underestimating epistemic uncertainty.
+
+#### 2. Variational BNN (VI) Limits
+* **Mean-Field Approximation**: Standard variational inference assumes a fully factorized posterior (e.g., diagonal covariance where weight variables are independent). This ignores strong weight correlations, causing BNNs to systematically **underestimate** epistemic uncertainty and output overconfident predictions.
+* **Prior/KL Sensitivity**: Optimizing the Evidence Lower Bound (ELBO):
+  $$\mathcal{L}_{\text{ELBO}}(\theta) = \mathbb{E}_{q_\theta(\mathbf{w})}[\log p(\mathcal{D} \mid \mathbf{w})] - \beta \cdot \text{D}_{\text{KL}}(q_\theta(\mathbf{w}) \parallel p(\mathbf{w}))$$
+  is highly sensitive to the scaling factor $\beta$ and the choice of prior $p(\mathbf{w})$. Poor choices lead to the "cold posterior" effect or over-regularization, where the variational posterior collapses back to the prior.
+
+#### 3. Inference Latency (Curse of Monte Carlo)
+To obtain predictive mean and variance, both SWAG and BNNs must draw $S$ samples of weights $\mathbf{w}^{(s)}$ at test time, requiring $S$ sequential forward passes:
+$$\bar\mu(x) \approx \frac{1}{S}\sum_{s=1}^S f(x; \mathbf{w}^{(s)})$$
+This increases computational latency and memory consumption linearly with $S$ ($\mathcal{O}(S)$), which can be prohibitive for real-time applications. `BatchEnsemble` or deep ensembles with small size $M \approx 5$ are often preferred in production.
 
 ---
 

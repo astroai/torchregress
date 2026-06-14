@@ -169,6 +169,9 @@ loss_fn = CompoundPoissonLoss(p=1.5, link="log")
 !!! info "Insurance example"
     In insurance, most policies have zero claims (point mass at 0), but claims that do occur are continuous and right-skewed — exactly the compound Poisson-Gamma model.
 
+!!! warning "Numerical Limitations of Compound Poisson (1 < p < 2)"
+    Evaluating the Tweedie likelihood for $1 < p < 2$ involves an infinite series representation of the density function (Dunn & Smyth, 2005). Because of this, evaluations can be computationally slower than plain Poisson or Gamma losses. Additionally, if the power parameter $p$ is close to 1 or 2, gradient computation can become numerically unstable. Ensure you set a stable `min_std` / jitter and monitor gradients.
+
 ---
 
 ## Decision Guide

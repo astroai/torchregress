@@ -161,6 +161,9 @@ lower, upper = cti.predict_intervals_from_density(
 !!! tip "When to use"
     When you have a **density model** (normalizing flow, MDN, KDE) and want the **tightest possible intervals**.  Especially powerful for **multimodal** target distributions.
 
+!!! warning "Computational Cost & Dimensionality Limit"
+    Because `CTI` and `R2CConformal` rely on evaluating density or probabilities over a discretized grid of the target space, they are computationally limited to **low-dimensional** (typically 1D or 2D) targets. For high-dimensional regression, the grid resolution required scales exponentially ($\mathcal{O}(\text{grid\_size}^D)$), making level-set search computationally intractable.
+
 ---
 
 ## R2CConformal

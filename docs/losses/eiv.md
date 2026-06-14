@@ -46,6 +46,16 @@ $$p(y|x_{\text{obs}}) = \int p(y|x) p(x|x_{\text{obs}}) dx \approx \frac{1}{N} \
 
 where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extremely stable and works naturally with complex predictive heads like MDNs or Binned PDFs.
 
+!!! warning "Critical API Difference"
+    Unlike standard PyTorch loss functions which take predictions and targets, e.g., `loss_fn(y_pred, target)`, EIV loss functions must evaluate the model internally at perturbed inputs.
+    - **Constructor**: You **must** pass your `model` reference to the loss constructor.
+    - **Forward Call**: Pass the **observed inputs** $x_{\text{obs}}$ and **observed targets** $y_{\text{obs}}$ directly:
+      `loss = loss_fn(x_obs, y_obs)`
+
+!!! warning "Computational Cost of MC Marginalization"
+    Monte Carlo marginalization requires $N_{\text{samples}}$ forward passes of the model for every training and evaluation step. If your model backbone is computationally expensive, this will multiply training time by $N_{\text{samples}}$.
+    - **Mitigation**: Start with `n_samples=8` or `16` and `antithetic=True` (which generates correlated samples to reduce variance) rather than a large $N$.
+
 ```python
 from torchregress.losses import InputNoiseMarginalizationLoss
 

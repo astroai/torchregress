@@ -161,23 +161,39 @@ lower, upper = mccp.predict_interval(y_pred_test)
 
 ## MultiTargetConformal
 
-Per-dimension conformal calibration for **multi-output** regression.  Each output dimension receives its own conformal quantile.
+Per-dimension conformal calibration for **multi-output** regression. Each output dimension receives its own conformal quantile threshold.
 
 !!! abstract "Summary"
-    **Score:**  Per-dimension residuals
-    **Interval:**  Independent $[\mathrm{lo}_d, \mathrm{hi}_d]$ per output dimension
-    **Requires:**  Vector predictions of shape $(n, d)$
+    **Score:**  Per-dimension absolute residuals: $s_{i, d} = |y_{i, d} - \hat{y}_{i, d}|$
+    **Interval:**  Independent $[\hat{y}_{i, d} - \hat{q}_d,\, \hat{y}_{i, d} + \hat{q}_d]$ per dimension $d \in \{1, \dots, D\}$
+    **Requires:**  Vector predictions of shape $(n, D)$
 
 ```python
 from torchregress.losses import MultiTargetConformal
 
+# For coordinate-wise 90% coverage
 mtcp = MultiTargetConformal(alpha=0.1)
-mtcp.calibrate(y_pred_cal, y_cal)     # (n_cal, d)
-lower, upper = mtcp.predict_interval(y_pred_test)  # each: (n_test, d)
+mtcp.calibrate(y_pred_cal, y_cal)     # shapes: (n_cal, D)
+lower, upper = mtcp.predict_interval(y_pred_test)  # each shape: (n_test, D)
 ```
 
+!!! warning "Joint Coverage & Bonferroni Correction"
+    `MultiTargetConformal` performs **coordinate-wise** calibration. If you calibrate with $\alpha$, the interval for each individual dimension $d$ will cover the true target $y_d$ with probability at least $1 - \alpha$.
+
+    However, the probability that the **entire** target vector is covered simultaneously (joint coverage) is not guaranteed to be $1 - \alpha$. In the worst case, the joint coverage can drop to $1 - D\alpha$.
+
+    To guarantee a joint coverage of at least $1 - \alpha$ across all $D$ dimensions, you should apply the **Bonferroni correction** by initializing the predictor with:
+    $$\alpha_{\text{adjusted}} = \frac{\alpha}{D}$$
+
+    ```python
+    D = y_cal.shape[-1]
+    joint_alpha = 0.1
+    # Calibrate each dimension at (1 - 0.1/D) to guarantee 90% joint coverage
+    mtcp = MultiTargetConformal(alpha=joint_alpha / D)
+    ```
+
 !!! tip "When to use"
-    Multi-output regression where you want per-dimension coverage guarantees (e.g., predicting latitude + longitude + altitude simultaneously).
+    Use for multi-output regression where you want independent coverage guarantees per dimension or need a simple joint bounding box via Bonferroni correction. If target dimensions are highly correlated, Bonferroni-corrected intervals can be overly conservative; in such cases, projecting residuals into a joint space (e.g. Mahalanobis distance) is preferred.
 
 ---
 

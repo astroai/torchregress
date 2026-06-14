@@ -166,6 +166,18 @@ When features $X$ are measured with known noise $\sigma_u$:
 
 ---
 
+## Multi-Target Regression
+
+When you need to predict multiple continuous outcomes $\mathbf{y} \in \mathbb{R}^K$ jointly:
+
+- **Parametric (Gaussian)**: Use `MultivariateGaussianLoss` for full covariance modeling or `LowRankGaussianLoss` for high-dimensional targets.
+- **Non-Parametric**: Use `NormalizingFlowLoss` or `MDNLoss` for multimodal joint distributions.
+- **Interval Calibration**: Use `MultiTargetConformal` for coordinate-wise coverage guarantees.
+
+→ See [Multi-Target Regression](multi-target-regression.md).
+
+---
+
 ## Post-Hoc Calibration
 
 After training, calibrate your model's uncertainty estimates on a held-out set:

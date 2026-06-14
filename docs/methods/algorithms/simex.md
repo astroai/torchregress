@@ -32,6 +32,11 @@ $$\boxed{\;\hat{f}_{\text{SIMEX}}(x) = \sum_{j=0}^{p} \hat\beta_j \cdot (-1)^j\;
 
 where $\hat\beta_j$ are polynomial coefficients from fitting predictions vs. $\lambda$.
 
+!!! warning "Extrapolation Assumptions & Risks"
+    * **Polynomial Smoothness**: SIMEX assumes that the model parameters (or predictions) behave as a smooth, continuous function of the noise level $\lambda$ in the range $[-1, \lambda_{\max}]$, which can be well-approximated by a low-order (linear or quadratic) polynomial.
+    * **Divergence Risk**: If the true relationship has high curvature or a singularity near $\lambda = -1$ (i.e. zero measurement error), polynomial fitting can lead to wild extrapolation errors. Higher-order polynomials ($p \geq 3$) are extremely sensitive to simulation noise and prone to overfitting/divergence (Runge's phenomenon).
+    * **Covariance Specification**: SIMEX relies heavily on an accurately estimated measurement error covariance $\Sigma_u$. Over- or under-specifying $\Sigma_u$ directly biases the extrapolated values.
+
 ---
 
 ## Usage

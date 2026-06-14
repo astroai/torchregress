@@ -293,6 +293,9 @@ result = ensemble.predict(x_test)
 | `rank` | `int` | 20 | Rank of low-rank weight covariance approximation |
 | `n_samples` | `int` | 30 | MC samples at inference |
 
+!!! warning "Sampling & Mode Limits"
+    SWAG requires drawing $S$ weight samples and running $S$ forward passes during inference, which increases test latency. It also only approximates the local weight basin mode. For details, see the [Ensemble Limitations Overview](index.md#bayesian-sampling-variational-limitations).
+
 !!! quote "Reference"
     W. Maddox et al. "A Simple Baseline for Bayesian Deep Learning." *NeurIPS*, **2019**.
 
@@ -369,6 +372,9 @@ result = ensemble.predict(x_test)
     result = hbnn.predict(x_test)
     # result: dict with mean, epistemic_variance, aleatoric_variance
     ```
+
+!!! warning "Mean-Field & Optimization Sensitivity"
+    Standard variational inference models weight parameters with diagonal (mean-field) Gaussian distributions, ignoring correlation structures between parameters. This typically results in **underestimation** of epistemic uncertainty. Optimization is also highly sensitive to the scale parameter $\beta$ of the KL loss term. For details, see the [Ensemble Limitations Overview](index.md#bayesian-sampling-variational-limitations).
 
 ---
 

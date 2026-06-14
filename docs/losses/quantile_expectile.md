@@ -102,14 +102,16 @@ loss_fn = MultiQuantileLoss(
 
 ### QuantileCrossoverLoss
 
-Adds a **penalty** when quantile curves cross (lower quantile predicts more than higher):
+Because independent neural network heads predict each quantile separately, they can predict unphysical crossings (e.g., the 5% quantile predicting a larger value than the 95% quantile). `QuantileCrossoverLoss` solves this by adding a hinge-loss penalty to enforce monotonicity:
+
+$$\mathcal{L}_{\text{crossover}} = \mathcal{L}_{\text{base}} + \lambda \sum_{i < j} \max\left(0, \; \hat{q}_{\tau_i} - \hat{q}_{\tau_j}\right)^2 \quad \text{for } \tau_i < \tau_j$$
 
 ```python
 from torchregress.losses import QuantileCrossoverLoss
 
 loss_fn = QuantileCrossoverLoss(
     quantiles=[0.05, 0.5, 0.95],
-    crossover_penalty=10.0,  # strength of non-crossing constraint
+    crossover_penalty=10.0,  # strength of non-crossing constraint (λ)
 )
 ```
 
@@ -180,6 +182,9 @@ loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)  # same as ExpectileLoss(0.75)
     - You want smoother, more efficient estimates
     - You need sensitivity to tail *magnitudes* (not just probabilities)
     - Computing Expected Shortfall (ES)
+
+!!! warning "Expectile-to-Quantile Conversion Limitations"
+    Expectiles are smooth and computationally easier to optimize than non-differentiable quantiles. However, expectiles do not correspond directly to probability percentiles. If your downstream application requires a traditional $90\%$ prediction interval, you cannot easily convert expectiles back to quantiles without fitting a parametric density wrapper or utilizing complex numerical transformations. If strict interval probability bounds are required, use **Quantile Regression** directly.
 
 !!! tip "Conformal calibration"
     For **guaranteed coverage** on top of quantile regression, wrap your model with [Conformalized Quantile Regression (CQR)](../methods/conformal/predictors.md).
