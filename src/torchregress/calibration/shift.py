@@ -155,6 +155,8 @@ class BinnedLabelShiftEstimator:
                     f"Predicted probability dimension {pred.shape[1]} "
                     f"must match n_bins={self.n_bins}"
                 )
+            if np.any(pred < 0.0):
+                raise ValueError("Predicted probabilities must be non-negative")
             # Ensure proper normalized probabilities
             row_sum = pred.sum(axis=1, keepdims=True)
             return pred / np.clip(row_sum, self.eps, None)

@@ -55,6 +55,8 @@ class SemiConformalCalibrator:
             weights = self._to_numpy(weights_cal).reshape(-1)
             if weights.shape[0] != scores.shape[0]:
                 raise ValueError("weights_cal must share shape with nonconformity_scores_cal")
+            if np.any(weights < 0.0):
+                raise ValueError("weights_cal must be non-negative")
         else:
             weights = np.ones_like(scores)
 
@@ -85,9 +87,13 @@ class SemiConformalCalibrator:
 
         # Convert inputs to numpy
         if isinstance(weights_target, (float, int)):
+            if weights_target < 0.0:
+                raise ValueError("weights_target must be non-negative")
             w_tgt = np.array([float(weights_target)])
         else:
             w_tgt = self._to_numpy(weights_target).reshape(-1)
+            if np.any(w_tgt < 0.0):
+                raise ValueError("weights_target must be non-negative")
 
         n_tgt = w_tgt.shape[0]
         thresholds = np.zeros(n_tgt)

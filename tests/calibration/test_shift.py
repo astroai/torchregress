@@ -149,3 +149,12 @@ def test_invalid_parameters() -> None:
 
     with pytest.raises(ValueError):
         BinnedLabelShiftEstimator(method="invalid")
+
+    # Mismatched prediction shapes
+    estimator = BinnedLabelShiftEstimator(n_bins=3)
+    with pytest.raises(ValueError):
+        estimator.fit([1.0, 2.0], np.ones((2, 4)), np.ones((2, 3)))
+
+    # Negative probabilities
+    with pytest.raises(ValueError):
+        estimator.fit([1.0, 2.0], np.array([[-1.0, 2.0, 0.0], [0.0, 1.0, 0.0]]), np.ones((2, 3)))

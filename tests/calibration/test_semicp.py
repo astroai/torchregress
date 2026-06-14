@@ -104,3 +104,13 @@ def test_invalid_parameters() -> None:
         calibrator.compute_thresholds(1.0, alpha=0.0)
     with pytest.raises(ValueError):
         calibrator.compute_thresholds(1.0, alpha=1.0)
+
+    # Negative weights
+    with pytest.raises(ValueError):
+        calibrator.fit([1.0, 2.0], [-1.0, 1.0])
+
+    with pytest.raises(ValueError):
+        calibrator.compute_thresholds(-1.0)
+
+    with pytest.raises(ValueError):
+        calibrator.compute_thresholds(np.array([-1.0, 1.0]))
