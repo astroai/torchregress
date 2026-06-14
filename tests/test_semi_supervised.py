@@ -542,3 +542,92 @@ def test_self_agreement_regression_demo_runs_smoke() -> None:
             assert isinstance(value, float)
             assert math.isfinite(value)
         assert 0.0 < row["mean_weight"] <= 1.0
+
+
+def test_teacher_student_trainer_modular_runs() -> None:
+    from torchregress.semi_supervised import TeacherStudentTrainer, uncertainty_to_weight
+
+    torch.manual_seed(0)
+    x_labeled = torch.linspace(-1.0, 1.0, 8).unsqueeze(-1)
+    y_labeled = 0.5 * x_labeled
+    x_unlabeled = torch.linspace(-1.0, 1.0, 12).unsqueeze(-1)
+
+    labeled_loader = DataLoader(TensorDataset(x_labeled, y_labeled), batch_size=4, shuffle=False)
+    unlabeled_loader = DataLoader(TensorDataset(x_unlabeled), batch_size=4, shuffle=False)
+
+    model = torch.nn.Sequential(
+        torch.nn.Linear(1, 4),
+        torch.nn.Tanh(),
+        torch.nn.Linear(4, 2),
+    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    def supervised_loss_fn(model_, x, y):
+        pred = model_(x)[:, :1]
+        return F.mse_loss(pred, y)
+
+    def predictive_batch_fn(model_, x):
+        raw = model_(x)
+        return PredictiveBatch(
+            mean=raw[:, :1],
+            std=F.softplus(raw[:, 1:2]) + 1e-3,
+        )
+
+    # Use a custom weight function that weights based on uncertainty
+    def custom_weight_fn(views, consensus):
+        return uncertainty_to_weight(consensus, tau=0.5)
+
+    trainer = TeacherStudentTrainer(
+        optimizer=optimizer,
+        supervised_loss_fn=supervised_loss_fn,
+        predictive_batch_fn=predictive_batch_fn,
+        sample_weight_fn=custom_weight_fn,
+        n_views=2,
+        agreement_weight=0.1,
+        n_support=32,
+    )
+
+    history = trainer.fit(model, labeled_loader, unlabeled_loader, epochs=1)
+    assert "total_loss" in history
+    assert "mean_weight" in history
+    assert len(history["total_loss"]) == len(labeled_loader)
+
+
+def test_uncertainty_to_weight_values() -> None:
+    from torchregress.semi_supervised import uncertainty_to_weight
+
+    std = torch.tensor([0.1, 0.5, 1.0, 2.0], dtype=torch.float32)
+    batch = PredictiveBatch(mean=torch.zeros_like(std), std=std)
+    weights = uncertainty_to_weight(batch, tau=1.0)
+    # weights should be exp(-std / tau)
+    expected = torch.exp(-std / 1.0)
+    assert torch.allclose(weights, expected)
+
+
+def test_conformal_width_to_weight_values() -> None:
+    from torchregress.semi_supervised import conformal_width_to_weight
+
+    lower = torch.tensor([1.0, 2.0, 3.0])
+    upper = torch.tensor([2.0, 4.0, 4.0])  # widths = [1.0, 2.0, 1.0]
+
+    # test soft weights
+    weights = conformal_width_to_weight(lower, upper, tau=2.0)
+    assert torch.allclose(weights, torch.exp(torch.tensor([-0.5, -1.0, -0.5])))
+
+    # test threshold mask
+    mask = conformal_width_to_weight(lower, upper, threshold=1.5)
+    assert torch.allclose(mask, torch.tensor([1.0, 0.0, 1.0]))
+
+
+def test_perturbation_instability_score_values() -> None:
+    from torchregress.semi_supervised import perturbation_instability_score
+
+    mean = torch.tensor([[0.0], [1.0]], dtype=torch.float32)
+    std = torch.full_like(mean, 0.2)
+    views = [
+        PredictiveBatch(mean=mean - 0.02, std=std),
+        PredictiveBatch(mean=mean + 0.02, std=std),
+    ]
+    score = perturbation_instability_score(views, n_support=64)
+    assert score.shape == (2,)
+    assert torch.all(score >= 0.0)

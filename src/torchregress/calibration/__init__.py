@@ -19,13 +19,16 @@ from .metrics import (
     marginal_calibration_error,
 )
 from .posthoc import IsotonicMeanCalibrator, PITCalibrator, VarianceTemperatureScaler
-from .shift import RepresentationShiftCalibrator
+from .semicp import SemiConformalCalibrator
+from .shift import BinnedLabelShiftEstimator, RepresentationShiftCalibrator
 
 __all__ = [
     # posthoc transforms
     "VarianceTemperatureScaler",
     "IsotonicMeanCalibrator",
     "PITCalibrator",
+    # conformal calibration under shift
+    "SemiConformalCalibrator",
     # calibration metrics
     "ExpectedCalibrationError",
     "MarginalCalibrationError",
@@ -36,4 +39,5 @@ __all__ = [
     "marginal_calibration_error",
     # shift-aware test-time calibration
     "RepresentationShiftCalibrator",
+    "BinnedLabelShiftEstimator",
 ]

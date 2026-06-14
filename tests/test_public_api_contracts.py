@@ -202,6 +202,7 @@ EXPECTED_EXPORTS = {
         "VarianceTemperatureScaler",
         "IsotonicMeanCalibrator",
         "PITCalibrator",
+        "SemiConformalCalibrator",
         "ExpectedCalibrationError",
         "MarginalCalibrationError",
         "bias",
@@ -210,6 +211,7 @@ EXPECTED_EXPORTS = {
         "expected_calibration_error",
         "marginal_calibration_error",
         "RepresentationShiftCalibrator",
+        "BinnedLabelShiftEstimator",
     ],
     "test_time": [
         "AdaptationBatch",
@@ -259,10 +261,14 @@ EXPECTED_EXPORTS = {
         "SAGERegLoss",
         "SAGERegOutput",
         "SelfAgreementTrainer",
+        "TeacherStudentTrainer",
         "build_consensus_predictive_batch",
         "disagreement_to_weight",
+        "uncertainty_to_weight",
+        "conformal_width_to_weight",
         "distributional_pseudo_loss",
         "predictive_agreement_score",
+        "perturbation_instability_score",
     ],
 }
 
