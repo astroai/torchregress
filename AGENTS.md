@@ -8,6 +8,17 @@ This file provides merged guidance to coding agents (Claude, Gemini, Codex) when
 
 **Naming Convention:** The library name is "torchregress" (all lowercase).
 
+## Sibling repositories
+
+| Repo | Path (typical) | Scope |
+|------|----------------|-------|
+| **torchregress** (this repo) | `$HOME/src/torchregress` | Library, docs, general examples, CI |
+| **torchregress-research** | `$HOME/src/torchregress-research` | NeurIPS manuscripts, SAGE/SPT benchmarks |
+| **torchregress-harness** | `$HOME/src/torchregress-harness` | External-software parity harness |
+
+Do not add paper manuscripts or NeurIPS benchmark scripts to this repo. Do not add SAGE/SPT
+parity suites to **torchregress-harness** (they belong in **torchregress-research**).
+
 ## Development Commands
 
 This project uses [uv](https://github.com/astral-sh/uv) as the package manager.

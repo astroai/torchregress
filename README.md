@@ -27,9 +27,16 @@ All modules follow PyTorch conventions (`forward(y_pred, target, mask=…,
 weights=…)`). See the docs for method selection, formulas, and runnable
 examples.
 
-**Related repositories:** NeurIPS manuscripts, SAGE/SPT reproduction benchmarks, and committed
-paper artifacts live in [`torchregress-research`](../torchregress-research). External-library
-parity comparisons live in [`torchregress-harness`](../torchregress-harness).
+**Related repositories** (private; clone as siblings under `$HOME/src/`):
+
+| Repo | Role |
+|------|------|
+| [torchregress-research](https://github.com/sfabbro/torchregress-research) | NeurIPS manuscripts and SAGE/SPT reproduction benchmarks |
+| [torchregress-harness](https://github.com/sfabbro/torchregress-harness) | torchregress vs external libraries (MAPIE, LightGBM, TabPFN, …) |
+
+The **library** here focuses on battle-tested regression losses, conformal methods, ensembles,
+and evaluation utilities. Research-track SSL / shift-transport APIs remain available but are
+documented as experimental; paper-scale benchmarks live in **torchregress-research**.
 
 ## Installation
 
