@@ -17,8 +17,10 @@ $$w_i^{(t)} = \psi\!\left(\frac{r_i^{(t)}}{\hat\sigma}\right)$$
 and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust scale estimate (MAD).
 
 !!! info "Convergence & Local Minima"
-    * **Convex Losses (Huber)**: The loss function is convex, and IRLS converges to the unique global M-estimate regardless of initialization.
-    * **Non-Convex/Redescending Losses (Tukey, Cauchy)**: The loss function is non-convex. IRLS can get trapped in poor local minima or even diverge if initialized poorly. It is critical to **warm-start** the optimization using a convex loss (e.g., standard OLS or Huber) before switching to Tukey/Cauchy.
+    Convergence behavior depends on the robust loss used:
+
+    - **Convex Losses (Huber)**: The loss function is convex, and IRLS converges to the unique global M-estimate regardless of initialization.
+    - **Non-Convex/Redescending Losses (Tukey, Cauchy)**: The loss function is non-convex. IRLS can get trapped in poor local minima or even diverge if initialized poorly. It is critical to **warm-start** the optimization using a convex loss (e.g., standard OLS or Huber) before switching to Tukey/Cauchy.
 
 !!! warning "Vulnerability to Leverage Points"
     M-estimators (including those solved via IRLS) only downweight outliers based on residuals in the **response space** ($Y$). They are highly sensitive to **leverage points** (outliers in the feature space $X$). A single high-leverage outlier can attract the regression line completely, even if its response residual is relatively small. For robust handling of high-leverage points, bounded-influence estimators (e.g., GM-estimators or Schweppe-type weights) are required.

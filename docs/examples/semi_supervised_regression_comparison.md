@@ -2,6 +2,8 @@
 
 Script: `examples/semi_supervised_regression_comparison.py`
 
+→ API: [`PseudoLabelConsistencyLoss`](../api/losses.md#pseudolabelconsistencyloss), [`PseudoLabelNLL`](../api/losses.md#pseudolabelnll). Guide: [Uncertain ground truth](../losses/uncertain_ground_truth.md).
+
 Compares the pseudo-label + teacher-consistency branch of semi-supervised regression on a real-data proxy (`sklearn` Diabetes) using:
 
 - `SupervisedMSE`

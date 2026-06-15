@@ -8,11 +8,11 @@ Script: `examples/noisy_label_realdata_comparison.py`
 
 ## What It Compares
 
-- `WeightedMSELoss` baseline
-- `WeightedHuberLoss`
-- `CauchyLoss`
-- `GaussianNLLLoss`
-- `MultiQuantileLoss` (`Quantile90`)
+- [`WeightedMSELoss`](../api/losses.md#weightedmseloss) baseline
+- [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss)
+- [`CauchyLoss`](../api/losses.md#cauchyloss)
+- [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss)
+- [`MultiQuantileLoss`](../api/losses.md#multiquantileloss) (`Quantile90`)
 
 ## Metrics Reported
 

@@ -19,17 +19,17 @@ $$\boxed{\;\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2}\log(2\pi\sig
 
 | Loss | Covariance Type | Outputs | API Reference | Best For |
 |:-----|:----------------|:--------|:--------------|:---------|
-| **`WeightedMSELoss`** | Fixed ($\sigma^2=1$) | $\mu$ | [`WeightedMSELoss`](../api/losses.md#torchregress.losses.base.WeightedMSELoss) | Homoscedastic, clean data |
-| **`GaussianNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`GaussianNLLLoss`](../api/losses.md#torchregress.losses.gaussian.GaussianNLLLoss) | Heteroscedastic, independent targets |
-| **`BetaNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`BetaNLLLoss`](../api/losses.md#torchregress.losses.beta_nll.BetaNLLLoss) | Same head as NLL; detached variance rescaling (β-NLL) |
-| **`FaithfulGaussianLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [`FaithfulGaussianLoss`](../api/losses.md#torchregress.losses.faithful_gaussian.FaithfulGaussianLoss) | MSE on $\mu$ + NLL on variance with **detach($\mu$)** in residual |
-| **`GaussianWassersteinBoundLoss`** | Configurable | $\mu$, cov / Cholesky / root | [`GaussianWassersteinBoundLoss`](../api/losses.md#torchregress.losses.gaussian_wasserstein.GaussianWassersteinBoundLoss) | Supervise mean + covariance vs labels or pseudo-labels |
-| **`MultivariateLoss`** | Full | $(\mu, \Sigma)$ | [`MultivariateGaussianLoss`](../api/losses.md#torchregress.losses.gaussian.MultivariateGaussianLoss) | Correlated multi-output (small $k$) |
-| **`LowRankLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [`LowRankGaussianLoss`](../api/losses.md#torchregress.losses.gaussian.LowRankGaussianLoss) | Correlated multi-output (large $k$) |
+| **`WeightedMSELoss`** | Fixed ($\sigma^2=1$) | $\mu$ | [WeightedMSELoss](../api/losses.md#weightedmseloss) | Homoscedastic, clean data |
+| **`GaussianNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [GaussianNLLLoss](../api/losses.md#gaussiannllloss) | Heteroscedastic, independent targets |
+| **`BetaNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [BetaNLLLoss](../api/losses.md#betanllloss) | Same head as NLL; detached variance rescaling (β-NLL) |
+| **`FaithfulGaussianLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [FaithfulGaussianLoss](../api/losses.md#faithfulgaussianloss) | MSE on $\mu$ + NLL on variance with **detach($\mu$)** in residual |
+| **`GaussianWassersteinBoundLoss`** | Configurable | $\mu$, cov / Cholesky / root | [GaussianWassersteinBoundLoss](../api/losses.md#gaussianwassersteinboundloss) | Supervise mean + covariance vs labels or pseudo-labels |
+| **`MultivariateLoss`** | Full | $(\mu, \Sigma)$ | [MultivariateGaussianLoss](../api/losses.md#multivariategaussianloss) | Correlated multi-output (small $k$) |
+| **`LowRankLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [LowRankGaussianLoss](../api/losses.md#lowrankgaussianloss) | Correlated multi-output (large $k$) |
 
 ---
 
-## 1. Univariate: [`GaussianNLLLoss`](../api/losses.md#torchregress.losses.gaussian.GaussianNLLLoss)
+## 1. Univariate: [GaussianNLLLoss](../api/losses.md#gaussiannllloss)
 
 Used for standard regression where you want to estimate per-sample uncertainty.
 
@@ -46,11 +46,11 @@ loss = loss_fn(y_pred, y_true)
 
 ---
 
-## 1b. Faithful heteroscedastic: [`FaithfulGaussianLoss`](../api/losses.md#torchregress.losses.faithful_gaussian.FaithfulGaussianLoss)
+## 1b. Faithful heteroscedastic: [FaithfulGaussianLoss](../api/losses.md#faithfulgaussianloss)
 
 Joint Gaussian NLL couples gradients from the variance head into the mean through the residual $(y-\mu)^2/\sigma^2$. **FaithfulGaussianLoss** adds a direct MSE term on the mean and uses **stop-gradient** on $\mu$ inside the NLL residual so variance calibration does not distort point prediction.
 
-$$\mathcal{L}_{\text{Faithful}}(y, \mu, \sigma^2) = w_{\text{mean}} (y - \mu)^2 + w_{\text{var}} \left[ \frac{1}{2}\log(2\pi\sigma^2) + \frac{(y - \text{stop\_gradient}(\mu))^2}{2\sigma^2} \right]$$
+$$\mathcal{L}_{\text{Faithful}}(y, \mu, \sigma^2) = w_{\text{mean}} (y - \mu)^2 + w_{\text{var}} \left[ \frac{1}{2}\log(2\pi\sigma^2) + \frac{(y - \operatorname{sg}(\mu))^2}{2\sigma^2} \right]$$
 
 ```python
 from torchregress.losses import FaithfulGaussianLoss
@@ -63,7 +63,7 @@ Compare with [`BetaNLLLoss`](beta_nll.md): β-NLL keeps a single joint NLL and r
 
 ---
 
-## 2. Multivariate: Full Covariance ([`MultivariateGaussianLoss`](../api/losses.md#torchregress.losses.gaussian.MultivariateGaussianLoss))
+## 2. Multivariate: Full Covariance ([MultivariateGaussianLoss](../api/losses.md#multivariategaussianloss))
 
 When targets are correlated (e.g., predicting $x, y, z$ coordinates), use `MultivariateGaussianLoss`.
 
@@ -90,7 +90,7 @@ loss = loss_fn(y_mu, y_true, covariance_matrix)
 
 ---
 
-## 3. Multivariate: Low-Rank Covariance ([`LowRankGaussianLoss`](../api/losses.md#torchregress.losses.gaussian.LowRankGaussianLoss))
+## 3. Multivariate: Low-Rank Covariance ([LowRankGaussianLoss](../api/losses.md#lowrankgaussianloss))
 
 For high-dimensional targets, a full covariance matrix has $O(k^2)$ parameters. **Low-Rank** approximation reduces this to $O(k \cdot r)$, where $r$ is the rank.
 

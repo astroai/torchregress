@@ -10,7 +10,7 @@ In observational data, we only ever see one outcome for each individual: either 
 
 $$Y_i = T_i Y_i(1) + (1-T_i) Y_i(0)$$
 
-Causal inference methods in **torchregress** use **doubly-robust** estimation [1, 4] to overcome this missing data problem.
+Causal inference methods in **torchregress** use **doubly-robust** estimation \[1, 4\] to overcome this missing data problem.
 
 ---
 
@@ -27,9 +27,9 @@ Causal inference methods in **torchregress** use **doubly-robust** estimation [1
 
 ## Core Methods
 
-### 1. Doubly Robust ATE ([`dr_ate`](../api/causal.md#torchregress.causal.dr_ate))
+### 1. Doubly Robust ATE ([dr_ate](../api/causal.md#dr_ate))
 
-The Doubly Robust (DR) estimator [1] combines an **outcome model** $\hat{\mu}(x, t)$ and a **propensity model** $\hat{e}(x) = P(T=1 \mid x)$ to estimate the average treatment effect across the entire population.
+The Doubly Robust (DR) estimator \[1\] combines an **outcome model** $\hat{\mu}(x, t)$ and a **propensity model** $\hat{e}(x) = P(T=1 \mid x)$ to estimate the average treatment effect across the entire population.
 
 $$\hat{\tau}_{\text{DR}} = \frac{1}{n}\sum_{i=1}^n \left[ \hat{\mu}(x_i, 1) - \hat{\mu}(x_i, 0) + \frac{T_i(Y_i - \hat{\mu}(x_i, 1))}{\hat{e}(x_i)} - \frac{(1-T_i)(Y_i - \hat{\mu}(x_i, 0))}{1 - \hat{e}(x_i)} \right]$$
 
@@ -40,7 +40,7 @@ from torchregress.causal import dr_ate
 ate, ci = dr_ate(y, t, mu0, mu1, propensity)
 ```
 
-### 2. Conditional ATE ([`dr_cate`](../api/causal.md#torchregress.causal.dr_cate))
+### 2. Conditional ATE ([dr_cate](../api/causal.md#dr_cate))
 
 Estimates the treatment effect as a function of the covariates $X$. This is crucial for **personalised medicine** or **targeted marketing**, where we want to know $\tau(x) = \mathbb{E}[Y(1) - Y(0) \mid x]$.
 
@@ -51,7 +51,7 @@ from torchregress.causal import dr_cate
 cate = dr_cate(y, t, mu0, mu1, propensity, x)
 ```
 
-### 3. Policy Evaluation ([`dr_policy_value`](../api/causal.md#torchregress.causal.dr_policy_value))
+### 3. Policy Evaluation ([dr_policy_value](../api/causal.md#dr_policy_value))
 
 Estimates the expected outcome if we were to apply a specific treatment policy $\pi(x)$ to the entire population.
 
@@ -83,7 +83,7 @@ For causal estimates to be valid, three assumptions must hold:
 
 !!! warning "Positivity Violations"
 
-    If propensity scores are near 0 or 1, the DR estimator becomes unstable. Always check for overlap using [`causal_overlap_report`](../api/causal.md#torchregress.causal.causal_overlap_report).
+    If propensity scores are near 0 or 1, the DR estimator becomes unstable. Always check for overlap using [causal_overlap_report](../api/causal.md#causal_overlap_report).
 
 ---
 

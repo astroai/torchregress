@@ -296,5 +296,5 @@ print(f"Mean trust weight: {history['mean_weight'][-1]:.4f}")
 | # | Reference |
 |:-:|:----------|
 | 1 | S. Fabbro et al. "SAGE-Reg: Self-Agreement for Gaussian Estimation in Semi-Supervised Regression." *NeurIPS*, **2025**. |
-| 2 | D.-H. Lee. ["Pseudo-Label: The Simple and Efficient Semi-Supervised Learning Method for Deep Neural Networks."](https://www.researchgate.net/publication/280581078) *ICML Workshop*, **2013**. |
+| 2 | D.-H. Lee. ["Pseudo-Label: The Simple and Efficient Semi-Supervised Learning Method for Deep Neural Networks."](https://www.semanticscholar.org/paper/Pseudo-Label-:-The-Simple-and-Efficient-Method-for-Lee/8d1d828a2524c7fbd52a0a2df335029d29e7943d) *ICML Workshop*, **2013**. |
 | 3 | A. Tarvainen, H. Valpola. ["Mean Teachers are Better Role Models."](https://arxiv.org/abs/1703.01780) *NeurIPS*, **2017**. |

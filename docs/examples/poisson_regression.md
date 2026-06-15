@@ -2,6 +2,8 @@
 
 This guide demonstrates how to model count data using Poisson and Zero-Inflated Poisson regression loss functions.
 
+→ API: [`PoissonDevianceLoss`](../api/losses.md#poissondevianceloss), [`ZeroInflatedPoissonNLLLoss`](../api/losses.md#zeroinflatedpoissonnllloss), [`NegativeBinomialNLLLoss`](../api/losses.md#negativebinomialnllloss).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Lambert, D. (1992). [**Zero-Inflated Poisson Regression, With an Application to Defects on Silicon Wafers**](https://www.jstor.org/stable/1269547). *Technometrics*. |
@@ -11,16 +13,18 @@ This guide demonstrates how to model count data using Poisson and Zero-Inflated 
 
 ## Mathematical Formulations
 
-*   **Poisson Deviance Loss**:
+The count losses compared in this example are:
+
+- **Poisson Deviance Loss**:
     $$L_{\text{Deviance}}(y, \lambda) = 2 \left( y \log \left( \frac{y}{\lambda} \right) - (y - \lambda) \right)$$
     where $\lambda > 0$ is the predicted Poisson rate parameter.
 
-*   **Zero-Inflated Poisson (ZIP)**:
+- **Zero-Inflated Poisson (ZIP)**:
     A mixed model where a sample is zero with probability $p$ (zero inflation), and Poisson-distributed with mean $\lambda$ with probability $1-p$:
     $$P(Y = y) = \begin{cases} p + (1-p)e^{-\lambda} & \text{for } y = 0 \\ (1-p) \frac{\lambda^y e^{-\lambda}}{y!} & \text{for } y > 0 \end{cases}$$
     The Negative Log-Likelihood is used as the loss function.
 
-*   **Negative Binomial NLL**:
+- **Negative Binomial NLL**:
     Models overdispersed count data where the variance exceeds the mean:
     $$\text{Var}(Y) = \mu + \alpha \mu^2$$
     where $\alpha > 0$ is the dispersion parameter.

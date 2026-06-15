@@ -1,21 +1,20 @@
 # Ensemble Metrics
 
-This page covers metrics for evaluating ensemble models.
+Ensemble metrics evaluate predictive performance and decompose predictive uncertainty across multiple model predictions.
+
+---
 
 ## `ensemble_statistics`
 
-Computes the mean and variance of an ensemble's predictions.
+Aggregates individual predictions from $M$ ensemble members $\{y^{(1)}, \dots, y^{(M)}\}$ to compute the ensemble mean and sample variance:
 
-**Arguments:**
+$$
+\bar{y}_i = \frac{1}{M} \sum_{m=1}^M y_i^{(m)}
+$$
 
-- `predictions` (torch.Tensor or np.ndarray): The predictions of the ensemble members.
-- `dim` (int, optional): The dimension to aggregate over. Defaults to `0`.
-
-**Returns:**
-
-A tuple containing the mean and variance of the ensemble's predictions.
-
-**Example:**
+$$
+\text{Var}(y_i) = \frac{1}{M} \sum_{m=1}^M \left(y_i^{(m)} - \bar{y}_i\right)^2
+$$
 
 ```python
 import torch
@@ -24,119 +23,84 @@ from torchregress.metrics.ensemble import ensemble_statistics
 predictions = torch.randn(5, 100)  # 5 ensemble members, 100 predictions each
 mean, variance = ensemble_statistics(predictions)
 ```
+See also: [ensemble_statistics](../api/metrics.md#ensemble_statistics).
+
+---
 
 ## `uncertainty_decomposition`
 
-Decomposes the uncertainty of an ensemble into epistemic and aleatoric uncertainty.
+Decomposes total predictive uncertainty into **epistemic** (model disagreement) and **aleatoric** (data noise) uncertainty using the Law of Total Variance.
 
-**Arguments:**
+For ensemble members predicting means $\mu_m(x)$ and aleatoric variances $\sigma_m^2(x)$, the decomposition is:
 
-- `means` (torch.Tensor or np.ndarray): The predicted means of the ensemble members.
-- `variances` (torch.Tensor or np.ndarray): The predicted aleatoric variances of the ensemble members.
-- `dim` (int, optional): The dimension to aggregate over. Defaults to `0`.
-
-**Returns:**
-
-A dictionary with the following keys:
-
-- `mean`: The mean of the ensemble's predictions.
-- `epistemic_uncertainty`: The epistemic uncertainty of the ensemble.
-- `aleatoric_uncertainty`: The aleatoric uncertainty of the ensemble.
-- `total_uncertainty`: The total uncertainty of the ensemble.
-
-**Example:**
+- **Ensemble mean**:
+  $$\bar{\mu}(x) = \frac{1}{M} \sum_{m=1}^M \mu_m(x)$$
+- **Epistemic uncertainty** (variance of predicted means):
+  $$\sigma^2_{\text{epistemic}}(x) = \frac{1}{M} \sum_{m=1}^M (\mu_m(x) - \bar{\mu}(x))^2$$
+- **Aleatoric uncertainty** (mean of predicted variances):
+  $$\sigma^2_{\text{aleatoric}}(x) = \frac{1}{M} \sum_{m=1}^M \sigma_m^2(x)$$
+- **Total uncertainty**:
+  $$\sigma^2_{\text{total}}(x) = \sigma^2_{\text{epistemic}}(x) + \sigma^2_{\text{aleatoric}}(x)$$
 
 ```python
-import torch
 from torchregress.metrics.ensemble import uncertainty_decomposition
 
-means = torch.randn(5, 100)
-variances = torch.rand(5, 100)
-
+# means: [M, N], variances: [M, N]
 uncertainty = uncertainty_decomposition(means, variances)
 ```
+See also: [uncertainty_decomposition](../api/metrics.md#uncertainty_decomposition).
+
+---
 
 ## `gaussian_nll_ensemble`
 
-Computes the Gaussian negative log-likelihood for an ensemble's predictions.
+Computes the Gaussian negative log-likelihood of the targets under the ensembled predictive distribution:
 
-**Arguments:**
+$$
+\mathcal{L}(y_i) = \frac{1}{2} \log(2\pi \sigma^2_{\text{total}, i}) + \frac{(y_i - \bar{\mu}_i)^2}{2\sigma^2_{\text{total}, i}}
+$$
 
-- `means` (torch.Tensor or np.ndarray): The predicted means of the ensemble members.
-- `variances` (torch.Tensor or np.ndarray): The predicted aleatoric variances of the ensemble members.
-- `y_true` (torch.Tensor or np.ndarray): The ground truth values.
-
-**Returns:**
-
-The Gaussian negative log-likelihood of the ensemble's predictions.
-
-**Example:**
+where $\bar{\mu}_i$ is the ensemble mean and $\sigma^2_{\text{total}, i}$ is the total uncertainty.
 
 ```python
-import torch
 from torchregress.metrics.ensemble import gaussian_nll_ensemble
-
-means = torch.randn(5, 100)
-variances = torch.rand(5, 100)
-y_true = torch.randn(100)
 
 nll = gaussian_nll_ensemble(means, variances, y_true)
 ```
+See also: [gaussian_nll_ensemble](../api/metrics.md#gaussian_nll_ensemble).
+
+---
 
 ## `ensemble_interval_bounds`
 
-Computes the symmetric Gaussian prediction intervals for an ensemble's predictions.
+Computes symmetric Gaussian prediction intervals at significance level $\alpha$:
 
-**Arguments:**
+$$
+L_i = \bar{\mu}_i - z_{1 - \alpha/2} \cdot \sigma_{\text{total}, i}
+$$
 
-- `means` (torch.Tensor or np.ndarray): The predicted means of the ensemble members.
-- `variances` (torch.Tensor or np.ndarray): The predicted aleatoric variances of the ensemble members.
-- `alpha` (float, optional): The significance level for the prediction intervals. Defaults to `0.1`.
-- `dim` (int, optional): The dimension to aggregate over. Defaults to `0`.
+$$
+U_i = \bar{\mu}_i + z_{1 - \alpha/2} \cdot \sigma_{\text{total}, i}
+$$
 
-**Returns:**
-
-A tuple containing the lower and upper bounds of the prediction intervals.
-
-**Example:**
+where $z_{p} = \Phi^{-1}(p)$ is the standard normal quantile.
 
 ```python
-import torch
 from torchregress.metrics.ensemble import ensemble_interval_bounds
 
-means = torch.randn(5, 100)
-variances = torch.rand(5, 100)
-
-lower, upper = ensemble_interval_bounds(means, variances)
+lower, upper = ensemble_interval_bounds(means, variances, alpha=0.1)
 ```
+See also: [ensemble_interval_bounds](../api/metrics.md#ensemble_interval_bounds).
+
+---
 
 ## `ensemble_interval_metrics`
 
-Computes the interval score and coverage for an ensemble's predictions.
-
-**Arguments:**
-
-- `means` (torch.Tensor or np.ndarray): The predicted means of the ensemble members.
-- `variances` (torch.Tensor or np.ndarray): The predicted aleatoric variances of the ensemble members.
-- `y_true` (torch.Tensor or np.ndarray): The ground truth values.
-- `alpha` (float, optional): The significance level for the prediction intervals. Defaults to `0.1`.
-
-**Returns:**
-
-A dictionary with the following keys:
-
-- `interval_score`: The interval score of the ensemble's predictions.
-- `picp`: The prediction interval coverage probability of the ensemble's predictions.
-
-**Example:**
+Computes the ensembled PICP (empirical coverage) and Winkler interval score for the generated prediction intervals.
 
 ```python
-import torch
 from torchregress.metrics.ensemble import ensemble_interval_metrics
 
-means = torch.randn(5, 100)
-variances = torch.rand(5, 100)
-y_true = torch.randn(100)
-
-metrics = ensemble_interval_metrics(means, variances, y_true)
+metrics = ensemble_interval_metrics(means, variances, y_true, alpha=0.1)
 ```
+See also: [ensemble_interval_metrics](../api/metrics.md#ensemble_interval_metrics).

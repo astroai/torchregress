@@ -2,6 +2,8 @@
 
 Transform losses apply a target-space mapping before scoring prediction error. They are useful when regression noise is multiplicative, the target is strongly skewed, or variance grows with magnitude.
 
+→ API: [`LogTransformLoss`](../api/losses.md#logtransformloss), [`BoxCoxTransformLoss`](../api/losses.md#boxcoxtransformloss), [`SqrtTransformLoss`](../api/losses.md#sqrttransformloss), [`YeoJohnsonTransformLoss`](../api/losses.md#yeojohnsontransformloss), [`TransformedTargetLoss`](../api/losses.md#transformedtargetloss).
+
 Available losses:
 
 - `TransformedTargetLoss`
@@ -30,12 +32,12 @@ This is a pragmatic choice when the transformed target is closer to homoscedasti
 
 ## Which Transform
 
-| Loss | Target support | Good default for |
-|:-----|:---------------|:-----------------|
-| `LogTransformLoss` | $y \ge 0$ | multiplicative noise, strong right skew, relative-error style objectives |
-| `BoxCoxTransformLoss` | $y \ge 0$ | positive targets when log is too aggressive or too weak |
-| `SqrtTransformLoss` | $y \ge 0$ | count-like targets or moderate variance growth |
-| `YeoJohnsonTransformLoss` | signed | signed skewed targets where Box-Cox/log are invalid |
+| Loss | Target support | Good default for | API |
+|:-----|:---------------|:-----------------|:----|
+| `LogTransformLoss` | $y \ge 0$ | multiplicative noise, strong right skew, relative-error style objectives | [`LogTransformLoss`](../api/losses.md#logtransformloss) |
+| `BoxCoxTransformLoss` | $y \ge 0$ | positive targets when log is too aggressive or too weak | [`BoxCoxTransformLoss`](../api/losses.md#boxcoxtransformloss) |
+| `SqrtTransformLoss` | $y \ge 0$ | count-like targets or moderate variance growth | [`SqrtTransformLoss`](../api/losses.md#sqrttransformloss) |
+| `YeoJohnsonTransformLoss` | signed | signed skewed targets where Box-Cox/log are invalid | [`YeoJohnsonTransformLoss`](../api/losses.md#yeojohnsontransformloss) |
 
 !!! tip
     Use the simplest transform that matches the target support and residual structure. Start with `LogTransformLoss` for positive multiplicative noise and `YeoJohnsonTransformLoss` for signed skewed targets.

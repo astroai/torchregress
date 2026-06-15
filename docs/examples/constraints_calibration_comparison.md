@@ -2,6 +2,8 @@
 
 This guide demonstrates how to combine post-hoc calibration transforms and output-head constraints in a unified machine learning workflow to improve point predictions, uncertainty estimates, and domain compliance.
 
+→ API: [Calibration](../api/calibration.md) (`VarianceTemperatureScaler`, `PITCalibrator`, …), [Constraints](../api/constraints.md) (`BoundedHead`, `NonCrossingSort`, …).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Guo, C., Pleiss, G., Sun, Y., & Weinberger, K. Q. (2017). [**On Calibration of Modern Neural Networks**](https://arxiv.org/abs/1706.04599). *ICML*. |
@@ -25,7 +27,7 @@ Calibration transforms adjust the outputs of a pre-trained model on a held-out c
 3.  **Probability Integral Transform (PIT) Calibration**:
     Under perfect calibration, the cumulative probabilities (PIT values) of the true targets $y$ under the predictive distribution $F(y \mid x)$ are uniformly distributed:
     $$U_i = F(y_i \mid x_i) \sim \text{Uniform}(0, 1)$$
-    The `PITCalibrator` fits a non-parametric mapping $g: [0, 1] \to [0, 1]$ using isotonic regression to map empirical PIT values to a uniform distribution:
+    The `PITCalibrator` fits a non-parametric mapping $g: \[0, 1\] \to \[0, 1\]$ using isotonic regression to map empirical PIT values to a uniform distribution:
     $$F_{\text{cal}}(y \mid x) = g(F(y \mid x))$$
 
 ### Output Constraints
@@ -46,8 +48,8 @@ Output constraints enforce mathematical properties or domain bounds directly on 
 
 ## Task-First Context
 
-*   **When to Use**: Use this workflow when your predictions must respect physical boundaries (e.g., non-negative prices, bounded fractional rates) and when you require highly calibrated, trustworthy predictive intervals.
-*   **Comparison Notes**: Track point error (`MAE`), distribution error (`NLL`), CDF mismatch (`PITChi2`), and boundary violations (`BoundViolation`, `CrossingRate`) separately.
+- **When to Use**: Use this workflow when your predictions must respect physical boundaries (e.g., non-negative prices, bounded fractional rates) and when you require highly calibrated, trustworthy predictive intervals.
+- **Comparison Notes**: Track point error (`MAE`), distribution error (`NLL`), CDF mismatch (`PITChi2`), and boundary violations (`BoundViolation`, `CrossingRate`) separately.
 
 ---
 

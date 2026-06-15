@@ -2,6 +2,8 @@
 
 This example demonstrates how to use `DensityWeightedLoss` and `LDSLoss` for imbalanced regression tasks.
 
+→ API: [`DensityWeightedLoss`](../api/losses.md#densityweightedloss), [`LDSLoss`](../api/losses.md) (imbalanced section). Guide: [Imbalanced losses](../losses/imbalanced.md).
+
 ## Task-First Context
 
 Use this example when your main problem is **rare-target / tail performance**. For method
@@ -46,7 +48,7 @@ class ImbalancedRegressionDataset(Dataset):
         torch.manual_seed(seed)
 
         # Generate imbalanced distribution:
-        # 80% samples from [-1, 1], 20% from tails [-3, -1] U [1, 3]
+        # 80% samples from [-1, 1], 20% from tails [-3, -1] U \[1, 3\]
         n_center = int(n_samples * 0.8)
         n_tail = n_samples - n_center
 
@@ -162,7 +164,7 @@ def compute_calibration_error(model, dataset, n_bins=10):
 def plot_calibration_curve(expected, observed, title="Calibration Curve"):
     """Plot calibration curve."""
     plt.figure(figsize=(6, 6))
-    plt.plot([0, 1], [0, 1], "k--", label="Perfect calibration")
+    plt.plot(\[0, 1\], \[0, 1\], "k--", label="Perfect calibration")
     plt.plot(expected, observed, "o-", label="Model calibration")
     plt.xlabel("Expected Coverage")
     plt.ylabel("Observed Coverage")
@@ -187,7 +189,7 @@ def train_baseline(dataset, n_epochs=100):
     optimizer = optim.Adam(model.parameters(), lr=0.01)
 
     loader = DataLoader(
-        [(dataset[i][0], dataset[i][1]) for i in range(len(dataset))],
+        [(dataset[i]\[0\], dataset[i]\[1\]) for i in range(len(dataset))],
         batch_size=64,
         shuffle=True,
     )
@@ -221,7 +223,7 @@ def train_density_weighted(dataset, n_epochs=100):
 
     # Fit density on training targets
     loss_fn = DensityWeightedLoss(kernel_width=0.5, base_loss="mse", reweight_factor=0.8)
-    all_targets = torch.tensor([dataset[i][1] for i in range(len(dataset))])
+    all_targets = torch.tensor([dataset[i]\[1\] for i in range(len(dataset))])
     loss_fn.fit_density(all_targets)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)
@@ -256,7 +258,7 @@ def train_lds(dataset, n_epochs=100):
 
     # Fit LDS
     loss_fn = LDSLoss(kernel="gaussian", kernel_width=1.5, reweight_factor=0.8, base_loss="mse")
-    all_targets = torch.tensor([dataset[i][1] for i in range(len(dataset))])
+    all_targets = torch.tensor([dataset[i]\[1\] for i in range(len(dataset))])
     loss_fn.fit(all_targets, n_bins=50)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)
@@ -402,7 +404,7 @@ def main():
     optimizer = optim.Adam(model_baseline_het.parameters(), lr=0.01)
 
     loader = DataLoader(
-        [(dataset[i][0], dataset[i][1]) for i in range(len(dataset))],
+        [(dataset[i]\[0\], dataset[i]\[1\]) for i in range(len(dataset))],
         batch_size=64,
         shuffle=True,
     )

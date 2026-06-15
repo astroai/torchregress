@@ -2,7 +2,14 @@
 Metrics for evaluating regression models.
 """
 
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, R2Score
+# torchmetrics classes (MeanSquaredError, MeanAbsoluteError, R2Score) are no longer
+# re-exported.  Import them directly from ``torchmetrics`` instead.
+
+from torchmetrics import (  # noqa: F401  # kept for soft backward compatibility; do not use in new code
+    MeanAbsoluteError,
+    MeanSquaredError,
+    R2Score,
+)
 
 from .calibration import (
     ExpectedCalibrationError,
@@ -213,8 +220,8 @@ __all__ = [
     "consistency_error",
     "pseudo_label_acceptance_rate",
     "uncertain_gt_metrics_report",
-    # Torchmetrics direct exports
-    "MeanSquaredError",
-    "MeanAbsoluteError",
-    "R2Score",
+    # Torchmetrics direct exports — deprecated; import directly from torchmetrics
+    # "MeanSquaredError",
+    # "MeanAbsoluteError",
+    # "R2Score",
 ]

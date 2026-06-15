@@ -2,6 +2,8 @@
 
 This guide demonstrates how to perform Tweedie regression for modeling zero-inflated continuous responses (e.g., rainfall, insurance claims) using Tweedie and Compound Poisson losses.
 
+→ API: [`TweedieLoss`](../api/losses.md#tweedieloss).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Jorgensen, B. (1987). [**Exponential Dispersion Models**](https://www.jstor.org/stable/2345173). *Journal of the Royal Statistical Society: Series B (Methodological)*. |

@@ -87,7 +87,7 @@ Full guides, API reference, and comparison examples live under [`docs/`](docs/):
 | [Examples index](docs/examples/index.md) | Runnable scripts and comparisons |
 | [Losses](docs/losses/index.md) · [Metrics](docs/metrics/index.md) · [Methods](docs/methods/index.md) | Category overviews |
 
-Build locally: `uv run mkdocs serve`
+Build locally: `uv run zensical serve`
 
 Repository examples: [`examples/`](examples/)
 

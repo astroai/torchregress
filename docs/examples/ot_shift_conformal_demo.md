@@ -2,6 +2,8 @@
 
 This guide explains how to use optimal transport (OT) reweighting to restore valid conformal coverage guarantees under covariate/distribution shift.
 
+→ API: [`WeightedSplitConformalAdapter`](../api/test_time.md#weightedsplitconformaladapter), [`OTShiftReweighter`](../api/test_time.md#otshiftreweighter). Guide: [OT shift conformal](../methods/test-time/ot-shift-conformal.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Tibshirani, R. J., Foygel Barber, R., Candès, E., & Ramdas, A. (2019). [**Conformal prediction under covariate shift**](https://arxiv.org/abs/1904.06019). *NeurIPS*. |
@@ -37,8 +39,8 @@ $$[\hat{y}_{\text{test}} - \hat{q}, \hat{y}_{\text{test}} + \hat{q}]$$
 
 ## Task-First Context
 
-*   **When to Use**: Use this adaptation when you need **prediction intervals** but expect a **covariate shift** or distribution shift between your calibration set and the online test environment.
-*   **Comparison Notes**: Monitor the size of the coverage gap $D_{\text{CDF}}$ and the resulting interval widths. High regularizations (`entropy_penalty`) lead to more uniform weights, while low regularizations can lead to high-variance weights.
+- **When to Use**: Use this adaptation when you need **prediction intervals** but expect a **covariate shift** or distribution shift between your calibration set and the online test environment.
+- **Comparison Notes**: Monitor the size of the coverage gap $D_{\text{CDF}}$ and the resulting interval widths. High regularizations (`entropy_penalty`) lead to more uniform weights, while low regularizations can lead to high-variance weights.
 
 ---
 

@@ -28,7 +28,7 @@ $$\boxed{\;L_\tau(r) = |\tau - \mathbf{1}_{r < 0}|\; r^2\;}$$
 
 When $\tau = 0.5$ the expectile loss reduces to standard MSE.
 
----
+See the [QuantileLoss](../api/losses.md#quantileloss), [MultiQuantileLoss](../api/losses.md#multiquantileloss), and [ExpectileLoss](../api/losses.md#expectileloss) API sections for parameters.
 
 ## Quantile Losses
 

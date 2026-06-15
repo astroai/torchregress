@@ -10,12 +10,12 @@ To understand robustness, we examine the **influence function** $\psi(r) = \frac
 
 | Loss | Function $\rho(r)$ | Influence $\psi(r)$ | API Reference |
 |:-----|:-------------------|:-------------------|:--------------|
-| **MSE** | $r^2$ | $2r$ (unbounded) | [`WeightedMSELoss`](../api/losses.md#torchregress.losses.base.WeightedMSELoss) |
-| **MAE** | $|r|$ | $\text{sgn}(r)$ (bounded) | [`WeightedL1Loss`](../api/losses.md#torchregress.losses.base.WeightedL1Loss) |
-| **Huber** | Piecewise $L_2/L_1$ | $\text{clamp}(r, -\delta, \delta)$ | [`WeightedHuberLoss`](../api/losses.md#torchregress.losses.base.WeightedHuberLoss) |
-| **Cauchy** | $\log(1 + r^2/c^2)$ | $\frac{2r}{c^2 + r^2} \rightarrow 0$ | [`CauchyLoss`](../api/losses.md#torchregress.losses.robust.CauchyLoss) |
-| **Tukey** | Redescending | $0$ for $|r| > c$ | [`TukeyBiweightLoss`](../api/losses.md#torchregress.losses.robust.TukeyBiweightLoss) |
-| **Barron** | General robust family | Varies with $\alpha$ | [`BarronLoss`](../api/losses.md#torchregress.losses.robust.BarronLoss) |
+| **MSE** | $r^2$ | $2r$ (unbounded) | [WeightedMSELoss](../api/losses.md#weightedmseloss) |
+| **MAE** | $|r|$ | $\text{sgn}(r)$ (bounded) | [WeightedL1Loss](../api/losses.md#weightedl1loss) |
+| **Huber** | Piecewise $L_2/L_1$ | $\text{clamp}(r, -\delta, \delta)$ | [WeightedHuberLoss](../api/losses.md#weightedhuberloss) |
+| **Cauchy** | $\log(1 + r^2/c^2)$ | $\frac{2r}{c^2 + r^2} \rightarrow 0$ | [CauchyLoss](../api/losses.md#cauchyloss) |
+| **Tukey** | Redescending | $0$ for $|r| > c$ | [TukeyBiweightLoss](../api/losses.md#tukeybiweightloss) |
+| **Barron** | General robust family | Varies with $\alpha$ | [BarronLoss](../api/losses.md#barronloss) |
 
 ---
 
@@ -23,11 +23,11 @@ To understand robustness, we examine the **influence function** $\psi(r) = \frac
 
 ### Huber & Pseudo-Huber
 
-The **Huber Loss** [1] is the "gold standard" for robust regression. It provides the stability of $L_2$ near zero (ensuring a unique minimum) and the robustness of $L_1$ for large residuals.
+The **Huber Loss** \[1\] is the "gold standard" for robust regression. It provides the stability of $L_2$ near zero (ensuring a unique minimum) and the robustness of $L_1$ for large residuals.
 
 $$\mathcal{L}_{\text{Huber}}(r; \delta) = \begin{cases} \tfrac{1}{2}r^2 & |r| \leq \delta \\ \delta\,|r| - \tfrac{1}{2}\delta^2 & |r| > \delta \end{cases}$$
 
-The **Pseudo-Huber Loss** ([`PseudoHuberLoss`](../api/losses.md#torchregress.losses.robust.PseudoHuberLoss)) is a smooth, $C^\infty$ approximation that is easier to optimise with second-order methods:
+The **Pseudo-Huber Loss** ([PseudoHuberLoss](../api/losses.md#pseudohuberloss)) is a smooth, $C^\infty$ approximation that is easier to optimise with second-order methods:
 
 $$\mathcal{L}_{\text{PH}}(r; \delta) = \delta^2 \left( \sqrt{1 + (r/\delta)^2} - 1 \right)$$
 
@@ -47,13 +47,13 @@ loss_fn = PseudoHuberLoss(delta=1.0)
 
 "Redescending" losses are the most aggressive form of robustness. Their influence function $\psi(r)$ actually **returns to zero** for extreme residuals, meaning the model effectively "ignores" outliers once they are confirmed as such.
 
-**Cauchy Loss** ([`CauchyLoss`](../api/losses.md#torchregress.losses.robust.CauchyLoss)):
+**Cauchy Loss** ([CauchyLoss](../api/losses.md#cauchyloss)):
 
 $$\mathcal{L}_{\text{Cauchy}}(r; c) = \log\left(1 + \left(\frac{r}{c}\right)^2\right)$$
 
-**Tukey Biweight** ([`TukeyBiweightLoss`](../api/losses.md#torchregress.losses.robust.TukeyBiweightLoss)):
+**Tukey Biweight** ([TukeyBiweightLoss](../api/losses.md#tukeybiweightloss)):
 
-The ultimate outlier rejection tool [2]. Samples with $|r| > c$ contribute **zero gradient** to the model.
+The ultimate outlier rejection tool \[2\]. Samples with $|r| > c$ contribute **zero gradient** to the model.
 
 $$\mathcal{L}_{\text{Tukey}}(r; c) = \begin{cases} \frac{c^2}{6} \left[ 1 - (1 - (r/c)^2)^3 \right] & |r| \leq c \\ \frac{c^2}{6} & |r| > c \end{cases}$$
 
@@ -66,7 +66,7 @@ $$\mathcal{L}_{\text{Tukey}}(r; c) = \begin{cases} \frac{c^2}{6} \left[ 1 - (1 -
 
 ### General Robust Family (Barron & AdaptiveRobust)
 
-[`BarronLoss`](../api/losses.md#torchregress.losses.robust.BarronLoss) provides a single smooth family that spans several useful robustness regimes through the shape parameter $\alpha$ [4]:
+[BarronLoss](../api/losses.md#barronloss) provides a single smooth family that spans several useful robustness regimes through the shape parameter $\alpha$ \[4\]:
 
 $$
 \mathcal{L}_{\text{Barron}}(r; \alpha, c) =
@@ -84,7 +84,7 @@ Practical reading:
 - $\alpha \approx 0$: Cauchy-like heavy-tail robustness
 - $\alpha < 0$: increasingly redescending behavior
 
-[`AdaptiveRobustLoss`](../api/losses.md#torchregress.losses.robust.AdaptiveRobustLoss) keeps the same loss family but makes $\alpha$ and $c$ trainable. This is useful when the tail behavior is unknown up front and you want the optimizer to learn a robust regime jointly with the model.
+[AdaptiveRobustLoss](../api/losses.md#adaptiverobustloss) keeps the same loss family but makes $\alpha$ and $c$ trainable. This is useful when the tail behavior is unknown up front and you want the optimizer to learn a robust regime jointly with the model.
 
 ```python
 import torch
@@ -141,7 +141,7 @@ graph TD
 
 ## Advanced: Tail Sensitivity with CVaR
 
-While robust losses *ignore* outliers, **CVaR (Conditional Value at Risk)** [3] does the opposite — it focuses exclusively on the **hardest** samples. This is useful for:
+While robust losses *ignore* outliers, **CVaR (Conditional Value at Risk)** \[3\] does the opposite — it focuses exclusively on the **hardest** samples. This is useful for:
 
 - Ensuring fairness across sub-populations.
 - Minimising worst-case error.
@@ -154,7 +154,7 @@ from torchregress.losses import CVaRLoss
 loss_fn = CVaRLoss(alpha=0.05, base_loss="huber", delta=1.5)
 ```
 
-→ See [Mathematical Foundations](../guide/math/index.md) for the derivation of CVaR and [Proper Scoring Rules](../metrics/distribution.md) for evaluation. See [`CVaRLoss`](../api/losses.md#torchregress.losses.robust.CVaRLoss).
+→ See [Mathematical Foundations](../guide/math/index.md) for the derivation of CVaR and [Proper Scoring Rules](../metrics/distribution.md) for evaluation. See [CVaRLoss](../api/losses.md#cvarloss).
 
 ---
 

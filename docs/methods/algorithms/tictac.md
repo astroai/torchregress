@@ -12,7 +12,7 @@ TIC-TAC links the covariance $\Sigma(x)$ directly to the local geometry of the m
 
 $$\Sigma(x) = k_1(x) J(x) J(x)^T + k_2(x) H(x) + \text{diag}(k_3(x)) + \epsilon I$$
 
-where:
+In this Taylor expansion, the derivative-based terms are defined as follows:
 
 - $J(x) \in \mathbb{R}^{D \times P}$ is the Jacobian of the mean prediction $f(x)$ w.r.t input features $x \in \mathbb{R}^P$:
   $$J(x)_{i, j} = \frac{\partial f_i(x)}{\partial x_j}$$

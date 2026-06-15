@@ -6,16 +6,16 @@ Script: `examples/multimodal_method_comparison.py`
 
 ## What It Compares
 
-- Diagonal Gaussian NLL baseline (`GaussianNLLLoss`)
-- Mixture Density Network (`MDNLoss`)
-- Conditional normalizing flow (`NormalizingFlowLoss`, optional if `zuko` is installed)
+- Diagonal Gaussian NLL baseline ([`GaussianNLLLoss`](../api/losses.md#gaussiannllloss))
+- Mixture Density Network ([`MDNLoss`](../api/losses.md#mdnloss))
+- Conditional normalizing flow ([`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), optional if `zuko` is installed)
 
 ## Metrics Reported
 
 - Point metrics (`MSE`, `MAE`, `R2`) using predictive mean / sample mean
 - Test negative log-likelihood (`NLL`)
 - Multivariate Energy Score (`Energy`)
-- Marginal calibration error from predictive samples (`MCE`)
+- Marginal calibration error from predictive samples (`MCE`) — [`marginal_calibration_error`](../api/metrics.md#marginal_calibration_error)
 - Runtime (`train_s`, `eval_s`)
 
 ## Fairness / Comparability Notes

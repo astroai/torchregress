@@ -2,6 +2,8 @@
 
 This guide explains how to wrap a `BayesianLinearHead` with a lightweight adapter class to satisfy the `SupportsPredictiveBatch` protocol, enabling seamless integration with downstream adaptation pipelines.
 
+→ API: [Test-time](../api/test_time.md) (`BayesianLinearHead`, `SupportsPredictiveBatch`).
+
 ---
 
 ## The SupportsPredictiveBatch Protocol

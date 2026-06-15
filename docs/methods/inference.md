@@ -50,7 +50,7 @@ PPI's validity rests on a small number of assumptions:
 | **Full covariates** | All features needed by $\hat{f}$ are observed for **every unit** (labelled and unlabelled) | Check for missingness |
 
 !!! warning "When PPI breaks"
-    If labelling is **not random** (e.g., only easy-to-classify examples get labels), the bias correction is invalid.  This is the Missing Not At Random (MNAR) setting; extensions exist but require additional modelling [5].
+    If labelling is **not random** (e.g., only easy-to-classify examples get labels), the bias correction is invalid.  This is the Missing Not At Random (MNAR) setting; extensions exist but require additional modelling \[5\].
 
 ---
 
@@ -230,7 +230,7 @@ diag = ppi_diagnostics(y_gold, f_hat_gold, f_hat_all)
 | **Semi-supervised** | ✅ | ❌ (heuristic) | Partially | Model class |
 | **PPI** | ✅ | ✅ | ✅ | Exchangeability |
 | **PPI++** | ✅ | ✅ | ✅ | Same + tuned $\lambda$ |
-| **Calibrated PPI (mean)** | ✅ | ✅ (bootstrap) | ✅ | Post-hoc $f \circ m$ on labeled data [6] |
+| **Calibrated PPI (mean)** | ✅ | ✅ (bootstrap) | ✅ | Post-hoc $f \circ m$ on labeled data \[6\] |
 
 ---
 
@@ -246,7 +246,7 @@ diag = ppi_diagnostics(y_gold, f_hat_gold, f_hat_all)
     - Requires **MCAR labelling** — if labels are obtained non-randomly, extensions are needed
     - No gain when predictions are **uninformative** ($R^2 \approx 0$)
     - Model must be trained on **external data** (not the same dataset)
-    - The proliferation of PPI variants (PPI, PPI++, Cross-PPI, Cross-PPBoot) creates a usability gap [5]
+    - The proliferation of PPI variants (PPI, PPI++, Cross-PPI, Cross-PPBoot) creates a usability gap \[5\]
 
 ---
 

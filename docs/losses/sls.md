@@ -1,6 +1,8 @@
 # Super-Level-Set (SLS) Regression
 
-SLS regression directly estimates **minimum-volume prediction regions** with conditional coverage guarantees by optimizing a learned level-set boundary under a volume penalty. Unlike quantile regression (which targets specific percentiles) or conformal prediction (which wraps an existing model), SLS jointly learns the prediction region shape, volume, and conditional coverage in a single differentiable objective.
+SLS regression directly estimates **minimum-volume prediction regions** with conditional coverage guarantees by optimizing a learned level-set boundary under a volume penalty.
+
+→ API: [`SLSLoss`](../api/losses.md#slsloss). Post-hoc coverage: [`SLSConformal`](../api/conformal.md#slsconformal).
 
 !!! abstract "Key insight"
     SLS frames conditional coverage as a **volume minimization** problem: find the smallest prediction set $C(x)$ such that $P(Y \in C(x) \mid X = x) \geq \tau$. The boundary of $C(x)$ is parameterized by a Mahalanobis distance in a learned feature space, with a volume-preserving flow ensuring the learned metric is invertible.

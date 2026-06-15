@@ -2,6 +2,8 @@
 
 This guide compares multiple methods for modeling ordered-target data (where targets are discrete classes with a natural sequence or hierarchy).
 
+→ API: [`CumulativeLinkLoss`](../api/losses.md#cumulativelinkloss), [`CORALLoss`](../api/losses.md#coralloss), [`OrdinalCrossEntropyLoss`](../api/losses.md#ordinalcrossentropyloss). Metrics: [`quadratic_weighted_kappa`](../api/metrics.md#quadratic_weighted_kappa).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | McCullagh, P. (1980). [**Regression Models for Ordinal Data**](https://www.jstor.org/stable/2984952). *Journal of the Royal Statistical Society: Series B*. |
@@ -49,8 +51,8 @@ Sharing the weights guarantees **classifier consistency**: the predicted binary 
 
 ## Task-First Context
 
-*   **When to Use**: Use ordinal regression when predicting ordered survey answers, rating scales, cancer stages, or age groups.
-*   **Comparison Metrics**: Always evaluate models using **Accuracy** (exact match rate), **Ordinal MAE** (average class-index distance), and **Quadratic Weighted Kappa (QWK)** (overall agreement penalizing larger class distance errors quadratically).
+- **When to Use**: Use ordinal regression when predicting ordered survey answers, rating scales, cancer stages, or age groups.
+- **Comparison Metrics**: Always evaluate models using **Accuracy** (exact match rate), **Ordinal MAE** (average class-index distance), and **Quadratic Weighted Kappa (QWK)** (overall agreement penalizing larger class distance errors quadratically).
 
 ---
 
@@ -104,7 +106,7 @@ def make_data(cfg: OrdinalComparisonConfig) -> tuple[Tensor, Tensor, Tensor, Ten
 
     # Latent linear model with non-linear addition
     w = torch.tensor([0.9, -0.7, 0.4, 0.2, -0.3, 0.1])[: cfg.n_features]
-    latent = x @ w + 0.35 * x[:, 0] * x[:, 1] - 0.2 * x[:, 2] ** 2 + 0.4 * torch.randn(x.shape[0])
+    latent = x @ w + 0.35 * x[:, 0] * x[:, 1] - 0.2 * x[:, 2] ** 2 + 0.4 * torch.randn(x.shape\[0\])
 
     # Bin into classes using thresholds
     cutpoints = torch.tensor([-1.0, -0.25, 0.4, 1.1])

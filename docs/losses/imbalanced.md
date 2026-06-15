@@ -15,14 +15,14 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 
 ## Available Losses
 
-| Loss | Method | Calibration | Pre-fitting |
-|:-----|:-------|:-----------:|:-----------:|
-| `BalancedMSELoss` | Inverse **bin** frequency (fixed edges) | ⚠️ Check | `fit(y)` |
-| `BMCLoss` | Inverse bin frequency + count smoothing | ⚠️ Check | `fit(y)` |
-| `DensityWeightedLoss` | Inverse kernel-density weights | ✅ Safe | `fit_density(y)` |
-| `LDSLoss` | Smoothed label distribution | ⚠️ May break | `fit(y)` |
-| `PropensityWeightedLoss` | Inverse propensity scores | ✅ With correct scores | None |
-| `FocalRLoss` | Sigmoid-scaled error emphasis | ✅ Mostly | None |
+| Loss | Method | Calibration | Pre-fitting | API |
+|:-----|:-------|:-----------:|:-----------:|:----|
+| `BalancedMSELoss` | Inverse **bin** frequency (fixed edges) | ⚠️ Check | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
+| `BMCLoss` | Inverse bin frequency + count smoothing | ⚠️ Check | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
+| `DensityWeightedLoss` | Inverse kernel-density weights | ✅ Safe | `fit_density(y)` | [Losses API](../api/losses.md) (imbalanced) |
+| `LDSLoss` | Smoothed label distribution | ⚠️ May break | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
+| `PropensityWeightedLoss` | Inverse propensity scores | ✅ With correct scores | None | [Losses API](../api/losses.md) (imbalanced) |
+| `FocalRLoss` | Sigmoid-scaled error emphasis | ✅ Mostly | None | [Losses API](../api/losses.md) (imbalanced) |
 
 ---
 

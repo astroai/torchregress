@@ -34,10 +34,10 @@ $$\mathcal{L}(\theta) = -\mathbb{E}_{(x, y) \sim \mathcal{D}} \left[ \log p(y \m
 
 | Loss | Implied Distribution | Mathematical Form | API Reference |
 |:-----|:---------------------|:------------------|:--------------|
-| **MSE** | Gaussian (fixed $\sigma$) | $(y - \hat{y})^2$ | [`WeightedMSELoss`](../../api/losses.md#torchregress.losses.base.WeightedMSELoss) |
-| **MAE** | Laplace (fixed $b$) | $\lvert y - \hat{y}\rvert$ | [`WeightedL1Loss`](../../api/losses.md#torchregress.losses.base.WeightedL1Loss) |
-| **Gaussian NLL** | Gaussian (learned $\sigma$) | $\frac{1}{2}\log(2\pi\sigma^2) + \frac{(y-\mu)^2}{2\sigma^2}$ | [`GaussianNLLLoss`](../../api/losses.md#torchregress.losses.gaussian.GaussianNLLLoss) |
-| **Poisson NLL** | Poisson | $\hat{\mu} - y\log\hat{\mu} + \log(y!)$ | [`PoissonDevianceLoss`](../../api/losses.md#torchregress.losses.poisson.PoissonDevianceLoss) |
+| **MSE** | Gaussian (fixed $\sigma$) | $(y - \hat{y})^2$ | [WeightedMSELoss](../../api/losses.md#weightedmseloss) |
+| **MAE** | Laplace (fixed $b$) | $\lvert y - \hat{y}\rvert$ | [WeightedL1Loss](../../api/losses.md#weightedl1loss) |
+| **Gaussian NLL** | Gaussian (learned $\sigma$) | $\frac{1}{2}\log(2\pi\sigma^2) + \frac{(y-\mu)^2}{2\sigma^2}$ | [GaussianNLLLoss](../../api/losses.md#gaussiannllloss) |
+| **Poisson NLL** | Poisson | $\hat{\mu} - y\log\hat{\mu} + \log(y!)$ | [PoissonDevianceLoss](../../api/losses.md#poissondevianceloss) |
 
 → See [Gaussian Losses](../../losses/gaussian.md) for heteroscedastic implementation details.
 
@@ -46,12 +46,12 @@ $$\mathcal{L}(\theta) = -\mathbb{E}_{(x, y) \sim \mathcal{D}} \left[ \log p(y \m
 Unlike NLL losses which target the mean, quantile and expectile losses target specific properties of the predictive distribution.
 
 **Quantile Loss (Pinball Loss):**
-Used to estimate the $\tau$-th quantile $\hat{q}_\tau$. It is the $L_1$ analogue for distributional modeling [6]. See [`QuantileLoss`](../../api/losses.md#torchregress.losses.quantile.QuantileLoss) for API details.
+Used to estimate the $\tau$-th quantile $\hat{q}_\tau$. It is the $L_1$ analogue for distributional modeling \[6\]. See [QuantileLoss](../../api/losses.md#quantileloss) for API details.
 
 $$\mathcal{L}_\tau^{\text{quantile}}(y, \hat{q}_\tau) = (y - \hat{q}_\tau) \left( \tau - \mathbf{1}_{y < \hat{q}_\tau} \right)$$
 
 **Expectile Loss:**
-Used to estimate the $\tau$-th expectile $\hat{e}_\tau$. It is the $L_2$ analogue of quantile regression, which is often easier to optimise due to its smoothness. See [`ExpectileLoss`](../../api/losses.md#torchregress.losses.expectile.ExpectileLoss).
+Used to estimate the $\tau$-th expectile $\hat{e}_\tau$. It is the $L_2$ analogue of quantile regression, which is often easier to optimise due to its smoothness. See [ExpectileLoss](../../api/losses.md#expectileloss).
 
 $$\mathcal{L}_\tau^{\text{expectile}}(y, \hat{e}_\tau) = \lvert\tau - \mathbf{1}_{y < \hat{e}_\tau}\rvert \cdot (y - \hat{e}_\tau)^2$$
 
@@ -63,10 +63,10 @@ Robust losses are designed to mitigate the influence of outliers by using "redes
 
 | Loss | Function $\rho(r)$ | Influence $\psi(r)$ | API Reference |
 |:-----|:-------------------|:-------------------|:--------------|
-| **Huber** | Quadratic near 0, Linear at tails | Bounded | [`WeightedHuberLoss`](../../api/losses.md#torchregress.losses.base.WeightedHuberLoss) |
-| **Log-Cosh** | $\log(\cosh r)$ | $\tanh(r)$ | [`LogCoshLoss`](../../api/losses.md#torchregress.losses.robust.LogCoshLoss) |
-| **Tukey Biweight** | Redescending polynomial | $\rightarrow 0$ for large $r$ | [`TukeyBiweightLoss`](../../api/losses.md#torchregress.losses.robust.TukeyBiweightLoss) |
-| **Cauchy** | $\log(1 + r^2/c^2)$ | Decreasing | [`CauchyLoss`](../../api/losses.md#torchregress.losses.robust.CauchyLoss) |
+| **Huber** | Quadratic near 0, Linear at tails | Bounded | [WeightedHuberLoss](../../api/losses.md#weightedhuberloss) |
+| **Log-Cosh** | $\log(\cosh r)$ | $\tanh(r)$ | [LogCoshLoss](../../api/losses.md#logcoshloss) |
+| **Tukey Biweight** | Redescending polynomial | $\rightarrow 0$ for large $r$ | [TukeyBiweightLoss](../../api/losses.md#tukeybiweightloss) |
+| **Cauchy** | $\log(1 + r^2/c^2)$ | Decreasing | [CauchyLoss](../../api/losses.md#cauchyloss) |
 
 → See [Robust Losses](../../losses/robust.md) for parameter selection guides.
 
@@ -89,19 +89,19 @@ Uncertainty in the model parameters or structure due to limited training data. I
 
 ### Deep Ensemble Decomposition
 
-For an ensemble of $M$ models, each predicting a mean $\mu_m$ and variance $\sigma_m^2$, the total predictive uncertainty can be decomposed as [1]:
+For an ensemble of $M$ models, each predicting a mean $\mu_m$ and variance $\sigma_m^2$, the total predictive uncertainty can be decomposed as \[1\]:
 
 $$\boxed{\;\sigma_{\text{total}}^2 = \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2}_{\text{Aleatoric}} + \underbrace{\frac{1}{M}\sum_{m=1}^{M}(\mu_m - \bar\mu)^2}_{\text{Epistemic}}\;}$$
 
 where $\bar\mu = \frac{1}{M}\sum \mu_m$.
 
-→ See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [`DeepEnsemble`](../../api/ensemble.md#torchregress.ensemble.DeepEnsemble), SWAG, BNN).
+→ See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [DeepEnsemble](../../api/ensemble.md#deepensemble), SWAG, BNN).
 
 ---
 
 ## Proper Scoring Rules
 
-A scoring rule $S(F, y)$ is **proper** if the expected score is minimised when the predicted distribution $F$ matches the true distribution $G$ [9].
+A scoring rule $S(F, y)$ is **proper** if the expected score is minimised when the predicted distribution $F$ matches the true distribution $G$ \[9\].
 
 ### Continuous Ranked Probability Score (CRPS)
 
@@ -109,17 +109,17 @@ The CRPS generalizes the MAE to probabilistic forecasts. It measures both **cali
 
 $$CRPS(F, y) = \int_{-\infty}^{\infty} [F(z) - \mathbf{1}_{z \geq y}]^2 dz$$
 
-For a Gaussian distribution $\mathcal{N}(\mu, \sigma^2)$, this simplifies to a closed form implemented in [`crps_gaussian`](../../api/metrics.md#torchregress.metrics.distribution.crps_gaussian):
+For a Gaussian distribution $\mathcal{N}(\mu, \sigma^2)$, this simplifies to a closed form implemented in [crps_gaussian](../../api/metrics.md#crps_gaussian):
 
 $$CRPS(\mu, \sigma, y) = \sigma \left[ \frac{y-\mu}{\sigma} \Phi\left(\frac{y-\mu}{\sigma}\right) + 2\phi\left(\frac{y-\mu}{\sigma}\right) - \frac{1}{\sqrt{\pi}} \right]$$
 
-→ See [Distribution Metrics](../../metrics/distribution.md) for multivariate [`energy_score`](../../api/metrics.md#torchregress.metrics.distribution.energy_score).
+→ See [Distribution Metrics](../../metrics/distribution.md) for multivariate [energy_score](../../api/metrics.md#energy_score).
 
 ---
 
 ## Conformal Prediction
 
-Conformal Prediction (CP) provides a framework for generating prediction intervals with **guaranteed coverage** under the sole assumption of exchangeability [4, 5].
+Conformal Prediction (CP) provides a framework for generating prediction intervals with **guaranteed coverage** under the sole assumption of exchangeability \[4, 5\].
 
 Given a non-conformity score $s(x, y)$ (e.g., absolute residual $\lvert y - \hat{y} \rvert$), the conformal interval at level $1-\alpha$ is:
 
@@ -131,7 +131,7 @@ where $\hat{q}$ is the $\frac{\lceil(n+1)(1-\alpha)\rceil}{n}$ quantile of calib
 
 $$P\bigl(Y_{n+1} \in \hat{C}(X_{n+1})\bigr) \;\geq\; 1 - \alpha$$
 
-→ See [Conformal Prediction](../../methods/conformal/index.md) for [`SplitConformal`](../../api/losses.md#torchregress.losses.conformal.SplitConformal), CQR and distributional CP.
+→ See [Conformal Prediction](../../methods/conformal/index.md) for [SplitConformal](../../api/losses.md#splitconformal), CQR and distributional CP.
 
 ---
 
@@ -139,7 +139,7 @@ $$P\bigl(Y_{n+1} \in \hat{C}(X_{n+1})\bigr) \;\geq\; 1 - \alpha$$
 
 ### Measurement Error (Errors-in-Variables)
 
-Standard OLS assumes $X$ is measured perfectly. If $X_{\text{obs}} = X^* + \epsilon$, then OLS estimates are biased toward zero (**attenuation bias**) [10]. **torchregress** implements SIMEX and Regression Calibration (RC) to correct this. See [Algorithms](../../methods/algorithms/rc.md).
+Standard OLS assumes $X$ is measured perfectly. If $X_{\text{obs}} = X^* + \epsilon$, then OLS estimates are biased toward zero (**attenuation bias**) \[10\]. **torchregress** implements SIMEX and Regression Calibration (RC) to correct this. See [Algorithms](../../methods/algorithms/rc.md).
 
 ### Ordinal Regression
 
@@ -147,7 +147,7 @@ For discrete ordered targets, we use the **Cumulative Link Model**:
 
 $$P(Y \leq k \mid x) = \sigma(\theta_k - f(x))$$
 
-where $\theta_1 < \theta_2 < \dots < \theta_{K-1}$ are learned thresholds. See [`CumulativeLinkLoss`](../../api/losses.md#torchregress.losses.ordinal.CumulativeLinkLoss).
+where $\theta_1 < \theta_2 < \dots < \theta_{K-1}$ are learned thresholds. See [CumulativeLinkLoss](../../api/losses.md#cumulativelinkloss).
 
 ---
 

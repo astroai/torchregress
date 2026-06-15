@@ -2,6 +2,8 @@
 
 This guide explains how to perform Mondrian (group-conditional) conformal prediction to guarantee valid coverage independently within subgroups of data using `SplitConformal` with group indicators.
 
+→ API: [`SplitConformal`](../api/losses.md#splitconformal). Guide: [Conformal predictors](../methods/conformal/predictors.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Vovk, V. (2002). [**Conditional Conformal Prediction**](https://link.springer.com/chapter/10.1007/3-540-36169-3_29). *International Conference on Algorithmic Learning Theory*. |
@@ -49,7 +51,7 @@ np.random.seed(42)
 n_samples = 1000
 
 x = np.random.uniform(-1.5, 1.5, size=(n_samples, 1)).astype(np.float32)
-groups = np.random.choice([0, 1], size=(n_samples, 1)).astype(np.int64)
+groups = np.random.choice(\[0, 1\], size=(n_samples, 1)).astype(np.int64)
 y_mean = 0.8 * x
 
 # Group 0: low noise (0.2), Group 1: high noise (1.2)

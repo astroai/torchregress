@@ -133,7 +133,7 @@ models = []
 for i in range(5):
     set_seed(42 + i)
     model = create_heteroscedastic_model()
-    loss_fn = GaussianNLLLoss()  # Learns variance
+    loss_fn = GaussianNLLLoss()  # Learns variance — see [GaussianNLLLoss API](../../api/losses.md#gaussiannllloss)
     train_model(model, data, loss_fn, epochs=100)
     models.append(model)
 
@@ -144,12 +144,14 @@ predictions = ensemble(x_test)  # List of (mean, log_var) tuples
 
 # Decompose uncertainty
 from torchregress.metrics import ensemble_variance_decomposition
-means = torch.stack([pred[0] for pred in predictions])
-log_vars = torch.stack([pred[1] for pred in predictions])
+means = torch.stack([pred\[0\] for pred in predictions])
+log_vars = torch.stack([pred\[1\] for pred in predictions])
 
 epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 total_uncertainty = torch.sqrt(epistemic + aleatoric)
 ```
+
+→ [`GaussianNLLLoss` API](../../api/losses.md#gaussiannllloss), [`HeteroscedasticEnsembleModel` API](../../api/ensemble.md#heteroscedasticensemblemodel), [`uncertainty_decomposition`](../../api/metrics.md#uncertainty_decomposition).
 
 **Characteristics:**
 - ✅ Both epistemic AND aleatoric uncertainty

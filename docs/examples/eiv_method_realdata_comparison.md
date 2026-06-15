@@ -1,7 +1,8 @@
 # EIV Method Comparison (Real Data)
 
-This example compares EIV losses on a **real tabular dataset** (`sklearn.datasets.load_diabetes`)
-with **synthetic feature/label measurement error injection**.
+This example compares EIV losses on a **real tabular dataset** (`sklearn.datasets.load_diabetes`) with **synthetic feature/label measurement error injection**.
+
+→ API: [`FunctionalEIVLoss`](../api/losses.md#functionaleivloss), [`OrthogonalDistanceRegressionLoss`](../api/losses.md#orthogonaldistanceregressionloss).
 
 Script: `examples/eiv_method_realdata_comparison.py`
 

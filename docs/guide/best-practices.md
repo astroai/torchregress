@@ -9,13 +9,13 @@ Building reliable regression models requires more than just picking a loss funct
 Always follow this tiered approach to ensure stability and catch issues early.
 
 ### Phase 1: The Baseline (Day 1)
-Start with a simple model and standard `WeightedMSELoss`.
+Start with a simple model and standard [`WeightedMSELoss`](../api/losses.md#weightedmseloss).
 - **Goal**: Establish a performance floor.
 - **Check**: Can the model overfit a tiny subset (5-10 samples) of the data? If not, check your learning rate and architecture.
 - **Metric**: Root Mean Squared Error (RMSE) and $R^2$.
 
 ### Phase 2: Probabilistic Modeling (Day 2-3)
-Switch to a heteroscedastic loss like `GaussianNLLLoss`.
+Switch to a heteroscedastic loss like [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss).
 - **Goal**: Estimate aleatoric uncertainty.
 - **Check**: Look at the predicted standard deviation $\sigma(x)$. Does it make sense? (e.g., is it higher for noisy regions of the input space?)
 - **Metric**: Negative Log-Likelihood (NLL) and Calibration curves.
@@ -23,7 +23,7 @@ Switch to a heteroscedastic loss like `GaussianNLLLoss`.
 ### Phase 3: Robustness & Refinement (Week 1)
 Introduce robust losses or ensembles if needed.
 - **Goal**: Handle outliers and estimate epistemic uncertainty.
-- **Check**: Compare `WeightedHuberLoss` vs `WeightedMSELoss` on a held-out test set with known outliers.
+- **Check**: Compare [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss) vs [`WeightedMSELoss`](../api/losses.md#weightedmseloss) on a held-out test set with known outliers.
 - **Metric**: CRPS (Continuous Ranked Probability Score) for overall distributional quality.
 
 ---
@@ -34,7 +34,7 @@ Introduce robust losses or ensembles if needed.
 Always scale your input features $X$. Neural networks are sensitive to the scale of inputs; use `StandardScaler` or `MinMaxScaler` from `scikit-learn` before passing data to PyTorch.
 
 ### Target Scaling
-For many losses (like `GaussianNLLLoss`), it is often helpful to scale the targets $y$ to have zero mean and unit variance. This makes the initial "guess" of the model ($\mu \approx 0, \sigma \approx 1$) reasonable and improves convergence.
+For many losses (like [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss)), it is often helpful to scale the targets $y$ to have zero mean and unit variance. This makes the initial "guess" of the model ($\mu \approx 0, \sigma \approx 1$) reasonable and improves convergence.
 
 ---
 

@@ -2,53 +2,99 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
+import torch.nn.functional as F  # noqa: N812
 from torch import Tensor
 
 
 @dataclass
 class PropensityEstimator:
-    """Simple logistic propensity estimator for selection/missingness modeling."""
+    """Simple logistic propensity estimator for selection/missingness modeling.
+
+    Uses a torch-native linear model with binary cross-entropy loss so that
+    the estimator integrates with GPU workflows.  Equivalent to a scikit-learn
+    ``LogisticRegression`` with ``class_weight='balanced'``.
+    """
 
     clip_min: float = 0.01
     clip_max: float = 0.99
     max_iter: int = 1000
+    learning_rate: float = 0.1
     random_state: int = 42
+
+    _weight: Tensor | None = field(default=None, init=False, repr=False)
+    _bias: Tensor | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not (0.0 < self.clip_min < self.clip_max < 1.0):
             raise ValueError("clip_min/clip_max must satisfy 0 < clip_min < clip_max < 1")
-        self._model = None
+
+    # ── balancing heuristic (matched to class_weight='balanced') ──────────
+    @staticmethod
+    def _balanced_class_weight(observed: Tensor) -> Tensor:
+        """Return scalar weight for the positive class (1's)."""
+        n = observed.numel()
+        n_pos = observed.sum().clamp_min(1)
+        n_neg = n - n_pos
+        if n_neg == 0:
+            return torch.tensor(1.0, device=observed.device, dtype=torch.float32)
+        return (n_neg / n_pos).float()
+
+    # ── training helpers ───────────────────────────────────────────────────
+    def _predict_logits(self, x: Tensor) -> Tensor:
+        if self._weight is None or self._bias is None:
+            raise ValueError("PropensityEstimator must be fitted before predict_proba")
+        return x @ self._weight + self._bias
 
     def fit(self, x: Tensor, observed: Tensor) -> "PropensityEstimator":
-        """Fit propensity p(observed=1 | x)."""
-        from sklearn.linear_model import LogisticRegression  # type: ignore[import-untyped]
-
-        x_np = x.detach().cpu().numpy()
-        obs_np = observed.detach().cpu().numpy().reshape(-1)
-        if x_np.shape[0] != obs_np.shape[0]:
+        """Fit propensity p(observed=1 | x) with a linear logistic model."""
+        if x.shape[0] != observed.numel():
             raise ValueError("x and observed must share the sample dimension")
 
-        model = LogisticRegression(
+        obs = observed.float().reshape(-1, 1)
+
+        # balanced class weight (applied in BCE loss)
+        pos_weight = self._balanced_class_weight(obs).to(device=x.device, dtype=x.dtype)
+
+        # initialise linear model
+        in_features = x.shape[-1]
+        _gen = torch.Generator(device=x.device)
+        _gen.manual_seed(self.random_state)
+
+        weight = torch.zeros(in_features, 1, device=x.device, dtype=x.dtype)
+        bias = torch.zeros(1, device=x.device, dtype=x.dtype)
+        weight.requires_grad_(True)
+        bias.requires_grad_(True)
+
+        optimizer = torch.optim.LBFGS(
+            [weight, bias],
+            lr=self.learning_rate,
             max_iter=self.max_iter,
-            class_weight="balanced",
-            random_state=self.random_state,
+            line_search_fn="strong_wolfe",
         )
-        model.fit(x_np, obs_np)
-        self._model = model
+
+        def _closure() -> Tensor:
+            optimizer.zero_grad(set_to_none=True)
+            logits = x @ weight + bias
+            loss = F.binary_cross_entropy_with_logits(
+                logits, obs, pos_weight=pos_weight.expand_as(logits)
+            )
+            loss.backward()
+            return loss
+
+        optimizer.step(_closure)
+
+        self._weight = weight.detach().cpu()
+        self._bias = bias.detach().cpu()
         return self
 
     def predict_proba(self, x: Tensor) -> Tensor:
         """Predict clipped propensity scores p(observed=1 | x)."""
-        if self._model is None:
-            raise ValueError("PropensityEstimator must be fitted before predict_proba")
-
-        x_np = x.detach().cpu().numpy()
-        p = self._model.predict_proba(x_np)[:, 1]
-        p_t = torch.tensor(p, dtype=torch.float32, device=x.device)
-        return p_t.clamp(min=self.clip_min, max=self.clip_max)
+        logits = self._predict_logits(x)
+        p = torch.sigmoid(logits).squeeze(-1)
+        return p.clamp(min=self.clip_min, max=self.clip_max)
 
 
 def ipw_weights(

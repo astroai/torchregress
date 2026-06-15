@@ -67,11 +67,11 @@ prints gap diagnostics, weighted calibration coverage summary, and mean set size
 
 ## Mathematics (v1)
 
-Let :math:`\{s_i\}_{i=1}^n` be calibration scores and :math:`\{t_j\}` unlabeled target
-scores. On a grid :math:`(g_\ell)`, the target ECDF is
-:math:`\hat F_T(g_\ell) = \frac{1}{|\mathcal{T}|}\sum_j \mathbf{1}\{t_j \le g_\ell\}`.
-Weights :math:`w` lie on the simplex. The weighted calibration ECDF is
-:math:`\hat F_{C,w}(g_\ell) = \sum_i w_i \mathbf{1}\{s_i \le g_\ell\}`.
+Let $\{s_i\}_{i=1}^n$ be calibration scores and $\{t_j\}$ unlabeled target
+scores. On a grid $(g_\ell)$, the target ECDF is
+$\hat F_T(g_\ell) = \frac{1}{|\mathcal{T}|}\sum_j \mathbf{1}\{t_j \le g_\ell\}$.
+Weights $w$ lie on the simplex. The weighted calibration ECDF is
+$\hat F_{C,w}(g_\ell) = \sum_i w_i \mathbf{1}\{s_i \le g_\ell\}$.
 
 The reweighter minimises
 
@@ -81,7 +81,7 @@ $$
 \lambda \sum_i w_i \log w_i
 $$
 
-over :math:`w = \mathrm{softmax}(z)` with Adam (implementation detail).
+over $w = \mathrm{softmax}(z)$ with Adam (implementation detail).
 
 ---
 

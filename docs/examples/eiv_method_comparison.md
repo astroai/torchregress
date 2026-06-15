@@ -2,6 +2,8 @@
 
 This example compares multiple Error-in-Variables (EIV) loss variants on a shared synthetic measurement-error regression task.
 
+→ API: [`FunctionalEIVLoss`](../api/losses.md#functionaleivloss), [`OrthogonalDistanceRegressionLoss`](../api/losses.md#orthogonaldistanceregressionloss). Guide: [EIV losses](../losses/eiv.md).
+
 Script: `examples/eiv_method_comparison.py`
 
 ## What It Compares

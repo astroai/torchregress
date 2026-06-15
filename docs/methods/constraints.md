@@ -10,7 +10,7 @@ Output constraints are architectural layers that **enforce** structural properti
 |:--------|:------------|
 | **Exact Enforcement** | Zero constraint violations at any point in the input space. |
 | **Differentiability** | All layers are fully differentiable (even sorting), enabling end-to-end training. |
-| **Physical Validity** | Ensure predictions respect known physical bounds (e.g., mass > 0, probability ∈ [0, 1]). |
+| **Physical Validity** | Ensure predictions respect known physical bounds (e.g., mass > 0, probability ∈ \[0, 1\]). |
 | **Numeric Stability** | Prevents $NaN$s and exploding gradients by keeping outputs within valid ranges. |
 
 ---
@@ -19,7 +19,7 @@ Output constraints are architectural layers that **enforce** structural properti
 
 **torchregress** provides several constraint-enforcing layers that can be added as the final stage of any PyTorch model.
 
-### 1. Positivity ([`NonNegativeHead`](../api/constraints.md#torchregress.constraints.NonNegativeHead))
+### 1. Positivity ([NonNegativeHead](../api/constraints.md#nonnegativehead))
 
 Ensures all outputs are non-negative ($\hat{y} \geq 0$) via a **Softplus** transformation:
 
@@ -32,7 +32,7 @@ from torchregress.constraints import NonNegativeHead
 model = nn.Sequential(nn.Linear(64, 1), NonNegativeHead())
 ```
 
-### 2. Boundedness ([`BoundedHead`](../api/constraints.md#torchregress.constraints.BoundedHead))
+### 2. Boundedness ([BoundedHead](../api/constraints.md#boundedhead))
 
 Enforces strict lower and upper bounds ($a \leq \hat{y} \leq b$) via a scaled **Sigmoid**:
 
@@ -45,7 +45,7 @@ from torchregress.constraints import BoundedHead
 model = nn.Sequential(nn.Linear(64, 1), BoundedHead(lower=0, upper=100))
 ```
 
-### 3. Non-Crossing ([`NonCrossingSort`](../api/constraints.md#torchregress.constraints.NonCrossingSort))
+### 3. Non-Crossing ([NonCrossingSort](../api/constraints.md#noncrossingsort))
 
 Ensures that multiple outputs are **monotonically ordered**. This is critical for **Quantile Regression** to prevent "quantile crossing" (where the 90th quantile is predicted to be less than the 50th).
 
@@ -56,7 +56,7 @@ from torchregress.constraints import NonCrossingSort
 model = nn.Sequential(nn.Linear(64, 5), NonCrossingSort())
 ```
 
-### 4. Simplex ([`SimplexHead`](../api/constraints.md#torchregress.constraints.SimplexHead))
+### 4. Simplex ([SimplexHead](../api/constraints.md#simplexhead))
 
 Ensures that outputs sum to 1 and are non-negative ($\sum \hat{y}_i = 1, \hat{y}_i \geq 0$) via **Softmax**. Ideal for mixture weights or compositional data.
 
@@ -66,16 +66,16 @@ Ensures that outputs sum to 1 and are non-negative ($\sum \hat{y}_i = 1, \hat{y}
 
 | Layer | Constraint | API Reference | Best For |
 |:------|:-----------|:--------------|:---------|
-| **`NonNegativeHead`** | $\hat{y} \geq 0$ | [`NonNegativeHead`](../api/constraints.md#torchregress.constraints.NonNegativeHead) | Price, Variance, Count |
-| **`BoundedHead`** | $[a, b]$ | [`BoundedHead`](../api/constraints.md#torchregress.constraints.BoundedHead) | Probabilities, Percentages |
-| **`NonCrossingSort`** | $y_1 \leq y_2 \dots$ | [`NonCrossingSort`](../api/constraints.md#torchregress.constraints.NonCrossingSort) | Quantile Regression |
-| **`SimplexHead`** | $\sum y_i = 1$ | [`SimplexHead`](../api/constraints.md#torchregress.constraints.SimplexHead) | Mixture Models, Weights |
+| **`NonNegativeHead`** | $\hat{y} \geq 0$ | [NonNegativeHead](../api/constraints.md#nonnegativehead) | Price, Variance, Count |
+| **`BoundedHead`** | $[a, b]$ | [BoundedHead](../api/constraints.md#boundedhead) | Probabilities, Percentages |
+| **`NonCrossingSort`** | $y_1 \leq y_2 \dots$ | [NonCrossingSort](../api/constraints.md#noncrossingsort) | Quantile Regression |
+| **`SimplexHead`** | $\sum y_i = 1$ | [SimplexHead](../api/constraints.md#simplexhead) | Mixture Models, Weights |
 
 ---
 
-## Advanced: Spectral Normalisation ([`SpectralNormWrapper`](../api/constraints.md#torchregress.constraints.SpectralNormWrapper))
+## Advanced: Spectral Normalisation ([SpectralNormWrapper](../api/constraints.md#spectralnormwrapper))
 
-For stability and **Out-of-Distribution (OOD)** detection, **torchregress** provides a `SpectralNormWrapper`. This bounds the **Lipschitz constant** of the model, ensuring it remains smooth and well-behaved even for inputs far from the training data [1].
+For stability and **Out-of-Distribution (OOD)** detection, **torchregress** provides a `SpectralNormWrapper`. This bounds the **Lipschitz constant** of the model, ensuring it remains smooth and well-behaved even for inputs far from the training data \[1\].
 
 ```python
 from torchregress.constraints import SpectralNormWrapper

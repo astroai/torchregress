@@ -2,6 +2,8 @@
 
 This page provides comprehensive comparisons of different loss functions across various data scenarios, helping you choose the right loss for your application.
 
+→ API: [Losses](../api/losses.md) (`WeightedMSELoss`, `WeightedHuberLoss`, `CauchyLoss`, `GaussianNLLLoss`, `MDNLoss`, …).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Barron, J. T. (2019). [**A General and Adaptive Robust Loss Function**](https://arxiv.org/abs/1701.03077). *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*. |
@@ -11,14 +13,16 @@ This page provides comprehensive comparisons of different loss functions across 
 
 ## Robust Loss Formulations
 
-*   **Huber Loss**:
+The robust losses compared in this example are:
+
+- **Huber Loss**:
     $$L_{\text{Huber}}(y, \hat{y}) = \begin{cases} \frac{1}{2}(y - \hat{y})^2 & \text{for } |y - \hat{y}| \le \delta \\ \delta(|y - \hat{y}| - \frac{1}{2}\delta) & \text{otherwise} \end{cases}$$
-*   **Log-Cosh Loss**:
+- **Log-Cosh Loss**:
     $$L_{\text{LogCosh}}(y, \hat{y}) = \log(\cosh(y - \hat{y}))$$
-*   **Barron Robust Loss**:
+- **Barron Robust Loss**:
     $$\rho(x, \alpha, c) = \frac{|\alpha - 2|}{\alpha} \left( \left( \frac{(x/c)^2}{|\alpha - 2|} + 1 \right)^{\alpha/2} - 1 \right)$$
     The parameter $\alpha$ determines the shape, interpolating between MSE ($\alpha=2$), Charbonnier/Pseudo-Huber ($\alpha=1$), Cauchy ($\alpha=0$), and Geman-McClure ($\alpha=-2$).
-*   **Adaptive Robust Loss**:
+- **Adaptive Robust Loss**:
     Treats $\alpha$ and $c$ as learnable parameters optimized dynamically alongside the neural network weights.
 
 ---
@@ -193,7 +197,7 @@ print("\nOutlier Data - Loss Function Comparison")
 print("=" * 70)
 print(f"{'Loss':<20} {'MSE (All)':<12} {'MSE (Clean)':<14} {'MAE (All)':<12}")
 print("=" * 70)
-for name, metrics in sorted(results.items(), key=lambda x: x[1]['mse_clean']):
+for name, metrics in sorted(results.items(), key=lambda x: x\[1\]['mse_clean']):
     print(f"{name:<20} {metrics['mse_all']:<12.4f} "
           f"{metrics['mse_clean']:<14.4f} {metrics['mae_all']:<12.4f}")
 
@@ -361,17 +365,17 @@ X_sorted = X_test[idx]
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 # Plot 1: Homoscedastic
-axes[0].scatter(X_test, y_test, alpha=0.3, s=10, c='gray')
-axes[0].plot(X_sorted, y_pred_homo[idx], 'b-', linewidth=2)
-axes[0].set_title(f'Homoscedastic (MSE)\nMSE: {mse_homo:.3f}')
-axes[0].set_xlabel('X')
-axes[0].set_ylabel('y')
-axes[0].grid(True, alpha=0.3)
+axes\[0\].scatter(X_test, y_test, alpha=0.3, s=10, c='gray')
+axes\[0\].plot(X_sorted, y_pred_homo[idx], 'b-', linewidth=2)
+axes\[0\].set_title(f'Homoscedastic (MSE)\nMSE: {mse_homo:.3f}')
+axes\[0\].set_xlabel('X')
+axes\[0\].set_ylabel('y')
+axes\[0\].grid(True, alpha=0.3)
 
 # Plot 2: Heteroscedastic with uncertainty
-axes[1].scatter(X_test, y_test, alpha=0.3, s=10, c='gray', label='Data')
-axes[1].plot(X_sorted, mean_hetero[idx], 'r-', linewidth=2, label='Mean')
-axes[1].fill_between(
+axes\[1\].scatter(X_test, y_test, alpha=0.3, s=10, c='gray', label='Data')
+axes\[1\].plot(X_sorted, mean_hetero[idx], 'r-', linewidth=2, label='Mean')
+axes\[1\].fill_between(
     X_sorted.flatten(),
     lower[idx].flatten(),
     upper[idx].flatten(),
@@ -379,11 +383,11 @@ axes[1].fill_between(
     color='red',
     label='95% Interval'
 )
-axes[1].set_title(f'Heteroscedastic (Gaussian NLL)\nMSE: {mse_hetero:.3f}, PICP: {picp:.3f}')
-axes[1].set_xlabel('X')
-axes[1].set_ylabel('y')
-axes[1].legend()
-axes[1].grid(True, alpha=0.3)
+axes\[1\].set_title(f'Heteroscedastic (Gaussian NLL)\nMSE: {mse_hetero:.3f}, PICP: {picp:.3f}')
+axes\[1\].set_xlabel('X')
+axes\[1\].set_ylabel('y')
+axes\[1\].legend()
+axes\[1\].grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.show()

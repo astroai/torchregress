@@ -2,6 +2,8 @@
 
 This example demonstrates how to use evidential regression to decompose uncertainty into aleatoric and epistemic components.
 
+→ API: [`EvidentialRegressionLoss`](../api/losses.md#evidentialregressionloss). Theory: [Evidential Regression](../losses/advanced.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Amini, A., Schwarting, W., Soleimany, A., & Rus, D. (2020). [**Deep Evidential Regression**](https://arxiv.org/abs/1910.02600). *Advances in Neural Information Processing Systems (NeurIPS)*. |
@@ -14,13 +16,15 @@ A neural network models the parameters $(\gamma, \nu, \alpha, \beta)$ of a Norma
 
 $$\mu \sim \mathcal{N}(\gamma, \sigma^2 / \nu), \quad \sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta)$$
 
-*   **Predicted Mean**:
+From the NIG parameters, torchregress derives:
+
+- **Predicted mean**:
     $$\hat{y} = \gamma$$
-*   **Aleatoric Uncertainty** (expected data noise):
+- **Aleatoric uncertainty** (expected data noise):
     $$\text{Var}_{\text{aleatoric}} = \frac{\beta}{\alpha - 1}$$
-*   **Epistemic Uncertainty** (model parameter uncertainty):
+- **Epistemic uncertainty** (model parameter uncertainty):
     $$\text{Var}_{\text{epistemic}} = \frac{\beta}{\nu(\alpha - 1)}$$
-*   **Loss Function**:
+- **Loss function**:
     The loss function combines a Maximum Likelihood estimation of the NIG parameters with a regularization term scaled by `coeff_nig` to penalize overconfident predictions in regions with low evidence (low $\nu$):
     $$L = L_{\text{NLL}} + \lambda L_{\text{reg}}$$
 
@@ -383,7 +387,7 @@ def demonstrate_sampling(model, loss_fn, x_test):
     model.eval()
 
     # Select a few test points
-    test_indices = [100, 200, 250, 300, 400]  # Different regions
+    test_indices = \[100, 200, 250, 300, 400\]  # Different regions
     x_selected = x_test[test_indices]
 
     with torch.no_grad():

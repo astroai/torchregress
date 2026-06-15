@@ -14,6 +14,7 @@ Warning:
     calibration validation when using these losses. See documentation for details.
 """
 
+import math
 from typing import Any, Optional, cast
 
 import numpy as np
@@ -23,6 +24,53 @@ from torch import Tensor
 from ..utils.propensity import ipw_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
+
+# ── Torch-native Gaussian KDE (replaces sklearn.neighbors.KernelDensity) ───
+
+
+def _gaussian_kde_score_samples(
+    train: Tensor,
+    query: Tensor,
+    bandwidth: float,
+) -> Tensor:
+    """Log-density of query points under a Gaussian KDE fitted on train.
+
+    Equivalent to ``sklearn.neighbors.KernelDensity(kernel='gaussian').score_samples()``
+    but runs on-device (GPU-compatible).
+    """
+    if train.dim() == 1:
+        train = train.unsqueeze(-1)
+    if query.dim() == 1:
+        query = query.unsqueeze(-1)
+
+    q_sq = (query**2).sum(dim=1, keepdim=True)
+    t_sq = (train**2).sum(dim=1)
+    sq_dists = q_sq + t_sq - 2 * (query @ train.T)
+
+    inv_h2 = 1.0 / (bandwidth * bandwidth)
+    log_kernel_vals = -0.5 * sq_dists * inv_h2
+
+    log_sum = torch.logsumexp(log_kernel_vals, dim=1)
+
+    d = train.shape[1]
+    log_norm = math.log(train.shape[0]) + d * math.log(bandwidth * math.sqrt(2.0 * math.pi))
+
+    return log_sum - log_norm
+
+
+def _torch_kde_weights(
+    train_targets: Tensor,
+    bandwidth: float,
+    reweight_factor: float,
+) -> Tensor:
+    """Compute inverse-density weights using torch-native Gaussian KDE."""
+    log_density = _gaussian_kde_score_samples(train_targets, train_targets, bandwidth)
+
+    inv_density = torch.exp(-log_density)
+    inv_density = inv_density / inv_density.mean()
+
+    weights = 1.0 + reweight_factor * (inv_density - 1.0)
+    return weights
 
 
 @register_regression_loss("density_weighted")
@@ -116,36 +164,15 @@ class DensityWeightedLoss(RegressionLoss):
             >>> # Fit density
             >>> loss_fn.fit_density(train_targets)
         """
-        from sklearn.neighbors import KernelDensity  # type: ignore[import-untyped]
-
         # Store targets for potential reuse
-        self._train_targets = train_targets.detach().cpu()
+        self._train_targets = train_targets.detach()
 
-        # Reshape if needed
-        if train_targets.dim() == 1:
-            targets_np = train_targets.cpu().numpy().reshape(-1, 1)
-        else:
-            targets_np = train_targets.cpu().numpy()
-
-        # Fit kernel density estimator
-        kde = KernelDensity(bandwidth=self.kernel_width, kernel="gaussian")
-        kde.fit(targets_np)
-
-        # Compute log density for each sample
-        log_density = kde.score_samples(targets_np)
-
-        # Convert to inverse density weights
-        # Inverse density: exp(-log_density)
-        inv_density = np.exp(-log_density)
-
-        # Normalize weights to have mean 1.0 (preserves expected loss scale)
-        inv_density = inv_density / inv_density.mean()
-
-        # Apply reweight factor: w = 1 + factor * (inv_density - 1)
-        # factor=0 → uniform weights, factor=1 → full inverse density
-        weights = 1.0 + self.reweight_factor * (inv_density - 1.0)
-
-        self.density_weights = torch.tensor(weights, dtype=torch.float32)
+        weights = _torch_kde_weights(
+            self._train_targets,
+            bandwidth=self.kernel_width,
+            reweight_factor=self.reweight_factor,
+        )
+        self.density_weights = weights.cpu()
 
     def _compute_density_weight(self, target: Tensor) -> Tensor:
         """
@@ -156,31 +183,15 @@ class DensityWeightedLoss(RegressionLoss):
         if self._train_targets is None:
             raise ValueError("Must call fit_density() before computing weights")
 
-        from sklearn.neighbors import KernelDensity
+        train = self._train_targets.to(device=target.device, dtype=target.dtype)
 
-        # Reshape target if needed
-        if target.dim() == 1:
-            target_np = target.detach().cpu().numpy().reshape(-1, 1)
-        else:
-            target_np = target.detach().cpu().numpy()
+        log_density = _gaussian_kde_score_samples(train, target, self.kernel_width)
 
-        # Reshape train targets
-        if self._train_targets.dim() == 1:
-            train_np = self._train_targets.numpy().reshape(-1, 1)
-        else:
-            train_np = self._train_targets.numpy()
-
-        # Fit KDE and compute density
-        kde = KernelDensity(bandwidth=self.kernel_width, kernel="gaussian")
-        kde.fit(train_np)
-        log_density = kde.score_samples(target_np)
-
-        # Inverse density weights
-        inv_density = np.exp(-log_density)
-        inv_density = inv_density / np.mean(inv_density)
+        inv_density = torch.exp(-log_density)
+        inv_density = inv_density / inv_density.mean()
         weights = 1.0 + self.reweight_factor * (inv_density - 1.0)
 
-        return torch.tensor(weights, dtype=target.dtype, device=target.device)
+        return weights
 
     def _compute_base_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
         """Compute base loss without reduction."""

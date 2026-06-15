@@ -2,6 +2,8 @@
 
 Script: `examples/ordinal_uncertain_ground_truth_comparison.py`
 
+→ API: [`OrdinalCrossEntropyLoss`](../api/losses.md#ordinalcrossentropyloss), [`CumulativeLinkLoss`](../api/losses.md#cumulativelinkloss), [`PseudoLabelConsistencyLoss`](../api/losses.md#pseudolabelconsistencyloss).
+
 Compares regression-as-classification methods when ordered labels are ambiguous and represented as soft bin probabilities.
 
 Methods:

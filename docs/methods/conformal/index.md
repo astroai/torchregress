@@ -57,14 +57,14 @@ lower, upper = cp.predict_interval(y_pred_test)
 
 | Method | Best For | Adaptive Width? | API Reference |
 |:-------|:---------|:---------------:|:--------------|
-| **`SplitConformal`** | Baseline, homoscedastic noise | ❌ | [`SplitConformal`](../../api/losses.md#torchregress.losses.conformal.SplitConformal) |
-| **`CQR`** [2] | Heteroscedasticity, skewed noise | ✅ | [`CQR`](../../api/losses.md#torchregress.losses.conformal.CQR) |
-| **`UACQR`** | Same as CQR + width-normalized scores | ✅ | [`UACQR`](../../api/losses.md#torchregress.losses.conformal.UACQR) |
-| **`DensityConformal`** | Imbalanced or long-tail data | ✅ | [`DensityConformal`](../../api/losses.md#torchregress.losses.conformal.DensityConformal) |
-| **`MonteCarloConformal`** | Ensembles, Bayesian models | ✅ | [`MonteCarloConformal`](../../api/losses.md#torchregress.losses.conformal.MonteCarloConformal) |
-| **`LocalConformal`** | Local feature-space coverage (LVD) | ✅ | [`LocalConformal`](../../api/losses.md#torchregress.losses.conformal.LocalConformal) |
-| **`LocalConformalMAD`** | Local feature-space + MAD scaling | ✅ | [`LocalConformalMAD`](../../api/losses.md#torchregress.losses.conformal.LocalConformalMAD) |
-| **`CTI`** [3] | Multimodal, complex distributions | ✅ | [`CTI`](../../api/losses.md#torchregress.losses.conformal.CTI) |
+| **`SplitConformal`** | Baseline, homoscedastic noise | ❌ | [SplitConformal](../../api/conformal.md#splitconformal) |
+| **`CQR`** \[2\] | Heteroscedasticity, skewed noise | ✅ | [CQR](../../api/conformal.md#cqr) |
+| **`UACQR`** | Same as CQR + width-normalized scores | ✅ | [UACQR](../../api/conformal.md#uacqr) |
+| **`DensityConformal`** | Imbalanced or long-tail data | ✅ | [DensityConformal](../../api/conformal.md#densityconformal) |
+| **`MonteCarloConformal`** | Ensembles, Bayesian models | ✅ | [MonteCarloConformal](../../api/conformal.md#montecarloconformal) |
+| **`LocalConformal`** | Local feature-space coverage (LVD) | ✅ | [LocalConformal](../../api/conformal.md#localconformal) |
+| **`LocalConformalMAD`** | Local feature-space + MAD scaling | ✅ | [LocalConformalMAD](../../api/conformal.md#localconformalmad) |
+| **`CTI`** \[3\] | Multimodal, complex distributions | ✅ | [CTI](../../api/conformal.md#cti) |
 
 ---
 

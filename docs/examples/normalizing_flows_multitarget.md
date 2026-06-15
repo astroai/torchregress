@@ -2,6 +2,8 @@
 
 This example demonstrates how to use normalizing flows for multi-target regression with complex, potentially multimodal distributions.
 
+→ API: [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss). Guide: [Normalizing flows](../losses/nflows.md).
+
 ## Task-First Context
 
 Use this example when you need **multi-target** and **multimodal/non-Gaussian** predictive
@@ -90,7 +92,7 @@ class MultiTargetFlowModel(nn.Module):
         Input -> Hidden Layers -> Context -> Flow -> Distribution over Targets
     """
 
-    def __init__(self, input_dim, context_dim, hidden_dims=[64, 64]):
+    def __init__(self, input_dim, context_dim, hidden_dims=\[64, 64\]):
         super().__init__()
 
         # Feature extractor that outputs context vectors
@@ -130,7 +132,7 @@ def create_multitarget_flow_model(
     """
     # Create the model that produces context
     model = MultiTargetFlowModel(
-        input_dim=input_dim, context_dim=context_dim, hidden_dims=[128, 64]
+        input_dim=input_dim, context_dim=context_dim, hidden_dims=\[128, 64\]
     )
 
     # Create conditional normalizing flow
@@ -295,7 +297,7 @@ def visualize_predictions(x_train, y_train, x_test, y_test, samples, mean, std):
         ax.set_title(f"{target_name} Predictions")
 
     # 2D scatter: True vs Predicted
-    ax = axes[0, 1]
+    ax = axes\[0, 1\]
     ax.scatter(y_test[:, 0].numpy(), mean[:, 0].numpy(), alpha=0.5)
     lim = [y_test[:, 0].min().item(), y_test[:, 0].max().item()]
     ax.plot(lim, lim, "r--", label="Perfect prediction")
@@ -305,7 +307,7 @@ def visualize_predictions(x_train, y_train, x_test, y_test, samples, mean, std):
     ax.grid(True, alpha=0.3)
     ax.set_title("Target 1: True vs Predicted")
 
-    ax = axes[1, 1]
+    ax = axes\[1, 1\]
     ax.scatter(y_test[:, 1].numpy(), mean[:, 1].numpy(), alpha=0.5)
     lim = [y_test[:, 1].min().item(), y_test[:, 1].max().item()]
     ax.plot(lim, lim, "r--", label="Perfect prediction")
@@ -323,7 +325,7 @@ def visualize_predictions(x_train, y_train, x_test, y_test, samples, mean, std):
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 
     # Select a few interesting points to visualize their distributions
-    test_indices = [50, 100, 150]
+    test_indices = \[50, 100, 150\]
 
     for idx, test_idx in enumerate(test_indices):
         ax = axes[idx]
@@ -387,10 +389,10 @@ def main():
     x_train, y_train = generate_complex_multitarget_data(n_samples=1500)
     x_test, y_test = generate_complex_multitarget_data(n_samples=500)
 
-    print(f"   Training set: {x_train.shape[0]} samples")
-    print(f"   Test set: {x_test.shape[0]} samples")
-    print(f"   Input dim: {x_train.shape[1]}")
-    print(f"   Target dim: {y_train.shape[1]}")
+    print(f"   Training set: {x_train.shape\[0\]} samples")
+    print(f"   Test set: {x_test.shape\[0\]} samples")
+    print(f"   Input dim: {x_train.shape\[1\]}")
+    print(f"   Target dim: {y_train.shape\[1\]}")
 
     # Create data loader
     train_dataset = TensorDataset(x_train, y_train)

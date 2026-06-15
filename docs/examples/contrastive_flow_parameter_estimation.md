@@ -1,10 +1,9 @@
 # Contrastive Flow Parameter Estimation
 
 This example shows how to turn the flow machinery in `torchregress` into a lightweight
-parameter-estimation workflow for nuisance-shifted data. It is inspired by the FAIR Universe
-HiggsML challenge setting, but the example stays domain-agnostic: pseudoexperiments are reduced
-to summary vectors, and a conditional flow is trained to score the summaries under competing
-parameter hypotheses.
+parameter-estimation workflow for nuisance-shifted data.
+
+→ API: [`ContrastiveFlowLoss`](../api/losses.md#contrastiveflowloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss).
 
 ## When To Use This
 

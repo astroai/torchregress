@@ -1,0 +1,186 @@
+/* ===========================================================================
+   torchregress — custom CSS polish
+   Loaded after Zensical theme. Uses only stable, theme-agnostic selectors
+   so it works under the "modern" theme in both light and dark modes.
+   =========================================================================== */
+
+:root {
+  --tr-radius: 0.4rem;
+  --tr-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --tr-shadow-2: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --tr-border: rgba(0, 0, 0, 0.10);
+}
+
+[data-md-color-scheme="slate"] {
+  --tr-border: rgba(255, 255, 255, 0.10);
+}
+
+/* Wider content area for code-heavy pages */
+.md-content__inner {
+  max-width: 52rem;
+}
+
+.md-content article p,
+.md-content article li {
+  line-height: 1.65;
+}
+
+.md-content h1,
+.md-content h2,
+.md-content h3,
+.md-content h4 {
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.md-content h2 {
+  margin-top: 2.5em;
+  padding-top: 0.5em;
+  border-top: 1px solid var(--tr-border);
+}
+
+/* ---------------------------------------------------------------------------
+   Tables — clean, scannable
+   --------------------------------------------------------------------------- */
+.md-typeset table:not([class]) {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border: 1px solid var(--tr-border);
+  border-radius: var(--tr-radius);
+  overflow: hidden;
+  box-shadow: var(--tr-shadow-1);
+}
+
+.md-typeset table:not([class]) th {
+  background: #3f51b5;
+  color: #ffffff;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0.65em 0.8em;
+}
+
+.md-typeset table:not([class]) td {
+  padding: 0.55em 0.8em;
+  border-top: 1px solid var(--tr-border);
+}
+
+.md-typeset table:not([class]) tr:hover td {
+  background: rgba(255, 193, 7, 0.10);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background: #5c6bc0;
+}
+
+/* ---------------------------------------------------------------------------
+   Code blocks — better contrast, subtle borders
+   --------------------------------------------------------------------------- */
+.md-typeset code {
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+  font-size: 0.86em;
+}
+
+.md-typeset pre > code {
+  border-radius: var(--tr-radius);
+  border: 1px solid var(--tr-border);
+  box-shadow: var(--tr-shadow-1);
+}
+
+/* ---------------------------------------------------------------------------
+   Admonitions — softer, more refined
+   --------------------------------------------------------------------------- */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: var(--tr-radius);
+  border-left-width: 0.3rem;
+  box-shadow: var(--tr-shadow-1);
+  margin: 1.25em 0;
+}
+
+.md-typeset .admonition-title,
+.md-typeset summary {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Method selection matrices — emphasised first column
+   --------------------------------------------------------------------------- */
+.md-typeset table:not([class]) th:first-child {
+  width: 28%;
+  min-width: 12rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Hero / lead paragraph
+   --------------------------------------------------------------------------- */
+.md-content article > p:first-of-type {
+  font-size: 1.05rem;
+  color: var(--md-default-fg-color--light, rgba(0, 0, 0, 0.65));
+}
+
+[data-md-color-scheme="slate"] .md-content article > p:first-of-type {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ---------------------------------------------------------------------------
+   Inline code in headings — slightly muted
+   --------------------------------------------------------------------------- */
+.md-typeset h1 code,
+.md-typeset h2 code,
+.md-typeset h3 code,
+.md-typeset h4 code {
+  font-size: 0.85em;
+  color: #ff8f00;
+}
+
+/* ---------------------------------------------------------------------------
+   Grid cards (homepage) — refined spacing and hover
+   --------------------------------------------------------------------------- */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  border-radius: var(--tr-radius);
+  border: 1px solid var(--tr-border);
+  box-shadow: var(--tr-shadow-1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid > .card:hover {
+  border-color: #ffc107;
+  box-shadow: var(--tr-shadow-2);
+  transform: translateY(-1px);
+}
+
+/* ---------------------------------------------------------------------------
+   Mermaid diagrams — match palette
+   --------------------------------------------------------------------------- */
+.mermaid {
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+/* ---------------------------------------------------------------------------
+   MathJax block equations — better spacing
+   --------------------------------------------------------------------------- */
+mjx-container[display="true"] {
+  margin: 1.25em 0 !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Inline reference markers like [1] — subtle, doesn't compete with text
+   --------------------------------------------------------------------------- */
+.md-typeset sup {
+  font-size: 0.7em;
+}
+
+/* ---------------------------------------------------------------------------
+   Search — better contrast for highlighted matches
+   --------------------------------------------------------------------------- */
+.md-search-result mark {
+  background: rgba(255, 193, 7, 0.35);
+  color: inherit;
+  font-weight: 600;
+  padding: 0 0.1em;
+}

@@ -1,7 +1,7 @@
 # torchregress
 
 <p align="center">
-    <em>Deep Learning for Regression & Uncertainty Estimation in PyTorch</em>
+    <em>A PyTorch library for regression, uncertainty quantification, and robust estimation</em>
 </p>
 
 <p align="center">
@@ -21,66 +21,131 @@
 
 ---
 
-**torchregress** is a PyTorch library for researchers and practitioners working on complex regression problems. It provides a unified toolkit for **probabilistic modeling**, **uncertainty quantification**, and **robust estimation** — going far beyond standard Mean Squared Error.
+**torchregress** is a PyTorch library that treats regression as a **probabilistic
+inference problem** rather than a single-point estimation task. It provides a
+research-grade toolkit for **likelihood-based losses**, **uncertainty
+decomposition**, **robust estimation**, **error-in-variables modelling**,
+**conformal prediction**, **causal inference**, and **test-time adaptation** —
+all designed to compose with native PyTorch training loops and the broader
+scientific Python ecosystem.
+
+The library targets two audiences:
+
+- **ML practitioners** who need production-ready losses, metrics, and methods
+  for non-trivial regression problems (heteroscedastic noise, outliers, imbalanced
+  targets, censored observations, measurement error, distribution shift).
+- **Researchers and statisticians** who want a unified interface to
+  probabilistic regression primitives with rigorous scoring rules, calibration
+  diagnostics, and reproducible comparison harnesses.
 
 ---
 
-## What can you do with torchregress?
+## Research-grade design principles
 
-<div class="grid cards" markdown>
-
--   :material-chart-bell-curve-cumulative: __Predict with Confidence__
-
-    Go beyond point predictions. Model heteroscedastic noise, full probability distributions, and prediction intervals with guaranteed coverage.
-
-    [:octicons-arrow-right-24: Browse Loss Functions](losses/index.md)
-
--   :material-shield-check: __Quantify Uncertainty__
-
-    Decompose uncertainty into aleatoric (data noise) and epistemic (model ignorance). Use ensembles, Bayesian methods, or conformal prediction.
-
-    [:octicons-arrow-right-24: Explore Methods](methods/index.md)
-
--   :material-flask-outline: __Handle Messy Data__
-
-    Outliers, noisy labels, missing values, measurement errors, imbalanced targets — built-in losses and algorithms for real-world data.
-
-    [:octicons-arrow-right-24: See Robust Losses](losses/robust.md)
-
--   :material-chart-line: __Evaluate Rigorously__
-
-    Proper scoring rules, calibration diagnostics, out-of-distribution detection, and interval metrics — not just RMSE.
-
-    [:octicons-arrow-right-24: View Metrics](metrics/index.md)
-
-</div>
+1. **Task-first framing.** Methods are selected by the *problem you have* (the
+   row in the [Method Selection Matrix](guide/method-selection.md)), not by
+   modelling ideology. Bayesian, frequentist, and geometric methods are peer
+   entries in the catalog.
+2. **Likelihood contracts over point estimates.** Most losses accept a
+   distribution family (Gaussian, Beta, Gamma, MDN, flow) and return both
+   predictive samples and scoring-rule losses. Point-prediction losses are a
+   special case of `GaussianNLLLoss(fixed_variance=σ²)`.
+3. **Proper scoring rules as first-class citizens.** CRPS, energy score, NLL,
+   interval score, and Brier are evaluated in the same units as the model's
+   predictive distribution, not as point RMSE.
+4. **Uncertainty decomposition is explicit.** Aleatoric (data noise) and
+   epistemic (model ignorance) uncertainty are tracked through dedicated
+   contracts (`uncertainty_decomposition`, `PredictiveBatch.extra`) rather
+   than being conflated with point-error bars.
+5. **Conformal prediction complements, not replaces, likelihood.** Coverage
+   guarantees from split / CQR / density-aware conformal are reported alongside
+   density-estimation metrics, not substituted for them.
+6. **Evidence-based maturity.** Each method carries a `Core` / `Strong` /
+   `Available` / `Advanced` label based on test depth, documentation
+   coverage, and example availability — not family membership.
 
 ---
 
-## Quick Example
+## Capability matrix
 
-Train a model that predicts both the **mean** and **uncertainty** in a few lines:
+| Problem | Recommended starting point | Strong alternative | See |
+|:--------|:---------------------------|:-------------------|:----|
+| Clean regression baseline | `WeightedMSELoss` | `WeightedHuberLoss` | [Losses](losses/index.md) |
+| Heteroscedastic noise (aleatoric UQ) | `GaussianNLLLoss` | `BetaNLLLoss`, heteroscedastic ensemble | [Gaussian](losses/gaussian.md) |
+| Epistemic uncertainty | `DeepEnsemble` | `SWAG`, `BayesianNeuralNetwork`, `HeteroscedasticBNN` | [Ensembles](methods/ensemble/index.md) |
+| Multimodal conditional distributions | `MDNLoss` | `NormalizingFlowLoss` | [MDN](losses/mdn.md) · [Flows](losses/nflows.md) |
+| Imbalanced / rare targets | `QuantileLoss` + tail-slice evaluation | `DensityWeightedLoss`, `LDSLoss` | [Imbalanced](losses/imbalanced.md) |
+| Noisy features / measurement error | `InputNoiseMarginalizationLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | [EIV](losses/eiv.md) |
+| Noisy labels / weak supervision | `NoisyTargetGaussianNLL` | `ConsistencyRegLoss`, `PseudoLabelConsistencyLoss` | [Noisy labels](losses/noisy_labels.md) |
+| Censored / survival | `CensoredGaussianNLLLoss` | `AFTLoss`, `CensoredQuantileLoss` | [Censored](losses/censored.md) |
+| Ordinal / ordered categories | `CumulativeLinkLoss` | `CORALLoss` | [Ordinal](losses/ordinal.md) |
+| Count / Tweedie / positive-skewed | `TweedieLoss` | `NegativeBinomialNLLLoss`, `GammaLoss` | [Tweedie](losses/poisson_tweedie.md) |
+| Robust to outliers | `WeightedHuberLoss` | `CauchyLoss`, `TukeyBiweightLoss` | [Robust](losses/robust.md) |
+| Worst-case / tail-focused | `CVaRLoss` | robust losses + tail-slice evaluation | [Robust](losses/robust.md) |
+| Coverage guarantees | `SplitConformal` | `CQR`, `DensityConformal`, `MonteCarloConformal` | [Conformal](methods/conformal/index.md) |
+| Distribution shift (test-time) | `BayesianLinearHead` | `ShiftFactoredPredictiveTransport`, `OTShiftReweighter` | [Test-time](methods/test-time/bayesian-linear-regression.md) |
+| Causal inference (ATE / CATE) | `dr_ate`, `dr_cate` | `PredictionPoweredInference` | [Causal](methods/causal.md) |
+| OOD / selective prediction | `DeepEnsemble` + OOD metrics | `HeteroscedasticBatchEnsembleModel`, `SWAG` | [Ensembles](methods/ensemble/index.md) |
+
+The full, code-driven catalog (maturity, capability flags, family peer
+comparison) lives in the [Method Selection Matrix](guide/method-selection.md)
+and the auto-generated
+[Method Catalog report](reports/method_catalog_generated.md).
+
+---
+
+## Library at a glance
+
+| Category | What's included |
+|:---------|:----------------|
+| **Losses** | Gaussian (diagonal, full covariance, low-rank, heteroscedastic), β-NLL, faithful NLL, Wasserstein bound surrogate; robust M-estimators (Huber, Pseudo-Huber, Cauchy, Tukey, Charbonnier, LogCosh, Barron, AdaptiveRobust, CVaR); quantile and expectile; mixture density networks; normalizing flows; evidential regression (NIG); super-level set regression; ordinal and censored; Poisson / Negative-Binomial / Tweedie / Gamma / Inverse-Gaussian; input measurement error (functional, structural, ODR, ensemble, input-noise marginalisation); imbalanced regression; noisy labels and uncertain ground truth; target transforms; conformal wrappers |
+| **Uncertainty methods** | Deep ensembles, batch ensembles, MC dropout, SWAG / MultiSWAG, Bayesian neural networks (IVON, last-layer Laplace, VIDS), heteroscedastic ensembles, evidential regression |
+| **Conformal prediction** | Split, CQR, UACQR, density-aware, Monte-Carlo, local (LVD), CTI, super-level set, multi-dimensional, prevalence-adjusted, SLS |
+| **Algorithms** | Robust fitting (IRLS), measurement error correction (RC, SIMEX, latent-input regression, error-aware encoding), covariance learning (TicTac), Bayesian last layer, adaptive prior inference, Bayesian learning rule (IVON) |
+| **Calibration** | Variance temperature scaling, isotonic mean calibration, PIT calibration, semi-supervised conformal calibration, binned label-shift estimation |
+| **Metrics** | Point (RMSE, MAE, R², Huber, tail-slice), distributional (CRPS, energy score, GNLL, PIT, HPD), interval (interval score, PICP, MPIW), calibration (ECE, MCE), OOD (Mahalanobis, typicality, entropy, KDE), ensemble (uncertainty decomposition), multivariate, ordinal, censored, uncertain ground truth |
+| **Inference** | Doubly-robust ATE / CATE / policy value, prediction-powered inference, test-time adaptation (Bayesian linear head, OT conformal, label shift, feature alignment, shift-factored transport) |
+
+---
+
+## Working with the library
+
+The following snippet demonstrates the canonical workflow: a model that
+outputs both a mean and a log-variance, trained with a proper scoring rule
+(Gaussian NLL), and evaluated with the CRPS, NLL, and a reliability
+diagnostic.
 
 ```python
 import torch
 import torch.nn as nn
 from torchregress.losses import GaussianNLLLoss
+from torchregress.metrics import crps_gaussian, gaussian_nll
 
-# Model with two outputs: mean and log-variance
+# Heteroscedastic head: output [mean, log_var]
 model = nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 2))
 
-# Gaussian negative log-likelihood — learns uncertainty from data
 loss_fn = GaussianNLLLoss()
-
-# Standard PyTorch training loop
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
 for x, y in dataloader:
-    pred = model(x)
-    loss = loss_fn(pred, y)
-    loss.backward(); optimizer.step(); optimizer.zero_grad()
+    pred = model(x)                       # [B, 2]
+    loss = loss_fn(pred, y)               # NLL — proper scoring rule
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
+
+# Evaluation: density-aware metrics, not just RMSE
+with torch.no_grad():
+    out = model(x_test)
+    mu, logvar = out[:, 0], out[:, 1]
+    std = torch.exp(0.5 * logvar)
+    crps = crps_gaussian(mu, std, y_test)        # proper scoring rule
+    gnll = gaussian_nll(mu, logvar, y_test)     # negative log-likelihood
 ```
 
-[:octicons-arrow-right-24: Full Quick Start](getting-started/quickstart.md)
+For full end-to-end workflows, see the
+[Quick Start](getting-started/quickstart.md) and the
+[comprehensive comparison examples](examples/index.md).
 
 ---
 
@@ -90,52 +155,52 @@ for x, y in dataloader:
 pip install torchregress
 ```
 
-*Requires PyTorch 2.4+ and Python 3.12 – 3.15.*
+*Requires PyTorch 2.4+ and Python 3.12 – 3.15.* For normalizing flows, install
+the optional extra:
+
+```bash
+pip install torchregress[flows]
+```
 
 ---
 
-## Where should I start?
+## Where to go next
 
 <div class="grid cards" markdown>
 
--   :fontawesome-solid-graduation-cap: __New to Uncertainty Quantification?__
+-   :material-school: __New to uncertainty quantification?__
 
     ---
 
-    Start with the [Core Concepts](getting-started/concepts.md) to learn the vocabulary, then follow the [Quick Start](getting-started/quickstart.md) to train your first uncertainty-aware model.
+    Read the [Core Concepts](getting-started/concepts.md) to ground the
+    vocabulary (aleatoric vs. epistemic, proper scoring rules, conformal
+    coverage), then follow the [Quick Start](getting-started/quickstart.md) to
+    train your first heteroscedastic model.
 
     [:octicons-arrow-right-24: Get Started](getting-started/index.md)
 
--   :fontawesome-solid-flask: __Experienced Practitioner__
+-   :material-flask: __Experienced practitioner__
 
     ---
 
-    Jump to the [Method Selection Matrix](guide/method-selection.md) to find the right loss for your problem, or browse the [Examples](examples/index.md) for runnable comparison scripts.
+    Open the [Method Selection Matrix](guide/method-selection.md) to shortlist
+    losses by problem type, then validate the shortlist on the
+    [comparison examples](examples/index.md).
 
     [:octicons-arrow-right-24: User Guide](guide/index.md)
 
--   :fontawesome-solid-microscope: __Researcher or Statistician__
+-   :material-microscope: __Researcher or statistician__
 
     ---
 
-    Study the [Mathematical Foundations](guide/math/index.md) for rigorous derivations, check the [Reports & Evidence](reports/index.md) for benchmarks, or dive into the [API Reference](api/index.md).
+    Study the [Mathematical Foundations](guide/math/index.md) for derivations
+    of CRPS, NLL, interval score, and ensemble decomposition; check the
+    [Reports & Evidence](reports/index.md) for benchmark matrices; consult
+    the [API Reference](api/index.md) for the full surface.
 
     [:octicons-arrow-right-24: API Reference](api/index.md)
 
 </div>
-
----
-
-## Library at a Glance
-
-| Category | What's Included |
-|:---------|:----------------|
-| **Loss Functions** | Gaussian (heteroscedastic, multivariate, low-rank), robust losses (Huber, Cauchy, Tukey), quantile & expectile losses, mixture density networks, normalizing flows, evidential regression, super-level set regression, ordinal & censored losses, Poisson & Tweedie, input measurement error, imbalanced regression, noisy labels, uncertain ground truth, target transforms, conformal wrappers |
-| **Uncertainty Methods** | Deep ensembles, batch ensembles, Monte Carlo dropout, SWAG, Bayesian neural networks, conformal prediction (split, quantile, distributional, density-aware) |
-| **Algorithms** | Robust fitting (IRLS), measurement error correction (RC, SIMEX, latent input regression, error-aware encoding), covariance learning, Bayesian last layer, adaptive prior inference, Bayesian learning rule optimizer |
-| **Calibration** | Variance temperature scaling, isotonic calibration, PIT calibration, semi-supervised conformal calibration, label shift estimation |
-| **Metrics** | Point, distribution, interval, calibration, out-of-distribution detection, ensemble, multivariate, ordinal, censored |
-| **Inference** | Causal inference (doubly-robust ATE/CATE), prediction-powered inference, test-time adaptation |
 
 ---
 

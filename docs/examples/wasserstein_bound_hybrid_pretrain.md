@@ -1,6 +1,6 @@
 # Wasserstein-Bound Hybrid Pretraining Example
 
-This guide explains how to use the hybrid pretraining recipe to stabilize heteroscedastic regression models. It pretrains a mean-variance model using `GaussianWassersteinBoundLoss` against neighborhood covariance pseudo-labels before fine-tuning with `GaussianNLLLoss`.
+This guide explains how to use the hybrid pretraining recipe to stabilize heteroscedastic regression models. It pretrains a mean-variance model using [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss) against neighborhood covariance pseudo-labels before fine-tuning with [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss).
 
 ---
 
@@ -30,7 +30,7 @@ Because this loss is linear/quadratic in the standard deviations rather than con
 
 ### Phase 3: Fine-Tuning
 
-Once the variance predictions are initialized to the correct scale, we fine-tune the model using the standard `GaussianNLLLoss` to align the predictions with the true conditional distribution $p(y \mid x)$.
+Once the variance predictions are initialized to the correct scale, we fine-tune the model using [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) to align the predictions with the true conditional distribution $p(y \mid x)$.
 
 ---
 

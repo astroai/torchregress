@@ -2,6 +2,8 @@
 
 This guide demonstrates how to use the bin-based reweighting losses `BalancedMSELoss` and `BMCLoss` to tackle target imbalance in regression tasks.
 
+→ Guide: [Imbalanced losses](../losses/imbalanced.md). API: [imbalanced loss section](../api/losses.md) (`DensityWeightedLoss`, `PropensityWeightedLoss`, …).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Ren, J., Zhang, C., Liu, S., Yang, H., & Yang, M. H. (2022). [**Balanced MSE for Long-Tailed Visual Recognition**](https://arxiv.org/abs/2203.16427). *CVPR*. |
@@ -42,9 +44,9 @@ Larger values of $\sigma_{\text{noise}}$ regularize the weights towards uniform 
 
 ## Task-First Context
 
-*   **When to Use**: Use these losses when you have **rare extreme values** or a **highly skewed/long-tailed target distribution**, and you want your model's predictions to not ignore the tails.
-*   **Comparison Notes**: Always compare imbalanced losses against standard MSE using a shared test set. Report both overall MSE and tail-region MSE.
-*   **Calibration Warning**: Aggressive reweighting can distort the model's uncertainty estimates. Always validate calibration post-hoc or apply calibration constraints.
+- **When to Use**: Use these losses when you have **rare extreme values** or a **highly skewed/long-tailed target distribution**, and you want your model's predictions to not ignore the tails.
+- **Comparison Notes**: Always compare imbalanced losses against standard MSE using a shared test set. Report both overall MSE and tail-region MSE.
+- **Calibration Warning**: Aggressive reweighting can distort the model's uncertainty estimates. Always validate calibration post-hoc or apply calibration constraints.
 
 ---
 

@@ -2,6 +2,8 @@
 
 Script: `examples/propensity_tail_regression_comparison.py`
 
+→ API: [`PropensityWeightedLoss`](../api/losses.md#propensityweightedloss), [`DensityWeightedLoss`](../api/losses.md#densityweightedloss), [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`MultiQuantileLoss`](../api/losses.md#multiquantileloss).
+
 Compares five approaches under covariate-dependent label observation:
 
 - `MSE` (observed-only baseline)

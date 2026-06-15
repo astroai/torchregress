@@ -17,15 +17,15 @@ graph TD
 
 | Base Class | Purpose | Model Output |
 |:-----------|:--------|:-------------|
-| `RegressionLoss` | Point-prediction losses | $\hat{y}$ |
-| `DistributionLoss` | Distributional losses (NLL) | $(\mu, \log\sigma^2)$ or distribution params |
-| `WeightedLossWrapper` | Adapts any PyTorch loss | Same as wrapped loss |
+| [`RegressionLoss`](../api/losses.md#regressionloss) | Point-prediction losses | $\hat{y}$ |
+| [`DistributionLoss`](../api/losses.md#distributionloss) | Distributional losses (NLL) | $(\mu, \log\sigma^2)$ or distribution params |
+| [`WeightedLossWrapper`](../api/losses.md#weightedlosswrapper) | Adapts any PyTorch loss | Same as wrapped loss |
 
 ---
 
 ## BaseLoss
 
-Root class extending `nn.Module`.  All subclasses inherit:
+Root class extending `nn.Module` (see [BaseLoss API](../api/losses.md#baseloss)). All subclasses inherit:
 
 - `reduction`: `"mean"` (default), `"sum"`, or `"none"`
 - `_reduce(loss, mask, weights)`: applies reduction with masking and weighting
@@ -41,7 +41,7 @@ class CustomLoss(BaseLoss):
 
 ## RegressionLoss
 
-For losses that operate on **point predictions** $\hat{y}$:
+For losses that operate on **point predictions** $\hat{y}$ (see [RegressionLoss API](../api/losses.md#regressionloss)):
 
 ```python
 from torchregress.losses import WeightedMSELoss, WeightedL1Loss, WeightedHuberLoss
@@ -63,7 +63,7 @@ All `RegressionLoss` subclasses accept:
 
 ## DistributionLoss
 
-For losses that model **full probability distributions**:
+For losses that model **full probability distributions** (see [DistributionLoss API](../api/losses.md#distributionloss)):
 
 ```python
 from torchregress.losses import GaussianNLLLoss
@@ -75,6 +75,8 @@ mean = torch.randn(64, 1)
 log_var = torch.randn(64, 1)
 loss = loss_fn((mean, log_var), y_true)
 ```
+
+→ See [GaussianNLLLoss API](../api/losses.md#gaussiannllloss).
 
 Key methods:
 

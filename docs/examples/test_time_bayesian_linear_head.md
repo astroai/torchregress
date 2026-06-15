@@ -2,6 +2,8 @@
 
 This guide demonstrates how to use the conjugate `BayesianLinearHead` and its online recursive counter-part `RecursiveBayesianHead` for rapid test-time adaptation of deep network representation layers.
 
+→ API: [Test-time](../api/test_time.md) (`BayesianLinearHead`, `RecursiveBayesianHead`).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Bishop, C. M. (2006). [**Pattern Recognition and Machine Learning**](https://www.microsoft.com/en-us/research/publication/pattern-recognition-machine-learning/). *Springer*. (Chapter 3: Linear Models for Regression). |
@@ -55,8 +57,8 @@ $$\sigma_*^2 = \sigma_{\text{noise}}^2 + \phi(x_*)^\top S_N \phi(x_*)$$
 
 ## Task-First Context
 
-*   **When to Use**: Use these heads when you need **fast adaptation** at test time (e.g. streaming data, domain shift) and want exact, closed-form updates instead of gradient descent.
-*   **Comparison Notes**: Ensure that recursive updates (using `partial_fit`) match the batch updates when the forgetting factor is set to 1.0.
+- **When to Use**: Use these heads when you need **fast adaptation** at test time (e.g. streaming data, domain shift) and want exact, closed-form updates instead of gradient descent.
+- **Comparison Notes**: Ensure that recursive updates (using `partial_fit`) match the batch updates when the forgetting factor is set to 1.0.
 
 ---
 
@@ -100,7 +102,7 @@ def main() -> None:
 
     # 3. Check mathematical exactness and coverage
     max_post_diff = (batch_model.posterior_mean - rec_model.posterior_mean).abs().max().item()
-    w_err = (batch_model.posterior_mean[0] - w_true).norm().item()
+    w_err = (batch_model.posterior_mean\[0\] - w_true).norm().item()
     print("max |posterior_mean_batch - posterior_mean_recursive|:", round(max_post_diff, 8))
     print("||posterior_mean - w_true||_2:", round(w_err, 4))
 

@@ -1,10 +1,9 @@
 # External Comparison: torchregress vs MAPIE / BoTorch / scikit-lego
 
 This page documents three external-comparison benchmarks that pit `torchregress`
-against widely-used third-party libraries on canonical regression tasks. Each
-benchmark uses a fixed seed, a shared train/calibration/test split, and
-runtime + primary-task metrics in a machine-readable JSON artifact under
-`reports/`.
+against widely-used third-party libraries on canonical regression tasks.
+
+→ API: [`SplitConformal`](../api/losses.md#splitconformal), [`CQR`](../api/losses.md#cqr), [`BayesianLinearHead`](../api/test_time.md).
 
 | Task | External library | Comparison focus | Artifact |
 |---|---|---|---|

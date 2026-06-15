@@ -43,6 +43,8 @@ cp.calibrate(y_pred_cal, y_cal)
 lower, upper = cp.predict_interval(y_pred_test)
 ```
 
+→ See [SplitConformal API](../../api/losses.md#splitconformal).
+
 !!! tip "When to use"
     Use as a **baseline**.  If residuals are roughly homoscedastic, SplitConformal works well.
     For heteroscedastic data, switch to CQR or add `normalize_fn`.
@@ -71,6 +73,8 @@ cqr.calibrate(y_pred_cal, y_cal)
 lower, upper = cqr.predict_interval(y_pred_test)
 ```
 
+→ See [CQR API](../../api/losses.md#cqr).
+
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
 | `debias` | `bool` | `False` | Apply finite-sample bias correction (Gibbs et al., 2025). |
@@ -88,7 +92,7 @@ lower, upper = cqr.predict_interval(y_pred_test)
 
 ## UACQR
 
-**Uncertainty-aware CQR** — same CQR score and interval construction as [`CQR`](../../api/losses.md#torchregress.losses.conformal.CQR), but nonconformity scores are divided by the predicted quantile band width \((\hat{q}_{\mathrm{hi}} - \hat{q}_{\mathrm{lo}})\) (clamped), so calibration respects the model’s own uncertainty scale. Implemented as a thin subclass; training uses the same pinball loss as CQR via [`ConformalLoss(method="uacqr")`](../../api/losses.md#torchregress.losses.conformal.ConformalLoss).
+**Uncertainty-aware CQR** — same CQR score and interval construction as [CQR](../../api/conformal.md#cqr), but nonconformity scores are divided by the predicted quantile band width \((\hat{q}_{\mathrm{hi}} - \hat{q}_{\mathrm{lo}})\) (clamped), so calibration respects the model’s own uncertainty scale. Implemented as a thin subclass; training uses the same pinball loss as CQR via [`ConformalLoss(method="uacqr")`](../../api/conformal.md#conformalloss).
 
 ```python
 from torchregress.losses import UACQR

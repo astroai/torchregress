@@ -73,10 +73,10 @@ After this, `git push` runs `./scripts/ci_local.sh` via the pre-push hook (requi
 ### Documentation
 ```bash
 # Build docs (strict mode catches broken refs)
-uv run mkdocs build --strict
+uv run zensical build
 
 # Serve docs locally
-uv run mkdocs serve
+uv run zensical serve
 ```
 
 ## Documentation Quality Standards
@@ -104,7 +104,9 @@ All documentation must stay **synchronized with the codebase**. When modifying c
 
 - Reference tables must have a proper markdown header row (not `...` or bare rows).
 - LaTeX: use `$$...$$` for display math, `$...$` for inline math. Verify formulas render correctly.
-- Build must pass `mkdocs build --strict` with zero errors before commit.
+- Build must pass `zensical build` with zero errors before commit.
+- Run `uv run python tools/audit_docs_quality.py` before docs changes land (see
+  `reports/docs_quality_audit.json` and CONTRIBUTING.md “Math and document structure”).
 - Target audience: both ML practitioners and statisticians. Be rigorous but accessible.
 
 ### Build & Publish

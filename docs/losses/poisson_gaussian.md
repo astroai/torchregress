@@ -1,6 +1,10 @@
 # Poisson-Gaussian Mixture Losses
 
-Poisson-Gaussian mixture losses are specialized functions that model signals as a combination of Poisson (counting) noise and Gaussian (readout) noise. These losses are particularly valuable for:
+Poisson-Gaussian mixture losses model signals as a combination of Poisson (counting) noise and Gaussian (readout) noise.
+
+→ API: [`PoissonGaussianMixtureLoss`](../api/losses.md#poissongaussianmixtureloss).
+
+These losses are particularly valuable for:
 
 - Scientific imaging (microscopy)
 - Medical imaging (CT scans, PET, low-dose X-ray)

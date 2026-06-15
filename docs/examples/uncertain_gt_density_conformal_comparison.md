@@ -2,6 +2,8 @@
 
 Script: `examples/uncertain_gt_density_conformal_comparison.py`
 
+→ API: [`SplitConformal`](../api/losses.md#splitconformal), [`DensityConformal`](../api/conformal.md#densityconformal), [`NoisyTargetGaussianNLL`](../api/losses.md#noisytargetgaussiannll), [`PseudoLabelNLL`](../api/losses.md#pseudolabelnll).
+
 Compares:
 
 - `SplitConformal`

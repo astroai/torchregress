@@ -2,6 +2,8 @@
 
 This page provides complete, runnable examples for common regression tasks using `torchregress`.
 
+→ API reference: [Losses](../api/losses.md), [Metrics](../api/metrics.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Nix, D. A., & Weigend, A. S. (1994). [**Estimating the mean and variance of target distributions**](https://ieeexplore.ieee.org/document/341257). *IEEE International Conference on Neural Networks*. |
@@ -12,13 +14,15 @@ This page provides complete, runnable examples for common regression tasks using
 
 ## Mathematical Formulations
 
-*   **Mean Squared Error (MSE)**:
+The losses demonstrated below are defined as follows:
+
+- **Mean Squared Error (MSE)**:
     $$L_{\text{MSE}}(y, \hat{y}) = (y - \hat{y})^2$$
-*   **Huber Loss (Robust)**:
+- **Huber Loss (Robust)**:
     $$L_{\text{Huber}}(y, \hat{y}) = \begin{cases} \frac{1}{2}(y - \hat{y})^2 & \text{for } |y - \hat{y}| \le \delta \\ \delta(|y - \hat{y}| - \frac{1}{2}\delta) & \text{otherwise} \end{cases}$$
-*   **Pinball / Quantile Loss**:
+- **Pinball / Quantile Loss**:
     $$L_q(y, \hat{y}) = \max(q(y - \hat{y}), (q-1)(y - \hat{y}))$$
-*   **Gaussian Negative Log-Likelihood (NLL)**:
+- **Gaussian Negative Log-Likelihood (NLL)**:
     $$L_{\text{NLL}}(y, \hat{y}, \sigma^2) = \frac{1}{2}\log\sigma^2 + \frac{(y - \hat{y})^2}{2\sigma^2} + \frac{1}{2}\log(2\pi)$$
 
 ---
@@ -140,23 +144,23 @@ print(f"R²: {r2:.4f}")
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 # Plot 1: Learning curves
-axes[0].plot(train_losses, label='Train Loss')
-axes[0].plot(val_losses, label='Val Loss')
-axes[0].set_xlabel('Epoch')
-axes[0].set_ylabel('Loss')
-axes[0].set_title('Learning Curves')
-axes[0].legend()
-axes[0].grid(True, alpha=0.3)
+axes\[0\].plot(train_losses, label='Train Loss')
+axes\[0\].plot(val_losses, label='Val Loss')
+axes\[0\].set_xlabel('Epoch')
+axes\[0\].set_ylabel('Loss')
+axes\[0\].set_title('Learning Curves')
+axes\[0\].legend()
+axes\[0\].grid(True, alpha=0.3)
 
 # Plot 2: Predictions vs True
 idx = torch.argsort(X_test.flatten())
-axes[1].scatter(X_test, y_test, alpha=0.3, label='True', s=20)
-axes[1].plot(X_test[idx], y_pred_test[idx], 'r-', linewidth=2, label='Predicted')
-axes[1].set_xlabel('X')
-axes[1].set_ylabel('y')
-axes[1].set_title('Predictions on Test Set')
-axes[1].legend()
-axes[1].grid(True, alpha=0.3)
+axes\[1\].scatter(X_test, y_test, alpha=0.3, label='True', s=20)
+axes\[1\].plot(X_test[idx], y_pred_test[idx], 'r-', linewidth=2, label='Predicted')
+axes\[1\].set_xlabel('X')
+axes\[1\].set_ylabel('y')
+axes\[1\].set_title('Predictions on Test Set')
+axes\[1\].legend()
+axes\[1\].grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.show()
@@ -396,7 +400,7 @@ for i, (loss_name, result) in enumerate(results.items()):
     ax.grid(True, alpha=0.3)
 
 # Remove extra subplot
-fig.delaxes(axes[5])
+fig.delaxes(axes\[5\])
 
 plt.tight_layout()
 plt.show()
@@ -406,7 +410,7 @@ print("\n" + "="*50)
 print("Performance Comparison (lower is better):")
 print("="*50)
 for loss_name, result in sorted(results.items(),
-                                 key=lambda x: x[1]['rmse']):
+                                 key=lambda x: x\[1\]['rmse']):
     print(f"{loss_name:15s}: RMSE={result['rmse']:.4f}, MAE={result['mae']:.4f}")
 ```
 

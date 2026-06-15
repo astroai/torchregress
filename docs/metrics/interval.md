@@ -2,64 +2,69 @@
 
 Interval metrics evaluate the quality of prediction intervals, focusing on coverage and width properties.
 
+---
+
 ## Interval Score (Winkler Score)
 
-Evaluates prediction intervals by rewarding narrow intervals and penalizing when observations fall outside the interval.
+The Winkler interval score evaluates prediction intervals by rewarding narrow bands and penalizing intervals when observations fall outside them:
+
+$$
+S_\alpha(L_i, U_i; y_i) = (U_i - L_i) + \frac{2}{\alpha} (L_i - y_i) \mathbb{I}(y_i < L_i) + \frac{2}{\alpha} (y_i - U_i) \mathbb{I}(y_i > U_i)
+$$
+
+where $[L_i, U_i]$ is the predicted $(1 - \alpha)$ interval (e.g., a $90\%$ interval corresponds to $\alpha = 0.1$) and $y_i$ is the target. A lower score indicates a higher quality interval.
 
 ```python
-from torchregress.metrics.interval import (
-    interval_score,
-    prediction_interval_coverage_probability,
-)
+from torchregress.metrics.interval import interval_score
 
 # lower_bound and upper_bound typically represent a 90% prediction interval
-score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1)
-
-# Get detailed metrics
-detailed_score = interval_score(lower_bound, upper_bound, y_true,
-                                alpha=0.1, reduction="full")
-print(f"Mean width: {detailed_score['mean_width']}")
-print(f"Coverage: {detailed_score['mean_coverage']}")
-print(f"Expected coverage: {detailed_score['expected_coverage']}")
+score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1, mask=mask)
 ```
+See also: [interval_score](../api/metrics.md#interval_score).
+
+---
 
 ## Prediction Interval Coverage Probability (PICP)
 
-Measures the proportion of observations that fall within the prediction interval.
+PICP measures the proportion of observations that fall within the predicted intervals:
+
+$$
+\text{PICP}(L, U; y) = \frac{1}{\sum_{i=1}^N m_i} \sum_{i=1}^N m_i \mathbb{I}(L_i \le y_i \le U_i)
+$$
+
+where $m_i \in \{0, 1\}$ is a boolean mask. Ideally, $\text{PICP} \approx 1 - \alpha$.
 
 ```python
 from torchregress.metrics.interval import prediction_interval_coverage_probability
 
 # Calculate basic PICP
-picp = prediction_interval_coverage_probability(lower_bound, upper_bound, y_true)
-
-# With detailed diagnostics
-picp_detailed = prediction_interval_coverage_probability(
-    lower_bound, upper_bound, y_true,
-    expected_coverage=0.9, return_diagnostics=True
-)
-
-print(f"PICP: {picp_detailed['picp']}")
-print(f"Coverage error: {picp_detailed['coverage_error']}")
-print(f"Mean Prediction Interval Width: {picp_detailed['mpiw']}")
-print(f"Lower miss rate: {picp_detailed['miss_rate_low']}")
-print(f"Upper miss rate: {picp_detailed['miss_rate_high']}")
+picp = prediction_interval_coverage_probability(lower_bound, upper_bound, y_true, mask=mask)
 ```
+See also: [prediction_interval_coverage_probability](../api/metrics.md#prediction_interval_coverage_probability).
+
+---
 
 ## Mean Prediction Interval Width (MPIW)
 
-Measures the average width of prediction intervals. This is included in the detailed output of `prediction_interval_coverage_probability`.
+MPIW measures the average width of prediction intervals:
+
+$$
+\text{MPIW}(L, U) = \frac{1}{\sum_{i=1}^N m_i} \sum_{i=1}^N m_i (U_i - L_i)
+$$
 
 ```python
 from torchregress.metrics.interval import prediction_interval_coverage_probability
 
-# Get MPIW from detailed metrics
 results = prediction_interval_coverage_probability(
     lower_bound, upper_bound, y_true,
-    return_diagnostics=True
+    return_diagnostics=True, mask=mask
 )
-mpiw = results['mpiw']
+mpiw = results["mpiw"]
 ```
+
+See also: [prediction_interval_coverage_probability](../api/metrics.md#prediction_interval_coverage_probability).
+
+---
 
 ## Comprehensive Reporting
 
@@ -73,34 +78,33 @@ from torchregress.metrics.interval import interval_metrics_report
 # Create a dictionary of model predictions
 predictions = {
     'model1': {'lower': model1_lower, 'upper': model1_upper},
-    'model2': {'lower': model2_lower, 'upper': model2_upper},
-    'model3': {'lower': model3_lower, 'upper': model3_upper}
+    'model2': {'lower': model2_lower, 'upper': model2_upper}
 }
 
 # Generate comprehensive report
-report = interval_metrics_report(predictions, y_true, alpha=0.1)
-
-# Access results for specific models
-model1_coverage = report['model1']['picp']
-model2_interval_score = report['model2']['score']
-model3_interval_width = report['model3']['mpiw']
+report = interval_metrics_report(predictions, y_true, alpha=0.1, mask=mask)
 ```
+See also: [interval_metrics_report](../api/metrics.md#interval_metrics_report).
+
+---
 
 ## Advanced Usage
 
 ### Asymmetric Interval Evaluation
 
-The interval score can reveal asymmetries in the prediction intervals:
+Evaluate lower vs. upper miss rates to detect interval asymmetry:
+
+$$
+\text{MissRate}_{\text{low}} = \frac{\sum_i m_i \mathbb{I}(y_i < L_i)}{\sum_i m_i}
+$$
+
+$$
+\text{MissRate}_{\text{high}} = \frac{\sum_i m_i \mathbb{I}(y_i > U_i)}{\sum_i m_i}
+$$
 
 ```python
-from torchregress.metrics.interval import interval_score
-
-detailed_score = interval_score(lower_bound, upper_bound, y_true,
-                               alpha=0.1, reduction="full")
-
-# Compare low-side and high-side misses with coverage diagnostics
 coverage = prediction_interval_coverage_probability(
-    lower_bound, upper_bound, y_true, alpha=0.1, return_diagnostics=True
+    lower_bound, upper_bound, y_true, alpha=0.1, return_diagnostics=True, mask=mask
 )
 print(f"Lower miss rate: {coverage['miss_rate_low']}")
 print(f"Upper miss rate: {coverage['miss_rate_high']}")

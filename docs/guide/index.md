@@ -11,7 +11,7 @@ But in practice you also need to know **how confident** the model is.
 
 ### Heteroscedastic variance (simplest)
 
-Predict mean and variance per sample using `GaussianNLLLoss`:
+Predict mean and variance per sample using [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss):
 
 ```python
 from torchregress.losses import GaussianNLLLoss
@@ -56,7 +56,7 @@ loss_fn = EvidentialRegressionLoss()
 # Model outputs 4 values: [γ, ν, α, β] per target
 ```
 
-→ See [Evidential Regression](../losses/advanced.md).
+→ See [EvidentialRegressionLoss API](../api/losses.md#evidentialregressionloss) and [Evidential Regression](../losses/advanced.md).
 
 ---
 
@@ -66,9 +66,9 @@ Standard MSE is highly sensitive to outliers — a single extreme point can domi
 
 | Robustness | Loss | When to use |
 |:-----------|:-----|:------------|
-| ⭐⭐ | `WeightedHuberLoss(delta=1.0)` | Quick fix, moderate outliers |
-| ⭐⭐⭐ | `CauchyLoss(scale=1.0)` | Logarithmic suppression |
-| ⭐⭐⭐⭐ | `TukeyBiweightLoss(c=4.685)` | Complete rejection beyond threshold |
+| ⭐⭐ | [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss) | Quick fix, moderate outliers |
+| ⭐⭐⭐ | [`CauchyLoss`](../api/losses.md#cauchyloss) | Logarithmic suppression |
+| ⭐⭐⭐⭐ | [`TukeyBiweightLoss`](../api/losses.md#tukeybiweightloss) | Complete rejection beyond threshold |
 
 → See [Robust Losses](../losses/robust.md) for the full family.
 
@@ -85,6 +85,8 @@ loss_fn = MultiQuantileLoss(quantiles=[0.05, 0.5, 0.95])
 # Model outputs 3 values per target
 ```
 
+→ See [MultiQuantileLoss API](../api/losses.md#multiquantileloss).
+
 ### Conformal prediction (post-hoc, guaranteed coverage)
 
 Wrap **any** trained model with a calibration procedure:
@@ -96,6 +98,8 @@ cqr = CQR(alpha=0.1)  # target 90% coverage
 cqr.calibrate(y_pred_cal, y_cal)
 lower, upper = cqr.predict_interval(y_pred_test)
 ```
+
+→ See [CQR API](../api/losses.md#cqr).
 
 !!! success "Finite-sample guarantee"
     $$P(Y_{n+1} \in [\text{lower}, \text{upper}]) \geq 1 - \alpha$$
@@ -170,8 +174,8 @@ When features $X$ are measured with known noise $\sigma_u$:
 
 When you need to predict multiple continuous outcomes $\mathbf{y} \in \mathbb{R}^K$ jointly:
 
-- **Parametric (Gaussian)**: Use `MultivariateGaussianLoss` for full covariance modeling or `LowRankGaussianLoss` for high-dimensional targets.
-- **Non-Parametric**: Use `NormalizingFlowLoss` or `MDNLoss` for multimodal joint distributions.
+- **Parametric (Gaussian)**: Use [`MultivariateGaussianLoss`](../api/losses.md#multivariategaussianloss) for full covariance modeling or [`LowRankGaussianLoss`](../api/losses.md#lowrankgaussianloss) for high-dimensional targets.
+- **Non-Parametric**: Use [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss) or [`MDNLoss`](../api/losses.md#mdnloss) for multimodal joint distributions.
 - **Interval Calibration**: Use `MultiTargetConformal` for coordinate-wise coverage guarantees.
 
 → See [Multi-Target Regression](multi-target-regression.md).
@@ -200,3 +204,4 @@ calibrated_var = scaler.transform(pred_var_test)
 - Explore [Examples](../examples/index.md) by topic
 - Check the [Mathematical Foundations](math/index.md) for rigorous derivations
 - See the [API Reference](../api/index.md) for complete function signatures
+- Review the [Docs Quality Audit](../reports/docs_quality_audit.md) for per-page LaTeX/structure status

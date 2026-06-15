@@ -41,6 +41,8 @@ Style Guide for Visualization Functions:
 from torchregress.viz.diagnostic import (
     plot_binned_metrics,
     plot_calibration_curve,
+    plot_censored_survival_curves,
+    plot_conditional_density_slices,
     plot_distribution_comparison,
     plot_gaussian_reliability_diagram,
     plot_pit_histogram,
@@ -49,6 +51,7 @@ from torchregress.viz.diagnostic import (
     plot_reliability_diagram,
     plot_residual_histogram,
     plot_residuals,
+    plot_target_density_error_overlap,
     plot_uncertainty_vs_error,
 )
 
@@ -62,10 +65,13 @@ from torchregress.viz.monitoring import (
 
 # Import results visualization tools
 from torchregress.viz.results import (
+    plot_causal_uplift_qini,
     plot_feature_importance,
     plot_model_ensemble_contributions,
     plot_parameter_sensitivity,
     plot_performance_comparison,
+    plot_risk_coverage_curve,
+    plot_simex_extrapolation,
 )
 
 # Import common utility functions
@@ -92,6 +98,9 @@ __all__ = [
     "plot_residual_histogram",
     "plot_distribution_comparison",
     "plot_calibration_curve",
+    "plot_target_density_error_overlap",
+    "plot_conditional_density_slices",
+    "plot_censored_survival_curves",
     "plot_learning_curves",
     "plot_validation_metrics",
     "plot_early_stopping",
@@ -100,6 +109,9 @@ __all__ = [
     "plot_parameter_sensitivity",
     "plot_feature_importance",
     "plot_model_ensemble_contributions",
+    "plot_simex_extrapolation",
+    "plot_risk_coverage_curve",
+    "plot_causal_uplift_qini",
     "set_style",
     "create_grid_figure",
     "add_identity_line",

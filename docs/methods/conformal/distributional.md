@@ -18,9 +18,9 @@ Conformal prediction via the **Probability Integral Transform** (PIT).
 
 ### Mathematical Details
 
-If the predictive CDF $F(y \mid x)$ is correctly specified, the PIT value $U = F(Y \mid X)$ is uniformly distributed on $[0, 1]$.  The PIT nonconformity score measures **how far** $U$ is from uniform:
+If the predictive CDF $F(y \mid x)$ is correctly specified, the PIT value $U = F(Y \mid X)$ is uniformly distributed on $\[0, 1\]$.  The PIT nonconformity score measures **how far** $U$ is from uniform:
 
-$$s = \bigl\lvert 2 U - 1\bigr\rvert \;\in\; [0, 1]$$
+$$s = \bigl\lvert 2 U - 1\bigr\rvert \;\in\; \[0, 1\]$$
 
 After computing the conformal quantile $\hat{q}$, the adjusted quantile levels are:
 
@@ -72,7 +72,7 @@ lower, upper = dcp.predict_intervals_from_cdf(icdf_fn, x_test)
         mean, logvar = model(x_batch).chunk(2, dim=-1)
         std = torch.exp(0.5 * logvar)
         d = Normal(mean.squeeze(-1), std.squeeze(-1))
-        return torch.stack([d.icdf(levels[0]), d.icdf(levels[1])], dim=-1)
+        return torch.stack([d.icdf(levels\[0\]), d.icdf(levels\[1\])], dim=-1)
 
     lower, upper = dcp.predict_intervals_from_cdf(icdf_fn, x_test)
     ```

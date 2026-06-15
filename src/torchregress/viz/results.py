@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 from matplotlib.figure import Figure
 
@@ -79,43 +78,78 @@ def plot_performance_comparison(
             )
             higher_is_better[metric] = is_higher_better
 
-    # Create DataFrame for easier manipulation
+    # Build numpy arrays for easier manipulation
     model_names = list(metrics.keys())
-    data = {}
-    for metric in metrics_to_include:
-        data[metric] = [metrics[model][metric] for model in model_names]
+    n_models = len(model_names)
+    n_metrics = len(metrics_to_include)
 
-    df = pd.DataFrame(data, index=model_names)
+    # Build values array (n_models, n_metrics)
+    values_arr = np.zeros((n_models, n_metrics))
+    for j, metric in enumerate(metrics_to_include):
+        for i, model in enumerate(model_names):
+            values_arr[i, j] = float(metrics[model][metric])
 
     # Sort by specified metric if requested
     if sort_by is not None and sort_by in metrics_to_include:
+        sort_col = metrics_to_include.index(sort_by)
         ascending = not higher_is_better.get(sort_by, True)
-        df = df.sort_values(by=sort_by, ascending=ascending)
+        order = np.argsort(values_arr[:, sort_col])
+        if not ascending:
+            order = order[::-1]
+        values_arr = values_arr[order]
+        model_names = [model_names[i] for i in order]
+
+    # Store metric names and values as list-based structures (was DataFrame)
+    metric_names_list = list(metrics_to_include)
 
     # Determine best model for each metric if highlighting is requested
     best_values = {}
     if highlight_best:
-        for metric in metrics_to_include:
+        for j, metric in enumerate(metrics_to_include):
             if higher_is_better.get(metric, True):
-                best_values[metric] = df[metric].max()
+                best_values[metric] = float(values_arr[:, j].max())
             else:
-                best_values[metric] = df[metric].min()
+                best_values[metric] = float(values_arr[:, j].min())
 
     # Determine colors for models
-    colors = cast(List[Any], create_color_palette(len(df.index), palette_name=color_palette))
+    colors = cast(List[Any], create_color_palette(len(model_names), palette_name=color_palette))
 
     # Create plot based on specified type
     if plot_type == "bar":
         return _plot_performance_bar(
-            df, best_values, figsize, title, higher_is_better, colors, return_figure, ax
+            model_names,
+            metric_names_list,
+            values_arr,
+            best_values,
+            figsize,
+            title,
+            higher_is_better,
+            colors,
+            return_figure,
+            ax,
         )
     elif plot_type == "radar":
         return _plot_performance_radar(
-            df, best_values, figsize, title, higher_is_better, colors, return_figure
+            model_names,
+            metric_names_list,
+            values_arr,
+            best_values,
+            figsize,
+            title,
+            higher_is_better,
+            colors,
+            return_figure,
         )
     elif plot_type == "heatmap":
         return _plot_performance_heatmap(
-            df, best_values, figsize, title, higher_is_better, return_figure
+            model_names,
+            metric_names_list,
+            values_arr,
+            best_values,
+            figsize,
+            title,
+            higher_is_better,
+            return_figure,
         )
     else:
         raise ValueError(f"Unknown plot_type: {plot_type}")
@@ -123,15 +157,17 @@ def plot_performance_comparison(
 
 def _add_performance_bars(
     ax: plt.Axes,
-    df: pd.DataFrame,
+    model_names: list[str],
+    metric_names: list[str],
+    values_arr: np.ndarray,
     best_values: Dict[str, float],
     colors: List,
     bar_width: float,
     indices: np.ndarray,
 ) -> None:
     """Helper to add bars and value annotations."""
-    for i, model_name in enumerate(df.index):
-        values = df.loc[model_name].values
+    for i, model_name in enumerate(model_names):
+        values = values_arr[i]
         bars = ax.bar(
             indices + i * bar_width,
             values,
@@ -142,8 +178,8 @@ def _add_performance_bars(
 
         # Highlight best model for each metric
         if best_values:
-            for j, metric in enumerate(df.columns):
-                if np.isclose(df.loc[model_name, metric], best_values[metric]):
+            for j, metric in enumerate(metric_names):
+                if np.isclose(values_arr[i, j], best_values[metric]):
                     bars[j].set_edgecolor("black")
                     bars[j].set_linewidth(2)
 
@@ -170,7 +206,7 @@ def _add_performance_bars(
 
 def _format_performance_axes(
     ax: plt.Axes,
-    df: pd.DataFrame,
+    metric_names: list[str],
     title: str,
     indices: np.ndarray,
     bar_width: float,
@@ -183,7 +219,7 @@ def _format_performance_axes(
     ax.set_ylabel("Value", fontweight="bold")
     ax.set_title(title, fontsize=14, fontweight="bold")
     ax.set_xticks(indices + bar_width * (n_models - 1) / 2)
-    ax.set_xticklabels(df.columns, rotation=45, ha="right", fontweight="bold")
+    ax.set_xticklabels(metric_names, rotation=45, ha="right", fontweight="bold")
 
     # Skip LaTeX rendering if not available or fails
     try:
@@ -200,7 +236,7 @@ def _format_performance_axes(
             )
             # Replace common metric names with LaTeX
             metric_labels = []
-            for metric in df.columns:
+            for metric in metric_names:
                 if "rmse" in metric.lower():
                     metric_labels.append(r"$\mathrm{RMSE}$")
                 elif "mae" in metric.lower():
@@ -219,7 +255,7 @@ def _format_performance_axes(
     ax.grid(True, axis="y", alpha=0.3)
 
     # Add annotations for which direction is better
-    for i, metric in enumerate(df.columns):
+    for i, metric in enumerate(metric_names):
         direction = "↑" if higher_is_better.get(metric, True) else "↓"
         ax.annotate(
             direction,
@@ -232,7 +268,9 @@ def _format_performance_axes(
 
 
 def _plot_performance_bar(
-    df: pd.DataFrame,
+    model_names: list[str],
+    metric_names: list[str],
+    values_arr: np.ndarray,
     best_values: Dict[str, float],
     figsize: Tuple[int, int],
     title: str,
@@ -250,8 +288,8 @@ def _plot_performance_bar(
         fig = cast(Figure, ax.figure)
 
     # Number of models and metrics
-    n_models = len(df.index)
-    n_metrics = len(df.columns)
+    n_models = len(model_names)
+    n_metrics = len(metric_names)
 
     # Set width of bars
     bar_width = 0.8 / n_models
@@ -259,8 +297,12 @@ def _plot_performance_bar(
     # Set positions of bars on x-axis
     indices = np.arange(n_metrics)
 
-    _add_performance_bars(ax, df, best_values, colors, bar_width, indices)
-    _format_performance_axes(ax, df, title, indices, bar_width, n_models, higher_is_better)
+    _add_performance_bars(
+        ax, model_names, metric_names, values_arr, best_values, colors, bar_width, indices
+    )
+    _format_performance_axes(
+        ax, metric_names, title, indices, bar_width, n_models, higher_is_better
+    )
 
     plt.tight_layout()
 
@@ -273,7 +315,9 @@ def _plot_performance_bar(
 
 
 def _plot_performance_radar(
-    df: pd.DataFrame,
+    model_names: list[str],
+    metric_names: list[str],
+    values_arr: np.ndarray,
     best_values: Dict[str, float],
     figsize: Tuple[int, int],
     title: str,
@@ -287,32 +331,29 @@ def _plot_performance_radar(
     ax = fig.add_subplot(111, polar=True)
 
     # Number of metrics (variables)
-    n_metrics = len(df.columns)
+    n_metrics = len(metric_names)
     angles = np.linspace(0, 2 * np.pi, n_metrics, endpoint=False).tolist()
 
     # Add the last angle to close the polygon
     angles += angles[:1]
 
     # Normalize metrics to range [0, 1] for radar plot
-    df_normalized = pd.DataFrame(index=df.index)
-    for metric in df.columns:
-        min_val = df[metric].min()
-        max_val = df[metric].max()
-
+    norm_values = np.zeros_like(values_arr)
+    for j in range(n_metrics):
+        col = values_arr[:, j]
+        min_val = float(col.min())
+        max_val = float(col.max())
+        metric = metric_names[j]
         if higher_is_better.get(metric, True):
-            # Higher is better: higher values should be further from center
-            df_normalized[metric] = (
-                (df[metric] - min_val) / (max_val - min_val) if max_val > min_val else 0.5
-            )
+            norm_values[:, j] = (col - min_val) / (max_val - min_val) if max_val > min_val else 0.5
         else:
-            # Lower is better: lower values should be further from center
-            df_normalized[metric] = (
-                1 - (df[metric] - min_val) / (max_val - min_val) if max_val > min_val else 0.5
+            norm_values[:, j] = (
+                1.0 - (col - min_val) / (max_val - min_val) if max_val > min_val else 0.5
             )
 
     # Plot each model
-    for i, model_name in enumerate(df.index):
-        values = df_normalized.loc[model_name].values.tolist()
+    for i, model_name in enumerate(model_names):
+        values = norm_values[i].tolist()
         values += values[:1]  # Close the polygon
 
         ax.plot(angles, values, color=colors[i % len(colors)], linewidth=2, label=model_name)
@@ -323,7 +364,7 @@ def _plot_performance_radar(
     ax.set_xticklabels(
         [
             f"{metric}\n({'↑' if higher_is_better.get(metric, True) else '↓'})"
-            for metric in df.columns
+            for metric in metric_names
         ]
     )
 
@@ -344,7 +385,9 @@ def _plot_performance_radar(
 
 
 def _plot_performance_heatmap(
-    df: pd.DataFrame,
+    model_names: list[str],
+    metric_names: list[str],
+    values_arr: np.ndarray,
     best_values: Dict[str, float],
     figsize: Tuple[int, int],
     title: str,
@@ -356,51 +399,46 @@ def _plot_performance_heatmap(
     fig, ax = plt.subplots(figsize=figsize)
 
     # Normalize metrics to range [0, 1] for heatmap
-    df_normalized = pd.DataFrame(index=df.index)
-    for metric in df.columns:
-        min_val = df[metric].min()
-        max_val = df[metric].max()
-
+    n_metrics = len(metric_names)
+    norm_values = np.zeros_like(values_arr)
+    for j in range(n_metrics):
+        col = values_arr[:, j]
+        min_val = float(col.min())
+        max_val = float(col.max())
+        metric = metric_names[j]
         if higher_is_better.get(metric, True):
-            # Higher is better: higher values = better
-            df_normalized[metric] = (
-                (df[metric] - min_val) / (max_val - min_val) if max_val > min_val else 0.5
-            )
+            norm_values[:, j] = (col - min_val) / (max_val - min_val) if max_val > min_val else 0.5
         else:
-            # Lower is better: lower values = better
-            df_normalized[metric] = (
-                1 - (df[metric] - min_val) / (max_val - min_val) if max_val > min_val else 0.5
+            norm_values[:, j] = (
+                1.0 - (col - min_val) / (max_val - min_val) if max_val > min_val else 0.5
             )
 
     # Create heatmap
-    im = ax.imshow(df_normalized.values, cmap="RdYlGn", aspect="auto", vmin=0, vmax=1)
+    im = ax.imshow(norm_values, cmap="RdYlGn", aspect="auto", vmin=0, vmax=1)
 
     # Add colorbar
     cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel("Performance (normalized)", rotation=-90, va="bottom")
 
     # Set ticks and labels
-    ax.set_xticks(np.arange(len(df.columns)))
-    ax.set_yticks(np.arange(len(df.index)))
+    ax.set_xticks(np.arange(n_metrics))
+    ax.set_yticks(np.arange(len(model_names)))
     ax.set_xticklabels(
         [
             f"{metric}\n({'↑' if higher_is_better.get(metric, True) else '↓'})"
-            for metric in df.columns
+            for metric in metric_names
         ]
     )
-    ax.set_yticklabels(df.index)
+    ax.set_yticklabels(model_names)
 
     # Rotate x-tick labels
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
     # Loop over data and add annotations with actual values
-    df_values = df.values
-    df_norm_values = df_normalized.values
-    columns = df.columns
-
-    for i, row in enumerate(df_values):
-        for j, metric_value in enumerate(row):
-            is_best = best_values and np.isclose(metric_value, best_values[columns[j]])
+    for i in range(len(model_names)):
+        for j in range(n_metrics):
+            metric_value = values_arr[i, j]
+            is_best = best_values and np.isclose(metric_value, best_values[metric_names[j]])
 
             # Format text based on value type
             if isinstance(metric_value, float):
@@ -418,7 +456,7 @@ def _plot_performance_heatmap(
                 text,
                 ha="center",
                 va="center",
-                color="black" if df_norm_values[i, j] > 0.5 else "white",
+                color="black" if norm_values[i, j] > 0.5 else "white",
             )
 
     # Add title
@@ -845,4 +883,302 @@ def plot_model_ensemble_contributions(
     elif created_fig:  # Only show if we created the figure here
         plt.show()
 
+    return None
+
+
+def plot_simex_extrapolation(
+    lambda_values: Union[torch.Tensor, np.ndarray],
+    simulated_values: Union[torch.Tensor, np.ndarray],
+    extrapolator: Any,
+    figsize: Tuple[int, int] = (10, 6),
+    title: str = "SIMEX Extrapolation Diagnostics",
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Figure]:
+    """
+    Plots SIMEX simulation points and the fitted extrapolation curve back to lambda = -1.
+    Useful for diagnosing measurement error (Error-in-Variables) correction.
+
+    Args:
+        lambda_values: [M] array of added noise multipliers (typically >= 0).
+        simulated_values: [M] or [M, P] array of simulated metrics/coefficient values.
+        extrapolator: A callable function or fitted extrapolator model
+            (e.g. poly1d) that takes lambda and returns prediction.
+        figsize: Figure size (width, height)
+        title: Plot title
+        return_figure: If True, return figure object
+        ax: Optional matplotlib axes
+    """
+    from torchregress.metrics.utils import convert_to_tensor
+
+    lambda_values = convert_to_tensor(lambda_values).detach().cpu().numpy().flatten()
+    simulated_values = convert_to_tensor(simulated_values).detach().cpu().numpy()
+
+    created_fig = ax is None
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = cast(Figure, ax.figure)
+
+    # Plot simulation points
+    if len(simulated_values.shape) > 1 and simulated_values.shape[1] > 1:
+        for j in range(simulated_values.shape[1]):
+            ax.scatter(
+                lambda_values, simulated_values[:, j], alpha=0.8, marker="o", label=f"Param {j}"
+            )
+    else:
+        ax.scatter(
+            lambda_values,
+            simulated_values.flatten(),
+            color="navy",
+            s=50,
+            zorder=5,
+            label="Simulated Metrics",
+        )
+
+    # Extrapolation curve
+    lambdas_fine = np.linspace(-1.0, max(lambda_values) * 1.1, 200)
+
+    try:
+        if hasattr(extrapolator, "predict"):
+            pred_fine = extrapolator.predict(lambdas_fine.reshape(-1, 1)).flatten()
+            pred_minus_1 = extrapolator.predict(np.array([[-1.0]])).item()
+        elif callable(extrapolator):
+            pred_fine = extrapolator(lambdas_fine).flatten()
+            pred_minus_1 = extrapolator(-1.0)
+        else:
+            pred_fine = np.polyval(extrapolator, lambdas_fine).flatten()
+            pred_minus_1 = np.polyval(extrapolator, -1.0)
+
+        ax.plot(
+            lambdas_fine,
+            pred_fine,
+            color="crimson",
+            linestyle="-",
+            linewidth=2.5,
+            label="Fitted Extrapolation",
+        )
+        ax.scatter(
+            [-1.0],
+            [pred_minus_1],
+            color="forestgreen",
+            marker="*",
+            s=250,
+            zorder=6,
+            label=f"Corrected Estimate: {pred_minus_1:.4f}",
+        )
+    except Exception as e:
+        print(f"Warning: Could not plot extrapolation curve: {e}")
+
+    ax.axvline(x=0, color="gray", linestyle="--", alpha=0.5, label="Naive / Observed Noise")
+    ax.axvline(x=-1, color="forestgreen", linestyle="--", alpha=0.5, label="Theoretical Zero Noise")
+
+    ax.set_xlabel("Noise Multiplier (λ)", fontweight="bold")
+    ax.set_ylabel("Parameter Estimate / Metric Value", fontweight="bold")
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
+
+    if return_figure:
+        return fig
+    elif created_fig:
+        plt.tight_layout()
+        plt.show()
+    return None
+
+
+def plot_risk_coverage_curve(
+    y_true: Union[torch.Tensor, np.ndarray],
+    y_pred: Union[torch.Tensor, np.ndarray],
+    rejection_scores: Union[torch.Tensor, np.ndarray],
+    figsize: Tuple[int, int] = (10, 6),
+    title: str = "Risk-Coverage Selective Prediction Curve",
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Figure]:
+    """
+    Plots validation risk (MSE/MAE) vs. coverage (percentage of remaining dataset kept).
+    Allows evaluating out-of-distribution scores or uncertainty estimators for selective prediction.
+
+    Args:
+        y_true: Ground truth values
+        y_pred: Predicted values
+        rejection_scores: Rejection score for each sample (higher score = reject first).
+                          Typically predicted uncertainty std, typicality, or entropy score.
+        figsize: Figure size (width, height)
+        title: Plot title
+        return_figure: If True, return figure
+        ax: Optional axes
+    """
+    from torchregress.metrics.utils import convert_to_tensor
+
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    rejection_scores = convert_to_tensor(rejection_scores).detach().cpu().numpy().flatten()
+
+    errors = (y_true - y_pred) ** 2
+
+    # Sort samples by rejection scores ascending
+    sort_idx = np.argsort(rejection_scores)
+    sorted_errors = errors[sort_idx]
+
+    n_samples = len(y_true)
+    coverages = np.linspace(1 / n_samples, 1.0, n_samples)
+
+    # Cumulative mean risk for model-based rejection
+    model_risk = np.cumsum(sorted_errors) / np.arange(1, n_samples + 1)
+
+    # Random rejection (constant expected risk)
+    random_risk = np.full(n_samples, np.mean(errors))
+
+    # Oracle rejection (sorting by actual error)
+    oracle_idx = np.argsort(errors)
+    oracle_sorted_errors = errors[oracle_idx]
+    oracle_risk = np.cumsum(oracle_sorted_errors) / np.arange(1, n_samples + 1)
+
+    created_fig = ax is None
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = cast(Figure, ax.figure)
+
+    ax.plot(coverages, model_risk, color="navy", linewidth=2.5, label="Model Rejection Policy")
+    ax.plot(
+        coverages,
+        random_risk,
+        color="gray",
+        linestyle="--",
+        linewidth=1.5,
+        label="Random Rejection",
+    )
+    ax.plot(
+        coverages,
+        oracle_risk,
+        color="forestgreen",
+        linestyle=":",
+        linewidth=2.0,
+        label="Oracle (Ideal)",
+    )
+
+    aurcc_model = np.mean(model_risk)
+    aurcc_random = np.mean(random_risk)
+    aurcc_oracle = np.mean(oracle_risk)
+
+    # Re-import add_annotations here to ensure it's available in this scope
+    from torchregress.viz.utils import add_annotations
+
+    annotations = {
+        "AURCC Model": aurcc_model,
+        "AURCC Random": aurcc_random,
+        "AURCC Oracle": aurcc_oracle,
+    }
+
+    add_annotations(ax, annotations, loc="upper right")
+
+    ax.set_xlabel("Coverage (Fraction of data kept)", fontweight="bold")
+    ax.set_ylabel("Remaining Risk (MSE)", fontweight="bold")
+    ax.set_xlim(0, 1.02)
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper left")
+
+    if return_figure:
+        return fig
+    elif created_fig:
+        plt.tight_layout()
+        plt.show()
+    return None
+
+
+def plot_causal_uplift_qini(
+    uplift_scores: Union[torch.Tensor, np.ndarray],
+    treatment: Union[torch.Tensor, np.ndarray],
+    y_obs: Union[torch.Tensor, np.ndarray],
+    figsize: Tuple[int, int] = (10, 6),
+    title: str = "Causal Uplift Qini Curve",
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Figure]:
+    """
+    Plots the Qini curve showing cumulative uplift per treated fraction.
+    Useful for evaluating doubly robust causal uplift models.
+
+    Args:
+        uplift_scores: Predicted individual treatment effect (ITE) or uplift score.
+                       Higher score means the treatment is predicted to have larger positive effect.
+        treatment: Binary treatment indicator (1 = treated, 0 = control)
+        y_obs: Observed outcome
+        figsize: Figure size (width, height)
+        title: Plot title
+        return_figure: If True, return figure
+        ax: Optional axes
+    """
+    from torchregress.metrics.utils import convert_to_tensor
+
+    uplift_scores = convert_to_tensor(uplift_scores).detach().cpu().numpy().flatten()
+    treatment = convert_to_tensor(treatment).detach().cpu().numpy().flatten().astype(int)
+    y_obs = convert_to_tensor(y_obs).detach().cpu().numpy().flatten()
+
+    sort_idx = np.argsort(uplift_scores)[::-1]
+    treatment_sorted = treatment[sort_idx]
+    y_sorted = y_obs[sort_idx]
+
+    n_samples = len(uplift_scores)
+    qini_x = np.arange(1, n_samples + 1) / n_samples
+
+    cum_treated = np.cumsum(treatment_sorted)
+    cum_control = np.arange(1, n_samples + 1) - cum_treated
+
+    cum_y_treated = np.cumsum(y_sorted * treatment_sorted)
+    cum_y_control = np.cumsum(y_sorted * (1 - treatment_sorted))
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        qini_y = cum_y_treated - cum_y_control * (
+            cum_treated / np.where(cum_control == 0, 1.0, cum_control)
+        )
+
+    qini_x = np.insert(qini_x, 0, 0.0)
+    qini_y = np.insert(qini_y, 0, 0.0)
+
+    random_y = qini_x * qini_y[-1]
+
+    created_fig = ax is None
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = cast(Figure, ax.figure)
+
+    ax.plot(qini_x, qini_y, color="navy", linewidth=2.5, label="Model Policy")
+    ax.plot(qini_x, random_y, color="gray", linestyle="--", linewidth=1.5, label="Random Policy")
+
+    # Use np.trapezoid (NumPy 2.0+) or fallback to np.trapz / scipy.integrate.trapezoid
+    if hasattr(np, "trapezoid"):
+        qini_area = np.trapezoid(qini_y - random_y, qini_x)
+    else:
+        try:
+            qini_area = np.trapz(qini_y - random_y, qini_x)
+        except AttributeError:
+            from scipy.integrate import trapezoid
+
+            qini_area = trapezoid(qini_y - random_y, qini_x)
+
+    # Re-import add_annotations here to ensure it's available in this scope
+    from torchregress.viz.utils import add_annotations
+
+    annotations = {
+        "Qini Area Metric": qini_area,
+    }
+    add_annotations(ax, annotations, loc="lower right")
+
+    ax.set_xlabel("Fraction of Population Treated (ranked by uplift)", fontweight="bold")
+    ax.set_ylabel("Cumulative Uplift (Incremental Outcome)", fontweight="bold")
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="upper left")
+
+    if return_figure:
+        return fig
+    elif created_fig:
+        plt.tight_layout()
+        plt.show()
     return None

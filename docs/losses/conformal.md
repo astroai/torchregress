@@ -7,4 +7,4 @@
     - **[Predictors](../methods/conformal/predictors.md)** — SplitConformal, CQR, DensityConformal, MonteCarloConformal, etc.
     - **[Distributional Conformal](../methods/conformal/distributional.md)** — DistributionalConformal, CTI, R2CConformal
 
-The `ConformalLoss` wrapper is retained for backward compatibility. See the [API reference](../api/losses.md) for its signature, and the new [Predictors page](../methods/conformal/predictors.md) for the recommended standalone API.
+The `ConformalLoss` wrapper is retained for backward compatibility. See the [ConformalLoss API](../api/losses.md#conformalloss), [`SplitConformal`](../api/losses.md#splitconformal), [`CQR`](../api/losses.md#cqr), and [`UACQR`](../api/losses.md#uacqr) reference sections, and the new [Predictors page](../methods/conformal/predictors.md) for the recommended standalone API.

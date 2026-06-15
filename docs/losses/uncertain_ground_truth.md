@@ -2,6 +2,8 @@
 
 These losses target settings where labels are noisy, partially trusted, weakly supervised, or augmented with pseudo labels.
 
+→ API: [`NoisyTargetGaussianNLL`](../api/losses.md#noisytargetgaussiannll), [`PseudoLabelNLL`](../api/losses.md#pseudolabelnll), [`ConsistencyRegLoss`](../api/losses.md#consistencyregloss), [`PseudoLabelConsistencyLoss`](../api/losses.md#pseudolabelconsistencyloss).
+
 Available losses:
 
 - `NoisyTargetGaussianNLL`
@@ -16,12 +18,12 @@ Related utilities:
 
 ## When To Use Which
 
-| Loss | Start here when | Main signal |
-|:-----|:----------------|:------------|
-| `NoisyTargetGaussianNLL` | labels come with reported variance/error bars | explicit target-noise variance |
-| `PseudoLabelNLL` | Gaussian head + pseudo labels + confidence weights | probabilistic self-training |
-| `ConsistencyRegLoss` | you already have a trusted teacher prediction | student-teacher agreement |
-| `PseudoLabelConsistencyLoss` | you want pseudo labels plus teacher consistency in one point-regression loss | supervised + pseudo-label + teacher consistency |
+| Loss | Start here when | Main signal | API |
+|:-----|:----------------|:------------|:----|
+| `NoisyTargetGaussianNLL` | labels come with reported variance/error bars | explicit target-noise variance | [`NoisyTargetGaussianNLL`](../api/losses.md#noisytargetgaussiannll) |
+| `PseudoLabelNLL` | Gaussian head + pseudo labels + confidence weights | probabilistic self-training | [`PseudoLabelNLL`](../api/losses.md#pseudolabelnll) |
+| `ConsistencyRegLoss` | you already have a trusted teacher prediction | student-teacher agreement | [`ConsistencyRegLoss`](../api/losses.md#consistencyregloss) |
+| `PseudoLabelConsistencyLoss` | you want pseudo labels plus teacher consistency in one point-regression loss | supervised + pseudo-label + teacher consistency | [`PseudoLabelConsistencyLoss`](../api/losses.md#pseudolabelconsistencyloss) |
 
 ## Objectives
 
@@ -157,6 +159,6 @@ update_ema_teacher_(ema_teacher, student, momentum=0.95)
 
 | # | Reference |
 |:-:|:----------|
-| 1 | D.-H. Lee. ["Pseudo-Label: The Simple and Efficient Semi-Supervised Learning Method for Deep Neural Networks."](https://www.researchgate.net/publication/280581078) *ICML Workshop*, **2013**. |
+| 1 | D.-H. Lee. ["Pseudo-Label: The Simple and Efficient Semi-Supervised Learning Method for Deep Neural Networks."](https://www.semanticscholar.org/paper/Pseudo-Label-:-The-Simple-and-Efficient-Method-for-Lee/8d1d828a2524c7fbd52a0a2df335029d29e7943d) *ICML Workshop*, **2013**. |
 | 2 | S. Laine, T. Aila. ["Temporal Ensembling for Semi-Supervised Learning."](https://arxiv.org/abs/1610.02242) *ICLR*, **2017**. |
 | 3 | A. Tarvainen, H. Valpola. ["Mean Teachers are Better Role Models."](https://arxiv.org/abs/1703.01780) *NeurIPS*, **2017**. |

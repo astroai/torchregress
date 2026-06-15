@@ -6,12 +6,12 @@ Script: `examples/noisy_label_comparison.py`
 
 ## What It Compares
 
-- `WeightedMSELoss` baseline
-- `WeightedHuberLoss`
-- `CauchyLoss`
-- `TukeyBiweightLoss`
-- `GaussianNLLLoss`
-- `MultiQuantileLoss` (90% interval head)
+- [`WeightedMSELoss`](../api/losses.md#weightedmseloss) baseline
+- [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss)
+- [`CauchyLoss`](../api/losses.md#cauchyloss)
+- [`TukeyBiweightLoss`](../api/losses.md#tukeybiweightloss)
+- [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss)
+- [`MultiQuantileLoss`](../api/losses.md#multiquantileloss) (90% interval head)
 
 ## Metrics Reported
 

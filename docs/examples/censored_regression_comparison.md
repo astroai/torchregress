@@ -2,6 +2,8 @@
 
 This guide compares multiple regression loss functions designed to train models on censored data (where some targets are only partially observed).
 
+→ Loss API: [`CensoredGaussianNLLLoss`](../api/losses.md#censoredgaussiannllloss), [`CensoredQuantileLoss`](../api/losses.md#censoredquantileloss), [`AFTLoss`](../api/losses.md#aftloss). Guide: [Censored losses](../losses/censored.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Tobin, J. (1958). [**Estimation of Relationships for Limited Dependent Variables**](https://www.jstor.org/stable/1907382). *Econometrica*. (The Tobit model). |
@@ -12,10 +14,10 @@ This guide compares multiple regression loss functions designed to train models 
 ## Mathematical Formulations
 
 Censoring occurs when the exact value of a target variable $T$ is not known. Instead, we observe a threshold value and the direction of the censoring. We classify censoring using the following codes:
-*   **$C = 0$ (Observed)**: The exact value is observed ($T_i = y_i$).
-*   **$C = 1$ (Right-Censored)**: The target is only known to be at least $y_i$ ($T_i \ge y_i$). For example, a patient survived *at least* $y_i$ days.
-*   **$C = -1$ (Left-Censored)**: The target is only known to be at most $y_i$ ($T_i \le y_i$). For example, a chemical concentration is below the detection limit $y_i$.
-*   **Interval-Censored**: The target is only known to lie within a range $[L_i, U_i]$ ($T_i \in [L_i, U_i]$).
+- **$C = 0$ (Observed)**: The exact value is observed ($T_i = y_i$).
+- **$C = 1$ (Right-Censored)**: The target is only known to be at least $y_i$ ($T_i \ge y_i$). For example, a patient survived *at least* $y_i$ days.
+- **$C = -1$ (Left-Censored)**: The target is only known to be at most $y_i$ ($T_i \le y_i$). For example, a chemical concentration is below the detection limit $y_i$.
+- **Interval-Censored**: The target is only known to lie within a range $[L_i, U_i]$ ($T_i \in [L_i, U_i]$).
 
 ### 1. Censored Gaussian NLL (Tobit Model)
 
@@ -46,8 +48,8 @@ where $\epsilon_i$ represents the residual noise following a specific distributi
 
 ## Task-First Context
 
-*   **When to Use**: Use censored losses in clinical survival analysis, equipment predictive maintenance, or when target measurements hit assay ceiling/floor detection limits.
-*   **Comparison Metrics**: Report point accuracy on the unobserved true values (`MAE_true`), point accuracy on observed boundaries (`ObsMAE`), and the **Concordance Index** (C-index) which measures how well the model predicts the correct ordering of events/failure times.
+- **When to Use**: Use censored losses in clinical survival analysis, equipment predictive maintenance, or when target measurements hit assay ceiling/floor detection limits.
+- **Comparison Metrics**: Report point accuracy on the unobserved true values (`MAE_true`), point accuracy on observed boundaries (`ObsMAE`), and the **Concordance Index** (C-index) which measures how well the model predicts the correct ordering of events/failure times.
 
 ---
 

@@ -72,10 +72,8 @@ Development:
 - mypy
 
 Documentation:
-- mkdocs
-- mkdocs-material
-- mkdocstrings[python]
-- pymdown-extensions
+- zensical
+- mkdocstrings-python
 
 Normalizing flows:
 - zuko >= 1.6.0

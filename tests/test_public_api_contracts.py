@@ -118,9 +118,6 @@ EXPECTED_EXPORTS = {
         "consistency_error",
         "pseudo_label_acceptance_rate",
         "uncertain_gt_metrics_report",
-        "MeanSquaredError",
-        "MeanAbsoluteError",
-        "R2Score",
     ],
     "ensemble": [
         "BaseEnsembleModel",

@@ -2,6 +2,8 @@
 
 This guide explains how to use `GaussianWassersteinBoundLoss` for joint supervision of predicted means and covariances.
 
+→ API: [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss). Guide: [Wasserstein bound](../losses/gaussian_wasserstein.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Givens, C. R., & Shortt, R. M. (1984). [**A class of Wasserstein metrics for probability distributions**](https://doi.org/10.1307/mmj/1029003026). *Michigan Mathematical Journal*. |
@@ -37,8 +39,8 @@ $$\hat{S} = \hat{\Sigma}^{1/2}, \quad S = \Sigma^{1/2}$$
 
 ## Task-First Context
 
-*   **When to Use**: Use this loss when you want to supervise a model to predict both a multivariate **mean** and **covariance matrix** directly using ground truth values (e.g. from physical simulations, ensemble outputs, or neighbor-based covariance pseudo-labels).
-*   **Alternative**: Unlike standard Gaussian NLL (which only supervises the target point $y$), the Wasserstein bound loss supervises the entire distribution parameters directly, preventing the variance from collapsing or exploding during early training phases.
+- **When to Use**: Use this loss when you want to supervise a model to predict both a multivariate **mean** and **covariance matrix** directly using ground truth values (e.g. from physical simulations, ensemble outputs, or neighbor-based covariance pseudo-labels).
+- **Alternative**: Unlike standard Gaussian NLL (which only supervises the target point $y$), the Wasserstein bound loss supervises the entire distribution parameters directly, preventing the variance from collapsing or exploding during early training phases.
 
 ---
 

@@ -2,6 +2,38 @@
 
 torchregress provides a comprehensive set of metrics for evaluating regression models, with special focus on uncertainty quantification.
 
+## torchregress vs torchmetrics — why both exist
+
+Torchregress no longer re-exports `MeanSquaredError`, `MeanAbsoluteError`, or
+`R2Score` from torchmetrics.  **Import them directly from `torchmetrics`:**
+
+```python
+from torchmetrics import MeanSquaredError, MeanAbsoluteError, R2Score
+```
+
+| torchregress | torchmetrics nearest | Why torchregress exists |
+|:-------------|:---------------------|:------------------------|
+| `mse`, `rmse`, `mae` | `MeanSquaredError`, `MeanAbsoluteError` | **Per-sample** mode, **mask** support, `tail_rmse` / `tail_mae` tail-focus variants |
+| `r2_score` | `R2Score` | Per-sample + mask support |
+| `huber_loss` | `HuberLoss` | Functional form with mask support |
+| `explained_variance_score` | `ExplainedVariance` | Mask support |
+| `mean_absolute_percentage_error` | `MeanAbsolutePercentageError` | Functional form |
+| `mean_squared_log_error` | `MeanSquaredLogError` | Functional form |
+
+**The remaining ~50 metrics have no torchmetrics equivalent.**  They cover
+calibration, CRPS/EnergyScore, prediction intervals, ensemble uncertainties,
+OOD detection, censored/ordinal regression, selective prediction, and more.
+
+!!! tip "Rule of thumb"
+    - Use **torchmetrics classes** (`torchmetrics.MeanSquaredError`, `torchmetrics.MeanAbsoluteError`, `torchmetrics.R2Score`)
+  when you want stateful metric accumulation across epochs.
+    - Use **torchregress functional metrics** (`mse`, `rmse`, `mae`, `r2_score`)
+      when you need per-sample outputs, tail-focus, or mask support.
+    - Use **torchregress metric classes** ([`ExpectedCalibrationError`](../api/metrics.md#expectedcalibrationerror), [`MarginalCalibrationError`](../api/metrics.md#marginalcalibrationerror), …)
+      for domain-specific evaluation that torchmetrics does not cover.
+
+---
+
 ## Metric Categories
 
 ### Point Prediction Metrics

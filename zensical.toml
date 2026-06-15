@@ -1,0 +1,336 @@
+# ============================================================================
+# torchregress — Zensical configuration
+# Native Zensical (no mkdocs). See CONTRIBUTING.md and AGENTS.md.
+# ============================================================================
+
+[project]
+
+# ─── Site identity ─────────────────────────────────────────────────────────
+site_name = "torchregress"
+site_description = "PyTorch library for regression, uncertainty quantification, and robust estimation — losses, metrics, methods, and algorithms."
+site_author = "Sébastien Fabbro"
+site_url = "https://sfabbro.github.io/torchregress/"
+copyright = """
+Copyright &copy; 2024–2026 Sébastien Fabbro · Licensed under the
+<a href="https://opensource.org/licenses/MIT" rel="noopener" target="_blank">MIT License</a>.
+"""
+
+# ─── Branding ──────────────────────────────────────────────────────────────
+# Paths are relative to the docs/ directory (Zensical's content root)
+favicon = "assets/images/favicon.svg"
+logo = "assets/images/logo.svg"
+repo_url = "https://github.com/sfabbro/torchregress"
+repo_name = "sfabbro/torchregress"
+edit_uri = "edit/main/docs/"
+
+# ─── Extra assets ──────────────────────────────────────────────────────────
+extra_css = [
+  "stylesheets/extra.css",
+]
+extra_javascript = [
+  "javascripts/mathjax.js",
+  "javascripts/mermaid.js",
+  "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
+]
+
+# ─── Icon set ─────────────────────────────────────────────────────────────
+# Enable Material Design Icons (used in :material-…: shorthands in Markdown)
+[project.theme.icon.admonition]
+default = "material/alert"
+note = "material/note-text"
+abstract = "material/clipboard-text"
+info = "material/information"
+tip = "material/lightbulb-on"
+success = "material/check-circle"
+question = "material/help-circle"
+warning = "material/alert"
+failure = "material/close-circle"
+danger = "material/skull"
+bug = "material/bug"
+example = "material/test-tube"
+quote = "material/format-quote-open"
+
+# ─── Social links ──────────────────────────────────────────────────────────
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/sfabbro/torchregress"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/python"
+link = "https://pypi.org/project/torchregress/"
+
+# ============================================================================
+# Theme configuration — "modern" (next-gen) variant
+# ============================================================================
+[project.theme]
+variant = "modern"
+language = "en"
+features = [
+  "announce.dismiss",
+  "content.action.edit",
+  "content.action.view",
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.footnote.tooltips",
+  "content.tabs.link",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.instant.progress",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.tabs.sticky",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "search.suggest",
+  "search.share",
+  "toc.follow",
+]
+
+# ─── Announcement bar (dismissible) ────────────────────────────────────────
+[project.theme.announce]
+content = "⭐ <strong>torchregress 0.1.0</strong> — now using <strong>Zensical</strong>. If you spot anything off, please <a href='https://github.com/sfabbro/torchregress/issues'>open an issue</a>."
+
+# ─── Logo icon (fallback when logo image is not set) ───────────────────────
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+logo = "lucide/trending-up"
+
+# ─── Fonts ────────────────────────────────────────────────────────────────
+[project.theme.font]
+text = "Inter"
+code = "JetBrains Mono"
+
+# ─── Color palette — Indigo (primary) / Amber (accent) ────────────────────
+# Auto light: default scheme when OS prefers light
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "amber"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+# Auto dark: slate scheme when OS prefers dark
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "amber"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+# Manual override: always-available toggles, no media query
+[[project.theme.palette]]
+scheme = "default"
+primary = "indigo"
+accent = "amber"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "indigo"
+accent = "amber"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+# ============================================================================
+# Navigation — task-first, 8 top-level sections
+# ============================================================================
+nav = [
+  { "Home" = "index.md" },
+  { "Get Started" = [
+    "getting-started/index.md",
+    { "Installation" = "getting-started/installation.md" },
+    { "Quick Start" = "getting-started/quickstart.md" },
+    { "Core Concepts" = "getting-started/concepts.md" },
+  ] },
+  { "User Guide" = [
+    "guide/index.md",
+    { "How to Choose a Method" = "guide/method-selection.md" },
+    { "Practical Usage" = "guide/practical-usage.md" },
+    { "Choosing by Constraint" = "guide/choosing-by-constraint.md" },
+    { "Uncertainty Decomposition" = "guide/uncertainty-decomposition.md" },
+    { "Multi-Target Regression" = "guide/multi-target-regression.md" },
+    { "Mathematical Foundations" = "guide/math/index.md" },
+    { "Best Practices" = "guide/best-practices.md" },
+    { "Debugging" = "guide/debugging.md" },
+    { "Performance" = "guide/performance.md" },
+    { "Reports & Evidence" = [
+      "reports/index.md",
+      { "Method Catalog" = "reports/method_catalog_generated.md" },
+      { "Comparative Evidence" = "reports/comparative_evidence_matrix.md" },
+      { "Real-Data Recommendation Guide" = "reports/real_data_recommendation_guide.md" },
+      { "Docs Quality Audit" = "reports/docs_quality_audit.md" },
+    ] },
+  ] },
+  { "Loss Functions" = [
+    "losses/index.md",
+    { "Gaussian & Heteroscedastic" = [
+      { "Gaussian Losses" = "losses/gaussian.md" },
+      { "Faithful & CRPS Gaussian" = "losses/faithful_gaussian.md" },
+      { "Beta Negative Log-Likelihood" = "losses/beta_nll.md" },
+      { "Wasserstein Bound Surrogate" = "losses/gaussian_wasserstein.md" },
+    ] },
+    { "Outlier-Resistant" = "losses/robust.md" },
+    { "Quantile & Expectile" = "losses/quantile_expectile.md" },
+    { "Distributional Modeling" = [
+      { "Mixture Density Networks" = "losses/mdn.md" },
+      { "Normalizing Flows" = "losses/nflows.md" },
+      { "Evidential Regression" = "losses/advanced.md" },
+      { "Super-Level Set Regression" = "losses/sls.md" },
+    ] },
+    { "Special Target Types" = [
+      { "Ordinal" = "losses/ordinal.md" },
+      { "Censored & Survival" = "losses/censored.md" },
+      { "Poisson & Tweedie" = "losses/poisson_tweedie.md" },
+      { "Poisson-Gaussian Mixture" = "losses/poisson_gaussian.md" },
+    ] },
+    { "Data Quality Issues" = [
+      { "Imbalanced Targets" = "losses/imbalanced.md" },
+      { "Noisy Labels" = "losses/noisy_labels.md" },
+      { "Uncertain Ground Truth" = "losses/uncertain_ground_truth.md" },
+      { "Input Measurement Error (EIV)" = "losses/eiv.md" },
+    ] },
+    { "Target Transformations" = "losses/transforms.md" },
+    { "Conformal Prediction Wrappers" = "losses/conformal.md" },
+    { "Base Classes" = "losses/base.md" },
+  ] },
+  { "Methods & Algorithms" = [
+    "methods/index.md",
+    { "Conformal Prediction" = [
+      "methods/conformal/index.md",
+      { "Prediction Intervals" = "methods/conformal/predictors.md" },
+      { "Distributional Conformal" = "methods/conformal/distributional.md" },
+    ] },
+    { "Ensembles for Uncertainty" = [
+      "methods/ensemble/index.md",
+      { "Ensemble Methods" = "methods/ensemble/methods.md" },
+    ] },
+    { "Algorithms" = [
+      { "Robust Fitting (IRLS)" = "methods/algorithms/irls.md" },
+      { "Measurement Error Correction" = [
+        { "Regression Calibration" = "methods/algorithms/rc.md" },
+        { "Simulation Extrapolation (SIMEX)" = "methods/algorithms/simex.md" },
+        { "Latent Input Regression" = "methods/algorithms/latentnn.md" },
+        { "Error-Aware Encoding" = "methods/algorithms/error_aware.md" },
+      ] },
+      { "Covariance Learning (TicTac)" = "methods/algorithms/tictac.md" },
+      { "Bayesian Last Layer" = "methods/algorithms/heteroscedastic_laplace.md" },
+      { "Adaptive Prior Inference" = "methods/algorithms/adaptive_prior_vi.md" },
+      { "Bayesian Learning Rule (IVON)" = "methods/algorithms/ivon.md" },
+    ] },
+    { "Test-Time Adaptation" = [
+      { "Shift Adaptation Overview" = "methods/test-time/regression-shift-adaptation-roadmap.md" },
+      { "Bayesian Linear Regression" = "methods/test-time/bayesian-linear-regression.md" },
+      { "Optimal Transport Conformal" = "methods/test-time/ot-shift-conformal.md" },
+    ] },
+    { "Post-Training Calibration" = "methods/calibration.md" },
+    { "Output Constraints" = "methods/constraints.md" },
+    { "Causal Inference" = "methods/causal.md" },
+    { "Prediction-Powered Inference" = "methods/inference.md" },
+    { "Semi-Supervised Regression" = "methods/semi_supervised.md" },
+    { "Visualization & Diagnostics" = "methods/visualization.md" },
+  ] },
+  { "Metrics" = [
+    "metrics/index.md",
+    { "Point Prediction" = "metrics/point.md" },
+    { "Ordinal" = "metrics/ordinal.md" },
+    { "Censored" = "metrics/censored.md" },
+    { "Distribution" = "metrics/distribution.md" },
+    { "Prediction Intervals" = "metrics/interval.md" },
+    { "Calibration" = "metrics/calibration.md" },
+    { "Out-of-Distribution Detection" = "metrics/ood.md" },
+    { "Ensemble" = "metrics/ensemble.md" },
+    { "Multivariate" = "metrics/multivariate.md" },
+    { "Decision" = "metrics/decision.md" },
+  ] },
+  { "Examples" = [
+    "examples/index.md",
+    { "Getting Started" = [
+      { "Basic Usage" = "examples/basic_usage.md" },
+      { "Loss Comparison" = "examples/loss_comparison.md" },
+    ] },
+    { "Uncertainty & Ensembles" = [
+      { "Ensemble Methods" = "examples/ensemble_methods.md" },
+      { "Evidential Regression" = "examples/evidential_regression.md" },
+      { "Heteroscedastic Laplace" = "examples/heteroscedastic_laplace.md" },
+      { "Beta Negative Log-Likelihood" = "examples/heteroscedastic_beta_nll.md" },
+      { "Wasserstein Bound Demo" = "examples/gaussian_wasserstein_bound.md" },
+      { "Wasserstein Hybrid Pretraining" = "examples/wasserstein_bound_hybrid_pretrain.md" },
+      { "Bayesian Linear Head" = "examples/test_time_bayesian_linear_head.md" },
+      { "Bayesian Linear Adapter" = "examples/test_time_blr_predictive_adapter.md" },
+      { "Optimal Transport Conformal" = "examples/ot_shift_conformal_demo.md" },
+    ] },
+    { "Prediction Intervals" = [
+      { "Conformal Regression" = "examples/conformal_regression_example.md" },
+      { "Mondrian Conformal" = "examples/conformal_mondrian.md" },
+      { "Expectile Regression" = "examples/expectile_regression.md" },
+      { "Normalizing Flows (Multi-Target)" = "examples/normalizing_flows_multitarget.md" },
+      { "Contrastive Flow Estimation" = "examples/contrastive_flow_parameter_estimation.md" },
+      { "Contrastive Flow Comparison" = "examples/contrastive_flow_parameter_estimation_comparison.md" },
+      { "Multimodal Methods" = "examples/multimodal_method_comparison.md" },
+      { "Multimodal (Real Data)" = "examples/multimodal_method_realdata_comparison.md" },
+    ] },
+    { "Robustness & Data Quality" = [
+      { "Imbalanced Regression" = "examples/imbalanced_regression.md" },
+      { "Balanced Reweighting" = "examples/balanced_mse.md" },
+      { "Noisy Labels" = "examples/noisy_labels_regression.md" },
+      { "Noisy Label Comparison" = "examples/noisy_label_comparison.md" },
+      { "Noisy Label (Real Data)" = "examples/noisy_label_realdata_comparison.md" },
+      { "Propensity & Tail" = "examples/propensity_tail_regression_comparison.md" },
+      { "Semi-Supervised" = "examples/semi_supervised_regression_comparison.md" },
+      { "Uncertain Ground Truth" = "examples/uncertain_gt_density_conformal_comparison.md" },
+      { "Uncertain Ground Truth (Real Data)" = "examples/uncertain_gt_density_conformal_realdata_comparison.md" },
+      { "Transformed Targets" = "examples/transformed_target_regression_comparison.md" },
+    ] },
+    { "Special Target Types" = [
+      { "Poisson" = "examples/poisson_regression.md" },
+      { "Tweedie" = "examples/tweedie_regression.md" },
+      { "Poisson-Gaussian Mixture" = "examples/poisson_gaussian_mixture.md" },
+      { "Ordinal Comparison" = "examples/ordinal_regression_comparison.md" },
+      { "Ordinal (Real Data)" = "examples/ordinal_regression_realdata_comparison.md" },
+      { "Ordinal with Uncertain Labels" = "examples/ordinal_uncertain_ground_truth_comparison.md" },
+      { "Censored Comparison" = "examples/censored_regression_comparison.md" },
+      { "Censored (Real Data)" = "examples/censored_regression_realdata_comparison.md" },
+      { "Input Measurement Error" = "examples/eiv_method_comparison.md" },
+      { "Input Error (Real Data)" = "examples/eiv_method_realdata_comparison.md" },
+      { "Input Error Algorithms" = "examples/eiv_algorithms.md" },
+    ] },
+    { "Out-of-Distribution" = [
+      { "OOD Comparison" = "examples/ood_selective_prediction_comparison.md" },
+      { "OOD (Real Data)" = "examples/ood_selective_prediction_realdata_comparison.md" },
+    ] },
+    { "Calibration & Constraints" = [
+      { "Constraints & Calibration" = "examples/constraints_calibration_comparison.md" },
+    ] },
+    { "Causal Inference" = [
+      { "Doubly Robust Causal Uplift" = "examples/causal_dr_uplift_comparison.md" },
+      { "Doubly Robust Causal (Real Data)" = "examples/causal_dr_realdata_comparison.md" },
+    ] },
+    { "External Comparisons" = [
+      { "vs MAPIE, BoTorch, scikit-lego" = "examples/external-comparison-vs-mapie-botorch-sklego.md" },
+    ] },
+  ] },
+  { "API Reference" = [
+    "api/index.md",
+    { "Losses" = "api/losses.md" },
+    { "Ensemble" = "api/ensemble.md" },
+    { "Conformal" = "api/conformal.md" },
+    { "Algorithms" = "api/algorithms.md" },
+    { "Metrics" = "api/metrics.md" },
+    { "Calibration" = "api/calibration.md" },
+    { "Constraints" = "api/constraints.md" },
+    { "Test-Time Adaptation" = "api/test_time.md" },
+    { "Inference" = "api/inference.md" },
+    { "Causal" = "api/causal.md" },
+    { "Visualization" = "api/viz.md" },
+    { "Utilities" = "api/utils.md" },
+  ] },
+]

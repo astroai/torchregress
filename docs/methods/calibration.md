@@ -6,12 +6,12 @@ Post-hoc calibration is the process of adjusting a trained model's uncertainty e
 
 ## The Calibration Gap
 
-Modern neural networks are notoriously **overconfident** [1]. A model might predict a 95% confidence interval that only covers 70% of the true values. This "calibration gap" can lead to risky decision-making in safety-critical applications.
+Modern neural networks are notoriously **overconfident** \[1\]. A model might predict a 95% confidence interval that only covers 70% of the true values. This "calibration gap" can lead to risky decision-making in safety-critical applications.
 
 !!! success "The Goal"
 
     A model is **perfectly calibrated** if its predicted probability $\tau$ always corresponds to the actual observed frequency:
-    $$P\bigl(Y \leq F^{-1}(\tau \mid X)\bigr) = \tau \quad \forall\,\tau \in [0, 1]$$
+    $$P\bigl(Y \leq F^{-1}(\tau \mid X)\bigr) = \tau \quad \forall\,\tau \in \[0, 1\]$$
 
 ---
 
@@ -30,7 +30,7 @@ Modern neural networks are notoriously **overconfident** [1]. A model might pred
 
 **torchregress** provides three main calibrators, each targeting a different type of miscalibration.
 
-### 1. Variance Temperature Scaling ([`VarianceTemperatureScaler`](../api/calibration.md#torchregress.calibration.VarianceTemperatureScaler))
+### 1. Variance Temperature Scaling ([VarianceTemperatureScaler](../api/calibration.md#variancetemperaturescaler))
 
 Rescales the predicted variance $\sigma^2$ by a single learned "temperature" $T$. This is the most popular method for fixing over/under-confidence while preserving the model's heteroscedasticity.
 
@@ -51,7 +51,7 @@ calibrated_var = scaler.transform(var_test)
     * **Small-set risks**: Non-parametric calibrators (`IsotonicMeanCalibrator`, `PITCalibrator`) can **overfit** the calibration set when it is small ($n < 500$), producing jagged mappings that don't generalize. For small calibration sets, prefer `VarianceTemperatureScaler` (1 parameter).
 
 
-### 2. Isotonic Mean Calibration ([`IsotonicMeanCalibrator`](../api/calibration.md#torchregress.calibration.IsotonicMeanCalibrator))
+### 2. Isotonic Mean Calibration ([IsotonicMeanCalibrator](../api/calibration.md#isotonicmeancalibrator))
 
 Corrects systematic **bias** in point predictions. If your model consistently over-predicts in some regions and under-predicts in others, isotonic regression learns a monotone mapping to fix it.
 
@@ -63,9 +63,9 @@ cal.fit(mu_cal, y_cal)
 calibrated_mu = cal.transform(mu_test)
 ```
 
-### 3. PIT Calibration ([`PITCalibrator`](../api/calibration.md#torchregress.calibration.PITCalibrator))
+### 3. PIT Calibration ([PITCalibrator](../api/calibration.md#pitcalibrator))
 
-The most powerful method [2]. It calibrates the **entire CDF** by remapping the Probability Integral Transform (PIT) values. This can fix complex distributional miscalibration that temperature scaling misses.
+The most powerful method \[2\]. It calibrates the **entire CDF** by remapping the Probability Integral Transform (PIT) values. This can fix complex distributional miscalibration that temperature scaling misses.
 
 ```python
 from torchregress.calibration import PITCalibrator
@@ -82,9 +82,9 @@ calibrated_dist = cal.transform_dist(mu_test, std_test)
 
 | Method | Target | Parameters | API Reference | Best For |
 |:-------|:-------|:-----------|:--------------|:---------|
-| **Temperature** | Variance | 1 (Scalar) | [`VarianceTemperatureScaler`](../api/calibration.md#torchregress.calibration.VarianceTemperatureScaler) | Heteroscedastic Gaussian models |
-| **Isotonic** | Mean Bias | Non-parametric | [`IsotonicMeanCalibrator`](../api/calibration.md#torchregress.calibration.IsotonicMeanCalibrator) | Systematic point-prediction errors |
-| **PIT** | Full CDF | Non-parametric | [`PITCalibrator`](../api/calibration.md#torchregress.calibration.PITCalibrator) | Any distributional model |
+| **Temperature** | Variance | 1 (Scalar) | [VarianceTemperatureScaler](../api/calibration.md#variancetemperaturescaler) | Heteroscedastic Gaussian models |
+| **Isotonic** | Mean Bias | Non-parametric | [IsotonicMeanCalibrator](../api/calibration.md#isotonicmeancalibrator) | Systematic point-prediction errors |
+| **PIT** | Full CDF | Non-parametric | [PITCalibrator](../api/calibration.md#pitcalibrator) | Any distributional model |
 
 ---
 
@@ -111,6 +111,7 @@ calibrated_dist = cal.transform_dist(mu_test, std_test)
 ---
 
 ## Next Steps
-- Learn about [Calibration Metrics](../metrics/calibration.md)
-- Explore [Conformal Prediction](../methods/conformal/index.md) (an alternative to post-hoc calibration)
-- View the [Calibration Example](../examples/constraints_calibration_comparison.md)
+- [Calibration Metrics](../metrics/calibration.md) — [`expected_calibration_error`](../api/metrics.md#expected_calibration_error), [`marginal_calibration_error`](../api/metrics.md#marginal_calibration_error)
+- [Conformal Prediction](../methods/conformal/index.md) (coverage guarantees vs post-hoc calibration)
+- [Calibration comparison example](../examples/constraints_calibration_comparison.md)
+- [Calibration API](../api/calibration.md) (calibrator classes)

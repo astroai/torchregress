@@ -7,7 +7,7 @@ import pytest
 from torchregress.utils import openml_relaxed as m
 
 
-def test_load_arff_frame_plain() -> None:
+def test_load_arff_arrays_plain() -> None:
     arff = b"""@relation t
 @attribute a numeric
 @attribute b numeric
@@ -15,9 +15,9 @@ def test_load_arff_frame_plain() -> None:
 1.0,2.0
 3.0,4.0
 """
-    df = m._load_arff_frame(arff)
-    assert list(df.columns) == ["a", "b"]
-    assert len(df) == 2
+    arr, cols = m._load_arff_arrays(arff)
+    assert cols == ["a", "b"]
+    assert len(arr) == 2
 
 
 def test_fetch_openml_regression_frame_skip_checksum_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -51,59 +51,38 @@ def test_fetch_openml_regression_frame_skip_checksum_smoke(monkeypatch: pytest.M
     monkeypatch.setattr(m, "_openml_feature_list", fake_features)
     monkeypatch.setattr(m, "_download_bytes", lambda url, timeout=0.0: arff)
 
-    frame, tag = m.fetch_openml_regression_frame_skip_checksum(data_id=1, target_column="target")
-    assert len(frame) == 2
-    assert "target" in frame.columns
+    X, y, tag = m.fetch_openml_regression_frame_skip_checksum(data_id=1, target_column="target")
+    assert len(X) == 2
+    assert y.shape == (2,)
     assert "relaxed_arff_no_md5" in tag
 
 
-def test_fetch_openml_regression_with_sklearn_fallback_on_md5(
+def test_fetch_openml_regression_with_sklearn_fallback_always_relaxed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import pandas as pd
-    import sklearn.datasets
+    import numpy as np
 
-    calls: list[int] = []
-
-    def boom(*args: object, **kwargs: object) -> None:
-        calls.append(1)
-        raise ValueError(
-            "md5 checksum of local file for https://openml.org/x does not match description: "
-            "expected: aaa but got bbb. Downloaded file could have been modified"
-        )
-
-    def relaxed(**kwargs: object) -> tuple[object, str]:
-        calls.append(2)
+    def relaxed(**kwargs: object) -> tuple[object, object, str]:
         assert kwargs["data_id"] == 42225
-        return pd.DataFrame({"f0": [1.0], "target": [2.0]}), "relaxed"
+        return np.array([[1.0]]), np.array([2.0]), "relaxed"
 
-    monkeypatch.setattr(sklearn.datasets, "fetch_openml", boom)
     monkeypatch.setattr(m, "fetch_openml_regression_frame_skip_checksum", relaxed)
 
-    frame, tag = m.fetch_openml_regression_with_sklearn_fallback(
+    X, y, tag = m.fetch_openml_regression_with_sklearn_fallback(
         data_id=42225,
         name=None,
         version=1,
         target_column="target",
     )
-    assert calls == [1, 2]
-    assert len(frame) == 1
+    assert len(X) == 1
+    assert len(y) == 1
     assert tag == "relaxed"
 
 
-def test_fetch_openml_regression_with_sklearn_fallback_passes_other_valueerror(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import sklearn.datasets
-
-    def boom(*args: object, **kwargs: object) -> None:
-        raise ValueError("something else entirely")
-
-    monkeypatch.setattr(sklearn.datasets, "fetch_openml", boom)
-
-    with pytest.raises(ValueError, match="something else"):
+def test_fetch_openml_regression_with_sklearn_fallback_no_args() -> None:
+    with pytest.raises(ValueError, match="openml regression fetch requires data_id or name"):
         m.fetch_openml_regression_with_sklearn_fallback(
-            data_id=1,
+            data_id=None,
             name=None,
             version=1,
             target_column="target",
@@ -163,7 +142,7 @@ def test_fetch_openml_regression_frame_skip_checksum_download_error(
 def test_fetch_openml_regression_frame_skip_checksum_missing_target_col(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import pandas as pd
+    import numpy as np
 
     def fake_desc(*args: object, **kwargs: object) -> dict[str, str]:
         return {"format": "ARFF", "url": "http://dummy.local/y.arff"}
@@ -174,13 +153,14 @@ def test_fetch_openml_regression_frame_skip_checksum_missing_target_col(
     def fake_download(*args: object, **kwargs: object) -> bytes:
         return b""
 
-    def fake_load_arff(*args: object, **kwargs: object) -> pd.DataFrame:
-        return pd.DataFrame({"a": [1.0], "b": [2.0]})
+    def fake_load_arff(*args: object, **kwargs: object) -> tuple[np.ndarray, list[str]]:
+        arr = np.zeros(1, dtype=[("a", "f4"), ("b", "f4")])
+        return arr, ["a", "b"]
 
     monkeypatch.setattr(m, "_openml_dataset_description", fake_desc)
     monkeypatch.setattr(m, "_openml_feature_list", fake_features)
     monkeypatch.setattr(m, "_download_bytes", fake_download)
-    monkeypatch.setattr(m, "_load_arff_frame", fake_load_arff)
+    monkeypatch.setattr(m, "_load_arff_arrays", fake_load_arff)
 
     with pytest.raises(ValueError, match="Target column 'target' missing from ARFF columns"):
         m.fetch_openml_regression_frame_skip_checksum(data_id=1)
@@ -189,7 +169,7 @@ def test_fetch_openml_regression_frame_skip_checksum_missing_target_col(
 def test_fetch_openml_regression_frame_skip_checksum_no_numeric_features(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import pandas as pd
+    import numpy as np
 
     def fake_desc(*args: object, **kwargs: object) -> dict[str, str]:
         return {"format": "ARFF", "url": "http://dummy.local/y.arff"}
@@ -200,15 +180,20 @@ def test_fetch_openml_regression_frame_skip_checksum_no_numeric_features(
     def fake_download(*args: object, **kwargs: object) -> bytes:
         return b""
 
-    def fake_load_arff(*args: object, **kwargs: object) -> pd.DataFrame:
-        return pd.DataFrame({"a": ["str1", "str2"], "target": [1.0, 2.0]})
+    def fake_load_arff(*args: object, **kwargs: object) -> tuple[np.ndarray, list[str]]:
+        arr = np.zeros(1, dtype=[("a", "U10"), ("target", "f4")])
+        arr["a"] = "hello"
+        arr["target"] = 1.0
+        return arr, ["a", "target"]
 
     monkeypatch.setattr(m, "_openml_dataset_description", fake_desc)
     monkeypatch.setattr(m, "_openml_feature_list", fake_features)
     monkeypatch.setattr(m, "_download_bytes", fake_download)
-    monkeypatch.setattr(m, "_load_arff_frame", fake_load_arff)
+    monkeypatch.setattr(m, "_load_arff_arrays", fake_load_arff)
 
-    with pytest.raises(ValueError, match="no numeric/bool feature columns after selection"):
+    with pytest.raises(
+        ValueError, match="OpenML frame is empty after dropping NaN target/features"
+    ):
         m.fetch_openml_regression_frame_skip_checksum(data_id=1)
 
 
@@ -216,7 +201,6 @@ def test_fetch_openml_regression_frame_skip_checksum_empty_after_dropna(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import numpy as np
-    import pandas as pd
 
     def fake_desc(*args: object, **kwargs: object) -> dict[str, str]:
         return {"format": "ARFF", "url": "http://dummy.local/y.arff"}
@@ -227,13 +211,16 @@ def test_fetch_openml_regression_frame_skip_checksum_empty_after_dropna(
     def fake_download(*args: object, **kwargs: object) -> bytes:
         return b""
 
-    def fake_load_arff(*args: object, **kwargs: object) -> pd.DataFrame:
-        return pd.DataFrame({"a": [1.0, np.nan], "target": [np.nan, 2.0]})
+    def fake_load_arff(*args: object, **kwargs: object) -> tuple[np.ndarray, list[str]]:
+        arr = np.zeros(2, dtype=[("a", "f4"), ("target", "f4")])
+        arr["a"] = [1.0, np.nan]
+        arr["target"] = [np.nan, 2.0]
+        return arr, ["a", "target"]
 
     monkeypatch.setattr(m, "_openml_dataset_description", fake_desc)
     monkeypatch.setattr(m, "_openml_feature_list", fake_features)
     monkeypatch.setattr(m, "_download_bytes", fake_download)
-    monkeypatch.setattr(m, "_load_arff_frame", fake_load_arff)
+    monkeypatch.setattr(m, "_load_arff_arrays", fake_load_arff)
 
     with pytest.raises(
         ValueError, match="OpenML frame is empty after dropping NaN target/features"

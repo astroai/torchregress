@@ -2,6 +2,8 @@
 
 This guide explains how to perform Bayesian last-layer Laplace posterior approximation on deep heteroscedastic neural networks using `HeteroscedasticLaplaceRegressor` and `NaturalHeteroscedasticHead` to decompose predictive uncertainty.
 
+→ API: [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`uncertainty_decomposition`](../api/metrics.md#uncertainty_decomposition). Guide: [Inference methods](../methods/inference.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Immer, A., Postels, J., Lücke, J., Rätsch, G., & Mandt, S. (2023). [**Effective Bayesian Heteroscedastic Regression with Deep Neural Networks**](https://arxiv.org/abs/2302.08498). *Advances in Neural Information Processing Systems (NeurIPS)*. |
@@ -16,8 +18,9 @@ This guide explains how to perform Bayesian last-layer Laplace posterior approxi
 Instead of predicting the standard parameters (mean $\mu$, log-variance $\log\sigma^2$) directly, the `NaturalHeteroscedasticHead` outputs the natural parameters $\eta = (\eta_1, \eta_2)$ of the Gaussian distribution:
 $$\eta_1 = \frac{\mu}{\sigma^2}, \quad \eta_2 = -\frac{1}{2 \sigma^2}$$
 To map back to standard parameters (ensuring positivity of the variance):
-*   Using **exp link**: $\sigma^2 = \exp(-f_2)$ and $\mu = f_1 \sigma^2$.
-*   Using **softplus link**: $\sigma^2 = \text{softplus}(f_2)^{-1}$ and $\mu = f_1 \sigma^2$.
+
+- **exp link**: $\sigma^2 = \exp(-f_2)$ and $\mu = f_1 \sigma^2$.
+- **softplus link**: $\sigma^2 = \text{softplus}(f_2)^{-1}$ and $\mu = f_1 \sigma^2$.
 
 ### Diagonal Laplace Approximation
 
@@ -33,9 +36,10 @@ $$\text{Var}(\theta) = (F + \gamma I)^{-1}$$
 
 By sampling weights $\theta^{(s)} \sim \mathcal{N}(\theta_{\text{MAP}}, \text{Var}(\theta))$, we obtain the predictive mean $\mu(x; \theta^{(s)})$ and variance $\sigma^2(x; \theta^{(s)})$. The total variance decomposes into:
 $$\text{Var}(Y \mid x) = \underbrace{E_{\theta}[\sigma^2(x; \theta)]}_{\text{Aleatoric Uncertainty}} + \underbrace{\text{Var}_{\theta}[\mu(x; \theta)]}_{\text{Epistemic Uncertainty}}$$
-where:
-*   **Aleatoric variance** represents the data-dependent observation noise.
-*   **Epistemic variance** represents the parameter uncertainty due to finite training data.
+The two components are:
+
+- **Aleatoric variance** represents the data-dependent observation noise.
+- **Epistemic variance** represents the parameter uncertainty due to finite training data.
 
 ---
 

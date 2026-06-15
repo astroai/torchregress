@@ -1,6 +1,8 @@
 # Noisy Labels Regression Example
 
-This example uses implemented robust losses for regression with corrupted targets. For future noisy-label methods that are not currently implemented as public APIs, see the research notes under [Reports](../reports/index.md).
+This example uses implemented robust losses for regression with corrupted targets.
+
+→ API: [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss), [`CauchyLoss`](../api/losses.md#cauchyloss), [`TukeyBiweightLoss`](../api/losses.md#tukeybiweightloss). Guide: [Noisy labels](../losses/noisy_labels.md).
 
 ## Code
 
@@ -24,7 +26,7 @@ def make_noisy_regression(n_samples=500, noise_ratio=0.2, noise_scale=3.0, seed=
     y_noisy = y_clean.copy()
 
     noisy_idx = rng.choice(n_samples, int(n_samples * noise_ratio), replace=False)
-    y_noisy[noisy_idx] += rng.normal(0.0, noise_scale, size=noisy_idx.shape[0])
+    y_noisy[noisy_idx] += rng.normal(0.0, noise_scale, size=noisy_idx.shape\[0\])
 
     return (
         torch.tensor(x[:, None]),

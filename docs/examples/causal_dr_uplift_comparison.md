@@ -2,6 +2,8 @@
 
 This guide demonstrates how to perform doubly robust estimation of Average Treatment Effects (ATE) and Conditional Average Treatment Effects (CATE) under confounded treatment assignment.
 
+→ API: [`dr_ate`](../api/causal.md#dr_ate), [`dr_cate`](../api/causal.md#dr_cate), [`causal_overlap_report`](../api/causal.md#causal_overlap_report).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Robins, J. M., Rotnitzky, A., & Zhao, L. P. (1994). [**Estimation of Regression Coefficients when Some Regressors Are Not Always Observed**](https://www.jstor.org/stable/2290910). *Journal of the American Statistical Association*. |
@@ -51,8 +53,8 @@ Propensity score division by $e(X_i)$ or $1 - e(X_i)$ can lead to high variance 
 
 ## Task-First Context
 
-*   **When to Use**: Use Doubly Robust causal models when estimating the impact of an action or treatment (e.g. ad uplift, clinical intervention, pricing change) from observational data with confounding variables.
-*   **Comparison Notes**: Cross-fitting (splitting the data into $K$ folds to fit nuisance models and estimate pseudo-outcomes) is enabled by default in `dr_ate` and `dr_cate` to prevent overfitting bias.
+- **When to Use**: Use Doubly Robust causal models when estimating the impact of an action or treatment (e.g. ad uplift, clinical intervention, pricing change) from observational data with confounding variables.
+- **Comparison Notes**: Cross-fitting (splitting the data into $K$ folds to fit nuisance models and estimate pseudo-outcomes) is enabled by default in `dr_ate` and `dr_cate` to prevent overfitting bias.
 
 ---
 

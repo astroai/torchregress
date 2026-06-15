@@ -2,6 +2,8 @@
 
 This guide demonstrates expectile regression and compares it with quantile regression on heteroscedastic datasets using `ExpectileCrossoverLoss` and `QuantileCrossoverLoss`.
 
+→ API: [`ExpectileLoss`](../api/losses.md#expectileloss), [`QuantileLoss`](../api/losses.md#quantileloss), [`MultiQuantileLoss`](../api/losses.md#multiquantileloss). Guide: [Quantile & expectile](../losses/quantile_expectile.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Newey, W. K., & Powell, J. L. (1987). [**Asymmetric Least Squares Estimation and Testing**](https://www.jstor.org/stable/1913610). *Econometrica*. |

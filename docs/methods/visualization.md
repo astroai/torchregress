@@ -1,167 +1,326 @@
-# Visualization Guide
+# Visualization & Diagnostics
 
-torchregress provides powerful visualization tools for regression analysis and uncertainty estimation. These visualizations help you understand model behavior, diagnose issues, and communicate results effectively.
+torchregress provides **33 visualization functions** across four submodules to help you
+diagnose models, monitor training, compare results, and style your output.  All functions
+work with standard `matplotlib` axes and support the same styling pipeline.
 
-## Training Visualizations
+!!! tip "Run the gallery"
+    [`examples/viz_diagnostic_gallery.py`](../../examples/viz_diagnostic_gallery.py) demonstrates
+    every function on synthetic data and saves the output to `examples/outputs/`.
 
-### Learning Curves
+---
 
-Monitor your model's training progress with learning curves:
-
-```python
-from torchregress.viz import plot_learning_curves
-
-# Assuming you've tracked losses during training
-plot_learning_curves(
-    train_history={'loss': train_losses, 'rmse': train_rmse},
-    val_history={'loss': val_losses, 'rmse': val_rmse},
-    log_scale=['loss'],  # Use log scale for loss
-    smoothing=0.2        # Apply light smoothing to curves
-)
-```
-
-This plot helps you identify overfitting (gap between train and validation growing) or underfitting (both curves plateau at high values).
-
-### Learning Rate Finder
-
-Find the optimal learning rate for your training:
+## Quick Start
 
 ```python
-from torchregress.viz import plot_lr_find_results
+from torchregress.viz import set_style, save_figure, plot_residuals
 
-# After running learning rate finder
-plot_lr_find_results(
-    learning_rates=lr_values,
-    losses=loss_values,
-    suggestion_method='valley'  # 'valley', 'steepest', or 'minimum'
-)
+set_style()                                    # consistent look
+fig = plot_residuals(y_pred, y_true, return_figure=True)
+save_figure(fig, "residuals", formats=["png", "pdf"])
 ```
 
-The plot identifies the learning rate where the loss decreases most rapidly, helping you select an optimal value.
+Every plot function accepts `ax=` (draw on an existing axes), `return_figure=` (return the `Figure`), and `title=`.
 
-## Diagnostic Visualizations
+---
+
+## 1. Diagnostic Plots (`torchregress.viz.diagnostic`)
+
+Fourteen functions for diagnosing regression models, residuals, and uncertainty calibration.
 
 ### Residual Analysis
 
-Analyze model residuals to diagnose systematic errors:
+| Function | What it shows | When to use |
+|:---------|:-------------|:------------|
+| `plot_residuals` | Residuals vs predictions + uncertainty bands | First-look at heteroscedasticity and bias |
+| `plot_residual_histogram` | Histogram of residuals with KDE overlay | Check normality / symmetry of errors |
+| `plot_qq_plot` | Quantile-quantile plot against Gaussian | Confirm normality assumption |
 
 ```python
 from torchregress.viz import plot_residuals, plot_residual_histogram, plot_qq_plot
 
-# Basic residual plot
-plot_residuals(y_pred, y_true, clip_outliers=True)
-
-# Distribution of residuals
-plot_residual_histogram(y_pred, y_true, show_kde=True)
-
-# Check if residuals follow normal distribution
-plot_qq_plot(y_pred, y_true)
+plot_residuals(y_pred, y_true, y_std=y_pred_std, clip_outliers=True)
+plot_residual_histogram(y_pred, y_true, show_kde=True, return_figure=True)
+plot_qq_plot(y_pred, y_true, return_figure=True)
 ```
 
-These plots help you identify heteroscedasticity (non-constant variance), non-linearity, and other violations of regression assumptions.
+### Prediction Intervals & Distribution Comparison
 
-### Uncertainty Visualization
-
-Visualize prediction intervals and uncertainty:
+| Function | What it shows | When to use |
+|:---------|:-------------|:------------|
+| `plot_prediction_intervals` | Point predictions with lower/upper bounds | Visual check of interval quality |
+| `plot_distribution_comparison` | Full predictive distribution for individual samples | Probabilistic models (ensembles, BNNs, flows) |
 
 ```python
-from torchregress.viz import plot_prediction_intervals
+from torchregress.viz import plot_prediction_intervals, plot_distribution_comparison
 
-# For models that predict uncertainty
-plot_prediction_intervals(
-    y_pred=mean_predictions,
-    y_lower=lower_bounds,    # E.g., mean - 1.96 * std_dev for 95% interval
-    y_upper=upper_bounds,    # E.g., mean + 1.96 * std_dev for 95% interval
-    y_true=y_test
+# For 95% Gaussian intervals
+plot_prediction_intervals(y_pred, y_pred - 1.96 * std, y_pred + 1.96 * std, y_true)
+
+# For ensemble / Monte Carlo samples — shape [n_samples, batch_size]
+plot_distribution_comparison(predicted_samples, y_true, n_samples_to_show=4, credible_interval=0.95)
+```
+
+### Calibration Diagnostics
+
+| Function | What it shows | When to use |
+|:---------|:-------------|:------------|
+| `plot_reliability_diagram` | Observed vs expected quantile coverage | Quantile-based models |
+| `plot_gaussian_reliability_diagram` | Same, for Gaussian mean/std predictions | Heteroscedastic / NLL models |
+| `plot_pit_histogram` | Probability Integral Transform histogram | Any distributional model |
+| `plot_calibration_curve` | Reliability curve for binary probabilities | Binary classification / probability outputs |
+
+```python
+from torchregress.viz import (
+    plot_reliability_diagram, plot_gaussian_reliability_diagram,
+    plot_pit_histogram, plot_calibration_curve,
 )
+
+# Quantile reliability
+plot_reliability_diagram({0.1: q10, 0.5: q50, 0.9: q90}, y_true)
+
+# Gaussian reliability
+plot_gaussian_reliability_diagram(y_pred, y_pred_std, y_true)
+
+# PIT calibration — uniform = perfectly calibrated
+plot_pit_histogram(y_pred, y_pred_std, y_true, bins=20)
+
+# Binary probability calibration
+plot_calibration_curve(y_pred_probs, y_true_binary)
 ```
 
-### Uncertainty Calibration
+### Advanced Diagnostics
 
-Check if your uncertainty estimates are well-calibrated:
+| Function | What it shows | When to use |
+|:---------|:-------------|:------------|
+| `plot_uncertainty_vs_error` | Predicted uncertainty vs absolute error | Check uncertainty quality |
+| `plot_binned_metrics` | Metric values binned by a conditioning variable | Region-specific performance |
+| `plot_target_density_error_overlap` | Overlap of target density and prediction error | Distributional fit check |
+| `plot_conditional_density_slices` | Predictive density slices at fixed x-values | Understand conditional distributions |
+| `plot_censored_survival_curves` | Kaplan-Meier survival curves with censoring | Survival / censored regression |
 
 ```python
-from torchregress.viz import plot_reliability_diagram
-
-# For models that predict quantiles
-plot_reliability_diagram(
-    y_pred_quantiles={0.1: q10_preds, 0.5: q50_preds, 0.9: q90_preds},
-    y_true=y_test
+from torchregress.viz import (
+    plot_uncertainty_vs_error, plot_binned_metrics,
+    plot_target_density_error_overlap, plot_conditional_density_slices,
+    plot_censored_survival_curves,
 )
+
+# Are confident predictions actually more accurate?
+plot_uncertainty_vs_error(y_pred, y_pred_std, y_true)
+
+# RMSE binned by predicted value
+plot_binned_metrics(y_pred, y_pred_std, y_true, metric="rmse")
+
+# Overlap of target density and error distribution
+plot_target_density_error_overlap(y_pred, y_true)
+
+# Predictive density at selected x-values
+plot_conditional_density_slices(predicted_samples, x_values, slice_indices=\[0, 10, 50\])
+
+# Survival curves for censored data
+plot_censored_survival_curves(event_times, event_indicators, predicted_survival)
 ```
 
-The closer the plot is to the diagonal line, the better calibrated your uncertainty estimates are.
+---
 
-## Results Visualization
+## 2. Training Monitoring (`torchregress.viz.monitoring`)
 
-### Model Comparison
+Four functions for tracking training progress and tuning hyperparameters.
 
-Compare multiple models across different metrics:
+| Function | What it shows | When to use |
+|:---------|:-------------|:------------|
+| `plot_learning_curves` | Train/val loss and metrics over epochs | Check for overfitting |
+| `plot_validation_metrics` | Multi-metric validation history | Track multiple metrics simultaneously |
+| `plot_early_stopping` | Train/val loss with early-stopping point | Determine optimal stopping epoch |
+| `plot_lr_find_results` | Loss vs learning rate curve | Pick a good learning rate |
 
 ```python
-from torchregress.viz import plot_performance_comparison
-
-# Dictionary of models and their metrics
-metrics = {
-    'Model A': {'rmse': 0.25, 'mae': 0.18, 'r2': 0.85},
-    'Model B': {'rmse': 0.22, 'mae': 0.16, 'r2': 0.88},
-    'Model C': {'rmse': 0.28, 'mae': 0.20, 'r2': 0.81}
-}
-
-plot_performance_comparison(
-    metrics=metrics,
-    highlight_best=True,
-    plot_type='bar'  # 'bar', 'radar', or 'heatmap'
+from torchregress.viz import (
+    plot_learning_curves, plot_validation_metrics,
+    plot_early_stopping, plot_lr_find_results,
 )
+
+train_hist = {"loss": train_losses, "rmse": train_rmse}
+val_hist = {"loss": val_losses, "rmse": val_rmse}
+
+# Combined train/val curves
+plot_learning_curves(train_hist, val_hist, log_scale=["loss"], smoothing=0.2)
+
+# Validation-only metrics
+plot_validation_metrics(epochs, val_hist, return_figure=True)
+
+# Early stopping — patience=5 finds the minimum before overfitting
+plot_early_stopping(train_losses, val_losses, patience=5)
+
+# LR finder — 'valley' picks the steepest descent point
+plot_lr_find_results(lr_values, loss_values, suggestion_method="valley")
 ```
 
-### Feature Importance
+---
 
-Visualize which features are most important for your model:
+## 3. Results & Comparison (`torchregress.viz.results`)
+
+Seven functions for comparing models, analysing hyperparameters, and presenting findings.
+
+| Function | What it shows | When to use |
+|:---------|:-------------|:------------|
+| `plot_performance_comparison` | Bar, radar, or heatmap comparison | Compare multiple models / methods |
+| `plot_parameter_sensitivity` | Metric vs hyperparameter sweep | Tune architecture or training params |
+| `plot_feature_importance` | Horizontal bar chart of importance scores | Interpret model decisions |
+| `plot_model_ensemble_contributions` | Per-member contribution bars | Analyse ensemble diversity |
+| `plot_risk_coverage_curve` | Risk vs coverage tradeoff | Selective prediction / OOD evaluation |
+| `plot_causal_uplift_qini` | Qini curve for uplift modelling | Causal inference evaluation |
+| `plot_simex_extrapolation` | SIMEX extrapolation plot | Measurement error correction diagnostics |
 
 ```python
-from torchregress.viz import plot_feature_importance
-
-plot_feature_importance(
-    feature_names=feature_names,
-    importance_values=importance_scores,
-    sort_values=True,
-    horizontal=True,
-    top_n=10  # Show only top 10 features
+from torchregress.viz import (
+    plot_performance_comparison, plot_parameter_sensitivity,
+    plot_feature_importance, plot_model_ensemble_contributions,
+    plot_risk_coverage_curve, plot_causal_uplift_qini,
+    plot_simex_extrapolation,
 )
+
+# Bar / radar / heatmap comparison
+metrics = {"Model A": {"RMSE": 0.25, "MAE": 0.18}, "Model B": {"RMSE": 0.22, "MAE": 0.16}}
+plot_performance_comparison(metrics, plot_type="bar", highlight_best=True)
+plot_performance_comparison(metrics, plot_type="radar")
+
+# Sensitivity of RMSE to hidden dimension
+param_vals = {"hidden_dim": \[32, 64, 128, 256\]}
+sens_metrics = {"RMSE": [0.55, 0.48, 0.45, 0.46]}
+plot_parameter_sensitivity(param_vals, sens_metrics)
+
+# Feature importance (automatically sorts)
+plot_feature_importance(importance_scores, feature_names, top_n=10, horizontal=True)
+
+# Ensemble member contributions
+plot_model_ensemble_contributions(member_contributions)
+
+# Risk-coverage — trade off coverage for lower risk
+plot_risk_coverage_curve(risks, coverages)
+
+# Uplift Qini curve
+plot_causal_uplift_qini(uplift_scores, treatment, outcome)
+
+# SIMEX extrapolation
+plot_simex_extrapolation(lambdas, coefficient_estimates, extrapolated_coef)
 ```
 
-## Advanced Visualization: Predictive Distributions
+---
 
-For probabilistic regression models:
+## 4. Utility Functions (`torchregress.viz.utils`)
+
+Eight helper functions for styling, layout, and output.
+
+| Function | Purpose |
+|:---------|:--------|
+| `set_style` | Apply consistent matplotlib style (seaborn-whitegrid, bold fonts, grid) |
+| `create_grid_figure` | Create a multi-panel grid of axes — ideal for diagnostic reports |
+| `create_color_palette` | Generate a colorblind-friendly palette from matplotlib colormaps |
+| `add_identity_line` | Draw a y=x diagonal reference line |
+| `add_annotations` | Add text annotations at specific data points |
+| `save_figure` | Save a figure in multiple formats (`png`, `pdf`, `svg`) |
+| `enable_latex_rendering` | Toggle LaTeX text rendering (requires LaTeX installation) |
+| `format_metric_label` | Convert identifier-style names to readable labels (e.g., `\"expected_calibration_error\"` → `\"Expected Calibration Error\"`) |
 
 ```python
-from torchregress.viz import plot_distribution_comparison
-
-# For models that generate samples
-plot_distribution_comparison(
-    predicted_samples=model_samples,  # Shape: [n_samples, batch_size]
-    y_true=y_test,
-    n_samples_to_show=4,
-    credible_interval=0.95
+from torchregress.viz import (
+    set_style, create_grid_figure, create_color_palette,
+    add_identity_line, add_annotations, save_figure,
+    enable_latex_rendering, format_metric_label,
 )
+
+# Global style
+set_style()
+
+# Multi-panel diagnostic report
+fig, axes = create_grid_figure(n_plots=6, n_cols=3, figsize=(18, 12))
+plot_residuals(y_pred, y_true, ax=axes\[0\], title="Residuals")
+plot_qq_plot(y_pred, y_true, ax=axes\[1\], title="Q-Q")
+# ... fill remaining axes ...
+save_figure(fig, "diagnostic_report", formats=["png", "pdf"])
+
+# Color palette
+palette = create_color_palette("viridis", n_colors=5)
+
+# Reference lines
+add_identity_line(ax)              # y = x
+
+# Annotations
+add_annotations(ax, x_coords, y_coords, labels)
+
+# Format metric names
+label = format_metric_label("expected_calibration_error")
+print(label)  # "Expected Calibration Error"
 ```
 
-This visualization shows the full predicted distribution for selected samples, helping you understand prediction uncertainty on an individual sample level.
+---
 
-## Customization Options
+## Complete Diagnostic Gallery
 
-All visualization functions support customization:
+The example script `examples/viz_diagnostic_gallery.py` runs **all 31 plot functions** on synthetic data,
+creates a multi-panel report, and saves each plot individually:
 
-```python
-from torchregress.viz import set_style, save_figure
-
-# Set consistent style for all plots
-set_style(style="whitegrid", context="talk", font_scale=1.2)
-
-# Create plot (any torchregress plot)
-fig = plot_residuals(y_pred, y_true, return_figure=True)
-
-# Save in multiple formats
-save_figure(fig, "residual_analysis", formats=["png", "pdf"])
+```bash
+uv run python examples/viz_diagnostic_gallery.py
 ```
+
+Outputs are saved to `examples/outputs/` and include:
+
+| File | Content |
+|:-----|:--------|
+| `diagnostic_gallery.png` | 6-panel grid: residuals, intervals, Q-Q, histogram, PIT, uncertainty vs error |
+| `gaussian_reliability.png` | Gaussian reliability diagram |
+| `quantile_reliability.png` | Quantile reliability diagram |
+| `binned_rmse.png` | Binned RMSE by predicted value |
+| `density_error_overlap.png` | Target density vs error overlap |
+| `distribution_comparison.png` | Full predictive distribution for 4 samples |
+| `conditional_density_slices.png` | Conditional density slices at 5 x-values |
+| `censored_survival.png` | Predicted vs empirical survival curves |
+| `probability_calibration.png` | Binary probability calibration curve |
+| `learning_curves.png` | Train/val loss and RMSE over epochs |
+| `validation_metrics.png` | Multi-metric validation history |
+| `early_stopping_analysis.png` | Optimal stopping epoch |
+| `lr_finder.png` | Learning rate finder curve |
+| `performance_comparison_bar.png` | Bar chart of model metrics |
+| `performance_comparison_radar.png` | Radar chart of model metrics |
+| `parameter_sensitivity.png` | RMSE vs hidden dimension |
+| `feature_importance.png` | Feature importance bars |
+| `ensemble_contributions.png` | Per-member contribution bars |
+| `risk_coverage.png` | Risk-coverage selective prediction curve |
+| `causal_uplift_qini.png` | Causal uplift Qini curve |
+| `simex_extrapolation.png` | SIMEX extrapolation diagnostics |
+
+---
+
+## Best Practices
+
+!!! tip "Always set a style first"
+    Call `set_style()` at the top of your script for consistent, publication-quality output.
+
+!!! tip "Use `create_grid_figure` for diagnostic reports"
+    Instead of manual `plt.subplots()`, use `create_grid_figure(n_plots=6, n_cols=3)` and fill
+    each axis with a different diagnostic.  Pass `save_figure(fig, name)` to save.
+
+!!! warning "LaTeX rendering is slow"
+    `enable_latex_rendering(True)` requires a LaTeX distribution on your system.  Keep it
+    disabled during development and enable only for final publication figures.
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Gneiting, T., & Raftery, A. E. [\"Strictly Proper Scoring Rules, Prediction, and Estimation.\"](https://www.tandfonline.com/doi/abs/10.1198/016214506000001437) *JASA*, 2007. |
+| 2 | Guo, C. et al. [\"On Calibration of Modern Neural Networks.\"](https://arxiv.org/abs/1706.04599) *ICML*, 2017. |
+
+---
+
+## Next Steps
+
+- [Visualization API Reference](../api/viz.md) — complete function signatures and docstrings
+- [Calibration Metrics](../metrics/calibration.md) — metrics evaluated by the diagnostic plots
+- [Conformal Prediction](conformal/index.md) — coverage-guaranteed intervals
+- [Ensembles for Uncertainty](ensemble/index.md) — models that benefit most from viz diagnostics

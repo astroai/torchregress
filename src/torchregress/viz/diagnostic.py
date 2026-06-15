@@ -2,7 +2,7 @@
 Diagnostic plotting utilities for regression and uncertainty quantification.
 """
 
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, Optional, Tuple, Union, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -215,6 +215,9 @@ def _add_residual_trend(
 def plot_residuals(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    y_true_std: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    censoring_indicator: Optional[Union[torch.Tensor, np.ndarray]] = None,
     figsize: Tuple[int, int] = (10, 6),
     title: str = "Residual Plot",
     xlabel: str = "Predicted Values",
@@ -235,11 +238,16 @@ def plot_residuals(
     Plot residuals (y_true - y_pred) against predicted values.
 
     This plot is useful for diagnosing heteroscedasticity, non-linearity,
-    and other issues in regression models.
+    and other issues in regression models. It automatically adapts to show
+    standardized residuals if prediction or target uncertainties are provided,
+    and visualizes censored observations if censoring indicators are present.
 
     Args:
         y_pred: Predicted values
         y_true: Ground truth values
+        y_pred_std: Predicted standard deviation (aleatoric/predictive uncertainty)
+        y_true_std: Ground-truth target uncertainty (measurement noise)
+        censoring_indicator: Binary indicators where 1 = observed, 0 = censored (right-censored)
         figsize: Figure size (width, height) when creating a new figure
         title: Plot title
         xlabel: Label for x-axis
@@ -259,25 +267,66 @@ def plot_residuals(
     Returns:
         If return_figure=True, returns matplotlib Figure object
     """
-    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy()
-    y_true = convert_to_tensor(y_true).detach().cpu().numpy()
-    validate_inputs(torch.tensor(y_pred), torch.tensor(y_true))
+    y_pred_np: np.ndarray = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    y_true_np: np.ndarray = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+    validate_inputs(torch.tensor(y_pred_np), torch.tensor(y_true_np))
 
-    # Flatten arrays if multi-dimensional
-    y_pred = y_pred.reshape(-1)
-    y_true = y_true.reshape(-1)
+    # Compute total uncertainty for standardization if stds are provided
+    std_total: Optional[np.ndarray] = None
+    if y_pred_std is not None or y_true_std is not None:
+        var_pred: np.ndarray = np.array(0.0)
+        var_true: np.ndarray = np.array(0.0)
+        if y_pred_std is not None:
+            var_pred = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten() ** 2
+        if y_true_std is not None:
+            var_true = convert_to_tensor(y_true_std).detach().cpu().numpy().flatten() ** 2
+        std_total = np.sqrt(var_pred + var_true)
+        # Avoid division by zero
+        std_total = np.where(std_total == 0.0, 1e-8, std_total)
 
-    # Calculate residuals
-    residuals = y_true - y_pred
+    if std_total is not None:
+        residuals_np: np.ndarray = (y_true_np - y_pred_np) / std_total
+        if ylabel == "Residuals":
+            ylabel = "Standardized Residuals"
+    else:
+        residuals_np = y_true_np - y_pred_np
 
-    y_pred, residuals = _filter_residual_data(
-        y_pred,
-        residuals,
-        clip_outliers=clip_outliers,
-        clip_percentile=clip_percentile,
-        downsample=downsample,
-        max_points=max_points,
-    )
+    if censoring_indicator is not None:
+        censoring_indicator = (
+            convert_to_tensor(censoring_indicator).detach().cpu().numpy().flatten()
+        )
+
+    # Filter and clean datasets aligned
+    valid_idx = np.isfinite(residuals_np) & np.isfinite(y_pred_np)
+    if std_total is not None:
+        valid_idx = valid_idx & np.isfinite(std_total)
+
+    y_pred_np = y_pred_np[valid_idx]
+    residuals_np = residuals_np[valid_idx]
+    if std_total is not None:
+        std_total = std_total[valid_idx]
+    if censoring_indicator is not None:
+        censoring_indicator = censoring_indicator[valid_idx]
+
+    if clip_outliers and len(residuals_np) > 0:
+        lower = np.percentile(residuals_np, 100 - clip_percentile)
+        upper = np.percentile(residuals_np, clip_percentile)
+        clip_idx = (residuals_np >= lower) & (residuals_np <= upper)
+        y_pred_np = y_pred_np[clip_idx]
+        residuals_np = residuals_np[clip_idx]
+        if std_total is not None:
+            std_total = std_total[clip_idx]
+        if censoring_indicator is not None:
+            censoring_indicator = censoring_indicator[clip_idx]
+
+    if downsample and len(residuals_np) > max_points:
+        idx = np.random.choice(len(residuals_np), max_points, replace=False)
+        y_pred_np = y_pred_np[idx]
+        residuals_np = residuals_np[idx]
+        if std_total is not None:
+            std_total = std_total[idx]
+        if censoring_indicator is not None:
+            censoring_indicator = censoring_indicator[idx]
 
     created_fig = ax is None
 
@@ -287,24 +336,56 @@ def plot_residuals(
     else:
         fig = cast(Figure, ax.figure)
 
-    _plot_residual_scatter(ax, y_pred, residuals, alpha, color)
+    # Plot points
+    if censoring_indicator is not None:
+        obs_idx = censoring_indicator == 1
+        cens_idx = censoring_indicator == 0
+        if np.sum(obs_idx) > 0:
+            ax.scatter(
+                y_pred_np[obs_idx],
+                residuals_np[obs_idx],
+                alpha=alpha,
+                color=color,
+                marker="o",
+                edgecolor="none",
+                label="Observed",
+            )
+        if np.sum(cens_idx) > 0:
+            ax.scatter(
+                y_pred_np[cens_idx],
+                residuals_np[cens_idx],
+                alpha=alpha,
+                color="orange",
+                marker="^",
+                edgecolor="none",
+                label="Censored (Right)",
+            )
+    else:
+        _plot_residual_scatter(ax, y_pred_np, residuals_np, alpha, color)
+
+    # Add reference bands for standardized residuals
+    if std_total is not None:
+        ax.axhline(y=1, color="gray", linestyle=":", alpha=0.5, label="±1σ")
+        ax.axhline(y=-1, color="gray", linestyle=":", alpha=0.5)
+        ax.axhline(y=2, color="gray", linestyle="-.", alpha=0.5, label="±2σ")
+        ax.axhline(y=-2, color="gray", linestyle="-.", alpha=0.5)
 
     # Add horizontal line at y=0 for reference
     if show_zero_line:
-        add_zero_line(ax, axis="y", label="Perfect Prediction")
+        ax.axhline(y=0, color="black", linestyle="--", alpha=0.8, label="Zero Bias")
 
     # Add trend line using polynomial fit
     if show_trend:
-        _add_residual_trend(ax, y_pred, residuals, trend_color)
+        _add_residual_trend(ax, y_pred_np, residuals_np, trend_color)
 
     # Show legend if there are labeled elements
     if ax.get_legend_handles_labels()[0]:
-        ax.legend()
+        ax.legend(loc="best")
 
     # Add labels and title
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
+    ax.set_xlabel(xlabel, fontweight="bold")
+    ax.set_ylabel(ylabel, fontweight="bold")
+    ax.set_title(title, fontsize=12, fontweight="bold")
     ax.grid(True, alpha=0.3)
 
     if return_figure:
@@ -1250,6 +1331,10 @@ def plot_uncertainty_vs_error(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_pred_std: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
+    aleatoric_var: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    epistemic_var: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    sort_by: str = "uncertainty",
+    feature_vals: Optional[Union[torch.Tensor, np.ndarray]] = None,
     figsize: Tuple[int, int] = (8, 8),
     title: str = "Uncertainty vs Error",
     color: str = "steelblue",
@@ -1264,11 +1349,18 @@ def plot_uncertainty_vs_error(
 
     A good uncertainty estimator should show positive correlation:
     when the model predicts high uncertainty, errors should actually be larger.
+    If aleatoric and epistemic variance arrays are provided, it also plots
+    the uncertainty decomposition stack.
 
     Args:
         y_pred: Predicted mean values
         y_pred_std: Predicted standard deviations
         y_true: Ground truth values
+        aleatoric_var: Aleatoric variance component
+        epistemic_var: Epistemic variance component
+        sort_by: Metric/dimension to sort samples by in decomposition
+            ('uncertainty', 'error', 'target', 'feature')
+        feature_vals: Feature values to sort by if sort_by='feature'
         figsize: Figure size (width, height) when creating a new figure
         title: Plot title
         color: Color for scatter points
@@ -1281,45 +1373,106 @@ def plot_uncertainty_vs_error(
     Returns:
         If return_figure=True, returns matplotlib Figure object
         If show_correlation=True, also returns Spearman correlation coefficient
-
-    Example:
-        >>> fig, corr = plot_uncertainty_vs_error(preds, stds, targets, return_figure=True)
-        >>> print(f"Correlation: {corr:.3f}")
     """
     y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
     y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
     y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
 
     abs_errors, correlation, p_value = _compute_uncertainty_stats(y_pred, y_pred_std, y_true)
-
     y_pred_std_plot, abs_errors_plot = _subsample_scatter_data(y_pred_std, abs_errors, max_points)
 
-    if ax is None:
-        fig, ax = plt.subplots(figsize=figsize)
+    created_fig = ax is None
+
+    if aleatoric_var is not None and epistemic_var is not None:
+        aleatoric_np: np.ndarray = convert_to_tensor(aleatoric_var).detach().cpu().numpy().flatten()
+        epistemic_np: np.ndarray = convert_to_tensor(epistemic_var).detach().cpu().numpy().flatten()
+        if feature_vals is not None:
+            feature_vals = convert_to_tensor(feature_vals).detach().cpu().numpy().flatten()
+
+        if created_fig:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(figsize[0] * 1.8, figsize[1]))
+        else:
+            assert ax is not None
+            fig = cast(Figure, ax.figure)
+            ax1 = None
+            ax2 = ax
     else:
-        fig = cast(Figure, ax.figure)
+        if ax is None:
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = cast(Figure, ax.figure)
+        ax1 = ax
+        ax2 = None
 
-    ax.scatter(y_pred_std_plot, abs_errors_plot, alpha=0.3, s=10, color=color)
+    # Plot Uncertainty vs Error
+    if ax1 is not None:
+        ax1.scatter(y_pred_std_plot, abs_errors_plot, alpha=0.3, s=10, color=color)
+        if show_trend:
+            _add_uncertainty_trend(
+                ax1, y_pred_std_plot, abs_errors_plot, correlation, show_correlation
+            )
+        annotations = {
+            "Spearman ρ": correlation,
+            "p-value": f"{p_value:.2e}",
+        }
+        add_annotations(ax1, annotations, loc="upper left")
+        ax1.set_xlabel("Predicted Uncertainty (σ)", fontweight="bold")
+        ax1.set_ylabel("Absolute Error |ŷ - y|", fontweight="bold")
+        ax1.set_title(title, fontsize=12, fontweight="bold")
+        ax1.grid(True, alpha=0.3)
 
-    if show_trend:
-        _add_uncertainty_trend(ax, y_pred_std_plot, abs_errors_plot, correlation, show_correlation)
+    # Plot Uncertainty Decomposition Stack
+    if ax2 is not None:
+        # Determine sorting index
+        if sort_by == "uncertainty":
+            sort_idx = np.argsort(aleatoric_np + epistemic_np)
+        elif sort_by == "error":
+            sort_idx = np.argsort(np.abs(y_true - y_pred))
+        elif sort_by == "target":
+            sort_idx = np.argsort(y_true)
+        elif sort_by == "feature" and feature_vals is not None:
+            sort_idx = np.argsort(feature_vals)
+        else:
+            sort_idx = np.argsort(aleatoric_np + epistemic_np)
 
-    annotations = {
-        "Spearman ρ": correlation,
-        "p-value": f"{p_value:.2e}",
-    }
-    add_annotations(ax, annotations, loc="upper left")
+        ale_sorted: np.ndarray = aleatoric_np[sort_idx]
+        epi_sorted: np.ndarray = epistemic_np[sort_idx]
 
-    ax.set_xlabel("Predicted Uncertainty (σ)")
-    ax.set_ylabel("Absolute Error |ŷ - y|")
-    ax.set_title(title)
-    ax.grid(True, alpha=0.3)
+        ale_smoothed: np.ndarray
+        epi_smoothed: np.ndarray
+        x_vals: np.ndarray
+
+        if len(ale_sorted) > 100:
+            window = max(5, len(ale_sorted) // 40)
+            ale_smoothed = np.convolve(ale_sorted, np.ones(window) / window, mode="valid")
+            epi_smoothed = np.convolve(epi_sorted, np.ones(window) / window, mode="valid")
+            x_vals = np.linspace(0.0, 100.0, len(ale_smoothed))
+            x_label = f"Samples (Percentile, sorted by {sort_by})"
+        else:
+            ale_smoothed = ale_sorted
+            epi_smoothed = epi_sorted
+            x_vals = np.arange(len(ale_smoothed), dtype=float)
+            x_label = f"Samples (sorted by {sort_by})"
+
+        ax2.stackplot(
+            x_vals,
+            ale_smoothed,
+            epi_smoothed,
+            labels=["Aleatoric Uncertainty", "Epistemic Uncertainty"],
+            colors=["#F08080", "#87CEFA"],
+            alpha=0.8,
+        )
+        ax2.set_xlabel(x_label, fontweight="bold")
+        ax2.set_ylabel("Variance Component", fontweight="bold")
+        ax2.set_title("Uncertainty Decomposition Stack", fontsize=12, fontweight="bold")
+        ax2.legend(loc="upper left")
+        ax2.grid(True, alpha=0.3)
 
     if return_figure:
         if show_correlation:
             return fig, float(correlation)
         return fig
-    elif ax is None:
+    elif created_fig:
         plt.tight_layout()
         plt.show()
 
@@ -1608,4 +1761,286 @@ def plot_gaussian_reliability_diagram(
         plt.tight_layout()
         plt.show()
 
+    return None
+
+
+def plot_target_density_error_overlap(
+    y_true: Union[torch.Tensor, np.ndarray],
+    y_pred: Union[torch.Tensor, np.ndarray],
+    n_bins: int = 20,
+    figsize: Tuple[int, int] = (10, 6),
+    title: str = "Target Density vs. Error Overlap",
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Figure]:
+    """
+    Overlays the target empirical distribution (using KDE or histogram)
+    and the local mean absolute error in bins of target values.
+    Useful for checking rare-target or imbalanced regression performance.
+
+    Args:
+        y_true: Ground truth target values
+        y_pred: Predicted target values
+        n_bins: Number of bins to group the target values into
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title
+        return_figure: If True, return figure object instead of displaying
+        ax: Optional matplotlib axes for plotting
+
+    Returns:
+        If return_figure=True, returns matplotlib Figure object
+    """
+    from scipy import stats
+
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
+    validate_inputs(torch.tensor(y_pred), torch.tensor(y_true))
+
+    abs_errors = np.abs(y_true - y_pred)
+
+    created_fig = ax is None
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = cast(Figure, ax.figure)
+
+    # Plot empirical density of y_true (left axis)
+    ax.set_xlabel("Target Variable (y)", fontweight="bold")
+    ax.set_ylabel("Empirical Target Density", color="steelblue", fontweight="bold")
+
+    # Use kernel density estimate for smooth target density representation
+    kde_x = np.linspace(y_true.min(), y_true.max(), 200)
+    try:
+        kde = stats.gaussian_kde(y_true)
+        kde_y = kde(kde_x)
+        ax.plot(kde_x, kde_y, color="steelblue", linewidth=2.5, label="Target Density (KDE)")
+        ax.fill_between(kde_x, 0, kde_y, color="steelblue", alpha=0.15)
+    except Exception:
+        # Fallback to histogram if KDE fails (e.g. singular covariance)
+        ax.hist(
+            y_true,
+            bins=n_bins,
+            density=True,
+            color="steelblue",
+            alpha=0.3,
+            edgecolor="black",
+            label="Target Density",
+        )
+
+    ax.tick_params(axis="y", labelcolor="steelblue")
+
+    # Create twin axis for mean absolute error (right axis)
+    ax_err = ax.twinx()
+    ax_err.set_ylabel("Mean Absolute Error (MAE)", color="crimson", fontweight="bold")
+
+    # Calculate local error in bins
+    bin_edges = np.linspace(y_true.min(), y_true.max(), n_bins + 1)
+    bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    bin_maes = []
+
+    for i in range(n_bins):
+        in_bin = (y_true >= bin_edges[i]) & (y_true < bin_edges[i + 1])
+        # Include upper edge in the last bin
+        if i == n_bins - 1:
+            in_bin = in_bin | (y_true == bin_edges[i + 1])
+
+        if np.sum(in_bin) > 0:
+            bin_maes.append(np.mean(abs_errors[in_bin]))
+        else:
+            bin_maes.append(np.nan)
+
+    bin_maes_np: np.ndarray = np.array(bin_maes)
+
+    # Plot local error curve
+    ax_err.plot(
+        bin_centers,
+        bin_maes_np,
+        "o-",
+        color="crimson",
+        linewidth=2.5,
+        markersize=6,
+        label="Local MAE",
+    )
+    ax_err.tick_params(axis="y", labelcolor="crimson")
+
+    # Combine legends
+    lines_1, labels_1 = ax.get_legend_handles_labels()
+    lines_2, labels_2 = ax_err.get_legend_handles_labels()
+    ax.legend(lines_1 + lines_2, labels_1 + labels_2, loc="upper right")
+
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.grid(True, alpha=0.3)
+
+    if return_figure:
+        return fig
+    elif created_fig:
+        plt.tight_layout()
+        plt.show()
+    return None
+
+
+def plot_conditional_density_slices(
+    density_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
+    x_slices: Union[torch.Tensor, np.ndarray],
+    y_grid: Union[torch.Tensor, np.ndarray],
+    y_true_slices: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    figsize: Tuple[int, int] = (12, 4),
+    title: str = "Conditional Predictive Density Slices",
+    return_figure: bool = False,
+) -> Optional[Figure]:
+    """
+    Plots 1D conditional density p(y | x) for selected representative features values.
+    Helpful for diagnosing mixture density networks, normalizing flows, and multi-modal models.
+
+    Args:
+        density_fn: Callable that accepts (x_slice, y_grid_val) and returns probability densities.
+                    x_slice should be shape [D] and y_grid_val should be shape [M].
+                    Returns density of shape [M].
+        x_slices: [N, D] array of feature slice values representing N distinct evaluation cases.
+        y_grid: [M] array of target values to evaluate the density on.
+        y_true_slices: Optional [N] true target values corresponding to x_slices.
+        figsize: Figure size (width, height)
+        title: Plot title
+        return_figure: If True, return figure object
+    """
+    x_slices = convert_to_tensor(x_slices).detach().cpu().numpy()
+    y_grid = convert_to_tensor(y_grid).detach().cpu().numpy().flatten()
+    if y_true_slices is not None:
+        y_true_slices = convert_to_tensor(y_true_slices).detach().cpu().numpy().flatten()
+
+    n_slices = len(x_slices)
+
+    # Create grid of subplots (1 row, n_slices columns)
+    fig, axes = plt.subplots(1, n_slices, figsize=figsize, squeeze=False)
+    axes_flat = axes.flatten()
+
+    for i in range(n_slices):
+        x_val = x_slices[i]
+
+        # Evaluate density over the grid
+        densities = density_fn(x_val, y_grid)
+
+        ax = axes_flat[i]
+        ax.plot(y_grid, densities, color="darkblue", linewidth=2.0)
+        ax.fill_between(y_grid, 0, densities, color="darkblue", alpha=0.15)
+
+        if y_true_slices is not None:
+            true_val = y_true_slices[i]
+            ax.axvline(
+                x=true_val, color="crimson", linestyle="--", linewidth=1.5, label="True Target"
+            )
+            ax.legend(loc="upper right")
+
+        ax.set_title(f"Case {i + 1}", fontweight="bold")
+        ax.set_xlabel("Target Value (y)", fontweight="bold")
+        if i == 0:
+            ax.set_ylabel("Predictive Density p(y|x)", fontweight="bold")
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle(title, y=1.02, fontsize=14, fontweight="bold")
+
+    if return_figure:
+        return fig
+    else:
+        plt.tight_layout()
+        plt.show()
+    return None
+
+
+def plot_censored_survival_curves(
+    predicted_survival: Union[torch.Tensor, np.ndarray],
+    time_grid: Union[torch.Tensor, np.ndarray],
+    observed_times: Union[torch.Tensor, np.ndarray],
+    censoring_indicators: Union[torch.Tensor, np.ndarray],
+    figsize: Tuple[int, int] = (10, 6),
+    title: str = "Predicted vs. Empirical Survival Functions",
+    return_figure: bool = False,
+    ax: Optional[plt.Axes] = None,
+) -> Optional[Figure]:
+    """
+    Overlays the mean predicted survival probability curve S(t | x) with a native Kaplan-Meier
+    empirical estimator of the observed and censored times. Useful for survival regression.
+
+    Args:
+        predicted_survival: [N, T] array of predicted survival probabilities at each grid time step.
+        time_grid: [T] time values corresponding to the T steps.
+        observed_times: [N] observed times (event or censoring times).
+        censoring_indicators: [N] event indicators (1 = event observed, 0 = censored).
+        figsize: Figure size (width, height) when creating a new figure
+        title: Plot title
+        return_figure: If True, return figure object
+        ax: Optional matplotlib axes
+    """
+    predicted_survival = convert_to_tensor(predicted_survival).detach().cpu().numpy()
+    time_grid = convert_to_tensor(time_grid).detach().cpu().numpy().flatten()
+    observed_times = convert_to_tensor(observed_times).detach().cpu().numpy().flatten()
+    censoring_indicators = convert_to_tensor(censoring_indicators).detach().cpu().numpy().flatten()
+
+    # 1. Native Kaplan-Meier Estimator computation
+    # Sort distinct observed times
+    unique_times = np.sort(np.unique(observed_times))
+    km_times = [0.0]
+    km_survival = [1.0]
+
+    current_survival = 1.0
+    for t in unique_times:
+        if t <= 0:
+            continue
+        # Count deaths (events) at exactly t
+        d = np.sum((observed_times == t) & (censoring_indicators == 1))
+        # Count number at risk (observed time >= t)
+        n = np.sum(observed_times >= t)
+
+        if n > 0:
+            current_survival *= 1.0 - d / n
+
+        km_times.append(t)
+        km_survival.append(current_survival)
+
+    km_times_np: np.ndarray = np.array(km_times)
+    km_survival_np: np.ndarray = np.array(km_survival)
+
+    # 2. Compute Mean and Std of predicted survival curves
+    mean_predicted = np.mean(predicted_survival, axis=0)
+    std_predicted = np.std(predicted_survival, axis=0)
+
+    created_fig = ax is None
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = cast(Figure, ax.figure)
+
+    # Plot predicted survival (mean + shade)
+    ax.plot(time_grid, mean_predicted, color="navy", linewidth=2.5, label="Mean Predicted Survival")
+    ax.fill_between(
+        time_grid,
+        np.clip(mean_predicted - std_predicted, 0, 1),
+        np.clip(mean_predicted + std_predicted, 0, 1),
+        color="navy",
+        alpha=0.15,
+        label="Predicted Spread (±1σ)",
+    )
+
+    # Plot empirical Kaplan-Meier curve using step plotting
+    ax.step(
+        km_times_np,
+        km_survival_np,
+        where="post",
+        color="darkorange",
+        linewidth=2.5,
+        label="Empirical (Kaplan-Meier)",
+    )
+
+    ax.set_xlabel("Time (t)", fontweight="bold")
+    ax.set_ylabel("Survival Probability S(t)", fontweight="bold")
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
+
+    if return_figure:
+        return fig
+    elif created_fig:
+        plt.tight_layout()
+        plt.show()
     return None

@@ -8,7 +8,7 @@ This loss supervises a **predicted Gaussian** :math:`\mathcal{N}(\hat\mu, \hat\S
 
 | Situation | Prefer |
 |:----------|:-------|
-| Supervised / pseudo-supervised covariance targets | [`GaussianWassersteinBoundLoss`](../api/losses.md) with matching ``covariance_parameterization`` |
+| Supervised / pseudo-supervised covariance targets | [GaussianWassersteinBoundLoss](../api/losses.md#gaussianwassersteinboundloss) with matching ``covariance_parameterization`` |
 | Likelihood training on :math:`(y \mid x)` with heteroscedastic noise | [`GaussianNLLLoss`](gaussian.md) or [`BetaNLLLoss`](beta_nll.md) |
 | Finite-sample **coverage** guarantees | [Conformal prediction](../methods/conformal/index.md) on calibrated predictive models |
 
@@ -45,7 +45,7 @@ In **diagonal** mode, the covariance term is
 | ``"cholesky"`` | Lower Cholesky factors :math:`L` with :math:`\Sigma = L L^\top` |
 | ``"sqrt"`` | Symmetric roots :math:`S` (Frobenius term compares them directly) |
 
-The helper ``symmetric_spd_matrix_sqrt`` (exported from ``torchregress.losses``) applies the same root used internally for full matrices; see the [Losses API](../api/losses.md) page.
+The helper ``symmetric_spd_matrix_sqrt`` (exported from ``torchregress.losses``) applies the same root used internally for full matrices; see [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss).
 
 ---
 
@@ -64,7 +64,7 @@ loss_fn = GaussianWassersteinBoundLoss(
 loss = loss_fn(pred_mean, target_mean, pred_cov, target_cov, mask=mask, weights=w)
 ```
 
-[`create_loss_from_config`](../api/losses.md) accepts ``"type": "gaussian_wasserstein_bound"``.
+[create_loss_from_config](../api/losses.md#create_loss_from_config) accepts ``"type": "gaussian_wasserstein_bound"``.
 
 ---
 

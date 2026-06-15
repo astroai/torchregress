@@ -2,6 +2,8 @@
 
 Loss functions for **count data**, **positive-continuous targets**, and distributions with **power mean-variance relationships**.
 
+See the [count-loss API](../api/losses.md#count-data-poisson-tweedie-mixture): [`PoissonDevianceLoss`](../api/losses.md#poissondevianceloss), [`TweedieLoss`](../api/losses.md#tweedieloss), [`NegativeBinomialNLLLoss`](../api/losses.md#negativebinomialnllloss), [`ZeroInflatedPoissonNLLLoss`](../api/losses.md#zeroinflatedpoissonnllloss).
+
 ---
 
 ## Mathematical Background
@@ -24,7 +26,7 @@ $$\boxed{\;\text{Var}(Y) = \phi\,\mu^p\;}$$
 
 ### PoissonDevianceLoss
 
-The Poisson deviance (G-statistic) — measures goodness-of-fit for count data:
+The Poisson deviance (G-statistic) — measures goodness-of-fit for count data. See [PoissonDevianceLoss API](../api/losses.md#poissondevianceloss).
 
 $$D(y, \lambda) = 2\sum_i\!\left[y_i \log\!\left(\frac{y_i}{\lambda_i}\right) - (y_i - \lambda_i)\right]$$
 
@@ -58,7 +60,7 @@ loss = loss_fn(log_expected, observed_counts)
 
 ### ZeroInflatedPoissonNLLLoss
 
-For count data with **excess zeros** beyond what a standard Poisson would predict:
+For count data with **excess zeros** beyond what a standard Poisson would predict. See [ZeroInflatedPoissonNLLLoss API](../api/losses.md#zeroinflatedpoissonnllloss).
 
 $$P(Y = 0) = \pi + (1 - \pi)\,e^{-\lambda}, \qquad P(Y = k) = (1 - \pi)\,\frac{\lambda^k e^{-\lambda}}{k!}, \; k \geq 1$$
 
@@ -75,7 +77,7 @@ loss = loss_fn(model_output, y_counts)
 
 ### NegativeBinomialNLLLoss
 
-For **overdispersed** count data where $\text{Var}(Y) > \mathbb{E}[Y]$:
+For **overdispersed** count data where $\text{Var}(Y) > \mathbb{E}[Y]$. See [NegativeBinomialNLLLoss API](../api/losses.md#negativebinomialnllloss).
 
 $$\text{Var}(Y) = \mu + \frac{\mu^2}{\theta}$$
 
@@ -100,7 +102,7 @@ loss = loss_fn(y_pred_mean, y_counts)
 
 ### TweedieLoss
 
-General-purpose Tweedie deviance for any power $p$:
+General-purpose Tweedie deviance for any power $p$. See [TweedieLoss API](../api/losses.md#tweedieloss).
 
 === "$p = 0$ (Normal)"
 

@@ -20,6 +20,10 @@ Design intent:
    - calibrated intervals / conformal guarantees
    - OOD scoring
 
+For constructor signatures, scoring rules, and parameter definitions, cross-check
+symbols against the [Losses API](../api/losses.md) and [Metrics API](../api/metrics.md).
+Generated tables below use plain symbol names for readability.
+
 ```python
 import torchregress as tr
 
@@ -420,6 +424,6 @@ It does **not** separate epistemic and aleatoric uncertainty.
 
 Use conformal for calibrated intervals.
 Use heteroscedastic ensemble-style approaches when you need explicit decomposition.
-Use MDN, flow, quantile, or binned-PDF heads when you need richer predictive
+Use [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), [`QuantileLoss`](../api/losses.md#quantileloss), or binned-PDF heads when you need richer predictive
 distributions. See [Uncertainty Decomposition](uncertainty-decomposition.md)
 for the difference, including quantile ensembles.

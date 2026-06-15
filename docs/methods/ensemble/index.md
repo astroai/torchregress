@@ -19,7 +19,7 @@ In deep learning, a single model's point prediction $\hat{y}$ is often **overcon
 
 ## Uncertainty Decomposition
 
-When ensemble members predict both a mean $\mu(x; \mathbf{w}_m)$ and a variance $\sigma^2(x; \mathbf{w}_m)$, the total predictive uncertainty can be decomposed into two distinct components using the **Law of Total Variance** [1].
+When ensemble members predict both a mean $\mu(x; \mathbf{w}_m)$ and a variance $\sigma^2(x; \mathbf{w}_m)$, the total predictive uncertainty can be decomposed into two distinct components using the **Law of Total Variance** \[1\].
 
 ### Mathematical Derivation
 
@@ -30,6 +30,8 @@ Replacing the expectations with empirical averages over $M$ ensemble members (or
 $$\boxed{\; \sigma_{\text{total}}^2(x) \;=\; \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma^2(x; \mathbf{w}_m)}_{\text{Aleatoric (Expected Data Noise)}} \;+\; \underbrace{\frac{1}{M}\sum_{m=1}^{M}\bigl(\mu(x; \mathbf{w}_m) - \bar\mu(x)\bigr)^2}_{\text{Epistemic (Model Disagreement)}} \;}$$
 
 where $\bar\mu(x) = \frac{1}{M}\sum_{m=1}^{M} \mu(x; \mathbf{w}_m)$ is the ensemble mean prediction.
+
+Compute the split in code with [`uncertainty_decomposition`](../../api/metrics.md#uncertainty_decomposition) or the richer `ensemble_variance_decomposition` helper.
 
 * **Aleatoric Uncertainty**: Represents irreducible data noise (e.g., measurement error, stochastic physics). Because it is a property of the data-generating process, it **does not** shrink as the training dataset size $N \to \infty$.
 * **Epistemic Uncertainty**: Represents model parameters/structure ignorance. It **shrinks** to zero in regions covered by training data as $N \to \infty$, but remains high in out-of-distribution (OOD) or data-sparse regions.
@@ -59,15 +61,15 @@ This increases computational latency and memory consumption linearly with $S$ ($
 
 | Method | Epistemic? | Aleatoric? | API Reference | Best For |
 |:-------|:----------:|:----------:|:--------------|:---------|
-| **`DeepEnsemble`** | ✅ | ❌ | [`DeepEnsemble`](../../api/ensemble.md#torchregress.ensemble.DeepEnsemble) | High-accuracy baseline |
-| **`HeteroEnsemble`** | ✅ | ✅ | [`HeteroscedasticEnsembleModel`](../../api/ensemble.md#torchregress.ensemble.HeteroscedasticEnsembleModel) | Full uncertainty |
-| **`BatchEnsemble`** | ✅ | ✅ | [`HeteroscedasticBatchEnsembleModel`](../../api/ensemble.md#torchregress.ensemble.HeteroscedasticBatchEnsembleModel) | Production (fast) |
-| **Building blocks** | — | — | [`BatchEnsembleLinear`](../../api/ensemble.md#torchregress.ensemble.BatchEnsembleLinear), [`BatchEnsembleMLPBackbone`](../../api/ensemble.md#torchregress.ensemble.BatchEnsembleMLPBackbone) | Rank-1 layers / shared MLP backbone |
-| **`BinnedPDFEnsemble`** | ✅ | ⚠️ | [`BinnedPDFEnsembleModel`](../../api/ensemble.md#torchregress.ensemble.BinnedPDFEnsembleModel) | Ordered-bin / non-Gaussian PDFs |
-| **`RandomPartitionEnsemble`** | ✅ | ⚠️ | [`RandomPartitionEnsembleModel`](../../api/ensemble.md#torchregress.ensemble.RandomPartitionEnsembleModel) | Members on different bin edges; CDF-averaged PDF |
-| **`MDNEnsemble`** | ✅ | ✅ | [`MDNEnsembleModel`](../../api/ensemble.md#torchregress.ensemble.MDNEnsembleModel) | Multimodal predictive densities |
-| **`SWAG`** [2] | ✅ | ❌ | [`SWAG`](../../api/ensemble.md#torchregress.ensemble.SWAG) | Large-scale Bayesian |
-| **`MCDropout`** [3] | ✅ | ❌ | [`MCDropoutModel`](../../api/ensemble.md#torchregress.ensemble.MCDropoutModel) | Affordable uncertainty baseline |
+| **`DeepEnsemble`** | ✅ | ❌ | [DeepEnsemble](../../api/ensemble.md#deepensemble) | High-accuracy baseline |
+| **`HeteroEnsemble`** | ✅ | ✅ | [HeteroscedasticEnsembleModel](../../api/ensemble.md#heteroscedasticensemblemodel) | Full uncertainty |
+| **`BatchEnsemble`** | ✅ | ✅ | [HeteroscedasticBatchEnsembleModel](../../api/ensemble.md#heteroscedasticbatchensemblemodel) | Production (fast) |
+| **Building blocks** | — | — | [BatchEnsembleLinear](../../api/ensemble.md#batchensemblelinear), [BatchEnsembleMLPBackbone](../../api/ensemble.md#batchensemblemlpbackbone) | Rank-1 layers / shared MLP backbone |
+| **`BinnedPDFEnsemble`** | ✅ | ⚠️ | [BinnedPDFEnsembleModel](../../api/ensemble.md#binnedpdfensemblemodel) | Ordered-bin / non-Gaussian PDFs |
+| **`RandomPartitionEnsemble`** | ✅ | ⚠️ | [RandomPartitionEnsembleModel](../../api/ensemble.md#randompartitionensemblemodel) | Members on different bin edges; CDF-averaged PDF |
+| **`MDNEnsemble`** | ✅ | ✅ | [MDNEnsembleModel](../../api/ensemble.md#mdnensemblemodel) | Multimodal predictive densities |
+| **`SWAG`** \[2\] | ✅ | ❌ | [SWAG](../../api/ensemble.md#swag) | Large-scale Bayesian |
+| **`MCDropout`** \[3\] | ✅ | ❌ | [MCDropoutModel](../../api/ensemble.md#mcdropoutmodel) | Affordable uncertainty baseline |
 
 ---
 
@@ -99,6 +101,8 @@ ensemble.train_members(dataloader, loss_fn=GaussianNLLLoss(), epochs=100)
 result = ensemble.predict(x_test)
 # result contains: 'mean', 'aleatoric_variance', 'epistemic_variance'
 ```
+
+→ Loss API: [`GaussianNLLLoss`](../../api/losses.md#gaussiannllloss). Ensemble API: [`HeteroscedasticEnsembleModel`](../../api/ensemble.md#heteroscedasticensemblemodel). Decomposition metric: [`uncertainty_decomposition`](../../api/metrics.md#uncertainty_decomposition).
 
 ---
 

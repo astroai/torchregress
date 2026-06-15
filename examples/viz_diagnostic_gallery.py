@@ -1,7 +1,7 @@
 """
 Visualization Diagnostic Gallery.
 
-This script demonstrates all 26 visualization and plotting functions in the
+This script demonstrates all 31 visualization and plotting functions in the
 `torchregress.viz` package. It generates synthetic data, creates a multi-panel
 diagnostic report, and saves it to a file.
 """
@@ -19,6 +19,9 @@ from torchregress.viz import (
     format_metric_label,
     plot_binned_metrics,
     plot_calibration_curve,
+    plot_causal_uplift_qini,
+    plot_censored_survival_curves,
+    plot_conditional_density_slices,
     plot_distribution_comparison,
     plot_early_stopping,
     plot_feature_importance,
@@ -31,8 +34,12 @@ from torchregress.viz import (
     plot_pit_histogram,
     plot_prediction_intervals,
     plot_qq_plot,
+    plot_reliability_diagram,
     plot_residual_histogram,
     plot_residuals,
+    plot_risk_coverage_curve,
+    plot_simex_extrapolation,
+    plot_target_density_error_overlap,
     plot_uncertainty_vs_error,
     plot_validation_metrics,
     save_figure,
@@ -61,8 +68,10 @@ def main():
     y_upper = y_pred + 1.96 * y_pred_std
 
     # Simulate quantile predictions for reliability diagram
-    quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    {q: y_pred + np.percentile(np.random.normal(0, 0.5, 1000), q * 100) for q in quantiles}
+    q_levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    y_pred_quantiles = {
+        q: y_pred + np.percentile(np.random.normal(0, 0.5, 1000), int(q * 100)) for q in q_levels
+    }
 
     # Simulate ensemble / posterior samples
     n_ensemble = 20
@@ -73,12 +82,10 @@ def main():
     # Create directories if not exist
     output_dir = "examples/outputs"
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "diagnostic_gallery.png")
 
     # 2. Demonstrate Diagnostic plots using a grid figure
     print("Generating diagnostic plots...")
-    fig, axes = create_grid_figure(n_plots=6, n_cols=3, figsize=(18, 12))
-    axes = axes.flatten()
+    fig, axes = create_grid_figure(n_plots=6, ncols=3, figsize=(18, 12))
 
     plot_residuals(y_pred, y_true, ax=axes[0], title="1. Residual Plot")
     plot_prediction_intervals(
@@ -93,19 +100,31 @@ def main():
 
     plt.suptitle("Regression Diagnostic Plot Gallery", fontsize=16, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    save_figure(fig, output_path)
-    print(f"Saved diagnostic grid plot to {output_path}")
+    save_figure(fig, "diagnostic_gallery", directory=output_dir, formats=["png"])
+    print(f"Saved diagnostic grid plot to {output_dir}")
 
     # 3. Demonstrate remaining diagnostic plots
     fig_cal = plot_gaussian_reliability_diagram(
         y_pred, y_pred_std, y_true, return_figure=True, title="Gaussian Reliability Diagram"
     )
-    save_figure(fig_cal, os.path.join(output_dir, "gaussian_reliability.png"))
+    save_figure(fig_cal, "gaussian_reliability", directory=output_dir, formats=["png"])
+
+    # Quantile reliability diagram
+    fig_rel = plot_reliability_diagram(
+        y_pred_quantiles, y_true, return_figure=True, title="Quantile Reliability Diagram"
+    )
+    save_figure(fig_rel, "quantile_reliability", directory=output_dir, formats=["png"])
 
     fig_bin = plot_binned_metrics(
         y_pred, y_pred_std, y_true, metric="rmse", return_figure=True, title="Binned RMSE Plot"
     )
-    save_figure(fig_bin, os.path.join(output_dir, "binned_rmse.png"))
+    save_figure(fig_bin, "binned_rmse", directory=output_dir, formats=["png"])
+
+    # Target density vs error overlap — checks rare-target performance
+    fig_overlap = plot_target_density_error_overlap(
+        y_true, y_pred, return_figure=True, title="Target Density vs Error Overlap"
+    )
+    save_figure(fig_overlap, "density_error_overlap", directory=output_dir, formats=["png"])
 
     fig_dist = plot_distribution_comparison(
         predicted_samples,
@@ -114,7 +133,46 @@ def main():
         return_figure=True,
         title="Distribution Comparison",
     )
-    save_figure(fig_dist, os.path.join(output_dir, "distribution_comparison.png"))
+    save_figure(fig_dist, "distribution_comparison", directory=output_dir, formats=["png"])
+
+    # Conditional density slices — for mixture / flow models
+    x_slices = x[:5].reshape(-1, 1).astype(np.float32)
+    y_grid = np.linspace(-10, 10, 200).astype(np.float32)
+
+    def _demo_density_fn(x_slice, y_grid_vals):
+        # Use predicted mean as the Gaussian centre for realistic demo
+        mu = float(2.0 * x_slice[0] + np.sin(3.0 * x_slice[0]))
+        sigma = 0.5
+        return np.exp(-0.5 * ((y_grid_vals - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
+
+    y_true_slices = y_true[:5]
+    fig_cond = plot_conditional_density_slices(
+        _demo_density_fn,
+        x_slices,
+        y_grid,
+        y_true_slices=y_true_slices,
+        return_figure=True,
+        title="Conditional Density Slices",
+    )
+    save_figure(fig_cond, "conditional_density_slices", directory=output_dir, formats=["png"])
+
+    # Censored survival curves — for survival / AFT regression
+    n_surv = 100
+    true_times = np.random.exponential(scale=50, size=n_surv)
+    censor_times = np.random.exponential(scale=30, size=n_surv)
+    observed_times = np.minimum(true_times, censor_times)
+    censoring_indicators = (true_times <= censor_times).astype(int)
+    time_grid = np.linspace(0, 80, 50)
+    predicted_survival = np.exp(-0.5 * time_grid[None, :] / 25.0)
+    fig_surv = plot_censored_survival_curves(
+        predicted_survival,
+        time_grid,
+        observed_times,
+        censoring_indicators,
+        return_figure=True,
+        title="Predicted vs Empirical Survival",
+    )
+    save_figure(fig_surv, "censored_survival", directory=output_dir, formats=["png"])
 
     # Simulate binary probs for calibration curve
     y_true_binary = (np.random.normal(0, 1, 500) > 0).astype(int)
@@ -124,7 +182,7 @@ def main():
     )
     if isinstance(fig_curve, tuple):
         fig_curve = fig_curve[0]
-    save_figure(fig_curve, os.path.join(output_dir, "probability_calibration.png"))
+    save_figure(fig_curve, "probability_calibration", directory=output_dir, formats=["png"])
 
     # 4. Demonstrate Monitoring plots
     print("Generating training monitoring plots...")
@@ -146,12 +204,12 @@ def main():
     fig_learning = plot_learning_curves(
         train_history, val_history, return_figure=True, title="Training Learning Curves"
     )
-    save_figure(fig_learning, os.path.join(output_dir, "learning_curves.png"))
+    save_figure(fig_learning, "learning_curves", directory=output_dir, formats=["png"])
 
     fig_val = plot_validation_metrics(
         epochs, val_history, return_figure=True, title="Validation Metrics History"
     )
-    save_figure(fig_val, os.path.join(output_dir, "validation_metrics.png"))
+    save_figure(fig_val, "validation_metrics", directory=output_dir, formats=["png"])
 
     fig_stopping = plot_early_stopping(
         early_train_losses,
@@ -160,7 +218,7 @@ def main():
         return_figure=True,
         title="Early Stopping Analysis",
     )
-    save_figure(fig_stopping, os.path.join(output_dir, "early_stopping_analysis.png"))
+    save_figure(fig_stopping, "early_stopping_analysis", directory=output_dir, formats=["png"])
 
     # LR Find simulation
     lrs = np.logspace(-6, -1, 100).tolist()
@@ -175,7 +233,7 @@ def main():
     )
     if isinstance(fig_lr, tuple):
         fig_lr = fig_lr[0]
-    save_figure(fig_lr, os.path.join(output_dir, "lr_finder.png"))
+    save_figure(fig_lr, "lr_finder", directory=output_dir, formats=["png"])
 
     # 5. Demonstrate Results plots
     print("Generating results plots...")
@@ -187,12 +245,12 @@ def main():
     fig_comp = plot_performance_comparison(
         metrics_comp, return_figure=True, title="Performance Comparison (Bar)"
     )
-    save_figure(fig_comp, os.path.join(output_dir, "performance_comparison_bar.png"))
+    save_figure(fig_comp, "performance_comparison_bar", directory=output_dir, formats=["png"])
 
     fig_radar = plot_performance_comparison(
         metrics_comp, plot_type="radar", return_figure=True, title="Performance Comparison (Radar)"
     )
-    save_figure(fig_radar, os.path.join(output_dir, "performance_comparison_radar.png"))
+    save_figure(fig_radar, "performance_comparison_radar", directory=output_dir, formats=["png"])
 
     # Parameter sensitivity simulation
     param_vals = {"hidden_dim": [32, 64, 128, 256]}
@@ -200,7 +258,7 @@ def main():
     fig_sens = plot_parameter_sensitivity(
         param_vals, sens_metrics, return_figure=True, title="Hidden Dimension Sensitivity"
     )
-    save_figure(fig_sens, os.path.join(output_dir, "parameter_sensitivity.png"))
+    save_figure(fig_sens, "parameter_sensitivity", directory=output_dir, formats=["png"])
 
     # Feature importance simulation
     feat_names = [f"Feature {i}" for i in range(1, 11)]
@@ -208,18 +266,60 @@ def main():
     fig_feat = plot_feature_importance(
         feat_importances, feat_names, return_figure=True, title="Feature Importance"
     )
-    save_figure(fig_feat, os.path.join(output_dir, "feature_importance.png"))
+    save_figure(fig_feat, "feature_importance", directory=output_dir, formats=["png"])
 
     # Model ensemble contributions
-    member_contributions = np.array([0.15, 0.25, 0.35, 0.10, 0.15])
+    member_preds = {
+        f"Member {i + 1}": y_pred + np.random.normal(0, 0.1, n_samples) for i in range(5)
+    }
+    ensemble_prediction = np.mean(list(member_preds.values()), axis=0)
     fig_contrib = plot_model_ensemble_contributions(
-        member_contributions, return_figure=True, title="Ensemble Member Contributions"
+        member_preds, ensemble_prediction, return_figure=True, title="Ensemble Member Contributions"
     )
-    save_figure(fig_contrib, os.path.join(output_dir, "ensemble_contributions.png"))
+    save_figure(fig_contrib, "ensemble_contributions", directory=output_dir, formats=["png"])
+
+    # Risk-coverage curve — for selective prediction / OOD evaluation
+    rejection_scores = y_pred_std + np.random.normal(0, 0.05, n_samples)
+    fig_rc = plot_risk_coverage_curve(
+        y_true,
+        y_pred,
+        rejection_scores,
+        return_figure=True,
+        title="Risk-Coverage Selective Prediction Curve",
+    )
+    save_figure(fig_rc, "risk_coverage", directory=output_dir, formats=["png"])
+
+    # Causal uplift Qini curve
+    n_causal = 200
+    uplift_scores = np.random.normal(0.5, 1.0, n_causal)
+    treatment = np.random.binomial(1, 0.5, n_causal)
+    y_obs = 1.0 * treatment + 0.5 * uplift_scores + np.random.normal(0, 0.3, n_causal)
+    fig_qini = plot_causal_uplift_qini(
+        uplift_scores, treatment, y_obs, return_figure=True, title="Causal Uplift Qini Curve"
+    )
+    save_figure(fig_qini, "causal_uplift_qini", directory=output_dir, formats=["png"])
+
+    # SIMEX extrapolation — for measurement error correction
+    # (uses plain ASCII labels to avoid LaTeX/Unicode issues with Agg backend)
+    try:
+        plt.rcParams["text.usetex"] = False
+        lambda_vals = np.array([0.0, 0.5, 1.0, 1.5, 2.0])
+        sim_vals = np.array([1.0, 0.85, 0.72, 0.62, 0.55])
+        simex_extrapolator = np.polynomial.Polynomial.fit(lambda_vals, sim_vals, 2)
+        fig_simex = plot_simex_extrapolation(
+            lambda_vals,
+            sim_vals,
+            simex_extrapolator,
+            return_figure=True,
+            title="SIMEX Extrapolation Diagnostics",
+        )
+        save_figure(fig_simex, "simex_extrapolation", directory=output_dir, formats=["png"])
+    except Exception as exc:
+        print(f"SIMEX plot skipped (backend limitation): {exc}")
 
     # 6. Demonstrate helper utilities
     print("Formatting metric label:", format_metric_label("expected_calibration_error"))
-    palette = create_color_palette("viridis", n_colors=5)
+    palette = create_color_palette(5, palette_name="viridis")
     print("Created color palette:", palette)
 
     print("\nVisualization Diagnostic Gallery created successfully!")

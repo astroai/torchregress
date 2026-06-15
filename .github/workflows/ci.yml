@@ -45,8 +45,8 @@ jobs:
       - name: Type-check (mypy)
         run: uv run mypy src/torchregress
 
-      - name: Build docs (strict)
-        run: uv run mkdocs build --strict
+      - name: Build docs
+        run: uv run zensical build --strict
 
       - name: CPU benchmark smoke (thresholds)
         run: |

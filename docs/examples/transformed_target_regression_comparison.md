@@ -4,10 +4,10 @@ Script: `examples/transformed_target_regression_comparison.py`
 
 Compares shared-budget positive-target models using:
 
-- `WeightedMSELoss`
-- `LogTransformLoss`
-- `BoxCoxTransformLoss`
-- `SqrtTransformLoss`
+- [`WeightedMSELoss`](../api/losses.md#weightedmseloss)
+- [`LogTransformLoss`](../api/losses.md#logtransformloss)
+- [`BoxCoxTransformLoss`](../api/losses.md#boxcoxtransformloss)
+- [`SqrtTransformLoss`](../api/losses.md#sqrttransformloss)
 
 Reported metrics:
 

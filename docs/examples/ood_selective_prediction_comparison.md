@@ -2,6 +2,8 @@
 
 This guide explains how to use predictive uncertainty to perform selective prediction (abstaining on high-risk inputs) and detect Out-of-Distribution (OOD) covariate shifts.
 
+→ API: [`uncertainty_decomposition`](../api/metrics.md#uncertainty_decomposition), [`mahalanobis_distance`](../api/metrics.md#mahalanobis_distance), [`RiskCoverageCurve`](../api/metrics.md#riskcoveragecurve). Guide: [OOD metrics](../metrics/ood.md).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). [**Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles**](https://arxiv.org/abs/1612.01474). *NeurIPS*. |
@@ -17,9 +19,11 @@ For a heteroscedastic ensemble of $M$ models, each predicting a mean $\mu_m(x)$ 
 
 $$\sigma^2_{\text{total}}(x) = \sigma^2_{\text{epistemic}}(x) + \sigma^2_{\text{aleatoric}}(x)$$
 
-*   **Epistemic Variance** (model uncertainty):
+The two components are:
+
+- **Epistemic variance** (model uncertainty):
     $$\sigma^2_{\text{epistemic}}(x) = \frac{1}{M} \sum_{m=1}^M (\mu_m(x) - \bar{\mu}(x))^2 \quad \text{where} \quad \bar{\mu}(x) = \frac{1}{M} \sum_{m=1}^M \mu_m(x)$$
-*   **Aleatoric Variance** (inherent noise):
+- **Aleatoric variance** (inherent noise):
     $$\sigma^2_{\text{aleatoric}}(x) = \frac{1}{M} \sum_{m=1}^M \sigma^2_m(x)$$
 
 ### Selective Prediction (Risk-Coverage)
@@ -45,8 +49,8 @@ OOD metrics identify test points $x_{\text{test}}$ that lie outside the training
 
 ## Task-First Context
 
-*   **When to Use**: Use selective prediction when your application can defer to a human expert or fallback policy for high-uncertainty samples. Use OOD metrics to trigger safety alerts when the input features shift.
-*   **Comparison Notes**: Ensembles (e.g. Deep Ensembles) typically provide the most reliable epistemic uncertainty for OOD detection compared to single-model MC dropout proxies.
+- **When to Use**: Use selective prediction when your application can defer to a human expert or fallback policy for high-uncertainty samples. Use OOD metrics to trigger safety alerts when the input features shift.
+- **Comparison Notes**: Ensembles (e.g. Deep Ensembles) typically provide the most reliable epistemic uncertainty for OOD detection compared to single-model MC dropout proxies.
 
 ---
 
@@ -144,7 +148,7 @@ def main() -> None:
     # Compute Mahalanobis Distance for OOD Detection
     train_mean = x_train.mean(dim=0)
     x_centered = x_train - train_mean
-    cov = (x_centered.T @ x_centered) / max(1, (x_train.shape[0] - 1))
+    cov = (x_centered.T @ x_centered) / max(1, (x_train.shape\[0\] - 1))
 
     ood_report = ood_metrics_report(
         model_output=(mean_id, std_id.pow(2)),

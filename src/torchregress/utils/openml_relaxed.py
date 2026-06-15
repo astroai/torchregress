@@ -13,13 +13,11 @@ from __future__ import annotations
 import gzip
 import io
 import json
-import warnings
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import numpy as np
-import pandas as pd
 from scipy.io import arff as scipy_arff
 
 from torchregress.utils.security import validate_url
@@ -61,27 +59,64 @@ def _download_bytes(url: str, *, timeout: float) -> bytes:
     return bytes(out)
 
 
-def _load_arff_frame(arff_bytes: bytes) -> pd.DataFrame:
-    """Parse ARFF bytes; scipy expects a text stream."""
+def _load_arff_arrays(arff_bytes: bytes) -> tuple[np.ndarray, list[str]]:
+    """Parse ARFF bytes and return (structured_array, column_names)."""
     if len(arff_bytes) >= 2 and arff_bytes[0] == 0x1F and arff_bytes[1] == 0x8B:
         raw = gzip.decompress(arff_bytes)
     else:
         raw = arff_bytes
     text_stream = io.TextIOWrapper(io.BytesIO(raw), encoding="utf-8", newline="")
     data, _meta = scipy_arff.loadarff(text_stream)
-    df = pd.DataFrame(data)
-    for col in df.columns:
-        if df[col].dtype == object:
-            sample = df[col].dropna().head(1)
-            if not sample.empty and isinstance(sample.iloc[0], (bytes, bytearray)):
-                df[col] = df[col].apply(
-                    lambda x: (
-                        x.decode("utf-8", errors="replace")
-                        if isinstance(x, (bytes, bytearray))
-                        else x
-                    )
-                )
-    return df
+
+    # Decode byte-string columns to ordinary Python strings
+    col_names = list(data.dtype.names)
+    for col in col_names:
+        if data[col].dtype.kind in ("S", "a"):
+            data[col] = np.array(
+                [
+                    v.decode("utf-8", errors="replace") if isinstance(v, (bytes, bytearray)) else v
+                    for v in data[col]
+                ]
+            )
+    return data, col_names
+
+
+def _numeric_mask(ar: np.ndarray) -> np.ndarray:
+    """Boolean mask for values that are numeric, boolean, or numeric strings."""
+    if ar.dtype.kind in ("f", "i", "u", "b"):
+        return np.ones(len(ar), dtype=bool)
+    return np.array(
+        [
+            isinstance(v, (int, float, np.integer, np.floating, np.bool_))
+            or (isinstance(v, str) and _is_numeric_string(v))
+            for v in ar
+        ]
+    )
+
+
+def _is_numeric_string(s: str) -> bool:
+    """Check if a string can be converted to a float."""
+    try:
+        float(s.strip() or "NaN")
+        return True
+    except ValueError:
+        return False
+
+
+def _to_float32(ar: np.ndarray) -> np.ndarray:
+    """Convert array to float32, coercing non-numeric to NaN.
+
+    Handles boolean, numeric, and numeric-string values.
+    """
+    if ar.dtype.kind in ("f", "i", "u"):
+        return ar.astype(np.float32)
+    if ar.dtype.kind == "b":
+        return ar.astype(np.float32)
+
+    converted = np.full(ar.shape, np.nan, dtype=np.float32)
+    mask = _numeric_mask(ar)
+    converted[mask] = np.array([float(v) for v in ar[mask]], dtype=np.float32)
+    return converted
 
 
 def fetch_openml_regression_frame_skip_checksum(
@@ -90,12 +125,10 @@ def fetch_openml_regression_frame_skip_checksum(
     target_column: str = "target",
     download_timeout: float = 600.0,
     json_timeout: float = 120.0,
-) -> tuple[pd.DataFrame, str]:
-    """Load numeric regression frame for ``data_id`` without MD5 verification.
+) -> tuple[np.ndarray, np.ndarray, str]:
+    """Load numeric regression arrays for ``data_id`` without MD5 verification.
 
-    Matches the post-processing used in ``examples/spt_reg_year_comparison.py`` /
-    ``self_agreement_realdata_year.py``: numeric/bool features as float32 and a
-    single numeric target stored under ``target_column``.
+    Returns ``(X, y, tag)`` where ``X`` and ``y`` are float32 numpy arrays.
     """
     desc = _openml_dataset_description(data_id, timeout=json_timeout)
     fmt = str(desc.get("format", "")).lower()
@@ -126,31 +159,37 @@ def fetch_openml_regression_frame_skip_checksum(
     except (HTTPError, URLError, TimeoutError, OSError) as exc:
         raise RuntimeError(f"Failed to download OpenML ARFF from {url!r}") from exc
 
-    full = _load_arff_frame(blob)
-    if raw_target not in full.columns:
-        cols = list(full.columns)
+    full, cols = _load_arff_arrays(blob)
+    if raw_target not in cols:
         raise ValueError(f"Target column {raw_target!r} missing from ARFF columns {cols}")
 
-    feature_cols = [c for c in full.columns if c not in ignore and c != raw_target]
-    numeric = full[feature_cols].select_dtypes(include=["number", "bool"]).copy()
-    if numeric.empty:
+    feature_cols = [c for c in cols if c not in ignore and c != raw_target]
+
+    # Select numeric feature columns and convert to float32
+    X_parts = []
+    for col in feature_cols:
+        ar = full[col]
+        if ar.dtype.kind in ("f", "i", "u", "b"):
+            xf = ar.astype(np.float32)
+        else:
+            xf = _to_float32(ar)
+        X_parts.append(xf.reshape(-1, 1))
+
+    if not X_parts:
         raise ValueError("OpenML ARFF has no numeric/bool feature columns after selection")
 
-    for col in numeric.columns:
-        if numeric[col].dtype == bool:
-            numeric[col] = numeric[col].astype("float32")
-        else:
-            numeric[col] = numeric[col].astype("float32")
+    X = np.concatenate(X_parts, axis=1).astype(np.float32)
+    y = _to_float32(full[raw_target]).astype(np.float32)
 
-    target_series = pd.to_numeric(full[raw_target], errors="coerce")
-    out = numeric.copy()
-    out[target_column] = target_series.to_numpy(dtype=np.float32)
-    out = out.dropna()
-    if out.empty:
+    # Drop rows where X or y contains NaN
+    valid = np.isfinite(X).all(axis=1) & np.isfinite(y)
+    X_out = X[valid].copy()
+    y_out = y[valid].copy()
+    if X_out.size == 0:
         raise ValueError("OpenML frame is empty after dropping NaN target/features")
 
     tag = f"OpenML:id={data_id} (relaxed_arff_no_md5)"
-    return out, tag
+    return X_out, y_out, tag
 
 
 def fetch_openml_regression_with_sklearn_fallback(
@@ -159,76 +198,24 @@ def fetch_openml_regression_with_sklearn_fallback(
     name: str | None,
     version: int,
     target_column: str,
-) -> tuple[pd.DataFrame, str]:
-    """Try ``fetch_openml``; on MD5 mismatch for ``data_id``, use relaxed ARFF parse."""
-    from sklearn.datasets import fetch_openml
+) -> tuple[np.ndarray, np.ndarray, str]:
+    """Load OpenML regression data as (X, y, tag) numpy arrays.
 
+    Always uses the relaxed ARFF parser directly (no sklearn dependency).
+    The function name is kept for backward compatibility.
+    """
     if data_id is not None:
-        try:
-            bunch = fetch_openml(data_id=int(data_id), as_frame=True)
-        except (ValueError, HTTPError, URLError) as exc:
-            is_md5 = isinstance(exc, ValueError) and "md5 checksum" in str(exc).lower()
-            is_net = isinstance(exc, (HTTPError, URLError))
-            if not (is_md5 or is_net):
-                raise
-
-            reason = "MD5 check" if is_md5 else "network error"
-            warnings.warn(
-                f"sklearn.datasets.fetch_openml failed OpenML {reason}; "
-                "parsing ARFF without checksum verification (stale OpenML MD5 metadata). "
-                "Prefer a verified local --cache-path when publishing numbers.",
-                UserWarning,
-                stacklevel=2,
-            )
-            return fetch_openml_regression_frame_skip_checksum(
-                data_id=int(data_id),
-                target_column=target_column,
-            )
-        tag = f"OpenML:id={data_id}"
-    elif name is not None:
-        try:
-            bunch = fetch_openml(name=name, version=version, as_frame=True)
-        except (ValueError, HTTPError, URLError) as exc:
-            is_md5 = isinstance(exc, ValueError) and "md5 checksum" in str(exc).lower()
-            is_net = isinstance(exc, (HTTPError, URLError))
-            if not (is_md5 or is_net):
-                raise
-
-            reason = "MD5 check" if is_md5 else "network error"
-            warnings.warn(
-                f"sklearn.datasets.fetch_openml failed OpenML {reason}; "
-                "resolving dataset id via OpenML API and parsing ARFF without checksum.",
-                UserWarning,
-                stacklevel=2,
-            )
-            resolved = _resolve_data_id_by_name_version(
-                name=name, version=int(version), timeout=120.0
-            )
-            return fetch_openml_regression_frame_skip_checksum(
-                data_id=int(resolved),
-                target_column=target_column,
-            )
-        tag = f"OpenML:{name}:v{version}"
-    else:
-        raise ValueError("openml regression fetch requires data_id or name")
-
-    feats = cast(pd.DataFrame, bunch.data)
-    numeric = feats.select_dtypes(include=["number", "bool"]).copy()
-    if numeric.empty:
-        raise ValueError("OpenML dataset has no numeric/bool feature columns after selection")
-    for col in numeric.columns:
-        if numeric[col].dtype == bool:
-            numeric[col] = numeric[col].astype("float32")
-        else:
-            numeric[col] = numeric[col].astype("float32")
-
-    target_series = pd.to_numeric(cast(pd.Series, bunch.target), errors="coerce")
-    frame = numeric.copy()
-    frame[target_column] = target_series.to_numpy(dtype=np.float32)
-    frame = frame.dropna()
-    if frame.empty:
-        raise ValueError("OpenML frame is empty after dropping NaN target/features")
-    return frame, tag
+        return fetch_openml_regression_frame_skip_checksum(
+            data_id=int(data_id),
+            target_column=target_column,
+        )
+    if name is not None:
+        resolved = _resolve_data_id_by_name_version(name=name, version=int(version), timeout=120.0)
+        return fetch_openml_regression_frame_skip_checksum(
+            data_id=int(resolved),
+            target_column=target_column,
+        )
+    raise ValueError("openml regression fetch requires data_id or name")
 
 
 def _resolve_data_id_by_name_version(*, name: str, version: int, timeout: float) -> int:

@@ -2,6 +2,8 @@
 
 Script: `examples/ordinal_regression_realdata_comparison.py`
 
+→ API: [`CumulativeLinkLoss`](../api/losses.md#cumulativelinkloss), [`CORALLoss`](../api/losses.md#coralloss), [`OrdinalCrossEntropyLoss`](../api/losses.md#ordinalcrossentropyloss).
+
 Compares three ordered-target methods on real covariates/targets (`sklearn` Diabetes)
 with train-quantile binning:
 

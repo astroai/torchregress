@@ -2,6 +2,8 @@
 
 This guide demonstrates how to model data affected by both count (Poisson/shot) noise and continuous (Gaussian/readout) noise using `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss`.
 
+→ API: [`PoissonGaussianMixtureLoss`](../api/losses.md#poissongaussianmixtureloss).
+
 | # | Reference |
 |:-:|:----------|
 | 1 | Foi, A., Trimeche, M., Katkovnik, V., & Egiazarian, K. (2008). [**Practical Poisson-Gaussian noise modeling and sensor calibration in single-image photometry**](https://doi.org/10.1109/TIP.2008.2001397). *IEEE Transactions on Image Processing*. |

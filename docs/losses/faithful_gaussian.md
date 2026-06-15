@@ -10,7 +10,7 @@ This page covers two specialized Gaussian loss variants:
 
 ### The Problem with Joint NLL
 
-Standard `GaussianNLLLoss` couples gradients from the variance head into the mean through the residual term:
+Standard [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) couples gradients from the variance head into the mean through the residual term:
 
 $$\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2} \log(2\pi\sigma^2) + \frac{(y - \mu)^2}{2\sigma^2}$$
 
@@ -18,7 +18,7 @@ The gradient with respect to $\mu$ is $\frac{\mu - y}{\sigma^2}$, which means th
 
 ### The Faithful Solution
 
-`FaithfulGaussianLoss` decouples the two objectives:
+`FaithfulGaussianLoss` decouples the two objectives (see [API: FaithfulGaussianLoss](../api/losses.md#faithfulgaussianloss)):
 
 $$\boxed{\;\mathcal{L}_{\text{Faithful}} = \lambda_{\mu} (\mu - y)^2 + \lambda_{v} \cdot \frac{1}{2} \left( \log(2\pi\sigma^2) + \frac{(y - \operatorname{sg}(\mu))^2}{\sigma^2} \right)\;}$$
 
@@ -47,7 +47,7 @@ loss = loss_fn((mean, logvar), y_true)
 
 ### Comparison: Faithful vs Beta-NLL vs Joint NLL
 
-| Feature | `GaussianNLLLoss` | `BetaNLLLoss` | `FaithfulGaussianLoss` |
+| Feature | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) | [`BetaNLLLoss`](../api/losses.md#betanllloss) | [`FaithfulGaussianLoss`](../api/losses.md#faithfulgaussianloss) |
 |:--------|:-----------------:|:-------------:|:----------------------:|
 | Mean/variance coupling | Coupled | Variance-detached reweighting | Explicitly split |
 | Mean objective | NLL residual | NLL residual (detached variance) | Pure MSE |
@@ -71,7 +71,9 @@ loss = loss_fn((mean, logvar), y_true)
 
 ### Why CRPS Instead of NLL?
 
-The Continuous Ranked Probability Score (CRPS) is a **proper scoring rule** that evaluates the full predictive distribution. Unlike NLL, CRPS:
+The Continuous Ranked Probability Score (CRPS) is a **proper scoring rule** that evaluates the full predictive distribution. See the [GaussianCRPSLoss API](../api/losses.md#gaussiancrpsloss) for parameters and the closed-form definition.
+
+Unlike NLL, CRPS:
 
 - Has the **same units** as the target variable (interpretable)
 - Is **less sensitive** to tail events than NLL (a single very-low-probability point doesn't dominate)

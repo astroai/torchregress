@@ -7,9 +7,9 @@ Script: `examples/multimodal_method_realdata_comparison.py`
 
 ## What It Compares
 
-- Diagonal Gaussian NLL baseline (`GaussianNLLLoss`)
-- Mixture Density Network (`MDNLoss`)
-- Conditional normalizing flow (`NormalizingFlowLoss`, optional if `zuko` is installed)
+- Diagonal Gaussian NLL baseline ([`GaussianNLLLoss`](../api/losses.md#gaussiannllloss))
+- Mixture Density Network ([`MDNLoss`](../api/losses.md#mdnloss))
+- Conditional normalizing flow ([`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), optional if `zuko` is installed)
 
 ## Metrics Reported
 

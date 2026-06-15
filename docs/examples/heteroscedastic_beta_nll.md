@@ -1,6 +1,6 @@
 # Beta-NLL Heteroscedastic Regression Example
 
-This example demonstrates how to use the `BetaNLLLoss` to train heteroscedastic neural networks that are robust to variance overestimation and outliers.
+This example demonstrates how to use the [`BetaNLLLoss`](../api/losses.md#betanllloss) to train heteroscedastic neural networks that are robust to variance overestimation and outliers. Compare with [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) in the [loss guide](../losses/beta_nll.md).
 
 | # | Reference |
 |:-:|:----------|
@@ -26,17 +26,18 @@ If an outlier is present, the model will drastically inflate $\sigma^2(x)$ to mi
 
 $$\mathcal{L}_{\text{BetaNLL}}(y, \mu, \sigma^2) = \left( \sigma^2 \right)^\beta \left( \frac{(y - \mu)^2}{2\sigma^2} + \frac{1}{2}\log\sigma^2 \right)$$
 
-where $\beta \in [0, 1]$ is a hyperparameter:
-*   **$\beta = 0$**: Recovers standard Gaussian NLL.
-*   **$\beta = 1$**: Under $\beta = 1$, the gradient of the loss with respect to the variance becomes independent of the magnitude of the absolute error, rendering variance estimation highly robust to outliers.
-*   **$\beta = 0.5$**: Typically offers the best trade-off between calibration quality and outlier robustness.
+where $\beta \in \[0, 1\]$ is a hyperparameter:
+
+- **$\beta = 0$**: Recovers standard Gaussian NLL.
+- **$\beta = 1$**: Under $\beta = 1$, the gradient of the loss with respect to the variance becomes independent of the magnitude of the absolute error, rendering variance estimation highly robust to outliers.
+- **$\beta = 0.5$**: Typically offers the best trade-off between calibration quality and outlier robustness.
 
 ---
 
 ## Task-First Context
 
-*   **When to Use**: Use `BetaNLLLoss` for **heteroscedastic regression** tasks when the training data contains **heavy-tailed noise** or **outliers** that cause standard Gaussian NLL to overestimate predictive variance.
-*   **Comparison Notes**: Evaluate models trained with standard NLL vs. Beta-NLL on a clean, held-out validation set. Report both RMSE (for point prediction accuracy) and standard Gaussian NLL (for calibration quality).
+- **When to Use**: Use [`BetaNLLLoss`](../api/losses.md#betanllloss) for **heteroscedastic regression** tasks when the training data contains **heavy-tailed noise** or **outliers** that cause standard Gaussian NLL to overestimate predictive variance.
+- **Comparison Notes**: Evaluate models trained with standard NLL vs. Beta-NLL on a clean, held-out validation set. Report both RMSE (for point prediction accuracy) and standard Gaussian NLL (for calibration quality).
 
 ---
 

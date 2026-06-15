@@ -26,7 +26,7 @@ $$\mathcal{L}_{\text{MDN}} = -\log \sum_{k=1}^K \pi_k\;\mathcal{N}(y \mid \mu_k,
 
 computed via log-sum-exp for numerical stability.
 
----
+See the [MDNLoss API](../api/losses.md#mdnloss) for constructor parameters and the [`MixtureDensityLoss`](../api/losses.md#mdnloss) alias.
 
 ## Usage
 
