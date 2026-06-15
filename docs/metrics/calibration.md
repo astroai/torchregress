@@ -2,6 +2,8 @@
 
 Calibration metrics evaluate whether predicted probabilistic distributions or intervals accurately reflect the true uncertainty in the data.
 
+→ See [Calibration methods](../methods/calibration.md), [Visualization diagnostics](../methods/visualization.md#1-diagnostic-plots-torchregressvizdiagnostic), and the [calibration API](../api/metrics.md#calibration-metrics-metricscalibration).
+
 ---
 
 ## Expected Calibration Error (ECE)

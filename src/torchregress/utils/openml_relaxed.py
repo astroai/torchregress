@@ -5,7 +5,7 @@ that no longer matches the hosted ARFF. :func:`sklearn.datasets.fetch_openml` th
 ``ValueError: md5 checksum ...``. This module downloads the same URL and parses the
 ARFF without verifying that checksum, using the public JSON API for column metadata.
 
-See also: ``docs/research/paper_strong_experiment_suite.md`` (OpenML / infra note).
+See also: ``../torchregress-research/shared/experiment_suite.md`` (OpenML note; paper benchmarks).
 """
 
 from __future__ import annotations

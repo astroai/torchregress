@@ -130,6 +130,15 @@ Metrics for evaluating multivariate regression models:
 
 [Learn more about multivariate metrics →](multivariate.md)
 
+### Decision Metrics
+
+Metrics for selective prediction and uncertainty-based rejection:
+
+- **RiskCoverageCurve**: Risk-vs-coverage trajectory and AURC summary
+- **RejectionPolicy**: Fixed-threshold or fixed-fraction rejection evaluation
+
+[Learn more about decision metrics →](decision.md)
+
 ## Metric Selection Guide
 
 | If you need to evaluate... | Consider using... |
@@ -139,5 +148,6 @@ Metrics for evaluating multivariate regression models:
 | Full predictive distributions | `gaussian_nll`, `crps_gaussian`, `energy_score` |
 | Model calibration | `expected_calibration_error`, `marginal_calibration_error`, `calibration_score` |
 | OOD scoring | `mahalanobis_distance`, `typicality_score`, `entropy_score`, `kernel_density_score` |
+| Selective prediction | `RiskCoverageCurve`, `RejectionPolicy`, [`risk_coverage_curve`](../api/metrics.md#riskcoveragecurve) |
 
-For detailed guidance on metric selection and interpretation, see the [practical usage guide](../guide/practical-usage.md).
+For detailed guidance on metric selection and interpretation, see the [practical usage guide](../guide/practical-usage.md) and [uncertainty decomposition](../guide/uncertainty-decomposition.md).

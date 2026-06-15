@@ -1,5 +1,7 @@
 # Multimodal Method Comparison
 
+→ Guide: [Multi-target regression](../guide/multi-target-regression.md). API: [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), [`marginal_calibration_error`](../api/metrics.md#marginal_calibration_error).
+
 This example compares shared-budget probabilistic methods on a multimodal, multi-target synthetic regression task.
 
 Script: `examples/multimodal_method_comparison.py`

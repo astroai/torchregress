@@ -18,7 +18,7 @@ where $[L_i, U_i]$ is the predicted $(1 - \alpha)$ interval (e.g., a $90\%$ inte
 from torchregress.metrics.interval import interval_score
 
 # lower_bound and upper_bound typically represent a 90% prediction interval
-score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1, mask=mask)
+score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1)
 ```
 See also: [interval_score](../api/metrics.md#interval_score).
 
@@ -32,13 +32,13 @@ $$
 \text{PICP}(L, U; y) = \frac{1}{\sum_{i=1}^N m_i} \sum_{i=1}^N m_i \mathbb{I}(L_i \le y_i \le U_i)
 $$
 
-where $m_i \in \{0, 1\}$ is a boolean mask. Ideally, $\text{PICP} \approx 1 - \alpha$.
+where $m_i \in \{0, 1\}$ is an optional boolean mask when samples are pre-filtered. Ideally, $\text{PICP} \approx 1 - \alpha$.
 
 ```python
 from torchregress.metrics.interval import prediction_interval_coverage_probability
 
 # Calculate basic PICP
-picp = prediction_interval_coverage_probability(lower_bound, upper_bound, y_true, mask=mask)
+picp = prediction_interval_coverage_probability(lower_bound, upper_bound, y_true)
 ```
 See also: [prediction_interval_coverage_probability](../api/metrics.md#prediction_interval_coverage_probability).
 
@@ -54,15 +54,22 @@ $$
 
 ```python
 from torchregress.metrics.interval import prediction_interval_coverage_probability
+from torchregress.metrics import MeanPredictionIntervalWidth
 
+# Via PICP diagnostics dict
 results = prediction_interval_coverage_probability(
     lower_bound, upper_bound, y_true,
-    return_diagnostics=True, mask=mask
+    return_diagnostics=True,
 )
 mpiw = results["mpiw"]
+
+# Or accumulate MPIW across batches with the stateful metric
+mpiw_metric = MeanPredictionIntervalWidth()
+mpiw_metric.update(lower_bound, upper_bound)
+width = mpiw_metric.compute()
 ```
 
-See also: [prediction_interval_coverage_probability](../api/metrics.md#prediction_interval_coverage_probability).
+See also: [`MeanPredictionIntervalWidth`](../api/metrics.md#meanpredictionintervalwidth) and [prediction_interval_coverage_probability](../api/metrics.md#prediction_interval_coverage_probability) (`return_diagnostics=True`).
 
 ---
 
@@ -82,7 +89,7 @@ predictions = {
 }
 
 # Generate comprehensive report
-report = interval_metrics_report(predictions, y_true, alpha=0.1, mask=mask)
+report = interval_metrics_report(predictions, y_true, alpha=0.1)
 ```
 See also: [interval_metrics_report](../api/metrics.md#interval_metrics_report).
 
@@ -104,7 +111,7 @@ $$
 
 ```python
 coverage = prediction_interval_coverage_probability(
-    lower_bound, upper_bound, y_true, alpha=0.1, return_diagnostics=True, mask=mask
+    lower_bound, upper_bound, y_true, alpha=0.1, return_diagnostics=True
 )
 print(f"Lower miss rate: {coverage['miss_rate_low']}")
 print(f"Upper miss rate: {coverage['miss_rate_high']}")

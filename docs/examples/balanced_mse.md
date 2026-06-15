@@ -2,7 +2,7 @@
 
 This guide demonstrates how to use the bin-based reweighting losses `BalancedMSELoss` and `BMCLoss` to tackle target imbalance in regression tasks.
 
-→ Guide: [Imbalanced losses](../losses/imbalanced.md). API: [imbalanced loss section](../api/losses.md) (`DensityWeightedLoss`, `PropensityWeightedLoss`, …).
+→ Guide: [Imbalanced losses](../losses/imbalanced.md). API: [`BalancedMSELoss`](../api/losses.md#balancedmseloss), [`BMCLoss`](../api/losses.md#bmcloss), [imbalanced loss section](../api/losses.md#densityweightedloss).
 
 | # | Reference |
 |:-:|:----------|

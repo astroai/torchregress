@@ -1,5 +1,7 @@
 # Noisy Label Real-Data Comparison
 
+→ Guide: [Noisy labels](../losses/noisy_labels.md). API: [Robust and probabilistic losses](../api/losses.md#weightedhuberloss), [interval metrics](../api/metrics.md#prediction_interval_coverage_probability).
+
 This example runs a shared-budget comparison of robust and probabilistic methods on a **real tabular dataset**
 ([`sklearn.datasets.load_diabetes`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html))
 with **synthetic label corruption**.

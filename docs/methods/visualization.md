@@ -1,5 +1,7 @@
 # Visualization & Diagnostics
 
+→ API: [Visualization API](../api/viz.md). Gallery: [`examples/viz_diagnostic_gallery.py`](../../examples/viz_diagnostic_gallery.py).
+
 torchregress provides **33 visualization functions** across four submodules to help you
 diagnose models, monitor training, compare results, and style your output.  All functions
 work with standard `matplotlib` axes and support the same styling pipeline.
@@ -39,7 +41,7 @@ Fourteen functions for diagnosing regression models, residuals, and uncertainty 
 ```python
 from torchregress.viz import plot_residuals, plot_residual_histogram, plot_qq_plot
 
-plot_residuals(y_pred, y_true, y_std=y_pred_std, clip_outliers=True)
+plot_residuals(y_pred, y_true, y_pred_std=y_pred_std, clip_outliers=True)
 plot_residual_histogram(y_pred, y_true, show_kde=True, return_figure=True)
 plot_qq_plot(y_pred, y_true, return_figure=True)
 ```
@@ -83,7 +85,7 @@ plot_reliability_diagram({0.1: q10, 0.5: q50, 0.9: q90}, y_true)
 plot_gaussian_reliability_diagram(y_pred, y_pred_std, y_true)
 
 # PIT calibration — uniform = perfectly calibrated
-plot_pit_histogram(y_pred, y_pred_std, y_true, bins=20)
+plot_pit_histogram(y_pred, y_pred_std, y_true, n_bins=20)
 
 # Binary probability calibration
 plot_calibration_curve(y_pred_probs, y_true_binary)
@@ -115,11 +117,13 @@ plot_binned_metrics(y_pred, y_pred_std, y_true, metric="rmse")
 # Overlap of target density and error distribution
 plot_target_density_error_overlap(y_pred, y_true)
 
-# Predictive density at selected x-values
-plot_conditional_density_slices(predicted_samples, x_values, slice_indices=\[0, 10, 50\])
+# Predictive density at selected x-values (density_fn maps (x, y_grid) -> pdf)
+plot_conditional_density_slices(density_fn, x_slices, y_grid, y_true_slices=y_true_at_slices)
 
 # Survival curves for censored data
-plot_censored_survival_curves(event_times, event_indicators, predicted_survival)
+plot_censored_survival_curves(
+    predicted_survival, time_grid, observed_times, censoring_indicators
+)
 ```
 
 ---
@@ -192,13 +196,13 @@ sens_metrics = {"RMSE": [0.55, 0.48, 0.45, 0.46]}
 plot_parameter_sensitivity(param_vals, sens_metrics)
 
 # Feature importance (automatically sorts)
-plot_feature_importance(importance_scores, feature_names, top_n=10, horizontal=True)
+plot_feature_importance(feature_names, importance_scores, top_n=10, horizontal=True)
 
 # Ensemble member contributions
-plot_model_ensemble_contributions(member_contributions)
+plot_model_ensemble_contributions(member_predictions, ensemble_mean)
 
 # Risk-coverage — trade off coverage for lower risk
-plot_risk_coverage_curve(risks, coverages)
+plot_risk_coverage_curve(y_true, y_pred, rejection_scores)
 
 # Uplift Qini curve
 plot_causal_uplift_qini(uplift_scores, treatment, outcome)
@@ -242,13 +246,13 @@ plot_qq_plot(y_pred, y_true, ax=axes\[1\], title="Q-Q")
 save_figure(fig, "diagnostic_report", formats=["png", "pdf"])
 
 # Color palette
-palette = create_color_palette("viridis", n_colors=5)
+palette = create_color_palette(5, palette_name="viridis")
 
 # Reference lines
 add_identity_line(ax)              # y = x
 
 # Annotations
-add_annotations(ax, x_coords, y_coords, labels)
+add_annotations(ax, {"RMSE": 0.45, "PICP": 0.91})
 
 # Format metric names
 label = format_metric_label("expected_calibration_error")

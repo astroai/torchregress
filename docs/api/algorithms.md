@@ -6,7 +6,9 @@ per-method pages under Methods.
 
 ---
 
-## Robust regression
+# Robust regression
+
+→ Method guide: [IRLS](../methods/algorithms/irls.md). Losses: [Robust losses](../losses/robust.md).
 
 ### Iteratively Reweighted Least Squares (IRLS)
 
@@ -35,6 +37,8 @@ y_pred, losses, precision = iteratively_reweighted_least_squares(
 ---
 
 ## Error-in-Variables (EIV) algorithms
+
+→ Method guides: [SIMEX](../methods/algorithms/simex.md), [Regression Calibration](../methods/algorithms/rc.md), [LatentNN](../methods/algorithms/latentnn.md), [Error-aware encoders](../methods/algorithms/error_aware.md). Losses: [EIV losses](../losses/eiv.md).
 
 | Symbol | Description |
 |:-------|:------------|
@@ -70,6 +74,8 @@ post_mean, post_cov = rc.posterior(X_noisy)
 
 ## IVON (Bayesian learning rule)
 
+→ Method guide: [IVON](../methods/algorithms/ivon.md). Inference overview: [Inference methods](../methods/inference.md).
+
 | Symbol | Description |
 |:-------|:------------|
 | `IVON` | Variational Online Newton optimizer. Fits `q(θ) = N(μ, Σ)` over parameters using natural-gradient updates. Use inside `optimizer.sampled_params(train=True)` to draw MC samples. Supports `hess_approx ∈ {"price", "gradsq"}`, distributed `sync`, bias correction, LR rescaling. |
@@ -93,6 +99,8 @@ for x, y in loader:
 
 ## TIC-TAC covariance parameterisation
 
+→ Method guide: [TIC-TAC](../methods/algorithms/tictac.md).
+
 | Symbol | Description |
 |:-------|:------------|
 | `TaylorInducedCovarianceHead` | Wraps a backbone `nn.Module` and predicts a covariance matrix derived from the Jacobian `J Jᵀ` and Hessian `H_ij = Tr(H_i H_j)` of the mean prediction w.r.t. inputs, with learnable scaling `k1, k2, k3` (input-dependent or global) plus a jitter term. |
@@ -110,6 +118,8 @@ mean, cov = head(x)   # cov: [B, 2, 2]
 
 ## Heteroscedastic Laplace (last-layer)
 
+→ Method guide: [Heteroscedastic Laplace](../methods/algorithms/heteroscedastic_laplace.md). Example: [heteroscedastic Laplace comparison](../examples/heteroscedastic_laplace.md).
+
 | Symbol | Description |
 |:-------|:------------|
 | `NaturalHeteroscedasticHead` | Gaussian natural-parameterisation head `(η₁ = μ/σ², η₂ = -1/(2σ²))` with `exp` or `softplus` link. |
@@ -121,6 +131,8 @@ mean, cov = head(x)   # cov: [B, 2, 2]
 ---
 
 ## VIDS (variational inference under distribution shift)
+
+→ Method guide: [Adaptive prior VI](../methods/algorithms/adaptive_prior_vi.md). Test-time: [Test-time API](test_time.md).
 
 | Symbol | Description |
 |:-------|:------------|

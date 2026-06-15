@@ -11,17 +11,19 @@ import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EXAMPLES = REPO_ROOT / "examples"
+RESEARCH_SPT_DIR = REPO_ROOT.parent / "torchregress-research" / "benchmarks" / "neurips" / "spt"
 
 
 def _load_spt_synthetic() -> ModuleType:
-    path = EXAMPLES / "spt_reg_synthetic_comparison.py"
+    path = RESEARCH_SPT_DIR / "spt_reg_synthetic_comparison.py"
+    if not path.is_file():
+        pytest.skip("torchregress-research SPT benchmarks not checked out beside torchregress")
     spec = importlib.util.spec_from_file_location("_spt_synth_weighted", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {path}")
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
-    sys.path.insert(0, str(EXAMPLES))
+    sys.path.insert(0, str(RESEARCH_SPT_DIR))
     try:
         spec.loader.exec_module(mod)
     finally:

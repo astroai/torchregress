@@ -1,5 +1,7 @@
 # Multimodal Method Comparison (Real Data Features)
 
+→ Guide: [Multi-target regression](../guide/multi-target-regression.md). API: [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss).
+
 This example compares shared-budget probabilistic methods on **real tabular features**
 (`sklearn.datasets.load_diabetes`) with a **synthetic conditional multimodal multi-target target construction**.
 

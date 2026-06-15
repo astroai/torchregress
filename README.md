@@ -27,6 +27,10 @@ All modules follow PyTorch conventions (`forward(y_pred, target, mask=…,
 weights=…)`). See the docs for method selection, formulas, and runnable
 examples.
 
+**Related repositories:** NeurIPS manuscripts, SAGE/SPT reproduction benchmarks, and committed
+paper artifacts live in [`torchregress-research`](../torchregress-research). External-library
+parity comparisons live in [`torchregress-harness`](../torchregress-harness).
+
 ## Installation
 
 ```bash

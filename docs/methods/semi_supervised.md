@@ -1,6 +1,12 @@
-# Semi-Supervised Regression (SAGE-Reg)
+# Semi-Supervised Regression (teacher–student SSL)
 
-The semi-supervised module provides modular workflows for training regression models with both **labeled** and **unlabeled** data. The core algorithm, SAGE-Reg (Self-Agreement for Gaussian Estimation in Regression), uses teacher-student consistency with distributional pseudo-labeling to extract signal from unlabeled examples.
+The semi-supervised module provides modular workflows for training regression models with both **labeled** and **unlabeled** data. It implements teacher–student consistency with distributional pseudo-labeling for semi-supervised regression.
+
+!!! warning "Research track (SAGE-Reg)"
+    The **SAGE-Reg** paper track (benchmarks, manuscript claims, and committed result tables) lives in
+    [`torchregress-research`](https://github.com/sfabbro/torchregress-research). The API here is
+    stable enough for experimentation and demos, but it is **not** held to the same battle-tested
+    bar as core point losses, conformal wrappers, and ensemble utilities in the main library.
 
 !!! abstract "When to use"
     Semi-supervised regression is valuable when you have **abundant unlabeled data** ($N_{\text{unlabeled}} \gg N_{\text{labeled}}$) and believe the unlabeled distribution carries information about the conditional target distribution $p(y \mid x)$.
@@ -295,6 +301,6 @@ print(f"Mean trust weight: {history['mean_weight'][-1]:.4f}")
 
 | # | Reference |
 |:-:|:----------|
-| 1 | S. Fabbro et al. "SAGE-Reg: Self-Agreement for Gaussian Estimation in Semi-Supervised Regression." *NeurIPS*, **2025**. |
+| 1 | SAGE-Reg manuscript and reproduction: [`torchregress-research`](https://github.com/sfabbro/torchregress-research). |
 | 2 | D.-H. Lee. ["Pseudo-Label: The Simple and Efficient Semi-Supervised Learning Method for Deep Neural Networks."](https://www.semanticscholar.org/paper/Pseudo-Label-:-The-Simple-and-Efficient-Method-for-Lee/8d1d828a2524c7fbd52a0a2df335029d29e7943d) *ICML Workshop*, **2013**. |
 | 3 | A. Tarvainen, H. Valpola. ["Mean Teachers are Better Role Models."](https://arxiv.org/abs/1703.01780) *NeurIPS*, **2017**. |

@@ -425,15 +425,43 @@ $$
 
 | Symbol | Strategy |
 |:-------|:---------|
+| [`BalancedMSELoss`](#balancedmseloss) | Inverse bin-frequency weighted MSE |
+| [`BMCLoss`](#bmcloss) | Balanced MSE with Gaussian-smoothed bin weights |
 | `DensityWeightedLoss` | Inverse target-density reweighting |
 | `FocalRLoss` | Focus on hard / rare examples |
 | `LDSLoss` | Label Distribution Smoothing |
+| [`PropensityWeightedLoss`](#propensityweightedloss) | Inverse propensity / density ratio weighting |
 | [`NoisyTargetGaussianNLL`](#noisytargetgaussiannll) | Adds known target-noise `σ_y²` to predicted variance |
 | [`PseudoLabelNLL`](#pseudolabelnll) | Gaussian NLL with pseudo-label + confidence weighting |
 | [`ConsistencyRegLoss`](#consistencyregloss) | Student–teacher MSE consistency |
 | [`PseudoLabelConsistencyLoss`](#pseudolabelconsistencyloss) | Single objective for pseudo-label + teacher consistency |
 
 ### Class Details
+
+#### `BalancedMSELoss`
+
+Inverse bin-frequency weighted MSE for long-tailed scalar targets. Call `fit(train_targets)` once to estimate per-bin weights $w(y)$:
+
+```python
+BalancedMSELoss(bin_edges, count_smoothing=0.0, reduction="mean")
+```
+
+$$
+\mathcal{L}_{\text{BalancedMSE}}(y, \hat{y}) = w(y) (y - \hat{y})^2, \qquad
+w(b) \propto \frac{1}{n_b + \varepsilon}
+$$
+
+where $n_b$ is the training count in bin $b$ containing $y$.
+
+→ Guide: [Imbalanced losses](../losses/imbalanced.md). Example: [Balanced MSE](../examples/balanced_mse.md).
+
+#### `BMCLoss`
+
+Balanced MSE with optional Gaussian smoothing over bin frequencies (`noise_sigma`). Same `fit(train_targets)` contract as `BalancedMSELoss`.
+
+```python
+BMCLoss(bin_edges, noise_sigma=0.0, reduction="mean")
+```
 
 #### `NoisyTargetGaussianNLL`
 

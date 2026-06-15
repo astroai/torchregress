@@ -109,6 +109,25 @@ plot_performance_comparison(
 
 ## Visualization Details
 
-### plot_pit_histogram
+Key diagnostic plots and their evaluation counterparts:
 
-Plots the probability integral transform (PIT) values to visually diagnose calibration quality. Under perfect calibration, the PIT histogram should be uniform.
+| Plot | Primary metric / contract | API |
+|:-----|:--------------------------|:----|
+| `plot_pit_histogram` | PIT uniformity — `probability_integral_transform` | See [Diagnostic plots](#diagnostic-plots-vizdiagnostic) |
+| `plot_gaussian_reliability_diagram` | Quantile ECE via [`expected_calibration_error`](../api/metrics.md#expected_calibration_error) | See [Diagnostic plots](#diagnostic-plots-vizdiagnostic) |
+| `plot_reliability_diagram` | Quantile coverage vs nominal level | See [Diagnostic plots](#diagnostic-plots-vizdiagnostic) |
+| `plot_prediction_intervals` | PICP / MPIW — [`prediction_interval_coverage_probability`](../api/metrics.md#prediction_interval_coverage_probability) | See [Diagnostic plots](#diagnostic-plots-vizdiagnostic) |
+| `plot_risk_coverage_curve` | Selective prediction — [`RiskCoverageCurve`](../api/metrics.md#riskcoveragecurve) | See [Results visualisation](#results-visualisation-vizresults) |
+| `plot_uncertainty_vs_error` | Uncertainty–error rank correlation | See [Diagnostic plots](#diagnostic-plots-vizdiagnostic) |
+
+### `plot_pit_histogram`
+
+Plots the probability integral transform (PIT) values to visually diagnose calibration quality. Under perfect calibration, the PIT histogram should be uniform. Pair with `probability_integral_transform` (distributional metrics table) and the [calibration metrics guide](../metrics/calibration.md).
+
+### `plot_residuals`
+
+Residual-vs-predicted scatter with optional Gaussian uncertainty bands. Accepts `y_pred_std` and `y_true_std` for standardized residuals and `censoring_indicator` for censored targets. See [point metrics](../metrics/point.md) for error summaries.
+
+### `plot_learning_curves`
+
+Train/validation metric trajectories with optional exponential smoothing and per-metric log scales. Useful alongside [performance guide](../guide/performance.md) when comparing training budgets.

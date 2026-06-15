@@ -1,5 +1,7 @@
 # Wasserstein-Bound Hybrid Pretraining Example
 
+→ Guide: [Gaussian Wasserstein loss](../losses/gaussian_wasserstein.md). API: [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss), [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`mahalanobis_covariance_pseudo_labels`](../api/algorithms.md).
+
 This guide explains how to use the hybrid pretraining recipe to stabilize heteroscedastic regression models. It pretrains a mean-variance model using [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss) against neighborhood covariance pseudo-labels before fine-tuning with [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss).
 
 ---

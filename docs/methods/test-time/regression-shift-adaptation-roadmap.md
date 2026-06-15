@@ -1,5 +1,7 @@
 # Regression under shift: roadmap
 
+→ API: [Test-time API](../../api/test_time.md), [Calibration API](../../api/calibration.md). Methods: [OT shift conformal](ot-shift-conformal.md), [Bayesian linear regression](bayesian-linear-regression.md). Guide: [Uncertainty decomposition](../../guide/uncertainty-decomposition.md).
+
 Status: planning note
 Scope: reusable regression methods and test-time utilities
 Primary repo: `torchregress`

@@ -2,6 +2,8 @@
 
 Out-of-Distribution (OOD) detection metrics evaluate how well a model can identify inputs or predictions that differ significantly from the training distribution.
 
+→ See [Decision metrics](decision.md) for selective-prediction evaluation and [OOD API](../api/metrics.md#ood-metrics-metricsood).
+
 ---
 
 ## Mahalanobis Distance

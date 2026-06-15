@@ -1,5 +1,7 @@
 # Ensemble Methods for Uncertainty Quantification
 
+→ Guide: [Ensemble methods](../methods/ensemble/index.md). API: [Ensemble API](../api/ensemble.md), [ensemble metrics](../api/metrics.md#ensemble_statistics).
+
 This guide covers different ensemble methods in torchregress for uncertainty estimation.
 
 | # | Reference |

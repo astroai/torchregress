@@ -122,7 +122,7 @@ $$
 | `crps_from_samples(samples, y)` | Empirical CRPS. |
 | [`energy_score(samples, y)`](#energy_score) | Energy score (multivariate). |
 | [`gaussian_nll(y_pred, log_var, y)`](#gaussian_nll) | Diagonal Gaussian NLL. |
-| `probability_integral_transform(y_pred, y_pred_std, y)` | PIT values. |
+| [`probability_integral_transform(y_pred, y_pred_std, y)`](#probability_integral_transform) | PIT values. |
 | `kolmogorov_smirnov_uniform_statistic(pit)` | KS-uniform statistic on PIT. |
 
 ### Function Details
@@ -167,14 +167,32 @@ $$
 \mathcal{L}_i = \frac{1}{2} \log(2\pi \sigma_i^2) + \frac{(y_i - \mu_i)^2}{2\sigma_i^2}
 $$
 
+#### `probability_integral_transform`
+
+Gaussian PIT values for calibration diagnostics:
+
+```python
+probability_integral_transform(y_pred, y_pred_std, y_true)
+```
+
+$$
+u_i = \Phi\left(\frac{y_i - \mu_i}{\sigma_i}\right)
+$$
+
+where $\Phi$ is the standard normal CDF. Under perfect calibration, $\{u_i\}$ should be uniform on $[0, 1]$.
+
 ---
 
 ## Interval metrics (`metrics.interval`)
 
 | Symbol | Description |
 |:-------|:------------|
-| [`interval_score(lower, upper, y, alpha=…)`](#interval_score) | Negatively-oriented interval score. |
-| [`prediction_interval_coverage_probability(lower, upper, y)`](#prediction_interval_coverage_probability) | PICP. |
+| [`interval_score(lower, upper, y, alpha=…)`](#interval_score) | Functional Winkler interval score. |
+| [`IntervalScore`](#intervalscore) | Stateful Winkler interval score (torchmetrics-style). |
+| [`prediction_interval_coverage_probability(lower, upper, y)`](#prediction_interval_coverage_probability) | Functional PICP; optional MPIW via `return_diagnostics=True`. |
+| [`prediction_interval_coverage(...)`](#prediction_interval_coverage) | Alias for `prediction_interval_coverage_probability`. |
+| [`PredictionIntervalCoverageProbability`](#predictionintervalcoverageprobability) | Stateful PICP accumulator. |
+| [`MeanPredictionIntervalWidth`](#meanpredictionintervalwidth) | Stateful MPIW accumulator. |
 | `interval_metrics_report(lower, upper, y, alpha)` | Aggregate report. |
 
 ### Function Details
@@ -184,7 +202,7 @@ $$
 Winkler interval score at significance level $\alpha$:
 
 ```python
-interval_score(lower, upper, target, alpha=0.1, mask=None, reduction="mean")
+interval_score(lower, upper, target, alpha=0.1, reduction="mean")
 ```
 
 $$
@@ -196,7 +214,7 @@ $$
 Empirical Prediction Interval Coverage Probability (PICP):
 
 ```python
-prediction_interval_coverage_probability(lower, upper, target, mask=None)
+prediction_interval_coverage_probability(lower, upper, target, alpha=0.1, return_diagnostics=False)
 ```
 
 $$
@@ -208,6 +226,46 @@ MPIW is returned alongside PICP when `return_diagnostics=True`:
 $$
 \text{MPIW}(L, U) = \frac{1}{\sum_{i=1}^N m_i} \sum_{i=1}^N m_i (U_i - L_i)
 $$
+
+#### `IntervalScore`
+
+Stateful Winkler interval score at significance level $\alpha$:
+
+```python
+from torchregress.metrics import IntervalScore
+
+metric = IntervalScore(alpha=0.1)
+metric.update(lower_bound, upper_bound, y_true)
+score = metric.compute()
+```
+
+#### `PredictionIntervalCoverageProbability`
+
+Stateful PICP accumulator:
+
+```python
+from torchregress.metrics import PredictionIntervalCoverageProbability
+
+picp = PredictionIntervalCoverageProbability()
+picp.update(lower_bound, upper_bound, y_true)
+coverage = picp.compute()
+```
+
+#### `MeanPredictionIntervalWidth`
+
+Stateful MPIW accumulator:
+
+```python
+from torchregress.metrics import MeanPredictionIntervalWidth
+
+mpiw = MeanPredictionIntervalWidth()
+mpiw.update(lower_bound, upper_bound)
+width = mpiw.compute()
+```
+
+#### `prediction_interval_coverage`
+
+Compatibility alias for [`prediction_interval_coverage_probability`](#prediction_interval_coverage_probability).
 
 ---
 

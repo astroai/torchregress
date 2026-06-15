@@ -505,8 +505,9 @@ class ShiftFactoredPredictiveTransport:
 
     References
     ----------
-    .. [1] "Shift-Factored Predictive Transport for Probabilistic Regression."
-       *NeurIPS 2026 Submission Workspace*. (Reference workspace `papers/neurips_spt_reg/`).
+    .. [1] Shift-factored predictive transport (SPT-Reg) manuscript and benchmarks:
+       ``torchregress-research`` (see ``neurips_spt_reg/``). Library API only; not a
+       battle-tested production default.
     """
 
     def __init__(self, config: ShiftFactoredTransportConfig | None = None) -> None:
