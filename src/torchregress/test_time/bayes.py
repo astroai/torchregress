@@ -61,7 +61,20 @@ class BayesianLinearHead(nn.Module):
         prior_mean: Scalar broadcast or vector of length ``d_eff``.
         prior_precision: Diagonal prior precision :math:`\tau` with
             :math:`\Lambda_0=\tau I`.
-        noise_variance: Homoscedastic :math:`\sigma^2`.
+        noise_variance: Homoscedastic :math:`\sigma^2`.  When ``auto_noise=True``
+            this is overridden in :meth:`fit` with an estimate derived from
+            the training targets.
+        auto_noise: If True, :meth:`fit` estimates ``noise_variance`` from
+            the training targets as ``max((0.2·σ_y)², 1e-4)``, providing
+            a data-driven prior that adapts to the target scale.
+        rbf_centers: If set, apply a radial basis function (RBF) feature
+            expansion using ``rbf_centers`` random training points as centres.
+            This gives the linear model nonlinear capacity (kernel trick).
+            Centres and bandwidth (see ``rbf_gamma``) are selected in
+            :meth:`fit` and reused during :meth:`predict` / :meth:`partial_fit`.
+        rbf_gamma: RBF kernel bandwidth :math:`\gamma`.  If ``None`` (default),
+            :meth:`fit` estimates ``1 / (2·median(pairwise-distances)²)``
+            from a random subsample of training points.
         jitter: Diagonal jitter on :math:`\Lambda` before Cholesky solves.
     """
 
@@ -81,6 +94,9 @@ class BayesianLinearHead(nn.Module):
         prior_mean: Union[float, torch.Tensor] = 0.0,
         prior_precision: float = 1.0,
         noise_variance: float = 1.0,
+        auto_noise: bool = False,
+        rbf_centers: Optional[int] = None,
+        rbf_gamma: Optional[float] = None,
         jitter: float = 1e-6,
     ) -> None:
         super().__init__()
@@ -88,14 +104,24 @@ class BayesianLinearHead(nn.Module):
             raise ValueError("in_features and out_features must be positive")
         if noise_variance <= 0 or prior_precision <= 0:
             raise ValueError("noise_variance and prior_precision must be positive")
+        if not isinstance(auto_noise, bool):
+            raise TypeError("auto_noise must be a boolean")
+        if rbf_centers is not None and rbf_centers <= 0:
+            raise ValueError("rbf_centers must be positive")
         self.in_features = int(in_features)
         self.out_features = int(out_features)
         self.fit_intercept = bool(fit_intercept)
+        self.auto_noise = bool(auto_noise)
         self.noise_variance = float(noise_variance)
         self.jitter = float(jitter)
         self.prior_precision = float(prior_precision)
 
-        d_eff = in_features + int(fit_intercept)
+        # RBF expansion
+        self.rbf_centers = rbf_centers  # None → no expansion; int → num centres
+        self._rbf_gamma_user = rbf_gamma  # None → auto (median heuristic)
+
+        # Effective feature dim: RBF centres (if set) + optional intercept
+        d_eff = (rbf_centers if rbf_centers is not None else in_features) + int(fit_intercept)
         self._d_eff = d_eff
         lam0 = torch.eye(d_eff, dtype=torch.float32) * prior_precision
         if isinstance(prior_mean, torch.Tensor):
@@ -115,6 +141,16 @@ class BayesianLinearHead(nn.Module):
         self.register_buffer("_n_obs", torch.tensor(0, dtype=torch.long))
         self._h.copy_(h0.unsqueeze(0).expand(out_features, d_eff))
 
+        # RBF buffers — populated lazily in fit() or first partial_fit()
+        self.register_buffer(
+            "_rbf_centers",
+            torch.empty(0, in_features, dtype=torch.float32),
+        )
+        self.register_buffer(
+            "_rbf_gamma",
+            torch.tensor(1.0, dtype=torch.float32),
+        )
+
     @property
     def is_fitted(self) -> bool:
         return bool(self._fitted.item())
@@ -124,6 +160,50 @@ class BayesianLinearHead(nn.Module):
         self._h.copy_(self._h0.unsqueeze(0).expand(self.out_features, self._d_eff))
         self._fitted.zero_()
         self._n_obs.zero_()
+
+    # ------------------------------------------------------------------
+    # RBF feature expansion
+    # ------------------------------------------------------------------
+
+    def _apply_rbf(self, phi0: torch.Tensor) -> torch.Tensor:
+        """Transform raw features through the RBF layer (no-op if not enabled)."""
+        if self.rbf_centers is None:
+            return phi0
+        if phi0.shape[1] != self.in_features:
+            raise ValueError(f"Expected {self.in_features} raw features, got {phi0.shape[1]}")
+        # exp(-γ · ‖x − c‖²)
+        dists_sq = torch.cdist(phi0, self._rbf_centers).pow(2)
+        return torch.exp(-self._rbf_gamma * dists_sq)
+
+    def _init_rbf(self, phi0: torch.Tensor) -> None:
+        """Select RBF centres and bandwidth from training data.
+
+        Idempotent — only runs if ``rbf_centers`` is set and centres have
+        not been populated yet (supports lazy initialisation from
+        ``partial_fit``).
+        """
+        if self.rbf_centers is None or self._rbf_centers.numel() > 0:
+            return
+        n_train = phi0.shape[0]
+        n_centers = min(self.rbf_centers, n_train)
+        idx = torch.randperm(n_train, device=phi0.device)[:n_centers]
+        self._rbf_centers = phi0[idx].clone()
+
+        # Gamma: user-supplied or median-heuristic estimate
+        if self._rbf_gamma_user is not None:
+            gamma = float(self._rbf_gamma_user)
+        else:
+            # Median pairwise distance on a subsample (avoid O(N²))
+            n_sub = min(n_train, 1000)
+            idx_sub = torch.randperm(n_train, device=phi0.device)[:n_sub]
+            sub = phi0[idx_sub]
+            pdists = torch.pdist(sub)
+            if pdists.numel() == 0:
+                gamma = 1.0
+            else:
+                median_sq = pdists.median().item() ** 2
+                gamma = 1.0 / max(2.0 * median_sq, 1e-12)
+        self._rbf_gamma = torch.tensor(gamma, device=phi0.device, dtype=torch.float32)
 
     @torch.no_grad()
     def _accumulate(
@@ -164,13 +244,23 @@ class BayesianLinearHead(nn.Module):
             raise ValueError("features and y must have the same number of rows")
         if y0.shape[1] != self.out_features:
             raise ValueError(f"y must have {self.out_features} columns, got {y0.shape[1]}")
-        phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
-        if phi.shape[1] != self._d_eff:
-            raise ValueError(f"Augmented features must have dim {self._d_eff}")
+        if phi0.shape[1] != self.in_features:
+            raise ValueError(f"Expected {self.in_features} features, got {phi0.shape[1]}")
         sw = (
             None if sample_weight is None else _as_tensor(sample_weight, device=device, dtype=dtype)
         )
         self.reset_posterior()
+
+        # --- auto_noise: estimate noise_variance from training targets ---
+        if self.auto_noise:
+            noise_std = y0.std().item() * 0.2
+            self.noise_variance = max(noise_std**2, 1e-4)
+
+        # --- RBF feature expansion (select centres / gamma, then transform) ---
+        self._init_rbf(phi0)
+        phi0 = self._apply_rbf(phi0)
+        phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
+
         self._accumulate(phi, y0, sw)
         self._fitted.fill_(1)
         return self
@@ -204,6 +294,7 @@ class BayesianLinearHead(nn.Module):
         device = self._Lambda.device
         dtype = self._Lambda.dtype
         phi0 = _as_tensor(features, device=device, dtype=dtype)
+        phi0 = self._apply_rbf(phi0)
         phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
         lam = self._Lambda + self.jitter * torch.eye(self._d_eff, device=device, dtype=dtype)
         chol = torch.linalg.cholesky(lam)
@@ -297,6 +388,9 @@ class RecursiveBayesianHead(BayesianLinearHead):
         prior_mean: Union[float, torch.Tensor] = 0.0,
         prior_precision: float = 1.0,
         noise_variance: float = 1.0,
+        auto_noise: bool = False,
+        rbf_centers: Optional[int] = None,
+        rbf_gamma: Optional[float] = None,
         forgetting_factor: float = 1.0,
         jitter: float = 1e-6,
     ) -> None:
@@ -309,6 +403,9 @@ class RecursiveBayesianHead(BayesianLinearHead):
             prior_mean=prior_mean,
             prior_precision=prior_precision,
             noise_variance=noise_variance,
+            auto_noise=auto_noise,
+            rbf_centers=rbf_centers,
+            rbf_gamma=rbf_gamma,
             jitter=jitter,
         )
         self.forgetting_factor = float(forgetting_factor)
@@ -330,12 +427,15 @@ class RecursiveBayesianHead(BayesianLinearHead):
             raise ValueError("features and y must have the same number of rows")
         if y0.shape[1] != self.out_features:
             raise ValueError(f"y must have {self.out_features} columns, got {y0.shape[1]}")
-        phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
         sw = (
             None if sample_weight is None else _as_tensor(sample_weight, device=device, dtype=dtype)
         )
         if self.forgetting_factor < 1.0:
             self._Lambda.mul_(self.forgetting_factor)
+        # Lazy RBF init + apply (idempotent — only runs on first call)
+        self._init_rbf(phi0)
+        phi0 = self._apply_rbf(phi0)
+        phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
         self._accumulate(phi, y0, sw)
         self._fitted.fill_(1)
         return self
