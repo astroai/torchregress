@@ -63,7 +63,7 @@ def set_style(
 
     # Apply custom rc parameters if provided
     if rc is not None:
-        mpl.rcParams.update(rc)
+        mpl.rcParams.update(cast(Any, rc))
 
 
 def create_grid_figure(

@@ -84,6 +84,8 @@ class BayesianLinearHead(nn.Module):
     _h: torch.Tensor
     _fitted: torch.Tensor
     _n_obs: torch.Tensor
+    _rbf_centers: torch.Tensor
+    _rbf_gamma: torch.Tensor
 
     def __init__(
         self,
@@ -187,7 +189,9 @@ class BayesianLinearHead(nn.Module):
         n_train = phi0.shape[0]
         n_centers = min(self.rbf_centers, n_train)
         idx = torch.randperm(n_train, device=phi0.device)[:n_centers]
-        self._rbf_centers = phi0[idx].clone()
+        centers = phi0[idx].clone()
+        self._rbf_centers.resize_(centers.shape)
+        self._rbf_centers.copy_(centers)
 
         # Gamma: user-supplied or median-heuristic estimate
         if self._rbf_gamma_user is not None:
@@ -203,7 +207,7 @@ class BayesianLinearHead(nn.Module):
             else:
                 median_sq = pdists.median().item() ** 2
                 gamma = 1.0 / max(2.0 * median_sq, 1e-12)
-        self._rbf_gamma = torch.tensor(gamma, device=phi0.device, dtype=torch.float32)
+        self._rbf_gamma.fill_(gamma)
 
     @torch.no_grad()
     def _accumulate(
