@@ -9,9 +9,13 @@ estimation and robust regression techniques.
 from __future__ import annotations
 
 from importlib import import_module
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("torchregress")
+except PackageNotFoundError:
+    __version__ = "0.0.0+dev"
 
 # Eager import only the small, high-value top-level symbols.
 from .algorithms.irls import iteratively_reweighted_least_squares

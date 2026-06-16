@@ -121,12 +121,17 @@ All documentation must stay **synchronized with the codebase**. When modifying c
 - Target audience: both ML practitioners and statisticians. Be rigorous but accessible.
 
 ### Build & Publish
-```bash
-# Build distribution
-uv build
 
-# Publish to PyPI
-uv publish
+PyPI releases are automated from annotated git tags via GitHub Actions. See
+[`docs/RELEASING.md`](docs/RELEASING.md) for the full maintainer runbook.
+
+```bash
+# Prepare a release locally (bump, CI checks, build, commit, tag)
+./scripts/release/prepare_release.sh patch
+
+# Push to trigger publish
+git push origin main
+git push origin vX.Y.Z
 ```
 
 ## Architecture

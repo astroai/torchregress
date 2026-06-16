@@ -95,6 +95,11 @@ human-readable table with:
 uv run python tools/audit_docs_quality.py --markdown-out docs/reports/docs_quality_audit.md
 ```
 
+## Releasing
+
+PyPI releases are tag-driven and published from GitHub Actions using PyPI Trusted Publishing.
+See [`docs/RELEASING.md`](docs/RELEASING.md) for the maintainer checklist and one-time setup.
+
 ## EIV Loss Implementation Notes
 
 - Always use `torch.double` when performing `gradcheck` on EIV losses.
