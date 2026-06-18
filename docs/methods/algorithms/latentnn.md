@@ -163,7 +163,7 @@ def make_model():
     return nn.Sequential(
         nn.Linear(3, 32), nn.ReLU(),
         nn.Linear(32, 16), nn.ReLU(),
-        nn.Linear(32, 1),
+        nn.Linear(16, 1),
     )
 
 latent = LatentNN(

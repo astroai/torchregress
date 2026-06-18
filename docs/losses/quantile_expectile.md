@@ -104,7 +104,7 @@ loss_fn = MultiQuantileLoss(
 
 Because independent neural network heads predict each quantile separately, they can predict unphysical crossings (e.g., the 5% quantile predicting a larger value than the 95% quantile). `QuantileCrossoverLoss` solves this by adding a hinge-loss penalty to enforce monotonicity:
 
-$$\mathcal{L}_{\text{crossover}} = \mathcal{L}_{\text{base}} + \lambda \sum_{i < j} \max\left(0, \; \hat{q}_{\tau_i} - \hat{q}_{\tau_j}\right)^2 \quad \text{for } \tau_i < \tau_j$$
+$$\mathcal{L}_{\text{crossover}} = \mathcal{L}_{\text{base}} + \lambda \sum_{i < j} \max\left(0, \; \hat{q}_{\tau_i} - \hat{q}_{\tau_j}\right) \quad \text{for } \tau_i < \tau_j$$
 
 ```python
 from torchregress.losses import QuantileCrossoverLoss

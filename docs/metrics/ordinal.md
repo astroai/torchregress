@@ -61,3 +61,12 @@ qwk = tr.metrics.quadratic_weighted_kappa(logits, labels, encoding="class_logits
 ```
 
 See the [quadratic_weighted_kappa API](../api/metrics.md#quadratic_weighted_kappa) for details.
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | J. Cohen. ["Weighted Kappa: Nominal Scale Agreement Provision for Scaled Disagreement or Partial Credit."](https://doi.org/10.1037/h0026256) *Psychological Bulletin*, 70(4):213–220, **1968**. |
+| 2 | J.S. Cardoso, R. Sousa. ["Measuring the Performance of Ordinal Classification."](https://doi.org/10.1142/S0218001411008981) *IJPRAI*, 25(8):1173–1195, **2011**. |

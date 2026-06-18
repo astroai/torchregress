@@ -32,7 +32,7 @@ See [Robust Losses](robust.md) for details and a decision guide.
 
 ### 2. CVaR Loss (Tail-Focused)
 
-Average only the top-$\alpha$ fraction of per-sample losses — effectively ignoring the easiest (potentially noisy) samples:
+Average only the worst-$\alpha$ fraction of per-sample losses (those with the **highest** loss values) — focusing training on the hardest / most outlying residuals:
 
 ```python
 from torchregress.losses import CVaRLoss
@@ -106,5 +106,5 @@ graph LR
 | # | Reference |
 |:-:|:----------|
 | 1 | P.J. Huber. ["Robust Estimation of a Location Parameter."](https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-35/issue-1/Robust-Estimation-of-a-Location-Parameter/10.1214/aoms/1177703732.full) *Ann. Math. Stat.*, **1964**. |
-| 2 | D. Arpit et al. ["A Closer Look at Memorization in Deep Networks."](https://arxiv.org/abs/1611.03530) *ICML*, **2017**. |
+| 2 | D. Arpit et al. ["A Closer Look at Memorization in Deep Networks."](https://arxiv.org/abs/1706.05394) *ICML*, **2017**. |
 | 3 | B. Han et al. ["Co-teaching: Robust Training of Deep Neural Networks with Extremely Noisy Labels."](https://arxiv.org/abs/1804.06872) *NeurIPS*, **2018**. |

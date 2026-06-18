@@ -27,7 +27,7 @@ Calibration transforms adjust the outputs of a pre-trained model on a held-out c
 3.  **Probability Integral Transform (PIT) Calibration**:
     Under perfect calibration, the cumulative probabilities (PIT values) of the true targets $y$ under the predictive distribution $F(y \mid x)$ are uniformly distributed:
     $$U_i = F(y_i \mid x_i) \sim \text{Uniform}(0, 1)$$
-    The `PITCalibrator` fits a non-parametric mapping $g: \[0, 1\] \to \[0, 1\]$ using isotonic regression to map empirical PIT values to a uniform distribution:
+    The `PITCalibrator` fits a non-parametric mapping $g: [0, 1] \to [0, 1]$ using isotonic regression to map empirical PIT values to a uniform distribution:
     $$F_{\text{cal}}(y \mid x) = g(F(y \mid x))$$
 
 ### Output Constraints

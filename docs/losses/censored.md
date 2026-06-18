@@ -84,7 +84,7 @@ Quantile regression adapted for censored data — provides non-parametric interv
 ```python
 from torchregress.losses import CensoredQuantileLoss
 
-loss_fn = CensoredQuantileLoss(quantiles=[0.1, 0.5, 0.9])
+loss_fn = CensoredQuantileLoss(quantile=0.5)
 loss = loss_fn(y_pred, target, censoring=censoring)
 ```
 
@@ -96,8 +96,10 @@ Log-normal Accelerated Failure Time model for survival analysis. See [AFTLoss AP
 from torchregress.losses import AFTLoss
 
 loss_fn = AFTLoss()
-# y_pred: (mean, log_var) for log-normal AFT
-loss = loss_fn((mean, log_var), survival_time, censoring=event_indicator)
+# y_pred: (loc, log_scale) for log-normal AFT (log_scale = log σ, not log variance)
+# censoring: 0 = observed, +1 = right-censored, -1 = left-censored
+# (not sklearn's event_indicator where 1 = event)
+loss = loss_fn((loc, log_scale), survival_time, censoring=censoring)
 ```
 
 ---

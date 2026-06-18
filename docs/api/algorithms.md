@@ -161,7 +161,7 @@ X_clean = rc.fit_transform(X_noisy)
 # Train an error-in-variables model with latent inputs
 lnn = LatentNN(model_factory=lambda: MyModel(),
                sigma_x=0.05, sigma_y=0.1, epochs=500)
-lnn.fit(X_noisy, y)
+lnn.fit(X_noisy, y.reshape(-1, 1))
 y_pred = lnn.predict(X_test)
 ```
 

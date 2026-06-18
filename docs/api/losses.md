@@ -336,8 +336,10 @@ $$
 Conditional negative log-likelihood under a Normalizing Flow:
 
 ```python
-NormalizingFlowLoss(reduction="mean")
+NormalizingFlowLoss(flow=my_flow, reduction="mean")
 ```
+
+Forward: `loss_fn(y_pred=context_features, target=y)` where `y_pred` is the flow context.
 
 $$
 \mathcal{L}_i = -\log p_Z\left(f_\theta(y_i; x_i)\right) - \log \left| \det J_{f_\theta}(y_i; x_i) \right|
@@ -491,7 +493,7 @@ $$
 
 ## Error-in-variables (EIV)
 
-Call pattern is `loss(x_obs, y_obs, mask=...)` — the model is constructed **inside** the loss so that gradients flow through the model’s parameters.
+Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)` — the model is passed at construction so gradients flow through its parameters.
 
 | Symbol | Model | When to use |
 |:-------|:------|:------------|
@@ -507,7 +509,13 @@ Call pattern is `loss(x_obs, y_obs, mask=...)` — the model is constructed **in
 Structural Error-in-Variables loss using a known input/output noise ratio $\lambda = \sigma_{x}^2 / \sigma_{y}^2$:
 
 ```python
-StructuralEIVLoss(lambda_ratio=1.0, reduction="mean")
+StructuralEIVLoss(
+    model=my_model,
+    sigma_x=0.5,
+    sigma_y=0.3,
+    sigma_xy=torch.zeros(2, 2),
+    reduction="mean",
+)
 ```
 
 $$
@@ -519,7 +527,7 @@ $$
 Functional Error-in-Variables loss using known sample-specific input uncertainties $\sigma_{x, i}^2$:
 
 ```python
-FunctionalEIVLoss(reduction="mean")
+FunctionalEIVLoss(model=my_model, sigma_x=0.5, sigma_y=0.3, reduction="mean")
 ```
 
 $$
@@ -550,7 +558,7 @@ Conformal losses implement both the **training** and **calibration** phases of c
 Loss wrapper that trains a base model and applies conformal calibration on target outputs:
 
 ```python
-ConformalLoss(base_loss, method="cqr", alpha=0.1)
+ConformalLoss(method="cqr", alpha=0.1)
 ```
 
 #### `SplitConformal`

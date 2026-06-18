@@ -30,8 +30,8 @@ from torchregress.ensemble import DeepEnsemble
 
 ensemble = DeepEnsemble(base_model=MyModel, ensemble_size=5)
 
-# Train each member with different random seeds
-for member in ensemble.members:
+# Train each member with different random seeds (or use ensemble.fit(...))
+for member in ensemble.models:
     train_model(member, train_loader)
 
 # Predict
@@ -271,7 +271,7 @@ result = ensemble.predict(x_test)
     ```python
     from torchregress.ensemble import SWAG
 
-    swag = SWAG(base_model, rank=20)
+    swag = SWAG(base_model, max_num_models=20)
 
     # During training — periodically collect snapshots:
     for epoch in range(epochs):
@@ -279,10 +279,14 @@ result = ensemble.predict(x_test)
         if epoch >= swa_start:
             swag.collect_model(model)
 
-    # At inference — sample from weight posterior:
-    predictions = swag.sample_predictions(x_test, n_samples=30)
-    mean = predictions.mean(0)
-    var  = predictions.var(0)
+    # At inference — sample weight configurations and forward:
+    predictions = []
+    for _ in range(30):
+        swag.sample(scale=0.5)
+        with torch.no_grad():
+            predictions.append(swag(x_test))
+    mean = torch.stack(predictions).mean(0)
+    var  = torch.stack(predictions).var(0)
     ```
 
 === "MultiSWAG"
@@ -291,13 +295,13 @@ result = ensemble.predict(x_test)
     from torchregress.ensemble import MultiSWAG
 
     # Multiple independent SWAG models for better diversity
-    multi_swag = MultiSWAG(base_model, n_models=3, rank=20)
+    multi_swag = MultiSWAG(base_model, n_models=3, max_num_models=20)
     ```
 
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
-| `rank` | `int` | 20 | Rank of low-rank weight covariance approximation |
-| `n_samples` | `int` | 30 | MC samples at inference |
+| `max_num_models` | `int` | 20 | Max snapshots for low-rank covariance |
+| `n_samples` | `int` | 30 | MC forward passes at inference (user loop) |
 
 !!! warning "Sampling & Mode Limits"
     SWAG requires drawing $S$ weight samples and running $S$ forward passes during inference, which increases test latency. It also only approximates the local weight basin mode. For details, see the [Ensemble Limitations Overview](index.md#bayesian-sampling-variational-limitations).
@@ -317,9 +321,8 @@ result = ensemble.predict(x_test)
     ```python
     from torchregress.ensemble import MCDropoutModel
 
-    mc_model = MCDropoutModel(base_model, n_samples=20)
-    result = mc_model.predict(x_test)
-    # result: dict with "mean", "variance", "samples"
+    mc_model = MCDropoutModel(input_dim=10, hidden_dims=[64, 32], output_dim=1, n_samples=20)
+    mean, std = mc_model.predict_with_uncertainty(x_test)
     ```
 
 === "MCDropoutWrapper"
@@ -328,7 +331,7 @@ result = ensemble.predict(x_test)
     from torchregress.ensemble import MCDropoutWrapper
 
     mc = MCDropoutWrapper(model, n_samples=20)
-    mean, var = mc(x_test)
+    mean, std = mc.predict_with_uncertainty(x_test)
     ```
 
 === "enable_dropout utility"
@@ -364,9 +367,10 @@ result = ensemble.predict(x_test)
     ```python
     from torchregress.ensemble import BayesianNeuralNetwork
 
-    bnn = BayesianNeuralNetwork(model, n_samples=10)
+    bnn = BayesianNeuralNetwork(input_dim=10, hidden_dims=[64, 32], output_dim=1, n_samples=10)
     # Training loss includes KL divergence term:
-    # L_total = E_q[NLL] + β · KL(q || p)
+    # L_total = E_q[NLL] + KL(q || p) / n_train
+    mean, std = bnn.predict_with_uncertainty(x_test)
     ```
 
 === "HeteroscedasticBNN"
@@ -374,9 +378,8 @@ result = ensemble.predict(x_test)
     ```python
     from torchregress.ensemble import HeteroscedasticBNN
 
-    hbnn = HeteroscedasticBNN(model, n_samples=10)
-    result = hbnn.predict(x_test)
-    # result: dict with mean, epistemic_variance, aleatoric_variance
+    hbnn = HeteroscedasticBNN(input_dim=10, hidden_dims=[64, 32], output_dim=1, n_samples=10)
+    mean, aleatoric, epistemic = hbnn.predict_with_decomposition(x_test)
     ```
 
 !!! warning "Mean-Field & Optimization Sensitivity"
@@ -388,14 +391,14 @@ result = ensemble.predict(x_test)
 
 ### BayesianModelAveraging
 
-Weight members by posterior probability from held-out log-likelihood:
+Learnable softmax weights over member models:
 
 ```python
 from torchregress.ensemble import BayesianModelAveraging
 
-bma = BayesianModelAveraging()
-weights = bma.fit(member_predictions_val, y_val)
-combined = bma.predict(member_predictions_test)
+bma = BayesianModelAveraging(list(ensemble.models))
+combined = bma(x_test)
+mean, variance = bma.predict_with_uncertainty(x_test)
 ```
 
 ### StackingEnsemble
@@ -403,11 +406,11 @@ combined = bma.predict(member_predictions_test)
 Learned meta-model combining member outputs:
 
 ```python
+import torch.nn as nn
 from torchregress.ensemble import StackingEnsemble
 
-stacker = StackingEnsemble(meta_model=nn.Linear(5, 1))
-stacker.fit(member_predictions_val, y_val)
-combined = stacker.predict(member_predictions_test)
+stacker = StackingEnsemble(list(ensemble.models), meta_learner=nn.Linear(5, 1))
+combined = stacker(x_test)
 ```
 
 ### DynamicEnsembleWeighting
@@ -417,8 +420,8 @@ combined = stacker.predict(member_predictions_test)
 ```python
 from torchregress.ensemble import DynamicEnsembleWeighting
 
-dew = DynamicEnsembleWeighting(input_dim=10, n_members=5)
-combined = dew(x_test, member_predictions_test)
+dew = DynamicEnsembleWeighting(list(ensemble.models), window_size=100, learning_rate=0.1)
+combined = dew(x_test)
 ```
 
 ---

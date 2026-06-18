@@ -17,12 +17,12 @@ and reports uncertain-ground-truth objectives:
 - `ConsistencyRegLoss`
 - `PseudoLabelNLL`
 
-Reported metrics:
+Reported metrics (summary JSON column names — class names in parentheses):
 
 - `Coverage90`
 - `Width90`
-- `NoisyTargetNLL`
-- `ConsistencyLoss`
+- `NoisyTargetNLL` (`NoisyTargetGaussianNLL`)
+- `ConsistencyLoss` (`ConsistencyRegLoss`)
 - `PseudoLabelNLL`
 - `train_s`, `eval_s`
 

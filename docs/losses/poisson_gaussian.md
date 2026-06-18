@@ -56,8 +56,11 @@ The loss combines Poisson and Gaussian negative log-likelihoods using specified 
 
 $$\mathcal{L}_{\text{mixture}} = w_P \cdot \mathcal{L}_{\text{Poisson}}(y, \lambda) + w_G \cdot \mathcal{L}_{\text{Gaussian}}(y, \lambda, \sigma^2)$$
 
+!!! warning "Approximation, not the exact mixture NLL"
+    This is a **weighted average of individual NLLs**, not the exact negative log-likelihood of a mixture: $-\log(w_P\,p_{\text{Poisson}}(y;\lambda) + w_G\,p_{\text{Gaussian}}(y;\lambda,\sigma^2))$. The exact mixture NLL requires a numerically costly log-sum-exp over discrete and continuous densities. This surrogate is standard in practice (e.g., Snyder et al. 1993) and trains stably, but should not be interpreted as a true mixture likelihood.
+
 Where:
-- $w_P$ and $w_G$ are the weights for Poisson and Gaussian components
+- $w_P$ and $w_G$ are the weights for Poisson and Gaussian components ($w_P + w_G = 1$)
 - $\lambda$ is the predicted mean/rate parameter
 - $\sigma^2$ is the Gaussian variance (fixed or learned)
 
@@ -261,3 +264,13 @@ xray_loss = tr.losses.PoissonGaussianMixtureLoss(
     mixture_weights=0.8  # Emphasize Poisson component
 )
 ```
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | D.L. Snyder, M.I. Miller. [*Random Point Processes in Time and Space.*](https://doi.org/10.1007/978-1-4612-3166-0) Springer, **1991**. |
+| 2 | A. Foi, M. Trimeche, V. Katkovnik, K. Egiazarian. ["Practical Poissonian-Gaussian Noise Modeling and Fitting for Single-Image Raw-Data."](https://doi.org/10.1109/TIP.2008.2001399) *IEEE Trans. Image Process.*, 17(10):1737–1754, **2008**. |
+| 3 | M. Mäkitalo, A. Foi. ["Optimal Inversion of the Anscombe Transformation in Low-Count Poisson Image Denoising."](https://doi.org/10.1109/TIP.2010.2056693) *IEEE Trans. Image Process.*, 20(1):99–109, **2011**. |

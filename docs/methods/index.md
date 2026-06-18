@@ -34,7 +34,7 @@ Distribution-free prediction intervals with **finite-sample coverage guarantees*
 
 ### [Ensembles for Uncertainty](ensemble/index.md)
 
-Deep Ensembles, BatchEnsemble, SWAG, MC-Dropout, BNN — with aleatoric/epistemic decomposition.
+Deep Ensembles, BatchEnsemble, SWAG, MC-Dropout, BNN — epistemic uncertainty via member disagreement; aleatoric decomposition when members predict variance (e.g. `HeteroscedasticEnsembleModel`).
 
 ### [Algorithms](algorithms/irls.md)
 
@@ -42,7 +42,7 @@ Algorithms for robust fitting and structured uncertainty: Robust Fitting for rob
 
 ### [Test-Time & Shift](test-time/bayesian-linear-regression.md)
 
-Bayesian linear heads for test-time posterior updates, OT-based shift-aware conformal prediction.
+Bayesian linear heads for test-time posterior updates; [OT-based shift-aware conformal](test-time/ot-shift-conformal.md) for covariate shift.
 
 ### [Post-Hoc Calibration](calibration.md)
 

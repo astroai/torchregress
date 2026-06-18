@@ -11,7 +11,7 @@ Out-of-Distribution (OOD) detection metrics evaluate how well a model can identi
 Measures how many standard deviations a feature vector $x$ is from the mean of the training representation distribution:
 
 $$
-d_M(x) = \sqrt{(x - \mu)^T \Sigma^{-1} (x - \mu)}
+d_M(x) = \sqrt{(x - \mu)^\top \Sigma^{-1} (x - \mu)}
 $$
 
 where $\mu$ is the mean vector of training representations and $\Sigma$ is the training covariance matrix.
@@ -56,7 +56,7 @@ See also: [typicality_score](../api/metrics.md#typicality_score).
 
 ## Entropy Score
 
-Calculates the Shannon/differential entropy of the predictive distribution $p(y \mid x)$ as a direct measure of epistemic or total uncertainty:
+Calculates the Shannon/differential entropy of the predictive distribution $p(y \mid x)$ as a measure of **total** predictive uncertainty:
 
 $$
 H(p) = -\int p(y \mid x) \log p(y \mid x) \, dy
@@ -122,3 +122,13 @@ report = ood_metrics_report(
 )
 ```
 See also: [ood_metrics_report](../api/metrics.md#ood_metrics_report).
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | K. Lee, K. Lee, H. Lee, J. Shin. ["A Simple Unified Framework for Detecting Out-of-Distribution Samples and Adversarial Attacks."](https://arxiv.org/abs/1807.03888) *NeurIPS*, **2018**. |
+| 2 | E. Nalisnick, A. Matsukawa, Y.W. Teh, D. Görür, B. Lakshminarayanan. ["Do Deep Generative Models Know What They Don't Know?"](https://arxiv.org/abs/1810.09136) *ICLR*, **2019**. |
+| 3 | E. Parzen. ["On Estimation of a Probability Density Function and Mode."](https://doi.org/10.1214/aoms/1177704472) *Ann. Math. Stat.*, 33(3):1065–1076, **1962**. |

@@ -100,6 +100,46 @@ uv run python tools/audit_docs_quality.py --markdown-out docs/reports/docs_quali
 PyPI releases are tag-driven and published from GitHub Actions using PyPI Trusted Publishing.
 See [`docs/RELEASING.md`](docs/RELEASING.md) for the maintainer checklist and one-time setup.
 
+## SLS Loss Architecture Guidelines
+
+The `SLSLoss` (Super-Level-Set Regression) has three key architecture parameters
+that control the expressiveness of its internal volume-preserving flow and frontier
+networks.  The library defaults are the **recommended minimums**:
+
+| Parameter | Default | Minimum | Effect of reducing below minimum |
+|---|---|---|---|
+| `hidden_dim` | 64 | 64 | Under-expresses coupling layers, frontier context net, and quantile net. JointCoverage drops ~4.5% (0.92 → 0.88); intervals widen. |
+| `n_transforms` | 4 | 4 | Fewer coupling transforms → less expressive flow → broader densities → wider intervals. Compounds with undersized `hidden_dim`. |
+| `warmup_steps` | 500 | 50* | Frontier may not converge before quantile training begins, especially on large/ complex datasets. |
+
+\* On small/medium tabular datasets (few thousand samples), 50 warmup steps often
+suffices — sweep data shows no gain above 50 on `synthetic_multivariate`.  500 is
+the safe library default that ensures convergence across all dataset sizes.
+
+These values were empirically validated via architecture sweeps in the
+`torchregress-harness` multivariate intervals benchmarks.
+
+## Normalizing Flow Architecture Guidelines
+
+The `NormalizingFlowLoss` and `create_flow_model` use zuko normalizing flows
+under the hood.  The library defaults (inherited from zuko) are the
+**recommended minimums** for tabular regression:
+
+| Parameter | Default | Minimum | Effect of reducing below minimum |
+|---|---|---|---|
+| `hidden_features` | `[64, 64]` | `[64, 64]` | Under-expresses coupling networks → overconfident (too-peaked) densities → under-coverage. On diabetes at 60ep: `[32,32]` coverage=0.59 vs `[64,64]` coverage=0.66 (+12%). |
+| `n_transforms` | 5 | 3* | More transforms increase expressivity but overfit small tabular data. Sweep: T5→coverage 0.62, T3→coverage 0.75 on diabetes. 3 is sufficient for tables <10k samples; 5 is the safe default for general use. |
+| `flow_type` | `nsf` | `nsf` | Neural Spline Flow provides best expressivity-per-parameter. MAF and RealNVP are alternatives but less expressive per transform. |
+
+\* On small/medium tabular datasets (< 10k samples), 3 transforms outperforms 5 —
+more transforms cause the flow to overfit, producing overconfident densities.
+5 is the safe library default for larger datasets and higher-dimensional targets.
+
+The harness uses `n_transforms=3, hidden_features=[64, 64]` for both scalar
+(distributional_bins) and multivariate (multivariate_intervals) benchmarks.
+These values were empirically validated via architecture sweeps in
+`torchregress-harness`.
+
 ## EIV Loss Implementation Notes
 
 - Always use `torch.double` when performing `gradcheck` on EIV losses.

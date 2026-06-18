@@ -40,15 +40,15 @@ where $t(x)$ is a learned threshold. The SLS loss simultaneously optimizes the f
 
 The core frontier parameterizes a **Mahalanobis distance** in a warped space:
 
-$$G(y \mid x) = \| L(x) \cdot (f(y, x) - \mu(x)) \|_2^2$$
+$$G(y \mid x) = \| L(x) \cdot (\varphi(y; x) - \mu(x)) \|_2^2$$
 
 where:
-- $f(y, x)$ is a **volume-preserving flow** that maps $y$ to a warped representation
+- $\varphi(y; x)$ is a **volume-preserving flow** that maps $y$ to a warped representation (distinct from the regression function $f(x)$)
 - $\mu(x)$ is a learned center
 - $L(x)$ is a learned Cholesky factor (full or low-rank) defining the Mahalanobis metric
 - $\det L(x)$ contributes a log-volume penalty term
 
-The volume-preserving flow ensures $\det \frac{\partial f}{\partial y} = 1$, so the log-volume term depends only on $L(x)$.
+The volume-preserving flow ensures $\det \frac{\partial \varphi}{\partial y} = 1$, so the log-volume penalty depends entirely on $\log|\det L(x)|$ (computed as $\sum_i \log L_{ii}$, i.e. $\mathcal{O}(d)$ once $L$ is in hand).
 
 ### Union Frontier (Multimodal)
 
@@ -81,7 +81,7 @@ Mixture-of-experts frontier: $K$ independent `MahalanobisFrontier` components wh
 
 ### `QuantileNetwork`
 
-A small MLP that predicts three target levels $[q_{\text{low}}, q_{\text{mid}}, q_{\text{high}}]$ representing the coverage window around $\tau$. The levels are constrained to be ordered via sorting.
+A small MLP that predicts three learned **score thresholds** $[t_{\text{low}}, t_{\text{mid}}, t_{\text{high}}]$ on the Mahalanobis frontier $G$ representing the coverage window around $\tau$. These are not quantile probability levels — they are thresholds in the score space of $G$. The thresholds are constrained to be ordered via sorting.
 
 ---
 
@@ -153,7 +153,7 @@ for epoch in range(200):
 
 ### Warmup Phase
 
-During the first `warmup_steps`, the loss minimizes only the log-volume of the frontier (ignoring coverage). This lets the frontier learn a reasonable shape before the coverage penalty kicks in. After warmup, the quantile network activates and the composite loss balances volume vs. coverage.
+During the first `warmup_steps`, the **frontier volume penalty** ramps up via a sigmoidal schedule while the **quantile pinball term** is active throughout training. After warmup, the coverage frontier term reaches full strength and the composite loss balances volume vs. coverage.
 
 ---
 
@@ -216,8 +216,8 @@ with torch.no_grad():
 ## Limitations
 
 !!! warning "Current constraints"
-- **Target dimensionality**: The Mahalanobis frontier with full covariance scales as $\mathcal{O}(d^3)$ for Cholesky decomposition and log-determinant (not just $\mathcal{O}(d^2)$ for parameter count); use `mode="low_rank"` for $d > 5$
-- **Warmup sensitivity**: The warmup phase length is critical — too short and the frontier never converges; too long and the coverage penalty activates before the frontier is stable. The sigmoidal schedule parameters ($k=0.005$, $t_0=1000$) are **hardcoded internally** and not configurable via the constructor.
+- **Target dimensionality**: The Mahalanobis frontier with full covariance has $\mathcal{O}(d^2)$ parameters (lower-triangular $L$) and $\mathcal{O}(d^2)$ forward-pass cost; use `mode="low_rank"` for $d > 5$
+- **Warmup sensitivity**: The warmup phase length is critical — too short and the frontier never converges; too long and the coverage penalty activates before the frontier is stable. The sigmoidal schedule parameters ($k=0.005$, $t_0=1000$) are function-level defaults and **not exposed as constructor parameters**.
 - **Coverage window tuning**: The `error_init` → `error_min` annealing schedule (sigmoidal) may need adjustment for different target distributions
     - **Training stability**: SLS optimizes frontier parameters, quantile thresholds, and (for $K > 1$) mixture weights simultaneously — gradient conflicts can occur
     - **No conformal guarantee**: Unlike CQR or CTI, SLS provides no finite-sample coverage guarantee. The coverage is learned, not calibrated. Validate coverage empirically on held-out data

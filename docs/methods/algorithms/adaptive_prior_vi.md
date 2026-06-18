@@ -28,7 +28,7 @@ $$p(\theta_x | X_e, x) = \mathcal{N}\left(\mu_{\text{prior}}(X_e, x),\; \text{di
 
 The parameters are optimized by maximizing the Evidence Lower Bound (ELBO) averaged across all synthetic environments:
 
-$$\text{ELBO} = \sum_{e=1}^E \left[ \mathbb{E}_{q(\theta|X_e,Y_e)} \left[ \log p(Y_e | X_e, \theta) \right] - \beta \cdot D_{KL}\left( q(\theta|X_e,Y_e) \;||\; p(\theta|X_e, X_e) \right) \right]$$
+$$\text{ELBO} = \sum_{e=1}^E \left[ \mathbb{E}_{q(\theta|X_e,Y_e)} \left[ \log p(Y_e | X_e, \theta) \right] - \beta \cdot \frac{1}{|X_e|}\sum_{x \in X_e} D_{KL}\left( q(\theta|X_e,Y_e) \;||\; p(\theta|X_e, x) \right) \right]$$
 
 where:
 
@@ -86,7 +86,7 @@ pred = model.predict_distribution(x_test, n_samples=30)
 | `in_features` | `int` | — | Number of input features |
 | `target_dim` | `int` | `1` | Dimension of the target space |
 | `hidden_dim` | `int` | `64` | Number of hidden units in guide and prior networks |
-| `prior_variance_init` | `float` | `1.0` | Initial variance for prior parameters |
+| `prior_variance_init` | `float` | `1.0` | Reserved API parameter (not yet applied in `fit`) |
 | `noise_variance_init` | `float` | `0.1` | Initial observation noise variance $\sigma_{\text{noise}}^2$ |
 | `jitter` | `float` | `1e-6` | Stabilizer added to diagonal contexts |
 

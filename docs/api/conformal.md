@@ -20,15 +20,14 @@ unified coverage theorem, see [Conformal prediction](../methods/conformal/index.
 | `LocalConformal` | Local feature-space coverage | Coverage guaranteed in feature subgroups |
 | `LocalConformalMAD` | Local + MAD scaling | Robust to outliers in calibration scores |
 | `CTI` | Density level-set | Multimodal, complex distributions |
-| `SLSConformal` | Super-level set | Multi-target regression |
 | `DistributionalConformal` | Distributional coverage | When full predictive CDF is available |
 | `LevelSetConformalPredictor` | Level-set predictor | Construct smallest intervals from CDF |
 | `MultiDimensionalConformalLoss` | Multi-dim legacy wrapper | Vector targets |
 | `MultiTargetConformal` | Multi-target coverage | Joint coverage on `[B, D]` targets |
 | `PrevalenceAdjustedCP` | Group-prevalence-adjusted | Subgroup prior shift |
-| `R2CConformal` | R²-style coverage | Coverage that accounts for inherent variance |
+| `R2CConformal` | Regression-as-classification | Multimodal / binned targets |
 | `SLSConformal` | Super-level set conformal | Density-based / SLS regression |
-| `ConformalLoss(method=…)` | Unified training+calibration wrapper | One-call training of any method above |
+| `ConformalLoss(method=…)` | Unified CQR/UACQR/split training wrapper | One-call training of supported methods |
 | `conformal_loss(...)` | Functional form of `ConformalLoss` | Inline / functional API |
 
 ---
@@ -37,7 +36,7 @@ unified coverage theorem, see [Conformal prediction](../methods/conformal/index.
 
 | Symbol | Description |
 |:-------|:------------|
-| `ConformalPredictor` | Train + calibrate wrapper that returns a predictor with `predict_interval(x_test) -> (lower, upper)`. |
+| `ConformalPredictor` | Base post-hoc calibrator: `calibrate(y_pred, target)` then `predict_interval(y_pred)`. |
 | `MultiTargetConformal` | Multi-target version. Returns per-target coverage. |
 
 ---
@@ -62,13 +61,13 @@ In `torchregress.test_time.ot_conformal`:
 ```python
 from torchregress.losses import ConformalLoss, CQR
 
-# CQR as a single training objective
-loss_fn = ConformalLoss(method="cqr", target_coverage=0.9, alpha=0.1)
-loss = loss_fn(y_pred, y_true)  # training + calibration in one call
+# CQR as a training wrapper (alpha = miscoverage; 1-alpha = target coverage)
+loss_fn = ConformalLoss(method="cqr", alpha=0.1)
+loss = loss_fn(y_pred, y_true)
 
-# Or use CQR directly as a calibrator
-cp = CQR(target_coverage=0.9, alpha=0.1)
-cp.calibrate(scores_cal, y_cal)
+# Or use CQR directly as a post-hoc calibrator
+cp = CQR(alpha=0.1)
+cp.calibrate(y_pred_cal, y_cal)
 lower, upper = cp.predict_interval(y_pred_test)
 ```
 
@@ -91,7 +90,7 @@ lower, upper = cp.predict_interval(y_pred_test)
 Loss wrapper that trains a base model and applies conformal calibration on target outputs:
 
 ```python
-ConformalLoss(base_loss, method="cqr", alpha=0.1)
+ConformalLoss(method="cqr", alpha=0.1)
 ```
 
 ### SplitConformal
@@ -148,11 +147,13 @@ Robust locally valid split conformal prediction utilizing Local Median Absolute 
 
 ### CTI
 
-Conformalized Temperature Integration for multimodal distribution levels:
+**Conformal Thresholded Intervals** — smallest density level sets via negative log-density scores:
 
 $$
-\hat{C}(x) = \{ y : p(y \mid x) \ge \tau_x \}
+\hat{C}(x) = \{ y : -\log p(y \mid x) \le \hat{q} \}
 $$
+
+Reference: Luo & Zhou, ["Conformal Thresholded Intervals for Efficient Regression"](https://arxiv.org/abs/2407.14495) (*AAAI*, 2025).
 
 ### SLSConformal
 

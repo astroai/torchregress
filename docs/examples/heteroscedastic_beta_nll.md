@@ -28,7 +28,7 @@ If an outlier is present, the model will drastically inflate $\sigma^2(x)$ to mi
 
 $$\mathcal{L}_{\text{BetaNLL}}(y, \mu, \sigma^2) = \left( \sigma^2 \right)^\beta \left( \frac{(y - \mu)^2}{2\sigma^2} + \frac{1}{2}\log\sigma^2 \right)$$
 
-where $\beta \in \[0, 1\]$ is a hyperparameter:
+where $\beta \in [0, 1]$ is a hyperparameter:
 
 - **$\beta = 0$**: Recovers standard Gaussian NLL.
 - **$\beta = 1$**: Under $\beta = 1$, the gradient of the loss with respect to the variance becomes independent of the magnitude of the absolute error, rendering variance estimation highly robust to outliers.

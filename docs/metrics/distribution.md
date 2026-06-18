@@ -6,7 +6,7 @@ Distributional metrics evaluate **probabilistic forecasts** — how well does th
 
 ## Proper Scoring Rules
 
-A scoring rule $S(F, y)$ is **proper** if its expected value is minimised when the predicted distribution $F$ is equal to the true distribution $G$ \[1\].
+A scoring rule $S(F, y)$ is **proper** if its expected value is minimised when the predicted distribution $F$ is equal to the true distribution $G$ (Ref. 1).
 
 $$\mathbb{E}_{y \sim G} [S(G, y)] \leq \mathbb{E}_{y \sim G} [S(F, y)]$$
 
@@ -16,7 +16,7 @@ In **torchregress**, we prioritise proper scoring rules for evaluating all proba
 
 ## Continuous Ranked Probability Score (CRPS)
 
-The CRPS is the most widely used proper scoring rule for univariate regression. It can be viewed as the integral of the pinball loss over all possible quantiles $\tau \in \[0, 1\]$.
+The CRPS is the most widely used proper scoring rule for univariate regression. It can be viewed as the integral of the pinball loss over all possible quantiles $\tau \in [0, 1]$.
 
 $$\text{CRPS}(F, y) = \int_{-\infty}^{\infty} [F(z) - \mathbf{1}_{z \geq y}]^2 dz$$
 
@@ -31,8 +31,8 @@ $$\text{CRPS}(F, y) = \int_{-\infty}^{\infty} [F(z) - \mathbf{1}_{z \geq y}]^2 d
 ```python
 from torchregress.metrics import crps_gaussian, energy_score
 
-# For Gaussian models
-loss = crps_gaussian(mu, sigma, y_true)
+# For Gaussian models — note: argument order is (mean, y_true, std)
+loss = crps_gaussian(mu, y_true, sigma)
 
 # For non-parametric models (e.g., Ensembles, BNNs) using samples
 loss = energy_score(y_samples, y_true)
@@ -44,7 +44,7 @@ loss = energy_score(y_samples, y_true)
 
 ## Multivariate: Energy Score
 
-The **Energy Score (ES)** \[2\] is the multivariate generalisation of CRPS to $\mathbb{R}^d$. It evaluates the joint distribution of multiple targets, capturing correlations that univariate CRPS misses.
+The **Energy Score (ES)** (Ref. 2) is the multivariate generalisation of CRPS to $\mathbb{R}^d$. It evaluates the joint distribution of multiple targets, capturing correlations that univariate CRPS misses.
 
 $$\text{ES}(F, y) = \mathbb{E}_{Y \sim F} \|Y - y\|^\beta - \frac{1}{2} \mathbb{E}_{Y, Y' \sim F} \|Y - Y'\|^\beta$$
 
@@ -65,7 +65,7 @@ API Reference: [energy_score](../api/metrics.md#energy_score).
 
 ## Calibration: Probability Integral Transform (PIT)
 
-A model is **perfectly calibrated** if its predictive CDF $F(y \mid x)$, when evaluated at the true value $y$, is uniformly distributed on $\[0, 1\]$ \[3\].
+A model is **perfectly calibrated** if its predictive CDF $F(y \mid x)$, when evaluated at the true value $y$, is uniformly distributed on $[0, 1]$ (Ref. 3).
 
 $$U = F(Y \mid X) \sim \text{Uniform}(0, 1)$$
 

@@ -51,7 +51,7 @@ np.random.seed(42)
 n_samples = 1000
 
 x = np.random.uniform(-1.5, 1.5, size=(n_samples, 1)).astype(np.float32)
-groups = np.random.choice(\[0, 1\], size=(n_samples, 1)).astype(np.int64)
+groups = np.random.choice([0, 1], size=(n_samples, 1)).astype(np.int64)
 y_mean = 0.8 * x
 
 # Group 0: low noise (0.2), Group 1: high noise (1.2)

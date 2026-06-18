@@ -1,6 +1,12 @@
 # Basic Usage Examples
 
-This page provides complete, runnable examples for common regression tasks using `torchregress`.
+This page is a **cookbook** of common regression patterns. The companion script [`examples/basic_usage.py`](../../examples/basic_usage.py) trains MSE, Huber, Quantile, and Gaussian NLL on a single heteroscedastic dataset (`y = x² + sin(3x) + noise`).
+
+**Run the script:**
+
+```bash
+uv run python examples/basic_usage.py
+```
 
 → API reference: [Losses](../api/losses.md), [Metrics](../api/metrics.md).
 
@@ -144,23 +150,23 @@ print(f"R²: {r2:.4f}")
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 # Plot 1: Learning curves
-axes\[0\].plot(train_losses, label='Train Loss')
-axes\[0\].plot(val_losses, label='Val Loss')
-axes\[0\].set_xlabel('Epoch')
-axes\[0\].set_ylabel('Loss')
-axes\[0\].set_title('Learning Curves')
-axes\[0\].legend()
-axes\[0\].grid(True, alpha=0.3)
+axes[0].plot(train_losses, label='Train Loss')
+axes[0].plot(val_losses, label='Val Loss')
+axes[0].set_xlabel('Epoch')
+axes[0].set_ylabel('Loss')
+axes[0].set_title('Learning Curves')
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
 
 # Plot 2: Predictions vs True
 idx = torch.argsort(X_test.flatten())
-axes\[1\].scatter(X_test, y_test, alpha=0.3, label='True', s=20)
-axes\[1\].plot(X_test[idx], y_pred_test[idx], 'r-', linewidth=2, label='Predicted')
-axes\[1\].set_xlabel('X')
-axes\[1\].set_ylabel('y')
-axes\[1\].set_title('Predictions on Test Set')
-axes\[1\].legend()
-axes\[1\].grid(True, alpha=0.3)
+axes[1].scatter(X_test, y_test, alpha=0.3, label='True', s=20)
+axes[1].plot(X_test[idx], y_pred_test[idx], 'r-', linewidth=2, label='Predicted')
+axes[1].set_xlabel('X')
+axes[1].set_ylabel('y')
+axes[1].set_title('Predictions on Test Set')
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.show()
@@ -400,7 +406,7 @@ for i, (loss_name, result) in enumerate(results.items()):
     ax.grid(True, alpha=0.3)
 
 # Remove extra subplot
-fig.delaxes(axes\[5\])
+fig.delaxes(axes[5])
 
 plt.tight_layout()
 plt.show()
@@ -410,7 +416,7 @@ print("\n" + "="*50)
 print("Performance Comparison (lower is better):")
 print("="*50)
 for loss_name, result in sorted(results.items(),
-                                 key=lambda x: x\[1\]['rmse']):
+                                 key=lambda x: x[1]['rmse']):
     print(f"{loss_name:15s}: RMSE={result['rmse']:.4f}, MAE={result['mae']:.4f}")
 ```
 

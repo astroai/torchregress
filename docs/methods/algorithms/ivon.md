@@ -96,12 +96,12 @@ For better gradient estimates, increase `mc_samples` — the optimizer averages 
 ```python
 optimizer = IVON(model.parameters(), lr=0.1, ess=100.0, mc_samples=4)
 
-# With a closure-based API
 def closure():
     optimizer.zero_grad()
-    pred = model(x)
-    loss = nn.functional.mse_loss(pred, y)
-    loss.backward()
+    with optimizer.sampled_params(train=True):
+        pred = model(x)
+        loss = nn.functional.mse_loss(pred, y)
+        loss.backward()
     return loss
 
 loss = optimizer.step(closure)
@@ -169,5 +169,5 @@ epistemic_std = preds.std(0)
 
 | # | Reference |
 |:-:|:----------|
-| 1 | M.E. Khan, H. Rue. ["The Bayesian Learning Rule."](https://arxiv.org/abs/2109.14534) *JMLR*, 24(214):1–45, **2023**. |
-| 2 | Y. Shen et al. ["Variational Learning is Effective for Large Deep Networks."](https://arxiv.org/abs/2402.18668) *ICML*, **2024**. |
+| 1 | M.E. Khan, H. Rue. ["The Bayesian Learning Rule."](https://arxiv.org/abs/2107.04562) *JMLR*, 24(214):1–45, **2023**. |
+| 2 | Y. Shen et al. ["Variational Learning is Effective for Large Deep Networks."](https://arxiv.org/abs/2402.17641) *ICML*, **2024**. |

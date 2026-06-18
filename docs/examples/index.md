@@ -346,10 +346,10 @@ git clone https://github.com/sfabbro/torchregress.git
 cd torchregress
 
 # Install dependencies
-pip install -e '.[all]'
+uv pip install -e '.[all]'
 
 # Run a specific example
-python examples/basic_usage.py
+uv run python examples/basic_usage.py
 ```
 
 For questions or issues with the examples, please [open an issue](https://github.com/sfabbro/torchregress/issues) in the repository.

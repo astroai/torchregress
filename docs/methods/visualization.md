@@ -2,7 +2,7 @@
 
 → API: [Visualization API](../api/viz.md). Gallery: [`examples/viz_diagnostic_gallery.py`](../../examples/viz_diagnostic_gallery.py).
 
-torchregress provides **33 visualization functions** across four submodules to help you
+torchregress provides **34 exported visualization helpers** (25 plot functions + 9 styling utilities) across four submodules to help you
 diagnose models, monitor training, compare results, and style your output.  All functions
 work with standard `matplotlib` axes and support the same styling pipeline.
 
@@ -191,7 +191,7 @@ plot_performance_comparison(metrics, plot_type="bar", highlight_best=True)
 plot_performance_comparison(metrics, plot_type="radar")
 
 # Sensitivity of RMSE to hidden dimension
-param_vals = {"hidden_dim": \[32, 64, 128, 256\]}
+param_vals = {"hidden_dim": [32, 64, 128, 256]}
 sens_metrics = {"RMSE": [0.55, 0.48, 0.45, 0.46]}
 plot_parameter_sensitivity(param_vals, sens_metrics)
 
@@ -240,8 +240,8 @@ set_style()
 
 # Multi-panel diagnostic report
 fig, axes = create_grid_figure(n_plots=6, n_cols=3, figsize=(18, 12))
-plot_residuals(y_pred, y_true, ax=axes\[0\], title="Residuals")
-plot_qq_plot(y_pred, y_true, ax=axes\[1\], title="Q-Q")
+plot_residuals(y_pred, y_true, ax=axes[0], title="Residuals")
+plot_qq_plot(y_pred, y_true, ax=axes[1], title="Q-Q")
 # ... fill remaining axes ...
 save_figure(fig, "diagnostic_report", formats=["png", "pdf"])
 
@@ -263,7 +263,7 @@ print(label)  # "Expected Calibration Error"
 
 ## Complete Diagnostic Gallery
 
-The example script `examples/viz_diagnostic_gallery.py` runs **all 31 plot functions** on synthetic data,
+The example script `examples/viz_diagnostic_gallery.py` runs **all 25 plot functions** on synthetic data,
 creates a multi-panel report, and saves each plot individually:
 
 ```bash

@@ -106,7 +106,7 @@ def make_data(cfg: OrdinalComparisonConfig) -> tuple[Tensor, Tensor, Tensor, Ten
 
     # Latent linear model with non-linear addition
     w = torch.tensor([0.9, -0.7, 0.4, 0.2, -0.3, 0.1])[: cfg.n_features]
-    latent = x @ w + 0.35 * x[:, 0] * x[:, 1] - 0.2 * x[:, 2] ** 2 + 0.4 * torch.randn(x.shape\[0\])
+    latent = x @ w + 0.35 * x[:, 0] * x[:, 1] - 0.2 * x[:, 2] ** 2 + 0.4 * torch.randn(x.shape[0])
 
     # Bin into classes using thresholds
     cutpoints = torch.tensor([-1.0, -0.25, 0.4, 1.1])

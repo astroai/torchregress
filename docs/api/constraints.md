@@ -33,7 +33,7 @@ from torchregress.constraints import (
 # Non-negative regression (e.g. variance, count)
 head = NonNegativeHead(nn.Linear(64, 1), beta=1.0)
 
-# Probability in \[0, 1\] (e.g. rate)
+# Probability in [0, 1] (e.g. rate)
 head = BoundedHead(nn.Linear(64, 1), low=0.0, high=1.0)
 
 # Mixture weights over K components

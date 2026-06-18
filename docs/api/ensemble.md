@@ -66,7 +66,7 @@ pred = model.predict(x)
 
 ```python
 bb = BatchEnsembleMLPBackbone(input_size=10, hidden_size=64, ensemble_size=4,
-                             hidden_dims=\[64, 64\])
+                             hidden_dims=[64, 64])
 model = PackedEnsembleRegressor(bb, feature_dim=bb.feature_dim, output_dim=1,
                                 ensemble_size=4, alpha=1.0, heteroscedastic=True)
 out: PackedEnsembleOutput = model.predict_output(x)

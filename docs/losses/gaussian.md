@@ -24,8 +24,8 @@ $$\boxed{\;\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2}\log(2\pi\sig
 | **`BetaNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [BetaNLLLoss](../api/losses.md#betanllloss) | Same head as NLL; detached variance rescaling (β-NLL) |
 | **`FaithfulGaussianLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [FaithfulGaussianLoss](../api/losses.md#faithfulgaussianloss) | MSE on $\mu$ + NLL on variance with **detach($\mu$)** in residual |
 | **`GaussianWassersteinBoundLoss`** | Configurable | $\mu$, cov / Cholesky / root | [GaussianWassersteinBoundLoss](../api/losses.md#gaussianwassersteinboundloss) | Supervise mean + covariance vs labels or pseudo-labels |
-| **`MultivariateLoss`** | Full | $(\mu, \Sigma)$ | [MultivariateGaussianLoss](../api/losses.md#multivariategaussianloss) | Correlated multi-output (small $k$) |
-| **`LowRankLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [LowRankGaussianLoss](../api/losses.md#lowrankgaussianloss) | Correlated multi-output (large $k$) |
+| **`MultivariateGaussianLoss`** | Full | $(\mu, \Sigma)$ | [MultivariateGaussianLoss](../api/losses.md#multivariategaussianloss) | Correlated multi-output (small $k$) |
+| **`LowRankGaussianLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [LowRankGaussianLoss](../api/losses.md#lowrankgaussianloss) | Correlated multi-output (large $k$) |
 
 ---
 

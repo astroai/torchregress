@@ -61,7 +61,7 @@ See the [Beta-NLL heteroscedastic demo](../examples/heteroscedastic_beta_nll.md)
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Seitzer et al. ["On the Pitfalls of Heteroscedastic Uncertainty Estimation with Probabilistic Neural Networks"](https://openreview.net/forum?id=aPlHsXlwbd) *ICLR*, 2022. |
+| 1 | Seitzer et al. ["On the Pitfalls of Heteroscedastic Uncertainty Estimation with Probabilistic Neural Networks"](https://arxiv.org/abs/2205.11310) *NeurIPS*, 2022. |
 
 ---
 

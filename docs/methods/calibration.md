@@ -11,7 +11,7 @@ Modern neural networks are notoriously **overconfident** \[1\]. A model might pr
 !!! success "The Goal"
 
     A model is **perfectly calibrated** if its predicted probability $\tau$ always corresponds to the actual observed frequency:
-    $$P\bigl(Y \leq F^{-1}(\tau \mid X)\bigr) = \tau \quad \forall\,\tau \in \[0, 1\]$$
+    $$P\bigl(Y \leq F^{-1}(\tau \mid X)\bigr) = \tau \quad \forall\,\tau \in [0, 1]$$
 
 ---
 
@@ -40,8 +40,8 @@ $$\sigma_{\text{cal}}^2(x) = T \cdot \sigma_{\text{pred}}^2(x)$$
 from torchregress.calibration import VarianceTemperatureScaler
 
 scaler = VarianceTemperatureScaler()
-scaler.fit(mu_cal, var_cal, y_cal)
-calibrated_var = scaler.transform(var_test)
+scaler.fit(pred_mean_cal, pred_var_cal, y_cal)
+calibrated_var = scaler.transform(pred_var_test)
 ```
 
 !!! warning "Calibration Set Requirements & Risks"
@@ -65,15 +65,18 @@ calibrated_mu = cal.transform(mu_test)
 
 ### 3. PIT Calibration ([PITCalibrator](../api/calibration.md#pitcalibrator))
 
-The most powerful method \[2\]. It calibrates the **entire CDF** by remapping the Probability Integral Transform (PIT) values. This can fix complex distributional miscalibration that temperature scaling misses.
+The most flexible non-parametric method \[2\]. It learns a monotone mapping from **PIT values** (how far predictive ranks deviate from uniform) to better-calibrated ranks. This can fix distributional miscalibration that a single global temperature cannot.
 
 ```python
 from torchregress.calibration import PITCalibrator
 
 cal = PITCalibrator()
-# Fits a mapping from predicted PIT to uniform PIT
-cal.fit_from_gaussian(mu_cal, std_cal, y_cal)
-calibrated_dist = cal.transform_dist(mu_test, std_test)
+pit_cal = PITCalibrator.pit_from_gaussian(pred_mean_cal, pred_std_cal, y_cal)
+cal.fit(pit_cal)
+
+# Remap PIT values on held-out data (e.g., for reliability / coverage diagnostics)
+pit_test = PITCalibrator.pit_from_gaussian(pred_mean_test, pred_std_test, y_test)
+calibrated_pit = cal.transform(pit_test)
 ```
 
 ---
@@ -84,7 +87,7 @@ calibrated_dist = cal.transform_dist(mu_test, std_test)
 |:-------|:-------|:-----------|:--------------|:---------|
 | **Temperature** | Variance | 1 (Scalar) | [VarianceTemperatureScaler](../api/calibration.md#variancetemperaturescaler) | Heteroscedastic Gaussian models |
 | **Isotonic** | Mean Bias | Non-parametric | [IsotonicMeanCalibrator](../api/calibration.md#isotonicmeancalibrator) | Systematic point-prediction errors |
-| **PIT** | Full CDF | Non-parametric | [PITCalibrator](../api/calibration.md#pitcalibrator) | Any distributional model |
+| **PIT** | PIT ranks | Non-parametric | [PITCalibrator](../api/calibration.md#pitcalibrator) | Any model with CDF / Gaussian predictive std |
 
 ---
 

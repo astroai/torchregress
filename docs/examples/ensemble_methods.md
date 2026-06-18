@@ -146,8 +146,8 @@ predictions = ensemble(x_test)  # List of (mean, log_var) tuples
 
 # Decompose uncertainty
 from torchregress.metrics import ensemble_variance_decomposition
-means = torch.stack([pred\[0\] for pred in predictions])
-log_vars = torch.stack([pred\[1\] for pred in predictions])
+means = torch.stack([pred[0] for pred in predictions])
+log_vars = torch.stack([pred[1] for pred in predictions])
 
 epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 total_uncertainty = torch.sqrt(epistemic + aleatoric)

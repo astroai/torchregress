@@ -106,3 +106,12 @@ from torchregress.metrics.ensemble import ensemble_interval_metrics
 metrics = ensemble_interval_metrics(means, variances, y_true, alpha=0.1)
 ```
 See also: [ensemble_interval_metrics](../api/metrics.md#ensemble_interval_metrics).
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | B. Lakshminarayanan, A. Pritzel, C. Blundell. ["Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles."](https://arxiv.org/abs/1612.01474) *NeurIPS*, **2017**. |
+| 2 | F.K. Gustafsson, M. Danelljan, T.B. Schön. ["Evaluating Scalable Bayesian Deep Learning Methods for Robust Computer Vision."](https://arxiv.org/abs/1906.01620) *CVPR Workshops*, **2020**. |

@@ -1,6 +1,6 @@
 # Gaussian Wasserstein bound surrogate
 
-This loss supervises a **predicted Gaussian** :math:`\mathcal{N}(\hat\mu, \hat\Sigma)` against a **target mean** :math:`\mu` and **target covariance** :math:`\Sigma` (or a pseudo-covariance) using a standard **Frobenius surrogate** built from principal matrix square roots. It is useful for joint mean–covariance learning; it is **not** a drop-in replacement for [`GaussianNLLLoss`](gaussian.md) on raw targets.
+This loss supervises a **predicted Gaussian** $ \mathcal{N}(\hat\mu, \hat\Sigma) $ against a **target mean** $ \mu $ and **target covariance** $ \Sigma $ (or a pseudo-covariance) using a standard **Frobenius surrogate** built from principal matrix square roots. It is useful for joint mean–covariance learning; it is **not** a drop-in replacement for [`GaussianNLLLoss`](gaussian.md) on raw targets.
 
 ---
 
@@ -8,15 +8,15 @@ This loss supervises a **predicted Gaussian** :math:`\mathcal{N}(\hat\mu, \hat\S
 
 | Situation | Prefer |
 |:----------|:-------|
-| Supervised / pseudo-supervised covariance targets | [GaussianWassersteinBoundLoss](../api/losses.md#gaussianwassersteinboundloss) with matching ``covariance_parameterization`` |
-| Likelihood training on :math:`(y \mid x)` with heteroscedastic noise | [`GaussianNLLLoss`](gaussian.md) or [`BetaNLLLoss`](beta_nll.md) |
+| Supervised / pseudo-supervised covariance targets | [GaussianWassersteinBoundLoss](../api/losses.md#gaussianwassersteinboundloss) with matching `covariance_parameterization` |
+| Likelihood training on $(y \mid x)$ with heteroscedastic noise | [`GaussianNLLLoss`](gaussian.md) or [`BetaNLLLoss`](beta_nll.md) |
 | Finite-sample **coverage** guarantees | [Conformal prediction](../methods/conformal/index.md) on calibrated predictive models |
 
 ---
 
 ## Mathematical definition
 
-Let :math:`\hat S` and :math:`S` denote symmetric **principal square roots** of :math:`\hat\Sigma` and :math:`\Sigma` (implemented via eigen-decomposition with a small eigenvalue floor). The per-sample objective is
+Let $ \hat S $ and $ S $ denote symmetric **principal square roots** of $ \hat\Sigma $ and $ \Sigma $ (implemented via eigen-decomposition with a small eigenvalue floor). The per-sample objective is
 
 $$
 \boxed{\;
@@ -29,7 +29,7 @@ $$
 $$
 
 In **diagonal** mode, the covariance term is
-:math:`\sum_i \bigl(\sqrt{\hat v_i} - \sqrt{v_i}\bigr)^2` for positive variances :math:`\hat v_i, v_i`.
+$ \sum_i \bigl(\sqrt{\hat v_i} - \sqrt{v_i}\bigr)^2 $ for positive variances $ \hat v_i, v_i $.
 
 !!! warning "Surrogate, not exact 2-W"
     This objective is a common **upper-bound style surrogate** related to Gaussian 2-Wasserstein ideas; it should be documented and used as a training signal, not interpreted as the exact Wasserstein-2 distance in all non-commutative cases.
@@ -38,14 +38,14 @@ In **diagonal** mode, the covariance term is
 
 ## Parameterisations
 
-| ``covariance_parameterization`` | ``pred_covariance`` / ``target_covariance`` |
-|:--------------------------------|:---------------------------------------------|
-| ``"diagonal"`` | Positive variances, same shape as ``pred_mean`` |
-| ``"covariance"`` | SPD matrices ``[B, D, D]`` or shared ``[D, D]`` |
-| ``"cholesky"`` | Lower Cholesky factors :math:`L` with :math:`\Sigma = L L^\top` |
-| ``"sqrt"`` | Symmetric roots :math:`S` (Frobenius term compares them directly) |
+| `covariance_parameterization` | `pred_covariance` / `target_covariance` |
+|:------------------------------|:----------------------------------------|
+| `"diagonal"` | Positive variances, same shape as `pred_mean` |
+| `"covariance"` | SPD matrices `[B, D, D]` or shared `[D, D]` |
+| `"cholesky"` | Lower Cholesky factors $L$ with $\Sigma = L L^\top$ |
+| `"sqrt"` | Symmetric roots $S$ (Frobenius term compares them directly) |
 
-The helper ``symmetric_spd_matrix_sqrt`` (exported from ``torchregress.losses``) applies the same root used internally for full matrices; see [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss).
+The helper `symmetric_spd_matrix_sqrt` (exported from `torchregress.losses`) applies the same root used internally for full matrices; see [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss).
 
 ---
 
@@ -91,7 +91,8 @@ Metrics supported: pooled **Mahalanobis** in ``x`` (default) or **Euclidean** di
 
 | # | Reference |
 |:-:|:----------|
-| 1 | *Towards Self-Supervised Covariance Estimation in Deep Heteroscedastic Regression* (ICLR 2025) — stable covariance supervision and pseudo-label ideas discussed in the research plan. |
+| 1 | D.C. Dowson, B.V. Landau. ["The Fréchet Distance between Multivariate Normal Distributions."](https://doi.org/10.1016/0047-259X(82)90077-X) *J. Multivariate Analysis*, 12(3):450–455, **1982**. |
+| 2 | J. Delon, A. Desolneux. ["A Wasserstein-type Distance in the Space of Gaussian Mixture Models."](https://doi.org/10.1137/19M1301047) *SIAM J. Imaging Sciences*, 13(2):936–970, **2020**. |
 
 ---
 

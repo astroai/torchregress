@@ -28,13 +28,21 @@ $$
 
 Measures the ordinal rank agreement between predicted values and censored targets (Harrell's C-index).
 
-A pair of samples $(i, j)$ with observed times $t_i, t_j$ is comparable if $t_i < t_j$ and sample $i$ is fully observed ($c_i = 0$). The concordance index is the fraction of comparable pairs where the predicted order matches the observed order:
+A pair of samples $(i, j)$ with observed times $t_i, t_j$ is comparable if $t_i < t_j$ and sample $i$ is fully observed ($c_i = 0$). The concordance index is the fraction of comparable pairs where the predicted order matches the observed order, with tied predictions receiving half credit:
 
 $$
-C = \frac{\sum_{(i,j) \in \mathcal{P}} \mathbb{I}(\hat{y}_i < \hat{y}_j)}{\mathcal{P}}
+C = \frac{\sum_{(i,j) \in \mathcal{P}} \left[\mathbb{I}(\hat{y}_i < \hat{y}_j) + \tfrac{1}{2}\,\mathbb{I}(\hat{y}_i = \hat{y}_j)\right]}{|\mathcal{P}|}
 $$
 
-where $\mathcal{P}$ is the set of all comparable pairs.
+where $|\mathcal{P}|$ is the number of comparable pairs.
+
+### Interval Overlap Rate
+
+Measures the fraction of samples where a predicted interval $[\hat{L}_i, \hat{U}_i]$ overlaps with a censor-interval $[L_i, U_i]$:
+
+$$
+\text{OverlapRate} = \frac{1}{N} \sum_{i=1}^N \mathbb{I}(\hat{U}_i \ge L_i \;\text{and}\; \hat{L}_i \le U_i)
+$$
 
 ---
 
@@ -53,4 +61,13 @@ mae_obs = tr.metrics.observed_mae(pred, target, censoring)
 c_index = tr.metrics.concordance_index(pred, target, censoring)
 ```
 
-See the [censored metrics API](../api/metrics.md#censored-metrics): [`censoring_rate`](../api/metrics.md#censoring_rate), [`observed_mae`](../api/metrics.md#observed_mae), and [`concordance_index`](../api/metrics.md#concordance_index).
+See the [censored metrics API](../api/metrics.md#censored-metrics): [`censoring_rate`](../api/metrics.md#censoring_rate), [`observed_mae`](../api/metrics.md#observed_mae), [`concordance_index`](../api/metrics.md#concordance_index), and [`interval_overlap_rate`](../api/metrics.md#interval_overlap_rate).
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | F.E. Harrell, R.M. Califf, D.B. Pryor, K.L. Lee, R.A. Rosati. ["Evaluating the Yield of Medical Tests."](https://doi.org/10.1001/jama.1982.03320430047030) *JAMA*, 247(18):2543–2546, **1982**. |
+| 2 | J. Tobin. ["Estimation of Relationships for Limited Dependent Variables."](https://www.jstor.org/stable/1907382) *Econometrica*, 26(1):24–36, **1958**. |

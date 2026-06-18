@@ -65,7 +65,7 @@ mean, cov = head(x)
 import torch
 import torch.nn as nn
 from torchregress.algorithms import TaylorInducedCovarianceHead
-from torchregress.metrics import TaskAgnosticCorrelations
+from torchregress.metrics import task_agnostic_correlations
 
 # Setup synthetic features and target
 torch.manual_seed(42)
@@ -89,9 +89,8 @@ model = TaylorInducedCovarianceHead(
 # Forward pass
 mean, cov = model(x)
 
-# Evaluate using Task-Agnostic Correlations
-metric = TaskAgnosticCorrelations()
-tac_error = metric(mean, y, cov)
+# Evaluate using Task-Agnostic Correlations (stateless helper)
+tac_error = task_agnostic_correlations(mean, y, cov)
 print(f"Task-Agnostic Correlation Error: {tac_error.item():.4f}")
 ```
 
@@ -117,4 +116,4 @@ print(f"Task-Agnostic Correlation Error: {tac_error.item():.4f}")
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Shukla et al., ["TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression"](https://arxiv.org/abs/2407.00296) (ICML 2024). |
+| 1 | Shukla et al., ["TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression"](https://arxiv.org/abs/2310.18953) (ICML 2024). |

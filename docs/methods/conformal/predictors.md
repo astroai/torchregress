@@ -160,11 +160,17 @@ Conformal prediction using **stochastic forward passes** (MC-Dropout, ensemble, 
     **Requires:**  Model providing predictive mean + std from multiple forward passes
 
 ```python
+import torch
 from torchregress.losses import MonteCarloConformal
 
 mccp = MonteCarloConformal(alpha=0.1)
-mccp.calibrate(y_pred_cal, y_cal)
-lower, upper = mccp.predict_interval(y_pred_test)
+# mc_samples: [n_mc, n_cal, ...] stochastic predictive samples
+n_mc, n_cal = 20, y_cal.shape[0]
+mc_cal = y_pred_cal.unsqueeze(0) + 0.4 * torch.randn(n_mc, n_cal, *y_cal.shape[1:])
+mccp.calibrate(mc_cal, y_cal)
+
+mc_test = y_pred_test.unsqueeze(0) + 0.4 * torch.randn(n_mc, *y_pred_test.shape)
+lower, upper = mccp.predict_interval(mc_test)
 ```
 
 !!! tip "When to use"

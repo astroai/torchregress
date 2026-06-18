@@ -133,3 +133,13 @@ dist = Normal(mean_pred, std_pred)
 report = calibration_metrics_report(dist, y_true)
 ```
 See also: [calibration_metrics_report](../api/metrics.md#calibration_metrics_report).
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | M.P. Naeini, G.F. Cooper, M. Hauskrecht. ["Obtaining Well Calibrated Probabilities Using Bayesian Binning into Quantiles."](https://ojs.aaai.org/index.php/AAAI/article/view/9602) *AAAI*, **2015**. |
+| 2 | V. Kuleshov, N. Fenner, S. Ermon. ["Accurate Uncertainties for Deep Learning Using Calibrated Regression."](https://arxiv.org/abs/1807.00263) *ICML*, **2018**. |
+| 3 | A.P. Dawid. ["Statistical Theory: The Prequential Approach."](https://www.jstor.org/stable/2345714) *JRSS-A*, 147(2):278–292, **1984**. |

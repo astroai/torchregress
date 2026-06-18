@@ -148,7 +148,7 @@ def main() -> None:
     # Compute Mahalanobis Distance for OOD Detection
     train_mean = x_train.mean(dim=0)
     x_centered = x_train - train_mean
-    cov = (x_centered.T @ x_centered) / max(1, (x_train.shape\[0\] - 1))
+    cov = (x_centered.T @ x_centered) / max(1, (x_train.shape[0] - 1))
 
     ood_report = ood_metrics_report(
         model_output=(mean_id, std_id.pow(2)),

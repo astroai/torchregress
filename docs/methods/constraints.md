@@ -10,7 +10,7 @@ Output constraints are architectural layers that **enforce** structural properti
 |:--------|:------------|
 | **Exact Enforcement** | Zero constraint violations at any point in the input space. |
 | **Differentiability** | All layers are fully differentiable (even sorting), enabling end-to-end training. |
-| **Physical Validity** | Ensure predictions respect known physical bounds (e.g., mass > 0, probability ∈ \[0, 1\]). |
+| **Physical Validity** | Ensure predictions respect known physical bounds (e.g., mass > 0, probability ∈ $[0, 1]$). |
 | **Numeric Stability** | Prevents $NaN$s and exploding gradients by keeping outputs within valid ranges. |
 
 ---
@@ -26,10 +26,14 @@ Ensures all outputs are non-negative ($\hat{y} \geq 0$) via a **Softplus** trans
 $$\hat{y} = \log(1 + e^{x})$$
 
 ```python
+import torch.nn as nn
 from torchregress.constraints import NonNegativeHead
 
-# Guarantees all outputs are positive
-model = nn.Sequential(nn.Linear(64, 1), NonNegativeHead())
+# NonNegativeHead wraps the final linear layer and applies softplus to its outputs
+model = nn.Sequential(
+    nn.Linear(64, 32), nn.ReLU(),
+    NonNegativeHead(nn.Linear(32, 1), beta=1.0),
+)
 ```
 
 ### 2. Boundedness ([BoundedHead](../api/constraints.md#boundedhead))
@@ -39,10 +43,11 @@ Enforces strict lower and upper bounds ($a \leq \hat{y} \leq b$) via a scaled **
 $$\hat{y} = a + (b - a) \cdot \sigma(x)$$
 
 ```python
+import torch.nn as nn
 from torchregress.constraints import BoundedHead
 
 # Enforce output between 0 and 100
-model = nn.Sequential(nn.Linear(64, 1), BoundedHead(lower=0, upper=100))
+head = BoundedHead(nn.Linear(64, 1), low=0.0, high=100.0)
 ```
 
 ### 3. Non-Crossing ([NonCrossingSort](../api/constraints.md#noncrossingsort))
@@ -60,7 +65,12 @@ model = nn.Sequential(nn.Linear(64, 5), NonCrossingSort())
 
 Ensures that outputs sum to 1 and are non-negative ($\sum \hat{y}_i = 1, \hat{y}_i \geq 0$) via **Softmax**. Ideal for mixture weights or compositional data.
 
----
+```python
+import torch.nn as nn
+from torchregress.constraints import SimplexHead
+
+head = SimplexHead(nn.Linear(64, 5), dim=-1)
+```
 
 ## Method Selection Matrix
 
@@ -75,18 +85,19 @@ Ensures that outputs sum to 1 and are non-negative ($\sum \hat{y}_i = 1, \hat{y}
 
 ## Advanced: Spectral Normalisation ([SpectralNormWrapper](../api/constraints.md#spectralnormwrapper))
 
-For stability and **Out-of-Distribution (OOD)** detection, **torchregress** provides a `SpectralNormWrapper`. This bounds the **Lipschitz constant** of the model, ensuring it remains smooth and well-behaved even for inputs far from the training data \[1\].
+For stability and **Out-of-Distribution (OOD)** detection, **torchregress** provides a `SpectralNormWrapper`. This applies PyTorch [spectral normalization](https://pytorch.org/docs/stable/generated/torch.nn.utils.parametrizations.spectral_norm.html) to bound layer Lipschitz constants, which can improve smoothness on inputs far from the training data \[1\].
 
 ```python
+import torch.nn as nn
 from torchregress.constraints import SpectralNormWrapper
 
-# Bound the model's Lipschitz constant to 1.0
-model = SpectralNormWrapper(base_model, coeff=1.0)
+base_model = nn.Sequential(nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 1))
+model = SpectralNormWrapper(base_model)  # spectral_norm on Linear layers
 ```
 
 !!! tip "OOD Sensitivity"
 
-    Lipschitz-bounded models produce more reliable uncertainty estimates for OOD data, as they cannot produce arbitrarily large changes in output for small changes in input.
+    Spectral normalization is a heuristic stabilizer — it is **not** an OOD-detection API. Treat smoother outputs as a practical inductive bias, not a guarantee.
 
 ---
 

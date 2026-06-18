@@ -87,6 +87,7 @@ y_pred = simex.predict(X_test)
 | `train_func` | callable | — | `(model, X, y) → trained_model` |
 | `sigma_u` | float / Tensor | — | Measurement error (scalar, vector, or cov matrix) |
 | `lambdas` | list of float | `[0.5, 1.0, 1.5, 2.0]` | Noise multiplier levels |
+| `n_simulations` | int | `1` | Monte Carlo replicates averaged per $\lambda$ |
 | `extrapolation_order` | int | `2` | Polynomial degree ($1$ = linear, $2$ = quadratic) |
 
 ---

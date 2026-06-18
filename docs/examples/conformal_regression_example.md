@@ -226,7 +226,7 @@ def demo_multidimensional_conformal() -> None:
     lower_intervals, upper_intervals = loss_fn.predict_interval(y_pred_test)
 
     # Calculate coverage per dimension
-    for i in range(y_test.shape\[1\]):
+    for i in range(y_test.shape[1]):
         coverage = (
             ((y_test[:, i] >= lower_intervals[:, i]) & (y_test[:, i] <= upper_intervals[:, i]))
             .float()

@@ -116,3 +116,12 @@ coverage = prediction_interval_coverage_probability(
 print(f"Lower miss rate: {coverage['miss_rate_low']}")
 print(f"Upper miss rate: {coverage['miss_rate_high']}")
 ```
+
+---
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | R.L. Winkler. ["A Decision-Theoretic Approach to Interval Estimation."](https://doi.org/10.1080/01621459.1972.10481224) *JASA*, 67(337):187–191, **1972**. |
+| 2 | T. Gneiting, A.E. Raftery. ["Strictly Proper Scoring Rules, Prediction, and Estimation."](https://doi.org/10.1198/016214506000001437) *JASA*, 102(477):359–378, **2007**. |

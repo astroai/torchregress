@@ -17,6 +17,8 @@ The NLL loss is:
 
 $$\mathcal{L}_{\text{NF}}(x) = -\log p_Z(f(x)) - \sum_{k=1}^K \log\!\left|\det\frac{\partial f_k}{\partial f_{k-1}}\right|$$
 
+where $f_0 = x$ is the input and $f_K = f(x)$ is the base-space representation.
+
 See the [NormalizingFlowLoss API](../api/losses.md#normalizingflowloss) for the training contract and `create_flow_loss` helper.
 
 ## Usage
@@ -42,7 +44,7 @@ flow = create_flow_model(
 | `context_dim` | `int` | `0` | Size of conditioning vector (model output) |
 | `flow_type` | `str` | `"nsf"` | `"realnvp"`, `"maf"`, or `"nsf"` |
 | `n_transforms` | `int` | `5` | Number of invertible blocks |
-| `hidden_features` | `list[int]` or `None` | `None` | Hidden layer sizes (default: `\[64, 64\]`) |
+| `hidden_features` | `list[int]` or `None` | `None` | Hidden layer sizes (default: `[64, 64]`) |
 
 ### Step 2: Wrap in NormalizingFlowLoss
 

@@ -387,7 +387,7 @@ def demonstrate_sampling(model, loss_fn, x_test):
     model.eval()
 
     # Select a few test points
-    test_indices = \[100, 200, 250, 300, 400\]  # Different regions
+    test_indices = [100, 200, 250, 300, 400]  # Different regions
     x_selected = x_test[test_indices]
 
     with torch.no_grad():

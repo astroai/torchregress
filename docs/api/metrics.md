@@ -2,7 +2,7 @@
 
 Complete reference for `torchregress.metrics`. Every metric, class, and report function is listed here. For the conceptual guides, see the [Metrics overview](../metrics/index.md) and the per-category pages.
 
-> **Imports.** `MeanSquaredError`, `MeanAbsoluteError`, and `R2Score` are no longer re-exported from torchregress. Import them directly from `torchmetrics` if you want stateful, epoch-accumulating metrics. The torchregress `mse`, `mae`, `r2_score` etc. are **functional**, support **per-sample** returns, and add **mask** support.
+> **Imports.** `MeanSquaredError`, `MeanAbsoluteError`, and `R2Score` are no longer re-exported from torchregress. Import them directly from `torchmetrics` if you want stateful, epoch-accumulating metrics. The torchregress `mse`, `mae`, `r2_score`, etc. are **functional** wrappers with optional **`sample_weight`** (not `mask`). For masked reductions, apply masks before calling or use loss utilities in `torchregress.utils.reduction`.
 
 ---
 
@@ -10,10 +10,10 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 
 | Symbol | Description |
 |:-------|:------------|
-| [`mse(y_pred, y, mask=…, weights=…)`](#mse) | Functional MSE with per-sample option. |
+| [`mse(y_pred, y, sample_weight=…)`](#mse) | Functional MSE. |
 | [`rmse(y_pred, y, …)`](#rmse) | Functional RMSE. |
 | [`mae(y_pred, y, …)`](#mae) | Functional MAE. |
-| [`r2_score(y_pred, y, …)`](#r2_score) | Functional R². |
+| [`r2_score(y_pred, y)`](#r2_score) | Functional R². |
 | [`huber_loss(y_pred, y, delta=…)`](#huber_loss) | Functional Huber. |
 | `median_absolute_error` | MedAE. |
 | `median_absolute_deviation` | MAD. |
@@ -30,22 +30,24 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 
 #### `mse`
 
-Functional Mean Squared Error with mask and weight support:
+Functional Mean Squared Error:
 
 ```python
-mse(y_pred, target, mask=None, weights=None, reduction="mean")
+mse(y_pred, y_true, sample_weight=None, reduction="mean")
 ```
 
 $$
-\text{MSE} = \frac{1}{\sum_{i=1}^N w_i m_i} \sum_{i=1}^N w_i m_i (y_i - \hat{y}_i)^2
+\text{MSE} = \frac{1}{\sum_{i=1}^N w_i} \sum_{i=1}^N w_i (y_i - \hat{y}_i)^2
 $$
+
+(with $w_i = 1$ when `sample_weight` is omitted)
 
 #### `rmse`
 
 Functional Root Mean Squared Error:
 
 ```python
-rmse(y_pred, target, mask=None, weights=None, reduction="mean")
+rmse(y_pred, y_true, sample_weight=None, reduction="mean")
 ```
 
 $$
@@ -57,11 +59,11 @@ $$
 Functional Mean Absolute Error:
 
 ```python
-mae(y_pred, target, mask=None, weights=None, reduction="mean")
+mae(y_pred, y_true, sample_weight=None, reduction="mean")
 ```
 
 $$
-\text{MAE} = \frac{1}{\sum_{i=1}^N w_i m_i} \sum_{i=1}^N w_i m_i |y_i - \hat{y}_i|
+\text{MAE} = \frac{1}{\sum_{i=1}^N w_i} \sum_{i=1}^N w_i |y_i - \hat{y}_i|
 $$
 
 #### `r2_score`
@@ -69,11 +71,11 @@ $$
 Functional R² coefficient of determination:
 
 ```python
-r2_score(y_pred, target, mask=None, weights=None)
+r2_score(y_pred, y_true, as_numpy=False)
 ```
 
 $$
-R^2 = 1 - \frac{\sum_{i=1}^N w_i m_i (y_i - \hat{y}_i)^2}{\sum_{i=1}^N w_i m_i (y_i - \bar{y}_w)^2}
+R^2 = 1 - \frac{\sum_{i=1}^N (y_i - \hat{y}_i)^2}{\sum_{i=1}^N (y_i - \bar{y})^2}
 $$
 
 #### `huber_loss`
@@ -81,7 +83,7 @@ $$
 Functional Huber loss metric:
 
 ```python
-huber_loss(y_pred, target, delta=1.0, mask=None, weights=None, reduction="mean")
+huber_loss(y_pred, y_true, delta=1.0, sample_weight=None, reduction="mean")
 ```
 
 $$
@@ -93,11 +95,11 @@ $$
 Functional Mean Absolute Percentage Error:
 
 ```python
-mean_absolute_percentage_error(y_pred, target, mask=None, weights=None, reduction="mean", eps=1e-8)
+mean_absolute_percentage_error(y_pred, y_true, sample_weight=None, reduction="mean", eps=1e-8)
 ```
 
 $$
-\text{MAPE} = \frac{1}{\sum_i w_i m_i} \sum_i w_i m_i \frac{|y_i - \hat{y}_i|}{\max(|y_i|, \varepsilon)}
+\text{MAPE} = \frac{1}{\sum_i w_i} \sum_i w_i \frac{|y_i - \hat{y}_i|}{\max(|y_i|, \varepsilon)}
 $$
 
 #### `mean_squared_log_error`
@@ -105,11 +107,11 @@ $$
 Functional Mean Squared Log Error:
 
 ```python
-mean_squared_log_error(y_pred, target, mask=None, weights=None, reduction="mean")
+mean_squared_log_error(y_pred, y_true, sample_weight=None, reduction="mean")
 ```
 
 $$
-\text{MSLE} = \frac{1}{\sum_i w_i m_i} \sum_i w_i m_i \left(\log(\max(y_i, 0) + 1) - \log(\max(\hat{y}_i, 0) + 1)\right)^2
+\text{MSLE} = \frac{1}{\sum_i w_i} \sum_i w_i \left(\log(\max(y_i, 0) + 1) - \log(\max(\hat{y}_i, 0) + 1)\right)^2
 $$
 
 ---
@@ -118,36 +120,45 @@ $$
 
 | Symbol | Description |
 |:-------|:------------|
-| [`continuous_ranked_probability_score`](#continuous_ranked_probability_score) | CRPS for Gaussian `(μ, σ)`. |
+| [`crps_gaussian(mean, std, y)`](#crps_gaussian) | Analytic CRPS for Gaussian $(\mu, \sigma)$. |
+| [`continuous_ranked_probability_score(quantiles, y)`](#continuous_ranked_probability_score) | CRPS from a dict of quantile forecasts. |
 | `crps_from_samples(samples, y)` | Empirical CRPS. |
 | [`energy_score(samples, y)`](#energy_score) | Energy score (multivariate). |
-| [`gaussian_nll(y_pred, log_var, y)`](#gaussian_nll) | Diagonal Gaussian NLL. |
-| [`probability_integral_transform(y_pred, y_pred_std, y)`](#probability_integral_transform) | PIT values. |
+| [`gaussian_nll(mean, y, var)`](#gaussian_nll) | Diagonal Gaussian NLL (variance, not log-var). |
+| [`probability_integral_transform(cdf_fn, y)`](#probability_integral_transform) | PIT values via a CDF callable. |
 | `kolmogorov_smirnov_uniform_statistic(pit)` | KS-uniform statistic on PIT. |
 
 ### Function Details
 
-#### `continuous_ranked_probability_score`
+#### `crps_gaussian`
 
-CRPS for a Gaussian predictive distribution $\mathcal{N}(\mu, \sigma^2)$:
+Analytic CRPS for a Gaussian predictive distribution $\mathcal{N}(\mu, \sigma^2)$:
 
 ```python
-continuous_ranked_probability_score(mean, std, target, mask=None, reduction="mean")
+crps_gaussian(mean, y_true, std, reduction="mean")
 ```
 
 $$
 \text{CRPS}(y) = \sigma \left( \frac{y - \mu}{\sigma} \left( 2\Phi\left(\frac{y - \mu}{\sigma}\right) - 1 \right) + 2\phi\left(\frac{y - \mu}{\sigma}\right) - \frac{1}{\sqrt{\pi}} \right)
 $$
 
-where $\Phi$ and $\phi$ are the standard normal cumulative and probability density functions.
+#### `continuous_ranked_probability_score`
+
+CRPS from quantile forecasts (at least two levels):
+
+```python
+continuous_ranked_probability_score({0.1: q10, 0.5: q50, 0.9: q90}, y_true, reduction="mean")
+```
 
 #### `energy_score`
 
 Multivariate energy score evaluating sample distributions against targets:
 
 ```python
-energy_score(samples, target, mask=None, reduction="mean")
+energy_score(y_samples, y_true, beta=1.0, max_pairs=None, reduction="mean")
 ```
+
+`y_samples` has shape `[n_samples, batch, ...]`.
 
 $$
 \text{EnergyScore}(Y, y) = \mathbb{E}\left[\|Y - y\|_2\right] - \frac{1}{2} \mathbb{E}\left[\|Y - Y'\|_2\right]
@@ -160,8 +171,10 @@ where $Y, Y'$ are independent samples drawn from the predictive model.
 Diagonal Gaussian negative log-likelihood:
 
 ```python
-gaussian_nll(mean, log_var, target, mask=None, weights=None, reduction="mean")
+gaussian_nll(mean, y_true, var, reduction="mean")
 ```
+
+(`var` is variance $\sigma^2$, not log-variance.)
 
 $$
 \mathcal{L}_i = \frac{1}{2} \log(2\pi \sigma_i^2) + \frac{(y_i - \mu_i)^2}{2\sigma_i^2}
@@ -169,17 +182,14 @@ $$
 
 #### `probability_integral_transform`
 
-Gaussian PIT values for calibration diagnostics:
+PIT values from a predictive CDF callable:
 
 ```python
-probability_integral_transform(y_pred, y_pred_std, y_true)
+pit = probability_integral_transform(cdf_fn, y_true)
+# Gaussian shortcut:
+from torchregress.utils.distributions import normal_cdf
+pit = normal_cdf((y_true - mean) / std.clamp_min(1e-8))
 ```
-
-$$
-u_i = \Phi\left(\frac{y_i - \mu_i}{\sigma_i}\right)
-$$
-
-where $\Phi$ is the standard normal CDF. Under perfect calibration, $\{u_i\}$ should be uniform on $[0, 1]$.
 
 ---
 

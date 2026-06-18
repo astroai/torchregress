@@ -40,7 +40,51 @@ def create_flow_model(
     Create a zuko flow model with a torchregress-friendly interface.
 
     This helper exists primarily for examples/docs and keeps naming consistent with
-    the rest of the library (`n_features`, `context_dim`, `n_transforms`).
+    the rest of the library (``n_features``, ``context_dim``, ``n_transforms``).
+
+    Parameters
+    ----------
+    n_features : int
+        Target dimensionality (number of output dimensions).
+    context_dim : int, default=0
+        Context / conditioning dimension from the backbone model.
+    flow_type : str, default="nsf"
+        Flow architecture: ``"nsf"`` (Neural Spline Flow), ``"maf"`` (Masked
+        Autoregressive Flow), or ``"realnvp"`` (RealNVP).  NSF provides the
+        best expressivity-per-parameter and is the recommended default.
+    n_transforms : int, default=5
+        Number of coupling/autoregressive transforms in the flow.
+
+        The zuko default is 5; the torchregress-harness benchmarks found that
+        3 transforms is the sweet spot for small/medium tabular datasets
+        (< 10k samples) — more transforms can overfit and produce overconfident
+        densities.  5 is the safe library default for general use across
+        dataset sizes and dimensionalities.
+    hidden_features : int or sequence of int, optional
+        Hidden layer widths for the coupling networks.  If ``None`` (default),
+        resolves to ``[64, 64]`` — two hidden layers of 64 units each.
+
+        **Recommended minimum: [64, 64].**  Reducing to [32, 32] under-expresses
+        the coupling networks, producing overconfident (too-peaked) densities
+        that cause severe under-coverage.  On diabetes at 60 epochs, [32, 32]
+        achieves coverage 0.59 vs 0.66 for [64, 64] (+12% relative improvement).
+    n_hidden_layers : int, optional
+        Number of hidden layers when ``hidden_features`` is a single integer.
+        Ignored when ``hidden_features`` is a sequence.  Default: 2.
+    **kwargs : Any
+        Additional keyword arguments forwarded to the zuko flow constructor.
+
+    Returns
+    -------
+    torch.nn.Module
+        A zuko normalizing flow instance with a ``context`` attribute set
+        to ``context_dim`` (used by :class:`NormalizingFlowLoss`).
+
+    Notes
+    -----
+    The ``context`` attribute is injected on the flow instance after
+    construction so that :class:`NormalizingFlowLoss` can discover the
+    context dimension.  This is a torchregress convention, not a zuko API.
     """
     if not HAS_ZUKO:
         raise ImportError("zuko is required for normalizing flows. Install torchregress[flows].")
@@ -128,58 +172,97 @@ class NormalizingFlowLoss(DistributionLoss):
     is conditioned on the model's output, allowing it to learn target distributions
     that depend on the input.
 
-    Args:
-        flow (Flow): A zuko Flow instance (RealNVP, MAF, NSF, etc.)
-            The flow must be created with context dimension matching the model output.
-        reduction (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'
-            Default: 'mean'
+    Parameters
+    ----------
+    flow : torch.nn.Module
+        A zuko Flow instance (RealNVP, MAF, NSF, etc.).  The flow must be
+        created with a context dimension matching the model output.  Use
+        :func:`create_flow_model` for a torchregress-friendly constructor
+        with sensible defaults.
+    reduction : str, default="mean"
+        Reduction to apply to the per-sample losses:
+        ``"mean"``, ``"sum"``, or ``"none"``.
 
-    Mathematical Formulation:
-        Normalizing flows transform a simple base distribution into a complex target
-        distribution through a series of invertible transformations. For conditional
-        flows, the transformation depends on context c (model output):
+    Architecture Guidance
+    ---------------------
+    The flow architecture is created externally and passed to the loss.
+    Use :func:`create_flow_model` to construct flows with sensible
+    defaults; see its docstring for detailed sweep evidence.
 
-        NLL = -log(p_X(x|c)) = -log(p_Z(f(x|c))) - log|det(df/dx)|
+    Recommended minimums (summarised):
 
-        where p_Z is the density of the base distribution, f is the invertible
-        transformation conditioned on c, and |det(df/dx)| is the absolute determinant
-        of the Jacobian.
+    | Parameter | Minimum | Notes |
+    |---|---|---|
+    | ``hidden_features`` | ``[64, 64]`` | 32-unit layers → overconfident densities |
+    | | | under-coverage (0.59→0.66 on diabetes) |
+    | ``n_transforms`` | 3 (tabular) | zuko default is 5; 3 is the sweet spot |
+    | | | for datasets < 10k samples |
+    | ``flow_type`` | ``"nsf"`` | Neural Spline Flow — best per-parameter |
 
-    Notes:
-        - Requires the 'zuko' package: `pip install zuko`
-        - The flow must be a trainable nn.Module that will be part of your model
-        - The model should output context vectors that condition the flow
-        - Different flow types (RealNVP, MAF, NSF) have different modeling
-          capacities and computational characteristics
-        - The flow's parameters are trained alongside the model via backpropagation
+    Scalar vs. multivariate tradeoff
+        The [64, 64] / 3-transform configuration improves scalar
+        calibration, but the more expressive flow learns tighter joint
+        distributions on multivariate data, which can reduce
+        JointCoverage.  For joint multivariate intervals, consider
+        :class:`GaussianNLLLoss <torchregress.losses.GaussianNLLLoss>`
+        if joint calibration is the priority.
 
-    Examples:
-        >>> import torch
-        >>> from torch import nn
-        >>> from zuko.flows import NSF
-        >>>
-        >>> # Create a conditional flow (2D targets conditioned on 10D context)
-        >>> flow = NSF(features=2, context=10, transforms=3, hidden_features=[64, 64])
-        >>>
-        >>> # Create loss function with the flow
-        >>> loss_fn = NormalizingFlowLoss(flow=flow)
-        >>>
-        >>> # Model outputs context vectors
-        >>> class MyModel(nn.Module):
-        ...     def __init__(self):
-        ...         super().__init__()
-        ...         self.net = nn.Linear(5, 10)  # outputs 10D context
-        ...     def forward(self, x):
-        ...         return self.net(x)
-        >>>
-        >>> model = MyModel()
-        >>> x = torch.randn(32, 5)
-        >>> context = model(x)  # [32, 10]
-        >>> target = torch.randn(32, 2)  # [32, 2]
-        >>>
-        >>> # Compute loss - gradients flow through both model and flow
-        >>> loss = loss_fn(context, target)
-        >>> loss.backward()  # Updates both model and flow parameters
+    Mathematical Formulation
+    ------------------------
+    Normalizing flows transform a simple base distribution into a complex target
+    distribution through a series of invertible transformations. For conditional
+    flows, the transformation depends on context c (model output):
+
+    .. math::
+
+        \\text{NLL} = -\\log p_X(x|c) = -\\log p_Z(f(x|c)) - \\log|\\det(df/dx)|
+
+    where p_Z is the density of the base distribution, f is the invertible
+    transformation conditioned on c, and |det(df/dx)| is the absolute determinant
+    of the Jacobian.
+
+    Notes
+    -----
+    - Requires the ``zuko`` package (``pip install torchregress[flows]``).
+    - The flow must be a trainable ``nn.Module`` — its parameters are
+      trained alongside the model via backpropagation.
+    - The model should output context vectors that condition the flow.
+    - Different flow types (RealNVP, MAF, NSF) have different modeling
+      capacities and computational characteristics.
+    - Use :func:`create_flow_model` to construct flows with
+      torchregress-friendly naming and validated defaults.
+    - :func:`create_flow_loss` is a convenience that creates both the
+      flow and the loss in one call.
+
+    Examples
+    --------
+    >>> import torch
+    >>> from torch import nn
+    >>> from torchregress.losses.nflows import NormalizingFlowLoss, create_flow_model
+    >>>
+    >>> # Create a conditional flow with recommended defaults
+    >>> flow = create_flow_model(
+    ...     n_features=2,
+    ...     context_dim=10,
+    ...     n_transforms=3,
+    ...     hidden_features=[64, 64],
+    ... )
+    >>> loss_fn = NormalizingFlowLoss(flow=flow)
+    >>>
+    >>> # Model outputs context vectors
+    >>> class MyModel(nn.Module):
+    ...     def __init__(self):
+    ...         super().__init__()
+    ...         self.net = nn.Linear(5, 10)
+    ...     def forward(self, x):
+    ...         return self.net(x)
+    >>>
+    >>> model = MyModel()
+    >>> x = torch.randn(32, 5)
+    >>> context = model(x)  # [32, 10]
+    >>> target = torch.randn(32, 2)  # [32, 2]
+    >>> loss = loss_fn(context, target)
+    >>> loss.backward()
     """
 
     def __init__(

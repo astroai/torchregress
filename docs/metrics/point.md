@@ -159,36 +159,36 @@ See also: [huber_loss](../api/metrics.md#huber_loss).
 
 ### Trimmed Mean Squared Error
 
-MSE computed after removing the largest squared errors:
+MSE computed after removing the most extreme squared errors from both tails:
 
 $$
-\text{TrimmedMSE}(y, \hat{y}; \alpha) = \frac{1}{M} \sum_{j=1}^{M} r_{(j)}^2
+\text{TrimmedMSE}(y, \hat{y}; \alpha) = \frac{1}{M} \sum_{j=\lfloor N\alpha \rfloor + 1}^{\lfloor N(1-\alpha) \rfloor} r_{(j)}^2
 $$
 
-where $r_{(j)}^2$ are the sorted squared residuals for valid elements, and $M = \lfloor N_{\text{val}} (1 - \alpha) \rfloor$ for a trimming fraction $\alpha$.
+where $r_{(j)}^2$ are the sorted squared residuals for valid elements, and $M = \lfloor N(1-\alpha) \rfloor - \lfloor N\alpha \rfloor$ for a trimming fraction $\alpha$ applied to **each** tail. The parameter $\alpha$ must satisfy $0 \le \alpha < 0.5$.
 
 ```python
 from torchregress.metrics.point import trimmed_mean_squared_error
 
-# trim 10% of data from both ends
+# trim 10% of data from each end (keeps the middle 80%)
 tmse = trimmed_mean_squared_error(y_pred, y_true, proportion=0.1, mask=mask)
 ```
 See also: [trimmed_mean_squared_error](../api/metrics.md#trimmed_mean_squared_error).
 
 ### Median Absolute Deviation (MAD)
 
-Median of absolute deviations from the median error:
+Median of absolute deviations from the median error, scaled by a consistency factor:
 
 $$
-\text{MAD}(e) = \text{median}\left(\{|e_i - \text{median}(e)|\}_{i: m_i=1}\right)
+\text{MAD}(e) = c \cdot \text{median}\left(\{|e_i - \text{median}(e)|\}_{i: m_i=1}\right)
 $$
 
-where $e_i = y_i - \hat{y}_i$.
+where $e_i = y_i - \hat{y}_i$ and $c = 1.4826$ by default (the Gaussian consistency factor that makes MAD an unbiased estimator of $\sigma$ for normally distributed residuals).
 
 ```python
 from torchregress.metrics.point import median_absolute_deviation
 
-mad = median_absolute_deviation(y_pred, y_true, mask=mask)
+mad = median_absolute_deviation(y_pred, y_true, scale=1.4826, mask=mask)
 ```
 See also: [median_absolute_deviation](../api/metrics.md#median_absolute_deviation).
 

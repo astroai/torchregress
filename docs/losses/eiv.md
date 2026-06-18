@@ -4,6 +4,8 @@ Standard regression assumes that **inputs $X$ are measured perfectly** — only 
 
 $$X_{\text{obs}} = X^* + \varepsilon_X, \qquad Y_{\text{obs}} = f(X^*) + \varepsilon_Y$$
 
+where $\varepsilon_X \sim \mathcal{N}(0, \Sigma_X)$ and $\varepsilon_Y \sim \mathcal{N}(0, \Sigma_Y)$ are independent additive Gaussian noise terms.
+
 !!! abstract "Where this matters"
     - **Scientific measurement**: instrument readings with known per-sample noise, lab assays with reported precision
     - **Engineering**: sensor calibration with known tolerances, geolocation with GPS error
@@ -54,7 +56,7 @@ where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extreme
 
 !!! warning "Computational Cost of MC Marginalization"
     Monte Carlo marginalization requires $N_{\text{samples}}$ forward passes of the model for every training and evaluation step. If your model backbone is computationally expensive, this will multiply training time by $N_{\text{samples}}$.
-    - **Mitigation**: Start with `n_samples=8` or `16` and `antithetic=True` (which generates correlated samples to reduce variance) rather than a large $N$.
+    - **Mitigation**: Start with `n_samples=8` or `16` and `antithetic=True` (which generates **negatively correlated** paired samples to reduce variance) rather than a large $N$.
 
 !!! warning "Model determinism during MC sampling"
     MC marginalization calls the model multiple times per input with different noise perturbations. **Dropout and BatchNorm must be in eval mode** during these forward passes — otherwise each MC sample sees a different stochastic dropout mask or batch statistic, injecting unintended variance that biases the marginal likelihood estimate. Use `model.eval()` or manually disable stochastic layers before wrapping with EIV losses.
@@ -63,7 +65,7 @@ where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extreme
     The Taylor expansion used by `FunctionalEIVLoss` requires the model $f(x)$ to be **twice differentiable** with respect to inputs. Activation functions like `ReLU` have zero second derivatives, causing the curvature term $\partial^2 f / \partial x^2$ to vanish. Prefer smooth activations (`GELU`, `Tanh`, `SiLU`) when using `FunctionalEIVLoss`.
 
 ```python
-from torchregress.losses import InputNoiseMarginalizationLoss
+from torchregress.losses import InputNoiseMarginalizationLoss, GaussianNLLLoss
 
 loss_fn = InputNoiseMarginalizationLoss(
     model=my_model,
@@ -125,7 +127,9 @@ loss_fn = InputNoiseBinnedPDFLoss(model=my_classifier, sigma_x=0.1)
 
 Propagates $X$-uncertainty through the model via a **first-order Taylor approximation**:
 
-$$\text{Var}(Y) \approx \sigma_Y^2 + \left(\frac{\partial f}{\partial X}\right)^{\!\top} \Sigma_X \left(\frac{\partial f}{\partial X}\right)$$
+$$\text{Var}(Y) \approx \mathbf{J}\,\Sigma_X\,\mathbf{J}^\top + \Sigma_Y$$
+
+where $\mathbf{J} = \partial f / \partial X$ is the Jacobian of shape $[n_{\text{out}} \times n_{\text{in}}]$. For scalar output this reduces to the inner product $\mathbf{J}\Sigma_X\mathbf{J}^\top = (\nabla_X f)^\top \Sigma_X (\nabla_X f)$.
 
 ```python
 from torchregress.losses import FunctionalEIVLoss
@@ -167,7 +171,7 @@ loss_fn = StructuralEIVLoss(
 
 Minimises the **perpendicular distance** from observations to the model surface by jointly optimising latent true inputs $\hat{X}$:
 
-$$\mathcal{L}_{\text{ODR}} = (X - \hat{X})^T \Sigma_X^{-1} (X - \hat{X}) + (Y - f(\hat{X}))^T \Sigma_Y^{-1} (Y - f(\hat{X}))$$
+$$\mathcal{L}_{\text{ODR}} = (X - \hat{X})^\top \Sigma_X^{-1} (X - \hat{X}) + (Y - f(\hat{X}))^\top \Sigma_Y^{-1} (Y - f(\hat{X}))$$
 
 ```python
 from torchregress.losses import OrthogonalDistanceRegressionLoss
@@ -221,8 +225,14 @@ y_obs = y_true + 0.3 * torch.randn_like(y_true)
 # Model
 model = nn.Sequential(nn.Linear(1, 32), nn.ReLU(), nn.Linear(32, 1))
 
+from torchregress.losses import InputNoiseMarginalizationLoss, WeightedMSELoss
+
 # EIV loss using marginalization (the modern default)
-loss_fn = InputNoiseMarginalizationLoss(model=model, sigma_x=0.5)
+loss_fn = InputNoiseMarginalizationLoss(
+    model=model,
+    base_loss=WeightedMSELoss(),
+    sigma_x=0.5,
+)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 for epoch in range(200):
@@ -247,5 +257,5 @@ for epoch in range(200):
 |:-:|:----------|
 | 1 | W.A. Fuller. *Measurement Error Models*. Wiley, **1987**. |
 | 2 | R.J. Carroll et al. *Measurement Error in Nonlinear Models*. Chapman & Hall, 2nd ed., **2006**. |
-| 3 | P.T. Boggs, J.E. Rogers. "Orthogonal Distance Regression." *NIST*, **1990**. |
+| 3 | P.T. Boggs, J.E. Rogers. ["Orthogonal Distance Regression."](https://doi.org/10.1090/conm/112/1087090) *Contemporary Mathematics*, vol. 112, AMS, **1990**. |
 | 4 | C.L. Cheng, J.W. Van Ness. *Statistical Regression with Measurement Error*. Arnold, **1999**. |

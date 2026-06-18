@@ -12,7 +12,7 @@ For conceptual guides, derivations, and worked examples, see
 |:-------|:-------------|:----------|
 | `torchregress.losses` | Regression losses: point, robust, Gaussian, quantile, ordinal, censored, Poisson/Tweedie, EIV, conformal, … | [Losses API](losses.md) |
 | `torchregress.ensemble` | Deep ensembles, heteroscedastic ensembles, batch ensembles, SWAG, MC-dropout, BNN | [Ensemble API](ensemble.md) |
-| `torchregress.conformal` | (See Losses) | [Conformal API](conformal.md) |
+| `torchregress.losses.conformal` | Conformal predictors & `ConformalLoss` | [Conformal API](conformal.md) |
 | `torchregress.algorithms` | IRLS, SIMEX, RC, LatentNN, TicTac, heteroscedastic Laplace, IVON | [Algorithms API](algorithms.md) |
 | `torchregress.metrics` | Point, distribution, interval, calibration, OOD, ensemble, multivariate, ordinal, censored, decision | [Metrics API](metrics.md) |
 | `torchregress.calibration` | Variance temperature, isotonic mean, PIT, semi-conformal, label shift | [Calibration API](calibration.md) |

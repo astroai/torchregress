@@ -51,12 +51,13 @@ $$
 \text{AURC} = \int_0^1 R(c) \, dc
 $$
 
-A perfect uncertainty score achieves $\text{AURC} = \mathbb{E}[r]$
-(the average risk — rejecting nothing). A useless uncertainty score
-(one that ranks predictions randomly) achieves
-$\text{AURC} \approx \mathbb{E}[r]$ as well, but with much wider
-intermediate risk. The **AURC gap** relative to an oracle that
-ranks by true error is the canonical headline number.
+A **random** (uninformative) uncertainty score produces a flat curve
+$R(c) \approx \mathbb{E}[r]$ for all $c$, yielding
+$\text{AURC} \approx \mathbb{E}[r]$. An **oracle** uncertainty score
+that ranks by the true per-sample error achieves the minimum
+possible AURC, strictly less than $\mathbb{E}[r]$ when errors vary.
+The **excess AURC** (E-AURC) = $\text{AURC}_{\text{model}} - \text{AURC}_{\text{oracle}}$
+is the canonical headline number — lower is better.
 
 ---
 

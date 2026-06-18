@@ -87,6 +87,8 @@ print(f"Mean gate per feature: {gate_values.mean(dim=0)}")
 ### Training Loop
 
 ```python
+from torchregress.losses import GaussianNLLLoss
+
 model = NoiseAwareRegressor(input_dim=10, output_dim=2)  # mean + logvar
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 loss_fn = GaussianNLLLoss()
@@ -117,7 +119,7 @@ for x, y, sigma_x in train_loader:
 
 | Method | Handles Noise | Per-Sample Storage | Interpretability | Training Cost |
 |:-------|:------------:|:-----------------:|:----------------:|:------------:|
-| **ErrorAwareEncoder** | ✅ (known $\sigma_x$) | None | ✅ (quality gates) | Standard |
+| **ErrorAwareFeatureEncoder** | ✅ (known $\sigma_x$) | None | ✅ (quality gates) | Standard |
 | **LatentNN** | ✅ (known $\sigma_x$) | $N \times D$ | ✅ (latent inputs) | Higher (dual optimization) |
 | **Standard MLP** | ❌ | None | ❌ | Standard |
 

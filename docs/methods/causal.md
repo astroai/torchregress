@@ -29,15 +29,24 @@ Causal inference methods in **torchregress** use **doubly-robust** estimation \[
 
 ### 1. Doubly Robust ATE ([dr_ate](../api/causal.md#dr_ate))
 
-The Doubly Robust (DR) estimator \[1\] combines an **outcome model** $\hat{\mu}(x, t)$ and a **propensity model** $\hat{e}(x) = P(T=1 \mid x)$ to estimate the average treatment effect across the entire population.
+The Doubly Robust (DR) estimator \[1\] combines an **outcome model** $\hat{\mu}(x, t)$ and a **propensity model** $\hat{e}(x) = P(T=1 \mid x)$ to estimate the average treatment effect across the entire population. Implementations in **torchregress** **cross-fit** these nuisance models on held-out folds rather than accepting precomputed $\hat{\mu}$ or $\hat{e}$.
 
 $$\hat{\tau}_{\text{DR}} = \frac{1}{n}\sum_{i=1}^n \left[ \hat{\mu}(x_i, 1) - \hat{\mu}(x_i, 0) + \frac{T_i(Y_i - \hat{\mu}(x_i, 1))}{\hat{e}(x_i)} - \frac{(1-T_i)(Y_i - \hat{\mu}(x_i, 0))}{1 - \hat{e}(x_i)} \right]$$
 
 ```python
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from torchregress.causal import dr_ate
 
-# Estimate ATE + 95% Confidence Interval
-ate, ci = dr_ate(y, t, mu0, mu1, propensity)
+result = dr_ate(
+    x, t, y,
+    outcome_model=LinearRegression,
+    propensity_model=LogisticRegression(max_iter=1000),
+    folds=2,
+    alpha=0.05,
+)
+ate = result["estimate"]
+ci = (result["ci_lower"], result["ci_upper"])
+overlap = result["diagnostics"]  # overlap / ESS checks
 ```
 
 ### 2. Conditional ATE ([dr_cate](../api/causal.md#dr_cate))
@@ -45,10 +54,17 @@ ate, ci = dr_ate(y, t, mu0, mu1, propensity)
 Estimates the treatment effect as a function of the covariates $X$. This is crucial for **personalised medicine** or **targeted marketing**, where we want to know $\tau(x) = \mathbb{E}[Y(1) - Y(0) \mid x]$.
 
 ```python
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from torchregress.causal import dr_cate
 
-# Per-sample treatment effect estimates
-cate = dr_cate(y, t, mu0, mu1, propensity, x)
+result = dr_cate(
+    x, t, y,
+    cate_model=LinearRegression,
+    outcome_model=LinearRegression,
+    propensity_model=LogisticRegression(max_iter=1000),
+    folds=2,
+)
+cate_hat = result["cate_hat"]  # per-sample CATE estimates
 ```
 
 ### 3. Policy Evaluation ([dr_policy_value](../api/causal.md#dr_policy_value))
@@ -56,9 +72,18 @@ cate = dr_cate(y, t, mu0, mu1, propensity, x)
 Estimates the expected outcome if we were to apply a specific treatment policy $\pi(x)$ to the entire population.
 
 ```python
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from torchregress.causal import dr_policy_value
+
 # What happens if we treat only if feature 0 > 0.5?
 policy = (x[:, 0] > 0.5).float()
-value = dr_policy_value(y, t, mu0, mu1, propensity, policy)
+result = dr_policy_value(
+    x, t, y,
+    policy=policy,
+    outcome_model=LinearRegression,
+    propensity_model=LogisticRegression(max_iter=1000),
+)
+value = result["estimate"]
 ```
 
 ---

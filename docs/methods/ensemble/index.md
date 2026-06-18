@@ -62,7 +62,7 @@ This increases computational latency and memory consumption linearly with $S$ ($
 | Method | Epistemic? | Aleatoric? | API Reference | Best For |
 |:-------|:----------:|:----------:|:--------------|:---------|
 | **`DeepEnsemble`** | ✅ | ❌ | [DeepEnsemble](../../api/ensemble.md#deepensemble) | High-accuracy baseline |
-| **`HeteroEnsemble`** | ✅ | ✅ | [HeteroscedasticEnsembleModel](../../api/ensemble.md#heteroscedasticensemblemodel) | Full uncertainty |
+| **`HeteroscedasticEnsembleModel`** | ✅ | ✅ | [HeteroscedasticEnsembleModel](../../api/ensemble.md#heteroscedasticensemblemodel) | Full uncertainty |
 | **`BatchEnsemble`** | ✅ | ✅ | [HeteroscedasticBatchEnsembleModel](../../api/ensemble.md#heteroscedasticbatchensemblemodel) | Production (fast) |
 | **Building blocks** | — | — | [BatchEnsembleLinear](../../api/ensemble.md#batchensemblelinear), [BatchEnsembleMLPBackbone](../../api/ensemble.md#batchensemblemlpbackbone) | Rank-1 layers / shared MLP backbone |
 | **`BinnedPDFEnsemble`** | ✅ | ⚠️ | [BinnedPDFEnsembleModel](../../api/ensemble.md#binnedpdfensemblemodel) | Ordered-bin / non-Gaussian PDFs |
@@ -93,9 +93,12 @@ class MyModel(nn.Module):
 # 2. Wrap it in an ensemble
 ensemble = HeteroscedasticEnsembleModel(base_model=MyModel, ensemble_size=5)
 
-# 3. Train each member (parallel or sequential)
-# torchregress provides utility for this
-ensemble.train_members(dataloader, loss_fn=GaussianNLLLoss(), epochs=100)
+# 3. Train all members via the shared ensemble API
+ensemble.fit(
+    train_loader=dataloader,
+    criterion=GaussianNLLLoss(),
+    epochs=100,
+)
 
 # 4. Predict with uncertainty decomposition
 result = ensemble.predict(x_test)
@@ -120,14 +123,17 @@ Ensembles excel at detecting when a test point is far from the training data. In
 
 ## Advanced: Bayesian Model Averaging (BMA)
 
-Instead of simple averaging, **torchregress** supports weighting members by their likelihood on a held-out validation set. This ensures that "better" models have more influence on the final prediction.
+Instead of simple averaging, **torchregress** provides [`BayesianModelAveraging`](../../api/ensemble.md#combiners) — a learnable softmax weighting over a **list of trained member models**:
 
 ```python
 from torchregress.ensemble import BayesianModelAveraging
 
-bma = BayesianModelAveraging(ensemble)
-bma.calibrate(val_dataloader) # weights members by validation NLL
+bma = BayesianModelAveraging(list(ensemble.models))
+mean_pred = bma(x_test)
+mean_pred, variance = bma.predict_with_uncertainty(x_test)
 ```
+
+Train the softmax weights with your usual regression loss on a validation set (the combiner is an `nn.Module`).
 
 ---
 

@@ -18,9 +18,9 @@ Conformal prediction via the **Probability Integral Transform** (PIT).
 
 ### Mathematical Details
 
-If the predictive CDF $F(y \mid x)$ is correctly specified, the PIT value $U = F(Y \mid X)$ is uniformly distributed on $\[0, 1\]$.  The PIT nonconformity score measures **how far** $U$ is from uniform:
+If the predictive CDF $F(y \mid x)$ is correctly specified, the PIT value $U = F(Y \mid X)$ is uniformly distributed on $[0, 1]$.  The PIT nonconformity score measures **how far** $U$ is from uniform:
 
-$$s = \bigl\lvert 2 U - 1\bigr\rvert \;\in\; \[0, 1\]$$
+$$s = \bigl\lvert 2 U - 1\bigr\rvert \;\in\; [0, 1]$$
 
 After computing the conformal quantile $\hat{q}$, the adjusted quantile levels are:
 
@@ -72,7 +72,7 @@ lower, upper = dcp.predict_intervals_from_cdf(icdf_fn, x_test)
         mean, logvar = model(x_batch).chunk(2, dim=-1)
         std = torch.exp(0.5 * logvar)
         d = Normal(mean.squeeze(-1), std.squeeze(-1))
-        return torch.stack([d.icdf(levels\[0\]), d.icdf(levels\[1\])], dim=-1)
+        return torch.stack([d.icdf(levels[0]), d.icdf(levels[1])], dim=-1)
 
     lower, upper = dcp.predict_intervals_from_cdf(icdf_fn, x_test)
     ```
@@ -164,6 +164,9 @@ lower, upper = cti.predict_intervals_from_density(
 !!! warning "Computational Cost & Dimensionality Limit"
     Because `CTI` and `R2CConformal` rely on evaluating density or probabilities over a discretized grid of the target space, they are computationally limited to **low-dimensional** (typically 1D or 2D) targets. For a $D$-dimensional target with `grid_size` points per dimension, the grid has $\text{grid\_size}^D$ points — scaling exponentially: $\mathcal{O}(\text{grid\_size}^D)$. For $D \geq 3$, level-set search becomes computationally intractable even with modest grid resolutions. Use `DistributionalConformal` for higher-dimensional targets.
 
+!!! quote "Reference"
+    Luo & Zhou. ["Conformal Thresholded Intervals for Efficient Regression."](https://arxiv.org/abs/2407.14495) *AAAI*, **2025**.
+
 ---
 
 ## R2CConformal
@@ -199,7 +202,7 @@ lower, upper = r2c.predict_interval(model(x_test))
     When your target distribution is **highly multimodal** or skewed and you want conformal sets that can be **disjoint** (multiple disconnected intervals covering separate modes).
 
 !!! quote "Reference"
-    R. Izbicki, R. Shimizu, R. Stern. "Flexible distribution-free conditional predictive bands using density estimators." *AISTATS*, **2020**.
+    Cabi et al. ["Conformal Prediction via Regression-as-Classification."](https://arxiv.org/abs/2404.08168) *ICLR*, **2024**.
 
 ---
 

@@ -1,6 +1,6 @@
 # Iteratively Reweighted Least Squares (IRLS)
 
-IRLS solves robust regression by iteratively downweighting outliers — at each step, residuals are computed, weights are updated based on a robust criterion, and the model is re-fitted with the new weights.
+IRLS computes robust **sample weights** from current residuals; in **torchregress** the base model is typically refit in an outer training loop using those weights (see complete example below).
 
 ---
 
@@ -38,8 +38,10 @@ and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust
 |:---------|:--------|:----------|:-----------|
 | `"huber"` | $w = \min(1,\; \delta/\lvert r\rvert)$ | Downweights, never rejects | $\delta = 1.0$ |
 | `"tukey"` | $w = (1 - (r/c)^2)^2$ if $\lvert r\rvert \leq c$; else $0$ | Rejects outliers | $c = 4.685$ |
-| `"power"` | $w = 1/(a + \lvert r\rvert^b)$ | Power-law decay | $a=1, b=2$ |
+| `"power"` | $w = 1 / (1 + (\lvert r\rvert/a)^b)$ | Power-law decay | $a=1, b=2$ |
 | Custom `Callable` | User-defined | Flexible | — |
+
+Here $r$ denotes the **scaled** residual $r / \hat\sigma$ passed to the weight function.
 
 ---
 
@@ -70,7 +72,7 @@ y_pred, loss_history, final_precision = iteratively_reweighted_least_squares(
 | `tol` | `float` | `1e-4` | Convergence tolerance |
 | `variance_type` | `str` | `"predicted"` | `"predicted"`, `"fixed"`, or `"robust"` |
 
-**Returns:** `(y_pred, loss_history, final_precision)` — use `final_precision` as sample weights in a weighted loss step.
+**Returns:** `(y_pred, loss_history, final_precision)` — `final_precision` holds robust precision multipliers for `WeightedMSELoss(..., weights=final_precision)`.
 
 ---
 

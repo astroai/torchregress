@@ -102,7 +102,7 @@ def main() -> None:
 
     # 3. Check mathematical exactness and coverage
     max_post_diff = (batch_model.posterior_mean - rec_model.posterior_mean).abs().max().item()
-    w_err = (batch_model.posterior_mean\[0\] - w_true).norm().item()
+    w_err = (batch_model.posterior_mean[0] - w_true).norm().item()
     print("max |posterior_mean_batch - posterior_mean_recursive|:", round(max_post_diff, 8))
     print("||posterior_mean - w_true||_2:", round(w_err, 4))
 

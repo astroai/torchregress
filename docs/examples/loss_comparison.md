@@ -1,6 +1,12 @@
 # Loss Function Comparison
 
-This page provides comprehensive comparisons of different loss functions across various data scenarios, helping you choose the right loss for your application.
+This page compares robust and standard regression losses across pedagogical scenarios. The **runnable script** [`examples/loss_comparison.py`](../../examples/loss_comparison.py) implements the **outlier robustness** benchmark (MSE, MAE, Huber, Log-Cosh, Barron, Adaptive Robust, Quantile); the sections below add additional scenario walkthroughs for method selection.
+
+**Run the script:**
+
+```bash
+uv run python examples/loss_comparison.py
+```
 
 → API: [Losses](../api/losses.md) (`WeightedMSELoss`, `WeightedHuberLoss`, `CauchyLoss`, `GaussianNLLLoss`, `MDNLoss`, …).
 
@@ -197,7 +203,7 @@ print("\nOutlier Data - Loss Function Comparison")
 print("=" * 70)
 print(f"{'Loss':<20} {'MSE (All)':<12} {'MSE (Clean)':<14} {'MAE (All)':<12}")
 print("=" * 70)
-for name, metrics in sorted(results.items(), key=lambda x: x\[1\]['mse_clean']):
+for name, metrics in sorted(results.items(), key=lambda x: x[1]['mse_clean']):
     print(f"{name:<20} {metrics['mse_all']:<12.4f} "
           f"{metrics['mse_clean']:<14.4f} {metrics['mae_all']:<12.4f}")
 
@@ -365,17 +371,17 @@ X_sorted = X_test[idx]
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 # Plot 1: Homoscedastic
-axes\[0\].scatter(X_test, y_test, alpha=0.3, s=10, c='gray')
-axes\[0\].plot(X_sorted, y_pred_homo[idx], 'b-', linewidth=2)
-axes\[0\].set_title(f'Homoscedastic (MSE)\nMSE: {mse_homo:.3f}')
-axes\[0\].set_xlabel('X')
-axes\[0\].set_ylabel('y')
-axes\[0\].grid(True, alpha=0.3)
+axes[0].scatter(X_test, y_test, alpha=0.3, s=10, c='gray')
+axes[0].plot(X_sorted, y_pred_homo[idx], 'b-', linewidth=2)
+axes[0].set_title(f'Homoscedastic (MSE)\nMSE: {mse_homo:.3f}')
+axes[0].set_xlabel('X')
+axes[0].set_ylabel('y')
+axes[0].grid(True, alpha=0.3)
 
 # Plot 2: Heteroscedastic with uncertainty
-axes\[1\].scatter(X_test, y_test, alpha=0.3, s=10, c='gray', label='Data')
-axes\[1\].plot(X_sorted, mean_hetero[idx], 'r-', linewidth=2, label='Mean')
-axes\[1\].fill_between(
+axes[1].scatter(X_test, y_test, alpha=0.3, s=10, c='gray', label='Data')
+axes[1].plot(X_sorted, mean_hetero[idx], 'r-', linewidth=2, label='Mean')
+axes[1].fill_between(
     X_sorted.flatten(),
     lower[idx].flatten(),
     upper[idx].flatten(),
@@ -383,11 +389,11 @@ axes\[1\].fill_between(
     color='red',
     label='95% Interval'
 )
-axes\[1\].set_title(f'Heteroscedastic (Gaussian NLL)\nMSE: {mse_hetero:.3f}, PICP: {picp:.3f}')
-axes\[1\].set_xlabel('X')
-axes\[1\].set_ylabel('y')
-axes\[1\].legend()
-axes\[1\].grid(True, alpha=0.3)
+axes[1].set_title(f'Heteroscedastic (Gaussian NLL)\nMSE: {mse_hetero:.3f}, PICP: {picp:.3f}')
+axes[1].set_xlabel('X')
+axes[1].set_ylabel('y')
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.show()

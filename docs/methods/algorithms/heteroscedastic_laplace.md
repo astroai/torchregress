@@ -16,7 +16,7 @@ $$\eta_1 = \frac{\mu}{\sigma^2}, \quad \eta_2 = -\frac{1}{2 \sigma^2}$$
 
 To ensure $\sigma^2 > 0$, we predict $f_1, f_2 \in \mathbb{R}$ and define the natural parameters using a link function. For the exponential link function (`link_fn="exp"`):
 
-$$\eta_2 = -\frac{1}{2} \exp(f_2), \quad \eta_1 = f_1 \exp(f_2)$$
+$$\eta_2 = -\frac{1}{2} \exp(f_2), \quad \eta_1 = f_1$$
 
 This maps back to standard parameters as:
 
@@ -137,7 +137,6 @@ print("Aleatoric Variance:\n", pred_batch.extra["aleatoric_variance"].squeeze(-1
 |:---|:---:|:---|
 | **Separating model error (epistemic) from data noise (aleatoric)** | **Yes (Recommended)** | This is one of the fastest ways to decompose uncertainty without training expensive ensembles. |
 | **Out-of-Distribution (OOD) robustness** | **Yes** | Epistemic uncertainty increases on test inputs far from the training data distribution. |
-| **Ultra-fast online updates** | **Yes** | The posterior covariance can be updated post-hoc by accumulating Fisher updates without retraining the backbone. |
 | **Large-scale model training** | **Warning** | Last-layer Laplace is efficient, but full-parameter Laplace is too heavy. This regressor restricts posterior approximation to the final head layer only. |
 
 !!! tip "Natural Head Stabilization"

@@ -10,9 +10,9 @@ The foundation of all torchregress loss functions — providing **unified maskin
 graph TD
     A["BaseLoss (nn.Module)"] --> B["RegressionLoss"]
     A --> C["DistributionLoss"]
-    D["WeightedLossWrapper"] --> A
-    B --> E["WeightedHuberLoss, WeightedMSELoss, WeightedL1Loss"]
-    C --> F["GaussianNLLLoss, MDNLoss, ..."]
+    D["WeightedLossWrapper"] -. "wraps any nn.Module" .-> E["nn.Module (any PyTorch loss)"]
+    B --> F["WeightedHuberLoss, WeightedMSELoss, WeightedL1Loss"]
+    C --> G["GaussianNLLLoss, MDNLoss, ..."]
 ```
 
 | Base Class | Purpose | Model Output |

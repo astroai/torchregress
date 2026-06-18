@@ -28,7 +28,9 @@ $$\boxed{\;\text{Var}(Y) = \phi\,\mu^p\;}$$
 
 The Poisson deviance (G-statistic) — measures goodness-of-fit for count data. See [PoissonDevianceLoss API](../api/losses.md#poissondevianceloss).
 
-$$D(y, \lambda) = 2\sum_i\!\left[y_i \log\!\left(\frac{y_i}{\lambda_i}\right) - (y_i - \lambda_i)\right]$$
+$$D(y, \lambda) = \sum_i\!\left[y_i \log\!\left(\frac{y_i}{\lambda_i}\right) - (y_i - \lambda_i)\right]$$
+
+(half the classical G-statistic; matches `PoissonDevianceLoss` in code)
 
 ```python
 from torchregress.losses import PoissonDevianceLoss
@@ -236,6 +238,6 @@ for x, y in train_loader:
 |:-:|:----------|
 | 1 | B. Jørgensen. ["Exponential Dispersion Models."](https://www.jstor.org/stable/2345173) *JRSS-B*, 49(2):127–162, **1987**. |
 | 2 | P. Dunn, G. Smyth. ["Evaluation of Tweedie Exponential Dispersion Model Densities."](https://doi.org/10.1080/00949650412331272171) *J. Stat. Comp. Sim.*, 73(4):325–349, **2005**. |
-| 3 | G.W. Corder, D.I. Foreman. *Nonparametric Statistics for Non-Statisticians*. Wiley, **2009**. |
+| 3 | P. McCullagh, J.A. Nelder. *Generalized Linear Models*, 2nd ed. Chapman & Hall, **1989**. |
 | 4 | S. Baker, R.D. Cousins. ["Clarification of the Use of Chi-square and Likelihood Functions in Fits to Histograms."](https://doi.org/10.1016/0167-5087(84)90016-4) *Nucl. Instr. Meth.*, 221(2):437–442, **1984**. |
 | 5 | J. Nelder, R. Wedderburn. ["Generalized Linear Models."](https://www.jstor.org/stable/2344614) *JRSS-A*, 135(3):370–384, **1972**. |

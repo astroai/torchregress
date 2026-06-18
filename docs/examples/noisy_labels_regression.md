@@ -26,7 +26,7 @@ def make_noisy_regression(n_samples=500, noise_ratio=0.2, noise_scale=3.0, seed=
     y_noisy = y_clean.copy()
 
     noisy_idx = rng.choice(n_samples, int(n_samples * noise_ratio), replace=False)
-    y_noisy[noisy_idx] += rng.normal(0.0, noise_scale, size=noisy_idx.shape\[0\])
+    y_noisy[noisy_idx] += rng.normal(0.0, noise_scale, size=noisy_idx.shape[0])
 
     return (
         torch.tensor(x[:, None]),

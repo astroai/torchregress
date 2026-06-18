@@ -147,7 +147,7 @@ For multi-output regression ($\mathbf{Y} \in \mathbb{R}^D$), calibrating each co
 |:-:|:----------|
 | 1 | Vovk et al. *Algorithmic Learning in a Random World*. Springer, 2005. |
 | 2 | Romano et al. ["Conformalized Quantile Regression."](https://arxiv.org/abs/1905.03222) *NeurIPS*, 2019. |
-| 3 | Sadinle et al. ["Least Ambiguous Set-Valued Classifiers with Bounded Error Levels."](https://www.tandfonline.com/doi/abs/10.1080/01621459.2017.1395341) *JASA*, 2019. |
+| 3 | Luo & Zhou. ["Conformal Thresholded Intervals for Efficient Regression."](https://arxiv.org/abs/2407.14495) *AAAI*, 2025. |
 | 4 | Angelopoulos & Bates. ["A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification."](https://arxiv.org/abs/2107.07511) *Technical Report*, 2021. |
 
 ---
