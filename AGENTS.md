@@ -24,6 +24,9 @@ parity suites to **torchregress-harness** (they belong in **torchregress-researc
 This project uses [uv](https://github.com/astral-sh/uv) as the package manager.
 
 ### Setup
+
+Uses Python **3.13** by default (see `.python-version`). Supported: 3.12–3.14.
+
 ```bash
 uv pip install -e .[all]
 ```
@@ -211,7 +214,7 @@ spread plus member disagreement.
 ## Configuration
 
 **pyproject.toml settings**:
-- Python >= 3.12 and < 3.16 required
+- Python >= 3.12 and < 3.16 required (3.13 recommended; CI tests 3.12, 3.13, and 3.14)
 - Black line length: 100
 - Ruff: enforces E (pycodestyle), F (pyflakes), I (isort)
 - MyPy: strict typing for `torchregress.*`; examples/tools/docs are excluded or ignored

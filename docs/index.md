@@ -155,7 +155,7 @@ For full end-to-end workflows, see the
 pip install torchregress
 ```
 
-*Requires PyTorch 2.4+ and Python 3.12 – 3.15.* For normalizing flows, install
+*Requires PyTorch 2.4+ and Python 3.12–3.14 (3.13 recommended).* For normalizing flows, install
 the optional extra:
 
 ```bash

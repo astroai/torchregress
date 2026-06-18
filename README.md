@@ -3,7 +3,7 @@
 <a href="https://pypi.org/project/torchregress/" aria-label="PyPI package version"><img src="https://img.shields.io/pypi/v/torchregress.svg" alt="PyPI"></a>
 <a href="https://opensource.org/licenses/MIT" aria-label="License"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 <a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" aria-label="CI status"><img src="https://img.shields.io/github/actions/workflow/status/sfabbro/torchregress/ci.yml?branch=main&label=CI" alt="CI"></a>
-<a href="https://github.com/sfabbro/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12+"><img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
+<a href="https://github.com/sfabbro/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12–3.14"><img src="https://img.shields.io/badge/python-3.12%20|%203.13%20|%203.14-blue.svg" alt="Python 3.12 | 3.13 | 3.14"></a>
 
 PyTorch losses, metrics, and utilities for regression. The focus is on
 uncertainty-aware and robust training: masks and sample weights on losses,
@@ -53,7 +53,7 @@ pip install torchregress[all]        # dev, docs, tests, and optional deps
 
 (Note: For running comparison examples, external packages like `mapie`, `botorch`, `scikit-lego`, etc., can be installed directly.)
 
-Requires Python 3.12+ and PyTorch 2.4+.
+Requires Python 3.12–3.14 (3.13 recommended) and PyTorch 2.4+.
 
 ## Minimal example
 

@@ -1,6 +1,21 @@
 # Installation
 
-torchregress can be installed from PyPI or directly from the source code. The library requires Python 3.12 to <3.16 and PyTorch 2.4 or newer.
+torchregress can be installed from PyPI or directly from the source code. The library requires Python 3.12 to <3.16 and PyTorch 2.4 or newer. **Python 3.13 is recommended** for new environments; 3.12 and 3.14 are also supported.
+
+## Python version
+
+Supported runtimes: **3.12, 3.13, and 3.14** (see `requires-python` in `pyproject.toml` for the exact upper bound). Use **3.13** by default unless you have a reason to stay on 3.12 or try 3.14.
+
+```bash
+# Recommended for new machines (uv)
+uv python install 3.13
+uv venv --python 3.13 .venv
+source .venv/bin/activate
+
+# Or with pyenv / system Python 3.13
+python3.13 -m venv .venv
+source .venv/bin/activate
+```
 
 ## From PyPI
 
@@ -47,7 +62,7 @@ torchregress has the following dependencies:
 
 ### Core Dependencies
 
-- Python >= 3.12, < 3.16
+- Python >= 3.12, < 3.16 (3.13 recommended)
 - PyTorch >= 2.4.0
 - NumPy >= 2.0.0
 - matplotlib >= 3.8.0

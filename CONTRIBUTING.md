@@ -2,7 +2,7 @@
 
 ## Development Setup
 
-We use `uv` for environment management.
+We use `uv` for environment management. The repo pins **Python 3.13** in `.python-version` (recommended default); **3.12** and **3.14** are also supported.
 
 ### Installation
 
