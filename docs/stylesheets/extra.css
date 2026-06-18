@@ -147,7 +147,9 @@
 }
 
 .md-typeset .grid.cards > ul > li:hover,
-.md-typeset .grid > .card:hover {
+.md-typeset .grid.cards > ul > li:focus-within,
+.md-typeset .grid > .card:hover,
+.md-typeset .grid > .card:focus-within {
   border-color: #ffc107;
   box-shadow: var(--tr-shadow-2);
   transform: translateY(-1px);
