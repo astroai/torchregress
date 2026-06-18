@@ -68,6 +68,14 @@ jobs:
             --thresholds reports/benchmark_thresholds/cpu/sweep.json \
             --fail-on-thresholds
 
+      - name: Harness validation (torchregress-harness)
+        if: ${{ secrets.PAT_FOR_PRIVATE_REPOS != '' }}
+        run: |
+          git clone https://github.com/sfabbro/torchregress-harness.git ../torchregress-harness
+          cd ../torchregress-harness
+          uv sync --extra test
+          uv run python tools/run_all.py --validate
+
       - name: Upload coverage to Codecov
         if: ${{ always() }}
         uses: codecov/codecov-action@v4

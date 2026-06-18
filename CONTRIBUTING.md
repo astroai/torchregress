@@ -140,6 +140,43 @@ The harness uses `n_transforms=3, hidden_features=[64, 64]` for both scalar
 These values were empirically validated via architecture sweeps in
 `torchregress-harness`.
 
+## Gaussian Negative Log-Likelihood Architecture Guidelines
+
+The `GaussianNLLLoss` is a *pure loss function* — it has no internal neural
+network and no tunable architecture parameters.  It computes the diagonal
+Gaussian NLL:
+
+$$\text{NLL}(y| \mu, \sigma^2) = \frac{1}{2}\left(\log(2\pi) + \log\sigma^2 + \frac{(y - \mu)^2}{\sigma^2}\right)$$
+
+Because the loss itself is stateless, the "architecture" is entirely in your
+model's output head.  The practical recommendations are:
+
+| Parameter | Recommended | Why |
+|---|---|---|
+| Output dimensionality | `d * 2` (mean + log_var per target) | Standard diagonal Gaussian parameterisation. |
+| `log_variance` | `True` (default) | Learning log σ² is numerically more stable than raw variance; the loss exponentiates and clamps internally. |
+| `fixed_variance` | `None` (default) | Learn heteroscedastic variance per sample.  Set to a positive float (e.g. `1.0`) only when you want a fixed-variance baseline or your model outputs mean-only. |
+| `min_variance` | `1e-6` (default) | Floor on σ² to prevent division-by-zero; rarely needs tuning. |
+
+**When to choose GaussianNLL:**
+
+- **Default starting point** for any regression task with uncertainty — it is the
+  best all-rounder across all benchmark suites.
+- Use when you need **per-sample aleatoric uncertainty** (heteroscedastic variance).
+- Use as the **fine-tuning loss** after Wasserstein pre-training (see
+  `gaussian_wasserstein_bound_demo.py`).
+- For **multivariate targets with full covariance**, use
+  ``MultivariateGaussianLoss`` instead.
+- For **low-rank covariance** (e.g. high-dimensional outputs), use
+  ``LowRankGaussianLoss``.
+- For **proper scoring rules** instead of NLL, use
+  ``GaussianCRPSLoss``.
+
+The GaussianNLL family is the most heavily validated loss in the harness:
+every benchmark suite includes it as a reference method, and the
+`validate_gaussiannll_coverage()` CI smoketest guards against regressions
+in output dimensionality, z-score computation, and loss correctness.
+
 ## EIV Loss Implementation Notes
 
 - Always use `torch.double` when performing `gradcheck` on EIV losses.
