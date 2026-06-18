@@ -926,8 +926,9 @@ class FunctionalEIVLoss(BaseEIVLoss):
         # Calculate residuals from mean prediction
         residuals = y_true - mean_pred
 
-        # Calculate negative log-likelihood
-        return calculate_gaussian_nll(residuals, batch_cov, eps=self.eps)
+        # Calculate negative log-likelihood (variance detached to prevent
+        # perverse variance-shrinking incentives through MC sample gradients)
+        return calculate_gaussian_nll(residuals, batch_cov.detach(), eps=self.eps)
 
 
 @register_regression_loss("structural_eiv")
