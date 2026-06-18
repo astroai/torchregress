@@ -787,12 +787,13 @@ class FunctionalEIVLoss(BaseEIVLoss):
                 # Calculate gradients and propagate variance
                 grad = compute_model_gradients(model_output, x_grad, n_features_y)
 
-                # Propagate variance from inputs to outputs
+                # Propagate variance from inputs to outputs (detached to prevent
+                # perverse Jacobian-shrinking incentives from the log(var) NLL term)
                 propagated_var = calculate_propagated_variance(
                     grad, sigma_x_tensor, sigma_y=sigma_y_tensor
-                )
+                ).detach()
 
-                # Calculate negative log-likelihood
+                # Calculate negative log-likelihood (var fixed, residuals trainable)
                 loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
         else:
             # Monte Carlo approach
@@ -1058,11 +1059,12 @@ class StructuralEIVLoss(BaseEIVLoss):
         grad = compute_model_gradients(model_output, x_grad, n_features_y)
 
         # Propagate input variance to output variance with cross-covariance
+        # (detached to prevent perverse Jacobian-shrinking from log(var) NLL term)
         propagated_var = calculate_propagated_variance(
             grad, sigma_x_tensor, sigma_xy=sigma_xy_tensor, sigma_y=sigma_y_tensor
-        )
+        ).detach()
 
-        # Calculate negative log-likelihood
+        # Calculate negative log-likelihood (var fixed, residuals trainable)
         loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
 
         # Apply weights and reduction
