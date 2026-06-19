@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from torchregress.utils import (
+    CORALHead,
     class_probs_to_levels,
     cumulative_logits_to_pmf,
     cumulative_probs_to_pmf,
@@ -127,3 +128,29 @@ def test_ordinal_predict_validation_errors() -> None:
     # Test mismatch between num_classes and prediction shape
     with pytest.raises(ValueError, match="num_classes=5 does not match input shape"):
         ordinal_predict(y_pred, encoding="class_probs", num_classes=5)
+
+
+# --- CORALHead tests ---
+
+
+def test_coral_head_output_shape() -> None:
+    head = CORALHead(in_features=16, num_classes=5)
+    x = torch.randn(3, 16)
+    out = head(x)
+    assert out.shape == (3, 4), f"Expected (3, 4), got {out.shape}"
+
+
+def test_coral_head_rank_consistency() -> None:
+    """CORALHead outputs must satisfy z_0 ≥ z_1 ≥ ... ≥ z_{K-2} for every row."""
+    torch.manual_seed(42)
+    head = CORALHead(in_features=32, num_classes=7)
+    for _ in range(10):
+        x = torch.randn(8, 32)
+        out = head(x)
+        diffs = out[:, :-1] - out[:, 1:]
+        assert (diffs >= -1e-6).all(), f"Rank consistency violated: negative diff found\n{out}"
+
+
+def test_coral_head_num_classes_validation() -> None:
+    with pytest.raises(ValueError, match="num_classes must be >= 2"):
+        CORALHead(in_features=8, num_classes=1)

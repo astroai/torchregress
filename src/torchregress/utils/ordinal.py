@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal, Optional
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -162,4 +165,68 @@ __all__ = [
     "cumulative_probs_to_pmf",
     "cumulative_logits_to_pmf",
     "ordinal_predict",
+    "CORALHead",
 ]
+
+
+# ---------------------------------------------------------------------------
+# CORAL shared-weight ordinal head (Cao, Mirjalili & Raschka 2020)
+# ---------------------------------------------------------------------------
+
+
+class CORALHead(nn.Module):
+    """Shared-weight ordinal output head with monotonic bias constraints.
+
+    Architecture from Cao et al. (2020): *Rank Consistent Ordinal Regression
+    for Neural Networks with Application to Age Estimation*.
+    (`arXiv:1901.07884 <https://arxiv.org/abs/1901.07884>`_).
+
+    All ``K-1`` cumulative logits share a **single weight vector** ``w``.
+    Only the bias terms differ per level: ``z_k = w·x + b_k``.
+    Bias monotonicity ``b_1 ≥ b_2 ≥ ... ≥ b_{K-1}`` is enforced via
+    cumulative sums of non-negative increments.
+
+    Parameters
+    ----------
+    in_features : int
+        Input feature dimension (output of the backbone network).
+    num_classes : int
+        Total number of ordinal classes ``K``.
+    """
+
+    def __init__(self, in_features: int, num_classes: int) -> None:
+        super().__init__()
+        if num_classes < 2:
+            raise ValueError(f"num_classes must be >= 2, got {num_classes}")
+        self.num_classes = int(num_classes)
+        self.in_features = int(in_features)
+        # Shared weight: (1, in_features) — a single direction in feature space
+        self.weight = nn.Parameter(torch.empty(1, int(in_features)))
+        # Raw non-negative bias increments δ₁, …, δ_{K-1}
+        # b_k = −(softplus(δ₁) + … + softplus(δ_k))  ⇒  b₁ ≥ b₂ ≥ …
+        self.bias_increments = nn.Parameter(torch.empty(int(num_classes) - 1))
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        nn.init.zeros_(self.bias_increments)
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Return monotonic cumulative logits.
+
+        Args:
+            x: ``(batch, in_features)`` feature vectors from the backbone.
+
+        Returns:
+            ``(batch, K-1)`` cumulative logits satisfying
+            ``z_0 ≥ z_1 ≥ ... ≥ z_{K-2}`` for every row.
+        """
+        shared_logit = F.linear(x, self.weight, bias=None)  # (batch, 1)
+        # Enforce b_1 ≥ b_2 ≥ … via negative cumulative sum of non-negative
+        # increments.
+        deltas = F.softplus(self.bias_increments)  # (K-1,)  all ≥ 0
+        biases = -torch.cumsum(deltas, dim=0)  # (K-1,)  decreasing
+        return shared_logit + biases.unsqueeze(0)  # (batch, K-1)
+
+    def extra_repr(self) -> str:
+        return f"in_features={self.in_features}, num_classes={self.num_classes}"

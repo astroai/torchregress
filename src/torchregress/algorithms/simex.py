@@ -48,7 +48,7 @@ class SIMEX:
         train_func: Callable[[nn.Module, torch.Tensor, torch.Tensor], nn.Module],
         sigma_u: Union[float, torch.Tensor],
         lambdas: Optional[List[float]] = None,
-        n_simulations: int = 1,
+        n_simulations: int = 5,
         extrapolation_order: int = 2,
     ):
         self.model_factory = model_factory

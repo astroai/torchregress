@@ -210,13 +210,36 @@ class CumulativeLinkLoss(BaseLoss):
 
 @register_regression_loss("coral")
 class CORALLoss(CumulativeLinkLoss):
-    """CORAL ordinal loss (cumulative-link with CORAL encoding semantics).
+    """CORAL ordinal loss — cumulative-link BCE for CORAL-style models.
+
+    The loss is binary cross-entropy on cumulative logits ``P(y > k)``,
+    identical to :class:`CumulativeLinkLoss` in computation.
+
+    **What makes CORAL distinct is the model architecture**, not the loss
+    formula.  CORAL models must use a :class:`~torchregress.utils.ordinal.CORALHead`
+    output layer with:
+
+    * **Shared weight** — a single weight vector ``w`` for all ``K-1`` levels.
+    * **Monotonic bias** — ``b₁ ≥ b₂ ≥ ... ≥ b_{K-1}`` enforced via
+      cumulative sums of non-negative increments.
+
+    Together these guarantee **rank-consistent** predictions: for any
+    input ``x``, the cumulative logits satisfy
+    ``z₁ ≥ z₂ ≥ ... ≥ z_{K-1}``, ensuring
+    ``P(y > 1) ≥ P(y > 2) ≥ ... ≥ P(y > K-1)``.
+
+    Usage::
+
+        backbone = _MLP(in_dim, hidden, out_dim=hidden)  # feature extractor
+        head = CORALHead(in_features=hidden, num_classes=K)
+        model = nn.Sequential(backbone, head)
+        loss_fn = CORALLoss()
 
     References
     ----------
-    .. [1] Cao, W., Mirjalili, V., & Raschka, S. (2020). Rank consistent ordinal
-       regression for neural networks with application to age estimation.
-       In *Pattern Recognition Letters*, 140, 325-331.
+    .. [1] Cao, W., Mirjalili, V., & Raschka, S. (2020). Rank consistent
+       ordinal regression for neural networks with application to age
+       estimation.  *Pattern Recognition Letters*, 140, 325-331.
        https://arxiv.org/abs/1901.07884
     """
 

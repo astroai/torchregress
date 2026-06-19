@@ -191,4 +191,5 @@ exclude_lines = [
 dev = [
     "mkdocstrings-python>=2.0.4",
     "zensical>=0.0.45",
+    "torchregress[all]",
 ]

@@ -56,7 +56,7 @@ class BaseEIVLoss(RegressionLoss):
         sigma_x: Union[float, torch.Tensor],
         sigma_y: Optional[Union[float, torch.Tensor]] = None,
         reduction: str = "mean",
-        eps: float = 1e-8,
+        eps: float = 1e-3,
     ):
         super().__init__(reduction=reduction)
         self.model = model
@@ -676,8 +676,11 @@ class FunctionalEIVLoss(BaseEIVLoss):
         model: Model function f(x) that predicts y
         sigma_x: Standard deviation (scalar/vector) or covariance matrix of feature noise
         sigma_y: Standard deviation (scalar/vector) or covariance matrix of target noise (optional)
-        monte_carlo: Whether to use Monte Carlo sampling for gradient estimation
-        n_samples: Number of MC samples if monte_carlo=True
+        mode: Variance propagation mode — ``"analytical"`` (Jacobian variance + analytical mean),
+            ``"mc"`` (MC empirical variance + MC mean), ``"hybrid"`` (Jacobian variance +
+            MC mean — stable on nonlinear, degrades MC advantage on linear).
+            Default: ``"analytical"``.
+        n_samples: Number of MC samples if mode is ``"mc"`` or ``"hybrid"``
         reduction: One of 'none', 'mean', 'sum'
         eps: Small value for numerical stability
 
@@ -696,12 +699,14 @@ class FunctionalEIVLoss(BaseEIVLoss):
         >>> # Define a simple model
         >>> model = lambda x: x[:, 0:1] * 2 + x[:, 1:2]
         >>>
-        >>> # Create loss with diagonal covariance
+        >>> # Analytical mode (default)
         >>> loss_fn = FunctionalEIVLoss(model, sigma_x=torch.tensor([0.2, 0.1]), sigma_y=0.1)
         >>>
-        >>> # Per-sample feature measurement errors
-        >>> feature_err = torch.tensor([[0.2, 0.1], [0.3, 0.05]])
-        >>> loss_fn = FunctionalEIVLoss(model, sigma_x=feature_err, sigma_y=0.1)
+        >>> # Monte Carlo mode
+        >>> loss_fn = FunctionalEIVLoss(model, sigma_x=0.2, mode="mc", n_samples=50)
+        >>>
+        >>> # Hybrid mode: Jacobian variance + MC mean
+        >>> loss_fn = FunctionalEIVLoss(model, sigma_x=0.2, mode="hybrid", n_samples=20)
         >>>
         >>> # Generate some data
         >>> y_pred = torch.tensor([[1.0, 2.0], [3.0, 4.0]])  # x_obs in EIV terminology
@@ -712,18 +717,31 @@ class FunctionalEIVLoss(BaseEIVLoss):
         >>> print(f"Loss: {loss_value.item():.4f}")
     """
 
+    _VALID_MODES = ("analytical", "mc", "hybrid")
+
     def __init__(
         self,
         model: Callable,
         sigma_x: Union[float, torch.Tensor],
         sigma_y: Optional[Union[float, torch.Tensor]] = None,
+        mode: str = "analytical",
         monte_carlo: bool = False,
         n_samples: int = 20,
         reduction: str = "mean",
-        eps: float = 1e-8,
+        eps: float = 1e-3,
     ):
         super().__init__(model, sigma_x, sigma_y, reduction, eps)
-        self.monte_carlo = monte_carlo
+        # monte_carlo kwarg is deprecated; use mode instead
+        if monte_carlo:
+            if mode != "analytical":
+                raise ValueError(
+                    "Cannot set both mode= and monte_carlo=True; use mode='mc' instead"
+                )
+            mode = "mc"
+        if mode not in self._VALID_MODES:
+            raise ValueError(f"mode must be one of {self._VALID_MODES}, got {mode!r}")
+        self.mode = mode
+        self.monte_carlo = self.mode == "mc"  # backward compat: True only for pure MC
         self.n_samples = n_samples
 
     def forward(
@@ -772,7 +790,7 @@ class FunctionalEIVLoss(BaseEIVLoss):
             sigma_y=sigma_y_override,
         )
 
-        if not self.monte_carlo:
+        if self.mode == "analytical":
             # Analytical approach: use gradients to propagate uncertainty
             with torch.enable_grad():
                 x_grad = prepare_model_input_for_gradients(x_obs)
@@ -787,17 +805,32 @@ class FunctionalEIVLoss(BaseEIVLoss):
                 # Calculate gradients and propagate variance
                 grad = compute_model_gradients(model_output, x_grad, n_features_y)
 
-                # Propagate variance from inputs to outputs (detached to prevent
-                # perverse Jacobian-shrinking incentives from the log(var) NLL term)
+                # Propagate variance from inputs to outputs (gradients allowed —
+                # the log(var) NLL term naturally balances Jacobian shrinkage
+                # against residual accuracy, enabling attenuation-bias correction)
                 propagated_var = calculate_propagated_variance(
                     grad, sigma_x_tensor, sigma_y=sigma_y_tensor
-                ).detach()
+                )
 
                 # Calculate negative log-likelihood (var fixed, residuals trainable)
                 loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
-        else:
+
+        elif self.mode == "mc":
             # Monte Carlo approach
             loss = self._monte_carlo_forward(
+                x_obs,
+                y_true,
+                sigma_x_tensor,
+                sigma_y_tensor,
+                batch_size,
+                n_features_x,
+                n_features_y,
+                device,
+                mask,
+            )
+
+        else:  # mode == "hybrid"
+            loss = self._hybrid_forward(
                 x_obs,
                 y_true,
                 sigma_x_tensor,
@@ -926,9 +959,56 @@ class FunctionalEIVLoss(BaseEIVLoss):
         # Calculate residuals from mean prediction
         residuals = y_true - mean_pred
 
-        # Calculate negative log-likelihood (variance detached to prevent
-        # perverse variance-shrinking incentives through MC sample gradients)
-        return calculate_gaussian_nll(residuals, batch_cov.detach(), eps=self.eps)
+        # Calculate negative log-likelihood (gradients flow through variance
+        # for attenuation-bias correction)
+        return calculate_gaussian_nll(residuals, batch_cov, eps=self.eps)
+
+    def _hybrid_forward(
+        self,
+        x_obs: torch.Tensor,
+        y_true: torch.Tensor,
+        sigma_x_tensor: torch.Tensor,
+        sigma_y_tensor: Optional[torch.Tensor],
+        batch_size: int,
+        n_features_x: int,
+        n_features_y: int,
+        device: torch.device,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Hybrid: analytical Jacobian variance + MC perturbation mean.
+
+        On nonlinear data, the MC empirical variance estimator creates a
+        pathological loss landscape because noisy variance estimates produce
+        enormous gradient noise (35x louder than clean gradient, nearly
+        orthogonal to truth).  The analytical Jacobian variance is stable
+        but uses the unperturbed mean.  The hybrid uses:
+        - MC perturbations for the mean (bias-corrected)
+        - Analytical Jacobian for the variance (stable, smooth gradients)
+        - Gaussian NLL to combine them
+        """
+        # ── 1. Analytical Jacobian variance (stable) ──────────
+        with torch.enable_grad():
+            x_grad = prepare_model_input_for_gradients(x_obs)
+            model_output = self.model(x_grad)
+            if mask is not None:
+                model_output = apply_mask(model_output, mask)
+            grad = compute_model_gradients(model_output, x_grad, n_features_y)
+            propagated_var = calculate_propagated_variance(
+                grad, sigma_x_tensor, sigma_y=sigma_y_tensor
+            )
+
+        # ── 2. MC perturbation mean (bias-corrected) ─────────
+        noise = self._generate_monte_carlo_noise(
+            sigma_x_tensor, batch_size, n_features_x, device, x_obs.dtype
+        )
+        y_preds = self._get_monte_carlo_predictions(
+            x_obs, noise, batch_size, n_features_x, n_features_y, mask
+        )
+        mean_pred = torch.mean(y_preds, dim=0)  # [batch_size, n_features_y]
+
+        # ── 3. Gaussian NLL: Jacobian variance + MC mean ──
+        residuals = y_true - mean_pred
+        return calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
 
 
 @register_regression_loss("structural_eiv")
@@ -989,7 +1069,7 @@ class StructuralEIVLoss(BaseEIVLoss):
         sigma_y: Union[float, torch.Tensor],
         sigma_xy: torch.Tensor,
         reduction: str = "mean",
-        eps: float = 1e-8,
+        eps: float = 1e-3,
     ):
         super().__init__(model, sigma_x, sigma_y, reduction, eps)
         self.sigma_xy = sigma_xy
@@ -1060,10 +1140,10 @@ class StructuralEIVLoss(BaseEIVLoss):
         grad = compute_model_gradients(model_output, x_grad, n_features_y)
 
         # Propagate input variance to output variance with cross-covariance
-        # (detached to prevent perverse Jacobian-shrinking from log(var) NLL term)
+        # (gradients allowed — log(var) term balances Jacobian shrinkage)
         propagated_var = calculate_propagated_variance(
             grad, sigma_x_tensor, sigma_xy=sigma_xy_tensor, sigma_y=sigma_y_tensor
-        ).detach()
+        )
 
         # Calculate negative log-likelihood (var fixed, residuals trainable)
         loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
@@ -1128,7 +1208,7 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
         max_iterations: int = 10,
         tolerance: float = 1e-6,
         reduction: str = "mean",
-        eps: float = 1e-8,
+        eps: float = 1e-3,
     ):
         super().__init__(model, sigma_x, sigma_y, reduction, eps)
         self.learning_rate = learning_rate
@@ -1299,7 +1379,7 @@ class EnsembleEIVLoss(BaseEIVLoss):
         n_samples: int = 20,
         perturb_method: str = "gaussian",
         reduction: str = "mean",
-        eps: float = 1e-8,
+        eps: float = 1e-3,
     ):
         super().__init__(model, sigma_x, None, reduction, eps)
         self.n_samples = n_samples
@@ -1378,6 +1458,8 @@ def create_eiv_loss(
     key = loss_type.lower()
     if key == "functional":
         return FunctionalEIVLoss(model=model, **kwargs)
+    if key in {"functional_hybrid", "hybrid_eiv"}:
+        return FunctionalEIVLoss(model=model, mode="hybrid", **kwargs)
     if key == "structural":
         return StructuralEIVLoss(model=model, **kwargs)
     if key in {"odr", "orthogonal", "orthogonal_distance_regression"}:
@@ -1391,7 +1473,8 @@ def create_eiv_loss(
     if key in {"input_noise_binned_pdf", "eiv_binned_pdf"}:
         return InputNoiseBinnedPDFLoss(model=model, **kwargs)
     raise ValueError(
-        "loss_type must be one of {'functional', 'structural', 'odr', 'ensemble', "
-        "'input_noise_marginalization', 'input_noise_mdn', 'input_noise_binned_pdf'}, "
+        "loss_type must be one of {'functional', 'functional_hybrid', "
+        "'structural', 'odr', 'ensemble', 'input_noise_marginalization', "
+        "'input_noise_mdn', 'input_noise_binned_pdf'}, "
         f"got {loss_type!r}"
     )

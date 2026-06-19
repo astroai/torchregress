@@ -30,6 +30,7 @@ from .labels import (
 )
 from .numpy_stats import subsample_rows, winsorize
 from .ordinal import (
+    CORALHead,
     class_probs_to_levels,
     cumulative_logits_to_pmf,
     cumulative_probs_to_pmf,
@@ -150,6 +151,7 @@ __all__ = [
     "cumulative_probs_to_pmf",
     "cumulative_logits_to_pmf",
     "ordinal_predict",
+    "CORALHead",
     # propensity
     "PropensityEstimator",
     "ipw_weights",

@@ -30,6 +30,7 @@ from .latentnn import LatentNN
 from .rc import RegressionCalibration
 from .simex import SIMEX
 from .tictac import TaylorInducedCovarianceHead
+from .warmup_mc import WarmupMCTrainer
 
 __all__ = [
     # IVON optimizer (Bayesian Learning Rule)
@@ -56,4 +57,6 @@ __all__ = [
     "SyntheticEnvironmentSampler",
     "AdaptivePriorGuide",
     "VIDSRegressor",
+    # Warmup algorithms
+    "WarmupMCTrainer",
 ]
