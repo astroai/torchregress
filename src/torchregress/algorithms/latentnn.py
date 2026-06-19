@@ -45,7 +45,7 @@ class LatentNN:
             the model loss by `mean(1 / sigma_y^2)` within each batch.
         epochs: Number of optimization epochs.
         lr: Learning rate for model parameters.
-        latent_lr: Learning rate for latent inputs. Defaults to `lr`.
+        latent_lr: Learning rate for latent inputs. Defaults to 0.1.
         batch_size: Mini-batch size. Defaults to full-batch training.
         weight_decay: Weight decay on model parameters.
         latent_weight_decay: Optional weight decay on latent inputs.
@@ -62,7 +62,7 @@ class LatentNN:
         sigma_y: float | torch.Tensor | None = None,
         epochs: int = 500,
         lr: float = 1.0e-3,
-        latent_lr: float | None = None,
+        latent_lr: float | None = 0.1,
         batch_size: int | None = None,
         weight_decay: float = 0.0,
         latent_weight_decay: float = 0.0,
@@ -75,7 +75,7 @@ class LatentNN:
         self.sigma_y_input = sigma_y
         self.epochs = int(epochs)
         self.lr = float(lr)
-        self.latent_lr = float(latent_lr) if latent_lr is not None else float(lr)
+        self.latent_lr = float(latent_lr) if latent_lr is not None else 0.1
         self.batch_size = batch_size
         self.weight_decay = float(weight_decay)
         self.latent_weight_decay = float(latent_weight_decay)
