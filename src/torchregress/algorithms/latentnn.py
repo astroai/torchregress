@@ -234,10 +234,61 @@ class LatentNN:
                 loss = loss.mean()
         return float(loss.item() if isinstance(loss, torch.Tensor) else loss)
 
-    def predict(self, X: torch.Tensor) -> torch.Tensor:
-        """Predict with the fitted network."""
+    def predict(
+        self,
+        X: torch.Tensor,
+        *,
+        sigma_x: float | torch.Tensor | None = None,
+        n_samples: int = 20,
+    ) -> torch.Tensor:
+        """Predict with the fitted network.
+
+        Args:
+            X: Input tensor (noisy observations).
+            sigma_x: Optional known input noise stddev. When provided, performs
+                test-time MC input-noise marginalization by perturbing inputs
+                and averaging predictions, bridging the distribution shift
+                between clean latent training and noisy test data.
+            n_samples: Number of MC perturbations when sigma_x is provided.
+
+        Returns:
+            Predictions tensor.
+        """
         check_tensor(X, "X")
         if self.model is None or self.device is None:
             raise RuntimeError("LatentNN must be fit before predicting")
+
+        if sigma_x is not None:
+            return self._predict_marginalized(X, sigma_x=sigma_x, n_samples=n_samples)
+
         with torch.no_grad():
             return self.model(X.to(self.device))
+
+    def _predict_marginalized(
+        self,
+        X: torch.Tensor,
+        *,
+        sigma_x: float | torch.Tensor,
+        n_samples: int = 20,
+    ) -> torch.Tensor:
+        """Test-time MC marginalization over input noise.
+
+        Perturbs observed inputs with Gaussian noise ~ N(0, sigma_x²),
+        runs the model on each perturbation, and returns the mean prediction.
+        This approximates E[f(x+ε)] and corrects for the distribution shift
+        between clean latent training and noisy test data.
+        """
+        X = X.to(self.device)
+        sigma_x_t = self._expand_sigma(sigma_x, X, name="sigma_x").clamp_min(1.0e-6)
+
+        with torch.no_grad():
+            # Generate perturbations: [n_samples, N, D]
+            noise = torch.randn(n_samples, *X.shape, device=self.device, dtype=X.dtype)
+            perturbed = X.unsqueeze(0) + noise * sigma_x_t.unsqueeze(0)
+
+            # Forward pass on all perturbations
+            flat = perturbed.reshape(-1, X.shape[-1])
+            preds = self.model(flat)
+            preds = preds.reshape(n_samples, X.shape[0], -1)
+
+            return preds.mean(dim=0)

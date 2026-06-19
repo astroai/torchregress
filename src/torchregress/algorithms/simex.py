@@ -178,13 +178,18 @@ class SIMEX:
 
     def predict(self, X: torch.Tensor) -> torch.Tensor:
         """
-        Predict using SIMEX extrapolation.
+        Predict using SIMEX extrapolation with matched noise.
+
+        To maintain consistency between training and test domains, test
+        inputs are perturbed with matched noise at each λ level before being
+        fed to the model trained at that level. Predictions are then
+        extrapolated to λ = -1 (zero measurement error).
 
         Args:
-            X: Input tensor
+            X: Input tensor (raw observed test data with measurement error)
 
         Returns:
-            Extrapolated predictions
+            Extrapolated predictions (N, K)
         """
 
         check_tensor(X, "X")
@@ -195,25 +200,34 @@ class SIMEX:
         if X.device != self.device:
             X = X.to(self.device)
 
-        # Collect predictions from all models
-        # Shape: (n_lambdas, n_samples, n_outputs)
+        if self.sigma_u is None:
+            raise RuntimeError("SIMEX must be fit before predicting")
+
+        n_features = X.shape[1]
+        L = torch.linalg.cholesky(self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6)
+
+        # Collect predictions from all models WITH matched input noise
+        # Each λ_i model receives test inputs perturbed by √λ_i * N(0, Σ_u)
         preds_list = []
         with torch.no_grad():
-            for lambda_models in self.models_by_lambda:
+            for lambda_models, lam in zip(self.models_by_lambda, self.lambdas_used):
+                if lam == 0.0:
+                    X_lam = X
+                else:
+                    noise = torch.randn_like(X) @ L.T
+                    X_lam = X + torch.sqrt(torch.tensor(lam, device=self.device)) * noise
+
                 lambda_preds = []
                 for model in lambda_models:
                     model.eval()
-                    lambda_preds.append(model(X))
+                    lambda_preds.append(model(X_lam))
                 preds_list.append(torch.stack(lambda_preds, dim=0).mean(dim=0))
 
-        # Stack predictions
-        # (M, N, K) where M is num lambdas
+        # Stack predictions (M, N, K) where M is num lambdas
         Y_stack = torch.stack(preds_list, dim=0)
 
-        # Use precomputed weights to combine predictions
-        # weights: (M,)
-        # Y_stack: (M, N, K)
-        # result: (N, K)
+        # Use precomputed weights to extrapolate from λ≥0 to λ=-1
+        # weights: (M,)  Y_stack: (M, N, K)  result: (N, K)
         return cast(
             torch.Tensor,
             torch.tensordot(self.extrapolation_weights, Y_stack, dims=([0], [0])),
