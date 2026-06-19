@@ -165,6 +165,7 @@ EXPECTED_EXPORTS = {
         "SyntheticEnvironmentSampler",
         "AdaptivePriorGuide",
         "VIDSRegressor",
+        "WarmupMCTrainer",
     ],
     "causal": [
         "dr_ate",
@@ -292,7 +293,10 @@ EXPECTED_SIGNATURES = {
         "(self, X_observed: 'torch.Tensor', y_observed: 'torch.Tensor', *, "
         "X_val: 'torch.Tensor | None' = None, y_val: 'torch.Tensor | None' = None) -> \"'LatentNN'\""
     ),
-    "algorithms.LatentNN.predict": "(self, X: 'torch.Tensor') -> 'torch.Tensor'",
+    "algorithms.LatentNN.predict": (
+        "(self, X: 'torch.Tensor', *, sigma_x: 'float | torch.Tensor | None' = None, "
+        "n_samples: 'int' = 20) -> 'torch.Tensor'"
+    ),
     "algorithms.ErrorAwareFeatureEncoder.forward": (
         "(self, x: 'torch.Tensor', sigma_x: 'float | torch.Tensor') -> 'torch.Tensor'"
     ),
@@ -365,6 +369,18 @@ EXPECTED_SIGNATURES = {
     "algorithms.VIDSRegressor": "(in_features: 'int', target_dim: 'int' = 1, hidden_dim: 'int' = 64, prior_variance_init: 'float' = 1.0, noise_variance_init: 'float' = 0.1, jitter: 'float' = 1e-06) -> 'None'",
     "algorithms.VIDSRegressor.fit": "(self, x_train_features: 'torch.Tensor', y_train: 'torch.Tensor', n_environments: 'int' = 32, bootstrap_fraction: 'float' = 0.3, lr: 'float' = 0.001, epochs: 'int' = 50, beta: 'float' = 1.0, n_samples: 'int' = 10) -> 'VIDSRegressor'",
     "algorithms.VIDSRegressor.predict_distribution": "(self, x_test: 'torch.Tensor', n_samples: 'int | None' = None) -> 'PredictiveBatch'",
+    "algorithms.WarmupMCTrainer": (
+        "(*, model_factory: 'Callable[[], nn.Module]', "
+        "sigma_x: 'float | torch.Tensor', "
+        "sigma_y: 'float | torch.Tensor | None' = None, "
+        "total_epochs: 'int' = 60, warmup_epochs: 'int' = 20, "
+        "lr: 'float' = 0.001, batch_size: 'int' = 64, "
+        "n_mc_samples: 'int' = 20) -> 'None'"
+    ),
+    "algorithms.WarmupMCTrainer.fit": (
+        "(self, X: 'torch.Tensor', y: 'torch.Tensor') -> \"'WarmupMCTrainer'\""
+    ),
+    "algorithms.WarmupMCTrainer.predict": ("(self, X: 'torch.Tensor') -> 'torch.Tensor'"),
 }
 
 
