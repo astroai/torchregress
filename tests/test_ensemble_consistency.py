@@ -14,6 +14,12 @@ import pytest
 import torch
 from torch import nn
 
+from tests._test_models import (
+    ConstantLogitModel,
+    ConstantMDNModel,
+    HeteroscedasticMLP,
+    SimpleMLP,
+)
 from torchregress.ensemble.models import (
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
@@ -22,61 +28,6 @@ from torchregress.ensemble.models import (
     HeteroscedasticEnsembleModel,
     MDNEnsembleModel,
 )
-
-# ── helpers ───────────────────────────────────────────────────────────
-
-
-def _simple_mlp(input_size: int = 4, hidden_size: int = 8, output_size: int = 1) -> nn.Module:
-    return nn.Sequential(
-        nn.Linear(input_size, hidden_size),
-        nn.ReLU(),
-        nn.Linear(hidden_size, output_size),
-    )
-
-
-def _heteroscedastic_mlp(
-    input_size: int = 4, hidden_size: int = 8, output_size: int = 1
-) -> nn.Module:
-    class HetModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.net = nn.Sequential(
-                nn.Linear(input_size, hidden_size),
-                nn.ReLU(),
-            )
-            self.mean_head = nn.Linear(hidden_size, output_size)
-            self.logvar_head = nn.Linear(hidden_size, output_size)
-
-        def forward(self, x):
-            h = self.net(x)
-            return self.mean_head(h), self.logvar_head(h)
-
-    return HetModel()
-
-
-def _constant_logit_model(logits: torch.Tensor) -> nn.Module:
-    class ConstLogit(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.register_buffer("logits", logits.clone().detach().view(1, -1))
-
-        def forward(self, x):
-            return self.logits.expand(x.shape[0], -1)
-
-    return ConstLogit()
-
-
-def _constant_mdn_model(packed: torch.Tensor) -> nn.Module:
-    class ConstMDN(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.register_buffer("packed", packed.clone().detach().view(1, -1))
-
-        def forward(self, x):
-            return self.packed.expand(x.shape[0], -1)
-
-    return ConstMDN()
-
 
 _GAUSSIAN_ENSEMBLE_TYPES = [
     "DeepEnsemble",
@@ -95,7 +46,7 @@ class TestPredictAPIContract:
 
     def _make_deep_ensemble(self) -> DeepEnsemble:
         return DeepEnsemble(
-            base_model=_simple_mlp(),
+            base_model=SimpleMLP(),
             ensemble_size=3,
             input_size=4,
             hidden_size=8,
@@ -104,7 +55,7 @@ class TestPredictAPIContract:
 
     def _make_heteroscedastic_ensemble(self) -> HeteroscedasticEnsembleModel:
         return HeteroscedasticEnsembleModel(
-            base_model=_heteroscedastic_mlp(),
+            base_model=HeteroscedasticMLP(),
             ensemble_size=3,
             input_size=4,
             hidden_size=8,
@@ -167,7 +118,7 @@ class TestVarianceDecomposition:
 
     def test_heteroscedastic_ensemble_decomposes_variance(self):
         model = HeteroscedasticEnsembleModel(
-            base_model=_heteroscedastic_mlp(),
+            base_model=HeteroscedasticMLP(),
             ensemble_size=3,
             input_size=4,
             hidden_size=8,
@@ -209,7 +160,7 @@ class TestVarianceDecomposition:
         """With ensemble_size=1, epistemic variance should be 0
         (no disagreement among members)."""
         model = HeteroscedasticEnsembleModel(
-            base_model=_heteroscedastic_mlp(),
+            base_model=HeteroscedasticMLP(),
             ensemble_size=1,
             input_size=4,
             hidden_size=8,
@@ -246,7 +197,7 @@ class TestEnsembleDeterminism:
 
     def test_deep_ensemble_predict_is_deterministic(self):
         model = DeepEnsemble(
-            base_model=_simple_mlp(),
+            base_model=SimpleMLP(),
             ensemble_size=3,
             input_size=4,
             hidden_size=8,
@@ -260,7 +211,7 @@ class TestEnsembleDeterminism:
 
     def test_heteroscedastic_ensemble_predict_is_deterministic(self):
         model = HeteroscedasticEnsembleModel(
-            base_model=_heteroscedastic_mlp(),
+            base_model=HeteroscedasticMLP(),
             ensemble_size=3,
         )
         x = torch.randn(5, 4)
@@ -294,7 +245,7 @@ class TestEnsembleSizeBehavior:
         """DeepEnsemble.predict()['variance'] should equal the sample
         variance of member predictions."""
         model = DeepEnsemble(
-            base_model=_simple_mlp(),
+            base_model=SimpleMLP(),
             ensemble_size=4,
             input_size=4,
             hidden_size=8,
@@ -319,7 +270,7 @@ class TestEnsembleSizeBehavior:
         means = []
         for size in sizes:
             model = DeepEnsemble(
-                base_model=_simple_mlp(),
+                base_model=SimpleMLP(),
                 ensemble_size=size,
                 input_size=4,
                 hidden_size=8,
@@ -343,11 +294,11 @@ class TestNonGaussianEnsembleContracts:
 
     def test_binned_pdf_returns_probabilities_and_mean_variance(self):
         ensemble = BinnedPDFEnsembleModel(
-            base_model=_constant_logit_model(torch.tensor([0.0, 0.0, 0.0])),
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0, 0.0])),
             ensemble_size=2,
         )
-        ensemble.models[0] = _constant_logit_model(torch.tensor([2.0, 0.0, -1.0]))
-        ensemble.models[1] = _constant_logit_model(torch.tensor([-1.0, 1.0, 0.5]))
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, 0.0, -1.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([-1.0, 1.0, 0.5]))
         x = torch.randn(3, 4)
         result = ensemble.predict(x)
 
@@ -366,11 +317,11 @@ class TestNonGaussianEnsembleContracts:
 
     def test_cumulative_link_returns_probabilities_and_mean_variance(self):
         ensemble = CumulativeLinkEnsembleModel(
-            base_model=_constant_logit_model(torch.tensor([0.0, 0.0])),
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0])),
             ensemble_size=2,
         )
-        ensemble.models[0] = _constant_logit_model(torch.tensor([2.0, -1.0]))
-        ensemble.models[1] = _constant_logit_model(torch.tensor([0.5, 1.5]))
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, -1.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([0.5, 1.5]))
         x = torch.randn(3, 4)
         result = ensemble.predict(x)
 
@@ -390,13 +341,13 @@ class TestNonGaussianEnsembleContracts:
         packed_a = torch.tensor([4.0, -2.0, 0.0, 1.0, -4.0, -4.0])
         packed_b = torch.tensor([-3.0, 3.0, 2.0, 3.0, -4.0, -4.0])
         ensemble = MDNEnsembleModel(
-            base_model=_constant_mdn_model(packed_a),
+            base_model=ConstantMDNModel(packed_a),
             ensemble_size=2,
             n_components=2,
             n_features=1,
         )
-        ensemble.models[0] = _constant_mdn_model(packed_a)
-        ensemble.models[1] = _constant_mdn_model(packed_b)
+        ensemble.models[0] = ConstantMDNModel(packed_a)
+        ensemble.models[1] = ConstantMDNModel(packed_b)
         x = torch.randn(3, 4)
         result = ensemble.predict(x)
 
@@ -417,22 +368,22 @@ class TestNonGaussianEnsembleContracts:
 
     def test_binned_pdf_sample_returns_correct_shape(self):
         ensemble = BinnedPDFEnsembleModel(
-            base_model=_constant_logit_model(torch.tensor([0.0, 0.0, 0.0])),
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0, 0.0])),
             ensemble_size=2,
         )
-        ensemble.models[0] = _constant_logit_model(torch.tensor([2.0, 0.0, -1.0]))
-        ensemble.models[1] = _constant_logit_model(torch.tensor([-1.0, 1.0, 0.5]))
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, 0.0, -1.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([-1.0, 1.0, 0.5]))
         x = torch.randn(4, 4)
         samples = ensemble.sample(x, n_samples=7)
         assert samples.shape == (7, 4), f"expected (7, 4), got {samples.shape}"
 
     def test_cumulative_link_sample_returns_correct_shape(self):
         ensemble = CumulativeLinkEnsembleModel(
-            base_model=_constant_logit_model(torch.tensor([0.0, 0.0])),
+            base_model=ConstantLogitModel(torch.tensor([0.0, 0.0])),
             ensemble_size=2,
         )
-        ensemble.models[0] = _constant_logit_model(torch.tensor([2.0, -1.0]))
-        ensemble.models[1] = _constant_logit_model(torch.tensor([0.5, 1.5]))
+        ensemble.models[0] = ConstantLogitModel(torch.tensor([2.0, -1.0]))
+        ensemble.models[1] = ConstantLogitModel(torch.tensor([0.5, 1.5]))
         x = torch.randn(4, 4)
         samples = ensemble.sample(x, n_samples=7)
         assert samples.shape == (7, 4), f"expected (7, 4), got {samples.shape}"
@@ -441,13 +392,13 @@ class TestNonGaussianEnsembleContracts:
         packed_a = torch.tensor([4.0, -2.0, 0.0, 1.0, -4.0, -4.0])
         packed_b = torch.tensor([-3.0, 3.0, 2.0, 3.0, -4.0, -4.0])
         ensemble = MDNEnsembleModel(
-            base_model=_constant_mdn_model(packed_a),
+            base_model=ConstantMDNModel(packed_a),
             ensemble_size=2,
             n_components=2,
             n_features=1,
         )
-        ensemble.models[0] = _constant_mdn_model(packed_a)
-        ensemble.models[1] = _constant_mdn_model(packed_b)
+        ensemble.models[0] = ConstantMDNModel(packed_a)
+        ensemble.models[1] = ConstantMDNModel(packed_b)
         x = torch.randn(4, 4)
         samples = ensemble.sample(x, n_samples=7)
         assert samples.shape == (7, 4, 1)

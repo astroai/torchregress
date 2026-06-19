@@ -6,6 +6,12 @@ import pytest
 import torch
 from torch import nn
 
+from tests._test_models import (
+    ConstantLogitModel,
+    ConstantMDNModel,
+    HeteroscedasticMLP,
+    SimpleMLP,
+)
 from torchregress.ensemble.base import BaseEnsembleModel
 from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.models import (
@@ -23,35 +29,6 @@ from torchregress.ensemble.utils import (
     run_ensemble_model,
     run_heteroscedastic_ensemble_model,
 )
-
-
-class SimpleModel(nn.Module):
-    """Simple model for testing."""
-
-    def __init__(self, input_size=10, hidden_size=20, output_size=1):
-        super().__init__()
-        self.layer = nn.Linear(input_size, hidden_size)
-        self.output = nn.Linear(hidden_size, output_size)
-
-    def forward(self, x):
-        x = torch.relu(self.layer(x))
-        return self.output(x)
-
-
-class HeteroscedasticModel(nn.Module):
-    """Simple heteroscedastic model for testing."""
-
-    def __init__(self, input_size=10, hidden_size=20, output_size=1):
-        super().__init__()
-        self.layer = nn.Linear(input_size, hidden_size)
-        self.mean_output = nn.Linear(hidden_size, output_size)
-        self.logvar_output = nn.Linear(hidden_size, output_size)
-
-    def forward(self, x):
-        x = torch.relu(self.layer(x))
-        mean = self.mean_output(x)
-        logvar = self.logvar_output(x)
-        return mean, logvar
 
 
 class DropoutModel(nn.Module):
@@ -80,40 +57,18 @@ class BatchEnsembleBackbone(nn.Module):
         return torch.relu(self.layer(x))
 
 
-class ConstantLogitModel(nn.Module):
-    """Model that returns fixed logits regardless of input."""
-
-    def __init__(self, logits: torch.Tensor):
-        super().__init__()
-        self.register_buffer("logits", logits.clone().detach().view(1, -1))
-
-    def forward(self, x):
-        return self.logits.expand(x.shape[0], -1)
-
-
-class ConstantMDNModel(nn.Module):
-    """Model that returns fixed MDN parameters regardless of input."""
-
-    def __init__(self, packed: torch.Tensor):
-        super().__init__()
-        self.register_buffer("packed", packed.clone().detach().view(1, -1))
-
-    def forward(self, x):
-        return self.packed.expand(x.shape[0], -1)
-
-
 class TestBaseEnsembleModel:
     """Tests for BaseEnsembleModel."""
 
     def test_initialization(self):
         # Test initialization with class
         model = BaseEnsembleModel(
-            base_model=SimpleModel, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
+            base_model=SimpleMLP, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
         )
         assert len(model.models) == 3
 
         # Test initialization with instance
-        base_instance = SimpleModel(input_size=5, hidden_size=15, output_size=2)
+        base_instance = SimpleMLP(input_size=5, hidden_size=15, output_size=2)
         model = BaseEnsembleModel(base_model=base_instance, ensemble_size=4)
         assert len(model.models) == 4
 
@@ -126,7 +81,7 @@ class TestBaseEnsembleModel:
 
     def test_forward(self):
         model = BaseEnsembleModel(
-            base_model=SimpleModel, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
+            base_model=SimpleMLP, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
         )
 
         # Create input tensor
@@ -143,7 +98,7 @@ class TestBaseEnsembleModel:
 
     def test_predict(self):
         model = BaseEnsembleModel(
-            base_model=SimpleModel, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
+            base_model=SimpleMLP, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
         )
 
         # Create input tensor
@@ -164,13 +119,13 @@ class TestDeepEnsemble:
 
     def test_initialization(self):
         model = DeepEnsemble(
-            base_model=SimpleModel, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
+            base_model=SimpleMLP, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
         )
         assert len(model.models) == 3
 
     def test_fit_and_predict(self):
         model = DeepEnsemble(
-            base_model=SimpleModel,
+            base_model=SimpleMLP,
             ensemble_size=2,  # Small ensemble for quick testing
             input_size=10,
             hidden_size=20,
@@ -210,7 +165,7 @@ class TestHeteroscedasticEnsembleModel:
 
     def test_initialization(self):
         model = HeteroscedasticEnsembleModel(
-            base_model=HeteroscedasticModel,
+            base_model=HeteroscedasticMLP,
             ensemble_size=3,
             input_size=10,
             hidden_size=20,
@@ -220,7 +175,7 @@ class TestHeteroscedasticEnsembleModel:
 
     def test_predict(self):
         model = HeteroscedasticEnsembleModel(
-            base_model=HeteroscedasticModel,
+            base_model=HeteroscedasticMLP,
             ensemble_size=3,
             input_size=10,
             hidden_size=20,
@@ -579,7 +534,7 @@ class TestUtilityFunctions:
 class TestRandomPartitionEnsembleModel:
     def test_predict_projects_members_onto_shared_grid(self):
         ensemble = RandomPartitionEnsembleModel(
-            base_model=SimpleModel,
+            base_model=SimpleMLP,
             ensemble_size=2,
             member_bin_edges=[
                 torch.tensor([0.0, 1.0, 3.0]),
@@ -601,7 +556,7 @@ class TestRandomPartitionEnsembleModel:
 
     def test_sample_uses_shared_partition_distribution(self):
         ensemble = RandomPartitionEnsembleModel(
-            base_model=SimpleModel,
+            base_model=SimpleMLP,
             ensemble_size=2,
             member_bin_edges=[
                 torch.tensor([0.0, 1.0, 2.0]),
