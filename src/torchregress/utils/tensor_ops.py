@@ -301,7 +301,7 @@ def compute_model_gradients(
             outputs=y_pred,
             inputs=x,
             grad_outputs=torch.ones_like(y_pred),
-            create_graph=True,
+            create_graph=False,
             retain_graph=True,
             only_inputs=True,
         )[0]
@@ -318,7 +318,7 @@ def compute_model_gradients(
             outputs=y_pred,
             inputs=x,
             grad_outputs=grad_outputs,
-            create_graph=True,
+            create_graph=False,
             retain_graph=True,
             only_inputs=True,
             is_grads_batched=True,
@@ -373,6 +373,6 @@ def calculate_propagated_variance(
         propagated_var += sigma_y
 
     if sigma_xy is not None:
-        propagated_var += grad @ sigma_xy.transpose(-1, -2) + sigma_xy @ grad.transpose(-1, -2)
+        propagated_var -= grad @ sigma_xy.transpose(-1, -2) + sigma_xy @ grad.transpose(-1, -2)
 
     return propagated_var
