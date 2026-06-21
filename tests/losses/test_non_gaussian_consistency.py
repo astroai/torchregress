@@ -101,15 +101,7 @@ class TestPoissonGaussianMixtureContract:
         batch, dim = 6, 3
         y_pred = _make_pos_preds(batch, dim)
         target = _make_pos_targets(batch, dim)
-
-        fn_none = PoissonGaussianMixtureLoss(reduction="none")
-        fn_mean = PoissonGaussianMixtureLoss(reduction="mean")
-        fn_sum = PoissonGaussianMixtureLoss(reduction="sum")
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(fn_sum(y_pred, target) / (batch * dim), fn_mean(y_pred, target))
+        _check_reduction(PoissonGaussianMixtureLoss, y_pred, target)
 
     def test_mask_changes_loss(self):
         batch, dim = 5, 3
@@ -258,15 +250,7 @@ class TestEnhancedPoissonGaussianContract:
         batch, dim = 6, 3
         y_pred = _make_pos_preds(batch, dim)
         target = _make_pos_targets(batch, dim)
-
-        fn_none = EnhancedPoissonGaussianMixtureLoss(reduction="none")
-        fn_mean = EnhancedPoissonGaussianMixtureLoss(reduction="mean")
-        fn_sum = EnhancedPoissonGaussianMixtureLoss(reduction="sum")
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(fn_sum(y_pred, target) / (batch * dim), fn_mean(y_pred, target))
+        _check_reduction(EnhancedPoissonGaussianMixtureLoss, y_pred, target)
 
     def test_mask_and_weights(self):
         batch, dim = 5, 3
@@ -324,15 +308,7 @@ class TestPoissonGaussianLRContract:
         batch, dim = 6, 3
         y_pred = _make_pos_preds(batch, dim, log_input=True)
         target = _make_pos_targets(batch, dim)
-
-        fn_none = PoissonGaussianLikelihoodRatioLoss(reduction="none", log_input=True)
-        fn_mean = PoissonGaussianLikelihoodRatioLoss(reduction="mean", log_input=True)
-        fn_sum = PoissonGaussianLikelihoodRatioLoss(reduction="sum", log_input=True)
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(fn_sum(y_pred, target) / (batch * dim), fn_mean(y_pred, target))
+        _check_reduction(PoissonGaussianLikelihoodRatioLoss, y_pred, target, log_input=True)
 
     def test_mask_and_weights(self):
         y_pred = _make_pos_preds(5, 3, log_input=True)
@@ -373,20 +349,7 @@ class TestCensoredGaussianNLLContract:
         log_var = torch.zeros(batch, dim)
         target = torch.randn(batch, dim)
         censoring = torch.zeros(batch, dim, dtype=torch.long)
-
-        fn_none = CensoredGaussianNLLLoss(reduction="none")
-        fn_mean = CensoredGaussianNLLLoss(reduction="mean")
-        fn_sum = CensoredGaussianNLLLoss(reduction="sum")
-
-        none_out = fn_none((mean, log_var), target, censoring=censoring)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(
-            none_out.mean(), fn_mean((mean, log_var), target, censoring=censoring)
-        )
-        torch.testing.assert_close(
-            fn_sum((mean, log_var), target, censoring=censoring) / (batch * dim),
-            fn_mean((mean, log_var), target, censoring=censoring),
-        )
+        _check_reduction(CensoredGaussianNLLLoss, (mean, log_var), target, censoring)
 
     def test_mask_changes_loss(self):
         batch, dim = 5, 2
@@ -533,16 +496,7 @@ class TestCensoredQuantileContract:
         y_pred = torch.randn(batch, dim)
         target = torch.randn(batch, dim)
         censoring = torch.zeros(batch, dim, dtype=torch.long)
-
-        fn_none = CensoredQuantileLoss(quantile=0.5, reduction="none")
-        fn_mean = CensoredQuantileLoss(quantile=0.5, reduction="mean")
-
-        none_out = fn_none(y_pred, target, censoring=censoring)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(
-            none_out.mean(),
-            fn_mean(y_pred, target, censoring=censoring),
-        )
+        _check_reduction(CensoredQuantileLoss, y_pred, target, censoring, quantile=0.5)
 
     def test_all_paths_produce_non_negative_loss(self):
         batch = 4
@@ -579,21 +533,7 @@ class TestAFTLossContract:
         log_scale = torch.randn(batch, dim) * 0.5
         target = torch.exp(torch.randn(batch, dim))
         censoring = torch.zeros(batch, dim, dtype=torch.long)
-
-        fn_none = AFTLoss(reduction="none")
-        fn_mean = AFTLoss(reduction="mean")
-        fn_sum = AFTLoss(reduction="sum")
-
-        none_out = fn_none((loc, log_scale), target, censoring=censoring)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(
-            none_out.mean(),
-            fn_mean((loc, log_scale), target, censoring=censoring),
-        )
-        torch.testing.assert_close(
-            fn_sum((loc, log_scale), target, censoring=censoring) / (batch * dim),
-            fn_mean((loc, log_scale), target, censoring=censoring),
-        )
+        _check_reduction(AFTLoss, (loc, log_scale), target, censoring)
 
     def test_mask_changes_loss(self):
         batch, dim = 5, 2
