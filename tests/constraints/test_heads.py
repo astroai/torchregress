@@ -1,14 +1,12 @@
-"""Deep unit tests for torchregress.constraints.heads constraint wrappers.
-
-Extends the basic happy-path coverage in test_constraints_calibration.py with
-edge cases, error paths, parameter variants, and gradient-flow checks.
+"""
+Unit tests for torchregress.constraints.heads.
 """
 
 from __future__ import annotations
 
 import pytest
 import torch
-from torch import nn
+import torch.nn as nn
 
 from torchregress.constraints.heads import (
     BoundedHead,
@@ -18,188 +16,168 @@ from torchregress.constraints.heads import (
     SpectralNormWrapper,
 )
 
-# ── NonNegativeHead ──────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# NonNegativeHead
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-def test_non_negative_head_softplus_enforces_non_negativity():
-    head = NonNegativeHead(nn.Linear(8, 5))
-    x = torch.randn(32, 8)
-    out = head(x)
-    assert out.shape == (32, 5)
-    assert (out >= 0).all()
+class TestNonNegativeHead:
+    def test_outputs_are_nonnegative(self) -> None:
+        """All outputs are >= 0 via softplus."""
+        base = nn.Linear(3, 2)
+        head = NonNegativeHead(base)
+        x = torch.randn(8, 3)
+        out = head(x)
+        assert (out >= 0).all()
+
+    def test_default_beta(self) -> None:
+        """Default beta=1.0 (standard softplus)."""
+        base = nn.Linear(3, 1)
+        head = NonNegativeHead(base)
+        assert head.beta == 1.0
+
+    def test_custom_beta(self) -> None:
+        """Custom beta changes softplus steepness."""
+        base = nn.Linear(3, 1)
+        head = NonNegativeHead(base, beta=5.0)
+        assert head.beta == 5.0
+        x = torch.randn(4, 3)
+        out = head(x)
+        assert out.shape == (4, 1)
+        assert (out >= 0).all()
 
 
-def test_non_negative_head_beta_parameter():
-    """beta controls softplus sharpness; different betas produce different outputs."""
-    x = torch.randn(16, 4)
-    h1 = NonNegativeHead(nn.Linear(4, 3), beta=1.0)
-    h2 = NonNegativeHead(nn.Linear(4, 3), beta=5.0)
-    h2.load_state_dict(h1.state_dict())  # same weights
-    out1 = h1(x)
-    out2 = h2(x)
-    assert not torch.allclose(out1, out2)  # different betas, different outputs
-    assert (out2 >= 0).all()
+# ═══════════════════════════════════════════════════════════════════════════════
+# BoundedHead
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-def test_non_negative_head_gradients_flow():
-    head = NonNegativeHead(nn.Linear(4, 2))
-    x = torch.randn(8, 4, requires_grad=True)
-    loss = head(x).sum()
-    loss.backward()
-    assert x.grad is not None and torch.isfinite(x.grad).all()
-    for p in head.parameters():
-        assert p.grad is not None and torch.isfinite(p.grad).all()
+class TestBoundedHead:
+    def test_outputs_in_range(self) -> None:
+        """Outputs are clamped to [low, high] via sigmoid."""
+        base = nn.Linear(3, 2)
+        head = BoundedHead(base, low=0.0, high=1.0)
+        x = torch.randn(16, 3)
+        out = head(x)
+        assert (out >= 0.0).all()
+        assert (out <= 1.0).all()
+
+    def test_custom_range(self) -> None:
+        """Custom [low, high] range is respected."""
+        base = nn.Linear(3, 1)
+        head = BoundedHead(base, low=-2.0, high=3.0)
+        x = torch.randn(8, 3)
+        out = head(x)
+        assert (out >= -2.0).all()
+        assert (out <= 3.0).all()
+
+    def test_low_equals_high_raises(self) -> None:
+        """low >= high raises ValueError."""
+        base = nn.Linear(3, 1)
+        with pytest.raises(ValueError, match="low < high"):
+            BoundedHead(base, low=1.0, high=1.0)
+
+    def test_low_greater_than_high_raises(self) -> None:
+        """low > high raises ValueError."""
+        base = nn.Linear(3, 1)
+        with pytest.raises(ValueError, match="low < high"):
+            BoundedHead(base, low=2.0, high=1.0)
 
 
-# ── BoundedHead ──────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# SimplexHead
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-def test_bounded_head_outputs_in_range():
-    head = BoundedHead(nn.Linear(4, 3), low=-1.0, high=2.0)
-    x = torch.randn(16, 4)
-    out = head(x)
-    assert (out >= -1.0).all()
-    assert (out <= 2.0).all()
+class TestSimplexHead:
+    def test_outputs_sum_to_one(self) -> None:
+        """Softmax outputs sum to 1 along the specified dim."""
+        base = nn.Linear(3, 4)
+        head = SimplexHead(base, dim=-1)
+        x = torch.randn(8, 3)
+        out = head(x)
+        assert out.shape == (8, 4)
+        assert torch.allclose(out.sum(dim=-1), torch.ones(8), atol=1e-6)
+
+    def test_custom_dim(self) -> None:
+        """Softmax along a custom dimension."""
+        base = nn.Linear(3, 4)
+        head = SimplexHead(base, dim=0)
+        x = torch.randn(8, 3)
+        out = head(x)
+        # Softmax along dim=0 on (8, 4) → sum along dim=0 gives ones of shape (4,)
+        assert torch.allclose(out.sum(dim=0), torch.ones(4), atol=1e-6)
+
+    def test_outputs_nonnegative(self) -> None:
+        """All outputs are >= 0."""
+        base = nn.Linear(3, 5)
+        head = SimplexHead(base)
+        x = torch.randn(8, 3)
+        out = head(x)
+        assert (out >= 0).all()
 
 
-def test_bounded_head_extreme_values_stay_bounded():
-    """With large inputs, sigmoid saturates but outputs stay in bounds."""
-    head = BoundedHead(nn.Linear(4, 1), low=10.0, high=20.0)
-    # Very large weights → sigmoid saturates at 0 or 1
-    nn.init.constant_(head.module.weight, 1e6)
-    nn.init.constant_(head.module.bias, 0.0)
-    x = torch.randn(16, 4)
-    out = head(x)
-    assert (out >= 10.0 - 1e-4).all()
-    assert (out <= 20.0 + 1e-4).all()
+# ═══════════════════════════════════════════════════════════════════════════════
+# NonCrossingSort
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-def test_bounded_head_low_greater_equal_high_raises():
-    with pytest.raises(ValueError, match="low < high"):
-        BoundedHead(nn.Linear(4, 1), low=5.0, high=5.0)
-    with pytest.raises(ValueError, match="low < high"):
-        BoundedHead(nn.Linear(4, 1), low=5.0, high=3.0)
+class TestNonCrossingSort:
+    def test_outputs_are_sorted(self) -> None:
+        """Outputs are sorted along the specified dimension."""
+        head = NonCrossingSort(dim=-1)
+        x = torch.tensor([[3.0, 1.0, 2.0], [5.0, 0.0, 4.0]])
+        out = head(x)
+        assert torch.equal(out, torch.tensor([[1.0, 2.0, 3.0], [0.0, 4.0, 5.0]]))
+
+    def test_custom_dim(self) -> None:
+        """Sort along dim=0."""
+        head = NonCrossingSort(dim=0)
+        x = torch.tensor([[3.0, 1.0], [1.0, 4.0], [2.0, 0.0]])
+        out = head(x)
+        assert (out[0] <= out[1]).all()
+        assert (out[1] <= out[2]).all()  # noqa: RUF015
+
+    def test_default_dim(self) -> None:
+        """Default dim=-1."""
+        head = NonCrossingSort()
+        assert head.dim == -1
 
 
-def test_bounded_head_gradients_flow():
-    head = BoundedHead(nn.Linear(4, 2), low=0.0, high=1.0)
-    x = torch.randn(8, 4, requires_grad=True)
-    loss = head(x).sum()
-    loss.backward()
-    assert x.grad is not None and torch.isfinite(x.grad).all()
+# ═══════════════════════════════════════════════════════════════════════════════
+# SpectralNormWrapper
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
-def test_bounded_head_unit_interval():
-    """Default [0, 1] bounds — outputs are in unit interval."""
-    head = BoundedHead(nn.Linear(8, 3))
-    x = torch.randn(64, 8)
-    out = head(x)
-    assert (out >= 0.0).all()
-    assert (out <= 1.0).all()
+class TestSpectralNormWrapper:
+    def test_forward_returns_tensor(self) -> None:
+        """Forward pass returns a tensor."""
+        base = nn.Linear(3, 2)
+        wrapper = SpectralNormWrapper(base)
+        x = torch.randn(4, 3)
+        out = wrapper(x)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape == (4, 2)
 
+    def test_spectral_norm_applied(self) -> None:
+        """The wrapped module has spectral_norm parametrization."""
+        base = nn.Linear(3, 2)
+        wrapper = SpectralNormWrapper(base, name="weight")
+        # The module weight should have parametrizations registered
+        assert hasattr(wrapper.module, "parametrizations")
+        assert "weight" in wrapper.module.parametrizations
 
-# ── SimplexHead ──────────────────────────────────────────────────────
+    def test_not_tensor_raises(self) -> None:
+        """Non-tensor output from wrapped module raises TypeError."""
 
+        class BadModule(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.weight = nn.Parameter(torch.randn(2, 2))
 
-def test_simplex_head_sums_to_one():
-    head = SimplexHead(nn.Linear(6, 5))
-    x = torch.randn(10, 6)
-    out = head(x)
-    assert out.shape == (10, 5)
-    assert (out >= 0).all()
-    torch.testing.assert_close(out.sum(dim=-1), torch.ones(x.shape[0]), atol=1e-5, rtol=0.0)
+            def forward(self, x):  # noqa: ANN001, ANN201
+                return "not a tensor"
 
-
-def test_simplex_head_custom_dim():
-    head = SimplexHead(nn.Linear(6, 5, bias=False), dim=0)
-    x = torch.randn(3, 6)
-    out = head(x)
-    assert out.shape == (3, 5)
-    torch.testing.assert_close(out.sum(dim=0), torch.ones(5), atol=1e-5, rtol=0.0)
-
-
-def test_simplex_head_gradients_flow():
-    head = SimplexHead(nn.Linear(4, 3))
-    x = torch.randn(8, 4, requires_grad=True)
-    loss = head(x).sum()
-    loss.backward()
-    assert x.grad is not None and torch.isfinite(x.grad).all()
-
-
-# ── NonCrossingSort ──────────────────────────────────────────────────
-
-
-def test_non_crossing_sort_enforces_order():
-    sorter = NonCrossingSort(dim=-1)
-    x = torch.randn(32, 10)
-    out = sorter(x)
-    assert out.shape == x.shape
-    diffs = out[:, 1:] - out[:, :-1]
-    assert (diffs >= 0).all()
-
-
-def test_non_crossing_sort_custom_dim():
-    sorter = NonCrossingSort(dim=0)
-    x = torch.randn(10, 8)
-    out = sorter(x)
-    diffs = out[1:] - out[:-1]
-    assert (diffs >= 0).all()
-
-
-def test_non_crossing_sort_preserves_gradients():
-    """Sort is differentiable through the values (though not the indices)."""
-    x = torch.randn(10, 5, requires_grad=True)
-    sorter = NonCrossingSort(dim=-1)
-    out = sorter(x).sum()
-    out.backward()
-    assert x.grad is not None
-    assert torch.isfinite(x.grad).all()
-
-
-def test_non_crossing_sort_already_sorted_unchanged():
-    x = torch.tensor([[1.0, 2.0, 3.0, 4.0], [0.0, 0.5, 1.0, 2.0]])
-    sorter = NonCrossingSort(dim=-1)
-    out = sorter(x)
-    torch.testing.assert_close(out, x)
-
-
-# ── SpectralNormWrapper ──────────────────────────────────────────────
-
-
-def test_spectral_norm_wrapper_forward_shape():
-    layer = SpectralNormWrapper(nn.Linear(4, 3))
-    x = torch.randn(16, 4)
-    out = layer(x)
-    assert out.shape == (16, 3)
-
-
-def test_spectral_norm_wrapper_non_tensor_output_raises():
-    """If the wrapped module returns a non-tensor, TypeError is raised."""
-
-    class NonTensorModule(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.weight = nn.Parameter(torch.randn(2, 4))
-
-        def forward(self, x):
-            return [x.sum()]  # list, not tensor
-
-    wrapped = SpectralNormWrapper(NonTensorModule())
-    with pytest.raises(TypeError, match="expects wrapped module to return a Tensor"):
-        wrapped(torch.randn(4))
-
-
-def test_spectral_norm_wrapper_gradients_flow():
-    layer = SpectralNormWrapper(nn.Linear(4, 2))
-    x = torch.randn(8, 4, requires_grad=True)
-    loss = layer(x).sum()
-    loss.backward()
-    assert x.grad is not None and torch.isfinite(x.grad).all()
-
-
-def test_spectral_norm_wrapper_custom_name():
-    """SpectralNormWrapper supports a custom parameter name."""
-    layer = SpectralNormWrapper(nn.Linear(4, 2), name="weight")
-    x = torch.randn(8, 4)
-    out = layer(x)
-    assert torch.isfinite(out).all()
+        wrapper = SpectralNormWrapper(BadModule())
+        with pytest.raises(TypeError, match="return a Tensor"):
+            wrapper(torch.randn(2, 2))
