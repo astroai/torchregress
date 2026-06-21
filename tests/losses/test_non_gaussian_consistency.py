@@ -718,7 +718,7 @@ class TestQuantileFamilyContract:
         target = torch.randn(6, 3)
         _check_reduction(QuantileLoss, y_pred, target, quantile=0.3)
 
-    def test_quantile_mask_changes_loss(self):
+    def test_mask_changes_loss(self):
         y_pred = torch.randn(5, 3)
         target = torch.randn(5, 3)
         mask = torch.ones(5, 3, dtype=torch.bool)
@@ -726,7 +726,7 @@ class TestQuantileFamilyContract:
         fn = QuantileLoss(quantile=0.5, reduction="mean")
         assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
 
-    def test_quantile_weights_scale_loss(self):
+    def test_weights_scale_loss(self):
         y_pred = torch.randn(4, 2)
         target = torch.randn(4, 2)
         w1 = torch.ones(4, 2)
