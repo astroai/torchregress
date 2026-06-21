@@ -334,6 +334,18 @@ class TestPoissonGaussianLRContract:
         loss_masked = fn(y_pred, target, mask=mask)
         assert loss_masked != loss_full
 
+    def test_weights_scale_loss(self):
+        y_pred = _make_pos_preds(4, 2, log_input=True)
+        target = _make_pos_targets(4, 2)
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+
+        fn = PoissonGaussianLikelihoodRatioLoss(reduction="none", log_input=True)
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
     def test_gradients_flow(self):
         model = torch.nn.Linear(3, 3)
         loss_fn = PoissonGaussianLikelihoodRatioLoss(learn_variance=True)
