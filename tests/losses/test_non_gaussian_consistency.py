@@ -1798,3 +1798,9 @@ class TestBalancedMSEContract:
         fn = BMCLoss(num_bins=4, noise_sigma=1.0)
         with pytest.raises(RuntimeError, match="fit"):
             fn(torch.randn(4, 2), torch.randn(4, 2))
+
+    def test_balanced_mse_predict_before_fit_raises(self):
+        """BalancedMSELoss without fit() raises RuntimeError."""
+        fn = BalancedMSELoss(self._make_bins())
+        with pytest.raises(RuntimeError, match="fit"):
+            fn(torch.randn(4, 2), torch.randn(4, 2))
