@@ -1,16 +1,18 @@
 """Cross-class consistency tests for non-Gaussian regression losses.
 
-Verifies that Poisson-Gaussian mixtures, censored losses, and AFT losses
-share consistent reduction/mask/weight contracts and that special-case
-relationships hold (e.g. Poisson-Gaussian reduces to known limits).
+Verifies that Poisson-Gaussian mixtures, censored losses, AFT, Tweedie,
+quantile, ordinal, and conformal losses share consistent
+reduction/mask/weight contracts and that special-case relationships hold.
 """
 
 import math
 
+import pytest
 import torch
 import torch.nn.functional as F
 
 from torchregress.losses.censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
+from torchregress.losses.conformal import ConformalLoss, MultiDimensionalConformalLoss
 from torchregress.losses.ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.losses.poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
@@ -898,3 +900,274 @@ class TestOrdinalFamilyContract:
         out1 = fn(logits, target, weights=w1)
         out2 = fn(logits, target, weights=w2)
         torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+
+# ── ConformalLoss ─────────────────────────────────────────────────────
+
+
+class TestConformalLossContract:
+    """Reduction / mask / weight / gradient contracts for ConformalLoss."""
+
+    # -- split method -------------------------------------------------------
+
+    def test_split_reduction_consistency(self):
+        batch, feat = 8, 3
+        y_pred = torch.randn(batch, feat)
+        target = torch.randn(batch, feat)
+
+        fn_none = ConformalLoss(method="split", reduction="none")
+        fn_mean = ConformalLoss(method="split", reduction="mean")
+        fn_sum = ConformalLoss(method="split", reduction="sum")
+
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == (batch, feat)
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_split_mask_changes_loss(self):
+        batch, feat = 5, 3
+        y_pred = torch.randn(batch, feat)
+        target = torch.randn(batch, feat)
+        mask = torch.ones(batch, feat, dtype=torch.bool)
+        mask[0, 0] = False
+
+        fn = ConformalLoss(method="split", reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_split_weights_scale_loss(self):
+        batch, feat = 4, 2
+        y_pred = torch.randn(batch, feat)
+        target = torch.randn(batch, feat)
+        w1 = torch.ones(batch, feat)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+
+        fn = ConformalLoss(method="split", reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_split_gradients_flow(self):
+        model = torch.nn.Linear(3, 3)
+        loss_fn = ConformalLoss(method="split", reduction="mean")
+        opt = torch.optim.SGD(model.parameters(), lr=0.01)
+        x = torch.randn(4, 3)
+        target = torch.randn(4, 3)
+
+        for _ in range(3):
+            opt.zero_grad()
+            loss = loss_fn(model(x), target)
+            loss.backward()
+            opt.step()
+        assert torch.isfinite(loss)
+
+    # -- cqr method --------------------------------------------------------
+
+    def test_cqr_reduction_consistency(self):
+        batch, feat = 8, 3
+        y_pred = torch.randn(batch, 2 * feat)
+        target = torch.randn(batch, feat)
+
+        fn_none = ConformalLoss(method="cqr", reduction="none")
+        fn_mean = ConformalLoss(method="cqr", reduction="mean")
+        fn_sum = ConformalLoss(method="cqr", reduction="sum")
+
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == (batch, feat)
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_cqr_mask_changes_loss(self):
+        batch, feat = 5, 3
+        y_pred = torch.randn(batch, 2 * feat)
+        target = torch.randn(batch, feat)
+        mask = torch.ones(batch, feat, dtype=torch.bool)
+        mask[0, 0] = False
+
+        fn = ConformalLoss(method="cqr", reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_cqr_weights_scale_loss(self):
+        batch, feat = 4, 2
+        y_pred = torch.randn(batch, 2 * feat)
+        target = torch.randn(batch, feat)
+        w1 = torch.ones(batch, feat)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+
+        fn = ConformalLoss(method="cqr", reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_cqr_gradients_flow(self):
+        model = torch.nn.Linear(3, 6)  # 2 * feat
+        loss_fn = ConformalLoss(method="cqr", reduction="mean")
+        opt = torch.optim.SGD(model.parameters(), lr=0.01)
+        x = torch.randn(4, 3)
+        target = torch.randn(4, 3)
+
+        for _ in range(3):
+            opt.zero_grad()
+            loss = loss_fn(model(x), target)
+            loss.backward()
+            opt.step()
+        assert torch.isfinite(loss)
+
+
+class TestConformalLossRelationships:
+    """Cross-method consistency and calibration relationships."""
+
+    def test_split_method_equals_mse(self):
+        """ConformalLoss(method='split') forward = MSE loss."""
+        y_pred = torch.randn(6, 3)
+        target = torch.randn(6, 3)
+
+        cf_loss = ConformalLoss(method="split", reduction="none")(y_pred, target)
+        mse = (y_pred - target) ** 2
+        torch.testing.assert_close(cf_loss, mse)
+
+    def test_cqr_and_uacqr_forward_match(self):
+        """CQR and UACQR share the same pinball training loss."""
+        y_pred = torch.randn(6, 6)  # batch=6, 2*feat=6 → feat=3
+        target = torch.randn(6, 3)
+
+        cqr = ConformalLoss(method="cqr", reduction="mean")(y_pred, target)
+        uacqr = ConformalLoss(method="uacqr", reduction="mean")(y_pred, target)
+        torch.testing.assert_close(cqr, uacqr)
+
+    def test_calibrate_then_predict_produces_valid_intervals(self):
+        """After calibration, predict_interval returns valid intervals."""
+        loss_fn = ConformalLoss(method="split", alpha=0.1)
+        n_cal = 60
+        pred_cal = torch.randn(n_cal, 2)
+        target_cal = torch.randn(n_cal, 2)
+
+        loss_fn.calibrate(pred_cal, target_cal)
+        lower, upper = loss_fn.predict_interval(pred_cal)
+
+        assert lower.shape == pred_cal.shape
+        assert (lower <= upper).all()
+
+    def test_predict_before_calibrate_raises(self):
+        """Calling predict_interval before calibrate raises RuntimeError."""
+        loss_fn = ConformalLoss(method="split", alpha=0.1)
+        with pytest.raises(RuntimeError, match="calibrate"):
+            loss_fn.predict_interval(torch.randn(10, 2))
+
+    def test_forward_does_not_require_calibration(self):
+        """Forward pass works fine without calibration."""
+        fn = ConformalLoss(method="split")
+        loss = fn(torch.randn(8, 3), torch.randn(8, 3))
+        assert torch.isfinite(loss)
+
+    def test_calibrate_with_mask(self):
+        """Calibration respects mask."""
+        loss_fn = ConformalLoss(method="split", alpha=0.1)
+        n = 40
+        y_pred = torch.randn(n, 2)
+        target = torch.randn(n, 2)
+        mask = torch.ones(n, 2, dtype=torch.bool)
+        mask[:5] = False
+
+        loss_fn.calibrate(y_pred, target, mask=mask)
+        assert loss_fn._is_calibrated
+
+
+# ── MultiDimensionalConformalLoss ──────────────────────────────────────
+
+
+class TestMultiDimensionalConformalContract:
+    """Contracts for MultiDimensionalConformalLoss."""
+
+    def test_forward_equals_mse(self):
+        """MultiDimensionalConformalLoss forward = MSE."""
+        y_pred = torch.randn(6, 4)
+        target = torch.randn(6, 4)
+
+        cf_loss = MultiDimensionalConformalLoss(reduction="none")(y_pred, target)
+        mse = (y_pred - target) ** 2
+        torch.testing.assert_close(cf_loss, mse)
+
+    def test_reduction_consistency(self):
+        batch, feat = 8, 3
+        y_pred = torch.randn(batch, feat)
+        target = torch.randn(batch, feat)
+
+        fn_none = MultiDimensionalConformalLoss(reduction="none")
+        fn_mean = MultiDimensionalConformalLoss(reduction="mean")
+        fn_sum = MultiDimensionalConformalLoss(reduction="sum")
+
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == (batch, feat)
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_mask_changes_loss(self):
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+
+        fn = MultiDimensionalConformalLoss(reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_weights_scale_loss(self):
+        y_pred = torch.randn(4, 2)
+        target = torch.randn(4, 2)
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+
+        fn = MultiDimensionalConformalLoss(reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_gradients_flow(self):
+        model = torch.nn.Linear(3, 4)
+        loss_fn = MultiDimensionalConformalLoss(reduction="mean")
+        opt = torch.optim.SGD(model.parameters(), lr=0.01)
+        x = torch.randn(4, 3)
+        target = torch.randn(4, 4)
+
+        for _ in range(3):
+            opt.zero_grad()
+            loss = loss_fn(model(x), target)
+            loss.backward()
+            opt.step()
+        assert torch.isfinite(loss)
+
+    def test_per_dimension_thresholds(self):
+        """Calibration produces per-dimension q_hat."""
+        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+        n_cal, n_feat = 80, 4
+        y_pred = torch.randn(n_cal, n_feat)
+        target = torch.randn(n_cal, n_feat)
+
+        loss_fn.calibrate(y_pred, target)
+        assert loss_fn._is_calibrated
+        assert loss_fn.q_hat is not None
+        assert loss_fn.q_hat.shape == (n_feat,)
+
+    def test_calibrate_then_predict(self):
+        """After calibration, predict_interval returns per-dim valid intervals."""
+        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+        n_cal, n_feat = 60, 3
+        y_pred_cal = torch.randn(n_cal, n_feat)
+        target_cal = torch.randn(n_cal, n_feat)
+
+        loss_fn.calibrate(y_pred_cal, target_cal)
+        y_pred_test = torch.randn(20, n_feat)
+        lower, upper = loss_fn.predict_interval(y_pred_test)
+
+        assert lower.shape == y_pred_test.shape
+        assert upper.shape == y_pred_test.shape
+        assert lower.shape[-1] == n_feat
+        assert (lower <= upper).all()
