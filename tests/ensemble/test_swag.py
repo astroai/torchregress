@@ -161,18 +161,20 @@ class TestSWAGSample:
         swag = SWAG(model, max_num_models=5)
 
         # Collect a few snapshots with different weights
-        for i in range(3):
+        for _ in range(3):
             with torch.no_grad():
                 for param in model.parameters():
                     param.add_(0.1)
             swag.collect_model(model)
 
-        # Collect a few snapshots with different weights
+        # Clone params BEFORE sampling (so we can detect change)
+        orig_params = [p.clone() for p in swag.base_model.parameters()]
+
         swag.sample(scale=1.0, diag_noise=True)
 
-        # Params should differ from original (unless sampled near mean by chance)
+        # Params should differ from pre-sample values
         any_different = False
-        for orig, new in zip([p.clone() for p in model.parameters()], swag.base_model.parameters()):
+        for orig, new in zip(orig_params, swag.base_model.parameters()):
             if not torch.allclose(orig, new.data):
                 any_different = True
                 break
