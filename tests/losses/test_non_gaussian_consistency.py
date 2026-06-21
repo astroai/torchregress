@@ -776,13 +776,7 @@ class TestQuantileFamilyContract:
     def test_quantile_reduction_consistency(self):
         y_pred = torch.randn(6, 3)
         target = torch.randn(6, 3)
-        none = QuantileLoss(quantile=0.3, reduction="none")(y_pred, target)
-        mean = QuantileLoss(quantile=0.3, reduction="mean")(y_pred, target)
-        sum_ = QuantileLoss(quantile=0.3, reduction="sum")(y_pred, target)
-
-        assert none.shape == target.shape
-        torch.testing.assert_close(none.mean(), mean)
-        torch.testing.assert_close(sum_ / none.numel(), mean)
+        _check_reduction(QuantileLoss, y_pred, target, quantile=0.3)
 
     def test_quantile_mask_changes_loss(self):
         y_pred = torch.randn(5, 3)
@@ -814,10 +808,7 @@ class TestQuantileFamilyContract:
     def test_multi_quantile_reduction_consistency(self):
         y_pred = torch.randn(6, 3, 2)
         target = torch.randn(6, 2)
-        none = MultiQuantileLoss(quantiles=[0.1, 0.5, 0.9], reduction="none")(y_pred, target)
-        mean = MultiQuantileLoss(quantiles=[0.1, 0.5, 0.9], reduction="mean")(y_pred, target)
-        assert none.shape == target.shape
-        torch.testing.assert_close(none.mean(), mean)
+        _check_reduction(MultiQuantileLoss, y_pred, target, quantiles=[0.1, 0.5, 0.9])
 
     def test_crossover_penalty_for_violations(self):
         """The crossover penalty term equals
@@ -872,13 +863,7 @@ class TestOrdinalFamilyContract:
     def test_ordinal_ce_reduction_consistency(self):
         logits = torch.randn(6, 5, 3)
         target = torch.randint(0, 5, (6, 3))
-        none = OrdinalCrossEntropyLoss(reduction="none")(logits, target)
-        mean = OrdinalCrossEntropyLoss(reduction="mean")(logits, target)
-        sum_ = OrdinalCrossEntropyLoss(reduction="sum")(logits, target)
-
-        assert none.shape == target.shape
-        torch.testing.assert_close(none.mean(), mean)
-        torch.testing.assert_close(sum_ / none.numel(), mean)
+        _check_reduction(OrdinalCrossEntropyLoss, logits, target)
 
     def test_ordinal_ce_mask_changes_loss(self):
         logits = torch.randn(5, 4, 3)
@@ -891,13 +876,7 @@ class TestOrdinalFamilyContract:
     def test_cumulative_link_reduction_consistency(self):
         logits = torch.randn(6, 4, 3)
         target = torch.randint(0, 5, (6, 3))
-        none = CumulativeLinkLoss(reduction="none")(logits, target)
-        mean = CumulativeLinkLoss(reduction="mean")(logits, target)
-        sum_ = CumulativeLinkLoss(reduction="sum")(logits, target)
-
-        assert none.shape == target.shape
-        torch.testing.assert_close(none.mean(), mean)
-        torch.testing.assert_close(sum_ / none.numel(), mean)
+        _check_reduction(CumulativeLinkLoss, logits, target)
 
     def test_cumulative_link_mask_changes_loss(self):
         logits = torch.randn(5, 4, 3)
@@ -919,10 +898,7 @@ class TestOrdinalFamilyContract:
     def test_coral_reduction_consistency(self):
         logits = torch.randn(6, 3, 2)
         target = torch.randint(0, 4, (6, 2))
-        none = CORALLoss(reduction="none")(logits, target)
-        mean = CORALLoss(reduction="mean")(logits, target)
-        assert none.shape == target.shape
-        torch.testing.assert_close(none.mean(), mean)
+        _check_reduction(CORALLoss, logits, target)
 
     def test_ordinal_ce_weights_scale_loss(self):
         logits = torch.randn(4, 3, 2)
@@ -945,20 +921,9 @@ class TestConformalLossContract:
     # -- split method -------------------------------------------------------
 
     def test_split_reduction_consistency(self):
-        batch, feat = 8, 3
-        y_pred = torch.randn(batch, feat)
-        target = torch.randn(batch, feat)
-
-        fn_none = ConformalLoss(method="split", reduction="none")
-        fn_mean = ConformalLoss(method="split", reduction="mean")
-        fn_sum = ConformalLoss(method="split", reduction="sum")
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, feat)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(
-            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
-        )
+        y_pred = torch.randn(8, 3)
+        target = torch.randn(8, 3)
+        _check_reduction(ConformalLoss, y_pred, target, method="split")
 
     def test_split_mask_changes_loss(self):
         batch, feat = 5, 3
@@ -1000,20 +965,9 @@ class TestConformalLossContract:
     # -- cqr method --------------------------------------------------------
 
     def test_cqr_reduction_consistency(self):
-        batch, feat = 8, 3
-        y_pred = torch.randn(batch, 2 * feat)
-        target = torch.randn(batch, feat)
-
-        fn_none = ConformalLoss(method="cqr", reduction="none")
-        fn_mean = ConformalLoss(method="cqr", reduction="mean")
-        fn_sum = ConformalLoss(method="cqr", reduction="sum")
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, feat)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(
-            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
-        )
+        y_pred = torch.randn(8, 6)  # batch=8, 2*feat=6 → feat=3
+        target = torch.randn(8, 3)
+        _check_reduction(ConformalLoss, y_pred, target, method="cqr")
 
     def test_cqr_mask_changes_loss(self):
         batch, feat = 5, 3
@@ -1128,20 +1082,9 @@ class TestMultiDimensionalConformalContract:
         torch.testing.assert_close(cf_loss, mse)
 
     def test_reduction_consistency(self):
-        batch, feat = 8, 3
-        y_pred = torch.randn(batch, feat)
-        target = torch.randn(batch, feat)
-
-        fn_none = MultiDimensionalConformalLoss(reduction="none")
-        fn_mean = MultiDimensionalConformalLoss(reduction="mean")
-        fn_sum = MultiDimensionalConformalLoss(reduction="sum")
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, feat)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(
-            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
-        )
+        y_pred = torch.randn(8, 3)
+        target = torch.randn(8, 3)
+        _check_reduction(MultiDimensionalConformalLoss, y_pred, target)
 
     def test_mask_changes_loss(self):
         y_pred = torch.randn(5, 3)
@@ -1504,20 +1447,9 @@ class TestExpectileContract:
     """Reduction / mask / weight contracts for ExpectileLoss."""
 
     def test_reduction_consistency(self):
-        batch, dim = 8, 3
-        y_pred = torch.randn(batch, dim)
-        target = torch.randn(batch, dim)
-
-        fn_none = ExpectileLoss(expectile=0.3, reduction="none")
-        fn_mean = ExpectileLoss(expectile=0.3, reduction="mean")
-        fn_sum = ExpectileLoss(expectile=0.3, reduction="sum")
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(
-            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
-        )
+        y_pred = torch.randn(8, 3)
+        target = torch.randn(8, 3)
+        _check_reduction(ExpectileLoss, y_pred, target, expectile=0.3)
 
     def test_mask_changes_loss(self):
         y_pred = torch.randn(5, 3)
@@ -1573,20 +1505,9 @@ class TestEvidentialContract:
         return torch.cat([gamma, nu, alpha, beta], dim=-1)
 
     def test_reduction_consistency(self):
-        batch, dim = 6, 2
-        y_pred = self._make_params(batch, dim)
-        target = torch.randn(batch, dim)
-
-        fn_none = EvidentialRegressionLoss(coeff_nig=0.01, reduction="none")
-        fn_mean = EvidentialRegressionLoss(coeff_nig=0.01, reduction="mean")
-        fn_sum = EvidentialRegressionLoss(coeff_nig=0.01, reduction="sum")
-
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == (batch, dim)
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(
-            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
-        )
+        y_pred = self._make_params(6, 2)
+        target = torch.randn(6, 2)
+        _check_reduction(EvidentialRegressionLoss, y_pred, target, coeff_nig=0.01)
 
     def test_mask_changes_loss(self):
         y_pred = self._make_params(5, 2)
