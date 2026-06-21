@@ -730,6 +730,57 @@ class TestTweedieFamilyContract:
         out = fn(y_pred, target, weights=w)
         assert out[0, 0] == 0.0
 
+    def test_compound_poisson_mask_changes_loss(self):
+        y_pred, target = self._data(5, 3)
+        mask = torch.ones_like(target, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = CompoundPoissonLoss(p=1.5, reduction="mean", link="identity")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_compound_poisson_weights_scale_loss(self):
+        y_pred, target = self._data(4, 2)
+        w1 = torch.ones_like(target)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = CompoundPoissonLoss(p=1.5, reduction="none", link="identity")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_gamma_mask_changes_loss(self):
+        y_pred, target = self._data(5, 3)
+        mask = torch.ones_like(target, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = GammaLoss(reduction="mean", link="identity")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_gamma_weights_scale_loss(self):
+        y_pred, target = self._data(4, 2)
+        w1 = torch.ones_like(target)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = GammaLoss(reduction="none", link="identity")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_inverse_gaussian_mask_changes_loss(self):
+        y_pred, target = self._data(5, 3)
+        mask = torch.ones_like(target, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = InverseGaussianLoss(reduction="mean", link="identity")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_inverse_gaussian_weights_scale_loss(self):
+        y_pred, target = self._data(4, 2)
+        w1 = torch.ones_like(target)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = InverseGaussianLoss(reduction="none", link="identity")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
 
 class TestTweedieFamilyRelationships:
     """Tweedie subclass ↔ base class equivalence."""
@@ -1179,6 +1230,12 @@ class TestMultiDimensionalConformalContract:
         assert lower.shape[-1] == n_feat
         assert (lower <= upper).all()
 
+    def test_predict_before_calibrate_raises(self):
+        """Calling predict_interval before calibrate raises RuntimeError."""
+        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+        with pytest.raises(RuntimeError, match="calibrate"):
+            loss_fn.predict_interval(torch.randn(10, 3))
+
 
 # ── EIV family helpers ────────────────────────────────────────────────
 
@@ -1516,6 +1573,32 @@ class TestExpectileContract:
         mean = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9], reduction="mean")(y_pred, target)
         assert none.shape == (6,)
         torch.testing.assert_close(none.mean(), mean)
+
+    def test_multi_expectile_mask_changes_loss(self):
+        y_pred = torch.randn(5, 3, 2)
+        target = torch.randn(5, 2)
+        mask = torch.ones(5, 2, dtype=torch.bool)
+        mask[0, :] = False  # mask entire sample (per-sample loss output)
+        fn = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9], reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_multi_expectile_weights_scale_loss(self):
+        y_pred = torch.randn(4, 3, 2)
+        target = torch.randn(4, 2)
+        w1 = torch.ones(4)
+        w2 = w1.clone()
+        w2[0] = 2.0
+        fn = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9], reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0] / out1[0], torch.tensor(2.0))
+
+    def test_multi_expectile_gradients_flow(self):
+        y_pred = torch.randn(4, 3, 2, requires_grad=True)
+        target = torch.randn(4, 2)
+        loss = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9])(y_pred, target)
+        loss.backward()
+        assert y_pred.grad is not None and torch.isfinite(y_pred.grad).all()
 
 
 # ── Evidential regression ─────────────────────────────────────────────
