@@ -1718,8 +1718,8 @@ class TestRobustRelationships:
         # At δ=1e4 in float64, the remainder is ~1e-8 for r~5
         torch.testing.assert_close(ph, half_mse)
 
-    def test_cauchy_large_c_approx_half_mse(self):
-        """Cauchy(c → ∞) ≈ log(1 + r²/c²) ≈ r²/c² ≈ 0 for large c."""
+    def test_cauchy_large_c_produces_small_loss(self):
+        """Cauchy(c → ∞) → log(1 + r²/c²) ≈ 0 for large c."""
         y_pred = torch.randn(5, 3)
         target = torch.randn(5, 3)
         fn = CauchyLoss(c=1e3)
