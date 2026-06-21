@@ -252,17 +252,30 @@ class TestEnhancedPoissonGaussianContract:
         target = _make_pos_targets(batch, dim)
         _check_reduction(EnhancedPoissonGaussianMixtureLoss, y_pred, target)
 
-    def test_mask_and_weights(self):
+    def test_mask_changes_loss(self):
         batch, dim = 5, 3
         y_pred = _make_pos_preds(batch, dim)
         target = _make_pos_targets(batch, dim)
         mask = torch.ones(batch, dim, dtype=torch.bool)
         mask[0, 0] = False
-        weights = torch.rand(batch, dim)
 
         fn = EnhancedPoissonGaussianMixtureLoss(reduction="mean")
-        loss = fn(y_pred, target, mask=mask, weights=weights)
-        assert torch.isfinite(loss)
+        loss_full = fn(y_pred, target)
+        loss_masked = fn(y_pred, target, mask=mask)
+        assert loss_masked != loss_full
+
+    def test_weights_scale_loss(self):
+        batch, dim = 4, 3
+        y_pred = _make_pos_preds(batch, dim)
+        target = _make_pos_targets(batch, dim)
+        w1 = torch.ones(batch, dim)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+
+        fn = EnhancedPoissonGaussianMixtureLoss(reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
 
     def test_default_identity_noop(self):
         """With default gain=1 offset=0, scaled_rate ≈ rate (up to clamp)."""
@@ -310,7 +323,7 @@ class TestPoissonGaussianLRContract:
         target = _make_pos_targets(batch, dim)
         _check_reduction(PoissonGaussianLikelihoodRatioLoss, y_pred, target, log_input=True)
 
-    def test_mask_and_weights(self):
+    def test_mask_changes_loss(self):
         y_pred = _make_pos_preds(5, 3, log_input=True)
         target = _make_pos_targets(5, 3)
         mask = torch.ones(5, 3, dtype=torch.bool)
@@ -718,7 +731,7 @@ class TestQuantileFamilyContract:
         target = torch.randn(6, 3)
         _check_reduction(QuantileLoss, y_pred, target, quantile=0.3)
 
-    def test_mask_changes_loss(self):
+    def test_quantile_mask_changes_loss(self):
         y_pred = torch.randn(5, 3)
         target = torch.randn(5, 3)
         mask = torch.ones(5, 3, dtype=torch.bool)
@@ -726,7 +739,7 @@ class TestQuantileFamilyContract:
         fn = QuantileLoss(quantile=0.5, reduction="mean")
         assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
 
-    def test_weights_scale_loss(self):
+    def test_quantile_weights_scale_loss(self):
         y_pred = torch.randn(4, 2)
         target = torch.randn(4, 2)
         w1 = torch.ones(4, 2)
@@ -813,6 +826,17 @@ class TestOrdinalFamilyContract:
         fn = OrdinalCrossEntropyLoss(reduction="mean")
         assert fn(logits, target) != fn(logits, target, mask=mask)
 
+    def test_ordinal_ce_weights_scale_loss(self):
+        logits = torch.randn(4, 3, 2)
+        target = torch.randint(0, 3, (4, 2))
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = OrdinalCrossEntropyLoss(reduction="none")
+        out1 = fn(logits, target, weights=w1)
+        out2 = fn(logits, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
     def test_cumulative_link_reduction_consistency(self):
         logits = torch.randn(6, 4, 3)
         target = torch.randint(0, 5, (6, 3))
@@ -865,17 +889,6 @@ class TestOrdinalFamilyContract:
         loss = CORALLoss()(logits, target)
         loss.backward()
         assert logits.grad is not None and torch.isfinite(logits.grad).all()
-
-    def test_ordinal_ce_weights_scale_loss(self):
-        logits = torch.randn(4, 3, 2)
-        target = torch.randint(0, 3, (4, 2))
-        w1 = torch.ones(4, 2)
-        w2 = w1.clone()
-        w2[0, 0] = 2.0
-        fn = OrdinalCrossEntropyLoss(reduction="none")
-        out1 = fn(logits, target, weights=w1)
-        out2 = fn(logits, target, weights=w2)
-        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
 
 
 # ── ConformalLoss ─────────────────────────────────────────────────────
