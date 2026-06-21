@@ -530,7 +530,7 @@ class TestCensoredQuantileContract:
         censoring = torch.tensor([0, 1, -1, 0], dtype=torch.long)
 
         fn = CensoredQuantileLoss(quantile=0.5, reduction="none")
-        loss = fn(y_pred, target, censoring=censoring)
+        loss = fn(y_pred, target, censoring)
         assert (loss >= 0).all()
 
     def test_median_observed_is_mae(self):
@@ -540,10 +540,33 @@ class TestCensoredQuantileContract:
         censoring = torch.zeros(5, 3, dtype=torch.long)
 
         fn = CensoredQuantileLoss(quantile=0.5, reduction="none")
-        loss = fn(y_pred, target, censoring=censoring)
+        loss = fn(y_pred, target, censoring)
 
         expected = 0.5 * torch.abs(target - y_pred)
         torch.testing.assert_close(loss, expected)
+
+    def test_mask_changes_loss(self):
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        censoring = torch.zeros(5, 3, dtype=torch.long)
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+
+        fn = CensoredQuantileLoss(quantile=0.5, reduction="mean")
+        assert fn(y_pred, target, censoring) != fn(y_pred, target, censoring, mask=mask)
+
+    def test_weights_scale_loss(self):
+        y_pred = torch.randn(4, 2)
+        target = torch.randn(4, 2)
+        censoring = torch.zeros(4, 2, dtype=torch.long)
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+
+        fn = CensoredQuantileLoss(quantile=0.5, reduction="none")
+        out1 = fn(y_pred, target, censoring, weights=w1)
+        out2 = fn(y_pred, target, censoring, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
 
 
 # ── AFTLoss ───────────────────────────────────────────────────────────
@@ -585,6 +608,21 @@ class TestAFTLossContract:
 
         assert loc.grad is not None and torch.isfinite(loc.grad).all()
         assert log_scale.grad is not None and torch.isfinite(log_scale.grad).all()
+
+    def test_weights_scale_loss(self):
+        batch, dim = 4, 2
+        loc = torch.randn(batch, dim)
+        log_scale = torch.randn(batch, dim) * 0.5
+        target = torch.exp(torch.randn(batch, dim))
+        censoring = torch.zeros(batch, dim, dtype=torch.long)
+        w1 = torch.ones(batch, dim)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+
+        fn = AFTLoss(reduction="none")
+        out1 = fn((loc, log_scale), target, censoring, weights=w1)
+        out2 = fn((loc, log_scale), target, censoring, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
 
     def test_observed_matches_log_normal_nll(self):
         """All-observed AFT = log-normal NLL: -log_pdf of lognormal(loc, scale)."""
