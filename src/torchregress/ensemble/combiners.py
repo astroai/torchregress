@@ -94,16 +94,11 @@ class BayesianModelAveraging(nn.Module):
         # Weighted mean
         mean_pred = torch.sum(preds * model_probs.view(1, -1, 1), dim=1)
 
-        # Variance estimate (law of total variance)
-        individual_vars = torch.var(preds, dim=1)  # Variance across models
-        mean_vars = torch.sum(individual_vars * model_probs.view(1, -1, 1), dim=1)
-
-        # Variance of means
+        # Variance of means (law of total variance — epistemic uncertainty)
         mean_diffs = preds - mean_pred.unsqueeze(1)
         var_of_means = torch.sum((mean_diffs**2) * model_probs.view(1, -1, 1), dim=1)
 
-        total_variance = mean_vars + var_of_means
-        return mean_pred, total_variance
+        return mean_pred, var_of_means
 
 
 class StackingEnsemble(nn.Module):
