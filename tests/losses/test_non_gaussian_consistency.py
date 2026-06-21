@@ -10,10 +10,22 @@ import math
 import torch
 
 from torchregress.losses.censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
+from torchregress.losses.ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.losses.poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureLoss,
+)
+from torchregress.losses.quantile import (
+    MultiQuantileLoss,
+    QuantileCrossoverLoss,
+    QuantileLoss,
+)
+from torchregress.losses.tweedie import (
+    CompoundPoissonLoss,
+    GammaLoss,
+    InverseGaussianLoss,
+    TweedieLoss,
 )
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -611,3 +623,246 @@ class TestPoissonGaussianCrossFamily:
         assert torch.isfinite(loss_epg)
         # Same order of magnitude
         assert 0.1 < loss_epg / loss_pg < 10.0
+
+
+# ── Tweedie family ────────────────────────────────────────────────────
+
+
+class TestTweedieFamilyContract:
+    """Reduction / mask / weight contracts for the Tweedie family."""
+
+    @staticmethod
+    def _data(batch=6, dim=3):
+        torch.manual_seed(99)
+        y_pred = torch.rand(batch, dim) * 5 + 0.1
+        target = torch.rand(batch, dim) * 5 + 0.5
+        return y_pred, target
+
+    def _check_reduction(self, loss_cls, **kw):
+        y_pred, target = self._data()
+        fn_none = loss_cls(reduction="none", **kw)
+        fn_mean = loss_cls(reduction="mean", **kw)
+        fn_sum = loss_cls(reduction="sum", **kw)
+
+        none_out = fn_none(y_pred, target)
+        mean_out = fn_mean(y_pred, target)
+        sum_out = fn_sum(y_pred, target)
+
+        assert none_out.shape == target.shape
+        torch.testing.assert_close(none_out.mean(), mean_out)
+        torch.testing.assert_close(sum_out / none_out.numel(), mean_out)
+
+    def test_tweedie_reduction_consistency(self):
+        self._check_reduction(TweedieLoss, p=1.5, link="identity")
+
+    def test_gamma_reduction_consistency(self):
+        self._check_reduction(GammaLoss, link="identity")
+
+    def test_inverse_gaussian_reduction_consistency(self):
+        self._check_reduction(InverseGaussianLoss, link="identity")
+
+    def test_compound_poisson_reduction_consistency(self):
+        self._check_reduction(CompoundPoissonLoss, p=1.5, link="identity")
+
+    def test_tweedie_mask_changes_loss(self):
+        y_pred, target = self._data(5, 3)
+        mask = torch.ones_like(target, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = TweedieLoss(p=1.5, reduction="mean", link="identity")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_tweedie_weights_scale_loss(self):
+        y_pred, target = self._data(4, 2)
+        w1 = torch.ones_like(target)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = TweedieLoss(p=1.5, reduction="none", link="identity")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_tweedie_zero_weight_zeros_loss(self):
+        y_pred, target = self._data(4, 2)
+        w = torch.ones_like(target)
+        w[0, 0] = 0.0
+        fn = TweedieLoss(p=1.5, reduction="none", link="identity")
+        out = fn(y_pred, target, weights=w)
+        assert out[0, 0] == 0.0
+
+
+class TestTweedieFamilyRelationships:
+    """Tweedie subclass ↔ base class equivalence."""
+
+    def test_gamma_equals_tweedie_p2(self):
+        y_pred = torch.rand(4, 3) * 5 + 0.1
+        target = torch.rand(4, 3) * 5 + 0.5
+        g = GammaLoss(reduction="mean", link="identity")(y_pred, target)
+        t = TweedieLoss(p=2.0, reduction="mean", link="identity")(y_pred, target)
+        torch.testing.assert_close(g, t)
+
+    def test_inverse_gaussian_equals_tweedie_p3(self):
+        y_pred = torch.rand(4, 3) * 5 + 0.1
+        target = torch.rand(4, 3) * 5 + 0.5
+        ig = InverseGaussianLoss(reduction="mean", link="identity")(y_pred, target)
+        t = TweedieLoss(p=3.0, reduction="mean", link="identity")(y_pred, target)
+        torch.testing.assert_close(ig, t)
+
+    def test_compound_poisson_equals_tweedie_p1_5(self):
+        y_pred = torch.rand(4, 3) * 5 + 0.1
+        target = torch.rand(4, 3) * 5 + 0.5
+        cp = CompoundPoissonLoss(p=1.5, reduction="mean", link="identity")(y_pred, target)
+        t = TweedieLoss(p=1.5, reduction="mean", link="identity")(y_pred, target)
+        torch.testing.assert_close(cp, t)
+
+    def test_tweedie_gradient_flow(self):
+        # requires_grad_(True) on the final tensor keeps it a leaf.
+        y_pred = (torch.rand(4, 3) * 5 + 0.1).requires_grad_(True)
+        target = torch.rand(4, 3) * 5 + 0.5
+        for cls, kw in [
+            (TweedieLoss, {"p": 1.5, "link": "identity"}),
+            (GammaLoss, {"link": "identity"}),
+            (InverseGaussianLoss, {"link": "identity"}),
+            (CompoundPoissonLoss, {"p": 1.5, "link": "identity"}),
+        ]:
+            y_pred.grad = None
+            loss = cls(reduction="mean", **kw)(y_pred, target)
+            loss.backward()
+            assert y_pred.grad is not None and torch.isfinite(y_pred.grad).all()
+
+
+# ── Quantile family ───────────────────────────────────────────────────
+
+
+class TestQuantileFamilyContract:
+    """Reduction / mask / weight / relationship contracts for quantile losses."""
+
+    def test_quantile_reduction_consistency(self):
+        y_pred = torch.randn(6, 3)
+        target = torch.randn(6, 3)
+        none = QuantileLoss(quantile=0.3, reduction="none")(y_pred, target)
+        mean = QuantileLoss(quantile=0.3, reduction="mean")(y_pred, target)
+        sum_ = QuantileLoss(quantile=0.3, reduction="sum")(y_pred, target)
+
+        assert none.shape == target.shape
+        torch.testing.assert_close(none.mean(), mean)
+        torch.testing.assert_close(sum_ / none.numel(), mean)
+
+    def test_quantile_mask_changes_loss(self):
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = QuantileLoss(quantile=0.5, reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_quantile_weights_scale_loss(self):
+        y_pred = torch.randn(4, 2)
+        target = torch.randn(4, 2)
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = QuantileLoss(quantile=0.5, reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_median_is_half_mae(self):
+        """Quantile(0.5) = 0.5 * |y − ŷ|."""
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        q_loss = QuantileLoss(quantile=0.5, reduction="none")(y_pred, target)
+        expected = 0.5 * torch.abs(target - y_pred)
+        torch.testing.assert_close(q_loss, expected)
+
+    def test_multi_quantile_reduction_consistency(self):
+        y_pred = torch.randn(6, 3, 2)
+        target = torch.randn(6, 2)
+        none = MultiQuantileLoss(quantiles=[0.1, 0.5, 0.9], reduction="none")(y_pred, target)
+        mean = MultiQuantileLoss(quantiles=[0.1, 0.5, 0.9], reduction="mean")(y_pred, target)
+        assert none.shape == target.shape
+        torch.testing.assert_close(none.mean(), mean)
+
+    def test_crossover_penalty_for_violations(self):
+        """Reversing the order of predictions increases the crossover loss."""
+        target = torch.randn(4, 2)
+        # Use the same base tensor with offsets so that ordered[:,0,:]
+        # < ordered[:,1,:] < ordered[:,2,:] is guaranteed elementwise.
+        base = torch.randn(4, 2)
+        ordered = torch.stack([base - 1.0, base, base + 1.0], dim=1)
+        # Reversed: q10 > q90, causing crossover penalty
+        reversed_ = ordered.flip(1)
+        fn = QuantileCrossoverLoss(quantiles=[0.1, 0.5, 0.9], crossover_penalty=10.0)
+        assert fn(ordered, target) < fn(reversed_, target)
+
+
+# ── Ordinal family ────────────────────────────────────────────────────
+
+
+class TestOrdinalFamilyContract:
+    """Reduction / mask / weight contracts for ordinal losses."""
+
+    def test_ordinal_ce_reduction_consistency(self):
+        logits = torch.randn(6, 5, 3)
+        target = torch.randint(0, 5, (6, 3))
+        none = OrdinalCrossEntropyLoss(reduction="none")(logits, target)
+        mean = OrdinalCrossEntropyLoss(reduction="mean")(logits, target)
+        sum_ = OrdinalCrossEntropyLoss(reduction="sum")(logits, target)
+
+        assert none.shape == target.shape
+        torch.testing.assert_close(none.mean(), mean)
+        torch.testing.assert_close(sum_ / none.numel(), mean)
+
+    def test_ordinal_ce_mask_changes_loss(self):
+        logits = torch.randn(5, 4, 3)
+        target = torch.randint(0, 4, (5, 3))
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = OrdinalCrossEntropyLoss(reduction="mean")
+        assert fn(logits, target) != fn(logits, target, mask=mask)
+
+    def test_cumulative_link_reduction_consistency(self):
+        logits = torch.randn(6, 4, 3)
+        target = torch.randint(0, 5, (6, 3))
+        none = CumulativeLinkLoss(reduction="none")(logits, target)
+        mean = CumulativeLinkLoss(reduction="mean")(logits, target)
+        sum_ = CumulativeLinkLoss(reduction="sum")(logits, target)
+
+        assert none.shape == target.shape
+        torch.testing.assert_close(none.mean(), mean)
+        torch.testing.assert_close(sum_ / none.numel(), mean)
+
+    def test_cumulative_link_mask_changes_loss(self):
+        logits = torch.randn(5, 4, 3)
+        target = torch.randint(0, 5, (5, 3))
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = CumulativeLinkLoss(reduction="mean")
+        assert fn(logits, target) != fn(logits, target, mask=mask)
+
+    def test_coral_equals_cumulative_link(self):
+        """CORALLoss = CumulativeLinkLoss (same computation, different
+        architectural convention)."""
+        logits = torch.randn(4, 3, 2)
+        target = torch.randint(0, 4, (4, 2))
+        coral = CORALLoss(reduction="none")(logits, target)
+        cl = CumulativeLinkLoss(reduction="none")(logits, target)
+        torch.testing.assert_close(coral, cl)
+
+    def test_coral_reduction_consistency(self):
+        logits = torch.randn(6, 3, 2)
+        target = torch.randint(0, 4, (6, 2))
+        none = CORALLoss(reduction="none")(logits, target)
+        mean = CORALLoss(reduction="mean")(logits, target)
+        assert none.shape == target.shape
+        torch.testing.assert_close(none.mean(), mean)
+
+    def test_ordinal_ce_weights_scale_loss(self):
+        logits = torch.randn(4, 3, 2)
+        target = torch.randint(0, 3, (4, 2))
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = OrdinalCrossEntropyLoss(reduction="none")
+        out1 = fn(logits, target, weights=w1)
+        out2 = fn(logits, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
