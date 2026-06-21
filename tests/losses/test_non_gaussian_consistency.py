@@ -11,9 +11,15 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from torchregress.losses.balanced_mse import BalancedMSELoss, BMCLoss
 from torchregress.losses.censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
 from torchregress.losses.conformal import ConformalLoss, MultiDimensionalConformalLoss
 from torchregress.losses.eiv import EnsembleEIVLoss, FunctionalEIVLoss, StructuralEIVLoss
+from torchregress.losses.evidential import EvidentialRegressionLoss
+from torchregress.losses.expectile import (
+    ExpectileLoss,
+    MultiExpectileLoss,
+)
 from torchregress.losses.ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.losses.poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
@@ -24,6 +30,14 @@ from torchregress.losses.quantile import (
     MultiQuantileLoss,
     QuantileCrossoverLoss,
     QuantileLoss,
+)
+from torchregress.losses.robust import (
+    BarronLoss,
+    CauchyLoss,
+    CharbonnierLoss,
+    LogCoshLoss,
+    PseudoHuberLoss,
+    TukeyBiweightLoss,
 )
 from torchregress.losses.tweedie import (
     CompoundPoissonLoss,
@@ -1462,3 +1476,309 @@ class TestStructuralEIVRelationships:
         loss_struct = fn_struct(x_obs, target)
 
         torch.testing.assert_close(loss_struct, loss_func)
+
+
+# ── Expectile family ─────────────────────────────────────────────────
+
+
+class TestExpectileContract:
+    """Reduction / mask / weight contracts for ExpectileLoss."""
+
+    def test_reduction_consistency(self):
+        batch, dim = 8, 3
+        y_pred = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+
+        fn_none = ExpectileLoss(expectile=0.3, reduction="none")
+        fn_mean = ExpectileLoss(expectile=0.3, reduction="mean")
+        fn_sum = ExpectileLoss(expectile=0.3, reduction="sum")
+
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == (batch, dim)
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_mask_changes_loss(self):
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = ExpectileLoss(expectile=0.5, reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_weights_scale_loss(self):
+        y_pred = torch.randn(4, 2)
+        target = torch.randn(4, 2)
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = ExpectileLoss(expectile=0.5, reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_tau_half_is_mse(self):
+        """Expectile(τ=0.5) = MSE exactly: 2·r²·weight, weight=0.5 → r²."""
+        y_pred = torch.randn(6, 4)
+        target = torch.randn(6, 4)
+        exp_loss = ExpectileLoss(expectile=0.5, reduction="none")(y_pred, target)
+        mse = (y_pred - target) ** 2
+        torch.testing.assert_close(exp_loss, mse)
+
+    def test_multi_expectile_reduction(self):
+        """MultiExpectileLoss returns per-sample scalar for 'none'."""
+        y_pred = torch.randn(6, 3, 2)  # [batch, num_expectiles, features]
+        target = torch.randn(6, 2)
+        none = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9], reduction="none")(y_pred, target)
+        mean = MultiExpectileLoss(expectiles=[0.1, 0.5, 0.9], reduction="mean")(y_pred, target)
+        assert none.shape == (6,)
+        torch.testing.assert_close(none.mean(), mean)
+
+
+# ── Evidential regression ─────────────────────────────────────────────
+
+
+class TestEvidentialContract:
+    """Contracts for EvidentialRegressionLoss."""
+
+    @staticmethod
+    def _make_params(batch=6, dim=2):
+        """Create valid NIG parameters: gamma, nu, alpha, beta."""
+        torch.manual_seed(77)
+        gamma = torch.randn(batch, dim)
+        nu = F.softplus(torch.randn(batch, dim)) + 0.01
+        alpha = F.softplus(torch.randn(batch, dim)) + 1.01
+        beta = F.softplus(torch.randn(batch, dim)) + 0.01
+        return torch.cat([gamma, nu, alpha, beta], dim=-1)
+
+    def test_reduction_consistency(self):
+        batch, dim = 6, 2
+        y_pred = self._make_params(batch, dim)
+        target = torch.randn(batch, dim)
+
+        fn_none = EvidentialRegressionLoss(coeff_nig=0.01, reduction="none")
+        fn_mean = EvidentialRegressionLoss(coeff_nig=0.01, reduction="mean")
+        fn_sum = EvidentialRegressionLoss(coeff_nig=0.01, reduction="sum")
+
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == (batch, dim)
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_mask_changes_loss(self):
+        y_pred = self._make_params(5, 2)
+        target = torch.randn(5, 2)
+        mask = torch.ones(5, 2, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = EvidentialRegressionLoss(coeff_nig=0.01, reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_weights_scale_loss(self):
+        y_pred = self._make_params(4, 2)
+        target = torch.randn(4, 2)
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = EvidentialRegressionLoss(reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_gradients_flow(self):
+        # NIG parameters need stable ranges: use fixed params, require grad on gamma only.
+        gamma = torch.randn(4, 3, requires_grad=True)
+        nu = F.softplus(torch.randn(4, 3)) + 0.5
+        alpha = F.softplus(torch.randn(4, 3)) + 2.0  # > 1, well away from boundary
+        beta = F.softplus(torch.randn(4, 3)) + 0.5
+        y_pred = torch.cat([gamma, nu, alpha, beta], dim=-1)
+        target = torch.randn(4, 3)
+
+        loss_fn = EvidentialRegressionLoss()
+        loss = loss_fn(y_pred, target)
+        loss.backward()
+        assert gamma.grad is not None and torch.isfinite(gamma.grad).all()
+
+    def test_predict_with_uncertainty_shapes(self):
+        """predict_with_uncertainty returns (mean, ale, epi) with correct shapes."""
+        y_pred = self._make_params(5, 3)
+        fn = EvidentialRegressionLoss()
+        mean, ale, epi = fn.predict_with_uncertainty(y_pred)
+        assert mean.shape == (5, 3)
+        assert ale.shape == (5, 3)
+        assert epi.shape == (5, 3)
+        assert (ale >= 0).all()
+        assert (epi >= 0).all()
+
+
+# ── Robust losses ─────────────────────────────────────────────────────
+
+
+class TestRobustContract:
+    """Reduction / mask / weight contracts for robust loss classes."""
+
+    def _check_reduction(self, loss_cls, **kw):
+        y_pred = torch.randn(6, 4)
+        target = torch.randn(6, 4)
+        fn_none = loss_cls(reduction="none", **kw)
+        fn_mean = loss_cls(reduction="mean", **kw)
+        fn_sum = loss_cls(reduction="sum", **kw)
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == target.shape
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_pseudo_huber_reduction(self):
+        self._check_reduction(PseudoHuberLoss, delta=1.0)
+
+    def test_log_cosh_reduction(self):
+        self._check_reduction(LogCoshLoss, scale=1.0)
+
+    def test_barron_reduction(self):
+        self._check_reduction(BarronLoss, alpha=1.0, scale=1.0)
+
+    def test_cauchy_reduction(self):
+        self._check_reduction(CauchyLoss, c=1.0)
+
+    def test_charbonnier_reduction(self):
+        self._check_reduction(CharbonnierLoss, eps=0.1)
+
+    def test_tukey_reduction(self):
+        self._check_reduction(TukeyBiweightLoss, c=4.685)
+
+    def test_pseudo_huber_mask(self):
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = PseudoHuberLoss(reduction="mean")
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_pseudo_huber_weights(self):
+        y_pred = torch.randn(4, 2)
+        target = torch.randn(4, 2)
+        w1 = torch.ones(4, 2)
+        w2 = w1.clone()
+        w2[0, 0] = 2.0
+        fn = PseudoHuberLoss(reduction="none")
+        out1 = fn(y_pred, target, weights=w1)
+        out2 = fn(y_pred, target, weights=w2)
+        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
+
+    def test_log_cosh_gradient_flow(self):
+        y_pred = torch.randn(4, 3, requires_grad=True)
+        target = torch.randn(4, 3)
+        loss = LogCoshLoss()(y_pred, target)
+        loss.backward()
+        assert y_pred.grad is not None and torch.isfinite(y_pred.grad).all()
+
+
+class TestRobustRelationships:
+    """Special-case relationships for robust losses."""
+
+    def test_barron_alpha_2_is_half_mse(self):
+        """Barron(alpha=2, scale=1) = 0.5 * r² = MSE/2."""
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        barron = BarronLoss(alpha=2, scale=1, reduction="none")(y_pred, target)
+        half_mse = 0.5 * (y_pred - target) ** 2
+        torch.testing.assert_close(barron, half_mse)
+
+    def test_pseudo_huber_large_delta_approx_half_mse(self):
+        """PseudoHuber(delta → ∞) ≈ 0.5 * r² (in float64).
+
+        At δ=100, r²/δ² ≈ 1e-4 for r~1, easily resolvable; at δ=1e4
+        the term underflows in float32, so we use float64."""
+        y_pred = torch.randn(5, 3, dtype=torch.float64)
+        target = torch.randn(5, 3, dtype=torch.float64)
+        ph = PseudoHuberLoss(delta=1e4, reduction="none")(y_pred, target)
+        half_mse = 0.5 * (y_pred - target) ** 2
+        # Taylor: δ²(sqrt(1+x)-1) = r²/2 - r⁴/(8δ²) + ...
+        # At δ=1e4 in float64, the remainder is ~1e-8 for r~5
+        torch.testing.assert_close(ph, half_mse)
+
+    def test_cauchy_large_c_approx_half_mse(self):
+        """Cauchy(c → ∞) ≈ log(1 + r²/c²) ≈ r²/c² ≈ 0 for large c."""
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        fn = CauchyLoss(c=1e3)
+        loss = fn(y_pred, target)
+        assert torch.isfinite(loss)
+        assert loss < 1e-3  # Practically zero for small residuals
+
+    def test_charbonnier_large_eps_approaches_constant(self):
+        """Charbonnier(eps → ∞) is approximately constant."""
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        fn = CharbonnierLoss(eps=1e3)
+        loss = fn(y_pred, target)
+        assert torch.isfinite(loss)
+        torch.testing.assert_close(loss, torch.tensor(1e3), atol=1e-3, rtol=1e-2)
+
+
+# ── Balanced MSE ──────────────────────────────────────────────────────
+
+
+class TestBalancedMSEContract:
+    """Reduction / mask / weight contracts for BalancedMSELoss and BMCLoss."""
+
+    @staticmethod
+    def _make_bins():
+        return torch.tensor([-3.0, -1.0, 0.0, 1.0, 3.0])
+
+    def test_balanced_mse_reduction_consistency(self):
+        batch, dim = 8, 3
+        y_pred = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        edges = self._make_bins()
+
+        fn_none = BalancedMSELoss(edges, reduction="none")
+        fn_mean = BalancedMSELoss(edges, reduction="mean")
+        fn_sum = BalancedMSELoss(edges, reduction="sum")
+        for fn in (fn_none, fn_mean, fn_sum):
+            fn.fit(target)
+
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == (batch, dim)
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_balanced_mse_mask_changes_loss(self):
+        y_pred = torch.randn(5, 3)
+        target = torch.randn(5, 3)
+        mask = torch.ones(5, 3, dtype=torch.bool)
+        mask[0, 0] = False
+        fn = BalancedMSELoss(self._make_bins(), reduction="mean")
+        fn.fit(target)
+        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
+
+    def test_bmc_reduction_consistency(self):
+        batch, dim = 8, 3
+        y_pred = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+
+        fn_none = BMCLoss(num_bins=4, noise_sigma=1.0, reduction="none")
+        fn_mean = BMCLoss(num_bins=4, noise_sigma=1.0, reduction="mean")
+        fn_sum = BMCLoss(num_bins=4, noise_sigma=1.0, reduction="sum")
+        for fn in (fn_none, fn_mean, fn_sum):
+            fn.fit(target)
+
+        none_out = fn_none(y_pred, target)
+        assert none_out.shape == (batch, dim)
+        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
+        torch.testing.assert_close(
+            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
+        )
+
+    def test_bmc_predict_before_fit_raises(self):
+        """BMCLoss without fit() raises RuntimeError."""
+        fn = BMCLoss(num_bins=4, noise_sigma=1.0)
+        with pytest.raises(RuntimeError, match="fit"):
+            fn(torch.randn(4, 2), torch.randn(4, 2))
