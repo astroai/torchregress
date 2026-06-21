@@ -262,27 +262,35 @@ class TestEnsembleSizeBehavior:
             result["variance"], manual_var, msg="DeepEnsemble variance ≠ sample variance of members"
         )
 
-    def test_variance_order_of_magnitude_is_stable_across_ensemble_sizes(self):
-        """With a fixed seed, mean predictions should be in a reasonable
-        range regardless of ensemble size."""
+    def test_ensemble_variance_converges_with_larger_ensemble(self):
+        """With a fixed seed, the epistemic variance should not
+        increase materially when moving from 5 to 10 members."""
         torch.manual_seed(42)
-        sizes = [2, 5, 10]
-        means = []
-        for size in sizes:
-            model = DeepEnsemble(
-                base_model=SimpleMLP(),
-                ensemble_size=size,
-                input_size=4,
-                hidden_size=8,
-                output_size=1,
-            )
-            x = torch.randn(10, 4)
-            result = model.predict(x)
-            means.append(result["mean"].mean().item())
+        x = torch.randn(10, 4)
 
-        # Distribution of ensemble means should have finite variance
-        # and not explode with ensemble size.
-        assert all(abs(m) < 5.0 for m in means), f"Ensemble means out of expected range {means}"
+        model5 = DeepEnsemble(
+            base_model=SimpleMLP(),
+            ensemble_size=5,
+            input_size=4,
+            hidden_size=8,
+            output_size=1,
+        )
+        model10 = DeepEnsemble(
+            base_model=SimpleMLP(),
+            ensemble_size=10,
+            input_size=4,
+            hidden_size=8,
+            output_size=1,
+        )
+
+        var5 = model5.predict(x)["variance"].mean()
+        var10 = model10.predict(x)["variance"].mean()
+
+        # Variance should not grow with ensemble size — it should
+        # be of a similar order of magnitude (or shrink slightly).
+        assert var10 <= var5 * 2.0, (
+            f"variance grew unexpectedly: size-5={var5:.4f}, size-10={var10:.4f}"
+        )
 
 
 # ── non-Gaussian ensemble contracts ────────────────────────────────────

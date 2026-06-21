@@ -17,7 +17,7 @@ import torch
 from torch import nn
 
 from tests.losses._test_losses_helpers import (
-    _build_diagonal_losses,
+    build_diagonal_losses,
     make_base_kwargs,
     make_none_reduction,
     make_test_data,
@@ -42,7 +42,7 @@ class TestDiagonalInputFormat:
     """Every diagonal Gaussian loss accepts (mean, logvar) tuples and
     concatenated [mean|logvar] tensors identically."""
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_accepts_tuple_input(self, name, loss_fn):
         """Tuple (mean, logvar) produces a finite scalar."""
         mean, log_var, target = make_test_data()
@@ -50,7 +50,7 @@ class TestDiagonalInputFormat:
         assert out.dim() == 0, f"{name}: expected scalar, got shape {out.shape}"
         assert torch.isfinite(out), f"{name}: loss is not finite"
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_accepts_concatenated_input(self, name, loss_fn):
         """Concatenated [mean | logvar] input matches tuple result."""
         mean, log_var, target = make_test_data()
@@ -77,7 +77,7 @@ class TestMaskContract:
     """Every diagonal Gaussian loss supports a boolean mask that excludes
     specific elements."""
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_mask_changes_loss(self, name, loss_fn):
         """Masking out one element changes the reduced loss."""
         mean, log_var, target = make_test_data(batch=4)
@@ -89,7 +89,7 @@ class TestMaskContract:
 
         assert loss_masked != loss_full, f"{name}: mask did not change loss"
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_mask_all_false_no_crash(self, name, loss_fn):
         """Masking all elements should not raise an exception
         (NaN is acceptable — mean of empty set is undefined)."""
@@ -100,7 +100,7 @@ class TestMaskContract:
         # for reduction='mean' with an empty masked set.
         assert isinstance(loss, torch.Tensor), f"{name}: output is not a tensor"
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_mask_with_reduction_none_returns_only_unmasked(self, name, loss_fn):
         """In 'none' reduction, mask selects which elements are returned."""
         none_fn = make_none_reduction(loss_fn)
@@ -124,7 +124,7 @@ class TestWeightsContract:
     """Every diagonal Gaussian loss supports per-sample and per-element
     weight tensors."""
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_per_sample_weights_scale_loss(self, name, loss_fn):
         """Doubling a per-sample weight doubles that sample's
         contribution (verified in 'none' reduction)."""
@@ -141,7 +141,7 @@ class TestWeightsContract:
             ratio, torch.full_like(ratio, 2.0), msg=f"{name}: weight scaling failed"
         )
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_zero_weight_zeros_loss(self, name, loss_fn):
         """Zero weight → zero contribution."""
         none_fn = make_none_reduction(loss_fn)
@@ -159,14 +159,14 @@ class TestReductionContract:
     """Every diagonal Gaussian loss supports 'none', 'mean', and 'sum'
     reductions, and they are internally consistent."""
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_none_shape_is_per_element(self, name, loss_fn):
         none_fn = make_none_reduction(loss_fn)
         mean, log_var, target = make_test_data(batch=4, dim=3)
         out = none_fn((mean, log_var), target)
         assert out.shape == (4, 3), f"{name}: expected (4, 3), got {out.shape}"
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_none_mean_equals_mean_reduction(self, name, loss_fn):
         """The mean of 'none' outputs equals the 'mean' reduction output."""
         mean, log_var, target = make_test_data(batch=4)
@@ -183,7 +183,7 @@ class TestReductionContract:
             none_out.mean(), mean_out, msg=f"{name}: none.mean() ≠ mean reduction"
         )
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_sum_is_mean_times_element_count(self, name, loss_fn):
         """Sum reduction = mean reduction × total element count (batch × dim)."""
         mean, log_var, target = make_test_data(batch=6, dim=3)
@@ -208,7 +208,7 @@ class TestGradientContract:
     """All diagonal Gaussian losses produce finite gradients under
     typical and extreme input conditions."""
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_finite_gradients_normal_input(self, name, loss_fn):
         mean = torch.randn(4, 2, requires_grad=True)
         log_var = torch.randn(4, 2, requires_grad=True)
@@ -220,7 +220,7 @@ class TestGradientContract:
         assert torch.isfinite(mean.grad).all(), f"{name}: mean.grad not finite"
         assert torch.isfinite(log_var.grad).all(), f"{name}: log_var.grad not finite"
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_finite_gradients_extreme_logvar(self, name, loss_fn):
         """±20 logvar should still produce finite gradients."""
         mean = torch.zeros(2, 1, requires_grad=True)
@@ -233,6 +233,233 @@ class TestGradientContract:
         assert torch.isfinite(log_var.grad).all(), f"{name}: log_var.grad not finite"
 
 
+# ── CRPS numerical stability ───────────────────────────────────────────
+
+
+class TestCRPSStability:
+    """GaussianCRPSLoss at extreme z (tail and center) regimes.
+
+    Verifies the analytic formula holds at z ≈ 0 (center), |z| ≈ 6
+    (moderate tail where φ is non-negligible but ndtr nears saturation),
+    and |z| ≈ 20 (deep tail where φ underflows and ndtr saturates).
+    """
+
+    @staticmethod
+    def _analytic_crps(mean, variance, target, eps=1e-8, dtype=torch.float64):
+        """Compute the analytic CRPS formula in double precision.
+
+        Reproduces every step of ``GaussianCRPSLoss.forward()``, including
+        the double eps (in std and again in the z denominator).
+
+        Args:
+            mean, variance: Already-extracted distribution parameters
+                (i.e. after ``_extract_distribution_parameters`` has been
+                applied — variance is clamped to ``min_variance``).
+            target: Observed values.
+            eps: Epsilon for numerical stability.
+            dtype: Precision for the reference computation.
+        """
+        variance = torch.as_tensor(variance, dtype=dtype)
+        mean = torch.as_tensor(mean, dtype=dtype)
+        target = torch.as_tensor(target, dtype=dtype)
+
+        std = torch.sqrt(variance + eps)
+        z = (target - mean) / (std + eps)
+        cdf = torch.special.ndtr(z)  # Φ(z)
+        pdf = torch.exp(-0.5 * z.square()) / math.sqrt(2.0 * math.pi)  # φ(z)
+        inv_sqrt_pi = 1.0 / math.sqrt(math.pi)
+        return std * (z * (2.0 * cdf - 1.0) + 2.0 * pdf - inv_sqrt_pi)
+
+    @pytest.mark.parametrize(
+        "z_target,desc",
+        [
+            (0.0, "center"),
+            (0.01, "near-center"),
+            (6.0, "moderate positive tail"),
+            (-6.0, "moderate negative tail"),
+            (20.0, "deep positive tail"),
+            (-20.0, "deep negative tail"),
+        ],
+    )
+    def test_crps_matches_analytic_at_extreme_z(self, z_target, desc):
+        """CRPS loss equals the analytic formula at each z regime."""
+        eps = 1e-8
+        min_variance = 1e-6
+
+        # Construct exact z values: pre-scale target so that
+        #   z = (target - 0) / (√(1+eps) + eps) = z_target
+        exact_factor = math.sqrt(1.0 + eps) + eps
+        mean = torch.zeros(4, 3)
+        log_var = torch.zeros(4, 3)  # var = exp(0) = 1 (clamped ≥ min_variance)
+        target = torch.full((4, 3), z_target * exact_factor)
+
+        fn = GaussianCRPSLoss(reduction="none", eps=eps)
+        crps_loss = fn((mean, log_var), target)
+
+        # Pass actual variance (exp + clamp), not raw log-variance.
+        var = torch.exp(log_var).clamp(min=min_variance)
+        expected64 = self._analytic_crps(mean, var, target, eps=eps)
+        expected32 = expected64.float()
+
+        # All outputs must be finite regardless of z regime.
+        assert torch.isfinite(crps_loss).all(), f"z={z_target} ({desc}): non-finite CRPS"
+        assert (crps_loss >= 0).all(), f"z={z_target} ({desc}): CRPS negative"
+
+        torch.testing.assert_close(
+            crps_loss,
+            expected32,
+            atol=1e-5,
+            rtol=1e-4,
+            msg=f"z={z_target} ({desc}): loss ≠ analytic",
+        )
+
+    @staticmethod
+    def _check_fd_gradients(mean, log_var, target, eps=1e-8, min_variance=1e-6, h=1e-5):
+        """Verify that autodiff gradients match central finite-difference
+        gradients of the closed-form analytic CRPS formula.
+
+        Args:
+            mean, log_var: float64 tensors with ``requires_grad=True``.
+            target: float64 tensor.
+            eps: Matches ``GaussianCRPSLoss.eps``.
+            min_variance: Matches ``GaussianCRPSLoss.min_variance``.
+            h: Central-difference step.
+        """
+        # ── autodiff gradients ────────────────────────────────────────
+        fn = GaussianCRPSLoss(reduction="mean", eps=eps)
+        loss = fn((mean, log_var), target)
+        loss.backward()
+        grad_mean_ad = mean.grad.detach().clone()
+        grad_logvar_ad = log_var.grad.detach().clone()
+
+        mean.grad = None
+        log_var.grad = None
+
+        # ── analytic CRPS as a pure (no-autograd) formula ─────────────
+        def analytic_crps_value(m: torch.Tensor, lv: torch.Tensor) -> float:
+            with torch.no_grad():
+                var = torch.exp(lv).clamp(min=min_variance)
+                std = torch.sqrt(var + eps)
+                z = (target - m) / (std + eps)
+                cdf = torch.special.ndtr(z)
+                pdf = torch.exp(-0.5 * z.square()) / math.sqrt(2.0 * math.pi)
+                inv_sqrt_pi = 1.0 / math.sqrt(math.pi)
+                crps = std * (z * (2.0 * cdf - 1.0) + 2.0 * pdf - inv_sqrt_pi)
+            return crps.mean().item()
+
+        # ── finite-difference gradients ───────────────────────────────
+        grad_mean_fd = torch.zeros_like(mean)
+        grad_logvar_fd = torch.zeros_like(log_var)
+
+        mean_base = mean.detach().clone()
+        logvar_base = log_var.detach().clone()
+
+        for i in range(mean.numel()):
+            # Perturb mean element i
+            m_plus = mean_base.clone()
+            m_minus = mean_base.clone()
+            m_plus.view(-1)[i] += h
+            m_minus.view(-1)[i] -= h
+            f_plus = analytic_crps_value(m_plus, logvar_base)
+            f_minus = analytic_crps_value(m_minus, logvar_base)
+            grad_mean_fd.view(-1)[i] = (f_plus - f_minus) / (2.0 * h)
+
+            # Perturb log_var element i
+            lv_plus = logvar_base.clone()
+            lv_minus = logvar_base.clone()
+            lv_plus.view(-1)[i] += h
+            lv_minus.view(-1)[i] -= h
+            f_plus = analytic_crps_value(mean_base, lv_plus)
+            f_minus = analytic_crps_value(mean_base, lv_minus)
+            grad_logvar_fd.view(-1)[i] = (f_plus - f_minus) / (2.0 * h)
+
+        torch.testing.assert_close(
+            grad_mean_ad,
+            grad_mean_fd,
+            rtol=1e-5,
+            atol=1e-7,
+            msg="autodiff mean grad ≠ finite-difference grad",
+        )
+        torch.testing.assert_close(
+            grad_logvar_ad,
+            grad_logvar_fd,
+            rtol=1e-5,
+            atol=1e-7,
+            msg="autodiff log_var grad ≠ finite-difference grad",
+        )
+
+    @pytest.mark.parametrize(
+        "z_target,desc",
+        [
+            (0.0, "center"),
+            (6.0, "moderate positive tail"),
+            (-6.0, "moderate negative tail"),
+            (20.0, "deep positive tail"),
+            (-20.0, "deep negative tail"),
+        ],
+    )
+    def test_crps_gradients_match_finite_difference_at_z(self, z_target: float, desc: str):
+        """Autodiff CRPS gradients match finite-difference gradients
+        of the analytic formula at specific z regimes.
+
+        Constructs exact z = z_target via pre-scaled targets
+        (mean=0, σ=1) so that the finite-difference test runs
+        cleanly at center, moderate-tail, and deep-tail values."""
+        eps = 1e-8
+        min_variance = 1e-6
+        dtype = torch.float64
+        exact_factor = math.sqrt(1.0 + eps) + eps
+
+        mean = torch.zeros(4, 3, dtype=dtype, requires_grad=True)
+        # log_var=0 → var=1, well above min_variance=1e-6 so
+        # finite-difference perturbations never hit the clamp boundary.
+        log_var = torch.zeros(4, 3, dtype=dtype, requires_grad=True)
+        target = torch.full((4, 3), z_target * exact_factor, dtype=dtype)
+
+        self._check_fd_gradients(mean, log_var, target, eps=eps, min_variance=min_variance)
+
+    def test_crps_gradients_match_finite_difference_random(self):
+        """Autodiff CRPS gradients match finite-difference gradients
+        on random inputs for broad coverage beyond the exact-z cases."""
+        torch.manual_seed(123)
+        dtype = torch.float64
+        eps = 1e-8
+        min_variance = 1e-6
+
+        mean = torch.randn(4, 3, dtype=dtype, requires_grad=True)
+        # Keep log_var well above log(min_variance) ≈ −13.8.
+        log_var = (0.5 * torch.randn(4, 3, dtype=dtype) + 0.5).requires_grad_(True)
+        target = torch.randn(4, 3, dtype=dtype)
+
+        self._check_fd_gradients(mean, log_var, target, eps=eps, min_variance=min_variance)
+
+    @pytest.mark.parametrize(
+        "z_target,desc",
+        [
+            (0.0, "center"),
+            (6.0, "moderate positive tail"),
+            (-6.0, "moderate negative tail"),
+            (20.0, "deep positive tail"),
+            (-20.0, "deep negative tail"),
+        ],
+    )
+    def test_crps_gradients_are_finite_at_extreme_z(self, z_target, desc):
+        """CRPS gradients are finite (not NaN) at all z regimes."""
+        eps = 1e-8
+        exact_factor = math.sqrt(1.0 + eps) + eps
+
+        mean = torch.zeros(4, 3, requires_grad=True)
+        log_var = torch.full((4, 3), 0.0, requires_grad=True)
+        target = torch.full((4, 3), z_target * exact_factor)
+
+        fn = GaussianCRPSLoss(reduction="mean", eps=eps)
+        loss = fn((mean, log_var), target)
+        loss.backward()
+
+        assert torch.isfinite(mean.grad).all(), f"z={z_target} ({desc}): mean.grad not finite"
+        assert torch.isfinite(log_var.grad).all(), f"z={z_target} ({desc}): log_var.grad not finite"
+
+
 # ── numerical stability ────────────────────────────────────────────────
 
 
@@ -240,7 +467,7 @@ class TestNumericalStability:
     """Variance clamping and epsilon guards prevent NaN/Inf even with
     extreme variance values."""
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     @pytest.mark.parametrize("var_scale", [1e-8, 1e-4, 1.0, 1e4, 1e8])
     def test_extreme_variance_is_finite(self, name, loss_fn, var_scale):
         mean = torch.zeros(2, 1)
@@ -249,7 +476,7 @@ class TestNumericalStability:
         out = loss_fn((mean, log_var), target)
         assert torch.isfinite(out), f"{name}: loss not finite at variance={var_scale}"
 
-    @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
+    @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_nan_input_masked_is_finite(self, name, loss_fn):
         """NaN element excluded by mask → finite loss."""
         mean, log_var, target = make_test_data(batch=3)
@@ -335,6 +562,55 @@ class TestFamilyRelationships:
         fn = GaussianCRPSLoss(reduction="none")
         out = fn((mean, log_var), target)
         assert (out >= 0).all(), f"CRPS negative: min={out.min().item()}"
+
+    def test_faithful_variance_term_equals_gaussian_nll_with_detached_mean(self):
+        """FaithfulGaussianLoss(mean_weight=0, variance_weight=1)
+        produces the same per-element NLL as GaussianNLLLoss when
+        the mean is detached in both — the defining property of
+        the 'faithful' decoupling."""
+        mean, log_var, target = make_test_data(batch=5, dim=3)
+
+        # FaithfulGaussian with mean_weight=0: NLL uses detached mean
+        fg = FaithfulGaussianLoss(mean_weight=0.0, variance_weight=1.0, reduction="none")
+        fg_loss = fg((mean, log_var), target)
+
+        # GaussianNLL with manually detached mean
+        gn = GaussianNLLLoss(reduction="none")
+        gn_loss = gn((mean.detach(), log_var), target)
+
+        # The variance/NLL terms should match — only gradient flow differs
+        torch.testing.assert_close(
+            fg_loss, gn_loss, msg="Faithful NLL term ≠ Gaussian NLL with detached mean"
+        )
+
+    def test_crps_matches_analytic_formula(self):
+        """GaussianCRPSLoss equals the closed-form analytic CRPS:
+        CRPS = σ · [z · (2Φ(z) − 1) + 2φ(z) − 1/√π]
+        where z = (y − μ) / σ, Φ = ndtr(z), φ = standard normal PDF.
+
+        Uses ``TestCRPSStability._analytic_crps`` as a float64
+        reference so the comparison catches single-precision drift
+        rather than just confirming PyTorch determinism."""
+        batch, dim = 33, 5
+        eps = 1e-8
+        min_variance = 1e-6
+        torch.manual_seed(42)
+        mean = torch.randn(batch, dim)
+        log_var = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+
+        fn = GaussianCRPSLoss(reduction="none", eps=eps)
+        crps_loss = fn((mean, log_var), target)
+
+        var = torch.exp(log_var).clamp(min=min_variance)
+        expected64 = TestCRPSStability._analytic_crps(mean, var, target, eps=eps)
+        expected32 = expected64.float()
+
+        torch.testing.assert_close(
+            crps_loss,
+            expected32,
+            msg="CRPS loss ≠ analytic formula (float64 reference)",
+        )
 
     def test_beta_nll_differs_from_gaussian_when_heteroscedastic(self):
         """With varying variance, BetaNLLLoss(beta>0) ≠ GaussianNLLLoss."""

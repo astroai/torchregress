@@ -19,7 +19,7 @@ from torchregress.losses.gaussian import GaussianCRPSLoss, GaussianNLLLoss
 DIAGONAL_LOSS_NAMES = ["GaussianNLL", "GaussianCRPS", "BetaNLL", "FaithfulGaussian"]
 
 
-def _build_diagonal_losses():
+def build_diagonal_losses():
     """Return ``(name, loss_fn)`` pairs for all diagonal Gaussian losses."""
     factories = [
         lambda: GaussianNLLLoss(reduction="mean"),
