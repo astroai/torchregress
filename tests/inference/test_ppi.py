@@ -505,3 +505,81 @@ class TestPPIDiagnostics:
                 pred_labeled=torch.randn(20),
                 pred_unlabeled=torch.randn(50),
             )
+
+    def test_zero_variance_labeled(self) -> None:
+        """Zero-variance labeled predictions give corr=0."""
+        result = ppi_diagnostics(
+            y_labeled=torch.randn(20),
+            pred_labeled=torch.full((20,), 5.0),
+            pred_unlabeled=torch.randn(100),
+        )
+        assert result["prediction_label_correlation"] == 0.0
+
+    def test_zero_variance_y_labeled(self) -> None:
+        """Zero-variance y_labeled gives corr=0."""
+        result = ppi_diagnostics(
+            y_labeled=torch.full((20,), 3.0),
+            pred_labeled=torch.randn(20),
+            pred_unlabeled=torch.randn(100),
+        )
+        assert result["prediction_label_correlation"] == 0.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PPI functions with config=None (no seed path)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestPPINoSeed:
+    """Tests for PPI functions with config=None (no seed → generator stays None)."""
+
+    def test_mean_ci_no_seed(self) -> None:
+        """ppi_mean_ci with config=None (uses defaults, no seed)."""
+        result = ppi_mean_ci(
+            y_labeled=torch.randn(20),
+            pred_labeled=torch.randn(20),
+            pred_unlabeled=torch.randn(100),
+            config=None,
+        )
+        assert result["ci_lower"] <= result["ci_upper"]
+        assert result["bootstrap_samples"] == 2000
+
+    def test_calibrated_mean_ci_no_seed(self) -> None:
+        """ppi_calibrated_mean_ci with config=None (no seed)."""
+        result = ppi_calibrated_mean_ci(
+            y_labeled=torch.randn(20),
+            pred_labeled=torch.randn(20),
+            pred_unlabeled=torch.randn(100),
+            config=None,
+        )
+        assert result["ci_lower"] <= result["ci_upper"]
+        assert result["alpha"] == 0.1
+
+    def test_quantile_ci_no_seed(self) -> None:
+        """ppi_quantile_ci with config=None (no seed)."""
+        result = ppi_quantile_ci(
+            y_labeled=torch.randn(30),
+            pred_labeled=torch.randn(30),
+            pred_unlabeled=torch.randn(200),
+            q=0.5,
+            config=None,
+        )
+        assert result["se"] > 0
+        assert result["ci_lower"] <= result["ci_upper"]
+
+    def test_ols_ci_no_seed(self) -> None:
+        """ppi_ols_ci with config=None (uses default PPIConfig(n_boot=1000), no seed)."""
+        x_l = torch.randn(20, 2)
+        x_u = torch.randn(50, 2)
+        beta = torch.tensor([1.0, -1.0])
+        y_l = x_l @ beta + 0.1 * torch.randn(20)
+        result = ppi_ols_ci(
+            x_labeled=x_l,
+            y_labeled=y_l,
+            x_unlabeled=x_u,
+            pred_labeled=x_l @ beta,
+            pred_unlabeled=x_u @ beta,
+            config=None,
+        )
+        assert result["bootstrap_samples"] == 1000
+        assert len(result["coef"]) > 0

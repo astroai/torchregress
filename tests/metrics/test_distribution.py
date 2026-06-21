@@ -588,6 +588,15 @@ class TestConditionalDensityEstimationLoss:
         with pytest.raises(ValueError, match="support mismatch"):
             conditional_density_estimation_loss(support, torch.ones(3, 5), torch.randn(3))
 
+    def test_density_not_2d_raises(self) -> None:
+        """Density that is not 2D raises ValueError."""
+        with pytest.raises(ValueError, match="density must have shape"):
+            conditional_density_estimation_loss(
+                torch.linspace(0, 1, 10),
+                torch.ones(10),  # 1D instead of 2D
+                torch.randn(10),
+            )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # highest_posterior_density_level
@@ -669,6 +678,60 @@ class TestCRPSMetric:
         metric = ContinuousRankedProbabilityScore()
         with pytest.raises(ValueError, match="At least 2"):
             metric.update({0.5: torch.randn(5)}, torch.randn(5))
+
+    def test_nan_in_y_true_raises(self) -> None:
+        """NaN in y_true raises ValueError via Metric class."""
+        metric = ContinuousRankedProbabilityScore()
+        with pytest.raises(ValueError, match="NaN"):
+            metric.update(
+                {0.1: torch.randn(5), 0.9: torch.randn(5)},
+                torch.tensor([float("nan")] * 5),
+            )
+
+    def test_nan_in_predictions_raises(self) -> None:
+        """NaN in predictions raises ValueError via Metric class."""
+        metric = ContinuousRankedProbabilityScore()
+        with pytest.raises(ValueError, match="NaN"):
+            metric.update(
+                {0.1: torch.tensor([float("nan")] * 5), 0.9: torch.randn(5)},
+                torch.randn(5),
+            )
+
+    def test_inf_in_y_true_raises(self) -> None:
+        """Inf in y_true raises ValueError via Metric class."""
+        metric = ContinuousRankedProbabilityScore()
+        with pytest.raises(ValueError, match="NaN or infinite"):
+            metric.update(
+                {0.1: torch.randn(5), 0.9: torch.randn(5)},
+                torch.tensor([float("inf")] * 5),
+            )
+
+    def test_scalar_input_raises(self) -> None:
+        """Scalar inputs raise ValueError via Metric class."""
+        metric = ContinuousRankedProbabilityScore()
+        with pytest.raises(ValueError, match="cannot be scalars"):
+            metric.update(
+                {0.1: torch.tensor(1.0), 0.9: torch.tensor(2.0)},
+                torch.tensor(1.5),
+            )
+
+    def test_batch_size_mismatch_raises(self) -> None:
+        """Mismatched batch sizes raise ValueError via Metric class."""
+        metric = ContinuousRankedProbabilityScore()
+        with pytest.raises(ValueError, match="same batch size"):
+            metric.update(
+                {0.1: torch.randn(5), 0.9: torch.randn(5)},
+                torch.randn(10),
+            )
+
+    def test_incompatible_shapes_raises(self) -> None:
+        """Incompatible prediction/target shapes raise ValueError via Metric."""
+        metric = ContinuousRankedProbabilityScore()
+        with pytest.raises(ValueError, match="not compatible"):
+            metric.update(
+                {0.1: torch.randn(5, 3), 0.9: torch.randn(5, 3)},
+                torch.randn(5, 2),
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -792,3 +855,74 @@ class TestDistributionMetricsReport:
         )
         assert "energy_score" in report
         assert "crps" in report
+
+    def test_dist_dict_with_mean_and_std(self) -> None:
+        """Dist dict with 'mean'/'std' keys instead of 'loc'/'scale'."""
+        report = distribution_metrics_report(
+            dist={"mean": torch.zeros(5), "std": torch.ones(5)},
+            y_true=torch.randn(5),
+        )
+        assert "log_prob" in report
+
+    def test_dist_no_samples_draws_from_dist(self) -> None:
+        """When dist is provided but samples is None, samples are drawn."""
+        dist = torch.distributions.Normal(torch.zeros(5), torch.ones(5))
+        report = distribution_metrics_report(
+            dist=dist,
+            y_true=torch.randn(5),
+            n_samples=200,
+        )
+        assert "crps" in report
+
+    def test_quantiles_without_90_coverage(self) -> None:
+        """Quantiles without 0.05/0.95 levels skip coverage_90."""
+        report = distribution_metrics_report(
+            y_true=torch.randn(10),
+            y_pred_quantiles={0.1: torch.randn(10), 0.5: torch.randn(10), 0.9: torch.randn(10)},
+        )
+        assert "crps" in report
+        # coverage_90 is NOT included because 0.05 and 0.95 are not present
+        assert "coverage_90" not in report
+
+    def test_pit_fallback_from_quantiles(self) -> None:
+        """PIT is computed from quantiles when no dist/density/samples."""
+        report = distribution_metrics_report(
+            y_true=torch.randn(10),
+            y_pred_quantiles={
+                0.05: torch.randn(10),
+                0.5: torch.randn(10),
+                0.95: torch.randn(10),
+            },
+        )
+        assert "pit_chi2" in report
+
+    def test_pit_fallback_from_density(self) -> None:
+        """PIT is computed from density when no dist/quantiles."""
+        support = torch.linspace(-3.0, 3.0, 100)
+        density = torch.ones(10, 100)
+        # Use density-only (no dist, no quantiles) to force _process_fallback_pit path
+        report = distribution_metrics_report(
+            y_true=torch.randn(10),
+            support=support,
+            density=density,
+        )
+        assert "pit_chi2" in report
+
+    def test_density_only_without_dist(self) -> None:
+        """Density-only report computes CDE loss and log_prob."""
+        support = torch.linspace(-3.0, 3.0, 100)
+        density = torch.ones(10, 100)
+        report = distribution_metrics_report(
+            y_true=torch.randn(10),
+            support=support,
+            density=density,
+        )
+        assert "cde_loss" in report
+        assert "log_prob" in report
+
+    def test_single_sample_energy_score(self) -> None:
+        """EnergyScore with a single sample still works (n_pairs=0 fallback)."""
+        metric = EnergyScore()
+        metric.update(torch.randn(1, 10, 3), torch.randn(10, 3))
+        result = metric.compute()
+        assert np.isfinite(float(result.item()))
