@@ -8,6 +8,7 @@ relationships hold (e.g. Poisson-Gaussian reduces to known limits).
 import math
 
 import torch
+import torch.nn.functional as F
 
 from torchregress.losses.censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
 from torchregress.losses.ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
@@ -783,15 +784,46 @@ class TestQuantileFamilyContract:
         torch.testing.assert_close(none.mean(), mean)
 
     def test_crossover_penalty_for_violations(self):
-        """Reversing the order of predictions increases the crossover loss."""
+        """The crossover penalty term equals
+        ``crossover_penalty * sum(relu(qᵢ − qᵢ₊₁))``.
+
+        Subtracting ``crossover_penalty=0`` isolates the penalty:
+        ``final_loss_pen = base_loss_w * base_loss + pen * violations``
+        ``final_loss_0    = base_loss_w * base_loss``
+        so the difference is ``pen * violations``, independent of base loss."""
         target = torch.randn(4, 2)
-        # Use the same base tensor with offsets so that ordered[:,0,:]
-        # < ordered[:,1,:] < ordered[:,2,:] is guaranteed elementwise.
+        # Same base tensor with offsets guarantees elementwise ordering.
         base = torch.randn(4, 2)
         ordered = torch.stack([base - 1.0, base, base + 1.0], dim=1)
-        # Reversed: q10 > q90, causing crossover penalty
         reversed_ = ordered.flip(1)
-        fn = QuantileCrossoverLoss(quantiles=[0.1, 0.5, 0.9], crossover_penalty=10.0)
+
+        crossover_penalty = 10.0
+        quantiles = [0.1, 0.5, 0.9]
+
+        fn_0 = QuantileCrossoverLoss(quantiles=quantiles, crossover_penalty=0.0, reduction="none")
+        fn_pen = QuantileCrossoverLoss(
+            quantiles=quantiles,
+            crossover_penalty=crossover_penalty,
+            reduction="none",
+        )
+
+        # Ordered predictions have no crossover: difference = 0.
+        diff_ordered = fn_pen(ordered, target) - fn_0(ordered, target)
+        assert (diff_ordered == 0.0).all(), "ordered predictions should have no crossover penalty"
+
+        # Reversed predictions: difference = crossover_penalty * sum(violations).
+        diff_reversed = fn_pen(reversed_, target) - fn_0(reversed_, target)
+        violations = F.relu(reversed_[:, :-1] - reversed_[:, 1:])
+        expected_penalty = crossover_penalty * torch.sum(violations, dim=1)
+
+        torch.testing.assert_close(
+            diff_reversed,
+            expected_penalty,
+            msg="crossover penalty ≠ crossover_penalty * sum(violations)",
+        )
+
+        # Sanity: reversed loss > ordered loss.
+        fn = QuantileCrossoverLoss(quantiles=quantiles, crossover_penalty=crossover_penalty)
         assert fn(ordered, target) < fn(reversed_, target)
 
 
