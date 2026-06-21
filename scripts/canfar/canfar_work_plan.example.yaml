@@ -1,0 +1,146 @@
+# Example CANFAR work plan: NeurIPS phase jobs + label sweep shards + overnight extras + aggregate.
+# Copy and edit paths, waves, and `shard_count` for your CANFAR quota.
+#
+#   python scripts/canfar_launch_from_plan.py --plan my_plan.yaml --run-id neurips_2026_0422_a
+#
+# Local → VOS uploads (repo-relative paths in VCP_SPECS): run
+#   uv run python scripts/canfar_vcp_prepare.py --write-vcp-specs ./vcp_specs.txt
+# after consolidating large files under data/ (see docs/canfar_neurips_batch.md).
+#
+# Schema (version 1):
+#   defaults: optional { image, cores, ram_gb }
+#   jobs[]:
+#     id: unique string
+#     wave: int (smaller waves submit first). Omit on every job to auto-assign from `needs`.
+#     needs: optional list of job ids (for auto wave assignment only; launcher does not wait on ids).
+#     shard_count: optional int — replicate job N times with SHARD_ID / SHARD_COUNT.
+#     job_kind: year_label_shard | neurips_phase | overnight_year_multiseed | export_split
+#     only_phases: optional; neurips_phase only — sets NEURIPS_ONLY_PHASES
+#     env: headless environment (see docs/canfar_neurips_batch.md)
+
+version: 1
+defaults:
+  image: images.canfar.net/skaha/astroml:latest
+  cores: 8
+  ram_gb: 32
+
+jobs:
+  # Wave 1 — disjoint subtrees (parallel-safe at default run_neurips paths).
+  - id: neurips_year_direct
+    wave: 1
+    job_kind: neurips_phase
+    only_phases: year_direct
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  - id: neurips_synthetic
+    wave: 1
+    job_kind: neurips_phase
+    only_phases: synthetic
+    env:
+      SKIP_DEFAULT_YEAR_VCP: "1"
+
+  - id: neurips_backbone
+    wave: 1
+    job_kind: neurips_phase
+    only_phases: backbone
+    env:
+      SKIP_DEFAULT_YEAR_VCP: "1"
+
+  - id: neurips_shifts
+    wave: 1
+    job_kind: neurips_phase
+    only_phases: shifts
+    env:
+      SKIP_DEFAULT_YEAR_VCP: "1"
+
+  # Wave 2 — Year CSV on scratch; add tuning/Higgs/diamonds rows to VCP_SPECS for full multiseed.
+  - id: neurips_multiseed
+    wave: 2
+    job_kind: neurips_phase
+    only_phases: multiseed
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  - id: neurips_openml_diamonds
+    wave: 2
+    job_kind: neurips_phase
+    only_phases: openml_diamonds_multiseed
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+        data/paper/openml_large_tabular_diamonds.parquet|data/paper/openml_large_tabular_diamonds.parquet
+
+  - id: neurips_year_labeled_sweep
+    wave: 2
+    job_kind: neurips_phase
+    only_phases: year_labeled_sweep
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  - id: neurips_multiseed_nl2048
+    wave: 2
+    job_kind: neurips_phase
+    only_phases: multiseed_year_nl2048
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  - id: neurips_tabred
+    wave: 2
+    job_kind: neurips_phase
+    only_phases: tabred
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  - id: neurips_catboost
+    wave: 2
+    job_kind: neurips_phase
+    only_phases: catboost
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  - id: neurips_ablations
+    wave: 2
+    job_kind: neurips_phase
+    only_phases: ablations
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  # Wave 3 — label sweep: 40 shards × one shard CSV each (matches sage_year_label_fraction defaults).
+  - id: label_frac
+    wave: 3
+    job_kind: year_label_shard
+    shard_count: 40
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  # Wave 4 — overnight-style extras (single job each; sequential inside the container).
+  - id: overnight_year_10seed
+    wave: 4
+    job_kind: overnight_year_multiseed
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  - id: export_split_seed0
+    wave: 4
+    job_kind: export_split
+    env:
+      VCP_SPECS: |
+        data/paper/openml_year.csv|data/paper/openml_year.csv
+
+  # Wave 5 — single aggregation pass (requires prior phase outputs under ARC_RUN_ROOT).
+  - id: neurips_aggregate
+    wave: 5
+    job_kind: neurips_phase
+    only_phases: aggregate
+    env:
+      SKIP_DEFAULT_YEAR_VCP: "1"
