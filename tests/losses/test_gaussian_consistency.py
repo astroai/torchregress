@@ -627,9 +627,25 @@ class TestFamilyRelationships:
 # ── multivariate relationships ─────────────────────────────────────────
 
 
+def _make_spd_cov(batch, dim, jitter=1e-3):
+    """Build a batch of symmetric positive-definite covariance matrices."""
+    A = torch.randn(batch, dim, dim)
+    return A @ A.transpose(-1, -2) + torch.eye(dim) * jitter
+
+
+def _make_low_rank_params(batch, dim, rank):
+    """Build cov_factor and cov_diag for LowRankGaussianLoss."""
+    cov_factor = torch.randn(batch, dim, rank) * 0.5
+    cov_diag = torch.rand(batch, dim) + 0.1
+    return cov_factor, cov_diag
+
+
 class TestMultivariateRelationships:
     """Cross-family consistency: LowRank → Multivariate when rank = dim,
-    Cholesky fallback matches eigendecomposition."""
+    Cholesky fallback matches eigendecomposition, reduction/mask/weight
+    contracts, and analytic NLL validation."""
+
+    # ── equivalence ──────────────────────────────────────────────────
 
     def test_low_rank_equals_multivariate_when_rank_equals_dim(self):
         """When rank = n_features and cov_diag → 0, LowRank ≈ Multivariate."""
@@ -638,38 +654,280 @@ class TestMultivariateRelationships:
         mean = torch.randn(batch, dim)
         target = torch.randn(batch, dim)
 
-        # Build a valid low-rank parameterization that gives a full-rank cov
         cov_factor = torch.randn(batch, dim, rank) * 0.5
         cov_diag = torch.full((batch, dim), 1e-6)
 
         lr_loss = LowRankGaussianLoss(reduction="mean")(mean, target, cov_factor, cov_diag)
-
-        # Reconstruct full covariance: cov_factor @ cov_factor.T + diag(cov_diag)
         cov_full = cov_factor @ cov_factor.transpose(-1, -2) + torch.diag_embed(cov_diag)
         mv_loss = MultivariateGaussianLoss(reduction="mean")(mean, target, cov_full)
 
         torch.testing.assert_close(lr_loss, mv_loss, atol=1e-4, rtol=1e-2)
 
+    def test_multivariate_matches_distribution_nll(self):
+        """MultivariateGaussianLoss equals
+        -torch.distributions.MultivariateNormal.log_prob."""
+        batch, dim = 6, 3
+        torch.manual_seed(5)
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim)
+
+        mv = MultivariateGaussianLoss(jitter=1e-6, reduction="none")
+        loss = mv(mean, target, cov)
+
+        dist = torch.distributions.MultivariateNormal(
+            mean, covariance_matrix=cov + torch.eye(dim) * 1e-6
+        )
+        expected = -dist.log_prob(target)
+
+        torch.testing.assert_close(loss, expected, atol=1e-5, rtol=1e-4)
+
+    def test_low_rank_matches_distribution_nll(self):
+        """LowRankGaussianLoss equals
+        -LowRankMultivariateNormal.log_prob (same clamping/jitter)."""
+        from torch.distributions import LowRankMultivariateNormal
+
+        batch, dim, rank = 5, 4, 2
+        torch.manual_seed(6)
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov_factor, cov_diag = _make_low_rank_params(batch, dim, rank)
+
+        lr = LowRankGaussianLoss(reduction="none", jitter=1e-6, min_variance=1e-6)
+        loss = lr(mean, target, cov_factor, cov_diag)
+
+        # Reproduce the clamping + jitter that _prepare_low_rank applies
+        diag_clamped = cov_diag.clamp(min=1e-6) + 1e-6
+        dist = LowRankMultivariateNormal(mean, cov_factor=cov_factor, cov_diag=diag_clamped)
+        expected = -dist.log_prob(target)
+
+        torch.testing.assert_close(loss, expected, atol=1e-5, rtol=1e-4)
+
+    # ── ill-conditioned covariance ────────────────────────────────────
+
     def test_multivariate_handles_ill_conditioned_covariance(self):
-        """Ill-conditioned (near-singular) covariance with jitter
-        produces finite loss and gradients."""
+        """Ill-conditioned covariance with jitter produces finite
+        loss and gradients."""
         batch, dim = 2, 4
         torch.manual_seed(2)
         mean = torch.randn(batch, dim)
         target = torch.randn(batch, dim)
 
-        # Create a near-singular covariance: one eigenvalue ≈ 0
         cov = torch.eye(dim).unsqueeze(0).expand(batch, -1, -1).clone()
-        # Set one eigenvalue to near-zero
         cov[0, 2, 2] = 1e-12
 
         fn = MultivariateGaussianLoss(jitter=1e-8, reduction="mean")
         loss = fn(mean, target, cov)
         assert torch.isfinite(loss), f"Near-singular cov produced {loss.item()}"
-        # Should also backward
         mean.requires_grad_(True)
         loss2 = fn(mean, target, cov)
         loss2.backward()
+        assert torch.isfinite(mean.grad).all()
+
+    def test_multivariate_cholesky_equals_eigh_for_well_conditioned(self):
+        """When Cholesky succeeds, forcing the eigh path produces
+        the same NLL (within tolerance)."""
+        batch, dim = 4, 3
+        torch.manual_seed(9)
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim, jitter=5e-2)
+
+        # Cholesky path via MultivariateGaussianLoss
+        mv = MultivariateGaussianLoss(jitter=1e-8, reduction="none")
+        loss_chol = mv(mean, target, cov)
+
+        # Manually run eigh path
+        cov_jit = cov + torch.eye(dim) * 1e-8
+        diff = (target - mean).unsqueeze(-1)
+        eigvals, eigvecs = torch.linalg.eigh(cov_jit)
+        eigvals = eigvals.clamp(min=1e-8)
+        log_det = torch.sum(torch.log(eigvals), dim=-1)
+        whitened = torch.matmul(eigvecs.transpose(-1, -2), diff).squeeze(-1)
+        quad = torch.sum(whitened**2 / eigvals, dim=-1)
+        loss_eigh = 0.5 * (log_det + quad + dim * math.log(2 * math.pi))
+
+        torch.testing.assert_close(loss_chol, loss_eigh, atol=1e-5, rtol=1e-4)
+
+    # ── reduction contract ────────────────────────────────────────────
+
+    def test_multivariate_reduction_consistency(self):
+        batch, dim = 6, 3
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim)
+
+        fn_none = MultivariateGaussianLoss(reduction="none")
+        fn_mean = MultivariateGaussianLoss(reduction="mean")
+        fn_sum = MultivariateGaussianLoss(reduction="sum")
+
+        none = fn_none(mean, target, cov)
+        assert none.shape == (batch,), f"none shape: {none.shape}"
+        torch.testing.assert_close(none.mean(), fn_mean(mean, target, cov))
+        torch.testing.assert_close(fn_sum(mean, target, cov) / batch, fn_mean(mean, target, cov))
+
+    def test_low_rank_reduction_consistency(self):
+        batch, dim, rank = 6, 4, 2
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cf, cd = _make_low_rank_params(batch, dim, rank)
+
+        fn_none = LowRankGaussianLoss(reduction="none")
+        fn_mean = LowRankGaussianLoss(reduction="mean")
+        fn_sum = LowRankGaussianLoss(reduction="sum")
+
+        none = fn_none(mean, target, cf, cd)
+        assert none.shape == (batch,), f"none shape: {none.shape}"
+        torch.testing.assert_close(none.mean(), fn_mean(mean, target, cf, cd))
+        torch.testing.assert_close(
+            fn_sum(mean, target, cf, cd) / batch, fn_mean(mean, target, cf, cd)
+        )
+
+    # ── mask contract ─────────────────────────────────────────────────
+
+    def test_multivariate_mask_changes_loss(self):
+        batch, dim = 5, 3
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim)
+        mask = torch.ones(batch, dtype=torch.bool)
+        mask[0] = False
+
+        fn = MultivariateGaussianLoss(reduction="mean")
+        loss_full = fn(mean, target, cov)
+        loss_masked = fn(mean, target, cov, mask=mask)
+        assert loss_masked != loss_full, "mask did not change loss"
+
+    def test_low_rank_mask_changes_loss(self):
+        batch, dim, rank = 5, 3, 2
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cf, cd = _make_low_rank_params(batch, dim, rank)
+        mask = torch.ones(batch, dtype=torch.bool)
+        mask[0] = False
+
+        fn = LowRankGaussianLoss(reduction="mean")
+        loss_full = fn(mean, target, cf, cd)
+        loss_masked = fn(mean, target, cf, cd, mask=mask)
+        assert loss_masked != loss_full, "mask did not change loss"
+
+    def test_multivariate_mask_all_false_no_crash(self):
+        batch, dim = 4, 3
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim)
+        mask = torch.zeros(batch, dtype=torch.bool)
+
+        fn = MultivariateGaussianLoss(reduction="mean")
+        loss = fn(mean, target, cov, mask=mask)
+        assert isinstance(loss, torch.Tensor), "output is not a tensor"
+
+    def test_low_rank_mask_all_false_no_crash(self):
+        batch, dim, rank = 4, 3, 2
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cf, cd = _make_low_rank_params(batch, dim, rank)
+        mask = torch.zeros(batch, dtype=torch.bool)
+
+        fn = LowRankGaussianLoss(reduction="mean")
+        loss = fn(mean, target, cf, cd, mask=mask)
+        assert isinstance(loss, torch.Tensor), "output is not a tensor"
+
+    # ── weight contract ───────────────────────────────────────────────
+
+    def test_multivariate_weights_double_loss(self):
+        batch, dim = 4, 3
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim)
+        w1 = torch.ones(batch)
+        w2 = w1.clone()
+        w2[0] = 2.0
+
+        fn = MultivariateGaussianLoss(reduction="none")
+        out1 = fn(mean, target, cov, weights=w1)
+        out2 = fn(mean, target, cov, weights=w2)
+
+        torch.testing.assert_close(
+            out2[0] / out1[0], torch.tensor(2.0), msg="weight scaling failed"
+        )
+
+    def test_multivariate_zero_weight_zeros_loss(self):
+        batch, dim = 4, 3
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim)
+        w = torch.ones(batch)
+        w[0] = 0.0
+
+        fn = MultivariateGaussianLoss(reduction="none")
+        out = fn(mean, target, cov, weights=w)
+        assert out[0] == 0.0, f"zero weight gave {out[0].item()}"
+
+    def test_low_rank_weights_double_loss(self):
+        batch, dim, rank = 4, 3, 2
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cf, cd = _make_low_rank_params(batch, dim, rank)
+        w1 = torch.ones(batch)
+        w2 = w1.clone()
+        w2[0] = 2.0
+
+        fn = LowRankGaussianLoss(reduction="none")
+        out1 = fn(mean, target, cf, cd, weights=w1)
+        out2 = fn(mean, target, cf, cd, weights=w2)
+
+        torch.testing.assert_close(
+            out2[0] / out1[0], torch.tensor(2.0), msg="weight scaling failed"
+        )
+
+    # ── 2D (shared) covariance broadcasting ───────────────────────────
+
+    def test_multivariate_accepts_2d_covariance(self):
+        batch, dim = 5, 3
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cov_2d = _make_spd_cov(1, dim).squeeze(0)
+
+        fn = MultivariateGaussianLoss(reduction="mean")
+        loss = fn(mean, target, cov_2d)
+        assert torch.isfinite(loss)
+
+    def test_low_rank_accepts_2d_params(self):
+        batch, dim, rank = 5, 4, 2
+        mean = torch.randn(batch, dim)
+        target = torch.randn(batch, dim)
+        cf_2d = torch.randn(dim, rank) * 0.5
+        cd_1d = torch.rand(dim) + 0.5
+
+        fn = LowRankGaussianLoss(reduction="mean")
+        loss = fn(mean, target, cf_2d, cd_1d)
+        assert torch.isfinite(loss)
+
+    # ── gradient finiteness ───────────────────────────────────────────
+
+    def test_multivariate_finite_gradients(self):
+        batch, dim = 4, 3
+        mean = torch.randn(batch, dim, requires_grad=True)
+        target = torch.randn(batch, dim)
+        cov = _make_spd_cov(batch, dim)
+
+        fn = MultivariateGaussianLoss(reduction="mean")
+        loss = fn(mean, target, cov)
+        loss.backward()
+        assert mean.grad is not None
+        assert torch.isfinite(mean.grad).all()
+
+    def test_low_rank_finite_gradients(self):
+        batch, dim, rank = 4, 3, 2
+        mean = torch.randn(batch, dim, requires_grad=True)
+        target = torch.randn(batch, dim)
+        cf, cd = _make_low_rank_params(batch, dim, rank)
+
+        fn = LowRankGaussianLoss(reduction="mean")
+        loss = fn(mean, target, cf, cd)
+        loss.backward()
+        assert mean.grad is not None
         assert torch.isfinite(mean.grad).all()
 
 
