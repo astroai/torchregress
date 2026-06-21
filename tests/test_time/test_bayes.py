@@ -50,6 +50,7 @@ def _make_data(n: int = 32, d: int = 4, seed: int = 0) -> tuple[torch.Tensor, to
 
 class TestAsTensor:
     def test_numpy_to_tensor(self) -> None:
+        """Numpy to tensor."""
         x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
         t = _as_tensor(x, device=DEVICE, dtype=DTYPE)
         assert isinstance(t, torch.Tensor)
@@ -57,11 +58,13 @@ class TestAsTensor:
         assert t.dtype == DTYPE
 
     def test_tensor_preserved(self) -> None:
+        """Tensor preserved."""
         x = torch.tensor([1.0, 2.0], device=DEVICE, dtype=DTYPE)
         t = _as_tensor(x, device=DEVICE, dtype=DTYPE)
         assert t is x  # same object when device/dtype match
 
     def test_tensor_moved(self) -> None:
+        """Tensor moved."""
         if not torch.cuda.is_available():
             pytest.skip("CUDA not available")
         x = torch.tensor([1.0, 2.0])
@@ -72,12 +75,14 @@ class TestAsTensor:
 
 class TestAugmentFeatures:
     def test_no_intercept(self) -> None:
+        """No intercept."""
         phi = torch.ones(5, 3)
         out = _augment_features(phi, fit_intercept=False)
         assert out.shape == (5, 3)
         assert out is phi
 
     def test_with_intercept(self) -> None:
+        """With intercept."""
         phi = torch.ones(5, 3)
         out = _augment_features(phi, fit_intercept=True)
         assert out.shape == (5, 4)
@@ -86,11 +91,13 @@ class TestAugmentFeatures:
 
 class TestPosteriorCovarianceFromPrecision:
     def test_identity_precision(self) -> None:
+        """Identity precision."""
         prec = torch.eye(3)
         cov = _posterior_covariance_from_precision(prec, jitter=1e-6)
         assert cov.shape == (3, 3)
 
     def test_diagonal_precision(self) -> None:
+        """Diagonal precision."""
         prec = torch.diag(torch.tensor([2.0, 3.0, 4.0]))
         cov = _posterior_covariance_from_precision(prec, jitter=0.0)
         expected = torch.diag(1.0 / torch.tensor([2.0, 3.0, 4.0]))
@@ -104,62 +111,75 @@ class TestPosteriorCovarianceFromPrecision:
 
 class TestBayesianLinearHeadInit:
     def test_default_construction(self) -> None:
+        """Default construction."""
         head = _make_head()
         assert head.in_features == 4
         assert head.out_features == 1
         assert head.is_fitted is False
 
     def test_in_features_non_positive_raises(self) -> None:
+        """In features non positive raises."""
         with pytest.raises(ValueError, match="in_features"):
             BayesianLinearHead(in_features=0, out_features=1)
 
     def test_out_features_non_positive_raises(self) -> None:
+        """Out features non positive raises."""
         with pytest.raises(ValueError, match="out_features"):
             BayesianLinearHead(in_features=2, out_features=0)
 
     def test_noise_variance_non_positive_raises(self) -> None:
+        """Noise variance non positive raises."""
         with pytest.raises(ValueError, match="noise_variance"):
             BayesianLinearHead(in_features=2, noise_variance=0.0)
 
     def test_prior_precision_non_positive_raises(self) -> None:
+        """Prior precision non positive raises."""
         with pytest.raises(ValueError, match="prior_precision"):
             BayesianLinearHead(in_features=2, prior_precision=0.0)
 
     def test_auto_noise_not_bool_raises(self) -> None:
+        """Auto noise not bool raises."""
         with pytest.raises(TypeError, match="auto_noise"):
             BayesianLinearHead(in_features=2, auto_noise=1)  # type: ignore[arg-type]
 
     def test_rbf_centers_non_positive_raises(self) -> None:
+        """RBF centers non positive raises."""
         with pytest.raises(ValueError, match="rbf_centers"):
             BayesianLinearHead(in_features=2, rbf_centers=0)
 
     def test_prior_mean_scalar_broadcasts(self) -> None:
+        """Prior mean scalar broadcasts."""
         head = BayesianLinearHead(in_features=3, fit_intercept=True, prior_mean=2.0)
         assert head._h0.numel() == 4  # 3 + intercept
 
     def test_prior_mean_vector_wrong_length_raises(self) -> None:
+        """Prior mean vector wrong length raises."""
         with pytest.raises(ValueError, match="prior_mean"):
             BayesianLinearHead(
                 in_features=3, fit_intercept=True, prior_mean=torch.tensor([1.0, 2.0])
             )
 
     def test_prior_mean_vector_correct_length(self) -> None:
+        """Prior mean vector correct length."""
         head = BayesianLinearHead(
             in_features=2, fit_intercept=True, prior_mean=torch.tensor([1.0, 2.0, 3.0])
         )
         assert head._h0.numel() == 3
 
     def test_multi_output_buffer_shape(self) -> None:
+        """Multi output buffer shape."""
         head = BayesianLinearHead(in_features=3, out_features=2)
         assert head._h.shape == (2, head._d_eff)
         assert torch.all(head._h[0] == head._h[1])  # same prior per output
 
     def test_rbf_enabled_buffers(self) -> None:
+        """RBF enabled buffers."""
         head = BayesianLinearHead(in_features=3, rbf_centers=5)
         assert head.rbf_centers == 5
         assert head._d_eff == 5 + 1  # rbf_centers + intercept
 
     def test_no_intercept_effective_dim(self) -> None:
+        """No intercept effective dim."""
         head = BayesianLinearHead(in_features=4, fit_intercept=False)
         assert head._d_eff == 4
 
@@ -171,18 +191,21 @@ class TestBayesianLinearHeadInit:
 
 class TestBayesianLinearHeadFit:
     def test_fit_returns_self(self) -> None:
+        """Fit returns self."""
         head = _make_head()
         X, y = _make_data()
         result = head.fit(X, y)
         assert result is head
 
     def test_sets_is_fitted(self) -> None:
+        """Sets is fitted."""
         head = _make_head()
         X, y = _make_data()
         head.fit(X, y)
         assert head.is_fitted is True
 
     def test_shape_mismatch_raises(self) -> None:
+        """Shape mismatch raises."""
         head = _make_head()
         X = torch.randn(32, 4)
         y = torch.randn(16, 1)
@@ -190,6 +213,7 @@ class TestBayesianLinearHeadFit:
             head.fit(X, y)
 
     def test_wrong_out_features_raises(self) -> None:
+        """Wrong out features raises."""
         head = _make_head(out_features=1)
         X = torch.randn(32, 4)
         y = torch.randn(32, 3)
@@ -197,6 +221,7 @@ class TestBayesianLinearHeadFit:
             head.fit(X, y)
 
     def test_wrong_in_features_raises(self) -> None:
+        """Wrong in features raises."""
         head = _make_head(in_features=4)
         X = torch.randn(32, 3)
         y = torch.randn(32, 1)
@@ -204,6 +229,7 @@ class TestBayesianLinearHeadFit:
             head.fit(X, y)
 
     def test_accepts_numpy_inputs(self) -> None:
+        """Accepts numpy inputs."""
         head = _make_head()
         X = np.random.default_rng(0).normal(size=(32, 4)).astype(np.float32)
         y = np.random.default_rng(1).normal(size=(32, 1)).astype(np.float32)
@@ -211,6 +237,7 @@ class TestBayesianLinearHeadFit:
         assert head.is_fitted
 
     def test_accepts_1d_y(self) -> None:
+        """Accepts 1d y."""
         head = _make_head(out_features=1)
         X = torch.randn(32, 4)
         y = torch.randn(32)
@@ -218,12 +245,14 @@ class TestBayesianLinearHeadFit:
         assert head.is_fitted
 
     def test_updates_n_obs(self) -> None:
+        """Updates n obs."""
         head = _make_head()
         X, y = _make_data(50)
         head.fit(X, y)
         assert head._n_obs.item() == 50
 
     def test_auto_noise_estimates_variance(self) -> None:
+        """Auto noise estimates variance."""
         head = _make_head(auto_noise=True, noise_variance=1.0)
         X, y = _make_data(64)
         head.fit(X, y)
@@ -233,6 +262,7 @@ class TestBayesianLinearHeadFit:
         assert head.noise_variance == pytest.approx(expected_var)
 
     def test_fit_resets_posterior(self) -> None:
+        """Fit resets posterior."""
         head = _make_head()
         X, y = _make_data(32)
         head.fit(X, y)
@@ -245,6 +275,7 @@ class TestBayesianLinearHeadFit:
         assert not torch.allclose(first_lambda, head._Lambda)
 
     def test_negative_sample_weight_raises(self) -> None:
+        """Negative sample weight raises."""
         head = _make_head()
         X, y = _make_data(16)
         w = torch.tensor([1.0, -0.5, 1.0, 1.0] + [1.0] * 12)
@@ -259,12 +290,14 @@ class TestBayesianLinearHeadFit:
 
 class TestBayesianLinearHeadPredict:
     def test_predict_before_fit_raises(self) -> None:
+        """Predict before fit raises."""
         head = _make_head()
         X = torch.randn(8, 4)
         with pytest.raises(RuntimeError, match="fit before predict"):
             head.predict(X)
 
     def test_predict_returns_mean(self) -> None:
+        """Predict returns mean."""
         head = _make_head()
         X, y = _make_data(32)
         head.fit(X, y)
@@ -274,6 +307,7 @@ class TestBayesianLinearHeadPredict:
         assert out["mean"].shape == (8, 1)
 
     def test_predict_return_std(self) -> None:
+        """Predict return std."""
         head = _make_head()
         X, y = _make_data(32)
         head.fit(X, y)
@@ -285,6 +319,7 @@ class TestBayesianLinearHeadPredict:
         assert torch.all(out["std"] >= 0)
 
     def test_predict_without_noise(self) -> None:
+        """Predict without noise."""
         head = _make_head(noise_variance=0.5)
         X, y = _make_data(32)
         head.fit(X, y)
@@ -294,6 +329,7 @@ class TestBayesianLinearHeadPredict:
         assert torch.all(out_without["variance"] <= out_with["variance"])
 
     def test_predict_multi_output(self) -> None:
+        """Predict multi output."""
         head = _make_head(out_features=3)
         X = torch.randn(48, 4)
         y = torch.randn(48, 3)
@@ -304,6 +340,7 @@ class TestBayesianLinearHeadPredict:
         assert out["std"].shape == (8, 3)
 
     def test_predict_numpy_input(self) -> None:
+        """Predict numpy input."""
         head = _make_head()
         X, y = _make_data(32)
         head.fit(X, y)
@@ -319,6 +356,7 @@ class TestBayesianLinearHeadPredict:
 
 class TestBayesianLinearHeadPredictiveBatch:
     def test_returns_predictive_batch(self) -> None:
+        """Returns predictive batch."""
         head = _make_head()
         X, y = _make_data(32)
         head.fit(X, y)
@@ -329,6 +367,7 @@ class TestBayesianLinearHeadPredictiveBatch:
         assert batch.point is not None
 
     def test_extra_contains_uncertainty_decomposition(self) -> None:
+        """Extra contains uncertainty decomposition."""
         head = _make_head(noise_variance=0.25)
         X, y = _make_data(48)
         head.fit(X, y)
@@ -345,6 +384,7 @@ class TestBayesianLinearHeadPredictiveBatch:
         assert float(n_obs[0, 0].item()) == 48.0
 
     def test_aleatoric_zero_without_noise(self) -> None:
+        """Aleatoric zero without noise."""
         head = _make_head(noise_variance=0.5)
         X, y = _make_data(32)
         head.fit(X, y)
@@ -362,11 +402,13 @@ class TestBayesianLinearHeadPredictiveBatch:
 
 class TestBayesianLinearHeadSampleWeights:
     def test_before_fit_raises(self) -> None:
+        """Before fit raises."""
         head = _make_head()
         with pytest.raises(RuntimeError, match="fit before sample_weights"):
             head.sample_weights(10)
 
     def test_n_samples_non_positive_raises(self) -> None:
+        """N samples non positive raises."""
         head = _make_head()
         X, y = _make_data(16)
         head.fit(X, y)
@@ -374,6 +416,7 @@ class TestBayesianLinearHeadSampleWeights:
             head.sample_weights(0)
 
     def test_shape(self) -> None:
+        """Shape."""
         head = _make_head(out_features=2)
         X = torch.randn(32, 4)
         y = torch.randn(32, 2)
@@ -382,6 +425,7 @@ class TestBayesianLinearHeadSampleWeights:
         assert samples.shape == (5, 2, head._d_eff)
 
     def test_reproducible_with_generator(self) -> None:
+        """Reproducible with generator."""
         head = _make_head()
         X, y = _make_data(20)
         head.fit(X, y)
@@ -401,6 +445,7 @@ class TestBayesianLinearHeadSampleWeights:
 
 class TestBayesianLinearHeadPosterior:
     def test_posterior_precision_shape(self) -> None:
+        """Posterior precision shape."""
         head = _make_head()
         X, y = _make_data(16)
         head.fit(X, y)
@@ -408,6 +453,7 @@ class TestBayesianLinearHeadPosterior:
         assert prec.shape == (head._d_eff, head._d_eff)
 
     def test_posterior_mean_shape(self) -> None:
+        """Posterior mean shape."""
         head = _make_head(out_features=2)
         X = torch.randn(32, 4)
         y = torch.randn(32, 2)
@@ -416,6 +462,7 @@ class TestBayesianLinearHeadPosterior:
         assert mean.shape == (2, head._d_eff)
 
     def test_posterior_covariance_shape(self) -> None:
+        """Posterior covariance shape."""
         head = _make_head()
         X, y = _make_data(32)
         head.fit(X, y)
@@ -441,6 +488,7 @@ class TestBayesianLinearHeadPosterior:
 
 class TestBayesianLinearHeadReset:
     def test_resets_to_prior(self) -> None:
+        """Resets to prior."""
         head = _make_head()
         X, y = _make_data(64)
         head.fit(X, y)
@@ -461,6 +509,7 @@ class TestBayesianLinearHeadReset:
 
 class TestBayesianLinearHeadRBF:
     def test_rbf_expands_features(self) -> None:
+        """RBF expands features."""
         head = BayesianLinearHead(in_features=3, rbf_centers=5, fit_intercept=False)
         X = torch.randn(32, 3)
         y = torch.randn(32, 1)
@@ -469,6 +518,7 @@ class TestBayesianLinearHeadRBF:
         assert head._rbf_gamma.item() > 0
 
     def test_rbf_predict_uses_same_centers(self) -> None:
+        """RBF predict uses same centers."""
         head = BayesianLinearHead(in_features=3, rbf_centers=4, fit_intercept=False)
         X, y = _make_data(32, d=3)
         head.fit(X, y)
@@ -481,6 +531,7 @@ class TestBayesianLinearHeadRBF:
         assert torch.equal(head._rbf_centers, centers_before)
 
     def test_rbf_wrong_input_dim_raises(self) -> None:
+        """RBF wrong input dim raises."""
         head = BayesianLinearHead(in_features=3, rbf_centers=4)
         X = torch.randn(32, 3)
         y = torch.randn(32, 1)
@@ -491,6 +542,7 @@ class TestBayesianLinearHeadRBF:
             head.predict(X_wrong)
 
     def test_rbf_user_gamma(self) -> None:
+        """RBF user gamma."""
         head = BayesianLinearHead(in_features=3, rbf_centers=4, rbf_gamma=2.5, fit_intercept=False)
         X, y = _make_data(32, d=3)
         head.fit(X, y)
@@ -527,14 +579,17 @@ class TestBayesianLinearHeadRBF:
 
 class TestRecursiveBayesianHeadInit:
     def test_default_forgetting_factor(self) -> None:
+        """Default forgetting factor."""
         head = RecursiveBayesianHead(in_features=3)
         assert head.forgetting_factor == 1.0
 
     def test_custom_forgetting_factor(self) -> None:
+        """Custom forgetting factor."""
         head = RecursiveBayesianHead(in_features=3, forgetting_factor=0.9)
         assert head.forgetting_factor == 0.9
 
     def test_forgetting_factor_out_of_range_raises(self) -> None:
+        """Forgetting factor out of range raises."""
         with pytest.raises(ValueError, match="forgetting_factor"):
             RecursiveBayesianHead(in_features=3, forgetting_factor=0.0)
         with pytest.raises(ValueError, match="forgetting_factor"):
@@ -543,18 +598,21 @@ class TestRecursiveBayesianHeadInit:
 
 class TestRecursiveBayesianHeadPartialFit:
     def test_partial_fit_returns_self(self) -> None:
+        """Partial fit returns self."""
         head = RecursiveBayesianHead(in_features=4)
         X, y = _make_data(16)
         result = head.partial_fit(X, y)
         assert result is head
 
     def test_partial_fit_sets_fitted(self) -> None:
+        """Partial fit sets fitted."""
         head = RecursiveBayesianHead(in_features=4)
         X, y = _make_data(8)
         head.partial_fit(X, y)
         assert head.is_fitted
 
     def test_multiple_partial_fits_accumulate(self) -> None:
+        """Multiple partial fits accumulate."""
         head = RecursiveBayesianHead(in_features=4, forgetting_factor=1.0)
         X, y = _make_data(32, seed=10)
         # Split into 4 batches of 8
@@ -569,6 +627,7 @@ class TestRecursiveBayesianHeadPartialFit:
         assert torch.allclose(head._Lambda, head2._Lambda, atol=1e-4)
 
     def test_forgetting_downweights_old_data(self) -> None:
+        """Forgetting downweights old data."""
         head = RecursiveBayesianHead(in_features=4, forgetting_factor=0.5)
         X, y = _make_data(32, seed=20)
         # Fit first batch
@@ -582,6 +641,7 @@ class TestRecursiveBayesianHeadPartialFit:
         assert not torch.allclose(head._Lambda, lam_after_first)
 
     def test_partial_fit_rbf_lazy_init(self) -> None:
+        """Partial fit RBF lazy init."""
         head = RecursiveBayesianHead(in_features=3, rbf_centers=5, fit_intercept=False)
         X, y = _make_data(16, d=3, seed=30)
         head.partial_fit(X, y)
@@ -589,6 +649,7 @@ class TestRecursiveBayesianHeadPartialFit:
         assert head._rbf_gamma.item() > 0
 
     def test_partial_fit_with_sample_weight(self) -> None:
+        """Partial fit with sample weight."""
         head = RecursiveBayesianHead(in_features=4, forgetting_factor=1.0)
         X, y = _make_data(16)
         w = torch.ones(16) * 2.0
@@ -596,6 +657,7 @@ class TestRecursiveBayesianHeadPartialFit:
         assert head.is_fitted
 
     def test_partial_fit_shape_validation(self) -> None:
+        """Partial fit shape validation."""
         head = RecursiveBayesianHead(in_features=4, out_features=2)
         X = torch.randn(16, 4)
         y = torch.randn(16, 3)  # wrong columns

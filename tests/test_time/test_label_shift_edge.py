@@ -6,6 +6,8 @@ dataclass integrity, internal helpers, gaussian bin edge cases,
 convergence behavior, and error paths.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pytest
 
@@ -32,29 +34,34 @@ from torchregress.test_time.label_shift import (
 
 class TestLabelShiftEMConfig:
     def test_defaults(self) -> None:
+        """Defaults."""
         cfg = LabelShiftEMConfig()
         assert cfg.max_iter == 100
         assert cfg.tol == 1e-6
         assert cfg.eps == 1e-8
 
     def test_custom_values(self) -> None:
+        """Custom values."""
         cfg = LabelShiftEMConfig(max_iter=10, tol=0.01, eps=1e-12)
         assert cfg.max_iter == 10
         assert cfg.tol == 0.01
         assert cfg.eps == 1e-12
 
     def test_frozen(self) -> None:
+        """Frozen."""
         cfg = LabelShiftEMConfig()
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="cannot assign"):
             cfg.max_iter = 200  # type: ignore[misc]
 
     def test_equality(self) -> None:
+        """Equality."""
         assert LabelShiftEMConfig() == LabelShiftEMConfig()
         assert LabelShiftEMConfig(max_iter=10) != LabelShiftEMConfig(max_iter=20)
 
 
 class TestLabelShiftEstimate:
     def test_fields(self) -> None:
+        """Fields."""
         src = np.array([0.3, 0.7])
         tgt = np.array([0.5, 0.5])
         est = LabelShiftEstimate(src, tgt, 5, True)
@@ -64,11 +71,13 @@ class TestLabelShiftEstimate:
         assert est.converged is True
 
     def test_frozen(self) -> None:
+        """Frozen."""
         est = LabelShiftEstimate(np.array([0.5, 0.5]), np.array([0.5, 0.5]), 1, True)
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="cannot assign"):
             est.iterations = 10  # type: ignore[misc]
 
     def test_not_converged(self) -> None:
+        """Not converged."""
         est = LabelShiftEstimate(np.array([0.5, 0.5]), np.array([0.5, 0.5]), 100, False)
         assert est.converged is False
         assert est.iterations == 100
@@ -76,6 +85,7 @@ class TestLabelShiftEstimate:
 
 class TestGaussianLabelShiftConfig:
     def test_defaults(self) -> None:
+        """Defaults."""
         cfg = GaussianLabelShiftConfig()
         assert cfg.n_bins == 32
         assert cfg.estimation_rows is None
@@ -85,17 +95,20 @@ class TestGaussianLabelShiftConfig:
         assert cfg.eps == 1e-8
 
     def test_custom(self) -> None:
+        """Custom."""
         cfg = GaussianLabelShiftConfig(n_bins=8, estimation_rows=100, top_fraction=0.3)
         assert cfg.n_bins == 8
         assert cfg.estimation_rows == 100
         assert cfg.top_fraction == 0.3
 
     def test_frozen(self) -> None:
+        """Frozen."""
         cfg = GaussianLabelShiftConfig()
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="cannot assign"):
             cfg.n_bins = 16  # type: ignore[misc]
 
     def test_top_fraction_none(self) -> None:
+        """Top fraction none."""
         cfg = GaussianLabelShiftConfig(top_fraction=None)
         assert cfg.top_fraction is None
 
@@ -107,11 +120,13 @@ class TestGaussianLabelShiftConfig:
 
 class TestNormalizeRows:
     def test_already_normalized(self) -> None:
+        """Already normalized."""
         probs = np.array([[0.2, 0.8], [0.5, 0.5]])
         result = _normalize_rows(probs, eps=1e-8)
         np.testing.assert_array_almost_equal(result, probs)
 
     def test_unnormalized(self) -> None:
+        """Unnormalized."""
         raw = np.array([[2.0, 3.0], [1.0, 1.0]])
         result = _normalize_rows(raw, eps=1e-8)
         np.testing.assert_array_almost_equal(result[0], [2 / 5, 3 / 5])
@@ -130,12 +145,14 @@ class TestNormalizeRows:
 
 class TestSubsampleProbabilities:
     def test_no_subsample_when_none(self) -> None:
+        """No subsample when none."""
         probs = np.array([[0.5, 0.5], [0.5, 0.5]])
         p, w = _subsample_probabilities(probs, None, None, random_state=0)
         np.testing.assert_array_equal(p, probs)
         assert w is None
 
     def test_no_subsample_when_zero_or_negative(self) -> None:
+        """No subsample when zero or negative."""
         probs = np.array([[0.5, 0.5], [0.5, 0.5]])
         p, w = _subsample_probabilities(probs, None, 0, random_state=0)
         np.testing.assert_array_equal(p, probs)
@@ -143,11 +160,13 @@ class TestSubsampleProbabilities:
         np.testing.assert_array_equal(p2, probs)
 
     def test_no_subsample_when_sample_size_exceeds_n(self) -> None:
+        """No subsample when sample size exceeds n."""
         probs = np.array([[0.5, 0.5], [0.5, 0.5]])
         p, _ = _subsample_probabilities(probs, None, 100, random_state=0)
         np.testing.assert_array_equal(p, probs)
 
     def test_subsamples_correctly(self) -> None:
+        """Subsamples correctly."""
         probs = np.random.default_rng(0).uniform(size=(10, 3))
         probs = probs / probs.sum(axis=1, keepdims=True)
         p, w = _subsample_probabilities(probs, None, 5, random_state=42)
@@ -158,6 +177,7 @@ class TestSubsampleProbabilities:
             assert any(np.allclose(row, orig) for orig in probs)
 
     def test_subsample_with_weights(self) -> None:
+        """Subsample with weights."""
         probs = np.random.default_rng(1).uniform(size=(10, 2))
         probs = probs / probs.sum(axis=1, keepdims=True)
         weights = np.arange(10, dtype=float)
@@ -173,6 +193,7 @@ class TestSubsampleProbabilities:
             assert w[pw] == pytest.approx(weights[orig_idx])
 
     def test_reproducibility(self) -> None:
+        """Reproducibility."""
         probs = np.random.default_rng(2).uniform(size=(20, 3))
         probs = probs / probs.sum(axis=1, keepdims=True)
         p1, _ = _subsample_probabilities(probs, None, 8, random_state=123)
@@ -196,17 +217,20 @@ class TestSubsampleProbabilities:
 
 class TestWeightedAverage:
     def test_no_weights(self) -> None:
+        """No weights."""
         values = np.array([[1.0, 2.0], [3.0, 4.0]])
         result = _weighted_average(values, None, eps=1e-8)
         np.testing.assert_array_almost_equal(result, [2.0, 3.0])
 
     def test_uniform_weights(self) -> None:
+        """Uniform weights."""
         values = np.array([[1.0, 2.0], [3.0, 4.0]])
         w = np.array([1.0, 1.0])
         result = _weighted_average(values, w, eps=1e-8)
         np.testing.assert_array_almost_equal(result, [2.0, 3.0])
 
     def test_skewed_weights(self) -> None:
+        """Skewed weights."""
         values = np.array([[1.0, 2.0], [3.0, 4.0]])
         w = np.array([3.0, 1.0])
         result = _weighted_average(values, w, eps=1e-8)
@@ -214,6 +238,7 @@ class TestWeightedAverage:
         np.testing.assert_array_almost_equal(result, [1.5, 2.5])
 
     def test_zero_weight_clamped_to_eps(self) -> None:
+        """Zero weight clamped to eps."""
         values = np.array([[1.0, 2.0], [3.0, 4.0]])
         w = np.array([0.0, 0.0])
         result = _weighted_average(values, w, eps=1e-8)
@@ -227,6 +252,7 @@ class TestWeightedAverage:
 
 class TestApplyLabelShiftCorrectionEdge:
     def test_custom_eps(self) -> None:
+        """Custom eps."""
         probs = np.array([[0.0, 1.0]])
         src = np.array([0.5, 0.5])
         tgt = np.array([0.5, 0.5])
@@ -234,6 +260,7 @@ class TestApplyLabelShiftCorrectionEdge:
         np.testing.assert_array_almost_equal(result.sum(), 1.0)
 
     def test_single_sample(self) -> None:
+        """Single sample."""
         probs = np.array([[0.7, 0.3]])
         src = np.array([0.4, 0.6])
         tgt = np.array([0.6, 0.4])
@@ -242,6 +269,7 @@ class TestApplyLabelShiftCorrectionEdge:
         np.testing.assert_array_almost_equal(result.sum(), 1.0)
 
     def test_many_classes(self) -> None:
+        """Many classes."""
         n = 5
         probs = np.ones((3, n)) / n
         src = np.ones(n) / n
@@ -258,6 +286,7 @@ class TestApplyLabelShiftCorrectionEdge:
 
 class TestEstimateTargetPriorEMEdge:
     def test_converges_quickly_with_balanced_data(self) -> None:
+        """Converges quickly with balanced data."""
         probs = np.array([[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]])
         cfg = LabelShiftEMConfig(max_iter=50, tol=1e-6)
         est = estimate_target_prior_em(probs, config=cfg)
@@ -277,12 +306,14 @@ class TestEstimateTargetPriorEMEdge:
         np.testing.assert_array_almost_equal(est.target_prior.sum(), 1.0)
 
     def test_single_sample(self) -> None:
+        """Single sample."""
         probs = np.array([[0.7, 0.3]])
         est = estimate_target_prior_em(probs, config=LabelShiftEMConfig(max_iter=10))
         assert est.target_prior.shape == (2,)
         np.testing.assert_array_almost_equal(est.target_prior.sum(), 1.0)
 
     def test_many_classes(self) -> None:
+        """Many classes."""
         n = 5
         probs = np.ones((10, n)) / n
         est = estimate_target_prior_em(probs, config=LabelShiftEMConfig(max_iter=10))
@@ -291,6 +322,7 @@ class TestEstimateTargetPriorEMEdge:
         np.testing.assert_array_almost_equal(est.target_prior, np.ones(n) / n)
 
     def test_weighted_subsample_estimate(self) -> None:
+        """Weighted subsample estimate."""
         probs = np.random.default_rng(0).uniform(size=(20, 3))
         probs = probs / probs.sum(axis=1, keepdims=True)
         weights = np.random.default_rng(1).uniform(0.5, 2.0, size=20)
@@ -308,6 +340,7 @@ class TestEstimateTargetPriorEMEdge:
 
 class TestPosteriorLabelShiftAdapterEdge:
     def test_with_sample_size(self) -> None:
+        """With sample size."""
         probs = np.random.default_rng(0).uniform(size=(20, 3))
         probs = probs / probs.sum(axis=1, keepdims=True)
         adapter = PosteriorLabelShiftAdapter(sample_size=10, random_state=42)
@@ -316,12 +349,14 @@ class TestPosteriorLabelShiftAdapterEdge:
         assert est.target_prior.shape == (3,)
 
     def test_with_custom_config(self) -> None:
+        """With custom config."""
         cfg = LabelShiftEMConfig(max_iter=5, tol=1e-10)
         adapter = PosteriorLabelShiftAdapter(config=cfg)
         est = adapter.estimate(np.array([[0.5, 0.5], [0.5, 0.5]]))
         assert est.iterations <= 5
 
     def test_estimate_stores_last_estimate(self) -> None:
+        """Estimate stores last estimate."""
         adapter = PosteriorLabelShiftAdapter(source_prior=np.array([0.5, 0.5]))
         probs = np.array([[0.8, 0.2], [0.2, 0.8]])
         assert adapter.last_estimate is None
@@ -329,6 +364,7 @@ class TestPosteriorLabelShiftAdapterEdge:
         assert adapter.last_estimate is est
 
     def test_transform_auto_estimate_when_no_last_estimate(self) -> None:
+        """Transform auto estimate when no last estimate."""
         adapter = PosteriorLabelShiftAdapter(source_prior=np.array([0.5, 0.5]))
         probs = np.array([[0.8, 0.2]])
         # last_estimate is None, target_prior is None → should call estimate()
@@ -344,6 +380,7 @@ class TestPosteriorLabelShiftAdapterEdge:
 
 class TestGaussianBinEdgesEdge:
     def test_single_bin(self) -> None:
+        """Single bin."""
         targets = np.array([0.0, 5.0, 10.0])
         edges = gaussian_bin_edges_from_targets(targets, n_bins=1)
         # n_bins=1: linspace(0, 1, 2) → [0, 1] quantiles → 2 edges, but unique may collapse
@@ -351,11 +388,13 @@ class TestGaussianBinEdgesEdge:
         assert edges.shape[0] >= 2
 
     def test_many_bins(self) -> None:
+        """Many bins."""
         targets = np.linspace(0, 100, 1000)
         edges = gaussian_bin_edges_from_targets(targets, n_bins=50)
         assert edges.shape[0] == 51
 
     def test_all_same_value(self) -> None:
+        """All same value."""
         targets = np.array([7.0, 7.0, 7.0])
         edges = gaussian_bin_edges_from_targets(targets, n_bins=3)
         assert edges[0] == 7.0
@@ -364,6 +403,7 @@ class TestGaussianBinEdgesEdge:
 
 class TestGaussianBinProbabilitiesEdge:
     def test_single_bin(self) -> None:
+        """Single bin."""
         mean = np.array([0.0])
         std = np.array([1.0])
         edges = np.array([-np.inf, np.inf])
@@ -409,6 +449,7 @@ class TestGaussianMomentsEdge:
         assert std[0] < 0.01  # near-zero variance (clamped to eps)
 
     def test_many_bins(self) -> None:
+        """Many bins."""
         n_bins = 10
         probs = np.ones((3, n_bins)) / n_bins
         edges = np.linspace(0, 1, n_bins + 1)
@@ -424,6 +465,7 @@ class TestGaussianMomentsEdge:
 
 class TestCorrectGaussianPredictionsEdge:
     def test_estimation_rows_subsamples(self) -> None:
+        """Estimation rows subsamples."""
         mean = np.array([0.0, 1.0, 2.0])
         std = np.array([1.0, 1.0, 1.0])
         source_targets = np.linspace(0, 5, 50)
@@ -436,6 +478,7 @@ class TestCorrectGaussianPredictionsEdge:
         assert meta["estimate_converged"] in (True, False)
 
     def test_without_features(self) -> None:
+        """Without features."""
         mean = np.array([0.0, 1.0])
         std = np.array([0.5, 0.5])
         source_targets = np.linspace(0, 3, 20)

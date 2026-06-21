@@ -32,11 +32,13 @@ def _make_model_with_frozen() -> nn.Module:
 
 class TestParameterEMAInit:
     def test_default_decay(self) -> None:
+        """Default decay."""
         ema = ParameterEMA()
         assert ema.decay == 0.99
         assert ema.shadow == {}
 
     def test_custom_decay(self) -> None:
+        """Custom decay."""
         ema = ParameterEMA(decay=0.5)
         assert ema.decay == 0.5
 
@@ -48,6 +50,7 @@ class TestParameterEMAInit:
 
 class TestParameterEMAInitialize:
     def test_initializes_all_trainable_params(self) -> None:
+        """Initializes all trainable params."""
         model = _make_linear()
         ema = ParameterEMA()
         ema.initialize(model)
@@ -56,6 +59,7 @@ class TestParameterEMAInitialize:
         assert "bias" in ema.shadow
 
     def test_skips_frozen_params(self) -> None:
+        """Skips frozen params."""
         model = _make_model_with_frozen()
         ema = ParameterEMA()
         ema.initialize(model)
@@ -64,6 +68,7 @@ class TestParameterEMAInitialize:
         assert "bias" not in ema.shadow
 
     def test_shadow_is_detached_clone(self) -> None:
+        """Shadow is detached clone."""
         model = _make_linear()
         ema = ParameterEMA()
         ema.initialize(model)
@@ -74,6 +79,7 @@ class TestParameterEMAInitialize:
                 assert torch.equal(ema.shadow[name], param.data)
 
     def test_multiple_initializations_overwrite(self) -> None:
+        """Multiple initializations overwrite."""
         model1 = _make_linear()
         model2 = _make_linear()
         # Give model2 different weights
@@ -97,12 +103,14 @@ class TestParameterEMAInitialize:
 
 class TestParameterEMAUpdate:
     def test_auto_initializes_if_shadow_empty(self) -> None:
+        """Auto initializes if shadow empty."""
         model = _make_linear()
         ema = ParameterEMA()
         ema.update(model)
         assert len(ema.shadow) == 2
 
     def test_updates_toward_current_params(self) -> None:
+        """Updates toward current params."""
         model = _make_linear()
         ema = ParameterEMA(decay=0.5)
         ema.initialize(model)
@@ -170,6 +178,7 @@ class TestParameterEMAUpdate:
                 assert not torch.equal(ema.shadow[name], param.data)
 
     def test_update_with_frozen_params_skips_them(self) -> None:
+        """Update with frozen params skips them."""
         model = _make_model_with_frozen()
         ema = ParameterEMA()
         ema.initialize(model)
@@ -210,6 +219,7 @@ class TestParameterEMAUpdate:
 
 class TestParameterEMACopyTo:
     def test_copies_shadow_to_model(self) -> None:
+        """Copies shadow to model."""
         model = _make_linear()
         ema = ParameterEMA()
         ema.initialize(model)
@@ -232,12 +242,14 @@ class TestParameterEMACopyTo:
                 assert torch.equal(param.data, ema.shadow[name])
 
     def test_copy_to_empty_shadow_raises(self) -> None:
+        """Copy to empty shadow raises."""
         model = _make_linear()
         ema = ParameterEMA()
         with pytest.raises(RuntimeError, match="empty"):
             ema.copy_to(model)
 
     def test_copy_to_preserves_requires_grad_flags(self) -> None:
+        """Copy to preserves requires grad flags."""
         model = _make_model_with_frozen()
         ema = ParameterEMA()
         ema.initialize(model)

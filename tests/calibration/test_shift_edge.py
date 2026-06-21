@@ -7,6 +7,8 @@ This file fills remaining gaps: internal helpers, edge inputs,
 torch/numpy interop, and error paths.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pytest
 import torch
@@ -23,16 +25,19 @@ from torchregress.calibration.shift import (
 
 class TestRepresentationShiftCalibratorEdge:
     def test_fit_returns_self(self) -> None:
+        """Fit returns self."""
         cal = RepresentationShiftCalibrator()
         source = np.random.default_rng(0).normal(size=(20, 3))
         assert cal.fit(source) is cal
 
     def test_squared_mahalanobis_before_fit_raises(self) -> None:
+        """Squared mahalanobis before fit raises."""
         cal = RepresentationShiftCalibrator()
         with pytest.raises(RuntimeError, match="call fit"):
             cal._squared_mahalanobis(np.ones((5, 2)))
 
     def test_fit_with_subsampling(self) -> None:
+        """Fit with subsampling."""
         cal = RepresentationShiftCalibrator(source_sample_size=10, random_state=0)
         source = np.random.default_rng(1).normal(size=(50, 4))
         cal.fit(source)
@@ -40,6 +45,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert cal.source_mean_.shape == (4,)
 
     def test_fit_with_winsorizing(self) -> None:
+        """Fit with winsorizing."""
         cal = RepresentationShiftCalibrator(clip_quantile=0.1)
         source = np.random.default_rng(2).normal(size=(30, 3))
         cal.fit(source)
@@ -47,6 +53,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert np.isfinite(cal.reference_scale_)
 
     def test_single_feature_source(self) -> None:
+        """Single feature source."""
         cal = RepresentationShiftCalibrator()
         source = np.array([[1.0], [2.0], [3.0], [5.0], [8.0]])
         cal.fit(source)
@@ -59,6 +66,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert scores[1] < scores[2]
 
     def test_calibrate_probabilities_multi_class(self) -> None:
+        """Calibrate probabilities multi class."""
         cal = RepresentationShiftCalibrator()
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
@@ -70,6 +78,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert np.allclose(out.sum(axis=1), 1.0)
 
     def test_calibrate_probabilities_with_high_temperature_flattens(self) -> None:
+        """Calibrate probabilities with high temperature flattens."""
         cal = RepresentationShiftCalibrator(max_temperature=10.0)
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
@@ -83,6 +92,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert np.allclose(out.sum(), 1.0)
 
     def test_calibrate_std_1d_input(self) -> None:
+        """Calibrate std 1d input."""
         cal = RepresentationShiftCalibrator()
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
@@ -93,6 +103,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert result[0] == pytest.approx(1.0)
 
     def test_temperatures_reference_scale_eps_bound(self) -> None:
+        """Temperatures reference scale eps bound."""
         cal = RepresentationShiftCalibrator(eps=1e-6)
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
@@ -102,6 +113,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert temps[0] >= cal.base_temperature
 
     def test_shift_scores_no_negative(self) -> None:
+        """Shift scores no negative."""
         cal = RepresentationShiftCalibrator()
         cal.source_mean_ = np.array([0.0, 0.0])
         cal.source_var_ = np.array([1.0, 1.0])
@@ -110,6 +122,7 @@ class TestRepresentationShiftCalibratorEdge:
         assert np.all(scores >= 0.0)
 
     def test_temperatures_with_base_slope_zero(self) -> None:
+        """Temperatures with base slope zero."""
         cal = RepresentationShiftCalibrator(base_temperature=1.0, slope=0.0)
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
@@ -126,6 +139,7 @@ class TestRepresentationShiftCalibratorEdge:
 
 class TestBinnedLabelShiftEstimatorEdge:
     def test_bin_values_with_fitted_edges(self) -> None:
+        """Bin values with fitted edges."""
         est = BinnedLabelShiftEstimator(n_bins=3, binning_strategy="uniform")
         est.bin_edges_ = np.array([-np.inf, 0.0, 5.0, np.inf])
         est.n_bins = 3
@@ -133,11 +147,13 @@ class TestBinnedLabelShiftEstimatorEdge:
         np.testing.assert_array_equal(bins, [0, 1, 2])
 
     def test_bin_values_before_fit_raises(self) -> None:
+        """Bin values before fit raises."""
         est = BinnedLabelShiftEstimator(n_bins=3)
         with pytest.raises(RuntimeError, match="bin_edges_ not fitted"):
             est._bin_values(np.array([1.0, 2.0]))
 
     def test_prepare_predictions_1d_point_predictions(self) -> None:
+        """Prepare predictions 1d point predictions."""
         est = BinnedLabelShiftEstimator(n_bins=3, binning_strategy="uniform")
         est.bin_edges_ = np.array([-np.inf, 0.0, 5.0, np.inf])
         est.n_bins = 3
@@ -150,11 +166,13 @@ class TestBinnedLabelShiftEstimatorEdge:
         assert probs[2, 2] == 1.0
 
     def test_prepare_predictions_3d_raises(self) -> None:
+        """Prepare predictions 3d raises."""
         est = BinnedLabelShiftEstimator(n_bins=3)
         with pytest.raises(ValueError):
             est._prepare_predictions(np.ones((2, 3, 4)))
 
     def test_prepare_predictions_unnormalized_probs(self) -> None:
+        """Prepare predictions unnormalized probs."""
         est = BinnedLabelShiftEstimator(n_bins=3, binning_strategy="uniform")
         est.bin_edges_ = np.array([-np.inf, 0.0, 5.0, np.inf])
         est.n_bins = 3
@@ -166,6 +184,7 @@ class TestBinnedLabelShiftEstimatorEdge:
         np.testing.assert_array_almost_equal(probs[0], [2 / 3, 1 / 3, 0.0])
 
     def test_prepare_predictions_wrong_ndim_single_col(self) -> None:
+        """Prepare predictions wrong ND single col."""
         est = BinnedLabelShiftEstimator(n_bins=3, binning_strategy="uniform")
         est.bin_edges_ = np.array([-np.inf, 0.0, 5.0, np.inf])
         est.n_bins = 3
@@ -173,11 +192,13 @@ class TestBinnedLabelShiftEstimatorEdge:
             est._prepare_predictions(np.ones((2, 5)))  # 5 != n_bins
 
     def test_get_bin_weights_before_fit_raises(self) -> None:
+        """Get bin weights before fit raises."""
         est = BinnedLabelShiftEstimator(n_bins=3)
         with pytest.raises(RuntimeError, match="call fit"):
             est.get_bin_weights()
 
     def test_sample_weights_integer_bin_indices(self) -> None:
+        """Sample weights integer bin indices."""
         est = BinnedLabelShiftEstimator(n_bins=3, binning_strategy="uniform")
         est.bin_edges_ = np.array([-np.inf, 0.0, 5.0, np.inf])
         est.n_bins = 3
@@ -188,6 +209,7 @@ class TestBinnedLabelShiftEstimatorEdge:
         np.testing.assert_array_almost_equal(weights, expected)
 
     def test_fit_with_torch_tensor_inputs(self) -> None:
+        """Fit with torch tensor inputs."""
         y_src = torch.tensor([0.5, 0.5, 1.5, 1.5], dtype=torch.float64)
         p_src = torch.tensor([0.5, 0.5, 1.5, 1.5], dtype=torch.float64)
         p_tgt = torch.tensor([1.5, 1.5, 0.5], dtype=torch.float64)
@@ -199,6 +221,7 @@ class TestBinnedLabelShiftEstimatorEdge:
         assert est.target_prior_ is not None
 
     def test_bbse_confusion_matrix_call(self) -> None:
+        """BBSE confusion matrix call."""
         y_src = np.array([1.0, 2.0, 3.0, 4.0])
         p_src = np.array([1.0, 2.0, 3.0, 4.0])
         p_tgt = np.array([3.0, 4.0, 1.0, 2.0])
@@ -223,6 +246,7 @@ class TestBinnedLabelShiftEstimatorEdge:
         assert np.allclose(est.target_prior_.sum(), 1.0)
 
     def test_em_convergence_reaches_target(self) -> None:
+        """EM convergence reaches target."""
         np.random.seed(123)
         n_src, n_tgt = 1000, 1000
         # Bin 0 mean -2, bin 1 mean +2
@@ -264,6 +288,7 @@ class TestBinnedLabelShiftEstimatorEdge:
         assert np.allclose(est.target_prior_.sum(), 1.0)
 
     def test_fit_with_fewer_samples_than_bins(self) -> None:
+        """Fit with fewer samples than bins."""
         est = BinnedLabelShiftEstimator(n_bins=10, binning_strategy="uniform")
         y_src = np.array([1.0, 2.0])
         p_src = np.array([1.0, 2.0])
@@ -274,6 +299,7 @@ class TestBinnedLabelShiftEstimatorEdge:
         assert np.allclose(est.source_prior_.sum(), 1.0)
 
     def test_sample_weights_torch_device_preserved(self) -> None:
+        """Sample weights torch device preserved."""
         est = BinnedLabelShiftEstimator(n_bins=2, binning_strategy="uniform", method="bbse")
         est.bin_edges_ = np.array([-np.inf, 0.0, np.inf])
         est.n_bins = 2

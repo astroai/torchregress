@@ -7,6 +7,8 @@ rank selection, subsampling/winsorize paths in transform,
 and state mutation verification.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pytest
 
@@ -25,6 +27,7 @@ from torchregress.test_time.subspace import (
 
 class TestSubspaceAlignmentState:
     def test_fields(self) -> None:
+        """Fields."""
         src_mean = np.array([1.0, 2.0])
         tgt_mean = np.array([3.0, 4.0])
         src_scale = np.array([0.5, 0.6])
@@ -49,6 +52,7 @@ class TestSubspaceAlignmentState:
         assert state.rank == 2
 
     def test_frozen(self) -> None:
+        """Frozen."""
         state = SubspaceAlignmentState(
             source_mean=np.array([1.0]),
             target_mean=np.array([2.0]),
@@ -69,6 +73,7 @@ class TestSubspaceAlignmentState:
 
 class TestFeatureSignificanceEdge:
     def test_single_sample_with_y(self) -> None:
+        """Single sample with y."""
         X = np.array([[1.0, 2.0]])
         y = np.array([3.0])
         sig = _feature_significance(X, y, 1e-8)
@@ -77,6 +82,7 @@ class TestFeatureSignificanceEdge:
         assert np.all(np.isfinite(sig))
 
     def test_large_eps_dominates(self) -> None:
+        """Large eps dominates."""
         X = np.array([[0.0, 0.0], [0.0, 0.0]])
         y = np.array([1.0, -1.0])
         sig = _feature_significance(X, y, 1e-2)
@@ -84,6 +90,7 @@ class TestFeatureSignificanceEdge:
         assert np.all(sig < 1e-2 + 1e-10)
 
     def test_with_y_not_provided(self) -> None:
+        """With y not provided."""
         X = np.random.default_rng(0).normal(size=(10, 3))
         sig = _feature_significance(X, None, 1e-8)
         assert sig.shape == (3,)
@@ -97,12 +104,14 @@ class TestFeatureSignificanceEdge:
 
 class TestClipScaleRatioEdge:
     def test_limit_barely_above_one(self) -> None:
+        """Limit barely above one."""
         ratio = np.array([0.01, 100.0])
         clipped = _clip_scale_ratio(ratio, 1.001)
         assert clipped[0] == pytest.approx(1.0 / 1.001)
         assert clipped[1] == pytest.approx(1.001)
 
     def test_all_within_bounds(self) -> None:
+        """All within bounds."""
         ratio = np.array([0.5, 1.5, 2.0])
         clipped = _clip_scale_ratio(ratio, 5.0)
         np.testing.assert_array_equal(clipped, ratio)
@@ -115,11 +124,13 @@ class TestClipScaleRatioEdge:
 
 class TestSignificantSubspaceAlignerEdge:
     def test_fit_returns_self(self) -> None:
+        """Fit returns self."""
         X = np.random.default_rng(0).normal(size=(20, 4))
         aligner = SignificantSubspaceAligner()
         assert aligner.fit(X) is aligner
 
     def test_variance_threshold_selects_rank(self) -> None:
+        """Variance threshold selects rank."""
         X = np.random.default_rng(1).normal(size=(50, 5))
         aligner = SignificantSubspaceAligner(variance_threshold=0.5)
         aligner.fit(X)
@@ -128,18 +139,21 @@ class TestSignificantSubspaceAlignerEdge:
         assert aligner.state_.rank <= 5
 
     def test_variance_threshold_near_zero_gives_rank_one(self) -> None:
+        """Variance threshold near zero gives rank one."""
         X = np.random.default_rng(2).normal(size=(50, 5))
         aligner = SignificantSubspaceAligner(variance_threshold=0.01)
         aligner.fit(X)
         assert aligner.state_.rank == 1
 
     def test_variance_threshold_one_gives_full_rank(self) -> None:
+        """Variance threshold one gives full rank."""
         X = np.random.default_rng(3).normal(size=(20, 3))
         aligner = SignificantSubspaceAligner(variance_threshold=0.9999)
         aligner.fit(X)
         assert aligner.state_.rank >= 2  # should capture most variance
 
     def test_with_subsampling_and_winsorize(self) -> None:
+        """With subsampling and winsorize."""
         rng = np.random.default_rng(4)
         X_source = rng.normal(size=(100, 4))
         X_target = rng.normal(loc=2.0, scale=1.5, size=(100, 4))
@@ -155,6 +169,7 @@ class TestSignificantSubspaceAlignerEdge:
         assert np.all(np.isfinite(transformed))
 
     def test_with_max_scale_ratio(self) -> None:
+        """With max scale ratio."""
         rng = np.random.default_rng(5)
         X_source = rng.normal(size=(30, 3))
         X_target = X_source * 100.0  # huge scale difference
@@ -169,6 +184,7 @@ class TestSignificantSubspaceAlignerEdge:
         assert transformed.std() < X_target.std()
 
     def test_transform_updates_state(self) -> None:
+        """Transform updates state."""
         rng = np.random.default_rng(6)
         X_source = rng.normal(size=(30, 3))
         X_target = rng.normal(loc=1.0, size=(30, 3))
@@ -181,6 +197,7 @@ class TestSignificantSubspaceAlignerEdge:
         assert not np.array_equal(new_tgt_mean, old_tgt_mean)
 
     def test_fit_without_y(self) -> None:
+        """Fit without y."""
         X = np.random.default_rng(7).normal(size=(30, 4))
         aligner = SignificantSubspaceAligner()
         aligner.fit(X)
@@ -189,6 +206,7 @@ class TestSignificantSubspaceAlignerEdge:
         assert np.all(aligner.state_.feature_weights > 0)
 
     def test_transform_state_after_fit_transform(self) -> None:
+        """Transform state after fit transform."""
         rng = np.random.default_rng(8)
         X_source = rng.normal(size=(25, 3))
         X_target = rng.normal(loc=2.0, size=(25, 3))
@@ -226,11 +244,13 @@ class TestSignificantSubspaceAlignerEdge:
 
 class TestFeatureStatNormalizerEdge:
     def test_fit_returns_self(self) -> None:
+        """Fit returns self."""
         X = np.random.default_rng(0).normal(size=(20, 3))
         norm = FeatureStatNormalizer()
         assert norm.fit(X) is norm
 
     def test_single_feature(self) -> None:
+        """Single feature."""
         X_source = np.array([[1.0], [2.0], [3.0]])
         X_target = np.array([[10.0], [20.0], [30.0]])
         norm = FeatureStatNormalizer()
@@ -240,6 +260,7 @@ class TestFeatureStatNormalizerEdge:
         assert np.allclose(transformed, X_source)
 
     def test_with_subsampling_and_winsorize(self) -> None:
+        """With subsampling and winsorize."""
         rng = np.random.default_rng(1)
         X_source = rng.normal(size=(50, 4))
         X_target = rng.normal(loc=3.0, scale=2.0, size=(50, 4))
@@ -256,6 +277,7 @@ class TestFeatureStatNormalizerEdge:
         assert np.all(np.isfinite(transformed))
 
     def test_with_max_scale_ratio(self) -> None:
+        """With max scale ratio."""
         X_source = np.array([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0]])
         X_target = np.array([[100.0, 200.0], [200.0, 400.0], [300.0, 600.0]])
 
@@ -281,11 +303,13 @@ class TestFeatureStatNormalizerEdge:
         assert np.all(np.isfinite(transformed))
 
     def test_transform_before_fit_raises(self) -> None:
+        """Transform before fit raises."""
         norm = FeatureStatNormalizer()
         with pytest.raises(RuntimeError, match="call fit"):
             norm.transform(np.ones((3, 2)))
 
     def test_fit_overwrites_previous_fit(self) -> None:
+        """Fit overwrites previous fit."""
         X1 = np.array([[1.0, 2.0], [3.0, 4.0]])
         X2 = np.array([[100.0, 200.0], [300.0, 400.0]])
         norm = FeatureStatNormalizer()

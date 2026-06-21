@@ -51,6 +51,7 @@ def _make_source_data(n: int = 48, seed: int = 0) -> tuple[np.ndarray, np.ndarra
 
 class TestFitSource:
     def test_returns_self(self) -> None:
+        """Returns self."""
         X, y = _make_source_data()
         predictor = _make_predictor()
         batch = predictor.predict_distribution(X)
@@ -59,6 +60,7 @@ class TestFitSource:
         assert result is transport
 
     def test_stores_state(self) -> None:
+        """Stores state."""
         X, y = _make_source_data()
         predictor = _make_predictor()
         batch = predictor.predict_distribution(X)
@@ -98,6 +100,7 @@ class TestFitSource:
         assert transport.state_.source_representations is not None
 
     def test_alignment_disabled(self) -> None:
+        """Alignment disabled."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         batch = predictor.predict_distribution(X)
@@ -109,6 +112,7 @@ class TestFitSource:
         assert transport._subspace_aligner is None
 
     def test_uncertainty_inflation_disabled(self) -> None:
+        """Uncertainty inflation disabled."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         batch = predictor.predict_distribution(X)
@@ -140,6 +144,7 @@ class TestFitSource:
 
 class TestAdaptUnlabeledTarget:
     def test_raises_before_fit_source(self) -> None:
+        """Raises before fit source."""
         transport = ShiftFactoredPredictiveTransport()
         with pytest.raises(RuntimeError, match="fit_source"):
             transport.adapt_unlabeled_target(
@@ -147,6 +152,7 @@ class TestAdaptUnlabeledTarget:
             )
 
     def test_raises_when_no_predictions_and_no_predictor(self) -> None:
+        """Raises when no predictions and no predictor."""
         X, y = _make_source_data()
         transport = ShiftFactoredPredictiveTransport().fit_source(
             _make_predictor().predict_distribution(X), y
@@ -295,6 +301,7 @@ class TestAdaptUnlabeledTarget:
 
 class TestCalibrateTarget:
     def test_raises_before_fit_source(self) -> None:
+        """Raises before fit source."""
         transport = ShiftFactoredPredictiveTransport()
         with pytest.raises(RuntimeError, match="fit_source"):
             transport.calibrate_target(
@@ -303,6 +310,7 @@ class TestCalibrateTarget:
             )
 
     def test_returns_self(self) -> None:
+        """Returns self."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -315,6 +323,7 @@ class TestCalibrateTarget:
         assert result is transport
 
     def test_stores_conformal_state_and_method(self) -> None:
+        """Stores conformal state and method."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -340,6 +349,7 @@ class TestCalibrateTarget:
         assert transport._conformal_state["method"] == "interval"
 
     def test_explicit_method_split(self) -> None:
+        """Explicit method split."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         batch = predictor.predict_distribution(X)
@@ -351,6 +361,7 @@ class TestCalibrateTarget:
         assert transport._conformal_state["method"] == "split"
 
     def test_explicit_method_invalid_raises(self) -> None:
+        """Explicit method invalid raises."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -360,6 +371,7 @@ class TestCalibrateTarget:
             transport.calibrate_target(predictor.predict_distribution(X), y, method="nonexistent")
 
     def test_quantile_batch_auto_selects_cqr(self) -> None:
+        """Quantile batch auto selects CQR."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         source_batch = predictor.predict_distribution(X)
@@ -380,6 +392,7 @@ class TestCalibrateTarget:
         assert transport._conformal_state["method"] == "cqr"
 
     def test_density_batch_auto_selects_cti(self) -> None:
+        """Density batch auto selects CTI."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         source_batch = predictor.predict_distribution(X)
@@ -403,6 +416,7 @@ class TestCalibrateTarget:
 
 class TestPredict:
     def test_calls_adapt_unlabeled_target(self) -> None:
+        """Calls adapt unlabeled target."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -418,6 +432,7 @@ class TestPredict:
         assert result.extra is not None
 
     def test_apply_conformal_true_adds_intervals(self) -> None:
+        """Apply conformal true adds intervals."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         source_batch = predictor.predict_distribution(X)
@@ -437,6 +452,7 @@ class TestPredict:
         assert "interval_upper" in result.extra
 
     def test_predict_without_calibrate_is_noop(self) -> None:
+        """Predict without calibrate is noop."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -460,12 +476,14 @@ class TestPredict:
 
 class TestApplyConformal:
     def test_no_conformal_state_returns_unchanged(self) -> None:
+        """No conformal state returns unchanged."""
         transport = ShiftFactoredPredictiveTransport()
         batch = PredictiveBatch(mean=np.array([0.0, 1.0], dtype=np.float32))
         result = transport.apply_conformal(batch)
         assert result is batch  # returns the same object
 
     def test_split_method_adds_intervals(self) -> None:
+        """Split method adds intervals."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -481,6 +499,7 @@ class TestApplyConformal:
         assert result.extra["conformal_method"] == "split"
 
     def test_interval_method_adds_predictions(self) -> None:
+        """Interval method adds predictions."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -497,6 +516,7 @@ class TestApplyConformal:
         assert np.all(upper >= lower)
 
     def test_cqr_method_on_quantile_batch(self) -> None:
+        """CQR method on quantile batch."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         source_batch = predictor.predict_distribution(X)
@@ -522,6 +542,7 @@ class TestApplyConformal:
         assert np.all(np.isfinite(upper))
 
     def test_cti_method_on_density_batch(self) -> None:
+        """CTI method on density batch."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         source_batch = predictor.predict_distribution(X)
@@ -545,6 +566,7 @@ class TestApplyConformal:
         assert np.all(upper >= lower)
 
     def test_invalid_method_raises(self) -> None:
+        """Invalid method raises."""
         transport = ShiftFactoredPredictiveTransport()
         transport._conformal_state = {"method": "bogus", "q_hat": 1.0}
         batch = PredictiveBatch(
@@ -554,6 +576,7 @@ class TestApplyConformal:
             transport.apply_conformal(batch)
 
     def test_extra_stores_conformal_metadata(self) -> None:
+        """Extra stores conformal metadata."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -576,6 +599,7 @@ class TestApplyConformal:
 
 class TestPPITargetCI:
     def test_mean_estimand(self) -> None:
+        """Mean estimand."""
         X, y = _make_source_data(32, seed=20)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -606,6 +630,7 @@ class TestPPITargetCI:
         assert "ci_upper" in result
 
     def test_quantile_estimand_with_q(self) -> None:
+        """Quantile estimand with q."""
         X, y = _make_source_data(32, seed=22)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -637,6 +662,7 @@ class TestPPITargetCI:
         assert "ci_upper" in result
 
     def test_quantile_estimand_without_q_raises(self) -> None:
+        """Quantile estimand without q raises."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -659,6 +685,7 @@ class TestPPITargetCI:
             )
 
     def test_ols_estimand_with_x(self) -> None:
+        """OLS estimand with x."""
         X, y = _make_source_data(32, seed=24)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -691,6 +718,7 @@ class TestPPITargetCI:
         assert "ci_upper" in result
 
     def test_ols_estimand_without_x_raises(self) -> None:
+        """OLS estimand without x raises."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(
@@ -713,6 +741,7 @@ class TestPPITargetCI:
             )
 
     def test_invalid_estimand_raises(self) -> None:
+        """Invalid estimand raises."""
         X, y = _make_source_data(32)
         predictor = _make_predictor()
         transport = ShiftFactoredPredictiveTransport(

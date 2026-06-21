@@ -7,6 +7,8 @@ This file fills gaps: internal helpers, parameter validation,
 diagnostics contents, and boundary behavior.
 """
 
+from __future__ import annotations
+
 import pytest
 import torch
 
@@ -27,39 +29,46 @@ from torchregress.test_time.ot_conformal import (
 
 class TestAs1dScores:
     def test_tensor_passthrough(self) -> None:
+        """Tensor passthrough."""
         t = torch.tensor([1.0, 2.0, 3.0])
         result = _as_1d_scores(t, name="test")
         torch.testing.assert_close(result, t)
 
     def test_non_tensor_conversion(self) -> None:
+        """Non tensor conversion."""
         result = _as_1d_scores([1.0, 2.0, 3.0], name="test")
         assert torch.is_tensor(result)
         assert result.shape == (3,)
         assert result.dtype == torch.float32
 
     def test_2d_flattened(self) -> None:
+        """2d flattened."""
         t = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
         result = _as_1d_scores(t, name="test")
         assert result.shape == (4,)
 
     def test_empty_raises(self) -> None:
+        """Empty raises."""
         with pytest.raises(ValueError, match="must be non-empty"):
             _as_1d_scores(torch.tensor([]), name="scores")
 
 
 class TestNormalizeSimplex:
     def test_already_normalized(self) -> None:
+        """Already normalized."""
         w = torch.tensor([0.2, 0.3, 0.5])
         result = _normalize_simplex(w)
         torch.testing.assert_close(result, w)
 
     def test_unnormalized(self) -> None:
+        """Unnormalized."""
         w = torch.tensor([1.0, 2.0, 3.0])
         result = _normalize_simplex(w)
         torch.testing.assert_close(result.sum(), torch.tensor(1.0))
         torch.testing.assert_close(result, w / 6.0)
 
     def test_negative_values_clamped(self) -> None:
+        """Negative values clamped."""
         w = torch.tensor([-1.0, 2.0, -3.0, 6.0])
         result = _normalize_simplex(w)
         torch.testing.assert_close(result[0], torch.tensor(0.0))
@@ -67,6 +76,7 @@ class TestNormalizeSimplex:
         torch.testing.assert_close(result.sum(), torch.tensor(1.0))
 
     def test_all_zeros(self) -> None:
+        """All zeros."""
         w = torch.zeros(5)
         result = _normalize_simplex(w)
         # All clamped to 0, sum clamped to eps, division gives 0/eps = 0
@@ -75,6 +85,7 @@ class TestNormalizeSimplex:
 
 class TestUniformECDFOnGrid:
     def test_matches_manual(self) -> None:
+        """Matches manual."""
         scores = torch.tensor([0.0, 1.0, 2.0])
         grid = torch.tensor([-0.5, 0.5, 1.5, 2.5])
         result = _uniform_ecdf_on_grid(scores, grid)
@@ -84,6 +95,7 @@ class TestUniformECDFOnGrid:
         torch.testing.assert_close(result, expected)
 
     def test_single_score(self) -> None:
+        """Single score."""
         scores = torch.tensor([0.5])
         grid = torch.tensor([0.0, 0.5, 1.0])
         result = _uniform_ecdf_on_grid(scores, grid)
@@ -94,12 +106,14 @@ class TestUniformECDFOnGrid:
 
 class TestEffectiveSampleSize:
     def test_uniform_weights(self) -> None:
+        """Uniform weights."""
         n = 50
         w = torch.ones(n) / n
         ess = _effective_sample_size_inv_square(w)
         torch.testing.assert_close(ess, torch.tensor(float(n)))
 
     def test_single_nonzero(self) -> None:
+        """Single nonzero."""
         w = torch.tensor([0.0, 1.0, 0.0])
         ess = _effective_sample_size_inv_square(w)
         torch.testing.assert_close(ess, torch.tensor(1.0))
@@ -112,6 +126,7 @@ class TestEffectiveSampleSize:
 
 class TestOptimalTransportCoverageGapEdge:
     def test_invalid_n_grid(self) -> None:
+        """Invalid n grid."""
         with pytest.raises(ValueError, match="n_grid must be at least 8"):
             OptimalTransportCoverageGap(n_grid=4)
 
@@ -126,6 +141,7 @@ class TestOptimalTransportCoverageGapEdge:
         assert result["n_target"] == 10
 
     def test_keys_present(self) -> None:
+        """Keys present."""
         result = OptimalTransportCoverageGap().estimate(
             calibration_scores=torch.randn(20),
             target_score_summary=torch.randn(15),
@@ -135,6 +151,7 @@ class TestOptimalTransportCoverageGapEdge:
         assert 0.0 <= result["ks_max_abs"] <= 1.0
 
     def test_identical_distributions_small_gap(self) -> None:
+        """Identical distributions small gap."""
         torch.manual_seed(0)
         s = torch.randn(100)
         result = OptimalTransportCoverageGap().estimate(
@@ -144,6 +161,7 @@ class TestOptimalTransportCoverageGapEdge:
         assert result["ks_max_abs"] < 1e-4
 
     def test_non_tensor_input(self) -> None:
+        """Non tensor input."""
         result = OptimalTransportCoverageGap().estimate(
             calibration_scores=[1.0, 2.0, 3.0],
             target_score_summary=[2.0, 3.0, 4.0],
@@ -160,28 +178,34 @@ class TestOptimalTransportCoverageGapEdge:
 
 class TestOTShiftReweighterEdge:
     def test_invalid_score_mode(self) -> None:
+        """Invalid score mode."""
         with pytest.raises(ValueError, match="score_mode"):
             OTShiftReweighter(score_mode="regression")  # type: ignore[arg-type]
 
     def test_invalid_objective(self) -> None:
+        """Invalid objective."""
         with pytest.raises(ValueError, match="objective"):
             OTShiftReweighter(objective="l2")  # type: ignore[arg-type]
 
     def test_invalid_weight_parameterization(self) -> None:
+        """Invalid weight parameterization."""
         with pytest.raises(ValueError, match="weight_parameterization"):
             OTShiftReweighter(weight_parameterization="simplex")  # type: ignore[arg-type]
 
     def test_negative_entropy_penalty(self) -> None:
+        """Negative entropy penalty."""
         with pytest.raises(ValueError, match="entropy_penalty"):
             OTShiftReweighter(entropy_penalty=-0.1)
 
     def test_fit_returns_self(self) -> None:
+        """Fit returns self."""
         rw = OTShiftReweighter(n_steps=20, learning_rate=0.1)
         cal = torch.randn(30)
         tgt = torch.randn(25)
         assert rw.fit(cal, tgt) is rw
 
     def test_diagnostics_keys(self) -> None:
+        """Diagnostics keys."""
         torch.manual_seed(0)
         rw = OTShiftReweighter(n_steps=30, learning_rate=0.1)
         rw.fit(torch.randn(30), torch.randn(20))
@@ -190,6 +214,7 @@ class TestOTShiftReweighterEdge:
         assert rw.diagnostics_["ess_inv_square"] > 0
 
     def test_objective_value_stored(self) -> None:
+        """Objective value stored."""
         rw = OTShiftReweighter(n_steps=30, learning_rate=0.1)
         rw.fit(torch.randn(30), torch.randn(20))
         assert rw.objective_value_ is not None
@@ -198,16 +223,19 @@ class TestOTShiftReweighterEdge:
         assert abs(rw.objective_value_) < float("inf")
 
     def test_empty_calibration_raises(self) -> None:
+        """Empty calibration raises."""
         rw = OTShiftReweighter()
         with pytest.raises(ValueError, match="must be non-empty"):
             rw.fit(torch.tensor([]), torch.randn(5))
 
     def test_empty_target_raises(self) -> None:
+        """Empty target raises."""
         rw = OTShiftReweighter()
         with pytest.raises(ValueError, match="must be non-empty"):
             rw.fit(torch.randn(5), torch.tensor([]))
 
     def test_single_element_each(self) -> None:
+        """Single element each."""
         rw = OTShiftReweighter(n_steps=30, learning_rate=0.1)
         rw.fit(torch.tensor([0.5]), torch.tensor([0.6]))
         assert rw.weights_ is not None
@@ -239,6 +267,7 @@ class TestOTShiftReweighterEdge:
 
 class TestWeightedSplitConformalAdapterEdge:
     def test_alpha_near_bounds(self) -> None:
+        """Alpha near bounds."""
         # alpha close to 0
         ad = WeightedSplitConformalAdapter(alpha=0.01)
         assert ad.alpha == 0.01
@@ -248,38 +277,45 @@ class TestWeightedSplitConformalAdapterEdge:
         assert ad2.alpha == 0.99
 
     def test_predict_before_calibrate_raises(self) -> None:
+        """Predict before calibrate raises."""
         ad = WeightedSplitConformalAdapter(alpha=0.1)
         with pytest.raises(RuntimeError, match="calibrate"):
             ad.predict_from_test_scores(torch.randn(3, 2))
 
     def test_coverage_diagnostics_before_calibrate_raises(self) -> None:
+        """Coverage diagnostics before calibrate raises."""
         ad = WeightedSplitConformalAdapter(alpha=0.1)
         with pytest.raises(RuntimeError, match="calibrate"):
             ad.coverage_diagnostics(torch.randn(5), torch.ones(5))
 
     def test_calibrate_weights_shape_mismatch_raises(self) -> None:
+        """Calibrate weights shape mismatch raises."""
         ad = WeightedSplitConformalAdapter(alpha=0.1)
         with pytest.raises(ValueError, match="weights must match"):
             ad.calibrate(torch.randn(5), torch.ones(3))
 
     def test_coverage_diagnostics_shape_mismatch_raises(self) -> None:
+        """Coverage diagnostics shape mismatch raises."""
         ad = WeightedSplitConformalAdapter(alpha=0.1)
         ad.calibrate(torch.randn(5), torch.ones(5))
         with pytest.raises(ValueError, match="weights must match"):
             ad.coverage_diagnostics(torch.randn(5), torch.ones(3))
 
     def test_predict_1d_candidate_raises(self) -> None:
+        """Predict 1d candidate raises."""
         ad = WeightedSplitConformalAdapter(alpha=0.1)
         ad.calibrate(torch.randn(10), torch.ones(10))
         with pytest.raises(ValueError, match="2-D"):
             ad.predict_from_test_scores(torch.randn(5))
 
     def test_calibrate_returns_self(self) -> None:
+        """Calibrate returns self."""
         ad = WeightedSplitConformalAdapter(alpha=0.1)
         result = ad.calibrate(torch.randn(10), torch.ones(10))
         assert result is ad
 
     def test_predict_all_above_threshold(self) -> None:
+        """Predict all above threshold."""
         scores = torch.randn(20)
         ad = WeightedSplitConformalAdapter(alpha=0.1).calibrate(scores, torch.ones(20))
         # All candidates well above threshold → no inclusion
@@ -288,6 +324,7 @@ class TestWeightedSplitConformalAdapterEdge:
         assert not mask.any()
 
     def test_predict_all_below_threshold(self) -> None:
+        """Predict all below threshold."""
         scores = torch.randn(20)
         ad = WeightedSplitConformalAdapter(alpha=0.1).calibrate(scores, torch.ones(20))
         # All candidates well below threshold → all included
@@ -304,6 +341,7 @@ class TestWeightedSplitConformalAdapterEdge:
         assert mask.all()
 
     def test_coverage_diagnostics_keys(self) -> None:
+        """Coverage diagnostics keys."""
         scores = torch.randn(30)
         w = torch.ones(30)
         ad = WeightedSplitConformalAdapter(alpha=0.1).calibrate(scores, w)

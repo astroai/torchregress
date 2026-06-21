@@ -31,6 +31,7 @@ def _make_adapter(
 
 class TestWeightedSplitPredictiveBatch:
     def test_returns_predictive_batch(self) -> None:
+        """Returns predictive batch."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5, 0.7, 0.9]))
         scores = torch.tensor([[0.2, 0.4], [0.6, 0.8]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -40,6 +41,7 @@ class TestWeightedSplitPredictiveBatch:
         assert batch.extra is not None
 
     def test_label_inclusion_mask_in_extra(self) -> None:
+        """Label inclusion mask in extra."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5, 0.7, 0.9]))
         scores = torch.tensor([[0.2, 0.8], [0.4, 0.1], [0.9, 0.3]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -50,6 +52,7 @@ class TestWeightedSplitPredictiveBatch:
         assert mask.dtype == torch.bool
 
     def test_alpha_in_extra(self) -> None:
+        """Alpha in extra."""
         adapter = _make_adapter(alpha=0.2, calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([[0.1, 0.2]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -57,6 +60,7 @@ class TestWeightedSplitPredictiveBatch:
         assert batch.extra["alpha"] == 0.2
 
     def test_threshold_in_extra(self) -> None:
+        """Threshold in extra."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5, 0.7, 0.9]))
         scores = torch.tensor([[0.2, 0.4]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -66,6 +70,7 @@ class TestWeightedSplitPredictiveBatch:
         assert isinstance(batch.extra["threshold"], float)
 
     def test_set_sizes_are_integer_counts(self) -> None:
+        """Set sizes are integer counts."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.2, 0.3, 0.4, 0.5]))
         scores = torch.tensor(
             [
@@ -81,12 +86,14 @@ class TestWeightedSplitPredictiveBatch:
         assert torch.all(set_sizes <= scores.shape[1])
 
     def test_mean_equals_point(self) -> None:
+        """Mean equals point."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([[0.2, 0.4, 0.6], [0.1, 0.3, 0.8]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
         assert torch.equal(batch.mean, batch.point)
 
     def test_std_is_zero(self) -> None:
+        """Std is zero."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([[0.2, 0.4]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -100,6 +107,7 @@ class TestWeightedSplitPredictiveBatch:
 
 class TestWeightedSplitPredictiveBatchDiagnostics:
     def test_gap_diagnostics_included(self) -> None:
+        """Gap diagnostics included."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5, 0.7, 0.9]))
         scores = torch.tensor([[0.2, 0.4]])
         gap = {"coverage_gap": 0.05, "wasserstein": 0.03}
@@ -109,6 +117,7 @@ class TestWeightedSplitPredictiveBatchDiagnostics:
         assert batch.extra["shift_gap_diagnostics"] is gap
 
     def test_gap_diagnostics_none_not_included(self) -> None:
+        """Gap diagnostics none not included."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([[0.2, 0.4]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -116,6 +125,7 @@ class TestWeightedSplitPredictiveBatchDiagnostics:
         assert "shift_gap_diagnostics" not in batch.extra
 
     def test_calibration_ess_included(self) -> None:
+        """Calibration ESS included."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([[0.2, 0.4]])
         batch = weighted_split_classification_predictive_batch(
@@ -126,6 +136,7 @@ class TestWeightedSplitPredictiveBatchDiagnostics:
         assert batch.extra["calibration_ess_inv_square"] == 0.8
 
     def test_calibration_ess_none_not_included(self) -> None:
+        """Calibration ESS none not included."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([[0.2, 0.4]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -140,18 +151,21 @@ class TestWeightedSplitPredictiveBatchDiagnostics:
 
 class TestWeightedSplitPredictiveBatchValidation:
     def test_1d_scores_raises(self) -> None:
+        """1d scores raises."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([0.1, 0.2, 0.3])
         with pytest.raises(ValueError, match="2-D"):
             weighted_split_classification_predictive_batch(adapter, scores)
 
     def test_3d_scores_raises(self) -> None:
+        """3d scores raises."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.randn(2, 3, 4)
         with pytest.raises(ValueError, match="2-D"):
             weighted_split_classification_predictive_batch(adapter, scores)
 
     def test_before_calibrate_raises(self) -> None:
+        """Before calibrate raises."""
         adapter = WeightedSplitConformalAdapter(alpha=0.1)
         scores = torch.tensor([[0.2, 0.4], [0.6, 0.8]])
         with pytest.raises(RuntimeError, match="calibrate"):
@@ -165,6 +179,7 @@ class TestWeightedSplitPredictiveBatchValidation:
 
 class TestWeightedSplitPredictiveBatchEdge:
     def test_single_sample_single_class(self) -> None:
+        """Single sample single class."""
         adapter = _make_adapter(calibration_scores=torch.tensor([0.1, 0.3, 0.5]))
         scores = torch.tensor([[0.2]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
@@ -172,6 +187,7 @@ class TestWeightedSplitPredictiveBatchEdge:
         assert batch.extra["label_inclusion_mask"].shape == (1, 1)
 
     def test_many_classes(self) -> None:
+        """Many classes."""
         adapter = _make_adapter(calibration_scores=torch.linspace(0, 1, 20))
         scores = torch.rand(5, 50)
         batch = weighted_split_classification_predictive_batch(adapter, scores)
