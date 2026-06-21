@@ -62,4 +62,4 @@ def winsorize(X: np.ndarray, clip_quantile: float | None) -> np.ndarray:
         return X
     lo = np.quantile(X, q, axis=0)
     hi = np.quantile(X, 1.0 - q, axis=0)
-    return np.clip(X, lo[None, :], hi[None, :])
+    return np.clip(X, lo, hi)
