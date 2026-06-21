@@ -588,12 +588,13 @@ class TestAFTLossContract:
         loc = torch.randn(batch, dim)
         log_scale = torch.randn(batch, dim) * 0.5
         target = torch.exp(torch.randn(batch, dim))
+        censoring = torch.zeros(batch, dim, dtype=torch.long)
         mask = torch.ones(batch, dim, dtype=torch.bool)
         mask[0, 0] = False
 
         fn = AFTLoss(reduction="mean")
-        loss_full = fn((loc, log_scale), target)
-        loss_masked = fn((loc, log_scale), target, mask=mask)
+        loss_full = fn((loc, log_scale), target, censoring)
+        loss_masked = fn((loc, log_scale), target, censoring, mask=mask)
         assert loss_masked != loss_full
 
     def test_gradients_flow(self):
