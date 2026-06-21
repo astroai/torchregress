@@ -13,6 +13,7 @@ import torch.nn.functional as F
 
 from torchregress.losses.censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
 from torchregress.losses.conformal import ConformalLoss, MultiDimensionalConformalLoss
+from torchregress.losses.eiv import EnsembleEIVLoss, FunctionalEIVLoss, StructuralEIVLoss
 from torchregress.losses.ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.losses.poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
@@ -1171,3 +1172,293 @@ class TestMultiDimensionalConformalContract:
         assert upper.shape == y_pred_test.shape
         assert lower.shape[-1] == n_feat
         assert (lower <= upper).all()
+
+
+# ── EIV family helpers ────────────────────────────────────────────────
+
+
+def _eiv_model():
+    """Deterministic linear model for EIV tests: y = 2 * x[:, :out_dim]."""
+    return lambda x: x[:, :2] * 2.0
+
+
+# ── FunctionalEIVLoss ─────────────────────────────────────────────────
+
+
+class TestFunctionalEIVContract:
+    """Reduction / mask / weight / gradient contracts for FunctionalEIVLoss."""
+
+    def test_reduction_consistency(self):
+        model = _eiv_model()
+        batch, in_dim = 8, 4
+        x_obs = torch.randn(batch, in_dim)
+        target = torch.randn(batch, 2)
+
+        fn_none = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="none")
+        fn_mean = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="mean")
+        fn_sum = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="sum")
+
+        none_out = fn_none(x_obs, target)
+        # FunctionalEIVLoss returns per-sample scalar loss (batch,)
+        assert none_out.shape == (batch,)
+        torch.testing.assert_close(none_out.mean(), fn_mean(x_obs, target))
+        torch.testing.assert_close(fn_sum(x_obs, target) / batch, fn_mean(x_obs, target))
+
+    def test_mask_changes_loss(self):
+        model = _eiv_model()
+        batch, out_dim = 6, 2
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, out_dim)
+        mask = torch.ones(batch, out_dim, dtype=torch.bool)
+        mask[0, 0] = False
+
+        fn = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="mean")
+        assert fn(x_obs, target) != fn(x_obs, target, mask=mask)
+
+    def test_weights_scale_loss(self):
+        model = _eiv_model()
+        batch = 4
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, 2)
+        # EIV loss is per-sample (batch,), so weights are 1-D
+        w1 = torch.ones(batch)
+        w2 = w1.clone()
+        w2[0] = 2.0
+
+        fn = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="none")
+        out1 = fn(x_obs, target, weights=w1)
+        out2 = fn(x_obs, target, weights=w2)
+        torch.testing.assert_close(out2[0] / out1[0], torch.tensor(2.0))
+
+    def test_zero_weight_zeros_loss(self):
+        model = _eiv_model()
+        batch = 4
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, 2)
+        w = torch.ones(batch)
+        w[0] = 0.0
+
+        fn = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="none")
+        out = fn(x_obs, target, weights=w)
+        assert out[0] == 0.0
+
+    def test_gradients_flow(self):
+        weight = torch.randn(4, 2, requires_grad=True)
+
+        def model(x):
+            return x @ weight
+
+        fn = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, reduction="mean")
+        x_obs = torch.randn(4, 4)
+        target = torch.randn(4, 2)
+
+        loss = fn(x_obs, target)
+        loss.backward()
+        assert weight.grad is not None and torch.isfinite(weight.grad).all()
+
+    def test_all_modes_produce_finite_loss(self):
+        model = _eiv_model()
+        x_obs = torch.randn(6, 4)
+        target = torch.randn(6, 2)
+
+        for mode in ["analytical", "mc", "hybrid"]:
+            fn = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, mode=mode, n_samples=10)
+            loss = fn(x_obs, target)
+            assert torch.isfinite(loss), f"mode={mode} produced non-finite loss"
+
+    def test_with_scalar_vector_and_matrix_sigma(self):
+        """FunctionalEIVLoss works with scalar, vector, and matrix sigma_x."""
+        model = _eiv_model()
+        x_obs = torch.randn(6, 4)
+        target = torch.randn(6, 2)
+
+        for sigma_x in [0.1, torch.ones(4) * 0.1, torch.eye(4) * 0.01]:
+            fn = FunctionalEIVLoss(model, sigma_x=sigma_x, sigma_y=0.1)
+            loss = fn(x_obs, target)
+            assert torch.isfinite(loss)
+
+
+class TestFunctionalEIVRelationships:
+    """Cross-mode and zero-noise relationships for FunctionalEIVLoss."""
+
+    def test_zero_noise_approaches_mse(self):
+        """With sigma_x = sigma_y = 0, Functional EIV loss reduces exactly
+        to the Gaussian NLL with variance = eps:
+
+        NLL = 0.5 * D * (log(2π) + log(eps)) + 0.5 * ∑ rᵢ² / eps."""
+        model = _eiv_model()
+        batch, out_dim = 8, 2
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, out_dim)
+        eps = 1e-8
+
+        fn = FunctionalEIVLoss(model, sigma_x=0.0, sigma_y=0.0, eps=eps, reduction="none")
+        eiv_loss = fn(x_obs, target)  # shape (batch,)
+
+        # Closed-form: with var = 0, the NLL is
+        # 0.5 * sum_i (log(eps) + r_i² / eps) + 0.5 * D * log(2π)
+        residuals = model(x_obs) - target
+        residual_sq_sum = residuals.pow(2).sum(dim=-1)  # (batch,)
+        expected = 0.5 * (
+            out_dim * math.log(2 * math.pi) + out_dim * math.log(eps) + residual_sq_sum / eps
+        )
+        torch.testing.assert_close(eiv_loss, expected)
+
+    def test_modes_produce_similar_loss(self):
+        """All three modes (analytical, mc, hybrid) produce similar loss values."""
+        model = _eiv_model()
+        x_obs = torch.randn(10, 4)
+        target = torch.randn(10, 2)
+
+        fn_a = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, mode="analytical")
+        fn_mc = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, mode="mc", n_samples=50)
+        fn_hyb = FunctionalEIVLoss(model, sigma_x=0.1, sigma_y=0.1, mode="hybrid", n_samples=20)
+
+        loss_a = fn_a(x_obs, target)
+        loss_mc = fn_mc(x_obs, target)
+        loss_hyb = fn_hyb(x_obs, target)
+
+        assert torch.isfinite(loss_a)
+        assert torch.isfinite(loss_mc)
+        assert torch.isfinite(loss_hyb)
+        # Same order of magnitude
+        assert 0.1 < loss_mc / loss_a < 10.0
+        assert 0.1 < loss_hyb / loss_a < 10.0
+
+
+# ── EnsembleEIVLoss ───────────────────────────────────────────────────
+
+
+class TestEnsembleEIVContract:
+    """Contracts for EnsembleEIVLoss."""
+
+    def test_reduction_consistency(self):
+        model = _eiv_model()
+        batch, out_dim = 6, 2
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, out_dim)
+
+        # Use sigma_x=0 for deterministic loss across calls
+        fn_none = EnsembleEIVLoss(model, sigma_x=0.0, n_samples=3, reduction="none")
+        fn_mean = EnsembleEIVLoss(model, sigma_x=0.0, n_samples=3, reduction="mean")
+        fn_sum = EnsembleEIVLoss(model, sigma_x=0.0, n_samples=3, reduction="sum")
+
+        none_out = fn_none(x_obs, target)
+        # EnsembleEIVLoss returns per-sample scalar loss (batch,)
+        assert none_out.shape == (batch,)
+        torch.testing.assert_close(none_out.mean(), fn_mean(x_obs, target))
+        torch.testing.assert_close(fn_sum(x_obs, target) / batch, fn_mean(x_obs, target))
+
+    def test_mask_changes_loss(self):
+        model = _eiv_model()
+        batch, out_dim = 6, 2
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, out_dim)
+        mask = torch.ones(batch, out_dim, dtype=torch.bool)
+        mask[0, 0] = False
+
+        fn = EnsembleEIVLoss(model, sigma_x=0.0, n_samples=3, reduction="mean")
+        assert fn(x_obs, target) != fn(x_obs, target, mask=mask)
+
+    def test_zero_noise_approaches_mse(self):
+        """With sigma_x=0, all perturbed samples are identical, output = MSE."""
+        model = _eiv_model()
+        batch, out_dim = 6, 2
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, out_dim)
+
+        fn = EnsembleEIVLoss(model, sigma_x=0.0, n_samples=3, reduction="mean")
+        eiv_loss = fn(x_obs, target)
+
+        mse = (model(x_obs) - target).pow(2).sum(dim=-1).mean()
+        torch.testing.assert_close(eiv_loss, mse)
+
+    def test_weights_scale_loss(self):
+        model = _eiv_model()
+        batch = 4
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, 2)
+        # EIV loss is per-sample (batch,), so weights are 1-D
+        w1 = torch.ones(batch)
+        w2 = w1.clone()
+        w2[0] = 2.0
+
+        fn = EnsembleEIVLoss(model, sigma_x=0.0, n_samples=3, reduction="none")
+        out1 = fn(x_obs, target, weights=w1)
+        out2 = fn(x_obs, target, weights=w2)
+        torch.testing.assert_close(out2[0] / out1[0], torch.tensor(2.0))
+
+
+# ── StructuralEIVLoss ─────────────────────────────────────────────────
+
+
+class TestStructuralEIVContract:
+    """Contracts for StructuralEIVLoss."""
+
+    def test_reduction_consistency(self):
+        model = _eiv_model()
+        batch = 6
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, 2)
+        sigma_x = 0.1
+        sigma_y = 0.1
+        sigma_xy = torch.zeros(2, 4)
+
+        fn_none = StructuralEIVLoss(model, sigma_x, sigma_y, sigma_xy, reduction="none")
+        fn_mean = StructuralEIVLoss(model, sigma_x, sigma_y, sigma_xy, reduction="mean")
+        fn_sum = StructuralEIVLoss(model, sigma_x, sigma_y, sigma_xy, reduction="sum")
+
+        none_out = fn_none(x_obs, target)
+        # StructuralEIVLoss returns per-sample scalar loss (batch,)
+        assert none_out.shape == (batch,)
+        torch.testing.assert_close(none_out.mean(), fn_mean(x_obs, target))
+        torch.testing.assert_close(fn_sum(x_obs, target) / batch, fn_mean(x_obs, target))
+
+    def test_mask_changes_loss(self):
+        model = _eiv_model()
+        batch, out_dim = 5, 2
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, out_dim)
+        mask = torch.ones(batch, out_dim, dtype=torch.bool)
+        mask[0, 0] = False
+        sigma_xy = torch.zeros(out_dim, 4)
+
+        fn = StructuralEIVLoss(model, 0.1, 0.1, sigma_xy, reduction="mean")
+        assert fn(x_obs, target) != fn(x_obs, target, mask=mask)
+
+    def test_gradients_flow(self):
+        weight = torch.randn(4, 2, requires_grad=True)
+
+        def model(x):
+            return x @ weight
+
+        sigma_xy = torch.zeros(2, 4)
+        fn = StructuralEIVLoss(model, 0.1, 0.1, sigma_xy, reduction="mean")
+        x_obs = torch.randn(4, 4)
+        target = torch.randn(4, 2)
+
+        loss = fn(x_obs, target)
+        loss.backward()
+        assert weight.grad is not None and torch.isfinite(weight.grad).all()
+
+
+class TestStructuralEIVRelationships:
+    """Cross-family: Structural EIV reduces to Functional when cross-cov is zero."""
+
+    def test_zero_cross_cov_equals_functional(self):
+        """Structural(sigma_xy=0) ≈ Functional with same sigma."""
+        model = _eiv_model()
+        batch, out_dim = 10, 2
+        x_obs = torch.randn(batch, 4)
+        target = torch.randn(batch, out_dim)
+        sigma_x = 0.1
+        sigma_y = 0.1
+        sigma_xy = torch.zeros(out_dim, 4)
+
+        fn_func = FunctionalEIVLoss(model, sigma_x, sigma_y, reduction="none")
+        fn_struct = StructuralEIVLoss(model, sigma_x, sigma_y, sigma_xy, reduction="none")
+
+        loss_func = fn_func(x_obs, target)
+        loss_struct = fn_struct(x_obs, target)
+
+        torch.testing.assert_close(loss_struct, loss_func)
