@@ -49,6 +49,35 @@ from torchregress.losses.tweedie import (
 # ── helpers ──────────────────────────────────────────────────────────
 
 
+def _check_reduction(loss_cls, y_pred, target, *loss_args, **kwargs):
+    """Verify none/mean/sum reduction consistency.
+
+    Instantiates *loss_cls* with ``reduction='none'/'mean'/'sum'`` plus
+    any constructor keyword arguments in **kwargs, then calls each
+    on ``(y_pred, target, *loss_args)``.  Asserts that:
+
+    * ``none_out`` has the same shape as ``target``
+    * ``none_out.mean() == mean_out``
+    * ``sum_out / none_out.numel() == mean_out``
+
+    Parameters
+    ----------
+    **kwargs : forwarded to the loss class constructor (e.g., ``p=1.5``).
+    *loss_args : forwarded to ``forward(y_pred, target, *loss_args)``.
+    """
+    fn_none = loss_cls(reduction="none", **kwargs)
+    fn_mean = loss_cls(reduction="mean", **kwargs)
+    fn_sum = loss_cls(reduction="sum", **kwargs)
+
+    none_out = fn_none(y_pred, target, *loss_args)
+    mean_out = fn_mean(y_pred, target, *loss_args)
+    sum_out = fn_sum(y_pred, target, *loss_args)
+
+    assert none_out.shape == target.shape
+    torch.testing.assert_close(none_out.mean(), mean_out)
+    torch.testing.assert_close(sum_out / none_out.numel(), mean_out)
+
+
 def _make_pos_targets(batch=4, dim=3):
     """Positive-valued targets suitable for Poisson-family losses."""
     torch.manual_seed(42)
@@ -656,31 +685,21 @@ class TestTweedieFamilyContract:
         target = torch.rand(batch, dim) * 5 + 0.5
         return y_pred, target
 
-    def _check_reduction(self, loss_cls, **kw):
-        y_pred, target = self._data()
-        fn_none = loss_cls(reduction="none", **kw)
-        fn_mean = loss_cls(reduction="mean", **kw)
-        fn_sum = loss_cls(reduction="sum", **kw)
-
-        none_out = fn_none(y_pred, target)
-        mean_out = fn_mean(y_pred, target)
-        sum_out = fn_sum(y_pred, target)
-
-        assert none_out.shape == target.shape
-        torch.testing.assert_close(none_out.mean(), mean_out)
-        torch.testing.assert_close(sum_out / none_out.numel(), mean_out)
-
     def test_tweedie_reduction_consistency(self):
-        self._check_reduction(TweedieLoss, p=1.5, link="identity")
+        y_pred, target = self._data()
+        _check_reduction(TweedieLoss, y_pred, target, p=1.5, link="identity")
 
     def test_gamma_reduction_consistency(self):
-        self._check_reduction(GammaLoss, link="identity")
+        y_pred, target = self._data()
+        _check_reduction(GammaLoss, y_pred, target, link="identity")
 
     def test_inverse_gaussian_reduction_consistency(self):
-        self._check_reduction(InverseGaussianLoss, link="identity")
+        y_pred, target = self._data()
+        _check_reduction(InverseGaussianLoss, y_pred, target, link="identity")
 
     def test_compound_poisson_reduction_consistency(self):
-        self._check_reduction(CompoundPoissonLoss, p=1.5, link="identity")
+        y_pred, target = self._data()
+        _check_reduction(CompoundPoissonLoss, y_pred, target, p=1.5, link="identity")
 
     def test_tweedie_mask_changes_loss(self):
         y_pred, target = self._data(5, 3)
@@ -1620,36 +1639,33 @@ class TestEvidentialContract:
 class TestRobustContract:
     """Reduction / mask / weight contracts for robust loss classes."""
 
-    def _check_reduction(self, loss_cls, **kw):
-        y_pred = torch.randn(6, 4)
-        target = torch.randn(6, 4)
-        fn_none = loss_cls(reduction="none", **kw)
-        fn_mean = loss_cls(reduction="mean", **kw)
-        fn_sum = loss_cls(reduction="sum", **kw)
-        none_out = fn_none(y_pred, target)
-        assert none_out.shape == target.shape
-        torch.testing.assert_close(none_out.mean(), fn_mean(y_pred, target))
-        torch.testing.assert_close(
-            fn_sum(y_pred, target) / none_out.numel(), fn_mean(y_pred, target)
-        )
+    @staticmethod
+    def _rand_data(batch=6, dim=4):
+        return torch.randn(batch, dim), torch.randn(batch, dim)
 
     def test_pseudo_huber_reduction(self):
-        self._check_reduction(PseudoHuberLoss, delta=1.0)
+        y_pred, target = self._rand_data()
+        _check_reduction(PseudoHuberLoss, y_pred, target, delta=1.0)
 
     def test_log_cosh_reduction(self):
-        self._check_reduction(LogCoshLoss, scale=1.0)
+        y_pred, target = self._rand_data()
+        _check_reduction(LogCoshLoss, y_pred, target, scale=1.0)
 
     def test_barron_reduction(self):
-        self._check_reduction(BarronLoss, alpha=1.0, scale=1.0)
+        y_pred, target = self._rand_data()
+        _check_reduction(BarronLoss, y_pred, target, alpha=1.0, scale=1.0)
 
     def test_cauchy_reduction(self):
-        self._check_reduction(CauchyLoss, c=1.0)
+        y_pred, target = self._rand_data()
+        _check_reduction(CauchyLoss, y_pred, target, c=1.0)
 
     def test_charbonnier_reduction(self):
-        self._check_reduction(CharbonnierLoss, eps=0.1)
+        y_pred, target = self._rand_data()
+        _check_reduction(CharbonnierLoss, y_pred, target, eps=0.1)
 
     def test_tukey_reduction(self):
-        self._check_reduction(TukeyBiweightLoss, c=4.685)
+        y_pred, target = self._rand_data()
+        _check_reduction(TukeyBiweightLoss, y_pred, target, c=4.685)
 
     def test_pseudo_huber_mask(self):
         y_pred = torch.randn(5, 3)
