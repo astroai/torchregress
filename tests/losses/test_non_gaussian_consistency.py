@@ -859,6 +859,13 @@ class TestOrdinalFamilyContract:
         out2 = fn(logits, target, weights=w2)
         torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
 
+    def test_coral_gradients_flow(self):
+        logits = torch.randn(4, 3, 2, requires_grad=True)
+        target = torch.randint(0, 4, (4, 2))
+        loss = CORALLoss()(logits, target)
+        loss.backward()
+        assert logits.grad is not None and torch.isfinite(logits.grad).all()
+
     def test_ordinal_ce_weights_scale_loss(self):
         logits = torch.randn(4, 3, 2)
         target = torch.randint(0, 3, (4, 2))
