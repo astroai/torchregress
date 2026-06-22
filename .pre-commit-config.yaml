@@ -22,3 +22,13 @@ repos:
         types_or: [python, pyi]
       - id: ruff-format
         types_or: [python, pyi]
+
+  - repo: local
+    hooks:
+      - id: test-fixture-pin-discipline
+        name: test-fixture-pin-discipline (TOR001)
+        entry: python scripts/check_test_fixture_pin_discipline.py
+        language: system
+        types: [python]
+        files: '^tests/.*\.py$'
+        stages: [pre-commit]

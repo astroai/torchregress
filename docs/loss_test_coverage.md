@@ -303,6 +303,39 @@ When reviewing or extending any test in ``tests/losses/``, ``tests/``,
 is a **coverage-invariance violation** under this rule. Fix before
 merging, exactly per the patterns above.
 
+### Mechanical enforcement (TOR001)
+
+A local pre-commit hook at `scripts/check_test_fixture_pin_discipline.py`
+AST-scans every staged `tests/**.py` file for un-pinned
+`torch.eye(...)` / `torch.diag(...)` / `torch.diag_embed(...)` literals,
+emits `filename:lineno: torch.<func>() missing device= or dtype= kwarg`
+violations to stderr, and exits with status 1. **Rule ID: TOR001.**
+Registered in `.pre-commit-config.yaml` under `repos: local:` with
+`files: '^tests/.*\\.py$'`, so the hook fires automatically on every
+`git commit` that stages changes under `tests/`.
+
+Recognised canonical pin patterns:
+- **Direct kwarg** (works for `torch.eye`, which natively supports the
+  kwargs): `torch.eye(N, device=A.device, dtype=A.dtype)`
+- **Chained `.to(...)` cast** (the documented fallback for `torch.diag`
+  and `torch.diag_embed`, which do NOT accept those kwargs natively):
+  `torch.diag(matrix).to(device=matrix.device, dtype=matrix.dtype)`
+
+Inline opt-out: a trailing `# noqa: TOR001` comment on the offending
+line. Signature scope is intentionally narrow — only direct
+`torch.<func>(...)` attribute access is scanned. Aliases
+(`t.eye(...)`), imports (`from torch import eye; eye(...)`), and
+`**kwargs` splats are flagged as unverifiable; opt-out with
+`# noqa: TOR001` for the splat case if it provably carries the kwargs.
+
+Why `ast` rather than a custom `ruff` plugin: `ruff` is a Rust CLI and
+is not importable as a Python module for plugin code; AST-based
+analysis covers the rule completely without spawning an extra Rust
+tool. Unit-tested in
+`tests/utils/test_check_test_fixture_pin_discipline.py` (24 cases
+covering direct-kwarg pin, chained `.to()`, scope filters, walk depth,
+and rule-ID stability).
+
 ## TL;DR for code review
 
 When reviewing a loss change, look for:
