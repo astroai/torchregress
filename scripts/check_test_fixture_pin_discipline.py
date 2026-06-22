@@ -1,26 +1,30 @@
 #!/usr/bin/env python3
 """Pre-commit hook: enforce ``torch.eye`` / ``torch.diag`` pin discipline in
-``tests/``, ``examples/``, and ``notebooks/``.
+``tests/``, ``examples/``, ``notebooks/``, and ``src/``.
 
 The Coverage invariants rule (see ``docs/loss_test_coverage.md``) requires every
 ad-hoc ``torch.eye(...)`` / ``torch.diag(...)`` / ``torch.diag_embed(...)``
 literal in ``tests/**/*.py``, ``examples/**/*.py``, and ``notebooks/**/*.py``
 to pin at least one of ``device=`` / ``dtype=`` so the fixture does not
 silently rely on the loss module handling dtype / device of input fixtures
-internally. Two rule IDs:
+internally. Three rule IDs:
 
 - ``TOR001`` — scoped to ``tests/**/*.py``.
 - ``TOR002`` — scoped to ``examples/**/*.py`` and ``notebooks/**/*.py``.
+- ``TOR003`` — scoped to ``src/**/*.py`` (production loss fixtures plus
+  algorithms/, metrics/, ensemble/, utils/ helpers that emit the same
+  fixtures internally).
 
-The rule ID is resolved per-file via POSIX path-prefix matching
+The rule ID is resolved per-file via POSIX path-component matching
 (``_rule_id_for_path`` below).  Inline opt-out: trailing ``# noqa:
-TOR001`` / ``# noqa: TOR002`` comment on the offending line.
+TOR001`` / ``# noqa: TOR002`` / ``# noqa: TOR003`` comment on the
+offending line.
 
 Why this hook (vs a custom ``ruff`` plugin): ``ruff`` is a Rust CLI and is not
 importable as a Python module for plugin code; ``ast``-based static analysis
 covers the rule completely without spawning an extra Rust tool. The hook is
 invoked as a ``local`` pre-commit hook. ``.pre-commit-config.yaml`` registers
-two entries (one per rule ID), each with its own ``files:`` regex.
+three entries (one per rule ID), each with its own ``files:`` regex.
 
 PyTorch API wrinkle: ``torch.eye`` accepts native ``device=`` / ``dtype=``
 kwargs, but ``torch.diag`` and ``torch.diag_embed`` do NOT — they inherit
@@ -32,7 +36,7 @@ result. The checker accepts that chain via parent-tracking (see
 Alias-scope: the checker ONLY recognises ``torch.<func>(...)`` direct
 attribute access. Aliases (``t.eye(...)``) and ``from torch import eye`` are
 flagged as unverifiable — opt-out with ``# noqa: TOR001`` / ``# noqa:
-TOR002`` if this matters.
+TOR002`` / ``# noqa: TOR003`` if this matters.
 
 Usage (pre-commit calls this as a local hook):
 
@@ -52,18 +56,25 @@ from typing import Optional
 
 TOR001_RULE_ID = "TOR001"
 TOR002_RULE_ID = "TOR002"
+TOR003_RULE_ID = "TOR003"
 DEFAULT_RULE_ID = TOR001_RULE_ID
 TARGET_FUNCS = frozenset({"eye", "diag", "diag_embed"})
 REQUIRED_KWARGS = frozenset({"device", "dtype"})
 
-# Path-component -> rule ID.  Order matters only as a tie-break when a
-# single filename happens to contain two scope names (... extremely rare);
-# the resolution algorithm inspects the first matching directory
-# component from ``Path.parts``, so the right-side scope always wins.
+# Path-component -> rule ID.  The scope list is iterated for every
+# ``Path.parts`` entry; the FIRST matching prefix wins.  Order matters
+# when a single filename contains two scope names (rare); tests/ is
+# listed first to keep the historical designation.
 _RULE_PREFIXES: tuple[tuple[str, str], ...] = (
     ("tests", TOR001_RULE_ID),
     ("examples", TOR002_RULE_ID),
     ("notebooks", TOR002_RULE_ID),
+    # TOR003 covers the source-tree loss fixtures — ``src/torchregress/losses``
+    # is the canonical site of internal helpers like ``_make_spd_cov``, but
+    # the rule is keyed on the broader ``src`` directory so all production
+    # fixtures (algorithms/, metrics/, ensemble/, utils/, losses/) are in
+    # scope under a single rule ID.
+    ("src", TOR003_RULE_ID),
 )
 
 
@@ -242,9 +253,10 @@ def main(argv: list[str]) -> int:
             f"\n{len(all_errors)} violation(s) of fixture pin discipline "
             f"({', '.join(rule_ids)}). Pin device=/dtype= on every "
             "torch.eye/torch.diag/torch.diag_embed literal under tests/, "
-            "examples/, or notebooks/.  See docs/loss_test_coverage.md § "
-            "Coverage invariants.  Inline opt-out: `# noqa: TOR001` (tests/) "
-            "or `# noqa: TOR002` (examples/, notebooks/).",
+            "examples/, notebooks/, or src/. See docs/loss_test_coverage.md "
+            "§ Coverage invariants. Inline opt-out: `# noqa: TOR001` "
+            "(tests/), `# noqa: TOR002` (examples/, notebooks/), or "
+            "`# noqa: TOR003` (src/).",
             file=sys.stderr,
         )
         return 1

@@ -18,7 +18,15 @@ def _project_covariance_psd(
     covariance = 0.5 * (covariance + covariance.transpose(-1, -2))
     eigenvalues, eigenvectors = torch.linalg.eigh(covariance)
     clipped = eigenvalues.clamp_min(float(min_eigenvalue))
-    return eigenvectors @ torch.diag_embed(clipped) @ eigenvectors.transpose(-1, -2)
+    # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+    # torch.diag_embed does not accept device=/dtype= kwargs natively; the
+    # inherit-from-input fallback is not type-stable when min_eigenvalue
+    # is large enough to clip eigenvalues to float64 in mixed-precision runs.
+    return (
+        eigenvectors
+        @ torch.diag_embed(clipped).to(device=covariance.device, dtype=covariance.dtype)
+        @ eigenvectors.transpose(-1, -2)
+    )
 
 
 class RegressionCalibration:
@@ -73,7 +81,9 @@ class RegressionCalibration:
                     raise ValueError(
                         f"sigma_u vector shape {sigma.shape} doesn't match features {n_features}"
                     )
-                return torch.diag(sigma**2)
+                # Coverage invariants (TOR003): chain .to() on torch.diag because
+                # torch.diag does not accept device=/dtype= kwargs natively.
+                return torch.diag(sigma**2).to(device=device, dtype=sigma.dtype)
             if sigma.ndim == 2:
                 if sigma.shape != (n_features, n_features):
                     raise ValueError(
@@ -122,7 +132,9 @@ class RegressionCalibration:
         # Simple approach: Eigen-decomposition and clipping negative eigenvalues
         L, Q = torch.linalg.eigh(sigma_x)
         L_clipped = torch.clamp(L, min=1e-6)  # Clip small/negative eigenvalues
-        sigma_x_psd = Q @ torch.diag(L_clipped) @ Q.T
+        # Coverage invariants (TOR003): chain .to() on torch.diag because
+        # torch.diag does not accept device=/dtype= kwargs natively.
+        sigma_x_psd = Q @ torch.diag(L_clipped).to(device=sigma_x.device, dtype=sigma_x.dtype) @ Q.T
 
         # 4. Calculate Reliability Ratio/Matrix
         # Lambda = Sigma_x @ (Sigma_x + Sigma_u)^-1
@@ -155,7 +167,11 @@ class RegressionCalibration:
             sigma_x_diag = torch.diagonal(sigma_x_psd).clamp_min(1.0e-6)
             sigma_u_diag = torch.diagonal(self.sigma_u).clamp_min(1.0e-6)
             reliability_ratio = (sigma_x_diag / (sigma_x_diag + sigma_u_diag)).clamp(0.0, 1.0)
-            reliability = torch.diag(reliability_ratio)
+            # Coverage invariants (TOR003): chain .to() on torch.diag because
+            # torch.diag does not accept device=/dtype= kwargs natively.
+            reliability = torch.diag(reliability_ratio).to(
+                device=sigma_x.device, dtype=sigma_x.dtype
+            )
 
         self.signal_covariance = sigma_x_psd
         self.reliability_matrix = reliability
@@ -221,7 +237,11 @@ class RegressionCalibration:
             and sigma_value.shape == X_observed.shape
         ):
             sigma_diag = sigma_value.to(self.device, dtype=X_observed.dtype).clamp_min(1.0e-6)
-            sigma_u_cov = torch.diag_embed(sigma_diag.pow(2))
+            # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+            # torch.diag_embed does not accept device=/dtype= kwargs natively.
+            sigma_u_cov = torch.diag_embed(sigma_diag.pow(2)).to(
+                device=self.device, dtype=X_observed.dtype
+            )
             denom = signal.unsqueeze(0) + sigma_u_cov
             gain = signal.unsqueeze(0) @ torch.linalg.pinv(denom)
             centered = (X_observed - self.mu_w).unsqueeze(-1)

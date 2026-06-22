@@ -70,7 +70,15 @@ def _spdize(cov: torch.Tensor, *, jitter: float) -> torch.Tensor:
     sym = 0.5 * (cov + cov.transpose(-1, -2))
     evals, evecs = torch.linalg.eigh(sym)
     evals = torch.clamp(evals, min=jitter)
-    return evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
+    # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+    # torch.diag_embed does not accept device=/dtype= kwargs natively. Pin
+    # to the input covariance's device/dtype so that mixed-precision callers
+    # do not silently promote the diagonal into float64.
+    return (
+        evecs
+        @ torch.diag_embed(evals).to(device=cov.device, dtype=cov.dtype)
+        @ evecs.transpose(-1, -2)
+    )
 
 
 @torch.no_grad()

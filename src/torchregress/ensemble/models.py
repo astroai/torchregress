@@ -225,7 +225,13 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             # Aleatoric covariance: mean of member variances as diagonal
             stacked_vars = torch.stack(vars_)  # [M, B, D]
             avg_vars = torch.mean(stacked_vars, dim=0)  # [B, D]
-            ale_cov = torch.diag_embed(avg_vars)
+            # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+            # torch.diag_embed does not accept device=/dtype= kwargs natively.
+            # Anchor on ``avg_vars`` (= logvar dtype along the mean-across-members
+            # path) rather than on a per-member mean: in mixed-precision runs the
+            # backbone is fp64 while the logvar head is fp32, so a "members mean"
+            # anchor would silently mismatch dtype.
+            ale_cov = torch.diag_embed(avg_vars).to(device=avg_vars.device, dtype=avg_vars.dtype)
             total_cov = epi_cov + ale_cov
             # Ensure diagonal is strictly positive for numerical stability
             d_idx = torch.arange(total_cov.shape[-1], device=total_cov.device)

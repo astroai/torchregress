@@ -39,3 +39,10 @@ repos:
         types: [python]
         files: '^(examples|notebooks)/.*\.py$'
         stages: [pre-commit]
+      - id: test-fixture-pin-discipline-src
+        name: test-fixture-pin-discipline (TOR003, src/)
+        entry: python scripts/check_test_fixture_pin_discipline.py
+        language: system
+        types: [python]
+        files: '^src/.*\.py$'
+        stages: [pre-commit]

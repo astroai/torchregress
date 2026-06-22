@@ -128,12 +128,26 @@ class TaylorInducedCovarianceHead(nn.Module):
             k1 = torch.exp(self.k1_net(x)).unsqueeze(-1)  # [B, 1, 1]
             k2 = torch.exp(self.k2_net(x)).unsqueeze(-1)  # [B, 1, 1]
             k3 = torch.exp(self.k3_net(x))  # [B, target_dim]
-            cov = k1 * jj_t + k2 * h_matrix + torch.diag_embed(k3)
+            # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+            # torch.diag_embed does not accept device=/dtype= kwargs natively.
+            cov = (
+                k1 * jj_t
+                + k2 * h_matrix
+                + torch.diag_embed(k3).to(device=k3.device, dtype=k3.dtype)
+            )
         else:
             k1 = torch.exp(self.log_k1)
             k2 = torch.exp(self.log_k2)
             k3 = torch.exp(self.log_k3)
-            cov = k1 * jj_t + k2 * h_matrix + torch.diag_embed(k3.expand(mean.shape[0], -1))
+            # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+            # torch.diag_embed does not accept device=/dtype= kwargs natively.
+            cov = (
+                k1 * jj_t
+                + k2 * h_matrix
+                + torch.diag_embed(k3.expand(mean.shape[0], -1)).to(
+                    device=k3.device, dtype=k3.dtype
+                )
+            )
 
         # 5. Add stabilizer jitter to ensure positive definiteness
         eye = torch.eye(self.target_dim, device=x.device, dtype=x.dtype).unsqueeze(0)

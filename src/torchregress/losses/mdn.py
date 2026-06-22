@@ -153,23 +153,56 @@ class MixtureDensityLoss(DistributionLoss):
                 *batch_shape, self.n_components, n_tril_elements
             )
 
-            # Create full batch of lower triangular matrices
-            L_matrices = torch.zeros(
+            # Build the Cholesky factor tensor without performing a second
+            # read-then-in-place-write on the same tensor that already carries
+            # gradient.  The previous implementation did
+            # ``L[..., tril] = tril_values`` and then
+            # ``L[..., diag, diag] = softplus(L[..., diag, diag]) + min_std``,
+            # which mutates ``L`` in-place after it has been registered into
+            # the computation graph by the first scatter; this raises
+            # ``RuntimeError: a leaf Variable that requires grad is being used
+            # in an in-place operation`` during backward for full-covariance
+            # Mixture Density Networks.  The replacement performs the scatter
+            # exactly once on a fresh non-graded leaf (which is safe) and
+            # then constructs the diagonal transformation purely functionally,
+            # combining via ``torch.where`` so no buffer is mutated after the
+            # scatter.  Using ``__setitem__`` here is intentional: the
+            # advanced-indexing semantics for ``L[..., i, j] = tril_values``
+            # differ from ``L.index_put((i, j), tril_values)`` (the latter
+            # interprets ``i`` and ``j`` as two separate dim replacements,
+            # which breaks the broadcast).  ``L_offdiag`` is the only tensor
+            # we ever write to in-place; the diagonal and final ``L_matrices``
+            # are produced functionally.
+            L_offdiag = torch.zeros(
                 *batch_shape,
                 self.n_components,
                 self.n_features,
                 self.n_features,
                 device=y_pred.device,
+                dtype=tril_values.dtype,
+            )
+            i_idx = tril_indices[0].to(y_pred.device)
+            j_idx = tril_indices[1].to(y_pred.device)
+            L_offdiag[..., i_idx, j_idx] = tril_values  # registers grad via tril_values
+
+            # Compute the diagonal transform purely functionally from the raw
+            # diagonal entries of ``tril_values``.  ``diag_positions[k]`` is
+            # the location within the tril-flat array that maps to ``(k, k)``.
+            diag_in_tril = (i_idx == j_idx).nonzero(as_tuple=True)[0]
+            raw_diag = tril_values.index_select(-1, diag_in_tril)  # (*batch, C, F)
+            softplus_diag = F.softplus(raw_diag) + self.min_std  # (*batch, C, F)
+            # Coverage invariants (TOR003): chain .to() on torch.diag_embed
+            # because torch.diag_embed does not accept device=/dtype= kwargs natively.
+            L_diag = torch.diag_embed(softplus_diag, dim1=-2, dim2=-1).to(
+                device=softplus_diag.device, dtype=softplus_diag.dtype
             )
 
-            # Fill lower triangular part
-            L_matrices[..., tril_indices[0], tril_indices[1]] = tril_values
-
-            # Ensure positive diagonal (for valid Cholesky decomposition)
-            diag_indices = torch.arange(self.n_features, device=y_pred.device)
-            L_matrices[..., diag_indices, diag_indices] = (
-                F.softplus(L_matrices[..., diag_indices, diag_indices]) + self.min_std
-            )
+            diag_mask = torch.eye(
+                self.n_features,
+                dtype=torch.bool,
+                device=y_pred.device,
+            ).expand_as(L_offdiag)
+            L_matrices = torch.where(diag_mask, L_diag, L_offdiag)
 
             return mixture_weights, means, L_matrices
 

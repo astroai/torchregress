@@ -143,11 +143,17 @@ class BaseEIVLoss(RegressionLoss):
                     raise ValueError(
                         f"sigma shape {tuple(sigma.shape)} doesn't match required size {n_features}"
                     )
-                return torch.diag(sigma**2)
+                # Coverage invariants (TOR003): chain .to() on torch.diag because
+                # torch.diag does not accept device=/dtype= kwargs natively.
+                return torch.diag(sigma**2).to(device=device, dtype=sigma.dtype)
             if sigma.ndim == 2:
                 if sigma.shape != (n_features, n_features):
                     if batch_size is not None and sigma.shape == (batch_size, n_features):
-                        return torch.diag_embed(sigma**2)
+                        # Coverage invariants (TOR003): chain .to() on torch.diag_embed
+                        # because torch.diag_embed does not accept device=/dtype= kwargs natively.
+                        return torch.diag_embed(sigma**2).to(
+                            device=device, dtype=sigma.dtype
+                        )
                     raise ValueError(
                         f"sigma matrix shape {tuple(sigma.shape)} doesn't match "
                         f"expected shape ({n_features}, {n_features})"
@@ -916,9 +922,17 @@ class FunctionalEIVLoss(BaseEIVLoss):
         if sigma_y_tensor is not None:
             if sigma_y_tensor.ndim <= 1:
                 # Diagonal case
-                batch_cov = batch_cov + torch.diag_embed(sigma_y_tensor)
+                # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+                # torch.diag_embed does not accept device=/dtype= kwargs natively.
+                batch_cov = batch_cov + torch.diag_embed(sigma_y_tensor).to(
+                    device=sigma_y_tensor.device, dtype=sigma_y_tensor.dtype
+                )
             elif sigma_y_tensor.ndim == 2 and sigma_y_tensor.shape[0] == batch_size:
-                batch_cov = batch_cov + torch.diag_embed(sigma_y_tensor)
+                # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+                # torch.diag_embed does not accept device=/dtype= kwargs natively.
+                batch_cov = batch_cov + torch.diag_embed(sigma_y_tensor).to(
+                    device=sigma_y_tensor.device, dtype=sigma_y_tensor.dtype
+                )
             else:
                 # Full covariance case
                 batch_cov = batch_cov + sigma_y_tensor

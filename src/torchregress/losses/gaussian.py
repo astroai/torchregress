@@ -222,7 +222,18 @@ class MultivariateGaussianLoss(DistributionLoss):
             raise RuntimeError("covariance_matrices contains NaN or Inf values")
 
         if self.learnable_adjustment:
+            # ``adjustment`` is ON ``cov.device`` and ``cov.dtype`` already
+            # (the ``.to(cov.device, cov.dtype)`` chain handles both); the
+            # resulting ``diag_embed`` output therefore inherits the same
+            # device/dtype. The chained ``.to(adjustment.device, dtype)`` that
+            # used to follow this was a no-op defensive duplicate -- removed
+            # per the TOR003 reviewer pass.
             adjustment = torch.exp(self.log_variance_adjustment).to(cov.device, cov.dtype)
+            # Coverage invariants (TOR003): ``adjusment`` is already pinned to
+            # ``cov.device``/``cov.dtype`` via ``.to(...)`` above, so the
+            # ``torch.diag_embed`` output inherits those directly. No second
+            # ``.to()`` is needed; if a future refactor drops the pre-``.to``,
+            # extend the chain here.
             cov = cov + torch.diag_embed(adjustment)
 
         eye = torch.eye(n_features, device=cov.device, dtype=cov.dtype)

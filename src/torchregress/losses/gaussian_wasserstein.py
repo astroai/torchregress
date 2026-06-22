@@ -36,7 +36,16 @@ def symmetric_spd_matrix_sqrt(sigma: torch.Tensor, *, eps: float = 1e-8) -> torc
     """
     evals, vecs = torch.linalg.eigh(sigma)
     s = torch.clamp(evals, min=eps).sqrt()
-    return vecs @ torch.diag_embed(s) @ vecs.transpose(-1, -2)
+    # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
+    # torch.diag_embed does not accept device=/dtype= kwargs natively. Pin to
+    # the input covariance's device/dtype to keep the output consistent with
+    # callers that mix fp32 covariance inputs with fp64 jitter.
+    # Chain `.to()` on the diag_embed output so the slice through
+    # ``evecs @ diag @ evecs.T`` stays on the input covariance's
+    # device/dtype even when the caller mixes fp32 covariance inputs
+    # with fp64 jitter.
+    inv_diag = torch.diag_embed(s).to(device=sigma.device, dtype=sigma.dtype)
+    return vecs @ inv_diag @ vecs.transpose(-1, -2)
 
 
 def _batch_frobenius_squared(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:

@@ -303,23 +303,43 @@ When reviewing or extending any test in ``tests/losses/``, ``tests/``,
 is a **coverage-invariance violation** under this rule. Fix before
 merging, exactly per the patterns above.
 
-### Mechanical enforcement (TOR001 + TOR002)
+### Mechanical enforcement (TOR001 + TOR002 + TOR003)
 
 A local pre-commit hook at `scripts/check_test_fixture_pin_discipline.py`
 AST-scans every staged `tests/**.py` / `examples/**.py` /
-`notebooks/**.py` file for un-pinned `torch.eye(...)` / `torch.diag(...)`
-/ `torch.diag_embed(...)` literals. The rule ID is **resolved per
-file path** via POSIX prefix matching:
+`notebooks/**.py` / `src/**.py` file for un-pinned `torch.eye(...)` /
+`torch.diag(...)` / `torch.diag_embed(...)` literals. The rule ID is
+**resolved per file path** via POSIX path-component matching
+(`_rule_id_for_path` in the script), so a file like
+`examples/tests/helper.py` lands under `TOR002` (the `examples`
+directory component is the first match), not `TOR001`:
 
 - **`TOR001`** — files under `tests/` (the original tests-only scope).
 - **`TOR002`** — files under `examples/` or `notebooks/`.
+- **`TOR003`** — files under `src/` (production loss fixtures plus the
+  `algorithms/`, `metrics/`, `ensemble/`, `utils/`, `losses/` helpers
+  that emit the same fixtures internally; `.pre-commit-config.yaml`
+  registers a third hook entry with `files: '^src/.*\.py$'`).
 
-`.pre-commit-config.yaml` registers two `repos: local:` hook entries,
+`# noqa` precedence contract: a `# noqa: TOR00x` comment on a line
+silences only the matching rule ID — `# noqa: TOR001` does NOT silence
+a violation routed to `TOR002` or `TOR003`. The order in
+`_RULE_PREFIXES` matters: the script iterates path components in order
+and returns the first component whose name matches (so a relative path
+`examples/tests/helper.py` lands under `TOR002`, not via nested `tests`
+substring). An absolute path with a pre-project-root ``src/`` segment
+(``/home/user/src/torchregress/tests/foo.py``) WILL route to `TOR003`
+because ``src`` is matched first by the ABS path-component walk; callers
+should normalize absolute paths to project-relative before relying on
+the rule ID.
+
+`.pre-commit-config.yaml` registers three `repos: local:` hook entries,
 each with its own rule ID, so `pre-commit` output surfaces which scope
 each violation belongs to. The script emits
 `filename:lineno: torch.<func>() missing device= or dtype= kwarg`
 violations to stderr and exits with status 1; the message body embeds
-the resolved rule ID so `# noqa` opt-outs must match.
+the resolved rule ID so `# noqa` opt-outs must match (`# noqa: TOR001`,
+`# noqa: TOR002`, or `# noqa: TOR003`).
 
 Recognised canonical pin patterns:
 - **Direct kwarg** (works for `torch.eye`, which natively supports the

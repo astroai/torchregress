@@ -79,7 +79,9 @@ class SIMEX:
                     raise ValueError(
                         f"sigma_u vector shape {sigma.shape} doesn't match features {n_features}"
                     )
-                return torch.diag(sigma**2)
+                # Coverage invariants (TOR003): chain .to() on torch.diag because
+                # torch.diag does not accept device=/dtype= kwargs natively.
+                return torch.diag(sigma**2).to(device=device, dtype=sigma.dtype)
             if sigma.ndim == 2:
                 if sigma.shape != (n_features, n_features):
                     raise ValueError(

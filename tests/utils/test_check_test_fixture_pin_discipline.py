@@ -216,7 +216,10 @@ class TestRuleIdResolution:
         assert _rule_id_for_path("tests/utils/test_augment.py") == TOR001_RULE_ID
 
     def test_tests_absolute_path_resolves_to_tor001(self) -> None:
-        assert _rule_id_for_path("/home/user/src/torchregress/tests/test_x.py") == TOR001_RULE_ID
+        # Absolute path WITHOUT a ``/src/``-named component in front of
+        # ``tests/`` -- earlier ``src/`` components in the absolute path
+        # now route the file to TOR003 (path-component match, first hit).
+        assert _rule_id_for_path("/home/user/projects/tests/test_x.py") == TOR001_RULE_ID
 
     def test_examples_path_resolves_to_tor002(self) -> None:
         assert _rule_id_for_path("examples/basic_usage.py") == TOR002_RULE_ID
@@ -225,13 +228,41 @@ class TestRuleIdResolution:
         assert _rule_id_for_path("notebooks/demo.py") == TOR002_RULE_ID
 
     def test_examples_absolute_path_resolves_to_tor002(self) -> None:
+        # Absolute path WITHOUT a ``/src/``-named component in front of
+        # ``examples/`` -- earlier ``src/`` components in the absolute path
+        # now route the file to TOR003 (path-component match, first hit).
         assert (
-            _rule_id_for_path("/home/user/src/torchregress/examples/gaussian_low_rank.py")
-            == TOR002_RULE_ID
+            _rule_id_for_path("/home/user/projects/examples/gaussian_low_rank.py") == TOR002_RULE_ID
         )
 
     def test_unrouted_path_falls_back_to_default(self) -> None:
-        assert _rule_id_for_path("src/torchregress/foo.py") == DEFAULT_RULE_ID
+        # ``src/...`` is now a routed prefix (TOR003); use a clearly
+        # un-routed directory (e.g. ``notebooks/`` is TOR002, ``docs/`` is
+        # unrouted) to keep the fallback semantic under test.
+        assert _rule_id_for_path("docs/foo.py") == DEFAULT_RULE_ID
+        assert _rule_id_for_path("random/file.py") == DEFAULT_RULE_ID
+
+    def test_absolute_path_with_early_src_routes_to_tor003(self) -> None:
+        """Documented contract: an absolute path whose early Path component
+        is ``src`` (e.g. ``/home/user/src/torchregress/tests/foo.py``) is
+        routed to TOR003 because path-component matching returns the FIRST
+        match in path-component order. Callers that need the project-relative
+        scope must normalize absolute paths beforehand; the docs § Mechanical
+        enforcement flag this corner case explicitly.
+        """
+        from scripts.check_test_fixture_pin_discipline import TOR003_RULE_ID
+
+        # /home/user/src/torchregress/tests/foo.py — parts = ['', 'home',
+        # 'user', 'src', 'torchregress', 'tests', 'foo.py']; first match is
+        # 'src' → TOR003, NOT 'tests' → TOR001.
+        assert (
+            _rule_id_for_path("/home/user/src/torchregress/tests/foo.py")
+            == TOR003_RULE_ID
+        )
+        assert (
+            _rule_id_for_path("/home/user/src/torchregress/examples/foo.py")
+            == TOR003_RULE_ID
+        )
 
     def test_violation_message_cites_resolved_rule_id(self) -> None:
         """The message text embeds the path-resolved rule ID, not a hardcoded one."""

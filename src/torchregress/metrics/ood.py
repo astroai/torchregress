@@ -46,9 +46,12 @@ class MahalanobisDistance(Metric):
             eigenvalues, eigenvectors = torch.linalg.eigh(cov)
             eigenvalues = torch.clamp(eigenvalues, min=1e-6)
             diff = x - mean
-            scaled_diff = (
-                diff @ eigenvectors @ torch.diag(1.0 / torch.sqrt(eigenvalues)) @ eigenvectors.T
+            # Coverage invariants (TOR003): chain .to() on torch.diag because
+            # torch.diag does not accept device=/dtype= kwargs natively.
+            inv_sqrt = torch.diag(1.0 / torch.sqrt(eigenvalues)).to(
+                device=eigenvalues.device, dtype=eigenvalues.dtype
             )
+            scaled_diff = diff @ eigenvectors @ inv_sqrt @ eigenvectors.T
             md_squared = torch.sum(scaled_diff**2, dim=1)
             md = torch.sqrt(md_squared)
 
@@ -192,7 +195,11 @@ def mahalanobis_distance(
         eigenvalues, eigenvectors = torch.linalg.eigh(cov_t)
         eigenvalues = torch.clamp(eigenvalues, min=1e-6)
         diff = x_t - mean_t
-        inv_sqrt = torch.diag(1.0 / torch.sqrt(eigenvalues))
+        # Coverage invariants (TOR003): chain .to() on torch.diag because
+        # torch.diag does not accept device=/dtype= kwargs natively.
+        inv_sqrt = torch.diag(1.0 / torch.sqrt(eigenvalues)).to(
+            device=eigenvalues.device, dtype=eigenvalues.dtype
+        )
         scaled_diff = diff @ eigenvectors @ inv_sqrt @ eigenvectors.T
         md_squared = torch.sum(scaled_diff**2, dim=1)
         md = torch.sqrt(md_squared)

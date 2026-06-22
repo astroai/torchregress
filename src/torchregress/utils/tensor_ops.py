@@ -194,7 +194,12 @@ def prepare_covariance(
                     f"Diagonal covariance shape {cov.shape} doesn't match required dimensions "
                     f"{n_dims}."
                 )
-            return torch.diag(cov)
+            # Coverage invariants (TOR003): chain .to() on torch.diag because
+            # torch.diag does not accept device=/dtype= kwargs natively. cov has
+            # already been moved to ``device`` via ``cov = cov.to(device)`` so
+            # the result inherits device; pin dtype explicitly to guard against
+            # int64 sigma vectors slipping in.
+            return torch.diag(cov).to(device=cov.device, dtype=cov.dtype)
         if cov.ndim == 2:
             if cov.shape != (n_dims, n_dims):
                 raise ValueError(
