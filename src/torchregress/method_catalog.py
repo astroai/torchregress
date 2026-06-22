@@ -859,6 +859,47 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="RegressionCalibration",
+        family="eiv",
+        public_path="torchregress.algorithms.RegressionCalibration",
+        task_tags=("noisy_features", "measurement_error", "calibration"),
+        maturity="Strong",
+        noisy_features_eiv="yes",
+        calibration="yes",
+        notes=(
+            "Classical Regression Calibration. Replaces noisy features with their "
+            "conditional expectation given the observed features and noise model. "
+            "Provides analytical posterior samplers for Gaussian priors."
+        ),
+    ),
+    MethodMetadata(
+        name="SIMEX",
+        family="eiv",
+        public_path="torchregress.algorithms.SIMEX",
+        task_tags=("noisy_features", "measurement_error", "simex"),
+        maturity="Strong",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=(
+            "Simulation-Extrapolation (SIMEX) algorithm for parameter/estimand-level "
+            "bias correction. Adds simulated noise to features and extrapolates back to the "
+            "zero-noise limit."
+        ),
+    ),
+    MethodMetadata(
+        name="PredictionSIMEX",
+        family="eiv",
+        public_path="torchregress.algorithms.PredictionSIMEX",
+        task_tags=("noisy_features", "measurement_error", "simex", "inference"),
+        maturity="Strong",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=(
+            "Test-time Prediction SIMEX. Extrapolates predictions directly to the zero-noise "
+            "limit for downstream inference."
+        ),
+    ),
+    MethodMetadata(
         name="ErrorAwareFeatureEncoder",
         family="eiv",
         public_path="torchregress.algorithms.ErrorAwareFeatureEncoder",
@@ -903,13 +944,35 @@ _METHODS: tuple[MethodMetadata, ...] = (
         family="eiv",
         public_path="torchregress.losses.InputNoiseMarginalizationLoss",
         task_tags=("noisy_features", "measurement_error", "marginalization"),
+        maturity="Deprecated",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=("Deprecated alias for InputNoiseAugmentationLoss."),
+    ),
+    MethodMetadata(
+        name="InputNoiseAugmentationLoss",
+        family="eiv",
+        public_path="torchregress.losses.InputNoiseAugmentationLoss",
+        task_tags=("noisy_features", "measurement_error", "augmentation"),
         maturity="Strong",
         noisy_features_eiv="yes",
         calibration="partial",
         notes=(
-            "Recommended default interface for Noisy-Input models. Integrates over "
-            "expected input errors using Monte Carlo sampling instead of explicit "
-            "Jacobian structures."
+            "Monte-Carlo input-noise augmentation. Perturbs observed inputs to average the "
+            "downstream loss, providing data augmentation and regularization."
+        ),
+    ),
+    MethodMetadata(
+        name="LatentMarginalizationLoss",
+        family="eiv",
+        public_path="torchregress.losses.LatentMarginalizationLoss",
+        task_tags=("noisy_features", "measurement_error", "marginalization"),
+        maturity="Strong",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=(
+            "Proper latent-variable Errors-in-Variables Loss. Computes marginal likelihood "
+            "via Monte Carlo integration over the input error posterior."
         ),
     ),
     MethodMetadata(

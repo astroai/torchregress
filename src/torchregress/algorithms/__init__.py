@@ -28,7 +28,7 @@ from .irls import (
 from .ivon import IVON
 from .latentnn import LatentNN
 from .rc import RegressionCalibration
-from .simex import SIMEX
+from .simex import SIMEX, PredictionSIMEX
 from .tictac import TaylorInducedCovarianceHead
 from .warmup_mc import WarmupMCTrainer
 
@@ -41,6 +41,7 @@ __all__ = [
     # EIV algorithms
     "RegressionCalibration",
     "SIMEX",
+    "PredictionSIMEX",
     "LatentNN",
     "ErrorAwareFeatureEncoder",
     "NeighborhoodCovarianceConfig",

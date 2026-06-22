@@ -49,6 +49,7 @@ if [ -d "$HARNESS_DIR" ] && [ -f "$HARNESS_DIR/tools/run_all.py" ]; then
   (
     cd "$HARNESS_DIR"
     uv sync --extra test 2>/dev/null || true
+    uv pip install zuko 2>/dev/null || true
     uv run python tools/run_all.py --validate
   ) || {
     echo "Harness validation FAILED — fix issues above before pushing."

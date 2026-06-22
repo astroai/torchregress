@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 116,
+    "total_methods": 121,
     "families": {
       "bnn": 7,
       "calibration_transform": 5,
@@ -10,7 +10,7 @@
       "censored": 3,
       "conformal": 10,
       "constraints": 2,
-      "eiv": 10,
+      "eiv": 15,
       "ensemble": 7,
       "evidential": 1,
       "expectile": 3,
@@ -37,8 +37,9 @@
     },
     "maturity": {
       "Core": 7,
-      "Strong": 16,
-      "Available": 93
+      "Strong": 20,
+      "Available": 93,
+      "Deprecated": 1
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1641,6 +1642,73 @@
       "notes": "Jointly optimises network parameters and per-sample latent clean inputs under a Gaussian quadratic penalty. Requires known input noise sigma_x."
     },
     {
+      "name": "RegressionCalibration",
+      "family": "eiv",
+      "public_path": "torchregress.algorithms.RegressionCalibration",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "calibration"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Classical Regression Calibration. Replaces noisy features with their conditional expectation given the observed features and noise model. Provides analytical posterior samplers for Gaussian priors."
+    },
+    {
+      "name": "SIMEX",
+      "family": "eiv",
+      "public_path": "torchregress.algorithms.SIMEX",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "simex"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Simulation-Extrapolation (SIMEX) algorithm for parameter/estimand-level bias correction. Adds simulated noise to features and extrapolates back to the zero-noise limit."
+    },
+    {
+      "name": "PredictionSIMEX",
+      "family": "eiv",
+      "public_path": "torchregress.algorithms.PredictionSIMEX",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "simex",
+        "inference"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Test-time Prediction SIMEX. Extrapolates predictions directly to the zero-noise limit for downstream inference."
+    },
+    {
       "name": "ErrorAwareFeatureEncoder",
       "family": "eiv",
       "public_path": "torchregress.algorithms.ErrorAwareFeatureEncoder",
@@ -1714,6 +1782,28 @@
         "measurement_error",
         "marginalization"
       ],
+      "maturity": "Deprecated",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Deprecated alias for InputNoiseAugmentationLoss."
+    },
+    {
+      "name": "InputNoiseAugmentationLoss",
+      "family": "eiv",
+      "public_path": "torchregress.losses.InputNoiseAugmentationLoss",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "augmentation"
+      ],
       "maturity": "Strong",
       "multimodal": "no",
       "multi_target": "yes",
@@ -1725,7 +1815,29 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "yes",
-      "notes": "Recommended default interface for Noisy-Input models. Integrates over expected input errors using Monte Carlo sampling instead of explicit Jacobian structures."
+      "notes": "Monte-Carlo input-noise augmentation. Perturbs observed inputs to average the downstream loss, providing data augmentation and regularization."
+    },
+    {
+      "name": "LatentMarginalizationLoss",
+      "family": "eiv",
+      "public_path": "torchregress.losses.LatentMarginalizationLoss",
+      "task_tags": [
+        "noisy_features",
+        "measurement_error",
+        "marginalization"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "yes",
+      "notes": "Proper latent-variable Errors-in-Variables Loss. Computes marginal likelihood via Monte Carlo integration over the input error posterior."
     },
     {
       "name": "NoisyInputPredictor",

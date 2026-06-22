@@ -360,14 +360,6 @@ class TestMixtureDensityLossFullCovBackward:
             f"tensor in-place-write runtime error surface."
         )
 
-        # Note: empirical verification ran via
-        # ``_archive/verify_historical_pre_fix_inject.py`` -- both the
-        # synthesised post-fix-buffer-plus-extra-write form and the literal
-        # historical recipe (``L = zeros; L[..., tril] = ...; L[..., diag,
-        # diag] = F.softplus(...) + min_std``) produced ``_version >= 2``
-        # and the discriminator rejected both (empirical observation
-        # ranged from 2 to 3 depending on PyTorch's view-alias handling).
-
     def test_full_covariance_cholesky_no_inplace_graphnode(self) -> None:
         """Structural verification of the fix: post-fix the
         ``_extract_distribution_parameters`` for full covariance must

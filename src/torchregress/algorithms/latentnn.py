@@ -278,6 +278,7 @@ class LatentNN:
         This approximates E[f(x+ε)] and corrects for the distribution shift
         between clean latent training and noisy test data.
         """
+        assert self.model is not None, "Model is not fitted"
         X = X.to(self.device)
         sigma_x_t = self._expand_sigma(sigma_x, X, name="sigma_x").clamp_min(1.0e-6)
 

@@ -20,7 +20,11 @@ class SIMEX:
 
     SIMEX estimates the effect of measurement error by adding simulated noise
     of varying magnitudes to the data, re-training the model, and extrapolating
-    the predictions to the case of zero measurement error.
+    estimands or predictions to the case of zero measurement error (lambda = -1).
+
+    Note on Extrapolation Levels:
+    - **Prediction SIMEX**: Extrapolates the final model predictions at test time. This is
+      a heuristic supported via the `predict` method.
 
     Args:
         model_factory: A callable that returns a new instance of the model to be trained.
@@ -234,3 +238,9 @@ class SIMEX:
             torch.Tensor,
             torch.tensordot(self.extrapolation_weights, Y_stack, dims=([0], [0])),
         )
+
+
+class PredictionSIMEX(SIMEX):
+    """Subclass of SIMEX focusing on prediction-level extrapolation."""
+
+    pass

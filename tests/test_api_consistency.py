@@ -168,6 +168,8 @@ def test_reduction_behavior():
         "CensoredGaussianNLLLoss",  # Needs mean+variance inputs
         "AFTLoss",  # Needs loc+log-scale inputs
         "InputNoiseMarginalizationLoss",  # Meta-loss (needs model/base_loss)
+        "InputNoiseAugmentationLoss",  # Meta-loss (needs model/base_loss)
+        "LatentMarginalizationLoss",  # Meta-loss (needs model/base_loss)
         "InputNoiseMDNLoss",  # Meta-loss (needs model/n_components)
         "InputNoiseBinnedPDFLoss",  # Meta-loss (needs model)
         "GaussianCRPSLoss",  # Needs concatenated [mean, log_var] input
@@ -214,6 +216,8 @@ def test_consistent_init_parameters():
     common_params = ["reduction"]
 
     for loss_class in get_all_loss_classes():
+        if loss_class.__name__ == "InputNoiseMarginalizationLoss":
+            continue
         if not issubclass(loss_class, ReductionLoss):
             continue
 

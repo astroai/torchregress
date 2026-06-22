@@ -152,6 +152,7 @@ EXPECTED_EXPORTS = {
         "IRLSConfig",
         "RegressionCalibration",
         "SIMEX",
+        "PredictionSIMEX",
         "LatentNN",
         "ErrorAwareFeatureEncoder",
         "NeighborhoodCovarianceConfig",

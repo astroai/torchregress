@@ -5,6 +5,8 @@ This module implements various approaches to Error-in-Variables regression,
 where both inputs (x) and outputs (y) contain measurement errors.
 """
 
+import math
+import warnings
 from typing import Any, Callable, Optional, Tuple, Union, cast
 
 import torch
@@ -282,13 +284,16 @@ class ExplicitEIVAdapter:
         )
 
 
-@register_regression_loss("input_noise_marginalization")
-class InputNoiseMarginalizationLoss(RegressionLoss):
-    """Monte-Carlo input-noise marginalization with an explicit ``x_obs`` entry surface.
+@register_regression_loss("input_noise_augmentation")
+class InputNoiseAugmentationLoss(RegressionLoss):
+    """Monte-Carlo input-noise augmentation with an explicit ``x_obs`` entry surface.
 
-    This is a simpler EIV-style baseline for tabular measurement-error problems:
-    perturb observed inputs according to their reported uncertainties, run the model on
-    those perturbations, and average the chosen downstream loss.
+    This loss perturbs observed inputs according to their reported uncertainties, runs
+    the model on those perturbations in a vectorized manner, and averages the chosen
+    downstream loss. Note that this computes the expectation of the NLL under input
+    perturbations, which serves as data augmentation/regularization, rather than the
+    proper latent-variable marginal likelihood. For proper marginal likelihood, use
+    `LatentMarginalizationLoss`.
     """
 
     def __init__(
@@ -412,10 +417,47 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
             n_samples=n_samples,
             antithetic=antithetic,
         )
-        outputs = [self._model_forward(sample, sigma_x_t) for sample in perturbed]
-        if outputs and isinstance(outputs[0], torch.Tensor):
-            return torch.stack(cast(list[torch.Tensor], outputs))
-        return outputs
+
+        n_draws, batch_size = perturbed.shape[:2]
+        flat_perturbed = perturbed.reshape(n_draws * batch_size, -1)
+
+        if self.pass_sigma_x_to_model:
+            repeat_shape = [n_draws] + [1] * (sigma_x_t.dim() - 1)
+            flat_sigma = sigma_x_t.repeat(*repeat_shape)
+            flat_outputs = self.model(flat_perturbed, flat_sigma)
+        else:
+            flat_outputs = self.model(flat_perturbed)
+
+        def reshape_output(t: Any) -> Any:
+            if isinstance(t, torch.Tensor):
+                return t.reshape(n_draws, batch_size, *t.shape[1:])
+            elif isinstance(t, tuple):
+                return tuple(reshape_output(x) for x in t)
+            elif isinstance(t, list):
+                return [reshape_output(x) for x in t]
+            elif isinstance(t, dict):
+                return {k: reshape_output(v) for k, v in t.items()}
+            return t
+
+        reshaped = reshape_output(flat_outputs)
+
+        if isinstance(reshaped, torch.Tensor):
+            return reshaped
+
+        # Convert nested tensor structure back to a list of structured outputs
+        # for backward compatibility
+        def unstack_structure(t: Any, index: int) -> Any:
+            if isinstance(t, torch.Tensor):
+                return t[index]
+            elif isinstance(t, tuple):
+                return tuple(unstack_structure(x, index) for x in t)
+            elif isinstance(t, list):
+                return [unstack_structure(x, index) for x in t]
+            elif isinstance(t, dict):
+                return {k: unstack_structure(v, index) for k, v in t.items()}
+            return t
+
+        return [unstack_structure(reshaped, s) for s in range(n_draws)]
 
     def _model_forward(
         self,
@@ -524,6 +566,247 @@ class InputNoiseMarginalizationLoss(RegressionLoss):
         return self._reduce(sample_losses.mean(dim=0), mask, weights)
 
 
+@register_regression_loss("input_noise_marginalization")
+class InputNoiseMarginalizationLoss(InputNoiseAugmentationLoss):
+    """Deprecated alias for InputNoiseAugmentationLoss."""
+
+    def __init__(
+        self,
+        model: Callable,
+        base_loss: Callable[..., torch.Tensor],
+        sigma_x: Optional[Union[float, torch.Tensor]] = None,
+        *,
+        n_samples: int = 4,
+        min_sigma: float = 1.0e-4,
+        antithetic: bool = False,
+        pass_sigma_x_to_model: bool = False,
+        reduction: str = "mean",
+    ) -> None:
+        warnings.warn(
+            "InputNoiseMarginalizationLoss is deprecated and has been renamed to "
+            "InputNoiseAugmentationLoss. Use LatentMarginalizationLoss for proper "
+            "latent variable marginalization.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(
+            model=model,
+            base_loss=base_loss,
+            sigma_x=sigma_x,
+            n_samples=n_samples,
+            min_sigma=min_sigma,
+            antithetic=antithetic,
+            pass_sigma_x_to_model=pass_sigma_x_to_model,
+            reduction=reduction,
+        )
+
+
+@register_regression_loss("latent_marginalization")
+class LatentMarginalizationLoss(BaseEIVLoss):
+    """Proper Latent-Variable Errors-in-Variables Loss with marginal likelihood.
+
+    This loss computes the marginal negative log-likelihood:
+        -log E_{x* ~ p(x*|x_obs)} [ p(y | x*) ]
+    using Monte Carlo sampling from the posterior p(x*|x_obs) and a logmeanexp reduction.
+
+    Args:
+        model: Model function f(x) that predicts target parameters or point predictions
+        base_loss: Underlying NLL/probabilistic loss (e.g. GaussianNLLLoss, MDNLoss)
+        posterior_sampler: Either a pre-fit `RegressionCalibration` calibrator,
+            or a custom callable `posterior_sampler(x_obs, n_samples) -> x_samples`
+            (which returns a tensor of shape `[n_samples, batch_size, n_features]`),
+            or None (if prior_mean, prior_cov, and sigma_u are supplied for
+            analytical prior/posterior).
+        prior_mean: Optional prior mean for latent clean input (used if
+            posterior_sampler is None)
+        prior_cov: Optional prior covariance for latent clean input (used if
+            posterior_sampler is None)
+        sigma_u: Optional measurement error covariance/std (used if
+            posterior_sampler is None)
+        n_samples: Number of MC samples to draw from the posterior (default: 16)
+        marginalization_mode: One of "likelihood" (default, uses logmeanexp) or
+            "expectation" (averaging losses over samples)
+        reduction: One of 'none', 'mean', 'sum'
+        eps: Small value for numerical stability
+    """
+
+    def __init__(
+        self,
+        model: Callable,
+        base_loss: Callable[..., torch.Tensor],
+        posterior_sampler: Optional[Union[Callable, Any]] = None,
+        *,
+        prior_mean: Optional[torch.Tensor] = None,
+        prior_cov: Optional[torch.Tensor] = None,
+        sigma_u: Optional[Union[float, torch.Tensor]] = None,
+        n_samples: int = 16,
+        marginalization_mode: str = "likelihood",
+        reduction: str = "mean",
+        eps: float = 1e-3,
+    ) -> None:
+        # Pass sigma_u as sigma_x to BaseEIVLoss (it will default to 0.0 if not provided,
+        # but we expect it to be set if sampling analytically)
+        super().__init__(
+            model,
+            sigma_x=sigma_u if sigma_u is not None else 0.0,
+            sigma_y=None,
+            reduction=reduction,
+            eps=eps,
+        )
+        self.base_loss = base_loss
+        self.posterior_sampler = posterior_sampler
+        self.prior_mean = prior_mean
+        self.prior_cov = prior_cov
+        self.n_samples = int(n_samples)
+        if marginalization_mode not in {"likelihood", "expectation"}:
+            raise ValueError(
+                "marginalization_mode must be 'likelihood' or 'expectation', "
+                f"got {marginalization_mode}"
+            )
+        self.marginalization_mode = marginalization_mode
+
+    def _project_psd(self, cov: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+        cov = 0.5 * (cov + cov.transpose(-1, -2))
+        eigenvalues, eigenvectors = torch.linalg.eigh(cov)
+        clipped = eigenvalues.clamp_min(eps)
+        return (
+            eigenvectors
+            @ torch.diag_embed(clipped).to(device=cov.device, dtype=cov.dtype)
+            @ eigenvectors.transpose(-1, -2)
+        )
+
+    def _sample_gaussian(
+        self, mean: torch.Tensor, cov: torch.Tensor, n_samples: int
+    ) -> torch.Tensor:
+        batch_size, n_features = mean.shape
+        device = mean.device
+        dtype = mean.dtype
+
+        # Check shape of cov
+        if cov.ndim == 3:  # [batch_size, n_features, n_features]
+            # Add a small jitter for numerical stability
+            jitter = torch.eye(n_features, device=device, dtype=dtype).unsqueeze(0) * 1e-6
+            chol = torch.linalg.cholesky(cov + jitter)
+            noise = torch.randn(n_samples, batch_size, n_features, 1, device=device, dtype=dtype)
+            # Unsqueeze mean to match shape for batch matmul
+            samples = mean.unsqueeze(0) + (chol.unsqueeze(0) @ noise).squeeze(-1)
+        elif cov.ndim == 2:  # [n_features, n_features]
+            jitter = torch.eye(n_features, device=device, dtype=dtype) * 1e-6
+            chol = torch.linalg.cholesky(cov + jitter)
+            noise = torch.randn(n_samples, batch_size, n_features, device=device, dtype=dtype)
+            samples = mean.unsqueeze(0) + noise @ chol.T
+        else:
+            raise ValueError(f"Unexpected covariance shape: {cov.shape}")
+        return samples
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        # y_pred is x_obs in EIV terminology
+        x_obs = y_pred
+        self._validate_inputs(x_obs, target, mask)
+
+        batch_size, n_features = x_obs.shape
+        device = x_obs.device
+        dtype = x_obs.dtype
+
+        # 1. Sample latent clean variables x* from posterior
+        if self.posterior_sampler is not None:
+            if hasattr(self.posterior_sampler, "posterior") and callable(
+                self.posterior_sampler.posterior
+            ):
+                # RegressionCalibration or similar prior calibrator
+                post_mean, post_cov = self.posterior_sampler.posterior(x_obs)
+                x_samples = self._sample_gaussian(post_mean, post_cov, self.n_samples)
+            elif callable(self.posterior_sampler):
+                x_samples = self.posterior_sampler(x_obs, self.n_samples)
+            else:
+                raise TypeError(
+                    "posterior_sampler must either be a callable or have a posterior(x_obs) method."
+                )
+        else:
+            if self.prior_mean is None or self.prior_cov is None:
+                raise ValueError(
+                    "If posterior_sampler is not provided, prior_mean and "
+                    "prior_cov must be supplied."
+                )
+
+            prior_mean = self.prior_mean.to(device=device, dtype=dtype)
+            prior_cov = self.prior_cov.to(device=device, dtype=dtype)
+
+            # Broadcast prior_mean to [batch_size, n_features] if needed
+            if prior_mean.dim() == 1:
+                prior_mean = prior_mean.unsqueeze(0).expand(batch_size, -1)
+
+            sigma_u_cov = self._prepare_covariance_from_sigma(
+                self.sigma_x, n_features, device, batch_size, dtype=dtype
+            )
+
+            if sigma_u_cov.dim() == 3:
+                denom = prior_cov.unsqueeze(0) + sigma_u_cov
+                gain = prior_cov.unsqueeze(0) @ torch.linalg.pinv(denom)
+                centered = (x_obs - prior_mean).unsqueeze(-1)
+                post_mean = prior_mean + (gain @ centered).squeeze(-1)
+                post_cov = prior_cov.unsqueeze(0) - gain @ prior_cov.unsqueeze(0)
+                post_cov = self._project_psd(post_cov)
+            else:
+                denom = prior_cov + sigma_u_cov
+                gain = prior_cov @ torch.linalg.pinv(denom)
+                post_mean = prior_mean + (x_obs - prior_mean) @ gain.T
+                post_cov = prior_cov - gain @ prior_cov
+                post_cov = self._project_psd(post_cov)
+
+            x_samples = self._sample_gaussian(post_mean, post_cov, self.n_samples)
+
+        # 2. Vectorized forward pass through model
+        n_draws = x_samples.shape[0]
+        flat_x = x_samples.reshape(n_draws * batch_size, -1)
+        flat_predictions = self.model(flat_x)
+
+        # Flatten target/mask/weights to match flat_predictions
+        def tile(t: torch.Tensor) -> torch.Tensor:
+            repeat_dims = [n_draws] + [1] * (t.dim() - 1)
+            return t.repeat(*repeat_dims)
+
+        flat_target = tile(target)
+        flat_mask = tile(mask) if mask is not None else None
+        flat_weights = tile(weights) if weights is not None else None
+
+        # 3. Compute base NLL loss for each sample (with reduction='none')
+        kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
+        flat_losses = self.base_loss(
+            flat_predictions,
+            flat_target,
+            mask=flat_mask,
+            weights=flat_weights,
+            reduction="none",
+            **kwargs_no_red,
+        )
+
+        if flat_losses.dim() == 0:
+            return flat_losses
+
+        # Reshape flat_losses back to [n_samples, batch_size, ...]
+        sample_losses = flat_losses.reshape(n_draws, batch_size, *flat_losses.shape[1:])
+
+        # 4. Apply marginalization reduction
+        if self.marginalization_mode == "likelihood":
+            # Proper marginal negative log-likelihood: -log (1/S * sum exp(-NLL_s))
+            # = -logsumexp(-sample_losses, dim=0) + log(S)
+            marginalized_losses = -torch.logsumexp(-sample_losses, dim=0) + math.log(n_draws)
+        else:
+            # Expectation of NLL under posterior (upper bound / augmentation style)
+            marginalized_losses = sample_losses.mean(dim=0)
+
+        # 5. Apply weights and final reduction
+        return self._reduce_with_mask(marginalized_losses, mask, weights)
+
+
 class NoisyInputPredictor(torch.nn.Module):
     """High-level wrapper for models generating predictions under noisy inputs.
 
@@ -545,7 +828,7 @@ class NoisyInputPredictor(torch.nn.Module):
     ) -> None:
         super().__init__()
         self.model = model
-        self.marginalizer = InputNoiseMarginalizationLoss(
+        self.marginalizer = InputNoiseAugmentationLoss(
             model=model,
             base_loss=lambda p, t: p,  # Dummy base loss; unused by predictive methods
             sigma_x=sigma_x,
@@ -599,7 +882,7 @@ class NoisyInputPredictor(torch.nn.Module):
 
 
 @register_regression_loss("input_noise_mdn")
-class InputNoiseMDNLoss(InputNoiseMarginalizationLoss):
+class InputNoiseMDNLoss(InputNoiseAugmentationLoss):
     """Input-noise marginalization specifically for MDN heads.
 
     Args:
@@ -607,7 +890,7 @@ class InputNoiseMDNLoss(InputNoiseMarginalizationLoss):
         n_components: Number of mixture components.
         n_features: Number of output features.
         sigma_x: Standard deviation or covariance of feature noise.
-        **kwargs: Passed to InputNoiseMarginalizationLoss and MixtureDensityLoss.
+        **kwargs: Passed to InputNoiseAugmentationLoss and MixtureDensityLoss.
     """
 
     def __init__(
@@ -637,13 +920,13 @@ class InputNoiseMDNLoss(InputNoiseMarginalizationLoss):
 
 
 @register_regression_loss("input_noise_binned_pdf")
-class InputNoiseBinnedPDFLoss(InputNoiseMarginalizationLoss):
+class InputNoiseBinnedPDFLoss(InputNoiseAugmentationLoss):
     """Input-noise marginalization specifically for binned-PDF / ordinal heads.
 
     Args:
         model: Underlying model predicting class logits.
         sigma_x: Standard deviation or covariance of feature noise.
-        **kwargs: Passed to InputNoiseMarginalizationLoss and OrdinalCrossEntropyLoss.
+        **kwargs: Passed to InputNoiseAugmentationLoss and OrdinalCrossEntropyLoss.
     """
 
     def __init__(
@@ -810,8 +1093,9 @@ class FunctionalEIVLoss(BaseEIVLoss):
                 grad = compute_model_gradients(model_output, x_grad, n_features_y)
 
                 # Propagate variance from inputs to outputs (gradients allowed —
-                # the log(var) NLL term naturally balances Jacobian shrinkage
-                # against residual accuracy, enabling attenuation-bias correction)
+                # the log(var) NLL term balances Jacobian shrinkage against residual
+                # accuracy, which acts as a heuristic regularization for the predictive variance,
+                # though it does not provide mathematically consistent attenuation-bias correction)
                 propagated_var = calculate_propagated_variance(
                     grad, sigma_x_tensor, sigma_y=sigma_y_tensor
                 )
@@ -972,7 +1256,8 @@ class FunctionalEIVLoss(BaseEIVLoss):
         residuals = y_true - mean_pred
 
         # Calculate negative log-likelihood (gradients flow through variance
-        # for attenuation-bias correction)
+        # to regularize predictive variance under input perturbations, though
+        # this does not consistently correct for attenuation bias)
         return calculate_gaussian_nll(residuals, batch_cov, eps=self.eps)
 
     def _hybrid_forward(
@@ -1219,6 +1504,7 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
         learning_rate: float = 0.01,
         max_iterations: int = 10,
         tolerance: float = 1e-6,
+        gradient_mode: str = "envelope",
         reduction: str = "mean",
         eps: float = 1e-3,
     ):
@@ -1226,6 +1512,10 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.tolerance = tolerance
+        if gradient_mode not in {"envelope", "unrolled"}:
+            raise ValueError(f"gradient_mode must be 'envelope' or 'unrolled', got {gradient_mode}")
+        self.gradient_mode = gradient_mode
+        self.last_optimality_residual_: Optional[float] = None
 
     def forward(
         self,
@@ -1282,66 +1572,124 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
             device,
         )
 
-        # Initialize latent true x as observed x with gradient tracking enabled
-        x_latent = x_obs.clone().detach().requires_grad_(True)
-        optimizer = torch.optim.Adam([x_latent], lr=self.learning_rate)
+        if self.gradient_mode == "envelope":
+            # Initialize latent true x as observed x with gradient tracking enabled
+            x_latent = x_obs.clone().detach().requires_grad_(True)
+            optimizer = torch.optim.Adam([x_latent], lr=self.learning_rate)
+            grad_x = None
 
-        # Optimize latent true x values
-        prev_loss = float("inf")
-        # Check convergence less frequently to avoid GPU-CPU sync overhead
-        check_interval = 5
+            # Optimize latent true x values
+            prev_loss = float("inf")
+            check_interval = 5
 
-        with torch.enable_grad():
-            for iteration in range(self.max_iterations):
-                optimizer.zero_grad()
+            with torch.enable_grad():
+                for iteration in range(self.max_iterations):
+                    optimizer.zero_grad()
 
-                # Forward pass with current latent x
-                model_output = self.model(x_latent)
+                    # Forward pass with current latent x
+                    model_output = self.model(x_latent)
 
-                # Apply mask if needed
-                if mask is not None:
-                    model_output = apply_mask(model_output, mask)
+                    # Apply mask if needed
+                    if mask is not None:
+                        model_output = apply_mask(model_output, mask)
 
-                # Calculate x distance (between observed and latent x)
-                x_diff = x_obs - x_latent
-                x_dist = self._calculate_mahalanobis_distance(x_diff, sigma_x_inv)
+                    # Calculate x distance (between observed and latent x)
+                    x_diff = x_obs - x_latent
+                    x_dist = self._calculate_mahalanobis_distance(x_diff, sigma_x_inv)
 
-                # Calculate y distance (between observed y and predicted y)
-                y_diff = y_true - model_output
-                y_dist = self._calculate_mahalanobis_distance(y_diff, sigma_y_inv)
+                    # Calculate y distance (between observed y and predicted y)
+                    y_diff = y_true - model_output
+                    y_dist = self._calculate_mahalanobis_distance(y_diff, sigma_y_inv)
 
-                # Total ODR objective: minimize weighted sum of distances
-                total_dist = x_dist + y_dist
-                odr_objective = torch.mean(total_dist)
+                    # Total ODR objective: minimize weighted sum of distances
+                    total_dist = x_dist + y_dist
+                    odr_objective = torch.mean(total_dist)
 
-                # Backward pass and update
-                odr_objective.backward()
-                optimizer.step()
+                    # Compute gradients only with respect to x_latent to prevent
+                    # model parameter gradient pollution
+                    grad_x = torch.autograd.grad(odr_objective, x_latent)[0]
+                    x_latent.grad = grad_x
+                    optimizer.step()
 
-                # Check for convergence periodically
-                if (iteration + 1) % check_interval == 0:
-                    current_loss = odr_objective.item()
-                    if abs(prev_loss - current_loss) < self.tolerance:
-                        break
-                    prev_loss = current_loss
+                    # Check for convergence periodically
+                    if (iteration + 1) % check_interval == 0:
+                        current_loss = odr_objective.item()
+                        if abs(prev_loss - current_loss) < self.tolerance:
+                            break
+                        prev_loss = current_loss
 
-        # Final forward pass with optimized latent x (detached to avoid gradient tracking)
-        x_latent_final = x_latent.detach()
-        model_output_final = self.model(x_latent_final)
+            # Save the final gradient norm as the optimality residual
+            if grad_x is not None:
+                with torch.no_grad():
+                    self.last_optimality_residual_ = float(grad_x.norm().item())
+            else:
+                self.last_optimality_residual_ = None
 
-        # Apply mask if needed
-        if mask is not None:
-            model_output_final = apply_mask(model_output_final, mask)
+            # Final forward pass with optimized latent x (detached to avoid gradient tracking)
+            x_latent_final = x_latent.detach()
+            model_output_final = self.model(x_latent_final)
 
-        # Calculate final orthogonal distances
-        x_diff_final = x_obs - x_latent_final
-        final_x_dist = self._calculate_mahalanobis_distance(x_diff_final, sigma_x_inv)
+            # Apply mask if needed
+            if mask is not None:
+                model_output_final = apply_mask(model_output_final, mask)
 
-        y_diff_final = y_true - model_output_final
-        final_y_dist = self._calculate_mahalanobis_distance(y_diff_final, sigma_y_inv)
+            # Calculate final orthogonal distances
+            x_diff_final = x_obs - x_latent_final
+            final_x_dist = self._calculate_mahalanobis_distance(x_diff_final, sigma_x_inv)
 
-        # Total loss is the weighted sum of squared orthogonal distances
-        loss = final_x_dist + final_y_dist
+            y_diff_final = y_true - model_output_final
+            final_y_dist = self._calculate_mahalanobis_distance(y_diff_final, sigma_y_inv)
+
+            # Total loss is the weighted sum of squared orthogonal distances
+            loss = final_x_dist + final_y_dist
+
+        else:  # unrolled gradient mode
+            # In unrolled mode, we optimize x_latent using functional SGD steps.
+            # This allows gradients to flow back through the optimization trajectory.
+            x_latent = x_obs.clone().detach().requires_grad_(True)
+            grad_x = None
+
+            # We must use torch.enable_grad() to compute gradients in the loop
+            with torch.enable_grad():
+                for iteration in range(self.max_iterations):
+                    model_output = self.model(x_latent)
+                    if mask is not None:
+                        model_output = apply_mask(model_output, mask)
+
+                    x_diff = x_obs - x_latent
+                    x_dist = self._calculate_mahalanobis_distance(x_diff, sigma_x_inv)
+
+                    y_diff = y_true - model_output
+                    y_dist = self._calculate_mahalanobis_distance(y_diff, sigma_y_inv)
+
+                    odr_objective = torch.mean(x_dist + y_dist)
+
+                    # Compute gradient functionally; create_graph=self.training ensures
+                    # backprop through optimization is possible during training.
+                    grad_x = torch.autograd.grad(
+                        odr_objective, x_latent, create_graph=self.training
+                    )[0]
+
+                    # Functional SGD update
+                    x_latent = (x_latent - self.learning_rate * grad_x).requires_grad_(True)
+
+            # Save optimality residual
+            if grad_x is not None:
+                self.last_optimality_residual_ = float(grad_x.detach().norm().item())
+            else:
+                self.last_optimality_residual_ = None
+
+            model_output_final = self.model(x_latent)
+            if mask is not None:
+                model_output_final = apply_mask(model_output_final, mask)
+
+            x_diff_final = x_obs - x_latent
+            final_x_dist = self._calculate_mahalanobis_distance(x_diff_final, sigma_x_inv)
+
+            y_diff_final = y_true - model_output_final
+            final_y_dist = self._calculate_mahalanobis_distance(y_diff_final, sigma_y_inv)
+
+            loss = final_x_dist + final_y_dist
 
         # Apply weights
         if weights is not None:
@@ -1480,6 +1828,10 @@ def create_eiv_loss(
         return EnsembleEIVLoss(model=model, **kwargs)
     if key in {"input_noise_marginalization", "mc_input_noise"}:
         return InputNoiseMarginalizationLoss(model=model, **kwargs)
+    if key in {"input_noise_augmentation"}:
+        return InputNoiseAugmentationLoss(model=model, **kwargs)
+    if key in {"latent_marginalization"}:
+        return LatentMarginalizationLoss(model=model, **kwargs)
     if key in {"input_noise_mdn", "eiv_mdn"}:
         return InputNoiseMDNLoss(model=model, **kwargs)
     if key in {"input_noise_binned_pdf", "eiv_binned_pdf"}:
@@ -1487,6 +1839,7 @@ def create_eiv_loss(
     raise ValueError(
         "loss_type must be one of {'functional', 'functional_hybrid', "
         "'structural', 'odr', 'ensemble', 'input_noise_marginalization', "
+        "'input_noise_augmentation', 'latent_marginalization', "
         "'input_noise_mdn', 'input_noise_binned_pdf'}, "
         f"got {loss_type!r}"
     )
