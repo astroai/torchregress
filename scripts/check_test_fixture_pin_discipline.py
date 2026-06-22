@@ -73,7 +73,8 @@ def _is_torch_attr(node: ast.AST) -> Optional[str]:
 
 
 def _is_in_to_pinning_chain(node: ast.Call, parent_map: dict[int, ast.AST]) -> bool:
-    """``True`` iff ``torch.<func>(...)`` is wrapped in a chained ``.to(device=..., dtype=...)`` pin.
+    """``True`` iff ``torch.<func>(...)`` is wrapped in a chained
+    ``.to(device=..., dtype=...)`` pin.
 
     PyTorch's ``torch.diag`` and ``torch.diag_embed`` do NOT accept ``device=``
     / ``dtype=`` keyword arguments — they inherit dtype / device from the

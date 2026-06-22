@@ -145,7 +145,6 @@ ignore = []
 "docs/*" = ["E501"]
 "tools/*" = ["E501"]
 "tests/*" = ["E501"]
-"scripts/*" = ["E501"]  # pre-commit hook script -- docstring lines are intentionally long with shell-command examples.
 
 [tool.mypy]
 python_version = "3.12"
