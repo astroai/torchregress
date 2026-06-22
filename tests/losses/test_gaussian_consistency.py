@@ -628,9 +628,14 @@ class TestFamilyRelationships:
 
 
 def _make_spd_cov(batch, dim, jitter=1e-3):
-    """Build a batch of symmetric positive-definite covariance matrices."""
+    """Build a batch of symmetric positive-definite covariance matrices.
+
+    ``torch.eye`` is pinned to ``A.device``/``A.dtype`` so the helper
+    doesn't implicitly rely on the loss module handling dtype/device of
+    input fixtures internally.
+    """
     A = torch.randn(batch, dim, dim)
-    return A @ A.transpose(-1, -2) + torch.eye(dim) * jitter
+    return A @ A.transpose(-1, -2) + torch.eye(dim, device=A.device, dtype=A.dtype) * jitter
 
 
 def _make_low_rank_params(batch, dim, rank):
@@ -676,7 +681,7 @@ class TestMultivariateRelationships:
         loss = mv(mean, target, cov)
 
         dist = torch.distributions.MultivariateNormal(
-            mean, covariance_matrix=cov + torch.eye(dim) * 1e-6
+            mean, covariance_matrix=cov + torch.eye(dim, device=cov.device, dtype=cov.dtype) * 1e-6
         )
         expected = -dist.log_prob(target)
 
@@ -713,7 +718,12 @@ class TestMultivariateRelationships:
         mean = torch.randn(batch, dim)
         target = torch.randn(batch, dim)
 
-        cov = torch.eye(dim).unsqueeze(0).expand(batch, -1, -1).clone()
+        cov = (
+            torch.eye(dim, device=mean.device, dtype=mean.dtype)
+            .unsqueeze(0)
+            .expand(batch, -1, -1)
+            .clone()
+        )
         cov[0, 2, 2] = 1e-12
 
         fn = MultivariateGaussianLoss(jitter=1e-8, reduction="mean")
@@ -737,8 +747,10 @@ class TestMultivariateRelationships:
         mv = MultivariateGaussianLoss(jitter=1e-8, reduction="none")
         loss_chol = mv(mean, target, cov)
 
-        # Manually run eigh path
-        cov_jit = cov + torch.eye(dim) * 1e-8
+        # Manually run eigh path.  ``torch.eye`` pinned to ``cov``
+        # so the fixture doesn't implicitly rely on the loss module
+        # handling dtype/device of input fixtures internally.
+        cov_jit = cov + torch.eye(dim, device=cov.device, dtype=cov.dtype) * 1e-8
         diff = (target - mean).unsqueeze(-1)
         eigvals, eigvecs = torch.linalg.eigh(cov_jit)
         eigvals = eigvals.clamp(min=1e-8)
@@ -942,7 +954,7 @@ class TestWassersteinRelationships:
         batch, dim = 3, 2
         mean = torch.randn(batch, dim)
         a = torch.randn(batch, dim, dim)
-        cov = a @ a.transpose(-1, -2) + torch.eye(dim) * 1e-2
+        cov = a @ a.transpose(-1, -2) + torch.eye(dim, device=a.device, dtype=a.dtype) * 1e-2
 
         fn = GaussianWassersteinBoundLoss(
             covariance_parameterization="covariance", reduction="mean"
@@ -994,15 +1006,29 @@ class TestWassersteinRelationships:
         mean = torch.randn(batch, dim)
         target_mean = torch.randn(batch, dim)
 
-        # Build SPD covariance matrices: Σ = A @ A^T + ε·I
+        # Build SPD covariance matrices: Σ = A @ A^T + ε·I.  ``torch.eye``
+        # pinned to the co-build anchor tensor so the fixture doesn't
+        # implicitly rely on the loss module handling dtype/device of input
+        # fixtures internally.
         a_pred = torch.randn(batch, dim, dim)
         a_target = torch.randn(batch, dim, dim)
-        sigma_pred = a_pred @ a_pred.transpose(-1, -2) + torch.eye(dim) * 1e-2
-        sigma_target = a_target @ a_target.transpose(-1, -2) + torch.eye(dim) * 1e-2
+        sigma_pred = (
+            a_pred @ a_pred.transpose(-1, -2)
+            + torch.eye(dim, device=a_pred.device, dtype=a_pred.dtype) * 1e-2
+        )
+        sigma_target = (
+            a_target @ a_target.transpose(-1, -2)
+            + torch.eye(dim, device=a_target.device, dtype=a_target.dtype) * 1e-2
+        )
 
         # Pre-compute principal square roots (with the same jitter the loss uses)
-        sqrt_pred = symmetric_spd_matrix_sqrt(sigma_pred + 1e-6 * torch.eye(dim))
-        sqrt_target = symmetric_spd_matrix_sqrt(sigma_target + 1e-6 * torch.eye(dim))
+        sqrt_pred = symmetric_spd_matrix_sqrt(
+            sigma_pred + 1e-6 * torch.eye(dim, device=sigma_pred.device, dtype=sigma_pred.dtype)
+        )
+        sqrt_target = symmetric_spd_matrix_sqrt(
+            sigma_target
+            + 1e-6 * torch.eye(dim, device=sigma_target.device, dtype=sigma_target.dtype)
+        )
 
         loss_cov = GaussianWassersteinBoundLoss(
             covariance_parameterization="covariance",
@@ -1043,10 +1069,18 @@ class TestWassersteinRelationships:
         sigma_pred = L_pred @ L_pred.transpose(-1, -2)
         sigma_target = L_target @ L_target.transpose(-1, -2)
 
-        # Pre-compute principal square roots with the same jitter the loss uses
+        # Pre-compute principal square roots with the same jitter the loss
+        # uses.  ``torch.eye`` pinned to ``sigma_pred``/``sigma_target``
+        # so the fixture doesn't implicitly rely on the loss module
+        # handling dtype/device of input fixtures internally.
         jitter = 1e-6
-        sqrt_pred = symmetric_spd_matrix_sqrt(sigma_pred + jitter * torch.eye(dim))
-        sqrt_target = symmetric_spd_matrix_sqrt(sigma_target + jitter * torch.eye(dim))
+        sqrt_pred = symmetric_spd_matrix_sqrt(
+            sigma_pred + jitter * torch.eye(dim, device=sigma_pred.device, dtype=sigma_pred.dtype)
+        )
+        sqrt_target = symmetric_spd_matrix_sqrt(
+            sigma_target
+            + jitter * torch.eye(dim, device=sigma_target.device, dtype=sigma_target.dtype)
+        )
 
         loss_chol = GaussianWassersteinBoundLoss(
             covariance_parameterization="cholesky",

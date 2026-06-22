@@ -12,7 +12,9 @@ from torchregress.losses.loss_registry import create_loss_from_config
 def test_zero_loss_sqrt_identity() -> None:
     b, d = 4, 3
     mu = torch.randn(b, d)
-    s = torch.eye(d).expand(b, d, d).clone()
+    # Pin ``torch.eye`` to ``mu`` so the fixture doesn't implicitly rely on
+    # the loss module handling dtype/device of input fixtures internally.
+    s = torch.eye(d, device=mu.device, dtype=mu.dtype).expand(b, d, d).clone()
     fn = GaussianWassersteinBoundLoss(covariance_parameterization="sqrt", reduction="mean")
     out = fn(mu, mu, s, s)
     assert out.item() == 0.0
@@ -47,7 +49,9 @@ def test_covariance_matches_cholesky_path() -> None:
     b, d = 3, 2
     mu = torch.randn(b, d)
     spd = torch.randn(b, d, d)
-    spd = spd @ spd.transpose(-1, -2) + 0.5 * torch.eye(d).expand(b, d, d)
+    spd = spd @ spd.transpose(-1, -2) + 0.5 * torch.eye(
+        d, device=spd.device, dtype=spd.dtype
+    ).expand(b, d, d)
     scale_tril = torch.linalg.cholesky(spd)
     fn_cov = GaussianWassersteinBoundLoss(
         covariance_parameterization="covariance", reduction="mean"
@@ -69,7 +73,9 @@ def test_full_covariance_hand_2d() -> None:
     b = torch.tensor([[[1.5, 0.0], [0.0, 0.5]]])
     jitter = 1e-5
     fn = GaussianWassersteinBoundLoss(covariance_parameterization="covariance", jitter=jitter)
-    eye = torch.eye(2).view(1, 2, 2)
+    # Pin ``torch.eye`` to ``a`` so the fixture doesn't implicitly rely on
+    # the loss module handling dtype/device of input fixtures internally.
+    eye = torch.eye(2, device=a.device, dtype=a.dtype).view(1, 2, 2)
     sa = symmetric_spd_matrix_sqrt(a + jitter * eye, eps=fn.eps)
     sb = symmetric_spd_matrix_sqrt(b + jitter * eye, eps=fn.eps)
     mean_term = ((mu_p - mu_t) ** 2).sum(dim=-1)
@@ -84,8 +90,12 @@ def test_non_negative() -> None:
     torch.manual_seed(2)
     mu_p, mu_t = torch.randn(5, 3), torch.randn(5, 3)
     sig_p, sig_t = torch.randn(5, 3, 3), torch.randn(5, 3, 3)
-    sig_p = sig_p @ sig_p.transpose(-1, -2) + 0.2 * torch.eye(3)
-    sig_t = sig_t @ sig_t.transpose(-1, -2) + 0.2 * torch.eye(3)
+    sig_p = sig_p @ sig_p.transpose(-1, -2) + 0.2 * torch.eye(
+        3, device=sig_p.device, dtype=sig_p.dtype
+    )
+    sig_t = sig_t @ sig_t.transpose(-1, -2) + 0.2 * torch.eye(
+        3, device=sig_t.device, dtype=sig_t.dtype
+    )
     bs = sig_p.shape[0]
     for mode in ("diagonal", "covariance", "cholesky", "sqrt"):
         if mode == "diagonal":
@@ -97,7 +107,7 @@ def test_non_negative() -> None:
             tc = torch.linalg.cholesky(sig_t)
         elif mode == "sqrt":
             j = 1e-4
-            eye = torch.eye(3).expand(bs, 3, 3)
+            eye = torch.eye(3, device=sig_p.device, dtype=sig_p.dtype).expand(bs, 3, 3)
             pc = symmetric_spd_matrix_sqrt(sig_p + j * eye, eps=1e-8)
             tc = symmetric_spd_matrix_sqrt(sig_t + j * eye, eps=1e-8)
         else:
@@ -111,8 +121,10 @@ def test_gradients_finite() -> None:
     mu_p = torch.randn(2, d, requires_grad=True)
     mu_t = torch.randn(2, d)
     raw = torch.randn(2, d, d, requires_grad=True)
-    sig_p = raw @ raw.transpose(-1, -2) + 0.5 * torch.eye(d).expand(2, d, d)
-    sig_t = torch.eye(d).expand(2, d, d) * 0.3
+    sig_p = raw @ raw.transpose(-1, -2) + 0.5 * torch.eye(
+        d, device=raw.device, dtype=raw.dtype
+    ).expand(2, d, d)
+    sig_t = torch.eye(d, device=raw.device, dtype=raw.dtype).expand(2, d, d) * 0.3
     fn = GaussianWassersteinBoundLoss(covariance_parameterization="covariance", reduction="mean")
     loss = fn(mu_p, mu_t, sig_p, sig_t)
     loss.backward()
@@ -164,8 +176,8 @@ def test_create_loss_from_config() -> None:
 def test_functional_matches_class() -> None:
     mu_p = torch.randn(2, 2)
     mu_t = torch.randn(2, 2)
-    a = torch.eye(2).expand(2, 2, 2).clone() * 0.3
-    b = torch.eye(2).expand(2, 2, 2).clone() * 0.7
+    a = torch.eye(2, device=mu_p.device, dtype=mu_p.dtype).expand(2, 2, 2).clone() * 0.3
+    b = torch.eye(2, device=mu_p.device, dtype=mu_p.dtype).expand(2, 2, 2).clone() * 0.7
     kwargs = dict(covariance_parameterization="covariance", reduction="sum", jitter=1e-4)
     m = GaussianWassersteinBoundLoss(**kwargs)
     f = gaussian_wasserstein_bound_loss(mu_p, mu_t, a, b, **kwargs)

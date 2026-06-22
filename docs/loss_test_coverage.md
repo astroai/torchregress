@@ -227,12 +227,81 @@ both states at runtime, so the original caveat no longer applies:
   ``_version == 0`` at forward-return time.  Pre-fix code derived
   ``L_matrices`` via two in-place ``__setitem__`` writes onto
   ``L_offdiag``, bumping its version to ``>= 2`` by the time it was
-  returned.  The discriminator
-  ``tests/losses/test_loss_fixes.py::TestMixtureDensityLossFullCovBackward::test_full_covariance_L_version_zero``
+  returned.The discriminator
+``tests/losses/test_loss_fixes.py::TestMixtureDensityLossFullCovBackward::test_full_covariance_L_version_zero``
   wraps ``_extract_distribution_parameters`` to capture
   ``L_matrices._version`` immediately after forward and asserts it
   equals 0, surviving PyTorch's silent absorption of the in-place
   pattern.
+
+## Coverage invariants: what test authors MUST pin
+
+Future test authors must follow this discipline when introducing any
+ad-hoc reference to a covariance, sigma, stddev, or Cholesky factor in a
+test fixture. **Ad-hoc ``torch.eye(...)`` / ``torch.diag(...)`` /
+``torch.diag_embed(...)`` literals MUST pin ``device`` and ``dtype``** so
+the fixture does not silently rely on the loss module handling
+dtype/device of input fixtures internally. Two accepted forms depending
+on whether the literal is on the *result* side or the *input* side of
+the comparison:
+
+- **Result comparison** (the literal is the reference for a tensor
+  returned by a loss module). Pin the literal to the result's metadata:
+  ```python
+  ref = torch.eye(n_features, device=cov.device, dtype=cov.dtype) * 0.25
+  self.assertTrue(torch.allclose(cov, ref))
+  ```
+- **Input builder** (the literal is part of a fixture fed *into* a loss
+  module — e.g. ``A @ A.T + torch.eye(dim) * jitter``). Pin to the
+  co-built anchor tensor that's already on the right device/dtype:
+  ```python
+  A = torch.randn(dim, dim)
+  base = A @ A.T + torch.eye(dim, device=A.device, dtype=A.dtype) * 1e-3
+  ```
+
+The legacy ``.to(cov.device, dtype=cov.dtype)`` cast on the literal is
+accepted as a fallback when the ``torch.eye(...)`` / ``torch.diag(...)``
+form would change the literal's mathematical meaning (e.g. when the
+literal is a hand-built third-party reference like ``torch.tensor([...])``
+the test materials outside an obvious anchor).
+
+### Why this discipline matters
+
+``torch.allclose`` and ``torch.testing.assert_close`` are
+dtype/device-tied at the framework level. ``torch.eye(3)`` silently
+defaults to float32/CPU; if a future loss module grows a
+device-dispatching code path (e.g. CUDA NLL, autograd-double NLL, the
+``to("cuda")`` migration in `test_gaussian.py`'s ``setUp``) the test
+would silently pass under old builds while passing against mismatched
+metadata under new builds — a covered-by-follow-up symptom of implicit
+fixture metadata rather than a single-step failure flagged by CI.
+
+Concretely: under a dtype/device mismatch, ``torch.allclose`` raises
+a ``RuntimeError`` rather than returning the comparison result. CI fails
+with an unrelated-looking error message (e.g. ``Found dtype Float but
+expected Double``), masking the real loss-graph regression behind a
+metadata mismatch — the developer fixes the missing dtype pin rather
+than the actual loss bug the test was guarding.
+
+### Canonical examples for reference while authoring new tests
+
+- ``tests/losses/test_eiv_internals.py::TestBaseEIVLossInternals::test_prepare_covariance_*`` — the canonical *result-comparison* form.  Pin the reference to ``cov`` after ``_prepare_covariance_from_sigma``: ``torch.eye(n_features, device=cov.device, dtype=cov.dtype) * 0.25``.
+- ``tests/losses/test_functional_wrappers.py::TestGaussianWassersteinBoundWrapper.setUp`` — the canonical *input-builder* form.  Pin the SPD builder's eye to the co-built ``A``: ``A @ A.T + torch.eye(self.d, device=A.device, dtype=A.dtype)``.
+- All ``_make_spd_cov``-style helpers in ``tests/losses/test_gaussian_consistency.py`` and the ``_psd_matrix`` helper in ``tests/losses/test_indirect_utilities.py`` reproduce the *input-builder* form on the helper's anchor ``A``.
+- ``tests/losses/test_gaussian.py::TestGaussianLosses.setUp`` — adds a ``dtype=`` pin on top of an existing ``device=`` pin for the SPD jitter term.
+
+### Cross-cutting rule for code review
+
+When reviewing or extending any test in ``tests/losses/``, ``tests/``,
+``notebooks/``, or ``examples/``, re-grep ``torch.eye`` and
+``torch.diag`` / ``torch.diag_embed``. Any unpinned site that
+- constructs an input fixture (an ``A @ A.T + eye(dim) * jitter``
+  builder, an eye-in-a-list literal passed as a sigma parameter,
+  etc.), or
+- compares against a result tensor in ``torch.allclose`` / ``torch.testing.assert_close``,
+
+is a **coverage-invariance violation** under this rule. Fix before
+merging, exactly per the patterns above.
 
 ## TL;DR for code review
 

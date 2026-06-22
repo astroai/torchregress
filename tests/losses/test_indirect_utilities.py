@@ -35,10 +35,15 @@ from torchregress.utils.gaussian_output import (
 
 
 def _psd_matrix(d: int, *, seed: int = 0) -> torch.Tensor:
-    """Build a deterministic ``d x d`` symmetric positive definite matrix."""
+    """Build a deterministic ``d x d`` symmetric positive definite matrix.
+
+    ``torch.eye`` is pinned to ``A.device``/``A.dtype`` so the fixture
+    doesn't implicitly rely on the loss module handling dtype/device of
+    input fixtures internally.
+    """
     g = torch.Generator().manual_seed(seed)
     A = torch.randn(d, d, generator=g)
-    return A @ A.T + torch.eye(d) * 1e-3
+    return A @ A.T + torch.eye(d, device=A.device, dtype=A.dtype) * 1e-3
 
 
 # ---------------------------------------------------------------------------

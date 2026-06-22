@@ -46,9 +46,16 @@ class TestGaussianLosses(unittest.TestCase):
         self.covariance_matrices = self.covariance_matrices @ self.covariance_matrices.transpose(
             -1, -2
         )
-        # Add small diagonal term to ensure positive definiteness
+        # Add small diagonal term to ensure positive definiteness.  Pin
+        # ``dtype`` to the co-built ``self.covariance_matrices`` so the
+        # fixture doesn't implicitly rely on the loss module handling
+        # dtype of input fixtures internally.
         self.covariance_matrices = (
-            self.covariance_matrices + torch.eye(self.n_features_cov, device=self.device) * 1e-3
+            self.covariance_matrices
+            + torch.eye(
+                self.n_features_cov, device=self.device, dtype=self.covariance_matrices.dtype
+            )
+            * 1e-3
         )
         self.mask_cov = torch.randint(
             0, 2, (self.batch_size, self.n_features_cov), device=self.device

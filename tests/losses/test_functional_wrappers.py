@@ -290,9 +290,11 @@ class TestGaussianWassersteinBoundWrapper(unittest.TestCase):
         self.batch, self.d = 4, 3
         self.mu_p = torch.randn(self.batch, self.d)
         self.mu_t = torch.randn(self.batch, self.d)
-        # Shared PSD covariance for all 4 modes.
+        # Shared PSD covariance for all 4 modes.  ``torch.eye`` is pinned to
+        # ``A.device``/``A.dtype`` so the fixture doesn't implicitly rely on
+        # the loss module handling dtype/device of input fixtures internally.
         A = torch.randn(self.d, self.d)
-        base = A @ A.T + torch.eye(self.d)
+        base = A @ A.T + torch.eye(self.d, device=A.device, dtype=A.dtype)
         self.sigma_p = base.clone()
         self.sigma_t = base.clone()
         self.sqrt_p = symmetric_spd_matrix_sqrt(self.sigma_p)

@@ -1330,12 +1330,21 @@ class TestFunctionalEIVContract:
             assert torch.isfinite(loss), f"mode={mode} produced non-finite loss"
 
     def test_with_scalar_vector_and_matrix_sigma(self):
-        """FunctionalEIVLoss works with scalar, vector, and matrix sigma_x."""
+        """FunctionalEIVLoss works with scalar, vector, and matrix sigma_x.
+
+        The matrix-form ``torch.eye`` is pinned to ``x_obs`` so the fixture
+        doesn't implicitly rely on the loss module handling dtype/device of
+        input fixtures internally.
+        """
         model = _eiv_model()
         x_obs = torch.randn(6, 4)
         target = torch.randn(6, 2)
 
-        for sigma_x in [0.1, torch.ones(4) * 0.1, torch.eye(4) * 0.01]:
+        for sigma_x in [
+            0.1,
+            torch.ones(4) * 0.1,
+            torch.eye(4, device=x_obs.device, dtype=x_obs.dtype) * 0.01,
+        ]:
             fn = FunctionalEIVLoss(model, sigma_x=sigma_x, sigma_y=0.1)
             loss = fn(x_obs, target)
             assert torch.isfinite(loss)
