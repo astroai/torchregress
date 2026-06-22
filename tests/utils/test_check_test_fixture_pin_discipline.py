@@ -255,14 +255,8 @@ class TestRuleIdResolution:
         # /home/user/src/torchregress/tests/foo.py — parts = ['', 'home',
         # 'user', 'src', 'torchregress', 'tests', 'foo.py']; first match is
         # 'src' → TOR003, NOT 'tests' → TOR001.
-        assert (
-            _rule_id_for_path("/home/user/src/torchregress/tests/foo.py")
-            == TOR003_RULE_ID
-        )
-        assert (
-            _rule_id_for_path("/home/user/src/torchregress/examples/foo.py")
-            == TOR003_RULE_ID
-        )
+        assert _rule_id_for_path("/home/user/src/torchregress/tests/foo.py") == TOR003_RULE_ID
+        assert _rule_id_for_path("/home/user/src/torchregress/examples/foo.py") == TOR003_RULE_ID
 
     def test_violation_message_cites_resolved_rule_id(self) -> None:
         """The message text embeds the path-resolved rule ID, not a hardcoded one."""
@@ -291,7 +285,7 @@ class TestRuleIdResolution:
         src = "torch.eye(3)  # noqa: TOR002"
         v = check_source(src, filename="tests/utils/test_x.py")
         assert len(v) == 1
-        assert TOR001_RULE_ID in v[0]  # noqa: TOR001  -> just a comment, no spillover
+        assert TOR001_RULE_ID in v[0]  # shows rule ID matches the message text (no spillover)
 
 
 def test_rule_id_constants_and_prefix_map_are_stable() -> None:

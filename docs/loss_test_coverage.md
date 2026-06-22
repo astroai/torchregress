@@ -305,6 +305,35 @@ merging, exactly per the patterns above.
 
 ### Mechanical enforcement (TOR001 + TOR002 + TOR003)
 
+#### Pin-rollout drift doctor
+
+A second local hook, `scripts/check_pin_rollout_drift.py, complements the
+enforcer above by auditing every `# noqa: TORxxx` opt-out in the
+`tests/`, `examples/`, `notebooks/`, and `src/ trees. Three severity
+classes are reported:
+
+  - `[error]` — the noqa is **orphaned** (no `torch.eye / torch.diag /
+    torch.diag_embed` call on that line). The opt-out is attached to
+    nothing; remove it.
+  - `[warning]` — the noqa is **redundant**: the call on that line
+    already pins `device=` / `dtype=` (or chains `.to(device=...,
+    dtype=...)`), so the noqa silences nothing. This typically follows
+    a successful pin rollout -- remove the now-defunct opt-out to keep
+    the source clean.
+  - `[hint]` -- advisory only (does NOT cause a non-zero exit): the
+    cited rule ID does not match the file's path-resolved rule, or the
+    rule ID is not in `_RULE_PREFIXES` (typo). The enforcer ignores
+    cross-rule noqa already; the hint surfaces the stale scope
+    assumption so a contributor can verify which rule the file
+    actually lives in.
+
+`.pre-commit-config.yaml` registers the doctor as a separate
+`repos: local` hook entry (`pin-rollout-drift-doctor`) so its
+diagnostics are distinct from the enforcer's TORxx output in
+`pre-commit` logs.
+
+### Mechanical enforcement (TOR001 + TOR002 + TOR003)
+
 A local pre-commit hook at `scripts/check_test_fixture_pin_discipline.py`
 AST-scans every staged `tests/**.py` / `examples/**.py` /
 `notebooks/**.py` / `src/**.py` file for un-pinned `torch.eye(...)` /

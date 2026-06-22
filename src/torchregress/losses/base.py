@@ -273,8 +273,13 @@ class WeightedLossWrapper(BaseLoss):
 
     Args:
         loss_fn: PyTorch loss function class (nn.Module) or instance
-        reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. Default: 'mean'
+        reduction: Specifies the reduction to apply to the output. Pass ``None``
+            (default) to inherit the wrapped loss's currently-configured
+            reduction; pass an explicit value (``'mean'`` | ``'sum'`` |
+            ``'none'`` | ``'min'`` | ``'max'``) to override it.  This restores
+            previously-silently-dropped behavior for callers that constructed
+            the torch loss with a non-default ``reduction`` (e.g.
+            ``WeightedLossWrapper(nn.MSELoss(reduction='sum'))``).
         **kwargs: Additional arguments to pass to the loss function
 
     Example:
@@ -287,9 +292,23 @@ class WeightedLossWrapper(BaseLoss):
     """
 
     def __init__(
-        self, loss_fn: Union[Callable, nn.Module], reduction: str = "mean", **kwargs: Any
+        self,
+        loss_fn: Union[Callable, nn.Module],
+        reduction: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(reduction="none")  # We'll handle reduction ourselves
+
+        # Capture the wrapped loss's already-configured reduction before we
+        # mutate the inner tensor to ``"none"`` (necessary so the wrapper can
+        # compute per-element weighted reductions). When the user passes a
+        # class, there is no prior setting and we fall back to ``"mean"``.
+        if isinstance(loss_fn, type):
+            inferred_reduction: Optional[str] = "mean"
+        else:
+            inferred_reduction = getattr(loss_fn, "reduction", None)
+            if not isinstance(inferred_reduction, str):
+                inferred_reduction = "mean"
 
         # Handle both class and instance cases
         if isinstance(loss_fn, type):
@@ -302,7 +321,14 @@ class WeightedLossWrapper(BaseLoss):
             if hasattr(self.torch_loss, "reduction"):
                 self.torch_loss.reduction = "none"
 
-        self.reduction = validate_reduction(reduction)
+        # Honour an explicit caller override; otherwise preserve the wrapped
+        # loss's previously-configured reduction (e.g. ``nn.MSELoss(reduction='sum')``).
+        # Previously this always fell back to ``"mean"``, silently dropping the
+        # wrapper user's configured reduction.
+        if reduction is None:
+            self.reduction = validate_reduction(inferred_reduction or "mean")
+        else:
+            self.reduction = validate_reduction(reduction)
 
     def forward(
         self,

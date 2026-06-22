@@ -626,6 +626,12 @@ class SLSLoss(RegressionLoss):
         weights: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tensor:
+        # ``forward_frontier`` already advances :attr:`step_counter` by one.  The
+        # counter must monotonically advance across ``forward`` calls so that the
+        # sigmoidal warmup schedule and the ``K > 1`` union-frontier unfreeze
+        # trigger correctly (see :meth:`forward_frontier` and the K-gating
+        # branch below).  Earlier versions decremented the counter here, which
+        # silently pinned it at 0 for the entire training run.
         if self.step_counter > self.warmup_steps and self.K > 1:
             # UnionFrontier typecast since Components can be either Mahalanobis or UnionFrontier
             frontier_union = cast(UnionFrontier, self.frontier)
@@ -633,7 +639,9 @@ class SLSLoss(RegressionLoss):
             frontier_union.step_beta()
 
         loss_frontier = self.forward_frontier(y_pred, target, mask=mask, weights=weights)
-        self.step_counter -= 1
+        # ``step_counter`` already inside ``forward_frontier`` was incremented to
+        # ``current + 1``; reuse that value for the quantile pass so the
+        # curriculum advances inside ``forward_quantiles``.
         loss_quantiles = self.forward_quantiles(y_pred, target, mask=mask, weights=weights)
 
         return loss_frontier + loss_quantiles

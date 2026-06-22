@@ -151,9 +151,7 @@ class BaseEIVLoss(RegressionLoss):
                     if batch_size is not None and sigma.shape == (batch_size, n_features):
                         # Coverage invariants (TOR003): chain .to() on torch.diag_embed
                         # because torch.diag_embed does not accept device=/dtype= kwargs natively.
-                        return torch.diag_embed(sigma**2).to(
-                            device=device, dtype=sigma.dtype
-                        )
+                        return torch.diag_embed(sigma**2).to(device=device, dtype=sigma.dtype)
                     raise ValueError(
                         f"sigma matrix shape {tuple(sigma.shape)} doesn't match "
                         f"expected shape ({n_features}, {n_features})"

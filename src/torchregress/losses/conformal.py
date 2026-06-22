@@ -480,23 +480,40 @@ class CQR(ConformalPredictor):
         weights: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
     ) -> None:
-        """Calibrate CQR, optionally with coverage bias correction."""
+        """Calibrate CQR, optionally with a finite-sample ``alpha`` adjustment.
+
+        When ``debias=True`` we apply the conservative ``alpha * n / (n + 1)``
+        correction prior to calibration.  This slightly shrinks ``alpha``,
+        which makes the calibrated quantile wider and the resulting interval
+        more conservative — the safe direction for finite-sample coverage.
+        This deliberately widens rather than tightens: a tight correction
+        would risk under-coverage if the quantile-regression model has any
+        residual overfitting bias.  The standard finite-sample conformal
+        adjustment ``q_adj = ceil((n+1)*(1-alpha)) / n`` is still applied
+        inside :func:`_weighted_quantile`; the ``debias`` factor here is in
+        addition to that and reduces ``alpha`` by ``n/(n+1)`` to provide a
+        small extra margin.
+        """
         if self.debias:
-            # Coverage bias correction: adjust alpha to account for QR
-            # overfitting.  Uses the heuristic from Gibbs et al. (2025):
-            # inflate alpha by the ratio p/n where p is the effective
-            # dimensionality.  For neural networks, we use a simple LOO-style
-            # correction: alpha_adj = alpha * n / (n - 1).
             if mask is not None:
                 mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
-                n = mask_1d.sum().item()
+                n = int(mask_1d.sum().item())
             else:
-                n = y_pred.shape[0]
-            # Finite-sample correction: slightly tighter quantile
+                n = int(y_pred.shape[0])
+            if n <= 0:
+                raise ValueError("CQR.debias requires a non-empty calibration set; got n<=0")
+            # Apply the conservative ``alpha * n / (n + 1)`` correction:
+            # this *shrinks* ``alpha`` (widening the interval) which is the
+            # safe direction for finite-sample coverage.  Document the
+            # direction precisely to prevent the previous "alpha * n / (n -
+            # 1)" / "LOO-style tighten" interpretation that conflicted with
+            # the actual code.
             alpha_orig = self.alpha
             self.alpha = self.alpha * n / (n + 1)
-            super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
-            self.alpha = alpha_orig
+            try:
+                super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
+            finally:
+                self.alpha = alpha_orig
         else:
             super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
 
@@ -730,9 +747,24 @@ class LocalConformal(ConformalPredictor):
         # Compute cumulative sum
         cum_weights = torch.cumsum(normalized_weights, dim=1)  # (M, N + 1)
 
-        # Find first index where cum_weights >= 1 - alpha
+        # Find first index where cum_weights >= 1 - alpha.  When the
+        # cumulative distribution never reaches ``q_level`` (e.g. for very
+        # small ``alpha`` combined with floating-point error in the final
+        # ``cum_weights`` entry, which should be 1.0 by construction),
+        # ``argmax`` of an all-False mask returns 0 — silently picking the
+        # smallest residual.  We append a sentinel True column so that the
+        # search always returns the index of the appended ``self.resids``
+        # ``inf`` entry (= the last valid index into ``resids``), which
+        # surfaces as an unbounded interval rather than a wrongly-tight one.
         q_level = 1.0 - self.alpha
-        idx = torch.argmax((cum_weights >= q_level).to(torch.int8), dim=1)  # (M,)
+        hits = cum_weights >= q_level
+        sentinel = torch.ones((hits.shape[0], 1), dtype=torch.bool, device=hits.device)
+        idx = torch.argmax(torch.cat([hits, sentinel], dim=1).to(torch.int8), dim=1)
+        # ``idx`` is in ``[0, N+1]``.  Derive ``n_cal`` from the actual
+        # ``X_cal`` length rather than ``resids.shape[0]`` so the clip is
+        # robust to future changes that drop or extend the sentinel tail.
+        n_cal = int(self.X_cal.shape[0])
+        idx = idx.clamp(max=n_cal)
 
         # Fetch the corresponding quantiles
         resids_device = self.resids.to(device)
@@ -885,7 +917,17 @@ class LocalConformalMAD(LocalConformal):
 
         cum_weights = torch.cumsum(normalized_weights, dim=1)
         q_level = 1.0 - self.alpha
-        idx = torch.argmax((cum_weights >= q_level).to(torch.int8), dim=1)
+        # Append a sentinel True column so the search never returns 0 when
+        # floating-point error keeps ``cum_weights`` slightly below ``q_level``
+        # (matches the LocalConformal fix above; see that method for details).
+        hits = cum_weights >= q_level
+        sentinel = torch.ones((hits.shape[0], 1), dtype=torch.bool, device=hits.device)
+        idx = torch.argmax(torch.cat([hits, sentinel], dim=1).to(torch.int8), dim=1)
+        # Derive ``n_cal`` from the actual calibration count rather than the
+        # sentinel-decorated ``resids`` shape so future changes to the tail
+        # bookkeeping don't silently misclip.
+        n_cal = int(self.X_cal.shape[0])
+        idx = idx.clamp(max=n_cal)
 
         resids_device = self.resids.to(device)
         q = resids_device[idx]
