@@ -25,10 +25,17 @@ repos:
 
   - repo: local
     hooks:
-      - id: test-fixture-pin-discipline
-        name: test-fixture-pin-discipline (TOR001)
+      - id: test-fixture-pin-discipline-tests
+        name: test-fixture-pin-discipline (TOR001, tests/)
         entry: python scripts/check_test_fixture_pin_discipline.py
         language: system
         types: [python]
         files: '^tests/.*\.py$'
+        stages: [pre-commit]
+      - id: test-fixture-pin-discipline-examples-notebooks
+        name: test-fixture-pin-discipline (TOR002, examples/+notebooks/)
+        entry: python scripts/check_test_fixture_pin_discipline.py
+        language: system
+        types: [python]
+        files: '^(examples|notebooks)/.*\.py$'
         stages: [pre-commit]

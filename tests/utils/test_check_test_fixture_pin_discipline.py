@@ -15,8 +15,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "scripts"))
 
 from check_test_fixture_pin_discipline import (  # noqa: E402
-    CHECK_RULE_ID,
+    _RULE_PREFIXES,
+    DEFAULT_RULE_ID,
     TARGET_FUNCS,
+    TOR001_RULE_ID,
+    TOR002_RULE_ID,
+    _rule_id_for_path,
     check_source,
 )
 
@@ -36,7 +40,7 @@ class TestDirectEyePin:
         src = "torch.eye(3)"
         assert _violations(src) == [
             "<test>:1: torch.eye() missing device= or dtype= kwarg "
-            "(Coverage invariants rule per docs/loss_test_coverage.md; "
+            "(Coverage invariants rule per docs/loss_test_coverage.md, TOR001; "
             "or wrap the call in `.to(device=..., dtype=...)` as a chain)"
         ]
 
@@ -200,7 +204,74 @@ def test_syntax_error_returns_empty_no_crash() -> None:
     assert _violations(bad_src) == []
 
 
-def test_rule_id_and_target_set_are_stable() -> None:
-    """Rule ID is the public contract for `# noqa: TOR001` opt-outs."""
-    assert CHECK_RULE_ID == "TOR001"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Rule ID resolution: TOR001 vs TOR002 per file path prefix
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRuleIdResolution:
+    """Per-file rule ID is determined by POSIX path-prefix matching."""
+
+    def test_tests_path_resolves_to_tor001(self) -> None:
+        assert _rule_id_for_path("tests/utils/test_augment.py") == TOR001_RULE_ID
+
+    def test_tests_absolute_path_resolves_to_tor001(self) -> None:
+        assert _rule_id_for_path("/home/user/src/torchregress/tests/test_x.py") == TOR001_RULE_ID
+
+    def test_examples_path_resolves_to_tor002(self) -> None:
+        assert _rule_id_for_path("examples/basic_usage.py") == TOR002_RULE_ID
+
+    def test_notebooks_path_resolves_to_tor002(self) -> None:
+        assert _rule_id_for_path("notebooks/demo.py") == TOR002_RULE_ID
+
+    def test_examples_absolute_path_resolves_to_tor002(self) -> None:
+        assert (
+            _rule_id_for_path("/home/user/src/torchregress/examples/gaussian_low_rank.py")
+            == TOR002_RULE_ID
+        )
+
+    def test_unrouted_path_falls_back_to_default(self) -> None:
+        assert _rule_id_for_path("src/torchregress/foo.py") == DEFAULT_RULE_ID
+
+    def test_violation_message_cites_resolved_rule_id(self) -> None:
+        """The message text embeds the path-resolved rule ID, not a hardcoded one."""
+        src = "torch.eye(3)"
+        v_tests = check_source(src, filename="tests/test_x.py")
+        assert len(v_tests) == 1
+        assert TOR001_RULE_ID in v_tests[0]
+
+        v_examples = check_source(src, filename="examples/demo.py")
+        assert len(v_examples) == 1
+        assert TOR002_RULE_ID in v_examples[0]
+
+    def test_tor002_noqa_suppresses_examples(self) -> None:
+        src = "torch.eye(3)  # noqa: TOR002"
+        assert check_source(src, filename="examples/demo.py") == []
+
+    def test_tor001_noqa_does_not_suppress_tor002(self) -> None:
+        """A `# noqa: TOR001` opt-out does NOT carry over into TOR002-scoped paths."""
+        src = "torch.eye(3)  # noqa: TOR001"
+        v = check_source(src, filename="examples/demo.py")
+        assert len(v) == 1
+        assert TOR002_RULE_ID in v[0]
+
+    def test_tor002_noqa_does_not_suppress_tor001(self) -> None:
+        """Vice versa: a TOR002 opt-out does NOT carry over into TOR001-scoped paths."""
+        src = "torch.eye(3)  # noqa: TOR002"
+        v = check_source(src, filename="tests/utils/test_x.py")
+        assert len(v) == 1
+        assert TOR001_RULE_ID in v[0]  # noqa: TOR001  -> just a comment, no spillover
+
+
+def test_rule_id_constants_and_prefix_map_are_stable() -> None:
+    """Rule IDs are the public contract for `# noqa: TORxxx` opt-outs."""
+    assert TOR001_RULE_ID == "TOR001"
+    assert TOR002_RULE_ID == "TOR002"
+    assert DEFAULT_RULE_ID == TOR001_RULE_ID
     assert TARGET_FUNCS == frozenset({"eye", "diag", "diag_embed"})
+    # The prefix map is part of the contract: scripts/check_test_fixture_pin_discipline.py
+    # advertises the supported directory scope via _RULE_PREFIXES (path-component
+    # keys without trailing slashes; _rule_id_for_path does the component match).
+    assert ("tests", TOR001_RULE_ID) in _RULE_PREFIXES
+    assert ("examples", TOR002_RULE_ID) in _RULE_PREFIXES
+    assert ("notebooks", TOR002_RULE_ID) in _RULE_PREFIXES
