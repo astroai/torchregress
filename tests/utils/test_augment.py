@@ -395,7 +395,12 @@ class TestEnsemblePerturbationAugmenter:
 
     def test_forward_gaussian_2d_sigma_full_cov(self) -> None:
         """Gaussian with full 2D covariance matrix."""
-        sigma = torch.eye(3) + 0.1 * torch.ones(3, 3)
+        x = torch.randn(4, 3)
+        # Pin dtype/device to ``x`` so the fixture doesn't implicitly rely
+        # on the augmenter module handling dtype/device of input fixtures internally.
+        sigma = torch.eye(3, device=x.device, dtype=x.dtype) + 0.1 * torch.ones(
+            3, 3, device=x.device, dtype=x.dtype
+        )
         epa = EnsemblePerturbationAugmenter(sigma=sigma, n_samples=5)
         x = torch.randn(4, 3)
         samples = epa(x)
@@ -404,7 +409,11 @@ class TestEnsemblePerturbationAugmenter:
 
     def test_forward_gaussian_2d_sigma_wrong_shape(self) -> None:
         """2D sigma with wrong shape raises ValueError."""
-        sigma = torch.eye(2)
+        # ``torch.eye`` is used here purely as a shape-stub for ``pytest.raises``
+        # validation: the augmenter checks shape before consuming dtype/device,
+        # so the fixture is intentionally unpinned (SKIP per
+        # docs/loss_test_coverage.md rationale).
+        sigma = torch.eye(2)  # noqa: TOR001
         epa = EnsemblePerturbationAugmenter(sigma=sigma, n_samples=5)
         x = torch.randn(4, 3)
         with pytest.raises(ValueError, match="doesn't match expected shape"):
@@ -432,9 +441,11 @@ class TestEnsemblePerturbationAugmenter:
 
     def test_forward_uniform_2d_sigma(self) -> None:
         """Uniform perturbation with 2D sigma uses diagonal."""
-        sigma = torch.eye(3) * 0.5
-        epa = EnsemblePerturbationAugmenter(perturb_method="uniform", sigma=sigma, n_samples=5)
         x = torch.randn(4, 3)
+        # Pin dtype/device to ``x`` so the fixture doesn't implicitly rely
+        # on the augmenter module handling dtype/device of input fixtures internally.
+        sigma = torch.eye(3, device=x.device, dtype=x.dtype) * 0.5
+        epa = EnsemblePerturbationAugmenter(perturb_method="uniform", sigma=sigma, n_samples=5)
         samples = epa(x)
         assert len(samples) == 5
 

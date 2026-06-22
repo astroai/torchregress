@@ -240,7 +240,12 @@ class TestBaseEIVLossInternals(unittest.TestCase):
         cov = self.loss._prepare_covariance_from_sigma(sigma, n_features, self.device)
         self.assertEqual(cov.shape, (n_features, n_features))
         sigma_on_cov = sigma.to(device=cov.device, dtype=cov.dtype)
-        expected = torch.diag(sigma_on_cov**2)
+        # ``torch.diag`` does not accept device=/dtype= natively; pin via
+        # chained ``.to`` so the fixture doesn't implicitly rely on the
+        # loss module handling dtype/device of input fixtures internally.
+        expected = torch.diag(sigma_on_cov**2).to(
+            device=sigma_on_cov.device, dtype=sigma_on_cov.dtype
+        )
         self.assertTrue(torch.allclose(cov, expected))
 
     def test_prepare_covariance_one_d_vector_wrong_size_raises(self):
@@ -255,7 +260,10 @@ class TestBaseEIVLossInternals(unittest.TestCase):
         Pin dtype/device against any global PyTorch state mutation.
         """
         n_features = 3
-        sigma_mat = 0.1 * torch.eye(n_features)
+        # Pin dtype/device to ``self.device`` so the fixture doesn't
+        # implicitly rely on the loss module handling dtype/device of input
+        # fixtures internally.
+        sigma_mat = 0.1 * torch.eye(n_features, device=self.device, dtype=torch.get_default_dtype())
         cov = self.loss._prepare_covariance_from_sigma(sigma_mat, n_features, self.device)
         self.assertEqual(cov.shape, (n_features, n_features))
         expected = sigma_mat.to(device=cov.device, dtype=cov.dtype)

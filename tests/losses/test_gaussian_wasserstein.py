@@ -164,7 +164,11 @@ def test_mismatched_diagonal_shape_raises() -> None:
 def test_bad_matrix_shape_raises() -> None:
     fn = GaussianWassersteinBoundLoss(covariance_parameterization="covariance")
     with pytest.raises(ValueError, match="covariance tensors must end"):
-        fn(torch.zeros(2, 3), torch.zeros(2, 3), torch.zeros(2, 3, 2), torch.eye(3).expand(2, 3, 3))
+        # ``torch.eye`` is used here purely as a shape-stub for ``pytest.raises``
+        # validation: the loss module raises on shape before consuming
+        # dtype/device, so the fixture is intentionally unpinned (SKIP per
+        # docs/loss_test_coverage.md rationale).
+        fn(torch.zeros(2, 3), torch.zeros(2, 3), torch.zeros(2, 3, 2), torch.eye(3).expand(2, 3, 3))  # noqa: TOR001
 
 
 def test_create_loss_from_config() -> None:

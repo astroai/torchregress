@@ -307,9 +307,13 @@ class TestGaussianLosses(unittest.TestCase):
             with self.subTest(condition_number_scale=scale):
                 # Create covariance with controlled condition number
                 U, _, V = torch.linalg.svd(self.covariance_matrices[0])
+                # ``torch.diag`` does not accept device=/dtype= natively;
+                # pin via chained ``.to`` so the fixture doesn't implicitly
+                # rely on the loss module handling dtype/device of input
+                # fixtures internally.
                 S = torch.diag(
                     torch.tensor([1.0, scale, scale**2, scale**3, scale**4], device=self.device)
-                )
+                ).to(device=self.device, dtype=torch.get_default_dtype())
                 cov = U @ S @ V.T
                 cov = cov @ cov.T  # Ensure symmetric positive definite
 

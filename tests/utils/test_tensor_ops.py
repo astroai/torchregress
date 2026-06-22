@@ -346,29 +346,35 @@ class TestPrepareCovariance:
         """None returns identity matrix."""
         result = prepare_covariance(None, n_dims=3, device=torch.device("cpu"))  # type: ignore[arg-type]
         assert result.shape == (3, 3)
-        assert torch.equal(result, torch.eye(3))
+        # RESULT compare: pin ``torch.eye`` to ``result`` so the fixture doesn't
+        # implicitly rely on the function module handling dtype/device of input
+        # fixtures internally.
+        assert torch.equal(result, torch.eye(3, device=result.device, dtype=result.dtype))
 
     def test_float_scalar(self) -> None:
         """Float scalar produces scaled identity."""
         result = prepare_covariance(2.0, n_dims=3, device=torch.device("cpu"))
-        assert torch.equal(result, torch.eye(3) * 2.0)
+        assert torch.equal(result, torch.eye(3, device=result.device, dtype=result.dtype) * 2.0)
 
     def test_int_scalar(self) -> None:
         """Int scalar produces scaled identity."""
         result = prepare_covariance(3, n_dims=2, device=torch.device("cpu"))
-        assert torch.equal(result, torch.eye(2) * 3)
+        assert torch.equal(result, torch.eye(2, device=result.device, dtype=result.dtype) * 3)
 
     def test_scalar_tensor(self) -> None:
         """1-element tensor produces scaled identity."""
         t = torch.tensor([4.0])
         result = prepare_covariance(t, n_dims=2, device=torch.device("cpu"))
-        assert torch.equal(result, torch.eye(2) * 4.0)
+        assert torch.equal(result, torch.eye(2, device=result.device, dtype=result.dtype) * 4.0)
 
     def test_1d_diagonal(self) -> None:
         """1D tensor becomes diagonal matrix."""
         t = torch.tensor([1.0, 2.0, 3.0])
         result = prepare_covariance(t, n_dims=3, device=torch.device("cpu"))
-        expected = torch.diag(t)
+        # ``torch.diag`` does not accept device=/dtype= natively; pin via
+        # chained ``.to`` so the fixture doesn't implicitly rely on the
+        # function module handling dtype/device of input fixtures internally.
+        expected = torch.diag(t).to(device=t.device, dtype=t.dtype)
         assert torch.equal(result, expected)
 
     def test_1d_wrong_shape_raises(self) -> None:
@@ -393,7 +399,11 @@ class TestPrepareCovariance:
 
     def test_2d_wrong_shape_raises(self) -> None:
         """2D matrix with wrong shape raises ValueError."""
-        cov = torch.eye(3)
+        # ``torch.eye`` is used here purely as a shape-stub for ``pytest.raises``
+        # validation: the function raises before consuming dtype/device, so the
+        # fixture is intentionally unpinned (SKIP per docs/loss_test_coverage.md
+        # rationale).
+        cov = torch.eye(3)  # noqa: TOR001
         with pytest.raises(ValueError, match="doesn't match required shape"):
             prepare_covariance(cov, n_dims=2, device=torch.device("cpu"))
 
@@ -477,7 +487,11 @@ class TestPrepareModelInputForGradients:
 class TestBatchedLinalgSolve:
     def test_normal_case(self) -> None:
         """Normal well-conditioned solve."""
-        A = torch.eye(3) + 0.1 * torch.randn(3, 3)
+        # No co-built tensor precedes ``A`` here — fall back to legacy device/dtype
+        # so the fixture doesn't implicitly rely on the function module's defaults.
+        A = torch.eye(
+            3, device=torch.device("cpu"), dtype=torch.get_default_dtype()
+        ) + 0.1 * torch.randn(3, 3)
         A = A @ A.t()  # make pos-def
         b = torch.randn(3, 2)
         result = batched_linalg_solve(A, b)
@@ -607,7 +621,15 @@ class TestCalculateGaussianNLL:
     def test_full_covariance(self) -> None:
         """Full covariance case uses MultivariateNormal."""
         residuals = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
-        var = torch.stack([torch.eye(2), 2 * torch.eye(2)])
+        # INPUT builder: pin ``torch.eye`` to ``residuals`` so the fixture doesn't
+        # implicitly rely on the function module handling dtype/device of input
+        # fixtures internally.
+        var = torch.stack(
+            [
+                torch.eye(2, device=residuals.device, dtype=residuals.dtype),
+                2 * torch.eye(2, device=residuals.device, dtype=residuals.dtype),
+            ]
+        )
         result = calculate_gaussian_nll(residuals, var)
         assert result.shape == (2,)
         assert torch.isfinite(result).all()
@@ -629,41 +651,61 @@ class TestCalculateGaussianNLL:
 class TestCalculatePropagatedVariance:
     def test_basic(self) -> None:
         """grad @ sigma_x @ grad^T."""
-        grad = torch.eye(2).unsqueeze(0)  # [1, 2, 2]
-        sigma_x = torch.eye(2)
+        # No co-built tensor precedes ``grad`` here — fall back to legacy
+        # device/dtype so the fixture doesn't implicitly rely on the
+        # function module's defaults.
+        grad = torch.eye(2, device=torch.device("cpu"), dtype=torch.get_default_dtype()).unsqueeze(
+            0
+        )  # [1, 2, 2]
+        sigma_x = torch.eye(2, device=grad.device, dtype=grad.dtype)
         result = calculate_propagated_variance(grad, sigma_x)
         assert result.shape == (1, 2, 2)
-        assert torch.allclose(result, torch.eye(2).unsqueeze(0))
+        assert torch.allclose(
+            result, torch.eye(2, device=result.device, dtype=result.dtype).unsqueeze(0)
+        )
 
     def test_with_sigma_y(self) -> None:
         """Adds sigma_y to propagated variance."""
-        grad = torch.eye(2).unsqueeze(0)
-        sigma_x = torch.eye(2)
-        sigma_y = torch.eye(2).unsqueeze(0)
+        grad = torch.eye(2, device=torch.device("cpu"), dtype=torch.get_default_dtype()).unsqueeze(
+            0
+        )
+        sigma_x = torch.eye(2, device=grad.device, dtype=grad.dtype)
+        sigma_y = torch.eye(2, device=grad.device, dtype=grad.dtype).unsqueeze(0)
         result = calculate_propagated_variance(grad, sigma_x, sigma_y=sigma_y)
-        assert torch.allclose(result, 2 * torch.eye(2).unsqueeze(0))
+        assert torch.allclose(
+            result,
+            2 * torch.eye(2, device=result.device, dtype=result.dtype).unsqueeze(0),
+        )
 
     def test_with_sigma_xy(self) -> None:
         """Subtracts cross-covariance terms."""
-        grad = torch.eye(2).unsqueeze(0)
-        sigma_x = torch.eye(2)
-        sigma_xy = torch.eye(2).unsqueeze(0)
+        grad = torch.eye(2, device=torch.device("cpu"), dtype=torch.get_default_dtype()).unsqueeze(
+            0
+        )
+        sigma_x = torch.eye(2, device=grad.device, dtype=grad.dtype)
+        sigma_xy = torch.eye(2, device=grad.device, dtype=grad.dtype).unsqueeze(0)
         result = calculate_propagated_variance(grad, sigma_x, sigma_xy=sigma_xy)
         # grad @ sigma_x @ grad^T - grad @ sigma_xy^T - sigma_xy @ grad^T
         # = I - I - I = -I
-        assert torch.allclose(result, -torch.eye(2).unsqueeze(0))
+        assert torch.allclose(
+            result, -torch.eye(2, device=result.device, dtype=result.dtype).unsqueeze(0)
+        )
 
     def test_batch(self) -> None:
         """Batch of gradients."""
-        grad = torch.eye(2).unsqueeze(0).expand(4, -1, -1)
-        sigma_x = torch.eye(2)
+        grad = (
+            torch.eye(2, device=torch.device("cpu"), dtype=torch.get_default_dtype())
+            .unsqueeze(0)
+            .expand(4, -1, -1)
+        )
+        sigma_x = torch.eye(2, device=grad.device, dtype=grad.dtype)
         result = calculate_propagated_variance(grad, sigma_x)
         assert result.shape == (4, 2, 2)
 
     def test_all_null(self) -> None:
         """All optional noise sources provided."""
         grad = torch.tensor([[[1.0, 0.0]]])  # [1, 1, 2]
-        sigma_x = 2.0 * torch.eye(2)
+        sigma_x = 2.0 * torch.eye(2, device=grad.device, dtype=grad.dtype)
         sigma_y = torch.tensor([[[0.5]]])
         sigma_xy = torch.tensor([[[1.0, 0.0]]])
         result = calculate_propagated_variance(grad, sigma_x, sigma_y=sigma_y, sigma_xy=sigma_xy)

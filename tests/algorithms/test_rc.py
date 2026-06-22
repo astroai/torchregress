@@ -96,7 +96,9 @@ def test_rc_falls_back_to_stable_diagonal_reliability_when_full_matrix_is_unstab
     torch.manual_seed(0)
     X = torch.randn(512, 3)
     # Use an unrealistically large error covariance to force the fallback path.
-    rc = RegressionCalibration(sigma_u=torch.eye(3) * 50.0)
+    # Pin dtype/device to ``X`` so the fixture doesn't implicitly rely on the
+    # algorithm module handling dtype/device of input fixtures internally.
+    rc = RegressionCalibration(sigma_u=torch.eye(3, device=X.device, dtype=X.dtype) * 50.0)
     rc.fit(X)
     diag = torch.diagonal(rc.reliability_matrix)
     assert torch.isfinite(rc.reliability_matrix).all()

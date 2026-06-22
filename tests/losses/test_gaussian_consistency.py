@@ -663,7 +663,12 @@ class TestMultivariateRelationships:
         cov_diag = torch.full((batch, dim), 1e-6)
 
         lr_loss = LowRankGaussianLoss(reduction="mean")(mean, target, cov_factor, cov_diag)
-        cov_full = cov_factor @ cov_factor.transpose(-1, -2) + torch.diag_embed(cov_diag)
+        # ``torch.diag_embed`` does not accept device=/dtype= natively; pin
+        # via chained ``.to`` so the fixture doesn't implicitly rely on the
+        # loss module handling dtype/device of input fixtures internally.
+        cov_full = cov_factor @ cov_factor.transpose(-1, -2) + torch.diag_embed(cov_diag).to(
+            device=cov_factor.device, dtype=cov_factor.dtype
+        )
         mv_loss = MultivariateGaussianLoss(reduction="mean")(mean, target, cov_full)
 
         torch.testing.assert_close(lr_loss, mv_loss, atol=1e-4, rtol=1e-2)

@@ -88,7 +88,12 @@ def train():
     with torch.no_grad():
         y_pred = model(x[:5])
         mean, cov_factor, cov_diag = split_low_rank_gaussian_output(y_pred, n_features, rank)
-        cov = cov_factor @ cov_factor.transpose(-1, -2) + torch.diag_embed(cov_diag.clamp(min=1e-6))
+        # ``torch.diag_embed`` does not accept device=/dtype= natively; pin
+        # via chained ``.to`` so the demo fixture doesn't implicitly rely on
+        # the loss module handling dtype/device of input fixtures internally.
+        cov = cov_factor @ cov_factor.transpose(-1, -2) + torch.diag_embed(
+            cov_diag.clamp(min=1e-6)
+        ).to(device=cov_factor.device, dtype=cov_factor.dtype)
         print("mean shape:", mean.shape)
         print("cov shape:", cov.shape)
 

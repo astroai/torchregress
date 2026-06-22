@@ -26,8 +26,12 @@ def main() -> None:
     mu_pred = torch.randn(b, d, requires_grad=True)
     mu_tgt = torch.randn(b, d)
     raw = torch.randn(b, d, d, requires_grad=True)
-    sig_pred = raw @ raw.transpose(-1, -2) + 0.25 * torch.eye(d).expand(b, d, d)
-    sig_tgt = torch.eye(d).expand(b, d, d) * 0.5
+    # Pin ``torch.eye`` to ``raw`` so the demo fixture doesn't implicitly rely
+    # on the loss module handling dtype/device of input fixtures internally.
+    sig_pred = raw @ raw.transpose(-1, -2) + 0.25 * torch.eye(
+        d, device=raw.device, dtype=raw.dtype
+    ).expand(b, d, d)
+    sig_tgt = torch.eye(d, device=raw.device, dtype=raw.dtype).expand(b, d, d) * 0.5
 
     fn = GaussianWassersteinBoundLoss(
         covariance_parameterization="covariance",

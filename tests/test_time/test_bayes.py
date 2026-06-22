@@ -92,15 +92,21 @@ class TestAugmentFeatures:
 class TestPosteriorCovarianceFromPrecision:
     def test_identity_precision(self) -> None:
         """Identity precision."""
-        prec = torch.eye(3)
+        # No co-built tensor in this test — fall back to legacy device/dtype so
+        # the fixture doesn't implicitly rely on the bayes module's defaults.
+        prec = torch.eye(3, device=torch.device("cpu"), dtype=torch.get_default_dtype())
         cov = _posterior_covariance_from_precision(prec, jitter=1e-6)
         assert cov.shape == (3, 3)
 
     def test_diagonal_precision(self) -> None:
         """Diagonal precision."""
-        prec = torch.diag(torch.tensor([2.0, 3.0, 4.0]))
+        prec = torch.diag(torch.tensor([2.0, 3.0, 4.0])).to(
+            device=torch.device("cpu"), dtype=torch.get_default_dtype()
+        )
         cov = _posterior_covariance_from_precision(prec, jitter=0.0)
-        expected = torch.diag(1.0 / torch.tensor([2.0, 3.0, 4.0]))
+        expected = torch.diag(1.0 / torch.tensor([2.0, 3.0, 4.0])).to(
+            device=torch.device("cpu"), dtype=torch.get_default_dtype()
+        )
         assert torch.allclose(cov, expected, atol=1e-6)
 
 
@@ -477,7 +483,9 @@ class TestBayesianLinearHeadPosterior:
         prec = head.posterior_precision
         cov = head.posterior_covariance
         prod = cov @ prec
-        expected = torch.eye(head._d_eff)
+        # Pin dtype/device to ``prec`` so the fixture doesn't implicitly rely
+        # on the bayes module handling dtype/device of input fixtures internally.
+        expected = torch.eye(head._d_eff, device=prec.device, dtype=prec.dtype)
         assert torch.allclose(prod, expected, atol=1e-3)
 
 

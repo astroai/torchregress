@@ -78,7 +78,13 @@ def test_tac_metric_correctness() -> None:
 
     y_pred = torch.randn(batch_size, target_dim)
     y_true = torch.randn(batch_size, target_dim)
-    covariance = torch.eye(target_dim).unsqueeze(0).repeat(batch_size, 1, 1)
+    # Pin dtype/device to ``y_pred`` so the fixture doesn't implicitly rely
+    # on the metric module handling dtype/device of input fixtures internally.
+    covariance = (
+        torch.eye(target_dim, device=y_pred.device, dtype=y_pred.dtype)
+        .unsqueeze(0)
+        .repeat(batch_size, 1, 1)
+    )
 
     val = task_agnostic_correlations(y_pred, y_true, covariance)
     assert isinstance(val, torch.Tensor)

@@ -48,7 +48,9 @@ def test_calibration_score_matches_expected_calibration_error_construction():
 def test_ood_metric_classes_match_functional_variants_for_deterministic_inputs():
     x = torch.tensor([[0.0, 1.0], [1.0, 0.0]])
     mean = torch.tensor([0.5, 0.5])
-    cov = torch.eye(2) * 0.5
+    # Pin dtype/device to ``x`` so the fixture doesn't implicitly rely on
+    # the metric module handling dtype/device of input fixtures internally.
+    cov = torch.eye(2, device=x.device, dtype=x.dtype) * 0.5
 
     md_metric = MahalanobisDistance()
     md_metric.update(x, mean, cov)
@@ -94,7 +96,9 @@ def test_typicality_score_accepts_dict_and_tuple_and_report_returns_expected_key
         x_test=x,
         x_reference=torch.randn(10, 1),
         mean=torch.tensor([0.0]),
-        cov=torch.eye(1),
+        # Pin dtype/device to ``mean`` so the fixture doesn't implicitly rely
+        # on the metric module handling dtype/device of input fixtures internally.
+        cov=torch.eye(1, device=mean.device, dtype=mean.dtype),
         samples=torch.randn(12, 6, 1),
     )
     assert {"typicality_score", "kernel_density", "mahalanobis_distance", "entropy"} <= set(report)

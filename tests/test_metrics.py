@@ -469,7 +469,9 @@ class TestOODMetrics:
 
         # Generate distribution parameters
         self.mean = torch.zeros(self.n_features)
-        self.cov = torch.eye(self.n_features)
+        # Pin dtype/device to ``self.x_test`` so the fixture doesn't implicitly
+        # rely on the metric module handling dtype/device of input fixtures internally.
+        self.cov = torch.eye(self.n_features, device=self.x_test.device, dtype=self.x_test.dtype)
         self.model_output = (torch.zeros(self.batch_size), torch.ones(self.batch_size))
 
         # Generate samples
