@@ -494,7 +494,7 @@ class NormalizingFlowLoss(DistributionLoss):
 
         if self.context_dim is not None and self.context_dim > 0:
             if n_samples == 1:
-                samples = cast(Tensor, dist.sample())
+                samples = cast(Tensor, dist.sample((1,))).transpose(0, 1).squeeze(1)
             else:
                 samples = cast(Tensor, dist.sample((n_samples,))).transpose(0, 1)
         else:

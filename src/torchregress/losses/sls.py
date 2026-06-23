@@ -552,29 +552,31 @@ class SLSLoss(RegressionLoss):
 
         self.step_counter = 0
 
-    def get_current_window(self) -> Tuple[float, float]:
-        phi = sigmoidal_schedule(
-            self.step_counter, self.warmup_steps, self.error_init, self.error_min
-        )
-        psi = sigmoidal_schedule(
-            self.step_counter, self.warmup_steps, self.error_init, self.error_min
-        )
+    def get_current_window(self, step: Optional[int] = None) -> Tuple[float, float]:
+        current_step = step if step is not None else self.step_counter
+        phi = sigmoidal_schedule(current_step, self.warmup_steps, self.error_init, self.error_min)
+        psi = sigmoidal_schedule(current_step, self.warmup_steps, self.error_init, self.error_min)
         return phi, psi
 
     def forward_frontier(
         self,
         y_pred: Tensor,
         target: Tensor,
+        step: Optional[int] = None,
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
     ) -> Tensor:
-        self.step_counter += 1
+        if step is not None:
+            current_step = step
+        else:
+            self.step_counter += 1
+            current_step = self.step_counter
         G, log_det_L = self.frontier(target, y_pred)
 
-        if self.step_counter <= self.warmup_steps:
+        if current_step <= self.warmup_steps:
             loss_val = 0.5 * self.d * torch.log(G + 1e-8) - log_det_L
         else:
-            phi, psi = self.get_current_window()
+            phi, psi = self.get_current_window(step=step)
             quantiles = self.quantile_net(y_pred).detach()
             q_low = quantiles[..., 0]
             q_high = quantiles[..., 2]
@@ -594,13 +596,14 @@ class SLSLoss(RegressionLoss):
         self,
         y_pred: Tensor,
         target: Tensor,
+        step: Optional[int] = None,
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
     ) -> Tensor:
         with torch.no_grad():
             G, _ = self.frontier(target, y_pred)
 
-        phi, psi = self.get_current_window()
+        phi, psi = self.get_current_window(step=step)
         beta_low = max(0.01, self.tau - phi)
         beta_high = min(0.99, self.tau + psi)
 
@@ -622,26 +625,26 @@ class SLSLoss(RegressionLoss):
         self,
         y_pred: Tensor,
         target: Tensor,
+        step: Optional[int] = None,
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tensor:
-        # ``forward_frontier`` already advances :attr:`step_counter` by one.  The
-        # counter must monotonically advance across ``forward`` calls so that the
-        # sigmoidal warmup schedule and the ``K > 1`` union-frontier unfreeze
-        # trigger correctly (see :meth:`forward_frontier` and the K-gating
-        # branch below).  Earlier versions decremented the counter here, which
-        # silently pinned it at 0 for the entire training run.
-        if self.step_counter > self.warmup_steps and self.K > 1:
+        step_val = step if step is not None else kwargs.get("step")
+        current_step = step_val if step_val is not None else self.step_counter
+        effective_step = current_step if step_val is not None else current_step + 1
+
+        if effective_step > self.warmup_steps and self.K > 1:
             # UnionFrontier typecast since Components can be either Mahalanobis or UnionFrontier
             frontier_union = cast(UnionFrontier, self.frontier)
             frontier_union.freeze_weights(False)
             frontier_union.step_beta()
 
-        loss_frontier = self.forward_frontier(y_pred, target, mask=mask, weights=weights)
-        # ``step_counter`` already inside ``forward_frontier`` was incremented to
-        # ``current + 1``; reuse that value for the quantile pass so the
-        # curriculum advances inside ``forward_quantiles``.
-        loss_quantiles = self.forward_quantiles(y_pred, target, mask=mask, weights=weights)
+        loss_frontier = self.forward_frontier(
+            y_pred, target, step=step_val, mask=mask, weights=weights
+        )
+        loss_quantiles = self.forward_quantiles(
+            y_pred, target, step=step_val, mask=mask, weights=weights
+        )
 
         return loss_frontier + loss_quantiles

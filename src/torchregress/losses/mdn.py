@@ -504,23 +504,10 @@ class MixtureDensityLoss(DistributionLoss):
         # [batch, n_samples]
         component_idx = torch.multinomial(weights, n_samples, replacement=True)
 
-        # Expand component indices for gathering
-        # [batch, n_samples, 1] for n_features=1
-        component_idx_expanded = component_idx.unsqueeze(-1).expand(-1, -1, n_features)
-
-        # Gather means and stds for selected components
-        # means/stds shape: [batch, n_components, n_features]
-        # After gather: [batch, n_samples, n_features]
-        selected_means = torch.gather(
-            means.unsqueeze(1).expand(-1, n_samples, -1, -1),
-            dim=2,
-            index=component_idx_expanded.unsqueeze(2),
-        ).squeeze(2)
-        selected_stds = torch.gather(
-            stds_or_L.unsqueeze(1).expand(-1, n_samples, -1, -1),
-            dim=2,
-            index=component_idx_expanded.unsqueeze(2),
-        ).squeeze(2)
+        # Gather means and stds for selected components using memory-efficient advanced indexing
+        batch_indices = torch.arange(batch_size, device=y_pred.device).unsqueeze(1)
+        selected_means = means[batch_indices, component_idx]
+        selected_stds = stds_or_L[batch_indices, component_idx]
 
         # Sample from selected Gaussian components
         samples = torch.randn(batch_size, n_samples, n_features, device=y_pred.device)
@@ -558,19 +545,11 @@ class MixtureDensityLoss(DistributionLoss):
 
         # Sample component indices
         component_idx = torch.multinomial(weights, n_samples, replacement=True)
-        component_idx_expanded = component_idx.unsqueeze(-1).expand(-1, -1, n_features)
 
-        # Gather parameters
-        selected_means = torch.gather(
-            means.unsqueeze(1).expand(-1, n_samples, -1, -1),
-            dim=2,
-            index=component_idx_expanded.unsqueeze(2),
-        ).squeeze(2)
-        selected_stds = torch.gather(
-            stds_or_L.unsqueeze(1).expand(-1, n_samples, -1, -1),
-            dim=2,
-            index=component_idx_expanded.unsqueeze(2),
-        ).squeeze(2)
+        # Gather parameters using memory-efficient advanced indexing
+        batch_indices = torch.arange(batch_size, device=y_pred.device).unsqueeze(1)
+        selected_means = means[batch_indices, component_idx]
+        selected_stds = stds_or_L[batch_indices, component_idx]
 
         # Sample
         samples = torch.randn(batch_size, n_samples, n_features, device=y_pred.device)

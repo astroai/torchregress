@@ -428,13 +428,17 @@ class EvidentialRegressionLoss(DistributionLoss):
         scale = torch.sqrt(beta * (1 + 1 / nu) / (alpha + 1e-6))
 
         # Student-t quantile using scipy
-        # For large batches, this is computed element-wise
+        import numpy as np
         from scipy import stats as scipy_stats  # type: ignore[import-untyped]
 
-        # Compute t-quantile for each sample (may have different df)
+        # Compute t-quantile (check if all degrees of freedom are identical to avoid vector ppf)
         df_np = df.detach().cpu().numpy()
-        t_quantile = scipy_stats.t.ppf((1 + confidence) / 2, df_np)
-        t_quantile = torch.tensor(t_quantile, device=y_pred.device, dtype=y_pred.dtype)
+        if df_np.size > 1 and np.all(df_np == df_np[0]):
+            t_quantile_scalar = scipy_stats.t.ppf((1 + confidence) / 2, df_np.flat[0])
+            t_quantile = torch.full_like(df, t_quantile_scalar)
+        else:
+            t_quantile = scipy_stats.t.ppf((1 + confidence) / 2, df_np)
+            t_quantile = torch.tensor(t_quantile, device=y_pred.device, dtype=y_pred.dtype)
 
         # Compute intervals
         lower = gamma - t_quantile * scale
