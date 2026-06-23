@@ -592,11 +592,9 @@ class CVaRLoss(RegressionLoss):
 
         scaled = abs_residuals / self.c
         squared = scaled**2
-        loss = torch.ones_like(residuals) * self.c_squared_over_6
         mask_within = abs_residuals <= self.c
-        if torch.any(mask_within):
-            loss[mask_within] = self.c_squared_over_6 * (1.0 - (1.0 - squared[mask_within]) ** 3)
-        return loss
+        inlier = self.c_squared_over_6 * (1.0 - (1.0 - squared) ** 3)
+        return torch.where(mask_within, inlier, torch.full_like(residuals, self.c_squared_over_6))
 
     def forward(
         self,

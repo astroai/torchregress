@@ -138,16 +138,9 @@ class TweedieLoss(RegressionLoss):
         Returns:
             Loss tensor
         """
-        zero_mask = target == 0
-        non_zero_mask = ~zero_mask
-
-        loss = torch.zeros_like(target)
-        if torch.any(non_zero_mask):
-            loss[non_zero_mask] = target[non_zero_mask] * torch.log(
-                target[non_zero_mask] / mu[non_zero_mask] + self.eps
-            ) - (target[non_zero_mask] - mu[non_zero_mask])
-        loss[zero_mask] = mu[zero_mask]
-        return loss
+        target_safe = torch.where(target > 0, target, torch.ones_like(target))
+        term_nz = target * torch.log(target_safe / (mu + self.eps) + self.eps) - (target - mu)
+        return torch.where(target == 0, mu, term_nz)
 
     def _gamma_loss(self, target: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:
         """
@@ -186,23 +179,21 @@ class TweedieLoss(RegressionLoss):
         Returns:
             Loss tensor
         """
-        zero_mask = target == 0
-        non_zero_mask = ~zero_mask
-
-        loss = torch.zeros_like(target)
-
         # Constants for readability
-        p1 = 1 - self.p
-        p2 = 2 - self.p
+        p1 = 1.0 - self.p
+        p2 = 2.0 - self.p
 
-        if torch.any(non_zero_mask):
-            term1 = target[non_zero_mask] ** (p2) / (p1 * p2)
-            term2 = target[non_zero_mask] * mu[non_zero_mask] ** (p1) / p1
-            term3 = mu[non_zero_mask] ** (p2) / p2
-            loss[non_zero_mask] = 2 * (term1 - term2 + term3)
+        # For target == 0
+        loss_zero = 2.0 * (mu**p2) / p2
 
-        loss[zero_mask] = 2 * mu[zero_mask] ** (p2) / p2
-        return loss
+        # For target > 0 (avoid negative base raised to fraction in target ** p2)
+        target_safe = torch.where(target > 0, target, torch.ones_like(target))
+        term1 = (target_safe**p2) / (p1 * p2)
+        term2 = target * (mu**p1) / p1
+        term3 = (mu**p2) / p2
+        loss_nz = 2.0 * (term1 - term2 + term3)
+
+        return torch.where(target == 0, loss_zero, loss_nz)
 
     def forward(
         self,

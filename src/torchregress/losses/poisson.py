@@ -90,19 +90,11 @@ class PoissonDevianceLoss(RegressionLoss):
         else:
             rate = y_pred
 
-        # Initialize loss tensor
-        loss = torch.zeros_like(target)
-
         # Calculate Poisson deviance: λ - y + y * log(y/λ)
-        # First part: λ - y for all values
-        loss = rate - target
-
-        # Second part: y * log(y/λ) only for y > 0
-        non_zero = target > 0
-        if torch.any(non_zero):
-            target_nz = target[non_zero]
-            rate_nz = rate[non_zero] + self.eps
-            loss[non_zero] = loss[non_zero] + target_nz * torch.log(target_nz / rate_nz)
+        # y * log(y/λ) = 0 for y = 0. Use torch.where to avoid log(0) and NaNs.
+        target_safe = torch.where(target > 0, target, torch.ones_like(target))
+        term = target * torch.log(target_safe / (rate + self.eps))
+        loss = rate - target + torch.where(target > 0, term, 0.0)
 
         # Apply variance adjustment if using learnable variance
         if self.learn_variance:
@@ -194,19 +186,11 @@ class PoissonLikelihoodRatioLoss(RegressionLoss):
         # Ensure expected counts are positive
         expected = expected + self.eps
 
-        # Create the loss tensor with the same shape as target
-        loss = torch.zeros_like(target)
-
         # Calculate Poisson likelihood ratio statistic: 2∑[λᵢ - nᵢ + nᵢln(nᵢ/λᵢ)]
-        # Calculate first part: 2(λᵢ - nᵢ)
-        loss = 2.0 * (expected - target)
-
-        # Add the 2nᵢln(nᵢ/λᵢ) term for bins where nᵢ > 0
-        non_zero_mask = target > 0
-        if torch.any(non_zero_mask):
-            target_nz = target[non_zero_mask]
-            expected_nz = expected[non_zero_mask]
-            loss[non_zero_mask] += 2.0 * target_nz * torch.log(target_nz / expected_nz)
+        # Use torch.where to avoid log(0) and NaNs for bins where target n_i = 0.
+        target_safe = torch.where(target > 0, target, torch.ones_like(target))
+        term = 2.0 * target * torch.log(target_safe / expected)
+        loss = 2.0 * (expected - target) + torch.where(target > 0, term, 0.0)
 
         # Apply reduction with mask and weights
         return self._reduce_with_mask(loss, mask, weights)
@@ -308,29 +292,22 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
         # Calculate zero-inflation probability from logits
         pi = torch.sigmoid(pi_logits)
 
-        # Initialize loss tensor
-        loss = torch.zeros_like(target)
-
         # For zero targets: -log(pi + (1-pi) * exp(-lambda))
-        zero_mask = target == 0
-        if torch.any(zero_mask):
-            exp_neg_rate = torch.exp(-rate)
-            loss[zero_mask] = -torch.log(
-                pi[zero_mask] + (1 - pi[zero_mask]) * exp_neg_rate[zero_mask] + self.eps
-            )
+        exp_neg_rate = torch.exp(-rate)
+        loss_zero = -torch.log(pi + (1.0 - pi) * exp_neg_rate + self.eps)
 
         # For non-zero targets: -log(1-pi) + lambda - y*log(lambda) + log(y!)
-        non_zero_mask = target > 0
-        if torch.any(non_zero_mask):
-            # Calculate log factorial of target values
-            log_factorial = torch.lgamma(target[non_zero_mask] + 1)
+        # Use target_safe to avoid negative values or zero in lgamma and log
+        target_safe = torch.where(target > 0, target, torch.ones_like(target))
+        log_factorial = torch.lgamma(target_safe + 1.0)
+        loss_nonzero = (
+            -torch.log(1.0 - pi + self.eps)
+            + rate
+            - target * torch.log(rate + self.eps)
+            + log_factorial
+        )
 
-            loss[non_zero_mask] = (
-                -torch.log(1 - pi[non_zero_mask] + self.eps)
-                + rate[non_zero_mask]
-                - target[non_zero_mask] * torch.log(rate[non_zero_mask] + self.eps)
-                + log_factorial
-            )
+        loss = torch.where(target == 0, loss_zero, loss_nonzero)
 
         # Apply variance adjustment if using learnable variance
         if self.learn_variance:
