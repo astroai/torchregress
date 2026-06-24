@@ -213,7 +213,7 @@ When the target distribution at deployment differs from training
 
 ```python
 from torchregress.test_time import (
-    BayesianLinearHead, OTShiftReweighter, WeightedSplitConformalAdapter
+    BayesianLinearHead, ScoreCDFReweighter, WeightedSplitConformalAdapter
 )
 
 # 1. Closed-form Bayesian last layer — adapts to a few labeled or
@@ -223,7 +223,7 @@ head.fit(features_train, y_train)              # one-shot
 head.partial_fit(features_stream, y_stream)   # streaming with forgetting
 
 # 2. OT-style conformal reweighting under non-exchangeable shift
-rw = OTShiftReweighter().fit(cal_scores, target_scores)
+rw = ScoreCDFReweighter().fit(cal_scores, target_scores)
 adapter = WeightedSplitConformalAdapter(alpha=0.1).calibrate(cal_scores, rw.weights_)
 mask = adapter.predict_from_test_scores(test_scores)
 

@@ -3,7 +3,7 @@ import pytest
 
 from torchregress.test_time.subspace import (
     FeatureStatNormalizer,
-    SignificantSubspaceAligner,
+    WeightedSubspaceMomentAligner,
     _clip_scale_ratio,
     _feature_significance,
 )
@@ -76,7 +76,7 @@ def test_significant_subspace_aligner():
     X_target = X_source * np.array([2.0, 0.5]) + np.array([10.0, -5.0])
 
     # Errors on invalid inputs
-    aligner = SignificantSubspaceAligner()
+    aligner = WeightedSubspaceMomentAligner()
     with pytest.raises(ValueError, match="X_source must be 2D"):
         aligner.fit(np.zeros(10))
     with pytest.raises(ValueError, match="y_source must match X_source rows"):
@@ -93,11 +93,11 @@ def test_significant_subspace_aligner():
     assert aligner.state_.rank >= 1
 
     # Fit without y
-    aligner_no_y = SignificantSubspaceAligner()
+    aligner_no_y = WeightedSubspaceMomentAligner()
     transformed_no_y = aligner_no_y.fit_transform(X_source, X_target)
     assert transformed_no_y.shape == X_target.shape
 
     # Explicit rank
-    aligner_rank_1 = SignificantSubspaceAligner(rank=1)
+    aligner_rank_1 = WeightedSubspaceMomentAligner(rank=1)
     aligner_rank_1.fit(X_source, y_source)
     assert aligner_rank_1.state_.rank == 1

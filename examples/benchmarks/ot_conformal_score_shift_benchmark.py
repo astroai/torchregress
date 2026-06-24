@@ -1,7 +1,7 @@
 """
 Toy benchmark: score CDF gap, OT-style reweights, weighted split conformal, diagnostics.
 
-Prints marginal diagnostics from ``OptimalTransportCoverageGap``, ``OTShiftReweighter``,
+Prints marginal diagnostics from ``OptimalTransportCoverageGap``, ``ScoreCDFReweighter``,
 ``WeightedSplitConformalAdapter.coverage_diagnostics``, and mean prediction-set size on
 random candidate score matrices (classification-style).
 """
@@ -27,7 +27,7 @@ def main() -> None:
         calibration_scores=cal,
         target_score_summary=tgt,
     )
-    rw = tr.test_time.OTShiftReweighter(
+    rw = tr.test_time.ScoreCDFReweighter(
         entropy_penalty=5e-2,
         n_steps=120,
         learning_rate=0.08,

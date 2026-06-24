@@ -23,7 +23,7 @@ torchregress.
 | Symbol | Role |
 |:-------|:-----|
 | `OptimalTransportCoverageGap` | Scalar diagnostics (`l2_cdf_gap`, `ks_max_abs`) between calibration and target score ECDFs |
-| `OTShiftReweighter` | Fit simplex weights ``weights_`` by CDF matching + entropy regularisation |
+| `ScoreCDFReweighter` | Fit simplex weights ``weights_`` by CDF matching + entropy regularisation |
 | `WeightedSplitConformalAdapter` | Calibrate a scalar threshold with nonnegative weights; build label sets from per-class scores |
 | `WeightedSplitConformalAdapter.coverage_diagnostics` | Weighted empirical calibration coverage vs ``1 - alpha``, ESS proxy |
 | `weighted_split_classification_predictive_batch` | Wrap scores + adapter into ``PredictiveBatch`` with ``extra`` (mask, threshold, optional gap / ESS) |
@@ -37,7 +37,7 @@ gap = tr.test_time.OptimalTransportCoverageGap().estimate(
     calibration_scores=cal_scores,
     target_score_summary=tgt_scores,
 )
-rw = tr.test_time.OTShiftReweighter(entropy_penalty=1e-2).fit(cal_scores, tgt_scores)
+rw = tr.test_time.ScoreCDFReweighter(entropy_penalty=1e-2).fit(cal_scores, tgt_scores)
 ad = tr.test_time.WeightedSplitConformalAdapter(alpha=0.1)
 ad.calibrate(cal_scores, rw.weights_)
 diag = ad.coverage_diagnostics(cal_scores, rw.weights_)

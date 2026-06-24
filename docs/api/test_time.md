@@ -111,15 +111,15 @@ of OT reweighting (no external OT solver).
 | Symbol | Description |
 |:-------|:------------|
 | `OptimalTransportCoverageGap(n_grid=129)` | Diagnostics: `l2_cdf_gap`, `ks_max_abs`, `n_calibration`, `n_target` between uniform-weight calibration and target ECDFs. |
-| `OTShiftReweighter(*, score_mode="classification", objective="weighted_cdf", weight_parameterization="free", entropy_penalty=1e-3, n_grid=129, n_steps=200, learning_rate=0.05)` | Learns simplex weights over calibration points by minimising the L₂ gap on a 1-D score grid (Adam). `.fit(calibration_scores, target_unlabeled_scores)`. Exposes `.weights_`, `.objective_value_`, `.diagnostics_["ess_inv_square", "cdf_l2_on_grid"]`. |
+| `ScoreCDFReweighter(*, score_mode="classification", objective="weighted_cdf", weight_parameterization="free", entropy_penalty=1e-3, n_grid=129, n_steps=200, learning_rate=0.05)` | Learns simplex weights over calibration points by minimising the L₂ gap on a 1-D score grid (Adam). `.fit(calibration_scores, target_unlabeled_scores)`. Exposes `.weights_`, `.objective_value_`, `.diagnostics_["ess_inv_square", "cdf_l2_on_grid"]`. |
 | `WeightedSplitConformalAdapter(alpha=0.1)` | Weighted split-conformal threshold using `torchregress.losses.conformal._weighted_quantile`. `.calibrate(calibration_scores, calibration_weights)`, `.predict_from_test_scores(candidate_scores)`, `.coverage_diagnostics(...)`. |
 | `weighted_split_classification_predictive_batch(adapter, candidate_scores, *, gap_diagnostics=None, calibration_ess_inv_square=None)` | Build a `PredictiveBatch` with `point`/set-size and `extra` containing `label_inclusion_mask`, `alpha`, `threshold`, optional `shift_gap_diagnostics`. |
 
 ```python
 import torch
-from torchregress.test_time import OTShiftReweighter, WeightedSplitConformalAdapter
+from torchregress.test_time import ScoreCDFReweighter, WeightedSplitConformalAdapter
 
-rw = OTShiftReweighter(n_steps=200).fit(cal_scores, tgt_scores)
+rw = ScoreCDFReweighter(n_steps=200).fit(cal_scores, tgt_scores)
 adapter = WeightedSplitConformalAdapter(alpha=0.1).calibrate(cal_scores, rw.weights_)
 mask = adapter.predict_from_test_scores(test_candidate_scores)   # [B, K] bool
 ```
@@ -133,12 +133,12 @@ used by `ShiftFactoredPredictiveTransport` and any other shift-aware pipeline.
 
 | Symbol | Description |
 |:-------|:------------|
-| `RepresentationShiftCalibrator` | Re-export of `torchregress.calibration.shift.RepresentationShiftCalibrator`. Scales the per-example predicted std by a feature-shift-driven temperature $T \in [T_{\min}, T_{\max}]$ (configurable base, slope, ceiling, and optional Winsorization quantile). |
+| `RepresentationShiftInflator` | Re-export of `torchregress.calibration.shift.RepresentationShiftInflator`. Scales the per-example predicted std by a feature-shift-driven temperature $T \in [T_{\min}, T_{\max}]$ (configurable base, slope, ceiling, and optional Winsorization quantile). |
 
 ```python
-from torchregress.test_time import RepresentationShiftCalibrator
+from torchregress.test_time import RepresentationShiftInflator
 
-cal = RepresentationShiftCalibrator(base_temperature=1.0, slope=0.2,
+cal = RepresentationShiftInflator(base_temperature=1.0, slope=0.2,
                                     max_temperature=2.0, clip_quantile=0.05)
 cal.fit(source_features)                # learns per-source calibration
 std_calibrated = cal.calibrate_std(test_std, test_features)
@@ -172,7 +172,7 @@ mask = select_high_confidence(probabilities, top_fraction=0.5, min_count=32)
 | Symbol | Description |
 |:-------|:------------|
 | `SubspaceAlignmentState` | Frozen dataclass: `source_mean`, `target_mean`, `source_scale`, `target_scale`, `components`, `feature_weights`, `rank`. |
-| `SignificantSubspaceAligner(*, rank=None, variance_threshold=0.95, target_sample_size=None, random_state=0, clip_quantile=None, max_scale_ratio=10.0, eps=1e-6)` | SSA-style low-rank alignment with **regression-significance weighting**. `.fit(X_source, y_source=None)`, `.transform(X_target)`, `.fit_transform(...)`. |
+| `WeightedSubspaceMomentAligner(*, rank=None, variance_threshold=0.95, target_sample_size=None, random_state=0, clip_quantile=None, max_scale_ratio=10.0, eps=1e-6)` | SSA-style low-rank alignment with **regression-significance weighting**. `.fit(X_source, y_source=None)`, `.transform(X_target)`, `.fit_transform(...)`. |
 | `FeatureStatNormalizer(*, target_sample_size=None, random_state=0, clip_quantile=None, max_scale_ratio=10.0, eps=1e-6)` | Low-risk per-feature mean/std alignment (no PCA). |
 
 **Reference:** Fernando, Habrard, Sebban, Tuytelaars, "Unsupervised Visual
@@ -180,9 +180,9 @@ Domain Adaptation Using Subspace Alignment" (ICCV 2013).
 
 ```python
 import numpy as np
-from torchregress.test_time import SignificantSubspaceAligner
+from torchregress.test_time import WeightedSubspaceMomentAligner
 
-aligner = SignificantSubspaceAligner(rank=10, variance_threshold=0.95)
+aligner = WeightedSubspaceMomentAligner(rank=10, variance_threshold=0.95)
 aligner.fit(X_train, y_train)
 X_test_aligned = aligner.transform(X_test)
 ```
@@ -245,8 +245,8 @@ final = transport.predict(target_predictions=tgt_pb, target_inputs=tgt_x)
 import numpy as np
 import torch
 from torchregress.test_time import (
-    BayesianLinearHead, OTShiftReweighter, WeightedSplitConformalAdapter,
-    SignificantSubspaceAligner, ParameterEMA,
+    BayesianLinearHead, ScoreCDFReweighter, WeightedSplitConformalAdapter,
+    WeightedSubspaceMomentAligner, ParameterEMA,
 )
 
 # 1. Closed-form Bayesian linear regression on fixed features
@@ -255,12 +255,12 @@ head.fit(features, labels)
 batch = head.predictive_batch(query_features)   # mean / std / epistemic / aleatoric
 
 # 2. OT-style conformal reweighting under target shift
-rw = OTShiftReweighter().fit(cal_scores, tgt_scores)
+rw = ScoreCDFReweighter().fit(cal_scores, tgt_scores)
 adapter = WeightedSplitConformalAdapter(alpha=0.1).calibrate(cal_scores, rw.weights_)
 mask = adapter.predict_from_test_scores(test_scores)
 
 # 3. Feature alignment
-aligner = SignificantSubspaceAligner(rank=8)
+aligner = WeightedSubspaceMomentAligner(rank=8)
 aligner.fit(X_train, y_train)
 X_test_aligned = aligner.transform(X_test)
 
@@ -280,13 +280,13 @@ ema.copy_to(model)
 
 ## Test-Time Adaptation Details
 
-### OTShiftReweighter
+### ScoreCDFReweighter
 
 Learns target weights by minimising the Wasserstein/CDF gap between source and target predictions.
 
 ### WeightedSplitConformalAdapter
 
-Weighted split-conformal calibration using per-sample weights (e.g. from `OTShiftReweighter`).
+Weighted split-conformal calibration using per-sample weights (e.g. from `ScoreCDFReweighter`).
 
 ### BayesianLinearHead
 

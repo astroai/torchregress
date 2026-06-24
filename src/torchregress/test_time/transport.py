@@ -10,14 +10,14 @@ from typing import Any, Sequence
 import numpy as np
 import torch
 
-from torchregress.calibration.shift import RepresentationShiftCalibrator
+from torchregress.calibration.shift import RepresentationShiftInflator
 from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 from torchregress.prediction import PredictiveBatch
 
 from .base import SupportsPredictiveBatch
 from .label_shift import LabelShiftEMConfig, PosteriorLabelShiftAdapter
 from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
-from .subspace import SignificantSubspaceAligner
+from .subspace import WeightedSubspaceMomentAligner
 
 
 def _to_numpy(x: np.ndarray | torch.Tensor | Sequence[float]) -> np.ndarray:
@@ -265,6 +265,8 @@ def _native_interval(
     eps: float,
     family_hint: str | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
+    if not (0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
     levels = (alpha / 2.0, 1.0 - alpha / 2.0)
     family = family_hint
     if family is None and batch.extra is not None:
@@ -283,6 +285,9 @@ def _native_interval(
             axis=0,
         )
         return lower, upper
+
+    z = float(NormalDist().inv_cdf(1.0 - alpha / 2.0))
+
     if family in {"gaussian", "point"}:
         mean = _as_1d(batch.mean if batch.mean is not None else batch.point)
         std = np.clip(
@@ -290,7 +295,6 @@ def _native_interval(
             eps,
             None,
         )
-        z = 1.6448536269514722
         return mean - z * std, mean + z * std
     if batch.support is not None and batch.density is not None:
         support = _to_numpy(batch.support).reshape(-1)
@@ -304,7 +308,6 @@ def _native_interval(
         eps,
         None,
     )
-    z = 1.6448536269514722
     return mean - z * std, mean + z * std
 
 
@@ -513,8 +516,8 @@ class ShiftFactoredPredictiveTransport:
     def __init__(self, config: ShiftFactoredTransportConfig | None = None) -> None:
         self.config = config or ShiftFactoredTransportConfig()
         self.state_: ShiftFactoredTransportState | None = None
-        self._subspace_aligner: SignificantSubspaceAligner | None = None
-        self._shift_calibrator: RepresentationShiftCalibrator | None = None
+        self._subspace_aligner: WeightedSubspaceMomentAligner | None = None
+        self._shift_calibrator: RepresentationShiftInflator | None = None
         self._conformal_state: dict[str, Any] | None = None
 
     def fit_source(
@@ -543,11 +546,11 @@ class ShiftFactoredPredictiveTransport:
         source_features = source_repr_np if source_repr_np is not None else source_inputs_np
 
         if cfg.enable_alignment and source_features is not None:
-            self._subspace_aligner = SignificantSubspaceAligner(
+            self._subspace_aligner = WeightedSubspaceMomentAligner(
                 random_state=cfg.random_state,
             ).fit(source_features, targets)
         if cfg.enable_uncertainty_inflation and source_features is not None:
-            self._shift_calibrator = RepresentationShiftCalibrator(
+            self._shift_calibrator = RepresentationShiftInflator(
                 base_temperature=cfg.uncertainty_base_temperature,
                 slope=cfg.uncertainty_slope,
                 max_temperature=cfg.uncertainty_max_temperature,

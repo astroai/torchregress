@@ -17,10 +17,10 @@ from torchregress.test_time import (
     LocalConsistencyConfig,
     ParameterEMA,
     PosteriorLabelShiftAdapter,
-    RepresentationShiftCalibrator,
+    RepresentationShiftInflator,
     ShiftFactoredPredictiveTransport,
     ShiftFactoredTransportConfig,
-    SignificantSubspaceAligner,
+    WeightedSubspaceMomentAligner,
     confidence_scores,
     correct_gaussian_predictions_for_label_shift,
     entropy_scores,
@@ -207,7 +207,7 @@ def test_significant_subspace_and_feature_stat_aligners_transform_shapes() -> No
     y_source = 2.0 * X_source[:, 0] - 0.5 * X_source[:, 1]
     X_target = 1.5 * X_source + np.array([0.3, -0.2, 0.1, 0.0])
 
-    ssa = SignificantSubspaceAligner(rank=2).fit(X_source, y_source)
+    ssa = WeightedSubspaceMomentAligner(rank=2).fit(X_source, y_source)
     X_aligned = ssa.transform(X_target)
     assert X_aligned.shape == X_target.shape
     assert np.all(np.isfinite(X_aligned))
@@ -225,7 +225,7 @@ def test_aligners_support_subsampled_robust_target_stats() -> None:
     X_target = 1.3 * X_source + 0.2
     X_target[:4, 0] += 50.0
 
-    ssa = SignificantSubspaceAligner(
+    ssa = WeightedSubspaceMomentAligner(
         rank=3,
         target_sample_size=16,
         random_state=0,
@@ -274,7 +274,7 @@ def test_representation_shift_calibrator_scales_probabilities_and_std() -> None:
     target = np.array([[0.05, 0.02], [2.0, 2.0]], dtype=float)
     probs = np.array([[0.8, 0.2], [0.8, 0.2]], dtype=float)
     std = np.array([0.1, 0.1], dtype=float)
-    calibrator = RepresentationShiftCalibrator(slope=2.0, max_temperature=4.0).fit(source)
+    calibrator = RepresentationShiftInflator(slope=2.0, max_temperature=4.0).fit(source)
     calibrated_probs = calibrator.calibrate_probabilities(probs, target)
     calibrated_std = calibrator.calibrate_std(std, target)
     assert calibrated_probs.shape == probs.shape
@@ -288,7 +288,7 @@ def test_representation_shift_calibrator_supports_subsampled_robust_fit() -> Non
     source[:4, 0] += 100.0
     target = rng.normal(loc=0.5, scale=1.5, size=(32, 8))
     std = np.full(target.shape[0], 0.2, dtype=float)
-    calibrator = RepresentationShiftCalibrator(
+    calibrator = RepresentationShiftInflator(
         slope=1.5,
         max_temperature=3.0,
         source_sample_size=32,

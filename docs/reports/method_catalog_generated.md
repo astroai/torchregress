@@ -172,9 +172,9 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `TransformedTargetLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.TransformedTargetLoss` |
 | `YeoJohnsonTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.YeoJohnsonTransformLoss` |
 | `BayesianLinearHead` | `test_time` | `Available` | `low_shot`, `test_time_adaptation`, `last_layer`, `linear_head` | `epistemic*`, `aleatoric*`, `decomposition*`, `calibration*` | `torchregress.test_time.BayesianLinearHead` |
-| `OTShiftReweighter` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.OTShiftReweighter` |
 | `OptimalTransportCoverageGap` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.OptimalTransportCoverageGap` |
 | `RecursiveBayesianHead` | `test_time` | `Available` | `low_shot`, `test_time_adaptation`, `last_layer`, `streaming` | `epistemic*`, `aleatoric*`, `decomposition*`, `calibration*` | `torchregress.test_time.RecursiveBayesianHead` |
+| `ScoreCDFReweighter` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.ScoreCDFReweighter` |
 | `WeightedSplitConformalAdapter` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.WeightedSplitConformalAdapter` |
 | `weighted_split_classification_predictive_batch` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.weighted_split_classification_predictive_batch` |
 | `TaylorInducedCovarianceHead` | `tictac` | `Available` | `heteroscedastic_noise`, `multivariate_targets`, `gradient_curvature_parameterization` | `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.TaylorInducedCovarianceHead` |

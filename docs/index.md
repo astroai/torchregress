@@ -83,7 +83,7 @@ The library targets two audiences:
 | Robust to outliers | `WeightedHuberLoss` | `CauchyLoss`, `TukeyBiweightLoss` | [Robust](losses/robust.md) |
 | Worst-case / tail-focused | `CVaRLoss` | robust losses + tail-slice evaluation | [Robust](losses/robust.md) |
 | Coverage guarantees | `SplitConformal` | `CQR`, `DensityConformal`, `MonteCarloConformal` | [Conformal](methods/conformal/index.md) |
-| Distribution shift (test-time) | `BayesianLinearHead` | `ShiftFactoredPredictiveTransport`, `OTShiftReweighter` | [Test-time](methods/test-time/bayesian-linear-regression.md) |
+| Distribution shift (test-time) | `BayesianLinearHead` | `ShiftFactoredPredictiveTransport`, `ScoreCDFReweighter` | [Test-time](methods/test-time/bayesian-linear-regression.md) |
 | Causal inference (ATE / CATE) | `dr_ate`, `dr_cate` | `PredictionPoweredInference` | [Causal](methods/causal.md) |
 | OOD / selective prediction | `DeepEnsemble` + OOD metrics | `HeteroscedasticBatchEnsembleModel`, `SWAG` | [Ensembles](methods/ensemble/index.md) |
 

@@ -1,7 +1,7 @@
 """
 Supplemental edge-case tests for torchregress.test_time.ot_conformal.
 
-Existing tests cover basic smoke-test paths for OTShiftReweighter,
+Existing tests cover basic smoke-test paths for ScoreCDFReweighter,
 WeightedSplitConformalAdapter, and OptimTransportCoverageGap.
 This file fills gaps: internal helpers, parameter validation,
 diagnostics contents, and boundary behavior.
@@ -14,7 +14,7 @@ import torch
 
 from torchregress.test_time.ot_conformal import (
     OptimalTransportCoverageGap,
-    OTShiftReweighter,
+    ScoreCDFReweighter,
     WeightedSplitConformalAdapter,
     _as_1d_scores,
     _effective_sample_size_inv_square,
@@ -172,34 +172,34 @@ class TestOptimalTransportCoverageGapEdge:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# OTShiftReweighter edge cases
+# ScoreCDFReweighter edge cases
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestOTShiftReweighterEdge:
+class TestScoreCDFReweighterEdge:
     def test_invalid_score_mode(self) -> None:
         """Invalid score mode."""
         with pytest.raises(ValueError, match="score_mode"):
-            OTShiftReweighter(score_mode="regression")  # type: ignore[arg-type]
+            ScoreCDFReweighter(score_mode="regression")  # type: ignore[arg-type]
 
     def test_invalid_objective(self) -> None:
         """Invalid objective."""
         with pytest.raises(ValueError, match="objective"):
-            OTShiftReweighter(objective="l2")  # type: ignore[arg-type]
+            ScoreCDFReweighter(objective="l2")  # type: ignore[arg-type]
 
     def test_invalid_weight_parameterization(self) -> None:
         """Invalid weight parameterization."""
         with pytest.raises(ValueError, match="weight_parameterization"):
-            OTShiftReweighter(weight_parameterization="simplex")  # type: ignore[arg-type]
+            ScoreCDFReweighter(weight_parameterization="simplex")  # type: ignore[arg-type]
 
     def test_negative_entropy_penalty(self) -> None:
         """Negative entropy penalty."""
         with pytest.raises(ValueError, match="entropy_penalty"):
-            OTShiftReweighter(entropy_penalty=-0.1)
+            ScoreCDFReweighter(entropy_penalty=-0.1)
 
     def test_fit_returns_self(self) -> None:
         """Fit returns self."""
-        rw = OTShiftReweighter(n_steps=20, learning_rate=0.1)
+        rw = ScoreCDFReweighter(n_steps=20, learning_rate=0.1)
         cal = torch.randn(30)
         tgt = torch.randn(25)
         assert rw.fit(cal, tgt) is rw
@@ -207,7 +207,7 @@ class TestOTShiftReweighterEdge:
     def test_diagnostics_keys(self) -> None:
         """Diagnostics keys."""
         torch.manual_seed(0)
-        rw = OTShiftReweighter(n_steps=30, learning_rate=0.1)
+        rw = ScoreCDFReweighter(n_steps=30, learning_rate=0.1)
         rw.fit(torch.randn(30), torch.randn(20))
         assert "ess_inv_square" in rw.diagnostics_
         assert "cdf_l2_on_grid" in rw.diagnostics_
@@ -215,7 +215,7 @@ class TestOTShiftReweighterEdge:
 
     def test_objective_value_stored(self) -> None:
         """Objective value stored."""
-        rw = OTShiftReweighter(n_steps=30, learning_rate=0.1)
+        rw = ScoreCDFReweighter(n_steps=30, learning_rate=0.1)
         rw.fit(torch.randn(30), torch.randn(20))
         assert rw.objective_value_ is not None
         assert isinstance(rw.objective_value_, float)
@@ -224,19 +224,19 @@ class TestOTShiftReweighterEdge:
 
     def test_empty_calibration_raises(self) -> None:
         """Empty calibration raises."""
-        rw = OTShiftReweighter()
+        rw = ScoreCDFReweighter()
         with pytest.raises(ValueError, match="must be non-empty"):
             rw.fit(torch.tensor([]), torch.randn(5))
 
     def test_empty_target_raises(self) -> None:
         """Empty target raises."""
-        rw = OTShiftReweighter()
+        rw = ScoreCDFReweighter()
         with pytest.raises(ValueError, match="must be non-empty"):
             rw.fit(torch.randn(5), torch.tensor([]))
 
     def test_single_element_each(self) -> None:
         """Single element each."""
-        rw = OTShiftReweighter(n_steps=30, learning_rate=0.1)
+        rw = ScoreCDFReweighter(n_steps=30, learning_rate=0.1)
         rw.fit(torch.tensor([0.5]), torch.tensor([0.6]))
         assert rw.weights_ is not None
         assert rw.weights_.numel() == 1
@@ -248,10 +248,10 @@ class TestOTShiftReweighterEdge:
         cal = torch.randn(30)
         tgt = cal + 0.5  # slight shift
 
-        rw_high = OTShiftReweighter(n_steps=80, learning_rate=0.1, entropy_penalty=10.0)
+        rw_high = ScoreCDFReweighter(n_steps=80, learning_rate=0.1, entropy_penalty=10.0)
         rw_high.fit(cal, tgt)
 
-        rw_low = OTShiftReweighter(n_steps=80, learning_rate=0.1, entropy_penalty=1e-6)
+        rw_low = ScoreCDFReweighter(n_steps=80, learning_rate=0.1, entropy_penalty=1e-6)
         rw_low.fit(cal, tgt)
 
         # High entropy penalty → weights closer to uniform (lower std)

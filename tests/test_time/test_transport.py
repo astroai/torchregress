@@ -463,3 +463,35 @@ class TestNativeInterval:
         assert lower.shape == (2,)
         assert upper.shape == (2,)
         assert np.all(lower < upper)
+
+    def test_monotonic_width_by_alpha(self) -> None:
+        """Monotonic width by alpha."""
+        batch = PredictiveBatch(
+            mean=np.array([0.0], dtype=np.float32),
+            std=np.array([1.0], dtype=np.float32),
+            extra={"family": "gaussian"},
+        )
+        widths = {}
+        for alpha in [0.01, 0.05, 0.1, 0.2]:
+            lower, upper = _native_interval(batch, alpha=alpha, eps=1e-8)
+            widths[alpha] = (upper - lower)[0]
+
+        assert widths[0.01] > widths[0.05]
+        assert widths[0.05] > widths[0.1]
+        assert widths[0.1] > widths[0.2]
+
+    def test_invalid_alpha_raises_value_error(self) -> None:
+        """Invalid alpha raises ValueError."""
+        batch = PredictiveBatch(
+            mean=np.array([0.0], dtype=np.float32),
+            std=np.array([1.0], dtype=np.float32),
+            extra={"family": "gaussian"},
+        )
+        with pytest.raises(ValueError, match="alpha must be in"):
+            _native_interval(batch, alpha=0.0, eps=1e-8)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            _native_interval(batch, alpha=-0.1, eps=1e-8)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            _native_interval(batch, alpha=1.0, eps=1e-8)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            _native_interval(batch, alpha=1.5, eps=1e-8)

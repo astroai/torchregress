@@ -684,3 +684,83 @@ class TestRecursiveBayesianHeadPartialFit:
         head.fit(X, y)
         assert torch.allclose(head._Lambda, lam_partial, atol=1e-4)
         assert head._n_obs.item() == n_partial
+
+
+class TestRecursiveBayesianHeadInvariants:
+    def test_forgetting_factor_natural_parameter_discounting(self) -> None:
+        # Check bounded mean under repeated updates with forgetting_factor < 1.0
+        head = RecursiveBayesianHead(
+            in_features=1,
+            fit_intercept=False,
+            prior_precision=1.0,
+            forgetting_factor=0.9,
+            noise_variance=1.0,
+        )
+
+        # Initial fit
+        X1 = torch.ones(10, 1)
+        y1 = torch.ones(10, 1)
+        head.partial_fit(X1, y1)
+
+        # The posterior mean should be close to 0.909 (approx 10 / (1 + 10) = 0.909)
+        mean1 = head.posterior_mean
+        assert 0.8 < mean1.item() < 1.0
+
+        # Update repeatedly with y = 2.0.
+        # Under the old incorrect rule (where Lambda shrunk but h stayed huge), the mean would blow up.
+        # Under the correct rule, the mean should transition towards 2.0 and remain bounded.
+        X2 = torch.ones(1, 1)
+        y2 = torch.ones(1, 1) * 2.0
+        for _ in range(50):
+            head.partial_fit(X2, y2)
+
+        mean2 = head.posterior_mean
+        # Bounded and close to 2.0
+        assert 1.5 < mean2.item() < 2.5
+
+    def test_partial_fit_and_fit_equivalence_at_lambda_1(self) -> None:
+        X = torch.randn(20, 3)
+        y = torch.randn(20, 1)
+
+        head_fit = RecursiveBayesianHead(in_features=3, forgetting_factor=1.0)
+        head_fit.fit(X, y)
+
+        head_partial = RecursiveBayesianHead(in_features=3, forgetting_factor=1.0)
+        head_partial.partial_fit(X[:10], y[:10])
+        head_partial.partial_fit(X[10:], y[10:])
+
+        assert torch.allclose(head_fit._Lambda, head_partial._Lambda, atol=1e-5)
+        assert torch.allclose(head_fit._h, head_partial._h, atol=1e-5)
+        assert head_fit._n_obs.item() == head_partial._n_obs.item()
+
+    def test_rbf_reset_on_refit(self) -> None:
+        # fit() should reset RBF centers when called a second time
+        head = RecursiveBayesianHead(in_features=3, rbf_centers=5)
+        X1 = torch.randn(20, 3)
+        y1 = torch.randn(20, 1)
+        head.fit(X1, y1)
+        centers1 = head._rbf_centers.clone()
+
+        # Second fit on a new dataset
+        X2 = torch.randn(20, 3) + 10.0  # very different range
+        y2 = torch.randn(20, 1)
+        head.fit(X2, y2)
+        centers2 = head._rbf_centers.clone()
+
+        # Check centers changed (they should be chosen from X2, not X1)
+        assert not torch.allclose(centers1, centers2)
+
+    def test_rbf_center_selection_generator(self) -> None:
+        # Seeding generator should yield deterministic RBF selection
+        X = torch.randn(30, 4)
+        y = torch.randn(30, 1)
+
+        gen1 = torch.Generator().manual_seed(42)
+        head1 = RecursiveBayesianHead(in_features=4, rbf_centers=10)
+        head1.fit(X, y, generator=gen1)
+
+        gen2 = torch.Generator().manual_seed(42)
+        head2 = RecursiveBayesianHead(in_features=4, rbf_centers=10)
+        head2.fit(X, y, generator=gen2)
+
+        assert torch.allclose(head1._rbf_centers, head2._rbf_centers)

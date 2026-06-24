@@ -264,9 +264,9 @@ _Generated date_: `2026-04-16`
 | `TransformedTargetLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `YeoJohnsonTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `BayesianLinearHead` | `test_time` | `Available` | yes | no | partial | partial | partial | partial | no |
-| `OTShiftReweighter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `OptimalTransportCoverageGap` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `RecursiveBayesianHead` | `test_time` | `Available` | yes | no | partial | partial | partial | partial | no |
+| `ScoreCDFReweighter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `WeightedSplitConformalAdapter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `weighted_split_classification_predictive_batch` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `TaylorInducedCovarianceHead` | `tictac` | `Available` | yes | no | no | yes | no | partial | partial |

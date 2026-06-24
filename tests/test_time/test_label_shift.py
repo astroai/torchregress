@@ -77,17 +77,6 @@ def test_estimate_target_prior_em_with_source_prior():
     assert isinstance(estimate.converged, bool)
 
 
-def test_estimate_target_prior_em_no_source_prior():
-    probs = np.array([[0.8, 0.2], [0.1, 0.9], [0.5, 0.5]])
-
-    estimate = estimate_target_prior_em(probs, config=LabelShiftEMConfig(max_iter=10))
-
-    assert estimate.source_prior.shape == (2,)
-    assert estimate.target_prior.shape == (2,)
-    np.testing.assert_allclose(estimate.source_prior.sum(), 1.0)
-    np.testing.assert_allclose(estimate.target_prior.sum(), 1.0)
-
-
 def test_estimate_target_prior_em_invalid_source_prior_shape():
     probs = np.array([[0.8, 0.2]])
     src_prior = np.array([0.5, 0.5, 0.0])
@@ -117,24 +106,13 @@ def test_posterior_label_shift_adapter():
     assert estimate2.target_prior is not None
 
 
-def test_posterior_label_shift_adapter_no_source_prior():
+def test_posterior_label_shift_adapter_missing_source_prior():
     probs = np.array([[0.8, 0.2], [0.1, 0.9], [0.5, 0.5]])
-    adapter = PosteriorLabelShiftAdapter()
+    with pytest.raises(TypeError, match="missing 1 required keyword-only argument: 'source_prior'"):
+        PosteriorLabelShiftAdapter()
 
-    # Cannot transform without estimating first (raises error since source_prior is missing)
-    with pytest.raises(RuntimeError, match="source_prior is unavailable"):
-        adapter2 = PosteriorLabelShiftAdapter()
-        adapter2.last_estimate = estimate_target_prior_em(probs)
-        adapter2.transform(probs)
-
-    # Estimate should populate source_prior
-    estimate = adapter.estimate(probs)
-    assert adapter.source_prior is not None
-    np.testing.assert_allclose(adapter.source_prior, estimate.source_prior)
-
-    # Transform should now work
-    corrected = adapter.transform(probs)
-    assert corrected.shape == probs.shape
+    with pytest.raises(TypeError, match="missing 1 required keyword-only argument: 'source_prior'"):
+        estimate_target_prior_em(probs)
 
 
 def test_posterior_label_shift_adapter_explicit_target_prior():
@@ -150,7 +128,10 @@ def test_estimate_target_prior_em_with_sample_weights():
     weights = np.array([1.0, 2.0, 0.0])
 
     estimate = estimate_target_prior_em(
-        probs, sample_weights=weights, config=LabelShiftEMConfig(max_iter=10)
+        probs,
+        source_prior=np.array([0.5, 0.5]),
+        sample_weights=weights,
+        config=LabelShiftEMConfig(max_iter=10),
     )
     assert estimate.target_prior.shape == (2,)
 
@@ -159,7 +140,9 @@ def test_estimate_target_prior_em_with_subsampling():
     probs = np.random.rand(10, 2)
     probs = probs / probs.sum(axis=1, keepdims=True)
 
-    estimate = estimate_target_prior_em(probs, sample_size=5, random_state=42)
+    estimate = estimate_target_prior_em(
+        probs, source_prior=np.array([0.5, 0.5]), sample_size=5, random_state=42
+    )
     assert estimate.target_prior.shape == (2,)
 
 
@@ -226,8 +209,8 @@ def test_correct_gaussian_predictions_for_label_shift():
 
 def test_gaussian_bin_edges_invalid_values():
     targets = np.array([np.inf, np.nan, np.inf])
-    edges = gaussian_bin_edges_from_targets(targets, n_bins=2)
-    assert edges.shape == (3,)
+    with pytest.raises(ValueError, match="finite values"):
+        gaussian_bin_edges_from_targets(targets, n_bins=2)
 
 
 def test_gaussian_bin_edges_constant():
@@ -262,7 +245,11 @@ def test_estimate_target_prior_em_with_subsampling_and_weights():
     weights = np.ones(10)
 
     estimate = estimate_target_prior_em(
-        probs, sample_weights=weights, sample_size=5, random_state=42
+        probs,
+        source_prior=np.array([0.5, 0.5]),
+        sample_weights=weights,
+        sample_size=5,
+        random_state=42,
     )
     assert estimate.target_prior.shape == (2,)
 
@@ -274,3 +261,44 @@ def test_posterior_adapter_transform_without_target_prior_and_estimate_not_calle
     # transform will call estimate because target_prior and last_estimate are None
     corrected = adapter.transform(probs)
     assert corrected.shape == probs.shape
+
+
+def test_gaussian_bin_edges_validation_empty_or_nan() -> None:
+    from torchregress.test_time.label_shift import gaussian_bin_edges_from_targets
+
+    with pytest.raises(ValueError, match="non-empty"):
+        gaussian_bin_edges_from_targets(np.array([]), n_bins=10)
+    with pytest.raises(ValueError, match="finite values"):
+        gaussian_bin_edges_from_targets(np.array([1.0, np.nan, 2.0]), n_bins=10)
+    with pytest.raises(ValueError, match="finite values"):
+        gaussian_bin_edges_from_targets(np.array([1.0, np.inf, 2.0]), n_bins=10)
+
+
+def test_posterior_label_shift_target_recovery() -> None:
+    # True target prior is [0.2, 0.8]
+    # Source prior is [0.7, 0.3]
+    rng = np.random.default_rng(42)
+    n_samples = 5000
+    true_tgt_prior = np.array([0.2, 0.8])
+    src_prior = np.array([0.7, 0.3])
+
+    classes = rng.choice([0, 1], p=true_tgt_prior, size=n_samples)
+
+    x = np.zeros(n_samples)
+    x[classes == 0] = rng.normal(-1.0, 1.0, size=(classes == 0).sum())
+    x[classes == 1] = rng.normal(1.0, 1.0, size=(classes == 1).sum())
+
+    from scipy.stats import norm
+
+    f0 = norm.pdf(x, loc=-1.0, scale=1.0)
+    f1 = norm.pdf(x, loc=1.0, scale=1.0)
+
+    denom = f0 * src_prior[0] + f1 * src_prior[1]
+    probs_s = np.zeros((n_samples, 2))
+    probs_s[:, 0] = (f0 * src_prior[0]) / denom
+    probs_s[:, 1] = (f1 * src_prior[1]) / denom
+
+    adapter = PosteriorLabelShiftAdapter(source_prior=src_prior)
+    est = adapter.estimate(probs_s)
+
+    np.testing.assert_allclose(est.target_prior, true_tgt_prior, atol=0.03)

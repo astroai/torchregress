@@ -26,7 +26,7 @@ def main() -> None:
         calibration_scores=cal,
         target_score_summary=tgt,
     )
-    rw = tr.test_time.OTShiftReweighter(
+    rw = tr.test_time.ScoreCDFReweighter(
         entropy_penalty=5e-2,
         n_steps=150,
         learning_rate=0.08,

@@ -31,7 +31,7 @@ def _clip_scale_ratio(scale_ratio: np.ndarray, max_scale_ratio: float | None) ->
 @dataclass(frozen=True)
 class SubspaceAlignmentState:
     """
-    State container for fitted SignificantSubspaceAligner parameters.
+    State container for fitted WeightedSubspaceMomentAligner parameters.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ class SubspaceAlignmentState:
     rank: int
 
 
-class SignificantSubspaceAligner:
+class WeightedSubspaceMomentAligner:
     """
     SSA-style low-rank alignment focused on significant regression structure.
 
@@ -93,7 +93,7 @@ class SignificantSubspaceAligner:
 
     def fit(
         self, X_source: np.ndarray, y_source: np.ndarray | None = None
-    ) -> "SignificantSubspaceAligner":
+    ) -> "WeightedSubspaceMomentAligner":
         X = np.asarray(X_source, dtype=float)
         y = None if y_source is None else np.asarray(y_source, dtype=float).reshape(-1)
         if X.ndim != 2:
@@ -201,6 +201,6 @@ class FeatureStatNormalizer:
 
 __all__ = [
     "FeatureStatNormalizer",
-    "SignificantSubspaceAligner",
+    "WeightedSubspaceMomentAligner",
     "SubspaceAlignmentState",
 ]

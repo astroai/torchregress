@@ -8,7 +8,7 @@ from .base import (
     flatten_adaptation_parameters,
 )
 from .bayes import BayesianLinearHead, RecursiveBayesianHead
-from .calibration import RepresentationShiftCalibrator
+from .calibration import RepresentationShiftInflator
 from .dynamic import ParameterEMA
 from .label_shift import (
     GaussianLabelShiftConfig,
@@ -24,7 +24,7 @@ from .label_shift import (
 )
 from .ot_conformal import (
     OptimalTransportCoverageGap,
-    OTShiftReweighter,
+    ScoreCDFReweighter,
     WeightedSplitConformalAdapter,
 )
 from .ot_conformal_predictive import weighted_split_classification_predictive_batch
@@ -36,7 +36,7 @@ from .selection import (
     pseudo_label_targets,
     select_high_confidence,
 )
-from .subspace import FeatureStatNormalizer, SignificantSubspaceAligner, SubspaceAlignmentState
+from .subspace import FeatureStatNormalizer, SubspaceAlignmentState, WeightedSubspaceMomentAligner
 from .transport import (
     ShiftFactoredPredictiveTransport,
     ShiftFactoredTransportConfig,
@@ -51,12 +51,12 @@ __all__ = [
     "LabelShiftEMConfig",
     "LabelShiftEstimate",
     "OptimalTransportCoverageGap",
-    "OTShiftReweighter",
+    "ScoreCDFReweighter",
     "ParameterEMA",
     "PosteriorLabelShiftAdapter",
     "RecursiveBayesianHead",
-    "RepresentationShiftCalibrator",
-    "SignificantSubspaceAligner",
+    "RepresentationShiftInflator",
+    "WeightedSubspaceMomentAligner",
     "ShiftFactoredPredictiveTransport",
     "ShiftFactoredTransportConfig",
     "ShiftFactoredTransportState",

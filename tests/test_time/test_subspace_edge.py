@@ -14,8 +14,8 @@ import pytest
 
 from torchregress.test_time.subspace import (
     FeatureStatNormalizer,
-    SignificantSubspaceAligner,
     SubspaceAlignmentState,
+    WeightedSubspaceMomentAligner,
     _clip_scale_ratio,
     _feature_significance,
 )
@@ -118,21 +118,21 @@ class TestClipScaleRatioEdge:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SignificantSubspaceAligner edge cases
+# WeightedSubspaceMomentAligner edge cases
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestSignificantSubspaceAlignerEdge:
+class TestWeightedSubspaceMomentAlignerEdge:
     def test_fit_returns_self(self) -> None:
         """Fit returns self."""
         X = np.random.default_rng(0).normal(size=(20, 4))
-        aligner = SignificantSubspaceAligner()
+        aligner = WeightedSubspaceMomentAligner()
         assert aligner.fit(X) is aligner
 
     def test_variance_threshold_selects_rank(self) -> None:
         """Variance threshold selects rank."""
         X = np.random.default_rng(1).normal(size=(50, 5))
-        aligner = SignificantSubspaceAligner(variance_threshold=0.5)
+        aligner = WeightedSubspaceMomentAligner(variance_threshold=0.5)
         aligner.fit(X)
         assert aligner.state_ is not None
         assert aligner.state_.rank >= 1
@@ -141,14 +141,14 @@ class TestSignificantSubspaceAlignerEdge:
     def test_variance_threshold_near_zero_gives_rank_one(self) -> None:
         """Variance threshold near zero gives rank one."""
         X = np.random.default_rng(2).normal(size=(50, 5))
-        aligner = SignificantSubspaceAligner(variance_threshold=0.01)
+        aligner = WeightedSubspaceMomentAligner(variance_threshold=0.01)
         aligner.fit(X)
         assert aligner.state_.rank == 1
 
     def test_variance_threshold_one_gives_full_rank(self) -> None:
         """Variance threshold one gives full rank."""
         X = np.random.default_rng(3).normal(size=(20, 3))
-        aligner = SignificantSubspaceAligner(variance_threshold=0.9999)
+        aligner = WeightedSubspaceMomentAligner(variance_threshold=0.9999)
         aligner.fit(X)
         assert aligner.state_.rank >= 2  # should capture most variance
 
@@ -159,7 +159,7 @@ class TestSignificantSubspaceAlignerEdge:
         X_target = rng.normal(loc=2.0, scale=1.5, size=(100, 4))
         X_target[:5, 0] += 500.0  # outliers
 
-        aligner = SignificantSubspaceAligner(
+        aligner = WeightedSubspaceMomentAligner(
             target_sample_size=30,
             random_state=42,
             clip_quantile=0.05,
@@ -174,7 +174,7 @@ class TestSignificantSubspaceAlignerEdge:
         X_source = rng.normal(size=(30, 3))
         X_target = X_source * 100.0  # huge scale difference
 
-        aligner = SignificantSubspaceAligner(max_scale_ratio=3.0)
+        aligner = WeightedSubspaceMomentAligner(max_scale_ratio=3.0)
         transformed = aligner.fit_transform(X_source, X_target)
         assert transformed.shape == X_target.shape
         assert np.all(np.isfinite(transformed))
@@ -188,7 +188,7 @@ class TestSignificantSubspaceAlignerEdge:
         rng = np.random.default_rng(6)
         X_source = rng.normal(size=(30, 3))
         X_target = rng.normal(loc=1.0, size=(30, 3))
-        aligner = SignificantSubspaceAligner()
+        aligner = WeightedSubspaceMomentAligner()
         aligner.fit(X_source)
         old_tgt_mean = aligner.state_.target_mean.copy()
         aligner.transform(X_target)
@@ -199,7 +199,7 @@ class TestSignificantSubspaceAlignerEdge:
     def test_fit_without_y(self) -> None:
         """Fit without y."""
         X = np.random.default_rng(7).normal(size=(30, 4))
-        aligner = SignificantSubspaceAligner()
+        aligner = WeightedSubspaceMomentAligner()
         aligner.fit(X)
         assert aligner.state_ is not None
         assert aligner.state_.feature_weights.shape == (4,)
@@ -210,7 +210,7 @@ class TestSignificantSubspaceAlignerEdge:
         rng = np.random.default_rng(8)
         X_source = rng.normal(size=(25, 3))
         X_target = rng.normal(loc=2.0, size=(25, 3))
-        aligner = SignificantSubspaceAligner()
+        aligner = WeightedSubspaceMomentAligner()
         result = aligner.fit_transform(X_source, X_target)
         assert result.shape == (25, 3)
         assert aligner.state_ is not None
@@ -220,7 +220,7 @@ class TestSignificantSubspaceAlignerEdge:
         rng = np.random.default_rng(9)
         X_source = rng.normal(loc=[0, 0], scale=[1, 1], size=(40, 2))
         X_target = X_source * 3 + np.array([10.0, -5.0])
-        aligner = SignificantSubspaceAligner(rank=2)
+        aligner = WeightedSubspaceMomentAligner(rank=2)
         transformed = aligner.fit_transform(X_source, X_target)
         # Transformed should be closer to source than original target was
         src_dist = np.mean(np.std(X_source, axis=0))
@@ -232,7 +232,7 @@ class TestSignificantSubspaceAlignerEdge:
     def test_explicit_rank_capped_by_data(self) -> None:
         """Rank larger than n_features is capped."""
         X = np.random.default_rng(10).normal(size=(10, 2))
-        aligner = SignificantSubspaceAligner(rank=10)
+        aligner = WeightedSubspaceMomentAligner(rank=10)
         aligner.fit(X)
         assert aligner.state_.rank == 2  # capped at n_features
 

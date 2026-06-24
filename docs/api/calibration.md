@@ -44,16 +44,16 @@ pit_cal = cal.transform(pit)
 
 | Symbol | Description |
 |:-------|:------------|
-| `RepresentationShiftCalibrator` | Maps Mahalanobis shift in representation space to a conservative temperature factor. `fit(source_representations)`; `shift_scores(target)`, `temperatures(target)`, `calibrate_probabilities(probs, target)`, `calibrate_std(std, target)`. |
+| `RepresentationShiftInflator` | Maps Mahalanobis shift in representation space to a conservative temperature factor. `fit(source_representations)`; `shift_scores(target)`, `temperatures(target)`, `calibrate_probabilities(probs, target)`, `calibrate_std(std, target)`. |
 | `BinnedLabelShiftEstimator` | Black-Box Shift Estimation (`bbse`) or EM (Saerens) prior correction. Continuous targets are binned (`adaptive` quantiles or `uniform`). `fit(y_source, pred_source, pred_target)`; `get_bin_weights()`, `sample_weights(y)`. Reference: Lipton et al. 2018. |
 
 ```python
 from torchregress.calibration import (
-    RepresentationShiftCalibrator, BinnedLabelShiftEstimator,
+    RepresentationShiftInflator, BinnedLabelShiftEstimator,
 )
 
 # Representation shift
-rsc = RepresentationShiftCalibrator(base_temperature=1.0, slope=1.0)
+rsc = RepresentationShiftInflator(base_temperature=1.0, slope=1.0)
 rsc.fit(source_features)
 T = rsc.temperatures(target_features)
 probs_cal = rsc.calibrate_probabilities(probs, target_features)
@@ -105,7 +105,7 @@ The following metrics are also re-exported here for convenience — see
 | Gaussian variance miscalibration | `VarianceTemperatureScaler` |
 | Point-prediction miscalibration | `IsotonicMeanCalibrator` |
 | PIT-based full-CDF calibration | `PITCalibrator` |
-| Representation shift at test time | `RepresentationShiftCalibrator` |
+| Representation shift at test time | `RepresentationShiftInflator` |
 | Label prior shift at test time | `BinnedLabelShiftEstimator` |
 | Conformal + covariate shift | `SemiConformalCalibrator` |
 

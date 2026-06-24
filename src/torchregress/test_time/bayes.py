@@ -162,6 +162,9 @@ class BayesianLinearHead(nn.Module):
         self._h.copy_(self._h0.unsqueeze(0).expand(self.out_features, self._d_eff))
         self._fitted.zero_()
         self._n_obs.zero_()
+        if self.rbf_centers is not None:
+            self._rbf_centers.resize_(0, self.in_features)
+            self._rbf_gamma.fill_(1.0)
 
     # ------------------------------------------------------------------
     # RBF feature expansion
@@ -177,7 +180,7 @@ class BayesianLinearHead(nn.Module):
         dists_sq = torch.cdist(phi0, self._rbf_centers).pow(2)
         return torch.exp(-self._rbf_gamma * dists_sq)
 
-    def _init_rbf(self, phi0: torch.Tensor) -> None:
+    def _init_rbf(self, phi0: torch.Tensor, generator: Optional[torch.Generator] = None) -> None:
         """Select RBF centres and bandwidth from training data.
 
         Idempotent — only runs if ``rbf_centers`` is set and centres have
@@ -188,7 +191,7 @@ class BayesianLinearHead(nn.Module):
             return
         n_train = phi0.shape[0]
         n_centers = min(self.rbf_centers, n_train)
-        idx = torch.randperm(n_train, device=phi0.device)[:n_centers]
+        idx = torch.randperm(n_train, generator=generator)[:n_centers].to(phi0.device)
         centers = phi0[idx].clone()
         self._rbf_centers.resize_(centers.shape)
         self._rbf_centers.copy_(centers)
@@ -237,6 +240,8 @@ class BayesianLinearHead(nn.Module):
         features: Union[torch.Tensor, np.ndarray],
         y: Union[torch.Tensor, np.ndarray],
         sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
+        *,
+        generator: Optional[torch.Generator] = None,
     ) -> BayesianLinearHead:
         device = self._Lambda.device
         dtype = self._Lambda.dtype
@@ -261,7 +266,7 @@ class BayesianLinearHead(nn.Module):
             self.noise_variance = max(noise_std**2, 1e-4)
 
         # --- RBF feature expansion (select centres / gamma, then transform) ---
-        self._init_rbf(phi0)
+        self._init_rbf(phi0, generator=generator)
         phi0 = self._apply_rbf(phi0)
         phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
 
@@ -420,6 +425,8 @@ class RecursiveBayesianHead(BayesianLinearHead):
         features: Union[torch.Tensor, np.ndarray],
         y: Union[torch.Tensor, np.ndarray],
         sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
+        *,
+        generator: Optional[torch.Generator] = None,
     ) -> RecursiveBayesianHead:
         device = self._Lambda.device
         dtype = self._Lambda.dtype
@@ -435,9 +442,16 @@ class RecursiveBayesianHead(BayesianLinearHead):
             None if sample_weight is None else _as_tensor(sample_weight, device=device, dtype=dtype)
         )
         if self.forgetting_factor < 1.0:
-            self._Lambda.mul_(self.forgetting_factor)
+            self._Lambda.copy_(
+                self._Lambda0 + self.forgetting_factor * (self._Lambda - self._Lambda0)
+            )
+            self._h.copy_(
+                self._h0.unsqueeze(0) + self.forgetting_factor * (self._h - self._h0.unsqueeze(0))
+            )
+            n_obs_scaled = (self._n_obs.float() * self.forgetting_factor).round().to(torch.long)
+            self._n_obs.copy_(n_obs_scaled)
         # Lazy RBF init + apply (idempotent — only runs on first call)
-        self._init_rbf(phi0)
+        self._init_rbf(phi0, generator=generator)
         phi0 = self._apply_rbf(phi0)
         phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
         self._accumulate(phi, y0, sw)

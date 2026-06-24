@@ -2,7 +2,7 @@
 
 This guide explains how to use optimal transport (OT) reweighting to restore valid conformal coverage guarantees under covariate/distribution shift.
 
-→ API: [`WeightedSplitConformalAdapter`](../api/test_time.md#weightedsplitconformaladapter), [`OTShiftReweighter`](../api/test_time.md#otshiftreweighter). Guide: [OT shift conformal](../methods/test-time/ot-shift-conformal.md).
+→ API: [`WeightedSplitConformalAdapter`](../api/test_time.md#weightedsplitconformaladapter), [`ScoreCDFReweighter`](../api/test_time.md#scorecdfreweighter). Guide: [OT shift conformal](../methods/test-time/ot-shift-conformal.md).
 
 | # | Reference |
 |:-:|:----------|
@@ -23,7 +23,7 @@ We estimate the likelihood ratio $w(x) = \frac{dQ_X}{dP_X}(x)$ using optimal tra
 
 $$D_{\text{CDF}} = \int |F_{\text{cal}}(s) - F_{\text{target}}(s)|^2 ds$$
 
-`OTShiftReweighter` solves an entropy-regularized optimal transport problem to compute the normalized calibration weights $w_i$ that map the calibration distribution to the target distribution.
+`ScoreCDFReweighter` solves an entropy-regularized optimal transport problem to compute the normalized calibration weights $w_i$ that map the calibration distribution to the target distribution.
 
 ### 2. Weighted Conformal Calibration
 
@@ -69,7 +69,7 @@ def main() -> None:
     )
 
     # 2. Fit the optimal transport reweighter to obtain sample weights
-    reweighter = tr.test_time.OTShiftReweighter(
+    reweighter = tr.test_time.ScoreCDFReweighter(
         entropy_penalty=5e-2,
         n_steps=150,
         learning_rate=0.08,

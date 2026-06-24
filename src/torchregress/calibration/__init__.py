@@ -20,7 +20,7 @@ from .metrics import (
 )
 from .posthoc import IsotonicMeanCalibrator, PITCalibrator, VarianceTemperatureScaler
 from .semicp import SemiConformalCalibrator
-from .shift import BinnedLabelShiftEstimator, RepresentationShiftCalibrator
+from .shift import BinnedLabelShiftEstimator, RepresentationShiftInflator
 
 __all__ = [
     # posthoc transforms
@@ -38,6 +38,6 @@ __all__ = [
     "expected_calibration_error",
     "marginal_calibration_error",
     # shift-aware test-time calibration
-    "RepresentationShiftCalibrator",
+    "RepresentationShiftInflator",
     "BinnedLabelShiftEstimator",
 ]

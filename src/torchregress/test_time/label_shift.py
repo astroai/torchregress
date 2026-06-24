@@ -105,13 +105,15 @@ def apply_label_shift_correction(
 def estimate_target_prior_em(
     probabilities: np.ndarray,
     *,
-    source_prior: np.ndarray | None = None,
+    source_prior: np.ndarray,
     sample_weights: np.ndarray | None = None,
     sample_size: int | None = None,
     random_state: int | None = 0,
     config: LabelShiftEMConfig | None = None,
 ) -> LabelShiftEstimate:
     """Estimate target priors from unlabeled predictions via EM."""
+    if source_prior is None:
+        raise ValueError("source_prior must be explicitly provided for EM label-shift correction.")
     cfg = config or LabelShiftEMConfig()
     probs = _normalize_rows(probabilities, cfg.eps)
     probs, weights = _subsample_probabilities(
@@ -121,10 +123,7 @@ def estimate_target_prior_em(
         random_state=random_state,
     )
     n_classes = probs.shape[1]
-    if source_prior is None:
-        src = _weighted_average(probs, weights, eps=cfg.eps)
-    else:
-        src = np.asarray(source_prior, dtype=float)
+    src = np.asarray(source_prior, dtype=float)
     if src.shape != (n_classes,):
         raise ValueError("source_prior must have shape [n_classes]")
     src = np.clip(src, cfg.eps, None)
@@ -161,12 +160,14 @@ class PosteriorLabelShiftAdapter:
     def __init__(
         self,
         *,
-        source_prior: np.ndarray | None = None,
+        source_prior: np.ndarray,
         sample_size: int | None = None,
         random_state: int | None = 0,
         config: LabelShiftEMConfig | None = None,
     ) -> None:
-        self.source_prior = None if source_prior is None else np.asarray(source_prior, dtype=float)
+        if source_prior is None:
+            raise ValueError("source_prior must be explicitly provided.")
+        self.source_prior = np.asarray(source_prior, dtype=float)
         self.sample_size = sample_size
         self.random_state = random_state
         self.config = config or LabelShiftEMConfig()
@@ -184,8 +185,6 @@ class PosteriorLabelShiftAdapter:
             config=self.config,
         )
         self.last_estimate = estimate
-        if self.source_prior is None:
-            self.source_prior = estimate.source_prior
         return estimate
 
     def transform(
@@ -235,6 +234,10 @@ def gaussian_bin_edges_from_targets(targets: np.ndarray, n_bins: int) -> np.ndar
         Sorted array of unique bin edges.
     """
     values = np.asarray(targets, dtype=np.float64).reshape(-1)
+    if values.size == 0:
+        raise ValueError("targets must be non-empty")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("targets must contain only finite values")
     quantiles = np.linspace(0.0, 1.0, max(2, int(n_bins)) + 1)
     edges = np.quantile(values, quantiles)
     edges = np.unique(edges)

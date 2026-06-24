@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from torchregress.test_time.calibration import RepresentationShiftCalibrator
+from torchregress.test_time.calibration import RepresentationShiftInflator
 from torchregress.utils.numpy_stats import subsample_rows as _subsample_rows
 from torchregress.utils.numpy_stats import winsorize as _winsorize
 
@@ -91,7 +91,7 @@ def test_winsorize_clips_correctly():
 
 
 def test_calibrator_initialization():
-    calibrator = RepresentationShiftCalibrator(
+    calibrator = RepresentationShiftInflator(
         base_temperature=1.5,
         slope=2.0,
         max_temperature=10.0,
@@ -116,7 +116,7 @@ def test_calibrator_fit():
     rng = np.random.default_rng(42)
     source_reps = rng.normal(loc=5.0, scale=2.0, size=(100, 3))
 
-    calibrator = RepresentationShiftCalibrator()
+    calibrator = RepresentationShiftInflator()
     calibrator.fit(source_reps)
 
     assert calibrator.source_mean_ is not None
@@ -132,7 +132,7 @@ def test_calibrator_fit():
 
 
 def test_calibrator_methods_raise_error_before_fit():
-    calibrator = RepresentationShiftCalibrator()
+    calibrator = RepresentationShiftInflator()
     target_reps = np.ones((10, 3))
 
     with pytest.raises(RuntimeError, match="call fit\\(\\) before computing shift scores"):
@@ -146,7 +146,7 @@ def test_calibrator_shift_scores():
     source_reps = np.array([[1.0, 1.0], [1.0, 1.0], [-1.0, -1.0], [-1.0, -1.0]])
     # mean is [0, 0], var is [1, 1]
 
-    calibrator = RepresentationShiftCalibrator(eps=1e-6)
+    calibrator = RepresentationShiftInflator(eps=1e-6)
     calibrator.fit(source_reps)
 
     target_reps = np.array(
@@ -164,7 +164,7 @@ def test_calibrator_shift_scores():
 
 def test_calibrator_temperatures():
 
-    calibrator = RepresentationShiftCalibrator(base_temperature=1.0, max_temperature=5.0, slope=1.0)
+    calibrator = RepresentationShiftInflator(base_temperature=1.0, max_temperature=5.0, slope=1.0)
     # Inject stats manually to easily test temperature calculation
     calibrator.source_mean_ = np.array([0.0, 0.0])
     calibrator.source_var_ = np.array([1.0, 1.0])
@@ -188,7 +188,7 @@ def test_calibrator_temperatures():
 
 
 def test_calibrator_calibrate_probabilities():
-    calibrator = RepresentationShiftCalibrator()
+    calibrator = RepresentationShiftInflator()
     calibrator.source_mean_ = np.array([0.0])
     calibrator.source_var_ = np.array([1.0])
     calibrator.reference_scale_ = 1.0
@@ -219,7 +219,7 @@ def test_calibrator_calibrate_probabilities():
 
 
 def test_calibrator_calibrate_std():
-    calibrator = RepresentationShiftCalibrator()
+    calibrator = RepresentationShiftInflator()
     calibrator.source_mean_ = np.array([0.0])
     calibrator.source_var_ = np.array([1.0])
     calibrator.reference_scale_ = 1.0

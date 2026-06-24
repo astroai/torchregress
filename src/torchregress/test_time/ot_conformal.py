@@ -101,7 +101,7 @@ class OptimalTransportCoverageGap:
         }
 
 
-class OTShiftReweighter:
+class ScoreCDFReweighter:
     """
     Learn simplex weights over calibration points by CDF matching on a 1-D score grid.
 
@@ -154,7 +154,7 @@ class OTShiftReweighter:
         self,
         calibration_scores: torch.Tensor,
         target_unlabeled_scores: torch.Tensor,
-    ) -> OTShiftReweighter:
+    ) -> ScoreCDFReweighter:
         s_cal = _as_1d_scores(calibration_scores, name="calibration_scores")
         s_tgt = _as_1d_scores(target_unlabeled_scores, name="target_unlabeled_scores")
         lo = torch.minimum(s_cal.min(), s_tgt.min())

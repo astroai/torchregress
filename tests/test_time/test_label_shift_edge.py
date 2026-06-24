@@ -289,7 +289,7 @@ class TestEstimateTargetPriorEMEdge:
         """Converges quickly with balanced data."""
         probs = np.array([[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]])
         cfg = LabelShiftEMConfig(max_iter=50, tol=1e-6)
-        est = estimate_target_prior_em(probs, config=cfg)
+        est = estimate_target_prior_em(probs, source_prior=np.array([0.5, 0.5]), config=cfg)
         assert est.converged is True
         assert est.iterations <= 5  # should converge quickly
 
@@ -308,7 +308,9 @@ class TestEstimateTargetPriorEMEdge:
     def test_single_sample(self) -> None:
         """Single sample."""
         probs = np.array([[0.7, 0.3]])
-        est = estimate_target_prior_em(probs, config=LabelShiftEMConfig(max_iter=10))
+        est = estimate_target_prior_em(
+            probs, source_prior=np.array([0.7, 0.3]), config=LabelShiftEMConfig(max_iter=10)
+        )
         assert est.target_prior.shape == (2,)
         np.testing.assert_array_almost_equal(est.target_prior.sum(), 1.0)
 
@@ -316,7 +318,9 @@ class TestEstimateTargetPriorEMEdge:
         """Many classes."""
         n = 5
         probs = np.ones((10, n)) / n
-        est = estimate_target_prior_em(probs, config=LabelShiftEMConfig(max_iter=10))
+        est = estimate_target_prior_em(
+            probs, source_prior=np.ones(n) / n, config=LabelShiftEMConfig(max_iter=10)
+        )
         assert est.target_prior.shape == (n,)
         # Uniform input → uniform target prior
         np.testing.assert_array_almost_equal(est.target_prior, np.ones(n) / n)
@@ -327,7 +331,11 @@ class TestEstimateTargetPriorEMEdge:
         probs = probs / probs.sum(axis=1, keepdims=True)
         weights = np.random.default_rng(1).uniform(0.5, 2.0, size=20)
         est = estimate_target_prior_em(
-            probs, sample_weights=weights, sample_size=10, random_state=42
+            probs,
+            source_prior=np.array([1 / 3, 1 / 3, 1 / 3]),
+            sample_weights=weights,
+            sample_size=10,
+            random_state=42,
         )
         assert est.target_prior.shape == (3,)
         np.testing.assert_array_almost_equal(est.target_prior.sum(), 1.0)
@@ -343,7 +351,9 @@ class TestPosteriorLabelShiftAdapterEdge:
         """With sample size."""
         probs = np.random.default_rng(0).uniform(size=(20, 3))
         probs = probs / probs.sum(axis=1, keepdims=True)
-        adapter = PosteriorLabelShiftAdapter(sample_size=10, random_state=42)
+        adapter = PosteriorLabelShiftAdapter(
+            source_prior=np.array([1 / 3, 1 / 3, 1 / 3]), sample_size=10, random_state=42
+        )
         corrected, est = adapter.fit_transform(probs)
         assert corrected.shape == probs.shape
         assert est.target_prior.shape == (3,)
@@ -351,7 +361,7 @@ class TestPosteriorLabelShiftAdapterEdge:
     def test_with_custom_config(self) -> None:
         """With custom config."""
         cfg = LabelShiftEMConfig(max_iter=5, tol=1e-10)
-        adapter = PosteriorLabelShiftAdapter(config=cfg)
+        adapter = PosteriorLabelShiftAdapter(source_prior=np.array([0.5, 0.5]), config=cfg)
         est = adapter.estimate(np.array([[0.5, 0.5], [0.5, 0.5]]))
         assert est.iterations <= 5
 

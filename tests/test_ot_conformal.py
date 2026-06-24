@@ -7,7 +7,7 @@ import torchregress as tr
 from torchregress.losses.conformal import _weighted_quantile
 from torchregress.test_time.ot_conformal import (
     OptimalTransportCoverageGap,
-    OTShiftReweighter,
+    ScoreCDFReweighter,
     WeightedSplitConformalAdapter,
     _weighted_ecdf_on_grid,
 )
@@ -53,7 +53,7 @@ def test_ot_reweighter_weights_simplex() -> None:
     torch.manual_seed(1)
     cal = torch.randn(30)
     tgt = torch.randn(25) * 0.5 + 0.2
-    rw = OTShiftReweighter(n_steps=80, learning_rate=0.1, entropy_penalty=1e-2).fit(cal, tgt)
+    rw = ScoreCDFReweighter(n_steps=80, learning_rate=0.1, entropy_penalty=1e-2).fit(cal, tgt)
     assert rw.weights_ is not None
     assert rw.weights_.shape == (30,)
     torch.testing.assert_close(rw.weights_.sum(), torch.tensor(1.0))
@@ -64,7 +64,7 @@ def test_ot_reweighter_near_uniform_on_same_distribution() -> None:
     torch.manual_seed(2)
     cal = torch.randn(40)
     tgt = torch.randn(35)
-    rw = OTShiftReweighter(n_steps=120, learning_rate=0.08, entropy_penalty=0.5).fit(cal, tgt)
+    rw = ScoreCDFReweighter(n_steps=120, learning_rate=0.08, entropy_penalty=0.5).fit(cal, tgt)
     u = torch.full_like(rw.weights_, 1.0 / rw.weights_.numel())
     cos = (rw.weights_ * u).sum() / (rw.weights_.norm() * u.norm())
     assert float(cos.item()) > 0.85
@@ -100,6 +100,6 @@ def test_bad_alpha_raises() -> None:
 
 
 def test_public_module_exports() -> None:
-    assert hasattr(tr.test_time, "OTShiftReweighter")
+    assert hasattr(tr.test_time, "ScoreCDFReweighter")
     assert hasattr(tr.test_time, "WeightedSplitConformalAdapter")
     assert hasattr(tr.test_time, "OptimalTransportCoverageGap")

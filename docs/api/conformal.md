@@ -50,7 +50,7 @@ In `torchregress.test_time.ot_conformal`:
 
 | Symbol | Description |
 |:-------|:------------|
-| `OTShiftReweighter` | Estimates sample weights `w(x) = p_target(x) / p_source(x)` via optimal transport. |
+| `ScoreCDFReweighter` | Estimates sample weights `w(x) = p_target(x) / p_source(x)` via optimal transport. |
 | `OptimalTransportCoverageGap` | Computes empirical coverage gap between source and target before/after reweighting. |
 | `WeightedSplitConformalAdapter` | Weighted split conformal with per-test-point `w(x)`. Maintains coverage under covariate shift. |
 | `weighted_split_classification_predictive_batch` | Classification-style adaptation; useful for ordinal / binned heads. |
@@ -83,7 +83,7 @@ lower, upper = cp.predict_interval(y_pred_test)
 | Have predictive CDF | `DistributionalConformal` or `LevelSetConformalPredictor` |
 | Sample efficiency / subgroup shift | `DensityConformal` or `LocalConformal` |
 | Ensembles / Bayesian MC | `MonteCarloConformal` |
-| Distribution shift at test time | `WeightedSplitConformalAdapter` + `OTShiftReweighter` |
+| Distribution shift at test time | `WeightedSplitConformalAdapter` + `ScoreCDFReweighter` |
 | Need multi-target joint coverage | `MultiTargetConformal` |
 | Have cross-validation ensemble models | `CVPlus` (or `JackknifePlus`) |
 | Have bootstrap/OOB ensemble models | `EnsembleBatchCP` (EnbPI) |

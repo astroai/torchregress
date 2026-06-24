@@ -10,7 +10,7 @@ import torch
 from torchregress.utils.numpy_stats import subsample_rows, winsorize
 
 
-class RepresentationShiftCalibrator:
+class RepresentationShiftInflator:
     """Map representation shift magnitude to a conservative temperature factor.
 
     References
@@ -41,7 +41,7 @@ class RepresentationShiftCalibrator:
         self.source_var_: np.ndarray | None = None
         self.reference_scale_: float | None = None
 
-    def fit(self, source_representations: np.ndarray) -> "RepresentationShiftCalibrator":
+    def fit(self, source_representations: np.ndarray) -> "RepresentationShiftInflator":
         reps = np.asarray(source_representations, dtype=float)
         reps_stats = subsample_rows(reps, self.source_sample_size, random_state=self.random_state)
         reps_stats = winsorize(reps_stats, self.clip_quantile)
@@ -309,6 +309,6 @@ class BinnedLabelShiftEstimator:
 
 
 __all__ = [
-    "RepresentationShiftCalibrator",
+    "RepresentationShiftInflator",
     "BinnedLabelShiftEstimator",
 ]

@@ -2,7 +2,7 @@
 Supplemental edge-case tests for torchregress.calibration.shift.
 
 Existing tests cover basic fit/compute paths for both
-RepresentationShiftCalibrator and BinnedLabelShiftEstimator.
+RepresentationShiftInflator and BinnedLabelShiftEstimator.
 This file fills remaining gaps: internal helpers, edge inputs,
 torch/numpy interop, and error paths.
 """
@@ -15,30 +15,30 @@ import torch
 
 from torchregress.calibration.shift import (
     BinnedLabelShiftEstimator,
-    RepresentationShiftCalibrator,
+    RepresentationShiftInflator,
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# RepresentationShiftCalibrator — edge cases beyond existing smoke tests
+# RepresentationShiftInflator — edge cases beyond existing smoke tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestRepresentationShiftCalibratorEdge:
+class TestRepresentationShiftInflatorEdge:
     def test_fit_returns_self(self) -> None:
         """Fit returns self."""
-        cal = RepresentationShiftCalibrator()
+        cal = RepresentationShiftInflator()
         source = np.random.default_rng(0).normal(size=(20, 3))
         assert cal.fit(source) is cal
 
     def test_squared_mahalanobis_before_fit_raises(self) -> None:
         """Squared mahalanobis before fit raises."""
-        cal = RepresentationShiftCalibrator()
+        cal = RepresentationShiftInflator()
         with pytest.raises(RuntimeError, match="call fit"):
             cal._squared_mahalanobis(np.ones((5, 2)))
 
     def test_fit_with_subsampling(self) -> None:
         """Fit with subsampling."""
-        cal = RepresentationShiftCalibrator(source_sample_size=10, random_state=0)
+        cal = RepresentationShiftInflator(source_sample_size=10, random_state=0)
         source = np.random.default_rng(1).normal(size=(50, 4))
         cal.fit(source)
         assert cal.source_mean_ is not None
@@ -46,7 +46,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_fit_with_winsorizing(self) -> None:
         """Fit with winsorizing."""
-        cal = RepresentationShiftCalibrator(clip_quantile=0.1)
+        cal = RepresentationShiftInflator(clip_quantile=0.1)
         source = np.random.default_rng(2).normal(size=(30, 3))
         cal.fit(source)
         assert cal.reference_scale_ is not None
@@ -54,7 +54,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_single_feature_source(self) -> None:
         """Single feature source."""
-        cal = RepresentationShiftCalibrator()
+        cal = RepresentationShiftInflator()
         source = np.array([[1.0], [2.0], [3.0], [5.0], [8.0]])
         cal.fit(source)
         assert cal.source_mean_.shape == (1,)
@@ -67,7 +67,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_calibrate_probabilities_multi_class(self) -> None:
         """Calibrate probabilities multi class."""
-        cal = RepresentationShiftCalibrator()
+        cal = RepresentationShiftInflator()
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
         cal.reference_scale_ = 1.0
@@ -79,7 +79,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_calibrate_probabilities_with_high_temperature_flattens(self) -> None:
         """Calibrate probabilities with high temperature flattens."""
-        cal = RepresentationShiftCalibrator(max_temperature=10.0)
+        cal = RepresentationShiftInflator(max_temperature=10.0)
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
         cal.reference_scale_ = 1.0
@@ -93,7 +93,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_calibrate_std_1d_input(self) -> None:
         """Calibrate std 1d input."""
-        cal = RepresentationShiftCalibrator()
+        cal = RepresentationShiftInflator()
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
         cal.reference_scale_ = 1.0
@@ -104,7 +104,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_temperatures_reference_scale_eps_bound(self) -> None:
         """Temperatures reference scale eps bound."""
-        cal = RepresentationShiftCalibrator(eps=1e-6)
+        cal = RepresentationShiftInflator(eps=1e-6)
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
         cal.reference_scale_ = 0.0  # Would divide by zero without eps clamp
@@ -114,7 +114,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_shift_scores_no_negative(self) -> None:
         """Shift scores no negative."""
-        cal = RepresentationShiftCalibrator()
+        cal = RepresentationShiftInflator()
         cal.source_mean_ = np.array([0.0, 0.0])
         cal.source_var_ = np.array([1.0, 1.0])
         cal.reference_scale_ = 1.0
@@ -123,7 +123,7 @@ class TestRepresentationShiftCalibratorEdge:
 
     def test_temperatures_with_base_slope_zero(self) -> None:
         """Temperatures with base slope zero."""
-        cal = RepresentationShiftCalibrator(base_temperature=1.0, slope=0.0)
+        cal = RepresentationShiftInflator(base_temperature=1.0, slope=0.0)
         cal.source_mean_ = np.array([0.0])
         cal.source_var_ = np.array([1.0])
         cal.reference_scale_ = 1.0

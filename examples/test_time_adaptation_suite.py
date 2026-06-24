@@ -5,7 +5,7 @@ This script demonstrates test-time adaptation utilities under covariate shift
 (feature distribution changes) and label shift (target prior distribution changes).
 
 Specifically, it showcases:
-1. Covariate shift alignment via FeatureStatNormalizer and SignificantSubspaceAligner.
+1. Covariate shift alignment via FeatureStatNormalizer and WeightedSubspaceMomentAligner.
 2. Label shift correction via PosteriorLabelShiftAdapter (discrete probabilities).
 3. Continuous Gaussian label shift correction via correct_gaussian_predictions_for_label_shift.
 4. Active sample selection using entropy_scores, confidence_scores, and select_high_confidence.
@@ -24,7 +24,7 @@ from torchregress.test_time.selection import (
     pseudo_label_targets,
     select_high_confidence,
 )
-from torchregress.test_time.subspace import FeatureStatNormalizer, SignificantSubspaceAligner
+from torchregress.test_time.subspace import FeatureStatNormalizer, WeightedSubspaceMomentAligner
 
 
 def main():
@@ -64,7 +64,7 @@ def main():
     )
 
     # B. Significant Subspace Alignment (SSA)
-    aligner = SignificantSubspaceAligner(variance_threshold=0.90)
+    aligner = WeightedSubspaceMomentAligner(variance_threshold=0.90)
     X_target_aligned = aligner.fit_transform(X_source, X_target, y_source=y_source)
     print(
         f"After SignificantSubspaceAlign : mean={X_target_aligned[:, 0].mean():.3f}, std={X_target_aligned[:, 0].std():.3f}"
@@ -128,7 +128,7 @@ def main():
     print(
         f"Corrected mean pred stats      : mean={corrected_mu.mean():.3f}, std={corrected_mu.std():.3f}"
     )
-    print("EM steps during Gaussian shift :", metadata.get("iterations"))
+    print("EM steps during Gaussian shift :", metadata.get("estimate_iterations"))
 
     # --------------------------------------------------------------------------------
     # 4. Confidence & Selection Utilities

@@ -1342,9 +1342,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Score ECDF gap diagnostics between calibration and target pools.",
     ),
     MethodMetadata(
-        name="OTShiftReweighter",
+        name="ScoreCDFReweighter",
         family="test_time",
-        public_path="torchregress.test_time.OTShiftReweighter",
+        public_path="torchregress.test_time.ScoreCDFReweighter",
         task_tags=("distribution_shift", "conformal", "calibration"),
         maturity="Available",
         calibration="partial",
