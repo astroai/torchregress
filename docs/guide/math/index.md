@@ -87,13 +87,22 @@ Inherent randomness in the data-generating process. It is **irreducible** even w
 
 Uncertainty in the model parameters or structure due to limited training data. It is **reducible** as the dataset size increases.
 
-### Deep Ensemble Decomposition
+### Deep Ensemble Decomposition Derivation
 
-For an ensemble of $M$ models, each predicting a mean $\mu_m$ and variance $\sigma_m^2$, the total predictive uncertainty can be decomposed as \[1\]:
+For an ensemble of $M$ models, each outputting a parametric prediction $p(y \mid x, \theta_m) = \mathcal{N}(\mu_m(x), \sigma^2_m(x))$, the mixture distribution of the ensemble is:
 
-$$\boxed{\;\sigma_{\text{total}}^2 = \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2}_{\text{Aleatoric}} + \underbrace{\frac{1}{M}\sum_{m=1}^{M}(\mu_m - \bar\mu)^2}_{\text{Epistemic}}\;}$$
+$$p(y \mid x) = \frac{1}{M} \sum_{m=1}^{M} p(y \mid x, \theta_m)$$
 
-where $\bar\mu = \frac{1}{M}\sum \mu_m$.
+The total predictive mean is $\bar\mu(x) = \mathbb{E}[y \mid x] = \frac{1}{M}\sum_{m=1}^{M}\mu_m(x)$.
+Using the **Law of Total Variance**, the total predictive variance is:
+
+$$\operatorname{Var}(y \mid x) = \mathbb{E}_{\theta_m}\bigl[\operatorname{Var}(y \mid x, \theta_m)\bigr] + \operatorname{Var}_{\theta_m}\bigl(\mathbb{E}[y \mid x, \theta_m]\bigr)$$
+
+Plugging in the ensemble moments:
+
+$$\sigma_{\text{total}}^2 = \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2}_{\text{Aleatoric (Expected Variance)}} + \underbrace{\frac{1}{M}\sum_{m=1}^{M}(\mu_m - \bar\mu)^2}_{\text{Epistemic (Variance of the Means)}}$$
+
+This provides a clean separation: aleatoric uncertainty represents the average data noise estimated across ensemble members, while epistemic uncertainty captures model parameter disagreement.
 
 → See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [DeepEnsemble](../../api/ensemble.md#deepensemble), SWAG, BNN).
 
@@ -101,17 +110,35 @@ where $\bar\mu = \frac{1}{M}\sum \mu_m$.
 
 ## Proper Scoring Rules
 
-A scoring rule $S(F, y)$ is **proper** if the expected score is minimised when the predicted distribution $F$ matches the true distribution $G$ \[9\].
+A scoring rule $S(F, y)$ is **proper** if the expected score is minimised when the predicted distribution $F$ matches the true distribution $G$:
+
+$$\mathbb{E}_{y \sim G}[S(G, y)] \leq \mathbb{E}_{y \sim G}[S(F, y)]$$
 
 ### Continuous Ranked Probability Score (CRPS)
 
-The CRPS generalizes the MAE to probabilistic forecasts. It measures both **calibration** and **sharpness**.
+The CRPS generalizes Mean Absolute Error (MAE) to probabilistic forecasts:
 
-$$CRPS(F, y) = \int_{-\infty}^{\infty} [F(z) - \mathbf{1}_{z \geq y}]^2 dz$$
+$$CRPS(F, y) = \int_{-\infty}^{\infty} [F(z) - \mathbf{1}_{z \geq y}]^2 dz = \mathbb{E}[|X - y|] - \frac{1}{2}\mathbb{E}[|X - X'|]$$
 
-For a Gaussian distribution $\mathcal{N}(\mu, \sigma^2)$, this simplifies to a closed form implemented in [crps_gaussian](../../api/metrics.md#crps_gaussian):
+where $X, X' \sim F$ are independent and identically distributed copies.
 
-$$CRPS(\mu, \sigma, y) = \sigma \left[ \frac{y-\mu}{\sigma} \Phi\left(\frac{y-\mu}{\sigma}\right) + 2\phi\left(\frac{y-\mu}{\sigma}\right) - \frac{1}{\sqrt{\pi}} \right]$$
+#### Derivation of Gaussian CRPS
+For $F = \mathcal{N}(\mu, \sigma^2)$, let $Z = \frac{X - \mu}{\sigma} \sim \mathcal{N}(0, 1)$ and $z = \frac{y - \mu}{\sigma}$. The evaluation reduces to:
+
+$$CRPS(\mu, \sigma, y) = \sigma \mathbb{E}[|Z - z|] - \frac{1}{2}\sigma \mathbb{E}[|Z - Z'|]$$
+
+1. **First Term**: Evaluating the expectation $\mathbb{E}[|Z - z|]$ yields:
+   $$\mathbb{E}[|Z - z|] = z \bigl(2\Phi(z) - 1\bigr) + 2\phi(z)$$
+2. **Second Term**: The expected absolute difference between two standard Gaussians $\mathbb{E}[|Z - Z'|]$ evaluates to $\frac{2}{\sqrt{\pi}}$ since $Z - Z' \sim \mathcal{N}(0, 2)$.
+3. Combining terms leads to the closed-form implemented in [crps_gaussian](../../api/metrics.md#crps_gaussian):
+   $$CRPS(\mu, \sigma, y) = \sigma \left[ z \bigl(2\Phi(z) - 1\bigr) + 2\phi(z) - \frac{1}{\sqrt{\pi}} \right]$$
+
+### Interval Score
+For evaluating prediction intervals $[L(x), U(x)]$ at nominal level $(1 - \alpha)$, we use the strictly proper **Interval Score**:
+
+$$S_{\alpha}(L, U; y) = (U - L) + \frac{2}{\alpha}(L - y)\mathbf{1}_{y < L} + \frac{2}{\alpha}(y - U)\mathbf{1}_{y > U}$$
+
+The score penalizes wide intervals (sharpness) and penalizes boundary violations (calibration) with a scale factor of $2/\alpha$.
 
 → See [Distribution Metrics](../../metrics/distribution.md) for multivariate [energy_score](../../api/metrics.md#energy_score).
 
@@ -136,6 +163,21 @@ $$P\bigl(Y_{n+1} \in \hat{C}(X_{n+1})\bigr) \;\geq\; 1 - \alpha$$
 ---
 
 ## Specialized Regression Tasks
+
+### Continuous Imbalanced Regression (LDS & FDS)
+When continuous targets $y$ are highly imbalanced, empirical estimators in sparse regions are unreliable.
+
+**Label Distribution Smoothing (LDS):**
+LDS estimates the empirical label density $p(y)$ and smooths it using a symmetric kernel $k$:
+$$\tilde{p}(y) = \int p(z) k(y, z) dz$$
+Samples are then reweighted by $w_i \propto 1 / \tilde{p}(y_i)$ to balance the objective function. See [LDSLoss](../../api/losses.md#ldsloss).
+
+**Feature Distribution Smoothing (FDS):**
+FDS smooths the running mean $\mu_b$ and covariance $\Sigma_b$ of model features across adjacent target bins $b$:
+$$\tilde{\mu}_b = \sum_{b'} \omega(b, b') \mu_{b'} \qquad \tilde{\Sigma}_b = \sum_{b'} \omega(b, b') \Sigma_{b'}$$
+Features $\mathbf{z}$ are then calibrated during training via whitening and recoloring:
+$$\tilde{\mathbf{z}} = \tilde{\Sigma}_b^{1/2} \Sigma_b^{-1/2} (\mathbf{z} - \mu_b) + \tilde{\mu}_b$$
+See [FeatureDistributionSmoother](../../api/losses.md#featuredistributionsmoother).
 
 ### Measurement Error (Errors-in-Variables)
 

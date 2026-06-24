@@ -429,9 +429,10 @@ $$
 |:-------|:---------|
 | [`BalancedMSELoss`](#balancedmseloss) | Inverse bin-frequency weighted MSE |
 | [`BMCLoss`](#bmcloss) | Balanced MSE with Gaussian-smoothed bin weights |
-| `DensityWeightedLoss` | Inverse target-density reweighting |
-| `FocalRLoss` | Focus on hard / rare examples |
-| `LDSLoss` | Label Distribution Smoothing |
+| [`DensityWeightedLoss`](#densityweightedloss) | Inverse target-density reweighting |
+| [`FocalRLoss`](#focalrloss) | Focus on hard / rare examples |
+| [`LDSLoss`](#ldsloss) | Label Distribution Smoothing |
+| [`FeatureDistributionSmoother`](#featuredistributionsmoother) | Feature Distribution Smoothing |
 | [`PropensityWeightedLoss`](#propensityweightedloss) | Inverse propensity / density ratio weighting |
 | [`NoisyTargetGaussianNLL`](#noisytargetgaussiannll) | Adds known target-noise `σ_y²` to predicted variance |
 | [`PseudoLabelNLL`](#pseudolabelnll) | Gaussian NLL with pseudo-label + confidence weighting |
@@ -770,3 +771,27 @@ $$
 ### ContrastiveFlowLoss
 
 Contrastive likelihood-ratio training for conditional normalizing flows — scores the observed target under a positive context vs. one or more negative contexts.
+
+### FocalRLoss
+
+Focal loss adapted for regression tasks. Applies adaptive loss scaling based on prediction error magnitude, focusing model capacity on hard examples during training:
+
+$$
+\mathcal{L} = \sigma(\beta \cdot |y - \hat{y}|)^{\gamma} \mathcal{L}_{\text{base}}
+$$
+
+### LDSLoss
+
+Label Distribution Smoothing (LDS) loss for imbalanced regression. Smooths the target bin counts using kernel convolution to reweight continuous targets:
+
+$$
+w(y) \propto \frac{1}{\tilde{p}(y) + \varepsilon}
+$$
+
+### FeatureDistributionSmoother
+
+Feature Distribution Smoothing (FDS) module for deep imbalanced regression. Calibrates features during training by transferring statistics (mean and variance) across target bins:
+
+$$
+\tilde{\mathbf{z}} = \tilde{\Sigma}_b^{1/2} \Sigma_b^{-1/2} (\mathbf{z} - \mu_b) + \tilde{\mu}_b
+$$
