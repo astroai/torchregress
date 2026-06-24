@@ -16,6 +16,8 @@ from typing import Any, Dict, cast
 import torch
 import torch.nn as nn
 
+from torchregress.utils.gaussian_output import variance_from_logvar
+
 
 class SWAG(nn.Module):
     """
@@ -319,6 +321,7 @@ class MultiSWAG(nn.Module):
         x: torch.Tensor,
         n_samples: int = 30,
         scale: float = 1.0,
+        correction: int = 0,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Predict with decomposed epistemic and aleatoric uncertainty.
@@ -327,48 +330,85 @@ class MultiSWAG(nn.Module):
             x: Input tensor [batch_size, ...]
             n_samples: Number of samples per SWAG model. Default: 30
             scale: Sampling scale for SWAG. Default: 1.0
+            correction: Bessel's correction setting. Default: 0
 
         Returns:
             tuple of (mean, epistemic_var, aleatoric_var):
                 - mean: Predicted mean [batch_size, output_dim]
-                - epistemic_var: Epistemic (model) uncertainty [batch_size, output_dim]
+                - epistemic_var: Total epistemic (model) uncertainty (between-mode
+                  + within-mode) [batch_size, output_dim]
                 - aleatoric_var: Aleatoric (data) uncertainty [batch_size, output_dim]
-
-        Notes:
-            - Epistemic uncertainty: Variance across SWAG models
-            - Aleatoric uncertainty: Average within-SWAG variance
-            - For aleatoric uncertainty, models should output variance predictions
         """
         all_swag_means = []
+        all_swag_within_vars = []
+        all_swag_aleatorics = []
+        is_heteroscedastic = False
 
         # Sample from each SWAG
         for swag_model_module in self.swag_models:
             swag_model = cast(SWAG, swag_model_module)
-            swag_samples = []
+            swag_means_s = []
+            swag_vars_s = []
+
             for _ in range(n_samples):
                 swag_model.sample(scale=scale)
                 with torch.no_grad():
                     pred = swag_model(x)
-                swag_samples.append(pred)
 
-            # Average samples within this SWAG
-            swag_mean = torch.stack(swag_samples).mean(0)
+                # Unpack heteroscedastic predictions if available
+                if isinstance(pred, tuple) and len(pred) == 2:
+                    is_heteroscedastic = True
+                    mean_s, log_var_s = pred
+                    var_s = variance_from_logvar(log_var_s)
+                elif isinstance(pred, torch.Tensor) and pred.ndim > 1 and pred.shape[-1] % 2 == 0:
+                    # Check if output dimension is even (potential concatenated mean/logvar)
+                    # We compare shape[-1] with even to split, but let's be careful.
+                    # BaseEnsembleModel has parse_heteroscedastic_output or similar utility.
+                    # Let's check format. For standard torchregress heteroscedastic models,
+                    # the last dim is split in half.
+                    is_heteroscedastic = True
+                    d = pred.shape[-1] // 2
+                    mean_s, log_var_s = pred[..., :d], pred[..., d:]
+                    var_s = variance_from_logvar(log_var_s)
+                else:
+                    mean_s = pred
+                    var_s = torch.zeros_like(pred)
+
+                swag_means_s.append(mean_s)
+                swag_vars_s.append(var_s)
+
+            # Expected predictions within this SWAG mode
+            stacked_means_s = torch.stack(swag_means_s)
+            swag_mean = torch.mean(stacked_means_s, dim=0)
+
+            # Within-mode epistemic uncertainty (variance of weight samples)
+            swag_within_var = torch.var(stacked_means_s, dim=0, correction=correction)
+
+            # Expected aleatoric uncertainty for this mode
+            swag_aleatoric = torch.mean(torch.stack(swag_vars_s), dim=0)
+
             all_swag_means.append(swag_mean)
+            all_swag_within_vars.append(swag_within_var)
+            all_swag_aleatorics.append(swag_aleatoric)
 
-        # Stack all SWAG means: [n_models, batch_size, output_dim]
+        # Stack across K modes: [n_models, batch_size, output_dim]
         all_preds = torch.stack(all_swag_means)
-
-        # Overall mean across all SWAGs
         mean = all_preds.mean(0)
 
-        # Epistemic uncertainty: variance across SWAG models
-        # This captures uncertainty due to different local optima
-        epistemic_var = all_preds.var(0, unbiased=True)
+        # Between-mode epistemic (variance across model modes/optima)
+        between_mode_epistemic = torch.var(all_preds, dim=0, correction=correction)
 
-        # Aleatoric uncertainty: approximate as zero
-        # For true aleatoric uncertainty, models should predict variance
-        # (e.g., output (mean, log_var) pairs)
-        aleatoric_var = torch.zeros_like(mean)
+        # Average within-mode epistemic
+        within_mode_epistemic = torch.stack(all_swag_within_vars).mean(0)
+
+        # Total epistemic uncertainty = between-mode + within-mode
+        epistemic_var = between_mode_epistemic + within_mode_epistemic
+
+        # Aleatoric uncertainty: average aleatoric across modes
+        if is_heteroscedastic:
+            aleatoric_var = torch.stack(all_swag_aleatorics).mean(0)
+        else:
+            aleatoric_var = torch.zeros_like(mean)
 
         return mean, epistemic_var, aleatoric_var
 

@@ -13,8 +13,11 @@ from torchregress.losses.conformal import (
     UACQR,
     ConformalLoss,
     ConformalPredictor,
+    CVPlus,
     DensityConformal,
     DistributionalConformal,
+    EnsembleBatchCP,
+    JackknifePlus,
     LocalConformal,
     LocalConformalMAD,
     MonteCarloConformal,
@@ -1204,6 +1207,160 @@ class TestLocalConformalMAD:
 
         covered = (targets_test >= lower) & (targets_test <= upper)
         coverage = covered.float().mean().item()
+        assert coverage >= (1 - alpha) - 0.05
+
+
+class TestCVPlus:
+    """Tests for CVPlus and JackknifePlus predictors."""
+
+    def test_basic_calibrate_predict(self):
+        torch.manual_seed(42)
+        n_cal = 100
+        n_test = 20
+        n_folds = 5
+        output_dim = 1
+
+        # Out-of-fold calibration predictions
+        y_pred_oob = torch.randn(n_cal, output_dim)
+        target = y_pred_oob + torch.randn(n_cal, output_dim) * 0.3
+        fold_indices = torch.randint(0, n_folds, (n_cal,))
+
+        cp = CVPlus(alpha=0.1)
+
+        # Test predict before calibrate
+        with pytest.raises(RuntimeError, match="calibrate"):
+            cp.predict_interval(torch.randn(n_folds, n_test, output_dim))
+
+        # Calibrate
+        cp.calibrate_ensemble(y_pred_oob, target, fold_indices)
+        assert cp._is_calibrated
+        assert cp.residuals is not None
+        assert cp.residuals.shape == (n_cal,)
+
+        # Test prediction
+        y_pred_members = torch.randn(n_folds, n_test, output_dim)
+        lower, upper = cp.predict_interval(y_pred_members)
+
+        assert lower.shape == (n_test, output_dim)
+        assert upper.shape == (n_test, output_dim)
+        assert (lower <= upper).all()
+
+        # JackknifePlus alias check
+        assert JackknifePlus is CVPlus
+
+    def test_with_mask(self):
+        torch.manual_seed(42)
+        n_cal = 100
+        n_folds = 5
+        output_dim = 2
+
+        y_pred_oob = torch.randn(n_cal, output_dim)
+        target = y_pred_oob + torch.randn(n_cal, output_dim) * 0.2
+        fold_indices = torch.randint(0, n_folds, (n_cal,))
+
+        mask = torch.ones(n_cal, output_dim, dtype=torch.bool)
+        mask[:10] = False  # Mask out first 10 samples
+
+        cp = CVPlus(alpha=0.1)
+        cp.calibrate_ensemble(y_pred_oob, target, fold_indices, mask=mask)
+        assert cp._is_calibrated
+
+        # Total valid residuals should be 90
+        assert cp.residuals.shape == (90,)
+
+        # Empty calibration set
+        empty_mask = torch.zeros(n_cal, dtype=torch.bool)
+        with pytest.raises(ValueError, match="Calibration set is empty"):
+            cp.calibrate_ensemble(y_pred_oob, target, fold_indices, mask=empty_mask)
+
+    def test_coverage(self):
+        """Simulation to verify approximate coverage for CV+."""
+        torch.manual_seed(42)
+        alpha = 0.1
+        n_cal = 200
+        n_test = 500
+        n_folds = 5
+        output_dim = 1
+
+        # Generate simulation data
+        y_pred_oob = torch.randn(n_cal, output_dim)
+        target = y_pred_oob + torch.randn(n_cal, output_dim) * 0.5
+        fold_indices = torch.randint(0, n_folds, (n_cal,))
+
+        cp = CVPlus(alpha=alpha)
+        cp.calibrate_ensemble(y_pred_oob, target, fold_indices)
+
+        # For prediction, we need member predictions
+        # Simulate member predictions: K models centered around the true target with some variance
+        target_test = torch.randn(n_test, output_dim)
+        y_pred_members = (
+            target_test.unsqueeze(0).repeat(n_folds, 1, 1)
+            + torch.randn(n_folds, n_test, output_dim) * 0.1
+        )
+
+        lower, upper = cp.predict_interval(y_pred_members)
+
+        covered = (target_test >= lower) & (target_test <= upper)
+        coverage = covered.float().mean().item()
+
+        # Marginal coverage guarantee should hold approximately
+        assert coverage >= (1 - alpha) - 0.05
+
+
+class TestEnsembleBatchCP:
+    """Tests for EnsembleBatchCP (EnbPI) predictor."""
+
+    def test_basic_calibrate_predict(self):
+        torch.manual_seed(42)
+        n_cal = 100
+        n_test = 20
+        output_dim = 1
+
+        # Out-of-bag predictions
+        y_pred_oob = torch.randn(n_cal, output_dim)
+        target = y_pred_oob + torch.randn(n_cal, output_dim) * 0.3
+
+        cp = EnsembleBatchCP(alpha=0.1)
+
+        # Test predict before calibrate
+        with pytest.raises(RuntimeError, match="calibrate"):
+            cp.predict_interval(torch.randn(n_test, output_dim))
+
+        # Calibrate
+        cp.calibrate(y_pred_oob, target)
+        assert cp._is_calibrated
+        assert cp.q_hat is not None
+
+        # Test prediction
+        y_pred_mean = torch.randn(n_test, output_dim)
+        lower, upper = cp.predict_interval(y_pred_mean)
+
+        assert lower.shape == (n_test, output_dim)
+        assert upper.shape == (n_test, output_dim)
+        assert (lower <= upper).all()
+
+    def test_coverage(self):
+        """Simulation to verify approximate coverage for EnsembleBatchCP."""
+        torch.manual_seed(42)
+        alpha = 0.1
+        n_cal = 300
+        n_test = 500
+        output_dim = 1
+
+        y_pred_oob = torch.randn(n_cal, output_dim)
+        target = y_pred_oob + torch.randn(n_cal, output_dim) * 0.5
+
+        cp = EnsembleBatchCP(alpha=alpha)
+        cp.calibrate(y_pred_oob, target)
+
+        target_test = torch.randn(n_test, output_dim)
+        y_pred_mean = target_test + torch.randn(n_test, output_dim) * 0.1
+
+        lower, upper = cp.predict_interval(y_pred_mean)
+
+        covered = (target_test >= lower) & (target_test <= upper)
+        coverage = covered.float().mean().item()
+
         assert coverage >= (1 - alpha) - 0.05
 
 

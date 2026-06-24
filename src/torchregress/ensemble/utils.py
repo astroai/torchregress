@@ -25,6 +25,7 @@ def run_ensemble_model(
     model: Callable,
     inputs: Union[torch.Tensor, List[torch.Tensor]],
     return_individual: bool = False,
+    correction: int = 0,
 ) -> Dict[str, torch.Tensor]:
     """
     Run a model on multiple input variations and aggregate results.
@@ -33,6 +34,7 @@ def run_ensemble_model(
         model: Model function to run
         inputs: List of input tensors or batched tensor [n_samples, batch_size, ...]
         return_individual: Whether to return individual predictions
+        correction: Bessel's correction setting. Default: 0
 
     Returns:
         Dictionary with aggregated predictions:
@@ -63,7 +65,7 @@ def run_ensemble_model(
             outputs = outputs_flat.reshape(n_samples, batch_size, n_outputs)
 
     mean_pred = torch.mean(outputs, dim=0)
-    variance = torch.var(outputs, dim=0, unbiased=True)
+    variance = torch.var(outputs, dim=0, correction=correction)
 
     result = {"mean": mean_pred, "variance": variance}
 
@@ -74,7 +76,9 @@ def run_ensemble_model(
 
 
 def run_heteroscedastic_ensemble_model(
-    model: Callable, inputs: Union[torch.Tensor, List[torch.Tensor]]
+    model: Callable,
+    inputs: Union[torch.Tensor, List[torch.Tensor]],
+    correction: int = 0,
 ) -> Dict[str, torch.Tensor]:
     """
     Run a heteroscedastic model on multiple input variations and aggregate results.
@@ -100,7 +104,7 @@ def run_heteroscedastic_ensemble_model(
         variances = variances_flat.reshape(n_samples, batch_size, n_outputs)
 
     ensemble_mean = torch.mean(means, dim=0)
-    epistemic_var = torch.var(means, dim=0, unbiased=True)
+    epistemic_var = torch.var(means, dim=0, correction=correction)
     aleatoric_var = torch.mean(variances, dim=0)
     total_var = epistemic_var + aleatoric_var
 
@@ -113,7 +117,11 @@ def run_heteroscedastic_ensemble_model(
 
 
 def generate_prediction_samples(
-    model: nn.Module, x: torch.Tensor, n_samples: int = 10, return_samples: bool = False
+    model: nn.Module,
+    x: torch.Tensor,
+    n_samples: int = 10,
+    return_samples: bool = False,
+    correction: int = 0,
 ) -> Dict[str, torch.Tensor]:
     """
     Generate multiple predictions using dropout at inference time (MC Dropout).
@@ -128,7 +136,7 @@ def generate_prediction_samples(
 
     stacked_samples = torch.stack(samples)
     mean_pred = torch.mean(stacked_samples, dim=0)
-    variance = torch.var(stacked_samples, dim=0, unbiased=True)
+    variance = torch.var(stacked_samples, dim=0, correction=correction)
 
     result = {"mean": mean_pred, "variance": variance}
 

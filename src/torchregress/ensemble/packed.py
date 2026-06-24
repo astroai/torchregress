@@ -36,8 +36,8 @@ def _scale_batch_ensemble_factors(module: nn.Module, alpha: float) -> None:
 
 
 @dataclass
-class PackedEnsembleOutput:
-    """Structured prediction from :meth:`PackedEnsembleRegressor.predict_output`."""
+class BatchEnsembleOutput:
+    """Structured prediction from :meth:`BatchEnsembleRegressor.predict_output`."""
 
     mean: torch.Tensor
     member_means: torch.Tensor
@@ -45,6 +45,10 @@ class PackedEnsembleOutput:
     aleatoric_variance: Optional[torch.Tensor]
     predictive_variance: torch.Tensor
     std_epistemic: torch.Tensor
+
+
+# Deprecated alias
+PackedEnsembleOutput = BatchEnsembleOutput
 
 
 class MeanOnlyBatchEnsembleModel(nn.Module):
@@ -75,11 +79,11 @@ class MeanOnlyBatchEnsembleModel(nn.Module):
         means = self.output_layer(features)
         return {"means": means}
 
-    def predict(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+    def predict(self, x: torch.Tensor, correction: int = 0) -> dict[str, torch.Tensor]:
         with torch.no_grad():
             means = self.forward(x)["means"]
             ensemble_mean = torch.mean(means, dim=1)
-            epistemic_var = _variance_across_members(means, dim=1)
+            epistemic_var = _variance_across_members(means, dim=1, correction=correction)
             return {
                 "mean": ensemble_mean,
                 "variance": epistemic_var.clamp_min(1.0e-8),
@@ -88,13 +92,13 @@ class MeanOnlyBatchEnsembleModel(nn.Module):
             }
 
 
-class PackedEnsembleRegressor(nn.Module):
+class BatchEnsembleRegressor(nn.Module):
     """
-    Parameter-efficient packed ensemble for regression (BatchEnsemble + optional head).
+    Parameter-efficient BatchEnsemble regressor for regression.
 
     This is a thin facade over :class:`HeteroscedasticBatchEnsembleModel` (or a
     mean-only batch ensemble) with ``alpha`` scaling of fast weights and
-    :meth:`predict_output` returning :class:`PackedEnsembleOutput`.
+    :meth:`predict_output` returning :class:`BatchEnsembleOutput`.
 
     Args:
         backbone: Feature extractor. Must map ``x`` to a tensor that the final
@@ -109,9 +113,9 @@ class PackedEnsembleRegressor(nn.Module):
 
     Example
     -------
-    >>> from torchregress.ensemble import BatchEnsembleMLPBackbone, PackedEnsembleRegressor
+    >>> from torchregress.ensemble import BatchEnsembleMLPBackbone, BatchEnsembleRegressor
     >>> bb = BatchEnsembleMLPBackbone(3, 16, ensemble_size=4, hidden_dims=[16])
-    >>> model = PackedEnsembleRegressor(
+    >>> model = BatchEnsembleRegressor(
     ...     bb, feature_dim=bb.feature_dim, output_dim=1, ensemble_size=4, alpha=1.0
     ... )
     >>> y = model.predict_output(torch.randn(8, 3))
@@ -144,7 +148,7 @@ class PackedEnsembleRegressor(nn.Module):
         self.heteroscedastic = heteroscedastic
         dev = str(device) if isinstance(device, torch.device) else device
         if heteroscedastic:
-            self._model: nn.Module = HeteroscedasticBatchEnsembleModel(
+            self._model = HeteroscedasticBatchEnsembleModel(
                 backbone,
                 feature_dim,
                 output_dim,
@@ -164,11 +168,11 @@ class PackedEnsembleRegressor(nn.Module):
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         return self._model(x)
 
-    def predict(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        return self._model.predict(x)
+    def predict(self, x: torch.Tensor, correction: int = 0) -> dict[str, torch.Tensor]:
+        return self._model.predict(x, correction=correction)
 
     @torch.no_grad()
-    def predict_output(self, x: torch.Tensor) -> PackedEnsembleOutput:
+    def predict_output(self, x: torch.Tensor, correction: int = 0) -> BatchEnsembleOutput:
         """Return structured moments; use :meth:`forward` for training dicts."""
         self.eval()
         out = self.forward(x)
@@ -178,9 +182,9 @@ class PackedEnsembleRegressor(nn.Module):
             variances = _variance_from_logvar(log_vars)
             ensemble_mean = torch.mean(means, dim=1)
             aleatoric_var = torch.mean(variances, dim=1)
-            epistemic_var = _variance_across_members(means, dim=1)
+            epistemic_var = _variance_across_members(means, dim=1, correction=correction)
             total_var = (epistemic_var + aleatoric_var).clamp_min(1.0e-8)
-            return PackedEnsembleOutput(
+            return BatchEnsembleOutput(
                 mean=ensemble_mean,
                 member_means=means,
                 epistemic_variance=epistemic_var,
@@ -190,12 +194,47 @@ class PackedEnsembleRegressor(nn.Module):
             )
         means = out["means"]
         ensemble_mean = torch.mean(means, dim=1)
-        epistemic_var = _variance_across_members(means, dim=1)
-        return PackedEnsembleOutput(
+        epistemic_var = _variance_across_members(means, dim=1, correction=correction)
+        return BatchEnsembleOutput(
             mean=ensemble_mean,
             member_means=means,
             epistemic_variance=epistemic_var,
             aleatoric_variance=None,
             predictive_variance=epistemic_var.clamp_min(1.0e-8),
             std_epistemic=torch.sqrt(epistemic_var.clamp_min(1.0e-8)),
+        )
+
+
+class PackedEnsembleRegressor(BatchEnsembleRegressor):
+    """
+    Deprecated alias for BatchEnsembleRegressor.
+    """
+
+    def __init__(
+        self,
+        backbone: nn.Module,
+        *,
+        feature_dim: int,
+        output_dim: int,
+        ensemble_size: int = 4,
+        heteroscedastic: bool = True,
+        alpha: float = 1.0,
+        device: Union[str, torch.device] = "cpu",
+    ) -> None:
+        import warnings
+
+        warnings.warn(
+            "PackedEnsembleRegressor is deprecated and will be removed in a future release. "
+            "Use BatchEnsembleRegressor instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(
+            backbone=backbone,
+            feature_dim=feature_dim,
+            output_dim=output_dim,
+            ensemble_size=ensemble_size,
+            heteroscedastic=heteroscedastic,
+            alpha=alpha,
+            device=device,
         )

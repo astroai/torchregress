@@ -47,11 +47,11 @@ def _batched_ensemble_forward(models: nn.ModuleList, x: Tensor, method: str = "s
     return torch.stack([model(x) for model in models], dim=1)
 
 
-class BayesianModelAveraging(nn.Module):
+class SoftmaxModelCombiner(nn.Module):
     """
-    Bayesian Model Averaging for ensemble regression.
+    Softmax-weighted model combiner for ensemble regression.
 
-    Combines predictions from multiple models using Bayesian weighting.
+    Combines predictions from multiple models using a learned softmax weighting.
     """
 
     def __init__(
@@ -66,7 +66,7 @@ class BayesianModelAveraging(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         """
-        Calculate BMA loss using weighted average of model predictions.
+        Calculate combined predictions using weighted average.
         """
         # Get model weights (probabilities)
         model_probs = torch.softmax(self.model_weights, dim=0)
@@ -99,6 +99,23 @@ class BayesianModelAveraging(nn.Module):
         var_of_means = torch.sum((mean_diffs**2) * model_probs.view(1, -1, 1), dim=1)
 
         return mean_pred, var_of_means
+
+
+class BayesianModelAveraging(SoftmaxModelCombiner):
+    """
+    Deprecated alias for SoftmaxModelCombiner.
+    """
+
+    def __init__(self, models: List[nn.Module]) -> None:
+        import warnings
+
+        warnings.warn(
+            "BayesianModelAveraging is deprecated and will be removed in a future release. "
+            "Use SoftmaxModelCombiner instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(models)
 
 
 class StackingEnsemble(nn.Module):

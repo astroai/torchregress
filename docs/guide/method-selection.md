@@ -94,7 +94,7 @@ _Generated date_: `2026-04-16`
 | `calibration_transform` (5) | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` (10) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` (13) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` (15) | yes | yes | partial | no | no | no | yes | partial | no | yes |
 | `ensemble` (7) | yes | no | yes | yes | yes | yes | partial | yes | no | no |
@@ -172,8 +172,11 @@ _Generated date_: `2026-04-16`
 | `CensoredQuantileLoss` | `censored` | `Available` | yes | no | no | no | no | partial | partial |
 | `CQR` | `conformal` | `Strong` | yes | no | no | no | no | yes | partial |
 | `CTI` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
+| `CVPlus` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `ConformalLoss` | `conformal` | `Core` | yes | no | no | no | no | yes | partial |
 | `DensityConformal` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
+| `EnsembleBatchCP` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
+| `JackknifePlus` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `MonteCarloConformal` | `conformal` | `Available` | yes | no | partial | no | no | yes | partial |
 | `MultiDimensionalConformalLoss` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `PrevalenceAdjustedCP` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
@@ -197,13 +200,13 @@ _Generated date_: `2026-04-16`
 | `RegressionCalibration` | `eiv` | `Strong` | yes | no | no | no | no | yes | partial |
 | `SIMEX` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `StructuralEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
+| `BatchEnsembleRegressor` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `BinnedPDFEnsembleModel` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `CumulativeLinkEnsembleModel` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `DeepEnsemble` | `ensemble` | `Core` | yes | no | yes | partial | partial | partial | yes |
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | partial |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | yes |
 | `MDNEnsembleModel` | `ensemble` | `Available` | yes | no | yes | yes | yes | partial | partial |
-| `PackedEnsembleRegressor` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `EvidentialRegressionLoss` | `evidential` | `Available` | yes | no | yes | yes | yes | partial | partial |
 | `AsymmetricLeastSquaresLoss` | `expectile` | `Available` | yes | no | no | no | no | partial | partial |
 | `ExpectileLoss` | `expectile` | `Available` | yes | no | no | no | no | partial | partial |
@@ -285,7 +288,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `calibration_transform` | 5 | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` | 10 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` | 13 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `eiv` | 15 | yes | yes | partial | no | no | no | yes | partial | no | yes |
 | `ensemble` | 7 | yes | no | yes | yes | yes | yes | partial | yes | no | no |
@@ -316,8 +319,8 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
-| OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `PackedEnsembleRegressor`, `MultiSWAG`, `SWAG` |
-| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `ConformalLoss`, `DensityConformal`, `MonteCarloConformal`, `MultiDimensionalConformalLoss`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `RegressionCalibration`, `MultiQuantileLoss`, `QuantileLoss` |
+| OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `BatchEnsembleRegressor`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
+| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `CVPlus`, `ConformalLoss`, `DensityConformal`, `EnsembleBatchCP`, `JackknifePlus`, `MonteCarloConformal`, `MultiDimensionalConformalLoss`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `RegressionCalibration`, `MultiQuantileLoss`, `QuantileLoss` |
 | Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `BMCLoss`, `BalancedMSELoss`, `DensityWeightedLoss`, `FocalRLoss`, `LDSLoss`, `PropensityWeightedLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `PredictionSIMEX`, `RegressionCalibration`, `SIMEX`, `StructuralEIVLoss` |

@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `121`
+- Total methods: `124`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -19,7 +19,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `calibration_transform` | 5 |
 | `causal` | 2 |
 | `censored` | 3 |
-| `conformal` | 10 |
+| `conformal` | 13 |
 | `constraints` | 2 |
 | `eiv` | 15 |
 | `ensemble` | 7 |
@@ -52,7 +52,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 93 |
+| `Available` | 96 |
 | `Deprecated` | 1 |
 
 ## Method Rows
@@ -80,8 +80,11 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `CensoredQuantileLoss` | `censored` | `Available` | `censored`, `interval_censored`, `non_gaussian` | `calibration*`, `ood*` | `torchregress.losses.CensoredQuantileLoss` |
 | `CQR` | `conformal` | `Strong` | `coverage_guarantees`, `calibration`, `heteroscedastic_noise` | `calibration`, `ood*` | `torchregress.losses.CQR` |
 | `CTI` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `distributional` | `calibration`, `ood*` | `torchregress.losses.CTI` |
+| `CVPlus` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.CVPlus` |
 | `ConformalLoss` | `conformal` | `Core` | `coverage_guarantees`, `calibration` | `calibration`, `ood*` | `torchregress.losses.ConformalLoss` |
 | `DensityConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.DensityConformal` |
+| `EnsembleBatchCP` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.EnsembleBatchCP` |
+| `JackknifePlus` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.JackknifePlus` |
 | `MonteCarloConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `epistemic_uq` | `epistemic*`, `calibration`, `ood*` | `torchregress.losses.MonteCarloConformal` |
 | `MultiDimensionalConformalLoss` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `multi_target` | `calibration`, `ood*` | `torchregress.losses.MultiDimensionalConformalLoss` |
 | `PrevalenceAdjustedCP` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.PrevalenceAdjustedCP` |
@@ -105,13 +108,13 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `RegressionCalibration` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `calibration` | `calibration`, `ood*` | `torchregress.algorithms.RegressionCalibration` |
 | `SIMEX` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `simex` | `calibration*`, `ood*` | `torchregress.algorithms.SIMEX` |
 | `StructuralEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.StructuralEIVLoss` |
+| `BatchEnsembleRegressor` | `ensemble` | `Available` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BatchEnsembleRegressor` |
 | `BinnedPDFEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BinnedPDFEnsembleModel` |
 | `CumulativeLinkEnsembleModel` | `ensemble` | `Available` | `ordinal`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.CumulativeLinkEnsembleModel` |
 | `DeepEnsemble` | `ensemble` | `Core` | `epistemic_uq`, `ood`, `selective_prediction` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood` | `torchregress.ensemble.DeepEnsemble` |
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.HeteroscedasticBatchEnsembleModel` |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `ood`, `calibration` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood` | `torchregress.ensemble.HeteroscedasticEnsembleModel` |
 | `MDNEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration`, `uq_decomposition` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.MDNEnsembleModel` |
-| `PackedEnsembleRegressor` | `ensemble` | `Available` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.PackedEnsembleRegressor` |
 | `EvidentialRegressionLoss` | `evidential` | `Available` | `uq_decomposition`, `single_pass`, `evidential` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.losses.EvidentialRegressionLoss` |
 | `AsymmetricLeastSquaresLoss` | `expectile` | `Available` | `prediction_intervals`, `non_gaussian`, `expectile` | `calibration*`, `ood*` | `torchregress.losses.AsymmetricLeastSquaresLoss` |
 | `ExpectileLoss` | `expectile` | `Available` | `prediction_intervals`, `non_gaussian`, `expectile` | `calibration*`, `ood*` | `torchregress.losses.ExpectileLoss` |

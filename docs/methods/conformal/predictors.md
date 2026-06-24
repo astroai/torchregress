@@ -281,6 +281,76 @@ lower, upper = cp.predict_interval(y_pred_test, x=x_test, mad=mad_test)
 
 ---
 
+## CVPlus & JackknifePlus
+
+**CV+** and **Jackknife+** (leave-one-out variant) conformal predictors are designed specifically for ensemble models (e.g., cross-validation ensembles). Instead of holding out a single calibration dataset, they reuse the out-of-fold/out-of-bag predictions from a $K$-fold training procedure.
+
+!!! abstract "Summary"
+    **Score:** $\;s_i = \lvert y_i - \hat{y}_{-f(i)}(x_i) \rvert$ (out-of-fold absolute residual)
+    **Interval:** $\;\left[ \text{Quantile}\left(\{\hat{y}_{-f(i)}(x) - s_i\}_{i=1}^n, \alpha\right), \; \text{Quantile}\left(\{\hat{y}_{-f(i)}(x) + s_i\}_{i=1}^n, 1-\alpha\right) \right]$
+    **Requires:** Out-of-fold predictions on calibration data, and all member models for test prediction.
+
+```python
+from torchregress.losses import CVPlus
+import torch
+
+cp = CVPlus(alpha=0.1)
+
+# Predict on calibration set using out-of-fold models
+# y_pred_oob: shape [n_cal, output_dim]
+# fold_indices: shape [n_cal] indicating which model was held out
+cp.calibrate_ensemble(y_pred_oob, y_cal, fold_indices)
+
+# Predict on test set using all K models
+# y_pred_members: shape [K, n_test, output_dim]
+lower, upper = cp.predict_interval(y_pred_members)
+```
+
+| Parameter | Type | Default | Description |
+|:----------|:-----|:--------|:------------|
+| `alpha` | `float` | `0.1` | Miscoverage rate. |
+
+!!! tip "When to use"
+    Use when you are training a **$K$-fold ensemble** or a **leave-one-out ensemble**. This allows you to perform conformal prediction without splitting off a separate calibration set, which is highly sample-efficient for small datasets.
+
+!!! quote "Reference"
+    | # | Reference |
+    |:-:|:----------|
+    | 1 | Barber et al. ["Predictive inference with the jackknife+."](https://arxiv.org/abs/1905.02928) *The Annals of Statistics*, 2021. |
+
+---
+
+## EnsembleBatchCP
+
+**Ensemble Batch Conformal Prediction (EnbPI)** (also known as Bootstrap+) uses out-of-bag (OOB) predictions from bootstrap ensembles (e.g., bagging, Random Forests) to obtain conformal intervals around the ensemble mean prediction.
+
+!!! abstract "Summary"
+    **Score:** $\;s_i = \lvert y_i - \hat{y}_{\text{OOB}}(x_i) \rvert$ (out-of-bag residual)
+    **Interval:** $\;\hat{y}_{\text{mean}} \pm \hat{q}$
+    **Requires:** Out-of-bag ensemble predictions for training points, and the ensemble mean prediction for test points.
+
+```python
+from torchregress.losses import EnsembleBatchCP
+
+cp = EnsembleBatchCP(alpha=0.1)
+
+# y_pred_oob: out-of-bag ensemble predictions for calibration samples
+cp.calibrate(y_pred_oob, y_cal)
+
+# y_pred_mean: ensemble mean prediction for test samples
+lower, upper = cp.predict_interval(y_pred_mean)
+```
+
+!!! tip "When to use"
+    Use when wrapping a **bagged ensemble** or **Random Forest** where out-of-bag predictions are readily available. It avoids training separate cross-validation models and provides homoscedastic conformal intervals.
+
+!!! quote "Reference"
+    | # | Reference |
+    |:-:|:----------|
+    | 1 | Xu & Xie. ["Conformal prediction interval for dynamic time-series."](https://arxiv.org/abs/2010.14144) *ICML*, 2021. |
+
+---
+
 ## ConformalLoss (Legacy)
 
 !!! warning "Deprecated in favour of standalone predictors"

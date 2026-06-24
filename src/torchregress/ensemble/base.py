@@ -106,9 +106,12 @@ class BaseEnsembleModel(nn.Module):
 
     def __init__(
         self,
-        base_model: Union[nn.Module, type],
+        base_model: Union[nn.Module, type, None] = None,
         ensemble_size: int = 5,
         device: str = "cpu",
+        member_factory: Optional[Callable[[int, Optional[int]], nn.Module]] = None,
+        base_seed: Optional[int] = None,
+        reset_parameters: bool = True,
         **base_model_kwargs: Any,
     ) -> None:
         super().__init__()
@@ -118,13 +121,54 @@ class BaseEnsembleModel(nn.Module):
         # Create ensemble members
         self.models = nn.ModuleList()
         for i in range(ensemble_size):
-            if isinstance(base_model, type):
+            seed = base_seed + i if base_seed is not None else None
+            if member_factory is not None:
+                if seed is not None:
+                    torch.manual_seed(seed)
+                model = member_factory(i, seed)
+            elif isinstance(base_model, type):
                 # If base_model is a class, instantiate it with kwargs
+                if seed is not None:
+                    torch.manual_seed(seed)
                 model = base_model(**base_model_kwargs)
-            else:
+            elif isinstance(base_model, nn.Module):
                 # Otherwise, make a deep copy of the provided instance
                 model = deepcopy(base_model)
+                if reset_parameters:
+                    self._reset_model_parameters(model, seed)
+            else:
+                raise ValueError("Either base_model or member_factory must be provided.")
             self.models.append(model)
+
+        # Check if parameters of different members are identical
+        if ensemble_size > 1 and len(self.models) > 0:
+            all_identical = True
+            first_model_params = list(self.models[0].parameters())
+            if len(first_model_params) > 0:
+                for m in self.models[1:]:
+                    for p1, p2 in zip(first_model_params, m.parameters()):
+                        if not torch.equal(p1, p2):
+                            all_identical = False
+                            break
+                    if not all_identical:
+                        break
+                if all_identical:
+                    import warnings
+
+                    warnings.warn(
+                        "All ensemble members have identical parameter values. "
+                        "Make sure to use different initializations or seeds to "
+                        "promote functional diversity.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
+    def _reset_model_parameters(self, model: nn.Module, seed: Optional[int] = None) -> None:
+        if seed is not None:
+            torch.manual_seed(seed)
+        for module in model.modules():
+            if hasattr(module, "reset_parameters") and callable(module.reset_parameters):
+                module.reset_parameters()
 
     def forward(self, x: torch.Tensor) -> Union[torch.Tensor, list[Any]]:
         """
@@ -142,12 +186,14 @@ class BaseEnsembleModel(nn.Module):
             return torch.stack(outputs)
         return outputs
 
-    def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         """
         Make prediction with uncertainty estimates.
 
         Args:
             x: Input tensor [batch_size, ...]
+            correction: Bessel's correction setting (0 for population/predictive-mixture
+                variance, 1 for sample variance). Default: 0
 
         Returns:
             Dictionary with mean and variance of predictions.
@@ -167,16 +213,19 @@ class BaseEnsembleModel(nn.Module):
             mean = torch.mean(stacked_preds, dim=0)
 
             # Calculate variance across ensemble dimension
-            variance = torch.var(stacked_preds, dim=0, unbiased=True)
+            variance = torch.var(stacked_preds, dim=0, correction=correction)
 
             return {"mean": mean, "variance": variance}
 
-    def predict_full_covariance(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict_full_covariance(
+        self, x: torch.Tensor, correction: int = 0
+    ) -> Dict[str, torch.Tensor]:
         """
         Make prediction with full-output covariance estimation.
 
         Args:
             x: Input tensor [batch_size, ...]
+            correction: Bessel's correction setting. Default: 0
 
         Returns:
             Dictionary with:
@@ -194,12 +243,14 @@ class BaseEnsembleModel(nn.Module):
                 preds = torch.stack(preds)
             stacked = preds  # [ensemble_size, batch, dim]
             mean = torch.mean(stacked, dim=0)
-            # Compute sample covariance across ensemble members
+            # Compute covariance across ensemble members
             # stacked => [M, B, D] -> [B, M, D]
             p = stacked.permute(1, 0, 2)
             p_centered = p - mean.unsqueeze(1)
-            cov = torch.einsum("bmd,bnd->bmn", p_centered, p_centered) / (self.ensemble_size - 1)
-            return {"mean": mean, "covariance": cov}
+            # Correct contraction to output dimensions: [B, D, D] instead of [B, M, M]
+            cov = torch.einsum("bmd,bme->bde", p_centered, p_centered)
+            denom = max(self.ensemble_size - correction, 1)
+            return {"mean": mean, "covariance": cov / denom}
 
     def _create_augmenter(
         self,

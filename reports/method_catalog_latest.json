@@ -2,13 +2,13 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 121,
+    "total_methods": 124,
     "families": {
       "bnn": 7,
       "calibration_transform": 5,
       "causal": 2,
       "censored": 3,
-      "conformal": 10,
+      "conformal": 13,
       "constraints": 2,
       "eiv": 15,
       "ensemble": 7,
@@ -38,7 +38,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 93,
+      "Available": 96,
       "Deprecated": 1
     },
     "peer_uq_methods_present": {
@@ -763,6 +763,72 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Multi-dimensional conformal prediction for joint coverage across target dimensions."
+    },
+    {
+      "name": "CVPlus",
+      "family": "conformal",
+      "public_path": "torchregress.losses.CVPlus",
+      "task_tags": [
+        "coverage_guarantees",
+        "calibration",
+        "ensemble"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "CV+ conformal prediction utilizing out-of-fold residuals for cross-validation ensembles."
+    },
+    {
+      "name": "JackknifePlus",
+      "family": "conformal",
+      "public_path": "torchregress.losses.JackknifePlus",
+      "task_tags": [
+        "coverage_guarantees",
+        "calibration",
+        "ensemble"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Jackknife+ conformal prediction, equivalent to CV+ with leave-one-out cross-validation."
+    },
+    {
+      "name": "EnsembleBatchCP",
+      "family": "conformal",
+      "public_path": "torchregress.losses.EnsembleBatchCP",
+      "task_tags": [
+        "coverage_guarantees",
+        "calibration",
+        "ensemble"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Ensemble Batch CP (EnbPI) using out-of-bag ensemble residuals to compute conformal intervals."
     },
     {
       "name": "NoisyTargetGaussianNLL",
@@ -2016,9 +2082,9 @@
       "notes": "Shared-weight ensemble variant for lower-latency uncertainty decomposition."
     },
     {
-      "name": "PackedEnsembleRegressor",
+      "name": "BatchEnsembleRegressor",
       "family": "ensemble",
-      "public_path": "torchregress.ensemble.PackedEnsembleRegressor",
+      "public_path": "torchregress.ensemble.BatchEnsembleRegressor",
       "task_tags": [
         "uq_decomposition",
         "epistemic_uq",
@@ -2037,7 +2103,7 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Facade over batch-ensemble heads with optional alpha scaling and PackedEnsembleOutput for mean/std_epistemic-style access."
+      "notes": "Facade over batch-ensemble heads with optional alpha scaling and BatchEnsembleOutput for mean/std_epistemic-style access."
     },
     {
       "name": "BinnedPDFEnsembleModel",

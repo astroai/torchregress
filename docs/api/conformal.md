@@ -27,6 +27,9 @@ unified coverage theorem, see [Conformal prediction](../methods/conformal/index.
 | `PrevalenceAdjustedCP` | Group-prevalence-adjusted | Subgroup prior shift |
 | `R2CConformal` | Regression-as-classification | Multimodal / binned targets |
 | `SLSConformal` | Super-level set conformal | Density-based / SLS regression |
+| `CVPlus` | Out-of-fold residuals | Cross-validation ensembles |
+| `JackknifePlus` | Leave-one-out residuals | Leave-one-out cross-validation ensembles (alias of CVPlus) |
+| `EnsembleBatchCP` | Out-of-bag residuals | Bootstrap-based ensemble predictors (EnbPI) |
 | `ConformalLoss(method=…)` | Unified CQR/UACQR/split training wrapper | One-call training of supported methods |
 | `conformal_loss(...)` | Functional form of `ConformalLoss` | Inline / functional API |
 
@@ -82,6 +85,8 @@ lower, upper = cp.predict_interval(y_pred_test)
 | Ensembles / Bayesian MC | `MonteCarloConformal` |
 | Distribution shift at test time | `WeightedSplitConformalAdapter` + `OTShiftReweighter` |
 | Need multi-target joint coverage | `MultiTargetConformal` |
+| Have cross-validation ensemble models | `CVPlus` (or `JackknifePlus`) |
+| Have bootstrap/OOB ensemble models | `EnsembleBatchCP` (EnbPI) |
 
 ## Detailed Class References
 
@@ -158,6 +163,36 @@ Reference: Luo & Zhou, ["Conformal Thresholded Intervals for Efficient Regressio
 ### SLSConformal
 
 Conformal wrapper for Super-Level-Set ([`SLSLoss`](../api/losses.md#slsloss)) frontiers — calibrates level-set thresholds for multi-target prediction regions.
+
+### CVPlus / JackknifePlus
+
+CV+ and Jackknife+ conformal prediction for ensemble models using out-of-fold residuals. Given $K$ model folds (or $N$ LOO folds), the nonconformity scores are computed on out-of-fold predictions:
+
+$$
+s_i = |y_i - \hat{y}_{-f(i)}(x_i)|
+$$
+
+where $f(i)$ is the fold index for calibration point $i$, and $\hat{y}_{-f(i)}$ is the model trained without fold $f(i)$. The interval at a new point $X_{n+1}$ is constructed by finding the $\alpha$ and $1-\alpha$ quantiles over the candidate endpoints:
+
+$$
+\left[ \text{Quantile}\left(\{\hat{y}_{-f(i)}(X_{n+1}) - s_i\}_{i=1}^n, \alpha\right), \; \text{Quantile}\left(\{\hat{y}_{-f(i)}(X_{n+1}) + s_i\}_{i=1}^n, 1-\alpha\right) \right]
+$$
+
+### EnsembleBatchCP
+
+Ensemble Batch Conformal Prediction (EnbPI) uses out-of-bag (OOB) ensemble residuals to calibrate prediction intervals for ensemble point predictions (like bagging or bootstrap aggregation):
+
+$$
+s_i = |y_i - \hat{y}_{\text{OOB}}(x_i)|
+$$
+
+And the interval is constructed around the ensemble mean prediction $\hat{y}_{\text{mean}}$:
+
+$$
+\hat{y}_{\text{mean}} \pm \hat{q}
+$$
+
+where $\hat{q}$ is the $(1-\alpha)(1+1/n)$ quantile of $\{s_i\}_{i=1}^n$.
 
 ## Next steps
 

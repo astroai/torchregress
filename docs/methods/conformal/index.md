@@ -64,6 +64,8 @@ lower, upper = cp.predict_interval(y_pred_test)
 | **`MonteCarloConformal`** | Ensembles, Bayesian models | ✅ | [MonteCarloConformal](../../api/conformal.md#montecarloconformal) |
 | **`LocalConformal`** | Local feature-space coverage (LVD) | ✅ | [LocalConformal](../../api/conformal.md#localconformal) |
 | **`LocalConformalMAD`** | Local feature-space + MAD scaling | ✅ | [LocalConformalMAD](../../api/conformal.md#localconformalmad) |
+| **`CVPlus`** \[5\] | Cross-validation ensembles | ❌ | [CVPlus](../../api/conformal.md#cvplus-jackknifeplus) |
+| **`EnsembleBatchCP`** \[6\] | Bootstrap / bagging ensembles (EnbPI) | ❌ | [EnsembleBatchCP](../../api/conformal.md#ensemblebatchcp) |
 | **`CTI`** \[3\] | Multimodal, complex distributions | ✅ | [CTI](../../api/conformal.md#cti) |
 
 ---
@@ -149,6 +151,8 @@ For multi-output regression ($\mathbf{Y} \in \mathbb{R}^D$), calibrating each co
 | 2 | Romano et al. ["Conformalized Quantile Regression."](https://arxiv.org/abs/1905.03222) *NeurIPS*, 2019. |
 | 3 | Luo & Zhou. ["Conformal Thresholded Intervals for Efficient Regression."](https://arxiv.org/abs/2407.14495) *AAAI*, 2025. |
 | 4 | Angelopoulos & Bates. ["A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification."](https://arxiv.org/abs/2107.07511) *Technical Report*, 2021. |
+| 5 | Barber et al. ["Predictive inference with the jackknife+."](https://arxiv.org/abs/1905.02928) *The Annals of Statistics*, 2021. |
+| 6 | Xu & Xie. ["Conformal prediction interval for dynamic time-series."](https://arxiv.org/abs/2010.14144) *ICML*, 2021. |
 
 ---
 

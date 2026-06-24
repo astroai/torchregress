@@ -131,9 +131,12 @@ EXPECTED_EXPORTS = {
         "MDNEnsembleModel",
         "RandomPartitionEnsembleModel",
         "HeteroscedasticBatchEnsembleModel",
+        "BatchEnsembleRegressor",
+        "BatchEnsembleOutput",
         "PackedEnsembleRegressor",
         "PackedEnsembleOutput",
         "BayesianModelAveraging",
+        "SoftmaxModelCombiner",
         "StackingEnsemble",
         "DynamicEnsembleWeighting",
         "SWAG",
@@ -343,19 +346,19 @@ EXPECTED_SIGNATURES = {
         "(x: torch.Tensor | numpy.ndarray, mean: torch.Tensor | numpy.ndarray, "
         "cov: torch.Tensor | numpy.ndarray, reduction: str = 'none') -> torch.Tensor"
     ),
-    "ensemble.BaseEnsembleModel.predict": "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]",
+    "ensemble.BaseEnsembleModel.predict": "(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]",
     "ensemble.HeteroscedasticEnsembleModel.predict": (
-        "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]"
+        "(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]"
     ),
     "ensemble.HeteroscedasticBatchEnsembleModel.predict": (
-        "(self, x: torch.Tensor) -> Dict[str, torch.Tensor]"
+        "(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]"
     ),
     "ensemble.MCDropoutWrapper.predict_with_uncertainty": (
         "(self, x: torch.Tensor, n_samples: int | None = None) -> Tuple[torch.Tensor, torch.Tensor]"
     ),
     "ensemble.SWAG.sample": "(self, scale: float = 1.0, diag_noise: bool = True) -> None",
     "ensemble.MultiSWAG.predict_with_uncertainty": (
-        "(self, x: torch.Tensor, n_samples: int = 30, scale: float = 1.0) -> "
+        "(self, x: torch.Tensor, n_samples: int = 30, scale: float = 1.0, correction: int = 0) -> "
         "tuple[torch.Tensor, torch.Tensor, torch.Tensor]"
     ),
     "metrics.task_agnostic_correlations": "(y_pred: 'torch.Tensor | np.ndarray', y_true: 'torch.Tensor | np.ndarray', covariance: 'torch.Tensor | np.ndarray') -> 'torch.Tensor'",

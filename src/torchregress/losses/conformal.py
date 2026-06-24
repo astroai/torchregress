@@ -415,6 +415,155 @@ class SplitConformal(ConformalPredictor):
         return y_pred - width, y_pred + width
 
 
+class CVPlus(ConformalPredictor):
+    """CV+ Conformal Predictor for ensemble conformal prediction.
+
+    Builds prediction intervals using out-of-fold predictions and residuals
+    obtained from K-fold cross-validation or leave-one-out (Jackknife+).
+
+    During calibration, expects:
+    - y_pred: Out-of-fold predictions on the calibration set, shape [n_samples, output_dim].
+    - target: True values, shape [n_samples, output_dim].
+    - fold_indices: Tensor of shape [n_samples] indicating which model index
+        was held out when predicting each sample.
+
+    During prediction, expects:
+    - y_pred_members: Predictions of all K models on the test set,
+        shape [K, n_test_samples, output_dim].
+
+    References
+    ----------
+    .. [1] Barber, R. F., Candès, E. J., Ramdas, A., & Tibshirani, R. J. (2021).
+       Predictive inference with the jackknife+. *The Annals of Statistics*, 49(1), 486-507.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        normalize_fn: Optional[Callable[..., Tensor]] = None,
+    ) -> None:
+        super().__init__(alpha=alpha, normalize_fn=normalize_fn)
+        self.residuals: Optional[Tensor] = None
+        self.fold_indices: Optional[Tensor] = None
+
+    def calibrate_ensemble(
+        self,
+        y_pred_oob: Tensor,
+        target: Tensor,
+        fold_indices: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+    ) -> None:
+        """Calibrate on out-of-fold predictions.
+
+        Args:
+            y_pred_oob: Out-of-fold predictions [n_samples, output_dim].
+            target: True values [n_samples, output_dim].
+            fold_indices: 1-D integer tensor [n_samples] of fold indices.
+            mask: Optional boolean mask.
+        """
+        if mask is not None:
+            mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
+            y_pred_oob = y_pred_oob[mask_1d]
+            target = target[mask_1d]
+            fold_indices = fold_indices[mask_1d]
+
+        if y_pred_oob.shape[0] == 0:
+            raise ValueError("Calibration set is empty after masking.")
+
+        # Compute absolute residuals
+        self.residuals = torch.abs(y_pred_oob - target)
+        if self.residuals.dim() > 1:
+            self.residuals = self.residuals.max(dim=-1).values
+
+        self.fold_indices = fold_indices.long()
+        self._is_calibrated = True
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        """Predict intervals using CV+ combination of member predictions.
+
+        Args:
+            y_pred: Member predictions of shape [K, n_test_samples, output_dim]
+                where K is the number of folds/models.
+            groups: Unused, kept for signature compatibility.
+            x: Unused, kept for signature compatibility.
+
+        Returns:
+            Tuple of (lower_bound, upper_bound) tensors of shape [n_test_samples, output_dim].
+        """
+        if not self._is_calibrated or self.residuals is None or self.fold_indices is None:
+            raise RuntimeError(
+                "Predictor must be calibrated before making predictions. "
+                "Call calibrate_ensemble() first."
+            )
+
+        device = y_pred.device
+        fold_indices = self.fold_indices.to(device)
+        residuals = self.residuals.to(device)
+
+        # Index member predictions: [K, B, D] -> [n_cal, B, D]
+        pred_per_cal = y_pred[fold_indices]
+
+        # Reshape residuals to [n_cal, 1, 1] for broadcasting
+        res_unsqueezed = residuals.view(-1, 1, 1)
+
+        lower_candidates = pred_per_cal - res_unsqueezed
+        upper_candidates = pred_per_cal + res_unsqueezed
+
+        lower_bound = torch.quantile(lower_candidates, self.alpha, dim=0)
+        upper_bound = torch.quantile(upper_candidates, 1.0 - self.alpha, dim=0)
+
+        return lower_bound, upper_bound
+
+
+# JackknifePlus is equivalent to CVPlus when K = n (leave-one-out cross-validation)
+JackknifePlus = CVPlus
+
+
+class EnsembleBatchCP(ConformalPredictor):
+    """Ensemble Batch Prediction Intervals (EnbPI) / Bootstrap+ Conformal Predictor.
+
+    Uses out-of-bag ensemble predictions and residuals to construct conformal
+    intervals, avoiding training separate leave-one-out models.
+
+    During calibration, expects:
+    - y_pred_oob: Out-of-bag predictions for each training sample, shape [n_samples, output_dim].
+    - target: True values, shape [n_samples, output_dim].
+
+    During prediction, expects:
+    - y_pred_mean: Ensemble mean prediction, shape [n_test_samples, output_dim].
+
+    References
+    ----------
+    .. [1] Xu, C., & Xie, M. (2021). Conformal prediction interval for dynamic
+       time-series. *Proceedings of the 38th International Conference on Machine Learning*.
+    """
+
+    def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        scores = torch.abs(y_pred - target)
+        if scores.dim() > 1:
+            scores = scores.max(dim=-1).values
+        return scores
+
+    def _build_intervals(
+        self,
+        y_pred: Tensor,
+        q: Tensor,
+        difficulty: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if difficulty is not None:
+            width = q * difficulty.view(-1, *([1] * (y_pred.dim() - 1)))
+        else:
+            width = q
+        return y_pred - width, y_pred + width
+
+
 # ---------------------------------------------------------------------------
 # Conformalized Quantile Regression (CQR)
 # ---------------------------------------------------------------------------

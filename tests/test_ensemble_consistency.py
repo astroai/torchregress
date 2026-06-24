@@ -243,7 +243,7 @@ class TestEnsembleSizeBehavior:
 
     def test_base_ensemble_variance_matches_sample_variance(self):
         """DeepEnsemble.predict()['variance'] should equal the sample
-        variance of member predictions."""
+        variance of member predictions when correction=1."""
         model = DeepEnsemble(
             base_model=SimpleMLP(),
             ensemble_size=4,
@@ -252,7 +252,7 @@ class TestEnsembleSizeBehavior:
             output_size=1,
         )
         x = torch.randn(3, 4)
-        result = model.predict(x)
+        result = model.predict(x, correction=1)
 
         with torch.no_grad():
             stacked = model.forward(x)

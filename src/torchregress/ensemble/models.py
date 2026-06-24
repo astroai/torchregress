@@ -5,7 +5,7 @@ This module provides concrete implementations of ensemble models
 for regression tasks with uncertainty estimation.
 """
 
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -47,11 +47,10 @@ def _stack_member_tensors(outputs: Union[torch.Tensor, list[Any]]) -> torch.Tens
 
 
 def _variance_across_members(
-    stacked: torch.Tensor, *, dim: int, eps: float = 1.0e-8
+    stacked: torch.Tensor, *, dim: int, correction: int = 0, eps: float = 1.0e-8
 ) -> torch.Tensor:
-    """Sample variance with a stable fallback for singleton ensembles."""
-    unbiased = stacked.shape[dim] > 1
-    return torch.var(stacked, dim=dim, unbiased=unbiased).clamp_min(eps)
+    """Variance with a stable fallback for singleton ensembles."""
+    return torch.var(stacked, dim=dim, correction=correction).clamp_min(eps)
 
 
 def _support_moments(
@@ -147,12 +146,13 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
         device: Device to use
     """
 
-    def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         """
         Make prediction with uncertainty estimates.
 
         Args:
             x: Input tensor [batch_size, ...]
+            correction: Bessel's correction setting. Default: 0
 
         Returns:
             Dictionary with mean, epistemic and aleatoric variance
@@ -182,7 +182,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             aleatoric_var = torch.mean(stacked_vars, dim=0)
 
             # Calculate epistemic uncertainty as variance of means
-            epistemic_var = _variance_across_members(stacked_means, dim=0)
+            epistemic_var = _variance_across_members(stacked_means, dim=0, correction=correction)
 
             # Total predictive variance is sum of epistemic and aleatoric
             total_var = (epistemic_var + aleatoric_var).clamp_min(1.0e-8)
@@ -194,9 +194,12 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
                 "aleatoric_variance": aleatoric_var,
             }
 
-    def predict_full_covariance(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict_full_covariance(
+        self, x: torch.Tensor, correction: int = 0
+    ) -> Dict[str, torch.Tensor]:
         """
-        Make prediction with full-output covariance estimation, splitting aleatoric and epistemic.
+        Make prediction with full-output covariance estimation,
+        splitting aleatoric and epistemic.
         """
         with torch.no_grad():
             preds = self.forward(x)
@@ -219,9 +222,10 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             # Epistemic covariance: variance of means
             p = stacked_means.permute(1, 0, 2)  # [B, M, D]
             p_centered = p - mean.unsqueeze(1)
-            epi_cov = torch.einsum("bmd,bme->bde", p_centered, p_centered) / (
-                self.ensemble_size - 1
-            )
+            # Correct contraction to output dimensions: [B, D, D] instead of [B, M, M]
+            epi_cov = torch.einsum("bmd,bme->bde", p_centered, p_centered)
+            denom = max(self.ensemble_size - correction, 1)
+            epi_cov = epi_cov / denom
             # Aleatoric covariance: mean of member variances as diagonal
             stacked_vars = torch.stack(vars_)  # [M, B, D]
             avg_vars = torch.mean(stacked_vars, dim=0)  # [B, D]
@@ -265,15 +269,21 @@ class DeepEnsemble(BaseEnsembleModel):
 
     def __init__(
         self,
-        base_model: Union[nn.Module, type],
+        base_model: Union[nn.Module, type, None] = None,
         ensemble_size: int = 5,
         device: str = "cpu",
+        member_factory: Optional[Callable[[int, Optional[int]], nn.Module]] = None,
+        base_seed: Optional[int] = None,
+        reset_parameters: bool = True,
         **base_model_kwargs: Any,
     ) -> None:
         super().__init__(
             base_model=base_model,
             ensemble_size=ensemble_size,
             device=device,
+            member_factory=member_factory,
+            base_seed=base_seed,
+            reset_parameters=reset_parameters,
             **base_model_kwargs,
         )
 
@@ -303,7 +313,7 @@ class BinnedPDFEnsembleModel(BaseEnsembleModel):
         )
         self.support_values = support_values
 
-    def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         with torch.no_grad():
             logits = _stack_member_tensors(self.forward(x))
             probs = F.softmax(logits, dim=-1).mean(dim=0)
@@ -383,6 +393,7 @@ class RandomPartitionEnsembleModel(BaseEnsembleModel):
     def predict(
         self,
         x: torch.Tensor,
+        correction: int = 0,
         *,
         evaluation_bin_edges: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
@@ -541,7 +552,7 @@ class CumulativeLinkEnsembleModel(BaseEnsembleModel):
         )
         self.support_values = support_values
 
-    def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         with torch.no_grad():
             logits = _stack_member_tensors(self.forward(x))
             probs = cumulative_logits_to_pmf(logits).mean(dim=0)
@@ -624,7 +635,7 @@ class MDNEnsembleModel(BaseEnsembleModel):
             torch.cat(scale_list, dim=-2),
         )
 
-    def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         with torch.no_grad():
             weights, means, stds = self._predict_components(x)
             mixture_mean = torch.sum(weights.unsqueeze(-1) * means, dim=-2)
@@ -725,12 +736,13 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
 
         return {"means": means, "log_vars": log_vars}
 
-    def predict(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         """
         Make prediction with uncertainty estimates.
 
         Args:
             x: Input tensor [batch_size, ...]
+            correction: Bessel's correction setting. Default: 0
 
         Returns:
             Dictionary with mean, epistemic and aleatoric variance
@@ -751,7 +763,9 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
             aleatoric_var = torch.mean(variances, dim=1)  # [batch_size, output_size]
 
             # Calculate epistemic uncertainty (variance of means)
-            epistemic_var = _variance_across_members(means, dim=1)  # [batch_size, output_size]
+            epistemic_var = _variance_across_members(
+                means, dim=1, correction=correction
+            )  # [batch_size, output_size]
 
             # Total predictive variance is sum of epistemic and aleatoric
             total_var = (epistemic_var + aleatoric_var).clamp_min(1.0e-8)

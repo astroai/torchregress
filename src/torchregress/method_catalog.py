@@ -423,6 +423,45 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Multi-dimensional conformal prediction for joint coverage across target dimensions.",
     ),
     MethodMetadata(
+        name="CVPlus",
+        family="conformal",
+        public_path="torchregress.losses.CVPlus",
+        task_tags=("coverage_guarantees", "calibration", "ensemble"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="yes",
+        notes=(
+            "CV+ conformal prediction utilizing out-of-fold residuals "
+            "for cross-validation ensembles."
+        ),
+    ),
+    MethodMetadata(
+        name="JackknifePlus",
+        family="conformal",
+        public_path="torchregress.losses.JackknifePlus",
+        task_tags=("coverage_guarantees", "calibration", "ensemble"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="yes",
+        notes=(
+            "Jackknife+ conformal prediction, equivalent to CV+ with "
+            "leave-one-out cross-validation."
+        ),
+    ),
+    MethodMetadata(
+        name="EnsembleBatchCP",
+        family="conformal",
+        public_path="torchregress.losses.EnsembleBatchCP",
+        task_tags=("coverage_guarantees", "calibration", "ensemble"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="yes",
+        notes=(
+            "Ensemble Batch CP (EnbPI) using out-of-bag ensemble residuals "
+            "to compute conformal intervals."
+        ),
+    ),
+    MethodMetadata(
         name="NoisyTargetGaussianNLL",
         family="uncertain_gt",
         public_path="torchregress.losses.NoisyTargetGaussianNLL",
@@ -1059,9 +1098,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Shared-weight ensemble variant for lower-latency uncertainty decomposition.",
     ),
     MethodMetadata(
-        name="PackedEnsembleRegressor",
+        name="BatchEnsembleRegressor",
         family="ensemble",
-        public_path="torchregress.ensemble.PackedEnsembleRegressor",
+        public_path="torchregress.ensemble.BatchEnsembleRegressor",
         task_tags=("uq_decomposition", "epistemic_uq", "aleatoric_uq", "ood", "low_compute"),
         maturity="Available",
         epistemic="yes",
@@ -1071,7 +1110,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         calibration="partial",
         notes=(
             "Facade over batch-ensemble heads with optional alpha scaling and "
-            "PackedEnsembleOutput for mean/std_epistemic-style access."
+            "BatchEnsembleOutput for mean/std_epistemic-style access."
         ),
     ),
     MethodMetadata(

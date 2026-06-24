@@ -34,6 +34,8 @@ import torch.nn as nn
 from torchregress.losses.conformal import (
     ConformalLoss,
     MultiDimensionalConformalLoss,
+    CVPlus,
+    EnsembleBatchCP,
 )
 
 
@@ -240,6 +242,104 @@ def demo_multidimensional_conformal() -> None:
     print()
 
 
+def demo_cv_plus() -> None:
+    """Demonstrate CV+ Conformal Predictor for cross-validation ensembles."""
+    print("=== CV+ Ensemble Conformal Prediction Demo ===")
+
+    # Generate data
+    _, y, _ = generate_synthetic_data(n_samples=500, n_features=1)
+
+    # We will simulate a 5-fold cross-validation
+    n_folds = 5
+    n_samples = y.shape[0]
+
+    # Shuffle and split indices
+    torch.manual_seed(42)
+    shuffled_idx = torch.randperm(n_samples)
+    fold_sizes = n_samples // n_folds
+
+    # Out-of-fold predictions on calibration data (which we simulate as all training data)
+    y_pred_oob = torch.zeros_like(y)
+    fold_indices = torch.zeros(n_samples, dtype=torch.long)
+
+    # Simulate ensemble members predictions for test samples (e.g. 50 test samples)
+    n_test = 100
+    _, y_test, _ = generate_synthetic_data(n_samples=n_test, n_features=1)
+
+    # We will simulate member predictions on the test set: shape [n_folds, n_test, 1]
+    y_pred_members = torch.zeros(n_folds, n_test, 1)
+
+    for f in range(n_folds):
+        start = f * fold_sizes
+        end = (f + 1) * fold_sizes if f < n_folds - 1 else n_samples
+        val_idx = shuffled_idx[start:end]
+
+        # Out-of-fold predictions for validation fold
+        # Simulate model f predicting on val_idx: true target + simulated fold-specific noise
+        y_pred_oob[val_idx] = y[val_idx] + 0.15 * torch.randn(val_idx.shape[0], 1) + 0.05 * f
+        fold_indices[val_idx] = f
+
+        # Simulate model f predicting on test set
+        y_pred_members[f] = y_test + 0.15 * torch.randn(n_test, 1) + 0.05 * f
+
+    # Create CVPlus conformal predictor
+    cp = CVPlus(alpha=0.1)
+
+    # Calibrate using out-of-fold predictions
+    cp.calibrate_ensemble(y_pred_oob, y, fold_indices)
+    print("Calibrated CV+ ensemble successfully.")
+
+    # Get CV+ prediction intervals
+    lower_interval, upper_interval = cp.predict_interval(y_pred_members)
+
+    # Calculate coverage
+    coverage = ((y_test >= lower_interval) & (y_test <= upper_interval)).float().mean()
+    print(f"Test coverage: {coverage.item():.4f} (target: {1 - cp.alpha:.2f})")
+
+    # Calculate interval width
+    avg_width = (upper_interval - lower_interval).mean()
+    print(f"Average interval width: {avg_width.item():.4f}")
+    print()
+
+
+def demo_ensemble_batch_cp() -> None:
+    """Demonstrate Ensemble Batch Conformal Prediction (EnbPI) / Bootstrap+."""
+    print("=== Ensemble Batch Conformal Prediction (EnbPI) Demo ===")
+
+    # Generate data
+    _, y, _ = generate_synthetic_data(n_samples=600, n_features=1)
+
+    # Split into calibration and test
+    n_cal = 400
+    y_cal, y_test = y[:n_cal], y[n_cal:]
+
+    # Simulate out-of-bag ensemble predictions for calibration samples
+    torch.manual_seed(42)
+    y_pred_oob = y_cal + 0.15 * torch.randn_like(y_cal)
+
+    # Simulate ensemble mean prediction for test samples
+    y_pred_mean = y_test + 0.15 * torch.randn_like(y_test)
+
+    # Create EnsembleBatchCP conformal predictor
+    cp = EnsembleBatchCP(alpha=0.1)
+
+    # Calibrate using OOB predictions
+    cp.calibrate(y_pred_oob, y_cal)
+    print("Calibrated EnsembleBatchCP successfully.")
+
+    # Get prediction intervals
+    lower_interval, upper_interval = cp.predict_interval(y_pred_mean)
+
+    # Calculate coverage
+    coverage = ((y_test >= lower_interval) & (y_test <= upper_interval)).float().mean()
+    print(f"Test coverage: {coverage.item():.4f} (target: {1 - cp.alpha:.2f})")
+
+    # Calculate interval width
+    avg_width = (upper_interval - lower_interval).mean()
+    print(f"Average interval width: {avg_width.item():.4f}")
+    print()
+
+
 def main() -> None:
     """Run all demos."""
     print("Conformal Prediction Examples")
@@ -249,6 +349,8 @@ def main() -> None:
     demo_conformalized_quantile()
     demo_width_adaptive_conformal()
     demo_multidimensional_conformal()
+    demo_cv_plus()
+    demo_ensemble_batch_cp()
 
     print("All demos completed successfully!")
 

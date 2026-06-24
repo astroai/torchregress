@@ -8,6 +8,7 @@ from .bnn import BayesianNeuralNetwork, HeteroscedasticBNN, VariationalLinear
 from .combiners import (
     BayesianModelAveraging,
     DynamicEnsembleWeighting,
+    SoftmaxModelCombiner,
     StackingEnsemble,
 )
 from .layers import BatchEnsembleLinear
@@ -22,7 +23,12 @@ from .models import (
     MDNEnsembleModel,
     RandomPartitionEnsembleModel,
 )
-from .packed import PackedEnsembleOutput, PackedEnsembleRegressor
+from .packed import (
+    BatchEnsembleOutput,
+    BatchEnsembleRegressor,
+    PackedEnsembleOutput,
+    PackedEnsembleRegressor,
+)
 from .swag import SWAG, MultiSWAG
 from .utils import parse_heteroscedastic_output
 
@@ -38,9 +44,12 @@ __all__ = [
     "MDNEnsembleModel",
     "RandomPartitionEnsembleModel",
     "HeteroscedasticBatchEnsembleModel",
+    "BatchEnsembleRegressor",
+    "BatchEnsembleOutput",
     "PackedEnsembleRegressor",
     "PackedEnsembleOutput",
     "BayesianModelAveraging",
+    "SoftmaxModelCombiner",
     "StackingEnsemble",
     "DynamicEnsembleWeighting",
     "SWAG",

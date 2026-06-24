@@ -348,7 +348,7 @@ directory component is the first match), not `TOR001`:
 - **`TOR003`** — files under `src/` (production loss fixtures plus the
   `algorithms/`, `metrics/`, `ensemble/`, `utils/`, `losses/` helpers
   that emit the same fixtures internally; `.pre-commit-config.yaml`
-  registers a third hook entry with `files: '^src/.*\.py$'`).
+  registers a third hook entry with `files: '^src/.*\.py\$'`).
 
 `# noqa` precedence contract: a `# noqa: TOR00x` comment on a line
 silences only the matching rule ID — `# noqa: TOR001` does NOT silence

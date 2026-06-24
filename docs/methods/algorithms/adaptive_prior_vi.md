@@ -140,4 +140,4 @@ print("Shifted Test Total Stds:\n", pred.std.squeeze(-1))
 
 | # | Reference |
 |:-:|:----------|
-| 1 | Slavutsky & Blei, "Quantifying Uncertainty in the Presence of Distribution Shifts" (arXiv:2506.03942 / NeurIPS 2025). |
+| 1 | Slavutsky & Blei, "Quantifying Uncertainty in the Presence of Distribution Shifts" (arXiv:2506.18283 / NeurIPS 2025). |
