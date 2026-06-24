@@ -218,6 +218,7 @@ EXPECTED_EXPORTS = {
     "test_time": [
         "AdaptationBatch",
         "BayesianLinearHead",
+        "CausalTTAHarness",
         "FeatureStatNormalizer",
         "GaussianLabelShiftConfig",
         "LabelShiftEMConfig",

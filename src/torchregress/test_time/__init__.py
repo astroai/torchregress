@@ -8,6 +8,7 @@ from .base import (
     flatten_adaptation_parameters,
 )
 from .bayes import BayesianLinearHead, RecursiveBayesianHead
+from .benchmark import CausalTTAHarness
 from .calibration import RepresentationShiftInflator
 from .dynamic import ParameterEMA
 from .label_shift import (
@@ -46,6 +47,7 @@ from .transport import (
 __all__ = [
     "AdaptationBatch",
     "BayesianLinearHead",
+    "CausalTTAHarness",
     "FeatureStatNormalizer",
     "GaussianLabelShiftConfig",
     "LabelShiftEMConfig",
