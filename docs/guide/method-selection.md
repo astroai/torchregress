@@ -116,7 +116,7 @@ _Generated date_: `2026-04-16`
 | `semi_supervised` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` (5) | yes | no | partial | no | no | no | partial | partial | no | no |
-| `test_time` (6) | yes | no | partial | partial | partial | partial | partial | partial | no | no |
+| `test_time` (8) | yes | no | partial | partial | partial | partial | yes | partial | no | no |
 | `tictac` (1) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `tweedie` (4) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `uncertain_gt` (4) | yes | no | partial | no | yes | no | partial | partial | no | no |
@@ -264,9 +264,11 @@ _Generated date_: `2026-04-16`
 | `TransformedTargetLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `YeoJohnsonTransformLoss` | `target_transform` | `Available` | yes | no | no | no | no | partial | partial |
 | `BayesianLinearHead` | `test_time` | `Available` | yes | no | partial | partial | partial | partial | no |
+| `DelayedLabelResidualAdapter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `OptimalTransportCoverageGap` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `RecursiveBayesianHead` | `test_time` | `Available` | yes | no | partial | partial | partial | partial | no |
 | `ScoreCDFReweighter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
+| `WeightedConformalRegressionAdapter` | `test_time` | `Available` | yes | no | no | no | no | yes | partial |
 | `WeightedSplitConformalAdapter` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `weighted_split_classification_predictive_batch` | `test_time` | `Available` | yes | no | no | no | no | partial | partial |
 | `TaylorInducedCovarianceHead` | `tictac` | `Available` | yes | no | no | yes | no | partial | partial |
@@ -311,7 +313,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `semi_supervised` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `target_transform` | 5 | yes | no | partial | no | no | no | partial | partial | no | no |
-| `test_time` | 6 | yes | no | partial | partial | partial | partial | partial | partial | no | no |
+| `test_time` | 8 | yes | no | partial | partial | partial | partial | yes | partial | no | no |
 | `tictac` | 1 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `tweedie` | 4 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `uncertain_gt` | 4 | yes | no | partial | no | yes | no | partial | partial | no | no |
@@ -321,7 +323,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `BatchEnsembleRegressor`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
-| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `CVPlus`, `ConformalLoss`, `DensityConformal`, `EnsembleBatchCP`, `JackknifePlus`, `MonteCarloConformal`, `MultiDimensionalConformalLoss`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `RegressionCalibration`, `MultiQuantileLoss`, `QuantileLoss` |
+| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `CVPlus`, `ConformalLoss`, `DensityConformal`, `EnsembleBatchCP`, `JackknifePlus`, `MonteCarloConformal`, `MultiDimensionalConformalLoss`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `RegressionCalibration`, `MultiQuantileLoss`, `QuantileLoss`, `WeightedConformalRegressionAdapter` |
 | Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `BMCLoss`, `BalancedMSELoss`, `DensityWeightedLoss`, `FeatureDistributionSmoother`, `FocalRLoss`, `LDSLoss`, `PropensityWeightedLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `PredictionSIMEX`, `RegressionCalibration`, `SIMEX`, `StructuralEIVLoss` |

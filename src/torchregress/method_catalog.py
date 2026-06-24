@@ -1370,6 +1370,23 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Builds PredictiveBatch from a calibrated WeightedSplitConformalAdapter.",
     ),
     MethodMetadata(
+        name="DelayedLabelResidualAdapter",
+        family="test_time",
+        public_path="torchregress.test_time.DelayedLabelResidualAdapter",
+        task_tags=("streaming", "point_correction", "variance_inflation", "cosa"),
+        maturity="Available",
+        notes="COSA-style output-space residual adaptation under delayed label observations.",
+    ),
+    MethodMetadata(
+        name="WeightedConformalRegressionAdapter",
+        family="test_time",
+        public_path="torchregress.test_time.WeightedConformalRegressionAdapter",
+        task_tags=("distribution_shift", "conformal", "calibration", "covariate_shift"),
+        maturity="Available",
+        calibration="yes",
+        notes="Weighted split-conformal regression using classifier density-ratio estimation.",
+    ),
+    MethodMetadata(
         name="TaylorInducedCovarianceHead",
         family="tictac",
         public_path="torchregress.algorithms.TaylorInducedCovarianceHead",

@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 125,
+    "total_methods": 127,
     "families": {
       "bnn": 7,
       "calibration_transform": 5,
@@ -30,7 +30,7 @@
       "semi_supervised": 1,
       "swag": 2,
       "target_transform": 5,
-      "test_time": 6,
+      "test_time": 8,
       "tictac": 1,
       "tweedie": 4,
       "uncertain_gt": 4
@@ -38,7 +38,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 97,
+      "Available": 99,
       "Deprecated": 1
     },
     "peer_uq_methods_present": {
@@ -2564,6 +2564,52 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Builds PredictiveBatch from a calibrated WeightedSplitConformalAdapter."
+    },
+    {
+      "name": "DelayedLabelResidualAdapter",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.DelayedLabelResidualAdapter",
+      "task_tags": [
+        "streaming",
+        "point_correction",
+        "variance_inflation",
+        "cosa"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "COSA-style output-space residual adaptation under delayed label observations."
+    },
+    {
+      "name": "WeightedConformalRegressionAdapter",
+      "family": "test_time",
+      "public_path": "torchregress.test_time.WeightedConformalRegressionAdapter",
+      "task_tags": [
+        "distribution_shift",
+        "conformal",
+        "calibration",
+        "covariate_shift"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Weighted split-conformal regression using classifier density-ratio estimation."
     },
     {
       "name": "TaylorInducedCovarianceHead",

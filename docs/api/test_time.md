@@ -102,26 +102,50 @@ print(meta["estimate_converged"], meta["selected_rows"])
 
 ---
 
-## Optimal-transport conformal reweighting (`test_time.ot_conformal`)
+## COSA Output Adaptation (`test_time.cosa`)
 
-Score-CDF matching reweighting for **classification-style nonconformity
-scores** under non-exchangeable target shift. v1 is a lightweight surrogate
-of OT reweighting (no external OT solver).
+COSA-style (Conformal Output Space Adaptation) residual adaptation for point predictions
+and uncertainty under delayed label observations.
 
 | Symbol | Description |
 |:-------|:------------|
-| `OptimalTransportCoverageGap(n_grid=129)` | Diagnostics: `l2_cdf_gap`, `ks_max_abs`, `n_calibration`, `n_target` between uniform-weight calibration and target ECDFs. |
-| `ScoreCDFReweighter(*, score_mode="classification", objective="weighted_cdf", weight_parameterization="free", entropy_penalty=1e-3, n_grid=129, n_steps=200, learning_rate=0.05)` | Learns simplex weights over calibration points by minimising the L₂ gap on a 1-D score grid (Adam). `.fit(calibration_scores, target_unlabeled_scores)`. Exposes `.weights_`, `.objective_value_`, `.diagnostics_["ess_inv_square", "cdf_l2_on_grid"]`. |
-| `WeightedSplitConformalAdapter(alpha=0.1)` | Weighted split-conformal threshold using `torchregress.losses.conformal._weighted_quantile`. `.calibrate(calibration_scores, calibration_weights)`, `.predict_from_test_scores(candidate_scores)`, `.coverage_diagnostics(...)`. |
-| `weighted_split_classification_predictive_batch(adapter, candidate_scores, *, gap_diagnostics=None, calibration_ess_inv_square=None)` | Build a `PredictiveBatch` with `point`/set-size and `extra` containing `label_inclusion_mask`, `alpha`, `threshold`, optional `shift_gap_diagnostics`. |
+| `DelayedLabelResidualAdapter(base_model, *, ema_beta=0.1, scale_ema_beta=0.1)` | Tracks running EMA of residuals and variance inflation factors to adjust point, mean, std, and quantiles at test time. `.partial_fit(X, y)` updates state, `.predict_distribution(X)` returns adapted PredictiveBatch. |
+
+```python
+from torchregress.test_time import DelayedLabelResidualAdapter
+
+adapter = DelayedLabelResidualAdapter(base_model, ema_beta=0.2)
+# Under streaming protocol:
+# 1. Predict first
+adapted_batch = adapter.predict_distribution(X_t)
+# 2. Observe delayed labels later
+adapter.partial_fit(X_old, y_old)
+```
+
+---
+
+## Optimal-transport conformal reweighting (`test_time.ot_conformal`)
+
+Score-CDF matching reweighting for **classification-style nonconformity
+scores** under non-exchangeable target shift, and weighted split-conformal regression.
+
+| Symbol | Description |
+|:-------|:------------|
+| `OptimalTransportCoverageGap(n_grid=129)` | Diagnostics: `l2_cdf_gap`, `ks_max_abs` between uniform-weight calibration and target ECDFs. |
+| `ScoreCDFReweighter(...)` | Learns simplex weights over calibration points by minimising the L₂ gap on a 1-D score grid. |
+| `WeightedSplitConformalAdapter(alpha=0.1)` | Weighted split-conformal threshold for classification-style nonconformity scores. |
+| `WeightedConformalRegressionAdapter(alpha=0.1, classifier=None)` | Weighted split-conformal regression using classifier-based density ratio estimation. `.fit_density_ratio(X_cal, X_tgt)`, `.compute_density_ratios(X)`, `.calibrate(y_pred_cal, y_cal, X_cal, X_tgt)`, `.predict_interval(y_pred, X)`. |
+| `weighted_split_classification_predictive_batch(...)` | Build a `PredictiveBatch` from a calibrated WeightedSplitConformalAdapter. |
 
 ```python
 import torch
-from torchregress.test_time import ScoreCDFReweighter, WeightedSplitConformalAdapter
+from torchregress.test_time import WeightedConformalRegressionAdapter
 
-rw = ScoreCDFReweighter(n_steps=200).fit(cal_scores, tgt_scores)
-adapter = WeightedSplitConformalAdapter(alpha=0.1).calibrate(cal_scores, rw.weights_)
-mask = adapter.predict_from_test_scores(test_candidate_scores)   # [B, K] bool
+adapter = WeightedConformalRegressionAdapter(alpha=0.1)
+# Fit density ratio estimator and calibrate scores
+adapter.calibrate(y_pred_cal, y_cal, X_cal, X_tgt)
+# Predict intervals under covariate shift
+lower, upper = adapter.predict_interval(y_pred_test, X_test)
 ```
 
 ---

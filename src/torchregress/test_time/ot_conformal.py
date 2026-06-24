@@ -15,9 +15,12 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Literal, Optional, Union, cast
 
+import numpy as np
 import torch
+from sklearn.linear_model import LogisticRegression  # type: ignore
 
 from torchregress.losses.conformal import _weighted_quantile
+from torchregress.prediction import PredictiveBatch
 
 ScoreMode = Literal["classification"]
 Objective = Literal["weighted_cdf"]
@@ -270,3 +273,223 @@ class WeightedSplitConformalAdapter:
             "coverage_gap": weighted_frac - nominal,
             "calibration_ess_inv_square": float(ess.item()),
         }
+
+
+class WeightedConformalRegressionAdapter:
+    """
+    Weighted split-conformal regression adapter using classifier-based density ratio estimation.
+
+    Estimates the covariate shift density ratio w(x) = p_target(x) / p_source(x)
+    by training a classifier (defaulting to Logistic Regression) to distinguish
+    between calibration and target features.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        classifier: Any | None = None,
+    ) -> None:
+        if not 0 < alpha < 1:
+            raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        self.alpha = float(alpha)
+
+        if classifier is None:
+            classifier = LogisticRegression(random_state=42, max_iter=1000)
+        self.classifier = classifier
+        self.scores_: torch.Tensor | None = None
+        self.w_cal_: torch.Tensor | None = None
+        self.X_cal_: torch.Tensor | None = None
+
+    def fit_density_ratio(
+        self,
+        X_cal: torch.Tensor | np.ndarray,
+        X_tgt: torch.Tensor | np.ndarray,
+    ) -> WeightedConformalRegressionAdapter:
+        """
+        Fit the classifier to estimate the density ratio w(x) = p_tgt(x) / p_cal(x).
+        """
+        if torch.is_tensor(X_cal):
+            X_cal_np = X_cal.detach().cpu().numpy()
+        else:
+            X_cal_np = np.asarray(X_cal)
+
+        if torch.is_tensor(X_tgt):
+            X_tgt_np = X_tgt.detach().cpu().numpy()
+        else:
+            X_tgt_np = np.asarray(X_tgt)
+
+        n_cal = X_cal_np.shape[0]
+        n_tgt = X_tgt_np.shape[0]
+
+        X_comb = np.concatenate([X_cal_np, X_tgt_np], axis=0)
+        y_comb = np.concatenate([np.zeros(n_cal), np.ones(n_tgt)], axis=0)
+
+        self.classifier.fit(X_comb, y_comb)
+        return self
+
+    def compute_density_ratios(self, X: torch.Tensor | np.ndarray) -> torch.Tensor:
+        """
+        Compute density ratio weights for given features.
+        """
+        if torch.is_tensor(X):
+            X_np = X.detach().cpu().numpy()
+            device = X.device
+        else:
+            X_np = np.asarray(X)
+            device = torch.device("cpu")
+
+        probs = self.classifier.predict_proba(X_np)[:, 1]
+        probs = np.clip(probs, 1e-7, 1.0 - 1e-7)
+        w = probs / (1.0 - probs)
+        return torch.as_tensor(w, dtype=torch.float32, device=device)
+
+    def calibrate(
+        self,
+        y_pred_cal: torch.Tensor | np.ndarray | PredictiveBatch | dict[str, Any],
+        y_cal: torch.Tensor | np.ndarray,
+        X_cal: torch.Tensor | np.ndarray,
+        X_tgt: torch.Tensor | np.ndarray,
+    ) -> WeightedConformalRegressionAdapter:
+        """
+        Calibrate the adapter on held-out calibration data.
+        """
+        self.fit_density_ratio(X_cal, X_tgt)
+
+        if not torch.is_tensor(y_cal):
+            y_cal_t = torch.as_tensor(y_cal, dtype=torch.float32)
+        else:
+            y_cal_t = y_cal
+
+        std_cal = None
+        if isinstance(y_pred_cal, PredictiveBatch):
+            mean_cal = y_pred_cal.mean if y_pred_cal.mean is not None else y_pred_cal.point
+            std_cal = y_pred_cal.std
+        elif isinstance(y_pred_cal, dict):
+            mean_cal = y_pred_cal.get("mean")
+            if mean_cal is None:
+                mean_cal = y_pred_cal.get("point")
+            std_cal = y_pred_cal.get("std")
+        else:
+            mean_cal = y_pred_cal
+
+        if not torch.is_tensor(mean_cal):
+            mean_cal_t = torch.as_tensor(mean_cal, dtype=torch.float32)
+        else:
+            mean_cal_t = mean_cal
+
+        std_cal_t: torch.Tensor | None = None
+        if std_cal is not None:
+            std_cal_t = torch.as_tensor(std_cal, dtype=torch.float32)
+
+        # Align shapes
+        if y_cal_t.dim() == 1 and mean_cal_t.dim() > 1:
+            y_cal_t = y_cal_t.view_as(mean_cal_t)
+        elif mean_cal_t.dim() == 1 and y_cal_t.dim() > 1:
+            mean_cal_t = mean_cal_t.view_as(y_cal_t)
+
+        scores = torch.abs(y_cal_t - mean_cal_t)
+        if std_cal_t is not None:
+            if std_cal_t.dim() == 1 and scores.dim() > 1:
+                std_cal_t = std_cal_t.view_as(scores)
+            elif scores.dim() == 1 and std_cal_t.dim() > 1:
+                scores = scores.view_as(std_cal_t)
+            scores = scores / torch.clamp(std_cal_t, min=1e-8)
+
+        if scores.dim() > 1:
+            scores = scores.max(dim=-1).values
+
+        self.scores_ = scores.reshape(-1)
+        self.w_cal_ = self.compute_density_ratios(X_cal)
+        if torch.is_tensor(X_cal):
+            self.X_cal_ = X_cal
+        else:
+            self.X_cal_ = torch.as_tensor(X_cal, dtype=torch.float32)
+
+        return self
+
+    def predict_interval(
+        self,
+        y_pred: torch.Tensor | np.ndarray | PredictiveBatch | dict[str, Any],
+        X: torch.Tensor | np.ndarray,
+    ) -> tuple[torch.Tensor, torch.Tensor] | tuple[np.ndarray, np.ndarray]:
+        """
+        Compute weighted split conformal prediction intervals for test features X.
+        """
+        if self.scores_ is None or self.w_cal_ is None:
+            raise RuntimeError("Adapter must be calibrated before calling predict_interval.")
+
+        is_numpy_input = isinstance(X, np.ndarray)
+
+        if not torch.is_tensor(X):
+            X_t = torch.as_tensor(X, dtype=torch.float32)
+        else:
+            X_t = X
+
+        device = X_t.device
+        dtype = X_t.dtype
+
+        w_test = self.compute_density_ratios(X_t).to(device=device, dtype=dtype)
+        w_cal = self.w_cal_.to(device=device, dtype=dtype)
+        scores = self.scores_.to(device=device, dtype=dtype)
+
+        std_test = None
+        if isinstance(y_pred, PredictiveBatch):
+            mean_test = y_pred.mean if y_pred.mean is not None else y_pred.point
+            std_test = y_pred.std
+        elif isinstance(y_pred, dict):
+            mean_test = y_pred.get("mean")
+            if mean_test is None:
+                mean_test = y_pred.get("point")
+            std_test = y_pred.get("std")
+        elif torch.is_tensor(y_pred):
+            mean_test = y_pred
+        elif isinstance(y_pred, np.ndarray):
+            mean_test = torch.as_tensor(y_pred, dtype=dtype, device=device)
+        else:
+            raise TypeError("Unsupported prediction type.")
+
+        if not torch.is_tensor(mean_test):
+            mean_test = torch.as_tensor(mean_test, dtype=dtype, device=device)
+        if std_test is not None and not torch.is_tensor(std_test):
+            std_test = torch.as_tensor(std_test, dtype=dtype, device=device)
+
+        sorted_idx = torch.argsort(scores)
+        scores_sorted = scores[sorted_idx]
+        w_cal_sorted = w_cal[sorted_idx]
+
+        c_cum = torch.cumsum(w_cal_sorted, dim=0)
+        s_w = w_cal_sorted.sum()
+
+        targets = (1.0 - self.alpha) * (s_w + w_test)
+        idx = torch.searchsorted(c_cum, targets)
+
+        n_cal = scores.shape[0]
+        idx_clamped = torch.clamp(idx, max=n_cal - 1)
+        q_hat = scores_sorted[idx_clamped]
+
+        if mean_test.dim() > 1:
+            q_hat_broadcast = q_hat.view(-1, 1)
+        else:
+            q_hat_broadcast = q_hat
+
+        if std_test is not None:
+            if std_test.dim() > 1:
+                width = q_hat_broadcast * std_test
+            else:
+                if mean_test.dim() > 1:
+                    width = q_hat_broadcast * std_test.view(-1, 1)
+                else:
+                    width = q_hat_broadcast * std_test
+        else:
+            width = q_hat_broadcast
+
+        lower_bound = mean_test - width
+        upper_bound = mean_test + width
+
+        if is_numpy_input:
+            return (
+                lower_bound.detach().cpu().numpy(),
+                upper_bound.detach().cpu().numpy(),
+            )
+
+        return lower_bound, upper_bound

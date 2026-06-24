@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `125`
+- Total methods: `127`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -41,7 +41,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `semi_supervised` | 1 |
 | `swag` | 2 |
 | `target_transform` | 5 |
-| `test_time` | 6 |
+| `test_time` | 8 |
 | `tictac` | 1 |
 | `tweedie` | 4 |
 | `uncertain_gt` | 4 |
@@ -52,7 +52,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 97 |
+| `Available` | 99 |
 | `Deprecated` | 1 |
 
 ## Method Rows
@@ -172,9 +172,11 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `TransformedTargetLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.TransformedTargetLoss` |
 | `YeoJohnsonTransformLoss` | `target_transform` | `Available` | `target_transform`, `skewed_targets` | `calibration*`, `ood*` | `torchregress.losses.YeoJohnsonTransformLoss` |
 | `BayesianLinearHead` | `test_time` | `Available` | `low_shot`, `test_time_adaptation`, `last_layer`, `linear_head` | `epistemic*`, `aleatoric*`, `decomposition*`, `calibration*` | `torchregress.test_time.BayesianLinearHead` |
+| `DelayedLabelResidualAdapter` | `test_time` | `Available` | `streaming`, `point_correction`, `variance_inflation`, `cosa` | `calibration*`, `ood*` | `torchregress.test_time.DelayedLabelResidualAdapter` |
 | `OptimalTransportCoverageGap` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.OptimalTransportCoverageGap` |
 | `RecursiveBayesianHead` | `test_time` | `Available` | `low_shot`, `test_time_adaptation`, `last_layer`, `streaming` | `epistemic*`, `aleatoric*`, `decomposition*`, `calibration*` | `torchregress.test_time.RecursiveBayesianHead` |
 | `ScoreCDFReweighter` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.ScoreCDFReweighter` |
+| `WeightedConformalRegressionAdapter` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration`, `covariate_shift` | `calibration`, `ood*` | `torchregress.test_time.WeightedConformalRegressionAdapter` |
 | `WeightedSplitConformalAdapter` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.WeightedSplitConformalAdapter` |
 | `weighted_split_classification_predictive_batch` | `test_time` | `Available` | `distribution_shift`, `conformal`, `calibration` | `calibration*`, `ood*` | `torchregress.test_time.weighted_split_classification_predictive_batch` |
 | `TaylorInducedCovarianceHead` | `tictac` | `Available` | `heteroscedastic_noise`, `multivariate_targets`, `gradient_curvature_parameterization` | `aleatoric`, `calibration*`, `ood*` | `torchregress.algorithms.TaylorInducedCovarianceHead` |

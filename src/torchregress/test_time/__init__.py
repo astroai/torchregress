@@ -10,6 +10,7 @@ from .base import (
 from .bayes import BayesianLinearHead, RecursiveBayesianHead
 from .benchmark import CausalTTAHarness
 from .calibration import RepresentationShiftInflator
+from .cosa import DelayedLabelResidualAdapter
 from .dynamic import ParameterEMA
 from .label_shift import (
     GaussianLabelShiftConfig,
@@ -26,6 +27,7 @@ from .label_shift import (
 from .ot_conformal import (
     OptimalTransportCoverageGap,
     ScoreCDFReweighter,
+    WeightedConformalRegressionAdapter,
     WeightedSplitConformalAdapter,
 )
 from .ot_conformal_predictive import weighted_split_classification_predictive_batch
@@ -48,6 +50,7 @@ __all__ = [
     "AdaptationBatch",
     "BayesianLinearHead",
     "CausalTTAHarness",
+    "DelayedLabelResidualAdapter",
     "FeatureStatNormalizer",
     "GaussianLabelShiftConfig",
     "LabelShiftEMConfig",
@@ -66,6 +69,7 @@ __all__ = [
     "SupportsAdaptationParameters",
     "SupportsPredictiveBatch",
     "SupportsRepresentation",
+    "WeightedConformalRegressionAdapter",
     "WeightedSplitConformalAdapter",
     "weighted_split_classification_predictive_batch",
     "apply_label_shift_correction",
