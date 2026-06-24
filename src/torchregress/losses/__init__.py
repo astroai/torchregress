@@ -98,6 +98,7 @@ from .gaussian_wasserstein import (
 # Imbalanced regression losses
 from .imbalanced import (
     DensityWeightedLoss,
+    FeatureDistributionSmoother,
     FocalRLoss,
     LDSLoss,
     PropensityWeightedLoss,
@@ -256,6 +257,7 @@ __all__ = [
     "BalancedMSELoss",
     "BMCLoss",
     "DensityWeightedLoss",
+    "FeatureDistributionSmoother",
     "FocalRLoss",
     "LDSLoss",
     "PropensityWeightedLoss",

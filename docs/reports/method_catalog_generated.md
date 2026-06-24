@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `124`
+- Total methods: `125`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -26,7 +26,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `evidential` | 1 |
 | `expectile` | 3 |
 | `flow` | 3 |
-| `imbalanced_loss` | 6 |
+| `imbalanced_loss` | 7 |
 | `inference` | 1 |
 | `mc_dropout` | 1 |
 | `mdn` | 1 |
@@ -52,7 +52,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 96 |
+| `Available` | 97 |
 | `Deprecated` | 1 |
 
 ## Method Rows
@@ -125,6 +125,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `BMCLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BMCLoss` |
 | `BalancedMSELoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BalancedMSELoss` |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.DensityWeightedLoss` |
+| `FeatureDistributionSmoother` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.FeatureDistributionSmoother` |
 | `FocalRLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `focal` | `calibration*`, `ood*` | `torchregress.losses.FocalRLoss` |
 | `LDSLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.LDSLoss` |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `selection_bias`, `missing_labels` | `calibration*`, `ood*` | `torchregress.losses.PropensityWeightedLoss` |

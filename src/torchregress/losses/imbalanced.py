@@ -19,6 +19,10 @@ from typing import Any, Optional, cast
 
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from scipy.ndimage import gaussian_filter1d
+from scipy.signal.windows import triang
 from torch import Tensor
 
 from ..utils.propensity import ipw_weights
@@ -688,3 +692,260 @@ class FocalRLoss(RegressionLoss):
             weighted_loss = weighted_loss * weights
 
         return self._reduce_with_mask(weighted_loss, mask, None)
+
+
+class FeatureDistributionSmoother(nn.Module):
+    """
+    Feature Distribution Smoothing (FDS) module for deep imbalanced regression.
+
+    Smooths the feature statistics (mean and variance) across target bins using
+    kernel smoothing. During training, it calibrates features of the current batch
+    based on the smoothed statistics of the previous epoch.
+
+    This helps transfer feature representation knowledge from well-represented
+    target regions to adjacent tail target regions.
+
+    Args:
+        feature_dim: Dimension of the feature vector (e.g. backbone output dimension).
+        n_bins: Number of bins for continuous target discretization. Default: 100
+        kernel: Kernel type for smoothing ('gaussian', 'triang', 'laplace'). Default: 'gaussian'
+        kernel_width: Bandwidth (sigma/width) for kernel smoothing. Default: 2.0
+        kernel_size: Size (ks) of the kernel window (must be odd). Default: 5
+        momentum: Momentum factor for updating running statistics. Default: 0.9
+        start_update_epoch: Epoch at which to start updating statistics. Default: 0
+        start_smooth_epoch: Epoch at which to start smoothing features. Default: 1
+    """
+
+    epoch: Tensor
+    running_mean: Tensor
+    running_var: Tensor
+    running_mean_last_epoch: Tensor
+    running_var_last_epoch: Tensor
+    smoothed_mean_last_epoch: Tensor
+    smoothed_var_last_epoch: Tensor
+    num_samples_tracked: Tensor
+    _bins: Tensor
+    kernel_window: Tensor
+
+    def __init__(
+        self,
+        feature_dim: int,
+        n_bins: int = 100,
+        kernel: str = "gaussian",
+        kernel_width: float = 2.0,
+        kernel_size: int = 5,
+        momentum: float = 0.9,
+        start_update_epoch: int = 0,
+        start_smooth_epoch: int = 1,
+    ) -> None:
+        super().__init__()
+        self.feature_dim = feature_dim
+        self.n_bins = n_bins
+        self.kernel = kernel.lower()
+        self.kernel_width = kernel_width
+        self.kernel_size = kernel_size
+        self.half_ks = (kernel_size - 1) // 2
+        self.momentum = momentum
+        self.start_update_epoch = start_update_epoch
+        self.start_smooth_epoch = start_smooth_epoch
+
+        if kernel_size % 2 == 0:
+            raise ValueError(f"kernel_size must be odd, got {kernel_size}")
+
+        # Compute kernel window
+        kernel_window = self._get_kernel_window(self.kernel, kernel_size, kernel_width)
+        self.register_buffer("kernel_window", kernel_window)
+
+        # Buffer registration
+        self.register_buffer("epoch", torch.zeros(1, dtype=torch.long).fill_(start_update_epoch))
+        self.register_buffer("running_mean", torch.zeros(n_bins, feature_dim))
+        self.register_buffer("running_var", torch.ones(n_bins, feature_dim))
+        self.register_buffer("running_mean_last_epoch", torch.zeros(n_bins, feature_dim))
+        self.register_buffer("running_var_last_epoch", torch.ones(n_bins, feature_dim))
+        self.register_buffer("smoothed_mean_last_epoch", torch.zeros(n_bins, feature_dim))
+        self.register_buffer("smoothed_var_last_epoch", torch.ones(n_bins, feature_dim))
+        self.register_buffer("num_samples_tracked", torch.zeros(n_bins))
+        self.register_buffer("_bins", torch.zeros(n_bins + 1))
+
+    def _get_kernel_window(self, kernel: str, kernel_size: int, kernel_width: float) -> Tensor:
+        assert kernel in ["gaussian", "triang", "laplace"]
+        half_ks = (kernel_size - 1) // 2
+        if kernel == "gaussian":
+            base_kernel = [0.0] * half_ks + [1.0] + [0.0] * half_ks
+            base_kernel_np = np.array(base_kernel, dtype=np.float32)
+            kernel_window = gaussian_filter1d(base_kernel_np, sigma=kernel_width) / sum(
+                gaussian_filter1d(base_kernel_np, sigma=kernel_width)
+            )
+        elif kernel == "triang":
+            kernel_window = triang(kernel_size) / sum(triang(kernel_size))
+        else:
+            x_vals = np.arange(-half_ks, half_ks + 1)
+            kernel_window = np.exp(-np.abs(x_vals) / kernel_width) / (2.0 * kernel_width)
+            kernel_window = kernel_window / sum(kernel_window)
+
+        return torch.tensor(kernel_window, dtype=torch.float32)
+
+    def fit(self, train_targets: Tensor, n_bins: int = 100) -> None:
+        """
+        Setup the target bin boundaries and reset statistics.
+
+        Args:
+            train_targets: Training target values [n_samples] or [n_samples, 1]
+            n_bins: Number of bins. Default: 100
+        """
+        if n_bins != self.n_bins:
+            self.n_bins = n_bins
+            device = self.running_mean.device
+            # Recreate buffers
+            self.register_buffer(
+                "running_mean", torch.zeros(n_bins, self.feature_dim, device=device)
+            )
+            self.register_buffer("running_var", torch.ones(n_bins, self.feature_dim, device=device))
+            self.register_buffer(
+                "running_mean_last_epoch", torch.zeros(n_bins, self.feature_dim, device=device)
+            )
+            self.register_buffer(
+                "running_var_last_epoch", torch.ones(n_bins, self.feature_dim, device=device)
+            )
+            self.register_buffer(
+                "smoothed_mean_last_epoch", torch.zeros(n_bins, self.feature_dim, device=device)
+            )
+            self.register_buffer(
+                "smoothed_var_last_epoch", torch.ones(n_bins, self.feature_dim, device=device)
+            )
+            self.register_buffer("num_samples_tracked", torch.zeros(n_bins, device=device))
+
+        targets_np = train_targets.detach().cpu().numpy().flatten()
+        min_val, max_val = targets_np.min(), targets_np.max()
+        bins = np.linspace(min_val, max_val + 1e-8, n_bins + 1)
+        self.register_buffer(
+            "_bins",
+            torch.tensor(bins, dtype=torch.float32, device=self.running_mean.device),
+        )
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset all running and smoothed statistics to their initial values."""
+        self.running_mean.zero_()
+        self.running_var.fill_(1)
+        self.running_mean_last_epoch.zero_()
+        self.running_var_last_epoch.fill_(1)
+        self.smoothed_mean_last_epoch.zero_()
+        self.smoothed_var_last_epoch.fill_(1)
+        self.num_samples_tracked.zero_()
+        self.epoch.fill_(self.start_update_epoch)
+
+    def _get_bin_indices(self, targets: Tensor) -> Tensor:
+        if self._bins.sum() == 0:
+            raise ValueError("Must call fit() before using FeatureDistributionSmoother")
+
+        if self._bins.device != targets.device:
+            self._bins = self._bins.to(targets.device)
+
+        bin_indices = torch.bucketize(targets.flatten(), self._bins) - 1
+        bin_indices = torch.clamp(bin_indices, 0, self.n_bins - 1)
+        return bin_indices
+
+    def _update_last_epoch_stats(self) -> None:
+        self.kernel_window = self.kernel_window.to(self.running_mean.device)
+
+        # mean_input shape: [feature_dim, 1, n_bins]
+        mean_input = self.running_mean.unsqueeze(1).permute(2, 1, 0)
+        var_input = self.running_var.unsqueeze(1).permute(2, 1, 0)
+
+        pad_mode = "reflect" if (self.n_bins > self.half_ks) else "replicate"
+        mean_padded = F.pad(mean_input, pad=(self.half_ks, self.half_ks), mode=pad_mode)
+        var_padded = F.pad(var_input, pad=(self.half_ks, self.half_ks), mode=pad_mode)
+
+        weight = self.kernel_window.view(1, 1, -1)
+        smoothed_mean = F.conv1d(mean_padded, weight, padding=0)
+        smoothed_var = F.conv1d(var_padded, weight, padding=0)
+
+        self.smoothed_mean_last_epoch.copy_(smoothed_mean.permute(2, 1, 0).squeeze(1))
+        self.smoothed_var_last_epoch.copy_(smoothed_var.permute(2, 1, 0).squeeze(1))
+        self.running_mean_last_epoch.copy_(self.running_mean)
+        self.running_var_last_epoch.copy_(self.running_var)
+
+    def update_last_epoch_stats(self, epoch: int) -> None:
+        """
+        Update the smoothed statistics at the end of an epoch.
+
+        Args:
+            epoch: The epoch index that just finished.
+        """
+        self.epoch.fill_(epoch)
+        self._update_last_epoch_stats()
+
+    def update_running_stats(self, features: Tensor, targets: Tensor, epoch: int) -> None:
+        """
+        Update the running mean and variance of features for each target bin.
+
+        Args:
+            features: Features of shape [batch_size, feature_dim]
+            targets: Targets of shape [batch_size] or [batch_size, 1]
+            epoch: Current epoch number.
+        """
+        if epoch < self.start_update_epoch:
+            return
+
+        assert self.feature_dim == features.size(1), "Input feature dimension mismatch"
+
+        bin_indices = self._get_bin_indices(targets)
+
+        if self.running_mean.device != features.device:
+            self.to(features.device)
+
+        for bin_idx in torch.unique(bin_indices):
+            idx = int(bin_idx.item())
+            curr_feats = features[bin_indices == bin_idx]
+            curr_num_sample = curr_feats.size(0)
+
+            curr_mean = torch.mean(curr_feats, 0)
+            if curr_num_sample > 1:
+                curr_var = torch.var(curr_feats, 0, unbiased=True)
+            else:
+                curr_var = torch.zeros(self.feature_dim, device=features.device)
+
+            self.num_samples_tracked[idx] += curr_num_sample
+
+            if self.momentum is not None:
+                factor = self.momentum
+            else:
+                factor = 1.0 - (curr_num_sample / float(self.num_samples_tracked[idx]))
+
+            if epoch == self.start_update_epoch:
+                factor = 0.0
+
+            self.running_mean[idx] = (1 - factor) * curr_mean + factor * self.running_mean[idx]
+            self.running_var[idx] = (1 - factor) * curr_var + factor * self.running_var[idx]
+
+    def forward(self, features: Tensor, targets: Tensor, epoch: int) -> Tensor:
+        """
+        Smooth and calibrate feature representations.
+
+        Args:
+            features: Input feature matrix [batch_size, feature_dim]
+            targets: Target matrix [batch_size] or [batch_size, 1]
+            epoch: The current training/eval epoch index.
+
+        Returns:
+            Calibrated features of shape [batch_size, feature_dim]
+        """
+        if epoch < self.start_smooth_epoch:
+            return features
+
+        bin_indices = self._get_bin_indices(targets)
+
+        if self.running_mean.device != features.device:
+            self.to(features.device)
+
+        # Vectorized calibration across batch
+        m1 = self.running_mean_last_epoch[bin_indices]
+        v1 = self.running_var_last_epoch[bin_indices]
+        m2 = self.smoothed_mean_last_epoch[bin_indices]
+        v2 = self.smoothed_var_last_epoch[bin_indices]
+
+        # Element-wise scaling & recoloring
+        factor = torch.clamp(v2 / (v1 + 1e-8), 0.1, 10.0)
+        calibrated_features = (features - m1) * torch.sqrt(factor) + m2
+        return calibrated_features

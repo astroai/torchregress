@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from torchregress.losses import (
     DensityWeightedLoss,
+    FeatureDistributionSmoother,
     FocalRLoss,
     LDSLoss,
     PropensityWeightedLoss,
@@ -186,3 +187,114 @@ class TestPropensityWeightedLoss:
             assert "propensity" in str(exc).lower()
         else:
             raise AssertionError("Expected ValueError when propensity is missing")
+
+
+class TestFeatureDistributionSmoother:
+    """Tests for FeatureDistributionSmoother."""
+
+    def test_init_and_fit(self):
+        """Test FDS initialization and fitting of target bins."""
+        fds = FeatureDistributionSmoother(feature_dim=10, n_bins=10)
+        assert fds.feature_dim == 10
+        assert fds.n_bins == 10
+        assert fds.kernel == "gaussian"
+
+        # Fit target bins
+        targets = torch.linspace(0.0, 10.0, 100)
+        fds.fit(targets, n_bins=10)
+        assert fds._bins.shape == (11,)
+        # Check that reset works
+        assert torch.allclose(fds.running_mean, torch.zeros(10, 10))
+        assert torch.allclose(fds.running_var, torch.ones(10, 10))
+
+    def test_different_kernels(self):
+        """Test initialization with different kernels."""
+        for kernel in ["gaussian", "triang", "laplace"]:
+            fds = FeatureDistributionSmoother(feature_dim=4, n_bins=20, kernel=kernel)
+            assert fds.kernel_window.shape == (5,)
+
+    def test_running_stats_updates(self):
+        """Test that running stats are updated correctly."""
+        fds = FeatureDistributionSmoother(feature_dim=2, n_bins=5, momentum=0.9)
+        targets = torch.tensor([0.0, 2.5, 5.0, 7.5, 10.0])
+        fds.fit(targets, n_bins=5)
+
+        # Batch update
+        features = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0], [9.0, 10.0]])
+        # Let features belong to different bins
+        fds.update_running_stats(features, targets, epoch=0)
+
+        # Check sample tracking
+        assert torch.allclose(fds.num_samples_tracked, torch.ones(5))
+        # With factor=0.0 on epoch=0 (start_update_epoch), running stats should equal batch features
+        assert torch.allclose(fds.running_mean, features)
+
+    def test_smoothing_convolution(self):
+        """Test statistics smoothing via 1D convolution."""
+        fds = FeatureDistributionSmoother(feature_dim=2, n_bins=5)
+        targets = torch.linspace(0.0, 10.0, 5)
+        fds.fit(targets, n_bins=5)
+
+        # Pre-set some running statistics
+        fds.running_mean.copy_(torch.arange(10, dtype=torch.float32).view(5, 2))
+        fds.running_var.copy_(torch.arange(10, dtype=torch.float32).view(5, 2) + 1.0)
+
+        fds.update_last_epoch_stats(epoch=1)
+
+        # Running last epoch stats should match running stats
+        assert torch.allclose(fds.running_mean_last_epoch, fds.running_mean)
+        assert torch.allclose(fds.running_var_last_epoch, fds.running_var)
+
+        # Smoothed stats should be different due to convolution
+        assert not torch.allclose(fds.smoothed_mean_last_epoch, fds.running_mean)
+        assert fds.smoothed_mean_last_epoch.shape == (5, 2)
+
+    def test_forward_calibration(self):
+        """Test feature calibration / forward pass."""
+        fds = FeatureDistributionSmoother(feature_dim=2, n_bins=5, start_smooth_epoch=1)
+        targets = torch.linspace(0.0, 10.0, 5)
+        fds.fit(targets, n_bins=5)
+
+        # Set statistics
+        fds.running_mean.copy_(torch.ones(5, 2))
+        fds.running_var.copy_(torch.ones(5, 2) * 2.0)
+        fds.update_last_epoch_stats(epoch=1)
+
+        features = torch.zeros(5, 2)
+        # Epoch < start_smooth_epoch: should return features untouched
+        out_raw = fds(features, targets, epoch=0)
+        assert torch.allclose(out_raw, features)
+
+        # Epoch >= start_smooth_epoch: calibration applies
+        # features = 0.0, running_mean_last_epoch = 1.0, running_var_last_epoch = 2.0
+        # smoothed_mean_last_epoch = 1.0, smoothed_var_last_epoch = 2.0 (since running stats are constant)
+        # factor = v2 / v1 = 1.0
+        # calibrated = (0.0 - 1.0) * sqrt(1.0) + 1.0 = 0.0
+        out_cal = fds(features, targets, epoch=1)
+        assert torch.allclose(out_cal, features)
+
+    def test_gradient_flow(self):
+        """Test that gradients propagate through calibrated features."""
+        fds = FeatureDistributionSmoother(feature_dim=4, n_bins=10, start_smooth_epoch=0)
+        targets = torch.linspace(0.0, 10.0, 10)
+        fds.fit(targets, n_bins=10)
+        fds.update_last_epoch_stats(epoch=0)
+
+        features = torch.randn(10, 4, requires_grad=True)
+        out = fds(features, targets, epoch=0)
+
+        loss = out.sum()
+        loss.backward()
+
+        assert features.grad is not None
+        assert torch.isfinite(features.grad).all()
+
+    def test_pad_mode_fallback(self):
+        """Test replicate padding fallback when n_bins is small."""
+        # half_ks = 2, n_bins = 2 (n_bins <= half_ks)
+        fds = FeatureDistributionSmoother(feature_dim=2, n_bins=2, kernel_size=5)
+        targets = torch.linspace(0.0, 10.0, 2)
+        fds.fit(targets, n_bins=2)
+        # Should not crash during stat update / convolution
+        fds.update_last_epoch_stats(epoch=1)
+        assert fds.smoothed_mean_last_epoch.shape == (2, 2)

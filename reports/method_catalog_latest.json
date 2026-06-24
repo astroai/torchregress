@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 124,
+    "total_methods": 125,
     "families": {
       "bnn": 7,
       "calibration_transform": 5,
@@ -15,7 +15,7 @@
       "evidential": 1,
       "expectile": 3,
       "flow": 3,
-      "imbalanced_loss": 6,
+      "imbalanced_loss": 7,
       "inference": 1,
       "mc_dropout": 1,
       "mdn": 1,
@@ -38,7 +38,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 96,
+      "Available": 97,
       "Deprecated": 1
     },
     "peer_uq_methods_present": {
@@ -350,6 +350,27 @@
       "imbalance": "yes",
       "noisy_features_eiv": "no",
       "notes": "Focal regression loss focusing on hard (rare) examples via adaptive weighting."
+    },
+    {
+      "name": "FeatureDistributionSmoother",
+      "family": "imbalanced_loss",
+      "public_path": "torchregress.losses.FeatureDistributionSmoother",
+      "task_tags": [
+        "imbalance",
+        "rare_targets"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "Feature Distribution Smoothing (FDS) layer. Smooths feature mean and variance across target bins to transfer representation power to tail regions."
     },
     {
       "name": "GaussianCRPSLoss",

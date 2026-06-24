@@ -226,6 +226,19 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Focal regression loss focusing on hard (rare) examples via adaptive weighting.",
     ),
     MethodMetadata(
+        name="FeatureDistributionSmoother",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.FeatureDistributionSmoother",
+        task_tags=("imbalance", "rare_targets"),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "Feature Distribution Smoothing (FDS) layer. Smooths feature mean "
+            "and variance across target bins to transfer representation power to tail regions."
+        ),
+    ),
+    MethodMetadata(
         name="GaussianCRPSLoss",
         family="probabilistic_loss",
         public_path="torchregress.losses.GaussianCRPSLoss",
