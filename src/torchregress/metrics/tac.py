@@ -69,35 +69,22 @@ class TaskAgnosticCorrelations(Metric):
 
         device = y_pred.device
         dtype = y_pred.dtype
-        tac_errors = []
 
-        # Iterate over each target dimension
-        for i in range(d):
-            obs_idx = [j for j in range(d) if j != i]
+        # Add jitter to full covariance for stable inversion
+        eye_jitter = torch.eye(d, device=device, dtype=dtype).unsqueeze(0) * 1e-6
+        cov_jittered = covariance + eye_jitter
 
-            # Extract sub-matrices
-            sigma_12 = covariance[:, i, obs_idx].unsqueeze(1)  # [B, 1, d-1]
-            sigma_22 = covariance[:, obs_idx][:, :, obs_idx]  # [B, d-1, d-1]
+        diff = (y_true - y_pred).unsqueeze(-1)  # [B, d, 1]
 
-            # Add jitter to Sigma_22 for stable inversion
-            eye_jitter = torch.eye(d - 1, device=device, dtype=dtype).unsqueeze(0) * 1e-6
-            sigma_22 = sigma_22 + eye_jitter
+        # Compute precision matrix
+        P = torch.linalg.inv(cov_jittered)  # [B, d, d]
 
-            diff_obs = (y_true[:, obs_idx] - y_pred[:, obs_idx]).unsqueeze(-1)  # [B, d-1, 1]
+        # Calculate errors simultaneously using Schur complement properties
+        u = torch.bmm(P, diff).squeeze(-1)  # [B, d]
+        P_diag = P.diagonal(dim1=-2, dim2=-1)  # [B, d]
 
-            # Solve Sigma_22 \\ diff_obs
-            sol = torch.linalg.solve(sigma_22, diff_obs)  # [B, d-1, 1]
-
-            # Conditional update: mean_i + Sigma_12 @ sol
-            update = torch.bmm(sigma_12, sol).squeeze(-1).squeeze(-1)  # [B]
-            y_pred_i_updated = y_pred[:, i] + update
-
-            err = torch.abs(y_pred_i_updated - y_true[:, i])  # [B]
-            tac_errors.append(err)
-
-        # Stack along dimensions (B, d) and sum the total absolute error
-        stacked_errors = torch.stack(tac_errors, dim=1)  # [B, d]
-        sum_error = torch.sum(stacked_errors)
+        err = torch.abs(u / P_diag)  # [B, d]
+        sum_error = torch.sum(err)
 
         metric_state_tensor(self.sum_tac_error).add_(sum_error)
         metric_state_tensor(self.total).add_(torch.as_tensor(B * d, device=device))
