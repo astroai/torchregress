@@ -69,8 +69,13 @@ jobs:
             --fail-on-thresholds
 
       - name: Harness validation (torchregress-harness)
-        if: ${{ secrets.PAT_FOR_PRIVATE_REPOS != '' }}
+        env:
+          PAT_FOR_PRIVATE_REPOS: ${{ secrets.PAT_FOR_PRIVATE_REPOS }}
         run: |
+          if [ -z "${PAT_FOR_PRIVATE_REPOS}" ]; then
+            echo "Skipping harness validation (PAT_FOR_PRIVATE_REPOS not configured)"
+            exit 0
+          fi
           git clone https://github.com/sfabbro/torchregress-harness.git ../torchregress-harness
           cd ../torchregress-harness
           uv sync --extra test
