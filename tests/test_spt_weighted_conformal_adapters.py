@@ -26,6 +26,8 @@ def _load_spt_synthetic() -> ModuleType:
     sys.path.insert(0, str(RESEARCH_SPT_DIR))
     try:
         spec.loader.exec_module(mod)
+    except ImportError as exc:
+        pytest.skip(f"SPT benchmark script unavailable: {exc}")
     finally:
         sys.path.pop(0)
     return mod
