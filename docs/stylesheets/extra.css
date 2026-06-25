@@ -65,7 +65,8 @@
   border-top: 1px solid var(--tr-border);
 }
 
-.md-typeset table:not([class]) tr:hover td {
+.md-typeset table:not([class]) tr:hover td,
+.md-typeset table:not([class]) tr:focus-within td {
   background: rgba(255, 193, 7, 0.10);
 }
 
