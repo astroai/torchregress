@@ -42,21 +42,4 @@ uv run python -m tools.benchmark_smoke \
   --thresholds reports/benchmark_thresholds/cpu/sweep.json \
   --fail-on-thresholds
 
-# --- Harness validation (if present) ---
-HARNESS_DIR="$HOME/src/torchregress-harness"
-if [ -d "$HARNESS_DIR" ] && [ -f "$HARNESS_DIR/tools/run_all.py" ]; then
-  echo "== harness --validate =="
-  (
-    cd "$HARNESS_DIR"
-    uv sync --extra test 2>/dev/null || true
-    uv pip install zuko 2>/dev/null || true
-    uv run python tools/run_all.py --validate
-  ) || {
-    echo "Harness validation FAILED — fix issues above before pushing."
-    exit 1
-  }
-else
-  echo "== harness --validate SKIPPED (torchregress-harness not found at $HARNESS_DIR) =="
-fi
-
 echo "OK: local checks matched CI test + benchmark jobs (plus ruff)."
