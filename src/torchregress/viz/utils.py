@@ -351,9 +351,10 @@ def enable_latex_rendering(enable: bool = True) -> bool:
             }
         )
         # Test if LaTeX works by rendering a simple formula
-        plt.figure(figsize=(1, 1))
-        plt.text(0.5, 0.5, r"$\alpha + \beta = \gamma$")
-        plt.close()
+        fig, ax = plt.subplots(figsize=(1, 1))
+        ax.text(0.5, 0.5, r"$\alpha + \beta = \gamma$")
+        fig.canvas.draw()
+        plt.close(fig)
         return True
     except Exception:
         # If LaTeX fails, fall back to standard rendering

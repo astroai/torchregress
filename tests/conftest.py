@@ -2,6 +2,17 @@ import pytest
 import torch
 
 
+@pytest.fixture(autouse=True)
+def _disable_matplotlib_latex():
+    """CI runners often lack a TeX install; avoid cross-test usetex leakage."""
+    import matplotlib.pyplot as plt
+
+    previous = plt.rcParams["text.usetex"]
+    plt.rcParams["text.usetex"] = False
+    yield
+    plt.rcParams["text.usetex"] = previous
+
+
 @pytest.fixture
 def device():
     """Return the device to use for tensor operations."""
