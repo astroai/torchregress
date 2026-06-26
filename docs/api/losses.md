@@ -285,14 +285,14 @@ $$
 
 #### `QuantileLoss`
 
-Pinball loss for a single quantile level $\tau \in (0, 1)$:
+Pinball loss for a single quantile level `quantile` $\in (0, 1)$:
 
 ```python
-QuantileLoss(tau=0.5, reduction="mean")
+QuantileLoss(quantile=0.5, reduction="mean")
 ```
 
 $$
-\mathcal{L}_i = \max\left(\tau(y_i - \hat{y}_i), (\tau - 1)(y_i - \hat{y}_i)\right)
+\mathcal{L}_i = \max\left(q \cdot (y_i - \hat{y}_i),\; (q - 1) \cdot (y_i - \hat{y}_i)\right)
 $$
 
 #### `MultiQuantileLoss`
@@ -300,23 +300,23 @@ $$
 Joint pinball loss for multiple quantiles:
 
 ```python
-MultiQuantileLoss(taus=[0.1, 0.5, 0.9], reduction="mean")
+MultiQuantileLoss(quantiles=[0.1, 0.5, 0.9], reduction="mean")
 ```
 
 $$
-\mathcal{L}_i = \sum_{\tau \in \text{taus}} \max\left(\tau(y_i - \hat{y}_{i, \tau}), (\tau - 1)(y_i - \hat{y}_{i, \tau})\right)
+\mathcal{L}_i = \sum_{q \in \text{quantiles}} \max\left(q \cdot (y_i - \hat{y}_{i, q}),\; (q - 1) \cdot (y_i - \hat{y}_{i, q})\right)
 $$
 
 #### `ExpectileLoss`
 
-Asymmetric squared loss for expectile regression at level $\tau \in (0, 1)$:
+Asymmetric squared loss for expectile regression at level `expectile` $\in (0, 1)$:
 
 ```python
-ExpectileLoss(tau=0.5, reduction="mean")
+ExpectileLoss(expectile=0.5, reduction="mean")
 ```
 
 $$
-\mathcal{L}_i = |\tau - \mathbb{I}(y_i < \hat{y}_i)| \cdot (y_i - \hat{y}_i)^2
+\mathcal{L}_i = |e - \mathbb{I}(y_i < \hat{y}_i)| \cdot (y_i - \hat{y}_i)^2
 $$
 
 #### `MDNLoss`

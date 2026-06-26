@@ -138,7 +138,6 @@ mean, cov = head(x)   # cov: [B, 2, 2]
 |:-------|:------------|
 | `SyntheticEnvironmentSampler` | Bootstrap-based synthetic environment generator (`bootstrap_fraction`, `n_environments`). |
 | `AdaptivePriorGuide` | Amortised variational posterior over parameters, conditioned on `(context_X, context_Y)`. |
-| `AdaptivePriorNetwork` | Adaptive prior network that conditions on `(context_X, x_query)`. |
 | `VIDSRegressor` | Variational regressor under covariate shift. `fit(x_train, y_train, n_environments, …)`; `predict_distribution(x_test, n_samples)` returns decomposed uncertainty in a `PredictiveBatch`. |
 
 **Reference:** Slavutsky et al., "Quantifying Uncertainty in the Presence of
