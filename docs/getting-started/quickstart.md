@@ -12,6 +12,10 @@ before committing to a method.
     procedural. Replace `loss_fn` and the head's final layer; the rest
     of the loop is unchanged.
 
+    The sections progress from simplest (§1 — point regression) to most
+    comprehensive (§7 — causal inference). Each builds on concepts from
+    the previous ones.
+
 ---
 
 ## 1. Point regression with mask and sample-weight support

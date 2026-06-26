@@ -1,9 +1,11 @@
 # Loss Functions
 
-torchregress provides a comprehensive library of loss functions for regression — from simple point predictions to full distributional models with uncertainty quantification.
+torchregress provides a comprehensive library of loss functions for regression — from simple point predictions to full distributional models with uncertainty quantification. This page is the **catalogue**: every loss family with its formula, use case, and link to the full guide.
 
 !!! tip "Where to start?"
     Use the [Task-First Method Selection Matrix](../guide/method-selection.md) to shortlist losses by problem type.  For prediction intervals with coverage guarantees, see [Conformal Prediction](../methods/conformal/index.md).
+    
+    Reading order: start with [Standard Losses](#standard-losses) and [Gaussian Losses](#gaussian-losses), then jump to the section matching your data's pathology (outliers, censoring, imbalance, measurement error, etc.).
 
 ---
 
@@ -85,7 +87,7 @@ Parametric losses for the Gaussian family — supporting **heteroscedastic** (in
 !!! info "GaussianNLL ↔ WeightedMSE continuum"
     Setting `GaussianNLLLoss(fixed_variance=σ²)` makes the model predict **only the mean**, and the loss reduces to a **scaled MSE**.  The factory `create_gaussian_nll(use_mse_for_unit_variance=True)` returns `WeightedMSELoss` when variance is fixed at 1.  This means GaussianNLL and MSE are endpoints of a **single continuum**.
 
-→ [Gaussian Losses reference](gaussian.md) · [Beta-NLL](beta_nll.md) · [Wasserstein bound surrogate](gaussian_wasserstein.md)
+Read the full [Gaussian losses guide](gaussian.md) for deep dives on diagonal, full-covariance, and low-rank variants. Also see [Beta-NLL](beta_nll.md) for stabilized training and [Wasserstein bound](gaussian_wasserstein.md) for covariance supervision.
 
 ---
 
@@ -102,7 +104,7 @@ Bounded-influence losses for data with **outliers** or heavy-tailed noise.
 | `TukeyBiweightLoss` | Bounded (rejects $\lvert r\rvert > c$) | Zero | ⭐⭐⭐⭐ |
 | `CVaRLoss` | Worst-$\alpha$ fraction | Tail-focused | ⭐⭐⭐ |
 
-→ [Robust Losses reference](robust.md)
+Read the full [Robust losses guide](robust.md) — influence functions, redescending behavior, Barron family, CVaR.
 
 ---
 
@@ -118,7 +120,7 @@ Distribution-free models for **specific aspects** of the conditional distributio
 | `MultiExpectileLoss` | Multiple expectiles | — |
 | `QuantileCrossoverLoss` | — | Penalises $\hat{q}_{\tau_1} > \hat{q}_{\tau_2}$ when $\tau_1 < \tau_2$ |
 
-→ [Quantile & Expectile reference](quantile_expectile.md)
+Read the full [Quantile & Expectile guide](quantile_expectile.md) — crossover penalties, multi-level prediction intervals, expectile-to-quantile conversion.
 
 ---
 
@@ -132,7 +134,7 @@ For **ordered categorical** targets where class distance matters.
 | `CumulativeLinkLoss` | Cumulative-threshold model | $K-1$ logits |
 | `CORALLoss` | Consistent Rank Logits | $K-1$ binary logits |
 
-→ [Ordinal Losses reference](ordinal.md)
+Read the full [Ordinal losses guide](ordinal.md) — cumulative link, CORAL, cross-entropy baselines.
 
 ---
 
@@ -146,7 +148,7 @@ For **partially observed** outcomes — right/left/interval censoring.
 | `CensoredQuantileLoss` | Quantile + censoring | Non-parametric censored regression |
 | `AFTLoss` | Accelerated Failure Time | Survival analysis |
 
-→ [Censored Losses reference](censored.md)
+Read the full [Censored losses guide](censored.md) — Gaussian censored NLL, AFT survival models, quantile censoring.
 
 ---
 
@@ -164,7 +166,7 @@ For **count data** and targets with specific mean-variance relationships.
 | `InverseGaussianLoss` | Inverse Gaussian | Positive, $\text{Var} \propto \mu^3$ |
 | `CompoundPoissonLoss` | Compound Poisson | Zeros + continuous positives |
 
-→ [Poisson & Tweedie reference](poisson_tweedie.md) · [Poisson-Gaussian reference](poisson_gaussian.md)
+Read the [Poisson & Tweedie guide](poisson_tweedie.md) for count models and [Poisson-Gaussian](poisson_gaussian.md) for mixed readout-noise models.
 
 ---
 
@@ -178,7 +180,7 @@ $$\mu \sim \mathcal{N}\!\bigl(\gamma,\, \sigma^2/\nu\bigr), \qquad \sigma^2 \sim
 |:-----|:------------|
 | `EvidentialRegressionLoss` | Predicts $(\gamma, \nu, \alpha, \beta)$; uncertainty without ensembles |
 
-→ [Evidential Regression reference](advanced.md)
+Read the full [Evidential regression guide](advanced.md) — Normal-Inverse-Gamma prior, single-pass decomposition, calibration caveats.
 
 ---
 
@@ -193,7 +195,7 @@ $$p(y \mid x) = \sum_{k=1}^K \pi_k(x)\,\mathcal{N}\!\bigl(y \mid \mu_k(x),\, \si
 | `MixtureDensityLoss` / `MDNLoss` | NLL for Gaussian mixtures |
 | `create_mdn_loss()` | Factory function |
 
-→ [MDN reference](mdn.md)
+Read the full [MDN guide](mdn.md) — component selection, label switching, mixture-of-mixtures ensembles.
 
 ---
 
@@ -207,7 +209,7 @@ For **arbitrarily complex** conditional distributions:
 | `ContrastiveFlowLoss` | Contrastive likelihood-ratio training over positive vs alternate contexts |
 | `create_flow_model()` / `create_flow_loss()` / `create_contrastive_flow_loss()` | Factory functions |
 
-→ [Normalizing Flows reference](nflows.md)
+Read the full [Normalizing flows guide](nflows.md) — NSF/RealNVP/MAF architectures, contrastive flow variant, inference sampling.
 
 ---
 
@@ -222,7 +224,7 @@ For regression when **inputs have measurement uncertainty**:
 | `OrthogonalDistanceRegressionLoss` | Perpendicular distances | General EIV |
 | `EnsembleEIVLoss` | Ensemble disagreement | No known error model |
 
-→ [EIV Losses reference](eiv.md) · [RC algorithm](../methods/algorithms/rc.md) · [SIMEX algorithm](../methods/algorithms/simex.md)
+Read the full [EIV losses guide](eiv.md) for loss-based correction, or see the algorithm pages for [Regression Calibration](../methods/algorithms/rc.md) and [SIMEX](../methods/algorithms/simex.md).
 
 ---
 
@@ -237,7 +239,7 @@ For targets with significant **distribution imbalance**:
 | `LDSLoss` | Label Distribution Smoothing |
 | `PropensityWeightedLoss` | Inverse propensity scores |
 
-→ [Imbalanced Regression reference](imbalanced.md)
+Read the full [Imbalanced regression guide](imbalanced.md) — density weighting, Focal-R, LDS, propensity weighting.
 
 ---
 
@@ -250,7 +252,7 @@ For targets with significant **distribution imbalance**:
 | `PseudoLabelNLL` | Blends observed + pseudo labels |
 | `PseudoLabelConsistencyLoss` | Single objective for pseudo-label + teacher-consistency point-regression training |
 
-→ [Noisy Labels reference](noisy_labels.md) · [Uncertain GT reference](uncertain_ground_truth.md)
+Read the [Noisy labels guide](noisy_labels.md) for target-noise-aware NLL and consistency losses, or the [Uncertain GT guide](uncertain_ground_truth.md) for pseudo-label workflows.
 
 ---
 
@@ -263,7 +265,7 @@ For targets with significant **distribution imbalance**:
 | `SqrtTransformLoss` | Variance-stabilizing square-root transform |
 | `YeoJohnsonTransformLoss` | Signed-target power transform |
 
-→ [Transform Losses reference](transforms.md)
+Read the full [Transform losses guide](transforms.md) — log, Box-Cox, sqrt, Yeo-Johnson transforms, and the generic `TransformedTargetLoss` wrapper.
 
 ---
 

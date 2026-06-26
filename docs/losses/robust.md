@@ -154,8 +154,6 @@ from torchregress.losses import CVaRLoss
 loss_fn = CVaRLoss(alpha=0.05, base_loss="huber", delta=1.5)
 ```
 
-→ See [Mathematical Foundations](../guide/math/index.md) for the derivation of CVaR and [Proper Scoring Rules](../metrics/distribution.md) for evaluation. See [CVaRLoss](../api/losses.md).
-
 ---
 
 ## References
@@ -167,3 +165,12 @@ loss_fn = CVaRLoss(alpha=0.05, base_loss="huber", delta=1.5)
 | 3 | Rockafellar, R. T., & Uryasev, S. ["Conditional Value-at-Risk for General Loss Distributions."](https://www.sciencedirect.com/science/article/pii/S037842660200271X) *J. Banking & Finance*, 2002. |
 | 4 | Barron, J. T. ["A General and Adaptive Robust Loss Function."](https://arxiv.org/abs/1701.03077) *CVPR*, 2019. |
 | 5 | Belagiannis et al. ["Robust Optimization for Deep Regression."](https://arxiv.org/abs/1505.06641) *ICCV*, 2015. |
+
+---
+
+## Next steps
+
+- [Gaussian losses](gaussian.md) — when you don't need robustness (standard regression)
+- [CVaRLoss](../api/losses.md) — focus on the worst-α fraction instead of ignoring outliers
+- [Evaluation with proper scoring rules](../metrics/distribution.md) — CRPS, NLL, energy score
+- [Mathematical Foundations](../guide/math/index.md) — CVaR derivation and scoring rule proofs

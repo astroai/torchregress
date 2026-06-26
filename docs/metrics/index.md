@@ -1,6 +1,10 @@
 # Evaluation Metrics
 
-torchregress provides a comprehensive set of metrics for evaluating regression models, with special focus on uncertainty quantification.
+torchregress provides a comprehensive set of metrics for evaluating regression
+models, with special focus on uncertainty quantification. This page is the
+**catalogue**: every metric category with links to full guides. For method
+selection guidance ("which metric for my task?"), see the [selection
+guide](#metric-selection-guide) at the bottom.
 
 ## torchregress vs torchmetrics — why both exist
 
@@ -38,104 +42,62 @@ OOD detection, censored/ordinal regression, selective prediction, and more.
 
 ### Point Prediction Metrics
 
-Metrics for evaluating point predictions (without uncertainty):
-
-- **Mean Squared Error (MSE)**: Average squared difference
-- **Root Mean Squared Error (RMSE)**: Square root of MSE
-- **Mean Absolute Error (MAE)**: Average absolute difference
-- **R²**: Coefficient of determination
-- **Robust diagnostics**: median absolute error, Huber loss, trimmed MSE, tail MAE/RMSE
+Basic accuracy measures for point predictions — use these as secondary
+summaries alongside proper scoring rules.
 
 [Learn more about point metrics →](point.md)
 
 ### Ordinal Metrics
 
-Metrics for ordered-target predictions:
-
-- **Ordinal Accuracy**: exact class-index match rate
-- **Mean Absolute Class Error**: average class-index distance
-- **Quadratic Weighted Kappa (QWK)**: agreement metric with stronger penalty for larger ordinal mistakes
+Accuracy and agreement for ordered categorical targets.
 
 [Learn more about ordinal metrics →](ordinal.md)
 
 ### Censored Metrics
 
-Metrics for censored and interval-censored targets:
-
-- **Censoring Rate**
-- **Observed MAE**
-- **Concordance Index**
-- **Interval Overlap Rate**
+Metrics for censored and interval-censored targets (survival analysis, sensor limits).
 
 [Learn more about censored metrics →](censored.md)
 
 ### Distribution Metrics
 
-Metrics for evaluating full predictive distributions:
-
-- **Negative Log-Likelihood (NLL)**: How well the predicted distribution matches the data
-- **Continuous Ranked Probability Score (CRPS)**: Distribution-based generalization of MAE
-- **Energy Score**: Multivariate generalization of CRPS
-- **Proper Scoring Rules**: Various proper scoring rules for probabilistic predictions
+Proper scoring rules for evaluating full predictive distributions — CRPS, NLL, energy score, PIT.
 
 [Learn more about distribution metrics →](distribution.md)
 
 ### Interval Metrics
 
-Metrics for evaluating prediction intervals:
-
-- **Prediction Interval Coverage Probability (PICP)**: Fraction of true values within the interval
-- **Mean Prediction Interval Width (MPIW)**: Average width of prediction intervals
-- **Interval Score**: Combined measure of interval width and coverage
+Coverage and width metrics for prediction intervals — PICP, MPIW, interval score.
 
 [Learn more about interval metrics →](interval.md)
 
 ### Calibration Metrics
 
-Metrics for evaluating model calibration:
-
-- **Expected Calibration Error (ECE)**: Average calibration error across bins
-- **Marginal Calibration Error (MCE)**: Predictive marginal CDF mismatch
-- **Calibration Score**: Gaussian predictive quantile calibration summary
-- **Bias**: Mean prediction bias
+ECE, MCE, calibration score, and bias — validate that your uncertainty estimates are honest.
 
 [Learn more about calibration metrics →](calibration.md)
 
 ### Out-of-Distribution Detection Metrics
 
-Scores for flagging potential OOD or shifted samples:
-
-- **Mahalanobis Distance**: Distance from reference feature statistics
-- **Typicality Score**: Predictive-distribution typicality
-- **Entropy Score**: Predictive-sample entropy
-- **Kernel Density Score**: Similarity to a reference sample
+Scores for flagging shifted or anomalous inputs — Mahalanobis, typicality, entropy, KDE.
 
 [Learn more about OOD metrics →](ood.md)
 
 ### Ensemble Metrics
 
-Metrics for evaluating ensemble models:
-
-- **Ensemble Statistics**: Mean, standard deviation, and variance across members.
-- **Uncertainty Decomposition**: Epistemic, aleatoric, and total uncertainty for heteroscedastic ensembles.
+Member-level statistics and uncertainty decomposition for ensemble models.
 
 [Learn more about ensemble metrics →](ensemble.md)
 
 ### Multivariate Metrics
 
-Metrics for evaluating multivariate regression models:
-
-- **Multivariate RMSE**: Vector-output root mean squared error.
-- **Multivariate MAE**: Vector-output mean absolute error.
+Vector-output RMSE and MAE for multi-target regression.
 
 [Learn more about multivariate metrics →](multivariate.md)
 
 ### Decision Metrics
 
-Metrics for selective prediction and uncertainty-based rejection:
-
-- **RiskCoverageCurve**: Risk-vs-coverage trajectory and AURC summary
-- **RejectionPolicy**: Fixed-threshold or fixed-fraction rejection evaluation
+Selective prediction: risk-coverage curves (AURC) and rejection policies.
 
 [Learn more about decision metrics →](decision.md)
 

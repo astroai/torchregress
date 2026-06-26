@@ -122,9 +122,16 @@ loss = loss_fn(mu, y_true, W, d)
 
 ---
 
-## Next Steps
-- [Beta-NLL](beta_nll.md) for stabilised heteroscedastic likelihood training
-- [Gaussian Wasserstein bound surrogate](gaussian_wasserstein.md) for covariance supervision
-- Learn about [Robust Loss Functions](robust.md)
-- Explore [Ensemble Methods](../methods/ensemble/index.md)
-- View the [Multivariate Uncertainty Example](../examples/normalizing_flows_multitarget.md)
+## Next steps
+
+Continue with the Gaussian family:
+
+- [Beta-NLL](beta_nll.md) — stabilised heteroscedastic training via detached variance rescaling
+- [Faithful Gaussian](faithful_gaussian.md) — decouple mean and variance gradients for cleaner calibration
+- [Gaussian Wasserstein bound](gaussian_wasserstein.md) — supervise covariance directly against labels or pseudo-labels
+
+Or branch out:
+
+- [Robust losses](robust.md) — when Gaussian assumptions fail due to outliers
+- [Ensemble methods](../methods/ensemble/index.md) — decompose into aleatoric + epistemic
+- [Multivariate example](../examples/normalizing_flows_multitarget.md) — correlated multi-output in practice

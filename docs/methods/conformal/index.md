@@ -156,7 +156,11 @@ For multi-output regression ($\mathbf{Y} \in \mathbb{R}^D$), calibrating each co
 
 ---
 
-## Next Steps
-- Explore [Predictors and Scores](predictors.md)
-- Learn about [Distributional Conformal Prediction](distributional.md)
-- View the [Conformal Regression Example](../../examples/conformal_regression_example.md)
+## Next steps
+
+Continue with conformal prediction:
+
+- [Predictors and Scores](predictors.md) — per-class API reference with parameter tables for SplitConformal, CQR, UACQR, and all variants
+- [Distributional Conformal](distributional.md) — CDF/density-based methods (CTI, DistributionalConformal)
+- [Test-Time Shift-Aware Conformal](../test-time/ot-shift-conformal.md) — maintain coverage when the test distribution shifts
+- [Conformal Regression Example](../../examples/conformal_regression_example.md) — runnable comparison of all conformal predictors

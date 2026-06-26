@@ -38,6 +38,14 @@ The library targets two audiences:
   probabilistic regression primitives with rigorous scoring rules, calibration
   diagnostics, and reproducible comparison harnesses.
 
+!!! tip "Start here"
+    New to torchregress? Follow the [Quick Start](getting-started/quickstart.md)
+    for a 5-minute tour of the canonical workflows, then browse the
+    [Capability matrix](#capability-matrix) below to find methods for your
+    specific problem. If you prefer to understand the concepts first, read the
+    [Core Concepts](getting-started/concepts.md) page — it defines the vocabulary
+    used throughout the library.
+
 ---
 
 ## Research-grade design principles

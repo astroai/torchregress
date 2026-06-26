@@ -1,6 +1,15 @@
 # User Guide
 
-This guide is organized by **what you want to achieve**, not by module. Find your problem below and follow the links to the right tools.
+This guide is organized by **what you want to achieve**, not by module. Each
+section below maps a regression problem to the right tool, with code snippets
+and links to deeper references. If you know your problem, jump straight to it.
+If you're exploring, read top-to-bottom — the sections build from simple
+(heteroscedastic regression) to advanced (measurement error, shift adaptation).
+
+!!! tip "New here?"
+    Start with [Core Concepts](../getting-started/concepts.md) for the
+    vocabulary (aleatoric vs. epistemic, proper scoring rules, conformal
+    coverage), then come back here to find the right tool for your task.
 
 ---
 
@@ -8,6 +17,8 @@ This guide is organized by **what you want to achieve**, not by module. Find you
 
 Most regression models produce a single point prediction $\hat{y}$.
 But in practice you also need to know **how confident** the model is.
+The sections below walk you from simplest (heteroscedastic head) to most
+comprehensive (full ensemble decomposition).
 
 ### Heteroscedastic variance (simplest)
 
@@ -47,16 +58,7 @@ For terminology and edge cases such as quantile ensembles, see
 
 ### Single-pass decomposition
 
-If you can't afford an ensemble, evidential regression provides both uncertainty types in one forward pass:
-
-```python
-from torchregress.losses import EvidentialRegressionLoss
-
-loss_fn = EvidentialRegressionLoss()
-# Model outputs 4 values: [γ, ν, α, β] per target
-```
-
-→ See [EvidentialRegressionLoss API](../api/losses.md) and [Evidential Regression](../losses/advanced.md).
+If you can't afford an ensemble, evidential regression provides both uncertainty types in one forward pass — see [Evidential Regression](../losses/advanced.md). This page continues with other common tasks below.
 
 ---
 
@@ -218,8 +220,16 @@ calibrated_var = scaler.transform(pred_var_test)
 
 ## What Next?
 
-- Browse the [Loss Functions catalogue](../losses/index.md)
-- Explore [Examples](../examples/index.md) by topic
-- Check the [Mathematical Foundations](math/index.md) for rigorous derivations
-- See the [API Reference](../api/index.md) for complete function signatures
-- Review the [Docs Quality Audit](../reports/docs_quality_audit.md) for per-page LaTeX/structure status
+- [Loss Functions catalogue](../losses/index.md) — every loss with formulas and use cases
+- [Examples by topic](../examples/index.md) — runnable comparisons with benchmarks
+- [Mathematical Foundations](math/index.md) — derivations of scoring rules and decompositions
+- [API Reference](../api/index.md) — complete function signatures
+- [Method Selection Matrix](method-selection.md) — task-first capability matrix
+
+If you've read this far top-to-bottom, you've covered the most common
+regression tasks. The remaining guide pages dive deeper into:
+
+- [Uncertainty Decomposition](uncertainty-decomposition.md) — contracts and taxonomy
+- [Multi-Target Regression](multi-target-regression.md) — correlated outputs
+- [Performance Tuning](performance.md) — training speed, mixed precision, profiling
+- [Debugging & Diagnostics](debugging.md) — common failure modes and their fixes
