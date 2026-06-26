@@ -148,6 +148,13 @@ for epoch in range(200):
 
 ---
 
+## Limitations
+
+1. **Censoring indicator convention**: Uses `0` = observed, `+1` = right-censored, `-1` = left-censored. This is the **opposite** of survival analysis conventions where `1` = event observed. Double-check your indicator encoding before training.
+2. **Gaussian assumption**: `CensoredGaussianNLLLoss` assumes the uncensored target follows a Gaussian distribution. For heavy-tailed or multimodal survival times, consider `CensoredQuantileLoss` (distribution-free) or log-normal AFT models (`AFTLoss`).
+3. **Boundary sensitivity**: When a large fraction of targets are censored near the same threshold, the CDF term $\Phi((\mu - y)/\sigma)$ dominates the loss and can pull $\mu$ toward the boundary. Monitor prediction distributions for boundary artefacts.
+4. **No built-in non-informative censoring test**: The loss assumes censoring is non-informative (independent of the true target value given $X$). If censoring depends on the unobserved target (informative censoring), estimates will be biased. Validate this assumption on your data before deploying.
+
 ## Practical Tips
 
 !!! tip "Creating the censoring indicator"

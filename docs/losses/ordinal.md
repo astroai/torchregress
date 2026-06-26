@@ -138,6 +138,13 @@ loss = loss_fn(logits, labels)
 
 ---
 
+## Limitations
+
+1. **Class imbalance sensitivity**: Ordinal losses assume roughly balanced classes. When some levels are extremely rare (e.g., 95% of samples in class 1, 1% in class 5), the model may ignore rare levels entirely. Combine with imbalanced reweighting strategies from [Imbalanced Regression](imbalanced.md).
+2. **Metric mismatch**: Standard classification metrics (accuracy, F1) ignore ordering. Always evaluate with ordering-aware alternatives: MAE on predicted class indices, Quadratic Weighted Kappa, or Spearman $\rho$. See [Ordinal metrics](../metrics/ordinal.md).
+3. **Threshold identifiability**: `CumulativeLinkLoss` thresholds $\theta_k$ and the scalar model output $f(x)$ are not jointly identifiable — adding a constant to all $\theta_k$ and $f(x)$ leaves the loss unchanged. Ensure the model has a bias-free final layer or fixed first threshold.
+4. **Soft targets and calibration**: When using soft probability targets, the loss is strictly proper but does not guarantee calibrated probability estimates. Apply post-hoc calibration if well-calibrated class probabilities are required.
+
 ## Method Comparison
 
 | | OrdinalCE | CumulativeLinkLoss | CORALLoss |

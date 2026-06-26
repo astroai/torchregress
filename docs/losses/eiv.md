@@ -189,6 +189,14 @@ loss_fn = OrthogonalDistanceRegressionLoss(
 
 ---
 
+## Limitations
+
+1. **Computational overhead**: `InputNoiseMarginalizationLoss` calls the model $N_{\text{samples}}$ times per training step. Start with `n_samples=8` and `antithetic=True` (negatively-correlated paired samples for variance reduction) before scaling up.
+2. **Model determinism requirement**: MC marginalization calls the model with different noise perturbations. Dropout and BatchNorm **must be in eval mode** during these forward passes, or each MC sample sees a different stochastic mask/batch statistic — biasing the marginal likelihood estimate.
+3. **Twice-differentiability for FunctionalEIVLoss**: The Taylor expansion requires $f(x)$ to be twice differentiable. Activation functions like `ReLU` have zero second derivatives, causing the curvature term $\partial^2 f / \partial x^2$ to vanish. Prefer smooth activations (`GELU`, `Tanh`, `SiLU`).
+4. **ODR inner-loop convergence**: `OrthogonalDistanceRegressionLoss` runs an inner optimisation loop. If `max_iterations` is too small or `learning_rate` is poorly tuned, the latent $\hat{X}$ estimates may not converge — degrading the outer gradient signal.
+5. **EIV methods do not estimate measurement error**: You must provide $\sigma_x$ and $\sigma_y$ (or their covariance matrices) as known quantities. These losses correct for known noise; they do not discover it from data.
+
 ## Decision Guide
 
 ```mermaid
@@ -253,6 +261,14 @@ for epoch in range(200):
 - [LatentNN](../methods/algorithms/latentnn.md) — end-to-end joint optimization of clean inputs + network
 - [EIV comparison](../examples/eiv_method_comparison.md) — benchmark all EIV methods
 - [Gaussian losses](gaussian.md) — standard losses when inputs are clean
+
+## Recommendations
+
+- **Default choice**: `InputNoiseMarginalizationLoss` is the recommended starting point for modern probabilistic models with non-linear feature/target relationships. It correctly marginalises over input noise via MC sampling and works with any predictive head (MDN, Binned PDF, Gaussian).
+- **Known noise only**: EIV methods require you to provide $\sigma_x$ and $\sigma_y$ as known quantities. These losses correct for known measurement error; they do **not** estimate it. If noise magnitudes are unknown, consider [SIMEX](../methods/algorithms/simex.md) or [LatentNN](../methods/algorithms/latentnn.md).
+- **Smooth activations for FunctionalEIVLoss**: Use `GELU`, `Tanh`, or `SiLU` instead of `ReLU` to ensure the curvature term $\partial^2 f / \partial x^2$ is non-zero.
+- **MC samples budget**: Start with `n_samples=8`, `antithetic=True`. Increase only if validation NLL improves. For deployment inference, use `NoisyInputPredictor` wrapper with `n_samples=32`.
+- **Compare against RC/SIMEX**: For linear models or when interpretability matters, [Regression Calibration](../methods/algorithms/rc.md) and [SIMEX](../methods/algorithms/simex.md) are simpler and more transparent than neural EIV losses. See the [EIV comparison](../examples/eiv_method_comparison.md) example.
 
 ---
 

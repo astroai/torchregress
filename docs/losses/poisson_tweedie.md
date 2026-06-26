@@ -185,6 +185,14 @@ loss_fn = CompoundPoissonLoss(p=1.5, link="log")
 
 ---
 
+## Limitations
+
+1. **Compound Poisson numerical instability ($1 < p < 2$)**: The Tweedie density normalising constant involves an infinite series that converges slowly near the boundaries $p \to 1$ (Poisson) and $p \to 2$ (Gamma). Use `PoissonDevianceLoss` or `GammaLoss` for exactly $p = 1$ or $p = 2$.
+2. **Negative log-rate clipping**: When `log_input=True`, large negative predicted log-rates produce near-zero rates $\lambda = e^{\log\lambda}$, leading to $\log(0)$ in deviance terms. Always clamp the minimum rate (`min_rate`) or use a small jitter.
+3. **Negative Binomial dispersion sensitivity**: `NegativeBinomialNLLLoss` with $\theta < 0.01$ produces extreme overdispersion with unstable gradients. Floor $\theta$ with `min_theta`.
+4. **Tweedie power $p$ is not learned**: The power parameter $p$ must be specified externally (e.g., from domain knowledge or a profile likelihood sweep). The loss does not optimise $p$ jointly with the model.
+5. **Zero-inflated model identifiability**: `ZeroInflatedPoissonNLLLoss` jointly estimates $\pi$ (zero-inflation probability) and $\lambda$ (rate). These parameters can trade off, especially with small datasets. Monitor both during training.
+
 ## Decision Guide
 
 ```mermaid

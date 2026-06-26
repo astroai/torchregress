@@ -104,6 +104,14 @@ loss = loss_fn(mu, y_true, W, d)
 
 ---
 
+## Limitations
+
+1. **Computational scaling of full covariance**: `MultivariateGaussianLoss` requires $\mathcal{O}(K^3)$ operations per sample for determinants and solves, making it impractical beyond $K \approx 10$. Use `LowRankGaussianLoss` with rank $r = \lfloor K/3 \rfloor$ for higher-dimensional targets.
+2. **PSD violations**: Cholesky factors must be regularised on the diagonal to prevent non-positive-semidefinite covariance matrices. Always use a minimum variance floor (`min_variance` or jitter $\ge 10^{-6}$).
+3. **LowRank rank selection**: If $r$ is too small, the diagonal component absorbs residual correlation, inflating marginal variances. If too large, parameter count approaches the full-covariance case. Tune $r$ on validation NLL.
+4. **Gaussian assumption**: The NLL is only a proper scoring rule when $Y \mid X$ is truly Gaussian. For heavy-tailed, multimodal, or bounded targets, consider robust alternatives ([Robust losses](robust.md)), [MDN](mdn.md), or [Normalizing flows](nflows.md).
+5. **Variance collapse**: Without a minimum variance floor, the model can learn $\sigma^2 \to 0$ to drive the NLL to $-\infty$, especially on small datasets. Always set `min_variance` and monitor predicted variance during training.
+
 ## Best Practices
 
 !!! success "Stable Training"
@@ -137,3 +145,12 @@ Or branch out:
 - [Robust losses](robust.md) — when Gaussian assumptions fail due to outliers
 - [Ensemble methods](../methods/ensemble/index.md) — decompose into aleatoric + epistemic
 - [Multivariate example](../examples/normalizing_flows_multitarget.md) — correlated multi-output in practice
+
+## Recommendations
+
+- **Start simple**: Begin with `WeightedMSELoss` (homoscedastic) or `GaussianNLLLoss` (heteroscedastic). Move to `FaithfulGaussianLoss` only if you observe variance inflation distorting mean predictions.
+- **Low-rank for high-dimensional targets**: For $K > 5$ correlated targets, use `LowRankGaussianLoss`. For $K \le 5$, `MultivariateGaussianLoss` is simpler and more interpretable.
+- **Stable training recipe**: Initialise `log_var` $\approx 0$ (variance $\approx 1$), set `min_variance = 1e-6`, and apply higher weight decay to the variance head (2–5× the mean head).
+- **Monitor with CRPS**: Track `crps_gaussian` alongside NLL during training. CRPS is in target units and less sensitive to tail events than NLL. See [Distribution metrics](../metrics/distribution.md).
+- **Variance calibration**: After training, validate with a PIT histogram or calibration error (ECE). If variance is systematically over- or under-estimated, apply post-hoc [Variance Temperature Scaling](../methods/calibration.md). See [FaithfulGaussianLoss demo](../losses/faithful_gaussian.md).
+- **For coverage guarantees**: Gaussian likelihood losses provide no coverage guarantees. For finite-sample prediction intervals, wrap with [SplitConformal or CQR](../methods/conformal/predictors.md).

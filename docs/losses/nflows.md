@@ -164,6 +164,14 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 | **MAF** | ⭐⭐⭐ | Slow | Fast | Conditional density estimation |
 | **NSF** | ⭐⭐⭐⭐ | Medium | Medium | Complex multimodal distributions |
 
+## Limitations
+
+1. **Computational cost**: Each training step evaluates $K$ invertible transforms and their Jacobian determinants. For `NSF` with 5+ transforms and large context dimensions, training can be 5–20× slower than an equivalent MDN.
+2. **Mask semantics**: Flow objectives model a **joint density** over all target dimensions. Only **sample-level** masking is supported — if one target dimension is missing, drop the whole sample.
+3. **Architecture choice matters**: `RealNVP` is fast but less expressive; `NSF` is most expressive but slower. Match the flow type to your target: use `NSF` for complex multimodality, `MAF` for conditional density estimation, `RealNVP` for a quick baseline.
+4. **ContrastiveFlowLoss is task-specific**: It optimises hypothesis ranking, not density calibration. If you need well-calibrated conditional densities for sampling or downstream UQ, start with `NormalizingFlowLoss`. `ContrastiveFlowLoss` is for parameter ranking / retrieval tasks with informative negative contexts.
+5. **Dependency**: Requires [`zuko`](https://github.com/probabilists/zuko). Not installed by default; use `pip install torchregress[flows]`.
+
 ## When To Use Which Flow Objective
 
 | Objective | Start Here When | Tradeoff |

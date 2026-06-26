@@ -109,6 +109,13 @@ loss_fn = TransformedTargetLoss("boxcox", lam=0.25, base_loss="huber")
 
 See [Transformed-Target Regression Comparison](../examples/transformed_target_regression_comparison.md) for a shared-budget benchmark on skewed positive targets with `MSE`, `LogTransformLoss`, `BoxCoxTransformLoss`, and `SqrtTransformLoss`.
 
+## Limitations
+
+1. **Positive-support requirement**: `LogTransformLoss`, `BoxCoxTransformLoss`, and `SqrtTransformLoss` require strictly positive predictions and targets. Use a `Softplus` output head. Zero or negative values produce **NaN** losses.
+2. **Transform parameter sensitivity**: `BoxCoxTransformLoss` with $\lambda \gg 0$ produces $y^\lambda$ which amplifies extreme values. `YeoJohnsonTransformLoss` shape changes sharply with $\lambda$, potentially amplifying small errors into large loss gradients.
+3. **Optimisation geometry changes**: Transform losses warp the optimisation landscape, not the model family. A model trained with `LogTransformLoss` may produce biased predictions when back-transformed via exponentiation (Jensen's inequality: $\mathbb{E}[\exp(\hat{y}_{\log})] \neq \exp(\mathbb{E}[\hat{y}_{\log}])$). Apply bias correction when point predictions matter.
+4. **No built-in calibration**: Transform losses change the training objective but do not guarantee calibrated uncertainty. Always validate calibration and apply post-hoc correction (temperature scaling, isotonic regression) if needed.
+
 ## Caveats
 
 !!! warning

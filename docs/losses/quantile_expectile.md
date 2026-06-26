@@ -173,6 +173,13 @@ loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)  # same as ExpectileLoss(0.75)
 
 ---
 
+## Limitations
+
+1. **Expectile-to-quantile conversion**: Expectiles are smooth and easier to optimise, but do not correspond directly to probability percentiles. You cannot convert expectile estimates back to quantiles without fitting a parametric density wrapper. For strict $P(Y \in [L, U]) \ge 1-\alpha$ guarantees, use `QuantileLoss` + [CQR](../methods/conformal/predictors.md).
+2. **Non-differentiability at zero**: The quantile (pinball) loss has a kink at $r = 0$ where the gradient is undefined. While Adam handles this in practice, second-order methods (L-BFGS, Newton) may stall.
+3. **Output dimension scaling**: `MultiQuantileLoss` with $Q$ quantiles on a $d$-dimensional target produces output dimension $Q \cdot d$. For fine-grained quantile grids (e.g., 99 quantiles), the output head becomes a memory and optimisation bottleneck.
+4. **Crossing in independent heads**: Without `QuantileCrossoverLoss`, independent neural network heads predict each quantile separately and can produce unphysical crossings ($\hat{q}_{\tau_1} > \hat{q}_{\tau_2}$ for $\tau_1 < \tau_2$).
+
 ## Choosing Between Quantile and Expectile
 
 !!! info "Use quantiles when"
@@ -203,6 +210,14 @@ loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)  # same as ExpectileLoss(0.75)
 - [Robust losses](robust.md) — M-estimators for outlier-heavy data
 - [Gaussian losses](gaussian.md) — parametric alternatives when normality holds
 - [Interval metrics](../metrics/interval.md) — evaluate your quantile-based prediction intervals
+
+## Recommendations
+
+- **Start with `QuantileCrossoverLoss`** — it prevents unphysical crossing of prediction bands at essentially no extra cost over `MultiQuantileLoss`.
+- **For probability guarantees**: Use `QuantileLoss` + wrap with [CQR](../methods/conformal/predictors.md) for finite-sample coverage.
+- **For smooth optimisation**: Use `ExpectileLoss` / `MultiExpectileLoss` when you need second-order optimisers (L-BFGS) or when downstream tasks use Expected Shortfall.
+- **Limit quantile grid size**: For $Q > 10$ quantiles, the output dimension $Q \cdot d$ grows quickly. Consider a parametric model (MDN, flow) for dense quantile grids. See the [Quantile & expectile demo](../examples/expectile_regression_demo.py).
+- **Monitor crossing frequency**: Even with crossover penalties, check how often $\hat{q}_{\tau_i} > \hat{q}_{\tau_j}$ for $\tau_i < \tau_j$ on validation data.
 
 ---
 

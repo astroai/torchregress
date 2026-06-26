@@ -57,9 +57,9 @@ def test_quickstart_workflows_run_without_errors() -> None:
 
     from torchregress.ensemble import DeepEnsemble
     from torchregress.losses import (
+        CQR,
         AdaptiveRobustLoss,
         CauchyLoss,
-        CQR,
         GaussianNLLLoss,
         SplitConformal,
         TukeyBiweightLoss,

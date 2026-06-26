@@ -142,6 +142,13 @@ update_ema_teacher_(ema_teacher, student, momentum=0.95)
 - [Uncertain-GT + Density Conformal Comparison](../examples/uncertain_gt_density_conformal_comparison.md)
 - [Uncertain-GT + Density Conformal Comparison (Real Data)](../examples/uncertain_gt_density_conformal_realdata_comparison.md)
 
+## Limitations
+
+1. **Confirmation bias in pseudo-labeling**: Pseudo-labeling is prone to confirmation bias — the model repeatedly fits its own incorrect but confident predictions, amplifying errors over epochs. Use an EMA teacher (`update_ema_teacher_`), apply threshold gating on `pseudo_confidence` via `generate_pseudo_labels`, and never include pseudo-labeled samples in held-out validation/test splits.
+2. **Hyperparameter sensitivity**: `confidence_threshold` gates which pseudo-labels are trusted — too low admits noise, too high rejects most unlabeled data. Tune on a small held-out labeled set, not the unlabeled data.
+3. **Target variance quality** (`NoisyTargetGaussianNLL`): If `target_variance` is poorly estimated (e.g., guessed rather than measured), performance can be worse than standard `GaussianNLLLoss`. Only use when variance estimates are trusted more than the model's ability to learn them.
+4. **PseudoLabelConsistencyLoss is intentionally narrow**: It covers one common pattern (labeled subset + pseudo labels + teacher consistency). For richer semi-supervised workflows with multiple views, augmentation, or density-based weighting, use `TeacherStudentTrainer` from [Semi-supervised API](../api/semi_supervised.md).
+
 ## Practical Notes
 
 !!! tip
