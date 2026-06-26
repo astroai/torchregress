@@ -1,6 +1,6 @@
 # Ensemble Methods for Uncertainty Quantification
 
-→ Guide: [Ensemble methods](../methods/ensemble/index.md). API: [Ensemble API](../api/ensemble.md), [ensemble metrics](../api/metrics.md#ensemble_statistics).
+→ Guide: [Ensemble methods](../methods/ensemble/index.md). API: [Ensemble API](../api/ensemble.md), [ensemble metrics](../api/metrics.md).
 
 This guide covers different ensemble methods in torchregress for uncertainty estimation.
 
@@ -135,7 +135,7 @@ models = []
 for i in range(5):
     set_seed(42 + i)
     model = create_heteroscedastic_model()
-    loss_fn = GaussianNLLLoss()  # Learns variance — see [GaussianNLLLoss API](../../api/losses.md#gaussiannllloss)
+    loss_fn = GaussianNLLLoss()  # Learns variance — see [GaussianNLLLoss API](../../api/losses.md)
     train_model(model, data, loss_fn, epochs=100)
     models.append(model)
 
@@ -153,7 +153,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 total_uncertainty = torch.sqrt(epistemic + aleatoric)
 ```
 
-→ [`GaussianNLLLoss` API](../../api/losses.md#gaussiannllloss), [`HeteroscedasticEnsembleModel` API](../../api/ensemble.md#heteroscedasticensemblemodel), [`uncertainty_decomposition`](../../api/metrics.md#uncertainty_decomposition).
+→ [`GaussianNLLLoss` API](../../api/losses.md), [`HeteroscedasticEnsembleModel` API](../../api/ensemble.md), [`uncertainty_decomposition`](../../api/metrics.md).
 
 **Characteristics:**
 - ✅ Both epistemic AND aleatoric uncertainty

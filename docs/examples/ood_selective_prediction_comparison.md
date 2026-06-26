@@ -2,7 +2,7 @@
 
 This guide explains how to use predictive uncertainty to perform selective prediction (abstaining on high-risk inputs) and detect Out-of-Distribution (OOD) covariate shifts.
 
-→ API: [`uncertainty_decomposition`](../api/metrics.md#uncertainty_decomposition), [`mahalanobis_distance`](../api/metrics.md#mahalanobis_distance), [`RiskCoverageCurve`](../api/metrics.md#riskcoveragecurve). Guide: [OOD metrics](../metrics/ood.md).
+→ API: [`uncertainty_decomposition`](../api/metrics.md), [`mahalanobis_distance`](../api/metrics.md), [`RiskCoverageCurve`](../api/metrics.md). Guide: [OOD metrics](../metrics/ood.md).
 
 | # | Reference |
 |:-:|:----------|

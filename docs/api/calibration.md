@@ -98,52 +98,8 @@ The following metrics are also re-exported here for convenience — see
 
 ---
 
-## Decision guide
-
-| Situation | Use |
-|:----------|:----|
-| Gaussian variance miscalibration | `VarianceTemperatureScaler` |
-| Point-prediction miscalibration | `IsotonicMeanCalibrator` |
-| PIT-based full-CDF calibration | `PITCalibrator` |
-| Representation shift at test time | `RepresentationShiftInflator` |
-| Label prior shift at test time | `BinnedLabelShiftEstimator` |
-| Conformal + covariate shift | `SemiConformalCalibrator` |
-
 ## Next steps
 
-- [Calibration methods](../methods/calibration.md)
+- [Calibration methods](../methods/calibration.md) — full conceptual guide, best practices, limitations
 - [Test-time shift (OT conformal)](../methods/test-time/ot-shift-conformal.md)
 - [Conformal prediction](../methods/conformal/index.md)
-
-
-## Detailed Class References
-
-### VarianceTemperatureScaler
-
-Optimises a scalar temperature $T$ on the validation set to rescale predicted variances:
-
-$$
-\sigma^2_{\text{cal}} = T \cdot \sigma^2
-$$
-
-by minimising the negative log-likelihood of the validation data.
-
-### IsotonicMeanCalibrator
-
-Calibrates point predictions $\hat{y}$ using a monotonic function fit via pool-adjacent-violators algorithm (PAVA):
-
-$$
-\hat{y}_{\text{cal}} = f_{\text{iso}}(\hat{y})
-$$
-
-### PITCalibrator
-
-Monotonic empirical-CDF mapping for Probability Integral Transform values:
-
-$$
-\text{PIT}_{\text{cal}} = F_{\text{cal}}(\text{PIT})
-$$
-
-### BinnedLabelShiftEstimator
-
-Estimates target label prior shift using black-box shift estimation (BBSE) or EM prior correction under marginal label shift.

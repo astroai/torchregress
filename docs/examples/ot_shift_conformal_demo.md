@@ -2,7 +2,7 @@
 
 This guide explains how to use optimal transport (OT) reweighting to restore valid conformal coverage guarantees under covariate/distribution shift.
 
-→ API: [`WeightedSplitConformalAdapter`](../api/test_time.md#weightedsplitconformaladapter), [`ScoreCDFReweighter`](../api/test_time.md#scorecdfreweighter). Guide: [OT shift conformal](../methods/test-time/ot-shift-conformal.md).
+→ API: [`WeightedSplitConformalAdapter`](../api/test_time.md), [`ScoreCDFReweighter`](../api/test_time.md). Guide: [OT shift conformal](../methods/test-time/ot-shift-conformal.md).
 
 | # | Reference |
 |:-:|:----------|

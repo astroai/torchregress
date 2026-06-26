@@ -2,7 +2,7 @@
 
 This guide demonstrates expectile regression and compares it with quantile regression on heteroscedastic datasets using `ExpectileCrossoverLoss` and `QuantileCrossoverLoss`.
 
-→ API: [`ExpectileLoss`](../api/losses.md#expectileloss), [`QuantileLoss`](../api/losses.md#quantileloss), [`MultiQuantileLoss`](../api/losses.md#multiquantileloss). Guide: [Quantile & expectile](../losses/quantile_expectile.md).
+→ API: [`ExpectileLoss`](../api/losses.md), [`QuantileLoss`](../api/losses.md), [`MultiQuantileLoss`](../api/losses.md). Guide: [Quantile & expectile](../losses/quantile_expectile.md).
 
 | # | Reference |
 |:-:|:----------|

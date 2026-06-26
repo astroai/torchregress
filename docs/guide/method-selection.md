@@ -435,6 +435,6 @@ It does **not** separate epistemic and aleatoric uncertainty.
 
 Use conformal for calibrated intervals.
 Use heteroscedastic ensemble-style approaches when you need explicit decomposition.
-Use [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), [`QuantileLoss`](../api/losses.md#quantileloss), or binned-PDF heads when you need richer predictive
+Use [`MDNLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md), [`QuantileLoss`](../api/losses.md), or binned-PDF heads when you need richer predictive
 distributions. See [Uncertainty Decomposition](uncertainty-decomposition.md)
 for the difference, including quantile ensembles.

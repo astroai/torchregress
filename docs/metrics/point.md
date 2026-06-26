@@ -21,7 +21,7 @@ from torchregress.metrics.point import mean_squared_error
 
 mse = mean_squared_error(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [mean_squared_error](../api/metrics.md#mse).
+See also: [mean_squared_error](../api/metrics.md).
 
 ### Mean Absolute Error (MAE)
 
@@ -36,7 +36,7 @@ from torchregress.metrics.point import mean_absolute_error
 
 mae = mean_absolute_error(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [mean_absolute_error](../api/metrics.md#mae).
+See also: [mean_absolute_error](../api/metrics.md).
 
 ### Root Mean Squared Error (RMSE)
 
@@ -51,7 +51,7 @@ from torchregress.metrics.point import rmse
 
 y_rmse = rmse(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [rmse](../api/metrics.md#rmse).
+See also: [rmse](../api/metrics.md).
 
 ### Mean Absolute Percentage Error (MAPE)
 
@@ -66,7 +66,7 @@ from torchregress.metrics.point import mean_absolute_percentage_error
 
 mape = mean_absolute_percentage_error(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [mean_absolute_percentage_error](../api/metrics.md#mean_absolute_percentage_error).
+See also: [mean_absolute_percentage_error](../api/metrics.md).
 
 ### R² (Coefficient of Determination)
 
@@ -83,7 +83,7 @@ from torchregress.metrics.point import r2_score
 
 r2 = r2_score(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [r2_score](../api/metrics.md#r2_score).
+See also: [r2_score](../api/metrics.md).
 
 ### Explained Variance Score
 
@@ -100,7 +100,7 @@ from torchregress.metrics.point import explained_variance_score
 
 explained_var = explained_variance_score(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [explained_variance_score](../api/metrics.md#explained_variance_score).
+See also: [explained_variance_score](../api/metrics.md).
 
 ### Mean Squared Log Error (MSLE)
 
@@ -116,7 +116,7 @@ from torchregress.metrics.point import mean_squared_log_error
 # Note: Only works with strictly positive values
 msle = mean_squared_log_error(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [mean_squared_log_error](../api/metrics.md#mean_squared_log_error).
+See also: [mean_squared_log_error](../api/metrics.md).
 
 ---
 
@@ -135,7 +135,7 @@ from torchregress.metrics.point import median_absolute_error
 
 median_ae = median_absolute_error(y_pred, y_true, mask=mask)
 ```
-See also: [median_absolute_error](../api/metrics.md#median_absolute_error).
+See also: [median_absolute_error](../api/metrics.md).
 
 ### Huber Loss
 
@@ -155,7 +155,7 @@ from torchregress.metrics.point import huber_loss
 # delta controls the transition point from quadratic to linear error
 hl = huber_loss(y_pred, y_true, delta=1.0, mask=mask, weights=weights)
 ```
-See also: [huber_loss](../api/metrics.md#huber_loss).
+See also: [huber_loss](../api/metrics.md).
 
 ### Trimmed Mean Squared Error
 
@@ -173,7 +173,7 @@ from torchregress.metrics.point import trimmed_mean_squared_error
 # trim 10% of data from each end (keeps the middle 80%)
 tmse = trimmed_mean_squared_error(y_pred, y_true, proportion=0.1, mask=mask)
 ```
-See also: [trimmed_mean_squared_error](../api/metrics.md#trimmed_mean_squared_error).
+See also: [trimmed_mean_squared_error](../api/metrics.md).
 
 ### Median Absolute Deviation (MAD)
 
@@ -190,7 +190,7 @@ from torchregress.metrics.point import median_absolute_deviation
 
 mad = median_absolute_deviation(y_pred, y_true, scale=1.4826, mask=mask)
 ```
-See also: [median_absolute_deviation](../api/metrics.md#median_absolute_deviation).
+See also: [median_absolute_deviation](../api/metrics.md).
 
 ### Normalized RMSE
 
@@ -207,7 +207,7 @@ from torchregress.metrics.point import normalized_rmse
 
 nrmse = normalized_rmse(y_pred, y_true, normalization='std', mask=mask)
 ```
-See also: [normalized_rmse](../api/metrics.md#normalized_rmse).
+See also: [normalized_rmse](../api/metrics.md).
 
 ### Normalized Median Absolute Deviation
 
@@ -222,7 +222,7 @@ from torchregress.metrics.point import normalized_median_absolute_deviation
 
 nmad = normalized_median_absolute_deviation(y_pred, y_true, mask=mask)
 ```
-See also: [normalized_median_absolute_deviation](../api/metrics.md#normalized_median_absolute_deviation).
+See also: [normalized_median_absolute_deviation](../api/metrics.md).
 
 ---
 
@@ -242,7 +242,7 @@ from torchregress.metrics.point import outlier_fraction
 # Standard outlier detection (scaled by std of y_true)
 of = outlier_fraction(y_pred, y_true, threshold=0.15, mask=mask)
 ```
-See also: [outlier_fraction](../api/metrics.md#outlier_fraction).
+See also: [outlier_fraction](../api/metrics.md).
 
 ### Tail Metrics
 
@@ -265,7 +265,7 @@ from torchregress.metrics import tail_mae, tail_rmse
 mae_tail = tail_mae(y_pred, y_true, quantile=0.9, tail="upper", mask=mask)
 rmse_tail = tail_rmse(y_pred, y_true, quantile=0.9, tail="upper", mask=mask)
 ```
-See also: [tail_mae](../api/metrics.md#tail_mae) and [tail_rmse](../api/metrics.md#tail_rmse).
+See also: [tail_mae](../api/metrics.md) and [tail_rmse](../api/metrics.md).
 
 ---
 
@@ -280,4 +280,4 @@ from torchregress.metrics.point import regression_metrics_report
 
 report = regression_metrics_report(y_pred, y_true, mask=mask, weights=weights)
 ```
-See also: [regression_metrics_report](../api/metrics.md#regression_metrics_report).
+See also: [regression_metrics_report](../api/metrics.md).

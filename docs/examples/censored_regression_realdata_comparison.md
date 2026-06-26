@@ -2,7 +2,7 @@
 
 Script: `examples/censored_regression_realdata_comparison.py`
 
-→ API: [`CensoredGaussianNLLLoss`](../api/losses.md#censoredgaussiannllloss), [`CensoredQuantileLoss`](../api/losses.md#censoredquantileloss), [`AFTLoss`](../api/losses.md#aftloss).
+→ API: [`CensoredGaussianNLLLoss`](../api/losses.md), [`CensoredQuantileLoss`](../api/losses.md), [`AFTLoss`](../api/losses.md).
 
 Compares three censored-loss approaches on real covariates/targets (`sklearn` Diabetes)
 with shared synthetic censoring overlays:

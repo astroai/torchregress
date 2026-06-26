@@ -2,7 +2,7 @@
 
 This example demonstrates how to use evidential regression to decompose uncertainty into aleatoric and epistemic components.
 
-→ API: [`EvidentialRegressionLoss`](../api/losses.md#evidentialregressionloss). Theory: [Evidential Regression](../losses/advanced.md).
+→ API: [`EvidentialRegressionLoss`](../api/losses.md). Theory: [Evidential Regression](../losses/advanced.md).
 
 | # | Reference |
 |:-:|:----------|

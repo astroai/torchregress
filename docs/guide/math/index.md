@@ -34,10 +34,10 @@ $$\mathcal{L}(\theta) = -\mathbb{E}_{(x, y) \sim \mathcal{D}} \left[ \log p(y \m
 
 | Loss | Implied Distribution | Mathematical Form | API Reference |
 |:-----|:---------------------|:------------------|:--------------|
-| **MSE** | Gaussian (fixed $\sigma$) | $(y - \hat{y})^2$ | [WeightedMSELoss](../../api/losses.md#weightedmseloss) |
-| **MAE** | Laplace (fixed $b$) | $\lvert y - \hat{y}\rvert$ | [WeightedL1Loss](../../api/losses.md#weightedl1loss) |
-| **Gaussian NLL** | Gaussian (learned $\sigma$) | $\frac{1}{2}\log(2\pi\sigma^2) + \frac{(y-\mu)^2}{2\sigma^2}$ | [GaussianNLLLoss](../../api/losses.md#gaussiannllloss) |
-| **Poisson NLL** | Poisson | $\hat{\mu} - y\log\hat{\mu} + \log(y!)$ | [PoissonDevianceLoss](../../api/losses.md#poissondevianceloss) |
+| **MSE** | Gaussian (fixed $\sigma$) | $(y - \hat{y})^2$ | [WeightedMSELoss](../../api/losses.md) |
+| **MAE** | Laplace (fixed $b$) | $\lvert y - \hat{y}\rvert$ | [WeightedL1Loss](../../api/losses.md) |
+| **Gaussian NLL** | Gaussian (learned $\sigma$) | $\frac{1}{2}\log(2\pi\sigma^2) + \frac{(y-\mu)^2}{2\sigma^2}$ | [GaussianNLLLoss](../../api/losses.md) |
+| **Poisson NLL** | Poisson | $\hat{\mu} - y\log\hat{\mu} + \log(y!)$ | [PoissonDevianceLoss](../../api/losses.md) |
 
 → See [Gaussian Losses](../../losses/gaussian.md) for heteroscedastic implementation details.
 
@@ -46,12 +46,12 @@ $$\mathcal{L}(\theta) = -\mathbb{E}_{(x, y) \sim \mathcal{D}} \left[ \log p(y \m
 Unlike NLL losses which target the mean, quantile and expectile losses target specific properties of the predictive distribution.
 
 **Quantile Loss (Pinball Loss):**
-Used to estimate the $\tau$-th quantile $\hat{q}_\tau$. It is the $L_1$ analogue for distributional modeling \[6\]. See [QuantileLoss](../../api/losses.md#quantileloss) for API details.
+Used to estimate the $\tau$-th quantile $\hat{q}_\tau$. It is the $L_1$ analogue for distributional modeling \[6\]. See [QuantileLoss](../../api/losses.md) for API details.
 
 $$\mathcal{L}_\tau^{\text{quantile}}(y, \hat{q}_\tau) = (y - \hat{q}_\tau) \left( \tau - \mathbf{1}_{y < \hat{q}_\tau} \right)$$
 
 **Expectile Loss:**
-Used to estimate the $\tau$-th expectile $\hat{e}_\tau$. It is the $L_2$ analogue of quantile regression, which is often easier to optimise due to its smoothness. See [ExpectileLoss](../../api/losses.md#expectileloss).
+Used to estimate the $\tau$-th expectile $\hat{e}_\tau$. It is the $L_2$ analogue of quantile regression, which is often easier to optimise due to its smoothness. See [ExpectileLoss](../../api/losses.md).
 
 $$\mathcal{L}_\tau^{\text{expectile}}(y, \hat{e}_\tau) = \lvert\tau - \mathbf{1}_{y < \hat{e}_\tau}\rvert \cdot (y - \hat{e}_\tau)^2$$
 
@@ -63,10 +63,10 @@ Robust losses are designed to mitigate the influence of outliers by using "redes
 
 | Loss | Function $\rho(r)$ | Influence $\psi(r)$ | API Reference |
 |:-----|:-------------------|:-------------------|:--------------|
-| **Huber** | Quadratic near 0, Linear at tails | Bounded | [WeightedHuberLoss](../../api/losses.md#weightedhuberloss) |
-| **Log-Cosh** | $\log(\cosh r)$ | $\tanh(r)$ | [LogCoshLoss](../../api/losses.md#logcoshloss) |
-| **Tukey Biweight** | Redescending polynomial | $\rightarrow 0$ for large $r$ | [TukeyBiweightLoss](../../api/losses.md#tukeybiweightloss) |
-| **Cauchy** | $\log(1 + r^2/c^2)$ | Decreasing | [CauchyLoss](../../api/losses.md#cauchyloss) |
+| **Huber** | Quadratic near 0, Linear at tails | Bounded | [WeightedHuberLoss](../../api/losses.md) |
+| **Log-Cosh** | $\log(\cosh r)$ | $\tanh(r)$ | [LogCoshLoss](../../api/losses.md) |
+| **Tukey Biweight** | Redescending polynomial | $\rightarrow 0$ for large $r$ | [TukeyBiweightLoss](../../api/losses.md) |
+| **Cauchy** | $\log(1 + r^2/c^2)$ | Decreasing | [CauchyLoss](../../api/losses.md) |
 
 → See [Robust Losses](../../losses/robust.md) for parameter selection guides.
 
@@ -104,7 +104,7 @@ $$\sigma_{\text{total}}^2 = \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2}_{\t
 
 This provides a clean separation: aleatoric uncertainty represents the average data noise estimated across ensemble members, while epistemic uncertainty captures model parameter disagreement.
 
-→ See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [DeepEnsemble](../../api/ensemble.md#deepensemble), SWAG, BNN).
+→ See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [DeepEnsemble](../../api/ensemble.md), SWAG, BNN).
 
 ---
 
@@ -130,7 +130,7 @@ $$CRPS(\mu, \sigma, y) = \sigma \mathbb{E}[|Z - z|] - \frac{1}{2}\sigma \mathbb{
 1. **First Term**: Evaluating the expectation $\mathbb{E}[|Z - z|]$ yields:
    $$\mathbb{E}[|Z - z|] = z \bigl(2\Phi(z) - 1\bigr) + 2\phi(z)$$
 2. **Second Term**: The expected absolute difference between two standard Gaussians $\mathbb{E}[|Z - Z'|]$ evaluates to $\frac{2}{\sqrt{\pi}}$ since $Z - Z' \sim \mathcal{N}(0, 2)$.
-3. Combining terms leads to the closed-form implemented in [crps_gaussian](../../api/metrics.md#crps_gaussian):
+3. Combining terms leads to the closed-form implemented in [crps_gaussian](../../api/metrics.md):
    $$CRPS(\mu, \sigma, y) = \sigma \left[ z \bigl(2\Phi(z) - 1\bigr) + 2\phi(z) - \frac{1}{\sqrt{\pi}} \right]$$
 
 ### Interval Score
@@ -140,7 +140,7 @@ $$S_{\alpha}(L, U; y) = (U - L) + \frac{2}{\alpha}(L - y)\mathbf{1}_{y < L} + \f
 
 The score penalizes wide intervals (sharpness) and penalizes boundary violations (calibration) with a scale factor of $2/\alpha$.
 
-→ See [Distribution Metrics](../../metrics/distribution.md) for multivariate [energy_score](../../api/metrics.md#energy_score).
+→ See [Distribution Metrics](../../metrics/distribution.md) for multivariate [energy_score](../../api/metrics.md).
 
 ---
 
@@ -158,7 +158,7 @@ where $\hat{q}$ is the $\frac{\lceil(n+1)(1-\alpha)\rceil}{n}$ quantile of calib
 
 $$P\bigl(Y_{n+1} \in \hat{C}(X_{n+1})\bigr) \;\geq\; 1 - \alpha$$
 
-→ See [Conformal Prediction](../../methods/conformal/index.md) for [SplitConformal](../../api/losses.md#splitconformal), CQR and distributional CP.
+→ See [Conformal Prediction](../../methods/conformal/index.md) for [SplitConformal](../../api/losses.md), CQR and distributional CP.
 
 ---
 
@@ -170,14 +170,14 @@ When continuous targets $y$ are highly imbalanced, empirical estimators in spars
 **Label Distribution Smoothing (LDS):**
 LDS estimates the empirical label density $p(y)$ and smooths it using a symmetric kernel $k$:
 $$\tilde{p}(y) = \int p(z) k(y, z) dz$$
-Samples are then reweighted by $w_i \propto 1 / \tilde{p}(y_i)$ to balance the objective function. See [LDSLoss](../../api/losses.md#ldsloss).
+Samples are then reweighted by $w_i \propto 1 / \tilde{p}(y_i)$ to balance the objective function. See [LDSLoss](../../api/losses.md).
 
 **Feature Distribution Smoothing (FDS):**
 FDS smooths the running mean $\mu_b$ and covariance $\Sigma_b$ of model features across adjacent target bins $b$:
 $$\tilde{\mu}_b = \sum_{b'} \omega(b, b') \mu_{b'} \qquad \tilde{\Sigma}_b = \sum_{b'} \omega(b, b') \Sigma_{b'}$$
 Features $\mathbf{z}$ are then calibrated during training via whitening and recoloring:
 $$\tilde{\mathbf{z}} = \tilde{\Sigma}_b^{1/2} \Sigma_b^{-1/2} (\mathbf{z} - \mu_b) + \tilde{\mu}_b$$
-See [FeatureDistributionSmoother](../../api/losses.md#featuredistributionsmoother).
+See [FeatureDistributionSmoother](../../api/losses.md).
 
 ### Measurement Error (Errors-in-Variables)
 
@@ -189,7 +189,7 @@ For discrete ordered targets, we use the **Cumulative Link Model**:
 
 $$P(Y \leq k \mid x) = \sigma(\theta_k - f(x))$$
 
-where $\theta_1 < \theta_2 < \dots < \theta_{K-1}$ are learned thresholds. See [CumulativeLinkLoss](../../api/losses.md#cumulativelinkloss).
+where $\theta_1 < \theta_2 < \dots < \theta_{K-1}$ are learned thresholds. See [CumulativeLinkLoss](../../api/losses.md).
 
 ---
 

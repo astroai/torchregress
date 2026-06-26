@@ -4,7 +4,7 @@ This example compares uncertainty methods on a **real tabular regression dataset
 (`sklearn.datasets.load_diabetes`) using a **deterministic covariate-shift OOD split**
 and shared budgets.
 
-→ API: [`HeteroscedasticEnsembleModel`](../api/ensemble.md#heteroscedasticensemblemodel), [`mahalanobis_distance`](../api/metrics.md#mahalanobis_distance), [`RiskCoverageCurve`](../api/metrics.md#riskcoveragecurve).
+→ API: [`HeteroscedasticEnsembleModel`](../api/ensemble.md), [`mahalanobis_distance`](../api/metrics.md), [`RiskCoverageCurve`](../api/metrics.md).
 
 Script: `examples/ood_selective_prediction_realdata_comparison.py`
 

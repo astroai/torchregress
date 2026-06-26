@@ -10,22 +10,22 @@ For a task-first shortlist before diving into implementation details, use the
 Selecting the appropriate loss function is crucial for successful regression modeling. Here's a decision tree to help you choose:
 
 1. **Are there outliers in your data?**
-   - **Yes**: Consider robust losses like [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss), [`LogCoshLoss`](../api/losses.md#logcoshloss), or [`CauchyLoss`](../api/losses.md#cauchyloss)
-   - **No**: Standard losses like [`WeightedMSELoss`](../api/losses.md#weightedmseloss) or [`WeightedL1Loss`](../api/losses.md#weightedl1loss) may be sufficient
+   - **Yes**: Consider robust losses like [`WeightedHuberLoss`](../api/losses.md), [`LogCoshLoss`](../api/losses.md), or [`CauchyLoss`](../api/losses.md)
+   - **No**: Standard losses like [`WeightedMSELoss`](../api/losses.md) or [`WeightedL1Loss`](../api/losses.md) may be sufficient
 
 2. **Do you need uncertainty estimates?**
    - **Yes**:
-     - **Is your uncertainty heteroscedastic (varies with input)?** Use [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss)
-     - **Is your distribution multi-modal?** Use [`MDNLoss`](../api/losses.md#mdnloss) (Mixture Density Networks)
-     - **Do you need flexible distribution shapes?** Use [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss)
+     - **Is your uncertainty heteroscedastic (varies with input)?** Use [`GaussianNLLLoss`](../api/losses.md)
+     - **Is your distribution multi-modal?** Use [`MDNLoss`](../api/losses.md) (Mixture Density Networks)
+     - **Do you need flexible distribution shapes?** Use [`NormalizingFlowLoss`](../api/losses.md)
    - **No**: Standard point prediction losses are sufficient
 
 3. **Are you working with count data or non-negative values?**
-   - **Yes**: Consider [`PoissonDevianceLoss`](../api/losses.md#poissondevianceloss) or `TweedieLoss`
+   - **Yes**: Consider [`PoissonDevianceLoss`](../api/losses.md) or `TweedieLoss`
    - **No**: Standard losses are appropriate
 
 4. **Do you need prediction intervals without distributional assumptions?**
-   - **Yes**: Use [`QuantileLoss`](../api/losses.md#quantileloss) with multiple quantiles (e.g., 0.05 and 0.95 for 90% intervals)
+   - **Yes**: Use [`QuantileLoss`](../api/losses.md) with multiple quantiles (e.g., 0.05 and 0.95 for 90% intervals)
    - **No**: Parametric uncertainty methods may be more efficient
 
 5. **Is there uncertainty in your input features (not just targets)?**

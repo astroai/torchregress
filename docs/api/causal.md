@@ -88,46 +88,8 @@ print(f"Overlap rate: {ate['diagnostics']['overlap_rate']:.3f}, "
 
 ---
 
-## Decision guide
-
-| Goal | Use |
-|:-----|:----|
-| Average treatment effect | `dr_ate` |
-| Heterogeneous treatment effects | `dr_cate` |
-| Value of a fixed binary policy | `dr_policy_value` |
-| Diagnose overlap / positivity violations | `causal_overlap_report` |
-| Compare two policies | `dr_policy_value` for each, compare CIs |
-
 ## Next steps
 
-- [Causal inference methods](../methods/causal.md)
-- [Diagnostics visualizations](../api/viz.md#results-visualisation-vizresults)
-
-
-## Causal Reference
-
-### dr_ate
-
-Doubly robust estimator for average treatment effect (ATE):
-
-$$
-\text{ATE}_{\text{DR}} = \frac{1}{N}\sum_{i=1}^N \left( \left( \frac{T_i Y_i}{e(X_i)} - \frac{T_i - e(X_i)}{e(X_i)} \mu_1(X_i) \right) - \left( \frac{(1-T_i)Y_i}{1-e(X_i)} + \frac{T_i - e(X_i)}{1-e(X_i)} \mu_0(X_i) \right) \right)
-$$
-
-where $T_i$ is treatment, $Y_i$ is outcome, $e(X_i)$ is propensity score, and $\mu_1, \mu_0$ are outcome models.
-
-### dr_cate
-
-Doubly robust estimator for conditional average treatment effect (CATE):
-
-$$
-\tau(x) = \mathbb{E}[Y(1) - Y(0) \mid X=x]
-$$
-
-### dr_policy_value
-
-Estimates policy value under doubly robust outcome transformation scores.
-
-### causal_overlap_report
-
-Generates propensity score overlap diagnostics.
+- [Causal inference methods](../methods/causal.md) — background, decision guidance, references
+- [Diagnostics visualizations](../api/viz.md)
+- [DR diagnostics](../api/viz.md) — reliability plots for residual checks

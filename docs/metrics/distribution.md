@@ -38,7 +38,7 @@ loss = crps_gaussian(mu, y_true, sigma)
 loss = energy_score(y_samples, y_true)
 ```
 
-→ See [Mathematical Foundations](../guide/math/index.md) for the Gaussian closed-form derivation. API Reference: [crps_gaussian](../api/metrics.md#crps_gaussian).
+→ See [Mathematical Foundations](../guide/math/index.md) for the Gaussian closed-form derivation. API Reference: [crps_gaussian](../api/metrics.md).
 
 ---
 
@@ -59,7 +59,7 @@ from torchregress.metrics import energy_score
 score = energy_score(y_samples, y_true)
 ```
 
-API Reference: [energy_score](../api/metrics.md#energy_score).
+API Reference: [energy_score](../api/metrics.md).
 
 ---
 
@@ -86,7 +86,7 @@ from torchregress.viz import plot_pit_histogram
 plot_pit_histogram(y_pred_dist, y_true, bins=20)
 ```
 
-API Reference: [plot_pit_histogram](../api/viz.md#plot_pit_histogram).
+API Reference: [plot_pit_histogram](../api/viz.md).
 
 ---
 
@@ -114,10 +114,10 @@ This is the recommended way to evaluate complex probabilistic models, as it prov
 
 | Metric | Best For | Proper? | API Reference |
 |:-------|:---------|:-------:|:--------------|
-| **NLL** | Parametric models | ✅ | [gaussian_nll](../api/metrics.md#gaussian_nll) |
-| **CRPS** | Univariate uncertainty | ✅ | [crps_gaussian](../api/metrics.md#crps_gaussian) |
-| **Energy Score** | Multivariate uncertainty | ✅ | [energy_score](../api/metrics.md#energy_score) |
-| **PIT** | Calibration check | — | [plot_pit_histogram](../api/viz.md#plot_pit_histogram) |
+| **NLL** | Parametric models | ✅ | [gaussian_nll](../api/metrics.md) |
+| **CRPS** | Univariate uncertainty | ✅ | [crps_gaussian](../api/metrics.md) |
+| **Energy Score** | Multivariate uncertainty | ✅ | [energy_score](../api/metrics.md) |
+| **PIT** | Calibration check | — | [plot_pit_histogram](../api/viz.md) |
 
 ---
 

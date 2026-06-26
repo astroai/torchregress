@@ -20,7 +20,7 @@ from torchregress.metrics.interval import interval_score
 # lower_bound and upper_bound typically represent a 90% prediction interval
 score = interval_score(lower_bound, upper_bound, y_true, alpha=0.1)
 ```
-See also: [interval_score](../api/metrics.md#interval_score).
+See also: [interval_score](../api/metrics.md).
 
 ---
 
@@ -40,7 +40,7 @@ from torchregress.metrics.interval import prediction_interval_coverage_probabili
 # Calculate basic PICP
 picp = prediction_interval_coverage_probability(lower_bound, upper_bound, y_true)
 ```
-See also: [prediction_interval_coverage_probability](../api/metrics.md#prediction_interval_coverage_probability).
+See also: [prediction_interval_coverage_probability](../api/metrics.md).
 
 ---
 
@@ -69,7 +69,7 @@ mpiw_metric.update(lower_bound, upper_bound)
 width = mpiw_metric.compute()
 ```
 
-See also: [`MeanPredictionIntervalWidth`](../api/metrics.md#meanpredictionintervalwidth) and [prediction_interval_coverage_probability](../api/metrics.md#prediction_interval_coverage_probability) (`return_diagnostics=True`).
+See also: [`MeanPredictionIntervalWidth`](../api/metrics.md) and [prediction_interval_coverage_probability](../api/metrics.md) (`return_diagnostics=True`).
 
 ---
 
@@ -91,7 +91,7 @@ predictions = {
 # Generate comprehensive report
 report = interval_metrics_report(predictions, y_true, alpha=0.1)
 ```
-See also: [interval_metrics_report](../api/metrics.md#interval_metrics_report).
+See also: [interval_metrics_report](../api/metrics.md).
 
 ---
 

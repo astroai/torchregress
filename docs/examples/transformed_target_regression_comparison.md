@@ -1,15 +1,15 @@
 # Transformed-Target Regression Comparison
 
-→ Guide: [Target transforms](../losses/transforms.md). API: [`LogTransformLoss`](../api/losses.md#logtransformloss), [`BoxCoxTransformLoss`](../api/losses.md#boxcoxtransformloss), [`SqrtTransformLoss`](../api/losses.md#sqrttransformloss).
+→ Guide: [Target transforms](../losses/transforms.md). API: [`LogTransformLoss`](../api/losses.md), [`BoxCoxTransformLoss`](../api/losses.md), [`SqrtTransformLoss`](../api/losses.md).
 
 Script: `examples/transformed_target_regression_comparison.py`
 
 Compares shared-budget positive-target models using:
 
-- [`WeightedMSELoss`](../api/losses.md#weightedmseloss)
-- [`LogTransformLoss`](../api/losses.md#logtransformloss)
-- [`BoxCoxTransformLoss`](../api/losses.md#boxcoxtransformloss)
-- [`SqrtTransformLoss`](../api/losses.md#sqrttransformloss)
+- [`WeightedMSELoss`](../api/losses.md)
+- [`LogTransformLoss`](../api/losses.md)
+- [`BoxCoxTransformLoss`](../api/losses.md)
+- [`SqrtTransformLoss`](../api/losses.md)
 
 Reported metrics:
 

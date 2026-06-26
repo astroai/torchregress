@@ -1,8 +1,8 @@
 # Beta-NLL Heteroscedastic Regression Example
 
-→ Guide: [Beta-NLL loss](../losses/beta_nll.md). API: [`BetaNLLLoss`](../api/losses.md#betanllloss), [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss).
+→ Guide: [Beta-NLL loss](../losses/beta_nll.md). API: [`BetaNLLLoss`](../api/losses.md), [`GaussianNLLLoss`](../api/losses.md).
 
-This example demonstrates how to use the [`BetaNLLLoss`](../api/losses.md#betanllloss) to train heteroscedastic neural networks that are robust to variance overestimation and outliers. Compare with [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) in the [loss guide](../losses/beta_nll.md).
+This example demonstrates how to use the [`BetaNLLLoss`](../api/losses.md) to train heteroscedastic neural networks that are robust to variance overestimation and outliers. Compare with [`GaussianNLLLoss`](../api/losses.md) in the [loss guide](../losses/beta_nll.md).
 
 | # | Reference |
 |:-:|:----------|
@@ -38,7 +38,7 @@ where $\beta \in [0, 1]$ is a hyperparameter:
 
 ## Task-First Context
 
-- **When to Use**: Use [`BetaNLLLoss`](../api/losses.md#betanllloss) for **heteroscedastic regression** tasks when the training data contains **heavy-tailed noise** or **outliers** that cause standard Gaussian NLL to overestimate predictive variance.
+- **When to Use**: Use [`BetaNLLLoss`](../api/losses.md) for **heteroscedastic regression** tasks when the training data contains **heavy-tailed noise** or **outliers** that cause standard Gaussian NLL to overestimate predictive variance.
 - **Comparison Notes**: Evaluate models trained with standard NLL vs. Beta-NLL on a clean, held-out validation set. Report both RMSE (for point prediction accuracy) and standard Gaussian NLL (for calibration quality).
 
 ---

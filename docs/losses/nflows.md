@@ -19,7 +19,7 @@ $$\mathcal{L}_{\text{NF}}(x) = -\log p_Z(f(x)) - \sum_{k=1}^K \log\!\left|\det\f
 
 where $f_0 = x$ is the input and $f_K = f(x)$ is the base-space representation.
 
-See the [NormalizingFlowLoss API](../api/losses.md#normalizingflowloss) for the training contract and `create_flow_loss` helper.
+See the [NormalizingFlowLoss API](../api/losses.md) for the training contract and `create_flow_loss` helper.
 
 ## Usage
 

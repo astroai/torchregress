@@ -30,7 +30,7 @@ Modern neural networks are notoriously **overconfident** \[1\]. A model might pr
 
 **torchregress** provides three main calibrators, each targeting a different type of miscalibration.
 
-### 1. Variance Temperature Scaling ([VarianceTemperatureScaler](../api/calibration.md#variancetemperaturescaler))
+### 1. Variance Temperature Scaling ([VarianceTemperatureScaler](../api/calibration.md))
 
 Rescales the predicted variance $\sigma^2$ by a single learned "temperature" $T$. This is the most popular method for fixing over/under-confidence while preserving the model's heteroscedasticity.
 
@@ -51,7 +51,7 @@ calibrated_var = scaler.transform(pred_var_test)
     * **Small-set risks**: Non-parametric calibrators (`IsotonicMeanCalibrator`, `PITCalibrator`) can **overfit** the calibration set when it is small ($n < 500$), producing jagged mappings that don't generalize. For small calibration sets, prefer `VarianceTemperatureScaler` (1 parameter).
 
 
-### 2. Isotonic Mean Calibration ([IsotonicMeanCalibrator](../api/calibration.md#isotonicmeancalibrator))
+### 2. Isotonic Mean Calibration ([IsotonicMeanCalibrator](../api/calibration.md))
 
 Corrects systematic **bias** in point predictions. If your model consistently over-predicts in some regions and under-predicts in others, isotonic regression learns a monotone mapping to fix it.
 
@@ -63,7 +63,7 @@ cal.fit(mu_cal, y_cal)
 calibrated_mu = cal.transform(mu_test)
 ```
 
-### 3. PIT Calibration ([PITCalibrator](../api/calibration.md#pitcalibrator))
+### 3. PIT Calibration ([PITCalibrator](../api/calibration.md))
 
 The most flexible non-parametric method \[2\]. It learns a monotone mapping from **PIT values** (how far predictive ranks deviate from uniform) to better-calibrated ranks. This can fix distributional miscalibration that a single global temperature cannot.
 
@@ -85,9 +85,9 @@ calibrated_pit = cal.transform(pit_test)
 
 | Method | Target | Parameters | API Reference | Best For |
 |:-------|:-------|:-----------|:--------------|:---------|
-| **Temperature** | Variance | 1 (Scalar) | [VarianceTemperatureScaler](../api/calibration.md#variancetemperaturescaler) | Heteroscedastic Gaussian models |
-| **Isotonic** | Mean Bias | Non-parametric | [IsotonicMeanCalibrator](../api/calibration.md#isotonicmeancalibrator) | Systematic point-prediction errors |
-| **PIT** | PIT ranks | Non-parametric | [PITCalibrator](../api/calibration.md#pitcalibrator) | Any model with CDF / Gaussian predictive std |
+| **Temperature** | Variance | 1 (Scalar) | [VarianceTemperatureScaler](../api/calibration.md) | Heteroscedastic Gaussian models |
+| **Isotonic** | Mean Bias | Non-parametric | [IsotonicMeanCalibrator](../api/calibration.md) | Systematic point-prediction errors |
+| **PIT** | PIT ranks | Non-parametric | [PITCalibrator](../api/calibration.md) | Any model with CDF / Gaussian predictive std |
 
 ---
 
@@ -114,7 +114,7 @@ calibrated_pit = cal.transform(pit_test)
 ---
 
 ## Next Steps
-- [Calibration Metrics](../metrics/calibration.md) — [`expected_calibration_error`](../api/metrics.md#expected_calibration_error), [`marginal_calibration_error`](../api/metrics.md#marginal_calibration_error)
+- [Calibration Metrics](../metrics/calibration.md) — [`expected_calibration_error`](../api/metrics.md), [`marginal_calibration_error`](../api/metrics.md)
 - [Conformal Prediction](../methods/conformal/index.md) (coverage guarantees vs post-hoc calibration)
 - [Calibration comparison example](../examples/constraints_calibration_comparison.md)
 - [Calibration API](../api/calibration.md) (calibrator classes)

@@ -2,7 +2,7 @@
 
 These losses target settings where labels are noisy, partially trusted, weakly supervised, or augmented with pseudo labels.
 
-→ API: [`NoisyTargetGaussianNLL`](../api/losses.md#noisytargetgaussiannll), [`PseudoLabelNLL`](../api/losses.md#pseudolabelnll), [`ConsistencyRegLoss`](../api/losses.md#consistencyregloss), [`PseudoLabelConsistencyLoss`](../api/losses.md#pseudolabelconsistencyloss).
+→ API: [`NoisyTargetGaussianNLL`](../api/losses.md), [`PseudoLabelNLL`](../api/losses.md), [`ConsistencyRegLoss`](../api/losses.md), [`PseudoLabelConsistencyLoss`](../api/losses.md).
 
 Available losses:
 
@@ -20,10 +20,10 @@ Related utilities:
 
 | Loss | Start here when | Main signal | API |
 |:-----|:----------------|:------------|:----|
-| `NoisyTargetGaussianNLL` | labels come with reported variance/error bars | explicit target-noise variance | [`NoisyTargetGaussianNLL`](../api/losses.md#noisytargetgaussiannll) |
-| `PseudoLabelNLL` | Gaussian head + pseudo labels + confidence weights | probabilistic self-training | [`PseudoLabelNLL`](../api/losses.md#pseudolabelnll) |
-| `ConsistencyRegLoss` | you already have a trusted teacher prediction | student-teacher agreement | [`ConsistencyRegLoss`](../api/losses.md#consistencyregloss) |
-| `PseudoLabelConsistencyLoss` | you want pseudo labels plus teacher consistency in one point-regression loss | supervised + pseudo-label + teacher consistency | [`PseudoLabelConsistencyLoss`](../api/losses.md#pseudolabelconsistencyloss) |
+| `NoisyTargetGaussianNLL` | labels come with reported variance/error bars | explicit target-noise variance | [`NoisyTargetGaussianNLL`](../api/losses.md) |
+| `PseudoLabelNLL` | Gaussian head + pseudo labels + confidence weights | probabilistic self-training | [`PseudoLabelNLL`](../api/losses.md) |
+| `ConsistencyRegLoss` | you already have a trusted teacher prediction | student-teacher agreement | [`ConsistencyRegLoss`](../api/losses.md) |
+| `PseudoLabelConsistencyLoss` | you want pseudo labels plus teacher consistency in one point-regression loss | supervised + pseudo-label + teacher consistency | [`PseudoLabelConsistencyLoss`](../api/losses.md) |
 
 ## Objectives
 

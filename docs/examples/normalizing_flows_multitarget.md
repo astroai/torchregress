@@ -2,7 +2,7 @@
 
 This example demonstrates how to use normalizing flows for multi-target regression with complex, potentially multimodal distributions.
 
-→ API: [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss). Guide: [Normalizing flows](../losses/nflows.md).
+→ API: [`NormalizingFlowLoss`](../api/losses.md). Guide: [Normalizing flows](../losses/nflows.md).
 
 ## Task-First Context
 

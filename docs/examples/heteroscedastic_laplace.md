@@ -2,7 +2,7 @@
 
 This guide explains how to perform Bayesian last-layer Laplace posterior approximation on deep heteroscedastic neural networks using `HeteroscedasticLaplaceRegressor` and `NaturalHeteroscedasticHead` to decompose predictive uncertainty.
 
-→ API: [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`uncertainty_decomposition`](../api/metrics.md#uncertainty_decomposition). Guide: [Inference methods](../methods/inference.md).
+→ API: [`GaussianNLLLoss`](../api/losses.md), [`uncertainty_decomposition`](../api/metrics.md). Guide: [Inference methods](../methods/inference.md).
 
 | # | Reference |
 |:-:|:----------|

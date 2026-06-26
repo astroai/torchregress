@@ -25,7 +25,7 @@ from torchregress.metrics.ensemble import ensemble_statistics
 predictions = torch.randn(5, 100)  # 5 ensemble members, 100 predictions each
 mean, variance = ensemble_statistics(predictions)
 ```
-See also: [ensemble_statistics](../api/metrics.md#ensemble_statistics).
+See also: [ensemble_statistics](../api/metrics.md).
 
 ---
 
@@ -50,7 +50,7 @@ from torchregress.metrics.ensemble import uncertainty_decomposition
 # means: [M, N], variances: [M, N]
 uncertainty = uncertainty_decomposition(means, variances)
 ```
-See also: [uncertainty_decomposition](../api/metrics.md#uncertainty_decomposition).
+See also: [uncertainty_decomposition](../api/metrics.md).
 
 ---
 
@@ -69,7 +69,7 @@ from torchregress.metrics.ensemble import gaussian_nll_ensemble
 
 nll = gaussian_nll_ensemble(means, variances, y_true)
 ```
-See also: [gaussian_nll_ensemble](../api/metrics.md#gaussian_nll_ensemble).
+See also: [gaussian_nll_ensemble](../api/metrics.md).
 
 ---
 
@@ -92,7 +92,7 @@ from torchregress.metrics.ensemble import ensemble_interval_bounds
 
 lower, upper = ensemble_interval_bounds(means, variances, alpha=0.1)
 ```
-See also: [ensemble_interval_bounds](../api/metrics.md#ensemble_interval_bounds).
+See also: [ensemble_interval_bounds](../api/metrics.md).
 
 ---
 
@@ -105,7 +105,7 @@ from torchregress.metrics.ensemble import ensemble_interval_metrics
 
 metrics = ensemble_interval_metrics(means, variances, y_true, alpha=0.1)
 ```
-See also: [ensemble_interval_metrics](../api/metrics.md#ensemble_interval_metrics).
+See also: [ensemble_interval_metrics](../api/metrics.md).
 
 ---
 

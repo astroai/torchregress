@@ -6,627 +6,147 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 
 ---
 
+---
+
 ## Point metrics (`metrics.point`)
 
-| Symbol | Description |
-|:-------|:------------|
-| [`mse(y_pred, y, sample_weight=…)`](#mse) | Functional MSE. |
-| [`rmse(y_pred, y, …)`](#rmse) | Functional RMSE. |
-| [`mae(y_pred, y, …)`](#mae) | Functional MAE. |
-| [`r2_score(y_pred, y)`](#r2_score) | Functional R². |
-| [`huber_loss(y_pred, y, delta=…)`](#huber_loss) | Functional Huber. |
-| `median_absolute_error` | MedAE. |
-| `median_absolute_deviation` | MAD. |
-| `mean_absolute_percentage_error` | MAPE. |
-| `mean_squared_log_error` | MSLE. |
-| `normalized_rmse` | RMSE normalised by `mean(|y|)`. |
-| `trimmed_mean_squared_error` | Trimmed-MSE. |
-| `attenuation_factor` | EIV attenuation-bias diagnostic. |
-| `tail_rmse(y_pred, y, q=0.1)` | RMSE on the upper-`q` tail. |
-| `tail_mae(y_pred, y, q=0.1)` | MAE on the upper-`q` tail. |
-| `regression_metrics_report(y_pred, y, …)` | Aggregate report dict. |
+→ **Guide:** [Point metrics](../metrics/point.md)
 
-### Function Details
-
-#### `mse`
-
-Functional Mean Squared Error:
-
-```python
-mse(y_pred, y_true, sample_weight=None, reduction="mean")
-```
-
-$$
-\text{MSE} = \frac{1}{\sum_{i=1}^N w_i} \sum_{i=1}^N w_i (y_i - \hat{y}_i)^2
-$$
-
-(with $w_i = 1$ when `sample_weight` is omitted)
-
-#### `rmse`
-
-Functional Root Mean Squared Error:
-
-```python
-rmse(y_pred, y_true, sample_weight=None, reduction="mean")
-```
-
-$$
-\text{RMSE} = \sqrt{\text{MSE}}
-$$
-
-#### `mae`
-
-Functional Mean Absolute Error:
-
-```python
-mae(y_pred, y_true, sample_weight=None, reduction="mean")
-```
-
-$$
-\text{MAE} = \frac{1}{\sum_{i=1}^N w_i} \sum_{i=1}^N w_i |y_i - \hat{y}_i|
-$$
-
-#### `r2_score`
-
-Functional R² coefficient of determination:
-
-```python
-r2_score(y_pred, y_true, as_numpy=False)
-```
-
-$$
-R^2 = 1 - \frac{\sum_{i=1}^N (y_i - \hat{y}_i)^2}{\sum_{i=1}^N (y_i - \bar{y})^2}
-$$
-
-#### `huber_loss`
-
-Functional Huber loss metric:
-
-```python
-huber_loss(y_pred, y_true, delta=1.0, sample_weight=None, reduction="mean")
-```
-
-$$
-\text{Huber}(r) = \begin{cases} \frac{1}{2} r^2 & \text{if } |r| \le \delta \\ \delta |r| - \frac{1}{2} \delta^2 & \text{otherwise} \end{cases}
-$$
-
-#### `mean_absolute_percentage_error`
-
-Functional Mean Absolute Percentage Error:
-
-```python
-mean_absolute_percentage_error(y_pred, y_true, sample_weight=None, reduction="mean", eps=1e-8)
-```
-
-$$
-\text{MAPE} = \frac{1}{\sum_i w_i} \sum_i w_i \frac{|y_i - \hat{y}_i|}{\max(|y_i|, \varepsilon)}
-$$
-
-#### `mean_squared_log_error`
-
-Functional Mean Squared Log Error:
-
-```python
-mean_squared_log_error(y_pred, y_true, sample_weight=None, reduction="mean")
-```
-
-$$
-\text{MSLE} = \frac{1}{\sum_i w_i} \sum_i w_i \left(\log(\max(y_i, 0) + 1) - \log(\max(\hat{y}_i, 0) + 1)\right)^2
-$$
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `mse` | `mse(y_pred, y, sample_weight=None)` | Functional MSE |
+| `rmse` | `rmse(y_pred, y, sample_weight=None)` | Functional RMSE |
+| `mae` | `mae(y_pred, y, sample_weight=None)` | Functional MAE |
+| `r2_score` | `r2_score(y_pred, y, as_numpy=False)` | Functional R² |
+| `huber_loss` | `huber_loss(y_pred, y, delta=1.0)` | Functional Huber loss |
+| `median_absolute_error` | `median_absolute_error(y_pred, y)` | MedAE |
+| `median_absolute_deviation` | `median_absolute_deviation(y_pred, y)` | MAD |
+| `mean_absolute_percentage_error` | `mean_absolute_percentage_error(y_pred, y)` | MAPE |
+| `mean_squared_log_error` | `mean_squared_log_error(y_pred, y)` | MSLE |
+| `normalized_rmse` | `normalized_rmse(y_pred, y, normalization='std')` | NRMSE |
+| `trimmed_mean_squared_error` | `trimmed_mean_squared_error(y_pred, y, proportion=0.1)` | Trimmed MSE |
+| `tail_rmse` | `tail_rmse(y_pred, y, q=0.1, tail='upper')` | Upper-tail RMSE |
+| `tail_mae` | `tail_mae(y_pred, y, q=0.1, tail='upper')` | Upper-tail MAE |
+| `outlier_fraction` | `outlier_fraction(y_pred, y, threshold=0.15)` | Fraction beyond threshold |
+| `regression_metrics_report` | `regression_metrics_report(y_pred, y)` | Aggregate report dict |
 
 ---
 
 ## Distributional metrics (`metrics.distribution`)
 
-| Symbol | Description |
-|:-------|:------------|
-| [`crps_gaussian(mean, y, std)`](#crps_gaussian) | Analytic CRPS for Gaussian $(\mu, \sigma)$. |
-| [`continuous_ranked_probability_score(quantiles, y)`](#continuous_ranked_probability_score) | CRPS from a dict of quantile forecasts. |
-| `crps_from_samples(samples, y)` | Empirical CRPS. |
-| [`energy_score(samples, y)`](#energy_score) | Energy score (multivariate). |
-| [`gaussian_nll(mean, y, var)`](#gaussian_nll) | Diagonal Gaussian NLL (variance, not log-var). |
-| [`probability_integral_transform(cdf_fn, y)`](#probability_integral_transform) | PIT values via a CDF callable. |
-| `kolmogorov_smirnov_uniform_statistic(pit)` | KS-uniform statistic on PIT. |
+→ **Guide:** [Distribution metrics](../metrics/distribution.md)
 
-### Function Details
-
-#### `crps_gaussian`
-
-Analytic CRPS for a Gaussian predictive distribution $\mathcal{N}(\mu, \sigma^2)$:
-
-```python
-crps_gaussian(mean, y_true, std, reduction="mean")
-```
-
-$$
-\text{CRPS}(y) = \sigma \left( \frac{y - \mu}{\sigma} \left( 2\Phi\left(\frac{y - \mu}{\sigma}\right) - 1 \right) + 2\phi\left(\frac{y - \mu}{\sigma}\right) - \frac{1}{\sqrt{\pi}} \right)
-$$
-
-#### `continuous_ranked_probability_score`
-
-CRPS from quantile forecasts (at least two levels):
-
-```python
-continuous_ranked_probability_score({0.1: q10, 0.5: q50, 0.9: q90}, y_true, reduction="mean")
-```
-
-#### `energy_score`
-
-Multivariate energy score evaluating sample distributions against targets:
-
-```python
-energy_score(y_samples, y_true, beta=1.0, max_pairs=None, reduction="mean")
-```
-
-`y_samples` has shape `[n_samples, batch, ...]`.
-
-$$
-\text{EnergyScore}(Y, y) = \mathbb{E}\left[\|Y - y\|_2\right] - \frac{1}{2} \mathbb{E}\left[\|Y - Y'\|_2\right]
-$$
-
-where $Y, Y'$ are independent samples drawn from the predictive model.
-
-#### `gaussian_nll`
-
-Diagonal Gaussian negative log-likelihood:
-
-```python
-gaussian_nll(mean, y_true, var, reduction="mean")
-```
-
-(`var` is variance $\sigma^2$, not log-variance.)
-
-$$
-\mathcal{L}_i = \frac{1}{2} \log(2\pi \sigma_i^2) + \frac{(y_i - \mu_i)^2}{2\sigma_i^2}
-$$
-
-#### `probability_integral_transform`
-
-PIT values from a predictive CDF callable:
-
-```python
-pit = probability_integral_transform(cdf_fn, y_true)
-# Gaussian shortcut:
-from torchregress.utils.distributions import normal_cdf
-pit = normal_cdf((y_true - mean) / std.clamp_min(1e-8))
-```
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `crps_gaussian` | `crps_gaussian(mean, y_true, std, reduction="mean")` | Analytic CRPS for Gaussian (μ, σ) |
+| `continuous_ranked_probability_score` | `continuous_ranked_probability_score(quantiles, y_true)` | CRPS from quantile forecasts |
+| `crps_from_samples` | `crps_from_samples(samples, y)` | Empirical CRPS from MC samples |
+| `energy_score` | `energy_score(y_samples, y_true, beta=1.0)` | Multivariate energy score |
+| `gaussian_nll` | `gaussian_nll(mean, y_true, var, reduction="mean")` | Diagonal Gaussian NLL (variance, not log-var) |
+| `probability_integral_transform` | `probability_integral_transform(cdf_fn, y_true)` | PIT values via CDF callable |
+| `kolmogorov_smirnov_uniform_statistic` | `kolmogorov_smirnov_uniform_statistic(pit)` | KS-uniform on PIT |
+| `distribution_metrics_report` | `distribution_metrics_report(dist, y_true)` | Aggregate report |
 
 ---
 
 ## Interval metrics (`metrics.interval`)
 
-| Symbol | Description |
-|:-------|:------------|
-| [`interval_score(lower, upper, y, alpha=…)`](#interval_score) | Functional Winkler interval score. |
-| [`IntervalScore`](#intervalscore) | Stateful Winkler interval score (torchmetrics-style). |
-| [`prediction_interval_coverage_probability(lower, upper, y)`](#prediction_interval_coverage_probability) | Functional PICP; optional MPIW via `return_diagnostics=True`. |
-| [`prediction_interval_coverage(...)`](#prediction_interval_coverage) | Alias for `prediction_interval_coverage_probability`. |
-| [`PredictionIntervalCoverageProbability`](#predictionintervalcoverageprobability) | Stateful PICP accumulator. |
-| [`MeanPredictionIntervalWidth`](#meanpredictionintervalwidth) | Stateful MPIW accumulator. |
-| `interval_metrics_report(lower, upper, y, alpha)` | Aggregate report. |
+→ **Guide:** [Interval metrics](../metrics/interval.md)
 
-### Function Details
-
-#### `interval_score`
-
-Winkler interval score at significance level $\alpha$:
-
-```python
-interval_score(lower, upper, target, alpha=0.1, reduction="mean")
-```
-
-$$
-S_\alpha(L_i, U_i; y_i) = (U_i - L_i) + \frac{2}{\alpha} (L_i - y_i) \mathbb{I}(y_i < L_i) + \frac{2}{\alpha} (y_i - U_i) \mathbb{I}(y_i > U_i)
-$$
-
-#### `prediction_interval_coverage_probability`
-
-Empirical Prediction Interval Coverage Probability (PICP):
-
-```python
-prediction_interval_coverage_probability(lower, upper, target, alpha=0.1, return_diagnostics=False)
-```
-
-$$
-\text{PICP} = \frac{1}{\sum_{i=1}^N m_i} \sum_{i=1}^N m_i \mathbb{I}(L_i \le y_i \le U_i)
-$$
-
-MPIW is returned alongside PICP when `return_diagnostics=True`:
-
-$$
-\text{MPIW}(L, U) = \frac{1}{\sum_{i=1}^N m_i} \sum_{i=1}^N m_i (U_i - L_i)
-$$
-
-#### `IntervalScore`
-
-Stateful Winkler interval score at significance level $\alpha$:
-
-```python
-from torchregress.metrics import IntervalScore
-
-metric = IntervalScore(alpha=0.1)
-metric.update(lower_bound, upper_bound, y_true)
-score = metric.compute()
-```
-
-#### `PredictionIntervalCoverageProbability`
-
-Stateful PICP accumulator:
-
-```python
-from torchregress.metrics import PredictionIntervalCoverageProbability
-
-picp = PredictionIntervalCoverageProbability()
-picp.update(lower_bound, upper_bound, y_true)
-coverage = picp.compute()
-```
-
-#### `MeanPredictionIntervalWidth`
-
-Stateful MPIW accumulator:
-
-```python
-from torchregress.metrics import MeanPredictionIntervalWidth
-
-mpiw = MeanPredictionIntervalWidth()
-mpiw.update(lower_bound, upper_bound)
-width = mpiw.compute()
-```
-
-#### `prediction_interval_coverage`
-
-Compatibility alias for [`prediction_interval_coverage_probability`](#prediction_interval_coverage_probability).
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `interval_score` | `interval_score(lower, upper, target, alpha=0.1)` | Functional Winkler interval score |
+| `IntervalScore` | `IntervalScore(alpha=0.1)` | Stateful Winkler score |
+| `prediction_interval_coverage_probability` | `prediction_interval_coverage_probability(lower, upper, target)` | Functional PICP |
+| `PredictionIntervalCoverageProbability` | `PredictionIntervalCoverageProbability()` | Stateful PICP accumulator |
+| `MeanPredictionIntervalWidth` | `MeanPredictionIntervalWidth()` | Stateful MPIW accumulator |
+| `interval_metrics_report` | `interval_metrics_report(lower, upper, y, alpha=0.1)` | Aggregate report |
 
 ---
 
 ## Calibration metrics (`metrics.calibration`)
 
-| Symbol | Description |
-|:-------|:------------|
-| [`expected_calibration_error(y_pred_quantiles, y)`](#expected_calibration_error) | ECE for quantile predictions. |
-| [`ExpectedCalibrationError`](#expectedcalibrationerror) | Stateful torchmetrics-style ECE accumulator. |
-| [`marginal_calibration_error(y_pred_samples, y)`](#marginal_calibration_error) | MCE (max-bin error). |
-| [`MarginalCalibrationError`](#marginalcalibrationerror) | Stateful marginal calibration accumulator. |
-| [`bias(y_pred, y)`](#bias) | Mean signed error. |
-| [`calibration_score(y_pred, y_pred_std, y)`](#calibration_score) | Combined calibration quality. |
-| `calibration_metrics_report(y_pred, y_pred_std, y)` | Aggregate report. |
+→ **Guide:** [Calibration metrics](../metrics/calibration.md)
 
-### Function Details
-
-#### `expected_calibration_error`
-
-Quantile Expected Calibration Error (MACE):
-
-```python
-expected_calibration_error(y_pred_quantiles, target, return_diagnostics=False)
-```
-
-$$
-\text{MACE} = \frac{1}{Q} \sum_{q \in \mathcal{Q}} |q - \hat{p}(q)|
-$$
-
-where $\hat{p}(q) = \frac{1}{N} \sum_i \mathbb{I}(y_i \le \hat{y}_{i, q})$.
-
-#### `marginal_calibration_error`
-
-Marginal Calibration Error for continuous predictions:
-
-```python
-marginal_calibration_error(y_pred_samples, target, n_bins=20)
-```
-
-$$
-\text{MCE}_{\text{marginal}} = \frac{1}{B} \sum_{k=1}^B |F_{\text{obs}}(b_{k+1}) - \bar{F}_{\text{pred}}(b_{k+1})|
-$$
-
-#### `ExpectedCalibrationError`
-
-Stateful `torchmetrics.Metric` wrapper around quantile calibration error. Accumulates batches via `update(y_pred_quantiles, y_true)` and returns MACE, RMSCE, and maximum calibration error from `compute()`.
-
-#### `MarginalCalibrationError`
-
-Stateful `torchmetrics.Metric` for marginal calibration error on sample-based predictive distributions. Accumulates via `update(y_pred_samples, y_true)` and returns marginal and maximum MCE from `compute()`.
-
-#### `bias`
-
-Mean prediction bias:
-
-```python
-bias(y_pred, target)
-```
-
-$$
-\text{Bias} = \frac{1}{N} \sum_{i=1}^N (\hat{y}_i - y_i)
-$$
-
-#### `calibration_score`
-
-Evaluates calibration score on a Gaussian distribution using 19 quantile levels:
-
-```python
-calibration_score(y_true, pred_mean, pred_std)
-```
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `expected_calibration_error` | `expected_calibration_error(y_pred_quantiles, target)` | ECE for quantile predictions |
+| `ExpectedCalibrationError` | `ExpectedCalibrationError()` | Stateful ECE accumulator |
+| `marginal_calibration_error` | `marginal_calibration_error(y_pred_samples, target, n_bins=20)` | Marginal calibration error |
+| `MarginalCalibrationError` | `MarginalCalibrationError()` | Stateful MCE accumulator |
+| `bias` | `bias(y_pred, target)` | Mean signed error |
+| `calibration_score` | `calibration_score(y_true, pred_mean, pred_std)` | Combined calibration score |
+| `calibration_metrics_report` | `calibration_metrics_report(y_pred, y_pred_std, y)` | Aggregate report |
 
 ---
 
 ## Ensemble metrics (`metrics.ensemble`)
 
-| Symbol | Description |
-|:-------|:------------|
-| `ensemble_statistics(preds)` | Aggregate mean and variance. |
-| [`uncertainty_decomposition(means, variances)`](#uncertainty_decomposition) | Law of Total Variance decomposition. |
-| [`gaussian_nll_ensemble(means, variances, y)`](#gaussian_nll_ensemble) | NLL of ensemble predictions. |
+→ **Guide:** [Ensemble metrics](../metrics/ensemble.md)
 
-### Function Details
-
-#### `ensemble_statistics`
-
-Aggregates ensemble member predictions to mean and sample variance:
-
-```python
-ensemble_statistics(predictions, dim=0)
-```
-
-$$
-\bar{y}_i = \frac{1}{M} \sum_{m=1}^M y_i^{(m)}, \qquad
-\text{Var}(y_i) = \frac{1}{M} \sum_{m=1}^M \left(y_i^{(m)} - \bar{y}_i\right)^2
-$$
-
-#### `uncertainty_decomposition`
-
-Decomposes ensembled uncertainty:
-
-```python
-uncertainty_decomposition(means, variances, dim=0)
-```
-
-- Epistemic uncertainty: $\sigma^2_{\text{epistemic}}(x) = \frac{1}{M}\sum (\mu_m(x) - \bar{\mu}(x))^2$
-- Aleatoric uncertainty: $\sigma^2_{\text{aleatoric}}(x) = \frac{1}{M}\sum \sigma^2_m(x)$
-- Total uncertainty: $\sigma^2_{\text{total}}(x) = \sigma^2_{\text{epistemic}}(x) + \sigma^2_{\text{aleatoric}}(x)$
-
-#### `gaussian_nll_ensemble`
-
-Negative log-likelihood of ensemble predictions:
-
-```python
-gaussian_nll_ensemble(means, variances, target)
-```
-
-$$
-\mathcal{L} = \frac{1}{2} \log(2\pi \sigma^2_{\text{total}}) + \frac{(y - \bar{\mu})^2}{2\sigma^2_{\text{total}}}
-$$
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `ensemble_statistics` | `ensemble_statistics(predictions, dim=0)` | Mean and variance across members |
+| `uncertainty_decomposition` | `uncertainty_decomposition(means, variances, dim=0)` | Epistemic/aleatoric/total split |
+| `gaussian_nll_ensemble` | `gaussian_nll_ensemble(means, variances, target)` | Ensemble NLL |
+| `ensemble_interval_bounds` | `ensemble_interval_bounds(means, variances, alpha=0.1)` | Gaussian prediction interval |
+| `ensemble_interval_metrics` | `ensemble_interval_metrics(means, variances, target, alpha=0.1)` | Ensemble PICP + interval score |
 
 ---
 
 ## OOD metrics (`metrics.ood`)
 
-| Symbol | Description |
-|:-------|:------------|
-| [`mahalanobis_distance(x, mean, cov)`](#mahalanobis_distance) | Distance measure. |
-| [`typicality_score(model_output, x)`](#typicality_score) | Typicality test. |
-| `entropy_score(samples)` | Entropy metric. |
-| `kernel_density_score(x_test, x_reference)` | KDE score. |
+→ **Guide:** [OOD metrics](../metrics/ood.md)
 
-### Function Details
-
-#### `mahalanobis_distance`
-
-Mahalanobis distance to representation centroid:
-
-```python
-mahalanobis_distance(x, mean, cov, reduction="none")
-```
-
-$$
-d_M(x) = \sqrt{(x - \mu)^T \Sigma^{-1} (x - \mu)}
-$$
-
-#### `typicality_score`
-
-Typicality score under predictive normal distributions:
-
-```python
-typicality_score(model_output, target_x)
-```
-
-$$
-T(X) = \left| -\frac{1}{N} \sum_{i=1}^N \log p(x_i) - H(p) \right|
-$$
-
-#### `entropy_score`
-
-Shannon/differential entropy of predictive samples:
-
-```python
-entropy_score(samples, n_bins=50)
-```
-
-$$
-\hat{H}(p) = -\sum_{k=1}^K \hat{p}_k \log \hat{p}_k
-$$
-
-where $\hat{p}_k$ is the empirical bin probability from histogram density estimation.
-
-#### `kernel_density_score`
-
-Kernel density estimate relative to a reference training set:
-
-```python
-kernel_density_score(x_test, x_reference, bandwidth=0.5)
-```
-
-$$
-\hat{f}_h(x) = \frac{1}{R} \sum_{k=1}^R K_h(x - r_k), \qquad
-K_h(d) = \frac{1}{(2\pi h^2)^{D/2}} \exp\left(-\frac{\|d\|^2}{2h^2}\right)
-$$
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `mahalanobis_distance` | `mahalanobis_distance(x, mean, cov)` | Distance to feature centroid |
+| `typicality_score` | `typicality_score(model_output, target_x)` | Typicality test |
+| `entropy_score` | `entropy_score(samples, n_bins=50)` | Predictive entropy |
+| `kernel_density_score` | `kernel_density_score(x_test, x_reference, bandwidth=0.5)` | KDE density score |
+| `ood_metrics_report` | `ood_metrics_report(...)` | Aggregate report |
 
 ---
 
-## Additional metrics reference
-
-### crps_gaussian
-
-Closed-form CRPS calculation for a Gaussian predictive distribution:
-
-$$
-\text{CRPS}(y) = \sigma \left( \frac{y - \mu}{\sigma} \left( 2\Phi\left(\frac{y - \mu}{\sigma}\right) - 1 \right) + 2\phi\left(\frac{y - \mu}{\sigma}\right) - \frac{1}{\sqrt{\pi}} \right)
-$$
-
-### ensemble_statistics
-
-Aggregates predictions to compute ensemble mean and sample variance:
-
-$$
-\bar{y}_i = \frac{1}{M} \sum_{m=1}^M y_i^{(m)}
-$$
-
-### ensemble_interval_bounds
-
-Computes symmetric Gaussian prediction interval bounds for ensembles.
-
-### ensemble_interval_metrics
-
-Computes empirical coverage and Winkler interval score for ensemble intervals.
-
-### entropy_score
-
-Calculates the Shannon entropy of predicted distribution samples.
-
-### explained_variance_score
-
-Measures the proportion of variance explained by the model:
-
-$$
-\text{ExplainedVariance} = 1 - \frac{\text{Var}(y - \hat{y})}{\text{Var}(y)}
-$$
-
-### interval_metrics_report
-
-Aggregates interval score, PICP, and MPIW statistics across multiple models.
-
-### kernel_density_score
-
-KDE score relative to reference samples:
-
-$$
-\hat{f}_h(x) = \frac{1}{R} \sum_{k=1}^R K_h(x - r_k)
-$$
-
-### median_absolute_deviation
-
-$$
-\text{MAD} = \text{median}(|e_i - \text{median}(e)|)
-$$
-
-### median_absolute_error
-
-$$
-\text{MedAE} = \text{median}(|y_i - \hat{y}_i|)
-$$
-
-### normalized_median_absolute_deviation
-
-MAD normalized by target statistics for relative scale comparison.
-
-### normalized_rmse
-
-$$
-\text{NRMSE} = \frac{\text{RMSE}}{\text{scale}}
-$$
-
-### ood_metrics_report
-
-Aggregates Mahalanobis, Typicality, Entropy, and KDE scores in a dict.
-
-### outlier_fraction
-
-$$
-\text{OutlierFraction} = \frac{1}{N} \sum_{i=1}^N \mathbb{I}(|y_i - \hat{y}_i| > \tau \cdot \text{scale})
-$$
-
-### regression_metrics_report
-
-Generates a dictionary report of point metrics (MSE, MAE, R2, etc.).
-
-### RejectionPolicy
-
-Implements decision policies to reject/defer low-confidence predictions.
-
-### RiskCoverageCurve
-
-Evaluates risk-coverage curves for selective prediction.
-
-### tail_mae
-
-$$
-\text{TailMAE} = \frac{1}{|\mathcal{I}_q|} \sum_{i \in \mathcal{I}_q} |y_i - \hat{y}_i|
-$$
-
-### trimmed_mean_squared_error
-
-$$
-\text{TrimmedMSE} = \frac{1}{M} \sum_{j=1}^{M} r_{(j)}^2
-$$
-
-### calibration_metrics_report
-
-Aggregates calibration statistics (ECE, MACE, MCE) in a dict.
-
-### tail_rmse
-
-$$
-\text{TailRMSE} = \sqrt{\frac{1}{|\mathcal{I}_q|} \sum_{i \in \mathcal{I}_q} (y_i - \hat{y}_i)^2}
-$$
-
-where $\mathcal{I}_q$ is the set of indices of the samples with targets in the upper $q$-quantile.
-
-## Censored Metrics
-
-### censoring_rate
-
-$$
-\text{CensoringRate} = \frac{1}{N} \sum_{i=1}^N \mathbb{I}(c_i \neq 0)
-$$
-
-### observed_mae
-
-$$
-\text{ObservedMAE} = \frac{1}{\sum_{i=1}^N \mathbb{I}(c_i = 0)} \sum_{i: c_i = 0} |y_i - \hat{y}_i|
-$$
-
-### concordance_index
-
-Harrell-style concordance index for survival and censored regression:
-
-$$
-C = \frac{\sum_{i < j} \mathbb{I}(y_i < y_j) \left( \mathbb{I}(\hat{y}_i < \hat{y}_j) + 0.5 \cdot \mathbb{I}(\hat{y}_i = \hat{y}_j) \right)}{\sum_{i < j} \mathbb{I}(y_i < y_j)}
-$$
-
-restricted to comparable pairs.
-
-### interval_overlap_rate
-
-Fraction of samples where predicted interval overlaps censored interval bounds.
-
-## Ordinal Metrics
-
-### quadratic_weighted_kappa
-
-Quadratic Weighted Kappa (QWK) for ordinal agreement. Let $O_{j,k}$ be observed counts and $E_{j,k}$ expected counts under independence:
-
-$$
-E_{j,k} = \frac{\sum_a O_{j,a} \cdot \sum_b O_{b,k}}{N}, \qquad
-W_{j,k} = \frac{(j - k)^2}{(K - 1)^2}
-$$
-
-$$
-\kappa = 1 - \frac{\sum_{j,k} W_{j,k} O_{j,k}}{\sum_{j,k} W_{j,k} E_{j,k}}
-$$
-
-### mean_absolute_class_error
-
-Mean Absolute Class Error for ordinal targets.
-
-### ordinal_accuracy
-
-Classification accuracy on ordinal categories.
+## Decision metrics (`metrics.decision`)
+
+→ **Guide:** [Decision metrics](../metrics/decision.md)
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `risk_coverage_curve` | `risk_coverage_curve(y_pred, y_true, uncertainty, ...)` | Functional risk-coverage curve |
+| `RiskCoverageCurve` | `RiskCoverageCurve(n_points=100)` | Stateful risk-coverage curve |
+| `RejectionPolicy` | `RejectionPolicy(fraction=0.1)` or `RejectionPolicy(threshold=0.5)` | Stateful rejection policy |
+
+---
+
+## Censored, ordinal, multivariate & other metrics
+
+→ **Guides:** [Censored](../metrics/censored.md) · [Ordinal](../metrics/ordinal.md) · [Multivariate](../metrics/multivariate.md)
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `censoring_rate` | `censoring_rate(censoring_indicator)` | Fraction censored |
+| `observed_mae` | `observed_mae(y_pred, y_true, censoring_indicator)` | MAE on uncensored only |
+| `concordance_index` | `concordance_index(y_pred, y_true, censoring_indicator)` | Harrell's C-index |
+| `interval_overlap_rate` | `interval_overlap_rate(...)` | Predicted interval vs censored interval overlap |
+| `ordinal_accuracy` | `ordinal_accuracy(logits, labels, encoding="class_logits")` | Exact class match rate |
+| `mean_absolute_class_error` | `mean_absolute_class_error(logits, labels, encoding="class_logits")` | Mean class-index distance |
+| `quadratic_weighted_kappa` | `quadratic_weighted_kappa(logits, labels, encoding="class_logits")` | QWK agreement |
+| `MultivariateRMSE` | `MultivariateRMSE()` | Stateful vector RMSE |
+| `MultivariateMAE` | `MultivariateMAE()` | Stateful vector MAE |
+| `TaskAgnosticCorrelations` | `TaskAgnosticCorrelations()` | Stateful TAC metric |
+| `task_agnostic_correlations` | `task_agnostic_correlations(y_pred, y_true, cov)` | Functional TAC |
+
+---
+
+## Uncertain GT metrics
+
+→ **Guide:** [Uncertain ground truth](../losses/uncertain_ground_truth.md)
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `noisy_target_gaussian_nll` | `noisy_target_gaussian_nll(...)` | NLL with known target noise |
+| `consistency_error` | `consistency_error(...)` | Student-teacher agreement error |
+| `pseudo_label_acceptance_rate` | `pseudo_label_acceptance_rate(...)` | Pseudo-label acceptance fraction |
+| `uncertain_gt_metrics_report` | `uncertain_gt_metrics_report(...)` | Aggregate report |

@@ -1,8 +1,8 @@
 # Wasserstein-Bound Hybrid Pretraining Example
 
-→ Guide: [Gaussian Wasserstein loss](../losses/gaussian_wasserstein.md). API: [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss), [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`mahalanobis_covariance_pseudo_labels`](../api/algorithms.md).
+→ Guide: [Gaussian Wasserstein loss](../losses/gaussian_wasserstein.md). API: [`GaussianWassersteinBoundLoss`](../api/losses.md), [`GaussianNLLLoss`](../api/losses.md), [`mahalanobis_covariance_pseudo_labels`](../api/algorithms.md).
 
-This guide explains how to use the hybrid pretraining recipe to stabilize heteroscedastic regression models. It pretrains a mean-variance model using [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss) against neighborhood covariance pseudo-labels before fine-tuning with [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss).
+This guide explains how to use the hybrid pretraining recipe to stabilize heteroscedastic regression models. It pretrains a mean-variance model using [`GaussianWassersteinBoundLoss`](../api/losses.md) against neighborhood covariance pseudo-labels before fine-tuning with [`GaussianNLLLoss`](../api/losses.md).
 
 ---
 
@@ -32,7 +32,7 @@ Because this loss is linear/quadratic in the standard deviations rather than con
 
 ### Phase 3: Fine-Tuning
 
-Once the variance predictions are initialized to the correct scale, we fine-tune the model using [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) to align the predictions with the true conditional distribution $p(y \mid x)$.
+Once the variance predictions are initialized to the correct scale, we fine-tune the model using [`GaussianNLLLoss`](../api/losses.md) to align the predictions with the true conditional distribution $p(y \mid x)$.
 
 ---
 

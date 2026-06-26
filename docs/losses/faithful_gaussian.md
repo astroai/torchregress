@@ -10,7 +10,7 @@ This page covers two specialized Gaussian loss variants:
 
 ### The Problem with Joint NLL
 
-Standard [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) couples gradients from the variance head into the mean through the residual term:
+Standard [`GaussianNLLLoss`](../api/losses.md) couples gradients from the variance head into the mean through the residual term:
 
 $$\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2} \log(2\pi\sigma^2) + \frac{(y - \mu)^2}{2\sigma^2}$$
 
@@ -18,7 +18,7 @@ The gradient with respect to $\mu$ is $\frac{\mu - y}{\sigma^2}$, which means th
 
 ### The Faithful Solution
 
-`FaithfulGaussianLoss` decouples the two objectives (see [API: FaithfulGaussianLoss](../api/losses.md#faithfulgaussianloss)):
+`FaithfulGaussianLoss` decouples the two objectives (see [API: FaithfulGaussianLoss](../api/losses.md)):
 
 $$\boxed{\;\mathcal{L}_{\text{Faithful}} = \lambda_{\mu} (\mu - y)^2 + \lambda_{v} \cdot \frac{1}{2} \left( \log(2\pi\sigma^2) + \frac{(y - \operatorname{sg}(\mu))^2}{\sigma^2} \right)\;}$$
 
@@ -47,7 +47,7 @@ loss = loss_fn((mean, logvar), y_true)
 
 ### Comparison: Faithful vs Beta-NLL vs Joint NLL
 
-| Feature | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) | [`BetaNLLLoss`](../api/losses.md#betanllloss) | [`FaithfulGaussianLoss`](../api/losses.md#faithfulgaussianloss) |
+| Feature | [`GaussianNLLLoss`](../api/losses.md) | [`BetaNLLLoss`](../api/losses.md) | [`FaithfulGaussianLoss`](../api/losses.md) |
 |:--------|:-----------------:|:-------------:|:----------------------:|
 | Mean/variance coupling | Coupled | Variance-detached reweighting | Explicitly split |
 | Mean objective | NLL residual | NLL residual (detached variance) | Pure MSE |
@@ -71,7 +71,7 @@ loss = loss_fn((mean, logvar), y_true)
 
 ### Why CRPS Instead of NLL?
 
-The Continuous Ranked Probability Score (CRPS) is a **proper scoring rule** that evaluates the full predictive distribution. See the [GaussianCRPSLoss API](../api/losses.md#gaussiancrpsloss) for parameters and the closed-form definition.
+The Continuous Ranked Probability Score (CRPS) is a **proper scoring rule** that evaluates the full predictive distribution. See the [GaussianCRPSLoss API](../api/losses.md) for parameters and the closed-form definition.
 
 Unlike NLL, CRPS:
 

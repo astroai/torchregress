@@ -18,8 +18,8 @@ is the most common source of miscommunicated uncertainty claims.
 
 | Contract | Definition | What it means | Typical tools |
 |:---------|:-----------|:--------------|:--------------|
-| **Predictive spread** | The predictive distribution or interval is wide | The model is "uncertain" in the sense of assigning probability mass to a range | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), [`QuantileLoss`](../api/losses.md#quantileloss) |
-| **Coverage guarantee** | A calibrated interval contains future labels at a target rate under exchangeability | The intervals have a *finite-sample* probability guarantee, not a Bayesian one | [`ConformalLoss`](../api/losses.md#conformalloss), [`CQR`](../api/losses.md#cqr) / [`UACQR`](../api/losses.md#uacqr) |
+| **Predictive spread** | The predictive distribution or interval is wide | The model is "uncertain" in the sense of assigning probability mass to a range | [`GaussianNLLLoss`](../api/losses.md), [`MDNLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md), [`QuantileLoss`](../api/losses.md) |
+| **Coverage guarantee** | A calibrated interval contains future labels at a target rate under exchangeability | The intervals have a *finite-sample* probability guarantee, not a Bayesian one | [`ConformalLoss`](../api/losses.md), [`CQR`](../api/losses.md) / [`UACQR`](../api/losses.md) |
 | **Epistemic signal** | Different plausible models disagree | The model would say something different if retrained — a *model-ignorance* signal | `DeepEnsemble`, `PackedEnsembleRegressor`, `MCDropoutWrapper`, `SWAG`, `BayesianNeuralNetwork` |
 | **Full variance decomposition** | Total variance is split into model disagreement and expected per-model noise | Aleatoric and epistemic components are reported separately and sum to the total | Heteroscedastic ensembles, heteroscedastic BNNs, ensembles of probabilistic heads |
 
@@ -59,7 +59,7 @@ The first term is the **expected per-model noise** (aleatoric); the
 second is the **variance of the per-model means** (epistemic).
 
 In torchregress, compute the decomposition with
-[`uncertainty_decomposition(means, variances)`](../api/metrics.md#uncertainty_decomposition) (where `means` is
+[`uncertainty_decomposition(means, variances)`](../api/metrics.md) (where `means` is
 `[M, B]` and `variances` is `[M, B]`) or with
 `ensemble_variance_decomposition(...)` for richer inputs (e.g.
 multivariate).
@@ -91,7 +91,7 @@ the "Decomposition status" column says whether the API returns a
 *split* into the two components.
 
 For constructor signatures and scoring-rule definitions, see the
-[Losses API](../api/losses.md), [Metrics API](../api/metrics.md#uncertainty_decomposition),
+[Losses API](../api/losses.md), [Metrics API](../api/metrics.md),
 and [Ensemble API](../api/ensemble.md).
 
 | Method / API | Epistemic | Aleatoric / spread | Decomposition status |
@@ -103,10 +103,10 @@ and [Ensemble API](../api/ensemble.md).
 | `PackedEnsembleRegressor` | yes | partial | **Full** for heteroscedastic heads; homoscedastic heads expose no aleatoric component. |
 | `BinnedPDFEnsembleModel`, `CumulativeLinkEnsembleModel` | yes | partial | Ensemble disagreement plus distributional / ordinal spread; decomposition is representation-specific (binned PDF entropy or cumulative-link logits). |
 | `MCDropoutWrapper`, `SWAG`, `MultiSWAG`, `BayesianNeuralNetwork` | yes | partial | Weight / sample uncertainty is *epistemic*; *aleatoric* requires an explicit variance head or likelihood model. |
-| `EvidentialRegressionLoss` | partial | yes | Analytic NIG-derived uncertainty; **validate calibration** before treating the epistemic term as model uncertainty. See [API](../api/losses.md#evidentialregressionloss). |
-| [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`LowRankGaussianLoss`](../api/losses.md#lowrankgaussianloss), [`MultivariateGaussianLoss`](../api/losses.md#multivariategaussianloss) | no | yes | Single-model predictive distributions model aleatoric or predictive spread, **not** epistemic uncertainty. |
-| [`QuantileLoss`](../api/losses.md#quantileloss) | no | yes | Conditional quantile spread / intervals; **no epistemic signal** without an ensemble or sampling mechanism. |
-| [`ConformalLoss`](../api/losses.md#conformalloss) and conformal predictors ([`SplitConformal`](../api/losses.md#splitconformal), [`CQR`](../api/losses.md#cqr), [`UACQR`](../api/losses.md#uacqr), `DensityConformal`, `CTI`, `SLSConformal`, `MonteCarloConformal`, `LocalConformal`, `LocalConformalMAD`) | no | no | Coverage guarantees and calibrated intervals, **not** uncertainty decomposition. |
+| `EvidentialRegressionLoss` | partial | yes | Analytic NIG-derived uncertainty; **validate calibration** before treating the epistemic term as model uncertainty. See [API](../api/losses.md). |
+| [`MDNLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md), [`GaussianNLLLoss`](../api/losses.md), [`LowRankGaussianLoss`](../api/losses.md), [`MultivariateGaussianLoss`](../api/losses.md) | no | yes | Single-model predictive distributions model aleatoric or predictive spread, **not** epistemic uncertainty. |
+| [`QuantileLoss`](../api/losses.md) | no | yes | Conditional quantile spread / intervals; **no epistemic signal** without an ensemble or sampling mechanism. |
+| [`ConformalLoss`](../api/losses.md) and conformal predictors ([`SplitConformal`](../api/losses.md), [`CQR`](../api/losses.md), [`UACQR`](../api/losses.md), `DensityConformal`, `CTI`, `SLSConformal`, `MonteCarloConformal`, `LocalConformal`, `LocalConformalMAD`) | no | no | Coverage guarantees and calibrated intervals, **not** uncertainty decomposition. |
 
 The "no" entries are not failures — they are scope statements. A
 single-model `GaussianNLLLoss` is a perfectly correct *aleatoric*
@@ -235,11 +235,11 @@ above.
 
 | If you need… | Use | Don't |
 |:-------------|:----|:------|
-| Predictive spread (a wide or narrow distribution) | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss) | A point loss + post-hoc $\sigma$ estimation |
-| Coverage guarantee at level $1 - \alpha$ | [`SplitConformal`](../api/losses.md#splitconformal) / [`CQR`](../api/losses.md#cqr) / [`UACQR`](../api/losses.md#uacqr) / `DensityConformal` | A likelihood head alone (no guarantee) |
+| Predictive spread (a wide or narrow distribution) | [`GaussianNLLLoss`](../api/losses.md), [`MDNLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md) | A point loss + post-hoc $\sigma$ estimation |
+| Coverage guarantee at level $1 - \alpha$ | [`SplitConformal`](../api/losses.md) / [`CQR`](../api/losses.md) / [`UACQR`](../api/losses.md) / `DensityConformal` | A likelihood head alone (no guarantee) |
 | Epistemic signal (model disagreement) | `DeepEnsemble`, `MCDropoutWrapper`, `SWAG`, `IVON` | A single forward pass with no sampling |
 | Full aleatoric + epistemic decomposition | `HeteroscedasticEnsembleModel`, `HeteroscedasticBNN`, `HeteroscedasticBatchEnsembleModel` | A plain `DeepEnsemble` of point heads |
-| Single-pass decomposition | [`EvidentialRegressionLoss`](../api/losses.md#evidentialregressionloss) (with calibration checks) | A heavy ensemble for marginal benefit |
+| Single-pass decomposition | [`EvidentialRegressionLoss`](../api/losses.md) (with calibration checks) | A heavy ensemble for marginal benefit |
 | Multivariate decomposition | Multivariate heteroscedastic ensemble | Stacking $K$ independent univariate decompositions |
 
 ---

@@ -19,17 +19,17 @@ $$\boxed{\;\mathcal{L}_{\text{NLL}}(y, \mu, \sigma^2) = \frac{1}{2}\log(2\pi\sig
 
 | Loss | Covariance Type | Outputs | API Reference | Best For |
 |:-----|:----------------|:--------|:--------------|:---------|
-| **`WeightedMSELoss`** | Fixed ($\sigma^2=1$) | $\mu$ | [WeightedMSELoss](../api/losses.md#weightedmseloss) | Homoscedastic, clean data |
-| **`GaussianNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [GaussianNLLLoss](../api/losses.md#gaussiannllloss) | Heteroscedastic, independent targets |
-| **`BetaNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [BetaNLLLoss](../api/losses.md#betanllloss) | Same head as NLL; detached variance rescaling (β-NLL) |
-| **`FaithfulGaussianLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [FaithfulGaussianLoss](../api/losses.md#faithfulgaussianloss) | MSE on $\mu$ + NLL on variance with **detach($\mu$)** in residual |
-| **`GaussianWassersteinBoundLoss`** | Configurable | $\mu$, cov / Cholesky / root | [GaussianWassersteinBoundLoss](../api/losses.md#gaussianwassersteinboundloss) | Supervise mean + covariance vs labels or pseudo-labels |
-| **`MultivariateGaussianLoss`** | Full | $(\mu, \Sigma)$ | [MultivariateGaussianLoss](../api/losses.md#multivariategaussianloss) | Correlated multi-output (small $k$) |
-| **`LowRankGaussianLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [LowRankGaussianLoss](../api/losses.md#lowrankgaussianloss) | Correlated multi-output (large $k$) |
+| **`WeightedMSELoss`** | Fixed ($\sigma^2=1$) | $\mu$ | [WeightedMSELoss](../api/losses.md) | Homoscedastic, clean data |
+| **`GaussianNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [GaussianNLLLoss](../api/losses.md) | Heteroscedastic, independent targets |
+| **`BetaNLLLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [BetaNLLLoss](../api/losses.md) | Same head as NLL; detached variance rescaling (β-NLL) |
+| **`FaithfulGaussianLoss`** | Diagonal | $(\mu, \log\sigma^2)$ | [FaithfulGaussianLoss](../api/losses.md) | MSE on $\mu$ + NLL on variance with **detach($\mu$)** in residual |
+| **`GaussianWassersteinBoundLoss`** | Configurable | $\mu$, cov / Cholesky / root | [GaussianWassersteinBoundLoss](../api/losses.md) | Supervise mean + covariance vs labels or pseudo-labels |
+| **`MultivariateGaussianLoss`** | Full | $(\mu, \Sigma)$ | [MultivariateGaussianLoss](../api/losses.md) | Correlated multi-output (small $k$) |
+| **`LowRankGaussianLoss`** | Low-Rank + Diag | $(\mu, W, d)$ | [LowRankGaussianLoss](../api/losses.md) | Correlated multi-output (large $k$) |
 
 ---
 
-## 1. Univariate: [GaussianNLLLoss](../api/losses.md#gaussiannllloss)
+## 1. Univariate: [GaussianNLLLoss](../api/losses.md)
 
 Used for standard regression where you want to estimate per-sample uncertainty.
 
@@ -46,7 +46,7 @@ loss = loss_fn(y_pred, y_true)
 
 ---
 
-## 1b. Faithful heteroscedastic: [FaithfulGaussianLoss](../api/losses.md#faithfulgaussianloss)
+## 1b. Faithful heteroscedastic: [FaithfulGaussianLoss](../api/losses.md)
 
 Joint Gaussian NLL couples gradients from the variance head into the mean through the residual $(y-\mu)^2/\sigma^2$. **FaithfulGaussianLoss** adds a direct MSE term on the mean and uses **stop-gradient** on $\mu$ inside the NLL residual so variance calibration does not distort point prediction.
 
@@ -63,7 +63,7 @@ Compare with [`BetaNLLLoss`](beta_nll.md): β-NLL keeps a single joint NLL and r
 
 ---
 
-## 2. Multivariate: Full Covariance ([MultivariateGaussianLoss](../api/losses.md#multivariategaussianloss))
+## 2. Multivariate: Full Covariance ([MultivariateGaussianLoss](../api/losses.md))
 
 When targets are correlated (e.g., predicting $x, y, z$ coordinates), use `MultivariateGaussianLoss`.
 
@@ -86,7 +86,7 @@ loss = loss_fn(y_mu, y_true, covariance_matrix)
 
 ---
 
-## 3. Multivariate: Low-Rank Covariance ([LowRankGaussianLoss](../api/losses.md#lowrankgaussianloss))
+## 3. Multivariate: Low-Rank Covariance ([LowRankGaussianLoss](../api/losses.md))
 
 For high-dimensional targets, a full covariance matrix has $O(k^2)$ parameters. **Low-Rank** approximation reduces this to $O(k \cdot r)$, where $r$ is the rank.
 

@@ -2,7 +2,7 @@
 
 This guide demonstrates how to model data affected by both count (Poisson/shot) noise and continuous (Gaussian/readout) noise using `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss`.
 
-→ API: [`PoissonGaussianMixtureLoss`](../api/losses.md#poissongaussianmixtureloss).
+→ API: [`PoissonGaussianMixtureLoss`](../api/losses.md).
 
 | # | Reference |
 |:-:|:----------|

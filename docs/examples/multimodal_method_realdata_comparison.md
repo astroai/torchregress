@@ -1,6 +1,6 @@
 # Multimodal Method Comparison (Real Data Features)
 
-→ Guide: [Multi-target regression](../guide/multi-target-regression.md). API: [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss), [`MDNLoss`](../api/losses.md#mdnloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss).
+→ Guide: [Multi-target regression](../guide/multi-target-regression.md). API: [`GaussianNLLLoss`](../api/losses.md), [`MDNLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md).
 
 This example compares shared-budget probabilistic methods on **real tabular features**
 (`sklearn.datasets.load_diabetes`) with a **synthetic conditional multimodal multi-target target construction**.
@@ -9,9 +9,9 @@ Script: `examples/multimodal_method_realdata_comparison.py`
 
 ## What It Compares
 
-- Diagonal Gaussian NLL baseline ([`GaussianNLLLoss`](../api/losses.md#gaussiannllloss))
-- Mixture Density Network ([`MDNLoss`](../api/losses.md#mdnloss))
-- Conditional normalizing flow ([`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss), optional if `zuko` is installed)
+- Diagonal Gaussian NLL baseline ([`GaussianNLLLoss`](../api/losses.md))
+- Mixture Density Network ([`MDNLoss`](../api/losses.md))
+- Conditional normalizing flow ([`NormalizingFlowLoss`](../api/losses.md), optional if `zuko` is installed)
 
 ## Metrics Reported
 

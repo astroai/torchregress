@@ -2,7 +2,7 @@
 
 Poisson-Gaussian mixture losses model signals as a combination of Poisson (counting) noise and Gaussian (readout) noise.
 
-→ API: [`PoissonGaussianMixtureLoss`](../api/losses.md#poissongaussianmixtureloss).
+→ API: [`PoissonGaussianMixtureLoss`](../api/losses.md).
 
 These losses are particularly valuable for:
 

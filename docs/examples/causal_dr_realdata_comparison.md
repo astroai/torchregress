@@ -2,7 +2,7 @@
 
 Script: `examples/causal_dr_realdata_comparison.py`
 
-→ API: [`dr_ate`](../api/causal.md#dr_ate), [`dr_cate`](../api/causal.md#dr_cate).
+→ API: [`dr_ate`](../api/causal.md), [`dr_cate`](../api/causal.md).
 
 Compares:
 

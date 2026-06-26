@@ -167,12 +167,12 @@ replace, likelihood-based losses.
 
 | If you need… | Use | Don't use |
 |:-------------|:----|:----------|
-| Plain regression, no missing data | `torch.nn.MSELoss` (or [`WeightedMSELoss`](../api/losses.md#weightedmseloss) if you may need masks later) | A complex probabilistic model |
-| Mask support or sample weights | [`WeightedMSELoss`](../api/losses.md#weightedmseloss) | `torch.nn.MSELoss` |
-| Aleatoric uncertainty (per-sample σ) | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) with `learn_variance=True` | Point loss + post-hoc σ estimation |
+| Plain regression, no missing data | `torch.nn.MSELoss` (or [`WeightedMSELoss`](../api/losses.md) if you may need masks later) | A complex probabilistic model |
+| Mask support or sample weights | [`WeightedMSELoss`](../api/losses.md) | `torch.nn.MSELoss` |
+| Aleatoric uncertainty (per-sample σ) | [`GaussianNLLLoss`](../api/losses.md) with `learn_variance=True` | Point loss + post-hoc σ estimation |
 | Epistemic uncertainty | Ensembles, SWAG, BNN, evidential | Single MC-dropout run with no diagnostics |
-| Multimodal conditional | [`MDNLoss`](../api/losses.md#mdnloss) or [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss) | A single Gaussian head |
-| Coverage guarantees | [`SplitConformal`](../api/losses.md#splitconformal) / [`CQR`](../api/losses.md#cqr) on top of a strong backbone | Conformal *instead of* likelihood |
+| Multimodal conditional | [`MDNLoss`](../api/losses.md) or [`NormalizingFlowLoss`](../api/losses.md) | A single Gaussian head |
+| Coverage guarantees | [`SplitConformal`](../api/losses.md) / [`CQR`](../api/losses.md) on top of a strong backbone | Conformal *instead of* likelihood |
 | Distribution shift at test time | `BayesianLinearHead` or `ShiftFactoredPredictiveTransport` | A model retrained on a single batch |
 | Causal treatment effects | `dr_ate` / `dr_cate` | Naive difference in means |
 | OOD detection | Ensemble + multiple OOD scores | A single OOD score in isolation |

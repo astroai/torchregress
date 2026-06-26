@@ -2,7 +2,7 @@
 
 This guide demonstrates how to perform Tweedie regression for modeling zero-inflated continuous responses (e.g., rainfall, insurance claims) using Tweedie and Compound Poisson losses.
 
-→ API: [`TweedieLoss`](../api/losses.md#tweedieloss).
+→ API: [`TweedieLoss`](../api/losses.md).
 
 | # | Reference |
 |:-:|:----------|

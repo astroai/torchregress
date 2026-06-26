@@ -3,7 +3,7 @@
 This example shows how to turn the flow machinery in `torchregress` into a lightweight
 parameter-estimation workflow for nuisance-shifted data.
 
-→ API: [`ContrastiveFlowLoss`](../api/losses.md#contrastiveflowloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss).
+→ API: [`ContrastiveFlowLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md).
 
 ## When To Use This
 

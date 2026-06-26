@@ -169,7 +169,7 @@ losses = {
 ### [Beta-NLL heteroscedastic demo](heteroscedastic_beta_nll.md)
 
 - Small Gaussian-head MLP on synthetic heteroscedastic noise (scale grows with $|x|$).
-- Trains with [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) vs [`BetaNLLLoss`](../api/losses.md#betanllloss) from the **same** initial weights; reports validation RMSE and validation Gaussian NLL.
+- Trains with [`GaussianNLLLoss`](../api/losses.md) vs [`BetaNLLLoss`](../api/losses.md) from the **same** initial weights; reports validation RMSE and validation Gaussian NLL.
 - Script: [`examples/heteroscedastic_beta_nll_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/heteroscedastic_beta_nll_demo.py).
 
 ### [Ensemble Methods](ensemble_methods.md) 🆕
@@ -189,7 +189,7 @@ ensemble_models = train_heteroscedastic_ensemble(n_models=5, ...)
 epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 ```
 
-→ See [`uncertainty_decomposition`](../api/metrics.md#uncertainty_decomposition) and [Ensemble API](../api/ensemble.md).
+→ See [`uncertainty_decomposition`](../api/metrics.md) and [Ensemble API](../api/ensemble.md).
 
 ### [Ordinal Regression Comparison](ordinal_regression_comparison.md)
 
@@ -271,12 +271,12 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 ### [Conformal Regression](conformal_regression_example.md)
 
-- Using conformal prediction to obtain prediction intervals with guaranteed coverage ([`SplitConformal`](../api/losses.md#splitconformal), [`CQR`](../api/losses.md#cqr)).
+- Using conformal prediction to obtain prediction intervals with guaranteed coverage ([`SplitConformal`](../api/losses.md), [`CQR`](../api/losses.md)).
 - Compare against `evaluate_conformal_methods.py` for coverage-vs-width tradeoffs across methods.
 
 ### [Evidential Regression](evidential_regression.md)
 
-- Decomposing uncertainty into aleatoric and epistemic components ([`EvidentialRegressionLoss`](../api/losses.md#evidentialregressionloss)).
+- Decomposing uncertainty into aleatoric and epistemic components ([`EvidentialRegressionLoss`](../api/losses.md)).
 
 ### [Imbalanced Regression](imbalanced_regression.md)
 

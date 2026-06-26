@@ -58,7 +58,7 @@ The loss is the negative log-likelihood under this log-normal model, with censor
 
 ### CensoredGaussianNLLLoss
 
-Full Gaussian NLL with right/left censoring support. See [CensoredGaussianNLLLoss API](../api/losses.md#censoredgaussiannllloss).
+Full Gaussian NLL with right/left censoring support. See [CensoredGaussianNLLLoss API](../api/losses.md).
 
 ```python
 import torch
@@ -79,7 +79,7 @@ loss = loss_fn((mean, log_var), target, censoring=censoring)
 
 ### CensoredQuantileLoss
 
-Quantile regression adapted for censored data — provides non-parametric intervals without assuming Gaussian noise. See [CensoredQuantileLoss API](../api/losses.md#censoredquantileloss).
+Quantile regression adapted for censored data — provides non-parametric intervals without assuming Gaussian noise. See [CensoredQuantileLoss API](../api/losses.md).
 
 ```python
 from torchregress.losses import CensoredQuantileLoss
@@ -90,7 +90,7 @@ loss = loss_fn(y_pred, target, censoring=censoring)
 
 ### AFTLoss
 
-Log-normal Accelerated Failure Time model for survival analysis. See [AFTLoss API](../api/losses.md#aftloss).
+Log-normal Accelerated Failure Time model for survival analysis. See [AFTLoss API](../api/losses.md).
 
 ```python
 from torchregress.losses import AFTLoss

@@ -2,7 +2,7 @@
 
 Evidential regression provides **aleatoric + epistemic uncertainty** from a **single forward pass**, without ensembles or Monte Carlo sampling.  It does this by placing a higher-order prior (Normal-Inverse-Gamma) over the Gaussian likelihood parameters.
 
-See the [EvidentialRegressionLoss API](../api/losses.md#evidentialregressionloss) for constructor parameters and the NIG loss definition. For ensemble-based decomposition, compare with [`uncertainty_decomposition`](../api/metrics.md#uncertainty_decomposition).
+See the [EvidentialRegressionLoss API](../api/losses.md) for constructor parameters and the NIG loss definition. For ensemble-based decomposition, compare with [`uncertainty_decomposition`](../api/metrics.md).
 
 !!! abstract "Key idea"
     Instead of predicting just $(\mu, \sigma^2)$, the model predicts the parameters of a **distribution over distributions**: $(\gamma, \nu, \alpha, \beta)$ defining a Normal-Inverse-Gamma prior.
@@ -31,7 +31,7 @@ The total loss combines NIG negative log-likelihood with a regulariser that pena
 
 $$\mathcal{L} = \mathcal{L}_{\text{NIG-NLL}}(\gamma, \nu, \alpha, \beta \mid y) + \lambda \cdot |y - \gamma| \cdot (2\nu + \alpha)$$
 
-Matches [`EvidentialRegressionLoss`](../api/losses.md#evidentialregressionloss) with regularisation coefficient `coeff_nig`.
+Matches [`EvidentialRegressionLoss`](../api/losses.md) with regularisation coefficient `coeff_nig`.
 
 ---
 

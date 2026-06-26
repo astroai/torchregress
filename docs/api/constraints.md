@@ -84,28 +84,5 @@ assert torch.allclose(weights.sum(dim=-1), torch.ones(8))
 
 ## Next steps
 
-- [Output constraints](../methods/constraints.md)
-- [Probabilistic losses](../losses/gaussian.md) — when to combine a constraint head with a probabilistic loss
-
-
-## Constraints Reference
-
-### BoundedHead
-
-Applies upper and lower bounds to output predictions using scaled sigmoid functions.
-
-### NonCrossingSort
-
-Enforces non-crossing constraints on quantile predictions by sorting along the quantile dimension.
-
-### NonNegativeHead
-
-Enforces non-negativity using softplus or exponential transformations.
-
-### SimplexHead
-
-Projects outputs onto the probability simplex using softmax.
-
-### SpectralNormWrapper
-
-Applies spectral norm to module weights.
+- [Output constraints](../methods/constraints.md) — method background, when to use each wrapper
+- [Probabilistic losses](../losses/gaussian.md) — combining constraint heads with probabilistic losses

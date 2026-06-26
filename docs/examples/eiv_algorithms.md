@@ -2,7 +2,7 @@
 
 This guide explains how to use input error correction algorithms, namely **Regression Calibration (RC)**, **Simulation Extrapolation (SIMEX)**, and **Latent-Input Neural Networks (LatentNN)**, to handle measurement noise in feature variables.
 
-→ API: [Algorithms](../api/algorithms.md) (`RegressionCalibration`, `SIMEX`, `LatentNN`). Losses: [EIV](../api/losses.md#error-in-variables-eiv).
+→ API: [Algorithms](../api/algorithms.md) (`RegressionCalibration`, `SIMEX`, `LatentNN`). Losses: [EIV](../api/losses.md).
 
 | # | Reference |
 |:-:|:----------|

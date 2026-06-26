@@ -2,7 +2,7 @@
 
 This guide compares multiple methods for modeling ordered-target data (where targets are discrete classes with a natural sequence or hierarchy).
 
-→ API: [`CumulativeLinkLoss`](../api/losses.md#cumulativelinkloss), [`CORALLoss`](../api/losses.md#coralloss), [`OrdinalCrossEntropyLoss`](../api/losses.md#ordinalcrossentropyloss). Metrics: [`quadratic_weighted_kappa`](../api/metrics.md#quadratic_weighted_kappa).
+→ API: [`CumulativeLinkLoss`](../api/losses.md), [`CORALLoss`](../api/losses.md), [`OrdinalCrossEntropyLoss`](../api/losses.md). Metrics: [`quadratic_weighted_kappa`](../api/metrics.md).
 
 | # | Reference |
 |:-:|:----------|

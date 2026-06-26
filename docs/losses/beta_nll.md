@@ -8,15 +8,15 @@
 
 | Situation | Prefer |
 |:----------|:-------|
-| Stable heteroscedastic training; variance collapse or trivial σ² | [`BetaNLLLoss`](../api/losses.md#betanllloss) with $\beta \in (0, 1)$ (often $0.5$) |
-| Standard NLL baseline; well-tuned optimisation | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) |
+| Stable heteroscedastic training; variance collapse or trivial σ² | [`BetaNLLLoss`](../api/losses.md) with $\beta \in (0, 1)$ (often $0.5$) |
+| Standard NLL baseline; well-tuned optimisation | [`GaussianNLLLoss`](../api/losses.md) |
 | Finite-sample **coverage** guarantees | [Conformal prediction](../methods/conformal/index.md) on top of a calibrated probabilistic model — β-NLL is **not** conformal |
 
 ---
 
 ## Mathematical definition
 
-Let $\sigma^2_i$ be the predicted variance for dimension $i$ (from $\log\sigma^2_i$), and let $\mathcal{L}_{\text{NLL},i}$ be the usual diagonal Gaussian NLL contribution including the $\log(2\pi)$ term (matching [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss)).
+Let $\sigma^2_i$ be the predicted variance for dimension $i$ (from $\log\sigma^2_i$), and let $\mathcal{L}_{\text{NLL},i}$ be the usual diagonal Gaussian NLL contribution including the $\log(2\pi)$ term (matching [`GaussianNLLLoss`](../api/losses.md)).
 
 The **β-NLL** uses a prefactor with **stopped variance**:
 
@@ -30,7 +30,7 @@ $$
 \;}
 $$
 
-where $(\sigma_i^2 + \varepsilon)^{-\beta}$ is computed from **detached** $\sigma_i^2$ (no gradient through the prefactor). For $\beta = 0$ this is exactly [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss).
+where $(\sigma_i^2 + \varepsilon)^{-\beta}$ is computed from **detached** $\sigma_i^2$ (no gradient through the prefactor). For $\beta = 0$ this is exactly [`GaussianNLLLoss`](../api/losses.md).
 
 ---
 
@@ -47,7 +47,7 @@ loss = loss_fn((mean, log_var), target, mask=mask, weights=w)
 loss = beta_nll_loss((mean, log_var), target, beta=0.5, reduction="mean")
 ```
 
-[create_loss_from_config](../api/losses.md#create_loss_from_config) accepts `"type": "beta_nll"` with optional `"beta"`.
+[create_loss_from_config](../api/losses.md) accepts `"type": "beta_nll"` with optional `"beta"`.
 
 ---
 

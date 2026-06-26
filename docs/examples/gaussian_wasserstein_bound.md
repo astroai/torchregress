@@ -2,7 +2,7 @@
 
 This guide explains how to use `GaussianWassersteinBoundLoss` for joint supervision of predicted means and covariances.
 
-→ API: [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss). Guide: [Wasserstein bound](../losses/gaussian_wasserstein.md).
+→ API: [`GaussianWassersteinBoundLoss`](../api/losses.md). Guide: [Wasserstein bound](../losses/gaussian_wasserstein.md).
 
 | # | Reference |
 |:-:|:----------|

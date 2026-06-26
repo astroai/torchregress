@@ -61,7 +61,7 @@ mae_obs = tr.metrics.observed_mae(pred, target, censoring)
 c_index = tr.metrics.concordance_index(pred, target, censoring)
 ```
 
-See the [censored metrics API](../api/metrics.md#censored-metrics): [`censoring_rate`](../api/metrics.md#censoring_rate), [`observed_mae`](../api/metrics.md#observed_mae), [`concordance_index`](../api/metrics.md#concordance_index), and [`interval_overlap_rate`](../api/metrics.md#interval_overlap_rate).
+See the [censored metrics API](../api/metrics.md): [`censoring_rate`](../api/metrics.md), [`observed_mae`](../api/metrics.md), [`concordance_index`](../api/metrics.md), and [`interval_overlap_rate`](../api/metrics.md).
 
 ---
 

@@ -49,7 +49,7 @@ with torch.no_grad():
 **When not to use this:** if your data is heteroscedastic (noise varies
 with $x$) or you need uncertainty intervals, use §2 instead.
 
-→ API: [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss), [`WeightedMSELoss`](../api/losses.md#weightedmseloss); metrics [`rmse`](../api/metrics.md#rmse), [`mae`](../api/metrics.md#mae), [`r2_score`](../api/metrics.md#r2_score).
+→ API: [`WeightedHuberLoss`](../api/losses.md), [`WeightedMSELoss`](../api/losses.md); metrics [`rmse`](../api/metrics.md), [`mae`](../api/metrics.md), [`r2_score`](../api/metrics.md).
 
 ---
 
@@ -88,7 +88,7 @@ with torch.no_grad():
 
 **Caveat:** Gaussian NLL can suffer from variance-collapse early in
 training (the model predicts $\sigma \to 0$ and exploits the NLL's density
-peak). The [`BetaNLLLoss`](../api/losses.md#betanllloss) variant detaches the
+peak). The [`BetaNLLLoss`](../api/losses.md) variant detaches the
 variance term to mitigate this. Always inspect a
 [reliability diagram](../methods/calibration.md) before trusting the
 intervals.
@@ -96,7 +96,7 @@ intervals.
 **For full epistemic decomposition**, wrap this head in an ensemble or
 add a posterior approximation (see §5).
 
-→ API: [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss); evaluation: [`crps_gaussian`](../api/metrics.md#crps_gaussian), [`gaussian_nll`](../api/metrics.md#gaussian_nll).
+→ API: [`GaussianNLLLoss`](../api/losses.md); evaluation: [`crps_gaussian`](../api/metrics.md), [`gaussian_nll`](../api/metrics.md).
 
 ---
 

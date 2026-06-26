@@ -35,13 +35,13 @@ redundant — each adds mask/weight support that native losses lack:
 
 | torchregress | PyTorch nearest | Why torchregress exists |
 |:-------------|:---------------|:------------------------|
-| `WeightedMSELoss` | `nn.MSELoss` | Adds **mask** (missing-data) and per-sample **weight** support | [`WeightedMSELoss`](../api/losses.md#weightedmseloss) |
-| `WeightedL1Loss` | `nn.L1Loss` | Same mask + weight pattern | [`WeightedL1Loss`](../api/losses.md#weightedl1loss) |
-| `WeightedHuberLoss` | `nn.HuberLoss` | Same mask + weight pattern | [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss) |
-| `WeightedLossWrapper` | any `nn.Module` | Generic wrapper adding mask/weight to any PyTorch loss | [`WeightedLossWrapper`](../api/losses.md#weightedlosswrapper) |
+| `WeightedMSELoss` | `nn.MSELoss` | Adds **mask** (missing-data) and per-sample **weight** support | [`WeightedMSELoss`](../api/losses.md) |
+| `WeightedL1Loss` | `nn.L1Loss` | Same mask + weight pattern | [`WeightedL1Loss`](../api/losses.md) |
+| `WeightedHuberLoss` | `nn.HuberLoss` | Same mask + weight pattern | [`WeightedHuberLoss`](../api/losses.md) |
+| `WeightedLossWrapper` | any `nn.Module` | Generic wrapper adding mask/weight to any PyTorch loss | [`WeightedLossWrapper`](../api/losses.md) |
 | `WeightedCrossEntropyLoss` | `nn.CrossEntropyLoss` | Mask + weight for regression-as-classification workflows |
 | `WeightedNLLLoss` | `nn.NLLLoss` | Mask + weight for regression-as-classification workflows |
-| `GaussianNLLLoss` | `nn.GaussianNLLLoss` | Adds **covariance-type dispatch** (diagonal / full / low-rank) via `create_gaussian_nll()`, mask support, and self-agreement contracts | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) |
+| `GaussianNLLLoss` | `nn.GaussianNLLLoss` | Adds **covariance-type dispatch** (diagonal / full / low-rank) via `create_gaussian_nll()`, mask support, and self-agreement contracts | [`GaussianNLLLoss`](../api/losses.md) |
 | `PseudoHuberLoss` | `nn.HuberLoss` | Continuous second derivative (C² smooth) vs native Huber's C¹; mask support |
 
 **Every other loss in torchregress has no PyTorch-native equivalent** — they are
@@ -58,10 +58,10 @@ censored/ordinal targets, error-in-variables, conformal prediction, etc.
 
 | Loss | Formula (per sample) | Implied Distribution | API |
 |:-----|:---------------------|:---------------------|:----|
-| `WeightedMSELoss` | $(y - \hat{y})^2$ | Gaussian (fixed $\sigma$) | [`WeightedMSELoss`](../api/losses.md#weightedmseloss) |
-| `WeightedL1Loss` | $\lvert y - \hat{y}\rvert$ | Laplace | [`WeightedL1Loss`](../api/losses.md#weightedl1loss) |
-| `WeightedHuberLoss` | Quadratic core + linear tails | Gaussian-Laplace hybrid | [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss) |
-| `GaussianNLLLoss` | Heteroscedastic NLL wrapper | Gaussian | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) |
+| `WeightedMSELoss` | $(y - \hat{y})^2$ | Gaussian (fixed $\sigma$) | [`WeightedMSELoss`](../api/losses.md) |
+| `WeightedL1Loss` | $\lvert y - \hat{y}\rvert$ | Laplace | [`WeightedL1Loss`](../api/losses.md) |
+| `WeightedHuberLoss` | Quadratic core + linear tails | Gaussian-Laplace hybrid | [`WeightedHuberLoss`](../api/losses.md) |
+| `GaussianNLLLoss` | Heteroscedastic NLL wrapper | Gaussian | [`GaussianNLLLoss`](../api/losses.md) |
 | `WeightedCrossEntropyLoss` | Classification wrapper | Categorical | [Losses API](../api/losses.md) (weighted wrappers) |
 
 See [Base Classes](base.md) for foundations.
@@ -74,12 +74,12 @@ Parametric losses for the Gaussian family — supporting **heteroscedastic** (in
 
 | Loss | Outputs Predicted | Use Case | API |
 |:-----|:-----------------|:---------|:----|
-| `GaussianNLLLoss` | $\mu, \log\sigma^2$ | Heteroscedastic uncertainty per sample | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) |
-| `BetaNLLLoss` | $\mu, \log\sigma^2$ | Heteroscedastic NLL with detached variance rescaling (β-NLL) | [`BetaNLLLoss`](../api/losses.md#betanllloss) |
-| `GaussianWassersteinBoundLoss` | $\mu$, covariance params | Mean + matrix-root Frobenius surrogate vs target covariance | [`GaussianWassersteinBoundLoss`](../api/losses.md#gaussianwassersteinboundloss) |
-| `GaussianNLLLoss(fixed_variance=σ²)` | $\mu$ only | Homoscedastic (reduces to scaled MSE) | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) |
-| `MultivariateGaussianLoss` | $\boldsymbol{\mu}, \mathbf{L}$ | Correlated multi-output regression | [`MultivariateGaussianLoss`](../api/losses.md#multivariategaussianloss) |
-| `LowRankGaussianLoss` | $\boldsymbol{\mu}, \mathbf{U}, \mathbf{d}$ | Scalable multivariate ($\Sigma = UU^\top + \text{diag}(d)$) | [`LowRankGaussianLoss`](../api/losses.md#lowrankgaussianloss) |
+| `GaussianNLLLoss` | $\mu, \log\sigma^2$ | Heteroscedastic uncertainty per sample | [`GaussianNLLLoss`](../api/losses.md) |
+| `BetaNLLLoss` | $\mu, \log\sigma^2$ | Heteroscedastic NLL with detached variance rescaling (β-NLL) | [`BetaNLLLoss`](../api/losses.md) |
+| `GaussianWassersteinBoundLoss` | $\mu$, covariance params | Mean + matrix-root Frobenius surrogate vs target covariance | [`GaussianWassersteinBoundLoss`](../api/losses.md) |
+| `GaussianNLLLoss(fixed_variance=σ²)` | $\mu$ only | Homoscedastic (reduces to scaled MSE) | [`GaussianNLLLoss`](../api/losses.md) |
+| `MultivariateGaussianLoss` | $\boldsymbol{\mu}, \mathbf{L}$ | Correlated multi-output regression | [`MultivariateGaussianLoss`](../api/losses.md) |
+| `LowRankGaussianLoss` | $\boldsymbol{\mu}, \mathbf{U}, \mathbf{d}$ | Scalable multivariate ($\Sigma = UU^\top + \text{diag}(d)$) | [`LowRankGaussianLoss`](../api/losses.md) |
 | `create_gaussian_nll()` | — | Factory: picks the right variant |
 
 !!! info "GaussianNLL ↔ WeightedMSE continuum"

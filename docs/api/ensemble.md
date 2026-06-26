@@ -34,13 +34,15 @@ Both inherit from `BaseEnsembleModel`; same training loop and adversarial option
 
 ## Specialized ensemble models
 
-| Symbol | Family | Use case |
-|:-------|:-------|:---------|
-| `BinnedPDFEnsembleModel` | Discrete PDF | Members predict bin logits; ensemble averages `softmax` probabilities |
-| `RandomPartitionEnsembleModel` | Discrete PDF (irregular grids) | Each member uses its own bin edges; ensemble projects to a shared evaluation grid and averages CDFs |
-| `CumulativeLinkEnsembleModel` | Ordinal | Members predict cumulative-link logits; ensemble averages PMFs |
-| `MDNEnsembleModel` | Mixture Density Network | Members predict mixture components; ensemble aggregates as a mixture-of-mixtures (avoids label switching) |
-| `HeteroscedasticBatchEnsembleModel` | Batch-ensemble | Parameter-efficient shared-backbone ensemble with per-member `(μ, log_σ²)` outputs |
+→ **Guide:** [Ensemble methods](../methods/ensemble/index.md)
+
+| Symbol | Description |
+|:-------|:------------|
+| `BinnedPDFEnsembleModel` | Members predict bin logits; ensemble averages `softmax` probabilities |
+| `RandomPartitionEnsembleModel` | Each member uses its own bin edges; ensemble averages CDFs on shared grid |
+| `CumulativeLinkEnsembleModel` | Members predict cumulative-link logits; ensemble averages PMFs |
+| `MDNEnsembleModel` | Members predict mixture components; mixture-of-mixtures aggregation |
+| `HeteroscedasticBatchEnsembleModel` | Parameter-efficient shared-backbone ensemble with per-member `(μ, log_σ²)` outputs |
 
 ```python
 from torchregress.ensemble import HeteroscedasticBatchEnsembleModel
@@ -169,71 +171,4 @@ pred = hetro_ens.predict(x_test)
 ## Next steps
 
 - [Ensemble methods](../methods/ensemble/index.md) — peer-method matrix, decision guidance
-- [Uncertainty decomposition](../guide/uncertainty-decomposition.md) — what each ensemble contract actually returns
-
-
-## Detailed Class References
-
-### DeepEnsemble
-
-Orchestrates Deep Ensembles of $M$ independently trained model members:
-
-$$
-\bar{\mu}(x) = \frac{1}{M} \sum_{m=1}^M \mu_m(x)
-$$
-
-### BaseEnsembleModel
-
-Foundation base class for all ensemble architectures in **torchregress**:
-
-$$
-f_{\text{ensemble}}(x) = \text{stack}\left([f_m(x)]_{m=1}^M\right)
-$$
-
-### HeteroscedasticEnsembleModel
-
-Ensemble model where members output both mean $\mu_m(x)$ and log-variance $\log\sigma^2_m(x)$. Evaluates aleatoric and epistemic uncertainty via the Law of Total Variance.
-
-### HeteroscedasticBatchEnsembleModel
-
-Parameter-efficient BatchEnsemble variant where each member outputs a heteroscedastic predictive distribution.
-
-### BinnedPDFEnsembleModel
-
-Ensemble of discrete PDF estimators predicting target bin logits. Averages probability mass functions across members:
-
-$$
-p_{\text{ensemble}}(y) = \frac{1}{M}\sum_{m=1}^M \operatorname{softmax}(f_m(x))
-$$
-
-### RandomPartitionEnsembleModel
-
-Ensemble of discrete PDF estimators defined on random partition boundaries. Members' cumulative distribution functions (CDFs) are interpolated onto a unified evaluation grid:
-
-$$
-F_{\text{ensemble}}(y) = \frac{1}{M}\sum_{m=1}^M F_m(y)
-$$
-
-### MDNEnsembleModel
-
-Ensemble of Mixture Density Networks. Member component parameters are merged to form a unified Gaussian Mixture Model:
-
-$$
-p(y \mid x) = \frac{1}{M}\sum_{m=1}^M \sum_{k=1}^K \pi_{m, k} \mathcal{N}(y \mid \mu_{m, k}, \sigma_{m, k}^2)
-$$
-
-### MCDropoutModel
-
-Point prediction MLP containing dropout layers active during both training and test-time evaluation to sample predictions.
-
-### BatchEnsembleLinear
-
-Rank-1 perturbation linear layer parameterized by shared weights $W$ and per-member vectors $r_m, s_m$:
-
-$$
-y = (X \circ r_m) W \circ s_m
-$$
-
-### BatchEnsembleMLPBackbone
-
-Multi-layer MLP backbone built entirely using parameter-efficient `BatchEnsembleLinear` layers.
+- [Uncertainty decomposition](../guide/uncertainty-decomposition.md) — what each ensemble contract returns

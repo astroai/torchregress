@@ -3,7 +3,7 @@
 This page documents three external-comparison benchmarks that pit `torchregress`
 against widely-used third-party libraries on canonical regression tasks.
 
-→ API: [`SplitConformal`](../api/losses.md#splitconformal), [`CQR`](../api/losses.md#cqr), [`BayesianLinearHead`](../api/test_time.md).
+→ API: [`SplitConformal`](../api/losses.md), [`CQR`](../api/losses.md), [`BayesianLinearHead`](../api/test_time.md).
 
 | Task | External library | Comparison focus | Artifact |
 |---|---|---|---|

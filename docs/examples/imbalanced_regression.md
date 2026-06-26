@@ -2,7 +2,7 @@
 
 This example demonstrates how to use `DensityWeightedLoss` and `LDSLoss` for imbalanced regression tasks.
 
-→ API: [`DensityWeightedLoss`](../api/losses.md#densityweightedloss), [`LDSLoss`](../api/losses.md) (imbalanced section). Guide: [Imbalanced losses](../losses/imbalanced.md).
+→ API: [`DensityWeightedLoss`](../api/losses.md), [`LDSLoss`](../api/losses.md) (imbalanced section). Guide: [Imbalanced losses](../losses/imbalanced.md).
 
 ## Task-First Context
 

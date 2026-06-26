@@ -57,10 +57,10 @@ constraint.
 **Recommended order (start with the simplest, escalate only if
 necessary):**
 
-1. **Single robust point head.** [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss) or
-   [`WeightedMSELoss`](../api/losses.md#weightedmseloss). Inference is one forward pass; training is
+1. **Single robust point head.** [`WeightedHuberLoss`](../api/losses.md) or
+   [`WeightedMSELoss`](../api/losses.md). Inference is one forward pass; training is
    the cheapest of the alternatives.
-2. **Single heteroscedastic head.** [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) with a
+2. **Single heteroscedastic head.** [`GaussianNLLLoss`](../api/losses.md) with a
    $[\mu, \log\sigma^2]$ output. Same inference cost as a point
    head; doubles the parameter count of the final layer.
 3. **MC Dropout** (`MCDropoutWrapper`). $N$ forward passes per
@@ -79,7 +79,7 @@ necessary):**
 - SWAG and IVON are single-model alternatives but require careful
   protocol tuning; calibration depends on the SGD trajectory length
   and the rank of the low-rank posterior.
-- Flow-based methods ([`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss)) are the most expressive
+- Flow-based methods ([`NormalizingFlowLoss`](../api/losses.md)) are the most expressive
   density estimators but add the most implementation / runtime
   complexity. They are not the right default for low-latency.
 
@@ -95,7 +95,7 @@ or neither.
 - **Decomposition:** aleatoric + epistemic split. Requires a
   probabilistic head *and* an ensemble, BNN, or evidential prior.
 
-If you need **coverage only:** use [`SplitConformal`](../api/losses.md#splitconformal) or [`CQR`](../api/losses.md#cqr) on top
+If you need **coverage only:** use [`SplitConformal`](../api/losses.md) or [`CQR`](../api/losses.md) on top
 of a strong base regressor. Report empirical coverage, interval
 width, and coverage under shift.
 
@@ -122,12 +122,12 @@ When the conditional $p(y \mid x)$ is known or expected to be
 multimodal, a single Gaussian head is structurally inadequate.
 Recommended order:
 
-1. **MDN** ([`MDNLoss`](../api/losses.md#mdnloss)). Good first multimodal baseline; tune the
+1. **MDN** ([`MDNLoss`](../api/losses.md)). Good first multimodal baseline; tune the
    number of components $J$ by held-out CRPS.
-2. **Quantile / expectile methods** — [`MultiQuantileLoss`](../api/losses.md#multiquantileloss) with
+2. **Quantile / expectile methods** — [`MultiQuantileLoss`](../api/losses.md) with
    $[0.05, 0.1, 0.5, 0.9, 0.95]$. Suitable when intervals (not the
    full density) are the deliverable.
-3. **Normalizing flows** ([`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss)) — when MDN or
+3. **Normalizing flows** ([`NormalizingFlowLoss`](../api/losses.md)) — when MDN or
    Gaussian families miss the structure. Heaviest in compute and
    implementation.
 
@@ -153,12 +153,12 @@ loss = loss_fn(x_obs, y_obs, model=model)
 
 **Recommended order:**
 
-1. **Establish a baseline.** [`WeightedMSELoss`](../api/losses.md#weightedmseloss) or
-   [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss) with the noisy input $x_{\text{obs}}$. Quantify
+1. **Establish a baseline.** [`WeightedMSELoss`](../api/losses.md) or
+   [`WeightedHuberLoss`](../api/losses.md) with the noisy input $x_{\text{obs}}$. Quantify
    the **attenuation bias** (regression coefficients shrink toward
    zero).
-2. **Add a simple EIV loss** — [`FunctionalEIVLoss`](../api/losses.md#functionaleivloss) or
-   [`OrthogonalDistanceRegressionLoss`](../api/losses.md#orthogonaldistanceregressionloss) (ODR) — and compare the
+2. **Add a simple EIV loss** — [`FunctionalEIVLoss`](../api/losses.md) or
+   [`OrthogonalDistanceRegressionLoss`](../api/losses.md) (ODR) — and compare the
    regression coefficients to the baseline.
 3. **Add `RegressionCalibration`** (RC) if $\Sigma_u$ (the input
    noise covariance) is known or estimable. RC is the closed-form
@@ -178,11 +178,11 @@ manage the inner forward pass.
 For deployment-facing reliability, combine three categories of
 diagnostic:
 
-- **Calibration metrics** — [`expected_calibration_error`](../api/metrics.md#expected_calibration_error),
-  [`marginal_calibration_error`](../api/metrics.md#marginal_calibration_error), and
+- **Calibration metrics** — [`expected_calibration_error`](../api/metrics.md),
+  [`marginal_calibration_error`](../api/metrics.md), and
   reliability / PIT plots.
-- **OOD metrics** — [`mahalanobis_distance`](../api/metrics.md#mahalanobis_distance),
-  [`typicality_score`](../api/metrics.md#typicality_score), entropy, density-based signals. Do not rely on a
+- **OOD metrics** — [`mahalanobis_distance`](../api/metrics.md),
+  [`typicality_score`](../api/metrics.md), entropy, density-based signals. Do not rely on a
   single OOD score in isolation; ensemble multiple scores.
 - **Decision metrics** — [risk-coverage curves](../metrics/decision.md),
   [rejection policies](../metrics/decision.md) for selective

@@ -48,7 +48,7 @@ $$\mathcal{L}_{\text{CORAL}} = -\sum_{k=1}^{K-1} \Bigl[\mathbf{1}_{y > k}\,\log\
 
 ### OrdinalCrossEntropyLoss
 
-Standard cross-entropy baseline (ignores ordering). See [OrdinalCrossEntropyLoss API](../api/losses.md#ordinalcrossentropyloss). Treats each level as an independent class, but now supports both:
+Standard cross-entropy baseline (ignores ordering). See [OrdinalCrossEntropyLoss API](../api/losses.md). Treats each level as an independent class, but now supports both:
 
 - hard class-index labels, and
 - soft class-probability targets for ambiguous ordered labels or soft pseudo labels.
@@ -82,7 +82,7 @@ loss = loss_fn(logits[:2], soft_targets)
 
 ### CumulativeLinkLoss
 
-Cumulative-threshold model with $K-1$ logits. See [CumulativeLinkLoss API](../api/losses.md#cumulativelinkloss). It accepts either hard ordinal labels
+Cumulative-threshold model with $K-1$ logits. See [CumulativeLinkLoss API](../api/losses.md). It accepts either hard ordinal labels
 or soft per-class PMF targets, which are internally converted to cumulative levels.
 
 ```python
@@ -121,7 +121,7 @@ This is the right fit for:
 
 ### CORALLoss
 
-CORAL-style consistent rank logits. See [CORALLoss API](../api/losses.md#coralloss).
+CORAL-style consistent rank logits. See [CORALLoss API](../api/losses.md).
 
 ```python
 from torchregress.losses import CORALLoss

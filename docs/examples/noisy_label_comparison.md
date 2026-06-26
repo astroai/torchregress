@@ -1,6 +1,6 @@
 # Noisy Label Comparison
 
-→ Guide: [Noisy labels](../losses/noisy_labels.md), [Robust losses](../losses/robust.md). API: [Robust loss section](../api/losses.md#weightedhuberloss), [interval metrics](../api/metrics.md#interval_score).
+→ Guide: [Noisy labels](../losses/noisy_labels.md), [Robust losses](../losses/robust.md). API: [Robust loss section](../api/losses.md), [interval metrics](../api/metrics.md).
 
 This example provides a dedicated runnable comparison for label-corrupted regression with both robustness and calibration metrics.
 
@@ -8,12 +8,12 @@ Script: `examples/noisy_label_comparison.py`
 
 ## What It Compares
 
-- [`WeightedMSELoss`](../api/losses.md#weightedmseloss) baseline
-- [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss)
-- [`CauchyLoss`](../api/losses.md#cauchyloss)
-- [`TukeyBiweightLoss`](../api/losses.md#tukeybiweightloss)
-- [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss)
-- [`MultiQuantileLoss`](../api/losses.md#multiquantileloss) (90% interval head)
+- [`WeightedMSELoss`](../api/losses.md) baseline
+- [`WeightedHuberLoss`](../api/losses.md)
+- [`CauchyLoss`](../api/losses.md)
+- [`TukeyBiweightLoss`](../api/losses.md)
+- [`GaussianNLLLoss`](../api/losses.md)
+- [`MultiQuantileLoss`](../api/losses.md) (90% interval head)
 
 ## Metrics Reported
 

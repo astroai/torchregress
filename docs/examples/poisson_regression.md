@@ -2,7 +2,7 @@
 
 This guide demonstrates how to model count data using Poisson and Zero-Inflated Poisson regression loss functions.
 
-→ API: [`PoissonDevianceLoss`](../api/losses.md#poissondevianceloss), [`ZeroInflatedPoissonNLLLoss`](../api/losses.md#zeroinflatedpoissonnllloss), [`NegativeBinomialNLLLoss`](../api/losses.md#negativebinomialnllloss).
+→ API: [`PoissonDevianceLoss`](../api/losses.md), [`ZeroInflatedPoissonNLLLoss`](../api/losses.md), [`NegativeBinomialNLLLoss`](../api/losses.md).
 
 | # | Reference |
 |:-:|:----------|

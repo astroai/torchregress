@@ -2,7 +2,7 @@
 
 This guide explains how to perform Mondrian (group-conditional) conformal prediction to guarantee valid coverage independently within subgroups of data using `SplitConformal` with group indicators.
 
-→ API: [`SplitConformal`](../api/losses.md#splitconformal). Guide: [Conformal predictors](../methods/conformal/predictors.md).
+→ API: [`SplitConformal`](../api/losses.md). Guide: [Conformal predictors](../methods/conformal/predictors.md).
 
 | # | Reference |
 |:-:|:----------|

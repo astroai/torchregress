@@ -2,7 +2,7 @@
 
 This guide compares multiple regression loss functions designed to train models on censored data (where some targets are only partially observed).
 
-→ Loss API: [`CensoredGaussianNLLLoss`](../api/losses.md#censoredgaussiannllloss), [`CensoredQuantileLoss`](../api/losses.md#censoredquantileloss), [`AFTLoss`](../api/losses.md#aftloss). Guide: [Censored losses](../losses/censored.md).
+→ Loss API: [`CensoredGaussianNLLLoss`](../api/losses.md), [`CensoredQuantileLoss`](../api/losses.md), [`AFTLoss`](../api/losses.md). Guide: [Censored losses](../losses/censored.md).
 
 | # | Reference |
 |:-:|:----------|

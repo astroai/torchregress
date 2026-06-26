@@ -156,7 +156,7 @@ $\mathbf{\Sigma} = \text{diag}(\boldsymbol\sigma^2)$ is a reasonable
 approximation and reduces the head to $2K$ outputs
 ($[\boldsymbol\mu, \log\boldsymbol\sigma^2]$). This is the
 **independent Gaussian** case and is implemented by stacking
-$K$ independent [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) heads or by using a single
+$K$ independent [`GaussianNLLLoss`](../api/losses.md) heads or by using a single
 $2K$-output head with the diagonal Gaussian NLL.
 
 The diagonal assumption understates joint uncertainty; the resulting
@@ -169,7 +169,7 @@ hyper-rectangular confidence regions are conservative but valid.
 When targets are multimodal, skewed, or have bounded support, Gaussian
 assumptions fail. torchregress provides:
 
-### 3.1 Mixture density networks: [`MDNLoss`](../api/losses.md#mdnloss)
+### 3.1 Mixture density networks: [`MDNLoss`](../api/losses.md)
 
 A mixture of multivariate Gaussians,
 

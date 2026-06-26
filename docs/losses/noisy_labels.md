@@ -19,13 +19,13 @@ The simplest defence — replace MSE with a loss that bounds the influence of la
 from torchregress.losses import WeightedHuberLoss, TukeyBiweightLoss, CauchyLoss
 
 # Huber: linear penalty beyond δ
-loss_fn = WeightedHuberLoss(delta=1.0)  # [API](../api/losses.md#weightedhuberloss)
+loss_fn = WeightedHuberLoss(delta=1.0)  # [API](../api/losses.md)
 
 # Tukey: completely ignores errors beyond c
-loss_fn = TukeyBiweightLoss(c=4.685)  # [API](../api/losses.md#tukeybiweightloss)
+loss_fn = TukeyBiweightLoss(c=4.685)  # [API](../api/losses.md)
 
 # Cauchy: logarithmic suppression
-loss_fn = CauchyLoss(c=1.0)  # [API](../api/losses.md#cauchyloss)
+loss_fn = CauchyLoss(c=1.0)  # [API](../api/losses.md)
 ```
 
 See [Robust Losses](robust.md) for details and a decision guide.
@@ -37,7 +37,7 @@ Average only the worst-$\alpha$ fraction of per-sample losses (those with the **
 ```python
 from torchregress.losses import CVaRLoss
 
-loss_fn = CVaRLoss(alpha=0.5, base_loss="huber")  # [API](../api/losses.md#cvarloss)
+loss_fn = CVaRLoss(alpha=0.5, base_loss="huber")  # [API](../api/losses.md)
 ```
 
 ### 3. Uncertain Ground Truth Losses
@@ -48,7 +48,7 @@ When label noise has **known or estimable variance**, use losses that explicitly
 from torchregress.losses import NoisyTargetGaussianNLL
 
 # Known label noise variance
-loss_fn = NoisyTargetGaussianNLL()  # [API](../api/losses.md#noisytargetgaussiannll)
+loss_fn = NoisyTargetGaussianNLL()  # [API](../api/losses.md)
 ```
 
 See [Uncertain Ground Truth](uncertain_ground_truth.md) for `NoisyTargetGaussianNLL`, `ConsistencyRegLoss`, `PseudoLabelNLL`, and `PseudoLabelConsistencyLoss`.
@@ -61,11 +61,11 @@ Downweight samples in noisy regions using density or propensity scores:
 from torchregress.losses import DensityWeightedLoss, PropensityWeightedLoss
 
 # Inverse-density weighting
-loss_fn = DensityWeightedLoss(kernel_width=0.5)  # [API](../api/losses.md#densityweightedloss)
+loss_fn = DensityWeightedLoss(kernel_width=0.5)  # [API](../api/losses.md)
 loss_fn.fit_density(y_train)
 
 # Inverse-propensity weighting
-loss_fn = PropensityWeightedLoss(clip_min=0.01)  # [API](../api/losses.md#propensityweightedloss)
+loss_fn = PropensityWeightedLoss(clip_min=0.01)  # [API](../api/losses.md)
 ```
 
 See [Imbalanced Regression](imbalanced.md).

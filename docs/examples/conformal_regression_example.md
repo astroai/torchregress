@@ -2,7 +2,7 @@
 
 This example demonstrates how to use the conformal prediction methods in torchregress to obtain prediction intervals with guaranteed coverage.
 
-→ API: [`SplitConformal`](../api/losses.md#splitconformal), [`CQR`](../api/losses.md#cqr), [`ConformalLoss`](../api/losses.md#conformalloss). Guide: [Conformal predictors](../methods/conformal/predictors.md).
+→ API: [`SplitConformal`](../api/losses.md), [`CQR`](../api/losses.md), [`ConformalLoss`](../api/losses.md). Guide: [Conformal predictors](../methods/conformal/predictors.md).
 
 ## Task-First Context
 

@@ -9,10 +9,10 @@ slightly worse calibration but uncertainty that ranks errors correctly.
 
 The two primitives in this module are
 
-- [RiskCoverageCurve](../api/metrics.md#riskcoveragecurve) —
+- [RiskCoverageCurve](../api/metrics.md) —
   the full risk-vs-coverage trajectory, with the **Area Under the
   Risk-Coverage Curve** (AURC) as a scalar summary.
-- [RejectionPolicy](../api/metrics.md#rejectionpolicy) —
+- [RejectionPolicy](../api/metrics.md) —
   the per-decision evaluation at a fixed **threshold** or
   **rejection fraction**.
 

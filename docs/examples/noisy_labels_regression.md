@@ -2,7 +2,7 @@
 
 This example uses implemented robust losses for regression with corrupted targets.
 
-→ API: [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss), [`CauchyLoss`](../api/losses.md#cauchyloss), [`TukeyBiweightLoss`](../api/losses.md#tukeybiweightloss). Guide: [Noisy labels](../losses/noisy_labels.md).
+→ API: [`WeightedHuberLoss`](../api/losses.md), [`CauchyLoss`](../api/losses.md), [`TukeyBiweightLoss`](../api/losses.md). Guide: [Noisy labels](../losses/noisy_labels.md).
 
 ## Code
 

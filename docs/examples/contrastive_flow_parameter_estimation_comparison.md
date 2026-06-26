@@ -2,7 +2,7 @@
 
 This comparison turns the single-method contrastive-flow demo into a decision artifact.
 
-→ API: [`ContrastiveFlowLoss`](../api/losses.md#contrastiveflowloss), [`NormalizingFlowLoss`](../api/losses.md#normalizingflowloss).
+→ API: [`ContrastiveFlowLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md).
 It evaluates three approaches on the same synthetic nuisance-shifted pseudoexperiment task:
 
 - `GaussianSummary`: diagonal Gaussian density over summary vectors

@@ -2,7 +2,7 @@
 
 This guide demonstrates how to perform doubly robust estimation of Average Treatment Effects (ATE) and Conditional Average Treatment Effects (CATE) under confounded treatment assignment.
 
-→ API: [`dr_ate`](../api/causal.md#dr_ate), [`dr_cate`](../api/causal.md#dr_cate), [`causal_overlap_report`](../api/causal.md#causal_overlap_report).
+→ API: [`dr_ate`](../api/causal.md), [`dr_cate`](../api/causal.md), [`causal_overlap_report`](../api/causal.md).
 
 | # | Reference |
 |:-:|:----------|

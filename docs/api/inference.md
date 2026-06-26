@@ -104,17 +104,8 @@ ols_ci = ppi_ols_ci(x_l, y_l, x_u, p_l, p_u, add_intercept=True, config=cfg)
 
 ---
 
-## Decision guide
-
-| Goal | Use |
-|:-----|:----|
-| Population mean | `ppi_mean_ci` |
-| Mean with affine miscalibration | `ppi_calibrated_mean_ci` |
-| A specific quantile | `ppi_quantile_ci` |
-| Linear coefficients | `ppi_ols_ci` |
-| Validity check | `ppi_diagnostics` first |
-
 ## Next steps
 
 - [Uncertainty decomposition](../guide/uncertainty-decomposition.md)
-- [PPI example](../examples/index.md) — coverage in practice
+- [PPI examples](../examples/index.md) — coverage and efficiency in practice
+- [Method selection guide](../guide/method-selection.md) — when PPI vs other UQ approaches

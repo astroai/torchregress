@@ -1,6 +1,6 @@
 # Noisy Label Real-Data Comparison
 
-→ Guide: [Noisy labels](../losses/noisy_labels.md). API: [Robust and probabilistic losses](../api/losses.md#weightedhuberloss), [interval metrics](../api/metrics.md#prediction_interval_coverage_probability).
+→ Guide: [Noisy labels](../losses/noisy_labels.md). API: [Robust and probabilistic losses](../api/losses.md), [interval metrics](../api/metrics.md).
 
 This example runs a shared-budget comparison of robust and probabilistic methods on a **real tabular dataset**
 ([`sklearn.datasets.load_diabetes`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html))
@@ -10,11 +10,11 @@ Script: `examples/noisy_label_realdata_comparison.py`
 
 ## What It Compares
 
-- [`WeightedMSELoss`](../api/losses.md#weightedmseloss) baseline
-- [`WeightedHuberLoss`](../api/losses.md#weightedhuberloss)
-- [`CauchyLoss`](../api/losses.md#cauchyloss)
-- [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss)
-- [`MultiQuantileLoss`](../api/losses.md#multiquantileloss) (`Quantile90`)
+- [`WeightedMSELoss`](../api/losses.md) baseline
+- [`WeightedHuberLoss`](../api/losses.md)
+- [`CauchyLoss`](../api/losses.md)
+- [`GaussianNLLLoss`](../api/losses.md)
+- [`MultiQuantileLoss`](../api/losses.md) (`Quantile90`)
 
 ## Metrics Reported
 

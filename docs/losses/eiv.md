@@ -33,10 +33,10 @@ where $\lambda \in (0, 1)$ is the **reliability ratio**.  This is known as **att
 | Loss | Approach | Key Feature | API |
 |:-----|:---------|:------------|:----|
 | `InputNoiseMarginalizationLoss` | MC sampling over input noise | **Recommended Default** for non-linear/probabilistic models | [Losses API](../api/losses.md) (EIV) |
-| [`FunctionalEIVLoss`](../api/losses.md#functionaleivloss) | Taylor expansion of $f$ around $X_{\text{obs}}$ | Fast, gradient-based (Point estimates) | [`FunctionalEIVLoss`](../api/losses.md#functionaleivloss) |
+| [`FunctionalEIVLoss`](../api/losses.md) | Taylor expansion of $f$ around $X_{\text{obs}}$ | Fast, gradient-based (Point estimates) | [`FunctionalEIVLoss`](../api/losses.md) |
 | `InputNoiseMDNLoss` | MC marginalization for MDN heads | Handles multimodal targets with noisy inputs | [Losses API](../api/losses.md) (EIV) |
 | `InputNoiseBinnedPDFLoss` | MC marginalization for classification/binning | Reliable uncertainty for binned PDF models | [Losses API](../api/losses.md) (EIV) |
-| [`OrthogonalDistanceRegressionLoss`](../api/losses.md#orthogonaldistanceregressionloss) | Optimises latent $X^*$ per sample | Classical ODR, inner loop | [`OrthogonalDistanceRegressionLoss`](../api/losses.md#orthogonaldistanceregressionloss) |
+| [`OrthogonalDistanceRegressionLoss`](../api/losses.md) | Optimises latent $X^*$ per sample | Classical ODR, inner loop | [`OrthogonalDistanceRegressionLoss`](../api/losses.md) |
 
 ---
 

@@ -2,7 +2,7 @@
 
 Calibration metrics evaluate whether predicted probabilistic distributions or intervals accurately reflect the true uncertainty in the data.
 
-→ See [Calibration methods](../methods/calibration.md), [Visualization diagnostics](../methods/visualization.md#1-diagnostic-plots-torchregressvizdiagnostic), and the [calibration API](../api/metrics.md#calibration-metrics-metricscalibration).
+→ See [Calibration methods](../methods/calibration.md), [Visualization diagnostics](../methods/visualization.md#1-diagnostic-plots-torchregressvizdiagnostic), and the [calibration API](../api/metrics.md).
 
 ---
 
@@ -37,7 +37,7 @@ ece_metrics = expected_calibration_error(quantiles, y_true)
 print(f"Mean Absolute Calibration Error: {ece_metrics['mean_absolute_calibration_error']}")
 print(f"Maximum Calibration Error: {ece_metrics['maximum_calibration_error']}")
 ```
-See also: [expected_calibration_error](../api/metrics.md#expected_calibration_error) and the stateful [`ExpectedCalibrationError`](../api/metrics.md#expectedcalibrationerror) metric class.
+See also: [expected_calibration_error](../api/metrics.md) and the stateful [`ExpectedCalibrationError`](../api/metrics.md) metric class.
 
 ---
 
@@ -77,7 +77,7 @@ mce_metrics = marginal_calibration_error(y_pred_samples, y_true)
 print(f"Marginal Calibration Error: {mce_metrics['marginal_calibration_error']}")
 print(f"Maximum MCE: {mce_metrics['maximum_marginal_calibration_error']}")
 ```
-See also: [marginal_calibration_error](../api/metrics.md#marginal_calibration_error) and the stateful [`MarginalCalibrationError`](../api/metrics.md#marginalcalibrationerror) metric class.
+See also: [marginal_calibration_error](../api/metrics.md) and the stateful [`MarginalCalibrationError`](../api/metrics.md) metric class.
 
 ---
 
@@ -94,7 +94,7 @@ from torchregress.metrics.calibration import bias
 
 mean_bias = bias(y_pred, y_true)
 ```
-See also: [bias](../api/metrics.md#bias).
+See also: [bias](../api/metrics.md).
 
 ---
 
@@ -114,7 +114,7 @@ from torchregress.metrics.calibration import calibration_score
 # Get ECE computed over a fine normal quantile grid
 score = calibration_score(y_true, pred_mean, pred_std)
 ```
-See also: [calibration_score](../api/metrics.md#calibration_score).
+See also: [calibration_score](../api/metrics.md).
 
 ---
 
@@ -132,7 +132,7 @@ from torch.distributions import Normal
 dist = Normal(mean_pred, std_pred)
 report = calibration_metrics_report(dist, y_true)
 ```
-See also: [calibration_metrics_report](../api/metrics.md#calibration_metrics_report).
+See also: [calibration_metrics_report](../api/metrics.md).
 
 ---
 

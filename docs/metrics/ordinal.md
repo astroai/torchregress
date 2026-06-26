@@ -60,7 +60,7 @@ mae_cls = tr.metrics.mean_absolute_class_error(logits, labels, encoding="class_l
 qwk = tr.metrics.quadratic_weighted_kappa(logits, labels, encoding="class_logits")
 ```
 
-See the [quadratic_weighted_kappa API](../api/metrics.md#quadratic_weighted_kappa) for details.
+See the [quadratic_weighted_kappa API](../api/metrics.md) for details.
 
 ---
 

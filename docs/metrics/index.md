@@ -29,7 +29,7 @@ OOD detection, censored/ordinal regression, selective prediction, and more.
   when you want stateful metric accumulation across epochs.
     - Use **torchregress functional metrics** (`mse`, `rmse`, `mae`, `r2_score`)
       when you need per-sample outputs, tail-focus, or mask support.
-    - Use **torchregress metric classes** ([`ExpectedCalibrationError`](../api/metrics.md#expectedcalibrationerror), [`MarginalCalibrationError`](../api/metrics.md#marginalcalibrationerror), …)
+    - Use **torchregress metric classes** ([`ExpectedCalibrationError`](../api/metrics.md), [`MarginalCalibrationError`](../api/metrics.md), …)
       for domain-specific evaluation that torchmetrics does not cover.
 
 ---
@@ -148,6 +148,6 @@ Metrics for selective prediction and uncertainty-based rejection:
 | Full predictive distributions | `gaussian_nll`, `crps_gaussian`, `energy_score` |
 | Model calibration | `expected_calibration_error`, `marginal_calibration_error`, `calibration_score` |
 | OOD scoring | `mahalanobis_distance`, `typicality_score`, `entropy_score`, `kernel_density_score` |
-| Selective prediction | `RiskCoverageCurve`, `RejectionPolicy`, [`risk_coverage_curve`](../api/metrics.md#riskcoveragecurve) |
+| Selective prediction | `RiskCoverageCurve`, `RejectionPolicy`, [`risk_coverage_curve`](../api/metrics.md) |
 
 For detailed guidance on metric selection and interpretation, see the [practical usage guide](../guide/practical-usage.md) and [uncertainty decomposition](../guide/uncertainty-decomposition.md).

@@ -2,7 +2,7 @@
 
 Out-of-Distribution (OOD) detection metrics evaluate how well a model can identify inputs or predictions that differ significantly from the training distribution.
 
-→ See [Decision metrics](decision.md) for selective-prediction evaluation and [OOD API](../api/metrics.md#ood-metrics-metricsood).
+→ See [Decision metrics](decision.md) for selective-prediction evaluation and [OOD API](../api/metrics.md).
 
 ---
 
@@ -24,7 +24,7 @@ from torchregress.metrics.ood import mahalanobis_distance
 # cov has shape [n_features, n_features]
 md = mahalanobis_distance(x, mean, cov)
 ```
-See also: [mahalanobis_distance](../api/metrics.md#mahalanobis_distance).
+See also: [mahalanobis_distance](../api/metrics.md).
 
 ---
 
@@ -50,7 +50,7 @@ from torchregress.metrics.ood import typicality_score
 # Using a tuple of (mean, variance) representing distribution parameters
 ts = typicality_score((mean_pred, var_pred), x_test)
 ```
-See also: [typicality_score](../api/metrics.md#typicality_score).
+See also: [typicality_score](../api/metrics.md).
 
 ---
 
@@ -76,7 +76,7 @@ from torchregress.metrics.ood import entropy_score
 # samples has shape [n_samples, batch_size, ...]
 es = entropy_score(samples)
 ```
-See also: [entropy_score](../api/metrics.md#entropy_score).
+See also: [entropy_score](../api/metrics.md).
 
 ---
 
@@ -99,7 +99,7 @@ from torchregress.metrics.ood import kernel_density_score
 
 kds = kernel_density_score(x_test, x_reference, bandwidth=0.5)
 ```
-See also: [kernel_density_score](../api/metrics.md#kernel_density_score).
+See also: [kernel_density_score](../api/metrics.md).
 
 ---
 
@@ -121,7 +121,7 @@ report = ood_metrics_report(
     samples=pred_samples
 )
 ```
-See also: [ood_metrics_report](../api/metrics.md#ood_metrics_report).
+See also: [ood_metrics_report](../api/metrics.md).
 
 ---
 

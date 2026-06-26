@@ -19,7 +19,7 @@ Output constraints are architectural layers that **enforce** structural properti
 
 **torchregress** provides several constraint-enforcing layers that can be added as the final stage of any PyTorch model.
 
-### 1. Positivity ([NonNegativeHead](../api/constraints.md#nonnegativehead))
+### 1. Positivity ([NonNegativeHead](../api/constraints.md))
 
 Ensures all outputs are non-negative ($\hat{y} \geq 0$) via a **Softplus** transformation:
 
@@ -36,7 +36,7 @@ model = nn.Sequential(
 )
 ```
 
-### 2. Boundedness ([BoundedHead](../api/constraints.md#boundedhead))
+### 2. Boundedness ([BoundedHead](../api/constraints.md))
 
 Enforces strict lower and upper bounds ($a \leq \hat{y} \leq b$) via a scaled **Sigmoid**:
 
@@ -50,7 +50,7 @@ from torchregress.constraints import BoundedHead
 head = BoundedHead(nn.Linear(64, 1), low=0.0, high=100.0)
 ```
 
-### 3. Non-Crossing ([NonCrossingSort](../api/constraints.md#noncrossingsort))
+### 3. Non-Crossing ([NonCrossingSort](../api/constraints.md))
 
 Ensures that multiple outputs are **monotonically ordered**. This is critical for **Quantile Regression** to prevent "quantile crossing" (where the 90th quantile is predicted to be less than the 50th).
 
@@ -61,7 +61,7 @@ from torchregress.constraints import NonCrossingSort
 model = nn.Sequential(nn.Linear(64, 5), NonCrossingSort())
 ```
 
-### 4. Simplex ([SimplexHead](../api/constraints.md#simplexhead))
+### 4. Simplex ([SimplexHead](../api/constraints.md))
 
 Ensures that outputs sum to 1 and are non-negative ($\sum \hat{y}_i = 1, \hat{y}_i \geq 0$) via **Softmax**. Ideal for mixture weights or compositional data.
 
@@ -76,14 +76,14 @@ head = SimplexHead(nn.Linear(64, 5), dim=-1)
 
 | Layer | Constraint | API Reference | Best For |
 |:------|:-----------|:--------------|:---------|
-| **`NonNegativeHead`** | $\hat{y} \geq 0$ | [NonNegativeHead](../api/constraints.md#nonnegativehead) | Price, Variance, Count |
-| **`BoundedHead`** | $[a, b]$ | [BoundedHead](../api/constraints.md#boundedhead) | Probabilities, Percentages |
-| **`NonCrossingSort`** | $y_1 \leq y_2 \dots$ | [NonCrossingSort](../api/constraints.md#noncrossingsort) | Quantile Regression |
-| **`SimplexHead`** | $\sum y_i = 1$ | [SimplexHead](../api/constraints.md#simplexhead) | Mixture Models, Weights |
+| **`NonNegativeHead`** | $\hat{y} \geq 0$ | [NonNegativeHead](../api/constraints.md) | Price, Variance, Count |
+| **`BoundedHead`** | $[a, b]$ | [BoundedHead](../api/constraints.md) | Probabilities, Percentages |
+| **`NonCrossingSort`** | $y_1 \leq y_2 \dots$ | [NonCrossingSort](../api/constraints.md) | Quantile Regression |
+| **`SimplexHead`** | $\sum y_i = 1$ | [SimplexHead](../api/constraints.md) | Mixture Models, Weights |
 
 ---
 
-## Advanced: Spectral Normalisation ([SpectralNormWrapper](../api/constraints.md#spectralnormwrapper))
+## Advanced: Spectral Normalisation ([SpectralNormWrapper](../api/constraints.md))
 
 For stability and **Out-of-Distribution (OOD)** detection, **torchregress** provides a `SpectralNormWrapper`. This applies PyTorch [spectral normalization](https://pytorch.org/docs/stable/generated/torch.nn.utils.parametrizations.spectral_norm.html) to bound layer Lipschitz constants, which can improve smoothness on inputs far from the training data \[1\].
 

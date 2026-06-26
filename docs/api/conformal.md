@@ -1,7 +1,7 @@
 # Conformal API
 
 Conformal prediction (CP) in **torchregress** lives in
-[`torchregress.losses.conformal`](../api/losses.md#conformal-prediction). This page
+[`torchregress.losses.conformal`](../api/losses.md). This page
 lists every conformal loss, calibrator, and predictor, plus the test-time
 adapters in `torchregress.test_time.ot_conformal`. For background and the
 unified coverage theorem, see [Conformal prediction](../methods/conformal/index.md).
@@ -59,7 +59,7 @@ In `torchregress.test_time.ot_conformal`:
 
 ---
 
-## Unified training+calibration
+## Quick example
 
 ```python
 from torchregress.losses import ConformalLoss, CQR
@@ -74,128 +74,9 @@ cp.calibrate(y_pred_cal, y_cal)
 lower, upper = cp.predict_interval(y_pred_test)
 ```
 
-## Decision guide
-
-| Situation | Use |
-|:----------|:----|
-| Plain regression, homoscedastic noise | `SplitConformal` |
-| Heteroscedastic, want adaptive width | `CQR` |
-| Have predictive CDF | `DistributionalConformal` or `LevelSetConformalPredictor` |
-| Sample efficiency / subgroup shift | `DensityConformal` or `LocalConformal` |
-| Ensembles / Bayesian MC | `MonteCarloConformal` |
-| Distribution shift at test time | `WeightedSplitConformalAdapter` + `ScoreCDFReweighter` |
-| Need multi-target joint coverage | `MultiTargetConformal` |
-| Have cross-validation ensemble models | `CVPlus` (or `JackknifePlus`) |
-| Have bootstrap/OOB ensemble models | `EnsembleBatchCP` (EnbPI) |
-
-## Detailed Class References
-
-### ConformalLoss
-
-Loss wrapper that trains a base model and applies conformal calibration on target outputs:
-
-```python
-ConformalLoss(method="cqr", alpha=0.1)
-```
-
-### SplitConformal
-
-Standard split conformal prediction using absolute residuals:
-
-$$
-s_i = |y_i - \hat{y}_i|
-$$
-
-### CQR
-
-Conformalized Quantile Regression calibration wrapper using quantile interval width:
-
-$$
-s_i = \max\left(\hat{q}_{\alpha/2}(x_i) - y_i, y_i - \hat{q}_{1-\alpha/2}(x_i)\right)
-$$
-
-### UACQR
-
-Uncertainty-Aware CQR scaling quantile residuals by interval width:
-
-$$
-s_i = \frac{\max\left(\hat{q}_{\alpha/2}(x_i) - y_i, y_i - \hat{q}_{1-\alpha/2}(x_i)\right)}{\hat{q}_{1-\alpha/2}(x_i) - \hat{q}_{\alpha/2}(x_i) + \varepsilon}
-$$
-
-### DensityConformal
-
-Density-weighted split conformal prediction for long-tailed targets:
-
-$$
-s_i = \frac{|y_i - \hat{y}_i|}{\hat{p}(y_i) + \varepsilon}
-$$
-
-### MonteCarloConformal
-
-MC-dropout or ensemble normalized split conformal prediction:
-
-$$
-s_i = \frac{|y_i - \hat{y}_i|}{\hat{\sigma}_{\text{MC}}(x_i) + \varepsilon}
-$$
-
-### LocalConformal
-
-Locally valid split conformal prediction in embedding space:
-
-$$
-\hat{C}(x) = [\hat{y} - \hat{q}(x), \hat{y} + \hat{q}(x)]
-$$
-
-### LocalConformalMAD
-
-Robust locally valid split conformal prediction utilizing Local Median Absolute Deviation (MAD) scaling.
-
-### CTI
-
-**Conformal Thresholded Intervals** — smallest density level sets via negative log-density scores:
-
-$$
-\hat{C}(x) = \{ y : -\log p(y \mid x) \le \hat{q} \}
-$$
-
-Reference: Luo & Zhou, ["Conformal Thresholded Intervals for Efficient Regression"](https://arxiv.org/abs/2407.14495) (*AAAI*, 2025).
-
-### SLSConformal
-
-Conformal wrapper for Super-Level-Set ([`SLSLoss`](../api/losses.md#slsloss)) frontiers — calibrates level-set thresholds for multi-target prediction regions.
-
-### CVPlus / JackknifePlus
-
-CV+ and Jackknife+ conformal prediction for ensemble models using out-of-fold residuals. Given $K$ model folds (or $N$ LOO folds), the nonconformity scores are computed on out-of-fold predictions:
-
-$$
-s_i = |y_i - \hat{y}_{-f(i)}(x_i)|
-$$
-
-where $f(i)$ is the fold index for calibration point $i$, and $\hat{y}_{-f(i)}$ is the model trained without fold $f(i)$. The interval at a new point $X_{n+1}$ is constructed by finding the $\alpha$ and $1-\alpha$ quantiles over the candidate endpoints:
-
-$$
-\left[ \text{Quantile}\left(\{\hat{y}_{-f(i)}(X_{n+1}) - s_i\}_{i=1}^n, \alpha\right), \; \text{Quantile}\left(\{\hat{y}_{-f(i)}(X_{n+1}) + s_i\}_{i=1}^n, 1-\alpha\right) \right]
-$$
-
-### EnsembleBatchCP
-
-Ensemble Batch Conformal Prediction (EnbPI) uses out-of-bag (OOB) ensemble residuals to calibrate prediction intervals for ensemble point predictions (like bagging or bootstrap aggregation):
-
-$$
-s_i = |y_i - \hat{y}_{\text{OOB}}(x_i)|
-$$
-
-And the interval is constructed around the ensemble mean prediction $\hat{y}_{\text{mean}}$:
-
-$$
-\hat{y}_{\text{mean}} \pm \hat{q}
-$$
-
-where $\hat{q}$ is the $(1-\alpha)(1+1/n)$ quantile of $\{s_i\}_{i=1}^n$.
-
 ## Next steps
 
-- [Conformal prediction overview](../methods/conformal/index.md)
-- [Uncertainty decomposition](../guide/uncertainty-decomposition.md)
-- [Test-time shift](../methods/test-time/ot-shift-conformal.md)
+- [Conformal overview](../methods/conformal/index.md) — unified coverage theorem, full method details
+- [Conformal predictors](../methods/conformal/predictors.md) — score formulas, parameter tables, best practices
+- [Distributional conformal](../methods/conformal/distributional.md) — CDF/density-based methods
+- [Test-time shift](../methods/test-time/ot-shift-conformal.md) — shift-aware conformal

@@ -15,7 +15,7 @@ from torchregress.ensemble import BaseEnsembleModel
 # Subclasses (DeepEnsemble, HeteroscedasticEnsembleModel, …) wrap this pattern.
 ```
 
-→ Full API: [BaseEnsembleModel](../../api/ensemble.md#baseensemblemodel).
+→ Full API: [BaseEnsembleModel](../../api/ensemble.md).
 
 ---
 
@@ -144,7 +144,7 @@ from torchregress.ensemble import BatchEnsembleLinear
 layer = BatchEnsembleLinear(in_features=10, out_features=64, ensemble_size=4)
 ```
 
-→ API: [BatchEnsembleLinear](../../api/ensemble.md#batchensemblelinear).
+→ API: [BatchEnsembleLinear](../../api/ensemble.md).
 
 ---
 
@@ -165,7 +165,7 @@ backbone = BatchEnsembleMLPBackbone(
 features = backbone(x)  # (batch, ensemble_size, feature_dim)
 ```
 
-→ API: [BatchEnsembleMLPBackbone](../../api/ensemble.md#batchensemblemlpbackbone).
+→ API: [BatchEnsembleMLPBackbone](../../api/ensemble.md).
 
 ---
 
@@ -209,7 +209,7 @@ result = ensemble.predict(x_test)
 # result: "probabilities", "cdf_at_edges", "bin_edges", "mean", "variance", ...
 ```
 
-→ API: [RandomPartitionEnsembleModel](../../api/ensemble.md#randompartitionensemblemodel).
+→ API: [RandomPartitionEnsembleModel](../../api/ensemble.md).
 
 ---
 

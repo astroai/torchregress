@@ -27,7 +27,7 @@ Causal inference methods in **torchregress** use **doubly-robust** estimation \[
 
 ## Core Methods
 
-### 1. Doubly Robust ATE ([dr_ate](../api/causal.md#dr_ate))
+### 1. Doubly Robust ATE ([dr_ate](../api/causal.md))
 
 The Doubly Robust (DR) estimator \[1\] combines an **outcome model** $\hat{\mu}(x, t)$ and a **propensity model** $\hat{e}(x) = P(T=1 \mid x)$ to estimate the average treatment effect across the entire population. Implementations in **torchregress** **cross-fit** these nuisance models on held-out folds rather than accepting precomputed $\hat{\mu}$ or $\hat{e}$.
 
@@ -49,7 +49,7 @@ ci = (result["ci_lower"], result["ci_upper"])
 overlap = result["diagnostics"]  # overlap / ESS checks
 ```
 
-### 2. Conditional ATE ([dr_cate](../api/causal.md#dr_cate))
+### 2. Conditional ATE ([dr_cate](../api/causal.md))
 
 Estimates the treatment effect as a function of the covariates $X$. This is crucial for **personalised medicine** or **targeted marketing**, where we want to know $\tau(x) = \mathbb{E}[Y(1) - Y(0) \mid x]$.
 
@@ -67,7 +67,7 @@ result = dr_cate(
 cate_hat = result["cate_hat"]  # per-sample CATE estimates
 ```
 
-### 3. Policy Evaluation ([dr_policy_value](../api/causal.md#dr_policy_value))
+### 3. Policy Evaluation ([dr_policy_value](../api/causal.md))
 
 Estimates the expected outcome if we were to apply a specific treatment policy $\pi(x)$ to the entire population.
 
@@ -108,7 +108,7 @@ For causal estimates to be valid, three assumptions must hold:
 
 !!! warning "Positivity Violations"
 
-    If propensity scores are near 0 or 1, the DR estimator becomes unstable. Always check for overlap using [causal_overlap_report](../api/causal.md#causal_overlap_report).
+    If propensity scores are near 0 or 1, the DR estimator becomes unstable. Always check for overlap using [causal_overlap_report](../api/causal.md).
 
 ---
 
