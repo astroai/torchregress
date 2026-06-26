@@ -224,6 +224,15 @@ with torch.no_grad():
 
 ---
 
+## Next steps
+
+- [Normalizing flows](nflows.md) — building-block architecture for SLS frontiers
+- [MDN losses](mdn.md) — multimodal alternatives without the volume-optimal guarantee
+- [Conformal prediction](../methods/conformal/index.md) — post-hoc coverage guarantees (CQR, CTI)
+- [Conformal prediction](../methods/conformal/index.md) — simpler post-hoc coverage guarantees
+
+---
+
 ## References
 
 | # | Reference |

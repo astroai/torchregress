@@ -155,6 +155,15 @@ update_ema_teacher_(ema_teacher, student, momentum=0.95)
     - **Confidence threshold tuning**: `PseudoLabelNLL` and `PseudoLabelConsistencyLoss` use `confidence_threshold` to gate which pseudo-labels are trusted. Setting this too low admits noisy pseudo-labels; setting it too high rejects most unlabeled data, negating the semi-supervised benefit. Tune on a small held-out labeled set, not the unlabeled data.
     - **Target variance quality**: `NoisyTargetGaussianNLL` requires `target_variance` to be reasonably accurate. If the target variance is poorly estimated (e.g., guessed rather than measured), the loss can perform **worse** than standard `GaussianNLLLoss` which learns variance from data. Only use when you trust the variance estimates more than the model's ability to learn them.
 
+## Next steps
+
+- [Noisy labels](noisy_labels.md) — when noise variance is unknown
+- [Semi-supervised comparison](../examples/semi_supervised_regression_comparison.md) — benchmark all approaches
+- [Gaussian losses](gaussian.md) — standard heteroscedastic regression
+- [Conformal + Uncertain GT](../examples/uncertain_gt_density_conformal_comparison.md) — density-based conformal on noisy labels
+
+---
+
 ## References
 
 | # | Reference |

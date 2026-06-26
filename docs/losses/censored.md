@@ -156,11 +156,12 @@ for epoch in range(200):
 
 ---
 
-## Related
+## Next steps
 
-- [Censored Metrics](../metrics/censored.md) — concordance index, Brier score, etc.
-- [Censored Regression Comparison](../examples/censored_regression_comparison.md) — end-to-end benchmark
-- [Censored Regression Comparison (Real Data)](../examples/censored_regression_realdata_comparison.md) — real-data benchmark
+- [Censored metrics](../metrics/censored.md) — concordance index, Brier score, observed MAE
+- [Conformal + Censored](../methods/conformal/index.md) — wrap censored quantile predictions with CQR for coverage-guaranteed survival intervals
+- [Censored comparison](../examples/censored_regression_comparison.md) — benchmark Gaussian vs quantile vs AFT
+- [Ordinal losses](ordinal.md) — ordered discrete targets (another type of partial observation)
 
 ---
 

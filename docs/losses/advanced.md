@@ -128,6 +128,15 @@ samples = loss_fn.sample_predictions(params, n_samples=100)
 
 ---
 
+## Next steps
+
+- [Ensemble methods](../methods/ensemble/index.md) — more reliable (but costlier) epistemic uncertainty
+- [Gaussian losses](gaussian.md) — standard heteroscedastic regression (aleatoric only)
+- [Uncertainty decomposition](../guide/uncertainty-decomposition.md) — taxonomy of aleatoric vs. epistemic contracts
+- [Evidential example](../examples/evidential_regression.md) — runnable comparison with ensembles
+
+---
+
 ## References
 
 | # | Reference |

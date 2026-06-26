@@ -173,6 +173,15 @@ graph TD
 
 ---
 
+## Next steps
+
+- [Noisy labels](noisy_labels.md) — another form of data quality issue
+- [Robust losses](robust.md) — bounded-influence alternatives for tail-focused evaluation
+- [Tail metrics](../metrics/point.md#tail-metrics) — evaluate accuracy specifically on tail quantiles
+- [Imbalanced example](../examples/imbalanced_regression.md) — runnable comparison of all methods
+
+---
+
 ## References
 
 | # | Reference |

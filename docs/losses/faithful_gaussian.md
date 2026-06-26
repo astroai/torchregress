@@ -176,6 +176,15 @@ for epoch in range(100):
 
 ---
 
+## Next steps
+
+- [Gaussian losses](gaussian.md) — standard NLL and multivariate variants
+- [Beta-NLL](beta_nll.md) — another approach to decouple mean/variance training
+- [Ensemble methods](../methods/ensemble/index.md) — decompose aleatoric + epistemic uncertainty
+- [Calibration metrics](../metrics/calibration.md) — validate your variance estimates
+
+---
+
 ## References
 
 | # | Reference |

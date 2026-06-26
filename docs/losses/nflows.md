@@ -171,6 +171,15 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 
 ---
 
+## Next steps
+
+- [MDN losses](mdn.md) — lighter-weight mixture models for simpler multimodality
+- [SLS regression](sls.md) — volume-optimal prediction regions (flow-based frontier)
+- [Contrastive flow estimation](../examples/contrastive_flow_parameter_estimation.md) — parameter ranking example
+- [Flow comparison](../examples/contrastive_flow_parameter_estimation_comparison.md) — benchmark flows vs MDN vs Gaussian
+
+---
+
 ## References
 
 | # | Reference |

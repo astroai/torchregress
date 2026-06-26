@@ -195,6 +195,15 @@ loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)  # same as ExpectileLoss(0.75)
 
 ---
 
+## Next steps
+
+- [Conformalized Quantile Regression (CQR)](../methods/conformal/predictors.md) — guaranteed coverage on top of quantile predictions
+- [Robust losses](robust.md) — M-estimators for outlier-heavy data
+- [Gaussian losses](gaussian.md) — parametric alternatives when normality holds
+- [Interval metrics](../metrics/interval.md) — evaluate your quantile-based prediction intervals
+
+---
+
 ## References
 
 | # | Reference |

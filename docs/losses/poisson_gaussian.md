@@ -267,6 +267,15 @@ xray_loss = tr.losses.PoissonGaussianMixtureLoss(
 
 ---
 
+## Next steps
+
+- [Poisson & Tweedie](poisson_tweedie.md) — count-only models without Gaussian readout noise
+- [Gaussian losses](gaussian.md) — standard regression when shot noise is negligible
+- [Transform losses](transforms.md) — variance-stabilizing transformations as an alternative
+- [Poisson-Gaussian example](../examples/poisson_gaussian_mixture.md) — runnable demo
+
+---
+
 ## References
 
 | # | Reference |

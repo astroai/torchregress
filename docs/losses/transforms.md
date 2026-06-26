@@ -118,6 +118,15 @@ See [Transformed-Target Regression Comparison](../examples/transformed_target_re
 !!! info
     Transform losses change the optimization geometry, not the model family. You still need calibration, OOD checks, and hard-problem evaluation just as you would for plain `WeightedMSELoss`.
 
+## Next steps
+
+- [Gaussian losses](gaussian.md) — parametric alternatives when transforms aren't needed
+- [Poisson & Tweedie](poisson_tweedie.md) — count/positive models with built-in mean-variance structure
+- [Transform comparison](../examples/transformed_target_regression_comparison.md) — benchmark on skewed targets
+- [Robust losses](robust.md) — handle outliers without transforming the target
+
+---
+
 ## References
 
 | # | Reference |

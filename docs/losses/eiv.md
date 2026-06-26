@@ -244,10 +244,13 @@ for epoch in range(200):
 
 ---
 
-## Related
+## Next steps
 
-- [RC Algorithm](../methods/algorithms/rc.md) — Regression Calibration for EIV correction
-- [SIMEX Algorithm](../methods/algorithms/simex.md) — Simulation-Extrapolation for measurement error
+- [Regression Calibration (RC)](../methods/algorithms/rc.md) — closed-form EIV correction for linear models
+- [SIMEX](../methods/algorithms/simex.md) — simulation-extrapolation for nonlinear measurement error
+- [LatentNN](../methods/algorithms/latentnn.md) — end-to-end joint optimization of clean inputs + network
+- [EIV comparison](../examples/eiv_method_comparison.md) — benchmark all EIV methods
+- [Gaussian losses](gaussian.md) — standard losses when inputs are clean
 
 ---
 

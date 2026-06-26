@@ -101,6 +101,15 @@ graph LR
 
 ---
 
+## Next steps
+
+- [Uncertain ground truth](uncertain_ground_truth.md) — when noise variance is known or estimable
+- [Robust losses](robust.md) — the simplest defense via bounded influence functions
+- [Imbalanced regression](imbalanced.md) — density/propensity weighting strategies
+- [Ensemble methods](../methods/ensemble/index.md) — use disagreement to identify noisy samples
+
+---
+
 ## References
 
 | # | Reference |

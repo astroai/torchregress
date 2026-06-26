@@ -204,12 +204,12 @@ with torch.no_grad():
 
 ---
 
-## Related
+## Next steps
 
-- [Ordinal Metrics](../metrics/ordinal.md) — MAE, Quadratic Weighted Kappa, Spearman $\rho$
-- [Ordinal Regression Comparison](../examples/ordinal_regression_comparison.md) — side-by-side benchmark
-- [Ordinal Regression Comparison (Real Data)](../examples/ordinal_regression_realdata_comparison.md) — real-data benchmark
-- [Ordinal Uncertain Ground Truth Comparison](../examples/ordinal_uncertain_ground_truth_comparison.md) — soft plausibility targets and soft pseudo labels
+- [Ordinal metrics](../metrics/ordinal.md) — MAE, Quadratic Weighted Kappa, Spearman $\rho$
+- [Censored losses](censored.md) — another type of partially-observed target
+- [Ordinal comparison (real data)](../examples/ordinal_regression_realdata_comparison.md) — benchmark on real datasets
+- [Soft ordinal targets](../examples/ordinal_uncertain_ground_truth_comparison.md) — ambiguous labels and pseudo-labels
 
 ---
 

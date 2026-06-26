@@ -172,6 +172,15 @@ loss_fn = create_mdn_loss(n_components=5, n_features=3, covariance_type="full")
 
 ---
 
+## Next steps
+
+- [Normalizing Flows](nflows.md) — more flexible distributions for complex targets
+- [EIV + MDN](eiv.md#multimodal-eiv-variants) — marginalize over input noise with MDN heads
+- [MDN Ensembles](../methods/ensemble/methods.md#mdnensemblemodel) — mixture-of-mixtures for decomposed uncertainty
+- [Multimodal comparison](../examples/multimodal_method_comparison.md) — benchmark MDN vs flows vs SLS
+
+---
+
 ## References
 
 | # | Reference |

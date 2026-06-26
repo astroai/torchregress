@@ -141,3 +141,11 @@ class AsymmetricLoss(RegressionLoss):
     2. Always call `self._reduce(loss, mask, weights)` — don't manually reduce
     3. Accept `**kwargs` in `forward` for compatibility with the loss registry
     4. Document the math in docstrings
+
+---
+
+## Next steps
+
+- [Loss Functions index](index.md) — every loss family with formulas and use cases
+- [Losses API reference](../api/losses.md) — complete symbol table with signatures
+- [Method Selection Matrix](../guide/method-selection.md) — task-first guidance
