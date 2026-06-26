@@ -130,6 +130,15 @@ samples = loss_fn.sample_predictions(params, n_samples=100)
 
 ---
 
+## Recommendations
+
+1. **Start with `coeff_nig=0.01`** and tune in log-space over `{0.001, 0.01, 0.1, 1.0}` on a validation set. Monitor epistemic uncertainty — if it collapses below 1% of aleatoric, increase $\lambda$; if the model underfits (train loss plateaus high), decrease $\lambda$.
+2. **Verify $\alpha > 1$ consistently**: $\alpha$ (the NIG shape) must stay above 1 for finite variance. Enforce with `F.softplus(...) + 1.01`. If $\alpha$ drifts near 1 during training, the Student-t predictive distribution has infinite variance — increase `coeff_nig` to penalise overconfident wrong predictions harder.
+3. **Use `predict_interval` over `predict_interval_gaussian`**: The true predictive is Student-t with $2\alpha$ degrees of freedom. The Gaussian approximation is only reliable when $\alpha \gg 1$ (typically $\alpha > 5$). For safety, default to the exact Student-t method.
+4. **Batch size $\geq 32$**: The per-sample NIG regulariser is noisy at small batch sizes. Below 16, gradient variance destabilises the $\nu$ and $\alpha$ parameters. Use gradient accumulation if memory-constrained.
+5. **Monitor OOD calibration, not just in-distribution error**: Evidential models can achieve low in-distribution RMSE while producing severely overconfident epistemic estimates on shifted data. Validate on covariate-shifted or worst-slice hold-out sets.
+6. **Compare with ensembles for critical applications**: Evidential single-pass uncertainty is fast but less reliable than [DeepEnsemble](../methods/ensemble/index.md) disagreement for epistemic decomposition. When safety-critical, use both and flag disagreements.
+
 ## Next steps
 
 - [Ensemble methods](../methods/ensemble/index.md) — more reliable (but costlier) epistemic uncertainty
