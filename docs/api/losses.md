@@ -57,6 +57,8 @@ $$\\mathcal{L} = \\frac{1}{\\sum w_i m_i} \\sum w_i m_i \\, \\ell(y_{\\text{pred
 | `MultivariateGaussianLoss` | `MultivariateGaussianLoss(...)` | mean + full Σ |
 | `LowRankGaussianLoss` | `LowRankGaussianLoss(cov_rank, ...)` | mean + W·Wᵀ + D |
 | `create_gaussian_nll` | `create_gaussian_nll(covariance_type="diagonal")` | Factory |
+| `low_rank_output_dim` | `low_rank_output_dim(n_features, rank) → int` | → See [Utilities API](utils.md) |
+| `split_low_rank_gaussian_output` | `split_low_rank_gaussian_output(out, cov_rank, target_dim)` | → See [Utilities API](utils.md) |
 
 Core formulas:
 
