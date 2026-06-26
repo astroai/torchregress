@@ -21,8 +21,8 @@ For conceptual guides, derivations, and worked examples, see
 | `torchregress.causal` | Doubly-robust ATE/CATE, overlap diagnostics, policy value | [Causal API](causal.md) |
 | `torchregress.viz` | Diagnostic, monitoring, results, and utility plotting | [Visualization API](viz.md) |
 | `torchregress.test_time` | Bayesian linear heads, OT shift conformal, BLR predictive adapters | [Test-time API](test_time.md) |
-| `torchregress.semi_supervised` | Teacher–student semi-supervised trainer | [Semi-supervised methods](../methods/semi_supervised.md) |
-| `torchregress.comparison` | Reproducible comparison-example helpers and JSON summaries | [Examples](../examples/index.md) |
+| `torchregress.semi_supervised` | Teacher–student semi-supervised trainer, consensus/agreement, pseudo-loss, trust weighting | [Semi-supervised API](semi_supervised.md) |
+| `torchregress.comparison` | Reproducible comparison-example helpers (seeds, timing, metrics, JSON summaries, fairness notes) | [Comparison API](comparison.md) |
 | `torchregress.prediction` | Predictive batch containers (`PredictiveBatch`) | [Inference API](inference.md) |
 | `torchregress.utils` | Tensor ops, validation, augment, labels, propensity, transforms | [Utilities API](utils.md) |
 
