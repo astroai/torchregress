@@ -1,5 +1,7 @@
 # Reports
 
+> ← [Examples](../examples/index.md) | [Home](../index.md) →
+
 Generated evidence artifacts that back the method-selection guide and comparative examples.
 
 | Report | Description |

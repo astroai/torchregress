@@ -1,5 +1,7 @@
 # Mathematical Foundations
 
+> ← [Guide Overview](../index.md) | [Method Selection](../method-selection.md) →
+
 This page provides a rigorous overview of the mathematical principles underlying **torchregress**. We cover notation, the duality between loss functions and likelihoods, uncertainty decomposition, and modern estimation techniques.
 
 ---

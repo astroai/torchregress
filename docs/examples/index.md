@@ -1,5 +1,7 @@
 # Examples
 
+> ← [User Guide](../guide/index.md) | [Reports](../reports/index.md) →
+
 This section contains practical examples of using torchregress for various regression tasks. The examples are designed to demonstrate key features and use cases of the library.
 
 ## Start Here (Task-First)
