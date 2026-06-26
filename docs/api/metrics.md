@@ -28,7 +28,22 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `tail_rmse` | `tail_rmse(y_pred, y, q=0.1, tail='upper')` | Upper-tail RMSE |
 | `tail_mae` | `tail_mae(y_pred, y, q=0.1, tail='upper')` | Upper-tail MAE |
 | `outlier_fraction` | `outlier_fraction(y_pred, y, threshold=0.15)` | Fraction beyond threshold |
+| `mean_squared_error` | `mean_squared_error(y_pred, y, ...)` | Alias for `mse` |
+| `mean_absolute_error` | `mean_absolute_error(y_pred, y, ...)` | Alias for `mae` |
+| `attenuation_factor` | `attenuation_factor(y_pred, y)` | Regression attenuation factor |
 | `regression_metrics_report` | `regression_metrics_report(y_pred, y)` | Aggregate report dict |
+
+**Stateful metric classes** — accumulate over epochs via `update()` / `compute()`:
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `HuberMetric` | `HuberMetric(delta=1.0)` | Stateful Huber loss accumulator |
+| `MedianAbsoluteError` | `MedianAbsoluteError()` | Stateful MedAE accumulator |
+| `MedianAbsoluteDeviation` | `MedianAbsoluteDeviation()` | Stateful MAD accumulator |
+| `NormalizedMedianAbsoluteDeviation` | `NormalizedMedianAbsoluteDeviation()` | Stateful NMAD accumulator |
+| `NormalizedRMSE` | `NormalizedRMSE(normalization="std")` | Stateful NRMSE accumulator |
+| `OutlierFraction` | `OutlierFraction(threshold=0.15)` | Stateful outlier-fraction accumulator |
+| `TrimmedMeanSquaredError` | `TrimmedMeanSquaredError(proportion=0.1)` | Stateful trimmed MSE accumulator |
 
 ---
 
@@ -46,6 +61,16 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `probability_integral_transform` | `probability_integral_transform(cdf_fn, y_true)` | PIT values via CDF callable |
 | `kolmogorov_smirnov_uniform_statistic` | `kolmogorov_smirnov_uniform_statistic(pit)` | KS-uniform on PIT |
 | `distribution_metrics_report` | `distribution_metrics_report(dist, y_true)` | Aggregate report |
+| `conditional_density_estimation_loss` | `conditional_density_estimation_loss(...)` | Conditional density estimation loss |
+| `highest_posterior_density_coverage` | `highest_posterior_density_coverage(...)` | HPD coverage metric |
+| `highest_posterior_density_level` | `highest_posterior_density_level(...)` | HPD level computation |
+
+**Stateful distribution metric classes:**
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `ContinuousRankedProbabilityScore` | `ContinuousRankedProbabilityScore()` | Stateful CRPS accumulator (quantile-based) |
+| `EnergyScore` | `EnergyScore(beta=1.0)` | Stateful multivariate energy score accumulator |
 
 ---
 
@@ -57,6 +82,7 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 |:-------|:----------|:------------|
 | `interval_score` | `interval_score(lower, upper, target, alpha=0.1)` | Functional Winkler interval score |
 | `IntervalScore` | `IntervalScore(alpha=0.1)` | Stateful Winkler score |
+| `prediction_interval_coverage` | `prediction_interval_coverage(lower, upper, target)` | Alias for `prediction_interval_coverage_probability` |
 | `prediction_interval_coverage_probability` | `prediction_interval_coverage_probability(lower, upper, target)` | Functional PICP |
 | `PredictionIntervalCoverageProbability` | `PredictionIntervalCoverageProbability()` | Stateful PICP accumulator |
 | `MeanPredictionIntervalWidth` | `MeanPredictionIntervalWidth()` | Stateful MPIW accumulator |
@@ -92,6 +118,21 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `ensemble_interval_bounds` | `ensemble_interval_bounds(means, variances, alpha=0.1)` | Gaussian prediction interval |
 | `ensemble_interval_metrics` | `ensemble_interval_metrics(means, variances, target, alpha=0.1)` | Ensemble PICP + interval score |
 
+**Stateful ensemble metric classes:**
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `GaussianNLLEnsemble` | `GaussianNLLEnsemble()` | Stateful ensemble NLL accumulator |
+| `EnsembleIntervalMetrics` | `EnsembleIntervalMetrics(alpha=0.1)` | Stateful ensemble interval metric accumulator |
+
+**Additional ensemble helpers:**
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `ensemble_mean` | `ensemble_mean(predictions, dim=0)` | Mean across ensemble members |
+| `ensemble_std` | `ensemble_std(predictions, dim=0)` | Std across ensemble members |
+| `ensemble_variance_decomposition` | `ensemble_variance_decomposition(means, variances)` | Epistemic/aleatoric/total split |
+
 ---
 
 ## OOD metrics (`metrics.ood`)
@@ -105,6 +146,15 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `entropy_score` | `entropy_score(samples, n_bins=50)` | Predictive entropy |
 | `kernel_density_score` | `kernel_density_score(x_test, x_reference, bandwidth=0.5)` | KDE density score |
 | `ood_metrics_report` | `ood_metrics_report(...)` | Aggregate report |
+
+**Stateful OOD metric classes:**
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `EntropyScore` | `EntropyScore(n_bins=50)` | Stateful predictive entropy accumulator |
+| `KernelDensityScore` | `KernelDensityScore(bandwidth=0.5)` | Stateful KDE score accumulator |
+| `MahalanobisDistance` | `MahalanobisDistance()` | Stateful Mahalanobis distance accumulator |
+| `TypicalityScore` | `TypicalityScore()` | Stateful typicality test accumulator |
 
 ---
 

@@ -50,7 +50,10 @@ $$\\mathcal{L} = \\frac{1}{\\sum w_i m_i} \\sum w_i m_i \\, \\ell(y_{\\text{pred
 | `FaithfulGaussianLoss` | `FaithfulGaussianLoss(mean_weight=1.0, variance_weight=1.0)` | `(mean, log_var)` |
 | `GaussianCRPSLoss` | `GaussianCRPSLoss(eps=1e-6, reduction="mean")` | `(mean, log_var)` |
 | `BetaNLLLoss` | `BetaNLLLoss(beta=0.5, eps=1e-6, reduction="mean")` | `(mean, log_var)` |
+| `beta_nll_loss` | `beta_nll_loss(y_pred, y_true, ...)` | Functional form of `BetaNLLLoss` |
 | `GaussianWassersteinBoundLoss` | `GaussianWassersteinBoundLoss(covariance_parameterization="diagonal")` | mean + cov params |
+| `gaussian_wasserstein_bound_loss` | `gaussian_wasserstein_bound_loss(y_pred, y_target, ...)` | Functional form |
+| `symmetric_spd_matrix_sqrt` | `symmetric_spd_matrix_sqrt(M)` | Matrix square root for Wasserstein bound |
 | `MultivariateGaussianLoss` | `MultivariateGaussianLoss(...)` | mean + full Σ |
 | `LowRankGaussianLoss` | `LowRankGaussianLoss(cov_rank, ...)` | mean + W·Wᵀ + D |
 | `create_gaussian_nll` | `create_gaussian_nll(covariance_type="diagonal")` | Factory |
@@ -97,9 +100,17 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `MultiExpectileLoss` | `MultiExpectileLoss(expectiles=[...])` | Joint expectile |
 | `ExpectileCrossoverLoss` | `ExpectileCrossoverLoss(expectiles=[...])` | + non-crossing penalty |
 | `AsymmetricLeastSquaresLoss` | `AsymmetricLeastSquaresLoss(tau=0.5)` | Alias for ExpectileLoss |
+| `QuantileCrossover` | `QuantileCrossover(quantiles=[...])` | Non-crossing penalty helper dataclass |
+| `quantile_loss` | `quantile_loss(y_pred, y, tau)` | Functional pinball loss |
+| `expectile_loss` | `expectile_loss(y_pred, y, tau)` | Functional expectile loss |
 | `MDNLoss` | `MDNLoss(n_components=5, reduction="mean")` | Mixture Density Network NLL |
+| `MixtureDensityLoss` | `MixtureDensityLoss(n_components=5, reduction="mean")` | Alias for `MDNLoss` |
+| `create_mdn_loss` | `create_mdn_loss(n_components=5, ...)` | Factory for `MixtureDensityLoss` |
 | `NormalizingFlowLoss` | `NormalizingFlowLoss(flow=..., reduction="mean")` | Conditional flow NLL (requires `zuko`) |
 | `ContrastiveFlowLoss` | `ContrastiveFlowLoss(...)` | Contrastive likelihood-ratio flow |
+| `create_flow_model` | `create_flow_model(...)` | Factory: build a flow model |
+| `create_flow_loss` | `create_flow_loss(...)` | Factory: build a flow loss |
+| `create_contrastive_flow_loss` | `create_contrastive_flow_loss(...)` | Factory: build a contrastive flow loss |
 | `EvidentialRegressionLoss` | `EvidentialRegressionLoss(coeff=1e-2, reduction="mean")` | NIG evidential regression |
 
 $$\\mathcal{L}_{\\text{quantile}} = \\max(q(y-\\hat{y}), (q-1)(y-\\hat{y}))$$ $$\\mathcal{L}_{\\text{expectile}} = |e - \\mathbb{I}(y<\\hat{y})| \\cdot (y-\\hat{y})^2$$ $$\\mathcal{L}_{\\text{MDN}} = -\\log \\sum_k \\pi_k \\mathcal{N}(y \\mid \\mu_k, \\sigma_k^2)$$
@@ -140,8 +151,13 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | `GammaLoss` | `GammaLoss(link="log")` | Var = φ μ² |
 | `InverseGaussianLoss` | `InverseGaussianLoss(link="log")` | Var = φ μ³ |
 | `CompoundPoissonLoss` | `CompoundPoissonLoss(p=1.5, link="log")` | 1 < p < 2 |
+| `tweedie_loss` | `tweedie_loss(y_pred, y, p=1.5, ...)` | Functional Tweedie loss |
 | `PoissonGaussianMixtureLoss` | `PoissonGaussianMixtureLoss(log_input=True, ...)` | Poisson + Gaussian readout |
+| `poisson_gaussian_mixture_loss` | `poisson_gaussian_mixture_loss(y_pred, y, ...)` | Functional form |
 | `EnhancedPoissonGaussianMixtureLoss` | `EnhancedPoissonGaussianMixtureLoss(...)` | Gain/offset/learnable noise |
+| `enhanced_poisson_gaussian_loss` | `enhanced_poisson_gaussian_loss(y_pred, y, ...)` | Functional form |
+| `PoissonGaussianLikelihoodRatioLoss` | `PoissonGaussianLikelihoodRatioLoss(...)` | Likelihood-ratio variant |
+| `poisson_gaussian_likelihood_ratio_loss` | `poisson_gaussian_likelihood_ratio_loss(...)` | Functional form |
 
 ---
 
@@ -195,6 +211,9 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | Symbol | Signature | Strategy |
 |:-------|:----------|:---------|
 | `ConformalLoss` | `ConformalLoss(method="cqr", alpha=0.1)` | Training + calibration wrapper |
+| `conformal_loss` | `conformal_loss(method="cqr", alpha=0.1)` | Functional form of `ConformalLoss` |
+| `ConformalPredictor` | `ConformalPredictor(...)` | Base post-hoc calibrator |
+| `MultiDimensionalConformalLoss` | `MultiDimensionalConformalLoss(...)` | Legacy multi-dim wrapper |
 | `SplitConformal` | `SplitConformal(alpha=0.1)` | Residual-based |
 | `CQR` | `CQR(alpha=0.1, debias=False)` | Conformalized Quantile Regression |
 | `UACQR` | `UACQR(alpha=0.1, ...)` | Width-normalized CQR |

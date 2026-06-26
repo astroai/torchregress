@@ -65,6 +65,8 @@ pred = model.predict(x)
 | `BatchEnsembleMLPBackbone` | Shared-backbone MLP using `BatchEnsembleLinear` throughout (TabM-style). |
 | `PackedEnsembleRegressor` | Facade over `HeteroscedasticBatchEnsembleModel` (or mean-only) with `alpha` scaling of fast weights. |
 | `PackedEnsembleOutput` | Structured output: `mean`, `member_means`, `epistemic_variance`, `aleatoric_variance`, `predictive_variance`, `std_epistemic`. |
+| `BatchEnsembleRegressor` | Lightweight facade (pre-PackedEnsembleRegressor API). |
+| `BatchEnsembleOutput` | Structured output for `BatchEnsembleRegressor`. |
 
 ```python
 bb = BatchEnsembleMLPBackbone(input_size=10, hidden_size=64, ensemble_size=4,
@@ -135,6 +137,7 @@ mean, std = torch.stack(preds).mean(0), torch.stack(preds).std(0)
 |:-------|:------------|
 | `BayesianModelAveraging` | Learns softmax weights over a fixed pool of base models. `predict_with_uncertainty` returns (mean, total_var) via law of total variance. |
 | `StackingEnsemble` | Concatenates base-model predictions and feeds them into a `meta_learner` (e.g. another `nn.Module`). |
+| `SoftmaxModelCombiner` | Learns softmax weights over base models (simpler alternative to `BayesianModelAveraging`). |
 | `DynamicEnsembleWeighting` | Sliding-window performance-based weight updates: lower recent MSE → higher weight. |
 
 All combiners use `_batched_ensemble_forward`, which uses `torch.func.vmap` /

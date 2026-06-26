@@ -28,6 +28,7 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 | Symbol | Description |
 |:-------|:------------|
 | `SIMEX(model_factory, train_func, sigma_u, lambdas, n_simulations, extrapolation_order)` | Simulation-Extrapolation. |
+| `PredictionSIMEX(...)` | SIMEX variant optimised for prediction (shrinkage on extrapolated coefs). |
 | `RegressionCalibration(sigma_u)` | Classical RC with PSD projection. `fit_transform`, `posterior(...)` for per-sample cov. |
 | `LatentNN(model_factory, sigma_x, sigma_y, epochs, …)` | Joint latent-input + network optimization. |
 | `ErrorAwareFeatureEncoder(…)` | Encoder with input-noise awareness. |
@@ -79,6 +80,14 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 | `SyntheticEnvironmentSampler(bootstrap_fraction, n_environments)` | Bootstrap-based synthetic env generator. |
 | `AdaptivePriorGuide(…)` | Amortised variational posterior given `(context_X, context_Y)`. |
 | `VIDSRegressor(…)` | Variational regressor under covariate shift. `fit(…)` → `predict_distribution(x, n_samples)`. |
+
+---
+
+## Warmup MC
+
+| Symbol | Description |
+|:-------|:------------|
+| `WarmupMCTrainer(model, n_warmup, n_samples)` | Runs warmup epochs then collects MC predictive samples for Bayesian model averaging. |
 
 ---
 
