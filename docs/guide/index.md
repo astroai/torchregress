@@ -198,6 +198,24 @@ calibrated_var = scaler.transform(pred_var_test)
 
 ---
 
+## Common Acronyms
+
+| Acronym | Meaning |
+|:--------|:--------|
+| NLL | Negative Log-Likelihood |
+| CRPS | Continuous Ranked Probability Score |
+| OOD | Out-of-Distribution |
+| ECE | Expected Calibration Error |
+| MPIW | Mean Prediction Interval Width |
+| PICP | Prediction Interval Coverage Probability |
+| RMSE / MAE | Root Mean Squared Error / Mean Absolute Error |
+| MDN | Mixture Density Network |
+| SWAG | Stochastic Weight Averaging — Gaussian |
+| EIV | Error-in-Variables |
+| BNN | Bayesian Neural Network |
+
+---
+
 ## What Next?
 
 - Browse the [Loss Functions catalogue](../losses/index.md)

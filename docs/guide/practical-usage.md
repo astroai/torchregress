@@ -80,7 +80,7 @@ loss_fn = tr.losses.MDNLoss(components=5)
 
 When training models to predict uncertainty, remember these principles:
 
-1. **Proper Scoring Rules**: Always use proper scoring rules like NLL or CRPS to train uncertainty-aware models
+1. **Proper Scoring Rules**: Always use proper scoring rules like Negative Log-Likelihood (NLL) or Continuous Ranked Probability Score (CRPS) to train uncertainty-aware models
 2. **Calibration**: Check calibration of uncertainty estimates using reliability diagrams
 3. **Multiple Sources**: Consider epistemic (model) and aleatoric (data) uncertainty sources
 4. **Regularization**: Use appropriate regularization to prevent overconfidence or underconfidence
@@ -137,7 +137,7 @@ To thoroughly evaluate regression models, especially those with uncertainty esti
 1. **Multiple Metrics**: Use both point prediction metrics (RMSE, MAE) and distributional metrics (NLL, CRPS)
 2. **Calibration Analysis**: Check if uncertainty estimates match empirical error rates
 3. **Visual Diagnostics**: Create residual plots, Q-Q plots, and calibration curves
-4. **OOD Detection**: Test if uncertainty increases appropriately for out-of-distribution samples
+4. **Out-of-Distribution (OOD) Detection**: Test if uncertainty increases appropriately for out-of-distribution samples
 
 Example evaluation code:
 
