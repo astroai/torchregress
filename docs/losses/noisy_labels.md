@@ -104,6 +104,20 @@ graph LR
 
 ---
 
+## Limitations
+
+1. **No dedicated noisy-label meta-loss**: torchregress handles label noise through composable building blocks (robust losses, CVaR, density weighting, ensembles). There is no single "noisy label" loss that automatically detects and downweights mislabelled samples.
+2. **Robust losses only bound influence**: Huber, Cauchy, and Tukey losses reduce the effect of outliers but do not identify or remove mislabelled samples. If a mislabelled point has a moderate residual, it still contributes to training.
+3. **Ensemble disagreement requires multiple models**: Identifying noisy samples via ensemble epistemic uncertainty requires training 3–5 models, multiplying compute cost.
+4. **CVaR is aggressive**: `CVaRLoss(alpha=0.1)` fits only the worst 10% of samples. If data quality is generally high, this overfits to the few genuine outliers and ignores the majority of clean data.
+
+## Recommendations
+
+- **Start with Huber**: `WeightedHuberLoss(delta=1.0)` is the simplest, cheapest defense against mild label noise. Upgrade to `CauchyLoss` or `TukeyBiweightLoss` only if you can confirm severe outliers.
+- **Use CVaR for tail-focused objectives**: When you explicitly care about worst-case performance (fairness, safety-critical applications), `CVaRLoss` is the right tool. See the [CVaR demo](../examples/comprehensive_loss_comparison.py).
+- **Ensemble for systematic noise**: If label noise is systematic (not just outliers), train a `DeepEnsemble` and inspect per-sample epistemic uncertainty to flag consistently mislabelled points.
+- **When noise variance is known**: Use `NoisyTargetGaussianNLL` from [Uncertain ground truth](uncertain_ground_truth.md) — it directly models the target noise in the likelihood.
+
 ## Next steps
 
 - [Uncertain ground truth](uncertain_ground_truth.md) — when noise variance is known or estimable

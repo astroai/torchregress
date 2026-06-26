@@ -67,6 +67,19 @@ See the [Beta-NLL heteroscedastic demo](../examples/heteroscedastic_beta_nll.md)
 
 ---
 
+## Limitations
+
+1. **Beta selection is heuristic**: $\beta$ controls the variance-rescaling strength but has no closed-form optimum. Typical values are $\beta = 0.5$ (recommended default from Seitzer et al., 2022). Values near 0 approach standard NLL; values near 1 aggressively downweight variance gradients. Tune on validation NLL.
+2. **Not a conformal method**: β-NLL stabilises variance training but provides no coverage guarantees. For finite-sample prediction intervals, wrap with [SplitConformal or CQR](../methods/conformal/predictors.md).
+3. **Same head as GaussianNLL**: β-NLL uses the same $(\mu, \log\sigma^2)$ output as standard NLL. It cannot fix a poorly designed model head — only how variance gradients flow during training.
+
+## Recommendations
+
+- **Default**: Start with `BetaNLLLoss(beta=0.5)`. This is the recommended value from the Seitzer et al. paper and works well across a broad range of regression problems.
+- **When NLL is sufficient**: If standard `GaussianNLLLoss` trains stably without variance collapse, β-NLL offers no benefit. Don't add complexity you don't need.
+- **Monitor variance**: Track predicted $\sigma^2$ during training. If it drifts below $10^{-3}$ or above $10^2$, the β parameter may need adjustment.
+- **Alternative for decoupling**: If you specifically want to preserve point prediction accuracy while learning variance, consider [FaithfulGaussianLoss](faithful_gaussian.md) instead — it explicitly splits mean and variance objectives.
+
 ## Next steps
 
 - [Gaussian losses](gaussian.md) — standard NLL, CRPS, multivariate and low-rank variants

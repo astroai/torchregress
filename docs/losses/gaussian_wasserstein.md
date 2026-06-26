@@ -98,6 +98,20 @@ Metrics supported: pooled **Mahalanobis** in ``x`` (default) or **Euclidean** di
 
 ---
 
+## Limitations
+
+1. **Surrogate, not exact Wasserstein**: This objective is a Frobenius-norm upper-bound surrogate related to Gaussian 2-Wasserstein ideas. It is not the exact Wasserstein-2 distance in all non-commutative cases. Treat it as a training signal, not an interpretable distance metric.
+2. **Requires covariance targets**: Unlike NLL which learns from raw targets $(x, y)$, this loss requires a target covariance $\Sigma$ per sample (or a shared $\Sigma$). Covariance targets are rarely available — they must come from problem structure, pseudo-labeling, or external estimation.
+3. **Pseudo-label quality**: The `NeighborhoodCovariancePseudoLabeler` in `torchregress.algorithms` provides heuristic covariance targets from neighbour-weighted statistics. These are experimental — validate on your modality before relying on gradients.
+4. **Eigenvalue floor**: The matrix square root requires eigenvalue decomposition with a floor (jitter) to guarantee positive-semidefiniteness. If jitter is too small, gradients become unstable; if too large, covariance information is washed out.
+
+## Recommendations
+
+- **Use only with covariance targets**: This loss is for supervised or pseudo-supervised covariance learning. For standard likelihood training on $(x, y)$ pairs, use `GaussianNLLLoss`.
+- **Start with diagonal parameterisation**: `covariance_parameterization="diagonal"` is simpler, faster, and numerically more stable than full covariance or Cholesky modes.
+- **Two-phase strategy**: Consider a pseudo-covariance pretrain with `GaussianWassersteinBoundLoss` followed by `GaussianNLLLoss` fine-tuning. See the [hybrid pretrain demo](../examples/wasserstein_bound_hybrid_pretrain_demo.py).
+- **Validate pseudo-labels**: When using `NeighborhoodCovariancePseudoLabeler`, check that the produced covariance matrices are plausible (positive eigenvalues, reasonable scale) before training.
+
 ## Next steps
 
 - [Gaussian losses](gaussian.md) — NLL, CRPS, and multivariate likelihoods for standard Gaussian training

@@ -227,6 +227,13 @@ with torch.no_grad():
 
 ---
 
+## Recommendations
+
+- **Start with `MahalanobisFrontier`** for unimodal problems. Use `UnionFrontier` only when multimodality is confirmed (e.g., multiple clusters in the latent space).
+- **Tune $d$ on validation**: Grid search over $d \in \{2, 4, 8, 16\}$. Monitor frontier volume and coverage on held-out data.
+- **Set $\tau$ near the target coverage**: $\tau$ controls the super-level set threshold. A typical starting value is $\tau = 0.9$ for 90% coverage.
+- **Combine with conformal calibration**: For guaranteed coverage, wrap SLS predictions with [SLSConformal](../methods/conformal/predictors.md).
+
 ## Next steps
 
 - [Normalizing flows](nflows.md) — building-block architecture for SLS frontiers

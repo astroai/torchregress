@@ -138,6 +138,21 @@ See also: [calibration_metrics_report](../api/metrics.md).
 
 ---
 
+## Limitations
+
+1. **ECE bin sensitivity**: Quantile-based ECE depends on the set of quantile levels $\mathcal{Q}$. A model that is well-calibrated at $\{0.1, 0.5, 0.9\}$ may be poorly calibrated at $\{0.05, 0.25, 0.75, 0.95\}$. Use a fine grid (19+ levels) for thorough evaluation.
+2. **Marginal vs conditional**: Both ECE and MCE measure marginal (average) calibration. They do not detect systematic miscalibration that varies with $X$ — a model can have zero ECE while being overconfident in some regions and underconfident in others.
+3. **Bias conceals variance**: The `bias` metric (mean signed error) can be near zero while the model has large but symmetric errors. Always pair bias with RMSE or MAE.
+4. **Calibration score assumes Gaussian**: `calibration_score` constructs quantiles assuming $\mathcal{N}(\mu, \sigma^2)$. For non-Gaussian predictive distributions (MDN, flows), use `expected_calibration_error` with model-generated quantiles instead.
+
+## Recommendations
+
+- **Default workflow**: Report ECE (quantile-based), bias, and a PIT histogram (`plot_pit_histogram` from `torchregress.viz`). These three together diagnose most calibration issues.
+- **For fine-grained calibration**: Use `calibration_score` with 19 quantile levels to detect miscalibration at specific probability regions.
+- **Post-hoc correction**: If calibration is poor, apply [Variance Temperature Scaling](../methods/calibration.md) or [Isotonic Calibration](../methods/calibration.md) before deployment.
+- **Layer with distributional metrics**: Calibration metrics tell you if predicted probabilities are reliable. Distributional metrics (CRPS, NLL) tell you if the predictive distribution is sharp. Both are needed. See [Distributional metrics](distribution.md).
+- **[calibration_metrics_report](../api/metrics.md)** consolidates all calibration metrics into one call.
+
 ## Next steps
 
 - [Distributional metrics](distribution.md) — CRPS and PIT diagnostics that evaluate the full predictive distribution

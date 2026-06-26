@@ -271,6 +271,20 @@ See also: [tail_mae](../api/metrics.md) and [tail_rmse](../api/metrics.md).
 
 ---
 
+## Limitations
+
+1. **Ignore uncertainty**: Point metrics (MSE, MAE, R²) evaluate only the point prediction. Two models with identical MSE can have vastly different uncertainty quality — one may be well-calibrated, the other overconfident. Always pair point metrics with distributional or interval metrics.
+2. **Sensitive to outliers**: MSE and RMSE are dominated by the largest errors. Use MAE, Huber, or median-based metrics for robust evaluation when outliers are present.
+3. **R² is not a goodness-of-fit test**: R² measures explained variance but does not validate model assumptions (normality, homoscedasticity, independence). A high R² with systematically miscalibrated uncertainty is a flawed model.
+4. **MAPE instability**: MAPE is undefined when $y_i = 0$ and can be dominated by small true values ($y_i \approx 0$ produces enormous percentage errors). Use with caution; prefer MAE or RMSE for general-purpose evaluation.
+
+## Recommendations
+
+- **Always report multiple metrics**: MSE (or RMSE) + MAE gives a balanced view of typical and worst-case performance. Add R² for interpretability.
+- **For outlier-heavy data**: Report median absolute error and MAD alongside mean-based metrics.
+- **For imbalanced targets**: Use tail metrics (`tail_mae`, `tail_rmse`) to evaluate performance on extreme target regions. See [Imbalanced regression](../losses/imbalanced.md).
+- **[regression_metrics_report](../api/metrics.md)** provides a comprehensive dict of all point metrics in one call.
+
 ## Next steps
 
 - [Interval metrics](interval.md) — evaluate prediction interval coverage and width alongside point accuracy

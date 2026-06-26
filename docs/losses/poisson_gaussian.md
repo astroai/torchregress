@@ -270,6 +270,20 @@ xray_loss = tr.losses.PoissonGaussianMixtureLoss(
 
 ---
 
+## Limitations
+
+1. **EM convergence**: The Poisson-Gaussian mixture loss uses an internal expectation-maximisation-like loop. If the gain and offset parameters are poorly initialised, EM may converge to a local optimum — producing biased rate estimates.
+2. **Gain/offset identifiability**: The gain $g$ and offset $b$ parameters can trade off: increasing gain and decreasing offset can produce similar effective rates. Monitor both parameters during training to ensure they converge to plausible values.
+3. **Assumes known noise model**: The Poisson component assumes pure shot noise $\text{Var} = \mu$. The Gaussian readout noise is additive. If the actual noise deviates from this model (e.g., excess readout variance, structured noise), the loss may be miscalibrated.
+4. **Computational overhead**: The likelihood-ratio variant (`PoissonGaussianLikelihoodRatioLoss`) involves binning operations that add runtime overhead compared to the standard mixture loss.
+
+## Recommendations
+
+- **Default**: Start with `PoissonGaussianMixtureLoss` — the standard mixture loss. Upgrade to `EnhancedPoissonGaussianMixtureLoss` if you need learnable gain/offset/noise parameters.
+- **For binned data**: Use `PoissonGaussianLikelihoodRatioLoss` when working with histogram or binned detector data where the likelihood-ratio interpretation matters (e.g., physics, astronomy).
+- **Monitor EM convergence**: Track the gain and offset parameters during training. If they oscillate or diverge, reduce the learning rate or clamp their ranges.
+- **For pure count data without readout noise**: Consider `PoissonDevianceLoss` or `NegativeBinomialNLLLoss` from [Poisson & Tweedie](poisson_tweedie.md) instead — they are simpler and more mature.
+
 ## Next steps
 
 - [Poisson & Tweedie](poisson_tweedie.md) — count-only models without Gaussian readout noise

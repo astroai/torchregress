@@ -178,6 +178,20 @@ for epoch in range(100):
 
 ---
 
+## Limitations
+
+1. **Detach tradeoff**: The `stop_gradient` on $\mu$ in the NLL residual means the mean head receives only MSE gradients — it does **not** see heteroscedastic curvature information. On datasets where mean and variance are strongly coupled (e.g., Poisson-like count data), this can slow convergence of the mean head.
+2. **Edge case `mean_weight=0`**: The variance head still receives the detached $\mu$ in its residual term. If $\mu$ is poorly initialised and never trained, the variance head gets a bad signal.
+3. **Edge case `variance_weight=0`**: The loss reduces to plain MSE. The variance head receives zero gradients.
+4. **CRPS cost**: `GaussianCRPSLoss` is 2–3× slower per iteration than NLL due to `ndtr` (normal CDF) and `exp` operations. For large-scale training where NLL is adequate, prefer NLL for speed.
+
+## Recommendations
+
+- **Use when point accuracy matters more than variance calibration**: `FaithfulGaussianLoss` is ideal for scientific applications where the mean prediction is the primary deliverable.
+- **Prefer NLL for pure uncertainty quantification**: If calibrated variance is your goal, standard `GaussianNLLLoss` or `BetaNLLLoss` are better choices.
+- **Prefer CRPS for interpretability**: `GaussianCRPSLoss` produces loss values in target units, is less sensitive to tail events, and penalises both calibration and sharpness. See the [CRPS demo](../examples/gaussian_wasserstein_bound_demo.py).
+- **Monitor both objectives separately**: Track MSE and NLL independently during training to diagnose whether one term is dominating.
+
 ## Next steps
 
 - [Gaussian losses](gaussian.md) — standard NLL and multivariate variants

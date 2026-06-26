@@ -175,6 +175,21 @@ graph TD
 
 ---
 
+## Limitations
+
+1. **Calibration risk**: Reweighting changes the effective training distribution. `DensityWeightedLoss` preserves calibration; `LDSLoss` may break it. Always validate calibration on held-out data after training with any reweighting scheme.
+2. **Out-of-range targets**: If test targets fall outside the bin edges estimated from `fit(y_train)` for `BalancedMSELoss` / `BMCLoss`, weights are undefined. Ensure training targets cover the full expected test range.
+3. **KDE scaling**: `DensityWeightedLoss.fit_density()` scales as $\mathcal{O}(N^2)$ with training set size. For $N > 10^4$, subsample for density estimation or switch to a bin-based method.
+4. **FocalRLoss does not rebalance**: Unlike density-based methods, `FocalRLoss` upweights hard samples regardless of their target value. It helps with difficult examples but does not address target-distribution imbalance.
+5. **Propensity scores must be accurate**: `PropensityWeightedLoss` requires well-calibrated propensity estimates. Poor propensity scores can amplify rather than correct selection bias.
+
+## Recommendations
+
+- **Default choice**: `DensityWeightedLoss` is the safest starting point — it preserves calibration and handles out-of-range values gracefully via KDE.
+- **For large datasets**: Use `BalancedMSELoss` or `BMCLoss` with pre-computed bin edges to avoid $\mathcal{O}(N^2)$ density estimation.
+- **For extreme imbalance**: `LDSLoss` with post-hoc calibration (temperature scaling) is the most aggressive option. See the [imbalanced regression demo](../examples/imbalanced_regression.py).
+- **No pre-fitting needed**: `FocalRLoss` requires no separate `fit()` step — use when you want a quick, adaptive reweighting during training.
+
 ## Next steps
 
 - [Noisy labels](noisy_labels.md) — another form of data quality issue

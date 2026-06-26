@@ -133,6 +133,21 @@ This is the recommended way to evaluate complex probabilistic models, as it prov
 
 ---
 
+## Limitations
+
+1. **CRPS sample requirements**: `crps_from_samples` requires $S \ge 50$ MC samples per test point for reliable estimates. Using fewer samples introduces Monte Carlo noise that can obscure model comparisons. For Gaussian models, use the analytic `crps_gaussian` instead — it is exact and faster.
+2. **Energy Score is $\mathcal{O}(S^2)$**: Computing the pairwise-expectation term requires evaluating $\|Y - Y'\|^\beta$ for all $S(S-1)/2$ sample pairs. For $S > 500$, this becomes a runtime bottleneck.
+3. **PIT is necessary but not sufficient**: A uniform PIT histogram indicates marginal calibration but does not guarantee conditional calibration $F(y \mid X = x)$. A model can pass the PIT test while being poorly calibrated for specific subpopulations.
+4. **NLL sensitivity**: NLL is dominated by low-probability events. A single point with $p(y \mid x) \approx 0$ produces an arbitrarily large NLL contribution. CRPS is more robust to these tail events.
+
+## Recommendations
+
+- **Default suite**: Report CRPS (interpretable, robust) + NLL (sensitive to tail calibration) + PIT (calibration diagnostic) for a complete picture.
+- **For Gaussian models**: Always use `crps_gaussian` (analytic, exact) over `crps_from_samples`.
+- **For multivariate targets**: Use `energy_score` ($\beta=1$) as the multivariate CRPS analogue.
+- **PIT bin count**: Use 20–50 bins for the PIT histogram. Too few bins hide miscalibration patterns; too many create noise.
+- **[distribution_metrics_report](../api/metrics.md)** consolidates CRPS, NLL, PIT, and coverage into a single call.
+
 ## Next Steps
 - Learn about [Calibration Metrics](calibration.md)
 - View the [Distributional Conformal Tutorial](../methods/conformal/distributional.md)

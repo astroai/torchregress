@@ -146,6 +146,19 @@ class AsymmetricLoss(RegressionLoss):
 
 ---
 
+## Limitations
+
+1. **Weight semantics**: The `weights` parameter is NOT the same as `mask`. `mask` excludes samples entirely (binary). `weights` scales the contribution of valid samples. Both can be used together but have different semantics: `mask=False` means "this sample should not contribute to the loss at all"; `weight=0.0` on a masked-in sample means "this is a valid sample but contributes nothing."
+2. **Reduction behaviour**: `reduction="none"` returns per-sample losses **before** masking. Apply `mask` and `weights` manually if you need per-sample values with masking.
+3. **Custom loss contract**: If you implement a custom loss inheriting from `RegressionLoss` or `DistributionLoss`, you must call `self._reduce()` or `self._reduce_with_mask()` — manual reduction will bypass the `mask` and `weights` contract.
+
+## Recommendations
+
+- **Start from `RegressionLoss`** for point-prediction losses (MSE, MAE, Huber variants). Start from `DistributionLoss` for NLL-based losses.
+- **Always call `self._reduce()`**: Do not manually compute `loss.mean()` — use the base class reduction to ensure mask and weight support.
+- **Accept `**kwargs`** in `forward()` for forward-compatibility with the loss registry and factory functions.
+- **Document the optimisation objective**: Include the mathematical formula (LaTeX) in the docstring. See existing losses for examples.
+
 ## Next steps
 
 - [Loss Functions index](index.md) — every loss family with formulas and use cases
