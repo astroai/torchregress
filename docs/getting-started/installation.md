@@ -1,5 +1,7 @@
 # Installation
 
+> ← [Getting Started](index.md) | [Quick Start](quickstart.md) →
+
 torchregress can be installed from PyPI or directly from the source code. The library requires Python 3.12 to <3.16 and PyTorch 2.4 or newer. **Python 3.13 is recommended** for new environments; 3.12 and 3.14 are also supported.
 
 ## Python version

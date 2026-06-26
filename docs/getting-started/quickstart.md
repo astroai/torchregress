@@ -1,5 +1,7 @@
 # Quick Start
 
+> ← [Installation](installation.md) | [Core Concepts](concepts.md) →
+
 This page assembles the canonical workflows for the four most common
 regression regimes in torchregress. Each workflow is **self-contained**:
 copy a block, run it, and validate against the listed evaluation metrics

@@ -1,5 +1,7 @@
 # OT-inspired shift reweighting for conformal (v1)
 
+> ← [Methods Overview](../index.md) | [Bayesian Linear Heads](bayesian-linear-regression.md) →
+
 This page documents **experimental** test-time tools for **classification-style**
 nonconformity scores: learning nonnegative weights on a calibration set by matching
 a weighted empirical CDF to unlabeled target scores, then running **weighted split

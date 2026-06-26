@@ -1,5 +1,7 @@
 # Core Concepts
 
+> ← [Quick Start](quickstart.md) | [User Guide](../guide/index.md) →
+
 This page formalises the vocabulary used throughout torchregress. The
 treatment is intentionally compact; for derivations see
 [Mathematical Foundations](../guide/math/index.md), and for method-by-method
