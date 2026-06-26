@@ -299,6 +299,15 @@ print(f"Mean trust weight: {history['mean_weight'][-1]:.4f}")
 
 ---
 
+## Recommendations
+
+- **Default trainer**: Use `TeacherStudentTrainer` with default settings (`n_views=4`, `ema_decay=0.99`, `detach_weights=True`). It provides a solid baseline for most semi-supervised regression problems.
+- **View diversity is essential**: Ensure your model or augmentation pipeline produces genuinely different predictive views. For deterministic models, add Gaussian input noise (`augment_fn`) or use MC Dropout. Monitor disagreement scores — if they are near zero, views are collapsing.
+- **Tune `tau` and `agreement_weight`**: Start with `tau=0.2` and `agreement_weight=1.0`. If the unsupervised loss dominates, reduce `agreement_weight`. If too few samples are trusted, increase `tau`.
+- **Validate with held-out labeled data**: Never evaluate on pseudo-labeled samples. Maintain a clean labeled test set and compare against a supervised-only baseline trained on the same labeled data.
+- **For simpler workflows**: If you don't need custom weighting policies, use `SAGERegLoss` directly in your training loop — it handles consensus building, weighting, and pseudo-loss computation internally.
+- **Combine with conformal calibration**: SAGE-Reg provides no coverage guarantees. For prediction intervals with finite-sample coverage, wrap the trained model with [SplitConformal or CQR](conformal/index.md).
+
 ## Next steps
 
 - [Noisy label losses](../losses/noisy_labels.md) — complementary approach for explicitly corrupted target values

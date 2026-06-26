@@ -115,6 +115,23 @@ calibrated_pit = cal.transform(pit_test)
 
 ---
 
+## Limitations
+
+1. **Single global temperature**: `VarianceTemperatureScaler` applies one scale factor $T$ to all predictions. If the model is overconfident in some regions and underconfident in others, a single $T$ compromises. For region-dependent miscalibration, use `PITCalibrator`.
+2. **Calibration set independence**: The calibration set must be strictly held out from model training. If the model has seen the calibration data, predicted variances will be artificially small, forcing $T \gg 1$ and over-inflating test-time intervals.
+3. **Small calibration sets**: Non-parametric calibrators (`IsotonicMeanCalibrator`, `PITCalibrator`) can overfit when $n < 500$, producing jagged mappings. Prefer `VarianceTemperatureScaler` (1 parameter) for small sets.
+4. **Covariate shift**: All calibrators assume the calibration and test sets share the same covariate distribution. Under shift, a fixed mapping learned on the calibration set may not transfer.
+5. **Calibration is not coverage**: Post-hoc calibration improves agreement between predicted confidence and observed frequency, but provides no finite-sample coverage guarantee. For coverage guarantees, use [Conformal Prediction](conformal/index.md).
+
+## Recommendations
+
+- **Start with `VarianceTemperatureScaler`**: One parameter, fast to fit, and effective for the most common failure mode (global over/under-confidence).
+- **Upgrade to `PITCalibrator`** when calibration errors vary across the input space or when the predictive distribution is non-Gaussian.
+- **Use `IsotonicMeanCalibrator`** for systematic point-prediction bias (e.g., consistently over-predicting in low-target regions).
+- **Calibration set size**: Target $n \ge 200$ for temperature scaling, $n \ge 500$ for non-parametric methods. See the [calibration comparison example](../examples/constraints_calibration_comparison.md).
+- **Chain calibrators carefully**: Mean → Variance → PIT is valid but each step consumes degrees of freedom from the calibration set. Don't chain more than two non-parametric calibrators on small sets.
+- **Validate after calibration**: Always re-evaluate calibration metrics (ECE, PIT) on a separate test set after applying calibrators. See [Calibration metrics](../metrics/calibration.md).
+
 ## Next Steps
 - [Calibration Metrics](../metrics/calibration.md) — [`expected_calibration_error`](../api/metrics.md), [`marginal_calibration_error`](../api/metrics.md)
 - [Conformal Prediction](../methods/conformal/index.md) (coverage guarantees vs post-hoc calibration)

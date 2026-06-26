@@ -125,6 +125,22 @@ For causal estimates to be valid, three assumptions must hold:
 
 ---
 
+## Limitations
+
+1. **Unconfoundedness is untestable**: All causal estimates assume no unmeasured confounders — variables that affect both treatment assignment $T$ and outcome $Y$. This assumption cannot be verified from observed data alone. Sensitivity analyses are essential.
+2. **Positivity violations**: If any subpopulation has $\hat{e}(x) \approx 0$ or $\hat{e}(x) \approx 1$, the doubly-robust estimator becomes unstable. Always run `causal_overlap_report` before interpreting results.
+3. **Cross-fitting dependency**: `dr_ate` and `dr_cate` cross-fit nuisance models on held-out folds. With small $n$ or few folds ($\le 2$), the nuisance models may be poorly estimated, degrading the doubly-robust property.
+4. **CATE is harder than ATE**: Conditional treatment effect estimates require more data and stronger modelling assumptions than population-average effects. CATE estimates are inherently higher-variance.
+5. **Not for dynamic treatments**: The current API handles binary, static treatments only. Time-varying treatments, sequential interventions, and instrumental variable methods are not supported.
+
+## Recommendations
+
+- **Default workflow**: Run `dr_ate` (population effect) → `causal_overlap_report` (positivity check) → `dr_cate` (heterogeneity). All three together provide a complete causal picture.
+- **Diagnose before interpreting**: Always inspect the `diagnostics` dict from `dr_ate`/`dr_cate` — it contains effective sample size (ESS) and overlap warnings.
+- **Propensity clipping**: If propensity scores are extreme ($< 0.05$ or $> 0.95$), consider clipping or trimming before estimation. See [Propensity utilities](../api/utils.md).
+- **Complement with PPI**: For causal quantities that can be framed as population means, [PPI inference](inference.md) can leverage unlabeled data for tighter confidence intervals.
+- **Example pipelines**: See [Causal DR uplift comparison](../examples/causal_dr_uplift_comparison.py) and [Causal DR real-data comparison](../examples/causal_dr_realdata_comparison.py).
+
 ## Next Steps
 - Learn about [Propensity Weighted Losses](../losses/imbalanced.md)
 - View the [Causal DR Uplift Comparison](../examples/causal_dr_uplift_comparison.md)

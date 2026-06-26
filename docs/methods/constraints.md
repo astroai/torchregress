@@ -125,6 +125,22 @@ model = SpectralNormWrapper(base_model)  # spectral_norm on Linear layers
 
 ---
 
+## Limitations
+
+1. **Output-dimension only**: Constraints enforce structure on model **outputs** (non-negativity, ordering, sum-to-one). They do not enforce monotonicity with respect to input features — for input monotonicity, use specialised architectures.
+2. **NonCrossingSort is not convexity-preserving**: Sorting enforces pairwise ordering but can create non-smooth prediction surfaces. The sorted output is differentiable, but gradients can be discontinuous at tie points.
+3. **SpectralNormWrapper is a heuristic**: Spectral normalisation bounds Lipschitz constants for smoother OOD behaviour, but is not an OOD-detection API. Treat as a practical inductive bias, not a guarantee.
+4. **Softplus vs Exponential**: `NonNegativeHead` uses Softplus ($\log(1+e^x)$) which is numerically stable but has a soft lower bound near zero (not exactly zero). For exact zero-inflation, combine with a separate zero-model.
+5. **Constraints can mask model errors**: A model with a `BoundedHead(0, 1)` can still produce poor predictions within $[0,1]$. Constraints ensure validity, not accuracy.
+
+## Recommendations
+
+- **Default positivity**: Use `NonNegativeHead` with `beta=1.0` (standard Softplus). Adjust `beta` only if you need sharper or softer lower-bound behaviour.
+- **Quantile regression**: Always use `NonCrossingSort` on multi-quantile outputs to prevent quantile crossing. Combine with `QuantileCrossoverLoss` for loss-level enforcement. See [Quantile & Expectile losses](../losses/quantile_expectile.md).
+- **Probability outputs**: Use `BoundedHead(0, 1)` for probability predictions and `SimplexHead` for categorical/mixture weights.
+- **Spectral normalisation**: Apply `SpectralNormWrapper` when you observe erratic predictions on OOD inputs. It adds minimal overhead (one power iteration per forward pass).
+- **Stack constraints**: Combine multiple constraint heads (e.g., `NonNegativeHead` → `NonCrossingSort`). Order matters — apply domain constraints first, then ordering constraints.
+
 ## Next Steps
 - Learn about [Quantile & Expectile Losses](../losses/quantile_expectile.md)
 - Explore [Post-Hoc Calibration](calibration.md)

@@ -324,6 +324,22 @@ Outputs are saved to `examples/outputs/` and include:
 
 ---
 
+## Limitations
+
+1. **Matplotlib dependency**: All viz functions depend on `matplotlib`. Ensure it is installed (`pip install matplotlib`). LaTeX rendering requires a full LaTeX distribution.
+2. **Not interactive**: Plots are static `matplotlib` figures. For interactive dashboards, export data to `pandas` and use `plotly` or `bokeh`.
+3. **Large-sample performance**: Functions that plot per-sample data (e.g., `plot_residuals`, `plot_uncertainty_vs_error`) may become slow with $N > 10^5$ samples. Subsample before plotting.
+4. **Calibration plots assume quantile-access**: `plot_reliability_diagram` and `plot_gaussian_reliability_diagram` require access to predicted quantiles or mean/std. They cannot evaluate a black-box model that only returns point predictions.
+5. **No built-in statistical testing**: The viz module provides visual diagnostics but does not compute $p$-values, confidence bands, or formal hypothesis tests. For statistical testing, use `scipy.stats` or `statsmodels` directly on the exported data.
+
+## Recommendations
+
+- **Standard diagnostic suite**: For every regression model, generate: residuals plot, Q-Q plot, PIT histogram, and uncertainty-vs-error plot. These four catch most common failure modes.
+- **Use `create_grid_figure`** for multi-panel diagnostic reports — it handles layout automatically and produces publication-ready grids.
+- **Set style first**: Call `set_style()` at the top of every script for consistent, clean output.
+- **LaTeX for publications**: Enable `enable_latex_rendering(True)` for final figures, but keep it disabled during development — it slows rendering significantly.
+- **Run the gallery**: [`examples/viz_diagnostic_gallery.py`](../../examples/viz_diagnostic_gallery.py) demonstrates every function and saves output images for reference.
+
 ## Next Steps
 
 - [Visualization API Reference](../api/viz.md) — complete function signatures and docstrings

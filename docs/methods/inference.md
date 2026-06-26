@@ -265,6 +265,22 @@ diag = ppi_diagnostics(y_gold, f_hat_gold, f_hat_all)
 
 ---
 
+## Limitations
+
+1. **MCAR labelling required**: PPI assumes labelled samples are Missing Completely At Random. If labelling is non-random (e.g., only easy examples get labels), the bias correction is invalid. Extensions for MNAR exist but require additional modelling.
+2. **No gain with uninformative predictions**: If the ML model has $R^2 \approx 0$, PPI provides no precision gain over gold-only inference. Use `ppi_diagnostics` to assess predictive quality before committing.
+3. **External model requirement**: The prediction model must be trained on data separate from the internal dataset used for inference. Training and evaluating on the same data introduces overfitting bias that invalidates confidence intervals.
+4. **Bootstrap cost**: Bootstrap-based CIs (`ppi_calibrated_mean_ci`, PPI++) refit nuisance parameters on each bootstrap replicate. For large $n$ or many bootstraps, this adds non-trivial runtime.
+5. **Not a drop-in replacement for conformal prediction**: PPI targets population-level estimands (means, quantiles, regression coefficients). For per-unit prediction intervals, use the [Conformal prediction](conformal/index.md) tools.
+
+## Recommendations
+
+- **Check $R^2$ first**: PPI is most valuable when $R^2 > 0.5$ and $N/n > 10$. Run `ppi_diagnostics` to estimate the expected CI width reduction before investing in a full PPI pipeline.
+- **Use `ppi_calibrated_mean_ci` for mismatched scores**: When the ML score tracks $Y$ but has the wrong slope or intercept (common for models trained on a different population or loss function), calibrated PPI often improves over plain `ppi_mean_ci`.
+- **Split your data carefully**: Hold out one fold for affine calibration, another for PPI bias correction, and optionally a third for split-conformal calibration. Never reuse the same fold for multiple stages.
+- **Complement with conformal prediction**: Use PPI for population-level inference (e.g., "what is the mean recovery time?") and SplitConformal for per-unit prediction intervals ("what is the recovery time for this patient?"). See [`examples/ppi_mean_plus_split_conformal.py`](../../examples/ppi_mean_plus_split_conformal.py).
+- **Degrade gracefully with PPI++**: When model quality is uncertain, use PPI++ (via `power=1.0`) — it asymptotically never increases variance over gold-only inference.
+
 ## Next Steps
 
 - [Calibration Metrics](../metrics/calibration.md) — evaluate your model's predictive quality for PPI
