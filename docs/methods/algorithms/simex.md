@@ -118,6 +118,21 @@ y_pred = simex.predict(X_test)
 
 ---
 
+## Limitations
+
+1. **Extrapolation risk**: SIMEX fits a polynomial through predictions at $\lambda \ge 0$ and extrapolates to $\lambda = -1$. If the true mapping is not well-approximated by a low-order polynomial, extrapolation errors can be severe (Runge's phenomenon). Higher-order polynomials ($p \ge 3$) amplify this risk.
+2. **Computational cost**: SIMEX trains $|\text{lambdas}| + 1$ complete models. For deep networks with 4–5 noise levels, this multiplies training cost by 5–6×.
+3. **Negative variance artefacts**: Extrapolating polynomial fits to $\lambda = -1$ can produce negative predicted variances. Always clamp variance outputs to a minimum positive value after SIMEX correction.
+4. **Known $\Sigma_u$ required**: SIMEX requires an accurately specified measurement error covariance. Over- or under-specifying $\Sigma_u$ directly biases the extrapolated estimates.
+5. **Homoscedastic noise assumption**: SIMEX assumes a single $\Sigma_u$ for all samples. Heteroscedastic measurement error (different noise per sample) is not supported.
+
+## Recommendations
+
+- **Default**: Start with `extrapolation_order=2` (quadratic) and `lambdas=[0.5, 1.0, 1.5, 2.0]`. Linear extrapolation is safer but less flexible; quadratic is a good compromise.
+- **For linear models**: Use [RC](rc.md) instead — it is analytical, instantaneous, and makes the same assumptions without the computational cost.
+- **For neural networks with large datasets**: Consider [EIV losses](../../losses/eiv.md) (InputNoiseMarginalizationLoss) which handle measurement error at the loss level without retraining M models.
+- **Validate extrapolation**: Plot the SIMEX extrapolation curve with [`plot_simex_extrapolation`](../../api/viz.md) to visually check polynomial fit quality before trusting the correction.
+
 ## Next steps
 
 - [Regression Calibration](rc.md) — faster analytical alternative when a linear correction suffices

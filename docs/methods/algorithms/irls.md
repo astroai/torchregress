@@ -133,6 +133,21 @@ print(f"IRLS MAE (clean): {(pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4
 
 ---
 
+## Limitations
+
+1. **Vulnerability to leverage points**: IRLS only downweights outliers based on residuals in the response space ($Y$). It is sensitive to high-leverage points (outliers in $X$). A single high-leverage outlier can attract the regression line even if its residual is small.
+2. **MAD scale collapse**: The robust scale estimate (MAD) can become zero if many residuals are identical (e.g., saturated predictions), producing NaN losses. Use `variance_type="predicted"` or `"fixed"` to avoid this.
+3. **Warm-start required for redescending losses**: Tukey and Cauchy weight functions are non-convex. IRLS must be warm-started from a convex loss (OLS, Huber) or it diverges.
+4. **Per-iteration cost**: Each IRLS iteration requires a full forward pass to compute residuals and weights, comparable to one training epoch. For large models, this multiplies training cost.
+5. **Not end-to-end differentiable**: IRLS is an outer-loop reweighting procedure, not a differentiable loss. It cannot be used inside standard `loss.backward()` training — it requires explicit weight computation and re-fitting.
+
+## Recommendations
+
+- **Default weight function**: Start with `weight_fn="huber"` — it is convex, stable, and handles moderate outliers. Upgrade to `"tukey"` only with warm-start.
+- **Use robust losses for end-to-end training**: For standard neural network training, prefer [Robust losses](../../losses/robust.md) (Huber, Cauchy, Tukey) which are differentiable and work inside `loss.backward()`.
+- **Use IRLS for post-hoc refinement**: IRLS is best applied to refine an already-trained model, especially when you need classical M-estimation diagnostics (influence functions, standard errors).
+- **Variance type**: Use `variance_type="predicted"` when the model outputs $\sigma^2$; use `"robust"` (MAD-based) for homoscedastic models without variance heads.
+
 ## Next steps
 
 - [Robust losses](../../losses/robust.md) — Huber, Tukey, Cauchy trained end-to-end vs IRLS post-hoc reweighting

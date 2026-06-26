@@ -80,6 +80,21 @@ X_cal_new = rc.transform(X_new)
 
 ---
 
+## Limitations
+
+1. **Linear correction only**: RC applies a linear shrinkage $\Lambda \cdot (W - \bar{W})$. For nonlinear $f(X)$, the debiasing is approximate at best. Use [SIMEX](simex.md) or [EIV losses](../../losses/eiv.md) for nonlinear models.
+2. **PSD clamping**: If measurement noise exceeds the observed signal ($\Sigma_u > \Sigma_w$), the estimated signal covariance $\hat\Sigma_x = \Sigma_w - \Sigma_u$ becomes negative. RC clamps to a small positive value but cannot recover when noise dominates signal.
+3. **Homoscedastic noise only**: RC assumes a single $\Sigma_u$ for all samples. Heteroscedastic measurement error is not supported.
+4. **Gaussian noise assumption**: The conditional expectation $\mathbb{E}[X \mid W]$ is exact only under joint Gaussian $(X, W)$. For non-Gaussian noise, RC is a best-linear predictor, not the true conditional expectation.
+5. **Known $\Sigma_u$ required**: RC requires the measurement error covariance as a known input. It does not estimate $\Sigma_u$ from data.
+
+## Recommendations
+
+- **Default for linear models**: RC is the fastest, simplest EIV correction. Apply it first, then validate on held-out data before considering more complex methods.
+- **For nonlinear models**: If RC's linear correction is insufficient (validate on test set), upgrade to [SIMEX](simex.md) (flexible but expensive) or [LatentNN](latentnn.md) (joint optimisation).
+- **Validate the correction**: Compare RC-corrected predictions against a naive baseline on clean held-out data (if available) or via simulation with known ground truth.
+- **Combine with robust losses**: RC corrects input noise. Pair with [Robust losses](../../losses/robust.md) to handle outlier targets simultaneously.
+
 ## Next steps
 
 - [SIMEX](simex.md) — simulation-extrapolation for nonlinear models where RC's linear correction is insufficient

@@ -114,6 +114,23 @@ print(f"Task-Agnostic Correlation Error: {tac_error.item():.4f}")
 
 ---
 
+## Limitations
+
+1. **Not suited for scalar regression ($D=1$)**: TIC-TAC is designed for multivariate targets with correlated noise. For $D=1$, the Jacobian collapse yields only a scalar variance — standard Gaussian NLL or $\beta$-NLL is simpler and faster.
+2. **Memory scaling $\mathcal{O}(D \cdot P^2)$**: The vectorized Hessian computation grows quadratically in input dimension $P$. For $P > 100$ or $D > 20$, expect Out-of-Memory (OOM) errors. Use dimensionality reduction on inputs or fall back to a [low-rank Gaussian head](../../losses/gaussian.md).
+3. **Requires smooth activation functions**: `ReLU` has zero second derivative everywhere, nullifying the Hessian term $H(x)$. The model must use `Tanh`, `GELU`, or `SiLU` throughout the backbone — this constraint may degrade performance on tasks where ReLU is optimal.
+4. **Autograd overhead per forward pass**: Computing $J(x)$ and $H(x)$ via `torch.func.jacrev` and `torch.func.hessian` adds a 3–10× overhead per forward pass compared to standard Gaussian heads. Not suitable for real-time or high-throughput inference.
+5. **Global coefficients may underfit**: When `input_dim=None`, the scaling coefficients $k_1, k_2, k_3$ are scalar parameters shared across all inputs. For heteroscedastic data, this uniform covariance structure is too rigid.
+
+## Recommendations
+
+1. **Start with $D \leq 10$, $P \leq 30$** and profile memory before scaling. Monitor GPU memory with `nvidia-smi` or `torch.cuda.memory_summary()`.
+2. **Use `Tanh` or `GELU`** activations in the backbone. `SiLU` is also acceptable but may produce smaller Hessian magnitudes than `Tanh`.
+3. **Enable `input_dim`** (input-dependent $k$ coefficients) unless you have strong reason to believe covariance is homogeneous across the feature space.
+4. **Evaluate with Task-Agnostic Correlations (TAC)** — see [`../../metrics/multivariate.md`](../../metrics/multivariate.md). MSE alone cannot assess whether the predicted covariance aligns with the true residual structure.
+5. **Pair with a [full-covariance Gaussian loss](../../losses/gaussian.md)** (`MultivariateGaussianLoss`) so the training objective matches the covariance parameterisation.
+6. **Set `jitter` adaptively**: start at `1e-6`, increase to `1e-4` if Cholesky decomposition fails during training (numerical instability signal).
+
 ## Next steps
 
 - [Multivariate metrics](../../metrics/multivariate.md) — Task-Agnostic Correlations for evaluating predicted covariance quality

@@ -138,6 +138,23 @@ print("Shifted Test Total Stds:\n", pred.std.squeeze(-1))
 
 ---
 
+## Limitations
+
+1. **Linear head only**: VIDS fits a linear Bayesian head on top of features. It is not an end-to-end deep BNN — the feature extractor must be pre-trained or frozen. For deep architectures with learnable feature uncertainty, use an [ensemble](../ensemble/index.md) or [MC Dropout](../../api/ensemble.md).
+2. **Bootstrap environment cost**: Training on $E$ bootstrap environments requires $E \times$ forward passes per ELBO step. With `n_environments=32` and `bootstrap_fraction=0.3`, training time scales roughly as $E \times N_{\text{epochs}}$ — significantly slower than a standard MAP regressor.
+3. **ELBO optimization sensitivity**: The KL term $\beta \cdot D_{KL}(q || p)$ can dominate the likelihood term early in training, causing posterior collapse ($\sigma^2_{\text{post}} \to 0$) before the prior adapts. Requires careful $\beta$ scheduling.
+4. **$\beta$ sensitivity**: The KL weight $\beta$ controls the exploration–exploitation balance. Too low → prior ignores context (reverts to static prior), too high → posterior collapses to prior (no data signal). Standard grid search over $\{0.01, 0.1, 1.0, 5.0\}$ is recommended.
+5. **Synthetic environments may not cover real shifts**: Bootstrap resampling only produces environments within the support of the training distribution. For shifts outside this support (e.g., new feature combinations, domain gaps), the adaptive prior may be overconfident. Complement with [conformal prediction](../conformal/index.md) for coverage guarantees under arbitrary shifts.
+
+## Recommendations
+
+1. **Use pre-trained or frozen features**: Apply VIDS as a last-layer uncertainty head. Train a backbone with a supervised or self-supervised objective first, freeze it, then fit VIDS on the frozen features.
+2. **Set `n_environments \geq 32`**: Fewer than 16 environments yields insufficient prior diversity; the adaptive prior network cannot learn meaningful context conditioning.
+3. **Schedule $\beta$**: Start with $\beta=0.01$ for the first 20% of epochs (warm-up), then linearly anneal to $\beta=1.0$. Monitor the KL term — it should stabilise around 0.1–1.0 nats.
+4. **Tune `noise_variance_init`**: Start at `0.1`. If aleatoric variance grows with training (loss plateaus early), lower to `0.01`. If epistemic variance collapses, raise to `0.5`.
+5. **Validate on shifted hold-out data**: Split a shifted validation set (if available) or use a worst-slice evaluation. VIDS can overfit to in-distribution environments if only in-distribution validation is monitored.
+6. **Complement with [Heteroscedastic Laplace](heteroscedastic_laplace.md)** when you need both adaptive priors and full heteroscedastic noise modelling — Laplace handles the aleatoric head while VIDS handles the epistemic prior.
+
 ## Next steps
 
 - [Effective Bayesian Laplace](heteroscedastic_laplace.md) — alternative post-hoc uncertainty decomposition with lower computational cost

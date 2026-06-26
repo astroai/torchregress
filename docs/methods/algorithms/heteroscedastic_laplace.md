@@ -146,6 +146,22 @@ print("Aleatoric Variance:\n", pred_batch.extra["aleatoric_variance"].squeeze(-1
 
 ---
 
+## Limitations
+
+1. **Last-layer only — no backbone uncertainty**: The Laplace approximation is restricted to the final head weights. Backbone parameters (feature extractor) are treated as fixed point estimates, so epistemic uncertainty from feature-level ambiguity is missed. For full-model uncertainty, use an [ensemble](../ensemble/index.md) or [MC Dropout](../../api/ensemble.md).
+2. **Diagonal Fisher approximation**: The precision matrix $\Lambda$ uses only diagonal entries of the empirical Fisher. This ignores off-diagonal correlations between head parameters, which can under-report epistemic variance for tightly coupled weights.
+3. **Natural head is mandatory**: Standard $\mu, \log\sigma^2$ heads produce non-convex NLL objectives where the Laplace approximation is invalid. You must use `NaturalHeteroscedasticHead` — and it only supports Gaussian likelihoods (no Poisson, Bernoulli, etc.).
+4. **No prior on backbone weights**: The prior $p(\theta)$ is placed only on the head layer. If the backbone was pre-trained on a different task or domain, the Laplace posterior inherits backbone miscalibration without correction.
+5. **Post-hoc only — does not influence training**: The Laplace approximation is computed after MAP training converges. It adds uncertainty at test time but cannot regularize training or prevent overfitting the way a variational BNN or [IVON optimizer](ivon.md) can.
+
+## Recommendations
+
+1. **Always use `NaturalHeteroscedasticHead`** with `link_fn="exp"`. Standard $\mu, \log\sigma^2$ heads produce non-Gaussian posteriors that break Laplace validity.
+2. **Tune `prior_precision`** via a small validation split. Start at `1.0`, sweep `{0.01, 0.1, 1.0, 10.0}`. Too low → under-regularized MAP, too high → over-smoothed posterior.
+3. **Set `n_samples \geq 30`** for stable epistemic variance estimates. Below 20 samples, $\text{Var}(\{\mu^{(s)}\})$ fluctuates significantly between runs.
+4. **Freeze backbone after pre-training** — re-fitting the Laplace on a backbone trained from scratch with the head can be numerically unstable. Pre-train backbone, freeze, then fit head + Laplace.
+5. **Complement with [conformal prediction](../conformal/index.md)** for coverage guarantees. Laplace provides a parametric posterior; conformal adds distribution-free coverage without assumptions on the posterior shape.
+
 ## Next steps
 
 - [IVON Optimizer](ivon.md) — natural-gradient variational training that maintains uncertainty during optimisation
