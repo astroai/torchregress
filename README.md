@@ -11,24 +11,24 @@
 <a href="https://github.com/sfabbro/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12–3.14"><img src="https://img.shields.io/badge/python-3.12%20|%203.13%20|%203.14-blue.svg" alt="Python 3.12 | 3.13 | 3.14"></a>
 </p>
 
-**torchregress** is a PyTorch library providing regression losses, metrics, and calibration layers for deep learning regression. The focus is on proper scoring rules, uncertainty quantification (UQ), robust estimation, and handling real-world data pathologies (missing data masks, measurement errors, censoring, imbalance, and target shifts).
+**torchregress** is a PyTorch library of regression losses, metrics, and calibration tools for problems where you need more than a single point prediction — uncertainty, robustness, and messy real-world data included.
 
-All modules are designed to integrate seamlessly into native PyTorch training loops, supporting mask arrays and sample weights out of the box.
-
----
-
-## Key Features & Capabilities
-
-| Category | Description / Included Features | Reference Docs |
-|:---|:---|:---|
-| **Loss Primitives** | Point & M-estimators (MSE, MAE, Huber, Cauchy, Tukey, Barron, AdaptiveRobust, CVaR); Parametric Probabilistic (Gaussian NLL, Beta-NLL, Full Covariance, Low-Rank, Evidential NIG); Generative & Non-Parametric (MDN, Normalizing Flows) | [Losses Guide](docs/losses/index.md) |
-| **Data Pathologies** | Error-in-Variables (Functional, Structural, ODR, MC marginalization); Censored Targets (AFT, Censored Gaussian/Quantile NLL); Continuous Target Imbalance (LDS, FDS); Label Noise (Consistency Regularization) | [Concepts Guide](docs/getting-started/concepts.md) |
-| **Uncertainty & Ensembles** | Deep Ensembles, Batch Ensembles, Last-Layer Laplace Regressor, SWAG / MultiSWAG, Variational Inference & Bayesian Neural Networks (IVON) | [Ensembles Guide](docs/methods/ensemble/index.md) |
-| **Conformal Calibration** | Split Conformal, Conformalized Quantile Regression (CQR), Mondrian/Group-conditioned, Local Conformal (MAD), Monte-Carlo Conformal, PPI inference | [Conformal Guide](docs/methods/conformal/index.md) |
-| **Test-Time Adaptation** | Bayesian Linear Head adapters, Feature Stat Normalization, Significant Subspace Aligner (SSA), OT Conformal shift reweighting | [Test-Time API](docs/api/test_time.md) |
-| **Metrics** | Point errors (RMSE, MAE, R², Huber); Distributional scores (CRPS, Energy Score, GNLL); Interval metrics (Interval Score, PICP, MPIW); Calibration (ECE, MCE, PIT histograms, typicality) | [Metrics API](docs/api/metrics.md) |
+It plugs into standard training loops and supports missing data and sample weights out of the box.
 
 ---
+
+## Features & Capabilities
+
+torchregress is built for regression problems that are messy. In plain terms, it helps you:
+
+- **Predict distributions** — Train models that output means, spreads, quantiles, or full predictive distributions when a single point estimate is not enough.
+- **Measure and separate uncertainty** — Distinguish irreducible data noise from model uncertainty, and evaluate whether predicted ranges are trustworthy.
+- **Stay robust on dirty data** — Handle missing values, sample weights, outliers, noisy inputs and labels, censored targets, and imbalanced or rare outcomes without bolting on ad hoc fixes.
+- **Calibrate and guarantee coverage** — Turn a trained model into well-calibrated intervals or conformal prediction sets with stated coverage properties.
+- **Adapt to distribution shifts** — Lightweight test-time tools when deployment data differs from what you trained on.
+- **Evaluate the right metrics** — Metrics for point error, interval quality, distributional accuracy, and calibration — not just average squared error.
+
+Every loss and metric drops into a normal PyTorch training loop. For method names, API details, and worked examples, see the [documentation index](docs/index.md).
 
 ## Installation
 
@@ -38,7 +38,7 @@ All modules are designed to integrate seamlessly into native PyTorch training lo
 pip install torchregress
 ```
 
-For normalizing flows support, install with the `flows` extra:
+For normalizing flows support for multi-target distribution predictions, install with the `flows` extra:
 
 ```bash
 pip install torchregress[flows]
@@ -46,7 +46,7 @@ pip install torchregress[flows]
 
 ### Dev / Source Setup
 
-This project uses [uv](https://github.com/astral-sh/uv) as the package manager and supports Python 3.12–3.14 (3.13 recommended).
+This project uses [uv](https://github.com/astral-sh/uv) as the package manager and supports Python 3.12+ (currently developed with 3.13).
 
 ```bash
 # Clone the repository
@@ -144,51 +144,8 @@ intervals = conformal.predict_interval(x_test, alpha=0.1)
 
 ## Development & Contribution
 
-We welcome contributions! Please refer to the [Contributing Guide](CONTRIBUTING.md) for detailed guidelines.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, quality checks, tests, and documentation guidelines.
 
-### Running Quality Checks & Tests Locally
-
-Before committing or pushing, make sure the local gate check passes. This matches the two-stage GitHub Actions CI workflow:
-
-```bash
-# Formatter (Ruff)
-uv run ruff format src/torchregress tests tools
-
-# Linter (Ruff)
-uv run ruff check .
-
-# Type checking (MyPy)
-uv run mypy src/torchregress
-
-# Run tests
-uv run pytest
-```
-
-Alternatively, run the full CI suite parity script:
-
-```bash
-./scripts/ci_local.sh
-```
-
----
-
-## Documentation Index
-
-Detailed mathematical derivations, guide overviews, and examples:
-
-* [Core Concepts](docs/getting-started/concepts.md) — Point vs. probabilistic prediction, aleatoric vs. epistemic uncertainty, proper scoring rules.
-* [Method Selection Guide](docs/guide/method-selection.md) — Task-first lookup table to find the right tool for specific data characteristics.
-* [Mathematical Foundations](docs/guide/math/index.md) — LaTeX derivations of CRPS, scoring rules, and variance decomposition formulas.
-* [Runnable Examples](docs/examples/index.md) — Practical scripts comparing `torchregress` methods with external baselines.
-
----
-
-## Sibling Repositories
-
-| Repository | Role |
-|:---|:---|
-| [torchregress-research](https://github.com/sfabbro/torchregress-research) | NeurIPS manuscripts and SAGE/SPT benchmarks |
-| [torchregress-harness](https://github.com/sfabbro/torchregress-harness) | External software comparisons (MAPIE, LightGBM, botorch, etc.) |
 
 ---
 

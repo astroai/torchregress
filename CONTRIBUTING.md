@@ -10,24 +10,45 @@ We use `uv` for environment management. The repo pins **Python 3.13** in `.pytho
 uv sync
 ```
 
-### Running Tests
+### Running Quality Checks & Tests Locally
 
-To run all tests:
+Before committing or pushing, make sure the local gate check passes. This matches the two-stage GitHub Actions CI workflow.
+
+Individual checks:
+
 ```bash
+# Formatter (Ruff)
+uv run ruff format src/torchregress tests tools
+
+# Linter (Ruff)
+uv run ruff check .
+
+# Type checking (MyPy)
+uv run mypy src/torchregress
+
+# Run tests
 uv run pytest
 ```
 
 To run a specific test file:
+
 ```bash
 uv run pytest tests/losses/test_eiv.py
 ```
 
-### Code Quality
+Alternatively, run the full CI parity script:
 
-We use `pre-commit` to ensure code quality.
+```bash
+./scripts/ci_local.sh
+```
+
+### Pre-commit Hooks
+
+We use `pre-commit` for fast checks on commit and full CI parity on push:
 
 ```bash
 pre-commit install
+pre-commit install --hook-type pre-push
 pre-commit run --all-files
 ```
 
