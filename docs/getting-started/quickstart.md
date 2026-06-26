@@ -185,8 +185,8 @@ from torchregress.metrics import uncertainty_decomposition
 def heteroscedastic_head():
     return nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 2))
 
-ens = DeepEnsemble(model_factory=heteroscedastic_head,
-                   n_members=5, seed=0)
+ens = DeepEnsemble(base_model=heteroscedastic_head(),
+                   ensemble_size=5, base_seed=0)
 ens.fit(train_loader, optimizer_factory=torch.optim.Adam, lr=1e-3)
 
 # Per-member predictions
@@ -195,7 +195,7 @@ var_per_member = ...  # from each member's (mean, log_var) head
 
 # Decomposition
 decomp = uncertainty_decomposition(mu_per_member, var_per_member)
-# decomp["epistemic_variance"], decomp["aleatoric_variance"], decomp["total_variance"]
+# decomp["epistemic_uncertainty"], decomp["aleatoric_uncertainty"], decomp["total_uncertainty"]
 ```
 
 **Tradeoff:** training and inference costs scale linearly with ensemble
