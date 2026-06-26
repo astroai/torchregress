@@ -269,6 +269,15 @@ See also: [tail_mae](../api/metrics.md) and [tail_rmse](../api/metrics.md).
 
 ---
 
+## Next steps
+
+- [Interval metrics](interval.md) — evaluate prediction interval coverage and width alongside point accuracy
+- [Distributional metrics](distribution.md) — proper scoring rules (CRPS, NLL) for probabilistic forecasts
+- [Calibration metrics](calibration.md) — check whether predicted uncertainty matches observed frequency
+- [Visualization diagnostics](../methods/visualization.md) — residual plots, Q-Q, and binned-metric diagnostics
+
+---
+
 ## Comprehensive Reporting
 
 ### Regression Metrics Report

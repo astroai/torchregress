@@ -79,7 +79,9 @@ A lower TAC score indicates that the predicted covariance matrix $\Sigma$ more a
 |:-:|:----------|
 | 1 | Shukla et al., ["TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression"](https://arxiv.org/abs/2407.00296) (ICML 2024). |
 
-### Comparison Table: When to use which
+---
+
+## Comparison Table: When to use which
 
 | Metric | Target Type | Evaluates | Key Benefit |
 | :--- | :--- | :--- | :--- |
@@ -118,3 +120,12 @@ print(f"TAC Functional value: {tac_func_val.item():.4f}")
 
 !!! warning
     TAC is defined only for multivariate targets ($D \ge 2$) because it measures conditional updates across dimensions. Applying it to scalar targets ($D = 1$) will result in errors.
+
+---
+
+## Next steps
+
+- [Point metrics](point.md) — standard univariate baselines to decompose multivariate error per dimension
+- [Ensemble metrics](ensemble.md) — uncertainty decomposition for multivariate ensemble predictions
+- [TIC-TAC](../methods/algorithms/tictac.md) — Taylor-Induced Covariance for improved multivariate covariance estimation
+- [Distributional metrics](distribution.md) — Energy Score as the multivariate generalisation of CRPS

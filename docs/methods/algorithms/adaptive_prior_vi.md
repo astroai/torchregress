@@ -136,6 +136,15 @@ print("Shifted Test Total Stds:\n", pred.std.squeeze(-1))
 
 ---
 
+## Next steps
+
+- [Effective Bayesian Laplace](heteroscedastic_laplace.md) — alternative post-hoc uncertainty decomposition with lower computational cost
+- [IVON Optimizer](ivon.md) — variational training that maintains a weight posterior during stochastic optimisation
+- [Conformal prediction](../conformal/index.md) — coverage-guaranteed intervals without distributional assumptions
+- [Test-time adaptation](../test-time/ot-shift-conformal.md) — OT-inspired reweighting for score shift under covariate drift
+
+---
+
 ## References
 
 | # | Reference |

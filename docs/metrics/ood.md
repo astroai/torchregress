@@ -125,6 +125,15 @@ See also: [ood_metrics_report](../api/metrics.md).
 
 ---
 
+## Next steps
+
+- [Decision metrics](decision.md) — risk-coverage curves to evaluate selective prediction quality
+- [Ensemble metrics](ensemble.md) — uncertainty decomposition for disagreement-based OOD detection
+- [Calibration metrics](calibration.md) — check whether high-uncertainty predictions are actually less reliable
+- [Post-hoc calibration](../methods/calibration.md) — improve calibration before using uncertainty for OOD scoring
+
+---
+
 ## References
 
 | # | Reference |

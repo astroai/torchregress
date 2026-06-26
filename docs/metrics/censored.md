@@ -65,6 +65,15 @@ See the [censored metrics API](../api/metrics.md): [`censoring_rate`](../api/met
 
 ---
 
+## Next steps
+
+- [Ordinal metrics](ordinal.md) — related evaluation for ordered-class outcomes
+- [Point metrics](point.md) — observed MAE pairs naturally with standard point accuracy on uncensored subsets
+- [Censored losses](../losses/censored.md) — censored Gaussian NLL, quantile, and AFT losses for training
+- [Censored regression example](../examples/censored_regression_comparison.md) — full comparison of censored methods
+
+---
+
 ## References
 
 | # | Reference |

@@ -131,6 +131,15 @@ print(f"IRLS MAE (clean): {(pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4
 
 ---
 
+## Next steps
+
+- [Robust losses](../../losses/robust.md) — Huber, Tukey, Cauchy trained end-to-end vs IRLS post-hoc reweighting
+- [SIMEX](simex.md) — simulation-based bias correction for measurement error, complementary to robust regression
+- [EIV losses](../../losses/eiv.md) — functional and structural error-in-variables losses for noisy inputs
+- [Comprehensive comparison](../../examples/comprehensive_comparison.py) — benchmark IRLS against end-to-end robust loss training
+
+---
+
 ## References
 
 | # | Reference |

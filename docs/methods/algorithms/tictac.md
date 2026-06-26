@@ -112,6 +112,15 @@ print(f"Task-Agnostic Correlation Error: {tac_error.item():.4f}")
 
 ---
 
+## Next steps
+
+- [Multivariate metrics](../../metrics/multivariate.md) — Task-Agnostic Correlations for evaluating predicted covariance quality
+- [Gaussian losses](../../losses/gaussian.md) — alternative covariance parameterisations (diagonal, full, low-rank)
+- [Effective Bayesian Laplace](heteroscedastic_laplace.md) — post-hoc uncertainty decomposition complement
+- [TIC-TAC + multivariate metrics](../../metrics/multivariate.md) — evaluate predicted covariances with Task-Agnostic Correlations
+
+---
+
 ## References
 
 | # | Reference |

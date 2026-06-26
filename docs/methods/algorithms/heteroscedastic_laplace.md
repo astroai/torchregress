@@ -144,6 +144,15 @@ print("Aleatoric Variance:\n", pred_batch.extra["aleatoric_variance"].squeeze(-1
 
 ---
 
+## Next steps
+
+- [IVON Optimizer](ivon.md) — natural-gradient variational training that maintains uncertainty during optimisation
+- [Adaptive-Prior VI](adaptive_prior_vi.md) — context-aware priors for covariate-shifted test data
+- [Uncertainty decomposition](../../guide/uncertainty-decomposition.md) — semantics of epistemic vs aleatoric contracts
+- [Gaussian losses](../../losses/gaussian.md) — pair with heteroscedastic output heads for aleatoric modelling
+
+---
+
 ## References
 
 | # | Reference |

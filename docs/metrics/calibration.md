@@ -136,6 +136,15 @@ See also: [calibration_metrics_report](../api/metrics.md).
 
 ---
 
+## Next steps
+
+- [Distributional metrics](distribution.md) — CRPS and PIT diagnostics that evaluate the full predictive distribution
+- [Interval metrics](interval.md) — PICP and Winkler score for interval-focused evaluation
+- [Post-hoc calibration](../methods/calibration.md) — fix miscalibration with temperature scaling or isotonic regression
+- [Visualization diagnostics](../methods/visualization.md) — reliability diagrams and PIT histograms
+
+---
+
 ## References
 
 | # | Reference |

@@ -165,6 +165,15 @@ epistemic_std = preds.std(0)
 
 ---
 
+## Next steps
+
+- [Ensemble methods](../ensemble/index.md) — combine multiple IVON-trained models for richer uncertainty
+- [Effective Bayesian Laplace](heteroscedastic_laplace.md) — post-hoc uncertainty decomposition via natural-parameter Laplace
+- [Adaptive-Prior VI](adaptive_prior_vi.md) — context-aware variational inference for covariate-shifted test data
+- [Gaussian losses](../../losses/gaussian.md) — pair IVON's weight uncertainty with a heteroscedastic output head
+
+---
+
 ## References
 
 | # | Reference |

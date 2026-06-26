@@ -109,6 +109,15 @@ See also: [ensemble_interval_metrics](../api/metrics.md).
 
 ---
 
+## Next steps
+
+- [Uncertainty decomposition](../guide/uncertainty-decomposition.md) — semantics and contracts for epistemic vs aleatoric uncertainty
+- [Ensemble methods](../methods/ensemble/index.md) — Deep Ensembles, BatchEnsemble, and SWAG training patterns
+- [Calibration metrics](calibration.md) — verify that ensemble uncertainty is well-calibrated
+- [Decision metrics](decision.md) — risk-coverage evaluation of ensemble-based selective prediction
+
+---
+
 ## References
 
 | # | Reference |

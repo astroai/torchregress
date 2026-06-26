@@ -192,6 +192,15 @@ print(f"Standard MLP MSE: {standard_mse:.4f}")
 
 ---
 
+## Next steps
+
+- [LatentNN](latentnn.md) — joint latent-input optimisation when you need denoised inputs, not just quality features
+- [SIMEX](simex.md) — simulation-extrapolation baseline for comparison with quality-gated encoding
+- [Regression Calibration](rc.md) — matrix-based debiasing for simple Gaussian measurement error
+- [EIV losses](../../losses/eiv.md) — loss-level error-in-variables handling without architectural changes
+
+---
+
 ## References
 
 | # | Reference |

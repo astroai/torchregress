@@ -119,6 +119,15 @@ print(f"Upper miss rate: {coverage['miss_rate_high']}")
 
 ---
 
+## Next steps
+
+- [Point metrics](point.md) — baseline accuracy metrics to pair with interval quality evaluation
+- [Calibration metrics](calibration.md) — ECE and marginal calibration to check if intervals are honest
+- [Conformal prediction](../methods/conformal/index.md) — coverage-guaranteed intervals with finite-sample validity
+- [Decision metrics](decision.md) — risk-coverage curves for selective prediction based on interval width
+
+---
+
 ## References
 
 | # | Reference |

@@ -116,6 +116,15 @@ y_pred = simex.predict(X_test)
 
 ---
 
+## Next steps
+
+- [Regression Calibration](rc.md) — faster analytical alternative when a linear correction suffices
+- [LatentNN](latentnn.md) — single-training-run joint optimisation for noisy inputs, no multi-model overhead
+- [Error-Aware Encoding](error_aware.md) — lightweight quality-signal engineering for known input noise
+- [EIV losses](../../losses/eiv.md) — loss-level handling of measurement error without retraining
+
+---
+
 ## References
 
 | # | Reference |

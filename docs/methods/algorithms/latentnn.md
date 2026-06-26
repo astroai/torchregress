@@ -191,6 +191,15 @@ y_pred = latent.predict(X_test)
 
 ---
 
+## Next steps
+
+- [SIMEX](simex.md) — multi-model extrapolation baseline; compare single-run LatentNN vs multi-model cost
+- [Regression Calibration](rc.md) — fast matrix-based correction when a linear model suffices
+- [Error-Aware Encoding](error_aware.md) — lightweight alternative with no per-sample parameter storage
+- [EIV losses](../../losses/eiv.md) — loss-level handling when you prefer not to learn latent inputs
+
+---
+
 ## References
 
 | # | Reference |

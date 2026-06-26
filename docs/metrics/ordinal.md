@@ -64,6 +64,15 @@ See the [quadratic_weighted_kappa API](../api/metrics.md) for details.
 
 ---
 
+## Next steps
+
+- [Censored metrics](censored.md) — related evaluation for interval-censored and survival outcomes
+- [Point metrics](point.md) — standard accuracy baselines to pair with ordinal-specific metrics
+- [Ordinal losses](../losses/ordinal.md) — ordinal regression losses for training ordered-class models
+- [Ordinal comparison example](../examples/ordinal_regression_comparison.md) — full comparison of ordinal methods
+
+---
+
 ## References
 
 | # | Reference |

@@ -297,6 +297,15 @@ print(f"Mean trust weight: {history['mean_weight'][-1]:.4f}")
 
 ---
 
+## Next steps
+
+- [Noisy label losses](../losses/noisy_labels.md) — complementary approach for explicitly corrupted target values
+- [Uncertain ground truth](../losses/uncertain_ground_truth.md) — pseudo-label strategies when labels are known-uncertain
+- [Conformal prediction](conformal/index.md) — coverage-guaranteed intervals that complement heuristic SSL consistency
+- [PPI inference](inference.md) — valid statistical inference combining small labeled + large unlabeled sets
+
+---
+
 ## References
 
 | # | Reference |

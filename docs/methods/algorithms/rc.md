@@ -78,6 +78,15 @@ X_cal_new = rc.transform(X_new)
 
 ---
 
+## Next steps
+
+- [SIMEX](simex.md) — simulation-extrapolation for nonlinear models where RC's linear correction is insufficient
+- [LatentNN](latentnn.md) — joint optimisation of latent clean inputs and model parameters
+- [EIV losses](../../losses/eiv.md) — functional and structural error-in-variables losses at the loss level
+- [Error-Aware Encoding](error_aware.md) — quality-gated feature engineering from known measurement noise
+
+---
+
 ## References
 
 | # | Reference |
