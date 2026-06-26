@@ -77,7 +77,7 @@ Train an ensemble and use member disagreement to identify noisy samples:
 ```python
 from torchregress.ensemble import DeepEnsemble
 
-ensemble = DeepEnsemble(base_model, n_members=5)
+ensemble = DeepEnsemble(base_model, ensemble_size=5)
 # After training, samples with high epistemic uncertainty
 # (large variance across members) are likely mislabelled
 ```

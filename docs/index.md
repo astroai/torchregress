@@ -138,9 +138,10 @@ for x, y in dataloader:
 with torch.no_grad():
     out = model(x_test)
     mu, logvar = out[:, 0], out[:, 1]
-    std = torch.exp(0.5 * logvar)
-    crps = crps_gaussian(mu, std, y_test)        # proper scoring rule
-    gnll = gaussian_nll(mu, logvar, y_test)     # negative log-likelihood
+    var = torch.exp(logvar)
+    std = torch.sqrt(var)
+    crps = crps_gaussian(mu, y_test, std)          # proper scoring rule
+    gnll = gaussian_nll(mu, y_test, var)           # negative log-likelihood
 ```
 
 For full end-to-end workflows, see the

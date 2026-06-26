@@ -120,7 +120,7 @@ $$
 
 | Symbol | Description |
 |:-------|:------------|
-| [`crps_gaussian(mean, std, y)`](#crps_gaussian) | Analytic CRPS for Gaussian $(\mu, \sigma)$. |
+| [`crps_gaussian(mean, y, std)`](#crps_gaussian) | Analytic CRPS for Gaussian $(\mu, \sigma)$. |
 | [`continuous_ranked_probability_score(quantiles, y)`](#continuous_ranked_probability_score) | CRPS from a dict of quantile forecasts. |
 | `crps_from_samples(samples, y)` | Empirical CRPS. |
 | [`energy_score(samples, y)`](#energy_score) | Energy score (multivariate). |
