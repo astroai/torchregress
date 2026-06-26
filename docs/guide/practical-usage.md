@@ -91,24 +91,20 @@ Example code for training with uncertainty:
 import torch
 import torchregress as tr
 
-# Define model that outputs mean and log_variance
+# Define model that outputs [mean, log_variance] per sample
 class UncertaintyModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.backbone = torch.nn.Sequential(
+        self.net = torch.nn.Sequential(
             torch.nn.Linear(10, 64),
             torch.nn.ReLU(),
             torch.nn.Linear(64, 64),
-            torch.nn.ReLU()
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 2),   # [mean, log_var]
         )
-        self.mean_head = torch.nn.Linear(64, 1)
-        self.logvar_head = torch.nn.Linear(64, 1)
 
     def forward(self, x):
-        features = self.backbone(x)
-        mean = self.mean_head(features)
-        logvar = self.logvar_head(features)  # Predicting log variance for numerical stability
-        return mean, logvar
+        return self.net(x)
 
 # Create model and loss
 model = UncertaintyModel()
@@ -118,12 +114,9 @@ loss_fn = tr.losses.GaussianNLLLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 for epoch in range(100):
     for X_batch, y_batch in dataloader:
-        # Forward pass
-        mean, logvar = model(X_batch)
-        # Convert log variance to variance
-        var = torch.exp(logvar)
-        # Calculate loss
-        loss = loss_fn((mean, logvar), y_batch)
+        # Forward pass — model outputs [batch, 2] = [mean, log_var]
+        out = model(X_batch)
+        loss = loss_fn(out, y_batch)
         # Backward and optimize
         optimizer.zero_grad()
         loss.backward()
@@ -148,15 +141,16 @@ import torchregress as tr
 # Evaluation mode
 model.eval()
 with torch.no_grad():
-    # Get predictions
-    mean, logvar = model(X_test)
+    # Get predictions — out shape: [batch, 2] = [mean, log_var]
+    out = model(X_test)
+    mean, logvar = out[:, 0], out[:, 1]
     var = torch.exp(logvar)
     std = torch.sqrt(var)
 
     # Point prediction metrics
     rmse = tr.metrics.rmse(mean, y_test)
     mae = tr.metrics.mae(mean, y_test)
-    r2 = tr.metrics.R2Score()(mean, y_test)
+    r2 = tr.metrics.r2_score(mean, y_test)
 
     # Distribution metrics
     nll = tr.metrics.gaussian_nll(mean, y_test, var)
@@ -214,8 +208,11 @@ model = model.to(device)
 X = X.to(device)
 y = y.to(device)
 
-# Use mixed precision for speed (PyTorch >= 2.0)
-from torch.amp import GradScaler, autocast
+# Use the library's AMP wrapper for mixed precision (PyTorch >= 2.0)
+from torchregress.utils import AMP
+from torch.amp import GradScaler
+
+amp = AMP(device_type="cuda", dtype=torch.float16)
 scaler = GradScaler("cuda")
 
 # Training loop with mixed precision
@@ -224,11 +221,10 @@ for epoch in range(100):
         X_batch = X_batch.to(device)
         y_batch = y_batch.to(device)
 
-        # Use mixed precision
-        with autocast(device_type="cuda", dtype=torch.float16):
-            mean, logvar = model(X_batch)
-            var = torch.exp(logvar)
-            loss = loss_fn((mean, logvar), y_batch)
+        # Use mixed precision via the library's AMP wrapper
+        with amp():
+            out = model(X_batch)
+            loss = loss_fn(out, y_batch)
 
         optimizer.zero_grad()
         scaler.scale(loss).backward()

@@ -79,10 +79,11 @@ for x, y in dataloader:
 with torch.no_grad():
     out = model(x_test)
     mu, logvar = out[:, 0], out[:, 1]
-    std = torch.exp(0.5 * logvar)
+    var = torch.exp(logvar)
+    std = torch.sqrt(var)
     lower, upper = mu - 1.96 * std, mu + 1.96 * std
-    crps = crps_gaussian(mu, std, y_test)        # proper scoring rule
-    gnll = gaussian_nll(mu, logvar, y_test)     # NLL on test set
+    crps = crps_gaussian(mu, y_test, std)          # proper scoring rule
+    gnll = gaussian_nll(mu, y_test, var)           # NLL on test set
 ```
 
 **Caveat:** Gaussian NLL can suffer from variance-collapse early in

@@ -167,7 +167,7 @@ replace, likelihood-based losses.
 
 | If you need… | Use | Don't use |
 |:-------------|:----|:----------|
-| Plain regression, no missing data | `torch.nn.MSELoss` | A complex probabilistic model |
+| Plain regression, no missing data | `torch.nn.MSELoss` (or [`WeightedMSELoss`](../api/losses.md#weightedmseloss) if you may need masks later) | A complex probabilistic model |
 | Mask support or sample weights | [`WeightedMSELoss`](../api/losses.md#weightedmseloss) | `torch.nn.MSELoss` |
 | Aleatoric uncertainty (per-sample σ) | [`GaussianNLLLoss`](../api/losses.md#gaussiannllloss) with `learn_variance=True` | Point loss + post-hoc σ estimation |
 | Epistemic uncertainty | Ensembles, SWAG, BNN, evidential | Single MC-dropout run with no diagnostics |
