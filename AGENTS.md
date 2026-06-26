@@ -27,9 +27,26 @@ This project uses [uv](https://github.com/astral-sh/uv) as the package manager.
 
 Uses Python **3.13** by default (see `.python-version`). Supported: 3.12–3.14.
 
-```bash
-uv pip install -e .[all]
-```
+Install profiles — pick the smallest set that covers your needs:
+
+| Use case | Command |
+|---|---|
+| Core library only | `uv sync` |
+| Run / write tests | `uv sync --extra test` |
+| Dev (tests + lint + typecheck) | `uv sync --extra test --dev` |
+| Dev + normalizing flows | `uv sync --extra test --extra flows --dev` |
+| Full (dev + docs tooling) | `uv sync --all-extras --dev` |
+
+**Extras & groups reference:**
+
+| Tag | Kind | Contents |
+|---|---|---|
+| *(none)* | — | torch, numpy, matplotlib, torchmetrics, scipy, tqdm |
+| `test` | extra | pytest, pytest-cov, polars, pyarrow, PyYAML, scikit-learn, pandas |
+| `docs` | extra | zensical (no mkdocs) |
+| `flows` | extra | zuko |
+| `all` | extra | test + docs + flows |
+| `dev` | group | ruff, mypy |
 
 ### Testing
 ```bash
@@ -71,7 +88,7 @@ GitHub Actions on `main` is **two-stage**: **`pre-commit run --all-files`** (no 
 ./scripts/ci_local.sh
 ```
 
-This installs `test` + `flows` + `dev` extras, then runs **ruff** / **ruff format** on **`src/torchregress`**, **tests**, and **tools**, then **pytest --cov=…** and both **benchmark_smoke** threshold passes (CPU smoke + sweep).
+This installs `test` + `flows` + `docs` extras and the `dev` dependency group, then runs **ruff** / **ruff format** on **`src/torchregress`**, **tests**, and **tools**, then **pytest --cov=…** and both **benchmark_smoke** threshold passes (CPU smoke + sweep).
 
 ### Pre-commit / pre-push hooks
 
@@ -215,8 +232,7 @@ spread plus member disagreement.
 
 **pyproject.toml settings**:
 - Python >= 3.12 and < 3.16 required (3.13 recommended; CI tests 3.12, 3.13, and 3.14)
-- Black line length: 100
-- Ruff: enforces E (pycodestyle), F (pyflakes), I (isort)
+- Ruff: enforces E (pycodestyle), F (pyflakes), I (isort); also used for formatting
 - MyPy: strict typing for `torchregress.*`; examples/tools/docs are excluded or ignored
 
 **Test configuration**:
@@ -239,12 +255,15 @@ When adding new loss functions:
 Core dependencies:
 - torch >= 2.4.0
 - numpy >= 2.0.0
+- matplotlib >= 3.8.0
 - torchmetrics >= 1.4.0
-- matplotlib, pandas (for visualization/data handling)
-- scikit-learn (density weighting utilities)
+- scipy >= 1.11.0
+- tqdm >= 4.66.0
 
 Optional (feature-specific) dependencies:
-- **zuko >= 1.6.0** (normalizing flows, install via `pip install torchregress[flows]`)
+- **zuko >= 1.6.0** (normalizing flows, install via `uv sync --extra flows`)
+- **pandas, scikit-learn, polars, pyarrow** (data handling, in the `test` extra)
+- **zensical** (docs tooling, in the `docs` extra)
 
 ### Import Policy
 

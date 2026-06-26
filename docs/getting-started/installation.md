@@ -33,17 +33,22 @@ torchregress provides optional dependency sets for different use cases:
 # For testing capabilities
 pip install 'torchregress[test]'
 
-# For development
-pip install 'torchregress[dev]'
-
 # For documentation
 pip install 'torchregress[docs]'
 
 # For normalizing-flow losses
 pip install 'torchregress[flows]'
 
-# For all optional dependencies
+# For all extras
 pip install 'torchregress[all]'
+```
+
+Development tools (ruff, mypy) are provided as a **dependency group** (PEP 735) instead of
+an extra. If you are using `uv`, add `--dev` to your sync command:
+
+```bash
+uv sync --extra test --dev          # tests + lint + typecheck
+uv sync --all-extras --dev          # everything including docs
 ```
 
 ## From Source
@@ -53,7 +58,7 @@ To install the latest development version:
 ```bash
 git clone https://github.com/sfabbro/torchregress.git
 cd torchregress
-pip install -e .
+uv sync
 ```
 
 ## Requirements
@@ -66,9 +71,7 @@ torchregress has the following dependencies:
 - PyTorch >= 2.4.0
 - NumPy >= 2.0.0
 - matplotlib >= 3.8.0
-- pandas >= 2.2.0
 - torchmetrics >= 1.4.0
-- scikit-learn >= 1.5.0
 - scipy >= 1.11.0
 - tqdm >= 4.66.0
 
@@ -80,15 +83,15 @@ Testing:
 - polars >= 0.20.0
 - pyarrow >= 18.0.0
 - PyYAML >= 6.0.0
+- scikit-learn >= 1.3.0
+- pandas >= 2.0.0
 
-Development:
-- black
+Development (dependency group, not an extra):
 - ruff
 - mypy
 
 Documentation:
 - zensical
-- mkdocstrings-python
 
 Normalizing flows:
 - zuko >= 1.6.0

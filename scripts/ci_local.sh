@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-uv sync --extra test --extra flows --extra dev --extra docs
+uv sync --extra test --extra flows --extra docs --dev
 
 echo "== ruff (src/torchregress, tests, tools) =="
 uv run ruff check src/torchregress tests tools
