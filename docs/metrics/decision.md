@@ -1,5 +1,7 @@
 # Decision Metrics
 
+> ← [Ensemble Metrics](ensemble.md) | [Multivariate Metrics](multivariate.md) →
+
 Decision metrics quantify how a model's **uncertainty scores translate
 into selective-prediction decisions** — i.e. "should we trust this
 prediction, defer it, or reject it?". They are the *downstream

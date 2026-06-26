@@ -1,5 +1,7 @@
 # Choosing Methods by Constraint
 
+> ← [Method Selection](method-selection.md) | [Uncertainty Decomposition](uncertainty-decomposition.md) →
+
 Use this page **after** the
 [Task-First Method Selection Matrix](method-selection.md) — i.e. you
 already know the task category (heteroscedastic, multimodal,

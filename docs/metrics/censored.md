@@ -1,5 +1,7 @@
 # Censored Metrics
 
+> ← [Multivariate Metrics](multivariate.md) | [Ordinal Metrics](ordinal.md) →
+
 Metrics for censored and interval-censored regression outcomes.
 
 ---

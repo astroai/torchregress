@@ -1,5 +1,7 @@
 # Mixture Density Networks (MDN)
 
+> ← [Evidential Regression](advanced.md) | [Normalizing Flows](nflows.md) →
+
 Mixture Density Networks model the conditional distribution $p(y \mid x)$ as a **mixture of Gaussian components**, capturing multimodality, heteroscedastic noise, and complex distributional shapes.
 
 !!! abstract "When to use"

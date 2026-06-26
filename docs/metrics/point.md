@@ -1,5 +1,7 @@
 # Point Prediction Metrics
 
+> ← [Metrics Overview](index.md) | [Interval Metrics](interval.md) →
+
 Point prediction metrics evaluate the accuracy of single-point predictions without considering uncertainty information.
 
 ---

@@ -1,5 +1,7 @@
 # Interval Metrics
 
+> ← [Point Metrics](point.md) | [Distributional Metrics](distribution.md) →
+
 Interval metrics evaluate the quality of prediction intervals, focusing on coverage and width properties.
 
 ---

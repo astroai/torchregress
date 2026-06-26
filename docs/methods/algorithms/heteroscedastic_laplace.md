@@ -1,5 +1,7 @@
 # Effective Bayesian Heteroscedastic Laplace
 
+> ← [TIC-TAC](tictac.md) | [Adaptive-Prior VI](adaptive_prior_vi.md) →
+
 This algorithm performs a last-layer Laplace posterior approximation over a natural-parameterized heteroscedastic regression head. It allows for fast, post-hoc uncertainty decomposition into epistemic (model) and aleatoric (data) components.
 
 ---

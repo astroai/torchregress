@@ -1,5 +1,7 @@
 # Normalizing Flow Losses
 
+> ← [Mixture Density Networks](mdn.md) | [Error-in-Variables](eiv.md) →
+
 Normalizing flows transform a simple base distribution (Gaussian) into a complex target distribution through learnable invertible transformations — enabling **arbitrary** conditional density estimation.
 
 !!! warning "Dependency"

@@ -1,5 +1,7 @@
 # IVON Optimizer (Improved Variational Online Newton)
 
+> ← [Error-Aware Encoding](error_aware.md) | [TIC-TAC](tictac.md) →
+
 IVON is a natural-gradient-based optimization algorithm derived from the **Bayesian Learning Rule** framework (Khan & Rue, 2023). It fits a Gaussian variational posterior $q(\theta) = \mathcal{N}(\theta \mid \mu, \Sigma)$ over model parameters by tracking first and second moments, providing both optimization and lightweight uncertainty quantification in a single algorithm.
 
 !!! abstract "What makes IVON special"

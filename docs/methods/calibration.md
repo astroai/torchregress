@@ -1,5 +1,7 @@
 # Post-Hoc Calibration
 
+> ← [Methods Overview](index.md) | [Constraints](constraints.md) →
+
 Post-hoc calibration is the process of adjusting a trained model's uncertainty estimates so that **predicted confidence matches observed frequency**. These methods are applied to a held-out **calibration set** and require **no retraining** of the base model.
 
 ---

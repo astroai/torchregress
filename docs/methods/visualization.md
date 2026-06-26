@@ -1,5 +1,7 @@
 # Visualization & Diagnostics
 
+> ← [PPI Inference](inference.md) | [Methods Overview](index.md) →
+
 → API: [Visualization API](../api/viz.md). Gallery: [`examples/viz_diagnostic_gallery.py`](../../examples/viz_diagnostic_gallery.py).
 
 torchregress provides **34 exported visualization helpers** (25 plot functions + 9 styling utilities) across four submodules to help you

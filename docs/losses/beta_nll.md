@@ -1,5 +1,7 @@
 # Beta-NLL (heteroscedastic Gaussian)
 
+> ← [Gaussian](gaussian.md) | [Faithful Gaussian](faithful_gaussian.md) →
+
 **β-NLL** rescales the per-element diagonal Gaussian negative log-likelihood with a **detached** function of the predicted variance so that gradients do not collapse variance for the wrong reasons. It is a drop-in sibling of [`GaussianNLLLoss`](gaussian.md) for the same model outputs $(\mu, \log\sigma^2)$.
 
 ---

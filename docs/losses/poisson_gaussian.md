@@ -1,5 +1,7 @@
 # Poisson-Gaussian Mixture Losses
 
+> ← [Poisson & Tweedie](poisson_tweedie.md) | [Evidential Regression](advanced.md) →
+
 Poisson-Gaussian mixture losses model signals as a combination of Poisson (counting) noise and Gaussian (readout) noise — primarily used in scientific imaging and low-light photography.
 
 !!! tip "API reference"

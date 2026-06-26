@@ -1,5 +1,7 @@
 # Error-in-Variables (EIV) Losses
 
+> ← [Normalizing Flows](nflows.md) | [Imbalanced Regression](imbalanced.md) →
+
 Standard regression assumes that **inputs $X$ are measured perfectly** — only the target $Y$ has noise.  In practice, this assumption is almost always violated: sensor readings have finite precision, proxy variables approximate the true quantity, and derived features carry propagated errors.  EIV losses address this by modelling the realistic case where **both** inputs and outputs are noisy:
 
 $$X_{\text{obs}} = X^* + \varepsilon_X, \qquad Y_{\text{obs}} = f(X^*) + \varepsilon_Y$$

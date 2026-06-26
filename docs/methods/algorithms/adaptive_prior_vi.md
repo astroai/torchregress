@@ -1,5 +1,7 @@
 # Adaptive-Prior Bayesian Uncertainty (VIDS-style)
 
+> ← [Heteroscedastic Laplace](heteroscedastic_laplace.md) | [Methods Overview](../index.md) →
+
 This algorithm implements a variational regressor that trains an input-conditional, context-aware adaptive prior to make model predictions robust and well-calibrated under covariate shifts.
 
 ---

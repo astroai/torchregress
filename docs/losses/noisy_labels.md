@@ -1,5 +1,7 @@
 # Training with Noisy Labels
 
+> ← [Imbalanced Regression](imbalanced.md) | [Uncertain Ground Truth](uncertain_ground_truth.md) →
+
 When target labels contain measurement noise, annotation errors, or systematic corruption, standard losses can overfit to the noise.  torchregress provides several **built-in** mechanisms for robust training under label noise.
 
 !!! tip "Related content"

@@ -1,5 +1,7 @@
 # Quantile & Expectile Losses
 
+> ← [Robust Losses](robust.md) | [Ordinal Losses](ordinal.md) →
+
 Quantile and expectile regression estimate **different points of the conditional distribution** $P(Y \mid X)$ — quantiles target specific percentiles, expectiles target weighted means.  Both are **distribution-free**: no Gaussian assumption required.
 
 ---

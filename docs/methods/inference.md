@@ -1,5 +1,7 @@
 # Prediction-Powered Inference (PPI)
 
+> ← [Semi-Supervised](semi_supervised.md) | [Visualization](visualization.md) →
+
 PPI is a statistical framework for performing **valid inference** using a combination of a small set of gold-standard labels and a large set of machine learning predictions.  It produces confidence intervals that are (1) **narrower** than using gold labels alone and (2) **statistically valid** even if the ML model is arbitrarily biased.
 
 !!! abstract "Why this matters"

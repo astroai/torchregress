@@ -1,5 +1,7 @@
 # Robust Loss Functions
 
+> ← [Wasserstein Bound](gaussian_wasserstein.md) | [Quantile & Expectile](quantile_expectile.md) →
+
 Robust loss functions are designed to mitigate the influence of **outliers** — observations that deviate significantly from the primary data-generating process. Unlike standard Squared Error (MSE), which grows quadratically with the residual $r = y - \hat{y}$, robust losses grow more slowly (linearly or sub-linearly) at the tails.
 
 ---

@@ -1,5 +1,7 @@
 # Censored Regression Losses
 
+> ← [Ordinal Losses](ordinal.md) | [Poisson & Tweedie](poisson_tweedie.md) →
+
 Censored regression handles data where the true target value is only **partially observed**.  The model knows that the true value exceeds (or falls below) a threshold, but not the exact value.
 
 ---

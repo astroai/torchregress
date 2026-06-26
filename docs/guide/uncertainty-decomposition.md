@@ -1,5 +1,7 @@
 # Uncertainty Decomposition
 
+> ← [Choosing by Constraint](choosing-by-constraint.md) | [Guide Overview](index.md) →
+
 Uncertainty language is easy to overstate. The vocabulary used in
 torchregress follows a strict **four-contract taxonomy**, with each
 contract backed by a different mathematical construction. This page

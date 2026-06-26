@@ -1,5 +1,7 @@
 # Gaussian Loss Functions
 
+> ← [Base Classes](base.md) | [Beta-NLL](beta_nll.md) →
+
 Gaussian (or Normal) loss functions are the workhorses of regression. They range from the standard Mean Squared Error (MSE) to sophisticated multivariate models that capture complex correlations between targets.
 
 ---

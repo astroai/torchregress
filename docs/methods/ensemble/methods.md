@@ -1,5 +1,7 @@
 # Ensemble Methods Reference
 
+> ← [Ensemble Overview](index.md) | [Ensemble Overview](index.md) →
+
 Detailed API reference for all ensemble and Bayesian uncertainty methods.
 
 ---

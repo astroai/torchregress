@@ -1,5 +1,7 @@
 # Distributional Conformal Prediction
 
+> ← [Predictors](predictors.md) | [Conformal Overview](index.md) →
+
 These methods leverage **full predictive distributions** — CDF, density, or class-probability models — to produce tighter, more adaptive prediction intervals than point-prediction methods.
 
 !!! success "Best of both worlds"

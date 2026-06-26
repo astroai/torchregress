@@ -1,5 +1,7 @@
 # Ordinal Metrics
 
+> ← [Censored Metrics](censored.md) | [Metrics Overview](index.md) →
+
 Metrics for ordered-class regression/classification outputs.
 
 ---

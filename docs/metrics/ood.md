@@ -1,5 +1,7 @@
 # Out-of-Distribution Detection Metrics
 
+> ← [Calibration Metrics](calibration.md) | [Ensemble Metrics](ensemble.md) →
+
 Out-of-Distribution (OOD) detection metrics evaluate how well a model can identify inputs or predictions that differ significantly from the training distribution.
 
 → See [Decision metrics](decision.md) for selective-prediction evaluation and [OOD API](../api/metrics.md).

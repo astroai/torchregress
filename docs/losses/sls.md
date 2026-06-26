@@ -1,5 +1,7 @@
 # Super-Level-Set (SLS) Regression
 
+> ← [Transform Losses](transforms.md) | [Loss Functions](index.md) →
+
 SLS regression directly estimates **minimum-volume prediction regions** with conditional coverage guarantees by optimizing a learned level-set boundary under a volume penalty.
 
 !!! tip "API references"

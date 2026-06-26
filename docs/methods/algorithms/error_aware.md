@@ -1,5 +1,7 @@
 # Error-Aware Feature Encoding
 
+> ← [LatentNN](latentnn.md) | [IVON](ivon.md) →
+
 Error-aware encoders provide a **lightweight alternative** to explicit latent-input optimization (like [LatentNN](latentnn.md)) for handling noisy tabular inputs. Instead of learning per-sample latent inputs, they engineer **quality signals** from the known measurement uncertainties and feed them to the network as additional feature channels.
 
 !!! abstract "Key idea"

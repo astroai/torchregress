@@ -1,5 +1,7 @@
 # Gaussian Wasserstein bound surrogate
 
+> ← [Faithful Gaussian](faithful_gaussian.md) | [Robust Losses](robust.md) →
+
 This loss supervises a **predicted Gaussian** $ \mathcal{N}(\hat\mu, \hat\Sigma) $ against a **target mean** $ \mu $ and **target covariance** $ \Sigma $ (or a pseudo-covariance) using a standard **Frobenius surrogate** built from principal matrix square roots. It is useful for joint mean–covariance learning; it is **not** a drop-in replacement for [`GaussianNLLLoss`](gaussian.md) on raw targets.
 
 ---

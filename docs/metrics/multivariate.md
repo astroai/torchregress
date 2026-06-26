@@ -1,5 +1,7 @@
 # Multivariate Metrics
 
+> ← [Decision Metrics](decision.md) | [Censored Metrics](censored.md) →
+
 This page covers metrics for evaluating multivariate regression models.
 
 ## `multivariate_rmse`

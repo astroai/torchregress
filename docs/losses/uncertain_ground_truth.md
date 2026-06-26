@@ -1,5 +1,7 @@
 # Uncertain Ground Truth
 
+> ← [Noisy Labels](noisy_labels.md) | [Transform Losses](transforms.md) →
+
 These losses target settings where labels are noisy, partially trusted, weakly supervised, or augmented with pseudo labels.
 
 !!! tip "API references"

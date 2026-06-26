@@ -1,5 +1,7 @@
 # Causal Inference
 
+> ← [Constraints](constraints.md) | [Semi-Supervised](semi_supervised.md) →
+
 Causal inference is the study of how one variable (the treatment $T$) affects another (the outcome $Y$). Unlike standard regression which measures **correlation**, causal inference seeks to estimate the **Average Treatment Effect (ATE)** and **Conditional Average Treatment Effect (CATE)** after adjusting for confounding variables $X$.
 
 ---

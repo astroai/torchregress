@@ -1,5 +1,7 @@
 # Regression Calibration (RC)
 
+> ← [SIMEX](simex.md) | [LatentNN](latentnn.md) →
+
 Regression Calibration is a classical method for correcting **measurement error in inputs** (errors-in-variables).  When the observed input $W$ is a noisy version of the true input $X$, naive regression on $W$ produces **attenuated** (biased-toward-zero) estimates.
 
 !!! abstract "The idea"

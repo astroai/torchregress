@@ -1,5 +1,7 @@
 # Ensemble Metrics
 
+> ← [OOD Metrics](ood.md) | [Decision Metrics](decision.md) →
+
 Ensemble metrics evaluate predictive performance and decompose predictive uncertainty across multiple model predictions.
 
 → See [Uncertainty decomposition](../guide/uncertainty-decomposition.md) for epistemic vs aleatoric semantics and [Ensemble methods](../methods/ensemble/index.md) for training patterns.

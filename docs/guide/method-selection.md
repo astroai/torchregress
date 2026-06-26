@@ -1,5 +1,7 @@
 # Task-First Method Selection Matrix
 
+> ← [Guide Overview](index.md) | [Choosing by Constraint](choosing-by-constraint.md) →
+
 This guide is the user-facing version of the adoption audit capability matrix.
 
 Design intent:

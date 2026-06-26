@@ -1,5 +1,7 @@
 # Transform Losses
 
+> ← [Uncertain Ground Truth](uncertain_ground_truth.md) | [SLS](sls.md) →
+
 Transform losses apply a target-space mapping before scoring prediction error. They are useful when regression noise is multiplicative, the target is strongly skewed, or variance grows with magnitude.
 
 !!! tip "API references"

@@ -1,5 +1,7 @@
 # Imbalanced Regression
 
+> ← [Error-in-Variables](eiv.md) | [Noisy Labels](noisy_labels.md) →
+
 Imbalanced regression addresses problems where the target distribution is **highly non-uniform** — some regions (e.g., extreme values) are severely underrepresented.  Standard MSE optimises average performance, causing the model to ignore rare-but-important regions.
 
 ---

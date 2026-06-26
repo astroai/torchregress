@@ -1,5 +1,7 @@
 # Faithful Heteroscedastic & CRPS Losses
 
+> ← [Beta-NLL](beta_nll.md) | [Wasserstein Bound](gaussian_wasserstein.md) →
+
 This page covers two specialized Gaussian loss variants:
 - **`FaithfulGaussianLoss`** — decouples mean and variance training to prevent the variance head from distorting point predictions
 - **`GaussianCRPSLoss`** — a proper scoring rule alternative to NLL that is less sensitive to tail miscalibration

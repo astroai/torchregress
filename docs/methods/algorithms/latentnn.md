@@ -1,5 +1,7 @@
 # LatentNN (Latent-Input Neural Regression)
 
+> ← [RC](rc.md) | [Error-Aware Encoding](error_aware.md) →
+
 LatentNN is a lightweight algorithm for regression with **noisy input features** (errors-in-variables). Unlike [SIMEX](simex.md) (which trains multiple models at different noise levels) or [RC](rc.md) (which analytically debiases), LatentNN jointly optimizes **network parameters** and **per-sample latent clean inputs** in a single training loop.
 
 !!! abstract "The idea"

@@ -1,5 +1,7 @@
 # Evidential Regression
 
+> ← [Poisson-Gaussian](poisson_gaussian.md) | [Mixture Density Networks](mdn.md) →
+
 Evidential regression provides **aleatoric + epistemic uncertainty** from a **single forward pass**, without ensembles or Monte Carlo sampling.  It does this by placing a higher-order prior (Normal-Inverse-Gamma) over the Gaussian likelihood parameters.
 
 See the [EvidentialRegressionLoss API](../api/losses.md) for constructor parameters and the NIG loss definition. For ensemble-based decomposition, compare with [`uncertainty_decomposition`](../api/metrics.md).

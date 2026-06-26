@@ -1,5 +1,7 @@
 # Base Loss Classes
 
+> ← [Loss Functions](index.md) | [Gaussian](gaussian.md) →
+
 The foundation of all torchregress loss functions — providing **unified masking**, **sample weighting**, and **consistent reduction** semantics.
 
 ---

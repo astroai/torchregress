@@ -1,5 +1,7 @@
 # Poisson, Tweedie & Count Losses
 
+> ← [Censored Regression](censored.md) | [Poisson-Gaussian](poisson_gaussian.md) →
+
 Loss functions for **count data**, **positive-continuous targets**, and distributions with **power mean-variance relationships**.
 
 See the [count-loss API](../api/losses.md): [`PoissonDevianceLoss`](../api/losses.md), [`TweedieLoss`](../api/losses.md), [`NegativeBinomialNLLLoss`](../api/losses.md), [`ZeroInflatedPoissonNLLLoss`](../api/losses.md).

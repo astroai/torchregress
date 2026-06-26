@@ -1,5 +1,7 @@
 # SIMEX (Simulation Extrapolation)
 
+> ← [IRLS](irls.md) | [RC](rc.md) →
+
 SIMEX is a simulation-based method for correcting **measurement error in inputs**.  Unlike [RC](rc.md) which analytically debiases, SIMEX works by **adding** progressively more noise then **extrapolating back** to zero noise.
 
 !!! abstract "The idea"

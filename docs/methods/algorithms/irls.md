@@ -1,5 +1,7 @@
 # Iteratively Reweighted Least Squares (IRLS)
 
+> ← [Methods Overview](../index.md) | [SIMEX](simex.md) →
+
 IRLS computes robust **sample weights** from current residuals; in **torchregress** the base model is typically refit in an outer training loop using those weights (see complete example below).
 
 ---

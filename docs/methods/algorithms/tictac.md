@@ -1,5 +1,7 @@
 # TIC-TAC (Taylor-Induced Covariance)
 
+> ← [IVON](ivon.md) | [Heteroscedastic Laplace](heteroscedastic_laplace.md) →
+
 TIC-TAC binds the predicted covariance matrix to the local derivatives (gradient and curvature) of the mean prediction model with respect to input features.
 
 ---

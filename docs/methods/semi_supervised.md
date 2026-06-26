@@ -1,5 +1,7 @@
 # Semi-Supervised Regression (teacher–student SSL)
 
+> ← [Causal Inference](causal.md) | [PPI Inference](inference.md) →
+
 The semi-supervised module provides modular workflows for training regression models with both **labeled** and **unlabeled** data. It implements teacher–student consistency with distributional pseudo-labeling for semi-supervised regression.
 
 !!! warning "Research track (SAGE-Reg)"

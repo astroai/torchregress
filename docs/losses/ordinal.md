@@ -1,5 +1,7 @@
 # Ordinal Regression Losses
 
+> ← [Quantile & Expectile](quantile_expectile.md) | [Censored Regression](censored.md) →
+
 Ordinal regression is for targets with a **natural ordering** where the distances between levels are unknown or non-uniform.  Unlike classification, ordinal losses exploit the fact that **nearby predictions are better than distant ones**.
 
 ---

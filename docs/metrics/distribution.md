@@ -1,5 +1,7 @@
 # Distributional Metrics
 
+> ← [Interval Metrics](interval.md) | [Calibration Metrics](calibration.md) →
+
 Distributional metrics evaluate **probabilistic forecasts** — how well does the predicted probability distribution $F$ match the true (but unknown) data-generating process $G$? Unlike point metrics, these assess both **calibration** (reliability) and **sharpness** (precision).
 
 ---

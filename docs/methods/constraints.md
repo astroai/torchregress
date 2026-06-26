@@ -1,5 +1,7 @@
 # Output Constraints & Regularisation
 
+> ← [Post-Hoc Calibration](calibration.md) | [Causal Inference](causal.md) →
+
 Output constraints are architectural layers that **enforce** structural properties on your model's predictions — such as non-negativity, boundedness, or monotonicity — **by construction**. Unlike penalty-based methods (which only "encourage" constraints), these layers guarantee zero violations for every single forward pass.
 
 ---
