@@ -111,6 +111,21 @@ See also: [ensemble_interval_metrics](../api/metrics.md).
 
 ---
 
+## Limitations
+
+1. **Gaussian approximation**: `gaussian_nll_ensemble` and `ensemble_interval_bounds` assume the ensemble predictive distribution is Gaussian. For multi-modal ensembles (MDN heads, flow-based members), this approximation can be poor — use sample-based methods instead.
+2. **Member independence assumed**: `uncertainty_decomposition` treats ensemble members as independent draws from the posterior. Correlated members (e.g., same initialization, shared data) produce underestimated epistemic uncertainty.
+3. **Minimum ensemble size**: With $M < 5$ members, variance estimates are noisy and epistemic uncertainty is unreliable. For reliable decomposition, use $M \ge 5$ with diverse initializations.
+4. **Not a calibration check**: The decomposition separates epistemic from aleatoric variance but does not guarantee either component is well-calibrated. Validate calibration separately with [Calibration metrics](calibration.md).
+
+## Recommendations
+
+- **Standard ensemble size**: Use $M = 5$ for a good cost-accuracy tradeoff. Increase to $M = 10$ if epistemic uncertainty is mission-critical.
+- **Ensure diversity**: Random initialization + different data order (shuffle seed per member) is the minimum. For stronger diversity, use different architectures or [BatchEnsemble](../methods/ensemble/index.md).
+- **[uncertainty_decomposition](../api/metrics.md)** for heteroscedastic ensembles that output per-member $\mu_m$ and $\sigma_m^2$.
+- **[ensemble_statistics](../api/metrics.md)** for ensembles that output only point predictions $\hat{y}_m$.
+- **Compare with conformal**: Ensemble intervals are Gaussian approximations. For distribution-free coverage guarantees, wrap with [Conformal prediction](../methods/conformal/index.md).
+
 ## Next steps
 
 - [Uncertainty decomposition](../guide/uncertainty-decomposition.md) — semantics and contracts for epistemic vs aleatoric uncertainty

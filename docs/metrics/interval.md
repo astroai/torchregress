@@ -121,6 +121,20 @@ print(f"Upper miss rate: {coverage['miss_rate_high']}")
 
 ---
 
+## Limitations
+
+1. **Coverage-width tradeoff**: PICP and MPIW must be evaluated together. A model can achieve perfect PICP by predicting infinitely wide intervals. A model with narrow intervals and low PICP is overconfident. Neither metric is sufficient alone.
+2. **Winkler score sensitivity to $\alpha$**: The interval score penalises misses by a factor of $2/\alpha$. With $\alpha = 0.1$ (90% interval), each miss is penalised at $20\times$ the interval width — a single extreme miss can dominate the score.
+3. **Symmetric interval assumption**: The Winkler score and standard PICP assume symmetric penalties for lower and upper misses. For asymmetric risks (e.g., under-predicting is costlier), use the `miss_rate_low` and `miss_rate_high` diagnostics.
+4. **Not a calibration metric**: PICP measures empirical coverage, not calibration. A model with correct average coverage may still be miscalibrated in specific regions. Pair with [Calibration metrics](calibration.md).
+
+## Recommendations
+
+- **Always report PICP + MPIW together**: Coverage without width is meaningless, and width without coverage is misleading.
+- **Use `return_diagnostics=True`**: The `prediction_interval_coverage_probability` function returns miss rates, MPIW, and per-sample flags when diagnostics are enabled.
+- **For conformal intervals**: Conformal prediction guarantees finite-sample coverage. Evaluate with the same interval metrics to confirm the guarantee holds empirically. See [Conformal prediction](../methods/conformal/index.md).
+- **[interval_metrics_report](../api/metrics.md)** consolidates interval score, PICP, MPIW, and miss-rate diagnostics into one call.
+
 ## Next steps
 
 - [Point metrics](point.md) — baseline accuracy metrics to pair with interval quality evaluation

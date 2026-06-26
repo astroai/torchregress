@@ -127,6 +127,20 @@ See also: [ood_metrics_report](../api/metrics.md).
 
 ---
 
+## Limitations
+
+1. **No ground truth for OOD**: OOD detection is inherently unsupervised — there is no "true OOD label" to validate against. All OOD metrics are relative: they rank samples by abnormality, but setting a decision threshold requires domain knowledge.
+2. **Mahalanobis assumes Gaussian features**: The Mahalanobis distance uses a Gaussian approximation with $\mu$ and $\Sigma$ estimated from training data. For non-Gaussian or multimodal feature distributions, it can produce misleading distances.
+3. **KDE bandwidth sensitivity**: `kernel_density_score` with $h$ too small produces spiky density estimates; $h$ too large blurs genuine OOD regions. Tune $h$ on a validation set with known OOD samples if available.
+4. **Entropy conflates epistemic and aleatoric**: High predictive entropy can indicate either genuine data noise (aleatoric) or unfamiliar inputs (epistemic). For decomposed OOD detection, use ensemble-based uncertainty metrics from [Ensemble metrics](ensemble.md).
+
+## Recommendations
+
+- **Layer multiple OOD scores**: No single OOD metric is universally best. Combine Mahalanobis distance (feature-space), entropy (prediction-space), and KDE score (density-based) for robust detection.
+- **Calibrate uncertainty first**: OOD scores that use predictive uncertainty (entropy, typicality) are only reliable if the model is well-calibrated. Always validate calibration before using uncertainty for OOD. See [Calibration metrics](calibration.md).
+- **OOD-aware training**: The best OOD detection starts at training time. Use [SpectralNormWrapper](../methods/constraints.md) for smoother OOD behaviour, and train with [data augmentations](../losses/transforms.md) to cover plausible shifts.
+- **[ood_metrics_report](../api/metrics.md)** consolidates all OOD metrics into one call.
+
 ## Next steps
 
 - [Decision metrics](decision.md) — risk-coverage curves to evaluate selective prediction quality
