@@ -54,14 +54,7 @@ test = [
 docs = [
     "zensical>=0.0.45",
 ]
-# CADC VOSpace CLI (vcp, vls, vmkdir, …) for scripts/canfar_vcp_prepare.py
 vos = [
-    "vos>=3.6.0",
-]
-# CANFAR Science Platform + VOS uploads: Skaha jobs (canfar) and vcp (vos)
-canfar = [
-    "canfar>=1.3.0",
-    "PyYAML>=6.0.0",
     "vos>=3.6.0",
 ]
 flows = [

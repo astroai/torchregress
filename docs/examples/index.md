@@ -345,8 +345,8 @@ All examples can be run directly from the repository:
 git clone https://github.com/sfabbro/torchregress.git
 cd torchregress
 
-# Install dependencies
-uv pip install -e '.[all]'
+# Install dependencies (dev + all extras)
+uv sync --all-extras --dev
 
 # Run a specific example
 uv run python examples/basic_usage.py
