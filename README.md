@@ -1,9 +1,15 @@
 # torchregress
 
+<p align="center">
+    <em>A PyTorch library for regression, uncertainty quantification, and robust estimation</em>
+</p>
+
+<p align="center">
 <a href="https://pypi.org/project/torchregress/" aria-label="PyPI package version"><img src="https://img.shields.io/pypi/v/torchregress.svg" alt="PyPI"></a>
 <a href="https://opensource.org/licenses/MIT" aria-label="License"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 <a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" aria-label="CI status"><img src="https://img.shields.io/github/actions/workflow/status/sfabbro/torchregress/ci.yml?branch=main&label=CI" alt="CI"></a>
 <a href="https://github.com/sfabbro/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12–3.14"><img src="https://img.shields.io/badge/python-3.12%20|%203.13%20|%203.14-blue.svg" alt="Python 3.12 | 3.13 | 3.14"></a>
+</p>
 
 **torchregress** is a PyTorch library providing regression losses, metrics, and calibration layers for deep learning regression. The focus is on proper scoring rules, uncertainty quantification (UQ), robust estimation, and handling real-world data pathologies (missing data masks, measurement errors, censoring, imbalance, and target shifts).
 
@@ -11,9 +17,9 @@ All modules are designed to integrate seamlessly into native PyTorch training lo
 
 ---
 
-## Capabilities Directory
+## Key Features & Capabilities
 
-| Category | Available Features | Documentation |
+| Category | Description / Included Features | Reference Docs |
 |:---|:---|:---|
 | **Loss Primitives** | Point & M-estimators (MSE, MAE, Huber, Cauchy, Tukey, Barron, AdaptiveRobust, CVaR); Parametric Probabilistic (Gaussian NLL, Beta-NLL, Full Covariance, Low-Rank, Evidential NIG); Generative & Non-Parametric (MDN, Normalizing Flows) | [Losses Guide](docs/losses/index.md) |
 | **Data Pathologies** | Error-in-Variables (Functional, Structural, ODR, MC marginalization); Censored Targets (AFT, Censored Gaussian/Quantile NLL); Continuous Target Imbalance (LDS, FDS); Label Noise (Consistency Regularization) | [Concepts Guide](docs/getting-started/concepts.md) |
@@ -21,6 +27,35 @@ All modules are designed to integrate seamlessly into native PyTorch training lo
 | **Conformal Calibration** | Split Conformal, Conformalized Quantile Regression (CQR), Mondrian/Group-conditioned, Local Conformal (MAD), Monte-Carlo Conformal, PPI inference | [Conformal Guide](docs/methods/conformal/index.md) |
 | **Test-Time Adaptation** | Bayesian Linear Head adapters, Feature Stat Normalization, Significant Subspace Aligner (SSA), OT Conformal shift reweighting | [Test-Time API](docs/api/test_time.md) |
 | **Metrics** | Point errors (RMSE, MAE, R², Huber); Distributional scores (CRPS, Energy Score, GNLL); Interval metrics (Interval Score, PICP, MPIW); Calibration (ECE, MCE, PIT histograms, typicality) | [Metrics API](docs/api/metrics.md) |
+
+---
+
+## Installation
+
+### From PyPI
+
+```bash
+pip install torchregress
+```
+
+For normalizing flows support, install with the `flows` extra:
+
+```bash
+pip install torchregress[flows]
+```
+
+### Dev / Source Setup
+
+This project uses [uv](https://github.com/astral-sh/uv) as the package manager and supports Python 3.12–3.14 (3.13 recommended).
+
+```bash
+# Clone the repository
+git clone https://github.com/sfabbro/torchregress.git
+cd torchregress
+
+# Sync dependencies and set up venv
+uv sync --all-extras --dev
+```
 
 ---
 
@@ -107,6 +142,36 @@ intervals = conformal.predict_interval(x_test, alpha=0.1)
 
 ---
 
+## Development & Contribution
+
+We welcome contributions! Please refer to the [Contributing Guide](CONTRIBUTING.md) for detailed guidelines.
+
+### Running Quality Checks & Tests Locally
+
+Before committing or pushing, make sure the local gate check passes. This matches the two-stage GitHub Actions CI workflow:
+
+```bash
+# Formatter (Ruff)
+uv run ruff format src/torchregress tests tools
+
+# Linter (Ruff)
+uv run ruff check .
+
+# Type checking (MyPy)
+uv run mypy src/torchregress
+
+# Run tests
+uv run pytest
+```
+
+Alternatively, run the full CI suite parity script:
+
+```bash
+./scripts/ci_local.sh
+```
+
+---
+
 ## Documentation Index
 
 Detailed mathematical derivations, guide overviews, and examples:
@@ -129,4 +194,4 @@ Detailed mathematical derivations, guide overviews, and examples:
 
 ## License
 
-MIT License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
