@@ -42,6 +42,10 @@ jobs:
       - name: Test with coverage
         run: uv run pytest --cov=torchregress --cov-report=xml --cov-report=term
 
+      - name: Docs API drift smoke (quickstart workflows)
+        if: (!cancelled())
+        run: uv run pytest tests/test_docs_snippets_smoke.py::test_quickstart_workflows_run_without_errors -xvs
+
       - name: Type-check (mypy)
         run: uv run mypy src/torchregress
 
