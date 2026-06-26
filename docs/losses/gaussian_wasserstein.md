@@ -98,5 +98,7 @@ Metrics supported: pooled **Mahalanobis** in ``x`` (default) or **Euclidean** di
 
 ## Next steps
 
-- [Gaussian losses](gaussian.md) — NLL, CRPS, multivariate likelihoods
-- [Beta-NLL](beta_nll.md) — stabilised heteroscedastic likelihood training
+- [Gaussian losses](gaussian.md) — NLL, CRPS, and multivariate likelihoods for standard Gaussian training
+- [Beta-NLL](beta_nll.md) — stabilized heteroscedastic likelihood training without covariance targets
+- [TIC-TAC](../methods/algorithms/tictac.md) — Taylor-Induced Covariance for improved covariance estimation
+- [Wasserstein demo](../examples/gaussian_wasserstein_bound.md) — runnable example with pseudo-covariance pretraining

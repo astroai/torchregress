@@ -2,7 +2,8 @@
 
 These losses target settings where labels are noisy, partially trusted, weakly supervised, or augmented with pseudo labels.
 
-→ API: [`NoisyTargetGaussianNLL`](../api/losses.md), [`PseudoLabelNLL`](../api/losses.md), [`ConsistencyRegLoss`](../api/losses.md), [`PseudoLabelConsistencyLoss`](../api/losses.md).
+!!! tip "API references"
+    [`NoisyTargetGaussianNLL`](../api/losses.md) — noise-aware NLL with known target variance. [`PseudoLabelNLL`](../api/losses.md) — probabilistic self-training. [`ConsistencyRegLoss`](../api/losses.md) — student-teacher agreement. [`PseudoLabelConsistencyLoss`](../api/losses.md) — combined point-regression semi-supervision.
 
 Available losses:
 

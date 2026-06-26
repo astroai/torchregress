@@ -2,7 +2,8 @@
 
 Transform losses apply a target-space mapping before scoring prediction error. They are useful when regression noise is multiplicative, the target is strongly skewed, or variance grows with magnitude.
 
-→ API: [`LogTransformLoss`](../api/losses.md), [`BoxCoxTransformLoss`](../api/losses.md), [`SqrtTransformLoss`](../api/losses.md), [`YeoJohnsonTransformLoss`](../api/losses.md), [`TransformedTargetLoss`](../api/losses.md).
+!!! tip "API references"
+    [`LogTransformLoss`](../api/losses.md) — log-space for multiplicative noise. [`BoxCoxTransformLoss`](../api/losses.md) — tunable power transform. [`SqrtTransformLoss`](../api/losses.md) — variance stabilization. [`YeoJohnsonTransformLoss`](../api/losses.md) — signed skew. [`TransformedTargetLoss`](../api/losses.md) — generic wrapper.
 
 Available losses:
 

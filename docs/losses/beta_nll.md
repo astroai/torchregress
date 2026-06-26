@@ -67,5 +67,7 @@ See the [Beta-NLL heteroscedastic demo](../examples/heteroscedastic_beta_nll.md)
 
 ## Next steps
 
-- [Gaussian losses](gaussian.md) — multivariate and low-rank variants
-- [Conformal prediction](../methods/conformal/index.md) — intervals with coverage guarantees
+- [Gaussian losses](gaussian.md) — standard NLL, CRPS, multivariate and low-rank variants
+- [Faithful Gaussian](faithful_gaussian.md) — explicit mean/variance decoupling (alternative to β-rescaling)
+- [Conformal prediction](../methods/conformal/index.md) — intervals with finite-sample coverage guarantees
+- [Calibration metrics](../metrics/calibration.md) — validate that β-NLL variance estimates are well-calibrated

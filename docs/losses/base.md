@@ -76,7 +76,7 @@ log_var = torch.randn(64, 1)
 loss = loss_fn((mean, log_var), y_true)
 ```
 
-→ See [GaussianNLLLoss API](../api/losses.md).
+> For the full API contract, see [GaussianNLLLoss API](../api/losses.md).
 
 Key methods:
 

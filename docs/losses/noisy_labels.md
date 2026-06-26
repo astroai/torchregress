@@ -2,7 +2,8 @@
 
 When target labels contain measurement noise, annotation errors, or systematic corruption, standard losses can overfit to the noise.  torchregress provides several **built-in** mechanisms for robust training under label noise.
 
-→ Examples: [Noisy Label Comparison](../examples/noisy_label_comparison.md). Uncertain-target losses: [Uncertain Ground Truth](uncertain_ground_truth.md).
+!!! tip "Related content"
+    Run the [Noisy Label Comparison](../examples/noisy_label_comparison.md) example to benchmark all approaches. For uncertain-target losses, see [Uncertain Ground Truth](uncertain_ground_truth.md).
 
 ---
 

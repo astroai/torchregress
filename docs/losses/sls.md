@@ -2,7 +2,8 @@
 
 SLS regression directly estimates **minimum-volume prediction regions** with conditional coverage guarantees by optimizing a learned level-set boundary under a volume penalty.
 
-→ API: [`SLSLoss`](../api/losses.md). Post-hoc coverage: [`SLSConformal`](../api/conformal.md).
+!!! tip "API references"
+    Training loss: [`SLSLoss`](../api/losses.md). Post-hoc coverage wrapper: [`SLSConformal`](../api/conformal.md).
 
 !!! abstract "Key insight"
     SLS frames conditional coverage as a **volume minimization** problem: find the smallest prediction set $C(x)$ such that $P(Y \in C(x) \mid X = x) \geq \tau$. The boundary of $C(x)$ is parameterized by a Mahalanobis distance in a learned feature space, with a volume-preserving flow ensuring the learned metric is invertible.
@@ -228,8 +229,7 @@ with torch.no_grad():
 
 - [Normalizing flows](nflows.md) — building-block architecture for SLS frontiers
 - [MDN losses](mdn.md) — multimodal alternatives without the volume-optimal guarantee
-- [Conformal prediction](../methods/conformal/index.md) — post-hoc coverage guarantees (CQR, CTI)
-- [Conformal prediction](../methods/conformal/index.md) — simpler post-hoc coverage guarantees
+- [Conformal prediction](../methods/conformal/index.md) — post-hoc coverage guarantees (CQR, CTI, SLSConformal)
 
 ---
 
