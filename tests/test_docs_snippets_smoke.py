@@ -55,7 +55,7 @@ def test_quickstart_workflows_run_without_errors() -> None:
     import torch
     import torch.nn as nn
 
-    from torchregress.ensemble import DeepEnsemble
+    from torchregress.ensemble import BaseEnsembleModel
     from torchregress.losses import (
         CQR,
         AdaptiveRobustLoss,
@@ -68,7 +68,7 @@ def test_quickstart_workflows_run_without_errors() -> None:
     from torchregress.metrics import (
         crps_gaussian,
         gaussian_nll,
-        mae,
+        mean_absolute_error,
         r2_score,
         rmse,
         uncertainty_decomposition,
@@ -95,7 +95,7 @@ def test_quickstart_workflows_run_without_errors() -> None:
     with torch.no_grad():
         y_pred = model(x)
         r = rmse(y_pred, y)
-        m = mae(y_pred, y)
+        m = mean_absolute_error(y_pred, y)
         r2 = r2_score(y_pred, y)
     assert isinstance(r, float)
     assert isinstance(m, float)
@@ -152,7 +152,7 @@ def test_quickstart_workflows_run_without_errors() -> None:
     def heteroscedastic_head():
         return nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 2))
 
-    ens = DeepEnsemble(base_model=heteroscedastic_head(), ensemble_size=3, base_seed=0)
+    ens = BaseEnsembleModel(base_model=heteroscedastic_head(), ensemble_size=3, base_seed=0)
     assert len(ens.models) == 3
 
     mu_per_member = torch.stack([m(x) for m in ens.models], dim=0)  # [M, B, 2]

@@ -15,7 +15,6 @@ import math
 from dataclasses import dataclass
 from typing import Any, Optional, Union, cast
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import PoissonNLLLoss
@@ -389,9 +388,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         # Calculate Gaussian component
         squared_error = (target - scaled_rate) ** 2
         gaussian_loss = 0.5 * (
-            squared_error / total_var
-            + torch.log(total_var)
-            + torch.log(torch.tensor(2 * np.pi, device=y_pred.device))
+            squared_error / total_var + torch.log(total_var) + math.log(2.0 * math.pi)
         )
 
         # Combine losses - use equal weight for simplicity

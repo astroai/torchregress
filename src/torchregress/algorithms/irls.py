@@ -5,8 +5,9 @@ This module provides implementations of IRLS for robust regression,
 with support for various weighting schemes and loss functions.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -36,9 +37,9 @@ class IRLSConfig:
         Convergence tolerance for loss changes.
     delta : float
         Huber loss parameter delta.
-    weight_fn : Union[str, Callable]
+    weight_fn : str | Callable
         Weighting function ('huber', 'tukey', 'power', or a callable).
-    weight_params : Optional[Dict[str, Any]]
+    weight_params : dict[str, Any] | None
         Optional parameters for the weighting function.
     variance_type : str
         Variance estimation method ('predicted', 'fixed', or 'robust').
@@ -54,8 +55,8 @@ class IRLSConfig:
     max_iter: int = 10
     tol: float = 1e-4
     delta: float = 1.0
-    weight_fn: Union[str, Callable] = "huber"
-    weight_params: Optional[Dict[str, Any]] = None
+    weight_fn: str | Callable = "huber"
+    weight_params: dict[str, Any] | None = None
     variance_type: str = "predicted"
     epsilon: float = 1e-8
     return_all_predictions: bool = False
@@ -64,7 +65,6 @@ class IRLSConfig:
 
 # Get machine epsilon for numerical stability
 EPS = torch.finfo(torch.float32).eps
-PredictionOutput = Union[torch.Tensor, Tuple[torch.Tensor, ...]]
 
 
 # --- Weighting Functions ---
@@ -113,7 +113,7 @@ def power_weights(scaled_residuals: torch.Tensor, a: float, b: float) -> torch.T
     Returns:
         Weight tensor with same shape as input
     """
-    return cast(torch.Tensor, 1.0 / (1.0 + (torch.abs(scaled_residuals) / a) ** b))
+    return 1.0 / (1.0 + (torch.abs(scaled_residuals) / a) ** b)
 
 
 def calculate_mad(residuals: torch.Tensor, dim: int = -1) -> torch.Tensor:
@@ -134,10 +134,10 @@ def calculate_mad(residuals: torch.Tensor, dim: int = -1) -> torch.Tensor:
 # --- Variance Estimation Functions ---
 def estimate_variance(
     residuals: torch.Tensor,
-    y_pred: PredictionOutput,
-    covariance_matrices: Optional[torch.Tensor] = None,
+    y_pred: torch.Tensor | tuple[torch.Tensor, ...],
+    covariance_matrices: torch.Tensor | None = None,
     variance_type: str = "predicted",
-    loss_fn: Optional[nn.Module] = None,
+    loss_fn: nn.Module | None = None,
 ) -> torch.Tensor:
     """
     Estimates the variance of the residuals based on the specified method.
@@ -202,8 +202,8 @@ def estimate_variance(
 
 
 def extract_mean_and_residuals(
-    y_pred: PredictionOutput, y_true: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    y_pred: torch.Tensor | tuple[torch.Tensor, ...], y_true: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Extracts mean predictions and calculates residuals based on model output format.
 
@@ -228,17 +228,17 @@ def extract_mean_and_residuals(
 
     # Standard case: direct prediction
     else:
-        y_pred_tensor = cast(torch.Tensor, y_pred)
-        return y_pred_tensor, y_true - y_pred_tensor
+        y_pred_t = cast(torch.Tensor, y_pred)
+        return y_pred_t, y_true - y_pred_t
 
 
 def _setup_irls(  # noqa: PLR0913
     model: nn.Module,
     x: torch.Tensor,
     y_true: torch.Tensor,
-    covariance_matrices: Optional[torch.Tensor],
+    covariance_matrices: torch.Tensor | None,
     config: IRLSConfig,
-) -> Tuple[nn.Module, nn.Module, Callable, Dict[str, Any]]:
+) -> tuple[nn.Module, nn.Module, Callable, dict[str, Any]]:
     """Helper function to set up IRLS components."""
     # Loss Function Setup
     loss_fn: nn.Module
@@ -282,53 +282,35 @@ def _setup_irls(  # noqa: PLR0913
     return model, loss_fn, _weight_fn, weight_params
 
 
-def _record_predictions(
-    y_pred: PredictionOutput,
-    return_all_predictions: bool,
-    all_predictions: Optional[List[torch.Tensor]],
-) -> Optional[List[torch.Tensor]]:
-    if return_all_predictions and all_predictions is not None:
-        if isinstance(y_pred, tuple):
-            all_predictions.append(y_pred[0])
-        else:
-            all_predictions.append(y_pred)
-    return all_predictions
-
-
 def _compute_irls_loss(  # noqa: PLR0913
-    y_pred: PredictionOutput,
+    y_pred: torch.Tensor | tuple[torch.Tensor, ...],
     y_true: torch.Tensor,
     precision: torch.Tensor,
     loss_fn: nn.Module,
-    covariance_matrices: Optional[torch.Tensor],
-    mask: Optional[torch.Tensor],
+    covariance_matrices: torch.Tensor | None,
+    mask: torch.Tensor | None,
     config: IRLSConfig,
 ) -> torch.Tensor:
     if config.base_loss == "gaussian":
-        return cast(
-            torch.Tensor,
-            loss_fn(
-                y_pred=y_pred,
-                target=y_true,
-                covariance_matrices=covariance_matrices,
-                mask=mask,
-            ),
+        return loss_fn(
+            y_pred=y_pred,
+            target=y_true,
+            covariance_matrices=covariance_matrices,
+            mask=mask,
+            weights=precision,
         )
     else:
-        return cast(
-            torch.Tensor,
-            loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision),
-        )
+        return loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
 
 
 def _update_precision(  # noqa: PLR0913
     residuals: torch.Tensor,
-    y_pred: PredictionOutput,
+    y_pred: torch.Tensor | tuple[torch.Tensor, ...],
     precision: torch.Tensor,
     loss_fn: nn.Module,
     _weight_fn: Callable,
-    weight_params: Dict[str, Any],
-    covariance_matrices: Optional[torch.Tensor],
+    weight_params: dict[str, Any],
+    covariance_matrices: torch.Tensor | None,
     config: IRLSConfig,
 ) -> torch.Tensor:
     variance = estimate_variance(
@@ -340,26 +322,25 @@ def _update_precision(  # noqa: PLR0913
 
 
 def _perform_irls_iteration(  # noqa: PLR0913
-    y_pred: PredictionOutput,
+    y_pred: torch.Tensor | tuple[torch.Tensor, ...],
     residuals: torch.Tensor,
     y_true: torch.Tensor,
     precision: torch.Tensor,
     loss_fn: nn.Module,
     _weight_fn: Callable,
-    weight_params: Dict[str, Any],
-    covariance_matrices: Optional[torch.Tensor],
-    mask: Optional[torch.Tensor],
+    weight_params: dict[str, Any],
+    covariance_matrices: torch.Tensor | None,
+    mask: torch.Tensor | None,
     iteration: int,
-    all_predictions: Optional[List[torch.Tensor]],
+    all_predictions: list[torch.Tensor] | None,
     config: IRLSConfig,
-) -> Tuple[torch.Tensor, torch.Tensor, Optional[List[torch.Tensor]]]:
+) -> tuple[torch.Tensor, torch.Tensor, list[torch.Tensor] | None]:
     """Helper function to perform a single IRLS iteration."""
     # Note: y_pred is now passed in, not computed from model(x)
 
     with torch.no_grad():
-        all_predictions = _record_predictions(
-            y_pred, config.return_all_predictions, all_predictions
-        )
+        if config.return_all_predictions and all_predictions is not None:
+            all_predictions.append(y_pred[0] if isinstance(y_pred, tuple) else y_pred)
 
         loss_value = _compute_irls_loss(
             y_pred, y_true, precision, loss_fn, covariance_matrices, mask, config
@@ -383,8 +364,8 @@ def _batched_predict(
     model: nn.Module,
     x: torch.Tensor,
     batch_size: int = 1024,
-    device: Optional[Union[str, torch.device]] = None,
-) -> PredictionOutput:
+    device: str | torch.device | None = None,
+) -> torch.Tensor | tuple[torch.Tensor, ...]:
     """
     Predicts in batches to avoid OOM.
 
@@ -416,7 +397,7 @@ def _batched_predict(
             return cast(torch.Tensor, pred).to(target_device)
 
     # Batched inference
-    batch_preds: list[PredictionOutput] = []
+    batch_preds: list[torch.Tensor | tuple[torch.Tensor, ...]] = []
     num_batches = (num_samples + batch_size - 1) // batch_size
 
     with torch.no_grad():
@@ -442,53 +423,24 @@ def _batched_predict(
         return tuple(torch.cat(column, dim=0) for column in zip(*batch_preds))
     else:
         # Direct cat of the list of tensors for single-output models
-        return torch.cat(cast(List[torch.Tensor], batch_preds), dim=0)
-
-
-def _validate_irls_inputs(
-    x: torch.Tensor,
-    y_true: torch.Tensor,
-    initial_precision: torch.Tensor | None = None,
-) -> None:
-    """Validates inputs for iteratively reweighted least squares."""
-    check_tensor(x, "x")
-    check_tensor(y_true, "y_true")
-    if initial_precision is not None:
-        check_tensor(initial_precision, "initial_precision")
-
-
-def _initialize_precision(
-    initial_precision: torch.Tensor | None,
-    y_true: torch.Tensor,
-    device: torch.device | str,
-) -> torch.Tensor:
-    """Initializes or validates the precision tensor for IRLS."""
-    if initial_precision is None:
-        return torch.ones_like(y_true)  # Initialize equal precision weights
-
-    if initial_precision.shape != y_true.shape:
-        raise ValueError(
-            f"initial_precision shape {initial_precision.shape} must match "
-            f"y_true shape {y_true.shape}"
-        )
-    return initial_precision.clone().detach().to(device)
+        return torch.cat(cast(list[torch.Tensor], batch_preds), dim=0)
 
 
 def _run_irls_loop(  # noqa: PLR0913
-    y_pred: PredictionOutput,
+    y_pred: torch.Tensor | tuple[torch.Tensor, ...],
     residuals: torch.Tensor,
     y_true: torch.Tensor,
     precision: torch.Tensor,
     loss_fn: nn.Module,
     _weight_fn: Callable,
-    weight_params: Dict[str, Any],
-    covariance_matrices: Optional[torch.Tensor],
-    mask: Optional[torch.Tensor],
-    all_predictions: Optional[List[torch.Tensor]],
+    weight_params: dict[str, Any],
+    covariance_matrices: torch.Tensor | None,
+    mask: torch.Tensor | None,
+    all_predictions: list[torch.Tensor] | None,
     config: IRLSConfig,
-) -> Tuple[torch.Tensor, List[float], Optional[List[torch.Tensor]]]:
+) -> tuple[torch.Tensor, list[float], list[torch.Tensor] | None]:
     """Executes the main IRLS iteration loop."""
-    loss_history: List[float] = []
+    loss_history: list[float] = []
 
     for iteration in range(config.max_iter):
         precision, loss_tensor, all_predictions = _perform_irls_iteration(
@@ -524,11 +476,11 @@ def iteratively_reweighted_least_squares(
     initial_precision: torch.Tensor | None = None,
     covariance_matrices: torch.Tensor | None = None,
     mask: torch.Tensor | None = None,
-    config: Optional[IRLSConfig] = None,
+    config: IRLSConfig | None = None,
     **kwargs: Any,
 ) -> (
-    Tuple[torch.Tensor, List[float], torch.Tensor]
-    | Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]
+    tuple[torch.Tensor, list[float], torch.Tensor]
+    | tuple[torch.Tensor, list[float], torch.Tensor, list[torch.Tensor]]
 ):
     """
     Applies iteratively reweighted least squares (IRLS) for robust regression.
@@ -571,24 +523,30 @@ def iteratively_reweighted_least_squares(
     if config is None:
         config = IRLSConfig(**kwargs)
 
-    _validate_irls_inputs(x, y_true, initial_precision)
+    check_tensor(x, "x")
+    check_tensor(y_true, "y_true")
+    if initial_precision is not None:
+        check_tensor(initial_precision, "initial_precision")
 
     # x might be on CPU. We keep it there if so.
     x = x.detach()
-
     device = x.device
 
-    model, loss_fn, _weight_fn, weight_params = _setup_irls(
-        model,
-        x,
-        y_true,
-        covariance_matrices,
-        config,
+    model, loss_fn, _weight_fn, weight_params = _setup_irls(  # noqa: E501
+        model, x, y_true, covariance_matrices, config
     )
 
-    precision = _initialize_precision(initial_precision, y_true, device)
+    if initial_precision is None:
+        precision = torch.ones_like(y_true)
+    else:
+        if initial_precision.shape != y_true.shape:
+            raise ValueError(
+                f"initial_precision shape {initial_precision.shape} must match "
+                f"y_true shape {y_true.shape}"
+            )
+        precision = initial_precision.clone().detach().to(device)
 
-    all_predictions: Optional[List[torch.Tensor]] = [] if config.return_all_predictions else None
+    all_predictions: list[torch.Tensor] | None = [] if config.return_all_predictions else None
 
     # --- Precompute Predictions and Residuals ---
     # This avoids running the model repeatedly in the loop, which is redundant

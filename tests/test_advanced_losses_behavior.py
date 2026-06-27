@@ -10,7 +10,6 @@ from torchregress.losses import (
     MDNLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
-    create_eiv_loss,
     create_mdn_loss,
     nflows,
 )
@@ -48,33 +47,28 @@ def test_eiv_factory_dispatch_and_functional_mc_behavior() -> None:
     def model(x: torch.Tensor) -> torch.Tensor:
         return x[:, :1] + 0.5 * x[:, 1:2]
 
-    functional = create_eiv_loss(model=model, loss_type="functional", sigma_x=0.1, sigma_y=0.1)
+    functional = FunctionalEIVLoss(model=model, sigma_x=0.1, sigma_y=0.1)
     assert isinstance(functional, FunctionalEIVLoss)
 
-    structural = create_eiv_loss(
+    structural = StructuralEIVLoss(
         model=model,
-        loss_type="structural",
         sigma_x=torch.tensor([0.1, 0.2]),
         sigma_y=torch.tensor([0.3]),
         sigma_xy=torch.zeros(1, 2),
     )
     assert isinstance(structural, StructuralEIVLoss)
 
-    odr = create_eiv_loss(model=model, loss_type="odr", sigma_x=0.1, sigma_y=0.1, max_iterations=2)
+    odr = OrthogonalDistanceRegressionLoss(model=model, sigma_x=0.1, sigma_y=0.1, max_iterations=2)
     assert isinstance(odr, OrthogonalDistanceRegressionLoss)
-    odr_alias = create_eiv_loss(model=model, loss_type="orthogonal", sigma_x=0.1, sigma_y=0.1)
+    odr_alias = OrthogonalDistanceRegressionLoss(model=model, sigma_x=0.1, sigma_y=0.1)
     assert isinstance(odr_alias, OrthogonalDistanceRegressionLoss)
 
-    ensemble = create_eiv_loss(
+    ensemble = EnsembleEIVLoss(
         model=model,
-        loss_type="ensemble",
         sigma_x=0.1,
         n_samples=3,
     )
     assert isinstance(ensemble, EnsembleEIVLoss)
-
-    with pytest.raises(ValueError, match="loss_type must be one of"):
-        create_eiv_loss(model=model, loss_type="bad", sigma_x=0.1, sigma_y=0.1)
 
     mc_loss = FunctionalEIVLoss(
         model=model,

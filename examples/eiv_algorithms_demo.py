@@ -129,7 +129,7 @@ def main():
     print("Fitting and Applying Regression Calibration...")
     rc = RegressionCalibration(sigma_u=sigma_u)
     # Fit on training observations, and transform both train and test observations
-    w_train_cal = rc.fit_transform(w_train)
+    w_train_cal = rc.fit(w_train).transform(w_train)
     w_test_cal = rc.transform(w_test)
 
     # Train model on calibrated features

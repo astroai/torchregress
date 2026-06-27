@@ -81,18 +81,6 @@ class TestBaseLoss:
         assert torch.isclose(reduced_sum, torch.tensor(10.0))
         assert torch.allclose(reduced_none, loss_values)
 
-    def test_reduce_min_max(self):
-        loss_values = torch.tensor([1.0, 2.0, 3.0, 4.0])
-
-        loss_min = SimpleLoss(reduction="min")
-        loss_max = SimpleLoss(reduction="max")
-
-        reduced_min = loss_min._reduce(loss_values)
-        reduced_max = loss_max._reduce(loss_values)
-
-        assert torch.isclose(reduced_min, torch.tensor(1.0))
-        assert torch.isclose(reduced_max, torch.tensor(4.0))
-
     def test_reduce_with_weights(self):
         # Create sample data
         loss_values = torch.tensor([1.0, 2.0, 3.0, 4.0])

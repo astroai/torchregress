@@ -15,16 +15,6 @@ def _normalize_rows(probabilities: np.ndarray, eps: float) -> np.ndarray:
     return probs / np.clip(probs.sum(axis=1, keepdims=True), eps, None)
 
 
-def _weighted_average(values: np.ndarray, weights: np.ndarray | None, *, eps: float) -> np.ndarray:
-    if weights is None:
-        return values.mean(axis=0)
-    w = np.clip(np.asarray(weights, dtype=float).reshape(-1), eps, None)
-    if w.shape[0] != values.shape[0]:
-        raise ValueError("sample_weights must match probability rows")
-    w = w / np.clip(w.sum(), eps, None)
-    return np.sum(values * w[:, None], axis=0)
-
-
 def _subsample_probabilities(
     probabilities: np.ndarray,
     sample_weights: np.ndarray | None,
@@ -135,7 +125,11 @@ def estimate_target_prior_em(
         corrected = apply_label_shift_correction(
             probs, source_prior=src, target_prior=tgt, eps=cfg.eps
         )
-        new_tgt = _weighted_average(corrected, weights, eps=cfg.eps)
+        new_tgt = (
+            np.average(corrected, axis=0, weights=weights)
+            if weights is not None
+            else corrected.mean(axis=0)
+        )  # noqa: E501
         new_tgt = np.clip(new_tgt, cfg.eps, None)
         new_tgt = new_tgt / new_tgt.sum()
         if np.max(np.abs(new_tgt - tgt)) < cfg.tol:
@@ -205,16 +199,6 @@ class PosteriorLabelShiftAdapter:
             target_prior=np.asarray(target_prior, dtype=float),
             eps=self.config.eps,
         )
-
-    def fit_transform(
-        self,
-        probabilities: np.ndarray,
-        *,
-        sample_weights: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, LabelShiftEstimate]:
-        estimate = self.estimate(probabilities, sample_weights=sample_weights)
-        corrected = self.transform(probabilities, target_prior=estimate.target_prior)
-        return corrected, estimate
 
 
 def gaussian_bin_edges_from_targets(targets: np.ndarray, n_bins: int) -> np.ndarray:

@@ -6,7 +6,6 @@ from torchregress.ensemble import (
     SWAG,
     BayesianNeuralNetwork,
     HeteroscedasticBNN,
-    MCDropoutModel,
     MCDropoutWrapper,
     MultiSWAG,
 )
@@ -104,7 +103,7 @@ def test_multi_swag_predict_with_samples_shape_contract():
 
 def test_mc_dropout_model_interval_monotonicity():
     torch.manual_seed(0)
-    model = MCDropoutModel(input_dim=4, hidden_dims=[8], output_dim=1, n_samples=8)
+    model = MCDropoutWrapper(nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.2), nn.Linear(8, 1)), n_samples=8)
     x = torch.randn(5, 4)
 
     lower, upper = model.predict_interval(x, confidence=0.9, n_samples=6)

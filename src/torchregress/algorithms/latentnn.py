@@ -84,8 +84,6 @@ class LatentNN:
 
         self.model: nn.Module | None = None
         self.x_latent_: torch.Tensor | None = None
-        self.best_validation_loss_: float | None = None
-        self.device: torch.device | None = None
 
     @staticmethod
     def _per_sample_quadratic(values: torch.Tensor) -> torch.Tensor:
@@ -142,8 +140,7 @@ class LatentNN:
         if y_val is not None:
             check_tensor(y_val, "y_val")
 
-        self.device = X_observed.device
-        model = self.model_factory().to(self.device)
+        model = self.model_factory().to(X_observed.device)
         x_latent = nn.Parameter(X_observed.clone())
 
         sigma_x = self._expand_sigma(self.sigma_x_input, X_observed, name="sigma_x").clamp_min(
@@ -153,7 +150,7 @@ class LatentNN:
             1.0e-6
         )
 
-        indices = torch.arange(X_observed.shape[0], device=self.device)
+        indices = torch.arange(X_observed.shape[0], device=X_observed.device)
         batch_size = min(int(self.batch_size or X_observed.shape[0]), X_observed.shape[0])
         loader = DataLoader(
             TensorDataset(indices, X_observed, y_observed, sigma_x, sigma_y),
@@ -175,10 +172,6 @@ class LatentNN:
                 },
             ]
         )
-
-        best_state: dict[str, torch.Tensor] | None = None
-        best_latent: torch.Tensor | None = None
-        best_loss = float("inf")
 
         for _ in range(self.epochs):
             model.train()
@@ -202,37 +195,9 @@ class LatentNN:
                     torch.nn.utils.clip_grad_norm_([x_latent], self.max_grad_norm)
                 optimizer.step()
 
-            validation_loss = self._validation_loss(
-                model,
-                X_val if X_val is not None else X_observed,
-                y_val if y_val is not None else y_observed,
-            )
-            if validation_loss < best_loss:
-                best_loss = validation_loss
-                best_state = {
-                    name: tensor.detach().clone() for name, tensor in model.state_dict().items()
-                }
-                best_latent = x_latent.detach().clone()
-
-        if best_state is not None:
-            model.load_state_dict(best_state)
         self.model = model.eval()
-        self.x_latent_ = best_latent if best_latent is not None else x_latent.detach()
-        self.best_validation_loss_ = float(best_loss)
+        self.x_latent_ = x_latent.detach()
         return self
-
-    def _validation_loss(
-        self,
-        model: nn.Module,
-        X_val: torch.Tensor,
-        y_val: torch.Tensor,
-    ) -> float:
-        model.eval()
-        with torch.no_grad():
-            loss = self.loss_fn(model(X_val), y_val)
-            if isinstance(loss, torch.Tensor) and loss.ndim > 0:
-                loss = loss.mean()
-        return float(loss.item() if isinstance(loss, torch.Tensor) else loss)
 
     def predict(
         self,
@@ -255,41 +220,21 @@ class LatentNN:
             Predictions tensor.
         """
         check_tensor(X, "X")
-        if self.model is None or self.device is None:
+        if self.model is None:
             raise RuntimeError("LatentNN must be fit before predicting")
 
+        device = next(self.model.parameters()).device
+
         if sigma_x is not None:
-            return self._predict_marginalized(X, sigma_x=sigma_x, n_samples=n_samples)
+            X = X.to(device)
+            sigma_x_t = self._expand_sigma(sigma_x, X, name="sigma_x").clamp_min(1.0e-6)
+            with torch.no_grad():
+                noise = torch.randn(n_samples, *X.shape, device=device, dtype=X.dtype)
+                perturbed = X.unsqueeze(0) + noise * sigma_x_t.unsqueeze(0)
+                flat = perturbed.reshape(-1, X.shape[-1])
+                preds = self.model(flat)
+                preds = preds.reshape(n_samples, X.shape[0], -1)
+                return preds.mean(dim=0)
 
         with torch.no_grad():
-            return self.model(X.to(self.device))
-
-    def _predict_marginalized(
-        self,
-        X: torch.Tensor,
-        *,
-        sigma_x: float | torch.Tensor,
-        n_samples: int = 20,
-    ) -> torch.Tensor:
-        """Test-time MC marginalization over input noise.
-
-        Perturbs observed inputs with Gaussian noise ~ N(0, sigma_x²),
-        runs the model on each perturbation, and returns the mean prediction.
-        This approximates E[f(x+ε)] and corrects for the distribution shift
-        between clean latent training and noisy test data.
-        """
-        assert self.model is not None, "Model is not fitted"
-        X = X.to(self.device)
-        sigma_x_t = self._expand_sigma(sigma_x, X, name="sigma_x").clamp_min(1.0e-6)
-
-        with torch.no_grad():
-            # Generate perturbations: [n_samples, N, D]
-            noise = torch.randn(n_samples, *X.shape, device=self.device, dtype=X.dtype)
-            perturbed = X.unsqueeze(0) + noise * sigma_x_t.unsqueeze(0)
-
-            # Forward pass on all perturbations
-            flat = perturbed.reshape(-1, X.shape[-1])
-            preds = self.model(flat)
-            preds = preds.reshape(n_samples, X.shape[0], -1)
-
-            return preds.mean(dim=0)
+            return self.model(X.to(device))

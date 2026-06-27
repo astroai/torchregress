@@ -21,7 +21,6 @@ from torchregress.losses.conformal import (
     LocalConformal,
     LocalConformalMAD,
     MonteCarloConformal,
-    MultiDimensionalConformalLoss,
     MultiTargetConformal,
     PrevalenceAdjustedCP,
     R2CConformal,
@@ -39,7 +38,7 @@ def test_conformal_loss_initialization(method):
     loss_fn = ConformalLoss(method=method, alpha=0.1)
     assert loss_fn.method == method
     assert loss_fn.alpha == 0.1
-    assert not loss_fn._is_calibrated
+    assert not loss_fn._predictor._is_calibrated
 
 
 def test_conformal_loss_invalid_method():
@@ -89,7 +88,7 @@ def test_conformal_loss_calibration_and_prediction(method):
         loss_fn.predict_interval(y_pred_test)
 
     loss_fn.calibrate(y_pred_cal, y_true_cal)
-    assert loss_fn._is_calibrated
+    assert loss_fn._predictor._is_calibrated
 
     lower, upper = loss_fn.predict_interval(y_pred_test)
     assert isinstance(lower, torch.Tensor)
@@ -180,28 +179,6 @@ def test_conformalized_quantile_loss_method():
     assert loss_fn.method == "cqr"
 
 
-def test_multidimensional_conformal_loss():
-    """Test MultiDimensionalConformalLoss for multi-output regression."""
-    loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
-    assert isinstance(loss_fn, ConformalLoss)
-    assert loss_fn.method == "split"
-
-    batch_size, n_features = 50, 3
-    y_pred_cal = torch.randn(batch_size, n_features)
-    y_true_cal = torch.randn(batch_size, n_features)
-    y_pred_test = torch.randn(batch_size, n_features)
-
-    loss_fn.calibrate(y_pred_cal, y_true_cal)
-    lower, upper = loss_fn.predict_interval(y_pred_test)
-    assert lower.shape == y_pred_test.shape
-    assert upper.shape == y_pred_test.shape
-    assert lower.shape[-1] == n_features
-    assert (lower <= upper).all()
-
-    assert loss_fn.q_hat is not None
-    assert loss_fn.q_hat.shape == (n_features,)
-
-
 def test_conformal_with_mask():
     """Test that masking works during calibration."""
     loss_fn = ConformalLoss(method="split", alpha=0.1)
@@ -213,7 +190,7 @@ def test_conformal_with_mask():
     mask[:5] = False
 
     loss_fn.calibrate(y_pred, y_true, mask=mask)
-    assert loss_fn._is_calibrated
+    assert loss_fn._predictor._is_calibrated
 
     lower, upper = loss_fn.predict_interval(y_pred)
     assert lower.shape == y_pred.shape
@@ -833,8 +810,8 @@ class TestConformalLossMondrianWeighted:
         groups = torch.randint(0, 2, (n,))
 
         loss_fn.calibrate(preds, targets, groups=groups)
-        assert loss_fn._is_calibrated
-        assert isinstance(loss_fn.q_hat, dict)
+        assert loss_fn._predictor._is_calibrated
+        assert isinstance(loss_fn._predictor.q_hat, dict)
 
         lower, upper = loss_fn.predict_interval(preds, groups=groups)
         assert (lower <= upper).all()
@@ -848,7 +825,7 @@ class TestConformalLossMondrianWeighted:
         weights = torch.rand(n) + 0.5
 
         loss_fn.calibrate(preds, targets, weights=weights)
-        assert loss_fn._is_calibrated
+        assert loss_fn._predictor._is_calibrated
 
         lower, upper = loss_fn.predict_interval(preds)
         assert (lower <= upper).all()

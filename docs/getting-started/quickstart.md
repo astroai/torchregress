@@ -30,7 +30,7 @@ The wrappers also support `reduction="none"` for per-sample loss returns.
 import torch
 import torch.nn as nn
 from torchregress.losses import WeightedMSELoss, WeightedHuberLoss
-from torchregress.metrics import mae, r2_score, rmse
+from torchregress.metrics import mean_absolute_error, r2_score, rmse
 
 model = nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 1))
 
@@ -48,7 +48,7 @@ for x, y, mask, w in dataloader:
 with torch.no_grad():
     y_pred = model(x_test)
     print(f"RMSE: {rmse(y_pred, y_test):.4f}  "
-          f"MAE: {mae(y_pred, y_test):.4f}  "
+          f"MAE: {mean_absolute_error(y_pred, y_test):.4f}  "
           f"R²: {r2_score(y_pred, y_test):.4f}")
 ```
 
@@ -184,14 +184,14 @@ $$
 $$
 
 ```python
-from torchregress.ensemble import DeepEnsemble
+from torchregress.ensemble import BaseEnsembleModel
 from torchregress.metrics import uncertainty_decomposition
 
 # A heteroscedastic head that outputs [mean, log_var]
 def heteroscedastic_head():
     return nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 2))
 
-ens = DeepEnsemble(base_model=heteroscedastic_head(),
+ens = BaseEnsembleModel(base_model=heteroscedastic_head(),
                    ensemble_size=5, base_seed=0)
 ens.fit(train_loader, optimizer_factory=torch.optim.Adam, lr=1e-3)
 
@@ -285,6 +285,21 @@ scoring rules and decomposition formulas, see
 [Mathematical Foundations](../guide/math/index.md).
 
 ---
+
+---
+
+## References
+
+| Key | Reference |
+|:----|:----------|
+| [KendallGal2017] | Kendall, A. & Gal, Y. (2017). What Uncertainties Do We Need in Bayesian Deep Learning for Computer Vision? *NeurIPS*. |
+| [Lakshminarayanan2017] | Lakshminarayanan, B., Pritzel, A. & Blundell, C. (2017). Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles. *NeurIPS*. |
+| [GneitingRaftery2007] | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
+| [Vovk2005] | Vovk, V., Gammerman, A. & Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer. |
+| [Romano2019] | Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*. |
+| [Tibshirani2019] | Tibshirani, R. J., Foygel Barber, R., Candès, E. & Ramdas, A. (2019). Conformal Prediction Under Covariate Shift. *NeurIPS*. |
+| [Huber1964] | Huber, P. J. (1964). Robust Estimation of a Location Parameter. *Annals of Mathematical Statistics*, 35(1), 73–101. |
+| [Carroll2006] | Carroll, R. J., Ruppert, D., Stefanski, L. A. & Crainiceanu, C. M. (2006). *Measurement Error in Nonlinear Models* (2nd ed.). Chapman & Hall. |
 
 ## Next steps
 

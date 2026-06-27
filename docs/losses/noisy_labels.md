@@ -18,6 +18,20 @@ When target labels contain measurement noise, annotation errors, or systematic c
 
 The simplest defence — replace MSE with a loss that bounds the influence of large errors:
 
+$$
+\begin{aligned}
+\rho_{\text{Huber}}(r) &= \begin{cases}
+\frac{1}{2}r^2 & |r| \leq \delta \\
+\delta|r| - \frac{1}{2}\delta^2 & |r| > \delta
+\end{cases} \\[6pt]
+\rho_{\text{Cauchy}}(r) &= \log\left(1 + \frac{r^2}{c^2}\right) \\[6pt]
+\rho_{\text{Tukey}}(r) &= \begin{cases}
+\frac{c^2}{6}\left[1 - \left(1 - \frac{r^2}{c^2}\right)^3\right] & |r| \leq c \\[6pt]
+\frac{c^2}{6} & |r| > c
+\end{cases}
+\end{aligned}
+$$
+
 ```python
 from torchregress.losses import WeightedHuberLoss, TukeyBiweightLoss, CauchyLoss
 
@@ -78,9 +92,9 @@ See [Imbalanced Regression](imbalanced.md).
 Train an ensemble and use member disagreement to identify noisy samples:
 
 ```python
-from torchregress.ensemble import DeepEnsemble
+from torchregress.ensemble import BaseEnsembleModel
 
-ensemble = DeepEnsemble(base_model, ensemble_size=5)
+ensemble = BaseEnsembleModel(base_model, ensemble_size=5)
 # After training, samples with high epistemic uncertainty
 # (large variance across members) are likely mislabelled
 ```
@@ -114,7 +128,7 @@ graph LR
 ## Recommendations
 
 - **Start with Huber**: `WeightedHuberLoss(delta=1.0)` is the simplest, cheapest defense against mild label noise. Upgrade to `CauchyLoss` or `TukeyBiweightLoss` only if you can confirm severe outliers.
-- **Use CVaR for tail-focused objectives**: When you explicitly care about worst-case performance (fairness, safety-critical applications), `CVaRLoss` is the right tool. See the [CVaR demo](../examples/comprehensive_loss_comparison.py).
+- **Use CVaR for tail-focused objectives**: When you explicitly care about worst-case performance (fairness, safety-critical applications), `CVaRLoss` is the right tool. See the [CVaR demo](../../examples/comprehensive_loss_comparison.py).
 - **Ensemble for systematic noise**: If label noise is systematic (not just outliers), train a `DeepEnsemble` and inspect per-sample epistemic uncertainty to flag consistently mislabelled points.
 - **When noise variance is known**: Use `NoisyTargetGaussianNLL` from [Uncertain ground truth](uncertain_ground_truth.md) — it directly models the target noise in the likelihood.
 

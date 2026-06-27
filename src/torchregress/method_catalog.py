@@ -425,17 +425,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Conditional Tightness Indicator for distributional conformal prediction.",
     ),
     MethodMetadata(
-        name="MultiDimensionalConformalLoss",
-        family="conformal",
-        public_path="torchregress.losses.MultiDimensionalConformalLoss",
-        task_tags=("coverage_guarantees", "calibration", "multi_target"),
-        maturity="Available",
-        non_gaussian="yes",
-        calibration="yes",
-        multi_target="yes",
-        notes="Multi-dimensional conformal prediction for joint coverage across target dimensions.",
-    ),
-    MethodMetadata(
         name="CVPlus",
         family="conformal",
         public_path="torchregress.losses.CVPlus",
@@ -939,19 +928,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
-        name="PredictionSIMEX",
-        family="eiv",
-        public_path="torchregress.algorithms.PredictionSIMEX",
-        task_tags=("noisy_features", "measurement_error", "simex", "inference"),
-        maturity="Strong",
-        noisy_features_eiv="yes",
-        calibration="partial",
-        notes=(
-            "Test-time Prediction SIMEX. Extrapolates predictions directly to the zero-noise "
-            "limit for downstream inference."
-        ),
-    ),
-    MethodMetadata(
         name="ErrorAwareFeatureEncoder",
         family="eiv",
         public_path="torchregress.algorithms.ErrorAwareFeatureEncoder",
@@ -990,16 +966,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
             "adapters or simpler MC input-noise baselines can be easier to debug in "
             "practice."
         ),
-    ),
-    MethodMetadata(
-        name="InputNoiseMarginalizationLoss",
-        family="eiv",
-        public_path="torchregress.losses.InputNoiseMarginalizationLoss",
-        task_tags=("noisy_features", "measurement_error", "marginalization"),
-        maturity="Deprecated",
-        noisy_features_eiv="yes",
-        calibration="partial",
-        notes=("Deprecated alias for InputNoiseAugmentationLoss."),
     ),
     MethodMetadata(
         name="InputNoiseAugmentationLoss",
@@ -1075,9 +1041,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         calibration="partial",
     ),
     MethodMetadata(
-        name="DeepEnsemble",
+        name="BaseEnsembleModel",
         family="ensemble",
-        public_path="torchregress.ensemble.DeepEnsemble",
+        public_path="torchregress.ensemble.BaseEnsembleModel",
         task_tags=("epistemic_uq", "ood", "selective_prediction"),
         maturity="Core",
         epistemic="yes",
@@ -1551,7 +1517,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Epistemic uncertainty",
-        recommended_start="DeepEnsemble",
+        recommended_start="BaseEnsembleModel",
         strong_alternatives=(
             "HeteroscedasticBatchEnsembleModel",
             "BinnedPDFEnsembleModel",
@@ -1560,7 +1526,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "BayesianNeuralNetwork",
             "MCDropoutWrapper",
         ),
-        notes="Deep ensembles are easiest operationally.",
+        notes="Ensembles are easiest operationally.",
     ),
     TaskRecommendation(
         task="Low-shot / streaming linear head on fixed features",
@@ -1609,7 +1575,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Noisy features / measurement error",
         recommended_start=(
-            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
+            "InputNoiseAugmentationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
         ),
         strong_alternatives=(
             "FunctionalEIVLoss",
@@ -1625,7 +1591,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Noisy labels / label corruption",
         recommended_start="WeightedHuberLoss",
-        strong_alternatives=("DeepEnsemble", "ConformalLoss"),
+        strong_alternatives=("BaseEnsembleModel", "ConformalLoss"),
         notes="Prefer robust baselines before heavier methods.",
     ),
     TaskRecommendation(
@@ -1729,7 +1695,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="OOD scoring / selective prediction",
-        recommended_start="DeepEnsemble + OOD metrics",
+        recommended_start="BaseEnsembleModel + OOD metrics",
         strong_alternatives=(
             "HeteroscedasticBatchEnsembleModel + OOD metrics",
             "SWAG + OOD metrics",
@@ -1769,7 +1735,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         order=4,
         question="Have noisy features / measurement error?",
         primary_recommendation=(
-            "InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
+            "InputNoiseAugmentationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
         ),
         alternatives=("FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss",),
         caveat=(
@@ -1791,7 +1757,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
     DecisionWorkflowStep(
         order=6,
         question="Need OOD scoring / selective prediction under a latency budget?",
-        primary_recommendation="DeepEnsemble + OOD metrics",
+        primary_recommendation="BaseEnsembleModel + OOD metrics",
         alternatives=(
             "HeteroscedasticBatchEnsembleModel + OOD metrics",
             "SWAG + OOD metrics",
@@ -1856,10 +1822,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
     ),
     ComparativeEvidenceRow(
         task="Imbalanced / rare-target regression",
-        examples=(
-            "examples/imbalanced_regression.py",
-            "examples/propensity_tail_regression_comparison.py",
-        ),
+        examples=("examples/imbalanced_regression.py",),
         comparison_grade="Strong",
         fairness_controls=("shared split", "summary tables"),
         metrics_coverage=(
@@ -1876,27 +1839,6 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "MultiQuantileLoss",
         ),
         gaps="Needs additional real-data long-tail benchmarks beyond synthetic selection proxies.",
-    ),
-    ComparativeEvidenceRow(
-        task="Selection bias / long-tail with missing labels",
-        examples=("examples/propensity_tail_regression_comparison.py",),
-        comparison_grade="Strong",
-        fairness_controls=("fixed seed", "shared selection process", "matched model capacity"),
-        metrics_coverage=(
-            "MAE",
-            "tail MAE/RMSE",
-            "native interval coverage/width",
-            "observed-rate diagnostics",
-            "runtime",
-        ),
-        peer_methods_visible=(
-            "PropensityWeightedLoss",
-            "DensityWeightedLoss",
-            "WeightedMSELoss",
-            "GaussianNLLLoss",
-            "MultiQuantileLoss",
-        ),
-        gaps="Needs real-data selection-bias benchmarks beyond synthetic generation.",
     ),
     ComparativeEvidenceRow(
         task="Output constraints + post-hoc calibration transforms",
@@ -2048,7 +1990,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "ConformalLoss",
             "QuantileLoss",
             "GaussianNLLLoss",
-            "DeepEnsemble",
+            "BaseEnsembleModel",
             "SWAG",
             "BayesianNeuralNetwork",
         ),
@@ -2058,7 +2000,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         ),
         notes=(
             "OOD/selective comparisons now include split-conformal interval diagnostics "
-            "across DeepEnsemble/MCDropout/SWAG/BNN."
+            "across ensemble/MCDropout/SWAG/BNN."
         ),
     ),
     ComparativeEvidenceRow(
@@ -2129,7 +2071,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "runtime",
         ),
         peer_methods_visible=(
-            "DeepEnsemble",
+            "BaseEnsembleModel",
             "HeteroscedasticEnsembleModel",
             "MCDropoutWrapper",
             "SWAG",
@@ -2321,11 +2263,6 @@ def get_method_metadata(name: str) -> Dict[str, Any]:
         if method.name == name:
             return asdict(method)
     raise KeyError(f"Unknown method '{name}'.")
-
-
-def list_method_names() -> List[str]:
-    """Convenience list of cataloged method names."""
-    return [m.name for m in _METHODS]
 
 
 def list_task_recommendations() -> List[Dict[str, Any]]:

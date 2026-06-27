@@ -16,18 +16,11 @@ from torchregress.metrics.point import (
     TrimmedMeanSquaredError,
     _tail_mask,
     attenuation_factor,
-    explained_variance_score,
     huber_loss,
-    mae,
     mean_absolute_error,
-    mean_absolute_percentage_error,
     mean_squared_error,
-    mean_squared_log_error,
     median_absolute_error,
-    mse,
-    normalized_median_absolute_deviation,
     normalized_rmse,
-    outlier_fraction,
     r2_score,
     regression_metrics_report,
     rmse,
@@ -492,142 +485,6 @@ class TestR2Score:
     def test_numpy_input(self) -> None:
         result = r2_score(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.0]))
         # create_metric_result converts 0-d tensor → Python float
-        assert isinstance(result, float)
-
-
-class TestExplainedVarianceScore:
-    """explained_variance_score — EVS = 1 - Var(y - y_pred) / Var(y)."""
-
-    def test_perfect_prediction(self) -> None:
-        y = torch.tensor([1.0, 2.0, 3.0, 4.0])
-        evs = float(explained_variance_score(y, y))
-        assert evs == pytest.approx(1.0)
-
-    def test_imperfect_prediction(self) -> None:
-        y_true = torch.tensor([1.0, 2.0, 3.0, 4.0])
-        y_pred = y_true + 0.5
-        # var(diff) = var([0.5,0.5,0.5,0.5]) = 0 → EVS = 1
-        evs = float(explained_variance_score(y_pred, y_true))
-        assert evs == pytest.approx(1.0)
-
-    def test_inverted_prediction(self) -> None:
-        """y_pred = -y_true doubles the error variance → EVS < 0."""
-        y_true = torch.tensor([1.0, 2.0, 3.0, 4.0])
-        y_pred = -y_true
-        # diff = y_true - y_pred = y_true - (-y_true) = 2*y_true
-        # var(diff) = 4*var(y_true); EVS = 1 - 4 = -3
-        evs = float(explained_variance_score(y_pred, y_true))
-        assert evs == pytest.approx(-3.0)
-
-    def test_constant_target_returns_nan(self) -> None:
-        y_true = torch.ones(10)
-        y_pred = torch.ones(10)
-        evs = float(explained_variance_score(y_pred, y_true))
-        assert np.isnan(evs)
-
-    def test_as_numpy(self) -> None:
-        result = explained_variance_score(
-            torch.tensor([1.0, 2.0, 3.0]), torch.tensor([1.0, 2.0, 3.0]), as_numpy=True
-        )
-        assert isinstance(result, float)
-
-
-class TestMAPE:
-    """mean_absolute_percentage_error — MAPE with epsilon clamping."""
-
-    def test_basic(self) -> None:
-        y_pred = torch.tensor([10.0, 20.0])
-        y_true = torch.tensor([10.0, 10.0])
-        mape = float(mean_absolute_percentage_error(y_pred, y_true))
-        # |10-10|/10=0, |20-10|/10=1; mean=0.5
-        assert mape == pytest.approx(0.5)
-
-    def test_epsilon_clamping(self) -> None:
-        """Near-zero targets get clamped to eps in denominator."""
-        y_pred = torch.tensor([1.0, 1.0])
-        y_true = torch.tensor([0.0, 1e-10])
-        mape = float(mean_absolute_percentage_error(y_pred, y_true, eps=1e-8))
-        # denominator: max(0, 1e-8) and max(1e-10, 1e-8)
-        # errors: |1-0|=1, |1-1e-10|≈1
-        # mape = (1/1e-8 + 1/1e-8)/2 = 1e8 — very large but finite
-        assert np.isfinite(mape) and mape > 1
-
-    def test_perfect_prediction(self) -> None:
-        y = torch.tensor([1.0, 2.0, 3.0])
-        assert float(mean_absolute_percentage_error(y, y)) == pytest.approx(0.0)
-
-    def test_numpy_input(self) -> None:
-        result = mean_absolute_percentage_error(np.array([1.0, 2.0]), np.array([1.0, 2.0]))
-        assert isinstance(result, float)
-
-
-class TestMSLE:
-    """mean_squared_log_error — MSLE for non-negative targets."""
-
-    def test_basic(self) -> None:
-        y_pred = torch.tensor([1.0, 2.0, 3.0])
-        y_true = torch.tensor([1.0, 2.0, 3.0])
-        assert float(mean_squared_log_error(y_pred, y_true)) == pytest.approx(0.0)
-
-    def test_nonzero(self) -> None:
-        y_pred = torch.tensor([2.0, 3.0])
-        y_true = torch.tensor([1.0, 1.0])
-        msle = float(mean_squared_log_error(y_pred, y_true))
-        # log1p(2+1e-8)-log1p(1+1e-8)=ln(3)-ln(2)=0.4055; squared=0.164; mean=0.164
-        assert msle > 0
-
-    def test_negative_y_pred_raises(self) -> None:
-        with pytest.raises(ValueError, match="non-negative"):
-            mean_squared_log_error(torch.tensor([-1.0, 2.0]), torch.tensor([1.0, 2.0]))
-
-    def test_negative_y_true_raises(self) -> None:
-        with pytest.raises(ValueError, match="non-negative"):
-            mean_squared_log_error(torch.tensor([1.0, 2.0]), torch.tensor([-1.0, 2.0]))
-
-
-class TestNormalizedMedianAbsoluteDeviationFunc:
-    """normalized_median_absolute_deviation — functional wrapper."""
-
-    def test_default_normalization(self) -> None:
-        y_pred = torch.tensor([1.0, 2.0, 3.0])
-        y_true = torch.tensor([0.0, 0.0, 0.0])
-        val = float(normalized_median_absolute_deviation(y_pred, y_true))
-        assert val == pytest.approx(1.4826)
-
-    def test_relative_normalization(self) -> None:
-        # Non-zero y_true so denominator (1+y_true) matters
-        y_pred = torch.tensor([6.0, 10.0, 14.0])
-        y_true = torch.tensor([3.0, 3.0, 3.0])
-        val = float(normalized_median_absolute_deviation(y_pred, y_true, normalization="relative"))
-        # diffs = (y_pred-y_true)/(1+y_true) = [3,7,11]/4 = [0.75,1.75,2.75]
-        # median_diff=1.75; abs_dev=[1,0,1]; median_dev=1; nmad=1.4826
-        assert val == pytest.approx(1.4826, rel=1e-4)
-
-    def test_numpy_output(self) -> None:
-        result = normalized_median_absolute_deviation(np.array([1.0, 2.0]), np.array([1.0, 2.0]))
-        assert isinstance(result, float)
-
-
-class TestOutlierFractionFunc:
-    """outlier_fraction — functional wrapper."""
-
-    def test_default_args(self) -> None:
-        y_pred = torch.tensor([0.0, 1.0, 0.1])
-        y_true = torch.tensor([0.0, 0.0, 0.0])
-        val = float(outlier_fraction(y_pred, y_true))
-        assert val == pytest.approx(1.0 / 3.0)
-
-    def test_custom_args(self) -> None:
-        y_pred = torch.tensor([0.0, 0.5, 0.1])
-        y_true = torch.tensor([0.0, 0.0, 0.0])
-        val = float(outlier_fraction(y_pred, y_true, threshold=0.3, mode="relative"))
-        # scaled: 0, 0.5, 0.1; only 0.5 > 0.3 → 1/3
-        assert val == pytest.approx(1.0 / 3.0)
-
-    def test_numpy_output(self) -> None:
-        result = outlier_fraction(np.array([0.0, 0.0]), np.array([1.0, 1.0]))
-        assert isinstance(result, float)
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Edge cases for existing functional metrics
@@ -725,12 +582,7 @@ class TestExistingMetricReductions:
     def test_mse_alias_matches(self) -> None:
         y_pred = torch.tensor([0.0, 1.0])
         y_true = torch.tensor([1.0, 2.0])
-        assert float(mean_squared_error(y_pred, y_true)) == float(mse(y_pred, y_true))
-
-    def test_mae_alias_matches(self) -> None:
-        y_pred = torch.tensor([0.0, 1.0])
-        y_true = torch.tensor([1.0, 2.0])
-        assert float(mean_absolute_error(y_pred, y_true)) == float(mae(y_pred, y_true))
+        assert float(mean_squared_error(y_pred, y_true)) == pytest.approx(1.0)
 
     def test_invalid_reduction_raises(self) -> None:
         with pytest.raises(ValueError, match="reduction"):

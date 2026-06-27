@@ -84,8 +84,13 @@ def _normalize_density(support: np.ndarray, density: np.ndarray, eps: float) -> 
 def _density_to_probabilities(support: np.ndarray, density: np.ndarray, eps: float) -> np.ndarray:
     dx = _uniform_dx(support)
     probs = np.clip(np.asarray(density, dtype=float), 0.0, None) * dx
-    probs = probs / np.clip(probs.sum(axis=1, keepdims=True), eps, None)
-    return probs
+    row_sum = probs.sum(axis=1, keepdims=True)
+    # Fallback to uniform for degenerate (all-zero) rows to avoid NaN propagation
+    degenerate = row_sum.ravel() < eps
+    if np.any(degenerate):
+        probs[degenerate] = 1.0 / probs.shape[1]
+        row_sum[degenerate] = 1.0
+    return probs / np.clip(row_sum, eps, None)
 
 
 def _probabilities_to_density(

@@ -74,10 +74,6 @@ class WarmupMCTrainer:
         batch_size: int = 64,
         n_mc_samples: int = 20,
     ) -> None:
-        if warmup_epochs >= total_epochs:
-            raise ValueError(
-                f"warmup_epochs ({warmup_epochs}) must be less than total_epochs ({total_epochs})"
-            )
         self.model_factory = model_factory
         self.sigma_x = sigma_x
         self.sigma_y = sigma_y
@@ -116,18 +112,7 @@ class WarmupMCTrainer:
         dataset = TensorDataset(X, y)
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        mc_epochs = self.total_epochs - self.warmup_epochs
-
-        # ── Phase 1: MSE warmup ─────────────────────────────────
-        model.train()
-        for _ in range(self.warmup_epochs):
-            for Xb, yb in loader:
-                opt.zero_grad(set_to_none=True)
-                loss = ((model(Xb) - yb) ** 2).mean()
-                loss.backward()
-                opt.step()
-
-        # ── Phase 2: FunctionalEIV_MC ────────────────────────────
+        # Single loop, swap loss after warmup boundary
         mc_loss = FunctionalEIVLoss(
             model=model,
             sigma_x=self.sigma_x,
@@ -135,10 +120,15 @@ class WarmupMCTrainer:
             mode="mc",
             n_samples=self.n_mc_samples,
         )
-        for _ in range(mc_epochs):
+        model.train()
+        for epoch in range(self.total_epochs):
+            use_mc = epoch >= self.warmup_epochs
             for Xb, yb in loader:
                 opt.zero_grad(set_to_none=True)
-                loss = mc_loss(Xb, yb)
+                if use_mc:
+                    loss = mc_loss(Xb, yb)
+                else:
+                    loss = ((model(Xb) - yb) ** 2).mean()
                 loss.backward()
                 opt.step()
 

@@ -75,7 +75,7 @@ def test_rc_multivariate():
     W_obs = X_true + noise
 
     rc = RegressionCalibration(sigma_u=sigma_u)
-    X_cal = rc.fit_transform(W_obs)
+    X_cal = rc.fit(W_obs).transform(W_obs)
 
     assert X_cal.shape == W_obs.shape
 

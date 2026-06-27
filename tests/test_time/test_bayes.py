@@ -14,7 +14,6 @@ import torch
 from torchregress.test_time.bayes import (
     BayesianLinearHead,
     RecursiveBayesianHead,
-    _as_tensor,
     _augment_features,
     _posterior_covariance_from_precision,
 )
@@ -46,31 +45,6 @@ def _make_data(n: int = 32, d: int = 4, seed: int = 0) -> tuple[torch.Tensor, to
 # ═══════════════════════════════════════════════════════════════════════════════
 # Module-level helpers
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestAsTensor:
-    def test_numpy_to_tensor(self) -> None:
-        """Numpy to tensor."""
-        x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-        t = _as_tensor(x, device=DEVICE, dtype=DTYPE)
-        assert isinstance(t, torch.Tensor)
-        assert t.device == DEVICE
-        assert t.dtype == DTYPE
-
-    def test_tensor_preserved(self) -> None:
-        """Tensor preserved."""
-        x = torch.tensor([1.0, 2.0], device=DEVICE, dtype=DTYPE)
-        t = _as_tensor(x, device=DEVICE, dtype=DTYPE)
-        assert t is x  # same object when device/dtype match
-
-    def test_tensor_moved(self) -> None:
-        """Tensor moved."""
-        if not torch.cuda.is_available():
-            pytest.skip("CUDA not available")
-        x = torch.tensor([1.0, 2.0])
-        t = _as_tensor(x, device=torch.device("cpu"), dtype=torch.float64)
-        assert t.device == torch.device("cpu")
-        assert t.dtype == torch.float64
 
 
 class TestAugmentFeatures:

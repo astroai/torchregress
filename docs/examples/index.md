@@ -40,7 +40,6 @@ Use the comparison examples first when making implementation decisions:
 - `examples/ordinal_uncertain_ground_truth_comparison.py`: ordered-bin ambiguous-label comparison with soft plausibility targets and soft pseudo labels
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
 - `examples/censored_regression_realdata_comparison.py`: real-data censored comparison on Diabetes with shared censoring overlays
-- `examples/propensity_tail_regression_comparison.py`: selection-bias and long-tail comparison (`MSE`, `DensityWeighted`, `PropensityWeighted`, `GaussianNLL`, `Quantile90`)
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
 - `examples/transformed_target_regression_comparison.py`: skewed-target transform comparison (`MSE`, `LogTransform`, `BoxCox`, `Sqrt`)
 - `examples/semi_supervised_regression_comparison.py`: masked-label semi-supervised regression with pseudo labels and teacher consistency
@@ -222,12 +221,6 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 - Shared-budget comparison on real Diabetes covariates/targets with synthetic censoring overlays.
 - Compares Gaussian NLL, quantile, and AFT censored losses.
 - Reports true-target MAE, observed MAE, concordance index, censoring rate, and runtime.
-
-### [Propensity + Tail Regression Comparison](propensity_tail_regression_comparison.md)
-
-- Shared-budget comparison under covariate-dependent label observation.
-- Compares reweighting methods plus distributional/quantile families.
-- Reports overall MAE, upper-tail MAE/RMSE, native interval coverage/width, and runtime.
 
 ### [Constraints + Calibration Comparison](constraints_calibration_comparison.md)
 

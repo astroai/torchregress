@@ -19,17 +19,6 @@ import torch.nn as nn
 from torchregress.prediction import PredictiveBatch
 
 
-def _as_tensor(
-    x: Union[torch.Tensor, np.ndarray],
-    *,
-    device: torch.device,
-    dtype: torch.dtype,
-) -> torch.Tensor:
-    if isinstance(x, np.ndarray):
-        return torch.as_tensor(x, device=device, dtype=dtype)
-    return x.to(device=device, dtype=dtype)
-
-
 def _augment_features(phi: torch.Tensor, *, fit_intercept: bool) -> torch.Tensor:
     if not fit_intercept:
         return phi
@@ -245,8 +234,8 @@ class BayesianLinearHead(nn.Module):
     ) -> BayesianLinearHead:
         device = self._Lambda.device
         dtype = self._Lambda.dtype
-        phi0 = _as_tensor(features, device=device, dtype=dtype)
-        y0 = _as_tensor(y, device=device, dtype=dtype)
+        phi0 = torch.as_tensor(features, device=device, dtype=dtype)
+        y0 = torch.as_tensor(y, device=device, dtype=dtype)
         if y0.dim() == 1:
             y0 = y0.unsqueeze(-1)
         if y0.shape[0] != phi0.shape[0]:
@@ -256,7 +245,9 @@ class BayesianLinearHead(nn.Module):
         if phi0.shape[1] != self.in_features:
             raise ValueError(f"Expected {self.in_features} features, got {phi0.shape[1]}")
         sw = (
-            None if sample_weight is None else _as_tensor(sample_weight, device=device, dtype=dtype)
+            None
+            if sample_weight is None
+            else torch.as_tensor(sample_weight, device=device, dtype=dtype)
         )
         self.reset_posterior()
 
@@ -302,7 +293,7 @@ class BayesianLinearHead(nn.Module):
             raise RuntimeError("Call fit before predict.")
         device = self._Lambda.device
         dtype = self._Lambda.dtype
-        phi0 = _as_tensor(features, device=device, dtype=dtype)
+        phi0 = torch.as_tensor(features, device=device, dtype=dtype)
         phi0 = self._apply_rbf(phi0)
         phi = _augment_features(phi0, fit_intercept=self.fit_intercept)
         lam = self._Lambda + self.jitter * torch.eye(self._d_eff, device=device, dtype=dtype)
@@ -430,8 +421,8 @@ class RecursiveBayesianHead(BayesianLinearHead):
     ) -> RecursiveBayesianHead:
         device = self._Lambda.device
         dtype = self._Lambda.dtype
-        phi0 = _as_tensor(features, device=device, dtype=dtype)
-        y0 = _as_tensor(y, device=device, dtype=dtype)
+        phi0 = torch.as_tensor(features, device=device, dtype=dtype)
+        y0 = torch.as_tensor(y, device=device, dtype=dtype)
         if y0.dim() == 1:
             y0 = y0.unsqueeze(-1)
         if y0.shape[0] != phi0.shape[0]:
@@ -439,7 +430,9 @@ class RecursiveBayesianHead(BayesianLinearHead):
         if y0.shape[1] != self.out_features:
             raise ValueError(f"y must have {self.out_features} columns, got {y0.shape[1]}")
         sw = (
-            None if sample_weight is None else _as_tensor(sample_weight, device=device, dtype=dtype)
+            None
+            if sample_weight is None
+            else torch.as_tensor(sample_weight, device=device, dtype=dtype)
         )
         if self.forgetting_factor < 1.0:
             self._Lambda.copy_(

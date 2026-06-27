@@ -41,12 +41,10 @@ from torchregress.metrics.ood import (
 from torchregress.metrics.point import (
     attenuation_factor,
     huber_loss,
-    mae,
     mean_absolute_error,
     mean_squared_error,
     median_absolute_deviation,
     median_absolute_error,
-    mse,
     normalized_rmse,
     regression_metrics_report,
     trimmed_mean_squared_error,
@@ -596,24 +594,6 @@ class TestPointMetrics:
 
         # Generate sample weights
         self.sample_weight = torch.ones(self.batch_size)
-
-    def test_basic_metrics(self):
-        """Test basic regression metrics."""
-        # Test MSE
-        mse_val = mean_squared_error(self.y_pred, self.y_true)
-        assert mse_val > 0
-        mse_alias = mse(self.y_pred, self.y_true)
-        assert mse_alias > 0
-
-        # Test MAE
-        mae_val = mean_absolute_error(self.y_pred, self.y_true)
-        assert mae_val > 0
-        mae_alias = mae(self.y_pred, self.y_true)
-        assert mae_alias > 0
-
-        # Test Median AE
-        median_ae = median_absolute_error(self.y_pred, self.y_true)
-        assert median_ae > 0
 
     def test_robust_metrics(self):
         """Test robust regression metrics."""

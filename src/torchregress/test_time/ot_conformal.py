@@ -13,7 +13,7 @@ See ``docs/test_time/ot_shift_conformal.md`` for assumptions and limitations.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Literal, Optional, Union, cast
+from typing import Any, Dict, Optional, Union, cast
 
 import numpy as np
 import torch
@@ -21,10 +21,6 @@ from sklearn.linear_model import LogisticRegression  # type: ignore
 
 from torchregress.losses.conformal import _weighted_quantile
 from torchregress.prediction import PredictiveBatch
-
-ScoreMode = Literal["classification"]
-Objective = Literal["weighted_cdf"]
-WeightParameterization = Literal["free"]
 
 
 def _as_1d_scores(x: Union[torch.Tensor, Any], *, name: str) -> torch.Tensor:
@@ -123,27 +119,13 @@ class ScoreCDFReweighter:
     def __init__(
         self,
         *,
-        score_mode: ScoreMode = "classification",
-        objective: Objective = "weighted_cdf",
-        weight_parameterization: WeightParameterization = "free",
         entropy_penalty: float = 1e-3,
         n_grid: int = 129,
         n_steps: int = 200,
         learning_rate: float = 0.05,
     ) -> None:
-        if score_mode != "classification":
-            raise ValueError(f'score_mode must be "classification" in v1, got {score_mode!r}')
-        if objective != "weighted_cdf":
-            raise ValueError(f'objective must be "weighted_cdf" in v1, got {objective!r}')
-        if weight_parameterization != "free":
-            raise ValueError(
-                f'weight_parameterization must be "free" in v1, got {weight_parameterization!r}'
-            )
         if entropy_penalty < 0:
             raise ValueError("entropy_penalty must be non-negative")
-        self.score_mode = score_mode
-        self.objective = objective
-        self.weight_parameterization = weight_parameterization
         self.entropy_penalty = float(entropy_penalty)
         self.n_grid = int(n_grid)
         self.n_steps = int(n_steps)
@@ -418,12 +400,7 @@ class WeightedConformalRegressionAdapter:
         if self.scores_ is None or self.w_cal_ is None:
             raise RuntimeError("Adapter must be calibrated before calling predict_interval.")
 
-        is_numpy_input = isinstance(X, np.ndarray)
-
-        if not torch.is_tensor(X):
-            X_t = torch.as_tensor(X, dtype=torch.float32)
-        else:
-            X_t = X
+        X_t = torch.as_tensor(X)
 
         device = X_t.device
         dtype = X_t.dtype
@@ -485,11 +462,5 @@ class WeightedConformalRegressionAdapter:
 
         lower_bound = mean_test - width
         upper_bound = mean_test + width
-
-        if is_numpy_input:
-            return (
-                lower_bound.detach().cpu().numpy(),
-                upper_bound.detach().cpu().numpy(),
-            )
 
         return lower_bound, upper_bound

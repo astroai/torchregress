@@ -95,7 +95,7 @@ from torchregress.algorithms import iteratively_reweighted_least_squares
 # Lazy-loaded submodules
 losses = tr.losses            # tr.losses.WeightedHuberLoss(...)
 metrics = tr.metrics          # tr.metrics.mse(y_pred, y)
-ensemble = tr.ensemble        # tr.ensemble.DeepEnsemble(...)
+ensemble = tr.ensemble        # tr.ensemble.BaseEnsembleModel(...)
 calibration = tr.calibration  # tr.calibration.VarianceTemperatureScaler()
 viz = tr.viz                  # tr.viz.set_style(); tr.viz.plot_residuals(...)
 constraints = tr.constraints

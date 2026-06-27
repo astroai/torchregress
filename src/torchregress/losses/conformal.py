@@ -45,6 +45,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _to_1d(values: Tensor) -> Tensor:
+    if values.dim() == 1:
+        return values
+    return values.reshape(values.shape[0], -1).mean(dim=-1)
+
+
 def _weighted_quantile(
     scores: Tensor,
     q: float,
@@ -1588,12 +1594,6 @@ class DensityConformal(ConformalPredictor):
     def _density_normalizer(self, y_pred: Tensor, x: Tensor) -> Tensor:
         return x.clamp(min=self.min_density).sqrt()
 
-    @staticmethod
-    def _to_1d(values: Tensor) -> Tensor:
-        if values.dim() == 1:
-            return values
-        return values.reshape(values.shape[0], -1).mean(dim=-1)
-
     def _kde_density_1d(self, query: Tensor, reference: Tensor) -> Tensor:
         q = query.reshape(-1, 1)
         r = reference.reshape(1, -1)
@@ -1631,7 +1631,7 @@ class DensityConformal(ConformalPredictor):
         x: Optional[Tensor] = None,
         density: Optional[Tensor] = None,
     ) -> None:
-        target_1d = self._to_1d(target.detach())
+        target_1d = _to_1d(target.detach())
         if mask is not None:
             mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
             target_1d = target_1d[mask_1d]
@@ -1663,7 +1663,7 @@ class DensityConformal(ConformalPredictor):
     ) -> Tuple[Tensor, Tensor]:
         if density is None and self.adapt_prediction:
             if self._reference_target_1d is not None:
-                pred_1d = self._to_1d(y_pred.detach())
+                pred_1d = _to_1d(y_pred.detach())
                 ref = self._reference_target_1d.to(y_pred.device)
                 density = self._kde_density_1d(pred_1d, ref)
         if density is None:
@@ -1702,12 +1702,6 @@ class PrevalenceAdjustedCP(ConformalPredictor):
         self.min_group_size = min_group_size
         self._bin_edges: Optional[Tensor] = None
 
-    @staticmethod
-    def _to_1d(values: Tensor) -> Tensor:
-        if values.dim() == 1:
-            return values
-        return values.reshape(values.shape[0], -1).mean(dim=-1)
-
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
         scores = torch.abs(y_pred - target)
         if scores.dim() > 1:
@@ -1723,7 +1717,7 @@ class PrevalenceAdjustedCP(ConformalPredictor):
         return y_pred - q, y_pred + q
 
     def _auto_groups_from_target(self, target: Tensor) -> Tensor:
-        target_1d = self._to_1d(target.detach())
+        target_1d = _to_1d(target.detach())
         quantiles = torch.linspace(0.0, 1.0, self.n_bins + 1, device=target.device)
         edges = torch.quantile(target_1d, quantiles)
         # Ensure strictly increasing edges for bucketize.
@@ -1801,7 +1795,7 @@ class PrevalenceAdjustedCP(ConformalPredictor):
         if groups is None:
             if self._bin_edges is None:
                 raise ValueError("groups must be provided when no calibration bin edges exist")
-            pred_1d = self._to_1d(y_pred.detach())
+            pred_1d = _to_1d(y_pred.detach())
             edges = self._bin_edges.to(y_pred.device)
             groups = torch.bucketize(pred_1d, edges[1:-1])
 
@@ -1979,22 +1973,6 @@ class ConformalLoss(RegressionLoss):
         else:
             self._predictor = SplitConformal(alpha=alpha, normalize_fn=normalize_fn)
 
-    @property
-    def _is_calibrated(self) -> bool:
-        return self._predictor._is_calibrated
-
-    @_is_calibrated.setter
-    def _is_calibrated(self, value: bool) -> None:
-        self._predictor._is_calibrated = value
-
-    @property
-    def q_hat(self) -> Optional[Union[Tensor, Dict[Any, Tensor]]]:
-        return self._predictor.q_hat
-
-    @q_hat.setter
-    def q_hat(self, value: Optional[Union[Tensor, Dict[Any, Tensor]]]) -> None:
-        self._predictor.q_hat = value
-
     def forward(
         self,
         y_pred: Tensor,
@@ -2058,95 +2036,6 @@ class ConformalLoss(RegressionLoss):
     ) -> Tuple[Tensor, Tensor]:
         """Predict intervals using the calibrated predictor."""
         return self._predictor.predict_interval(y_pred, groups=groups, x=x)
-
-
-def conformal_loss(
-    y_pred: Tensor,
-    target: Tensor,
-    mask: Optional[Tensor] = None,
-    weights: Optional[Tensor] = None,
-    method: str = "cqr",
-    alpha: float = 0.1,
-    reduction: str = "mean",
-) -> Tensor:
-    """Functional wrapper for :class:`ConformalLoss`.
-
-    Equivalent to instantiating :class:`ConformalLoss` and calling
-    ``forward``, but avoids the module boilerplate for one-off uses.
-
-    Args:
-        y_pred: Model predictions (point predictions for ``'split'``;
-            ``[lower, upper]`` for ``'cqr'`` / ``'uacqr'``).
-        target: Ground truth.
-        mask: Optional boolean mask of valid samples.
-        weights: Optional per-sample weights.
-        method: ``'split'`` (MSE training loss) or ``'cqr'`` (pinball loss).
-        alpha: Miscoverage rate (only used to set the pinball quantiles).
-        reduction: ``'mean'`` | ``'sum'`` | ``'none'``.
-
-    Returns:
-        Training loss value.
-    """
-    return ConformalLoss(method=method, alpha=alpha, reduction=reduction)(
-        y_pred, target, mask=mask, weights=weights
-    )
-
-
-@register_regression_loss("multidim_conformal")
-class MultiDimensionalConformalLoss(ConformalLoss):
-    """Multi-dimensional conformal prediction for multi-output regression.
-
-    Calibrates separate thresholds per output dimension for tighter
-    intervals than a single global threshold.
-    """
-
-    def __init__(
-        self,
-        alpha: float = 0.1,
-        reduction: str = "mean",
-    ) -> None:
-        # Initialize RegressionLoss directly (skip ConformalLoss __init__)
-        RegressionLoss.__init__(self, reduction=reduction)
-        self.method = "split"
-        self.alpha = alpha
-        self._predictor: ConformalPredictor
-        self._predictor = MultiTargetConformal(alpha=alpha)
-
-    def forward(
-        self,
-        y_pred: Tensor,
-        target: Tensor,
-        mask: Optional[Tensor] = None,
-        weights: Optional[Tensor] = None,
-        **kwargs: Any,
-    ) -> Tensor:
-        """MSE training loss."""
-        self._validate_inputs(y_pred, target, mask)
-        loss = (y_pred - target) ** 2
-        return self._reduce_with_mask(loss, mask, weights)
-
-    def calibrate(
-        self,
-        y_pred: Tensor,
-        target: Tensor,
-        mask: Optional[Tensor] = None,
-        *,
-        groups: Optional[Tensor] = None,
-        weights: Optional[Tensor] = None,
-        x: Optional[Tensor] = None,
-    ) -> None:
-        """Calibrate per-dimension thresholds."""
-        self._predictor.calibrate(y_pred, target, mask=mask)
-
-    def predict_interval(
-        self,
-        y_pred: Tensor,
-        *,
-        groups: Optional[Tensor] = None,
-        x: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
-        """Return per-dimension calibrated intervals."""
-        return self._predictor.predict_interval(y_pred)
 
 
 class SLSConformal(LevelSetConformalPredictor):

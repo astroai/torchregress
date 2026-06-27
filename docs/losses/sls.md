@@ -246,4 +246,4 @@ with torch.no_grad():
 
 | # | Reference |
 |:-:|:----------|
-| 1 | S. Braun, M.I. Jordan, F. Bach. "Super-Level-Set Regression: Conditional Quantiles via Volume Minimization." *arXiv:2605.06210*, **2026**. |
+| 1 | S. Braun, M.I. Jordan, F. Bach. ["Super-Level-Set Regression: Conditional Quantiles via Volume Minimization."](https://arxiv.org/abs/2605.06210) *arXiv:2605.06210*, **2026**. |

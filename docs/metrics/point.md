@@ -285,6 +285,15 @@ See also: [tail_mae](../api/metrics.md) and [tail_rmse](../api/metrics.md).
 - **For imbalanced targets**: Use tail metrics (`tail_mae`, `tail_rmse`) to evaluate performance on extreme target regions. See [Imbalanced regression](../losses/imbalanced.md).
 - **[regression_metrics_report](../api/metrics.md)** provides a comprehensive dict of all point metrics in one call.
 
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Huber, P. J. (1964). Robust Estimation of a Location Parameter. *Annals of Mathematical Statistics*, 35(1), 73–101. |
+| 2 | Theil, H. (1958). *Economic Forecasts and Policy*. North-Holland. |
+| 3 | Willmott, C. J. & Matsuura, K. (2005). Advantages of the Mean Absolute Error over the Root Mean Square Error. *Atmospheric Research*, 80(1), 79–93. |
+| 4 | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
+
 ## Next steps
 
 - [Interval metrics](interval.md) — evaluate prediction interval coverage and width alongside point accuracy

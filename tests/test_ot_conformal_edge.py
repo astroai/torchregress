@@ -177,21 +177,6 @@ class TestOptimalTransportCoverageGapEdge:
 
 
 class TestScoreCDFReweighterEdge:
-    def test_invalid_score_mode(self) -> None:
-        """Invalid score mode."""
-        with pytest.raises(ValueError, match="score_mode"):
-            ScoreCDFReweighter(score_mode="regression")  # type: ignore[arg-type]
-
-    def test_invalid_objective(self) -> None:
-        """Invalid objective."""
-        with pytest.raises(ValueError, match="objective"):
-            ScoreCDFReweighter(objective="l2")  # type: ignore[arg-type]
-
-    def test_invalid_weight_parameterization(self) -> None:
-        """Invalid weight parameterization."""
-        with pytest.raises(ValueError, match="weight_parameterization"):
-            ScoreCDFReweighter(weight_parameterization="simplex")  # type: ignore[arg-type]
-
     def test_negative_entropy_penalty(self) -> None:
         """Negative entropy penalty."""
         with pytest.raises(ValueError, match="entropy_penalty"):

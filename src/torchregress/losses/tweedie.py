@@ -166,7 +166,7 @@ class TweedieLoss(RegressionLoss):
         Returns:
             Loss tensor
         """
-        return (target - mu) ** 2 / (target * mu**2 + self.eps)
+        return 0.5 * (target - mu) ** 2 / (target * mu**2 + self.eps)
 
     def _compound_poisson_loss(self, target: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:
         """
@@ -183,15 +183,15 @@ class TweedieLoss(RegressionLoss):
         p1 = 1.0 - self.p
         p2 = 2.0 - self.p
 
-        # For target == 0
-        loss_zero = 2.0 * (mu**p2) / p2
+        # For target == 0 (half-unit-deviance)
+        loss_zero = (mu**p2) / p2
 
         # For target > 0 (avoid negative base raised to fraction in target ** p2)
         target_safe = torch.where(target > 0, target, torch.ones_like(target))
         term1 = (target_safe**p2) / (p1 * p2)
         term2 = target * (mu**p1) / p1
         term3 = (mu**p2) / p2
-        loss_nz = 2.0 * (term1 - term2 + term3)
+        loss_nz = term1 - term2 + term3
 
         return torch.where(target == 0, loss_zero, loss_nz)
 

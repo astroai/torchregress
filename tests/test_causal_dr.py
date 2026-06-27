@@ -41,8 +41,8 @@ def test_dr_ate_runs_and_returns_ci() -> None:
         alpha=0.05,
         seed=2,
     )
-    assert "estimate" in out and "ci_low" in out and "ci_high" in out
-    assert "ci_lower" in out and "ci_upper" in out
+    assert "estimate" in out and "ci_lower" in out and "ci_upper" in out
+    assert "ci_low" in out and "ci_high" in out
     assert out["ci_low"] == out["ci_lower"]
     assert out["ci_high"] == out["ci_upper"]
     assert out["ci_low"] <= out["estimate"] <= out["ci_high"]

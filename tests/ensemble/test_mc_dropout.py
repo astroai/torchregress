@@ -8,9 +8,7 @@ import torch
 import torch.nn as nn
 
 from torchregress.ensemble.mc_dropout import (
-    MCDropoutModel,
     MCDropoutWrapper,
-    disable_dropout,
     enable_dropout,
 )
 
@@ -40,15 +38,6 @@ class TestEnableDisableDropout:
         for module in model.modules():
             if isinstance(module, nn.Dropout):
                 assert module.training
-
-    def test_disable_dropout_sets_eval_mode(self) -> None:
-        """disable_dropout sets all Dropout layers to eval mode."""
-        model = _make_dropout_model()
-        model.train()  # start in train mode
-        disable_dropout(model)
-        for module in model.modules():
-            if isinstance(module, nn.Dropout):
-                assert not module.training
 
     def test_enable_dropout_ignores_non_dropout(self) -> None:
         """Non-Dropout layers are unaffected by enable/disable."""
@@ -185,29 +174,60 @@ class TestMCDropoutWrapperPredict:
 class TestMCDropoutModelInit:
     def test_default_construction(self) -> None:
         """Default dropout_rate=0.2, n_samples=30."""
-        model = MCDropoutModel(input_dim=4, hidden_dims=[8], output_dim=1)
-        assert model.dropout_rate == 0.2
+        model = MCDropoutWrapper(
+            nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.2), nn.Linear(8, 1)),
+            n_samples=30,
+        )
+        for module in model.model.modules():
+            if isinstance(module, nn.Dropout):
+                assert module.p == 0.2
         assert model.n_samples == 30
 
     def test_custom_params(self) -> None:
         """Custom dropout_rate and n_samples stored."""
-        model = MCDropoutModel(
-            input_dim=4, hidden_dims=[16, 8], output_dim=2, dropout_rate=0.4, n_samples=50
+        model = MCDropoutWrapper(
+            nn.Sequential(
+                nn.Linear(4, 16),
+                nn.ReLU(),
+                nn.Dropout(0.4),
+                nn.Linear(16, 8),
+                nn.ReLU(),
+                nn.Dropout(0.4),
+                nn.Linear(8, 2),
+            ),
+            dropout_rate=0.4,
+            n_samples=50,
         )
-        assert model.dropout_rate == 0.4
+        for module in model.model.modules():
+            if isinstance(module, nn.Dropout):
+                assert module.p == 0.4
         assert model.n_samples == 50
 
     def test_has_dropout_layers(self) -> None:
         """Model includes Dropout layers between hidden layers."""
-        model = MCDropoutModel(input_dim=4, hidden_dims=[16, 8], output_dim=1)
-        dropout_count = sum(1 for m in model.modules() if isinstance(m, nn.Dropout))
+        model = MCDropoutWrapper(
+            nn.Sequential(
+                nn.Linear(4, 16),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(16, 8),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(8, 1),
+            ),
+            n_samples=30,
+        )
+        dropout_count = sum(1 for m in model.model.modules() if isinstance(m, nn.Dropout))
         assert dropout_count == 2  # one per hidden layer
 
 
 class TestMCDropoutModelForward:
     def test_forward_shape(self) -> None:
         """Forward returns [batch, out]."""
-        model = MCDropoutModel(input_dim=4, hidden_dims=[8], output_dim=2)
+        model = MCDropoutWrapper(
+            nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.2), nn.Linear(8, 2)),
+            n_samples=30,
+        )
         x = torch.randn(8, 4)
         out = model(x)
         assert out.shape == (8, 2)
@@ -216,22 +236,30 @@ class TestMCDropoutModelForward:
 class TestMCDropoutModelMCForward:
     def test_mc_forward_shape(self) -> None:
         """MC forward returns [n_samples, batch, out]."""
-        model = MCDropoutModel(input_dim=4, hidden_dims=[8], output_dim=1, n_samples=10)
+        model = MCDropoutWrapper(
+            nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.2), nn.Linear(8, 1)),
+            n_samples=10,
+        )
         x = torch.randn(4, 4)
         out = model.mc_forward(x)
         assert out.shape == (10, 4, 1)
 
     def test_mc_forward_custom_n_samples(self) -> None:
         """Custom n_samples overrides default."""
-        model = MCDropoutModel(input_dim=4, hidden_dims=[8], output_dim=1, n_samples=10)
+        model = MCDropoutWrapper(
+            nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.2), nn.Linear(8, 1)),
+            n_samples=10,
+        )
         x = torch.randn(4, 4)
         out = model.mc_forward(x, n_samples=3)
         assert out.shape == (3, 4, 1)
 
     def test_mc_forward_produces_variance(self) -> None:
         """MC samples should vary."""
-        model = MCDropoutModel(
-            input_dim=4, hidden_dims=[8], output_dim=1, dropout_rate=0.5, n_samples=20
+        model = MCDropoutWrapper(
+            nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.5), nn.Linear(8, 1)),
+            dropout_rate=0.5,
+            n_samples=20,
         )
         x = torch.randn(2, 4)
         samples = model.mc_forward(x)
@@ -242,7 +270,10 @@ class TestMCDropoutModelMCForward:
 class TestMCDropoutModelPredict:
     def test_predict_with_uncertainty_shapes(self) -> None:
         """Returns (mean, std) with correct shapes."""
-        model = MCDropoutModel(input_dim=4, hidden_dims=[8], output_dim=1, n_samples=10)
+        model = MCDropoutWrapper(
+            nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.2), nn.Linear(8, 1)),
+            n_samples=10,
+        )
         x = torch.randn(4, 4)
         mean, std = model.predict_with_uncertainty(x)
         assert mean.shape == (4, 1)
@@ -250,7 +281,10 @@ class TestMCDropoutModelPredict:
 
     def test_predict_interval_shapes(self) -> None:
         """Returns (lower, upper) and lower <= upper."""
-        model = MCDropoutModel(input_dim=4, hidden_dims=[8], output_dim=1, n_samples=10)
+        model = MCDropoutWrapper(
+            nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Dropout(0.2), nn.Linear(8, 1)),
+            n_samples=10,
+        )
         x = torch.randn(4, 4)
         lower, upper = model.predict_interval(x)
         assert lower.shape == (4, 1)

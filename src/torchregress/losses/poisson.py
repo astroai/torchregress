@@ -406,7 +406,7 @@ class NegativeBinomialNLLLoss(RegressionLoss):
 
         # Using log-probability formulation:
         log_theta = torch.log(theta_value + self.eps)
-        logit_p = log_theta - torch.log(mu + theta_value + self.eps)  # logit(p) = log(p/(1-p))
+        logit_p = log_theta - torch.log(mu + self.eps)  # logit(p) = log(θ/μ) → p = θ/(θ+μ)
         p = torch.sigmoid(logit_p)  # p = θ/(θ+μ)
 
         # Compute log factorial using Stirling's approximation for large values

@@ -8,7 +8,7 @@ These utilities are used throughout the library to provide consistent
 error checking and helpful error messages.
 """
 
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import torch
 
@@ -45,50 +45,6 @@ def validate_reduction(reduction: str, valid_reductions: Optional[list] = None) 
         raise ValueError(f"reduction must be one of {valid_reductions}, got {reduction}")
 
     return reduction
-
-
-def validate_shape(
-    tensor: torch.Tensor, expected_shape: tuple, param_name: str, allow_broadcast: bool = True
-) -> torch.Tensor:
-    """
-    Validate that a tensor has the expected shape.
-
-    Args:
-        tensor: Tensor to validate
-        expected_shape: Expected shape (can contain None for any size)
-        param_name: Name of parameter (for error messages)
-        allow_broadcast: Whether broadcasting dimensions are allowed
-
-    Returns:
-        Input tensor if valid
-
-    Raises:
-        ValueError: If tensor shape is invalid
-
-    Examples:
-        >>> x = torch.randn(3, 4)
-        >>> validate_shape(x, (3, 4), "x")
-        tensor(...)
-        >>> validate_shape(x, (3, None), "x")
-        tensor(...)
-        >>> validate_shape(x, (2, 4), "x")
-        Traceback (most recent call last):
-            ...
-        ValueError: x has shape torch.Size([3, 4]), expected (2, 4)
-    """
-    if len(tensor.shape) != len(expected_shape):
-        raise ValueError(
-            f"{param_name} has {len(tensor.shape)} dimensions, expected {len(expected_shape)}"
-        )
-
-    for i, (actual, expected) in enumerate(zip(tensor.shape, expected_shape)):
-        if expected is not None:
-            if actual != expected:
-                if not allow_broadcast or actual != 1:
-                    raise ValueError(
-                        f"{param_name} has shape {tensor.shape}, expected {expected_shape}"
-                    )
-    return tensor
 
 
 def validate_positive(
@@ -185,31 +141,6 @@ def validate_range(
     return value
 
 
-def validate_integer(tensor: torch.Tensor, name: str = "tensor") -> torch.Tensor:
-    """
-    Validate that a tensor has an integer dtype.
-
-    Args:
-        tensor: Tensor to validate
-        name: Name of the tensor for error messages
-
-    Returns:
-        The validated tensor
-
-    Raises:
-        ValueError: If tensor does not have an integer dtype
-    """
-    if not tensor.dtype.is_floating_point:
-        return tensor
-
-    if not torch.allclose(tensor, tensor.round()):
-        raise ValueError(
-            f"{name} must contain only integer values, got tensor with non-integer values"
-        )
-
-    return tensor.to(torch.int64)
-
-
 def validate_quantile(q: Union[float, torch.Tensor]) -> torch.Tensor:
     """
     Validate quantile level(s) and convert to tensor.
@@ -220,90 +151,6 @@ def validate_quantile(q: Union[float, torch.Tensor]) -> torch.Tensor:
     if q_min < 0.0 or q_max > 1.0:
         raise ValueError(f"Quantile(s) must be in range [0, 1], got {q_min} to {q_max}")
     return q
-
-
-def validate_batch_consistency(
-    tensors: List[torch.Tensor], names: Optional[List[str]] = None
-) -> None:
-    """
-    Validates that all tensors have the same batch dimension.
-
-    Args:
-        tensors: List of tensors to validate
-        names: Names of the tensors for error messages
-
-    Raises:
-        ValueError: If tensors have inconsistent batch dimensions
-
-    Examples:
-        >>> a = torch.randn(3, 4)
-        >>> b = torch.randn(3, 5)
-        >>> validate_batch_consistency([a, b])  # No error, same batch size
-        >>> c = torch.randn(5, 4)
-        >>> validate_batch_consistency([a, c])
-        Traceback (most recent call last):
-            ...
-        ValueError: Batch size mismatch: tensor_0 has batch size 3, but tensor_1 has batch size 5
-    """
-    if not tensors:
-        return
-
-    if names is None:
-        names = [f"tensor_{i}" for i in range(len(tensors))]
-
-    batch_size = tensors[0].shape[0]
-
-    for tensor, name in zip(tensors[1:], names[1:]):
-        if tensor.shape[0] != batch_size:
-            raise ValueError(
-                f"Batch size mismatch: {names[0]} has batch size {batch_size}, "
-                f"but {name} has batch size {tensor.shape[0]}"
-            )
-
-
-def validate_same_device(
-    tensors: List[torch.Tensor], names: Optional[List[str]] = None
-) -> torch.device:
-    """
-    Validates that all tensors are on the same device.
-
-    Args:
-        tensors: List of tensors to validate
-        names: Names of the tensors for error messages
-
-    Returns:
-        The common device of all tensors
-
-    Raises:
-        ValueError: If tensors are on different devices
-
-    Examples:
-        >>> a = torch.randn(3, 4)
-        >>> b = torch.randn(2, 5)
-        >>> validate_same_device([a, b])  # Both on CPU
-        device(type='cpu')
-        >>> if torch.cuda.is_available():
-        ...     c = torch.randn(3, 4, device='cuda:0')
-        ...     validate_same_device([a, c])  # Error: different devices
-        Traceback (most recent call last):
-            ...
-        ValueError: Device mismatch: tensor_0 is on cpu, but tensor_1 is on cuda:0
-    """
-    if not tensors:
-        raise ValueError("No tensors provided")
-
-    if names is None:
-        names = [f"tensor_{i}" for i in range(len(tensors))]
-
-    device = tensors[0].device
-
-    for tensor, name in zip(tensors[1:], names[1:]):
-        if tensor.device != device:
-            raise ValueError(
-                f"Device mismatch: {names[0]} is on {device}, but {name} is on {tensor.device}"
-            )
-
-    return device
 
 
 def validate_weights(

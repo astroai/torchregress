@@ -75,14 +75,14 @@ class ExpectileLoss(RegressionLoss):
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
         >>> target = torch.tensor([0.0, 2.0, 4.0])
         >>> loss_fn(y_pred, target)
-        tensor(1.0000)  # Standard MSE at τ=0.5
+        tensor(0.6667)  # Standard MSE at τ=0.5
 
         >>> # 80th expectile (τ=0.8)
         >>> loss_fn = ExpectileLoss(expectile=0.8)
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
         >>> target = torch.tensor([0.0, 2.0, 4.0])
         >>> loss_fn(y_pred, target)
-        tensor(1.6000)  # Underestimation penalized 4x more than overestimation
+        tensor(0.6667)  # Symmetric residuals cancel the asymmetry in this example
 
     References
     ----------

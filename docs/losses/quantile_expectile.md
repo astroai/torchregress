@@ -216,7 +216,7 @@ loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)  # same as ExpectileLoss(0.75)
 - **Start with `QuantileCrossoverLoss`** — it prevents unphysical crossing of prediction bands at essentially no extra cost over `MultiQuantileLoss`.
 - **For probability guarantees**: Use `QuantileLoss` + wrap with [CQR](../methods/conformal/predictors.md) for finite-sample coverage.
 - **For smooth optimisation**: Use `ExpectileLoss` / `MultiExpectileLoss` when you need second-order optimisers (L-BFGS) or when downstream tasks use Expected Shortfall.
-- **Limit quantile grid size**: For $Q > 10$ quantiles, the output dimension $Q \cdot d$ grows quickly. Consider a parametric model (MDN, flow) for dense quantile grids. See the [Quantile & expectile demo](../examples/expectile_regression_demo.py).
+- **Limit quantile grid size**: For $Q > 10$ quantiles, the output dimension $Q \cdot d$ grows quickly. Consider a parametric model (MDN, flow) for dense quantile grids. See the [Quantile & expectile demo](../../examples/expectile_regression_demo.py).
 - **Monitor crossing frequency**: Even with crossover penalties, check how often $\hat{q}_{\tau_i} > \hat{q}_{\tau_j}$ for $\tau_i < \tau_j$ on validation data.
 
 ---

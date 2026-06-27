@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.ensemble import BaseEnsembleModel, DeepEnsemble, HeteroscedasticEnsembleModel
+from torchregress.ensemble import BaseEnsembleModel, HeteroscedasticEnsembleModel
 from torchregress.losses import GaussianNLLLoss
 
 
@@ -52,7 +52,7 @@ def test_deep_ensemble_fit_returns_member_histories_and_finite_losses() -> None:
     y = (x.sum(dim=1, keepdim=True) + 0.1 * torch.randn(16, 1)).detach()
     loader = DataLoader(TensorDataset(x, y), batch_size=4, shuffle=False)
 
-    ensemble = DeepEnsemble(_tiny_regressor(), ensemble_size=2)
+    ensemble = BaseEnsembleModel(_tiny_regressor(), ensemble_size=2)
     history = ensemble.fit(loader, nn.MSELoss(), epochs=1, lr=1e-2, verbose=False)
 
     assert "member_histories" in history
@@ -60,79 +60,6 @@ def test_deep_ensemble_fit_returns_member_histories_and_finite_losses() -> None:
     for member_history in history["member_histories"]:
         assert len(member_history) == 1
         assert torch.isfinite(torch.tensor(member_history[0]))
-
-
-def test_deep_ensemble_fit_supports_optional_adversarial_training() -> None:
-    torch.manual_seed(0)
-    x = torch.randn(16, 3)
-    y = (x.sum(dim=1, keepdim=True) + 0.1 * torch.randn(16, 1)).detach()
-    loader = DataLoader(TensorDataset(x, y), batch_size=4, shuffle=False)
-
-    ensemble = DeepEnsemble(_tiny_regressor(), ensemble_size=2)
-    history = ensemble.fit(
-        loader,
-        nn.MSELoss(),
-        epochs=1,
-        lr=1e-2,
-        verbose=False,
-        adversarial_training=True,
-        adversarial_epsilon=0.05,
-        adversarial_steps=2,
-        adversarial_loss_weight=0.5,
-        adversarial_random_start=True,
-    )
-
-    assert "member_histories" in history
-    assert "member_clean_histories" in history
-    assert "member_adversarial_histories" in history
-    assert len(history["member_histories"]) == 2
-    assert len(history["member_clean_histories"]) == 2
-    assert len(history["member_adversarial_histories"]) == 2
-    for member_history in history["member_histories"]:
-        assert len(member_history) == 1
-        assert torch.isfinite(torch.tensor(member_history[0]))
-    for member_history in history["member_adversarial_histories"]:
-        assert len(member_history) == 1
-        assert torch.isfinite(torch.tensor(member_history[0]))
-
-
-def test_deep_ensemble_fit_supports_batch_regularizer() -> None:
-    torch.manual_seed(0)
-    x = torch.randn(16, 3)
-    y = (x.sum(dim=1, keepdim=True) + 0.1 * torch.randn(16, 1)).detach()
-    w = torch.randn(16, 1)
-    loader = DataLoader(TensorDataset(x, y, w), batch_size=4, shuffle=False)
-
-    def reg(pred: torch.Tensor, extra: tuple[torch.Tensor, ...]) -> torch.Tensor:
-        assert len(extra) == 1
-        return 0.01 * (pred * extra[0]).mean()
-
-    ensemble = DeepEnsemble(_tiny_regressor(), ensemble_size=2)
-    history = ensemble.fit(
-        loader,
-        nn.MSELoss(),
-        epochs=1,
-        lr=1e-2,
-        verbose=False,
-        batch_regularizer=reg,
-    )
-    assert len(history["member_histories"]) == 2
-
-    loader_plain = DataLoader(TensorDataset(x, y), batch_size=4, shuffle=False)
-
-    def reg_no_extra(pred: torch.Tensor, extra: tuple[torch.Tensor, ...]) -> torch.Tensor:
-        assert len(extra) == 0
-        return 0.001 * pred.abs().mean()
-
-    ensemble2 = DeepEnsemble(_tiny_regressor(), ensemble_size=1)
-    ensemble2.fit(
-        loader_plain,
-        nn.MSELoss(),
-        epochs=1,
-        lr=1e-2,
-        verbose=False,
-        batch_regularizer=reg_no_extra,
-    )
 
 
 def test_deep_ensemble_fit_supports_optimizer_factory_tuple() -> None:
@@ -150,7 +77,7 @@ def test_deep_ensemble_fit_supports_optimizer_factory_tuple() -> None:
             torch.optim.Adam(plist[2:], lr=lr),
         )
 
-    ensemble = DeepEnsemble(_tiny_regressor(), ensemble_size=2)
+    ensemble = BaseEnsembleModel(_tiny_regressor(), ensemble_size=2)
     history = ensemble.fit(
         loader,
         nn.MSELoss(),
@@ -172,7 +99,7 @@ def test_deep_ensemble_fit_supports_optimizer_kwargs() -> None:
     y = (x.sum(dim=1, keepdim=True) + 0.1 * torch.randn(16, 1)).detach()
     loader = DataLoader(TensorDataset(x, y), batch_size=4, shuffle=False)
 
-    ensemble = DeepEnsemble(_tiny_regressor(), ensemble_size=2)
+    ensemble = BaseEnsembleModel(_tiny_regressor(), ensemble_size=2)
     history = ensemble.fit(
         loader,
         nn.MSELoss(),
@@ -251,28 +178,4 @@ def test_heteroscedastic_ensemble_full_covariance_handles_concatenated_outputs()
     assert torch.all(torch.diagonal(result["aleatoric_covariance"], dim1=-2, dim2=-1) >= 0)
 
 
-def test_heteroscedastic_ensemble_fit_supports_adversarial_training() -> None:
-    torch.manual_seed(0)
-    x = torch.randn(16, 3)
-    y = (x[:, :1] - 0.25 * x[:, 1:2] + 0.05 * torch.randn(16, 1)).detach()
-    loader = DataLoader(TensorDataset(x, y), batch_size=4, shuffle=False)
 
-    ensemble = HeteroscedasticEnsembleModel(
-        _TupleHeteroscedasticRegressor(input_dim=3, output_dim=1),
-        ensemble_size=2,
-    )
-    history = ensemble.fit(
-        loader,
-        GaussianNLLLoss(),
-        epochs=1,
-        lr=1e-2,
-        verbose=False,
-        adversarial_training=True,
-        adversarial_epsilon=0.05,
-        adversarial_steps=1,
-    )
-
-    assert "member_adversarial_histories" in history
-    assert len(history["member_adversarial_histories"]) == 2
-    for member_history in history["member_histories"]:
-        assert torch.isfinite(torch.tensor(member_history[0]))

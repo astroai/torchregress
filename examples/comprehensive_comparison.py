@@ -33,7 +33,7 @@ from torchregress.metrics import (
     ensemble_std,
     ensemble_variance_decomposition,
 )
-from torchregress.utils import set_seed
+from torchregress.utils import set_all_seeds as set_seed
 
 # ============================================================================
 # Data Generation

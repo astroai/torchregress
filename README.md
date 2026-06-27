@@ -89,8 +89,8 @@ with torch.no_grad():
     out = model(x_val)
     mu, logvar = out[:, 0], out[:, 1]
     std = torch.exp(0.5 * logvar)
-    val_crps = crps_gaussian(mu, std, y_val).mean()
-    print(f"Validation CRPS: {val_crps.item():.4f}")
+    val_crps = crps_gaussian(mu, std, y_val)
+    print(f"Validation CRPS: {val_crps:.4f}")
 ```
 
 ### 2. Non-Parametric Quantile Regression
@@ -99,14 +99,14 @@ Estimate multiple target quantiles simultaneously with crossover penalties to pr
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import QuantileLoss, QuantileCrossoverLoss
+from torchregress.losses import MultiQuantileLoss, QuantileCrossoverLoss
 
 # Predict 3 quantiles: 10%, 50%, 90%
 quantiles = [0.1, 0.5, 0.9]
 model = nn.Sequential(nn.Linear(10, 32), nn.ReLU(), nn.Linear(32, 3))
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-pinball_loss = QuantileLoss(quantiles=quantiles)
+pinball_loss = MultiQuantileLoss(quantiles=quantiles)
 crossover_penalty = QuantileCrossoverLoss(quantiles=quantiles)
 
 # Training loop
@@ -129,15 +129,18 @@ from torchregress.losses import SplitConformal
 base_model.eval()
 
 # Calibrate conformal thresholds
-conformal = SplitConformal(base_model)
+conformal = SplitConformal(alpha=0.1)
 x_cal = torch.randn(200, 10)  # Calibration features
 y_cal = torch.randn(200, 1)   # Calibration targets
-conformal.calibrate(x_cal, y_cal)
+with torch.no_grad():
+    y_cal_pred = base_model(x_cal)
+conformal.calibrate(y_cal_pred, y_cal)
 
 # Predict 90% prediction intervals on new test targets
 x_test = torch.randn(10, 10)
-intervals = conformal.predict_interval(x_test, alpha=0.1)
-# intervals contains lower and upper bounds of shape [10, 2]
+with torch.no_grad():
+    y_test_pred = base_model(x_test)
+lower, upper = conformal.predict_interval(y_test_pred)
 ```
 
 ---

@@ -627,59 +627,6 @@ def test_censored_regression_realdata_comparison_writes_summary_json(tmp_path: P
         _assert_non_negative(row["eval_s"])
 
 
-def test_propensity_tail_regression_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("propensity_tail_regression_comparison")
-    out = tmp_path / "propensity_tail_summary.json"
-    cfg = mod.PropensityTailConfig(
-        n_train_pool=256,
-        n_test=96,
-        hidden=12,
-        epochs=2,
-        batch_size=32,
-    )
-    mod.main(cfg, summary_json_path=str(out))
-    _assert_summary_schema(
-        out,
-        task_substring="selection bias",
-        required_methods={
-            "MSE",
-            "DensityWeighted",
-            "PropensityWeighted",
-            "GaussianNLL",
-            "Quantile90",
-        },
-    )
-    payload = _load_payload(out)
-    rows = _rows_by_method(payload)
-    for method in ("MSE", "DensityWeighted", "PropensityWeighted", "GaussianNLL", "Quantile90"):
-        row = rows[method]
-        _assert_row_has_keys(
-            row,
-            [
-                "MAE",
-                "TailMAE90",
-                "TailRMSE90",
-                "NativeCov90",
-                "NativeWidth90",
-                "TailCov90",
-                "ObservedRate",
-                "train_s",
-                "eval_s",
-                "Notes",
-            ],
-        )
-        _assert_non_negative(row["MAE"])
-        _assert_non_negative(row["TailMAE90"])
-        _assert_non_negative(row["TailRMSE90"])
-        _assert_probability(row["ObservedRate"])
-        _assert_non_negative(row["train_s"])
-        _assert_non_negative(row["eval_s"])
-        if method in {"GaussianNLL", "Quantile90"}:
-            _assert_probability(row["NativeCov90"])
-            _assert_non_negative(row["NativeWidth90"])
-            _assert_probability(row["TailCov90"])
-
-
 def test_constraints_calibration_comparison_writes_summary_json(tmp_path: Path) -> None:
     mod = _load_example_module("constraints_calibration_comparison")
     out = tmp_path / "constraints_calibration_summary.json"

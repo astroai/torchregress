@@ -131,7 +131,8 @@ class HuberMetric(Metric):
         validate_inputs(y_pred, y_true)
 
         abs_error = torch.abs(y_true - y_pred)
-        quadratic = torch.min(abs_error, torch.tensor(self.delta))
+        delta_t = torch.tensor(self.delta, device=abs_error.device, dtype=abs_error.dtype)
+        quadratic = torch.min(abs_error, delta_t)
         linear = abs_error - quadratic
         loss = 0.5 * quadratic**2 + self.delta * linear
 
@@ -350,19 +351,6 @@ def mean_squared_error(
     return cast(MetricValue, create_metric_result(result, as_numpy=False))
 
 
-def mse(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    reduction: str = "mean",
-    as_numpy: bool = False,
-) -> MetricValue:
-    """Alias for :func:`mean_squared_error`."""
-    return mean_squared_error(
-        y_pred, y_true, sample_weight=sample_weight, reduction=reduction, as_numpy=as_numpy
-    )
-
-
 def rmse(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -437,19 +425,6 @@ def mean_absolute_error(
     if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
         return cast(MetricValue, create_metric_result(result, as_numpy=True))
     return cast(MetricValue, create_metric_result(result, as_numpy=False))
-
-
-def mae(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    sample_weight: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    reduction: str = "mean",
-    as_numpy: bool = False,
-) -> MetricValue:
-    """Alias for :func:`mean_absolute_error`."""
-    return mean_absolute_error(
-        y_pred, y_true, sample_weight=sample_weight, reduction=reduction, as_numpy=as_numpy
-    )
 
 
 def attenuation_factor(
@@ -764,33 +739,6 @@ def regression_metrics_report(
     )
 
 
-def normalized_median_absolute_deviation(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    normalization: str = "median",
-    as_numpy: bool = False,
-) -> MetricValue:
-    """Functional wrapper for normalized median absolute deviation (NMAD)."""
-    metric = NormalizedMedianAbsoluteDeviation(normalization=normalization)
-    metric.update(convert_to_tensor(y_pred), convert_to_tensor(y_true))
-    result = metric.compute()
-    return cast(MetricValue, create_metric_result(result, as_numpy=as_numpy))
-
-
-def outlier_fraction(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    threshold: float = 0.15,
-    mode: str = "relative",
-    as_numpy: bool = False,
-) -> MetricValue:
-    """Functional wrapper for :class:`OutlierFraction`."""
-    metric = OutlierFraction(threshold=threshold, mode=mode)
-    metric.update(convert_to_tensor(y_pred), convert_to_tensor(y_true))
-    result = metric.compute()
-    return cast(MetricValue, create_metric_result(result, as_numpy=as_numpy))
-
-
 def r2_score(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
@@ -802,57 +750,3 @@ def r2_score(
     validate_inputs(y_pred_t, y_true_t)
     result = R2Score()(y_pred_t, y_true_t)
     return cast(MetricValue, create_metric_result(result, as_numpy=as_numpy))
-
-
-def explained_variance_score(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    as_numpy: bool = False,
-) -> MetricValue:
-    """
-    Functional explained variance score.
-
-    EVS = 1 - Var(y - y_pred) / Var(y)
-    """
-    y_pred_t = convert_to_tensor(y_pred)
-    y_true_t = convert_to_tensor(y_true)
-    validate_inputs(y_pred_t, y_true_t)
-    diff = y_true_t - y_pred_t
-    var_y = torch.var(y_true_t.reshape(-1), unbiased=False)
-    var_diff = torch.var(diff.reshape(-1), unbiased=False)
-    if var_y <= 1e-12:
-        result = torch.tensor(float("nan"), device=y_true_t.device, dtype=y_true_t.dtype)
-    else:
-        result = 1.0 - var_diff / var_y
-    return cast(MetricValue, create_metric_result(result, as_numpy=as_numpy))
-
-
-def mean_absolute_percentage_error(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    eps: float = 1e-8,
-    as_numpy: bool = False,
-) -> MetricValue:
-    """Functional MAPE."""
-    y_pred_t = convert_to_tensor(y_pred)
-    y_true_t = convert_to_tensor(y_true)
-    validate_inputs(y_pred_t, y_true_t)
-    denom = torch.clamp(torch.abs(y_true_t), min=eps)
-    mape = torch.mean(torch.abs((y_true_t - y_pred_t) / denom))
-    return cast(MetricValue, create_metric_result(mape, as_numpy=as_numpy))
-
-
-def mean_squared_log_error(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    eps: float = 1e-8,
-    as_numpy: bool = False,
-) -> MetricValue:
-    """Functional MSLE for non-negative targets/predictions."""
-    y_pred_t = convert_to_tensor(y_pred)
-    y_true_t = convert_to_tensor(y_true)
-    validate_inputs(y_pred_t, y_true_t)
-    if torch.any(y_pred_t < 0) or torch.any(y_true_t < 0):
-        raise ValueError("mean_squared_log_error requires non-negative y_pred and y_true")
-    msle = torch.mean((torch.log1p(y_pred_t + eps) - torch.log1p(y_true_t + eps)) ** 2)
-    return cast(MetricValue, create_metric_result(msle, as_numpy=as_numpy))

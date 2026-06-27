@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sized
-from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -39,7 +38,7 @@ class NaturalHeteroscedasticHead(nn.Module):
         self.link_fn = link_fn
         self.linear = nn.Linear(in_features, 2 * out_features)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         out = self.linear(x)
         f1, f2 = torch.chunk(out, 2, dim=-1)
 
@@ -69,7 +68,7 @@ class NaturalReparamHead(nn.Module):
         super().__init__()
         self.link_fn = link_fn
 
-    def forward(self, f1: torch.Tensor, f2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, f1: torch.Tensor, f2: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.link_fn == "exp":
             var = torch.exp(-f2)
             mean = f1 * var
@@ -113,8 +112,8 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
         self.jitter = jitter
         self.is_fitted = False
 
-        self.register_buffer("post_var_weight", None)
-        self.register_buffer("post_var_bias", None)
+        self.register_buffer("post_var_weight", torch.tensor(0.0))
+        self.register_buffer("post_var_bias", torch.tensor(0.0))
 
     def _get_head_linear(self) -> nn.Linear:
         if hasattr(self.head, "linear") and isinstance(self.head.linear, nn.Linear):
@@ -130,7 +129,7 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
         train_loader: DataLoader,
         lr: float = 1e-3,
         epochs: int = 10,
-        device: Union[str, torch.device] = "cpu",
+        device: str | torch.device = "cpu",
     ) -> HeteroscedasticLaplaceRegressor:
         """
         Train the model parameters and compute the last-layer Laplace posterior.
@@ -239,7 +238,7 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
     def predict_distribution(
         self,
         x: torch.Tensor,
-        n_samples: Optional[int] = None,
+        n_samples: int | None = None,
     ) -> PredictiveBatch:
         """
         Predictive distribution using MC sampling from the last-layer Laplace posterior.

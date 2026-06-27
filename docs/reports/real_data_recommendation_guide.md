@@ -13,11 +13,11 @@ This guide is evidence-first and claim-bounded. It is generated from committed c
 
 _Generated provenance_: `tools/render_realdata_recommendation_guide.py:render_generated_section`
 _Source artifact_: `reports/comparative_evidence_matrix_latest.json`
-_Generated date_: `2026-06-24`
+_Generated date_: `2026-06-27`
 
 ## Evidence Band Summary
 
-- Synthetic only: `7`
+- Synthetic only: `6`
 - Real proxy: `9`
 - Decision-grade real-data: `0`
 
@@ -33,7 +33,6 @@ _Generated date_: `2026-06-24`
 |---|---|---|---|---|
 | Robust regression / outliers | `WeightedHuberLoss`, `PseudoHuberLoss`, `LogCoshLoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs broader real-domain coverage beyond synthetic and tabular comparison tasks. |
 | Imbalanced / rare-target regression | `DensityWeightedLoss`, `PropensityWeightedLoss`, `LDSLoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs additional real-data long-tail benchmarks beyond synthetic selection proxies. |
-| Selection bias / long-tail with missing labels | `PropensityWeightedLoss`, `DensityWeightedLoss`, `WeightedMSELoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs real-data selection-bias benchmarks beyond synthetic generation. |
 | Output constraints + post-hoc calibration transforms | `BoundedHead`, `NonCrossingSort`, `VarianceTemperatureScaler` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs additional domain benchmarks beyond synthetic stress tests. |
 | Target transforms for skewed regression | `WeightedMSELoss`, `LogTransformLoss`, `BoxCoxTransformLoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Needs real-data positive-target benchmarks beyond synthetic multiplicative-noise tasks. |
 | Semi-supervised regression / limited labels | `PseudoLabelConsistencyLoss`, `PseudoLabelNLL`, `WeightedMSELoss` | `Synthetic only` | Algorithmic feasibility only; no domain transfer claims. | Current evidence is one real-data proxy benchmark; add domain-native SSL regression tracks. |
@@ -42,7 +41,7 @@ _Generated date_: `2026-06-24`
 | Calibrated intervals / coverage | `ConformalLoss`, `QuantileLoss`, `GaussianNLLLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Coverage evidence now spans ensemble/SWAG/BNN base models; still needs multi-domain real-data calibration benchmarks under stronger shift. |
 | Ordinal regression / ordered targets | `OrdinalCrossEntropyLoss`, `CumulativeLinkLoss`, `CORALLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label datasets for stronger external validity. |
 | Censored / interval-censored regression | `CensoredGaussianNLLLoss`, `CensoredQuantileLoss`, `AFTLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Includes one real-data synthetic-censoring benchmark; needs naturally censored datasets for stronger external validity. |
-| OOD robustness / selective prediction | `DeepEnsemble`, `HeteroscedasticEnsembleModel`, `MCDropoutWrapper` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs multiple real-data OOD/selective benchmarks (beyond one covariate-shift proxy) for stronger external validity and regression tracking. |
+| OOD robustness / selective prediction | `BaseEnsembleModel`, `HeteroscedasticEnsembleModel`, `MCDropoutWrapper` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs multiple real-data OOD/selective benchmarks (beyond one covariate-shift proxy) for stronger external validity and regression tracking. |
 | Multimodal / multi-target non-Gaussian | `GaussianNLLLoss`, `MDNLoss`, `NormalizingFlowLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal targets on real covariates) and optional-dependency CI coverage for zuko flow runs. |
 | Noisy features / EIV | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs additional larger-scale/nonlinear real-data benchmarks (beyond Diabetes and one astronomical domain benchmark) for stronger external validity. |
 | Noisy labels / corruption | `WeightedHuberLoss`, `PseudoHuberLoss`, `LogCoshLoss` | `Real proxy` | Task-fit and transfer plausibility; avoid production-readiness claims. | Needs comparisons against explicit noisy-label algorithms (co-teaching / sample-weight meta-learning) if/when implemented, plus more than one real dataset for stronger external validity. |

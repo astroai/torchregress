@@ -15,11 +15,12 @@ from typing import Optional, Union
 import torch
 import torch.nn as nn
 
+from torchregress.utils.gaussian_output import variance_from_logvar
+
 from .layers import BatchEnsembleLinear
 from .models import (
     HeteroscedasticBatchEnsembleModel,
     _variance_across_members,
-    _variance_from_logvar,
 )
 
 
@@ -45,10 +46,6 @@ class BatchEnsembleOutput:
     aleatoric_variance: Optional[torch.Tensor]
     predictive_variance: torch.Tensor
     std_epistemic: torch.Tensor
-
-
-# Deprecated alias
-PackedEnsembleOutput = BatchEnsembleOutput
 
 
 class MeanOnlyBatchEnsembleModel(nn.Module):
@@ -150,7 +147,6 @@ class BatchEnsembleRegressor(nn.Module):
         if heteroscedastic:
             self._model = HeteroscedasticBatchEnsembleModel(
                 backbone,
-                feature_dim,
                 output_dim,
                 ensemble_size,
                 dev,
@@ -179,7 +175,7 @@ class BatchEnsembleRegressor(nn.Module):
         if self.heteroscedastic:
             means = out["means"]
             log_vars = out["log_vars"]
-            variances = _variance_from_logvar(log_vars)
+            variances = variance_from_logvar(log_vars)
             ensemble_mean = torch.mean(means, dim=1)
             aleatoric_var = torch.mean(variances, dim=1)
             epistemic_var = _variance_across_members(means, dim=1, correction=correction)
@@ -202,39 +198,4 @@ class BatchEnsembleRegressor(nn.Module):
             aleatoric_variance=None,
             predictive_variance=epistemic_var.clamp_min(1.0e-8),
             std_epistemic=torch.sqrt(epistemic_var.clamp_min(1.0e-8)),
-        )
-
-
-class PackedEnsembleRegressor(BatchEnsembleRegressor):
-    """
-    Deprecated alias for BatchEnsembleRegressor.
-    """
-
-    def __init__(
-        self,
-        backbone: nn.Module,
-        *,
-        feature_dim: int,
-        output_dim: int,
-        ensemble_size: int = 4,
-        heteroscedastic: bool = True,
-        alpha: float = 1.0,
-        device: Union[str, torch.device] = "cpu",
-    ) -> None:
-        import warnings
-
-        warnings.warn(
-            "PackedEnsembleRegressor is deprecated and will be removed in a future release. "
-            "Use BatchEnsembleRegressor instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(
-            backbone=backbone,
-            feature_dim=feature_dim,
-            output_dim=output_dim,
-            ensemble_size=ensemble_size,
-            heteroscedastic=heteroscedastic,
-            alpha=alpha,
-            device=device,
         )

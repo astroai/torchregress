@@ -25,16 +25,6 @@ _BARRON_ALPHA_EPS = 1e-6
 _BARRON_SCALE_EPS = 1e-8
 
 
-def _inverse_softplus(value: float) -> float:
-    """Stable inverse of softplus for positive scalars."""
-    return value + math.log(-math.expm1(-value))
-
-
-def _inverse_sigmoid(prob: float) -> float:
-    """Inverse of the logistic sigmoid on (0, 1)."""
-    return math.log(prob) - math.log1p(-prob)
-
-
 def _barron_elementwise(
     residuals: torch.Tensor,
     alpha: torch.Tensor | float,
@@ -222,10 +212,11 @@ class AdaptiveRobustLoss(RegressionLoss):
 
         alpha_prob = (alpha_init - alpha_min) / (alpha_max - alpha_min)
         alpha_prob = min(max(alpha_prob, _BARRON_ALPHA_EPS), 1.0 - _BARRON_ALPHA_EPS)
-        scale_raw = _inverse_softplus(scale_init - _BARRON_SCALE_EPS)
+        raw_scale = scale_init - _BARRON_SCALE_EPS
+        scale_raw = raw_scale + math.log(-math.expm1(-raw_scale))
 
         self._alpha_logits = nn.Parameter(
-            torch.tensor(_inverse_sigmoid(alpha_prob), dtype=torch.float32),
+            torch.tensor(math.log(alpha_prob) - math.log1p(-alpha_prob), dtype=torch.float32),
             requires_grad=learn_alpha,
         )
         self._scale_raw = nn.Parameter(

@@ -12,7 +12,6 @@ import torch
 
 from torchregress.utils.tensor_ops import (
     apply_mask,
-    batched_linalg_solve,
     calculate_gaussian_nll,
     calculate_propagated_variance,
     compute_model_gradients,
@@ -21,13 +20,8 @@ from torchregress.utils.tensor_ops import (
     masked_mean,
     masked_reduction,
     masked_sum,
-    prepare_covariance,
     prepare_cross_covariance,
     prepare_model_input_for_gradients,
-    prepare_param,
-    prepare_sigma,
-    standardize,
-    unstandardize,
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -261,165 +255,6 @@ class TestMaskedSum:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# prepare_param
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestPrepareParam:
-    def test_none_uses_default(self) -> None:
-        """None param fills with default_value."""
-        result = prepare_param(None, n_dims=3, device=torch.device("cpu"))  # type: ignore[arg-type]
-        assert result.shape == (3,)
-        assert torch.equal(result, torch.ones(3))
-
-    def test_none_custom_default(self) -> None:
-        """None param with custom default_value."""
-        result = prepare_param(None, n_dims=3, device=torch.device("cpu"), default_value=5.0)  # type: ignore[arg-type]
-        assert torch.equal(result, torch.full((3,), 5.0))
-
-    def test_float_scalar(self) -> None:
-        """Float scalar fills n_dims."""
-        result = prepare_param(2.5, n_dims=4, device=torch.device("cpu"))
-        assert result.shape == (4,)
-        assert torch.equal(result, torch.full((4,), 2.5))
-
-    def test_int_scalar(self) -> None:
-        """Int scalar fills n_dims."""
-        result = prepare_param(3, n_dims=4, device=torch.device("cpu"))
-        assert torch.equal(result, torch.full((4,), 3.0))
-
-    def test_scalar_tensor_expands(self) -> None:
-        """Scalar tensor (1 element) expands to n_dims."""
-        t = torch.tensor([7.0])
-        result = prepare_param(t, n_dims=5, device=torch.device("cpu"))
-        assert result.shape == (5,)
-        assert torch.equal(result, torch.full((5,), 7.0))
-
-    def test_matching_tensor_reshapes(self) -> None:
-        """Tensor with numel == n_dims is reshaped."""
-        t = torch.tensor([1.0, 2.0, 3.0])
-        result = prepare_param(t, n_dims=3, device=torch.device("cpu"))
-        assert result.shape == (3,)
-        assert torch.equal(result, t)
-
-    def test_wrong_shape_raises(self) -> None:
-        """Tensor with wrong number of elements raises ValueError."""
-        t = torch.randn(2, 3)
-        with pytest.raises(ValueError, match="doesn't match required size"):
-            prepare_param(t, n_dims=5, device=torch.device("cpu"))
-
-    def test_type_error(self) -> None:
-        """Non-float, non-tensor raises TypeError."""
-        with pytest.raises(TypeError, match="Parameter must be float or tensor"):
-            prepare_param("bad", n_dims=3, device=torch.device("cpu"))  # type: ignore[arg-type]
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# prepare_sigma
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestPrepareSigma:
-    def test_default_zero(self) -> None:
-        """Default behavior fills with zeros."""
-        result = prepare_sigma(None, n_dims=3, device=torch.device("cpu"))  # type: ignore[arg-type]
-        assert torch.equal(result, torch.zeros(3))
-
-    def test_default_nonzero(self) -> None:
-        """default_zero=False fills with ones."""
-        result = prepare_sigma(None, n_dims=3, device=torch.device("cpu"), default_zero=False)  # type: ignore[arg-type]
-        assert torch.equal(result, torch.ones(3))
-
-    def test_float_scalar(self) -> None:
-        """Float scalar sigma fills n_dims."""
-        result = prepare_sigma(0.5, n_dims=4, device=torch.device("cpu"))
-        assert torch.equal(result, torch.full((4,), 0.5))
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# prepare_covariance
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestPrepareCovariance:
-    def test_none_returns_identity(self) -> None:
-        """None returns identity matrix."""
-        result = prepare_covariance(None, n_dims=3, device=torch.device("cpu"))  # type: ignore[arg-type]
-        assert result.shape == (3, 3)
-        # RESULT compare: pin ``torch.eye`` to ``result`` so the fixture doesn't
-        # implicitly rely on the function module handling dtype/device of input
-        # fixtures internally.
-        assert torch.equal(result, torch.eye(3, device=result.device, dtype=result.dtype))
-
-    def test_float_scalar(self) -> None:
-        """Float scalar produces scaled identity."""
-        result = prepare_covariance(2.0, n_dims=3, device=torch.device("cpu"))
-        assert torch.equal(result, torch.eye(3, device=result.device, dtype=result.dtype) * 2.0)
-
-    def test_int_scalar(self) -> None:
-        """Int scalar produces scaled identity."""
-        result = prepare_covariance(3, n_dims=2, device=torch.device("cpu"))
-        assert torch.equal(result, torch.eye(2, device=result.device, dtype=result.dtype) * 3)
-
-    def test_scalar_tensor(self) -> None:
-        """1-element tensor produces scaled identity."""
-        t = torch.tensor([4.0])
-        result = prepare_covariance(t, n_dims=2, device=torch.device("cpu"))
-        assert torch.equal(result, torch.eye(2, device=result.device, dtype=result.dtype) * 4.0)
-
-    def test_1d_diagonal(self) -> None:
-        """1D tensor becomes diagonal matrix."""
-        t = torch.tensor([1.0, 2.0, 3.0])
-        result = prepare_covariance(t, n_dims=3, device=torch.device("cpu"))
-        # ``torch.diag`` does not accept device=/dtype= natively; pin via
-        # chained ``.to`` so the fixture doesn't implicitly rely on the
-        # function module handling dtype/device of input fixtures internally.
-        expected = torch.diag(t).to(device=t.device, dtype=t.dtype)
-        assert torch.equal(result, expected)
-
-    def test_1d_wrong_shape_raises(self) -> None:
-        """1D tensor with wrong size raises ValueError."""
-        t = torch.tensor([1.0, 2.0])
-        with pytest.raises(ValueError, match="doesn't match required dimensions"):
-            prepare_covariance(t, n_dims=3, device=torch.device("cpu"))
-
-    def test_2d_symmetric(self) -> None:
-        """2D symmetric matrix returned as-is."""
-        cov = torch.tensor([[2.0, 0.5], [0.5, 1.0]])
-        result = prepare_covariance(cov, n_dims=2, device=torch.device("cpu"))
-        assert torch.allclose(result, cov)
-
-    def test_2d_non_symmetric_symmetrized(self) -> None:
-        """Non-symmetric 2D matrix is symmetrized with warning."""
-        cov = torch.tensor([[2.0, 1.5], [0.5, 1.0]])
-        with pytest.warns(UserWarning, match="not symmetric"):
-            result = prepare_covariance(cov, n_dims=2, device=torch.device("cpu"))
-        expected = (cov + cov.t()) / 2
-        assert torch.allclose(result, expected)
-
-    def test_2d_wrong_shape_raises(self) -> None:
-        """2D matrix with wrong shape raises ValueError."""
-        # ``torch.eye`` is used here purely as a shape-stub for ``pytest.raises``
-        # validation: the function raises before consuming dtype/device, so the
-        # fixture is intentionally unpinned (SKIP per docs/loss_test_coverage.md
-        # rationale).
-        cov = torch.eye(3)  # noqa: TOR001
-        with pytest.raises(ValueError, match="doesn't match required shape"):
-            prepare_covariance(cov, n_dims=2, device=torch.device("cpu"))
-
-    def test_ndim_gt_2_raises(self) -> None:
-        """Tensor with >2 dimensions raises ValueError."""
-        cov = torch.randn(2, 2, 2)
-        with pytest.raises(ValueError, match="must be scalar, vector or matrix"):
-            prepare_covariance(cov, n_dims=2, device=torch.device("cpu"))
-
-    def test_type_error(self) -> None:
-        """Non-float, non-tensor raises TypeError."""
-        with pytest.raises(TypeError, match="Covariance must be float or tensor"):
-            prepare_covariance("bad", n_dims=2, device=torch.device("cpu"))  # type: ignore[arg-type]
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # prepare_cross_covariance
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -477,80 +312,6 @@ class TestPrepareModelInputForGradients:
         assert result.requires_grad
         assert result is not x
         assert torch.equal(result, x)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# batched_linalg_solve
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestBatchedLinalgSolve:
-    def test_normal_case(self) -> None:
-        """Normal well-conditioned solve."""
-        # No co-built tensor precedes ``A`` here — fall back to legacy device/dtype
-        # so the fixture doesn't implicitly rely on the function module's defaults.
-        A = torch.eye(
-            3, device=torch.device("cpu"), dtype=torch.get_default_dtype()
-        ) + 0.1 * torch.randn(3, 3)
-        A = A @ A.t()  # make pos-def
-        b = torch.randn(3, 2)
-        result = batched_linalg_solve(A, b)
-        expected = torch.linalg.solve(A, b)
-        assert torch.allclose(result, expected)
-
-    def test_singular_with_jitter(self) -> None:
-        """Singular matrix recovers with ridge jitter."""
-        A = torch.zeros(3, 3)
-        b = torch.ones(3, 1)
-        result = batched_linalg_solve(A, b, ridge_factor=0.1)
-        assert torch.isfinite(result).all()
-
-    def test_severely_singular_falls_back_to_pinv(self) -> None:
-        """Severely ill-conditioned matrix falls back to pseudoinverse."""
-        A = torch.zeros(3, 3)
-        b = torch.zeros(3, 1)
-        result = batched_linalg_solve(A, b, ridge_factor=0.0)
-        # pinv of zero matrix times zero rhs = zero
-        assert torch.allclose(result, torch.zeros_like(b), atol=1e-6)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# standardize / unstandardize
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestStandardize:
-    def test_compute_from_data(self) -> None:
-        """Mean and std are computed from data when not provided."""
-        x = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-        z, mean, std = standardize(x)
-        assert z.shape == x.shape
-        assert torch.allclose(z.mean(dim=0), torch.zeros(2), atol=1e-6)
-        assert torch.allclose(z.std(dim=0), torch.ones(2), atol=1e-6)
-
-    def test_with_provided_mean_std(self) -> None:
-        """Provided mean and std are used for standardization."""
-        x = torch.tensor([[1.0], [2.0], [3.0]])
-        mean = torch.tensor([10.0])
-        std = torch.tensor([2.0])
-        z, _, _ = standardize(x, mean=mean, std=std)
-        expected = (x - mean) / std
-        assert torch.allclose(z, expected)
-
-    def test_eps_prevents_division_by_zero(self) -> None:
-        """eps prevents division by zero for zero-std features."""
-        x = torch.tensor([[5.0], [5.0], [5.0]])
-        z, mean, std = standardize(x, eps=1e-8)
-        assert torch.isfinite(z).all()
-
-
-class TestUnstandardize:
-    def test_roundtrip(self) -> None:
-        """standardize then unstandardize recovers original."""
-        x = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-        z, mean, std = standardize(x)
-        recovered = unstandardize(z, mean, std)
-        assert torch.allclose(recovered, x)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

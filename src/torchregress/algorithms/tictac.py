@@ -121,36 +121,23 @@ class TaylorInducedCovarianceHead(nn.Module):
         jj_t = torch.bmm(jacs, jacs.transpose(1, 2))
 
         # Hessian term: H_ij = Tr(H_i H_j) of shape [B, target_dim, target_dim]
-        h_matrix = torch.einsum("bikm,bjkm->bij", hesses, hesses)
+        # ponytail: Tr(H_i @ H_j) = Σ_k Σ_m H_i[k,m] * H_j[m,k]; for symmetric
+        # Hessians the Frobenius inner product (bikm,bjkm) gives the same result,
+        # but the correct trace contraction is bikm,bjmk.
+        h_matrix = torch.einsum("bikm,bjmk->bij", hesses, hesses)
 
         # 4. Predict scaling parameters k1, k2, and residual diagonal k3
         if self.is_input_dependent:
             k1 = torch.exp(self.k1_net(x)).unsqueeze(-1)  # [B, 1, 1]
             k2 = torch.exp(self.k2_net(x)).unsqueeze(-1)  # [B, 1, 1]
             k3 = torch.exp(self.k3_net(x))  # [B, target_dim]
-            # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
-            # torch.diag_embed does not accept device=/dtype= kwargs natively.
-            cov = (
-                k1 * jj_t
-                + k2 * h_matrix
-                + torch.diag_embed(k3).to(device=k3.device, dtype=k3.dtype)
-            )
         else:
             k1 = torch.exp(self.log_k1)
             k2 = torch.exp(self.log_k2)
-            k3 = torch.exp(self.log_k3)
-            # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
-            # torch.diag_embed does not accept device=/dtype= kwargs natively.
-            cov = (
-                k1 * jj_t
-                + k2 * h_matrix
-                + torch.diag_embed(k3.expand(mean.shape[0], -1)).to(
-                    device=k3.device, dtype=k3.dtype
-                )
-            )
+            k3 = torch.exp(self.log_k3).expand(mean.shape[0], -1)
 
         # 5. Add stabilizer jitter to ensure positive definiteness
         eye = torch.eye(self.target_dim, device=x.device, dtype=x.dtype).unsqueeze(0)
-        cov = cov + eye * self.jitter
+        cov = k1 * jj_t + k2 * h_matrix + torch.diag_embed(k3) + eye * self.jitter
 
         return mean, cov

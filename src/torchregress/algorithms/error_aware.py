@@ -15,8 +15,6 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from ..utils.validation import check_tensor
-
 
 def _expand_sigma(
     sigma_x: float | torch.Tensor,
@@ -74,14 +72,12 @@ class ErrorAwareFeatureEncoder(nn.Module):
         input_dim: int,
         *,
         hidden_dim: int,
-        output_dim: Optional[int] = None,
         eps: float = 1.0e-6,
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
         self.input_dim = int(input_dim)
         self.hidden_dim = int(hidden_dim)
-        self.output_dim = int(output_dim or hidden_dim)
         self.eps = float(eps)
 
         self.log_sigma_ref = nn.Parameter(torch.zeros(self.input_dim))
@@ -93,21 +89,15 @@ class ErrorAwareFeatureEncoder(nn.Module):
             nn.LayerNorm(self.hidden_dim),
             nn.GELU(),
             nn.Dropout(float(dropout)),
-            nn.Linear(self.hidden_dim, self.output_dim),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
         )
 
     def forward(self, x: torch.Tensor, sigma_x: float | torch.Tensor) -> torch.Tensor:
-        check_tensor(x, "x")
-        if x.ndim != 2:
-            raise ValueError("x must be a 2D tensor of shape (N, D)")
         sigma = _expand_sigma(sigma_x, x, eps=self.eps)
         gate, features = self._raw_features(x, sigma)
         return self.proj(features)
 
     def quality_gate(self, x: torch.Tensor, sigma_x: float | torch.Tensor) -> torch.Tensor:
-        check_tensor(x, "x")
-        if x.ndim != 2:
-            raise ValueError("x must be a 2D tensor of shape (N, D)")
         sigma = _expand_sigma(sigma_x, x, eps=self.eps)
         gate, _ = self._raw_features(x, sigma)
         return gate
@@ -154,10 +144,9 @@ class NoiseAwareRegressor(nn.Module):
         self.encoder = encoder or ErrorAwareFeatureEncoder(
             input_dim,
             hidden_dim=encoder_hidden_dim,
-            output_dim=encoder_hidden_dim,
             dropout=dropout,
         )
-        dims = [self.encoder.output_dim, *list(backbone_hidden_dims), output_dim]
+        dims = [encoder_hidden_dim, *list(backbone_hidden_dims), output_dim]
         layers: list[nn.Module] = []
         for in_dim, out_dim in zip(dims[:-2], dims[1:-1]):
             layers.extend(

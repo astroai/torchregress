@@ -184,7 +184,7 @@ def dr_ate(
     dr = _dr_scores(y1, t1, nuisance["mu1_hat"], nuisance["mu0_hat"], nuisance["e_hat"])
     n = dr.numel()
     ate = float(dr.mean().item())
-    se = float(dr.std(unbiased=True).item() / math.sqrt(max(n, 1)))
+    se = float(dr.std(unbiased=False).item() / math.sqrt(max(n, 1)))
     ci_low, ci_high = _normal_ci(ate, se, alpha=alpha)
     overlap = causal_overlap_report(nuisance["e_hat"], t1, trim_threshold=trim_threshold, eps=eps)
 
@@ -252,7 +252,7 @@ def dr_cate(
     cate_hat = _predict_outcome(cate, x2)
 
     ate = float(dr.mean().item())
-    se = float(dr.std(unbiased=True).item() / math.sqrt(max(dr.numel(), 1)))
+    se = float(dr.std(unbiased=False).item() / math.sqrt(max(dr.numel(), 1)))
     ci_low, ci_high = _normal_ci(ate, se, alpha=alpha)
     overlap = causal_overlap_report(nuisance["e_hat"], t1, trim_threshold=trim_threshold, eps=eps)
 

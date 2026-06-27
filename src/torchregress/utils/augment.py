@@ -7,7 +7,6 @@ regression and classification models.
 
 from typing import List, Optional, Tuple, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
@@ -44,35 +43,6 @@ class Augmentation(nn.Module):
         Apply the actual augmentation. Must be implemented by subclasses.
         """
         raise NotImplementedError("Subclasses must implement this method")
-
-    def apply(  # type: ignore[override]
-        self, x: torch.Tensor, y: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        """Compatibility shim for older torchregress augmentation usage."""
-        return self.augment(x, y)
-
-
-class GaussianNoise(Augmentation):
-    """
-    Add Gaussian noise to input features.
-    """
-
-    def __init__(
-        self,
-        std: Union[float, torch.Tensor] = 0.1,
-        probability: float = 0.5,
-    ):
-        super().__init__(probability)
-        self.std = std
-
-    def augment(
-        self, x: torch.Tensor, y: Optional[torch.Tensor]
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        """
-        Add Gaussian noise to input features.
-        """
-        noise = torch.randn_like(x) * self.std
-        return x + noise, y
 
 
 class Adversarial(Augmentation):
@@ -131,62 +101,6 @@ class Adversarial(Augmentation):
                     x_adv = x_base + delta
 
         return x_adv.detach(), y
-
-
-class MixUp(Augmentation):
-    """
-    MixUp augmentation for regression.
-    """
-
-    def __init__(self, alpha: float = 0.2, probability: float = 0.5):
-        super().__init__(probability)
-        self.alpha = alpha
-
-    def augment(
-        self, x: torch.Tensor, y: Optional[torch.Tensor]
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        """
-        Apply MixUp augmentation.
-        """
-        if y is None:
-            raise ValueError("Target values must be provided for MixUp")
-
-        lam = np.random.beta(self.alpha, self.alpha)
-        indices = torch.randperm(x.shape[0], device=x.device)
-
-        mixed_x = lam * x + (1 - lam) * x[indices]
-        mixed_y = lam * y + (1 - lam) * y[indices]
-
-        return mixed_x, mixed_y
-
-
-class FeatureMask(Augmentation):
-    """
-    Randomly mask (set to zero) some features.
-    """
-
-    def __init__(self, mask_ratio: float = 0.1, probability: float = 0.5):
-        super().__init__(probability)
-        if not 0 <= mask_ratio < 1:
-            raise ValueError(f"Mask ratio must be between 0 and 1, got {mask_ratio}")
-        self.mask_ratio = mask_ratio
-
-    def augment(
-        self, x: torch.Tensor, y: Optional[torch.Tensor]
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        """
-        Randomly mask features.
-        """
-        x_aug = x.clone()
-        n_mask = int(x.shape[1] * self.mask_ratio)
-        if n_mask == 0:
-            return x, y
-
-        for i in range(x.shape[0]):
-            mask_indices = torch.randperm(x.shape[1], device=x.device)[:n_mask]
-            x_aug[i, mask_indices] = 0.0
-
-        return x_aug, y
 
 
 class EnsemblePerturbationAugmenter(nn.Module):
@@ -279,11 +193,3 @@ class EnsemblePerturbationAugmenter(nn.Module):
             torch.rand(self.n_samples, batch_size, n_features, device=device, dtype=x.dtype) * 2 - 1
         ) * half_range
         return list((x.unsqueeze(0) + noise).unbind(0))
-
-    def generate_and_stack(self, x: torch.Tensor) -> torch.Tensor:
-        # Instead of calling forward and stacking a list, we can compute directly
-        # or we can reuse forward and torch.stack.
-        # Since forward now internally unbinds, we might be slightly less efficient here,
-        # but the optimization to forward benefits both cases significantly.
-        samples = self.forward(x)
-        return torch.stack(samples)

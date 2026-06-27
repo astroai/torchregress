@@ -14,7 +14,6 @@ Covered wrappers
 - ``expectile_loss`` (ExpectileLoss parity + edge cases)
 - ``beta_nll_loss`` (BetaNLLLoss parity + edge cases)
 - ``tweedie_loss`` (TweedieLoss p-value routing)
-- ``conformal_loss`` (ConformalLoss split/cqr routing)
 - ``gaussian_wasserstein_bound_loss`` (4 covariance parameterizations)
 - ``poisson_gaussian_mixture_loss`` (factory config plumbing)
 - ``enhanced_poisson_gaussian_loss`` (factory config plumbing)
@@ -29,7 +28,6 @@ import unittest
 import torch
 
 from torchregress.losses.beta_nll import BetaNLLLoss, beta_nll_loss
-from torchregress.losses.conformal import ConformalLoss, conformal_loss
 from torchregress.losses.expectile import ExpectileLoss, expectile_loss
 from torchregress.losses.gaussian_wasserstein import (
     GaussianWassersteinBoundLoss,
@@ -240,45 +238,6 @@ class TestTweedieLossWrapper(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# conformal_loss
-# ---------------------------------------------------------------------------
-
-
-class TestConformalLossWrapper(unittest.TestCase):
-    def test_split_method_returns_mse(self):
-        """``method='split'`` uses MSE; with mean reduction and matching y_pred
-        the result is 0.
-        """
-        _set_seed(11)
-        y_pred = torch.randn(8, 1)
-        target = y_pred.clone()
-        got = conformal_loss(y_pred, target, method="split", alpha=0.1, reduction="mean")
-        self.assertTrue(torch.isclose(got, torch.tensor(0.0), atol=1e-6))
-
-    def test_cqr_method_pinball_matches_class(self):
-        _set_seed(12)
-        # y_pred must have last dim = 2 * n_features
-        y_pred = torch.randn(6, 2)
-        target = torch.randn(6, 1)
-        ref = ConformalLoss(method="cqr", alpha=0.1, reduction="mean")(y_pred, target)
-        got = conformal_loss(y_pred, target, method="cqr", alpha=0.1, reduction="mean")
-        self.assertTrue(torch.isclose(got, ref, atol=1e-6))
-
-    def test_invalid_method_propagates(self):
-        """Invalid ``method`` must propagate; the wrapper calls the class
-        constructor which raises ValueError.
-        """
-        with self.assertRaises(ValueError):
-            conformal_loss(
-                torch.randn(4, 1),
-                torch.randn(4, 1),
-                method="not_a_method",
-                alpha=0.1,
-                reduction="mean",
-            )
-
-
-# ---------------------------------------------------------------------------
 # gaussian_wasserstein_bound_loss
 # ---------------------------------------------------------------------------
 
@@ -475,18 +434,6 @@ class TestFunctionalArgOrder(unittest.TestCase):
         # residual = y_pred - target = +4 > 0; q=0.9 weight = 0.1; 4 * 0.1 = 0.4
         swapped = quantile_loss(torch.tensor([5.0]), torch.tensor([1.0]), quantile=0.9)
         self.assertTrue(torch.isclose(swapped, torch.tensor(0.4)))
-
-    def test_conformal_loss_split_arg_order_is_symmetric(self) -> None:
-        # MSE is symmetric in ``(y_pred, target)``: both orderings collapse
-        # to the same scalar.  Lock that the wrapper accepts both orderings
-        # and produces finite, identical results.
-        torch.manual_seed(0)
-        y = torch.randn(6, 1)
-        canonical = conformal_loss(y, y.clone(), method="split", alpha=0.1, reduction="mean")
-        swapped = conformal_loss(y.clone(), y, method="split", alpha=0.1, reduction="mean")
-        self.assertTrue(torch.isfinite(canonical))
-        self.assertTrue(torch.isfinite(swapped))
-        self.assertTrue(torch.isclose(canonical, swapped, atol=1e-6))
 
     def test_tweedie_loss_canonical_order_zero_when_match(self) -> None:
         # Identity link; y_pred == target -> 0 (p=0 branch).

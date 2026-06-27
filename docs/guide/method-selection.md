@@ -53,14 +53,14 @@ _Generated date_: `2026-04-16`
 | Worst-case / tail-focused robust regression | `CVaRLoss` | `WeightedHuberLoss`, `CauchyLoss`, `TukeyBiweightLoss` | CVaR optimises the average of the worst α fraction of per-sample losses, directly shrinking the upper tail of the error distribution.  Start with CVaR(base_loss='mse', alpha=0.1) and tune alpha for the desired tail-robustness tradeoff.  For multi-output targets, CVaR selects the worst samples (not per-element errors), preserving sample-wise semantics. |
 | Unknown noise regime / learnable loss shape | `AdaptiveRobustLoss` | `BarronLoss`, `CVaRLoss`, `WeightedHuberLoss` | AdaptiveRobustLoss jointly optimises the Barron shape parameter α and scale alongside the model weights so the penalty function adapts to the observed noise.  Add ``loss_fn.parameters()`` to the optimizer.  Useful as a diagnostic (what α does the data prefer?) or when the noise regime is genuinely unknown a priori.  For a fixed α sweep instead, use BarronLoss. |
 | Heteroscedastic noise (aleatoric UQ) | `GaussianCRPSLoss` | `GaussianNLLLoss`, `HeteroscedasticEnsembleModel`, `MDNLoss` | Astronomical benchmarks favor CRPS-trained Gaussian heads as the safest calibrated Gaussian baseline. |
-| Epistemic uncertainty | `DeepEnsemble` | `HeteroscedasticBatchEnsembleModel`, `BinnedPDFEnsembleModel`, `MDNEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Deep ensembles are easiest operationally. |
+| Epistemic uncertainty | `BaseEnsembleModel` | `HeteroscedasticBatchEnsembleModel`, `BinnedPDFEnsembleModel`, `MDNEnsembleModel`, `SWAG`, `BayesianNeuralNetwork`, `MCDropoutWrapper` | Ensembles are easiest operationally. |
 | Low-shot / streaming linear head on fixed features | `BayesianLinearHead` | `RecursiveBayesianHead`, `WeightedMSELoss (ridge MAP, matched L2)` | Conjugate exact BLR for last-layer adaptation; synthetic RMSE/NLL and drift sweeps live under examples/benchmarks/. Prefer ensembles/SWAG/BNN when epistemic UQ must track representation-level ambiguity. |
 | Epistemic + aleatoric decomposition | `HeteroscedasticEnsembleModel` | `HeteroscedasticBNN`, `MDNEnsembleModel`, `HeteroscedasticBatchEnsembleModel` | Requires both model-disagreement and per-member variance/distribution modeling. |
 | Multimodal targets | `MDNLoss` | `MDNEnsembleModel`, `BinnedPDFEnsembleModel`, `NormalizingFlowLoss` | MDN is usually easier to debug first; ensembles of MDN or ordered-bin heads are the next move when mode averaging matters. |
 | Non-Gaussian / skewed tails | `QuantileLoss` / `ExpectileLoss` / `TweedieLoss` | `MDNLoss`, `NormalizingFlowLoss` | Choose by target support and evaluation metric. |
 | Multi-target correlated outputs | `MultivariateGaussianLoss` / `LowRankGaussianLoss` | `MDNLoss`, `NormalizingFlowLoss` | Prefer low-rank/full covariance when Gaussian is enough. |
-| Noisy features / measurement error | `InputNoiseMarginalizationLoss + GaussianCRPSLoss` / `MDNLoss` / `InputNoiseBinnedPDFLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. |
-| Noisy labels / label corruption | `WeightedHuberLoss` | `DeepEnsemble`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
+| Noisy features / measurement error | `InputNoiseAugmentationLoss + GaussianCRPSLoss` / `MDNLoss` / `InputNoiseBinnedPDFLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. |
+| Noisy labels / label corruption | `WeightedHuberLoss` | `BaseEnsembleModel`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
 | Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal` | Astronomical benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. |
 | Selection bias / covariate-dependent missing labels | `PropensityWeightedLoss` | `DensityWeightedLoss` | Estimate p(observed|x) and apply IPW to reduce selection bias. |
 | Output constraints / monotonicity | `BoundedHead` / `NonNegativeHead` / `NonCrossingSort` | `SimplexHead`, `SpectralNormWrapper` | Apply structural constraints in the head before post-hoc calibration. |
@@ -74,7 +74,7 @@ _Generated date_: `2026-04-16`
 | Population inference with few labels | `PredictionPoweredInference` | `ConformalLoss`, `QuantileLoss` | Use PPI for means/quantiles/regression coefficients with limited labels. |
 | Ordinal / ordered targets | `CumulativeLinkLoss` | `CORALLoss`, `OrdinalCrossEntropyLoss` | Prefer cumulative objectives when rank-distance errors matter. |
 | Censored / interval-censored regression | `CensoredGaussianNLLLoss` | `AFTLoss`, `CensoredQuantileLoss` | Use censoring code 0/1/-1 and explicit interval bounds when available. |
-| OOD scoring / selective prediction | `DeepEnsemble + OOD metrics` | `HeteroscedasticBatchEnsembleModel + OOD metrics`, `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics` | Use multiple signals; no single OOD score is sufficient. |
+| OOD scoring / selective prediction | `BaseEnsembleModel + OOD metrics` | `HeteroscedasticBatchEnsembleModel + OOD metrics`, `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics` | Use multiple signals; no single OOD score is sufficient. |
 <!-- END:TASK_MATRIX_GENERATED -->
 
 ## Method Capability Matrix (Peer Framing)
@@ -96,9 +96,9 @@ _Generated date_: `2026-04-16`
 | `calibration_transform` (5) | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` (13) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` (12) | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` (2) | yes | no | partial | no | no | no | partial | partial | no | no |
-| `eiv` (15) | yes | yes | partial | no | no | no | yes | partial | no | yes |
+| `eiv` (13) | yes | yes | partial | no | no | no | yes | partial | no | yes |
 | `ensemble` (7) | yes | no | yes | yes | yes | yes | partial | yes | no | no |
 | `evidential` (1) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `expectile` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
@@ -180,7 +180,6 @@ _Generated date_: `2026-04-16`
 | `EnsembleBatchCP` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `JackknifePlus` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `MonteCarloConformal` | `conformal` | `Available` | yes | no | partial | no | no | yes | partial |
-| `MultiDimensionalConformalLoss` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `PrevalenceAdjustedCP` | `conformal` | `Available` | yes | no | no | no | no | yes | partial |
 | `SLSConformal` | `conformal` | `Available` | yes | yes | no | no | no | yes | partial |
 | `SplitConformal` | `conformal` | `Core` | yes | no | no | no | no | yes | partial |
@@ -192,20 +191,18 @@ _Generated date_: `2026-04-16`
 | `InputNoiseAugmentationLoss` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `InputNoiseBinnedPDFLoss` | `eiv` | `Available` | yes | yes | no | no | no | partial | partial |
 | `InputNoiseMDNLoss` | `eiv` | `Available` | yes | yes | no | no | no | partial | partial |
-| `InputNoiseMarginalizationLoss` | `eiv` | `Deprecated` | yes | no | no | no | no | partial | partial |
 | `LatentMarginalizationLoss` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `LatentNN` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `NoiseAwareRegressor` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
 | `NoisyInputPredictor` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
-| `PredictionSIMEX` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `RegressionCalibration` | `eiv` | `Strong` | yes | no | no | no | no | yes | partial |
 | `SIMEX` | `eiv` | `Strong` | yes | no | no | no | no | partial | partial |
 | `StructuralEIVLoss` | `eiv` | `Available` | yes | no | no | no | no | partial | partial |
+| `BaseEnsembleModel` | `ensemble` | `Core` | yes | no | yes | partial | partial | partial | yes |
 | `BatchEnsembleRegressor` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `BinnedPDFEnsembleModel` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
 | `CumulativeLinkEnsembleModel` | `ensemble` | `Available` | yes | no | yes | partial | partial | partial | partial |
-| `DeepEnsemble` | `ensemble` | `Core` | yes | no | yes | partial | partial | partial | yes |
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | partial |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | yes | no | yes | yes | yes | partial | yes |
 | `MDNEnsembleModel` | `ensemble` | `Available` | yes | no | yes | yes | yes | partial | partial |
@@ -293,9 +290,9 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `calibration_transform` | 5 | yes | no | partial | no | no | no | yes | partial | no | no |
 | `causal` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `censored` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `conformal` | 13 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
+| `conformal` | 12 | yes | yes | yes | partial | no | no | yes | partial | yes | no |
 | `constraints` | 2 | yes | no | partial | no | no | no | partial | partial | no | no |
-| `eiv` | 15 | yes | yes | partial | no | no | no | yes | partial | no | yes |
+| `eiv` | 13 | yes | yes | partial | no | no | no | yes | partial | no | yes |
 | `ensemble` | 7 | yes | no | yes | yes | yes | yes | partial | yes | no | no |
 | `evidential` | 1 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `expectile` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
@@ -324,11 +321,11 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 | Need | Catalog Filter (conceptual) | Suggested Methods |
 |---|---|---|
-| OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `BatchEnsembleRegressor`, `DeepEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
-| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `CVPlus`, `ConformalLoss`, `DensityConformal`, `EnsembleBatchCP`, `JackknifePlus`, `MonteCarloConformal`, `MultiDimensionalConformalLoss`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `RegressionCalibration`, `MultiQuantileLoss`, `QuantileLoss`, `WeightedConformalRegressionAdapter` |
+| OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `BaseEnsembleModel`, `BatchEnsembleRegressor`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
+| Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `CVPlus`, `ConformalLoss`, `DensityConformal`, `EnsembleBatchCP`, `JackknifePlus`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `RegressionCalibration`, `MultiQuantileLoss`, `QuantileLoss`, `WeightedConformalRegressionAdapter` |
 | Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `BMCLoss`, `BalancedMSELoss`, `DensityWeightedLoss`, `FeatureDistributionSmoother`, `FocalRLoss`, `LDSLoss`, `PropensityWeightedLoss` |
-| Noisy features / EIV | `noisy_features_eiv=yes` | `ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `PredictionSIMEX`, `RegressionCalibration`, `SIMEX`, `StructuralEIVLoss` |
+| Noisy features / EIV | `noisy_features_eiv=yes` | `ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `RegressionCalibration`, `SIMEX`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->
 
 ## Evidence-Based Maturity Labels (Current Audit Guidance)
@@ -404,7 +401,7 @@ _Generated date_: `2026-04-16`
    Caveat: Move to flows when MDN component count/training stability is the bottleneck.
 
 4. Have noisy features / measurement error?
-   Use `InputNoiseMarginalizationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss`.
+   Use `InputNoiseAugmentationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss`.
    Alternatives: `FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss`.
    Caveat: Use the simpler explicit input-noise path first, including test-time predictive averaging; Jacobian-style EIV losses are more fragile and need careful benchmarking.
 
@@ -414,7 +411,7 @@ _Generated date_: `2026-04-16`
    Caveat: Density-aware weighting is not yet a universally strong default on astronomical benchmarks.
 
 6. Need OOD scoring / selective prediction under a latency budget?
-   Use `DeepEnsemble + OOD metrics`.
+   Use `BaseEnsembleModel + OOD metrics`.
    Alternatives: `HeteroscedasticBatchEnsembleModel + OOD metrics`, `SWAG + OOD metrics`, `BayesianNeuralNetwork + OOD metrics`, `MCDropoutWrapper`.
    Caveat: Use multiple signals and benchmark runtime against deployment latency targets.
 

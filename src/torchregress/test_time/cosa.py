@@ -89,11 +89,7 @@ class DelayedLabelResidualAdapter:
         PredictiveBatch
             Adapted predictive batch with adjusted point, mean, std, and quantiles.
         """
-        is_numpy = isinstance(X, np.ndarray)
-        if is_numpy:
-            X_tensor = torch.as_tensor(X, dtype=torch.float32)
-        else:
-            X_tensor = torch.as_tensor(X)
+        X_tensor = torch.as_tensor(X)
 
         pred = self._get_base_prediction(X_tensor)
 
@@ -101,7 +97,7 @@ class DelayedLabelResidualAdapter:
         var_infl = self.variance_inflation_
 
         # 1. Adapt point prediction and mean
-        point_adapted: torch.Tensor | np.ndarray | None = None
+        point_adapted: torch.Tensor | None = None
         if pred.point is not None:
             point_t = torch.as_tensor(pred.point)
             if res_mean is not None:
@@ -109,7 +105,7 @@ class DelayedLabelResidualAdapter:
             else:
                 point_adapted = point_t
 
-        mean_adapted: torch.Tensor | np.ndarray | None = None
+        mean_adapted: torch.Tensor | None = None
         if pred.mean is not None:
             mean_t = torch.as_tensor(pred.mean)
             if res_mean is not None:
@@ -118,7 +114,7 @@ class DelayedLabelResidualAdapter:
                 mean_adapted = mean_t
 
         # 2. Adapt standard deviation
-        std_adapted: torch.Tensor | np.ndarray | None = None
+        std_adapted: torch.Tensor | None = None
         if pred.std is not None:
             std_t = torch.as_tensor(pred.std)
             if var_infl is not None:
@@ -127,31 +123,19 @@ class DelayedLabelResidualAdapter:
                 std_adapted = std_t
 
         # 3. Adapt quantiles
-        quantiles_adapted: torch.Tensor | np.ndarray | None = None
+        quantiles_adapted: torch.Tensor | None = None
         if pred.quantiles is not None:
             quantiles_t = torch.as_tensor(pred.quantiles)
             if res_mean is not None:
                 if pred.mean is not None and var_infl is not None and mean_adapted is not None:
-                    # Scale quantiles around the new mean
                     scale = torch.sqrt(var_infl)
                     mean_raw_t = torch.as_tensor(pred.mean)
                     mean_adapted_t = torch.as_tensor(mean_adapted)
                     quantiles_adapted = mean_adapted_t + scale * (quantiles_t - mean_raw_t)
                 else:
-                    # Simple shift
                     quantiles_adapted = quantiles_t + res_mean
             else:
                 quantiles_adapted = quantiles_t
-
-        if is_numpy:
-            if point_adapted is not None:
-                point_adapted = torch.as_tensor(point_adapted).detach().cpu().numpy()
-            if mean_adapted is not None:
-                mean_adapted = torch.as_tensor(mean_adapted).detach().cpu().numpy()
-            if std_adapted is not None:
-                std_adapted = torch.as_tensor(std_adapted).detach().cpu().numpy()
-            if quantiles_adapted is not None:
-                quantiles_adapted = torch.as_tensor(quantiles_adapted).detach().cpu().numpy()
 
         return PredictiveBatch(
             point=point_adapted,
@@ -188,13 +172,8 @@ class DelayedLabelResidualAdapter:
         y : np.ndarray | torch.Tensor
             Observed ground truth labels.
         """
-        is_numpy = isinstance(X, np.ndarray)
-        if is_numpy:
-            X_tensor = torch.as_tensor(X, dtype=torch.float32)
-            y_tensor = torch.as_tensor(y, dtype=torch.float32)
-        else:
-            X_tensor = torch.as_tensor(X)
-            y_tensor = torch.as_tensor(y)
+        X_tensor = torch.as_tensor(X)
+        y_tensor = torch.as_tensor(y)
 
         pred = self._get_base_prediction(X_tensor)
 
@@ -212,20 +191,19 @@ class DelayedLabelResidualAdapter:
 
         error = y_tensor - mean_raw_t
 
-        # Update point correction (EMA of residuals)
+        # Compute batch mean error for this step
         batch_mean_error = error.mean(dim=0)
-        if self.residual_mean_ is None:
-            self.residual_mean_ = batch_mean_error
-        else:
-            self.residual_mean_ = (
-                1.0 - self.ema_beta
-            ) * self.residual_mean_ + self.ema_beta * batch_mean_error
 
         # Update variance inflation factor (EMA of normalized squared residuals)
+        # Must use the *previous* residual_mean_ to avoid first-batch bias
+        # (using the batch mean itself deflates within-batch variance toward zero)
         if pred.std is not None:
             std_t = torch.as_tensor(pred.std)
             std_clamped = torch.clamp(std_t, min=1e-8)
-            z_squared = ((error - self.residual_mean_) / std_clamped) ** 2
+            prev_residual_mean = (
+                self.residual_mean_ if self.residual_mean_ is not None else batch_mean_error
+            )  # noqa: E501
+            z_squared = ((error - prev_residual_mean) / std_clamped) ** 2
             batch_mean_z_squared = z_squared.mean(dim=0)
             if self.variance_inflation_ is None:
                 self.variance_inflation_ = batch_mean_z_squared
@@ -234,3 +212,11 @@ class DelayedLabelResidualAdapter:
                     1.0 - self.scale_ema_beta
                 ) * self.variance_inflation_ + self.scale_ema_beta * batch_mean_z_squared
             self.variance_inflation_ = torch.clamp(self.variance_inflation_, min=1e-5)
+
+        # Update point correction (EMA of residuals) — after variance to avoid first-batch bias
+        if self.residual_mean_ is None:
+            self.residual_mean_ = batch_mean_error
+        else:
+            self.residual_mean_ = (
+                1.0 - self.ema_beta
+            ) * self.residual_mean_ + self.ema_beta * batch_mean_error

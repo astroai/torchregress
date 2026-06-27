@@ -593,6 +593,8 @@ def plot_qq_plot(
     # Calculate residuals
     residuals = (y_true - y_pred).flatten()
 
+    from scipy import stats  # ponytail: for norm.ppf theoretical quantiles
+
     # Create plot if no axes provided
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -602,7 +604,7 @@ def plot_qq_plot(
     # Generate theoretical quantiles from standard normal distribution
     n = len(residuals)
     quantiles = np.arange(1, n + 1) / (n + 1)
-    theoretical_quantiles = np.quantile(np.random.normal(0, 1, n), quantiles)
+    theoretical_quantiles = stats.norm.ppf(quantiles)
 
     # Standardize residuals
     std_residuals = (residuals - np.mean(residuals)) / np.std(residuals)

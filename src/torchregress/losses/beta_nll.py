@@ -83,8 +83,10 @@ class BetaNLLLoss(GaussianNLLLoss):
             + torch.log(var + self.eps)
             + (target - mean) ** 2 / (var + self.eps)
         )
+        nll = nll.sum(dim=-1)  # [B, D] → [B], consistent with GaussianNLLLoss
         coef = (var + self.eps).detach().pow(-self.beta)
-        weighted = coef * nll
+        # ponytail: coef is [B, D] but we need per-sample weight; take mean across features
+        weighted = coef.mean(dim=-1) * nll
         return self._reduce_with_mask(weighted, mask, weights)
 
 

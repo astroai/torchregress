@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Callable
 
-import numpy as np
 import torch
 
 from torchregress.prediction import PredictiveBatch
@@ -25,11 +25,9 @@ class CausalTTAHarness:
         *,
         delay: int = 0,
         alpha: float = 0.1,
-        predict_fn: Callable[[Any, np.ndarray | torch.Tensor], PredictiveBatch] | None = None,
-        update_unlabeled_fn: Callable[[Any, np.ndarray | torch.Tensor], None] | None = None,
-        update_labeled_fn: (
-            Callable[[Any, np.ndarray | torch.Tensor, np.ndarray | torch.Tensor], None] | None
-        ) = None,
+        predict_fn: Callable[[Any, torch.Tensor], PredictiveBatch] | None = None,
+        update_unlabeled_fn: Callable[[Any, torch.Tensor], None] | None = None,
+        update_labeled_fn: (Callable[[Any, torch.Tensor, torch.Tensor], None] | None) = None,
     ) -> None:
         """
         Initialize the harness.
@@ -59,7 +57,7 @@ class CausalTTAHarness:
         self.update_labeled_fn = update_labeled_fn or self._default_update_labeled_fn
 
     @staticmethod
-    def _default_predict_fn(adapter: Any, X: np.ndarray | torch.Tensor) -> PredictiveBatch:
+    def _default_predict_fn(adapter: Any, X: torch.Tensor) -> PredictiveBatch:
         if hasattr(adapter, "predict_distribution"):
             return adapter.predict_distribution(X)
         elif hasattr(adapter, "predict"):
@@ -74,7 +72,7 @@ class CausalTTAHarness:
                     quantiles=pred.get("quantiles"),
                     quantile_levels=pred.get("quantile_levels"),
                 )
-            if torch.is_tensor(pred) or isinstance(pred, np.ndarray):
+            if torch.is_tensor(pred):
                 return PredictiveBatch(point=pred)
             raise TypeError(f"Unsupported prediction return type: {type(pred)}")
         elif callable(adapter):
@@ -86,24 +84,37 @@ class CausalTTAHarness:
         )
 
     @staticmethod
-    def _default_update_unlabeled_fn(adapter: Any, X: np.ndarray | torch.Tensor) -> None:
+    def _default_update_unlabeled_fn(adapter: Any, X: torch.Tensor) -> None:
         if hasattr(adapter, "adapt_unlabeled_target"):
             adapter.adapt_unlabeled_target(X)
 
     @staticmethod
-    def _default_update_labeled_fn(
-        adapter: Any, X: np.ndarray | torch.Tensor, y: np.ndarray | torch.Tensor
-    ) -> None:
+    def _default_update_labeled_fn(adapter: Any, X: torch.Tensor, y: torch.Tensor) -> None:
         if hasattr(adapter, "partial_fit"):
             adapter.partial_fit(X, y)
         elif hasattr(adapter, "calibrate_target"):
-            adapter.calibrate_target(X, y)
+            pred: Any
+            if hasattr(adapter, "predict"):
+                pred = adapter.predict(target_inputs=X)
+            elif hasattr(adapter, "predict_distribution"):
+                pred = adapter.predict_distribution(X)
+            else:
+                pred = adapter(X)
+            if not isinstance(pred, PredictiveBatch):
+                pred = PredictiveBatch(point=pred)
+            adapter.calibrate_target(pred, y)
+
+    @staticmethod
+    def _to_tensor(x: Any) -> torch.Tensor:
+        if torch.is_tensor(x):
+            return x
+        return torch.as_tensor(x)
 
     def evaluate(
         self,
         adapter: Any,
-        stream_X: list[np.ndarray | torch.Tensor] | np.ndarray | torch.Tensor,
-        stream_y: list[np.ndarray | torch.Tensor] | np.ndarray | torch.Tensor,
+        stream_X: list[torch.Tensor] | torch.Tensor,
+        stream_y: list[torch.Tensor] | torch.Tensor,
         batch_size: int = 1,
     ) -> dict[str, Any]:
         """
@@ -111,8 +122,8 @@ class CausalTTAHarness:
 
         Returns a dictionary of aggregated metrics.
         """
-        batches_X: list[np.ndarray | torch.Tensor] = []
-        batches_y: list[np.ndarray | torch.Tensor] = []
+        batches_X: list[torch.Tensor] = []
+        batches_y: list[torch.Tensor] = []
 
         if isinstance(stream_X, list):
             batches_X = stream_X
@@ -122,21 +133,21 @@ class CausalTTAHarness:
                 raise TypeError("stream_y must be a list if stream_X is a list")
         else:
             if isinstance(stream_y, list):
-                raise TypeError("stream_y cannot be a list if stream_X is a tensor/array")
+                raise TypeError("stream_y cannot be a list if stream_X is a tensor")
             n_samples = len(stream_X)
             for start in range(0, n_samples, batch_size):
                 end = min(start + batch_size, n_samples)
-                batches_X.append(stream_X[start:end])
-                batches_y.append(stream_y[start:end])
+                batches_X.append(self._to_tensor(stream_X[start:end]))
+                batches_y.append(self._to_tensor(stream_y[start:end]))
 
         n_steps = len(batches_X)
-        all_y_true: list[np.ndarray] = []
-        all_y_pred: list[np.ndarray] = []
-        all_lower: list[np.ndarray] = []
-        all_upper: list[np.ndarray] = []
-        all_nll: list[np.ndarray] = []
+        all_y_true: list[torch.Tensor] = []
+        all_y_pred: list[torch.Tensor] = []
+        all_lower: list[torch.Tensor] = []
+        all_upper: list[torch.Tensor] = []
+        all_nll: list[torch.Tensor] = []
 
-        pending_labels: list[tuple[np.ndarray | torch.Tensor, np.ndarray | torch.Tensor]] = []
+        pending_labels: list[tuple[torch.Tensor, torch.Tensor]] = []
 
         for t in range(n_steps):
             X_t = batches_X[t]
@@ -146,28 +157,26 @@ class CausalTTAHarness:
             pred_batch = self.predict_fn(adapter, X_t)
 
             # 2. Record predictions
-            y_pred_np = self._to_numpy(
+            y_pred = self._to_tensor(
                 pred_batch.point
                 if pred_batch.point is not None
                 else (pred_batch.mean if pred_batch.mean is not None else 0.0)
-            ).reshape(-1)
-            y_true_np = self._to_numpy(y_t).reshape(-1)
-
-            all_y_pred.append(y_pred_np)
-            all_y_true.append(y_true_np)
+            )
+            all_y_pred.append(y_pred.reshape(-1))
+            y_t_t = self._to_tensor(y_t)
+            all_y_true.append(y_t_t.reshape(-1))
 
             # Extract interval bounds
             lower, upper = _native_interval(pred_batch, alpha=self.alpha, eps=1e-8)
-            all_lower.append(lower.reshape(-1))
-            all_upper.append(upper.reshape(-1))
+            all_lower.append(self._to_tensor(lower.reshape(-1)))
+            all_upper.append(self._to_tensor(upper.reshape(-1)))
 
             # Extract NLL if mean and std are available
             if pred_batch.mean is not None and pred_batch.std is not None:
-                mu = self._to_numpy(pred_batch.mean).reshape(-1)
-                sigma = np.clip(self._to_numpy(pred_batch.std).reshape(-1), 1e-8, None)
-                nll = 0.5 * np.log(2.0 * np.pi * (sigma**2)) + ((y_true_np - mu) ** 2) / (
-                    2.0 * (sigma**2)
-                )
+                mu = self._to_tensor(pred_batch.mean).reshape(-1).float()
+                sigma = self._to_tensor(pred_batch.std).reshape(-1).float().clamp(min=1e-8)
+                diff = (y_t_t.reshape(-1).float() - mu) ** 2
+                nll = 0.5 * (math.log(2.0 * math.pi) + 2.0 * sigma.log() + diff / (sigma**2))
                 all_nll.append(nll)
 
             # 3. Update unlabeled features
@@ -183,28 +192,28 @@ class CausalTTAHarness:
                         self.update_labeled_fn(adapter, X_old, y_old)
 
         # Concatenate all steps
-        y_true = np.concatenate(all_y_true)
-        y_pred = np.concatenate(all_y_pred)
-        lower_bounds = np.concatenate(all_lower)
-        upper_bounds = np.concatenate(all_upper)
+        y_true = torch.cat(all_y_true)
+        y_pred = torch.cat(all_y_pred)
+        lower_bounds = torch.cat(all_lower)
+        upper_bounds = torch.cat(all_upper)
 
         # Compute point metrics
         errors = y_pred - y_true
-        mse = float(np.mean(errors**2))
-        mae = float(np.mean(np.abs(errors)))
-        rmse = float(np.sqrt(mse))
+        mse = float(torch.mean(errors**2))
+        mae = float(torch.mean(errors.abs()))
+        rmse = float(torch.sqrt(torch.tensor(mse)))
 
         # Compute interval metrics
         within = (y_true >= lower_bounds) & (y_true <= upper_bounds)
-        coverage = float(np.mean(within))
+        coverage = float(within.float().mean())
         widths = upper_bounds - lower_bounds
-        mean_width = float(np.mean(widths))
+        mean_width = float(widths.mean())
 
         # Average winkler/interval score
-        below_lower = np.clip(lower_bounds - y_true, a_min=0, a_max=None)
-        above_upper = np.clip(y_true - upper_bounds, a_min=0, a_max=None)
+        below_lower = (lower_bounds - y_true).clamp(min=0.0)
+        above_upper = (y_true - upper_bounds).clamp(min=0.0)
         winkler_scores = widths + (2.0 / self.alpha) * (below_lower + above_upper)
-        mean_winkler = float(np.mean(winkler_scores))
+        mean_winkler = float(winkler_scores.mean())
 
         metrics = {
             "RMSE": rmse,
@@ -215,12 +224,6 @@ class CausalTTAHarness:
         }
 
         if all_nll:
-            metrics["NLL"] = float(np.mean(np.concatenate(all_nll)))
+            metrics["NLL"] = float(torch.cat(all_nll).mean())
 
         return metrics
-
-    @staticmethod
-    def _to_numpy(x: Any) -> np.ndarray:
-        if torch.is_tensor(x):
-            return x.detach().cpu().numpy()
-        return np.asarray(x)

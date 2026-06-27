@@ -8,7 +8,7 @@ Distribution Shifts" (arXiv:2506.03942 / NeurIPS 2025).
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -16,99 +16,66 @@ import torch.nn as nn
 from ..prediction import PredictiveBatch
 
 
-class SyntheticEnvironmentSampler:
-    """
-    Bootstrap-based sampler for generating synthetic shifted environments.
-    """
+def sample_synthetic_environments(
+    X: torch.Tensor, Y: torch.Tensor, *, bootstrap_fraction: float = 0.3, n_environments: int = 32
+) -> list[tuple[torch.Tensor, torch.Tensor]]:
+    N = X.shape[0]
+    k = max(1, int(bootstrap_fraction * N))
+    environments = []
+    for _ in range(n_environments):
+        indices = torch.randint(0, N, (k,), device=X.device)
+        environments.append((X[indices], Y[indices]))
+    return environments
 
-    def __init__(self, bootstrap_fraction: float = 0.3, n_environments: int = 32) -> None:
-        self.bootstrap_fraction = bootstrap_fraction
-        self.n_environments = n_environments
 
-    def sample(self, X: torch.Tensor, Y: torch.Tensor) -> List[Tuple[torch.Tensor, torch.Tensor]]:
-        N = X.shape[0]
-        k = max(1, int(self.bootstrap_fraction * N))
-        environments = []
-        for _ in range(self.n_environments):
-            indices = torch.randint(0, N, (k,), device=X.device)
-            environments.append((X[indices], Y[indices]))
-        return environments
+class _AdaptivePriorMLP(nn.Module):
+    """Shared MLP for guide and prior networks."""
+
+    def __init__(self, input_dim: int, hidden_dim: int, param_dim: int) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 2 * param_dim),
+        )
+
+    def forward(self, inp: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        out = self.net(inp)
+        mean, log_var = torch.chunk(out, 2, dim=-1)
+        log_var = torch.clamp(log_var, min=-10.0, max=5.0)
+        return mean, log_var
 
 
 class AdaptivePriorGuide(nn.Module):
-    """
-    Posterior guide network that amortizes variational posterior parameters.
-
-    References
-    ----------
-    .. [1] Slavutsky, et al. (2025). VIDS: Variational Inference under Covariate Shift.
-       In *NeurIPS 2025*. https://arxiv.org/abs/2506.18283
-    """
+    """Posterior guide network."""
 
     def __init__(
-        self,
-        in_features: int,
-        target_dim: int,
-        param_dim: int,
-        hidden_dim: int = 64,
-    ) -> None:
+        self, in_features: int, target_dim: int, param_dim: int, hidden_dim: int = 64
+    ) -> None:  # noqa: E501
         super().__init__()
-        # Input size: context_X (2 * in_features) + context_Y (2 * target_dim)
-        input_dim = 2 * in_features + 2 * target_dim
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 2 * param_dim),
-        )
+        self.net = _AdaptivePriorMLP(2 * in_features + 2 * target_dim, hidden_dim, param_dim)
 
     def forward(
         self, context_X: torch.Tensor, context_Y: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # context_X: [2 * in_features], context_Y: [2 * target_dim]
-        inp = torch.cat([context_X, context_Y], dim=-1)
-        out = self.net(inp)
-        mean, log_var = torch.chunk(out, 2, dim=-1)
-        # Clamp log_var for numerical stability
-        log_var = torch.clamp(log_var, min=-10.0, max=5.0)
-        return mean, log_var
+    ) -> Tuple[torch.Tensor, torch.Tensor]:  # noqa: E501
+        return self.net(torch.cat([context_X, context_Y], dim=-1))
 
 
 class AdaptivePriorNetwork(nn.Module):
-    """
-    Prior network mapping training context and query test features to parameter prior parameters.
-    """
+    """Prior network mapping training context and query test features to parameter prior parameters."""  # noqa: E501
 
-    def __init__(
-        self,
-        in_features: int,
-        param_dim: int,
-        hidden_dim: int = 64,
-    ) -> None:
+    def __init__(self, in_features: int, param_dim: int, hidden_dim: int = 64) -> None:
         super().__init__()
-        # Input size: context_X (2 * in_features) + query feature (in_features)
-        input_dim = 3 * in_features
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 2 * param_dim),
-        )
+        self.net = _AdaptivePriorMLP(3 * in_features, hidden_dim, param_dim)
 
     def forward(
         self, context_X: torch.Tensor, x_query: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # context_X: [2 * in_features], x_query: [B, in_features]
-        # Expand context_X to match batch size
+    ) -> Tuple[torch.Tensor, torch.Tensor]:  # noqa: E501
         B = x_query.shape[0]
-        context_expanded = context_X.unsqueeze(0).expand(B, -1)
-        inp = torch.cat([context_expanded, x_query], dim=-1)
-        out = self.net(inp)
-        mean, log_var = torch.chunk(out, 2, dim=-1)
-        log_var = torch.clamp(log_var, min=-10.0, max=5.0)
-        return mean, log_var
+        inp = torch.cat([context_X.unsqueeze(0).expand(B, -1), x_query], dim=-1)
+        return self.net(inp)
 
 
 class VIDSRegressor(nn.Module):
@@ -145,8 +112,8 @@ class VIDSRegressor(nn.Module):
         # Log observation noise variance
         self.log_noise_var = nn.Parameter(torch.tensor(math.log(noise_variance_init)))
 
-        self.register_buffer("x_train_mean", None)
-        self.register_buffer("x_train_std", None)
+        self.register_buffer("x_train_mean", torch.tensor(0.0))
+        self.register_buffer("x_train_std", torch.tensor(0.0))
         self.is_fitted = False
 
     def _get_context(
@@ -196,13 +163,16 @@ class VIDSRegressor(nn.Module):
         self.x_train_mean = x_train_features.mean(dim=0)
         self.x_train_std = x_train_features.std(dim=0) + self.jitter
 
-        sampler = SyntheticEnvironmentSampler(bootstrap_fraction, n_environments)
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
         self.train()
         for epoch in range(epochs):
-            # Re-sample synthetic environments each epoch to prevent overfitting
-            envs = sampler.sample(x_train_features, y_train)
+            envs = sample_synthetic_environments(
+                x_train_features,
+                y_train,
+                bootstrap_fraction=bootstrap_fraction,
+                n_environments=n_environments,
+            )
             epoch_loss = 0.0
 
             for X_env, Y_env in envs:
@@ -267,9 +237,6 @@ class VIDSRegressor(nn.Module):
     def predict_distribution(
         self, x_test: torch.Tensor, n_samples: Optional[int] = None
     ) -> PredictiveBatch:
-        """
-        Evaluates the adaptive prior on the test points to output predictions and uncertainty.
-        """
         if not self.is_fitted:
             raise RuntimeError("Model must be fitted before calling predict_distribution")
 
@@ -278,64 +245,43 @@ class VIDSRegressor(nn.Module):
 
         device = x_test.device
         context_X = torch.cat([self.x_train_mean, self.x_train_std], dim=-1)
+        B = x_test.shape[0]
+        w_size = self.target_dim * self.in_features
 
         with torch.no_grad():
-            # Predict prior parameters for each test point
-            # prior_mean, prior_log_var shapes: [B, P]
-            prior_mean, prior_log_var = self.prior_net(context_X, x_test)
-            prior_std = torch.exp(0.5 * prior_log_var)
+            prior_mean, prior_log_var = self.prior_net(context_X, x_test)  # [B, P]
+            prior_std = torch.exp(0.5 * prior_log_var)  # [B, P]
 
-            B = x_test.shape[0]
-            sampled_predictions = []
+            eps = torch.randn(n, B, self.param_dim, device=device)  # [n, B, P]
+            params_sampled = prior_mean.unsqueeze(0) + eps * prior_std.unsqueeze(0)  # [n, B, P]
 
-            # Sample S weights and biases for each test point separately
-            for s in range(n):
-                eps = torch.randn(B, self.param_dim, device=device)
-                params_sampled = prior_mean + eps * prior_std  # [B, P]
+            w_flat = params_sampled[..., :w_size]  # [n, B, w_size]
+            b = params_sampled[..., w_size:]  # [n, B, target_dim]
+            w = w_flat.reshape(
+                n, B, self.target_dim, self.in_features
+            )  # [n, B, target_dim, in_features]  # noqa: E501
 
-                # Map parameters to weight and bias for each sample
-                # weight: [B, target_dim, in_features], bias: [B, target_dim]
-                w_size = self.target_dim * self.in_features
-                w_flat = params_sampled[:, :w_size]
-                b = params_sampled[:, w_size:]
-                w = w_flat.reshape(B, self.target_dim, self.in_features)
+            pred_mean = (w * x_test.unsqueeze(0).unsqueeze(2)).sum(dim=-1) + b  # [n, B, target_dim]
 
-                # Predict: mean = sum_j w_ij * x_j + b_i
-                pred_mean = torch.sum(w * x_test.unsqueeze(1), dim=-1) + b  # [B, target_dim]
+            noise_var = torch.exp(self.log_noise_var)
+            noise = torch.randn_like(pred_mean) * torch.sqrt(noise_var + 1e-8)
+            points_tensor = pred_mean + noise  # [n, B, target_dim]
 
-                # Sample point = mean + observation noise
-                noise_var = torch.exp(self.log_noise_var)
-                noise = torch.randn_like(pred_mean) * torch.sqrt(noise_var + 1e-8)
-                point = pred_mean + noise
-
-                sampled_predictions.append((pred_mean, point))
-
-        means_list, points_list = zip(*sampled_predictions)
-        means_tensor = torch.stack(means_list)  # [n_samples, B, target_dim]
-        points_tensor = torch.stack(points_list)  # [n_samples, B, target_dim]
-
-        # Epistemic: variance of means across samples
-        epistemic = means_tensor.var(dim=0)
-        # Aleatoric: observation noise variance
+        epistemic = pred_mean.var(dim=0)
         aleatoric = torch.exp(self.log_noise_var) + torch.zeros_like(epistemic)
         total_var = epistemic + aleatoric
         total_std = torch.sqrt(total_var + 1e-8)
+        final_mean = pred_mean.mean(dim=0)
 
-        final_mean = means_tensor.mean(dim=0)
-
-        # Reshape samples to [B, n_samples] for PredictiveBatch compatibility (if 1D output)
         if self.target_dim == 1:
-            samples_flat = points_tensor.squeeze(-1).transpose(0, 1)  # [B, n_samples]
+            samples_flat = points_tensor.squeeze(-1).transpose(0, 1)
         else:
-            samples_flat = points_tensor.transpose(0, 1)  # [B, n_samples, target_dim]
+            samples_flat = points_tensor.transpose(0, 1)
 
         return PredictiveBatch(
             point=final_mean,
             mean=final_mean,
             std=total_std,
             samples=samples_flat,
-            extra={
-                "epistemic_variance": epistemic,
-                "aleatoric_variance": aleatoric,
-            },
+            extra={"epistemic_variance": epistemic, "aleatoric_variance": aleatoric},
         )

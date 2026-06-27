@@ -238,7 +238,8 @@ def typicality_score(
     dist = Normal(mean, torch.sqrt(var))
 
     if x is None:
-        log_prob = dist.sample((100,)).log_prob(dist.sample((100,))).mean(dim=0)
+        samples = dist.sample((100,))
+        log_prob = dist.log_prob(samples).mean(dim=0)
     else:
         x_t = convert_to_tensor(x).to(mean.device)
         if mean.dim() == 1 and x_t.dim() > 1 and mean.shape[0] == x_t.shape[0]:
@@ -344,6 +345,8 @@ def _batched_entropy(samples: torch.Tensor, n_bins: int) -> torch.Tensor:
     entropy_per_bin[positive_probs] = probs[positive_probs] * torch.log(probs[positive_probs])
 
     entropies = -torch.sum(entropy_per_bin, dim=-1)  # [batch_size, output_dim]
+    # ponytail: discrete bin entropy (depends on bin width), not differential entropy;
+    # fine for relative OOD ranking but absolute values depend on bin count/range.
     return entropies
 
 

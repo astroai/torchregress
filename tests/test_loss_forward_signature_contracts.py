@@ -28,13 +28,14 @@ FORWARD_PRIMARY_ARG_NAMES: dict[str, tuple[str, str]] = {
 
 def _iter_public_loss_classes() -> list[tuple[str, type[BaseLoss]]]:
     out: list[tuple[str, type[BaseLoss]]] = []
-    for name in losses.__all__:
+    for name in dir(losses):
+        if name.startswith("_"):
+            continue
         obj = getattr(losses, name, None)
         if (
             isinstance(obj, type)
             and issubclass(obj, BaseLoss)
             and obj.__name__ not in ABSTRACT_OR_META
-            and not name.startswith("_")
         ):
             out.append((name, obj))
     return out
@@ -107,9 +108,9 @@ def test_no_unexpected_optional_parameters_after_weights() -> None:
 
 
 def test_optional_flow_loss_exports_include_contrastive_symbols_when_available() -> None:
-    if "NormalizingFlowLoss" not in losses.__all__:
+    if not hasattr(losses, "NormalizingFlowLoss"):
         return
-    assert "ContrastiveFlowLoss" in losses.__all__
-    assert "create_contrastive_flow_loss" in losses.__all__
+    assert hasattr(losses, "ContrastiveFlowLoss")
+    assert hasattr(losses, "create_contrastive_flow_loss")
     assert getattr(losses, "ContrastiveFlowLoss", None) is not None
     assert getattr(losses, "create_contrastive_flow_loss", None) is not None

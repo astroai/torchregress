@@ -3,26 +3,9 @@ import torch
 from torchregress.algorithms.adaptive_prior_vi import (
     AdaptivePriorGuide,
     AdaptivePriorNetwork,
-    SyntheticEnvironmentSampler,
     VIDSRegressor,
 )
 from torchregress.prediction import PredictiveBatch
-
-
-def test_synthetic_environment_sampler() -> None:
-    N = 50
-    in_features = 4
-    target_dim = 1
-    X = torch.randn(N, in_features)
-    Y = torch.randn(N, target_dim)
-
-    sampler = SyntheticEnvironmentSampler(bootstrap_fraction=0.4, n_environments=5)
-    envs = sampler.sample(X, Y)
-
-    assert len(envs) == 5
-    for x_env, y_env in envs:
-        assert x_env.shape == (20, in_features)
-        assert y_env.shape == (20, target_dim)
 
 
 def test_adaptive_prior_guide_and_network() -> None:

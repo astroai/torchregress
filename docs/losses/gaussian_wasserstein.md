@@ -109,7 +109,7 @@ Metrics supported: pooled **Mahalanobis** in ``x`` (default) or **Euclidean** di
 
 - **Use only with covariance targets**: This loss is for supervised or pseudo-supervised covariance learning. For standard likelihood training on $(x, y)$ pairs, use `GaussianNLLLoss`.
 - **Start with diagonal parameterisation**: `covariance_parameterization="diagonal"` is simpler, faster, and numerically more stable than full covariance or Cholesky modes.
-- **Two-phase strategy**: Consider a pseudo-covariance pretrain with `GaussianWassersteinBoundLoss` followed by `GaussianNLLLoss` fine-tuning. See the [hybrid pretrain demo](../examples/wasserstein_bound_hybrid_pretrain_demo.py).
+- **Two-phase strategy**: Consider a pseudo-covariance pretrain with `GaussianWassersteinBoundLoss` followed by `GaussianNLLLoss` fine-tuning. See the [hybrid pretrain demo](../../examples/wasserstein_bound_hybrid_pretrain_demo.py).
 - **Validate pseudo-labels**: When using `NeighborhoodCovariancePseudoLabeler`, check that the produced covariance matrices are plausible (positive eigenvalues, reasonable scale) before training.
 
 ## Next steps

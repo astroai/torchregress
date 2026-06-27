@@ -75,12 +75,6 @@ $$\text{TAC} = \frac{1}{N \cdot D} \sum_{n=1}^N \sum_{i=1}^D |\tilde{y}_{n, i} -
 
 A lower TAC score indicates that the predicted covariance matrix $\Sigma$ more accurately captures the correlation structure between targets, allowing for better conditional updates.
 
-### Reference Table
-
-| # | Reference |
-|:-:|:----------|
-| 1 | Shukla et al., ["TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression"](https://arxiv.org/abs/2407.00296) (ICML 2024). |
-
 ---
 
 ## Comparison Table: When to use which
@@ -91,7 +85,27 @@ A lower TAC score indicates that the predicted covariance matrix $\Sigma$ more a
 | `MultivariateMAE` | Vector/Multivariate | Point prediction error | Outlier-robust baseline for vector targets |
 | `TaskAgnosticCorrelations` | Vector + Covariance | Covariance/correlation structure | Measures how well covariance informs conditional predictions |
 
-### Example
+## Limitations
+
+1. **MultivariateRMSE / MAE ignore correlation structure**: These treat each output dimension independently, rewarding models that predict the marginal means well but providing no signal about covariance quality.
+2. **TAC requires a covariance prediction**: The metric is only applicable when the model outputs a covariance matrix (full, low-rank, or diagonal). It does not apply to independent-output models.
+3. **TAC is conditional on the observed targets**: The conditional update formula uses the true values of other dimensions, so the metric evaluates covariance quality in a supervised setting — good for model selection but not for unsupervised covariance validation.
+
+## Recommendations
+
+- Report **MultivariateRMSE** as a baseline alongside **TAC** to separate point accuracy from covariance quality.
+- For models with diagonal covariance only, the correlation structure evaluation is unavailable — use dimension-wise interval metrics instead.
+- Use `task_agnostic_correlations` with a held-out validation set to avoid overfitting the covariance evaluation.
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Shukla et al., "TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression" (ICML 2024). |
+| 2 | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
+| 3 | Bishop, C. M. (2006). *Pattern Recognition and Machine Learning*. Springer. [Multivariate Gaussian identities] |
+
+## Example
 
 Here is a complete, runnable example using `TaskAgnosticCorrelations` and the functional wrapper `task_agnostic_correlations`:
 

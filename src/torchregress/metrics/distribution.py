@@ -2,6 +2,7 @@
 Distribution metrics for evaluating probabilistic regression models.
 """
 
+import math
 from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -9,6 +10,8 @@ import torch
 from torchmetrics import Metric
 
 from torchregress.metrics.utils import convert_to_tensor, metric_state_tensor
+
+_INV_SQRT_PI = 1.0 / math.sqrt(math.pi)
 
 
 class ContinuousRankedProbabilityScore(Metric):
@@ -72,7 +75,8 @@ class ContinuousRankedProbabilityScore(Metric):
         view_shape = (-1,) + (1,) * y_true.ndim
         q_tensor = quantile_tensor.view(*view_shape)
         quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
-        weights_tensor = weights[1:].view(*view_shape)
+        # ponytail: trapezoidal rule E[|X-y|] ≈ Σ_i w_i QL_i, w_i = (τ_{i+1} - τ_{i-1}) / 2
+        weights_tensor = (0.5 * (weights[:-1] + weights[1:])).view(*view_shape)
         crps_values = torch.sum(weights_tensor * quantile_loss, dim=0)
 
         metric_state_tensor(self.crps_sum).add_(torch.sum(crps_values))
@@ -273,6 +277,8 @@ def highest_posterior_density_level(
 
     if support_t.ndim != 1 or support_t.numel() < 2:
         raise ValueError("support must be a 1D tensor with at least two points")
+    if not torch.all(support_t[1:] > support_t[:-1]):
+        raise ValueError("support must be strictly increasing")
     if density_t.ndim != 2 or density_t.shape[1] != support_t.numel():
         raise ValueError("density must have shape [batch, support]")
     if density_t.shape[0] != y_true_t.shape[0]:
@@ -329,8 +335,16 @@ def crps_gaussian(
     std: Union[torch.Tensor, np.ndarray],
     reduction: str = "mean",
 ) -> Union[torch.Tensor, float]:
-    """
-    Analytic CRPS for a univariate Gaussian predictive distribution.
+    """Analytic CRPS for a univariate Gaussian predictive distribution.
+
+    Args:
+        mean: Predicted mean.
+        y_true: Ground truth values.
+        std: Predicted standard deviation.
+        reduction: Reduction method ('none', 'mean', 'sum').
+
+    Returns:
+        CRPS value (float with 'mean'/'sum', Tensor with 'none').
     """
     mean_t = convert_to_tensor(mean)
     y_true_t = convert_to_tensor(y_true).to(mean_t.device)
@@ -343,7 +357,7 @@ def crps_gaussian(
     )
     pdf = torch.exp(standard.log_prob(z))
     cdf = standard.cdf(z)
-    crps = std_t * (z * (2 * cdf - 1) + 2 * pdf - 1 / np.sqrt(np.pi))
+    crps = std_t * (z * (2 * cdf - 1) + 2 * pdf - _INV_SQRT_PI)
 
     if reduction == "none":
         return cast(torch.Tensor, crps)
@@ -426,6 +440,9 @@ def _pit_from_quantiles(
         for level in quantile_levels
     ]
     quantile_matrix = torch.stack(quantile_values, dim=1)
+    # ponytail: cummax enforces monotonicity but silently collapses crossed
+    # quantiles into flat plateaus, making PIT interpolation inaccurate for
+    # any target above the crossing point.
     quantile_matrix = torch.cummax(quantile_matrix, dim=1).values
     y_true_t = convert_to_tensor(y_true).reshape(-1).to(torch.float32)
     if quantile_matrix.shape[0] != y_true_t.shape[0]:
@@ -491,6 +508,8 @@ def _quantiles_from_density(
     density_t = convert_to_tensor(density)
     if density_t.ndim != 2:
         raise ValueError("density must have shape [batch, support]")
+    if not torch.all(support_t[1:] > support_t[:-1]):
+        raise ValueError("support must be strictly increasing")
     support_t = support_t.to(device=density_t.device, dtype=density_t.dtype)
     cdf_grid = _cdf_from_density(support_t, density_t)
     prob_t = torch.tensor(probs, device=density_t.device, dtype=density_t.dtype)
@@ -567,7 +586,8 @@ def continuous_ranked_probability_score(
     view_shape = (-1,) + (1,) * y_true_t.ndim
     q_tensor = quantile_tensor.view(*view_shape)
     quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
-    weights_tensor = weights[1:].view(*view_shape)
+    # ponytail: trapezoidal rule E[|X-y|] ≈ Σ_i w_i QL_i, w_i = (τ_{i+1} - τ_{i-1}) / 2
+    weights_tensor = (0.5 * (weights[:-1] + weights[1:])).view(*view_shape)
     crps_values = torch.sum(weights_tensor * quantile_loss, dim=0)
 
     if reduction == "none":
@@ -604,7 +624,9 @@ def crps_from_samples(
 
     term1 = torch.mean(torch.abs(samples_t - y_true_t.unsqueeze(0)), dim=0)
     pairwise = torch.abs(samples_t.unsqueeze(0) - samples_t.unsqueeze(1))
-    term2 = 0.5 * torch.mean(pairwise, dim=(0, 1))
+    n = samples_t.shape[0]
+    # ponytail: unbiased E|X-X'| estimator divides by n(n-1), not n²
+    term2 = 0.5 * torch.sum(pairwise, dim=(0, 1)) / (n * (n - 1))
     crps = term1 - term2
 
     if reduction == "none":

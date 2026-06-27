@@ -5,7 +5,7 @@ from torchregress.algorithms import ErrorAwareFeatureEncoder, NoiseAwareRegresso
 
 def test_error_aware_feature_encoder_shapes_and_finiteness():
     torch.manual_seed(0)
-    encoder = ErrorAwareFeatureEncoder(input_dim=4, hidden_dim=16, output_dim=12)
+    encoder = ErrorAwareFeatureEncoder(input_dim=4, hidden_dim=12)
     x = torch.randn(10, 4)
     sigma = torch.full_like(x, 0.2)
     encoded = encoder(x, sigma)
@@ -15,7 +15,7 @@ def test_error_aware_feature_encoder_shapes_and_finiteness():
 
 def test_error_aware_encoder_downweights_higher_noise():
     torch.manual_seed(1)
-    encoder = ErrorAwareFeatureEncoder(input_dim=2, hidden_dim=8, output_dim=8)
+    encoder = ErrorAwareFeatureEncoder(input_dim=2, hidden_dim=8)
     x = torch.ones(4, 2)
     sigma_low = torch.full_like(x, 0.1)
     sigma_high = torch.full_like(x, 10.0)

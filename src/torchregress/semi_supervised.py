@@ -41,9 +41,6 @@ def disagreement_to_weight(
     tau: float,
     *,
     power: float = 1.0,
-    hard_weight_threshold: float | None = None,
-    batch_relative_mode: str | None = None,
-    batch_trust_top_k: int | None = None,
     eps: float = 1e-8,
 ) -> Tensor:
     """Convert disagreement scores into trust weights."""
@@ -51,37 +48,9 @@ def disagreement_to_weight(
         raise ValueError("tau must be positive")
     if power <= 0.0:
         raise ValueError("power must be positive")
-    if batch_relative_mode is not None and batch_relative_mode not in {"zscore"}:
-        raise ValueError("batch_relative_mode must be None or 'zscore'")
-    if batch_trust_top_k is not None and batch_trust_top_k < 1:
-        raise ValueError("batch_trust_top_k must be positive when set")
-    d = disagreement
-    if batch_relative_mode == "zscore":
-        if d.numel() == 0:
-            raise ValueError("disagreement must be non-empty for batch z-score weighting")
-        centered = d - d.mean()
-        scale = centered.std(unbiased=False).clamp_min(eps)
-        d = centered / scale
-    weight = torch.exp(-d / tau)
-    weight = weight.clamp_max(1.0)
+    weight = torch.exp(-disagreement / tau).clamp_max(1.0)
     if power != 1.0:
         weight = weight.pow(power)
-    if batch_trust_top_k is not None:
-        n = int(disagreement.shape[0])
-        k = min(int(batch_trust_top_k), max(n, 1))
-        if n > 0:
-            _, idx = torch.topk(disagreement, k=k, largest=False, dim=0)
-            gate = torch.zeros_like(weight)
-            gate[idx] = 1.0
-            weight = weight * gate
-    if hard_weight_threshold is not None:
-        if not 0.0 <= hard_weight_threshold <= 1.0:
-            raise ValueError("hard_weight_threshold must lie in [0, 1]")
-        weight = torch.where(
-            weight >= hard_weight_threshold,
-            weight,
-            torch.zeros_like(weight),
-        )
     return weight
 
 
@@ -90,9 +59,6 @@ def uncertainty_to_weight(
     tau: float,
     *,
     power: float = 1.0,
-    hard_weight_threshold: float | None = None,
-    batch_relative_mode: str | None = None,
-    batch_trust_top_k: int | None = None,
     eps: float = 1e-8,
 ) -> Tensor:
     """Convert teacher predictive uncertainty (std) into trust weights."""
@@ -101,15 +67,7 @@ def uncertainty_to_weight(
     std = torch.as_tensor(predictive_batch.std)
     if std.ndim > 1:
         std = std.mean(dim=list(range(1, std.ndim)))
-    return disagreement_to_weight(
-        std,
-        tau,
-        power=power,
-        hard_weight_threshold=hard_weight_threshold,
-        batch_relative_mode=batch_relative_mode,
-        batch_trust_top_k=batch_trust_top_k,
-        eps=eps,
-    )
+    return disagreement_to_weight(std, tau, power=power, eps=eps)
 
 
 def conformal_width_to_weight(
@@ -640,32 +598,6 @@ def predictive_agreement_score(
     return disagreement
 
 
-def perturbation_instability_score(
-    predictive_views: Sequence[PredictiveBatch],
-    *,
-    n_support: int = 128,
-    range_margin: float = 0.05,
-    gaussian_std_span: float = 4.0,
-    min_scale: float = 1e-4,
-    eps: float = 1e-8,
-    reduction: str = "none",
-) -> Tensor:
-    """Compute representation/prediction instability under augmentations.
-
-    Calculates the average pairwise symmetric KL divergence across different
-    predictive views of the same inputs.
-    """
-    return predictive_agreement_score(
-        predictive_views,
-        n_support=n_support,
-        range_margin=range_margin,
-        gaussian_std_span=gaussian_std_span,
-        min_scale=min_scale,
-        eps=eps,
-        reduction=reduction,
-    )
-
-
 def _reduce_pseudo_loss_rows(
     row_loss: Tensor,
     sample_weights: Tensor | None,
@@ -866,9 +798,6 @@ class SAGERegLoss(nn.Module):
         eps: float = 1e-8,
         detach_weights: bool = True,
         weight_power: float = 1.0,
-        hard_weight_threshold: float | None = None,
-        batch_relative_mode: str | None = None,
-        batch_trust_top_k: int | None = None,
     ) -> None:
         super().__init__()
         if tau <= 0.0:
@@ -879,12 +808,6 @@ class SAGERegLoss(nn.Module):
             raise ValueError("n_support must be at least 8")
         if weight_power <= 0.0:
             raise ValueError("weight_power must be positive")
-        if hard_weight_threshold is not None and not 0.0 <= hard_weight_threshold <= 1.0:
-            raise ValueError("hard_weight_threshold must lie in [0, 1]")
-        if batch_relative_mode is not None and batch_relative_mode not in {"zscore"}:
-            raise ValueError("batch_relative_mode must be None or 'zscore'")
-        if batch_trust_top_k is not None and batch_trust_top_k < 1:
-            raise ValueError("batch_trust_top_k must be positive when set")
         self.tau = tau
         self.agreement_weight = agreement_weight
         self.n_support = n_support
@@ -894,9 +817,6 @@ class SAGERegLoss(nn.Module):
         self.eps = eps
         self.detach_weights = detach_weights
         self.weight_power = weight_power
-        self.hard_weight_threshold = hard_weight_threshold
-        self.batch_relative_mode = batch_relative_mode
-        self.batch_trust_top_k = batch_trust_top_k
 
     def agreement(self, unlabeled_views: Sequence[PredictiveBatch]) -> SAGERegAgreement:
         consensus = build_consensus_predictive_batch(
@@ -920,9 +840,6 @@ class SAGERegLoss(nn.Module):
             disagreement,
             self.tau,
             power=self.weight_power,
-            hard_weight_threshold=self.hard_weight_threshold,
-            batch_relative_mode=self.batch_relative_mode,
-            batch_trust_top_k=self.batch_trust_top_k,
             eps=self.eps,
         )
         weights = raw_weights.detach() if self.detach_weights else raw_weights
@@ -1092,6 +1009,7 @@ class TeacherStudentTrainer:
             "supervised_loss": [],
             "unsupervised_loss": [],
             "mean_weight": [],
+            "mean_disagreement": [],
         }
         base_lr = float(self.optimizer.param_groups[0]["lr"])
         for epoch_idx in range(epochs):
@@ -1138,193 +1056,15 @@ class TeacherStudentTrainer:
                 if teacher is not model and self.ema_decay is not None:
                     update_ema_teacher_(teacher, model, momentum=self.ema_decay)
 
-                history["total_loss"].append(float(total_loss.detach().item()))
-                history["supervised_loss"].append(float(supervised_loss.detach().item()))
-                history["unsupervised_loss"].append(float(unsupervised_loss.detach().item()))
-                history["mean_weight"].append(float(weight.detach().mean().item()))
-        return history
-
-
-class SelfAgreementTrainer(TeacherStudentTrainer):
-    """Backward-compatible wrapper for NeurIPS SAGE-Reg benchmarks."""
-
-    def __init__(
-        self,
-        *,
-        optimizer: torch.optim.Optimizer,
-        supervised_loss_fn: Callable[[nn.Module, Tensor, Tensor], Tensor],
-        predictive_batch_fn: Callable[[nn.Module, Tensor], PredictiveBatch],
-        augment_fn: Callable[[Tensor], Tensor] | None = None,
-        n_views: int = 4,
-        tau: float = 0.2,
-        agreement_weight: float = 1.0,
-        ema_decay: float | None = 0.99,
-        n_support: int = 128,
-        range_margin: float = 0.05,
-        gaussian_std_span: float = 4.0,
-        min_scale: float = 1e-4,
-        eps: float = 1e-8,
-        detach_weights: bool = True,
-        weight_power: float = 1.0,
-        hard_weight_threshold: float | None = None,
-        batch_relative_mode: str | None = None,
-        batch_trust_top_k: int | None = None,
-    ) -> None:
-        self.legacy_loss = SAGERegLoss(
-            tau=tau,
-            agreement_weight=agreement_weight,
-            n_support=n_support,
-            range_margin=range_margin,
-            gaussian_std_span=gaussian_std_span,
-            min_scale=min_scale,
-            eps=eps,
-            detach_weights=detach_weights,
-            weight_power=weight_power,
-            hard_weight_threshold=hard_weight_threshold,
-            batch_relative_mode=batch_relative_mode,
-            batch_trust_top_k=batch_trust_top_k,
-        )
-
-        super().__init__(
-            optimizer=optimizer,
-            supervised_loss_fn=supervised_loss_fn,
-            predictive_batch_fn=predictive_batch_fn,
-            augment_fn=augment_fn,
-            unsupervised_loss_fn=self._legacy_unsupervised_loss,
-            sample_weight_fn=self._legacy_sample_weight,
-            n_views=n_views,
-            agreement_weight=agreement_weight,
-            ema_decay=ema_decay,
-            n_support=n_support,
-            range_margin=range_margin,
-            gaussian_std_span=gaussian_std_span,
-            min_scale=min_scale,
-            eps=eps,
-            detach_weights=detach_weights,
-        )
-
-    def _legacy_sample_weight(
-        self,
-        predictive_views: Sequence[PredictiveBatch],
-        consensus_pred: PredictiveBatch | None = None,
-    ) -> Tensor:
-        disagreement = predictive_agreement_score(
-            predictive_views,
-            n_support=self.n_support,
-            range_margin=self.range_margin,
-            gaussian_std_span=self.gaussian_std_span,
-            min_scale=self.min_scale,
-            eps=self.eps,
-            reduction="none",
-        )
-        return disagreement_to_weight(
-            disagreement,
-            self.legacy_loss.tau,
-            power=self.legacy_loss.weight_power,
-            hard_weight_threshold=self.legacy_loss.hard_weight_threshold,
-            batch_relative_mode=self.legacy_loss.batch_relative_mode,
-            batch_trust_top_k=self.legacy_loss.batch_trust_top_k,
-            eps=self.eps,
-        )
-
-    def _legacy_unsupervised_loss(
-        self,
-        student_pred: PredictiveBatch,
-        consensus_pred: PredictiveBatch,
-        weight: Tensor,
-    ) -> Tensor:
-        return distributional_pseudo_loss(
-            student_pred,
-            consensus_pred,
-            sample_weights=weight,
-            reduction="mean",
-            n_support=self.n_support,
-            range_margin=self.range_margin,
-            gaussian_std_span=self.gaussian_std_span,
-            min_scale=self.min_scale,
-            eps=self.eps,
-        )
-
-    def compute_agreement(self, predictive_views: Sequence[PredictiveBatch]) -> Tensor:
-        return predictive_agreement_score(
-            predictive_views,
-            n_support=self.n_support,
-            range_margin=self.range_margin,
-            gaussian_std_span=self.gaussian_std_span,
-            min_scale=self.min_scale,
-            eps=self.eps,
-            reduction="none",
-        )
-
-    def unsupervised_loss(
-        self,
-        student_pred: PredictiveBatch,
-        consensus_pred: PredictiveBatch,
-        weight: Tensor,
-    ) -> Tensor:
-        return self._legacy_unsupervised_loss(student_pred, consensus_pred, weight)
-
-    def fit(
-        self,
-        model: nn.Module,
-        labeled_loader: Sequence[Any] | torch.utils.data.DataLoader[Any],
-        unlabeled_loader: Sequence[Any] | torch.utils.data.DataLoader[Any],
-        val_loader: Sequence[Any] | torch.utils.data.DataLoader[Any] | None = None,
-        *,
-        epochs: int = 1,
-        lr_schedule: str = "constant",
-        lr_min: float = 0.0,
-    ) -> dict[str, list[float]]:
-        # Preserve legacy history keys in output: "mean_disagreement"
-        teacher = copy.deepcopy(model).eval() if self.ema_decay is not None else model
-        history: dict[str, list[float]] = {
-            "total_loss": [],
-            "supervised_loss": [],
-            "unsupervised_loss": [],
-            "mean_weight": [],
-            "mean_disagreement": [],
-        }
-        base_lr = float(self.optimizer.param_groups[0]["lr"])
-        for epoch_idx in range(epochs):
-            if lr_schedule == "cosine":
-                if epochs <= 1:
-                    mult = 1.0
-                else:
-                    mult = 0.5 * (1.0 + math.cos(math.pi * float(epoch_idx) / float(epochs - 1)))
-                lr = max(base_lr * mult, float(lr_min))
-                for g in self.optimizer.param_groups:
-                    g["lr"] = lr
-            elif lr_schedule == "constant":
-                for g in self.optimizer.param_groups:
-                    g["lr"] = base_lr
-            else:
-                raise ValueError(
-                    f"unknown lr_schedule: {lr_schedule!r} (expected 'constant' or 'cosine')"
+                disagreement = predictive_agreement_score(
+                    predictive_views,
+                    n_support=self.n_support,
+                    range_margin=self.range_margin,
+                    gaussian_std_span=self.gaussian_std_span,
+                    min_scale=self.min_scale,
+                    eps=self.eps,
+                    reduction="none",
                 )
-            unlabeled_iter = cycle(unlabeled_loader)
-            for labeled_batch, unlabeled_batch in zip(
-                labeled_loader,
-                unlabeled_iter,
-                strict=False,
-            ):
-                model.train()
-                x_labeled, y_labeled = _split_labeled_batch(labeled_batch)
-                x_unlabeled = _split_unlabeled_batch(unlabeled_batch)
-
-                self.optimizer.zero_grad()
-                supervised_loss = self.supervised_loss_fn(model, x_labeled, y_labeled)
-                student_pred = self.predictive_batch_fn(model, x_unlabeled)
-                predictive_views = self._teacher_views(teacher, x_unlabeled)
-                disagreement = self.compute_agreement(predictive_views)
-                weight = self._legacy_sample_weight(predictive_views, None)
-                consensus = self.compute_consensus(predictive_views)
-                unsupervised_loss = self.unsupervised_loss(student_pred, consensus, weight)
-                total_loss = supervised_loss + self.agreement_weight * unsupervised_loss
-                total_loss.backward()
-                self.optimizer.step()
-                if teacher is not model and self.ema_decay is not None:
-                    update_ema_teacher_(teacher, model, momentum=self.ema_decay)
-
                 history["total_loss"].append(float(total_loss.detach().item()))
                 history["supervised_loss"].append(float(supervised_loss.detach().item()))
                 history["unsupervised_loss"].append(float(unsupervised_loss.detach().item()))
@@ -1356,7 +1096,6 @@ __all__ = [
     "SAGERegAgreement",
     "SAGERegLoss",
     "SAGERegOutput",
-    "SelfAgreementTrainer",
     "TeacherStudentTrainer",
     "build_consensus_predictive_batch",
     "disagreement_to_weight",
@@ -1364,5 +1103,4 @@ __all__ = [
     "conformal_width_to_weight",
     "distributional_pseudo_loss",
     "predictive_agreement_score",
-    "perturbation_instability_score",
 ]

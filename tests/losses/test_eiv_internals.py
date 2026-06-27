@@ -22,9 +22,7 @@ import torch
 import torch.nn as nn
 
 from torchregress.losses.eiv import (
-    ExplicitEIVAdapter,
     FunctionalEIVLoss,
-    InputNoiseMarginalizationLoss,
     NoisyInputPredictor,
 )
 
@@ -34,74 +32,6 @@ def _linear_model(n_in: int, n_out: int) -> nn.Module:
     torch.manual_seed(0)
     return nn.Linear(n_in, n_out)
 
-
-class TestExplicitEIVAdapter(unittest.TestCase):
-    """``loss.explicit()`` returns an :class:`ExplicitEIVAdapter` that
-    accepts ``(x_obs, target)`` and forwards ``sigma_x`` / ``sigma_y`` kwargs.
-    """
-
-    def setUp(self):
-        self.batch_size = 4
-        self.n_features_x = 5
-        self.n_features_y = 2
-        self.model = _linear_model(self.n_features_x, self.n_features_y)
-        self.x_obs = torch.randn(self.batch_size, self.n_features_x)
-        self.y_obs = torch.randn(self.batch_size, self.n_features_y)
-
-    def test_adapter_returns_finite_loss_with_scalar_sigma(self):
-        loss_fn = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1).explicit()
-        val = loss_fn(self.x_obs, self.y_obs)
-        self.assertTrue(torch.is_tensor(val))
-        self.assertTrue(torch.isfinite(val))
-
-    def test_adapter_overrides_sigma_x_at_call_site(self):
-        """sigma_x supplied per-call must take precedence over the value
-        bound at construction time; the loss must remain finite.
-        """
-        # Construct with sigma_x=0.1; override at call with sigma_x=2.0.
-        loss_fn = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1).explicit()
-        per_batch_sigma = torch.full((self.batch_size, self.n_features_x), 2.0)
-        val = loss_fn(self.x_obs, self.y_obs, sigma_x=per_batch_sigma)
-        self.assertTrue(torch.isfinite(val))
-
-        # Compare to the same call through the underlying loss' explicit path:
-        # both routes must produce an identical scalar.
-        loss_underlying = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1)
-        val_ref = loss_underlying(self.x_obs, self.y_obs, sigma_x=per_batch_sigma, sigma_y=None)
-        self.assertTrue(torch.allclose(val, val_ref))
-
-    def test_adapter_overrides_sigma_y_at_call_site(self):
-        loss_fn = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1).explicit()
-        per_batch_sigma_y = torch.full((self.batch_size, self.n_features_y), 0.05)
-        val = loss_fn(self.x_obs, self.y_obs, sigma_y=per_batch_sigma_y)
-        self.assertTrue(torch.isfinite(val))
-
-    def test_adapter_forwards_mask_and_weights(self):
-        """With mask+weights supplied through the adapter, the reduced scalar
-        must remain finite.  ``FunctionalEIVLoss`` aggregates per-feature NLL
-        into a per-sample scalar before reduction, so the adapter's weights
-        must be per-sample (``(B,)``) to broadcast correctly through the
-        inner ``BaseLoss._reduce`` path.
-        """
-        loss_fn = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1).explicit()
-        mask = torch.ones(self.batch_size, self.n_features_y, dtype=torch.bool)
-        mask[0, 0] = False
-        weights = torch.full((self.batch_size,), 1.0)
-        val = loss_fn(self.x_obs, self.y_obs, mask=mask, weights=weights)
-        self.assertTrue(torch.is_tensor(val))
-        self.assertTrue(torch.isfinite(val))
-
-        # Compare to the same call routed through the underlying loss so the
-        # adapter is verified to drop neither kwargs.
-        loss_ref = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1)
-        ref = loss_ref(self.x_obs, self.y_obs, mask=mask, weights=weights)
-        self.assertTrue(torch.isclose(val, ref, atol=1e-6))
-
-        # Without mask/weights the adapter must still produce a finite scalar
-        # that matches the loss' default reduction.
-        val_default = loss_fn(self.x_obs, self.y_obs)
-        ref_default = loss_ref(self.x_obs, self.y_obs)
-        self.assertTrue(torch.isclose(val_default, ref_default, atol=1e-6))
 
 
 class TestNoisyInputPredictor(unittest.TestCase):
@@ -136,29 +66,6 @@ class TestNoisyInputPredictor(unittest.TestCase):
         predictor = NoisyInputPredictor(self.model, sigma_x=0.05, n_samples=5, antithetic=True)
         stacked = predictor.sample_predictions(self.x_obs)
         self.assertEqual(stacked.shape, (5, self.batch_size, self.n_features_y))
-
-    def test_antithetic_pairs_sum_to_zero_perturbation(self):
-        """When ``antithetic=True`` and ``n_samples`` is even, the first draw's
-        perturbation and the second's should be opposite vectors.  We verify
-        via a fixed seed by directly exercising ``InputNoiseMarginalizationLoss``,
-        which is the same sampling path.
-        """
-        marginalizer = InputNoiseMarginalizationLoss(
-            self.model,
-            base_loss=lambda p, t: p,
-            sigma_x=torch.full((self.n_features_x,), 0.05),
-            n_samples=4,
-            antithetic=True,
-        )
-        # Two antithetic samples must yield unperturbed-x + noise vs unperturbed-x - noise.
-        torch.manual_seed(123)
-        x = torch.zeros(1, self.n_features_x)  # zero so observed is known
-        stacked = marginalizer.sample_predictions(x)
-        # first two predictions correspond to +eps and -eps perturbations around zero;
-        # with antithetic, the *mechanism* stacks +noise then -noise.  We assert
-        # the predictions are NOT identical, which proves antithetic sampling
-        # produced two distinct rows.
-        self.assertFalse(torch.allclose(stacked[0], stacked[1]))
 
     def test_sample_predictions_raises_on_non_tensor_output(self):
         """When the wrapped model returns a non-Tensor, NoisyInputPredictor
@@ -202,12 +109,6 @@ class TestBaseEIVLossInternals(unittest.TestCase):
         self.model = _linear_model(3, 2)
         self.loss = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1)
         self.device = torch.device("cpu")
-
-    def test_explicit_factory_returns_adapter(self):
-        adapter = self.loss.explicit()
-        self.assertIsInstance(adapter, ExplicitEIVAdapter)
-        # The adapter must hold a reference to the same underlying loss object.
-        self.assertIs(adapter.loss, self.loss)
 
     def test_prepare_covariance_scalar(self):
         n_features = 4

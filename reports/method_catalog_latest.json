@@ -2,15 +2,15 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 127,
+    "total_methods": 124,
     "families": {
       "bnn": 7,
       "calibration_transform": 5,
       "causal": 2,
       "censored": 3,
-      "conformal": 13,
+      "conformal": 12,
       "constraints": 2,
-      "eiv": 15,
+      "eiv": 13,
       "ensemble": 7,
       "evidential": 1,
       "expectile": 3,
@@ -37,9 +37,8 @@
     },
     "maturity": {
       "Core": 7,
-      "Strong": 20,
-      "Available": 99,
-      "Deprecated": 1
+      "Strong": 19,
+      "Available": 98
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -762,28 +761,6 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Conditional Tightness Indicator for distributional conformal prediction."
-    },
-    {
-      "name": "MultiDimensionalConformalLoss",
-      "family": "conformal",
-      "public_path": "torchregress.losses.MultiDimensionalConformalLoss",
-      "task_tags": [
-        "coverage_guarantees",
-        "calibration",
-        "multi_target"
-      ],
-      "maturity": "Available",
-      "multimodal": "no",
-      "multi_target": "yes",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "no",
-      "decomposition": "no",
-      "calibration": "yes",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "Multi-dimensional conformal prediction for joint coverage across target dimensions."
     },
     {
       "name": "CVPlus",
@@ -1773,29 +1750,6 @@
       "notes": "Simulation-Extrapolation (SIMEX) algorithm for parameter/estimand-level bias correction. Adds simulated noise to features and extrapolates back to the zero-noise limit."
     },
     {
-      "name": "PredictionSIMEX",
-      "family": "eiv",
-      "public_path": "torchregress.algorithms.PredictionSIMEX",
-      "task_tags": [
-        "noisy_features",
-        "measurement_error",
-        "simex",
-        "inference"
-      ],
-      "maturity": "Strong",
-      "multimodal": "no",
-      "multi_target": "yes",
-      "non_gaussian": "partial",
-      "epistemic": "no",
-      "aleatoric": "no",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "yes",
-      "notes": "Test-time Prediction SIMEX. Extrapolates predictions directly to the zero-noise limit for downstream inference."
-    },
-    {
       "name": "ErrorAwareFeatureEncoder",
       "family": "eiv",
       "public_path": "torchregress.algorithms.ErrorAwareFeatureEncoder",
@@ -1859,28 +1813,6 @@
       "imbalance": "no",
       "noisy_features_eiv": "yes",
       "notes": "Research/Advanced method. Powerful but ergonomically awkward; explicit adapters or simpler MC input-noise baselines can be easier to debug in practice."
-    },
-    {
-      "name": "InputNoiseMarginalizationLoss",
-      "family": "eiv",
-      "public_path": "torchregress.losses.InputNoiseMarginalizationLoss",
-      "task_tags": [
-        "noisy_features",
-        "measurement_error",
-        "marginalization"
-      ],
-      "maturity": "Deprecated",
-      "multimodal": "no",
-      "multi_target": "yes",
-      "non_gaussian": "partial",
-      "epistemic": "no",
-      "aleatoric": "no",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "yes",
-      "notes": "Deprecated alias for InputNoiseAugmentationLoss."
     },
     {
       "name": "InputNoiseAugmentationLoss",
@@ -2035,9 +1967,9 @@
       "notes": ""
     },
     {
-      "name": "DeepEnsemble",
+      "name": "BaseEnsembleModel",
       "family": "ensemble",
-      "public_path": "torchregress.ensemble.DeepEnsemble",
+      "public_path": "torchregress.ensemble.BaseEnsembleModel",
       "task_tags": [
         "epistemic_uq",
         "ood",

@@ -100,9 +100,7 @@ EXPECTED_EXPORTS = {
         "OutlierFraction",
         "TrimmedMeanSquaredError",
         "attenuation_factor",
-        "mse",
         "mean_squared_error",
-        "mae",
         "mean_absolute_error",
         "median_absolute_error",
         "huber_loss",
@@ -124,7 +122,6 @@ EXPECTED_EXPORTS = {
         "EnsembleFitConfig",
         "BatchEnsembleLinear",
         "HeteroscedasticEnsembleModel",
-        "DeepEnsemble",
         "BatchEnsembleMLPBackbone",
         "BinnedPDFEnsembleModel",
         "CumulativeLinkEnsembleModel",
@@ -133,17 +130,12 @@ EXPECTED_EXPORTS = {
         "HeteroscedasticBatchEnsembleModel",
         "BatchEnsembleRegressor",
         "BatchEnsembleOutput",
-        "PackedEnsembleRegressor",
-        "PackedEnsembleOutput",
-        "BayesianModelAveraging",
         "SoftmaxModelCombiner",
         "StackingEnsemble",
-        "DynamicEnsembleWeighting",
         "SWAG",
         "MultiSWAG",
         "parse_heteroscedastic_output",
         "MCDropoutWrapper",
-        "MCDropoutModel",
         "enable_dropout",
         "VariationalLinear",
         "BayesianNeuralNetwork",
@@ -155,20 +147,18 @@ EXPECTED_EXPORTS = {
         "IRLSConfig",
         "RegressionCalibration",
         "SIMEX",
-        "PredictionSIMEX",
         "LatentNN",
         "ErrorAwareFeatureEncoder",
         "NeighborhoodCovarianceConfig",
         "NeighborhoodCovariancePseudoLabeler",
         "NoiseAwareRegressor",
-        "mahalanobis_covariance_pseudo_labels",
         "TaylorInducedCovarianceHead",
         "NaturalHeteroscedasticHead",
         "NaturalReparamHead",
         "HeteroscedasticLaplaceRegressor",
-        "SyntheticEnvironmentSampler",
         "AdaptivePriorGuide",
         "VIDSRegressor",
+        "sample_synthetic_environments",
         "WarmupMCTrainer",
     ],
     "causal": [
@@ -265,7 +255,6 @@ EXPECTED_EXPORTS = {
         "SAGERegAgreement",
         "SAGERegLoss",
         "SAGERegOutput",
-        "SelfAgreementTrainer",
         "TeacherStudentTrainer",
         "build_consensus_predictive_batch",
         "disagreement_to_weight",
@@ -273,7 +262,6 @@ EXPECTED_EXPORTS = {
         "conformal_width_to_weight",
         "distributional_pseudo_loss",
         "predictive_agreement_score",
-        "perturbation_instability_score",
     ],
 }
 
@@ -309,12 +297,6 @@ EXPECTED_SIGNATURES = {
     ),
     "algorithms.NoiseAwareRegressor.forward": (
         "(self, x: 'torch.Tensor', sigma_x: 'float | torch.Tensor') -> 'torch.Tensor'"
-    ),
-    "metrics.mse": (
-        "(y_pred: torch.Tensor | numpy.ndarray, y_true: torch.Tensor | numpy.ndarray, "
-        "sample_weight: torch.Tensor | numpy.ndarray | None = None, "
-        "reduction: str = 'mean', "
-        "as_numpy: bool = False) -> torch.Tensor | float | numpy.ndarray"
     ),
     "metrics.rmse": (
         "(y_pred: torch.Tensor | numpy.ndarray, y_true: torch.Tensor | numpy.ndarray, "
@@ -371,7 +353,7 @@ EXPECTED_SIGNATURES = {
     "algorithms.HeteroscedasticLaplaceRegressor": "(base_model: 'nn.Module', head: 'nn.Module', prior_precision: 'float' = 1.0, n_samples: 'int' = 30, jitter: 'float' = 1e-06) -> 'None'",
     "algorithms.HeteroscedasticLaplaceRegressor.fit": "(self, train_loader: 'DataLoader', lr: 'float' = 0.001, epochs: 'int' = 10, device: 'str | torch.device' = 'cpu') -> 'HeteroscedasticLaplaceRegressor'",
     "algorithms.HeteroscedasticLaplaceRegressor.predict_distribution": "(self, x: 'torch.Tensor', n_samples: 'int | None' = None) -> 'PredictiveBatch'",
-    "algorithms.SyntheticEnvironmentSampler": "(bootstrap_fraction: 'float' = 0.3, n_environments: 'int' = 32) -> 'None'",
+    "algorithms.sample_synthetic_environments": "(X: 'torch.Tensor', Y: 'torch.Tensor', *, bootstrap_fraction: 'float' = 0.3, n_environments: 'int' = 32) -> 'list[tuple[torch.Tensor, torch.Tensor]]'",
     "algorithms.AdaptivePriorGuide": "(in_features: 'int', target_dim: 'int', param_dim: 'int', hidden_dim: 'int' = 64) -> 'None'",
     "algorithms.VIDSRegressor": "(in_features: 'int', target_dim: 'int' = 1, hidden_dim: 'int' = 64, prior_variance_init: 'float' = 1.0, noise_variance_init: 'float' = 0.1, jitter: 'float' = 1e-06) -> 'None'",
     "algorithms.VIDSRegressor.fit": "(self, x_train_features: 'torch.Tensor', y_train: 'torch.Tensor', n_environments: 'int' = 32, bootstrap_fraction: 'float' = 0.3, lr: 'float' = 0.001, epochs: 'int' = 50, beta: 'float' = 1.0, n_samples: 'int' = 10) -> 'VIDSRegressor'",
@@ -564,6 +546,31 @@ def _normalize_union_optional(text: str) -> str:
             close_idx = _find_matching_bracket(text, open_idx)
             inner = text[open_idx + 1 : close_idx]
             out.append(f"{_normalize_union_optional(inner)} | None")
+            i = close_idx + 1
+            continue
+        if text.startswith("Tuple[", i):
+            open_idx = i + len("Tuple")
+            close_idx = _find_matching_bracket(text, open_idx)
+            inner = text[open_idx + 1 : close_idx]
+            parts = _split_top_level(inner)
+            normalized_parts = [_normalize_union_optional(part) for part in parts]
+            out.append("tuple[" + ", ".join(normalized_parts) + "]")
+            i = close_idx + 1
+            continue
+        if text.startswith("List[", i):
+            open_idx = i + len("List")
+            close_idx = _find_matching_bracket(text, open_idx)
+            inner = text[open_idx + 1 : close_idx]
+            out.append(f"list[{_normalize_union_optional(inner)}]")
+            i = close_idx + 1
+            continue
+        if text.startswith("Dict[", i):
+            open_idx = i + len("Dict")
+            close_idx = _find_matching_bracket(text, open_idx)
+            inner = text[open_idx + 1 : close_idx]
+            parts = _split_top_level(inner)
+            normalized_parts = [_normalize_union_optional(part) for part in parts]
+            out.append("dict[" + ", ".join(normalized_parts) + "]")
             i = close_idx + 1
             continue
         out.append(text[i])

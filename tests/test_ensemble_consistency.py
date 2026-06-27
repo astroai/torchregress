@@ -20,17 +20,17 @@ from tests._test_models import (
     HeteroscedasticMLP,
     SimpleMLP,
 )
+from torchregress.ensemble.base import BaseEnsembleModel
 from torchregress.ensemble.models import (
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
-    DeepEnsemble,
     HeteroscedasticBatchEnsembleModel,
     HeteroscedasticEnsembleModel,
     MDNEnsembleModel,
 )
 
 _GAUSSIAN_ENSEMBLE_TYPES = [
-    "DeepEnsemble",
+    "BaseEnsembleModel",
     "HeteroscedasticEnsemble",
     "HeteroscedasticBatchEnsemble",
 ]
@@ -44,8 +44,8 @@ class TestPredictAPIContract:
     with at least ``mean`` and ``variance`` keys, and the shapes must
     be consistent."""
 
-    def _make_deep_ensemble(self) -> DeepEnsemble:
-        return DeepEnsemble(
+    def _make_deep_ensemble(self) -> BaseEnsembleModel:
+        return BaseEnsembleModel(
             base_model=SimpleMLP(),
             ensemble_size=3,
             input_size=4,
@@ -67,16 +67,16 @@ class TestPredictAPIContract:
             nn.Linear(4, 6),
             nn.ReLU(),
         )
+        backbone.feature_dim = 6
         return HeteroscedasticBatchEnsembleModel(
             backbone=backbone,
-            input_size=6,
             output_size=1,
             ensemble_size=3,
         )
 
     @pytest.mark.parametrize("ensemble_type", _GAUSSIAN_ENSEMBLE_TYPES)
     def test_predict_returns_mean_and_variance(self, ensemble_type):
-        if ensemble_type == "DeepEnsemble":
+        if ensemble_type == "BaseEnsembleModel":
             model = self._make_deep_ensemble()
         elif ensemble_type == "HeteroscedasticEnsemble":
             model = self._make_heteroscedastic_ensemble()
@@ -95,7 +95,7 @@ class TestPredictAPIContract:
 
     @pytest.mark.parametrize("ensemble_type", _GAUSSIAN_ENSEMBLE_TYPES)
     def test_variance_is_non_negative(self, ensemble_type):
-        if ensemble_type == "DeepEnsemble":
+        if ensemble_type == "BaseEnsembleModel":
             model = self._make_deep_ensemble()
         elif ensemble_type == "HeteroscedasticEnsemble":
             model = self._make_heteroscedastic_ensemble()
@@ -138,9 +138,9 @@ class TestVarianceDecomposition:
 
     def test_batch_ensemble_decomposes_variance(self):
         backbone = nn.Sequential(nn.Linear(4, 6), nn.ReLU())
+        backbone.feature_dim = 6
         model = HeteroscedasticBatchEnsembleModel(
             backbone=backbone,
-            input_size=6,
             output_size=2,
             ensemble_size=3,
         )
@@ -175,9 +175,9 @@ class TestVarianceDecomposition:
 
     def test_heteroscedastic_batch_single_member_zero_epistemic(self):
         backbone = nn.Sequential(nn.Linear(4, 6), nn.ReLU())
+        backbone.feature_dim = 6
         model = HeteroscedasticBatchEnsembleModel(
             backbone=backbone,
-            input_size=6,
             output_size=1,
             ensemble_size=1,
         )
@@ -196,7 +196,7 @@ class TestEnsembleDeterminism:
     """Ensemble predict() should be deterministic: same input → same output."""
 
     def test_deep_ensemble_predict_is_deterministic(self):
-        model = DeepEnsemble(
+        model = BaseEnsembleModel(
             base_model=SimpleMLP(),
             ensemble_size=3,
             input_size=4,
@@ -222,9 +222,9 @@ class TestEnsembleDeterminism:
 
     def test_batch_ensemble_predict_is_deterministic(self):
         backbone = nn.Sequential(nn.Linear(4, 6), nn.ReLU())
+        backbone.feature_dim = 6
         model = HeteroscedasticBatchEnsembleModel(
             backbone=backbone,
-            input_size=6,
             output_size=1,
             ensemble_size=3,
         )
@@ -242,9 +242,9 @@ class TestEnsembleSizeBehavior:
     """Larger ensembles should give more stable estimates."""
 
     def test_base_ensemble_variance_matches_sample_variance(self):
-        """DeepEnsemble.predict()['variance'] should equal the sample
+        """BaseEnsembleModel.predict()['variance'] should equal the sample
         variance of member predictions when correction=1."""
-        model = DeepEnsemble(
+        model = BaseEnsembleModel(
             base_model=SimpleMLP(),
             ensemble_size=4,
             input_size=4,
@@ -259,7 +259,7 @@ class TestEnsembleSizeBehavior:
         manual_var = torch.var(stacked, dim=0, unbiased=True)
 
         torch.testing.assert_close(
-            result["variance"], manual_var, msg="DeepEnsemble variance ≠ sample variance of members"
+            result["variance"], manual_var, msg="BaseEnsembleModel variance ≠ sample variance of members"
         )
 
     def test_ensemble_variance_converges_with_larger_ensemble(self):
@@ -268,14 +268,14 @@ class TestEnsembleSizeBehavior:
         torch.manual_seed(42)
         x = torch.randn(10, 4)
 
-        model5 = DeepEnsemble(
+        model5 = BaseEnsembleModel(
             base_model=SimpleMLP(),
             ensemble_size=5,
             input_size=4,
             hidden_size=8,
             output_size=1,
         )
-        model10 = DeepEnsemble(
+        model10 = BaseEnsembleModel(
             base_model=SimpleMLP(),
             ensemble_size=10,
             input_size=4,

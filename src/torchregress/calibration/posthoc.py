@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -40,7 +41,7 @@ class VarianceTemperatureScaler:
         var = pred_var.detach().float().clamp_min(self.eps)
         y = target.detach().float()
 
-        log_t = torch.nn.Parameter(torch.tensor(np.log(self.temperature), dtype=torch.float32))
+        log_t = torch.nn.Parameter(torch.tensor(math.log(self.temperature), dtype=torch.float32))
         optimizer = torch.optim.Adam([log_t], lr=lr)
 
         for _ in range(max_iter):
@@ -48,7 +49,7 @@ class VarianceTemperatureScaler:
             t = torch.exp(log_t).clamp(min=0.05, max=20.0)
             scaled_var = (var * t).clamp_min(self.eps)
             nll = 0.5 * (
-                torch.log(scaled_var) + ((y - mean) ** 2) / scaled_var + np.log(2.0 * np.pi)
+                torch.log(scaled_var) + ((y - mean) ** 2) / scaled_var + math.log(2.0 * math.pi)
             )
             loss = nll.mean()
             loss.backward()

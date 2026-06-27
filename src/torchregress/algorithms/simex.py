@@ -6,7 +6,7 @@ It works by adding additional measurement error to the data, establishing a tren
 of how the error affects predictions, and extrapolating back to the case of no error.
 """
 
-from typing import Callable, List, Optional, Union, cast
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -50,8 +50,8 @@ class SIMEX:
         self,
         model_factory: Callable[[], nn.Module],
         train_func: Callable[[nn.Module, torch.Tensor, torch.Tensor], nn.Module],
-        sigma_u: Union[float, torch.Tensor],
-        lambdas: Optional[List[float]] = None,
+        sigma_u: float | torch.Tensor,
+        lambdas: list[float] | None = None,
         n_simulations: int = 5,
         extrapolation_order: int = 2,
     ):
@@ -62,11 +62,11 @@ class SIMEX:
         self.n_simulations = int(n_simulations)
         self.extrapolation_order = extrapolation_order
 
-        self.trained_models: List[nn.Module] = []
-        self.models_by_lambda: List[List[nn.Module]] = []
-        self.device: Optional[torch.device] = None
-        self.sigma_u: Optional[torch.Tensor] = None
-        self.extrapolation_weights: Optional[torch.Tensor] = None
+        self.trained_models: list[nn.Module] = []
+        self.models_by_lambda: list[list[nn.Module]] = []
+        self.device: torch.device | None = None
+        self.sigma_u: torch.Tensor | None = None
+        self.extrapolation_weights: torch.Tensor | None = None
 
     def _prepare_sigma_u(self, n_features: int, device: torch.device) -> torch.Tensor:
         """Converts input sigma_u to a full covariance matrix."""
@@ -139,7 +139,7 @@ class SIMEX:
         L = torch.linalg.cholesky(self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6)
 
         for lam in self.lambdas_used:
-            lambda_models: List[nn.Module] = []
+            lambda_models: list[nn.Module] = []
             for _ in range(self.n_simulations):
                 model = self.model_factory().to(self.device)
 
@@ -234,13 +234,4 @@ class SIMEX:
 
         # Use precomputed weights to extrapolate from λ≥0 to λ=-1
         # weights: (M,)  Y_stack: (M, N, K)  result: (N, K)
-        return cast(
-            torch.Tensor,
-            torch.tensordot(self.extrapolation_weights, Y_stack, dims=([0], [0])),
-        )
-
-
-class PredictionSIMEX(SIMEX):
-    """Subclass of SIMEX focusing on prediction-level extrapolation."""
-
-    pass
+        return torch.tensordot(self.extrapolation_weights, Y_stack, dims=([0], [0]))

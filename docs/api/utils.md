@@ -90,7 +90,6 @@ density_batch = batch.with_density(n_support=256)
 
 | Symbol | Description |
 |:-------|:------------|
-| `PropensityEstimator` | Wraps a binary classifier and exposes `predict_proba` / `clip`. |
 | `ipw_weights(t, propensity, clip=0.05, normalize=True)` | IPW weights `w = t / e + (1 − t) / (1 − e)` with trimming and normalisation. |
 
 ---
@@ -129,7 +128,6 @@ density_batch = batch.with_density(n_support=256)
 
 | Symbol | Description |
 |:-------|:------------|
-| `AMP` | `torch.amp` automatic-mixed-precision context. |
 | `GradientAccumulation(steps)` | Iterate effective batches over smaller `DataLoader` steps. |
 | `StandardScaler` | Fit / transform a `StandardScaler`-style normaliser. |
 | `compile_model(model, **kwargs)` | One-liner for `torch.compile`. |
@@ -265,11 +263,3 @@ w = ipw_weights(t, e, clip=0.1, normalize=True)
 
 ## Scaling & Hardware
 
-### AMP
-
-Helper context wrapper for PyTorch Automatic Mixed Precision (AMP) to speed up training and reduce memory:
-
-```python
-with AMP(enabled=True):
-    loss = loss_fn(y_pred, y)
-```

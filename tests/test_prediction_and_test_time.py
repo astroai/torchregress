@@ -98,7 +98,8 @@ def test_label_shift_adapter_estimates_and_corrects_target_prior() -> None:
         dtype=float,
     )
     adapter = PosteriorLabelShiftAdapter(source_prior=np.array([0.5, 0.5]))
-    corrected, estimate = adapter.fit_transform(probs)
+    estimate = adapter.estimate(probs)
+    corrected = adapter.transform(probs)
     assert estimate.target_prior.shape == (2,)
     assert np.isclose(estimate.target_prior.sum(), 1.0)
     assert corrected.shape == probs.shape
@@ -123,7 +124,8 @@ def test_label_shift_adapter_supports_weighted_subsampled_estimation() -> None:
         sample_size=4,
         random_state=0,
     )
-    corrected, estimate = adapter.fit_transform(probs, sample_weights=weights)
+    estimate = adapter.estimate(probs, sample_weights=weights)
+    corrected = adapter.transform(probs)
     assert estimate.target_prior.shape == (2,)
     assert np.isclose(estimate.target_prior.sum(), 1.0)
     assert corrected.shape == probs.shape

@@ -2,13 +2,13 @@
   "artifact": "comparative_evidence_matrix",
   "version": 1,
   "summary": {
-    "task_rows": 16,
+    "task_rows": 15,
     "grade_counts": {
       "Decision-grade": 2,
-      "Strong": 14
+      "Strong": 13
     },
     "decision_grade_tasks": 2,
-    "strong_or_better_tasks": 16
+    "strong_or_better_tasks": 15
   },
   "rows": [
     {
@@ -47,8 +47,7 @@
     {
       "task": "Imbalanced / rare-target regression",
       "examples": [
-        "examples/imbalanced_regression.py",
-        "examples/propensity_tail_regression_comparison.py"
+        "examples/imbalanced_regression.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
@@ -69,34 +68,6 @@
         "MultiQuantileLoss"
       ],
       "gaps": "Needs additional real-data long-tail benchmarks beyond synthetic selection proxies.",
-      "notes": ""
-    },
-    {
-      "task": "Selection bias / long-tail with missing labels",
-      "examples": [
-        "examples/propensity_tail_regression_comparison.py"
-      ],
-      "comparison_grade": "Strong",
-      "fairness_controls": [
-        "fixed seed",
-        "shared selection process",
-        "matched model capacity"
-      ],
-      "metrics_coverage": [
-        "MAE",
-        "tail MAE/RMSE",
-        "native interval coverage/width",
-        "observed-rate diagnostics",
-        "runtime"
-      ],
-      "peer_methods_visible": [
-        "PropensityWeightedLoss",
-        "DensityWeightedLoss",
-        "WeightedMSELoss",
-        "GaussianNLLLoss",
-        "MultiQuantileLoss"
-      ],
-      "gaps": "Needs real-data selection-bias benchmarks beyond synthetic generation.",
       "notes": ""
     },
     {
@@ -266,12 +237,12 @@
         "ConformalLoss",
         "QuantileLoss",
         "GaussianNLLLoss",
-        "DeepEnsemble",
+        "BaseEnsembleModel",
         "SWAG",
         "BayesianNeuralNetwork"
       ],
       "gaps": "Coverage evidence now spans ensemble/SWAG/BNN base models; still needs multi-domain real-data calibration benchmarks under stronger shift.",
-      "notes": "OOD/selective comparisons now include split-conformal interval diagnostics across DeepEnsemble/MCDropout/SWAG/BNN."
+      "notes": "OOD/selective comparisons now include split-conformal interval diagnostics across ensemble/MCDropout/SWAG/BNN."
     },
     {
       "task": "Ordinal regression / ordered targets",
@@ -348,7 +319,7 @@
         "runtime"
       ],
       "peer_methods_visible": [
-        "DeepEnsemble",
+        "BaseEnsembleModel",
         "HeteroscedasticEnsembleModel",
         "MCDropoutWrapper",
         "SWAG",

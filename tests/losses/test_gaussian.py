@@ -30,9 +30,8 @@ class TestGaussianLosses(unittest.TestCase):
         self.x_reconstructed = torch.randn(
             self.batch_size, self.n_features_diag, device=self.device
         )
-        self.mask = torch.randint(
-            0, 2, (self.batch_size, self.n_features_diag), device=self.device
-        ).bool()
+        # ponytail: all-True mask; individual tests set entries to False as needed
+        self.mask = torch.ones(self.batch_size, self.n_features_diag, device=self.device).bool()
 
         # Data for tests where covariance IS provided
         self.x_cov = torch.randn(self.batch_size, self.n_features_cov, device=self.device)
@@ -337,16 +336,17 @@ class TestGaussianLosses(unittest.TestCase):
         # Test NaN in inputs with proper masking
         x_nan = self.x.clone()
         x_nan[0, 0] = float("nan")
-        mask_nan = self.mask.clone()
-        mask_nan[0, 0] = False  # Mask out the NaN
+        # ponytail: loss is per-sample [B]; mask must exclude the whole NaN sample
+        mask_nan = torch.ones(self.batch_size, self.n_features_diag, device=self.device).bool()
+        mask_nan[0, :] = False  # Mask out the NaN sample entirely
         h_loss = h_loss_fn((x_nan, log_var), self.x_reconstructed, mask_nan)
         self.assertFalse(torch.isnan(h_loss).any(), "Loss should handle masked NaN in inputs")
 
         # Test infinity in inputs with proper masking
         x_inf = self.x.clone()
         x_inf[0, 0] = float("inf")
-        mask_inf = self.mask.clone()
-        mask_inf[0, 0] = False  # Mask out the inf
+        mask_inf = torch.ones(self.batch_size, self.n_features_diag, device=self.device).bool()
+        mask_inf[0, :] = False  # Mask out the inf sample entirely
         h_loss = h_loss_fn((x_inf, log_var), self.x_reconstructed, mask_inf)
         self.assertFalse(torch.isinf(h_loss).any(), "Loss should handle masked inf in inputs")
 

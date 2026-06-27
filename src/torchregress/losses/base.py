@@ -95,21 +95,21 @@ class BaseLoss(nn.Module):
         """
         Apply reduction to the loss tensor with support for masking and weighting.
         """
-        # First, apply mask if provided
-        if mask is not None:
-            # Handle cases where mask has more dimensions than loss (e.g. [B, Dy] for loss [B])
-            if mask.dim() > loss.dim():
-                for _ in range(mask.dim() - loss.dim()):
-                    mask = mask.any(dim=-1)
+        # Collapse extra dims on mask and weights when loss is lower-dimensional
+        if mask is not None and mask.dim() > loss.dim():
+            for _ in range(mask.dim() - loss.dim()):
+                # ponytail: all() matches reduce_per_sample in utils/reduction.py
+                mask = mask.all(dim=-1)
+        if weights is not None and weights.dim() > loss.dim():
+            for _ in range(weights.dim() - loss.dim()):
+                weights = weights.mean(dim=-1)
 
+        # Apply mask and/or weights
+        if mask is not None:
             if weights is not None:
-                # Broadcast weights to match loss shape if needed for masking
-                weights = _broadcast_weights(weights, loss.dim())
-                weights = weights.expand_as(loss)
                 weights = weights[mask]
             loss = loss[mask]
         elif weights is not None:
-            # Broadcast weights to match loss shape if needed
             weights = _broadcast_weights(weights, loss.dim())
 
         return self._reducer(loss, weights)

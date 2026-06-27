@@ -66,6 +66,18 @@ See the [quadratic_weighted_kappa API](../api/metrics.md) for details.
 
 ---
 
+## Limitations
+
+1. **Accuracy ignores ordering**: Standard classification accuracy treats all misclassifications equally. An off-by-one error is penalised the same as an off-by-ten error — this is inappropriate for ordinal targets where proximity carries meaning.
+2. **MACE is mean-based**: MACE treats the ordinal scale as intervals with equal spacing, which may not reflect the true cost of misclassification for a given application.
+3. **QWK's quadratic weighting can be misleading**: The quadratic penalty on ordinal distance may over-emphasise large-ordinal-distance errors in settings where moderate misclassifications are acceptable.
+
+## Recommendations
+
+- **Always report MACE alongside accuracy**: Accuracy alone can hide ordinal structure; MACE reveals whether errors are small or large in ordinal distance.
+- **Use QWK when ordinal distance matters**, but complement it with MACE for interpretability (QWK's quadratic weighting can be opaque).
+- **Inspect the confusion matrix**: Aggregate metrics can conceal systematic biases (consistent over- or under-prediction of the ordinal class).
+
 ## Next steps
 
 - [Censored metrics](censored.md) — related evaluation for interval-censored and survival outcomes

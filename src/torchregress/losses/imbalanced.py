@@ -77,6 +77,17 @@ def _torch_kde_weights(
     return weights
 
 
+def _compute_base_loss(base_loss: str, y_pred: Tensor, target: Tensor) -> Tensor:
+    if base_loss == "mse":
+        return (y_pred - target) ** 2
+    if base_loss == "mae":
+        return torch.abs(y_pred - target)
+    if base_loss == "huber":
+        diff = torch.abs(y_pred - target)
+        return torch.where(diff < 1.0, 0.5 * diff**2, diff - 0.5)
+    raise ValueError(f"Unknown base_loss: {base_loss}")
+
+
 @register_regression_loss("density_weighted")
 class DensityWeightedLoss(RegressionLoss):
     """
@@ -197,18 +208,6 @@ class DensityWeightedLoss(RegressionLoss):
 
         return weights
 
-    def _compute_base_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
-        """Compute base loss without reduction."""
-        if self.base_loss == "mse":
-            return (y_pred - target) ** 2
-        elif self.base_loss == "mae":
-            return torch.abs(y_pred - target)
-        elif self.base_loss == "huber":
-            diff = torch.abs(y_pred - target)
-            return torch.where(diff < 1.0, 0.5 * diff**2, diff - 0.5)
-        else:
-            raise ValueError(f"Unknown base_loss: {self.base_loss}")
-
     def forward(
         self,
         y_pred: Tensor,
@@ -255,7 +254,7 @@ class DensityWeightedLoss(RegressionLoss):
             density_w = self._compute_density_weight(target)
 
         # Compute base loss
-        base_loss = self._compute_base_loss(y_pred, target)
+        base_loss = _compute_base_loss(self.base_loss, y_pred, target)
 
         # Expand weights if needed to match loss shape
         if base_loss.dim() > 1 and density_w.dim() == 1:
@@ -297,16 +296,6 @@ class PropensityWeightedLoss(RegressionLoss):
         if not (0.0 < clip_min < clip_max < 1.0):
             raise ValueError("clip_min/clip_max must satisfy 0 < clip_min < clip_max < 1")
 
-    def _compute_base_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
-        if self.base_loss == "mse":
-            return (y_pred - target) ** 2
-        if self.base_loss == "mae":
-            return torch.abs(y_pred - target)
-        if self.base_loss == "huber":
-            diff = torch.abs(y_pred - target)
-            return torch.where(diff < 1.0, 0.5 * diff**2, diff - 0.5)
-        raise ValueError(f"Unknown base_loss: {self.base_loss}")
-
     def forward(
         self,
         y_pred: Tensor,
@@ -346,7 +335,7 @@ class PropensityWeightedLoss(RegressionLoss):
             normalize=self.normalize_weights,
         ).to(device=target.device, dtype=target.dtype)
 
-        loss = self._compute_base_loss(y_pred, target) * ipw
+        loss = _compute_base_loss(self.base_loss, y_pred, target) * ipw
         if weights is not None:
             loss = loss * weights
         return self._reduce_with_mask(loss, mask, None)
@@ -525,18 +514,6 @@ class LDSLoss(RegressionLoss):
         weights = self._weights_per_bin[bin_indices]
         return weights
 
-    def _compute_base_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
-        """Compute base loss without reduction."""
-        if self.base_loss == "mse":
-            return (y_pred - target) ** 2
-        elif self.base_loss == "mae":
-            return torch.abs(y_pred - target)
-        elif self.base_loss == "huber":
-            diff = torch.abs(y_pred - target)
-            return torch.where(diff < 1.0, 0.5 * diff**2, diff - 0.5)
-        else:
-            raise ValueError(f"Unknown base_loss: {self.base_loss}")
-
     def forward(
         self,
         y_pred: Tensor,
@@ -579,7 +556,7 @@ class LDSLoss(RegressionLoss):
             lds_w = self._compute_weight_for_target(target)
 
         # Compute base loss
-        base_loss = self._compute_base_loss(y_pred, target)
+        base_loss = _compute_base_loss(self.base_loss, y_pred, target)
 
         # Expand weights if needed
         if base_loss.dim() > 1 and lds_w.dim() == 1:
@@ -640,18 +617,6 @@ class FocalRLoss(RegressionLoss):
         if self.base_loss not in ["mse", "mae", "huber"]:
             raise ValueError(f"base_loss must be 'mse', 'mae', or 'huber', got {base_loss}")
 
-    def _compute_base_loss(self, y_pred: Tensor, target: Tensor) -> Tensor:
-        """Compute base loss without reduction."""
-        if self.base_loss == "mse":
-            return (y_pred - target) ** 2
-        elif self.base_loss == "mae":
-            return torch.abs(y_pred - target)
-        elif self.base_loss == "huber":
-            diff = torch.abs(y_pred - target)
-            return torch.where(diff < 1.0, 0.5 * diff**2, diff - 0.5)
-        else:
-            raise ValueError(f"Unknown base_loss: {self.base_loss}")
-
     def forward(
         self,
         y_pred: Tensor,
@@ -682,7 +647,7 @@ class FocalRLoss(RegressionLoss):
         focal_weight = torch.sigmoid(self.beta * abs_error).pow(self.gamma)
 
         # Compute base loss
-        base_loss = self._compute_base_loss(y_pred, target)
+        base_loss = _compute_base_loss(self.base_loss, y_pred, target)
 
         # Apply focal weighting
         weighted_loss = focal_weight * base_loss

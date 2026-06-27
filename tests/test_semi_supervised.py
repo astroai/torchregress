@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.prediction import PredictiveBatch
 from torchregress.semi_supervised import (
-    SelfAgreementTrainer,
+    TeacherStudentTrainer,
     build_consensus_predictive_batch,
     disagreement_to_weight,
     distributional_pseudo_loss,
@@ -124,29 +124,6 @@ def test_build_consensus_predictive_batch_for_support_density_views() -> None:
     assert torch.allclose(integral, torch.ones_like(integral), atol=1e-3)
 
 
-def test_self_agreement_trainer_compute_consensus_and_agreement() -> None:
-    mean = torch.tensor([[0.0], [1.0]], dtype=torch.float32)
-    std = torch.full_like(mean, 0.2)
-    views = [
-        PredictiveBatch(mean=mean - 0.05, std=std),
-        PredictiveBatch(mean=mean, std=std),
-        PredictiveBatch(mean=mean + 0.05, std=std),
-    ]
-    trainer = SelfAgreementTrainer(
-        optimizer=torch.optim.Adam([torch.nn.Parameter(torch.zeros(1))]),
-        supervised_loss_fn=lambda model, x, y: torch.tensor(0.0),
-        predictive_batch_fn=lambda model, x: views[0],
-        n_views=3,
-        n_support=64,
-    )
-    consensus = trainer.compute_consensus(views)
-    agreement = trainer.compute_agreement(views)
-    assert consensus.density is not None
-    assert consensus.support is not None
-    assert agreement.shape == (2,)
-    assert torch.all(agreement >= 0.0)
-
-
 def test_predictive_agreement_score_tracks_mismatch_and_weights() -> None:
     mean = torch.tensor([[0.0], [1.0], [2.0]], dtype=torch.float32)
     std = torch.full_like(mean, 0.2)
@@ -178,28 +155,7 @@ def test_disagreement_to_weight_supports_tempered_and_hard_gates() -> None:
     disagreement = torch.tensor([0.0, 0.05, 0.20, 0.50], dtype=torch.float32)
     base = disagreement_to_weight(disagreement, 0.2)
     tempered = disagreement_to_weight(disagreement, 0.2, power=2.0)
-    gated = disagreement_to_weight(disagreement, 0.2, power=2.0, hard_weight_threshold=0.8)
     assert torch.all(tempered <= base)
-    assert float(gated[-1].item()) == 0.0
-    assert float(gated[0].item()) > 0.0
-
-
-def test_disagreement_to_weight_batch_zscore_and_top_k() -> None:
-    flat = torch.tensor([1.0, 1.0, 1.0, 1.0], dtype=torch.float32)
-    z_flat = disagreement_to_weight(flat, 0.5, batch_relative_mode="zscore")
-    assert torch.allclose(z_flat, torch.ones_like(z_flat), atol=1e-4)
-
-    d = torch.tensor([0.0, 0.1, 0.9, 1.0], dtype=torch.float32)
-    z = disagreement_to_weight(d, 0.5, batch_relative_mode="zscore")
-    assert torch.all(z <= 1.0)
-    assert torch.all(z > 0.0)
-    assert float(z[0].item()) == 1.0
-
-    top2 = disagreement_to_weight(d, 0.5, batch_trust_top_k=2)
-    assert float(top2[2].item()) == 0.0
-    assert float(top2[3].item()) == 0.0
-    assert float(top2[0].item()) > 0.0
-    assert float(top2[1].item()) > 0.0
 
 
 def test_distributional_pseudo_loss_is_small_for_matching_predictions() -> None:
@@ -393,13 +349,12 @@ def test_self_agreement_trainer_runs_all_target_backbones(backbone: str) -> None
         def predictive_batch_fn(model_: torch.nn.Module, x: torch.Tensor) -> PredictiveBatch:
             return PredictiveBatch(bar_logits=model_(x), bin_edges=bin_edges)
 
-    trainer = SelfAgreementTrainer(
+    trainer = TeacherStudentTrainer(
         optimizer=optimizer,
         supervised_loss_fn=supervised_loss_fn,
         predictive_batch_fn=predictive_batch_fn,
         augment_fn=lambda x: x + 0.03 * torch.randn_like(x),
         n_views=3,
-        tau=0.2,
         agreement_weight=0.5,
         ema_decay=0.95,
         n_support=64,
@@ -444,13 +399,12 @@ def test_self_agreement_trainer_runs_tiny_fit_loop() -> None:
             std=torch.nn.functional.softplus(raw[:, 1:2]) + 1e-3,
         )
 
-    trainer = SelfAgreementTrainer(
+    trainer = TeacherStudentTrainer(
         optimizer=optimizer,
         supervised_loss_fn=supervised_loss_fn,
         predictive_batch_fn=predictive_batch_fn,
         augment_fn=lambda x: x + 0.03 * torch.randn_like(x),
         n_views=3,
-        tau=0.2,
         agreement_weight=0.5,
         ema_decay=0.95,
         n_support=64,
@@ -494,13 +448,12 @@ def test_self_agreement_trainer_cosine_lr_schedule_runs() -> None:
             std=torch.nn.functional.softplus(raw[:, 1:2]) + 1e-3,
         )
 
-    trainer = SelfAgreementTrainer(
+    trainer = TeacherStudentTrainer(
         optimizer=optimizer,
         supervised_loss_fn=supervised_loss_fn,
         predictive_batch_fn=predictive_batch_fn,
         augment_fn=lambda x: x + 0.03 * torch.randn_like(x),
         n_views=3,
-        tau=0.2,
         agreement_weight=0.5,
         ema_decay=0.95,
         n_support=64,
@@ -523,25 +476,6 @@ def test_predictive_agreement_score_requires_multiple_views() -> None:
         predictive_agreement_score([PredictiveBatch(mean=torch.zeros(4, 1), std=torch.ones(4, 1))])
 
 
-def test_self_agreement_regression_demo_runs_smoke() -> None:
-    mod = _load_example_module("self_agreement_regression_demo")
-    cfg = mod.DemoConfig(
-        n_labeled=24,
-        n_unlabeled=48,
-        n_test=24,
-        hidden=12,
-        epochs=2,
-        k_views=3,
-        n_bins=10,
-    )
-    results = mod.main(cfg)
-    assert set(results) == {"gaussian", "quantile", "bar"}
-    for row in results.values():
-        for key in ("test_mse", "supervised_loss", "agreement_loss", "mean_weight"):
-            value = row[key]
-            assert isinstance(value, float)
-            assert math.isfinite(value)
-        assert 0.0 < row["mean_weight"] <= 1.0
 
 
 def test_teacher_student_trainer_modular_runs() -> None:
@@ -619,15 +553,13 @@ def test_conformal_width_to_weight_values() -> None:
     assert torch.allclose(mask, torch.tensor([1.0, 0.0, 1.0]))
 
 
-def test_perturbation_instability_score_values() -> None:
-    from torchregress.semi_supervised import perturbation_instability_score
-
+def test_predictive_agreement_score_values() -> None:
     mean = torch.tensor([[0.0], [1.0]], dtype=torch.float32)
     std = torch.full_like(mean, 0.2)
     views = [
         PredictiveBatch(mean=mean - 0.02, std=std),
         PredictiveBatch(mean=mean + 0.02, std=std),
     ]
-    score = perturbation_instability_score(views, n_support=64)
+    score = predictive_agreement_score(views, n_support=64)
     assert score.shape == (2,)
     assert torch.all(score >= 0.0)

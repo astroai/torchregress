@@ -101,23 +101,6 @@ class SoftmaxModelCombiner(nn.Module):
         return mean_pred, var_of_means
 
 
-class BayesianModelAveraging(SoftmaxModelCombiner):
-    """
-    Deprecated alias for SoftmaxModelCombiner.
-    """
-
-    def __init__(self, models: List[nn.Module]) -> None:
-        import warnings
-
-        warnings.warn(
-            "BayesianModelAveraging is deprecated and will be removed in a future release. "
-            "Use SoftmaxModelCombiner instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(models)
-
-
 class StackingEnsemble(nn.Module):
     """
     Stacking ensemble with meta-learner for regression.
@@ -140,82 +123,3 @@ class StackingEnsemble(nn.Module):
         """
         preds = _batched_ensemble_forward(self.models, x, method="cat")
         return cast(Tensor, self.meta_learner(preds))
-
-
-class DynamicEnsembleWeighting(nn.Module):
-    """
-    Dynamic ensemble weighting based on recent performance.
-
-    Adjusts model weights dynamically based on recent prediction accuracy.
-    """
-
-    def __init__(
-        self,
-        models: List[nn.Module],
-        window_size: int = 100,
-        learning_rate: float = 0.1,
-    ) -> None:
-        super().__init__()
-        self.models = nn.ModuleList(models)
-        self.n_models = len(models)
-        self.window_size = window_size
-        self.learning_rate = learning_rate
-
-        # Initialize model weights uniformly
-        self.model_weights = nn.Parameter(torch.ones(self.n_models) / self.n_models)
-
-        # Performance tracking
-        self.prediction_history: List[Tensor] = []
-        self.target_history: List[Tensor] = []
-
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        Calculate dynamically weighted ensemble loss.
-        """
-        # Store predictions and targets for dynamic weighting
-        preds = _batched_ensemble_forward(self.models, x, method="stack")
-
-        # Get current weights
-        current_weights = torch.softmax(self.model_weights, dim=0)
-
-        # Weighted average of predictions
-        weighted_pred = torch.sum(preds * current_weights.view(1, -1, 1), dim=1)
-
-        return weighted_pred
-
-    def update_weights(self, y_pred: Tensor, target: Tensor) -> None:
-        """Update model weights based on recent performance."""
-        self.prediction_history.append(y_pred.detach())
-        self.target_history.append(target.detach())
-
-        # Keep only recent history
-        if len(self.prediction_history) > self.window_size:
-            self.prediction_history = self.prediction_history[-self.window_size :]
-            self.target_history = self.target_history[-self.window_size :]
-
-        if len(self.prediction_history) < 2:
-            return
-
-        # Vectorized error calculation
-        # [total_samples, n_models, features]
-        all_preds = torch.cat(self.prediction_history, dim=0)
-        # [total_samples, features]
-        all_targets = torch.cat(self.target_history, dim=0)
-
-        # Calculate MSE for each model across all samples in history
-        # [total_samples, n_models, features] - [total_samples, 1, features]
-        diff = all_preds - all_targets.unsqueeze(1)
-        # Mean over features: [total_samples, n_models]
-        mse = torch.mean(diff**2, dim=2)
-        # Mean over samples: [n_models]
-        errors = torch.mean(mse, dim=0)
-
-        # Update weights using gradient descent (lower error = higher weight)
-        with torch.no_grad():
-            # Negative gradient because we want to minimize errors
-            self.model_weights.grad = -errors * self.learning_rate
-            self.model_weights.data += self.model_weights.grad
-
-    def get_model_weights(self) -> Tensor:
-        """Get the current model weights."""
-        return torch.softmax(self.model_weights, dim=0)

@@ -112,6 +112,7 @@ class MeanPredictionIntervalWidth(Metric):
         """Update state with predictions."""
         lower_bound = convert_to_tensor(lower_bound)
         upper_bound = convert_to_tensor(upper_bound)
+        validate_inputs(lower_bound, upper_bound)
 
         width = upper_bound - lower_bound
         metric_state_tensor(self.width_sum).add_(torch.sum(width))

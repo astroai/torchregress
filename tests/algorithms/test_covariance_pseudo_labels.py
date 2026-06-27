@@ -8,7 +8,6 @@ import torch
 from torchregress.algorithms.covariance_pseudo_labels import (
     NeighborhoodCovarianceConfig,
     NeighborhoodCovariancePseudoLabeler,
-    mahalanobis_covariance_pseudo_labels,
 )
 
 
@@ -25,17 +24,15 @@ def test_constant_targets_yield_near_diagonal_pseudo_cov() -> None:
     assert float(cov.mean().item()) < 0.15
 
 
-def test_functional_matches_class() -> None:
+def test_config_with_euclidean_metric_runs() -> None:
     torch.manual_seed(1)
     x = torch.randn(25, 4)
     y = torch.randn(25, 2)
-    a = NeighborhoodCovariancePseudoLabeler(
+    cov = NeighborhoodCovariancePseudoLabeler(
         NeighborhoodCovarianceConfig(n_neighbors=5, metric="euclidean")
     ).fit_predict(x, y)
-    b = mahalanobis_covariance_pseudo_labels(
-        x, y, config=NeighborhoodCovarianceConfig(n_neighbors=5, metric="euclidean")
-    )
-    torch.testing.assert_close(a, b)
+    assert cov.shape == (25, 2, 2)
+    assert torch.all(torch.linalg.eigvalsh(cov) > 0)
 
 
 def test_predict_for_query_runs_and_is_spd() -> None:

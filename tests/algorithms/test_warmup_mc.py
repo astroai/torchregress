@@ -123,27 +123,6 @@ def test_warmup_mc_predict_before_fit_raises() -> None:
         trainer.predict(X)
 
 
-# ── validation tests ───────────────────────────────────────────────────
-
-
-def test_warmup_mc_warmup_gte_total_raises() -> None:
-    """warmup_epochs >= total_epochs raises ValueError."""
-    with pytest.raises(ValueError, match="must be less than total_epochs"):
-        WarmupMCTrainer(
-            model_factory=lambda: _make_mlp(4),
-            sigma_x=0.5,
-            total_epochs=10,
-            warmup_epochs=10,
-        )
-
-    with pytest.raises(ValueError, match="must be less than total_epochs"):
-        WarmupMCTrainer(
-            model_factory=lambda: _make_mlp(4),
-            sigma_x=0.5,
-            total_epochs=10,
-            warmup_epochs=15,
-        )
-
 
 def test_warmup_mc_invalid_X_shape_raises() -> None:
     """Non-2D X raises ValueError in fit()."""

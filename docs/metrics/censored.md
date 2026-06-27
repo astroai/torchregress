@@ -67,6 +67,19 @@ See the [censored metrics API](../api/metrics.md): [`censoring_rate`](../api/met
 
 ---
 
+## Limitations
+
+1. **Censoring Rate is not a quality metric**: A high censoring rate indicates data sparsity but does not directly measure model performance. Always pair with observed MAE and concordance index.
+2. **Concordance Index is rank-based only**: C-index measures whether predictions preserve the correct order of survival times, but does not assess absolute calibration. Two models with the same C-index can have very different survival-time predictions.
+3. **Observed MAE only evaluates uncensored points**: It does not account for censored targets, which may bias the evaluation if censoring is informative (non-random).
+4. **Interval overlap rate assumes bounded intervals**: The metric is most interpretable when targets are interval-censored with known bounds; for right-censored targets, the information is weaker.
+
+## Recommendations
+
+- **Report multiple censored metrics together**: Observed MAE + Concordance Index + Censoring Rate gives a balanced view of accuracy, ranking, and data missingness.
+- **Use Kaplan–Meier or AFT-based evaluation** alongside point metrics for survival settings where the full time-to-event distribution matters.
+- **Stratify evaluation by censoring type** (right, left, interval) when the dataset contains mixed censoring patterns.
+
 ## Next steps
 
 - [Ordinal metrics](ordinal.md) — related evaluation for ordered-class outcomes

@@ -15,9 +15,6 @@ from matplotlib.figure import Figure
 # Import visualization utilities
 from torchregress.viz.utils import create_color_palette
 
-# Set random seed for reproducibility
-np.random.seed(42)
-
 
 def plot_performance_comparison(
     metrics: Dict[str, Dict[str, Union[float, np.ndarray]]],
@@ -222,30 +219,30 @@ def _format_performance_axes(
     ax.set_xticklabels(metric_names, rotation=45, ha="right", fontweight="bold")
 
     # Skip LaTeX rendering if not available or fails
+    # Use rc_context to avoid globally mutating rcParams
     try:
-        # Check if latex is available before trying to update rcParams
         import shutil
 
         if shutil.which("latex") is not None:
-            plt.rcParams.update(
+            with plt.rc_context(
                 {
                     "text.usetex": True,
                     "font.family": "serif",
                     "font.serif": ["Computer Modern Roman"],
                 }
-            )
-            # Replace common metric names with LaTeX
-            metric_labels = []
-            for metric in metric_names:
-                if "rmse" in metric.lower():
-                    metric_labels.append(r"$\mathrm{RMSE}$")
-                elif "mae" in metric.lower():
-                    metric_labels.append(r"$\mathrm{MAE}$")
-                elif "r2" in metric.lower():
-                    metric_labels.append(r"$R^2$")
-                else:
-                    metric_labels.append(metric)
-            ax.set_xticklabels(metric_labels, rotation=45, ha="right")
+            ):
+                # Replace common metric names with LaTeX
+                metric_labels = []
+                for metric in metric_names:
+                    if "rmse" in metric.lower():
+                        metric_labels.append(r"$\mathrm{RMSE}$")
+                    elif "mae" in metric.lower():
+                        metric_labels.append(r"$\mathrm{MAE}$")
+                    elif "r2" in metric.lower():
+                        metric_labels.append(r"$R^2$")
+                    else:
+                        metric_labels.append(metric)
+                ax.set_xticklabels(metric_labels, rotation=45, ha="right")
     except (ImportError, RuntimeError, Exception):
         pass  # Skip LaTeX rendering if not available
 

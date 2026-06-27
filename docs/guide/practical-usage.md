@@ -1,255 +1,193 @@
 # Practical Usage Guide
 
-This guide provides practical advice on using torchregress effectively for various regression tasks.
+This guide maps **real-world data pathologies** to specific torchregress
+methods, with quantitative tradeoffs and mathematical justification for each
+choice.
 
-For a task-first shortlist before diving into implementation details, use the
-[Task-First Method Selection Matrix](../guide/method-selection.md).
+For the principled workflow (baseline → probabilistic → robust), see
+[Best Practices](best-practices.md). For the full capability matrix, see
+[Method Selection Matrix](method-selection.md).
 
-## Choosing the Right Loss Function
+---
 
-Selecting the appropriate loss function is crucial for successful regression modeling. Here's a decision tree to help you choose:
+## Loss Selection by Data Pathology
 
-1. **Are there outliers in your data?**
-   - **Yes**: Consider robust losses like [`WeightedHuberLoss`](../api/losses.md), [`LogCoshLoss`](../api/losses.md), or [`CauchyLoss`](../api/losses.md)
-   - **No**: Standard losses like [`WeightedMSELoss`](../api/losses.md) or [`WeightedL1Loss`](../api/losses.md) may be sufficient
+### Heteroscedastic Noise (variance depends on $x$)
 
-2. **Do you need uncertainty estimates?**
-   - **Yes**:
-     - **Is your uncertainty heteroscedastic (varies with input)?** Use [`GaussianNLLLoss`](../api/losses.md)
-     - **Is your distribution multi-modal?** Use [`MDNLoss`](../api/losses.md) (Mixture Density Networks)
-     - **Do you need flexible distribution shapes?** Use [`NormalizingFlowLoss`](../api/losses.md)
-   - **No**: Standard point prediction losses are sufficient
+The canonical approach is to predict both $\mu(x)$ and $\log\sigma^2(x)$,
+optimising the Gaussian negative log-likelihood:
 
-3. **Are you working with count data or non-negative values?**
-   - **Yes**: Consider [`PoissonDevianceLoss`](../api/losses.md) or `TweedieLoss`
-   - **No**: Standard losses are appropriate
+$$
+\mathcal{L}_{\text{NLL}} = \frac{1}{2}\sum_{i=1}^n \left[\log\sigma^2(x_i) + \frac{(y_i - \mu(x_i))^2}{\sigma^2(x_i)}\right] + \text{const}
+$$
 
-4. **Do you need prediction intervals without distributional assumptions?**
-   - **Yes**: Use [`QuantileLoss`](../api/losses.md) with multiple quantiles (e.g., 0.05 and 0.95 for 90% intervals)
-   - **No**: Parametric uncertainty methods may be more efficient
+This is a **proper scoring rule** — it is uniquely minimised by the true
+conditional distribution $p(y \mid x)$ [GneitingRaftery2007].
 
-5. **Is there uncertainty in your input features (not just targets)?**
-   - **Yes**: Consider error-in-variables methods like `OrthogonalDistanceRegressionLoss`
-   - **No**: Standard methods are appropriate
+- Use [`GaussianNLLLoss`](../api/losses.md) for unimodal, heteroscedastic data.
+- Use [`BetaNLLLoss`](../api/losses.md) when Gaussian NLL exhibits variance
+  collapse early in training [Skafte2019].
+- For heteroscedasticity with outliers, combine a robust mean term with a
+  variance head: see [Robust losses](../losses/robust.md).
 
-## Common Loss Function Combinations
+### Outliers & Heavy Tails
 
-Here are some commonly used loss function combinations for different scenarios. Symbol names below map to the [Losses API](../api/losses.md).
+The choice of robust loss is governed by the **influence function**
+$\psi(r) = \rho'(r)$, which measures how much a single residual
+$r = y - \hat{y}$ affects the parameter estimate [Huber1964]:
 
-### General-Purpose Regression
-
-```python
-# Standard regression with robust loss
-loss_fn = tr.losses.WeightedHuberLoss(delta=1.0)
-
-# OR: With uncertainty estimation
-loss_fn = tr.losses.GaussianNLLLoss()
-```
-
-### Financial Time Series
+| Loss | Influence $\psi(r)$ | Breakdown | Best For | Reference |
+|:-----|:--------------------|:----------|:---------|:----------|
+| Huber | $\max(-c, \min(c, r))$ | Linear tail | 5–10% outliers | Huber (1964) |
+| Cauchy | $2r / (1 + r^2/c^2)$ | Redescending | 10–25% | |
+| Tukey | $r(1 - r^2/c^2)^2 \cdot \mathbf{1}_{|r| \leq c}$ | Zero after $c$ | >25% | Tukey (1977) |
+| Barron | $\alpha$-parametrized continuum | Tunable | Unknown regime | Barron (2019) |
 
 ```python
-# For asymmetric risk preferences (e.g., penalize underestimation more)
-loss_fn = tr.losses.QuantileLoss(quantile=0.6)  # Biased toward overestimation
-
-# OR: For Value-at-Risk prediction
-q_loss = tr.losses.MultiQuantileLoss(quantiles=[0.01, 0.05, 0.1])
+# Rule of thumb:
+# <10% outliers  → WeightedHuberLoss(delta=1.0)
+# 10–25%         → CauchyLoss(c=1.0)
+# >25%           → TukeyBiweightLoss(c=4.685)
+# unknown        → AdaptiveRobustLoss()  # learn alpha
 ```
 
-### Scientific Applications
+For a complete treatment with influence-function plots, see the
+[Robust losses guide](../losses/robust.md).
 
-```python
-# For physical processes with known error characteristics
-loss_fn = tr.losses.GaussianNLLLoss()
+### Count Data & Positive Targets
 
-# OR: For processes with heavy tails
-loss_fn = tr.losses.CauchyLoss(scale=1.0)
-```
+The mean–variance relationship determines the appropriate loss:
 
-### Computer Vision Regression
+$$
+\begin{cases}
+\text{Var}(y) = \mu & \text{Poisson} \\
+\text{Var}(y) = \mu + \mu^2/r & \text{Negative Binomial} \\
+\text{Var}(y) = \phi\mu^p & \text{Tweedie} \quad (0 < p < 2) \\
+\text{Var}(y) = \phi\mu^3 & \text{Inverse Gaussian}
+\end{cases}
+$$
 
-```python
-# For robust keypoint regression
-loss_fn = tr.losses.CharbonnierLoss(eps=1e-3)
+| Data Pattern | Loss | Reference |
+|:-------------|:-----|:----------|
+| Counts, $\text{Var} \approx \mu$ | [`PoissonDevianceLoss`](../api/losses.md) | Nelder & Wedderburn (1972) |
+| Overdispersed counts | [`NegativeBinomialNLLLoss`](../api/losses.md) | |
+| Zeros + continuous positives | [`TweedieLoss`](../api/losses.md) | Tweedie (1984) |
+| Positive, right-skewed | [`GammaLoss`](../api/losses.md) | |
+| Excess zeros | [`ZeroInflatedPoissonNLLLoss`](../api/losses.md) | Lambert (1992) |
 
-# OR: For multi-modal outputs (e.g., multiple possible hand positions)
-loss_fn = tr.losses.MDNLoss(components=5)
-```
+See [Poisson & Tweedie guide](../losses/poisson_tweedie.md) for details.
 
-## Training with Uncertainty
+### Censored Targets
 
-When training models to predict uncertainty, remember these principles:
+When the target is only partially observed — right-censored (sensor clipped),
+left-censored (detection limit), or interval-censored — the likelihood is:
 
-1. **Proper Scoring Rules**: Always use proper scoring rules like Negative Log-Likelihood (NLL) or Continuous Ranked Probability Score (CRPS) to train uncertainty-aware models
-2. **Calibration**: Check calibration of uncertainty estimates using reliability diagrams
-3. **Multiple Sources**: Consider epistemic (model) and aleatoric (data) uncertainty sources
-4. **Regularization**: Use appropriate regularization to prevent overconfidence or underconfidence
+$$
+\mathcal{L} = \begin{cases}
+\log p(y_i \mid x_i) & \text{fully observed} \\
+\log \Phi\!\left(\frac{c - \mu_i}{\sigma_i}\right) & \text{right-censored at } c \\
+\log \left[1 - \Phi\!\left(\frac{c - \mu_i}{\sigma_i}\right)\right] & \text{left-censored at } c \\
+\log \left[\Phi\!\left(\frac{u_i - \mu_i}{\sigma_i}\right) - \Phi\!\left(\frac{l_i - \mu_i}{\sigma_i}\right)\right] & \text{interval-censored } [l_i, u_i]
+\end{cases}
+$$
 
-Example code for training with uncertainty:
+where $\Phi$ is the standard Gaussian CDF [Tobin1958].
 
-```python
-import torch
-import torchregress as tr
+- Use [`CensoredGaussianNLLLoss`](../api/losses.md) for Gaussian censored regression.
+- Use [`CensoredQuantileLoss`](../api/losses.md) for a non-parametric alternative.
+- Use [`AFTLoss`](../api/losses.md) for survival / time-to-event modelling [Cox1972].
 
-# Define model that outputs [mean, log_variance] per sample
-class UncertaintyModel(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.net = torch.nn.Sequential(
-            torch.nn.Linear(10, 64),
-            torch.nn.ReLU(),
-            torch.nn.Linear(64, 64),
-            torch.nn.ReLU(),
-            torch.nn.Linear(64, 2),   # [mean, log_var]
-        )
+### Multimodal Targets
 
-    def forward(self, x):
-        return self.net(x)
+When a given $x$ can produce multiple distinct $y$ values, Gaussian losses
+are misspecified (they average modes). Use mixture models:
 
-# Create model and loss
-model = UncertaintyModel()
-loss_fn = tr.losses.GaussianNLLLoss()
+$$
+p(y \mid x) = \sum_{k=1}^K \pi_k(x)\ \mathcal{N}\!\bigl(y \mid \mu_k(x),\, \sigma_k^2(x)\bigr)
+$$
 
-# Training loop
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-for epoch in range(100):
-    for X_batch, y_batch in dataloader:
-        # Forward pass — model outputs [batch, 2] = [mean, log_var]
-        out = model(X_batch)
-        loss = loss_fn(out, y_batch)
-        # Backward and optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-```
+- [`MDNLoss`](../api/losses.md) (Mixture Density Network) for known $K$ [Bishop1994].
+- [`NormalizingFlowLoss`](../api/losses.md) for flexible, non-parametric densities
+  [RezendeMohamed2015].
 
-## Evaluation Best Practices
+See [Multimodal targets guide](multi-target-regression.md).
 
-To thoroughly evaluate regression models, especially those with uncertainty estimates:
+### Imbalanced Targets
 
-1. **Multiple Metrics**: Use both point prediction metrics (RMSE, MAE) and distributional metrics (NLL, CRPS)
-2. **Calibration Analysis**: Check if uncertainty estimates match empirical error rates
-3. **Visual Diagnostics**: Create residual plots, Q-Q plots, and calibration curves
-4. **Out-of-Distribution (OOD) Detection**: Test if uncertainty increases appropriately for out-of-distribution samples
+When the target distribution is heavily skewed, loss reweighting methods
+target specific tail-region tradeoffs [Ren2019]:
 
-Example evaluation code:
+| Loss | Strategy | Tail Focus |
+|:-----|:---------|:-----------|
+| `DensityWeightedLoss` | Inverse target-density | Moderate |
+| `FocalRLoss` | Hard-example focus | Strong |
+| `LDSLoss` | Label Distribution Smoothing | Strong |
+| `PropensityWeightedLoss` | Inverse propensity scores | Moderate |
 
-```python
-import torch
-import torchregress as tr
+See [Imbalanced regression guide](../losses/imbalanced.md).
 
-# Evaluation mode
-model.eval()
-with torch.no_grad():
-    # Get predictions — out shape: [batch, 2] = [mean, log_var]
-    out = model(X_test)
-    mean, logvar = out[:, 0], out[:, 1]
-    var = torch.exp(logvar)
-    std = torch.sqrt(var)
+### Measurement Error in Inputs
 
-    # Point prediction metrics
-    rmse = tr.metrics.rmse(mean, y_test)
-    mae = tr.metrics.mae(mean, y_test)
-    r2 = tr.metrics.r2_score(mean, y_test)
+When $x$ is observed with noise $x_{\text{obs}} = x_{\text{true}} + \epsilon$,
+standard regression produces attenuated estimates [Carroll2006]:
 
-    # Distribution metrics
-    nll = tr.metrics.gaussian_nll(mean, y_test, var)
-    crps = tr.metrics.crps_gaussian(mean, y_test, std)
+| Method | Requires | Tradeoff |
+|:-------|:---------|:---------|
+| `StructuralEIVLoss` | Known $\sigma_x / \sigma_y$ | Simple, assumes constant ratio |
+| `FunctionalEIVLoss` | Per-sample $\sigma_x$ | Handles heteroscedastic input noise |
+| `OrthogonalDistanceRegressionLoss` | Nothing extra | General, slower |
+| Regression Calibration (RC) | Validation data | Bias correction via surrogate |
+| SIMEX | Error distribution | Simulation-based, flexible |
 
-    # Interval metrics (90% prediction intervals)
-    lower = mean - 1.645 * std  # 5th percentile
-    upper = mean + 1.645 * std  # 95th percentile
-    picp = tr.metrics.prediction_interval_coverage_probability(lower, upper, y_test)
-    mpiw = torch.mean(upper - lower)
+See [EIV losses](../losses/eiv.md), [RC](../methods/algorithms/rc.md),
+[SIMEX](../methods/algorithms/simex.md).
 
-# Visualization
-tr.viz.plot_prediction_intervals(mean, lower, upper, y_true=y_test)
-tr.viz.plot_calibration_curve(mean, std, y_test)
-tr.viz.plot_residuals(mean, y_test)
-```
+---
 
-## When to Use Ensemble Methods
+## Prediction Intervals: Distributional vs. Distribution-Free
 
-Ensemble methods are particularly useful for:
+| Method | Assumes | Guarantee | Width Adaptivity | Reference |
+|:-------|:--------|:----------|:-----------------|:----------|
+| Gaussian NLL | Gaussian likelihood | Asymptotic | Heteroscedastic $\sigma(x)$ | Nix & Weigend (1994) |
+| Quantile regression | None for each $q$ | Asymptotic consistent $q$ | Per-quantile | Koenker & Bassett (1978) |
+| Split conformal | Exchangeability | Finite-sample $1-\alpha$ | Via CQR | Vovk et al. (2005), Romano et al. (2019) |
+| Ensemble quantiles | None | Heuristic | Decomposable | Lakshminarayanan et al. (2017) |
 
-1. Capturing **epistemic uncertainty** (model uncertainty)
-2. Improving robustness and generalization
-3. Avoiding local minima during optimization
+**Recommendation:** use quantile regression + CQR for robust, adaptive
+intervals with *finite-sample coverage*. Use Gaussian NLL when you need
+a full density (not just intervals) and trust the Gaussian assumption.
 
-torchregress provides several ensemble approaches:
+---
 
-```python
-# Deep ensemble (train multiple models with different initializations)
-models = [create_model() for _ in range(5)]
-ensemble = tr.ensemble.DeepEnsemble(models)
+## Evaluation Checklist
 
-# SWAG (posterior approximation over weights)
-ensemble = tr.ensemble.SWAG(base_model)
+Before trusting a model's uncertainty estimates, verify:
 
-# MC-Dropout wrapper (cheap uncertainty baseline)
-ensemble = tr.ensemble.MCDropoutWrapper(base_model, n_samples=30)
-```
+1. [ ] **RMSE / NLL / CRPS** all improve on holdout (not just one).
+2. [ ] **Reliability diagram**: 90% intervals contain ≈ 90% of holdout data.
+3. [ ] **PIT histogram**: uniform for well-calibrated densities.
+4. [ ] **OOD sensitivity**: uncertainty increases on out-of-distribution inputs.
+5. [ ] **No variance collapse**: $\sigma(x)$ is not near zero everywhere.
+6. [ ] **Residuals**: no obvious structure (heteroscedasticity, curvature).
 
-## Performance Optimization
+For implementation, see [Visualization Methods](../methods/visualization.md)
+and [Calibration Metrics](../metrics/calibration.md).
 
-To optimize performance when using torchregress:
+---
 
-1. **Batch Operations**: Use vectorized operations instead of loops
-2. **Data Types**: Use appropriate precision (float32 is typically sufficient)
-3. **GPU Acceleration**: Move tensors and models to GPU when available
-4. **Numerical Stability**: Use stable implementations (e.g., log-space calculations)
+## References
 
-Example of optimized code:
-
-```python
-# Move to GPU if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = model.to(device)
-X = X.to(device)
-y = y.to(device)
-
-# Use the library's AMP wrapper for mixed precision (PyTorch >= 2.0)
-from torchregress.utils import AMP
-from torch.amp import GradScaler
-
-amp = AMP(device_type="cuda", dtype=torch.float16)
-scaler = GradScaler("cuda")
-
-# Training loop with mixed precision
-for epoch in range(100):
-    for X_batch, y_batch in dataloader:
-        X_batch = X_batch.to(device)
-        y_batch = y_batch.to(device)
-
-        # Use mixed precision via the library's AMP wrapper
-        with amp():
-            out = model(X_batch)
-            loss = loss_fn(out, y_batch)
-
-        optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-```
-
-## Common Pitfalls and Solutions
-
-1. **Numerical Instability**
-   - **Problem**: Infinity or NaN values in loss calculation
-   - **Solution**: Use log-space computation, clamp small values, use stable implementations
-
-2. **Overconfident Uncertainty**
-   - **Problem**: Model predicts too small uncertainty
-   - **Solution**: Add regularization, use ensembling, check for data leakage
-
-3. **Underconfident Uncertainty**
-   - **Problem**: Model predicts unnecessarily large uncertainty
-   - **Solution**: Increase training data, check for model misspecification
-
-4. **Poorly Calibrated Uncertainty**
-   - **Problem**: Predictive intervals don't match empirical frequencies
-   - **Solution**: Use post-hoc calibration, temperature scaling, or better loss functions
-
-5. **Slow Training**
-   - **Problem**: Training takes too long
-   - **Solution**: Use GPU acceleration, optimize batch size, use mixed precision
+1. [GneitingRaftery2007] Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378.
+2. [Skafte2019] Skafte, N., Jørgensen, M. & Hauberg, S. (2019). Reliable Training and Estimation of Variance Networks. *NeurIPS*.
+3. [Huber1964] Huber, P. J. (1964). Robust Estimation of a Location Parameter. *Annals of Mathematical Statistics*, 35(1), 73–101.
+4. [Tobin1958] Tobin, J. (1958). Estimation of Relationships for Limited Dependent Variables. *Econometrica*, 26(1), 24–36.
+5. [Cox1972] Cox, D. R. (1972). Regression Models and Life-Tables. *J. Royal Statistical Society B*, 34(2), 187–202.
+6. [Bishop1994] Bishop, C. M. (1994). Mixture Density Networks. *Technical Report*, Aston University.
+7. [RezendeMohamed2015] Rezende, D. J. & Mohamed, S. (2015). Variational Inference with Normalizing Flows. *ICML*.
+8. [KoenkerBassett1978] Koenker, R. & Bassett, G. (1978). Regression Quantiles. *Econometrica*, 46(1), 33–50.
+9. [Carroll2006] Carroll, R. J., Ruppert, D., Stefanski, L. A. & Crainiceanu, C. M. (2006). *Measurement Error in Nonlinear Models* (2nd ed.). Chapman & Hall.
+10. [Vovk2005] Vovk, V., Gammerman, A. & Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer.
+11. [Romano2019] Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*.
+12. [Lakshminarayanan2017] Lakshminarayanan, B., Pritzel, A. & Blundell, C. (2017). Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles. *NeurIPS*.
+13. [Ren2019] Ren, J., Liu, P. J., Fertig, E., Snoek, J., Poplin, R., DePristo, M. A., ... & Angermueller, C. (2019). Likelihood Ratios for Out-of-Distribution Detection. *NeurIPS*.
+14. [NixWeigend1994] Nix, D. A. & Weigend, A. S. (1994). Estimating the Mean and Variance of the Target Probability Distribution. *IEEE ICNN*.

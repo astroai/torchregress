@@ -7,8 +7,6 @@ from scipy.special import boxcox, inv_boxcox
 
 from torchregress.utils.transform import (
     BoxCoxTransform,
-    boxcox_inverse,
-    boxcox_transform,
     make_target_transform,
 )
 
@@ -65,18 +63,6 @@ class TestBoxCoxDetailed:
         # x < -eps should raise ValueError
         with pytest.raises(ValueError, match="BoxCoxTransform requires inputs >= -1e-06"):
             transform.forward(torch.tensor([-2e-6]))
-
-    def test_convenience_functions(self) -> None:
-        x = torch.tensor([1.0, 2.0, 3.0])
-        lam = 0.5
-        eps = 1e-4
-
-        y = boxcox_transform(x, lam=lam, eps=eps)
-        expected = BoxCoxTransform(lam=lam, eps=eps).forward(x)
-        assert torch.allclose(y, expected)
-
-        x_inv = boxcox_inverse(y, lam=lam, eps=eps)
-        assert torch.allclose(x_inv, x)
 
     def test_make_target_transform_integration(self) -> None:
         transform = make_target_transform("boxcox", lam=0.7, eps=1e-3)

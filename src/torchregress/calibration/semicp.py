@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Union
 
-import numpy as np
 import torch
 
 
@@ -28,54 +27,55 @@ class SemiConformalCalibrator:
         eps: float = 1e-8,
     ) -> None:
         self.eps = eps
-        self.scores_cal_: np.ndarray | None = None
-        self.weights_cal_: np.ndarray | None = None
+        self.scores_cal_: torch.Tensor | None = None
+        self.weights_cal_: torch.Tensor | None = None
 
-    def _to_numpy(self, array: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+    @staticmethod
+    def _to_tensor(array: Union[torch.Tensor, float, int]) -> torch.Tensor:
         if isinstance(array, torch.Tensor):
-            return array.detach().cpu().numpy()
-        return np.asarray(array)
+            return array
+        return torch.tensor(array, dtype=torch.float)
 
     def fit(
         self,
-        nonconformity_scores_cal: Union[np.ndarray, torch.Tensor],
-        weights_cal: Union[np.ndarray, torch.Tensor] | None = None,
+        nonconformity_scores_cal: Union[torch.Tensor],
+        weights_cal: Union[torch.Tensor] | None = None,
     ) -> "SemiConformalCalibrator":
         """Fit the calibrator on calibration nonconformity scores and optional weights.
 
         Parameters
         ----------
-        nonconformity_scores_cal : Union[np.ndarray, torch.Tensor]
+        nonconformity_scores_cal : torch.Tensor
             Calibration set nonconformity scores, shape (N_cal,).
-        weights_cal : Union[np.ndarray, torch.Tensor], optional
+        weights_cal : torch.Tensor, optional
             Weights for calibration samples (e.g. prior ratio), shape (N_cal,).
         """
-        scores = self._to_numpy(nonconformity_scores_cal).reshape(-1)
+        scores = self._to_tensor(nonconformity_scores_cal).reshape(-1).float()
         if weights_cal is not None:
-            weights = self._to_numpy(weights_cal).reshape(-1)
+            weights = self._to_tensor(weights_cal).reshape(-1).float()
             if weights.shape[0] != scores.shape[0]:
                 raise ValueError("weights_cal must share shape with nonconformity_scores_cal")
-            if np.any(weights < 0.0):
+            if torch.any(weights < 0.0):
                 raise ValueError("weights_cal must be non-negative")
         else:
-            weights = np.ones_like(scores)
+            weights = torch.ones_like(scores)
 
         # Sort scores and weights in ascending order of scores
-        sort_idx = np.argsort(scores)
+        sort_idx = torch.argsort(scores)
         self.scores_cal_ = scores[sort_idx]
         self.weights_cal_ = weights[sort_idx]
         return self
 
     def compute_thresholds(
         self,
-        weights_target: Union[np.ndarray, torch.Tensor, float],
+        weights_target: Union[torch.Tensor, float],
         alpha: float = 0.1,
-    ) -> Union[np.ndarray, torch.Tensor, float]:
+    ) -> Union[torch.Tensor, float]:
         """Compute sample-specific conformal thresholds for target points.
 
         Parameters
         ----------
-        weights_target : Union[np.ndarray, torch.Tensor, float]
+        weights_target : Union[torch.Tensor, float]
             Shift weights w(x) = p_target(x)/p_source(x) for target points, shape (N_target,).
         alpha : float
             Nominal coverage level is 1 - alpha (e.g. alpha = 0.1 for 90% coverage).
@@ -85,43 +85,43 @@ class SemiConformalCalibrator:
         if not 0.0 < alpha < 1.0:
             raise ValueError("alpha must lie in (0, 1)")
 
-        # Convert inputs to numpy
+        # Convert inputs to tensor
         if isinstance(weights_target, (float, int)):
             if weights_target < 0.0:
                 raise ValueError("weights_target must be non-negative")
-            w_tgt = np.array([float(weights_target)])
+            w_tgt = torch.tensor([float(weights_target)])
         else:
-            w_tgt = self._to_numpy(weights_target).reshape(-1)
-            if np.any(w_tgt < 0.0):
+            w_tgt = self._to_tensor(weights_target).reshape(-1).float()
+            if torch.any(w_tgt < 0.0):
                 raise ValueError("weights_target must be non-negative")
 
         n_tgt = w_tgt.shape[0]
-        thresholds = np.zeros(n_tgt)
+        device = w_tgt.device
+        scores = self.scores_cal_.to(device=device, dtype=torch.float)
+        weights = self.weights_cal_.to(device=device, dtype=torch.float)
+        thresholds = torch.zeros(n_tgt, device=device)
 
         # Total sum of calibration weights
-        sum_w_cal = self.weights_cal_.sum()
+        sum_w_cal = weights.sum()
 
         for k in range(n_tgt):
             w_inf = w_tgt[k]
             denom = sum_w_cal + w_inf
             if denom <= 0.0:
-                thresholds[k] = self.scores_cal_[-1]
+                thresholds[k] = scores[-1]
                 continue
 
             # Compute cumulative probabilities for sorted calibration scores
-            p = self.weights_cal_ / denom
-            cum_p = np.cumsum(p)
+            p = weights / denom
+            cum_p = torch.cumsum(p, dim=0)
 
             # Find the smallest index m such that cum_p >= 1 - alpha
-            idx = np.where(cum_p >= 1.0 - alpha)[0]
-            if idx.size > 0:
-                thresholds[k] = self.scores_cal_[idx[0]]
+            mask = cum_p >= 1.0 - alpha
+            idx = torch.where(mask)[0]
+            if idx.numel() > 0:
+                thresholds[k] = scores[idx[0]]
             else:
-                thresholds[k] = self.scores_cal_[-1]
-
-        if isinstance(weights_target, torch.Tensor):
-            # Match the device and dtype of the input tensor
-            return torch.as_tensor(thresholds, dtype=torch.float32, device=weights_target.device)
+                thresholds[k] = scores[-1]
 
         if isinstance(weights_target, (float, int)):
             return float(thresholds[0])
@@ -129,42 +129,41 @@ class SemiConformalCalibrator:
 
     def calibrate_interval(
         self,
-        pred_lower: Union[np.ndarray, torch.Tensor],
-        pred_upper: Union[np.ndarray, torch.Tensor],
-        weights_target: Union[np.ndarray, torch.Tensor, float],
+        pred_lower: Union[torch.Tensor],
+        pred_upper: Union[torch.Tensor],
+        weights_target: Union[torch.Tensor, float],
         alpha: float = 0.1,
-    ) -> tuple[Union[np.ndarray, torch.Tensor], Union[np.ndarray, torch.Tensor]]:
+    ) -> tuple[Union[torch.Tensor], Union[torch.Tensor]]:
         """Calibrate lower and upper prediction intervals under shift.
 
         Parameters
         ----------
-        pred_lower : Union[np.ndarray, torch.Tensor]
+        pred_lower : torch.Tensor
             Uncalibrated lower predictions, shape (N_target,).
-        pred_upper : Union[np.ndarray, torch.Tensor]
+        pred_upper : torch.Tensor
             Uncalibrated upper predictions, shape (N_target,).
-        weights_target : Union[np.ndarray, torch.Tensor, float]
+        weights_target : Union[torch.Tensor, float]
             Prior ratio weights for target samples, shape (N_target,).
         alpha : float
             Nominal significance level.
         """
+        # Convert inputs to tensor
+        pred_lower = self._to_tensor(pred_lower)
+        pred_upper = self._to_tensor(pred_upper)
+
         # Compute thresholds
         q = self.compute_thresholds(weights_target, alpha=alpha)
 
-        if isinstance(pred_lower, torch.Tensor):
-            q_tensor = torch.as_tensor(q, dtype=pred_lower.dtype, device=pred_lower.device)
-            # Handle possible batching or 1D format
+        if isinstance(q, torch.Tensor):
+            q_tensor = q.to(dtype=pred_lower.dtype)
             if q_tensor.ndim == 1 and pred_lower.ndim == 2:
                 q_tensor = q_tensor.unsqueeze(1)
             lower_cal = pred_lower - q_tensor
             upper_cal = pred_upper + q_tensor
             return lower_cal, upper_cal
         else:
-            lower = np.asarray(pred_lower)
-            upper = np.asarray(pred_upper)
-            q_arr = np.asarray(q)
-            if q_arr.ndim == 1 and lower.ndim == 2:
-                q_arr = q_arr[:, None]
-            return lower - q_arr, upper + q_arr
+            # Scalar threshold
+            return pred_lower - q, pred_upper + q
 
 
 __all__ = ["SemiConformalCalibrator"]

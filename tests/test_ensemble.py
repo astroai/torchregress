@@ -18,18 +18,11 @@ from torchregress.ensemble.models import (
     BatchEnsembleMLPBackbone,
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
-    DeepEnsemble,
     HeteroscedasticBatchEnsembleModel,
     HeteroscedasticEnsembleModel,
     MDNEnsembleModel,
     RandomPartitionEnsembleModel,
 )
-from torchregress.ensemble.utils import (
-    generate_prediction_samples,
-    run_ensemble_model,
-    run_heteroscedastic_ensemble_model,
-)
-
 
 class DropoutModel(nn.Module):
     """Model with dropout for MC Dropout testing."""
@@ -46,11 +39,12 @@ class DropoutModel(nn.Module):
         return self.output(x)
 
 
-class BatchEnsembleBackbone(nn.Module):
-    """Simple backbone for testing BatchEnsemble."""
+class _TestBackbone(nn.Module):
+    """Simple backbone for testing HeteroscedasticBatchEnsembleModel."""
 
     def __init__(self, input_size=10, hidden_size=20):
         super().__init__()
+        self.feature_dim = hidden_size
         self.layer = nn.Linear(input_size, hidden_size)
 
     def forward(self, x):
@@ -118,13 +112,13 @@ class TestDeepEnsemble:
     """Tests for DeepEnsemble."""
 
     def test_initialization(self):
-        model = DeepEnsemble(
+        model = BaseEnsembleModel(
             base_model=SimpleMLP, ensemble_size=3, input_size=10, hidden_size=20, output_size=1
         )
         assert len(model.models) == 3
 
     def test_fit_and_predict(self):
-        model = DeepEnsemble(
+        model = BaseEnsembleModel(
             base_model=SimpleMLP,
             ensemble_size=2,  # Small ensemble for quick testing
             input_size=10,
@@ -333,10 +327,9 @@ class TestHeteroscedasticBatchEnsembleModel:
     """Tests for HeteroscedasticBatchEnsembleModel."""
 
     def test_initialization(self):
-        backbone = BatchEnsembleBackbone(input_size=10, hidden_size=20)
+        backbone = _TestBackbone(input_size=10, hidden_size=20)
         model = HeteroscedasticBatchEnsembleModel(
             backbone=backbone,
-            input_size=20,  # Output size of backbone
             output_size=1,
             ensemble_size=4,
         )
@@ -348,9 +341,9 @@ class TestHeteroscedasticBatchEnsembleModel:
         assert model.output_layer.ensemble_size == 4
 
     def test_forward(self):
-        backbone = BatchEnsembleBackbone(input_size=10, hidden_size=20)
+        backbone = _TestBackbone(input_size=10, hidden_size=20)
         model = HeteroscedasticBatchEnsembleModel(
-            backbone=backbone, input_size=20, output_size=1, ensemble_size=4
+            backbone=backbone, output_size=1, ensemble_size=4
         )
 
         # Create input tensor
@@ -367,9 +360,9 @@ class TestHeteroscedasticBatchEnsembleModel:
         assert result["log_vars"].shape == (5, 4, 1)  # [batch_size, ensemble_size, output_size]
 
     def test_predict(self):
-        backbone = BatchEnsembleBackbone(input_size=10, hidden_size=20)
+        backbone = _TestBackbone(input_size=10, hidden_size=20)
         model = HeteroscedasticBatchEnsembleModel(
-            backbone=backbone, input_size=20, output_size=1, ensemble_size=4
+            backbone=backbone, output_size=1, ensemble_size=4
         )
 
         # Create input tensor
@@ -395,11 +388,12 @@ class TestHeteroscedasticBatchEnsembleModel:
 
     def test_predict_clamps_extreme_log_variance(self):
         class ExtremeBackbone(nn.Module):
+            feature_dim = 20
             def forward(self, x):
                 return torch.zeros(x.shape[0], 20, device=x.device, dtype=x.dtype)
 
         model = HeteroscedasticBatchEnsembleModel(
-            backbone=ExtremeBackbone(), input_size=20, output_size=1, ensemble_size=4
+            backbone=ExtremeBackbone(), output_size=1, ensemble_size=4
         )
         with torch.no_grad():
             model.output_layer.bias[1] = 50.0
@@ -410,7 +404,8 @@ class TestHeteroscedasticBatchEnsembleModel:
 
 class TestBatchEnsembleMLPBackbone:
     def test_forward_returns_memberwise_features(self):
-        backbone = BatchEnsembleMLPBackbone(
+        from torchregress.ensemble.models import BatchEnsembleMLPBackbone as RealBackbone
+        backbone = RealBackbone(
             input_size=6,
             hidden_size=12,
             ensemble_size=3,
@@ -425,7 +420,8 @@ class TestBatchEnsembleMLPBackbone:
         assert features.shape == (5, 3, 12)
 
     def test_works_with_heteroscedastic_batch_ensemble_model(self):
-        backbone = BatchEnsembleMLPBackbone(
+        from torchregress.ensemble.models import BatchEnsembleMLPBackbone as RealBackbone
+        backbone = RealBackbone(
             input_size=6,
             hidden_size=10,
             ensemble_size=2,
@@ -437,98 +433,12 @@ class TestBatchEnsembleMLPBackbone:
         )
         model = HeteroscedasticBatchEnsembleModel(
             backbone=backbone,
-            input_size=backbone.feature_dim,
             output_size=1,
             ensemble_size=2,
         )
         result = model.predict(torch.randn(4, 6))
         assert result["mean"].shape == (4, 1)
         assert torch.isfinite(result["variance"]).all()
-
-
-class TestUtilityFunctions:
-    """Tests for utility functions."""
-
-    def test_run_ensemble_model(self):
-        # Create a simple model function
-        def model_fn(x):
-            return x * 2 + torch.randn_like(x) * 0.1
-
-        # Create inputs
-        torch.randn(10, 5)  # [batch_size, features]
-        inputs_list = [
-            torch.randn(10, 5) for _ in range(5)
-        ]  # 5 samples, each [batch_size, features]
-        inputs_stacked = torch.stack(inputs_list)  # [n_samples, batch_size, features]
-
-        # Test with list input
-        result1 = run_ensemble_model(model_fn, inputs_list)
-
-        # Test with stacked tensor input
-        run_ensemble_model(model_fn, inputs_stacked)
-
-        # Check results
-        assert "mean" in result1
-        assert "variance" in result1
-        assert result1["mean"].shape == (10, 5)  # [batch_size, features]
-        assert result1["variance"].shape == (10, 5)  # [batch_size, features]
-
-        # Test with return_individual=True
-        result3 = run_ensemble_model(model_fn, inputs_list, return_individual=True)
-        assert "individual_preds" in result3
-        assert result3["individual_preds"].shape == (5, 10, 5)  # [n_samples, batch_size, features]
-
-    def test_run_heteroscedastic_ensemble_model(self):
-        # Create a simple heteroscedastic model function
-        def model_fn(x):
-            mean = x * 2
-            log_var = torch.zeros_like(x) - 1.0
-            return mean, log_var
-
-        # Create inputs
-        inputs_list = [
-            torch.randn(10, 5) for _ in range(5)
-        ]  # 5 samples, each [batch_size, features]
-        inputs_stacked = torch.stack(inputs_list)  # [n_samples, batch_size, features]
-
-        # Test with stacked tensor input
-        result = run_heteroscedastic_ensemble_model(model_fn, inputs_stacked)
-
-        # Check results
-        assert "mean" in result
-        assert "variance" in result
-        assert "epistemic_variance" in result
-        assert "aleatoric_variance" in result
-        assert result["mean"].shape == (10, 5)  # [batch_size, features]
-        assert result["variance"].shape == (10, 5)  # [batch_size, features]
-        assert result["epistemic_variance"].shape == (10, 5)  # [batch_size, features]
-        assert result["aleatoric_variance"].shape == (10, 5)  # [batch_size, features]
-
-        # Verify that total variance is sum of epistemic and aleatoric
-        assert torch.allclose(
-            result["variance"], result["epistemic_variance"] + result["aleatoric_variance"]
-        )
-
-    def test_generate_prediction_samples(self):
-        # Create a dropout model
-        model = DropoutModel(input_size=10, hidden_size=20, output_size=2, dropout_rate=0.2)
-
-        # Create input
-        x = torch.randn(5, 10)  # [batch_size, input_size]
-
-        # Generate samples
-        result = generate_prediction_samples(model, x, n_samples=10)
-
-        # Check results
-        assert "mean" in result
-        assert "variance" in result
-        assert result["mean"].shape == (5, 2)  # [batch_size, output_size]
-        assert result["variance"].shape == (5, 2)  # [batch_size, output_size]
-
-        # With return_samples=True
-        result = generate_prediction_samples(model, x, n_samples=10, return_samples=True)
-        assert "samples" in result
-        assert result["samples"].shape == (10, 5, 2)  # [n_samples, batch_size, output_size]
 
 
 class TestRandomPartitionEnsembleModel:

@@ -122,8 +122,9 @@ def select_high_confidence(
         top_mask = np.zeros(probs.shape[0], dtype=bool)
         top_mask[top_idx] = True
         mask &= top_mask
-    if mask.sum() < min_count:
-        top_idx = np.argsort(confidence_scores(probs))[-int(min_count) :]
+    safe_min_count = min(int(min_count), probs.shape[0])
+    if mask.sum() < safe_min_count:
+        top_idx = np.argsort(confidence_scores(probs))[-safe_min_count:]
         mask = np.zeros(probs.shape[0], dtype=bool)
         mask[top_idx] = True
     return mask

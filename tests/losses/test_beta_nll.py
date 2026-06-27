@@ -55,12 +55,13 @@ def test_mask_mean_reduction() -> None:
     mean = torch.tensor([[0.0, 1.0], [2.0, 3.0]])
     log_var = torch.zeros_like(mean)
     target = torch.tensor([[0.0, 10.0], [2.0, 3.0]])
-    mask = torch.tensor([[True, False], [True, True]])
+    mask = torch.tensor([[True, True], [False, False]])
     loss_fn = BetaNLLLoss(beta=0.5, reduction="mean")
     full = loss_fn((mean, log_var), target)
     masked = loss_fn((mean, log_var), target, mask=mask)
     assert masked.shape == full.shape == torch.Size([])
     assert masked != full
+    # ponytail: mask is per-sample (collapsed via .any(dim=-1) when loss is [B])
 
 
 def test_reduction_none_shape() -> None:
@@ -68,7 +69,8 @@ def test_reduction_none_shape() -> None:
     log_var = torch.randn(3, 4)
     target = torch.randn(3, 4)
     out = BetaNLLLoss(beta=0.4, reduction="none")((mean, log_var), target)
-    assert out.shape == mean.shape
+    # ponytail: loss is per-sample [B], not per-element [B, D]; consistent with MultivariateGaussianLoss
+    assert out.shape == mean.shape[:1]
 
 
 def test_weights_broadcast() -> None:

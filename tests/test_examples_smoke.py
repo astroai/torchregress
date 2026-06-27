@@ -81,7 +81,6 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("ordinal_uncertain_ground_truth_comparison")
     _load_example_module("censored_regression_comparison")
     _load_example_module("censored_regression_realdata_comparison")
-    _load_example_module("propensity_tail_regression_comparison")
     _load_example_module("constraints_calibration_comparison")
     _load_example_module("transformed_target_regression_comparison")
     _load_example_module("semi_supervised_regression_comparison")
@@ -99,8 +98,6 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("viz_diagnostic_gallery")
     _load_example_module("metrics_suite_showcase")
     _load_example_module("test_time_adaptation_suite")
-    _load_example_module("bnn_and_batch_ensemble_demo")
-    _load_example_module("transforms_and_augmentations_demo")
     _load_example_module("bayesian_learning_rule_demo")
 
     # Optional dependency path (zuko/flow backend) may not be present in all environments.
@@ -669,18 +666,6 @@ def test_censored_regression_realdata_comparison_main_smoke() -> None:
         hidden=12,
         epochs=2,
         batch_size=24,
-    )
-    mod.main(cfg)
-
-
-def test_propensity_tail_regression_comparison_main_smoke() -> None:
-    mod = _load_example_module("propensity_tail_regression_comparison")
-    cfg = mod.PropensityTailConfig(
-        n_train_pool=256,
-        n_test=96,
-        hidden=12,
-        epochs=2,
-        batch_size=32,
     )
     mod.main(cfg)
 

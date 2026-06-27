@@ -120,6 +120,17 @@ class GaussianNLLLoss(DistributionLoss):
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
+        """Gaussian negative log-likelihood loss.
+
+        Args:
+            y_pred: Prediction tensor or (mean, log_variance) tuple.
+            target: Ground truth tensor.
+            mask: Optional boolean mask for valid samples.
+            weights: Optional per-sample weights.
+
+        Returns:
+            Reduced loss tensor.
+        """
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)
 
@@ -128,6 +139,9 @@ class GaussianNLLLoss(DistributionLoss):
         # All constants hoisted to module level; ``eps`` keeps ``log var``
         # finite when var → 0 without breaking gradients.
         nll = 0.5 * (_LOG_2PI + torch.log(var + self.eps) + (target - mean) ** 2 / (var + self.eps))
+        nll = nll.sum(
+            dim=-1
+        )  # [B, D] → [B] per-sample NLL, consistent with MultivariateGaussianLoss  # noqa: E501
 
         return self._reduce_with_mask(nll, mask, weights)
 

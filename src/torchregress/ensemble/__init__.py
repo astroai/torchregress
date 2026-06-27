@@ -6,18 +6,15 @@ Ensemble models for regression tasks with uncertainty estimation.
 from .base import BaseEnsembleModel, EnsembleFitConfig
 from .bnn import BayesianNeuralNetwork, HeteroscedasticBNN, VariationalLinear
 from .combiners import (
-    BayesianModelAveraging,
-    DynamicEnsembleWeighting,
     SoftmaxModelCombiner,
     StackingEnsemble,
 )
 from .layers import BatchEnsembleLinear
-from .mc_dropout import MCDropoutModel, MCDropoutWrapper, enable_dropout
+from .mc_dropout import MCDropoutWrapper, enable_dropout
 from .models import (
     BatchEnsembleMLPBackbone,
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
-    DeepEnsemble,
     HeteroscedasticBatchEnsembleModel,
     HeteroscedasticEnsembleModel,
     MDNEnsembleModel,
@@ -26,8 +23,6 @@ from .models import (
 from .packed import (
     BatchEnsembleOutput,
     BatchEnsembleRegressor,
-    PackedEnsembleOutput,
-    PackedEnsembleRegressor,
 )
 from .swag import SWAG, MultiSWAG
 from .utils import parse_heteroscedastic_output
@@ -37,7 +32,6 @@ __all__ = [
     "EnsembleFitConfig",
     "BatchEnsembleLinear",
     "HeteroscedasticEnsembleModel",
-    "DeepEnsemble",
     "BatchEnsembleMLPBackbone",
     "BinnedPDFEnsembleModel",
     "CumulativeLinkEnsembleModel",
@@ -46,18 +40,13 @@ __all__ = [
     "HeteroscedasticBatchEnsembleModel",
     "BatchEnsembleRegressor",
     "BatchEnsembleOutput",
-    "PackedEnsembleRegressor",
-    "PackedEnsembleOutput",
-    "BayesianModelAveraging",
     "SoftmaxModelCombiner",
     "StackingEnsemble",
-    "DynamicEnsembleWeighting",
     "SWAG",
     "MultiSWAG",
     "parse_heteroscedastic_output",
     # MC-Dropout
     "MCDropoutWrapper",
-    "MCDropoutModel",
     "enable_dropout",
     # Bayesian Neural Networks
     "VariationalLinear",

@@ -75,7 +75,7 @@ loss_fn = WeightedMSELoss()
 **Concept:** Train multiple independent models with different random initializations.
 
 ```python
-from torchregress.ensemble import DeepEnsemble
+from torchregress.ensemble import BaseEnsembleModel
 from torchregress.utils import set_seed
 
 # Train multiple models independently
@@ -86,7 +86,7 @@ for i in range(5):
     train_model(model, data, epochs=100)
     models.append(model)
 
-ensemble = DeepEnsemble(models)
+ensemble = BaseEnsembleModel(models)
 
 # Get predictions
 predictions = ensemble(x_test)  # List of predictions from each model

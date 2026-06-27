@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `127`
+- Total methods: `124`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -19,9 +19,9 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `calibration_transform` | 5 |
 | `causal` | 2 |
 | `censored` | 3 |
-| `conformal` | 13 |
+| `conformal` | 12 |
 | `constraints` | 2 |
-| `eiv` | 15 |
+| `eiv` | 13 |
 | `ensemble` | 7 |
 | `evidential` | 1 |
 | `expectile` | 3 |
@@ -51,9 +51,8 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Maturity | Count |
 |---|---:|
 | `Core` | 7 |
-| `Strong` | 20 |
-| `Available` | 99 |
-| `Deprecated` | 1 |
+| `Strong` | 19 |
+| `Available` | 98 |
 
 ## Method Rows
 
@@ -86,7 +85,6 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `EnsembleBatchCP` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.EnsembleBatchCP` |
 | `JackknifePlus` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.JackknifePlus` |
 | `MonteCarloConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `epistemic_uq` | `epistemic*`, `calibration`, `ood*` | `torchregress.losses.MonteCarloConformal` |
-| `MultiDimensionalConformalLoss` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `multi_target` | `calibration`, `ood*` | `torchregress.losses.MultiDimensionalConformalLoss` |
 | `PrevalenceAdjustedCP` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.PrevalenceAdjustedCP` |
 | `SLSConformal` | `conformal` | `Available` | `coverage_guarantees`, `multimodal`, `calibration` | `calibration`, `ood*` | `torchregress.losses.SLSConformal` |
 | `SplitConformal` | `conformal` | `Core` | `coverage_guarantees`, `calibration`, `baseline` | `calibration`, `ood*` | `torchregress.losses.SplitConformal` |
@@ -98,20 +96,18 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `InputNoiseAugmentationLoss` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `augmentation` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseAugmentationLoss` |
 | `InputNoiseBinnedPDFLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `multimodal` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseBinnedPDFLoss` |
 | `InputNoiseMDNLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `multimodal` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseMDNLoss` |
-| `InputNoiseMarginalizationLoss` | `eiv` | `Deprecated` | `noisy_features`, `measurement_error`, `marginalization` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseMarginalizationLoss` |
 | `LatentMarginalizationLoss` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `marginalization` | `calibration*`, `ood*` | `torchregress.losses.LatentMarginalizationLoss` |
 | `LatentNN` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `latent_input` | `calibration*`, `ood*` | `torchregress.algorithms.LatentNN` |
 | `NoiseAwareRegressor` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `feature_encoding` | `calibration*`, `ood*` | `torchregress.algorithms.NoiseAwareRegressor` |
 | `NoisyInputPredictor` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `inference` | `calibration*`, `ood*` | `torchregress.losses.NoisyInputPredictor` |
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.OrthogonalDistanceRegressionLoss` |
-| `PredictionSIMEX` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `simex`, `inference` | `calibration*`, `ood*` | `torchregress.algorithms.PredictionSIMEX` |
 | `RegressionCalibration` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `calibration` | `calibration`, `ood*` | `torchregress.algorithms.RegressionCalibration` |
 | `SIMEX` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `simex` | `calibration*`, `ood*` | `torchregress.algorithms.SIMEX` |
 | `StructuralEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.StructuralEIVLoss` |
+| `BaseEnsembleModel` | `ensemble` | `Core` | `epistemic_uq`, `ood`, `selective_prediction` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood` | `torchregress.ensemble.BaseEnsembleModel` |
 | `BatchEnsembleRegressor` | `ensemble` | `Available` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BatchEnsembleRegressor` |
 | `BinnedPDFEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BinnedPDFEnsembleModel` |
 | `CumulativeLinkEnsembleModel` | `ensemble` | `Available` | `ordinal`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.CumulativeLinkEnsembleModel` |
-| `DeepEnsemble` | `ensemble` | `Core` | `epistemic_uq`, `ood`, `selective_prediction` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood` | `torchregress.ensemble.DeepEnsemble` |
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.HeteroscedasticBatchEnsembleModel` |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `ood`, `calibration` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood` | `torchregress.ensemble.HeteroscedasticEnsembleModel` |
 | `MDNEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration`, `uq_decomposition` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.MDNEnsembleModel` |
@@ -197,7 +193,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 
-`ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `InputNoiseMarginalizationLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `PredictionSIMEX`, `RegressionCalibration`, `SIMEX`, `StructuralEIVLoss`
+`ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `RegressionCalibration`, `SIMEX`, `StructuralEIVLoss`
 
 ### Decomposition (`decomposition=yes`)
 

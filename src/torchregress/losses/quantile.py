@@ -114,7 +114,7 @@ class MultiQuantileLoss(RegressionLoss):
         >>> y_pred = torch.tensor([[[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]]])
         >>> target = torch.tensor([[2.0, 3.0]])
         >>> loss_fn(y_pred, target)
-        tensor(0.4667)
+        tensor(0.0667)
     """
 
     def __init__(
@@ -319,7 +319,7 @@ class QuantileCrossoverLoss(RegressionLoss):
 
         # Calculate standard quantile losses using vectorized utility
         # multi_quantile_loss returns [batch_size, n_features] (mean over quantiles)
-        base_loss = multi_quantile_loss(
+        base_loss_val = multi_quantile_loss(
             y_pred, target, cast(torch.Tensor, self.quantiles), quantile_weights=None
         )
 
@@ -341,14 +341,14 @@ class QuantileCrossoverLoss(RegressionLoss):
 
         # Handle weights for the final combination if provided
         if weights is not None:
-            if weights.dim() < base_loss.dim():
-                for _ in range(base_loss.dim() - weights.dim()):
+            if weights.dim() < base_loss_val.dim():
+                for _ in range(base_loss_val.dim() - weights.dim()):
                     weights = weights.unsqueeze(-1)
             # We apply weights during reduction, but here we combine losses first
             # Since _reduce handles weighting, we just return the combined loss map
 
         # Final loss is weighted combination of base loss and crossover penalty
-        final_loss = self.base_loss * base_loss + self.crossover_penalty * crossover_penalties
+        final_loss = self.base_loss * base_loss_val + self.crossover_penalty * crossover_penalties
 
         # Apply final reduction
         return self._reduce(final_loss, mask, weights)

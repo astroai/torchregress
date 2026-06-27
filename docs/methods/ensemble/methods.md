@@ -14,7 +14,7 @@ Detailed API reference for all ensemble and Bayesian uncertainty methods.
 ```python
 from torchregress.ensemble import BaseEnsembleModel
 
-# Subclasses (DeepEnsemble, HeteroscedasticEnsembleModel, …) wrap this pattern.
+# Subclasses (HeteroscedasticEnsembleModel, …) wrap this pattern.
 ```
 
 → Full API: [BaseEnsembleModel](../../api/ensemble.md).
@@ -28,9 +28,9 @@ from torchregress.ensemble import BaseEnsembleModel
     Epistemic uncertainty = variance of member predictions.
 
 ```python
-from torchregress.ensemble import DeepEnsemble
+from torchregress.ensemble import BaseEnsembleModel
 
-ensemble = DeepEnsemble(base_model=MyModel, ensemble_size=5)
+ensemble = BaseEnsembleModel(base_model=MyModel, ensemble_size=5)
 
 # Train each member with different random seeds (or use ensemble.fit(...))
 for member in ensemble.models:

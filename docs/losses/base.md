@@ -159,6 +159,14 @@ class AsymmetricLoss(RegressionLoss):
 - **Accept `**kwargs`** in `forward()` for forward-compatibility with the loss registry and factory functions.
 - **Document the optimisation objective**: Include the mathematical formula (LaTeX) in the docstring. See existing losses for examples.
 
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Goodfellow, I., Bengio, Y. & Courville, A. (2016). *Deep Learning*. MIT Press. |
+| 2 | Kingma, D. P. & Ba, J. (2015). Adam: A Method for Stochastic Optimization. *ICLR*. |
+| 3 | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
+
 ## Next steps
 
 - [Loss Functions index](index.md) — every loss family with formulas and use cases

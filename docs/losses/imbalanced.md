@@ -187,7 +187,7 @@ graph TD
 
 - **Default choice**: `DensityWeightedLoss` is the safest starting point — it preserves calibration and handles out-of-range values gracefully via KDE.
 - **For large datasets**: Use `BalancedMSELoss` or `BMCLoss` with pre-computed bin edges to avoid $\mathcal{O}(N^2)$ density estimation.
-- **For extreme imbalance**: `LDSLoss` with post-hoc calibration (temperature scaling) is the most aggressive option. See the [imbalanced regression demo](../examples/imbalanced_regression.py).
+- **For extreme imbalance**: `LDSLoss` with post-hoc calibration (temperature scaling) is the most aggressive option. See the [imbalanced regression demo](../../examples/imbalanced_regression.py).
 - **No pre-fitting needed**: `FocalRLoss` requires no separate `fit()` step — use when you want a quick, adaptive reweighting during training.
 
 ## Next steps

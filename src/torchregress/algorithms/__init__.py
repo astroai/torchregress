@@ -4,16 +4,17 @@ Specialized algorithms for regression tasks.
 This module provides implementations of algorithms for various
 regression tasks, including IRLS, RC, SIMEX, and latent-input EIV training.
 """
+# ruff: noqa: F401 — re-exports
+# ponytail: __all__ kept because test_public_api_contracts reads it
 
 from .adaptive_prior_vi import (
     AdaptivePriorGuide,
-    SyntheticEnvironmentSampler,
     VIDSRegressor,
+    sample_synthetic_environments,
 )
 from .covariance_pseudo_labels import (
     NeighborhoodCovarianceConfig,
     NeighborhoodCovariancePseudoLabeler,
-    mahalanobis_covariance_pseudo_labels,
 )
 from .error_aware import ErrorAwareFeatureEncoder, NoiseAwareRegressor
 from .heteroscedastic_laplace import (
@@ -28,36 +29,27 @@ from .irls import (
 from .ivon import IVON
 from .latentnn import LatentNN
 from .rc import RegressionCalibration
-from .simex import SIMEX, PredictionSIMEX
+from .simex import SIMEX
 from .tictac import TaylorInducedCovarianceHead
 from .warmup_mc import WarmupMCTrainer
 
 __all__ = [
-    # IVON optimizer (Bayesian Learning Rule)
     "IVON",
-    # IRLS algorithm
     "iteratively_reweighted_least_squares",
     "IRLSConfig",
-    # EIV algorithms
     "RegressionCalibration",
     "SIMEX",
-    "PredictionSIMEX",
     "LatentNN",
     "ErrorAwareFeatureEncoder",
     "NeighborhoodCovarianceConfig",
     "NeighborhoodCovariancePseudoLabeler",
     "NoiseAwareRegressor",
-    "mahalanobis_covariance_pseudo_labels",
-    # TIC-TAC algorithms
     "TaylorInducedCovarianceHead",
-    # Laplace algorithms
     "NaturalHeteroscedasticHead",
     "NaturalReparamHead",
     "HeteroscedasticLaplaceRegressor",
-    # VIDS algorithms
-    "SyntheticEnvironmentSampler",
     "AdaptivePriorGuide",
     "VIDSRegressor",
-    # Warmup algorithms
+    "sample_synthetic_environments",
     "WarmupMCTrainer",
 ]

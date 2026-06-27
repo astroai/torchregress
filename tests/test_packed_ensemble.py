@@ -1,15 +1,15 @@
-"""Tests for PackedEnsembleRegressor."""
+"""Tests for BatchEnsembleRegressor."""
 
 import torch
 
-from torchregress.ensemble import BatchEnsembleMLPBackbone, PackedEnsembleRegressor
+from torchregress.ensemble import BatchEnsembleMLPBackbone, BatchEnsembleRegressor
 from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.packed import _scale_batch_ensemble_factors
 
 
 def test_packed_ensemble_heteroscedastic_shapes() -> None:
     bb = BatchEnsembleMLPBackbone(2, 8, ensemble_size=3, hidden_dims=[8])
-    m = PackedEnsembleRegressor(
+    m = BatchEnsembleRegressor(
         bb,
         feature_dim=bb.feature_dim,
         output_dim=1,
@@ -30,7 +30,7 @@ def test_packed_ensemble_heteroscedastic_shapes() -> None:
 
 def test_packed_ensemble_homoscedastic_no_aleatoric() -> None:
     bb = BatchEnsembleMLPBackbone(1, 4, ensemble_size=2, hidden_dims=[4])
-    m = PackedEnsembleRegressor(
+    m = BatchEnsembleRegressor(
         bb,
         feature_dim=bb.feature_dim,
         output_dim=1,

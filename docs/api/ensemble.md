@@ -157,10 +157,10 @@ All combiners use `_batched_ensemble_forward`, which uses `torch.func.vmap` /
 
 ```python
 import torch.nn as nn
-from torchregress.ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
+from torchregress.ensemble import BaseEnsembleModel, HeteroscedasticEnsembleModel
 
 # Plain deep ensemble
-ensemble = DeepEnsemble(MyModel, ensemble_size=5)
+ensemble = BaseEnsembleModel(MyModel, ensemble_size=5)
 ensemble.fit(train_loader, criterion=nn.MSELoss(), epochs=10, lr=1e-3)
 pred = ensemble.predict(x_test)  # {"mean", "variance"}
 

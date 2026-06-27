@@ -125,46 +125,6 @@ class YeoJohnsonTransform(TargetTransform):
         return out
 
 
-def log_transform(x: Tensor, eps: float = 1e-6) -> Tensor:
-    """Apply log transform with epsilon stability."""
-    return LogTransform(eps=eps).forward(x)
-
-
-def log_inverse(y: Tensor, eps: float = 1e-6) -> Tensor:
-    """Inverse of log transform."""
-    return LogTransform(eps=eps).inverse(y)
-
-
-def boxcox_transform(x: Tensor, lam: float = 0.0, eps: float = 1e-6) -> Tensor:
-    """Apply Box-Cox transform."""
-    return BoxCoxTransform(lam=lam, eps=eps).forward(x)
-
-
-def boxcox_inverse(y: Tensor, lam: float = 0.0, eps: float = 1e-6) -> Tensor:
-    """Inverse of Box-Cox transform."""
-    return BoxCoxTransform(lam=lam, eps=eps).inverse(y)
-
-
-def sqrt_transform(x: Tensor, eps: float = 1e-6) -> Tensor:
-    """Apply square-root transform."""
-    return SqrtTransform(eps=eps).forward(x)
-
-
-def sqrt_inverse(y: Tensor, eps: float = 1e-6) -> Tensor:
-    """Inverse of square-root transform."""
-    return SqrtTransform(eps=eps).inverse(y)
-
-
-def yeojohnson_transform(x: Tensor, lam: float = 1.0) -> Tensor:
-    """Apply Yeo-Johnson transform for signed targets."""
-    return YeoJohnsonTransform(lam=lam).forward(x)
-
-
-def yeojohnson_inverse(y: Tensor, lam: float = 1.0) -> Tensor:
-    """Inverse of Yeo-Johnson transform."""
-    return YeoJohnsonTransform(lam=lam).inverse(y)
-
-
 def make_target_transform(name: str, **kwargs: float) -> TargetTransform:
     """Create a named target transform."""
     normalized = name.strip().lower().replace("-", "_")
@@ -191,13 +151,5 @@ __all__ = [
     "BoxCoxTransform",
     "SqrtTransform",
     "YeoJohnsonTransform",
-    "log_transform",
-    "log_inverse",
-    "boxcox_transform",
-    "boxcox_inverse",
-    "sqrt_transform",
-    "sqrt_inverse",
-    "yeojohnson_transform",
-    "yeojohnson_inverse",
     "make_target_transform",
 ]

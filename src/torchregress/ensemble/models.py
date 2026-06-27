@@ -5,7 +5,7 @@ This module provides concrete implementations of ensemble models
 for regression tasks with uncertainty estimation.
 """
 
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -19,21 +19,6 @@ from torchregress.utils.ordinal import cumulative_logits_to_pmf
 from .base import BaseEnsembleModel
 from .layers import BatchEnsembleLinear
 from .utils import parse_heteroscedastic_output
-
-
-def _variance_from_logvar(
-    log_var: torch.Tensor,
-    *,
-    min_logvar: float = -8.0,
-    max_logvar: float = 6.0,
-    eps: float = 1.0e-8,
-) -> torch.Tensor:
-    return variance_from_logvar(
-        log_var,
-        min_logvar=min_logvar,
-        max_logvar=max_logvar,
-        eps=eps,
-    )
 
 
 def _stack_member_tensors(outputs: Union[torch.Tensor, list[Any]]) -> torch.Tensor:
@@ -71,6 +56,24 @@ def _support_moments(
     return mean, variance
 
 
+def _ensemble_sample(
+    model: BaseEnsembleModel,
+    x: torch.Tensor,
+    n_samples: int,
+    support_values: Optional[torch.Tensor],
+) -> torch.Tensor:
+    prediction = model.predict(x)
+    probs = prediction["probabilities"]
+    support = (
+        torch.arange(probs.shape[-1], device=probs.device, dtype=probs.dtype)
+        if support_values is None
+        else support_values.to(device=probs.device, dtype=probs.dtype)
+    )
+    indices = torch.multinomial(probs, n_samples, replacement=True)
+    samples = support[indices]
+    return samples.transpose(0, 1)
+
+
 def _piecewise_uniform_cdf_at_edges(
     probs: torch.Tensor,
     source_edges: torch.Tensor,
@@ -103,7 +106,6 @@ def _piecewise_uniform_cdf_at_edges(
             cdf.index_select(0, (bin_idx - 1).clamp_min(0)),
             torch.zeros_like(frac),
         )
-        prev_cdf = torch.where(bin_idx > 0, prev_cdf, torch.zeros_like(prev_cdf))
         out[..., 1:-1] = prev_cdf + probs.index_select(0, bin_idx) * frac
         return out
 
@@ -175,7 +177,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             ensemble_mean = torch.mean(stacked_means, dim=0)
 
             # Convert log_vars to variances with the same stabilization used in training.
-            variances = [_variance_from_logvar(log_var) for log_var in log_vars]
+            variances = [variance_from_logvar(log_var) for log_var in log_vars]
 
             # Stack variances and calculate mean aleatoric uncertainty
             stacked_vars = torch.stack(variances)
@@ -214,7 +216,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
                 else:
                     raise ValueError("Unexpected output format for heteroscedastic ensemble.")
                 means.append(mean)
-                vars_.append(_variance_from_logvar(log_var))
+                vars_.append(variance_from_logvar(log_var))
 
             # Stack [M, B, D]
             stacked_means = torch.stack(means)
@@ -246,46 +248,6 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
                 "aleatoric_covariance": ale_cov,
                 "total_covariance": total_cov,
             }
-
-
-class DeepEnsemble(BaseEnsembleModel):
-    """
-    Implementation of deep ensembles for uncertainty estimation.
-
-    This model creates an ensemble of independently trained models and combines
-    their predictions for improved uncertainty estimation.
-
-    Args:
-        base_model: Base model class or instance to ensemble
-        ensemble_size: Number of ensemble members
-        device: Device to use
-
-    References
-    ----------
-    .. [1] Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). Simple and Scalable
-       Predictive Uncertainty Estimation using Deep Ensembles. In *NeurIPS 2017*.
-       https://arxiv.org/abs/1612.01474
-    """
-
-    def __init__(
-        self,
-        base_model: Union[nn.Module, type, None] = None,
-        ensemble_size: int = 5,
-        device: str = "cpu",
-        member_factory: Optional[Callable[[int, Optional[int]], nn.Module]] = None,
-        base_seed: Optional[int] = None,
-        reset_parameters: bool = True,
-        **base_model_kwargs: Any,
-    ) -> None:
-        super().__init__(
-            base_model=base_model,
-            ensemble_size=ensemble_size,
-            device=device,
-            member_factory=member_factory,
-            base_seed=base_seed,
-            reset_parameters=reset_parameters,
-            **base_model_kwargs,
-        )
 
 
 class BinnedPDFEnsembleModel(BaseEnsembleModel):
@@ -326,16 +288,7 @@ class BinnedPDFEnsembleModel(BaseEnsembleModel):
             }
 
     def sample(self, x: torch.Tensor, n_samples: int = 100) -> torch.Tensor:
-        prediction = self.predict(x)
-        probs = prediction["probabilities"]
-        support = (
-            torch.arange(probs.shape[-1], device=probs.device, dtype=probs.dtype)
-            if self.support_values is None
-            else self.support_values.to(device=probs.device, dtype=probs.dtype)
-        )
-        indices = torch.multinomial(probs, n_samples, replacement=True)
-        samples = support[indices]
-        return samples.transpose(0, 1)
+        return _ensemble_sample(self, x, n_samples, self.support_values)
 
 
 class RandomPartitionEnsembleModel(BaseEnsembleModel):
@@ -565,16 +518,7 @@ class CumulativeLinkEnsembleModel(BaseEnsembleModel):
             }
 
     def sample(self, x: torch.Tensor, n_samples: int = 100) -> torch.Tensor:
-        prediction = self.predict(x)
-        probs = prediction["probabilities"]
-        support = (
-            torch.arange(probs.shape[-1], device=probs.device, dtype=probs.dtype)
-            if self.support_values is None
-            else self.support_values.to(device=probs.device, dtype=probs.dtype)
-        )
-        indices = torch.multinomial(probs, n_samples, replacement=True)
-        samples = support[indices]
-        return samples.transpose(0, 1)
+        return _ensemble_sample(self, x, n_samples, self.support_values)
 
 
 class MDNEnsembleModel(BaseEnsembleModel):
@@ -682,8 +626,8 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
     heteroscedastic uncertainty estimation.
 
     Args:
-        backbone: Base model architecture (without output head)
-        input_size: Size of input features
+        backbone: Base model architecture (without output head). Must expose
+            ``feature_dim`` (the output dimensionality of its forward pass).
         output_size: Size of output features (half will be used for variance)
         ensemble_size: Number of ensemble members
         device: Device to use
@@ -692,7 +636,6 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
     def __init__(
         self,
         backbone: nn.Module,
-        input_size: int,
         output_size: int,
         ensemble_size: int = 4,
         device: str = "cpu",
@@ -700,14 +643,13 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
         super().__init__()
         self.backbone = backbone
         self.ensemble_size = ensemble_size
-        self.input_size = input_size
         self.output_size = output_size
         self.device = device
 
         # Final layer is a BatchEnsemble layer with 2*output_size outputs
         # (mean and log_var for each output dimension)
         self.output_layer = BatchEnsembleLinear(
-            in_features=input_size,
+            in_features=backbone.feature_dim,  # type: ignore[arg-type]
             out_features=2 * output_size,
             ensemble_size=ensemble_size,
             device=device,
@@ -754,7 +696,7 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
             log_vars = outputs["log_vars"]  # [batch_size, ensemble_size, output_size]
 
             # Convert log_vars to variances with the same stabilization used in training.
-            variances = _variance_from_logvar(log_vars)
+            variances = variance_from_logvar(log_vars)
 
             # Calculate ensemble mean across members
             ensemble_mean = torch.mean(means, dim=1)  # [batch_size, output_size]

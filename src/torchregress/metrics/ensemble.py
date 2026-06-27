@@ -2,6 +2,7 @@
 Ensemble forecasting metrics and uncertainty decomposition.
 """
 
+import math
 from typing import Any, Dict, Tuple, Union
 
 import numpy as np
@@ -98,7 +99,7 @@ class GaussianNLLEnsemble(Metric):
         total_var = stats["total_uncertainty"]
         total_var = torch.clamp(total_var, min=1e-6)
         diff2 = (y - mean) ** 2
-        nll = 0.5 * (torch.log(2 * np.pi * total_var) + diff2 / total_var)
+        nll = 0.5 * (torch.log(2 * math.pi * total_var) + diff2 / total_var)
         metric_state_tensor(self.nll_sum).add_(torch.sum(nll))
         metric_state_tensor(self.total).add_(torch.as_tensor(y.numel(), device=y.device))
 

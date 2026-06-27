@@ -2,9 +2,9 @@ import pytest
 import torch
 import torch.nn as nn
 
-from torchregress.ensemble.combiners import BayesianModelAveraging, SoftmaxModelCombiner
-from torchregress.ensemble.models import DeepEnsemble, HeteroscedasticEnsembleModel
-from torchregress.ensemble.packed import BatchEnsembleRegressor, PackedEnsembleRegressor
+from torchregress.ensemble.combiners import SoftmaxModelCombiner
+from torchregress.ensemble.models import BaseEnsembleModel, HeteroscedasticEnsembleModel
+from torchregress.ensemble.packed import BatchEnsembleRegressor
 from torchregress.ensemble.swag import MultiSWAG
 
 
@@ -28,7 +28,7 @@ class ToyHeteroModel(nn.Module):
 
 def test_member_factory_and_base_seed():
     # Test using member_factory
-    ensemble = DeepEnsemble(
+    ensemble = BaseEnsembleModel(
         member_factory=lambda idx, seed: ToyModel(2, 1), ensemble_size=3, base_seed=42
     )
     assert len(ensemble.models) == 3
@@ -43,11 +43,11 @@ def test_reset_parameters_warning():
     # If reset_parameters=False, copy-construction from instance keeps identical parameters
     # and should raise a UserWarning
     with pytest.warns(UserWarning, match="identical parameter values"):
-        DeepEnsemble(base_model=model_instance, ensemble_size=2, reset_parameters=False)
+        BaseEnsembleModel(base_model=model_instance, ensemble_size=2, reset_parameters=False)
 
 
 def test_predict_correction():
-    ensemble = DeepEnsemble(
+    ensemble = BaseEnsembleModel(
         member_factory=lambda idx, seed: ToyModel(2, 1), ensemble_size=3, base_seed=42
     )
     x = torch.randn(5, 2)
@@ -67,7 +67,7 @@ def test_predict_correction():
 
 def test_predict_full_covariance_contraction():
     # BaseEnsembleModel full covariance should be [B, D, D]
-    ensemble = DeepEnsemble(
+    ensemble = BaseEnsembleModel(
         member_factory=lambda idx, seed: ToyModel(2, 3),  # output size 3
         ensemble_size=3,
         base_seed=42,
@@ -105,41 +105,4 @@ def test_multiswag_decomposition():
     assert aleatoric.shape == (4, 1)
 
 
-def test_combiner_deprecation_and_alias():
-    models = [ToyModel(2, 1) for _ in range(2)]
 
-    # SoftmaxModelCombiner check
-    combiner = SoftmaxModelCombiner(models)
-    x = torch.randn(4, 2)
-    out = combiner(x)
-    assert out.shape == (4, 1)
-
-    # Deprecated BayesianModelAveraging warning
-    with pytest.warns(DeprecationWarning, match="BayesianModelAveraging is deprecated"):
-        bma = BayesianModelAveraging(models)
-    assert isinstance(bma, SoftmaxModelCombiner)
-
-
-def test_batch_ensemble_regressor_deprecation_and_alias():
-    bb = ToyModel(2, 4)
-    regressor = BatchEnsembleRegressor(
-        bb,
-        feature_dim=4,
-        output_dim=1,
-        ensemble_size=3,
-        heteroscedastic=True,
-    )
-    x = torch.randn(5, 2)
-    out = regressor.predict_output(x)
-    assert out.mean.shape == (5, 1)
-
-    # Deprecated PackedEnsembleRegressor warning
-    with pytest.warns(DeprecationWarning, match="PackedEnsembleRegressor is deprecated"):
-        packed = PackedEnsembleRegressor(
-            bb,
-            feature_dim=4,
-            output_dim=1,
-            ensemble_size=3,
-            heteroscedastic=True,
-        )
-    assert isinstance(packed, BatchEnsembleRegressor)

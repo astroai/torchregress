@@ -2,9 +2,8 @@
 Multivariate regression metrics for vector-valued outputs.
 """
 
-from typing import Any, Union
+from typing import Any
 
-import numpy as np
 import torch
 from torchmetrics import Metric
 
@@ -69,23 +68,3 @@ class MultivariateMAE(Metric):
     def compute(self) -> torch.Tensor:
         """Compute multivariate MAE."""
         return metric_state_tensor(self.sum_abs_error) / metric_state_tensor(self.total)
-
-
-def multivariate_rmse(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-) -> torch.Tensor:
-    """Functional wrapper for :class:`MultivariateRMSE`."""
-    metric = MultivariateRMSE()
-    metric.update(convert_to_tensor(y_pred), convert_to_tensor(y_true))
-    return metric.compute()
-
-
-def multivariate_mae(
-    y_pred: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-) -> torch.Tensor:
-    """Functional wrapper for :class:`MultivariateMAE`."""
-    metric = MultivariateMAE()
-    metric.update(convert_to_tensor(y_pred), convert_to_tensor(y_true))
-    return metric.compute()

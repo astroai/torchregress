@@ -5,7 +5,6 @@ from torchregress.test_time.label_shift import (
     GaussianLabelShiftConfig,
     LabelShiftEMConfig,
     PosteriorLabelShiftAdapter,
-    _weighted_average,
     apply_label_shift_correction,
     correct_gaussian_predictions_for_label_shift,
     estimate_target_prior_em,
@@ -100,8 +99,9 @@ def test_posterior_label_shift_adapter():
     assert corrected.shape == probs.shape
     np.testing.assert_allclose(corrected.sum(axis=1), np.ones(probs.shape[0]))
 
-    # Test fit_transform
-    corrected2, estimate2 = adapter.fit_transform(probs)
+    # Test estimate + transform
+    estimate2 = adapter.estimate(probs)
+    corrected2 = adapter.transform(probs)
     assert corrected2.shape == probs.shape
     assert estimate2.target_prior is not None
 
@@ -218,13 +218,6 @@ def test_gaussian_bin_edges_constant():
     edges = gaussian_bin_edges_from_targets(targets, n_bins=2)
     assert edges.shape == (3,)
     assert edges[-1] == 6.0  # hi = lo + 1.0
-
-
-def test_weighted_average_error():
-    probs = np.array([[0.8, 0.2]])
-    weights = np.array([1.0, 1.0])
-    with pytest.raises(ValueError, match="sample_weights must match"):
-        _weighted_average(probs, weights, eps=1e-8)
 
 
 def test_correct_gaussian_predictions_top_fraction_none():

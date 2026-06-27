@@ -189,7 +189,7 @@ for epoch in range(100):
 
 - **Use when point accuracy matters more than variance calibration**: `FaithfulGaussianLoss` is ideal for scientific applications where the mean prediction is the primary deliverable.
 - **Prefer NLL for pure uncertainty quantification**: If calibrated variance is your goal, standard `GaussianNLLLoss` or `BetaNLLLoss` are better choices.
-- **Prefer CRPS for interpretability**: `GaussianCRPSLoss` produces loss values in target units, is less sensitive to tail events, and penalises both calibration and sharpness. See the [CRPS demo](../examples/gaussian_wasserstein_bound_demo.py).
+- **Prefer CRPS for interpretability**: `GaussianCRPSLoss` produces loss values in target units, is less sensitive to tail events, and penalises both calibration and sharpness. See the [CRPS demo](../../examples/gaussian_wasserstein_bound_demo.py).
 - **Monitor both objectives separately**: Track MSE and NLL independently during training to diagnose whether one term is dominating.
 
 ## Next steps

@@ -97,7 +97,7 @@ for loss_name, loss_fn in losses_to_test.items():
         results[loss_name] = {
             'pred': y_pred,
             'mse': tr.metrics.mse(y_pred, y_tensor).item(),
-            'mae': tr.metrics.mae(y_pred, y_tensor).item(),
+            'mae': tr.metrics.mean_absolute_error(y_pred, y_tensor).item(),
             'r2': tr.metrics.R2Score()(y_pred, y_tensor).item()
         }
 
@@ -195,7 +195,7 @@ for loss_name, loss_fn in losses_to_test.items():
                 y_pred[clean_mask],
                 y_tensor[clean_mask]
             ).item(),
-            'mae_all': tr.metrics.mae(y_pred, y_tensor).item(),
+            'mae_all': tr.metrics.mean_absolute_error(y_pred, y_tensor).item(),
         }
 
 # Print comparison
@@ -338,7 +338,7 @@ with torch.no_grad():
     # Homoscedastic predictions
     y_pred_homo = homo_model(X_test)
     mse_homo = tr.metrics.mse(y_pred_homo, y_test).item()
-    mae_homo = tr.metrics.mae(y_pred_homo, y_test).item()
+    mae_homo = tr.metrics.mean_absolute_error(y_pred_homo, y_test).item()
 
     # Heteroscedastic predictions
     mean_hetero, logvar_hetero = hetero_model(X_test)
@@ -346,7 +346,7 @@ with torch.no_grad():
     std_hetero = torch.sqrt(var_hetero)
 
     mse_hetero = tr.metrics.mse(mean_hetero, y_test).item()
-    mae_hetero = tr.metrics.mae(mean_hetero, y_test).item()
+    mae_hetero = tr.metrics.mean_absolute_error(mean_hetero, y_test).item()
     nll_hetero = gnll_loss(mean_hetero, y_test, var_hetero).item()
 
     # 95% prediction intervals

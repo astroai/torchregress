@@ -25,24 +25,10 @@ def _reduce_none(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch
     return values
 
 
-def _reduce_max(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
-    if weights is not None:
-        return torch.max(values * weights)
-    return torch.max(values)
-
-
-def _reduce_min(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
-    if weights is not None:
-        return torch.min(values * weights)
-    return torch.min(values)
-
-
 REDUCERS: dict[str, Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]] = {
     "mean": _reduce_mean,
     "sum": _reduce_sum,
     "none": _reduce_none,
-    "max": _reduce_max,
-    "min": _reduce_min,
 }
 
 
@@ -88,4 +74,4 @@ def reduce_per_sample(
     return reducer(nll, weights)
 
 
-__all__ = ["REDUCERS", "reduce_per_sample"]
+__all__ = ["reduce_per_sample"]

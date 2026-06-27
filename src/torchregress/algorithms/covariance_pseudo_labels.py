@@ -11,7 +11,7 @@ See ``docs/losses/gaussian_wasserstein.md`` for pairing with ``GaussianWasserste
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 import torch
 
@@ -40,7 +40,7 @@ class NeighborhoodCovarianceConfig:
     temperature: float = 1.0
 
 
-def _as_tensor_2d(x: Union[torch.Tensor, Any], *, name: str) -> torch.Tensor:
+def _as_tensor_2d(x: torch.Tensor | Any, *, name: str) -> torch.Tensor:
     if not torch.is_tensor(x):
         x = torch.as_tensor(x, dtype=torch.float32)
     t = x.float()
@@ -81,30 +81,6 @@ def _spdize(cov: torch.Tensor, *, jitter: float) -> torch.Tensor:
     )
 
 
-@torch.no_grad()
-def mahalanobis_covariance_pseudo_labels(
-    x: torch.Tensor,
-    y: torch.Tensor,
-    *,
-    config: NeighborhoodCovarianceConfig | None = None,
-) -> torch.Tensor:
-    """
-    Functional API for :class:`NeighborhoodCovariancePseudoLabeler.fit_predict`.
-
-    Args:
-        x: Reference inputs ``[n, p]``.
-        y: Reference targets ``[n, d]`` (use ``y.unsqueeze(-1)`` for scalar outputs).
-        config: Configuration for the pseudo-labeling. If None, uses default configuration.
-
-    Returns:
-        Tensor ``[n, d, d]`` SPD-ish per-row target covariances (symmetric, eigenvalues floored).
-    """
-    if config is None:
-        config = NeighborhoodCovarianceConfig()
-    labeler = NeighborhoodCovariancePseudoLabeler(config=config)
-    return labeler.fit_predict(x, y)
-
-
 class NeighborhoodCovariancePseudoLabeler:
     """
     Per-sample weighted covariance of neighbour targets in ``(x, y)`` space.
@@ -136,8 +112,8 @@ class NeighborhoodCovariancePseudoLabeler:
     @torch.no_grad()
     def fit_predict(
         self,
-        x: Union[torch.Tensor, "torch.Tensor"],
-        y: Union[torch.Tensor, "torch.Tensor"],
+        x: torch.Tensor,
+        y: torch.Tensor,
     ) -> torch.Tensor:
         x0 = _as_tensor_2d(x, name="x")
         y0 = _as_tensor_2d(y, name="y")
@@ -153,10 +129,10 @@ class NeighborhoodCovariancePseudoLabeler:
     @torch.no_grad()
     def predict_for_query(
         self,
-        x_query: Union[torch.Tensor, "torch.Tensor"],
+        x_query: torch.Tensor,
         *,
-        x_reference: Union[torch.Tensor, "torch.Tensor"],
-        y_reference: Union[torch.Tensor, "torch.Tensor"],
+        x_reference: torch.Tensor,
+        y_reference: torch.Tensor,
     ) -> torch.Tensor:
         """Pseudo covariances for query rows using neighbour sets in ``x_reference`` space."""
         xq = _as_tensor_2d(x_query, name="x_query")

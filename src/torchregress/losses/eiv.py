@@ -6,7 +6,6 @@ where both inputs (x) and outputs (y) contain measurement errors.
 """
 
 import math
-import warnings
 from typing import Any, Callable, Optional, Tuple, Union, cast
 
 import torch
@@ -25,6 +24,11 @@ from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 from .mdn import MDNLoss
 from .ordinal import OrdinalCrossEntropyLoss
+
+
+def _tile(t: torch.Tensor, n_draws: int) -> torch.Tensor:
+    repeat_dims = [n_draws] + [1] * (t.dim() - 1)
+    return t.repeat(*repeat_dims)
 
 
 class BaseEIVLoss(RegressionLoss):
@@ -114,10 +118,6 @@ class BaseEIVLoss(RegressionLoss):
                 sigma_y_value, n_features_y, device, batch_size, dtype
             )
         return sigma_x_tensor, sigma_y_tensor
-
-    def explicit(self) -> "ExplicitEIVAdapter":
-        """Return an explicit-call adapter with ``x_obs`` as the first argument."""
-        return ExplicitEIVAdapter(self)
 
     def _prepare_covariance_from_sigma(
         self,
@@ -250,38 +250,6 @@ class BaseEIVLoss(RegressionLoss):
         if sigma_inv.ndim == 2:
             return torch.sum(diff * (diff @ sigma_inv), dim=1)
         return torch.sum(diff * torch.bmm(diff.unsqueeze(1), sigma_inv).squeeze(1), dim=1)
-
-
-class ExplicitEIVAdapter:
-    """Adapter exposing EIV losses with an explicit ``(x_obs, target)`` call surface."""
-
-    def __init__(self, loss: BaseEIVLoss):
-        self.loss = loss
-
-    def __call__(
-        self,
-        x_obs: torch.Tensor,
-        target: torch.Tensor,
-        *,
-        sigma_x: Optional[Union[float, torch.Tensor]] = None,
-        sigma_y: Optional[Union[float, torch.Tensor]] = None,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-        **kwargs: Any,
-    ) -> torch.Tensor:
-
-        return cast(
-            torch.Tensor,
-            self.loss(
-                x_obs,
-                target,
-                mask=mask,
-                weights=weights,
-                sigma_x=sigma_x,
-                sigma_y=sigma_y,
-                **kwargs,
-            ),
-        )
 
 
 @register_regression_loss("input_noise_augmentation")
@@ -535,13 +503,9 @@ class InputNoiseAugmentationLoss(RegressionLoss):
         flat_preds = predictions.reshape(-1, *predictions.shape[2:])
 
         # Tile target/mask/weights: [batch_size, ...] -> [n_samples * batch_size, ...]
-        def tile(t: torch.Tensor) -> torch.Tensor:
-            repeat_dims = [n_samples] + [1] * (t.dim() - 1)
-            return t.repeat(*repeat_dims)
-
-        flat_target = tile(target)
-        flat_mask = tile(mask) if mask is not None else None
-        flat_weights = tile(weights) if weights is not None else None
+        flat_target = _tile(target, n_samples)
+        flat_mask = _tile(mask, n_samples) if mask is not None else None
+        flat_weights = _tile(weights, n_samples) if weights is not None else None
 
         # Force reduction='none' to average over samples properly before final reduction
         kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
@@ -564,41 +528,6 @@ class InputNoiseAugmentationLoss(RegressionLoss):
         # Reshape losses back to [n_samples, batch_size, ...] and average over samples
         sample_losses = flat_losses.reshape(n_samples, batch_size, *flat_losses.shape[1:])
         return self._reduce(sample_losses.mean(dim=0), mask, weights)
-
-
-@register_regression_loss("input_noise_marginalization")
-class InputNoiseMarginalizationLoss(InputNoiseAugmentationLoss):
-    """Deprecated alias for InputNoiseAugmentationLoss."""
-
-    def __init__(
-        self,
-        model: Callable,
-        base_loss: Callable[..., torch.Tensor],
-        sigma_x: Optional[Union[float, torch.Tensor]] = None,
-        *,
-        n_samples: int = 4,
-        min_sigma: float = 1.0e-4,
-        antithetic: bool = False,
-        pass_sigma_x_to_model: bool = False,
-        reduction: str = "mean",
-    ) -> None:
-        warnings.warn(
-            "InputNoiseMarginalizationLoss is deprecated and has been renamed to "
-            "InputNoiseAugmentationLoss. Use LatentMarginalizationLoss for proper "
-            "latent variable marginalization.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(
-            model=model,
-            base_loss=base_loss,
-            sigma_x=sigma_x,
-            n_samples=n_samples,
-            min_sigma=min_sigma,
-            antithetic=antithetic,
-            pass_sigma_x_to_model=pass_sigma_x_to_model,
-            reduction=reduction,
-        )
 
 
 @register_regression_loss("latent_marginalization")
@@ -769,13 +698,9 @@ class LatentMarginalizationLoss(BaseEIVLoss):
         flat_predictions = self.model(flat_x)
 
         # Flatten target/mask/weights to match flat_predictions
-        def tile(t: torch.Tensor) -> torch.Tensor:
-            repeat_dims = [n_draws] + [1] * (t.dim() - 1)
-            return t.repeat(*repeat_dims)
-
-        flat_target = tile(target)
-        flat_mask = tile(mask) if mask is not None else None
-        flat_weights = tile(weights) if weights is not None else None
+        flat_target = _tile(target, n_draws)
+        flat_mask = _tile(mask, n_draws) if mask is not None else None
+        flat_weights = _tile(weights, n_draws) if weights is not None else None
 
         # 3. Compute base NLL loss for each sample (with reduction='none')
         kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
@@ -1799,47 +1724,3 @@ class EnsembleEIVLoss(BaseEIVLoss):
 
         # Apply weights and reduction
         return self._reduce_with_mask(loss, mask, weights)
-
-
-def create_eiv_loss(
-    model: Callable[..., torch.Tensor],
-    loss_type: str = "functional",
-    **kwargs: Any,
-) -> torch.nn.Module:
-    """
-    Convenience factory for EIV loss variants.
-
-    Args:
-        model: Predictive model/function used by the EIV loss.
-        loss_type: One of ``functional``, ``structural``, ``odr``/``orthogonal``,
-            or ``ensemble``.
-        **kwargs: Constructor kwargs for the selected loss class.
-    """
-    key = loss_type.lower()
-    if key == "functional":
-        return FunctionalEIVLoss(model=model, **kwargs)
-    if key in {"functional_hybrid", "hybrid_eiv"}:
-        return FunctionalEIVLoss(model=model, mode="hybrid", **kwargs)
-    if key == "structural":
-        return StructuralEIVLoss(model=model, **kwargs)
-    if key in {"odr", "orthogonal", "orthogonal_distance_regression"}:
-        return OrthogonalDistanceRegressionLoss(model=model, **kwargs)
-    if key == "ensemble":
-        return EnsembleEIVLoss(model=model, **kwargs)
-    if key in {"input_noise_marginalization", "mc_input_noise"}:
-        return InputNoiseMarginalizationLoss(model=model, **kwargs)
-    if key in {"input_noise_augmentation"}:
-        return InputNoiseAugmentationLoss(model=model, **kwargs)
-    if key in {"latent_marginalization"}:
-        return LatentMarginalizationLoss(model=model, **kwargs)
-    if key in {"input_noise_mdn", "eiv_mdn"}:
-        return InputNoiseMDNLoss(model=model, **kwargs)
-    if key in {"input_noise_binned_pdf", "eiv_binned_pdf"}:
-        return InputNoiseBinnedPDFLoss(model=model, **kwargs)
-    raise ValueError(
-        "loss_type must be one of {'functional', 'functional_hybrid', "
-        "'structural', 'odr', 'ensemble', 'input_noise_marginalization', "
-        "'input_noise_augmentation', 'latent_marginalization', "
-        "'input_noise_mdn', 'input_noise_binned_pdf'}, "
-        f"got {loss_type!r}"
-    )

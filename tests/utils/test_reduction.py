@@ -9,9 +9,7 @@ import torch
 
 from torchregress.utils.reduction import (
     REDUCERS,
-    _reduce_max,
     _reduce_mean,
-    _reduce_min,
     _reduce_none,
     _reduce_sum,
     reduce_per_sample,
@@ -69,36 +67,6 @@ class TestReduceNone:
         assert torch.equal(result, expected)
 
 
-class TestReduceMax:
-    def test_no_weights(self) -> None:
-        """_reduce_max without weights returns plain max."""
-        values = torch.tensor([1.0, 5.0, 3.0])
-        result = _reduce_max(values, None)
-        assert float(result.item()) == pytest.approx(5.0)
-
-    def test_with_weights(self) -> None:
-        """_reduce_max with weights returns max of weighted values."""
-        values = torch.tensor([10.0, 2.0, 3.0])
-        weights = torch.tensor([0.1, 5.0, 1.0])
-        result = _reduce_max(values, weights)
-        assert float(result.item()) == pytest.approx(10.0)  # 2*5=10 > 10*0.1=1
-
-
-class TestReduceMin:
-    def test_no_weights(self) -> None:
-        """_reduce_min without weights returns plain min."""
-        values = torch.tensor([1.0, 5.0, 3.0])
-        result = _reduce_min(values, None)
-        assert float(result.item()) == pytest.approx(1.0)
-
-    def test_with_weights(self) -> None:
-        """_reduce_min with weights returns min of weighted values."""
-        values = torch.tensor([10.0, 2.0, 3.0])
-        weights = torch.tensor([0.1, 5.0, 1.0])
-        result = _reduce_min(values, weights)
-        assert float(result.item()) == pytest.approx(1.0)  # 10*0.1=1 < 2*5=10
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # REDUCERS dict
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -106,8 +74,8 @@ class TestReduceMin:
 
 class TestReducersDict:
     def test_contains_all_keys(self) -> None:
-        """REDUCERS has mean, sum, none, max, min."""
-        assert set(REDUCERS.keys()) == {"mean", "sum", "none", "max", "min"}
+        """REDUCERS has mean, sum, none."""
+        assert set(REDUCERS.keys()) == {"mean", "sum", "none"}
 
     def test_all_callable(self) -> None:
         """All REDUCERS values are callable."""
@@ -210,18 +178,6 @@ class TestReducePerSample:
         result = reduce_per_sample(nll, mask, None, "mean")
         # all(dim=-1): [True, False, True] → selects rows 0 and 2
         assert float(result.item()) == pytest.approx(2.0)
-
-    def test_max_reduction(self) -> None:
-        """Max reduction."""
-        nll = torch.tensor([1.0, 5.0, 3.0])
-        result = reduce_per_sample(nll, None, None, "max")
-        assert float(result.item()) == pytest.approx(5.0)
-
-    def test_min_reduction(self) -> None:
-        """Min reduction."""
-        nll = torch.tensor([1.0, 5.0, 3.0])
-        result = reduce_per_sample(nll, None, None, "min")
-        assert float(result.item()) == pytest.approx(1.0)
 
     def test_weights_mismatched_batch_raises(self) -> None:
         """Weights with wrong batch size raises ValueError."""

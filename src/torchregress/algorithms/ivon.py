@@ -8,14 +8,11 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from math import pow
-from typing import Any, Callable, Generator, Tuple
+from typing import Any, Callable, Generator, cast
 
 import torch
-import torch.distributed as dist
 import torch.optim
 from torch import Tensor
-
-ClosureType = Callable[[], Tensor]
 
 
 def _welford_mean(avg: Tensor | None, newval: Tensor, count: int) -> Tensor:
@@ -56,10 +53,6 @@ class IVON(torch.optim.Optimizer):
         Maximum absolute value for gradient/momentum clipping.
     sync : bool, default=False
         Whether to synchronize sample statistics across distributed workers.
-    debias : bool, default=True
-        Whether to apply bias correction to the momentum updates.
-    rescale_lr : bool, default=True
-        Whether to rescale the learning rate by (hess_init + weight_decay).
 
     Examples
     --------
@@ -90,11 +83,6 @@ class IVON(torch.optim.Optimizer):
        In *ICML 2024*. https://arxiv.org/abs/2402.17641
     """
 
-    hessian_approx_methods = (
-        "price",
-        "gradsq",
-    )
-
     def __init__(
         self,
         params: Any,
@@ -108,8 +96,6 @@ class IVON(torch.optim.Optimizer):
         hess_approx: str = "price",
         clip_radius: float = float("inf"),
         sync: bool = False,
-        debias: bool = True,
-        rescale_lr: bool = True,
     ) -> None:
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -127,7 +113,7 @@ class IVON(torch.optim.Optimizer):
             raise ValueError(f"Invalid beta1 parameter: {beta1}")
         if not 0.0 <= beta2 <= 1.0:
             raise ValueError(f"Invalid beta2 parameter: {beta2}")
-        if hess_approx not in self.hessian_approx_methods:
+        if hess_approx not in ("price", "gradsq"):
             raise ValueError(f"Invalid hess_approx parameter: {hess_approx}")
 
         defaults = dict(
@@ -147,44 +133,31 @@ class IVON(torch.optim.Optimizer):
         self.sync = sync
         self._numel, self._device, self._dtype = self._get_param_configs()
         self.current_step = 0
-        self.debias = debias
-        self.rescale_lr = rescale_lr
 
         self._reset_samples()
         self._init_buffers()
 
-    @property
-    def opt_state(self) -> dict[str, Any]:
-        return self.state  # type: ignore[return-value]
-
-    def _get_param_configs(self) -> Tuple[int, torch.device, torch.dtype]:
-        all_params = []
+    def _get_param_configs(self) -> tuple[int, torch.device, torch.dtype]:
         for pg in self.param_groups:
             pg["numel"] = sum(p.numel() for p in pg["params"] if p is not None)
-            all_params += [p for p in pg["params"] if p is not None]
-        if len(all_params) == 0:
+        all_params = [p for pg in self.param_groups for p in pg["params"] if p is not None]
+        if not all_params:
             return 0, torch.device("cpu"), torch.get_default_dtype()
-        devices = {p.device for p in all_params}
-        if len(devices) > 1:
-            raise ValueError(f"Parameters are on different devices: {[str(d) for d in devices]}")
-        device = next(iter(devices))
-        dtypes = {p.dtype for p in all_params}
-        if len(dtypes) > 1:
-            raise ValueError(f"Parameters are on different dtypes: {[str(d) for d in dtypes]}")
-        dtype = next(iter(dtypes))
+        device = next(iter({p.device for p in all_params}))
+        dtype = next(iter({p.dtype for p in all_params}))
         total = sum(pg["numel"] for pg in self.param_groups)
         return total, device, dtype
 
     def _reset_samples(self) -> None:
-        self.opt_state["count"] = 0
-        self.opt_state["avg_grad"] = None
-        self.opt_state["avg_nxg"] = None
-        self.opt_state["avg_gsq"] = None
+        s: dict[str, Any] = cast("dict[str, Any]", self.state)
+        s["count"] = 0
+        s["avg_grad"] = None
+        s["avg_nxg"] = None
+        s["avg_gsq"] = None
 
     def _init_buffers(self) -> None:
         for group in self.param_groups:
             hess_init, numel = group["hess_init"], group["numel"]
-
             group["momentum"] = torch.zeros(numel, device=self._device, dtype=self._dtype)
             group["hess"] = torch.zeros(numel, device=self._device, dtype=self._dtype).add(
                 torch.as_tensor(hess_init)
@@ -218,23 +191,19 @@ class IVON(torch.optim.Optimizer):
         assert offset == self._numel
 
         if train:
+            s: dict[str, Any] = cast("dict[str, Any]", self.state)
             grad_sample = torch.cat(param_grads, 0)
-            count = self.opt_state["count"] + 1
-            self.opt_state["count"] = count
-            self.opt_state["avg_grad"] = _welford_mean(
-                self.opt_state["avg_grad"], grad_sample, count
-            )
+            count = s["count"] + 1
+            s["count"] = count
+            s["avg_grad"] = _welford_mean(s["avg_grad"], grad_sample, count)
             if self.hess_approx == "price":
-                self.opt_state["avg_nxg"] = _welford_mean(
-                    self.opt_state["avg_nxg"], noise * grad_sample, count
-                )
+                s["avg_nxg"] = _welford_mean(s["avg_nxg"], noise * grad_sample, count)
             elif self.hess_approx == "gradsq":
-                self.opt_state["avg_gsq"] = _welford_mean(
-                    self.opt_state["avg_gsq"], grad_sample.square(), count
-                )
+                s["avg_gsq"] = _welford_mean(s["avg_gsq"], grad_sample.square(), count)
 
     @torch.no_grad()
-    def step(self, closure: ClosureType | None = None) -> Tensor | None:  # type: ignore[override]
+    def step(self, closure: Callable[[], Tensor] | None = None) -> Tensor | None:  # type: ignore[override]
+        state: dict[str, Any] = cast("dict[str, Any]", self.state)
         loss = None
         if closure is not None:
             losses = []
@@ -244,22 +213,11 @@ class IVON(torch.optim.Optimizer):
                 losses.append(loss_val)
             loss = torch.stack(losses).mean()
 
-        if self.sync and dist.is_initialized():
-            self._sync_samples()
         self._update()
         self._reset_samples()
         return loss
 
-    def _sync_samples(self) -> None:
-        world_size = dist.get_world_size()
-        if self.opt_state["avg_grad"] is not None:
-            dist.all_reduce(self.opt_state["avg_grad"])
-            self.opt_state["avg_grad"].div_(world_size)
-        if self.opt_state["avg_nxg"] is not None:
-            dist.all_reduce(self.opt_state["avg_nxg"])
-            self.opt_state["avg_nxg"].div_(world_size)
-
-    def _sample_params(self) -> Tuple[Tensor, Tensor]:
+    def _sample_params(self) -> tuple[Tensor, Tensor]:
         noise_samples = []
         param_avgs = []
 
@@ -291,8 +249,9 @@ class IVON(torch.optim.Optimizer):
         return torch.cat(param_avgs, 0), torch.cat(noise_samples, 0)
 
     def _update(self) -> None:
+        state: dict[str, Any] = cast("dict[str, Any]", self.state)
         self.current_step += 1
-
+        debias = self.current_step
         offset = 0
         for group in self.param_groups:
             lr = group["lr"]
@@ -302,39 +261,43 @@ class IVON(torch.optim.Optimizer):
 
             param_avg = torch.cat([p.flatten() for p in group["params"] if p is not None], 0)
 
-            avg_grad = self.opt_state["avg_grad"]
+            avg_grad = state["avg_grad"]
             if avg_grad is None:
                 avg_grad = torch.zeros(group["numel"], device=self._device, dtype=self._dtype)
             else:
                 avg_grad = avg_grad[pg_slice]
 
-            group["momentum"] = self._new_momentum(avg_grad, group["momentum"], b1)
+            group["momentum"] = b1 * group["momentum"] + (1.0 - b1) * avg_grad
 
-            group["hess"] = self._new_hess(
-                self.hess_approx,
-                group["hess"],
-                self.opt_state["avg_nxg"],
-                self.opt_state["avg_gsq"],
-                pg_slice,
-                group["ess"],
-                b2,
-                group["weight_decay"],
-            )
+            hess_wd = group["hess"] + group["weight_decay"]
+            if self.hess_approx == "price":
+                avg_nxg = state["avg_nxg"]
+                f = (
+                    avg_nxg[pg_slice] * hess_wd
+                    if avg_nxg is not None
+                    else torch.zeros_like(group["hess"])
+                ) * group["ess"]  # noqa: E501
+            elif self.hess_approx == "gradsq":
+                avg_gsq = state["avg_gsq"]
+                f = (
+                    avg_gsq[pg_slice] if avg_gsq is not None else torch.zeros_like(group["hess"])
+                ) * group["ess"]  # noqa: E501
+            else:
+                raise NotImplementedError(f"unknown hessian approx.: {self.hess_approx}")
+            group["hess"] = (
+                b2 * group["hess"]
+                + (1.0 - b2) * f
+                + (0.5 * (1.0 - b2) ** 2) * (group["hess"] - f).square() / hess_wd
+            )  # noqa: E501
 
-            rescaled_lr = (
-                lr * (group["hess_init"] + group["weight_decay"]) if self.rescale_lr else lr
-            )
-            debias_factor = 1.0 - pow(b1, float(self.current_step)) if self.debias else 1.0
+            rescaled_lr = lr * (group["hess_init"] + group["weight_decay"])
+            debias_factor = 1.0 - pow(b1, float(debias))
 
-            param_avg = self._new_param_averages(
-                param_avg,
-                group["hess"],
-                group["momentum"],
-                rescaled_lr,
-                group["weight_decay"],
-                group["clip_radius"],
-                debias_factor,
-                group["hess_init"],
+            param_avg = param_avg - rescaled_lr * torch.clip(
+                (group["momentum"] / debias_factor + group["weight_decay"] * param_avg)
+                / (group["hess"] + group["weight_decay"]),  # noqa: E501
+                min=-group["clip_radius"],
+                max=group["clip_radius"],
             )
 
             pg_offset = 0
@@ -345,57 +308,3 @@ class IVON(torch.optim.Optimizer):
             assert pg_offset == group["numel"]
             offset += group["numel"]
         assert offset == self._numel
-
-    @staticmethod
-    def _get_nll_hess(
-        method: str, hess: Tensor, avg_nxg: Tensor | None, avg_gsq: Tensor | None, pg_slice: slice
-    ) -> Tensor:
-        if method == "price":
-            if avg_nxg is None:
-                return torch.zeros_like(hess)
-            return avg_nxg[pg_slice] * hess
-        elif method == "gradsq":
-            if avg_gsq is None:
-                return torch.zeros_like(hess)
-            return avg_gsq[pg_slice]
-        else:
-            raise NotImplementedError(f"unknown hessian approx.: {method}")
-
-    @staticmethod
-    def _new_momentum(avg_grad: Tensor, m: Tensor, b1: float) -> Tensor:
-        return b1 * m + (1.0 - b1) * avg_grad
-
-    @staticmethod
-    def _new_hess(
-        method: str,
-        hess: Tensor,
-        avg_nxg: Tensor | None,
-        avg_gsq: Tensor | None,
-        pg_slice: slice,
-        ess: float,
-        beta2: float,
-        wd: float,
-    ) -> Tensor:
-        f = IVON._get_nll_hess(method, hess + wd, avg_nxg, avg_gsq, pg_slice) * ess
-        return (
-            beta2 * hess
-            + (1.0 - beta2) * f
-            + (0.5 * (1.0 - beta2) ** 2) * (hess - f).square() / (hess + wd)
-        )
-
-    @staticmethod
-    def _new_param_averages(
-        param_avg: Tensor,
-        hess: Tensor,
-        momentum: Tensor,
-        lr: float,
-        wd: float,
-        clip_radius: float,
-        debias: float,
-        hess_init: float,
-    ) -> Tensor:
-        return param_avg - lr * torch.clip(
-            (momentum / debias + wd * param_avg) / (hess + wd),
-            min=-clip_radius,
-            max=clip_radius,
-        )

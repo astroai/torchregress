@@ -4,11 +4,10 @@ import torch
 import torch.nn as nn
 
 from torchregress.algorithms.rc import RegressionCalibration
-from torchregress.algorithms.simex import PredictionSIMEX
+from torchregress.algorithms.simex import SIMEX
 from torchregress.losses import WeightedMSELoss
 from torchregress.losses.eiv import (
     InputNoiseAugmentationLoss,
-    InputNoiseMarginalizationLoss,
     LatentMarginalizationLoss,
     OrthogonalDistanceRegressionLoss,
 )
@@ -32,34 +31,6 @@ class TestEIVCorrectness(unittest.TestCase):
         self.x_obs = torch.randn(self.batch_size, self.n_features_x, device=self.device)
         self.y_obs = torch.randn(self.batch_size, self.n_features_y, device=self.device)
         self.sigma_x = torch.full((self.n_features_x,), 0.1, device=self.device)
-
-    def test_input_noise_augmentation_vectorization(self):
-        # Base loss is MSE (used as dummy regression loss)
-        base_loss = WeightedMSELoss(reduction="none")
-
-        # Set up loss
-        loss_fn = InputNoiseAugmentationLoss(
-            model=self.model,
-            base_loss=base_loss,
-            sigma_x=self.sigma_x,
-            n_samples=10,
-        ).to(self.device)
-
-        # Verify it returns a finite tensor
-        loss = loss_fn(self.x_obs, self.y_obs)
-        self.assertTrue(torch.is_tensor(loss))
-        self.assertTrue(torch.isfinite(loss))
-
-        # Test deprecated alias behaves exactly the same
-        with self.assertWarns(DeprecationWarning):
-            legacy_loss_fn = InputNoiseMarginalizationLoss(
-                model=self.model,
-                base_loss=base_loss,
-                sigma_x=self.sigma_x,
-                n_samples=10,
-            ).to(self.device)
-            legacy_loss = legacy_loss_fn(self.x_obs, self.y_obs)
-            self.assertTrue(torch.is_tensor(legacy_loss))
 
     def test_latent_marginalization_gaussian_prior(self):
         # Base loss is Gaussian NLL loss (expects mean and log_var)
@@ -245,10 +216,7 @@ class TestEIVCorrectness(unittest.TestCase):
                 m.bias.fill_(0.0)
             return m
 
-        # Verify PredictionSIMEX works (the only public entry left after the
-        # extrapolate_estimand yagni cut; classical parameter SIMEX is now
-        # reachable only via the predict() extrapolated output).
-        pred_simex = PredictionSIMEX(
+        pred_simex = SIMEX(
             model_factory=model_factory,
             train_func=train_func,
             sigma_u=noise_std,

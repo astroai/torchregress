@@ -51,11 +51,11 @@ def test_delayed_label_residual_adapter_point_correction() -> None:
     np.testing.assert_allclose(pred_adapted.mean.numpy(), 3.0, rtol=1e-5)
     np.testing.assert_allclose(pred_adapted.point.numpy(), 3.0, rtol=1e-5)
 
-    # 4. Check NumPy input/output transparency
+    # 4. Check NumPy input transparency (output is always Tensor)
     X_np = X.numpy()
     pred_np = adapter.predict_distribution(X_np)
-    assert isinstance(pred_np.mean, np.ndarray)
-    np.testing.assert_allclose(pred_np.mean, 3.0, rtol=1e-5)
+    assert isinstance(pred_np.mean, torch.Tensor)
+    np.testing.assert_allclose(pred_np.mean.numpy(), 3.0, rtol=1e-5)
 
 
 def test_delayed_label_residual_adapter_variance_inflation() -> None:
@@ -114,11 +114,11 @@ def test_weighted_conformal_regression_adapter_basics() -> None:
     y_pred_test = np.zeros((10, 1))
 
     lower, upper = adapter.predict_interval(y_pred_test, X_test)
-    assert isinstance(lower, np.ndarray)
-    assert isinstance(upper, np.ndarray)
+    assert isinstance(lower, torch.Tensor)
+    assert isinstance(upper, torch.Tensor)
     assert lower.shape == (10, 1)
     assert upper.shape == (10, 1)
-    assert np.all(lower < upper)
+    assert torch.all(lower < upper)
 
 
 def test_weighted_conformal_regression_adapter_difficulty_adaptive() -> None:

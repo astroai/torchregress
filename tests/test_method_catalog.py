@@ -7,7 +7,7 @@ from torchregress import method_catalog
 
 
 def test_method_catalog_includes_peer_uq_methods_without_experimental_default_label() -> None:
-    names = set(method_catalog.list_method_names())
+    names = {m.name for m in method_catalog._METHODS}
     assert {"SWAG", "BayesianNeuralNetwork", "MDNLoss"} <= names
     assert {"BayesianLinearHead", "RecursiveBayesianHead"} <= names
 
@@ -138,7 +138,7 @@ def test_task_recommendations_include_hard_problem_rows_and_peer_methods() -> No
     } <= tasks
 
     ood_row = next(row for row in rows if row["task"] == "OOD scoring / selective prediction")
-    assert ood_row["recommended_start"] == "DeepEnsemble + OOD metrics"
+    assert ood_row["recommended_start"] == "BaseEnsembleModel + OOD metrics"
     assert any("HeteroscedasticBatchEnsembleModel" in alt for alt in ood_row["strong_alternatives"])
     assert any("SWAG" in alt for alt in ood_row["strong_alternatives"])
     assert any("BayesianNeuralNetwork" in alt for alt in ood_row["strong_alternatives"])
@@ -157,7 +157,6 @@ def test_decision_workflow_and_comparative_evidence_metadata_cover_hard_tasks() 
         "Calibrated intervals / coverage",
         "Ordinal regression / ordered targets",
         "Censored / interval-censored regression",
-        "Selection bias / long-tail with missing labels",
         "Output constraints + post-hoc calibration transforms",
         "Target transforms for skewed regression",
         "Semi-supervised regression / limited labels",

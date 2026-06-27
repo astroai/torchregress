@@ -13,7 +13,7 @@ import torch.nn.functional as F
 
 from torchregress.losses.balanced_mse import BalancedMSELoss, BMCLoss
 from torchregress.losses.censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
-from torchregress.losses.conformal import ConformalLoss, MultiDimensionalConformalLoss
+from torchregress.losses.conformal import ConformalLoss
 from torchregress.losses.eiv import EnsembleEIVLoss, FunctionalEIVLoss, StructuralEIVLoss
 from torchregress.losses.evidential import EvidentialRegressionLoss
 from torchregress.losses.expectile import (
@@ -1144,97 +1144,8 @@ class TestConformalLossRelationships:
         mask[:5] = False
 
         loss_fn.calibrate(y_pred, target, mask=mask)
-        assert loss_fn._is_calibrated
+        assert loss_fn._predictor._is_calibrated
 
-
-# ── MultiDimensionalConformalLoss ──────────────────────────────────────
-
-
-class TestMultiDimensionalConformalContract:
-    """Contracts for MultiDimensionalConformalLoss."""
-
-    def test_forward_equals_mse(self):
-        """MultiDimensionalConformalLoss forward = MSE."""
-        y_pred = torch.randn(6, 4)
-        target = torch.randn(6, 4)
-
-        cf_loss = MultiDimensionalConformalLoss(reduction="none")(y_pred, target)
-        mse = (y_pred - target) ** 2
-        torch.testing.assert_close(cf_loss, mse)
-
-    def test_reduction_consistency(self):
-        y_pred = torch.randn(8, 3)
-        target = torch.randn(8, 3)
-        _check_reduction(MultiDimensionalConformalLoss, y_pred, target)
-
-    def test_mask_changes_loss(self):
-        y_pred = torch.randn(5, 3)
-        target = torch.randn(5, 3)
-        mask = torch.ones(5, 3, dtype=torch.bool)
-        mask[0, 0] = False
-
-        fn = MultiDimensionalConformalLoss(reduction="mean")
-        assert fn(y_pred, target) != fn(y_pred, target, mask=mask)
-
-    def test_weights_scale_loss(self):
-        y_pred = torch.randn(4, 2)
-        target = torch.randn(4, 2)
-        w1 = torch.ones(4, 2)
-        w2 = w1.clone()
-        w2[0, 0] = 2.0
-
-        fn = MultiDimensionalConformalLoss(reduction="none")
-        out1 = fn(y_pred, target, weights=w1)
-        out2 = fn(y_pred, target, weights=w2)
-        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
-
-    def test_gradients_flow(self):
-        model = torch.nn.Linear(3, 4)
-        loss_fn = MultiDimensionalConformalLoss(reduction="mean")
-        opt = torch.optim.SGD(model.parameters(), lr=0.01)
-        x = torch.randn(4, 3)
-        target = torch.randn(4, 4)
-
-        for _ in range(3):
-            opt.zero_grad()
-            loss = loss_fn(model(x), target)
-            loss.backward()
-            opt.step()
-        assert torch.isfinite(loss)
-
-    def test_per_dimension_thresholds(self):
-        """Calibration produces per-dimension q_hat."""
-        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
-        n_cal, n_feat = 80, 4
-        y_pred = torch.randn(n_cal, n_feat)
-        target = torch.randn(n_cal, n_feat)
-
-        loss_fn.calibrate(y_pred, target)
-        assert loss_fn._is_calibrated
-        assert loss_fn.q_hat is not None
-        assert loss_fn.q_hat.shape == (n_feat,)
-
-    def test_calibrate_then_predict(self):
-        """After calibration, predict_interval returns per-dim valid intervals."""
-        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
-        n_cal, n_feat = 60, 3
-        y_pred_cal = torch.randn(n_cal, n_feat)
-        target_cal = torch.randn(n_cal, n_feat)
-
-        loss_fn.calibrate(y_pred_cal, target_cal)
-        y_pred_test = torch.randn(20, n_feat)
-        lower, upper = loss_fn.predict_interval(y_pred_test)
-
-        assert lower.shape == y_pred_test.shape
-        assert upper.shape == y_pred_test.shape
-        assert lower.shape[-1] == n_feat
-        assert (lower <= upper).all()
-
-    def test_predict_before_calibrate_raises(self):
-        """Calling predict_interval before calibrate raises RuntimeError."""
-        loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
-        with pytest.raises(RuntimeError, match="calibrate"):
-            loss_fn.predict_interval(torch.randn(10, 3))
 
 
 # ── EIV family helpers ────────────────────────────────────────────────

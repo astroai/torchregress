@@ -2,12 +2,11 @@
 Tensor operations for regression tasks.
 
 This module provides functions for common tensor operations used in
-regression, including tensor conversion, standardization, and special
-linear algebra operations.
+regression, including tensor conversion and masked reductions.
 """
 
 import math
-from typing import List, Optional, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -139,86 +138,6 @@ def masked_sum(
     return (tensor * mask).sum(dim=dim, keepdim=keepdim)
 
 
-def prepare_param(
-    param: Union[float, torch.Tensor], n_dims: int, device: torch.device, default_value: float = 1.0
-) -> torch.Tensor:
-    """
-    Prepare a parameter tensor for use in models.
-    """
-    if param is None:
-        return torch.full((n_dims,), default_value, device=device)
-
-    if isinstance(param, (int, float)):
-        return torch.full((n_dims,), param, device=device)
-
-    if isinstance(param, torch.Tensor):
-        param = param.to(device)
-        if param.numel() == 1:
-            return param.expand(n_dims)
-        if param.numel() == n_dims:
-            return param.reshape(n_dims)
-        raise ValueError(f"Parameter shape {param.shape} doesn't match required size {n_dims}.")
-
-    raise TypeError(f"Parameter must be float or tensor, got {type(param).__name__}")
-
-
-def prepare_sigma(
-    sigma: Union[float, torch.Tensor], n_dims: int, device: torch.device, default_zero: bool = True
-) -> torch.Tensor:
-    """
-    Prepare sigma (standard deviation) parameter for noise models.
-    """
-    default = 0.0 if default_zero else 1.0
-    return prepare_param(sigma, n_dims, device, default)
-
-
-def prepare_covariance(
-    cov: Union[float, torch.Tensor], n_dims: int, device: torch.device
-) -> torch.Tensor:
-    """
-    Prepare covariance matrix or vector for multivariate models.
-    """
-    if cov is None:
-        return torch.eye(n_dims, device=device)
-
-    if isinstance(cov, (int, float)):
-        return torch.eye(n_dims, device=device) * cov
-
-    if isinstance(cov, torch.Tensor):
-        cov = cov.to(device)
-        if cov.numel() == 1:
-            return torch.eye(n_dims, device=device) * cov.item()
-        if cov.ndim == 1:
-            if cov.shape[0] != n_dims:
-                raise ValueError(
-                    f"Diagonal covariance shape {cov.shape} doesn't match required dimensions "
-                    f"{n_dims}."
-                )
-            # Coverage invariants (TOR003): chain .to() on torch.diag because
-            # torch.diag does not accept device=/dtype= kwargs natively. cov has
-            # already been moved to ``device`` via ``cov = cov.to(device)`` so
-            # the result inherits device; pin dtype explicitly to guard against
-            # int64 sigma vectors slipping in.
-            return torch.diag(cov).to(device=cov.device, dtype=cov.dtype)
-        if cov.ndim == 2:
-            if cov.shape != (n_dims, n_dims):
-                raise ValueError(
-                    f"Covariance matrix shape {cov.shape} doesn't match required shape "
-                    f"({n_dims}, {n_dims})."
-                )
-            if not torch.allclose(cov, cov.t()):
-                import warnings
-
-                warnings.warn("Covariance matrix is not symmetric. Using (cov + cov.T) / 2.")
-                cov = (cov + cov.t()) / 2
-            return cov
-        raise ValueError(
-            f"Covariance must be scalar, vector or matrix, got tensor with {cov.ndim} dimensions"
-        )
-
-    raise TypeError(f"Covariance must be float or tensor, got {type(cov).__name__}")
-
-
 def prepare_cross_covariance(
     cov_xy: torch.Tensor,
     n_dims_x: int,
@@ -251,45 +170,6 @@ def prepare_model_input_for_gradients(x: torch.Tensor) -> torch.Tensor:
     if x.requires_grad:
         return x
     return x.clone().requires_grad_(True)
-
-
-def batched_linalg_solve(
-    A: torch.Tensor, b: torch.Tensor, ridge_factor: float = 1e-8
-) -> torch.Tensor:
-    """
-    Solve multiple linear systems in batched mode.
-    """
-    try:
-        return cast(torch.Tensor, torch.linalg.solve(A, b))
-    except RuntimeError:
-        try:
-            A_jitter = A + ridge_factor * torch.eye(A.shape[-1], device=A.device)
-            return cast(torch.Tensor, torch.linalg.solve(A_jitter, b))
-        except RuntimeError:
-            return cast(torch.Tensor, torch.linalg.pinv(A) @ b)
-
-
-def standardize(
-    x: torch.Tensor,
-    mean: Optional[torch.Tensor] = None,
-    std: Optional[torch.Tensor] = None,
-    eps: float = 1e-8,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Standardize data to have zero mean and unit variance.
-    """
-    if mean is None:
-        mean = x.mean(dim=0)
-    if std is None:
-        std = x.std(dim=0)
-    return (x - mean) / (std + eps), mean, std
-
-
-def unstandardize(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
-    """
-    Reverse standardization transform.
-    """
-    return x * std + mean
 
 
 def compute_model_gradients(

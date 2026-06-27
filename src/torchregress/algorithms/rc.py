@@ -5,8 +5,6 @@ Regression Calibration is a method for correcting measurement error in inputs
 (Errors-in-Variables) by estimating the true values of the inputs before training.
 """
 
-from typing import Optional, Union
-
 import torch
 
 from ..utils.validation import check_tensor
@@ -57,14 +55,14 @@ class RegressionCalibration:
        Chapman & Hall/CRC. https://doi.org/10.1201/9781420010138
     """
 
-    def __init__(self, sigma_u: Union[float, torch.Tensor]):
+    def __init__(self, sigma_u: float | torch.Tensor):
         self.sigma_u_input = sigma_u
-        self.mu_w: Optional[torch.Tensor] = None
-        self.sigma_w: Optional[torch.Tensor] = None
-        self.sigma_u: Optional[torch.Tensor] = None
-        self.signal_covariance: Optional[torch.Tensor] = None
-        self.reliability_matrix: Optional[torch.Tensor] = None
-        self.device: Optional[torch.device] = None
+        self.mu_w: torch.Tensor | None = None
+        self.sigma_w: torch.Tensor | None = None
+        self.sigma_u: torch.Tensor | None = None
+        self.signal_covariance: torch.Tensor | None = None
+        self.reliability_matrix: torch.Tensor | None = None
+        self.device: torch.device | None = None
 
     def _prepare_sigma_u(self, n_features: int, device: torch.device) -> torch.Tensor:
         """Converts input sigma_u to a full covariance matrix."""
@@ -207,14 +205,10 @@ class RegressionCalibration:
 
         return X_cal
 
-    def fit_transform(self, X_observed: torch.Tensor) -> torch.Tensor:
-        """Fit and transform in one step."""
-        return self.fit(X_observed).transform(X_observed)
-
     def posterior(
         self,
         X_observed: torch.Tensor,
-        sigma_u: Optional[Union[float, torch.Tensor]] = None,
+        sigma_u: float | torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Return posterior mean and covariance for latent clean inputs.
 

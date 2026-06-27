@@ -5,7 +5,7 @@ This module provides foundation classes and abstractions for all ensemble techni
 in the torchregress library.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Union
@@ -55,22 +55,6 @@ class EnsembleFitConfig:
         Whether to print training progress.
     device : Optional[Union[str, torch.device]]
         The device to use for training.
-    adversarial_training : bool
-        Whether to enable adversarial training.
-    adversarial_epsilon : float
-        The epsilon perturbation magnitude for adversarial input generation.
-    adversarial_steps : int
-        Number of steps to run for multi-step adversarial perturbations.
-    adversarial_alpha : Optional[float]
-        Step size for multi-step adversarial perturbations.
-    adversarial_probability : float
-        Probability of applying adversarial perturbations to a batch.
-    adversarial_loss_weight : float
-        Loss scaling factor for the adversarial objective.
-    adversarial_random_start : bool
-        Whether to initialize the adversarial perturbation with a random start.
-    batch_regularizer : Optional[Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor]]
-        Optional regularization function applied to clean predictions.
     """
 
     epochs: int = 10
@@ -80,16 +64,6 @@ class EnsembleFitConfig:
     optimizer_factory: Optional[Callable[[nn.Module], OptimizerLike]] = None
     verbose: bool = True
     device: Union[str, torch.device, None] = None
-    adversarial_training: bool = False
-    adversarial_epsilon: float = 0.0
-    adversarial_steps: int = 1
-    adversarial_alpha: Optional[float] = None
-    adversarial_probability: float = 1.0
-    adversarial_loss_weight: float = 1.0
-    adversarial_random_start: bool = False
-    batch_regularizer: Optional[Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor]] = (
-        None
-    )
 
 
 class BaseEnsembleModel(nn.Module):
@@ -252,34 +226,6 @@ class BaseEnsembleModel(nn.Module):
             denom = max(self.ensemble_size - correction, 1)
             return {"mean": mean, "covariance": cov / denom}
 
-    def _create_augmenter(
-        self,
-        model: nn.Module,
-        criterion: nn.Module,
-        adversarial_training: bool,
-        adversarial_epsilon: float,
-        adversarial_steps: int,
-        adversarial_alpha: float | None,
-        adversarial_probability: float,
-        adversarial_loss_weight: float,
-        adversarial_random_start: bool,
-    ) -> Any | None:
-        """Create an Adversarial augmenter if adversarial training is enabled."""
-        if not (adversarial_training and adversarial_loss_weight > 0):
-            return None
-
-        from torchregress.utils.augment import Adversarial
-
-        return Adversarial(
-            model=model,
-            loss_fn=criterion,
-            epsilon=adversarial_epsilon,
-            steps=adversarial_steps,
-            alpha=adversarial_alpha,
-            probability=adversarial_probability,
-            random_start=adversarial_random_start,
-        )
-
     def fit(
         self,
         train_loader: torch.utils.data.DataLoader,
@@ -291,37 +237,14 @@ class BaseEnsembleModel(nn.Module):
         optimizer_factory: Optional[Callable[[nn.Module], OptimizerLike]] = None,
         verbose: bool = True,
         device: Union[str, torch.device, None] = None,
-        adversarial_training: bool = False,
-        adversarial_epsilon: float = 0.0,
-        adversarial_steps: int = 1,
-        adversarial_alpha: Optional[float] = None,
-        adversarial_probability: float = 1.0,
-        adversarial_loss_weight: float = 1.0,
-        adversarial_random_start: bool = False,
-        batch_regularizer: Optional[
-            Callable[[torch.Tensor, Sequence[torch.Tensor]], torch.Tensor]
-        ] = None,
-    ) -> Dict[str, list]:  # noqa: PLR0913
+    ) -> Dict[str, list]:
         """
         Train each ensemble member independently.
-
-        When ``adversarial_training`` is enabled, each member is trained on the
-        standard objective plus an optional FGSM/PGD-style adversarial term using
-        the same criterion. This matches the original deep-ensemble recipe while
-        keeping the ensemble members otherwise independent.
 
         When ``optimizer_factory`` is set, it is called as ``factory(model)`` for
         each member and must return a single ``torch.optim.Optimizer`` or a tuple
         of optimizers (e.g. AdamW + Muon). In that case ``optimizer_cls`` and
         ``optimizer_kwargs`` are ignored.
-
-        Optional ``batch_regularizer`` adds a per-batch term after ``criterion``
-        outputs (e.g. population-level stacked n(z) penalties). It is called as
-        ``batch_regularizer(member_logits, extra_tensors)`` where ``extra_tensors``
-        is ``batch[2:]`` from each loader batch (empty tuple if only inputs and
-        targets are present). The regularizer should return a scalar tensor.
-        It is applied to the clean forward pass only (not recomputed on adversarial
-        inputs).
         """
 
         cfg = EnsembleFitConfig(
@@ -332,29 +255,14 @@ class BaseEnsembleModel(nn.Module):
             optimizer_factory=optimizer_factory,
             verbose=verbose,
             device=device,
-            adversarial_training=adversarial_training,
-            adversarial_epsilon=adversarial_epsilon,
-            adversarial_steps=adversarial_steps,
-            adversarial_alpha=adversarial_alpha,
-            adversarial_probability=adversarial_probability,
-            adversarial_loss_weight=adversarial_loss_weight,
-            adversarial_random_start=adversarial_random_start,
-            batch_regularizer=batch_regularizer,
         )
         device = cfg.device or self.device
 
         member_histories = []
-        member_clean_histories = []
-        member_adversarial_histories = []
         optimizer_kwargs = dict(cfg.optimizer_kwargs or {})
         optimizer_signature = tuple(
             sorted((str(key), repr(value)) for key, value in optimizer_kwargs.items())
         )
-
-        if cfg.adversarial_loss_weight < 0:
-            raise ValueError(
-                f"adversarial_loss_weight must be non-negative, got {cfg.adversarial_loss_weight}"
-            )
 
         for model in self.models:
             model.to(device)
@@ -381,39 +289,18 @@ class BaseEnsembleModel(nn.Module):
 
         for idx, model in enumerate(self.models):
             optimizer = self._optimizers[idx]
-            augmenter = self._create_augmenter(
-                model,
-                criterion,
-                cfg.adversarial_training,
-                cfg.adversarial_epsilon,
-                cfg.adversarial_steps,
-                cfg.adversarial_alpha,
-                cfg.adversarial_probability,
-                cfg.adversarial_loss_weight,
-                cfg.adversarial_random_start,
-            )
-
-            hists = self._train_single_member(
+            history = self._train_single_member(
                 model=model,
                 optimizer=optimizer,
                 train_loader=train_loader,
                 criterion=criterion,
                 device=device,
                 cfg=cfg,
-                augmenter=augmenter,
                 idx=idx,
             )
+            member_histories.append(history)
 
-            member_histories.append(hists["history"])
-            member_clean_histories.append(hists["clean_history"])
-            if augmenter is not None:
-                member_adversarial_histories.append(hists["adversarial_history"])
-
-        result: Dict[str, list] = {"member_histories": member_histories}
-        if cfg.adversarial_training and cfg.adversarial_loss_weight > 0:
-            result["member_clean_histories"] = member_clean_histories
-            result["member_adversarial_histories"] = member_adversarial_histories
-        return result
+        return {"member_histories": member_histories}
 
     def _train_single_member(
         self,
@@ -423,44 +310,29 @@ class BaseEnsembleModel(nn.Module):
         criterion: nn.Module,
         device: Union[str, torch.device],
         cfg: EnsembleFitConfig,
-        augmenter: Any,
         idx: int,
-    ) -> Dict[str, list]:
+    ) -> list[float]:
         """Train a single member of the ensemble for the given number of epochs."""
         history = []
-        clean_history = []
-        adversarial_history = []
 
         for epoch in range(cfg.epochs):
-            epoch_loss, epoch_clean_loss, epoch_adv_loss = self._train_member_epoch(
+            epoch_loss = self._train_member_epoch(
                 model=model,
                 optimizer=optimizer,
                 train_loader=train_loader,
                 criterion=criterion,
                 device=device,
-                cfg=cfg,
-                augmenter=augmenter,
             )
             history.append(epoch_loss)
-            clean_history.append(epoch_clean_loss)
-            if augmenter is not None:
-                adversarial_history.append(epoch_adv_loss)
 
             if cfg.verbose:
-                message = (
+                print(
                     f"Member {idx + 1}/{self.ensemble_size} "
                     f"Epoch {epoch + 1}/{cfg.epochs} "
                     f"Loss {epoch_loss:.6f}"
                 )
-                if augmenter is not None:
-                    message += f" Clean {epoch_clean_loss:.6f} Adv {epoch_adv_loss:.6f}"
-                print(message)
 
-        return {
-            "history": history,
-            "clean_history": clean_history,
-            "adversarial_history": adversarial_history,
-        }
+        return history
 
     def _train_member_epoch(
         self,
@@ -469,20 +341,15 @@ class BaseEnsembleModel(nn.Module):
         train_loader: torch.utils.data.DataLoader,
         criterion: nn.Module,
         device: Union[str, torch.device],
-        cfg: EnsembleFitConfig,
-        augmenter: Any,
-    ) -> tuple[float, float, float]:
+    ) -> float:
         """Run a single training epoch for an ensemble member."""
         model.train()
         running_loss = 0.0
-        running_clean_loss = 0.0
-        running_adversarial_loss = 0.0
         batch_count = 0
 
         for batch in train_loader:
-            if isinstance(batch, (tuple, list)) and len(batch) >= 2:  # noqa: PLR2004
+            if isinstance(batch, (tuple, list)) and len(batch) >= 2:
                 x, y = batch[0], batch[1]
-                extra_tensors: tuple[torch.Tensor, ...] = tuple(t.to(device) for t in batch[2:])
             else:
                 raise ValueError("train_loader must yield (inputs, targets) tuples")
 
@@ -491,24 +358,11 @@ class BaseEnsembleModel(nn.Module):
 
             _optimizer_like_zero_grad(optimizer)
             preds = model(x)
-            clean_loss = criterion(preds, y)
-            loss = clean_loss
-            if cfg.batch_regularizer is not None:
-                loss = loss + cfg.batch_regularizer(preds, extra_tensors)
-
-            if augmenter is not None:
-                x_adv, _ = augmenter(x, y)
-                preds_adv = model(x_adv)
-                adversarial_loss = criterion(preds_adv, y)
-                loss = clean_loss + (cfg.adversarial_loss_weight * adversarial_loss)
-                running_adversarial_loss += float(adversarial_loss.detach().item())
-
+            loss = criterion(preds, y)
             loss.backward()
             _optimizer_like_step(optimizer)
 
             running_loss += float(loss.detach().item())
-            running_clean_loss += float(clean_loss.detach().item())
             batch_count += 1
 
-        bc = max(batch_count, 1)
-        return running_loss / bc, running_clean_loss / bc, running_adversarial_loss / bc
+        return running_loss / max(batch_count, 1)

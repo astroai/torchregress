@@ -137,7 +137,7 @@ with torch.no_grad():
     # Calculate metrics
     mse = tr.metrics.mse(y_pred_test, y_test)
     rmse = tr.metrics.rmse(y_pred_test, y_test)
-    mae = tr.metrics.mae(y_pred_test, y_test)
+    mae = tr.metrics.mean_absolute_error(y_pred_test, y_test)
     r2 = tr.metrics.R2Score()(y_pred_test, y_test)
 
 print(f"\nTest Set Metrics:")
@@ -369,7 +369,7 @@ for loss_name, loss_fn in loss_functions.items():
         results[loss_name] = {
             'predictions': y_pred.clone(),
             'rmse': tr.metrics.rmse(y_pred, y_tensor).item(),
-            'mae': tr.metrics.mae(y_pred, y_tensor).item()
+            'mae': tr.metrics.mean_absolute_error(y_pred, y_tensor).item()
         }
 
     print(f"{loss_name} - RMSE: {results[loss_name]['rmse']:.4f}, "

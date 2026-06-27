@@ -102,9 +102,12 @@ class TestMaskContract:
 
     @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_mask_with_reduction_none_returns_only_unmasked(self, name, loss_fn):
-        """In 'none' reduction, mask selects which elements are returned."""
+        """In 'none' reduction, mask selects which samples/elements are returned."""
         none_fn = make_none_reduction(loss_fn)
         mean, log_var, target = make_test_data(batch=5)
+        # ponytail: GaussianNLL/BetaNLL return per-sample [B] loss (summed over D);
+        # CRPS/Faithful return per-element [B, D].  Mask accordingly.
+        total = mean.numel()
         n_unmasked = 7
         mask = torch.zeros_like(mean, dtype=torch.bool)
         for i in range(n_unmasked):
@@ -112,8 +115,14 @@ class TestMaskContract:
             mask[row, col] = True
 
         out = none_fn((mean, log_var), target, mask=mask)
-        assert out.numel() == n_unmasked, (
-            f"{name}: expected {n_unmasked} elements, got {out.numel()}"
+        if name in ("GaussianNLL", "BetaNLL"):
+            # per-sample [B] — only whole rows survive .all(dim=-1) collapse
+            retained = int(mask.all(dim=-1).sum().item())
+        else:
+            # per-element [B, D] — mask applies element-wise
+            retained = int(mask.sum().item())
+        assert out.numel() == retained, (
+            f"{name}: expected {retained} elements, got {out.numel()}"
         )
 
 
@@ -164,7 +173,9 @@ class TestReductionContract:
         none_fn = make_none_reduction(loss_fn)
         mean, log_var, target = make_test_data(batch=4, dim=3)
         out = none_fn((mean, log_var), target)
-        assert out.shape == (4, 3), f"{name}: expected (4, 3), got {out.shape}"
+        # ponytail: GaussianNLL/BetaNLL sum over D → [B]; CRPS/Faithful stay [B, D]
+        expected = (4,) if name in ("GaussianNLL", "BetaNLL") else (4, 3)
+        assert out.shape == expected, f"{name}: expected {expected}, got {out.shape}"
 
     @pytest.mark.parametrize("name,loss_fn", build_diagonal_losses())
     def test_none_mean_equals_mean_reduction(self, name, loss_fn):
@@ -195,7 +206,8 @@ class TestReductionContract:
         sum_out = fn_sum((mean, log_var), target)
         mean_out = fn_mean((mean, log_var), target)
 
-        n_elements = 6 * 3  # batch × dim
+        # ponytail: per-sample losses have fewer elements
+        n_elements = 6 if name in ("GaussianNLL", "BetaNLL") else 6 * 3
         torch.testing.assert_close(
             sum_out / float(n_elements), mean_out, msg=f"{name}: sum/{n_elements} ≠ mean reduction"
         )
@@ -565,7 +577,7 @@ class TestFamilyRelationships:
 
     def test_faithful_variance_term_equals_gaussian_nll_with_detached_mean(self):
         """FaithfulGaussianLoss(mean_weight=0, variance_weight=1)
-        produces the same per-element NLL as GaussianNLLLoss when
+        produces the same per-sample NLL as GaussianNLLLoss when
         the mean is detached in both — the defining property of
         the 'faithful' decoupling."""
         mean, log_var, target = make_test_data(batch=5, dim=3)
@@ -578,9 +590,11 @@ class TestFamilyRelationships:
         gn = GaussianNLLLoss(reduction="none")
         gn_loss = gn((mean.detach(), log_var), target)
 
-        # The variance/NLL terms should match — only gradient flow differs
+        # The variance/NLL terms should match — only gradient flow differs.
+        # GaussianNLLLoss now returns per-sample [B] (summed over features),
+        # so sum FaithfulLoss over features for comparison.
         torch.testing.assert_close(
-            fg_loss, gn_loss, msg="Faithful NLL term ≠ Gaussian NLL with detached mean"
+            fg_loss.sum(dim=-1), gn_loss, msg="Faithful NLL term ≠ Gaussian NLL with detached mean"
         )
 
     def test_crps_matches_analytic_formula(self):

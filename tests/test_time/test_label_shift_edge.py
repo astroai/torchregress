@@ -18,7 +18,6 @@ from torchregress.test_time.label_shift import (
     PosteriorLabelShiftAdapter,
     _normalize_rows,
     _subsample_probabilities,
-    _weighted_average,
     apply_label_shift_correction,
     correct_gaussian_predictions_for_label_shift,
     estimate_target_prior_em,
@@ -215,36 +214,6 @@ class TestSubsampleProbabilities:
         assert indices == sorted(indices)
 
 
-class TestWeightedAverage:
-    def test_no_weights(self) -> None:
-        """No weights."""
-        values = np.array([[1.0, 2.0], [3.0, 4.0]])
-        result = _weighted_average(values, None, eps=1e-8)
-        np.testing.assert_array_almost_equal(result, [2.0, 3.0])
-
-    def test_uniform_weights(self) -> None:
-        """Uniform weights."""
-        values = np.array([[1.0, 2.0], [3.0, 4.0]])
-        w = np.array([1.0, 1.0])
-        result = _weighted_average(values, w, eps=1e-8)
-        np.testing.assert_array_almost_equal(result, [2.0, 3.0])
-
-    def test_skewed_weights(self) -> None:
-        """Skewed weights."""
-        values = np.array([[1.0, 2.0], [3.0, 4.0]])
-        w = np.array([3.0, 1.0])
-        result = _weighted_average(values, w, eps=1e-8)
-        # (3*[1,2] + 1*[3,4]) / 4 = [6/4, 10/4]
-        np.testing.assert_array_almost_equal(result, [1.5, 2.5])
-
-    def test_zero_weight_clamped_to_eps(self) -> None:
-        """Zero weight clamped to eps."""
-        values = np.array([[1.0, 2.0], [3.0, 4.0]])
-        w = np.array([0.0, 0.0])
-        result = _weighted_average(values, w, eps=1e-8)
-        assert np.all(np.isfinite(result))
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # apply_label_shift_correction edge cases
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -354,7 +323,8 @@ class TestPosteriorLabelShiftAdapterEdge:
         adapter = PosteriorLabelShiftAdapter(
             source_prior=np.array([1 / 3, 1 / 3, 1 / 3]), sample_size=10, random_state=42
         )
-        corrected, est = adapter.fit_transform(probs)
+        est = adapter.estimate(probs)
+        corrected = adapter.transform(probs)
         assert corrected.shape == probs.shape
         assert est.target_prior.shape == (3,)
 

@@ -9,10 +9,18 @@ import numpy as np
 import torch
 
 
+def _maybe_collapse_support(support: np.ndarray) -> np.ndarray:
+    if (
+        support.ndim == 2
+        and support.shape[0] > 0
+        and np.allclose(support, support[:1], atol=1.0e-8)
+    ):  # noqa: E501
+        return support[0]
+    return support
+
+
 def _to_numpy(array: np.ndarray | torch.Tensor) -> np.ndarray:
-    if torch.is_tensor(array):
-        return array.detach().cpu().numpy()
-    return np.asarray(array)
+    return array.detach().cpu().numpy() if torch.is_tensor(array) else np.asarray(array)
 
 
 def quantiles_to_density_grid(
@@ -175,13 +183,7 @@ class PredictiveBatch:
                 n_support=n_support,
                 range_margin=range_margin,
             )
-            if (
-                support.ndim == 2
-                and support.shape[0] > 0
-                and np.allclose(support, support[:1], atol=1.0e-8)
-            ):
-                support = support[0]
-            return replace(self, support=support, density=density)
+            return replace(self, support=_maybe_collapse_support(support), density=density)
         if self.quantiles is not None and self.quantile_levels is not None:
             support, density = quantiles_to_density_grid(
                 self.quantiles,
@@ -189,26 +191,14 @@ class PredictiveBatch:
                 n_support=n_support,
                 range_margin=range_margin,
             )
-            if (
-                support.ndim == 2
-                and support.shape[0] > 0
-                and np.allclose(support, support[:1], atol=1.0e-8)
-            ):
-                support = support[0]
-            return replace(self, support=support, density=density)
+            return replace(self, support=_maybe_collapse_support(support), density=density)
         if self.samples is not None:
             support, density = samples_to_density_grid(
                 self.samples,
                 n_support=n_support,
                 range_margin=range_margin,
             )
-            if (
-                support.ndim == 2
-                and support.shape[0] > 0
-                and np.allclose(support, support[:1], atol=1.0e-8)
-            ):
-                support = support[0]
-            return replace(self, support=support, density=density)
+            return replace(self, support=_maybe_collapse_support(support), density=density)
         return self
 
 

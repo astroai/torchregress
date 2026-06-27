@@ -32,14 +32,14 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.ensemble import DeepEnsemble, HeteroscedasticEnsembleModel
+from torchregress.ensemble import BaseEnsembleModel, HeteroscedasticEnsembleModel
 from torchregress.losses import GaussianNLLLoss, WeightedMSELoss
 from torchregress.metrics import (
     ensemble_mean,
     ensemble_std,
     ensemble_variance_decomposition,
 )
-from torchregress.utils import set_seed
+from torchregress.utils import set_all_seeds as set_seed
 
 
 def generate_heteroscedastic_data(n_samples=1000, noise_scale=0.1):
@@ -113,7 +113,7 @@ def train_deep_ensemble(n_models, dataloader, hidden_dim=64, epochs=100, lr=0.01
     """Train a deep ensemble (multiple independent models)."""
     print(f"\nTraining Deep Ensemble with {n_models} models...")
     set_seed(42)
-    ensemble = DeepEnsemble(
+    ensemble = BaseEnsembleModel(
         base_model=create_mlp(hidden_dim=hidden_dim),
         ensemble_size=n_models,
     )
