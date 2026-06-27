@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.1.0` (unreleased).  
+Current version: `0.1.0` (unreleased).
 Tests: 2723 pass, 89% coverage. Docs: build clean.
 
 ---
