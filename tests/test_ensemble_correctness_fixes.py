@@ -2,9 +2,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from torchregress.ensemble.combiners import SoftmaxModelCombiner
 from torchregress.ensemble.models import BaseEnsembleModel, HeteroscedasticEnsembleModel
-from torchregress.ensemble.packed import BatchEnsembleRegressor
 from torchregress.ensemble.swag import MultiSWAG
 
 
@@ -103,6 +101,3 @@ def test_multiswag_decomposition():
     assert mean.shape == (4, 1)
     assert epistemic.shape == (4, 1)
     assert aleatoric.shape == (4, 1)
-
-
-

@@ -262,4 +262,3 @@ w = ipw_weights(t, e, clip=0.1, normalize=True)
 
 
 ## Scaling & Hardware
-

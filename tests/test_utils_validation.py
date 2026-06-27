@@ -159,6 +159,3 @@ def test_check_tensor():
     inf_tensor = torch.tensor([1.0, float("inf"), 3.0])
     with pytest.raises(ValueError, match="tensor contains infinite values"):
         check_tensor(inf_tensor)
-
-
-

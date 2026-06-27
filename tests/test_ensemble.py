@@ -15,7 +15,6 @@ from tests._test_models import (
 from torchregress.ensemble.base import BaseEnsembleModel
 from torchregress.ensemble.layers import BatchEnsembleLinear
 from torchregress.ensemble.models import (
-    BatchEnsembleMLPBackbone,
     BinnedPDFEnsembleModel,
     CumulativeLinkEnsembleModel,
     HeteroscedasticBatchEnsembleModel,
@@ -23,6 +22,7 @@ from torchregress.ensemble.models import (
     MDNEnsembleModel,
     RandomPartitionEnsembleModel,
 )
+
 
 class DropoutModel(nn.Module):
     """Model with dropout for MC Dropout testing."""
@@ -342,9 +342,7 @@ class TestHeteroscedasticBatchEnsembleModel:
 
     def test_forward(self):
         backbone = _TestBackbone(input_size=10, hidden_size=20)
-        model = HeteroscedasticBatchEnsembleModel(
-            backbone=backbone, output_size=1, ensemble_size=4
-        )
+        model = HeteroscedasticBatchEnsembleModel(backbone=backbone, output_size=1, ensemble_size=4)
 
         # Create input tensor
         x = torch.randn(5, 10)  # [batch_size, input_size]
@@ -361,9 +359,7 @@ class TestHeteroscedasticBatchEnsembleModel:
 
     def test_predict(self):
         backbone = _TestBackbone(input_size=10, hidden_size=20)
-        model = HeteroscedasticBatchEnsembleModel(
-            backbone=backbone, output_size=1, ensemble_size=4
-        )
+        model = HeteroscedasticBatchEnsembleModel(backbone=backbone, output_size=1, ensemble_size=4)
 
         # Create input tensor
         x = torch.randn(5, 10)  # [batch_size, input_size]
@@ -389,6 +385,7 @@ class TestHeteroscedasticBatchEnsembleModel:
     def test_predict_clamps_extreme_log_variance(self):
         class ExtremeBackbone(nn.Module):
             feature_dim = 20
+
             def forward(self, x):
                 return torch.zeros(x.shape[0], 20, device=x.device, dtype=x.dtype)
 
@@ -405,6 +402,7 @@ class TestHeteroscedasticBatchEnsembleModel:
 class TestBatchEnsembleMLPBackbone:
     def test_forward_returns_memberwise_features(self):
         from torchregress.ensemble.models import BatchEnsembleMLPBackbone as RealBackbone
+
         backbone = RealBackbone(
             input_size=6,
             hidden_size=12,
@@ -421,6 +419,7 @@ class TestBatchEnsembleMLPBackbone:
 
     def test_works_with_heteroscedastic_batch_ensemble_model(self):
         from torchregress.ensemble.models import BatchEnsembleMLPBackbone as RealBackbone
+
         backbone = RealBackbone(
             input_size=6,
             hidden_size=10,

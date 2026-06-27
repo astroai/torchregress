@@ -3,7 +3,6 @@ import unittest
 import torch
 from torch.autograd import gradcheck
 
-from torchregress.losses import GaussianCRPSLoss
 from torchregress.losses.eiv import (
     EnsembleEIVLoss,
     FunctionalEIVLoss,

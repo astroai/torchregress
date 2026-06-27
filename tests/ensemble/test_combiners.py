@@ -4,7 +4,6 @@ Unit tests for torchregress.ensemble.combiners — ensemble combination methods.
 
 from __future__ import annotations
 
-import pytest
 import torch
 import torch.nn as nn
 
@@ -73,9 +72,6 @@ class TestBatchedEnsembleForward:
         assert out.shape == (8, 3, 1)
 
 
-
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # StackingEnsemble
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -110,4 +106,3 @@ class TestStackingEnsemble:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-

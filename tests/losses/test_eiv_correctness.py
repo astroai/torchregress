@@ -7,7 +7,6 @@ from torchregress.algorithms.rc import RegressionCalibration
 from torchregress.algorithms.simex import SIMEX
 from torchregress.losses import WeightedMSELoss
 from torchregress.losses.eiv import (
-    InputNoiseAugmentationLoss,
     LatentMarginalizationLoss,
     OrthogonalDistanceRegressionLoss,
 )

@@ -138,6 +138,11 @@ class TaylorInducedCovarianceHead(nn.Module):
 
         # 5. Add stabilizer jitter to ensure positive definiteness
         eye = torch.eye(self.target_dim, device=x.device, dtype=x.dtype).unsqueeze(0)
-        cov = k1 * jj_t + k2 * h_matrix + torch.diag_embed(k3) + eye * self.jitter
+        cov = (
+            k1 * jj_t
+            + k2 * h_matrix
+            + torch.diag_embed(k3, device=x.device, dtype=x.dtype)
+            + eye * self.jitter
+        )
 
         return mean, cov

@@ -33,7 +33,6 @@ def _linear_model(n_in: int, n_out: int) -> nn.Module:
     return nn.Linear(n_in, n_out)
 
 
-
 class TestNoisyInputPredictor(unittest.TestCase):
     def setUp(self):
         self.batch_size = 3

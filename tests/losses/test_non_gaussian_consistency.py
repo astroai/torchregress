@@ -1147,7 +1147,6 @@ class TestConformalLossRelationships:
         assert loss_fn._predictor._is_calibrated
 
 
-
 # ── EIV family helpers ────────────────────────────────────────────────
 
 

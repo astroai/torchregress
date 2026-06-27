@@ -107,7 +107,6 @@ class TestMaskContract:
         mean, log_var, target = make_test_data(batch=5)
         # ponytail: GaussianNLL/BetaNLL return per-sample [B] loss (summed over D);
         # CRPS/Faithful return per-element [B, D].  Mask accordingly.
-        total = mean.numel()
         n_unmasked = 7
         mask = torch.zeros_like(mean, dtype=torch.bool)
         for i in range(n_unmasked):
@@ -121,9 +120,7 @@ class TestMaskContract:
         else:
             # per-element [B, D] — mask applies element-wise
             retained = int(mask.sum().item())
-        assert out.numel() == retained, (
-            f"{name}: expected {retained} elements, got {out.numel()}"
-        )
+        assert out.numel() == retained, f"{name}: expected {retained} elements, got {out.numel()}"
 
 
 # ── weights contract ───────────────────────────────────────────────────

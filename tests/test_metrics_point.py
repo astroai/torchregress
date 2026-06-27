@@ -483,8 +483,8 @@ class TestR2Score:
         assert isinstance(result, float)
 
     def test_numpy_input(self) -> None:
-        result = r2_score(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.0]))
-        # create_metric_result converts 0-d tensor → Python float
+        r2_score(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.0]))
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Edge cases for existing functional metrics

@@ -4,7 +4,6 @@ Unit tests for torchregress.utils.augment.
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 import torch
 import torch.nn as nn
@@ -183,6 +182,3 @@ class TestAdversarial:
         y = torch.randn(4, 1)
         x_aug, _ = adv.augment(x, y)
         assert torch.allclose(x_aug, x)
-
-
-

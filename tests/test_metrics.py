@@ -41,10 +41,7 @@ from torchregress.metrics.ood import (
 from torchregress.metrics.point import (
     attenuation_factor,
     huber_loss,
-    mean_absolute_error,
-    mean_squared_error,
     median_absolute_deviation,
-    median_absolute_error,
     normalized_rmse,
     regression_metrics_report,
     trimmed_mean_squared_error,

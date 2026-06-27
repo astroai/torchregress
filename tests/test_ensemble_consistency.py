@@ -259,7 +259,9 @@ class TestEnsembleSizeBehavior:
         manual_var = torch.var(stacked, dim=0, unbiased=True)
 
         torch.testing.assert_close(
-            result["variance"], manual_var, msg="BaseEnsembleModel variance ≠ sample variance of members"
+            result["variance"],
+            manual_var,
+            msg="BaseEnsembleModel variance ≠ sample variance of members",
         )
 
     def test_ensemble_variance_converges_with_larger_ensemble(self):

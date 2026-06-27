@@ -32,5 +32,3 @@ class TestMultivariateMetrics:
         val = metric.compute()
         expected = torch.tensor(5.0 / 3.0)
         assert torch.isclose(val, expected)
-
-

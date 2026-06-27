@@ -203,7 +203,6 @@ class IVON(torch.optim.Optimizer):
 
     @torch.no_grad()
     def step(self, closure: Callable[[], Tensor] | None = None) -> Tensor | None:  # type: ignore[override]
-        state: dict[str, Any] = cast("dict[str, Any]", self.state)
         loss = None
         if closure is not None:
             losses = []

@@ -123,7 +123,6 @@ def test_warmup_mc_predict_before_fit_raises() -> None:
         trainer.predict(X)
 
 
-
 def test_warmup_mc_invalid_X_shape_raises() -> None:
     """Non-2D X raises ValueError in fit()."""
     trainer = WarmupMCTrainer(

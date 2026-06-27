@@ -476,8 +476,6 @@ def test_predictive_agreement_score_requires_multiple_views() -> None:
         predictive_agreement_score([PredictiveBatch(mean=torch.zeros(4, 1), std=torch.ones(4, 1))])
 
 
-
-
 def test_teacher_student_trainer_modular_runs() -> None:
     from torchregress.semi_supervised import TeacherStudentTrainer, uncertainty_to_weight
 

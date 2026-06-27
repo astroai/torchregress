@@ -6,7 +6,6 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.ensemble import BaseEnsembleModel, HeteroscedasticEnsembleModel
-from torchregress.losses import GaussianNLLLoss
 
 
 class _TupleHeteroscedasticRegressor(nn.Module):
@@ -176,6 +175,3 @@ def test_heteroscedastic_ensemble_full_covariance_handles_concatenated_outputs()
     assert result["aleatoric_covariance"].shape == (4, 2, 2)
     assert result["total_covariance"].shape == (4, 2, 2)
     assert torch.all(torch.diagonal(result["aleatoric_covariance"], dim1=-2, dim2=-1) >= 0)
-
-
-

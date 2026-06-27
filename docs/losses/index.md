@@ -4,7 +4,7 @@ torchregress provides a comprehensive library of loss functions for regression â
 
 !!! tip "Where to start?"
     Use the [Task-First Method Selection Matrix](../guide/method-selection.md) to shortlist losses by problem type.  For prediction intervals with coverage guarantees, see [Conformal Prediction](../methods/conformal/index.md).
-    
+
     Reading order: start with [Standard Losses](#standard-losses) and [Gaussian Losses](#gaussian-losses), then jump to the section matching your data's pathology (outliers, censoring, imbalance, measurement error, etc.).
 
 ---
