@@ -141,7 +141,7 @@ class TaylorInducedCovarianceHead(nn.Module):
         cov = (
             k1 * jj_t
             + k2 * h_matrix
-            + torch.diag_embed(k3, device=x.device, dtype=x.dtype)
+            + torch.diag_embed(k3).to(device=x.device, dtype=x.dtype)
             + eye * self.jitter
         )
 
