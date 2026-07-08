@@ -29,19 +29,7 @@ def set_style(
         font_scale: Scale factor for font sizes
         rc: Dictionary of rc parameter mappings to override
     """
-    try:
-        import seaborn as sns  # type: ignore[import-untyped]
-
-        has_seaborn = True
-    except ImportError:
-        has_seaborn = False
-
-    # Set style with seaborn if available
-    if has_seaborn:
-        sns.set_theme(style=style, context=context, font_scale=font_scale, rc=rc)
-        return
-
-    # If seaborn not available, use matplotlib styling
+    # ponytail: matplotlib styling, no seaborn dependency.
     if style == "whitegrid" or style == "default":
         plt.style.use("seaborn-v0_8-whitegrid")
     elif style == "darkgrid":
@@ -289,19 +277,7 @@ def create_color_palette(
     Returns:
         List of colors or colormap
     """
-    # Handle common case of needing a qualitative palette
-    try:
-        import seaborn as sns  # type: ignore[import-untyped]
-
-        if not palette_name.endswith("_r") and not as_cmap:
-            colors = sns.color_palette(palette_name, n_colors)
-            if as_hex:
-                colors = [mpl.colors.rgb2hex(rgb) for rgb in colors]
-            return cast(Union[List[Tuple[float, float, float]], List[str]], colors)
-    except ImportError:
-        pass
-
-    # Fall back to matplotlib colormaps
+    # ponytail: matplotlib colormaps, no seaborn dependency.
     cmap = plt.get_cmap(palette_name)
 
     if as_cmap:

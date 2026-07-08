@@ -76,7 +76,7 @@ class TransformedTargetLoss(RegressionLoss):
         y_pred_t = self.transform.forward(y_pred)
         target_t = self.transform.forward(target)
         loss = _pointwise_error(y_pred_t, target_t, base_loss=self.base_loss, delta=self.delta)
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
     def inverse(self, y_transformed: Tensor) -> Tensor:
         """Map transformed predictions back to the original target scale."""

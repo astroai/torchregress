@@ -29,10 +29,8 @@ keywords = ["pytorch", "regression", "machine learning", "deep learning", "loss 
 dependencies = [
     "torch",
     "numpy",
-    "matplotlib",
     "torchmetrics",
     "scipy",
-    "tqdm",
 ]
 
 [project.urls]
@@ -56,13 +54,16 @@ test = [
 docs = [
     "zensical",
 ]
+viz = [
+    "matplotlib",
+]
 vos = [
     "vos",
 ]
 flows = [
     "zuko",
 ]
-all = ["torchregress[test,docs,flows]"]
+all = ["torchregress[test,docs,viz,flows]"]
 
 [tool.setuptools]
 [tool.setuptools.packages.find]
@@ -120,7 +121,7 @@ disallow_incomplete_defs = false
 exclude = ["examples", "tools", "docs", "scripts"]
 
 [[tool.mypy.overrides]]
-module = ["examples.*", "tools.*", "docs.*", "tests.*", "scripts.*", "torchregress.viz.results", "torchregress.test_time.transport", "torchregress.losses.balanced_mse", "torchregress.algorithms.rc", "torchregress.utils.scaling"]
+module = ["examples.*", "tools.*", "docs.*", "tests.*", "scripts.*", "torchregress.viz.results", "torchregress.test_time.transport", "torchregress.losses.balanced_mse", "torchregress.algorithms.rc"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
@@ -136,7 +137,6 @@ module = [
     "scipy.*",
     "requests.*",
     "zuko.*",
-    "tqdm.*",
     "numpy.*",
 ]
 ignore_missing_imports = true

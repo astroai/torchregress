@@ -86,7 +86,7 @@ class QuantileLoss(RegressionLoss):
 
         # Elementwise quantile loss via shared utility
         loss = _util_quantile_loss(y_pred, target, self.quantile)
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("multi_quantile")
@@ -231,7 +231,7 @@ class MultiQuantileLoss(RegressionLoss):
             cast(torch.Tensor, self.quantiles),
             quantile_weights=cast(torch.Tensor, self.quantile_weights),
         )
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("quantile_crossover")

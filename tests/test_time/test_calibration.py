@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from torchregress.test_time.calibration import RepresentationShiftInflator
+from torchregress.calibration.shift import RepresentationShiftInflator
 from torchregress.utils.numpy_stats import subsample_rows as _subsample_rows
 from torchregress.utils.numpy_stats import winsorize as _winsorize
 

@@ -4,12 +4,13 @@ Utility functions for torch regression.
 This module contains various utility functions used throughout the library.
 """
 
+from .distributions import normal_cdf
 from .augment import (
     Adversarial,
     Augmentation,
     EnsemblePerturbationAugmenter,
 )
-from .distributions import normal_cdf
+
 from .gaussian_output import (
     low_rank_output_dim,
     parse_heteroscedastic_output,

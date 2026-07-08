@@ -324,7 +324,7 @@ class TestExpectileLoss(unittest.TestCase):
         # Create same expectile value with different class names
         tau = 0.7
         expectile_loss = ExpectileLoss(expectile=tau).to(self.device)
-        als_loss = AsymmetricLeastSquaresLoss(tau=tau).to(self.device)
+        als_loss = AsymmetricLeastSquaresLoss(expectile=tau).to(self.device)
 
         # Create test data
         y_true = torch.randn(self.batch_size, self.n_features, device=self.device)

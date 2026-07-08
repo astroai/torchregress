@@ -87,7 +87,7 @@ class BetaNLLLoss(GaussianNLLLoss):
         coef = (var + self.eps).detach().pow(-self.beta)
         # ponytail: coef is [B, D] but we need per-sample weight; take mean across features
         weighted = coef.mean(dim=-1) * nll
-        return self._reduce_with_mask(weighted, mask, weights)
+        return self._reduce(weighted, mask, weights)
 
 
 def beta_nll_loss(

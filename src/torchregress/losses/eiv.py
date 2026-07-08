@@ -729,7 +729,7 @@ class LatentMarginalizationLoss(BaseEIVLoss):
             marginalized_losses = sample_losses.mean(dim=0)
 
         # 5. Apply weights and final reduction
-        return self._reduce_with_mask(marginalized_losses, mask, weights)
+        return self._reduce(marginalized_losses, mask, weights)
 
 
 class NoisyInputPredictor(torch.nn.Module):
@@ -1056,7 +1056,7 @@ class FunctionalEIVLoss(BaseEIVLoss):
             )
 
         # Apply weights and reduction
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
     def _generate_monte_carlo_noise(
         self,
@@ -1371,7 +1371,7 @@ class StructuralEIVLoss(BaseEIVLoss):
         loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
 
         # Apply weights and reduction
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("odr")
@@ -1723,4 +1723,4 @@ class EnsembleEIVLoss(BaseEIVLoss):
         loss = torch.sum(squared_error, dim=1)
 
         # Apply weights and reduction
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)

@@ -14,7 +14,6 @@ from torchregress.calibration.shift import RepresentationShiftInflator
 from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 from torchregress.prediction import PredictiveBatch
 
-from .base import SupportsPredictiveBatch
 from .label_shift import LabelShiftEMConfig, PosteriorLabelShiftAdapter
 from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
 from .subspace import WeightedSubspaceMomentAligner
@@ -579,7 +578,7 @@ class ShiftFactoredPredictiveTransport:
         target_predictions: PredictiveBatch | None = None,
         target_inputs: np.ndarray | torch.Tensor | None = None,
         target_representations: np.ndarray | torch.Tensor | None = None,
-        predictor: SupportsPredictiveBatch | None = None,
+        predictor: Any | None = None,
     ) -> PredictiveBatch:
         if self.state_ is None:
             raise RuntimeError("call fit_source() before adapt_unlabeled_target()")
@@ -873,7 +872,7 @@ class ShiftFactoredPredictiveTransport:
         target_predictions: PredictiveBatch | None = None,
         target_inputs: np.ndarray | torch.Tensor | None = None,
         target_representations: np.ndarray | torch.Tensor | None = None,
-        predictor: SupportsPredictiveBatch | None = None,
+        predictor: Any | None = None,
         apply_conformal: bool = True,
     ) -> PredictiveBatch:
         batch = self.adapt_unlabeled_target(

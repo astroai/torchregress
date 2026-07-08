@@ -140,9 +140,6 @@ from .poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureLoss,
-    enhanced_poisson_gaussian_loss,
-    poisson_gaussian_likelihood_ratio_loss,
-    poisson_gaussian_mixture_loss,
 )
 
 # Quantile losses

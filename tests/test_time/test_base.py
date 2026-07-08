@@ -11,9 +11,7 @@ import torch
 from torchregress.prediction import PredictiveBatch
 from torchregress.test_time.base import (
     AdaptationBatch,
-    SupportsAdaptationParameters,
     SupportsPredictiveBatch,
-    SupportsRepresentation,
     flatten_adaptation_parameters,
 )
 
@@ -180,153 +178,6 @@ class TestSupportsPredictiveBatch:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SupportsRepresentation protocol
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class _RepresentationModel:
-    """Concrete implementation of SupportsRepresentation."""
-
-    def representation_dict(self, x: torch.Tensor, **kwargs: object) -> dict[str, torch.Tensor]:
-        return {"last_hidden": x.mean(dim=1, keepdim=True), "penultimate": x}
-
-
-class _NotRepresentation:
-    """Class that does NOT implement representation_dict."""
-
-    def features(self, x: torch.Tensor) -> torch.Tensor:
-        return x
-
-
-class TestSupportsRepresentation:
-    """SupportsRepresentation — runtime-checkable protocol."""
-
-    def test_isinstance_positive(self) -> None:
-        """Isinstance positive."""
-        model = _RepresentationModel()
-        assert isinstance(model, SupportsRepresentation)
-
-    def test_isinstance_negative(self) -> None:
-        """Isinstance negative."""
-        model = _NotRepresentation()
-        assert not isinstance(model, SupportsRepresentation)
-
-    def test_isinstance_basic_object(self) -> None:
-        """Isinstance basic object."""
-        assert not isinstance(object(), SupportsRepresentation)
-
-    def test_call_method(self) -> None:
-        """Call method."""
-        model = _RepresentationModel()
-        x = torch.randn(4, 8)
-        result = model.representation_dict(x)
-        assert isinstance(result, dict)
-        assert "last_hidden" in result
-        assert "penultimate" in result
-        assert isinstance(result["last_hidden"], torch.Tensor)
-        assert isinstance(result["penultimate"], torch.Tensor)
-
-    def test_passes_extra_kwargs(self) -> None:
-        """Passes extra kwargs."""
-
-        class _KwargsModel:
-            def representation_dict(
-                self, x: torch.Tensor, **kwargs: object
-            ) -> dict[str, torch.Tensor]:
-                assert kwargs.get("layer_index") == 2
-                return {"feat": x}
-
-        model = _KwargsModel()
-        assert isinstance(model, SupportsRepresentation)
-        result = model.representation_dict(torch.randn(2, 4), layer_index=2)
-        assert "feat" in result
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SupportsAdaptationParameters protocol
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class _AdaptableModel(torch.nn.Module):
-    """Concrete implementation of SupportsAdaptationParameters."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.head = torch.nn.Linear(8, 2)
-        self.embed = torch.nn.Linear(8, 8)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.head(self.embed(x))
-
-    def adaptation_parameter_groups(self) -> dict[str, list[torch.nn.Parameter]]:
-        return {
-            "head": list(self.head.parameters()),
-            "embed": list(self.embed.parameters()),
-        }
-
-
-class _NotAdaptable(torch.nn.Module):
-    """Module that does NOT implement adaptation_parameter_groups."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.linear = torch.nn.Linear(4, 2)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.linear(x)
-
-
-class TestSupportsAdaptationParameters:
-    """SupportsAdaptationParameters — runtime-checkable protocol."""
-
-    def test_isinstance_positive(self) -> None:
-        """Isinstance positive."""
-        model = _AdaptableModel()
-        assert isinstance(model, SupportsAdaptationParameters)
-
-    def test_isinstance_negative(self) -> None:
-        """Isinstance negative."""
-        model = _NotAdaptable()
-        assert not isinstance(model, SupportsAdaptationParameters)
-
-    def test_isinstance_basic_object(self) -> None:
-        """Isinstance basic object."""
-        assert not isinstance(object(), SupportsAdaptationParameters)
-
-    def test_isinstance_plain_module(self) -> None:
-        """Isinstance plain module."""
-        model = torch.nn.Linear(4, 2)
-        assert not isinstance(model, SupportsAdaptationParameters)
-
-    def test_call_method(self) -> None:
-        """Call method."""
-        model = _AdaptableModel()
-        groups = model.adaptation_parameter_groups()
-        assert isinstance(groups, dict)
-        assert "head" in groups
-        assert "embed" in groups
-        assert len(groups["head"]) == 2  # weight + bias
-        assert len(groups["embed"]) == 2  # weight + bias
-        assert all(isinstance(p, torch.nn.Parameter) for p in groups["head"])
-
-    def test_single_group(self) -> None:
-        """Single group."""
-
-        class _SingleGroupModel(torch.nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.fc = torch.nn.Linear(2, 1)
-
-            def adaptation_parameter_groups(self) -> dict[str, list[torch.nn.Parameter]]:
-                return {"all": list(self.parameters())}
-
-        model = _SingleGroupModel()
-        assert isinstance(model, SupportsAdaptationParameters)
-        groups = model.adaptation_parameter_groups()
-        assert len(groups) == 1
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # flatten_adaptation_parameters
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -400,7 +251,16 @@ class TestFlattenAdaptationParameters:
 
     def test_real_module_parameters(self) -> None:
         """End-to-end: flatten parameter groups from a real nn.Module."""
-        model = _AdaptableModel()
+
+        class _AdaptableModule(torch.nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.head = torch.nn.Linear(8, 2)
+                self.embed = torch.nn.Linear(8, 8)
+            def adaptation_parameter_groups(self) -> dict[str, list[torch.nn.Parameter]]:
+                return {"head": list(self.head.parameters()), "embed": list(self.embed.parameters())}
+
+        model = _AdaptableModule()
         groups = model.adaptation_parameter_groups()
         flat = flatten_adaptation_parameters(groups)
         # head has 2 params (weight, bias), embed has 2 params → total 4 unique
@@ -456,8 +316,8 @@ class TestMultiProtocol:
         """All protocols recognised."""
         model = _MultiProtocolModel()
         assert isinstance(model, SupportsPredictiveBatch)
-        assert isinstance(model, SupportsRepresentation)
-        assert isinstance(model, SupportsAdaptationParameters)
+        assert hasattr(model, "representation_dict")
+        assert hasattr(model, "adaptation_parameter_groups")
 
     def test_can_call_all_methods(self) -> None:
         """Can call all methods."""

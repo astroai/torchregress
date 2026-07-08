@@ -126,7 +126,7 @@ class ExpectileLoss(RegressionLoss):
         loss = 2 * residuals**2 * weight
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("multi_expectile")
@@ -277,35 +277,9 @@ class MultiExpectileLoss(RegressionLoss):
             return combined_loss
 
 
-@register_regression_loss("als")
-class AsymmetricLeastSquaresLoss(ExpectileLoss):
-    """
-    Asymmetric least squares loss (alias for ExpectileLoss for legacy compatibility).
-
-    L(y, f(x)) = |y - f(x)|² * (τ * 1(y > f(x)) + (1-τ) * 1(y ≤ f(x)))
-
-    Args:
-        tau: Expectile level (0 < tau < 1). Default: 0.5 (mean)
-        reduction: Reduction method ('none', 'mean', 'sum'). Default: 'mean'
-
-    Example:
-        >>> # This is equivalent to ExpectileLoss(expectile=0.75)
-        >>> loss_fn = AsymmetricLeastSquaresLoss(tau=0.75)
-        >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
-        >>> target = torch.tensor([0.0, 2.0, 4.0])
-        >>> loss_fn(y_pred, target)
-        tensor(1.5000)  # Underestimation penalized 3x more than overestimation
-
-    References
-    ----------
-    .. [1] Newey, W. K., & Powell, J. L. (1987). Asymmetric Least Squares Estimation
-       and Testing. In *Econometrica*, 55(4), 819-847.
-       https://www.jstor.org/stable/1911031
-    """
-
-    def __init__(self, tau: float = 0.5, reduction: str = "mean") -> None:
-        super().__init__(expectile=tau, reduction=reduction)
-
+# ponytail: AsymmetricLeastSquaresLoss is an alias for ExpectileLoss.
+AsymmetricLeastSquaresLoss = ExpectileLoss
+register_regression_loss("als")(AsymmetricLeastSquaresLoss)
 
 @register_regression_loss("expectile_crossover")
 class ExpectileCrossoverLoss(RegressionLoss):

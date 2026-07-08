@@ -2,14 +2,12 @@
 
 from .base import (
     AdaptationBatch,
-    SupportsAdaptationParameters,
     SupportsPredictiveBatch,
-    SupportsRepresentation,
     flatten_adaptation_parameters,
 )
 from .bayes import BayesianLinearHead, RecursiveBayesianHead
 from .benchmark import CausalTTAHarness
-from .calibration import RepresentationShiftInflator
+from torchregress.calibration.shift import RepresentationShiftInflator
 from .cosa import DelayedLabelResidualAdapter
 from .dynamic import ParameterEMA
 from .label_shift import (
@@ -66,9 +64,8 @@ __all__ = [
     "ShiftFactoredTransportConfig",
     "ShiftFactoredTransportState",
     "SubspaceAlignmentState",
-    "SupportsAdaptationParameters",
     "SupportsPredictiveBatch",
-    "SupportsRepresentation",
+
     "WeightedConformalRegressionAdapter",
     "WeightedSplitConformalAdapter",
     "weighted_split_classification_predictive_batch",

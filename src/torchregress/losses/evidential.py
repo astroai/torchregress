@@ -278,7 +278,7 @@ class EvidentialRegressionLoss(DistributionLoss):
         # Total loss: NLL + coefficient * regularization
         loss = nll + self.coeff_nig * reg
 
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
     def predict_with_uncertainty(self, y_pred: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """

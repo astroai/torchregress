@@ -7,9 +7,6 @@ from torchregress.losses.poisson_gaussian import (
     PoissonGaussianLikelihoodRatioConfig,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureLoss,
-    enhanced_poisson_gaussian_loss,
-    poisson_gaussian_likelihood_ratio_loss,
-    poisson_gaussian_mixture_loss,
 )
 
 
@@ -149,8 +146,8 @@ class TestPoissonGaussianMixtureLoss:
         assert not torch.isnan(loss)
 
     def test_factory_function(self):
-        """Test the factory function for PoissonGaussianMixtureLoss"""
-        loss_fn = poisson_gaussian_mixture_loss(
+        """Test direct construction of PoissonGaussianMixtureLoss"""
+        loss_fn = PoissonGaussianMixtureLoss(
             learn_variance=True,
             initial_variance=0.5,
             log_input=True,
@@ -343,7 +340,7 @@ class TestEnhancedPoissonGaussianMixtureLoss:
             log_input=True,
             calibration=True,
         )
-        loss_fn = enhanced_poisson_gaussian_loss(config=config)
+        loss_fn = EnhancedPoissonGaussianMixtureLoss(config=config)
 
         assert isinstance(loss_fn, EnhancedPoissonGaussianMixtureLoss)
         assert loss_fn.learn_gain
@@ -507,11 +504,11 @@ class TestPoissonGaussianLikelihoodRatioLoss:
         assert not torch.allclose(loss_fn.log_variance, initial_variance)
 
     def test_factory_function(self):
-        """Test the factory function"""
+        """Test direct construction"""
         config = PoissonGaussianLikelihoodRatioConfig(
             log_input=False, learn_variance=True, initial_variance=0.5
         )
-        loss_fn = poisson_gaussian_likelihood_ratio_loss(config=config)
+        loss_fn = PoissonGaussianLikelihoodRatioLoss(config=config)
 
         assert isinstance(loss_fn, PoissonGaussianLikelihoodRatioLoss)
         assert not loss_fn.log_input

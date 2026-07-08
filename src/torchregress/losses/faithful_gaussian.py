@@ -106,4 +106,4 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
             var_part = torch.zeros_like(mean)
 
         per_elem = mse_part + var_part
-        return self._reduce_with_mask(per_elem, mask, weights)
+        return self._reduce(per_elem, mask, weights)

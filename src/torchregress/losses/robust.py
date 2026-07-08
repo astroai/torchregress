@@ -116,7 +116,7 @@ class PseudoHuberLoss(RegressionLoss):
         loss = self.delta**2 * (torch.sqrt(1.0 + scaled_diff**2) - 1.0)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("barron")
@@ -160,7 +160,7 @@ class BarronLoss(RegressionLoss):
         self._validate_inputs(y_pred, target, mask)
         residuals = target - y_pred
         loss = _barron_elementwise(residuals, self.alpha, self.scale)
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("adaptive_robust")
@@ -245,7 +245,7 @@ class AdaptiveRobustLoss(RegressionLoss):
         self._validate_inputs(y_pred, target, mask)
         residuals = target - y_pred
         loss = _barron_elementwise(residuals, self.alpha, self.scale)
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
     def extra_repr(self) -> str:
         return (
@@ -308,7 +308,7 @@ class LogCoshLoss(RegressionLoss):
         loss = abs_diff + torch.log1p(torch.exp(-2.0 * abs_diff)) - math.log(2.0)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("charbonnier")
@@ -361,7 +361,7 @@ class CharbonnierLoss(RegressionLoss):
         loss = torch.sqrt(squared_diff + self.eps**2)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("tukey_biweight")
@@ -437,7 +437,7 @@ class TukeyBiweightLoss(RegressionLoss):
         inlier = self.c_squared_over_6 * (1.0 - (1.0 - squared_scaled) ** 3)
         loss = torch.where(within, inlier, torch.full_like(residuals, self.c_squared_over_6))
 
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("cauchy")
@@ -509,7 +509,7 @@ class CauchyLoss(RegressionLoss):
         loss = torch.log(1.0 + scaled_residuals**2)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("cvar")

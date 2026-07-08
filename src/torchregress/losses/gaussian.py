@@ -143,7 +143,7 @@ class GaussianNLLLoss(DistributionLoss):
             dim=-1
         )  # [B, D] → [B] per-sample NLL, consistent with MultivariateGaussianLoss  # noqa: E501
 
-        return self._reduce_with_mask(nll, mask, weights)
+        return self._reduce(nll, mask, weights)
 
 
 @register_regression_loss("gaussian_crps")
@@ -179,7 +179,7 @@ class GaussianCRPSLoss(GaussianNLLLoss):
         pdf = torch.exp(-0.5 * z.square()) / math.sqrt(2.0 * math.pi)
         crps = std * (z * (2.0 * cdf - 1.0) + 2.0 * pdf - _INV_SQRT_PI)
 
-        return self._reduce_with_mask(crps, mask, weights)
+        return self._reduce(crps, mask, weights)
 
 
 @register_regression_loss("multivariate_gaussian_nll")

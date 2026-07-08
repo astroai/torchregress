@@ -102,7 +102,7 @@ class PoissonDevianceLoss(RegressionLoss):
             loss = loss / (variance + self.eps) + 0.5 * torch.log(variance + self.eps)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("poisson_likelihood_ratio")
@@ -193,7 +193,7 @@ class PoissonLikelihoodRatioLoss(RegressionLoss):
         loss = 2.0 * (expected - target) + torch.where(target > 0, term, 0.0)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("zip")
@@ -315,7 +315,7 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
             loss = loss / (variance + self.eps) + 0.5 * torch.log(variance + self.eps)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("nbinom")
@@ -424,4 +424,4 @@ class NegativeBinomialNLLLoss(RegressionLoss):
         )
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)

@@ -130,7 +130,7 @@ class BalancedMSELoss(RegressionLoss):
             if weights.dim() < weighted.dim():
                 weights = weights.reshape(weights.shape + (1,) * (weighted.dim() - weights.dim()))
             weighted = weighted * weights
-        return self._reduce_with_mask(weighted, mask, None)
+        return self._reduce(weighted, mask, None)
 
 
 @register_regression_loss("bmc")
@@ -247,4 +247,4 @@ class BMCLoss(RegressionLoss):
             if weights.dim() < weighted.dim():
                 weights = weights.reshape(weights.shape + (1,) * (weighted.dim() - weights.dim()))
             weighted = weighted * weights
-        return self._reduce_with_mask(weighted, mask, None)
+        return self._reduce(weighted, mask, None)

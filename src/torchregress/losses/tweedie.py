@@ -223,15 +223,16 @@ class TweedieLoss(RegressionLoss):
         mu = self._get_mean(y_pred)
 
         # Calculate loss based on Tweedie deviance
-        if self.p == 0:  # Normal distribution
-            loss = self._normal_loss(target, mu)
-        elif self.p == 1:  # Poisson distribution
-            loss = self._poisson_loss(target, mu)
-        elif self.p == 2:  # Gamma distribution
-            loss = self._gamma_loss(target, mu)
-        elif self.p == 3:  # Inverse Gaussian
-            loss = self._inverse_gaussian_loss(target, mu)
-        elif 1 < self.p < 2:  # Compound Poisson-Gamma
+        _dispatch: dict = {
+            0: self._normal_loss,
+            1: self._poisson_loss,
+            2: self._gamma_loss,
+            3: self._inverse_gaussian_loss,
+        }
+        fn = _dispatch.get(self.p)
+        if fn is not None:
+            loss = fn(target, mu)
+        elif 1 < self.p < 2:
             loss = self._compound_poisson_loss(target, mu)
         else:
             raise ValueError(
@@ -240,110 +241,23 @@ class TweedieLoss(RegressionLoss):
             )
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
+# ponytail: convenience aliases for fixed-power Tweedie losses.
 @register_regression_loss("gamma")
-class GammaLoss(TweedieLoss):
-    """
-    Gamma loss for regression.
-
-    The Gamma distribution is useful for modeling positive continuous variables
-    with constant coefficient of variation.
-
-    L(y, f(x)) = log(f(x)/y) + y/f(x) - 1
-
-    Args:
-        eps: Small constant for numerical stability. Default: 1e-8
-        reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        link: Link function, 'log' or 'identity'. Default: 'log'
-
-    Example:
-        >>> loss_fn = GammaLoss()
-        >>> y_pred = torch.log(torch.tensor([1.0, 2.0, 3.0]))  # log(mu)
-        >>> target = torch.tensor([1.0, 2.0, 3.0])
-        >>> loss_fn(y_pred, target)
-        tensor(0.0000)  # Perfect prediction
-
-    References
-    ----------
-    .. [1] Tweedie, M. C. K. (1984). An Index which Distinguishes between Some Important
-       Exponential Families. In *Statistics: Applications and New Directions*,
-       Indian Statistical Institute, Calcutta, 579–604.
-       https://en.wikipedia.org/wiki/Tweedie_distribution
-    """
-
-    def __init__(self, eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> None:
-        super().__init__(p=2, eps=eps, reduction=reduction, link=link)
-
+def GammaLoss(eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> TweedieLoss:
+    return TweedieLoss(p=2, eps=eps, reduction=reduction, link=link)
 
 @register_regression_loss("inverse_gaussian")
-class InverseGaussianLoss(TweedieLoss):
-    """
-    Inverse Gaussian loss for regression.
-
-    The Inverse Gaussian distribution is useful for modeling positive continuous
-    right-skewed variables with variance proportional to the cube of the mean.
-
-    L(y, f(x)) = (y - f(x))^2 / (y * f(x)^2)
-
-    Args:
-        eps: Small constant for numerical stability. Default: 1e-8
-        reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        link: Link function, 'log' or 'identity'. Default: 'log'
-
-    Example:
-        >>> loss_fn = InverseGaussianLoss()
-        >>> y_pred = torch.log(torch.tensor([1.0, 2.0, 3.0]))  # log(mu)
-        >>> target = torch.tensor([1.0, 2.0, 3.0])
-        >>> loss_fn(y_pred, target)
-        tensor(0.0000)  # Perfect prediction
-
-    References
-    ----------
-    .. [1] Tweedie, M. C. K. (1984). An Index which Distinguishes between Some Important
-       Exponential Families. In *Statistics: Applications and New Directions*,
-       Indian Statistical Institute, Calcutta, 579–604.
-       https://en.wikipedia.org/wiki/Tweedie_distribution
-    """
-
-    def __init__(self, eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> None:
-        super().__init__(p=3, eps=eps, reduction=reduction, link=link)
-
+def InverseGaussianLoss(eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> TweedieLoss:
+    return TweedieLoss(p=3, eps=eps, reduction=reduction, link=link)
 
 @register_regression_loss("compound_poisson")
-class CompoundPoissonLoss(TweedieLoss):
-    """
-    Compound Poisson-Gamma loss for regression with excess zeros.
-
-    This loss is useful for modeling data with:
-    1. A point mass at zero
-    2. A continuous, right-skewed distribution for positive values
-
-    Examples include insurance claims, precipitation, and other zero-inflated data.
-
-    Args:
-        p: Power parameter between 1 and 2 (typically 1.5-1.7 works well)
-        eps: Small constant for numerical stability. Default: 1e-8
-        reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
-        link: Link function, 'log' or 'identity'. Default: 'log'
-
-    Example:
-        >>> # For insurance claim amount prediction
-        >>> loss_fn = CompoundPoissonLoss(p=1.5)
-        >>> y_pred = torch.log(torch.tensor([1.0, 2.0, 3.0, 4.0]))
-        >>> target = torch.tensor([0.0, 0.0, 2.5, 5.0])  # Many zeros, some positive values
-        >>> loss_fn(y_pred, target)
-        tensor(2.0432)
-    """
-
-    def __init__(
-        self, p: float = 1.5, eps: float = 1e-8, reduction: str = "mean", link: str = "log"
-    ) -> None:
-        if not (1 < p < 2):
-            raise ValueError(f"For CompoundPoissonLoss, p must be between 1 and 2, got {p}")
-
-        super().__init__(p=p, eps=eps, reduction=reduction, link=link)
+def CompoundPoissonLoss(p: float = 1.5, eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> TweedieLoss:
+    if not (1 < p < 2):
+        raise ValueError(f"For CompoundPoissonLoss, p must be between 1 and 2, got {p}")
+    return TweedieLoss(p=p, eps=eps, reduction=reduction, link=link)
 
 
 def tweedie_loss(

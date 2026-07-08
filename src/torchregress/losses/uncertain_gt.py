@@ -108,7 +108,7 @@ class NoisyTargetGaussianNLL(RegressionLoss):
             propensity_scores=propensity_scores,
             propensity_clip=self.propensity_clip,
         )
-        return self._reduce_with_mask(loss, mask, effective_weights)
+        return self._reduce(loss, mask, effective_weights)
 
 
 @register_regression_loss("consistency_reg")
@@ -161,7 +161,7 @@ class ConsistencyRegLoss(RegressionLoss):
             propensity_scores=propensity_scores,
             propensity_clip=self.propensity_clip,
         )
-        return self._reduce_with_mask(loss, mask, effective_weights)
+        return self._reduce(loss, mask, effective_weights)
 
 
 @register_regression_loss("pseudo_label_nll")
@@ -247,7 +247,7 @@ class PseudoLabelNLL(RegressionLoss):
             propensity_scores=propensity_scores,
             propensity_clip=self.propensity_clip,
         )
-        return self._reduce_with_mask(loss, mask, effective_weights)
+        return self._reduce(loss, mask, effective_weights)
 
 
 @register_regression_loss("pseudo_label_consistency")
@@ -374,7 +374,7 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
             total / safe_blend_weight,
             torch.zeros_like(total),
         )
-        return self._reduce_with_mask(loss, mask, effective_weights)
+        return self._reduce(loss, mask, effective_weights)
 
 
 __all__ = [

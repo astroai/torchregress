@@ -269,7 +269,7 @@ class DensityWeightedLoss(RegressionLoss):
         if weights is not None:
             weighted_loss = weighted_loss * weights
 
-        return self._reduce_with_mask(weighted_loss, mask, None)
+        return self._reduce(weighted_loss, mask, None)
 
 
 @register_regression_loss("propensity_weighted")
@@ -338,7 +338,7 @@ class PropensityWeightedLoss(RegressionLoss):
         loss = _compute_base_loss(self.base_loss, y_pred, target) * ipw
         if weights is not None:
             loss = loss * weights
-        return self._reduce_with_mask(loss, mask, None)
+        return self._reduce(loss, mask, None)
 
 
 @register_regression_loss("lds")
@@ -571,7 +571,7 @@ class LDSLoss(RegressionLoss):
         if weights is not None:
             weighted_loss = weighted_loss * weights
 
-        return self._reduce_with_mask(weighted_loss, mask, None)
+        return self._reduce(weighted_loss, mask, None)
 
 
 @register_regression_loss("focal_r")
@@ -656,7 +656,7 @@ class FocalRLoss(RegressionLoss):
         if weights is not None:
             weighted_loss = weighted_loss * weights
 
-        return self._reduce_with_mask(weighted_loss, mask, None)
+        return self._reduce(weighted_loss, mask, None)
 
 
 class FeatureDistributionSmoother(nn.Module):

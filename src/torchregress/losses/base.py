@@ -20,6 +20,7 @@ import torch.nn as nn
 
 from ..utils.reduction import REDUCERS
 from ..utils.validation import validate_reduction, validate_weights
+from .loss_registry import register_regression_loss
 
 
 def _broadcast_weights(weights: torch.Tensor, target_dim: int) -> torch.Tensor:
@@ -123,21 +124,7 @@ class BaseLoss(nn.Module):
         if mask is not None and mask.shape != target.shape:
             raise ValueError(f"Mask shape {mask.shape} must match target shape {target.shape}")
 
-    def _reduce_with_mask(
-        self,
-        loss: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        weights: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """
-        Apply mask to filter values and then apply reduction.
-
-        Note: This is an alias for _reduce() that provides semantic clarity
-        when used in loss implementations that explicitly handle masking.
-        """
-        return self._reduce(loss, mask, weights)
-
-
+    
 class RegressionLoss(BaseLoss):
     """
     Base class for regression losses.
@@ -155,7 +142,7 @@ class RegressionLoss(BaseLoss):
         ...     def forward(self, y_pred, target, mask=None, weights=None):
         ...         self._validate_inputs(y_pred, target, mask)
         ...         loss = torch.abs(y_pred - target)
-        ...         return self._reduce_with_mask(loss, mask, weights)
+        ...         return self._reduce(loss, mask, weights)
         >>> loss_fn = L1Loss()
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
         >>> target = torch.tensor([0.0, 2.0, 3.0])
@@ -203,7 +190,7 @@ class DistributionLoss(BaseLoss):
         ...         # y_pred contains [mean, log_var]
         ...         mean, log_var = self._extract_distribution_parameters(y_pred)
         ...         loss = 0.5 * (log_var + (target - mean)**2 / torch.exp(log_var))
-        ...         return self._reduce_with_mask(loss, mask, weights)
+        ...         return self._reduce(loss, mask, weights)
     """
 
     def __init__(self, reduction: str = "mean") -> None:
@@ -476,22 +463,19 @@ class WeightedNLLLoss(BaseLoss):
         return self._reduce(loss, mask, weights)
 
 
+# ponytail: thin wrappers kept for backward compat.
+@register_regression_loss("mse")
 class WeightedMSELoss(WeightedLossWrapper):
-    """Masked/weighted wrapper around ``torch.nn.MSELoss``."""
-
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(nn.MSELoss, reduction=reduction, **kwargs)
 
-
+@register_regression_loss("l1")
+@register_regression_loss("mae")
 class WeightedL1Loss(WeightedLossWrapper):
-    """Masked/weighted wrapper around ``torch.nn.L1Loss``."""
-
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(nn.L1Loss, reduction=reduction, **kwargs)
 
-
+@register_regression_loss("huber")
 class WeightedHuberLoss(WeightedLossWrapper):
-    """Masked/weighted wrapper around ``torch.nn.HuberLoss``."""
-
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(nn.HuberLoss, reduction=reduction, **kwargs)

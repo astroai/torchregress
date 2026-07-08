@@ -55,8 +55,6 @@ def main() -> None:
     ).fit(x_train, y_train)
 
     adapter = BLRPredictiveAdapter(head)
-    # Runtime protocol check for downstream adaptation code.
-    assert isinstance(adapter, SupportsPredictiveBatch)
 
     pb = adapter.predict_distribution(x_test, include_noise=True)
     rmse = float(np.sqrt(np.mean((pb.mean.detach().cpu().numpy() - y_test) ** 2)))

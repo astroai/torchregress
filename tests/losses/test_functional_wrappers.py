@@ -41,9 +41,6 @@ from torchregress.losses.poisson_gaussian import (
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianMixtureConfig,
     PoissonGaussianMixtureLoss,
-    enhanced_poisson_gaussian_loss,
-    poisson_gaussian_likelihood_ratio_loss,
-    poisson_gaussian_mixture_loss,
 )
 from torchregress.losses.quantile import QuantileLoss, quantile_loss
 from torchregress.losses.tweedie import TweedieLoss, tweedie_loss
@@ -346,53 +343,6 @@ class TestGaussianWassersteinBoundWrapper(unittest.TestCase):
 # poisson_gaussian_likelihood_ratio_loss
 # ---------------------------------------------------------------------------
 
-
-class TestPoissonGaussianFactoryWrappers(unittest.TestCase):
-    """These three factory functions return instantiated losses, not scalar
-    losses: they each take a Config dataclass plus kwargs and return the
-    appropriate ``RegressionLoss`` subclass.  We test the class binding.
-    """
-
-    def test_mixture_factory_returns_instance(self):
-        loss = poisson_gaussian_mixture_loss(initial_variance=0.5)
-        self.assertIsInstance(loss, PoissonGaussianMixtureLoss)
-        self.assertEqual(loss.initial_variance, 0.5)
-        # Round-trip with a Config
-        cfg = PoissonGaussianMixtureConfig(initial_variance=0.25, learn_variance=True)
-        loss2 = poisson_gaussian_mixture_loss(cfg)
-        self.assertIsInstance(loss2, PoissonGaussianMixtureLoss)
-        self.assertEqual(loss2.initial_variance, 0.25)
-        self.assertTrue(loss2.learn_variance)
-
-    def test_enhanced_factory_returns_instance(self):
-        cfg = EnhancedPoissonGaussianConfig(
-            gain=2.0, read_noise=0.1, shot_noise=0.05, log_input=True
-        )
-        loss = enhanced_poisson_gaussian_loss(cfg)
-        self.assertIsInstance(loss, EnhancedPoissonGaussianMixtureLoss)
-        # Constructor stored the config object.
-        self.assertEqual(loss.log_input, True)
-
-    def test_enhanced_default_kwargs_construct_loss(self):
-        loss = enhanced_poisson_gaussian_loss(read_noise=0.2, gain="learn")
-        self.assertIsInstance(loss, EnhancedPoissonGaussianMixtureLoss)
-        self.assertTrue(loss.learn_gain)
-        self.assertEqual(loss.config.read_noise, 0.2)
-
-    def test_lr_factory_returns_instance(self):
-        cfg = PoissonGaussianLikelihoodRatioConfig(log_input=True, learn_variance=True)
-        loss = poisson_gaussian_likelihood_ratio_loss(cfg)
-        self.assertIsInstance(loss, PoissonGaussianLikelihoodRatioLoss)
-        self.assertTrue(loss.learn_variance)
-        self.assertTrue(loss.log_input)
-
-    def test_lr_factory_default_log_input_kwarg(self):
-        """Per the docstring default, ``log_input=False`` is honoured when
-        the caller doesn't pass it.
-        """
-        loss = poisson_gaussian_likelihood_ratio_loss()
-        self.assertIsInstance(loss, PoissonGaussianLikelihoodRatioLoss)
-        self.assertFalse(loss.log_input)
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,18 @@ import torch
 from torchregress.prediction import PredictiveBatch
 
 
+@runtime_checkable
+class SupportsPredictiveBatch(Protocol):
+    """Protocol for objects that can generate predictive batches."""
+
+    def predict_distribution(
+        self,
+        X: torch.Tensor | np.ndarray,
+        **kwargs: object,
+    ) -> PredictiveBatch:
+        ...
+
+
 @dataclass(frozen=True)
 class AdaptationBatch:
     """Batch container for unlabeled target-time adaptation utilities."""
@@ -19,33 +31,6 @@ class AdaptationBatch:
     predictions: PredictiveBatch | None = None
     representations: np.ndarray | torch.Tensor | None = None
     sigma_x: np.ndarray | torch.Tensor | None = None
-
-
-@runtime_checkable
-class SupportsPredictiveBatch(Protocol):
-    """
-    Protocol for models supporting batch-level distributional predictions.
-    """
-
-    def predict_distribution(self, X: np.ndarray, **kwargs: object) -> PredictiveBatch: ...
-
-
-@runtime_checkable
-class SupportsRepresentation(Protocol):
-    """
-    Protocol for models that can expose internal feature representations.
-    """
-
-    def representation_dict(self, x: torch.Tensor, **kwargs: object) -> dict[str, torch.Tensor]: ...
-
-
-@runtime_checkable
-class SupportsAdaptationParameters(Protocol):
-    """
-    Protocol for models exposing parameter groups suitable for test-time adaptation.
-    """
-
-    def adaptation_parameter_groups(self) -> dict[str, list[torch.nn.Parameter]]: ...
 
 
 def flatten_adaptation_parameters(
@@ -77,8 +62,5 @@ def flatten_adaptation_parameters(
 
 __all__ = [
     "AdaptationBatch",
-    "SupportsAdaptationParameters",
-    "SupportsPredictiveBatch",
-    "SupportsRepresentation",
     "flatten_adaptation_parameters",
 ]

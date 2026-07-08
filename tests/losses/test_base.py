@@ -17,14 +17,14 @@ class SimpleLoss(BaseLoss):
     def forward(self, y_pred, target, mask=None, weights=None, **kwargs):
         self._validate_inputs(y_pred, target, mask)
         loss = torch.abs(y_pred - target)
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 class SimpleRegressionLoss(RegressionLoss):
     def forward(self, y_pred, target, mask=None, weights=None, **kwargs):
         self._validate_inputs(y_pred, target, mask)
         loss = torch.abs(y_pred - target)
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 class SimpleDistributionLoss(DistributionLoss):
@@ -44,7 +44,7 @@ class SimpleDistributionLoss(DistributionLoss):
     def forward(self, y_pred, target, mask=None, weights=None, **kwargs):
         self._validate_inputs(y_pred[..., 0], target, mask)
         nll = self._calculate_nll(y_pred, target, mask)
-        return self._reduce_with_mask(nll, mask, weights)
+        return self._reduce(nll, mask, weights)
 
 
 # Tests for BaseLoss
@@ -142,19 +142,19 @@ class TestBaseLoss:
 
         # With mean reduction
         loss.reduction = "mean"
-        reduced_mean = loss._reduce_with_mask(loss_values, mask)
+        reduced_mean = loss._reduce(loss_values, mask)
         # Expected: (1.0 + 2.0 + 4.0) / 3
         assert torch.isclose(reduced_mean, torch.tensor(7.0 / 3.0))
 
         # With sum reduction
         loss.reduction = "sum"
-        reduced_sum = loss._reduce_with_mask(loss_values, mask)
+        reduced_sum = loss._reduce(loss_values, mask)
         # Expected: 1.0 + 2.0 + 4.0
         assert torch.isclose(reduced_sum, torch.tensor(7.0))
 
         # With no reduction
         loss.reduction = "none"
-        reduced_none = loss._reduce_with_mask(loss_values, mask)
+        reduced_none = loss._reduce(loss_values, mask)
         # Expected: [1.0, 2.0, 4.0]
         assert reduced_none.shape[0] == 3
         assert torch.allclose(reduced_none, torch.tensor([1.0, 2.0, 4.0]))

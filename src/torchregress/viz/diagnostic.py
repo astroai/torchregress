@@ -636,27 +636,21 @@ def plot_qq_plot(
 
 def _add_residual_density_curves(ax: plt.Axes, residuals: np.ndarray, kde_color: str) -> None:
     """Add KDE and normal distribution fit to residual histogram."""
-    try:
-        from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
+    from scipy.stats import gaussian_kde, norm
 
-        kde = gaussian_kde(residuals)
-        x_range = np.linspace(min(residuals), max(residuals), 1000)
-        ax.plot(x_range, kde(x_range), color=kde_color, linewidth=2, label="Density")
+    kde = gaussian_kde(residuals)
+    x_range = np.linspace(min(residuals), max(residuals), 1000)
+    ax.plot(x_range, kde(x_range), color=kde_color, linewidth=2, label="Density")
 
-        # Add normal distribution for comparison
-        from scipy.stats import norm  # type: ignore[import-untyped]
-
-        mu, std = norm.fit(residuals)
-        ax.plot(
-            x_range,
-            norm.pdf(x_range, mu, std),
-            color="red",
-            linestyle="--",
-            linewidth=2,
-            label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
-        )
-    except ImportError:
-        pass  # Skip KDE if scipy not available
+    mu, std = norm.fit(residuals)
+    ax.plot(
+        x_range,
+        norm.pdf(x_range, mu, std),
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Normal (μ={mu:.2f}, σ={std:.2f})",
+    )
 
 
 def plot_residual_histogram(
@@ -977,18 +971,8 @@ def plot_distribution_comparison(
     if len(indices) == 1:
         axes = [axes]
 
-    # For KDE plotting
-    try:
-        import scipy.stats  # type: ignore[import-untyped]
-
-        has_kde = hasattr(scipy.stats, "gaussian_kde")
-    except ImportError:
-        has_kde = False
-
-    if not has_kde and plot_type in ["kde", "both"]:
-        print("scipy not available, using histogram instead of KDE")
-        plot_type = "histogram"
-
+    # ponytail: scipy is a core dep, always available.
+    has_kde = True
     for i, idx in enumerate(indices):
         _plot_single_distribution(
             ax=axes[i],

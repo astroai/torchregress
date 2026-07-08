@@ -210,7 +210,7 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         mixture_nll = poisson_weight * poisson_nll + gaussian_weight * gaussian_nll
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(mixture_nll, mask, weights)
+        return self._reduce(mixture_nll, mask, weights)
 
 
 @register_regression_loss("enhanced_poisson_gaussian_mixture")
@@ -396,7 +396,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         loss = 0.5 * (poisson_loss + gaussian_loss)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("poisson_gaussian_likelihood_ratio")
@@ -501,42 +501,7 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
         combined_lr = 0.5 * (poisson_lr + gaussian_lr)
 
         # Apply reduction with mask and weights
-        return self._reduce_with_mask(combined_lr, mask, weights)
+        return self._reduce(combined_lr, mask, weights)
 
 
-def poisson_gaussian_mixture_loss(
-    config: Optional[PoissonGaussianMixtureConfig] = None,
-    **kwargs: Any,
-) -> PoissonGaussianMixtureLoss:
-    """
-    Factory function to create a PoissonGaussianMixtureLoss instance.
-    """
-    if config is None:
-        config = PoissonGaussianMixtureConfig(**kwargs)
-    return PoissonGaussianMixtureLoss(config=config)
 
-
-def enhanced_poisson_gaussian_loss(
-    config: Optional[EnhancedPoissonGaussianConfig] = None,
-    **kwargs: Any,
-) -> EnhancedPoissonGaussianMixtureLoss:
-    """
-    Factory function to create an EnhancedPoissonGaussianMixtureLoss instance.
-    """
-    if config is None:
-        config = EnhancedPoissonGaussianConfig(**kwargs)
-    return EnhancedPoissonGaussianMixtureLoss(config=config)
-
-
-def poisson_gaussian_likelihood_ratio_loss(
-    config: Optional[PoissonGaussianLikelihoodRatioConfig] = None,
-    **kwargs: Any,
-) -> PoissonGaussianLikelihoodRatioLoss:
-    """
-    Factory function to create a PoissonGaussianLikelihoodRatioLoss instance.
-    """
-    if config is None:
-        if "log_input" not in kwargs:
-            kwargs["log_input"] = False
-        config = PoissonGaussianLikelihoodRatioConfig(**kwargs)
-    return PoissonGaussianLikelihoodRatioLoss(config=config)

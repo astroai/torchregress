@@ -2003,7 +2003,7 @@ class ConformalLoss(RegressionLoss):
             self._validate_inputs(y_pred, target, mask)
             loss = (y_pred - target) ** 2
 
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
     def calibrate(
         self,

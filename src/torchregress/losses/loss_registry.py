@@ -75,35 +75,9 @@ def create_loss_from_config(config: Dict[str, Any]) -> Any:
     cfg = dict(config)
     loss_type = str(cfg.pop("type")).lower()
 
-    # Local imports avoid circular dependencies with losses.__init__.
-    from .balanced_mse import BalancedMSELoss, BMCLoss
-    from .base import WeightedHuberLoss, WeightedL1Loss, WeightedMSELoss
-    from .beta_nll import BetaNLLLoss
-    from .faithful_gaussian import FaithfulGaussianLoss
-    from .gaussian import GaussianNLLLoss
-    from .gaussian_wasserstein import GaussianWassersteinBoundLoss
-
-    aliases: Dict[str, Any] = {
-        "mse": WeightedMSELoss,
-        "l2": WeightedMSELoss,
-        "l1": WeightedL1Loss,
-        "mae": WeightedL1Loss,
-        "huber": WeightedHuberLoss,
-        "gaussian_nll": GaussianNLLLoss,
-        "gaussian": GaussianNLLLoss,
-        "beta_nll": BetaNLLLoss,
-        "faithful_gaussian": FaithfulGaussianLoss,
-        "gaussian_wasserstein_bound": GaussianWassersteinBoundLoss,
-        "balanced_mse": BalancedMSELoss,
-        "bmc": BMCLoss,
-    }
-
-    if loss_type in aliases:
-        cls = aliases[loss_type]
-        return cls(**cfg)
-
+    # ponytail: registry is already populated by @register_regression_loss decorators.
     if loss_type in loss_registry:
         return loss_registry[loss_type](**cfg)
 
-    available = sorted(set(list(aliases) + list(loss_registry)))
+    available = sorted(loss_registry)
     raise KeyError(f"Unknown loss type '{loss_type}'. Available types: {available}")

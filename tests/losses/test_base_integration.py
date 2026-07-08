@@ -35,7 +35,7 @@ class L1RegressionLoss(RegressionLoss):
     def forward(self, y_pred, target, mask=None, weights=None):
         self._validate_inputs(y_pred, target, mask)
         loss = torch.abs(y_pred - target)
-        return self._reduce_with_mask(loss, mask, weights)
+        return self._reduce(loss, mask, weights)
 
 
 class GaussianNLL(DistributionLoss):
@@ -56,7 +56,7 @@ class GaussianNLL(DistributionLoss):
         target = target.view(-1, 1)
         self._validate_inputs(y_pred[..., 0:1], target, mask)
         nll = self._calculate_nll(y_pred, target, mask)
-        return self._reduce_with_mask(nll, mask, weights)
+        return self._reduce(nll, mask, weights)
 
 
 class TestIntegration:
