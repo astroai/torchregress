@@ -6,19 +6,16 @@ from typing import Union
 
 import numpy as np
 import torch
+from torch import Tensor
 
-from torchregress.utils.numpy_stats import subsample_rows, winsorize
+
+def _ensure_tensor(x: Union[Tensor, np.ndarray, list[float]]) -> Tensor:
+    if isinstance(x, Tensor):
+        return x
+    return torch.as_tensor(x)
 
 
 class RepresentationShiftInflator:
-    """Map representation shift magnitude to a conservative temperature factor.
-
-    References
-    ----------
-    .. [1] Guo, C., Pleiss, G., Sun, Y., & Weinberger, K. Q. (2017). On Calibration
-       of Modern Neural Networks. In *ICML 2017*. https://arxiv.org/abs/1706.04599
-    """
-
     def __init__(
         self,
         *,
@@ -37,67 +34,88 @@ class RepresentationShiftInflator:
         self.random_state = random_state
         self.clip_quantile = clip_quantile
         self.eps = float(eps)
-        self.source_mean_: np.ndarray | None = None
-        self.source_var_: np.ndarray | None = None
+        self.source_mean_: Tensor | np.ndarray | None = None
+        self.source_var_: Tensor | np.ndarray | None = None
         self.reference_scale_: float | None = None
 
-    def fit(self, source_representations: np.ndarray) -> "RepresentationShiftInflator":
-        reps = np.asarray(source_representations, dtype=float)
-        reps_stats = subsample_rows(reps, self.source_sample_size, random_state=self.random_state)
-        reps_stats = winsorize(reps_stats, self.clip_quantile)
-        self.source_mean_ = reps_stats.mean(axis=0)
-        self.source_var_ = np.clip(reps_stats.var(axis=0), self.eps, None)
-        d2 = self._squared_mahalanobis(reps_stats)
-        self.reference_scale_ = float(np.median(np.sqrt(np.clip(d2, 0.0, None))))
+    def fit(self, source_representations: Tensor | np.ndarray) -> "RepresentationShiftInflator":
+        reps = _ensure_tensor(source_representations).double()
+        if reps.ndim == 1:
+            reps = reps.unsqueeze(0)
+        if self.source_sample_size is not None and self.source_sample_size < reps.shape[0]:
+            idx = torch.randperm(reps.shape[0], device=reps.device)[: self.source_sample_size]
+            reps = reps[idx]
+        if self.clip_quantile is not None:
+            lo = reps.quantile(self.clip_quantile, dim=0)
+            hi = reps.quantile(1.0 - self.clip_quantile, dim=0)
+            reps = reps.clamp(lo, hi)
+        self.source_mean_ = reps.mean(dim=0).numpy()
+        self.source_var_ = reps.var(dim=0, unbiased=False).clamp(self.eps, None).numpy()
+        d2 = self._squared_mahalanobis(reps)
+        self.reference_scale_ = float(d2.clamp(0.0, None).sqrt().median().item())
         return self
 
-    def _squared_mahalanobis(self, reps: np.ndarray) -> np.ndarray:
+    def _squared_mahalanobis(self, reps: Tensor) -> Tensor:
         if self.source_mean_ is None or self.source_var_ is None:
             raise RuntimeError("call fit() before computing shift scores")
-        centered = reps - self.source_mean_[None, :]
-        return np.sum(centered**2 / self.source_var_[None, :], axis=1)
+        mean = _ensure_tensor(self.source_mean_)
+        var = _ensure_tensor(self.source_var_)
+        centered = reps - mean.unsqueeze(0)
+        return (centered**2 / var.unsqueeze(0)).sum(dim=1)
 
-    def shift_scores(self, target_representations: np.ndarray) -> np.ndarray:
-        reps = np.asarray(target_representations, dtype=float)
-        return np.sqrt(np.clip(self._squared_mahalanobis(reps), 0.0, None))
+    def shift_scores(self, target_representations: Tensor | np.ndarray) -> Tensor | np.ndarray:
+        is_numpy = isinstance(target_representations, np.ndarray)
+        result = (
+            self._squared_mahalanobis(_ensure_tensor(target_representations).double())
+            .clamp(0.0, None)
+            .sqrt()
+        )
+        if is_numpy:
+            return result.numpy()
+        return result
 
-    def temperatures(self, target_representations: np.ndarray) -> np.ndarray:
-        scores = self.shift_scores(target_representations)
+    def temperatures(self, target_representations: Tensor | np.ndarray) -> Tensor | np.ndarray:
+        is_numpy = isinstance(target_representations, np.ndarray)
+        scores = (
+            self._squared_mahalanobis(_ensure_tensor(target_representations).double())
+            .clamp(0.0, None)
+            .sqrt()
+        )
         ref = max(float(self.reference_scale_ or 1.0), self.eps)
         temps = self.base_temperature * (1.0 + self.slope * scores / ref)
-        return np.clip(temps, self.base_temperature, self.max_temperature)
+        result = temps.clamp(self.base_temperature, self.max_temperature)
+        if is_numpy:
+            return result.numpy()
+        return result
 
     def calibrate_probabilities(
-        self, probabilities: np.ndarray, target_representations: np.ndarray
-    ) -> np.ndarray:
-        probs = np.asarray(probabilities, dtype=float)
-        temps = self.temperatures(target_representations)[:, None]
-        logits = np.log(np.clip(probs, self.eps, None))
+        self, probabilities: Tensor | np.ndarray, target_representations: Tensor | np.ndarray
+    ) -> Tensor | np.ndarray:
+        is_numpy = isinstance(probabilities, np.ndarray)
+        reps = _ensure_tensor(target_representations)
+        temps = self.temperatures(reps).unsqueeze(-1)
+        logits = _ensure_tensor(probabilities).double().clamp(self.eps, None).log()
         scaled = logits / temps
-        scaled = scaled - scaled.max(axis=1, keepdims=True)
-        out = np.exp(scaled)
-        return out / np.clip(out.sum(axis=1, keepdims=True), self.eps, None)
+        scaled = scaled - scaled.max(dim=1, keepdim=True).values
+        out = scaled.exp()
+        result = out / out.sum(dim=1, keepdim=True).clamp(self.eps, None)
+        if is_numpy:
+            return result.numpy()
+        return result
 
-    def calibrate_std(self, std: np.ndarray, target_representations: np.ndarray) -> np.ndarray:
-        sigma = np.asarray(std, dtype=float)
-        temps = self.temperatures(target_representations)
-        return np.clip(sigma * temps, self.eps, None)
+    def calibrate_std(
+        self, std: Tensor | np.ndarray, target_representations: Tensor | np.ndarray
+    ) -> Tensor | np.ndarray:
+        is_numpy = isinstance(std, np.ndarray)
+        reps = _ensure_tensor(target_representations)
+        temps = self.temperatures(reps)
+        result = (_ensure_tensor(std).double() * temps).clamp(self.eps, None)
+        if is_numpy:
+            return result.numpy()
+        return result
 
 
 class BinnedLabelShiftEstimator:
-    """Estimates and corrects target prior distributions under label shift.
-
-    Supports Black Box Shift Estimation (BBSE) and EM prior adjustment.
-    Continuous targets are binned either uniformly or adaptively using quantiles.
-
-    References
-    ----------
-    .. [1] Lipton, Z., Wang, Y. X., & Smola, A. (2018). Detecting and Correcting for
-       Label Shift with Black Box Predictors. In *ICML 2018*. https://arxiv.org/abs/1802.03916
-    .. [2] Saerens, M., Latinne, P., & Decaestecker, C. (2002). Adjusting the outputs
-       of a classifier to new a priori probabilities. *Neural Computation*, 14(1).
-    """
-
     def __init__(
         self,
         *,
@@ -122,95 +140,77 @@ class BinnedLabelShiftEstimator:
         self.tol = tol
         self.eps = eps
 
-        # Fitted parameters
-        self.bin_edges_: np.ndarray | None = None
-        self.source_prior_: np.ndarray | None = None
-        self.target_prior_: np.ndarray | None = None
-        self.confusion_matrix_: np.ndarray | None = None
+        self.bin_edges_: Tensor | np.ndarray | None = None
+        self.source_prior_: Tensor | np.ndarray | None = None
+        self.target_prior_: Tensor | np.ndarray | None = None
+        self.confusion_matrix_: Tensor | np.ndarray | None = None
 
-    def _to_numpy(self, array: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
-        if isinstance(array, torch.Tensor):
-            return array.detach().cpu().numpy()
-        return np.asarray(array)
+    def _to_tensor(self, array: Union[Tensor, np.ndarray, list[float]]) -> Tensor:
+        if isinstance(array, Tensor):
+            return array
+        return torch.as_tensor(array)
 
-    def _bin_values(self, y: np.ndarray) -> np.ndarray:
-        """Assign values to bin indices based on fitted edges."""
+    def _bin_values(self, y: Tensor) -> Tensor:
         if self.bin_edges_ is None:
             raise RuntimeError("bin_edges_ not fitted")
-        # digitize returns 1-based indices, map to 0-based
-        indices = np.digitize(y, self.bin_edges_) - 1
-        return np.clip(indices, 0, self.n_bins - 1)
+        edges = _ensure_tensor(self.bin_edges_)
+        y_t = _ensure_tensor(y)
+        indices = torch.bucketize(y_t, edges) - 1
+        return indices.clamp(0, self.n_bins - 1)
 
-    def _prepare_predictions(self, pred: np.ndarray) -> np.ndarray:
-        """Ensure predictions are formatted as probability distributions over bins."""
-        if pred.ndim == 1:
-            # Point predictions, assign to bins and convert to one-hot
-            bin_idx = self._bin_values(pred)
-            one_hot = np.zeros((pred.shape[0], self.n_bins))
-            one_hot[np.arange(pred.shape[0]), bin_idx] = 1.0
+    def _prepare_predictions(self, pred: Tensor) -> Tensor:
+        pred_t = _ensure_tensor(pred)
+        if pred_t.ndim == 1:
+            bin_idx = self._bin_values(pred_t)
+            one_hot = torch.zeros(
+                pred_t.shape[0], self.n_bins, dtype=pred_t.dtype, device=pred_t.device
+            )
+            one_hot[torch.arange(pred_t.shape[0]), bin_idx] = 1.0
             return one_hot
-        elif pred.ndim == 2:
-            if pred.shape[1] != self.n_bins:
+        elif pred_t.ndim == 2:
+            if pred_t.shape[1] != self.n_bins:
                 raise ValueError(
-                    f"Predicted probability dimension {pred.shape[1]} "
+                    f"Predicted probability dimension {pred_t.shape[1]} "
                     f"must match n_bins={self.n_bins}"
                 )
-            if np.any(pred < 0.0):
+            if (pred_t < 0.0).any():
                 raise ValueError("Predicted probabilities must be non-negative")
-            # Ensure proper normalized probabilities
-            row_sum = pred.sum(axis=1, keepdims=True)
-            return pred / np.clip(row_sum, self.eps, None)
+            row_sum = pred_t.sum(dim=1, keepdim=True)
+            return pred_t / row_sum.clamp(self.eps, None)
         else:
             raise ValueError("Predictions must be 1D point predictions or 2D probability vectors")
 
     def fit(
         self,
-        y_source: Union[np.ndarray, torch.Tensor],
-        pred_source: Union[np.ndarray, torch.Tensor],
-        pred_target: Union[np.ndarray, torch.Tensor],
+        y_source: Union[Tensor, np.ndarray, list[float]],
+        pred_source: Union[Tensor, np.ndarray, list[float]],
+        pred_target: Union[Tensor, np.ndarray, list[float]],
     ) -> "BinnedLabelShiftEstimator":
-        """Fit the estimator and estimate the target prior distribution.
+        y_src = self._to_tensor(y_source).reshape(-1).double()
+        p_src = self._to_tensor(pred_source).double()
+        p_tgt = self._to_tensor(pred_target).double()
 
-        Parameters
-        ----------
-        y_source : Union[np.ndarray, torch.Tensor]
-            True source labels, shape (N_source,).
-        pred_source : Union[np.ndarray, torch.Tensor]
-            Predictions on the source set, shape (N_source,) or (N_source, n_bins).
-        pred_target : Union[np.ndarray, torch.Tensor]
-            Predictions on the target set, shape (N_target,) or (N_target, n_bins).
-        """
-        y_src = self._to_numpy(y_source).reshape(-1)
-        p_src = self._to_numpy(pred_source)
-        p_tgt = self._to_numpy(pred_target)
-
-        # 1. Fit bin edges on source labels
         if self.binning_strategy == "adaptive":
-            # Quantile spacing to ensure equal representation
-            quantiles = np.linspace(0, 100, self.n_bins + 1)
-            self.bin_edges_ = np.percentile(y_src, quantiles)
-            # De-duplicate edges to ensure strict monotonicity
+            quantiles = torch.linspace(0, 1, self.n_bins + 1, dtype=y_src.dtype)
+            self.bin_edges_ = torch.quantile(y_src, quantiles)
             for idx in range(1, len(self.bin_edges_)):
                 if self.bin_edges_[idx] <= self.bin_edges_[idx - 1]:
                     self.bin_edges_[idx] = self.bin_edges_[idx - 1] + 1e-5
         else:
-            # Uniform spacing
-            self.bin_edges_ = np.linspace(y_src.min(), y_src.max(), self.n_bins + 1)
+            self.bin_edges_ = torch.linspace(y_src.min(), y_src.max(), self.n_bins + 1)
 
-        # Extend boundaries to cover out-of-range values during target evaluation
-        self.bin_edges_[0] = -np.inf
-        self.bin_edges_[-1] = np.inf
+        edges = self.bin_edges_
+        edges[0] = -torch.inf if y_src.is_cuda else float("-inf")
+        edges[-1] = torch.inf if y_src.is_cuda else float("inf")
 
-        # 2. Bin true labels and compute source prior
         y_src_bins = self._bin_values(y_src)
-        counts = np.bincount(y_src_bins, minlength=self.n_bins)
+        counts = torch.zeros(self.n_bins, dtype=torch.float64)
+        counts.scatter_add_(0, y_src_bins.long(), torch.ones_like(y_src_bins, dtype=torch.float64))
         self.source_prior_ = counts / max(y_src.shape[0], 1)
 
-        # 3. Format soft/hard predictions
         p_src_probs = self._prepare_predictions(p_src)
         p_tgt_probs = self._prepare_predictions(p_tgt)
 
-        # 4. Estimate target prior based on chosen method
         if self.method == "bbse":
             self._fit_bbse(y_src_bins, p_src_probs, p_tgt_probs)
         else:
@@ -218,94 +218,66 @@ class BinnedLabelShiftEstimator:
 
         return self
 
-    def _fit_bbse(
-        self, y_src_bins: np.ndarray, p_src_probs: np.ndarray, p_tgt_probs: np.ndarray
-    ) -> None:
-        """Black Box Shift Estimation prior correction."""
-        # Compute confusion matrix C_{i, j} = P(pred_bin = i | true_bin = j)
-        conf_mat = np.zeros((self.n_bins, self.n_bins))
+    def _fit_bbse(self, y_src_bins: Tensor, p_src_probs: Tensor, p_tgt_probs: Tensor) -> None:
+        conf_mat = torch.zeros(self.n_bins, self.n_bins, dtype=torch.float64)
         for j in range(self.n_bins):
             mask = y_src_bins == j
             sum_mask = mask.sum()
             if sum_mask > 0:
-                conf_mat[:, j] = p_src_probs[mask].sum(axis=0) / sum_mask
+                conf_mat[:, j] = p_src_probs[mask].sum(dim=0) / sum_mask
             else:
-                conf_mat[:, j] = 1.0 / self.n_bins  # uniform fallback
+                conf_mat[:, j] = 1.0 / self.n_bins
 
         self.confusion_matrix_ = conf_mat
 
-        # Average prediction vector on target
-        mu_target = p_tgt_probs.mean(axis=0)
+        mu_target = p_tgt_probs.mean(dim=0)
 
-        # Solve system C * p_target = mu_target
         try:
-            p_tgt_est = np.linalg.solve(conf_mat, mu_target)
-        except np.linalg.LinAlgError:
-            # fallback to least squares if singular
-            p_tgt_est, _, _, _ = np.linalg.lstsq(conf_mat, mu_target, rcond=None)
+            p_tgt_est = torch.linalg.solve(conf_mat, mu_target)
+        except RuntimeError:
+            p_tgt_est = torch.linalg.lstsq(conf_mat, mu_target).solution
 
-        # Project estimated target prior onto the probability simplex
-        p_tgt_est = np.clip(p_tgt_est, 0.0, None)
+        p_tgt_est = p_tgt_est.clamp(0.0, None)
         total = p_tgt_est.sum()
-        self.target_prior_ = p_tgt_est / max(total, self.eps)
+        self.target_prior_ = p_tgt_est / max(total.item(), self.eps)
 
-    def _fit_em(self, p_tgt_probs: np.ndarray) -> None:
-        """EM-based target prior estimation (Saerens algorithm)."""
+    def _fit_em(self, p_tgt_probs: Tensor) -> None:
         if self.source_prior_ is None:
             raise RuntimeError("source_prior_ not fitted")
-        src_prior = np.clip(self.source_prior_, self.eps, None)
+        src_prior = _ensure_tensor(self.source_prior_).clamp(self.eps, None)
 
-        # Initialize target prior to source prior
-        curr_prior = src_prior.copy()
+        curr_prior = src_prior.clone()
 
         for _ in range(self.max_iter):
-            # Compute adjusted target posterior for each sample:
-            # q_{n, j} \propto p(y_bin = j | x_n) * (p_target(j) / p_source(j))
             weights = curr_prior / src_prior
-            q = p_tgt_probs * weights[None, :]
-            q = q / np.clip(q.sum(axis=1, keepdims=True), self.eps, None)
+            q = p_tgt_probs * weights.unsqueeze(0)
+            q = q / q.sum(dim=1, keepdim=True).clamp(self.eps, None)
 
-            # Update prior to mean target posterior
-            next_prior = q.mean(axis=0)
+            next_prior = q.mean(dim=0)
 
-            # Check convergence
-            if np.linalg.norm(next_prior - curr_prior) < self.tol:
+            if torch.norm(next_prior - curr_prior) < self.tol:
                 curr_prior = next_prior
                 break
             curr_prior = next_prior
 
         self.target_prior_ = curr_prior
 
-    def get_bin_weights(self) -> np.ndarray:
-        """Compute importance weights w_j = p_target(j) / p_source(j) per bin."""
+    def get_bin_weights(self) -> Tensor:
         if self.source_prior_ is None or self.target_prior_ is None:
             raise RuntimeError("call fit() before requesting weights")
-        src = np.clip(self.source_prior_, self.eps, None)
-        return self.target_prior_ / src
+        src = _ensure_tensor(self.source_prior_).clamp(self.eps, None)
+        return _ensure_tensor(self.target_prior_) / src
 
-    def sample_weights(self, y: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
-        """Compute sample-level importance weights for given targets.
+    def sample_weights(self, y: Union[Tensor, np.ndarray, list[float]]) -> Tensor:
+        y_arr = self._to_tensor(y)
 
-        Parameters
-        ----------
-        y : Union[np.ndarray, torch.Tensor]
-            Target continuous values or class indices. If float, binned internally.
-        """
-        is_tensor = isinstance(y, torch.Tensor)
-        y_arr = self._to_numpy(y)
-
-        # Determine if targets are continuous values or already bin indices
-        if np.issubdtype(y_arr.dtype, np.integer):
-            bin_idx = np.clip(y_arr, 0, self.n_bins - 1)
+        if y_arr.dtype in (torch.int32, torch.int64, torch.uint8, torch.int16):
+            bin_idx = y_arr.clamp(0, self.n_bins - 1)
         else:
             bin_idx = self._bin_values(y_arr)
 
         bin_w = self.get_bin_weights()
-        weights = bin_w[bin_idx]
-
-        if is_tensor:
-            return torch.as_tensor(weights, dtype=torch.float32, device=y.device)
-        return weights
+        return bin_w[bin_idx.long()].to(device=y_arr.device, dtype=torch.float32)
 
 
 __all__ = [

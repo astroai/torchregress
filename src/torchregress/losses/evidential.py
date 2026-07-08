@@ -427,20 +427,11 @@ class EvidentialRegressionLoss(DistributionLoss):
         # which differs from sqrt(aleatoric + epistemic)
         scale = torch.sqrt(beta * (1 + 1 / nu) / (alpha + 1e-6))
 
-        # Student-t quantile using scipy
-        import numpy as np
-        from scipy import stats as scipy_stats  # type: ignore[import-untyped]
+        # ponytail: StudentT.icdf is vectorised, differentiable, and stays on-device.
+        t_dist = torch.distributions.StudentT(df=df.double())
+        t_quantile = t_dist.icdf(torch.tensor((1 + confidence) / 2, device=df.device))
+        t_quantile = t_quantile.to(df.dtype)
 
-        # Compute t-quantile (check if all degrees of freedom are identical to avoid vector ppf)
-        df_np = df.detach().cpu().numpy()
-        if df_np.size > 1 and np.all(df_np == df_np[0]):
-            t_quantile_scalar = scipy_stats.t.ppf((1 + confidence) / 2, df_np.flat[0])
-            t_quantile = torch.full_like(df, t_quantile_scalar)
-        else:
-            t_quantile = scipy_stats.t.ppf((1 + confidence) / 2, df_np)
-            t_quantile = torch.tensor(t_quantile, device=y_pred.device, dtype=y_pred.dtype)
-
-        # Compute intervals
         lower = gamma - t_quantile * scale
         upper = gamma + t_quantile * scale
 
@@ -470,12 +461,12 @@ class EvidentialRegressionLoss(DistributionLoss):
             leading to under-coverage. Use predict_interval() for accurate
             coverage, especially with low-evidence models.
         """
-        from scipy import stats as scipy_stats
+        from torch.distributions import Normal
 
         mean, aleatoric, epistemic = self.predict_with_uncertainty(y_pred)
         total_std = torch.sqrt(aleatoric + epistemic)
 
-        z = scipy_stats.norm.ppf((1 + confidence) / 2)
+        z = float(Normal(0, 1).icdf(torch.tensor((1 + confidence) / 2)))
         lower = mean - z * total_std
         upper = mean + z * total_std
 

@@ -124,7 +124,7 @@ class BaseLoss(nn.Module):
         if mask is not None and mask.shape != target.shape:
             raise ValueError(f"Mask shape {mask.shape} must match target shape {target.shape}")
 
-    
+
 class RegressionLoss(BaseLoss):
     """
     Base class for regression losses.
@@ -469,11 +469,13 @@ class WeightedMSELoss(WeightedLossWrapper):
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(nn.MSELoss, reduction=reduction, **kwargs)
 
+
 @register_regression_loss("l1")
 @register_regression_loss("mae")
 class WeightedL1Loss(WeightedLossWrapper):
     def __init__(self, reduction: str = "mean", **kwargs: Any) -> None:
         super().__init__(nn.L1Loss, reduction=reduction, **kwargs)
+
 
 @register_regression_loss("huber")
 class WeightedHuberLoss(WeightedLossWrapper):

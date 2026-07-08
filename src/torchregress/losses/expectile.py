@@ -281,6 +281,7 @@ class MultiExpectileLoss(RegressionLoss):
 AsymmetricLeastSquaresLoss = ExpectileLoss
 register_regression_loss("als")(AsymmetricLeastSquaresLoss)
 
+
 @register_regression_loss("expectile_crossover")
 class ExpectileCrossoverLoss(RegressionLoss):
     """

@@ -1,5 +1,7 @@
 """Reusable test-time adaptation utilities without owning model architectures."""
 
+from torchregress.calibration.shift import RepresentationShiftInflator
+
 from .base import (
     AdaptationBatch,
     SupportsPredictiveBatch,
@@ -7,7 +9,6 @@ from .base import (
 )
 from .bayes import BayesianLinearHead, RecursiveBayesianHead
 from .benchmark import CausalTTAHarness
-from torchregress.calibration.shift import RepresentationShiftInflator
 from .cosa import DelayedLabelResidualAdapter
 from .dynamic import ParameterEMA
 from .label_shift import (
@@ -65,7 +66,6 @@ __all__ = [
     "ShiftFactoredTransportState",
     "SubspaceAlignmentState",
     "SupportsPredictiveBatch",
-
     "WeightedConformalRegressionAdapter",
     "WeightedSplitConformalAdapter",
     "weighted_split_classification_predictive_batch",

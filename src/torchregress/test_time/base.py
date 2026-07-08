@@ -19,8 +19,7 @@ class SupportsPredictiveBatch(Protocol):
         self,
         X: torch.Tensor | np.ndarray,
         **kwargs: object,
-    ) -> PredictiveBatch:
-        ...
+    ) -> PredictiveBatch: ...
 
 
 @dataclass(frozen=True)

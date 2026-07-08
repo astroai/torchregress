@@ -502,6 +502,3 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce(combined_lr, mask, weights)
-
-
-

@@ -23,8 +23,7 @@ __all__ = [
 ]
 
 
-def create_metric_result(result: Any, as_numpy: bool) -> Any:
-    """Convert result to appropriate type based on input."""
+def create_metric_result(result: Any, as_numpy: bool = False) -> Any:
     if isinstance(result, dict):
         converted: dict[str, Any] = {}
         for k, v in result.items():
@@ -33,14 +32,14 @@ def create_metric_result(result: Any, as_numpy: bool) -> Any:
             elif isinstance(v, torch.Tensor) and v.numel() == 1:
                 converted[k] = float(v.item())
             elif isinstance(v, torch.Tensor) and as_numpy:
-                converted[k] = v.cpu().numpy()
+                converted[k] = v.detach().cpu().numpy()
             else:
                 converted[k] = v
         return converted
     elif isinstance(result, torch.Tensor):
         if result.numel() == 1:
             return float(result.item())
-        return result.cpu().numpy() if as_numpy else result
+        return result.detach().cpu().numpy() if as_numpy else result
     return result
 
 

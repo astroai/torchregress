@@ -249,12 +249,18 @@ class TweedieLoss(RegressionLoss):
 def GammaLoss(eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> TweedieLoss:
     return TweedieLoss(p=2, eps=eps, reduction=reduction, link=link)
 
+
 @register_regression_loss("inverse_gaussian")
-def InverseGaussianLoss(eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> TweedieLoss:
+def InverseGaussianLoss(
+    eps: float = 1e-8, reduction: str = "mean", link: str = "log"
+) -> TweedieLoss:
     return TweedieLoss(p=3, eps=eps, reduction=reduction, link=link)
 
+
 @register_regression_loss("compound_poisson")
-def CompoundPoissonLoss(p: float = 1.5, eps: float = 1e-8, reduction: str = "mean", link: str = "log") -> TweedieLoss:
+def CompoundPoissonLoss(
+    p: float = 1.5, eps: float = 1e-8, reduction: str = "mean", link: str = "log"
+) -> TweedieLoss:
     if not (1 < p < 2):
         raise ValueError(f"For CompoundPoissonLoss, p must be between 1 and 2, got {p}")
     return TweedieLoss(p=p, eps=eps, reduction=reduction, link=link)

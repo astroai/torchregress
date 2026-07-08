@@ -15,14 +15,11 @@ Warning:
 """
 
 import math
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.ndimage import gaussian_filter1d
-from scipy.signal.windows import triang
 from torch import Tensor
 
 from ..utils.propensity import ipw_weights
@@ -427,73 +424,50 @@ class LDSLoss(RegressionLoss):
         self._bins: Optional[Tensor] = None
         self._weights_per_bin: Optional[Tensor] = None
 
-    def _get_kernel_window(self, kernel_width: float) -> np.ndarray:
-        """Generate kernel window for smoothing."""
-        # Create symmetric kernel window
-        half_width = int(np.ceil(kernel_width * 3))  # 3 sigma for gaussian
-        x: np.ndarray = np.arange(-half_width, half_width + 1, dtype=np.float32)
+    def _get_kernel_window(self, kernel_width: float) -> Tensor:
+        half_width = int(math.ceil(kernel_width * 3))
+        x = torch.arange(-half_width, half_width + 1, dtype=torch.float32)
 
         if self.kernel == "gaussian":
-            window = np.exp(-0.5 * (x / kernel_width) ** 2)
+            window = torch.exp(-0.5 * (x / kernel_width) ** 2)
         elif self.kernel == "triang":
-            window = np.maximum(0, 1 - np.abs(x) / kernel_width)
+            window = torch.clamp(1 - torch.abs(x) / kernel_width, min=0.0)
         elif self.kernel == "laplace":
-            window = np.exp(-np.abs(x) / kernel_width)
+            window = torch.exp(-torch.abs(x) / kernel_width)
         else:
             raise ValueError(f"Unknown kernel: {self.kernel}")
 
-        # Normalize
         window = window / window.sum()
-        return cast(np.ndarray, window)
+        return window
 
     def fit(self, train_targets: Tensor, n_bins: int = 100) -> None:
-        """
-        Compute LDS weights from training targets.
-
-        Args:
-            train_targets: All training targets [n_samples] or [n_samples, 1]
-            n_bins: Number of bins for discretization. Default: 100
-
-        Example:
-            >>> all_targets = torch.cat([y for _, y in train_loader])
-            >>> loss_fn.fit(all_targets)
-        """
         self._train_targets = train_targets.detach().cpu()
 
-        # Flatten if needed
-        targets_np = train_targets.cpu().numpy().flatten()
+        targets_flat = train_targets.flatten()
+        min_val, max_val = targets_flat.min(), targets_flat.max()
+        bins = torch.linspace(min_val, max_val, n_bins + 1, device=targets_flat.device)
 
-        # Bin the continuous targets
-        min_val, max_val = targets_np.min(), targets_np.max()
-        bins = np.linspace(min_val, max_val, n_bins + 1)
-        bin_indices = np.digitize(targets_np, bins) - 1
-        bin_indices = np.clip(bin_indices, 0, n_bins - 1)
+        bin_indices = torch.bucketize(targets_flat, bins) - 1
+        bin_indices = bin_indices.clamp(0, n_bins - 1)
 
-        # Count samples in each bin
-        bin_counts = np.bincount(bin_indices, minlength=n_bins).astype(np.float32)
+        bin_counts = torch.zeros(n_bins, device=targets_flat.device)
+        bin_counts.scatter_add_(0, bin_indices, torch.ones_like(bin_indices, dtype=torch.float32))
 
-        # Apply kernel smoothing to bin counts
-        kernel_window = self._get_kernel_window(self.kernel_width)
-        smoothed_counts = np.convolve(bin_counts, kernel_window, mode="same")
+        kernel_window = self._get_kernel_window(self.kernel_width).view(1, 1, -1)
+        smoothed_counts = F.conv1d(bin_counts.view(1, 1, -1), kernel_window, padding="same").view(
+            -1
+        )
+        smoothed_counts = smoothed_counts.clamp(min=1e-3)
 
-        # Avoid division by zero
-        smoothed_counts = np.maximum(smoothed_counts, 1e-3)
-
-        # Compute inverse frequency weights
         inv_freq = 1.0 / smoothed_counts
-
-        # Normalize to mean 1.0
         inv_freq = inv_freq / inv_freq.mean()
 
-        # Apply reweight factor
         weights = 1.0 + self.reweight_factor * (inv_freq - 1.0)
-
-        # Map weights back to samples
         sample_weights = weights[bin_indices]
 
-        self.lds_weights = torch.tensor(sample_weights, dtype=torch.float32)
-        self._bins = torch.tensor(bins, dtype=torch.float32)
-        self._weights_per_bin = torch.tensor(weights, dtype=torch.float32)
+        self.lds_weights = sample_weights
+        self._bins = bins
+        self._weights_per_bin = weights
 
     def _compute_weight_for_target(self, target: Tensor) -> Tensor:
         """Compute LDS weight for given target values."""
@@ -736,19 +710,16 @@ class FeatureDistributionSmoother(nn.Module):
         assert kernel in ["gaussian", "triang", "laplace"]
         half_ks = (kernel_size - 1) // 2
         if kernel == "gaussian":
-            base_kernel = [0.0] * half_ks + [1.0] + [0.0] * half_ks
-            base_kernel_np = np.array(base_kernel, dtype=np.float32)
-            kernel_window = gaussian_filter1d(base_kernel_np, sigma=kernel_width) / sum(
-                gaussian_filter1d(base_kernel_np, sigma=kernel_width)
-            )
+            x = torch.arange(-half_ks, half_ks + 1, dtype=torch.float32)
+            kernel_window = torch.exp(-0.5 * (x / kernel_width) ** 2)
         elif kernel == "triang":
-            kernel_window = triang(kernel_size) / sum(triang(kernel_size))
+            kernel_window = torch.bartlett_window(kernel_size, dtype=torch.float32)
         else:
-            x_vals = np.arange(-half_ks, half_ks + 1)
-            kernel_window = np.exp(-np.abs(x_vals) / kernel_width) / (2.0 * kernel_width)
-            kernel_window = kernel_window / sum(kernel_window)
+            x = torch.arange(-half_ks, half_ks + 1, dtype=torch.float32)
+            kernel_window = torch.exp(-torch.abs(x) / kernel_width)
 
-        return torch.tensor(kernel_window, dtype=torch.float32)
+        kernel_window = kernel_window / kernel_window.sum()
+        return kernel_window
 
     def fit(self, train_targets: Tensor, n_bins: int = 100) -> None:
         """
@@ -780,9 +751,9 @@ class FeatureDistributionSmoother(nn.Module):
             )
             self.register_buffer("num_samples_tracked", torch.zeros(n_bins, device=device))
 
-        targets_np = train_targets.detach().cpu().numpy().flatten()
-        min_val, max_val = targets_np.min(), targets_np.max()
-        bins = np.linspace(min_val, max_val + 1e-8, n_bins + 1)
+        targets_flat = train_targets.detach().flatten()
+        min_val, max_val = targets_flat.min(), targets_flat.max()
+        bins = torch.linspace(min_val, max_val + 1e-8, n_bins + 1, device=targets_flat.device)
         self.register_buffer(
             "_bins",
             torch.tensor(bins, dtype=torch.float32, device=self.running_mean.device),

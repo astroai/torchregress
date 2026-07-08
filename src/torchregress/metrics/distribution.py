@@ -156,16 +156,15 @@ def probability_integral_transform(
     n_bins: int = 10,
     return_histogram: bool = False,
     as_numpy: bool = False,
-) -> Union[torch.Tensor, np.ndarray, Dict[str, Union[torch.Tensor, np.ndarray, float]]]:
-    """
-    Compute Probability Integral Transform (PIT) values for a given CDF.
-    """
+) -> Union[torch.Tensor, Dict[str, Union[torch.Tensor, float]]]:
     y_true_t = convert_to_tensor(y_true)
     pit_values = convert_to_tensor(cdf_fn(y_true_t))
 
+    _to_np = as_numpy or isinstance(y_true, np.ndarray)
+
     if not return_histogram:
-        if as_numpy or isinstance(y_true, np.ndarray):
-            return pit_values.cpu().numpy()
+        if _to_np:
+            return pit_values.numpy()
         return pit_values
 
     bin_edges = torch.linspace(0.0, 1.0, n_bins + 1, device=pit_values.device)
@@ -174,23 +173,19 @@ def probability_integral_transform(
     uniformity_chi2 = torch.sum((counts - expected) ** 2 / max(expected, 1.0))
     ks_statistic = kolmogorov_smirnov_uniform_statistic(pit_values)
 
-    result: Dict[str, Union[torch.Tensor, np.ndarray, float]] = {
+    out: Dict[str, Any] = {
         "pit_values": pit_values,
         "histogram_counts": counts,
         "bin_edges": bin_edges,
         "uniformity_chi2": uniformity_chi2,
         "uniformity_ks": ks_statistic,
     }
-
-    if as_numpy or isinstance(y_true, np.ndarray):
-        return {
-            "pit_values": pit_values.cpu().numpy(),
-            "histogram_counts": counts.cpu().numpy(),
-            "bin_edges": bin_edges.cpu().numpy(),
-            "uniformity_chi2": float(uniformity_chi2.item()),
-            "uniformity_ks": float(ks_statistic.item()),
+    if _to_np:
+        out = {
+            k: (float(v) if v.ndim == 0 else v.numpy()) if torch.is_tensor(v) else v
+            for k, v in out.items()
         }
-    return result
+    return out
 
 
 def kolmogorov_smirnov_uniform_statistic(
@@ -719,13 +714,11 @@ def _process_distribution_metrics(
 
     # PIT from distribution
     try:
-        pit_res = probability_integral_transform(
-            dist_obj.cdf, y_true_t, return_histogram=True, as_numpy=True
-        )
+        pit_res = probability_integral_transform(dist_obj.cdf, y_true_t, return_histogram=True)
         if isinstance(pit_res, dict):
-            results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
-            results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
-            pit_values = convert_to_tensor(pit_res["pit_values"])
+            results["pit_chi2"] = pit_res["uniformity_chi2"]
+            results["pit_ks"] = pit_res["uniformity_ks"]
+            pit_values = pit_res["pit_values"]
     except (AttributeError, NotImplementedError):
         pass
 
@@ -819,11 +812,10 @@ def _process_fallback_pit(
             lambda _: pit_values,
             pit_values,
             return_histogram=True,
-            as_numpy=True,
         )
         if isinstance(pit_res, dict):
-            results["pit_chi2"] = cast(float, pit_res["uniformity_chi2"])
-            results["pit_ks"] = cast(float, pit_res["uniformity_ks"])
+            results["pit_chi2"] = pit_res["uniformity_chi2"]
+            results["pit_ks"] = pit_res["uniformity_ks"]
 
 
 def distribution_metrics_report(
