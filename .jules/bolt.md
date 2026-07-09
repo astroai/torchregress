@@ -1,3 +1,6 @@
 ## 2024-05-18 - Optimize Empirical CRPS with L-moments
 **Learning:** The naive implementation of `CRPS = E|X - y| - 0.5 E|X - X'|` evaluates pairwise differences, producing an $O(N^2)$ memory explosion for large sample sizes, and throwing memory allocation errors when testing bounds (e.g. 50GB allocated for 5000 samples with a batch size of 100).
 **Action:** When computing differences between sets of predictive samples across identical items, sort the samples and apply linear weights `(2j - n + 1)` instead. This reduces computation from $O(N^2)$ explicit absolute differences to $O(N \log N)$ sorting and eliminates massive intermediate PyTorch memory allocations.
+## 2024-05-18 - Fix PyTorch StudentT icdf
+**Learning:** PyTorch's `torch.distributions.StudentT` does not implement `icdf`. The codebase mistakenly relied on `icdf` on the StudentT distribution in `src/torchregress/losses/evidential.py`, which caused tests to fail with `NotImplementedError`.
+**Action:** When needing the inverse CDF of the Student-t distribution, drop down to `scipy.stats.t.ppf` by detaching the tensor, converting it to numpy on CPU, executing `scipy.stats.t.ppf`, and casting the result back to the original PyTorch device and dtype.
