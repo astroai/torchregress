@@ -618,10 +618,18 @@ def crps_from_samples(
         )
 
     term1 = torch.mean(torch.abs(samples_t - y_true_t.unsqueeze(0)), dim=0)
-    pairwise = torch.abs(samples_t.unsqueeze(0) - samples_t.unsqueeze(1))
     n = samples_t.shape[0]
-    # ponytail: unbiased E|X-X'| estimator divides by n(n-1), not n²
-    term2 = 0.5 * torch.sum(pairwise, dim=(0, 1)) / (n * (n - 1))
+
+    # Use O(N log N) L-moments approach instead of O(N^2) pairwise differences
+    samples_sorted = torch.sort(samples_t, dim=0).values
+    weights = torch.arange(n, dtype=samples_t.dtype, device=samples_t.device)
+    weights = 2 * weights - n + 1
+
+    # Reshape weights to match samples_sorted for broadcasting
+    shape = [n] + [1] * (samples_t.dim() - 1)
+    weights = weights.view(shape)
+
+    term2 = torch.sum(weights * samples_sorted, dim=0) / (n * (n - 1))
     crps = term1 - term2
 
     if reduction == "none":

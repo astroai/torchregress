@@ -1,0 +1,3 @@
+## 2024-05-18 - Optimize Empirical CRPS with L-moments
+**Learning:** The naive implementation of `CRPS = E|X - y| - 0.5 E|X - X'|` evaluates pairwise differences, producing an $O(N^2)$ memory explosion for large sample sizes, and throwing memory allocation errors when testing bounds (e.g. 50GB allocated for 5000 samples with a batch size of 100).
+**Action:** When computing differences between sets of predictive samples across identical items, sort the samples and apply linear weights `(2j - n + 1)` instead. This reduces computation from $O(N^2)$ explicit absolute differences to $O(N \log N)$ sorting and eliminates massive intermediate PyTorch memory allocations.
