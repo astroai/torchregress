@@ -34,14 +34,6 @@ from torchregress.losses.gaussian_wasserstein import (
     gaussian_wasserstein_bound_loss,
     symmetric_spd_matrix_sqrt,
 )
-from torchregress.losses.poisson_gaussian import (
-    EnhancedPoissonGaussianConfig,
-    EnhancedPoissonGaussianMixtureLoss,
-    PoissonGaussianLikelihoodRatioConfig,
-    PoissonGaussianLikelihoodRatioLoss,
-    PoissonGaussianMixtureConfig,
-    PoissonGaussianMixtureLoss,
-)
 from torchregress.losses.quantile import QuantileLoss, quantile_loss
 from torchregress.losses.tweedie import TweedieLoss, tweedie_loss
 
@@ -342,7 +334,6 @@ class TestGaussianWassersteinBoundWrapper(unittest.TestCase):
 # poisson_gaussian_mixture_loss / enhanced_poisson_gaussian_loss /
 # poisson_gaussian_likelihood_ratio_loss
 # ---------------------------------------------------------------------------
-
 
 
 # ---------------------------------------------------------------------------

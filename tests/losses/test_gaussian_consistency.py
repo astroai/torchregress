@@ -32,6 +32,7 @@ from torchregress.losses.gaussian_wasserstein import (
 # ponytail: inlined helpers, formerly tests/losses/_test_losses_helpers.py
 DIAGONAL_LOSS_NAMES = ["GaussianNLL", "GaussianCRPS", "BetaNLL", "FaithfulGaussian"]
 
+
 def _build_diagonal_losses():
     factories = [
         lambda: GaussianNLLLoss(reduction="mean"),
@@ -41,12 +42,14 @@ def _build_diagonal_losses():
     ]
     return list(zip(DIAGONAL_LOSS_NAMES, [f() for f in factories]))
 
+
 def _make_test_data(batch=8, dim=3, seed=0):
     torch.manual_seed(seed)
     mean = torch.randn(batch, dim)
     log_var = torch.randn(batch, dim) * 0.5
     target = torch.randn(batch, dim)
     return mean, log_var, target
+
 
 def _make_base_kwargs(loss_fn):
     kwargs = {}
@@ -57,8 +60,10 @@ def _make_base_kwargs(loss_fn):
         kwargs["variance_weight"] = loss_fn.variance_weight
     return kwargs
 
+
 def _make_none_reduction(loss_fn):
     return type(loss_fn)(**_make_base_kwargs(loss_fn), reduction="none")
+
 
 # ── input format contract ─────────────────────────────────────────────
 
