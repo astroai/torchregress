@@ -156,7 +156,7 @@ def probability_integral_transform(
     n_bins: int = 10,
     return_histogram: bool = False,
     as_numpy: bool = False,
-) -> Union[torch.Tensor, Dict[str, Union[torch.Tensor, float]]]:
+) -> Union[torch.Tensor, np.ndarray, Dict[str, Union[torch.Tensor, float]]]:
     y_true_t = convert_to_tensor(y_true)
     pit_values = convert_to_tensor(cdf_fn(y_true_t))
 
@@ -696,9 +696,11 @@ def _process_distribution_metrics(
     samples: Optional[Union[torch.Tensor, np.ndarray]],
     n_samples: int,
     results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
-) -> Tuple[Optional[Union[torch.Tensor, np.ndarray]], Optional[torch.Tensor]]:
+) -> Tuple[
+    Optional[Union[torch.Tensor, np.ndarray]], Optional[Union[torch.Tensor, np.ndarray, float]]
+]:
     """Process distribution-based metrics (log-prob, samples, PIT)."""
-    pit_values = None
+    pit_values: Optional[Union[torch.Tensor, np.ndarray, float]] = None
 
     # Log-probability
     try:
@@ -795,7 +797,7 @@ def _process_density_metrics(
 
 
 def _process_fallback_pit(
-    pit_values: Optional[torch.Tensor],
+    pit_values: Optional[Union[torch.Tensor, np.ndarray, float]],
     support: Optional[Union[torch.Tensor, np.ndarray]],
     density: Optional[Union[torch.Tensor, np.ndarray]],
     samples: Optional[Union[torch.Tensor, np.ndarray]],
@@ -816,6 +818,9 @@ def _process_fallback_pit(
             pit_values = None
 
     if pit_values is not None and "pit_chi2" not in results:
+        # pit_values is usually a Tensor or ndarray. If it's a scalar float, convert it.
+        if isinstance(pit_values, float):
+            pit_values = torch.tensor([pit_values])
         pit_res = probability_integral_transform(
             lambda _: pit_values,
             pit_values,
@@ -865,7 +870,7 @@ def distribution_metrics_report(
     if y_true is None:
         raise ValueError("y_true must be provided either as a Tensor or ndarray.")
     y_true_t = convert_to_tensor(y_true)
-    pit_values: Optional[torch.Tensor] = None
+    pit_values: Optional[Union[torch.Tensor, np.ndarray, float]] = None
 
     # 1. Log-likelihood and Sampling
     if dist is not None:
