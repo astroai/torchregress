@@ -10,19 +10,17 @@ readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
     {name = "Sébastien Fabbro", email = "sebfabbro@gmail.com"}
 ]
-license = {text = "MIT"}
-requires-python = ">=3.9"
+license = {file = "LICENSE"}
+requires-python = ">=3.12, <3.16"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 keywords = ["pytorch", "regression", "machine learning", "deep learning", "loss functions"]
