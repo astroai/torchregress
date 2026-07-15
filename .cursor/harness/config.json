@@ -1,0 +1,7 @@
+{
+  "verify_fast": ["./scripts/preflight_push.sh"],
+  "verify": ["./scripts/ci_test_only.sh"],
+  "verify_full": ["./scripts/ci_local.sh"],
+  "reflect_min_turns": 5,
+  "reflect_min_minutes": 45
+}

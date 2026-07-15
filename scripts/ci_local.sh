@@ -1,23 +1,12 @@
 #!/usr/bin/env bash
-# Local parity with `.github/workflows/ci.yml` (`lint-test`: pytest + benchmark_smoke)
-# plus ruff on package code. Run before pushing: `./scripts/ci_local.sh`
+# Full local gate (verify_full): CI test + docs + benchmark smoke.
+# For pre-push use scripts/ci_test_only.sh; for fast edits use scripts/preflight_push.sh.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-uv sync --extra test --extra flows --extra docs --dev
-
-echo "== ruff (src/torchregress, tests, tools) =="
-uv run ruff check src/torchregress tests tools
-
-echo "== ruff format --check (src/torchregress, tests, tools) =="
-uv run ruff format --check src/torchregress tests tools
-
-echo "== pytest + coverage (CI test job) =="
-uv run python -m pytest --cov=torchregress --cov-report=xml --cov-report=term
-
-echo "== mypy (CI lint-test job) =="
-uv run mypy src/torchregress
+"$ROOT/scripts/preflight_push.sh"
+"$ROOT/scripts/ci_test_only.sh"
 
 echo "== zensical build (CI lint-test job) =="
 uv run zensical build --strict
@@ -42,4 +31,4 @@ uv run python -m tools.benchmark_smoke \
   --thresholds reports/benchmark_thresholds/cpu/sweep.json \
   --fail-on-thresholds
 
-echo "OK: local checks matched CI test + benchmark jobs (plus ruff)."
+echo "OK: full local checks (verify_full)."

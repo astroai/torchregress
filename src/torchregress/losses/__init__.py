@@ -162,6 +162,7 @@ from .robust import (
     PseudoHuberLoss,
     TukeyBiweightLoss,
 )
+from .student_t import StudentTLoss
 from .transforms import (
     BoxCoxTransformLoss,
     LogTransformLoss,
