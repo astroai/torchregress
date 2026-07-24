@@ -23,7 +23,6 @@ from pathlib import Path
 
 os.environ["MPLCONFIGDIR"] = tempfile.gettempdir()
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -139,130 +138,7 @@ class SpectrumCNNBackbone(nn.Module):
 
 
 # ============================================================================
-# 3. Built-in Corner Plot Renderer
-# ============================================================================
-
-
-def plot_stellar_corner_plot(
-    samples,
-    true_vals,
-    param_names,
-    title="Stellar Parameter Posterior Distribution $p(\\theta \\mid x_{\\mathrm{obs}})$",
-    save_path="figures/stellar_spectra_flow_corner.png",
-):
-    """
-    Generate a 3x3 publication-quality corner plot for posterior samples.
-
-    Shows:
-      - 1D marginal histograms with 16th, 50th (median), and 84th percentiles.
-      - 2D joint density contours for parameter pairs.
-      - True parameter values marked with red dashed crosshairs.
-    """
-    n_params = samples.shape[1]
-    fig, axes = plt.subplots(n_params, n_params, figsize=(9, 8.5), dpi=150, sharex="col")
-
-    color_hist = "#2b5c8f"
-    color_contour = "#34495e"
-    color_true = "#e74c3c"
-
-    percentiles = np.percentile(samples, [16, 50, 84], axis=0)
-
-    for i in range(n_params):
-        for j in range(n_params):
-            ax = axes[i, j]
-
-            if i < j:
-                ax.axis("off")
-                continue
-
-            if i == j:
-                p16, p50, p84 = percentiles[:, i]
-                err_low = p50 - p16
-                err_high = p84 - p50
-
-                ax.hist(
-                    samples[:, i],
-                    bins=35,
-                    density=True,
-                    color=color_hist,
-                    alpha=0.65,
-                    edgecolor="none",
-                )
-                ax.axvline(p50, color=color_hist, linestyle="-", linewidth=1.5, label="Median")
-                ax.axvline(p16, color=color_hist, linestyle="--", linewidth=1.0)
-                ax.axvline(p84, color=color_hist, linestyle="--", linewidth=1.0)
-                ax.axvline(
-                    true_vals[i],
-                    color=color_true,
-                    linestyle="-",
-                    linewidth=1.8,
-                    label="Truth",
-                )
-
-                title_str = f"{param_names[i]}\n${p50:.2f}_{{-{err_low:.2f}}}^{{+{err_high:.2f}}}$"
-                ax.set_title(title_str, fontsize=10, pad=4)
-                ax.set_yticks([])
-
-            else:
-                ax.scatter(
-                    samples[::3, j],
-                    samples[::3, i],
-                    s=2,
-                    color=color_hist,
-                    alpha=0.15,
-                    rasterized=True,
-                )
-
-                try:
-                    from scipy.stats import gaussian_kde
-
-                    kde = gaussian_kde(np.vstack([samples[:, j], samples[:, i]]))
-                    x_grid = np.linspace(samples[:, j].min(), samples[:, j].max(), 50)
-                    y_grid = np.linspace(samples[:, i].min(), samples[:, i].max(), 50)
-                    X, Y = np.meshgrid(x_grid, y_grid)
-                    Z = kde(np.vstack([X.ravel(), Y.ravel()])).reshape(X.shape)
-                    ax.contour(
-                        X,
-                        Y,
-                        Z,
-                        levels=4,
-                        colors=color_contour,
-                        linewidths=1.0,
-                        alpha=0.8,
-                    )
-                except Exception:
-                    pass
-
-                ax.axvline(true_vals[j], color=color_true, linestyle="--", linewidth=1.2)
-                ax.axhline(true_vals[i], color=color_true, linestyle="--", linewidth=1.2)
-                ax.plot(
-                    true_vals[j],
-                    true_vals[i],
-                    "s",
-                    color=color_true,
-                    markersize=6,
-                    label="Truth",
-                )
-
-            if i == n_params - 1:
-                ax.set_xlabel(param_names[j], fontsize=10)
-            if j == 0 and i > 0:
-                ax.set_ylabel(param_names[i], fontsize=10)
-
-            ax.tick_params(labelsize=8, direction="in")
-            ax.grid(True, linestyle=":", alpha=0.4)
-
-    fig.suptitle(title, fontsize=13, y=0.99, fontweight="bold")
-    plt.tight_layout()
-
-    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(save_path, bbox_inches="tight", dpi=200)
-    print(f"Saved corner plot artifact to: {save_path}")
-    return fig
-
-
-# ============================================================================
-# 4. Main Training and Evaluation Pipeline
+# 3. Main Training and Evaluation Pipeline
 # ============================================================================
 
 
