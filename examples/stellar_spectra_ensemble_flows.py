@@ -145,7 +145,6 @@ def main():
     target_mean = train_targets.mean(dim=0, keepdim=True)
     target_std = train_targets.std(dim=0, keepdim=True)
     train_targets_norm = (train_targets - target_mean) / target_std
-    test_targets_norm = (test_targets - target_mean) / target_std
 
     n_ensemble_members = 4
     base_flow_member = FlowEnsembleMember(input_len=n_channels, n_targets=3, context_dim=32)
@@ -174,7 +173,6 @@ def main():
     print("\n2. Evaluating test set predictions across Flow Ensemble...")
     ensemble.eval()
 
-    n_test = len(test_spectra)
     n_samples_per_member = 100
     member_point_preds = []
 
@@ -184,7 +182,9 @@ def main():
             test_loader = DataLoader(TensorDataset(test_spectra), batch_size=50)
             for (spec_b,) in test_loader:
                 ctx_b = member.backbone(spec_b)
-                draws_norm = member.loss_wrapper.sample(ctx_b, n_samples=n_samples_per_member)  # [50, 100, 3]
+                draws_norm = member.loss_wrapper.sample(
+                    ctx_b, n_samples=n_samples_per_member
+                )  # [50, 100, 3]
                 draws_unnorm = draws_norm * target_std.unsqueeze(0) + target_mean.unsqueeze(0)
                 m_preds.append(draws_unnorm.median(dim=1).values)
             member_point_preds.append(torch.cat(m_preds, dim=0))

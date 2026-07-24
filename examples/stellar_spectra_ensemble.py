@@ -128,7 +128,6 @@ def main():
     target_mean = train_targets.mean(dim=0, keepdim=True)
     target_std = train_targets.std(dim=0, keepdim=True)
     train_targets_norm = (train_targets - target_mean) / target_std
-    test_targets_norm = (test_targets - target_mean) / target_std
 
     # Create Deep Ensemble of 5 CNN models
     n_ensemble_members = 5
@@ -203,7 +202,6 @@ def main():
 
     print("\n3. Generating Ensemble Corner Plot for test spectrum...")
     test_idx = 0
-    test_spec_single = test_spectra[test_idx : test_idx + 1]
     true_params_single = test_targets[test_idx].numpy()
 
     # Draw Monte Carlo samples from each member Gaussian distribution
