@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import torch
@@ -82,14 +83,14 @@ class IsotonicMeanCalibrator:
         self._y: Tensor | None = None
 
     @staticmethod
-    def _pava(x: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
+    def _pava(x: Tensor | np.ndarray, y: Tensor | np.ndarray) -> tuple[Any, Any]:
         is_numpy = isinstance(x, np.ndarray)
         x_t = torch.as_tensor(x)
         y_t = torch.as_tensor(y)
 
         if x_t.numel() == 0:
             if is_numpy:
-                return np.array([], dtype=x.dtype), np.array([], dtype=y.dtype)
+                return np.array([], dtype=float), np.array([], dtype=float)
             return x_t.clone(), y_t.clone()
 
         order = x_t.argsort()
@@ -125,7 +126,8 @@ class IsotonicMeanCalibrator:
             return torch.zeros_like(xq)
 
         if self._x.numel() == 1:
-            return torch.full_like(xq, self._y[0])
+            val = float(self._y[0].item())
+            return torch.full_like(xq, val)
 
         idx = torch.searchsorted(self._x, xq).clamp(1, len(self._x) - 1)
         x_left = self._x[idx - 1]

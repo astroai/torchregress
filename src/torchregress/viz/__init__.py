@@ -66,6 +66,7 @@ from torchregress.viz.monitoring import (
 # Import results visualization tools
 from torchregress.viz.results import (
     plot_causal_uplift_qini,
+    plot_corner_plot,
     plot_feature_importance,
     plot_model_ensemble_contributions,
     plot_parameter_sensitivity,
@@ -112,6 +113,7 @@ __all__ = [
     "plot_simex_extrapolation",
     "plot_risk_coverage_curve",
     "plot_causal_uplift_qini",
+    "plot_corner_plot",
     "set_style",
     "create_grid_figure",
     "add_identity_line",

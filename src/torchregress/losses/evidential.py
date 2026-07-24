@@ -427,10 +427,11 @@ class EvidentialRegressionLoss(DistributionLoss):
         # which differs from sqrt(aleatoric + epistemic)
         scale = torch.sqrt(beta * (1 + 1 / nu) / (alpha + 1e-6))
 
-        # ponytail: StudentT.icdf is vectorised, differentiable, and stays on-device.
-        t_dist = torch.distributions.StudentT(df=df.double())
-        t_quantile = t_dist.icdf(torch.tensor((1 + confidence) / 2, device=df.device))
-        t_quantile = t_quantile.to(df.dtype)
+        from scipy.stats import t as scipy_t
+
+        p = (1.0 + confidence) / 2.0
+        t_q = scipy_t.ppf(p, df.detach().cpu().numpy())
+        t_quantile = torch.tensor(t_q, device=df.device, dtype=df.dtype)
 
         lower = gamma - t_quantile * scale
         upper = gamma + t_quantile * scale

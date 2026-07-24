@@ -6,7 +6,7 @@ common operations used across different visualization functions.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -264,7 +264,7 @@ def add_annotations(
 
 def create_color_palette(
     n_colors: int, palette_name: str = "tab10", as_hex: bool = False, as_cmap: bool = False
-) -> Union[List[Tuple[float, float, float]], List[str], mpl.colors.Colormap]:
+) -> Any:
     """
     Create a color palette for consistent colors across plots.
 
@@ -283,16 +283,13 @@ def create_color_palette(
     if as_cmap:
         return cmap
 
-    # Generate colors from colormap
-    if n_colors == 1:
-        colors = [cmap(0.5)]
-    else:
-        colors = [cmap(i / (n_colors - 1)) for i in range(n_colors)]
-
     if as_hex:
-        colors = [mpl.colors.rgb2hex(cmap(i)[:3]) for i in range(n_colors)]
+        return [mpl.colors.rgb2hex(cmap(i)[:3]) for i in range(n_colors)]
 
-    return colors
+    if n_colors == 1:
+        return [cmap(0.5)]
+
+    return [cmap(i / (n_colors - 1)) for i in range(n_colors)]
 
 
 def enable_latex_rendering(enable: bool = True) -> bool:

@@ -13,7 +13,7 @@ import argparse
 import numpy as np
 
 from torchregress.prediction import PredictiveBatch
-from torchregress.test_time import BayesianLinearHead, SupportsPredictiveBatch
+from torchregress.test_time import BayesianLinearHead
 
 
 class BLRPredictiveAdapter:

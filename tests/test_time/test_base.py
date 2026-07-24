@@ -257,8 +257,12 @@ class TestFlattenAdaptationParameters:
                 super().__init__()
                 self.head = torch.nn.Linear(8, 2)
                 self.embed = torch.nn.Linear(8, 8)
+
             def adaptation_parameter_groups(self) -> dict[str, list[torch.nn.Parameter]]:
-                return {"head": list(self.head.parameters()), "embed": list(self.embed.parameters())}
+                return {
+                    "head": list(self.head.parameters()),
+                    "embed": list(self.embed.parameters()),
+                }
 
         model = _AdaptableModule()
         groups = model.adaptation_parameter_groups()

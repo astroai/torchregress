@@ -11,8 +11,7 @@ guidance see the [Method Selection Matrix](../guide/method-selection.md).
 
 ## 1. Regression as probabilistic inference
 
-Given features $x \in \mathbb{R}^D$ and a continuous target $y \in
-\mathbb{R}$, the goal is to model the **conditional distribution**
+Given features $x \in \mathbb{R}^D$ and a continuous target $y \in \mathbb{R}$, the goal is to model the **conditional distribution**
 $p(y \mid x)$, not a single point $\hat y$. A point estimate is then
 recovered as an aspect of that distribution:
 

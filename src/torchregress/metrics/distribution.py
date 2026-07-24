@@ -156,7 +156,7 @@ def probability_integral_transform(
     n_bins: int = 10,
     return_histogram: bool = False,
     as_numpy: bool = False,
-) -> Union[torch.Tensor, Dict[str, Union[torch.Tensor, float]]]:
+) -> Union[torch.Tensor, np.ndarray, Dict[str, Union[torch.Tensor, float]]]:
     y_true_t = convert_to_tensor(y_true)
     pit_values = convert_to_tensor(cdf_fn(y_true_t))
 
@@ -688,7 +688,7 @@ def _process_distribution_metrics(
     samples: Optional[Union[torch.Tensor, np.ndarray]],
     n_samples: int,
     results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
-) -> Tuple[Optional[Union[torch.Tensor, np.ndarray]], Optional[torch.Tensor]]:
+) -> Tuple[Optional[Union[torch.Tensor, np.ndarray]], Any]:
     """Process distribution-based metrics (log-prob, samples, PIT)."""
     pit_values = None
 

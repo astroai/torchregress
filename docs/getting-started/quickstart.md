@@ -290,16 +290,16 @@ scoring rules and decomposition formulas, see
 
 ## References
 
-| Key | Reference |
-|:----|:----------|
-| [KendallGal2017] | Kendall, A. & Gal, Y. (2017). What Uncertainties Do We Need in Bayesian Deep Learning for Computer Vision? *NeurIPS*. |
-| [Lakshminarayanan2017] | Lakshminarayanan, B., Pritzel, A. & Blundell, C. (2017). Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles. *NeurIPS*. |
-| [GneitingRaftery2007] | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
-| [Vovk2005] | Vovk, V., Gammerman, A. & Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer. |
-| [Romano2019] | Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*. |
-| [Tibshirani2019] | Tibshirani, R. J., Foygel Barber, R., Candès, E. & Ramdas, A. (2019). Conformal Prediction Under Covariate Shift. *NeurIPS*. |
-| [Huber1964] | Huber, P. J. (1964). Robust Estimation of a Location Parameter. *Annals of Mathematical Statistics*, 35(1), 73–101. |
-| [Carroll2006] | Carroll, R. J., Ruppert, D., Stefanski, L. A. & Crainiceanu, C. M. (2006). *Measurement Error in Nonlinear Models* (2nd ed.). Chapman & Hall. |
+| # | Reference |
+|:-:|:----------|
+| 1 | Kendall, A. & Gal, Y. (2017). What Uncertainties Do We Need in Bayesian Deep Learning for Computer Vision? *NeurIPS*. |
+| 2 | Lakshminarayanan, B., Pritzel, A. & Blundell, C. (2017). Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles. *NeurIPS*. |
+| 3 | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
+| 4 | Vovk, V., Gammerman, A. & Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer. |
+| 5 | Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*. |
+| 6 | Tibshirani, R. J., Foygel Barber, R., Candès, E. & Ramdas, A. (2019). Conformal Prediction Under Covariate Shift. *NeurIPS*. |
+| 7 | Huber, P. J. (1964). Robust Estimation of a Location Parameter. *Annals of Mathematical Statistics*, 35(1), 73–101. |
+| 8 | Carroll, R. J., Ruppert, D., Stefanski, L. A. & Crainiceanu, C. M. (2006). *Measurement Error in Nonlinear Models* (2nd ed.). Chapman & Hall. |
 
 ## Next steps
 

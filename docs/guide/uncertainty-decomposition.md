@@ -35,8 +35,7 @@ guarantee* does **not** satisfy the *decomposition* contract.
 ## 2. The Law of Total Variance (the identity)
 
 For a set of $M$ probabilistic predictors, each producing a
-conditional distribution $p_m(y \mid x) = \mathcal{N}(\mu_m(x),
-\sigma_m^2(x))$ (the identity extends to non-Gaussian members with
+conditional distribution $p_m(y \mid x) = \mathcal{N}(\mu_m(x), \sigma_m^2(x))$ (the identity extends to non-Gaussian members with
 the appropriate variance definitions):
 
 $$

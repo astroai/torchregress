@@ -132,7 +132,7 @@ class StudentTLoss(RegressionLoss):
             + math.log(self.scale)
         )
 
-        return self._reduce_with_mask(nll, mask, weights)
+        return self._reduce(nll, mask, weights)
 
     def extra_repr(self) -> str:
         return f"nu={self.nu}, scale={self.scale}"

@@ -192,11 +192,23 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 → See [`uncertainty_decomposition`](../api/metrics.md) and [Ensemble API](../api/ensemble.md).
 
-### [Ordinal Regression Comparison](ordinal_regression_comparison.md)
+### [Stellar Spectra Flows & Corner Plot](stellar_spectra_flow_corner.md)
 
-- Shared-budget comparison for ordered targets.
-- Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
-- Reports ordinal accuracy, class-index MAE, QWK, and runtime.
+- Multi-target 1D stellar spectra parameter estimation ($T_{\mathrm{eff}}$, $\log g$, $[\mathrm{Fe/H}]$) with 1D CNN backbone + Neural Spline Flow (NSF) head.
+- Generates 3x3 corner plots using `torchregress.viz.plot_corner_plot`.
+- Script: [`examples/stellar_spectra_flow_corner.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_flow_corner.py).
+
+### [Stellar Spectra Ensembling](stellar_spectra_ensemble.md)
+
+- Multi-target Deep Ensemble ($M=5$ models) with heteroscedastic heads for stellar spectra.
+- Deconstructs total variance into aleatoric noise ($\sigma_{\text{al}}$) and epistemic model disagreement ($\sigma_{\text{ep}}$).
+- Script: [`examples/stellar_spectra_ensemble.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_ensemble.py).
+
+### [Stellar Spectra Ensemble Flows](stellar_spectra_ensemble_flows.md)
+
+- Deep Ensemble of Normalizing Flows ($M=4$ NSF models) capturing non-Gaussian aleatoric shapes + epistemic flow model uncertainty.
+- Displays individual member flow contours and total mixture contours on 3x3 corner plots using `torchregress.viz.plot_corner_plot`.
+- Script: [`examples/stellar_spectra_ensemble_flows.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_ensemble_flows.py).
 
 ### [Ordinal Regression Comparison (Real Data)](ordinal_regression_realdata_comparison.md)
 
@@ -300,6 +312,12 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Using normalizing flows for multi-target regression.
 - Multi-target/multimodal demo; compare with Gaussian and MDN baselines separately for decision-grade selection.
+
+### [Stellar Spectra Flows & Corner Plot](stellar_spectra_flow_corner.md)
+
+- Multi-target parameter estimation ($T_{\mathrm{eff}}$, $\log g$, $[\mathrm{Fe/H}]$) from 1D stellar spectra using `SpectrumCNNBackbone` + `NormalizingFlowLoss` (Neural Spline Flow).
+- Demonstrates standard supervised regression with flows, joint posterior sampling, and rendering publication-ready 1D/2D corner plots.
+- Script: [`examples/stellar_spectra_flow_corner.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_flow_corner.py).
 
 ### [Multimodal Method Comparison](multimodal_method_comparison.md)
 

@@ -3,11 +3,44 @@ import pytest
 from matplotlib.figure import Figure
 
 from torchregress.viz.results import (
+    plot_corner_plot,
     plot_feature_importance,
     plot_model_ensemble_contributions,
     plot_parameter_sensitivity,
     plot_performance_comparison,
 )
+
+
+class TestPlotCornerPlot:
+    """Test plot_corner_plot visualization function."""
+
+    def teardown_method(self):
+        plt.close("all")
+
+    def test_plot_corner_plot_numpy(self):
+        import numpy as np
+
+        samples = np.random.randn(200, 3)
+        fig = plot_corner_plot(
+            samples,
+            param_names=["x", "y", "z"],
+            true_vals=np.array([0.0, 0.0, 0.0]),
+            title="Test Corner Plot",
+            return_figure=True,
+        )
+        assert isinstance(fig, Figure)
+
+    def test_plot_corner_plot_tensor(self):
+        import torch
+
+        samples = torch.randn(150, 2)
+        fig = plot_corner_plot(
+            samples,
+            param_names=["a", "b"],
+            true_vals=torch.tensor([0.5, -0.5]),
+            return_figure=True,
+        )
+        assert isinstance(fig, Figure)
 
 
 class TestPlotPerformanceComparison:

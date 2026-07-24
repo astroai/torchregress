@@ -103,7 +103,7 @@ A lower TAC score indicates that the predicted covariance matrix $\Sigma$ more a
 |:-:|:----------|
 | 1 | Shukla et al., "TIC-TAC: A Framework For Improved Covariance Estimation In Deep Heteroscedastic Regression" (ICML 2024). |
 | 2 | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
-| 3 | Bishop, C. M. (2006). *Pattern Recognition and Machine Learning*. Springer. [Multivariate Gaussian identities] |
+| 3 | Bishop, C. M. (2006). *Pattern Recognition and Machine Learning*. Springer. (Multivariate Gaussian identities) |
 
 ## Example
 

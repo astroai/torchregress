@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-uv sync --extra test --extra flows --extra docs --dev
+uv sync --all-extras --dev
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 uv run python -m pytest --cov=torchregress --cov-report=term

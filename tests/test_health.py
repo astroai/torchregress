@@ -1,5 +1,3 @@
-import pytest
-
 from torchregress.health import check_health
 
 
@@ -20,6 +18,7 @@ def test_check_health_success(capsys):
 def test_check_health_main(capsys):
     """Test that check_health is called when run as main."""
     import runpy
+
     runpy.run_module("torchregress.health", run_name="__main__")
     captured = capsys.readouterr()
     assert "[SUCCESS] System appears healthy." in captured.out

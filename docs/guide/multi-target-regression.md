@@ -88,8 +88,7 @@ $K \le 10$–$20$.
 For $K \gg 1$, parameterise
 $\mathbf{\Sigma} = \mathbf{U}\mathbf{U}^\top + \text{diag}(\mathbf{d})$
 with a low-rank factor $\mathbf{U} \in \mathbb{R}^{K \times R}$
-($R \ll K$) and a strictly positive diagonal $\mathbf{d} \in
-\mathbb{R}_{>0}^K$.
+($R \ll K$) and a strictly positive diagonal $\mathbf{d} \in \mathbb{R}_{>0}^K$.
 
 The inverse is available in closed form via the **Sherman–Morrison–Woodbury
 identity**:

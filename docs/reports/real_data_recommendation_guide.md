@@ -13,7 +13,7 @@ This guide is evidence-first and claim-bounded. It is generated from committed c
 
 _Generated provenance_: `tools/render_realdata_recommendation_guide.py:render_generated_section`
 _Source artifact_: `reports/comparative_evidence_matrix_latest.json`
-_Generated date_: `2026-06-27`
+_Generated date_: `2026-07-24`
 
 ## Evidence Band Summary
 

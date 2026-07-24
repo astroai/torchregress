@@ -93,7 +93,7 @@ class RepresentationShiftInflator:
     ) -> Tensor | np.ndarray:
         is_numpy = isinstance(probabilities, np.ndarray)
         reps = _ensure_tensor(target_representations)
-        temps = self.temperatures(reps).unsqueeze(-1)
+        temps = _ensure_tensor(self.temperatures(reps)).unsqueeze(-1)
         logits = _ensure_tensor(probabilities).double().clamp(self.eps, None).log()
         scaled = logits / temps
         scaled = scaled - scaled.max(dim=1, keepdim=True).values
@@ -108,7 +108,7 @@ class RepresentationShiftInflator:
     ) -> Tensor | np.ndarray:
         is_numpy = isinstance(std, np.ndarray)
         reps = _ensure_tensor(target_representations)
-        temps = self.temperatures(reps)
+        temps = _ensure_tensor(self.temperatures(reps))
         result = (_ensure_tensor(std).double() * temps).clamp(self.eps, None)
         if is_numpy:
             return result.numpy()

@@ -22,11 +22,11 @@ $$
 $$
 
 This is a **proper scoring rule** — it is uniquely minimised by the true
-conditional distribution $p(y \mid x)$ [GneitingRaftery2007].
+conditional distribution $p(y \mid x)$ (Gneiting & Raftery 2007).
 
 - Use [`GaussianNLLLoss`](../api/losses.md) for unimodal, heteroscedastic data.
 - Use [`BetaNLLLoss`](../api/losses.md) when Gaussian NLL exhibits variance
-  collapse early in training [Skafte2019].
+  collapse early in training (Skafte et al. 2019).
 - For heteroscedasticity with outliers, combine a robust mean term with a
   variance head: see [Robust losses](../losses/robust.md).
 
@@ -34,7 +34,7 @@ conditional distribution $p(y \mid x)$ [GneitingRaftery2007].
 
 The choice of robust loss is governed by the **influence function**
 $\psi(r) = \rho'(r)$, which measures how much a single residual
-$r = y - \hat{y}$ affects the parameter estimate [Huber1964]:
+$r = y - \hat{y}$ affects the parameter estimate (Huber 1964):
 
 | Loss | Influence $\psi(r)$ | Breakdown | Best For | Reference |
 |:-----|:--------------------|:----------|:---------|:----------|
@@ -91,11 +91,11 @@ $$
 \end{cases}
 $$
 
-where $\Phi$ is the standard Gaussian CDF [Tobin1958].
+where $\Phi$ is the standard Gaussian CDF (Tobin 1958).
 
 - Use [`CensoredGaussianNLLLoss`](../api/losses.md) for Gaussian censored regression.
 - Use [`CensoredQuantileLoss`](../api/losses.md) for a non-parametric alternative.
-- Use [`AFTLoss`](../api/losses.md) for survival / time-to-event modelling [Cox1972].
+- Use [`AFTLoss`](../api/losses.md) for survival / time-to-event modelling (Cox 1972).
 
 ### Multimodal Targets
 
@@ -106,16 +106,16 @@ $$
 p(y \mid x) = \sum_{k=1}^K \pi_k(x)\ \mathcal{N}\!\bigl(y \mid \mu_k(x),\, \sigma_k^2(x)\bigr)
 $$
 
-- [`MDNLoss`](../api/losses.md) (Mixture Density Network) for known $K$ [Bishop1994].
+- [`MDNLoss`](../api/losses.md) (Mixture Density Network) for known $K$ (Bishop 1994).
 - [`NormalizingFlowLoss`](../api/losses.md) for flexible, non-parametric densities
-  [RezendeMohamed2015].
+  (Rezende & Mohamed 2015).
 
 See [Multimodal targets guide](multi-target-regression.md).
 
 ### Imbalanced Targets
 
 When the target distribution is heavily skewed, loss reweighting methods
-target specific tail-region tradeoffs [Ren2019]:
+target specific tail-region tradeoffs (Ren et al. 2019):
 
 | Loss | Strategy | Tail Focus |
 |:-----|:---------|:-----------|
@@ -129,7 +129,7 @@ See [Imbalanced regression guide](../losses/imbalanced.md).
 ### Measurement Error in Inputs
 
 When $x$ is observed with noise $x_{\text{obs}} = x_{\text{true}} + \epsilon$,
-standard regression produces attenuated estimates [Carroll2006]:
+standard regression produces attenuated estimates (Carroll et al. 2006):
 
 | Method | Requires | Tradeoff |
 |:-------|:---------|:---------|
@@ -163,12 +163,12 @@ a full density (not just intervals) and trust the Gaussian assumption.
 
 Before trusting a model's uncertainty estimates, verify:
 
-1. [ ] **RMSE / NLL / CRPS** all improve on holdout (not just one).
-2. [ ] **Reliability diagram**: 90% intervals contain ≈ 90% of holdout data.
-3. [ ] **PIT histogram**: uniform for well-calibrated densities.
-4. [ ] **OOD sensitivity**: uncertainty increases on out-of-distribution inputs.
-5. [ ] **No variance collapse**: $\sigma(x)$ is not near zero everywhere.
-6. [ ] **Residuals**: no obvious structure (heteroscedasticity, curvature).
+- **RMSE / NLL / CRPS** all improve on holdout (not just one).
+- **Reliability diagram**: 90% intervals contain $\approx 90\%$ of holdout data.
+- **PIT histogram**: uniform for well-calibrated densities.
+- **OOD sensitivity**: uncertainty increases on out-of-distribution inputs.
+- **No variance collapse**: $\sigma(x)$ is not near zero everywhere.
+- **Residuals**: no obvious structure (heteroscedasticity, curvature).
 
 For implementation, see [Visualization Methods](../methods/visualization.md)
 and [Calibration Metrics](../metrics/calibration.md).
@@ -177,17 +177,19 @@ and [Calibration Metrics](../metrics/calibration.md).
 
 ## References
 
-1. [GneitingRaftery2007] Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378.
-2. [Skafte2019] Skafte, N., Jørgensen, M. & Hauberg, S. (2019). Reliable Training and Estimation of Variance Networks. *NeurIPS*.
-3. [Huber1964] Huber, P. J. (1964). Robust Estimation of a Location Parameter. *Annals of Mathematical Statistics*, 35(1), 73–101.
-4. [Tobin1958] Tobin, J. (1958). Estimation of Relationships for Limited Dependent Variables. *Econometrica*, 26(1), 24–36.
-5. [Cox1972] Cox, D. R. (1972). Regression Models and Life-Tables. *J. Royal Statistical Society B*, 34(2), 187–202.
-6. [Bishop1994] Bishop, C. M. (1994). Mixture Density Networks. *Technical Report*, Aston University.
-7. [RezendeMohamed2015] Rezende, D. J. & Mohamed, S. (2015). Variational Inference with Normalizing Flows. *ICML*.
-8. [KoenkerBassett1978] Koenker, R. & Bassett, G. (1978). Regression Quantiles. *Econometrica*, 46(1), 33–50.
-9. [Carroll2006] Carroll, R. J., Ruppert, D., Stefanski, L. A. & Crainiceanu, C. M. (2006). *Measurement Error in Nonlinear Models* (2nd ed.). Chapman & Hall.
-10. [Vovk2005] Vovk, V., Gammerman, A. & Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer.
-11. [Romano2019] Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*.
-12. [Lakshminarayanan2017] Lakshminarayanan, B., Pritzel, A. & Blundell, C. (2017). Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles. *NeurIPS*.
-13. [Ren2019] Ren, J., Liu, P. J., Fertig, E., Snoek, J., Poplin, R., DePristo, M. A., ... & Angermueller, C. (2019). Likelihood Ratios for Out-of-Distribution Detection. *NeurIPS*.
-14. [NixWeigend1994] Nix, D. A. & Weigend, A. S. (1994). Estimating the Mean and Variance of the Target Probability Distribution. *IEEE ICNN*.
+| # | Reference |
+|:-:|:----------|
+| 1 | Gneiting, T. & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. *JASA*, 102(477), 359–378. |
+| 2 | Skafte, N., Jørgensen, M. & Hauberg, S. (2019). Reliable Training and Estimation of Variance Networks. *NeurIPS*. |
+| 3 | Huber, P. J. (1964). Robust Estimation of a Location Parameter. *Annals of Mathematical Statistics*, 35(1), 73–101. |
+| 4 | Tobin, J. (1958). Estimation of Relationships for Limited Dependent Variables. *Econometrica*, 26(1), 24–36. |
+| 5 | Cox, D. R. (1972). Regression Models and Life-Tables. *J. Royal Statistical Society B*, 34(2), 187–202. |
+| 6 | Bishop, C. M. (1994). Mixture Density Networks. *Technical Report*, Aston University. |
+| 7 | Rezende, D. J. & Mohamed, S. (2015). Variational Inference with Normalizing Flows. *ICML*. |
+| 8 | Koenker, R. & Bassett, G. (1978). Regression Quantiles. *Econometrica*, 46(1), 33–50. |
+| 9 | Carroll, R. J., Ruppert, D., Stefanski, L. A. & Crainiceanu, C. M. (2006). *Measurement Error in Nonlinear Models* (2nd ed.). Chapman & Hall. |
+| 10 | Vovk, V., Gammerman, A. & Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer. |
+| 11 | Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*. |
+| 12 | Lakshminarayanan, B., Pritzel, A. & Blundell, C. (2017). Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles. *NeurIPS*. |
+| 13 | Ren, J., Liu, P. J., Fertig, E., Snoek, J., Poplin, R., DePristo, M. A., ... & Angermueller, C. (2019). Likelihood Ratios for Out-of-Distribution Detection. *NeurIPS*. |
+| 14 | Nix, D. A. & Weigend, A. S. (1994). Estimating the Mean and Variance of the Target Probability Distribution. *IEEE ICNN*. |

@@ -5,6 +5,7 @@ This module provides visualization utilities for presenting
 and comparing regression model results.
 """
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import matplotlib.pyplot as plt
@@ -1179,3 +1180,277 @@ def plot_causal_uplift_qini(
         plt.tight_layout()
         plt.show()
     return None
+
+
+def plot_corner_plot(
+    samples: np.ndarray | torch.Tensor,
+    *,
+    member_samples: list[np.ndarray | torch.Tensor] | None = None,
+    param_names: list[str] | None = None,
+    true_vals: np.ndarray | torch.Tensor | None = None,
+    quantiles: tuple[float, ...] = (0.16, 0.50, 0.84),
+    show_titles: bool = True,
+    show_uncertainty_decomposition: bool = True,
+    title: str | None = None,
+    color: str = "#1f77b4",
+    truth_color: str = "#e31a1c",
+    member_colors: list[str] | None = None,
+    figsize: tuple[int, int] | None = None,
+    save_path: str | Path | None = None,
+    return_figure: bool = False,
+) -> plt.Figure | None:
+    """Plot a publication-ready corner plot (1D marginal histograms + 2D contours).
+
+    Supports displaying ensemble member posterior distributions to visualize epistemic
+    model disagreement vs. aleatoric noise.
+
+    Args:
+        samples: Total posterior samples tensor or array [n_samples, n_params]
+        member_samples: Optional list of posterior sample arrays for each ensemble member
+        param_names: Optional list of parameter names
+        true_vals: Optional true parameter values [n_params]
+        quantiles: Quantiles for 1D marginal dashed lines (default: 0.16, 0.50, 0.84)
+        show_titles: Whether to add percentile summary titles over 1D marginals
+        show_uncertainty_decomposition: Whether to display aleatoric vs epistemic std decomposition
+        title: Overall title for corner plot figure
+        color: Primary color for marginal histograms and total 2D density contours
+        truth_color: Color for ground-truth reference lines
+        member_colors: Colors for individual ensemble member contours
+        figsize: Custom figure size tuple (width, height)
+        save_path: Optional filepath to save figure
+        return_figure: If True, returns matplotlib Figure object
+
+    Returns:
+        plt.Figure if return_figure=True, else None
+    """
+    if isinstance(samples, torch.Tensor):
+        samples = samples.detach().cpu().numpy()
+    if true_vals is not None and isinstance(true_vals, torch.Tensor):
+        true_vals = true_vals.detach().cpu().numpy()
+
+    if member_samples is not None:
+        processed_members = []
+        for ms in member_samples:
+            if isinstance(ms, torch.Tensor):
+                ms = ms.detach().cpu().numpy()
+            processed_members.append(np.asarray(ms))
+        member_samples = processed_members
+
+    samples = np.asarray(samples)
+    if samples.ndim != 2:
+        raise ValueError("samples must be a 2D array of shape [n_samples, n_params]")
+
+    n_samples, n_params = samples.shape
+    if param_names is None:
+        param_names = [f"Param {i + 1}" for i in range(n_params)]
+    elif len(param_names) != n_params:
+        msg = f"param_names length ({len(param_names)}) must match n_params ({n_params})"
+        raise ValueError(msg)
+
+    if figsize is None:
+        figsize = (2.5 * n_params, 2.5 * n_params)
+
+    fig, axes = plt.subplots(n_params, n_params, figsize=figsize)
+    if n_params == 1:
+        axes = np.array([[axes]])
+
+    # Pre-compute uncertainty decomposition if members are provided
+    alea_std, epi_std, tot_std = None, None, None
+    if member_samples is not None and len(member_samples) > 1:
+        member_means = np.array([np.mean(ms, axis=0) for ms in member_samples])  # [M, n_params]
+        member_vars = np.array([np.var(ms, axis=0) for ms in member_samples])  # [M, n_params]
+        alea_var = np.mean(member_vars, axis=0)  # Average within-member variance
+        epi_var = np.var(member_means, axis=0)  # Variance of member means
+        tot_var = alea_var + epi_var
+
+        alea_std = np.sqrt(alea_var)
+        epi_std = np.sqrt(epi_var)
+        tot_std = np.sqrt(tot_var)
+
+    default_colors = ["#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2"]
+    if member_colors is None and member_samples is not None:
+        member_colors = [
+            default_colors[m % len(default_colors)] for m in range(len(member_samples))
+        ]
+
+    for i in range(n_params):
+        for j in range(n_params):
+            ax = axes[i, j]
+
+            if j > i:
+                ax.axis("off")
+                continue
+
+            if i == j:
+                # 1D Marginal Histogram
+                x_dim = samples[:, i]
+                ax.hist(
+                    x_dim,
+                    bins=35,
+                    density=True,
+                    histtype="stepfilled",
+                    alpha=0.35,
+                    color=color,
+                    edgecolor=color,
+                    linewidth=1.2,
+                    label="Total Posterior" if member_samples is not None else None,
+                )
+
+                # Overlay member marginal KDEs if provided
+                if member_samples is not None:
+                    from scipy.stats import gaussian_kde
+
+                    for m_idx, ms in enumerate(member_samples):
+                        m_x = ms[:, i]
+                        try:
+                            kde_m = gaussian_kde(m_x)
+                            x_grid_1d = np.linspace(x_dim.min(), x_dim.max(), 100)
+                            ax.plot(
+                                x_grid_1d,
+                                kde_m(x_grid_1d),
+                                color=member_colors[m_idx],  # type: ignore[index]
+                                linewidth=1.0,
+                                linestyle="--",
+                                alpha=0.7,
+                                label=f"Member {m_idx + 1}" if (i == 0 and j == 0) else None,
+                            )
+                        except Exception:
+                            pass
+
+                if quantiles:
+                    q_vals = np.quantile(x_dim, quantiles)
+                    for q_val in q_vals:
+                        ax.axvline(q_val, color=color, linestyle="--", alpha=0.7, linewidth=1.0)
+
+                    if show_titles and len(quantiles) >= 3:
+                        if (
+                            member_samples is not None
+                            and show_uncertainty_decomposition
+                            and alea_std is not None
+                        ):
+                            p_title = (
+                                rf"$\sigma_{{\text{{tot}}}}={tot_std[i]:.2f}$"
+                                + "\n"
+                                + rf"$(\sigma_{{\text{{al}}}}={alea_std[i]:.2f}, "
+                                + rf"\sigma_{{\text{{ep}}}}={epi_std[i]:.2f})$"
+                            )
+                        else:
+                            q16, q50, q84 = q_vals[0], q_vals[1], q_vals[2]
+                            plus_err = q84 - q50
+                            minus_err = q50 - q16
+                            p_title = (
+                                rf"${q50:.2f}_{{-{minus_err:.2f}}}^{{+{plus_err:.2f}}}$"
+                                if param_names[i]
+                                else ""
+                            )
+                        ax.set_title(p_title, fontsize=9, pad=4)
+
+                if true_vals is not None and i < len(true_vals):
+                    ax.axvline(true_vals[i], color=truth_color, linestyle="-", linewidth=1.5)
+
+                ax.set_yticks([])
+
+            else:
+                # 2D Joint Contour
+                x_dim = samples[:, j]
+                y_dim = samples[:, i]
+
+                ax.scatter(x_dim[::4], y_dim[::4], s=2, color=color, alpha=0.10, rasterized=True)
+
+                # Overlay member 2D contours if provided
+                if member_samples is not None:
+                    from scipy.stats import gaussian_kde
+
+                    for m_idx, ms in enumerate(member_samples):
+                        m_x = ms[:, j]
+                        m_y = ms[:, i]
+                        try:
+                            kde_m = gaussian_kde(np.vstack([m_x, m_y]))
+                            x_grid = np.linspace(x_dim.min(), x_dim.max(), 40)
+                            y_grid = np.linspace(y_dim.min(), y_dim.max(), 40)
+                            X_g, Y_g = np.meshgrid(x_grid, y_grid)
+                            Z_g = kde_m(np.vstack([X_g.ravel(), Y_g.ravel()])).reshape(X_g.shape)
+
+                            z_max = Z_g.max()
+                            ax.contour(
+                                X_g,
+                                Y_g,
+                                Z_g,
+                                levels=[z_max * 0.50],
+                                colors=member_colors[m_idx],  # type: ignore[index]
+                                linewidths=0.9,
+                                linestyles="--",
+                                alpha=0.7,
+                            )
+                        except Exception:
+                            pass
+
+                # Total ensemble contour
+                try:
+                    from scipy.stats import gaussian_kde
+
+                    kde = gaussian_kde(np.vstack([x_dim, y_dim]))
+                    x_grid = np.linspace(x_dim.min(), x_dim.max(), 50)
+                    y_grid = np.linspace(y_dim.min(), y_dim.max(), 50)
+                    X_g, Y_g = np.meshgrid(x_grid, y_grid)
+                    Z_g = kde(np.vstack([X_g.ravel(), Y_g.ravel()])).reshape(X_g.shape)
+
+                    z_max = Z_g.max()
+                    levels = [z_max * 0.15, z_max * 0.50, z_max * 0.85]
+                    ax.contour(
+                        X_g,
+                        Y_g,
+                        Z_g,
+                        levels=levels,
+                        colors=color,
+                        linewidths=1.3,
+                        alpha=0.85,
+                    )
+                except Exception:
+                    pass
+
+                if true_vals is not None:
+                    if j < len(true_vals):
+                        ax.axvline(true_vals[j], color=truth_color, linestyle="-", linewidth=1.5)
+                    if i < len(true_vals):
+                        ax.axhline(true_vals[i], color=truth_color, linestyle="-", linewidth=1.5)
+                    if j < len(true_vals) and i < len(true_vals):
+                        ax.plot(
+                            true_vals[j],
+                            true_vals[i],
+                            marker="o",
+                            color=truth_color,
+                            markersize=5,
+                        )
+
+            # Labels and tick formatting
+            if i == n_params - 1:
+                ax.set_xlabel(param_names[j], fontsize=10, fontweight="bold")
+            else:
+                ax.set_xticklabels([])
+
+            if j == 0 and i != 0:
+                ax.set_ylabel(param_names[i], fontsize=10, fontweight="bold")
+            elif i != j:
+                ax.set_yticklabels([])
+
+            ax.tick_params(direction="in", labelsize=8)
+
+    if title:
+        fig.suptitle(title, fontsize=12, fontweight="bold", y=1.02)
+
+    if member_samples is not None:
+        axes[0, 0].legend(loc="upper right", fontsize=7, frameon=True)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+    if return_figure:
+        return fig
+    else:
+        plt.show()
+        return None

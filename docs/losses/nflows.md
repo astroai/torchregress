@@ -9,17 +9,38 @@ Normalizing flows transform a simple base distribution (Gaussian) into a complex
 
 ---
 
-## Mathematical Background
+## Mathematical Background & Formulation for Supervised Regression
 
-A flow $f = f_1 \circ \cdots \circ f_K$ maps a simple base distribution $p_Z(z)$ to a complex distribution $p_X(x)$:
+Conditional Normalizing Flows model complex, non-Gaussian, multi-dimensional target distributions $p(\mathbf{y} \mid \mathbf{x})$ for regression tasks.
 
-$$\boxed{\;p_X(x) = p_Z\bigl(f(x)\bigr)\;\left|\det\frac{\partial f(x)}{\partial x}\right|\;}$$
+### 1. Conditional Density Estimation in Regression
 
-The NLL loss is:
+Given observed input features $\mathbf{x} \in \mathbb{R}^D$ (e.g. 1D stellar spectra, images, tabular covariates) and continuous target variables $\mathbf{y} \in \mathbb{R}^M$ (e.g. stellar parameters $[T_{\text{eff}}, \log g, [\text{Fe/H}]]$):
 
-$$\mathcal{L}_{\text{NF}}(x) = -\log p_Z(f(x)) - \sum_{k=1}^K \log\!\left|\det\frac{\partial f_k}{\partial f_{k-1}}\right|$$
+1. **Backbone Context Extractor**: A neural network (e.g. 1D CNN, MLP, or ResNet) $c_\theta(\mathbf{x})$ maps the input $\mathbf{x}$ to a conditioning context vector $\mathbf{c} \in \mathbb{R}^{d_{\text{ctx}}}$.
+2. **Invertible Flow Head**: An invertible transformation $\mathbf{f}_\phi(\mathbf{y}; \mathbf{c})$ conditioned on context $\mathbf{c}$ maps the target $\mathbf{y} \in \mathbb{R}^M$ into a simple base Gaussian variable $\mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_M)$.
 
-where $f_0 = x$ is the input and $f_K = f(x)$ is the base-space representation.
+By change of variables, the exact conditional likelihood of target $\mathbf{y}$ given input $\mathbf{x}$ is:
+
+$$\boxed{\;p(\mathbf{y} \mid \mathbf{x}) = p_{\mathbf{Z}}\bigl(\mathbf{f}_\phi(\mathbf{y}; c_\theta(\mathbf{x}))\bigr) \left| \det \frac{\partial \mathbf{f}_\phi(\mathbf{y}; c_\theta(\mathbf{x}))}{\partial \mathbf{y}} \right|\;}$$
+
+Training minimizes the exact Negative Log-Likelihood (NLL) via standard gradient descent:
+
+$$\mathcal{L}_{\text{NLL}}(\theta, \phi) = -\frac{1}{N} \sum_{i=1}^N \left[ \log p_{\mathbf{Z}}\bigl(\mathbf{f}_\phi(\mathbf{y}_i; c_\theta(\mathbf{x}_i))\bigr) + \log \left| \det \frac{\partial \mathbf{f}_\phi(\mathbf{y}_i; c_\theta(\mathbf{x}_i))}{\partial \mathbf{y}_i} \right| \right]$$
+
+---
+
+### 2. Standard Regression vs. Simulation-Based Inference (SBI)
+
+| Setting | Data Source | Flow Role | Primary Objective |
+|:--------|:------------|:----------|:------------------|
+| **Standard Supervised Regression** | Observed paired dataset $\mathcal{D} = \{(\mathbf{x}_i, \mathbf{y}_i)\}_{i=1}^N$ | Direct parametric likelihood head $p(\mathbf{y} \mid \mathbf{x})$ | Maximum Likelihood Estimation (MLE) over target labels |
+| **Simulation-Based Inference (SBI)** | Forward simulator $x \sim p(x \mid \theta)$ + prior $p(\theta)$ | Density ratio estimator or posterior surrogate $q(\theta \mid x)$ | Amortized Bayesian parameter retrieval from simulated $x$ |
+
+In **standard regression**, conditional normalizing flows act as a drop-in replacement for `GaussianNLLLoss` or `MDNLoss`:
+- **Beyond Gaussianity**: Unlike `GaussianNLLLoss` (which restricts $p(\mathbf{y} \mid \mathbf{x})$ to symmetric ellipses), flows capture non-linear parameter degeneracies (such as banana-shaped $T_{\text{eff}}$ vs. $\log g$ contours in astrophysics), heavy tails, and skewness.
+- **Beyond Fixed Components**: Unlike `MDNLoss` (which requires choosing a fixed number $K$ of Gaussian mixture modes and can suffer from mode collapse during training), flows transform a continuous base space smoothly, providing stable likelihood gradients.
+- **Fast Sampling at Inference**: Given a new input spectrum $\mathbf{x}_{\text{test}}$, evaluating context $\mathbf{c} = c_\theta(\mathbf{x}_{\text{test}})$ enables drawing $N = 5,000$ exact joint posterior samples $\mathbf{y}^{(s)} \sim p(\mathbf{y} \mid \mathbf{x}_{\text{test}})$ in milliseconds to produce full 1D and 2D corner plots.
 
 See the [NormalizingFlowLoss API](../api/losses.md) for the training contract and `create_flow_loss` helper.
 

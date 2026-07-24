@@ -120,7 +120,8 @@ def bars_to_density_grid(
         )
         dens = bar_density[bin_idx].clamp(min=0.0)
         integral = torch.trapezoid(dens, support[idx])
-        density[idx] = dens / max(integral, 1.0e-8)
+        integral_val = float(integral.item())
+        density[idx] = dens / max(integral_val, 1.0e-8)
     return support, density
 
 
@@ -164,7 +165,8 @@ def samples_to_density_grid(
         idxs = torch.searchsorted(edge_support, support[idx]).clamp(0, row.size(0) - 2)
         density[idx] = row[idxs]
         integral = torch.trapezoid(density[idx], support[idx])
-        density[idx] = density[idx] / max(integral, 1.0e-8)
+        integral_val = float(integral.item())
+        density[idx] = density[idx] / max(integral_val, 1.0e-8)
     return support, density
 
 
@@ -194,15 +196,15 @@ class PredictiveBatch:
             return self
         if self.bar_logits is not None and self.bin_edges is not None:
             support, density = bars_to_density_grid(
-                self.bar_logits,
-                self.bin_edges,
+                torch.as_tensor(self.bar_logits),
+                torch.as_tensor(self.bin_edges),
                 n_support=n_support,
                 range_margin=range_margin,
             )
             return replace(self, support=_maybe_collapse_support(support), density=density)
         if self.quantiles is not None and self.quantile_levels is not None:
             support, density = quantiles_to_density_grid(
-                self.quantiles,
+                torch.as_tensor(self.quantiles),
                 self.quantile_levels,
                 n_support=n_support,
                 range_margin=range_margin,
@@ -210,7 +212,7 @@ class PredictiveBatch:
             return replace(self, support=_maybe_collapse_support(support), density=density)
         if self.samples is not None:
             support, density = samples_to_density_grid(
-                self.samples,
+                torch.as_tensor(self.samples),
                 n_support=n_support,
                 range_margin=range_margin,
             )
