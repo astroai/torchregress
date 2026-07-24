@@ -1191,6 +1191,7 @@ def plot_corner_plot(
     quantiles: tuple[float, ...] = (0.16, 0.50, 0.84),
     show_titles: bool = True,
     show_uncertainty_decomposition: bool = True,
+    show_scatter: bool | None = None,
     title: str | None = None,
     color: str = "#1f77b4",
     truth_color: str = "#e31a1c",
@@ -1212,6 +1213,8 @@ def plot_corner_plot(
         quantiles: Quantiles for 1D marginal dashed lines (default: 0.16, 0.50, 0.84)
         show_titles: Whether to add percentile summary titles over 1D marginals
         show_uncertainty_decomposition: Whether to display aleatoric vs epistemic std decomposition
+        show_scatter: Whether to display background scatter points in 2D plots
+            (default: True for single model, False for ensemble)
         title: Overall title for corner plot figure
         color: Primary color for marginal histograms and total 2D density contours
         truth_color: Color for ground-truth reference lines
@@ -1247,6 +1250,9 @@ def plot_corner_plot(
         msg = f"param_names length ({len(param_names)}) must match n_params ({n_params})"
         raise ValueError(msg)
 
+    if show_scatter is None:
+        show_scatter = member_samples is None
+
     if figsize is None:
         figsize = (2.5 * n_params, 2.5 * n_params)
 
@@ -1257,10 +1263,10 @@ def plot_corner_plot(
     # Pre-compute uncertainty decomposition if members are provided
     alea_std, epi_std, tot_std = None, None, None
     if member_samples is not None and len(member_samples) > 1:
-        member_means = np.array([np.mean(ms, axis=0) for ms in member_samples])  # [M, n_params]
-        member_vars = np.array([np.var(ms, axis=0) for ms in member_samples])  # [M, n_params]
-        alea_var = np.mean(member_vars, axis=0)  # Average within-member variance
-        epi_var = np.var(member_means, axis=0)  # Variance of member means
+        member_means = np.array([np.mean(ms, axis=0) for ms in member_samples])
+        member_vars = np.array([np.var(ms, axis=0) for ms in member_samples])
+        alea_var = np.mean(member_vars, axis=0)
+        epi_var = np.var(member_means, axis=0)
         tot_var = alea_var + epi_var
 
         alea_std = np.sqrt(alea_var)
@@ -1289,7 +1295,7 @@ def plot_corner_plot(
                     bins=35,
                     density=True,
                     histtype="stepfilled",
-                    alpha=0.35,
+                    alpha=0.30,
                     color=color,
                     edgecolor=color,
                     linewidth=1.2,
@@ -1309,10 +1315,10 @@ def plot_corner_plot(
                                 x_grid_1d,
                                 kde_m(x_grid_1d),
                                 color=member_colors[m_idx],  # type: ignore[index]
-                                linewidth=1.0,
+                                linewidth=1.1,
                                 linestyle="--",
-                                alpha=0.7,
-                                label=f"Member {m_idx + 1}" if (i == 0 and j == 0) else None,
+                                alpha=0.75,
+                                label=f"Member {m_idx + 1}",
                             )
                         except Exception:
                             pass
@@ -1343,7 +1349,7 @@ def plot_corner_plot(
                                 if param_names[i]
                                 else ""
                             )
-                        ax.set_title(p_title, fontsize=9, pad=4)
+                        ax.set_title(p_title, fontsize=8.5, pad=3)
 
                 if true_vals is not None and i < len(true_vals):
                     ax.axvline(true_vals[i], color=truth_color, linestyle="-", linewidth=1.5)
@@ -1355,7 +1361,10 @@ def plot_corner_plot(
                 x_dim = samples[:, j]
                 y_dim = samples[:, i]
 
-                ax.scatter(x_dim[::4], y_dim[::4], s=2, color=color, alpha=0.10, rasterized=True)
+                if show_scatter:
+                    ax.scatter(
+                        x_dim[::4], y_dim[::4], s=2, color=color, alpha=0.10, rasterized=True
+                    )
 
                 # Overlay member 2D contours if provided
                 if member_samples is not None:
@@ -1380,7 +1389,7 @@ def plot_corner_plot(
                                 colors=member_colors[m_idx],  # type: ignore[index]
                                 linewidths=0.9,
                                 linestyles="--",
-                                alpha=0.7,
+                                alpha=0.75,
                             )
                         except Exception:
                             pass
@@ -1425,22 +1434,38 @@ def plot_corner_plot(
 
             # Labels and tick formatting
             if i == n_params - 1:
-                ax.set_xlabel(param_names[j], fontsize=10, fontweight="bold")
+                ax.set_xlabel(param_names[j], fontsize=9, fontweight="bold")
             else:
                 ax.set_xticklabels([])
 
             if j == 0 and i != 0:
-                ax.set_ylabel(param_names[i], fontsize=10, fontweight="bold")
+                ax.set_ylabel(param_names[i], fontsize=9, fontweight="bold")
             elif i != j:
                 ax.set_yticklabels([])
 
-            ax.tick_params(direction="in", labelsize=8)
+            ax.tick_params(direction="in", labelsize=7.5)
 
     if title:
-        fig.suptitle(title, fontsize=12, fontweight="bold", y=1.02)
+        fig.suptitle(title, fontsize=11, fontweight="bold", y=1.02)
 
-    if member_samples is not None:
-        axes[0, 0].legend(loc="upper right", fontsize=7, frameon=True)
+    # Place legend cleanly in upper right empty corner cell (0, n_params - 1)
+    if member_samples is not None and n_params > 1:
+        top_right_ax = axes[0, n_params - 1]
+        top_right_ax.axis("on")
+        top_right_ax.set_xticks([])
+        top_right_ax.set_yticks([])
+        for spine in top_right_ax.spines.values():
+            spine.set_visible(False)
+        handles, labels = axes[0, 0].get_legend_handles_labels()
+        top_right_ax.legend(
+            handles,
+            labels,
+            loc="center",
+            fontsize=8,
+            frameon=True,
+            facecolor="#f8f9fa",
+            edgecolor="#cccccc",
+        )
 
     plt.tight_layout()
 

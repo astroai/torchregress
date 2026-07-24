@@ -156,16 +156,18 @@ def main():
         for m_idx, member in enumerate(ensemble.models):
             torch.manual_seed(42 + m_idx * 10)
             optimizer = torch.optim.AdamW(member.parameters(), lr=1e-3, weight_decay=1e-4)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=35)
             dataset = TensorDataset(train_spectra, train_targets_norm)
             loader = DataLoader(dataset, batch_size=64, shuffle=True)
 
             member.train()
-            for epoch in range(25):
+            for epoch in range(35):
                 for spec_b, target_b in loader:
                     optimizer.zero_grad()
                     loss = member(spec_b, target_b)
                     loss.backward()
                     optimizer.step()
+                scheduler.step()
 
     _, fit_seconds = timed_call(train_flow_ensemble()) if False else timed_call(train_flow_ensemble)
     print(f"   Flow Ensemble training completed in {fit_seconds:.2f} seconds.")
