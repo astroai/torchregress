@@ -618,10 +618,18 @@ def crps_from_samples(
         )
 
     term1 = torch.mean(torch.abs(samples_t - y_true_t.unsqueeze(0)), dim=0)
-    pairwise = torch.abs(samples_t.unsqueeze(0) - samples_t.unsqueeze(1))
+
+    # Sort samples along sample dimension
+    sorted_samples, _ = torch.sort(samples_t, dim=0)
     n = samples_t.shape[0]
+
+    # Vectorized computation of E|X - X'| using L-moments approach
+    j = torch.arange(n, device=samples_t.device, dtype=samples_t.dtype)
+    weights = (2 * j - n + 1).view(n, *([1] * (samples_t.dim() - 1)))
+
     # ponytail: unbiased E|X-X'| estimator divides by n(n-1), not n²
-    term2 = 0.5 * torch.sum(pairwise, dim=(0, 1)) / (n * (n - 1))
+    term2 = torch.sum(weights * sorted_samples, dim=0) / (n * (n - 1))
+
     crps = term1 - term2
 
     if reduction == "none":
