@@ -513,7 +513,8 @@ class ShiftFactoredPredictiveTransport:
             support_margin=cfg.support_margin,
         )
         edges = _support_edges(support)
-        source_prior = torch.histogram(targets, bins=edges.detach().cpu())[0].double()
+        edges_cpu = edges.detach().cpu().to(dtype=targets.dtype)
+        source_prior = torch.histogram(targets, bins=edges_cpu)[0].double()
         source_prior = source_prior.clamp(cfg.eps, None)
         source_prior = source_prior / source_prior.sum()
 

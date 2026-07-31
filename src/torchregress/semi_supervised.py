@@ -42,6 +42,8 @@ def disagreement_to_weight(
     *,
     power: float = 1.0,
     eps: float = 1e-8,
+    hard_weight_threshold: float | None = None,
+    **kwargs: Any,
 ) -> Tensor:
     """Convert disagreement scores into trust weights."""
     if tau <= 0.0:
@@ -51,6 +53,8 @@ def disagreement_to_weight(
     weight = torch.exp(-disagreement / tau).clamp_max(1.0)
     if power != 1.0:
         weight = weight.pow(power)
+    if hard_weight_threshold is not None:
+        weight = torch.where(weight >= hard_weight_threshold, weight, torch.zeros_like(weight))
     return weight
 
 
@@ -910,6 +914,12 @@ class TeacherStudentTrainer:
         min_scale: float = 1e-4,
         eps: float = 1e-8,
         detach_weights: bool = True,
+        tau: float = 0.5,
+        weight_power: float = 1.0,
+        hard_weight_threshold: float | None = None,
+        batch_relative_mode: bool = False,
+        batch_trust_top_k: float | None = None,
+        **kwargs: Any,
     ) -> None:
         if n_views < 2:
             raise ValueError("n_views must be at least 2")
@@ -927,6 +937,11 @@ class TeacherStudentTrainer:
         self.min_scale = min_scale
         self.eps = eps
         self.detach_weights = detach_weights
+        self.tau = tau
+        self.weight_power = weight_power
+        self.hard_weight_threshold = hard_weight_threshold
+        self.batch_relative_mode = batch_relative_mode
+        self.batch_trust_top_k = batch_trust_top_k
 
         # Set default loss function if not provided
         if unsupervised_loss_fn is not None:
@@ -1092,11 +1107,14 @@ def _split_unlabeled_batch(batch: Any) -> Tensor:
     return x
 
 
+SelfAgreementTrainer = TeacherStudentTrainer
+
 __all__ = [
     "SAGERegAgreement",
     "SAGERegLoss",
     "SAGERegOutput",
     "TeacherStudentTrainer",
+    "SelfAgreementTrainer",
     "build_consensus_predictive_batch",
     "disagreement_to_weight",
     "uncertainty_to_weight",

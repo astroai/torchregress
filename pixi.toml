@@ -1,0 +1,30 @@
+[workspace]
+name = "torchregress"
+version = "0.1.0"
+description = "PyTorch loss functions and utilities for regression problems."
+authors = ["Sébastien Fabbro <sebfabbro@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = ">=3.12,<3.16"
+pytorch = ">=2.0"
+numpy = ">=1.24"
+scipy = ">=1.10"
+torchmetrics = ">=1.0"
+pytest = "*"
+pytest-cov = "*"
+polars = "*"
+pyarrow = "*"
+pyyaml = "*"
+scikit-learn = "*"
+pandas = "*"
+matplotlib = "*"
+zuko = "*"
+tqdm = "*"
+
+[tasks]
+test = "pytest"
+
+[pypi-dependencies]
+torchregress = { path = ".", editable = true }
