@@ -1114,7 +1114,6 @@ __all__ = [
     "SAGERegLoss",
     "SAGERegOutput",
     "TeacherStudentTrainer",
-    "SelfAgreementTrainer",
     "build_consensus_predictive_batch",
     "disagreement_to_weight",
     "uncertainty_to_weight",
