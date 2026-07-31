@@ -99,8 +99,8 @@ select = ["E", "F", "W", "I"]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
-"examples/*" = ["E501"]
-"docs/*" = ["E501"]
+"examples/*" = ["E501", "W605"]
+"docs/*" = ["E501", "W605"]
 "tools/*" = ["E501"]
 "tests/*" = ["E501"]
 
