@@ -13,18 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: prefix-dev/setup-pixi@v0.8.3
         with:
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
-
-      - name: Build package
-        run: uv build
+          pixi-version: v0.73.0
+          environments: release
 
       - name: Verify tag matches pyproject.toml
-        run: uv run python scripts/release/verify_version.py --tag "${{ github.ref_name }}"
+        run: pixi run --environment release python scripts/release/verify_version.py --tag "${{ github.ref_name }}"
+
+      - name: Build package
+        run: pixi run --environment release build
 
       - name: Validate artifacts
         run: ./scripts/release/build_package.sh --check-only

@@ -7,24 +7,45 @@ channels = ["conda-forge"]
 platforms = ["linux-64"]
 
 [dependencies]
-python = ">=3.12,<3.16"
+python = "3.13.*"
 pytorch = ">=2.0"
 numpy = ">=1.24"
 scipy = ">=1.10"
 torchmetrics = ">=1.0"
-pytest = "*"
-pytest-cov = "*"
+matplotlib = ">=3.8"
+zuko = ">=1.6"
+
+[feature.dev.dependencies]
+ruff = ">=0.6"
+ty = ">=0.0.5"
+
+[feature.test.dependencies]
+pytest = ">=8.0"
+pytest-cov = ">=5.0"
 polars = "*"
 pyarrow = "*"
 pyyaml = "*"
 scikit-learn = "*"
 pandas = "*"
-matplotlib = "*"
-zuko = "*"
-tqdm = "*"
 
-[tasks]
-test = "pytest"
+[feature.docs.pypi-dependencies]
+zensical = "*"
+
+[feature.release.pypi-dependencies]
+build = "*"
 
 [pypi-dependencies]
 torchregress = { path = ".", editable = true }
+
+[environments]
+default = { features = ["dev", "test", "docs"], solve-group = "default" }
+release = { features = ["dev", "test", "docs", "release"], solve-group = "default" }
+
+[tasks]
+lint = { cmd = "ruff check src/torchregress tests tools && ruff format --check src/torchregress tests tools" }
+format = "ruff format src/torchregress tests tools"
+typecheck = "ty check --python .pixi/envs/default src/torchregress"
+test = "pytest --cov=torchregress --cov-report=term --cov-report=xml"
+docs = "zensical build --strict"
+build = "python -m build"
+ci = { depends-on = ["lint", "typecheck", "test", "docs"] }

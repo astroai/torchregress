@@ -55,9 +55,6 @@ docs = [
 viz = [
     "matplotlib",
 ]
-vos = [
-    "vos",
-]
 flows = [
     "zuko",
 ]
@@ -84,12 +81,13 @@ filterwarnings = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+src = ["src"]
 extend-exclude = [
     ".git",
     ".mypy_cache",
     ".tox",
     ".venv",
-    ".uv-cache",
+    ".pixi",
     ".pytest_cache",
     ".ruff_cache",
     "build",
@@ -97,11 +95,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-select = [
-    "E",  # pycodestyle errors
-    "F",  # pyflakes
-    "I",  # isort
-]
+select = ["E", "F", "W", "I"]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
@@ -110,37 +104,41 @@ ignore = []
 "tools/*" = ["E501"]
 "tests/*" = ["E501"]
 
-[tool.mypy]
-python_version = "3.13"
-warn_return_any = false
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-exclude = ["examples", "tools", "docs", "scripts"]
+[tool.ty.environment]
+python = ".pixi/envs/default"
+python-version = "3.13"
 
-[[tool.mypy.overrides]]
-module = ["examples.*", "tools.*", "docs.*", "tests.*", "scripts.*", "torchregress.viz.results", "torchregress.test_time.transport", "torchregress.losses.balanced_mse", "torchregress.algorithms.rc"]
-ignore_errors = true
+[tool.ty.terminal]
+error-on-warning = false
 
-[[tool.mypy.overrides]]
-module = "torchregress.*"
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-
-[[tool.mypy.overrides]]
-module = [
-    "torch.*",
-    "matplotlib.*",
-    "torchmetrics.*",
-    "scipy.*",
-    "requests.*",
-    "zuko.*",
-    "numpy.*",
+[tool.ty.src]
+exclude = [
+    "**/viz/results.py",
+    "**/test_time/transport.py",
+    "**/losses/balanced_mse.py",
+    "**/algorithms/rc.py",
 ]
-ignore_missing_imports = true
 
-# pytest-cov configuration (consumed by `uv run pytest --cov=...` and Codecov).
-# Mirrors the codecov.yml ignore list so local runs match CI reports.
+# Torch/scipy stubs are incomplete; keep ty as a gate for real import/config
+# failures without failing CI on inference noise during the mypy→ty migration.
+[tool.ty.rules]
+invalid-argument-type = "warn"
+invalid-return-type = "warn"
+missing-argument = "warn"
+invalid-assignment = "warn"
+unresolved-attribute = "warn"
+invalid-method-override = "warn"
+call-top-callable = "warn"
+call-non-callable = "warn"
+not-iterable = "warn"
+not-subscriptable = "warn"
+redundant-cast = "ignore"
+unused-type-ignore-comment = "ignore"
+
+[[tool.ty.overrides]]
+include = ["**/viz/**"]
+[tool.ty.overrides.rules]
+all = "ignore"
 [tool.coverage.run]
 branch = false
 source = ["torchregress"]
@@ -161,10 +159,4 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "if typing.TYPE_CHECKING:",
     "\\.\\.\\.",
-]
-
-[dependency-groups]
-dev = [
-    "ruff",
-    "mypy",
 ]

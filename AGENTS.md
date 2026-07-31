@@ -21,93 +21,67 @@ parity suites to **torchregress-harness** (they belong in **torchregress-researc
 
 ## Development Commands
 
-This project uses [uv](https://github.com/astral-sh/uv) as the package manager.
+This project uses [pixi](https://pixi.sh) as the package manager. `pyproject.toml` is package metadata for PyPI/`pip`; local and CI work goes through pixi.
 
 ### Setup
 
 Uses Python **3.13** by default (see `.python-version`). Supported: 3.12–3.14.
 
-Install profiles — pick the smallest set that covers your needs:
+```bash
+pixi install
+```
 
-| Use case | Command |
-|---|---|
-| Core library only | `uv sync` |
-| Run / write tests | `uv sync --extra test` |
-| Dev (tests + lint + typecheck) | `uv sync --extra test --dev` |
-| Dev + normalizing flows | `uv sync --extra test --extra flows --dev` |
-| Full (dev + docs tooling) | `uv sync --all-extras --dev` |
-
-**Extras & groups reference:**
+**Extras & features reference:**
 
 | Tag | Kind | Contents |
 |---|---|---|
-| *(none)* | — | torch, numpy, matplotlib, torchmetrics, scipy, tqdm |
-| `test` | extra | pytest, pytest-cov, polars, pyarrow, PyYAML, scikit-learn, pandas |
-| `docs` | extra | zensical (no mkdocs) |
+| *(none)* | core | torch, numpy, torchmetrics, scipy |
+| `test` | extra / pixi feature | pytest, pytest-cov, polars, pyarrow, PyYAML, scikit-learn, pandas |
+| `docs` | extra / pixi feature | zensical |
+| `viz` | extra | matplotlib |
 | `flows` | extra | zuko |
-| `all` | extra | test + docs + flows |
-| `dev` | group | ruff, mypy |
+| `all` | extra | test + docs + viz + flows |
+| `dev` | pixi feature | ruff, ty |
+
+Default pixi environment includes `dev` + `test` + `docs` (and pulls matplotlib/zuko for CI).
 
 ### Testing
 ```bash
-# Run all tests
-uv run pytest
-
-# Run with coverage
-uv run pytest --cov=torchregress --cov-report=html
-
-# Run single test file
-uv run pytest tests/losses/test_gaussian.py
-
-# Run specific test
-uv run pytest tests/losses/test_gaussian.py::TestGaussianLosses::test_gaussian_nll_loss
-```
-
-If `uv` is not available, use the project venv directly:
-```bash
-.venv/bin/python -m pytest
+pixi run test
+pixi run pytest tests/losses/test_gaussian.py
+pixi run pytest tests/losses/test_gaussian.py::TestGaussianLosses::test_gaussian_nll_loss
 ```
 
 ### Code Quality
 ```bash
-# Format code
-uv run ruff format src/torchregress tests tools
-
-# Lint code
-uv run ruff check .
-
-# Type checking
-uv run mypy torchregress
+pixi run format
+pixi run lint
+pixi run typecheck
 ```
 
 ### CI parity before push (recommended)
 
-GitHub Actions on `main` is **two-stage**: **`pre-commit run --all-files`** (no `uv sync`), then **`lint-test`** (`uv sync --all-extras --dev`, **pytest**, and CPU **benchmark_smoke** smoke + sweep threshold checks in the same job). See `.github/workflows/ci.yml`. Match the full gate locally so pushes do not fail CI unexpectedly:
+GitHub Actions on `main` is **two-stage**: **`pre-commit run --all-files`**, then **`lint-test`** via pixi (`lint`, `typecheck`, `test`, `docs`, benchmark smoke). See `.github/workflows/ci.yml`. Match the full gate locally:
 
 ```bash
 ./scripts/ci_local.sh
+# or
+pixi run ci
 ```
-
-This installs `test` + `flows` + `docs` extras and the `dev` dependency group, then runs **ruff** / **ruff format** on **`src/torchregress`**, **tests**, and **tools**, then **pytest --cov=…** and both **benchmark_smoke** threshold passes (CPU smoke + sweep).
 
 ### Pre-commit / pre-push hooks
 
-Fast checks on **commit** (ruff + ruff-format + basic file hygiene) and full **CI parity on push**:
-
 ```bash
-uvx pre-commit install
-uvx pre-commit install --hook-type pre-push
+pixi run pre-commit install
+pixi run pre-commit install --hook-type pre-push
 ```
 
-After this, `git push` runs `./scripts/ci_local.sh` via the pre-push hook (requires `uv` on your `PATH`).
+Or with a system/pre-commit install: `pre-commit install` / `pre-commit install --hook-type pre-push`.
 
 ### Documentation
 ```bash
-# Build docs (strict mode catches broken refs)
-uv run zensical build
-
-# Serve docs locally
-uv run zensical serve
+pixi run docs
+pixi run zensical serve
 ```
 
 ## Documentation Quality Standards
@@ -136,7 +110,7 @@ All documentation must stay **synchronized with the codebase**. When modifying c
 - Reference tables must have a proper markdown header row (not `...` or bare rows).
 - LaTeX: use `$$...$$` for display math, `$...$` for inline math. Verify formulas render correctly.
 - Build must pass `zensical build` with zero errors before commit.
-- Run `uv run python tools/audit_docs_quality.py` before docs changes land (see
+- Run `pixi run python tools/audit_docs_quality.py` before docs changes land (see
   `reports/docs_quality_audit.json` and CONTRIBUTING.md “Math and document structure”).
 - Target audience: both ML practitioners and statisticians. Be rigorous but accessible.
 
@@ -261,7 +235,7 @@ Core dependencies:
 - tqdm >= 4.66.0
 
 Optional (feature-specific) dependencies:
-- **zuko >= 1.6.0** (normalizing flows, install via `uv sync --extra flows`)
+- **zuko >= 1.6.0** (normalizing flows, install via `pip install 'torchregress[flows]'` or pixi default env)
 - **pandas, scikit-learn, polars, pyarrow** (data handling, in the `test` extra)
 - **zensical** (docs tooling, in the `docs` extra)
 
@@ -354,13 +328,13 @@ Each matrix row must carry `coverage_evidence` with:
 When adding or changing exported methods, update `src/torchregress/method_catalog.py` and regenerate docs artifacts:
 
 ```bash
-uv run python tools/render_method_catalog.py \
+pixi run python tools/render_method_catalog.py \
   --markdown-out docs/reports/method_catalog_generated.md \
   --json-out reports/method_catalog_latest.json \
   --update-method-matrix docs/guide/method-selection.md \
   --comparative-evidence-md-out docs/reports/comparative_evidence_matrix.md \
   --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
-uv run python -m tools.render_realdata_recommendation_guide \
+pixi run python -m tools.render_realdata_recommendation_guide \
   --doc docs/reports/real_data_recommendation_guide.md \
   --comparative-json reports/comparative_evidence_matrix_latest.json
 ```
@@ -381,8 +355,8 @@ Optional scheduled refresh: `.github/workflows/docs-refresh.yml` (manual or week
 **Minimal** when you need a faster loop (small, localized edits only — widen if anything fails in CI):
 
 1. `python -m compileall -q src/torchregress tests tools`
-2. `uv run ruff check src/torchregress tests tools`
-3. `uv run ruff format --check src/torchregress tests tools`
-4. `uv run pytest` (or a **narrow** file/`::test` path that covers your change)
+2. `pixi run lint`
+3. `pixi run typecheck`
+4. `pixi run test` (or a **narrow** file/`::test` path that covers your change)
 
 If you have the pre-push hook installed, `git push` already runs `./scripts/ci_local.sh` — keep it that way for routine work.

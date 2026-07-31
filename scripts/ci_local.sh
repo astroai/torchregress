@@ -9,12 +9,12 @@ cd "$ROOT"
 "$ROOT/scripts/ci_test_only.sh"
 
 echo "== zensical build (CI lint-test job) =="
-uv run zensical build --strict
+pixi run docs
 
 echo "== benchmark smoke thresholds (CI benchmark job) =="
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-uv run python -m tools.benchmark_smoke \
+pixi run python -m tools.benchmark_smoke \
   --mode smoke \
   --iterations 2 \
   --warmup 1 \
@@ -23,7 +23,7 @@ uv run python -m tools.benchmark_smoke \
   --fail-on-thresholds
 
 echo "== benchmark sweep thresholds (CI benchmark job) =="
-uv run python -m tools.benchmark_smoke \
+pixi run python -m tools.benchmark_smoke \
   --mode sweep \
   --iterations 2 \
   --warmup 1 \

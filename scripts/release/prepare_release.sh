@@ -42,7 +42,7 @@ run() {
 }
 
 read_version() {
-  uv run python - <<'PY'
+  pixi run python - <<'PY'
 import re
 from pathlib import Path
 
@@ -93,7 +93,7 @@ if (( ${#BUMP_ARGS[@]} == 0 )); then
   exit 2
 fi
 
-BUMP_CMD=(uv run python scripts/release/bump_version.py)
+BUMP_CMD=(pixi run python scripts/release/bump_version.py)
 if (( FORCE == 1 )); then
   BUMP_CMD+=(--force)
 fi
@@ -125,9 +125,9 @@ fi
 
 echo "== Verify tag/version alignment =="
 if (( DRY_RUN == 1 )); then
-  echo "[dry-run] uv run python scripts/release/verify_version.py --tag ${TAG}"
+  echo "[dry-run] pixi run python scripts/release/verify_version.py --tag ${TAG}"
 else
-  uv run python scripts/release/verify_version.py --tag "${TAG}"
+  pixi run python scripts/release/verify_version.py --tag "${TAG}"
 fi
 
 COMMIT_MESSAGE="Release ${TAG}"

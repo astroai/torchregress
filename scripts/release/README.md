@@ -42,8 +42,8 @@ which builds and publishes to PyPI using Trusted Publishing.
 ## Individual commands
 
 ```bash
-uv run python scripts/release/bump_version.py patch
-uv run python scripts/release/verify_version.py --tag v0.1.0
+pixi run python scripts/release/bump_version.py patch
+pixi run python scripts/release/verify_version.py --tag v0.1.0
 ./scripts/release/build_package.sh
 ./scripts/release/build_package.sh --check-only
 ```
@@ -52,5 +52,5 @@ uv run python scripts/release/verify_version.py --tag v0.1.0
 
 - Canonical version lives in [`pyproject.toml`](../../pyproject.toml).
 - Runtime `torchregress.__version__` is read from installed package metadata.
-- Local `uv publish` is intentionally not used; CI publishes via PyPI Trusted Publishing.
+- Local publish is intentionally not used; CI publishes via PyPI Trusted Publishing.
 - Full maintainer setup and troubleshooting: [`docs/RELEASING.md`](../../docs/RELEASING.md).

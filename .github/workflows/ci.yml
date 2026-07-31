@@ -30,24 +30,25 @@ jobs:
       MKL_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@v4
-      - name: Configure git for private repos
-        run: git config --global url."https://x-access-token:${{ secrets.PAT_FOR_PRIVATE_REPOS }}@github.com/".insteadOf "https://github.com/"
       - uses: prefix-dev/setup-pixi@v0.8.3
         with:
           pixi-version: v0.73.0
 
+      - name: Lint
+        run: pixi run lint
+
+      - name: Type-check
+        run: pixi run typecheck
+
       - name: Test with coverage
-        run: pixi run pytest --cov=torchregress --cov-report=xml --cov-report=term
+        run: pixi run test
 
       - name: Docs API drift smoke (quickstart workflows)
         if: (!cancelled())
         run: pixi run pytest tests/test_docs_snippets_smoke.py::test_quickstart_workflows_run_without_errors -xvs
 
-      - name: Type-check (mypy)
-        run: pixi run mypy src/torchregress
-
       - name: Build docs
-        run: pixi run zensical build --strict
+        run: pixi run docs
 
       - name: CPU benchmark smoke (thresholds)
         run: |

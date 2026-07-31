@@ -44,27 +44,20 @@ For normalizing flows support for multi-target distribution predictions, install
 pip install torchregress[flows]
 ```
 
-### With Pixi
+### Dev / Source Setup (pixi)
+
+This project uses [pixi](https://pixi.sh) for development. Supports Python 3.12–3.15 (3.13 recommended).
 
 ```bash
-# Install environment via Pixi
-pixi install
-
-# Run test suite via Pixi
-pixi run test
-```
-
-### Dev / Source Setup (uv / pip)
-
-This project uses [uv](https://github.com/astral-sh/uv) or [pixi](https://pixi.sh) as package managers and supports Python 3.12-3.15.
-
-```bash
-# Clone the repository
 git clone https://github.com/sfabbro/torchregress.git
 cd torchregress
+pixi install
 
-# Sync dependencies and set up venv with uv
-uv sync --all-extras --dev
+pixi run test        # pytest + coverage
+pixi run lint        # ruff check + format --check
+pixi run typecheck   # ty
+pixi run docs        # zensical build --strict
+pixi run ci          # lint + typecheck + test + docs
 ```
 
 ---

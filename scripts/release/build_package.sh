@@ -11,7 +11,7 @@ usage() {
   cat <<'EOF'
 Usage: build_package.sh [--check-only] [--help]
 
-Build sdist/wheel with `uv build` and validate artifacts under dist/.
+Build sdist/wheel with `python -m build` (via pixi) and validate artifacts under dist/.
 
 Options:
   --check-only  Validate existing dist/ artifacts without rebuilding.
@@ -40,7 +40,7 @@ validate_artifacts() {
         tar -tzf "${artifact}" >/dev/null
         ;;
       *.whl)
-        uv run python -m zipfile -t "${artifact}" >/dev/null
+        pixi run --environment release python -m zipfile -t "${artifact}" >/dev/null
         ;;
       *)
         echo "ERROR: unsupported artifact type: ${artifact}" >&2
@@ -72,7 +72,7 @@ done
 
 if (( CHECK_ONLY == 0 )); then
   rm -rf dist/
-  uv build
+  pixi run --environment release build
 fi
 
 validate_artifacts

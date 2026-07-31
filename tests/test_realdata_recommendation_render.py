@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from tools import render_realdata_recommendation_guide
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
