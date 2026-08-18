@@ -33,8 +33,8 @@ Runnable scripts (CPU-only, no dataset downloads):
 
 | Script | Purpose |
 | --- | --- |
-| [`examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py`](https://github.com/sfabbro/torchregress/blob/main/examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py) | Varying training set sizes: RMSE vs ridge MAP (matched prior) and Gaussian NLL with vs without predictive variance. |
-| [`examples/benchmarks/bayesian_linear_head_online_drift.py`](https://github.com/sfabbro/torchregress/blob/main/examples/benchmarks/bayesian_linear_head_online_drift.py) | Label generator switches between two weight vectors; streaming `RecursiveBayesianHead` under several forgetting factors vs a phase-B-only batch oracle. |
+| [`examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py`](https://github.com/astroai/torchregress/blob/main/examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py) | Varying training set sizes: RMSE vs ridge MAP (matched prior) and Gaussian NLL with vs without predictive variance. |
+| [`examples/benchmarks/bayesian_linear_head_online_drift.py`](https://github.com/astroai/torchregress/blob/main/examples/benchmarks/bayesian_linear_head_online_drift.py) | Label generator switches between two weight vectors; streaming `RecursiveBayesianHead` under several forgetting factors vs a phase-B-only batch oracle. |
 
 Example:
 

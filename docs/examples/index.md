@@ -116,7 +116,7 @@ losses = {
 # ...
 ```
 
-### [Comprehensive Comparison](https://github.com/sfabbro/torchregress/blob/main/examples/comprehensive_comparison.py) 🆕
+### [Comprehensive Comparison](https://github.com/astroai/torchregress/blob/main/examples/comprehensive_comparison.py) 🆕
 
 **All-in-one comparison** demonstrating the three main capabilities of torchregress:
 
@@ -144,34 +144,34 @@ losses = {
 ### [OT shift conformal demo](ot_shift_conformal_demo.md)
 
 - Synthetic calibration vs shifted target scores; prints CDF-gap diagnostic, weighted split-conformal threshold, and mean prediction-set size on random candidate score matrices.
-- Script: [`examples/ot_shift_conformal_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ot_shift_conformal_demo.py).
+- Script: [`examples/ot_shift_conformal_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/ot_shift_conformal_demo.py).
 
 ### [Bayesian linear head (test-time) demo](test_time_bayesian_linear_head.md)
 
 - Synthetic linear targets on fixed features; compares batch `BayesianLinearHead.fit` to two-step `RecursiveBayesianHead.partial_fit` with `forgetting_factor=1`, reports posterior error vs a known weight vector, and prints rough held-out Gaussian interval coverage.
-- Script: [`examples/test_time_bayesian_linear_head_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/test_time_bayesian_linear_head_demo.py).
+- Script: [`examples/test_time_bayesian_linear_head_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/test_time_bayesian_linear_head_demo.py).
 
 ### [BLR predictive adapter (SupportsPredictiveBatch)](test_time_blr_predictive_adapter.md)
 
 - Thin wrapper exposing `predict_distribution(...)` around `BayesianLinearHead.predictive_batch`.
 - Runtime protocol-check against `SupportsPredictiveBatch` and prints `PredictiveBatch` diagnostics.
-- Script: [`examples/test_time_blr_predictive_adapter_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/test_time_blr_predictive_adapter_demo.py).
+- Script: [`examples/test_time_blr_predictive_adapter_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/test_time_blr_predictive_adapter_demo.py).
 
 ### [Gaussian Wasserstein bound demo](gaussian_wasserstein_bound.md)
 
 - One-step mean + full-covariance supervision with [`GaussianWassersteinBoundLoss`](../losses/gaussian_wasserstein.md); prints loss and gradient norms.
-- Script: [`examples/gaussian_wasserstein_bound_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/gaussian_wasserstein_bound_demo.py).
+- Script: [`examples/gaussian_wasserstein_bound_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/gaussian_wasserstein_bound_demo.py).
 
 ### [Wasserstein-bound hybrid pretrain](wasserstein_bound_hybrid_pretrain.md)
 
 - Tiny scalar head: neighbourhood covariance pseudo-labels + diagonal Wasserstein-bound pretrain, then Gaussian NLL fine-tune; prints NLL before/after the second phase.
-- Script: [`examples/wasserstein_bound_hybrid_pretrain_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/wasserstein_bound_hybrid_pretrain_demo.py).
+- Script: [`examples/wasserstein_bound_hybrid_pretrain_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/wasserstein_bound_hybrid_pretrain_demo.py).
 
 ### [Beta-NLL heteroscedastic demo](heteroscedastic_beta_nll.md)
 
 - Small Gaussian-head MLP on synthetic heteroscedastic noise (scale grows with $|x|$).
 - Trains with [`GaussianNLLLoss`](../api/losses.md) vs [`BetaNLLLoss`](../api/losses.md) from the **same** initial weights; reports validation RMSE and validation Gaussian NLL.
-- Script: [`examples/heteroscedastic_beta_nll_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/heteroscedastic_beta_nll_demo.py).
+- Script: [`examples/heteroscedastic_beta_nll_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/heteroscedastic_beta_nll_demo.py).
 
 ### [Ensemble Methods](ensemble_methods.md) 🆕
 
@@ -182,7 +182,7 @@ losses = {
 - **Batch Ensemble** - Efficient alternative for limited compute
 - **Uncertainty Decomposition** - Separating model vs. data uncertainty
 
-Includes decision trees, comparison tables, and complete working example ([`ensemble_tutorial.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ensemble_tutorial.py)).
+Includes decision trees, comparison tables, and complete working example ([`ensemble_tutorial.py`](https://github.com/astroai/torchregress/blob/main/examples/ensemble_tutorial.py)).
 
 ```python
 # Train heteroscedastic ensemble with uncertainty decomposition
@@ -196,19 +196,19 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Multi-target 1D stellar spectra parameter estimation ($T_{\mathrm{eff}}$, $\log g$, $[\mathrm{Fe/H}]$) with 1D CNN backbone + Neural Spline Flow (NSF) head.
 - Generates 3x3 corner plots using `torchregress.viz.plot_corner_plot`.
-- Script: [`examples/stellar_spectra_flow_corner.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_flow_corner.py).
+- Script: [`examples/stellar_spectra_flow_corner.py`](https://github.com/astroai/torchregress/blob/main/examples/stellar_spectra_flow_corner.py).
 
 ### [Stellar Spectra Ensembling](stellar_spectra_ensemble.md)
 
 - Multi-target Deep Ensemble ($M=5$ models) with heteroscedastic heads for stellar spectra.
 - Deconstructs total variance into aleatoric noise ($\sigma_{\text{al}}$) and epistemic model disagreement ($\sigma_{\text{ep}}$).
-- Script: [`examples/stellar_spectra_ensemble.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_ensemble.py).
+- Script: [`examples/stellar_spectra_ensemble.py`](https://github.com/astroai/torchregress/blob/main/examples/stellar_spectra_ensemble.py).
 
 ### [Stellar Spectra Ensemble Flows](stellar_spectra_ensemble_flows.md)
 
 - Deep Ensemble of Normalizing Flows ($M=4$ NSF models) capturing non-Gaussian aleatoric shapes + epistemic flow model uncertainty.
 - Displays individual member flow contours and total mixture contours on 3x3 corner plots using `torchregress.viz.plot_corner_plot`.
-- Script: [`examples/stellar_spectra_ensemble_flows.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_ensemble_flows.py).
+- Script: [`examples/stellar_spectra_ensemble_flows.py`](https://github.com/astroai/torchregress/blob/main/examples/stellar_spectra_ensemble_flows.py).
 
 ### [Ordinal Regression Comparison (Real Data)](ordinal_regression_realdata_comparison.md)
 
@@ -291,7 +291,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 ### [Balanced MSE / BMC](balanced_mse.md)
 
-- Skewed targets: [`BalancedMSELoss`](../losses/imbalanced.md) and [`BMCLoss`](../losses/imbalanced.md) vs plain MSE; script [`examples/balanced_mse_demo.py`](https://github.com/sfabbro/torchregress/blob/main/examples/balanced_mse_demo.py).
+- Skewed targets: [`BalancedMSELoss`](../losses/imbalanced.md) and [`BMCLoss`](../losses/imbalanced.md) vs plain MSE; script [`examples/balanced_mse_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/balanced_mse_demo.py).
 - Includes calibration-validation guidance because aggressive reweighting can distort uncertainty.
 
 ### [Noisy Labels Regression](noisy_labels_regression.md)
@@ -317,7 +317,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Multi-target parameter estimation ($T_{\mathrm{eff}}$, $\log g$, $[\mathrm{Fe/H}]$) from 1D stellar spectra using `SpectrumCNNBackbone` + `NormalizingFlowLoss` (Neural Spline Flow).
 - Demonstrates standard supervised regression with flows, joint posterior sampling, and rendering publication-ready 1D/2D corner plots.
-- Script: [`examples/stellar_spectra_flow_corner.py`](https://github.com/sfabbro/torchregress/blob/main/examples/stellar_spectra_flow_corner.py).
+- Script: [`examples/stellar_spectra_flow_corner.py`](https://github.com/astroai/torchregress/blob/main/examples/stellar_spectra_flow_corner.py).
 
 ### [Multimodal Method Comparison](multimodal_method_comparison.md)
 
@@ -355,7 +355,7 @@ All examples can be run directly from the repository:
 
 ```bash
 # Clone the repository
-git clone https://github.com/sfabbro/torchregress.git
+git clone https://github.com/astroai/torchregress.git
 cd torchregress
 
 # Install dependencies (dev + all extras)
@@ -365,4 +365,4 @@ uv sync --all-extras --dev
 uv run python examples/basic_usage.py
 ```
 
-For questions or issues with the examples, please [open an issue](https://github.com/sfabbro/torchregress/issues) in the repository.
+For questions or issues with the examples, please [open an issue](https://github.com/astroai/torchregress/issues) in the repository.

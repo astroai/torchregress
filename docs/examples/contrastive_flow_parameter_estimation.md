@@ -66,7 +66,7 @@ metrics = main(
 print(metrics)
 ```
 
-The full script is [`examples/contrastive_flow_parameter_estimation.py`](https://github.com/sfabbro/torchregress/blob/main/examples/contrastive_flow_parameter_estimation.py).
+The full script is [`examples/contrastive_flow_parameter_estimation.py`](https://github.com/astroai/torchregress/blob/main/examples/contrastive_flow_parameter_estimation.py).
 
 ## What The Example Does
 

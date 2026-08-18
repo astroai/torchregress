@@ -59,7 +59,7 @@ design. The `torchregress/Split+Linear` row is included so the wrapper
 itself is compared apples-to-apples against MAPIE/crepes/torchcp on the
 same linear backbone.
 
-**Script:** [`examples/external_comparison_conformal_vs_mapie.py`](https://github.com/sfabbro/torchregress/blob/main/examples/external_comparison_conformal_vs_mapie.py)
+**Script:** [`examples/external_comparison_conformal_vs_mapie.py`](https://github.com/astroai/torchregress/blob/main/examples/external_comparison_conformal_vs_mapie.py)
 
 **Note on `torch-uncertainty`:** the `torch-uncertainty` library (ENSTA-U2IS-AI)
 focuses on classification UQ and does **not** ship an end-to-end regression
@@ -83,7 +83,7 @@ comparable), and runtime. Capacity is **not** matched: torchregress is an
 exact-conjugate linear posterior; BoTorch fits a flexible GP with
 hyperparameter marginal-likelihood optimization.
 
-**Script:** [`examples/external_comparison_bayesian_linear_vs_botorch.py`](https://github.com/sfabbro/torchregress/blob/main/examples/external_comparison_bayesian_linear_vs_botorch.py)
+**Script:** [`examples/external_comparison_bayesian_linear_vs_botorch.py`](https://github.com/astroai/torchregress/blob/main/examples/external_comparison_bayesian_linear_vs_botorch.py)
 
 ## Task 3 — Tweedie / compound-Poisson regression (vs scikit-lego)
 
@@ -102,7 +102,7 @@ fits a log-link GLM. The unit-deviance metric is the standard scoring rule
 for Tweedie responses and is the closest thing to a likelihood-grounded
 comparison across library boundaries.
 
-**Script:** [`examples/external_comparison_tweedie_vs_sklego.py`](https://github.com/sfabbro/torchregress/blob/main/examples/external_comparison_tweedie_vs_sklego.py)
+**Script:** [`examples/external_comparison_tweedie_vs_sklego.py`](https://github.com/astroai/torchregress/blob/main/examples/external_comparison_tweedie_vs_sklego.py)
 
 ## Decision Criteria
 

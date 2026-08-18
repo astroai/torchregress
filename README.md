@@ -7,8 +7,8 @@
 <p align="center">
 <a href="https://pypi.org/project/torchregress/" aria-label="PyPI package version"><img src="https://img.shields.io/pypi/v/torchregress.svg" alt="PyPI"></a>
 <a href="https://opensource.org/licenses/MIT" aria-label="License"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-<a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" aria-label="CI status"><img src="https://img.shields.io/github/actions/workflow/status/sfabbro/torchregress/ci.yml?branch=main&label=CI" alt="CI"></a>
-<a href="https://github.com/sfabbro/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12–3.14"><img src="https://img.shields.io/badge/python-3.12%20|%203.13%20|%203.14-blue.svg" alt="Python 3.12 | 3.13 | 3.14"></a>
+<a href="https://github.com/astroai/torchregress/actions/workflows/ci.yml" aria-label="CI status"><img src="https://img.shields.io/github/actions/workflow/status/sfabbro/torchregress/ci.yml?branch=main&label=CI" alt="CI"></a>
+<a href="https://github.com/astroai/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12–3.14"><img src="https://img.shields.io/badge/python-3.12%20|%203.13%20|%203.14-blue.svg" alt="Python 3.12 | 3.13 | 3.14"></a>
 </p>
 
 **torchregress** is a PyTorch library of regression losses, metrics, and calibration tools for problems where you need more than a single point prediction — uncertainty, robustness, and messy real-world data included.
@@ -49,7 +49,7 @@ pip install torchregress[flows]
 This project uses [pixi](https://pixi.sh) for development. Supports Python 3.12–3.15 (3.13 recommended).
 
 ```bash
-git clone https://github.com/sfabbro/torchregress.git
+git clone https://github.com/astroai/torchregress.git
 cd torchregress
 pixi install
 

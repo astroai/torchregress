@@ -25,7 +25,7 @@ pip install 'torchregress[all]'     # test + docs + viz + flows
 Development uses [pixi](https://pixi.sh):
 
 ```bash
-git clone https://github.com/sfabbro/torchregress.git
+git clone https://github.com/astroai/torchregress.git
 cd torchregress
 pixi install
 

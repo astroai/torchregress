@@ -201,7 +201,7 @@ model = nn.Sequential(
 - Real-time or embedded applications
 - Rapid prototyping
 
-For a single module that combines a [`BatchEnsembleMLPBackbone`](https://github.com/sfabbro/torchregress/blob/main/src/torchregress/ensemble/models.py) with a heteroscedastic batch head, optional `alpha` scaling of fast weights, and structured access to `mean` / `std_epistemic` via `predict_output()`, see [`PackedEnsembleRegressor`](https://github.com/sfabbro/torchregress/blob/main/src/torchregress/ensemble/packed.py).
+For a single module that combines a [`BatchEnsembleMLPBackbone`](https://github.com/astroai/torchregress/blob/main/src/torchregress/ensemble/models.py) with a heteroscedastic batch head, optional `alpha` scaling of fast weights, and structured access to `mean` / `std_epistemic` via `predict_output()`, see [`PackedEnsembleRegressor`](https://github.com/astroai/torchregress/blob/main/src/torchregress/ensemble/packed.py).
 
 ## Uncertainty Decomposition Math
 
@@ -279,7 +279,7 @@ risk_score = epistemic + aleatoric
 
 ## Complete Example
 
-See [`examples/ensemble_tutorial.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ensemble_tutorial.py) for a complete working example comparing all ensemble methods.
+See [`examples/ensemble_tutorial.py`](https://github.com/astroai/torchregress/blob/main/examples/ensemble_tutorial.py) for a complete working example comparing all ensemble methods.
 
 ## Metrics for Ensembles
 

@@ -162,7 +162,7 @@ Earlier guidance distinguished two kinds of follow-up work:
 2. Use **`ppi_calibrated_mean_ci`** when you are comfortable refitting $(\hat a,\hat b)$ on every labeled bootstrap replicate (often good variance when $n$ is not tiny).
 3. Use **`SplitConformal`** on **residuals** $|Y - \hat Y|$ where $\hat Y$ is the **same** post-calibrated score you will deploy at test time, calibrated only on data **not** used to cherry-pick that map if you need clean marginal guarantees.
 
-A minimal end-to-end sketch is in [`examples/ppi_mean_plus_split_conformal.py`](https://github.com/sfabbro/torchregress/blob/main/examples/ppi_mean_plus_split_conformal.py).
+A minimal end-to-end sketch is in [`examples/ppi_mean_plus_split_conformal.py`](https://github.com/astroai/torchregress/blob/main/examples/ppi_mean_plus_split_conformal.py).
 
 ---
 

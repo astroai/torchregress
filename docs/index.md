@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/sfabbro/torchregress/actions/workflows/ci.yml" target="_blank" aria-label="GitHub Actions CI status">
-    <img src="https://github.com/sfabbro/torchregress/workflows/CI/badge.svg" alt="CI">
+<a href="https://github.com/astroai/torchregress/actions/workflows/ci.yml" target="_blank" aria-label="GitHub Actions CI status">
+    <img src="https://github.com/astroai/torchregress/workflows/CI/badge.svg" alt="CI">
 </a>
 <a href="https://pypi.org/project/torchregress" target="_blank" aria-label="PyPI package version">
     <img src="https://img.shields.io/pypi/v/torchregress?color=%2334D058&label=pypi%20package" alt="Package version">
@@ -221,7 +221,7 @@ If you use torchregress in your research, please cite:
 @software{torchregress,
   title = {{torchregress: A PyTorch Library for Regression and Uncertainty Estimation}},
   author = {Fabbro, S{\'e}bastien},
-  url = {https://github.com/sfabbro/torchregress},
+  url = {https://github.com/astroai/torchregress},
   version = {0.1.0},
   year = {2024},
 }

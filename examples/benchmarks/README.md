@@ -5,7 +5,7 @@ Library comparison and smoke benchmarks for **torchregress** itself.
 NeurIPS SAGE/SPT reproduction scripts and paper artifacts:
 [torchregress-research](https://github.com/sfabbro/torchregress-research).
 External-software parity harness:
-[torchregress-harness](https://github.com/sfabbro/torchregress-harness).
+[torchregress-harness](https://github.com/astroai/torchregress-harness).
 
 ## Conventions
 

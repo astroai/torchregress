@@ -11,7 +11,7 @@ Local scripts handle version bumps, validation, and tagging.
 2. Push `main` and the new tag `vX.Y.Z`.
 3. GitHub Actions builds the package and publishes to PyPI via Trusted Publishing.
 
-See also [`scripts/release/README.md`](https://github.com/sfabbro/torchregress/blob/main/scripts/release/README.md) for command-level reference.
+See also [`scripts/release/README.md`](https://github.com/astroai/torchregress/blob/main/scripts/release/README.md) for command-level reference.
 
 ## One-time setup
 

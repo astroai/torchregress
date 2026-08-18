@@ -62,7 +62,7 @@ Use ``weighted_split_classification_predictive_batch`` when downstream tooling e
 
 ## Toy benchmark script
 
-[`examples/benchmarks/ot_conformal_score_shift_benchmark.py`](https://github.com/sfabbro/torchregress/blob/main/examples/benchmarks/ot_conformal_score_shift_benchmark.py)
+[`examples/benchmarks/ot_conformal_score_shift_benchmark.py`](https://github.com/astroai/torchregress/blob/main/examples/benchmarks/ot_conformal_score_shift_benchmark.py)
 prints gap diagnostics, weighted calibration coverage summary, and mean set size.
 
 ---
