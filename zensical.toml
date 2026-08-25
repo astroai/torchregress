@@ -9,7 +9,7 @@
 site_name = "torchregress"
 site_description = "PyTorch library for regression, uncertainty quantification, and robust estimation — losses, metrics, methods, and algorithms."
 site_author = "Sébastien Fabbro"
-site_url = "https://sfabbro.github.io/torchregress/"
+site_url = "https://astroai.github.io/torchregress/"
 copyright = """
 Copyright &copy; 2024–2026 Sébastien Fabbro · Licensed under the
 <a href="https://opensource.org/licenses/MIT" rel="noopener" target="_blank">MIT License</a>.
@@ -19,8 +19,8 @@ Copyright &copy; 2024–2026 Sébastien Fabbro · Licensed under the
 # Paths are relative to the docs/ directory (Zensical's content root)
 favicon = "assets/images/favicon.svg"
 logo = "assets/images/logo.svg"
-repo_url = "https://github.com/sfabbro/torchregress"
-repo_name = "sfabbro/torchregress"
+repo_url = "https://github.com/astroai/torchregress"
+repo_name = "astroai/torchregress"
 edit_uri = "edit/main/docs/"
 
 # ─── Extra assets ──────────────────────────────────────────────────────────
@@ -287,7 +287,6 @@ nav = [
       { "Noisy Labels" = "examples/noisy_labels_regression.md" },
       { "Noisy Label Comparison" = "examples/noisy_label_comparison.md" },
       { "Noisy Label (Real Data)" = "examples/noisy_label_realdata_comparison.md" },
-      { "Propensity & Tail" = "examples/propensity_tail_regression_comparison.md" },
       { "Semi-Supervised" = "examples/semi_supervised_regression_comparison.md" },
       { "Uncertain Ground Truth" = "examples/uncertain_gt_density_conformal_comparison.md" },
       { "Uncertain Ground Truth (Real Data)" = "examples/uncertain_gt_density_conformal_realdata_comparison.md" },

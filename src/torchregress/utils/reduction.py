@@ -7,9 +7,18 @@ from typing import Callable, Optional
 import torch
 
 
+def _safe_denominator(denom: torch.Tensor) -> torch.Tensor:
+    """Replace a non-positive denominator with one so empty reductions give 0, not NaN."""
+    return torch.where(denom > 0, denom, torch.ones_like(denom))
+
+
 def _reduce_mean(values: torch.Tensor, weights: Optional[torch.Tensor]) -> torch.Tensor:
     if weights is not None:
-        return torch.sum(values * weights) / torch.sum(weights).clamp(min=1.0)
+        # Zero-weight-safe normalization (A9): an all-zero weight vector yields
+        # 0 instead of inf/NaN, replacing the previous ``clamp(min=1.0)`` which
+        # silently under-normalized small positive weight sums.
+        w_sum = torch.sum(weights)
+        return torch.sum(values * weights) / _safe_denominator(w_sum)
     return torch.mean(values)
 
 
@@ -32,46 +41,4 @@ REDUCERS: dict[str, Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tenso
 }
 
 
-def reduce_per_sample(
-    nll: torch.Tensor,
-    sample_mask: Optional[torch.Tensor],
-    weights: Optional[torch.Tensor],
-    reduction: str,
-) -> torch.Tensor:
-    """Apply mask/weight/reduction to a per-sample NLL vector."""
-    reducer = REDUCERS[reduction]
-
-    if sample_mask is not None:
-        if sample_mask.dtype != torch.bool:
-            sample_mask = sample_mask > 0
-        if sample_mask.dim() > 1:
-            sample_mask = sample_mask.all(dim=-1)
-
-    if sample_mask is not None and weights is not None:
-        masked_weights = weights.to(device=nll.device, dtype=nll.dtype)
-        if masked_weights.shape[0] != nll.shape[0]:
-            raise ValueError("weights must match batch size")
-        masked_nll = nll[sample_mask]
-        masked_weights = masked_weights[sample_mask]
-        if reduction == "none":
-            result = torch.zeros_like(nll)
-            result[sample_mask] = masked_nll * masked_weights
-            return result
-        if reduction == "sum":
-            return torch.sum(masked_nll * masked_weights)
-        return torch.sum(masked_nll * masked_weights) / torch.sum(masked_weights).clamp(min=1.0)
-
-    if sample_mask is not None:
-        masked_nll = nll[sample_mask]
-        if reduction == "none":
-            result = torch.zeros_like(nll)
-            result[sample_mask] = masked_nll
-            return result
-        if reduction == "sum":
-            return torch.sum(masked_nll)
-        return torch.sum(masked_nll) / sample_mask.sum().clamp(min=1)
-
-    return reducer(nll, weights)
-
-
-__all__ = ["reduce_per_sample"]
+__all__ = ["_safe_denominator"]

@@ -160,7 +160,7 @@ class TestVizDiagnostic:
             np.ones_like(self.y_pred) * 0.1,
             self.y_true,
             return_figure=True,
-            show_correlation=True,
+            return_correlation=True,
         )
         assert isinstance(fig_and_corr, tuple)
         assert isinstance(fig_and_corr[0], Figure)

@@ -100,8 +100,9 @@ def _crossfit_nuisances(
     mu1_hat = torch.empty(n, dtype=torch.float32, device=x.device)
     mu0_hat = torch.empty(n, dtype=torch.float32, device=x.device)
     e_hat = torch.empty(n, dtype=torch.float32, device=x.device)
+    fold_id = torch.empty(n, dtype=torch.long, device=x.device)
 
-    for train_idx, test_idx in _make_folds(n, folds, seed=seed):
+    for k, (train_idx, test_idx) in enumerate(_make_folds(n, folds, seed=seed)):
         x_train = x[train_idx]
         t_train = t[train_idx]
         y_train = y[train_idx]
@@ -119,8 +120,9 @@ def _crossfit_nuisances(
         mu1_hat[test_idx] = _predict_outcome(m1, x_test)
         mu0_hat[test_idx] = _predict_outcome(m0, x_test)
         e_hat[test_idx] = _predict_propensity(mp, x_test, eps=eps)
+        fold_id[test_idx] = k
 
-    return {"mu1_hat": mu1_hat, "mu0_hat": mu0_hat, "e_hat": e_hat}
+    return {"mu1_hat": mu1_hat, "mu0_hat": mu0_hat, "e_hat": e_hat, "fold_id": fold_id}
 
 
 def _normal_ci(estimate: float, se: float, *, alpha: float) -> Tuple[float, float]:
@@ -132,6 +134,52 @@ def _normal_ci(estimate: float, se: float, *, alpha: float) -> Tuple[float, floa
         )
     )
     return estimate - z * se, estimate + z * se
+
+
+def _trim_scores(dr: Tensor, e_hat: Tensor, trim_threshold: float) -> Tuple[Tensor, int]:
+    """Apply propensity trimming to the estimator (TR-CAU-01): drop scores
+    whose cross-fitted propensity falls outside [trim_threshold, 1 - trim_threshold]."""
+    keep = (e_hat >= trim_threshold) & (e_hat <= 1.0 - trim_threshold)
+    if bool(keep.all()):
+        return dr, 0
+    return dr[keep], int((~keep).sum().item())
+
+
+def _fold_bootstrap_se(
+    dr: Tensor,
+    fold_id: Tensor,
+    keep: Tensor,
+    *,
+    n_boot: int = 500,
+    seed: int,
+) -> float:
+    """Fold-pair bootstrap SE over cross-fit folds (TR-CAU-02).
+
+    Resamples folds with replacement B times; each replicate averages the kept
+    DR scores of the sampled folds weighted by their sizes. Deterministic via ``seed``.
+    """
+    gen = torch.Generator(device="cpu")
+    gen.manual_seed(seed)
+    fold_ids = torch.unique(fold_id).tolist()
+    fold_means = []
+    fold_sizes = []
+    for k in fold_ids:
+        mask_k = (fold_id == k) & keep
+        if not bool(mask_k.any()):
+            continue
+        scores_k = dr[mask_k]
+        fold_means.append(scores_k.mean())
+        fold_sizes.append(float(scores_k.numel()))
+    if len(fold_means) < 2:
+        raise ValueError("fold_bootstrap requires at least 2 non-empty folds after trimming")
+    means = torch.stack(fold_means)
+    sizes = torch.tensor(fold_sizes, dtype=torch.float32)
+    idx = torch.randint(0, len(fold_means), (n_boot, len(fold_means)), generator=gen)
+    weights = torch.zeros_like(idx, dtype=torch.float32)
+    weights.scatter_add_(1, idx, torch.ones_like(idx, dtype=torch.float32))
+    size_weights = weights * sizes
+    boot = (means.unsqueeze(0) * (size_weights / size_weights.sum(dim=1, keepdim=True))).sum(dim=1)
+    return float(boot.std(unbiased=True).item())
 
 
 def _dr_scores(y: Tensor, t: Tensor, mu1_hat: Tensor, mu0_hat: Tensor, e_hat: Tensor) -> Tensor:
@@ -153,8 +201,15 @@ def dr_ate(
     seed: int = 42,
     trim_threshold: float = 0.05,
     eps: float = 1e-4,
+    se_method: str = "analytic",
 ) -> Dict[str, Any]:
     """Cross-fitted doubly-robust ATE with robust SE/CI and overlap diagnostics.
+
+    Propensity trimming acts on the estimator (TR-CAU-01): DR scores whose
+    cross-fitted propensity lies outside ``[trim_threshold, 1 - trim_threshold]``
+    are excluded before estimate/SE/CI are computed; the count is reported in
+    ``diagnostics["n_trimmed"]``. ``se_method="fold_bootstrap"`` uses a seeded
+    B=500 fold-pair bootstrap over the cross-fit folds (TR-CAU-02).
 
     References
     ----------
@@ -181,12 +236,23 @@ def dr_ate(
         seed=seed,
         eps=eps,
     )
-    dr = _dr_scores(y1, t1, nuisance["mu1_hat"], nuisance["mu0_hat"], nuisance["e_hat"])
-    n = dr.numel()
-    ate = float(dr.mean().item())
-    se = float(dr.std(unbiased=False).item() / math.sqrt(max(n, 1)))
+    e_hat = nuisance["e_hat"]
+    fold_id = nuisance["fold_id"]
+    dr = _dr_scores(y1, t1, nuisance["mu1_hat"], nuisance["mu0_hat"], e_hat)
+    keep = (e_hat >= trim_threshold) & (e_hat <= 1.0 - trim_threshold)
+    dr_kept, n_trimmed = _trim_scores(dr, e_hat, trim_threshold)
+    n = int(keep.sum().item())
+    ate = float(dr_kept.mean().item())
+    if se_method == "analytic":
+        se = float(dr_kept.std(unbiased=False).item() / math.sqrt(max(n, 1)))
+    elif se_method == "fold_bootstrap":
+        se = _fold_bootstrap_se(dr, fold_id, keep, seed=seed)
+    else:
+        raise ValueError(f"Unsupported se_method: {se_method}")
     ci_low, ci_high = _normal_ci(ate, se, alpha=alpha)
-    overlap = causal_overlap_report(nuisance["e_hat"], t1, trim_threshold=trim_threshold, eps=eps)
+    overlap = causal_overlap_report(e_hat, t1, trim_threshold=trim_threshold, eps=eps)
+    overlap["n_trimmed"] = n_trimmed
+    overlap["trim_applied_to_estimator"] = not bool(keep.all())
 
     return {
         "estimate": ate,
@@ -196,8 +262,8 @@ def dr_ate(
         "ci_low": ci_low,
         "ci_high": ci_high,
         "alpha": alpha,
-        "n_samples": n,
         "dr_scores": dr,
+        "dr_scores_trimmed": dr_kept,
         "propensity": nuisance["e_hat"],
         "mu1_hat": nuisance["mu1_hat"],
         "mu0_hat": nuisance["mu0_hat"],
@@ -218,8 +284,14 @@ def dr_cate(
     seed: int = 42,
     trim_threshold: float = 0.05,
     eps: float = 1e-4,
+    se_method: str = "analytic",
 ) -> Dict[str, Any]:
     """Cross-fitted DR CATE via pseudo-outcome regression.
+
+    Trimming semantics match :func:`dr_ate` (TR-CAU-01): the pseudo-outcome
+    regression and ATE/SE/CI use only scores kept by the propensity trim;
+    ``diagnostics["n_trimmed"]`` reports the dropped count.
+    ``se_method="fold_bootstrap"`` uses a seeded B=500 fold-pair bootstrap (TR-CAU-02).
 
     References
     ----------
@@ -246,15 +318,27 @@ def dr_cate(
         seed=seed,
         eps=eps,
     )
-    dr = _dr_scores(y1, t1, nuisance["mu1_hat"], nuisance["mu0_hat"], nuisance["e_hat"])
+    e_hat = nuisance["e_hat"]
+    fold_id = nuisance["fold_id"]
+    dr = _dr_scores(y1, t1, nuisance["mu1_hat"], nuisance["mu0_hat"], e_hat)
+    keep = (e_hat >= trim_threshold) & (e_hat <= 1.0 - trim_threshold)
+    dr_kept, n_trimmed = _trim_scores(dr, e_hat, trim_threshold)
 
-    cate = _fit_model(_build_model(cate_model), x2, dr)
+    x_kept = x2[keep]
+    cate = _fit_model(_build_model(cate_model), x_kept, dr_kept)
     cate_hat = _predict_outcome(cate, x2)
 
-    ate = float(dr.mean().item())
-    se = float(dr.std(unbiased=False).item() / math.sqrt(max(dr.numel(), 1)))
+    ate = float(dr_kept.mean().item())
+    if se_method == "analytic":
+        se = float(dr_kept.std(unbiased=False).item() / math.sqrt(max(dr_kept.numel(), 1)))
+    elif se_method == "fold_bootstrap":
+        se = _fold_bootstrap_se(dr, fold_id, keep, seed=seed)
+    else:
+        raise ValueError(f"Unsupported se_method: {se_method}")
     ci_low, ci_high = _normal_ci(ate, se, alpha=alpha)
-    overlap = causal_overlap_report(nuisance["e_hat"], t1, trim_threshold=trim_threshold, eps=eps)
+    overlap = causal_overlap_report(e_hat, t1, trim_threshold=trim_threshold, eps=eps)
+    overlap["n_trimmed"] = n_trimmed
+    overlap["trim_applied_to_estimator"] = not bool(keep.all())
 
     return {
         "ate_estimate": ate,
@@ -266,6 +350,7 @@ def dr_cate(
         "alpha": alpha,
         "cate_hat": cate_hat,
         "pseudo_outcome": dr,
+        "pseudo_outcome_trimmed": dr_kept,
         "propensity": nuisance["e_hat"],
         "mu1_hat": nuisance["mu1_hat"],
         "mu0_hat": nuisance["mu0_hat"],

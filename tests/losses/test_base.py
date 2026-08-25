@@ -155,9 +155,9 @@ class TestBaseLoss:
         # With no reduction
         loss.reduction = "none"
         reduced_none = loss._reduce(loss_values, mask)
-        # Expected: [1.0, 2.0, 4.0]
-        assert reduced_none.shape[0] == 3
-        assert torch.allclose(reduced_none, torch.tensor([1.0, 2.0, 4.0]))
+        # A9: zero-fill keeps the original shape; masked entries are 0
+        assert reduced_none.shape == loss_values.shape
+        assert torch.allclose(reduced_none, torch.tensor([1.0, 2.0, 0.0, 4.0]))
 
     def test_forward_with_mask(self):
         # This tests the entire end-to-end flow

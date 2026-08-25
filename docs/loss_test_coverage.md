@@ -40,13 +40,13 @@ canonical way a contract break shows up in CI.
 | `WeightedCrossEntropyLoss` | `base.py` | `tests/losses/test_base.py` | `TestWeightedClassificationLosses` | Per-sample weights propagate to native `CrossEntropyLoss` |
 | `WeightedNLLLoss` | `base.py` | `tests/losses/test_base.py` | `TestWeightedClassificationLosses` | Mask-filtered per-sample NLL matches native `NLLLoss` mean |
 | `BalancedMSELoss` | `balanced_mse.py` | `tests/losses/test_balanced_mse.py` | (per-class suite) | Effective MSE under target-density weights |
-| `BMCLoss` | `balanced_mse.py` | `tests/losses/test_balanced_mse.py` | (per-class suite) | Bayesian-MSE-style marginal under label-shift |
+| `BinReweightedMSELoss` | `balanced_mse.py` | `tests/losses/test_balanced_mse.py` | (per-class suite) | Binned inverse-frequency weighted MSE with automatic edges |
 | `BetaNLLLoss` | `beta_nll.py` | `tests/losses/test_beta_nll.py` + `tests/losses/test_functional_wrappers.py` | `TestBetaNLLLossWrapper` | Detached `var⁻ᵝ` rescaling; reduces to vanilla Gaussian NLL at `β=0` |
 | `beta_nll_loss` | `beta_nll.py` | `tests/losses/test_functional_wrappers.py` | `TestBetaNLLLossWrapper::test_parity_with_class` | Functional wrapper parity with `BetaNLLLoss` on tuple & concat inputs |
 | `CensoredGaussianNLLLoss` | `censored.py` | `tests/losses/test_censored.py` | (per-class) | Censoring mask propagates to NLL |
 | `CensoredQuantileLoss` | `censored.py` | `tests/losses/test_censored.py` | (per-class) | Pinball loss with left-/right-censoring adjustments |
 | `AFTLoss` | `censored.py` | `tests/losses/test_censored.py` | (per-class suite) | Accelerated-failure-time log-location residual |
-| `CQR` | `conformal.py` | `tests/losses/test_conformal.py` | `TestCQR` + `TestConformalLossCQRDebias` | Debias widens via `α·n/(n+1)`; alpha restoration after calibrate; calibrated interval is `[q_lo - q_hat, q_hi + q_hat]` |
+| `CQR` | `conformal.py` | `tests/losses/test_conformal.py` | `TestCQR` + `TestConformalLossCQRDebias` | Finite-sample quantile thresholds (`debias` accepted as documented no-op); alpha restoration after calibrate; calibrated interval is `[q_lo - q_hat, q_hi + q_hat]` |
 | `CTI` | `conformal.py` | `tests/losses/test_conformal.py` | `TestCTI` | Smallest density-level-set interval via grid search |
 | `SLSConformal` | `conformal.py` | `tests/losses/test_sls_conformal.py` | (per-class) | Score = `G(X,Y) / q_τ(X)`; interval from frontier level set |
 | `ConformalLoss` | `conformal.py` | `tests/losses/test_conformal.py` | `TestSplitConformal`, `TestCQR`, `TestConformalLossCQRDebias`, etc. | Method-routes to underlying predictor; pinball training loss for cqr/uacqr |
@@ -69,7 +69,7 @@ canonical way a contract break shows up in CI.
 | `ExplicitEIVAdapter` | `eiv.py` | `tests/losses/test_eiv_internals.py` | `TestExplicitEIVAdapter` | Adapter forwards `sigma_x`/`sigma_y` override at call-site even if not set in constructor |
 | `FunctionalEIVLoss` | `eiv.py` | `tests/losses/test_eiv.py` | `TestEIVLoss::test_functional_eiv_loss` + `TestEIVLossNumericalStability` | Jacobian-variance + NLL; analytical/mc/hybrid branches finite & monotonic in `n_samples` |
 | `InputNoiseBinnedPDFLoss` | `eiv.py` | (specialized class — INDIRECT, exercised via `test_eiv.py`) | — | Binned-PDF marginalisation with Ordinal base |
-| `InputNoiseMarginalizationLoss` | `eiv.py` | `tests/losses/test_eiv.py` | `TestEIVLoss::test_input_noise_marginalization_loss` + `test_input_noise_predictive_average_*` | `sample_predictions` shape; antithetic sampling; per-sample weights pass through |
+| `LatentMarginalizationLoss` | `eiv.py` | `tests/losses/test_eiv_correctness.py` | `TestEIVCorrectness::test_latent_marginalization_gaussian_prior` + `test_latent_marginalization_custom_sampler` | Analytical Gaussian-prior posterior and custom-sampler posterior paths; log-mean-exp marginalisation |
 | `InputNoiseMDNLoss` | `eiv.py` | (per-class — INDIRECT via `test_mdn.py`) | — | MDN base loss + marginalisation |
 | `NoisyInputPredictor` | `eiv.py` | `tests/losses/test_eiv_internals.py` | `TestNoisyInputPredictor` | `forward(x)` returns mean over MC perturbations; antithetic yields distinct rows; non-tensor model is rejected |
 | `OrthogonalDistanceRegressionLoss` | `eiv.py` | `tests/losses/test_eiv.py` | `TestEIVLoss::test_odr_loss` + `TestEIVLossNumericalStability::test_odr_gradient_flow` | Latent-x optimisation step (approx) recovers Mahalanobis sum |

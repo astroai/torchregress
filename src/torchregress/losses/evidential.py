@@ -18,6 +18,7 @@ import math
 from typing import Any, Optional, Tuple, cast
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor
 
 from .base import DistributionLoss
@@ -85,10 +86,10 @@ class EvidentialRegressionLoss(DistributionLoss):
         >>>     params = model(x_test)
         >>>     mean, ale_unc, epi_unc = loss_fn.predict_with_uncertainty(params)
 
-    Notes:
-        - Model must output 4 values per target dimension: [gamma, nu, alpha, beta]
         - Constraints: nu > 0, alpha > 1, beta > 0
-        - Use softplus activation for nu, alpha, beta to ensure constraints
+        - A4: raw network outputs are constrained internally via
+          ``softplus(x) + {0.01, 1.01, 0.01}`` for nu/alpha/beta, so models can
+          output unconstrained values
         - Epistemic uncertainty decreases with more evidence (higher nu, alpha)
         - Aleatoric uncertainty is data-dependent and irreducible
 
@@ -146,11 +147,14 @@ class EvidentialRegressionLoss(DistributionLoss):
 
         n_features = y_pred.shape[-1] // 4
 
-        # Split into 4 parameters
-        gamma = y_pred[..., :n_features]  # mean
-        nu = y_pred[..., n_features : 2 * n_features]  # evidence for mean
-        alpha = y_pred[..., 2 * n_features : 3 * n_features]  # shape for variance
-        beta = y_pred[..., 3 * n_features :]  # scale for variance
+        # Split into 4 parameters.
+        # A4: constrain nu/alpha/beta with softplus + fixed offsets so the
+        # train-time parameterization matches the harness wrapper constraint
+        # and the parameters are strictly positive by construction.
+        gamma = y_pred[..., :n_features]  # mean (raw)
+        nu = F.softplus(y_pred[..., n_features : 2 * n_features]) + 0.01
+        alpha = F.softplus(y_pred[..., 2 * n_features : 3 * n_features]) + 1.01
+        beta = F.softplus(y_pred[..., 3 * n_features :]) + 0.01
 
         return gamma, nu, alpha, beta
 
@@ -190,10 +194,11 @@ class EvidentialRegressionLoss(DistributionLoss):
         nll = 0.5 * torch.log(math.pi / nu)
 
         # Term 2: -alpha * log(2*beta)
-        nll -= alpha * torch.log(2.0 * beta + 1e-6)
+        # A4: no +1e-6 floors — softplus offsets guarantee positivity
+        nll -= alpha * torch.log(2.0 * beta)
 
         # Term 3: (alpha + 0.5) * log(nu * residual^2 + 2*beta)
-        nll += (alpha + 0.5) * torch.log(nu * residual_sq + 2.0 * beta + 1e-6)
+        nll += (alpha + 0.5) * torch.log(nu * residual_sq + 2.0 * beta)
 
         # Term 4: log Gamma functions (approximate for large alpha)
         # loggamma(alpha) - loggamma(alpha + 0.5)

@@ -56,13 +56,18 @@ class TestSWAGInit:
                 assert hasattr(swag, buf_name), f"Missing buffer {buf_name}"
 
     def test_deviations_created(self) -> None:
-        """deviations dict has entries for each trainable param."""
+        """Deviations live in registered buffers named <param>_devs (TR-ENS-02),
+        created lazily on first collect."""
         model = _make_model()
         swag = SWAG(model, max_num_models=5)
-        trainable_count = sum(1 for p in model.parameters() if p.requires_grad)
-        assert len(swag.deviations) == trainable_count
-        for name, dev in swag.deviations.items():
-            assert dev.shape[0] == 5  # max_num_models
+        trainable = [n for n, p in model.named_parameters() if p.requires_grad]
+        for name in trainable:
+            assert not hasattr(swag, f"{name.replace('.', '_')}_devs")
+        swag.collect_model(model)
+        devs = [k for k in swag.state_dict() if k.endswith("_devs")]
+        assert len(devs) == len(trainable)
+        for key in devs:
+            assert swag.state_dict()[key].shape[0] == 5  # max_num_models
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -124,7 +129,9 @@ class TestSWAGCollectModel:
         swag = SWAG(model, max_num_models=2)
         # First collection at index 0
         swag.collect_model(model)
-        for name, dev in swag.deviations.items():
+        for key, dev in swag.state_dict().items():
+            if not key.endswith("_devs"):
+                continue
             # Deviation = param - mean = param - param = 0 (first snapshot)
             assert torch.allclose(dev[0], torch.zeros_like(dev[0]), atol=1e-6)
 
@@ -138,8 +145,10 @@ class TestSWAGCollectModel:
         # Third collection wraps around to index 0
         swag.collect_model(model)
         # Index 0 should now contain the third collection's deviation
-        for name in swag.deviations:
-            assert torch.any(swag.deviations[name][0] != 0)
+        for key, dev in swag.state_dict().items():
+            if not key.endswith("_devs"):
+                continue
+            assert torch.any(dev[0] != 0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

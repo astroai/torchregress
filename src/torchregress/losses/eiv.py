@@ -502,10 +502,11 @@ class InputNoiseAugmentationLoss(RegressionLoss):
         # Flatten: [n_samples * batch_size, ...]
         flat_preds = predictions.reshape(-1, *predictions.shape[2:])
 
-        # Tile target/mask/weights: [batch_size, ...] -> [n_samples * batch_size, ...]
+        # Tile target/mask: [batch_size, ...] -> [n_samples * batch_size, ...].
+        # A10: sample weights are NOT forwarded into the inner base loss — they
+        # apply once at the outermost reduction.
         flat_target = _tile(target, n_samples)
         flat_mask = _tile(mask, n_samples) if mask is not None else None
-        flat_weights = _tile(weights, n_samples) if weights is not None else None
 
         # Force reduction='none' to average over samples properly before final reduction
         kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
@@ -513,7 +514,6 @@ class InputNoiseAugmentationLoss(RegressionLoss):
             flat_preds,
             flat_target,
             mask=flat_mask,
-            weights=flat_weights,
             reduction="none",
             **kwargs_no_red,
         )
@@ -649,8 +649,13 @@ class LatentMarginalizationLoss(BaseEIVLoss):
             if hasattr(self.posterior_sampler, "posterior") and callable(
                 self.posterior_sampler.posterior
             ):
-                # RegressionCalibration or similar prior calibrator
-                post_mean, post_cov = self.posterior_sampler.posterior(x_obs)
+                # RegressionCalibration or similar prior calibrator. ``cast``
+                # because ``posterior_sampler`` is duck-typed (Callable | object).
+                posterior_fn = cast(
+                    Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]],
+                    self.posterior_sampler.posterior,
+                )
+                post_mean, post_cov = posterior_fn(x_obs)
                 x_samples = self._sample_gaussian(post_mean, post_cov, self.n_samples)
             elif callable(self.posterior_sampler):
                 x_samples = self.posterior_sampler(x_obs, self.n_samples)
@@ -697,10 +702,12 @@ class LatentMarginalizationLoss(BaseEIVLoss):
         flat_x = x_samples.reshape(n_draws * batch_size, -1)
         flat_predictions = self.model(flat_x)
 
-        # Flatten target/mask/weights to match flat_predictions
+        # Flatten target/mask to match flat_predictions.
+        # A10: sample weights are NOT forwarded into the inner base loss — the
+        # marginal NLL is computed UNWEIGHTED per sample and weights are applied
+        # only at the outermost reduction (outside the log-mean-exp).
         flat_target = _tile(target, n_draws)
         flat_mask = _tile(mask, n_draws) if mask is not None else None
-        flat_weights = _tile(weights, n_draws) if weights is not None else None
 
         # 3. Compute base NLL loss for each sample (with reduction='none')
         kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
@@ -708,7 +715,6 @@ class LatentMarginalizationLoss(BaseEIVLoss):
             flat_predictions,
             flat_target,
             mask=flat_mask,
-            weights=flat_weights,
             reduction="none",
             **kwargs_no_red,
         )
@@ -954,6 +960,11 @@ class FunctionalEIVLoss(BaseEIVLoss):
             raise ValueError(f"mode must be one of {self._VALID_MODES}, got {mode!r}")
         self.mode = mode
         self.monte_carlo = self.mode == "mc"  # backward compat: True only for pure MC
+        # A11: an empirical covariance from a single MC sample divides by zero.
+        if self.mode == "mc" and n_samples < 2:
+            raise ValueError(
+                f"mode='mc' requires n_samples >= 2 to estimate a covariance, got {n_samples}"
+            )
         self.n_samples = n_samples
 
     def forward(

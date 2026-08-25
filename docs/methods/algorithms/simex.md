@@ -130,7 +130,7 @@ y_pred = simex.predict(X_test)
 
 - **Default**: Start with `extrapolation_order=2` (quadratic) and `lambdas=[0.5, 1.0, 1.5, 2.0]`. Linear extrapolation is safer but less flexible; quadratic is a good compromise.
 - **For linear models**: Use [RC](rc.md) instead — it is analytical, instantaneous, and makes the same assumptions without the computational cost.
-- **For neural networks with large datasets**: Consider [EIV losses](../../losses/eiv.md) (InputNoiseMarginalizationLoss) which handle measurement error at the loss level without retraining M models.
+- **For neural networks with large datasets**: Consider [EIV losses](../../losses/eiv.md) (LatentMarginalizationLoss) which handle measurement error at the loss level without retraining M models.
 - **Validate extrapolation**: Plot the SIMEX extrapolation curve with [`plot_simex_extrapolation`](../../api/viz.md) to visually check polynomial fit quality before trusting the correction.
 
 ## Next steps

@@ -9,6 +9,7 @@ The implementation is intentionally lightweight and frequentist-first.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -187,9 +188,9 @@ def ppi_calibrated_mean_ci(
     with paired bootstrap that **refits** :math:`(\\hat a, \\hat b)` on each labeled
     resample.
 
-    This is the linearly calibrated PPI mean from Chen et al. (arXiv:2604.21260),
-    Section 3.3; they relate it to prognostic-score style adjustment and to PPI++
-    at first order.
+    This is the linearly calibrated ("calibeating") PPI mean of van der Laan & van
+    der Laan (arXiv:2604.21260); they relate it to prognostic-score style
+    adjustment and to PPI++ at first order.
 
     Parameters
     ----------
@@ -200,8 +201,8 @@ def ppi_calibrated_mean_ci(
 
     References
     ----------
-    .. [1] Chen, et al. (2026). Linearly Calibrated Prediction-Powered Inference.
-       In *arXiv:2604.21260*. https://arxiv.org/abs/2604.21260
+    .. [1] van der Laan, L., & van der Laan, M. (2026). Calibeating Prediction-Powered
+       Inference. In *arXiv:2604.21260*. https://arxiv.org/abs/2604.21260
     """
     cfg = config or PPIConfig()
     if not 0 < cfg.alpha < 1:
@@ -485,11 +486,136 @@ def ppi_diagnostics(
     }
 
 
+def _var(x: Tensor) -> Tensor:
+    return x.var(unbiased=True) if x.numel() > 1 else torch.zeros((), device=x.device)
+
+
+def ppi_pp_mean_ci(  # noqa: PLR0912
+    y_labeled: Tensor | list[float],
+    pred_labeled: Tensor | list[float],
+    pred_unlabeled: Tensor | list[float],
+    *,
+    lambdas: Tensor | list[float] | None = None,
+    cross_fits: int = 0,
+    alpha: float = 0.05,
+) -> dict[str, Any]:
+    """PPI++ confidence interval for a population mean (TR-INF-02).
+
+    Selects the power-tuning parameter :math:`\\lambda` minimizing the PPI++
+    first-order variance
+
+    .. math::
+        V(\\lambda) = \\frac{\\mathrm{Var}_l(r)}{n}
+            + \\lambda^2 \\frac{\\mathrm{Var}_u(\\hat y)}{N}
+            - 2\\lambda \\frac{\\mathrm{Cov}_l(\\hat y, r)}{n},
+
+    with :math:`r = y - \\hat y`, over ``lambdas`` (default grid
+    ``torch.linspace(0, 1, 21)``) per Angelopoulos et al. When
+    ``cross_fits=k > 0``, labeled data is split into k folds and the affine
+    calibration rectifier is refit out-of-fold before residuals are computed.
+
+    References
+    ----------
+    .. [1] Angelopoulos, A. N., Bates, S., Fannjiang, C., Jordan, M. I., & Zrnic, T.
+       (2023). Prediction-Powered Inference. In *Science*, 382(6673), 903-907.
+       https://arxiv.org/abs/2301.09633
+    """
+    if not 0 < alpha < 1:
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+    if cross_fits < 0:
+        raise ValueError(f"cross_fits must be >= 0, got {cross_fits}")
+
+    y_l = _to_1d_tensor(y_labeled)
+    p_l = _to_1d_tensor(pred_labeled)
+    p_u = _to_1d_tensor(pred_unlabeled)
+    if y_l.numel() != p_l.numel():
+        raise ValueError("y_labeled and pred_labeled must have the same number of samples")
+    min_l = cross_fits + 2 if cross_fits > 0 else 2
+    if y_l.numel() < min_l or p_u.numel() < 2:
+        raise ValueError(
+            f"ppi_pp_mean_ci requires at least {min_l} labeled and 2 unlabeled samples"
+        )
+
+    if lambdas is None:
+        lambda_grid = torch.linspace(0.0, 1.0, 21, device=y_l.device, dtype=torch.float32)
+    else:
+        lambda_grid = torch.as_tensor(lambdas, dtype=torch.float32, device=y_l.device).reshape(-1)
+        if lambda_grid.numel() == 0:
+            raise ValueError("lambdas must be non-empty when provided")
+
+    if cross_fits > 0:
+        k = int(cross_fits)
+        fold_idx = torch.arange(y_l.numel()) % k
+        pl_cal_parts = []
+        for f in range(k):
+            train_mask = fold_idx != f
+            test_mask = ~train_mask
+            # Out-of-fold affine rectifier fit on the other folds only.
+            p_l_f_cal = _linear_calibrate_apply(p_l[train_mask], y_l[train_mask], p_l[test_mask])
+            pl_cal_parts.append(p_l_f_cal)
+        pl_cal = torch.empty_like(p_l)
+        for f in range(k):
+            test_mask = fold_idx == f
+            pl_cal[test_mask] = pl_cal_parts[f]
+        p_u_eff = _linear_calibrate_apply(p_l, y_l, p_u)
+        p_l_eff = pl_cal
+    else:
+        p_l_eff = p_l
+        p_u_eff = p_u
+
+    n = float(y_l.numel())
+    big_n = float(p_u_eff.numel())
+
+    # Unbiased PPI++ family: theta(lam) = mean_l(y) + lam*(mean_u(f_u) - mean_l(f_l)).
+    # First-order variance of that linear combination (TR-INF-02):
+    #   V(lam) = Var_l(y)/n + lam^2*(Var_u(f)/N + Var_l(f)/n) - 2*lam*Cov_l(y, f)/n
+    var_y = _var(y_l)
+    var_pl = _var(p_l_eff)
+    var_pu = _var(p_u_eff)
+    yc = y_l - y_l.mean()
+    pc = p_l_eff - p_l_eff.mean()
+    cov_yf = float(torch.mean(yc * pc).item())
+    if n > 1:
+        cov_yf *= n / (n - 1.0)  # unbiased covariance scaling
+
+    lam = lambda_grid.to(torch.float64)
+    v = (
+        var_y.to(torch.float64) / n
+        + lam.pow(2) * (var_pu.to(torch.float64) / big_n + var_pl.to(torch.float64) / n)
+        - 2.0 * lam * cov_yf / n
+    )
+    best = int(torch.argmin(v).item())
+    lambda_star = float(lambda_grid[best].item())
+    variance = float(max(v[best].item(), 0.0))
+
+    point = y_l.mean() + lambda_star * (p_u_eff.mean() - p_l_eff.mean())
+    estimate = float(point.item())
+    se = float(math.sqrt(variance))
+    z = float(torch.distributions.Normal(0.0, 1.0).icdf(torch.tensor(1.0 - alpha / 2.0)).item())
+    ci_lower = estimate - z * se
+    ci_upper = estimate + z * se
+
+    return {
+        "method": "ppi_pp_mean_ci",
+        "estimate": estimate,
+        "se": se,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "alpha": float(alpha),
+        "lambda": lambda_star,
+        "variance": variance,
+        "n_labeled": int(y_l.numel()),
+        "n_unlabeled": int(p_u.numel()),
+        "cross_fits": int(cross_fits),
+    }
+
+
 __all__ = [
     "PPIConfig",
     "ppi_calibrated_mean_ci",
-    "ppi_mean_ci",
-    "ppi_quantile_ci",
-    "ppi_ols_ci",
     "ppi_diagnostics",
+    "ppi_mean_ci",
+    "ppi_ols_ci",
+    "ppi_pp_mean_ci",
+    "ppi_quantile_ci",
 ]

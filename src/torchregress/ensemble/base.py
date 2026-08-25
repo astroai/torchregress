@@ -8,28 +8,30 @@ in the torchregress library.
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import torch
 from torch import nn
 
+# NOTE: elements of ``tuple[Optimizer, ...]`` resolve as ``object`` under ty
+# (bare ``torch.optim.Optimizer`` is generic in the stubs), hence the casts below.
 Optimizer = torch.optim.Optimizer
 OptimizerLike = Optimizer | tuple[Optimizer, ...]
 
 
 def _optimizer_like_zero_grad(opt: OptimizerLike) -> None:
     for o in opt if isinstance(opt, tuple) else (opt,):
-        o.zero_grad()
+        cast(Optimizer, o).zero_grad()
 
 
 def _optimizer_like_step(opt: OptimizerLike) -> None:
     for o in opt if isinstance(opt, tuple) else (opt,):
-        o.step()
+        cast(Optimizer, o).step()
 
 
 def _optimizer_like_set_lr(opt: OptimizerLike, lr: float) -> None:
     for o in opt if isinstance(opt, tuple) else (opt,):
-        for param_group in o.param_groups:
+        for param_group in cast(Optimizer, o).param_groups:
             param_group["lr"] = lr
 
 
@@ -141,8 +143,9 @@ class BaseEnsembleModel(nn.Module):
         if seed is not None:
             torch.manual_seed(seed)
         for module in model.modules():
-            if hasattr(module, "reset_parameters") and callable(module.reset_parameters):
-                module.reset_parameters()
+            reset_fn = getattr(module, "reset_parameters", None)
+            if callable(reset_fn):
+                reset_fn()
 
     def forward(self, x: torch.Tensor) -> Union[torch.Tensor, list[Any]]:
         """
@@ -157,7 +160,7 @@ class BaseEnsembleModel(nn.Module):
         """
         outputs = [model(x) for model in self.models]
         if outputs and isinstance(outputs[0], torch.Tensor):
-            return torch.stack(outputs)
+            return torch.stack(cast(List[torch.Tensor], outputs))
         return outputs
 
     def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
@@ -181,7 +184,7 @@ class BaseEnsembleModel(nn.Module):
                         "BaseEnsembleModel.predict expects tensor outputs. "
                         "Use a specialized ensemble for structured outputs."
                     )
-                stacked_preds = torch.stack(stacked_preds)
+                stacked_preds = torch.stack(cast(List[torch.Tensor], stacked_preds))
 
             # Calculate mean across ensemble dimension
             mean = torch.mean(stacked_preds, dim=0)
@@ -214,7 +217,7 @@ class BaseEnsembleModel(nn.Module):
                         "BaseEnsembleModel.predict_full_covariance expects tensor outputs. "
                         "Use a specialized ensemble for structured outputs."
                     )
-                preds = torch.stack(preds)
+                preds = torch.stack(cast(List[torch.Tensor], preds))
             stacked = preds  # [ensemble_size, batch, dim]
             mean = torch.mean(stacked, dim=0)
             # Compute covariance across ensemble members

@@ -38,7 +38,6 @@ from .quantile import (
     multi_quantile_loss,
     quantile_loss,
 )
-from .reduction import reduce_per_sample
 from .security import validate_url
 from .semisupervised import (
     generate_pseudo_labels,
@@ -86,7 +85,6 @@ __all__ = [
     "split_low_rank_gaussian_output",
     "split_mean_log_variance",
     "variance_from_logvar",
-    "reduce_per_sample",
     # numpy_stats
     "subsample_rows",
     "winsorize",

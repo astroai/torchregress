@@ -8,13 +8,19 @@ and comparing regression model results.
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError as exc:  # pragma: no cover - hit only without the viz extra
+    raise ImportError(
+        "torchregress.viz requires matplotlib; pip install 'torchregress[viz]'"
+    ) from exc
+
 import numpy as np
 import torch
 from matplotlib.figure import Figure
 
 # Import visualization utilities
-from torchregress.viz.utils import create_color_palette
+from torchregress.viz.utils import create_color_palette, is_lower_better
 
 
 def plot_performance_comparison(
@@ -70,11 +76,8 @@ def plot_performance_comparison(
     if higher_is_better is None:
         higher_is_better = {}
         for metric in metrics_to_include:
-            # Default: higher is better unless metric contains 'error', 'loss', or 'mae'
-            is_higher_better = not any(
-                term in metric.lower() for term in ["error", "loss", "mae", "mse", "rmse", "mape"]
-            )
-            higher_is_better[metric] = is_higher_better
+            # TR-VIZ-01: single shared direction registry instead of per-file term lists
+            higher_is_better[metric] = not is_lower_better(metric)
 
     # Build numpy arrays for easier manipulation
     model_names = list(metrics.keys())
@@ -244,11 +247,8 @@ def _format_performance_axes(
                     else:
                         metric_labels.append(metric)
                 ax.set_xticklabels(metric_labels, rotation=45, ha="right")
-    except (ImportError, RuntimeError, Exception):
-        pass  # Skip LaTeX rendering if not available
-
-    ax.legend(loc="best", frameon=True, fancybox=True, framealpha=0.9)
-
+    except RuntimeError:
+        pass  # Skip LaTeX rendering if it fails at render time
     # Add grid
     ax.grid(True, axis="y", alpha=0.3)
 
@@ -302,12 +302,13 @@ def _plot_performance_bar(
         ax, metric_names, title, indices, bar_width, n_models, higher_is_better
     )
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     if return_figure:
         return fig
     elif created_fig:  # Only show if we created the figure here
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -379,6 +380,7 @@ def _plot_performance_radar(
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
         return None
 
 
@@ -460,12 +462,13 @@ def _plot_performance_heatmap(
     # Add title
     ax.set_title(title)
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     if return_figure:
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
         return None
 
 
@@ -503,11 +506,8 @@ def plot_parameter_sensitivity(
     if higher_is_better is None:
         higher_is_better = {}
         for metric in metric_values:
-            # Default: higher is better unless metric contains 'error', 'loss', or 'mae'
-            is_higher_better = not any(
-                term in metric.lower() for term in ["error", "loss", "mae", "mse", "rmse", "mape"]
-            )
-            higher_is_better[metric] = is_higher_better
+            # TR-VIZ-01: single shared direction registry instead of per-file term lists
+            higher_is_better[metric] = not is_lower_better(metric)
 
     # Create grid of subplots
     n_metrics = len(metric_values)
@@ -525,7 +525,7 @@ def plot_parameter_sensitivity(
     for i, (metric, values) in enumerate(metric_values.items()):
         ax = axes[i]
 
-        for param_name, param_values in parameter_values.items():
+        for k, (param_name, param_values) in enumerate(parameter_values.items()):
             # Skip if number of parameter values doesn't match metric values
             if len(param_values) != len(values):
                 continue
@@ -569,8 +569,14 @@ def plot_parameter_sensitivity(
                         label=f"Best: {sorted_params[best_idx]}",
                     )
             else:  # bar plot
+                # TR-VIZ-06..21: group bars per parameter instead of overlaying them
                 x_pos = np.arange(len(sorted_params))
-                bars = ax.bar(x_pos, sorted_values, color=colors)
+                n_params = max(len(parameter_values), 1)
+                bar_width = 0.8 / n_params
+                offset = (k - (n_params - 1) / 2.0) * bar_width
+                bars = ax.bar(
+                    x_pos + offset, sorted_values, width=bar_width, color=colors, label=param_name
+                )
                 ax.set_xticks(x_pos)
                 ax.set_xticklabels([str(p) for p in sorted_params], rotation=45)
 
@@ -579,6 +585,8 @@ def plot_parameter_sensitivity(
                     bars[best_idx].set_edgecolor("red")
                     bars[best_idx].set_linewidth(2)
                     bars[best_idx].set_hatch("//")
+                if len(parameter_values) > 1:
+                    ax.legend(loc="best")
 
         # Set title and labels
         is_higher_better = higher_is_better.get(metric, True)
@@ -590,7 +598,9 @@ def plot_parameter_sensitivity(
             ax.set_ylabel("Metric Value")
             ax.legend(loc="best")
         else:  # bar plot
-            ax.set_xlabel(param_name)
+            # TR-VIZ-06..21: label every parameter iterated on this subplot,
+            # not just whichever happened to be last in the loop.
+            ax.set_xlabel(" / ".join(parameter_values.keys()))
             ax.set_ylabel("Metric Value")
 
         # Add grid
@@ -602,13 +612,14 @@ def plot_parameter_sensitivity(
 
     # Set overall title
     fig.suptitle(title, fontsize=14)
-    plt.tight_layout()
+    fig.tight_layout()
     plt.subplots_adjust(top=0.9)
 
     if return_figure:
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
         return None
 
 
@@ -800,12 +811,13 @@ def plot_feature_importance(
     else:
         ax.grid(True, axis="y", alpha=0.3)
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     if return_figure:
         return fig
     elif created_fig:  # Only show if we created the figure here
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -874,12 +886,13 @@ def plot_model_ensemble_contributions(
     # Add grid
     ax.grid(True, alpha=0.3)
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     if return_figure:
         return fig
     elif created_fig:  # Only show if we created the figure here
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -980,8 +993,9 @@ def plot_simex_extrapolation(
     if return_figure:
         return fig
     elif created_fig:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
     return None
 
 
@@ -1083,8 +1097,9 @@ def plot_risk_coverage_curve(
     if return_figure:
         return fig
     elif created_fig:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
     return None
 
 
@@ -1134,6 +1149,10 @@ def plot_causal_uplift_qini(
         qini_y = cum_y_treated - cum_y_control * (
             cum_treated / np.where(cum_control == 0, 1.0, cum_control)
         )
+    # TR-VIZ-06..21: prefixes that contain only one arm have no defined uplift —
+    # mask them as NaN so the curve splits instead of fabricating values.
+    no_arm = (cum_treated == 0) | (cum_control == 0)
+    qini_y = np.where(no_arm, np.nan, qini_y)
 
     qini_x = np.insert(qini_x, 0, 0.0)
     qini_y = np.insert(qini_y, 0, 0.0)
@@ -1177,9 +1196,34 @@ def plot_causal_uplift_qini(
     if return_figure:
         return fig
     elif created_fig:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
     return None
+
+
+def _mass_contour_levels(
+    density: np.ndarray, masses: Tuple[float, ...] = (0.393, 0.865)
+) -> List[float]:
+    """Density contour levels enclosing the given probability masses (TR-VIZ-06..21).
+
+    Sorts densities descending and picks the density value where the normalized
+    cumulative mass first reaches each target. The defaults correspond to the
+    1- and 2-sigma credible regions of a 2-D Gaussian:
+    ``1 - exp(-0.5) = 0.393`` and ``1 - exp(-2) = 0.865``.
+    """
+    flat = np.sort(np.asarray(density, dtype=float).ravel())[::-1]
+    cum = np.cumsum(flat)
+    total = cum[-1]
+    if not np.isfinite(total) or total <= 0:
+        return []
+    cum /= total
+
+    levels: List[float] = []
+    for m in masses:
+        idx = int(np.searchsorted(cum, m))
+        levels.append(float(flat[min(idx, len(flat) - 1)]))
+    return sorted(levels)
 
 
 def plot_corner_plot(
@@ -1405,7 +1449,7 @@ def plot_corner_plot(
                     Z_g = kde(np.vstack([X_g.ravel(), Y_g.ravel()])).reshape(X_g.shape)
 
                     z_max = Z_g.max()
-                    levels = [z_max * 0.15, z_max * 0.50, z_max * 0.85]
+                    levels = _mass_contour_levels(Z_g)
                     ax.contour(
                         X_g,
                         Y_g,
@@ -1467,7 +1511,7 @@ def plot_corner_plot(
             edgecolor="#cccccc",
         )
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     if save_path is not None:
         save_path = Path(save_path)
@@ -1478,4 +1522,5 @@ def plot_corner_plot(
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
         return None

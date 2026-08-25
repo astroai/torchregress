@@ -12,17 +12,41 @@ import numpy as np
 import torch
 
 
-def convert_to_tensor(x: Union[torch.Tensor, np.ndarray, List, float, int]) -> torch.Tensor:
-    """Convert common array-like inputs to float32 tensors."""
-    if isinstance(x, np.ndarray):
-        return torch.from_numpy(x).float()
-    if isinstance(x, (list, tuple)):
-        return torch.tensor(x, dtype=torch.float32)
-    if isinstance(x, (float, int)):
-        return torch.tensor([x], dtype=torch.float32)
+def convert_to_tensor(
+    x: Union[torch.Tensor, np.ndarray, List, float, int],
+    *,
+    dtype: Optional[torch.dtype] = None,
+    device: Optional[torch.device] = None,
+) -> torch.Tensor:
+    """Convert common array-like inputs to tensors without silent downcasting.
+
+    Policy (TR-MET-14):
+    - numpy arrays are **copied** (never aliased) and keep their dtype;
+    - floating-point inputs keep their precision (float64 stays float64);
+      only integer/boolean inputs are promoted to float32;
+    - python scalars become 0-dim tensors;
+    - optional ``dtype``/``device`` are applied after conversion.
+    """
     if isinstance(x, torch.Tensor):
-        return x
-    raise TypeError(f"Cannot convert {type(x)} to torch.Tensor")
+        tensor = x
+    elif isinstance(x, np.ndarray):
+        tensor = torch.from_numpy(np.array(x, copy=True))
+    elif isinstance(x, (list, tuple)):
+        tensor = torch.as_tensor(x)
+        if not tensor.is_floating_point():
+            tensor = tensor.to(torch.float32)
+    elif isinstance(x, (float, int, bool)):
+        tensor = torch.as_tensor(x).reshape(())
+        if not tensor.is_floating_point():
+            tensor = tensor.to(torch.float32)
+    else:
+        raise TypeError(f"Cannot convert {type(x)} to torch.Tensor")
+
+    if dtype is not None:
+        tensor = tensor.to(dtype)
+    if device is not None:
+        tensor = tensor.to(device)
+    return tensor
 
 
 def ensure_batch_dim(x: torch.Tensor) -> torch.Tensor:
@@ -223,12 +247,15 @@ def calculate_gaussian_nll(
     device = residuals.device
     dtype = residuals.dtype
 
-    if var.dim() <= 2:
+    elementwise_diagonal = var.shape == residuals.shape or var.dim() == residuals.dim() - 1
+    full_covariance = var.dim() == residuals.dim() + 1
+
+    if elementwise_diagonal:
         # Diagonal covariance case
         nll = 0.5 * (torch.log(var + eps) + (residuals**2) / (var + eps))
         nll = torch.sum(nll, dim=1)
         nll = nll + 0.5 * residuals.shape[1] * math.log(2 * math.pi)
-    else:
+    elif full_covariance:
         # Full covariance case [batch, Dy, Dy]
         # Add jitter for stability
         Dy = residuals.shape[1]
@@ -239,6 +266,13 @@ def calculate_gaussian_nll(
             torch.zeros_like(residuals), covariance_matrix=var_stable
         )
         nll = -mvn.log_prob(residuals)
+    else:
+        raise AssertionError(
+            "calculate_gaussian_nll supports var with the same shape as residuals "
+            f"{tuple(residuals.shape)} (elementwise), a broadcastable per-sample diagonal "
+            f"with dim == residuals.dim() - 1, or a full covariance [batch, D, D]; "
+            f"got {tuple(var.shape)}"
+        )
 
     return nll
 

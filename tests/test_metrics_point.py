@@ -513,9 +513,10 @@ class TestExistingMetricReductions:
         y_pred = torch.tensor([0.0, 0.0])
         y_true = torch.tensor([1.0, 2.0])
         weights = torch.tensor([1.0, 0.0])
-        # weighted mean: (1*1 + 0*4) / 2 = 0.5 (still mean reduction)
+        # TR-MET-11: weights normalize to sum=n, so the result is
+        # sum(w*v)/sum(w) = (1*1 + 0*4)/1 = 1.0
         result = float(mean_squared_error(y_pred, y_true, sample_weight=weights))
-        assert result == pytest.approx(0.5)
+        assert result == pytest.approx(1.0)
 
     def test_mse_numpy_input_returns_scalar(self) -> None:
         result = mean_squared_error(np.array([1.0, 2.0]), np.array([1.0, 2.0]))
@@ -561,8 +562,9 @@ class TestExistingMetricReductions:
         y_true = torch.tensor([1.0, 2.0])
         weights = torch.tensor([0.0, 1.0])
         result = float(rmse(y_pred, y_true, sample_weight=weights))
-        # weighted squared: [0, 4]; mean=2; sqrt=sqrt(2)
-        assert result == pytest.approx(2.0**0.5)
+        # TR-MET-11: weighted mean of squared errors = (0*1 + 1*4)/1 = 4;
+        # sqrt(4) = 2.0
+        assert result == pytest.approx(2.0)
 
     def test_huber_sum_reduction(self) -> None:
         y_pred = torch.tensor([0.0, 0.0])
@@ -576,8 +578,8 @@ class TestExistingMetricReductions:
         y_true = torch.tensor([0.5, 1.5])
         weights = torch.tensor([1.0, 0.0])
         result = float(huber_loss(y_pred, y_true, sample_weight=weights))
-        # only first sample counts: 0.125; weighted mean: 0.125/2=0.0625
-        assert result == pytest.approx(0.125 / 2.0)
+        # TR-MET-11: weighted mean = (1*0.125 + 0*1.0)/1 = 0.125
+        assert result == pytest.approx(0.125)
 
     def test_mse_alias_matches(self) -> None:
         y_pred = torch.tensor([0.0, 1.0])
@@ -585,6 +587,7 @@ class TestExistingMetricReductions:
         assert float(mean_squared_error(y_pred, y_true)) == pytest.approx(1.0)
 
     def test_invalid_reduction_raises(self) -> None:
+
         with pytest.raises(ValueError, match="reduction"):
             mean_squared_error(torch.ones(5), torch.ones(5), reduction="median")
 

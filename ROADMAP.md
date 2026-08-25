@@ -12,13 +12,13 @@ The version string exists; the release is not shipped. These milestones get it o
 ### M1 — CI/CD infrastructure
 
 - [ ] **ci.yml** — Run ruff, mypy, pytest on every PR/push (3.12–3.14)
-- [ ] **release.yml** — Trusted Publishing to PyPI on annotated tags (flow documented, workflow not present)
+- [x] **release.yml** — Trusted Publishing to PyPI on annotated tags (workflow present with `id-token: write`)
 - [ ] Badges in README match reality
 
 ### M2 — Lint & type gate clean
 
-- [ ] `ruff check src/torchregress` — zero errors (currently 42, ~20 auto-fixable)
-- [ ] `ruff format --check src/torchregress` — clean (23 files drift)
+- [x] `ruff check src/torchregress` — zero errors (verified 2026-08-24; lint gate covers `src`, `tests`, `tools`)
+- [x] `ruff format --check src/torchregress` — clean (verified 2026-08-24 after audit-fix sweep)
 - [ ] `mypy src/torchregress` — zero errors (currently 19, mostly `Dict`/import issues in `ot_conformal.py`)
 - [ ] Add `--strict` flag or equivalent to CI gate
 

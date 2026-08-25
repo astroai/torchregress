@@ -20,6 +20,7 @@ import torch.nn as nn
 from ..utils.validation import validate_positive, validate_range, validate_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
+from .utils_robust import huber_elementwise, log_cosh, tukey_biweight
 
 _BARRON_ALPHA_EPS = 1e-6
 _BARRON_SCALE_EPS = 1e-8
@@ -551,10 +552,11 @@ class CVaRLoss(RegressionLoss):
         if self.alpha <= 0:
             raise ValueError("alpha must be in (0, 1].")
         self.base_loss = base_loss.lower()
-        self.delta = validate_positive(delta, "delta")
-        self.c = validate_positive(c, "c")
-        self.scale = validate_positive(scale, "scale")
-        self.c_squared_over_6 = self.c**2 / 6.0
+        # ``float(...)``: validate_positive passes tensors through, but these
+        # constants feed scalar-only helpers (huber/log_cosh/tukey).
+        self.delta = float(validate_positive(delta, "delta"))
+        self.c = float(validate_positive(c, "c"))
+        self.scale = float(validate_positive(scale, "scale"))
 
         supported = {"mse", "mae", "huber", "log_cosh", "cauchy", "tukey"}
         if self.base_loss not in supported:
@@ -568,28 +570,15 @@ class CVaRLoss(RegressionLoss):
         if self.base_loss == "mae":
             return abs_residuals
         if self.base_loss == "huber":
-            return torch.where(
-                abs_residuals <= self.delta,
-                0.5 * residuals**2,
-                self.delta * (abs_residuals - 0.5 * self.delta),
-            )
+            # A11: shared robust helpers (were local copies)
+            return huber_elementwise(residuals, self.delta)
         if self.base_loss == "log_cosh":
-            diff = self.scale * residuals
-            abs_diff = torch.abs(diff)
-            return abs_diff + torch.log1p(torch.exp(-2.0 * abs_diff)) - math.log(2.0)
+            return log_cosh(residuals, self.scale)
         if self.base_loss == "cauchy":
             scaled = residuals / self.c
             return torch.log1p(scaled**2)
 
-        scaled = abs_residuals / self.c
-        squared = scaled**2
-        mask_within = abs_residuals <= self.c
-        inlier = self.c_squared_over_6 * (1.0 - (1.0 - squared) ** 3)
-        return torch.where(
-            mask_within,
-            inlier,
-            torch.full_like(residuals, float(self.c_squared_over_6)),
-        )
+        return tukey_biweight(residuals, self.c)
 
     def forward(
         self,

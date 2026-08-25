@@ -649,7 +649,7 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
         # Final layer is a BatchEnsemble layer with 2*output_size outputs
         # (mean and log_var for each output dimension)
         self.output_layer = BatchEnsembleLinear(
-            in_features=backbone.feature_dim,  # type: ignore[arg-type]
+            in_features=int(getattr(backbone, "feature_dim")),
             out_features=2 * output_size,
             ensemble_size=ensemble_size,
             device=device,

@@ -126,9 +126,9 @@ class CausalTTAHarness:
         batches_y: list[torch.Tensor] = []
 
         if isinstance(stream_X, list):
-            batches_X = stream_X
+            batches_X.extend(stream_X)
             if isinstance(stream_y, list):
-                batches_y = stream_y
+                batches_y.extend(stream_y)
             else:
                 raise TypeError("stream_y must be a list if stream_X is a list")
         else:

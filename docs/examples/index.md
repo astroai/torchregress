@@ -289,9 +289,9 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Handling imbalanced datasets in regression tasks.
 
-### [Balanced MSE / BMC](balanced_mse.md)
+### [Balanced MSE / Bin-Reweighted MSE](balanced_mse.md)
 
-- Skewed targets: [`BalancedMSELoss`](../losses/imbalanced.md) and [`BMCLoss`](../losses/imbalanced.md) vs plain MSE; script [`examples/balanced_mse_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/balanced_mse_demo.py).
+- Skewed targets: [`BalancedMSELoss`](../losses/imbalanced.md) and [`BinReweightedMSELoss`](../losses/imbalanced.md) vs plain MSE; script [`examples/balanced_mse_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/balanced_mse_demo.py).
 - Includes calibration-validation guidance because aggressive reweighting can distort uncertainty.
 
 ### [Noisy Labels Regression](noisy_labels_regression.md)

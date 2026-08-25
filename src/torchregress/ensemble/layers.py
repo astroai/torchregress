@@ -2,7 +2,10 @@
 Custom neural network layers for ensemble models.
 
 This module provides specialized layer implementations that are used
-in ensemble models, such as BatchEnsemble layers.
+in ensemble models, such as BatchEnsemble and Packed-Ensembles layers.
+
+Reference: Laurent et al., "Packed-Ensembles for Efficient Uncertainty
+Estimation", NeurIPS 2023 (arXiv:2210.09184).
 """
 
 import math

@@ -131,26 +131,29 @@ class TestMaskContract:
         assert isinstance(loss, torch.Tensor), f"{name}: output is not a tensor"
 
     @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
-    def test_mask_with_reduction_none_returns_only_unmasked(self, name, loss_fn):
-        """In 'none' reduction, mask selects which samples/elements are returned."""
+    def test_mask_with_reduction_none_zero_fills(self, name, loss_fn):
+        """In 'none' reduction, masked entries are zero-filled and the tensor
+        keeps its original shape (A9 unified ZERO-FILL mask policy)."""
         none_fn = _make_none_reduction(loss_fn)
         mean, log_var, target = _make_test_data(batch=5)
-        # ponytail: GaussianNLL/BetaNLL return per-sample [B] loss (summed over D);
-        # CRPS/Faithful return per-element [B, D].  Mask accordingly.
         n_unmasked = 7
         mask = torch.zeros_like(mean, dtype=torch.bool)
         for i in range(n_unmasked):
             row, col = i % 5, i // 5
             mask[row, col] = True
 
+        unmasked_shape = none_fn((mean, log_var), target).shape
         out = none_fn((mean, log_var), target, mask=mask)
+        # A9: zero-fill keeps the natural 'none'-reduction shape
+        assert out.shape == unmasked_shape, (
+            f"{name}: expected shape {unmasked_shape} kept under zero-fill, got {out.shape}"
+        )
+        row_keep = mask.all(dim=-1)
         if name in ("GaussianNLL", "BetaNLL"):
-            # per-sample [B] — only whole rows survive .all(dim=-1) collapse
-            retained = int(mask.all(dim=-1).sum().item())
+            max_nonzero = int(row_keep.sum())
         else:
-            # per-element [B, D] — mask applies element-wise
-            retained = int(mask.sum().item())
-        assert out.numel() == retained, f"{name}: expected {retained} elements, got {out.numel()}"
+            max_nonzero = int(mask.sum())
+        assert torch.count_nonzero(out) <= max_nonzero
 
 
 # ── weights contract ───────────────────────────────────────────────────

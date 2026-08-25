@@ -158,7 +158,7 @@ def test_reduction_behavior():
         "RENTLoss",  # Needs ensemble predictions
         "DensityWeightedLoss",  # Needs to be fitted first
         "BalancedMSELoss",  # Needs bin_edges + fit(train_targets)
-        "BMCLoss",  # Needs fit(train_targets)
+        "BinReweightedMSELoss",  # Needs fit(train_targets) (renamed from BMCLoss per A11)
         "PropensityWeightedLoss",  # Needs propensity scores
         "LDSLoss",  # Needs to be fitted first
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
@@ -177,6 +177,21 @@ def test_reduction_behavior():
         "SLSLoss",  # Needs d and context_dim parameters
     ]
 
+    # Flexible-shape family losses consume multi-column parameter vectors
+    # y_pred[..., k] (columns map to distribution parameters).
+    param_columns = {
+        "SkewNormalNLLLoss": 3,
+        "SkewTLoss": 4,
+        "BetaRegressionNLLLoss": 2,
+        "JohnsonSUNLLLoss": 4,
+        "SinhArcsinhNLLLoss": 4,
+        "GEVNLLLoss": 3,
+        "AsymmetricLaplaceNLLLoss": 3,
+        "SQRLoss": 32,
+    }
+    # Targets constrained to (0, 1)
+    unit_targets = {"BetaRegressionNLLLoss"}
+
     for loss_class in get_all_loss_classes():
         # Skip classes that need special initialization
         if loss_class.__name__ in skip_classes:
@@ -192,7 +207,13 @@ def test_reduction_behavior():
                 loss_fn = loss_class(**args)
 
                 # Some losses may need more inputs
-                forward_args = _get_minimal_forward_args(loss_class, y_pred, y_true)
+                width = param_columns.get(loss_class.__name__)
+                y_pred_c = torch.abs(torch.randn(10, width)) if width else y_pred
+                if loss_class.__name__ in unit_targets:
+                    y_true_c = torch.rand(10, 1) * 0.8 + 0.1
+                else:
+                    y_true_c = y_true
+                forward_args = _get_minimal_forward_args(loss_class, y_pred_c, y_true_c)
                 result = loss_fn(**forward_args)
 
                 if reduction == "none":

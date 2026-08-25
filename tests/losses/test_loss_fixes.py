@@ -520,31 +520,22 @@ class TestLocalConformalSentinelFallback:
 
 
 # ---------------------------------------------------------------------------
-# H4 (DETECTS_PRE_FIX): ``CQR.debias`` correctly applies ``alpha * n / (n + 1)``
-#     and guards ``n <= 0``
+# B3 (TR-MET-07 follow-up): the ad-hoc ``CQR.debias`` ``alpha * n / (n + 1)``
+#     multiplicative shrinkage has been DELETED; calibration always uses the
+#     standard finite-sample adjustment (ceil((n+1)*(1-alpha)) order statistic).
 # ---------------------------------------------------------------------------
 
 
 class TestCQRDebiasDocCodeAlignment:
-    """Two facets of the H4 fix:
-
-    - When ``debias=True``, the effective alpha used for calibration should
-      be ``alpha * n / (n + 1)`` (shrinks alpha -> widens interval).
-    - When the calibration set is empty (``n <= 0``), ``ValueError`` must be
-      raised instead of silently applying the (now-degenerate) correction.
-
-    Verified: four of the six tests below fail on the reverted
-    ``conformal.py`` (the direct ``(n+1)/n`` division raises
-    ``ZeroDivisionError`` on empty calibration; the alpha factor
-    mismatch surfaces in :func:`test_debias_factor_shrinks_alpha` and
-    :func:`test_debias_alpha_is_restored`).
+    """The ``debias`` kwarg is accepted for backward compatibility but is a
+    no-op: ``debias=True`` must produce exactly the same calibration as
+    ``debias=False`` at the same alpha (the old audit-documented
+    ``alpha * n / (n + 1)`` shrinkage widened intervals beyond the guaranteed
+    finite-sample rule).
     """
 
-    def test_debias_factor_shrinks_alpha(self) -> None:
-        """``debias=True`` with ``n=99`` must produce the same effective
-        alpha as ``alpha * 99 / 100 = 0.099``.
-        Pre-fix used ``alpha * (n+1)/n = 0.101⋯`` (which gives a different
-        q_hat rank), so this test fails on pre-fix."""
+    def test_debias_is_noop(self) -> None:
+        """``debias=True`` and ``debias=False`` must calibrate identically."""
         torch.manual_seed(4)
         n_cal = 99
         y_cal = torch.randn(n_cal, 1)
@@ -557,22 +548,17 @@ class TestCQRDebiasDocCodeAlignment:
         )
 
         cp_debiased = CQR(alpha=0.1, debias=True)
-        cp_explicit = CQR(alpha=0.1 * 99 / 100, debias=False)
+        cp_plain = CQR(alpha=0.1, debias=False)
         cp_debiased.calibrate(y_pred, y_cal)
-        cp_explicit.calibrate(y_pred, y_cal)
+        cp_plain.calibrate(y_pred, y_cal)
 
-        assert torch.isclose(cp_debiased.q_hat.float(), cp_explicit.q_hat.float(), atol=1e-6), (
-            f"CQR.debias used an unexpected alpha factor: "
-            f"q_debiased={float(cp_debiased.q_hat):.6f} vs "
-            f"q_alpha_n/(n+1)={float(cp_explicit.q_hat):.6f}"
+        assert torch.isclose(cp_debiased.q_hat.float(), cp_plain.q_hat.float(), atol=1e-6), (
+            f"debias=True must not alter the finite-sample threshold: "
+            f"q_debiased={float(cp_debiased.q_hat):.6f} vs q_plain={float(cp_plain.q_hat):.6f}"
         )
 
     def test_debias_alpha_is_restored_after_calibrate(self) -> None:
-        """The internal alpha mutation in calibrate must not leak.
-
-        Pre-fix had no try/finally restoration, so
-        ``debias=True`` with ``n=30`` left ``self.alpha = 0.1 * 31/30``.
-        """
+        """``self.alpha`` must never be mutated during calibration."""
         torch.manual_seed(1)
         cp = CQR(alpha=0.1, debias=True)
         n_cal = 30
@@ -581,29 +567,24 @@ class TestCQRDebiasDocCodeAlignment:
         cp.calibrate(y_pred, y_cal)
         assert cp.alpha == pytest.approx(0.1), f"alpha leaked during calibrate: {cp.alpha}"
 
-    def test_debias_with_empty_calibration_raises(self) -> None:
-        """An empty calibration set must raise a H4-specific ``ValueError``
-        rather than a ``ZeroDivisionError`` from the unguarded alpha-factor
-        computation in pre-fix code (``alpha * (n+1)/n`` with ``n=0``)."""
+    def test_empty_calibration_raises_value_error(self) -> None:
+        """An empty calibration set raises the base-class ValueError."""
         cp = CQR(alpha=0.1, debias=True)
-        with pytest.raises(ValueError, match="CQR\\.debias requires"):
+        with pytest.raises(ValueError):
             cp.calibrate(torch.empty(0, 2), torch.empty(0, 1))
 
-    def test_debias_with_all_masked_samples_raises(self) -> None:
-        """A calibration set whose mask filters every sample must also raise
-        a H4-specific ValueError (not the parent-class "Calibration set is
-        empty..." message whose ``match`` would not discriminate against
-        pre-fix that didn't have the ``n<=0`` guard)."""
+    def test_all_masked_samples_raise_value_error(self) -> None:
+        """A fully-masked calibration set also raises ValueError."""
         cp = CQR(alpha=0.1, debias=True)
         n_cal = 5
         y_pred = torch.randn(n_cal, 2)
         y_cal = torch.randn(n_cal, 1)
         mask = torch.zeros(n_cal, dtype=torch.bool)
-        with pytest.raises(ValueError, match="CQR\\.debias requires"):
+        with pytest.raises(ValueError):
             cp.calibrate(y_pred, y_cal, mask=mask)
 
-    def test_debias_widens_q_hat(self) -> None:
-        """``debias=True`` shrinks alpha -> widens q_hat."""
+    def test_debias_does_not_widen_q_hat(self) -> None:
+        """``debias=True`` must NOT widen the threshold any more (B3)."""
         torch.manual_seed(0)
         n_cal = 50
         y_cal = torch.randn(n_cal, 1)
@@ -618,8 +599,8 @@ class TestCQRDebiasDocCodeAlignment:
 
         q_clean = float(cp_clean.q_hat)
         q_debiased = float(cp_debiased.q_hat)
-        assert q_debiased >= q_clean - 1e-6, (
-            f"debias=True should widen: q_clean={q_clean}, q_debiased={q_debiased}"
+        assert abs(q_debiased - q_clean) < 1e-6, (
+            f"debias=True must be a no-op: q_clean={q_clean}, q_debiased={q_debiased}"
         )
 
     def test_debias_false_does_not_mutate_alpha(self) -> None:

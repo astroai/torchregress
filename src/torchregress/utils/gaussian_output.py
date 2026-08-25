@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Tuple, Union
+from typing import Literal, Tuple, Union, cast
 
 import torch
 from torch import Tensor
@@ -38,7 +38,9 @@ def split_mean_log_variance(
 
     if isinstance(y_pred, dict):
         if "means" in y_pred and "log_vars" in y_pred:
-            return y_pred["means"], y_pred["log_vars"]
+            # cast: ty cannot narrow through the Tensor|dict union.
+            pred_dict = cast("dict[str, Tensor]", y_pred)
+            return pred_dict["means"], pred_dict["log_vars"]
         raise ValueError("Dict predictions must contain 'means' and 'log_vars' keys")
 
     if not isinstance(y_pred, torch.Tensor):

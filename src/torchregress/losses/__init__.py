@@ -9,7 +9,7 @@ including weighted losses, Gaussian-based losses, robust losses, and more.
 # Base classes and wrappers
 # Balanced MSE (imbalanced targets)
 from ..utils.gaussian_output import low_rank_output_dim, split_low_rank_gaussian_output
-from .balanced_mse import BalancedMSELoss, BMCLoss
+from .balanced_mse import BalancedMSELoss, BinReweightedMSELoss
 from .base import (
     BaseLoss,
     DistributionLoss,
@@ -78,6 +78,26 @@ from .expectile import (
 
 # Faithful heteroscedastic (mean / variance decoupling)
 from .faithful_gaussian import FaithfulGaussianLoss
+
+# Flexible-shape distributional families (F5)
+from .families import (
+    AsymmetricLaplaceNLLLoss,
+    BetaRegressionNLLLoss,
+    GEVNLLLoss,
+    JohnsonSUNLLLoss,
+    SinhArcsinhNLLLoss,
+    SkewNormalNLLLoss,
+    SkewTLoss,
+    SQRLoss,
+    asymmetric_laplace_nll,
+    beta_regression_nll,
+    gev_nll,
+    johnson_su_nll,
+    sinh_arcsinh_nll,
+    skew_normal_nll,
+    skew_t_nll,
+    sqr_loss,
+)
 from .gaussian import (
     GaussianCRPSLoss,
     GaussianNLLLoss,

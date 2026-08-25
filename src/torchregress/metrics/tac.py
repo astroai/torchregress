@@ -102,8 +102,8 @@ def task_agnostic_correlations(
     """Functional wrapper for :class:`TaskAgnosticCorrelations`."""
     metric = TaskAgnosticCorrelations()
     metric.update(
-        convert_to_tensor(y_pred),
+        convert_to_tensor(y_pred),  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
         convert_to_tensor(y_true),
         convert_to_tensor(covariance),
     )
-    return metric.compute()
+    return metric.compute()  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty

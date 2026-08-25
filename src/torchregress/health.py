@@ -71,8 +71,8 @@ def check_health() -> None:
 
         metric = MedianAbsoluteError().to(device)
         metric.update(pred, y)
-        res = metric.compute()
-        print(f"Metric compute: OK (MAE={res.item():.4f})")
+        res = metric.compute()  # ty: ignore[missing-argument]  # torchmetrics Metric.compute override confuses ty's union resolution
+        print(f"Metric compute: OK (MedAE={res.item():.4f})")
     except Exception as e:
         print(f"Metric compute: FAILED ({e})")
         sys.exit(1)

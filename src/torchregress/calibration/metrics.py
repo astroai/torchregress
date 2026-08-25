@@ -52,9 +52,10 @@ class ExpectedCalibrationError(Metric):
     higher_is_better = False
     full_state_update = False
 
-    def __init__(self, n_bins: int = 10, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
+        # TR-MET-13: the dead n_bins kwarg was removed; ECE here is
+        # quantile-proportion based and never bins.
         super().__init__(**kwargs)
-        self.n_bins = n_bins
         self.add_state("y_pred_quantiles", default=[], dist_reduce_fx=None)
         self.add_state("y_true", default=[], dist_reduce_fx=None)
 
@@ -399,12 +400,16 @@ def calibration_metrics_report(
 
     if dist_or_samples is not None:
         if isinstance(dist_or_samples, dict):
-            loc_raw = dist_or_samples.get("loc", dist_or_samples.get("mean"))
-            scale_raw = dist_or_samples.get("scale", dist_or_samples.get("std"))
-            if loc_raw is None or scale_raw is None:
+            loc_val: Any = dist_or_samples.get("loc")
+            if loc_val is None:
+                loc_val = dist_or_samples.get("mean")
+            scale_val: Any = dist_or_samples.get("scale")
+            if scale_val is None:
+                scale_val = dist_or_samples.get("std")
+            if loc_val is None or scale_val is None:
                 raise ValueError("dist_or_samples dict must contain loc/mean and scale/std")
-            loc = convert_to_tensor(loc_raw)
-            scale = convert_to_tensor(scale_raw)
+            loc = convert_to_tensor(cast(Any, loc_val))
+            scale = convert_to_tensor(cast(Any, scale_val))
             dist_or_samples = torch.distributions.Normal(loc, scale)
 
         samples: Union[torch.Tensor, np.ndarray]

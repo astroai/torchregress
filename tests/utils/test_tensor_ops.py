@@ -31,31 +31,57 @@ from torchregress.utils.tensor_ops import (
 
 class TestConvertToTensor:
     def test_numpy_array(self) -> None:
-        """numpy arrays are converted to float32 tensors."""
-        arr = np.array([1.0, 2.0, 3.0])
+        """numpy arrays keep their dtype and are copied, not aliased."""
+        arr = np.array([1.0, 2.0, 3.0])  # float64 preserved (TR-MET-14)
         result = convert_to_tensor(arr)
         assert isinstance(result, torch.Tensor)
-        assert result.dtype == torch.float32
+        assert result.dtype == torch.float64
         assert torch.equal(result, torch.tensor([1.0, 2.0, 3.0]))
 
+    def test_numpy_float32_kept(self) -> None:
+        """float32 numpy arrays are not upcast."""
+        result = convert_to_tensor(np.array([1.0], dtype=np.float32))
+        assert result.dtype == torch.float32
+
+    def test_numpy_copied_not_aliased(self) -> None:
+        """Mutating the returned tensor must not touch the caller's array."""
+        arr = np.ones(3)
+        t = convert_to_tensor(arr)
+        t.mul_(-1)
+        assert np.all(arr == 1.0)
+
     def test_list(self) -> None:
-        """Lists are converted to float32 tensors."""
+        """Lists of ints are promoted to float32; float lists keep precision."""
         result = convert_to_tensor([1, 2, 3])
         assert result.dtype == torch.float32
         assert torch.equal(result, torch.tensor([1.0, 2.0, 3.0]))
 
+    def test_float_list_preserves_precision(self) -> None:
+        result = convert_to_tensor([1.5, 2.5])
+        assert result.dtype == torch.get_default_dtype()
+
+    def test_float64_numpy_keeps_precision(self) -> None:
+
+        result = convert_to_tensor(np.array([1.5, np.pi]))
+        assert result.dtype == torch.float64
+
     def test_float_scalar(self) -> None:
-        """Float scalars become 1-element tensors."""
+        """Float scalars become 0-dim tensors at the default dtype."""
         result = convert_to_tensor(3.14)
-        assert result.dtype == torch.float32
-        assert result.shape == (1,)
-        assert float(result.item()) == pytest.approx(3.14)
+        assert result.dtype == torch.get_default_dtype()
 
     def test_int_scalar(self) -> None:
-        """Int scalars become 1-element float32 tensors."""
+        """Int scalars become 0-dim float32 tensors."""
         result = convert_to_tensor(42)
         assert result.dtype == torch.float32
+        assert result.dim() == 0
         assert float(result.item()) == pytest.approx(42.0)
+
+    def test_dtype_and_device_kwargs(self) -> None:
+        """dtype/device kwargs are applied after conversion."""
+        result = convert_to_tensor(np.array([1.0, 2.0]), dtype=torch.float32)
+        assert result.dtype == torch.float32
+        assert result.device.type == "cpu"
 
     def test_tensor_passthrough(self) -> None:
         """Tensors are returned as-is."""
@@ -397,11 +423,18 @@ class TestCalculateGaussianNLL:
         assert float(result[0].item()) != float(result[1].item())
 
     def test_zero_residual_returns_log_det_term(self) -> None:
-        """Zero residual gives only the log|Σ| + const term."""
+        """Zero residual gives only the log|Σ| + const term (full covariance input)."""
         residuals = torch.zeros(1, 2)
-        var = torch.tensor([[2.0, 0.0], [0.0, 2.0]])
+        var = torch.stack([2.0 * torch.eye(2), 2.0 * torch.eye(2)])
         result = calculate_gaussian_nll(residuals, var)
         assert torch.isfinite(result).all()
+
+    def test_mismatched_var_shape_raises(self) -> None:
+        """A [D, D] var against [B, D] residuals is rejected (TR-LOSS-39)."""
+        residuals = torch.zeros(1, 2)
+        var = 2.0 * torch.eye(2)
+        with pytest.raises(AssertionError, match="calculate_gaussian_nll supports"):
+            calculate_gaussian_nll(residuals, var)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

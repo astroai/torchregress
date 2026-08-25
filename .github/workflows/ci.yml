@@ -22,6 +22,30 @@ jobs:
       - name: Run pre-commit (all files)
         run: pre-commit run --all-files --show-diff-on-failure --color always
 
+
+  # Python-version matrix: pixi pins one env, so these legs install via pip and
+  # run pytest directly. The `lint-test` job below remains the primary ubuntu job.
+  # No GPU leg (assumption A3): no self-hosted GPU runner is guaranteed.
+  test-matrix:
+    needs: pre-commit
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    env:
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package with test extras
+        run: pip install -e ".[test]"
+      - name: Run tests
+        run: pytest -q
+
   lint-test:
     needs: pre-commit
     runs-on: ubuntu-latest

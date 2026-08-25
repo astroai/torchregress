@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import math
 from typing import Union
 
 import torch
+
+from torchregress.losses.conformal import finite_sample_quantile
 
 
 class SemiConformalCalibrator:
@@ -79,6 +82,9 @@ class SemiConformalCalibrator:
             Shift weights w(x) = p_target(x)/p_source(x) for target points, shape (N_target,).
         alpha : float
             Nominal coverage level is 1 - alpha (e.g. alpha = 0.1 for 90% coverage).
+            Thresholds use the finite-sample correction: the smallest score whose
+            normalized cumulative weight reaches ``ceil((n+1)*(1-alpha))/n``
+            (exact order statistic in the unweighted case).
         """
         if self.scores_cal_ is None or self.weights_cal_ is None:
             raise RuntimeError("Calibrator must be fitted before computing thresholds")
@@ -104,6 +110,12 @@ class SemiConformalCalibrator:
         # Total sum of calibration weights
         sum_w_cal = weights.sum()
 
+        n_cal = scores.shape[0]
+        # Finite-sample correction (TR-MET-12): target mass on the normalized
+        # cumulative-weight curve is ceil((n+1)*(1-alpha))/n, not 1 - alpha.
+        q_adj = min(math.ceil((n_cal + 1) * (1.0 - alpha)) / n_cal, 1.0)
+        uniform_weights = bool(torch.all(weights == weights[0]))
+
         for k in range(n_tgt):
             w_inf = w_tgt[k]
             denom = sum_w_cal + w_inf
@@ -111,12 +123,19 @@ class SemiConformalCalibrator:
                 thresholds[k] = scores[-1]
                 continue
 
-            # Compute cumulative probabilities for sorted calibration scores
+            # Unweighted path: exact finite-sample split-conformal order statistic.
+            if uniform_weights and float(w_inf) == 0.0:
+                thresholds[k] = finite_sample_quantile(scores, alpha)
+                continue
+
+            # Weighted path (Tibshirani et al., 2019): the cumulative weight of
+            # sorted calibration scores plus the target pseudo-weight, evaluated
+            # at the (n+1)-corrected mass q_adj.
             p = weights / denom
             cum_p = torch.cumsum(p, dim=0)
 
-            # Find the smallest index m such that cum_p >= 1 - alpha
-            mask = cum_p >= 1.0 - alpha
+            # Find the smallest index m such that cum_p >= q_adj
+            mask = cum_p >= q_adj
             idx = torch.where(mask)[0]
             if idx.numel() > 0:
                 thresholds[k] = scores[idx[0]]

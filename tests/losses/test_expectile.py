@@ -368,12 +368,14 @@ class TestExpectileLoss(unittest.TestCase):
         self.assertEqual(loss.dim(), 0, "Loss should be a scalar")
         self.assertFalse(torch.isnan(loss).any())
 
-        # Test with flat prediction format [batch_size, n_features * num_expectiles]
+        # A8: ambiguous 2-D inputs for multi-feature heads are rejected
         y_pred_flat = y_pred.reshape(batch_size, num_expectiles * n_features)
-        loss_flat = loss_fn(y_pred_flat, y_true)
+        with self.assertRaises(ValueError):
+            loss_fn(y_pred_flat, y_true)
 
-        # Both formats should produce the same loss
-        self.assertAlmostEqual(loss.item(), loss_flat.item(), places=5)
+        # The equivalent 3-D format produces the same loss
+        loss_3d = loss_fn(y_pred.reshape(batch_size, num_expectiles, n_features), y_true)
+        self.assertAlmostEqual(loss.item(), loss_3d.item(), places=5)
 
     def test_multi_expectile_separate_predictions(self):
         """Test MultiExpectileLoss with separate predictions."""

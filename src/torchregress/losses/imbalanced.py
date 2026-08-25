@@ -154,8 +154,10 @@ class DensityWeightedLoss(RegressionLoss):
         if self.base_loss not in ["mse", "mae", "huber"]:
             raise ValueError(f"base_loss must be 'mse', 'mae', or 'huber', got {base_loss}")
 
-        # Will store precomputed density weights
-        self.density_weights: Optional[Tensor] = None
+        # A11: precomputed density weights live in a persistent buffer so they
+        # follow the module's device via .to()/state_dict; an empty tensor
+        # means "not fitted yet".
+        self.register_buffer("density_weights", torch.zeros(0), persistent=True)
         self._train_targets: Optional[Tensor] = None
 
     def fit_density(self, train_targets: Tensor) -> None:
@@ -184,7 +186,7 @@ class DensityWeightedLoss(RegressionLoss):
             bandwidth=self.kernel_width,
             reweight_factor=self.reweight_factor,
         )
-        self.density_weights = weights.cpu()
+        self.density_weights = weights
 
     def _compute_density_weight(self, target: Tensor) -> Tensor:
         """
@@ -232,7 +234,7 @@ class DensityWeightedLoss(RegressionLoss):
             - If sample_indices provided: uses precomputed weights (faster)
             - If not provided: computes weights on-the-fly from target values (slower)
         """
-        if self.density_weights is None and self._train_targets is None:
+        if self.density_weights.numel() == 0 and self._train_targets is None:
             raise ValueError(
                 "Must call fit_density() before using DensityWeightedLoss. "
                 "Example: loss_fn.fit_density(train_targets)"
@@ -240,12 +242,12 @@ class DensityWeightedLoss(RegressionLoss):
 
         self._validate_inputs(y_pred, target, mask)
 
-        # Get density weights
+        # Get density weights — indexed directly from the on-device buffer (A11)
         if sample_indices is not None:
             # Use precomputed weights
-            if self.density_weights is None:
+            if self.density_weights.numel() == 0:
                 raise ValueError("fit_density() must be called before using sample_indices")
-            density_w = self.density_weights[sample_indices].to(y_pred.device)
+            density_w = self.density_weights[sample_indices]
         else:
             # Compute weights on-the-fly from target values
             density_w = self._compute_density_weight(target)
@@ -347,9 +349,10 @@ class LDSLoss(RegressionLoss):
     based on the effective label frequency. This addresses imbalance but CAN
     affect calibration.
 
-    WARNING: This method can break calibration because it changes the training
-    targets through smoothing. Always validate calibration after training and
-    consider post-hoc calibration methods.
+    WARNING: This method reweights per-sample gradients (rare targets receive
+    larger inverse-density weights), which changes the effective training
+    objective and CAN degrade probabilistic calibration. Always validate
+    calibration after training and consider post-hoc calibration methods.
 
     Args:
         kernel: Kernel type for smoothing ('gaussian', 'triang', 'laplace'). Default: 'gaussian'
@@ -376,8 +379,9 @@ class LDSLoss(RegressionLoss):
         >>>     optimizer.step()
         >>>
         >>> # IMPORTANT: Validate calibration after training
-        >>> from torchregress.metrics import calibration_error
-        >>> cal_err = calibration_error(model, cal_loader)
+        >>> from torchregress.metrics import expected_calibration_error
+        >>> quantiles = {q: model(x).quantile(q) for q in (0.1, 0.5, 0.9)}
+        >>> cal_err = expected_calibration_error(quantiles, y_true)
         >>> print(f"Calibration error: {cal_err:.4f}")
         >>>
         >>> # If calibration is poor, apply post-hoc calibration
@@ -867,6 +871,11 @@ class FeatureDistributionSmoother(nn.Module):
         Returns:
             Calibrated features of shape [batch_size, feature_dim]
         """
+        if not self.training:
+            # A11: FDS calibration is a training-time regularizer; never
+            # recolor features at inference time.
+            return features
+
         if epoch < self.start_smooth_epoch:
             return features
 

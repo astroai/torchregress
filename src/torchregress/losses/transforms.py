@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-import torch
 from torch import Tensor
 
 from ..utils.transform import (
@@ -17,6 +16,7 @@ from ..utils.transform import (
 )
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
+from .utils_robust import huber_elementwise
 
 BasePointLoss = Literal["mse", "mae", "huber"]
 
@@ -34,10 +34,8 @@ def _pointwise_error(
     if base_loss == "mae":
         return residual.abs()
     if base_loss == "huber":
-        abs_residual = residual.abs()
-        quadratic = torch.minimum(abs_residual, torch.full_like(abs_residual, delta))
-        linear = abs_residual - quadratic
-        return 0.5 * quadratic.square() + delta * linear
+        # A11: delegate to the shared robust helper (was a local copy)
+        return huber_elementwise(residual, delta)
     raise ValueError(f"Unsupported base_loss {base_loss!r}")
 
 

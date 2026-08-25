@@ -262,6 +262,10 @@ class MahalanobisFrontier(nn.Module):
             return (D, V), log_det_L
 
     def forward(self, y: Tensor, context: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
+        # A6: an unconditional frontier (context_dim == 0) must never receive a
+        # degenerate context tensor — pass None so the parameter path is used.
+        if self.context_dim == 0:
+            context = None
         mu, L_params = self._get_params(context)
         z_flow = self.flow(y, context)
         z = z_flow - mu
@@ -573,8 +577,14 @@ class SLSLoss(RegressionLoss):
             current_step = self.step_counter
         G, log_det_L = self.frontier(target, y_pred)
 
+        # A6: sign-consistent volume term. MahalanobisFrontier's log_det_L is
+        # log|L| (volume of the level set scales as |Σ|^{1/2} = prod L_ii),
+        # while UnionFrontier already reports a log-volume with the opposite
+        # sign convention.
+        vol_term = -log_det_L if isinstance(self.frontier, MahalanobisFrontier) else log_det_L
+
         if current_step <= self.warmup_steps:
-            loss_val = 0.5 * self.d * torch.log(G + 1e-8) - log_det_L
+            loss_val = 0.5 * self.d * torch.log(G + 1e-8) + vol_term
         else:
             phi, psi = self.get_current_window(step=step)
             quantiles = self.quantile_net(y_pred).detach()
@@ -583,12 +593,7 @@ class SLSLoss(RegressionLoss):
 
             indicator = ((G >= q_low) & (G <= q_high)).float()
 
-            if self.K == 1:
-                vol_proxy = 0.5 * self.d * torch.log(G + 1e-8) - log_det_L
-            else:
-                vol_proxy = 0.5 * self.d * torch.log(G + 1e-8) + log_det_L
-
-            loss_val = indicator * vol_proxy / (phi + psi)
+            loss_val = indicator * (0.5 * self.d * torch.log(G + 1e-8) + vol_term) / (phi + psi)
 
         return self._reduce(loss_val, mask=mask, weights=weights)
 

@@ -3,6 +3,7 @@ Distribution metrics for evaluating probabilistic regression models.
 """
 
 import math
+import warnings
 from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -75,9 +76,10 @@ class ContinuousRankedProbabilityScore(Metric):
         view_shape = (-1,) + (1,) * y_true.ndim
         q_tensor = quantile_tensor.view(*view_shape)
         quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
-        # ponytail: trapezoidal rule E[|X-y|] ≈ Σ_i w_i QL_i, w_i = (τ_{i+1} - τ_{i-1}) / 2
+        # ponytail: trapezoidal rule for CRPS = 2∫QL dτ ≈ 2 Σ_i w_i QL_i,
+        # w_i = (τ_{i+1} - τ_{i-1}) / 2 (TR-MET-01: the factor 2 was missing)
         weights_tensor = (0.5 * (weights[:-1] + weights[1:])).view(*view_shape)
-        crps_values = torch.sum(weights_tensor * quantile_loss, dim=0)
+        crps_values = 2.0 * torch.sum(weights_tensor * quantile_loss, dim=0)
 
         metric_state_tensor(self.crps_sum).add_(torch.sum(crps_values))
         metric_state_tensor(self.total).add_(torch.as_tensor(y_true.numel(), device=y_true.device))
@@ -115,15 +117,11 @@ class EnergyScore(Metric):
             indices = torch.randperm(n_samples, device=y_samples.device)[: self.max_pairs]
             y_samples = y_samples[indices]
             n_samples = self.max_pairs
-
         diff = y_samples - y_true.unsqueeze(0)
 
-        if self.beta == 1.0:
-            norms = torch.norm(diff, dim=-1)
-        else:
-            norms = torch.pow(
-                torch.sum(torch.pow(torch.abs(diff), self.beta), dim=-1), 1 / self.beta
-            )
+        # TR-MET-10: both terms must use the same geometry —
+        # term1 = E||X - y||^beta (Euclidean norm to the beta), term2 = ||X - X'||^beta.
+        norms = (diff.abs().pow(2).sum(-1)).pow(self.beta / 2.0)
 
         term1 = torch.mean(norms, dim=0)
 
@@ -437,11 +435,19 @@ def _pit_from_quantiles(
     quantile_matrix = torch.stack(quantile_values, dim=1)
     # ponytail: cummax enforces monotonicity but silently collapses crossed
     # quantiles into flat plateaus, making PIT interpolation inaccurate for
-    # any target above the crossing point.
-    quantile_matrix = torch.cummax(quantile_matrix, dim=1).values
+    # any target above the crossing point. We now warn when this repair fires.
+    n_rows = quantile_matrix.shape[0]
+    # Rows whose quantiles are not already non-decreasing get repaired by cummax.
+    n_crossed = int((torch.diff(quantile_matrix, dim=1) < 0).any(dim=1).sum().item())
+    if n_crossed > 0:
+        warnings.warn(
+            f"PIT: quantile crossings detected and repaired in {n_crossed}/{n_rows} rows",
+            RuntimeWarning,
+        )
     y_true_t = convert_to_tensor(y_true).reshape(-1).to(torch.float32)
     if quantile_matrix.shape[0] != y_true_t.shape[0]:
         raise ValueError("Quantile predictions and targets must have matching batch size.")
+    quantile_matrix = torch.cummax(quantile_matrix, dim=1).values
 
     level_tensor = torch.tensor(quantile_levels, device=quantile_matrix.device, dtype=torch.float32)
 
@@ -581,9 +587,10 @@ def continuous_ranked_probability_score(
     view_shape = (-1,) + (1,) * y_true_t.ndim
     q_tensor = quantile_tensor.view(*view_shape)
     quantile_loss = torch.max(q_tensor * diff, (q_tensor - 1) * diff)
-    # ponytail: trapezoidal rule E[|X-y|] ≈ Σ_i w_i QL_i, w_i = (τ_{i+1} - τ_{i-1}) / 2
+    # ponytail: trapezoidal rule for CRPS = 2∫QL dτ ≈ 2 Σ_i w_i QL_i,
+    # w_i = (τ_{i+1} - τ_{i-1}) / 2 (TR-MET-01: the factor 2 was missing)
     weights_tensor = (0.5 * (weights[:-1] + weights[1:])).view(*view_shape)
-    crps_values = torch.sum(weights_tensor * quantile_loss, dim=0)
+    crps_values = 2.0 * torch.sum(weights_tensor * quantile_loss, dim=0)
 
     if reduction == "none":
         return crps_values
@@ -661,10 +668,9 @@ def energy_score(
 
     diff = y_samples_t - y_true_t.unsqueeze(0)
 
-    if beta == 1.0:
-        norms = torch.norm(diff, dim=-1)
-    else:
-        norms = torch.pow(torch.sum(torch.pow(torch.abs(diff), beta), dim=-1), 1 / beta)
+    # TR-MET-10: both terms must use the same geometry —
+    # term1 = E||X - y||^beta (Euclidean norm to the beta), term2 = ||X - X'||^beta.
+    norms = (diff.abs().pow(2).sum(-1)).pow(beta / 2.0)
 
     term1 = torch.mean(norms, dim=0)
 
@@ -724,9 +730,12 @@ def _process_distribution_metrics(
     try:
         pit_res = probability_integral_transform(dist_obj.cdf, y_true_t, return_histogram=True)
         if isinstance(pit_res, dict):
-            results["pit_chi2"] = pit_res["uniformity_chi2"]
-            results["pit_ks"] = pit_res["uniformity_ks"]
-            pit_values = pit_res["pit_values"]
+            # cast: ty cannot narrow through the Tensor|dict union (isinstance
+            # against torch.Tensor produces bogus intersections).
+            hist = cast(Dict[str, Union[torch.Tensor, float]], pit_res)
+            results["pit_chi2"] = hist["uniformity_chi2"]
+            results["pit_ks"] = hist["uniformity_ks"]
+            pit_values = hist["pit_values"]
     except (AttributeError, NotImplementedError):
         pass
 
@@ -822,8 +831,10 @@ def _process_fallback_pit(
             return_histogram=True,
         )
         if isinstance(pit_res, dict):
-            results["pit_chi2"] = pit_res["uniformity_chi2"]
-            results["pit_ks"] = pit_res["uniformity_ks"]
+            # cast: ty cannot narrow through the Tensor|dict union.
+            hist = cast(Dict[str, Union[torch.Tensor, float]], pit_res)
+            results["pit_chi2"] = hist["uniformity_chi2"]
+            results["pit_ks"] = hist["uniformity_ks"]
 
 
 def distribution_metrics_report(
@@ -871,12 +882,16 @@ def distribution_metrics_report(
     if dist is not None:
         dist_obj: torch.distributions.Distribution
         if isinstance(dist, dict):
-            loc_raw = dist.get("loc", dist.get("mean"))
-            scale_raw = dist.get("scale", dist.get("std"))
-            if loc_raw is None or scale_raw is None:
+            loc_val: Any = dist.get("loc")
+            if loc_val is None:
+                loc_val = dist.get("mean")
+            scale_val: Any = dist.get("scale")
+            if scale_val is None:
+                scale_val = dist.get("std")
+            if loc_val is None or scale_val is None:
                 raise ValueError("dist dict must provide loc/mean and scale/std")
-            loc = convert_to_tensor(loc_raw)
-            scale = convert_to_tensor(scale_raw)
+            loc = convert_to_tensor(cast(Any, loc_val))
+            scale = convert_to_tensor(cast(Any, scale_val))
             dist_obj = torch.distributions.Normal(loc, scale)
         else:
             dist_obj = dist
@@ -898,3 +913,255 @@ def distribution_metrics_report(
     )
 
     return results
+
+
+class DawidSebastianiScore(Metric):
+    """
+    Dawid-Sebastiani score for diagonal-Gaussian predictive distributions (§6 F1).
+
+    ``DS = (y - mu)^2 / sigma^2 + 2 * log(sigma)``
+    """
+
+    is_differentiable = False
+    higher_is_better = False
+    full_state_update = False
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("ds_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(
+        self, y_pred_mean: torch.Tensor, y_pred_std: torch.Tensor, y_true: torch.Tensor
+    ) -> None:
+        """Update state with predictive mean/std and targets."""
+        mean = convert_to_tensor(y_pred_mean)
+        std = convert_to_tensor(y_pred_std)
+        y = convert_to_tensor(y_true)
+        if torch.isnan(mean).any() or torch.isinf(mean).any():
+            raise ValueError("y_pred_mean contains NaN or infinite values")
+        if torch.isnan(std).any() or torch.isinf(std).any() or bool((std <= 0).any()):
+            raise ValueError("y_pred_std must be finite and strictly positive")
+        var = std.pow(2).clamp_min(1.0e-12)
+        ds = (y - mean) ** 2 / var + 2.0 * torch.log(std.clamp_min(1.0e-12))
+        metric_state_tensor(self.ds_sum).add_(torch.sum(ds))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y.numel(), device=y.device))
+
+    def compute(self) -> torch.Tensor:
+        """Compute mean DS."""
+        return metric_state_tensor(self.ds_sum) / metric_state_tensor(self.total)
+
+
+def dss_score(
+    y_pred_mean: Union[torch.Tensor, np.ndarray],
+    y_pred_std: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> float:
+    """
+    Functional Dawid-Sebastiani score: ``(y - mu)^2 / sigma^2 + 2 * ln(sigma)``.
+    """
+    metric = DawidSebastianiScore()
+    metric.update(
+        convert_to_tensor(y_pred_mean),  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
+        convert_to_tensor(y_pred_std),
+        convert_to_tensor(y_true),
+    )
+    return float(metric.compute().item())  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty
+
+
+class VarioScore(Metric):
+    """
+    Vario-score of Zamo & Naveau for ensemble forecasts (§6 F1).
+
+    ``nu_rho = 0.5 * E|X - X'|^rho - E|X - y|^rho``; fair, strictly proper for
+    the CRPS family when rho in (0, 2].
+    """
+
+    is_differentiable = False
+    higher_is_better = False
+    full_state_update = False
+
+    def __init__(self, rho: float = 1.0, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if not 0 < rho <= 2:
+            raise ValueError(f"rho must lie in (0, 2], got {rho}")
+        self.rho = rho
+        self.add_state("score_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self, y_samples: torch.Tensor, y_true: torch.Tensor) -> None:
+        """Update state with predictive samples [n_samples, batch] and targets."""
+        samples = convert_to_tensor(y_samples)
+        y = convert_to_tensor(y_true)
+        # _gini_mean_abs_diff returns the unbiased half-Gini estimator of
+        # E|X - X'|^rho (same trick as crps_from_samples), i.e. the first term.
+        term1 = _gini_mean_abs_diff(samples, rho=self.rho)
+        term2 = torch.mean((samples - y.unsqueeze(0)).abs().pow(self.rho), dim=0)
+        scores = term1 - term2
+        metric_state_tensor(self.score_sum).add_(torch.sum(scores))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y.numel(), device=y.device))
+
+    def compute(self) -> torch.Tensor:
+        """Compute mean vario score."""
+        return metric_state_tensor(self.score_sum) / metric_state_tensor(self.total)
+
+
+def _gini_mean_abs_diff(samples: torch.Tensor, rho: float) -> torch.Tensor:
+    """Unbiased ``E|X - X'|^rho / 2`` — the first vario-score term.
+
+    For ``rho == 1`` this uses the same sorted-rank (Gini/L-moment) trick as
+    :func:`crps_from_samples`; other exponents use exact pairwise distances.
+    """
+    n = samples.shape[0]
+    if rho == 1.0:
+        j = torch.arange(n, device=samples.device, dtype=samples.dtype)
+        weights = (2 * j - n + 1).view(n, *([1] * (samples.dim() - 1)))
+        sorted_samples, _ = torch.sort(samples, dim=0)
+        return torch.sum(weights * sorted_samples, dim=0) / (n * (n - 1))
+    flat = samples.reshape(n, -1)
+    diffs = (flat.unsqueeze(1) - flat.unsqueeze(0)).abs().pow(rho)  # [n, n, D]
+    off_diag = diffs.sum(dim=(0, 1)) - torch.diagonal(diffs, dim1=0, dim2=1).sum(dim=-1)
+    half_mean = off_diag / (n * (n - 1)) / 2.0
+    return half_mean.reshape(samples.shape[1:])
+
+
+def vario_score(
+    y_samples: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    rho: float = 1.0,
+) -> float:
+    """
+    Functional vario score: ``0.5 * E|X - X'|^rho - E|X - y|^rho``.
+    """
+    metric = VarioScore(rho=rho)
+    metric.update(convert_to_tensor(y_samples), convert_to_tensor(y_true))  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
+    return float(metric.compute().item())  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty
+
+
+def pinball_loss(level: float, quantile_value: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    """Pinball (quantile) loss at a single level."""
+    diff = y_true - quantile_value
+    return torch.maximum(level * diff, (level - 1.0) * diff)
+
+
+class PinballMetric(Metric):
+    """
+    Mean pinball loss over quantile levels — the CRPS integrand standalone (§6 F1).
+    """
+
+    is_differentiable = False
+    higher_is_better = False
+    full_state_update = False
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("loss_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self, y_pred_quantiles: Dict[float, torch.Tensor], y_true: torch.Tensor) -> None:
+        """Update state with {level: predictions} and targets."""
+        levels = sorted(y_pred_quantiles.keys())
+        if len(levels) < 1:
+            raise ValueError("At least one quantile level is required")
+        y = convert_to_tensor(y_true)
+        total = torch.zeros_like(y)
+        for level in levels:
+            q = convert_to_tensor(y_pred_quantiles[level])
+            total = total + pinball_loss(float(level), q, y)
+        mean_pinball = total / len(levels)
+        metric_state_tensor(self.loss_sum).add_(torch.sum(mean_pinball))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y.numel(), device=y.device))
+
+    def compute(self) -> torch.Tensor:
+        """Compute mean pinball."""
+        return metric_state_tensor(self.loss_sum) / metric_state_tensor(self.total)
+
+
+def pinball_metric(
+    quantiles_dict: Dict[float, Union[torch.Tensor, np.ndarray]],
+    y_true: Union[torch.Tensor, np.ndarray],
+) -> float:
+    """
+    Functional mean pinball across quantile levels.
+    """
+    metric = PinballMetric()
+    metric.update(
+        {level: convert_to_tensor(q) for level, q in quantiles_dict.items()},  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
+        convert_to_tensor(y_true),
+    )
+    return float(metric.compute().item())  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty
+
+
+def wasserstein_gaussian_p2(
+    loc1: Union[torch.Tensor, np.ndarray, float],
+    scale1: Union[torch.Tensor, np.ndarray, float],
+    loc2: Union[torch.Tensor, np.ndarray, float],
+    scale2: Union[torch.Tensor, np.ndarray, float],
+) -> float:
+    """Exact 2-Wasserstein distance between two Gaussians (§6 F1).
+
+    Scales may be per-dimension standard deviations (diag form) or full
+    covariance matrices; the cross term uses :func:`torch.linalg.eigh`.
+    """
+    m1 = convert_to_tensor(loc1).reshape(-1).to(torch.float64)
+    m2 = convert_to_tensor(loc2).reshape(-1).to(torch.float64)
+    s1 = convert_to_tensor(scale1).to(torch.float64)
+    s2 = convert_to_tensor(scale2).to(torch.float64)
+    if m1.shape != m2.shape:
+        raise ValueError("loc1 and loc2 must have matching shapes")
+
+    if s1.dim() == 0 or (s1.dim() == 1 and s1.numel() == m1.numel()):
+        # Diagonal (independent-dims) closed form.
+        sd1 = s1.reshape(-1)
+        sd2 = s2.reshape(-1)
+        w2_sq = torch.sum((m1 - m2) ** 2 + (sd1 - sd2) ** 2)
+        return float(torch.sqrt(w2_sq.clamp_min(0.0)).item())
+
+    # Full-covariance form: W2^2 = ||m1-m2||^2 + tr(S1 + S2 - 2 (S1^{1/2} S2 S1^{1/2})^{1/2})
+    d = m1.numel()
+    cov1 = s1.reshape(d, d) if s1.dim() != 2 else s1
+    cov2 = s2.reshape(d, d) if s2.dim() != 2 else s2
+    ev1, evec1 = torch.linalg.eigh(cov1)
+    root1 = evec1 @ torch.diag(ev1.clamp_min(0.0).sqrt()) @ evec1.T
+    cross = root1 @ cov2 @ root1
+    ev_c, _ = torch.linalg.eigh(cross)
+    trace_cross = ev_c.clamp_min(0.0).sqrt().sum()
+    w2_sq = torch.sum((m1 - m2) ** 2) + torch.trace(cov1 + cov2) - 2.0 * trace_cross
+    return float(torch.sqrt(w2_sq.clamp_min(0.0)).item())
+
+
+class WassersteinGaussian(Metric):
+    """
+    Mean exact 2-Wasserstein distance between predicted Gaussians and targets.
+    """
+
+    is_differentiable = False
+    higher_is_better = False
+    full_state_update = False
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("dist_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(
+        self,
+        loc: torch.Tensor,
+        scale: torch.Tensor,
+        y_true: torch.Tensor,
+    ) -> None:
+        """Update with predicted mean/std (diag) and observed targets.
+
+        W2 between N(mean, diag(std^2)) and the Dirac delta at the target is
+        sqrt((mean - y)^2 + std^2).
+        """
+        mean = convert_to_tensor(loc)
+        std = convert_to_tensor(scale).clamp_min(1.0e-12)
+        y = convert_to_tensor(y_true)
+        dists = torch.sqrt((mean - y) ** 2 + std.pow(2))
+        metric_state_tensor(self.dist_sum).add_(torch.sum(dists))
+        metric_state_tensor(self.total).add_(torch.as_tensor(y.numel(), device=y.device))
+
+    def compute(self) -> torch.Tensor:
+        """Compute mean W2 distance to a Dirac at the target."""
+        return metric_state_tensor(self.dist_sum) / metric_state_tensor(self.total)

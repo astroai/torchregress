@@ -90,18 +90,19 @@ class TestMonitoringHelpers:
         assert _format_metric_value(5.0, scientific_notation=False) == "5.0"
         assert _format_metric_value(12.0, scientific_notation=False) == "12"
 
-    def test_smooth_losses_preserves_interior_smoothing(self) -> None:
+    def test_smooth_losses_ema_recurrence(self) -> None:
+        """_smooth_losses follows the EMA recurrence s_t = a*x_t + (1-a)*s_{t-1} (TR-VIZ-06..21)."""
         losses = np.linspace(1.0, 0.4, 20, dtype=float)
         smoothed = _smooth_losses(losses, smoothing=0.25)
         assert smoothed.shape == losses.shape
         assert np.isfinite(smoothed).all()
-        boundary_len = int(1 / 0.25)
-        safe_len = min(boundary_len, len(losses) // 2)
-        interior = slice(safe_len, len(losses) - safe_len)
-        assert interior.stop - interior.start > 0
-        assert not np.allclose(smoothed[interior], losses[interior])
-        assert np.allclose(smoothed[:safe_len], losses[:safe_len])
-        assert np.allclose(smoothed[-safe_len:], losses[-safe_len:])
+        # Recurrence identity, seeded with s_0 = x_0
+        expected = np.empty_like(losses)
+        s = losses[0]
+        for i, x in enumerate(losses):
+            s = 0.25 * x + 0.75 * s
+            expected[i] = s
+        assert np.allclose(smoothed, expected)
 
     def test_plot_lr_find_results(self) -> None:
         lrs = np.logspace(-4, -1, 20).tolist()

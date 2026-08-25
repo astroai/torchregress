@@ -2,16 +2,31 @@
 Diagnostic plotting utilities for regression and uncertainty quantification.
 """
 
+import warnings
 from typing import Any, Callable, Dict, Optional, Tuple, Union, cast
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError as exc:  # pragma: no cover - hit only without the viz extra
+    raise ImportError(
+        "torchregress.viz requires matplotlib; pip install 'torchregress[viz]'"
+    ) from exc
+
 import numpy as np
 import torch
 from matplotlib.figure import Figure
 
 from torchregress.metrics.calibration import expected_calibration_error
-from torchregress.metrics.utils import convert_to_tensor, validate_inputs
+from torchregress.metrics.utils import convert_to_tensor
 from torchregress.viz.utils import add_annotations, add_identity_line, add_zero_line
+
+
+def _validate_finite_pair(y_pred: np.ndarray, y_true: np.ndarray) -> None:
+    """Numpy fast-path validation — skips the torch round-trip (TR-VIZ-06..21)."""
+    if not np.isfinite(y_pred).all():
+        raise ValueError("y_pred contains NaN or infinite values")
+    if not np.isfinite(y_true).all():
+        raise ValueError("y_true contains NaN or infinite values")
 
 
 def plot_reliability_diagram(
@@ -93,8 +108,9 @@ def plot_reliability_diagram(
     if return_figure:
         return fig
     elif ax is None:  # Only show if we created the figure here
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -269,7 +285,7 @@ def plot_residuals(
     """
     y_pred_np: np.ndarray = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
     y_true_np: np.ndarray = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
-    validate_inputs(torch.tensor(y_pred_np), torch.tensor(y_true_np))
+    _validate_finite_pair(y_pred_np, y_true_np)
 
     # Compute total uncertainty for standardization if stds are provided
     std_total: Optional[np.ndarray] = None
@@ -391,8 +407,9 @@ def plot_residuals(
     if return_figure:
         return fig
     elif created_fig:  # Only show if we created the figure here
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -553,8 +570,9 @@ def plot_prediction_intervals(
     if return_figure:
         return fig
     elif ax is None:  # Only show if we created the figure here
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -628,8 +646,9 @@ def plot_qq_plot(
     if return_figure:
         return fig
     elif ax is None:  # Only show if we created the figure here
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -656,7 +675,7 @@ def _add_residual_density_curves(ax: plt.Axes, residuals: np.ndarray, kde_color:
 def plot_residual_histogram(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
-    bins: int = 30,
+    n_bins: int = 30,
     figsize: Tuple[int, int] = (10, 6),
     title: str = "Residual Histogram",
     xlabel: str = "Residual Value",
@@ -673,7 +692,7 @@ def plot_residual_histogram(
     Args:
         y_pred: Predicted values
         y_true: Ground truth values
-        bins: Number of histogram bins
+        n_bins: Number of histogram bins (int)
         figsize: Figure size (width, height) when creating a new figure
         title: Plot title
         xlabel: Label for x-axis
@@ -700,7 +719,7 @@ def plot_residual_histogram(
         fig = cast(Figure, ax.figure)
 
     # Plot histogram
-    _, bin_edges, _ = ax.hist(residuals, bins=bins, color=color, alpha=0.7, density=True)
+    _, bin_edges, _ = ax.hist(residuals, bins=n_bins, color=color, alpha=0.7, density=True)
 
     # Add KDE if requested
     if show_kde:
@@ -731,8 +750,9 @@ def plot_residual_histogram(
     if return_figure:
         return fig
     elif ax is None:  # Only show if we created the figure here
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -1004,13 +1024,14 @@ def plot_distribution_comparison(
 
     # Add overall title
     fig.suptitle(title, fontsize=14, fontweight="bold")
-    plt.tight_layout()
+    fig.tight_layout()
     plt.subplots_adjust(top=0.85, bottom=0.2)
 
     if return_figure:
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -1158,8 +1179,17 @@ def plot_calibration_curve(
     # Add diagonal reference line
     add_identity_line(ax, label="Perfectly Calibrated")
 
-    # Calculate calibration metrics
-    calibration_error = np.mean(np.abs(prob_true - prob_pred))
+    # TR-VIZ-02: sample-weighted ECE over non-empty bins,
+    #   sum_b (n_b / N) * |acc_b - conf_b| — empty bins must not dilute the error.
+    nonempty = bin_counts > 0
+    n_total = int(bin_counts[nonempty].sum())
+    if n_total > 0:
+        calibration_error = float(
+            np.sum(bin_counts[nonempty] * np.abs(prob_true[nonempty] - prob_pred[nonempty]))
+            / n_total
+        )
+    else:
+        calibration_error = 0.0
     rmsce = np.sqrt(np.mean((prob_true - prob_pred) ** 2))
     max_calib_error = np.max(np.abs(prob_true - prob_pred))
 
@@ -1210,14 +1240,16 @@ def plot_calibration_curve(
         return fig, diagnostics
     elif return_diagnostics:
         if ax is None:
-            plt.tight_layout()
+            fig.tight_layout()
             plt.show()
+            plt.close(fig)  # TR-VIZ-05: close figures we created
         return cast(Dict[str, Any], diagnostics)
     elif return_figure:
         return fig
     elif ax is None:  # Only show if we created the figure here
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -1238,8 +1270,8 @@ def plot_pit_histogram(
 
     For a well-calibrated probabilistic model with Gaussian predictive distributions,
     the PIT values should be uniformly distributed. Deviations indicate miscalibration:
-    - U-shaped: underconfident (variances too large)
-    - Inverse U-shaped: overconfident (variances too small)
+    - U-shaped: overconfident (variances too small)
+    - Inverse U-shaped: underconfident (variances too large)
     - Skewed: biased predictions
 
     Args:
@@ -1248,7 +1280,6 @@ def plot_pit_histogram(
         y_true: Ground truth values
         n_bins: Number of histogram bins
         figsize: Figure size (width, height) when creating a new figure
-        title: Plot title
         color: Color for the histogram bars
         return_figure: If True, return figure object instead of displaying
         ax: Optional matplotlib axes for plotting
@@ -1307,8 +1338,9 @@ def plot_pit_histogram(
     if return_figure:
         return fig
     elif ax is None:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -1327,6 +1359,7 @@ def plot_uncertainty_vs_error(
     max_points: int = 2000,
     show_trend: bool = True,
     show_correlation: bool = True,
+    return_correlation: bool = False,
     return_figure: bool = False,
     ax: Optional[plt.Axes] = None,
 ) -> Optional[Union[Figure, float, Tuple[Figure, float]]]:
@@ -1353,12 +1386,16 @@ def plot_uncertainty_vs_error(
         max_points: Maximum number of points to plot (for performance)
         show_trend: Whether to show linear trend line
         show_correlation: Whether to show Spearman correlation in legend
+        return_correlation: Whether to return the Spearman correlation coefficient
+            (default False; the correlation is annotation-only otherwise)
         return_figure: If True, return figure object instead of displaying
         ax: Optional matplotlib axes for plotting
 
     Returns:
         If return_figure=True, returns matplotlib Figure object
-        If show_correlation=True, also returns Spearman correlation coefficient
+        If return_correlation=True (and return_figure=False), returns the Spearman
+        correlation coefficient; with return_figure=True it returns
+        (figure, correlation). Default path returns None — TR-VIZ-06..21.
     """
     y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
     y_pred_std = convert_to_tensor(y_pred_std).detach().cpu().numpy().flatten()
@@ -1455,14 +1492,15 @@ def plot_uncertainty_vs_error(
         ax2.grid(True, alpha=0.3)
 
     if return_figure:
-        if show_correlation:
+        if return_correlation:
             return fig, float(correlation)
         return fig
     elif created_fig:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05
 
-    if show_correlation:
+    if return_correlation:
         return float(correlation)
     return None
 
@@ -1477,6 +1515,15 @@ def _compute_binned_metrics(
     from scipy import stats
 
     bin_edges = np.quantile(y_true, np.linspace(0, 1, n_bins + 1))
+    # TR-VIZ-06..21: degenerate targets collapse quantile edges; duplicated bins
+    # would silently share a key and drop metrics.
+    if len(np.unique(bin_edges)) < len(bin_edges):
+        warnings.warn(
+            "binned metrics: duplicate bin edges detected "
+            f"({len(bin_edges) - len(np.unique(bin_edges))} duplicates); "
+            "degenerate target distribution",
+            RuntimeWarning,
+        )
     binned_metrics: Dict[str, Dict[str, float]] = {}
 
     for i in range(len(bin_edges) - 1):
@@ -1519,7 +1566,10 @@ def _compute_binned_metrics(
         # Mean prediction interval width
         mpiw = np.mean(upper - lower)
 
-        bin_name = f"[{low:.3f}, {high:.3f})"
+        # TR-VIZ-06..21: the last bin includes its right edge — label it honestly.
+        bin_name = (
+            f"[{low:.3f}, {high:.3f})" if i < len(bin_edges) - 2 else f"({low:.3f}, {high:.3f}]"
+        )
         binned_metrics[bin_name] = {
             "n_samples": int(mask.sum()),
             "rmse": float(rmse),
@@ -1629,7 +1679,7 @@ def plot_binned_metrics(
     created_ax = ax is None
     fig, ax = _render_binned_metrics_plot(binned_metrics, metric, figsize, title, color, ax)
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     if return_figure:
         if return_metrics:
@@ -1637,6 +1687,7 @@ def plot_binned_metrics(
         return fig
     elif created_ax:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     if return_metrics:
         return binned_metrics
@@ -1744,8 +1795,9 @@ def plot_gaussian_reliability_diagram(
     if return_figure:
         return fig
     elif ax is None:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
 
     return None
 
@@ -1780,7 +1832,7 @@ def plot_target_density_error_overlap(
 
     y_true = convert_to_tensor(y_true).detach().cpu().numpy().flatten()
     y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().flatten()
-    validate_inputs(torch.tensor(y_pred), torch.tensor(y_true))
+    _validate_finite_pair(y_pred, y_true)
 
     abs_errors = np.abs(y_true - y_pred)
 
@@ -1860,8 +1912,9 @@ def plot_target_density_error_overlap(
     if return_figure:
         return fig
     elif created_fig:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
     return None
 
 
@@ -1928,8 +1981,9 @@ def plot_conditional_density_slices(
     if return_figure:
         return fig
     else:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
     return None
 
 
@@ -1963,8 +2017,12 @@ def plot_censored_survival_curves(
     censoring_indicators = convert_to_tensor(censoring_indicators).detach().cpu().numpy().flatten()
 
     # 1. Native Kaplan-Meier Estimator computation
-    # Sort distinct observed times
-    unique_times = np.sort(np.unique(observed_times))
+    # TR-VIZ-06..21: sort times once, then use searchsorted for d(t)/n(t) —
+    # avoids the O(unique_times x N) rescan of the full arrays per event time.
+    order = np.argsort(observed_times)
+    times_sorted = observed_times[order]
+    events_sorted = censoring_indicators[order]
+    unique_times = np.unique(times_sorted)
     km_times = [0.0]
     km_survival = [1.0]
 
@@ -1972,11 +2030,12 @@ def plot_censored_survival_curves(
     for t in unique_times:
         if t <= 0:
             continue
-        # Count deaths (events) at exactly t
-        d = np.sum((observed_times == t) & (censoring_indicators == 1))
-        # Count number at risk (observed time >= t)
-        n = np.sum(observed_times >= t)
-
+        lo = int(np.searchsorted(times_sorted, t, side="left"))
+        hi = int(np.searchsorted(times_sorted, t, side="right"))
+        # Deaths (events) at exactly t
+        d = int(events_sorted[lo:hi].sum())
+        # Number at risk (observed time >= t)
+        n = len(times_sorted) - lo
         if n > 0:
             current_survival *= 1.0 - d / n
 
@@ -2027,6 +2086,7 @@ def plot_censored_survival_curves(
     if return_figure:
         return fig
     elif created_fig:
-        plt.tight_layout()
+        fig.tight_layout()
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: close figures we created
     return None

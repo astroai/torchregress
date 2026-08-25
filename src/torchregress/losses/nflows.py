@@ -20,7 +20,7 @@ try:
 except ImportError:
     HAS_ZUKO = False
 
-    MAF = NSF = RealNVP = None
+    MAF = NSF = RealNVP = None  # ty: ignore[invalid-assignment]  # zuko is optional; call sites are guarded by HAS_ZUKO
 
 from ..utils.tensor_ops import masked_reduction
 from .base import DistributionLoss
@@ -129,7 +129,7 @@ def _resolve_hidden_features(
         return [width] * max(depth, 1)
 
     if isinstance(hidden_features, Sequence) and not isinstance(hidden_features, (str, bytes)):
-        resolved = [int(width) for width in hidden_features]
+        resolved = [int(w) for w in cast(Sequence[int], hidden_features)]
         if not resolved:
             raise ValueError("hidden_features sequence must contain at least one layer width")
         return resolved

@@ -8,10 +8,43 @@ common operations used across different visualization functions.
 import os
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+try:
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+except ImportError as exc:  # pragma: no cover - hit only without the viz extra
+    raise ImportError(
+        "torchregress.viz requires matplotlib; pip install 'torchregress[viz]'"
+    ) from exc
+
 import numpy as np
 from matplotlib.figure import Figure
+
+# Metric-name terms whose lower value indicates a better model (TR-VIZ-01).
+LOWER_IS_BETTER_TERMS = (
+    "error",
+    "loss",
+    "mae",
+    "mse",
+    "rmse",
+    "mape",
+    "nll",
+    "crps",
+    "pinball",
+    "brier",
+    "log_loss",
+    "ece",
+    "mce",
+    "deviance",
+)
+
+
+def is_lower_better(metric_name: str) -> bool:
+    """Return True when ``metric_name`` contains a lower-is-better term."""
+    name = metric_name.lower()
+    return any(term in name for term in LOWER_IS_BETTER_TERMS)
+
+
+_VALID_STYLES = ("default", "whitegrid", "darkgrid", "ticks", "minimal")
 
 
 def set_style(
@@ -28,16 +61,29 @@ def set_style(
         context: Context name ('paper', 'notebook', 'talk', or 'poster')
         font_scale: Scale factor for font sizes
         rc: Dictionary of rc parameter mappings to override
+
+    Raises:
+        ValueError: If ``style`` is not one of the recognized names.
     """
     # ponytail: matplotlib styling, no seaborn dependency.
-    if style == "whitegrid" or style == "default":
+    if style not in _VALID_STYLES:
+        raise ValueError(f"Unknown style {style!r}; valid styles: {', '.join(_VALID_STYLES)}")
+
+    if style in ("whitegrid", "default"):
         plt.style.use("seaborn-v0_8-whitegrid")
     elif style == "darkgrid":
         plt.style.use("seaborn-v0_8-darkgrid")
     elif style == "ticks":
         plt.style.use("seaborn-v0_8-ticks")
-    elif style == "minimal":
-        plt.style.use("seaborn-v0_8-paper")
+    else:  # minimal: its own spines-off, grid-off look
+        plt.style.use("seaborn-v0_8-white")
+        mpl.rcParams.update(
+            {
+                "axes.spines.top": False,
+                "axes.spines.right": False,
+                "axes.grid": False,
+            }
+        )
 
     # Set font sizes based on context
     if context == "paper":
@@ -186,11 +232,11 @@ def save_figure(
     fig: Figure,
     filename: str,
     directory: str = "./figures",
-    formats: List[str] = ["png", "pdf"],
+    formats: Tuple[str, ...] = ("png", "pdf"),
     dpi: int = 300,
     transparent: bool = False,
     bbox_inches: str = "tight",
-) -> None:
+) -> List[str]:
     """
     Save a figure in multiple formats.
 
@@ -198,22 +244,28 @@ def save_figure(
         fig: Matplotlib figure
         filename: Base filename (without extension)
         directory: Output directory
-        formats: List of formats to save (e.g., ["png", "pdf", "svg"])
+        formats: Formats to save (default: ``("png", "pdf")``)
         dpi: Resolution for raster formats
         transparent: Whether to use transparent background
         bbox_inches: Bounding box setting
+
+    Returns:
+        Paths of the files that were written.
     """
     # Create directory if it doesn't exist
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    os.makedirs(directory, exist_ok=True)
 
     # Save in each format
+    written: List[str] = []
     for fmt in formats:
         output_path = os.path.join(directory, f"{filename}.{fmt}")
         fig.savefig(
             output_path, format=fmt, dpi=dpi, transparent=transparent, bbox_inches=bbox_inches
         )
+        written.append(output_path)
         print(f"Saved figure to {output_path}")
+
+    return written
 
 
 def add_annotations(
@@ -283,13 +335,19 @@ def create_color_palette(
     if as_cmap:
         return cmap
 
+    def _sample(i: int) -> Any:
+        # Qualitative (ListedColormap) palettes have discrete slots; sample them
+        # directly instead of interpolating between neighbouring colours (TR-VIZ-06..21).
+        if isinstance(cmap, mpl.colors.ListedColormap):
+            return cmap(i % cmap.N)
+        if n_colors == 1:
+            return cmap(0.0)
+        return cmap(i / (n_colors - 1))
+
     if as_hex:
-        return [mpl.colors.rgb2hex(cmap(i)[:3]) for i in range(n_colors)]
+        return [mpl.colors.rgb2hex(_sample(i)[:3]) for i in range(n_colors)]
 
-    if n_colors == 1:
-        return [cmap(0.5)]
-
-    return [cmap(i / (n_colors - 1)) for i in range(n_colors)]
+    return [_sample(i) for i in range(n_colors)]
 
 
 def enable_latex_rendering(enable: bool = True) -> bool:

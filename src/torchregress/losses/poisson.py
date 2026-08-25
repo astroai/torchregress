@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
@@ -32,7 +33,6 @@ class PoissonDevianceLoss(RegressionLoss):
     Args:
         log_input: If True, input is log(λ) rather than λ. Default: True
         eps: Small constant for numerical stability. Default: 1e-8
-        learn_variance: Whether to use a learnable variance parameter. Default: False
         reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
 
     Example:
@@ -46,17 +46,11 @@ class PoissonDevianceLoss(RegressionLoss):
         self,
         log_input: bool = True,
         eps: float = 1e-8,
-        learn_variance: bool = False,
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
         self.log_input = log_input
         self.eps = eps
-        self.learn_variance = learn_variance
-
-        if learn_variance:
-            # Initialize learnable variance parameter as log(variance)
-            self.log_variance = nn.Parameter(torch.zeros(1))
 
     def forward(
         self,
@@ -85,8 +79,9 @@ class PoissonDevianceLoss(RegressionLoss):
             raise ValueError("Target values must be non-negative for Poisson regression")
 
         # Convert log_input to predicted rate
+        # A3: clamp in log space before exponentiation to avoid overflow
         if self.log_input:
-            rate = torch.exp(y_pred)
+            rate = torch.exp(y_pred.clamp(max=30.0))
         else:
             rate = y_pred
 
@@ -95,11 +90,6 @@ class PoissonDevianceLoss(RegressionLoss):
         target_safe = torch.where(target > 0, target, torch.ones_like(target))
         term = target * torch.log(target_safe / (rate + self.eps))
         loss = rate - target + torch.where(target > 0, term, 0.0)
-
-        # Apply variance adjustment if using learnable variance
-        if self.learn_variance:
-            variance = torch.exp(self.log_variance)
-            loss = loss / (variance + self.eps) + 0.5 * torch.log(variance + self.eps)
 
         # Apply reduction with mask and weights
         return self._reduce(loss, mask, weights)
@@ -207,36 +197,39 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
     Args:
         log_input: If True, input is log(λ) rather than λ. Default: True
         eps: Small constant for numerical stability. Default: 1e-8
-        learn_variance: Whether to learn a global variance parameter. Default: False
         reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+    Forward REQUIRES ``pi_logits`` (zero-inflation logits, same shape as the
+    target); it is no longer guessed from an even/odd split of ``y_pred`` (A7).
 
     Example:
         >>> loss_fn = ZeroInflatedPoissonNLLLoss()
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])  # lambda values
         >>> pi_logits = torch.tensor([-1.0, 0.0, 1.0])  # zero-inflation logits
         >>> target = torch.tensor([0.0, 0.0, 3.0])  # counts
-        >>> loss_fn(y_pred, target, pi_logits)
+        >>> loss_fn(y_pred, target, pi_logits=pi_logits)
+
+    References
+    ----------
+    .. [1] Lambert, D. (1992). Zero-Inflated Poisson Regression, with an
+       Application to Defects in Manufacturing. Technometrics, 34(1), 1-14.
     """
 
     def __init__(
         self,
         log_input: bool = True,
         eps: float = 1e-8,
-        learn_variance: bool = False,
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
         self.log_input = log_input
         self.eps = eps
-        self.learn_variance = learn_variance
-
-        if self.learn_variance:
-            self.log_variance = nn.Parameter(torch.zeros(1))
 
     def forward(
         self,
         y_pred: torch.Tensor,
         target: torch.Tensor,
+        pi_logits: Optional[torch.Tensor] = None,
         mask: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
@@ -247,27 +240,17 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
         Args:
             y_pred: Predicted rate parameters λ or log(λ) [batch_size, n_features]
             target: Ground truth count values [batch_size, n_features]
+            pi_logits: REQUIRED zero-inflation logits [batch_size, n_features] (A7).
             mask: Optional boolean mask [batch_size, n_features]
             weights: Optional weights [batch_size, n_features]
-            **kwargs: Additional arguments. Can include 'pi_logits' for zero-inflation logits.
 
         Returns:
             Zero-inflated Poisson NLL loss value
         """
-        # Extract pi_logits from kwargs
-        pi_logits = kwargs.get("pi_logits", None)
-
-        # If still None, try to extract from y_pred
+        if pi_logits is None and kwargs.get("pi_logits") is not None:
+            pi_logits = kwargs["pi_logits"]
         if pi_logits is None:
-            if y_pred.shape[-1] % 2 == 0:
-                # Assume y_pred contains both lambda and pi_logits
-                half_dim = y_pred.shape[-1] // 2
-                pi_logits = y_pred[..., half_dim:]
-                y_pred = y_pred[..., :half_dim]
-            else:
-                raise ValueError(
-                    "pi_logits must be provided either as argument or extracted from y_pred"
-                )
+            raise ValueError("pi_logits must be provided")
 
         self._validate_inputs(y_pred, target, mask)
 
@@ -276,8 +259,9 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
             raise ValueError("Target values must be non-negative for Poisson regression")
 
         # Convert log_input to predicted rate
+        # A3: clamp in log space before exponentiation to avoid overflow
         if self.log_input:
-            rate = torch.exp(y_pred)
+            rate = torch.exp(y_pred.clamp(max=30.0))
         else:
             rate = y_pred
 
@@ -309,11 +293,6 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
 
         loss = torch.where(target == 0, loss_zero, loss_nonzero)
 
-        # Apply variance adjustment if using learnable variance
-        if self.learn_variance:
-            variance = torch.exp(self.log_variance)
-            loss = loss / (variance + self.eps) + 0.5 * torch.log(variance + self.eps)
-
         # Apply reduction with mask and weights
         return self._reduce(loss, mask, weights)
 
@@ -321,8 +300,6 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
 @register_regression_loss("nbinom")
 class NegativeBinomialNLLLoss(RegressionLoss):
     """
-    Negative Binomial Negative Log-Likelihood loss.
-
     This loss is suitable for overdispersed count data where variance > mean.
     The negative binomial distribution has parameters μ (mean) and θ (dispersion).
 
@@ -407,20 +384,21 @@ class NegativeBinomialNLLLoss(RegressionLoss):
         # Using log-probability formulation:
         log_theta = torch.log(theta_value + self.eps)
         logit_p = log_theta - torch.log(mu + self.eps)  # logit(p) = log(θ/μ) → p = θ/(θ+μ)
-        p = torch.sigmoid(logit_p)  # p = θ/(θ+μ)
 
         # Compute log factorial using Stirling's approximation for large values
         log_gamma_ypr = torch.lgamma(target + theta_value + self.eps)
         log_gamma_y1 = torch.lgamma(target + 1.0 + self.eps)
         log_gamma_r = torch.lgamma(theta_value + self.eps)
 
-        # Negative log likelihood
+        # Negative log likelihood.
+        # A7: use -logsigmoid for log(p)/log(1-p) — numerically stable where
+        # p is near 0 or 1, unlike the previous log(p + eps) form.
         loss = -(
             log_gamma_ypr
             - log_gamma_y1
             - log_gamma_r
-            + theta_value * (torch.log(p + self.eps))
-            + target * torch.log(1 - p + self.eps)
+            - theta_value * F.logsigmoid(-logit_p)
+            - target * F.logsigmoid(logit_p)
         )
 
         # Apply reduction with mask and weights

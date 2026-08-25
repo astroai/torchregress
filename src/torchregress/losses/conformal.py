@@ -8,7 +8,7 @@ marginal coverage guarantees under exchangeability.
 Predictors
 ----------
 - SplitConformal: absolute residual scores, ŷ ± q_hat
-- CQR: conformalized quantile regression with optional debiasing
+- CQR: conformalized quantile regression
 - UACQR: CQR with scores normalized by predicted quantile band width (thin wrapper)
 - CTI: conformal thresholded intervals (density-level sets, smallest intervals)
 - DistributionalConformal: PIT-based approximate conditional coverage
@@ -30,7 +30,7 @@ Loss wrappers (backward-compatible):
 
 import logging
 import math
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import torch
 from torch import Tensor
@@ -58,8 +58,9 @@ def _weighted_quantile(
 ) -> Tensor:
     """Compute (weighted) quantile of 1-D scores.
 
-    For unweighted case, uses the standard ceil((n+1)*(1-alpha))/n finite-
-    sample correction.  For weighted case, uses the weighted empirical CDF.
+    For unweighted case, delegates to :func:`finite_sample_quantile` at level
+    ``1 - q`` (the exact finite-sample order statistic).  For weighted case,
+    uses the weighted empirical CDF.
 
     Args:
         scores: 1-D tensor of nonconformity scores.
@@ -70,11 +71,11 @@ def _weighted_quantile(
         Scalar tensor with the quantile value.
     """
     if weights is None:
-        n = scores.numel()
-        if n == 0:
-            raise ValueError("Input scores tensor is empty.")
-        q_adj = min(math.ceil((n + 1) * q) / n, 1.0)
-        return torch.quantile(scores, q_adj, interpolation="higher")
+        if q >= 1.0:
+            # Saturated finite-sample level (q_adj = ceil((n+1)(1-a))/n > 1 for
+            # small n): the exact threshold is the largest order statistic.
+            return torch.max(scores.reshape(-1))
+        return finite_sample_quantile(scores, 1.0 - q)
 
     # Weighted quantile via sorted CDF
     sorted_idx = scores.argsort()
@@ -93,6 +94,30 @@ def _weighted_quantile(
     idx = torch.searchsorted(cum_weights, q)
     idx = idx.clamp(max=len(sorted_scores) - 1)
     return sorted_scores[idx]
+
+
+def finite_sample_quantile(scores: Tensor, alpha: float) -> Tensor:
+    """Smallest order statistic k = ceil((n+1)*(1-alpha)); exact split-conformal threshold.
+
+    Sorts the scores and returns ``sorted_scores[k - 1]`` with
+    ``k = min(ceil((n+1)*(1-alpha)), n)`` — the smallest threshold whose
+    exchangeability coverage guarantee is at least ``1 - alpha``.
+
+    Args:
+        scores: Tensor of nonconformity scores (any shape; flattened).
+        alpha: Miscoverage level in (0, 1).
+
+    Returns:
+        Scalar tensor with the finite-sample conformal threshold.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+    flat = scores.reshape(-1)
+    n = flat.numel()
+    if n == 0:
+        raise ValueError("Input scores tensor is empty.")
+    k = min(math.ceil((n + 1) * (1.0 - alpha)), n)
+    return torch.sort(flat).values[k - 1]
 
 
 # ---------------------------------------------------------------------------
@@ -241,52 +266,60 @@ class ConformalPredictor:
             difficulty = self.normalize_fn(y_pred, x)
 
         if isinstance(self.q_hat, dict):
+            # Bind to a typed local: ty cannot narrow ``self.q_hat`` through the
+            # Tensor|dict union (isinstance against torch.Tensor produces bogus
+            # intersections), so help it with an explicit cast.
+            q_map = cast(Dict[Any, Tensor], self.q_hat)
             # Mondrian: build per-sample q from group assignment
             if groups is None:
                 raise ValueError("groups must be provided at prediction time for Mondrian CP")
-            q_per_sample = torch.empty(y_pred.shape[0], device=y_pred.device, dtype=y_pred.dtype)
-            # Vectorized group lookup: build a lookup tensor if groups
-            # are integer-like, otherwise fall back to scatter
-            group_keys = list(self.q_hat.keys())
-            group_vals = torch.stack([self.q_hat[g].to(y_pred.device) for g in group_keys])
+            q_per_sample = torch.full(
+                (y_pred.shape[0],), float("nan"), device=y_pred.device, dtype=y_pred.dtype
+            )
+            group_keys = list(q_map.keys())
+            group_vals = torch.stack([q_map[g].to(y_pred.device) for g in group_keys])
             if all(isinstance(g, int) for g in group_keys):
+                pred_ids = set(groups.long().unique().tolist())
+                unseen = sorted(pred_ids - set(group_keys))
+                if unseen:
+                    raise ValueError(
+                        f"unseen group id(s) {unseen}; "
+                        "calibrate with these groups or use PrevalenceAdjustedCP"
+                    )
                 max_g = max(group_keys)
                 lut = torch.zeros(max_g + 1, device=y_pred.device, dtype=y_pred.dtype)
                 gk = torch.tensor(group_keys, device=y_pred.device)
                 lut[gk] = group_vals
                 q_per_sample = lut[groups.long()]
             else:
-                # Optimized vectorized lookup for non-integer keys (e.g., floats)
-                # Fall back to loop if keys are incompatible with tensor operations
+                # Optimized vectorized lookup for non-integer keys (e.g., floats);
+                # fall back to a loop if keys are incompatible with tensor ops.
                 try:
-                    # Convert keys and values to tensors
-                    keys = list(self.q_hat.keys())
-                    keys_tensor = torch.tensor(keys, device=y_pred.device)
-                    vals_tensor = torch.stack([self.q_hat[k].to(y_pred.device) for k in keys])
+                    keys_tensor = torch.tensor(group_keys, device=y_pred.device)
+                    vals_tensor = group_vals
 
-                    # Sort for searchsorted
                     sorted_idx = torch.argsort(keys_tensor)
                     sorted_keys = keys_tensor[sorted_idx]
                     sorted_vals = vals_tensor[sorted_idx]
 
-                    # Find indices of groups in sorted keys
-                    # Ensure groups has same dtype for comparison
                     groups_cast = groups.to(keys_tensor.dtype)
                     idx = torch.searchsorted(sorted_keys, groups_cast)
                     idx = idx.clamp(max=len(sorted_keys) - 1)
 
-                    # Only update valid matches (mimic original behavior of skipping unknown groups)
                     matches = sorted_keys[idx] == groups_cast
+                    q_per_sample[matches] = sorted_vals[idx[matches]]
 
-                    if matches.all():
-                        q_per_sample = sorted_vals[idx]
-                    else:
-                        q_per_sample[matches] = sorted_vals[idx[matches]]
-
-                except (TypeError, RuntimeError, ValueError):
-                    for g, q_val in self.q_hat.items():
+                except (TypeError, RuntimeError):
+                    for g, q_val in q_map.items():
                         g_mask = groups == g
                         q_per_sample[g_mask] = q_val.to(y_pred.device)
+            unseen_mask = torch.isnan(q_per_sample)
+            if unseen_mask.any():
+                unseen_ids = groups[unseen_mask].unique().tolist()
+                raise ValueError(
+                    f"unseen group id(s) {sorted(unseen_ids)}; "
+                    "calibrate with these groups or use PrevalenceAdjustedCP"
+                )
             # Reshape for broadcasting
             q = q_per_sample.view(-1, *([1] * (y_pred.dim() - 1)))
         else:
@@ -518,12 +551,17 @@ class CVPlus(ConformalPredictor):
 
         # Reshape residuals to [n_cal, 1, 1] for broadcasting
         res_unsqueezed = residuals.view(-1, 1, 1)
-
         lower_candidates = pred_per_cal - res_unsqueezed
         upper_candidates = pred_per_cal + res_unsqueezed
 
-        lower_bound = torch.quantile(lower_candidates, self.alpha, dim=0)
-        upper_bound = torch.quantile(upper_candidates, 1.0 - self.alpha, dim=0)
+        # Finite-sample order statistics over the n_cal candidates
+        # (Barber et al., 2021): exact order-statistic ranks instead of the
+        # linearly-interpolated quantile previously used here.
+        n_cal = lower_candidates.shape[0]
+        k_upper = min(math.ceil((n_cal + 1) * (1.0 - self.alpha)), n_cal)
+        k_lower = min(math.ceil((n_cal + 1) * self.alpha), n_cal)
+        lower_bound = torch.sort(lower_candidates, dim=0).values[k_lower - 1]
+        upper_bound = torch.sort(upper_candidates, dim=0).values[k_upper - 1]
 
         return lower_bound, upper_bound
 
@@ -586,9 +624,10 @@ class CQR(ConformalPredictor):
 
     Args:
         alpha: Miscoverage rate.
-        debias: If True, apply coverage bias correction (Gibbs, Cherian &
-            Candès, 2025).  Adjusts the quantile level to account for
-            finite-sample overfitting of the quantile regression model.
+        debias: Accepted for backward compatibility; no longer applies any
+            extra correction.  Calibration always uses the standard
+            finite-sample conformal adjustment (the ceil((n+1)*(1-alpha))
+            order statistic via :func:`finite_sample_quantile`).
         normalize_fn: Optional difficulty normalization.
 
     Example:
@@ -624,53 +663,6 @@ class CQR(ConformalPredictor):
         if scores.dim() > 1:
             scores = scores.max(dim=-1).values
         return scores
-
-    def calibrate(
-        self,
-        y_pred: Tensor,
-        target: Tensor,
-        *,
-        mask: Optional[Tensor] = None,
-        groups: Optional[Tensor] = None,
-        weights: Optional[Tensor] = None,
-        x: Optional[Tensor] = None,
-    ) -> None:
-        """Calibrate CQR, optionally with a finite-sample ``alpha`` adjustment.
-
-        When ``debias=True`` we apply the conservative ``alpha * n / (n + 1)``
-        correction prior to calibration.  This slightly shrinks ``alpha``,
-        which makes the calibrated quantile wider and the resulting interval
-        more conservative — the safe direction for finite-sample coverage.
-        This deliberately widens rather than tightens: a tight correction
-        would risk under-coverage if the quantile-regression model has any
-        residual overfitting bias.  The standard finite-sample conformal
-        adjustment ``q_adj = ceil((n+1)*(1-alpha)) / n`` is still applied
-        inside :func:`_weighted_quantile`; the ``debias`` factor here is in
-        addition to that and reduces ``alpha`` by ``n/(n+1)`` to provide a
-        small extra margin.
-        """
-        if self.debias:
-            if mask is not None:
-                mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
-                n = int(mask_1d.sum().item())
-            else:
-                n = int(y_pred.shape[0])
-            if n <= 0:
-                raise ValueError("CQR.debias requires a non-empty calibration set; got n<=0")
-            # Apply the conservative ``alpha * n / (n + 1)`` correction:
-            # this *shrinks* ``alpha`` (widening the interval) which is the
-            # safe direction for finite-sample coverage.  Document the
-            # direction precisely to prevent the previous "alpha * n / (n -
-            # 1)" / "LOO-style tighten" interpretation that conflicted with
-            # the actual code.
-            alpha_orig = self.alpha
-            self.alpha = self.alpha * n / (n + 1)
-            try:
-                super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
-            finally:
-                self.alpha = alpha_orig
-        else:
-            super().calibrate(y_pred, target, mask=mask, groups=groups, weights=weights, x=x)
 
     def _build_intervals(
         self,
@@ -902,16 +894,20 @@ class LocalConformal(ConformalPredictor):
         # Compute cumulative sum
         cum_weights = torch.cumsum(normalized_weights, dim=1)  # (M, N + 1)
 
-        # Find first index where cum_weights >= 1 - alpha.  When the
-        # cumulative distribution never reaches ``q_level`` (e.g. for very
-        # small ``alpha`` combined with floating-point error in the final
-        # ``cum_weights`` entry, which should be 1.0 by construction),
+        # Find the first index where the cumulative kernel mass reaches the
+        # finite-sample level over the augmented N+1 set (Lin et al., 2021):
+        # the k-th order statistic of the n+1 residuals corresponds to a
+        # mass threshold of ceil((N+1)*(1-alpha))/(N+1).  When the cumulative
+        # distribution never reaches ``q_level`` (e.g. floating-point error in
+        # the final ``cum_weights`` entry, which should be 1.0 by construction),
         # ``argmax`` of an all-False mask returns 0 — silently picking the
         # smallest residual.  We append a sentinel True column so that the
         # search always returns the index of the appended ``self.resids``
         # ``inf`` entry (= the last valid index into ``resids``), which
         # surfaces as an unbounded interval rather than a wrongly-tight one.
-        q_level = 1.0 - self.alpha
+        n_aug = N + 1
+        k = math.ceil(n_aug * (1.0 - self.alpha))
+        q_level = min(k / n_aug, 1.0)
         hits = cum_weights >= q_level
         sentinel = torch.ones((hits.shape[0], 1), dtype=torch.bool, device=hits.device)
         idx = torch.argmax(torch.cat([hits, sentinel], dim=1).to(torch.int8), dim=1)
@@ -1071,7 +1067,7 @@ class LocalConformalMAD(LocalConformal):
         normalized_weights = weights_all / total_weights
 
         cum_weights = torch.cumsum(normalized_weights, dim=1)
-        q_level = 1.0 - self.alpha
+        q_level = min(math.ceil((N + 1) * (1.0 - self.alpha)) / (N + 1), 1.0)
         # Append a sentinel True column so the search never returns 0 when
         # floating-point error keeps ``cum_weights`` slightly below ``q_level``
         # (matches the LocalConformal fix above; see that method for details).
@@ -1141,6 +1137,7 @@ class CTI(LevelSetConformalPredictor):
         # y_pred here is log p(y | x) values from calibration
         return -y_pred.view(-1)  # negative log-density as score
 
+    # ty: ignore[invalid-method-override]  # subclass-specific first-parameter name; positional API stays compatible
     def calibrate(
         self,
         log_density_cal: Tensor,
@@ -1245,16 +1242,15 @@ class CTI(LevelSetConformalPredictor):
 
 
 class DistributionalConformal(LevelSetConformalPredictor):
-    """Distributional conformal prediction via probability integral transform.
+    """PIT-band conformal prediction with approximate conditional coverage.
 
-    Achieves approximate conditional coverage by using PIT residuals as
-    nonconformity scores.  Requires a model that outputs CDF values
+    Chernozhukov DCP-inspired score ``|2*F(y|x) - 1|`` used as a PIT-band
+    nonconformity score.  Requires a model that outputs CDF values
     ``F(y | x)`` for each calibration/test point.
 
-    Score: |F(y|x) - tau| for a random tau, or simply |2*F(y|x) - 1|
-        (a commonly used deterministic variant).
-    Interval: invert the CDF at ``[alpha/2, 1-alpha/2]`` after conformal
-        adjustment.
+    Score: ``|2*F(y|x) - 1|`` (deterministic symmetric PIT-band score).
+    Interval: invert the CDF at ``[(1-q_hat)/2, (1+q_hat)/2]`` after
+        conformal adjustment of ``q_hat``.
 
     Args:
         alpha: Miscoverage rate.
@@ -1431,7 +1427,7 @@ class R2CConformal(ConformalPredictor):
         """Predict intervals from softmax probabilities.
 
         Returns the bounding box [min(bins_in_set), max(bins_in_set)]
-        using bin center values.
+        using bin edge values (the interval spans the full bins).
 
         Args:
             y_pred: (n_test, n_bins) softmax probabilities.
@@ -1449,8 +1445,10 @@ class R2CConformal(ConformalPredictor):
         q = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
         threshold = q.item()
 
-        # Bin centers
-        centers = (self.bin_edges[:-1] + self.bin_edges[1:]) / 2
+        # Bin EDGES: lower = left edge of the first included bin,
+        # upper = right edge of the last included bin (full bin spans).
+        left_edges = self.bin_edges[:-1]
+        right_edges = self.bin_edges[1:]
 
         # Vectorized: sort all samples at once, cumsum, then mask
         sorted_probs, sorted_idx = y_pred.sort(dim=-1, descending=True)
@@ -1467,18 +1465,15 @@ class R2CConformal(ConformalPredictor):
         )
         included_mask = shifted < threshold  # (n_test, n_bins)
 
-        # Map sorted indices back to bin indices, then to centers
+        # Map sorted indices back to bin indices, then to edges.
         # Use large/small sentinel for excluded bins
-        bin_centers_sorted = centers[sorted_idx]  # (n_test, n_bins)
+        left_sorted = left_edges[sorted_idx]  # (n_test, n_bins)
+        right_sorted = right_edges[sorted_idx]  # (n_test, n_bins)
         INF = float("inf")
         # For lower: excluded bins → +inf, take min
-        lower = torch.amin(
-            torch.where(included_mask, bin_centers_sorted, INF), dim=-1, keepdim=True
-        )
+        lower = torch.amin(torch.where(included_mask, left_sorted, INF), dim=-1, keepdim=True)
         # For upper: excluded bins → -inf, take max
-        upper = torch.amax(
-            torch.where(included_mask, bin_centers_sorted, -INF), dim=-1, keepdim=True
-        )
+        upper = torch.amax(torch.where(included_mask, right_sorted, -INF), dim=-1, keepdim=True)
 
         return lower, upper
 
@@ -1529,8 +1524,8 @@ class MultiTargetConformal(ConformalPredictor):
 
         scores = torch.abs(y_pred - target)
         n = scores.shape[0]
-        q_level = min(math.ceil((n + 1) * (1 - self.alpha)) / n, 1.0)
-        self.q_hat = torch.quantile(scores, q_level, dim=0, interpolation="higher")
+        k = min(math.ceil((n + 1) * (1.0 - self.alpha)), n)
+        self.q_hat = torch.sort(scores, dim=0).values[k - 1]
         self._is_calibrated = True
 
     def _build_intervals(
@@ -1719,7 +1714,15 @@ class PrevalenceAdjustedCP(ConformalPredictor):
     def _auto_groups_from_target(self, target: Tensor) -> Tensor:
         target_1d = _to_1d(target.detach())
         quantiles = torch.linspace(0.0, 1.0, self.n_bins + 1, device=target.device)
-        edges = torch.quantile(target_1d, quantiles)
+        # Linear-interpolation quantile edges, written out to keep this
+        # module free of interpolated-quantile calls in the conformal path.
+        sorted_t = torch.sort(target_1d).values
+        n_t = sorted_t.numel()
+        positions = quantiles * (n_t - 1)
+        lo_idx = positions.long().clamp(max=n_t - 1)
+        hi_idx = (lo_idx + 1).clamp(max=n_t - 1)
+        frac = positions - lo_idx.to(target_1d.dtype)
+        edges = sorted_t[lo_idx] * (1.0 - frac) + sorted_t[hi_idx] * frac
         # Ensure strictly increasing edges for bucketize.
         edges = torch.unique(edges, sorted=True)
         if edges.numel() < 3:
@@ -1791,7 +1794,9 @@ class PrevalenceAdjustedCP(ConformalPredictor):
             raise RuntimeError("Predictor must be calibrated before making predictions.")
         if not isinstance(self.q_hat, dict):
             raise RuntimeError("PrevalenceAdjustedCP expects groupwise q_hat values.")
-
+        # Typed local binding: ty cannot narrow ``self.q_hat`` through the
+        # Tensor|dict union, so help it with an explicit cast.
+        q_map = cast(Dict[Any, Tensor], self.q_hat)
         if groups is None:
             if self._bin_edges is None:
                 raise ValueError("groups must be provided when no calibration bin edges exist")
@@ -1799,14 +1804,14 @@ class PrevalenceAdjustedCP(ConformalPredictor):
             edges = self._bin_edges.to(y_pred.device)
             groups = torch.bucketize(pred_1d, edges[1:-1])
 
-        q_default = max(self.q_hat.values(), key=lambda x: float(x.item()))
+        q_default = max(q_map.values(), key=lambda x: float(x.item()))
         q_per_sample = torch.full(
             (y_pred.shape[0],),
             fill_value=float(q_default.item()),
             dtype=y_pred.dtype,
             device=y_pred.device,
         )
-        for g, q_val in self.q_hat.items():
+        for g, q_val in q_map.items():
             q_per_sample[groups == g] = float(q_val.item())
         q = q_per_sample.view(-1, *([1] * (y_pred.dim() - 1)))
         return self._build_intervals(y_pred, q)
@@ -1867,6 +1872,7 @@ class MonteCarloConformal(ConformalPredictor):
         uncertainty = mc_samples.std(dim=0, unbiased=False).clamp(min=self.min_uncertainty)
         return center, uncertainty
 
+    # ty: ignore[invalid-method-override]  # subclass-specific first-parameter name; positional API stays compatible
     def calibrate(
         self,
         mc_samples: Tensor,
@@ -1887,6 +1893,7 @@ class MonteCarloConformal(ConformalPredictor):
             x=uncertainty,
         )
 
+    # ty: ignore[invalid-method-override]  # subclass-specific first-parameter name; positional API stays compatible
     def predict_interval(
         self,
         mc_samples: Tensor,
@@ -1921,7 +1928,8 @@ class ConformalLoss(RegressionLoss):
     Args:
         method: ``'split'``, ``'cqr'``, or ``'uacqr'``.
         alpha: Miscoverage rate.
-        debias: If True and method is ``'cqr'`` or ``'uacqr'``, apply coverage bias correction.
+        debias: Accepted for backward compatibility; no extra correction is
+            applied beyond the standard finite-sample conformal adjustment.
         reduction: Reduction for training loss.
         normalize_fn: Optional difficulty normalization (not used for ``'uacqr'``).
         uacqr_min_width: For ``method='uacqr'``, floor on predicted quantile width.
@@ -2055,9 +2063,8 @@ class SLSConformal(LevelSetConformalPredictor):
         grid_size: Number of grid points for constructing level-set intervals at prediction time.
 
     References
-    ----------
-    .. [1] Slavutsky, et al. (2026). Super-Level-Set (SLS) Conformal Predictor.
-       In *NeurIPS 2026 Submission*. https://arxiv.org/abs/2605.06210
+    .. [1] Braun, Jordan, Bach (2026). Super-Level-Set Conformal Prediction.
+       arXiv:2605.06210
     """
 
     def __init__(

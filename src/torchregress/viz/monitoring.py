@@ -7,11 +7,17 @@ progress, validation metrics, and early stopping.
 
 from typing import Any, Dict, List, Optional, Tuple
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError as exc:  # pragma: no cover - hit only without the viz extra
+    raise ImportError(
+        "torchregress.viz requires matplotlib; pip install 'torchregress[viz]'"
+    ) from exc
+
 import numpy as np
 from matplotlib.figure import Figure
 
-from torchregress.viz.utils import add_annotations
+from torchregress.viz.utils import add_annotations, is_lower_better
 
 
 def _format_metric_value(x: float, *, scientific_notation: bool = True) -> str:
@@ -38,7 +44,7 @@ def plot_learning_curves(
     n_cols: int = 2,
     smoothing: float = 0.0,
     title: str = "Learning Curves",
-    use_grid: bool = True,
+    show_grid: bool = True,
     log_scale: Optional[List[str]] = None,
     color_train: str = "blue",
     color_val: str = "orange",
@@ -57,7 +63,7 @@ def plot_learning_curves(
         n_cols: Number of columns in the grid
         smoothing: Smoothing factor for the curves (0.0 = no smoothing, 0.9 = high smoothing)
         title: Overall figure title
-        use_grid: Whether to add grid to the plots
+        show_grid: Whether to add grid to the plots
         log_scale: List of metrics to display with log scale
         color_train: Color for training curves
         color_val: Color for validation curves
@@ -106,16 +112,16 @@ def plot_learning_curves(
     # Ensure axes is always a 1D array
     axes = axes.flatten()
 
-    # Function to apply simple exponential smoothing
+    # Recency-weighted exponential moving average (TR-VIZ-06..21):
+    #   s_t = alpha * x_t + (1 - alpha) * s_{t-1},  s_0 = x_0
     def smooth(values: Any, alpha: float = 0.1) -> Any:
         if alpha <= 0:
             return values
         smoothed = []
-        last = values[0]
+        s = values[0]
         for point in values:
-            smoothed_val = alpha * last + (1 - alpha) * point
-            smoothed.append(smoothed_val)
-            last = smoothed_val
+            s = alpha * point + (1 - alpha) * s
+            smoothed.append(s)
         return smoothed
 
     # Plot each metric
@@ -176,7 +182,7 @@ def plot_learning_curves(
         ax.legend(loc="best")
 
         # Add grid
-        if use_grid:
+        if show_grid:
             ax.grid(True, alpha=0.3)
 
         # Use log scale if specified
@@ -185,9 +191,7 @@ def plot_learning_curves(
 
         # Find best values and annotate them
         if show_annotations and len(train_values) > 0:
-            is_loss = any(
-                term in metric.lower() for term in ["loss", "error", "mae", "mse", "rmse"]
-            )
+            is_loss = is_lower_better(metric)
 
             best_train_idx = np.argmin(train_values) if is_loss else np.argmax(train_values)
             best_train = train_values[best_train_idx]
@@ -214,13 +218,14 @@ def plot_learning_curves(
 
     # Set overall title
     fig.suptitle(title, fontsize=16)
-    plt.tight_layout()
+    fig.tight_layout()
     plt.subplots_adjust(top=0.9)
 
     if return_figure:
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05: figures created here are ours to close
         return None
 
 
@@ -239,7 +244,7 @@ def _plot_single_metric(
     # Highlight best value if requested
     if highlight_best:
         # Determine if lower or higher is better
-        is_loss = "loss" in metric_name.lower() or "error" in metric_name.lower()
+        is_loss = is_lower_better(metric_name)
 
         if is_loss:
             best_idx = np.argmin(values)
@@ -341,13 +346,14 @@ def plot_validation_metrics(
 
     # Set overall title
     fig.suptitle(title, fontsize=16)
-    plt.tight_layout()
+    fig.tight_layout()
     plt.subplots_adjust(top=0.9)
 
     if return_figure:
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05
         return None
 
 
@@ -481,38 +487,32 @@ def plot_early_stopping(
     _add_early_stopping_annotations(
         ax, best_epoch, best_val_loss, stop_epoch, len(val_losses), patience, delta
     )
-
-    plt.tight_layout()
+    fig.tight_layout()
 
     if return_figure:
         return fig
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05
         return None
 
 
 def _smooth_losses(losses_arr: np.ndarray, smoothing: float) -> np.ndarray:
-    """Apply moving average smoothing to loss array."""
-    if smoothing <= 0:
+    """Recency-weighted EMA smoothing (TR-VIZ-06..21).
+
+    ``s_t = alpha * x_t + (1 - alpha) * s_{t-1}`` with ``s_0 = x_0``, matching the
+    learning-curve smoothing convention. ``smoothing`` is used directly as EMA
+    factor ``alpha``.
+    """
+    if smoothing <= 0 or len(losses_arr) == 0:
         return losses_arr
 
-    boundary_len = int(1 / smoothing)
-    weights = np.ones(boundary_len)
-    weights = weights / weights.sum()
-    smooth_losses = np.convolve(losses_arr, weights, mode="same")
-
-    # If len(weights) > len(losses_arr), convolve returns len(weights) elements.
-    # We must truncate to len(losses_arr) so it aligns with lrs_arr
-    if len(smooth_losses) > len(losses_arr):
-        start = (len(smooth_losses) - len(losses_arr)) // 2
-        smooth_losses = smooth_losses[start : start + len(losses_arr)]
-
-    # Fix boundaries: keep raw values at edges without overlapping regions.
-    if boundary_len > 0:
-        safe_len = min(boundary_len, len(losses_arr) // 2)
-        if safe_len > 0:
-            smooth_losses[:safe_len] = losses_arr[:safe_len]
-            smooth_losses[-safe_len:] = losses_arr[-safe_len:]
+    alpha = float(np.clip(smoothing, 0.0, 1.0))
+    smooth_losses = np.empty(losses_arr.shape, dtype=float)
+    s = float(losses_arr[0])
+    for i, x in enumerate(losses_arr):
+        s = alpha * float(x) + (1 - alpha) * s
+        smooth_losses[i] = s
 
     return smooth_losses
 
@@ -541,7 +541,11 @@ def _filter_lr_find_data(
 def _suggest_learning_rate(
     lrs_arr: np.ndarray, smooth_losses: np.ndarray, suggestion_method: str
 ) -> Optional[float]:
-    """Suggest optimal learning rate based on loss curve."""
+    """Suggest optimal learning rate based on loss curve (TR-VIZ-06..21).
+
+    The suggestion is the LR at the located index, verbatim — no ``x0.1`` fudge.
+    Falls back to the valley minimum (global minimum of the smoothed curve).
+    """
     if len(lrs_arr) == 0:
         return None
 
@@ -561,17 +565,11 @@ def _suggest_learning_rate(
         if min_gradient_idx > 0 and min_gradient_idx < len(lrs_arr) - 1:
             suggested_idx = min_gradient_idx
 
-    # Fallback or minimum method
+    # Fallback or minimum method: the valley minimum
     if suggested_idx is None or suggestion_method == "minimum":
         suggested_idx = int(np.argmin(smooth_losses))
 
-    suggested_lr = float(lrs_arr[suggested_idx])
-
-    # Suggest slightly lower LR for better generalization
-    if suggested_idx > 0:
-        suggested_lr = suggested_lr * 0.1
-
-    return suggested_lr
+    return float(lrs_arr[suggested_idx])
 
 
 def _create_lr_plot(
@@ -621,7 +619,7 @@ def _create_lr_plot(
 
         add_annotations(ax, annotations, loc="upper right")
 
-    plt.tight_layout()
+    fig.tight_layout()
     return fig
 
 
@@ -633,7 +631,7 @@ def plot_lr_find_results(
     figsize: Tuple[int, int] = (10, 6),
     title: str = "Learning Rate Finder Results",
     return_figure: bool = False,
-) -> Optional[Tuple[Figure, float]]:
+) -> Optional[Tuple[Figure, Optional[float]]]:
     """
     Plot learning rate finder results and suggest optimal learning rate.
 
@@ -647,7 +645,8 @@ def plot_lr_find_results(
         return_figure: If True, return (figure, suggested_lr) instead of displaying
 
     Returns:
-        Tuple of (Figure, suggested_lr) if return_figure=True
+        Tuple of (Figure, suggested_lr) if return_figure=True; ``suggested_lr`` is
+        None when no suggestion could be determined.
     """
     # Convert to numpy arrays
     lrs_arr = np.array(learning_rates)
@@ -666,7 +665,9 @@ def plot_lr_find_results(
     fig = _create_lr_plot(lrs_arr, losses_arr, smooth_losses, suggested_lr, figsize, title)
 
     if return_figure:
-        return fig, float(suggested_lr) if suggested_lr is not None else float("nan")
+        # TR-VIZ-06..21: undetermined suggestion is None, not NaN
+        return fig, float(suggested_lr) if suggested_lr is not None else None
     else:
         plt.show()
+        plt.close(fig)  # TR-VIZ-05
         return None

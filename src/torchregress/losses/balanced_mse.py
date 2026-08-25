@@ -1,13 +1,9 @@
 """
-Balanced MSE losses for imbalanced regression targets.
+Binned inverse-frequency weighted MSE losses for imbalanced regression targets.
 
 Splits the target range into bins and reweights squared error inversely to the
-empirical bin mass (with optional Laplace-style smoothing). This follows the
+empirical bin mass (with optional additive smoothing). This follows the
 continuous analogue of class-balanced losses used for long-tailed regression.
-
-References:
-    - Ren et al., "Balanced MSE for Long-Tailed Visual Recognition" (CVPR 2022)
-      (classification); bin reweighting extends naturally to scalar regression.
 """
 
 from __future__ import annotations
@@ -133,13 +129,14 @@ class BalancedMSELoss(RegressionLoss):
         return self._reduce(weighted, mask, None)
 
 
-@register_regression_loss("bmc")
-class BMCLoss(RegressionLoss):
+@register_regression_loss("bin_weighted_mse")
+class BinReweightedMSELoss(RegressionLoss):
     """
-    Balanced MSE with automatic bin edges and Laplace-smoothed counts.
+    Binned inverse-frequency weighted MSE with automatic bin edges.
 
-    Fits ``num_bins`` bins on the training target range (equal width or quantile
-    splits). Per-sample weights are ``1 / (count_b + noise_sigma)``, normalized to
+    This is plain binned inverse-frequency weighted MSE: it fits ``num_bins``
+    bins on the training target range (equal width or quantile splits) and
+    assigns per-sample weights ``1 / (count_b + noise_sigma)``, normalized to
     mean 1. Larger ``noise_sigma`` down-weights rare bins less aggressively.
 
     Parameters
@@ -147,8 +144,7 @@ class BMCLoss(RegressionLoss):
     num_bins:
         Number of contiguous bins (must be >= 1).
     noise_sigma:
-        Pseudocount added to each bin before inversion. Matches the common
-        ``BMCLoss(noise_sigma=...)`` sketch for smoothed inverse frequency.
+        Pseudocount added to each bin before inversion (additive smoothing).
     binning:
         ``'equal'`` — equal-width bins on ``[min(y), max(y)]``;
         ``'quantile'`` — quantile bins (approximately equal mass if ``y`` is continuous).
@@ -159,12 +155,6 @@ class BMCLoss(RegressionLoss):
     -----
     Call :meth:`fit` once before training. For quantile binning, ``min``/``max``
     are taken from the same ``train_targets`` used to build edges.
-
-    References
-    ----------
-    .. [1] Ren, J., Xiao, C., Chang, X., Huang, S., Li, G., & Wang, S. (2022).
-       Balanced MSE for Long-Tailed Visual Recognition. In *CVPR 2022*.
-       https://arxiv.org/abs/2203.16427
     """
 
     def __init__(
@@ -186,7 +176,7 @@ class BMCLoss(RegressionLoss):
         self.register_buffer("bin_edges", torch.tensor([], dtype=torch.float32))
         self.register_buffer("_bin_weights", torch.tensor([], dtype=torch.float32))
 
-    def fit(self, train_targets: Tensor) -> BMCLoss:
+    def fit(self, train_targets: Tensor) -> "BinReweightedMSELoss":
         """Build bin edges from ``train_targets`` and inverse smoothed counts."""
         y = _scalar_for_binning(train_targets.detach().float()).reshape(-1)
         if y.numel() == 0:
@@ -222,7 +212,7 @@ class BMCLoss(RegressionLoss):
     @property
     def bin_weights(self) -> Tensor:
         if self._bin_weights.numel() == 0:
-            raise RuntimeError("Call fit(train_targets) before using BMCLoss.")
+            raise RuntimeError("Call fit(train_targets) before using BinReweightedMSELoss.")
         return self._bin_weights
 
     def forward(

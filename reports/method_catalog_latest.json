@@ -2344,9 +2344,9 @@
       "notes": "Inverse bin-frequency weighted MSE; call fit(train_targets) on fixed bin edges."
     },
     {
-      "name": "BMCLoss",
+      "name": "BinReweightedMSELoss",
       "family": "imbalanced_loss",
-      "public_path": "torchregress.losses.BMCLoss",
+      "public_path": "torchregress.losses.BinReweightedMSELoss",
       "task_tags": [
         "imbalance",
         "rare_targets",

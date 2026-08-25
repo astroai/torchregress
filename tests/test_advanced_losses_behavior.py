@@ -85,8 +85,10 @@ def test_eiv_factory_dispatch_and_functional_mc_behavior() -> None:
 
     out = mc_loss(x_obs, y_obs, mask=mask, weights=weights)
     assert out.ndim == 1
-    # One sample is masked out, so reduction='none' returns the filtered valid entries only.
-    assert out.numel() == int(mask.sum().item())
+    # A9 unified ZERO-FILL mask policy: reduction='none' keeps the original
+    # shape; masked-out entries are exactly zero (TR-LOSS-30 mask semantics).
+    assert out.numel() == mask.numel()
+    assert float(out[1].abs()) == 0.0
     assert torch.isfinite(out).all()
 
     # ODR edge path: zero optimization iterations still performs final evaluation without error.

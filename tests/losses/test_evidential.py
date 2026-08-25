@@ -4,6 +4,7 @@ import math
 
 import pytest
 import torch
+import torch.nn.functional as F
 from scipy import stats as scipy_stats
 
 from torchregress.losses import EvidentialRegressionLoss
@@ -26,13 +27,15 @@ class TestEvidentialRegressionLoss:
         with pytest.raises(ValueError, match="requires 4 outputs per target dimension"):
             loss_fn(torch.randn(5, 3), torch.randn(5, 1))
 
-        # Check parameter division
+        # A4: raw splits are constrained — gamma raw; nu/alpha/beta via
+        # softplus(x) + {0.01, 1.01, 0.01}
         y_pred = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]])
         gamma, nu, alpha, beta = loss_fn._extract_nig_parameters(y_pred)
         assert torch.allclose(gamma, torch.tensor([[1.0], [5.0]]))
-        assert torch.allclose(nu, torch.tensor([[2.0], [6.0]]))
-        assert torch.allclose(alpha, torch.tensor([[3.0], [7.0]]))
-        assert torch.allclose(beta, torch.tensor([[4.0], [8.0]]))
+        assert torch.allclose(nu, F.softplus(torch.tensor([[2.0], [6.0]])) + 0.01)
+        assert torch.allclose(alpha, F.softplus(torch.tensor([[3.0], [7.0]])) + 1.01)
+        assert torch.allclose(beta, F.softplus(torch.tensor([[4.0], [8.0]])) + 0.01)
+        assert (nu > 0).all() and (alpha > 1).all() and (beta > 0).all()
 
     def test_nig_nll_mathematical_correctness(self) -> None:
         loss_fn = EvidentialRegressionLoss()
@@ -80,30 +83,17 @@ class TestEvidentialRegressionLoss:
         )
         target = torch.tensor([[1.0], [1.0], [0.0]], dtype=torch.float32)
 
-        # Expected loss per element (unreduced)
-        nll0 = loss_fn._nig_nll(
-            target[0:1], y_pred[0:1, :1], y_pred[0:1, 1:2], y_pred[0:1, 2:3], y_pred[0:1, 3:]
+        # A4: forward constrains raw outputs before the NLL; mirror that here
+        g, nu_, al, be = loss_fn._extract_nig_parameters(y_pred)
+        loss0 = loss_fn._nig_nll(target[0:1], g[0:1], nu_[0:1], al[0:1], be[0:1]) + (
+            0.01 * loss_fn._nig_regularizer(target[0:1], g[0:1], nu_[0:1], al[0:1], be[0:1])
         )
-        reg0 = loss_fn._nig_regularizer(
-            target[0:1], y_pred[0:1, :1], y_pred[0:1, 1:2], y_pred[0:1, 2:3], y_pred[0:1, 3:]
+        loss1 = loss_fn._nig_nll(target[1:2], g[1:2], nu_[1:2], al[1:2], be[1:2]) + (
+            0.01 * loss_fn._nig_regularizer(target[1:2], g[1:2], nu_[1:2], al[1:2], be[1:2])
         )
-        loss0 = nll0 + 0.01 * reg0
-
-        nll1 = loss_fn._nig_nll(
-            target[1:2], y_pred[1:2, :1], y_pred[1:2, 1:2], y_pred[1:2, 2:3], y_pred[1:2, 3:]
+        loss2 = loss_fn._nig_nll(target[2:3], g[2:3], nu_[2:3], al[2:3], be[2:3]) + (
+            0.01 * loss_fn._nig_regularizer(target[2:3], g[2:3], nu_[2:3], al[2:3], be[2:3])
         )
-        reg1 = loss_fn._nig_regularizer(
-            target[1:2], y_pred[1:2, :1], y_pred[1:2, 1:2], y_pred[1:2, 2:3], y_pred[1:2, 3:]
-        )
-        loss1 = nll1 + 0.01 * reg1
-
-        nll2 = loss_fn._nig_nll(
-            target[2:3], y_pred[2:3, :1], y_pred[2:3, 1:2], y_pred[2:3, 2:3], y_pred[2:3, 3:]
-        )
-        reg2 = loss_fn._nig_regularizer(
-            target[2:3], y_pred[2:3, :1], y_pred[2:3, 1:2], y_pred[2:3, 2:3], y_pred[2:3, 3:]
-        )
-        loss2 = nll2 + 0.01 * reg2
 
         # 1. Reduction None
         loss_fn.reduction = "none"
@@ -128,13 +118,15 @@ class TestEvidentialRegressionLoss:
         loss_fn = EvidentialRegressionLoss()
         y_pred = torch.tensor([[1.0, 2.0, 3.0, 4.0]])
 
-        # Mean = gamma = 1.0
-        # Aleatoric = beta / (alpha - 1) = 4.0 / (3.0 - 1.0) = 2.0
-        # Epistemic = beta / (nu * (alpha - 1)) = 4.0 / (2.0 * (3.0 - 1.0)) = 1.0
+        # A4: raw outputs are constrained internally; compute closed form with
+        # nu = softplus(2)+0.01, alpha = softplus(3)+1.01, beta = softplus(4)+0.01
+        nu_c = F.softplus(torch.tensor(2.0)).item() + 0.01
+        alpha_c = F.softplus(torch.tensor(3.0)).item() + 1.01
+        beta_c = F.softplus(torch.tensor(4.0)).item() + 0.01
         mean, ale, epi = loss_fn.predict_with_uncertainty(y_pred)
         assert mean.item() == pytest.approx(1.0, rel=1e-5)
-        assert ale.item() == pytest.approx(2.0, rel=1e-5)
-        assert epi.item() == pytest.approx(1.0, rel=1e-5)
+        assert ale.item() == pytest.approx(beta_c / (alpha_c - 1.0), rel=1e-5)
+        assert epi.item() == pytest.approx(beta_c / (nu_c * (alpha_c - 1.0)), rel=1e-5)
 
     def test_sample_predictions(self) -> None:
         loss_fn = EvidentialRegressionLoss()
@@ -151,12 +143,13 @@ class TestEvidentialRegressionLoss:
             [[1.5, 3.0, 4.0, 2.0]], dtype=torch.float64
         )  # Use float64 for high accuracy
 
-        # Student-t prediction interval params:
-        # gamma = 1.5, nu = 3.0, alpha = 4.0, beta = 2.0
-        # df = 2 * alpha = 8
-        # scale = sqrt(beta * (1 + 1/nu) / (alpha + 1e-6))
-        df = 8.0
-        scale = math.sqrt(2.0 * (1.0 + 1.0 / 3.0) / (4.0 + 1e-6))
+        # A4: constrained params — gamma = 1.5 (raw),
+        # nu = softplus(3)+0.01, alpha = softplus(4)+1.01, beta = softplus(2)+0.01
+        nu_c = F.softplus(torch.tensor(3.0, dtype=torch.float64)).item() + 0.01
+        alpha_c = F.softplus(torch.tensor(4.0, dtype=torch.float64)).item() + 1.01
+        beta_c = F.softplus(torch.tensor(2.0, dtype=torch.float64)).item() + 0.01
+        df = 2.0 * alpha_c
+        scale = math.sqrt(beta_c * (1.0 + 1.0 / nu_c) / alpha_c)
         conf = 0.90
         t_val = scipy_stats.t.ppf((1.0 + conf) / 2.0, df)
 
@@ -175,13 +168,12 @@ class TestEvidentialRegressionLoss:
         loss_fn = EvidentialRegressionLoss()
         y_pred = torch.tensor([[1.5, 3.0, 4.0, 2.0]])
 
-        # total_std = sqrt(aleatoric + epistemic)
-        # ale = 2.0 / (4.0 - 1.0) = 2/3
-        # epi = 2.0 / (3.0 * (4.0 - 1.0)) = 2/9
-        # var = 2/3 + 2/9 = 8/9 ≈ 0.88888888
-        # std = sqrt(8/9) ≈ 0.94280904
-        # z_val for 95% = 1.95996398
-        std = math.sqrt(8.0 / 9.0)
+        # A4: constrained params (see test above); ale = beta/(alpha-1),
+        # epi = beta/(nu*(alpha-1)), std = sqrt(ale + epi)
+        nu_c = F.softplus(torch.tensor(3.0)).item() + 0.01
+        alpha_c = F.softplus(torch.tensor(4.0)).item() + 1.01
+        beta_c = F.softplus(torch.tensor(2.0)).item() + 0.01
+        std = math.sqrt(beta_c / (alpha_c - 1.0) * (1.0 + 1.0 / nu_c))
         z_val = scipy_stats.norm.ppf((1.0 + 0.95) / 2.0)  # 0.95 confidence
         expected_lower = 1.5 - z_val * std
         expected_upper = 1.5 + z_val * std

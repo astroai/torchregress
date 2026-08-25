@@ -148,21 +148,20 @@ class TestSmoothLosses:
         result = _smooth_losses(losses, smoothing=0.2)
         assert result.std() < losses.std()
 
-    def test_boundary_preserved(self) -> None:
-        """Boundary values are kept raw."""
+    def test_ema_first_value_preserved(self) -> None:
+        """EMA keeps s_0 = x_0; later values are recency-weighted blends (TR-VIZ-06..21)."""
         losses = np.array([100.0, 1.0, 1.0, 1.0, 1.0, 100.0])
         result = _smooth_losses(losses, smoothing=0.3)
-        # First and last should be close to original (raw at boundaries)
         assert result[0] == pytest.approx(losses[0])
-        assert result[-1] == pytest.approx(losses[-1])
+        assert result[-1] != pytest.approx(losses[-1])
 
     def test_single_element(self) -> None:
-        """Single element array with smoothing > 0 is altered by convolution."""
+        """Single element array is returned unchanged (s_0 = x_0)."""
         losses = np.array([5.0])
         result = _smooth_losses(losses, smoothing=0.3)
-        # convolution with kernel larger than signal changes the value
         assert result.shape == losses.shape
         assert np.isfinite(result).all()
+        assert result[0] == pytest.approx(5.0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -214,23 +213,18 @@ class TestSuggestLearningRate:
         assert suggestion > 0
 
     def test_minimum_method(self) -> None:
-        """minimum method returns LR at min loss."""
+        """minimum method returns LR at min loss, without the old x0.1 fudge (TR-VIZ-06..21)."""
         lrs = np.array([1e-5, 1e-4, 1e-3, 1e-2])
         smooth = np.array([10.0, 5.0, 2.0, 8.0])
         suggestion = _suggest_learning_rate(lrs, smooth, "minimum")
         assert suggestion is not None
-        # Should be at roughly lrs[2] * 0.1
-        assert suggestion < 1e-3
+        # Suggested verbatim at the valley minimum (lrs[2]); no x0.1 shrinkage.
+        assert suggestion == pytest.approx(1e-3)
 
     def test_empty_array(self) -> None:
         """Empty array returns None."""
         suggestion = _suggest_learning_rate(np.array([]), np.array([]), "valley")
         assert suggestion is None
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# _plot_single_metric
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestPlotSingleMetric:
@@ -373,9 +367,9 @@ class TestPlotLearningCurves:
         plt.close(fig)
 
     def test_no_grid(self) -> None:
-        """use_grid=False disables grid."""
+        """show_grid=False disables grid."""
         train = {"loss": [10.0, 8.0, 6.0]}
-        fig = plot_learning_curves(train, use_grid=False, return_figure=True)
+        fig = plot_learning_curves(train, show_grid=False, return_figure=True)
         assert isinstance(fig, Figure)
         import matplotlib.pyplot as plt
 

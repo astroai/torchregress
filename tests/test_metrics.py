@@ -58,7 +58,9 @@ class TestMetricsUtils:
         np_arr = np.array([1.0, 2.0, 3.0])
         tensor = convert_to_tensor(np_arr)
         assert isinstance(tensor, torch.Tensor)
-        assert torch.allclose(tensor, torch.tensor([1.0, 2.0, 3.0]))
+        # TR-MET-14: numpy dtype is preserved (float64 stays float64)
+        assert tensor.dtype == torch.float64
+        assert torch.allclose(tensor, torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64))
 
         # Test list conversion
         lst = [4.0, 5.0, 6.0]
@@ -70,7 +72,9 @@ class TestMetricsUtils:
         scalar = 7.0
         tensor = convert_to_tensor(scalar)
         assert isinstance(tensor, torch.Tensor)
-        assert torch.allclose(tensor, torch.tensor([7.0]))
+        # TR-MET-14: python scalars become 0-dim tensors
+        assert tensor.dim() == 0
+        assert float(tensor) == 7.0
 
         # Test tensor passthrough
         original = torch.tensor([8.0, 9.0])

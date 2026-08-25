@@ -12,6 +12,7 @@ from ..utils.gaussian_output import split_mean_log_variance
 from ..utils.propensity import ipw_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
+from .utils_robust import huber_elementwise
 
 
 def _split_gaussian_params(y_pred: Tensor | Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
@@ -269,6 +270,7 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
         confidence_threshold: float = 0.0,
         reduction: str = "mean",
         propensity_clip: float = 20.0,
+        delta: float = 1.0,
     ) -> None:
         super().__init__(reduction=reduction)
         self.pseudo_weight = pseudo_weight
@@ -277,6 +279,8 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
         self.detach_teacher = detach_teacher
         self.confidence_threshold = confidence_threshold
         self.propensity_clip = propensity_clip
+        # A11: Huber crossover now a constructor argument (default preserved)
+        self.delta = float(delta)
         if self.supervised_loss not in {"mse", "mae", "huber"}:
             raise ValueError(
                 f"supervised_loss must be one of ['mse', 'mae', 'huber'], got {supervised_loss!r}"
@@ -287,10 +291,8 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
         if self.supervised_loss == "mae":
             return residual.abs()
         if self.supervised_loss == "huber":
-            abs_residual = residual.abs()
-            quadratic = torch.minimum(abs_residual, torch.ones_like(abs_residual))
-            linear = abs_residual - quadratic
-            return 0.5 * quadratic.square() + linear
+            # A11: delegate to the shared robust helper with the ctor delta
+            return huber_elementwise(residual, self.delta)
         return residual.square()
 
     def forward(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 from collections import Counter
 from pathlib import Path
@@ -18,7 +19,7 @@ DECISION_WORKFLOW_SECTION_START = "<!-- BEGIN:DECISION_WORKFLOW_GENERATED -->"
 DECISION_WORKFLOW_SECTION_END = "<!-- END:DECISION_WORKFLOW_GENERATED -->"
 FAMILY_MATRIX_SECTION_START = "<!-- BEGIN:FAMILY_CAPABILITY_MATRIX_GENERATED -->"
 FAMILY_MATRIX_SECTION_END = "<!-- END:FAMILY_CAPABILITY_MATRIX_GENERATED -->"
-PROVENANCE_DATE = "2026-04-16"
+PROVENANCE_DATE = datetime.date.today().isoformat()
 
 CAPABILITY_COLUMNS = [
     "multi_target",

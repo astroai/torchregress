@@ -23,6 +23,13 @@ from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
 
+def _safe_log_weight(weight: "float | torch.Tensor", like: torch.Tensor) -> torch.Tensor:
+    """log(w) with a floor of 1e-12, on ``like``'s device/dtype (A1)."""
+    if not torch.is_tensor(weight):
+        weight = torch.tensor(float(weight), dtype=like.dtype, device=like.device)
+    return torch.log(weight.clamp_min(1e-12))
+
+
 @dataclass(frozen=True)
 class PoissonGaussianMixtureConfig:
     """Configuration for PoissonGaussianMixtureLoss."""
@@ -70,6 +77,11 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
     This models the signal as a combination of:
     y ~ Poisson(λ) + N(0, σ²)
 
+    The loss is the exact mixture NLL
+        -log( w_p·exp(-NLL_poisson) + w_g·exp(-NLL_gaussian) )
+    computed with ``torch.logsumexp`` (not the arithmetic weighted mean of
+    the two component NLLs).
+
     Args:
         eps: Small constant for numerical stability. Default: 1e-8
         learn_variance: Whether to learn the Gaussian variance parameter. Default: False
@@ -95,7 +107,7 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
     ----------
     .. [1] Seifert, J., et al. (2023). Maximum-likelihood estimation in ptychography
        in the presence of Poisson-Gaussian noise statistics.
-       In *Optics Letters*, 48(19), 5011-5014.
+       Optics Letters 48(22), 6027-6030 (2023).
        https://arxiv.org/abs/2308.02436
     """
 
@@ -163,8 +175,9 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         self._validate_inputs(y_pred, target, mask)
 
         # Get lambda (rate) parameter
+        # A3: clamp in log space before exponentiation to avoid overflow
         if self.log_input:
-            lam = torch.exp(y_pred)
+            lam = torch.exp(y_pred.clamp(max=30.0))
         else:
             lam = y_pred
 
@@ -206,8 +219,14 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
             poisson_weight = fixed_weight
             gaussian_weight = 1 - fixed_weight
 
-        # Calculate weighted mixture
-        mixture_nll = poisson_weight * poisson_nll + gaussian_weight * gaussian_nll
+        # True mixture NLL (A1): -log(w_p * exp(-poisson_nll) + w_g * exp(-gaussian_nll))
+        # computed via logsumexp for numerical stability. The previous weighted
+        # arithmetic mean was the likelihood of neither component.
+        log_wp = _safe_log_weight(poisson_weight, poisson_nll)
+        log_wg = _safe_log_weight(gaussian_weight, gaussian_nll)
+        mixture_nll = -torch.logsumexp(
+            torch.stack([log_wp - poisson_nll, log_wg - gaussian_nll], dim=-1), dim=-1
+        )
 
         # Apply reduction with mask and weights
         return self._reduce(mixture_nll, mask, weights)
@@ -251,7 +270,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
     ----------
     .. [1] Seifert, J., et al. (2023). Maximum-likelihood estimation in ptychography
        in the presence of Poisson-Gaussian noise statistics.
-       In *Optics Letters*, 48(19), 5011-5014.
+       Optics Letters 48(22), 6027-6030 (2023).
        https://arxiv.org/abs/2308.02436
     """
 
@@ -338,8 +357,9 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         self._validate_inputs(y_pred, target, mask)
 
         # Convert from log space if needed
+        # A3: clamp in log space before exponentiation to avoid overflow
         if self.log_input:
-            rate = torch.exp(y_pred)
+            rate = torch.exp(y_pred.clamp(max=30.0))
         else:
             rate = y_pred
 
@@ -391,9 +411,19 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
             squared_error / total_var + torch.log(total_var) + math.log(2.0 * math.pi)
         )
 
-        # Combine losses - use equal weight for simplicity
-        # Could be extended to learn weights if needed
-        loss = 0.5 * (poisson_loss + gaussian_loss)
+        # True mixture NLL with equal weights (A1) — same logsumexp form as
+        # PoissonGaussianMixtureLoss; the previous arithmetic mean was not the
+        # NLL of the Poisson-Gaussian mixture.
+        loss = -torch.logsumexp(
+            torch.stack(
+                [
+                    _safe_log_weight(0.5, poisson_loss) - poisson_loss,
+                    _safe_log_weight(0.5, gaussian_loss) - gaussian_loss,
+                ],
+                dim=-1,
+            ),
+            dim=-1,
+        )
 
         # Apply reduction with mask and weights
         return self._reduce(loss, mask, weights)
@@ -480,8 +510,9 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
         poisson_lr = self.poisson_lr_loss(y_pred, target)
 
         # Get lambda parameter
+        # A3: clamp in log space before exponentiation to avoid overflow
         if self.log_input:
-            lam = torch.exp(y_pred)
+            lam = torch.exp(y_pred.clamp(max=30.0))
         else:
             lam = y_pred
 

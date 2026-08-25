@@ -22,10 +22,6 @@ coverage:
   precision: 2
   round: down
   range: "60...90"
-  status:
-    project: false
-    patch: false
-  # Paths are matched against the repository root.
   ignore:
     - "examples/**"
     - "tools/**"

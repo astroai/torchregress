@@ -210,9 +210,11 @@ class RejectionPolicy(Metric):
 
         if not keep_mask.any():
             return {
-                "mean_risk": torch.tensor(float("nan")),
-                "coverage": torch.tensor(0.0),
-                "n_rejected": torch.tensor(float(n_samples)),
+                "mean_risk": torch.tensor(float("nan"), device=y_pred.device, dtype=y_pred.dtype),
+                "coverage": torch.tensor(0.0, device=y_pred.device, dtype=y_pred.dtype),
+                "n_rejected": torch.tensor(
+                    float(n_samples), device=y_pred.device, dtype=y_pred.dtype
+                ),
             }
 
         y_pred_kept = y_pred[keep_mask]
@@ -239,5 +241,5 @@ def risk_coverage_curve(
 ) -> Dict[str, Tensor]:
     """Functional interface for Risk-Coverage Curve."""
     metric = RiskCoverageCurve(risk_fn=risk_fn, n_points=n_points)
-    metric.update(y_pred, y_true, uncertainty)
-    return metric.compute()
+    metric.update(y_pred, y_true, uncertainty)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
+    return metric.compute()  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty

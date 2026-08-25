@@ -5,6 +5,9 @@ Wraps :class:`HeteroscedasticBatchEnsembleModel` (and a homoscedastic variant)
 with an optional ``alpha`` scaling factor on BatchEnsemble fast weights for
 extra diversity, and :class:`PackedEnsembleOutput` for impact-style access
 (``mean``, ``std_epistemic``, etc.).
+
+Reference: Laurent et al., "Packed-Ensembles for Efficient Uncertainty
+Estimation", NeurIPS 2023 (arXiv:2210.09184).
 """
 
 from __future__ import annotations

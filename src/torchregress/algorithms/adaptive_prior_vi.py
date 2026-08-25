@@ -2,7 +2,7 @@
 Adaptive-Prior Bayesian Uncertainty under Distribution Shift (VIDS-style).
 
 Reference: Slavutsky & Blei, "Quantifying Uncertainty in the Presence of
-Distribution Shifts" (arXiv:2506.03942 / NeurIPS 2025).
+Distribution Shifts" (arXiv:2506.18283 / NeurIPS 2025).
 """
 
 from __future__ import annotations

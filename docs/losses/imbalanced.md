@@ -20,7 +20,7 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 | Loss | Method | Calibration | Pre-fitting | API |
 |:-----|:-------|:-----------:|:-----------:|:----|
 | `BalancedMSELoss` | Inverse **bin** frequency (fixed edges) | ⚠️ Check | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
-| `BMCLoss` | Inverse bin frequency + count smoothing | ⚠️ Check | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
+| `BinReweightedMSELoss` | Inverse bin frequency + count smoothing | ⚠️ Check | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
 | `DensityWeightedLoss` | Inverse kernel-density weights | ✅ Safe | `fit_density(y)` | [Losses API](../api/losses.md) (imbalanced) |
 | `LDSLoss` | Smoothed label distribution | ⚠️ May break | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
 | `PropensityWeightedLoss` | Inverse propensity scores | ✅ With correct scores | None | [Losses API](../api/losses.md) (imbalanced) |
@@ -28,17 +28,17 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 
 ---
 
-## BalancedMSELoss and BMCLoss
+## BalancedMSELoss and BinReweightedMSELoss
 
-**Bin-based** balanced MSE: partition the target range into histogram bins on training data, then weight each sample by roughly `1 / (bin count)` (with optional additive smoothing). `BalancedMSELoss` uses **your** `bin_edges`; `BMCLoss` builds **equal-width** or **quantile** edges from `num_bins` and uses `noise_sigma` as a pseudocount when inverting counts (Laplace-style).
+**Bin-based** balanced MSE: partition the target range into histogram bins on training data, then weight each sample by roughly `1 / (bin count)` (with optional additive smoothing). `BalancedMSELoss` uses **your** `bin_edges`; `BinReweightedMSELoss` builds **equal-width** or **quantile** edges from `num_bins` and uses `noise_sigma` as a pseudocount when inverting counts (Laplace-style).
 
 ```python
-from torchregress.losses import BalancedMSELoss, BMCLoss
+from torchregress.losses import BalancedMSELoss, BinReweightedMSELoss
 
 edges = torch.linspace(y_train.min(), y_train.max(), 11)  # 10 bins
 loss_bal = BalancedMSELoss(bin_edges=edges).fit(y_train)
 
-loss_bmc = BMCLoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y_train)
+loss_binrew = BinReweightedMSELoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y_train)
 
 loss = loss_bal(model(x), y_batch)
 ```
@@ -49,7 +49,7 @@ Multi-output targets use the **mean coordinate** for bin assignment; the weighte
     If test targets fall outside the bin edges estimated from `fit(y_train)`, the weights for those samples are undefined. Always ensure `y_train` covers the full expected range of test targets, or use `DensityWeightedLoss` which handles out-of-range values gracefully via KDE.
 
 !!! warning "KDE scaling"
-    `DensityWeightedLoss.fit_density()` uses kernel density estimation (KDE) which scales as $\mathcal{O}(N^2)$ with the number of training targets for a naive implementation. For datasets with $N > 10^4$ targets, use a subsample for density estimation or switch to a bin-based method (`BalancedMSELoss`, `BMCLoss`).
+    `DensityWeightedLoss.fit_density()` uses kernel density estimation (KDE) which scales as $\mathcal{O}(N^2)$ with the number of training targets for a naive implementation. For datasets with $N > 10^4$ targets, use a subsample for density estimation or switch to a bin-based method (`BalancedMSELoss`, `BinReweightedMSELoss`).
 
 !!! warning "Calibration"
     Like other reweighting schemes, these losses change the training objective. Validate calibration on held-out data before relying on variance or interval outputs.
@@ -178,7 +178,7 @@ graph TD
 ## Limitations
 
 1. **Calibration risk**: Reweighting changes the effective training distribution. `DensityWeightedLoss` preserves calibration; `LDSLoss` may break it. Always validate calibration on held-out data after training with any reweighting scheme.
-2. **Out-of-range targets**: If test targets fall outside the bin edges estimated from `fit(y_train)` for `BalancedMSELoss` / `BMCLoss`, weights are undefined. Ensure training targets cover the full expected test range.
+2. **Out-of-range targets**: If test targets fall outside the bin edges estimated from `fit(y_train)` for `BalancedMSELoss` / `BinReweightedMSELoss`, weights are undefined. Ensure training targets cover the full expected test range.
 3. **KDE scaling**: `DensityWeightedLoss.fit_density()` scales as $\mathcal{O}(N^2)$ with training set size. For $N > 10^4$, subsample for density estimation or switch to a bin-based method.
 4. **FocalRLoss does not rebalance**: Unlike density-based methods, `FocalRLoss` upweights hard samples regardless of their target value. It helps with difficult examples but does not address target-distribution imbalance.
 5. **Propensity scores must be accurate**: `PropensityWeightedLoss` requires well-calibrated propensity estimates. Poor propensity scores can amplify rather than correct selection bias.
@@ -186,7 +186,7 @@ graph TD
 ## Recommendations
 
 - **Default choice**: `DensityWeightedLoss` is the safest starting point — it preserves calibration and handles out-of-range values gracefully via KDE.
-- **For large datasets**: Use `BalancedMSELoss` or `BMCLoss` with pre-computed bin edges to avoid $\mathcal{O}(N^2)$ density estimation.
+- **For large datasets**: Use `BalancedMSELoss` or `BinReweightedMSELoss` with pre-computed bin edges to avoid $\mathcal{O}(N^2)$ density estimation.
 - **For extreme imbalance**: `LDSLoss` with post-hoc calibration (temperature scaling) is the most aggressive option. See the [imbalanced regression demo](../../examples/imbalanced_regression.py).
 - **No pre-fitting needed**: `FocalRLoss` requires no separate `fit()` step — use when you want a quick, adaptive reweighting during training.
 

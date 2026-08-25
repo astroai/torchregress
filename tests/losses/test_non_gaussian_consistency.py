@@ -11,7 +11,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from torchregress.losses.balanced_mse import BalancedMSELoss, BMCLoss
+from torchregress.losses.balanced_mse import BalancedMSELoss, BinReweightedMSELoss
 from torchregress.losses.censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
 from torchregress.losses.conformal import ConformalLoss
 from torchregress.losses.eiv import EnsembleEIVLoss, FunctionalEIVLoss, StructuralEIVLoss
@@ -1694,7 +1694,7 @@ class TestRobustRelationships:
 
 
 class TestBalancedMSEContract:
-    """Reduction / mask / weight contracts for BalancedMSELoss and BMCLoss."""
+    """Reduction / mask / weight contracts for BalancedMSELoss and BinReweightedMSELoss."""
 
     @staticmethod
     def _make_bins():
@@ -1733,9 +1733,9 @@ class TestBalancedMSEContract:
         y_pred = torch.randn(batch, dim)
         target = torch.randn(batch, dim)
 
-        fn_none = BMCLoss(num_bins=4, noise_sigma=1.0, reduction="none")
-        fn_mean = BMCLoss(num_bins=4, noise_sigma=1.0, reduction="mean")
-        fn_sum = BMCLoss(num_bins=4, noise_sigma=1.0, reduction="sum")
+        fn_none = BinReweightedMSELoss(num_bins=4, noise_sigma=1.0, reduction="none")
+        fn_mean = BinReweightedMSELoss(num_bins=4, noise_sigma=1.0, reduction="mean")
+        fn_sum = BinReweightedMSELoss(num_bins=4, noise_sigma=1.0, reduction="sum")
         for fn in (fn_none, fn_mean, fn_sum):
             fn.fit(target)
 
@@ -1747,8 +1747,8 @@ class TestBalancedMSEContract:
         )
 
     def test_bmc_predict_before_fit_raises(self):
-        """BMCLoss without fit() raises RuntimeError."""
-        fn = BMCLoss(num_bins=4, noise_sigma=1.0)
+        """BinReweightedMSELoss without fit() raises RuntimeError."""
+        fn = BinReweightedMSELoss(num_bins=4, noise_sigma=1.0)
         with pytest.raises(RuntimeError, match="fit"):
             fn(torch.randn(4, 2), torch.randn(4, 2))
 

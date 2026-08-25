@@ -7,7 +7,8 @@ estimates by enabling dropout at inference time and running multiple forward pas
 Reference: Gal & Ghahramani, "Dropout as a Bayesian Approximation" (ICML 2016)
 """
 
-from typing import Optional, Tuple, cast
+from contextlib import contextmanager
+from typing import Iterator, Optional, Tuple, cast
 
 import torch
 import torch.nn as nn
@@ -19,6 +20,31 @@ def enable_dropout(model: nn.Module) -> None:
     for module in model.modules():
         if isinstance(module, nn.Dropout):
             module.train()
+
+
+@contextmanager
+def _module_mode(model: nn.Module, dropout_train: bool) -> Iterator[None]:
+    """Temporarily set BatchNorm/Dropout modules to a requested mode, then restore.
+
+    ``dropout_train=True`` puts Dropout layers in train mode (stochastic passes)
+    while keeping BatchNorm-family modules in eval mode so running statistics
+    are not mutated during "inference" (TR-ENS-03). ``dropout_train=False``
+    puts everything in eval mode. The snapshot is always restored on exit.
+    """
+    snapshot = {m: m.training for m in model.modules()}
+    for module in model.modules():
+        if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)):
+            module.eval()
+        elif isinstance(module, (nn.Dropout, nn.Dropout1d, nn.Dropout2d, nn.Dropout3d)):
+            if dropout_train:
+                module.train()
+            else:
+                module.eval()
+    try:
+        yield
+    finally:
+        for module, was_training in snapshot.items():
+            module.training = was_training
 
 
 class MCDropoutWrapper(nn.Module):
@@ -67,9 +93,9 @@ class MCDropoutWrapper(nn.Module):
                     module.p = dropout_rate
 
     def forward(self, x: Tensor) -> Tensor:
-        """Standard forward pass (dropout disabled)."""
-        self.model.eval()
-        return cast(Tensor, self.model(x))
+        """Standard forward pass (dropout disabled, model mode restored after)."""
+        with _module_mode(self.model, dropout_train=False):
+            return cast(Tensor, self.model(x))
 
     def mc_forward(self, x: Tensor, n_samples: Optional[int] = None) -> Tensor:
         """
@@ -83,9 +109,10 @@ class MCDropoutWrapper(nn.Module):
             Stacked predictions [n_samples, batch_size, output_dim]
         """
         n = n_samples or self.n_samples
-        enable_dropout(self.model)
 
-        with torch.no_grad():
+        # TR-ENS-03: dropout active but BatchNorm kept in eval so batch stats
+        # and running statistics are untouched; original module modes restored.
+        with torch.no_grad(), _module_mode(self.model, dropout_train=True):
             repeat_dims = [n] + [1] * (x.dim() - 1)
             x_expanded = x.repeat(*repeat_dims)
             preds = self.model(x_expanded)

@@ -104,7 +104,7 @@ class NormalizedRMSE(Metric):
             raise ValueError(f"Unknown normalization method: {self.normalization}")
 
         if norm_factor < 1e-8:
-            return torch.tensor(float("inf"))
+            return torch.tensor(float("inf"), device=y_true.device, dtype=y_true.dtype)
 
         return rmse / norm_factor
 
@@ -175,7 +175,8 @@ class TrimmedMeanSquaredError(Metric):
         sorted_errors, _ = torch.sort(errors)
         n = len(sorted_errors)
         lower_idx = int(n * self.proportion)
-        upper_idx = int(n * (1 - self.proportion))
+        # TR-MET-20: keep at least one element in the trim window for tiny n.
+        upper_idx = max(int(n * (1 - self.proportion)), lower_idx + 1)
         return torch.mean(sorted_errors[lower_idx:upper_idx])
 
 
@@ -303,6 +304,9 @@ def _apply_sample_weight(
     if weights.dim() > 1 and weights.shape[1] > 1:
         weights = weights.mean(dim=1)
     weights = validate_sample_weight(weights, values.shape[0])
+    # TR-MET-11: normalize to sum=n so downstream mean(v*w) == sum(w*v)/sum(w).
+    w_sum = weights.sum().clamp_min(1.0e-12)
+    weights = weights * (weights.numel() / w_sum)
     return values * weights
 
 
@@ -541,7 +545,8 @@ def trimmed_mean_squared_error(
     sorted_errors, _ = torch.sort(flattened)
     n = sorted_errors.numel()
     lower_idx = int(n * proportion)
-    upper_idx = int(n * (1 - proportion))
+    # TR-MET-20: keep at least one element in the trim window for tiny n.
+    upper_idx = max(int(n * (1 - proportion)), lower_idx + 1)
     result = torch.mean(sorted_errors[lower_idx:upper_idx])
 
     if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
@@ -710,12 +715,12 @@ def regression_metrics_report(
     mad = median_absolute_deviation(y_pred_t, y_true_t)
 
     nmad_metric = NormalizedMedianAbsoluteDeviation()
-    nmad_metric.update(y_pred_t, y_true_t)
-    nmad = nmad_metric.compute()
+    nmad_metric.update(y_pred_t, y_true_t)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty's union resolution
+    nmad = nmad_metric.compute()  # ty: ignore[missing-argument]
 
     outlier_metric = OutlierFraction()
-    outlier_metric.update(y_pred_t, y_true_t)
-    outlier_fraction = outlier_metric.compute()
+    outlier_metric.update(y_pred_t, y_true_t)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty's union resolution
+    outlier_fraction = outlier_metric.compute()  # ty: ignore[missing-argument]
 
     result = {
         "mse": mse,

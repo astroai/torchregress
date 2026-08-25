@@ -64,9 +64,9 @@ class TestComputeHistograms:
 
 class TestExpectedCalibrationError:
     def test_default_construction(self) -> None:
-        """Default n_bins=10 creates valid metric."""
+        """Default construction creates a valid metric (TR-MET-13: no dead n_bins)."""
         metric = ExpectedCalibrationError()
-        assert metric.n_bins == 10
+        assert not hasattr(metric, "n_bins")
 
     def test_perfectly_calibrated_returns_near_zero(self) -> None:
         """When observed proportions match expected, ECE ≈ 0."""

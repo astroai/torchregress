@@ -9,6 +9,7 @@ from .combiners import (
     SoftmaxModelCombiner,
     StackingEnsemble,
 )
+from .laplace import FullNetworkLaplace
 from .layers import BatchEnsembleLinear
 from .mc_dropout import MCDropoutWrapper, enable_dropout
 from .models import (
@@ -24,6 +25,7 @@ from .packed import (
     BatchEnsembleOutput,
     BatchEnsembleRegressor,
 )
+from .snapshot import SnapshotEnsemble
 from .swag import SWAG, MultiSWAG
 from .utils import parse_heteroscedastic_output
 
@@ -44,6 +46,8 @@ __all__ = [
     "StackingEnsemble",
     "SWAG",
     "MultiSWAG",
+    "FullNetworkLaplace",
+    "SnapshotEnsemble",
     "parse_heteroscedastic_output",
     # MC-Dropout
     "MCDropoutWrapper",

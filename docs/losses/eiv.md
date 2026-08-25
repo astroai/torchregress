@@ -34,7 +34,7 @@ where $\lambda \in (0, 1)$ is the **reliability ratio**.  This is known as **att
 
 | Loss | Approach | Key Feature | API |
 |:-----|:---------|:------------|:----|
-| `InputNoiseMarginalizationLoss` | MC sampling over input noise | **Recommended Default** for non-linear/probabilistic models | [Losses API](../api/losses.md) (EIV) |
+| `LatentMarginalizationLoss` | MC sampling over the latent clean inputs | **Recommended Default** for non-linear/probabilistic models | [Losses API](../api/losses.md) (EIV) |
 | [`FunctionalEIVLoss`](../api/losses.md) | Taylor expansion of $f$ around $X_{\text{obs}}$ | Fast, gradient-based (Point estimates) | [`FunctionalEIVLoss`](../api/losses.md) |
 | `InputNoiseMDNLoss` | MC marginalization for MDN heads | Handles multimodal targets with noisy inputs | [Losses API](../api/losses.md) (EIV) |
 | `InputNoiseBinnedPDFLoss` | MC marginalization for classification/binning | Reliable uncertainty for binned PDF models | [Losses API](../api/losses.md) (EIV) |
@@ -42,7 +42,7 @@ where $\lambda \in (0, 1)$ is the **reliability ratio**.  This is known as **att
 
 ---
 
-### InputNoiseMarginalizationLoss
+### LatentMarginalizationLoss
 
 The **recommended starting point** for modern probabilistic models. Instead of relying on local Taylor expansions, it uses Monte Carlo sampling to approximate the marginal likelihood:
 
@@ -67,14 +67,13 @@ where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extreme
     The Taylor expansion used by `FunctionalEIVLoss` requires the model $f(x)$ to be **twice differentiable** with respect to inputs. Activation functions like `ReLU` have zero second derivatives, causing the curvature term $\partial^2 f / \partial x^2$ to vanish. Prefer smooth activations (`GELU`, `Tanh`, `SiLU`) when using `FunctionalEIVLoss`.
 
 ```python
-from torchregress.losses import InputNoiseMarginalizationLoss, GaussianNLLLoss
+from torchregress.losses import LatentMarginalizationLoss, GaussianNLLLoss
 
-loss_fn = InputNoiseMarginalizationLoss(
+loss_fn = LatentMarginalizationLoss(
     model=my_model,
     base_loss=GaussianNLLLoss(), # Any standard regression loss
-    sigma_x=0.2,                 # Input noise std
+    sigma_u=0.2,                 # Input measurement-error std
     n_samples=16,                # Number of MC samples
-    antithetic=True,             # Use antithetic sampling for variance reduction
 )
 ```
 
@@ -191,7 +190,7 @@ loss_fn = OrthogonalDistanceRegressionLoss(
 
 ## Limitations
 
-1. **Computational overhead**: `InputNoiseMarginalizationLoss` calls the model $N_{\text{samples}}$ times per training step. Start with `n_samples=8` and `antithetic=True` (negatively-correlated paired samples for variance reduction) before scaling up.
+1. **Computational overhead**: `LatentMarginalizationLoss` calls the model $N_{\text{samples}}$ times per training step. Start with `n_samples=8` before scaling up.
 2. **Model determinism requirement**: MC marginalization calls the model with different noise perturbations. Dropout and BatchNorm **must be in eval mode** during these forward passes, or each MC sample sees a different stochastic mask/batch statistic — biasing the marginal likelihood estimate.
 3. **Twice-differentiability for FunctionalEIVLoss**: The Taylor expansion requires $f(x)$ to be twice differentiable. Activation functions like `ReLU` have zero second derivatives, causing the curvature term $\partial^2 f / \partial x^2$ to vanish. Prefer smooth activations (`GELU`, `Tanh`, `SiLU`).
 4. **ODR inner-loop convergence**: `OrthogonalDistanceRegressionLoss` runs an inner optimisation loop. If `max_iterations` is too small or `learning_rate` is poorly tuned, the latent $\hat{X}$ estimates may not converge — degrading the outer gradient signal.
@@ -207,12 +206,11 @@ graph TD
     D -->|Yes| E["StructuralEIVLoss"]
     D -->|No| F["FunctionalEIVLoss"]
     C -->|Probabilistic/Complex| G{"Model Differentiable?"}
-    G -->|Yes| H["InputNoiseMarginalizationLoss"]
-    G -->|No| I["EnsembleEIVLoss"]
+    G -->|Yes| H["LatentMarginalizationLoss"]
 ```
 
 !!! tip "Scientific Data Recommendation"
-    For scientific regression with non-linear feature/target relationships and reported input uncertainties, **InputNoiseMarginalizationLoss** with an MDN or BinnedPDF head is a highly effective approach, as it correctly handles the non-linear relationship between features and targets while accounting for measurement errors.
+    For scientific regression with non-linear feature/target relationships and reported input uncertainties, **LatentMarginalizationLoss** with an MDN or BinnedPDF head is a highly effective approach, as it correctly handles the non-linear relationship between features and targets while accounting for measurement errors.
 
 ---
 
@@ -221,8 +219,7 @@ graph TD
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import InputNoiseMarginalizationLoss
-
+from torchregress.losses import LatentMarginalizationLoss
 # True relationship: y = 2x + 1
 torch.manual_seed(42)
 x_true = torch.linspace(0, 10, 200).unsqueeze(1)
@@ -235,15 +232,13 @@ y_obs = y_true + 0.3 * torch.randn_like(y_true)
 # Model
 model = nn.Sequential(nn.Linear(1, 32), nn.ReLU(), nn.Linear(32, 1))
 
-from torchregress.losses import InputNoiseMarginalizationLoss, WeightedMSELoss
-
+from torchregress.losses import LatentMarginalizationLoss, WeightedMSELoss
 # EIV loss using marginalization (the modern default)
-loss_fn = InputNoiseMarginalizationLoss(
+loss_fn = LatentMarginalizationLoss(
     model=model,
     base_loss=WeightedMSELoss(),
-    sigma_x=0.5,
+    sigma_u=0.5,
 )
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 for epoch in range(200):
     optimizer.zero_grad()
@@ -264,8 +259,7 @@ for epoch in range(200):
 
 ## Recommendations
 
-- **Default choice**: `InputNoiseMarginalizationLoss` is the recommended starting point for modern probabilistic models with non-linear feature/target relationships. It correctly marginalises over input noise via MC sampling and works with any predictive head (MDN, Binned PDF, Gaussian).
-- **Known noise only**: EIV methods require you to provide $\sigma_x$ and $\sigma_y$ as known quantities. These losses correct for known measurement error; they do **not** estimate it. If noise magnitudes are unknown, consider [SIMEX](../methods/algorithms/simex.md) or [LatentNN](../methods/algorithms/latentnn.md).
+- **Default choice**: `LatentMarginalizationLoss` is the recommended starting point for modern probabilistic models with non-linear feature/target relationships. It correctly marginalises over input noise via MC sampling and works with any predictive head (MDN, Binned PDF, Gaussian).
 - **Smooth activations for FunctionalEIVLoss**: Use `GELU`, `Tanh`, or `SiLU` instead of `ReLU` to ensure the curvature term $\partial^2 f / \partial x^2$ is non-zero.
 - **MC samples budget**: Start with `n_samples=8`, `antithetic=True`. Increase only if validation NLL improves. For deployment inference, use `NoisyInputPredictor` wrapper with `n_samples=32`.
 - **Compare against RC/SIMEX**: For linear models or when interpretability matters, [Regression Calibration](../methods/algorithms/rc.md) and [SIMEX](../methods/algorithms/simex.md) are simpler and more transparent than neural EIV losses. See the [EIV comparison](../examples/eiv_method_comparison.md) example.

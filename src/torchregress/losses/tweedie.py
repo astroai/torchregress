@@ -109,7 +109,8 @@ class TweedieLoss(RegressionLoss):
             Mean parameter μ
         """
         if self.link == "log":
-            mu = torch.exp(y_pred)
+            # A3: clamp in log space before exponentiation to avoid overflow
+            mu = torch.exp(y_pred.clamp(max=30.0))
         else:  # identity
             mu = y_pred
         return torch.clamp(mu, min=self.eps)

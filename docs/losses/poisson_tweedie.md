@@ -44,7 +44,6 @@ loss = loss_fn(log_lambda, y_counts)
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
 | `log_input` | `bool` | `True` | If `True`, `y_pred` = $\log\lambda$ |
-| `learn_variance` | `bool` | `False` | Learn a variance parameter |
 
 ### PoissonLikelihoodRatioLoss
 

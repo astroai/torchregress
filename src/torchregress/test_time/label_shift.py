@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from math import erf
 
 import numpy as np
+import torch
 
 from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
 
@@ -413,6 +414,62 @@ def correct_gaussian_predictions_for_label_shift(
     return corrected_mean, corrected_std, metadata
 
 
+def estimate_target_prior_bbse(
+    probabilities_source: np.ndarray,
+    labels_source: np.ndarray,
+    probabilities_target: np.ndarray,
+    *,
+    cond_threshold: float = 1e8,
+) -> np.ndarray:
+    """
+    Estimate target priors under label shift with BBSE (Black-Box Shift
+    Estimation, Lipton, Wang & Smola 2018): invert the source confusion matrix
+    against the target mean predicted-label distribution.
+
+    Args:
+        probabilities_source: Source predicted probabilities [n_source, k].
+        labels_source: True source labels [n_source] (integers in [0, k)).
+        probabilities_target: Target predicted probabilities [n_target, k].
+        cond_threshold: Raise if the confusion-matrix condition number
+            (2-norm) exceeds this value.
+
+    Returns:
+        Estimated target prior ``w`` [k], the solution of ``C^T w = mu`` where
+        ``C[i, j] = P(pred=j | y=i)`` and ``mu`` is the target distribution of
+        predicted labels. Entries may be negative or exceed 1 — BBSE is an
+        unbiased but unconstrained moment estimate.
+    """
+    probs_src = _normalize_rows(probabilities_source, eps=1e-12)
+    probs_tgt = _normalize_rows(probabilities_target, eps=1e-12)
+    labels = np.asarray(labels_source).astype(int).ravel()
+    n_classes = probs_src.shape[1]
+    if probs_tgt.shape[1] != n_classes:
+        raise ValueError(
+            f"source probabilities have {n_classes} classes but target has {probs_tgt.shape[1]}"
+        )
+    if labels.size != probs_src.shape[0]:
+        raise ValueError("labels_source must align row-wise with probabilities_source")
+    if labels.min() < 0 or labels.max() >= n_classes:
+        raise ValueError(f"labels_source values must be integers in [0, {n_classes})")
+
+    counts = np.zeros((n_classes, n_classes), dtype=np.float64)
+    for true_cls, pred_cls in zip(labels, probs_src.argmax(axis=1), strict=True):
+        counts[true_cls, pred_cls] += 1.0
+    row_sums = counts.sum(axis=1, keepdims=True)
+    confusion = counts / np.clip(row_sums, 1e-12, None)
+
+    mu_counts = np.bincount(probs_tgt.argmax(axis=1), minlength=n_classes).astype(np.float64)
+    mu = mu_counts / max(mu_counts.sum(), 1.0)
+
+    confusion_t = torch.from_numpy(confusion.T)  # solve C^T w = mu
+    cond = torch.linalg.cond(confusion_t)
+    if not bool(torch.isfinite(cond)) or float(cond) > float(cond_threshold):
+        raise ValueError(f"confusion matrix ill-conditioned (cond={float(cond):.2e})")
+
+    weights = torch.linalg.solve(confusion_t, torch.from_numpy(mu))
+    return weights.numpy().astype(np.float64)
+
+
 __all__ = [
     "GaussianLabelShiftConfig",
     "LabelShiftEMConfig",
@@ -421,6 +478,7 @@ __all__ = [
     "apply_label_shift_correction",
     "correct_gaussian_predictions_for_label_shift",
     "estimate_target_prior_em",
+    "estimate_target_prior_bbse",
     "gaussian_bin_edges_from_targets",
     "gaussian_bin_probabilities",
     "gaussian_moments_from_binned_probabilities",

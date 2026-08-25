@@ -86,15 +86,31 @@ class GaussianNLLEnsemble(Metric):
     higher_is_better = False
     full_state_update = False
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, dim: int = 0, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        self.dim = dim
         self.add_state("nll_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, means: torch.Tensor, variances: torch.Tensor, y_true: torch.Tensor) -> None:
+    def update(
+        self,
+        means: Union[torch.Tensor, np.ndarray],
+        variances: Union[torch.Tensor, np.ndarray],
+        y_true: torch.Tensor,
+    ) -> None:
         """Update state with predictions and targets."""
+        means_t = convert_to_tensor(means)
+        vars_t = convert_to_tensor(variances)
+        if means_t.dim() != vars_t.dim():
+            raise ValueError(
+                f"means and variances must have the same number of dimensions; "
+                f"got {means_t.dim()} vs {vars_t.dim()}"
+            )
+        if torch.isnan(vars_t).any() or torch.isinf(vars_t).any():
+            raise ValueError("variances contain NaN or infinite values")
+
         y = convert_to_tensor(y_true)
-        stats = uncertainty_decomposition(means, variances)
+        stats = uncertainty_decomposition(means_t, vars_t, dim=self.dim)
         mean = stats["mean"]
         total_var = stats["total_uncertainty"]
         total_var = torch.clamp(total_var, min=1e-6)
@@ -126,14 +142,17 @@ class EnsembleIntervalMetrics(Metric):
     def update(self, means: torch.Tensor, variances: torch.Tensor, y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
         lower, upper = self.ensemble_interval_bounds(means, variances)
-        self.interval_score.update(lower, upper, y_true)
-        self.picp.update(lower, upper, y_true)
+        # torchmetrics ``Metric.update``/``compute`` overrides confuse ty's
+        # union resolution (the base ``update(*_, **__)`` gets unioned in), so
+        # the calls below carry per-line suppressions.
+        self.interval_score.update(lower, upper, y_true)  # ty: ignore[invalid-argument-type]
+        self.picp.update(lower, upper, y_true)  # ty: ignore[invalid-argument-type]
 
     def compute(self) -> Dict[str, torch.Tensor]:
         """Compute metrics."""
         return {
-            "interval_score": self.interval_score.compute(),
-            "picp": self.picp.compute(),
+            "interval_score": self.interval_score.compute(),  # ty: ignore[missing-argument]
+            "picp": self.picp.compute(),  # ty: ignore[missing-argument]
         }
 
     def ensemble_interval_bounds(
@@ -156,13 +175,14 @@ def gaussian_nll_ensemble(
     means: Union[torch.Tensor, np.ndarray],
     variances: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
+    dim: int = 0,
 ) -> torch.Tensor:
     """
     Functional Gaussian NLL for ensemble mean/variance predictions.
     """
-    metric = GaussianNLLEnsemble()
-    metric.update(convert_to_tensor(means), convert_to_tensor(variances), convert_to_tensor(y_true))
-    return metric.compute()
+    metric = GaussianNLLEnsemble(dim=dim)
+    metric.update(convert_to_tensor(means), convert_to_tensor(variances), convert_to_tensor(y_true))  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
+    return metric.compute()  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty
 
 
 def ensemble_interval_bounds(
@@ -192,5 +212,5 @@ def ensemble_interval_metrics(
     Functional interval score + coverage for ensemble predictions.
     """
     metric = EnsembleIntervalMetrics(alpha=alpha)
-    metric.update(convert_to_tensor(means), convert_to_tensor(variances), convert_to_tensor(y_true))
-    return metric.compute()
+    metric.update(convert_to_tensor(means), convert_to_tensor(variances), convert_to_tensor(y_true))  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
+    return metric.compute()  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty

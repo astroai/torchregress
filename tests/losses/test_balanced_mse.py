@@ -1,9 +1,9 @@
-"""Tests for BalancedMSELoss and BMCLoss."""
+"""Tests for BalancedMSELoss and BinReweightedMSELoss (renamed from BMCLoss per A11)."""
 
 import pytest
 import torch
 
-from torchregress.losses import BalancedMSELoss, BMCLoss
+from torchregress.losses import BalancedMSELoss, BinReweightedMSELoss
 from torchregress.losses.loss_registry import create_loss_from_config
 
 
@@ -38,19 +38,23 @@ def test_balanced_mse_forward_and_reduction_none() -> None:
     assert per.shape == y_pred.shape
 
 
-def test_bmc_equal_binning_runs() -> None:
+def test_bin_weighted_mse_equal_binning_runs() -> None:
     train_y = torch.linspace(0.0, 1.0, 50)
-    loss_fn = BMCLoss(num_bins=5, noise_sigma=1.0, binning="equal").fit(train_y)
+    loss_fn = BinReweightedMSELoss(num_bins=5, noise_sigma=1.0, binning="equal").fit(train_y)
     y_pred = torch.zeros(10, 1)
     target = torch.ones(10, 1) * 0.5
     m = loss_fn(y_pred, target)
     assert m.ndim == 0
 
 
-def test_bmc_larger_noise_sigma_reduces_spread_of_weights() -> None:
+def test_bin_weighted_mse_larger_noise_sigma_reduces_spread_of_weights() -> None:
     train_y = torch.cat([torch.zeros(90), torch.ones(10)])
-    w_tight = BMCLoss(num_bins=2, noise_sigma=0.01, binning="equal").fit(train_y).bin_weights
-    w_smooth = BMCLoss(num_bins=2, noise_sigma=5.0, binning="equal").fit(train_y).bin_weights
+    w_tight = (
+        BinReweightedMSELoss(num_bins=2, noise_sigma=0.01, binning="equal").fit(train_y).bin_weights
+    )
+    w_smooth = (
+        BinReweightedMSELoss(num_bins=2, noise_sigma=5.0, binning="equal").fit(train_y).bin_weights
+    )
     assert float(w_tight.std()) > float(w_smooth.std())
 
 
@@ -61,5 +65,5 @@ def test_create_loss_from_config_balanced_mse() -> None:
 
 
 def test_create_loss_from_config_bmc() -> None:
-    loss_fn = create_loss_from_config({"type": "bmc", "num_bins": 3})
-    assert isinstance(loss_fn, BMCLoss)
+    loss_fn = create_loss_from_config({"type": "bin_weighted_mse", "num_bins": 3})
+    assert isinstance(loss_fn, BinReweightedMSELoss)

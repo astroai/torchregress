@@ -1260,9 +1260,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Inverse bin-frequency weighted MSE; call fit(train_targets) on fixed bin edges.",
     ),
     MethodMetadata(
-        name="BMCLoss",
+        name="BinReweightedMSELoss",
         family="imbalanced_loss",
-        public_path="torchregress.losses.BMCLoss",
+        public_path="torchregress.losses.BinReweightedMSELoss",
         task_tags=("imbalance", "rare_targets", "long_tail"),
         maturity="Available",
         imbalance="yes",

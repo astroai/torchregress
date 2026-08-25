@@ -154,7 +154,7 @@ class MultiExpectileLoss(RegressionLoss):
         >>> y_pred = torch.tensor([[[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]]])
         >>> target = torch.tensor([[2.0, 3.0]])
         >>> loss_fn(y_pred, target)
-        tensor(1.1333)  # Average of the three expectile losses
+        tensor(0.1333)  # Average of the three expectile losses
     """
 
     def __init__(
@@ -168,6 +168,11 @@ class MultiExpectileLoss(RegressionLoss):
         # Convert list to tensor if needed
         if isinstance(expectiles, list):
             expectiles = torch.tensor(expectiles, dtype=torch.float32)
+
+        # A8: enforce strictly ascending expectile levels at construction
+        levels = torch.as_tensor(expectiles)
+        if levels.numel() > 1 and not bool(torch.all(levels[1:] > levels[:-1])):
+            raise ValueError(f"expectiles must be ascending, got {levels.tolist()}")
 
         # Validate expectile levels
         validated_expectiles = cast(
@@ -220,10 +225,16 @@ class MultiExpectileLoss(RegressionLoss):
                 if y_pred.dim() == 3 and y_pred.shape[1] == self.num_expectiles:
                     # [batch_size, num_expectiles, n_features] format
                     expectile_preds = y_pred
-                elif y_pred.dim() == 2 and y_pred.shape[1] == n_features * self.num_expectiles:
-                    # [batch_size, n_features * num_expectiles] format
-                    # Reshape to [batch_size, num_expectiles, n_features]
+                elif (
+                    y_pred.dim() == 2 and n_features == 1 and y_pred.shape[1] == self.num_expectiles
+                ):
+                    # [batch_size, num_expectiles] format for a single feature
                     expectile_preds = y_pred.reshape(batch_size, self.num_expectiles, n_features)
+                elif y_pred.dim() == 2:
+                    raise ValueError(
+                        "ambiguous 2-D input for multi-feature heads; "
+                        "pass [batch, expectiles, features]"
+                    )
                 else:
                     raise ValueError(
                         f"Expected y_pred shape to be either "
@@ -259,14 +270,19 @@ class MultiExpectileLoss(RegressionLoss):
             # weights: [batch_size, n_features] -> [batch_size, 1, n_features]
             stacked_losses = stacked_losses * weights.unsqueeze(1)
 
-        # Reduce across features
+        # Reduce across features — A8: with a partial mask, average only over
+        # the unmasked features of each sample instead of diluting with zeros.
         if n_features > 1:
-            stacked_losses = torch.mean(stacked_losses, dim=2)
+            if mask is not None:
+                m = mask.to(stacked_losses.dtype).unsqueeze(1)  # [B, 1, F]
+                per_sample = (stacked_losses * m).sum(dim=2) / m.sum(dim=2).clamp_min(1)
+            else:
+                per_sample = torch.mean(stacked_losses, dim=2)
         else:
-            stacked_losses = stacked_losses.squeeze(2)
+            per_sample = stacked_losses.squeeze(2)
 
         # Average across expectile levels for each sample
-        combined_loss = torch.mean(stacked_losses, dim=1)
+        combined_loss = torch.mean(per_sample, dim=1)
 
         # Apply final reduction
         if self.reduction == "mean":

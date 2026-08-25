@@ -170,7 +170,7 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | Symbol | Signature | Strategy |
 |:-------|:----------|:---------|
 | `BalancedMSELoss` | `BalancedMSELoss(bin_edges, ...)` | Inverse bin-frequency weights |
-| `BMCLoss` | `BMCLoss(bin_edges, noise_sigma=0.0, ...)` | Balanced MSE + Gaussian smoothing |
+| `BinReweightedMSELoss` | `BinReweightedMSELoss(num_bins, *, noise_sigma=1.0, binning="equal", ...)` | Binned inverse-frequency weighted MSE |
 | `DensityWeightedLoss` | `DensityWeightedLoss(...)` | Inverse target-density weights |
 | `FocalRLoss` | `FocalRLoss(gamma=2.0, ...)` | Focus on hard examples |
 | `LDSLoss` | `LDSLoss(...)` | Label Distribution Smoothing |
@@ -196,7 +196,6 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `OrthogonalDistanceRegressionLoss` | `OrthogonalDistanceRegressionLoss(model=...)` |
 | `EnsembleEIVLoss` | `EnsembleEIVLoss(model=...)` |
 | `InputNoiseAugmentationLoss` | `InputNoiseAugmentationLoss(...)` |
-| `InputNoiseMarginalizationLoss` | `InputNoiseMarginalizationLoss(...)` |
 | `InputNoiseMDNLoss` | `InputNoiseMDNLoss(...)` |
 | `InputNoiseBinnedPDFLoss` | `InputNoiseBinnedPDFLoss(...)` |
 | `LatentMarginalizationLoss` | `LatentMarginalizationLoss(...)` |

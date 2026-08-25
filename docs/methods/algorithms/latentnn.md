@@ -116,7 +116,7 @@ latent = LatentNN(
 | **LatentNN** | $1\times$ (single joint training) | ✅ | ✅ | ✅ (per-sample) |
 | **RC** | $O(D^3)$ (matrix inversion) | ❌ (linear correction) | ❌ (single $\Sigma_u$) | ❌ |
 | **SIMEX** | $(|\lambda| + 1)\times$ | ✅ | ❌ (single $\Sigma_u$) | ❌ |
-| **InputNoiseMarginalizationLoss** | $N_{\text{samples}}\times$ | ✅ | ✅ | ❌ |
+| **LatentMarginalizationLoss** | $N_{\text{samples}}\times$ | ✅ | ✅ | ❌ |
 
 ---
 

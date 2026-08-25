@@ -1,5 +1,5 @@
 """
-Toy long-tailed regression: plain MSE vs BalancedMSELoss vs BMCLoss.
+Toy long-tailed regression: plain MSE vs BalancedMSELoss vs BinReweightedMSELoss.
 
 Training targets are mostly near 0 with a few large values; balanced losses
 upweight rare bins so the linear fit does not ignore the tail entirely.
@@ -12,7 +12,7 @@ import argparse
 import torch
 import torch.nn as nn
 
-from torchregress.losses import BalancedMSELoss, BMCLoss, WeightedMSELoss
+from torchregress.losses import BalancedMSELoss, BinReweightedMSELoss, WeightedMSELoss
 
 
 def make_skewed_targets(n: int, seed: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -58,18 +58,18 @@ def main() -> None:
     lo, hi = float(y.min()), float(y.max())
     edges = torch.linspace(lo, hi, 11)
 
-    bmc = BMCLoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y)
+    binrew = BinReweightedMSELoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y)
     bal = BalancedMSELoss(bin_edges=edges, count_smoothing=0.5).fit(y)
     mse = WeightedMSELoss()
 
     rmse_mse = train_linear(x, y, mse, steps=args.steps, lr=args.lr)
     rmse_bal = train_linear(x, y, bal, steps=args.steps, lr=args.lr)
-    rmse_bmc = train_linear(x, y, bmc, steps=args.steps, lr=args.lr)
+    rmse_binrew = train_linear(x, y, binrew, steps=args.steps, lr=args.lr)
 
     print("Mean squared error on training set (lower is better):")
     print(f"  MSE loss:              {rmse_mse:.6f}")
     print(f"  BalancedMSELoss:       {rmse_bal:.6f}")
-    print(f"  BMCLoss:               {rmse_bmc:.6f}")
+    print(f"  BinReweightedMSELoss:  {rmse_binrew:.6f}")
 
 
 if __name__ == "__main__":

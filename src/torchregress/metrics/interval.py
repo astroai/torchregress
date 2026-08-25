@@ -241,3 +241,59 @@ def prediction_interval_coverage(
         alpha=alpha,
         return_diagnostics=return_diagnostics,
     )
+
+
+class Sharpness(Metric):
+    """
+    Sharpness: mean prediction-interval width (§6 F1). Lower is sharper.
+    """
+
+    is_differentiable = False
+    higher_is_better = False
+    full_state_update = False
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("width_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self, lower_bound: torch.Tensor, upper_bound: torch.Tensor) -> None:
+        """Update state with interval bounds."""
+        lower_bound = convert_to_tensor(lower_bound)
+        upper_bound = convert_to_tensor(upper_bound)
+        width = upper_bound - lower_bound
+        if torch.any(width < 0):
+            raise ValueError("Upper bounds must be greater than or equal to lower bounds")
+        metric_state_tensor(self.width_sum).add_(torch.sum(width))
+        metric_state_tensor(self.total).add_(torch.as_tensor(width.numel(), device=width.device))
+
+    def compute(self) -> torch.Tensor:
+        """Compute mean interval width."""
+        return metric_state_tensor(self.width_sum) / metric_state_tensor(self.total)
+
+
+class MeanIntervalWidth(Sharpness):
+    """Alias of :class:`Sharpness` (mean width semantics)."""
+
+
+def sharpness(
+    intervals: Union[torch.Tensor, np.ndarray],
+) -> float:
+    """
+    Functional sharpness: mean interval width.
+
+    ``intervals`` may be a tensor whose last dimension holds
+    ``(lower, upper)`` pairs, or a ``(2, ...)`` stack.
+    """
+    t = convert_to_tensor(intervals)
+    if t.shape[-1] == 2 and t.dim() >= 1:
+        widths = t[..., 1] - t[..., 0]
+    elif t.shape[0] == 2:
+        widths = t[1] - t[0]
+    else:
+        raise ValueError(
+            "sharpness expects (lower, upper) pairs on the last dimension or a [2, ...] stack"
+        )
+    if torch.any(widths < 0):
+        raise ValueError("Upper bounds must be greater than or equal to lower bounds")
+    return float(torch.mean(widths).item())

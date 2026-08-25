@@ -3,6 +3,9 @@ Mixture Density Network (MDN) loss functions.
 
 This module provides loss functions for Mixture Density Networks,
 which model outputs as mixtures of Gaussian distributions.
+
+Reference: Bishop, C. M. (1994). Mixture Density Networks. Neural Computing
+Research Group Report NCRG/94/004, Aston University.
 """
 
 import math
@@ -263,7 +266,9 @@ class MixtureDensityLoss(DistributionLoss):
         # Calculate residuals: (y - μ)
         residuals = target_expanded - means  # [..., n_components, n_features]
 
-        try:
+        assert torch.isfinite(L_matrices).all(), "L_matrices contains NaN or Inf values"
+
+        try:  # A9: narrow the fallback to the actual linalg failure mode
             # Vectorized solve for all components at once
             # residuals: [..., n_components, n_features]
             # L_matrices: [..., n_components, n_features, n_features]
@@ -284,7 +289,7 @@ class MixtureDensityLoss(DistributionLoss):
             # Calculate log probability -> [..., n_components]
             log_probs = -0.5 * (quadratic_term + log_det + self.n_features * self.log_2pi)
 
-        except RuntimeError:
+        except torch.linalg.LinAlgError:
             # Fallback for numerical issues - use eigendecomposition (vectorized)
             # This handles the case where solve_triangular fails for the batch
             # L_matrices: [..., K, D, D]
@@ -397,34 +402,8 @@ class MixtureDensityLoss(DistributionLoss):
         # Calculate negative log likelihood (per sample)
         nll = self._calculate_nll(target, params, sample_mask)
 
-        # Apply sample weights if provided
-        if weights is not None:
-            if weights.dim() > 1 and weights.shape[-1] > 1:
-                # Convert feature-level weights to sample-level (average)
-                sample_weights = weights.mean(dim=-1)
-            else:
-                sample_weights = weights
-            nll = nll * sample_weights
-
-        # Apply mask and reduction
-        if sample_mask is not None:
-            # For MDNs, we use specialized masked reduction since we've already
-            # converted to sample-level
-            if self.reduction == "none":
-                return nll * sample_mask  # Zero out invalid samples
-            elif self.reduction == "mean":
-                valid_count = sample_mask.sum().clamp(min=1)  # Avoid division by zero
-                return (nll * sample_mask).sum() / valid_count
-            else:  # 'sum'
-                return (nll * sample_mask).sum()
-        else:
-            # Standard reduction with no masking
-            if self.reduction == "none":
-                return nll
-            elif self.reduction == "mean":
-                return nll.mean()
-            else:  # 'sum'
-                return nll.sum()
+        # A9: single mask/weight/reduction path shared with every other loss
+        return self._reduce(nll, sample_mask, weights)
 
     def predict_mean_std(self, y_pred: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """

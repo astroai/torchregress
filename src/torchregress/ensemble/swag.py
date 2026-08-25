@@ -11,7 +11,8 @@ References:
       of Generalization" (NeurIPS 2020)
 """
 
-from typing import Any, Dict, cast
+from collections.abc import Mapping
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -109,13 +110,20 @@ class SWAG(nn.Module):
                 self.register_buffer(f"{name_cleaned}_mean", torch.zeros_like(param))
                 self.register_buffer(f"{name_cleaned}_sq_mean", torch.zeros_like(param))
 
-        # Store deviations for low-rank approximation
-        self.deviations: Dict[str, torch.Tensor] = {}
-        for name, param in self.base_model.named_parameters():
-            if param.requires_grad:
-                self.deviations[name] = torch.empty(
-                    (max_num_models,) + param.shape, dtype=param.dtype, device=torch.device("cpu")
-                )
+        # TR-ENS-01: BatchNorm-style running buffers are tracked exactly like
+        # parameters (mean + second moment). Scalar/int buffers are skipped.
+        self._buffer_name_map = {}
+        for name, buf in self.base_model.named_buffers():
+            if not buf.is_floating_point() or buf.numel() <= 1:
+                continue
+            name_cleaned = name.replace(".", "_")
+            self._buffer_name_map[name] = name_cleaned
+            self.register_buffer(f"{name_cleaned}_mean", torch.zeros_like(buf))
+            self.register_buffer(f"{name_cleaned}_sq_mean", torch.zeros_like(buf))
+
+        # TR-ENS-02: low-rank deviations are persistent registered buffers
+        # (created lazily on first collect on the model's device) so they are
+        # included in state_dict and never pay per-sample H2D copies.
 
     def collect_model(self, model: nn.Module) -> None:
         """
@@ -154,6 +162,18 @@ class SWAG(nn.Module):
             mean_buffer.mul_(n / (n + 1)).add_(param.data / (n + 1))
             sq_mean_buffer.mul_(n / (n + 1)).add_(param.data**2 / (n + 1))
 
+        # Update tracked buffers (e.g. BN running stats) the same way.
+        for (name, buf), (_, base_buf) in zip(
+            model.named_buffers(), self.base_model.named_buffers()
+        ):
+            if name not in self._buffer_name_map:
+                continue
+            name_cleaned = self._buffer_name_map[name]
+            mean_buffer = getattr(self, f"{name_cleaned}_mean")
+            sq_mean_buffer = getattr(self, f"{name_cleaned}_sq_mean")
+            mean_buffer.mul_(n / (n + 1)).add_(buf.detach() / (n + 1))
+            sq_mean_buffer.mul_(n / (n + 1)).add_(buf.detach().square() / (n + 1))
+
         # Store deviation from mean (for low-rank covariance)
         idx = n % self.max_num_models
         for name, param in model.named_parameters():
@@ -161,7 +181,13 @@ class SWAG(nn.Module):
                 continue
             name_cleaned = self._name_map[name]
             mean_buffer = getattr(self, f"{name_cleaned}_mean")
-            self.deviations[name][idx] = (param.data - mean_buffer).cpu()
+            devs_name = f"{name_cleaned}_devs"
+            if not hasattr(self, devs_name):
+                self.register_buffer(
+                    devs_name,
+                    torch.zeros((self.max_num_models,) + param.shape, device=param.device),
+                )
+            getattr(self, devs_name)[idx] = param.data - mean_buffer
 
         cast(torch.Tensor, self.n_models).add_(1)
 
@@ -212,6 +238,17 @@ class SWAG(nn.Module):
             else:
                 param.data.copy_(mean)
 
+        # TR-ENS-01: sampled buffers (e.g. BN running stats) are written back
+        # into the base model so forward passes use posterior buffer draws.
+        for name, buf in self.base_model.named_buffers():
+            if name not in self._buffer_name_map:
+                continue
+            name_cleaned = self._buffer_name_map[name]
+            mean = getattr(self, f"{name_cleaned}_mean")
+            sq_mean = getattr(self, f"{name_cleaned}_sq_mean")
+            var = torch.clamp(sq_mean - mean**2, self.var_clamp)
+            buf.data.copy_(mean + scale * torch.randn_like(mean) * var.sqrt())
+
         # Add low-rank component from stored deviations
         n_models_val = int(cast(torch.Tensor, self.n_models).item())
         num_deviations = min(n_models_val, self.max_num_models)
@@ -229,13 +266,31 @@ class SWAG(nn.Module):
                 if not param.requires_grad:
                     continue
 
-                # Get deviations for the current parameter and move to correct device
-                dev_stack = self.deviations[name][:num_deviations].to(device)
+                # TR-ENS-02: deviations live in registered buffers on-device.
+                dev_stack = getattr(self, f"{self._name_map[name]}_devs")[:num_deviations]
 
                 # Calculate low-rank sample with efficient tensor dot product
                 low_rank_sample = torch.tensordot(z, dev_stack, dims=([0], [0])) / denom
 
                 param.data.add_(scale * low_rank_sample)
+
+    def load_state_dict(
+        self,
+        state_dict: Mapping[str, Any],
+        strict: bool = True,
+        assign: bool = False,
+    ) -> Any:
+        """Passthrough that lazily registers ``*_devs`` buffers before loading.
+
+        Deviation buffers are created on first collect; a freshly constructed
+        SWAG does not have them yet, so register any missing ones from the
+        incoming checkpoint first (TR-ENS-02 round-trip guarantee).
+        """
+        for name in list(state_dict):
+            if name.endswith("_devs") and not hasattr(self, name):
+                buf = state_dict[name]
+                self.register_buffer(name, torch.zeros_like(buf))
+        return super().load_state_dict(state_dict, strict=strict, assign=assign)
 
     def forward(self, *args: Any, **kwargs: Any) -> Any:
         """Forward pass through base model with current sampled weights."""

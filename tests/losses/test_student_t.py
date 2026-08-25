@@ -249,8 +249,8 @@ def test_inf_in_input_with_mask(y_pred, target, device) -> None:
 def test_none_reduction_with_mask(y_pred, target, mask) -> None:
     loss_fn = StudentTLoss(reduction="none")
     out = loss_fn(y_pred, target, mask=mask)
-    # With reduction="none", mask filters the returned elements
-    assert out.numel() == int(mask.sum().item())
+    # A9: reduction="none" + mask zero-fills masked entries, keeping the shape
+    assert out.shape == target.shape
     assert torch.all(torch.isfinite(out))
 
 

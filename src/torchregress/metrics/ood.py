@@ -93,8 +93,17 @@ class TypicalityScore(Metric):
             raise ValueError(
                 "model_output must be a tuple (mean, var) or a dict with 'mean'/'variance' keys"
             )
+        # TR-MET-16: guard against non-finite inputs and var <= 0 (silent NaN).
+        mean = torch.as_tensor(mean)
+        var = torch.as_tensor(var)
+        if torch.isnan(mean).any() or torch.isinf(mean).any():
+            raise ValueError("mean contains NaN or infinite values")
+        if torch.isnan(var).any() or torch.isinf(var).any():
+            raise ValueError("variance contains NaN or infinite values")
+        var = var.clamp_min(1e-12)
 
         dist = Normal(mean, torch.sqrt(var))
+
         samples = dist.sample((self.n_samples,))
         log_probs = dist.log_prob(samples)
 
@@ -233,8 +242,14 @@ def typicality_score(
             "model_output must be a tuple (mean, var) or a dict with 'mean'/'variance' keys"
         )
 
+    # TR-MET-16: guard against non-finite inputs and var <= 0 (silent NaN).
     mean = convert_to_tensor(mean)
     var = convert_to_tensor(var)
+    if torch.isnan(mean).any() or torch.isinf(mean).any():
+        raise ValueError("mean contains NaN or infinite values")
+    if torch.isnan(var).any() or torch.isinf(var).any():
+        raise ValueError("variance contains NaN or infinite values")
+    var = var.clamp_min(1e-12)
     dist = Normal(mean, torch.sqrt(var))
 
     if x is None:

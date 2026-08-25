@@ -13,6 +13,7 @@ All losses follow PyTorch conventions with forward methods expecting
 inputs in the form of (y_pred, target, ...).
 """
 
+import copy
 from typing import Any, Callable, Optional, Union, cast
 
 import torch
@@ -39,7 +40,7 @@ class BaseLoss(nn.Module):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
+            'none' | 'mean' | 'sum'. Default: 'mean'
 
     Example:
         >>> class MyLoss(BaseLoss):
@@ -96,24 +97,69 @@ class BaseLoss(nn.Module):
         """
         Apply reduction to the loss tensor with support for masking and weighting.
         """
-        # Collapse extra dims on mask and weights when loss is lower-dimensional
+        # Collapse extra dims on mask when loss is lower-dimensional
         if mask is not None and mask.dim() > loss.dim():
             for _ in range(mask.dim() - loss.dim()):
-                # ponytail: all() matches reduce_per_sample in utils/reduction.py
+                # ponytail: rows collapse via all(dim=-1); partial masks gate whole rows
                 mask = mask.all(dim=-1)
-        if weights is not None and weights.dim() > loss.dim():
-            for _ in range(weights.dim() - loss.dim()):
-                weights = weights.mean(dim=-1)
 
-        # Apply mask and/or weights
+        # Unified ZERO-FILL mask policy (A9): masked entries contribute exactly
+        # zero, the tensor keeps its original shape under ``reduction='none'``,
+        # and ``mean``/``sum`` divide by the number of unmasked elements
         if mask is not None:
+            mask_bool = mask.to(dtype=torch.bool, device=loss.device)
+            pad_dims = (1,) * (loss.dim() - mask_bool.dim())
+            # torch.where (not ``* mask``): masked entries may hold NaN/Inf
+            # from upstream math and 0 * NaN would propagate.
+            zeros = torch.zeros_like(loss)
+            loss = torch.where(
+                mask_bool.reshape(mask_bool.shape + pad_dims).expand(loss.shape),
+                loss,
+                zeros,
+            )
             if weights is not None:
-                weights = weights[mask]
-            loss = loss[mask]
-        elif weights is not None:
+                w_pad = (1,) * (weights.dim() - mask_bool.dim())
+                weights = torch.where(
+                    mask_bool.reshape(mask_bool.shape + w_pad).expand(weights.shape),
+                    weights,
+                    torch.zeros_like(weights),
+                )
+            mask_count = mask_bool.reshape(mask_bool.shape + pad_dims).expand(loss.shape)
+
+        # Mask-aware weight collapse: average weights over unmasked entries only
+        # (A9) rather than over all trailing dims.
+        if weights is not None:
+            if weights.dim() > loss.dim():
+                if mask is not None and mask.dim() < weights.dim():
+                    w_mask = mask.to(dtype=weights.dtype, device=weights.device)
+                    while w_mask.dim() < weights.dim():
+                        w_mask = w_mask.unsqueeze(-1)
+                    denom_w = w_mask.sum(dim=-1).clamp_min(1)
+                    weights = (torch.where(w_mask > 0, weights, torch.zeros_like(weights))).sum(
+                        dim=-1
+                    ) / denom_w
+                else:
+                    for _ in range(weights.dim() - loss.dim()):
+                        weights = weights.mean(dim=-1)
             weights = _broadcast_weights(weights, loss.dim())
 
-        return self._reducer(loss, weights)
+        if self._reduction == "none":
+            return loss * weights if weights is not None else loss
+
+        total = (loss * weights).sum() if weights is not None else loss.sum()
+        if self._reduction == "sum":
+            return total
+
+        # 'mean'
+        if weights is not None:
+            w_sum = torch.sum(weights)
+            denom = torch.where(w_sum > 0, w_sum, torch.ones_like(w_sum))
+        elif mask is not None:
+            count = mask_count.sum().to(loss.dtype)
+            denom = torch.where(count > 0, count, torch.ones_like(count))
+        else:
+            return loss.mean()
+        return total / denom
 
     def _validate_inputs(
         self, y_pred: torch.Tensor, target: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -135,7 +181,7 @@ class RegressionLoss(BaseLoss):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
+            'none' | 'mean' | 'sum'. Default: 'mean'
 
     Example:
         >>> class L1Loss(RegressionLoss):
@@ -182,7 +228,7 @@ class DistributionLoss(BaseLoss):
 
     Args:
         reduction: Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum' | 'min' | 'max'. Default: 'mean'
+            'none' | 'mean' | 'sum'. Default: 'mean'
 
     Example:
         >>> class GaussianNLL(DistributionLoss):
@@ -263,7 +309,7 @@ class WeightedLossWrapper(BaseLoss):
         reduction: Specifies the reduction to apply to the output. Pass ``None``
             (default) to inherit the wrapped loss's currently-configured
             reduction; pass an explicit value (``'mean'`` | ``'sum'`` |
-            ``'none'`` | ``'min'`` | ``'max'``) to override it.  This restores
+            ``'none'``) to override it. This restores
             previously-silently-dropped behavior for callers that constructed
             the torch loss with a non-default ``reduction`` (e.g.
             ``WeightedLossWrapper(nn.MSELoss(reduction='sum'))``).
@@ -303,10 +349,11 @@ class WeightedLossWrapper(BaseLoss):
             kwargs["reduction"] = "none"
             self.torch_loss = loss_fn(**kwargs)
         else:
-            # It's already an instance
-            self.torch_loss = loss_fn
+            # It's already an instance. Deep-copy it (A9) so forcing the
+            # internal ``reduction='none'`` never mutates the caller's object.
+            self.torch_loss = copy.deepcopy(loss_fn)
             if hasattr(self.torch_loss, "reduction"):
-                self.torch_loss.reduction = "none"
+                setattr(self.torch_loss, "reduction", "none")
 
         # Honour an explicit caller override; otherwise preserve the wrapped
         # loss's previously-configured reduction (e.g. ``nn.MSELoss(reduction='sum')``).

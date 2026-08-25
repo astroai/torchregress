@@ -1,8 +1,8 @@
-# Balanced MSE & BMC Examples
+# Balanced MSE & Bin-Reweighted MSE Examples
 
-This guide demonstrates how to use the bin-based reweighting losses `BalancedMSELoss` and `BMCLoss` to tackle target imbalance in regression tasks.
+This guide demonstrates how to use the bin-based reweighting losses `BalancedMSELoss` and `BinReweightedMSELoss` to tackle target imbalance in regression tasks.
 
-→ Guide: [Imbalanced losses](../losses/imbalanced.md). API: [`BalancedMSELoss`](../api/losses.md), [`BMCLoss`](../api/losses.md), [imbalanced loss section](../api/losses.md).
+→ Guide: [Imbalanced losses](../losses/imbalanced.md). API: [`BalancedMSELoss`](../api/losses.md), [`BinReweightedMSELoss`](../api/losses.md), [imbalanced loss section](../api/losses.md).
 
 | # | Reference |
 |:-:|:----------|
@@ -32,9 +32,9 @@ $$w(y) = \frac{1}{n(y) + \epsilon}$$
 
 Here, $n(y)$ is the empirical sample count in the bin containing $y$, and $\epsilon \ge 0$ is a Laplace-style smoothing parameter (`count_smoothing`).
 
-### BMCLoss (Balanced Mean Squared Error)
+### BinReweightedMSELoss (binned inverse-frequency weighted MSE)
 
-`BMCLoss` automatically constructs the bin edges (using either equal-width or quantile bin splits) and applies a noise parameter $\sigma_{\text{noise}}$ as a Laplace smoothing constant:
+`BinReweightedMSELoss` automatically constructs the bin edges (using either equal-width or quantile bin splits) and applies a noise parameter $\sigma_{\text{noise}}$ as a Laplace smoothing constant:
 
 $$w(y) = \frac{1}{\text{count}(y) + \sigma_{\text{noise}}}$$
 
@@ -52,13 +52,13 @@ Larger values of $\sigma_{\text{noise}}$ regularize the weights towards uniform 
 
 ## Code Example
 
-Below is the complete, self-contained code demonstrating how to train models using `BalancedMSELoss` and `BMCLoss` on a skewed target distribution.
+Below is the complete, self-contained code demonstrating how to train models using `BalancedMSELoss` and `BinReweightedMSELoss` on a skewed target distribution.
 
 ```python
 import argparse
 import torch
 import torch.nn as nn
-from torchregress.losses import BalancedMSELoss, BMCLoss, WeightedMSELoss
+from torchregress.losses import BalancedMSELoss, WeightedMSELoss, BinReweightedMSELoss
 
 def make_skewed_targets(n: int, seed: int) -> tuple[torch.Tensor, torch.Tensor]:
     g = torch.Generator().manual_seed(seed)
@@ -96,19 +96,19 @@ def main() -> None:
     edges = torch.linspace(lo, hi, 11)
 
     # Initialize losses
-    bmc = BMCLoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y)
+    binrew = BinReweightedMSELoss(num_bins=10, noise_sigma=1.0, binning="equal").fit(y)
     bal = BalancedMSELoss(bin_edges=edges, count_smoothing=0.5).fit(y)
     mse = WeightedMSELoss()
 
     # Train linear models
     rmse_mse = train_linear(x, y, mse, steps=80, lr=0.05)
     rmse_bal = train_linear(x, y, bal, steps=80, lr=0.05)
-    rmse_bmc = train_linear(x, y, bmc, steps=80, lr=0.05)
+    rmse_binrew = train_linear(x, y, binrew, steps=80, lr=0.05)
 
     print("Mean squared error on training set (lower is better):")
     print(f"  MSE loss:              {rmse_mse:.6f}")
     print(f"  BalancedMSELoss:       {rmse_bal:.6f}")
-    print(f"  BMCLoss:               {rmse_bmc:.6f}")
+    print(f"  BinReweightedMSELoss:  {rmse_binrew:.6f}")
 
 if __name__ == "__main__":
     main()

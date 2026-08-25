@@ -91,15 +91,6 @@ class TestPoissonLosses(unittest.TestCase):
         with self.assertRaises(ValueError):
             loss_fn(self.y_pred, self.neg_true)
 
-        # Test learn variance
-        loss_fn_var = PoissonDevianceLoss(learn_variance=True).to(self.device)
-        loss_fn_var.zero_grad()  # Clear previous gradients
-        loss_var = loss_fn_var(self.y_pred, self.y_true, self.mask, self.weights)
-        self.assertTrue(torch.is_tensor(loss_var))
-        self.assertFalse(torch.isnan(loss_var).any())
-        loss_var.backward()
-        self.assertIsNotNone(loss_fn_var.log_variance.grad)
-
     def test_zero_inflated_poisson_nll(self):
         loss_fn = ZeroInflatedPoissonNLLLoss(log_input=False).to(self.device)
         pi_logits = torch.randn(self.batch_size, self.n_features, device=self.device)  # logits
@@ -136,16 +127,9 @@ class TestPoissonLosses(unittest.TestCase):
         self.assertFalse(torch.isnan(large_loss).any())
         self.assertFalse(torch.isinf(large_loss).any())
 
-        # Test learn variance
-        loss_fn_var = ZeroInflatedPoissonNLLLoss(learn_variance=True).to(self.device)
-        loss_fn_var.zero_grad()  # Clear previous gradients
-        loss_var = loss_fn_var(
-            self.y_pred, self.y_true, mask=self.mask, weights=self.weights, pi_logits=pi_logits
-        )
-        self.assertTrue(torch.is_tensor(loss_var))
-        self.assertFalse(torch.isnan(loss_var).any())
-        loss_var.backward()
-        self.assertIsNotNone(loss_fn_var.log_variance.grad)
+        # A7: learn_variance pseudo-math removed from ZIP; pi_logits is required
+        with self.assertRaises(ValueError):
+            ZeroInflatedPoissonNLLLoss()(self.y_pred, self.y_true)
 
     def test_negative_binomial_nll(self):
         loss_fn = NegativeBinomialNLLLoss().to(self.device)
@@ -388,29 +372,6 @@ class TestPoissonLosses(unittest.TestCase):
         # Verify log_theta has changed
         updated_theta = nb_loss_fn.log_theta.exp()
         self.assertFalse(torch.allclose(initial_theta, updated_theta))
-
-        # Test learnable variance in PoissonDevianceLoss
-        loss_fn_var = PoissonDevianceLoss(learn_variance=True).to(self.device)
-        initial_variance = loss_fn_var.log_variance.exp().clone()
-
-        # Compute loss and update variance
-        var_optimizer = torch.optim.SGD([loss_fn_var.log_variance], lr=0.1)
-        var_loss = loss_fn_var(self.y_pred, self.y_true)
-        var_loss.backward()
-        var_optimizer.step()
-
-        # Verify log_variance has changed
-        updated_variance = loss_fn_var.log_variance.exp()
-        self.assertFalse(torch.allclose(initial_variance, updated_variance))
-
-        # Test that the variance parameter persists
-        loss_fn_var2 = loss_fn_var  # Reference the same object
-        self.assertTrue(torch.allclose(loss_fn_var2.log_variance, loss_fn_var.log_variance))
-
-        # Compute another loss, should use updated variance
-        new_loss = loss_fn_var2(self.y_pred, self.y_true)
-        self.assertTrue(torch.is_tensor(new_loss))
-        self.assertFalse(torch.isnan(new_loss).any())
 
     def test_nan_handling(self):
         """Test that losses handle NaN inputs properly."""

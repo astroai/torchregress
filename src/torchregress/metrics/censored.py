@@ -1,4 +1,10 @@
-"""Metrics for censored and interval-censored regression tasks."""
+"""Metrics for censored and interval-censored regression tasks.
+
+References
+----------
+.. [1] Tobin, J. (1958). Estimation of Relationships for Limited Dependent Variables.
+   In *Econometrica*, 26(1), 24-34. https://doi.org/10.2307/1907382
+"""
 
 from __future__ import annotations
 
@@ -29,9 +35,22 @@ def observed_mae(y_pred: Tensor, target: Tensor, censoring: Tensor | None = None
 
 
 def concordance_index(y_pred: Tensor, target: Tensor, censoring: Tensor | None = None) -> Tensor:
-    """Harrell-style concordance index for right/left censored regression.
+    """Harrell-style concordance index under right-censoring semantics (TR-MET-18).
+
+    Censoring codes follow the library convention:
+      - ``0``: observed (event time known exactly)
+      - ``1``: right-censored (true value >= recorded target)
+      - ``-1``: left-censored (true value <= recorded target)
+
+    A pair (i, j) is comparable when subject i is observed and the ordering of
+    the true values is determined by the data:
+      - j observed with ``y_i < y_j``, or
+      - j right-censored with ``y_i <= y_j`` (then true_j >= y_j >= y_i).
+    Left-censored comparators are excluded because their ordering relative to
+    an observed subject is undetermined.
 
     Assumes larger `y_pred` indicates larger target value (e.g., survival time).
+    Ties in prediction contribute 0.5.
     """
     y_hat = y_pred.reshape(-1)
     y = target.reshape(-1)
@@ -49,18 +68,26 @@ def concordance_index(y_pred: Tensor, target: Tensor, censoring: Tensor | None =
     y_obs = y[observed_mask]
     y_hat_obs = y_hat[observed_mask]
 
-    y_less = y_obs.unsqueeze(1) < y.unsqueeze(0)
+    c_j = c.unsqueeze(0)  # [1, n]
+    y_i = y_obs.unsqueeze(1)  # [n_obs, 1]
+    y_j = y.unsqueeze(0)  # [1, n]
+
+    # Comparable pairs per Harrell right-censoring definition.
+    j_observed_ordered = (c_j == 0) & (y_i < y_j)
+    j_right_censored_ordered = (c_j == 1) & (y_j >= y_i)
+    comparable = j_observed_ordered | j_right_censored_ordered
+
     y_hat_less = y_hat_obs.unsqueeze(1) < y_hat.unsqueeze(0)
     y_hat_eq = y_hat_obs.unsqueeze(1) == y_hat.unsqueeze(0)
 
-    comparable = y_less.sum(dtype=torch.float32)
-    concordant = (y_less & y_hat_less).sum(dtype=torch.float32) + 0.5 * (y_less & y_hat_eq).sum(
-        dtype=torch.float32
-    )
+    n_comparable = comparable.sum(dtype=torch.float32)
+    concordant = (comparable & y_hat_less).sum(dtype=torch.float32) + 0.5 * (
+        comparable & y_hat_eq
+    ).sum(dtype=torch.float32)
 
-    if comparable <= 0:
+    if n_comparable <= 0:
         return torch.tensor(float("nan"), dtype=torch.float32, device=y.device)
-    return concordant / comparable
+    return concordant / n_comparable
 
 
 def interval_overlap_rate(

@@ -6,7 +6,12 @@ useful for estimating prediction intervals and handling heteroscedastic data.
 These losses support:
 - Single quantile estimation
 - Multiple quantile prediction
-- Properly ordered quantiles with crossover penalties
+- Strictly ascending quantile levels (enforced at construction)
+
+References
+----------
+Koenker, R., & Bassett, G. (1978). Regression Quantiles. Econometrica,
+46(1), 33-50.
 """
 
 from typing import Any, List, Optional, Union, cast
@@ -48,14 +53,14 @@ class QuantileLoss(RegressionLoss):
         >>> y_pred = torch.tensor([1.0, 2.0, 3.0])
         >>> target = torch.tensor([0.0, 2.0, 4.0])
         >>> loss_fn(y_pred, target)
-        tensor(0.6667)
+        tensor(0.3333)  # mean of |0.5*1|, 0, |0.5*1| per-element pinball losses
 
         >>> # 90th percentile (q=0.9)
         >>> loss_fn = QuantileLoss(quantile=0.9)
         >>> y_pred = torch.tensor([2.0, 3.0, 4.0])
         >>> target = torch.tensor([1.0, 3.0, 5.0])
         >>> loss_fn(y_pred, target)
-        tensor(0.2333)  # Underestimation is penalized 9x more than overestimation
+        tensor(0.3333)  # overestimation costs 0.1/unit, underestimation 0.9/unit
     """
 
     def __init__(self, quantile: float = 0.5, reduction: str = "mean") -> None:
@@ -130,6 +135,11 @@ class MultiQuantileLoss(RegressionLoss):
         if isinstance(quantiles, list):
             quantiles = torch.tensor(quantiles, dtype=torch.float32)
 
+        # A8: enforce strictly ascending quantile levels at construction
+        levels = torch.as_tensor(quantiles)
+        if levels.numel() > 1 and not bool(torch.all(levels[1:] > levels[:-1])):
+            raise ValueError(f"quantiles must be ascending, got {levels.tolist()}")
+
         # Validate quantile levels
         validated_quantiles = validate_quantile(quantiles)
         self.register_buffer("quantiles", validated_quantiles)
@@ -197,12 +207,17 @@ class MultiQuantileLoss(RegressionLoss):
                     quantile_preds = y_pred_tensor
                 elif (
                     y_pred_tensor.dim() == 2
-                    and y_pred_tensor.shape[1] == n_features * self.num_quantiles
+                    and n_features == 1
+                    and y_pred_tensor.shape[1] == self.num_quantiles
                 ):
-                    # [batch_size, n_features * num_quantiles] format
-                    # Reshape to [batch_size, num_quantiles, n_features]
+                    # [batch_size, num_quantiles] format for a single feature
                     quantile_preds = y_pred_tensor.reshape(
                         batch_size, self.num_quantiles, n_features
+                    )
+                elif y_pred_tensor.dim() == 2:
+                    raise ValueError(
+                        "ambiguous 2-D input for multi-feature heads; "
+                        "pass [batch, quantiles, features]"
                     )
                 else:
                     raise ValueError(
@@ -277,13 +292,16 @@ class QuantileCrossoverLoss(RegressionLoss):
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
-        # Ensure quantiles are sorted in ascending order
+        # A8: require strictly ascending levels — silently sorting hid the
+        # mismatch between the level order and the prediction head layout.
         if isinstance(quantiles, list):
-            quantiles = sorted(quantiles)
             quantiles_tensor = torch.tensor(quantiles, dtype=torch.float32)
         else:
-            sorted_indices = torch.argsort(quantiles)
-            quantiles_tensor = quantiles[sorted_indices]
+            quantiles_tensor = quantiles
+        levels = torch.as_tensor(quantiles_tensor)
+        if levels.numel() > 1 and not bool(torch.all(levels[1:] > levels[:-1])):
+            raise ValueError(f"quantiles must be ascending, got {levels.tolist()}")
+        quantiles_tensor = levels.to(torch.float32)
 
         self.register_buffer("quantiles", quantiles_tensor)
         self.num_quantiles = len(quantiles)

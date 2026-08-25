@@ -155,6 +155,17 @@ class IVON(torch.optim.Optimizer):
         s["avg_nxg"] = None
         s["avg_gsq"] = None
 
+    def load_state_dict(self, state_dict: Any, strict: bool = True) -> None:
+        """Load optimizer state, migrating tensor-valued group entries to this
+        optimizer's device/dtype (TR-TT-01: ``optimizer.to(device)`` does not
+        touch tensors stored inside ``param_groups``)."""
+        # torch.optim.Optimizer.load_state_dict has no ``strict`` parameter.
+        super().load_state_dict(state_dict)
+        for group in self.param_groups:
+            for key, value in list(group.items()):
+                if isinstance(value, Tensor):
+                    group[key] = value.to(device=self._device, dtype=self._dtype)
+
     def _init_buffers(self) -> None:
         for group in self.param_groups:
             hess_init, numel = group["hess_init"], group["numel"]
@@ -202,6 +213,7 @@ class IVON(torch.optim.Optimizer):
                 s["avg_gsq"] = _welford_mean(s["avg_gsq"], grad_sample.square(), count)
 
     @torch.no_grad()
+    # ty: ignore[invalid-method-override]  # Optimizer.step LSP mismatch is intentional for sampling optimizers
     def step(self, closure: Callable[[], Tensor] | None = None) -> Tensor | None:  # type: ignore[override]
         loss = None
         if closure is not None:

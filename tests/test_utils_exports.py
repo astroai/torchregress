@@ -12,7 +12,6 @@ def test_utils_exports_coherence_helpers() -> None:
         "variance_from_logvar",
         "low_rank_output_dim",
         "split_low_rank_gaussian_output",
-        "reduce_per_sample",
         "subsample_rows",
         "winsorize",
         "convert_to_tensor",

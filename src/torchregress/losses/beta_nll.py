@@ -2,8 +2,9 @@
 Beta-NLL loss for heteroscedastic Gaussian regression.
 
 Down-weights variance collapse by scaling each per-element Gaussian NLL term
-with ``var^{-beta}`` computed from a detached variance, following Seitzer et al.
-(ICLR 2022).
+with ``var^{-beta}`` computed from a detached variance, following Seitzer,
+Tavakoli, Antic, Martius (2022), "On the Pitfalls of Heteroscedastic
+Uncertainty Estimation with Probabilistic Neural Networks", ICLR 2022.
 """
 
 from __future__ import annotations
@@ -26,9 +27,11 @@ class BetaNLLLoss(GaussianNLLLoss):
     ``(mean, log_variance)``, concatenated ``[mean, log_variance]`` along
     ``split_dim``, and the same ``min_variance`` / ``eps`` stabilisation.
 
-    The per-element loss is ``(var + eps).detach().pow(-beta) * nll`` where
-    ``nll`` is the standard diagonal Gaussian negative log-likelihood including
-    the ``log(2π)`` term. For ``beta == 0`` this matches :class:`GaussianNLLLoss`.
+    The per-element loss is ``var.detach().pow(beta) * nll_per_dim`` where
+    ``nll_per_dim`` is the standard diagonal Gaussian negative log-likelihood
+    including the ``log(2π)`` term, summed over feature dimensions AFTER the
+    per-element weighting (paper-exact form). For ``beta == 0`` this matches
+    :class:`GaussianNLLLoss`.
 
     Learned variance is required; ``fixed_variance`` is not supported.
 
@@ -36,14 +39,15 @@ class BetaNLLLoss(GaussianNLLLoss):
         beta: Non-negative exponent on ``1/var`` in the detached rescaling.
         min_variance: Floor applied after ``exp(log_var)``.
         eps: Small constant inside ``log`` and divisions for numerical stability.
-        reduction: ``"mean"``, ``"sum"``, ``"none"``, ``"min"``, or ``"max"``.
+        reduction: ``"mean"``, ``"sum"``, or ``"none"``.
         split_dim: Dimension along which concatenated predictions are split in half.
 
     References
     ----------
-    .. [1] Seitzer, M., Tavakoli, A., Keurifon, D., & Peters, J. (2022).
-       On the Pitfalls of Heteroscedastic Uncertainty Estimation with NLL.
-       In *NeurIPS 2022*. https://arxiv.org/abs/2205.11310
+    .. [1] Seitzer, M., Tavakoli, A., Antic, D., & Martius, G. (2022).
+       On the Pitfalls of Heteroscedastic Uncertainty Estimation with
+       Probabilistic Neural Networks. In *ICLR 2022*.
+       https://arxiv.org/abs/2203.09168
     """
 
     def __init__(
@@ -78,15 +82,17 @@ class BetaNLLLoss(GaussianNLLLoss):
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)
 
-        nll = 0.5 * (
+        # A2: pre-sum per-dimension NLL [B, D]
+        nll_per_dim = 0.5 * (
             math.log(2 * math.pi)
             + torch.log(var + self.eps)
             + (target - mean) ** 2 / (var + self.eps)
         )
-        nll = nll.sum(dim=-1)  # [B, D] → [B], consistent with GaussianNLLLoss
-        coef = (var + self.eps).detach().pow(-self.beta)
-        # ponytail: coef is [B, D] but we need per-sample weight; take mean across features
-        weighted = coef.mean(dim=-1) * nll
+        # Paper-exact weighting: coef = var.detach().pow(beta), applied per
+        # dimension BEFORE the feature sum (previously the coef was averaged
+        # across features and applied after summing, which is not β-NLL).
+        coef = var.detach().clamp_min(self.eps).pow(self.beta)
+        weighted = (nll_per_dim * coef).sum(dim=-1)  # [B, D] → [B]
         return self._reduce(weighted, mask, weights)
 
 
@@ -109,9 +115,10 @@ def beta_nll_loss(
 
     References
     ----------
-    .. [1] Seitzer, M., Tavakoli, A., Keurifon, D., & Peters, J. (2022).
-       On the Pitfalls of Heteroscedastic Uncertainty Estimation with NLL.
-       In *NeurIPS 2022*. https://arxiv.org/abs/2205.11310
+    .. [1] Seitzer, M., Tavakoli, A., Antic, D., & Martius, G. (2022).
+       On the Pitfalls of Heteroscedastic Uncertainty Estimation with
+       Probabilistic Neural Networks. In *ICLR 2022*.
+       https://arxiv.org/abs/2203.09168
     """
     fn = BetaNLLLoss(
         beta=beta,

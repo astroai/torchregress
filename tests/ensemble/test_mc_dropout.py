@@ -85,16 +85,17 @@ class TestMCDropoutWrapperForward:
         out = wrapper(x)
         assert out.shape == (8, 1)
 
-    def test_forward_sets_eval_mode(self) -> None:
-        """Standard forward disables dropout (calls eval())."""
+    def test_forward_disables_dropout_without_permanent_mutation(self) -> None:
+        """Standard forward runs with dropout disabled and restores the prior mode."""
         model = _make_dropout_model()
         wrapper = MCDropoutWrapper(model)
         wrapper.model.train()  # force train mode
         x = torch.randn(4, 4)
         wrapper(x)
+        # TR-ENS-03: the pass itself ran in eval; original training flags are restored.
         for module in wrapper.model.modules():
             if isinstance(module, nn.Dropout):
-                assert not module.training
+                assert module.training
 
     def test_forward_deterministic(self) -> None:
         """Two forward calls with same input should be identical (dropout disabled)."""

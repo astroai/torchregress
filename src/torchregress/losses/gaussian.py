@@ -10,7 +10,6 @@ import torch.nn as nn
 from torch.distributions import LowRankMultivariateNormal
 
 from ..utils.gaussian_output import split_mean_log_variance
-from ..utils.reduction import reduce_per_sample
 from .base import DistributionLoss, WeightedMSELoss
 from .loss_registry import register_regression_loss
 
@@ -107,7 +106,8 @@ class GaussianNLLLoss(DistributionLoss):
 
         mean, log_or_var = split_mean_log_variance(y_pred, split_dim=self.split_dim)
         if self.log_variance:
-            var = torch.exp(log_or_var).clamp(min=self.min_variance)
+            # A3: floor the variance inside log space so exp cannot overflow
+            var = torch.exp(log_or_var.clamp(min=math.log(self.min_variance), max=30.0))
         else:
             var = log_or_var.clamp(min=self.min_variance)
         return mean, var
@@ -309,12 +309,8 @@ class MultivariateGaussianLoss(DistributionLoss):
         cov = self._prepare_covariance(covariance_matrices, batch_size, n_features)
         nll = self._calculate_nll(target, y_pred, cov)
 
-        # Collapse per-feature weights to per-sample once; defer the rest to
-        # the shared reducer so the four-way branch in the previous version
-        # can never drift.
-        if weights is not None and weights.dim() > 1:
-            weights = weights.mean(dim=-1)
-        return reduce_per_sample(nll, mask, weights, self.reduction)
+        # A9: defer mask/weight/reduction to the unified BaseLoss._reduce path
+        return self._reduce(nll, mask, weights)
 
 
 @register_regression_loss("low_rank_gaussian_nll")
@@ -409,6 +405,5 @@ class LowRankGaussianLoss(DistributionLoss):
         dist = LowRankMultivariateNormal(loc=y_pred, cov_factor=cov_factor, cov_diag=cov_diag)
         nll = -dist.log_prob(target)
 
-        if weights is not None and weights.dim() > 1:
-            weights = weights.mean(dim=-1)
-        return reduce_per_sample(nll, mask, weights, self.reduction)
+        # A9: defer mask/weight/reduction to the unified BaseLoss._reduce path
+        return self._reduce(nll, mask, weights)
