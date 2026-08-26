@@ -11,6 +11,7 @@ from torchregress.losses.families import (
     AsymmetricLaplaceNLLLoss,
     BetaRegressionNLLLoss,
     GEVNLLLoss,
+    JohnsonSUNLLLoss,
     SinhArcsinhNLLLoss,
     SkewNormalNLLLoss,
     SkewTLoss,
@@ -358,11 +359,6 @@ def test_sqr_level_count_validated_and_registered():
     SQRLoss(n_levels=16)(torch.randn(2, 16), torch.randn(2))
 
 
-# ---------------------------------------------------------------------------
-# shared pipeline behaviour
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "fn,k",
     [
@@ -380,3 +376,78 @@ def test_none_reduction_preserves_shape(fn, k):
     target = torch.rand(5) if fn is beta_regression_nll else torch.randn(5)
     out = fn(torch.randn(5, k), target, reduction="none")
     assert out.shape == (5,)
+
+
+# ---------------------------------------------------------------------------
+# unconstrained_inputs flag — avoids double softplus (NEW-MED-01)
+# ---------------------------------------------------------------------------
+
+
+def test_skew_normal_unconstrained_inputs_flag():
+    y_raw = torch.tensor([[0.3, _raw_for_softplus(1.2), 0.5]], dtype=F64)
+    y_pos = torch.tensor([[0.3, 1.2, 0.5]], dtype=F64)
+    target = torch.tensor([0.7], dtype=F64)
+    loss_true = SkewNormalNLLLoss(unconstrained_inputs=True)(y_raw, target)
+    loss_pos = SkewNormalNLLLoss(unconstrained_inputs=False)(y_pos, target)
+    torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
+    assert SkewNormalNLLLoss(unconstrained_inputs=False).unconstrained_inputs is False
+
+
+def test_skew_t_unconstrained_inputs_flag():
+    y_raw = torch.tensor([[0.1, _raw_for_softplus(0.9), 0.4, _raw_for_softplus(4.0)]], dtype=F64)
+    y_pos = torch.tensor([[0.1, 0.9, 0.4, 4.0]], dtype=F64)
+    target = torch.tensor([-0.5], dtype=F64)
+    loss_true = SkewTLoss(unconstrained_inputs=True)(y_raw, target)
+    loss_pos = SkewTLoss(unconstrained_inputs=False)(y_pos, target)
+    torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
+    assert SkewTLoss(unconstrained_inputs=False).unconstrained_inputs is False
+
+
+def test_beta_unconstrained_inputs_flag():
+    y_raw = torch.tensor([[0.2, _raw_for_softplus(2.0)]], dtype=F64)
+    y_pos = torch.tensor([[0.2, 2.0]], dtype=F64)
+    target = torch.tensor([0.4], dtype=F64)
+    loss_true = BetaRegressionNLLLoss(unconstrained_inputs=True)(y_raw, target)
+    loss_pos = BetaRegressionNLLLoss(unconstrained_inputs=False)(y_pos, target)
+    torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
+    assert BetaRegressionNLLLoss(unconstrained_inputs=False).unconstrained_inputs is False
+
+
+def test_johnson_su_unconstrained_inputs_flag():
+    y_raw = torch.tensor([[0.1, _raw_for_softplus(0.8), -0.3, _raw_for_softplus(1.5)]], dtype=F64)
+    y_pos = torch.tensor([[0.1, 0.8, -0.3, 1.5]], dtype=F64)
+    target = torch.tensor([0.2], dtype=F64)
+    loss_true = JohnsonSUNLLLoss(unconstrained_inputs=True)(y_raw, target)
+    loss_pos = JohnsonSUNLLLoss(unconstrained_inputs=False)(y_pos, target)
+    torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
+    assert JohnsonSUNLLLoss(unconstrained_inputs=False).unconstrained_inputs is False
+
+
+def test_sinh_arcsinh_unconstrained_inputs_flag():
+    y_raw = torch.tensor([[0.0, _raw_for_softplus(1.1), 0.2, _raw_for_softplus(0.9)]], dtype=F64)
+    y_pos = torch.tensor([[0.0, 1.1, 0.2, 0.9]], dtype=F64)
+    target = torch.tensor([0.5], dtype=F64)
+    loss_true = SinhArcsinhNLLLoss(unconstrained_inputs=True)(y_raw, target)
+    loss_pos = SinhArcsinhNLLLoss(unconstrained_inputs=False)(y_pos, target)
+    torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
+    assert SinhArcsinhNLLLoss(unconstrained_inputs=False).unconstrained_inputs is False
+
+
+def test_gev_unconstrained_inputs_flag():
+    y_raw = torch.tensor([[0.0, _raw_for_softplus(1.0), 0.1]], dtype=F64)
+    y_pos = torch.tensor([[0.0, 1.0, 0.1]], dtype=F64)
+    target = torch.tensor([0.3], dtype=F64)
+    loss_true = GEVNLLLoss(unconstrained_inputs=True)(y_raw, target)
+    loss_pos = GEVNLLLoss(unconstrained_inputs=False)(y_pos, target)
+    torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
+    assert GEVNLLLoss(unconstrained_inputs=False).unconstrained_inputs is False
+
+
+def test_asymmetric_laplace_unconstrained_inputs_flag():
+    y_raw = torch.tensor([[0.2, _raw_for_softplus(1.3), _raw_for_softplus(0.7)]], dtype=F64)
+    y_pos = torch.tensor([[0.2, 1.3, 0.7]], dtype=F64)
+    target = torch.tensor([0.0], dtype=F64)
+    loss_true = AsymmetricLaplaceNLLLoss(unconstrained_inputs=True)(y_raw, target)
+    loss_pos = AsymmetricLaplaceNLLLoss(unconstrained_inputs=False)(y_pos, target)
+    torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
+    assert AsymmetricLaplaceNLLLoss(unconstrained_inputs=False).unconstrained_inputs is False

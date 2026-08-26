@@ -269,6 +269,27 @@ Read the full [Transform losses guide](transforms.md) — log, Box-Cox, sqrt, Ye
 
 ---
 
+## Flexible-Shape Families (`losses.families`)
+
+Parametric NLLs for **non-Gaussian** conditional distributions — skew, heavy-tailed, bounded, and extreme-value families. See the full [Families guide](families.md) for formulas, usage, and the `unconstrained_inputs` pattern.
+
+| Loss | Distribution | Key Property |
+|:-----|:-------------|:-------------|
+| `SkewNormalNLLLoss` | Skew-normal (Azzalini 1985) | Gaussian at `alpha=0` |
+| `SkewTLoss` | Skew-t (Azzalini & Capitanio 2003) | Student-t at `alpha=0`; heavy tails |
+| `BetaRegressionNLLLoss` | Beta (Ferrari & Cribari-Neto 2004) | Targets in (0, 1) |
+| `JohnsonSUNLLLoss` | Johnson SU | Flexible `(gamma, delta)` shapes |
+| `SinhArcsinhNLLLoss` | Sinh-arcsinh (Jones & Pewsey 2009) | Gaussian at `epsilon=0, delta=1` |
+| `GEVNLLLoss` | GEV (Coles 2001) | Analytic Gumbel limit as `xi→0` |
+| `AsymmetricLaplaceNLLLoss` | Asymmetric Laplace | Pinball correspondence `tau=1/(1+kappa²)` |
+| `SQRLoss` | Sorted quantiles (SQR) | Distribution-free; `cummax`-sorted levels |
+
+All NLL families (except `SQRLoss`) expose `unconstrained_inputs=True` (default): positivity-constrained parameters are mapped internally as `softplus(raw)+eps`. Set `unconstrained_inputs=False` when your head already outputs positive values — the loss applies `inverse_softplus` to avoid `softplus(softplus(x))`.
+
+Read the full [Families guide](families.md) — skew/t, beta, Johnson SU, sinh-arcsinh, GEV, asymmetric Laplace, SQR, and the `unconstrained_inputs` contract.
+
+---
+
 ## Loss Selection Guide
 
 | If you need… | Start with… | Then consider… |

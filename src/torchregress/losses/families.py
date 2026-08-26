@@ -318,9 +318,12 @@ def beta_regression_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float =
 class BetaRegressionNLLLoss(BaseLoss):
     """Beta-regression NLL (Ferrari & Cribari-Neto 2004) for targets in (0, 1)."""
 
-    def __init__(self, eps: float = 1e-6, reduction: str = "mean") -> None:
+    def __init__(
+        self, eps: float = 1e-6, reduction: str = "mean", unconstrained_inputs: bool = True
+    ) -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
+        self.unconstrained_inputs = unconstrained_inputs
 
     def forward(
         self,
@@ -330,6 +333,9 @@ class BetaRegressionNLLLoss(BaseLoss):
         weights: Optional[Tensor] = None,
         **kw: object,
     ) -> Tensor:
+        if not self.unconstrained_inputs:
+            y_pred = y_pred.clone()
+            y_pred[..., 1:2] = _inverse_softplus(y_pred[..., 1:2], self.eps)
         return self._reduce(
             beta_regression_nll_elementwise(y_pred, target, eps=self.eps), mask, weights
         )
@@ -379,9 +385,12 @@ def johnson_su_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float = 1e-6
 class JohnsonSUNLLLoss(BaseLoss):
     """Johnson-SU NLL (Shenton-quadrant (gamma, delta) shapes)."""
 
-    def __init__(self, eps: float = 1e-6, reduction: str = "mean") -> None:
+    def __init__(
+        self, eps: float = 1e-6, reduction: str = "mean", unconstrained_inputs: bool = True
+    ) -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
+        self.unconstrained_inputs = unconstrained_inputs
 
     def forward(
         self,
@@ -391,6 +400,10 @@ class JohnsonSUNLLLoss(BaseLoss):
         weights: Optional[Tensor] = None,
         **kw: object,
     ) -> Tensor:
+        if not self.unconstrained_inputs:
+            y_pred = y_pred.clone()
+            y_pred[..., 1:2] = _inverse_softplus(y_pred[..., 1:2], self.eps)
+            y_pred[..., 3:4] = _inverse_softplus(y_pred[..., 3:4], self.eps)
         return self._reduce(johnson_su_nll_elementwise(y_pred, target, eps=self.eps), mask, weights)
 
 
@@ -450,9 +463,12 @@ def sinh_arcsinh_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float = 1e
 class SinhArcsinhNLLLoss(BaseLoss):
     """Sinh-arcsinh NLL (Jones & Pewsey 2009); Gaussian at epsilon=0, delta=1."""
 
-    def __init__(self, eps: float = 1e-6, reduction: str = "mean") -> None:
+    def __init__(
+        self, eps: float = 1e-6, reduction: str = "mean", unconstrained_inputs: bool = True
+    ) -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
+        self.unconstrained_inputs = unconstrained_inputs
 
     def forward(
         self,
@@ -462,6 +478,10 @@ class SinhArcsinhNLLLoss(BaseLoss):
         weights: Optional[Tensor] = None,
         **kw: object,
     ) -> Tensor:
+        if not self.unconstrained_inputs:
+            y_pred = y_pred.clone()
+            y_pred[..., 1:2] = _inverse_softplus(y_pred[..., 1:2], self.eps)
+            y_pred[..., 3:4] = _inverse_softplus(y_pred[..., 3:4], self.eps)
         return self._reduce(
             sinh_arcsinh_nll_elementwise(y_pred, target, eps=self.eps), mask, weights
         )
@@ -524,9 +544,12 @@ def gev_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float = 1e-6) -> Te
 class GEVNLLLoss(BaseLoss):
     """GEV NLL with an analytic Gumbel limit as xi -> 0."""
 
-    def __init__(self, eps: float = 1e-6, reduction: str = "mean") -> None:
+    def __init__(
+        self, eps: float = 1e-6, reduction: str = "mean", unconstrained_inputs: bool = True
+    ) -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
+        self.unconstrained_inputs = unconstrained_inputs
 
     def forward(
         self,
@@ -536,6 +559,9 @@ class GEVNLLLoss(BaseLoss):
         weights: Optional[Tensor] = None,
         **kw: object,
     ) -> Tensor:
+        if not self.unconstrained_inputs:
+            y_pred = y_pred.clone()
+            y_pred[..., 1:2] = _inverse_softplus(y_pred[..., 1:2], self.eps)
         return self._reduce(gev_nll_elementwise(y_pred, target, eps=self.eps), mask, weights)
 
 
@@ -589,9 +615,12 @@ class AsymmetricLaplaceNLLLoss(BaseLoss):
     """Asymmetric-Laplace NLL; reduces to the scaled pinball NLL at
     ``tau = 1/(1 + kappa**2)``."""
 
-    def __init__(self, eps: float = 1e-6, reduction: str = "mean") -> None:
+    def __init__(
+        self, eps: float = 1e-6, reduction: str = "mean", unconstrained_inputs: bool = True
+    ) -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
+        self.unconstrained_inputs = unconstrained_inputs
 
     def forward(
         self,
@@ -601,6 +630,10 @@ class AsymmetricLaplaceNLLLoss(BaseLoss):
         weights: Optional[Tensor] = None,
         **kw: object,
     ) -> Tensor:
+        if not self.unconstrained_inputs:
+            y_pred = y_pred.clone()
+            y_pred[..., 1:2] = _inverse_softplus(y_pred[..., 1:2], self.eps)
+            y_pred[..., 2:3] = _inverse_softplus(y_pred[..., 2:3], self.eps)
         return self._reduce(
             asymmetric_laplace_nll_elementwise(y_pred, target, eps=self.eps), mask, weights
         )
