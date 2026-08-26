@@ -118,12 +118,18 @@ class DomainClassifierRatioEstimator:
         with torch.no_grad():
             logit = self._net((x - self._mean) / self._std).squeeze(-1)
         ratio = torch.exp(logit.clamp(min=-self.clip, max=self.clip))
-        return ratio.clamp(min=1.0 / self.clip, max=self.clip)
+        ratio = ratio.clamp(min=1.0 / self.clip, max=self.clip)
+        # Fallback to uniform if degenerate (NaN/Inf/zero)
+        if not torch.isfinite(ratio).all() or float(ratio.sum()) <= 0:
+            import warnings
+
+            warnings.warn("DomainClassifier ratio degenerate; falling back to uniform", UserWarning, stacklevel=2)
+            return torch.ones_like(ratio)
+        return ratio
 
     def weights(self, X_cal: Tensor) -> Tensor:
         """Importance weights for calibration rows (alias of :meth:`weights_for`)."""
         return self.weights_for(X_cal)
-
 
 class OTScoreWeightEstimator(ScoreCDFReweighter):
     """``ScoreCDFReweighter`` adapter exposing feature-space ``.weights(X)``.

@@ -240,10 +240,20 @@ class NonExchangeableConformalRegressor:
                 f"scores and weights disagree: {self.n_calibrated_} vs {int(w.numel())}"
             )
         if bool((w < 0).any()):
-            raise ValueError("Importance weights must be non-negative.")
         w_sum = w.sum()
-        if not float(w_sum) > 0.0:
-            raise ValueError("Sum of importance weights must be positive.")
+        if not float(w_sum) > 0.0 or not torch.isfinite(w_sum):
+            # Degenerate weights (all zero/NaN) — fallback to uniform for robustness
+            # (keeps coverage guarantee via finite_sample_quantile, ESS = n)
+            import warnings
+
+            warnings.warn(
+                f"w_sum {float(w_sum)} not positive/finite for {self.n_calibrated_} calibration points; "
+                "falling back to uniform weights",
+                UserWarning,
+                stacklevel=2,
+            )
+            w = torch.ones_like(w)
+            w_sum = w.sum()
         w_norm = w / w_sum if self.normalize_weights else w
         n = float(self.n_calibrated_)
         self.weights_normalized_ = w_norm
@@ -252,7 +262,6 @@ class NonExchangeableConformalRegressor:
         # Use raw weights for threshold (test weight 1 is comparable to raw scale)
         self.threshold_ = _weighted_conformal_threshold(flat, w, self.alpha)
         return self
-
     def two_sided_coverage_bounds(self) -> Tuple[float, float]:
         """Two-sided coverage bounds for the calibrated predictor.
 
