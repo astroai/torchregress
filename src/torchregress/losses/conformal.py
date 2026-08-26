@@ -240,6 +240,7 @@ class NonExchangeableConformalRegressor:
                 f"scores and weights disagree: {self.n_calibrated_} vs {int(w.numel())}"
             )
         if bool((w < 0).any()):
+            raise ValueError("Importance weights must be non-negative.")
         w_sum = w.sum()
         if not float(w_sum) > 0.0 or not torch.isfinite(w_sum):
             # Degenerate weights (all zero/NaN) — fallback to uniform for robustness
