@@ -2,7 +2,7 @@
 
 The :mod:`torchregress.tests.losses.test_eiv` module exercises the four public
 loss classes (FunctionalEIVLoss, StructuralEIVLoss, OrthogonalDistanceRegressionLoss,
-EnsembleEIVLoss) plus InputNoiseMarginalizationLoss.  This file drills into the
+EnsembleEIVLoss, LatentMarginalizationLoss).  This file drills into the
 two public helper modules that EIV losses use internally:
 
 - :class:`NoisyInputPredictor` -- test-time input-noise marginalization wrapper

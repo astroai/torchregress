@@ -167,7 +167,6 @@ def test_reduction_behavior():
         "CORALLoss",  # Needs discrete ordinal targets
         "CensoredGaussianNLLLoss",  # Needs mean+variance inputs
         "AFTLoss",  # Needs loc+log-scale inputs
-        "InputNoiseMarginalizationLoss",  # Meta-loss (needs model/base_loss)
         "InputNoiseAugmentationLoss",  # Meta-loss (needs model/base_loss)
         "LatentMarginalizationLoss",  # Meta-loss (needs model/base_loss)
         "InputNoiseMDNLoss",  # Meta-loss (needs model/n_components)
@@ -237,8 +236,6 @@ def test_consistent_init_parameters():
     common_params = ["reduction"]
 
     for loss_class in get_all_loss_classes():
-        if loss_class.__name__ == "InputNoiseMarginalizationLoss":
-            continue
         if not issubclass(loss_class, ReductionLoss):
             continue
 

@@ -120,7 +120,6 @@ density_batch = batch.with_density(n_support=256)
 
 | Symbol | Description |
 |:-------|:------------|
-| `reduce_per_sample(losses, mask=None, weights=None, reduction="mean")` | Apply mask / weights / reduction consistently to a per-sample loss tensor. |
 
 ---
 

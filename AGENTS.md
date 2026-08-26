@@ -144,7 +144,7 @@ All loss functions follow PyTorch conventions:
 - Parameter order: `forward(y_pred, target, mask=None, weights=None, **kwargs)`
 - Support for missing data via boolean `mask` parameter (False = missing)
 - Support for sample weighting via `weights` parameter
-- Reductions handled by `_reduce()` / `utils.reduction.reduce_per_sample` for per-sample NLL
+- Reductions handled by `BaseLoss._reduce()` (unified zero-fill mask/weight policy)
 
 ### Module Organization
 

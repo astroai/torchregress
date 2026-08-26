@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,15 @@ GENERATED_JSON = REPO_ROOT / "reports" / "method_catalog_latest.json"
 METHOD_MATRIX_MD = REPO_ROOT / "docs" / "guide" / "method-selection.md"
 EVIDENCE_MD = REPO_ROOT / "docs" / "reports" / "comparative_evidence_matrix.md"
 EVIDENCE_JSON = REPO_ROOT / "reports" / "comparative_evidence_matrix_latest.json"
+
+
+def _mask_provenance_date(text: str) -> str:
+    """Blank the generation date so artifact-sync checks are day-independent."""
+    return re.sub(
+        r"(_Generated date_: `)\d{4}-\d{2}-\d{2}(`)",
+        r"\1<DATE>\2",
+        text,
+    )
 
 
 def test_render_markdown_contains_peer_methods_and_no_experimental_default() -> None:
@@ -96,7 +106,9 @@ def test_committed_method_catalog_artifacts_are_in_sync() -> None:
     expected_md = render_method_catalog.render_markdown(rows)
     expected_json = render_method_catalog.build_report(rows)
 
-    assert GENERATED_MD.read_text(encoding="utf-8") == expected_md
+    assert _mask_provenance_date(GENERATED_MD.read_text(encoding="utf-8")) == (
+        _mask_provenance_date(expected_md)
+    )
     actual_json = json.loads(GENERATED_JSON.read_text(encoding="utf-8"))
     assert actual_json == expected_json
 
@@ -130,7 +142,7 @@ def test_method_selection_matrix_generated_section_is_in_sync() -> None:
         expected,
         render_method_catalog.render_method_matrix_generated_section(rows),
     )
-    assert text == expected
+    assert _mask_provenance_date(text) == _mask_provenance_date(expected)
 
 
 def test_comparative_evidence_artifacts_are_in_sync() -> None:
@@ -141,6 +153,8 @@ def test_comparative_evidence_artifacts_are_in_sync() -> None:
     expected_md = render_method_catalog.render_comparative_evidence_markdown(rows)
     expected_json = render_method_catalog.build_comparative_evidence_report(rows)
 
-    assert EVIDENCE_MD.read_text(encoding="utf-8") == expected_md
+    assert _mask_provenance_date(EVIDENCE_MD.read_text(encoding="utf-8")) == (
+        _mask_provenance_date(expected_md)
+    )
     actual_json = json.loads(EVIDENCE_JSON.read_text(encoding="utf-8"))
     assert actual_json == expected_json
