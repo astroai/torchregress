@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-08-26
 
-- Initial PyPI release candidate (unreleased). See `agy_issues.md`/`AUDIT_MAJOR_RELEASE_2026-08-26.md` for pre-1.0 blockers TR-COR-01…09 (all fixed in `6ce4b9e`).
+- Initial PyPI release candidate (unreleased). Pre-1.0 blockers TR-COR-01…09 (all fixed in `6ce4b9e`).
 - Features: 19 loss families, `PredictiveBatch`, `torchmetrics` metrics, conformal (split/CQR/CTI/weighted/Mondrian/CV+), `SemiConformalCalibrator`, ensembles (DeepEnsemble/BatchEnsemble/SWAG/Laplace/BNN/MC-Dropout), algorithms (IRLS/SIMEX/RC/LatentNN/TICTAC/VIDS), causal `dr_*`, PPI, test-time (BLR/OT/COSA/subspace/transport).
 
 [Unreleased]: https://github.com/astroai/torchregress/compare/v0.1.0...HEAD
