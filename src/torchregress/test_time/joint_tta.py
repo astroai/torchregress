@@ -264,9 +264,13 @@ class JointDistributionalTTA:
         F_tgt = F_tgt_raw
         if self.align_features and hasattr(model, "feature_extractor"):
             try:
+                # y may be multi-target [n, d]; aligner expects [n] — use mean
+                y_for_align = y_cal_src
+                if y_for_align.dim() > 1:
+                    y_for_align = y_for_align.mean(dim=-1)
                 aligner = WeightedSubspaceMomentAligner().fit(
                     F_src.detach().cpu().numpy(),
-                    y_cal_src.detach().cpu().numpy().reshape(-1),
+                    y_for_align.detach().cpu().numpy(),
                 )
                 aligned = aligner.transform(F_tgt_raw.detach().cpu().numpy())
                 F_tgt = torch.as_tensor(aligned, device=F_src.device, dtype=F_src.dtype)
