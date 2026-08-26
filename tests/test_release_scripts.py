@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUMP_SCRIPT = REPO_ROOT / "scripts" / "release" / "bump_version.py"
@@ -131,6 +134,8 @@ class TestVerifyVersion:
 
 
 def test_build_package_script() -> None:
+    if shutil.which("pixi") is None:
+        pytest.skip("pixi not found — build_package.sh requires pixi")
     result = subprocess.run(
         [str(BUILD_SCRIPT)],
         check=False,
