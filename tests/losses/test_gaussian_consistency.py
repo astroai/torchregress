@@ -148,16 +148,13 @@ class TestMaskContract:
         assert out.shape == unmasked_shape, (
             f"{name}: expected shape {unmasked_shape} kept under zero-fill, got {out.shape}"
         )
-        row_keep = mask.all(dim=-1)
-        # ponytail: BetaNLL still sums over D pre-reduce, so only fully-kept
-        # rows survive; GaussianNLL is element-wise (TR-COR-07) like CRPS.
+        # BetaNLL now preserves partial rows (sum over unmasked per-sample)
+        # like GaussianNLL elementwise (TR-COR-07 / NEW-HIGH-02 fix)
         if name == "BetaNLL":
-            max_nonzero = int(row_keep.sum())
+            max_nonzero = int(mask.any(dim=-1).sum())
         else:
             max_nonzero = int(mask.sum())
         assert torch.count_nonzero(out) <= max_nonzero
-
-
 # ── weights contract ───────────────────────────────────────────────────
 
 

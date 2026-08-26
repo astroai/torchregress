@@ -249,7 +249,8 @@ class NonExchangeableConformalRegressor:
         self.weights_normalized_ = w_norm
         self.max_weight_ratio_ = float(w_norm.max())
         self.weight_tv_gap_ = float(0.5 * (w_norm - 1.0 / n).abs().sum())
-        self.threshold_ = _weighted_conformal_threshold(flat, w_norm, self.alpha)
+        # Use raw weights for threshold (test weight 1 is comparable to raw scale)
+        self.threshold_ = _weighted_conformal_threshold(flat, w, self.alpha)
         return self
 
     def two_sided_coverage_bounds(self) -> Tuple[float, float]:

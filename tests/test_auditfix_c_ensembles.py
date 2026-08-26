@@ -91,10 +91,12 @@ class TestSWAGBufferTracking:
     def test_running_buffers_are_collected(self) -> None:
         swag, _ = self._collect()
         buffers = dict(swag.named_buffers())
-        assert "bn_running_mean_mean" in buffers
-        assert "bn_running_var_sq_mean" in buffers
-        # running stats were non-trivially collected (mean of means not zero-init drift only)
-        assert torch.isfinite(buffers["bn_running_mean_mean"]).all()
+        # TR-ENS-01 corrected: BN running stats must NOT be tracked as Gaussian posterior
+        # (they are deterministic population estimates; Maddox Alg.1 keeps BN recalibrate)
+        assert "bn_running_mean_mean" not in buffers
+        assert "bn_running_var_sq_mean" not in buffers
+        # Non-BN buffers (if any) would be tracked, but TinyNet has only BN; check n_models
+        assert int(swag.n_models.item()) == 3
 
     def test_deviations_are_registered_buffers_in_state_dict(self) -> None:
         swag, _ = self._collect()
@@ -114,12 +116,11 @@ class TestSWAGBufferTracking:
     def test_sample_writes_buffer_means_into_model(self) -> None:
         swag, net = self._collect()
         before = net.bn.running_mean.clone()
-        swag.sample(scale=0.0)  # scale 0 => copy posterior mean exactly
+        swag.sample(scale=0.0)  # scale 0 => mean for params, but BN buffers must NOT be overwritten
         after = net.bn.running_mean
-        expected = getattr(swag, "bn_running_mean_mean")
-        assert torch.allclose(after, expected, atol=1e-6)
+        # BN running stats are not sampled; they remain as before (deterministic)
+        assert torch.allclose(after, before, atol=1e-6)
         del before
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TR-TT-01: IVON load_state_dict migrates group tensors to optimizer device/dtype
