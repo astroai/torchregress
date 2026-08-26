@@ -345,11 +345,13 @@ class TestGaussianNLLShapeContract:
     def test_shared_cov_matrix_shape_rejected(self) -> None:
         residuals = torch.zeros(3, 2)
         with pytest.raises(AssertionError, match="calculate_gaussian_nll supports"):
-            calculate_gaussian_nll(residuals, 2.0 * torch.eye(2))
+            calculate_gaussian_nll(
+                residuals, 2.0 * torch.eye(2, device=residuals.device, dtype=residuals.dtype)
+            )
 
     def test_full_covariance_still_supported(self) -> None:
         residuals = torch.randn(3, 2)
-        cov = torch.stack([2.0 * torch.eye(2)] * 3)
+        cov = torch.stack([2.0 * torch.eye(2, device=residuals.device, dtype=residuals.dtype)] * 3)
         assert torch.isfinite(calculate_gaussian_nll(residuals, cov)).all()
 
 

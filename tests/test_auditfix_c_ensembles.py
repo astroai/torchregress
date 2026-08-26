@@ -122,6 +122,7 @@ class TestSWAGBufferTracking:
         assert torch.allclose(after, before, atol=1e-6)
         del before
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TR-TT-01: IVON load_state_dict migrates group tensors to optimizer device/dtype
 # ═══════════════════════════════════════════════════════════════════════════════

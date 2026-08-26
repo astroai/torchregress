@@ -978,4 +978,3 @@ Tag only after `scripts/ci_local.sh` (lint+typecheck+test+docs) + `scripts/ci_te
 | Tests contradictory | **Minor** — `test_conformal.py:1190` asserted `1-α` for CV+ contradicts `1-2α` theorem — fixed in 3b | `conformal.py:888` |
 
 **Net:** Individually correct implementations now form a coherent library modulo the listed `HIGH`/`MEDIUM` deltas above; fixing 1a,2a,3a,4a,5a collapses the remaining systemic drift.
-

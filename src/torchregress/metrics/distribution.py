@@ -1122,7 +1122,11 @@ def wasserstein_gaussian_p2(
     cov1 = s1.reshape(d, d) if s1.dim() != 2 else s1
     cov2 = s2.reshape(d, d) if s2.dim() != 2 else s2
     ev1, evec1 = torch.linalg.eigh(cov1)
-    root1 = evec1 @ torch.diag(ev1.clamp_min(0.0).sqrt()) @ evec1.T
+    root1 = (
+        evec1
+        @ torch.diag(ev1.clamp_min(0.0).sqrt()).to(device=cov1.device, dtype=cov1.dtype)
+        @ evec1.T
+    )
     cross = root1 @ cov2 @ root1
     ev_c, _ = torch.linalg.eigh(cross)
     trace_cross = ev_c.clamp_min(0.0).sqrt().sum()

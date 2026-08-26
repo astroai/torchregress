@@ -99,6 +99,7 @@ class BetaNLLLoss(GaussianNLLLoss):
         summed = weighted.sum(dim=-1)  # [B] sum over features per paper
         return self._reduce(summed, mask=None, weights=weights)
 
+
 def beta_nll_loss(
     y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
     target: torch.Tensor,

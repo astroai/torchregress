@@ -81,9 +81,9 @@ def test_covariance_shape_flexibility_and_errors() -> None:
     mu = torch.zeros(n, d)
     y = torch.randn(n, d)
     a = torch.randn(n, d, d)
-    spd_batch = a @ a.transpose(-1, -2) + 0.5 * torch.eye(d)
+    spd_batch = a @ a.transpose(-1, -2) + 0.5 * torch.eye(d, device=mu.device, dtype=mu.dtype)
     for cov in (
-        torch.eye(d),
+        torch.eye(d, device=mu.device, dtype=mu.dtype),
         torch.ones(n, d),
         spd_batch,
     ):

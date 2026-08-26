@@ -155,6 +155,8 @@ class TestMaskContract:
         else:
             max_nonzero = int(mask.sum())
         assert torch.count_nonzero(out) <= max_nonzero
+
+
 # ── weights contract ───────────────────────────────────────────────────
 
 

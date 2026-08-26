@@ -425,14 +425,14 @@ class TestCalculateGaussianNLL:
     def test_zero_residual_returns_log_det_term(self) -> None:
         """Zero residual gives only the log|Σ| + const term (full covariance input)."""
         residuals = torch.zeros(1, 2)
-        var = torch.stack([2.0 * torch.eye(2), 2.0 * torch.eye(2)])
+        var = torch.stack([2.0 * torch.eye(2, device=residuals.device, dtype=residuals.dtype)] * 2)
         result = calculate_gaussian_nll(residuals, var)
         assert torch.isfinite(result).all()
 
     def test_mismatched_var_shape_raises(self) -> None:
         """A [D, D] var against [B, D] residuals is rejected (TR-LOSS-39)."""
         residuals = torch.zeros(1, 2)
-        var = 2.0 * torch.eye(2)
+        var = 2.0 * torch.eye(2, device=residuals.device, dtype=residuals.dtype)
         with pytest.raises(AssertionError, match="calculate_gaussian_nll supports"):
             calculate_gaussian_nll(residuals, var)
 
