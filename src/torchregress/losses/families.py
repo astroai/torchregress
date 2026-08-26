@@ -97,6 +97,11 @@ def _positive(raw: Tensor, eps: float) -> Tensor:
     return F.softplus(raw) + eps
 
 
+def _inverse_softplus(sigma: Tensor, eps: float) -> Tensor:
+    # ponytail: inverse of _positive for unconstrained_inputs=False mode
+    return torch.log(torch.expm1((sigma - eps).clamp(min=1e-6)))
+
+
 def _as_params(y_pred: Tensor, n_params: int, name: str) -> None:
     if y_pred.shape[-1] < n_params:
         raise ValueError(
@@ -147,9 +152,12 @@ def skew_normal_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float = 1e-
 class SkewNormalNLLLoss(BaseLoss):
     """Skew-normal NLL (Azzalini 1985). Reduces exactly to Gaussian NLL at alpha=0."""
 
-    def __init__(self, eps: float = 1e-6, reduction: str = "mean") -> None:
+    def __init__(
+        self, eps: float = 1e-6, reduction: str = "mean", unconstrained_inputs: bool = True
+    ) -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
+        self.unconstrained_inputs = unconstrained_inputs
 
     def forward(
         self,
@@ -159,6 +167,10 @@ class SkewNormalNLLLoss(BaseLoss):
         weights: Optional[Tensor] = None,
         **kw: object,
     ) -> Tensor:
+        if not self.unconstrained_inputs:
+            # y_pred[...,1] already positive sigma; map back through inverse softplus
+            y_pred = y_pred.clone()
+            y_pred[..., 1:2] = _inverse_softplus(y_pred[..., 1:2], self.eps)
         return self._reduce(
             skew_normal_nll_elementwise(y_pred, target, eps=self.eps), mask, weights
         )
@@ -244,9 +256,12 @@ def _reg_inc_beta(a: Tensor, b: Tensor, x: Tensor) -> Tensor:
 class SkewTLoss(BaseLoss):
     """Skew-t NLL (Azzalini & Capitanio 2003), lgamma-normalized."""
 
-    def __init__(self, eps: float = 1e-6, reduction: str = "mean") -> None:
+    def __init__(
+        self, eps: float = 1e-6, reduction: str = "mean", unconstrained_inputs: bool = True
+    ) -> None:
         super().__init__(reduction=reduction)
         self.eps = eps
+        self.unconstrained_inputs = unconstrained_inputs
 
     def forward(
         self,
@@ -256,6 +271,10 @@ class SkewTLoss(BaseLoss):
         weights: Optional[Tensor] = None,
         **kw: object,
     ) -> Tensor:
+        if not self.unconstrained_inputs:
+            y_pred = y_pred.clone()
+            y_pred[..., 1:2] = _inverse_softplus(y_pred[..., 1:2], self.eps)
+            y_pred[..., 3:4] = _inverse_softplus(y_pred[..., 3:4], self.eps)
         return self._reduce(skew_t_nll_elementwise(y_pred, target, eps=self.eps), mask, weights)
 
 
@@ -484,12 +503,20 @@ def gev_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float = 1e-6) -> Te
     xi = y_pred[..., 2:3]
     z = (target - mu) / sigma
     gumbel = torch.log(sigma) + z + torch.exp(-z)
+    use_gumbel = xi.abs() < _GUMBEL_XI_THRESHOLD
+    # ponytail: compute gev branch only where needed; torch.where does not short-circuit
+    # so 1/xi and pow(-1/xi) must not be evaluated for |xi|<threshold or unsupported t.
     t = 1.0 + xi * z
     supported = t > 0.0
-    t_safe = torch.where(supported, t, torch.full_like(t, 1.0))
-    gev = torch.log(sigma) + (1.0 + 1.0 / xi) * torch.log(t_safe) + t_safe.pow(-1.0 / xi)
-    gev = torch.where(supported, gev, torch.full_like(gev, float("inf")))
-    use_gumbel = xi.abs() < _GUMBEL_XI_THRESHOLD
+    # ponytail: torch.where doesn't short-circuit; mask both pow and log to keep finite graph.
+    # Use 1.0 for t and threshold for xi where branch not taken.
+    use_gev = (~use_gumbel) & supported
+    xi_safe = torch.where(use_gev, xi, torch.full_like(xi, _GUMBEL_XI_THRESHOLD))
+    t_safe = torch.where(use_gev, t, torch.full_like(t, 1.0))
+    gev_raw = (
+        torch.log(sigma) + (1.0 + 1.0 / xi_safe) * torch.log(t_safe) + t_safe.pow(-1.0 / xi_safe)
+    )
+    gev = torch.where(supported, gev_raw, torch.full_like(gev_raw, float("inf")))
     return torch.where(use_gumbel, gumbel, gev).squeeze(-1)
 
 

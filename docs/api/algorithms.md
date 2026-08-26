@@ -11,8 +11,8 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 | Symbol | Description |
 |:-------|:------------|
-| `IRLSConfig(base_loss, max_iter, tol, delta, weight_fn, weight_params, variance_type, epsilon, return_all_predictions, batch_size)` | Configuration dataclass. |
-| `iteratively_reweighted_least_squares(model, x, y_true, *, config)` | Run IRLS. Returns `(y_pred, loss_history, final_precision[, all_predictions])`. |
+| `IRLSConfig` | `(base_loss, max_iter, tol, delta, weight_fn, weight_params, variance_type, epsilon, return_all_predictions, batch_size)` — Configuration dataclass. |
+| `iteratively_reweighted_least_squares` | `(model, x, y_true, *, config)` — Run IRLS. Returns `(y_pred, loss_history, final_precision[, all_predictions])`. |
 | `huber_weights(scaled_residuals, delta)` | Huber weighting function. |
 | `tukey_weights(scaled_residuals, c)` | Tukey biweight; zero weight for `\|r\| > c`. |
 | `power_weights(scaled_residuals, a, b)` | Power weighting. |
@@ -27,14 +27,14 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 | Symbol | Description |
 |:-------|:------------|
-| `SIMEX(model_factory, train_func, sigma_u, lambdas, n_simulations, extrapolation_order)` | Simulation-Extrapolation. |
+| `SIMEX` | `(model_factory, train_func, sigma_u, lambdas, n_simulations, extrapolation_order)` — Simulation-Extrapolation. |
 | `PredictionSIMEX(...)` | SIMEX variant optimised for prediction (shrinkage on extrapolated coefs). |
-| `RegressionCalibration(sigma_u)` | Classical RC with PSD projection. `fit_transform`, `posterior(...)` for per-sample cov. |
-| `LatentNN(model_factory, sigma_x, sigma_y, epochs, …)` | Joint latent-input + network optimization. |
-| `ErrorAwareFeatureEncoder(…)` | Encoder with input-noise awareness. |
-| `NoiseAwareRegressor(…)` | Noise-aware prediction head wrapper. |
-| `NeighborhoodCovarianceConfig(…)` | Config for neighborhood-based cov targets. |
-| `NeighborhoodCovariancePseudoLabeler(…)` | Pseudo-covariance targets from neighborhoods. |
+| `RegressionCalibration` | `(sigma_u)` — Classical RC with PSD projection. `fit_transform`, `posterior(...)` for per-sample cov. |
+| `LatentNN` | `(model_factory, sigma_x, sigma_y, epochs, …)` — Joint latent-input + network optimization. |
+| `ErrorAwareFeatureEncoder` | Encoder with input-noise awareness. |
+| `NoiseAwareRegressor` | Noise-aware prediction head wrapper. |
+| `NeighborhoodCovarianceConfig` | Config for neighborhood-based cov targets. |
+| `NeighborhoodCovariancePseudoLabeler` | Pseudo-covariance targets from neighborhoods. |
 | `mahalanobis_covariance_pseudo_labels(…)` | Functional form of the above. |
 
 ---
@@ -45,7 +45,7 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 | Symbol | Description |
 |:-------|:------------|
-| `IVON(params, lr, ess, weight_decay, …)` | Variational Online Newton. Fits `q(θ) = N(μ, Σ)`. Use `optimizer.sampled_params(train=True)` for MC samples. Supports `hess_approx ∈ {"price", "gradsq"}`, distributed `sync`, bias correction. |
+| `IVON` | `(params, lr, ess, weight_decay, …)` — Variational Online Newton. Fits `q(θ) = N(μ, Σ)`. Use `optimizer.sampled_params(train=True)` for MC samples. Supports `hess_approx ∈ {"price", "gradsq"}`, distributed `sync`, bias correction. |
 
 ---
 
@@ -55,7 +55,7 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 | Symbol | Description |
 |:-------|:------------|
-| `TaylorInducedCovarianceHead(backbone, target_dim, input_dim)` | Jacobian+Hessian-derived covariance head with learnable scaling `k1, k2, k3`. Returns `(mean, cov)` where `cov: [B, d, d]`. |
+| `TaylorInducedCovarianceHead` | `(backbone, target_dim, input_dim)` — Jacobian+Hessian-derived covariance head with learnable scaling `k1, k2, k3`. Returns `(mean, cov)` where `cov: [B, d, d]`. |
 
 ---
 
@@ -78,8 +78,9 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 | Symbol | Description |
 |:-------|:------------|
 | `SyntheticEnvironmentSampler(bootstrap_fraction, n_environments)` | Bootstrap-based synthetic env generator. |
-| `AdaptivePriorGuide(…)` | Amortised variational posterior given `(context_X, context_Y)`. |
-| `VIDSRegressor(…)` | Variational regressor under covariate shift. `fit(…)` → `predict_distribution(x, n_samples)`. |
+| `AdaptivePriorGuide` | Amortised variational posterior given `(context_X, context_Y)`. |
+| `VIDSRegressor` | Variational regressor under covariate shift. `fit(…)` → `predict_distribution(x, n_samples)`. |
+| `sample_synthetic_environments` | Functional helper that bootstraps synthetic training environments for VIDS. |
 
 ---
 
@@ -87,7 +88,7 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 | Symbol | Description |
 |:-------|:------------|
-| `WarmupMCTrainer(model, n_warmup, n_samples)` | Runs warmup epochs then collects MC predictive samples for Bayesian model averaging. |
+| `WarmupMCTrainer` | `(model, n_warmup, n_samples)` — Runs warmup epochs then collects MC predictive samples for Bayesian model averaging. |
 
 ---
 

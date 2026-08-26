@@ -11,6 +11,7 @@ from .bayes import BayesianLinearHead, RecursiveBayesianHead
 from .benchmark import CausalTTAHarness
 from .cosa import DelayedLabelResidualAdapter
 from .dynamic import ParameterEMA
+from .joint_tta import JointDistributionalTTA, JointTTAResult
 from .label_shift import (
     GaussianLabelShiftConfig,
     LabelShiftEMConfig,
@@ -39,6 +40,15 @@ from .selection import (
     pseudo_label_targets,
     select_high_confidence,
 )
+from .shift_weights import (
+    DomainClassifierRatioEstimator as DomainClassifierRatioEstimator,
+)
+from .shift_weights import (
+    OTScoreWeightEstimator as OTScoreWeightEstimator,
+)
+from .shift_weights import (
+    estimate_label_shift_weights as estimate_label_shift_weights,
+)
 from .subspace import FeatureStatNormalizer, SubspaceAlignmentState, WeightedSubspaceMomentAligner
 from .transport import (
     ShiftFactoredPredictiveTransport,
@@ -48,10 +58,13 @@ from .transport import (
 
 RepresentationShiftCalibrator = RepresentationShiftInflator
 SignificantSubspaceAligner = WeightedSubspaceMomentAligner
-
 __all__ = [
     "AdaptationBatch",
     "BayesianLinearHead",
+    "DomainClassifierRatioEstimator",
+    "JointDistributionalTTA",
+    "JointTTAResult",
+    "estimate_label_shift_weights",
     "CausalTTAHarness",
     "DelayedLabelResidualAdapter",
     "estimate_target_prior_bbse",

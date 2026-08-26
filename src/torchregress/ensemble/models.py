@@ -569,8 +569,8 @@ class MDNEnsembleModel(BaseEnsembleModel):
         mean_list = []
         scale_list = []
         for member_output in raw_outputs:
-            weights, means, scales = self.loss._extract_distribution_parameters(member_output)
-            weight_list.append(weights / float(raw_outputs.shape[0]))
+            log_weights, means, scales = self.loss._extract_distribution_parameters(member_output)
+            weight_list.append(log_weights.exp() / float(raw_outputs.shape[0]))
             mean_list.append(means)
             scale_list.append(scales)
         return (

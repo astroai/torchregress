@@ -310,8 +310,16 @@ class TestExpectileLoss(unittest.TestCase):
         per_sample_weights[0] = 2.0  # Double weight for first sample
         loss_weighted_per_sample = loss_fn(y_pred, y_true, weights=per_sample_weights)
 
-        # This should weight the first sample's loss twice as much
-        self.assertNotEqual(loss_weighted_per_sample.item(), loss_unweighted.item())
+        # Manual weighted-mean reference. (The previous assertNotEqual passed
+        # only via the pre-TR-COR-01 denominator bug: on this symmetric
+        # fixture, correctly-normalized weighting is a no-op.)
+        diff = (y_true - y_pred) ** 2  # squared residuals, all = 1 here
+        alpha = torch.ones_like(diff) * 0.7
+        w_expanded = per_sample_weights.unsqueeze(-1).expand_as(diff)
+        expected_per_sample = (2 * alpha * diff * w_expanded).sum() / w_expanded.sum()
+        self.assertAlmostEqual(
+            loss_weighted_per_sample.item(), expected_per_sample.item(), places=5
+        )
 
         # Test with mask and weights
         mask = torch.ones(self.batch_size, self.n_features, device=self.device).bool()

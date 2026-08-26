@@ -1,5 +1,8 @@
+import math
+
 import pytest
 import torch
+import torch.nn.functional as F
 
 from torchregress.losses.mdn import MixtureDensityLoss
 
@@ -51,15 +54,15 @@ class TestMixtureDensityLoss:
         batch_size = 5
         y_pred = torch.randn(batch_size, loss_fn.expected_output_size)
 
-        weights, means, stds = loss_fn._extract_distribution_parameters(y_pred)
+        log_weights, means, stds = loss_fn._extract_distribution_parameters(y_pred)
 
         # Check shapes
-        assert weights.shape == (batch_size, n_components)
+        assert log_weights.shape == (batch_size, n_components)
         assert means.shape == (batch_size, n_components, n_features)
         assert stds.shape == (batch_size, n_components, n_features)
 
-        # Weights should sum to 1
-        assert torch.allclose(weights.sum(dim=-1), torch.ones(batch_size))
+        # Exponentiated log-weights should sum to 1
+        assert torch.allclose(log_weights.exp().sum(dim=-1), torch.ones(batch_size))
 
         # Standard deviations should be positive and at least min_std
         assert (stds >= loss_fn.min_std).all()
@@ -77,15 +80,15 @@ class TestMixtureDensityLoss:
         batch_size = 5
         y_pred = torch.randn(batch_size, loss_fn.expected_output_size)
 
-        weights, means, L_matrices = loss_fn._extract_distribution_parameters(y_pred)
+        log_weights, means, L_matrices = loss_fn._extract_distribution_parameters(y_pred)
 
         # Check shapes
-        assert weights.shape == (batch_size, n_components)
+        assert log_weights.shape == (batch_size, n_components)
         assert means.shape == (batch_size, n_components, n_features)
         assert L_matrices.shape == (batch_size, n_components, n_features, n_features)
 
-        # Weights should sum to 1
-        assert torch.allclose(weights.sum(dim=-1), torch.ones(batch_size))
+        # Exponentiated log-weights should sum to 1
+        assert torch.allclose(log_weights.exp().sum(dim=-1), torch.ones(batch_size))
 
         # Check that matrices are lower triangular with positive diagonal
         for b in range(batch_size):
@@ -383,3 +386,71 @@ class TestMDNLossNumericalStability:
 
         # All gradients should be finite
         assert torch.all(torch.isfinite(y_pred.grad))
+
+
+class TestMDNMixtureAggregationNumerics:
+    """TR-COR-04: mixture aggregation must use log_softmax + logsumexp so
+    extreme logits keep finite losses and nonzero gradients for every
+    component, and the loss must equal a direct numerical mixture NLL."""
+
+    def test_extreme_logits_finite_loss_and_full_gradient(self):
+        """Extreme weight logits [-100, 0, 100] must yield a finite loss and
+        nonzero gradient on ALL components' logits.
+
+        d(loss)/d(logit_k) = w_k - r_k (weight minus posterior
+        responsibility).  The pre-fix ``log(softmax + eps)`` truncated tail
+        log-weights at the constant ``log(eps)``, killing their gradient.
+        The geometry below keeps every responsibility r_k above 1e-12 so
+        each logit receives a healthy gradient under the fixed code."""
+        n_samples, n_components, n_features = 2, 3, 1
+        loss_fn = MDNLoss(n_components=n_components, n_features=n_features)
+
+        y_pred = torch.zeros(n_samples, loss_fn.expected_output_size)
+        # Extreme weight logits: the -100/-100 tails carry ~0 probability mass.
+        y_pred[:, :n_components] = torch.tensor([-100.0, 0.0, 100.0])
+        # All sigmas at min_std (log_std -> -inf under softplus + min_std).
+        y_pred[:, -n_components:] = -20.0
+        target = torch.zeros(n_samples, n_features)
+        # Means place every component's weighted log-density m_k = logw_k +
+        # logp_k inside one ~27-nat window, so each responsibility
+        # r_k = softmax(m)_k stays above 1e-12 and grad = w_k - r_k is
+        # bounded away from zero for all three components.
+        y_pred[:, n_components : 2 * n_components] = torch.tensor([0.0, 0.01389, 0.020041])
+        y_pred.requires_grad_(True)
+
+        loss = loss_fn(y_pred, target)
+        assert torch.isfinite(loss)
+        loss.backward()
+
+        logits_grad = y_pred.grad[:, :n_components]
+        assert torch.all(torch.isfinite(logits_grad))
+        assert (logits_grad.abs() > 1e-12).all(), (
+            f"gradient must reach ALL mixture components' logits, got {logits_grad}"
+        )
+
+    def test_matches_direct_numerical_mixture_nll(self):
+        torch.manual_seed(7)
+        n_components, n_features = 3, 2
+        loss_fn = MDNLoss(n_components=n_components, n_features=n_features)
+
+        y_pred = torch.randn(4, loss_fn.expected_output_size)
+        target = torch.randn(4, n_features)
+
+        loss = loss_fn(y_pred, target)
+
+        # Direct numerical reference: build the same Gaussian components and
+        # evaluate log(sum_k w_k * N(y | mu_k, sigma_k)) in probability space.
+        weights = F.softmax(y_pred[:, :n_components], dim=-1)
+        means = y_pred[:, n_components : n_components * 3].reshape(4, n_components, n_features)
+        stds = (
+            F.softplus(y_pred[:, n_components * 3 :].reshape(4, n_components, n_features))
+            + loss_fn.min_std
+        )
+
+        diff = (target.unsqueeze(1) - means) / stds  # [4, K, D]
+        comp = torch.exp(-0.5 * (diff**2).sum(-1)) / (
+            (2 * math.pi) ** (n_features / 2) * stds.prod(-1)
+        )  # [4, K]
+        expected = -torch.log((weights * comp).sum(-1)).mean()
+
+        assert torch.allclose(loss, expected, rtol=1e-5, atol=1e-6)

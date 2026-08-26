@@ -25,7 +25,7 @@ shared `PredictiveBatch` container is documented in the
 | `SupportsPredictiveBatch` | `Protocol` for models exposing `predict_distribution(X, **kwargs) -> PredictiveBatch`. |
 | `SupportsRepresentation` | `Protocol` for models exposing `representation_dict(x) -> dict[str, Tensor]` (feature access). |
 | `SupportsAdaptationParameters` | `Protocol` for models exposing `adaptation_parameter_groups() -> dict[str, list[Parameter]]` (TTA-targeted params). |
-| `flatten_adaptation_parameters(groups)` | Flatten a `dict[name, Iterable[Parameter]]` into a deduplicated list. |
+| `flatten_adaptation_parameters` | `(groups)` — Flatten a `dict[name, Iterable[Parameter]]` into a deduplicated list. |
 
 ```python
 from torchregress.test_time import (
@@ -45,11 +45,11 @@ posterior, online updates).
 
 | Symbol | Description |
 |:-------|:------------|
-| `BayesianLinearHead(in_features, out_features=1, *, fit_intercept=True, prior_mean=0.0, prior_precision=1.0, noise_variance=1.0, jitter=1e-6)` | Closed-form conjugate Gaussian linear regression. Posterior precision `Λ = Λ₀ + σ⁻² Φᵀ W Φ`, canonical `h = h₀ + σ⁻² Φᵀ (Wy)`. `fit(features, y, sample_weight=None)`, `reset_posterior()`, `predict(features, return_std=False, include_noise=True)`, `sample_weights(n_samples, generator=None)`. |
+| `BayesianLinearHead` | `(in_features, out_features=1, *, fit_intercept=True, prior_mean=0.0, prior_precision=1.0, noise_variance=1.0, jitter=1e-6)` — Closed-form conjugate Gaussian linear regression. Posterior precision `Λ = Λ₀ + σ⁻² Φᵀ W Φ`, canonical `h = h₀ + σ⁻² Φᵀ (Wy)`. `fit(features, y, sample_weight=None)`, `reset_posterior()`, `predict(features, return_std=False, include_noise=True)`, `sample_weights(n_samples, generator=None)`. |
 | `BayesianLinearHead.posterior_mean` | Posterior mean `[out_features, d_eff]`. |
 | `BayesianLinearHead.posterior_covariance` | Posterior covariance `[d_eff, d_eff]` (Cholesky-solved). |
 | `BayesianLinearHead.predictive_batch(features, *, include_noise=True)` | Returns a `PredictiveBatch` with `point`/`mean`/`std` and `extra` containing `epistemic_variance`, `aleatoric_variance`, `posterior_trace`, `n_observations_seen`. |
-| `RecursiveBayesianHead(...)` | Adds `forgetting_factor ∈ (0, 1]` and `partial_fit(features, y, sample_weight=None)` for streaming updates; `fit` performs a full reset + one-shot update. |
+| `RecursiveBayesianHead` | Adds `forgetting_factor ∈ (0, 1]` and `partial_fit(features, y, sample_weight=None)` for streaming updates; `fit` performs a full reset + one-shot update. |
 
 **Reference:** Bishop, *Pattern Recognition and Machine Learning* (2006),
 §3.3 (conjugate Bayesian linear regression).
@@ -77,14 +77,15 @@ EM-based target-prior estimation and Gaussian predictive adjustment under
 |:-------|:------------|
 | `LabelShiftEMConfig` | Dataclass: `max_iter=100`, `tol=1e-6`, `eps=1e-8`. |
 | `LabelShiftEstimate` | Frozen result: `source_prior`, `target_prior`, `iterations`, `converged`. |
-| `apply_label_shift_correction(probabilities, *, source_prior, target_prior, eps=1e-8)` | Posterior correction under prior ratio $p_{\text{tgt}}/p_{\text{src}}$. |
-| `estimate_target_prior_em(probabilities, *, source_prior=None, sample_weights=None, sample_size=None, random_state=0, config=None)` | EM target-prior estimate (Lipton–Wang–Smola 2018). |
-| `PosteriorLabelShiftAdapter(*, source_prior=None, sample_size=None, random_state=0, config=None)` | Reusable adapter; `.estimate(probs)`, `.transform(probs, target_prior=...)`, `.fit_transform(probs)`. |
+| `apply_label_shift_correction` | `(probabilities, *, source_prior, target_prior, eps=1e-8)` — Posterior correction under prior ratio $p_{\text{tgt}}/p_{\text{src}}$. |
+| `estimate_target_prior_em` | `(probabilities, *, source_prior=None, sample_weights=None, sample_size=None, random_state=0, config=None)` — EM target-prior estimate (Lipton–Wang–Smola 2018). |
+| `PosteriorLabelShiftAdapter` | `(*, source_prior=None, sample_size=None, random_state=0, config=None)` — Reusable adapter; `.estimate(probs)`, `.transform(probs, target_prior=...)`, `.fit_transform(probs)`. |
 | `GaussianLabelShiftConfig` | Dataclass: `n_bins=32`, `estimation_rows`, `top_fraction=0.5`, `reference_size=2048`, `seed=0`, `eps=1e-8`. |
-| `gaussian_bin_edges_from_targets(targets, n_bins)` | Quantile-based bin edges. |
-| `gaussian_bin_probabilities(mean, std, bin_edges, *, eps=1e-8)` | Discretize Gaussian predictions to bin probabilities. |
-| `gaussian_moments_from_binned_probabilities(probabilities, bin_edges, *, eps=1e-8)` | Reconstruct Gaussian `(mean, std)` from bin probs. |
-| `correct_gaussian_predictions_for_label_shift(*, mean, std, source_targets, features=None, config=None)` | End-to-end: discretize → EM estimate → backproject → corrected `(mean, std, metadata)`. |
+| `gaussian_bin_edges_from_targets` | `(targets, n_bins)` — Quantile-based bin edges. |
+| `gaussian_bin_probabilities` | `(mean, std, bin_edges, *, eps=1e-8)` — Discretize Gaussian predictions to bin probabilities. |
+| `gaussian_moments_from_binned_probabilities` | `(probabilities, bin_edges, *, eps=1e-8)` — Reconstruct Gaussian `(mean, std)` from bin probs. |
+| `correct_gaussian_predictions_for_label_shift` | `(*, mean, std, source_targets, features=None, config=None)` — End-to-end: discretize → EM estimate → backproject → corrected `(mean, std, metadata)`. |
+| `estimate_target_prior_bbse` | `(probabilities_source, labels_source, probabilities_target, *, cond_threshold=1e8)` — Estimate target priors under label shift with BBSE (Black-Box Shift Estimation): invert the source confusion matrix against the target mean predicted-label distribution. |
 
 **Reference:** Lipton, Wang, Smola, "Detecting and Correcting for Label Shift
 with Black Box Predictors" (ICML 2018).
@@ -109,7 +110,7 @@ and uncertainty under delayed label observations.
 
 | Symbol | Description |
 |:-------|:------------|
-| `DelayedLabelResidualAdapter(base_model, *, ema_beta=0.1, scale_ema_beta=0.1)` | Tracks running EMA of residuals and variance inflation factors to adjust point, mean, std, and quantiles at test time. `.partial_fit(X, y)` updates state, `.predict_distribution(X)` returns adapted PredictiveBatch. |
+| `DelayedLabelResidualAdapter` | `(base_model, *, ema_beta=0.1, scale_ema_beta=0.1)` — Tracks running EMA of residuals and variance inflation factors to adjust point, mean, std, and quantiles at test time. `.partial_fit(X, y)` updates state, `.predict_distribution(X)` returns adapted PredictiveBatch. |
 
 ```python
 from torchregress.test_time import DelayedLabelResidualAdapter
@@ -134,7 +135,7 @@ scores** under non-exchangeable target shift, and weighted split-conformal regre
 | `OptimalTransportCoverageGap(n_grid=129)` | Diagnostics: `l2_cdf_gap`, `ks_max_abs` between uniform-weight calibration and target ECDFs. |
 | `ScoreCDFReweighter(...)` | Learns simplex weights over calibration points by minimising the L₂ gap on a 1-D score grid. |
 | `WeightedSplitConformalAdapter(alpha=0.1)` | Weighted split-conformal threshold for classification-style nonconformity scores. |
-| `WeightedConformalRegressionAdapter(alpha=0.1, classifier=None)` | Weighted split-conformal regression using classifier-based density ratio estimation. `.fit_density_ratio(X_cal, X_tgt)`, `.compute_density_ratios(X)`, `.calibrate(y_pred_cal, y_cal, X_cal, X_tgt)`, `.predict_interval(y_pred, X)`. |
+| `WeightedConformalRegressionAdapter` | `(alpha=0.1, classifier=None)` — Weighted split-conformal regression using classifier-based density ratio estimation. `.fit_density_ratio(X_cal, X_tgt)`, `.compute_density_ratios(X)`, `.calibrate(y_pred_cal, y_cal, X_cal, X_tgt)`, `.predict_interval(y_pred, X)`. |
 | `weighted_split_classification_predictive_batch(...)` | Build a `PredictiveBatch` from a calibrated WeightedSplitConformalAdapter. |
 
 ```python
@@ -147,6 +148,25 @@ adapter.calibrate(y_pred_cal, y_cal, X_cal, X_tgt)
 # Predict intervals under covariate shift
 lower, upper = adapter.predict_interval(y_pred_test, X_test)
 ```
+
+---
+
+## Density-ratio weights & joint TTA (`test_time.shift_weights`, `test_time.joint_tta`)
+
+| Symbol | Description |
+|:-------|:------------|
+| `DomainClassifierRatioEstimator` | Density-ratio `w(x) = p_target(x) / p_source(x)` estimated via a probabilistic domain classifier. `.fit(X_source, X_target)`, then `.weights(X)` / `.weights_for(X)`. |
+| `estimate_label_shift_weights` | Per-point importance weights under label shift via the BBSE-per-point identity from source/target posterior probabilities. |
+| `JointTTAResult` | Frozen outcome of `JointDistributionalTTA.adapt_and_calibrate`: the adapted model, the fitted conformal calibrator, and a diagnostics dict. |
+| `JointDistributionalTTA` | Adapt a distributional regressor at test time (feature alignment + filtered pseudo-label rounds), freeze, then recalibrate once with fixed importance weights. `.adapt_and_calibrate(model, X_cal_src, y_cal_src, X_target)`, `.predict_intervals(result, X_test)`. |
+
+---
+
+## Streaming evaluation (`test_time.benchmark`)
+
+| Symbol | Description |
+|:-------|:------------|
+| `CausalTTAHarness` | Causal streaming evaluation harness for test-time adaptation protocols (predict → observe delayed labels → update). |
 
 ---
 
@@ -174,12 +194,12 @@ std_calibrated = cal.calibrate_std(test_std, test_features)
 
 | Symbol | Description |
 |:-------|:------------|
-| `entropy_scores(probabilities, *, eps=1e-8)` | Shannon entropy of normalised probabilities. |
-| `confidence_scores(probabilities)` | Max probability per row. |
-| `pseudo_label_targets(probabilities)` | `(argmax_labels, max_weights)` for self-training. |
-| `select_high_confidence(probabilities, *, min_confidence=None, max_entropy=None, top_fraction=None, min_count=1)` | Composite selector with confidence / entropy / top-k gates. |
+| `entropy_scores` | `(probabilities, *, eps=1e-8)` — Shannon entropy of normalised probabilities. |
+| `confidence_scores` | `(probabilities)` — Max probability per row. |
+| `pseudo_label_targets` | `(probabilities)` — `(argmax_labels, max_weights)` for self-training. |
+| `select_high_confidence` | `(probabilities, *, min_confidence=None, max_entropy=None, top_fraction=None, min_count=1)` — Composite selector with confidence / entropy / top-k gates. |
 | `LocalConsistencyConfig` | Dataclass: `k=5`, `temperature=1.0`, `reference_size`, `max_exact_rows=4096`, `query_chunk_size=2048`, `random_state`, `eps=1e-8`. |
-| `local_consistency_weights(features, probabilities, config=None)` | FTAT-style neighbourhood agreement (Bhattacharyya-like inner product of $\sqrt{p \cdot q}$), rescaled to mean 1. |
+| `local_consistency_weights` | `(features, probabilities, config=None)` — FTAT-style neighbourhood agreement (Bhattacharyya-like inner product of $\sqrt{p \cdot q}$), rescaled to mean 1. |
 
 ```python
 import numpy as np
@@ -196,8 +216,8 @@ mask = select_high_confidence(probabilities, top_fraction=0.5, min_count=32)
 | Symbol | Description |
 |:-------|:------------|
 | `SubspaceAlignmentState` | Frozen dataclass: `source_mean`, `target_mean`, `source_scale`, `target_scale`, `components`, `feature_weights`, `rank`. |
-| `WeightedSubspaceMomentAligner(*, rank=None, variance_threshold=0.95, target_sample_size=None, random_state=0, clip_quantile=None, max_scale_ratio=10.0, eps=1e-6)` | SSA-style low-rank alignment with **regression-significance weighting**. `.fit(X_source, y_source=None)`, `.transform(X_target)`, `.fit_transform(...)`. |
-| `FeatureStatNormalizer(*, target_sample_size=None, random_state=0, clip_quantile=None, max_scale_ratio=10.0, eps=1e-6)` | Low-risk per-feature mean/std alignment (no PCA). |
+| `WeightedSubspaceMomentAligner` | `(*, rank=None, variance_threshold=0.95, target_sample_size=None, random_state=0, clip_quantile=None, max_scale_ratio=10.0, eps=1e-6)` — SSA-style low-rank alignment with **regression-significance weighting**. `.fit(X_source, y_source=None)`, `.transform(X_target)`, `.fit_transform(...)`. |
+| `FeatureStatNormalizer` | `(*, target_sample_size=None, random_state=0, clip_quantile=None, max_scale_ratio=10.0, eps=1e-6)` — Low-risk per-feature mean/std alignment (no PCA). |
 
 **Reference:** Fernando, Habrard, Sebban, Tuytelaars, "Unsupervised Visual
 Domain Adaptation Using Subspace Alignment" (ICCV 2013).
@@ -217,7 +237,7 @@ X_test_aligned = aligner.transform(X_test)
 
 | Symbol | Description |
 |:-------|:------------|
-| `ParameterEMA(decay=0.99)` | Exponential moving average over trainable parameters. `.initialize(model)`, `.update(model)`, `.copy_to(model)`. |
+| `ParameterEMA` | `(decay=0.99)` — Exponential moving average over trainable parameters. `.initialize(model)`, `.update(model)`, `.copy_to(model)`. |
 
 ```python
 from torchregress.test_time import ParameterEMA

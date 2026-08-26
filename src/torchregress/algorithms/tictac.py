@@ -88,9 +88,22 @@ class TaylorInducedCovarianceHead(nn.Module):
         if x.dim() == 1:
             x = x.unsqueeze(0)
 
+        # ponytail: Hessian O(B·D_in²·D_out) may OOM; warn if estimated >200MB
+        b, d_in = x.shape[0], x.shape[1]
+        est_hess_elems = b * self.target_dim * d_in * d_in
+        if est_hess_elems > 50_000_000:  # ~200MB float32
+            import warnings
+
+            warnings.warn(
+                f"TICTAC Hessian {b}x{self.target_dim}x{d_in}x{d_in}"
+                f"~{est_hess_elems / 1e6:.1f}M elems may OOM; "
+                "consider smaller input_dim or batch",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # 1. Compute mean prediction
         mean = self.base_model(x)
-
         # 2. Compute Jacobian and Hessian of mean w.r.t input features
         # using the torch.func functional API
         params = dict(self.base_model.named_parameters())
@@ -126,16 +139,15 @@ class TaylorInducedCovarianceHead(nn.Module):
         # but the correct trace contraction is bikm,bjmk.
         h_matrix = torch.einsum("bikm,bjmk->bij", hesses, hesses)
 
-        # 4. Predict scaling parameters k1, k2, and residual diagonal k3
+        # 4. Predict scalings k1,k2,k3 (clamped to avoid exp overflow)
         if self.is_input_dependent:
-            k1 = torch.exp(self.k1_net(x)).unsqueeze(-1)  # [B, 1, 1]
-            k2 = torch.exp(self.k2_net(x)).unsqueeze(-1)  # [B, 1, 1]
-            k3 = torch.exp(self.k3_net(x))  # [B, target_dim]
+            k1 = torch.exp(self.k1_net(x).clamp(min=-6, max=6)).unsqueeze(-1)  # [B, 1, 1]
+            k2 = torch.exp(self.k2_net(x).clamp(min=-6, max=6)).unsqueeze(-1)  # [B, 1, 1]
+            k3 = torch.exp(self.k3_net(x).clamp(min=-6, max=6))  # [B, target_dim]
         else:
-            k1 = torch.exp(self.log_k1)
-            k2 = torch.exp(self.log_k2)
-            k3 = torch.exp(self.log_k3).expand(mean.shape[0], -1)
-
+            k1 = torch.exp(self.log_k1.clamp(min=-6, max=6))
+            k2 = torch.exp(self.log_k2.clamp(min=-6, max=6))
+            k3 = torch.exp(self.log_k3.clamp(min=-6, max=6)).expand(mean.shape[0], -1)
         # 5. Add stabilizer jitter to ensure positive definiteness
         eye = torch.eye(self.target_dim, device=x.device, dtype=x.dtype).unsqueeze(0)
         cov = (

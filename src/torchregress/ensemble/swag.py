@@ -110,17 +110,32 @@ class SWAG(nn.Module):
                 self.register_buffer(f"{name_cleaned}_mean", torch.zeros_like(param))
                 self.register_buffer(f"{name_cleaned}_sq_mean", torch.zeros_like(param))
 
-        # TR-ENS-01: BatchNorm-style running buffers are tracked exactly like
-        # parameters (mean + second moment). Scalar/int buffers are skipped.
-        self._buffer_name_map = {}
+        # TR-ENS-01: Do NOT place posterior over BatchNorm running stats. They are
+        # deterministic population estimates, not weights; sampling them breaks
+        # equivariance (Maddox Alg.1 keeps BN in train+recalibrate, not Gaussian).
+        # Only floating buffers >1 element that are NOT BN running buffers are tracked
+        # (e.g., LayerNorm already has no running buffers). Scalars/int are skipped.
+        self._buffer_name_map: dict[str, str] = {}
         for name, buf in self.base_model.named_buffers():
             if not buf.is_floating_point() or buf.numel() <= 1:
                 continue
+            # skip BatchNorm running stats
+            if "running_mean" in name or "running_var" in name or "num_batches_tracked" in name:
+                continue
+            # heuristic: skip any buffer attached to a BatchNorm module
+            module_name = name.rsplit(".", 1)[0] if "." in name else ""
+            try:
+                mod = self.base_model.get_submodule(module_name) if module_name else None
+                if isinstance(
+                    mod, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)
+                ):
+                    continue
+            except AttributeError:
+                pass
             name_cleaned = name.replace(".", "_")
             self._buffer_name_map[name] = name_cleaned
             self.register_buffer(f"{name_cleaned}_mean", torch.zeros_like(buf))
             self.register_buffer(f"{name_cleaned}_sq_mean", torch.zeros_like(buf))
-
         # TR-ENS-02: low-rank deviations are persistent registered buffers
         # (created lazily on first collect on the model's device) so they are
         # included in state_dict and never pay per-sample H2D copies.

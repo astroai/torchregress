@@ -8,6 +8,7 @@ from torchregress.losses.base import (
     RegressionLoss,
     WeightedCrossEntropyLoss,
     WeightedLossWrapper,
+    WeightedMSELoss,
     WeightedNLLLoss,
 )
 
@@ -181,6 +182,34 @@ class TestBaseLoss:
         # = (1.0*2 + 1.5*0) / 2.5 = 2.0/2.5
         result = loss(y_pred, target, mask=mask, weights=weights)
         assert torch.isclose(result, torch.tensor(0.8))
+
+    @pytest.mark.parametrize("dim", [1, 2, 5, 10])
+    def test_all_ones_sample_weights_match_unweighted_multidim(self, dim):
+        """TR-COR-01: 1-D sample weights broadcasting over trailing dims must
+        not change the scale of the mean (all-ones weights == unweighted)."""
+        loss_fn = WeightedMSELoss(reduction="mean")
+        y_pred = torch.zeros(10, dim)
+        target = torch.ones(10, dim)
+        unweighted = loss_fn(y_pred, target)
+        weighted = loss_fn(y_pred, target, weights=torch.ones(10))
+        assert torch.isclose(weighted, unweighted)
+        assert torch.isclose(weighted, torch.tensor(1.0))
+
+    def test_nonuniform_sample_weights_match_manual_multidim(self):
+        """TR-COR-01: non-uniform 1-D weights reduce to the manually computed
+        weighted mean over all N*D elements."""
+        n, d = 6, 3
+        y_pred = torch.randn(n, d)
+        target = torch.randn(n, d)
+        weights = torch.tensor([0.5, 1.0, 2.0, 0.0, 1.5, 0.25])
+        loss_fn = WeightedMSELoss(reduction="mean")
+        result = loss_fn(y_pred, target, weights=weights)
+        sq_err = (y_pred - target) ** 2
+        # Each of the N*D elements carries its row's weight; the weighted mean
+        # normalizes by the expanded weight mass so all-ones == plain mean.
+        w_expanded = weights.unsqueeze(-1).expand_as(sq_err)
+        expected = (sq_err * w_expanded).sum() / w_expanded.sum()
+        assert torch.isclose(result, expected)
 
 
 # Tests for RegressionLoss

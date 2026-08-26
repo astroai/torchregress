@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from math import ceil
 from statistics import NormalDist
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 import numpy as np
 import torch
@@ -19,14 +19,16 @@ from .label_shift import LabelShiftEMConfig, PosteriorLabelShiftAdapter
 from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
 from .subspace import WeightedSubspaceMomentAligner
 
+ArrayLike = np.ndarray | Tensor | Sequence[float]
 
-def _to_tensor(x: Tensor | torch.Tensor | Sequence[float]) -> Tensor:
+
+def _to_tensor(x: ArrayLike) -> Tensor:
     if torch.is_tensor(x):
         return x
     return torch.as_tensor(x)
 
 
-def _to_numpy(x: Tensor | Sequence[float]) -> "np.ndarray":
+def _to_numpy(x: ArrayLike) -> "np.ndarray":
     import numpy as np
 
     if torch.is_tensor(x):
@@ -34,11 +36,11 @@ def _to_numpy(x: Tensor | Sequence[float]) -> "np.ndarray":
     return np.asarray(x)
 
 
-def _as_1d(x: Tensor | Sequence[float]) -> Tensor:
+def _as_1d(x: ArrayLike) -> Tensor:
     return _to_tensor(x).reshape(-1)
 
 
-def _as_2d(x: Tensor | Sequence[float]) -> Tensor:
+def _as_2d(x: ArrayLike) -> Tensor:
     arr = _to_tensor(x)
     if arr.ndim == 1:
         return arr.reshape(-1, 1)
@@ -46,7 +48,11 @@ def _as_2d(x: Tensor | Sequence[float]) -> Tensor:
 
 
 def _interp_np(
-    x: Tensor, xp: Tensor, fp: Tensor, left: float | None = None, right: float | None = None
+    x: Tensor,
+    xp: Tensor,
+    fp: Tensor,
+    left: float | Tensor | None = None,
+    right: float | Tensor | None = None,
 ) -> Tensor:
     """torch equivalent of np.interp(x, xp, fp, left, right)."""
     if left is None:
@@ -126,10 +132,10 @@ def _density_to_probabilities(support: Tensor, density: Tensor, eps: float) -> T
         probs[degenerate] = 1.0 / n_cols
         row_sum[degenerate] = 1.0
     result = probs / row_sum.clamp(eps, None)
-    return _to_numpy_if_inputs_were(result, support, density)
+    return cast(Tensor, _to_numpy_if_inputs_were(result, support, density))
 
 
-def _probabilities_to_density(support: Tensor, probabilities: Tensor, eps: float) -> Tensor:
+def _probabilities_to_density(support: Tensor, probabilities: ArrayLike, eps: float) -> Tensor:
     dx = _uniform_dx(support)
     density = _to_tensor(probabilities).double() / max(dx, eps)
     return _normalize_density(support, density, eps)
@@ -142,7 +148,7 @@ def _gaussian_density_on_support(mean: Tensor, std: Tensor, support: Tensor, eps
     z = (supp - mu) / sigma
     dens = torch.exp(-0.5 * z**2) / (sigma * torch.sqrt(torch.tensor(2.0 * torch.pi)))
     result = _normalize_density(support, dens, eps)
-    return _to_numpy_if_inputs_were(result, mean, std, support)
+    return cast(Tensor, _to_numpy_if_inputs_were(result, mean, std, support))
 
 
 def _resample_density(
@@ -159,11 +165,11 @@ def _resample_density(
         for idx in range(dens_in.shape[0]):
             out[idx] = _interp_np(supp_out, supp_in[idx], dens_in[idx], left=0.0, right=0.0)
     result = _normalize_density(supp_out, out, eps)
-    return _to_numpy_if_inputs_were(result, density_in)
+    return cast(Tensor, _to_numpy_if_inputs_were(result, density_in))
 
 
 def _probability_moments(
-    support: Tensor, probabilities: Tensor, eps: float
+    support: Tensor, probabilities: ArrayLike, eps: float
 ) -> tuple[Tensor, Tensor]:
     supp = _to_tensor(support).double().reshape(-1)
     probs = _to_tensor(probabilities).double()
@@ -174,7 +180,7 @@ def _probability_moments(
 
 
 def _probability_quantiles(
-    support: Tensor, probabilities: Tensor, quantile_levels: Sequence[float]
+    support: Tensor, probabilities: ArrayLike, quantile_levels: Sequence[float]
 ) -> Tensor:
     supp = _to_tensor(support).double().reshape(-1)
     probs = _to_tensor(probabilities).double()
@@ -192,7 +198,7 @@ def _point_density_on_support(point: Tensor, support: Tensor, eps: float) -> Ten
     dx = _uniform_dx(support)
     std = torch.full_like(pts, fill_value=max(2.0 * dx, eps))
     result = _gaussian_density_on_support(pts, std, support, eps)
-    return _to_numpy_if_inputs_were(result, point, support)
+    return cast(Tensor, _to_numpy_if_inputs_were(result, point, support))
 
 
 def _batch_to_support_density(
@@ -277,7 +283,8 @@ def _log_density_at_targets(
     values = torch.empty(targ.shape[0], dtype=torch.float64)
     for idx, target in enumerate(targ):
         values[idx] = _interp_np(target.unsqueeze(0), supp, dens[idx], left=eps, right=eps)
-    return _to_numpy_if_inputs_were(values.clamp(eps, None).log(), support, density, targets)
+    log_dens = values.clamp(eps, None).log()
+    return cast(Tensor, _to_numpy_if_inputs_were(log_dens, support, density, targets))
 
 
 def _finite_sample_quantile(scores: Tensor, alpha: float) -> float:
@@ -327,9 +334,9 @@ def _native_interval(
     z = float(NormalDist().inv_cdf(1.0 - alpha / 2.0))
 
     if family in {"gaussian", "point"}:
-        mean = _as_1d(batch.mean if batch.mean is not None else batch.point)
+        mean = _as_1d(cast(ArrayLike, batch.mean if batch.mean is not None else batch.point))
         std = (
-            _as_1d(batch.std).clamp(eps, None)
+            _as_1d(cast(ArrayLike, batch.std)).clamp(eps, None)
             if batch.std is not None
             else torch.full_like(mean, eps)
         )
@@ -341,22 +348,24 @@ def _native_interval(
         probs = _density_to_probabilities(support, density, eps)
         quantiles = _probability_quantiles(support, probs, levels)
         return quantiles[:, 0].numpy(), quantiles[:, 1].numpy()
-    mean = _as_1d(batch.mean if batch.mean is not None else batch.point)
+    mean = _as_1d(cast(ArrayLike, batch.mean if batch.mean is not None else batch.point))
     std = (
-        _as_1d(batch.std).clamp(eps, None) if batch.std is not None else torch.full_like(mean, eps)
+        _as_1d(cast(ArrayLike, batch.std)).clamp(eps, None)
+        if batch.std is not None
+        else torch.full_like(mean, eps)
     )
     lower, upper = mean - z * std, mean + z * std
     return lower.numpy(), upper.numpy()
 
 
-def _discrete_tv(p: Tensor, q: Tensor) -> float:
+def _discrete_tv(p: ArrayLike, q: ArrayLike) -> float:
     return 0.5 * float(torch.abs(_to_tensor(p).double() - _to_tensor(q).double()).sum().item())
 
 
 def _stabilize_target_prior(
     *,
-    source_prior: Tensor,
-    target_prior: Tensor,
+    source_prior: ArrayLike,
+    target_prior: ArrayLike,
     selected_probabilities: Tensor,
     converged: bool,
     config: "ShiftFactoredTransportConfig",
@@ -479,7 +488,7 @@ class ShiftFactoredTransportConfig:
 @dataclass(frozen=True)
 class ShiftFactoredTransportState:
     source_support: Tensor
-    source_prior: Tensor
+    source_prior: np.ndarray
     source_targets: Tensor
     source_inputs: Tensor | None = None
     source_representations: Tensor | None = None
@@ -525,7 +534,7 @@ class ShiftFactoredPredictiveTransport:
         if cfg.enable_alignment and source_features is not None:
             self._subspace_aligner = WeightedSubspaceMomentAligner(
                 random_state=cfg.random_state,
-            ).fit(source_features, targets)
+            ).fit(cast(np.ndarray, source_features), cast(np.ndarray, targets))
         if cfg.enable_uncertainty_inflation and source_features is not None:
             self._shift_calibrator = RepresentationShiftInflator(
                 base_temperature=cfg.uncertainty_base_temperature,
@@ -570,7 +579,7 @@ class ShiftFactoredPredictiveTransport:
             and cfg.enable_alignment
             and cfg.allow_input_alignment_rerun
         ):
-            aligned_inputs = self._subspace_aligner.transform(target_inputs_t)
+            aligned_inputs = self._subspace_aligner.transform(cast(np.ndarray, target_inputs_t))
             effective_predictions = predictor.predict_distribution(aligned_inputs)
             alignment_applied = True
         elif (
@@ -592,8 +601,8 @@ class ShiftFactoredPredictiveTransport:
         sample_weights = None
         if target_features is not None and target_features.shape[0] == probabilities.shape[0]:
             sample_weights = local_consistency_weights(
-                target_features,
-                probabilities,
+                cast(np.ndarray, target_features),
+                cast(np.ndarray, probabilities),
                 config=LocalConsistencyConfig(
                     k=min(cfg.local_consistency_k, max(1, probabilities.shape[0] - 1)),
                     random_state=cfg.random_state,
@@ -607,7 +616,7 @@ class ShiftFactoredPredictiveTransport:
         )
         mask = torch.as_tensor(
             select_high_confidence(
-                probabilities,
+                cast(np.ndarray, probabilities),
                 top_fraction=cfg.top_fraction,
                 min_count=min_count,
             )
@@ -620,7 +629,7 @@ class ShiftFactoredPredictiveTransport:
             config=LabelShiftEMConfig(eps=cfg.eps),
         )
         estimate = adapter.estimate(
-            probabilities[mask],
+            cast(np.ndarray, probabilities[mask]),
             sample_weights=sample_weights[mask] if sample_weights is not None else None,
         )
         selected_fraction = float(mask.float().mean().item()) if mask.numel() else 0.0
@@ -656,7 +665,10 @@ class ShiftFactoredPredictiveTransport:
             atol=max(cfg.eps * 10.0, 1.0e-6),
             rtol=0.0,
         )
-        transported = adapter.transform(probabilities, target_prior=stabilized_prior)
+        transported = adapter.transform(
+            cast(np.ndarray, probabilities),
+            target_prior=cast(np.ndarray, stabilized_prior),
+        )
 
         if (
             metadata.get("family") == "gaussian"
@@ -671,7 +683,9 @@ class ShiftFactoredPredictiveTransport:
                 and target_features is not None
                 and cfg.enable_uncertainty_inflation
             ):
-                std = self._shift_calibrator.calibrate_std(std, target_features).float()
+                std = cast(
+                    Tensor, self._shift_calibrator.calibrate_std(std, target_features)
+                ).float()
             adapted_density = _gaussian_density_on_support(
                 mean,
                 std,
@@ -691,7 +705,9 @@ class ShiftFactoredPredictiveTransport:
                 and cfg.enable_uncertainty_inflation
             ):
                 if metadata.get("family") == "gaussian":
-                    std = self._shift_calibrator.calibrate_std(std, target_features).float()
+                    std = cast(
+                        Tensor, self._shift_calibrator.calibrate_std(std, target_features)
+                    ).float()
                     adapted_density = _gaussian_density_on_support(
                         mean,
                         std,
@@ -869,8 +885,8 @@ class ShiftFactoredPredictiveTransport:
         q_hat = float(self._conformal_state["q_hat"])
         extra = dict(batch.extra or {})
         if method == "split":
-            scale = _to_tensor(batch.std).clamp(self.config.eps, None)
-            center = _to_tensor(batch.mean)
+            scale = _to_tensor(cast(ArrayLike, batch.std)).clamp(self.config.eps, None)
+            center = _to_tensor(cast(ArrayLike, batch.mean))
             lower = center - q_hat * scale
             upper = center + q_hat * scale
         elif method == "interval":
@@ -886,12 +902,12 @@ class ShiftFactoredPredictiveTransport:
             quantiles = batch.quantiles
             if quantiles is None:
                 probs = _density_to_probabilities(
-                    _to_tensor(batch.support),
-                    _to_tensor(batch.density),
+                    _to_tensor(cast(ArrayLike, batch.support)),
+                    _to_tensor(cast(ArrayLike, batch.density)),
                     self.config.eps,
                 )
                 quantiles = _probability_quantiles(
-                    _to_tensor(batch.support),
+                    _to_tensor(cast(ArrayLike, batch.support)),
                     probs,
                     [self.config.alpha / 2.0, 1.0 - self.config.alpha / 2.0],
                 )
@@ -899,8 +915,8 @@ class ShiftFactoredPredictiveTransport:
             lower = q[:, 0] - q_hat
             upper = q[:, -1] + q_hat
         elif method == "cti":
-            density = _to_tensor(batch.density)
-            support_arr = _to_tensor(batch.support)
+            density = _to_tensor(cast(ArrayLike, batch.density))
+            support_arr = _to_tensor(cast(ArrayLike, batch.support))
             lower = torch.empty(density.shape[0], dtype=torch.float64)
             upper = torch.empty(density.shape[0], dtype=torch.float64)
             if support_arr.ndim == 1:

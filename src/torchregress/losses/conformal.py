@@ -2,10 +2,12 @@
 Conformal prediction for regression.
 
 Provides standalone conformal predictors (calibration + prediction) and
-backward-compatible loss wrappers. All methods provide finite-sample
-marginal coverage guarantees under exchangeability.
-
-Predictors
+backward-compatible loss wrappers. Most methods provide finite-sample
+marginal coverage guarantees ``>= 1-alpha`` under exchangeability
+(split/CQR/CTI/etc.). Cross-validation variants (CV+/Jackknife+) provide
+``>= 1-2alpha`` (Barber et al. 2021, Thm 1); weighted variants provide
+``>= 1-alpha - 2*Delta`` where ``Delta`` is the total-variation gap to
+uniform (Barber et al. 2023).
 ----------
 - SplitConformal: absolute residual scores, ŷ ± q_hat
 - CQR: conformalized quantile regression
@@ -60,7 +62,10 @@ def _weighted_quantile(
 
     For unweighted case, delegates to :func:`finite_sample_quantile` at level
     ``1 - q`` (the exact finite-sample order statistic).  For weighted case,
-    uses the weighted empirical CDF.
+    evaluates ``q`` on the AUGMENTED empirical distribution that includes the
+    held-out test point with unit weight: ``p_i = w_i / (sum_j w_j + w_{n+1})``
+    with ``w_{n+1} = 1``.  Uniform weights therefore reproduce
+    :func:`finite_sample_quantile` exactly (TR-COR-05).
 
     Args:
         scores: 1-D tensor of nonconformity scores.
@@ -77,7 +82,8 @@ def _weighted_quantile(
             return torch.max(scores.reshape(-1))
         return finite_sample_quantile(scores, 1.0 - q)
 
-    # Weighted quantile via sorted CDF
+    # Weighted quantile via sorted CDF over the augmented (n + 1)-point
+    # distribution; float64 keeps the uniform-weight case bitwise-exact.
     sorted_idx = scores.argsort()
     sorted_scores = scores[sorted_idx]
     sorted_weights = weights[sorted_idx]
@@ -85,13 +91,15 @@ def _weighted_quantile(
         raise ValueError("Input weights tensor is empty.")
     if torch.any(sorted_weights < 0):
         raise ValueError("Sample weights must be non-negative.")
-    total_weight = sorted_weights.sum()
-    if total_weight <= 0:
+    cum_weights = torch.cumsum(sorted_weights.to(torch.float64), dim=0)
+    total_weight = float(cum_weights[-1]) + 1.0  # +1: held-out test point
+    if not total_weight > 1.0:
         raise ValueError("Sum of sample weights must be positive.")
-    cum_weights = torch.cumsum(sorted_weights, dim=0)
-    cum_weights = cum_weights / total_weight  # normalize to [0, 1]
+    cum_weights = cum_weights / total_weight  # normalize augmented CDF to [0, 1)
     # First index where cumulative weight >= q
-    idx = torch.searchsorted(cum_weights, q)
+    idx = torch.searchsorted(
+        cum_weights, torch.tensor(float(q), dtype=torch.float64, device=cum_weights.device)
+    )
     idx = idx.clamp(max=len(sorted_scores) - 1)
     return sorted_scores[idx]
 
@@ -118,6 +126,303 @@ def finite_sample_quantile(scores: Tensor, alpha: float) -> Tensor:
         raise ValueError("Input scores tensor is empty.")
     k = min(math.ceil((n + 1) * (1.0 - alpha)), n)
     return torch.sort(flat).values[k - 1]
+
+
+def _weighted_conformal_threshold(
+    scores_cal: Tensor,
+    w_cal: Optional[Tensor],
+    alpha: float,
+) -> Tensor:
+    """Weighted finite-sample conformal threshold at miscoverage ``alpha``.
+
+    Delegates to :func:`_weighted_quantile` with the Tibshirani augmented
+    ECDF (``+ w_{n+1}=1``) so uniform and non-uniform weights share one
+    implementation.  Previously used ``k/n`` without augmentation which
+    diverged from :func:`_weighted_quantile` for non-uniform weights
+    (NEW-HIGH-01).
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+    flat = scores_cal.reshape(-1)
+    n = flat.numel()
+    if n == 0:
+        raise ValueError("Input scores tensor is empty.")
+    if w_cal is None:
+        return finite_sample_quantile(flat, alpha)
+    w = w_cal.reshape(-1)
+    if w.numel() != n:
+        raise ValueError(f"weights must have shape ({n},), got {tuple(w_cal.shape)}")
+    # _weighted_quantile expects quantile level q=1-alpha on augmented distribution
+    return _weighted_quantile(flat, 1.0 - alpha, weights=w)
+
+
+class NonExchangeableConformalRegressor:
+    """Weighted nonexchangeable (NexCP) split conformal regression intervals.
+
+    Implements weighted split conformal prediction beyond exchangeability
+    (Barber, Candès, Ramdas & Tibshirani, AoS 2023, arXiv:2202.13415):
+    a weighted finite-sample quantile of nonconformity scores with importance
+    weights ``w(x) = p_target(x) / p_source(x)`` pointing toward the test
+    distribution.
+
+    Coverage statement transcribed from the paper.  Let ``R(z)`` denote the
+    residual vector of the (frozen) model on the full data sequence
+    ``Z = (Z_1, ..., Z_{n+1})``, let ``R(Z^i)`` be the same after swapping
+    data points ``i`` and ``n+1``, and let
+    ``w~_i = w(X_i) / (sum_j w(X_j) + w(X_{n+1}))``.  Then:
+
+    * Theorem 2 (lower bound):
+      ``P{Y_{n+1} in C(X_{n+1})} >= 1 - alpha - sum_i w~_i * d_TV(R(Z), R(Z^i))``.
+    * Theorem 3 (upper bound, split-conformal special case stated there):
+      ``P{Y_{n+1} in C(X_{n+1})} < 1 - alpha + w~_{n+1} + sum_i w~_i * d_TV(R(Z), R(Z^i))``.
+
+    Notation mapping to this class: ``scores_cal[i] = R(Z)_i``;
+    ``self.weights_normalized_[i] = w(X_i) / sum_j w(X_j)`` (calibration-only
+    normalization; the paper's ``w~_i`` additionally divides by
+    ``1 + sum_j w(X_j)``, which only shrinks the stored ratios);
+    ``self.max_weight_ratio_ = max_i w(X_i)/sum_j w(X_j)`` bounds the unknown
+    test-point mass ``w~_{n+1}``.
+
+    The swap TV terms ``d_TV(R(Z), R(Z^i))`` are not observable at calibration
+    time, so :meth:`two_sided_coverage_bounds` reports the conservative
+    computable instantiation used throughout this package: under fixed model +
+    weights independent of the scores (assumptions A1/A2 of the MTTA protocol),
+    each swap-TV term is bounded by twice the total-variation distance between
+    the weighted and uniform empirical score distributions, which Gibbs--Su
+    bounds by ``Delta = 0.5 * sum_i |w_i / sum_j w_j - 1/n|`` (stored as
+    ``self.weight_tv_gap_``).  Substituting (and ``sum_i w~_i <= 1``) yields
+    ``[1 - alpha - 2 * Delta, 1 - alpha + 2 * Delta + max_i w_i/sum_j w_j]``.
+    Uniform weights give ``Delta = 0``: the bounds collapse to the ordinary
+    finite-sample split-conformal statement.
+
+    Args:
+        alpha: Miscoverage level in (0, 1).
+        normalize_weights: If ``True`` (default), internally normalizes
+            ``w_cal`` to sum to one before computing thresholds and bounds.
+
+    """
+
+    def __init__(self, alpha: float, *, normalize_weights: bool = True) -> None:
+        if not 0.0 < alpha < 1.0:
+            raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        self.alpha = float(alpha)
+        self.normalize_weights = bool(normalize_weights)
+        self.threshold_: Optional[Tensor] = None
+        self.n_calibrated_: int = 0
+        self.weights_normalized_: Optional[Tensor] = None
+        self.max_weight_ratio_: float = 0.0
+        self.weight_tv_gap_: float = 0.0
+
+    def calibrate(
+        self, scores_cal: Tensor, w_cal: Optional[Tensor] = None
+    ) -> "NonExchangeableConformalRegressor":
+        """Calibrate the weighted threshold from held-out scores.
+
+        Args:
+            scores_cal: 1-D nonconformity scores on held-out calibration data.
+            w_cal: Optional 1-D importance weights toward the target
+                distribution (higher = more target-like).
+
+        Returns:
+            ``self`` for chaining.
+        """
+        flat = scores_cal.reshape(-1).detach()
+        self.n_calibrated_ = int(flat.numel())
+        if w_cal is None:
+            self.weights_normalized_ = None
+            self.max_weight_ratio_ = 1.0 / float(self.n_calibrated_)
+            self.weight_tv_gap_ = 0.0
+            self.threshold_ = finite_sample_quantile(flat, self.alpha)
+            return self
+        w = w_cal.reshape(-1).detach().to(dtype=flat.dtype, device=flat.device)
+        if w.numel() != self.n_calibrated_:
+            raise ValueError(
+                f"scores and weights disagree: {self.n_calibrated_} vs {int(w.numel())}"
+            )
+        if bool((w < 0).any()):
+            raise ValueError("Importance weights must be non-negative.")
+        w_sum = w.sum()
+        if not float(w_sum) > 0.0:
+            raise ValueError("Sum of importance weights must be positive.")
+        w_norm = w / w_sum if self.normalize_weights else w
+        n = float(self.n_calibrated_)
+        self.weights_normalized_ = w_norm
+        self.max_weight_ratio_ = float(w_norm.max())
+        self.weight_tv_gap_ = float(0.5 * (w_norm - 1.0 / n).abs().sum())
+        self.threshold_ = _weighted_conformal_threshold(flat, w_norm, self.alpha)
+        return self
+
+    def two_sided_coverage_bounds(self) -> Tuple[float, float]:
+        """Two-sided coverage bounds for the calibrated predictor.
+
+        Returns the conservative computable instantiation of the Barber et al.
+        Theorems 2--3 documented in the class docstring:
+        ``[1 - alpha - 2 * weight_tv_gap_, 1 - alpha + 2 * weight_tv_gap_ +
+        max_weight_ratio_]``.  Callers must have run :meth:`calibrate` first.
+        """
+        if self.threshold_ is None:
+            raise RuntimeError("call calibrate() before two_sided_coverage_bounds()")
+        lower = 1.0 - self.alpha - 2.0 * self.weight_tv_gap_
+        upper = 1.0 - self.alpha + 2.0 * self.weight_tv_gap_ + self.max_weight_ratio_
+        return lower, upper
+
+    def interval_from_model(
+        self,
+        model: Any,
+        X_cal: Tensor,
+        y_cal: Tensor,
+        X_test: Tensor,
+        w_cal: Optional[Tensor] = None,
+        alpha: Optional[float] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        """Absolute-residual intervals ``[mu(x) - q, mu(x) + q]`` around a model.
+
+        Computes absolute-residual scores on ``(X_cal, y_cal)`` with the frozen
+        ``model``, calibrates the weighted threshold (with the provided
+        importance weights, or uniformly when ``w_cal`` is ``None``), and wraps
+        the model prediction on ``X_test``.
+
+        Args:
+            model: Frozen callable mapping features to point predictions.
+            X_cal: Calibration features.
+            y_cal: Calibration targets.
+            X_test: Test features.
+            w_cal: Optional importance weights toward the target distribution.
+            alpha: Optional override of the constructor miscoverage level.
+
+        Returns:
+            ``(lower, upper)`` tensors shaped like the model predictions.
+        """
+        if y_cal.shape[0] != X_cal.shape[0]:
+            raise ValueError(f"X_cal and y_cal disagree: {X_cal.shape[0]} vs {y_cal.shape[0]} rows")
+        was_training = getattr(model, "training", False)
+        if was_training:
+            model.eval()
+        with torch.no_grad():
+            pred_cal = model(X_cal)
+            pred_test = model(X_test)
+        if was_training:
+            model.train()
+        pred_cal_1d = pred_cal.reshape(pred_cal.shape[0], -1).mean(dim=-1)
+        pred_test_1d = pred_test.reshape(pred_test.shape[0], -1).mean(dim=-1)
+        y_cal_1d = y_cal.reshape(y_cal.shape[0], -1).mean(dim=-1)
+        scores = (y_cal_1d - pred_cal_1d).abs()
+        eff_alpha = self.alpha if alpha is None else float(alpha)
+        threshold = _weighted_conformal_threshold(scores, w_cal, eff_alpha)
+        return pred_test_1d - threshold, pred_test_1d + threshold
+
+
+class MultivariateScoreConformal:
+    """Weighted conformal regions for multi-target regression via a scalar score.
+
+    Conformalizes a scalar multivariate nonconformity score of a predictive
+    Gaussian ``(mu, Sigma)``: the Mahalanobis distance
+    ``(y - mu)^T Sigma^{-1} (y - mu)`` (default) or the Gaussian negative log
+    likelihood (``score_fn="nll"``, which adds the constant log-determinant
+    terms).  Because the score is scalar, the resulting prediction region is a
+    joint ellipsoid ``{y : s(mu, Sigma, y) <= r}`` whose radius carries a
+    joint-marginal coverage guarantee: under (weighted) exchangeability,
+    ``P(s(mu, Sigma, Y_new) <= r) >= 1 - alpha`` (weighted/NexCP semantics
+    when importance weights are supplied, per Barber et al. 2023,
+    arXiv:2202.13415).  Per-target conditional coverage is an empirical
+    diagnostic only and is deliberately NOT claimed as a guarantee.
+
+    Covariances may be full per-point ``[n, d, d]``, a single shared
+    ``[d, d]`` matrix, or diagonal ``[n, d]`` / ``[d]``.
+    """
+
+    _VALID_SCORE_FNS = ("mahalanobis", "nll")
+
+    def __init__(self, alpha: float, score_fn: str = "mahalanobis") -> None:
+        if not 0.0 < alpha < 1.0:
+            raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        if score_fn not in self._VALID_SCORE_FNS:
+            raise ValueError(f"score_fn must be one of {self._VALID_SCORE_FNS}, got {score_fn!r}")
+        self.alpha = float(alpha)
+        self.score_fn = score_fn
+        self.threshold_: Optional[Tensor] = None
+
+    @staticmethod
+    def _prepare_covariances(cov: Tensor, n: int, d: int, ref: Tensor) -> Tensor:
+        cov = cov.to(device=ref.device, dtype=ref.dtype)
+        if cov.dim() == 1:
+            if cov.numel() != d:
+                raise ValueError(f"diagonal covariance must have {d} entries, got {cov.numel()}")
+            return cov.unsqueeze(0).expand(n, d)
+        if cov.dim() == 2 and cov.shape[0] == cov.shape[1]:
+            if cov.shape != (d, d):
+                raise ValueError(f"shared covariance must be ({d}, {d}), got {tuple(cov.shape)}")
+            return cov.unsqueeze(0).expand(n, d, d)
+        if cov.dim() == 2:
+            if cov.shape != (n, d):
+                raise ValueError(
+                    f"per-point diagonal covariance must be ({n}, {d}), got {tuple(cov.shape)}"
+                )
+            return cov
+        if cov.dim() == 3:
+            if cov.shape != (n, d, d):
+                raise ValueError(
+                    f"per-point covariance must be ({n}, {d}, {d}), got {tuple(cov.shape)}"
+                )
+            return cov
+        raise ValueError(f"unsupported covariance shape {tuple(cov.shape)}")
+
+    def _scores(self, mu: Tensor, cov: Tensor, y: Tensor) -> Tensor:
+        if mu.shape != y.shape or mu.dim() != 2:
+            raise ValueError(
+                f"mu and y must be 2-D with matching shapes, "
+                f"got {tuple(mu.shape)} vs {tuple(y.shape)}"
+            )
+        n, d = mu.shape
+        cov_p = self._prepare_covariances(cov, n, d, mu)
+        diff = (y - mu).to(device=mu.device, dtype=mu.dtype)
+        if cov_p.dim() == 2:  # diagonal
+            quad = (diff * diff / cov_p.clamp_min(torch.finfo(mu.dtype).tiny)).sum(dim=-1)
+            logdet = torch.log(cov_p.clamp_min(torch.finfo(mu.dtype).tiny)).sum(dim=-1)
+        else:
+            chol = torch.linalg.cholesky(cov_p)
+            solved = torch.cholesky_solve(diff.unsqueeze(-1), chol).squeeze(-1)
+            quad = (diff * solved).sum(dim=-1)
+            logdet = 2.0 * torch.log(torch.diagonal(chol, dim1=-2, dim2=-1)).sum(dim=-1)
+        if self.score_fn == "nll":
+            return 0.5 * (d * math.log(2.0 * math.pi) + logdet + quad)
+        return quad
+
+    def calibrate(
+        self,
+        mu_cal: Tensor,
+        cov_cal: Tensor,
+        y_cal: Tensor,
+        w_cal: Optional[Tensor] = None,
+    ) -> "MultivariateScoreConformal":
+        """Calibrate the region radius from held-out predictive Gaussians.
+
+        Args:
+            mu_cal: ``[n, d]`` predictive means.
+            cov_cal: Predictive covariances (see class docstring for shapes).
+            y_cal: ``[n, d]`` held-out targets.
+            w_cal: Optional 1-D importance weights toward the target
+                distribution; ``None`` reduces to exact multivariate split CP.
+
+        Returns:
+            ``self`` for chaining.
+        """
+        scores = self._scores(mu_cal, cov_cal, y_cal)
+        self.threshold_ = _weighted_conformal_threshold(scores, w_cal, self.alpha)
+        return self
+
+    def region_radius(self) -> float:
+        """Calibrated scalar radius ``r`` of the joint ellipsoidal region."""
+        if self.threshold_ is None:
+            raise RuntimeError("call calibrate() before region_radius()")
+        return float(self.threshold_)
+
+    def covers(self, mu_test: Tensor, cov_test: Tensor, y_test: Tensor) -> Tensor:
+        """Per-test-point membership of ``y`` in the joint conformal region."""
+        if self.threshold_ is None:
+            raise RuntimeError("call calibrate() before covers()")
+        scores = self._scores(mu_test, cov_test, y_test)
+        return scores <= self.threshold_.to(device=scores.device, dtype=scores.dtype)
 
 
 # ---------------------------------------------------------------------------
@@ -455,10 +760,12 @@ class SplitConformal(ConformalPredictor):
 
 
 class CVPlus(ConformalPredictor):
-    """CV+ Conformal Predictor for ensemble conformal prediction.
+    """CV+ Conformal Predictor (Barber et al. 2021).
 
-    Builds prediction intervals using out-of-fold predictions and residuals
-    obtained from K-fold cross-validation or leave-one-out (Jackknife+).
+    Builds prediction intervals from out-of-fold residuals. Coverage
+    guarantee is ``>= 1-2alpha`` (Thm 1), not ``1-alpha``; for
+    ``1-alpha`` use split/CQR. Jackknife+ is the ``K=n`` special case
+    with the same ``1-2alpha`` guarantee.
 
     During calibration, expects:
     - y_pred: Out-of-fold predictions on the calibration set, shape [n_samples, output_dim].

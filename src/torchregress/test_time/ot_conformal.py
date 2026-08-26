@@ -12,7 +12,6 @@ See ``docs/test_time/ot_shift_conformal.md`` for assumptions and limitations.
 
 from __future__ import annotations
 
-import math
 from typing import Any, Dict, Optional, Union, cast
 
 import numpy as np
@@ -204,8 +203,9 @@ class WeightedSplitConformalAdapter:
         weights = _as_1d_scores(calibration_weights, name="calibration_weights")
         if weights.shape != scores.shape:
             raise ValueError("calibration_weights must match calibration_scores shape")
-        n = scores.numel()
-        q_level = min(math.ceil((n + 1) * (1.0 - self.alpha)) / n, 1.0)
+        # The (n+1) test-point mass is supplied by ``_weighted_quantile``'s
+        # augmented distribution; pass the raw target level (TR-COR-05).
+        q_level = 1.0 - self.alpha
         self.threshold_ = _weighted_quantile(scores, q_level, weights)
         return self
 

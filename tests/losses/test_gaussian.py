@@ -124,6 +124,69 @@ class TestGaussianLosses(unittest.TestCase):
             else:
                 self.assertEqual(red_loss.dim(), 0)
 
+    def test_gaussian_nll_partial_row_mask_is_elementwise(self):
+        """TR-COR-07: a partially-valid row must not be discarded.
+
+        With mask ``[[True, False]]`` on D=2, the masked feature
+        contributes exactly zero and the unmasked feature's NLL equals
+        its full-data (no-mask) value under every reduction.
+        """
+        mean = torch.tensor([[0.0, 1.0]])
+        log_var = torch.zeros(1, 2)
+        target = torch.tensor([[0.5, 100.0]])
+        mask = torch.tensor([[True, False]])
+
+        # Element-wise NLL of the valid feature, from an unmasked call.
+        none_fn = GaussianNLLLoss(reduction="none")
+        full_none = none_fn((mean, log_var), target)
+        self.assertEqual(full_none.shape, (1, 2))
+        valid_nll = full_none[0, 0]
+
+        masked_none = none_fn((mean, log_var), target, mask=mask)
+        self.assertEqual(masked_none.shape, (1, 2))
+        # Masked feature is exactly zero; valid feature unchanged.
+        self.assertEqual(masked_none[0, 1].item(), 0.0)
+        torch.testing.assert_close(masked_none[0, 0], valid_nll)
+
+        # 'sum' and 'mean' both reduce over the single valid element only.
+        masked_sum = GaussianNLLLoss(reduction="sum")((mean, log_var), target, mask=mask)
+        masked_mean = GaussianNLLLoss(reduction="mean")((mean, log_var), target, mask=mask)
+        torch.testing.assert_close(masked_sum, valid_nll)
+        torch.testing.assert_close(masked_mean, valid_nll)
+
+        # Multi-row: partially-valid row kept alongside fully-valid rows.
+        mean3 = torch.tensor([[0.0, 1.0], [2.0, -1.0], [0.5, 0.5]])
+        log_var3 = torch.zeros(3, 2)
+        target3 = torch.tensor([[0.5, 1.0], [1.0, 100.0], [-0.5, 2.0]])
+        mask3 = torch.tensor([[True, True], [True, False], [False, True]])
+        masked_rows = GaussianNLLLoss(reduction="none")((mean3, log_var3), target3, mask=mask3)
+        full_rows = GaussianNLLLoss(reduction="none")((mean3, log_var3), target3)
+        torch.testing.assert_close(masked_rows, full_rows * mask3)
+
+    def test_gaussian_nll_matches_manual_formula(self):
+        """TR-COR-07: reduced outputs equal the manual Gaussian NLL
+        formula summed over all elements ('sum') or averaged over
+        elements ('mean')."""
+        torch.manual_seed(7)
+        mean = torch.randn(6, 2)
+        log_var = torch.randn(6, 2) * 0.3
+        target = torch.randn(6, 2)
+
+        _, var = GaussianNLLLoss()._extract_distribution_parameters((mean, log_var))
+        eps = GaussianNLLLoss().eps
+        elem = 0.5 * (
+            math.log(2.0 * math.pi) + torch.log(var + eps) + (target - mean) ** 2 / (var + eps)
+        )
+
+        torch.testing.assert_close(
+            GaussianNLLLoss(reduction="sum")((mean, log_var), target), elem.sum()
+        )
+        torch.testing.assert_close(
+            GaussianNLLLoss(reduction="mean")((mean, log_var), target), elem.mean()
+        )
+        none_out = GaussianNLLLoss(reduction="none")((mean, log_var), target)
+        torch.testing.assert_close(none_out, elem)
+
     def test_gaussian_crps_loss_matches_metric(self):
         """GaussianCRPSLoss should match the shared analytic CRPS metric."""
         loss_fn = GaussianCRPSLoss(reduction="mean").to(self.device)

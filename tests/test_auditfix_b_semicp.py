@@ -1,8 +1,10 @@
 """Workstream B audit-fix regression test for the semicp weighted path (B4 / TR-MET-12).
 
 ``SemiConformalCalibrator.compute_thresholds`` must apply the finite-sample
-correction: the smallest score whose normalized cumulative weight reaches
-``ceil((n+1)*(1-alpha))/n`` (exact order statistic in the unweighted case).
+correction exactly once (TR-COR-06): the smallest score whose cumulative mass
+on the augmented distribution (target pseudo-weight included in the
+normalization denominator) reaches ``ceil((n+1)*(1-alpha))/(n+1)``, which is
+the exact order statistic in the unweighted case.
 """
 
 import math
@@ -26,20 +28,22 @@ def test_unweighted_path_matches_order_statistic() -> None:
 
 
 def test_weighted_path_uses_corrected_mass() -> None:
-    """Weighted path targets ceil((n+1)*(1-alpha))/n of the cumulative curve."""
+    """Weighted path targets ceil((n+1)*(1-alpha))/(n+1) on the augmented curve."""
     scores = torch.tensor([1.0, 2.0, 3.0, 4.0])
     weights = torch.tensor([3.0, 1.0, 1.0, 1.0])
     calibrator = SemiConformalCalibrator().fit(scores, weights)
     alpha = 0.5
     n = 4
-    q_adj = min(math.ceil((n + 1) * (1.0 - alpha)) / n, 1.0)  # ceil(2.5)/4 = 0.75
+    level = min(math.ceil((n + 1) * (1.0 - alpha)) / (n + 1), 1.0)  # ceil(2.5)/5 = 0.6
 
     # Target weight w = 0 keeps denom = sum_w_cal = 6; cumulative curve:
-    # [3/6, 4/6, 5/6, 1.0]. First index reaching 0.75 is index 2 (score 3.0).
-    # The uncorrected level 1 - alpha = 0.5 would pick index 0 (score 1.0).
+    # [3/6, 4/6, 5/6, 1.0]. First index reaching 0.6 is index 1 (score 2.0).
+    # The uncorrected level 1 - alpha = 0.5 would pick index 0 (score 1.0),
+    # while the doubly-inflated level ceil((n+1)*(1-a))/n = 0.75 picked
+    # index 2 (score 3.0), applying the (n+1)/n factor twice (TR-COR-06).
     q = calibrator.compute_thresholds(torch.tensor([0.0]), alpha=alpha)
-    assert q_adj == 0.75
-    assert np.isclose(float(q[0]), 3.0)
+    assert level == 0.6
+    assert np.isclose(float(q[0]), 2.0)
 
 
 def test_thresholds_monotone_in_alpha() -> None:

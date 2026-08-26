@@ -82,9 +82,12 @@ class SemiConformalCalibrator:
             Shift weights w(x) = p_target(x)/p_source(x) for target points, shape (N_target,).
         alpha : float
             Nominal coverage level is 1 - alpha (e.g. alpha = 0.1 for 90% coverage).
-            Thresholds use the finite-sample correction: the smallest score whose
-            normalized cumulative weight reaches ``ceil((n+1)*(1-alpha))/n``
-            (exact order statistic in the unweighted case).
+            Thresholds evaluate the finite-sample level ``ceil((n+1)*(1-alpha))/(n+1)``
+            ONCE on the augmented empirical distribution ``sum_i p_i delta_{S_i} +
+            w_target / (sum_j w_j + w_target) * delta_inf`` whose normalization
+            denominator already contains the target pseudo-weight; the (n+1)/n
+            inflation is not applied a second time (exact order statistic in the
+            unweighted, zero-target-weight limit).
         """
         if self.scores_cal_ is None or self.weights_cal_ is None:
             raise RuntimeError("Calibrator must be fitted before computing thresholds")
@@ -111,9 +114,12 @@ class SemiConformalCalibrator:
         sum_w_cal = weights.sum()
 
         n_cal = scores.shape[0]
-        # Finite-sample correction (TR-MET-12): target mass on the normalized
-        # cumulative-weight curve is ceil((n+1)*(1-alpha))/n, not 1 - alpha.
-        q_adj = min(math.ceil((n_cal + 1) * (1.0 - alpha)) / n_cal, 1.0)
+        # Finite-sample correction (TR-COR-06): the (n+1) adjustment enters
+        # exactly once -- through the target pseudo-mass already added to the
+        # denominator -- so the level on the augmented distribution is
+        # ceil((n+1)*(1-alpha))/(n+1), not the doubly-inflated
+        # ceil((n+1)*(1-alpha))/n.
+        level = min(math.ceil((n_cal + 1) * (1.0 - alpha)) / (n_cal + 1), 1.0)
         uniform_weights = bool(torch.all(weights == weights[0]))
 
         for k in range(n_tgt):
@@ -128,14 +134,14 @@ class SemiConformalCalibrator:
                 thresholds[k] = finite_sample_quantile(scores, alpha)
                 continue
 
-            # Weighted path (Tibshirani et al., 2019): the cumulative weight of
-            # sorted calibration scores plus the target pseudo-weight, evaluated
-            # at the (n+1)-corrected mass q_adj.
+            # Weighted path (Tibshirani et al., 2019): smallest score whose
+            # cumulative mass on the augmented distribution reaches the
+            # finite-sample level.
             p = weights / denom
             cum_p = torch.cumsum(p, dim=0)
 
-            # Find the smallest index m such that cum_p >= q_adj
-            mask = cum_p >= q_adj
+            # Find the smallest index m such that cum_p >= level
+            mask = cum_p >= level
             idx = torch.where(mask)[0]
             if idx.numel() > 0:
                 thresholds[k] = scores[idx[0]]

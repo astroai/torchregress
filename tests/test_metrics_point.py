@@ -265,9 +265,11 @@ class TestOutlierFraction:
         assert float(metric.compute()) == pytest.approx(1.0 / 3.0)
 
     def test_absolute_mode(self) -> None:
-        # OutlierFraction(mode="absolute", threshold=0.5): std(y_true) of [0,0,0] = 0
-        # → scaled_error = abs_error / 0 = degenerate.  Tested in absolute_mode_nonzero_spread.
-        pass
+        # TR-COR-09: constant targets have zero global variance → outliers are
+        # empty (fraction 0), never NaN.
+        metric = OutlierFraction(mode="absolute", threshold=0.5)
+        metric.update(torch.tensor([0.0, 1.0, 0.1]), torch.tensor([0.0, 0.0, 0.0]))
+        assert float(metric.compute()) == pytest.approx(0.0)
 
     def test_absolute_mode_nonzero_spread(self) -> None:
         metric = OutlierFraction(mode="absolute", threshold=0.5)
@@ -293,6 +295,45 @@ class TestOutlierFraction:
         metric = OutlierFraction()
         metric.update(torch.ones(10), torch.ones(10))
         assert float(metric.compute()) == pytest.approx(0.0)
+
+    def test_absolute_mode_streaming_matches_single_batch(self) -> None:
+        """TR-COR-09: streaming over variable-size batches (incl. a constant one)
+        equals computing on the concatenated data in one batch; global std is
+        batch-independent."""
+        y_true = torch.tensor([0.0, 2.0, 4.0, 10.0, 12.0, 7.0, 7.0, 3.5, 9.25])
+        y_pred = torch.tensor([0.0, 3.0, 4.0, 8.0, 15.0, 6.9, 8.2, 3.5, 9.3])
+        single = OutlierFraction(mode="absolute", threshold=0.4)
+        single.update(y_pred, y_true)
+        expected = float(single.compute())
+        assert expected == expected  # not NaN
+
+        streamed = OutlierFraction(mode="absolute", threshold=0.4)
+        for sl in [(slice(0, 2)), (slice(2, 3)), (slice(3, 6)), (slice(6, 9))]:
+            streamed.update(y_pred[sl], y_true[sl])
+        assert float(streamed.compute()) == pytest.approx(expected)
+
+    def test_absolute_mode_constant_batch_in_stream_no_nan(self) -> None:
+        """A constant-valued batch mid-stream must not produce NaN or change the
+        scale used for classification."""
+        y_true = torch.cat([torch.tensor([1.0, 5.0, 9.0]), torch.full((4,), 5.0)])
+        y_pred = torch.tensor([1.5, 4.0, 13.0, 5.0, 5.1, 4.9, 5.05])
+        single = OutlierFraction(mode="absolute", threshold=0.5)
+        single.update(y_pred, y_true)
+        expected = float(single.compute())
+
+        streamed = OutlierFraction(mode="absolute", threshold=0.5)
+        streamed.update(y_pred[:3], y_true[:3])
+        streamed.update(y_pred[3:], y_true[3:])  # constant-valued batch
+        result = float(streamed.compute())
+        assert result == result  # no NaN
+        assert result == pytest.approx(expected)
+
+    def test_absolute_mode_all_constant_yields_zero(self) -> None:
+        metric = OutlierFraction(mode="absolute", threshold=0.5)
+        metric.update(torch.tensor([3.0]), torch.tensor([5.0]))
+        metric.update(torch.tensor([7.0]), torch.tensor([5.0]))
+        value = float(metric.compute())
+        assert value == 0.0
 
 
 class TestNormalizedMedianAbsoluteDeviation:

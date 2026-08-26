@@ -167,9 +167,9 @@ class PoissonLikelihoodRatioLoss(RegressionLoss):
         if torch.any(target < 0):
             raise ValueError("Observed counts must be non-negative for Poisson statistics")
 
-        # Convert log_input to expected counts
+        # Convert log_input to expected counts (clamp avoids exp overflow)
         if self.log_input:
-            expected = torch.exp(y_pred)
+            expected = torch.exp(y_pred.clamp(max=30.0))
         else:
             expected = y_pred
 

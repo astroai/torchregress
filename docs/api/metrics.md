@@ -64,6 +64,11 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `conditional_density_estimation_loss` | `conditional_density_estimation_loss(...)` | Conditional density estimation loss |
 | `highest_posterior_density_coverage` | `highest_posterior_density_coverage(...)` | HPD coverage metric |
 | `highest_posterior_density_level` | `highest_posterior_density_level(...)` | HPD level computation |
+| `dss_score` | `dss_score(y_pred_mean, y_pred_std, y_true)` | Dawid-Sebastiani score: `(y − μ)² / σ² + 2·ln σ` |
+| `vario_score` | `vario_score(y_samples, y_true, rho=1.0)` | Vario score (Zamo & Naveau) for ensemble forecasts |
+| `pinball_loss` | `pinball_loss(level, quantile_value, y_true)` | Pinball (quantile) loss at a single level |
+| `pinball_metric` | `pinball_metric(quantiles_dict, y_true)` | Mean pinball across quantile levels — CRPS integrand standalone |
+| `wasserstein_gaussian_p2` | `wasserstein_gaussian_p2(loc1, scale1, loc2, scale2)` | Exact 2-Wasserstein distance between two Gaussians |
 
 **Stateful distribution metric classes:**
 
@@ -71,6 +76,10 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 |:-------|:----------|:------------|
 | `ContinuousRankedProbabilityScore` | `ContinuousRankedProbabilityScore()` | Stateful CRPS accumulator (quantile-based) |
 | `EnergyScore` | `EnergyScore(beta=1.0)` | Stateful multivariate energy score accumulator |
+| `DawidSebastianiScore` | `DawidSebastianiScore()` | Stateful Dawid-Sebastiani accumulator for diagonal-Gaussian predictive distributions |
+| `VarioScore` | `VarioScore(...)` | Stateful vario-score accumulator for ensemble forecasts |
+| `PinballMetric` | `PinballMetric(...)` | Stateful mean pinball loss over quantile levels |
+| `WassersteinGaussian` | `WassersteinGaussian()` | Stateful mean exact 2-Wasserstein distance between predicted Gaussians and targets |
 
 ---
 
@@ -87,6 +96,8 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `PredictionIntervalCoverageProbability` | `PredictionIntervalCoverageProbability()` | Stateful PICP accumulator |
 | `MeanPredictionIntervalWidth` | `MeanPredictionIntervalWidth()` | Stateful MPIW accumulator |
 | `interval_metrics_report` | `interval_metrics_report(lower, upper, y, alpha=0.1)` | Aggregate report |
+| `sharpness` | `sharpness(intervals)` | Functional sharpness: mean prediction-interval width. Lower is sharper |
+| `Sharpness` | `Sharpness()` | Stateful sharpness (mean interval width) accumulator |
 
 ---
 
@@ -200,3 +211,12 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `consistency_error` | `consistency_error(...)` | Student-teacher agreement error |
 | `pseudo_label_acceptance_rate` | `pseudo_label_acceptance_rate(...)` | Pseudo-label acceptance fraction |
 | `uncertain_gt_metrics_report` | `uncertain_gt_metrics_report(...)` | Aggregate report |
+
+## Metric helpers (`metrics.utils`)
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `create_metric_result` | `create_metric_result(result, as_numpy=False)` | Recursively convert metric outputs: scalar tensors → floats, tensors → NumPy when requested |
+| `metric_state_tensor` | `metric_state_tensor(state)` | Cast a TorchMetrics state attribute to a tensor for typing-friendly arithmetic |
+| `metric_state_list` | `metric_state_list` | Runtime-safe caster for metric state list attributes |
+| `validate_inputs` | `validate_inputs(y_pred, y)` | Alias of `validate_metric_inputs`: broadcast-tolerant metric input checks |

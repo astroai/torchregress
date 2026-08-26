@@ -222,6 +222,10 @@ EXPECTED_EXPORTS = {
     "test_time": [
         "AdaptationBatch",
         "BayesianLinearHead",
+        "DomainClassifierRatioEstimator",
+        "JointDistributionalTTA",
+        "JointTTAResult",
+        "estimate_label_shift_weights",
         "CausalTTAHarness",
         "DelayedLabelResidualAdapter",
         "estimate_target_prior_bbse",

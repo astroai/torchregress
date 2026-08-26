@@ -13,9 +13,9 @@ For background, see [Causal inference methods](../methods/causal.md).
 
 | Symbol | Description |
 |:-------|:------------|
-| `dr_ate(x, t, y, *, outcome_model, propensity_model, folds=2, alpha=0.05, seed=42, trim_threshold=0.05, eps=1e-4)` | Cross-fitted doubly-robust ATE with normal-approximation CI and overlap diagnostics. Returns `{"estimate", "se", "ci_lower", "ci_upper", "alpha", "n_samples", "dr_scores", "propensity", "mu1_hat", "mu0_hat", "diagnostics"}`. |
-| `dr_cate(x, t, y, *, cate_model, outcome_model, propensity_model, folds=2, alpha=0.05, seed=42, trim_threshold=0.05, eps=1e-4)` | Cross-fitted DR CATE via pseudo-outcome regression. Returns `{"ate_estimate", "ate_se", "ate_ci_lower", "ate_ci_upper", "ate_ci_low", "ate_ci_high", "alpha", "cate_hat", "pseudo_outcome", "propensity", "mu1_hat", "mu0_hat", "diagnostics"}`. |
-| `dr_policy_value(x, t, y, *, policy, outcome_model, propensity_model, folds=2, seed=42, eps=1e-4)` | AIPW value estimate for a binary treatment policy. Returns `{"estimate", "se", "n_samples"}`. |
+| `dr_ate` | `(x, t, y, *, outcome_model, propensity_model, folds=2, alpha=0.05, seed=42, trim_threshold=0.05, eps=1e-4)` — Cross-fitted doubly-robust ATE with normal-approximation CI and overlap diagnostics. Returns `{"estimate", "se", "ci_lower", "ci_upper", "alpha", "n_samples", "dr_scores", "propensity", "mu1_hat", "mu0_hat", "diagnostics"}`. |
+| `dr_cate` | `(x, t, y, *, cate_model, outcome_model, propensity_model, folds=2, alpha=0.05, seed=42, trim_threshold=0.05, eps=1e-4)` — Cross-fitted DR CATE via pseudo-outcome regression. Returns `{"ate_estimate", "ate_se", "ate_ci_lower", "ate_ci_upper", "ate_ci_low", "ate_ci_high", "alpha", "cate_hat", "pseudo_outcome", "propensity", "mu1_hat", "mu0_hat", "diagnostics"}`. |
+| `dr_policy_value` | `(x, t, y, *, policy, outcome_model, propensity_model, folds=2, seed=42, eps=1e-4)` — AIPW value estimate for a binary treatment policy. Returns `{"estimate", "se", "n_samples"}`. |
 
 **References:** Robins, Rotnitzky, Zhao (JASA 1994); Chernozhukov et al.,
 "Double/debiased machine learning for treatment and structural parameters"
@@ -58,7 +58,7 @@ val = dr_policy_value(x, t, y, policy=policy,
 
 | Symbol | Description |
 |:-------|:------------|
-| `causal_overlap_report(propensity, treatment, *, trim_threshold=0.05, eps=1e-6)` | Returns `{"n_samples", "n_treated", "n_control", "propensity_min", "propensity_max", "propensity_mean", "overlap_rate", "trim_threshold", "n_trimmed", "treated_ess", "control_ess", "min_group_ess"}`. Inspect before trusting ATE estimates. |
+| `causal_overlap_report` | `(propensity, treatment, *, trim_threshold=0.05, eps=1e-6)` — Returns `{"n_samples", "n_treated", "n_control", "propensity_min", "propensity_max", "propensity_mean", "overlap_rate", "trim_threshold", "n_trimmed", "treated_ess", "control_ess", "min_group_ess"}`. Inspect before trusting ATE estimates. |
 
 The diagnostics include **effective sample size (ESS)** for each treatment arm
 based on IPW weights; very low `treated_ess` or `control_ess` is a strong

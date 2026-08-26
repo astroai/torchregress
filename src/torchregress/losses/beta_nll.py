@@ -81,20 +81,23 @@ class BetaNLLLoss(GaussianNLLLoss):
     ) -> torch.Tensor:
         mean, var = self._extract_distribution_parameters(y_pred)
         self._validate_inputs(mean, target, mask)
-
-        # A2: pre-sum per-dimension NLL [B, D]
         nll_per_dim = 0.5 * (
             math.log(2 * math.pi)
             + torch.log(var + self.eps)
             + (target - mean) ** 2 / (var + self.eps)
         )
-        # Paper-exact weighting: coef = var.detach().pow(beta), applied per
-        # dimension BEFORE the feature sum (previously the coef was averaged
-        # across features and applied after summing, which is not β-NLL).
         coef = var.detach().clamp_min(self.eps).pow(self.beta)
-        weighted = (nll_per_dim * coef).sum(dim=-1)  # [B, D] → [B]
-        return self._reduce(weighted, mask, weights)
-
+        weighted = nll_per_dim * coef  # [B, D]
+        if mask is not None:
+            # Preserve partial rows: zero-fill per-element then sum per-sample.
+            # Previously summed before _reduce forced mask.all(row) discard.
+            masked = torch.where(mask, weighted, torch.zeros_like(weighted))
+            summed = masked.sum(dim=-1)  # [B]
+            # Per-sample valid mask for _reduce (exclude fully-masked rows)
+            sample_mask = mask.any(dim=-1) if mask.dim() > 1 else mask
+            return self._reduce(summed, mask=sample_mask, weights=weights)
+        summed = weighted.sum(dim=-1)  # [B] sum over features per paper
+        return self._reduce(summed, mask=None, weights=weights)
 
 def beta_nll_loss(
     y_pred: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],

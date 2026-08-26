@@ -109,7 +109,7 @@ class MixtureDensityLoss(DistributionLoss):
                    For full covariance, shape depends on the parameterization.
 
         Returns:
-            tuple: (mixture_weights, means, stds or cov_factors)
+            tuple: (log_mixture_weights, means, stds or cov_factors)
         """
         # Validate output size
         if y_pred.shape[-1] != self.expected_output_size:
@@ -120,10 +120,10 @@ class MixtureDensityLoss(DistributionLoss):
 
         batch_shape = y_pred.shape[:-1]
 
-        # Extract mixture weights - always the first n_components elements
+        # Extract mixture weight logits - always the first n_components elements
         logits = y_pred[..., : self.n_components]
-        # Use softmax to ensure weights sum to 1
-        mixture_weights = F.softmax(logits, dim=-1)
+        # Use log-softmax so extreme logits retain nonzero gradients
+        log_weights = F.log_softmax(logits, dim=-1)
 
         # Extract means - always after the mixture weights
         means_start = self.n_components
@@ -144,7 +144,7 @@ class MixtureDensityLoss(DistributionLoss):
             # This ensures stds are always positive and not too close to zero
             stds = F.softplus(log_stds) + self.min_std
 
-            return mixture_weights, means, stds
+            return log_weights, means, stds
         else:  # 'full'
             # For full covariance, we extract parameters for lower triangular matrices
             # using Cholesky decomposition parameterization
@@ -207,7 +207,7 @@ class MixtureDensityLoss(DistributionLoss):
             ).expand_as(L_offdiag)
             L_matrices = torch.where(diag_mask, L_diag, L_offdiag)
 
-            return mixture_weights, means, L_matrices
+            return log_weights, means, L_matrices
 
     def _log_prob_diagonal(
         self,
@@ -331,13 +331,13 @@ class MixtureDensityLoss(DistributionLoss):
 
         Args:
             target (torch.Tensor): Target values [..., n_features]
-            params (tuple): Tuple of (weights, means, stds_or_L_matrices)
+            params (tuple): Tuple of (log_weights, means, stds_or_L)
             mask (torch.Tensor, optional): Optional mask for valid values
 
         Returns:
             torch.Tensor: Negative log likelihood values
         """
-        weights, means, stds_or_L = params
+        log_weights, means, stds_or_L = params
 
         # Calculate log probabilities for each component based on covariance type
         if self.covariance_type == "diagonal":
@@ -345,12 +345,9 @@ class MixtureDensityLoss(DistributionLoss):
         else:  # 'full'
             log_probs = self._log_prob_full(target, means, stds_or_L)
 
-        # Apply log weights: log(w_i) + log(p_i)
-        log_weights = torch.log(weights + self.eps)
         log_probs_weighted = log_weights + log_probs
 
-        # Calculate mixture log probability using logsumexp for numerical stability
-        # log(Σw_i*p_i) = log(Σexp(log(w_i*p_i))) = logsumexp(log(w_i)+log(p_i))
+        # Calculate mixture log probability using logsumexp for numerical stability:
         mixture_log_prob = torch.logsumexp(log_probs_weighted, dim=-1)
 
         # Return negative log likelihood
@@ -419,7 +416,7 @@ class MixtureDensityLoss(DistributionLoss):
         Returns:
             tuple: (mean, std) each of shape [batch, n_features]
         """
-        weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
+        log_weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
 
         if self.covariance_type != "diagonal":
             raise NotImplementedError(
@@ -428,6 +425,7 @@ class MixtureDensityLoss(DistributionLoss):
             )
 
         # Mixture mean: E[y] = sum(w_k * mu_k)
+        weights = log_weights.exp()
         mixture_mean = (weights.unsqueeze(-1) * means).sum(dim=-2)  # [batch, n_features]
 
         # Mixture variance: Var[y] = sum(w_k * (sigma_k^2 + mu_k^2)) - E[y]^2
@@ -468,7 +466,7 @@ class MixtureDensityLoss(DistributionLoss):
             >>> in_interval = (y_test >= lower) & (y_test <= upper)
             >>> coverage = in_interval.float().mean()  # Should be ~0.95
         """
-        weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
+        log_weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
 
         if self.covariance_type != "diagonal":
             raise NotImplementedError(
@@ -481,7 +479,7 @@ class MixtureDensityLoss(DistributionLoss):
 
         # Sample component indices for each sample
         # [batch, n_samples]
-        component_idx = torch.multinomial(weights, n_samples, replacement=True)
+        component_idx = torch.multinomial(log_weights.exp(), n_samples, replacement=True)
 
         # Gather means and stds for selected components using memory-efficient advanced indexing
         batch_indices = torch.arange(batch_size, device=y_pred.device).unsqueeze(1)
@@ -514,7 +512,7 @@ class MixtureDensityLoss(DistributionLoss):
         Returns:
             samples: [n_samples, batch, n_features]
         """
-        weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
+        log_weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
 
         if self.covariance_type != "diagonal":
             raise NotImplementedError("sample currently only supports diagonal covariance.")
@@ -523,7 +521,7 @@ class MixtureDensityLoss(DistributionLoss):
         n_features = means.shape[2]
 
         # Sample component indices
-        component_idx = torch.multinomial(weights, n_samples, replacement=True)
+        component_idx = torch.multinomial(log_weights.exp(), n_samples, replacement=True)
 
         # Gather parameters using memory-efficient advanced indexing
         batch_indices = torch.arange(batch_size, device=y_pred.device).unsqueeze(1)

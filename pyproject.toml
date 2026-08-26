@@ -112,12 +112,7 @@ python-version = "3.13"
 error-on-warning = false
 
 [tool.ty.src]
-exclude = [
-    "**/viz/results.py",
-    "**/test_time/transport.py",
-    "**/losses/balanced_mse.py",
-    "**/algorithms/rc.py",
-]
+exclude = []
 
 # Torch/scipy stubs are incomplete; keep ty as a gate for real import/config
 # failures without failing CI on inference noise during the mypy→ty migration.

@@ -138,10 +138,10 @@ class GaussianNLLLoss(DistributionLoss):
         #   0.5 * (log(2π) + log var + (y - μ)² / var)
         # All constants hoisted to module level; ``eps`` keeps ``log var``
         # finite when var → 0 without breaking gradients.
+        # Kept element-wise [B, D]: ``_reduce`` applies masks per element
+        # (matching GaussianCRPSLoss semantics), so summing over the feature
+        # dim here would force whole-row discard on partial masks.
         nll = 0.5 * (_LOG_2PI + torch.log(var + self.eps) + (target - mean) ** 2 / (var + self.eps))
-        nll = nll.sum(
-            dim=-1
-        )  # [B, D] → [B] per-sample NLL, consistent with MultivariateGaussianLoss  # noqa: E501
 
         return self._reduce(nll, mask, weights)
 

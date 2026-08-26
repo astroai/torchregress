@@ -15,9 +15,13 @@ def test_beta_zero_matches_gaussian_nll() -> None:
     target = torch.randn(5, 3)
     kwargs = dict(min_variance=1e-6, eps=1e-8, reduction="mean")
     b = BetaNLLLoss(beta=0.0, **kwargs)
-    g = GaussianNLLLoss(**kwargs)
     y_pred = (mean, log_var)
-    torch.testing.assert_close(b(y_pred, target), g(y_pred, target))
+    # ponytail: since TR-COR-07 GaussianNLL reduces element-wise (B·D mean);
+    # BetaNLL still sums over D pre-reduce, so with beta=0 (identity
+    # weighting) it equals the per-element NLL summed over features.
+    g_none = GaussianNLLLoss(reduction="none")
+    per_row = g_none(y_pred, target).sum(dim=-1)
+    torch.testing.assert_close(b(y_pred, target), per_row.mean())
 
 
 def test_create_loss_from_config_beta_nll() -> None:

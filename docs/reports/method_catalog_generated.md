@@ -2,7 +2,7 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-08-24`
+_Generated date_: `2026-08-26`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 

@@ -149,7 +149,9 @@ class TestMaskContract:
             f"{name}: expected shape {unmasked_shape} kept under zero-fill, got {out.shape}"
         )
         row_keep = mask.all(dim=-1)
-        if name in ("GaussianNLL", "BetaNLL"):
+        # ponytail: BetaNLL still sums over D pre-reduce, so only fully-kept
+        # rows survive; GaussianNLL is element-wise (TR-COR-07) like CRPS.
+        if name == "BetaNLL":
             max_nonzero = int(row_keep.sum())
         else:
             max_nonzero = int(mask.sum())
@@ -203,8 +205,9 @@ class TestReductionContract:
         none_fn = _make_none_reduction(loss_fn)
         mean, log_var, target = _make_test_data(batch=4, dim=3)
         out = none_fn((mean, log_var), target)
-        # ponytail: GaussianNLL/BetaNLL sum over D → [B]; CRPS/Faithful stay [B, D]
-        expected = (4,) if name in ("GaussianNLL", "BetaNLL") else (4, 3)
+        # ponytail: BetaNLL still sums over D pre-reduce → [B]; the other
+        # diagonal losses (incl. GaussianNLL since TR-COR-07) stay [B, D].
+        expected = (4,) if name == "BetaNLL" else (4, 3)
         assert out.shape == expected, f"{name}: expected {expected}, got {out.shape}"
 
     @pytest.mark.parametrize("name,loss_fn", _build_diagonal_losses())
@@ -236,8 +239,9 @@ class TestReductionContract:
         sum_out = fn_sum((mean, log_var), target)
         mean_out = fn_mean((mean, log_var), target)
 
-        # ponytail: per-sample losses have fewer elements
-        n_elements = 6 if name in ("GaussianNLL", "BetaNLL") else 6 * 3
+        # ponytail: only BetaNLL still reduces per-sample (sums over D);
+        # GaussianNLL is element-wise since TR-COR-07.
+        n_elements = 6 if name == "BetaNLL" else 6 * 3
         torch.testing.assert_close(
             sum_out / float(n_elements), mean_out, msg=f"{name}: sum/{n_elements} ≠ mean reduction"
         )
@@ -538,20 +542,27 @@ class TestFamilyRelationships:
     FaithfulGaussian reduces to decoupled NLL+MSE, etc."""
 
     def test_beta_zero_equals_gaussian_nll(self):
-        """BetaNLLLoss(beta=0) is identical to GaussianNLLLoss."""
+        """BetaNLLLoss(beta=0) is identical to GaussianNLLLoss up to the
+        feature aggregation: since TR-COR-07 GaussianNLL reduces element-wise
+        (B·D mean), while BetaNLL still sums over D before reducing. With
+        beta=0 the weighting is the identity, so BetaNLL(beta=0) equals the
+        per-element NLL summed over features."""
         mean, log_var, target = _make_test_data()
         b = BetaNLLLoss(beta=0.0, reduction="mean")
-        g = GaussianNLLLoss(reduction="mean")
+        g_none = GaussianNLLLoss(reduction="none")
         torch.testing.assert_close(
             b((mean, log_var), target),
-            g((mean, log_var), target),
+            g_none((mean, log_var), target).sum(dim=-1).mean(),
         )
 
     def test_beta_zero_equals_gaussian_nll_gradients(self):
-        """BetaNLLLoss(beta=0) gradients match GaussianNLLLoss gradients."""
-        mean = torch.randn(3, 2, requires_grad=True)
-        log_var = torch.randn(3, 2, requires_grad=True)
-        target = torch.randn(3, 2)
+        """BetaNLLLoss(beta=0) gradients match GaussianNLLLoss gradients
+        scaled by the feature dim (BetaNLL sums over D pre-reduce; NLL is
+        element-wise since TR-COR-07)."""
+        dim = 2
+        mean = torch.randn(3, dim, requires_grad=True)
+        log_var = torch.randn(3, dim, requires_grad=True)
+        target = torch.randn(3, dim)
 
         b = BetaNLLLoss(beta=0.0, reduction="mean")
         g = GaussianNLLLoss(reduction="mean")
@@ -567,8 +578,9 @@ class TestFamilyRelationships:
         loss_g.backward()
         gm_g, gv_g = mean.grad.clone(), log_var.grad.clone()
 
-        torch.testing.assert_close(gm_b, gm_g, msg="BetaNLL(beta=0) mean grad ≠ NLL")
-        torch.testing.assert_close(gv_b, gv_g, msg="BetaNLL(beta=0) logvar grad ≠ NLL")
+        scale = float(dim)  # sum-over-D vs element-mean normalization
+        torch.testing.assert_close(gm_b, gm_g * scale, msg="BetaNLL(beta=0) mean grad ≠ NLL × D")
+        torch.testing.assert_close(gv_b, gv_g * scale, msg="BetaNLL(beta=0) logvar grad ≠ NLL × D")
 
     def test_faithful_detaches_mean_from_nll_gradient(self):
         """With mean_weight=0, the NLL residual uses a detached mean:
@@ -621,10 +633,9 @@ class TestFamilyRelationships:
         gn_loss = gn((mean.detach(), log_var), target)
 
         # The variance/NLL terms should match — only gradient flow differs.
-        # GaussianNLLLoss now returns per-sample [B] (summed over features),
-        # so sum FaithfulLoss over features for comparison.
+        # Both losses return element-wise [B, D] under reduction="none".
         torch.testing.assert_close(
-            fg_loss.sum(dim=-1), gn_loss, msg="Faithful NLL term ≠ Gaussian NLL with detached mean"
+            fg_loss, gn_loss, msg="Faithful NLL term ≠ Gaussian NLL with detached mean"
         )
 
     def test_crps_matches_analytic_formula(self):

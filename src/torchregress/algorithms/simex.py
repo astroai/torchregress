@@ -133,16 +133,18 @@ class SIMEX:
         # Remove duplicates and sort
         all_lambdas = sorted(list(set(all_lambdas)))
         self.lambdas_used = all_lambdas  # Store for prediction
-
-        # Pre-calculate Cholesky for noise generation
-        # Add small epsilon for stability
-        L = torch.linalg.cholesky(self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6)
+        # Pre-calculate Cholesky for noise generation (with PSD validation)
+        try:
+            L = torch.linalg.cholesky(
+                self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6
+            )
+        except RuntimeError as e:
+            raise ValueError(f"sigma_u is not PSD (cholesky failed): {e}") from e
 
         for lam in self.lambdas_used:
             lambda_models: list[nn.Module] = []
             for _ in range(self.n_simulations):
                 model = self.model_factory().to(self.device)
-
                 if lam == 0.0:
                     X_sim = X_train
                 else:
@@ -176,9 +178,18 @@ class SIMEX:
             [lambda_target**i for i in range(self.extrapolation_order + 1)],
             device=self.device,
             dtype=X_train.dtype,
-        )  # (order+1,)
-
+        )
         self.extrapolation_weights = target_vec @ A_pinv
+        # ponytail: warn if Vandermonde conditioning amplifies Monte Carlo error
+        if bool((self.extrapolation_weights.abs() > 5).any()):
+            import warnings
+
+            warnings.warn(
+                f"SIMEX extrapolation weights {self.extrapolation_weights.tolist()} have |w|>5; "
+                "small Monte Carlo error will be amplified (consider order=1 or fewer lambdas)",
+                UserWarning,
+                stacklevel=2,
+            )
 
         return self
 
@@ -210,8 +221,12 @@ class SIMEX:
             raise RuntimeError("SIMEX must be fit before predicting")
 
         n_features = X.shape[1]
-        L = torch.linalg.cholesky(self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6)
-
+        try:
+            L = torch.linalg.cholesky(
+                self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6
+            )
+        except RuntimeError as e:
+            raise ValueError(f"sigma_u is not PSD (cholesky failed): {e}") from e
         # Collect predictions from all models WITH matched input noise
         # Each λ_i model receives test inputs perturbed by √λ_i * N(0, Σ_u)
         preds_list = []

@@ -24,6 +24,25 @@ from .utils_robust import huber_elementwise, log_cosh, tukey_biweight
 
 _BARRON_ALPHA_EPS = 1e-6
 _BARRON_SCALE_EPS = 1e-8
+# Width of the |alpha| window around 0 where the analytic Taylor series of the
+# Cauchy-like limit is used instead of the generic expression (which is 0/0 there).
+_BARRON_TAYLOR_TOL = 1e-2
+# Floor on |alpha - 2| used by the generic expression.  d(rho)/d(alpha) diverges
+# logarithmically as alpha -> 2 (both one-sided derivatives go to +infinity);
+# inflating |alpha - 2| by this floor turns the divergence into a large-but-finite
+# gradient while leaving loss values unchanged to <1e-4 outside |alpha - 2| < 1e-3.
+# ponytail: exact rho is not C^1 at alpha = 2, so any finite gradient requires
+# regularizing the curvature at some scale; 1e-4 keeps the distortion negligible.
+_BARRON_CURVATURE_FLOOR = 1e-4
+# Anchors of log Z(alpha) = log integral(exp(-rho(u, alpha))) du, the partition
+# function of the density associated with the Barron loss.  Closed forms exist at
+# alpha in {0, 1, 2}: pi*sqrt(2), 2*e*K_1(1) (modified Bessel function of the
+# second kind, order 1, at 1), sqrt(2*pi).
+_BARRON_LOG_PARTITION_ANCHORS = (
+    math.log(math.pi * math.sqrt(2.0)),
+    math.log(2.0 * math.e * 0.6019072301972346),
+    0.5 * math.log(2.0 * math.pi),
+)
 
 
 def _barron_elementwise(
@@ -33,7 +52,20 @@ def _barron_elementwise(
     eps: float = _BARRON_SCALE_EPS,
 ) -> torch.Tensor:
     """
-    Barron's general robust loss.
+    Barron's general robust loss ``rho(r / c, alpha)``.
+
+    The expression is differentiable with respect to ``alpha`` everywhere,
+    including the singular points ``alpha = 0`` and ``alpha = 2``:
+
+    - Around ``alpha = 0`` the generic expression ``(beta/alpha)*expm1(u)`` is a
+      0/0 limit; the analytic Taylor series of the Cauchy-like limit
+      ``(beta/2) * lam * (1 + u/2 + u^2/6)`` (with ``lam = log1p(z^2/beta)``,
+      ``u = alpha * lam / 2``, error O(u^3)) is used in a small window.  Both
+      sides of the window carry gradient with respect to ``alpha``.
+    - At ``alpha = 2`` the true loss is not C^1 in ``alpha`` (logarithmically
+      divergent slope), so ``|alpha - 2|`` is inflated by
+      ``_BARRON_CURVATURE_FLOOR``, which yields finite, nonzero gradients while
+      preserving values to machine precision at the point itself.
 
     Reference:
         Barron, J. T. "A General and Adaptive Robust Loss Function." CVPR, 2019.
@@ -45,24 +77,47 @@ def _barron_elementwise(
 
     squared_scaled = (residuals / scale_tensor) ** 2
 
-    alpha_is_two = torch.isclose(
-        alpha_tensor, torch.tensor(2.0, dtype=residuals.dtype, device=residuals.device), atol=1e-6
-    )
-    alpha_is_zero = torch.isclose(
-        alpha_tensor, torch.tensor(0.0, dtype=residuals.dtype, device=residuals.device), atol=1e-6
-    )
+    # Smooth replacement for |alpha - 2|: identical outside ~1e-3 of the point,
+    # bounded away from zero so the exponent/log below never see beta = 0.
+    beta = torch.sqrt((alpha_tensor - 2.0) ** 2 + _BARRON_CURVATURE_FLOOR**2)
+    lam = torch.log1p(squared_scaled / beta)
+    u = alpha_tensor * lam / 2.0
 
-    beta = torch.abs(alpha_tensor - 2.0).clamp(min=_BARRON_ALPHA_EPS)
+    # Exact analytic series around the regular point alpha = 0; reduces exactly to
+    # log1p(0.5 * z^2) there.
+    cauchy_limit = (beta / 2.0) * lam * (1.0 + u / 2.0 + u * u / 6.0)
+
+    # Generic branch, rewritten with expm1 for numerical stability; equivalent to
+    # (beta / alpha) * ((z^2 / beta + 1) ** (alpha / 2) - 1).
     alpha_safe = torch.where(
         alpha_tensor >= 0,
         alpha_tensor.clamp(min=_BARRON_ALPHA_EPS),
         alpha_tensor.clamp(max=-_BARRON_ALPHA_EPS),
     )
-    generic = (beta / alpha_safe) * ((squared_scaled / beta + 1.0) ** (alpha_tensor / 2.0) - 1.0)
-    cauchy_like = torch.log1p(0.5 * squared_scaled)
-    quadratic = 0.5 * squared_scaled
+    generic = (beta / alpha_safe) * torch.expm1(u)
 
-    return torch.where(alpha_is_two, quadratic, torch.where(alpha_is_zero, cauchy_like, generic))
+    return torch.where(alpha_tensor.abs() <= _BARRON_TAYLOR_TOL, cauchy_limit, generic)
+
+
+def _log_barron_partition(alpha: torch.Tensor | float) -> torch.Tensor:
+    """
+    ``log Z(alpha)`` where ``Z(alpha) = integral exp(-rho(u, alpha)) du`` is the
+    partition function of the density induced by the Barron loss (Barron, 2019,
+    Eq. 17 normalization).  Adding ``log Z`` makes losses comparable across
+    shapes; together with ``log(scale)`` it makes the objective scale-consistent.
+
+    Closed forms exist at ``alpha in {0, 1, 2}``; elsewhere this returns the
+    quadratic interpolation of ``log Z`` through those exact anchors.
+    ponytail: for alpha < 0 the integral diverges, so the polynomial extension
+    below 0 is an approximation ceiling, not a normalizer.
+    """
+    log_z0, log_z1, log_z2 = _BARRON_LOG_PARTITION_ANCHORS
+    alpha_tensor = torch.as_tensor(alpha)
+    return (
+        log_z0 * (alpha_tensor - 1.0) * (alpha_tensor - 2.0) / 2.0
+        - log_z1 * alpha_tensor * (alpha_tensor - 2.0)
+        + log_z2 * alpha_tensor * (alpha_tensor - 1.0) / 2.0
+    )
 
 
 @register_regression_loss("pseudo_huber")
@@ -173,6 +228,13 @@ class AdaptiveRobustLoss(RegressionLoss):
     optimized jointly with the model by adding ``loss_fn.parameters()`` to the
     optimizer parameter list.
 
+    The objective is the normalized Barron loss (Barron, 2019, Eq. 17):
+    ``rho(r/c, alpha) + log(c) + log Z(alpha)``.  Without the normalization
+    terms the unnormalized ``rho(r/c, alpha) -> 0`` as ``c -> inf`` and joint
+    optimization lets the scale diverge; with them the objective is
+    scale-consistent (e.g. at ``alpha = 2`` the optimal scale is the residual
+    RMS).
+
     Args:
         alpha_init: Initial shape parameter.
         scale_init: Initial positive scale parameter.
@@ -242,10 +304,15 @@ class AdaptiveRobustLoss(RegressionLoss):
         weights: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        """Calculate the adaptive robust loss with the current learned parameters."""
+        """Calculate the normalized adaptive robust loss with the current learned parameters."""
         self._validate_inputs(y_pred, target, mask)
         residuals = target - y_pred
-        loss = _barron_elementwise(residuals, self.alpha, self.scale)
+        alpha = self.alpha.to(dtype=residuals.dtype, device=residuals.device)
+        scale = self.scale.to(dtype=residuals.dtype, device=residuals.device)
+        loss = _barron_elementwise(residuals, alpha, scale)
+        # Barron (2019) Eq. 17: log(scale) + log Z(alpha) makes the objective
+        # scale-consistent so joint optimization cannot drive c -> inf.
+        loss = loss + torch.log(scale) + _log_barron_partition(alpha)
         return self._reduce(loss, mask, weights)
 
     def extra_repr(self) -> str:

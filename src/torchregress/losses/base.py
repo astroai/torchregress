@@ -152,7 +152,10 @@ class BaseLoss(nn.Module):
 
         # 'mean'
         if weights is not None:
-            w_sum = torch.sum(weights)
+            # TR-COR-01: sample weights broadcast over trailing dims, so the
+            # denominator must count every weighted element (all-ones weights
+            # must never change the scale vs. the unweighted mean).
+            w_sum = weights.expand_as(loss).sum()
             denom = torch.where(w_sum > 0, w_sum, torch.ones_like(w_sum))
         elif mask is not None:
             count = mask_count.sum().to(loss.dtype)

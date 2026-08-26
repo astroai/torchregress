@@ -185,3 +185,99 @@ class TestEvidentialRegressionLoss:
         assert torch.allclose(
             upper, torch.tensor([[expected_upper]], dtype=y_pred.dtype), rtol=1e-5
         )
+
+    def test_default_path_unchanged_fixed_seed(self) -> None:
+        # TR-COR-08: the default constructor must reproduce the legacy
+        # softplus(+offset) behavior exactly on fixed-seed inputs.
+        torch.manual_seed(0)
+        y_pred = torch.randn(8, 4)
+        target = torch.randn(8, 1)
+
+        loss_fn = EvidentialRegressionLoss(coeff_nig=0.01)
+        actual = loss_fn(y_pred, target)
+
+        # Independent reference of the legacy path.
+        gamma = y_pred[:, 0:1]
+        nu = F.softplus(y_pred[:, 1:2]) + 0.01
+        alpha = F.softplus(y_pred[:, 2:3]) + 1.01
+        beta = F.softplus(y_pred[:, 3:4]) + 0.01
+        residual_sq = (target - gamma) ** 2
+        nll = (
+            0.5 * torch.log(math.pi / nu)
+            - alpha * torch.log(2.0 * beta)
+            + (alpha + 0.5) * torch.log(nu * residual_sq + 2.0 * beta)
+            + torch.lgamma(alpha)
+            - torch.lgamma(alpha + 0.5)
+        )
+        reg = torch.abs(target - gamma) * (2.0 * nu + alpha)
+        expected = (nll + 0.01 * reg).mean()
+
+        assert torch.allclose(actual, expected, rtol=1e-6)
+
+    def test_unconstrained_inputs_matches_hand_computed_nig_nll(self) -> None:
+        # TR-COR-08: unconstrained_inputs=False consumes pre-constrained
+        # parameters directly. Hand-computed NIG NLL for
+        # gamma=0.5, nu=2, alpha=3, beta=1, target=1.0.
+        loss_fn = EvidentialRegressionLoss(coeff_nig=0.01, unconstrained_inputs=False)
+        gamma = torch.tensor([[0.5]])
+        nu = torch.tensor([[2.0]])
+        alpha = torch.tensor([[3.0]])
+        beta = torch.tensor([[1.0]])
+        target = torch.tensor([[1.0]])
+
+        loss = loss_fn((gamma, nu, alpha, beta), target)
+
+        r = 0.5
+        nll = (
+            0.5 * math.log(math.pi / 2.0)
+            - 3.0 * math.log(2.0 * 1.0)
+            + 3.5 * math.log(2.0 * r**2 + 2.0 * 1.0)
+            + math.lgamma(3.0)
+            - math.lgamma(3.5)
+        )
+        reg = abs(target.item() - 0.5) * (2.0 * 2.0 + 3.0)
+        expected = nll + 0.01 * reg
+
+        assert math.isclose(loss.item(), expected, rel_tol=1e-6)
+
+    def test_unconstrained_inputs_tuple_equals_stacked(self) -> None:
+        # TR-COR-08: tuple input must equal stacked-tensor input in both modes.
+        torch.manual_seed(1)
+        y_pred = torch.randn(6, 8)
+        target = torch.randn(6, 2)
+
+        for unconstrained in (True, False):
+            loss_fn = EvidentialRegressionLoss(coeff_nig=0.05, unconstrained_inputs=unconstrained)
+            stacked = loss_fn(y_pred, target)
+            as_tuple = loss_fn(
+                (
+                    y_pred[..., :2],
+                    y_pred[..., 2:4],
+                    y_pred[..., 4:6],
+                    y_pred[..., 6:],
+                ),
+                target,
+            )
+            assert torch.allclose(stacked, as_tuple, rtol=1e-6, atol=1e-8)
+
+    def test_backward_produces_grads_both_modes(self) -> None:
+        # TR-COR-08: backward pass produces gradients in both input modes.
+        for unconstrained in (True, False):
+            loss_fn = EvidentialRegressionLoss(coeff_nig=0.01, unconstrained_inputs=unconstrained)
+            if unconstrained:
+                y_pred = torch.randn(4, 4, requires_grad=True)
+                loss = loss_fn(y_pred, torch.randn(4, 1))
+            else:
+                gamma = torch.randn(4, 1, requires_grad=True)
+                nu = torch.rand(4, 1) + 0.5
+                alpha = torch.rand(4, 1) + 1.5
+                beta = torch.rand(4, 1) + 0.5
+                params = [p.requires_grad_(True) for p in (nu, alpha, beta)]
+                loss = loss_fn((gamma, *params), torch.randn(4, 1))
+
+            loss.backward()
+            produced = [
+                p.grad is not None and torch.isfinite(p.grad).all()
+                for p in ([y_pred] if unconstrained else [gamma, *params])
+            ]
+            assert all(produced)

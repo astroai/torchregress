@@ -23,6 +23,7 @@ For background, see [PPI + conformal](../guide/method-selection.md) and the
 | Symbol | Description |
 |:-------|:------------|
 | `ppi_mean_ci(y_labeled, pred_labeled, pred_unlabeled, *, config=None)` | PPI CI for a population mean. Estimator: `E[Y] ≈ mean(pred_unlabeled) + mean(y_labeled − pred_labeled)`. Returns `{"estimate", "se", "ci_lower", "ci_upper", "alpha", "n_labeled", "n_unlabeled", "bootstrap_samples"}`. |
+| `ppi_pp_mean_ci` | `(y_labeled, pred_labeled, pred_unlabeled, *, lambdas=None, cross_fits=0, alpha=0.05)` — PPI++ confidence interval for a population mean: selects the power-tuning parameter λ minimizing first-order PPI variance (optionally cross-fitted). |
 
 **Reference:** Angelopoulos, Bates, Fannjiang, Jordan, Zrnic,
 "Prediction-Powered Inference" (Science 2023).
@@ -41,7 +42,7 @@ res = ppi_mean_ci(y_labeled, pred_labeled, pred_unlabeled, config=cfg)
 
 | Symbol | Description |
 |:-------|:------------|
-| `ppi_calibrated_mean_ci(y_labeled, pred_labeled, pred_unlabeled, *, config=None)` | Like `ppi_mean_ci`, but fits an affine map `m⋆(x) = â + b̂ m(x)` by OLS on labeled pairs, then refits `(â, b̂)` on every bootstrap resample. Returns the same dict as `ppi_mean_ci` but with `method="ppi_calibrated_mean_ci"`. |
+| `ppi_calibrated_mean_ci` | `(y_labeled, pred_labeled, pred_unlabeled, *, config=None)` — Like `ppi_mean_ci`, but fits an affine map `m⋆(x) = â + b̂ m(x)` by OLS on labeled pairs, then refits `(â, b̂)` on every bootstrap resample. Returns the same dict as `ppi_mean_ci` but with `method="ppi_calibrated_mean_ci"`. |
 
 **Reference:** Chen et al., "Linearly Calibrated Prediction-Powered Inference" (arXiv 2026).
 
@@ -57,7 +58,7 @@ res = ppi_calibrated_mean_ci(y_labeled, pred_labeled, pred_unlabeled,
 
 | Symbol | Description |
 |:-------|:------------|
-| `ppi_quantile_ci(y_labeled, pred_labeled, pred_unlabeled, *, q=0.5, config=None)` | PPI CI for a target quantile. Estimator: `Q_q(Y) ≈ Q_q(pred_unlabeled) + median(y_labeled − pred_labeled)`. Bootstrap re-estimates the shift and target quantile. |
+| `ppi_quantile_ci` | `(y_labeled, pred_labeled, pred_unlabeled, *, q=0.5, config=None)` — PPI CI for a target quantile. Estimator: `Q_q(Y) ≈ Q_q(pred_unlabeled) + median(y_labeled − pred_labeled)`. Bootstrap re-estimates the shift and target quantile. |
 
 ---
 
@@ -65,7 +66,7 @@ res = ppi_calibrated_mean_ci(y_labeled, pred_labeled, pred_unlabeled,
 
 | Symbol | Description |
 |:-------|:------------|
-| `ppi_ols_ci(x_labeled, y_labeled, x_unlabeled, pred_labeled, pred_unlabeled, *, add_intercept=True, config=None)` | PPI CI for linear-regression coefficients. `β̂ = β̂_unlabeled + β̂_(labeled residual)`. Bootstrap refits both regressions. Returns `{"coef", "se", "ci_lower", "ci_upper", "alpha", "n_labeled", "n_unlabeled", "bootstrap_samples"}`. Default `n_boot=1000`. |
+| `ppi_ols_ci` | `(x_labeled, y_labeled, x_unlabeled, pred_labeled, pred_unlabeled, *, add_intercept=True, config=None)` — PPI CI for linear-regression coefficients. `β̂ = β̂_unlabeled + β̂_(labeled residual)`. Bootstrap refits both regressions. Returns `{"coef", "se", "ci_lower", "ci_upper", "alpha", "n_labeled", "n_unlabeled", "bootstrap_samples"}`. Default `n_boot=1000`. |
 
 ---
 
@@ -73,7 +74,7 @@ res = ppi_calibrated_mean_ci(y_labeled, pred_labeled, pred_unlabeled,
 
 | Symbol | Description |
 |:-------|:------------|
-| `ppi_diagnostics(y_labeled, pred_labeled, pred_unlabeled)` | Returns `{"n_labeled", "n_unlabeled", "prediction_label_correlation", "residual_rmse_labeled", "residual_mean_labeled", "prediction_mean_shift_unlabeled_vs_labeled", "prediction_range_overlap_ratio"}`. Use to assess PPI validity before trusting a CI. |
+| `ppi_diagnostics` | `(y_labeled, pred_labeled, pred_unlabeled)` — Returns `{"n_labeled", "n_unlabeled", "prediction_label_correlation", "residual_rmse_labeled", "residual_mean_labeled", "prediction_mean_shift_unlabeled_vs_labeled", "prediction_range_overlap_ratio"}`. Use to assess PPI validity before trusting a CI. |
 
 ---
 

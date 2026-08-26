@@ -26,6 +26,27 @@ For conceptual guides, derivations, and worked examples, see
 | `torchregress.prediction` | Predictive batch containers (`PredictiveBatch`) | [Inference API](inference.md) |
 | `torchregress.utils` | Tensor ops, validation, augment, labels, propensity, transforms | [Utilities API](utils.md) |
 
+## Top-level exports
+
+| Symbol | Description |
+|:-------|:------------|
+| `losses` | Lazy submodule of regression losses (point, robust, Gaussian, quantile, ordinal, censored, count, EIV, conformal). |
+| `metrics` | Lazy submodule of evaluation metrics (point, distribution, interval, calibration, OOD, ensemble, decision). |
+| `algorithms` | Lazy submodule of error-in-variables and robust algorithms (IRLS, SIMEX, RC, LatentNN, TicTac, IVON). |
+| `ensemble` | Lazy submodule of deep ensembles, MC-dropout, SWAG, snapshot and Bayesian model building blocks. |
+| `semi_supervised` | Lazy submodule of teacher–student semi-supervised training. |
+| `test_time` | Lazy submodule of test-time adaptation (Bayesian heads, label shift, OT conformal reweighting, alignment). |
+| `method_catalog` | Lazy submodule exposing scriptable method metadata. |
+| `inference` | Lazy submodule of prediction-powered inference (PPI) estimators. |
+| `constraints` | Lazy submodule of output-head constraints (non-negative, bounded, non-crossing, simplex, spectral norm). |
+| `calibration` | Lazy submodule of post-hoc calibrators and shift estimators. |
+| `causal` | Lazy submodule of doubly-robust causal estimation and overlap diagnostics. |
+| `prediction` | Lazy submodule of predictive batch containers (`PredictiveBatch`). |
+| `viz` | Lazy submodule of diagnostic, monitoring, results, and utility plotting. |
+| `comparison` | Lazy submodule of reproducible comparison-example helpers (seeds, timing, metrics, JSON summaries). |
+| `utils` | Lazy submodule of tensor ops, validation, augmentations, labels, propensity, and transforms. |
+| `__version__` | Installed **torchregress** version string. |
+
 ## Package structure
 
 ```text

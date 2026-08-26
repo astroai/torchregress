@@ -84,6 +84,9 @@ $$\\mathcal{L}_{\\beta\\text{-NLL}} = (\\sigma^2 + \\varepsilon)^{-\\beta} \\cdo
 | `AdaptiveRobustLoss` | `AdaptiveRobustLoss(...)` | Trainable α + scale |
 | `BarronLoss` | `BarronLoss(alpha=1.0, c=1.0, ...)` | Continuous L1 ↔ L2 family |
 | `CVaRLoss` | `CVaRLoss(alpha=0.1, ...)` | Tail α-fraction |
+| `huber_elementwise` | `huber_elementwise(residuals, delta)` | Elementwise Huber; quadratic/linear crossover at `delta` |
+| `log_cosh` | `log_cosh(u)` | Numerically stable `log(cosh(u))` |
+| `tukey_biweight` | `tukey_biweight(residuals, c)` | Tukey biweight; constant saturation beyond `c` |
 
 $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r| \\le \\delta \\\\ \\delta|r| - \\frac{1}{2}\\delta^2 & |r| > \\delta \\end{cases}$$
 
@@ -116,6 +119,31 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `EvidentialRegressionLoss` | `EvidentialRegressionLoss(coeff=1e-2, reduction="mean")` | NIG evidential regression |
 
 $$\\mathcal{L}_{\\text{quantile}} = \\max(q(y-\\hat{y}), (q-1)(y-\\hat{y}))$$ $$\\mathcal{L}_{\\text{expectile}} = |e - \\mathbb{I}(y<\\hat{y})| \\cdot (y-\\hat{y})^2$$ $$\\mathcal{L}_{\\text{MDN}} = -\\log \\sum_k \\pi_k \\mathcal{N}(y \\mid \\mu_k, \\sigma_k^2)$$
+
+---
+
+## Distribution families (`losses.families`)
+
+Parametric NLL losses for non-Gaussian target families.
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `SkewNormalNLLLoss` | `SkewNormalNLLLoss(...)` | Skew-normal NLL (Azzalini 1985); reduces exactly to Gaussian NLL at α=0 |
+| `skew_normal_nll` | `skew_normal_nll(...)` | Functional skew-normal NLL |
+| `SkewTLoss` | `SkewTLoss(...)` | Skew-t NLL (Azzalini & Capitanio 2003), lgamma-normalized |
+| `skew_t_nll` | `skew_t_nll(...)` | Functional skew-t NLL |
+| `BetaRegressionNLLLoss` | `BetaRegressionNLLLoss(...)` | Beta-regression NLL (Ferrari & Cribari-Neto 2004) for targets in (0, 1) |
+| `beta_regression_nll` | `beta_regression_nll(...)` | Functional beta-regression NLL |
+| `JohnsonSUNLLLoss` | `JohnsonSUNLLLoss(...)` | Johnson-SU NLL with Shenton-quadrant (γ, δ) shapes |
+| `johnson_su_nll` | `johnson_su_nll(...)` | Functional Johnson-SU NLL |
+| `SinhArcsinhNLLLoss` | `SinhArcsinhNLLLoss(...)` | Sinh-arcsinh NLL (Jones & Pewsey 2009); Gaussian at ε=0, δ=1 |
+| `sinh_arcsinh_nll` | `sinh_arcsinh_nll(...)` | Functional sinh-arcsinh NLL |
+| `GEVNLLLoss` | `GEVNLLLoss(...)` | GEV NLL with an analytic Gumbel limit as ξ → 0 |
+| `gev_nll` | `gev_nll(...)` | Functional GEV NLL |
+| `AsymmetricLaplaceNLLLoss` | `AsymmetricLaplaceNLLLoss(...)` | Asymmetric-Laplace NLL; reduces to the scaled pinball NLL at a common tail scale |
+| `asymmetric_laplace_nll` | `asymmetric_laplace_nll(...)` | Functional asymmetric-Laplace NLL |
+| `SQRLoss` | `SQRLoss(...)` | Distributional quantile regression via sorted levels + mean pinball |
+| `sqr_loss` | `sqr_loss(...)` | Functional SQR loss over `n_levels` sorted quantile levels |
 
 ---
 

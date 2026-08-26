@@ -73,6 +73,9 @@ class BalancedMSELoss(RegressionLoss):
        https://arxiv.org/abs/2203.16427
     """
 
+    bin_edges: Tensor
+    _bin_weights: Tensor
+
     def __init__(
         self,
         bin_edges: Tensor,

@@ -227,6 +227,12 @@ class OutlierFraction(Metric):
         self.mode = mode
         self.add_state("outliers", default=torch.tensor(0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+        # TR-COR-09: global target moments so the absolute-mode scale is
+        # batch-independent instead of being recomputed from each local batch.
+        self.add_state("sum_y", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("sum_y_sq", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("count", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("abs_errors", default=[], dist_reduce_fx="cat")
 
     def update(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
         """Update state with predictions and targets."""
@@ -234,24 +240,50 @@ class OutlierFraction(Metric):
         y_true = convert_to_tensor(y_true)
         validate_inputs(y_pred, y_true)
 
-        abs_error = torch.abs(y_true - y_pred)
+        abs_error = torch.abs(y_true - y_pred).reshape(-1)
 
         if self.mode.lower() == "relative":
             # Shifted relative error: |y - y_pred| / (1 + y).  Numerically stable
             # for non-negative targets that may be exactly zero (counts, prices,
             # populations) and naturally down-weights large-y samples.
-            scaled_error = abs_error / (1.0 + y_true)
+            scaled_error = abs_error / (1.0 + y_true.reshape(-1))
+            outliers = scaled_error > self.threshold
+            metric_state_tensor(self.outliers).add_(torch.sum(outliers))
         else:
-            scale = torch.std(y_true)
-            scaled_error = abs_error / scale
+            # Absolute mode defers classification to compute(): the scale is the
+            # GLOBAL std over every target seen so far, only known once all
+            # batches have been accumulated.
+            metric_state_list[torch.Tensor](self.abs_errors).append(abs_error)
 
-        outliers = scaled_error > self.threshold
-        metric_state_tensor(self.outliers).add_(torch.sum(outliers))
+        flat_true = y_true.reshape(-1)
+        metric_state_tensor(self.sum_y).add_(torch.sum(flat_true))
+        metric_state_tensor(self.sum_y_sq).add_(torch.sum(flat_true**2))
+        metric_state_tensor(self.count).add_(
+            torch.as_tensor(flat_true.numel(), device=flat_true.device)
+        )
         metric_state_tensor(self.total).add_(torch.as_tensor(y_true.numel(), device=y_true.device))
 
     def compute(self) -> torch.Tensor:
         """Compute outlier fraction."""
-        return metric_state_tensor(self.outliers) / metric_state_tensor(self.total)
+        total = metric_state_tensor(self.total)
+        errors = metric_state_list[torch.Tensor](self.abs_errors)
+        if not errors:
+            return metric_state_tensor(self.outliers) / total
+
+        # Unbiased global variance from accumulated moments (matches torch.std
+        # computed on the concatenated targets).
+        # ponytail: E[y^2] - E[y]^2 loses precision for |mean| >> std; streaming
+        # Welford would be more stable but diverges from the moment-based fix
+        # mandated by TR-COR-09.
+        n = metric_state_tensor(self.count)
+        mean = metric_state_tensor(self.sum_y) / n
+        var = (metric_state_tensor(self.sum_y_sq) - n * mean**2) / (n - 1)
+        if n < 2 or var <= 0:
+            # Zero-variance targets: no meaningful scale — define outliers empty.
+            return torch.zeros((), device=total.device, dtype=torch.float32)
+        std = torch.sqrt(var)
+        outlier_count = torch.sum(torch.cat(errors) > self.threshold * std.to(errors[0].device))
+        return outlier_count / total
 
 
 class NormalizedMedianAbsoluteDeviation(Metric):

@@ -47,6 +47,13 @@ class EvidentialRegressionLoss(DistributionLoss):
         coeff_nig: Coefficient for NIG regularization term. Default: 0.01
             Higher values encourage less overconfident predictions
         reduction: Loss reduction method ('mean', 'sum', 'none'). Default: 'mean'
+        unconstrained_inputs: If True (default), the raw network outputs for
+            nu/alpha/beta are constrained internally via
+            ``softplus(x) + {0.01, 1.01, 0.01}``. If False, inputs are
+            consumed directly as pre-constrained parameters
+            (nu > tiny, alpha > 1 + tiny, beta > tiny) with only
+            numerical-safety clamps applied — use this when the model head
+            already enforces positivity to avoid double activation.
 
     Example:
         >>> import torch
@@ -87,9 +94,13 @@ class EvidentialRegressionLoss(DistributionLoss):
         >>>     mean, ale_unc, epi_unc = loss_fn.predict_with_uncertainty(params)
 
         - Constraints: nu > 0, alpha > 1, beta > 0
-        - A4: raw network outputs are constrained internally via
-          ``softplus(x) + {0.01, 1.01, 0.01}`` for nu/alpha/beta, so models can
-          output unconstrained values
+        - With ``unconstrained_inputs=True`` (default), raw network outputs
+          are constrained internally via ``softplus(x) + {0.01, 1.01, 0.01}``
+          for nu/alpha/beta, so models can output unconstrained values.
+        - With ``unconstrained_inputs=False``, inputs are treated as
+          pre-constrained NIG parameters (e.g. from a head that already
+          applies positivity activations) and only numerical-safety clamps
+          are applied, avoiding double softplus activation.
         - Epistemic uncertainty decreases with more evidence (higher nu, alpha)
         - Aleatoric uncertainty is data-dependent and irreducible
 
@@ -117,44 +128,71 @@ class EvidentialRegressionLoss(DistributionLoss):
         self,
         coeff_nig: float = 0.01,
         reduction: str = "mean",
+        unconstrained_inputs: bool = True,
     ) -> None:
         super().__init__(reduction=reduction)
         self.coeff_nig = coeff_nig
+        self.unconstrained_inputs = unconstrained_inputs
 
         if coeff_nig < 0:
             raise ValueError(f"coeff_nig must be >= 0, got {coeff_nig}")
 
-    def _extract_nig_parameters(self, y_pred: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def _extract_nig_parameters(
+        self,
+        y_pred: Tensor | Tuple[Tensor, Tensor, Tensor, Tensor],
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """
-        Extract NIG parameters from model output.
+        Extract (and constrain) NIG parameters from model output.
 
         Args:
-            y_pred: Model output [batch_size, 4*n_features]
-                Format: [gamma, nu, alpha, beta] for each feature
+            y_pred: Either model output [batch_size, 4*n_features] with format
+                [gamma, nu, alpha, beta] per feature, or a pre-split tuple of
+                four tensors ``(gamma, nu, alpha, beta)`` each with shape
+                [batch_size, n_features].
 
         Returns:
             Tuple of (gamma, nu, alpha, beta)
             Each with shape [batch_size, n_features]
 
         Raises:
-            ValueError: If output doesn't have correct shape
+            ValueError: If the output doesn't have the correct shape
         """
-        if y_pred.dim() < 2 or y_pred.shape[-1] % 4 != 0:
-            raise ValueError(
-                f"y_pred must have shape [..., 4*n_features], got {y_pred.shape}. "
-                f"Evidential regression requires 4 outputs per target dimension."
-            )
+        if isinstance(y_pred, (tuple, list)):
+            if len(y_pred) != 4:
+                raise ValueError(
+                    "Tuple y_pred must contain exactly 4 tensors "
+                    f"(gamma, nu, alpha, beta), got {len(y_pred)}."
+                )
+            gamma_raw, nu_raw, alpha_raw, beta_raw = y_pred
+        else:
+            if y_pred.dim() < 2 or y_pred.shape[-1] % 4 != 0:
+                raise ValueError(
+                    f"y_pred must have shape [..., 4*n_features], got {y_pred.shape}. "
+                    f"Evidential regression requires 4 outputs per target dimension."
+                )
 
-        n_features = y_pred.shape[-1] // 4
+            n_features = y_pred.shape[-1] // 4
+            gamma_raw = y_pred[..., :n_features]  # mean (raw)
+            nu_raw = y_pred[..., n_features : 2 * n_features]
+            alpha_raw = y_pred[..., 2 * n_features : 3 * n_features]
+            beta_raw = y_pred[..., 3 * n_features :]
 
-        # Split into 4 parameters.
-        # A4: constrain nu/alpha/beta with softplus + fixed offsets so the
-        # train-time parameterization matches the harness wrapper constraint
-        # and the parameters are strictly positive by construction.
-        gamma = y_pred[..., :n_features]  # mean (raw)
-        nu = F.softplus(y_pred[..., n_features : 2 * n_features]) + 0.01
-        alpha = F.softplus(y_pred[..., 2 * n_features : 3 * n_features]) + 1.01
-        beta = F.softplus(y_pred[..., 3 * n_features :]) + 0.01
+        if self.unconstrained_inputs:
+            # Constrain raw network outputs: softplus + fixed offsets so the
+            # train-time parameterization matches the harness wrapper
+            # constraint and the parameters are strictly positive by
+            # construction.
+            gamma = gamma_raw
+            nu = F.softplus(nu_raw) + 0.01
+            alpha = F.softplus(alpha_raw) + 1.01
+            beta = F.softplus(beta_raw) + 0.01
+        else:
+            # Pre-constrained inputs: numerical-safety clamps only.
+            tiny: float = 1e-6
+            gamma = gamma_raw
+            nu = torch.clamp(nu_raw, min=tiny)
+            alpha = torch.clamp(alpha_raw, min=1.0 + tiny)
+            beta = torch.clamp(beta_raw, min=tiny)
 
         return gamma, nu, alpha, beta
 
@@ -241,7 +279,7 @@ class EvidentialRegressionLoss(DistributionLoss):
 
     def forward(
         self,
-        y_pred: Tensor,
+        y_pred: Tensor | Tuple[Tensor, Tensor, Tensor, Tensor],
         target: Tensor,
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
@@ -251,8 +289,10 @@ class EvidentialRegressionLoss(DistributionLoss):
         Compute evidential regression loss.
 
         Args:
-            y_pred: Model predictions [batch_size, 4*n_features]
-                Must contain [gamma, nu, alpha, beta] for each feature
+            y_pred: Model predictions [batch_size, 4*n_features] containing
+                [gamma, nu, alpha, beta] per feature, or a pre-split tuple
+                ``(gamma, nu, alpha, beta)`` of tensors each with shape
+                [batch_size, n_features]
             target: Ground truth values [batch_size, n_features]
             mask: Optional boolean mask for missing values
             weights: Optional sample weights

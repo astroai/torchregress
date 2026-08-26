@@ -1,3 +1,5 @@
+import math
+
 import pytest
 import torch
 import torch.nn as nn
@@ -10,6 +12,8 @@ from torchregress.losses.robust import (
     CauchyLoss,
     LogCoshLoss,
     PseudoHuberLoss,
+    _barron_elementwise,
+    _log_barron_partition,
 )
 
 
@@ -335,3 +339,74 @@ class TestRobustLossesNumericalStability:
         assert not torch.allclose(mean_grad, sum_grad)
         # Mean and manual mean over none should be similar
         assert torch.allclose(mean_grad, none_grad)
+
+
+class TestAdaptiveRobustNormalizationAndGradients:
+    """TR-COR-03: smooth alpha gradients at the singular points and a
+    scale-consistent normalized objective (Barron 2019, Eq. 17)."""
+
+    def test_barron_alpha_gradient_nonzero_at_singular_points(self):
+        residuals = torch.tensor([0.5, 1.0, 3.0], dtype=torch.double)
+        for alpha_value in (0.0, 2.0):
+            alpha = torch.tensor(alpha_value, dtype=torch.double, requires_grad=True)
+            loss = _barron_elementwise(residuals, alpha, 1.3)
+            assert torch.isfinite(loss).all()
+            loss.sum().backward()
+            assert torch.isfinite(alpha.grad).all()
+            assert torch.all(alpha.grad != 0)
+
+    def test_gradcheck_alpha_and_scale_at_singular_points(self):
+        residuals = torch.tensor([0.5, 1.0, 3.0], dtype=torch.double)
+        for alpha_value in (0.0, -2.0, 2.0):
+            alpha = torch.tensor(alpha_value, dtype=torch.double, requires_grad=True)
+            scale = torch.tensor(1.3, dtype=torch.double, requires_grad=True)
+
+            def objective(a: torch.Tensor, c: torch.Tensor) -> torch.Tensor:
+                return (
+                    _barron_elementwise(residuals, a, c) + torch.log(c) + _log_barron_partition(a)
+                )
+
+            assert gradcheck(objective, (alpha, scale), eps=1e-6, atol=1e-5)
+
+    def test_adaptive_loss_parameters_receive_nonzero_gradient_at_endpoints(self):
+        y_pred = torch.tensor([[0.2], [1.0], [2.0]], dtype=torch.double)
+        y_true = torch.tensor([[0.7], [2.0], [-1.0]], dtype=torch.double)
+        # init at the range edges lands within the smooth Taylor windows of 0 and 2
+        for alpha_init, alpha_min, alpha_max in ((0.0, 0.0, 4.0), (2.0, 0.0, 2.0)):
+            loss_fn = AdaptiveRobustLoss(
+                alpha_init=alpha_init, alpha_min=alpha_min, alpha_max=alpha_max
+            )
+            loss = loss_fn(y_pred, y_true).sum()
+            assert torch.isfinite(loss)
+            loss.backward()
+            assert loss_fn._alpha_logits.grad is not None
+            assert torch.isfinite(loss_fn._alpha_logits.grad)
+            assert loss_fn._alpha_logits.grad.abs() > 0
+            assert loss_fn._scale_raw.grad is not None
+            assert torch.isfinite(loss_fn._scale_raw.grad)
+            assert loss_fn._scale_raw.grad.abs() > 0
+
+    def test_scale_converges_instead_of_diverging_on_constant_residuals(self):
+        residuals = torch.full((64,), 0.7)
+        y_true = residuals.clone()
+        y_pred = torch.zeros_like(residuals)
+        loss_fn = AdaptiveRobustLoss(alpha_init=2.0, scale_init=3.0, alpha_min=0.0, alpha_max=2.0)
+        optimizer = torch.optim.Adam(loss_fn.parameters(), lr=0.05)
+        scales = []
+        for _ in range(200):
+            optimizer.zero_grad()
+            loss = loss_fn(y_pred, y_true)
+            loss.backward()
+            optimizer.step()
+            scales.append(loss_fn.scale.item())
+            assert math.isfinite(scales[-1])
+
+        assert max(scales) < 10.0  # no divergence
+        # alpha ~= 2 -> quadratic regime -> optimal c is the residual RMS
+        assert abs(loss_fn.scale.item() - 0.7) < 0.05
+
+    def test_adaptive_loss_finite_at_zero_residual(self):
+        loss_fn = AdaptiveRobustLoss()
+        zeros = torch.zeros(4, 1, dtype=torch.double)
+        loss = loss_fn(zeros, zeros)
+        assert torch.isfinite(loss).all()

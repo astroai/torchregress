@@ -20,12 +20,6 @@ def _maybe_collapse_support(support: Tensor) -> Tensor:
     return support
 
 
-def _to_numpy(x: np.ndarray | torch.Tensor | Sequence[float]) -> np.ndarray:
-    if torch.is_tensor(x):
-        return x.detach().cpu().numpy()
-    return np.asarray(x)
-
-
 def quantiles_to_density_grid(
     quantiles: Tensor,
     quantile_levels: Sequence[float],
@@ -33,13 +27,17 @@ def quantiles_to_density_grid(
     n_support: int = 200,
     range_margin: float = 0.05,
 ) -> tuple[Tensor, Tensor]:
-    """Convert monotone quantile predictions to a regular density grid."""
     q = torch.as_tensor(quantiles)
     if torch.is_grad_enabled():
         q = q.detach()
-    if q.device.type != "cpu":
-        q = q.cpu()
-    levels = torch.as_tensor(list(quantile_levels), dtype=q.dtype)
+    # ponytail: force float for levels; int quantiles would truncate 0.1->0
+    if not q.is_floating_point():
+        q = q.float()
+    if n_support < 2:
+        raise ValueError("n_support must be >= 2")
+    if not torch.isfinite(q).all():
+        raise ValueError("quantiles must be finite")
+    levels = torch.as_tensor(list(quantile_levels), dtype=q.dtype, device=q.device)
     if q.ndim != 2:
         raise ValueError("quantiles must have shape [batch, n_quantiles]")
     if q.shape[1] != levels.size(0):
@@ -56,12 +54,12 @@ def quantiles_to_density_grid(
     lo = q_lo - range_margin * width
     hi = q_hi + range_margin * width
 
-    steps = torch.linspace(0, 1, n_support, dtype=q.dtype)
+    steps = torch.linspace(0, 1, n_support, dtype=q.dtype, device=q.device)
     support = lo + (hi - lo) * steps[None, :]
 
     slopes = levels.diff() / q.diff(dim=1).clamp(min=1.0e-8)
 
-    dens = slopes[:, 0:1].expand_as(support).clone()
+    dens = torch.zeros_like(support)
 
     for seg_idx in range(levels.size(0) - 1):
         left = q[:, seg_idx : seg_idx + 1]
@@ -90,9 +88,6 @@ def bars_to_density_grid(
     edges = torch.as_tensor(bin_edges)
     if torch.is_grad_enabled():
         edges = edges.detach()
-    if logits.device.type != "cpu":
-        logits = logits.cpu()
-        edges = edges.cpu()
     if logits.ndim != 2:
         raise ValueError("bar_logits must have shape [batch, n_bins]")
     if edges.ndim == 1:
@@ -109,19 +104,14 @@ def bars_to_density_grid(
     lo = lo - range_margin * width
     hi = hi + range_margin * width
 
-    steps = torch.linspace(0, 1, n_support, dtype=logits.dtype)
+    steps = torch.linspace(0, 1, n_support, dtype=logits.dtype, device=logits.device)
     support = lo + (hi - lo) * steps[None, :]
-    density = torch.empty_like(support)
-    for idx in range(logits.shape[0]):
-        widths = edges[idx].diff().clamp(min=1.0e-8)
-        bar_density = probs[idx] / widths
-        bin_idx = torch.bucketize(support[idx], edges[idx][1:-1], right=False).clamp(
-            0, logits.shape[1] - 1
-        )
-        dens = bar_density[bin_idx].clamp(min=0.0)
-        integral = torch.trapezoid(dens, support[idx])
-        integral_val = float(integral.item())
-        density[idx] = dens / max(integral_val, 1.0e-8)
+    widths = edges.diff(dim=1).clamp(min=1.0e-8)
+    bar_density = probs / widths
+    bin_idx = torch.searchsorted(edges[:, 1:-1], support).clamp(0, logits.shape[1] - 1)
+    dens = torch.gather(bar_density, 1, bin_idx).clamp(min=0.0)
+    integral = torch.trapezoid(dens, support, dim=1).clamp(min=1.0e-8)
+    density = dens / integral[:, None]
     return support, density
 
 
@@ -135,8 +125,6 @@ def samples_to_density_grid(
     draws = torch.as_tensor(samples)
     if torch.is_grad_enabled():
         draws = draws.detach()
-    if draws.device.type != "cpu":
-        draws = draws.cpu()
     if draws.ndim == 3 and draws.shape[-1] == 1:
         draws = draws[..., 0]
     if draws.ndim != 2:
@@ -150,23 +138,31 @@ def samples_to_density_grid(
     lo = (sample_lo - range_margin * width)[:, None]
     hi = (sample_hi + range_margin * width)[:, None]
 
-    steps = torch.linspace(0, 1, n_support, dtype=draws.dtype)
+    steps = torch.linspace(0, 1, n_support, dtype=draws.dtype, device=draws.device)
     support = lo + (hi - lo) * steps[None, :]
-    density = torch.empty_like(support)
-    for idx in range(draws.shape[0]):
-        edges = torch.linspace(lo[idx].item(), hi[idx].item(), n_support + 1, dtype=draws.dtype)
-        hist = torch.histogram(draws[idx], bins=edges, density=False)[0]
-        widths = edges.diff().clamp(min=1.0e-8)
-        dens = hist.float() / max(float(draws.shape[1]), 1.0) / widths
-        row = dens.repeat_interleave(2)
-        edge_support = edges.repeat_interleave(2)[1:-1]
-        density[idx] = torch.zeros_like(support[idx])
-        # interp via searchsorted
-        idxs = torch.searchsorted(edge_support, support[idx]).clamp(0, row.size(0) - 2)
-        density[idx] = row[idxs]
-        integral = torch.trapezoid(density[idx], support[idx])
-        integral_val = float(integral.item())
-        density[idx] = density[idx] / max(integral_val, 1.0e-8)
+    edges = (
+        lo
+        + (hi - lo)
+        * torch.linspace(0, 1, n_support + 1, dtype=draws.dtype, device=draws.device)[None, :]
+    )
+    widths = edges.diff(dim=1).clamp(min=1.0e-8)
+
+    # Bin membership follows torch.histogram's convention: half-open
+    # [edge_i, edge_i+1) bins with a closed final bin.
+    bin_idx = torch.searchsorted(edges[:, 1:-1].contiguous(), draws, right=True).clamp(
+        0, n_support - 1
+    )
+    hist = torch.zeros(
+        draws.shape[0], n_support, dtype=draws.dtype, device=draws.device
+    ).scatter_add_(1, bin_idx, torch.ones_like(draws))
+    dens = hist / float(draws.shape[1]) / widths
+
+    row = dens.repeat_interleave(2, dim=1)
+    edge_support = edges.repeat_interleave(2, dim=1)[:, 1:-1]
+    idxs = torch.searchsorted(edge_support, support).clamp(0, row.shape[1] - 2)
+    density = torch.gather(row, 1, idxs)
+    integral = torch.trapezoid(density, support, dim=1).clamp(min=1.0e-8)
+    density = density / integral[:, None]
     return support, density
 
 

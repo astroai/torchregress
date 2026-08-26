@@ -24,13 +24,12 @@ def test_weighted_ecdf_matches_hand() -> None:
 
 
 def test_weighted_split_matches_weighted_quantile() -> None:
+    """Adapter threshold equals _weighted_quantile at the raw target level."""
     torch.manual_seed(0)
     scores = torch.rand(20)
     w = torch.rand(20)
     alpha = 0.1
-    n = scores.numel()
-    q_level = min(math.ceil((n + 1) * (1.0 - alpha)) / n, 1.0)
-    expected = _weighted_quantile(scores, q_level, w)
+    expected = _weighted_quantile(scores, 1.0 - alpha, w)
     ad = WeightedSplitConformalAdapter(alpha=alpha)
     ad.calibrate(scores, w)
     assert ad.threshold_ is not None
@@ -41,12 +40,12 @@ def test_uniform_weights_match_unweighted_quantile() -> None:
     scores = torch.tensor([0.1, 0.4, 0.2, 0.9])
     w = torch.ones_like(scores)
     alpha = 0.1
-    n = scores.numel()
-    q_level = min(math.ceil((n + 1) * (1.0 - alpha)) / n, 1.0)
-    expected = _weighted_quantile(scores, q_level, None)
+    # Augmented (n+1) distribution reproduces the exact order statistic.
+    k = min(math.ceil((scores.numel() + 1) * (1.0 - alpha)), scores.numel())
+    expected = torch.sort(scores).values[k - 1]
     ad = WeightedSplitConformalAdapter(alpha=alpha)
     ad.calibrate(scores, w)
-    torch.testing.assert_close(ad.threshold_, expected)
+    assert float(ad.threshold_) == float(expected)
 
 
 def test_ot_reweighter_weights_simplex() -> None:

@@ -140,7 +140,8 @@ class TweedieLoss(RegressionLoss):
             Loss tensor
         """
         target_safe = torch.where(target > 0, target, torch.ones_like(target))
-        term_nz = target * torch.log(target_safe / (mu + self.eps) + self.eps) - (target - mu)
+        ratio = target_safe / (mu + self.eps)
+        term_nz = target * torch.log(ratio.clamp(min=self.eps)) - (target - mu)
         return torch.where(target == 0, mu, term_nz)
 
     def _gamma_loss(self, target: torch.Tensor, mu: torch.Tensor) -> torch.Tensor:

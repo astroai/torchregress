@@ -84,7 +84,7 @@ out: PackedEnsembleOutput = model.predict_output(x)
 |:-------|:------------|
 | `MCDropoutWrapper` | Wraps any model with `nn.Dropout` layers; enables dropout at inference time and runs `n_samples` forward passes. |
 | `MCDropoutModel` | MLP with built-in `Dropout` layers and `predict_with_uncertainty` / `predict_interval` methods. |
-| `enable_dropout(model)` | Set all `nn.Dropout` modules to `train()` mode (for MC-Dropout inference). |
+| `enable_dropout` | `(model)` — Set all `nn.Dropout` modules to `train()` mode (for MC-Dropout inference). |
 
 **References:** Gal & Ghahramani, "Dropout as a Bayesian Approximation" (ICML 2016).
 
@@ -142,6 +142,15 @@ mean, std = torch.stack(preds).mean(0), torch.stack(preds).std(0)
 
 All combiners use `_batched_ensemble_forward`, which uses `torch.func.vmap` /
 `stack_module_state` for fast batched inference when gradients aren't required.
+
+---
+
+## Laplace & snapshot ensembles
+
+| Symbol | Description |
+|:-------|:------------|
+| `FullNetworkLaplace` | Diagonal empirical-Fisher Laplace approximation over **all** network parameters for post-hoc uncertainty. |
+| `SnapshotEnsemble` | Collects model snapshots at the minima of a cyclic cosine learning-rate schedule; snapshots form a cheap deep ensemble. |
 
 ---
 

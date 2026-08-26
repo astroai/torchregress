@@ -204,14 +204,11 @@ class VIDSRegressor(nn.Module):
                 # Sum NLL over target dimensions and data points
                 se = (Y_env.unsqueeze(0) - y_pred) ** 2  # [S, B, target_dim]
                 nll = 0.5 * (se / (noise_var + 1e-8) + self.log_noise_var + math.log(2 * math.pi))
-                nll_loss = nll.mean(dim=0).sum()
-
-                # 4. Compute KL divergence against adaptive prior
-                # Prior parameters are predicted for each point x_n in the environment
+                # ponytail: mean over S*B*D for scale comparable to KL mean
+                nll_loss = nll.mean()
                 prior_mean, prior_log_var = self.prior_net(context_X, X_env)  # [B, P], [B, P]
                 prior_var = torch.exp(prior_log_var)
                 post_var = post_std**2
-
                 # Analytical KL for diagonal Gaussians: post w.r.t prior
                 # KL = 0.5 * sum( log(prior_var/post_var) +
                 #      (post_var + (post_mean - prior_mean)^2)/prior_var - 1 )
@@ -222,9 +219,9 @@ class VIDSRegressor(nn.Module):
                     / (prior_var + 1e-8)
                     - 1.0
                 )  # [B, P]
-                kl_loss = kl.mean(dim=0).sum()
-
-                # ELBO loss
+                # ponytail: mean over B and P so KL not dominated by param_dim P
+                # (previously mean(dim=0).sum() summed over P, making KL ~P× too strong)
+                kl_loss = kl.mean()
                 loss = nll_loss + beta * kl_loss
                 loss.backward()
                 optimizer.step()
