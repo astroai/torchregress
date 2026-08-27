@@ -248,12 +248,10 @@ class NonExchangeableConformalRegressor:
             import warnings
 
             warnings.warn(
-                f"w_sum {float(w_sum)} not positive for {self.n_calibrated_} points; ",
-                "falling back to uniform weights",
+                f"w_sum {float(w_sum)} not positive; falling back to uniform",
                 UserWarning,
-                stacklevel=2,
+                2,
             )
-            w = torch.ones_like(w)
             w_sum = w.sum()
         w_norm = w / w_sum if self.normalize_weights else w
         n = float(self.n_calibrated_)

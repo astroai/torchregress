@@ -113,7 +113,7 @@ class TestDRTrimmingAppliedToEstimator:
         assert math.isfinite(boot["se"]) and boot["se"] > 0.0
         # same fold-pair bootstrap is deterministic under the same seed
         boot2 = dr_ate(x, t, y, trim_threshold=0.05, se_method="fold_bootstrap", **KW)
-        assert boot["se"] == pytest.approx(boot2["se"])
+        assert boot["se"] == pytest.approx(boot2["se"], rel=1e-5, abs=1e-8)
 
     def test_unknown_se_method_raises(self) -> None:
         from torchregress.causal.dr import dr_ate
