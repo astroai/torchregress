@@ -248,7 +248,7 @@ class NonExchangeableConformalRegressor:
             import warnings
 
             warnings.warn(
-                f"w_sum {float(w_sum)} not positive/finite for {self.n_calibrated_} calibration points; "
+                f"w_sum {float(w_sum)} not positive for {self.n_calibrated_} points; ",
                 "falling back to uniform weights",
                 UserWarning,
                 stacklevel=2,
@@ -263,6 +263,7 @@ class NonExchangeableConformalRegressor:
         # Use raw weights for threshold (test weight 1 is comparable to raw scale)
         self.threshold_ = _weighted_conformal_threshold(flat, w, self.alpha)
         return self
+
     def two_sided_coverage_bounds(self) -> Tuple[float, float]:
         """Two-sided coverage bounds for the calibrated predictor.
 

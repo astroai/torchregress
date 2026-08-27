@@ -123,13 +123,18 @@ class DomainClassifierRatioEstimator:
         if not torch.isfinite(ratio).all() or float(ratio.sum()) <= 0:
             import warnings
 
-            warnings.warn("DomainClassifier ratio degenerate; falling back to uniform", UserWarning, stacklevel=2)
+            warnings.warn(
+                "DomainClassifier ratio degenerate; falling back to uniform",
+                UserWarning,
+                stacklevel=2,
+            )
             return torch.ones_like(ratio)
         return ratio
 
     def weights(self, X_cal: Tensor) -> Tensor:
         """Importance weights for calibration rows (alias of :meth:`weights_for`)."""
         return self.weights_for(X_cal)
+
 
 class OTScoreWeightEstimator(ScoreCDFReweighter):
     """``ScoreCDFReweighter`` adapter exposing feature-space ``.weights(X)``.
