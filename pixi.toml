@@ -1,6 +1,6 @@
 [workspace]
 name = "torchregress"
-version = "0.1.0"
+version = "0.2.0"
 description = "PyTorch loss functions and utilities for regression problems."
 authors = ["Sébastien Fabbro <sebfabbro@gmail.com>"]
 channels = ["conda-forge"]
