@@ -39,8 +39,8 @@ Runnable scripts (CPU-only, no dataset downloads):
 Example:
 
 ```bash
-uv run python examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py --shots 4,8,16,32 --seed 0
-uv run python examples/benchmarks/bayesian_linear_head_online_drift.py --seed 1
+pixi run python examples/benchmarks/bayesian_linear_head_lowshot_adaptation.py --shots 4,8,16,32 --seed 0
+pixi run python examples/benchmarks/bayesian_linear_head_online_drift.py --seed 1
 ```
 
 ## Catalogue maturity (recommendation level)

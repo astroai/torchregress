@@ -23,13 +23,13 @@ JSON snapshots live under `reports/` at the repo root:
 Regenerate the docs-facing reports with:
 
 ```bash
-uv run python tools/render_method_catalog.py \
+pixi run python tools/render_method_catalog.py \
   --markdown-out docs/reports/method_catalog_generated.md \
   --json-out reports/method_catalog_latest.json \
   --update-method-matrix docs/guide/method-selection.md \
   --comparative-evidence-md-out docs/reports/comparative_evidence_matrix.md \
   --comparative-evidence-json-out reports/comparative_evidence_matrix_latest.json
-uv run python -m tools.render_realdata_recommendation_guide \
+pixi run python -m tools.render_realdata_recommendation_guide \
   --doc docs/reports/real_data_recommendation_guide.md \
   --comparative-json reports/comparative_evidence_matrix_latest.json
 ```

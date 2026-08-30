@@ -29,12 +29,12 @@ Reported metrics:
 ## Run
 
 ```bash
-uv run python examples/semi_supervised_regression_comparison.py
+pixi run python examples/semi_supervised_regression_comparison.py
 ```
 
 ## Summary Artifact
 
 ```bash
-uv run python examples/semi_supervised_regression_comparison.py \
+pixi run python examples/semi_supervised_regression_comparison.py \
   --summary-json-path reports/example_summaries/semi_supervised_regression_comparison_full.json
 ```

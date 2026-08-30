@@ -47,5 +47,5 @@ Script: `examples/ood_selective_prediction_realdata_comparison.py`
 ## Run
 
 ```bash
-uv run python examples/ood_selective_prediction_realdata_comparison.py
+pixi run python examples/ood_selective_prediction_realdata_comparison.py
 ```

@@ -110,9 +110,6 @@ reports_backup/
 torchz_metrics.json
 .mplconfig/
 
-# UV cache / lock
-.uv-cache/
-uv.lock
 # pixi environments
 .pixi/*
 !.pixi/config.toml

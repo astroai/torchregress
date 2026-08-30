@@ -359,10 +359,10 @@ git clone https://github.com/astroai/torchregress.git
 cd torchregress
 
 # Install dependencies (dev + all extras)
-uv sync --all-extras --dev
+pixi install
 
 # Run a specific example
-uv run python examples/basic_usage.py
+pixi run python examples/basic_usage.py
 ```
 
 For questions or issues with the examples, please [open an issue](https://github.com/astroai/torchregress/issues) in the repository.

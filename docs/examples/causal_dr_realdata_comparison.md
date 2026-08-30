@@ -22,12 +22,12 @@ Reported metrics:
 ## Run
 
 ```bash
-uv run python examples/causal_dr_realdata_comparison.py
+pixi run python examples/causal_dr_realdata_comparison.py
 ```
 
 ## Summary Artifact
 
 ```bash
-uv run python examples/causal_dr_realdata_comparison.py \
+pixi run python examples/causal_dr_realdata_comparison.py \
   --summary-json-path reports/example_summaries/causal_dr_realdata_comparison_full.json
 ```

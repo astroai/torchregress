@@ -42,5 +42,5 @@ Script: `examples/noisy_label_comparison.py`
 ## Run
 
 ```bash
-uv run python examples/noisy_label_comparison.py
+pixi run python examples/noisy_label_comparison.py
 ```

@@ -45,7 +45,7 @@ Recommended protection rules:
 
 The workflow job in [`.github/workflows/release.yml`](../.github/workflows/release.yml) uses
 `environment: pypi` and `permissions.id-token: write`, which are required for OIDC-based
-publishing with `uv publish`.
+publishing with GitHub Actions OIDC (`pypa/gh-action-pypi-publish`).
 
 ## Release checklist
 
@@ -108,11 +108,8 @@ Common causes:
 - Missing `id-token: write` permission on the publish job
 - Tag/version mismatch between git tag and `pyproject.toml`
 
-For clearer OIDC errors during setup, CI uses:
-
-```bash
-uv publish --trusted-publishing always
-```
+For clearer OIDC errors during setup, the release workflow uses
+`pypa/gh-action-pypi-publish` with `id-token: write`.
 
 ### Tag pushed but version not bumped on main
 
@@ -129,8 +126,8 @@ The tag must point to a commit whose `pyproject.toml` version matches the tag. U
 ### Manual version bump only
 
 ```bash
-uv run python scripts/release/bump_version.py patch
-uv run python scripts/release/verify_version.py --tag vX.Y.Z
+pixi run python scripts/release/bump_version.py patch
+pixi run python scripts/release/verify_version.py --tag vX.Y.Z
 ```
 
 ## What is intentionally not automated here

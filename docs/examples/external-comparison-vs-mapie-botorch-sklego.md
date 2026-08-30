@@ -16,7 +16,7 @@ against widely-used third-party libraries on canonical regression tasks.
 All three external libraries are optional dependencies. Install them directly:
 
 ```bash
-uv pip install mapie scikit-lego botorch gpytorch crepes torchcp
+pixi add mapie scikit-lego botorch gpytorch crepes torchcp
 ```
 
 If an external library is not installed, the corresponding script still runs
@@ -27,11 +27,11 @@ environments.
 Run the three benchmarks:
 
 ```bash
-uv run python examples/external_comparison_conformal_vs_mapie.py \
+pixi run python examples/external_comparison_conformal_vs_mapie.py \
     --summary-json-path reports/external_comparison_conformal_vs_mapie_latest.json
-uv run python examples/external_comparison_bayesian_linear_vs_botorch.py \
+pixi run python examples/external_comparison_bayesian_linear_vs_botorch.py \
     --summary-json-path reports/external_comparison_bayesian_linear_vs_botorch_latest.json
-uv run python examples/external_comparison_tweedie_vs_sklego.py \
+pixi run python examples/external_comparison_tweedie_vs_sklego.py \
     --summary-json-path reports/external_comparison_tweedie_vs_sklego_latest.json
 ```
 

@@ -2,12 +2,12 @@
 
 ## Development Setup
 
-We use `uv` for environment management. The repo pins **Python 3.13** in `.python-version` (recommended default); **3.12** and **3.14** are also supported.
+We use **Pixi** for environment management. The repo pins **Python 3.13** in `.python-version` (recommended default); **3.12** and **3.14** are also supported.
 
 ### Installation
 
 ```bash
-uv sync
+pixi install
 ```
 
 ### Running Quality Checks & Tests Locally
@@ -18,22 +18,22 @@ Individual checks:
 
 ```bash
 # Formatter (Ruff)
-uv run ruff format src/torchregress tests tools
+pixi run ruff format src/torchregress tests tools
 
 # Linter (Ruff)
-uv run ruff check .
+pixi run ruff check .
 
 # Type checking (MyPy)
-uv run mypy src/torchregress
+pixi run mypy src/torchregress
 
 # Run tests
-uv run pytest
+pixi run pytest
 ```
 
 To run a specific test file:
 
 ```bash
-uv run pytest tests/losses/test_eiv.py
+pixi run pytest tests/losses/test_eiv.py
 ```
 
 Alternatively, run the full CI parity script:
@@ -61,7 +61,7 @@ The `--strict` flag fails the build on any unresolved link reference — run loc
 before pushing:
 
 ```bash
-uv run zensical build --strict
+pixi run zensical build --strict
 ```
 
 ### Inline Citation Markers
@@ -105,15 +105,15 @@ predictably:
 Before docs PRs, run the quality audit:
 
 ```bash
-uv run python tools/audit_docs_quality.py
-uv run zensical build --strict
+pixi run python tools/audit_docs_quality.py
+pixi run zensical build --strict
 ```
 
 Tracker state lives in `reports/docs_quality_audit.json`; regenerate the
 human-readable table with:
 
 ```bash
-uv run python tools/audit_docs_quality.py --markdown-out docs/reports/docs_quality_audit.md
+pixi run python tools/audit_docs_quality.py --markdown-out docs/reports/docs_quality_audit.md
 ```
 
 ## Releasing

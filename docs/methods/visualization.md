@@ -269,7 +269,7 @@ The example script `examples/viz_diagnostic_gallery.py` runs **all 25 plot funct
 creates a multi-panel report, and saves each plot individually:
 
 ```bash
-uv run python examples/viz_diagnostic_gallery.py
+pixi run python examples/viz_diagnostic_gallery.py
 ```
 
 Outputs are saved to `examples/outputs/` and include:

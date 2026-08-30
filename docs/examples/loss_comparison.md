@@ -5,7 +5,7 @@ This page compares robust and standard regression losses across pedagogical scen
 **Run the script:**
 
 ```bash
-uv run python examples/loss_comparison.py
+pixi run python examples/loss_comparison.py
 ```
 
 → API: [Losses](../api/losses.md) (`WeightedMSELoss`, `WeightedHuberLoss`, `CauchyLoss`, `GaussianNLLLoss`, `MDNLoss`, …).

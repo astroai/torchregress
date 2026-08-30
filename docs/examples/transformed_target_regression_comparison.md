@@ -23,12 +23,12 @@ Reported metrics:
 ## Run
 
 ```bash
-uv run python examples/transformed_target_regression_comparison.py
+pixi run python examples/transformed_target_regression_comparison.py
 ```
 
 ## Summary Artifact
 
 ```bash
-uv run python examples/transformed_target_regression_comparison.py \
+pixi run python examples/transformed_target_regression_comparison.py \
   --summary-json-path reports/example_summaries/transformed_target_regression_comparison_full.json
 ```

@@ -9,5 +9,5 @@ External-software parity harness:
 
 ## Conventions
 
-- Run from repo root with `uv run python examples/benchmarks/<script>.py …` so imports resolve predictably.
+- Run from repo root with `pixi run python examples/benchmarks/<script>.py …` so imports resolve predictably.
 - Prefer **repository-relative** paths in docs and shell history (not machine-specific absolute paths).

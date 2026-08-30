@@ -32,12 +32,12 @@ Reported metrics:
 ## Run
 
 ```bash
-uv run python examples/ordinal_uncertain_ground_truth_comparison.py
+pixi run python examples/ordinal_uncertain_ground_truth_comparison.py
 ```
 
 ## Summary Artifact
 
 ```bash
-uv run python examples/ordinal_uncertain_ground_truth_comparison.py \
+pixi run python examples/ordinal_uncertain_ground_truth_comparison.py \
   --summary-json-path reports/example_summaries/ordinal_uncertain_ground_truth_comparison_full.json
 ```
