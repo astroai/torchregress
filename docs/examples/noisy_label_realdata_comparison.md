@@ -39,5 +39,5 @@ Script: `examples/noisy_label_realdata_comparison.py`
 ## Run
 
 ```bash
-uv run python examples/noisy_label_realdata_comparison.py
+pixi run python examples/noisy_label_realdata_comparison.py
 ```

@@ -38,5 +38,5 @@ Script: `examples/eiv_method_realdata_comparison.py`
 ## Run
 
 ```bash
-uv run python examples/eiv_method_realdata_comparison.py
+pixi run python examples/eiv_method_realdata_comparison.py
 ```

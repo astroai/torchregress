@@ -29,13 +29,13 @@ Reported metrics (summary JSON column names — class names in parentheses):
 ## Run
 
 ```bash
-uv run python examples/uncertain_gt_density_conformal_comparison.py
+pixi run python examples/uncertain_gt_density_conformal_comparison.py
 ```
 
 ## Summary Artifact
 
 ```bash
-uv run python examples/uncertain_gt_density_conformal_comparison.py \
+pixi run python examples/uncertain_gt_density_conformal_comparison.py \
   --summary-json-path reports/example_summaries/uncertain_gt_density_conformal_comparison_full.json
 ```
 

@@ -21,12 +21,12 @@ Reported metrics:
 ## Run
 
 ```bash
-uv run python examples/ordinal_regression_realdata_comparison.py
+pixi run python examples/ordinal_regression_realdata_comparison.py
 ```
 
 ## Summary Artifact
 
 ```bash
-uv run python examples/ordinal_regression_realdata_comparison.py \
+pixi run python examples/ordinal_regression_realdata_comparison.py \
   --summary-json-path reports/example_summaries/ordinal_regression_realdata_comparison_full.json
 ```

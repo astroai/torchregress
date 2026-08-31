@@ -23,7 +23,7 @@ Internal memos, dated result trees, and experiment plans for torchregress resear
 
 - Experiment staging: `sage_reg_experiment_plan.md` (in `torchregress-research`)
 - Working outline / math sketch: `sage_reg_paper_outline.md` (in `torchregress-research`)
-- Dated runs: `sage_reg_results/` (large files may be local-only). If **parquet / zip / misplaced ``openml_year.csv``** land here (tens of GB), remove with ``uv run python tools/clean_sage_reg_results_heavy_artifacts.py`` (``--dry-run`` first).
+- Dated runs: `sage_reg_results/` (large files may be local-only). If **parquet / zip / misplaced ``openml_year.csv``** land here (tens of GB), remove with ``pixi run python tools/clean_sage_reg_results_heavy_artifacts.py`` (``--dry-run`` first).
 - Legacy redirect stub: `sage_reg_status.md` (in `torchregress-research`)
 
 ## SPT-Reg pointers

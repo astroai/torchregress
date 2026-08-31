@@ -22,12 +22,12 @@ The example also includes a small interval-censored subset using explicit bounds
 ## Run
 
 ```bash
-uv run python examples/censored_regression_realdata_comparison.py
+pixi run python examples/censored_regression_realdata_comparison.py
 ```
 
 ## Summary Artifact
 
 ```bash
-uv run python examples/censored_regression_realdata_comparison.py \
+pixi run python examples/censored_regression_realdata_comparison.py \
   --summary-json-path reports/example_summaries/censored_regression_realdata_comparison_full.json
 ```

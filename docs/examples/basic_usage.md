@@ -5,7 +5,7 @@ This page is a **cookbook** of common regression patterns. The companion script 
 **Run the script:**
 
 ```bash
-uv run python examples/basic_usage.py
+pixi run python examples/basic_usage.py
 ```
 
 → API reference: [Losses](../api/losses.md), [Metrics](../api/metrics.md).
