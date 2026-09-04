@@ -16,6 +16,13 @@ from torch import Tensor
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
+# Step-counter saturation bound: step-less calls advance an internal counter,
+# which must not grow without bound. The sigmoidal schedule fully saturates a
+# few thousand steps past warmup (k=0.005, t0=1000), so behaviour is frozen
+# long before the cap; 1e6 is far beyond any real training run and keeps the
+# counter bounded in month-long loops.
+_SLS_STEP_CAP = 1_000_000
+
 
 class VolumePreservingCouplingLayer(nn.Module):
     """A translation-only conditional coupling layer for volume-preserving flows.
@@ -261,9 +268,18 @@ class MahalanobisFrontier(nn.Module):
             log_det_L = 0.5 * (logdet_M + logdet_D)
             return (D, V), log_det_L
 
-    def forward(self, y: Tensor, context: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
+    def forward(
+        self,
+        y: Tensor,
+        context: Optional[Tensor] = None,
+        beta: Optional[float] = None,
+    ) -> Tuple[Tensor, Tensor]:
         # A6: an unconditional frontier (context_dim == 0) must never receive a
         # degenerate context tensor — pass None so the parameter path is used.
+        # ``beta`` is accepted (and ignored) so SLSLoss can pass a derived
+        # value polymorphically to both frontier types; a single-component
+        # Mahalanobis frontier has no mixture weights to anneal.
+        del beta
         if self.context_dim == 0:
             context = None
         mu, L_params = self._get_params(context)
@@ -304,11 +320,13 @@ class UnionFrontier(nn.Module):
         n_transforms: int = 4,
         beta_init: float = 1.0,
         beta_decay: float = 0.9995,
+        beta_cap: float = 1e4,
     ) -> None:
         super().__init__()
         self.d = d
         self.K = K
         self.context_dim = context_dim
+        self.beta_cap = float(beta_cap)
 
         self.components = nn.ModuleList(
             [
@@ -332,11 +350,30 @@ class UnionFrontier(nn.Module):
             self.weights_param = nn.Parameter(torch.zeros(K))
 
         self.register_buffer("beta", torch.tensor(beta_init))
-        self.beta_decay = beta_decay
+        self.beta_init = float(beta_init)
+        self.beta_growth = 1.01
+        self.beta_cap = float(beta_cap)
         self._freeze_weights = True
 
+    def beta_at(self, n_post_warmup: int) -> float:
+        """Pure beta schedule: geometric growth from ``beta_init``, clamped.
+
+        ``n_post_warmup`` steps past warmup give ``beta_init * 1.01**n``;
+        unbounded growth would overflow float32 (~9k steps -> beta=inf ->
+        logits -inf -> softmax NaN), so the value clamps at ``beta_cap``.
+        Computed in Python floats — overflow-safe for any ``n``.
+        """
+        val = self.beta_init * (self.beta_growth ** int(max(0, n_post_warmup)))
+        return float(min(val, self.beta_cap))
+
     def step_beta(self) -> None:
-        self.beta.copy_(self.beta * 1.01)
+        """External (opt-in) buffer anneal, clamped at ``beta_cap``.
+
+        Kept for callers that drive the frontier directly; ``SLSLoss.forward``
+        does NOT call this — it derives the effective beta from the step
+        (see ``beta_at``), keeping forward side-effect free.
+        """
+        self.beta.copy_(torch.clamp(self.beta * self.beta_growth, max=self.beta_cap))
 
     def freeze_weights(self, freeze: bool = True) -> None:
         self._freeze_weights = freeze
@@ -357,7 +394,12 @@ class UnionFrontier(nn.Module):
         else:
             return torch.softmax(self.weights_param, dim=-1)
 
-    def forward(self, y: Tensor, context: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
+    def forward(
+        self,
+        y: Tensor,
+        context: Optional[Tensor] = None,
+        beta: Optional[float] = None,
+    ) -> Tuple[Tensor, Tensor]:
         p = self._get_mixture_weights(context)
 
         G_components = []
@@ -373,7 +415,12 @@ class UnionFrontier(nn.Module):
         G_stack = torch.stack(G_components, dim=-1)
         logdet_stack = torch.stack(logdet_components, dim=-1)
 
-        logits = -self.beta * G_stack
+        # Effective beta: caller-provided value (pure path used by SLSLoss,
+        # derived from the step) or the buffer (back-compat direct use).
+        beta_val = self.beta if beta is None else beta
+        beta_t = torch.as_tensor(beta_val, device=G_stack.device, dtype=G_stack.dtype)
+
+        logits = -beta_t * G_stack
         weights = torch.softmax(logits, dim=-1)
 
         G_beta = torch.sum(weights * G_stack, dim=-1)
@@ -554,7 +601,19 @@ class SLSLoss(RegressionLoss):
         # Build quantile network
         self.quantile_net = QuantileNetwork(context_dim, hidden_dim=hidden_dim)
 
+        # Internal step bookkeeping for step-less calls only (saturated at
+        # ``_SLS_STEP_CAP``). Explicit ``step=`` callers never touch this.
         self.step_counter = 0
+
+    def _advance_step(self) -> int:
+        """Advance and return the internal counter (step-less fallback only).
+
+        Single point of mutation for the whole class, so ``forward`` cannot
+        double-count or decrement (the historical B1 bug) and the counter is
+        bounded on unbounded training loops.
+        """
+        self.step_counter = min(self.step_counter + 1, _SLS_STEP_CAP)
+        return self.step_counter
 
     def get_current_window(self, step: Optional[int] = None) -> Tuple[float, float]:
         current_step = step if step is not None else self.step_counter
@@ -570,12 +629,17 @@ class SLSLoss(RegressionLoss):
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
     ) -> Tensor:
-        if step is not None:
-            current_step = step
-        else:
-            self.step_counter += 1
-            current_step = self.step_counter
-        G, log_det_L = self.frontier(target, y_pred)
+        # Pure in ``step``: no mutation here. Step-less callers get the
+        # counter advanced exactly once, by ``forward`` (which is also the
+        # only direct entry point harness loops use).
+        current_step = step if step is not None else self.step_counter
+        # UnionFrontier accepts a caller-derived beta (pure path); the
+        # Mahalanobis frontier ignores it.
+        beta_val: Optional[float] = None
+        if isinstance(self.frontier, UnionFrontier):
+            n_post = max(0, current_step - self.warmup_steps)
+            beta_val = self.frontier.beta_at(n_post)
+        G, log_det_L = self.frontier(target, y_pred, beta=beta_val)
 
         # A6: sign-consistent volume term. MahalanobisFrontier's log_det_L is
         # log|L| (volume of the level set scales as |Σ|^{1/2} = prod L_ii),
@@ -635,15 +699,24 @@ class SLSLoss(RegressionLoss):
         weights: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tensor:
+        # Explicit-step callers own the schedule; the loss stays pure (no
+        # internal mutation, safe for multi-GPU / DistributedDataParallel and
+        # for repeated evaluation of the same step). Step-less callers get the
+        # B1 fallback: the counter advances exactly once per forward call,
+        # here — nowhere else.
         step_val = step if step is not None else kwargs.get("step")
-        current_step = step_val if step_val is not None else self.step_counter
-        effective_step = current_step if step_val is not None else current_step + 1
+        if step_val is not None:
+            current_step = int(step_val)
+        else:
+            current_step = self._advance_step()
 
-        if effective_step > self.warmup_steps and self.K > 1:
-            # UnionFrontier typecast since Components can be either Mahalanobis or UnionFrontier
+        if current_step > self.warmup_steps and self.K > 1:
+            # Derived state instead of mutated state: mixture weights unfreeze
+            # (logically) past warmup and the effective beta comes from the
+            # pure ``beta_at`` schedule. ``_freeze_weights``/``beta`` are only
+            # touched by external callers driving the frontier directly.
             frontier_union = cast(UnionFrontier, self.frontier)
             frontier_union.freeze_weights(False)
-            frontier_union.step_beta()
 
         loss_frontier = self.forward_frontier(
             y_pred, target, step=step_val, mask=mask, weights=weights
