@@ -91,10 +91,13 @@ class BetaNLLLoss(GaussianNLLLoss):
         if mask is not None:
             # Preserve partial rows: zero-fill per-element then sum per-sample.
             # Previously summed before _reduce forced mask.all(row) discard.
-            masked = torch.where(mask, weighted, torch.zeros_like(weighted))
+            # Bool-convert first (BaseLoss._reduce policy): float masks from
+            # dense/spatial loaders would fail torch.where's condition check.
+            mask_bool = mask.to(dtype=torch.bool)
+            masked = torch.where(mask_bool, weighted, torch.zeros_like(weighted))
             summed = masked.sum(dim=-1)  # [B]
             # Per-sample valid mask for _reduce (exclude fully-masked rows)
-            sample_mask = mask.any(dim=-1) if mask.dim() > 1 else mask
+            sample_mask = mask_bool.any(dim=-1) if mask_bool.dim() > 1 else mask_bool
             return self._reduce(summed, mask=sample_mask, weights=weights)
         summed = weighted.sum(dim=-1)  # [B] sum over features per paper
         return self._reduce(summed, mask=None, weights=weights)
