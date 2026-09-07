@@ -458,6 +458,9 @@ class LDSLoss(RegressionLoss):
         bin_counts.scatter_add_(0, bin_indices, torch.ones_like(bin_indices, dtype=torch.float32))
 
         kernel_window = self._get_kernel_window(self.kernel_width).view(1, 1, -1)
+        # The kernel is built on CPU; bin_counts lives on the targets' device
+        # (CUDA in GPU harnesses) — conv1d requires matching devices.
+        kernel_window = kernel_window.to(bin_counts.device)
         smoothed_counts = F.conv1d(bin_counts.view(1, 1, -1), kernel_window, padding="same").view(
             -1
         )
