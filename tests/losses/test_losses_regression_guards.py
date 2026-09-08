@@ -242,8 +242,17 @@ def test_a7_negative_binomial_logitsigmoid_matches_manual() -> None:
 
     lgamma = torch.lgamma(target + theta) - torch.lgamma(target + 1.0) - torch.lgamma(theta)
     logit_p = math.log(theta) - torch.log(mu)
-    manual = -(lgamma + theta * (-F.logsigmoid(-logit_p)) + target * (-F.logsigmoid(logit_p)))
+    # NB log-pmf: lgamma + θ·log(p) + y·log(1-p); NLL negates the sum.
+    # log(p) = logsigmoid(logit_p), log(1-p) = logsigmoid(-logit_p).
+    manual = -(lgamma + theta * F.logsigmoid(logit_p) + target * F.logsigmoid(-logit_p))
     assert torch.allclose(got, manual.mean(), rtol=1e-5)
+
+
+def test_a7_negative_binomial_nll_nonnegative_at_perfect_prediction() -> None:
+    # A discrete pmf never exceeds 1: NLL at μ=y must be >= 0.
+    fn = NegativeBinomialNLLLoss()
+    y = torch.tensor([[1.0], [5.0], [20.0], [100.0]])
+    assert float(fn(y, y).item()) >= 0.0
 
 
 def test_a7_zip_extreme_lambda_finite() -> None:
