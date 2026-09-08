@@ -696,6 +696,93 @@ def energy_score(
     return float(torch.mean(scores).item())
 
 
+def variogram_score(
+    y_samples: Union[torch.Tensor, np.ndarray],
+    y_true: Union[torch.Tensor, np.ndarray],
+    p: float = 0.5,
+    reduction: str = "mean",
+) -> Union[torch.Tensor, float]:
+    """Functional variogram score for multivariate probabilistic forecasts.
+
+    The variogram score (Scheuerer & Hamill, 2015) is a proper scoring rule
+    that is sensitive to the dependence (correlation) structure of the
+    forecast distribution — complementary to the energy score, which is
+    known to be weakly discriminative for dependence misspecification::
+
+        VS(F, y) = sum_{i<j} (|y_i - y_j|^p - E_F|X_i - X_j|^p)^2
+
+    with the forecast expectation estimated by the sample mean (order
+    ``p = 0.5`` is standard).
+
+    Args:
+        y_samples: Forecast samples of shape [S, N, D].
+        y_true: Observations of shape [N, D].
+        p: Variogram order (default 0.5).
+        reduction: 'mean' | 'sum' | 'none' over the batch.
+
+    References
+    ----------
+    .. [1] Scheuerer, M., & Hamill, T. M. (2015). Variogram-based proper
+       scoring rules for probabilistic forecasts of multivariate quantities.
+       In *Monthly Weather Review*, 143(4), 1321-1334.
+       https://doi.org/10.1175/MWR-D-14-00269.1
+    """
+    y_true_t = convert_to_tensor(y_true)
+    y_samples_t = convert_to_tensor(y_samples)
+
+    # Observed pairwise structure: [N, D, D].
+    obs_diff = (y_true_t.unsqueeze(-1) - y_true_t.unsqueeze(-2)).abs().pow(p)
+    # Forecast pairwise structure, averaged over samples: [N, D, D].
+    samp_diff = (y_samples_t.unsqueeze(-1) - y_samples_t.unsqueeze(-2)).abs().pow(p).mean(dim=0)
+    gap = obs_diff - samp_diff
+    # Upper triangle (i < j), summed per observation.
+    triu = torch.triu(torch.ones_like(gap[0]), diagonal=1).bool()
+    scores = (gap[:, triu]).pow(2).sum(dim=-1)
+
+    if reduction == "none":
+        return scores
+    if reduction == "sum":
+        return float(torch.sum(scores).item())
+    return float(torch.mean(scores).item())
+
+
+class VariogramScore(Metric):
+    """Variogram score for multivariate probabilistic forecasts.
+
+    Proper scoring rule (Scheuerer & Hamill, 2015) complementing the energy
+    score with sensitivity to forecast dependence structure. Lower is better.
+
+    Not to be confused with :class:`VarioScore` (Zamo & Naveau), which is a
+    univariate CRPS-family generalization over samples, not dimensions.
+    """
+
+    is_differentiable = False
+    higher_is_better = False
+    full_state_update = False
+
+    def __init__(self, p: float = 0.5, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.p = p
+        self.add_state("score_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self, y_samples: torch.Tensor, y_true: torch.Tensor) -> None:
+        """Update state with forecast samples [S, N, D] and targets [N, D]."""
+        scores = variogram_score(y_samples, y_true, p=self.p, reduction="none")
+        scores_t = convert_to_tensor(scores)
+        metric_state_tensor(self.score_sum).add_(torch.sum(scores_t))
+        metric_state_tensor(self.total).add_(
+            torch.as_tensor(
+                convert_to_tensor(y_true).shape[0],
+                device=metric_state_tensor(self.score_sum).device,
+            )
+        )
+
+    def compute(self) -> torch.Tensor:
+        """Compute mean variogram score."""
+        return metric_state_tensor(self.score_sum) / metric_state_tensor(self.total)
+
+
 def _process_distribution_metrics(
     dist_obj: torch.distributions.Distribution,
     y_true_t: torch.Tensor,

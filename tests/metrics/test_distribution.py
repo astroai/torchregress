@@ -762,6 +762,54 @@ class TestEnergyScoreMetric:
         assert np.isfinite(float(result.item()))
 
 
+class TestVariogramScore:
+    def test_perfect_foresight_is_zero(self) -> None:
+        """Samples all equal to y → zero score."""
+        from torchregress.metrics import variogram_score
+
+        y = torch.randn(10, 3)
+        assert float(variogram_score(y.unsqueeze(0).expand(50, -1, -1), y)) < 1e-9
+
+    def test_metric_matches_functional(self) -> None:
+        """Metric update/compute agrees with the functional form."""
+        from torchregress.metrics import VariogramScore, variogram_score
+
+        torch.manual_seed(0)
+        s, y = torch.randn(60, 12, 3), torch.randn(12, 3)
+        metric = VariogramScore()
+        metric.update(s, y)
+        assert float(metric.compute().item()) == float(variogram_score(s, y))
+
+    def test_detects_dependence_misspecification(self) -> None:
+        """Correct-correlation forecasts beat independent-marginal ones.
+
+        The energy score is famously weak here; the variogram score must
+        separate them — its raison d'être (Scheuerer & Hamill, 2015).
+        """
+        from torchregress.metrics import variogram_score
+
+        torch.manual_seed(0)
+        n, d = 40, 3
+        base = torch.randn(300, n, 1)
+        # Truth: strongly correlated across dims.
+        y = (base + 0.1 * torch.randn(300, n, d)).mean(0)
+        # A: correct dependence. B: same marginals, independence.
+        samp_a = base + 0.1 * torch.randn(300, n, d)
+        samp_b = torch.stack([samp_a[:, torch.randperm(n), i] for i in range(d)], dim=-1)
+        va = float(variogram_score(samp_a, y))
+        vb = float(variogram_score(samp_b, y))
+        assert va < vb
+
+    def test_nonnegative_and_finite(self) -> None:
+        """Scores are non-negative and finite on random input."""
+        from torchregress.metrics import VariogramScore
+
+        metric = VariogramScore(p=0.5)
+        metric.update(torch.randn(50, 10, 4), torch.randn(10, 4))
+        result = float(metric.compute().item())
+        assert result >= 0.0 and np.isfinite(result)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # distribution_metrics_report
 # ═══════════════════════════════════════════════════════════════════════════════
