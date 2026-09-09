@@ -55,8 +55,10 @@ class TaskAgnosticCorrelations(Metric):
             covariance: Predicted covariance matrices of shape [B, D, D]
         """
         y_pred = convert_to_tensor(y_pred)
-        y_true = convert_to_tensor(y_true)
-        covariance = convert_to_tensor(covariance)
+        # The functional interface accepts heterogeneous NumPy arrays. Align
+        # all operands to the predictive mean before batched linear algebra.
+        y_true = convert_to_tensor(y_true).to(device=y_pred.device, dtype=y_pred.dtype)
+        covariance = convert_to_tensor(covariance).to(device=y_pred.device, dtype=y_pred.dtype)
 
         validate_inputs(y_pred, y_true)
 
