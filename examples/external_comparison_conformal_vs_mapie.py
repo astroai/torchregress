@@ -243,7 +243,9 @@ def _crepes_split_intervals(
     pred_test = point.predict(splits["X_test"])
     cr = ConformalRegressor()
     cr.fit(np.asarray(splits["y_cal"]).reshape(-1) - pred_cal.reshape(-1))
-    intervals = cr.predict(pred_test.reshape(-1), significance=alpha)
+    # crepes >= 0.9 renamed predict(significance=) to
+    # predict_int(confidence=); both return (n, 2) intervals.
+    intervals = cr.predict_int(pred_test.reshape(-1), confidence=1.0 - alpha)
     lo = np.asarray(intervals[:, 0])
     hi = np.asarray(intervals[:, 1])
     return lo, hi
@@ -257,11 +259,11 @@ def _crepes_cqr_intervals(
     crepes does not ship a turnkey CQR wrapper, but ``ConformalRegressor`` is
     the natural primitive for "calibrate on a 1-D conformity score and read
     back a (1-alpha) symmetric interval": ``cr.fit(score)`` then
-    ``cr.predict(zeros, significance=alpha)`` returns a symmetric interval
-    around 0 whose half-width is the (1-alpha) conformal correction. Apply
-    that correction to the test quantile predictions to form the CQR
-    prediction interval. This exercises crepes' intended API for
-    residual-based calibration rather than re-implementing it on top of
+    ``cr.predict_int(zeros, confidence=1-alpha)`` returns a symmetric
+    interval around 0 whose half-width is the (1-alpha) conformal
+    correction. Apply that correction to the test quantile predictions to
+    form the CQR prediction interval. This exercises crepes' intended API
+    for residual-based calibration rather than re-implementing it on top of
     ``np.quantile``.
     """
     from sklearn.ensemble import GradientBoostingRegressor
@@ -283,7 +285,7 @@ def _crepes_cqr_intervals(
     cr.fit(score)
     # Query a dummy test point with conformity 0; crepes returns a symmetric
     # interval [-q, +q] whose upper bound is the (1-alpha) bound on |score|.
-    _, intervals = cr.predict(np.zeros(1), significance=alpha)
+    intervals = cr.predict_int(np.zeros(1), confidence=1.0 - alpha)
     q = float(intervals[0, 1])
     return q_lo_test - q, q_hi_test + q
 
