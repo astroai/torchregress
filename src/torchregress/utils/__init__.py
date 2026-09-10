@@ -9,6 +9,7 @@ from .augment import (
     Augmentation,
     EnsemblePerturbationAugmenter,
 )
+from .bspline import BSplineDensityBasis
 from .distributions import normal_cdf
 from .gaussian_output import (
     low_rank_output_dim,
@@ -77,6 +78,8 @@ from .validation import (
 )
 
 __all__ = [
+    # bspline
+    "BSplineDensityBasis",
     # distributions
     "normal_cdf",
     # gaussian_output

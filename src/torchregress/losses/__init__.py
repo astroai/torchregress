@@ -27,8 +27,6 @@ from .beta_nll import BetaNLLLoss, beta_nll_loss
 
 # Censored regression
 from .censored import AFTLoss, CensoredGaussianNLLLoss, CensoredQuantileLoss
-
-# Conformal prediction
 from .conformal import (
     CQR,
     CTI,
@@ -52,6 +50,9 @@ from .conformal import (
     SLSConformal,
     SplitConformal,
 )
+
+# Conformal prediction
+from .contrastive import RankNContrastLoss, rank_n_contrast_loss
 from .eiv import (
     BaseEIVLoss,
     EnsembleEIVLoss,
@@ -133,6 +134,7 @@ from .sls import (
     UnionFrontier,
     VolumePreservingFlow,
 )
+from .wasserstein1d import DiscreteWasserstein1Loss, discrete_wasserstein1
 
 # Normalizing flows (zuko is an optional dependency)
 try:
@@ -235,6 +237,7 @@ __all__ = [
     "CumulativeLinkLoss",
     "DensityConformal",
     "DensityWeightedLoss",
+    "DiscreteWasserstein1Loss",
     "DistributionLoss",
     "DistributionalConformal",
     "EnhancedPoissonGaussianMixtureLoss",
@@ -293,6 +296,7 @@ __all__ = [
     "QuantileCrossoverLoss",
     "QuantileLoss",
     "R2CConformal",
+    "RankNContrastLoss",
     "RegressionLoss",
     "SLSConformal",
     "SLSLoss",
@@ -321,6 +325,7 @@ __all__ = [
     "beta_nll_loss",
     "beta_regression_nll",
     "create_contrastive_flow_loss",
+    "discrete_wasserstein1",
     "create_flow_loss",
     "create_flow_model",
     "create_gaussian_nll",
@@ -334,6 +339,7 @@ __all__ = [
     "list_regression_losses",
     "low_rank_output_dim",
     "quantile_loss",
+    "rank_n_contrast_loss",
     "sinh_arcsinh_nll",
     "skew_normal_nll",
     "skew_t_nll",

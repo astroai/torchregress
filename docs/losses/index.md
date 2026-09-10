@@ -213,6 +213,20 @@ Read the full [Normalizing flows guide](nflows.md) — NSF/RealNVP/MAF architect
 
 ---
 
+## Grid & Basis Densities
+
+For heads that output a whole distribution on a fixed 1D support (binned or spline-basis):
+
+| Symbol | Description |
+|:-------|:-----------|
+| `utils.BSplineDensityBasis` | Unit-integral B-spline (M-spline) basis: softmax coefficients give a normalised density; exact bin integrals and `E|U - x|` |
+| `DiscreteWasserstein1Loss` | 1-Wasserstein between mass vectors on a shared grid (displacement-aware complement to KL) |
+| `RankNContrastLoss` | Rank-N-Contrast: order features by continuous label distance (Zha et al. 2023) |
+
+Read the [Grid & basis densities guide](density_basis.md).
+
+---
+
 ## Error-in-Variables Losses
 
 For regression when **inputs have measurement uncertainty**:
