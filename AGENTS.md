@@ -360,3 +360,10 @@ Optional scheduled refresh: `.github/workflows/docs-refresh.yml` (manual or week
 4. `pixi run test` (or a **narrow** file/`::test` path that covers your change)
 
 If you have the pre-push hook installed, `git push` already runs `./scripts/ci_local.sh` — keep it that way for routine work.
+
+## Env hygiene
+
+- Prefer `pixi run` / `pixi run python` over bare `python3` when Pixi exists.
+- Never `pip install --user` or install into `~/.local` / `$HOME/.local` (esp. CANFAR `/arc/home`).
+- Headless/batch: `export PYTHONNOUSERSITE=1` and `unset PYTHONPATH`.
+- On CANFAR: read skill `canfar-lab-workflow` (mounts, quotas, resources, headless, ports).
