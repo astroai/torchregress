@@ -115,3 +115,45 @@ def test_full_network_laplace_unfitted_raises():
     lap = FullNetworkLaplace(_tiny_net())
     with pytest.raises(RuntimeError, match="not fitted"):
         lap.predict_with_uncertainty(torch.randn(4, 3))
+
+
+def test_full_network_laplace_last_layer_only_on_conv_net():
+    """Last-layer Laplace works on conv nets (functorch path cannot)."""
+    torch.manual_seed(0)
+    model = nn.Sequential(
+        nn.Conv2d(2, 4, 3, padding=1),
+        nn.ReLU(),
+        nn.AdaptiveAvgPool2d(1),
+        nn.Flatten(1),
+        nn.Linear(4, 1),
+    )
+    x = torch.randn(32, 2, 8, 8)
+    y = x.mean(dim=(1, 2, 3), keepdim=True) + 0.05 * torch.randn(32, 1)
+    data = TensorDataset(x, y)
+    lap = FullNetworkLaplace(model, damping=1e-3, n_samples=20, last_layer_only=True)
+    lap.fit(DataLoader(data, batch_size=8), nn.MSELoss(reduction="none"))
+    assert lap.is_fitted
+    # Only the head Linear's params carry Fisher entries.
+    assert set(lap.fisher_diag.keys()) == {"4.weight", "4.bias"}
+    mean, std = lap.predict_with_uncertainty(x[:8], n_samples=20)
+    assert mean.shape == std.shape == (8, 1)
+    assert torch.all(std > 0)
+    assert torch.all(torch.isfinite(mean))
+
+
+def test_full_network_laplace_last_layer_only_matches_full_on_mlp():
+    """On an MLP both paths fit; head-only std is finite and sane."""
+    data, x = _make_data()
+    lap = FullNetworkLaplace(_tiny_net(), damping=1e-3, last_layer_only=True)
+    lap.fit(DataLoader(data, batch_size=16), nn.MSELoss(reduction="none"))
+    assert set(lap.fisher_diag.keys()) == {"2.weight", "2.bias"}
+    mean, std = lap.predict_with_uncertainty(x, n_samples=20)
+    assert mean.shape == std.shape == (x.shape[0], 1)
+    assert torch.all(std > 0)
+
+
+def test_full_network_laplace_last_layer_name_validated():
+    with pytest.raises(ValueError, match="nn.Linear"):
+        FullNetworkLaplace(_tiny_net(), last_layer_only=True, last_layer_name="1")
+    with pytest.raises(ValueError, match="no nn.Linear"):
+        FullNetworkLaplace(nn.Sequential(nn.ReLU()), last_layer_only=True)

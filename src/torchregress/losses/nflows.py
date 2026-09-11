@@ -233,6 +233,11 @@ class NormalizingFlowLoss(DistributionLoss):
       torchregress-friendly naming and validated defaults.
     - :func:`create_flow_loss` is a convenience that creates both the
       flow and the loss in one call.
+    - NSF range limit: the rational-quadratic spline is the identity
+      outside ``[-5, 5]`` (zuko exposes no bound override), so NSF cannot
+      represent density mass beyond that range. Targets wider than ±5
+      trigger a one-time ``UserWarning`` — standardize them, or use
+      ``flow_type="maf"`` (unbounded affine couplings).
 
     Examples
     --------
@@ -276,6 +281,10 @@ class NormalizingFlowLoss(DistributionLoss):
             raise TypeError(f"flow must be a torch.nn.Module (zuko Flow), got {type(flow)}")
 
         self.flow = flow
+        # One-time range guard state (see forward): spline flows cannot
+        # represent mass outside their tail bound, so out-of-range targets
+        # silently train toward a collapsed density.
+        self._range_warned = False
 
         # Extract flow configuration for validation
         # Zuko flows store dimensions in the base distribution
@@ -288,6 +297,39 @@ class NormalizingFlowLoss(DistributionLoss):
 
         # Try to get context dimension - check if it was added by create_flow_model
         self.context_dim = getattr(flow, "context", None)  # May be None if not set
+
+    def _warn_once_for_spline_range(self, target: Tensor) -> None:
+        """Warn once when NSF targets exceed the spline tail bound.
+
+        zuko's rational-quadratic spline is the identity outside
+        ``[-5, 5]`` with no override path, so a spline flow cannot place
+        density mass there: training on wider-range targets silently
+        collapses toward the bound edge (observed: sbibm gaussian_mixture
+        posterior at -9.3 → C2ST 1.0 at matched budget where unbounded MAF
+        reaches 0.95). Standardize targets, or use ``flow_type="maf"`` for
+        wide-range densities.
+        """
+        if self._range_warned:
+            return
+        if "nsf" not in type(self.flow).__name__.lower():
+            return
+        try:
+            out_of_range = bool((target.detach().abs() > 5.0).any())
+        except Exception:
+            return
+        if out_of_range:
+            import warnings
+
+            warnings.warn(
+                "NormalizingFlowLoss: |target| exceeds 5.0 but the NSF spline "
+                "tail bound is fixed at [-5, 5] (identity outside; zuko "
+                "exposes no override). Density mass outside the bound is "
+                "unrepresentable — standardize targets or use "
+                "flow_type='maf'.",
+                UserWarning,
+                stacklevel=3,
+            )
+            self._range_warned = True
 
     def _extract_distribution_parameters(self, y_pred: Tensor) -> Tensor:
         """
@@ -456,6 +498,8 @@ class NormalizingFlowLoss(DistributionLoss):
         # Infer and store context_dim on first forward pass
         if self.context_dim is None and y_pred.numel() > 0:
             self.context_dim = y_pred.shape[-1] if y_pred.dim() > 0 else 0
+
+        self._warn_once_for_spline_range(target)
 
         sample_mask = self._sample_mask(mask, target)
         target_eval = self._mask_invalid_samples(target, sample_mask)

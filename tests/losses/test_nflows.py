@@ -450,3 +450,41 @@ def test_different_flow_types(flow_type):
     # Test sampling
     samples = loss_fn.sample(context, n_samples=3)
     assert samples.shape == (8, 3, 2)
+
+
+def test_nsf_out_of_range_targets_warn_once():
+    """NSF targets beyond the spline bound warn (once); MAF stays silent."""
+    import warnings
+
+    nsf = create_flow_model(
+        n_features=1, context_dim=4, flow_type="nsf", n_transforms=2, hidden_features=16
+    )
+    loss_fn = NormalizingFlowLoss(flow=nsf)
+    context = torch.randn(8, 4)
+    wide = torch.full((8, 1), 9.0)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        loss_fn(context, wide)
+        loss_fn(context, wide)
+    range_warns = [w for w in caught if "tail bound" in str(w.message)]
+    assert len(range_warns) == 1
+
+    maf = create_flow_model(
+        n_features=1, context_dim=4, flow_type="maf", n_transforms=2, hidden_features=16
+    )
+    maf_loss = NormalizingFlowLoss(flow=maf)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        maf_loss(context, wide)
+    assert not [w for w in caught if "tail bound" in str(w.message)]
+
+    narrow = torch.randn(8, 1)
+    fresh = NormalizingFlowLoss(
+        flow=create_flow_model(
+            n_features=1, context_dim=4, flow_type="nsf", n_transforms=2, hidden_features=16
+        )
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        fresh(context, narrow)
+    assert not [w for w in caught if "tail bound" in str(w.message)]

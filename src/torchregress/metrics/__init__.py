@@ -36,6 +36,7 @@ from .distribution import (
     DawidSebastianiScore,
     EnergyScore,
     PinballMetric,
+    VariogramScore,
     VarioScore,
     WassersteinGaussian,
     conditional_density_estimation_loss,
@@ -53,6 +54,7 @@ from .distribution import (
     pinball_metric,
     probability_integral_transform,
     vario_score,
+    variogram_score,
     wasserstein_gaussian_p2,
 )
 from .ensemble import (
@@ -151,6 +153,7 @@ __all__ = [
     "EnergyScore",
     "PinballMetric",
     "VarioScore",
+    "VariogramScore",
     "WassersteinGaussian",
     "conditional_density_estimation_loss",
     "continuous_ranked_probability_score",
@@ -166,6 +169,7 @@ __all__ = [
     "pinball_metric",
     "probability_integral_transform",
     "vario_score",
+    "variogram_score",
     "wasserstein_gaussian_p2",
     "distribution_metrics_report",
     # Decision

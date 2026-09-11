@@ -233,23 +233,34 @@ def _student_t_log_cdf_vec(x: Tensor, df: Tensor) -> Tensor:
 def _reg_inc_beta(a: Tensor, b: Tensor, x: Tensor) -> Tensor:
     """Regularized incomplete beta I_x(a, b), elementwise, with the standard
     symmetry branch ``I_x(a, b) = 1 - I_{1-x}(b, a)`` for large x (the
-    continued fraction only converges well away from x = 1)."""
-    x = x.clamp(torch.finfo(x.dtype).tiny, 1.0 - 1e-15)
+    continued fraction only converges well away from x = 1).
+
+    Computed internally in float64: at fp32 the ``log1p(-x)``/``lgamma``
+    backward passes overflow to inf for boundary inputs (x→1, large a/b),
+    NaN-ing any net in a few steps (found via skew-t harness smoke).
+    The output is a probability — clamped to [0, 1] on return.
+    """
+    dtype = x.dtype
+    device = x.device
+    a64 = a.to(torch.float64)
+    b64 = b.to(torch.float64)
+    x64 = x.to(torch.float64).clamp(torch.finfo(torch.float64).tiny, 1.0 - 1e-15)
     ln_bt = (
-        torch.lgamma(a + b)
-        - torch.lgamma(a)
-        - torch.lgamma(b)
-        + a * torch.log(x)
-        + b * torch.log1p(-x)
+        torch.lgamma(a64 + b64)
+        - torch.lgamma(a64)
+        - torch.lgamma(b64)
+        + a64 * torch.log(x64)
+        + b64 * torch.log1p(-x64)
     )
     bt = torch.exp(ln_bt)
-    sym = x > (a + 1.0) / (a + b + 2.0)
-    xs = torch.where(sym, 1.0 - x, x)
-    aa = torch.where(sym, b, a)
-    bb = torch.where(sym, a, b)
+    sym = x64 > (a64 + 1.0) / (a64 + b64 + 2.0)
+    xs = torch.where(sym, 1.0 - x64, x64)
+    aa = torch.where(sym, b64, a64)
+    bb = torch.where(sym, a64, b64)
     cf = _betacf(aa, bb, xs)
     # NR convention: multiply front factor by cf/a (or cf/b under symmetry).
-    return torch.where(sym, 1.0 - bt * cf / b, bt * cf / a)
+    out = torch.where(sym, 1.0 - bt * cf / bb, bt * cf / aa)
+    return out.clamp(0.0, 1.0).to(device=device, dtype=dtype)
 
 
 @register_regression_loss("skew_t_nll")

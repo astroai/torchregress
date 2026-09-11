@@ -117,6 +117,10 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `create_flow_loss` | `create_flow_loss(...)` | Factory: build a flow loss |
 | `create_contrastive_flow_loss` | `create_contrastive_flow_loss(...)` | Factory: build a contrastive flow loss |
 | `EvidentialRegressionLoss` | `EvidentialRegressionLoss(coeff=1e-2, reduction="mean")` | NIG evidential regression |
+| `DiscreteWasserstein1Loss` | `DiscreteWasserstein1Loss(bin_edges=None, from_logits=False, reduction="mean")` | 1-Wasserstein between mass vectors on a shared grid; see [Grid & basis densities](../losses/density_basis.md) |
+| `discrete_wasserstein1` | `discrete_wasserstein1(p, q, centers)` | Functional form |
+| `RankNContrastLoss` | `RankNContrastLoss(temperature=2.0, similarity="l2", reduction="mean")` | Rank-N-Contrast representation loss (features vs continuous labels) |
+| `rank_n_contrast_loss` | `rank_n_contrast_loss(features, labels, temperature, similarity)` | Per-anchor functional form |
 
 $$\\mathcal{L}_{\\text{quantile}} = \\max(q(y-\\hat{y}), (q-1)(y-\\hat{y}))$$ $$\\mathcal{L}_{\\text{expectile}} = |e - \\mathbb{I}(y<\\hat{y})| \\cdot (y-\\hat{y})^2$$ $$\\mathcal{L}_{\\text{MDN}} = -\\log \\sum_k \\pi_k \\mathcal{N}(y \\mid \\mu_k, \\sigma_k^2)$$
 

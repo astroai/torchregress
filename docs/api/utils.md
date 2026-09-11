@@ -27,6 +27,14 @@ density_batch = batch.with_density(n_support=256)
 
 ---
 
+## Density basis (`utils.bspline`)
+
+| Symbol | Description |
+|:-------|:------------|
+| `BSplineDensityBasis` | `(breakpoints, degree=3)` — Unit-integral (M-spline) B-spline basis on a clamped knot vector. `evaluate`, `density`, `bin_integrals`, `cdf`, `cumulative_moment`, `absolute_deviation`, `basis_means`; constructors `from_uniform`, `from_quantiles`. Guide: [Grid & basis densities](../losses/density_basis.md). |
+
+---
+
 ## Augmentations (`utils.augment`)
 
 | Symbol | Description |

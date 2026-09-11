@@ -313,5 +313,51 @@ class TestEIVLossNumericalStability(unittest.TestCase):
         assert torch.isfinite(x_obs.grad).all()
 
 
+class TestPerObservationSigma(unittest.TestCase):
+    """Per-observation (heteroscedastic) measurement noise, [B, D] shapes."""
+
+    def setUp(self):
+        self.batch_size = 8
+        self.n_features_x = 5
+        self.n_features_y = 1
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = lambda x: x[:, : self.n_features_y] * 2.0
+        self.x_obs = torch.randn(self.batch_size, self.n_features_x, device=self.device)
+        self.y_obs = torch.randn(self.batch_size, self.n_features_y, device=self.device)
+        # Heteroscedastic: noise varies per observation and per feature.
+        self.sig_obs = (
+            torch.rand(self.batch_size, self.n_features_x, device=self.device) * 0.05 + 0.01
+        )
+
+    def test_functional_per_call_per_obs_sigma(self):
+        loss_fn = FunctionalEIVLoss(self.model, sigma_x=0.1, sigma_y=0.1).to(self.device)
+        loss = loss_fn(self.x_obs, self.y_obs, sigma_x=self.sig_obs)
+        self.assertTrue(torch.isfinite(loss))
+        # Per-obs sigma must differ from the scalar construction value.
+        scalar = loss_fn(self.x_obs, self.y_obs)
+        self.assertFalse(torch.allclose(loss, scalar))
+
+    def test_functional_constructor_per_obs_sigma(self):
+        loss_fn = FunctionalEIVLoss(self.model, sigma_x=self.sig_obs, sigma_y=0.1).to(self.device)
+        loss = loss_fn(self.x_obs, self.y_obs)
+        self.assertTrue(torch.isfinite(loss))
+
+    def test_ensemble_per_obs_sigma(self):
+        loss_fn = EnsembleEIVLoss(self.model, sigma_x=0.1).to(self.device)
+        loss = loss_fn(self.x_obs, self.y_obs, sigma_x=self.sig_obs)
+        self.assertTrue(torch.isfinite(loss))
+
+    def test_simex_rc_accept_per_obs_sigma(self):
+        from torchregress.algorithms.rc import RegressionCalibration
+        from torchregress.algorithms.simex import SIMEX
+
+        SIMEX(
+            model_factory=lambda: torch.nn.Linear(self.n_features_x, self.n_features_y),
+            train_func=lambda m, X, y: m,
+            sigma_u=self.sig_obs,
+        )
+        RegressionCalibration(sigma_u=self.sig_obs)
+
+
 if __name__ == "__main__":
     unittest.main()

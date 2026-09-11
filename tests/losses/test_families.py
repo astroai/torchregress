@@ -451,3 +451,48 @@ def test_asymmetric_laplace_unconstrained_inputs_flag():
     loss_pos = AsymmetricLaplaceNLLLoss(unconstrained_inputs=False)(y_pos, target)
     torch.testing.assert_close(loss_pos, loss_true, atol=1e-6, rtol=1e-6)
     assert AsymmetricLaplaceNLLLoss(unconstrained_inputs=False).unconstrained_inputs is False
+
+
+# ---------------------------------------------------------------------------
+# float32 boundary robustness (harness smoke regression)
+# ---------------------------------------------------------------------------
+
+
+def test_reg_inc_beta_fp32_boundary_finite_grads():
+    """inc_beta backward must stay finite at CDF edges (skew-t harness NaNs)."""
+    from torchregress.losses.families import _reg_inc_beta
+
+    torch.manual_seed(0)
+    a = torch.tensor([0.35, 2.0, 50.0], dtype=torch.float32)
+    b = torch.tensor([0.5, 0.5, 1.0], dtype=torch.float32)
+    x = torch.tensor([1.0 - 1e-7, 0.999999, 1e-7], dtype=torch.float32)
+    for t in (a, b, x):
+        t.requires_grad_(True)
+    out = _reg_inc_beta(a, b, x)
+    assert torch.isfinite(out).all()
+    assert ((out >= 0.0) & (out <= 1.0)).all()
+    out.sum().backward()
+    for t in (a, b, x):
+        assert torch.isfinite(t.grad).all()
+
+
+def test_skew_t_two_epoch_training_stays_finite():
+    """Mini training loop mirroring the harness diabetes smoke (was NaN)."""
+    torch.manual_seed(42)
+    loss_fn = SkewTLoss()
+    model = torch.nn.Sequential(torch.nn.Linear(10, 32), torch.nn.ReLU(), torch.nn.Linear(32, 4))
+    opt = torch.optim.Adam(model.parameters(), lr=2e-4)
+    X = torch.randn(128, 10) * 3.0  # outlier-scale inputs like real data
+    y = torch.randn(128, 1)
+    for _ in range(2):
+        for i in range(0, 128, 64):
+            opt.zero_grad(set_to_none=True)
+            v = loss_fn(model(X[i : i + 64]), y[i : i + 64])
+            assert torch.isfinite(v).all()
+            v.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            for p in model.parameters():
+                assert torch.isfinite(p.grad).all()
+            opt.step()
+    with torch.no_grad():
+        assert torch.isfinite(model(X)).all()

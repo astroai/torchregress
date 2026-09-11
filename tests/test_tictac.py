@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 import torch
 import torch.nn as nn
@@ -96,6 +97,18 @@ def test_tac_metric_correctness() -> None:
     metric.update(y_pred, y_true, covariance)
     val_class = metric.compute()
     torch.testing.assert_close(val, val_class)
+
+
+def test_tac_functional_accepts_mixed_numpy_dtypes() -> None:
+    """The NumPy convenience interface aligns covariance and target dtypes."""
+    y_pred = np.zeros((2, 2), dtype=np.float32)
+    y_true = np.ones((2, 2), dtype=np.float32)
+    covariance = np.tile(np.eye(2, dtype=np.float64), (2, 1, 1))
+
+    value = task_agnostic_correlations(y_pred, y_true, covariance)
+
+    assert value.dtype == torch.float32
+    assert torch.isfinite(value)
 
 
 def test_tac_metric_shape_mismatch_raises() -> None:

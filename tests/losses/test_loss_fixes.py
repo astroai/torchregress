@@ -91,6 +91,11 @@ class TestSLSLossStepCounterAdvances:
     ``forward_frontier`` incremented it, so the counter stayed at 0 across
     the entire training run.  Verified: all three tests below fail on the
     reverted ``sls.py``.
+
+    P0 update (2026-09-04): the counter now advances in exactly one place
+    (``forward`` via ``_advance_step``), saturates at ``_SLS_STEP_CAP`` and is
+    never touched when an explicit ``step=`` is passed — see
+    ``TestSLSLossExplicitStepPurity`` in ``test_sls.py``.
     """
 
     def test_step_counter_advances_after_single_forward(self) -> None:

@@ -393,12 +393,18 @@ class NegativeBinomialNLLLoss(RegressionLoss):
         # Negative log likelihood.
         # A7: use -logsigmoid for log(p)/log(1-p) — numerically stable where
         # p is near 0 or 1, unlike the previous log(p + eps) form.
+        # NB log-prob: lgamma(y+θ) - lgamma(y+1) - lgamma(θ)
+        #   + θ·log(p) + y·log(1-p), with log(p) = logsigmoid(logit_p)
+        #   and log(1-p) = logsigmoid(-logit_p). NLL negates the whole sum:
+        #   the θ/y terms are ADDED inside the negation (they are negative
+        #   log-probs). Swapping the pairings or the signs makes even perfect
+        #   predictions score NLL < 0 — impossible for a discrete pmf.
         loss = -(
             log_gamma_ypr
             - log_gamma_y1
             - log_gamma_r
-            - theta_value * F.logsigmoid(-logit_p)
-            - target * F.logsigmoid(logit_p)
+            + theta_value * F.logsigmoid(logit_p)
+            + target * F.logsigmoid(-logit_p)
         )
 
         # Apply reduction with mask and weights
