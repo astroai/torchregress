@@ -150,14 +150,17 @@ class JointDistributionalTTA:
             n_bins = min(10, max(2, F_src.shape[0] // 20))
             src_score = mu_src.detach().mean(dim=-1)
             tgt_score = mu_tgt.detach().mean(dim=-1)
-            edges = torch.quantile(src_score, torch.linspace(0, 1, n_bins + 1))
+            edges = torch.quantile(
+                src_score,
+                torch.linspace(0, 1, n_bins + 1, device=src_score.device),
+            )
             edges[0] -= 1.0
             edges[-1] += 1.0
             k = int(edges.numel())
             src_bins = torch.bucketize(src_score.contiguous(), edges).clamp(max=k - 1)
             tgt_bins = torch.bucketize(tgt_score.contiguous(), edges).clamp(max=k - 1)
-            src_onehot = torch.nn.functional.one_hot(src_bins, k).double().numpy()
-            tgt_onehot = torch.nn.functional.one_hot(tgt_bins, k).double().numpy()
+            src_onehot = torch.nn.functional.one_hot(src_bins, k).double().detach().cpu().numpy()
+            tgt_onehot = torch.nn.functional.one_hot(tgt_bins, k).double().detach().cpu().numpy()
             w_np, lse = estimate_label_shift_weights(src_onehot, tgt_onehot)
             # NexCP weights must align with SOURCE calibration points:
             # w(x_i) = sum_k p_s(k|x_i) * pi_t(k)/pi_s(k).
@@ -251,7 +254,19 @@ class JointDistributionalTTA:
 
         The input ``model`` is adapted in place; the returned result carries
         it together with the calibrated joint-marginal region.
+
+        Inputs are moved to the model's device: callers routinely hold
+        CPU tensors while the model lives on an accelerator, and without
+        alignment every downstream matmul fails with a device error.
         """
+        try:
+            _dev = next(model.parameters()).device  # type: ignore[union-attr]
+        except Exception:
+            _dev = None
+        if _dev is not None:
+            X_cal_src = X_cal_src.to(_dev)
+            y_cal_src = y_cal_src.to(_dev)
+            X_target_unlabeled = X_target_unlabeled.to(_dev)
         diagnostics: Dict[str, Any] = {}
         was_training = getattr(model, "training", False)
         if was_training:
@@ -333,6 +348,11 @@ class JointDistributionalTTA:
         projection of the ellipsoid ``{y : score <= radius}``.
         """
         model = result.adapted_model
+        try:
+            _dev = next(model.parameters()).device  # type: ignore[union-attr]
+            X_test = X_test.to(_dev)
+        except Exception:
+            pass
         was_training = getattr(model, "training", False)
         if was_training:
             model.eval()
