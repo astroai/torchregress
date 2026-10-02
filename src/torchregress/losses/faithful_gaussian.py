@@ -9,9 +9,11 @@ heteroscedastic likelihood, a common failure mode of joint Gaussian NLL training
 from __future__ import annotations
 
 import math
-from typing import Any, Optional, Tuple, Union
+from collections.abc import Sequence
+from typing import Any, Literal, Optional, Tuple, Union
 
 import torch
+import torch.nn.functional as F
 
 from .gaussian import GaussianNLLLoss
 from .loss_registry import register_regression_loss
@@ -41,8 +43,18 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
     Parameters
     ----------
     mean_weight:
-        Multiplier on :math:`(\\mu - y)^2`. Set to ``0`` to train variance only
-        (mean still forwarded for the detached residual).
+        Multiplier on the mean term. A scalar applies to every output; a 1D
+        sequence or tensor of length ``D`` gives one weight per output (the last
+        dimension of the mean). All weights must be finite and non-negative.
+        Set to ``0`` to train variance only (mean still forwarded for the
+        detached residual).
+    mean_loss:
+        ``"mse"`` (default) uses :math:`(\\mu - y)^2`. ``"huber"`` uses twice the
+        Huber loss with threshold ``huber_delta``: identical to ``"mse"`` for
+        errors below the threshold, linear beyond it, which limits the pull of
+        outlying targets on the mean.
+    huber_delta:
+        Huber threshold, in target units. Used only when ``mean_loss="huber"``.
     variance_weight:
         Multiplier on the Gaussian NLL terms (including :math:`\\log 2\\pi`).
     min_variance, eps, reduction, split_dim:
@@ -57,7 +69,9 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
     def __init__(
         self,
         *,
-        mean_weight: float = 1.0,
+        mean_weight: Union[float, Sequence[float], torch.Tensor] = 1.0,
+        mean_loss: Literal["mse", "huber"] = "mse",
+        huber_delta: float = 1.0,
         variance_weight: float = 1.0,
         min_variance: float = 1e-6,
         eps: float = 1e-8,
@@ -72,9 +86,22 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
             reduction=reduction,
             split_dim=split_dim,
         )
-        if mean_weight < 0 or variance_weight < 0:
-            raise ValueError("mean_weight and variance_weight must be non-negative.")
-        self.mean_weight = float(mean_weight)
+        mean_weight_tensor = torch.as_tensor(mean_weight, dtype=torch.float32)
+        if mean_weight_tensor.dim() > 1:
+            raise ValueError("mean_weight must be a scalar or a 1D sequence.")
+        if not torch.isfinite(mean_weight_tensor).all() or (mean_weight_tensor < 0).any():
+            raise ValueError("mean_weight must be finite and non-negative.")
+        if variance_weight < 0:
+            raise ValueError("variance_weight must be non-negative.")
+        if mean_loss not in ("mse", "huber"):
+            raise ValueError(f"mean_loss must be 'mse' or 'huber', got {mean_loss!r}")
+        if huber_delta <= 0:
+            raise ValueError("huber_delta must be positive.")
+        self.register_buffer("mean_weight", mean_weight_tensor)
+        # Decided once so forward never synchronises on a device tensor.
+        self._has_mean_term = bool((mean_weight_tensor > 0).any())
+        self.mean_loss = mean_loss
+        self.huber_delta = float(huber_delta)
         self.variance_weight = float(variance_weight)
 
     def forward(
@@ -89,8 +116,22 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
         self._validate_inputs(mean, target, mask)
 
         # Avoid `0.0 * term` when a weight is zero — that can still attach `term` to the graph.
-        if self.mean_weight > 0.0:
-            mse_part = self.mean_weight * (mean - target) ** 2
+        if self._has_mean_term:
+            weight = self.mean_weight.to(device=mean.device, dtype=mean.dtype)
+            if weight.dim() == 1 and weight.shape[0] != mean.shape[-1]:
+                raise ValueError(
+                    f"mean_weight has {weight.shape[0]} entries but the mean has "
+                    f"{mean.shape[-1]} outputs."
+                )
+            if self.mean_loss == "huber":
+                # x2 so the quadratic zone equals (mu - y)^2 and mean_weight keeps
+                # the same meaning for both options.
+                mean_term = 2.0 * F.huber_loss(
+                    mean, target, reduction="none", delta=self.huber_delta
+                )
+            else:
+                mean_term = (mean - target) ** 2
+            mse_part = weight * mean_term
         else:
             mse_part = torch.zeros_like(mean)
 
