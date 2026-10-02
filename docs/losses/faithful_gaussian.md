@@ -40,12 +40,24 @@ loss = loss_fn((mean, logvar), y_true)
 
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
-| `mean_weight` | `float` | `1.0` | Multiplier on the MSE term. Set to `0` to train variance only. |
+| `mean_weight` | `float` or 1D sequence | `1.0` | Multiplier on the mean term. A scalar applies to all outputs; a sequence of length `D` gives one weight per output. Set to `0` to train variance only. |
+| `mean_loss` | `str` | `"mse"` | `"mse"` or `"huber"`. Huber is scaled by 2, so it equals the MSE below `huber_delta` and is linear beyond it. |
+| `huber_delta` | `float` | `1.0` | Huber threshold in target units; used only when `mean_loss="huber"`. |
 | `variance_weight` | `float` | `1.0` | Multiplier on the Gaussian NLL terms. Set to `0` to train mean only. |
 | `min_variance` | `float` | `1e-6` | Minimum variance for numerical stability |
 | `eps` | `float` | `1e-8` | Epsilon for log-stability |
 | `reduction` | `str` | `"mean"` | `"mean"`, `"sum"`, or `"none"` |
 | `split_dim` | `int` | `-1` | Dimension to split concatenated `[mean, log_var]` output |
+
+With a vector `mean_weight`, the weight $\lambda_{\mu,d}$ multiplies output $d$ of the mean term, so multi-output problems can give each target its own emphasis (for example to down-weight a target that cannot be measured). Normalise the weights, e.g. to sum to $D$, so the overall loss scale stays comparable between runs.
+
+```python
+# Equal emphasis on three targets except the last, which is down-weighted
+loss_fn = FaithfulGaussianLoss(mean_weight=[1.0, 1.0, 0.25], mean_loss="huber", huber_delta=3.0)
+```
+
+!!! tip "Z-score the targets first"
+    The mean term is not scale-invariant. With several outputs, standardise each target so that a weight of 1 means the same thing for all of them.
 
 ### Comparison: Faithful vs Beta-NLL vs Joint NLL
 
@@ -62,6 +74,9 @@ loss = loss_fn((mean, logvar), y_true)
 
 !!! warning "Detach tradeoff"
     Because the mean head only sees MSE gradients, it does **not** receive curvature information from the NLL about heteroscedasticity. On datasets where mean and variance are strongly coupled (e.g., Poisson-like count data), this decoupling can slow convergence of the mean head.
+
+!!! warning "Shared features"
+    The stop-gradient is on the predicted mean only. If the mean and variance heads share a trunk, the variance term's gradient still reaches the shared features. That gradient is bounded (no $1/\sigma^2$ factor), but the trunk is not fully decoupled from the variance task. Detach the features inside the model for a stricter separation.
 
 !!! warning "Edge cases"
     - **`mean_weight=0`**: The mean head receives zero gradients, but the (detached) mean still feeds the variance head's residual. If the mean is poorly initialized and never trained, the variance head receives a bad signal.

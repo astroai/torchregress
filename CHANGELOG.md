@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `losses.FaithfulGaussianLoss`: `mean_weight` accepts a per-output vector (length `D`, validated finite and non-negative), and a new `mean_loss="huber"` option (with `huber_delta`) bounds the pull of outlying targets on the mean. Defaults unchanged. `mean_weight` is now a registered buffer.
 - `utils.BSplineDensityBasis`: unit-integral (M-spline) B-spline basis for simplex-parameterised 1D densities — exact bin integrals, cumulative moments and `E|U - x|` via piecewise Gauss–Legendre.
 - `losses.DiscreteWasserstein1Loss` / `discrete_wasserstein1`: 1-Wasserstein between mass vectors on a shared 1D grid (mass or point targets).
 - `losses.RankNContrastLoss` / `rank_n_contrast_loss`: Rank-N-Contrast (Zha et al. 2023) with tie-aware rank denominators, mask/weights support.
