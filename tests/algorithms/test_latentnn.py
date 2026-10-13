@@ -74,3 +74,63 @@ def test_latentnn_reduces_attenuation_against_naive_model() -> None:
     latent_slope = _slope(y_true.view(-1), latent_pred.view(-1))
 
     assert abs(latent_slope - 1.0) < abs(naive_slope - 1.0)
+
+
+def test_latentnn_full_batch_matches_dense_adam() -> None:
+    """Full batch: the lazy latent Adam equals torch.optim.Adam on a dense parameter."""
+    torch.manual_seed(3)
+    x_obs = torch.randn(40, 2)
+    y = x_obs.sum(-1, keepdim=True) + 0.1 * torch.randn(40, 1)
+
+    def factory() -> nn.Module:
+        return nn.Sequential(nn.Linear(2, 8), nn.Tanh(), nn.Linear(8, 1))
+
+    torch.manual_seed(7)
+    fitted = LatentNN(model_factory=factory, sigma_x=0.3, sigma_y=0.2, epochs=15, lr=1e-2)
+    fitted.fit(x_obs, y)
+
+    torch.manual_seed(7)
+    model = factory()
+    latent = nn.Parameter(x_obs.clone())
+    opt = torch.optim.Adam(
+        [{"params": model.parameters(), "lr": 1e-2}, {"params": [latent], "lr": 0.1}]
+    )
+    for _ in range(15):
+        opt.zero_grad()
+        model_loss = ((model(latent) - y) / 0.2).pow(2).sum(1).mean()
+        latent_loss = ((latent - x_obs) / 0.3).pow(2).sum(1).mean()
+        (model_loss + latent_loss).backward()
+        opt.step()
+
+    assert fitted.x_latent_ is not None
+    torch.testing.assert_close(fitted.x_latent_, latent.detach(), atol=1e-5, rtol=1e-4)
+
+
+def test_latentnn_minibatch_step_cost_does_not_grow_with_n() -> None:
+    """One epoch's cost is linear in N (the dense optimiser was O(N^2 D / B))."""
+    import time
+
+    def factory() -> nn.Module:
+        return nn.Linear(16, 1)
+
+    def epoch_time(n: int) -> float:
+        x = torch.randn(n, 16)
+        y = torch.randn(n, 1)
+        est = LatentNN(model_factory=factory, sigma_x=0.2, epochs=1, batch_size=64)
+        t0 = time.perf_counter()
+        est.fit(x, y)
+        return time.perf_counter() - t0
+
+    epoch_time(2_000)  # warm-up
+    small, large = epoch_time(8_000), epoch_time(64_000)
+    # 8x the rows: linear scaling gives ~8x; the old quadratic loop gave ~64x.
+    assert large / small < 20, (small, large)
+
+
+def test_latentnn_chunked_mc_predict_shape() -> None:
+    torch.manual_seed(0)
+    x = torch.randn(300, 4)
+    est = LatentNN(model_factory=lambda: nn.Linear(4, 2), epochs=1, batch_size=50)
+    est.fit(x, torch.randn(300, 2))
+    pred = est.predict(torch.randn(5000, 4), sigma_x=0.3, n_samples=64)
+    assert pred.shape == (5000, 2) and torch.isfinite(pred).all()

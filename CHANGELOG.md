@@ -63,6 +63,16 @@ remove are decided for 0.4.0.
   scipy 1.18.1 (PyPI) and the pixi lock (conda-forge torch 2.13.0).
 
 ### Fixed
+- `algorithms.LatentNN` scaled quadratically with the number of rows: the per-row
+  latent inputs were one dense `nn.Parameter` under `torch.optim.Adam`, so every
+  mini-batch step updated all N x D values and moments (O(N^2 D / B) per epoch;
+  8x the rows took 36x longer, and the harness `folktables_eiv` job with 1.2M rows
+  ran for 2.5 days without finishing). Latents now use a lazy, row-sparse Adam
+  (only the batch rows' values and moments move, per-row bias correction), batches
+  are drawn on the device instead of through a `DataLoader`, and Monte Carlo
+  `predict(sigma_x=...)` runs in row chunks. Training is linear in N; full-batch
+  training is unchanged (identical to dense Adam). Mini-batch results change:
+  rows outside the batch no longer drift on stale momentum.
 - `fit_tabular` / `TabularFit.predict`: `GaussianNLLLoss(log_variance=False)` heads are mapped back to the original scale with a new `"variance"` layout (`var * sigma^2`) instead of being treated as a location output; `standardize_target=False` keeps the Gaussian layout, so `calibrated_deep_ensemble(..., standardize_target=False)` works (audit C2-003, C2-006).
 - `ConformalRegressor`, `CalibratedRegressor` and `calibrated_deep_ensemble` raise `ValueError` for NaN or infinite targets instead of returning NaN intervals or a temperature fitted on a subset (audit C2-004).
 - `TabularPreprocessor`: the smooth clip no longer overflows for huge values (mapped to 0 above 1e154) or turns infinite inputs into NaN (audit C2-002).
