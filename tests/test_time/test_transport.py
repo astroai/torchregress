@@ -15,6 +15,7 @@ import torch
 
 from torchregress.prediction import PredictiveBatch
 from torchregress.test_time.transport import (
+    ShiftFactoredPredictiveTransport,
     ShiftFactoredTransportConfig,
     ShiftFactoredTransportState,
     _as_1d,
@@ -498,3 +499,170 @@ class TestNativeInterval:
             _native_interval(batch, alpha=1.0, eps=1e-8)
         with pytest.raises(ValueError, match="alpha must be in"):
             _native_interval(batch, alpha=1.5, eps=1e-8)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Label shift: transport must not be inert, nor collapse past the source range
+# (harness finding 8: PriorTV 1.0 / TransportApplied 0 for n_support 16-256)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _ridge_gaussian(
+    X_s: np.ndarray, y_s: np.ndarray, X_t: np.ndarray, alpha: float
+) -> tuple[PredictiveBatch, PredictiveBatch, float]:
+    """Ridge mean + residual std: a Gaussian predictive (calibrated for jointly Gaussian data)."""
+    from sklearn.linear_model import Ridge
+
+    model = Ridge(alpha=alpha).fit(X_s, y_s)
+    p_s, p_t = model.predict(X_s), model.predict(X_t)
+    sigma = float(np.std(y_s - p_s))
+
+    def batch(m: np.ndarray) -> PredictiveBatch:
+        t = torch.from_numpy(m)
+        return PredictiveBatch(point=t, mean=t, std=torch.full_like(t, sigma))
+
+    return batch(p_s), batch(p_t), sigma
+
+
+def _gaussian_label_shift(seed: int, shift: float) -> tuple[np.ndarray, ...]:
+    """``y_s ~ N(0, 1)``, ``y_t ~ N(shift, 1)``, ``x | y ~ N(y, 0.5^2)`` (4 copies): pure label shift."""
+    rng = np.random.default_rng(seed)
+    y_s = rng.normal(size=3000)
+    y_t = rng.normal(loc=shift, size=2000)
+    X_s = y_s[:, None] + 0.5 * rng.normal(size=(3000, 4))
+    X_t = y_t[:, None] + 0.5 * rng.normal(size=(2000, 4))
+    return X_s, y_s, X_t, y_t
+
+
+def _gauss_nll(mean: torch.Tensor, std: torch.Tensor, y: np.ndarray) -> float:
+    m, s = mean.double().numpy(), std.double().numpy()
+    return float(np.mean(0.5 * np.log(2 * np.pi * s**2) + 0.5 * ((y - m) / s) ** 2))
+
+
+def _fit_transport(
+    src: PredictiveBatch, y_s: np.ndarray, **cfg: object
+) -> ShiftFactoredPredictiveTransport:
+    config = ShiftFactoredTransportConfig(**cfg)  # type: ignore[arg-type]
+    return ShiftFactoredPredictiveTransport(config).fit_source(src, torch.from_numpy(y_s))
+
+
+class TestTransportUnderLabelShift:
+    def test_margin_collapse_is_a_noop_in_the_stabiliser(self) -> None:
+        """Why the pre-fix transport was inert: with all EM mass on a bin whose source
+        prior is ``eps`` (an empty margin bin of the old label histogram), the shrunk
+        prior is ``(1 - w) * src`` on every other bin, a uniform ratio that
+        renormalises back to the source prior for any shrink weight ``w``."""
+        from torchregress.test_time.transport import _stabilize_target_prior
+
+        cfg = ShiftFactoredTransportConfig()
+        src = np.array([1e-8, 0.2, 0.3, 0.3, 0.2 - 1e-8])
+        tgt = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+        confident = torch.eye(5, dtype=torch.float64)[[1, 2, 3]]
+        stabilised, meta = _stabilize_target_prior(
+            source_prior=src,
+            target_prior=tgt,
+            selected_probabilities=confident,
+            converged=True,
+            config=cfg,
+        )
+        assert meta["prior_shrink_weight"] > 0.0
+        assert _discrete_tv(src, tgt) == pytest.approx(1.0)
+        np.testing.assert_allclose(stabilised.numpy(), src, atol=1e-6)
+
+    @pytest.mark.parametrize("n_support", [16, 32, 64, 128, 256])
+    def test_ridge_on_diabetes_is_not_inert(self, n_support: int) -> None:
+        """The harness case: Ridge on diabetes, logistic-in-y resample of the test split."""
+        from sklearn.datasets import load_diabetes
+        from sklearn.model_selection import train_test_split
+
+        X, y = load_diabetes(return_X_y=True)
+        X_s, X_te, y_s, y_te = train_test_split(X, y, test_size=0.3, random_state=0)
+        rng = np.random.default_rng(0)
+        z = (y_te - y_te.mean()) / y_te.std()
+        p = 1.0 / (1.0 + np.exp(-1.5 * z))
+        idx = rng.choice(len(y_te), size=len(y_te), p=p / p.sum())
+        src, tgt, _ = _ridge_gaussian(X_s, y_s, X_te[idx], alpha=1e-3)
+        out = _fit_transport(src, y_s, n_support=n_support).adapt_unlabeled_target(
+            target_predictions=tgt
+        )
+        meta = out.extra or {}
+        assert meta["transport_applied"] is True
+        # Used to be 1.0: the EM prior sat on the two empty margin bins.
+        assert meta["prior_source_target_tv"] < 0.7
+        assert meta["prior_mass_outside_source_range"] < 0.05
+        # The stabilised prior moves toward the high labels the target over-represents.
+        support = np.linspace(0, 1, n_support)  # monotone stand-in for the grid
+        src_prior = np.asarray(meta["source_prior"])
+        adapted = np.asarray(meta["target_prior"])
+        assert float(adapted @ support) > float(src_prior @ support)
+
+    @pytest.mark.parametrize("n_support", [16, 64, 256])
+    def test_known_prior_shift_improves_target_nll(self, n_support: int) -> None:
+        X_s, y_s, X_t, y_t = _gaussian_label_shift(seed=0, shift=0.8)
+        src, tgt, sigma = _ridge_gaussian(X_s, y_s, X_t, alpha=1.0)
+        transport = _fit_transport(
+            src, y_s, n_support=n_support, enable_uncertainty_inflation=False
+        )
+        out = transport.adapt_unlabeled_target(target_predictions=tgt)
+        meta = out.extra or {}
+        assert meta["transport_applied"] is True
+        # Raw EM prior vs the empirical target label prior, on 8 coarse bins.
+        assert transport.state_ is not None
+        support = transport.state_.source_support.numpy()
+        coarse = np.linspace(support[0], support[-1], 9)
+        est = np.histogram(support, bins=coarse, weights=np.asarray(meta["target_prior_raw"]))[0]
+        src_c = np.histogram(support, bins=coarse, weights=np.asarray(meta["source_prior"]))[0]
+        true = np.histogram(y_t, bins=coarse)[0] / len(y_t)
+        tv_raw, tv_none = 0.5 * np.abs(est - true).sum(), 0.5 * np.abs(src_c - true).sum()
+        assert tv_raw < 0.3 * tv_none
+        assert out.mean is not None and out.std is not None and tgt.mean is not None
+        base = _gauss_nll(tgt.mean, torch.full_like(tgt.mean, sigma), y_t)
+        assert _gauss_nll(out.mean, out.std, y_t) <= base + 1e-3
+
+    def test_near_identity_prior_keeps_the_gaussian_predictive(self) -> None:
+        """A transported prior equal to the source prior up to a tiny change must return
+        (almost) the input predictive: the Gaussian output used to be the moments of the
+        discretised, grid-truncated predictive, which moved it even then."""
+        X_s, y_s, X_t, _ = _gaussian_label_shift(seed=1, shift=1.5)
+        src, tgt, sigma = _ridge_gaussian(X_s, y_s, X_t, alpha=1.0)
+        out = _fit_transport(
+            src,
+            y_s,
+            n_support=64,
+            prior_transport_strength=0.01,
+            enable_uncertainty_inflation=False,
+        ).adapt_unlabeled_target(target_predictions=tgt)
+        assert (out.extra or {})["transport_applied"] is True
+        assert out.mean is not None and out.std is not None and tgt.mean is not None
+        shift = (out.mean - tgt.mean).abs() / sigma
+        # Before: mean 0.014, max 3.7 sigma (edge rows), std ratio off by up to 0.84.
+        assert float(shift.mean()) < 0.01 and float(shift.max()) < 0.5
+        assert float((out.std / sigma - 1.0).abs().max()) < 0.2
+
+    @pytest.mark.parametrize("n_support", [16, 256])
+    def test_target_past_source_range_warns_and_does_not_collapse(self, n_support: int) -> None:
+        """Target labels beyond the source range (support violation): EM mass lands on the
+        margin bins. Warn, and do not collapse the predictive onto the grid edge
+        (std ~ grid step and NLL 1e2-1e4 before)."""
+        X_s, y_s, X_t, y_t = _gaussian_label_shift(seed=0, shift=4.0)
+        src, tgt, sigma = _ridge_gaussian(X_s, y_s, X_t, alpha=1.0)
+        transport = _fit_transport(src, y_s, n_support=n_support)
+        with pytest.warns(UserWarning, match="outside the source label range"):
+            out = transport.adapt_unlabeled_target(target_predictions=tgt)
+        meta = out.extra or {}
+        assert meta["prior_mass_outside_source_range"] > 0.5
+        assert out.mean is not None and out.std is not None and tgt.mean is not None
+        assert float(out.std.min()) > 0.5 * sigma
+        base = _gauss_nll(tgt.mean, torch.full_like(tgt.mean, sigma), y_t)
+        assert _gauss_nll(out.mean, out.std, y_t) < base + 0.5
+
+    def test_no_warning_without_shift(self) -> None:
+        import warnings
+
+        X_s, y_s, X_t, _ = _gaussian_label_shift(seed=2, shift=0.0)
+        src, tgt, _ = _ridge_gaussian(X_s, y_s, X_t, alpha=1.0)
+        transport = _fit_transport(src, y_s)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = transport.adapt_unlabeled_target(target_predictions=tgt)
+        assert (out.extra or {})["prior_mass_outside_source_range"] < 0.05
