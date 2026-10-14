@@ -25,6 +25,13 @@ remove are decided for 0.4.0.
 
 ### Changed
 
+- Declared public (added to `__all__`; they were already importable):
+  `CQR`, `CTI`, `MultivariateScoreConformal`,
+  `NonExchangeableConformalRegressor` and `BaseEIVLoss` in
+  `torchregress.losses`, and `SelfAgreementTrainer` (alias of
+  `TeacherStudentTrainer`) in `torchregress.semi_supervised`. Listed in
+  `docs/api/losses.md`, `docs/api/conformal.md` and
+  `docs/api/semi_supervised.md`.
 - `MixtureDensityLoss(covariance_type="full")` now reads its lower-triangular
   factor as the Cholesky factor of the **precision** (`full_parameterization="precision"`,
   new default, as in sbi's MDN): the log-density is linear in the factor, with no
@@ -71,7 +78,24 @@ remove are decided for 0.4.0.
   v0.16.10, pre-commit-hooks v6.0.0. Tested on torch 2.14.1 / numpy 2.5.3 /
   scipy 1.18.1 (PyPI) and the pixi lock (conda-forge torch 2.13.0).
 
+### Removed
+- The `torchregress.metrics.calibration` shim module. Its 7 names
+  (`ExpectedCalibrationError`, `MarginalCalibrationError`, `bias`,
+  `calibration_metrics_report`, `calibration_score`,
+  `expected_calibration_error`, `marginal_calibration_error`) stay exported
+  from both `torchregress.metrics` and `torchregress.calibration`: replace
+  `from torchregress.metrics.calibration import X` with
+  `from torchregress.metrics import X` or `from torchregress.calibration import X`
+  (the implementation lives in `torchregress.calibration.metrics`).
+
 ### Fixed
+- `InverseGaussianLoss` and `GammaLoss` (and `TweedieLoss` with `p >= 2`) now
+  raise `ValueError` ("... requires strictly positive targets") when any
+  unmasked target is `<= 0`. Both distributions have support `y > 0` and their
+  deviances are undefined at `y = 0`; the `eps` guards silently turned a zero
+  target into a large finite penalty (about 5e7 per entry for the Inverse
+  Gaussian, about 17 for the Gamma at `mu = 1`) that dominated training.
+  Masked-out entries are not checked. Targets are not shifted or clipped.
 - `LocalConformal`, `LocalConformalMAD` and `DensityConformal` built dense
   (n_test x n_cal) kernel matrices with several temporaries alive at once, so
   memory grew with the product of the two sizes: at ~2x10^4 x 1.5x10^4 rows the
@@ -103,6 +127,7 @@ remove are decided for 0.4.0.
 - `TabularPreprocessor`: the smooth clip no longer overflows for huge values (mapped to 0 above 1e154) or turns infinite inputs into NaN (audit C2-002).
 - `inference.median_heuristic_bandwidth` is exact for data far from the origin and rejects non-finite input; `test_time.select_high_confidence(scores=)` ranks NaN scores lowest (audit C2-001, C2-005).
 - `test_time.ShiftFactoredPredictiveTransport`: the confident-row selection (`top_fraction`, default 0.5) now ranks rows on the unrenormalised in-grid peak probability (maximum bin probability times the predictive mass inside the support grid) instead of the renormalised maximum. Renormalisation inflated the peak of predictives cut by the grid edge, so on fine grids the selection favoured them and the EM prior mean overshot a label shift by up to 0.32 |shift| at 256 bins (0.14 at 64); it is now below 0.07 |shift| at 16, 64 and 256 bins for shifts of +/-0.8. Selected rows, and therefore `target_prior` and the adapted predictive, change for a given input (plan item B6).
+- `test_time.ShiftFactoredPredictiveTransport` with a Gaussian predictive: the prior correction is applied to the native mean / std as a moment change (transported minus untransported binned moments, weighted by the row's in-grid predictive mass) instead of returning the moments of the transported grid. Those added the discretisation and the truncation at the grid edge whenever `transport_applied` was true, so a near-identity prior moved the predictive (up to 3.7 sigma for edge rows) and target predictives beyond the source label range collapsed onto the edge bin: on a 2.5 SD label shift the target NLL went from 0.19 (untransported) to 7-4300 depending on `n_support`, now 0.24-0.26 (0.19-0.24 without uncertainty inflation); on a 0.8 SD shift without inflation 0.029 -> 0.046 before, 0.019 now (16 bins). New metadata `prior_mass_outside_source_range` and a `UserWarning` when the raw EM prior puts more than 0.2 of its mass on the support bins outside the source label range (label-shift support violation or unreliable EM). The docs page now warns that the stabilised prior's shrink weight scales as 1/`n_support` (2% of the EM correction at the default 256 bins on a calibrated Gaussian predictive) and that uncertainty inflation widens the predictive under label shift (harness finding 8 follow-up).
 - `inference.orthogonal_partially_linear`: both nuisance regressions (`E[x|z]`, `E[y|z]`) now share one cross-fitting split. Independent splits biased `theta` (-0.026, about 7.7 standard errors, over 200 replications of the DoubleML CCDDHNR-2018 design at n = 500); found by the harness `orthogonal_inference` suite against DoubleML on the same nuisance basis. Point estimates for a given `seed` change.
 - **0.3.0 release audit: 61 defects fixed**, each with a regression test in
   `tests/audit/` (full list with severities: `docs/reports/audit_0.3.0.md`).
