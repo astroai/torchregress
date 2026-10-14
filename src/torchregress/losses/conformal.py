@@ -1113,29 +1113,36 @@ class CVPlus(ConformalPredictor):
         fold_indices = self.fold_indices.to(device)
         residuals = self.residuals.to(device)
 
-        # Index member predictions: [K, B, D] -> [n_cal, B, D]
-        pred_per_cal = y_pred[fold_indices]
-
-        # Reshape residuals to [n_cal, 1, 1] for broadcasting
-        res_unsqueezed = residuals.view(-1, 1, 1)
-        lower_candidates = pred_per_cal - res_unsqueezed
-        upper_candidates = pred_per_cal + res_unsqueezed
-
         # Finite-sample order statistics over the n_cal candidates
         # (Barber et al., 2021, eq. 6): q^-  = floor(alpha (n+1))-th smallest of
         # mu_{-i}(x) - R_i and q^+ = ceil((1-alpha)(n+1))-th smallest of
         # mu_{-i}(x) + R_i; infinite when the rank falls outside [1, n].
-        n_cal = lower_candidates.shape[0]
+        n_cal = int(fold_indices.shape[0])
         k_upper = math.ceil((n_cal + 1) * (1.0 - self.alpha))
         k_lower = math.floor((n_cal + 1) * self.alpha)
-        if k_lower >= 1:
-            lower_bound = torch.sort(lower_candidates, dim=0).values[k_lower - 1]
-        else:
-            lower_bound = torch.full_like(lower_candidates[0], float("-inf"))
-        if k_upper <= n_cal:
-            upper_bound = torch.sort(upper_candidates, dim=0).values[k_upper - 1]
-        else:
-            upper_bound = torch.full_like(upper_candidates[0], float("inf"))
+        res = residuals.view(-1, *([1] * (y_pred.dim() - 1)))
+
+        # Candidates are (n_cal, test rows, ...): with CV+ n_cal is the whole
+        # training set, so build them in test-row blocks (O(n_cal) memory per
+        # block) and take the k-th order statistic with kthvalue, not a sort.
+        if y_pred.shape[1] == 0:
+            return y_pred[0].clone(), y_pred[0].clone()
+        per_row = n_cal * max(1, math.prod(y_pred.shape[2:]))
+        block = max(1, (1 << 24) // max(1, per_row))
+        lowers, uppers = [], []
+        for start in range(0, y_pred.shape[1], block):
+            # Member predictions: [K, b, D] -> [n_cal, b, D]
+            pred_per_cal = y_pred[:, start : start + block][fold_indices]
+            if k_lower >= 1:
+                lowers.append(torch.kthvalue(pred_per_cal - res, k_lower, dim=0).values)
+            else:
+                lowers.append(torch.full_like(pred_per_cal[0], float("-inf")))
+            if k_upper <= n_cal:
+                uppers.append(torch.kthvalue(pred_per_cal + res, k_upper, dim=0).values)
+            else:
+                uppers.append(torch.full_like(pred_per_cal[0], float("inf")))
+        lower_bound = torch.cat(lowers, dim=0)
+        upper_bound = torch.cat(uppers, dim=0)
 
         return lower_bound, upper_bound
 

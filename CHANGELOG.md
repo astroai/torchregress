@@ -69,6 +69,10 @@ remove are decided for 0.4.0.
   harness `conformal/zurich_delays` job was killed by a 32 GB limit. Kernel
   weights and the weighted-quantile search now run in test-row blocks
   (O(n_cal) memory per block); results are identical.
+- `CVPlus` / `JackknifePlus` materialised and fully sorted two
+  (n_train x n_test) candidate tensors (CV+ uses every training row); the
+  order statistics now come from `torch.kthvalue` over test-row blocks, with
+  identical endpoints.
 - `algorithms.WarmupMCTrainer` iterated a `DataLoader` over a `TensorDataset`
   (one Python `__getitem__` per row per epoch); it now shuffles and slices on
   the device, as `LatentNN` does.

@@ -1380,3 +1380,25 @@ def test_local_conformal_row_blocks_match_single_block(monkeypatch) -> None:
     blocked = run()
     for a, b in zip(dense, blocked):
         torch.testing.assert_close(a, b, rtol=0, atol=0)
+
+
+def test_cvplus_blocked_kthvalue_matches_sorted_reference() -> None:
+    """Row-blocked kthvalue CV+ equals the dense sort over all candidates."""
+    import math
+
+    g = torch.Generator().manual_seed(1)
+    K, n_cal, n_test = 5, 403, 61
+    fold = torch.randint(0, K, (n_cal,), generator=g)
+    resid = torch.rand(n_cal, generator=g)
+    preds = torch.randn(K, n_test, 1, generator=g)
+    cp = CVPlus(alpha=0.1)
+    cp.residuals, cp.fold_indices, cp._is_calibrated = resid, fold, True
+    lo, hi = cp.predict_interval(preds)
+
+    cand = preds[fold]
+    k_hi = math.ceil((n_cal + 1) * 0.9)
+    k_lo = math.floor((n_cal + 1) * 0.1)
+    ref_lo = torch.sort(cand - resid.view(-1, 1, 1), dim=0).values[k_lo - 1]
+    ref_hi = torch.sort(cand + resid.view(-1, 1, 1), dim=0).values[k_hi - 1]
+    torch.testing.assert_close(lo, ref_lo, rtol=0, atol=0)
+    torch.testing.assert_close(hi, ref_hi, rtol=0, atol=0)
