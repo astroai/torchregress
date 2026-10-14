@@ -16,7 +16,7 @@ where the weights $w_i^{(t)}$ depend on the residuals from iteration $t$:
 
 $$w_i^{(t)} = \psi\!\left(\frac{r_i^{(t)}}{\hat\sigma}\right)$$
 
-and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust scale estimate (MAD).
+and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust scale estimate (MAD, taken over the samples of each output column for `variance_type="robust"`). The weights are applied **once** to the initial precision: the model is not refit inside `iteratively_reweighted_least_squares`, so the residuals (and therefore the weights) are the same at every iteration.
 
 !!! info "Convergence & Local Minima"
     Convergence behavior depends on the robust loss used:
@@ -74,7 +74,7 @@ y_pred, loss_history, final_precision = iteratively_reweighted_least_squares(
 | `tol` | `float` | `1e-4` | Convergence tolerance |
 | `variance_type` | `str` | `"predicted"` | `"predicted"`, `"fixed"`, or `"robust"` |
 
-**Returns:** `(y_pred, loss_history, final_precision)` — `final_precision` holds robust precision multipliers for `WeightedMSELoss(..., weights=final_precision)`.
+**Returns:** `(y_pred, loss_history, final_precision)` — `final_precision` $= \text{initial\_precision}\cdot\psi(r/\hat\sigma)$ holds robust precision multipliers for `WeightedMSELoss(..., weights=final_precision)`. Models that output a variance head (a `(mean, log_sigma)` tuple or a concatenated `[mean, log_sigma]` tensor) are supported: the loss scores the mean and `variance_type="predicted"` takes $\hat\sigma$ from the head.
 
 ---
 

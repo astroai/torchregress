@@ -28,6 +28,13 @@ md = mahalanobis_distance(x, mean, cov)
 ```
 See also: [mahalanobis_distance](../api/metrics.md).
 
+For numerical stability the covariance is regularised as
+$\Sigma + \epsilon\,\overline{\operatorname{diag}\Sigma}\,I$ with
+`jitter` $\epsilon = 10^{-6}$. The jitter is *relative* to the mean
+variance, so the distance does not change when the features are rescaled.
+Before 0.3 an absolute $10^{-6} I$ dominated covariances with variances near
+$10^{-8}$.
+
 ---
 
 ## Typicality Score

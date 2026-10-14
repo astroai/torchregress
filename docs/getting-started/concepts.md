@@ -60,7 +60,7 @@ capacity in some region of input space.
   data (posterior variance in Bayesian models, member disagreement in
   ensembles, weight-space variance in SWAG).
 
-Modelled by **ensembles of likelihood heads** (`DeepEnsemble`,
+Modelled by **ensembles of likelihood heads** (`BaseEnsembleModel`,
 `HeteroscedasticEnsembleModel`, `MDNEnsembleModel`), **Bayesian
 approximations** (`BayesianNeuralNetwork`, `SWAG`, `MultiSWAG`,
 `HeteroscedasticLaplaceRegressor`, `IVON`), or **evidential single-pass

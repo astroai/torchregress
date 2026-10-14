@@ -67,3 +67,27 @@ def test_outputs_symmetric_spd() -> None:
     err = (cov - cov.transpose(-1, -2)).abs().max().item()
     assert err < 1e-5
     assert torch.all(torch.linalg.eigvalsh(cov) > 0)
+
+
+@pytest.mark.parametrize("metric", ["mahalanobis", "euclidean"])
+@pytest.mark.parametrize("exclude_self", [True, False])
+def test_blocked_pseudo_cov_matches_single_block(
+    monkeypatch: pytest.MonkeyPatch, metric: str, exclude_self: bool
+) -> None:
+    from torchregress.algorithms import covariance_pseudo_labels as mod
+
+    g = torch.Generator().manual_seed(0)
+    x = torch.randn(23, 3, generator=g, dtype=torch.float64)
+    y = torch.randn(23, 2, generator=g, dtype=torch.float64)
+    cfg = mod.NeighborhoodCovarianceConfig(n_neighbors=5, metric=metric)  # type: ignore[arg-type]
+    lab = mod.NeighborhoodCovariancePseudoLabeler(cfg)
+    xq = x if exclude_self else torch.randn(17, 3, generator=g, dtype=torch.float64)
+
+    def run() -> torch.Tensor:
+        return lab._pseudo_cov_batch(xq, x, y, exclude_self=exclude_self)
+
+    ref = run()
+    monkeypatch.setattr(mod, "_BLOCK_ELEMS", 1)  # one query row per block
+    torch.testing.assert_close(run(), ref, rtol=0, atol=0)
+    monkeypatch.setattr(mod, "_BLOCK_ELEMS", 23 * 3 * 4 + 5)  # uneven blocks
+    torch.testing.assert_close(run(), ref, rtol=0, atol=0)

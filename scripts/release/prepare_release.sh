@@ -11,7 +11,7 @@ BUMP_ARGS=()
 
 usage() {
   cat <<'EOF'
-Usage: prepare_release.sh [--dry-run] [--force] <patch|minor|major|--version X.Y.Z>
+Usage: prepare_release.sh [--dry-run] [--force] <patch|minor|major|--version X.Y.Z[rcN]>
 
 Prepare a torchregress release locally. Publishing happens in CI when the tag is pushed.
 
@@ -47,7 +47,7 @@ import re
 from pathlib import Path
 
 text = Path("pyproject.toml").read_text(encoding="utf-8")
-match = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+)"$', text, re.MULTILINE)
+match = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+(?:rc\d+)?)"$', text, re.MULTILINE)
 if match is None:
     raise SystemExit("Could not read version from pyproject.toml")
 print(match.group(1))

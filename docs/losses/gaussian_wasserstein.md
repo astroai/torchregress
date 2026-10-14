@@ -103,7 +103,7 @@ Metrics supported: pooled **Mahalanobis** in ``x`` (default) or **Euclidean** di
 1. **Surrogate, not exact Wasserstein**: This objective is a Frobenius-norm upper-bound surrogate related to Gaussian 2-Wasserstein ideas. It is not the exact Wasserstein-2 distance in all non-commutative cases. Treat it as a training signal, not an interpretable distance metric.
 2. **Requires covariance targets**: Unlike NLL which learns from raw targets $(x, y)$, this loss requires a target covariance $\Sigma$ per sample (or a shared $\Sigma$). Covariance targets are rarely available — they must come from problem structure, pseudo-labeling, or external estimation.
 3. **Pseudo-label quality**: The `NeighborhoodCovariancePseudoLabeler` in `torchregress.algorithms` provides heuristic covariance targets from neighbour-weighted statistics. These are experimental — validate on your modality before relying on gradients.
-4. **Eigenvalue floor**: The matrix square root requires eigenvalue decomposition with a floor (jitter) to guarantee positive-semidefiniteness. If jitter is too small, gradients become unstable; if too large, covariance information is washed out.
+4. **Eigenvalue floor**: The matrix square root requires eigenvalue decomposition with a floor (jitter) to guarantee positive-semidefiniteness. If jitter is too small, gradients become unstable; if too large, covariance information is washed out. Repeated eigenvalues (e.g. an isotropic $\sigma^2 I$ initialisation) are safe: `symmetric_spd_matrix_sqrt` back-propagates by solving the Sylvester equation $X\,dX + dX\,X = d\Sigma$ in the eigenbasis (gradient entries $1/(s_i + s_j)$) instead of differentiating through `eigh`, whose backward is NaN at degenerate eigenvalues.
 
 ## Recommendations
 

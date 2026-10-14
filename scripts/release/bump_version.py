@@ -8,7 +8,8 @@ import re
 import subprocess
 from pathlib import Path
 
-VERSION_PATTERN = re.compile(r"^version\s*=\s*\"(\d+)\.(\d+)\.(\d+)\"$", re.MULTILINE)
+VERSION_PATTERN = re.compile(r"^version\s*=\s*\"(\d+)\.(\d+)\.(\d+)(?:rc(\d+))?\"$", re.MULTILINE)
+EXPLICIT_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)(rc\d+)?")
 SEMVER_PARTS = ("major", "minor", "patch")
 
 
@@ -16,11 +17,26 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def read_full_version(pyproject: Path) -> str:
+    """Return the version string as written, including any ``rcN`` suffix."""
+    text = pyproject.read_text(encoding="utf-8")
+    match = VERSION_PATTERN.search(text)
+    if match is None:
+        raise SystemExit(f"Could not find semver version in {pyproject}")
+    rc = f"rc{match.group(4)}" if match.group(4) is not None else ""
+    return f"{match.group(1)}.{match.group(2)}.{match.group(3)}{rc}"
+
+
 def read_version(pyproject: Path) -> tuple[int, int, int]:
     text = pyproject.read_text(encoding="utf-8")
     match = VERSION_PATTERN.search(text)
     if match is None:
         raise SystemExit(f"Could not find semver version in {pyproject}")
+    if match.group(4) is not None:
+        raise SystemExit(
+            "Current version is a release candidate; set the next version explicitly "
+            "with --version X.Y.Z (or X.Y.ZrcN)."
+        )
     return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
 
@@ -28,11 +44,11 @@ def format_version(parts: tuple[int, int, int]) -> str:
     return ".".join(str(part) for part in parts)
 
 
-def parse_explicit_version(value: str) -> tuple[int, int, int]:
-    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", value)
-    if match is None:
-        raise SystemExit(f"Invalid explicit version {value!r}; expected X.Y.Z")
-    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+def parse_explicit_version(value: str) -> str:
+    """Validate an explicit ``X.Y.Z`` or ``X.Y.ZrcN`` version and return it."""
+    if EXPLICIT_PATTERN.fullmatch(value) is None:
+        raise SystemExit(f"Invalid explicit version {value!r}; expected X.Y.Z or X.Y.ZrcN")
+    return value
 
 
 def bump(parts: tuple[int, int, int], part: str) -> tuple[int, int, int]:
@@ -80,7 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         dest="explicit_version",
-        help="Set an explicit X.Y.Z version instead of bumping.",
+        help="Set an explicit X.Y.Z (or X.Y.ZrcN) version instead of bumping.",
     )
     parser.add_argument(
         "--force",
@@ -106,10 +122,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.explicit_version is not None:
-        target_parts = parse_explicit_version(args.explicit_version)
+        new_version = parse_explicit_version(args.explicit_version)
     elif args.target in SEMVER_PARTS:
-        current_parts = read_version(args.pyproject)
-        target_parts = bump(current_parts, args.target)
+        new_version = format_version(bump(read_version(args.pyproject), args.target))
     else:
         parser.error("Provide patch/minor/major or --version X.Y.Z")
 
@@ -118,9 +133,7 @@ def main(argv: list[str] | None = None) -> int:
             "Refusing to bump version on a dirty git tree. Commit/stash first or pass --force."
         )
 
-    current_parts = read_version(args.pyproject)
-    current_version = format_version(current_parts)
-    new_version = format_version(target_parts)
+    current_version = read_full_version(args.pyproject)
 
     if new_version == current_version:
         print(f"Version unchanged: {current_version}")

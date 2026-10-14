@@ -96,6 +96,15 @@ history = trainer.fit(
 | `gaussian_std_span` | `float` | `4.0` | Std spans for Gaussian-based bounds |
 | `min_scale` | `float` | `1e-4` | Minimum scale for numerical stability |
 | `detach_weights` | `bool` | `True` | Detach sample weights from computation graph |
+| `tau` | `float` | `0.2` | Temperature of the default trust weights $w = \exp(-d/\tau)$ |
+| `weight_power` | `float` | `1.0` | Exponent $p$ applied to the trust weights |
+| `hard_weight_threshold` | `float` or `None` | `None` | Zero out weights below this value |
+| `batch_relative_mode` | `bool` | `False` | z-score the disagreement within each batch before weighting |
+| `batch_trust_top_k` | `int` or `None` | `None` | Keep only the $k$ lowest-disagreement samples per batch |
+
+The weighting arguments (`tau` … `batch_trust_top_k`) configure the default
+`disagreement_to_weight` policy and are ignored when a custom `sample_weight_fn` is passed.
+Unknown keyword arguments raise `TypeError`.
 
 ### `SAGERegLoss`
 
@@ -155,16 +164,6 @@ disagreement = predictive_agreement_score(
     n_support=128,
     reduction="none",  # Per-sample scores
 )
-```
-
-### `perturbation_instability_score`
-
-Measure prediction stability under input augmentations (identical to `predictive_agreement_score`, with augmentation-focused naming):
-
-```python
-from torchregress.semi_supervised import perturbation_instability_score
-
-instability = perturbation_instability_score(augmented_views)
 ```
 
 ### `build_consensus_predictive_batch`

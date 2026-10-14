@@ -29,7 +29,7 @@ forward(y_pred, target, mask=None, weights=None) -> Tensor | dict
 | `BaseLoss` | `BaseLoss(reduction="mean")` | Root class: reduction, mask/weight support |
 | `RegressionLoss` | `RegressionLoss(reduction="mean")` | Point-prediction losses (MSE, Huber, …) |
 | `DistributionLoss` | `DistributionLoss(reduction="mean")` | Distributional losses (Gaussian NLL, MDN, …) |
-| `WeightedLossWrapper` | `WeightedLossWrapper(loss_module, reduction="mean")` | Wraps any `nn.Module` with mask + weight support |
+| `WeightedLossWrapper` | `WeightedLossWrapper(loss_fn, reduction=None)` | Wraps any `nn.Module` with mask + weight support |
 | `WeightedMSELoss` | `WeightedMSELoss(reduction="mean")` | `nn.MSELoss` + mask + weights |
 | `WeightedL1Loss` | `WeightedL1Loss(reduction="mean")` | `nn.L1Loss` + mask + weights |
 | `WeightedHuberLoss` | `WeightedHuberLoss(delta=1.0, reduction="mean")` | `nn.HuberLoss` + mask + weights |
@@ -50,15 +50,15 @@ $$\\mathcal{L} = \\frac{1}{\\sum w_i m_i} \\sum w_i m_i \\, \\ell(y_{\\text{pred
 | `FaithfulGaussianLoss` | `FaithfulGaussianLoss(mean_weight=1.0, variance_weight=1.0)` | `(mean, log_var)` |
 | `GaussianCRPSLoss` | `GaussianCRPSLoss(eps=1e-6, reduction="mean")` | `(mean, log_var)` |
 | `BetaNLLLoss` | `BetaNLLLoss(beta=0.5, eps=1e-6, reduction="mean")` | `(mean, log_var)` |
-| `beta_nll_loss` | `beta_nll_loss(y_pred, y_true, ...)` | Functional form of `BetaNLLLoss` |
+| `beta_nll_loss` | `beta_nll_loss(y_pred, target, beta, ...)` | Functional form of `BetaNLLLoss` |
 | `GaussianWassersteinBoundLoss` | `GaussianWassersteinBoundLoss(covariance_parameterization="diagonal")` | mean + cov params |
-| `gaussian_wasserstein_bound_loss` | `gaussian_wasserstein_bound_loss(y_pred, y_target, ...)` | Functional form |
-| `symmetric_spd_matrix_sqrt` | `symmetric_spd_matrix_sqrt(M)` | Matrix square root for Wasserstein bound |
+| `gaussian_wasserstein_bound_loss` | `gaussian_wasserstein_bound_loss(pred_mean, target_mean, pred_covariance, target_covariance, ...)` | Functional form |
+| `symmetric_spd_matrix_sqrt` | `symmetric_spd_matrix_sqrt(sigma, *, eps=1e-8)` | Matrix square root for Wasserstein bound |
 | `MultivariateGaussianLoss` | `MultivariateGaussianLoss(...)` | mean + full Σ |
-| `LowRankGaussianLoss` | `LowRankGaussianLoss(cov_rank, ...)` | mean + W·Wᵀ + D |
+| `LowRankGaussianLoss` | `LowRankGaussianLoss(min_variance=1e-6, jitter=1e-6, eps=1e-8, reduction="mean")` | mean + W·Wᵀ + D |
 | `create_gaussian_nll` | `create_gaussian_nll(covariance_type="diagonal")` | Factory |
 | `low_rank_output_dim` | `low_rank_output_dim(n_features, rank) → int` | → See [Utilities API](utils.md) |
-| `split_low_rank_gaussian_output` | `split_low_rank_gaussian_output(out, cov_rank, target_dim)` | → See [Utilities API](utils.md) |
+| `split_low_rank_gaussian_output` | `split_low_rank_gaussian_output(y_pred, n_features, rank)` | → See [Utilities API](utils.md) |
 
 Core formulas:
 
@@ -80,13 +80,14 @@ $$\\mathcal{L}_{\\beta\\text{-NLL}} = (\\sigma^2 + \\varepsilon)^{-\\beta} \\cdo
 | `LogCoshLoss` | `LogCoshLoss(reduction="mean")` | tanh(r), linear tail |
 | `CharbonnierLoss` | `CharbonnierLoss(eps=1e-3, reduction="mean")` | r / √(r² + ε²) |
 | `CauchyLoss` | `CauchyLoss(c=1.0, reduction="mean")` | Logarithmic tail |
+| `StudentTLoss` | `StudentTLoss(nu=1.0, scale=1.0, reduction="mean")` | Student-t NLL; Cauchy at ν=1, Gaussian as ν→∞ |
 | `TukeyBiweightLoss` | `TukeyBiweightLoss(c=4.685, reduction="mean")` | Redescending (zero for |r| > c) |
 | `AdaptiveRobustLoss` | `AdaptiveRobustLoss(...)` | Trainable α + scale |
 | `BarronLoss` | `BarronLoss(alpha=1.0, c=1.0, ...)` | Continuous L1 ↔ L2 family |
 | `CVaRLoss` | `CVaRLoss(alpha=0.1, ...)` | Tail α-fraction |
-| `huber_elementwise` | `huber_elementwise(residuals, delta)` | Elementwise Huber; quadratic/linear crossover at `delta` |
-| `log_cosh` | `log_cosh(u)` | Numerically stable `log(cosh(u))` |
-| `tukey_biweight` | `tukey_biweight(residuals, c)` | Tukey biweight; constant saturation beyond `c` |
+| `huber_elementwise` | `huber_elementwise(residual, delta=1.0)` | Elementwise Huber; quadratic/linear crossover at `delta` |
+| `log_cosh` | `log_cosh(residual, scale=1.0)` | Numerically stable `log(cosh(u))` |
+| `tukey_biweight` | `tukey_biweight(residual, c=4.685)` | Tukey biweight; constant saturation beyond `c` |
 
 $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r| \\le \\delta \\\\ \\delta|r| - \\frac{1}{2}\\delta^2 & |r| > \\delta \\end{cases}$$
 
@@ -103,11 +104,12 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `QuantileCrossoverLoss` | `QuantileCrossoverLoss(quantiles=[...])` | + non-crossing penalty |
 | `ExpectileLoss` | `ExpectileLoss(expectile=0.5, reduction="mean")` | Asymmetric L2 |
 | `MultiExpectileLoss` | `MultiExpectileLoss(expectiles=[...])` | Joint expectile |
-| `ExpectileCrossoverLoss` | `ExpectileCrossoverLoss(expectiles=[...])` | + non-crossing penalty |
-| `AsymmetricLeastSquaresLoss` | `AsymmetricLeastSquaresLoss(tau=0.5)` | Alias for ExpectileLoss |
-| `QuantileCrossover` | `QuantileCrossover(quantiles=[...])` | Non-crossing penalty helper dataclass |
-| `quantile_loss` | `quantile_loss(y_pred, y, tau)` | Functional pinball loss |
-| `expectile_loss` | `expectile_loss(y_pred, y, tau)` | Functional expectile loss |
+| `ExpectileCrossoverLoss` | `ExpectileCrossoverLoss(expectiles=[...])` | + non-crossing penalty (levels must be strictly ascending) |
+| `ExpectileCrossover` | `ExpectileCrossover(expectiles=[...])` | Alias for `ExpectileCrossoverLoss` |
+| `AsymmetricLeastSquaresLoss` | `AsymmetricLeastSquaresLoss(expectile=0.5)` | Alias for ExpectileLoss |
+| `QuantileCrossover` | `QuantileCrossover(quantiles=[...])` | Alias for `QuantileCrossoverLoss` |
+| `quantile_loss` | `quantile_loss(y_pred, target, quantile=0.5, mask=None, weights=None, reduction="mean")` | Functional pinball loss |
+| `expectile_loss` | `expectile_loss(y_pred, target, expectile=0.5, mask=None, weights=None, reduction="mean")` | Functional expectile loss |
 | `MDNLoss` | `MDNLoss(n_components=5, reduction="mean")` | Mixture Density Network NLL |
 | `MixtureDensityLoss` | `MixtureDensityLoss(n_components=5, reduction="mean")` | Alias for `MDNLoss` |
 | `create_mdn_loss` | `create_mdn_loss(n_components=5, ...)` | Factory for `MixtureDensityLoss` |
@@ -116,7 +118,7 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `create_flow_model` | `create_flow_model(...)` | Factory: build a flow model |
 | `create_flow_loss` | `create_flow_loss(...)` | Factory: build a flow loss |
 | `create_contrastive_flow_loss` | `create_contrastive_flow_loss(...)` | Factory: build a contrastive flow loss |
-| `EvidentialRegressionLoss` | `EvidentialRegressionLoss(coeff=1e-2, reduction="mean")` | NIG evidential regression |
+| `EvidentialRegressionLoss` | `EvidentialRegressionLoss(coeff_nig=1e-2, reduction="mean", unconstrained_inputs=True)` | NIG evidential regression |
 | `DiscreteWasserstein1Loss` | `DiscreteWasserstein1Loss(bin_edges=None, from_logits=False, reduction="mean")` | 1-Wasserstein between mass vectors on a shared grid; see [Grid & basis densities](../losses/density_basis.md) |
 | `discrete_wasserstein1` | `discrete_wasserstein1(p, q, centers)` | Functional form |
 | `RankNContrastLoss` | `RankNContrastLoss(temperature=2.0, similarity="l2", reduction="mean")` | Rank-N-Contrast representation loss (features vs continuous labels) |
@@ -159,8 +161,8 @@ Parametric NLL losses for non-Gaussian target families.
 
 | Symbol | Signature | Output |
 |:-------|:----------|:-------|
-| `CumulativeLinkLoss` | `CumulativeLinkLoss(n_classes, ...)` | `K-1` logits |
-| `CORALLoss` | `CORALLoss(n_classes, ...)` | `K-1` binary logits |
+| `CumulativeLinkLoss` | `CumulativeLinkLoss(reduction="mean", level_weights=None, pos_weight=None)` | `K-1` logits |
+| `CORALLoss` | `CORALLoss(reduction="mean", level_weights=None, pos_weight=None)` | `K-1` binary logits |
 | `OrdinalCrossEntropyLoss` | `OrdinalCrossEntropyLoss(...)` | `K` logits |
 
 ### Censored / survival
@@ -187,11 +189,8 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | `CompoundPoissonLoss` | `CompoundPoissonLoss(p=1.5, link="log")` | 1 < p < 2 |
 | `tweedie_loss` | `tweedie_loss(y_pred, y, p=1.5, ...)` | Functional Tweedie loss |
 | `PoissonGaussianMixtureLoss` | `PoissonGaussianMixtureLoss(log_input=True, ...)` | Poisson + Gaussian readout |
-| `poisson_gaussian_mixture_loss` | `poisson_gaussian_mixture_loss(y_pred, y, ...)` | Functional form |
 | `EnhancedPoissonGaussianMixtureLoss` | `EnhancedPoissonGaussianMixtureLoss(...)` | Gain/offset/learnable noise |
-| `enhanced_poisson_gaussian_loss` | `enhanced_poisson_gaussian_loss(y_pred, y, ...)` | Functional form |
 | `PoissonGaussianLikelihoodRatioLoss` | `PoissonGaussianLikelihoodRatioLoss(...)` | Likelihood-ratio variant |
-| `poisson_gaussian_likelihood_ratio_loss` | `poisson_gaussian_likelihood_ratio_loss(...)` | Functional form |
 
 ---
 
@@ -223,7 +222,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 
 | Symbol | Constructor |
 |:-------|:------------|
-| `StructuralEIVLoss` | `StructuralEIVLoss(model=..., sigma_x=0.5, sigma_y=0.3)` |
+| `StructuralEIVLoss` | `StructuralEIVLoss(model=..., sigma_x=..., sigma_y=..., sigma_xy=...)` |
 | `FunctionalEIVLoss` | `FunctionalEIVLoss(model=..., sigma_x=0.5, sigma_y=0.3)` |
 | `OrthogonalDistanceRegressionLoss` | `OrthogonalDistanceRegressionLoss(model=...)` |
 | `EnsembleEIVLoss` | `EnsembleEIVLoss(model=...)` |
@@ -232,8 +231,6 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `InputNoiseBinnedPDFLoss` | `InputNoiseBinnedPDFLoss(...)` |
 | `LatentMarginalizationLoss` | `LatentMarginalizationLoss(...)` |
 | `NoisyInputPredictor` | `NoisyInputPredictor(...)` |
-| `ExplicitEIVAdapter` | `ExplicitEIVAdapter(...)` |
-| `create_eiv_loss` | `create_eiv_loss(method="structural", ...)` |
 
 ---
 
@@ -244,9 +241,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | Symbol | Signature | Strategy |
 |:-------|:----------|:---------|
 | `ConformalLoss` | `ConformalLoss(method="cqr", alpha=0.1)` | Training + calibration wrapper |
-| `conformal_loss` | `conformal_loss(method="cqr", alpha=0.1)` | Functional form of `ConformalLoss` |
 | `ConformalPredictor` | `ConformalPredictor(...)` | Base post-hoc calibrator |
-| `MultiDimensionalConformalLoss` | `MultiDimensionalConformalLoss(...)` | Legacy multi-dim wrapper |
 | `SplitConformal` | `SplitConformal(alpha=0.1)` | Residual-based |
 | `CQR` | `CQR(alpha=0.1, debias=False)` | Conformalized Quantile Regression |
 | `UACQR` | `UACQR(alpha=0.1, ...)` | Width-normalized CQR |
@@ -292,4 +287,4 @@ Conformal guarantee: $$P(Y_{n+1} \\in \\hat{C}(X_{n+1})) \\geq 1 - \\alpha$$
 |:-------|:----------|
 | `get_regression_loss` | `get_regression_loss(name, **kwargs)` |
 | `list_regression_losses` | `list_regression_losses()` |
-| `create_loss_from_config` | `create_loss_from_config(config_dict)` |
+| `create_loss_from_config` | `create_loss_from_config(config)` |

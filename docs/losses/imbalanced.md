@@ -30,7 +30,7 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 
 ## BalancedMSELoss and BinReweightedMSELoss
 
-**Bin-based** balanced MSE: partition the target range into histogram bins on training data, then weight each sample by roughly `1 / (bin count)` (with optional additive smoothing). `BalancedMSELoss` uses **your** `bin_edges`; `BinReweightedMSELoss` builds **equal-width** or **quantile** edges from `num_bins` and uses `noise_sigma` as a pseudocount when inverting counts (Laplace-style).
+**Bin-based** balanced MSE: partition the target range into histogram bins on training data, then weight each sample by roughly `1 / (bin count)` (with optional additive smoothing). Bin weights are normalised so that their average over the **training samples** is 1 (the training loss stays on the MSE scale); empty bins (zero smoothed count) get weight 0 instead of a huge `1/eps` that would collapse every populated bin's weight. `BalancedMSELoss` uses **your** `bin_edges`; `BinReweightedMSELoss` builds **equal-width** or **quantile** edges from `num_bins` and uses `noise_sigma` as a pseudocount when inverting counts (Laplace-style).
 
 ```python
 from torchregress.losses import BalancedMSELoss, BinReweightedMSELoss
@@ -53,6 +53,9 @@ Multi-output targets use the **mean coordinate** for bin assignment; the weighte
 
 !!! warning "Calibration"
     Like other reweighting schemes, these losses change the training objective. Validate calibration on held-out data before relying on variance or interval outputs.
+
+!!! info "Sample weights vs. imbalance weights"
+    For `BalancedMSELoss`, `BinReweightedMSELoss`, `DensityWeightedLoss`, `LDSLoss`, `FocalRLoss` and `PropensityWeightedLoss`, the imbalance (bin / density / focal / propensity) weights are part of the loss, while the user `weights=` argument follows the [shared reduction contract](base.md): `reduction="mean"` returns $\sum_i w_i \ell_i / \sum_i w_i$, so constant weights never change the loss scale. `DensityWeightedLoss` without `sample_indices` normalises the on-the-fly KDE weights by the **training-set** mean stored by `fit_density()`, so a target's weight does not depend on the rest of its mini-batch; the KDE reference uses only finite training targets, and masked (possibly NaN) targets are ignored.
 
 ---
 

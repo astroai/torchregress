@@ -35,16 +35,16 @@ The building blocks — these wrap PyTorch losses with unified support for **mas
 Several torchregress losses share names with `torch.nn` primitives. They are **not**
 redundant — each adds mask/weight support that native losses lack:
 
-| torchregress | PyTorch nearest | Why torchregress exists |
-|:-------------|:---------------|:------------------------|
+| torchregress | PyTorch nearest | Why torchregress exists | API |
+|:-------------|:---------------|:------------------------|:----|
 | `WeightedMSELoss` | `nn.MSELoss` | Adds **mask** (missing-data) and per-sample **weight** support | [`WeightedMSELoss`](../api/losses.md) |
 | `WeightedL1Loss` | `nn.L1Loss` | Same mask + weight pattern | [`WeightedL1Loss`](../api/losses.md) |
 | `WeightedHuberLoss` | `nn.HuberLoss` | Same mask + weight pattern | [`WeightedHuberLoss`](../api/losses.md) |
 | `WeightedLossWrapper` | any `nn.Module` | Generic wrapper adding mask/weight to any PyTorch loss | [`WeightedLossWrapper`](../api/losses.md) |
-| `WeightedCrossEntropyLoss` | `nn.CrossEntropyLoss` | Mask + weight for regression-as-classification workflows |
-| `WeightedNLLLoss` | `nn.NLLLoss` | Mask + weight for regression-as-classification workflows |
+| `WeightedCrossEntropyLoss` | `nn.CrossEntropyLoss` | Mask + weight for regression-as-classification workflows | [`WeightedCrossEntropyLoss`](../api/losses.md) |
+| `WeightedNLLLoss` | `nn.NLLLoss` | Mask + weight for regression-as-classification workflows | [`WeightedNLLLoss`](../api/losses.md) |
 | `GaussianNLLLoss` | `nn.GaussianNLLLoss` | Adds **covariance-type dispatch** (diagonal / full / low-rank) via `create_gaussian_nll()`, mask support, and self-agreement contracts | [`GaussianNLLLoss`](../api/losses.md) |
-| `PseudoHuberLoss` | `nn.HuberLoss` | Continuous second derivative (C² smooth) vs native Huber's C¹; mask support |
+| `PseudoHuberLoss` | `nn.HuberLoss` | Continuous second derivative (C² smooth) vs native Huber's C¹; mask support | [`PseudoHuberLoss`](../api/losses.md) |
 
 **Every other loss in torchregress has no PyTorch-native equivalent** — they are
 domain-specific formulations for uncertainty quantification, robust regression,
@@ -298,7 +298,7 @@ Parametric NLLs for **non-Gaussian** conditional distributions — skew, heavy-t
 | `AsymmetricLaplaceNLLLoss` | Asymmetric Laplace | Pinball correspondence `tau=1/(1+kappa²)` |
 | `SQRLoss` | Sorted quantiles (SQR) | Distribution-free; `cummax`-sorted levels |
 
-All NLL families (except `SQRLoss`) expose `unconstrained_inputs=True` (default): positivity-constrained parameters are mapped internally as `softplus(raw)+eps`. Set `unconstrained_inputs=False` when your head already outputs positive values — the loss applies `inverse_softplus` to avoid `softplus(softplus(x))`.
+All NLL families (except `SQRLoss`) expose `unconstrained_inputs=True` (default): positivity-constrained parameters are mapped internally as `softplus(raw)+eps`. Set `unconstrained_inputs=False` when your head already outputs positive values — the loss applies the inverse softplus transform internally to avoid `softplus(softplus(x))`.
 
 Read the full [Families guide](families.md) — skew/t, beta, Johnson SU, sinh-arcsinh, GEV, asymmetric Laplace, SQR, and the `unconstrained_inputs` contract.
 

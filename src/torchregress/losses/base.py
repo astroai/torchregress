@@ -96,7 +96,32 @@ class BaseLoss(nn.Module):
     ) -> torch.Tensor:
         """
         Apply reduction to the loss tensor with support for masking and weighting.
+
+        Parameters
+        ----------
+        loss : torch.Tensor
+            Elementwise (e.g. ``[B, D]``) or per-sample (``[B]``) loss.
+        mask : torch.Tensor, optional
+            Boolean validity mask. A mask with more dims than ``loss`` is
+            collapsed with ``all`` over the trailing dims (a partially masked
+            row of a per-sample loss is dropped); a mask with fewer dims is
+            broadcast over the trailing dims of ``loss``.
+        weights : torch.Tensor, optional
+            Non-negative weights. Weights with more dims than ``loss`` are
+            averaged over the trailing dims (over the unmasked entries only
+            when ``mask`` has the same shape as ``weights``); weights with
+            fewer dims (e.g. per-sample ``[B]`` on a ``[B, D]`` loss) are
+            broadcast over the trailing dims.
+
+        Returns
+        -------
+        torch.Tensor
+            ``loss`` reduced according to ``self.reduction``. Masked entries
+            contribute exactly zero; ``'mean'`` divides by the number of
+            unmasked elements, or by the sum of the (broadcast, masked)
+            weights when ``weights`` is given.
         """
+        feature_mask = mask
         # Collapse extra dims on mask when loss is lower-dimensional
         if mask is not None and mask.dim() > loss.dim():
             for _ in range(mask.dim() - loss.dim()):
@@ -106,42 +131,37 @@ class BaseLoss(nn.Module):
         # Unified ZERO-FILL mask policy (A9): masked entries contribute exactly
         # zero, the tensor keeps its original shape under ``reduction='none'``,
         # and ``mean``/``sum`` divide by the number of unmasked elements
+        mask_full: Optional[torch.Tensor] = None
         if mask is not None:
             mask_bool = mask.to(dtype=torch.bool, device=loss.device)
             pad_dims = (1,) * (loss.dim() - mask_bool.dim())
+            mask_full = mask_bool.reshape(mask_bool.shape + pad_dims).expand(loss.shape)
             # torch.where (not ``* mask``): masked entries may hold NaN/Inf
             # from upstream math and 0 * NaN would propagate.
-            zeros = torch.zeros_like(loss)
-            loss = torch.where(
-                mask_bool.reshape(mask_bool.shape + pad_dims).expand(loss.shape),
-                loss,
-                zeros,
-            )
-            if weights is not None:
-                w_pad = (1,) * (weights.dim() - mask_bool.dim())
-                weights = torch.where(
-                    mask_bool.reshape(mask_bool.shape + w_pad).expand(weights.shape),
-                    weights,
-                    torch.zeros_like(weights),
-                )
-            mask_count = mask_bool.reshape(mask_bool.shape + pad_dims).expand(loss.shape)
+            loss = torch.where(mask_full, loss, torch.zeros_like(loss))
 
-        # Mask-aware weight collapse: average weights over unmasked entries only
-        # (A9) rather than over all trailing dims.
         if weights is not None:
+            # Collapse weights that carry more dims than the loss (e.g. [B, D]
+            # weights on a per-sample [B] loss) by AVERAGING over the trailing
+            # dims -- over the unmasked entries when the original mask resolves
+            # them (A9). Rows gated off by the mask are zeroed below anyway.
             if weights.dim() > loss.dim():
-                if mask is not None and mask.dim() < weights.dim():
-                    w_mask = mask.to(dtype=weights.dtype, device=weights.device)
-                    while w_mask.dim() < weights.dim():
-                        w_mask = w_mask.unsqueeze(-1)
-                    denom_w = w_mask.sum(dim=-1).clamp_min(1)
-                    weights = (torch.where(w_mask > 0, weights, torch.zeros_like(weights))).sum(
-                        dim=-1
-                    ) / denom_w
+                trailing = tuple(range(loss.dim(), weights.dim()))
+                if feature_mask is not None and feature_mask.shape == weights.shape:
+                    valid = feature_mask.to(dtype=torch.bool, device=weights.device)
+                    w_valid = torch.where(valid, weights, torch.zeros_like(weights))
+                    count = valid.sum(dim=trailing).to(weights.dtype).clamp_min(1)
+                    weights = w_valid.sum(dim=trailing) / count
                 else:
-                    for _ in range(weights.dim() - loss.dim()):
-                        weights = weights.mean(dim=-1)
+                    weights = weights.mean(dim=trailing)
             weights = _broadcast_weights(weights, loss.dim())
+            if mask_full is not None:
+                # Broadcast lower-rank weights (e.g. per-sample [B] on a
+                # [B, D] loss) to the loss shape BEFORE masking, so masked
+                # elements drop out of the weight sum used by 'mean'.
+                weights = torch.where(
+                    mask_full, weights, torch.zeros((), dtype=weights.dtype, device=weights.device)
+                )
 
         if self._reduction == "none":
             return loss * weights if weights is not None else loss
@@ -157,8 +177,8 @@ class BaseLoss(nn.Module):
             # must never change the scale vs. the unweighted mean).
             w_sum = weights.expand_as(loss).sum()
             denom = torch.where(w_sum > 0, w_sum, torch.ones_like(w_sum))
-        elif mask is not None:
-            count = mask_count.sum().to(loss.dtype)
+        elif mask_full is not None:
+            count = mask_full.sum().to(loss.dtype)
             denom = torch.where(count > 0, count, torch.ones_like(count))
         else:
             return loss.mean()

@@ -1,4 +1,4 @@
-"""
+r"""
 Tweedie Regression and Zero-Inflated Continuous Data Demo.
 
 This example demonstrates Tweedie regression for modeling zero-inflated continuous responses
@@ -80,9 +80,9 @@ def train_tweedie(loss_name, loss_fn, x_train, y_train, x_test, true_mu_test, ep
         model.train()
         for bx, by in loader:
             optimizer.zero_grad()
-            # Tweedie mean must be positive
-            mu_pred = torch.exp(model(bx))
-            loss = loss_fn(mu_pred, by)
+            # Both losses use a log link: they take log(mu) and apply exp themselves.
+            log_mu_pred = model(bx)
+            loss = loss_fn(log_mu_pred, by)
             loss.backward()
             optimizer.step()
 

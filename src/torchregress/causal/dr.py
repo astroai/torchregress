@@ -24,6 +24,18 @@ def _as_1d(x: Tensor) -> Tensor:
     return x.reshape(-1)
 
 
+def _float_dtype(*tensors: Tensor) -> torch.dtype:
+    """Promoted floating dtype of the floating inputs (default dtype if none are floating).
+
+    Keeps float64 inputs in float64 instead of silently downcasting to float32.
+    """
+    dtype: torch.dtype | None = None
+    for t in tensors:
+        if t.is_floating_point():
+            dtype = t.dtype if dtype is None else torch.promote_types(dtype, t.dtype)
+    return dtype if dtype is not None else torch.get_default_dtype()
+
+
 def _build_model(factory_or_model: ModelFactory) -> Any:
     if isinstance(factory_or_model, type):
         return factory_or_model()
@@ -43,7 +55,7 @@ def _predict_outcome(model: Any, x: Tensor) -> Tensor:
     if not hasattr(model, "predict"):
         raise TypeError("Outcome model must implement predict(X)")
     pred = model.predict(x.detach().cpu().numpy())
-    return torch.tensor(pred, dtype=torch.float32, device=x.device).reshape(-1)
+    return torch.tensor(pred, dtype=x.dtype, device=x.device).reshape(-1)
 
 
 def _predict_propensity(model: Any, x: Tensor, *, eps: float = 1e-4) -> Tensor:
@@ -54,10 +66,10 @@ def _predict_propensity(model: Any, x: Tensor, *, eps: float = 1e-4) -> Tensor:
             out = proba[:, 1]
         else:
             out = proba.reshape(-1)
-        return torch.tensor(out, dtype=torch.float32, device=x.device).clamp(eps, 1.0 - eps)
+        return torch.tensor(out, dtype=x.dtype, device=x.device).clamp(eps, 1.0 - eps)
     if hasattr(model, "predict"):
         logit = model.predict(x_np).reshape(-1)
-        out = torch.sigmoid(torch.tensor(logit, dtype=torch.float32, device=x.device))
+        out = torch.sigmoid(torch.tensor(logit, dtype=x.dtype, device=x.device))
         return out.clamp(eps, 1.0 - eps)
     raise TypeError("Propensity model must implement predict_proba(X) or predict(X)")
 
@@ -97,9 +109,9 @@ def _crossfit_nuisances(
     eps: float,
 ) -> Dict[str, Tensor]:
     n = x.shape[0]
-    mu1_hat = torch.empty(n, dtype=torch.float32, device=x.device)
-    mu0_hat = torch.empty(n, dtype=torch.float32, device=x.device)
-    e_hat = torch.empty(n, dtype=torch.float32, device=x.device)
+    mu1_hat = torch.empty(n, dtype=x.dtype, device=x.device)
+    mu0_hat = torch.empty(n, dtype=x.dtype, device=x.device)
+    e_hat = torch.empty(n, dtype=x.dtype, device=x.device)
     fold_id = torch.empty(n, dtype=torch.long, device=x.device)
 
     for k, (train_idx, test_idx) in enumerate(_make_folds(n, folds, seed=seed)):
@@ -140,6 +152,12 @@ def _trim_scores(dr: Tensor, e_hat: Tensor, trim_threshold: float) -> Tuple[Tens
     """Apply propensity trimming to the estimator (TR-CAU-01): drop scores
     whose cross-fitted propensity falls outside [trim_threshold, 1 - trim_threshold]."""
     keep = (e_hat >= trim_threshold) & (e_hat <= 1.0 - trim_threshold)
+    n_kept = int(keep.sum().item())
+    if n_kept < 2:
+        raise ValueError(
+            f"propensity trimming at trim_threshold={trim_threshold} keeps {n_kept} of "
+            f"{keep.numel()} units (no overlap); lower trim_threshold or check positivity"
+        )
     if bool(keep.all()):
         return dr, 0
     return dr[keep], int((~keep).sum().item())
@@ -152,33 +170,31 @@ def _fold_bootstrap_se(
     *,
     n_boot: int = 500,
     seed: int,
+    max_elements: int = 2**22,
 ) -> float:
-    """Fold-pair bootstrap SE over cross-fit folds (TR-CAU-02).
+    """Fold-stratified bootstrap SE of the DR mean (TR-CAU-02).
 
-    Resamples folds with replacement B times; each replicate averages the kept
-    DR scores of the sampled folds weighted by their sizes. Deterministic via ``seed``.
+    Resamples the kept DR scores with replacement *within* each cross-fit fold
+    (fold sizes fixed) B times and returns the standard deviation of the pooled
+    mean. Bootstrapping individual scores (rather than the K fold means) gives a
+    consistent SE for any number of folds. Deterministic via ``seed``; memory is
+    bounded by chunking the resamples to ``max_elements`` indices at a time.
     """
     gen = torch.Generator(device="cpu")
     gen.manual_seed(seed)
-    fold_ids = torch.unique(fold_id).tolist()
-    fold_means = []
-    fold_sizes = []
-    for k in fold_ids:
-        mask_k = (fold_id == k) & keep
-        if not bool(mask_k.any()):
-            continue
-        scores_k = dr[mask_k]
-        fold_means.append(scores_k.mean())
-        fold_sizes.append(float(scores_k.numel()))
-    if len(fold_means) < 2:
+    fold_ids = torch.unique(fold_id[keep]).tolist()
+    if len(fold_ids) < 2:
         raise ValueError("fold_bootstrap requires at least 2 non-empty folds after trimming")
-    means = torch.stack(fold_means)
-    sizes = torch.tensor(fold_sizes, dtype=torch.float32)
-    idx = torch.randint(0, len(fold_means), (n_boot, len(fold_means)), generator=gen)
-    weights = torch.zeros_like(idx, dtype=torch.float32)
-    weights.scatter_add_(1, idx, torch.ones_like(idx, dtype=torch.float32))
-    size_weights = weights * sizes
-    boot = (means.unsqueeze(0) * (size_weights / size_weights.sum(dim=1, keepdim=True))).sum(dim=1)
+    total = int(keep.sum().item())
+    boot = torch.zeros(n_boot, dtype=torch.float64)
+    for k in fold_ids:
+        scores_k = dr[(fold_id == k) & keep].detach().cpu().to(torch.float64)
+        n_k = scores_k.numel()
+        chunk = max(1, max_elements // n_k)
+        for start in range(0, n_boot, chunk):
+            b = min(chunk, n_boot - start)
+            idx = torch.randint(0, n_k, (b, n_k), generator=gen)
+            boot[start : start + b] += scores_k[idx].sum(dim=1) / total
     return float(boot.std(unbiased=True).item())
 
 
@@ -208,8 +224,11 @@ def dr_ate(
     Propensity trimming acts on the estimator (TR-CAU-01): DR scores whose
     cross-fitted propensity lies outside ``[trim_threshold, 1 - trim_threshold]``
     are excluded before estimate/SE/CI are computed; the count is reported in
-    ``diagnostics["n_trimmed"]``. ``se_method="fold_bootstrap"`` uses a seeded
-    B=500 fold-pair bootstrap over the cross-fit folds (TR-CAU-02).
+    ``diagnostics["n_trimmed"]``. A ``ValueError`` is raised if fewer than two
+    units survive trimming. ``se_method="fold_bootstrap"`` uses a seeded B=500
+    bootstrap of the individual DR scores, stratified by cross-fit fold (TR-CAU-02).
+    Floating inputs keep their dtype (float64 stays float64); integer/bool inputs
+    use the default dtype.
 
     References
     ----------
@@ -220,9 +239,10 @@ def dr_ate(
        treatment and structural parameters. In *The Econometrics Journal*, 21(1), C1-C68.
        https://arxiv.org/abs/1701.02036
     """
-    x2 = _as_2d(x).float()
-    t1 = _as_1d(t).float()
-    y1 = _as_1d(y).float()
+    dtype = _float_dtype(x, t, y)
+    x2 = _as_2d(x).to(dtype)
+    t1 = _as_1d(t).to(dtype)
+    y1 = _as_1d(y).to(dtype)
     if not (x2.shape[0] == t1.shape[0] == y1.shape[0]):
         raise ValueError("x, t, and y must share sample dimension")
 
@@ -290,8 +310,9 @@ def dr_cate(
 
     Trimming semantics match :func:`dr_ate` (TR-CAU-01): the pseudo-outcome
     regression and ATE/SE/CI use only scores kept by the propensity trim;
-    ``diagnostics["n_trimmed"]`` reports the dropped count.
-    ``se_method="fold_bootstrap"`` uses a seeded B=500 fold-pair bootstrap (TR-CAU-02).
+    ``diagnostics["n_trimmed"]`` reports the dropped count, and a ``ValueError``
+    is raised if fewer than two units survive. ``se_method="fold_bootstrap"`` uses
+    the same fold-stratified bootstrap of individual DR scores (TR-CAU-02).
 
     References
     ----------
@@ -302,9 +323,10 @@ def dr_cate(
        treatment and structural parameters. In *The Econometrics Journal*, 21(1), C1-C68.
        https://arxiv.org/abs/1701.02036
     """
-    x2 = _as_2d(x).float()
-    t1 = _as_1d(t).float()
-    y1 = _as_1d(y).float()
+    dtype = _float_dtype(x, t, y)
+    x2 = _as_2d(x).to(dtype)
+    t1 = _as_1d(t).to(dtype)
+    y1 = _as_1d(y).to(dtype)
     if not (x2.shape[0] == t1.shape[0] == y1.shape[0]):
         raise ValueError("x, t, and y must share sample dimension")
 
@@ -371,13 +393,14 @@ def dr_policy_value(
     eps: float = 1e-4,
 ) -> Dict[str, float]:
     """AIPW value estimate for a binary treatment policy."""
-    x2 = _as_2d(x).float()
-    t1 = _as_1d(t).float()
-    y1 = _as_1d(y).float()
-    pi = _as_1d(policy).float()
+    dtype = _float_dtype(x, t, y)
+    x2 = _as_2d(x).to(dtype)
+    t1 = _as_1d(t).to(dtype)
+    y1 = _as_1d(y).to(dtype)
+    pi = _as_1d(policy).to(dtype)
     if not (x2.shape[0] == t1.shape[0] == y1.shape[0] == pi.shape[0]):
         raise ValueError("x, t, y, and policy must share sample dimension")
-    pi = (pi > 0.5).float()
+    pi = (pi > 0.5).to(dtype)
 
     nuisance = _crossfit_nuisances(
         x2,

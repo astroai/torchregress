@@ -1,5 +1,32 @@
+import os
+
 import pytest
 import torch
+
+
+def pytest_configure(config):
+    """Register the ``cuda`` marker for device-sensitive tests."""
+    config.addinivalue_line(
+        "markers",
+        "cuda: device-sensitive test that needs a CUDA GPU (skipped when CUDA is unavailable "
+        "unless TORCHREGRESS_PARITY_DEVICE is set, e.g. to 'cpu')",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip ``cuda``-marked tests when no GPU is present.
+
+    Setting ``TORCHREGRESS_PARITY_DEVICE`` (e.g. ``cpu``) opts in to running the
+    device-parity tests against that device, so they can be exercised without a GPU.
+    """
+    if torch.cuda.is_available() or os.environ.get("TORCHREGRESS_PARITY_DEVICE"):
+        return
+    skip_cuda = pytest.mark.skip(
+        reason="CUDA is not available (set TORCHREGRESS_PARITY_DEVICE=cpu)"
+    )
+    for item in items:
+        if "cuda" in item.keywords:
+            item.add_marker(skip_cuda)
 
 
 @pytest.fixture(autouse=True)
@@ -15,7 +42,13 @@ def _disable_matplotlib_latex():
 
 @pytest.fixture
 def device():
-    """Return the device to use for tensor operations."""
+    """Return the device to use for tensor operations.
+
+    ``TORCHREGRESS_TEST_DEVICE`` overrides the default (CUDA when available, else CPU).
+    """
+    override = os.environ.get("TORCHREGRESS_TEST_DEVICE")
+    if override:
+        return override
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 

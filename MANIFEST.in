@@ -1,0 +1,4 @@
+# sdist contents beyond src/ (setuptools adds pyproject.toml, README.md, LICENSE)
+include CHANGELOG.md
+graft tests
+global-exclude __pycache__ *.py[cod] .coverage coverage.xml

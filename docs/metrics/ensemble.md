@@ -73,6 +73,16 @@ nll = gaussian_nll_ensemble(means, variances, y_true)
 ```
 See also: [gaussian_nll_ensemble](../api/metrics.md).
 
+!!! info "Variance floor (`min_variance`)"
+    `gaussian_nll_ensemble`, `GaussianNLLEnsemble`, `ensemble_interval_bounds`,
+    `ensemble_interval_metrics` and `EnsembleIntervalMetrics` bound
+    $\sigma^2_{\text{total}}$ below by `min_variance`. The default `None` uses
+    the dtype's smallest normal number (`torch.finfo(dtype).tiny`), which only
+    prevents division by zero, so targets on tiny physical scales (for
+    example redshifts with $\sigma \sim 10^{-4}$) are scored exactly. Before
+    0.3 the floor was an absolute $10^{-6}$, which inflated such variances
+    100-fold. Pass `min_variance=1e-6` to restore that behaviour.
+
 ---
 
 ## `ensemble_interval_bounds`

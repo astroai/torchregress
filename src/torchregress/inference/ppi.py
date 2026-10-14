@@ -24,8 +24,17 @@ class PPIConfig:
     Attributes:
         alpha: Target error rate (e.g., 0.1 for 90% confidence).
         method: Method to compute CI (default: "bootstrap").
-        n_boot: Number of bootstrap samples.
+        n_boot: Number of bootstrap samples. Ignored by :func:`ppi_quantile_ci`,
+            whose interval comes from inverting the rectified CDF.
         seed: Random seed for reproducibility.
+
+    Notes:
+        Bootstrap means are computed in chunks, so memory stays bounded
+        (O(N) rather than O(n_boot * N)). For samples larger than
+        ``_BOOTSTRAP_CLT_THRESHOLD`` (100,000) points, the bootstrap sample mean of
+        that component is drawn from its normal (CLT) approximation
+        ``N(mean, var / N)``, which is what the bootstrap converges to at that size
+        and is what Angelopoulos et al. (2023) use for the unlabeled term.
     """
 
     alpha: float = 0.1
@@ -34,12 +43,31 @@ class PPIConfig:
     seed: int | None = None
 
 
+# Above this many points the bootstrap distribution of a sample mean is replaced by
+# its normal (CLT) approximation; below it the exact bootstrap is run in chunks.
+_BOOTSTRAP_CLT_THRESHOLD = 100_000
+# Maximum number of resampled elements materialised at once by the chunked bootstrap.
+_BOOTSTRAP_CHUNK_ELEMENTS = 2**22
+
+
+def _to_float_tensor(x: Tensor | list[float]) -> Tensor:
+    """Detached tensor keeping a floating input dtype (float64 stays float64)."""
+    t = x.detach() if isinstance(x, Tensor) else torch.as_tensor(x)
+    if not t.is_floating_point():
+        t = t.to(torch.get_default_dtype())
+    return t
+
+
 def _to_1d_tensor(x: Tensor | list[float]) -> Tensor:
-    if isinstance(x, Tensor):
-        t = x.detach().float()
-    else:
-        t = torch.as_tensor(x, dtype=torch.float32)
-    return t.reshape(-1)
+    return _to_float_tensor(x).reshape(-1)
+
+
+def _common_float(*tensors: Tensor) -> tuple[Tensor, ...]:
+    """Cast tensors to their promoted floating dtype."""
+    dtype = tensors[0].dtype
+    for t in tensors[1:]:
+        dtype = torch.promote_types(dtype, t.dtype)
+    return tuple(t.to(dtype) for t in tensors)
 
 
 def _bootstrap_indices(
@@ -50,6 +78,31 @@ def _bootstrap_indices(
     generator: torch.Generator | None = None,
 ) -> Tensor:
     return torch.randint(low=0, high=n, size=(n_boot, n), device=device, generator=generator)
+
+
+def _bootstrap_means(
+    v: Tensor,
+    *,
+    n_boot: int,
+    generator: torch.Generator | None,
+) -> Tensor:
+    """Bootstrap distribution of ``v.mean()`` with bounded memory.
+
+    For ``v.numel() <= _BOOTSTRAP_CLT_THRESHOLD`` the nonparametric bootstrap is
+    computed exactly, in chunks of at most ``_BOOTSTRAP_CHUNK_ELEMENTS`` resampled
+    elements. Larger samples use the CLT draw ``mean + std / sqrt(n) * Z``.
+    """
+    n = v.numel()
+    if n > _BOOTSTRAP_CLT_THRESHOLD:
+        z = torch.randn(n_boot, device=v.device, dtype=v.dtype, generator=generator)
+        return v.mean() + v.std(unbiased=False) / math.sqrt(n) * z
+    chunk = max(1, _BOOTSTRAP_CHUNK_ELEMENTS // max(n, 1))
+    out = []
+    for start in range(0, n_boot, chunk):
+        b = min(chunk, n_boot - start)
+        idx = _bootstrap_indices(n, n_boot=b, device=v.device, generator=generator)
+        out.append(v[idx].mean(dim=1))
+    return torch.cat(out)
 
 
 def _percentile_ci(samples: Tensor, alpha: float) -> tuple[float, float]:
@@ -73,29 +126,29 @@ def _rectified_mean_bootstrap(
     generator: torch.Generator | None,
 ) -> tuple[Tensor, float, float]:
     """Nonparametric bootstrap for rectified mean with fixed calibrated scores."""
-    boot_l_idx = _bootstrap_indices(
-        y_l.numel(), n_boot=n_boot, device=y_l.device, generator=generator
-    )
-    boot_u_idx = _bootstrap_indices(
-        p_u.numel(), n_boot=n_boot, device=p_u.device, generator=generator
-    )
-    boot_est = p_u[boot_u_idx].mean(dim=1) + (y_l - p_l)[boot_l_idx].mean(dim=1)
+    boot_est = _bootstrap_means(y_l - p_l, n_boot=n_boot, generator=generator)
+    boot_est = boot_est + _bootstrap_means(p_u, n_boot=n_boot, generator=generator)
     ci_lower, ci_upper = _percentile_ci(boot_est, alpha)
     return boot_est, ci_lower, ci_upper
 
 
-def _linear_calibrate_apply(m_fit: Tensor, y_fit: Tensor, m_apply: Tensor) -> Tensor:
-    """Affine map minimizing squared error on (m_fit, y_fit); applied to m_apply."""
-    mf = m_fit.reshape(-1).float()
-    yf = y_fit.reshape(-1).float()
-    ma = m_apply.reshape(-1).float()
+def _linear_calibration_coefs(m_fit: Tensor, y_fit: Tensor) -> tuple[float, float]:
+    """``(intercept, slope)`` of the least-squares affine map ``m -> y``."""
+    mf = m_fit.reshape(-1)
+    yf = y_fit.reshape(-1).to(mf.dtype)
     m_cent = mf - mf.mean()
     denom = (m_cent * m_cent).sum()
     if float(denom.item()) < 1e-20:
-        return torch.full_like(ma, float(yf.mean().item())).reshape(m_apply.shape)
-    slope = ((m_cent * (yf - yf.mean())).sum() / denom).item()
-    intercept = (yf.mean() - mf.mean() * slope).item()
-    return (intercept + slope * ma).reshape(m_apply.shape)
+        return float(yf.mean().item()), 0.0
+    slope = float(((m_cent * (yf - yf.mean())).sum() / denom).item())
+    intercept = float((yf.mean() - mf.mean() * slope).item())
+    return intercept, slope
+
+
+def _linear_calibrate_apply(m_fit: Tensor, y_fit: Tensor, m_apply: Tensor) -> Tensor:
+    """Affine map minimizing squared error on (m_fit, y_fit); applied to m_apply."""
+    intercept, slope = _linear_calibration_coefs(m_fit, y_fit)
+    return intercept + slope * m_apply
 
 
 def ppi_mean_ci(
@@ -125,9 +178,9 @@ def ppi_mean_ci(
     if cfg.method not in {"bootstrap"}:
         raise ValueError(f"Unsupported method: {cfg.method}")
 
-    y_l = _to_1d_tensor(y_labeled)
-    p_l = _to_1d_tensor(pred_labeled)
-    p_u = _to_1d_tensor(pred_unlabeled)
+    y_l, p_l, p_u = _common_float(
+        _to_1d_tensor(y_labeled), _to_1d_tensor(pred_labeled), _to_1d_tensor(pred_unlabeled)
+    )
     if y_l.numel() != p_l.numel():
         raise ValueError("y_labeled and pred_labeled must have the same number of samples")
     if y_l.numel() < 2 or p_u.numel() < 2:
@@ -212,9 +265,9 @@ def ppi_calibrated_mean_ci(
     if cfg.method not in {"bootstrap"}:
         raise ValueError(f"Unsupported method: {cfg.method}")
 
-    y_l = _to_1d_tensor(y_labeled)
-    p_l = _to_1d_tensor(pred_labeled)
-    p_u = _to_1d_tensor(pred_unlabeled)
+    y_l, p_l, p_u = _common_float(
+        _to_1d_tensor(y_labeled), _to_1d_tensor(pred_labeled), _to_1d_tensor(pred_unlabeled)
+    )
     if y_l.numel() != p_l.numel():
         raise ValueError("y_labeled and pred_labeled must have the same number of samples")
     if y_l.numel() < 3 or p_u.numel() < 2:
@@ -239,22 +292,18 @@ def ppi_calibrated_mean_ci(
     if cfg.seed is not None:
         bootstrap_gen = torch.Generator(device=y_l.device)
         bootstrap_gen.manual_seed(cfg.seed)
-    boot_l_idx = _bootstrap_indices(
-        y_l.numel(), n_boot=cfg.n_boot, device=y_l.device, generator=bootstrap_gen
-    )
-    boot_u_idx = _bootstrap_indices(
-        p_u.numel(), n_boot=cfg.n_boot, device=p_u.device, generator=bootstrap_gen
-    )
-
-    boot_est = torch.empty(cfg.n_boot, device=y_l.device, dtype=torch.float32)
+    # The calibrated unlabeled term is affine in the raw scores, so its bootstrap mean
+    # is ``a_b + b_b * mean(p_u[resample])``: only the bootstrap means of p_u are needed.
+    boot_u_mean = _bootstrap_means(p_u, n_boot=cfg.n_boot, generator=bootstrap_gen)
+    boot_est = torch.empty(cfg.n_boot, device=y_l.device, dtype=y_l.dtype)
     for b in range(cfg.n_boot):
-        li = boot_l_idx[b]
-        ui = boot_u_idx[b]
+        li = _bootstrap_indices(y_l.numel(), n_boot=1, device=y_l.device, generator=bootstrap_gen)[
+            0
+        ]
         m_lb, y_lb = p_l[li], y_l[li]
-        m_ub = p_u[ui]
-        p_lb = _linear_calibrate_apply(m_lb, y_lb, m_lb)
-        p_ub = _linear_calibrate_apply(m_lb, y_lb, m_ub)
-        boot_est[b] = _rectified_mean_point(y_lb, p_lb, p_ub)
+        intercept, slope = _linear_calibration_coefs(m_lb, y_lb)
+        p_lb = intercept + slope * m_lb
+        boot_est[b] = intercept + slope * boot_u_mean[b] + (y_lb - p_lb).mean()
     ci_lower, ci_upper = _percentile_ci(boot_est, cfg.alpha)
 
     return {
@@ -270,6 +319,47 @@ def ppi_calibrated_mean_ci(
     }
 
 
+def _strided_sorted(v: Tensor, max_points: int) -> Tensor:
+    """Sorted values of ``v``, thinned to at most ``max_points`` evenly spaced order statistics."""
+    sv = torch.sort(v).values
+    if sv.numel() <= max_points:
+        return sv
+    idx = (
+        torch.linspace(0, sv.numel() - 1, max_points, device=v.device, dtype=torch.float64)
+        .round()
+        .long()
+    )
+    return sv[idx]
+
+
+def _rectified_cdf(
+    grid: Tensor, y_l: Tensor, p_l: Tensor, p_u: Tensor
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Rectified CDF on ``grid`` and the two variance components of its estimate.
+
+    Returns ``(F, F_u, var_rect)`` with
+    ``F(t) = F_u(t) + mean_l(1{y <= t} - 1{f <= t})``,
+    ``F_u(t) = mean_u 1{f_u <= t}`` and ``var_rect`` the unbiased variance of the
+    labeled rectifier. Uses sorted arrays and ``searchsorted`` so memory is
+    O(n + N + len(grid)).
+    """
+    n = y_l.numel()
+    big_n = p_u.numel()
+    cnt_u = torch.searchsorted(torch.sort(p_u).values, grid, right=True).to(grid.dtype)
+    cnt_y = torch.searchsorted(torch.sort(y_l).values, grid, right=True).to(grid.dtype)
+    cnt_f = torch.searchsorted(torch.sort(p_l).values, grid, right=True).to(grid.dtype)
+    # 1{y<=t} * 1{f<=t} = 1{max(y, f) <= t}
+    cnt_both = torch.searchsorted(torch.sort(torch.maximum(y_l, p_l)).values, grid, right=True).to(
+        grid.dtype
+    )
+    f_u = cnt_u / big_n
+    rect_mean = (cnt_y - cnt_f) / n
+    # rect in {-1, 0, 1}; rect^2 = 1{y<=t} xor 1{f<=t}
+    rect_sq_mean = (cnt_y + cnt_f - 2.0 * cnt_both) / n
+    var_rect = (rect_sq_mean - rect_mean.pow(2)).clamp_min(0.0) * (n / (n - 1.0))
+    return f_u + rect_mean, f_u, var_rect
+
+
 def ppi_quantile_ci(
     y_labeled: Tensor | list[float],
     pred_labeled: Tensor | list[float],
@@ -280,8 +370,45 @@ def ppi_quantile_ci(
 ) -> dict[str, Any]:
     """Prediction-powered CI for a target quantile.
 
-    Uses a robust location correction based on labeled residual median:
-        Q_q(Y) ≈ Q_q(pred_unlabeled) + median(y_labeled - pred_labeled)
+    Implements the PPI quantile estimator of Angelopoulos et al. (2023) by
+    inverting the rectified CDF
+
+    .. math::
+        \\hat F(\\theta) = \\frac{1}{N} \\sum_{j=1}^N 1\\{\\tilde f_j \\le \\theta\\}
+            + \\frac{1}{n} \\sum_{i=1}^n \\big(1\\{Y_i \\le \\theta\\}
+            - 1\\{f_i \\le \\theta\\}\\big),
+
+    where :math:`\\tilde f_j` are the unlabeled predictions and :math:`(f_i, Y_i)`
+    the labeled pairs. The point estimate is
+    :math:`\\hat\\theta = \\inf\\{\\theta : \\hat F(\\theta) \\ge q\\}` and the
+    :math:`1-\\alpha` confidence set is
+
+    .. math::
+        \\Big\\{\\theta : |\\hat F(\\theta) - q| \\le z_{1-\\alpha/2}
+            \\sqrt{\\hat F_u(\\theta)(1-\\hat F_u(\\theta))/N
+            + \\widehat{\\mathrm{Var}}_l(\\text{rectifier}(\\theta))/n}\\Big\\},
+
+    evaluated on a grid made of the sorted labeled outcomes, labeled predictions
+    and unlabeled predictions (each thinned to at most 4096 evenly spaced order
+    statistics). The reported interval is the hull of that set, widened if
+    needed to contain the point estimate. Memory is O(n + N).
+
+    Parameters
+    ----------
+    y_labeled, pred_labeled, pred_unlabeled
+        Labeled outcomes, labeled predictions and unlabeled predictions.
+    q
+        Target quantile level in ``(0, 1)``.
+    config
+        :class:`PPIConfig`; only ``alpha`` is used (the interval is the CLT
+        inversion above, not a bootstrap, so ``n_boot`` and ``seed`` are ignored
+        and ``bootstrap_samples`` is reported as 0).
+
+    Returns
+    -------
+    dict
+        ``estimate``, ``ci_lower``, ``ci_upper`` and ``se``, where ``se`` is the
+        normal-equivalent half-width ``(ci_upper - ci_lower) / (2 z_{1-alpha/2})``.
 
     References
     ----------
@@ -300,33 +427,40 @@ def ppi_quantile_ci(
     if cfg.method not in {"bootstrap"}:
         raise ValueError(f"Unsupported method: {cfg.method}")
 
-    y_l = _to_1d_tensor(y_labeled)
-    p_l = _to_1d_tensor(pred_labeled)
-    p_u = _to_1d_tensor(pred_unlabeled)
+    y_l, p_l, p_u = _common_float(
+        _to_1d_tensor(y_labeled), _to_1d_tensor(pred_labeled), _to_1d_tensor(pred_unlabeled)
+    )
     if y_l.numel() != p_l.numel():
         raise ValueError("y_labeled and pred_labeled must have the same number of samples")
     if y_l.numel() < 2 or p_u.numel() < 2:
         raise ValueError("ppi_quantile_ci requires at least 2 labeled and 2 unlabeled samples")
 
-    residual = y_l - p_l
-    shift = torch.median(residual)
-    estimate = float((torch.quantile(p_u, q) + shift).item())
+    # The rectified CDF is a right-continuous step function that only jumps at the
+    # observed values, so evaluating it at (a thinned set of) them is sufficient.
+    max_points = 4096
+    grid = torch.unique(
+        torch.cat(
+            [
+                _strided_sorted(y_l, max_points),
+                _strided_sorted(p_l, max_points),
+                _strided_sorted(p_u, max_points),
+            ]
+        )
+    )
+    cdf, f_u, var_rect = _rectified_cdf(grid, y_l, p_l, p_u)
+    # At the largest observed value every indicator is 1, so cdf[-1] == 1 >= q.
+    first = int(torch.nonzero(cdf >= q)[0].item())
+    estimate = float(grid[first].item())
 
-    bootstrap_gen: torch.Generator | None = None
-    if cfg.seed is not None:
-        bootstrap_gen = torch.Generator(device=y_l.device)
-        bootstrap_gen.manual_seed(cfg.seed)
-    boot_l_idx = _bootstrap_indices(
-        y_l.numel(), n_boot=cfg.n_boot, device=y_l.device, generator=bootstrap_gen
-    )
-    boot_u_idx = _bootstrap_indices(
-        p_u.numel(), n_boot=cfg.n_boot, device=p_u.device, generator=bootstrap_gen
-    )
-    boot_shift = torch.median(residual[boot_l_idx], dim=1).values
-    boot_q = torch.quantile(p_u[boot_u_idx], q, dim=1)
-    boot_est = boot_q + boot_shift
-    ci_lower, ci_upper = _percentile_ci(boot_est, cfg.alpha)
-    se = float(torch.std(boot_est, unbiased=True).item())
+    z = float(torch.distributions.Normal(0.0, 1.0).icdf(torch.tensor(1.0 - cfg.alpha / 2.0)))
+    half_width = z * torch.sqrt(f_u * (1.0 - f_u) / p_u.numel() + var_rect / y_l.numel())
+    inside = (cdf - q).abs() <= half_width
+    if bool(inside.any()):
+        ci_lower = min(float(grid[inside].min().item()), estimate)
+        ci_upper = max(float(grid[inside].max().item()), estimate)
+    else:
+        ci_lower = ci_upper = estimate
+    se = (ci_upper - ci_lower) / (2.0 * z)
 
     return {
         "method": "ppi_quantile_ci",
@@ -338,7 +472,7 @@ def ppi_quantile_ci(
         "alpha": cfg.alpha,
         "n_labeled": int(y_l.numel()),
         "n_unlabeled": int(p_u.numel()),
-        "bootstrap_samples": int(cfg.n_boot),
+        "bootstrap_samples": 0,
     }
 
 
@@ -391,11 +525,13 @@ def ppi_ols_ci(  # noqa: PLR0913
     if cfg.n_boot < 10:
         raise ValueError(f"n_boot must be >= 10, got {cfg.n_boot}")
 
-    x_l = _as_2d(x_labeled.detach().float())
-    x_u = _as_2d(x_unlabeled.detach().float())
-    y_l = _to_1d_tensor(y_labeled)
-    p_l = _to_1d_tensor(pred_labeled)
-    p_u = _to_1d_tensor(pred_unlabeled)
+    x_l, x_u, y_l, p_l, p_u = _common_float(
+        _as_2d(_to_float_tensor(x_labeled)),
+        _as_2d(_to_float_tensor(x_unlabeled)),
+        _to_1d_tensor(y_labeled),
+        _to_1d_tensor(pred_labeled),
+        _to_1d_tensor(pred_unlabeled),
+    )
     if x_l.shape[0] != y_l.numel() or x_l.shape[0] != p_l.numel():
         raise ValueError("x_labeled, y_labeled, and pred_labeled must align on sample dimension")
     if x_u.shape[0] != p_u.numel():
@@ -413,16 +549,15 @@ def ppi_ols_ci(  # noqa: PLR0913
     if cfg.seed is not None:
         bootstrap_gen = torch.Generator(device=x_l.device)
         bootstrap_gen.manual_seed(cfg.seed)
-    boot_l_idx = _bootstrap_indices(
-        x_l.shape[0], n_boot=cfg.n_boot, device=x_l.device, generator=bootstrap_gen
-    )
-    boot_u_idx = _bootstrap_indices(
-        x_u.shape[0], n_boot=cfg.n_boot, device=x_u.device, generator=bootstrap_gen
-    )
     boot_beta = torch.empty((cfg.n_boot, beta.numel()), device=beta.device, dtype=beta.dtype)
     for i in range(cfg.n_boot):
-        li = boot_l_idx[i]
-        ui = boot_u_idx[i]
+        # One resample at a time keeps memory O(N) instead of O(n_boot * N).
+        li = _bootstrap_indices(x_l.shape[0], n_boot=1, device=x_l.device, generator=bootstrap_gen)[
+            0
+        ]
+        ui = _bootstrap_indices(x_u.shape[0], n_boot=1, device=x_u.device, generator=bootstrap_gen)[
+            0
+        ]
         b_pred = _ols_beta(x_u[ui], p_u[ui])
         b_delta = _ols_beta(x_l[li], (y_l - p_l)[li])
         boot_beta[i] = b_pred + b_delta
@@ -451,9 +586,9 @@ def ppi_diagnostics(
     pred_unlabeled: Tensor | list[float],
 ) -> dict[str, float]:
     """Compute practical diagnostics for PPI validity and usefulness."""
-    y_l = _to_1d_tensor(y_labeled)
-    p_l = _to_1d_tensor(pred_labeled)
-    p_u = _to_1d_tensor(pred_unlabeled)
+    y_l, p_l, p_u = _common_float(
+        _to_1d_tensor(y_labeled), _to_1d_tensor(pred_labeled), _to_1d_tensor(pred_unlabeled)
+    )
     if y_l.numel() != p_l.numel():
         raise ValueError("y_labeled and pred_labeled must have the same number of samples")
 
@@ -505,11 +640,14 @@ def ppi_pp_mean_ci(  # noqa: PLR0912
     first-order variance
 
     .. math::
-        V(\\lambda) = \\frac{\\mathrm{Var}_l(r)}{n}
-            + \\lambda^2 \\frac{\\mathrm{Var}_u(\\hat y)}{N}
-            - 2\\lambda \\frac{\\mathrm{Cov}_l(\\hat y, r)}{n},
+        V(\\lambda) = \\frac{\\mathrm{Var}_l(y)}{n}
+            + \\lambda^2 \\Big(\\frac{\\mathrm{Var}_u(\\hat y)}{N}
+            + \\frac{\\mathrm{Var}_l(\\hat y)}{n}\\Big)
+            - 2\\lambda \\frac{\\mathrm{Cov}_l(y, \\hat y)}{n},
 
-    with :math:`r = y - \\hat y`, over ``lambdas`` (default grid
+    of the PPI++ estimator
+    :math:`\\hat\\theta_\\lambda = \\bar y_l
+    + \\lambda(\\bar{\\hat y}_u - \\bar{\\hat y}_l)`, over ``lambdas`` (default grid
     ``torch.linspace(0, 1, 21)``) per Angelopoulos et al. When
     ``cross_fits=k > 0``, labeled data is split into k folds and the affine
     calibration rectifier is refit out-of-fold before residuals are computed.
@@ -525,9 +663,9 @@ def ppi_pp_mean_ci(  # noqa: PLR0912
     if cross_fits < 0:
         raise ValueError(f"cross_fits must be >= 0, got {cross_fits}")
 
-    y_l = _to_1d_tensor(y_labeled)
-    p_l = _to_1d_tensor(pred_labeled)
-    p_u = _to_1d_tensor(pred_unlabeled)
+    y_l, p_l, p_u = _common_float(
+        _to_1d_tensor(y_labeled), _to_1d_tensor(pred_labeled), _to_1d_tensor(pred_unlabeled)
+    )
     if y_l.numel() != p_l.numel():
         raise ValueError("y_labeled and pred_labeled must have the same number of samples")
     min_l = cross_fits + 2 if cross_fits > 0 else 2

@@ -84,6 +84,7 @@ def select_high_confidence(
     max_entropy: float | None = None,
     top_fraction: float | None = None,
     min_count: int = 1,
+    scores: np.ndarray | None = None,
 ) -> np.ndarray:
     """
     Filter predictions keeping only high-confidence or low-entropy instances.
@@ -100,6 +101,14 @@ def select_high_confidence(
         Keep only this fraction of top-confidence instances.
     min_count : int
         Ensure at least this many instances are selected.
+    scores : Optional[np.ndarray]
+        Per-row confidence used to rank rows for ``top_fraction`` and the
+        ``min_count`` fallback (higher is more confident).  Defaults to the
+        maximum probability.  Pass a different score when the maximum
+        probability is biased, e.g. for predictives truncated at the edge of a
+        discretisation grid, whose renormalisation inflates it (see
+        :class:`ShiftFactoredPredictiveTransport`).  ``min_confidence`` always
+        uses the maximum probability.
 
     Returns
     -------
@@ -107,6 +116,11 @@ def select_high_confidence(
         A boolean mask indicating selected instances.
     """
     probs = np.asarray(probabilities, dtype=float)
+    rank_scores = confidence_scores(probs) if scores is None else np.asarray(scores, dtype=float)
+    if rank_scores.shape != (probs.shape[0],):
+        raise ValueError("scores must have one entry per row of probabilities")
+    # np.argsort puts NaN last, i.e. "most confident"; rank NaN rows lowest instead.
+    rank_scores = np.where(np.isnan(rank_scores), -np.inf, rank_scores)
     mask = np.ones(probs.shape[0], dtype=bool)
     if min_confidence is not None:
         mask &= confidence_scores(probs) >= float(min_confidence)
@@ -116,15 +130,14 @@ def select_high_confidence(
         frac = float(top_fraction)
         if not 0.0 < frac <= 1.0:
             raise ValueError("top_fraction must be in (0, 1]")
-        scores = confidence_scores(probs)
         k = max(int(np.ceil(frac * probs.shape[0])), int(min_count))
-        top_idx = np.argsort(scores)[-k:]
+        top_idx = np.argsort(rank_scores)[-k:]
         top_mask = np.zeros(probs.shape[0], dtype=bool)
         top_mask[top_idx] = True
         mask &= top_mask
     safe_min_count = min(int(min_count), probs.shape[0])
     if mask.sum() < safe_min_count:
-        top_idx = np.argsort(confidence_scores(probs))[-safe_min_count:]
+        top_idx = np.argsort(rank_scores)[-safe_min_count:]
         mask = np.zeros(probs.shape[0], dtype=bool)
         mask[top_idx] = True
     return mask

@@ -15,7 +15,7 @@ All predictors inherit from this base class which provides the calibrate → pre
 class ConformalPredictor:
     def __init__(self, alpha=0.1, normalize_fn=None): ...
     def calibrate(self, y_pred, target, *, mask=None, groups=None, weights=None, x=None): ...
-    def predict_interval(self, y_pred, *, groups=None, x=None) -> (lower, upper): ...
+    def predict_interval(self, y_pred, *, groups=None, x=None, test_weights=None) -> (lower, upper): ...
 ```
 
 | Parameter | Type | Description |
@@ -24,7 +24,11 @@ class ConformalPredictor:
 | `normalize_fn` | `callable` | Optional. $(\hat{y}, x) \mapsto d(x)$ returning a per-sample difficulty scalar.  Nonconformity scores are divided by $d(x)$ for adaptive intervals. |
 | `mask` | `Tensor` | Boolean mask indicating valid calibration samples. |
 | `groups` | `Tensor` | Integer group labels for Mondrian conditional calibration. |
-| `weights` | `Tensor` | Importance weights for covariate-shift-robust quantiles. |
+| `weights` | `Tensor` | Importance weights for covariate-shift-robust quantiles (Tibshirani et al., 2019). Only relative weights matter. |
+| `test_weights` | `Tensor` | `predict_interval` only: per-test-point weights $w(X_{n+1})$ on the same scale as `weights` (default: the mean calibration weight). Gives one weighted threshold per test point. |
+
+!!! info "Infinite intervals with too few calibration points"
+    The threshold is the $\lceil (n+1)(1-\alpha) \rceil$-th smallest score (per Mondrian group). If that rank exceeds $n$ — or, with `weights`, if the weighted calibration mass cannot reach $1-\alpha$ — the threshold is $+\infty$ and `predict_interval` returns $(-\infty, +\infty)$, as the finite-sample guarantee requires. Downstream widths/means are then `inf`. Mondrian group ids may be any integers (including negative ones); unseen ids raise `ValueError`.
 
 ---
 
@@ -111,9 +115,9 @@ lower, upper = u.predict_interval(y_pred_test)
 Density-adaptive split conformal — widens intervals where the **target distribution is sparse**.
 
 !!! abstract "Summary"
-    **Score:**  Density-weighted absolute residuals
-    **Interval:**  Wider in low-density target regions
-    **Requires:**  Point predictions (density estimated internally)
+    **Score:**  $\;s_i = |y_i - \hat{y}_i| / \sqrt{\hat f(\hat{y}_i)}$, with $\hat f$ a Gaussian KDE of the calibration targets evaluated at the **prediction**
+    **Interval:**  $\;\hat{y} \pm \hat{q}\,\sqrt{\hat f(\hat{y})}$ — the same density function of $\hat y$ at calibration and prediction time, so test and calibration scores are comparable
+    **Requires:**  Point predictions (density estimated internally, or pass `density=` from an independent reference for the exact split-conformal guarantee)
 
 ```python
 from torchregress.losses import DensityConformal
@@ -289,7 +293,7 @@ lower, upper = cp.predict_interval(y_pred_test, x=x_test, mad=mad_test)
 
 !!! abstract "Summary"
     **Score:** $\;s_i = \lvert y_i - \hat{y}_{-f(i)}(x_i) \rvert$ (out-of-fold absolute residual)
-    **Interval:** $\;\left[ \text{Quantile}\left(\{\hat{y}_{-f(i)}(x) - s_i\}_{i=1}^n, \alpha\right), \; \text{Quantile}\left(\{\hat{y}_{-f(i)}(x) + s_i\}_{i=1}^n, 1-\alpha\right) \right]$
+    **Interval:** $\;\left[ \hat{q}^{-}_{n,\alpha}\{\hat{y}_{-f(i)}(x) - s_i\}, \; \hat{q}^{+}_{n,\alpha}\{\hat{y}_{-f(i)}(x) + s_i\} \right]$, where $\hat{q}^{-}$ is the $\lfloor \alpha(n+1) \rfloor$-th smallest value and $\hat{q}^{+}$ the $\lceil (1-\alpha)(n+1) \rceil$-th smallest value (Barber et al. 2021, eq. 6)
     **Requires:** Out-of-fold predictions on calibration data, and all member models for test prediction.
 
 ```python
@@ -311,6 +315,9 @@ lower, upper = cp.predict_interval(y_pred_members)
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
 | `alpha` | `float` | `0.1` | Miscoverage rate. |
+
+!!! info "Infinite endpoints for small $n$"
+    If $\lfloor \alpha(n+1) \rfloor = 0$ the lower endpoint is $-\infty$; if $\lceil (1-\alpha)(n+1) \rceil > n$ the upper endpoint is $+\infty$ (e.g. $n=8$, $\alpha=0.1$ gives $(-\infty, +\infty)$). The guarantee is $\ge 1-2\alpha$ (Barber et al. 2021, Thm 1).
 
 !!! tip "When to use"
     Use when you are training a **$K$-fold ensemble** or a **leave-one-out ensemble**. This allows you to perform conformal prediction without splitting off a separate calibration set, which is highly sample-efficient for small datasets.

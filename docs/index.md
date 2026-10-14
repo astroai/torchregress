@@ -80,7 +80,7 @@ The library targets two audiences:
 |:--------|:---------------------------|:-------------------|:----|
 | Clean regression baseline | `WeightedMSELoss` | `WeightedHuberLoss` | [Losses](losses/index.md) |
 | Heteroscedastic noise (aleatoric UQ) | `GaussianNLLLoss` | `BetaNLLLoss`, heteroscedastic ensemble | [Gaussian](losses/gaussian.md) |
-| Epistemic uncertainty | `DeepEnsemble` | `SWAG`, `BayesianNeuralNetwork`, `HeteroscedasticBNN` | [Ensembles](methods/ensemble/index.md) |
+| Epistemic uncertainty | `BaseEnsembleModel` | `SWAG`, `BayesianNeuralNetwork`, `HeteroscedasticBNN` | [Ensembles](methods/ensemble/index.md) |
 | Multimodal conditional distributions | `MDNLoss` | `NormalizingFlowLoss` | [MDN](losses/mdn.md) · [Flows](losses/nflows.md) |
 | Imbalanced / rare targets | `QuantileLoss` + tail-slice evaluation | `DensityWeightedLoss`, `LDSLoss` | [Imbalanced](losses/imbalanced.md) |
 | Noisy features / measurement error | `LatentMarginalizationLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | [EIV](losses/eiv.md) |
@@ -93,7 +93,7 @@ The library targets two audiences:
 | Coverage guarantees | `SplitConformal` | `CQR`, `DensityConformal`, `MonteCarloConformal` | [Conformal](methods/conformal/index.md) |
 | Distribution shift (test-time) | `BayesianLinearHead` | `ShiftFactoredPredictiveTransport`, `ScoreCDFReweighter` | [Test-time](methods/test-time/bayesian-linear-regression.md) |
 | Causal inference (ATE / CATE) | `dr_ate`, `dr_cate` | `PredictionPoweredInference` | [Causal](methods/causal.md) |
-| OOD / selective prediction | `DeepEnsemble` + OOD metrics | `HeteroscedasticBatchEnsembleModel`, `SWAG` | [Ensembles](methods/ensemble/index.md) |
+| OOD / selective prediction | `BaseEnsembleModel` + OOD metrics | `HeteroscedasticBatchEnsembleModel`, `SWAG` | [Ensembles](methods/ensemble/index.md) |
 
 The full, code-driven catalog (maturity, capability flags, family peer
 comparison) lives in the [Method Selection Matrix](guide/method-selection.md)

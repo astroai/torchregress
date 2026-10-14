@@ -59,19 +59,10 @@ def _gaussian_kde_score_samples(
     return log_sum - log_norm
 
 
-def _torch_kde_weights(
-    train_targets: Tensor,
-    bandwidth: float,
-    reweight_factor: float,
-) -> Tensor:
-    """Compute inverse-density weights using torch-native Gaussian KDE."""
-    log_density = _gaussian_kde_score_samples(train_targets, train_targets, bandwidth)
-
-    inv_density = torch.exp(-log_density)
-    inv_density = inv_density / inv_density.mean()
-
-    weights = 1.0 + reweight_factor * (inv_density - 1.0)
-    return weights
+def _finite_rows(t: Tensor) -> Tensor:
+    """Boolean ``[N]`` mask of rows whose entries are all finite."""
+    finite = torch.isfinite(t)
+    return finite.reshape(t.shape[0], -1).all(dim=-1) if t.dim() > 1 else finite
 
 
 def _compute_base_loss(base_loss: str, y_pred: Tensor, target: Tensor) -> Tensor:
@@ -159,6 +150,9 @@ class DensityWeightedLoss(RegressionLoss):
         # means "not fitted yet".
         self.register_buffer("density_weights", torch.zeros(0), persistent=True)
         self._train_targets: Optional[Tensor] = None
+        # Training-set mean of the inverse KDE density (normaliser shared by
+        # the precomputed and the on-the-fly weights).
+        self._inv_density_norm: Optional[Tensor] = None
 
     def fit_density(self, train_targets: Tensor) -> None:
         """
@@ -178,34 +172,52 @@ class DensityWeightedLoss(RegressionLoss):
             >>> # Fit density
             >>> loss_fn.fit_density(train_targets)
         """
-        # Store targets for potential reuse
-        self._train_targets = train_targets.detach()
-
-        weights = _torch_kde_weights(
-            self._train_targets,
-            bandwidth=self.kernel_width,
-            reweight_factor=self.reweight_factor,
+        targets = train_targets.detach()
+        finite = _finite_rows(targets)
+        if not bool(finite.any()):
+            raise ValueError("fit_density() needs at least one finite training target")
+        # KDE reference: finite (observed) training targets only.
+        self._train_targets = targets[finite]
+        log_density = _gaussian_kde_score_samples(
+            self._train_targets, self._train_targets, self.kernel_width
         )
+        inv_density = torch.exp(-log_density)
+        # Normaliser over the TRAINING set, reused by the on-the-fly path so a
+        # sample's weight never depends on the other samples in its batch.
+        self._inv_density_norm = inv_density.mean()
+        fitted = 1.0 + self.reweight_factor * (inv_density / self._inv_density_norm - 1.0)
+        # One weight per training row (indexable by ``sample_indices``);
+        # non-finite (missing) rows get the neutral weight 1.
+        weights = torch.ones(targets.shape[0], dtype=fitted.dtype, device=fitted.device)
+        weights[finite] = fitted
         self.density_weights = weights
 
     def _compute_density_weight(self, target: Tensor) -> Tensor:
         """
         Compute density weight for given target values on-the-fly.
 
-        This is used when sample_indices are not provided.
+        This is used when sample_indices are not provided.  The inverse
+        density is normalised by the TRAINING-set mean stored by
+        :meth:`fit_density`, so the weight of a target equals its precomputed
+        weight and does not depend on the rest of the batch.  Non-finite
+        (missing) targets get the neutral weight 1.
         """
-        if self._train_targets is None:
+        if self._train_targets is None or self._inv_density_norm is None:
             raise ValueError("Must call fit_density() before computing weights")
 
         train = self._train_targets.to(device=target.device, dtype=target.dtype)
+        finite = _finite_rows(target)
+        query = torch.where(
+            finite.view(-1, *([1] * (target.dim() - 1))), target, torch.zeros_like(target)
+        )
 
-        log_density = _gaussian_kde_score_samples(train, target, self.kernel_width)
+        log_density = _gaussian_kde_score_samples(train, query, self.kernel_width)
 
         inv_density = torch.exp(-log_density)
-        inv_density = inv_density / inv_density.mean()
+        inv_density = inv_density / self._inv_density_norm.to(inv_density)
         weights = 1.0 + self.reweight_factor * (inv_density - 1.0)
 
-        return weights
+        return torch.where(finite, weights, torch.ones_like(weights))
 
     def forward(
         self,
@@ -252,7 +264,11 @@ class DensityWeightedLoss(RegressionLoss):
             # Compute weights on-the-fly from target values
             density_w = self._compute_density_weight(target)
 
-        # Compute base loss
+        # Compute base loss; masked targets (possibly NaN placeholders) are
+        # replaced by the detached prediction so neither the value nor the
+        # gradient is poisoned (0 * NaN = NaN).
+        if mask is not None:
+            target = torch.where(mask.to(torch.bool), target, y_pred.detach())
         base_loss = _compute_base_loss(self.base_loss, y_pred, target)
 
         # Expand weights if needed to match loss shape
@@ -264,11 +280,9 @@ class DensityWeightedLoss(RegressionLoss):
         # Apply density weights
         weighted_loss = base_loss * density_w
 
-        # Combine with optional external weights
-        if weights is not None:
-            weighted_loss = weighted_loss * weights
-
-        return self._reduce(weighted_loss, mask, None)
+        # User sample weights follow the BaseLoss._reduce contract
+        # (weighted mean sum(w * l) / sum(w)).
+        return self._reduce(weighted_loss, mask, weights)
 
 
 @register_regression_loss("propensity_weighted")
@@ -335,9 +349,8 @@ class PropensityWeightedLoss(RegressionLoss):
         ).to(device=target.device, dtype=target.dtype)
 
         loss = _compute_base_loss(self.base_loss, y_pred, target) * ipw
-        if weights is not None:
-            loss = loss * weights
-        return self._reduce(loss, mask, None)
+        # User sample weights follow the BaseLoss._reduce contract.
+        return self._reduce(loss, mask, weights)
 
 
 @register_regression_loss("lds")
@@ -548,11 +561,8 @@ class LDSLoss(RegressionLoss):
         # Apply weights
         weighted_loss = base_loss * lds_w
 
-        # Combine with optional external weights
-        if weights is not None:
-            weighted_loss = weighted_loss * weights
-
-        return self._reduce(weighted_loss, mask, None)
+        # User sample weights follow the BaseLoss._reduce contract.
+        return self._reduce(weighted_loss, mask, weights)
 
 
 @register_regression_loss("focal_r")
@@ -633,11 +643,8 @@ class FocalRLoss(RegressionLoss):
         # Apply focal weighting
         weighted_loss = focal_weight * base_loss
 
-        # Apply optional external weights
-        if weights is not None:
-            weighted_loss = weighted_loss * weights
-
-        return self._reduce(weighted_loss, mask, None)
+        # User sample weights follow the BaseLoss._reduce contract.
+        return self._reduce(weighted_loss, mask, weights)
 
 
 class FeatureDistributionSmoother(nn.Module):

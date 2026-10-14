@@ -35,6 +35,12 @@ LOWER_IS_BETTER_TERMS = (
     "ece",
     "mce",
     "deviance",
+    "interval_score",
+    "mad",
+    "mpiw",
+    "width",
+    "train_s",
+    "eval_s",
 )
 
 

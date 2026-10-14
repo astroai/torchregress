@@ -170,6 +170,10 @@ class PseudoLabelNLL(RegressionLoss):
     """Gaussian NLL with observed + pseudo-label blending.
 
     This loss supports partial labels and pseudo-label confidence weights.
+    Entries excluded by ``label_mask`` may hold any placeholder (including
+    NaN) in ``target``, and labelled entries any placeholder in
+    ``pseudo_target``: excluded values are replaced before the NLL is
+    evaluated, so they affect neither the loss nor its gradient.
     """
 
     def __init__(
@@ -209,11 +213,15 @@ class PseudoLabelNLL(RegressionLoss):
         if target is not None:
             if target.shape != mean.shape:
                 raise ValueError("target shape must match predicted mean shape")
+            if label_mask is not None:
+                if label_mask.shape != target.shape:
+                    raise ValueError("label_mask shape must match target shape")
+                # torch.where, not ``* mask``: NaN placeholders at unlabelled
+                # entries would give NaN * 0 = NaN (value and gradient).
+                target = torch.where(label_mask.to(torch.bool), target, mean.detach())
             supervised_nll = _gaussian_nll(mean, pred_var, target, min_variance=self.min_variance)
             supervised_weight = torch.ones_like(supervised_nll)
             if label_mask is not None:
-                if label_mask.shape != supervised_nll.shape:
-                    raise ValueError("label_mask shape must match target shape")
                 supervised_weight = label_mask.to(supervised_nll.dtype)
             blended_loss = blended_loss + supervised_nll * supervised_weight
             blend_weight = blend_weight + supervised_weight
@@ -222,6 +230,9 @@ class PseudoLabelNLL(RegressionLoss):
             pseudo = pseudo_target.detach() if self.detach_pseudo_labels else pseudo_target
             if pseudo.shape != mean.shape:
                 raise ValueError("pseudo_target shape must match predicted mean shape")
+            if label_mask is not None:
+                # Pseudo-labels are only used on unlabelled entries.
+                pseudo = torch.where(label_mask.to(torch.bool), mean.detach(), pseudo)
             pseudo_nll = _gaussian_nll(mean, pred_var, pseudo, min_variance=self.min_variance)
             pseudo_w = torch.full_like(pseudo_nll, self.pseudo_weight)
             if pseudo_confidence is not None:
@@ -257,8 +268,10 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
 
     This loss keeps the target tensor in the public second-argument position and
     uses ``label_mask`` to mark which entries are truly labeled. Unlabeled entries
-    can be filled with any placeholder value because they are ignored by the
-    supervised term.
+    can be filled with any placeholder value (including NaN) because they are
+    replaced before the supervised term is evaluated (``torch.where``, so they
+    affect neither the loss nor its gradient); likewise ``pseudo_target`` /
+    ``teacher_pred`` values outside ``unlabeled_mask`` are ignored.
     """
 
     def __init__(
@@ -328,7 +341,9 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
         total = torch.zeros_like(y_pred)
         blend_weight = torch.zeros_like(y_pred)
 
-        supervised = self._point_loss(y_pred, target)
+        # torch.where, not ``* mask``: NaN placeholders would give NaN * 0 = NaN.
+        target_safe = torch.where(label_mask_t, target, y_pred.detach())
+        supervised = self._point_loss(y_pred, target_safe)
         supervised_w = label_mask_t.to(y_pred.dtype)
         total = total + supervised * supervised_w
         blend_weight = blend_weight + supervised_w
@@ -336,7 +351,7 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
         if pseudo_target is not None:
             if pseudo_target.shape != y_pred.shape:
                 raise ValueError("pseudo_target shape must match y_pred shape")
-            pseudo = pseudo_target.detach()
+            pseudo = torch.where(unlabeled_mask_t, pseudo_target.detach(), y_pred.detach())
             pseudo_w = torch.full_like(y_pred, self.pseudo_weight)
             pseudo_w = pseudo_w * unlabeled_mask_t.to(y_pred.dtype)
             if pseudo_confidence is not None:
@@ -356,6 +371,7 @@ class PseudoLabelConsistencyLoss(RegressionLoss):
             if teacher_pred.shape != y_pred.shape:
                 raise ValueError("teacher_pred shape must match y_pred shape")
             teacher = teacher_pred.detach() if self.detach_teacher else teacher_pred
+            teacher = torch.where(unlabeled_mask_t, teacher, y_pred.detach())
             consistency_w = self.consistency_weight * unlabeled_mask_t.to(y_pred.dtype)
             total = total + (y_pred - teacher).square() * consistency_w
             blend_weight = blend_weight + consistency_w

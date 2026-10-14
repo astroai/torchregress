@@ -33,7 +33,7 @@ import torch.nn as nn
 
 from torchregress.losses.conformal import (
     ConformalLoss,
-    MultiDimensionalConformalLoss,
+    MultiTargetConformal,
     CVPlus,
     EnsembleBatchCP,
 )
@@ -195,7 +195,7 @@ def demo_width_adaptive_conformal() -> None:
 
 
 def demo_multidimensional_conformal() -> None:
-    """Demonstrate MultiDimensionalConformalLoss."""
+    """Demonstrate MultiTargetConformal."""
     print("=== Multi-Dimensional Conformal Prediction Demo ===")
 
     # Generate multi-output data
@@ -213,14 +213,10 @@ def demo_multidimensional_conformal() -> None:
     y_pred_cal = model(X_cal)
     y_pred_test = model(X_test)
 
-    # Create multi-dimensional conformal loss
-    loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
+    # Create per-dimension conformal predictor
+    loss_fn = MultiTargetConformal(alpha=0.1)
 
-    # Train with the loss
-    train_loss = loss_fn(y_pred_train, y_train)
-    print(f"Training loss: {train_loss.item():.4f}")
-
-    # Calibrate on calibration set
+    # Calibrate per-dimension thresholds on the calibration set
     loss_fn.calibrate(y_pred_cal, y_cal)
     print("Calibrated successfully.")
 

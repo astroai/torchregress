@@ -68,29 +68,32 @@ def _load_arff_arrays(arff_bytes: bytes) -> tuple[np.ndarray, list[str]]:
     text_stream = io.TextIOWrapper(io.BytesIO(raw), encoding="utf-8", newline="")
     data, _meta = scipy_arff.loadarff(text_stream)
 
-    # Decode byte-string columns to ordinary Python strings
     col_names = list(data.dtype.names)
-    for col in col_names:
-        if data[col].dtype.kind in ("S", "a"):
-            data[col] = np.array(
-                [
-                    v.decode("utf-8", errors="replace") if isinstance(v, (bytes, bytearray)) else v
-                    for v in data[col]
-                ]
-            )
+    # Nominal ARFF columns come back as fixed-width *bytes* fields; assigning decoded
+    # ``str`` values back into the structured array would re-encode them, so the
+    # consumers (``_numeric_mask`` / ``_to_float32``) decode bytes themselves.
     return data, col_names
 
 
+def _as_text(v: Any) -> Any:
+    """Decode ``bytes`` (nominal ARFF values) to ``str``; leave everything else alone."""
+    if isinstance(v, (bytes, bytearray)):
+        return bytes(v).decode("utf-8", errors="replace")
+    return v
+
+
 def _numeric_mask(ar: np.ndarray) -> np.ndarray:
-    """Boolean mask for values that are numeric, boolean, or numeric strings."""
+    """Boolean mask for values that are numeric, boolean, or numeric strings/bytes."""
     if ar.dtype.kind in ("f", "i", "u", "b"):
         return np.ones(len(ar), dtype=bool)
+    values = [_as_text(v) for v in ar]
     return np.array(
         [
             isinstance(v, (int, float, np.integer, np.floating, np.bool_))
             or (isinstance(v, str) and _is_numeric_string(v))
-            for v in ar
-        ]
+            for v in values
+        ],
+        dtype=bool,
     )
 
 
@@ -106,7 +109,8 @@ def _is_numeric_string(s: str) -> bool:
 def _to_float32(ar: np.ndarray) -> np.ndarray:
     """Convert array to float32, coercing non-numeric to NaN.
 
-    Handles boolean, numeric, and numeric-string values.
+    Handles boolean, numeric, and numeric-string values; byte-string (nominal ARFF)
+    values are decoded first, so numeric-coded nominal columns (e.g. ``{0,1}``) are kept.
     """
     if ar.dtype.kind in ("f", "i", "u"):
         return ar.astype(np.float32)
@@ -115,7 +119,7 @@ def _to_float32(ar: np.ndarray) -> np.ndarray:
 
     converted = np.full(ar.shape, np.nan, dtype=np.float32)
     mask = _numeric_mask(ar)
-    converted[mask] = np.array([float(v) for v in ar[mask]], dtype=np.float32)
+    converted[mask] = np.array([float(_as_text(v)) for v in ar[mask]], dtype=np.float32)
     return converted
 
 

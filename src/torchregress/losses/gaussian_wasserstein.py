@@ -26,6 +26,59 @@ from .loss_registry import register_regression_loss
 CovarianceParameterization = Literal["diagonal", "covariance", "cholesky", "sqrt"]
 
 
+class _SymmetricSqrt(torch.autograd.Function):
+    """Principal square root of symmetric PSD matrices with a Sylvester backward.
+
+    ``torch.linalg.eigh``'s backward contains ``1 / (lambda_i - lambda_j)`` and
+    is NaN whenever two eigenvalues coincide (e.g. an isotropic ``sigma^2 I``),
+    although the derivative of :math:`\\Sigma^{1/2}` is finite there. For
+    :math:`X = \\Sigma^{1/2}` the differential solves the Sylvester equation
+    :math:`X\\,dX + dX\\,X = d\\Sigma`, so in the eigenbasis
+    :math:`\\Sigma = Q\\Lambda Q^\\top` the vector-Jacobian product is
+
+    .. math::
+
+        \\bar\\Sigma = Q\\left[\\frac{(Q^\\top G Q)_{ij}}{s_i + s_j}\\right]Q^\\top,
+        \\qquad s = \\Lambda^{1/2},
+
+    with :math:`G` the symmetrised output gradient, i.e. the divided difference
+    of :math:`\\sqrt{\\cdot}`, which is finite for
+    repeated eigenvalues. Entries involving eigenvalues clamped at ``eps``
+    use the divided difference of the clamped map (zero derivative below
+    ``eps``).
+    """
+
+    @staticmethod
+    def forward(ctx: Any, sigma: torch.Tensor, eps: float) -> torch.Tensor:
+        evals, vecs = torch.linalg.eigh(sigma)
+        s = torch.clamp(evals, min=eps).sqrt()
+        ctx.save_for_backward(evals, vecs, s)
+        ctx.eps = eps
+        return (vecs * s.unsqueeze(-2)) @ vecs.transpose(-1, -2)
+
+    @staticmethod
+    @torch.autograd.function.once_differentiable
+    def backward(ctx: Any, grad_out: torch.Tensor) -> tuple[torch.Tensor, None]:
+        evals, vecs, s = ctx.saved_tensors
+        # sigma is symmetric by contract: return the symmetric gradient.
+        g = 0.5 * (grad_out + grad_out.transpose(-1, -2))
+        g_eig = vecs.transpose(-1, -2) @ g @ vecs
+        s_i, s_j = s.unsqueeze(-1), s.unsqueeze(-2)
+        kernel = 1.0 / (s_i + s_j)
+        clamped = evals < ctx.eps
+        any_clamped = clamped.unsqueeze(-1) | clamped.unsqueeze(-2)
+        if bool(any_clamped.any()):
+            # Divided difference (f(l_i) - f(l_j)) / (l_i - l_j) of the clamped
+            # map f(l) = sqrt(max(l, eps)); zero when both are clamped.
+            dl = evals.unsqueeze(-1) - evals.unsqueeze(-2)
+            nonzero = dl != 0
+            safe_dl = torch.where(nonzero, dl, torch.ones_like(dl))
+            divided = torch.where(nonzero, (s_i - s_j) / safe_dl, torch.zeros_like(dl))
+            kernel = torch.where(any_clamped, divided, kernel)
+        grad_sigma = vecs @ (g_eig * kernel) @ vecs.transpose(-1, -2)
+        return grad_sigma, None
+
+
 def symmetric_spd_matrix_sqrt(sigma: torch.Tensor, *, eps: float = 1e-8) -> torch.Tensor:
     """
     Principal matrix square root of batched symmetric positive semi-definite matrices.
@@ -33,19 +86,26 @@ def symmetric_spd_matrix_sqrt(sigma: torch.Tensor, *, eps: float = 1e-8) -> torc
     Uses ``torch.linalg.eigh``. For SPD :math:`\\Sigma = Q \\Lambda Q^\\top`, returns
     :math:`Q \\Lambda^{1/2} Q^\\top` with eigenvalues clamped below by ``eps`` before
     the square root.
+
+    The backward pass solves the Sylvester equation
+    :math:`X\\,dX + dX\\,X = d\\Sigma` in the eigenbasis instead of
+    differentiating through ``eigh``, so gradients stay finite for repeated
+    eigenvalues (e.g. isotropic covariances :math:`\\sigma^2 I`). The returned
+    gradient w.r.t. ``sigma`` is symmetric. Double backward is not supported.
+
+    Parameters
+    ----------
+    sigma : torch.Tensor
+        Symmetric PSD matrices of shape ``[..., D, D]``.
+    eps : float, default=1e-8
+        Floor applied to the eigenvalues before the square root.
+
+    Returns
+    -------
+    torch.Tensor
+        Symmetric PSD square roots, same shape, dtype and device as ``sigma``.
     """
-    evals, vecs = torch.linalg.eigh(sigma)
-    s = torch.clamp(evals, min=eps).sqrt()
-    # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
-    # torch.diag_embed does not accept device=/dtype= kwargs natively. Pin to
-    # the input covariance's device/dtype to keep the output consistent with
-    # callers that mix fp32 covariance inputs with fp64 jitter.
-    # Chain `.to()` on the diag_embed output so the slice through
-    # ``evecs @ diag @ evecs.T`` stays on the input covariance's
-    # device/dtype even when the caller mixes fp32 covariance inputs
-    # with fp64 jitter.
-    inv_diag = torch.diag_embed(s).to(device=sigma.device, dtype=sigma.dtype)
-    return vecs @ inv_diag @ vecs.transpose(-1, -2)
+    return cast(torch.Tensor, _SymmetricSqrt.apply(sigma, eps))
 
 
 def _batch_frobenius_squared(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:

@@ -117,7 +117,7 @@ plot_uncertainty_vs_error(y_pred, y_pred_std, y_true)
 plot_binned_metrics(y_pred, y_pred_std, y_true, metric="rmse")
 
 # Overlap of target density and error distribution
-plot_target_density_error_overlap(y_pred, y_true)
+plot_target_density_error_overlap(y_true, y_pred)
 
 # Predictive density at selected x-values (density_fn maps (x, y_grid) -> pdf)
 plot_conditional_density_slices(density_fn, x_slices, y_grid, y_true_slices=y_true_at_slices)
@@ -241,7 +241,7 @@ from torchregress.viz import (
 set_style()
 
 # Multi-panel diagnostic report
-fig, axes = create_grid_figure(n_plots=6, n_cols=3, figsize=(18, 12))
+fig, axes = create_grid_figure(n_plots=6, ncols=3, figsize=(18, 12))
 plot_residuals(y_pred, y_true, ax=axes[0], title="Residuals")
 plot_qq_plot(y_pred, y_true, ax=axes[1], title="Q-Q")
 # ... fill remaining axes ...

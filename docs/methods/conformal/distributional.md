@@ -7,6 +7,9 @@ These methods leverage **full predictive distributions** — CDF, density, or cl
 !!! success "Best of both worlds"
     Parametric models (GaussianNLL, MDN, normalizing flows) provide **shape information** about the predictive distribution.  Distributional conformal adds a **finite-sample coverage guarantee** on top — no matter how wrong the parametric assumptions are.
 
+!!! info "Mondrian groups and infinite thresholds"
+    All three predictors accept `groups=` at calibration and at prediction time (`predict_intervals_from_cdf(..., groups=)`, `predict_intervals_from_density(..., groups=)`, `R2CConformal.predict_interval(..., groups=)`); each test point uses its **own group's** threshold. With too few calibration points for the requested $\alpha$ the threshold is $+\infty$: `CTI` and `R2CConformal` (and `SLSConformal`) then return $(-\infty, +\infty)$, and `DistributionalConformal` inverts the CDF at the levels $[0, 1]$ (the full support), as the finite-sample guarantee requires.
+
 ---
 
 ## DistributionalConformal

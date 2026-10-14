@@ -33,20 +33,32 @@ def test_finite_sample_quantile_plan_spot_check() -> None:
 
 @pytest.mark.parametrize("seed", [0, 1, 2, 3])
 def test_finite_sample_quantile_matches_order_statistic(seed: int) -> None:
-    """Result equals the k-th smallest score with k = ceil((n+1)*(1-alpha))."""
+    """Result equals the k-th smallest score with k = ceil((n+1)*(1-alpha)).
+
+    When ``k > n`` (too few points for ``alpha``) the threshold is ``+inf``
+    (B-CONF-001): clamping to the max score would cover only ``n/(n+1)``.
+    """
     generator = torch.Generator().manual_seed(seed)
     for n in (1, 2, 5, 17, 100):
         scores = torch.rand(n, generator=generator) * 10
         for alpha in (0.05, 0.1, 0.25, 0.5):
-            k = min(math.ceil((n + 1) * (1.0 - alpha)), n)
-            expected = torch.sort(scores).values[k - 1]
-            assert torch.isclose(finite_sample_quantile(scores, alpha), expected)
+            k = math.ceil((n + 1) * (1.0 - alpha))
+            got = finite_sample_quantile(scores, alpha)
+            if k > n:
+                assert math.isinf(float(got)) and float(got) > 0
+            else:
+                expected = torch.sort(scores).values[k - 1]
+                assert torch.isclose(got, expected)
 
 
-def test_finite_sample_quantile_never_exceeds_max() -> None:
-    """Small n with tiny alpha must clamp k to n, not index out of range."""
+def test_finite_sample_quantile_infinite_when_k_exceeds_n() -> None:
+    """Small n with tiny alpha: k = ceil((n+1)(1-alpha)) > n -> +inf (B-CONF-001).
+
+    Previously the rank was clamped to n (max score), which breaks the
+    finite-sample guarantee (coverage n/(n+1) < 1 - alpha).
+    """
     scores = torch.tensor([3.0, 1.0, 2.0])
-    assert float(finite_sample_quantile(scores, 1e-9)) == 3.0
+    assert float(finite_sample_quantile(scores, 1e-9)) == math.inf
 
 
 def test_finite_sample_quantile_rejects_bad_input() -> None:
@@ -138,7 +150,11 @@ def test_cqr_q_hat_matches_finite_sample_rule() -> None:
 
 
 def test_cvplus_uses_order_statistics_not_interpolation() -> None:
-    """Upper bound must be an actual candidate value at rank ceil((n+1)*(1-a))."""
+    """Bounds are actual candidate values at the Barber et al. (2021) ranks.
+
+    Upper: ceil((n+1)(1-alpha)); lower: floor((n+1)alpha) (B-CONF-004 -- the
+    lower rank was previously ceil((n+1)alpha), one order statistic too high).
+    """
     torch.manual_seed(13)
     n_cal, n_test, alpha = 20, 4, 0.25
     cv = CVPlus(alpha=alpha)
@@ -155,7 +171,7 @@ def test_cvplus_uses_order_statistics_not_interpolation() -> None:
     upper_candidates = (pred_per_cal + res_unsq).squeeze(-1)
     lower_candidates = (pred_per_cal - res_unsq).squeeze(-1)
     k_up = min(math.ceil((n_cal + 1) * (1.0 - alpha)), n_cal)
-    k_lo = min(math.ceil((n_cal + 1) * alpha), n_cal)
+    k_lo = math.floor((n_cal + 1) * alpha)
     expected_hi = torch.sort(upper_candidates, dim=0).values[k_up - 1]
     expected_lo = torch.sort(lower_candidates, dim=0).values[k_lo - 1]
     assert torch.allclose(hi.squeeze(-1), expected_hi)

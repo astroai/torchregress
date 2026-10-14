@@ -8,7 +8,12 @@ import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, metric_state_tensor, validate_inputs
+from torchregress.metrics.utils import (
+    convert_to_tensor,
+    float_dtype,
+    metric_state_tensor,
+    validate_inputs,
+)
 
 
 class IntervalScore(Metric):
@@ -81,7 +86,8 @@ class PredictionIntervalCoverageProbability(Metric):
         upper_bound = convert_to_tensor(upper_bound)
         y_true = convert_to_tensor(y_true)
 
-        coverage = ((y_true >= lower_bound) & (y_true <= upper_bound)).float()
+        dtype = float_dtype(lower_bound, upper_bound, y_true)
+        coverage = ((y_true >= lower_bound) & (y_true <= upper_bound)).to(dtype)
         metric_state_tensor(self.covered).add_(torch.sum(coverage))
         metric_state_tensor(self.total).add_(torch.as_tensor(y_true.numel(), device=y_true.device))
 
@@ -150,7 +156,8 @@ def interval_score(
     above_upper = torch.clamp(y_true_t - upper_t, min=0)
     score = interval_width + (2 / alpha) * (below_lower + above_upper)
 
-    coverage = torch.mean(((y_true_t >= lower_t) & (y_true_t <= upper_t)).float())
+    dtype = float_dtype(lower_t, upper_t, y_true_t)
+    coverage = torch.mean(((y_true_t >= lower_t) & (y_true_t <= upper_t)).to(dtype))
     expected_coverage = 1.0 - alpha
     mean_width = torch.mean(interval_width)
 
@@ -159,7 +166,9 @@ def interval_score(
             "score": torch.mean(score),
             "mean_width": mean_width,
             "mean_coverage": coverage,
-            "expected_coverage": torch.tensor(expected_coverage, device=score.device),
+            "expected_coverage": torch.tensor(
+                expected_coverage, device=score.device, dtype=coverage.dtype
+            ),
             "coverage_error": coverage - expected_coverage,
         }
 
@@ -184,12 +193,13 @@ def prediction_interval_coverage_probability(
     upper_t = convert_to_tensor(upper_bound)
     y_true_t = convert_to_tensor(y_true)
 
+    dtype = float_dtype(lower_t, upper_t, y_true_t)
     coverage_mask = (y_true_t >= lower_t) & (y_true_t <= upper_t)
-    picp = torch.mean(coverage_mask.float())
+    picp = torch.mean(coverage_mask.to(dtype))
     mpiw = torch.mean(upper_t - lower_t)
 
-    miss_rate_low = torch.mean((y_true_t < lower_t).float())
-    miss_rate_high = torch.mean((y_true_t > upper_t).float())
+    miss_rate_low = torch.mean((y_true_t < lower_t).to(dtype))
+    miss_rate_high = torch.mean((y_true_t > upper_t).to(dtype))
     expected_coverage = 1.0 - alpha
 
     if not return_diagnostics:
@@ -197,7 +207,7 @@ def prediction_interval_coverage_probability(
 
     return {
         "picp": picp,
-        "expected_coverage": torch.tensor(expected_coverage, device=picp.device),
+        "expected_coverage": torch.tensor(expected_coverage, device=picp.device, dtype=picp.dtype),
         "coverage_error": picp - expected_coverage,
         "mpiw": mpiw,
         "miss_rate_low": miss_rate_low,

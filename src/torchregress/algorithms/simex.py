@@ -6,12 +6,46 @@ It works by adding additional measurement error to the data, establishing a tren
 of how the error affects predictions, and extrapolating back to the case of no error.
 """
 
+import math
 from collections.abc import Callable
 
 import torch
 import torch.nn as nn
 
 from ..utils.validation import check_tensor
+
+# Relative diagonal jitters tried (in order) when ``Sigma_u`` is only positive
+# semi-definite; each is a fraction of the mean variance so the noise stays
+# scale-equivariant (an absolute jitter swamps features with variance << jitter).
+_CHOLESKY_JITTERS = (1e-10, 1e-8, 1e-6)
+
+
+def _noise_cholesky(sigma_u: torch.Tensor) -> torch.Tensor:
+    """Cholesky factor of ``sigma_u`` for simulating measurement noise.
+
+    The factor of the covariance itself is used whenever it exists, so the simulated
+    noise has exactly ``lambda * Sigma_u`` variance.  Only if the factorisation fails
+    (singular PSD matrix) is a jitter proportional to the mean variance added.
+
+    Raises
+    ------
+    ValueError
+        If ``sigma_u`` is not positive semi-definite.
+    """
+    try:
+        return torch.linalg.cholesky(sigma_u)
+    except RuntimeError as exc:
+        error = exc
+    if not bool((sigma_u != 0).any()):
+        return torch.zeros_like(sigma_u)  # no measurement error: a valid (zero) factor
+    scale = torch.diagonal(sigma_u).mean().clamp_min(torch.finfo(sigma_u.dtype).tiny)
+    eye = torch.eye(sigma_u.shape[0], device=sigma_u.device, dtype=sigma_u.dtype)
+    for jitter in _CHOLESKY_JITTERS:
+        try:
+            return torch.linalg.cholesky(sigma_u + jitter * scale * eye)
+        except RuntimeError as exc:
+            error = exc
+    raise ValueError(f"sigma_u is not PSD (cholesky failed): {error}") from error
 
 
 class SIMEX:
@@ -68,16 +102,27 @@ class SIMEX:
         self.sigma_u: torch.Tensor | None = None
         self.extrapolation_weights: torch.Tensor | None = None
 
-    def _prepare_sigma_u(self, n_features: int, device: torch.device) -> torch.Tensor:
-        """Converts input sigma_u to a full covariance matrix."""
+    def _prepare_sigma_u(
+        self, n_features: int, device: torch.device, dtype: torch.dtype | None = None
+    ) -> torch.Tensor:
+        """Converts input sigma_u to a full covariance matrix in ``dtype``.
+
+        ``dtype`` should be the dtype of the data; it defaults to the dtype of a
+        tensor ``sigma_u`` and to the torch default dtype for python scalars.
+        """
         sigma = self.sigma_u_input
         if isinstance(sigma, (int, float)):
-            return torch.eye(n_features, device=device) * float(sigma) ** 2
+            eye_dtype = dtype if dtype is not None else torch.get_default_dtype()
+            return torch.eye(n_features, device=device, dtype=eye_dtype) * float(sigma) ** 2
 
         if isinstance(sigma, torch.Tensor):
             sigma = sigma.to(device)
+            if dtype is not None:
+                sigma = sigma.to(dtype)
             if sigma.numel() == 1:
-                return torch.eye(n_features, device=device) * float(sigma.item()) ** 2
+                return torch.eye(n_features, device=device, dtype=sigma.dtype) * (
+                    float(sigma.item()) ** 2
+                )
             if sigma.ndim == 1:
                 if sigma.shape[0] != n_features:
                     raise ValueError(
@@ -114,7 +159,7 @@ class SIMEX:
 
         self.device = X_train.device
         n_features = X_train.shape[1]
-        self.sigma_u = self._prepare_sigma_u(n_features, self.device)
+        self.sigma_u = self._prepare_sigma_u(n_features, self.device, X_train.dtype)
 
         if self.n_simulations < 1:
             raise ValueError("n_simulations must be >= 1")
@@ -134,12 +179,7 @@ class SIMEX:
         all_lambdas = sorted(list(set(all_lambdas)))
         self.lambdas_used = all_lambdas  # Store for prediction
         # Pre-calculate Cholesky for noise generation (with PSD validation)
-        try:
-            L = torch.linalg.cholesky(
-                self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6
-            )
-        except RuntimeError as e:
-            raise ValueError(f"sigma_u is not PSD (cholesky failed): {e}") from e
+        L = _noise_cholesky(self.sigma_u)
 
         for lam in self.lambdas_used:
             lambda_models: list[nn.Module] = []
@@ -152,7 +192,7 @@ class SIMEX:
                     # Noise = N(0, lambda * Sigma_u) = sqrt(lambda) * N(0, Sigma_u)
                     #       = sqrt(lambda) * epsilon @ L.T
                     noise = torch.randn_like(X_train) @ L.T
-                    X_sim = X_train + torch.sqrt(torch.tensor(lam, device=self.device)) * noise
+                    X_sim = X_train + math.sqrt(lam) * noise
 
                 trained_model = self.train_func(model, X_sim, y_train)
                 lambda_models.append(trained_model)
@@ -199,8 +239,10 @@ class SIMEX:
 
         To maintain consistency between training and test domains, test
         inputs are perturbed with matched noise at each λ level before being
-        fed to the model trained at that level. Predictions are then
-        extrapolated to λ = -1 (zero measurement error).
+        fed to the models trained at that level, each model receiving its own
+        independent noise draw so that the level estimate averages over all
+        ``n_simulations`` remeasurements. Predictions are then extrapolated to
+        λ = -1 (zero measurement error).
 
         Args:
             X: Input tensor (raw observed test data with measurement error)
@@ -220,27 +262,22 @@ class SIMEX:
         if self.sigma_u is None:
             raise RuntimeError("SIMEX must be fit before predicting")
 
-        n_features = X.shape[1]
-        try:
-            L = torch.linalg.cholesky(
-                self.sigma_u + torch.eye(n_features, device=self.device) * 1e-6
-            )
-        except RuntimeError as e:
-            raise ValueError(f"sigma_u is not PSD (cholesky failed): {e}") from e
-        # Collect predictions from all models WITH matched input noise
-        # Each λ_i model receives test inputs perturbed by √λ_i * N(0, Σ_u)
+        L = _noise_cholesky(self.sigma_u.to(dtype=X.dtype))
+        # Collect predictions from all models WITH matched input noise.  Each of the
+        # B models at level lambda_i receives its OWN remeasurement
+        # X + sqrt(lambda_i) * N(0, Sigma_u): the lambda-level estimate is the average
+        # over B independent remeasurements, so sharing one draw would leave the
+        # Monte Carlo noise of a single replicate in the prediction.
         preds_list = []
         with torch.no_grad():
             for lambda_models, lam in zip(self.models_by_lambda, self.lambdas_used):
-                if lam == 0.0:
-                    X_lam = X
-                else:
-                    noise = torch.randn_like(X) @ L.T
-                    X_lam = X + torch.sqrt(torch.tensor(lam, device=self.device)) * noise
-
                 lambda_preds = []
                 for model in lambda_models:
                     model.eval()
+                    if lam == 0.0:
+                        X_lam = X
+                    else:
+                        X_lam = X + math.sqrt(lam) * (torch.randn_like(X) @ L.T)
                     lambda_preds.append(model(X_lam))
                 preds_list.append(torch.stack(lambda_preds, dim=0).mean(dim=0))
 

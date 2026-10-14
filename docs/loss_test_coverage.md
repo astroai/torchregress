@@ -50,7 +50,6 @@ canonical way a contract break shows up in CI.
 | `CTI` | `conformal.py` | `tests/losses/test_conformal.py` | `TestCTI` | Smallest density-level-set interval via grid search |
 | `SLSConformal` | `conformal.py` | `tests/losses/test_sls_conformal.py` | (per-class) | Score = `G(X,Y) / q_τ(X)`; interval from frontier level set |
 | `ConformalLoss` | `conformal.py` | `tests/losses/test_conformal.py` | `TestSplitConformal`, `TestCQR`, `TestConformalLossCQRDebias`, etc. | Method-routes to underlying predictor; pinball training loss for cqr/uacqr |
-| `conformal_loss` | `conformal.py` | `tests/losses/test_functional_wrappers.py` | `TestConformalLossWrapper` | Functional wrapper parity (split + cqr) |
 | `ConformalPredictor` | `conformal.py` | `tests/losses/test_conformal.py` | (base for `Test*Conformal`) | Virtual `_compute_scores`/`_build_intervals`; Mondrian + normalised + weighted composable features |
 | `LevelSetConformalPredictor` | `conformal.py` | `tests/losses/test_conformal.py` | (via `TestCTI`, `TestDistributionalConformal`, `TestSLSConformal`) | Shared `_grid_search_level_set` utility |
 | `LocalConformal` | `conformal.py` | `tests/losses/test_conformal.py` | `TestLocalConformal` + `tests/losses/test_loss_fixes.py::TestLocalConformalSentinelFallback` | Sentinel `True` column guards against underflow when cum-weights miss `1-α` |
@@ -60,13 +59,11 @@ canonical way a contract break shows up in CI.
 | `DensityConformal` | `conformal.py` | `tests/losses/test_conformal.py` | `TestDensityConformal` | KDE-adaptive score normalisation |
 | `DistributionalConformal` | `conformal.py` | `tests/losses/test_conformal.py` | `TestDistributionalConformal` | PIT-based score; ICDF interval construction |
 | `MonteCarloConformal` | `conformal.py` | `tests/losses/test_conformal.py` | `TestMonteCarloConformal` | MC sample mean/median + std normalisation |
-| `MultiDimensionalConformalLoss` | `conformal.py` | `tests/losses/test_conformal.py` | (per-class) | Per-dimension quantile thresholds |
 | `MultiTargetConformal` | `conformal.py` | `tests/losses/test_conformal.py` | (per-class) | Per-dimension calibration independence |
 | `PrevalenceAdjustedCP` | `conformal.py` | `tests/losses/test_conformal.py` | `TestPrevalenceAdjustedCP` | Group-prevalence scales miscoverage rate |
 | `R2CConformal` | `conformal.py` | `tests/losses/test_conformal.py` | `TestR2CConformal` | APS-style sorted-bin inclusion |
 | `BaseEIVLoss` | `eiv.py` | `tests/losses/test_eiv_internals.py` | `TestBaseEIVLossInternals` | `_prepare_covariance_from_sigma` interpretation of scalar / 1d / 2d / 3d sigma; `explicit()` factory returns adapter |
 | `EnsembleEIVLoss` | `eiv.py` | `tests/losses/test_eiv.py` | `TestEIVLoss::test_ensemble_eiv_loss` | Gaussian-perturbation ensemble averaging |
-| `ExplicitEIVAdapter` | `eiv.py` | `tests/losses/test_eiv_internals.py` | `TestExplicitEIVAdapter` | Adapter forwards `sigma_x`/`sigma_y` override at call-site even if not set in constructor |
 | `FunctionalEIVLoss` | `eiv.py` | `tests/losses/test_eiv.py` | `TestEIVLoss::test_functional_eiv_loss` + `TestEIVLossNumericalStability` | Jacobian-variance + NLL; analytical/mc/hybrid branches finite & monotonic in `n_samples` |
 | `InputNoiseBinnedPDFLoss` | `eiv.py` | (specialized class — INDIRECT, exercised via `test_eiv.py`) | — | Binned-PDF marginalisation with Ordinal base |
 | `LatentMarginalizationLoss` | `eiv.py` | `tests/losses/test_eiv_correctness.py` | `TestEIVCorrectness::test_latent_marginalization_gaussian_prior` + `test_latent_marginalization_custom_sampler` | Analytical Gaussian-prior posterior and custom-sampler posterior paths; log-mean-exp marginalisation |
@@ -74,7 +71,6 @@ canonical way a contract break shows up in CI.
 | `NoisyInputPredictor` | `eiv.py` | `tests/losses/test_eiv_internals.py` | `TestNoisyInputPredictor` | `forward(x)` returns mean over MC perturbations; antithetic yields distinct rows; non-tensor model is rejected |
 | `OrthogonalDistanceRegressionLoss` | `eiv.py` | `tests/losses/test_eiv.py` | `TestEIVLoss::test_odr_loss` + `TestEIVLossNumericalStability::test_odr_gradient_flow` | Latent-x optimisation step (approx) recovers Mahalanobis sum |
 | `StructuralEIVLoss` | `eiv.py` | `tests/losses/test_eiv.py` | `TestEIVLoss::test_structural_eiv_loss` | Cross-covariance `σ_xy` propagates through NLL |
-| `create_eiv_loss` | `eiv.py` | (INDIRECT — used inside `examples/`) | — | Routes on `loss_type` keyword |
 | `EvidentialRegressionLoss` | `evidential.py` | `tests/losses/test_evidential.py` | `TestEvidentialRegressionLoss` | NIG posterior + KL regularisation |
 | `ExpectileLoss` | `expectile.py` | `tests/losses/test_expectile.py` + `tests/losses/test_functional_wrappers.py` | `TestExpectileLoss` + `TestExpectileLossWrapper` | `τ=0.5` collapses to MSE; asymmetric weights `τ`/`1-τ` |
 | `expectile_loss` | `expectile.py` | `tests/losses/test_functional_wrappers.py` | `TestExpectileLossWrapper` | Parity with `ExpectileLoss` class |
@@ -117,11 +113,8 @@ canonical way a contract break shows up in CI.
 | `PoissonLikelihoodRatioLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | LR loss vs. Poisson mean |
 | `ZeroInflatedPoissonNLLLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | ZIP NLL with mixing parameter |
 | `PoissonGaussianMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Poisson+Gaussian NLL mixture |
-| `poisson_gaussian_mixture_loss` | `poisson_gaussian.py` | `tests/losses/test_functional_wrappers.py` | `TestPoissonGaussianFactoryWrappers::test_mixture_factory_returns_instance` | Config ↔ kwargs plumbing; class identity |
 | `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Gain-offset mixture w/ learnable params |
-| `enhanced_poisson_gaussian_loss` | `poisson_gaussian.py` | `tests/losses/test_functional_wrappers.py` | `TestPoissonGaussianFactoryWrappers::test_enhanced_factory_returns_instance` | Config plumbing |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` + consistency | (per-class) | LR mixture NLL |
-| `poisson_gaussian_likelihood_ratio_loss` | `poisson_gaussian.py` | `tests/losses/test_functional_wrappers.py` | `TestPoissonGaussianFactoryWrappers::test_lr_factory_returns_instance` | Config plumbing + default `log_input=False` |
 | `MultiQuantileLoss` | `quantile.py` | `tests/losses/test_quantile.py` + `tests/losses/test_non_gaussian_consistency.py` | `TestMultiQuantileLoss` | Average across multiple quantiles per sample |
 | `QuantileCrossover` | `quantile.py` | `tests/losses/test_indirect_utilities.py` | `TestCrossoverAliases` | `QuantileCrossover IS QuantileCrossoverLoss`; aliases accept strictly non-default kwargs that reach live attributes |
 | `QuantileCrossoverLoss` | `quantile.py` | `tests/losses/test_quantile.py` + consistency | `TestQuantileLoss::test_quantile_crossover_constraint` | Crossover penalty `Σᵢ max(fᵢ - fᵢ₊₁, 0)` |
@@ -173,8 +166,8 @@ should land alongside a direct test in
 | `test_non_gaussian_consistency.py` | Cross-family contracts for Poisson-Gaussian, censored, Tweedie, quantile, ordinal, conformal, EIV, expectile, evidential, robust, balanced-MSE families. |
 | `test_loss_fixes.py` | Regression tests for the **5 documented loss-bugs** — `SLSLoss.step_counter`, `WeightedLossWrapper.reduction`, `MixtureDensityLoss.full-cov Cholesky backward`, `LocalConformal.predict_interval sentinel`, `CQR.debias factor`. Use this file first when investigating these invariants. |
 | `test_sls_internals.py` | SLS internal modules — `VolumePreservingFlow` / `MahalanobisFrontier` (full + low-rank) / `UnionFrontier` / `QuantileNetwork`. |
-| `test_eiv_internals.py` | EIV internal modules — `ExplicitEIVAdapter` / `NoisyInputPredictor` / `BaseEIVLoss._prepare_covariance_from_sigma`. |
-| `test_functional_wrappers.py` | The 9 functional wrappers (`quantile_loss`, `expectile_loss`, `beta_nll_loss`, `tweedie_loss`, `conformal_loss`, `gaussian_wasserstein_bound_loss`, 3× Poisson-Gaussian factories). |
+| `test_eiv_internals.py` | EIV internal modules — `NoisyInputPredictor` / `BaseEIVLoss._prepare_covariance_from_sigma`. |
+| `test_functional_wrappers.py` | Functional wrappers (`quantile_loss`, `expectile_loss`, `beta_nll_loss`, `tweedie_loss`, `gaussian_wasserstein_bound_loss`). |
 | `test_indirect_utilities.py` | Public indirect utilities — `low_rank_output_dim`, `split_low_rank_gaussian_output`, `symmetric_spd_matrix_sqrt`, `create_gaussian_nll`, `create_mdn_loss`, plus the `QuantileCrossover`/`ExpectileCrossover` aliases. |
 | `test_loss_registry.py` | `get_regression_loss` / `list_regression_losses` / `create_loss_from_config`. |
 
@@ -199,7 +192,6 @@ should land alongside a direct test in
 
 The following public symbols have **no dedicated test class**:
 
-- `create_eiv_loss` (used in examples)
 - `create_flow_model`, `create_flow_loss`, `create_contrastive_flow_loss` (zuko-dependent, optional)
 
 Any **non-trivial** change to these symbols should land alongside a small

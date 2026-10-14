@@ -13,10 +13,10 @@ import torch.nn.functional as F
 import torch.utils.data
 
 from torchregress.losses.mdn import MixtureDensityLoss
-from torchregress.utils.gaussian_output import variance_from_logvar
 from torchregress.utils.ordinal import cumulative_logits_to_pmf
 
-from .base import BaseEnsembleModel
+from ._variance import member_variance_from_logvar
+from .base import BaseEnsembleModel, predicts_in_eval_mode
 from .layers import BatchEnsembleLinear
 from .utils import parse_heteroscedastic_output
 
@@ -148,6 +148,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
         device: Device to use
     """
 
+    @predicts_in_eval_mode
     def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         """
         Make prediction with uncertainty estimates.
@@ -176,8 +177,8 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
             stacked_means = torch.stack(means)
             ensemble_mean = torch.mean(stacked_means, dim=0)
 
-            # Convert log_vars to variances with the same stabilization used in training.
-            variances = [variance_from_logvar(log_var) for log_var in log_vars]
+            # Convert log_vars to variances with the GaussianNLLLoss training bounds.
+            variances = [member_variance_from_logvar(log_var) for log_var in log_vars]
 
             # Stack variances and calculate mean aleatoric uncertainty
             stacked_vars = torch.stack(variances)
@@ -196,6 +197,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
                 "aleatoric_variance": aleatoric_var,
             }
 
+    @predicts_in_eval_mode
     def predict_full_covariance(
         self, x: torch.Tensor, correction: int = 0
     ) -> Dict[str, torch.Tensor]:
@@ -216,7 +218,7 @@ class HeteroscedasticEnsembleModel(BaseEnsembleModel):
                 else:
                     raise ValueError("Unexpected output format for heteroscedastic ensemble.")
                 means.append(mean)
-                vars_.append(variance_from_logvar(log_var))
+                vars_.append(member_variance_from_logvar(log_var))
 
             # Stack [M, B, D]
             stacked_means = torch.stack(means)
@@ -275,6 +277,7 @@ class BinnedPDFEnsembleModel(BaseEnsembleModel):
         )
         self.support_values = support_values
 
+    @predicts_in_eval_mode
     def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         with torch.no_grad():
             logits = _stack_member_tensors(self.forward(x))
@@ -343,6 +346,7 @@ class RandomPartitionEnsembleModel(BaseEnsembleModel):
     def evaluation_bin_edges(self) -> torch.Tensor:
         return self._evaluation_bin_edges
 
+    @predicts_in_eval_mode
     def predict(
         self,
         x: torch.Tensor,
@@ -505,6 +509,7 @@ class CumulativeLinkEnsembleModel(BaseEnsembleModel):
         )
         self.support_values = support_values
 
+    @predicts_in_eval_mode
     def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         with torch.no_grad():
             logits = _stack_member_tensors(self.forward(x))
@@ -579,6 +584,7 @@ class MDNEnsembleModel(BaseEnsembleModel):
             torch.cat(scale_list, dim=-2),
         )
 
+    @predicts_in_eval_mode
     def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         with torch.no_grad():
             weights, means, stds = self._predict_components(x)
@@ -678,6 +684,7 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
 
         return {"means": means, "log_vars": log_vars}
 
+    @predicts_in_eval_mode
     def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         """
         Make prediction with uncertainty estimates.
@@ -695,8 +702,8 @@ class HeteroscedasticBatchEnsembleModel(nn.Module):
             means = outputs["means"]  # [batch_size, ensemble_size, output_size]
             log_vars = outputs["log_vars"]  # [batch_size, ensemble_size, output_size]
 
-            # Convert log_vars to variances with the same stabilization used in training.
-            variances = variance_from_logvar(log_vars)
+            # Convert log_vars to variances with the GaussianNLLLoss training bounds.
+            variances = member_variance_from_logvar(log_vars)
 
             # Calculate ensemble mean across members
             ensemble_mean = torch.mean(means, dim=1)  # [batch_size, output_size]

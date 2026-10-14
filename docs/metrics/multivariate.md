@@ -4,45 +4,60 @@
 
 This page covers metrics for evaluating multivariate regression models.
 
-## `multivariate_rmse`
+## `MultivariateRMSE`
 
-Computes the root mean squared error over vector outputs.
+Computes the root mean squared **Euclidean** error over vector outputs,
 
-**Arguments:**
+$$
+\mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_{i=1}^{N} \lVert \hat{y}_i - y_i \rVert_2^2},
+$$
+
+summing the squared error over the D output dimensions (not averaging): with
+equal error scales this is $\sqrt{D}$ times the per-element RMSE. It is a stateful
+metric: call `update(y_pred, y_true)` for each batch and `compute()` at the end,
+or call the instance on one batch.
+
+**Arguments (`update` and `__call__`):**
 
 - `y_pred` (torch.Tensor or np.ndarray): The predicted values.
 - `y_true` (torch.Tensor or np.ndarray): The ground truth values.
-- `reduction` (str, optional): The reduction to apply to the output. Can be one of `'none'`, `'mean'`, or `'sum'`. Defaults to `'mean'`.
 
 **Returns:**
 
-The root mean squared error of the predictions.
+The root mean squared Euclidean error (a scalar tensor).
 
 **Example:**
 
 ```python
 import torch
-from torchregress.metrics.multivariate import multivariate_rmse
+from torchregress.metrics import MultivariateRMSE
 
 y_pred = torch.randn(100, 10)
 y_true = torch.randn(100, 10)
 
-rmse = multivariate_rmse(y_pred, y_true)
+metric = MultivariateRMSE()
+rmse = metric(y_pred, y_true)
 ```
 
-## `multivariate_mae`
+## `MultivariateMAE`
 
-Computes the mean absolute error over vector outputs.
+Computes the mean **L1** error over vector outputs,
 
-**Arguments:**
+$$
+\mathrm{MAE} = \frac{1}{N}\sum_{i=1}^{N} \lVert \hat{y}_i - y_i \rVert_1,
+$$
+
+summing the absolute error over the D output dimensions: this is D times the
+per-element MAE. It takes the same arguments as `MultivariateRMSE`.
+
+**Arguments (`update` and `__call__`):**
 
 - `y_pred` (torch.Tensor or np.ndarray): The predicted values.
 - `y_true` (torch.Tensor or np.ndarray): The ground truth values.
-- `reduction` (str, optional): The reduction to apply to the output. Can be one of `'none'`, `'mean'`, or `'sum'`. Defaults to `'mean'`.
 
 **Returns:**
 
-The mean absolute error of the predictions.
+The mean L1 error per sample (a scalar tensor).
 
 **Example:**
 
@@ -74,6 +89,11 @@ The TAC error measures the average absolute deviation of these conditionally upd
 $$\text{TAC} = \frac{1}{N \cdot D} \sum_{n=1}^N \sum_{i=1}^D |\tilde{y}_{n, i} - y_{n, i}|$$
 
 A lower TAC score indicates that the predicted covariance matrix $\Sigma$ more accurately captures the correlation structure between targets, allowing for better conditional updates.
+
+Each covariance is inverted as $\Sigma_n + \epsilon\,\overline{\operatorname{diag}\Sigma_n}\,I$
+(`jitter` $\epsilon = 10^{-6}$, relative to the mean variance), so TAC scales
+with the targets: multiplying $y$ and $\hat y$ by $c$ and $\Sigma$ by $c^2$
+multiplies TAC by $c$.
 
 ---
 

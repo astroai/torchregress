@@ -17,7 +17,7 @@ from typing import Any, cast
 import torch
 import torch.nn as nn
 
-from torchregress.utils.gaussian_output import variance_from_logvar
+from ._variance import member_variance_from_logvar
 
 
 class SWAG(nn.Module):
@@ -429,7 +429,7 @@ class MultiSWAG(nn.Module):
                 if isinstance(pred, tuple) and len(pred) == 2:
                     is_heteroscedastic = True
                     mean_s, log_var_s = pred
-                    var_s = variance_from_logvar(log_var_s)
+                    var_s = member_variance_from_logvar(log_var_s)
                 elif isinstance(pred, torch.Tensor) and pred.ndim > 1 and pred.shape[-1] % 2 == 0:
                     # Check if output dimension is even (potential concatenated mean/logvar)
                     # We compare shape[-1] with even to split, but let's be careful.
@@ -439,7 +439,7 @@ class MultiSWAG(nn.Module):
                     is_heteroscedastic = True
                     d = pred.shape[-1] // 2
                     mean_s, log_var_s = pred[..., :d], pred[..., d:]
-                    var_s = variance_from_logvar(log_var_s)
+                    var_s = member_variance_from_logvar(log_var_s)
                 else:
                     mean_s = pred
                     var_s = torch.zeros_like(pred)

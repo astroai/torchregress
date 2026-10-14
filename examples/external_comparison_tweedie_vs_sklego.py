@@ -1,6 +1,6 @@
 """
 External-comparison benchmark: Tweedie / compound-Poisson regression
-(torchregress.TweedieLoss / CompoundPoissonLoss vs scikit-lego GLMRegressor).
+(torchregress.TweedieLoss / CompoundPoissonLoss vs a log-link Tweedie GLM).
 
 Canonical task: synthetic zero-inflated continuous response drawn from a
 compound Poisson-Gamma distribution with Tweedie power ``p=1.5`` on a shared
@@ -8,29 +8,41 @@ train/test split.
 
 Run::
 
-    uv pip install "torchregress[external]"
+    uv pip install scikit-learn scikit-lego  # scikit-lego is optional (only probed)
     uv run python examples/external_comparison_tweedie_vs_sklego.py \\
         --summary-json-path reports/external_comparison_tweedie_vs_sklego_latest.json
 
 Notes
 -----
-* The torchregress methods train a small MLP on log-mean. scikit-lego's
-  ``GLMRegressor(distribution="tweedie")`` fits a generalized linear model with
-  a log link. Capacity is therefore not matched — the comparison highlights
-  what each library offers out of the box.
-* If scikit-lego is not installed, the script still runs and emits rows with
-  metrics set to ``None`` and a note explaining the skip.
+* The torchregress methods train a small MLP on log-mean (the losses use the
+  default log link, so the network output is ``log(mu)``).
+* **The GLM baseline is scikit-learn, not scikit-lego.** scikit-lego no longer
+  ships a Tweedie/GLM estimator (``sklego.linear_model.GLMRegressor`` is gone in
+  0.9.x and nothing equivalent replaced it; its ``linear_model`` module only
+  offers e.g. ``LADRegression``, ``QuantileRegression``,
+  ``ImbalancedLinearRegression``). The comparison therefore uses
+  ``sklearn.linear_model.TweedieRegressor(power=1.5, link="log")``, a
+  log-link GLM fitted with the Tweedie deviance. scikit-lego is still probed so
+  the summary records whether it is installed, which version, and that it has no
+  Tweedie GLM; it is *not* needed to run the script.
+* Capacity is not matched: the MLP is nonlinear, the GLM is linear in the
+  features. The comparison highlights what each library offers out of the box.
+* The installed versions of the comparator packages are printed and recorded in
+  the JSON ``notes`` and in each row's ``Version`` field.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib
 from dataclasses import dataclass
+from importlib import metadata as importlib_metadata
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.linear_model import TweedieRegressor
 from sklearn.metrics import mean_tweedie_deviance
 
 from torchregress.comparison import (
@@ -42,14 +54,36 @@ from torchregress.comparison import (
 )
 from torchregress.losses import CompoundPoissonLoss, TweedieLoss
 
-try:
-    from sklego.linear_model import GLMRegressor
 
-    _SKLEGO_AVAILABLE = True
-    _SKLEGO_ERROR: str | None = None
-except ImportError as exc:  # pragma: no cover - soft dependency
-    _SKLEGO_AVAILABLE = False
-    _SKLEGO_ERROR = str(exc)
+def _dist_version(dist: str) -> str | None:
+    try:
+        return importlib_metadata.version(dist)
+    except importlib_metadata.PackageNotFoundError:
+        return None
+
+
+def _probe_sklego() -> tuple[str, str | None, bool]:
+    """Return ``(status, version, has_glm)`` for the optional scikit-lego package.
+
+    ``status`` is ``"not_installed"`` when ``sklego`` cannot be imported and
+    ``"installed"`` otherwise; ``has_glm`` says whether
+    ``sklego.linear_model.GLMRegressor`` (the class the original comparison used)
+    still exists.
+    """
+    try:
+        linear_model = importlib.import_module("sklego.linear_model")
+    except ModuleNotFoundError as exc:
+        if (exc.name or "").split(".")[0] == "sklego":
+            return "not_installed", None, False
+        return "installed", _dist_version("scikit-lego"), False
+    except Exception:  # noqa: BLE001 - broken install
+        return "installed", _dist_version("scikit-lego"), False
+    return "installed", _dist_version("scikit-lego"), hasattr(linear_model, "GLMRegressor")
+
+
+_SKLEGO_STATUS, _SKLEGO_VERSION, _SKLEGO_HAS_GLM = _probe_sklego()
+_SKLEGO_AVAILABLE = _SKLEGO_STATUS == "installed"
+_SKLEARN_VERSION = _dist_version("scikit-learn")
 
 
 @dataclass(frozen=True)
@@ -64,6 +98,7 @@ class TweedieExternalConfig:
     epochs: int = 60
     batch_size: int = 64
     lr: float = 1e-2
+    glm_alpha: float = 0.0
 
 
 def _simulate(cfg: TweedieExternalConfig) -> dict[str, np.ndarray]:
@@ -123,8 +158,9 @@ def _train_torch(
         for i in range(0, n, batch_size):
             idx = perm[i : i + batch_size]
             opt.zero_grad(set_to_none=True)
-            mu = torch.exp(model(X[idx]))
-            loss = loss_fn(mu, y[idx])
+            # The Tweedie losses default to a log link: they take log(mu) and
+            # apply exp internally, so feed the raw network output.
+            loss = loss_fn(model(X[idx]), y[idx])
             loss.backward()
             opt.step()
 
@@ -158,7 +194,7 @@ def _eval_torch(
     X_test = torch.from_numpy(splits["X_test"]).float()
     model = _MLP(cfg.n_features, cfg.hidden)
     loss_fn = loss_factory(cfg.p_power)
-    train_s, _ = timed_call(
+    _, train_s = timed_call(
         _train_torch,
         model,
         loss_fn,
@@ -180,38 +216,47 @@ def _eval_torch(
     return {
         "Method": f"torchregress/{name}",
         "Library": "torchregress",
+        "Version": _dist_version("torchregress"),
         "MAE": mae,
         "TweedieDeviance": deviance,
         "ZeroFracPred": float(np.mean(mu_pred <= 1e-3)),
         "train_s": train_s,
         "eval_s": eval_s,
-        "Notes": f"MLP + torchregress.{name}Loss on log-mean",
+        "Notes": f"MLP + torchregress.{name}Loss on log-mean (log link)",
     }
 
 
-def _eval_sklego(
-    splits: dict[str, np.ndarray], cfg: TweedieExternalConfig, *, seed: int
+def _eval_sklearn_glm(
+    splits: dict[str, np.ndarray], cfg: TweedieExternalConfig
 ) -> dict[str, object]:
-    glm = GLMRegressor(
-        distribution="tweedie",
+    """Log-link Tweedie GLM from scikit-learn (the replacement for scikit-lego's removed GLM)."""
+    glm = TweedieRegressor(
         power=cfg.p_power,
-        alpha=1.0,
+        alpha=cfg.glm_alpha,
+        link="log",
         fit_intercept=True,
         solver="lbfgs",
         max_iter=200,
     )
-    train_s, _ = timed_call(glm.fit, splits["X_train"], splits["y_train"])
-    mu_pred = np.asarray(glm.predict(splits["X_test"]), dtype=np.float64)
+    _, train_s = timed_call(glm.fit, splits["X_train"], splits["y_train"])
+    mu_pred, eval_s = timed_call(
+        lambda: np.asarray(glm.predict(splits["X_test"]), dtype=np.float64)
+    )
     mae = float(np.mean(np.abs(mu_pred - splits["y_test"])))
     deviance = _tweedie_deviance(splits["y_test"], mu_pred, cfg.p_power)
     return {
-        "Method": "scikit-lego/GLMRegressor(tweedie)",
-        "Library": "scikit-lego",
+        "Method": "scikit-learn/TweedieRegressor(log)",
+        "Library": "scikit-learn",
+        "Version": _SKLEARN_VERSION,
         "MAE": mae,
         "TweedieDeviance": deviance,
         "ZeroFracPred": float(np.mean(mu_pred <= 1e-3)),
         "train_s": train_s,
-        "Notes": "log-link GLM with tweedie deviance; capacity not matched",
+        "eval_s": eval_s,
+        "Notes": (
+            "log-link Tweedie GLM (scikit-lego has no Tweedie GLM since 0.9.x); "
+            f"alpha={cfg.glm_alpha}; capacity not matched"
+        ),
     }
 
 
@@ -244,60 +289,61 @@ def main(
         )
     )
 
-    if _SKLEGO_AVAILABLE:
-        try:
-            rows.append(_eval_sklego(splits, cfg, seed=cfg.seed))
-        except Exception as exc:  # noqa: BLE001
-            rows.append(
-                {
-                    "Method": "scikit-lego/GLMRegressor(tweedie)",
-                    "Library": "scikit-lego",
-                    "MAE": None,
-                    "TweedieDeviance": None,
-                    "ZeroFracPred": None,
-                    "train_s": None,
-                    "Notes": f"failed: {exc!r}",
-                }
-            )
-    else:
+    try:
+        rows.append(_eval_sklearn_glm(splits, cfg))
+    except Exception as exc:  # noqa: BLE001 - report API drift instead of crashing
         rows.append(
             {
-                "Method": "scikit-lego/GLMRegressor(tweedie)",
-                "Library": "scikit-lego",
+                "Method": "scikit-learn/TweedieRegressor(log)",
+                "Library": "scikit-learn",
+                "Version": _SKLEARN_VERSION,
                 "MAE": None,
                 "TweedieDeviance": None,
                 "ZeroFracPred": None,
                 "train_s": None,
-                "Notes": f"skipped: scikit-lego not installed ({_SKLEGO_ERROR})",
+                "eval_s": None,
+                "Notes": f"failed: scikit-learn {_SKLEARN_VERSION} incompatible ({exc!r})",
             }
         )
 
+    if _SKLEGO_STATUS == "not_installed":
+        sklego_note = "scikit-lego not installed (not needed: it has no Tweedie GLM)"
+    elif _SKLEGO_HAS_GLM:
+        sklego_note = f"scikit-lego {_SKLEGO_VERSION} still has GLMRegressor, but it is not used"
+    else:
+        sklego_note = f"scikit-lego {_SKLEGO_VERSION} installed; no GLMRegressor / Tweedie GLM"
+    versions = f"scikit-learn={_SKLEARN_VERSION}, scikit-lego={_SKLEGO_VERSION or 'n/a'}"
+    print(f"\nComparator versions: {versions} ({sklego_note})")
+
     print_fairness_notes(
-        title="External Tweedie Comparison: torchregress vs scikit-lego",
+        title="External Tweedie Comparison: torchregress vs scikit-learn TweedieRegressor",
         seed_policy="fixed seed; shared train/test split drawn from compound Poisson-Gamma",
         train_budget=(
             f"{cfg.epochs} epochs, batch={cfg.batch_size}, lr={cfg.lr} for torchregress MLP; "
-            "LBFGS up to 200 iterations for scikit-lego GLM"
+            f"LBFGS up to 200 iterations (alpha={cfg.glm_alpha}) for the scikit-learn GLM"
         ),
         metric_policy="MAE, Tweedie unit deviance, predicted zero-fraction, runtime",
     )
     print_comparison_summary(
-        "Tweedie: torchregress vs scikit-lego",
+        "Tweedie: torchregress vs scikit-learn TweedieRegressor (scikit-lego has no Tweedie GLM)",
         rows,
-        metric_order=["MAE", "TweedieDeviance", "ZeroFracPred", "train_s", "eval_s"],
+        metric_order=["Version", "MAE", "TweedieDeviance", "ZeroFracPred", "train_s", "eval_s"],
     )
 
     if summary_json_path is not None:
         out = write_comparison_summary_json(
             summary_json_path,
             example="examples/external_comparison_tweedie_vs_sklego.py",
-            task="Tweedie / compound-Poisson regression (vs scikit-lego)",
+            task="Tweedie / compound-Poisson regression (vs scikit-learn TweedieRegressor)",
             config=cfg,
             rows=rows,
             notes=[
-                f"scikit-lego availability: {_SKLEGO_AVAILABLE}",
+                f"Comparator versions: {versions}",
+                f"scikit-lego: {sklego_note}",
                 f"p_power={cfg.p_power}, phi={cfg.phi}",
-                "Capacity is not matched: torchregress uses an MLP; scikit-lego fits a log-link GLM.",
+                "GLM baseline is sklearn.linear_model.TweedieRegressor (log link) because "
+                "scikit-lego 0.9.x ships no Tweedie GLM.",
+                "Capacity is not matched: torchregress uses an MLP; the GLM is linear in the features.",
                 f"Test zero-fraction (compound Poisson-Gamma draw): {zero_frac_test:.2%}",
             ],
         )
@@ -306,7 +352,7 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="External Tweedie comparison: torchregress vs scikit-lego"
+        description="External Tweedie comparison: torchregress vs a log-link Tweedie GLM"
     )
     parser.add_argument("--summary-json-path", type=str, default=None)
     args = parser.parse_args()

@@ -1,62 +1,82 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "torchregress"
 version = "0.2.0"
-description = "PyTorch loss functions and utilities for regression problems."
+description = "Probabilistic and robust regression for PyTorch: losses, metrics, conformal prediction and calibration."
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
     {name = "Sébastien Fabbro", email = "sebfabbro@gmail.com"}
 ]
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12, <3.16"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
 ]
-keywords = ["pytorch", "regression", "machine learning", "deep learning", "loss functions"]
+keywords = [
+    "pytorch",
+    "regression",
+    "uncertainty quantification",
+    "conformal prediction",
+    "probabilistic forecasting",
+    "calibration",
+    "robust regression",
+    "loss functions",
+]
+# Floors track the newest releases the conda-forge pixi lock resolves
+# (2026-10-05); raised for 0.3.0, see CHANGELOG.
 dependencies = [
-    "torch",
-    "numpy",
-    "torchmetrics",
-    "scipy",
+    "torch>=2.13",
+    "numpy>=2.5",
+    "torchmetrics>=1.9",
+    "scipy>=1.18",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/sfabbro/torchregress"
-"Bug Tracker" = "https://github.com/sfabbro/torchregress/issues"
-"Documentation" = "https://sfabbro.github.io/torchregress/"
+"Homepage" = "https://github.com/astroai/torchregress"
+"Bug Tracker" = "https://github.com/astroai/torchregress/issues"
+"Documentation" = "https://astroai.github.io/torchregress/"
+"Source" = "https://github.com/astroai/torchregress"
+"Changelog" = "https://github.com/astroai/torchregress/blob/main/CHANGELOG.md"
 
 [project.scripts]
 torchregress-health = "torchregress.health:check_health"
 
 [project.optional-dependencies]
 test = [
-    "pytest",
-    "pytest-cov",
-    "polars",
-    "pyarrow",
-    "PyYAML",
-    "scikit-learn",
-    "pandas",
+    "pytest>=9.1",
+    "pytest-cov>=7.1",
+    "polars>=1.43",
+    "pyarrow>=25.0",
+    "PyYAML>=6.0.3",
+    "scikit-learn>=1.9",
+    "pandas>=3.0",
+    "scoringrules>=0.11",
+    "properscoring>=0.1",
+    "hypothesis>=6.100",
 ]
 docs = [
-    "zensical",
+    "zensical>=0.0.52",
 ]
 viz = [
-    "matplotlib",
+    "matplotlib>=3.11",
 ]
 flows = [
-    "zuko",
+    "zuko>=1.6",
 ]
 all = ["torchregress[test,docs,viz,flows]"]
 

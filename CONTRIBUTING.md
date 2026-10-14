@@ -52,6 +52,39 @@ pre-commit install --hook-type pre-push
 pre-commit run --all-files
 ```
 
+## GPU tests
+
+GitHub Actions is **CPU-only**. CUDA behaviour is validated locally on a GPU machine instead:
+
+- Device-sensitive tests carry the `@pytest.mark.cuda` marker. They are skipped automatically
+  when `torch.cuda.is_available()` is false (see `tests/conftest.py`), so the normal CPU run and
+  CI are unaffected.
+- `tests/test_device_parity.py` evaluates a curated set of public losses (value and gradient
+  w.r.t. `y_pred`) and metrics on CPU and on the target device, in float64 and float32, and
+  checks that outputs land on the target device and keep the input dtype. Known library
+  device/dtype bugs are recorded there as strict `xfail` entries.
+- The `device` fixture honours `TORCHREGRESS_TEST_DEVICE` (e.g. `cuda`), so the whole suite can
+  be re-run on the GPU.
+
+On every release candidate, run on a GPU workstation or a CANFAR session:
+
+```bash
+pixi run test-cuda            # or: bash scripts/ci_cuda.sh in any env with a CUDA build of torch,
+                              # e.g. pip install -e ".[test,flows,viz]"
+```
+
+The script exits with status 2 if CUDA is unavailable. Otherwise it runs `pytest -m cuda -v` and
+the full suite with `TORCHREGRESS_TEST_DEVICE=cuda`, and writes
+`reports/cuda/<YYYYMMDD>_<short-sha>.txt` (commit SHA, torch/CUDA versions, GPU name and both
+pytest summaries). Keep that report with the release evidence and commit it with the release.
+
+The parity tests can be exercised without a GPU; the target device then defaults to CPU, which
+still validates the case builders and catches dtype bugs:
+
+```bash
+TORCHREGRESS_PARITY_DEVICE=cpu pytest -m cuda
+```
+
 ## Documentation Conventions
 
 ### Static Site Generator

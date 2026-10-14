@@ -243,7 +243,9 @@ class BadModelPredictProba1D:
     def predict_proba(self, x):
         import numpy as np
 
-        return np.zeros(len(x))
+        # 1-D output path; constant 0.5 so units survive propensity trimming
+        # (all-zero propensities trim every unit, which now raises ValueError).
+        return np.full(len(x), 0.5)
 
 
 def test_dr_exceptions() -> None:
@@ -268,6 +270,17 @@ def test_dr_exceptions() -> None:
 
     # Test _predict_propensity with 1D predict_proba
     dr_ate(x, t, y, outcome_model=LinearRegression, propensity_model=BadModelPredictProba1D)
+
+    # ValueError when propensity trimming removes (almost) every unit
+    with pytest.raises(ValueError, match="propensity trimming"):
+        dr_ate(
+            x,
+            t,
+            y,
+            outcome_model=LinearRegression,
+            propensity_model=BadModelPredictProba1D,
+            trim_threshold=0.6,
+        )
 
     # ValueError for folds < 2
     with pytest.raises(ValueError, match="folds must be >= 2"):

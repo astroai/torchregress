@@ -10,7 +10,7 @@ Script: `examples/ood_selective_prediction_realdata_comparison.py`
 
 ## What It Compares
 
-- `DeepEnsemble`
+- `BaseEnsembleModel`
 - `HeteroscedasticEnsemble`
 - `MCDropoutWrapper` (proxy implementation in the example)
 - `SWAG`

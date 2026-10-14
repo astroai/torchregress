@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import torch
 
 from torchregress.prediction import PredictiveBatch
 from torchregress.test_time.transport import (
@@ -628,6 +629,20 @@ class TestPPITargetCI:
         assert result["method"] == "ppi_mean_ci"
         assert "ci_lower" in result
         assert "ci_upper" in result
+
+    def test_mean_estimand_keeps_float64(self) -> None:
+        """float64 inputs stay float64: a large offset must not round the SE to zero."""
+        X, y = _make_source_data(32, seed=20)
+        predictor = _make_predictor()
+        transport = ShiftFactoredPredictiveTransport(
+            ShiftFactoredTransportConfig(n_support=64, random_state=0)
+        ).fit_source(predictor.predict_distribution(X), y, source_inputs=X)
+        gen = torch.Generator().manual_seed(0)
+        f_l = 1e7 + 0.1 * torch.randn(200, generator=gen, dtype=torch.float64)
+        y_l = f_l + 0.01 * torch.randn(200, generator=gen, dtype=torch.float64)
+        f_u = 1e7 + 0.1 * torch.randn(2000, generator=gen, dtype=torch.float64)
+        result = transport.ppi_target_ci("mean", y_l, f_l, f_u, alpha=0.1, n_boot=200, seed=0)
+        assert result["se"] > 1e-4
 
     def test_quantile_estimand_with_q(self) -> None:
         """Quantile estimand with q."""

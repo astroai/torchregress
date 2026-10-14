@@ -27,7 +27,7 @@ from torchregress.losses import (
     WeightedL1Loss,
     WeightedMSELoss,
 )
-from torchregress.metrics.point import mae, mse, rmse
+from torchregress.metrics.point import mean_absolute_error, mean_squared_error, rmse
 
 # Set random seeds for reproducibility
 torch.manual_seed(42)
@@ -271,14 +271,14 @@ def evaluate_model(model, test_loader):
     all_targets = torch.cat(all_targets, dim=0)
 
     # Calculate metrics
-    mae_value = mae(all_preds, all_targets)
-    mse_value = mse(all_preds, all_targets)
+    mae_value = mean_absolute_error(all_preds, all_targets)
+    mse_value = mean_squared_error(all_preds, all_targets)
     rmse_value = rmse(all_preds, all_targets)
 
     return {
-        "mae": mae_value.item(),
-        "mse": mse_value.item(),
-        "rmse": rmse_value.item(),
+        "mae": float(mae_value),
+        "mse": float(mse_value),
+        "rmse": float(rmse_value),
         "predictions": all_preds.numpy(),
         "targets": all_targets.numpy(),
     }

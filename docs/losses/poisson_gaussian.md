@@ -53,7 +53,7 @@ Negative log-likelihood loss for a mixture of Gaussian (readout noise) and Poiss
 
 **Methods:**
 
-- `forward(y_pred, y_true, mask=None, weights=None, extra_var=None)`: Computes the mixture loss
+- `forward(y_pred, target, extra_var=None, mask=None, weights=None, **kwargs)`: Computes the mixture loss. Note that `extra_var` is the **third positional** parameter — an optional per-sample variance added to the Gaussian component's variance when `extra_variance_model=True` (calling `loss_fn(y_pred, target, mask, weights, extra_var)` would bind `extra_var` to `mask`).
 
 The loss combines Poisson and Gaussian negative log-likelihoods using specified or learned weights:
 
@@ -161,42 +161,21 @@ loss_fn_calib = tr.losses.EnhancedPoissonGaussianMixtureLoss(
 loss = loss_fn_calib(y_pred, y_true)
 ```
 
-## Factory Functions
+## Constructing from keyword arguments
 
-### poisson_gaussian_mixture_loss
-
-```python
-poisson_gaussian_mixture_loss(learn_variance=False, initial_variance=1.0,
-                             log_input=False, mixture_weights=None,
-                             extra_variance_model=False, **kwargs)
-```
-
-Create a Poisson-Gaussian mixture loss function with the specified parameters.
-
-**Example:**
+The loss classes accept their configuration either as a `config` object or as
+keyword arguments, so no separate factory functions are needed.
 
 ```python
-# Create a loss with learnable mixture weights
-loss_fn = tr.losses.poisson_gaussian_mixture_loss(
+# A mixture loss with learnable mixture weights
+loss_fn = tr.losses.PoissonGaussianMixtureLoss(
     learn_variance=True,
     mixture_weights='learn',
     log_input=True
 )
-```
 
-### enhanced_poisson_gaussian_loss
-
-```python
-enhanced_poisson_gaussian_loss(**kwargs)
-```
-
-Create an enhanced Poisson-Gaussian mixture loss with the specified parameters.
-
-**Example:**
-
-```python
-# Create a loss with learnable gain and signal-dependent noise
-loss_fn = tr.losses.enhanced_poisson_gaussian_loss(
+# A loss with learnable gain and signal-dependent noise
+loss_fn = tr.losses.EnhancedPoissonGaussianMixtureLoss(
     gain='learn',
     read_noise=0.1,
     shot_noise='learn',

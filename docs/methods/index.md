@@ -65,6 +65,19 @@ closed-form posterior updates, OT-based conformal reweighting for covariate
 shift, and shift-factored predictive transport. **Start here if your test
 distribution differs from training.**
 
+### [Tabular MLP](tabular_mlp.md)
+
+A strong-default neural backbone for tabular data (robust scaling, periodic
+embeddings, AdamW with early stopping) that works with any torchregress loss
+head. **Start here if you need a well-tuned network without a tuning loop.**
+
+### [Model-Agnostic UQ Wrappers](estimators.md)
+
+Conformal intervals (split, normalized, CQR, CV+, Jackknife+) and variance
+calibration on top of any scikit-learn, LightGBM, torch or `TabularFit` base,
+plus a one-call calibrated deep-ensemble recipe. Experimental in 0.3, may change
+in 0.4. **Start here if you already have a good point model and need intervals.**
+
 ### [Post-Hoc Calibration](calibration.md)
 
 Improve uncertainty quality after training: variance temperature scaling,

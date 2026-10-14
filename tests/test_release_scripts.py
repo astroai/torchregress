@@ -83,6 +83,27 @@ class TestBumpVersion:
         assert result.returncode == 0
         assert 'version = "0.2.0"' in pyproject.read_text(encoding="utf-8")
 
+    def test_explicit_release_candidate_and_final(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        _write_pyproject(pyproject, "0.2.0")
+
+        result = _run_bump(pyproject, "--version", "0.3.0rc1")
+        assert result.returncode == 0
+        assert "0.2.0 -> 0.3.0rc1" in result.stdout
+
+        result = _run_bump(pyproject, "--version", "0.3.0")
+        assert result.returncode == 0
+        assert "0.3.0rc1 -> 0.3.0" in result.stdout
+        assert 'version = "0.3.0"' in pyproject.read_text(encoding="utf-8")
+
+    def test_semver_bump_refuses_release_candidate(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        _write_pyproject(pyproject, "0.3.0rc1")
+
+        result = _run_bump(pyproject, "patch")
+        assert result.returncode != 0
+        assert "release candidate" in result.stderr
+
     def test_dry_run_does_not_write(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         _write_pyproject(pyproject, "0.1.0")
@@ -121,6 +142,22 @@ class TestVerifyVersion:
         _write_pyproject(pyproject, "0.1.0")
 
         result = _run_verify(pyproject, "v0.1.1")
+        assert result.returncode == 1
+        assert "Version mismatch" in result.stderr
+
+    def test_release_candidate_tag_passes(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        _write_pyproject(pyproject, "0.3.0rc1")
+
+        result = _run_verify(pyproject, "v0.3.0rc1")
+        assert result.returncode == 0
+        assert "OK:" in result.stdout
+
+    def test_release_candidate_tag_must_match_suffix(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        _write_pyproject(pyproject, "0.3.0rc1")
+
+        result = _run_verify(pyproject, "v0.3.0")
         assert result.returncode == 1
         assert "Version mismatch" in result.stderr
 

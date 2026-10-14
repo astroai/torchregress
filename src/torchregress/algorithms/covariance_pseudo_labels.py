@@ -15,6 +15,8 @@ from typing import Any, Literal
 
 import torch
 
+from ..utils.tensor_ops import float_dtype
+
 Metric = Literal["mahalanobis", "euclidean"]
 Weighting = Literal["softmax"]
 
@@ -40,10 +42,15 @@ class NeighborhoodCovarianceConfig:
     temperature: float = 1.0
 
 
+_BLOCK_ELEMS = 1 << 24
+
+
 def _as_tensor_2d(x: torch.Tensor | Any, *, name: str) -> torch.Tensor:
-    if not torch.is_tensor(x):
-        x = torch.as_tensor(x, dtype=torch.float32)
-    t = x.float()
+    # Keep a floating input dtype (float64 stays float64); integers/bools and python
+    # sequences use the default dtype.
+    t = torch.as_tensor(x)
+    if not t.is_floating_point():
+        t = t.to(torch.get_default_dtype())
     if t.dim() != 2:
         raise ValueError(f"{name} must be 2D [n, dim], got shape {tuple(t.shape)}")
     return t
@@ -119,6 +126,8 @@ class NeighborhoodCovariancePseudoLabeler:
         y0 = _as_tensor_2d(y, name="y")
         if x0.shape[0] != y0.shape[0]:
             raise ValueError("x and y must have the same number of rows")
+        dtype = float_dtype(x0, y0)
+        x0, y0 = x0.to(dtype), y0.to(dtype)
         n = x0.shape[0]
         if n < self.config.n_neighbors + 1:
             raise ValueError(
@@ -140,6 +149,8 @@ class NeighborhoodCovariancePseudoLabeler:
         yr = _as_tensor_2d(y_reference, name="y_reference")
         if xr.shape[0] != yr.shape[0]:
             raise ValueError("x_reference and y_reference must have the same number of rows")
+        dtype = float_dtype(xq, xr, yr)
+        xq, xr, yr = xq.to(dtype), xr.to(dtype), yr.to(dtype)
         n_ref = xr.shape[0]
         if n_ref < self.config.n_neighbors:
             raise ValueError(
@@ -168,21 +179,35 @@ class NeighborhoodCovariancePseudoLabeler:
 
         if self.config.metric == "mahalanobis":
             prec = _precision_from_features(x_ref, reg=reg)
-            diff = x_query.unsqueeze(1) - x_ref.unsqueeze(0)
-            dist = _pairwise_quad_form(diff, prec)
         elif self.config.metric == "euclidean":
-            diff = x_query.unsqueeze(1) - x_ref.unsqueeze(0)
-            dist = (diff * diff).sum(dim=-1)
+            prec = None
         else:
             raise ValueError(f"Unknown metric {self.config.metric!r}")
 
-        if exclude_self:
-            mask_self = torch.eye(n, device=device, dtype=torch.bool)
-            dist_sq = dist.clone()
-            dist_sq.masked_fill_(mask_self, float("inf"))
-            vals, idx = dist_sq.topk(k, largest=False)
-        else:
-            vals, idx = dist.topk(k, largest=False)
+        # Process query rows in blocks so the (block, Nref, D) difference tensor stays
+        # bounded by ~_BLOCK_ELEMS elements.
+        n_ref, p = x_ref.shape
+        n_query = x_query.shape[0]
+        block = max(1, _BLOCK_ELEMS // max(1, n_ref * p))
+        vals_blocks: list[torch.Tensor] = []
+        idx_blocks: list[torch.Tensor] = []
+        for start in range(0, max(n_query, 1), block):
+            xq = x_query[start : start + block]
+            diff = xq.unsqueeze(1) - x_ref.unsqueeze(0)
+            if prec is not None:
+                dist = _pairwise_quad_form(diff, prec)
+            else:
+                dist = (diff * diff).sum(dim=-1)
+            if exclude_self:
+                # Global query row i has its self-match in reference column i.
+                rows = torch.arange(start, start + xq.shape[0], device=device)
+                dist = dist.clone()
+                dist[torch.arange(xq.shape[0], device=device), rows] = float("inf")
+            v, i = dist.topk(k, largest=False)
+            vals_blocks.append(v)
+            idx_blocks.append(i)
+        vals = torch.cat(vals_blocks, dim=0)
+        idx = torch.cat(idx_blocks, dim=0)
 
         logits = -vals / self.config.temperature
         w = torch.softmax(logits, dim=-1)

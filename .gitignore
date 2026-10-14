@@ -98,6 +98,8 @@ benchmarks/*.npz
 reports/*
 !reports/benchmark_thresholds/
 !reports/benchmark_thresholds/**
+!reports/cuda/
+!reports/cuda/**
 !reports/comparative_evidence_matrix_latest.json
 !reports/method_catalog_latest.json
 !reports/native_pytorch_leverage_matrix_2026-02-26.json

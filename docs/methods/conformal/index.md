@@ -89,6 +89,11 @@ The prediction interval is then:
 
 $$\hat{C}(x) = \{ y : s(x, y) \leq \hat{q} \}$$
 
+Equivalently, $\hat{q}$ is the $k$-th smallest score with $k = \lceil (n+1)(1-\alpha) \rceil$.
+
+!!! info "Too few calibration points: infinite intervals"
+    When $k = \lceil (n+1)(1-\alpha) \rceil > n$ (i.e. $\alpha < 1/(n+1)$; with Mondrian groups this is checked per group, so e.g. a group of $n \le 8$ points at $\alpha = 0.1$), no finite score carries the guarantee and **torchregress returns $\hat{q} = +\infty$**: the interval is the whole real line ($[-\infty, +\infty]$), exactly as the finite-sample guarantee requires. Clamping to the largest score would cover only $n/(n+1) < 1-\alpha$. The same applies to weighted calibration when the weighted calibration mass cannot reach $1-\alpha$, to the CV+/Jackknife+ ranks, to `SemiConformalCalibrator` thresholds, and to the level-set methods (`CTI`, `R2CConformal`, `SLSConformal`). Interval widths and means computed downstream are then `inf`; increase $n$ (or $\alpha$) if that is not acceptable.
+
 ### Marginal vs. Conditional Coverage
 
 Standard CP guarantees **marginal coverage** on average over all possible test points:
@@ -118,6 +123,14 @@ Instead of a uniform quantile, the threshold $\hat{q}$ is computed by solving th
 $$\sum_{i=1}^n \tilde{p}_i \mathbb{I}(s_i \leq s) \geq 1 - \alpha$$
 where the normalized weights are:
 $$\tilde{p}_i = \frac{w(X_i)}{\sum_{j=1}^n w(X_j) + w(X_{n+1})}, \quad \tilde{p}_{n+1} = \frac{w(X_{n+1})}{\sum_{j=1}^n w(X_j) + w(X_{n+1})}$$
+
+and the test-point mass $\tilde{p}_{n+1}$ sits at $s = +\infty$ (Tibshirani et al., 2019): if $\sum_{i} \tilde{p}_i \mathbb{I}(s_i \leq s)$ never reaches $1-\alpha$, then $\hat{q} = +\infty$. Only relative weights matter (the procedure is invariant to rescaling $w$). By default the test point receives the **mean calibration weight**; pass the test points' own density ratios with `predict_interval(..., test_weights=w_test)` (same scale as the calibration `weights`) to get the per-point thresholds of Tibshirani et al., which is what the covariate-shift guarantee requires:
+
+```python
+cp = SplitConformal(alpha=0.1)
+cp.calibrate(y_pred_cal, y_cal, weights=w_cal)               # w(x) = p_test(x) / p_cal(x)
+lower, upper = cp.predict_interval(y_pred_test, test_weights=w_test)
+```
 
 ### Coordinate-wise vs. Joint Multi-Target Conformal
 

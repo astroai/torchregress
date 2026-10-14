@@ -7,7 +7,7 @@ Implements the framework from Sacha Braun, Michael I. Jordan, and Francis Bach:
 from __future__ import annotations
 
 import math
-from typing import Any, Optional, Tuple, Union, cast
+from typing import Any, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -273,13 +273,14 @@ class MahalanobisFrontier(nn.Module):
         y: Tensor,
         context: Optional[Tensor] = None,
         beta: Optional[float] = None,
+        freeze_weights: Optional[bool] = None,
     ) -> Tuple[Tensor, Tensor]:
         # A6: an unconditional frontier (context_dim == 0) must never receive a
         # degenerate context tensor — pass None so the parameter path is used.
-        # ``beta`` is accepted (and ignored) so SLSLoss can pass a derived
-        # value polymorphically to both frontier types; a single-component
-        # Mahalanobis frontier has no mixture weights to anneal.
-        del beta
+        # ``beta``/``freeze_weights`` are accepted (and ignored) so SLSLoss can
+        # pass derived values polymorphically to both frontier types; a
+        # single-component Mahalanobis frontier has no mixture weights.
+        del beta, freeze_weights
         if self.context_dim == 0:
             context = None
         mu, L_params = self._get_params(context)
@@ -376,10 +377,18 @@ class UnionFrontier(nn.Module):
         self.beta.copy_(torch.clamp(self.beta * self.beta_growth, max=self.beta_cap))
 
     def freeze_weights(self, freeze: bool = True) -> None:
+        """Set the default freeze state used when ``forward`` gets no override.
+
+        ``SLSLoss`` never calls this: it passes ``freeze_weights=`` per call
+        (derived from the step), so its forward stays side-effect free.
+        """
         self._freeze_weights = freeze
 
-    def _get_mixture_weights(self, context: Optional[Tensor] = None) -> Tensor:
-        if self._freeze_weights:
+    def _get_mixture_weights(
+        self, context: Optional[Tensor] = None, freeze: Optional[bool] = None
+    ) -> Tensor:
+        frozen = self._freeze_weights if freeze is None else bool(freeze)
+        if frozen:
             batch_shape = context.shape[:-1] if context is not None else ()
             device = context.device if context is not None else self.beta.device
             return torch.full(
@@ -399,8 +408,20 @@ class UnionFrontier(nn.Module):
         y: Tensor,
         context: Optional[Tensor] = None,
         beta: Optional[float] = None,
+        freeze_weights: Optional[bool] = None,
     ) -> Tuple[Tensor, Tensor]:
-        p = self._get_mixture_weights(context)
+        """Evaluate the union frontier ``G_beta`` and its log-volume term.
+
+        Args:
+            y: Targets ``[..., d]``.
+            context: Optional context ``[..., context_dim]``.
+            beta: Optional soft-min temperature (defaults to the ``beta``
+                buffer).
+            freeze_weights: Optional per-call override of the mixture-weight
+                freeze state (defaults to the module attribute set by
+                :meth:`freeze_weights`).
+        """
+        p = self._get_mixture_weights(context, freeze=freeze_weights)
 
         G_components = []
         logdet_components = []
@@ -542,8 +563,14 @@ class SLSLoss(RegressionLoss):
     and ``forward_quantiles`` (optimises the quantile network via pinball
     loss).  Both are summed to form the final loss returned by ``forward()``.
 
-    For K > 1 (UnionFrontier), mixture weights are frozen during frontier warmup
-    and unfrozen afterwards via ``freeze_weights(False)`` and ``step_beta()``.
+    For K > 1 (UnionFrontier), mixture weights are frozen (uniform) during
+    frontier warmup and learned afterwards, and the soft-min temperature
+    follows ``UnionFrontier.beta_at(step - warmup_steps)``.  Both are derived
+    from ``step`` on every call (passed to the frontier per call), so
+    ``forward`` is a pure function of ``(parameters, inputs, step)``: it never
+    mutates the frontier, and ``forward_frontier`` / ``forward_quantiles``
+    evaluate the same ``G``.  Use :meth:`evaluate_frontier` to evaluate the
+    frontier outside training (e.g. for conformal calibration).
 
     References
     ----------
@@ -621,6 +648,43 @@ class SLSLoss(RegressionLoss):
         psi = sigmoidal_schedule(current_step, self.warmup_steps, self.error_init, self.error_min)
         return phi, psi
 
+    def _frontier_at(self, target: Tensor, context: Tensor, step: int) -> Tuple[Tensor, Tensor]:
+        """Frontier evaluated in the state implied by ``step`` (pure).
+
+        For a UnionFrontier the mixture weights are frozen iff
+        ``step <= warmup_steps`` and ``beta = beta_at(step - warmup_steps)``.
+        """
+        if isinstance(self.frontier, UnionFrontier):
+            n_post = max(0, step - self.warmup_steps)
+            return self.frontier(
+                target,
+                context,
+                beta=self.frontier.beta_at(n_post),
+                freeze_weights=step <= self.warmup_steps,
+            )
+        return self.frontier(target, context)
+
+    def evaluate_frontier(
+        self, target: Tensor, context: Tensor, step: Optional[int] = None
+    ) -> Tuple[Tensor, Tensor]:
+        """Evaluate the frontier ``(G, log-volume)`` without side effects.
+
+        Args:
+            target: Targets ``[..., d]``.
+            context: Context features ``[..., context_dim]``.
+            step: Training step whose frontier state to use (see
+                :meth:`_frontier_at`).  ``None`` (inference) uses the learned
+                mixture weights and the ``beta`` buffer of a UnionFrontier.
+
+        Returns:
+            ``(G, log_volume_term)`` as returned by the frontier.
+        """
+        if step is not None:
+            return self._frontier_at(target, context, int(step))
+        if isinstance(self.frontier, UnionFrontier):
+            return self.frontier(target, context, freeze_weights=False)
+        return self.frontier(target, context)
+
     def forward_frontier(
         self,
         y_pred: Tensor,
@@ -633,13 +697,9 @@ class SLSLoss(RegressionLoss):
         # counter advanced exactly once, by ``forward`` (which is also the
         # only direct entry point harness loops use).
         current_step = step if step is not None else self.step_counter
-        # UnionFrontier accepts a caller-derived beta (pure path); the
-        # Mahalanobis frontier ignores it.
-        beta_val: Optional[float] = None
-        if isinstance(self.frontier, UnionFrontier):
-            n_post = max(0, current_step - self.warmup_steps)
-            beta_val = self.frontier.beta_at(n_post)
-        G, log_det_L = self.frontier(target, y_pred, beta=beta_val)
+        # UnionFrontier gets caller-derived beta / freeze state (pure path);
+        # the Mahalanobis frontier ignores them.
+        G, log_det_L = self._frontier_at(target, y_pred, int(current_step))
 
         # A6: sign-consistent volume term. MahalanobisFrontier's log_det_L is
         # log|L| (volume of the level set scales as |Σ|^{1/2} = prod L_ii),
@@ -669,8 +729,11 @@ class SLSLoss(RegressionLoss):
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
     ) -> Tensor:
+        current_step = step if step is not None else self.step_counter
+        # Same step-derived frontier (beta, mixture-weight state) as
+        # forward_frontier, so the quantile net tracks the G being optimised.
         with torch.no_grad():
-            G, _ = self.frontier(target, y_pred)
+            G, _ = self._frontier_at(target, y_pred, int(current_step))
 
         phi, psi = self.get_current_window(step=step)
         beta_low = max(0.01, self.tau - phi)
@@ -705,19 +768,14 @@ class SLSLoss(RegressionLoss):
         # B1 fallback: the counter advances exactly once per forward call,
         # here — nowhere else.
         step_val = step if step is not None else kwargs.get("step")
-        if step_val is not None:
-            current_step = int(step_val)
-        else:
-            current_step = self._advance_step()
+        if step_val is None:
+            self._advance_step()
 
-        if current_step > self.warmup_steps and self.K > 1:
-            # Derived state instead of mutated state: mixture weights unfreeze
-            # (logically) past warmup and the effective beta comes from the
-            # pure ``beta_at`` schedule. ``_freeze_weights``/``beta`` are only
-            # touched by external callers driving the frontier directly.
-            frontier_union = cast(UnionFrontier, self.frontier)
-            frontier_union.freeze_weights(False)
-
+        # Derived state instead of mutated state: for K > 1 the mixture weights
+        # unfreeze (logically) past warmup and the effective beta comes from
+        # the pure ``beta_at`` schedule, both passed per call by
+        # ``_frontier_at``. ``_freeze_weights``/``beta`` are only touched by
+        # external callers driving the frontier directly.
         loss_frontier = self.forward_frontier(
             y_pred, target, step=step_val, mask=mask, weights=weights
         )

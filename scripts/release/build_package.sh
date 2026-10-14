@@ -49,6 +49,8 @@ validate_artifacts() {
     esac
   done
 
+  # Contents: no tooling output, py.typed and LICENSE present, versions agree.
+  pixi run --environment release python scripts/release/check_dist.py dist
   echo "OK: validated ${#sdists[@]} sdist(s) and ${#wheels[@]} wheel(s) in dist/"
 }
 

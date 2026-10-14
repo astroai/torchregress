@@ -110,18 +110,17 @@ def test_predictive_batch_identical_support_collapsing():
     assert res3.support.shape == (5,)
 
 
-def test_quantiles_grid_zero_on_extrapolated_margins():
-    # TR-COR-02: support outside [q_first, q_last] must have exactly zero density.
-    q = torch.tensor([[1.0, 2.0, 3.0]])
+def test_quantiles_grid_tail_mass_on_extrapolated_margins():
+    # PRD-001 (supersedes TR-COR-02): the margins carry exactly the tail mass
+    # tau_0 below q_first and 1 - tau_last above q_last, uniformly.
+    q = torch.tensor([[1.0, 2.0, 3.0]], dtype=torch.float64)
     levels = [0.1, 0.5, 0.9]
-    support, density = quantiles_to_density_grid(q, levels, range_margin=0.2)
-    below = support[0] < 1.0
-    above = support[0] > 3.0
+    support, density = quantiles_to_density_grid(q, levels, range_margin=0.2, n_support=2001)
+    s, d = support[0], density[0]
+    below, above = s < 1.0, s > 3.0
     assert below.any() and above.any(), "grid must include extrapolated margins"
-    assert torch.count_nonzero(density[0][below]) == 0
-    assert torch.count_nonzero(density[0][above]) == 0
-    interior = (support[0] >= 1.0) & (support[0] <= 3.0)
-    assert torch.count_nonzero(density[0][interior]) > 0
+    torch.testing.assert_close(d[below], torch.full_like(d[below], 0.1 / 0.4), rtol=1e-2, atol=0)
+    torch.testing.assert_close(d[above], torch.full_like(d[above], 0.1 / 0.4), rtol=1e-2, atol=0)
     integral = torch.trapezoid(density, support, dim=1)
     assert torch.allclose(integral, torch.ones_like(integral), rtol=1e-3)
 
@@ -129,7 +128,8 @@ def test_quantiles_grid_zero_on_extrapolated_margins():
 def _bars_reference_rowwise(
     logits: torch.Tensor, edges: torch.Tensor, *, n_support: int, range_margin: float
 ):
-    """Row-wise reference replicating the pre-vectorization implementation."""
+    """Row-wise reference: pre-vectorization implementation, with zero density
+    outside ``[edges[0], edges[-1]]`` (I-ENS-003)."""
     logits = logits - logits.amax(dim=1, keepdim=True)
     probs = logits.exp()
     probs = probs / probs.sum(dim=1, keepdim=True).clamp(min=1.0e-8)
@@ -148,6 +148,8 @@ def _bars_reference_rowwise(
             0, logits.shape[1] - 1
         )
         dens = bar_density[bin_idx].clamp(min=0.0)
+        outside = (support[idx] < edges[idx][0]) | (support[idx] > edges[idx][-1])
+        dens[outside] = 0.0
         integral_val = float(torch.trapezoid(dens, support[idx]).item())
         density[idx] = dens / max(integral_val, 1.0e-8)
     return support, density

@@ -27,7 +27,6 @@ Composable features (all predictors):
 
 Loss wrappers (backward-compatible):
 - ConformalLoss: training loss + calibration + prediction
-- MultiDimensionalConformalLoss: multi-output variant
 """
 
 import logging
@@ -53,70 +52,153 @@ def _to_1d(values: Tensor) -> Tensor:
     return values.reshape(values.shape[0], -1).mean(dim=-1)
 
 
+def _inf_like(ref: Tensor) -> Tensor:
+    """Scalar ``+inf`` with the (floating) dtype and device of ``ref``."""
+    dtype = ref.dtype if ref.is_floating_point() else torch.get_default_dtype()
+    return torch.full((), float("inf"), dtype=dtype, device=ref.device)
+
+
+# Relative tolerance for comparing an (augmented) cumulative weight mass with
+# the target level: absorbs float64 cumsum round-off so that a level hit
+# exactly in exact arithmetic is not missed by one ulp.
+_LEVEL_RTOL = 1e-12
+
+
+def _weighted_conformal_thresholds(
+    scores: Tensor,
+    q: float,
+    weights: Tensor,
+    test_weights: Optional[Tensor] = None,
+) -> Tensor:
+    """Weighted conformal thresholds for one or more test-point weights.
+
+    Implements the weighted split-conformal quantile of Tibshirani et al.
+    (2019): the level-``q`` quantile of the augmented distribution
+    ``sum_i p_i delta_{s_i} + p_{n+1} delta_{+inf}`` with
+    ``p_i = w_i / (sum_j w_j + w_{n+1})`` and ``p_{n+1} = w_{n+1} / (...)``.
+    The calibration weights are first normalised to mean one, so the
+    procedure is invariant to rescaling the weights; ``test_weights`` are
+    interpreted on the SAME (raw) scale as ``weights`` and default to the
+    mean calibration weight (``w_{n+1} = 1`` after normalisation).  When the
+    level falls on the test-point atom the threshold is ``+inf``.
+
+    Args:
+        scores: 1-D calibration scores ``[n]``.
+        q: Quantile level in ``[0, 1]`` (``1 - alpha``).
+        weights: 1-D non-negative calibration weights ``[n]``.
+        test_weights: Optional 1-D non-negative test-point weights ``[m]``
+            (raw scale).  ``None`` means one test point with the mean weight.
+
+    Returns:
+        Thresholds ``[m]`` (``[1]`` when ``test_weights`` is ``None``) in the
+        dtype of ``scores`` (``+inf`` where the level is not reached).
+    """
+    flat = scores.reshape(-1)
+    w = weights.reshape(-1).to(device=flat.device, dtype=torch.float64)
+    if w.numel() == 0:
+        raise ValueError("Input weights tensor is empty.")
+    if w.numel() != flat.numel():
+        raise ValueError(f"weights must have shape ({flat.numel()},), got {tuple(weights.shape)}")
+    if torch.any(w < 0):
+        raise ValueError("Sample weights must be non-negative.")
+    w_mean = w.mean()
+    if not float(w_mean) > 0.0 or not bool(torch.isfinite(w_mean)):
+        raise ValueError("Sum of sample weights must be positive and finite.")
+    if test_weights is None:
+        w_test = torch.ones(1, dtype=torch.float64, device=flat.device)
+    else:
+        w_test = test_weights.reshape(-1).to(device=flat.device, dtype=torch.float64)
+        if torch.any(w_test < 0) or not bool(torch.isfinite(w_test).all()):
+            raise ValueError("Test weights must be non-negative and finite.")
+        w_test = w_test / w_mean
+    w = w / w_mean
+
+    sorted_idx = flat.argsort()
+    sorted_scores = flat[sorted_idx]
+    cum_w = torch.cumsum(w[sorted_idx], dim=0)  # unnormalised calibration mass
+    # Level ``q`` on the augmented distribution, in units of the unnormalised
+    # mass: first index with cum_w >= q * (sum_j w_j + w_{n+1}).
+    need = float(q) * (cum_w[-1] + w_test)
+    need = need - _LEVEL_RTOL * need.abs()
+    idx = torch.searchsorted(cum_w, need)
+    n = sorted_scores.numel()
+    out_dtype = flat.dtype if flat.is_floating_point() else torch.get_default_dtype()
+    thresholds = torch.full(idx.shape, float("inf"), dtype=out_dtype, device=flat.device)
+    hit = idx < n
+    thresholds[hit] = sorted_scores[idx[hit]].to(out_dtype)
+    return thresholds
+
+
 def _weighted_quantile(
     scores: Tensor,
     q: float,
     weights: Optional[Tensor] = None,
+    test_weight: Optional[Union[float, Tensor]] = None,
 ) -> Tensor:
-    """Compute (weighted) quantile of 1-D scores.
+    """Compute the (weighted) finite-sample conformal quantile of 1-D scores.
 
-    For unweighted case, delegates to :func:`finite_sample_quantile` at level
-    ``1 - q`` (the exact finite-sample order statistic).  For weighted case,
-    evaluates ``q`` on the AUGMENTED empirical distribution that includes the
-    held-out test point with unit weight: ``p_i = w_i / (sum_j w_j + w_{n+1})``
-    with ``w_{n+1} = 1``.  Uniform weights therefore reproduce
-    :func:`finite_sample_quantile` exactly (TR-COR-05).
+    For the unweighted case, delegates to :func:`finite_sample_quantile` at
+    level ``1 - q`` (the exact finite-sample order statistic, ``+inf`` when
+    ``ceil((n+1) q) > n``).  For the weighted case, evaluates ``q`` on the
+    AUGMENTED empirical distribution that includes the held-out test point
+    (Tibshirani et al., 2019): ``p_i = w_i / (sum_j w_j + w_{n+1})``.  The
+    weights are normalised to mean one and the test-point weight
+    ``w_{n+1}`` defaults to the mean calibration weight, so the result is
+    invariant to rescaling ``weights`` and constant weights reproduce
+    :func:`finite_sample_quantile` exactly (TR-COR-05).  If the cumulative
+    calibration mass never reaches ``q`` (the level falls on the test-point
+    atom), the quantile is ``+inf``.
 
     Args:
         scores: 1-D tensor of nonconformity scores.
         q: Quantile level in [0, 1] (e.g. 1 - alpha).
-        weights: Optional 1-D importance weights (need not sum to 1).
+        weights: Optional 1-D importance weights (any positive scale).
+        test_weight: Optional weight of the test point on the same (raw)
+            scale as ``weights``; defaults to ``weights.mean()``.
 
     Returns:
-        Scalar tensor with the quantile value.
+        Scalar tensor with the quantile value (possibly ``+inf``).
     """
     if weights is None:
+        if test_weight is not None:
+            raise ValueError("test_weight requires calibration weights.")
         if q >= 1.0:
-            # Saturated finite-sample level (q_adj = ceil((n+1)(1-a))/n > 1 for
-            # small n): the exact threshold is the largest order statistic.
-            return torch.max(scores.reshape(-1))
+            # Level 1 is only attained by the test-point atom at +inf.
+            return _inf_like(scores)
         return finite_sample_quantile(scores, 1.0 - q)
 
-    # Weighted quantile via sorted CDF over the augmented (n + 1)-point
-    # distribution; float64 keeps the uniform-weight case bitwise-exact.
-    sorted_idx = scores.argsort()
-    sorted_scores = scores[sorted_idx]
-    sorted_weights = weights[sorted_idx]
-    if sorted_weights.numel() == 0:
-        raise ValueError("Input weights tensor is empty.")
-    if torch.any(sorted_weights < 0):
-        raise ValueError("Sample weights must be non-negative.")
-    cum_weights = torch.cumsum(sorted_weights.to(torch.float64), dim=0)
-    total_weight = float(cum_weights[-1]) + 1.0  # +1: held-out test point
-    if not total_weight > 1.0:
-        raise ValueError("Sum of sample weights must be positive.")
-    cum_weights = cum_weights / total_weight  # normalize augmented CDF to [0, 1)
-    # First index where cumulative weight >= q
-    idx = torch.searchsorted(
-        cum_weights, torch.tensor(float(q), dtype=torch.float64, device=cum_weights.device)
-    )
-    idx = idx.clamp(max=len(sorted_scores) - 1)
-    return sorted_scores[idx]
+    flat_w = weights.reshape(-1)
+    if (
+        test_weight is None
+        and flat_w.numel() > 0
+        and bool(torch.all(flat_w == flat_w[0]))
+        and float(flat_w[0]) > 0.0
+        and q < 1.0
+    ):
+        # Constant weights: exactly split CP (bitwise-identical threshold).
+        return finite_sample_quantile(scores, 1.0 - q)
+    tw = None if test_weight is None else torch.as_tensor(test_weight, dtype=torch.float64)
+    return _weighted_conformal_thresholds(scores, q, weights, tw)[0]
 
 
 def finite_sample_quantile(scores: Tensor, alpha: float) -> Tensor:
     """Smallest order statistic k = ceil((n+1)*(1-alpha)); exact split-conformal threshold.
 
     Sorts the scores and returns ``sorted_scores[k - 1]`` with
-    ``k = min(ceil((n+1)*(1-alpha)), n)`` — the smallest threshold whose
-    exchangeability coverage guarantee is at least ``1 - alpha``.
+    ``k = ceil((n+1)*(1-alpha))`` -- the smallest threshold whose
+    exchangeability coverage guarantee is at least ``1 - alpha``.  When
+    ``k > n`` (too few calibration points for the requested ``alpha``, i.e.
+    ``alpha < 1/(n+1)``) no finite order statistic carries the guarantee and
+    the threshold is ``+inf`` (Lei et al. 2018; Angelopoulos & Bates 2023):
+    the resulting prediction interval is the whole real line.
 
     Args:
         scores: Tensor of nonconformity scores (any shape; flattened).
         alpha: Miscoverage level in (0, 1).
 
     Returns:
-        Scalar tensor with the finite-sample conformal threshold.
+        Scalar tensor with the finite-sample conformal threshold (``+inf``
+        when ``ceil((n+1)*(1-alpha)) > n``).
     """
     if not 0.0 < alpha < 1.0:
         raise ValueError(f"alpha must be in (0, 1), got {alpha}")
@@ -124,7 +206,9 @@ def finite_sample_quantile(scores: Tensor, alpha: float) -> Tensor:
     n = flat.numel()
     if n == 0:
         raise ValueError("Input scores tensor is empty.")
-    k = min(math.ceil((n + 1) * (1.0 - alpha)), n)
+    k = math.ceil((n + 1) * (1.0 - alpha))
+    if k > n:
+        return _inf_like(flat)
     return torch.sort(flat).values[k - 1]
 
 
@@ -132,14 +216,15 @@ def _weighted_conformal_threshold(
     scores_cal: Tensor,
     w_cal: Optional[Tensor],
     alpha: float,
+    test_weights: Optional[Tensor] = None,
 ) -> Tensor:
     """Weighted finite-sample conformal threshold at miscoverage ``alpha``.
 
-    Delegates to :func:`_weighted_quantile` with the Tibshirani augmented
-    ECDF (``+ w_{n+1}=1``) so uniform and non-uniform weights share one
-    implementation.  Previously used ``k/n`` without augmentation which
-    diverged from :func:`_weighted_quantile` for non-uniform weights
-    (NEW-HIGH-01).
+    Delegates to the Tibshirani augmented ECDF (see
+    :func:`_weighted_conformal_thresholds`) so uniform and non-uniform
+    weights share one implementation (NEW-HIGH-01).  Returns a scalar when
+    ``test_weights`` is ``None`` and a ``[m]`` tensor of per-test-point
+    thresholds otherwise; ``+inf`` where the level falls on the test atom.
     """
     if not 0.0 < alpha < 1.0:
         raise ValueError(f"alpha must be in (0, 1), got {alpha}")
@@ -148,10 +233,16 @@ def _weighted_conformal_threshold(
     if n == 0:
         raise ValueError("Input scores tensor is empty.")
     if w_cal is None:
-        return finite_sample_quantile(flat, alpha)
+        if test_weights is not None:
+            # Unit calibration weights: test weights are on that scale.
+            w_cal = torch.ones(n, dtype=torch.float64, device=flat.device)
+        else:
+            return finite_sample_quantile(flat, alpha)
     w = w_cal.reshape(-1)
     if w.numel() != n:
         raise ValueError(f"weights must have shape ({n},), got {tuple(w_cal.shape)}")
+    if test_weights is not None:
+        return _weighted_conformal_thresholds(flat, 1.0 - alpha, w, test_weights)
     # _weighted_quantile expects quantile level q=1-alpha on augmented distribution
     return _weighted_quantile(flat, 1.0 - alpha, weights=w)
 
@@ -195,10 +286,25 @@ class NonExchangeableConformalRegressor:
     Uniform weights give ``Delta = 0``: the bounds collapse to the ordinary
     finite-sample split-conformal statement.
 
+    The threshold itself is the Tibshirani et al. (2019) weighted quantile of
+    the augmented distribution with the test-point atom at ``+inf``: the
+    weights are normalised (to mean one) before the quantile is taken, so it
+    is invariant to rescaling ``w_cal``, and the test-point weight defaults
+    to the mean calibration weight.  Pass the test point's own weight (on
+    the raw ``w_cal`` scale) through ``test_weights`` of
+    :meth:`interval_from_model` / :meth:`thresholds` for per-point
+    thresholds.  When the calibration mass never reaches ``1 - alpha`` (too
+    few or too unequal weights for the requested ``alpha``) the threshold is
+    ``+inf`` and the interval is the whole real line, as the finite-sample
+    guarantee requires.
+
     Args:
         alpha: Miscoverage level in (0, 1).
-        normalize_weights: If ``True`` (default), internally normalizes
-            ``w_cal`` to sum to one before computing thresholds and bounds.
+        normalize_weights: If ``True`` (default), the stored weight
+            diagnostics (``weights_normalized_``, ``max_weight_ratio_``,
+            ``weight_tv_gap_``) and the coverage bounds use ``w_cal``
+            normalised to sum to one; if ``False`` they use the raw weights.
+            The threshold is scale invariant and unaffected by this flag.
 
     """
 
@@ -212,6 +318,8 @@ class NonExchangeableConformalRegressor:
         self.weights_normalized_: Optional[Tensor] = None
         self.max_weight_ratio_: float = 0.0
         self.weight_tv_gap_: float = 0.0
+        self._scores_cal: Optional[Tensor] = None
+        self._w_cal: Optional[Tensor] = None
 
     def calibrate(
         self, scores_cal: Tensor, w_cal: Optional[Tensor] = None
@@ -228,6 +336,8 @@ class NonExchangeableConformalRegressor:
         """
         flat = scores_cal.reshape(-1).detach()
         self.n_calibrated_ = int(flat.numel())
+        self._scores_cal = flat
+        self._w_cal = None
         if w_cal is None:
             self.weights_normalized_ = None
             self.max_weight_ratio_ = 1.0 / float(self.n_calibrated_)
@@ -252,15 +362,36 @@ class NonExchangeableConformalRegressor:
                 UserWarning,
                 2,
             )
+            w = torch.ones_like(flat)
             w_sum = w.sum()
         w_norm = w / w_sum if self.normalize_weights else w
         n = float(self.n_calibrated_)
         self.weights_normalized_ = w_norm
         self.max_weight_ratio_ = float(w_norm.max())
         self.weight_tv_gap_ = float(0.5 * (w_norm - 1.0 / n).abs().sum())
-        # Use raw weights for threshold (test weight 1 is comparable to raw scale)
+        self._w_cal = w
+        # Scale-invariant Tibshirani threshold (test weight = mean weight);
+        # +inf when the level falls on the test-point atom.
         self.threshold_ = _weighted_conformal_threshold(flat, w, self.alpha)
         return self
+
+    def thresholds(self, test_weights: Tensor) -> Tensor:
+        """Per-test-point weighted thresholds for explicit test weights.
+
+        Args:
+            test_weights: 1-D non-negative weights ``w(X_{n+1})`` of the test
+                points, on the same (raw) scale as the calibration weights
+                (unit scale when :meth:`calibrate` got no weights).
+
+        Returns:
+            ``[m]`` thresholds (``+inf`` where the level falls on the
+            test-point atom).
+        """
+        if self.threshold_ is None or self._scores_cal is None:
+            raise RuntimeError("call calibrate() before thresholds()")
+        return _weighted_conformal_threshold(
+            self._scores_cal, self._w_cal, self.alpha, test_weights=test_weights
+        )
 
     def two_sided_coverage_bounds(self) -> Tuple[float, float]:
         """Two-sided coverage bounds for the calibrated predictor.
@@ -284,13 +415,16 @@ class NonExchangeableConformalRegressor:
         X_test: Tensor,
         w_cal: Optional[Tensor] = None,
         alpha: Optional[float] = None,
+        *,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Absolute-residual intervals ``[mu(x) - q, mu(x) + q]`` around a model.
 
         Computes absolute-residual scores on ``(X_cal, y_cal)`` with the frozen
         ``model``, calibrates the weighted threshold (with the provided
         importance weights, or uniformly when ``w_cal`` is ``None``), and wraps
-        the model prediction on ``X_test``.
+        the model prediction on ``X_test``.  Intervals are infinite when the
+        threshold is ``+inf`` (see the class docstring).
 
         Args:
             model: Frozen callable mapping features to point predictions.
@@ -299,6 +433,9 @@ class NonExchangeableConformalRegressor:
             X_test: Test features.
             w_cal: Optional importance weights toward the target distribution.
             alpha: Optional override of the constructor miscoverage level.
+            test_weights: Optional 1-D weights ``w(X_test)`` (same raw scale
+                as ``w_cal``) giving one threshold per test point; default is
+                a single threshold with the mean calibration weight.
 
         Returns:
             ``(lower, upper)`` tensors shaped like the model predictions.
@@ -318,7 +455,9 @@ class NonExchangeableConformalRegressor:
         y_cal_1d = y_cal.reshape(y_cal.shape[0], -1).mean(dim=-1)
         scores = (y_cal_1d - pred_cal_1d).abs()
         eff_alpha = self.alpha if alpha is None else float(alpha)
-        threshold = _weighted_conformal_threshold(scores, w_cal, eff_alpha)
+        threshold = _weighted_conformal_threshold(
+            scores, w_cal, eff_alpha, test_weights=test_weights
+        ).to(device=pred_test_1d.device, dtype=pred_test_1d.dtype)
         return pred_test_1d - threshold, pred_test_1d + threshold
 
 
@@ -351,6 +490,8 @@ class MultivariateScoreConformal:
         self.alpha = float(alpha)
         self.score_fn = score_fn
         self.threshold_: Optional[Tensor] = None
+        self._scores_cal: Optional[Tensor] = None
+        self._w_cal: Optional[Tensor] = None
 
     @staticmethod
     def _prepare_covariances(cov: Tensor, n: int, d: int, ref: Tensor) -> Tensor:
@@ -416,8 +557,15 @@ class MultivariateScoreConformal:
 
         Returns:
             ``self`` for chaining.
+
+        Notes:
+            The radius is ``+inf`` (the region is all of ``R^d``) when the
+            calibration mass cannot reach ``1 - alpha``, e.g. ``n`` too small
+            for the requested ``alpha``.
         """
-        scores = self._scores(mu_cal, cov_cal, y_cal)
+        scores = self._scores(mu_cal, cov_cal, y_cal).detach()
+        self._scores_cal = scores
+        self._w_cal = None if w_cal is None else w_cal.reshape(-1).detach()
         self.threshold_ = _weighted_conformal_threshold(scores, w_cal, self.alpha)
         return self
 
@@ -427,12 +575,33 @@ class MultivariateScoreConformal:
             raise RuntimeError("call calibrate() before region_radius()")
         return float(self.threshold_)
 
-    def covers(self, mu_test: Tensor, cov_test: Tensor, y_test: Tensor) -> Tensor:
-        """Per-test-point membership of ``y`` in the joint conformal region."""
-        if self.threshold_ is None:
+    def covers(
+        self,
+        mu_test: Tensor,
+        cov_test: Tensor,
+        y_test: Tensor,
+        *,
+        test_weights: Optional[Tensor] = None,
+    ) -> Tensor:
+        """Per-test-point membership of ``y`` in the joint conformal region.
+
+        Args:
+            mu_test: ``[m, d]`` predictive means.
+            cov_test: Predictive covariances (see class docstring).
+            y_test: ``[m, d]`` targets.
+            test_weights: Optional ``[m]`` weights ``w(X_test)`` on the raw
+                calibration-weight scale for per-point weighted radii.
+        """
+        if self.threshold_ is None or self._scores_cal is None:
             raise RuntimeError("call calibrate() before covers()")
         scores = self._scores(mu_test, cov_test, y_test)
-        return scores <= self.threshold_.to(device=scores.device, dtype=scores.dtype)
+        if test_weights is None:
+            radius = self.threshold_
+        else:
+            radius = _weighted_conformal_threshold(
+                self._scores_cal, self._w_cal, self.alpha, test_weights=test_weights
+            )
+        return scores <= radius.to(device=scores.device, dtype=scores.dtype)
 
 
 # ---------------------------------------------------------------------------
@@ -446,6 +615,12 @@ class ConformalPredictor:
     Handles score normalization, Mondrian grouping, and weighted quantiles
     as composable features.  Subclasses implement ``_compute_scores`` and
     ``_build_intervals``.
+
+    With too few calibration points for the requested ``alpha`` (``k =
+    ceil((n+1)(1-alpha)) > n``, per Mondrian group when ``groups`` are used)
+    or, for weighted calibration, when the weighted calibration mass cannot
+    reach ``1 - alpha``, the calibrated threshold is ``+inf`` and the
+    prediction interval is infinite, as the finite-sample guarantee requires.
 
     Args:
         alpha: Desired miscoverage rate (e.g. 0.1 for 90% coverage).
@@ -467,6 +642,11 @@ class ConformalPredictor:
         # Scalar quantile (no groups) or dict group_key -> quantile
         self.q_hat: Optional[Union[Tensor, Dict[Any, Tensor]]] = None
         self._groups_list: Optional[List[Any]] = None
+        # Calibration scores/weights/groups kept for per-test-point weighted
+        # thresholds (``predict_interval(test_weights=...)``).
+        self._cal_scores: Optional[Tensor] = None
+        self._cal_weights: Optional[Tensor] = None
+        self._cal_groups: Optional[Tensor] = None
 
     # -- Subclass hooks ------------------------------------------------------
 
@@ -508,7 +688,10 @@ class ConformalPredictor:
             groups: Optional 1-D integer/categorical tensor for Mondrian CP.
                 Separate quantiles are computed per unique group value.
             weights: Optional 1-D importance weights for weighted CP
-                (covariate shift robustness).
+                (covariate shift robustness; Tibshirani et al. 2019).  Only
+                relative weights matter: the test point receives the mean
+                calibration weight unless ``test_weights`` is passed to
+                :meth:`predict_interval`.
             x: Optional input features, passed to ``normalize_fn``.
         """
         # Apply mask
@@ -537,6 +720,9 @@ class ConformalPredictor:
             scores = scores / difficulty.clamp(min=1e-8)
 
         q_level = 1.0 - self.alpha
+        self._cal_scores = scores.detach()
+        self._cal_weights = None if weights is None else weights.reshape(-1).detach()
+        self._cal_groups = None if groups is None else groups.reshape(-1).detach()
 
         if groups is not None:
             # Mondrian: per-group quantiles
@@ -554,12 +740,95 @@ class ConformalPredictor:
 
         self._is_calibrated = True
 
+    def _test_weighted_q(self, cal_mask: Optional[Tensor], test_weights: Tensor) -> Tensor:
+        """Weighted thresholds for explicit test-point weights (one group)."""
+        if self._cal_scores is None:
+            raise RuntimeError(
+                "test_weights require a predictor calibrated via ConformalPredictor.calibrate()."
+            )
+        scores = self._cal_scores if cal_mask is None else self._cal_scores[cal_mask]
+        if self._cal_weights is None:
+            w = torch.ones(scores.shape[0], dtype=torch.float64, device=scores.device)
+        else:
+            w = self._cal_weights if cal_mask is None else self._cal_weights[cal_mask]
+        return _weighted_conformal_thresholds(scores, 1.0 - self.alpha, w, test_weights)
+
+    def _per_sample_q(
+        self,
+        n: int,
+        *,
+        groups: Optional[Tensor],
+        device: torch.device,
+        dtype: torch.dtype,
+        test_weights: Optional[Tensor] = None,
+    ) -> Tensor:
+        """Per-sample calibrated thresholds ``[n]`` (Mondrian- and weight-aware).
+
+        Args:
+            n: Number of test points.
+            groups: Test group ids (required when calibrated with groups).
+            device: Output device.
+            dtype: Output dtype.
+            test_weights: Optional ``[n]`` test-point weights on the raw
+                calibration-weight scale (unit scale for unweighted
+                calibration) for per-point weighted thresholds.
+
+        Returns:
+            ``[n]`` thresholds, ``+inf`` where the finite-sample level is
+            not attainable.
+        """
+        if not self._is_calibrated or self.q_hat is None:
+            raise RuntimeError(
+                "Predictor must be calibrated before making predictions. Call calibrate() first."
+            )
+        tw: Optional[Tensor] = None
+        if test_weights is not None:
+            tw = test_weights.reshape(-1)
+            if tw.numel() != n:
+                raise ValueError(f"test_weights must have shape ({n},), got {tuple(tw.shape)}")
+        if isinstance(self.q_hat, dict):
+            # Typed local binding: ty cannot narrow ``self.q_hat`` through the
+            # Tensor|dict union, so help it with an explicit cast.
+            q_map = cast(Dict[Any, Tensor], self.q_hat)
+            if groups is None:
+                raise ValueError("groups must be provided at prediction time for Mondrian CP")
+            groups_flat = groups.reshape(-1).to(device)
+            if groups_flat.numel() != n:
+                raise ValueError(f"groups must have shape ({n},), got {tuple(groups.shape)}")
+            # Dictionary lookup per calibrated key (no dense look-up table, so
+            # negative or sparse group ids map to their own quantile).
+            q = torch.full((n,), float("nan"), device=device, dtype=dtype)
+            for g, q_val in q_map.items():
+                g_mask = groups_flat == g
+                if not bool(g_mask.any()):
+                    continue
+                if tw is None:
+                    q[g_mask] = q_val.to(device=device, dtype=dtype)
+                else:
+                    cal_groups = cast(Tensor, self._cal_groups)
+                    cal_mask = cal_groups.to(device) == g
+                    q[g_mask] = self._test_weighted_q(cal_mask, tw[g_mask]).to(
+                        device=device, dtype=dtype
+                    )
+            unseen_mask = torch.isnan(q)
+            if unseen_mask.any():
+                unseen_ids = groups_flat[unseen_mask].unique().tolist()
+                raise ValueError(
+                    f"unseen group id(s) {sorted(unseen_ids)}; "
+                    "calibrate with these groups or use PrevalenceAdjustedCP"
+                )
+            return q
+        if tw is not None:
+            return self._test_weighted_q(None, tw).to(device=device, dtype=dtype)
+        return self.q_hat.to(device=device, dtype=dtype).reshape(()).expand(n)
+
     def predict_interval(
         self,
         y_pred: Tensor,
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Predict intervals using calibrated quantile(s).
 
@@ -567,9 +836,16 @@ class ConformalPredictor:
             y_pred: Model predictions.
             groups: Group labels (must match calibration groups for Mondrian).
             x: Input features for normalized CP (passed to normalize_fn).
+            test_weights: Optional 1-D importance weights ``w(X_test)`` of
+                the test points, on the same raw scale as the calibration
+                ``weights`` (unit scale if calibration was unweighted).
+                Gives per-test-point weighted thresholds (Tibshirani et al.
+                2019); default uses the mean calibration weight.
 
         Returns:
-            Tuple of (lower_bound, upper_bound) tensors.
+            Tuple of (lower_bound, upper_bound) tensors.  Bounds are
+            ``-inf``/``+inf`` where the calibrated threshold is infinite
+            (too few calibration points for the requested ``alpha``).
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError(
@@ -578,63 +854,18 @@ class ConformalPredictor:
 
         difficulty = None
         if self.normalize_fn is not None and x is not None:
-            difficulty = self.normalize_fn(y_pred, x)
+            # Same clamp as in calibrate() (scores / difficulty.clamp(1e-8)),
+            # which also keeps ``inf * difficulty`` from becoming NaN.
+            difficulty = self.normalize_fn(y_pred, x).clamp(min=1e-8)
 
-        if isinstance(self.q_hat, dict):
-            # Bind to a typed local: ty cannot narrow ``self.q_hat`` through the
-            # Tensor|dict union (isinstance against torch.Tensor produces bogus
-            # intersections), so help it with an explicit cast.
-            q_map = cast(Dict[Any, Tensor], self.q_hat)
-            # Mondrian: build per-sample q from group assignment
-            if groups is None:
-                raise ValueError("groups must be provided at prediction time for Mondrian CP")
-            q_per_sample = torch.full(
-                (y_pred.shape[0],), float("nan"), device=y_pred.device, dtype=y_pred.dtype
+        if isinstance(self.q_hat, dict) or test_weights is not None:
+            q_per_sample = self._per_sample_q(
+                y_pred.shape[0],
+                groups=groups,
+                device=y_pred.device,
+                dtype=y_pred.dtype,
+                test_weights=test_weights,
             )
-            group_keys = list(q_map.keys())
-            group_vals = torch.stack([q_map[g].to(y_pred.device) for g in group_keys])
-            if all(isinstance(g, int) for g in group_keys):
-                pred_ids = set(groups.long().unique().tolist())
-                unseen = sorted(pred_ids - set(group_keys))
-                if unseen:
-                    raise ValueError(
-                        f"unseen group id(s) {unseen}; "
-                        "calibrate with these groups or use PrevalenceAdjustedCP"
-                    )
-                max_g = max(group_keys)
-                lut = torch.zeros(max_g + 1, device=y_pred.device, dtype=y_pred.dtype)
-                gk = torch.tensor(group_keys, device=y_pred.device)
-                lut[gk] = group_vals
-                q_per_sample = lut[groups.long()]
-            else:
-                # Optimized vectorized lookup for non-integer keys (e.g., floats);
-                # fall back to a loop if keys are incompatible with tensor ops.
-                try:
-                    keys_tensor = torch.tensor(group_keys, device=y_pred.device)
-                    vals_tensor = group_vals
-
-                    sorted_idx = torch.argsort(keys_tensor)
-                    sorted_keys = keys_tensor[sorted_idx]
-                    sorted_vals = vals_tensor[sorted_idx]
-
-                    groups_cast = groups.to(keys_tensor.dtype)
-                    idx = torch.searchsorted(sorted_keys, groups_cast)
-                    idx = idx.clamp(max=len(sorted_keys) - 1)
-
-                    matches = sorted_keys[idx] == groups_cast
-                    q_per_sample[matches] = sorted_vals[idx[matches]]
-
-                except (TypeError, RuntimeError):
-                    for g, q_val in q_map.items():
-                        g_mask = groups == g
-                        q_per_sample[g_mask] = q_val.to(y_pred.device)
-            unseen_mask = torch.isnan(q_per_sample)
-            if unseen_mask.any():
-                unseen_ids = groups[unseen_mask].unique().tolist()
-                raise ValueError(
-                    f"unseen group id(s) {sorted(unseen_ids)}; "
-                    "calibrate with these groups or use PrevalenceAdjustedCP"
-                )
             # Reshape for broadcasting
             q = q_per_sample.view(-1, *([1] * (y_pred.dim() - 1)))
         else:
@@ -688,7 +919,10 @@ class LevelSetConformalPredictor(ConformalPredictor):
             grid_size: Number of grid points.
 
         Returns:
-            ``(lower, upper)`` tensors of shape ``(n_test, 1)``.
+            ``(lower, upper)`` tensors of shape ``(n_test, 1)``.  Samples whose
+            threshold is ``+inf`` (calibrated quantile not attainable with the
+            available calibration data) get ``(-inf, +inf)``: the level set is
+            the whole real line, not just the evaluation grid.
         """
         device = x.device
         dtype = x.dtype
@@ -724,6 +958,12 @@ class LevelSetConformalPredictor(ConformalPredictor):
             fallback_idx = values[invalid_mask].argmin(dim=1)
             lower[invalid_mask, 0] = y_grid[fallback_idx]
             upper[invalid_mask, 0] = y_grid[fallback_idx]
+
+        # Infinite threshold: every y is in the prediction set.
+        inf_mask = torch.isposinf(threshold.view(-1))
+        if inf_mask.any():
+            lower[inf_mask, 0] = float("-inf")
+            upper[inf_mask, 0] = float("inf")
 
         return lower, upper
 
@@ -841,18 +1081,28 @@ class CVPlus(ConformalPredictor):
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Predict intervals using CV+ combination of member predictions.
+
+        Uses the Barber et al. (2021, eq. 6) ranks: the lower endpoint is the
+        ``floor(alpha (n+1))``-th smallest of ``mu_{-i}(x) - R_i`` (``-inf``
+        when that rank is 0) and the upper endpoint the
+        ``ceil((1-alpha)(n+1))``-th smallest of ``mu_{-i}(x) + R_i`` (``+inf``
+        when that rank exceeds ``n``).
 
         Args:
             y_pred: Member predictions of shape [K, n_test_samples, output_dim]
                 where K is the number of folds/models.
             groups: Unused, kept for signature compatibility.
             x: Unused, kept for signature compatibility.
+            test_weights: Not supported (CV+ is unweighted); must be ``None``.
 
         Returns:
             Tuple of (lower_bound, upper_bound) tensors of shape [n_test_samples, output_dim].
         """
+        if test_weights is not None:
+            raise ValueError("CVPlus does not support test_weights.")
         if not self._is_calibrated or self.residuals is None or self.fold_indices is None:
             raise RuntimeError(
                 "Predictor must be calibrated before making predictions. "
@@ -863,22 +1113,36 @@ class CVPlus(ConformalPredictor):
         fold_indices = self.fold_indices.to(device)
         residuals = self.residuals.to(device)
 
-        # Index member predictions: [K, B, D] -> [n_cal, B, D]
-        pred_per_cal = y_pred[fold_indices]
-
-        # Reshape residuals to [n_cal, 1, 1] for broadcasting
-        res_unsqueezed = residuals.view(-1, 1, 1)
-        lower_candidates = pred_per_cal - res_unsqueezed
-        upper_candidates = pred_per_cal + res_unsqueezed
-
         # Finite-sample order statistics over the n_cal candidates
-        # (Barber et al., 2021): exact order-statistic ranks instead of the
-        # linearly-interpolated quantile previously used here.
-        n_cal = lower_candidates.shape[0]
-        k_upper = min(math.ceil((n_cal + 1) * (1.0 - self.alpha)), n_cal)
-        k_lower = min(math.ceil((n_cal + 1) * self.alpha), n_cal)
-        lower_bound = torch.sort(lower_candidates, dim=0).values[k_lower - 1]
-        upper_bound = torch.sort(upper_candidates, dim=0).values[k_upper - 1]
+        # (Barber et al., 2021, eq. 6): q^-  = floor(alpha (n+1))-th smallest of
+        # mu_{-i}(x) - R_i and q^+ = ceil((1-alpha)(n+1))-th smallest of
+        # mu_{-i}(x) + R_i; infinite when the rank falls outside [1, n].
+        n_cal = int(fold_indices.shape[0])
+        k_upper = math.ceil((n_cal + 1) * (1.0 - self.alpha))
+        k_lower = math.floor((n_cal + 1) * self.alpha)
+        res = residuals.view(-1, *([1] * (y_pred.dim() - 1)))
+
+        # Candidates are (n_cal, test rows, ...): with CV+ n_cal is the whole
+        # training set, so build them in test-row blocks (O(n_cal) memory per
+        # block) and take the k-th order statistic with kthvalue, not a sort.
+        if y_pred.shape[1] == 0:
+            return y_pred[0].clone(), y_pred[0].clone()
+        per_row = n_cal * max(1, math.prod(y_pred.shape[2:]))
+        block = max(1, (1 << 24) // max(1, per_row))
+        lowers, uppers = [], []
+        for start in range(0, y_pred.shape[1], block):
+            # Member predictions: [K, b, D] -> [n_cal, b, D]
+            pred_per_cal = y_pred[:, start : start + block][fold_indices]
+            if k_lower >= 1:
+                lowers.append(torch.kthvalue(pred_per_cal - res, k_lower, dim=0).values)
+            else:
+                lowers.append(torch.full_like(pred_per_cal[0], float("-inf")))
+            if k_upper <= n_cal:
+                uppers.append(torch.kthvalue(pred_per_cal + res, k_upper, dim=0).values)
+            else:
+                uppers.append(torch.full_like(pred_per_cal[0], float("inf")))
+        lower_bound = torch.cat(lowers, dim=0)
+        upper_bound = torch.cat(uppers, dim=0)
 
         return lower_bound, upper_bound
 
@@ -1068,10 +1332,11 @@ class UACQR(CQR):
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         if x is None:
             x = torch.zeros((y_pred.shape[0], 1), device=y_pred.device, dtype=y_pred.dtype)
-        return super().predict_interval(y_pred, groups=groups, x=x)
+        return super().predict_interval(y_pred, groups=groups, x=x, test_weights=test_weights)
 
 
 # ---------------------------------------------------------------------------
@@ -1156,18 +1421,26 @@ class LocalConformal(ConformalPredictor):
         self.groups_cal = groups[sorted_idx] if groups is not None else None
         self._is_calibrated = True
 
-    def predict_interval(
-        self,
-        y_pred: Tensor,
-        *,
-        groups: Optional[Tensor] = None,
-        x: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
-        if not self._is_calibrated or self.resids is None or self.X_cal is None:
-            raise RuntimeError("Predictor must be calibrated before making predictions.")
-        if x is None:
-            raise ValueError("LocalConformal requires test features `x` at prediction time.")
+    # Test rows per kernel block: every (rows, n_cal) intermediate stays below
+    # ~2**24 elements, so memory is O(n_cal) per block instead of O(n_test *
+    # n_cal) -- the dense version needed tens of GB at 10^4 x 10^4.
+    _BLOCK_ELEMS = 1 << 24
 
+    def _local_quantiles(self, x: Tensor, groups: Optional[Tensor]) -> Tensor:
+        """Weighted-residual quantile per test row, computed in row blocks."""
+        assert self.X_cal is not None and self.resids is not None
+        n_cal = int(self.X_cal.shape[0])
+        block = max(1, self._BLOCK_ELEMS // max(1, n_cal + 1))
+        out = [
+            self._local_quantiles_block(
+                x[i : i + block], None if groups is None else groups[i : i + block]
+            )
+            for i in range(0, x.shape[0], block)
+        ]
+        return torch.cat(out, dim=0) if out else self.resids.new_empty(0)
+
+    def _local_quantiles_block(self, x: Tensor, groups: Optional[Tensor]) -> Tensor:
+        assert self.X_cal is not None and self.resids is not None
         M = x.shape[0]
         N = self.X_cal.shape[0]
         device = x.device
@@ -1237,6 +1510,24 @@ class LocalConformal(ConformalPredictor):
         # Fetch the corresponding quantiles
         resids_device = self.resids.to(device)
         q = resids_device[idx]  # (M,)
+        return q
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if test_weights is not None:
+            raise ValueError("LocalConformal does not support test_weights.")
+        if not self._is_calibrated or self.resids is None or self.X_cal is None:
+            raise RuntimeError("Predictor must be calibrated before making predictions.")
+        if x is None:
+            raise ValueError("LocalConformal requires test features `x` at prediction time.")
+
+        q = self._local_quantiles(x, groups)
 
         # Broadcast q to y_pred shape
         q = q.view(-1, *([1] * (y_pred.dim() - 1)))
@@ -1335,7 +1626,10 @@ class LocalConformalMAD(LocalConformal):
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
         mad: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
+        if test_weights is not None:
+            raise ValueError("LocalConformalMAD does not support test_weights.")
         if not self._is_calibrated or self.resids is None or self.X_cal is None:
             raise RuntimeError("Predictor must be calibrated before making predictions.")
         if x is None:
@@ -1345,60 +1639,7 @@ class LocalConformalMAD(LocalConformal):
                 "LocalConformalMAD requires test MAD estimates `mad` at prediction time."
             )
 
-        M = x.shape[0]
-        N = self.X_cal.shape[0]
-        device = x.device
-        dtype = x.dtype
-
-        # Compute kernel weights
-        if self.K_obj is not None:
-            try:
-                kis, _ = self.K_obj.Ki(x, self.X_cal)
-                if kis.dim() == 1:
-                    kis = kis.unsqueeze(0)
-            except Exception:
-                kis_list = []
-                for i in range(M):
-                    ki, _ = self.K_obj.Ki(x[i], self.X_cal)
-                    kis_list.append(ki)
-                kis = torch.stack(kis_list, dim=0)
-        else:
-            dist_sq = torch.cdist(x.float(), self.X_cal.float(), p=2.0) ** 2
-            dist_sq = dist_sq.to(dtype)
-            kis = torch.exp(-dist_sq / (2 * self.bandwidth**2))
-
-        # Apply Mondrian group mask if present
-        if groups is not None and self.groups_cal is not None:
-            group_mask = groups.unsqueeze(1) == self.groups_cal.unsqueeze(0).to(groups.device)
-            kis = kis * group_mask.to(kis.dtype)
-
-        # Append self-similarity of test point
-        w_self = torch.ones((M, 1), device=device, dtype=dtype)
-        weights_all = torch.cat([kis, w_self], dim=1)
-
-        if self.weights_cal is not None:
-            weights_all[:, :N] = weights_all[:, :N] * self.weights_cal.unsqueeze(0).to(device)
-
-        total_weights = weights_all.sum(dim=1, keepdim=True)
-        total_weights = torch.max(total_weights, torch.tensor(1e-8, device=device, dtype=dtype))
-        normalized_weights = weights_all / total_weights
-
-        cum_weights = torch.cumsum(normalized_weights, dim=1)
-        q_level = min(math.ceil((N + 1) * (1.0 - self.alpha)) / (N + 1), 1.0)
-        # Append a sentinel True column so the search never returns 0 when
-        # floating-point error keeps ``cum_weights`` slightly below ``q_level``
-        # (matches the LocalConformal fix above; see that method for details).
-        hits = cum_weights >= q_level
-        sentinel = torch.ones((hits.shape[0], 1), dtype=torch.bool, device=hits.device)
-        idx = torch.argmax(torch.cat([hits, sentinel], dim=1).to(torch.int8), dim=1)
-        # Derive ``n_cal`` from the actual calibration count rather than the
-        # sentinel-decorated ``resids`` shape so future changes to the tail
-        # bookkeeping don't silently misclip.
-        n_cal = int(self.X_cal.shape[0])
-        idx = idx.clamp(max=n_cal)
-
-        resids_device = self.resids.to(device)
-        q = resids_device[idx]
+        q = self._local_quantiles(x, groups)
 
         # Reshape q to broadcast with y_pred
         q = q.view(-1, *([1] * (y_pred.dim() - 1)))
@@ -1500,6 +1741,8 @@ class CTI(LevelSetConformalPredictor):
         x: Tensor,
         y_min: float,
         y_max: float,
+        *,
+        groups: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Build prediction intervals from density level sets.
 
@@ -1513,14 +1756,18 @@ class CTI(LevelSetConformalPredictor):
             x: Test inputs, shape ``(n_test, n_features)``.
             y_min: Lower bound of the evaluation grid.
             y_max: Upper bound of the evaluation grid.
+            groups: Mondrian group ids of the test points (required when
+                calibrated with ``groups``); each point uses its own group's
+                threshold.
 
         Returns:
-            (lower, upper) tensors of shape ``(n_test, 1)``.
+            (lower, upper) tensors of shape ``(n_test, 1)``; ``(-inf, +inf)``
+            for points whose threshold is ``+inf``.
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Call calibrate() first.")
 
-        q = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
+        q = self._per_sample_q(x.shape[0], groups=groups, device=x.device, dtype=x.dtype)
 
         def eval_fn(y_grid: Tensor, x_batch: Tensor) -> Tensor:
             return -density_fn(y_grid, x_batch)
@@ -1538,9 +1785,13 @@ class CTI(LevelSetConformalPredictor):
         upper = torch.full((n_test, 1), y_min, device=x.device, dtype=x.dtype)
 
         for i in range(n_test):
+            if torch.isposinf(q[i]):
+                lower[i, 0] = float("-inf")
+                upper[i, 0] = float("inf")
+                continue
             log_dens = density_fn(y_grid, x[i])
             neg_log_dens = -log_dens
-            in_set = neg_log_dens <= q
+            in_set = neg_log_dens <= q[i]
             if in_set.any():
                 indices = in_set.nonzero(as_tuple=True)[0]
                 lower[i, 0] = y_grid[indices[0]]
@@ -1606,6 +1857,8 @@ class DistributionalConformal(LevelSetConformalPredictor):
         self,
         icdf_fn: Callable[[Tensor, Tensor], Tensor],
         x: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Build prediction intervals by inverting the calibrated CDF.
 
@@ -1617,19 +1870,43 @@ class DistributionalConformal(LevelSetConformalPredictor):
                 ``quantile_levels`` has shape ``(2,)`` containing
                 ``[alpha_low, alpha_high]``.
             x: Test inputs, shape ``(n_test, n_features)``.
+            groups: Mondrian group ids of the test points (required when
+                calibrated with ``groups``); each point uses its own group's
+                threshold (``icdf_fn`` is called once per distinct threshold).
 
         Returns:
-            (lower, upper) tensors of shape ``(n_test, 1)``.
+            (lower, upper) tensors of shape ``(n_test, 1)``.  An infinite
+            threshold maps to the levels ``[0, 1]`` (the full support).
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Call calibrate() first.")
 
-        q = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
+        q_per_sample = self._per_sample_q(
+            x.shape[0], groups=groups, device=x.device, dtype=torch.float64
+        )
+        unique_q = torch.unique(q_per_sample)
+        if unique_q.numel() == 1:
+            return self._invert_cdf_band(icdf_fn, x, float(unique_q[0]))
 
+        lower = torch.empty(x.shape[0], 1, device=x.device, dtype=x.dtype)
+        upper = torch.empty(x.shape[0], 1, device=x.device, dtype=x.dtype)
+        for q_val in unique_q.tolist():
+            idx = (q_per_sample == q_val).nonzero(as_tuple=True)[0]
+            lo_g, hi_g = self._invert_cdf_band(icdf_fn, x[idx], float(q_val))
+            lower[idx] = lo_g.to(lower.dtype)
+            upper[idx] = hi_g.to(upper.dtype)
+        return lower, upper
+
+    def _invert_cdf_band(
+        self,
+        icdf_fn: Callable[[Tensor, Tensor], Tensor],
+        x: Tensor,
+        q_val: float,
+    ) -> Tuple[Tensor, Tensor]:
+        """Invert the CDF at the PIT band ``[(1-q)/2, (1+q)/2]`` for one threshold."""
         # Conformal adjustment: widen the PIT quantile levels
         # q_hat is the quantile of |2*F(y)-1|, so the adjusted band is
         # [(1-q_hat)/2, (1+q_hat)/2], clipped to [0, 1]
-        q_val = q.item()
         alpha_low = max((1 - q_val) / 2, 0.0)
         alpha_high = min((1 + q_val) / 2, 1.0)
         levels = torch.tensor([alpha_low, alpha_high], device=x.device, dtype=x.dtype)
@@ -1740,6 +2017,7 @@ class R2CConformal(ConformalPredictor):
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Predict intervals from softmax probabilities.
 
@@ -1748,19 +2026,30 @@ class R2CConformal(ConformalPredictor):
 
         Args:
             y_pred: (n_test, n_bins) softmax probabilities.
-            groups: Optional Mondrian groups.
+            groups: Mondrian group ids of the test points (required when
+                calibrated with ``groups``); each point uses its own group's
+                threshold.
             x: Unused.
+            test_weights: Optional per-test-point weights (see
+                :meth:`ConformalPredictor.predict_interval`).
 
         Returns:
-            (lower, upper) tensors of shape ``(n_test, 1)``.
+            (lower, upper) tensors of shape ``(n_test, 1)``; ``(-inf, +inf)``
+            for points whose threshold is ``+inf``.
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Call calibrate() first.")
         if self.bin_edges is None:
             raise ValueError("bin_edges must be set.")
 
-        q = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
-        threshold = q.item()
+        # Per-sample thresholds (one per Mondrian group / test weight).
+        threshold = self._per_sample_q(
+            y_pred.shape[0],
+            groups=groups,
+            device=y_pred.device,
+            dtype=y_pred.dtype,
+            test_weights=test_weights,
+        ).unsqueeze(1)
 
         # Bin EDGES: lower = left edge of the first included bin,
         # upper = right edge of the last included bin (full bin spans).
@@ -1791,6 +2080,11 @@ class R2CConformal(ConformalPredictor):
         lower = torch.amin(torch.where(included_mask, left_sorted, INF), dim=-1, keepdim=True)
         # For upper: excluded bins → -inf, take max
         upper = torch.amax(torch.where(included_mask, right_sorted, -INF), dim=-1, keepdim=True)
+
+        # Infinite threshold: the prediction set is the whole real line.
+        inf_rows = torch.isposinf(threshold)
+        lower = torch.where(inf_rows, torch.full_like(lower, -INF), lower)
+        upper = torch.where(inf_rows, torch.full_like(upper, INF), upper)
 
         return lower, upper
 
@@ -1841,8 +2135,14 @@ class MultiTargetConformal(ConformalPredictor):
 
         scores = torch.abs(y_pred - target)
         n = scores.shape[0]
-        k = min(math.ceil((n + 1) * (1.0 - self.alpha)), n)
-        self.q_hat = torch.sort(scores, dim=0).values[k - 1]
+        if n == 0:
+            raise ValueError("Calibration set is empty (after masking, if applicable).")
+        k = math.ceil((n + 1) * (1.0 - self.alpha))
+        if k > n:
+            # Too few calibration points for alpha: infinite per-dim threshold.
+            self.q_hat = torch.full_like(scores[0], float("inf"))
+        else:
+            self.q_hat = torch.sort(scores, dim=0).values[k - 1]
         self._is_calibrated = True
 
     def _build_intervals(
@@ -1859,8 +2159,11 @@ class MultiTargetConformal(ConformalPredictor):
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
-        """Return per-dimension calibrated intervals."""
+        """Return per-dimension calibrated intervals (infinite where ``q_hat`` is ``+inf``)."""
+        if test_weights is not None:
+            raise ValueError("MultiTargetConformal does not support test_weights.")
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Call calibrate() first.")
         if isinstance(self.q_hat, dict):
@@ -1877,8 +2180,19 @@ class MultiTargetConformal(ConformalPredictor):
 class DensityConformal(ConformalPredictor):
     """Density-adaptive split conformal prediction.
 
-    Calibrates residual scores normalized by local target density so that low-density
-    regions receive wider intervals by default.
+    Calibrates residual scores normalized by the local target density so that
+    low-density regions receive wider intervals by default:
+    ``s_i = |y_i - y_hat_i| / sqrt(f(y_hat_i))`` and
+    ``C(x) = y_hat(x) +/- q_hat * sqrt(f(y_hat(x)))``.
+
+    The density ``f`` is a Gaussian KDE over the calibration targets,
+    evaluated at the PREDICTION ``y_hat`` both at calibration and at
+    prediction time (the same function of ``y_hat`` in both stages, so the
+    normalised test score is exchangeable with the calibration scores up to
+    the dependence of the KDE reference on the calibration targets, an
+    ``O(1/n)`` effect).  For the exact split-conformal guarantee pass
+    ``density`` computed from an independent reference (e.g. training
+    targets) to both :meth:`calibrate` and :meth:`predict_interval`.
 
     Args:
         alpha: Miscoverage rate.
@@ -1909,9 +2223,14 @@ class DensityConformal(ConformalPredictor):
     def _kde_density_1d(self, query: Tensor, reference: Tensor) -> Tensor:
         q = query.reshape(-1, 1)
         r = reference.reshape(1, -1)
-        z = (q - r) / self.bandwidth
-        kernel = torch.exp(-0.5 * z**2) / math.sqrt(2.0 * math.pi)
-        density = kernel.mean(dim=1) / self.bandwidth
+        # Query blocks bound the (rows, n_ref) kernel matrix (O(n_ref) memory).
+        block = max(1, (1 << 24) // max(1, r.shape[1]))
+        parts = []
+        for i in range(0, q.shape[0], block):
+            z = (q[i : i + block] - r) / self.bandwidth
+            kernel = torch.exp(-0.5 * z**2) / math.sqrt(2.0 * math.pi)
+            parts.append(kernel.mean(dim=1))
+        density = (torch.cat(parts) if parts else q.new_empty(0)) / self.bandwidth
         return density.clamp(min=self.min_density)
 
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
@@ -1943,19 +2262,38 @@ class DensityConformal(ConformalPredictor):
         x: Optional[Tensor] = None,
         density: Optional[Tensor] = None,
     ) -> None:
+        """Calibrate density-normalised residual scores.
+
+        Args:
+            y_pred: Predictions on the calibration set.
+            target: Calibration targets.
+            mask: Optional validity mask (applied once, to every per-sample
+                input including ``density``).
+            groups: Optional Mondrian groups.
+            weights: Optional importance weights.
+            x: Unused (the density plays the role of the difficulty input).
+            density: Optional per-sample density at the predictions, shape
+                ``(n_cal,)`` BEFORE masking.  Default: KDE over the (unmasked)
+                calibration targets evaluated at ``y_pred``.
+        """
         target_1d = _to_1d(target.detach())
+        pred_1d = _to_1d(y_pred.detach())
+        reference = target_1d
         if mask is not None:
             mask_1d = mask.all(dim=-1) if mask.dim() > 1 else mask
-            target_1d = target_1d[mask_1d]
+            reference = target_1d[mask_1d]
 
-        self._reference_target_1d = target_1d.detach()
+        self._reference_target_1d = reference.detach()
 
         if density is None:
-            density = self._kde_density_1d(target_1d, target_1d)
+            # Same density function of y_hat as in predict_interval().
+            density = self._kde_density_1d(pred_1d, reference)
         if density.shape[0] != target_1d.shape[0]:
             raise ValueError("density must have length equal to calibration batch size")
 
-        self._calibration_density_mean = float(density.mean().item())
+        valid_density = density if mask is None else density[mask_1d]
+        self._calibration_density_mean = float(valid_density.mean().item())
+        # ConformalPredictor.calibrate masks y_pred/target/density exactly once.
         super().calibrate(
             y_pred,
             target,
@@ -1972,7 +2310,22 @@ class DensityConformal(ConformalPredictor):
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
         density: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
+        """Predict density-adaptive intervals ``y_hat +/- q_hat * sqrt(f(y_hat))``.
+
+        Args:
+            y_pred: Test predictions.
+            groups: Mondrian groups (when calibrated with groups).
+            x: Unused.
+            density: Optional density at ``y_pred`` (same reference as used
+                in :meth:`calibrate`).
+            test_weights: Optional per-test-point weights (see
+                :meth:`ConformalPredictor.predict_interval`).
+
+        Returns:
+            ``(lower, upper)``; infinite where the threshold is ``+inf``.
+        """
         if density is None and self.adapt_prediction:
             if self._reference_target_1d is not None:
                 pred_1d = _to_1d(y_pred.detach())
@@ -1986,7 +2339,7 @@ class DensityConformal(ConformalPredictor):
                 dtype=y_pred.dtype,
                 device=y_pred.device,
             )
-        return super().predict_interval(y_pred, groups=groups, x=density)
+        return super().predict_interval(y_pred, groups=groups, x=density, test_weights=test_weights)
 
 
 class PrevalenceAdjustedCP(ConformalPredictor):
@@ -2106,7 +2459,10 @@ class PrevalenceAdjustedCP(ConformalPredictor):
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
+        if test_weights is not None:
+            raise ValueError("PrevalenceAdjustedCP does not support test_weights.")
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Predictor must be calibrated before making predictions.")
         if not isinstance(self.q_hat, dict):
@@ -2217,9 +2573,12 @@ class MonteCarloConformal(ConformalPredictor):
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         center, uncertainty = self._extract_center_and_uncertainty(mc_samples)
-        return super().predict_interval(center, groups=groups, x=uncertainty)
+        return super().predict_interval(
+            center, groups=groups, x=uncertainty, test_weights=test_weights
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2358,9 +2717,17 @@ class ConformalLoss(RegressionLoss):
         *,
         groups: Optional[Tensor] = None,
         x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
-        """Predict intervals using the calibrated predictor."""
-        return self._predictor.predict_interval(y_pred, groups=groups, x=x)
+        """Predict intervals using the calibrated predictor.
+
+        ``test_weights`` (optional) gives per-test-point weighted thresholds;
+        see :meth:`ConformalPredictor.predict_interval`.  Bounds are infinite
+        when the calibrated threshold is ``+inf``.
+        """
+        return self._predictor.predict_interval(
+            y_pred, groups=groups, x=x, test_weights=test_weights
+        )
 
 
 class SLSConformal(LevelSetConformalPredictor):
@@ -2394,10 +2761,17 @@ class SLSConformal(LevelSetConformalPredictor):
         self.sls_loss = sls_loss
         self.grid_size = grid_size
 
+    def _eval_frontier(self, target: Tensor, context: Tensor) -> Tuple[Tensor, Tensor]:
+        """Side-effect-free inference-state frontier (learned mixture weights)."""
+        evaluate = getattr(self.sls_loss, "evaluate_frontier", None)
+        if callable(evaluate):
+            return cast(Tuple[Tensor, Tensor], evaluate(target, context))
+        return cast(Tuple[Tensor, Tensor], self.sls_loss.frontier(target, context))
+
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
         # Here, y_pred is the context/features X, and target is Y
         with torch.no_grad():
-            G, _ = self.sls_loss.frontier(target, y_pred)
+            G, _ = self._eval_frontier(target, y_pred)
             quantiles = self.sls_loss.quantile_net(y_pred)
             q_tau = quantiles[..., 1]  # target quantile is at index 1
         scores = G / q_tau.clamp(min=1e-8)
@@ -2441,6 +2815,8 @@ class SLSConformal(LevelSetConformalPredictor):
         x: Tensor,
         y_min: float,
         y_max: float,
+        *,
+        groups: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Build prediction intervals from SLS level sets.
 
@@ -2451,19 +2827,24 @@ class SLSConformal(LevelSetConformalPredictor):
             x: Test inputs/features, shape (n_test, context_dim).
             y_min: Lower bound of the evaluation grid.
             y_max: Upper bound of the evaluation grid.
+            groups: Mondrian group ids of the test points (required when
+                calibrated with ``groups``); each point uses its own group's
+                threshold.
 
         Returns:
-            (lower, upper) tensors of shape (n_test, 1).
+            (lower, upper) tensors of shape (n_test, 1); ``(-inf, +inf)`` for
+            points whose calibrated factor ``r`` is ``+inf``.
         """
         if not self._is_calibrated or self.q_hat is None:
             raise RuntimeError("Call calibrate() first.")
 
-        r = self.q_hat if isinstance(self.q_hat, Tensor) else next(iter(self.q_hat.values()))
+        r = self._per_sample_q(x.shape[0], groups=groups, device=x.device, dtype=x.dtype)
 
         with torch.no_grad():
             quantiles = self.sls_loss.quantile_net(x)
-            q_tau = quantiles[..., 1]
-            threshold = r.to(x.device) * q_tau
+            q_tau = quantiles[..., 1].reshape(-1)
+            # inf * q_tau stays +inf for q_tau > 0 (clamped like the scores).
+            threshold = r * q_tau.clamp(min=1e-8)
 
             def eval_fn(y_grid: Tensor, x_batch: Tensor) -> Tensor:
                 # Explicitly reshape to matching batch dims for the frontier
@@ -2473,7 +2854,7 @@ class SLSConformal(LevelSetConformalPredictor):
                 x_exp = x_batch.unsqueeze(1).expand(-1, self.grid_size, -1)
                 x_exp = x_exp.reshape(-1, x_batch.shape[-1])
                 y_exp = y_grid.unsqueeze(0).expand(n_test_b, -1).reshape(-1, self.sls_loss.d)
-                G_flat, _ = self.sls_loss.frontier(y_exp, x_exp)
+                G_flat, _ = self._eval_frontier(y_exp, x_exp)
                 return G_flat.reshape(n_test_b, self.grid_size)
 
             return self._grid_search_level_set(eval_fn, x, threshold, y_min, y_max, self.grid_size)

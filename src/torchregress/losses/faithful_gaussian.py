@@ -66,6 +66,8 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
     BetaNLLLoss : Variance-detached *reweighting* of the joint NLL.
     """
 
+    mean_weight: torch.Tensor
+
     def __init__(
         self,
         *,
@@ -98,11 +100,14 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
         if huber_delta <= 0:
             raise ValueError("huber_delta must be positive.")
         self.register_buffer("mean_weight", mean_weight_tensor)
-        # Decided once so forward never synchronises on a device tensor.
-        self._has_mean_term = bool((mean_weight_tensor > 0).any())
         self.mean_loss = mean_loss
         self.huber_delta = float(huber_delta)
         self.variance_weight = float(variance_weight)
+
+    @property
+    def _has_mean_term(self) -> bool:
+        """Whether any ``mean_weight`` entry is positive, read from the live buffer."""
+        return bool((self.mean_weight > 0).any())
 
     def forward(
         self,
@@ -116,6 +121,8 @@ class FaithfulGaussianLoss(GaussianNLLLoss):
         self._validate_inputs(mean, target, mask)
 
         # Avoid `0.0 * term` when a weight is zero — that can still attach `term` to the graph.
+        # Read from the buffer on every call (not cached at __init__): the
+        # buffer is restored by load_state_dict and may be ramped by curricula.
         if self._has_mean_term:
             weight = self.mean_weight.to(device=mean.device, dtype=mean.dtype)
             if weight.dim() == 1 and weight.shape[0] != mean.shape[-1]:

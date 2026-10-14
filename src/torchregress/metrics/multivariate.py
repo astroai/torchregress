@@ -11,8 +11,16 @@ from .utils import convert_to_tensor, metric_state_tensor, validate_inputs
 
 
 class MultivariateRMSE(Metric):
-    """
-    Root mean squared error over vector outputs.
+    r"""
+    Root mean squared Euclidean error over vector outputs.
+
+    .. math::
+
+        \mathrm{RMSE} = \sqrt{\frac{1}{N} \sum_{i=1}^{N} \lVert \hat{y}_i - y_i \rVert_2^2}
+
+    The squared error is summed over the D output dimensions, not averaged:
+    the result is :math:`\sqrt{D}` times the per-element RMSE when all
+    dimensions have the same error scale.
     """
 
     is_differentiable = False
@@ -42,8 +50,15 @@ class MultivariateRMSE(Metric):
 
 
 class MultivariateMAE(Metric):
-    """
-    Mean absolute error over vector outputs.
+    r"""
+    Mean L1 error over vector outputs.
+
+    .. math::
+
+        \mathrm{MAE} = \frac{1}{N} \sum_{i=1}^{N} \lVert \hat{y}_i - y_i \rVert_1
+
+    The absolute error is summed over the D output dimensions, not averaged:
+    the result is D times the per-element MAE.
     """
 
     is_differentiable = False

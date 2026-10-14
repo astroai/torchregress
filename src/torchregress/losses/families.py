@@ -39,7 +39,6 @@ from .loss_registry import register_regression_loss
 _SQRT2 = math.sqrt(2.0)
 _LOG_2PI = math.log(2.0 * math.pi)
 _HALF_LOG_2PI = 0.5 * _LOG_2PI
-_TINY_F32 = float(torch.finfo(torch.float32).tiny)
 
 
 # ---------------------------------------------------------------------------
@@ -48,15 +47,14 @@ _TINY_F32 = float(torch.finfo(torch.float32).tiny)
 
 
 def _log_normal_cdf(x: Tensor) -> Tensor:
-    """Stable log standard-normal CDF via :func:`torch.erfc`.
+    """Log standard-normal CDF, exact in both tails.
 
-    Uses ``Phi(x) = 0.5 * erfc(-x/sqrt(2))`` with the branch chosen so the
-    ``erfc`` argument is always non-negative, which keeps both branches in a
-    well-conditioned range.
+    Delegates to :func:`torch.special.log_ndtr`, which uses an asymptotic
+    expansion in the far lower tail. The previous ``log(clamp(Phi, tiny))``
+    form saturated at ``log(float32 tiny) ~ -87`` (``x < ~-13``) in every
+    dtype, zeroing the gradient of the skew-normal NLL w.r.t. alpha.
     """
-    ax = x.abs() / _SQRT2
-    cdf = torch.where(x >= 0, 0.5 * torch.erfc(-ax), 0.5 * torch.erfc(ax))
-    return torch.log(cdf.clamp_min(_TINY_F32))
+    return torch.special.log_ndtr(x)
 
 
 def _betacf(a: Tensor, b: Tensor, x: Tensor, itmax: int = 300, eps: float = 3e-14) -> Tensor:
@@ -98,8 +96,11 @@ def _positive(raw: Tensor, eps: float) -> Tensor:
 
 
 def _inverse_softplus(sigma: Tensor, eps: float) -> Tensor:
-    # ponytail: inverse of _positive for unconstrained_inputs=False mode
-    return torch.log(torch.expm1((sigma - eps).clamp(min=1e-6)))
+    # ponytail: inverse of _positive for unconstrained_inputs=False mode.
+    # softplus^{-1}(s) = log(expm1(s)) = s + log(-expm1(-s)); the second form
+    # never overflows (expm1(s) is inf for s > ~88 in float32).
+    s = (sigma - eps).clamp(min=1e-6)
+    return s + torch.log(-torch.expm1(-s))
 
 
 def _as_params(y_pred: Tensor, n_params: int, name: str) -> None:
@@ -222,12 +223,61 @@ def skew_t_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float = 1e-6) ->
 
 
 def _student_t_log_cdf_vec(x: Tensor, df: Tensor) -> Tensor:
-    """Log CDF of Student-t with elementwise dof ``df`` (tensor-valued)."""
-    xb = df / (df + x * x)
-    inc = _reg_inc_beta(df / 2.0, torch.full_like(df, 0.5), xb)
-    half_log = math.log(0.5) + torch.log(inc.clamp_min(_TINY_F32))
-    # T(w) = 0.5 * I_x(df/2, 1/2) for w <= 0; 1 - that for w > 0.
-    return torch.where(x <= 0.0, half_log, torch.log1p(-torch.exp(half_log.clamp(max=-_TINY_F32))))
+    """Log CDF of Student-t with elementwise dof ``df`` (tensor-valued).
+
+    Two continued-fraction branches of the regularised incomplete beta, each
+    used where it converges (Numerical Recipes ``betai`` switch), computed in
+    float64 and returned in the dtype of ``x``:
+
+    * centre, ``u = x^2 / (df + x^2) < 1.5 / (df/2 + 2.5)``:
+      ``T(x) = 1/2 + 1/2 sign(x) I_u(1/2, df/2)``. The prefactor
+      ``sign(x) u^{1/2} = x / sqrt(df + x^2)`` is written without ``|x|`` or
+      ``log u``, so the value and its gradient are smooth through ``x = 0``
+      (``dT/dx = t_df(0)`` there).
+    * tails: ``T(x) = 1/2 I_{df/(df+x^2)}(df/2, 1/2)`` for ``x < 0`` (and
+      ``1 -`` that for ``x > 0``), evaluated in log space.
+
+    The previous single-branch form evaluated ``I_{df/(df+x^2)}(df/2, 1/2)``
+    with the argument clamped at ``1 - 1e-15``; ``d/dx [df/(df+x^2)] = 0`` at
+    ``x = 0`` and the clamp has a zero gradient, so ``d log T / dx`` was
+    exactly 0 at ``x = 0`` (the skew-t never learned ``alpha`` from 0).
+    """
+    dtype = x.dtype
+    f64 = torch.float64
+    x64 = x.to(f64)
+    df64 = df.to(f64)
+    x2 = x64 * x64
+    denom = df64 + x2
+    u = x2 / denom  # 1 - xb, exact for small |x|
+    xb = df64 / denom
+    half_df = 0.5 * df64
+    central = u < 1.5 / (half_df + 2.5)
+    # One continued-fraction call for both branches: I_u(1/2, df/2) in the
+    # centre, I_xb(df/2, 1/2) in the tails. Unused-branch inputs are replaced
+    # by safe values so no inf/NaN reaches the backward pass through where().
+    aa = torch.where(central, torch.full_like(df64, 0.5), half_df)
+    bb = torch.where(central, half_df, torch.full_like(df64, 0.5))
+    cf = _betacf(aa, bb, torch.where(central, u, xb))
+    ln_norm = torch.lgamma(aa + bb) - torch.lgamma(aa) - torch.lgamma(bb) - torch.log(aa)
+
+    # centre: s = sign(x) I_u(1/2, df/2) = x / sqrt(df + x^2) * xb^{df/2} * norm * cf
+    x_c = torch.where(central, x64, torch.zeros_like(x64))
+    denom_c = torch.where(central, denom, torch.ones_like(denom))
+    xb_c = torch.where(central, xb, torch.ones_like(xb))
+    s = x_c / torch.sqrt(denom_c) * torch.exp(ln_norm + bb * torch.log(xb_c)) * cf
+    log_central = math.log(0.5) + torch.log1p(s)
+
+    # tails: log(1/2 I_xb(df/2, 1/2)) = log 1/2 + norm + df/2 log xb + 1/2 log u + log cf
+    tiny = torch.finfo(f64).tiny
+    xb_t = torch.where(central, torch.full_like(xb, 0.5), xb).clamp_min(tiny)
+    u_t = torch.where(central, torch.full_like(u, 0.5), u)
+    cf_t = torch.where(central, torch.ones_like(cf), cf).clamp_min(tiny)
+    half_log = (
+        math.log(0.5) + ln_norm + aa * torch.log(xb_t) + bb * torch.log(u_t) + torch.log(cf_t)
+    )
+    upper = torch.log1p(-torch.exp(torch.where(x64 > 0.0, half_log, torch.full_like(x64, -1.0))))
+    log_tail = torch.where(x64 > 0.0, upper, half_log)
+    return torch.where(central, log_central, log_tail).to(dtype)
 
 
 def _reg_inc_beta(a: Tensor, b: Tensor, x: Tensor) -> Tensor:
@@ -258,8 +308,10 @@ def _reg_inc_beta(a: Tensor, b: Tensor, x: Tensor) -> Tensor:
     aa = torch.where(sym, b64, a64)
     bb = torch.where(sym, a64, b64)
     cf = _betacf(aa, bb, xs)
-    # NR convention: multiply front factor by cf/a (or cf/b under symmetry).
-    out = torch.where(sym, 1.0 - bt * cf / bb, bt * cf / aa)
+    # Numerical Recipes ``betai``: I_x(a, b) = bt * cf(a, b, x) / a, and under
+    # symmetry 1 - bt * cf(b, a, 1 - x) / b. ``aa`` already holds b on the
+    # symmetric branch, so both branches divide by ``aa``.
+    out = torch.where(sym, 1.0 - bt * cf / aa, bt * cf / aa)
     return out.clamp(0.0, 1.0).to(device=device, dtype=dtype)
 
 
@@ -314,15 +366,19 @@ def beta_regression_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float =
     raw precision (softplus -> phi > 0). Targets must lie strictly in (0, 1).
     """
     _as_params(y_pred, 2, "beta_regression_nll")
-    mu = torch.sigmoid(y_pred[..., 0])
-    phi = _positive(y_pred[..., 1], eps)
+    # Same target alignment as the other family losses: [B] and [B, 1]
+    # targets both pair row-wise with [B, 2] params (a [B, 1] target used to
+    # broadcast against [B] params into a [B, B] cross-sample loss).
+    target = _align_target(target, y_pred)
+    mu = torch.sigmoid(y_pred[..., 0:1])
+    phi = _positive(y_pred[..., 1:2], eps)
     alpha = mu * phi
     beta = (1.0 - mu) * phi
     if not bool(((target > 0.0) & (target < 1.0)).all()):
         raise ValueError("beta_regression_nll requires targets strictly inside (0, 1)")
     log_norm = torch.lgamma(alpha + beta) - torch.lgamma(alpha) - torch.lgamma(beta)
     log_pdf = log_norm + (alpha - 1.0) * torch.log(target) + (beta - 1.0) * torch.log1p(-target)
-    return -(log_pdf)
+    return -(log_pdf.squeeze(-1))
 
 
 @register_regression_loss("beta_regression_nll")
@@ -533,20 +589,24 @@ def gev_nll_elementwise(y_pred: Tensor, target: Tensor, eps: float = 1e-6) -> Te
     sigma = _positive(y_pred[..., 1:2], eps)
     xi = y_pred[..., 2:3]
     z = (target - mu) / sigma
-    gumbel = torch.log(sigma) + z + torch.exp(-z)
     use_gumbel = xi.abs() < _GUMBEL_XI_THRESHOLD
-    # ponytail: compute gev branch only where needed; torch.where does not short-circuit
-    # so 1/xi and pow(-1/xi) must not be evaluated for |xi|<threshold or unsupported t.
-    t = 1.0 + xi * z
-    supported = t > 0.0
-    # ponytail: torch.where doesn't short-circuit; mask both pow and log to keep finite graph.
-    # Use 1.0 for t and threshold for xi where branch not taken.
+    # ponytail: torch.where does not short-circuit, and its backward multiplies
+    # the unused branch's local derivative by 0 (0 * inf = NaN). Every branch
+    # therefore only sees inputs it is valid for: z is zeroed outside the
+    # Gumbel branch (exp(-z) overflows for far-left targets on the GEV branch)
+    # and xi*z outside the supported GEV branch.
+    z_gumbel = torch.where(use_gumbel, z, torch.zeros_like(z))
+    gumbel = torch.log(sigma) + z_gumbel + torch.exp(-z_gumbel)
+    xz = xi * z
+    supported = xz > -1.0  # t = 1 + xi*z > 0
     use_gev = (~use_gumbel) & supported
     xi_safe = torch.where(use_gev, xi, torch.full_like(xi, _GUMBEL_XI_THRESHOLD))
-    t_safe = torch.where(use_gev, t, torch.full_like(t, 1.0))
-    gev_raw = (
-        torch.log(sigma) + (1.0 + 1.0 / xi_safe) * torch.log(t_safe) + t_safe.pow(-1.0 / xi_safe)
-    )
+    xz_safe = torch.where(use_gev, xz, torch.zeros_like(xz))
+    # log t = log1p(xi*z): forming t = 1 + xi*z first loses the low bits of
+    # xi*z, an error that 1/xi amplifies to O(0.1) nats in float32 just above
+    # the Gumbel threshold.
+    log_t = torch.log1p(xz_safe)
+    gev_raw = torch.log(sigma) + (1.0 + 1.0 / xi_safe) * log_t + torch.exp(-log_t / xi_safe)
     gev = torch.where(supported, gev_raw, torch.full_like(gev_raw, float("inf")))
     return torch.where(use_gumbel, gumbel, gev).squeeze(-1)
 
@@ -686,7 +746,17 @@ def sqr_loss_elementwise(y_pred: Tensor, target: Tensor, n_levels: Optional[int]
         raise ValueError(f"sqr_loss expected {n_levels} levels, got {levels}")
     sorted_q = torch.cummax(y_pred, dim=1).values
     tau = torch.arange(1, levels + 1, device=y_pred.device, dtype=y_pred.dtype) / (levels + 1.0)
-    diff = target.unsqueeze(-1) - sorted_q
+    if target.dim() == y_pred.dim() - 1:
+        target = target.unsqueeze(-1)
+    elif target.dim() != y_pred.dim() or target.shape[-1] != 1:
+        # A [B, 1] target broadcasts against [B, L]; anything else (e.g. the
+        # old ``target.unsqueeze(-1)`` of a [B, 1] target) would silently pair
+        # every sample with every other sample.
+        raise ValueError(
+            f"sqr_loss expects targets of shape {tuple(y_pred.shape[:-1])} or "
+            f"{tuple(y_pred.shape[:-1]) + (1,)}, got {tuple(target.shape)}"
+        )
+    diff = target - sorted_q
     pinball = torch.maximum(tau * diff, (tau - 1.0) * diff)
     return pinball.mean(dim=-1)
 

@@ -386,16 +386,19 @@ class TestFiniteSampleQuantile:
         """Basic."""
         scores = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
         q = _finite_sample_quantile(scores, alpha=0.4)
-        # n=5, ceil((5+1)*(1-0.4))/5 = ceil(3.6)/5 = 4/5 = 0.8
-        # np.quantile with method="higher": smallest x s.t. F(x) > 0.8 → 4
-        assert q == 4.0
+        # n=5, k = ceil((5+1)*(1-0.4)) = ceil(3.6) = 4 -> the 4th smallest score (index 3).
+        assert q == 3.0
 
     def test_alpha_near_zero(self) -> None:
-        """Alpha near zero."""
+        """Too few scores for the requested alpha: k = ceil(11 * 0.99) = 11 > n = 10 -> +inf."""
         scores = np.arange(10, dtype=float)
         q = _finite_sample_quantile(scores, alpha=0.01)
-        assert q > 0
-        assert q <= 9
+        assert q == float("inf")
+
+    def test_largest_score_when_k_equals_n(self) -> None:
+        """k = ceil(11 * 0.9) = 10 = n -> the maximum score (finite)."""
+        scores = np.arange(10, dtype=float)
+        assert _finite_sample_quantile(scores, alpha=0.1) == 9.0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

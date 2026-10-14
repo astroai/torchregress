@@ -208,12 +208,16 @@ class CumulativeLinkLoss(BaseLoss):
         return self._reduce(loss, mask=mask, weights=weights)
 
 
-# ponytail: CORALLoss is identical to CumulativeLinkLoss; the
-# architectural constraint (CORALHead) belongs in the model, not the loss.
-CORALLoss = CumulativeLinkLoss
-CORALLoss.__doc__ = """CORAL ordinal loss — identical to CumulativeLinkLoss.
+class CORALLoss(CumulativeLinkLoss):
+    """CORAL ordinal loss — identical to ``CumulativeLinkLoss``.
+
     The architectural constraint (shared weight, monotonic bias) is enforced
-    by the model's CORALHead, not the loss formula."""
+    by the model's ``CORALHead``, not the loss formula. This subclass adds no
+    behaviour; it exists so that ``CORALLoss`` and ``CumulativeLinkLoss`` each
+    keep their own docstring.
+    """
+
+
 register_regression_loss("coral")(CORALLoss)
 
 

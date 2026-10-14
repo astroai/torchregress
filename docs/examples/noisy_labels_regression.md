@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import CauchyLoss, TukeyBiweightLoss, WeightedHuberLoss, WeightedMSELoss
-from torchregress.metrics import mse
+from torchregress.metrics import mean_squared_error as mse
 
 
 def make_noisy_regression(n_samples=500, noise_ratio=0.2, noise_scale=3.0, seed=42):

@@ -13,7 +13,6 @@ from collections.abc import Callable
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
 
 from ..utils.validation import check_tensor
 
@@ -140,8 +139,21 @@ class LatentNN:
         if y_val is not None:
             check_tensor(y_val, "y_val")
 
-        model = self.model_factory().to(X_observed.device)
-        x_latent = nn.Parameter(X_observed.clone())
+        device = X_observed.device
+        n_rows = X_observed.shape[0]
+        model = self.model_factory().to(device)
+        # Latent clean inputs are optimised with a *lazy* (row-sparse) Adam: a
+        # mini-batch step touches only its own rows' values and moments, with
+        # per-row step counts for bias correction.  A dense ``torch.optim.Adam``
+        # on an (N, D) parameter costs O(N * D) per step -- O(N^2 D / B) per
+        # epoch, days at N ~ 1e6 -- and keeps moving rows outside the batch
+        # through momentum on a zero gradient.  Full-batch training is identical
+        # to dense Adam.
+        x_latent = X_observed.detach().clone()
+        m_latent = torch.zeros_like(x_latent)
+        v_latent = torch.zeros_like(x_latent)
+        steps = torch.zeros(n_rows, 1, device=device, dtype=x_latent.dtype)
+        beta1, beta2, adam_eps = 0.9, 0.999, 1.0e-8
 
         sigma_x = self._expand_sigma(self.sigma_x_input, X_observed, name="sigma_x").clamp_min(
             1.0e-6
@@ -150,34 +162,23 @@ class LatentNN:
             1.0e-6
         )
 
-        indices = torch.arange(X_observed.shape[0], device=X_observed.device)
-        batch_size = min(int(self.batch_size or X_observed.shape[0]), X_observed.shape[0])
-        loader = DataLoader(
-            TensorDataset(indices, X_observed, y_observed, sigma_x, sigma_y),
-            batch_size=batch_size,
-            shuffle=True,
-        )
-
-        optimizer = torch.optim.Adam(
-            [
-                {
-                    "params": model.parameters(),
-                    "lr": self.lr,
-                    "weight_decay": self.weight_decay,
-                },
-                {
-                    "params": [x_latent],
-                    "lr": self.latent_lr,
-                    "weight_decay": self.latent_weight_decay,
-                },
-            ]
-        )
+        batch_size = min(int(self.batch_size or n_rows), n_rows)
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
         for _ in range(self.epochs):
             model.train()
-            for batch_idx, x_obs_b, y_b, sigma_x_b, sigma_y_b in loader:
+            # Device-side shuffling: no per-row Python indexing (DataLoader over a
+            # TensorDataset costs one __getitem__ per row per epoch).
+            order = torch.randperm(n_rows, device=device)
+            for start in range(0, n_rows, batch_size):
+                batch_idx = order[start : start + batch_size]
+                x_obs_b = X_observed[batch_idx]
+                y_b = y_observed[batch_idx]
+                sigma_x_b = sigma_x[batch_idx]
+                sigma_y_b = sigma_y[batch_idx]
+                x_latent_b = x_latent[batch_idx].requires_grad_(True)
+
                 optimizer.zero_grad()
-                x_latent_b = x_latent[batch_idx]
                 pred = model(x_latent_b)
                 if isinstance(self.loss_fn, nn.MSELoss):
                     model_residual = (pred - y_b) / sigma_y_b
@@ -192,11 +193,27 @@ class LatentNN:
                 loss.backward()
                 if self.max_grad_norm is not None:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
-                    torch.nn.utils.clip_grad_norm_([x_latent], self.max_grad_norm)
+                    torch.nn.utils.clip_grad_norm_([x_latent_b], self.max_grad_norm)
                 optimizer.step()
 
+                with torch.no_grad():
+                    grad = x_latent_b.grad
+                    assert grad is not None
+                    rows = x_latent_b.detach()
+                    if self.latent_weight_decay:
+                        grad = grad + self.latent_weight_decay * rows
+                    m_b = beta1 * m_latent[batch_idx] + (1 - beta1) * grad
+                    v_b = beta2 * v_latent[batch_idx] + (1 - beta2) * grad.pow(2)
+                    t_b = steps[batch_idx] + 1
+                    m_hat = m_b / (1 - beta1**t_b)
+                    v_hat = v_b / (1 - beta2**t_b)
+                    m_latent[batch_idx] = m_b
+                    v_latent[batch_idx] = v_b
+                    steps[batch_idx] = t_b
+                    x_latent[batch_idx] = rows - self.latent_lr * m_hat / (v_hat.sqrt() + adam_eps)
+
         self.model = model.eval()
-        self.x_latent_ = x_latent.detach()
+        self.x_latent_ = x_latent
         return self
 
     def predict(
@@ -228,13 +245,16 @@ class LatentNN:
         if sigma_x is not None:
             X = X.to(device)
             sigma_x_t = self._expand_sigma(sigma_x, X, name="sigma_x").clamp_min(1.0e-6)
+            # Row chunks bound the (n_samples, rows, D) perturbation tensor.
+            chunk = max(1, (1 << 22) // max(1, n_samples * X.shape[-1]))
+            outs = []
             with torch.no_grad():
-                noise = torch.randn(n_samples, *X.shape, device=device, dtype=X.dtype)
-                perturbed = X.unsqueeze(0) + noise * sigma_x_t.unsqueeze(0)
-                flat = perturbed.reshape(-1, X.shape[-1])
-                preds = self.model(flat)
-                preds = preds.reshape(n_samples, X.shape[0], -1)
-                return preds.mean(dim=0)
+                for start in range(0, X.shape[0], chunk):
+                    xb, sb = X[start : start + chunk], sigma_x_t[start : start + chunk]
+                    noise = torch.randn(n_samples, *xb.shape, device=device, dtype=X.dtype)
+                    flat = (xb.unsqueeze(0) + noise * sb.unsqueeze(0)).reshape(-1, X.shape[-1])
+                    outs.append(self.model(flat).reshape(n_samples, xb.shape[0], -1).mean(dim=0))
+            return torch.cat(outs, dim=0)
 
         with torch.no_grad():
             return self.model(X.to(device))

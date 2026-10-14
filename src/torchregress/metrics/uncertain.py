@@ -8,6 +8,8 @@ from typing import Dict
 import torch
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import float_dtype
+
 
 def noisy_target_gaussian_nll(
     pred_mean: Tensor,
@@ -53,7 +55,7 @@ def pseudo_label_acceptance_rate(
     """Fraction of pseudo-labels above confidence threshold."""
     if not 0.0 <= threshold <= 1.0:
         raise ValueError("threshold must be in [0, 1]")
-    return (pseudo_confidence >= threshold).float().mean()
+    return (pseudo_confidence >= threshold).to(float_dtype(pseudo_confidence)).mean()
 
 
 def uncertain_gt_metrics_report(

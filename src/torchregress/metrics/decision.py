@@ -8,7 +8,13 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, metric_state_list, validate_inputs
+from torchregress.metrics.utils import (
+    convert_to_tensor,
+    float_dtype,
+    metric_state_list,
+    prepare_functional_metric,
+    validate_inputs,
+)
 
 
 class RiskCoverageCurve(Metric):
@@ -117,7 +123,13 @@ class RiskCoverageCurve(Metric):
         sorted_risks = risks[sorted_indices]
 
         # Define coverage levels
-        coverage_levels = torch.linspace(1.0 / n_samples, 1.0, self.n_points, device=risks.device)
+        coverage_levels = torch.linspace(
+            1.0 / n_samples,
+            1.0,
+            self.n_points,
+            device=risks.device,
+            dtype=float_dtype(risks, uncertainties),
+        )
 
         # Cumulative sum of risks for efficient mean calculation
         risk_cumsum = torch.cumsum(sorted_risks, dim=0)
@@ -202,19 +214,20 @@ class RejectionPolicy(Metric):
             sorted_unc, _ = torch.sort(uncertainty)
             effective_threshold = sorted_unc[n_keep - 1]
         elif self.threshold is not None:
-            effective_threshold = torch.tensor(self.threshold, device=y_pred.device)
+            effective_threshold = torch.tensor(
+                self.threshold, device=y_pred.device, dtype=float_dtype(y_pred, uncertainty)
+            )
         else:
             raise ValueError("Either 'threshold' or 'fraction' must be provided.")
 
+        dtype = float_dtype(y_pred, uncertainty)
         keep_mask = uncertainty <= effective_threshold
 
         if not keep_mask.any():
             return {
-                "mean_risk": torch.tensor(float("nan"), device=y_pred.device, dtype=y_pred.dtype),
-                "coverage": torch.tensor(0.0, device=y_pred.device, dtype=y_pred.dtype),
-                "n_rejected": torch.tensor(
-                    float(n_samples), device=y_pred.device, dtype=y_pred.dtype
-                ),
+                "mean_risk": torch.tensor(float("nan"), device=y_pred.device, dtype=dtype),
+                "coverage": torch.tensor(0.0, device=y_pred.device, dtype=dtype),
+                "n_rejected": torch.tensor(float(n_samples), device=y_pred.device, dtype=dtype),
             }
 
         y_pred_kept = y_pred[keep_mask]
@@ -222,13 +235,13 @@ class RejectionPolicy(Metric):
 
         risk = self.risk_fn(y_pred_kept, y_true_kept)
         mean_risk = torch.mean(risk)
-        coverage = keep_mask.float().mean()
+        coverage = keep_mask.to(dtype).mean()
         n_rejected = (~keep_mask).sum()
 
         return {
             "mean_risk": mean_risk,
             "coverage": coverage,
-            "n_rejected": n_rejected.float(),
+            "n_rejected": n_rejected.to(dtype),
         }
 
 
@@ -240,6 +253,13 @@ def risk_coverage_curve(
     n_points: int = 100,
 ) -> Dict[str, Tensor]:
     """Functional interface for Risk-Coverage Curve."""
-    metric = RiskCoverageCurve(risk_fn=risk_fn, n_points=n_points)
+    y_pred, y_true, uncertainty = (
+        convert_to_tensor(y_pred),
+        convert_to_tensor(y_true),
+        convert_to_tensor(uncertainty),
+    )
+    metric = prepare_functional_metric(
+        RiskCoverageCurve(risk_fn=risk_fn, n_points=n_points), y_pred, y_true, uncertainty
+    )
     metric.update(y_pred, y_true, uncertainty)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
     return metric.compute()  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty

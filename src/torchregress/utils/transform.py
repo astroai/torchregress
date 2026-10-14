@@ -65,13 +65,13 @@ class BoxCoxTransform(TargetTransform):
         shifted = x + self.eps
         if abs(self.lam) < 1e-8:
             return torch.log(shifted)
-        return (torch.pow(shifted, self.lam) - 1.0) / self.lam
+        return torch.expm1(self.lam * torch.log(shifted)) / self.lam
 
     def inverse(self, y: Tensor) -> Tensor:
         if abs(self.lam) < 1e-8:
             return torch.clamp(torch.exp(y) - self.eps, min=0.0)
-        base = torch.clamp(y * self.lam + 1.0, min=0.0)
-        return torch.clamp(torch.pow(base, 1.0 / self.lam) - self.eps, min=0.0)
+        base = torch.clamp(y * self.lam, min=-1.0)
+        return torch.clamp(torch.exp(torch.log1p(base) / self.lam) - self.eps, min=0.0)
 
 
 @dataclass(frozen=True)
@@ -100,13 +100,13 @@ class YeoJohnsonTransform(TargetTransform):
         if abs(self.lam) < 1e-8:
             out[pos] = torch.log1p(x[pos])
         else:
-            out[pos] = ((x[pos] + 1.0).pow(self.lam) - 1.0) / self.lam
+            out[pos] = torch.expm1(self.lam * torch.log1p(x[pos])) / self.lam
 
         neg_lam = 2.0 - self.lam
         if abs(neg_lam) < 1e-8:
             out[~pos] = -torch.log1p(-x[~pos])
         else:
-            out[~pos] = -(((1.0 - x[~pos]).pow(neg_lam) - 1.0) / neg_lam)
+            out[~pos] = -torch.expm1(neg_lam * torch.log1p(-x[~pos])) / neg_lam
         return out
 
     def inverse(self, y: Tensor) -> Tensor:
@@ -115,13 +115,15 @@ class YeoJohnsonTransform(TargetTransform):
         if abs(self.lam) < 1e-8:
             out[pos] = torch.expm1(y[pos])
         else:
-            out[pos] = torch.clamp(self.lam * y[pos] + 1.0, min=0.0).pow(1.0 / self.lam) - 1.0
+            out[pos] = torch.expm1(torch.log1p(torch.clamp(self.lam * y[pos], min=-1.0)) / self.lam)
 
         neg_lam = 2.0 - self.lam
         if abs(neg_lam) < 1e-8:
             out[~pos] = 1.0 - torch.exp(-y[~pos])
         else:
-            out[~pos] = 1.0 - torch.clamp(1.0 - neg_lam * y[~pos], min=0.0).pow(1.0 / neg_lam)
+            out[~pos] = -torch.expm1(
+                torch.log1p(torch.clamp(-neg_lam * y[~pos], min=-1.0)) / neg_lam
+            )
         return out
 
 

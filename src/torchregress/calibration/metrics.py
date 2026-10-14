@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.utils.tensor_ops import convert_to_tensor
+from torchregress.utils.tensor_ops import convert_to_tensor, float_dtype
 from torchregress.utils.validation import validate_metric_inputs as validate_inputs
 
 
@@ -21,12 +21,13 @@ def _compute_histograms(samples: torch.Tensor, bin_edges: torch.Tensor) -> torch
         bin_edges: Tensor of shape (B+1,) defining B bins.
 
     Returns:
-        Tensor of shape (S, B) containing counts.
+        Tensor of shape (S, B) containing counts, in the floating dtype of
+        ``bin_edges``.
     """
     S, N = samples.shape
     n_bins = bin_edges.shape[0] - 1
 
-    indices = torch.bucketize(samples, bin_edges, right=True)
+    indices = torch.bucketize(samples.to(bin_edges.dtype), bin_edges, right=True)
     indices = indices - 1
     indices.clamp_(0, n_bins - 1)
 
@@ -34,7 +35,7 @@ def _compute_histograms(samples: torch.Tensor, bin_edges: torch.Tensor) -> torch
     flat_indices = (indices + offset).view(-1)
 
     counts_flat = torch.bincount(flat_indices, minlength=S * n_bins)
-    return counts_flat.view(S, n_bins).float()
+    return counts_flat.view(S, n_bins).to(bin_edges.dtype)
 
 
 class ExpectedCalibrationError(Metric):
@@ -86,14 +87,15 @@ class ExpectedCalibrationError(Metric):
 
         device = y_true.device
         quantiles = sorted(y_pred_quantiles.keys())
-        expected_proportions = torch.tensor(quantiles, device=device)
 
         preds = torch.stack([convert_to_tensor(y_pred_quantiles[q]).to(device) for q in quantiles])
+        dtype = float_dtype(preds, y_true)
+        expected_proportions = torch.tensor(quantiles, device=device, dtype=dtype)
 
         if len(preds) > 0:
             validate_inputs(preds[0], y_true)
 
-        actual_proportions = (y_true.unsqueeze(0) <= preds).float().flatten(1).mean(dim=1)
+        actual_proportions = (y_true.unsqueeze(0) <= preds).to(dtype).flatten(1).mean(dim=1)
         abs_errors = torch.abs(actual_proportions - expected_proportions)
 
         mace = torch.mean(abs_errors)
@@ -154,10 +156,14 @@ class MarginalCalibrationError(Metric):
                 max_val = max_val + 1e-5
 
             device = y_true.device
-            bin_edges = torch.linspace(min_val, max_val, self.n_bins + 1, device=device)
+            dtype = float_dtype(y_true, y_pred_samples)
+            bin_edges = torch.linspace(
+                min_val, max_val, self.n_bins + 1, device=device, dtype=dtype
+            )
 
             n_samples_per_point = y_pred_samples.shape[1]
-            obs_hist = torch.histogram(y_true.float(), bin_edges)[0]
+            # bucketize/bincount (not ``torch.histogram``, which has no CUDA kernel).
+            obs_hist = _compute_histograms(y_true.reshape(1, -1), bin_edges)[0]
             obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true))
             pred_hists = _compute_histograms(y_pred_samples, bin_edges)
             # Normalize each row of histograms to a proper CDF *before*
@@ -195,14 +201,15 @@ def expected_calibration_error(
     device = y_true_t.device
 
     quantiles = sorted(y_pred_quantiles.keys())
-    expected_proportions = torch.tensor(quantiles, device=device)
 
     preds = torch.stack([convert_to_tensor(y_pred_quantiles[q]).to(device) for q in quantiles])
+    dtype = float_dtype(preds, y_true_t)
+    expected_proportions = torch.tensor(quantiles, device=device, dtype=dtype)
 
     if len(preds) > 0:
         validate_inputs(preds[0], y_true_t)
 
-    actual_proportions = (y_true_t.unsqueeze(0) <= preds).float().flatten(1).mean(dim=1)
+    actual_proportions = (y_true_t.unsqueeze(0) <= preds).to(dtype).flatten(1).mean(dim=1)
     abs_errors = torch.abs(actual_proportions - expected_proportions)
 
     result = {
@@ -270,9 +277,11 @@ def marginal_calibration_error(
         max_val = max_val + 1e-5
 
     device = y_true_t.device
-    bin_edges = torch.linspace(min_val, max_val, n_bins + 1, device=device)
+    dtype = float_dtype(y_true_t, y_pred_samples_t)
+    bin_edges = torch.linspace(min_val, max_val, n_bins + 1, device=device, dtype=dtype)
 
-    obs_hist = torch.histogram(y_true_flat.float(), bin_edges)[0]
+    # bucketize/bincount (not ``torch.histogram``, which has no CUDA kernel).
+    obs_hist = _compute_histograms(y_true_flat.reshape(1, -1), bin_edges)[0]
     obs_cdf = torch.cumsum(obs_hist, dim=0) / max(1, len(y_true_flat))
 
     pred_hists = _compute_histograms(samples_flat, bin_edges)
@@ -336,10 +345,11 @@ def calibration_score(
     """
     mean_t = convert_to_tensor(pred_mean)
     std_t = convert_to_tensor(pred_std).to(mean_t.device).clamp(min=1e-8)
-    levels = torch.linspace(0.05, 0.95, n_levels, device=mean_t.device)
+    dtype = float_dtype(mean_t, std_t)
+    levels = torch.linspace(0.05, 0.95, n_levels, device=mean_t.device, dtype=dtype)
     standard = torch.distributions.Normal(
-        torch.tensor(0.0, device=mean_t.device),
-        torch.tensor(1.0, device=mean_t.device),
+        torch.tensor(0.0, device=mean_t.device, dtype=dtype),
+        torch.tensor(1.0, device=mean_t.device, dtype=dtype),
     )
     quantiles = {}
     for q in levels:

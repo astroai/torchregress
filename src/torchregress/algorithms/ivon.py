@@ -155,12 +155,26 @@ class IVON(torch.optim.Optimizer):
         s["avg_nxg"] = None
         s["avg_gsq"] = None
 
+    def state_dict(self) -> dict[str, Any]:
+        """Return the optimizer state, including ``current_step``.
+
+        ``current_step`` drives the ``1 - beta1**t`` momentum debias; without it a
+        resumed run restarts the debias at ``t = 1`` and diverges from an
+        uninterrupted run.
+        """
+        state = super().state_dict()
+        state["current_step"] = self.current_step
+        return state
+
     def load_state_dict(self, state_dict: Any, strict: bool = True) -> None:
         """Load optimizer state, migrating tensor-valued group entries to this
         optimizer's device/dtype (TR-TT-01: ``optimizer.to(device)`` does not
-        touch tensors stored inside ``param_groups``)."""
+        touch tensors stored inside ``param_groups``).  Restores ``current_step``
+        when present (checkpoints written before it was saved keep the current value)."""
         # torch.optim.Optimizer.load_state_dict has no ``strict`` parameter.
         super().load_state_dict(state_dict)
+        if "current_step" in state_dict:
+            self.current_step = int(state_dict["current_step"])
         for group in self.param_groups:
             for key, value in list(group.items()):
                 if isinstance(value, Tensor):

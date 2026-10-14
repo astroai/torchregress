@@ -167,7 +167,7 @@ torchregress/
 **Weighted loss wrappers** (`torchregress.losses.base`): `WeightedLossWrapper`, `WeightedMSELoss`, `GaussianNLLLoss`, and related subclasses add mask and sample-weight support around native PyTorch losses.
 
 **Ensemble Models** (`torchregress/ensemble/`):
-- `DeepEnsemble`: Multiple independently trained models
+- `BaseEnsembleModel`: Multiple independently trained models (deep ensembles)
 - `HeteroscedasticEnsembleModel`: Ensembles with aleatoric uncertainty
 - `BatchEnsembleLinear`: Efficient batch ensemble layers
 
@@ -227,15 +227,16 @@ When adding new loss functions:
 ## Dependencies
 
 Core dependencies:
-- torch >= 2.4.0
-- numpy >= 2.0.0
-- matplotlib >= 3.8.0
-- torchmetrics >= 1.4.0
-- scipy >= 1.11.0
-- tqdm >= 4.66.0
+- torch >= 2.13
+- numpy >= 2.5
+- torchmetrics >= 1.9
+- scipy >= 1.18
+
+(matplotlib >= 3.11 is the `viz` extra; floors track the newest conda-forge releases
+in `pixi.lock` and were raised for 0.3.0.)
 
 Optional (feature-specific) dependencies:
-- **zuko >= 1.6.0** (normalizing flows, install via `pip install 'torchregress[flows]'` or pixi default env)
+- **zuko >= 1.6** (normalizing flows, install via `pip install 'torchregress[flows]'` or pixi default env)
 - **pandas, scikit-learn, polars, pyarrow** (data handling, in the `test` extra)
 - **zensical** (docs tooling, in the `docs` extra)
 

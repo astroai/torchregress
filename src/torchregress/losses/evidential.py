@@ -205,10 +205,18 @@ class EvidentialRegressionLoss(DistributionLoss):
         beta: Tensor,
     ) -> Tensor:
         """
-        Negative log-likelihood for Normal-Inverse-Gamma distribution.
+        Negative log-likelihood of the NIG marginal predictive (Student-t).
 
-        Computes the NLL of observing target under the NIG prior defined by
-        (gamma, nu, alpha, beta).
+        Integrating the Gaussian likelihood over the NIG prior gives
+        ``y ~ St(gamma, beta*(1+nu)/(nu*alpha), 2*alpha)``, whose NLL is
+        (Amini et al. 2020, Eq. 8)
+
+        .. math::
+
+            \\tfrac12\\log\\tfrac{\\pi}{\\nu} - \\alpha\\log\\Omega
+            + (\\alpha + \\tfrac12)\\log\\big((y-\\gamma)^2\\nu + \\Omega\\big)
+            + \\log\\frac{\\Gamma(\\alpha)}{\\Gamma(\\alpha + \\frac12)},
+            \\qquad \\Omega = 2\\beta(1 + \\nu).
 
         Args:
             target: Ground truth values [batch_size, n_features]
@@ -219,26 +227,31 @@ class EvidentialRegressionLoss(DistributionLoss):
 
         Returns:
             NLL per sample [batch_size, n_features]
-        """
-        # Student-t distribution (predictive distribution of NIG)
-        # NLL = 0.5 * log(pi/nu) - alpha*log(2*beta) + (alpha+0.5)*log(nu*(target-gamma)^2 + 2*beta)
-        #       + loggamma(alpha) - loggamma(alpha+0.5)
 
+        References
+        ----------
+        .. [1] Amini, A., Schwarting, W., Soleimany, A., & Rus, D. (2020).
+           Deep Evidential Regression. In *NeurIPS 2020*, Eq. 8.
+        """
         # For numerical stability, we compute in parts
         residual = target - gamma
         residual_sq = residual**2
+        # Omega = 2*beta*(1 + nu) (Amini et al. 2020, Eq. 8). Using 2*beta
+        # alone gives the Student-t of the *mean* mu (scale^2 = beta/(nu*alpha)),
+        # not the predictive of y used by predict_interval.
+        omega = 2.0 * beta * (1.0 + nu)
 
         # Term 1: log normalizing constant
         nll = 0.5 * torch.log(math.pi / nu)
 
-        # Term 2: -alpha * log(2*beta)
+        # Term 2: -alpha * log(Omega)
         # A4: no +1e-6 floors — softplus offsets guarantee positivity
-        nll -= alpha * torch.log(2.0 * beta)
+        nll -= alpha * torch.log(omega)
 
-        # Term 3: (alpha + 0.5) * log(nu * residual^2 + 2*beta)
-        nll += (alpha + 0.5) * torch.log(nu * residual_sq + 2.0 * beta)
+        # Term 3: (alpha + 0.5) * log(nu * residual^2 + Omega)
+        nll += (alpha + 0.5) * torch.log(nu * residual_sq + omega)
 
-        # Term 4: log Gamma functions (approximate for large alpha)
+        # Term 4: log Gamma functions
         # loggamma(alpha) - loggamma(alpha + 0.5)
         nll += torch.lgamma(alpha) - torch.lgamma(alpha + 0.5)
 

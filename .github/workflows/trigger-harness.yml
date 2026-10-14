@@ -16,8 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch to torchregress-harness
+        env:
+          TOKEN: ${{ secrets.PAT_FOR_PRIVATE_REPOS }}
         run: |
-          curl -X POST -H "Accept: application/vnd.github+json" \
-            -H "Authorization: token ${{ secrets.PAT_FOR_PRIVATE_REPOS }}" \
+          if [ -z "$TOKEN" ]; then
+            echo "::warning title=Harness parity not triggered::PAT_FOR_PRIVATE_REPOS is not set in this repository; harness parity did not run for ${{ github.sha }}."
+            exit 0
+          fi
+          # A failed dispatch fails the job, so a skipped parity run is visible.
+          curl --fail-with-body -sS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $TOKEN" \
             https://api.github.com/repos/astroai/torchregress-harness/dispatches \
-            -d '{"event_type":"torchregress-push","client_payload":{"sha":"${{ github.sha }}"}}' || echo "dispatch failed (no PAT or repo private) — ignored"
+            -d '{"event_type":"torchregress-push","client_payload":{"sha":"${{ github.sha }}"}}'

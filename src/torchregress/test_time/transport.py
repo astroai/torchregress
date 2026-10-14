@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from math import ceil
 from statistics import NormalDist
 from typing import Any, Sequence, cast
 
@@ -13,13 +12,27 @@ from torch import Tensor
 
 from torchregress.calibration.shift import RepresentationShiftInflator
 from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
+from torchregress.losses.conformal import finite_sample_quantile
 from torchregress.prediction import PredictiveBatch
+from torchregress.utils.tensor_ops import float_dtype
 
 from .label_shift import LabelShiftEMConfig, PosteriorLabelShiftAdapter
 from .selection import LocalConsistencyConfig, local_consistency_weights, select_high_confidence
 from .subspace import WeightedSubspaceMomentAligner
 
 ArrayLike = np.ndarray | Tensor | Sequence[float]
+
+# EM on the support grid stops once the mean target log-likelihood gains less
+# than this per iteration (nats per row). The prior on hundreds of overlapping
+# bins is an ill-posed deconvolution: the per-bin ``tol`` criterion is never
+# met in ``max_iter`` steps (the convergence gate then skipped transport), and
+# iterating further only fits sampling noise.
+_PRIOR_EM_LOGLIK_TOL = 1.0e-4
+
+
+def _floating(t: Tensor) -> Tensor:
+    """Keep a floating dtype (float64 stays float64); cast integers to the default dtype."""
+    return t if t.is_floating_point() else t.to(torch.get_default_dtype())
 
 
 def _to_tensor(x: ArrayLike) -> Tensor:
@@ -34,6 +47,12 @@ def _to_numpy(x: ArrayLike) -> "np.ndarray":
     if torch.is_tensor(x):
         return x.detach().cpu().numpy()
     return np.asarray(x)
+
+
+def _batch_float_dtype(batch: PredictiveBatch) -> torch.dtype:
+    """Floating dtype of a predictive batch's numeric fields (float64 stays float64)."""
+    fields = (batch.point, batch.mean, batch.std, batch.quantiles, batch.density, batch.support)
+    return float_dtype(*(torch.as_tensor(f) if isinstance(f, np.ndarray) else f for f in fields))
 
 
 def _as_1d(x: ArrayLike) -> Tensor:
@@ -151,9 +170,27 @@ def _gaussian_density_on_support(mean: Tensor, std: Tensor, support: Tensor, eps
     return cast(Tensor, _to_numpy_if_inputs_were(result, mean, std, support))
 
 
+def _gaussian_in_grid_mass(mean: Tensor, std: Tensor, edges: Tensor, eps: float) -> Tensor:
+    """Probability mass of ``N(mean, std)`` between the outer edges of the support grid."""
+    mu = _to_tensor(mean).double().reshape(-1)
+    sigma = _to_tensor(std).double().reshape(-1).clamp(eps, None)
+    lower = torch.special.ndtr((edges[0] - mu) / sigma)
+    upper = torch.special.ndtr((edges[-1] - mu) / sigma)
+    return (upper - lower).clamp(0.0, 1.0)
+
+
 def _resample_density(
-    support_in: Tensor, density_in: Tensor, support_out: Tensor, eps: float
+    support_in: Tensor,
+    density_in: Tensor,
+    support_out: Tensor,
+    eps: float,
+    mass: list[Tensor] | None = None,
 ) -> Tensor:
+    """Resample densities onto ``support_out`` and renormalise.
+
+    If ``mass`` is a list, the fraction of each input density's integral that
+    falls on the output grid (before renormalisation) is appended to it.
+    """
     supp_out = _to_tensor(support_out).double().reshape(-1)
     supp_in = _to_tensor(support_in).double()
     dens_in = _to_tensor(density_in).double()
@@ -164,19 +201,31 @@ def _resample_density(
     else:
         for idx in range(dens_in.shape[0]):
             out[idx] = _interp_np(supp_out, supp_in[idx], dens_in[idx], left=0.0, right=0.0)
+    if mass is not None:
+        total = torch.trapezoid(dens_in.clamp(0.0, None), supp_in, dim=-1)
+        # Riemann sum over the grid cells (width dx), matching _density_to_probabilities.
+        inside = out.clamp(0.0, None).sum(dim=-1) * _uniform_dx(supp_out)
+        mass.append((inside / total.clamp(eps, None)).clamp(0.0, 1.0))
     result = _normalize_density(supp_out, out, eps)
     return cast(Tensor, _to_numpy_if_inputs_were(result, density_in))
 
 
 def _probability_moments(
-    support: Tensor, probabilities: ArrayLike, eps: float
+    support: Tensor,
+    probabilities: ArrayLike,
+    eps: float,
+    dtype: torch.dtype | None = None,
 ) -> tuple[Tensor, Tensor]:
+    """Mean and std of discrete distributions; float64 unless ``dtype`` is given."""
     supp = _to_tensor(support).double().reshape(-1)
     probs = _to_tensor(probabilities).double()
     mean = probs @ supp
     second = probs @ (supp**2)
     var = (second - mean**2).clamp(eps, None)
-    return mean.float(), var.sqrt().float()
+    std = var.sqrt()
+    if dtype is not None:
+        return mean.to(dtype), std.to(dtype)
+    return mean, std
 
 
 def _probability_quantiles(
@@ -207,6 +256,7 @@ def _batch_to_support_density(
     eps: float,
 ) -> tuple[Tensor, dict[str, Any]]:
     metadata: dict[str, Any] = {}
+    mass_parts: list[Tensor] = []
     hinted_family = None
     if batch.extra is not None:
         raw_family = batch.extra.get("family")
@@ -218,8 +268,10 @@ def _batch_to_support_density(
             _to_tensor(batch.density),
             support,
             eps,
+            mass_parts,
         )
         metadata["family"] = hinted_family or "density"
+        metadata["in_grid_mass"] = mass_parts[0]
         return density, metadata
     if batch.bar_logits is not None and batch.bin_edges is not None:
         converted = batch.with_density(n_support=len(support))
@@ -230,8 +282,10 @@ def _batch_to_support_density(
             _to_tensor(converted.density),
             support,
             eps,
+            mass_parts,
         )
         metadata["family"] = "bar"
+        metadata["in_grid_mass"] = mass_parts[0]
         return density, metadata
     if batch.quantiles is not None and batch.quantile_levels is not None:
         converted = batch.with_density(n_support=len(support))
@@ -242,9 +296,11 @@ def _batch_to_support_density(
             _to_tensor(converted.density),
             support,
             eps,
+            mass_parts,
         )
         metadata["family"] = "quantile"
         metadata["quantile_levels"] = list(batch.quantile_levels)
+        metadata["in_grid_mass"] = mass_parts[0]
         return density, metadata
     if batch.samples is not None:
         converted = batch.with_density(n_support=len(support))
@@ -255,8 +311,10 @@ def _batch_to_support_density(
             _to_tensor(converted.density),
             support,
             eps,
+            mass_parts,
         )
         metadata["family"] = hinted_family or "samples"
+        metadata["in_grid_mass"] = mass_parts[0]
         return density, metadata
     if batch.mean is not None and batch.std is not None:
         density = _gaussian_density_on_support(
@@ -266,6 +324,10 @@ def _batch_to_support_density(
             eps,
         )
         metadata["family"] = "gaussian"
+        edges = _support_edges(support)
+        metadata["in_grid_mass"] = _gaussian_in_grid_mass(
+            _to_tensor(batch.mean), _to_tensor(batch.std), edges, eps
+        )
         return density, metadata
     if batch.point is not None:
         density = _point_density_on_support(_to_tensor(batch.point), support, eps)
@@ -288,12 +350,12 @@ def _log_density_at_targets(
 
 
 def _finite_sample_quantile(scores: Tensor, alpha: float) -> float:
-    s = _to_tensor(scores).double()
-    n = int(s.shape[0])
-    q = min(ceil((n + 1) * (1.0 - alpha)) / max(n, 1), 1.0)
-    sorted_scores = s.sort().values
-    idx = max(0, min(int(ceil(q * (n - 1))), n - 1))
-    return float(sorted_scores[idx].item())
+    """Split-conformal threshold: the ``k``-th smallest score, ``k = ceil((n+1)(1-alpha))``.
+
+    ``+inf`` when ``k > n`` (too few calibration scores for the requested ``alpha``).
+    """
+    s = _to_tensor(scores).double().reshape(-1)
+    return float(finite_sample_quantile(s, alpha).item())
 
 
 def _native_interval(
@@ -513,7 +575,6 @@ class ShiftFactoredPredictiveTransport:
         source_inputs: Tensor | None = None,
         source_representations: Tensor | None = None,
     ) -> "ShiftFactoredPredictiveTransport":
-        del source_predictions
         cfg = self.config
         targets = _as_1d(source_targets)
         support = _support_grid_from_targets(
@@ -521,9 +582,17 @@ class ShiftFactoredPredictiveTransport:
             n_support=cfg.n_support,
             support_margin=cfg.support_margin,
         )
-        edges = _support_edges(support)
-        edges_cpu = edges.detach().cpu().to(dtype=targets.dtype)
-        source_prior = torch.histogram(targets, bins=edges_cpu)[0].double()
+        # Source prior on the support grid = mean source predictive probability,
+        # the marginal the (calibrated) predictive posteriors integrate to. EM
+        # reweights posteriors by q / pi, which is consistent only for this pi
+        # (Saerens et al. 2002). The eps-clamped label histogram used before is
+        # noisy on a fine grid and empty on the margins, where the predictive
+        # still has mass: q / pi blew up there and EM collapsed onto empty bins
+        # (prior TV ~1 with no shift).
+        source_density, _ = _batch_to_support_density(source_predictions, support, cfg.eps)
+        source_prior = _to_tensor(_density_to_probabilities(support, source_density, cfg.eps)).mean(
+            dim=0
+        )
         source_prior = source_prior.clamp(cfg.eps, None)
         source_prior = source_prior / source_prior.sum()
 
@@ -590,6 +659,7 @@ class ShiftFactoredPredictiveTransport:
         if effective_predictions is None:
             raise ValueError("target_predictions are required unless predictor can recompute them")
 
+        out_dtype = _batch_float_dtype(effective_predictions)
         density, metadata = _batch_to_support_density(
             effective_predictions,
             self.state_.source_support,
@@ -614,11 +684,20 @@ class ShiftFactoredPredictiveTransport:
             max(cfg.min_selection_count, probabilities.shape[1] * 2),
             probabilities.shape[0],
         )
+        # Rank on the *unrenormalised* in-grid maximum bin probability.  After
+        # renormalisation a predictive that is cut by the grid edge has an inflated
+        # peak, so ranking on ``probabilities.max()`` favours truncated rows and
+        # biases the EM prior estimate toward the edges on fine grids.
+        in_grid_mass = metadata.get("in_grid_mass")
+        confidence = np.asarray(_to_numpy(probabilities), dtype=float).max(axis=1)
+        if in_grid_mass is not None:
+            confidence = confidence * _to_numpy(in_grid_mass).astype(float)
         mask = torch.as_tensor(
             select_high_confidence(
                 cast(np.ndarray, probabilities),
                 top_fraction=cfg.top_fraction,
                 min_count=min_count,
+                scores=confidence,
             )
         )
 
@@ -626,7 +705,7 @@ class ShiftFactoredPredictiveTransport:
             source_prior=self.state_.source_prior,
             sample_size=cfg.prior_estimation_rows,
             random_state=cfg.random_state,
-            config=LabelShiftEMConfig(eps=cfg.eps),
+            config=LabelShiftEMConfig(eps=cfg.eps, loglik_tol=_PRIOR_EM_LOGLIK_TOL),
         )
         estimate = adapter.estimate(
             cast(np.ndarray, probabilities[mask]),
@@ -676,16 +755,16 @@ class ShiftFactoredPredictiveTransport:
             and effective_predictions.mean is not None
             and effective_predictions.std is not None
         ):
-            mean = _as_1d(effective_predictions.mean).float()
-            std = _as_1d(effective_predictions.std).clamp(cfg.eps, None).float()
+            mean = _as_1d(effective_predictions.mean).to(out_dtype)
+            std = _as_1d(effective_predictions.std).clamp(cfg.eps, None).to(out_dtype)
             if (
                 self._shift_calibrator is not None
                 and target_features is not None
                 and cfg.enable_uncertainty_inflation
             ):
-                std = cast(
-                    Tensor, self._shift_calibrator.calibrate_std(std, target_features)
-                ).float()
+                std = cast(Tensor, self._shift_calibrator.calibrate_std(std, target_features)).to(
+                    out_dtype
+                )
             adapted_density = _gaussian_density_on_support(
                 mean,
                 std,
@@ -698,7 +777,9 @@ class ShiftFactoredPredictiveTransport:
                 cfg.eps,
             )
         else:
-            mean, std = _probability_moments(self.state_.source_support, transported, cfg.eps)
+            mean, std = _probability_moments(
+                self.state_.source_support, transported, cfg.eps, out_dtype
+            )
             if (
                 self._shift_calibrator is not None
                 and target_features is not None
@@ -707,7 +788,7 @@ class ShiftFactoredPredictiveTransport:
                 if metadata.get("family") == "gaussian":
                     std = cast(
                         Tensor, self._shift_calibrator.calibrate_std(std, target_features)
-                    ).float()
+                    ).to(out_dtype)
                     adapted_density = _gaussian_density_on_support(
                         mean,
                         std,
@@ -730,7 +811,7 @@ class ShiftFactoredPredictiveTransport:
                         cfg.eps,
                     )
                     mean, std = _probability_moments(
-                        self.state_.source_support, transported, cfg.eps
+                        self.state_.source_support, transported, cfg.eps, out_dtype
                     )
             else:
                 adapted_density = _probabilities_to_density(
@@ -746,7 +827,7 @@ class ShiftFactoredPredictiveTransport:
                 self.state_.source_support,
                 transported,
                 quantile_levels,
-            ).float()
+            ).to(out_dtype)
 
         extra: dict[str, Any] = {
             "family": metadata.get("family"),
@@ -766,8 +847,8 @@ class ShiftFactoredPredictiveTransport:
             last_target_prior=stabilized_prior,
             metadata={**self.state_.metadata, "last_alignment_applied": alignment_applied},
         )
-        output_support = self.state_.source_support.float()
-        output_density = adapted_density.float()
+        output_support = self.state_.source_support.to(out_dtype)
+        output_density = adapted_density.to(out_dtype)
         if metadata.get("family") == "gaussian":
             output_support = None
             output_density = None
@@ -966,9 +1047,9 @@ class ShiftFactoredPredictiveTransport:
         n_boot: int = 2000,
         seed: int | None = None,
     ) -> dict[str, Any]:
-        y_l = _as_1d(labeled_targets).float()
-        pred_l = _as_1d(self._ppi_vector(labeled_predictions, q=q)).float()
-        pred_u = _as_1d(self._ppi_vector(unlabeled_predictions, q=q)).float()
+        y_l = _floating(_as_1d(labeled_targets))
+        pred_l = _floating(_as_1d(self._ppi_vector(labeled_predictions, q=q)))
+        pred_u = _floating(_as_1d(self._ppi_vector(unlabeled_predictions, q=q)))
         config = PPIConfig(alpha=alpha, n_boot=n_boot, seed=seed)
         if estimand == "mean":
             return ppi_mean_ci(y_l, pred_l, pred_u, config=config)
@@ -986,9 +1067,9 @@ class ShiftFactoredPredictiveTransport:
             if x_labeled is None or x_unlabeled is None:
                 raise ValueError("x_labeled and x_unlabeled are required for OLS PPI")
             return ppi_ols_ci(
-                _as_2d(x_labeled).float(),
+                _floating(_as_2d(x_labeled)),
                 y_l,
-                _as_2d(x_unlabeled).float(),
+                _floating(_as_2d(x_unlabeled)),
                 pred_l,
                 pred_u,
                 config=PPIConfig(alpha=alpha, n_boot=max(1000, n_boot // 2), seed=seed),
@@ -1044,6 +1125,7 @@ class ShiftFactoredPredictiveTransport:
                     _to_tensor(predictions.support),
                     probs,
                     self.config.eps,
+                    _batch_float_dtype(predictions),
                 )
                 return mean.reshape(-1)
             raise ValueError("Unsupported PredictiveBatch for PPI summary extraction")

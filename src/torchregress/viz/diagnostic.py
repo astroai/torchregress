@@ -75,6 +75,7 @@ def plot_reliability_diagram(
     mace = calibration_metrics["mean_absolute_calibration_error"]
 
     # Create plot if no axes provided
+    created_fig = ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -107,7 +108,7 @@ def plot_reliability_diagram(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         fig.tight_layout()
         plt.show()
         plt.close(fig)  # TR-VIZ-05: close figures we created
@@ -546,6 +547,7 @@ def plot_prediction_intervals(
     )
 
     # Create plot if no axes provided
+    created_fig = ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -569,7 +571,7 @@ def plot_prediction_intervals(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         fig.tight_layout()
         plt.show()
         plt.close(fig)  # TR-VIZ-05: close figures we created
@@ -605,8 +607,8 @@ def plot_qq_plot(
     Returns:
         If return_figure=True, returns matplotlib Figure object
     """
-    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy()
-    y_true = convert_to_tensor(y_true).detach().cpu().numpy()
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().reshape(-1)
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().reshape(-1)
 
     # Calculate residuals
     residuals = (y_true - y_pred).flatten()
@@ -614,6 +616,7 @@ def plot_qq_plot(
     from scipy import stats  # ponytail: for norm.ppf theoretical quantiles
 
     # Create plot if no axes provided
+    created_fig = ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -645,7 +648,7 @@ def plot_qq_plot(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         fig.tight_layout()
         plt.show()
         plt.close(fig)  # TR-VIZ-05: close figures we created
@@ -706,13 +709,14 @@ def plot_residual_histogram(
     Returns:
         If return_figure=True, returns matplotlib Figure object
     """
-    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy()
-    y_true = convert_to_tensor(y_true).detach().cpu().numpy()
+    y_pred = convert_to_tensor(y_pred).detach().cpu().numpy().reshape(-1)
+    y_true = convert_to_tensor(y_true).detach().cpu().numpy().reshape(-1)
 
     # Calculate residuals
     residuals = (y_true - y_pred).flatten()
 
     # Create plot if no axes provided
+    created_fig = ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -749,7 +753,7 @@ def plot_residual_histogram(
 
     if return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         fig.tight_layout()
         plt.show()
         plt.close(fig)  # TR-VIZ-05: close figures we created
@@ -1168,6 +1172,7 @@ def plot_calibration_curve(
     )
 
     # Create plot if no axes provided
+    created_fig = ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -1190,7 +1195,16 @@ def plot_calibration_curve(
         )
     else:
         calibration_error = 0.0
-    rmsce = np.sqrt(np.mean((prob_true - prob_pred) ** 2))
+    rmsce = (
+        float(
+            np.sqrt(
+                np.sum(bin_counts[nonempty] * (prob_true[nonempty] - prob_pred[nonempty]) ** 2)
+                / n_total
+            )
+        )
+        if n_total > 0
+        else 0.0
+    )
     max_calib_error = np.max(np.abs(prob_true - prob_pred))
 
     # Add histogram of predicted probabilities as a barplot at the bottom
@@ -1239,14 +1253,14 @@ def plot_calibration_curve(
     if return_figure and return_diagnostics:
         return fig, diagnostics
     elif return_diagnostics:
-        if ax is None:
+        if created_fig:
             fig.tight_layout()
             plt.show()
             plt.close(fig)  # TR-VIZ-05: close figures we created
         return cast(Dict[str, Any], diagnostics)
     elif return_figure:
         return fig
-    elif ax is None:  # Only show if we created the figure here
+    elif created_fig:  # Only show if we created the figure here
         fig.tight_layout()
         plt.show()
         plt.close(fig)  # TR-VIZ-05: close figures we created
@@ -1301,6 +1315,7 @@ def plot_pit_histogram(
     pit_values = stats.norm.cdf(z_scores)
 
     # Create plot if no axes provided
+    created_fig = ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -1310,6 +1325,7 @@ def plot_pit_histogram(
     ax.hist(
         pit_values,
         bins=n_bins,
+        range=(0.0, 1.0),
         density=True,
         alpha=0.7,
         color=color,
@@ -1337,7 +1353,7 @@ def plot_pit_histogram(
 
     if return_figure:
         return fig
-    elif ax is None:
+    elif created_fig:
         fig.tight_layout()
         plt.show()
         plt.close(fig)  # TR-VIZ-05: close figures we created
@@ -1765,6 +1781,7 @@ def plot_gaussian_reliability_diagram(
     mace = np.mean(np.abs(expected_coverage_arr - observed_coverage_arr))
 
     # Create plot if no axes provided
+    created_fig = ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -1794,7 +1811,7 @@ def plot_gaussian_reliability_diagram(
 
     if return_figure:
         return fig
-    elif ax is None:
+    elif created_fig:
         fig.tight_layout()
         plt.show()
         plt.close(fig)  # TR-VIZ-05: close figures we created

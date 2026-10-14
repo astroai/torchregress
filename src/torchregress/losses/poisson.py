@@ -261,9 +261,11 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
         # Convert log_input to predicted rate
         # A3: clamp in log space before exponentiation to avoid overflow
         if self.log_input:
-            rate = torch.exp(y_pred.clamp(max=30.0))
+            log_rate = y_pred.clamp(max=30.0)
+            rate = torch.exp(log_rate)
         else:
             rate = y_pred
+            log_rate = torch.log(rate + self.eps)
 
         # Ensure rate and pi_logits have the same shape as target
         if rate.shape != target.shape:
@@ -273,23 +275,21 @@ class ZeroInflatedPoissonNLLLoss(RegressionLoss):
                 f"Pi logits shape {pi_logits.shape} must match target shape {target.shape}"
             )
 
-        # Calculate zero-inflation probability from logits
-        pi = torch.sigmoid(pi_logits)
+        # Zero-inflation probability in log space: log(pi) = logsigmoid(l),
+        # log(1 - pi) = logsigmoid(-l). The previous probability-space form
+        # ``-log(pi + ... + eps)`` saturated at -log(eps) ~ 18.4 for confident
+        # logits, with an exactly-zero gradient w.r.t. pi_logits.
+        log_pi = F.logsigmoid(pi_logits)
+        log_1m_pi = F.logsigmoid(-pi_logits)
 
         # For zero targets: -log(pi + (1-pi) * exp(-lambda))
-        exp_neg_rate = torch.exp(-rate)
-        loss_zero = -torch.log(pi + (1.0 - pi) * exp_neg_rate + self.eps)
+        loss_zero = -torch.logaddexp(log_pi, log_1m_pi - rate)
 
         # For non-zero targets: -log(1-pi) + lambda - y*log(lambda) + log(y!)
         # Use target_safe to avoid negative values or zero in lgamma and log
         target_safe = torch.where(target > 0, target, torch.ones_like(target))
         log_factorial = torch.lgamma(target_safe + 1.0)
-        loss_nonzero = (
-            -torch.log(1.0 - pi + self.eps)
-            + rate
-            - target * torch.log(rate + self.eps)
-            + log_factorial
-        )
+        loss_nonzero = -log_1m_pi + rate - target * log_rate + log_factorial
 
         loss = torch.where(target == 0, loss_zero, loss_nonzero)
 
@@ -363,16 +363,19 @@ class NegativeBinomialNLLLoss(RegressionLoss):
             raise ValueError("Target values must be non-negative for count regression")
 
         # Get dispersion parameter θ
+        # θ follows the input dtype (A-LOSS-014): a float32 θ made lgamma/log
+        # of θ lose ~1e-6 nats of precision on float64 inputs.
+        theta_dtype = y_pred.dtype if y_pred.is_floating_point() else torch.get_default_dtype()
         if self.learn_theta:
-            theta_value = torch.exp(self.log_theta).clamp(min=self.min_theta)
+            theta_value = torch.exp(self.log_theta.to(theta_dtype)).clamp(min=self.min_theta)
         elif theta is not None:
             if isinstance(theta, (float, int)):
-                theta_value = torch.tensor(float(theta), device=y_pred.device)
+                theta_value = torch.tensor(float(theta), device=y_pred.device, dtype=theta_dtype)
             else:
-                theta_value = theta.clamp(min=self.min_theta)
+                theta_value = theta.to(dtype=theta_dtype).clamp(min=self.min_theta)
         else:
             # Default θ value if not provided or learned
-            theta_value = torch.tensor(1.0, device=y_pred.device)
+            theta_value = torch.tensor(1.0, device=y_pred.device, dtype=theta_dtype)
 
         # Ensure positive mean predictions
         mu = torch.clamp(y_pred, min=self.eps)

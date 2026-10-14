@@ -40,9 +40,10 @@ def test_uniform_weights_match_unweighted_quantile() -> None:
     scores = torch.tensor([0.1, 0.4, 0.2, 0.9])
     w = torch.ones_like(scores)
     alpha = 0.1
-    # Augmented (n+1) distribution reproduces the exact order statistic.
-    k = min(math.ceil((scores.numel() + 1) * (1.0 - alpha)), scores.numel())
-    expected = torch.sort(scores).values[k - 1]
+    # Augmented (n+1) distribution reproduces the exact order statistic, which
+    # is +inf when k = ceil((n+1)(1-alpha)) > n (n=4, alpha=0.1: k=5; B-CONF-001).
+    k = math.ceil((scores.numel() + 1) * (1.0 - alpha))
+    expected = torch.sort(scores).values[k - 1] if k <= scores.numel() else math.inf
     ad = WeightedSplitConformalAdapter(alpha=alpha)
     ad.calibrate(scores, w)
     assert float(ad.threshold_) == float(expected)

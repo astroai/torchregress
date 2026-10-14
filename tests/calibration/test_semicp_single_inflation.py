@@ -19,11 +19,12 @@ def test_unweighted_path_matches_order_statistic() -> None:
     """Zero target weight + uniform calibration weights -> exact order statistic."""
     scores = np.array([2.0, 0.5, 3.5, 1.0, 4.5])
     calibrator = SemiConformalCalibrator().fit(scores)
-    # w_tgt = 0 and uniform weights: threshold = sorted[k-1], k = ceil((n+1)(1-a)).
+    # w_tgt = 0 and uniform weights: threshold = sorted[k-1], k = ceil((n+1)(1-a)),
+    # and +inf when k > n (alpha=0.1, n=5: k=6; B-CONF-001/003).
     n = len(scores)
     for alpha in (0.1, 0.3):
-        k = min(math.ceil((n + 1) * (1.0 - alpha)), n)
-        expected = np.sort(scores)[k - 1]
+        k = math.ceil((n + 1) * (1.0 - alpha))
+        expected = np.sort(scores)[k - 1] if k <= n else np.inf
         assert np.isclose(calibrator.compute_thresholds(0.0, alpha=alpha), expected)
 
 

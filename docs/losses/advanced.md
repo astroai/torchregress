@@ -137,7 +137,7 @@ samples = loss_fn.sample_predictions(params, n_samples=100)
 3. **Use `predict_interval` over `predict_interval_gaussian`**: The true predictive is Student-t with $2\alpha$ degrees of freedom. The Gaussian approximation is only reliable when $\alpha \gg 1$ (typically $\alpha > 5$). For safety, default to the exact Student-t method.
 4. **Batch size $\geq 32$**: The per-sample NIG regulariser is noisy at small batch sizes. Below 16, gradient variance destabilises the $\nu$ and $\alpha$ parameters. Use gradient accumulation if memory-constrained.
 5. **Monitor OOD calibration, not just in-distribution error**: Evidential models can achieve low in-distribution RMSE while producing severely overconfident epistemic estimates on shifted data. Validate on covariate-shifted or worst-slice hold-out sets.
-6. **Compare with ensembles for critical applications**: Evidential single-pass uncertainty is fast but less reliable than [DeepEnsemble](../methods/ensemble/index.md) disagreement for epistemic decomposition. When safety-critical, use both and flag disagreements.
+6. **Compare with ensembles for critical applications**: Evidential single-pass uncertainty is fast but less reliable than [BaseEnsembleModel](../methods/ensemble/index.md) disagreement for epistemic decomposition. When safety-critical, use both and flag disagreements.
 
 ## Next steps
 

@@ -5,14 +5,16 @@ import torch
 
 from torchregress.utils import (
     CORALHead,
-    class_probs_to_levels,
     cumulative_logits_to_pmf,
     cumulative_probs_to_pmf,
-    labels_to_levels,
-    normalize_class_probs,
     ordinal_predict,
 )
-from torchregress.utils.ordinal import _validate_num_classes
+from torchregress.utils.ordinal import (
+    _validate_num_classes,
+    class_probs_to_levels,
+    labels_to_levels,
+    normalize_class_probs,
+)
 
 
 def test_validate_num_classes_rejects_invalid_inputs() -> None:

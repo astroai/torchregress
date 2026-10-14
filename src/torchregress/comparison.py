@@ -36,17 +36,38 @@ def timed_call(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, 
 
 
 def compute_point_metrics(y_pred: torch.Tensor, y_true: torch.Tensor) -> dict[str, float]:
-    """Compute common point-prediction regression metrics."""
+    """Compute common point-prediction regression metrics.
+
+    Parameters
+    ----------
+    y_pred : Tensor
+        Point predictions, shape ``[N]``, ``[N, 1]`` or ``[N, D]``.
+    y_true : Tensor
+        Targets with the same number of elements as ``y_pred``.  A ``[N, 1]`` /
+        ``[N]`` shape mismatch is reconciled by reshaping ``y_pred`` to
+        ``y_true.shape`` (it is never broadcast to ``[N, N]``).
+
+    Returns
+    -------
+    dict[str, float]
+        ``MSE`` and ``MAE`` averaged over all elements, and ``R2`` computed per
+        output (around that output's own target mean) and uniformly averaged over
+        outputs, as in ``sklearn.metrics.r2_score``.  ``R2`` is NaN when any output
+        has zero target variance.
+    """
     y_pred_t = y_pred.detach()
     y_true_t = y_true.detach().to(y_pred_t.device)
+    if y_pred_t.numel() == y_true_t.numel() and y_pred_t.shape != y_true_t.shape:
+        y_pred_t = y_pred_t.reshape(y_true_t.shape)
 
     mse = torch.mean((y_pred_t - y_true_t) ** 2).item()
     mae = torch.mean(torch.abs(y_pred_t - y_true_t)).item()
 
-    y_true_mean = torch.mean(y_true_t)
-    ss_res = torch.sum((y_true_t - y_pred_t) ** 2)
-    ss_tot = torch.sum((y_true_t - y_true_mean) ** 2)
-    r2 = (1.0 - ss_res / ss_tot).item() if ss_tot.item() > 0 else float("nan")
+    yt2 = y_true_t.reshape(-1, 1) if y_true_t.ndim <= 1 else y_true_t.reshape(y_true_t.shape[0], -1)
+    yp2 = y_pred_t.reshape(yt2.shape)
+    ss_res = torch.sum((yt2 - yp2) ** 2, dim=0)
+    ss_tot = torch.sum((yt2 - yt2.mean(dim=0)) ** 2, dim=0)
+    r2 = (1.0 - ss_res / ss_tot).mean().item() if bool((ss_tot > 0).all()) else float("nan")
 
     return {"MSE": mse, "MAE": mae, "R2": r2}
 

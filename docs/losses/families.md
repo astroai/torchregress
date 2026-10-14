@@ -29,6 +29,46 @@ where `y_pred` columns map to distribution parameters and positivity-constrained
 
 Functional forms are also exported (`skew_normal_nll`, `skew_t_nll`, `beta_regression_nll`, `johnson_su_nll`, `sinh_arcsinh_nll`, `gev_nll`, `asymmetric_laplace_nll`, `sqr_loss`).
 
+Each minimises the elementwise negative log-likelihood of its density family:
+
+$$\mathcal{L}(\theta_1, \dots, \theta_K) = -\log f(y;\, \theta_1, \dots, \theta_K), \qquad \theta_k = \text{softplus}(\text{raw}_k) + \varepsilon$$
+
+for positivity-constrained parameters, with $\theta_k = \text{raw}_k$ for unconstrained ones ($\xi$, $\alpha$, $\gamma$, $\epsilon$, $\mu$). The elementwise NLLs are:
+
+- **Skew-normal** (Azzalini 1985), $z = (y-\xi)/\omega$:
+
+$$f(y) = \frac{2}{\omega}\,\varphi(z)\,\Phi(\alpha z)$$
+
+- **Skew-t** (Azzalini & Capitanio 2003), degrees of freedom $\nu > 0$:
+
+$$f(y) = \frac{2}{\omega}\, t_\nu(z)\; T_{\nu+1}\!\Big(\alpha z \sqrt{\tfrac{\nu+1}{\nu+z^2}}\Big)$$
+
+- **Beta regression** (Ferrari & Cribari-Neto 2004), for $y \in (0,1)$ with mean $\mu = \sigma(\text{logit})$ and precision $\phi > 0$:
+
+$$f(y) = \frac{y^{\alpha-1}(1-y)^{\beta-1}}{B(\alpha, \beta)}, \qquad \alpha = \mu\phi,\;\; \beta = (1-\mu)\phi$$
+
+- **Johnson SU**, with $u = (y - \xi)/\lambda$ and the standardized variate $Z = \gamma + \delta\,\operatorname{asinh}(u)$:
+
+$$f(y) = \frac{\delta}{\lambda\sqrt{2\pi}}\;\frac{1}{\sqrt{1+u^2}}\;\exp\!\Big(-\tfrac{1}{2}\big(\gamma + \delta\,\operatorname{asinh}(u)\big)^2\Big)$$
+
+- **Sinh-arcsinh** (Jones & Pewsey 2009), with $z = (y-\mu)/\sigma$ and $s = \sinh\big((\operatorname{asinh}(z) - \epsilon)/\delta\big)$ — the inverse of the transformation $y = \mu + \sigma\sinh(\delta\,\operatorname{asinh}(Z)+\epsilon)$ for $Z \sim \mathcal{N}(0,1)$:
+
+$$\mathcal{L} = \tfrac{1}{2}\log 2\pi + \log(\sigma\delta) + \tfrac{1}{2}\log(1+z^2) - \tfrac{1}{2}\log(1+s^2) + \tfrac{s^2}{2}$$
+
+At $\epsilon=0,\ \delta=1$ this reduces **exactly** to Gaussian NLL.
+
+- **GEV** (Coles 2001 parameterization), $z = (y-\mu)/\sigma$; observations outside the support $1 + \xi z > 0$ receive infinite NLL:
+
+$$\mathcal{L} = \log\sigma + \frac{1+\xi}{\xi}\log(1+\xi z) + \big(1+\xi z\big)^{-1/\xi} \quad \xrightarrow{\ \xi \to 0\ } \quad \mathcal{L}_{\text{Gumbel}} = \log\sigma + z + e^{-z}$$
+
+The analytic Gumbel limit is used for $|\xi|$ below the implementation's numerical threshold, avoiding the $0/0$ limit form.
+
+- **Asymmetric Laplace**, $u = y-\mu$:
+
+$$f(y) = \frac{\sqrt{2}\,\kappa}{\sigma(1+\kappa^2)}\,\exp\!\Big(-\frac{\sqrt{2}}{\sigma\kappa}\max(u,0) - \frac{\sqrt{2}\,\kappa}{\sigma}\max(-u,0)\Big)$$
+
+The NLL reduces to its normalisation constant plus $\dfrac{\sqrt{2}(1+\kappa^2)}{\sigma\kappa}\,\rho_\tau(y-\mu)$ where $\rho_\tau$ is the pinball (check) loss at the level $\tau = 1/(1+\kappa^2)$ — the exact $\kappa$–$\tau$ correspondence, matching the [QuantileLoss](quantile_expectile.md) family.
+
 ---
 
 ## Positivity and `unconstrained_inputs`
@@ -54,11 +94,11 @@ loss = loss_fn(torch.cat([logits, phi_positive], dim=-1), targets_in_01)
 Internally (`unconstrained_inputs=False`):
 
 ```
-raw = inverse_softplus(positive, eps) = log(expm1((positive - eps).clamp(min=1e-6)))
+raw = softplus_inverse((positive - eps).clamp(min=1e-6)) = s + log(-expm1(-s))
 positive_recovered = softplus(raw) + eps  # == positive
 ```
 
-This keeps the elementwise NLL numerically identical between modes while letting you compose heads that already satisfy constraints. All seven NLL families (`SkewNormal`, `SkewT`, `Beta`, `JohnsonSU`, `SinhArcsinh`, `GEV`, `AsymmetricLaplace`) expose `unconstrained_inputs` with the same semantics; `SQRLoss` has no positivity constraint and does not use the flag.
+This keeps the elementwise NLL numerically identical between modes while letting you compose heads that already satisfy constraints. All seven NLL families (`SkewNormalNLLLoss`, `SkewTLoss`, `BetaRegressionNLLLoss`, `JohnsonSUNLLLoss`, `SinhArcsinhNLLLoss`, `GEVNLLLoss`, `AsymmetricLaplaceNLLLoss`) expose `unconstrained_inputs` with the same semantics; `SQRLoss` has no positivity constraint and does not use the flag.
 
 !!! tip "Which mode to use?"
     - Use `unconstrained_inputs=True` (default) when the final linear layer is unconstrained — the loss handles positivity. This is the simplest and most common setup.

@@ -75,9 +75,12 @@ def test_conformal_loss_calibration_and_prediction(method):
     loss_fn = ConformalLoss(method=method, alpha=0.1)
     batch_size, n_features = 50, 1
 
+    torch.manual_seed(0)
     if method in ("cqr", "uacqr"):
-        y_pred_cal = torch.randn(batch_size, 2 * n_features)
-        y_pred_test = torch.randn(batch_size, 2 * n_features)
+        # Ordered (lower, upper) quantile pairs: unordered random pairs made
+        # ``lower <= upper`` fail intermittently for UACQR.
+        y_pred_cal = torch.randn(batch_size, 2 * n_features).sort(dim=-1).values
+        y_pred_test = torch.randn(batch_size, 2 * n_features).sort(dim=-1).values
     else:
         y_pred_cal = torch.randn(batch_size, n_features)
         y_pred_test = torch.randn(batch_size, n_features)
@@ -1343,3 +1346,59 @@ class TestEnsembleBatchCP:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+def test_local_conformal_row_blocks_match_single_block(monkeypatch) -> None:
+    """Row-blocked kernel weights give the same intervals as one dense block."""
+    from torchregress.losses.conformal import (
+        DensityConformal,
+        LocalConformal,
+        LocalConformalMAD,
+    )
+
+    g = torch.Generator().manual_seed(0)
+    x_cal, x_test = torch.randn(300, 3, generator=g), torch.randn(97, 3, generator=g)
+    y_cal = x_cal[:, 0] + 0.3 * torch.randn(300, generator=g)
+    p_cal, p_test = x_cal[:, 0], x_test[:, 0]
+    mad_cal, mad_test = 0.5 + x_cal[:, 1].abs(), 0.5 + x_test[:, 1].abs()
+
+    def run() -> list[torch.Tensor]:
+        lc = LocalConformal(alpha=0.1, bandwidth=0.8)
+        lc.calibrate(p_cal, y_cal, x=x_cal)
+        lm = LocalConformalMAD(alpha=0.1, bandwidth=0.8)
+        lm.calibrate(p_cal, y_cal, x=x_cal, mad=mad_cal)
+        dc = DensityConformal(alpha=0.1)
+        dc.calibrate(p_cal, y_cal)
+        return [
+            *lc.predict_interval(p_test, x=x_test),
+            *lm.predict_interval(p_test, x=x_test, mad=mad_test),
+            *dc.predict_interval(p_test),
+        ]
+
+    dense = run()
+    monkeypatch.setattr(LocalConformal, "_BLOCK_ELEMS", 301 * 7)  # 7-row blocks
+    blocked = run()
+    for a, b in zip(dense, blocked):
+        torch.testing.assert_close(a, b, rtol=0, atol=0)
+
+
+def test_cvplus_blocked_kthvalue_matches_sorted_reference() -> None:
+    """Row-blocked kthvalue CV+ equals the dense sort over all candidates."""
+    import math
+
+    g = torch.Generator().manual_seed(1)
+    K, n_cal, n_test = 5, 403, 61
+    fold = torch.randint(0, K, (n_cal,), generator=g)
+    resid = torch.rand(n_cal, generator=g)
+    preds = torch.randn(K, n_test, 1, generator=g)
+    cp = CVPlus(alpha=0.1)
+    cp.residuals, cp.fold_indices, cp._is_calibrated = resid, fold, True
+    lo, hi = cp.predict_interval(preds)
+
+    cand = preds[fold]
+    k_hi = math.ceil((n_cal + 1) * 0.9)
+    k_lo = math.floor((n_cal + 1) * 0.1)
+    ref_lo = torch.sort(cand - resid.view(-1, 1, 1), dim=0).values[k_lo - 1]
+    ref_hi = torch.sort(cand + resid.view(-1, 1, 1), dim=0).values[k_hi - 1]
+    torch.testing.assert_close(lo, ref_lo, rtol=0, atol=0)
+    torch.testing.assert_close(hi, ref_hi, rtol=0, atol=0)

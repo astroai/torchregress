@@ -1,4 +1,4 @@
-"""
+r"""
 Example: Evidential Deep Learning for Regression.
 
 This example demonstrates Evidential Regression using Normal-Inverse-Gamma (NIG)

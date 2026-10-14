@@ -200,9 +200,13 @@ class DelayedLabelResidualAdapter:
         if pred.std is not None:
             std_t = torch.as_tensor(pred.std)
             std_clamped = torch.clamp(std_t, min=1e-8)
+            # Before the first update no correction has been applied (the adapted mean
+            # equals the base mean), so the "previous" correction is exactly zero.
             prev_residual_mean = (
-                self.residual_mean_ if self.residual_mean_ is not None else batch_mean_error
-            )  # noqa: E501
+                self.residual_mean_
+                if self.residual_mean_ is not None
+                else torch.zeros_like(batch_mean_error)
+            )
             z_squared = ((error - prev_residual_mean) / std_clamped) ** 2
             batch_mean_z_squared = z_squared.mean(dim=0)
             if self.variance_inflation_ is None:

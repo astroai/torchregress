@@ -5,10 +5,12 @@ This module provides foundation classes and abstractions for all ensemble techni
 in the torchregress library.
 """
 
-from collections.abc import Callable
+import functools
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Concatenate, Dict, List, Optional, ParamSpec, TypeVar, Union, cast
 
 import torch
 from torch import nn
@@ -17,6 +19,41 @@ from torch import nn
 # (bare ``torch.optim.Optimizer`` is generic in the stubs), hence the casts below.
 Optimizer = torch.optim.Optimizer
 OptimizerLike = Optimizer | tuple[Optimizer, ...]
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+_M = TypeVar("_M", bound=nn.Module)
+
+
+@contextmanager
+def eval_mode(module: nn.Module) -> Iterator[None]:
+    """Put ``module`` (and all submodules) in eval mode, restoring each mode on exit.
+
+    Dropout is disabled and BatchNorm uses (and does not update) its running
+    statistics inside the block; the exact per-submodule ``training`` flags are
+    restored afterwards, even if an exception is raised.
+    """
+    modes = [(m, m.training) for m in module.modules()]
+    module.eval()
+    try:
+        yield
+    finally:
+        for m, was_training in modes:
+            m.training = was_training
+
+
+def predicts_in_eval_mode(
+    fn: Callable[Concatenate[_M, _P], _R],
+) -> Callable[Concatenate[_M, _P], _R]:
+    """Decorator running a prediction method under :func:`eval_mode` of ``self``."""
+
+    @functools.wraps(fn)
+    def wrapper(self: _M, /, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        with eval_mode(self):
+            return fn(self, *args, **kwargs)
+
+    return wrapper
 
 
 def _optimizer_like_zero_grad(opt: OptimizerLike) -> None:
@@ -78,6 +115,11 @@ class BaseEnsembleModel(nn.Module):
         base_model: Base model class or instance to ensemble
         ensemble_size: Number of ensemble members
         device: Device to use
+        member_factory: Optional ``factory(index, seed)`` building each member.
+        base_seed: If set, member ``i`` is initialised under ``torch.manual_seed(base_seed + i)``
+            inside :func:`torch.random.fork_rng`, so the caller's global RNG state is
+            left unchanged.
+        reset_parameters: Re-initialise deep copies of an ``nn.Module`` ``base_model``.
     """
 
     def __init__(
@@ -94,27 +136,30 @@ class BaseEnsembleModel(nn.Module):
         self.ensemble_size = ensemble_size
         self.device = device
 
-        # Create ensemble members
+        # Create ensemble members. Seeding happens inside a forked RNG so that
+        # ``base_seed`` makes member initialisation reproducible without resetting
+        # the caller's global torch RNG stream.
         self.models = nn.ModuleList()
-        for i in range(ensemble_size):
-            seed = base_seed + i if base_seed is not None else None
-            if member_factory is not None:
-                if seed is not None:
-                    torch.manual_seed(seed)
-                model = member_factory(i, seed)
-            elif isinstance(base_model, type):
-                # If base_model is a class, instantiate it with kwargs
-                if seed is not None:
-                    torch.manual_seed(seed)
-                model = base_model(**base_model_kwargs)
-            elif isinstance(base_model, nn.Module):
-                # Otherwise, make a deep copy of the provided instance
-                model = deepcopy(base_model)
-                if reset_parameters:
-                    self._reset_model_parameters(model, seed)
-            else:
-                raise ValueError("Either base_model or member_factory must be provided.")
-            self.models.append(model)
+        with torch.random.fork_rng(enabled=base_seed is not None):
+            for i in range(ensemble_size):
+                seed = base_seed + i if base_seed is not None else None
+                if member_factory is not None:
+                    if seed is not None:
+                        torch.manual_seed(seed)
+                    model = member_factory(i, seed)
+                elif isinstance(base_model, type):
+                    # If base_model is a class, instantiate it with kwargs
+                    if seed is not None:
+                        torch.manual_seed(seed)
+                    model = base_model(**base_model_kwargs)
+                elif isinstance(base_model, nn.Module):
+                    # Otherwise, make a deep copy of the provided instance
+                    model = deepcopy(base_model)
+                    if reset_parameters:
+                        self._reset_model_parameters(model, seed)
+                else:
+                    raise ValueError("Either base_model or member_factory must be provided.")
+                self.models.append(model)
 
         # Check if parameters of different members are identical
         if ensemble_size > 1 and len(self.models) > 0:
@@ -163,9 +208,13 @@ class BaseEnsembleModel(nn.Module):
             return torch.stack(cast(List[torch.Tensor], outputs))
         return outputs
 
+    @predicts_in_eval_mode
     def predict(self, x: torch.Tensor, correction: int = 0) -> Dict[str, torch.Tensor]:
         """
         Make prediction with uncertainty estimates.
+
+        Members run in eval mode (dropout off, BatchNorm running statistics used and
+        left untouched); the previous train/eval modes are restored afterwards.
 
         Args:
             x: Input tensor [batch_size, ...]
@@ -194,11 +243,12 @@ class BaseEnsembleModel(nn.Module):
 
             return {"mean": mean, "variance": variance}
 
+    @predicts_in_eval_mode
     def predict_full_covariance(
         self, x: torch.Tensor, correction: int = 0
     ) -> Dict[str, torch.Tensor]:
         """
-        Make prediction with full-output covariance estimation.
+        Make prediction with full-output covariance estimation (in eval mode).
 
         Args:
             x: Input tensor [batch_size, ...]

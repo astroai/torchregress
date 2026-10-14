@@ -16,9 +16,8 @@ from typing import Any, Dict, Optional, Union, cast
 
 import numpy as np
 import torch
-from sklearn.linear_model import LogisticRegression  # type: ignore
 
-from torchregress.losses.conformal import _weighted_quantile
+from torchregress.losses.conformal import _LEVEL_RTOL, _weighted_quantile
 from torchregress.prediction import PredictiveBatch
 
 
@@ -264,6 +263,9 @@ class WeightedConformalRegressionAdapter:
     Estimates the covariate shift density ratio w(x) = p_target(x) / p_source(x)
     by training a classifier (defaulting to Logistic Regression) to distinguish
     between calibration and target features.
+
+    The default classifier needs scikit-learn, which is not a core dependency
+    of torchregress; any classifier with ``fit`` and ``predict_proba`` works.
     """
 
     def __init__(
@@ -276,6 +278,16 @@ class WeightedConformalRegressionAdapter:
         self.alpha = float(alpha)
 
         if classifier is None:
+            # scikit-learn is not a core dependency: only the default classifier
+            # needs it, so it is imported here rather than at module level.
+            try:
+                from sklearn.linear_model import LogisticRegression
+            except ImportError as exc:
+                raise ImportError(
+                    "WeightedConformalRegressionAdapter's default classifier needs "
+                    "scikit-learn (pip install scikit-learn), or pass classifier= "
+                    "(any object with fit and predict_proba)."
+                ) from exc
             classifier = LogisticRegression(random_state=42, max_iter=1000)
         self.classifier = classifier
         self.scores_: torch.Tensor | None = None
@@ -435,17 +447,29 @@ class WeightedConformalRegressionAdapter:
         w_cal_sorted = w_cal[sorted_idx]
 
         c_cum = torch.cumsum(w_cal_sorted, dim=0)
-        s_w = w_cal_sorted.sum()
 
-        targets = (1.0 - self.alpha) * (s_w + w_test)
-        idx = torch.searchsorted(c_cum, targets)
+        # Level (1 - alpha) of the augmented distribution
+        #   sum_i p_i delta_{s_i} + p_{n+1} delta_{+inf},  p_i = w_i / (sum_j w_j + w_{n+1})
+        # (Tibshirani et al., 2019): the first calibration score whose cumulative mass
+        # reaches (1 - alpha) (s_w + w_test).  If even the full calibration mass falls short
+        # the level lies on the test-point atom and the threshold is +inf (whole real line).
+        # Same semantics (float64 cumulative mass, relative tolerance) as
+        # ``losses.conformal._weighted_conformal_thresholds``.
+        c_cum64 = c_cum.to(torch.float64)
+        need = (1.0 - self.alpha) * (c_cum64[-1] + w_test.to(torch.float64))
+        need = need - _LEVEL_RTOL * need.abs()
+        idx = torch.searchsorted(c_cum64, need)
 
         n_cal = scores.shape[0]
-        idx_clamped = torch.clamp(idx, max=n_cal - 1)
-        q_hat = scores_sorted[idx_clamped]
+        reached = idx < n_cal
+        # Finite stand-in where the level is not reached (replaced by +/-inf below).
+        q_hat = torch.where(
+            reached, scores_sorted[torch.clamp(idx, max=n_cal - 1)], scores_sorted.new_zeros(())
+        )
 
         if mean_test.dim() > 1:
             q_hat_broadcast = q_hat.view(-1, 1)
+            reached = reached.view(-1, 1)
         else:
             q_hat_broadcast = q_hat
 
@@ -460,7 +484,8 @@ class WeightedConformalRegressionAdapter:
         else:
             width = q_hat_broadcast
 
-        lower_bound = mean_test - width
-        upper_bound = mean_test + width
+        inf = torch.full_like(width, float("inf"))
+        lower_bound = torch.where(reached, mean_test - width, -inf)
+        upper_bound = torch.where(reached, mean_test + width, inf)
 
         return lower_bound, upper_bound

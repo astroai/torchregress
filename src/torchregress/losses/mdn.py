@@ -32,6 +32,15 @@ class MixtureDensityLoss(DistributionLoss):
         n_components (int): Number of mixture components
         n_features (int): Number of output features
         covariance_type (str): Type of covariance matrix ('diagonal' or 'full')
+        full_parameterization (str): For ``covariance_type='full'``, what the lower
+            triangular factor ``T`` built from the network output parameterises:
+            ``'precision'`` (default; precision ``P = T T^T``, as in sbi's MDN) or
+            ``'covariance'`` (``Sigma = T T^T``, the pre-0.3 behaviour).  The
+            precision form makes the log-density linear in ``T`` (no triangular
+            solve), which trains far better in several dimensions: on the
+            16-target scm20d benchmark the covariance form did not even fit the
+            training data (train NLL 0.42 vs -3.45, test 3.32 vs 0.31).  The
+            output layout is the same for both.
         min_std (float): Minimum standard deviation for numerical stability
         eps (float): Small constant for numerical stability in calculations
         reduction (str): Specifies the reduction to apply: 'none' | 'mean' | 'sum'
@@ -70,11 +79,18 @@ class MixtureDensityLoss(DistributionLoss):
         min_std: float = 1e-3,
         eps: float = 1e-8,
         reduction: str = "mean",
+        full_parameterization: str = "precision",
     ):
         super().__init__(reduction=reduction)
         self.n_components = n_components
         self.n_features = n_features
         self.covariance_type = covariance_type.lower()
+        self.full_parameterization = full_parameterization.lower()
+        if self.full_parameterization not in ("precision", "covariance"):
+            raise ValueError(
+                "full_parameterization must be 'precision' or 'covariance', got "
+                f"{full_parameterization!r}"
+            )
         self.min_std = min_std
         self.eps = eps
         self.log_2pi = math.log(2 * math.pi)
@@ -260,6 +276,14 @@ class MixtureDensityLoss(DistributionLoss):
         Returns:
             torch.Tensor: Log probabilities [..., n_components]
         """
+        if self.full_parameterization == "precision":
+            # T is the Cholesky factor of the precision: log N = -0.5 ||T^T r||^2
+            # + sum(log T_ii) - D/2 log(2 pi); linear in T, no solve needed.
+            residuals = target.unsqueeze(-2) - means
+            z = torch.matmul(L_matrices.transpose(-1, -2), residuals.unsqueeze(-1)).squeeze(-1)
+            log_det_t = torch.log(torch.diagonal(L_matrices, dim1=-2, dim2=-1) + self.eps).sum(-1)
+            return -0.5 * (torch.sum(z**2, dim=-1) + self.n_features * self.log_2pi) + log_det_t
+
         # Expand target for broadcasting with components
         target_expanded = target.unsqueeze(-2)  # [..., 1, n_features]
 
@@ -319,6 +343,15 @@ class MixtureDensityLoss(DistributionLoss):
             log_probs = -0.5 * (quadratic_term + log_det + self.n_features * self.log_2pi)
 
         return log_probs
+
+    def _component_marginal_std(self, factor: torch.Tensor) -> torch.Tensor:
+        """Per-dimension standard deviation of each full-covariance component."""
+        if self.full_parameterization == "precision":
+            cov = torch.cholesky_inverse(factor)  # (T T^T)^{-1}
+            var = torch.diagonal(cov, dim1=-2, dim2=-1)
+        else:
+            var = torch.sum(factor**2, dim=-1)  # diag(L L^T)
+        return torch.sqrt(var.clamp(min=self.eps))
 
     def _calculate_nll(
         self,
@@ -417,12 +450,8 @@ class MixtureDensityLoss(DistributionLoss):
             tuple: (mean, std) each of shape [batch, n_features]
         """
         log_weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
-
         if self.covariance_type != "diagonal":
-            raise NotImplementedError(
-                "predict_mean_std only supports diagonal covariance. "
-                "Use predict_interval() for full covariance."
-            )
+            stds_or_L = self._component_marginal_std(stds_or_L)
 
         # Mixture mean: E[y] = sum(w_k * mu_k)
         weights = log_weights.exp()
@@ -467,11 +496,9 @@ class MixtureDensityLoss(DistributionLoss):
             >>> coverage = in_interval.float().mean()  # Should be ~0.95
         """
         log_weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
-
         if self.covariance_type != "diagonal":
-            raise NotImplementedError(
-                "predict_interval currently only supports diagonal covariance."
-            )
+            # Per-dimension intervals only need each component's marginal std.
+            stds_or_L = self._component_marginal_std(stds_or_L)
 
         batch_size = means.shape[0]
         # n_components = means.shape[1]
@@ -514,9 +541,6 @@ class MixtureDensityLoss(DistributionLoss):
         """
         log_weights, means, stds_or_L = self._extract_distribution_parameters(y_pred)
 
-        if self.covariance_type != "diagonal":
-            raise NotImplementedError("sample currently only supports diagonal covariance.")
-
         batch_size = means.shape[0]
         n_features = means.shape[2]
 
@@ -526,11 +550,21 @@ class MixtureDensityLoss(DistributionLoss):
         # Gather parameters using memory-efficient advanced indexing
         batch_indices = torch.arange(batch_size, device=y_pred.device).unsqueeze(1)
         selected_means = means[batch_indices, component_idx]
-        selected_stds = stds_or_L[batch_indices, component_idx]
-
-        # Sample
-        samples = torch.randn(batch_size, n_samples, n_features, device=y_pred.device)
-        samples = samples * selected_stds + selected_means
+        eps = torch.randn(
+            batch_size, n_samples, n_features, device=y_pred.device, dtype=means.dtype
+        )
+        if self.covariance_type == "diagonal":
+            samples = eps * stds_or_L[batch_indices, component_idx] + selected_means
+        else:
+            selected = stds_or_L[batch_indices, component_idx]  # [B, S, F, F]
+            if self.full_parameterization == "precision":
+                # y = mu + T^{-T} eps has covariance (T T^T)^{-1}.
+                draw = torch.linalg.solve_triangular(
+                    selected.transpose(-1, -2), eps.unsqueeze(-1), upper=True
+                ).squeeze(-1)
+            else:  # covariance Cholesky factor L: y = mu + L eps
+                draw = (selected @ eps.unsqueeze(-1)).squeeze(-1)
+            samples = draw + selected_means
 
         # Transpose to [n_samples, batch, n_features]
         return samples.transpose(0, 1)

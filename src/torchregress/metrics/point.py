@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional, Union, cast
 import numpy as np
 import torch
 from torchmetrics import (
-    MeanSquaredError,
     Metric,
     R2Score,
 )
@@ -17,6 +16,7 @@ from torchregress.metrics.utils import (
     create_metric_result,
     metric_state_list,
     metric_state_tensor,
+    prepare_functional_metric,
     validate_inputs,
     validate_sample_weight,
 )
@@ -24,11 +24,72 @@ from torchregress.metrics.utils import (
 MetricValue = Union[torch.Tensor, float, np.ndarray]
 
 
+def _median(values: torch.Tensor, dim: Optional[int] = None) -> torch.Tensor:
+    """Median that averages the two middle values for even counts.
+
+    ``torch.median`` returns the *lower* median, which differs from
+    ``numpy.median`` / ``scipy`` / ``sklearn`` for even sample sizes (M-MET-007).
+
+    Parameters
+    ----------
+    values : Tensor
+        Input values.
+    dim : int, optional
+        Reduction dimension; ``None`` reduces over all elements.
+
+    Returns
+    -------
+    Tensor
+        The median (NaN for an empty reduction).
+    """
+    if dim is None:
+        values = values.reshape(-1)
+        dim = 0
+    n = values.shape[dim]
+    if n == 0:
+        shape = list(values.shape)
+        del shape[dim]
+        return torch.full(shape, float("nan"), device=values.device, dtype=values.dtype)
+    ordered = torch.sort(values, dim=dim).values
+    lower = ordered.narrow(dim, (n - 1) // 2, 1)
+    upper = ordered.narrow(dim, n // 2, 1)
+    return (0.5 * (lower + upper)).squeeze(dim)
+
+
+def _median_absolute_error(abs_errors: torch.Tensor, multioutput: str) -> torch.Tensor:
+    """MedAE following ``sklearn.metrics.median_absolute_error`` (M-MET-006).
+
+    Multi-output inputs ``[N, D, ...]`` take the median per output; with
+    ``multioutput="uniform_average"`` the per-output medians are averaged.
+    """
+    if abs_errors.ndim > 1 and abs_errors.shape[1] > 1:
+        per_output = _median(abs_errors.reshape(abs_errors.shape[0], -1), dim=0)
+        if multioutput == "raw_values":
+            return per_output
+        return per_output.mean()
+    return _median(abs_errors)
+
+
+def _trimmed_mean(values: torch.Tensor, proportion: float) -> torch.Tensor:
+    """Symmetric trimmed mean, identical to ``scipy.stats.trim_mean`` (M-MET-008).
+
+    ``int(n * proportion)`` values are cut from *each* end of the sorted data.
+    """
+    ordered = torch.sort(values.reshape(-1)).values
+    n = ordered.numel()
+    cut = int(n * proportion)
+    # TR-MET-20: keep at least one element in the trim window for tiny n.
+    return torch.mean(ordered[cut : max(n - cut, cut + 1)])
+
+
 class MedianAbsoluteError(Metric):
     """
     Median absolute error regression loss.
 
-    Robust to outliers.
+    Robust to outliers. Matches ``sklearn.metrics.median_absolute_error``: the
+    median averages the two middle values for even counts, and multi-output
+    targets average the per-output medians (``multioutput="uniform_average"``)
+    or return them (``"raw_values"``).
     """
 
     is_differentiable = False
@@ -52,14 +113,7 @@ class MedianAbsoluteError(Metric):
     def compute(self) -> torch.Tensor:
         """Compute median absolute error."""
         errors = torch.cat(metric_state_list[torch.Tensor](self.errors))
-        if self.multioutput == "raw_values" and errors.ndim > 1 and errors.shape[1] > 1:
-            return torch.median(errors, dim=0)[0]
-        else:
-            if errors.ndim > 1 and errors.shape[1] > 1:
-                errors = torch.mean(errors, dim=1)
-            else:
-                errors = errors.view(-1)
-            return torch.median(errors)
+        return _median_absolute_error(errors, self.multioutput)
 
 
 class NormalizedRMSE(Metric):
@@ -88,7 +142,7 @@ class NormalizedRMSE(Metric):
         y_true = torch.cat(metric_state_list[torch.Tensor](self.y_true))
         validate_inputs(y_pred, y_true)
 
-        rmse = torch.sqrt(MeanSquaredError()(y_pred, y_true))
+        rmse = torch.sqrt(torch.mean((y_pred - y_true) ** 2))
 
         if self.normalization == "std":
             norm_factor = torch.std(y_true)
@@ -147,6 +201,9 @@ class HuberMetric(Metric):
 class TrimmedMeanSquaredError(Metric):
     """
     Trimmed Mean Squared Error - robust to outliers.
+
+    Cuts ``int(n * proportion)`` squared errors from each end of the sorted
+    sample, as ``scipy.stats.trim_mean``.
     """
 
     is_differentiable = False
@@ -172,17 +229,16 @@ class TrimmedMeanSquaredError(Metric):
     def compute(self) -> torch.Tensor:
         """Compute trimmed mean squared error."""
         errors = torch.cat(metric_state_list[torch.Tensor](self.errors))
-        sorted_errors, _ = torch.sort(errors)
-        n = len(sorted_errors)
-        lower_idx = int(n * self.proportion)
-        # TR-MET-20: keep at least one element in the trim window for tiny n.
-        upper_idx = max(int(n * (1 - self.proportion)), lower_idx + 1)
-        return torch.mean(sorted_errors[lower_idx:upper_idx])
+        return _trimmed_mean(errors, self.proportion)
 
 
 class MedianAbsoluteDeviation(Metric):
     """
     Median Absolute Deviation - highly robust to outliers.
+
+    ``scale * median(|e - median(e)|)`` with ``e = y_true - y_pred``; equals
+    ``scale * scipy.stats.median_abs_deviation(e)`` (even counts average the
+    two middle values).
     """
 
     is_differentiable = False
@@ -206,10 +262,7 @@ class MedianAbsoluteDeviation(Metric):
     def compute(self) -> torch.Tensor:
         """Compute median absolute deviation."""
         errors = torch.cat(metric_state_list[torch.Tensor](self.errors))
-        median_error = torch.median(errors)
-        deviations = torch.abs(errors - median_error)
-        mad = torch.median(deviations)
-        return self.scale * mad
+        return self.scale * _median(torch.abs(errors - _median(errors)))
 
 
 class OutlierFraction(Metric):
@@ -280,7 +333,7 @@ class OutlierFraction(Metric):
         var = (metric_state_tensor(self.sum_y_sq) - n * mean**2) / (n - 1)
         if n < 2 or var <= 0:
             # Zero-variance targets: no meaningful scale — define outliers empty.
-            return torch.zeros((), device=total.device, dtype=torch.float32)
+            return torch.zeros((), device=total.device, dtype=metric_state_tensor(self.sum_y).dtype)
         std = torch.sqrt(var)
         outlier_count = torch.sum(torch.cat(errors) > self.threshold * std.to(errors[0].device))
         return outlier_count / total
@@ -289,6 +342,10 @@ class OutlierFraction(Metric):
 class NormalizedMedianAbsoluteDeviation(Metric):
     """
     Calculate the Normalized Median Absolute Deviation.
+
+    ``1.4826 * median(|d - median(d)|)`` with ``d = y_pred - y_true`` (divided by
+    ``1 + y_true`` when ``normalization="relative"``); even counts average the
+    two middle values.
     """
 
     is_differentiable = False
@@ -314,10 +371,7 @@ class NormalizedMedianAbsoluteDeviation(Metric):
     def compute(self) -> torch.Tensor:
         """Compute normalized median absolute deviation."""
         diffs = torch.cat(metric_state_list[torch.Tensor](self.diffs))
-        median_diff = torch.median(diffs)
-        abs_dev = torch.abs(diffs - median_diff)
-        nmad = 1.4826 * torch.median(abs_dev)
-        return nmad
+        return 1.4826 * _median(torch.abs(diffs - _median(diffs)))
 
 
 def _per_sample_mean(values: torch.Tensor) -> torch.Tensor:
@@ -396,16 +450,23 @@ def rmse(
 ) -> Union[torch.Tensor, float, np.ndarray]:
     """Compute Root Mean Squared Error (RMSE).
 
-    Uses :class:`torchmetrics.MeanSquaredError(squared=False)` for the
-    default unweighted mean path; falls back to a hand-rolled sqrt for
+    Uses :func:`torchmetrics.functional.mean_squared_error` (``squared=False``)
+    for the default unweighted mean path; falls back to a hand-rolled sqrt for
     sample-weighted / non-mean reductions.
+
+    For 2-D targets this is ``sqrt`` of the MSE over *all* elements, not the
+    mean of per-output RMSEs (``sklearn.metrics.root_mean_squared_error``
+    with ``multioutput="uniform_average"``).
     """
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
     if sample_weight is None and reduction == "mean":
-        result = MeanSquaredError(squared=False)(y_pred_t, y_true_t)
+        from torchmetrics.functional import mean_squared_error as _tm_mse
+
+        # Functional form keeps the input dtype (the module state is float32).
+        result = _tm_mse(y_pred_t, y_true_t, squared=False)
         if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
             return cast(MetricValue, create_metric_result(result, as_numpy=True))
         return cast(MetricValue, create_metric_result(result, as_numpy=False))
@@ -538,20 +599,18 @@ def median_absolute_error(
     multioutput: str = "uniform_average",
     as_numpy: bool = False,
 ) -> MetricValue:
-    """Compute Median Absolute Error."""
+    """Compute Median Absolute Error.
+
+    Matches ``sklearn.metrics.median_absolute_error``: even counts average the
+    two middle values; multi-output inputs ``[N, D]`` average the per-output
+    medians (``multioutput="uniform_average"``) or return them
+    (``"raw_values"``).
+    """
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
-    abs_errors = torch.abs(y_pred_t - y_true_t)
-    if multioutput == "raw_values" and abs_errors.ndim > 1 and abs_errors.shape[1] > 1:
-        result = torch.median(abs_errors, dim=0)[0]
-    else:
-        if abs_errors.ndim > 1 and abs_errors.shape[1] > 1:
-            abs_errors = torch.mean(abs_errors, dim=1)
-        else:
-            abs_errors = abs_errors.reshape(-1)
-        result = torch.median(abs_errors)
+    result = _median_absolute_error(torch.abs(y_pred_t - y_true_t), multioutput)
 
     if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
         return cast(MetricValue, create_metric_result(result, as_numpy=True))
@@ -564,7 +623,11 @@ def trimmed_mean_squared_error(
     proportion: float = 0.1,
     as_numpy: bool = False,
 ) -> MetricValue:
-    """Compute Trimmed Mean Squared Error."""
+    """Compute Trimmed Mean Squared Error.
+
+    Cuts ``int(n * proportion)`` squared errors from each end of the sorted
+    sample, identical to ``scipy.stats.trim_mean(err**2, proportion)``.
+    """
     if not 0 <= proportion < 0.5:
         raise ValueError("Proportion must be between 0 and 0.5")
 
@@ -572,14 +635,7 @@ def trimmed_mean_squared_error(
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
-    squared_errors = (y_true_t - y_pred_t) ** 2
-    flattened = squared_errors.reshape(-1)
-    sorted_errors, _ = torch.sort(flattened)
-    n = sorted_errors.numel()
-    lower_idx = int(n * proportion)
-    # TR-MET-20: keep at least one element in the trim window for tiny n.
-    upper_idx = max(int(n * (1 - proportion)), lower_idx + 1)
-    result = torch.mean(sorted_errors[lower_idx:upper_idx])
+    result = _trimmed_mean((y_true_t - y_pred_t) ** 2, proportion)
 
     if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
         return cast(MetricValue, create_metric_result(result, as_numpy=True))
@@ -592,15 +648,18 @@ def median_absolute_deviation(
     scale: float = 1.4826,
     as_numpy: bool = False,
 ) -> MetricValue:
-    """Compute Median Absolute Deviation (MAD)."""
+    """Compute Median Absolute Deviation (MAD).
+
+    ``scale * median(|e - median(e)|)``, equal to
+    ``scale * scipy.stats.median_abs_deviation(e)`` (even counts average the
+    two middle values).
+    """
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
 
     errors = (y_true_t - y_pred_t).reshape(-1)
-    median_error = torch.median(errors)
-    deviations = torch.abs(errors - median_error)
-    result = scale * torch.median(deviations)
+    result = scale * _median(torch.abs(errors - _median(errors)))
 
     if as_numpy or isinstance(y_pred, np.ndarray) or isinstance(y_true, np.ndarray):
         return cast(MetricValue, create_metric_result(result, as_numpy=True))
@@ -742,15 +801,15 @@ def regression_metrics_report(
     rmse = torch.sqrt(mse)
     mae = torch.mean(per_sample_mae)
 
-    r2 = R2Score()(y_pred_t, y_true_t)
+    r2 = prepare_functional_metric(R2Score(), y_pred_t, y_true_t)(y_pred_t, y_true_t)
     huber = huber_loss(y_pred_t, y_true_t, reduction="mean")
     mad = median_absolute_deviation(y_pred_t, y_true_t)
 
-    nmad_metric = NormalizedMedianAbsoluteDeviation()
+    nmad_metric = prepare_functional_metric(NormalizedMedianAbsoluteDeviation(), y_pred_t, y_true_t)
     nmad_metric.update(y_pred_t, y_true_t)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty's union resolution
     nmad = nmad_metric.compute()  # ty: ignore[missing-argument]
 
-    outlier_metric = OutlierFraction()
+    outlier_metric = prepare_functional_metric(OutlierFraction(), y_pred_t, y_true_t)
     outlier_metric.update(y_pred_t, y_true_t)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty's union resolution
     outlier_fraction = outlier_metric.compute()  # ty: ignore[missing-argument]
 
@@ -785,5 +844,5 @@ def r2_score(
     y_pred_t = convert_to_tensor(y_pred)
     y_true_t = convert_to_tensor(y_true)
     validate_inputs(y_pred_t, y_true_t)
-    result = R2Score()(y_pred_t, y_true_t)
+    result = prepare_functional_metric(R2Score(), y_pred_t, y_true_t)(y_pred_t, y_true_t)
     return cast(MetricValue, create_metric_result(result, as_numpy=as_numpy))

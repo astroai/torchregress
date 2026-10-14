@@ -52,9 +52,11 @@ def test_weighted_conformal_thresholds() -> None:
     q_batch = calibrator.compute_thresholds(target_weights, alpha=0.3)
     assert q_batch.shape == (2,)
     # For weight 2.5: denominator = 6.0; cumsum [0.333, 0.5, 0.583] never
-    # reaches 0.75 -> max-score fallback; weight 0.5 picks score 1.5.
+    # reaches 0.75 -> the quantile falls on the target-point atom: +inf
+    # (B-CONF-003; the old max-score fallback under-covered).
+    # Weight 0.5 picks score 1.5.
     assert np.isclose(q_batch[0], 1.5)
-    assert np.isclose(q_batch[1], 2.5)
+    assert math.isinf(float(q_batch[1])) and float(q_batch[1]) > 0
 
 
 def test_weighted_path_finite_sample_level() -> None:
@@ -149,7 +151,13 @@ def test_fully_labeled_limit_matches_order_statistic() -> None:
 
 
 def test_threshold_sandwiched_between_split_and_old_inflated() -> None:
-    """Regression guard: split threshold <= corrected <= old double-inflated."""
+    """Regression guard: split threshold <= corrected <= old double-inflated.
+
+    When the old double-inflated level was never reached it fell back to the
+    max score, which is not an upper bound any more: the corrected threshold
+    is the max score or ``+inf`` when the augmented level is unreachable
+    (B-CONF-003), so the upper sandwich only applies to genuine old hits.
+    """
     generator = torch.Generator().manual_seed(13)
     scores = torch.sort(torch.randn(100, generator=generator)).values
     calibrator = SemiConformalCalibrator().fit(scores)
@@ -163,8 +171,11 @@ def test_threshold_sandwiched_between_split_and_old_inflated() -> None:
             # Old double-inflated path: level k/n over masses 1/(n + w_tgt).
             reach = (ranks / (n + w_tgt)) >= min(k / n, 1.0)
             hit = torch.nonzero(reach)
-            q_old = float(scores[hit[0]]) if hit.numel() > 0 else float(scores[-1])
-            assert split_q <= q_new <= q_old
+            if hit.numel() > 0:
+                assert split_q <= q_new <= float(scores[hit[0]])
+            else:
+                assert q_new == math.inf or q_new == float(scores[-1])
+                assert split_q <= q_new
 
 
 def test_coverage_simulation_moderate_label_rate() -> None:

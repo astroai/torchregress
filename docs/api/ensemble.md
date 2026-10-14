@@ -10,13 +10,12 @@ is listed here. For background and decision guidance, see
 
 | Symbol | Description |
 |:-------|:------------|
-| `BaseEnsembleModel` | Foundation class. Each call to `forward(x)` runs every member and stacks outputs. Provides `predict` (mean + variance) and `predict_full_covariance`. |
-| `EnsembleFitConfig` | Dataclass holding training options: `epochs`, `lr`, `optimizer_cls`, `optimizer_kwargs`, `optimizer_factory`, `device`, `adversarial_training`, etc. Passed to `fit()`. |
+| `BaseEnsembleModel` | Foundation class. Each call to `forward(x)` runs every member and returns a stacked tensor `[M, batch, ...]` (a list only for non-tensor member outputs). Provides `predict` (mean + variance) and `predict_full_covariance`, which run members in eval mode and restore their previous modes. `base_seed` seeds member initialisation inside a forked RNG (the global RNG state is unchanged). |
+| `EnsembleFitConfig` | Dataclass holding training options: `epochs`, `lr`, `optimizer_cls`, `optimizer_kwargs`, `optimizer_factory`, `verbose`, `device`. Built by `fit()`. |
 
-**`BaseEnsembleModel.fit(...)`** trains each member independently. With
-`adversarial_training=True`, each member is also trained on an FGSM/PGD-style
-adversarial objective. `optimizer_factory(model) -> Optimizer` lets you supply
-custom per-member optimizers (e.g. AdamW + Muon).
+**`BaseEnsembleModel.fit(...)`** trains each member independently with the
+given criterion (no adversarial training term). `optimizer_factory(model) -> Optimizer`
+lets you supply custom per-member optimizers (e.g. AdamW + Muon).
 
 ---
 
@@ -24,11 +23,13 @@ custom per-member optimizers (e.g. AdamW + Muon).
 
 | Symbol | Output | Predicts |
 |:-------|:-------|:---------|
-| `DeepEnsemble` | `stacked` | Just the per-member means (epistemic variance from disagreement) |
+| `BaseEnsembleModel` (deep ensemble) | `dict` | `mean`, `variance` (epistemic variance from member disagreement) |
 | `HeteroscedasticEnsembleModel` | `dict` | `mean`, `variance` (total), `epistemic_variance`, `aleatoric_variance` (each member outputs `(μ, log_σ²)`) |
 | `HeteroscedasticEnsembleModel.predict_full_covariance` | `dict` | `mean`, `epistemic_covariance`, `aleatoric_covariance`, `total_covariance` |
 
-Both inherit from `BaseEnsembleModel`; same training loop and adversarial options.
+`HeteroscedasticEnsembleModel` inherits from `BaseEnsembleModel` (same training loop).
+Member log-variances are converted with the `GaussianNLLLoss` training bounds
+(`log_var` clamped to `[log(1e-6), 30]`), here and in the batch/packed ensembles.
 
 ---
 
@@ -48,7 +49,7 @@ Both inherit from `BaseEnsembleModel`; same training loop and adversarial option
 from torchregress.ensemble import HeteroscedasticBatchEnsembleModel
 
 model = HeteroscedasticBatchEnsembleModel(
-    backbone=backbone, input_size=128, output_size=1, ensemble_size=4
+    backbone=backbone, output_size=1, ensemble_size=4  # backbone.feature_dim required
 )
 out = model(x)        # {"means": [B, M, D], "log_vars": [B, M, D]}
 pred = model.predict(x)
@@ -63,17 +64,15 @@ pred = model.predict(x)
 |:-------|:------------|
 | `BatchEnsembleLinear` | Rank-1 perturbation linear layer (shared weight + per-member `r`, `s` vectors). |
 | `BatchEnsembleMLPBackbone` | Shared-backbone MLP using `BatchEnsembleLinear` throughout (TabM-style). |
-| `PackedEnsembleRegressor` | Facade over `HeteroscedasticBatchEnsembleModel` (or mean-only) with `alpha` scaling of fast weights. |
-| `PackedEnsembleOutput` | Structured output: `mean`, `member_means`, `epistemic_variance`, `aleatoric_variance`, `predictive_variance`, `std_epistemic`. |
-| `BatchEnsembleRegressor` | Lightweight facade (pre-PackedEnsembleRegressor API). |
-| `BatchEnsembleOutput` | Structured output for `BatchEnsembleRegressor`. |
+| `BatchEnsembleRegressor` | Facade over `HeteroscedasticBatchEnsembleModel` (or mean-only) with `alpha` scaling of fast weights. |
+| `BatchEnsembleOutput` | Structured output of `BatchEnsembleRegressor.predict_output`: `mean`, `member_means`, `epistemic_variance`, `aleatoric_variance`, `predictive_variance`, `std_epistemic`. |
 
 ```python
 bb = BatchEnsembleMLPBackbone(input_size=10, hidden_size=64, ensemble_size=4,
                              hidden_dims=[64, 64])
-model = PackedEnsembleRegressor(bb, feature_dim=bb.feature_dim, output_dim=1,
-                                ensemble_size=4, alpha=1.0, heteroscedastic=True)
-out: PackedEnsembleOutput = model.predict_output(x)
+model = BatchEnsembleRegressor(bb, feature_dim=bb.feature_dim, output_dim=1,
+                               ensemble_size=4, alpha=1.0, heteroscedastic=True)
+out: BatchEnsembleOutput = model.predict_output(x)
 ```
 
 ---
@@ -82,8 +81,7 @@ out: PackedEnsembleOutput = model.predict_output(x)
 
 | Symbol | Description |
 |:-------|:------------|
-| `MCDropoutWrapper` | Wraps any model with `nn.Dropout` layers; enables dropout at inference time and runs `n_samples` forward passes. |
-| `MCDropoutModel` | MLP with built-in `Dropout` layers and `predict_with_uncertainty` / `predict_interval` methods. |
+| `MCDropoutWrapper` | Wraps any model with `nn.Dropout` layers; enables dropout at inference time and runs `n_samples` forward passes. Provides `mc_forward`, `predict_with_uncertainty` and `predict_interval`. |
 | `enable_dropout` | `(model)` — Set all `nn.Dropout` modules to `train()` mode (for MC-Dropout inference). |
 
 **References:** Gal & Ghahramani, "Dropout as a Bayesian Approximation" (ICML 2016).
@@ -135,10 +133,8 @@ mean, std = torch.stack(preds).mean(0), torch.stack(preds).std(0)
 
 | Symbol | Description |
 |:-------|:------------|
-| `BayesianModelAveraging` | Learns softmax weights over a fixed pool of base models. `predict_with_uncertainty` returns (mean, total_var) via law of total variance. |
 | `StackingEnsemble` | Concatenates base-model predictions and feeds them into a `meta_learner` (e.g. another `nn.Module`). |
-| `SoftmaxModelCombiner` | Learns softmax weights over base models (simpler alternative to `BayesianModelAveraging`). |
-| `DynamicEnsembleWeighting` | Sliding-window performance-based weight updates: lower recent MSE → higher weight. |
+| `SoftmaxModelCombiner` | Learns softmax weights over a fixed pool of base models. `predict_with_uncertainty` returns (mean, total_var) via law of total variance. |
 
 All combiners use `_batched_ensemble_forward`, which uses `torch.func.vmap` /
 `stack_module_state` for fast batched inference when gradients aren't required.

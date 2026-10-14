@@ -9,20 +9,82 @@ import torch
 from torch.distributions import Normal
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, ensure_batch_dim, metric_state_list
+from torchregress.metrics.utils import (
+    convert_to_tensor,
+    ensure_batch_dim,
+    float_dtype,
+    metric_state_list,
+)
+
+_BLOCK_ELEMS = 1 << 24
+
+
+def _kernel_density_blocked(
+    x_test: torch.Tensor, x_reference: torch.Tensor, bandwidth: float
+) -> torch.Tensor:
+    """Per-row mean Gaussian kernel value, processing query rows in memory-bounded blocks."""
+    n_ref = x_reference.shape[0]
+    block = max(1, _BLOCK_ELEMS // max(1, n_ref))
+    out = []
+    for start in range(0, max(1, x_test.shape[0]), block):
+        # M-MET-003: direct differences; the matmul path loses float32 precision.
+        dists = torch.cdist(
+            x_test[start : start + block],
+            x_reference,
+            p=2,
+            compute_mode="donot_use_mm_for_euclid_dist",
+        )
+        kernel_values = torch.exp(-(dists**2) / (2 * bandwidth**2))
+        out.append(torch.mean(kernel_values, dim=1))
+    return torch.cat(out)
+
+
+def _mahalanobis(
+    x: torch.Tensor, mean: torch.Tensor, cov: torch.Tensor, jitter: float
+) -> torch.Tensor:
+    """Per-row Mahalanobis distance with a covariance-relative jitter (M-MET-011)."""
+    dtype = torch.promote_types(torch.promote_types(x.dtype, mean.dtype), cov.dtype)
+    if not dtype.is_floating_point:
+        dtype = torch.get_default_dtype()
+    x, mean, cov = x.to(dtype), mean.to(dtype), cov.to(dtype)
+    eye = torch.eye(cov.shape[0], device=cov.device, dtype=cov.dtype)
+    level = jitter * torch.diagonal(cov).mean().abs()
+    level = torch.clamp(level, min=torch.finfo(cov.dtype).tiny)
+    diff = x - mean
+    try:
+        L = torch.linalg.cholesky(cov + level * eye)
+        y = torch.linalg.solve_triangular(L, diff.T, upper=False)
+        return torch.sqrt(torch.sum(y**2, dim=0))
+    except RuntimeError:
+        eigenvalues, eigenvectors = torch.linalg.eigh(cov)
+        eigenvalues = torch.clamp(eigenvalues, min=level)
+        # Coverage invariants (TOR003): chain .to() on torch.diag because
+        # torch.diag does not accept device=/dtype= kwargs natively.
+        inv_sqrt = torch.diag(1.0 / torch.sqrt(eigenvalues)).to(
+            device=eigenvalues.device, dtype=eigenvalues.dtype
+        )
+        scaled_diff = diff @ eigenvectors @ inv_sqrt @ eigenvectors.T
+        return torch.sqrt(torch.sum(scaled_diff**2, dim=1))
 
 
 class MahalanobisDistance(Metric):
-    """
-    Calculate Mahalanobis distance for OOD detection.
+    """Mean Mahalanobis distance for OOD detection.
+
+    Parameters
+    ----------
+    jitter : float
+        Relative diagonal regulariser: ``jitter * mean(diag(cov)) * I`` is added
+        to the covariance before the Cholesky factorisation, so the distance is
+        invariant to rescaling the features (see :func:`mahalanobis_distance`).
     """
 
     is_differentiable = False
     higher_is_better = False
     full_state_update = False
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, jitter: float = 1e-6, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        self.jitter = jitter
         self.add_state("distances", default=[], dist_reduce_fx="cat")
 
     def update(self, x: torch.Tensor, mean: torch.Tensor, cov: torch.Tensor) -> None:
@@ -36,25 +98,7 @@ class MahalanobisDistance(Metric):
         if x.device != cov.device:
             cov = cov.to(x.device)
 
-        try:
-            L = torch.linalg.cholesky(cov + torch.eye(cov.shape[0], device=cov.device) * 1e-6)
-            diff = x - mean
-            y = torch.linalg.solve_triangular(L, diff.T, upper=False)
-            md_squared = torch.sum(y**2, dim=0)
-            md = torch.sqrt(md_squared)
-        except RuntimeError:
-            eigenvalues, eigenvectors = torch.linalg.eigh(cov)
-            eigenvalues = torch.clamp(eigenvalues, min=1e-6)
-            diff = x - mean
-            # Coverage invariants (TOR003): chain .to() on torch.diag because
-            # torch.diag does not accept device=/dtype= kwargs natively.
-            inv_sqrt = torch.diag(1.0 / torch.sqrt(eigenvalues)).to(
-                device=eigenvalues.device, dtype=eigenvalues.dtype
-            )
-            scaled_diff = diff @ eigenvectors @ inv_sqrt @ eigenvectors.T
-            md_squared = torch.sum(scaled_diff**2, dim=1)
-            md = torch.sqrt(md_squared)
-
+        md = _mahalanobis(x, mean, cov, self.jitter)
         metric_state_list[torch.Tensor](self.distances).append(md)
 
     def compute(self) -> torch.Tensor:
@@ -166,14 +210,9 @@ class KernelDensityScore(Metric):
         x_test = ensure_batch_dim(convert_to_tensor(x_test))
         x_reference = ensure_batch_dim(convert_to_tensor(x_reference))
 
-        # Memory optimization: Use torch.cdist instead of manual broadcasting
-        # Manual broadcasting creates an intermediate (N_test, N_ref, D) tensor
-        # which is memory intensive. cdist is optimized for this.
-        dists = torch.cdist(x_test, x_reference, p=2)
-        dist_sq = dists**2
-
-        kernel_values = torch.exp(-dist_sq / (2 * self.bandwidth**2))
-        density_scores = torch.mean(kernel_values, dim=1)
+        # Memory optimization: query rows are processed in blocks so the distance
+        # matrix never exceeds ~_BLOCK_ELEMS elements.
+        density_scores = _kernel_density_blocked(x_test, x_reference, self.bandwidth)
         metric_state_list[torch.Tensor](self.scores).append(density_scores)
 
     def compute(self) -> torch.Tensor:
@@ -186,32 +225,38 @@ def mahalanobis_distance(
     mean: Union[torch.Tensor, np.ndarray],
     cov: Union[torch.Tensor, np.ndarray],
     reduction: str = "none",
+    jitter: float = 1e-6,
 ) -> torch.Tensor:
-    """
-    Functional Mahalanobis distance for OOD detection.
+    """Functional Mahalanobis distance for OOD detection.
+
+    ``sqrt((x - mean)^T (cov + jitter * mean(diag(cov)) * I)^{-1} (x - mean))``.
+
+    Parameters
+    ----------
+    x : Tensor or ndarray
+        Points ``[N, D]`` (or a single point ``[D]``).
+    mean : Tensor or ndarray
+        Reference mean ``[D]``.
+    cov : Tensor or ndarray
+        Reference covariance ``[D, D]``.
+    reduction : {"none", "mean", "sum"}
+        Reduction over points.
+    jitter : float
+        *Relative* diagonal regulariser, scaled by the mean variance so the
+        distance is invariant to rescaling the features (an absolute ``1e-6``
+        dominated covariances with variances ~1e-8). If the jittered matrix is
+        still not positive definite, eigenvalues are floored at the same level.
+
+    Returns
+    -------
+    Tensor
+        Distances ``[N]`` or their reduction.
     """
     x_t = ensure_batch_dim(convert_to_tensor(x))
     mean_t = convert_to_tensor(mean).to(x_t.device)
     cov_t = convert_to_tensor(cov).to(x_t.device)
 
-    try:
-        L = torch.linalg.cholesky(cov_t + torch.eye(cov_t.shape[0], device=cov_t.device) * 1e-6)
-        diff = x_t - mean_t
-        y = torch.linalg.solve_triangular(L, diff.T, upper=False)
-        md_squared = torch.sum(y**2, dim=0)
-        md = torch.sqrt(md_squared)
-    except RuntimeError:
-        eigenvalues, eigenvectors = torch.linalg.eigh(cov_t)
-        eigenvalues = torch.clamp(eigenvalues, min=1e-6)
-        diff = x_t - mean_t
-        # Coverage invariants (TOR003): chain .to() on torch.diag because
-        # torch.diag does not accept device=/dtype= kwargs natively.
-        inv_sqrt = torch.diag(1.0 / torch.sqrt(eigenvalues)).to(
-            device=eigenvalues.device, dtype=eigenvalues.dtype
-        )
-        scaled_diff = diff @ eigenvectors @ inv_sqrt @ eigenvectors.T
-        md_squared = torch.sum(scaled_diff**2, dim=1)
-        md = torch.sqrt(md_squared)
+    md = _mahalanobis(x_t, mean_t, cov_t, jitter)
 
     if reduction == "mean":
         return torch.mean(md)
@@ -344,7 +389,7 @@ def _batched_entropy(samples: torch.Tensor, n_bins: int) -> torch.Tensor:
 
     # Compute counts using bincount
     # Result size: M * n_bins
-    counts_flat = torch.bincount(global_bin_idx_flat, minlength=M * n_bins).float()
+    counts_flat = torch.bincount(global_bin_idx_flat, minlength=M * n_bins).to(float_dtype(samples))
 
     # Reshape back to [batch_size, output_dim, n_bins]
     counts = counts_flat.reshape(batch_size, output_dim, n_bins)
@@ -377,12 +422,7 @@ def kernel_density_score(
     x_test_t = ensure_batch_dim(convert_to_tensor(x_test))
     x_ref_t = ensure_batch_dim(convert_to_tensor(x_reference))
 
-    # Memory optimization: Use torch.cdist instead of manual broadcasting
-    dists = torch.cdist(x_test_t, x_ref_t, p=2)
-    dist_sq = dists**2
-
-    kernel_values = torch.exp(-dist_sq / (2 * bandwidth**2))
-    density_scores = torch.mean(kernel_values, dim=1)
+    density_scores = _kernel_density_blocked(x_test_t, x_ref_t, bandwidth)
 
     if reduction == "mean":
         return torch.mean(density_scores)

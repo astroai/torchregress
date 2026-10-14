@@ -63,6 +63,8 @@ X_cal_new = rc.transform(X_new)
 | 1-D `Tensor` | Per-feature standard deviations |
 | 2-D `Tensor` | Full noise covariance matrix $\Sigma_u$ |
 
+`rc.posterior(X, sigma_u=...)` accepts the same formats (plus per-sample `(N, D)` standard deviations) and uses the given `sigma_u` instead of the one stored at `fit`.
+
 ---
 
 ## When to Use
@@ -75,7 +77,7 @@ X_cal_new = rc.transform(X_new)
 !!! warning "Limitations"
     - Assumes the relationship between $X$ and $Y$ is approximately **linear** in the correction
     - For nonlinear models, [SIMEX](simex.md) is more flexible
-    - **PSD Clamping**: If measurement noise exceeds the observed signal ($\Sigma_u > \Sigma_w$), the estimated signal covariance $\hat\Sigma_x = \Sigma_w - \Sigma_u$ becomes negative. The implementation clamps to a small positive value, but this means RC cannot recover when noise dominates signal.
+    - **PSD Clamping**: If measurement noise exceeds the observed signal ($\Sigma_u > \Sigma_w$), the estimated signal covariance $\hat\Sigma_x = \Sigma_w - \Sigma_u$ becomes negative. The implementation clamps the eigenvalues to a small positive value (`1e-6` times the mean variance of $W$, so the correction is invariant to the units of the inputs), but this means RC cannot recover when noise dominates signal.
     - **Homoscedastic noise only**: RC assumes a single measurement error covariance $\Sigma_u$ for all samples. It cannot handle heteroscedastic measurement error where different samples have different noise levels.
 
 ---

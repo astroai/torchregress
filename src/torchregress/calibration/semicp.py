@@ -52,10 +52,15 @@ class SemiConformalCalibrator:
             Calibration set nonconformity scores, shape (N_cal,).
         weights_cal : torch.Tensor, optional
             Weights for calibration samples (e.g. prior ratio), shape (N_cal,).
+
+        Notes
+        -----
+        Scores and weights are stored in float64 so that the cumulative
+        weighted CDF selects the exact order statistic.
         """
-        scores = self._to_tensor(nonconformity_scores_cal).reshape(-1).float()
+        scores = self._to_tensor(nonconformity_scores_cal).reshape(-1).to(torch.float64)
         if weights_cal is not None:
-            weights = self._to_tensor(weights_cal).reshape(-1).float()
+            weights = self._to_tensor(weights_cal).reshape(-1).to(torch.float64)
             if weights.shape[0] != scores.shape[0]:
                 raise ValueError("weights_cal must share shape with nonconformity_scores_cal")
             if torch.any(weights < 0.0):
@@ -88,6 +93,16 @@ class SemiConformalCalibrator:
             denominator already contains the target pseudo-weight; the (n+1)/n
             inflation is not applied a second time (exact order statistic in the
             unweighted, zero-target-weight limit).
+
+        Returns
+        -------
+        Union[torch.Tensor, float]
+            Thresholds (float64), one per target point.  A threshold is
+            ``+inf`` when the calibration mass cannot reach the level (the
+            quantile falls on the target-point atom), e.g. with too few
+            calibration points for the requested ``alpha`` or a large target
+            weight; the corresponding interval is then infinite, as the
+            finite-sample guarantee requires.
         """
         if self.scores_cal_ is None or self.weights_cal_ is None:
             raise RuntimeError("Calibrator must be fitted before computing thresholds")
@@ -98,55 +113,48 @@ class SemiConformalCalibrator:
         if isinstance(weights_target, (float, int)):
             if weights_target < 0.0:
                 raise ValueError("weights_target must be non-negative")
-            w_tgt = torch.tensor([float(weights_target)])
+            w_tgt = torch.tensor([float(weights_target)], dtype=torch.float64)
         else:
-            w_tgt = self._to_tensor(weights_target).reshape(-1).float()
+            w_tgt = self._to_tensor(weights_target).reshape(-1).to(torch.float64)
             if torch.any(w_tgt < 0.0):
                 raise ValueError("weights_target must be non-negative")
 
-        n_tgt = w_tgt.shape[0]
         device = w_tgt.device
-        scores = self.scores_cal_.to(device=device, dtype=torch.float)
-        weights = self.weights_cal_.to(device=device, dtype=torch.float)
-        thresholds = torch.zeros(n_tgt, device=device)
-
-        # Total sum of calibration weights
-        sum_w_cal = weights.sum()
-
+        # float64 throughout: a float32 cumulative sum misses the exact order
+        # statistic by one in ~1% of (n, alpha) combinations.
+        scores = self.scores_cal_.to(device=device, dtype=torch.float64)
+        weights = self.weights_cal_.to(device=device, dtype=torch.float64)
         n_cal = scores.shape[0]
+
         # Finite-sample correction (TR-COR-06): the (n+1) adjustment enters
         # exactly once -- through the target pseudo-mass already added to the
         # denominator -- so the level on the augmented distribution is
         # ceil((n+1)*(1-alpha))/(n+1), not the doubly-inflated
         # ceil((n+1)*(1-alpha))/n.
-        level = min(math.ceil((n_cal + 1) * (1.0 - alpha)) / (n_cal + 1), 1.0)
+        level = math.ceil((n_cal + 1) * (1.0 - alpha)) / (n_cal + 1)
         uniform_weights = bool(torch.all(weights == weights[0]))
 
-        for k in range(n_tgt):
-            w_inf = w_tgt[k]
-            denom = sum_w_cal + w_inf
-            if denom <= 0.0:
-                thresholds[k] = scores[-1]
-                continue
+        # Weighted path (Tibshirani et al., 2019), vectorised over targets:
+        # smallest score whose cumulative mass on the augmented distribution
+        # reaches the level, i.e. the first index with
+        # cum_w >= level * (sum_j w_j + w_target).  A relative tolerance
+        # absorbs float64 round-off at exact hits; when the calibration mass
+        # never reaches the level, the quantile is the test-point atom: +inf.
+        cum_w = torch.cumsum(weights, dim=0)
+        denom = cum_w[-1] + w_tgt
+        need = level * denom
+        need = need - 1e-12 * need.abs()
+        idx = torch.searchsorted(cum_w, need)
+        thresholds = torch.full((w_tgt.shape[0],), float("inf"), dtype=torch.float64, device=device)
+        hit = (idx < n_cal) & (denom > 0.0)
+        thresholds[hit] = scores[idx[hit]]
 
-            # Unweighted path: exact finite-sample split-conformal order statistic.
-            if uniform_weights and float(w_inf) == 0.0:
-                thresholds[k] = finite_sample_quantile(scores, alpha)
-                continue
-
-            # Weighted path (Tibshirani et al., 2019): smallest score whose
-            # cumulative mass on the augmented distribution reaches the
-            # finite-sample level.
-            p = weights / denom
-            cum_p = torch.cumsum(p, dim=0)
-
-            # Find the smallest index m such that cum_p >= level
-            mask = cum_p >= level
-            idx = torch.where(mask)[0]
-            if idx.numel() > 0:
-                thresholds[k] = scores[idx[0]]
-            else:
-                thresholds[k] = scores[-1]
+        # Unweighted path, zero target weight: exact finite-sample
+        # split-conformal order statistic (+inf when ceil((n+1)(1-alpha)) > n).
+        if uniform_weights and float(weights[0]) > 0.0:
+            zero_tgt = w_tgt == 0.0
+            if bool(zero_tgt.any()):
+                thresholds[zero_tgt] = finite_sample_quantile(scores, alpha).to(torch.float64)
 
         if isinstance(weights_target, (float, int)):
             return float(thresholds[0])

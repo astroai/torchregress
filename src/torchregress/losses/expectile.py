@@ -129,6 +129,59 @@ class ExpectileLoss(RegressionLoss):
         return self._reduce(loss, mask, weights)
 
 
+def _per_sample_feature_reduce(
+    elem: torch.Tensor,
+    mask: Optional[torch.Tensor],
+    weights: Optional[torch.Tensor],
+    *,
+    feature_reduction: str,
+) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+    """Collapse a ``[B, F]`` loss to per-sample values for ``BaseLoss._reduce``.
+
+    Parameters
+    ----------
+    elem : torch.Tensor
+        Elementwise loss ``[B, F]``.
+    mask : torch.Tensor, optional
+        Boolean validity mask broadcastable to ``[B, F]``.
+    weights : torch.Tensor, optional
+        Non-negative weights broadcastable to ``[B, F]``.
+    feature_reduction : {"mean", "sum"}
+        ``"mean"`` averages over the unmasked features of each sample (A8);
+        ``"sum"`` sums over them.
+
+    Returns
+    -------
+    tuple
+        ``(per_sample, sample_mask, sample_weights)`` such that
+        ``per_sample * sample_weights`` equals the weighted feature reduction
+        ``reduce_f(mask * weights * elem)`` (the previous ``reduction='none'``
+        output), ``sample_mask`` flags samples with at least one unmasked
+        feature, and ``sample_weights`` is the mean weight over the unmasked
+        features, so a weighted ``'mean'`` normalises by the sum of weights.
+    """
+    valid = (
+        torch.ones_like(elem, dtype=torch.bool)
+        if mask is None
+        else mask.to(dtype=torch.bool, device=elem.device).expand_as(elem)
+    )
+    sample_mask = None if mask is None else valid.any(dim=-1)
+    count = valid.sum(dim=-1).to(elem.dtype).clamp_min(1)
+    zeros = torch.zeros_like(elem)
+    if weights is None:
+        total = torch.where(valid, elem, zeros).sum(dim=-1)
+        per_sample = total / count if feature_reduction == "mean" else total
+        return per_sample, sample_mask, None
+    w = torch.where(valid, weights.to(elem.dtype).expand_as(elem), zeros)
+    w_sum = w.sum(dim=-1)
+    weighted_total = torch.where(valid, w * elem, zeros).sum(dim=-1)
+    # Weighted average over features, rescaled to the requested reduction.
+    w_avg = weighted_total / torch.where(w_sum > 0, w_sum, torch.ones_like(w_sum))
+    per_sample = w_avg if feature_reduction == "mean" else w_avg * count
+    sample_weights = w_sum / count
+    return per_sample, sample_mask, sample_weights
+
+
 @register_regression_loss("multi_expectile")
 class MultiExpectileLoss(RegressionLoss):
     """
@@ -260,37 +313,15 @@ class MultiExpectileLoss(RegressionLoss):
             expectile_preds, target, cast(torch.Tensor, self.expectiles)
         )
 
-        # Apply mask if provided
-        if mask is not None:
-            # mask: [batch_size, n_features] -> [batch_size, 1, n_features]
-            stacked_losses = stacked_losses * mask.unsqueeze(1)
-
-        # Apply sample weights if provided
-        if weights is not None:
-            # weights: [batch_size, n_features] -> [batch_size, 1, n_features]
-            stacked_losses = stacked_losses * weights.unsqueeze(1)
-
-        # Reduce across features — A8: with a partial mask, average only over
-        # the unmasked features of each sample instead of diluting with zeros.
-        if n_features > 1:
-            if mask is not None:
-                m = mask.to(stacked_losses.dtype).unsqueeze(1)  # [B, 1, F]
-                per_sample = (stacked_losses * m).sum(dim=2) / m.sum(dim=2).clamp_min(1)
-            else:
-                per_sample = torch.mean(stacked_losses, dim=2)
-        else:
-            per_sample = stacked_losses.squeeze(2)
-
-        # Average across expectile levels for each sample
-        combined_loss = torch.mean(per_sample, dim=1)
-
-        # Apply final reduction
-        if self.reduction == "mean":
-            return torch.mean(combined_loss)
-        elif self.reduction == "sum":
-            return torch.sum(combined_loss)
-        else:  # 'none'
-            return combined_loss
+        # Average across expectile levels: [batch_size, n_features]
+        elem = stacked_losses.mean(dim=1)
+        per_sample, sample_mask, sample_weights = _per_sample_feature_reduce(
+            elem, mask, weights, feature_reduction="mean"
+        )
+        # Final reduction through the unified BaseLoss policy (A9): fully
+        # masked samples are zero-filled and excluded from the 'mean'
+        # denominator, and the weighted mean is normalised by sum(weights).
+        return self._reduce(per_sample, sample_mask, sample_weights)
 
 
 # ponytail: AsymmetricLeastSquaresLoss is an alias for ExpectileLoss.
@@ -341,13 +372,17 @@ class ExpectileCrossoverLoss(RegressionLoss):
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
-        # Ensure expectiles are sorted in ascending order
+        # A8: require strictly ascending levels (as QuantileCrossoverLoss and
+        # MultiExpectileLoss do) -- silently sorting them reassigned the
+        # prediction columns to different levels than the caller intended.
         if isinstance(expectiles, list):
-            expectiles = sorted(expectiles)
             expectiles_tensor = torch.tensor(expectiles, dtype=torch.float32)
         else:
-            sorted_indices = torch.argsort(expectiles)
-            expectiles_tensor = expectiles[sorted_indices]
+            expectiles_tensor = torch.as_tensor(expectiles)
+        if expectiles_tensor.numel() > 1 and not bool(
+            torch.all(expectiles_tensor[1:] > expectiles_tensor[:-1])
+        ):
+            raise ValueError(f"expectiles must be ascending, got {expectiles_tensor.tolist()}")
 
         self.register_buffer("expectiles", expectiles_tensor)
         self.num_expectiles = len(expectiles)
@@ -381,63 +416,28 @@ class ExpectileCrossoverLoss(RegressionLoss):
                 f"got shape {y_pred.shape}"
             )
 
-        # 1. Calculate Base Loss (Standard Expectile Loss) using vectorized utility
-        # [batch_size, num_expectiles, n_features]
+        # 1. Base loss (standard expectile loss) using the vectorized utility:
+        # [batch_size, num_expectiles, n_features] -> mean over levels
         level_losses = multi_expectile_loss(y_pred, target, cast(torch.Tensor, self.expectiles))
+        base_elem = level_losses.mean(dim=1)  # [batch_size, n_features]
 
-        # Apply mask and weights to base loss
-        if mask is not None:
-            # mask: [batch_size, n_features] -> [batch_size, 1, n_features]
-            mask_expanded = mask.unsqueeze(1) if mask.dim() > 1 else mask.unsqueeze(1).unsqueeze(2)
-            level_losses = level_losses * mask_expanded
+        # 2. Crossover penalties: sum of violations f_i > f_{i+1} over levels
+        violations = F.relu(y_pred[:, :-1] - y_pred[:, 1:])
+        penalty_elem = violations.sum(dim=1)  # [batch_size, n_features]
 
-        if weights is not None:
-            weights_expanded = weights
-            if weights.dim() == 1:
-                # [batch] -> [batch, 1, 1]
-                weights_expanded = weights.view(-1, 1, 1)
-            elif weights.dim() == 2:
-                # [batch, features] -> [batch, 1, features]
-                weights_expanded = weights.unsqueeze(1)
-            level_losses = level_losses * weights_expanded
+        elem = self.base_loss * base_elem + self.crossover_penalty * penalty_elem
+        if mask is not None and mask.dim() == 1:
+            mask = mask.unsqueeze(1)
+        if weights is not None and weights.dim() == 1:
+            weights = weights.unsqueeze(1)
 
-        # Sum across features to get per-sample loss: [batch_size, num_expectiles]
-        per_sample_level_losses = torch.sum(level_losses, dim=-1)
-
-        # Mean across expectiles per sample: [batch_size]
-        total_base_loss = torch.mean(per_sample_level_losses, dim=1)
-
-        # 2. Calculate Crossover Penalties (Vectorized)
-        # y_pred: [batch_size, num_expectiles, n_features]
-        # Compare i and i+1
-        lower_preds = y_pred[:, :-1, :]
-        higher_preds = y_pred[:, 1:, :]
-
-        # Violations: [batch_size, num_expectiles-1, n_features]
-        violations = F.relu(lower_preds - higher_preds)
-
-        if mask is not None:
-            # Re-use mask_expanded [batch_size, 1, n_features]
-            # Make sure mask_expanded is defined
-            mask_expanded = mask.unsqueeze(1) if mask.dim() > 1 else mask.unsqueeze(1).unsqueeze(2)
-            violations = violations * mask_expanded
-
-        # Sum across features: [batch_size, num_expectiles-1]
-        feature_violations = torch.sum(violations, dim=-1)
-
-        # Sum across expectiles: [batch_size]
-        crossover_penalties = torch.sum(feature_violations, dim=1)
-
-        # Final combination
-        final_loss = self.base_loss * total_base_loss + self.crossover_penalty * crossover_penalties
-
-        # Apply final reduction
-        if self.reduction == "mean":
-            return torch.mean(final_loss)
-        elif self.reduction == "sum":
-            return torch.sum(final_loss)
-        else:  # 'none'
-            return final_loss
+        # Sum across (unmasked) features per sample, then reduce through the
+        # unified BaseLoss policy (A9): weights scale the combined per-sample
+        # loss and the weighted 'mean' is normalised by sum(weights).
+        per_sample, sample_mask, sample_weights = _per_sample_feature_reduce(
+            elem, mask, weights, feature_reduction="sum"
+        )
+        return self._reduce(per_sample, sample_mask, sample_weights)
 
 
 def expectile_loss(

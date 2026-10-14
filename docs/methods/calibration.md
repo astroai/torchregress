@@ -46,6 +46,53 @@ scaler.fit(pred_mean_cal, pred_var_cal, y_cal)
 calibrated_var = scaler.transform(pred_var_test)
 ```
 
+Three optional extensions, all off by default:
+
+* `fit_floor=True` also fits an additive variance floor $f \ge 0$, giving
+  $\sigma_{\text{cal}}^2 = T\,\sigma_{\text{pred}}^2 + f$. Use it when the
+  error budget has a component the model does not see (systematics, template
+  mismatch). A single $T$ then over-covers the noisiest samples and
+  under-covers the best-measured ones.
+* `target_var=...` gives per-sample label variances (noisy ground truth). The
+  fit uses $T\,\sigma_{\text{pred}}^2 + f + \sigma_{\text{target}}^2$, so
+  label noise is not charged to the model. `transform` returns the model's
+  part only.
+* `clip=5.0` ignores calibration samples more than 5 robust standard
+  deviations from the median residual, so catastrophic failures do not set
+  the scale.
+
+```python
+scaler.fit(mu_cal, var_cal, y_cal, target_var=label_var_cal, fit_floor=True, clip=5.0)
+```
+
+Without `fit_floor`, `target_var` or a preset `variance_floor`, the NLL
+optimum has a closed form and `fit` returns it exactly (no iterations):
+
+$$\hat T = \frac{1}{n}\sum_{i=1}^{n} \frac{(y_i - \mu_i)^2}{\sigma^2_{\text{pred},i}}$$
+
+With a floor or noisy targets, the closed-form value seeds the Adam
+optimisation over $\log T$ (and $\log f$).
+
+!!! info "Temperature bounds (changed in 0.3)"
+    $T$ is unbounded by default. Earlier versions silently clamped it to
+    $[0.05, 20]$, which left strongly over-confident models under-covered (a
+    model needing $T \approx 50$ got $T = 20$, so nominal 90% intervals
+    covered about 71%). To constrain $T$ deliberately, pass
+    `temperature_bounds=(t_min, t_max)`. For example,
+    `temperature_bounds=(0.05, 20.0)` reproduces the old behaviour. A fitted
+    $T$ far outside $[0.1, 10]$ usually means a leaked or mismatched
+    calibration split (see the warning below), not a scale the model needs.
+
+!!! tip "The `clip` trade-off"
+    `clip` fits the variance *without* the outliers, so outliers that turn up
+    at test time are scored against a narrower predictive distribution. In
+    the torchregress-harness study on synthetic data with catastrophic
+    outliers, `clip=5` gave the best CRPS but raised the test NLL from 1.64
+    to 2.71. Use `clip` when you care about sharp intervals for the bulk
+    (CRPS, coverage of good fits). Leave it off when the log-likelihood of
+    every test point matters, or model the outliers explicitly (mixture or
+    Student-t likelihood).
+
 !!! warning "Calibration Set Requirements & Risks"
     * **Independent Calibration Set**: The calibration dataset **must** be strictly held out from model training. If the model has seen the calibration data, its predicted variances $\sigma^2_{\text{pred}}$ will be artificially small relative to the residuals, forcing the scaler to converge to an excessively large temperature $T \gg 1$, which will over-inflate (make too wide) prediction intervals at test time.
     * **Covariate Representation**: The calibration set must share the same covariate distribution as the test set. Under covariate shift, a single global temperature $T$ may fail to calibrate variance uniformly across feature space.
@@ -56,6 +103,17 @@ calibrated_var = scaler.transform(pred_var_test)
 ### 2. Isotonic Mean Calibration ([IsotonicMeanCalibrator](../api/calibration.md))
 
 Corrects systematic **bias** in point predictions. If your model consistently over-predicts in some regions and under-predicts in others, isotonic regression learns a monotone mapping to fix it.
+
+The fit is the least-squares non-decreasing map
+
+$$\hat g = \arg\min_{g \text{ non-decreasing}} \sum_{i=1}^{n} \big(y_i - g(\mu_i)\big)^2,$$
+
+solved by the Pool Adjacent Violators Algorithm. Targets that share a
+prediction are averaged first. Each fitted block is stored by its first and
+last prediction, so `transform` is constant on a block and linear between
+blocks. The output matches `sklearn.isotonic.IsotonicRegression(out_of_bounds="clip")`
+to round-off. Versions before 0.3 interpolated between block centroids and did
+not pool ties, so they did not return the isotonic fit on the training points.
 
 ```python
 from torchregress.calibration import IsotonicMeanCalibrator

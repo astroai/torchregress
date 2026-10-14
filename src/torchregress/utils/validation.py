@@ -79,6 +79,8 @@ def validate_positive(
         tensor([1., 2.])
     """
     if isinstance(value, torch.Tensor):
+        if torch.isnan(value).any():
+            raise ValueError(f"{param_name} must not contain NaN")
         if allow_zero:
             if torch.any(value < 0):
                 raise ValueError(
@@ -92,6 +94,8 @@ def validate_positive(
                     f"{value.min().item()}"
                 )
     else:
+        if value != value:
+            raise ValueError(f"{param_name} must not be NaN")
         if allow_zero:
             if value < 0:
                 raise ValueError(f"{param_name} must be non-negative, got {value}")
@@ -130,13 +134,15 @@ def validate_range(
         ValueError: probability must be between 0.0 and 1.0, got 1.5
     """
     if isinstance(value, torch.Tensor):
+        if torch.isnan(value).any():
+            raise ValueError(f"{param_name} must not contain NaN")
         if torch.any(value < min_value) or torch.any(value > max_value):
             raise ValueError(
                 f"{param_name} must be between {min_value} and {max_value}, "
                 f"got tensor with values outside range [{value.min().item()}, {value.max().item()}]"
             )
     else:
-        if value < min_value or value > max_value:
+        if not (min_value <= value <= max_value):
             raise ValueError(
                 f"{param_name} must be between {min_value} and {max_value}, got {value}"
             )
@@ -148,6 +154,8 @@ def validate_quantile(q: Union[float, torch.Tensor]) -> torch.Tensor:
     Validate quantile level(s) and convert to tensor.
     """
     q = torch.as_tensor(q)
+    if torch.isnan(q).any():
+        raise ValueError("Quantile(s) must not be NaN")
     q_min = q.min().item()
     q_max = q.max().item()
     if q_min < 0.0 or q_max > 1.0:

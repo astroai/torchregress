@@ -47,13 +47,17 @@ class TestEvidentialRegressionLoss:
         beta = torch.tensor([[1.5]])
         target = torch.tensor([[1.0]])
 
-        # Manual student-t NLL calculation:
-        # NLL = 0.5 * log(pi / nu) - alpha * log(2 * beta) + (alpha + 0.5) * log(nu * (y - gamma)^2 + 2 * beta)
-        #       + lgamma(alpha) - lgamma(alpha + 0.5)
+        # Amini et al. (2020), "Deep Evidential Regression", NeurIPS, Eq. 8:
+        # NLL = 0.5 * log(pi / nu) - alpha * log(Omega)
+        #       + (alpha + 0.5) * log(nu * (y - gamma)^2 + Omega)
+        #       + lgamma(alpha) - lgamma(alpha + 0.5),   Omega = 2 * beta * (1 + nu)
+        # (Previously this test hard-coded Omega = 2 * beta, the Student-t of
+        # the mean mu rather than the NIG predictive of y.)
         residual_sq = (1.0 - 0.5) ** 2
+        omega = 2.0 * 1.5 * (1.0 + 2.0)
         term1 = 0.5 * math.log(math.pi / 2.0)
-        term2 = -3.0 * math.log(2.0 * 1.5 + 1e-6)
-        term3 = (3.0 + 0.5) * math.log(2.0 * residual_sq + 2.0 * 1.5 + 1e-6)
+        term2 = -3.0 * math.log(omega)
+        term3 = (3.0 + 0.5) * math.log(2.0 * residual_sq + omega)
         term4 = math.lgamma(3.0) - math.lgamma(3.5)
         expected_nll = term1 + term2 + term3 + term4
 
@@ -202,10 +206,12 @@ class TestEvidentialRegressionLoss:
         alpha = F.softplus(y_pred[:, 2:3]) + 1.01
         beta = F.softplus(y_pred[:, 3:4]) + 0.01
         residual_sq = (target - gamma) ** 2
+        # Amini et al. (2020) Eq. 8: Omega = 2 * beta * (1 + nu).
+        omega = 2.0 * beta * (1.0 + nu)
         nll = (
             0.5 * torch.log(math.pi / nu)
-            - alpha * torch.log(2.0 * beta)
-            + (alpha + 0.5) * torch.log(nu * residual_sq + 2.0 * beta)
+            - alpha * torch.log(omega)
+            + (alpha + 0.5) * torch.log(nu * residual_sq + omega)
             + torch.lgamma(alpha)
             - torch.lgamma(alpha + 0.5)
         )
@@ -228,10 +234,11 @@ class TestEvidentialRegressionLoss:
         loss = loss_fn((gamma, nu, alpha, beta), target)
 
         r = 0.5
+        omega = 2.0 * 1.0 * (1.0 + 2.0)  # Amini et al. (2020) Eq. 8
         nll = (
             0.5 * math.log(math.pi / 2.0)
-            - 3.0 * math.log(2.0 * 1.0)
-            + 3.5 * math.log(2.0 * r**2 + 2.0 * 1.0)
+            - 3.0 * math.log(omega)
+            + 3.5 * math.log(2.0 * r**2 + omega)
             + math.lgamma(3.0)
             - math.lgamma(3.5)
         )

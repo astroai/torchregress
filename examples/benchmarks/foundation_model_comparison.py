@@ -71,17 +71,19 @@ def run_tabpfn(X_train, y_train, X_test, y_test):
     start = time.time()
     model.fit(X_train_sub, y_train_sub)
 
-    # TabPFN provides a get_predictive_distribution or similar in recent versions
-    # For now, we'll assume it returns mean/std or samples
-    y_pred, y_std = model.predict(X_test, return_std=True)
+    # TabPFN >= 2 has no ``return_std``: request predictive quantiles instead and
+    # score them with the quantile path of ``distribution_metrics_report``.
+    levels = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
+    quantile_preds = model.predict(X_test, output_type="quantiles", quantiles=levels)
     duration = time.time() - start
 
-    # Construct a distribution for the report
-    dist = torch.distributions.Normal(
-        torch.from_numpy(y_pred).float(), torch.from_numpy(y_std).float()
+    y_pred_quantiles = {
+        level: torch.from_numpy(np.asarray(pred)).float()
+        for level, pred in zip(levels, quantile_preds)
+    }
+    report = distribution_metrics_report(
+        y_pred_quantiles=y_pred_quantiles, y_true=torch.from_numpy(y_test).float()
     )
-
-    report = distribution_metrics_report(dist=dist, y_true=torch.from_numpy(y_test).float())
     report["duration"] = duration
     return report
 

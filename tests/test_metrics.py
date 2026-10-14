@@ -538,6 +538,23 @@ class TestOODMetrics:
         assert isinstance(es_sum, torch.Tensor)
         assert es_sum.ndim == 0
 
+    def test_kernel_density_blocked_matches_single_block(self, monkeypatch):
+        from torchregress.metrics import ood
+
+        g = torch.Generator().manual_seed(0)
+        xt = torch.randn(37, 4, generator=g)
+        xr = torch.randn(29, 4, generator=g)
+        ref = kernel_density_score(xt, xr, bandwidth=0.7)
+        metric = ood.KernelDensityScore(bandwidth=0.7)
+        metric.update(xt, xr)
+        monkeypatch.setattr(ood, "_BLOCK_ELEMS", 29 * 5)  # 5 rows per block
+        torch.testing.assert_close(kernel_density_score(xt, xr, bandwidth=0.7), ref, rtol=0, atol=0)
+        metric_b = ood.KernelDensityScore(bandwidth=0.7)
+        metric_b.update(xt, xr)
+        torch.testing.assert_close(metric_b.compute(), metric.compute(), rtol=0, atol=0)
+        monkeypatch.setattr(ood, "_BLOCK_ELEMS", 1)  # one row per block
+        torch.testing.assert_close(kernel_density_score(xt, xr, bandwidth=0.7), ref, rtol=0, atol=0)
+
     def test_kernel_density_score(self):
         """Test kernel density score metric."""
         # Test basic calculation

@@ -49,6 +49,21 @@ def convert_to_tensor(
     return tensor
 
 
+def float_dtype(*tensors: object) -> torch.dtype:
+    """Floating dtype that boolean/integer intermediates should adopt.
+
+    Returns the promoted dtype of all floating-point tensors among ``tensors``
+    (so float64 inputs keep float64), falling back to
+    :func:`torch.get_default_dtype` when none is floating.  Never hard-codes
+    float32.
+    """
+    dtype: Optional[torch.dtype] = None
+    for t in tensors:
+        if isinstance(t, torch.Tensor) and t.is_floating_point():
+            dtype = t.dtype if dtype is None else torch.promote_types(dtype, t.dtype)
+    return dtype if dtype is not None else torch.get_default_dtype()
+
+
 def ensure_batch_dim(x: torch.Tensor) -> torch.Tensor:
     """Ensure tensor has a batch dimension."""
     if x.dim() == 1:
@@ -143,8 +158,10 @@ def masked_mean(
     if mask is None:
         return torch.mean(tensor, dim=dim, keepdim=keepdim)
 
-    valid_count = mask.sum(dim=dim, keepdim=keepdim).clamp(min=1)
-    return (tensor * mask).sum(dim=dim, keepdim=keepdim) / valid_count
+    # torch.where (not ``tensor * mask``) so NaN/Inf at masked-out positions cannot leak.
+    mask_b, tensor_b = torch.broadcast_tensors(mask.to(torch.bool), tensor)
+    valid_count = mask_b.sum(dim=dim, keepdim=keepdim).clamp(min=1)
+    return apply_mask(tensor_b, mask_b).sum(dim=dim, keepdim=keepdim) / valid_count
 
 
 def masked_sum(
@@ -159,7 +176,7 @@ def masked_sum(
     if mask is None:
         return torch.sum(tensor, dim=dim, keepdim=keepdim)
 
-    return (tensor * mask).sum(dim=dim, keepdim=keepdim)
+    return apply_mask(tensor, mask.to(torch.bool)).sum(dim=dim, keepdim=keepdim)
 
 
 def prepare_cross_covariance(
@@ -197,12 +214,41 @@ def prepare_model_input_for_gradients(x: torch.Tensor) -> torch.Tensor:
 
 
 def compute_model_gradients(
-    y_pred: torch.Tensor, x: torch.Tensor, n_features_y: int
+    y_pred: torch.Tensor,
+    x: torch.Tensor,
+    n_features_y: int,
+    create_graph: Optional[bool] = None,
 ) -> torch.Tensor:
     """
     Compute gradients of model predictions with respect to inputs (Jacobian per sample).
+
+    When autograd is enabled the Jacobian is built with ``create_graph=True`` so
+    that quantities derived from it (e.g. the propagated EIV variance
+    ``J Sigma_x J^T``) stay differentiable w.r.t. the model parameters; under
+    ``torch.no_grad()`` / inference the graph is not built.
+
+    Parameters
+    ----------
+    y_pred : torch.Tensor
+        Model outputs ``[batch, n_features_y]`` computed from ``x``.
+    x : torch.Tensor
+        Model inputs ``[batch, n_features_x]`` with ``requires_grad=True``.
+    n_features_y : int
+        Number of output features.
+    create_graph : bool, optional
+        Build a differentiable Jacobian.  Defaults to
+        ``torch.is_grad_enabled()``; callers that compute the Jacobian inside
+        ``torch.enable_grad()`` pass the OUTER grad mode so evaluation under
+        ``torch.no_grad()`` does not build a double-backward graph.
+
+    Returns
+    -------
+    torch.Tensor
+        Per-sample Jacobian ``[batch, n_features_y, n_features_x]``.
     """
     batch_size = x.shape[0]
+    if create_graph is None:
+        create_graph = torch.is_grad_enabled()
     n_features_x = x.shape[1]
 
     if n_features_y == 1:
@@ -210,7 +256,7 @@ def compute_model_gradients(
             outputs=y_pred,
             inputs=x,
             grad_outputs=torch.ones_like(y_pred),
-            create_graph=False,
+            create_graph=create_graph,
             retain_graph=True,
             only_inputs=True,
         )[0]
@@ -227,7 +273,7 @@ def compute_model_gradients(
             outputs=y_pred,
             inputs=x,
             grad_outputs=grad_outputs,
-            create_graph=False,
+            create_graph=create_graph,
             retain_graph=True,
             only_inputs=True,
             is_grads_batched=True,
@@ -251,7 +297,10 @@ def calculate_gaussian_nll(
     full_covariance = var.dim() == residuals.dim() + 1
 
     if elementwise_diagonal:
-        # Diagonal covariance case
+        # Diagonal covariance case.  A per-sample variance (dim == residuals.dim() - 1,
+        # leading axis = batch) is broadcast over the trailing feature axis.
+        if var.shape != residuals.shape and var.dim() >= 1 and var.shape[0] == residuals.shape[0]:
+            var = var.unsqueeze(-1)
         nll = 0.5 * (torch.log(var + eps) + (residuals**2) / (var + eps))
         nll = torch.sum(nll, dim=1)
         nll = nll + 0.5 * residuals.shape[1] * math.log(2 * math.pi)

@@ -22,7 +22,6 @@ unified coverage theorem, see [Conformal prediction](../methods/conformal/index.
 | `CTI` | Density level-set | Multimodal, complex distributions |
 | `DistributionalConformal` | Distributional coverage | When full predictive CDF is available |
 | `LevelSetConformalPredictor` | Level-set predictor | Construct smallest intervals from CDF |
-| `MultiDimensionalConformalLoss` | Multi-dim legacy wrapper | Vector targets |
 | `MultiTargetConformal` | Multi-target coverage | Joint coverage on `[B, D]` targets |
 | `PrevalenceAdjustedCP` | Group-prevalence-adjusted | Subgroup prior shift |
 | `R2CConformal` | Regression-as-classification | Multimodal / binned targets |
@@ -31,7 +30,6 @@ unified coverage theorem, see [Conformal prediction](../methods/conformal/index.
 | `JackknifePlus` | Leave-one-out residuals | Leave-one-out cross-validation ensembles (alias of CVPlus) |
 | `EnsembleBatchCP` | Out-of-bag residuals | Bootstrap-based ensemble predictors (EnbPI) |
 | `ConformalLoss(method=…)` | Unified CQR/UACQR/split training wrapper | One-call training of supported methods |
-| `conformal_loss(...)` | Functional form of `ConformalLoss` | Inline / functional API |
 
 ---
 

@@ -142,7 +142,7 @@ print("Aleatoric Variance:\n", pred_batch.extra["aleatoric_variance"].squeeze(-1
 | **Large-scale model training** | **Warning** | Last-layer Laplace is efficient, but full-parameter Laplace is too heavy. This regressor restricts posterior approximation to the final head layer only. |
 
 !!! tip "Natural Head Stabilization"
-    Using the `NaturalHeteroscedasticHead` is crucial for stable optimization. Standard heads outputting mean and log-variance directly can result in highly non-Gaussian parameter posteriors where Laplace updates are unstable.
+    Using the `NaturalHeteroscedasticHead` is crucial for stable optimization. Standard heads outputting mean and log-variance directly can result in highly non-Gaussian parameter posteriors where Laplace updates are unstable. A plain `nn.Linear(hidden, 2 * out)` head is accepted (first half = mean, second half = log-variance) for experimentation.
 
 ---
 
@@ -158,7 +158,7 @@ print("Aleatoric Variance:\n", pred_batch.extra["aleatoric_variance"].squeeze(-1
 
 1. **Always use `NaturalHeteroscedasticHead`** with `link_fn="exp"`. Standard $\mu, \log\sigma^2$ heads produce non-Gaussian posteriors that break Laplace validity.
 2. **Tune `prior_precision`** via a small validation split. Start at `1.0`, sweep `{0.01, 0.1, 1.0, 10.0}`. Too low → under-regularized MAP, too high → over-smoothed posterior.
-3. **Set `n_samples \geq 30`** for stable epistemic variance estimates. Below 20 samples, $\text{Var}(\{\mu^{(s)}\})$ fluctuates significantly between runs.
+3. **Set `n_samples \geq 30`** for stable epistemic variance estimates. Below 20 samples, $\text{Var}(\{\mu^{(s)}\})$ fluctuates significantly between runs. With `n_samples=1` the epistemic variance is reported as `0` (a single draw carries no spread information).
 4. **Freeze backbone after pre-training** — re-fitting the Laplace on a backbone trained from scratch with the head can be numerically unstable. Pre-train backbone, freeze, then fit head + Laplace.
 5. **Complement with [conformal prediction](../conformal/index.md)** for coverage guarantees. Laplace provides a parametric posterior; conformal adds distribution-free coverage without assumptions on the posterior shape.
 

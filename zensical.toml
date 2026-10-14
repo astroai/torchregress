@@ -53,7 +53,7 @@ quote = "material/format-quote-open"
 # ─── Social links ──────────────────────────────────────────────────────────
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/sfabbro/torchregress"
+link = "https://github.com/astroai/torchregress"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/python"
@@ -94,7 +94,7 @@ features = [
 
 # ─── Announcement bar (dismissible) ────────────────────────────────────────
 [project.theme.announce]
-content = "⭐ <strong>torchregress 0.1.0</strong> — now using <strong>Zensical</strong>. If you spot anything off, please <a href='https://github.com/sfabbro/torchregress/issues'>open an issue</a>."
+content = "<strong>torchregress 0.3.0</strong> is the first release on PyPI. If you spot anything off, please <a href='https://github.com/astroai/torchregress/issues'>open an issue</a>."
 
 # ─── Logo icon (fallback when logo image is not set) ───────────────────────
 [project.theme.icon]
@@ -168,6 +168,8 @@ nav = [
       { "Comparative Evidence" = "reports/comparative_evidence_matrix.md" },
       { "Real-Data Recommendation Guide" = "reports/real_data_recommendation_guide.md" },
       { "Docs Quality Audit" = "reports/docs_quality_audit.md" },
+      { "0.3.0 Release Audit" = "reports/audit_0.3.0.md" },
+      { "0.3.0 API Review" = "reports/api_review_0.3.0.md" },
     ] },
   ] },
   { "Loss Functions" = [
@@ -232,6 +234,8 @@ nav = [
       { "Bayesian Linear Regression" = "methods/test-time/bayesian-linear-regression.md" },
       { "Optimal Transport Conformal" = "methods/test-time/ot-shift-conformal.md" },
     ] },
+    { "Tabular MLP" = "methods/tabular_mlp.md" },
+    { "Model-Agnostic UQ Wrappers" = "methods/estimators.md" },
     { "Post-Training Calibration" = "methods/calibration.md" },
     { "Output Constraints" = "methods/constraints.md" },
     { "Causal Inference" = "methods/causal.md" },
@@ -318,12 +322,14 @@ nav = [
       { "Doubly Robust Causal (Real Data)" = "examples/causal_dr_realdata_comparison.md" },
     ] },
     { "External Comparisons" = [
-      { "vs MAPIE, BoTorch, scikit-lego" = "examples/external-comparison-vs-mapie-botorch-sklego.md" },
+      { "vs MAPIE, crepes, torchcp, BoTorch, scikit-learn" = "examples/external-comparison-vs-mapie-botorch-sklego.md" },
     ] },
   ] },
   { "API Reference" = [
     "api/index.md",
     { "Losses" = "api/losses.md" },
+    { "Models" = "api/models.md" },
+    { "Estimators" = "api/estimators.md" },
     { "Ensemble" = "api/ensemble.md" },
     { "Conformal" = "api/conformal.md" },
     { "Algorithms" = "api/algorithms.md" },

@@ -10,6 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import float_dtype
+
 
 def _validate_num_classes(num_classes: int) -> None:
     if num_classes < 2:
@@ -28,7 +30,7 @@ def labels_to_levels(target: Tensor, num_classes: int) -> Tensor:
         raise ValueError("target class indices must be in [0, num_classes - 1]")
 
     thresholds = torch.arange(num_classes - 1, device=target_i.device)
-    return (target_i.unsqueeze(-1) > thresholds).to(dtype=torch.float32)
+    return (target_i.unsqueeze(-1) > thresholds).to(dtype=float_dtype(target))
 
 
 def normalize_class_probs(

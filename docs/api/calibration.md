@@ -14,8 +14,8 @@ For background, see [Calibration methods](../methods/calibration.md) and
 
 | Symbol | Description |
 |:-------|:------------|
-| `VarianceTemperatureScaler` | Scalar temperature `T` scaling on Gaussian predictive variance. `fit(pred_mean, pred_var, target)` minimises NLL; `transform(pred_var) -> T * pred_var`. Reference: Guo et al. 2017. |
-| `IsotonicMeanCalibrator` | Isotonic regression on point predictions, implemented natively via PAVA (no sklearn dependency). `fit(pred_mean, target)`, `transform(pred_mean)`. `out_of_bounds ∈ {"clip"}`. |
+| `VarianceTemperatureScaler` | Scalar temperature `T` scaling on Gaussian predictive variance. `fit(pred_mean, pred_var, target, *, max_iter=200, lr=0.05, target_var=None, fit_floor=False, clip=None, temperature_bounds=None)` minimises NLL (closed form `T = mean(r^2 / var)` when no floor or target noise); `transform(pred_var) -> T * pred_var + f`. `T` is unbounded unless `temperature_bounds=(t_min, t_max)` is given (pre-0.3 versions clamped silently to `[0.05, 20]`). Reference: Guo et al. 2017. |
+| `IsotonicMeanCalibrator` | Isotonic regression on point predictions, implemented natively via PAVA (no sklearn dependency). Ties are pooled and block end points are kept, so it matches `sklearn.isotonic.IsotonicRegression(out_of_bounds="clip")`. `fit(pred_mean, target)`, `transform(pred_mean)`. `out_of_bounds="clip"` (default) or any other value for linear extrapolation of the end segments. |
 | `PITCalibrator` | Monotonic empirical-CDF mapping for Probability Integral Transform values. `pit_from_gaussian(pred_mean, pred_std, target)` computes PIT; `fit(pit_values)`, `transform(pit_values)` returns remapped values. |
 
 ```python

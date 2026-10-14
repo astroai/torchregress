@@ -134,7 +134,10 @@ class TestMixtureDensityLoss:
     def test_log_prob_full(self):
         """Test log probability calculation with full covariance."""
         n_components, n_features = 2, 2  # Using n_features=2 for simplicity
-        loss_fn = MixtureDensityLoss(n_components, n_features, covariance_type="full")
+        # Covariance-Cholesky formula (precision form: tests/audit/test_audit_c2.py).
+        loss_fn = MixtureDensityLoss(
+            n_components, n_features, covariance_type="full", full_parameterization="covariance"
+        )
 
         batch_size = 3
         target = torch.randn(batch_size, n_features)

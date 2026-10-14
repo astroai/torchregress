@@ -9,7 +9,7 @@ runtime.
 
 Run::
 
-    uv pip install "torchregress[external]"
+    uv pip install botorch gpytorch
     uv run python examples/external_comparison_bayesian_linear_vs_botorch.py \\
         --summary-json-path reports/external_comparison_bayesian_linear_vs_botorch_latest.json
 
@@ -129,11 +129,14 @@ def _eval_botorch(
     gp.eval()
     gp.likelihood.eval()
     with torch.no_grad():
-        posterior = gp.posterior(test_X)
+        # Predictive distribution of the *noisy* targets (latent f + likelihood noise),
+        # so NLL and coverage are comparable to the other rows.
+        posterior = gp.posterior(test_X, observation_noise=True)
         mean = posterior.mean.squeeze(-1)
         std = posterior.variance.squeeze(-1).clamp_min(1e-8).sqrt()
     rmse = torch.sqrt(torch.mean((mean - test_Y) ** 2)).item()
-    nll = -posterior.log_prob(test_Y.unsqueeze(-1)).div(test_Y.numel()).item()
+    # Mean per-point marginal Gaussian NLL (posterior.log_prob is not per-point).
+    nll = -torch.distributions.Normal(mean, std).log_prob(test_Y).mean().item()
     cov = ((mean - 1.96 * std <= test_Y) & (test_Y <= mean + 1.96 * std)).float().mean().item()
     return {
         "Method": "BoTorch/SingleTaskGP",

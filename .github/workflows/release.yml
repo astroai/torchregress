@@ -1,15 +1,18 @@
 name: Release
 
+# vX.Y.ZrcN tags publish to TestPyPI (dry run); vX.Y.Z tags publish to PyPI.
+# Both use Trusted Publishing: astroai/torchregress, workflow release.yml,
+# environment `testpypi` or `pypi` respectively (see docs/RELEASING.md).
+
 on:
   push:
     tags: ["v*"]
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +30,77 @@ jobs:
       - name: Validate artifacts
         run: ./scripts/release/build_package.sh --check-only
 
+      - name: Check metadata and README rendering
+        run: pipx run twine check --strict dist/*
+
+  # Install the wheel with core dependencies only, on every supported Python,
+  # before anything is published.
+  install-smoke:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Install CPU torch (Linux; the default wheel pulls CUDA libraries)
+        if: runner.os == 'Linux'
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install the wheel (no extras)
+        run: python -m pip install dist/*.whl
+      - name: Import every submodule and run torchregress-health
+        working-directory: ${{ runner.temp }}
+        run: python ${{ github.workspace }}/scripts/release/smoke_install.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-testpypi:
+    if: contains(github.ref_name, 'rc')
+    needs: [build, install-smoke]
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/torchregress
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          attestations: true
+
+  publish-pypi:
+    if: ${{ !contains(github.ref_name, 'rc') }}
+    needs: [build, install-smoke]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/torchregress
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

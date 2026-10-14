@@ -231,25 +231,54 @@ class BSplineDensityBasis:
         integrals = (vals * weights[None, :, None]).sum(dim=1) * half[:, None]
         return pieces, integrals
 
-    def bin_integrals(self, edges: Tensor | Sequence[float]) -> Tensor:
+    def bin_integrals(
+        self,
+        edges: Tensor | Sequence[float],
+        *,
+        dtype: torch.dtype | None = None,
+        device: torch.device | str | None = None,
+    ) -> Tensor:
         """``T[k, m] = int_{e_k}^{e_{k+1}} M_m(x) dx`` for sorted bin edges.
 
         Rows therefore map simplex coefficients to bin masses:
         ``mass = coefficients @ T.T``.  If the edges cover ``[lo, hi]`` every
         column sums to one.  Exact to floating-point round-off.
+
+        Parameters
+        ----------
+        edges : Tensor or sequence of float
+            Strictly increasing bin edges, shape ``(K + 1,)``.
+        dtype : torch.dtype, optional
+            Floating dtype of the result.  Defaults to the dtype of ``edges`` when it
+            is a floating tensor, else ``float64``.
+        device : torch.device or str, optional
+            Device of the result.  Defaults to the device of ``edges`` when it is a
+            tensor, else CPU.
+
+        Returns
+        -------
+        Tensor
+            Shape ``(K, n_basis)``.  Always a fresh tensor (the internal cache is
+            never aliased), so in-place edits by the caller are safe.
         """
+        if dtype is None:
+            if isinstance(edges, Tensor) and edges.is_floating_point():
+                dtype = edges.dtype
+            else:
+                dtype = torch.float64
+        if device is None and isinstance(edges, Tensor):
+            device = edges.device
         e = _as_1d_tensor(edges, name="edges")
         key = tuple(e.tolist())
         cached = self._bin_integrals_cache.get(key)
-        if cached is not None:
-            return cached
-        pieces, integrals = self._piece_integrals(e)
-        mids = 0.5 * (pieces[:-1] + pieces[1:])
-        idx = torch.bucketize(mids, e) - 1  # piece -> bin
-        T = torch.zeros(e.numel() - 1, self.n_basis, dtype=e.dtype)
-        T.index_add_(0, idx, integrals)
-        self._bin_integrals_cache[key] = T
-        return T
+        if cached is None:
+            pieces, integrals = self._piece_integrals(e)
+            mids = 0.5 * (pieces[:-1] + pieces[1:])
+            idx = torch.bucketize(mids, e) - 1  # piece -> bin
+            cached = torch.zeros(e.numel() - 1, self.n_basis, dtype=e.dtype)
+            cached.index_add_(0, idx, integrals)
+            self._bin_integrals_cache[key] = cached
+        return cached.to(dtype=dtype, device=device, copy=True)
 
     def cumulative_moment(self, x: Tensor, moment: int = 0) -> Tensor:
         """``int_{lo}^{x} u^moment M_m(u) du`` for a 1D tensor ``x``; shape ``(len(x), n_basis)``.

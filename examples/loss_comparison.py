@@ -1,4 +1,4 @@
-"""
+r"""
 Loss Function Comparison on Noisy Data with Outliers.
 
 This example compares standard regression losses against robust losses (Huber, Log-Cosh,

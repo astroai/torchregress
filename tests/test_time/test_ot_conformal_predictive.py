@@ -206,7 +206,9 @@ class TestWeightedSplitPredictiveBatchEdge:
 
     def test_all_scores_above_threshold(self) -> None:
         """All candidates fail → no labels included."""
-        adapter = _make_adapter(calibration_scores=torch.tensor([1.0, 2.0, 3.0]))
+        # alpha=0.5 keeps k = ceil(4 * 0.5) = 2 <= n = 3 (finite threshold 2.0);
+        # at the default alpha=0.1, n=3 is too small and the threshold is +inf.
+        adapter = _make_adapter(alpha=0.5, calibration_scores=torch.tensor([1.0, 2.0, 3.0]))
         scores = torch.tensor([[10.0, 20.0], [30.0, 40.0]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
         assert batch.extra is not None
@@ -216,7 +218,8 @@ class TestWeightedSplitPredictiveBatchEdge:
 
     def test_mixed_inclusion(self) -> None:
         """Some labels pass, some fail."""
-        adapter = _make_adapter(calibration_scores=torch.tensor([0.2, 0.4, 0.6]))
+        # alpha=0.5: finite threshold 0.4 (n=3 is too small for alpha=0.1).
+        adapter = _make_adapter(alpha=0.5, calibration_scores=torch.tensor([0.2, 0.4, 0.6]))
         scores = torch.tensor([[0.1, 0.5, 0.3], [0.7, 0.2, 0.8]])
         batch = weighted_split_classification_predictive_batch(adapter, scores)
         assert batch.extra is not None

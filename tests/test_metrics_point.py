@@ -45,15 +45,15 @@ class TestMedianAbsoluteError:
         assert val == pytest.approx(1.0)
 
     def test_multioutput_uniform_average(self) -> None:
-        """multioutput='uniform_average' first averages across outputs then takes median."""
+        """multioutput='uniform_average' averages the per-output medians (sklearn)."""
         metric = MedianAbsoluteError(multioutput="uniform_average")
         y_pred = torch.tensor([[0.0, 10.0], [0.0, 0.0], [5.0, 5.0]])
         y_true = torch.tensor([[0.0, 0.0], [5.0, 5.0], [5.0, 5.0]])
         metric.update(y_pred, y_true)
         val = float(metric.compute())
-        # per-sample mean abs errors: row0=(0+10)/2=5, row1=(5+5)/2=5, row2=(0+0)/2=0
-        # median across rows = 5
-        assert val == pytest.approx(5.0)
+        # per-output abs errors: col0=[0,5,0] -> median 0, col1=[10,5,0] -> median 5
+        # mean of per-output medians = 2.5 (== sklearn.metrics.median_absolute_error)
+        assert val == pytest.approx(2.5)
 
     def test_multioutput_raw_values(self) -> None:
         """multioutput='raw_values' gives per-output-column medians."""
@@ -177,12 +177,13 @@ class TestTrimmedMeanSquaredError:
     def test_default_proportion(self) -> None:
         metric = TrimmedMeanSquaredError()
         # errors²: [1, 4, 9, 16, 25]; sorted same
-        # proportion=0.1, n=5: lower=0, upper=4 → keep [1,4,9,16]; mean=7.5
+        # proportion=0.1, n=5: int(0.5)=0 cut from each end (scipy.stats.trim_mean)
+        # → keep all; mean=11
         metric.update(
             torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0]), torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])
         )
         val = float(metric.compute())
-        assert val == pytest.approx(7.5)
+        assert val == pytest.approx(11.0)
 
     def test_proportion_zero_trims_nothing(self) -> None:
         metric = TrimmedMeanSquaredError(proportion=0.0)
@@ -676,7 +677,8 @@ class TestMedianAbsoluteErrorFunc:
         y_pred = torch.tensor([[0.0, 10.0], [0.0, 0.0], [5.0, 5.0]])
         y_true = torch.tensor([[0.0, 0.0], [5.0, 5.0], [5.0, 5.0]])
         result = float(median_absolute_error(y_pred, y_true, multioutput="uniform_average"))
-        assert result == pytest.approx(5.0)
+        # mean of per-output medians [0, 5] (sklearn convention)
+        assert result == pytest.approx(2.5)
 
 
 class TestTrimmedMSEFunc:

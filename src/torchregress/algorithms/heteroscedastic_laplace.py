@@ -148,7 +148,12 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
 
                     # Forward
                     feats = self.base_model(x_batch)
-                    mean, log_var = self.head(feats)
+                    head_out = self.head(feats)
+                    if isinstance(head_out, (tuple, list)):
+                        mean, log_var = head_out
+                    else:
+                        # Plain ``nn.Linear`` head: [B, 2 * out] -> (mean, log_var)
+                        mean, log_var = torch.chunk(head_out, 2, dim=-1)
                     var = torch.exp(log_var)
 
                     # NLL loss
@@ -299,7 +304,9 @@ class HeteroscedasticLaplaceRegressor(nn.Module):
         points_tensor = torch.stack(sampled_points)
 
         # Epistemic: variance of means across samples
-        epistemic = means_tensor.var(dim=0)
+        # (a single draw carries no spread information: 0 rather than the NaN of the
+        # unbiased variance over one sample)
+        epistemic = means_tensor.var(dim=0) if n > 1 else torch.zeros_like(means_tensor[0])
         # Aleatoric: mean of predicted variances
         aleatoric = vars_tensor.mean(dim=0)
         total_var = epistemic + aleatoric

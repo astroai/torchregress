@@ -1158,6 +1158,7 @@ def plot_causal_uplift_qini(
     qini_y = np.insert(qini_y, 0, 0.0)
 
     random_y = qini_x * qini_y[-1]
+    finite = np.isfinite(qini_y)
 
     created_fig = ax is None
     if ax is None:
@@ -1168,16 +1169,22 @@ def plot_causal_uplift_qini(
     ax.plot(qini_x, qini_y, color="navy", linewidth=2.5, label="Model Policy")
     ax.plot(qini_x, random_y, color="gray", linestyle="--", linewidth=1.5, label="Random Policy")
 
+    # Integrate over the finite part of the curve only: single-arm prefixes are NaN
+    # (see above) and would otherwise make the area NaN for every input.
     # Use np.trapezoid (NumPy 2.0+) or fallback to np.trapz / scipy.integrate.trapezoid
-    if hasattr(np, "trapezoid"):
-        qini_area = np.trapezoid(qini_y - random_y, qini_x)
+    area_x = qini_x[finite]
+    area_y = (qini_y - random_y)[finite]
+    if area_x.size < 2:
+        qini_area = float("nan")
+    elif hasattr(np, "trapezoid"):
+        qini_area = np.trapezoid(area_y, area_x)
     else:
         try:
-            qini_area = np.trapz(qini_y - random_y, qini_x)
+            qini_area = np.trapz(area_y, area_x)
         except AttributeError:
             from scipy.integrate import trapezoid
 
-            qini_area = trapezoid(qini_y - random_y, qini_x)
+            qini_area = trapezoid(area_y, area_x)
 
     # Re-import add_annotations here to ensure it's available in this scope
     from torchregress.viz.utils import add_annotations

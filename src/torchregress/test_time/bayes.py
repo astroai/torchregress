@@ -191,7 +191,7 @@ class BayesianLinearHead(nn.Module):
         else:
             # Median pairwise distance on a subsample (avoid O(N²))
             n_sub = min(n_train, 1000)
-            idx_sub = torch.randperm(n_train, device=phi0.device)[:n_sub]
+            idx_sub = torch.randperm(n_train, generator=generator)[:n_sub].to(phi0.device)
             sub = phi0[idx_sub]
             pdists = torch.pdist(sub)
             if pdists.numel() == 0:

@@ -1,4 +1,4 @@
-"""
+r"""
 torchregress basic usage example.
 
 This example demonstrates how to use various regression loss functions

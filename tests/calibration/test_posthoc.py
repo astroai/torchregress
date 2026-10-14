@@ -132,18 +132,21 @@ class TestPAVA:
         x = np.array([0.0, 1.0, 2.0, 3.0])
         y = np.array([3.0, 2.0, 1.0, 0.0])
         rx, ry = IsotonicMeanCalibrator._pava(x, y)
-        # All violations → everything merges into one block
-        assert len(rx) == 1
-        assert ry[0] == pytest.approx(1.5)  # mean of [3,2,1,0] = 1.5
+        # All violations → everything merges into one block, stored by its
+        # first and last x (sklearn X_thresholds_), both at mean([3,2,1,0]) = 1.5
+        assert rx == pytest.approx(np.array([0.0, 3.0]))
+        assert ry == pytest.approx(np.array([1.5, 1.5]))
 
     def test_partial_violations(self):
         """Only some blocks violate monotonic order."""
         x = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
         y = np.array([0.0, 2.0, 0.5, 3.0, 4.0])  # 0.5 < 2.0 at index 2 is a violation
         rx, ry = IsotonicMeanCalibrator._pava(x, y)
-        # Block [1.0, 2.0] with means [2.0, 0.5] merge → mean = 1.25
+        # Block [1.0, 2.0] with means [2.0, 0.5] merge → mean = 1.25; the block
+        # keeps both end points, so the thresholds are all of x here.
         assert np.all(np.diff(ry) >= -1e-10)  # monotonic
-        assert len(rx) < len(x)  # at least one merge
+        assert rx == pytest.approx(x)
+        assert ry == pytest.approx(np.array([0.0, 1.25, 1.25, 3.0, 4.0]))
 
     def test_preserves_monotonicity_invariant(self):
         rng = np.random.RandomState(42)
@@ -272,3 +275,86 @@ class TestPITCalibrator:
         y = cal.transform(x)
         diffs = y[1:] - y[:-1]
         assert torch.all(diffs >= -1e-6)
+
+
+# ── VarianceTemperatureScaler: floor, noisy targets, clipping ────────
+
+
+def _floored_problem(n: int = 4000, seed: int = 0):
+    """Reported variances too small by T=4 *and* missing a floor, noisy targets."""
+    g = torch.Generator().manual_seed(seed)
+    reported = torch.exp(torch.empty(n).uniform_(-3.0, 1.0, generator=g))  # var
+    true_var = 4.0 * reported + 0.5
+    target_var = torch.full((n,), 0.25)
+    mean = torch.randn(n, generator=g)
+    truth = mean + torch.sqrt(true_var) * torch.randn(n, generator=g)
+    target = truth + torch.sqrt(target_var) * torch.randn(n, generator=g)
+    return mean, reported, target, target_var
+
+
+def test_vts_fits_temperature_and_floor_with_noisy_targets():
+    mean, var, target, target_var = _floored_problem()
+    scaler = VarianceTemperatureScaler().fit(
+        mean, var, target, target_var=target_var, fit_floor=True, max_iter=600
+    )
+    assert scaler.temperature == pytest.approx(4.0, rel=0.2)
+    assert scaler.variance_floor == pytest.approx(0.5, rel=0.3)
+    calibrated = scaler.transform(var) + target_var
+    inside = ((target - mean).abs() <= calibrated.sqrt()).float().mean()
+    assert float(inside) == pytest.approx(0.683, abs=0.03)
+
+
+def test_vts_temperature_only_cannot_fix_a_floor():
+    """Without the floor, the best single T leaves coverage uneven across scales."""
+    mean, var, target, target_var = _floored_problem(seed=1)
+    scaler = VarianceTemperatureScaler().fit(mean, var, target, target_var=target_var, max_iter=600)
+    assert scaler.variance_floor == 0.0
+    total = scaler.transform(var) + target_var
+    inside = (target - mean).abs() <= total.sqrt()
+    small = var < var.median()
+    gap = inside[small].float().mean() - inside[~small].float().mean()
+    assert abs(float(gap)) > 0.05
+
+
+def test_vts_ignores_target_noise_in_transform():
+    mean, var, target, target_var = _floored_problem(seed=2)
+    scaler = VarianceTemperatureScaler().fit(
+        mean, var, target, target_var=target_var, fit_floor=True
+    )
+    torch.testing.assert_close(
+        scaler.transform(var), (var * scaler.temperature + scaler.variance_floor)
+    )
+
+
+def test_vts_clip_ignores_catastrophic_outliers():
+    g = torch.Generator().manual_seed(3)
+    n = 2000
+    var = torch.full((n,), 0.01)
+    mean = torch.zeros(n)
+    target = 0.3 * torch.randn(n, generator=g)  # true variance 0.09 -> T = 9
+    target[:40] += 50.0  # 2% catastrophic failures
+    clipped = VarianceTemperatureScaler().fit(mean, var, target, clip=5.0, max_iter=600)
+    unclipped = VarianceTemperatureScaler().fit(mean, var, target, max_iter=600)
+    assert clipped.temperature == pytest.approx(9.0, rel=0.15)
+    assert unclipped.temperature > 15.0
+
+
+def test_vts_rejects_bad_target_var_and_clip():
+    scaler = VarianceTemperatureScaler()
+    x = torch.randn(10)
+    with pytest.raises(ValueError, match="target_var"):
+        scaler.fit(x, x.abs() + 0.1, x, target_var=torch.ones(5))
+    with pytest.raises(ValueError, match="clip"):
+        scaler.fit(x, x.abs() + 0.1, x, clip=0.0)
+
+
+def test_vts_scale_invariance_of_temperature():
+    """T is dimensionless: rescaling targets and variances leaves it unchanged."""
+    g = torch.Generator().manual_seed(4)
+    n = 1000
+    var = torch.full((n,), 1.0)
+    target = 2.0 * torch.randn(n, generator=g)
+    mean = torch.zeros(n)
+    unit = VarianceTemperatureScaler().fit(mean, var, target, max_iter=400)
+    tiny = VarianceTemperatureScaler().fit(mean * 1e-5, var * 1e-10, target * 1e-5, max_iter=400)
+    assert tiny.temperature == pytest.approx(unit.temperature, rel=1e-3)

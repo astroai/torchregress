@@ -30,35 +30,33 @@ for x, y in dataloader:
 
 ## 2. Gradient Accumulation
 
-When your batch size is limited by GPU memory, use gradient accumulation to simulate a larger effective batch size.
+When your batch size is limited by GPU memory, use gradient accumulation to simulate a larger effective batch size. `torchregress` does not ship a helper for this; the loop below uses plain PyTorch.
 
 ```python
-from torchregress.utils import GradientAccumulation
-
 # Target effective batch size of 256, actual GPU batch size 64
-accumulator = GradientAccumulation(batch_size=64, effective_batch_size=256)
+accum_steps = 256 // 64
 
+optimizer.zero_grad()
 for i, (x, y) in enumerate(dataloader):
-    # Context manager handles synchronization logic and yields loss scale
-    with accumulator(i) as scale:
-        loss = model(x, y)
-        (loss * scale).backward()
+    loss = loss_fn(model(x), y)
+    # Scale so that the accumulated gradient matches the large-batch mean
+    (loss / accum_steps).backward()
 
-    # Only step optimizer on sync steps
-    if accumulator.sync_step:
+    # Only step the optimizer every `accum_steps` mini-batches
+    if (i + 1) % accum_steps == 0:
         optimizer.step()
         optimizer.zero_grad()
 ```
 
 ## 3. Torch Compile (PyTorch 2.0+)
 
-`torch.compile` can provide significant speedups by fusing operations. `torchregress` provides a safe wrapper that falls back to the original model if compilation fails.
+`torch.compile` can provide significant speedups by fusing operations. `torchregress` does not wrap it; call it directly on your model.
 
 ```python
-from torchregress.utils import compile_model
+import torch
 
 model = MyModel()
-model = compile_model(model, mode="default") # or "reduce-overhead"
+model = torch.compile(model, mode="default")  # or "reduce-overhead"
 ```
 
 ### Supported Modes:

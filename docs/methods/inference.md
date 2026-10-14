@@ -94,6 +94,12 @@ ci = ppi_quantile_ci(
 )
 ```
 
+The quantile estimator inverts the **rectified CDF**
+$\hat F(\theta) = \frac{1}{N}\sum_j 1\{\tilde f_j \le \theta\} + \frac{1}{n}\sum_i \big(1\{Y_i \le \theta\} - 1\{f_i \le \theta\}\big)$:
+the estimate is $\inf\{\theta : \hat F(\theta) \ge q\}$ and the CI collects the $\theta$ whose
+$|\hat F(\theta) - q|$ is within $z_{1-\alpha/2}$ standard errors \[1\]. The
+interval is analytic, so `n_boot` and `seed` are not used.
+
 ### OLS Coefficients
 
 ```python

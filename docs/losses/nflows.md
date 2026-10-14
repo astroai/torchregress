@@ -68,6 +68,8 @@ flow = create_flow_model(
 | `flow_type` | `str` | `"nsf"` | `"realnvp"`, `"maf"`, or `"nsf"` |
 | `n_transforms` | `int` | `5` | Number of invertible blocks |
 | `hidden_features` | `list[int]` or `None` | `None` | Hidden layer sizes (default: `[64, 64]`) |
+| `bound` | `float` or `None` | `None` | NSF only: half-width `B` of the spline domain `[-B, B]` (zuko's fixed `5` when `None`). See [Training recipe](#training-recipe-for-nll-and-calibration). |
+| `bins` | `int` | `8` | NSF only (forwarded to zuko): spline knots per transform. |
 
 ### Step 2: Wrap in NormalizingFlowLoss
 
@@ -150,6 +152,82 @@ for x, y in train_loader:
 
 !!! tip "Include flow parameters in optimiser"
     The flow itself has learnable parameters — make sure to pass `loss_fn.parameters()` to the optimiser.
+
+---
+
+## Training recipe for NLL and calibration
+
+Three things decide whether an NSF head is calibrated, in this order of importance
+(measured with the flow settings above: 3 transforms, `[64, 64]` hidden, Adam at `1e-3`,
+batch 64, 5 seeds, 1-D targets; NLL is test negative log-likelihood in native units,
+`IS` the 90% interval score from 512 samples):
+
+1. **Stop on validation NLL.** A fixed 60-epoch budget overfits small and medium tabular
+   sets (the flow sharpens on the training rows, intervals under-cover). Hold out about
+   15% of the training rows, evaluate `loss_fn` on them each epoch, stop after 10 epochs
+   without improvement and restore the best weights.
+2. **Standardise the target and derive the spline bound from it.** The spline is the
+   identity outside `[-B, B]`, so a standardised skewed or heavy-tailed target with
+   `|y| > 5` carries no learning signal there. Pass
+   `bound=recommended_tail_bound(y_standardised)` (data range with 25% head-room, clipped
+   to `[5, 25]`; it is `5` for light tails, so nothing changes there).
+3. **Use `bins=16` with a widened bound** so the bulk of the data keeps its resolution.
+
+```python
+import copy
+import torch
+from torchregress.losses import NormalizingFlowLoss, create_flow_model, recommended_tail_bound
+
+y_std = (y - y.mean()) / y.std()
+flow = create_flow_model(
+    n_features=1, context_dim=64, flow_type="nsf", n_transforms=3,
+    hidden_features=[64, 64], bins=16, bound=recommended_tail_bound(y_std),
+)
+loss_fn = NormalizingFlowLoss(flow=flow)
+n_val = int(0.15 * len(x))
+x_val, y_val, x_tr, y_tr = x[:n_val], y_std[:n_val], x[n_val:], y_std[n_val:]
+params = list(model.parameters()) + list(loss_fn.parameters())
+optimizer = torch.optim.Adam(params, lr=1e-3)
+
+best, best_state, bad = float("inf"), None, 0
+for epoch in range(200):
+    model.train()
+    for i in torch.randperm(len(x_tr)).split(64):
+        optimizer.zero_grad()
+        loss_fn(model(x_tr[i]), y_tr[i]).backward()
+        optimizer.step()
+    model.eval()
+    with torch.no_grad():
+        val = float(loss_fn(model(x_val), y_val))
+    if val < best - 1e-4:
+        best, bad = val, 0
+        best_state = copy.deepcopy((model.state_dict(), loss_fn.state_dict()))
+    else:
+        bad += 1
+        if bad >= 10:
+            break
+model.load_state_dict(best_state[0]); loss_fn.load_state_dict(best_state[1])
+```
+
+| Target (test split, 5 seeds) | Recipe | NLL | Coverage (90%) | Interval score |
+|:--|:--|--:|--:|--:|
+| Skewed (log-normal noise, n = 3000) | fixed 60 epochs, `B = 5`, 8 bins | 1.272 | 0.832 | 5.259 |
+| | early stopping, `B = 13.6`, 16 bins | **1.201** | 0.887 | **5.143** |
+| Heavy-tailed (Student-t, 3 df) | fixed 60 epochs, `B = 5`, 8 bins | 1.935 | 0.857 | 9.367 |
+| | early stopping, `B = 16.9`, 16 bins | **1.852** | 0.879 | **9.172** |
+| `load_diabetes` (n = 309 train) | fixed 60 epochs, `B = 5`, 8 bins | 6.144 | 0.647 | 327.9 |
+| | early stopping, `B = 5`, 16 bins | **5.417** | 0.880 | **222.0** |
+
+On the `house_sales` row of the harness `pzflow_parity` suite the torchregress NSF
+trains for a fixed 60 epochs on all training rows with no validation split, which is
+the `fixed 60 epochs` recipe above; its 0.756 coverage at a nominal 0.90 (pzflow: 0.915)
+is the over-sharpening signature that early stopping removes on the datasets above.
+
+!!! tip "Why not change the library defaults"
+    `create_flow_model` keeps zuko's `bins=8` and bound `5` and `NormalizingFlowLoss` does
+    not train the flow, so the budget and stopping rule belong to the training loop. The
+    data-dependent bound cannot be chosen at construction time; derive it from the
+    standardised training target with `recommended_tail_bound` and pass it as `bound`.
 
 ---
 

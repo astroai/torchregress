@@ -8,6 +8,7 @@ and :class:`~torchregress.losses.conformal.MultivariateScoreConformal`.
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -33,7 +34,9 @@ class DomainClassifierRatioEstimator:
 
     Fits a probabilistic MLP discriminator between source and target features
     (BCE loss); the posterior ``p(target | x)`` converts to the density ratio as
-    ``w(x) = p / (1 - p)``, clipped to ``[1/clip, clip]`` for stability.
+    ``w(x) = (n_source / n_target) * p / (1 - p)`` (the odds corrected for the pool
+    sizes, i.e. the class prior of the discriminator), clipped to ``[1/clip, clip]``
+    for stability.
 
     Args:
         hidden: Hidden layer widths of the discriminator MLP.
@@ -58,6 +61,7 @@ class DomainClassifierRatioEstimator:
         self.lr = float(lr)
         self.clip = float(clip)
         self._net: Optional[nn.Module] = None
+        self._log_prior_ratio: float = 0.0
         self._mean: Optional[Tensor] = None
         self._std: Optional[Tensor] = None
         self.diagnostics_: Dict[str, Any] = {}
@@ -98,6 +102,9 @@ class DomainClassifierRatioEstimator:
         with torch.no_grad():
             acc = float(((net(feats).squeeze(-1) > 0).float() == labels).float().mean())
         self._net = net.eval()
+        # The unweighted BCE learns p(t|x)/p(s|x) = (n_t p_t(x)) / (n_s p_s(x)); the
+        # density ratio is that odds times n_s / n_t (the inverse class prior).
+        self._log_prior_ratio = math.log(xs.shape[0] / zt.shape[0])
         self._mean = mean
         self._std = std
         # ponytail: full-batch training keeps the estimator deterministic and
@@ -117,6 +124,8 @@ class DomainClassifierRatioEstimator:
             )
         with torch.no_grad():
             logit = self._net((x - self._mean) / self._std).squeeze(-1)
+        # Class-prior correction BEFORE clipping, so the clip bounds the density ratio.
+        logit = logit + self._log_prior_ratio
         ratio = torch.exp(logit.clamp(min=-self.clip, max=self.clip))
         ratio = ratio.clamp(min=1.0 / self.clip, max=self.clip)
         # Fallback to uniform if degenerate (NaN/Inf/zero)

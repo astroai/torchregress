@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import float_dtype
+
 
 def ipw_weights(
     propensity: Tensor,
@@ -24,13 +26,14 @@ def ipw_weights(
     if not (0.0 < clip_min < clip_max < 1.0):
         raise ValueError("clip_min/clip_max must satisfy 0 < clip_min < clip_max < 1")
 
-    p = propensity.float().clamp(min=clip_min, max=clip_max)
+    dt = float_dtype(propensity)
+    p = propensity.to(dt).clamp(min=clip_min, max=clip_max)
 
     w: Tensor
     if observed is None:
         w = 1.0 / p
     else:
-        obs = observed.float()
+        obs = observed.to(dt)
         if obs.shape != p.shape:
             raise ValueError("observed and propensity must have matching shapes")
         w = obs / p + (1.0 - obs) / (1.0 - p)

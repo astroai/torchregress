@@ -25,7 +25,7 @@ from torchregress.losses.conformal import (
     ConformalLoss,
     CVPlus,
     EnsembleBatchCP,
-    MultiDimensionalConformalLoss,
+    MultiTargetConformal,
 )
 
 
@@ -221,7 +221,7 @@ def demo_width_adaptive_conformal() -> None:
 
 
 def demo_multidimensional_conformal() -> None:
-    """Demonstrate MultiDimensionalConformalLoss."""
+    """Demonstrate MultiTargetConformal (per-dimension split conformal)."""
     print("=== Multi-Dimensional Conformal Prediction Demo ===")
 
     # Generate multi-output data
@@ -234,21 +234,17 @@ def demo_multidimensional_conformal() -> None:
     # Split data
     n_train = 600
     n_cal = 200
-    X_train, X_cal, X_test = X[:n_train], X[n_train : n_train + n_cal], X[n_train + n_cal :]
-    y_train, y_cal, y_test = y[:n_train], y[n_train : n_train + n_cal], y[n_train + n_cal :]
+    X_cal, X_test = X[n_train : n_train + n_cal], X[n_train + n_cal :]
+    y_cal, y_test = y[n_train : n_train + n_cal], y[n_train + n_cal :]
 
-    # Create dummy predictions (point predictions)
+    # Create dummy predictions (point predictions from an untrained model)
     model = DummyModel(3, 3)
-    y_pred_train = model(X_train)
     y_pred_cal = model(X_cal)
     y_pred_test = model(X_test)
 
-    # Create multi-dimensional conformal loss
-    loss_fn = MultiDimensionalConformalLoss(alpha=0.1)
-
-    # Train with the loss
-    train_loss = loss_fn(y_pred_train, y_train)
-    print(f"Training loss: {train_loss.item():.4f}")
+    # Per-dimension conformal predictor (one threshold per output dimension).
+    # It is a post-hoc calibrator, not a loss: train the model with any loss.
+    loss_fn = MultiTargetConformal(alpha=0.1)
 
     # Calibrate on calibration set (uses conformal correction for q-hat)
     loss_fn.calibrate(y_pred_cal, y_cal)

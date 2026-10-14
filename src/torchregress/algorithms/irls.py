@@ -192,7 +192,10 @@ def estimate_variance(
         return variance.expand_as(residuals) if variance.ndim < residuals.ndim else variance
 
     elif variance_type == "robust":
-        mad = calculate_mad(residuals)
+        # MAD over the sample axis (one scale per output column); the default
+        # ``dim=-1`` would take the MAD over the output features instead, which is a
+        # single element (MAD = 0) for the documented ``(N, 1)`` targets.
+        mad = calculate_mad(residuals, dim=0)
         return (1.4826 * mad) ** 2  # Consistent estimator for Gaussian distribution
 
     else:
@@ -291,22 +294,26 @@ def _compute_irls_loss(  # noqa: PLR0913
     mask: torch.Tensor | None,
     config: IRLSConfig,
 ) -> torch.Tensor:
+    # The IRLS base losses (fixed-variance Gaussian, Huber, L1) and the multivariate
+    # Gaussian loss score the mean only; the variance head (tuple or concatenated
+    # ``[mean, log_sigma]`` output) enters through the weights, not the loss.
+    mean, _ = extract_mean_and_residuals(y_pred, y_true)
     if config.base_loss == "gaussian":
         return loss_fn(
-            y_pred=y_pred,
+            y_pred=mean,
             target=y_true,
             covariance_matrices=covariance_matrices,
             mask=mask,
             weights=precision,
         )
     else:
-        return loss_fn(y_pred=y_pred, target=y_true, mask=mask, weights=precision)
+        return loss_fn(y_pred=mean, target=y_true, mask=mask, weights=precision)
 
 
 def _update_precision(  # noqa: PLR0913
     residuals: torch.Tensor,
     y_pred: torch.Tensor | tuple[torch.Tensor, ...],
-    precision: torch.Tensor,
+    initial_precision: torch.Tensor,
     loss_fn: nn.Module,
     _weight_fn: Callable,
     weight_params: dict[str, Any],
@@ -318,7 +325,10 @@ def _update_precision(  # noqa: PLR0913
     )
     scaled_residuals = residuals / (torch.sqrt(variance) + config.epsilon)
     iter_weights = _weight_fn(scaled_residuals, **weight_params)
-    return precision * iter_weights
+    # w_i = psi(r_i / sigma) applied ONCE to the caller's initial precision. Multiplying
+    # the running precision instead would raise the weights to the n-th power after n
+    # iterations, although the residuals (the model is fixed) never change.
+    return initial_precision * iter_weights
 
 
 def _perform_irls_iteration(  # noqa: PLR0913
@@ -326,6 +336,7 @@ def _perform_irls_iteration(  # noqa: PLR0913
     residuals: torch.Tensor,
     y_true: torch.Tensor,
     precision: torch.Tensor,
+    initial_precision: torch.Tensor,
     loss_fn: nn.Module,
     _weight_fn: Callable,
     weight_params: dict[str, Any],
@@ -349,7 +360,7 @@ def _perform_irls_iteration(  # noqa: PLR0913
         precision = _update_precision(
             residuals,
             y_pred,
-            precision,
+            initial_precision,
             loss_fn,
             _weight_fn,
             weight_params,
@@ -441,6 +452,7 @@ def _run_irls_loop(  # noqa: PLR0913
 ) -> tuple[torch.Tensor, list[float], list[torch.Tensor] | None]:
     """Executes the main IRLS iteration loop."""
     loss_history: list[float] = []
+    initial_precision = precision
 
     for iteration in range(config.max_iter):
         precision, loss_tensor, all_predictions = _perform_irls_iteration(
@@ -448,6 +460,7 @@ def _run_irls_loop(  # noqa: PLR0913
             residuals,
             y_true,
             precision,
+            initial_precision,
             loss_fn,
             _weight_fn,
             weight_params,
@@ -510,7 +523,9 @@ def iteratively_reweighted_least_squares(
     Returns:
         y_pred: Final predicted values
         loss_history: List of loss values over iterations
-        final_precision: Final precision tensor
+        final_precision: ``initial_precision * w(r / sigma)`` -- the robust weights
+            applied once to the initial precision (the model is not refit, so the
+            residuals, and hence the weights, do not change between iterations)
         [optional] all_predictions: List of predictions from all iterations
 
     References

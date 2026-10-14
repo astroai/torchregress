@@ -6,7 +6,7 @@ Detailed API reference for all ensemble and Bayesian uncertainty methods.
 
 ---
 
-## BaseEnsembleModel
+## Member-based ensembles (`BaseEnsembleModel`)
 
 !!! abstract "Summary"
     Shared base for member-based ensembles: builds `ensemble_size` copies of a base module, runs them in parallel, and stacks outputs.
@@ -21,7 +21,7 @@ from torchregress.ensemble import BaseEnsembleModel
 
 ---
 
-## DeepEnsemble
+## Deep ensembles (`BaseEnsembleModel`)
 
 !!! abstract "Summary"
     Train $M$ **independently initialised** copies of a base model.
@@ -30,30 +30,18 @@ from torchregress.ensemble import BaseEnsembleModel
 ```python
 from torchregress.ensemble import BaseEnsembleModel
 
-ensemble = BaseEnsembleModel(base_model=MyModel, ensemble_size=5)
+ensemble = BaseEnsembleModel(base_model=MyModel, ensemble_size=5, base_seed=0)
 
-# Train each member with different random seeds (or use ensemble.fit(...))
-for member in ensemble.models:
-    train_model(member, train_loader)
+# Train each member independently (or train ensemble.models yourself)
+ensemble.fit(train_loader, loss_fn, epochs=20, lr=1e-3)
 
-# Predict
-preds = ensemble.forward(x_test)        # list of M tensors
-mean = torch.stack(preds).mean(dim=0)    # ensemble mean
-epi  = torch.stack(preds).var(dim=0)     # epistemic variance
-```
+# Predict (members run in eval mode; previous train/eval modes are restored)
+result = ensemble.predict(x_test)
+mean, epi = result["mean"], result["variance"]   # ensemble mean, epistemic variance
 
-Optional adversarial smoothing during member training:
-
-```python
-ensemble.fit(
-    train_loader,
-    loss_fn,
-    epochs=20,
-    adversarial_training=True,
-    adversarial_epsilon=0.01,
-    adversarial_steps=1,
-    adversarial_loss_weight=1.0,
-)
+# Raw member outputs: forward returns an already-stacked tensor [M, batch, ...]
+preds = ensemble.forward(x_test)
+mean = preds.mean(dim=0)
 ```
 
 | Parameter | Type | Default | Description |
@@ -61,12 +49,17 @@ ensemble.fit(
 | `base_model` | `type` or `nn.Module` | — | Model class or instance to ensemble |
 | `ensemble_size` | `int` | 5 | Number of independent members |
 | `device` | `str` | `"cpu"` | Target device |
+| `member_factory` | `callable` or `None` | `None` | `factory(index, seed) -> nn.Module` building each member |
+| `base_seed` | `int` or `None` | `None` | Member `i` is initialised with seed `base_seed + i` inside a forked RNG, so the global torch RNG state is not changed |
 
 !!! tip "When to use"
     Use when your base model outputs **only point predictions** ($\hat{y}$) and you want epistemic uncertainty via disagreement.  For **aleatoric + epistemic**, use `HeteroscedasticEnsembleModel`.
 
 !!! note "Adversarial training"
-    The original deep-ensemble recipe adds an optional adversarial loss term on FGSM-style perturbed inputs. `torchregress` now exposes that directly in `fit(...)`, including multi-step and random-start variants for stronger smoothing.
+    The original deep-ensemble recipe (Lakshminarayanan et al., 2017) adds an optional adversarial loss term on FGSM-style perturbed inputs. `BaseEnsembleModel.fit(...)` does **not** implement it; to use it, train `ensemble.models` with your own loop that adds the adversarial term.
+
+!!! note "Eval mode at prediction time"
+    `predict(...)` / `predict_full_covariance(...)` run every member in eval mode (dropout off, BatchNorm running statistics used and not updated), then restore each submodule's previous mode. For MC-dropout style sampling, use `MCDropoutWrapper`.
 
 ---
 
@@ -86,6 +79,10 @@ ensemble = HeteroscedasticEnsembleModel(
 # After training:
 result = ensemble.predict(x_test)
 ```
+
+Member log-variances are converted with the same bounds `GaussianNLLLoss` trains with
+(`log_var` clamped to `[log(1e-6), 30]`), so the reported aleatoric variance matches what
+each member learned.
 
 **`predict(x)` output:**
 
@@ -108,10 +105,10 @@ result = ensemble.predict(x_test)
 from torchregress.ensemble import HeteroscedasticBatchEnsembleModel
 
 backbone = nn.Sequential(nn.Linear(10, 64), nn.ReLU())
+backbone.feature_dim = 64  # required: width of the backbone output
 batch_ens = HeteroscedasticBatchEnsembleModel(
     backbone=backbone,
-    input_size=64,
-    output_size=2,    # mean + log_var
+    output_size=1,    # target dim d; the head emits mean + log_var (2 * d)
     ensemble_size=4,
 )
 result = batch_ens.predict(x_test)
@@ -119,16 +116,16 @@ result = batch_ens.predict(x_test)
 
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
-| `backbone` | `nn.Module` | — | Shared feature extractor |
-| `input_size` | `int` | — | Input dim to batch-ensemble head |
-| `output_size` | `int` | — | Output dim ($2 \times d$ for mean + logvar) |
+| `backbone` | `nn.Module` | — | Shared feature extractor; must expose `feature_dim` |
+| `output_size` | `int` | — | Target dim $d$ (the head outputs $2 \times d$: mean + logvar) |
 | `ensemble_size` | `int` | 4 | Number of virtual members |
+| `device` | `str` | `"cpu"` | Target device |
 
 !!! tip "When to use"
     When compute or memory budget prohibits $M$ full models.  BatchEnsemble achieves ~80 % of full-ensemble uncertainty quality at ~20 % extra cost.
 
 !!! warning "Member diversity limitation"
-    Because BatchEnsemble members share the same base weights $W$ and differ only through rank-1 perturbations, member diversity is inherently lower than in a `DeepEnsemble` with independently trained members. For tasks where epistemic uncertainty requires exploring truly disjoint modes in the loss landscape, `DeepEnsemble` is preferred despite the higher cost.
+    Because BatchEnsemble members share the same base weights $W$ and differ only through rank-1 perturbations, member diversity is inherently lower than in a `BaseEnsembleModel` with independently trained members. For tasks where epistemic uncertainty requires exploring truly disjoint modes in the loss landscape, `BaseEnsembleModel` is preferred despite the higher cost.
 
 !!! quote "Reference"
     Y. Wen, D. Tran, J. Ba. "BatchEnsemble: An Alternative Approach to Efficient Ensemble and Lifelong Learning." *ICLR*, **2020**.
@@ -318,15 +315,6 @@ result = ensemble.predict(x_test)
 !!! abstract "Summary"
     Keep dropout **active** during inference and aggregate multiple stochastic forward passes.
 
-=== "MCDropoutModel"
-
-    ```python
-    from torchregress.ensemble import MCDropoutModel
-
-    mc_model = MCDropoutModel(input_dim=10, hidden_dims=[64, 32], output_dim=1, n_samples=20)
-    mean, std = mc_model.predict_with_uncertainty(x_test)
-    ```
-
 === "MCDropoutWrapper"
 
     ```python
@@ -391,16 +379,16 @@ result = ensemble.predict(x_test)
 
 ## Ensemble Combiners
 
-### BayesianModelAveraging
+### SoftmaxModelCombiner
 
 Learnable softmax weights over member models:
 
 ```python
-from torchregress.ensemble import BayesianModelAveraging
+from torchregress.ensemble import SoftmaxModelCombiner
 
-bma = BayesianModelAveraging(list(ensemble.models))
-combined = bma(x_test)
-mean, variance = bma.predict_with_uncertainty(x_test)
+combiner = SoftmaxModelCombiner(list(ensemble.models))
+combined = combiner(x_test)
+mean, variance = combiner.predict_with_uncertainty(x_test)
 ```
 
 ### StackingEnsemble
@@ -413,17 +401,6 @@ from torchregress.ensemble import StackingEnsemble
 
 stacker = StackingEnsemble(list(ensemble.models), meta_learner=nn.Linear(5, 1))
 combined = stacker(x_test)
-```
-
-### DynamicEnsembleWeighting
-
-**Input-dependent** weighting — different members trusted more in different input regions:
-
-```python
-from torchregress.ensemble import DynamicEnsembleWeighting
-
-dew = DynamicEnsembleWeighting(list(ensemble.models), window_size=100, learning_rate=0.1)
-combined = dew(x_test)
 ```
 
 ---

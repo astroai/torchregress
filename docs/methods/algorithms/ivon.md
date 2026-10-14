@@ -126,6 +126,10 @@ mean = preds.mean(0)
 epistemic_std = preds.std(0)
 ```
 
+### Checkpointing
+
+`optimizer.state_dict()` includes `current_step`, which drives the momentum debias $1-\beta_1^t$. Load it into a freshly constructed optimizer (same hyper-parameters) together with the model weights to resume exactly where training stopped.
+
 ---
 
 ## When to Use IVON

@@ -23,8 +23,6 @@ shared `PredictiveBatch` container is documented in the
 |:-------|:------------|
 | `AdaptationBatch` | Frozen dataclass for unlabeled target-time inputs — `x`, `predictions: PredictiveBatch`, `representations`, `sigma_x`. |
 | `SupportsPredictiveBatch` | `Protocol` for models exposing `predict_distribution(X, **kwargs) -> PredictiveBatch`. |
-| `SupportsRepresentation` | `Protocol` for models exposing `representation_dict(x) -> dict[str, Tensor]` (feature access). |
-| `SupportsAdaptationParameters` | `Protocol` for models exposing `adaptation_parameter_groups() -> dict[str, list[Parameter]]` (TTA-targeted params). |
 | `flatten_adaptation_parameters` | `(groups)` — Flatten a `dict[name, Iterable[Parameter]]` into a deduplicated list. |
 
 ```python
@@ -33,7 +31,10 @@ from torchregress.test_time import (
 )
 assert isinstance(my_model, SupportsPredictiveBatch)
 batch = AdaptationBatch(x=x_test, predictions=predictive_batch)
-flat = flatten_adaptation_parameters(my_model.adaptation_parameter_groups())
+# Any dict of name -> iterable of parameters works
+flat = flatten_adaptation_parameters(
+    {"head": my_model.head.parameters(), "norm": my_model.norm.parameters()}
+)
 ```
 
 ---
@@ -75,11 +76,11 @@ EM-based target-prior estimation and Gaussian predictive adjustment under
 
 | Symbol | Description |
 |:-------|:------------|
-| `LabelShiftEMConfig` | Dataclass: `max_iter=100`, `tol=1e-6`, `eps=1e-8`. |
+| `LabelShiftEMConfig` | Dataclass: `max_iter=100`, `tol=1e-6` (max per-class prior change), `eps=1e-8`, `loglik_tol=None` (optional: also stop once the mean target log-likelihood gains less than this per iteration). |
 | `LabelShiftEstimate` | Frozen result: `source_prior`, `target_prior`, `iterations`, `converged`. |
 | `apply_label_shift_correction` | `(probabilities, *, source_prior, target_prior, eps=1e-8)` — Posterior correction under prior ratio $p_{\text{tgt}}/p_{\text{src}}$. |
-| `estimate_target_prior_em` | `(probabilities, *, source_prior=None, sample_weights=None, sample_size=None, random_state=0, config=None)` — EM target-prior estimate (Lipton–Wang–Smola 2018). |
-| `PosteriorLabelShiftAdapter` | `(*, source_prior=None, sample_size=None, random_state=0, config=None)` — Reusable adapter; `.estimate(probs)`, `.transform(probs, target_prior=...)`, `.fit_transform(probs)`. |
+| `estimate_target_prior_em` | `(probabilities, *, source_prior, sample_weights=None, sample_size=None, random_state=0, config=None)` — EM target-prior estimate (Saerens–Latinne–Decaestecker 2002). Requires calibrated source posteriors (see below); classes with source prior `<= eps` are excluded and get target prior 0. |
+| `PosteriorLabelShiftAdapter` | `(*, source_prior, sample_size=None, random_state=0, config=None)` — Reusable EM adapter (`source_prior` is required); `.estimate(probs, sample_weights=None)` returns a `LabelShiftEstimate`, `.transform(probs, target_prior=None)` reweights the posteriors (estimating the target prior first when none is given). |
 | `GaussianLabelShiftConfig` | Dataclass: `n_bins=32`, `estimation_rows`, `top_fraction=0.5`, `reference_size=2048`, `seed=0`, `eps=1e-8`. |
 | `gaussian_bin_edges_from_targets` | `(targets, n_bins)` — Quantile-based bin edges. |
 | `gaussian_bin_probabilities` | `(mean, std, bin_edges, *, eps=1e-8)` — Discretize Gaussian predictions to bin probabilities. |
@@ -87,8 +88,41 @@ EM-based target-prior estimation and Gaussian predictive adjustment under
 | `correct_gaussian_predictions_for_label_shift` | `(*, mean, std, source_targets, features=None, config=None)` — End-to-end: discretize → EM estimate → backproject → corrected `(mean, std, metadata)`. |
 | `estimate_target_prior_bbse` | `(probabilities_source, labels_source, probabilities_target, *, cond_threshold=1e8)` — Estimate target priors under label shift with BBSE (Black-Box Shift Estimation): invert the source confusion matrix against the target mean predicted-label distribution. |
 
-**Reference:** Lipton, Wang, Smola, "Detecting and Correcting for Label Shift
-with Black Box Predictors" (ICML 2018).
+EM iterates the Saerens et al. fixed point: with source posteriors $p_{ik} = p_s(y = k \mid x_i)$
+and source prior $\pi$,
+
+$$
+\hat q^{(t+1)}_k = \frac{1}{n} \sum_{i=1}^{n}
+\frac{p_{ik}\, \hat q^{(t)}_k / \pi_k}{\sum_j p_{ij}\, \hat q^{(t)}_j / \pi_j},
+$$
+
+which increases the target log-likelihood
+$\frac{1}{n}\sum_i \log \sum_k p_{ik}\, q_k / \pi_k$ at every step.
+
+!!! warning "EM needs calibrated posteriors; BBSE does not"
+    The EM estimate is consistent only when `probabilities` are **calibrated source
+    posteriors** whose source average equals `source_prior`
+    ($\mathbb{E}_s[p_s(y = k \mid x)] = \pi_k$) and label shift holds at the level of the
+    classes or bins ($p(x \mid y = k)$ shared by source and target). Binned Gaussians
+    (`gaussian_bin_probabilities(mean, std, edges)`) qualify only if `N(mean, std)` is a
+    calibrated predictive $p_s(y \mid x)$. A prediction that is a noisy copy of the label
+    (`pred = y + noise`) with `std` the residual spread gives the *likelihood*
+    $p(\text{pred} \mid y)$ instead: no shrinkage toward the prior, over-dispersed bins whose
+    source average differs from the source prior, and EM stops at a biased fixed point.
+    On such a synthetic Gaussian shift (5 quantile bins) EM reached
+    prior TV 0.26 against 0.32 uncorrected, while BBSE, which only inverts a confusion matrix,
+    reached 0.06; with calibrated posteriors and a bin-level shift EM is within 0.01 of the
+    true prior (20 000 target rows).
+    Calibrate the posteriors first, pass the **mean source posterior** as `source_prior`
+    (which restores the fixed-point condition above), or use `estimate_target_prior_bbse`.
+    On many overlapping bins the maximum-likelihood prior is an ill-posed deconvolution:
+    iterating to `tol` fits sampling noise, so set `loglik_tol` (e.g. `1e-4`).
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Saerens, Latinne, Decaestecker, "Adjusting the outputs of a classifier to new a priori probabilities: a simple procedure", *Neural Computation* 14(1), 2002. |
+| 2 | Lipton, Wang, Smola, "Detecting and Correcting for Label Shift with Black Box Predictors" (ICML 2018). |
+| 3 | Alexandari, Kundaje, Shrikumar, "Maximum Likelihood with Bias-Corrected Calibration is Hard-To-Beat at Label Shift Adaptation" (ICML 2020). |
 
 ```python
 import numpy as np
@@ -110,7 +144,7 @@ and uncertainty under delayed label observations.
 
 | Symbol | Description |
 |:-------|:------------|
-| `DelayedLabelResidualAdapter` | `(base_model, *, ema_beta=0.1, scale_ema_beta=0.1)` — Tracks running EMA of residuals and variance inflation factors to adjust point, mean, std, and quantiles at test time. `.partial_fit(X, y)` updates state, `.predict_distribution(X)` returns adapted PredictiveBatch. |
+| `DelayedLabelResidualAdapter` | `(base_model, *, ema_beta=0.1, scale_ema_beta=0.1)` — Tracks running EMA of residuals and variance inflation factors to adjust point, mean, std, and quantiles at test time. `.partial_fit(X, y)` updates state (the first update measures residuals against the uncorrected base predictions), `.predict_distribution(X)` returns adapted PredictiveBatch. |
 
 ```python
 from torchregress.test_time import DelayedLabelResidualAdapter
@@ -135,7 +169,7 @@ scores** under non-exchangeable target shift, and weighted split-conformal regre
 | `OptimalTransportCoverageGap(n_grid=129)` | Diagnostics: `l2_cdf_gap`, `ks_max_abs` between uniform-weight calibration and target ECDFs. |
 | `ScoreCDFReweighter(...)` | Learns simplex weights over calibration points by minimising the L₂ gap on a 1-D score grid. |
 | `WeightedSplitConformalAdapter(alpha=0.1)` | Weighted split-conformal threshold for classification-style nonconformity scores. |
-| `WeightedConformalRegressionAdapter` | `(alpha=0.1, classifier=None)` — Weighted split-conformal regression using classifier-based density ratio estimation. `.fit_density_ratio(X_cal, X_tgt)`, `.compute_density_ratios(X)`, `.calibrate(y_pred_cal, y_cal, X_cal, X_tgt)`, `.predict_interval(y_pred, X)`. |
+| `WeightedConformalRegressionAdapter` | `(alpha=0.1, classifier=None)` — Weighted split-conformal regression using classifier-based density ratio estimation. `.fit_density_ratio(X_cal, X_tgt)`, `.compute_density_ratios(X)`, `.calibrate(y_pred_cal, y_cal, X_cal, X_tgt)`, `.predict_interval(y_pred, X)` (returns infinite intervals when the calibration mass is too small for the requested `alpha`, per Tibshirani et al. 2019). |
 | `weighted_split_classification_predictive_batch(...)` | Build a `PredictiveBatch` from a calibrated WeightedSplitConformalAdapter. |
 
 ```python
@@ -155,7 +189,7 @@ lower, upper = adapter.predict_interval(y_pred_test, X_test)
 
 | Symbol | Description |
 |:-------|:------------|
-| `DomainClassifierRatioEstimator` | Density-ratio `w(x) = p_target(x) / p_source(x)` estimated via a probabilistic domain classifier. `.fit(X_source, X_target)`, then `.weights(X)` / `.weights_for(X)`. |
+| `DomainClassifierRatioEstimator` | Density-ratio `w(x) = p_target(x) / p_source(x)` estimated via a probabilistic domain classifier. `.fit(X_source, X_target)`, then `.weights(X)` / `.weights_for(X)`. The classifier odds are corrected by `n_source / n_target` before clipping, so the weights are normalised for unequal pool sizes. |
 | `estimate_label_shift_weights` | Per-point importance weights under label shift via the BBSE-per-point identity from source/target posterior probabilities. |
 | `JointTTAResult` | Frozen outcome of `JointDistributionalTTA.adapt_and_calibrate`: the adapted model, the fitted conformal calibrator, and a diagnostics dict. |
 | `JointDistributionalTTA` | Adapt a distributional regressor at test time (feature alignment + filtered pseudo-label rounds), freeze, then recalibrate once with fixed importance weights. `.adapt_and_calibrate(model, X_cal_src, y_cal_src, X_target)`, `.predict_intervals(result, X_test)`. |
@@ -197,7 +231,7 @@ std_calibrated = cal.calibrate_std(test_std, test_features)
 | `entropy_scores` | `(probabilities, *, eps=1e-8)` — Shannon entropy of normalised probabilities. |
 | `confidence_scores` | `(probabilities)` — Max probability per row. |
 | `pseudo_label_targets` | `(probabilities)` — `(argmax_labels, max_weights)` for self-training. |
-| `select_high_confidence` | `(probabilities, *, min_confidence=None, max_entropy=None, top_fraction=None, min_count=1)` — Composite selector with confidence / entropy / top-k gates. |
+| `select_high_confidence` | `(probabilities, *, min_confidence=None, max_entropy=None, top_fraction=None, min_count=1, scores=None)` — Composite selector with confidence / entropy / top-k gates. `scores` (one value per row, higher is more confident) replaces the maximum probability as the ranking key for `top_fraction` and the `min_count` fallback. |
 | `LocalConsistencyConfig` | Dataclass: `k=5`, `temperature=1.0`, `reference_size`, `max_exact_rows=4096`, `query_chunk_size=2048`, `random_state`, `eps=1e-8`. |
 | `local_consistency_weights` | `(features, probabilities, config=None)` — FTAT-style neighbourhood agreement (Bhattacharyya-like inner product of $\sqrt{p \cdot q}$), rescaled to mean 1. |
 
@@ -263,9 +297,32 @@ under target shift.
 | `ShiftFactoredTransportState` | Frozen dataclass: `source_support`, `source_prior`, `source_targets`, `source_inputs`, `source_representations`, `last_target_prior`, `conformal_method`, `metadata`. |
 | `ShiftFactoredPredictiveTransport(config=None)` | `.fit_source(source_predictions, source_targets, *, source_inputs=None, source_representations=None)`, `.adapt_unlabeled_target(*, target_predictions=None, target_inputs=None, target_representations=None, predictor=None)`, `.calibrate_target(calibration_predictions, calibration_targets, *, method=None)`, `.predict(...)`, `.apply_conformal(batch)`, `.ppi_target_ci(estimand, labeled_targets, labeled_predictions, unlabeled_predictions, *, x_labeled=None, x_unlabeled=None, q=None, alpha=0.1, n_boot=2000, seed=None)`. |
 
+`fit_source` discretises the source predictive distributions on the support grid
+(`n_support` points spanning the source labels plus `support_margin`) and uses their
+**mean** as the source prior — the marginal the predictive posteriors integrate to, which
+the EM prior estimate in `adapt_unlabeled_target` needs (see the warning above). EM runs on
+the `top_fraction` most confident target rows and stops once the mean target
+log-likelihood gains less than `1e-4` nats per row per iteration; the estimate is then
+shrunk toward the source prior and ratio-clipped (`prior_transport_strength`,
+`prior_ratio_clip`). Metadata reports `target_prior_raw` (EM), `target_prior`
+(stabilised), `prior_source_target_tv`, `estimate_converged` and `transport_applied`.
+
+!!! info "Confidence selection on fine grids"
+    The `top_fraction` most confident rows are ranked on the **unrenormalised in-grid peak
+    probability** (the maximum bin probability times the predictive mass inside the support
+    grid). A predictive cut by the grid edge has its peak inflated by renormalisation, so
+    ranking on the renormalised maximum favoured those edge rows on fine grids and the raw
+    EM prior overshot the shift by up to ~0.3 |shift| at 256 bins; with the in-grid peak the
+    error is below 0.1 |shift| at 16, 64 and 256 bins. Predictives with a constant spread
+    carry no per-row confidence either way: `top_fraction=1.0` is then equivalent and
+    uses every row.
+
 The transport supports PPI (`mean` / `quantile` / `ols` estimands) and
 dispatches conformal calibration to `cqr` / `cti` / `interval` / `split`
-based on the predictive family.
+based on the predictive family. The conformal threshold is the exact split-conformal
+order statistic `k = ceil((n + 1)(1 - alpha))` of the calibration scores (`+inf`, i.e. an
+unbounded interval, when `k > n`). Outputs keep the floating dtype of the predictions
+(float64 predictions stay float64).
 
 ```python
 import numpy as np

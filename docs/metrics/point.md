@@ -16,12 +16,15 @@ $$
 \text{MSE}(y, \hat{y}) = \frac{1}{\sum_{i=1}^N w_i m_i} \sum_{i=1}^N w_i m_i (y_i - \hat{y}_i)^2
 $$
 
-where $m_i \in \{0, 1\}$ is a boolean mask ($1$ for valid, $0$ for missing data) and $w_i > 0$ represents sample weights.
+where $m_i \in \{0, 1\}$ marks valid entries and $w_i > 0$ are the optional `sample_weight` values (all ones when omitted).
+
+!!! note "No `mask` argument"
+    The functional point metrics take `sample_weight`, not `mask` or `weights`. To exclude missing entries, index them out before the call, e.g. `y_pred[mask]`, `y_true[mask]`. `r2_score` accepts neither a mask nor weights.
 
 ```python
 from torchregress.metrics.point import mean_squared_error
 
-mse = mean_squared_error(y_pred, y_true, mask=mask, weights=weights)
+mse = mean_squared_error(y_pred, y_true, sample_weight=weights)
 ```
 See also: [mean_squared_error](../api/metrics.md).
 
@@ -36,7 +39,7 @@ $$
 ```python
 from torchregress.metrics.point import mean_absolute_error
 
-mae = mean_absolute_error(y_pred, y_true, mask=mask, weights=weights)
+mae = mean_absolute_error(y_pred, y_true, sample_weight=weights)
 ```
 See also: [mean_absolute_error](../api/metrics.md).
 
@@ -51,74 +54,44 @@ $$
 ```python
 from torchregress.metrics.point import rmse
 
-y_rmse = rmse(y_pred, y_true, mask=mask, weights=weights)
+y_rmse = rmse(y_pred, y_true, sample_weight=weights)
 ```
 See also: [rmse](../api/metrics.md).
-
-### Mean Absolute Percentage Error (MAPE)
-
-The average percentage difference between predictions and targets:
-
-$$
-\text{MAPE}(y, \hat{y}) = \frac{1}{\sum_{i=1}^N w_i m_i} \sum_{i=1}^N w_i m_i \frac{|y_i - \hat{y}_i|}{\max(|y_i|, \varepsilon)}
-$$
-
-```python
-from torchregress.metrics.point import mean_absolute_percentage_error
-
-mape = mean_absolute_percentage_error(y_pred, y_true, mask=mask, weights=weights)
-```
-See also: [mean_absolute_percentage_error](../api/metrics.md).
 
 ### R² (Coefficient of Determination)
 
 Measures the proportion of variance in the target that is predictable from the model:
 
 $$
-R^2(y, \hat{y}) = 1 - \frac{\sum_{i=1}^N w_i m_i (y_i - \hat{y}_i)^2}{\sum_{i=1}^N w_i m_i (y_i - \bar{y}_w)^2}
+R^2(y, \hat{y}) = 1 - \frac{\sum_{i=1}^N (y_i - \hat{y}_i)^2}{\sum_{i=1}^N (y_i - \bar{y})^2}
 $$
 
-where $\bar{y}_w = \frac{\sum_i w_i m_i y_i}{\sum_i w_i m_i}$ is the weighted target mean.
+where $\bar{y}$ is the target mean. `r2_score` is unweighted and has no mask; it wraps `torchmetrics.R2Score`.
 
 ```python
 from torchregress.metrics.point import r2_score
 
-r2 = r2_score(y_pred, y_true, mask=mask, weights=weights)
+r2 = r2_score(y_pred, y_true)
 ```
 See also: [r2_score](../api/metrics.md).
 
-### Explained Variance Score
+### MAPE, MSLE and Explained Variance
 
-Measures the proportion of variance explained by the model:
-
-$$
-\text{ExplainedVariance}(y, \hat{y}) = 1 - \frac{\text{Var}_w(y - \hat{y})}{\text{Var}_w(y)}
-$$
-
-where $\text{Var}_w(x)$ is the weighted sample variance of $x$.
+`torchregress.metrics` does not provide functional forms of mean absolute
+percentage error, mean squared log error or explained variance. Use the
+`torchmetrics` functional equivalents:
 
 ```python
-from torchregress.metrics.point import explained_variance_score
+from torchmetrics.functional import (
+    explained_variance,
+    mean_absolute_percentage_error,
+    mean_squared_log_error,
+)
 
-explained_var = explained_variance_score(y_pred, y_true, mask=mask, weights=weights)
+mape = mean_absolute_percentage_error(y_pred, y_true)
+msle = mean_squared_log_error(y_pred, y_true)  # strictly positive values only
+ev = explained_variance(y_pred, y_true)
 ```
-See also: [explained_variance_score](../api/metrics.md).
-
-### Mean Squared Log Error (MSLE)
-
-Mean squared error after log transformation:
-
-$$
-\text{MSLE}(y, \hat{y}) = \frac{1}{\sum_{i=1}^N w_i m_i} \sum_{i=1}^N w_i m_i \left(\log(1 + y_i) - \log(1 + \hat{y}_i)\right)^2
-$$
-
-```python
-from torchregress.metrics.point import mean_squared_log_error
-
-# Note: Only works with strictly positive values
-msle = mean_squared_log_error(y_pred, y_true, mask=mask, weights=weights)
-```
-See also: [mean_squared_log_error](../api/metrics.md).
 
 ---
 
@@ -129,13 +102,19 @@ See also: [mean_squared_log_error](../api/metrics.md).
 Median of absolute differences, robust to outliers:
 
 $$
-\text{MedAE}(y, \hat{y}) = \text{median}\left(\{|y_i - \hat{y}_i|\}_{i: m_i=1}\right)
+\text{MedAE}(y, \hat{y}) = \text{median}\left(\{|y_i - \hat{y}_i|\}_{i=1}^{N}\right)
 $$
+
+For an even $N$ the median is the mean of the two middle values, as in
+`numpy.median` and `sklearn.metrics.median_absolute_error`. Multi-output
+targets $[N, D]$ take the median per output and then average the $D$ medians
+(`multioutput="uniform_average"`), or return them (`"raw_values"`).
 
 ```python
 from torchregress.metrics.point import median_absolute_error
 
-median_ae = median_absolute_error(y_pred, y_true, mask=mask)
+median_ae = median_absolute_error(y_pred, y_true)
+per_output = median_absolute_error(y_pred, y_true, multioutput="raw_values")
 ```
 See also: [median_absolute_error](../api/metrics.md).
 
@@ -155,7 +134,7 @@ $$
 from torchregress.metrics.point import huber_loss
 
 # delta controls the transition point from quadratic to linear error
-hl = huber_loss(y_pred, y_true, delta=1.0, mask=mask, weights=weights)
+hl = huber_loss(y_pred, y_true, delta=1.0, sample_weight=weights)
 ```
 See also: [huber_loss](../api/metrics.md).
 
@@ -164,16 +143,19 @@ See also: [huber_loss](../api/metrics.md).
 MSE computed after removing the most extreme squared errors from both tails:
 
 $$
-\text{TrimmedMSE}(y, \hat{y}; \alpha) = \frac{1}{M} \sum_{j=\lfloor N\alpha \rfloor + 1}^{\lfloor N(1-\alpha) \rfloor} r_{(j)}^2
+\text{TrimmedMSE}(y, \hat{y}; \alpha) = \frac{1}{N - 2k} \sum_{j=k+1}^{N-k} r_{(j)}^2, \qquad k = \lfloor N\alpha \rfloor
 $$
 
-where $r_{(j)}^2$ are the sorted squared residuals for valid elements, and $M = \lfloor N(1-\alpha) \rfloor - \lfloor N\alpha \rfloor$ for a trimming fraction $\alpha$ applied to **each** tail. The parameter $\alpha$ must satisfy $0 \le \alpha < 0.5$.
+where $r_{(j)}^2$ are the sorted squared residuals. Exactly $k$ values are cut
+from **each** tail, as in `scipy.stats.trim_mean`. Before 0.3 the upper cut was
+$N - \lfloor N(1-\alpha) \rfloor$, which differs from $k$ when $N\alpha$ is not
+an integer. The parameter $\alpha$ must satisfy $0 \le \alpha < 0.5$.
 
 ```python
 from torchregress.metrics.point import trimmed_mean_squared_error
 
 # trim 10% of data from each end (keeps the middle 80%)
-tmse = trimmed_mean_squared_error(y_pred, y_true, proportion=0.1, mask=mask)
+tmse = trimmed_mean_squared_error(y_pred, y_true, proportion=0.1)
 ```
 See also: [trimmed_mean_squared_error](../api/metrics.md).
 
@@ -182,15 +164,19 @@ See also: [trimmed_mean_squared_error](../api/metrics.md).
 Median of absolute deviations from the median error, scaled by a consistency factor:
 
 $$
-\text{MAD}(e) = c \cdot \text{median}\left(\{|e_i - \text{median}(e)|\}_{i: m_i=1}\right)
+\text{MAD}(e) = c \cdot \text{median}\left(\{|e_i - \text{median}(e)|\}_{i=1}^{N}\right)
 $$
 
-where $e_i = y_i - \hat{y}_i$ and $c = 1.4826$ by default (the Gaussian consistency factor that makes MAD an unbiased estimator of $\sigma$ for normally distributed residuals).
+where $e_i = y_i - \hat{y}_i$ and $c = 1.4826$ by default (the Gaussian
+consistency factor that makes MAD a consistent estimator of $\sigma$ for
+normally distributed residuals). Both medians average the two middle values
+for even $N$, so the result equals
+`c * scipy.stats.median_abs_deviation(e)`.
 
 ```python
 from torchregress.metrics.point import median_absolute_deviation
 
-mad = median_absolute_deviation(y_pred, y_true, scale=1.4826, mask=mask)
+mad = median_absolute_deviation(y_pred, y_true, scale=1.4826)
 ```
 See also: [median_absolute_deviation](../api/metrics.md).
 
@@ -207,24 +193,30 @@ where $\text{scale}$ can be the standard deviation (`std`), the range (`range`),
 ```python
 from torchregress.metrics.point import normalized_rmse
 
-nrmse = normalized_rmse(y_pred, y_true, normalization='std', mask=mask)
+nrmse = normalized_rmse(y_pred, y_true, normalization='std')
 ```
 See also: [normalized_rmse](../api/metrics.md).
 
 ### Normalized Median Absolute Deviation
 
-MAD normalized by target statistics for relative scale comparison:
+The photometric-redshift NMAD, a stateful metric:
 
 $$
-\text{NMAD}(y, \hat{y}) = \frac{\text{MAD}(y - \hat{y})}{\text{scale}}
+\text{NMAD} = 1.4826 \cdot \text{median}\left(|d_i - \text{median}(d)|\right),
+\qquad d_i = \hat{y}_i - y_i \;\; \text{or} \;\; d_i = \frac{\hat{y}_i - y_i}{1 + y_i}
 $$
+
+The relative form is selected with `normalization="relative"`. Medians average
+the two middle values for even $N$.
 
 ```python
-from torchregress.metrics.point import normalized_median_absolute_deviation
+from torchregress.metrics import NormalizedMedianAbsoluteDeviation
 
-nmad = normalized_median_absolute_deviation(y_pred, y_true, mask=mask)
+nmad = NormalizedMedianAbsoluteDeviation(normalization="relative")
+nmad.update(z_pred, z_true)
+print(nmad.compute())
 ```
-See also: [normalized_median_absolute_deviation](../api/metrics.md).
+See also: [NormalizedMedianAbsoluteDeviation](../api/metrics.md).
 
 ---
 
@@ -232,19 +224,24 @@ See also: [normalized_median_absolute_deviation](../api/metrics.md).
 
 ### Outlier Fraction
 
-Fraction of predictions with absolute error exceeding a threshold:
+Fraction of predictions whose scaled absolute error exceeds a threshold. It is
+a stateful metric (`update` / `compute`), not a function:
 
 $$
-\text{OutlierFraction}(y, \hat{y}; \tau) = \frac{1}{\sum_{i=1}^N m_i} \sum_{i=1}^N m_i \mathbb{I}\left(|y_i - \hat{y}_i| > \tau \cdot \text{scale}_i\right)
+\text{OutlierFraction}(y, \hat{y}; \tau) = \frac{1}{N} \sum_{i=1}^N \mathbb{I}\left(\frac{|y_i - \hat{y}_i|}{1 + y_i} > \tau\right)
 $$
+
+With `mode="relative"` (default) the error is scaled by $1 + y_i$, as above.
+Any other `mode` scales by the global standard deviation of the targets seen so far.
 
 ```python
-from torchregress.metrics.point import outlier_fraction
+from torchregress.metrics import OutlierFraction
 
-# Standard outlier detection (scaled by std of y_true)
-of = outlier_fraction(y_pred, y_true, threshold=0.15, mask=mask)
+of = OutlierFraction(threshold=0.15, mode="relative")
+of.update(y_pred, y_true)
+print(of.compute())
 ```
-See also: [outlier_fraction](../api/metrics.md).
+See also: [OutlierFraction](../api/metrics.md).
 
 ### Tail Metrics
 
@@ -264,8 +261,8 @@ where $\mathcal{I}_q$ is the set of indices where targets exceed the $q$-quantil
 from torchregress.metrics import tail_mae, tail_rmse
 
 # Top 10% target values
-mae_tail = tail_mae(y_pred, y_true, quantile=0.9, tail="upper", mask=mask)
-rmse_tail = tail_rmse(y_pred, y_true, quantile=0.9, tail="upper", mask=mask)
+mae_tail = tail_mae(y_pred, y_true, quantile=0.9, tail="upper")
+rmse_tail = tail_rmse(y_pred, y_true, quantile=0.9, tail="upper")
 ```
 See also: [tail_mae](../api/metrics.md) and [tail_rmse](../api/metrics.md).
 
@@ -312,6 +309,6 @@ Generate a comprehensive dictionary report of point metrics.
 ```python
 from torchregress.metrics.point import regression_metrics_report
 
-report = regression_metrics_report(y_pred, y_true, mask=mask, weights=weights)
+report = regression_metrics_report(y_pred, y_true, sample_weight=weights)
 ```
 See also: [regression_metrics_report](../api/metrics.md).

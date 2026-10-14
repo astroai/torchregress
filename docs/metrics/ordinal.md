@@ -78,6 +78,14 @@ See the [quadratic_weighted_kappa API](../api/metrics.md) for details.
 - **Use QWK when ordinal distance matters**, but complement it with MACE for interpretability (QWK's quadratic weighting can be opaque).
 - **Inspect the confusion matrix**: Aggregate metrics can conceal systematic biases (consistent over- or under-prediction of the ordinal class).
 
+## When to use which
+
+| Metric | Sensitivity | Use when | Caveat |
+|:-------|:------------|:---------|:-------|
+| `ordinal_accuracy` | None (flat errors) | Quick sanity check; reporting alongside a distance-aware metric | Should never be the only ordinal metric |
+| `mean_absolute_class_error` (MACE) | Linear in ordinal distance | Default ordinal error measure — interpretable as "average classes off" | Assumes equal spacing between classes |
+| `quadratic_weighted_kappa` (QWK) | Quadratic in ordinal distance | Chance-corrected agreement on ordinal distance; comparable across datasets | Can over-penalise large-distance errors; opaque weighting |
+
 ## Next steps
 
 - [Censored metrics](censored.md) — related evaluation for interval-censored and survival outcomes

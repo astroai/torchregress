@@ -1,84 +1,38 @@
 # Roadmap
 
-Current version: `0.1.0` (unreleased).
-Tests: 2723 pass, 89% coverage. Docs: build clean.
+> **Algorithm freeze for 0.3.0 (since 2026-10-05).** Until 0.3.0 is on PyPI,
+> only fixes, tests, docs and packaging land. Which methods to add or remove
+> is decided for 0.4.
 
----
+1.0 is a promise about API stability, not about features. It comes only after
+two minor releases with no unplanned breaking change.
 
-## v0.1.0 — Initial PyPI release
+| Release | Theme | Contents | Done when |
+|:--|:--|:--|:--|
+| **0.3.0** | First PyPI release | 0.3.0 audit of losses, conformal, metrics, calibration, inference, causal and ensembles ([report](docs/reports/audit_0.3.0.md)); metrics parity tests against scoringrules/properscoring/scipy/scikit-learn; harness release run on CANFAR; local CUDA test run (`pixi run test-cuda`) on the release candidate; trusted publishing from `astroai/torchregress` | `pip install torchregress` works on Linux and macOS, Python 3.12–3.14 |
+| 0.3.x | Stabilise | Patch fixes from early users; audit batches 4–5 (`algorithms`, `test_time`, `utils`, `viz`); weekly latest-comparators harness job; conda-forge feedstock | No open High issues; feedstock merged |
+| 0.4 | GPU and hardening | Self-hosted CUDA runner (weekly and per release candidate), CPU–CUDA equality for every loss and metric, OOM guard, MPS decision; bf16/fp16 where it is safe; API trim (private helpers, one spelling per idea) with a deprecation policy | Every loss and metric passes CPU–CUDA equality |
+| 0.5 | Estimators, not just losses | Bundled `ConditionalFlow` estimator (fit / sample / log_prob / interval); scikit-learn-style wrappers for the most-used method families; amortised-inference helpers building on the sbi comparison | The one-line usage in the harness sbi and pzflow suites works |
+| 0.6 | Structured and multi-target | Joint intervals beyond Gaussian; censored and errors-in-variables workflows for survey data (photo-z, galaxy properties) as tutorials | Harness rows for each, at parity or better |
+| 1.0 | API freeze | Deprecation policy enforced for two minors; every method family benchmarked; complete docs; software paper together with the harness paper | No unplanned breaking change from 0.5 to 0.6 |
 
-The version string exists; the release is not shipped. These milestones get it out the door.
+Not yet scheduled: a model-card style report built from `health.py` and the
+metrics suite; a hosted leaderboard from the latest-comparators job.
 
-### M1 — CI/CD infrastructure
+## Deprecation policy (from 0.4)
 
-- [ ] **ci.yml** — Run ruff, mypy, pytest on every PR/push (3.12–3.14)
-- [x] **release.yml** — Trusted Publishing to PyPI on annotated tags (workflow present with `id-token: write`)
-- [ ] Badges in README match reality
+A public name or argument that is going away is deprecated in minor release
+N with a `DeprecationWarning` that names the replacement, and removed in N+2.
+The CHANGELOG lists every deprecation and removal.
 
-### M2 — Lint & type gate clean
+## Earlier roadmap items
 
-- [x] `ruff check src/torchregress` — zero errors (verified 2026-08-24; lint gate covers `src`, `tests`, `tools`)
-- [x] `ruff format --check src/torchregress` — clean (verified 2026-08-24 after audit-fix sweep)
-- [ ] `mypy src/torchregress` — zero errors (currently 19, mostly `Dict`/import issues in `ot_conformal.py`)
-- [ ] Add `--strict` flag or equivalent to CI gate
+The 0.1.0 and 0.2.0 milestones of the previous roadmap shipped as described in
+`CHANGELOG.md`, except for these, which move to the releases above:
 
-### M3 — Docs & examples review
-
-- [x] **Example smoke test** — All 63 examples parse (compileall clean; SyntaxWarnings are raw LaTeX strings, not errors).
-- [x] **Example-code sync** — Orphan references removed; docs index and API pages updated.
-- [~] **Docstring contract audit** — Added docstrings to most-used items (`GaussianNLLLoss.forward`, `crps_gaussian`). Remaining gaps tagged as ponytail debt.
-- [x] **README example snippets** — All 3 snippets compiled and run; fixed `crps_gaussian` return type, `QuantileLoss`→`MultiQuantileLoss`, `SplitConformal` API.
-- [x] **Cross-reference integrity** — `zensical build` passes with zero issues.
-- [x] **Deleted examples** — 2 orphan deleted files had no references; 2 (`propensity_tail`, `self_agreement`) had cross-references — all updated. Regenerated `method_catalog`, `comparative_evidence_matrix`, `real_data_recommendation_guide`.
-- [x] Clean up `__pycache__/` from the `examples/` directory
-
-### M4 — Release logistics
-
-- [ ] CHANGELOG.md (keep it simple: one `## [0.1.0]` section)
-- [ ] Verify `./scripts/release/prepare_release.sh` passes end-to-end
-- [ ] Push tag `v0.1.0` and confirm PyPI publish
-
-### Stretch (nice but non-blocking)
-
-- [ ] Drop remaining `np.ndarray` type annotations from `metrics/point.py` and `metrics/interval.py` where `convert_to_tensor` accepts both (requires API audit to avoid breaking user code)
-
----
-
-## v0.2.0 — GPU & hardening
-
-- [ ] **CUDA CI runner** — Add `runs-on: [self-hosted, gpu]` or `nvidia` matrix entry to CI so GPU tests run on every push
-- [ ] **`@pytest.mark.cuda`** — Tag every test that exercises device-specific behaviour (device placement, tensor creation, NCCL ops) and add an `--cuda` marker filter
-- [ ] **Mixed-device regression suite** — Test that every loss and metric produces bitwise-identical results on CPU vs CUDA (same seed, same inputs)
-- [ ] **Automatic device fixture** — A `device` fixture in `conftest.py` that yields `torch.device("cuda")` when available, falls back to CPU. All parameterized tests consume it
-- [ ] **CUDA OOM guard** — Graceful skip (not crash) when GPU memory is insufficient for a given batch size
-- [ ] **MPS (Apple Silicon) consideration** — Document whether the project intends to support `mps`; if yes, add a smoke-test column
-
----
-
-- [ ] Coverage > 92% (target untested paths in `test_time/transport.py`, `losses/imbalanced.py`)
-- [ ] Property-based tests for distribution CRPS invariants
-- [ ] Benchmarks for all loss functions (smoke exists, expand to regression tests)
-- [ ] Full mypy strict coverage for `tests/` directory
-
----
-
-## v0.3.0 — Documentation & examples
-
-- [ ] Jupyter notebook examples for every method category in README
-- [ ] API reference completeness audit (no undocumented public symbols)
-- [ ] Decision-tree guide for method selection (mermaid flowchart, wired into `index.md`)
-- [ ] Docstring consistency pass: all `Parameters`/`Returns` sections follow numpy-style
-
----
-
-## Future (no commitment)
-
-| Area | Ideas |
-|------|-------|
-| **Losses** | Skew-t, mixture of experts, copula losses, deep-kernel GP |
-| **Metrics** | Variogram, scoring-rule suites, skill scores |
-| **Ensemble** | Snapshot ensembles, SWAG, Laplace approximation |
-| **Inference** | MCMC-based uncertainty via Pyro/BFGS bridges |
-| **Test-time** | Online conformal, adaptive calibration, prototype methods |
-| **Performance** | torch.compile support, vmap for ensemble heads, CUDA graphs |
-| **Interop** | sklearn `Pipeline` / `GridSearchCV` adapters, MLflow tracking |
+- CUDA runner, device fixture, `@pytest.mark.cuda`, CPU–CUDA equality, OOM
+  guard and MPS decision → 0.4.
+- Coverage target of 92% on the risky paths, and property-based tests beyond
+  the metrics → 0.3.x.
+- Notebook examples for every method category → after the examples are sorted
+  into tutorial, comparison and real-data scripts (0.3.x).

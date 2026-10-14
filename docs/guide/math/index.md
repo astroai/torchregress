@@ -106,7 +106,7 @@ $$\sigma_{\text{total}}^2 = \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2}_{\t
 
 This provides a clean separation: aleatoric uncertainty represents the average data noise estimated across ensemble members, while epistemic uncertainty captures model parameter disagreement.
 
-→ See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [DeepEnsemble](../../api/ensemble.md), SWAG, BNN).
+→ See [Ensembles for Uncertainty](../../methods/ensemble/index.md) for advanced decomposition methods (e.g., [BaseEnsembleModel](../../api/ensemble.md), SWAG, BNN).
 
 ---
 

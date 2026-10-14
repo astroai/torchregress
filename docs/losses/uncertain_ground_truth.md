@@ -119,6 +119,8 @@ loss = loss_fn(
 )
 ```
 
+Unlabelled entries of `target_with_placeholders` may hold any placeholder, including `NaN`: entries outside `label_mask` are replaced (via `torch.where`) before the supervised term is evaluated, so they affect neither the loss nor its gradient. The same holds for `PseudoLabelNLL`.
+
 ### Pseudo-label generation and EMA teacher update
 
 ```python
@@ -141,6 +143,30 @@ update_ema_teacher_(ema_teacher, student, momentum=0.95)
 - [Semi-Supervised Regression Comparison](../examples/semi_supervised_regression_comparison.md)
 - [Uncertain-GT + Density Conformal Comparison](../examples/uncertain_gt_density_conformal_comparison.md)
 - [Uncertain-GT + Density Conformal Comparison (Real Data)](../examples/uncertain_gt_density_conformal_realdata_comparison.md)
+
+## Companion metrics (`torchregress.metrics`)
+
+Evaluation for the same workflow lives in `torchregress.metrics.uncertain` (→ See [Distribution metrics](../metrics/distribution.md)):
+
+| Metric | Formula / meaning | Use for |
+|:-------|:-----------------|:--------|
+| `noisy_target_gaussian_nll(pred_mean, pred_variance, target, target_variance, *, min_variance=1e-8)` | Mean Gaussian NLL with total variance $\sigma_i^2 + s_i^2$ (prediction + known measurement noise): $\quad \tfrac12\!\left(\log(\sigma_i^2+s_i^2) + \frac{(y_i-\mu_i)^2}{\sigma_i^2+s_i^2} + \log 2\pi\right)$ | Comparing NLLs fairly when targets carry different, known noise |
+| `consistency_error(student_pred, teacher_pred, *, p=2)` | Mean $\lvert\mu - \mu_{\text{teacher}}\rvert^p$ (`p=1` MAE, `p=2` MSE — no root is taken) | How much the student disagrees with its EMA teacher during pseudo-labeling |
+| `pseudo_label_acceptance_rate(confidence, *, threshold=0.5)` | Fraction of pseudo-labels at or above `threshold` | Threshold tuning for `generate_pseudo_labels` |
+| `uncertain_gt_metrics_report(*, pred_mean, pred_variance, target, target_variance, teacher_pred=None, pseudo_confidence=None)` | One-call report combining the above (keyword-only args) | Standard summary for uncertain-GT experiments |
+
+```python
+from torchregress.metrics import uncertain_gt_metrics_report
+
+report = uncertain_gt_metrics_report(
+    pred_mean=mu,
+    pred_variance=var,
+    target=y_noisy,
+    target_variance=y_var,
+    teacher_pred=teacher_mu,      # optional
+    pseudo_confidence=conf,       # optional
+)  # {"NoisyTargetNLL": …, "ConsistencyMSE": …, "PseudoAcceptanceRate": …}
+```
 
 ## Limitations
 

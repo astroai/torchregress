@@ -7,6 +7,7 @@ Uses the zuko package for efficient implementation of various flows.
 """
 
 from collections.abc import Sequence
+from functools import partial
 from typing import Any, Callable, Optional, cast
 
 import torch
@@ -15,16 +16,100 @@ from torch.nn import Module
 
 try:
     from zuko.flows import MAF, NSF, RealNVP  # type: ignore[import-untyped]
+    from zuko.transforms import MonotonicRQSTransform  # type: ignore[import-untyped]
 
     HAS_ZUKO = True
 except ImportError:
     HAS_ZUKO = False
 
-    MAF = NSF = RealNVP = None  # ty: ignore[invalid-assignment]  # zuko is optional; call sites are guarded by HAS_ZUKO
+    MAF = NSF = RealNVP = MonotonicRQSTransform = None  # optional; guarded by HAS_ZUKO
 
-from ..utils.tensor_ops import masked_reduction
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
+
+#: Domain half-width of zuko's rational-quadratic spline (identity outside).
+DEFAULT_TAIL_BOUND = 5.0
+
+
+def recommended_tail_bound(
+    standardized_targets: Any,
+    *,
+    margin: float = 1.25,
+    minimum: float = DEFAULT_TAIL_BOUND,
+    maximum: float = 25.0,
+) -> float:
+    """Spline tail bound that covers a standardized training target.
+
+    A rational-quadratic spline flow is the identity outside ``[-B, B]``
+    (zuko's default is ``B = 5``), so it cannot move probability mass beyond
+    that range: rows with ``|y| > B`` contribute a constant, gradient-free
+    penalty and the density collapses toward the edge.  For targets that were
+    standardized to zero mean and unit variance this is harmless for light
+    tails but not for skewed or heavy-tailed ones (Student-t with 3 degrees of
+    freedom routinely reaches ``|y| > 10`` at a few thousand rows).
+
+    The bound returned is ``margin * max|y|`` clipped to ``[minimum, maximum]``;
+    pass it to :func:`create_flow_model` as ``bound``.  The upper clip keeps a
+    single extreme outlier from stretching the spline over a range that would
+    leave the bulk of the data in a couple of bins.
+
+    Parameters
+    ----------
+    standardized_targets : array-like
+        Training targets after centring and scaling (any shape).
+    margin : float, default 1.25
+        Multiplicative head-room over the largest training magnitude, so that
+        test targets slightly beyond the training range stay inside the bound.
+    minimum : float, default 5.0
+        Lower clip (zuko's default bound; never narrower than the default).
+    maximum : float, default 25.0
+        Upper clip.
+
+    Returns
+    -------
+    float
+        The tail bound ``B``.
+    """
+    if margin < 1.0:
+        raise ValueError("margin must be at least 1")
+    if not 0.0 < minimum <= maximum:
+        raise ValueError("require 0 < minimum <= maximum")
+    values = torch.as_tensor(standardized_targets).detach().to(torch.float64)
+    values = values[torch.isfinite(values)]
+    if values.numel() == 0:
+        return float(minimum)
+    return float(min(max(margin * float(values.abs().max()), minimum), maximum))
+
+
+_MAFBase: Any = MAF
+_RQSTransform: Any = MonotonicRQSTransform
+
+if HAS_ZUKO:
+
+    class BoundedNSF(_MAFBase):
+        """Neural spline flow with a configurable spline tail bound.
+
+        Identical to :class:`zuko.flows.NSF` except that the spline domain is
+        ``[-bound, bound]`` instead of the fixed ``[-5, 5]``.
+        """
+
+        def __init__(
+            self,
+            features: int,
+            context: int = 0,
+            bins: int = 8,
+            slope: float = 1e-3,
+            bound: float = DEFAULT_TAIL_BOUND,
+            **kwargs: Any,
+        ) -> None:
+            super().__init__(
+                features=features,
+                context=context,
+                univariate=partial(_RQSTransform, slope=slope, bound=bound),
+                shapes=[(bins,), (bins,), (bins - 1,)],
+                **kwargs,
+            )
+            self.tail_bound = float(bound)
 
 
 def create_flow_model(
@@ -34,6 +119,7 @@ def create_flow_model(
     n_transforms: int = 5,
     hidden_features: Optional[int | Sequence[int]] = None,
     n_hidden_layers: int | None = None,
+    bound: float | None = None,
     **kwargs: Any,
 ) -> Module:
     """
@@ -71,8 +157,18 @@ def create_flow_model(
     n_hidden_layers : int, optional
         Number of hidden layers when ``hidden_features`` is a single integer.
         Ignored when ``hidden_features`` is a sequence.  Default: 2.
+    bound : float, optional
+        Half-width ``B`` of the spline domain ``[-B, B]`` for ``flow_type="nsf"``
+        (zuko's fixed default is 5, used when ``None``).  Targets outside the
+        domain are untransformed, so standardized skewed or heavy-tailed
+        targets with ``|y| > 5`` need a wider bound; see
+        :func:`recommended_tail_bound`.  Larger bounds spread the ``bins``
+        spline knots over a wider range, so raise ``bins=`` (an NSF keyword,
+        forwarded to zuko, default 8) with it.  Not supported for the other
+        flow types.
     **kwargs : Any
-        Additional keyword arguments forwarded to the zuko flow constructor.
+        Additional keyword arguments forwarded to the zuko flow constructor
+        (for NSF: ``bins``, ``slope``).
 
     Returns
     -------
@@ -106,6 +202,14 @@ def create_flow_model(
     )
     flow_cls = flow_cls_map[flow_type_key]
     assert flow_cls is not None
+    if bound is not None:
+        if flow_type_key != "nsf":
+            raise ValueError("bound is only supported for flow_type='nsf'")
+        if not (float(bound) > 0.0 and float(bound) < float("inf")):
+            raise ValueError("bound must be positive and finite")
+        if float(bound) != DEFAULT_TAIL_BOUND:
+            flow_cls = BoundedNSF
+            kwargs["bound"] = float(bound)
     flow = flow_cls(
         features=n_features,
         context=context_dim,
@@ -234,9 +338,10 @@ class NormalizingFlowLoss(DistributionLoss):
     - :func:`create_flow_loss` is a convenience that creates both the
       flow and the loss in one call.
     - NSF range limit: the rational-quadratic spline is the identity
-      outside ``[-5, 5]`` (zuko exposes no bound override), so NSF cannot
-      represent density mass beyond that range. Targets wider than ±5
-      trigger a one-time ``UserWarning`` — standardize them, or use
+      outside ``[-5, 5]`` by default, so NSF cannot represent density mass
+      beyond that range. Targets wider than the bound trigger a one-time
+      ``UserWarning`` - standardize them, widen the bound
+      (``create_flow_model(..., bound=recommended_tail_bound(y))``), or use
       ``flow_type="maf"`` (unbounded affine couplings).
 
     Examples
@@ -302,8 +407,8 @@ class NormalizingFlowLoss(DistributionLoss):
         """Warn once when NSF targets exceed the spline tail bound.
 
         zuko's rational-quadratic spline is the identity outside
-        ``[-5, 5]`` with no override path, so a spline flow cannot place
-        density mass there: training on wider-range targets silently
+        ``[-B, B]`` (``B = 5`` unless ``create_flow_model(bound=...)``), so a spline
+        flow cannot place density mass there: training on wider-range targets silently
         collapses toward the bound edge (observed: sbibm gaussian_mixture
         posterior at -9.3 → C2ST 1.0 at matched budget where unbounded MAF
         reaches 0.95). Standardize targets, or use ``flow_type="maf"`` for
@@ -313,18 +418,20 @@ class NormalizingFlowLoss(DistributionLoss):
             return
         if "nsf" not in type(self.flow).__name__.lower():
             return
+        tail_bound = float(getattr(self.flow, "tail_bound", DEFAULT_TAIL_BOUND))
         try:
-            out_of_range = bool((target.detach().abs() > 5.0).any())
+            out_of_range = bool((target.detach().abs() > tail_bound).any())
         except Exception:
             return
         if out_of_range:
             import warnings
 
             warnings.warn(
-                "NormalizingFlowLoss: |target| exceeds 5.0 but the NSF spline "
-                "tail bound is fixed at [-5, 5] (identity outside; zuko "
-                "exposes no override). Density mass outside the bound is "
-                "unrepresentable — standardize targets or use "
+                f"NormalizingFlowLoss: |target| exceeds {tail_bound:g} but the NSF "
+                f"spline tail bound is [-{tail_bound:g}, {tail_bound:g}] (identity "
+                "outside). Density mass outside the bound is unrepresentable - "
+                "standardize targets, widen the bound with "
+                "create_flow_model(bound=recommended_tail_bound(y)), or use "
                 "flow_type='maf'.",
                 UserWarning,
                 stacklevel=3,
@@ -510,16 +617,10 @@ class NormalizingFlowLoss(DistributionLoss):
         # Calculate negative log-likelihood
         nll = self._calculate_nll(target_eval, context, sample_mask)
 
-        # Apply weights if provided
-        if weights is not None:
-            # Handle different weight shapes
-            if weights.dim() > 1 and weights.shape[1] > 1:
-                # Average across features if weights are per-feature
-                weights = weights.mean(dim=1)
-            nll = nll * weights
-
-        # Apply reduction
-        return masked_reduction(nll, sample_mask, self.reduction)
+        # Unified BaseLoss policy (A9): masked samples are zero-filled under
+        # 'none', the weighted mean is normalised by the sum of the weights,
+        # and per-feature [B, D] weights are averaged to one weight per sample.
+        return self._reduce(nll, sample_mask, weights)
 
     def sample(self, y_pred: Tensor, n_samples: int = 1) -> Tensor:
         """
@@ -744,9 +845,4 @@ class ContrastiveFlowLoss(NormalizingFlowLoss):
         logits = torch.cat([pos_score.unsqueeze(1), neg_score], dim=1)
         loss = -pos_score + torch.logsumexp(logits, dim=1)
 
-        if weights is not None:
-            if weights.dim() > 1 and weights.shape[1] > 1:
-                weights = weights.mean(dim=1)
-            loss = loss * weights
-
-        return masked_reduction(loss, sample_mask, self.reduction)
+        return self._reduce(loss, sample_mask, weights)

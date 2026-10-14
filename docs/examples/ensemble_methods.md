@@ -76,12 +76,12 @@ loss_fn = WeightedMSELoss()
 
 ```python
 from torchregress.ensemble import BaseEnsembleModel
-from torchregress.utils import set_seed
+from torchregress.utils import set_all_seeds
 
 # Train multiple models independently
 models = []
 for i in range(5):
-    set_seed(42 + i)  # Different initialization
+    set_all_seeds(42 + i)  # Different initialization
     model = create_model()
     train_model(model, data, epochs=100)
     models.append(model)
@@ -133,7 +133,7 @@ def create_heteroscedastic_model():
 
 models = []
 for i in range(5):
-    set_seed(42 + i)
+    set_all_seeds(42 + i)
     model = create_heteroscedastic_model()
     loss_fn = GaussianNLLLoss()  # Learns variance — see [GaussianNLLLoss API](../../api/losses.md)
     train_model(model, data, loss_fn, epochs=100)
@@ -201,7 +201,7 @@ model = nn.Sequential(
 - Real-time or embedded applications
 - Rapid prototyping
 
-For a single module that combines a [`BatchEnsembleMLPBackbone`](https://github.com/astroai/torchregress/blob/main/src/torchregress/ensemble/models.py) with a heteroscedastic batch head, optional `alpha` scaling of fast weights, and structured access to `mean` / `std_epistemic` via `predict_output()`, see [`PackedEnsembleRegressor`](https://github.com/astroai/torchregress/blob/main/src/torchregress/ensemble/packed.py).
+For a single module that combines a [`BatchEnsembleMLPBackbone`](https://github.com/astroai/torchregress/blob/main/src/torchregress/ensemble/models.py) with a heteroscedastic batch head, optional `alpha` scaling of fast weights, and structured access to `mean` / `std_epistemic` via `predict_output()`, see [`BatchEnsembleRegressor`](https://github.com/astroai/torchregress/blob/main/src/torchregress/ensemble/packed.py).
 
 ## Uncertainty Decomposition Math
 
@@ -298,8 +298,8 @@ from torchregress.metrics import (
 mean = ensemble_mean(predictions)
 std = ensemble_std(predictions)
 
-# Coverage (should be ~95% for 95% intervals)
-coverage = prediction_interval_coverage(y_true, lower, upper, confidence=0.95)
+# Coverage (should be ~95% for 95% intervals; `alpha` is the miscoverage, 1 - 0.95)
+coverage = prediction_interval_coverage(lower, upper, y_true, alpha=0.05)
 
 # Calibration (are uncertainties well-calibrated?)
 calibration = calibration_score(y_true, pred_mean, pred_std)

@@ -7,12 +7,37 @@ from typing import Any
 import torch
 from torch import Tensor
 
-from ..utils.distributions import normal_cdf
 from ..utils.validation import validate_range, validate_weights
 from .base import BaseLoss
 from .loss_registry import register_regression_loss
 
 _LOG_SQRT_2PI = 0.5 * torch.log(torch.tensor(2.0 * torch.pi))
+
+
+def _log1mexp(x: Tensor) -> Tensor:
+    """``log(1 - exp(x))`` for ``x < 0`` (Maechler 2012, "Accurately computing
+    log(1 - exp(-|a|))")."""
+    return torch.where(
+        x > -0.6931471805599453, torch.log(-torch.expm1(x)), torch.log1p(-torch.exp(x))
+    )
+
+
+def _log_normal_interval_prob(z_low: Tensor, z_up: Tensor) -> Tensor:
+    """``log(Phi(z_up) - Phi(z_low))`` for ``z_low < z_up``, accurate in both tails.
+
+    The interval is reflected (``Phi(b) - Phi(a) = Phi(-a) - Phi(-b)``) so that
+    it never lies in the upper tail, where ``Phi`` rounds to one, and the
+    difference is evaluated as ``log Phi(b) + log1mexp(log Phi(a) - log Phi(b))``.
+    The log-difference is capped at ``-finfo.eps`` so a degenerate interval
+    that collapses under rounding yields a large finite NLL instead of ``inf``.
+    """
+    flip = (z_low + z_up) > 0
+    a = torch.where(flip, -z_up, z_low)
+    b = torch.where(flip, -z_low, z_up)
+    log_a = torch.special.log_ndtr(a)
+    log_b = torch.special.log_ndtr(b)
+    diff = (log_a - log_b).clamp(max=-torch.finfo(log_a.dtype).eps)
+    return log_b + _log1mexp(diff)
 
 
 def _extract_mean_and_var(
@@ -108,8 +133,11 @@ class CensoredGaussianNLLLoss(BaseLoss):
 
         std = torch.sqrt(var).clamp_min(self.eps)
         z_target = (target - mean) / std
-        cdf_target = normal_cdf(z_target).clamp(self.eps, 1.0 - self.eps)
-        surv_target = (1.0 - cdf_target).clamp_min(self.eps)
+        # Censored terms via log_ndtr: the previous -log(clamp(Phi, eps)) form
+        # saturated at -log(eps) ~ 18.4 nats with an exactly-zero gradient once
+        # the censoring point was > ~5.6 sigma into the tail.
+        log_cdf_target = torch.special.log_ndtr(z_target)
+        log_surv_target = torch.special.log_ndtr(-z_target)
         logpdf = -0.5 * z_target.pow(2) - torch.log(std) - _LOG_SQRT_2PI.to(std.device, std.dtype)
 
         if censoring is None:
@@ -131,20 +159,20 @@ class CensoredGaussianNLLLoss(BaseLoss):
                 & torch.isfinite(lower_bound)
                 & torch.isfinite(upper_bound)
             )
-            z_low = (lower_bound - mean) / std
-            z_up = (upper_bound - mean) / std
-            cdf_low = normal_cdf(z_low)
-            cdf_up = normal_cdf(z_up)
-            interval_prob = (cdf_up - cdf_low).clamp_min(self.eps)
-            nll[interval_mask] = -torch.log(interval_prob[interval_mask])
+            # Non-interval entries get a dummy finite interval so their
+            # (discarded) branch never produces inf/NaN gradients.
+            low = torch.where(interval_mask, lower_bound, mean.detach() - std.detach())
+            up = torch.where(interval_mask, upper_bound, mean.detach() + std.detach())
+            log_p_int = _log_normal_interval_prob((low - mean) / std, (up - mean) / std)
+            nll[interval_mask] = -log_p_int[interval_mask]
 
             observed_mask = observed_mask & (~interval_mask)
             right_mask = right_mask & (~interval_mask)
             left_mask = left_mask & (~interval_mask)
 
         nll[observed_mask] = -logpdf[observed_mask]
-        nll[right_mask] = -torch.log(surv_target[right_mask])
-        nll[left_mask] = -torch.log(cdf_target[left_mask])
+        nll[right_mask] = -log_surv_target[right_mask]
+        nll[left_mask] = -log_cdf_target[left_mask]
 
         return self._reduce(nll, mask=mask, weights=weights)
 
@@ -250,8 +278,9 @@ class AFTLoss(BaseLoss):
         log_t = torch.log(safe_target)
 
         z = (log_t - loc) / scale
-        cdf = normal_cdf(z).clamp(self.eps, 1.0 - self.eps)
-        surv = (1.0 - cdf).clamp_min(self.eps)
+        # log_ndtr instead of -log(clamp(Phi, eps)) (no saturation in the tails)
+        log_cdf = torch.special.log_ndtr(z)
+        log_surv = torch.special.log_ndtr(-z)
         logpdf = (
             -torch.log(safe_target)
             - torch.log(scale)
@@ -270,16 +299,19 @@ class AFTLoss(BaseLoss):
             interval_mask = (upper_bound > lower_bound) & (upper_bound > 0) & (lower_bound > 0)
             z_low = (torch.log(lower_bound.clamp_min(self.eps)) - loc) / scale
             z_up = (torch.log(upper_bound.clamp_min(self.eps)) - loc) / scale
-            p_int = (normal_cdf(z_up) - normal_cdf(z_low)).clamp_min(self.eps)
-            nll[interval_mask] = -torch.log(p_int[interval_mask])
+            # Dummy finite interval where the branch is not taken (see above).
+            z_low = torch.where(interval_mask, z_low, torch.full_like(z_low, -1.0))
+            z_up = torch.where(interval_mask, z_up, torch.full_like(z_up, 1.0))
+            log_p_int = _log_normal_interval_prob(z_low, z_up)
+            nll[interval_mask] = -log_p_int[interval_mask]
 
             observed_mask = observed_mask & (~interval_mask)
             right_mask = right_mask & (~interval_mask)
             left_mask = left_mask & (~interval_mask)
 
         nll[observed_mask] = -logpdf[observed_mask]
-        nll[right_mask] = -torch.log(surv[right_mask])
-        nll[left_mask] = -torch.log(cdf[left_mask])
+        nll[right_mask] = -log_surv[right_mask]
+        nll[left_mask] = -log_cdf[left_mask]
 
         return self._reduce(nll, mask=mask, weights=weights)
 

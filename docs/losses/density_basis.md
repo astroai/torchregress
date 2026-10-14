@@ -6,6 +6,15 @@ Tools for heads that predict a **whole 1D distribution** over a fixed support (b
 classification, spline bases) rather than a parametric family, plus a representation
 loss that orders the feature space by the continuous target.
 
+| # | Reference |
+|:-:|:----------|
+| 1 | Zha, Y.-J. et al. (2023). *Rank-N-Contrast: Learning Continuous Representation Degrees for Improved Forecasting*. NeurIPS 2023. |
+| 2 | Ramsay, J. O. (1988). *Monotone Regression Splines in Action*. Statistical Science 3(4), 425–441. (M-splines) |
+| 3 | Villani, C. (2009). *Optimal Transport: Old and New*. Springer. (Wasserstein distances) |
+| 4 | de Boor, C. (2001). *A Practical Guide to Splines*. Springer. (B-spline basis, Cox–de Boor recursion) |
+
+Related methods for other 1D distribution heads: → See [Normalizing Flows](nflows.md), [SLS (structured least-squares quantiles)](sls.md), and [MDN](mdn.md).
+
 ---
 
 ## `BSplineDensityBasis` (`torchregress.utils`)
@@ -99,3 +108,15 @@ per anchor.
 !!! note "Scope"
     These are building blocks. The library does not claim any particular downstream
     accuracy from them; validate on your own held-out data.
+
+---
+
+## When to use which
+
+| Building block | Operates on | Best when | Not for |
+|:---------------|:------------|:----------|:--------|
+| `BSplineDensityBasis` | Density **output space** (continuous variable) | You need a normalised, differentiable 1D density with exact evaluation, bin masses, CDF and moments from a softmax head | High-dimensional or multi-output densities (it is a 1D basis) |
+| `DiscreteWasserstein1Loss` | **Output space**, binned masses | Penalising *where* misplaced mass lands, not just whether bins disagree (KL/CrossEntropy are blind to distance) | Continuous parameterisations — use `BSplineDensityBasis.absolute_deviation` instead |
+| `RankNContrastLoss` | **Representation space** | Ordering features by target distance to improve downstream uncertainty/forecasting heads — pair it with a distribution head, not instead of one | Direct probabilistic prediction: RNC shapes features; it does not itself define a predictive distribution |
+
+→ Combine them: train features with `RankNContrastLoss`, then a `BSplineDensityBasis` head with an NLL plus a small `DiscreteWasserstein1Loss` term.

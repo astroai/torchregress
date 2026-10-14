@@ -5,8 +5,9 @@ This module implements various approaches to Error-in-Variables regression,
 where both inputs (x) and outputs (y) contain measurement errors.
 """
 
+import contextlib
 import math
-from typing import Any, Callable, Optional, Tuple, Union, cast
+from typing import Any, Callable, Iterator, Optional, Tuple, Union, cast
 
 import torch
 
@@ -29,6 +30,36 @@ from .ordinal import OrdinalCrossEntropyLoss
 def _tile(t: torch.Tensor, n_draws: int) -> torch.Tensor:
     repeat_dims = [n_draws] + [1] * (t.dim() - 1)
     return t.repeat(*repeat_dims)
+
+
+@contextlib.contextmanager
+def _elementwise_reduction(base_loss: Any) -> Iterator[None]:
+    """Temporarily force ``reduction='none'`` on a base-loss object.
+
+    torchregress (and ``torch.nn``) losses take ``reduction`` in the
+    constructor and ignore a ``reduction=`` forward kwarg, so marginalising
+    wrappers must switch the attribute for the duration of the call (and
+    restore it, even on error).  Plain callables without a ``reduction``
+    attribute are left untouched (they receive ``reduction="none"`` as a
+    keyword argument instead).
+    """
+    previous = getattr(base_loss, "reduction", None)
+    if not isinstance(previous, str):
+        yield
+        return
+    base_loss.reduction = "none"
+    try:
+        yield
+    finally:
+        base_loss.reduction = previous
+
+
+def _require_elementwise(losses: torch.Tensor, owner: str) -> None:
+    if losses.dim() == 0:
+        raise ValueError(
+            f"{owner}: base_loss returned a scalar; it must support per-element "
+            "losses (a 'reduction' attribute or a reduction='none' keyword)."
+        )
 
 
 class BaseEIVLoss(RegressionLoss):
@@ -179,6 +210,30 @@ class BaseEIVLoss(RegressionLoss):
 
         raise TypeError(f"sigma must be float or tensor, got {type(sigma).__name__}")
 
+    def _stable_inverse(self, cov: torch.Tensor, n_features: int) -> torch.Tensor:
+        """Invert a (batched) covariance with a RELATIVE diagonal jitter.
+
+        The jitter is ``10 * finfo.eps`` times the mean diagonal variance, so
+        it stabilises the Cholesky factorisation without changing the
+        objective for small noise levels (an absolute jitter of ``eps=1e-3``
+        dominated variances below ``~0.03**2``).  An all-zero covariance falls
+        back to the absolute ``self.eps`` jitter.
+        """
+        rel = 10.0 * torch.finfo(cov.dtype).eps
+        if cov.ndim <= 1:
+            scale = cov.abs().mean()
+            jitter = torch.where(scale > 0, rel * scale, torch.full_like(scale, self.eps))
+            return 1.0 / (cov + jitter)
+        diag = torch.diagonal(cov, dim1=-2, dim2=-1)
+        scale = diag.abs().mean(dim=-1, keepdim=True).unsqueeze(-1)  # [..., 1, 1]
+        jitter = torch.where(scale > 0, rel * scale, torch.full_like(scale, self.eps))
+        eye = torch.eye(n_features, device=cov.device, dtype=cov.dtype)
+        try:
+            chol = torch.linalg.cholesky(cov + jitter * eye)
+            return torch.cholesky_inverse(chol)
+        except RuntimeError:
+            return torch.linalg.pinv(cov)
+
     def _prepare_inverse_covariances(
         self,
         sigma_x_tensor: torch.Tensor,
@@ -190,6 +245,10 @@ class BaseEIVLoss(RegressionLoss):
         """
         Calculate inverse covariance matrices for Mahalanobis distances.
 
+        Uses a relative diagonal jitter (see :meth:`_stable_inverse`) so the
+        Mahalanobis objective is evaluated with the user's covariances, not
+        ``Sigma + eps * I``.
+
         Args:
             sigma_x_tensor: Covariance matrix for features
             sigma_y_tensor: Covariance matrix for targets
@@ -200,37 +259,13 @@ class BaseEIVLoss(RegressionLoss):
         Returns:
             Tuple of (sigma_x_inv, sigma_y_inv)
         """
-        if sigma_x_tensor.ndim <= 1:
-            sigma_x_inv = 1.0 / (sigma_x_tensor + self.eps)
-        else:
-            try:
-                jitter = (
-                    torch.eye(n_features_x, device=device, dtype=sigma_x_tensor.dtype) * self.eps
-                )
-                sigma_x_stable = sigma_x_tensor + jitter
-                chol = torch.linalg.cholesky(sigma_x_stable)
-                sigma_x_inv = torch.cholesky_inverse(chol)
-            except RuntimeError:
-                sigma_x_inv = torch.linalg.pinv(sigma_x_tensor)
-
+        del device
+        sigma_x_inv = self._stable_inverse(sigma_x_tensor, n_features_x)
         if sigma_y_tensor is None:
             sigma_y_inv = None
         else:
-            if sigma_y_tensor.ndim <= 1:
-                sigma_y_inv = 1.0 / (sigma_y_tensor + self.eps)
-            else:
-                try:
-                    jitter = (
-                        torch.eye(n_features_y, device=device, dtype=sigma_y_tensor.dtype)
-                        * self.eps
-                    )
-                    sigma_y_stable = sigma_y_tensor + jitter
-                    chol = torch.linalg.cholesky(sigma_y_stable)
-                    sigma_y_inv = torch.cholesky_inverse(chol)
-                except RuntimeError:
-                    sigma_y_inv = torch.linalg.pinv(sigma_y_tensor)
-
-        return sigma_x_inv, sigma_y_inv
+            sigma_y_inv = self._stable_inverse(sigma_y_tensor, n_features_y)
+        return sigma_x_inv, cast(torch.Tensor, sigma_y_inv)
 
     def _calculate_mahalanobis_distance(
         self, diff: torch.Tensor, sigma_inv: torch.Tensor
@@ -262,6 +297,11 @@ class InputNoiseAugmentationLoss(RegressionLoss):
     perturbations, which serves as data augmentation/regularization, rather than the
     proper latent-variable marginal likelihood. For proper marginal likelihood, use
     `LatentMarginalizationLoss`.
+
+    The base loss is evaluated per element (its ``reduction`` attribute is set
+    to ``"none"`` for the duration of the call and restored afterwards); sample
+    ``weights``, ``mask`` and this loss's ``reduction`` are applied once, after
+    averaging over the Monte-Carlo draws.
     """
 
     def __init__(
@@ -478,24 +518,27 @@ class InputNoiseAugmentationLoss(RegressionLoss):
         predictions = self.sample_predictions(observed, sigma_x=sigma_x)
 
         if not isinstance(predictions, torch.Tensor):
-            # Fallback to loop for structured outputs (e.g. lists of tuples/dicts)
+            # Fallback to loop for structured outputs (e.g. lists of tuples/dicts).
+            # A10: weights apply once at the outer reduction, not per draw.
             losses = []
             kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
-            for prediction in predictions:
-                losses.append(
-                    cast(
-                        torch.Tensor,
-                        self.base_loss(
-                            prediction,
-                            target,
-                            mask=mask,
-                            weights=weights,
-                            reduction="none",
-                            **kwargs_no_red,
-                        ),
+            with _elementwise_reduction(self.base_loss):
+                for prediction in predictions:
+                    losses.append(
+                        cast(
+                            torch.Tensor,
+                            self.base_loss(
+                                prediction,
+                                target,
+                                mask=mask,
+                                reduction="none",
+                                **kwargs_no_red,
+                            ),
+                        )
                     )
-                )
-            return torch.stack(losses).mean(dim=0)
+            stacked = torch.stack(losses)
+            _require_elementwise(stacked[0], type(self).__name__)
+            return self._reduce(stacked.mean(dim=0), mask, weights)
 
         # Vectorized path for standard Tensor outputs (much faster)
         n_samples, batch_size = predictions.shape[:2]
@@ -508,22 +551,18 @@ class InputNoiseAugmentationLoss(RegressionLoss):
         flat_target = _tile(target, n_samples)
         flat_mask = _tile(mask, n_samples) if mask is not None else None
 
-        # Force reduction='none' to average over samples properly before final reduction
+        # Force per-element base losses (attribute switch + kwarg for plain
+        # callables) so draws are averaged before the single outer reduction.
         kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
-        flat_losses = self.base_loss(
-            flat_preds,
-            flat_target,
-            mask=flat_mask,
-            reduction="none",
-            **kwargs_no_red,
-        )
-
-        # If base_loss already reduced (e.g. mean), we just return it.
-        # But for EIV we expect base_loss usually to be 'none' when called internally
-        # so we can average over samples ourselves.
-        # Check if reduction is applied inside base_loss
-        if flat_losses.dim() == 0:
-            return flat_losses
+        with _elementwise_reduction(self.base_loss):
+            flat_losses = self.base_loss(
+                flat_preds,
+                flat_target,
+                mask=flat_mask,
+                reduction="none",
+                **kwargs_no_red,
+            )
+        _require_elementwise(flat_losses, type(self).__name__)
 
         # Reshape losses back to [n_samples, batch_size, ...] and average over samples
         sample_losses = flat_losses.reshape(n_samples, batch_size, *flat_losses.shape[1:])
@@ -557,6 +596,17 @@ class LatentMarginalizationLoss(BaseEIVLoss):
             "expectation" (averaging losses over samples)
         reduction: One of 'none', 'mean', 'sum'
         eps: Small value for numerical stability
+
+    Notes:
+        ``base_loss`` must return the per-sample negative log-likelihood when
+        evaluated element-wise: its ``reduction`` attribute is set to
+        ``"none"`` for the duration of the call (and restored afterwards), so
+        a default-constructed ``GaussianNLLLoss()`` works.  In
+        ``"likelihood"`` mode the per-element NLLs of a multi-output target are
+        summed (joint likelihood of the target vector) before the
+        log-mean-exp over draws, so ``reduction="none"`` returns one value per
+        sample.  Sample ``weights`` and ``mask`` are applied once, at the outer
+        reduction.
     """
 
     def __init__(
@@ -709,30 +759,39 @@ class LatentMarginalizationLoss(BaseEIVLoss):
         flat_target = _tile(target, n_draws)
         flat_mask = _tile(mask, n_draws) if mask is not None else None
 
-        # 3. Compute base NLL loss for each sample (with reduction='none')
+        # 3. Compute base NLL loss for each draw, element-wise (the base loss's
+        #    own reduction attribute is switched to 'none' for this call).
         kwargs_no_red = {k: v for k, v in kwargs.items() if k != "reduction"}
-        flat_losses = self.base_loss(
-            flat_predictions,
-            flat_target,
-            mask=flat_mask,
-            reduction="none",
-            **kwargs_no_red,
-        )
-
-        if flat_losses.dim() == 0:
-            return flat_losses
+        with _elementwise_reduction(self.base_loss):
+            flat_losses = self.base_loss(
+                flat_predictions,
+                flat_target,
+                mask=flat_mask,
+                reduction="none",
+                **kwargs_no_red,
+            )
+        _require_elementwise(flat_losses, type(self).__name__)
 
         # Reshape flat_losses back to [n_samples, batch_size, ...]
         sample_losses = flat_losses.reshape(n_draws, batch_size, *flat_losses.shape[1:])
 
         # 4. Apply marginalization reduction
         if self.marginalization_mode == "likelihood":
-            # Proper marginal negative log-likelihood: -log (1/S * sum exp(-NLL_s))
-            # = -logsumexp(-sample_losses, dim=0) + log(S)
+            # Joint NLL of each sample's target vector (masked entries are
+            # zero-filled by the base loss), then the proper marginal negative
+            # log-likelihood: -log (1/S * sum_s exp(-NLL_s))
+            # = -logsumexp(-NLL, dim=0) + log(S).
+            if sample_losses.dim() > 2:
+                sample_losses = sample_losses.reshape(n_draws, batch_size, -1).sum(dim=-1)
             marginalized_losses = -torch.logsumexp(-sample_losses, dim=0) + math.log(n_draws)
-        else:
-            # Expectation of NLL under posterior (upper bound / augmentation style)
-            marginalized_losses = sample_losses.mean(dim=0)
+            row_mask = None
+            if mask is not None:
+                row_mask = mask.reshape(batch_size, -1).any(dim=-1)
+            # 5. Apply weights and final reduction (one value per sample)
+            return self._reduce(marginalized_losses, row_mask, weights)
+
+        # Expectation of NLL under posterior (upper bound / augmentation style)
+        marginalized_losses = sample_losses.mean(dim=0)
 
         # 5. Apply weights and final reduction
         return self._reduce(marginalized_losses, mask, weights)
@@ -833,7 +892,7 @@ class InputNoiseMDNLoss(InputNoiseAugmentationLoss):
         reduction: str = "mean",
         **kwargs: Any,
     ) -> None:
-        mdn_kwargs = {
+        mdn_kwargs: dict[str, Any] = {
             "n_components": n_components,
             "n_features": n_features,
             "covariance_type": kwargs.pop("covariance_type", "diagonal"),
@@ -1014,7 +1073,10 @@ class FunctionalEIVLoss(BaseEIVLoss):
         )
 
         if self.mode == "analytical":
-            # Analytical approach: use gradients to propagate uncertainty
+            # Analytical approach: use gradients to propagate uncertainty.
+            # The Jacobian stays differentiable (create_graph) whenever the
+            # caller tracks gradients, so J Sigma_x J^T is part of the graph.
+            build_graph = torch.is_grad_enabled()
             with torch.enable_grad():
                 x_grad = prepare_model_input_for_gradients(x_obs)
                 model_output = self.model(x_grad)
@@ -1026,7 +1088,9 @@ class FunctionalEIVLoss(BaseEIVLoss):
                 residuals = y_true - model_output
 
                 # Calculate gradients and propagate variance
-                grad = compute_model_gradients(model_output, x_grad, n_features_y)
+                grad = compute_model_gradients(
+                    model_output, x_grad, n_features_y, create_graph=build_graph
+                )
 
                 # Propagate variance from inputs to outputs (gradients allowed —
                 # the log(var) NLL term balances Jacobian shrinkage against residual
@@ -1036,7 +1100,8 @@ class FunctionalEIVLoss(BaseEIVLoss):
                     grad, sigma_x_tensor, sigma_y=sigma_y_tensor
                 )
 
-                # Calculate negative log-likelihood (var fixed, residuals trainable)
+                # Gaussian NLL; both the residuals and the propagated variance
+                # carry gradients w.r.t. the model parameters (B-LOSS-001).
                 loss = calculate_gaussian_nll(residuals, propagated_var, eps=self.eps)
 
         elif self.mode == "mc":
@@ -1220,12 +1285,15 @@ class FunctionalEIVLoss(BaseEIVLoss):
         - Gaussian NLL to combine them
         """
         # ── 1. Analytical Jacobian variance (stable) ──────────
+        build_graph = torch.is_grad_enabled()
         with torch.enable_grad():
             x_grad = prepare_model_input_for_gradients(x_obs)
             model_output = self.model(x_grad)
             if mask is not None:
                 model_output = apply_mask(model_output, mask)
-            grad = compute_model_gradients(model_output, x_grad, n_features_y)
+            grad = compute_model_gradients(
+                model_output, x_grad, n_features_y, create_graph=build_graph
+            )
             propagated_var = calculate_propagated_variance(
                 grad, sigma_x_tensor, sigma_y=sigma_y_tensor
             )
@@ -1400,8 +1468,17 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
         learning_rate: Learning rate for the latent x optimization
         max_iterations: Maximum iterations for latent x optimization
         tolerance: Convergence criterion for optimization
-        reduction: One of 'none', 'mean', 'sum'
-        eps: Small value for numerical stability
+        gradient_mode: ``"envelope"`` (Adam on the latent x, envelope-theorem
+            gradient) or ``"unrolled"`` (differentiable SGD steps on the
+            per-sample objective; each sample's latent x moves by
+            ``learning_rate`` times its OWN gradient, independent of the
+            batch size).
+        reduction: One of 'none', 'mean', 'sum'.  Fully masked rows are
+            excluded from the mean and ``weights`` give a weighted mean
+            ``sum(w * l) / sum(w)`` (``BaseLoss._reduce``).
+        eps: Absolute jitter used only for an all-zero covariance; the
+            covariance inverses otherwise use a relative jitter so small
+            noise levels are not distorted.
 
     Shape:
         - y_pred: :math:`(N, D_{in})` where N is batch size and D_{in} is input dimension
@@ -1598,7 +1675,10 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
                     y_diff = y_true - model_output
                     y_dist = self._calculate_mahalanobis_distance(y_diff, sigma_y_inv)
 
-                    odr_objective = torch.mean(x_dist + y_dist)
+                    # Sum (not mean) over the batch: the objective is separable
+                    # per sample, so each latent x takes a step on its own
+                    # objective regardless of the batch size.
+                    odr_objective = torch.sum(x_dist + y_dist)
 
                     # Compute gradient functionally; create_graph=self.training ensures
                     # backprop through optimization is possible during training.
@@ -1627,19 +1707,14 @@ class OrthogonalDistanceRegressionLoss(BaseEIVLoss):
 
             loss = final_x_dist + final_y_dist
 
-        # Apply weights
+        # Apply weights / mask through the shared reduction: a row is dropped
+        # only when ALL its outputs are masked (its x-term is then zero too).
         if weights is not None:
-            weights = validate_weights(weights, batch_size)
-            weights = cast(torch.Tensor, weights)
-            loss = loss * weights
-
-        # Apply reduction
-        if self.reduction == "mean":
-            return torch.mean(loss)
-        elif self.reduction == "sum":
-            return torch.sum(loss)
-        else:  # 'none'
-            return loss
+            weights = cast(torch.Tensor, validate_weights(weights, batch_size))
+        row_mask = None
+        if mask is not None:
+            row_mask = mask.reshape(batch_size, -1).any(dim=-1)
+        return self._reduce(loss, row_mask, weights)
 
 
 @register_regression_loss("ensemble_eiv")

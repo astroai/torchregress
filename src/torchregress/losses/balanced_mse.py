@@ -38,10 +38,21 @@ def _bin_indices(y: Tensor, bin_edges: Tensor) -> Tensor:
     return cast(Tensor, idx.clamp(0, n_bins - 1))
 
 
-def _normalize_weights(w: Tensor) -> Tensor:
-    """Scale weights so their mean is 1 (stable loss magnitude)."""
-    mean_w = w.mean().clamp(min=torch.finfo(w.dtype).eps)
-    return w / mean_w
+def _inverse_frequency_bin_weights(counts: Tensor, smoothing: float) -> Tensor:
+    """Per-bin inverse (smoothed) frequency weights, mean 1 over training samples.
+
+    ``w_b = 1 / (count_b + smoothing)``; bins whose smoothed count is zero
+    (empty, unsmoothed) get weight 0 instead of ``1/eps``, so a single empty
+    bin cannot collapse every populated bin's weight.  The weights are scaled
+    so that their average over the TRAINING samples (``sum_b count_b w_b / N``)
+    is 1, which keeps the training loss on the scale of the plain MSE and
+    makes the weights of populated bins independent of empty bins.
+    """
+    smooth = counts + smoothing
+    inv = torch.where(smooth > 0, 1.0 / smooth.clamp(min=torch.finfo(smooth.dtype).tiny), 0.0)
+    n_train = counts.sum()
+    per_sample_mean = (counts * inv).sum() / n_train.clamp(min=1.0)
+    return inv / per_sample_mean.clamp(min=torch.finfo(inv.dtype).tiny)
 
 
 @register_regression_loss("balanced_mse")
@@ -51,7 +62,8 @@ class BalancedMSELoss(RegressionLoss):
 
     After :meth:`fit`, each training target falls into a bin; per-bin weights are
     proportional to ``1 / count`` (optionally with additive smoothing). Weights are
-    normalized to mean 1.
+    normalized so that their mean over the training samples is 1; bins with a
+    zero (smoothed) count get weight 0.
 
     Parameters
     ----------
@@ -101,10 +113,8 @@ class BalancedMSELoss(RegressionLoss):
         ind = _bin_indices(y, edges)
         n_bins = edges.numel() - 1
         counts = torch.bincount(ind, minlength=n_bins).to(dtype=torch.float32)
-        smooth = counts + self.count_smoothing
-        inv = 1.0 / smooth.clamp(min=torch.finfo(smooth.dtype).eps)
-        w = _normalize_weights(inv).to(device=edges.device, dtype=edges.dtype)
-        self._bin_weights = w
+        w = _inverse_frequency_bin_weights(counts, self.count_smoothing)
+        self._bin_weights = w.to(device=edges.device, dtype=edges.dtype)
         return self
 
     def forward(
@@ -125,11 +135,9 @@ class BalancedMSELoss(RegressionLoss):
             per_bin = per_bin.unsqueeze(-1)
         sq = (y_pred - target) ** 2
         weighted = sq * per_bin
-        if weights is not None:
-            if weights.dim() < weighted.dim():
-                weights = weights.reshape(weights.shape + (1,) * (weighted.dim() - weights.dim()))
-            weighted = weighted * weights
-        return self._reduce(weighted, mask, None)
+        # User sample weights follow the BaseLoss._reduce contract (weighted
+        # mean sum(w * l) / sum(w)); the bin weights stay part of the loss.
+        return self._reduce(weighted, mask, weights)
 
 
 @register_regression_loss("bin_weighted_mse")
@@ -140,7 +148,8 @@ class BinReweightedMSELoss(RegressionLoss):
     This is plain binned inverse-frequency weighted MSE: it fits ``num_bins``
     bins on the training target range (equal width or quantile splits) and
     assigns per-sample weights ``1 / (count_b + noise_sigma)``, normalized to
-    mean 1. Larger ``noise_sigma`` down-weights rare bins less aggressively.
+    mean 1 over the training samples (empty bins with ``noise_sigma=0`` get
+    weight 0). Larger ``noise_sigma`` down-weights rare bins less aggressively.
 
     Parameters
     ----------
@@ -205,9 +214,7 @@ class BinReweightedMSELoss(RegressionLoss):
         ind = _bin_indices(y, self.bin_edges)
         n_bins = self.bin_edges.numel() - 1
         counts = torch.bincount(ind, minlength=n_bins).to(dtype=torch.float32)
-        smooth = counts + self.noise_sigma
-        inv = 1.0 / smooth.clamp(min=torch.finfo(smooth.dtype).eps)
-        self._bin_weights = _normalize_weights(inv).to(
+        self._bin_weights = _inverse_frequency_bin_weights(counts, self.noise_sigma).to(
             device=self.bin_edges.device, dtype=self.bin_edges.dtype
         )
         return self
@@ -236,8 +243,6 @@ class BinReweightedMSELoss(RegressionLoss):
             per_bin = per_bin.unsqueeze(-1)
         sq = (y_pred - target) ** 2
         weighted = sq * per_bin
-        if weights is not None:
-            if weights.dim() < weighted.dim():
-                weights = weights.reshape(weights.shape + (1,) * (weighted.dim() - weights.dim()))
-            weighted = weighted * weights
-        return self._reduce(weighted, mask, None)
+        # User sample weights follow the BaseLoss._reduce contract (weighted
+        # mean sum(w * l) / sum(w)); the bin weights stay part of the loss.
+        return self._reduce(weighted, mask, weights)

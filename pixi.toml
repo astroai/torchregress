@@ -1,35 +1,38 @@
 [workspace]
 name = "torchregress"
 version = "0.2.0"
-description = "PyTorch loss functions and utilities for regression problems."
+description = "Probabilistic and robust regression for PyTorch: losses, metrics, conformal prediction and calibration."
 authors = ["Sébastien Fabbro <sebfabbro@gmail.com>"]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64"]
 
 [dependencies]
 python = "3.13.*"
-pytorch = ">=2.0"
-numpy = ">=1.24"
-scipy = ">=1.10"
-torchmetrics = ">=1.0"
-matplotlib = ">=3.8"
+pytorch = ">=2.13"
+numpy = ">=2.5"
+scipy = ">=1.18"
+torchmetrics = ">=1.9"
+matplotlib = ">=3.11"
 zuko = ">=1.6"
 
 [feature.dev.dependencies]
-ruff = ">=0.6"
-ty = ">=0.0.5"
+ruff = ">=0.16"
+ty = ">=0.0.65"
 
 [feature.test.dependencies]
-pytest = ">=8.0"
-pytest-cov = ">=5.0"
-polars = "*"
-pyarrow = "*"
-pyyaml = "*"
-scikit-learn = "*"
-pandas = "*"
+pytest = ">=9.1"
+pytest-cov = ">=7.1"
+polars = ">=1.43"
+pyarrow = ">=25.0"
+pyyaml = ">=6.0.3"
+scikit-learn = ">=1.9"
+pandas = ">=3.0"
+scoringrules = ">=0.11.0,<0.12"
+properscoring = ">=0.1,<0.2"
+hypothesis = ">=6.168.5,<7"
 
 [feature.docs.pypi-dependencies]
-zensical = "*"
+zensical = ">=0.0.52"
 
 [feature.release.pypi-dependencies]
 build = "*"
@@ -46,6 +49,7 @@ lint = { cmd = "ruff check src/torchregress tests tools && ruff format --check s
 format = "ruff format src/torchregress tests tools"
 typecheck = "ty check --python .pixi/envs/default src/torchregress"
 test = "pytest --cov=torchregress --cov-report=term --cov-report=xml"
+test-cuda = "bash scripts/ci_cuda.sh"
 docs = "zensical build --strict"
 build = "python -m build"
 ci = { depends-on = ["lint", "typecheck", "test", "docs"] }

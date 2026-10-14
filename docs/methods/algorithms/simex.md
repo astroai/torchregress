@@ -83,13 +83,15 @@ simex.fit(X_train, y_train)
 y_pred = simex.predict(X_test)
 ```
 
+`predict` perturbs the test inputs with $\sqrt{\lambda}\,\mathcal{N}(0, \Sigma_u)$ noise at every level, drawing an **independent** remeasurement for each of the `n_simulations` models, so the $\lambda$-level prediction averages over all replicates; its Monte Carlo spread shrinks like $1/\sqrt{B}$. The noise is simulated in the dtype of `X_train` (float64 data is supported) and without any absolute jitter, so SIMEX is equivariant to the units of the inputs.
+
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
 | `model_factory` | callable | — | Returns a fresh model instance |
 | `train_func` | callable | — | `(model, X, y) → trained_model` |
 | `sigma_u` | float / Tensor | — | Measurement error (scalar, vector, or cov matrix) |
 | `lambdas` | list of float | `[0.5, 1.0, 1.5, 2.0]` | Noise multiplier levels |
-| `n_simulations` | int | `1` | Monte Carlo replicates averaged per $\lambda$ |
+| `n_simulations` | int | `5` | Monte Carlo replicates averaged per $\lambda$ |
 | `extrapolation_order` | int | `2` | Polynomial degree ($1$ = linear, $2$ = quadratic) |
 
 ---

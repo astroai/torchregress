@@ -465,11 +465,34 @@ def test_external_comparison_conformal_vs_mapie_main_smoke() -> None:
         assert len(rows) == 8, f"expected 8 rows (3 tr + 5 ext), got {len(rows)}: {rows}"
         libraries = sorted({r["Library"] for r in rows})
         assert libraries == ["MAPIE", "crepes", "torchcp", "torchregress"], libraries
+        # An installed comparator must produce populated rows: a package that is
+        # installed but API-incompatible (e.g. MAPIE 0.x, torchcp < 1.2) is a
+        # failure of this example, not a silent skip.
+        available = {
+            "MAPIE": mod._MAPIE_AVAILABLE,
+            "crepes": mod._CREPES_AVAILABLE,
+            "torchcp": mod._TORCHCP_AVAILABLE,
+        }
+        installed = {
+            "MAPIE": mod._MAPIE.status != "not_installed",
+            "crepes": mod._CREPES.status != "not_installed",
+            "torchcp": mod._TORCHCP.status != "not_installed",
+        }
+        for r in rows:
+            lib = r["Library"]
+            if lib == "torchregress" or installed[lib]:
+                assert r["Coverage"] is not None, f"row not populated: {r}"
+                assert 0.0 <= r["Coverage"] <= 1.0
+                assert r["Width"] > 0
+            if lib in available and not installed[lib]:
+                assert str(r["Notes"]).startswith("skipped:") and "not installed" in r["Notes"]
+            if lib in available and installed[lib] and not available[lib]:
+                pytest.fail(f"{lib} is installed but incompatible: {r['Notes']}")
 
 
 @pytest.mark.skipif(
     not _load_example_module("external_comparison_conformal_vs_mapie")._CREPES_AVAILABLE,
-    reason="crepes not installed (install via `uv pip install torchregress[external]`)",
+    reason="crepes not installed (install via `uv pip install crepes`)",
 )
 def test_external_comparison_conformal_vs_mapie_crepes_paths_run() -> None:
     """Exercise the crepes split + CQR code paths when crepes is installed.
@@ -501,6 +524,39 @@ def test_external_comparison_conformal_vs_mapie_crepes_paths_run() -> None:
     assert (lo_cqr <= hi_cqr).all()
 
 
+@pytest.mark.skipif(
+    not _load_example_module("external_comparison_conformal_vs_mapie")._MAPIE_AVAILABLE,
+    reason="MAPIE >= 1.0 not installed (install via `uv pip install mapie`)",
+)
+def test_external_comparison_conformal_vs_mapie_mapie_paths_run() -> None:
+    """Exercise the MAPIE 1.x (``fit`` / ``conformalize`` / ``predict_interval``) paths."""
+    mod = _load_example_module("external_comparison_conformal_vs_mapie")
+    cfg = mod.ConformalExternalConfig(n_train=120, n_cal=80, n_test=80, epochs=2)
+    splits = mod._simulate(cfg)
+    for lo, hi in (
+        mod._mapie_split_intervals(splits, alpha=cfg.alpha),
+        mod._mapie_cqr_intervals(splits, alpha=cfg.alpha, seed=cfg.seed),
+    ):
+        assert lo.shape == (cfg.n_test,)
+        assert hi.shape == (cfg.n_test,)
+        assert (lo <= hi).all()
+
+
+@pytest.mark.skipif(
+    not _load_example_module("external_comparison_conformal_vs_mapie")._TORCHCP_AVAILABLE,
+    reason="torchcp >= 1.2 not installed (install via `uv pip install torchcp`)",
+)
+def test_external_comparison_conformal_vs_mapie_torchcp_path_runs() -> None:
+    """Exercise the torchcp ``SplitPredictor`` path."""
+    mod = _load_example_module("external_comparison_conformal_vs_mapie")
+    cfg = mod.ConformalExternalConfig(n_train=120, n_cal=80, n_test=80, epochs=2)
+    splits = mod._simulate(cfg)
+    lo, hi = mod._torchcp_split_intervals(splits, alpha=cfg.alpha)
+    assert lo.shape == (cfg.n_test,)
+    assert hi.shape == (cfg.n_test,)
+    assert (lo <= hi).all()
+
+
 def test_external_comparison_bayesian_linear_vs_botorch_main_smoke() -> None:
     import tempfile
 
@@ -517,6 +573,7 @@ def test_external_comparison_bayesian_linear_vs_botorch_main_smoke() -> None:
 
 
 def test_external_comparison_tweedie_vs_sklego_main_smoke() -> None:
+    import json
     import tempfile
 
     mod = _load_example_module("external_comparison_tweedie_vs_sklego")
@@ -531,6 +588,13 @@ def test_external_comparison_tweedie_vs_sklego_main_smoke() -> None:
         out = str(Path(tmp) / "summary.json")
         mod.main(cfg, summary_json_path=out)
         assert Path(out).exists()
+        rows = json.loads(Path(out).read_text())["rows"]
+        # The GLM baseline is scikit-learn (always installed); scikit-lego no
+        # longer has a Tweedie GLM, so the row must be populated, not skipped.
+        glm = [r for r in rows if r["Library"] == "scikit-learn"]
+        assert len(glm) == 1
+        assert glm[0]["TweedieDeviance"] is not None, glm[0]["Notes"]
+        assert glm[0]["Version"]
 
 
 def test_noisy_label_comparison_main_smoke() -> None:

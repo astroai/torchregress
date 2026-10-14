@@ -43,14 +43,57 @@ def disagreement_to_weight(
     power: float = 1.0,
     eps: float = 1e-8,
     hard_weight_threshold: float | None = None,
-    **kwargs: Any,
+    batch_relative_mode: bool | None = None,
+    batch_trust_top_k: int | None = None,
 ) -> Tensor:
-    """Convert disagreement scores into trust weights."""
+    """Convert disagreement scores into trust weights.
+
+    Computes ``w = min(exp(-d / tau), 1) ** power`` per sample, with optional
+    batch-relative normalisation and gating.
+
+    Parameters
+    ----------
+    disagreement
+        Per-sample disagreement scores (lower means more trustworthy).
+    tau
+        Temperature; larger values give flatter weights. Must be positive.
+    power
+        Exponent applied to the weights. Must be positive.
+    eps
+        Floor on the batch standard deviation used by ``batch_relative_mode``.
+    hard_weight_threshold
+        If set, weights below this value are set to zero (applied last).
+    batch_relative_mode
+        If true, z-score the disagreement within the batch,
+        ``d <- (d - mean(d)) / max(std(d), eps)``, before the exponential, so the
+        weighting adapts to the batch's disagreement scale.
+    batch_trust_top_k
+        If set, only the ``k`` samples with the lowest disagreement in the batch
+        keep their weight; all others get weight zero. Must be a positive integer.
+
+    Returns
+    -------
+    Tensor
+        Weights in ``[0, 1]`` with the shape of ``disagreement``.
+    """
     if tau <= 0.0:
         raise ValueError("tau must be positive")
     if power <= 0.0:
         raise ValueError("power must be positive")
-    weight = torch.exp(-disagreement / tau).clamp_max(1.0)
+    d = disagreement
+    if batch_relative_mode:
+        d = (d - d.mean()) / d.std(unbiased=False).clamp_min(eps)
+    weight = torch.exp(-d / tau).clamp_max(1.0)
+    if batch_trust_top_k is not None:
+        k = int(batch_trust_top_k)
+        if k != batch_trust_top_k or k < 1:
+            raise ValueError(
+                f"batch_trust_top_k must be a positive integer, got {batch_trust_top_k}"
+            )
+        flat = disagreement.reshape(-1)
+        keep = torch.zeros(flat.numel(), dtype=torch.bool, device=flat.device)
+        keep[torch.topk(flat, min(k, flat.numel()), largest=False).indices] = True
+        weight = torch.where(keep.reshape(weight.shape), weight, torch.zeros_like(weight))
     if power != 1.0:
         weight = weight.pow(power)
     if hard_weight_threshold is not None:
@@ -788,7 +831,12 @@ def distributional_pseudo_loss(
 
 
 class SAGERegLoss(nn.Module):
-    """Composite supervised + weighted distributional pseudo-supervision loss."""
+    """Composite supervised + weighted distributional pseudo-supervision loss.
+
+    Per-sample trust weights are computed with :func:`disagreement_to_weight`
+    from ``tau``, ``weight_power``, ``hard_weight_threshold``,
+    ``batch_relative_mode`` and ``batch_trust_top_k``.
+    """
 
     def __init__(
         self,
@@ -802,6 +850,9 @@ class SAGERegLoss(nn.Module):
         eps: float = 1e-8,
         detach_weights: bool = True,
         weight_power: float = 1.0,
+        hard_weight_threshold: float | None = None,
+        batch_relative_mode: bool = False,
+        batch_trust_top_k: int | None = None,
     ) -> None:
         super().__init__()
         if tau <= 0.0:
@@ -821,6 +872,9 @@ class SAGERegLoss(nn.Module):
         self.eps = eps
         self.detach_weights = detach_weights
         self.weight_power = weight_power
+        self.hard_weight_threshold = hard_weight_threshold
+        self.batch_relative_mode = batch_relative_mode
+        self.batch_trust_top_k = batch_trust_top_k
 
     def agreement(self, unlabeled_views: Sequence[PredictiveBatch]) -> SAGERegAgreement:
         consensus = build_consensus_predictive_batch(
@@ -845,6 +899,9 @@ class SAGERegLoss(nn.Module):
             self.tau,
             power=self.weight_power,
             eps=self.eps,
+            hard_weight_threshold=self.hard_weight_threshold,
+            batch_relative_mode=self.batch_relative_mode,
+            batch_trust_top_k=self.batch_trust_top_k,
         )
         weights = raw_weights.detach() if self.detach_weights else raw_weights
         anchor_prediction = unlabeled_views[0]
@@ -892,6 +949,12 @@ class TeacherStudentTrainer:
     Orchestrates labeled and unlabeled training steps. Custom sample weighting
     policies can be injected to handle continuous heteroscedastic pseudo-labeling,
     conformal width gating, and target label shift prior correction.
+
+    When ``sample_weight_fn`` is not given, per-sample trust weights come from
+    :func:`disagreement_to_weight` applied to the inter-view disagreement, using
+    ``tau``, ``weight_power``, ``hard_weight_threshold``, ``batch_relative_mode``
+    and ``batch_trust_top_k`` (see that function for their meaning). These
+    arguments are ignored when a custom ``sample_weight_fn`` is supplied.
     """
 
     def __init__(
@@ -914,15 +977,18 @@ class TeacherStudentTrainer:
         min_scale: float = 1e-4,
         eps: float = 1e-8,
         detach_weights: bool = True,
-        tau: float = 0.5,
+        tau: float = 0.2,
         weight_power: float = 1.0,
         hard_weight_threshold: float | None = None,
         batch_relative_mode: bool = False,
-        batch_trust_top_k: float | None = None,
-        **kwargs: Any,
+        batch_trust_top_k: int | None = None,
     ) -> None:
         if n_views < 2:
             raise ValueError("n_views must be at least 2")
+        if tau <= 0.0:
+            raise ValueError("tau must be positive")
+        if weight_power <= 0.0:
+            raise ValueError("weight_power must be positive")
 
         self.optimizer = optimizer
         self.supervised_loss_fn = supervised_loss_fn
@@ -988,7 +1054,15 @@ class TeacherStudentTrainer:
             eps=self.eps,
             reduction="none",
         )
-        return disagreement_to_weight(disagreement, tau=0.2, eps=self.eps)
+        return disagreement_to_weight(
+            disagreement,
+            tau=self.tau,
+            power=self.weight_power,
+            eps=self.eps,
+            hard_weight_threshold=self.hard_weight_threshold,
+            batch_relative_mode=self.batch_relative_mode,
+            batch_trust_top_k=self.batch_trust_top_k,
+        )
 
     def compute_consensus(self, predictive_views: Sequence[PredictiveBatch]) -> PredictiveBatch:
         return build_consensus_predictive_batch(

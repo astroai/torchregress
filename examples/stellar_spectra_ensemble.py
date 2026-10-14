@@ -34,7 +34,7 @@ from torchregress.comparison import (
 )
 from torchregress.ensemble import BaseEnsembleModel
 from torchregress.losses import GaussianNLLLoss
-from torchregress.metrics import uncertainty_decomposition
+from torchregress.metrics import ensemble_variance_decomposition
 from torchregress.viz import plot_corner_plot
 
 # Set random seeds
@@ -171,7 +171,7 @@ def main():
 
     # Deconstruct Aleatoric & Epistemic variances via torchregress.metrics
     ens_mean_norm = member_means.mean(dim=0)  # [N_test, 3]
-    epi_var_norm, alea_var_norm = uncertainty_decomposition(member_means, member_vars)
+    epi_var_norm, alea_var_norm = ensemble_variance_decomposition(member_means, member_vars)
     tot_var_norm = alea_var_norm + epi_var_norm
 
     # Convert back to unnormalized physical units

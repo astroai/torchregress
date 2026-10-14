@@ -810,6 +810,53 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Scalar variance temperature fitted by NLL minimization.",
     ),
     MethodMetadata(
+        name="ConformalRegressor",
+        family="conformal",
+        public_path="torchregress.estimators.ConformalRegressor",
+        task_tags=("coverage_guarantees", "prediction_intervals", "calibration"),
+        maturity="Available",
+        multi_target="no",
+        non_gaussian="yes",
+        calibration="yes",
+        notes=(
+            "Experimental sklearn-style wrapper (may change in 0.4): split, normalized, CQR, "
+            "CV+ and Jackknife+ intervals on any base (scikit-learn, LightGBM, torch module, "
+            "TabularFit) through SplitConformal / CQR / CVPlus; parity with MAPIE on shared "
+            "bases is tested."
+        ),
+    ),
+    MethodMetadata(
+        name="CalibratedRegressor",
+        family="calibration_transform",
+        public_path="torchregress.estimators.CalibratedRegressor",
+        task_tags=("calibration", "posthoc_calibration", "prediction_intervals"),
+        maturity="Available",
+        multi_target="no",
+        calibration="yes",
+        notes=(
+            "Experimental wrapper (may change in 0.4): variance temperature (optionally with an "
+            "isotonic mean map) fitted on a held-out split for any Gaussian-output base; "
+            "optional conformal intervals."
+        ),
+    ),
+    MethodMetadata(
+        name="calibrated_deep_ensemble",
+        family="ensemble",
+        public_path="torchregress.estimators.calibrated_deep_ensemble",
+        task_tags=("uq_decomposition", "epistemic_uq", "aleatoric_uq", "calibration", "tabular"),
+        maturity="Available",
+        multi_target="no",
+        epistemic="yes",
+        aleatoric="yes",
+        decomposition="partial",
+        calibration="yes",
+        notes=(
+            "Experimental one-call recipe (may change in 0.4): Gaussian TabularMLP ensemble with "
+            "mixture moments, variance temperature on a held-out carve and optional conformal "
+            "intervals. Evidence so far is synthetic."
+        ),
+    ),
+    MethodMetadata(
         name="IsotonicMeanCalibrator",
         family="calibration_transform",
         public_path="torchregress.calibration.IsotonicMeanCalibrator",
@@ -1075,6 +1122,23 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ood_support="partial",
         calibration="partial",
         notes="Shared-weight ensemble variant for lower-latency uncertainty decomposition.",
+    ),
+    MethodMetadata(
+        name="TabularMLP",
+        family="tabular_network",
+        public_path="torchregress.models.TabularMLP",
+        task_tags=("baseline", "tabular", "heteroscedastic"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="partial",
+        aleatoric="partial",
+        calibration="partial",
+        notes=(
+            "Strong-default tabular backbone (periodic embeddings, robust-scaled inputs, "
+            "AdamW + one-cycle, early stopping via fit_tabular); head width is set to match "
+            "any torchregress loss. Evidence so far is synthetic and diabetes benchmarks, "
+            "not real medium-size tabular suites."
+        ),
     ),
     MethodMetadata(
         name="BatchEnsembleRegressor",
@@ -2278,3 +2342,17 @@ def list_decision_workflow_steps() -> List[Dict[str, Any]]:
 def list_comparative_evidence_rows() -> List[Dict[str, Any]]:
     """Return comparative example evidence coverage rows used for docs/audit reporting."""
     return [asdict(row) for row in _COMPARATIVE_EVIDENCE_ROWS]
+
+
+__all__ = [
+    "CapabilityValue",
+    "ComparativeEvidenceRow",
+    "DecisionWorkflowStep",
+    "MethodMetadata",
+    "TaskRecommendation",
+    "get_method_metadata",
+    "list_comparative_evidence_rows",
+    "list_decision_workflow_steps",
+    "list_methods",
+    "list_task_recommendations",
+]

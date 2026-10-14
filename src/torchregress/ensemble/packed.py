@@ -3,7 +3,7 @@ Packed (batch) ensemble regressor with structured uncertainty outputs.
 
 Wraps :class:`HeteroscedasticBatchEnsembleModel` (and a homoscedastic variant)
 with an optional ``alpha`` scaling factor on BatchEnsemble fast weights for
-extra diversity, and :class:`PackedEnsembleOutput` for impact-style access
+extra diversity, and :class:`BatchEnsembleOutput` for impact-style access
 (``mean``, ``std_epistemic``, etc.).
 
 Reference: Laurent et al., "Packed-Ensembles for Efficient Uncertainty
@@ -18,8 +18,8 @@ from typing import Optional, Union
 import torch
 import torch.nn as nn
 
-from torchregress.utils.gaussian_output import variance_from_logvar
-
+from ._variance import member_variance_from_logvar
+from .base import predicts_in_eval_mode
 from .layers import BatchEnsembleLinear
 from .models import (
     HeteroscedasticBatchEnsembleModel,
@@ -79,6 +79,7 @@ class MeanOnlyBatchEnsembleModel(nn.Module):
         means = self.output_layer(features)
         return {"means": means}
 
+    @predicts_in_eval_mode
     def predict(self, x: torch.Tensor, correction: int = 0) -> dict[str, torch.Tensor]:
         with torch.no_grad():
             means = self.forward(x)["means"]
@@ -171,14 +172,17 @@ class BatchEnsembleRegressor(nn.Module):
         return self._model.predict(x, correction=correction)
 
     @torch.no_grad()
+    @predicts_in_eval_mode
     def predict_output(self, x: torch.Tensor, correction: int = 0) -> BatchEnsembleOutput:
-        """Return structured moments; use :meth:`forward` for training dicts."""
-        self.eval()
+        """Return structured moments; use :meth:`forward` for training dicts.
+
+        Runs in eval mode and restores the previous train/eval modes afterwards.
+        """
         out = self.forward(x)
         if self.heteroscedastic:
             means = out["means"]
             log_vars = out["log_vars"]
-            variances = variance_from_logvar(log_vars)
+            variances = member_variance_from_logvar(log_vars)
             ensemble_mean = torch.mean(means, dim=1)
             aleatoric_var = torch.mean(variances, dim=1)
             epistemic_var = _variance_across_members(means, dim=1, correction=correction)

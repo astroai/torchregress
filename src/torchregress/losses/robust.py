@@ -664,16 +664,21 @@ class CVaRLoss(RegressionLoss):
         abs_residuals = torch.abs(residuals)
         elem_loss = self._compute_elementwise_loss(residuals, abs_residuals)
 
+        # Average over the non-batch dims. For 1-D [B] inputs there are none
+        # (and ``dims=()`` would make torch reduce over ALL dims), so each
+        # element already is its sample's loss.
+        dims = tuple(range(1, elem_loss.dim()))
         if mask is not None:
             if mask.dtype != torch.bool:
                 mask = mask > 0
-            mask_float = mask.to(elem_loss.dtype)
-            dims = tuple(range(1, elem_loss.dim()))
-            masked = elem_loss * mask_float
-            valid = mask_float.sum(dim=dims).clamp(min=1)
-            per_sample = masked.sum(dim=dims) / valid
+            masked = torch.where(mask, elem_loss, torch.zeros_like(elem_loss))
+            if dims:
+                valid = mask.to(elem_loss.dtype).sum(dim=dims).clamp(min=1)
+                per_sample = masked.sum(dim=dims) / valid
+            else:
+                per_sample = masked
         else:
-            per_sample = elem_loss.mean(dim=tuple(range(1, elem_loss.dim())))
+            per_sample = elem_loss.mean(dim=dims) if dims else elem_loss
 
         if weights is not None:
             weights = validate_weights(weights, per_sample.shape[0])

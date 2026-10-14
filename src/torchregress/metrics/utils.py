@@ -7,8 +7,9 @@ from __future__ import annotations
 from typing import Any, Callable, TypeVar, cast
 
 import torch
+from torchmetrics import Metric
 
-from torchregress.utils.tensor_ops import convert_to_tensor, ensure_batch_dim
+from torchregress.utils.tensor_ops import convert_to_tensor, ensure_batch_dim, float_dtype
 from torchregress.utils.validation import validate_metric_inputs as validate_inputs
 from torchregress.utils.validation import validate_sample_weight
 
@@ -16,8 +17,10 @@ __all__ = [
     "convert_to_tensor",
     "create_metric_result",
     "ensure_batch_dim",
+    "float_dtype",
     "metric_state_list",
     "metric_state_tensor",
+    "prepare_functional_metric",
     "validate_inputs",
     "validate_sample_weight",
 ]
@@ -44,6 +47,47 @@ def create_metric_result(result: Any, as_numpy: bool = False) -> Any:
 
 
 T = TypeVar("T")
+M = TypeVar("M", bound=Metric)
+
+
+def prepare_functional_metric(metric: M, *inputs: Any) -> M:
+    """Place a freshly built ``torchmetrics.Metric`` where its inputs live.
+
+    Functional wrappers instantiate a ``Metric`` whose states are created on
+    the CPU in float32.  Updating such a metric with CUDA and/or float64 tensors
+    fails (device mismatch in the in-place state updates) or silently
+    downcasts.  This moves ``metric`` (and any child metrics) to the device of
+    the first tensor in ``inputs`` and sets every state to the promoted
+    floating dtype of the inputs (:func:`float_dtype`) when that differs from the
+    default dtype the states were created with.  Tensors nested in
+    dicts/lists/tuples (e.g. ``{level: preds}``) are considered too.
+    """
+    tensors: list[torch.Tensor] = []
+
+    def _collect(obj: Any) -> None:
+        if isinstance(obj, torch.Tensor):
+            tensors.append(obj)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                _collect(v)
+        elif isinstance(obj, (list, tuple)):
+            for v in obj:
+                _collect(v)
+
+    for item in inputs:
+        _collect(item)
+
+    if tensors:
+        metric = metric.to(device=tensors[0].device)
+    dtype = float_dtype(*tensors)
+    if dtype != torch.get_default_dtype():
+        # States are created in the default dtype; only convert when the inputs
+        # differ (this also keeps integer counters exact in the common case).
+        for module in metric.modules():
+            # ``set_dtype`` is not propagated to child metrics by ``Module.type``.
+            if isinstance(module, Metric):
+                module.set_dtype(dtype)
+    return metric
 
 
 def metric_state_tensor(state: Any) -> torch.Tensor:

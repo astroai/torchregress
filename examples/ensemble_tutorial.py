@@ -1,4 +1,4 @@
-"""
+r"""
 Ensemble Methods Tutorial for Uncertainty Quantification.
 
 This example demonstrates different ensemble methods in torchregress for uncertainty

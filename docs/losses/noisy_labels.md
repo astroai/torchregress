@@ -129,7 +129,7 @@ graph LR
 
 - **Start with Huber**: `WeightedHuberLoss(delta=1.0)` is the simplest, cheapest defense against mild label noise. Upgrade to `CauchyLoss` or `TukeyBiweightLoss` only if you can confirm severe outliers.
 - **Use CVaR for tail-focused objectives**: When you explicitly care about worst-case performance (fairness, safety-critical applications), `CVaRLoss` is the right tool. See the [CVaR demo](../../examples/comprehensive_loss_comparison.py).
-- **Ensemble for systematic noise**: If label noise is systematic (not just outliers), train a `DeepEnsemble` and inspect per-sample epistemic uncertainty to flag consistently mislabelled points.
+- **Ensemble for systematic noise**: If label noise is systematic (not just outliers), train a `BaseEnsembleModel` and inspect per-sample epistemic uncertainty to flag consistently mislabelled points.
 - **When noise variance is known**: Use `NoisyTargetGaussianNLL` from [Uncertain ground truth](uncertain_ground_truth.md) — it directly models the target noise in the likelihood.
 
 ## Next steps

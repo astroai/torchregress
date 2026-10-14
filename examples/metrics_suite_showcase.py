@@ -22,7 +22,7 @@ from torchregress.metrics import (
     RiskCoverageCurve,
     TrimmedMeanSquaredError,
     attenuation_factor,
-    continuous_ranked_probability_score,
+    crps_gaussian,
     # Distribution
     distribution_metrics_report,
     ensemble_statistics,
@@ -67,13 +67,13 @@ def main():
     nrmse_metric.update(y_pred, y_true)
     print(f"  Normalized RMSE     : {nrmse_metric.compute().item():.6f}")
 
-    trimmed_mse = TrimmedMeanSquaredError(trim_fraction=0.1)
+    trimmed_mse = TrimmedMeanSquaredError(proportion=0.1)
     trimmed_mse.update(y_pred, y_true)
     print(f"  Trimmed MSE (10%)   : {trimmed_mse.compute().item():.6f}")
 
     # Attenuation factor (signal degradation correction factor)
     atten_factor = attenuation_factor(y_pred, y_true)
-    print(f"  Attenuation Factor  : {atten_factor.item():.6f}")
+    print(f"  Attenuation Factor  : {float(atten_factor):.6f}")
 
     # 2. Distributional Metrics
     print("\n--- 2. Distributional Metrics ---")
@@ -92,17 +92,22 @@ def main():
         val = v.item() if isinstance(v, torch.Tensor) else v
         print(f"  {k:20s}: {val:.6f}")
 
-    # Manual check of details
-    crps_val = continuous_ranked_probability_score(y_pred, y_pred_std, y_true)
+    # Analytic Gaussian CRPS (per sample, then averaged)
+    crps_val = crps_gaussian(y_pred, y_true, y_pred_std, reduction="none")
     print(f"  Manual CRPS         : {crps_val.mean().item():.6f}")
 
-    # Highest Posterior Density (HPD) coverage
-    hpd_level = highest_posterior_density_level(samples, credible_interval=0.90)
-    hpd_cov = highest_posterior_density_coverage(y_true, samples, credible_interval=0.90)
-    print(f"  HPD 90% Level Threshold: {hpd_level.mean().item():.6f}")
-    print(f"  HPD 90% Coverage       : {hpd_cov.item():.6f}")
+    # Highest Posterior Density (HPD) calibration on a 1D density grid
+    support = torch.linspace(-5.0, 5.0, 501)
+    density = (
+        torch.distributions.Normal(y_pred[:, None], y_pred_std[:, None]).log_prob(support).exp()
+    )
+    hpd_level = highest_posterior_density_level(support, density, y_true)
+    hpd_cov = highest_posterior_density_coverage(support, density, y_true, alpha=0.90)
+    print(f"  HPD Level (mean)       : {hpd_level.mean().item():.6f}")
+    print(f"  HPD 90% Coverage       : {hpd_cov:.6f}")
 
-    pit_vals = probability_integral_transform(y_pred, y_pred_std, y_true)
+    pit_dist = torch.distributions.Normal(y_pred, y_pred_std)
+    pit_vals = probability_integral_transform(pit_dist.cdf, y_true)
     ks_stat = kolmogorov_smirnov_uniform_statistic(pit_vals)
     print(f"  PIT KS Uniformity Stat: {ks_stat.item():.6f}")
 
@@ -117,7 +122,7 @@ def main():
 
     mpiw_metric = MeanPredictionIntervalWidth()
     mpiw_metric.update(y_lower, y_upper)
-    picp_metric = PredictionIntervalCoverageProbability(alpha=0.05)
+    picp_metric = PredictionIntervalCoverageProbability()
     picp_metric.update(y_lower, y_upper, y_true)
     print(f"  MPIW Class Metric   : {mpiw_metric.compute().item():.6f}")
     print(f"  PICP Class Metric   : {picp_metric.compute().item():.6f}")
@@ -132,7 +137,8 @@ def main():
     mean_feat = x_ref.mean(dim=0)
     cov_feat = torch.cov(x_ref.T)
 
-    model_output = {"predictions": torch.randn(50, 2)}  # typicality expects logits or probs
+    # Typicality expects a Gaussian (mean, variance) matching the shape of x_test.
+    model_output = {"mean": torch.zeros(50, 4), "variance": torch.ones(50, 4)}
 
     ood_report = ood_metrics_report(
         model_output=model_output,
@@ -140,47 +146,51 @@ def main():
         x_reference=x_ref,
         mean=mean_feat,
         cov=cov_feat,
-        samples=samples,  # predictive samples to compute entropy
+        samples=samples.unsqueeze(-1),  # [n_samples, batch, output_dim] for entropy
     )
     for k, v in ood_report.items():
         print(f"  {k:20s}: {v.item():.6f}")
 
     # 5. Decision & Selective Prediction Metrics
     print("\n--- 5. Selective Prediction & Decision Metrics ---")
-    # Simulate uncertainty-based rejection policy
-    uncertainty_scores = y_pred_std.numpy()
-    errors = torch.abs(y_pred - y_true).numpy()
-
+    # Reject the most uncertain samples first; risk defaults to squared error.
     rcc = RiskCoverageCurve()
-    rcc.update(errors, uncertainty_scores)
-    coverage, risk = rcc.compute()
+    rcc.update(y_pred, y_true, y_pred_std)
+    curve = rcc.compute()
+    mid = len(curve["coverage"]) // 2
     print(
-        f"  Risk-Coverage Curve (50% coverage): Coverage={coverage[len(coverage) // 2]:.2f}, Risk={risk[len(risk) // 2]:.6f}"
+        f"  Risk-Coverage Curve (~50% coverage): "
+        f"Coverage={curve['coverage'][mid].item():.2f}, Risk={curve['risk'][mid].item():.6f}"
     )
+    print(f"  Area Under Risk-Coverage Curve (AURC): {curve['aurc'].item():.6f}")
 
-    policy = RejectionPolicy(rejection_fraction=0.20)
-    rejection_mask = policy(uncertainty_scores)
+    policy = RejectionPolicy(fraction=0.20)
+    policy.update(y_pred, y_true, y_pred_std)
+    outcome = policy.compute()
     print(
-        f"  Selective Rejection Policy : Rejected {rejection_mask.sum()} of {len(uncertainty_scores)} samples ({rejection_mask.mean() * 100:.1f}%)"
+        f"  Selective Rejection Policy : Rejected {outcome['n_rejected'].item():.0f} of "
+        f"{n_samples} samples, kept-sample risk={outcome['mean_risk'].item():.6f}, "
+        f"coverage={outcome['coverage'].item():.2f}"
     )
 
     # 6. Ensemble Metrics
     print("\n--- 6. Ensemble Metrics & Uncertainty Decomposition ---")
-    # Simulate an ensemble of 5 models predicting mean and std
+    # Simulate an ensemble of 5 models predicting mean and variance
     n_members = 5
     ensemble_means = torch.randn(n_members, n_samples) * 0.5 + y_true[None, :]
-    ensemble_stds = torch.ones(n_members, n_samples) * 0.3
+    ensemble_vars = torch.full((n_members, n_samples), 0.3**2)
 
-    decomp = uncertainty_decomposition(ensemble_means, ensemble_stds)
+    decomp = uncertainty_decomposition(ensemble_means, ensemble_vars)
     for k, v in decomp.items():
         print(f"  {k:25s}: {v.mean().item():.6f}")
 
-    stats = ensemble_statistics(ensemble_means, ensemble_stds)
-    print(f"  Ensemble Mean Stdev    : {stats['mean'].std().item():.6f}")
-    print(f"  Ensemble Total Stdev   : {stats['total_std'].mean().item():.6f}")
+    ens_mean, ens_var = ensemble_statistics(ensemble_means)
+    print(f"  Ensemble Mean Stdev    : {ens_mean.std().item():.6f}")
+    print(f"  Ensemble Member Spread : {ens_var.sqrt().mean().item():.6f}")
+    print(f"  Ensemble Total Stdev   : {decomp['total_uncertainty'].sqrt().mean().item():.6f}")
 
     ens_nll = GaussianNLLEnsemble()
-    ens_nll.update(ensemble_means, ensemble_stds, y_true)
+    ens_nll.update(ensemble_means, ensemble_vars, y_true)
     print(f"  Ensemble Gaussian NLL  : {ens_nll.compute().item():.6f}")
 
     # 7. Multivariate & Correlation Metrics
@@ -197,8 +207,12 @@ def main():
     print(f"  Multivariate RMSE   : {mv_rmse.compute().item():.6f}")
 
     # Task Agnostic Correlations
-    corrs = task_agnostic_correlations(y_pred_mv, y_true_mv)
-    print(f"  Task Agnostic Corr  : {corrs.mean().item():.6f}")
+    # TAC scores a predicted covariance [batch, dim, dim] against the residuals.
+    cov_mv = (0.2**2 * torch.eye(3, dtype=y_pred_mv.dtype, device=y_pred_mv.device)).expand(
+        n_samples, 3, 3
+    )
+    tac = task_agnostic_correlations(y_pred_mv, y_true_mv, cov_mv)
+    print(f"  Task Agnostic Corr  : {tac.item():.6f}")
 
     # 8. Weak Ground Truth / Uncertain GT Metrics
     print("\n--- 8. Weak/Uncertain Ground Truth Metrics ---")

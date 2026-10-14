@@ -8,7 +8,8 @@
 <a href="https://pypi.org/project/torchregress/" aria-label="PyPI package version"><img src="https://img.shields.io/pypi/v/torchregress.svg" alt="PyPI"></a>
 <a href="https://opensource.org/licenses/MIT" aria-label="License"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 <a href="https://github.com/astroai/torchregress/actions/workflows/ci.yml" aria-label="CI status"><img src="https://img.shields.io/github/actions/workflow/status/astroai/torchregress/ci.yml?branch=main&label=CI" alt="CI"></a>
-<a href="https://github.com/astroai/torchregress/blob/main/pyproject.toml" aria-label="Python 3.12–3.15"><img src="https://img.shields.io/badge/python-3.12%20|%203.13%20|%203.14%20|%203.15-blue.svg" alt="Python 3.12 | 3.13 | 3.14 | 3.15"></a>
+<a href="https://pypi.org/project/torchregress/" aria-label="Python versions"><img src="https://img.shields.io/pypi/pyversions/torchregress.svg" alt="Python versions"></a>
+<a href="https://astroai.github.io/torchregress/" aria-label="Documentation"><img src="https://img.shields.io/badge/docs-astroai.github.io-blue.svg" alt="Documentation"></a>
 </p>
 
 **torchregress** is a PyTorch library of regression losses, metrics, and calibration tools for problems where you need more than a single point prediction — uncertainty, robustness, and messy real-world data included.
@@ -28,7 +29,9 @@ torchregress is built for regression problems that are messy. In plain terms, it
 - **Adapt to distribution shifts** — Lightweight test-time tools when deployment data differs from what you trained on.
 - **Evaluate the right metrics** — Metrics for point error, interval quality, distributional accuracy, and calibration — not just average squared error.
 
-Every loss and metric drops into a normal PyTorch training loop. For method names, API details, and worked examples, see the [documentation index](docs/index.md).
+Every loss and metric drops into a normal PyTorch training loop. For method names, API details, and worked examples, see the [documentation](https://astroai.github.io/torchregress/).
+
+Metrics are tested against reference implementations (scoringrules, properscoring, scipy, scikit-learn), and before 0.3.0 the whole library went through an [audit](https://github.com/astroai/torchregress/blob/main/docs/reports/audit_0.3.0.md) in which every defect found got a regression test.
 
 ## Installation
 
@@ -38,15 +41,18 @@ Every loss and metric drops into a normal PyTorch training loop. For method name
 pip install torchregress
 ```
 
-For normalizing flows support for multi-target distribution predictions, install with the `flows` extra:
+Optional extras:
 
 ```bash
-pip install torchregress[flows]
+pip install "torchregress[flows]"   # normalizing flows (zuko)
+pip install "torchregress[viz]"     # plotting helpers (matplotlib)
 ```
+
+torchregress needs Python 3.12 or newer (tested on 3.12, 3.13 and 3.14) and PyTorch 2.13 or newer. Install the PyTorch build for your hardware first (see [pytorch.org](https://pytorch.org/get-started/locally/)) if you need CUDA.
 
 ### Dev / Source Setup (pixi)
 
-This project uses [pixi](https://pixi.sh) for development. Supports Python 3.12–3.15 (3.13 recommended).
+This project uses [pixi](https://pixi.sh) for development.
 
 ```bash
 git clone https://github.com/astroai/torchregress.git
@@ -150,11 +156,10 @@ lower, upper = conformal.predict_interval(y_test_pred)
 
 ## Development & Contribution
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, quality checks, tests, and documentation guidelines.
-
+We welcome contributions! See [CONTRIBUTING.md](https://github.com/astroai/torchregress/blob/main/CONTRIBUTING.md) for setup, quality checks, tests, and documentation guidelines. Release notes are in the [CHANGELOG](https://github.com/astroai/torchregress/blob/main/CHANGELOG.md).
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/astroai/torchregress/blob/main/LICENSE) file for details.

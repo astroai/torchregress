@@ -32,6 +32,18 @@ Root class extending `nn.Module` (see [BaseLoss API](../api/losses.md)). All sub
 - `reduction`: `"mean"` (default), `"sum"`, or `"none"`
 - `_reduce(loss, mask, weights)`: applies reduction with masking and weighting
 
+All reductions follow one **unified zero-fill policy**. Let $\ell_i$ be the per-sample (elementwise) loss, $m_i \in \{0,1\}$ the validity mask, and $w_i \ge 0$ the sample weights. With a combined influence factor $c_i = m_i\,w_i$ an element influences the loss if and only if $c_i > 0$; masked-out positions contribute **exactly zero** in every mode:
+
+$$
+\mathcal{L}_{\text{sum}} = \sum_i c_i\, \ell_i,
+\qquad
+\mathcal{L}_{\text{mean}} = \frac{\sum_i c_i\, \ell_i}{\sum_i c_i},
+\qquad
+\mathcal{L}_{\text{none}} = \big[c_i\, \ell_i\big]_i
+$$
+
+so `'mean'` is the **weighted mean** over valid samples (dividing by the number of unmasked elements when no weights are given, by the sum of weights otherwise) — never divided by the full batch size. A mask with more dims than the loss collapses with `all` over the trailing dims (a partially masked row drops); weights broadcast and average over trailing dims.
+
 ```python
 class CustomLoss(BaseLoss):
     def forward(self, y_pred, y_true, mask=None, weights=None, **kwargs):

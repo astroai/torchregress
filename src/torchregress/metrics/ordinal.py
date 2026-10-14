@@ -8,6 +8,7 @@ import torch
 from torch import Tensor
 
 from torchregress.utils.ordinal import ordinal_predict
+from torchregress.utils.tensor_ops import float_dtype
 
 
 def _to_labels(
@@ -38,7 +39,7 @@ def ordinal_accuracy(
     true_labels = y_true.long()
     if pred_labels.shape != true_labels.shape:
         raise ValueError("predicted labels and y_true must have identical shape")
-    return (pred_labels == true_labels).float().mean()
+    return (pred_labels == true_labels).to(float_dtype(y_pred, y_true)).mean()
 
 
 def mean_absolute_class_error(
@@ -54,7 +55,8 @@ def mean_absolute_class_error(
     true_labels = y_true.long()
     if pred_labels.shape != true_labels.shape:
         raise ValueError("predicted labels and y_true must have identical shape")
-    return torch.mean(torch.abs(pred_labels.float() - true_labels.float()))
+    dtype = float_dtype(y_pred, y_true)
+    return torch.mean(torch.abs(pred_labels.to(dtype) - true_labels.to(dtype)))
 
 
 def quadratic_weighted_kappa(
@@ -67,6 +69,7 @@ def quadratic_weighted_kappa(
     ] = "labels",
 ) -> Tensor:
     """Compute quadratic weighted kappa (QWK) for ordinal predictions."""
+    dtype = float_dtype(y_pred, y_true)
     pred_labels = _to_labels(y_pred, encoding=encoding).reshape(-1).long()
     true_labels = y_true.reshape(-1).long()
 
@@ -77,7 +80,7 @@ def quadratic_weighted_kappa(
         max_label = int(torch.max(torch.cat([pred_labels, true_labels])).item())
         num_classes = max_label + 1
     if num_classes <= 1:
-        return torch.tensor(1.0, dtype=torch.float32, device=pred_labels.device)
+        return torch.tensor(1.0, dtype=dtype, device=pred_labels.device)
 
     if torch.any(pred_labels < 0) or torch.any(pred_labels >= num_classes):
         raise ValueError("predicted labels must be in [0, num_classes - 1]")
@@ -90,24 +93,24 @@ def quadratic_weighted_kappa(
             minlength=num_classes * num_classes,
         )
         .reshape(num_classes, num_classes)
-        .float()
+        .to(dtype)
     )
 
     total = cm.sum().clamp_min(1.0)
     observed = cm / total
 
-    true_hist = torch.bincount(true_labels, minlength=num_classes).float()
-    pred_hist = torch.bincount(pred_labels, minlength=num_classes).float()
+    true_hist = torch.bincount(true_labels, minlength=num_classes).to(dtype)
+    pred_hist = torch.bincount(pred_labels, minlength=num_classes).to(dtype)
     expected = torch.outer(true_hist, pred_hist)
     expected = expected / expected.sum().clamp_min(1.0)
 
-    idx = torch.arange(num_classes, device=pred_labels.device, dtype=torch.float32)
+    idx = torch.arange(num_classes, device=pred_labels.device, dtype=dtype)
     weight = (idx[:, None] - idx[None, :]) ** 2 / float((num_classes - 1) ** 2)
 
     numerator = torch.sum(weight * observed)
     denominator = torch.sum(weight * expected)
     if denominator <= 1e-12:
-        return torch.tensor(1.0, dtype=torch.float32, device=pred_labels.device)
+        return torch.tensor(1.0, dtype=dtype, device=pred_labels.device)
     one = torch.tensor(1.0, dtype=numerator.dtype, device=numerator.device)
     return one - numerator / denominator
 

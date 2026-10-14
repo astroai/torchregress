@@ -46,6 +46,30 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+  # The package as users get it: build, check contents and metadata, install
+  # the wheel with core dependencies only and import every submodule.
+  package:
+    needs: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build sdist and wheel
+        run: pipx run build
+      - name: Check contents
+        run: python scripts/release/check_dist.py dist
+      - name: Check metadata and README rendering
+        run: pipx run twine check --strict dist/*
+      - name: Install the wheel (no extras) and smoke-test it
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          # CPU torch first: the default Linux wheel pulls ~3 GB of CUDA libraries.
+          "$RUNNER_TEMP/venv/bin/python" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          "$RUNNER_TEMP/venv/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP" && "$RUNNER_TEMP/venv/bin/python" "$GITHUB_WORKSPACE/scripts/release/smoke_install.py"
+
   lint-test:
     needs: pre-commit
     runs-on: ubuntu-latest

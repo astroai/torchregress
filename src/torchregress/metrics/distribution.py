@@ -10,7 +10,11 @@ import numpy as np
 import torch
 from torchmetrics import Metric
 
-from torchregress.metrics.utils import convert_to_tensor, metric_state_tensor
+from torchregress.metrics.utils import (
+    convert_to_tensor,
+    metric_state_tensor,
+    prepare_functional_metric,
+)
 
 _INV_SQRT_PI = 1.0 / math.sqrt(math.pi)
 
@@ -66,10 +70,11 @@ class ContinuousRankedProbabilityScore(Metric):
                     f"y_pred shape {y_pred_sample.shape} and y_true shape {y_true.shape} "
                     "are not compatible"
                 )
-        quantile_tensor = torch.tensor(quantiles, device=forecast_tensor.device)
+        level_dtype = forecast_tensor.dtype if forecast_tensor.is_floating_point() else None
+        quantile_tensor = torch.tensor(quantiles, device=forecast_tensor.device, dtype=level_dtype)
 
-        zero_tensor = torch.tensor([0.0], device=quantile_tensor.device)
-        one_tensor = torch.tensor([1.0], device=quantile_tensor.device)
+        zero_tensor = quantile_tensor.new_zeros(1)
+        one_tensor = quantile_tensor.new_ones(1)
         weights = torch.diff(torch.cat([zero_tensor, quantile_tensor, one_tensor]))
 
         diff = y_true.unsqueeze(0) - forecast_tensor
@@ -126,7 +131,11 @@ class EnergyScore(Metric):
         term1 = torch.mean(norms, dim=0)
 
         y_samples_p = y_samples.permute(1, 0, 2)
-        dists = torch.cdist(y_samples_p, y_samples_p, p=2)
+        # M-MET-003: the matmul path of cdist cancels catastrophically in
+        # float32 for offset data (|x|^2 + |x'|^2 - 2 x.x'); use direct differences.
+        dists = torch.cdist(
+            y_samples_p, y_samples_p, p=2, compute_mode="donot_use_mm_for_euclid_dist"
+        )
 
         if self.beta != 1.0:
             dists = torch.pow(dists, self.beta)
@@ -165,7 +174,9 @@ def probability_integral_transform(
             return pit_values.numpy()
         return pit_values
 
-    bin_edges = torch.linspace(0.0, 1.0, n_bins + 1, device=pit_values.device)
+    bin_edges = torch.linspace(
+        0.0, 1.0, n_bins + 1, device=pit_values.device, dtype=pit_values.dtype
+    )
     counts = torch.histogram(pit_values, bin_edges)[0]
     expected = pit_values.numel() / n_bins
     uniformity_chi2 = torch.sum((counts - expected) ** 2 / max(expected, 1.0))
@@ -296,7 +307,36 @@ def highest_posterior_density_coverage(
     y_true: Union[torch.Tensor, np.ndarray],
     alpha: float = 0.1,
 ) -> float:
-    """Coverage of the HPD region with nominal mass ``alpha``."""
+    """Empirical coverage of the highest-posterior-density (HPD) region of mass ``alpha``.
+
+    Returns the fraction of targets whose HPD level (see
+    :func:`highest_posterior_density_level`) is at most ``alpha``.
+
+    .. warning::
+        ``alpha`` is the **nominal probability mass** of the HPD region, **not**
+        the miscoverage rate used by ``alpha`` elsewhere in torchregress
+        (conformal classes, ``prediction_interval_coverage``, ...). For
+        calibrated predictions the returned value is approximately ``alpha``:
+        ``alpha=0.9`` gives about 0.9 (the coverage of a 90% region), whereas the
+        default ``alpha=0.1`` gives about 0.1 (the coverage of a 10% region),
+        not 0.9. Pass ``alpha=0.9`` to evaluate a 90% HPD region.
+
+    Parameters
+    ----------
+    support : Tensor or ndarray
+        Strictly increasing 1D grid of ``S`` points.
+    density : Tensor or ndarray
+        Predictive densities on ``support``, shape ``[batch, S]``.
+    y_true : Tensor or ndarray
+        Observed targets, shape ``[batch]``.
+    alpha : float, default 0.1
+        Nominal HPD mass (``0.9`` means a 90% region).
+
+    Returns
+    -------
+    float
+        Fraction of targets inside the HPD region of mass ``alpha``.
+    """
     levels = highest_posterior_density_level(support, density, y_true)
     return float((levels <= float(alpha)).to(levels.dtype).mean().item())
 
@@ -306,13 +346,31 @@ def gaussian_nll(
     y_true: Union[torch.Tensor, np.ndarray],
     var: Union[torch.Tensor, np.ndarray],
     reduction: str = "mean",
+    min_variance: Optional[float] = None,
 ) -> Union[torch.Tensor, float]:
-    """
-    Functional Gaussian negative log-likelihood for diagonal Gaussian predictions.
+    """Functional Gaussian negative log-likelihood for diagonal Gaussian predictions.
+
+    ``NLL = 0.5 * (log(2 pi var) + (y - mean)^2 / var)``.
+
+    Parameters
+    ----------
+    mean, y_true, var
+        Predicted mean, targets and predicted variance (broadcastable).
+    reduction : {"mean", "sum", "none"}
+        Reduction over all elements.
+    min_variance : float, optional
+        Lower bound applied to ``var`` before evaluation, in the caller's
+        variance units. ``None`` (default) uses ``torch.finfo(var.dtype).tiny``,
+        which only guards against division by zero, so targets on tiny physical
+        scales (e.g. variances ~1e-10) are scored exactly. Pass an explicit
+        value (e.g. ``1e-8``, the pre-0.3 absolute floor) to regularise
+        degenerate predictions.
     """
     mean_t = convert_to_tensor(mean)
     y_true_t = convert_to_tensor(y_true).to(mean_t.device)
-    var_t = convert_to_tensor(var).to(mean_t.device).clamp(min=1e-8)
+    var_t = convert_to_tensor(var).to(mean_t.device)
+    floor = torch.finfo(var_t.dtype).tiny if min_variance is None else float(min_variance)
+    var_t = var_t.clamp(min=floor)
 
     nll = 0.5 * (torch.log(2 * torch.pi * var_t) + (y_true_t - mean_t) ** 2 / var_t)
     if reduction == "none":
@@ -420,10 +478,40 @@ def _pit_from_density(
     return _interp1d(support_t, cdf_grid, y_true_t).clamp(0.0, 1.0)
 
 
+_PIT_TAIL_SEED = 0
+
+
 def _pit_from_quantiles(
     y_pred_quantiles: Dict[float, Union[torch.Tensor, np.ndarray]],
     y_true: Union[torch.Tensor, np.ndarray],
+    generator: Optional[torch.Generator] = None,
 ) -> torch.Tensor:
+    """PIT values from a finite set of predictive quantiles.
+
+    Inside ``[q_1, q_K]`` the predictive CDF is linearly interpolated between
+    the quantile levels. Outside it the CDF is unknown, so the tails use the
+    *randomised* PIT: a target below ``q_1`` gets ``U * tau_1`` and a target
+    above ``q_K`` gets ``tau_K + U * (1 - tau_K)`` with ``U ~ Uniform(0, 1)``.
+    For a calibrated forecast this reproduces the exact distribution of the
+    true PIT in each tail (``P(y < q_1) = tau_1`` and the PIT is uniform on
+    ``[0, tau_1]`` given that event), whereas mapping every out-of-range target
+    to exactly 0 or 1 piles mass on the end points and inflates KS/chi2.
+
+    Parameters
+    ----------
+    y_pred_quantiles : dict
+        ``{level: predicted quantile}``; at least two levels.
+    y_true : Tensor or ndarray
+        Scalar targets.
+    generator : torch.Generator, optional
+        Source of the tail uniforms. ``None`` uses a fresh CPU generator seeded
+        with a fixed seed, so the result is deterministic.
+
+    Returns
+    -------
+    Tensor
+        PIT values in ``[0, 1]`` (float32).
+    """
     quantile_levels = sorted(y_pred_quantiles.keys())
     if len(quantile_levels) < 2:
         raise ValueError("At least two quantile levels are required for PIT from quantiles.")
@@ -471,17 +559,14 @@ def _pit_from_quantiles(
     weight = ((y_true_t - q0) / (q1 - q0).clamp_min(1.0e-8)).clamp(0.0, 1.0)
     pit = p0 + weight * (p1 - p0)
 
-    # Handle out-of-bounds: Below lowest quantile
-    q_min = quantile_matrix[:, 0]
-    is_below = y_true_t <= q_min
-    pit_below = torch.where(torch.isclose(y_true_t, q_min), level_tensor[0], torch.zeros_like(pit))
-    pit = torch.where(is_below, pit_below, pit)
-
-    # Handle out-of-bounds: Above highest quantile
-    q_max = quantile_matrix[:, -1]
-    is_above = y_true_t >= q_max
-    pit_above = torch.where(torch.isclose(y_true_t, q_max), level_tensor[-1], torch.ones_like(pit))
-    pit = torch.where(is_above, pit_above, pit)
+    # M-MET-002: randomised PIT in the unresolved tails (see docstring).
+    if generator is None:
+        generator = torch.Generator().manual_seed(_PIT_TAIL_SEED)
+    u = torch.rand(pit.shape, generator=generator, dtype=torch.float32).to(pit.device)
+    tau_lo = level_tensor[0]
+    tau_hi = level_tensor[-1]
+    pit = torch.where(y_true_t < quantile_matrix[:, 0], u * tau_lo, pit)
+    pit = torch.where(y_true_t > quantile_matrix[:, -1], tau_hi + u * (1.0 - tau_hi), pit)
 
     return pit.clamp(0.0, 1.0)
 
@@ -577,10 +662,12 @@ def continuous_ranked_probability_score(
                 f"y_pred shape {y_pred_sample.shape} and y_true shape {y_true_t.shape} "
                 "are not compatible"
             )
-    quantile_tensor = torch.tensor(quantiles, device=forecast_tensor.device)
+    # Levels in the forecast dtype (float32 levels cost ~1e-8 relative in float64).
+    level_dtype = forecast_tensor.dtype if forecast_tensor.is_floating_point() else None
+    quantile_tensor = torch.tensor(quantiles, device=forecast_tensor.device, dtype=level_dtype)
 
-    zero_tensor = torch.tensor([0.0], device=quantile_tensor.device)
-    one_tensor = torch.tensor([1.0], device=quantile_tensor.device)
+    zero_tensor = quantile_tensor.new_zeros(1)
+    one_tensor = quantile_tensor.new_ones(1)
     weights = torch.diff(torch.cat([zero_tensor, quantile_tensor, one_tensor]))
 
     diff = y_true_t.unsqueeze(0) - forecast_tensor
@@ -609,6 +696,11 @@ def crps_from_samples(
     Uses the standard sample approximation:
 
     ``CRPS = E|X - y| - 0.5 E|X - X'|``
+
+    with the *fair* (unbiased, ``1 / (n (n - 1))``) estimator of ``E|X - X'|``
+    (``scoringrules.crps_ensemble(..., estimator="fair")``). A single sample
+    (or ``y_samples`` with the same rank as ``y_true``) is a Dirac forecast:
+    the spread term is zero and the CRPS reduces to the absolute error.
     """
     y_true_t = convert_to_tensor(y_true)
     samples_t = convert_to_tensor(y_samples)
@@ -635,9 +727,18 @@ def crps_from_samples(
     weights = (2 * j - n + 1).view(n, *([1] * (samples_t.dim() - 1)))
 
     # ponytail: unbiased E|X-X'| estimator divides by n(n-1), not n²
-    term2 = torch.sum(weights * sorted_samples, dim=0) / (n * (n - 1))
+    # M-MET-004: a single sample is a Dirac forecast with zero spread (0/0 otherwise).
+    if n < 2:
+        term2 = torch.zeros_like(term1)
+    else:
+        term2 = torch.sum(weights * sorted_samples, dim=0) / (n * (n - 1))
 
     crps = term1 - term2
+
+    # Zero-clamp: CRPS is non-negative as a (proper) scoring rule, but the fair
+    # spread estimator is unbiased, not pointwise, and a single draw can round
+    # to slightly negative values (observed ~-1.5e-10 in float32).
+    crps = torch.clamp_min(crps, 0.0)
 
     if reduction == "none":
         return crps
@@ -675,7 +776,8 @@ def energy_score(
     term1 = torch.mean(norms, dim=0)
 
     y_samples_p = y_samples_t.permute(1, 0, 2)
-    dists = torch.cdist(y_samples_p, y_samples_p, p=2)
+    # M-MET-003: avoid the float32-unstable matmul path of cdist.
+    dists = torch.cdist(y_samples_p, y_samples_p, p=2, compute_mode="donot_use_mm_for_euclid_dist")
 
     if beta != 1.0:
         dists = torch.pow(dists, beta)
@@ -829,31 +931,77 @@ def _process_distribution_metrics(
     return samples, pit_values
 
 
+def _normal_crps(
+    dist_obj: Optional[torch.distributions.Distribution], y_true_t: torch.Tensor
+) -> Optional[float]:
+    """Closed-form CRPS when ``dist_obj`` is a Normal aligned with ``y_true``."""
+    if not isinstance(dist_obj, torch.distributions.Normal):
+        return None
+    loc, scale = dist_obj.loc, dist_obj.scale
+    if torch.broadcast_shapes(loc.shape, y_true_t.shape) != y_true_t.shape:
+        return None
+    return cast(float, crps_gaussian(loc, y_true_t, scale, reduction="mean"))
+
+
+def _align_samples(samples_t: torch.Tensor, y_true_t: torch.Tensor) -> Optional[torch.Tensor]:
+    """Reshape ``samples`` to ``[n_samples, *y_true.shape]`` or return ``None``.
+
+    Only singleton-axis mismatches (``[S, N, 1]`` vs ``[N]`` and the like) are
+    reconciled; anything else is left to the caller.
+    """
+    if samples_t.dim() == 0:
+        return None
+    if samples_t.shape[1:] == y_true_t.shape:
+        return samples_t
+    if [d for d in samples_t.shape[1:] if d != 1] == [d for d in y_true_t.shape if d != 1]:
+        return samples_t.reshape(samples_t.shape[0], *y_true_t.shape)
+    return None
+
+
 def _process_distance_metrics(
     y_true_t: torch.Tensor,
     y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]],
     samples: Optional[Union[torch.Tensor, np.ndarray]],
     results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
+    dist_obj: Optional[torch.distributions.Distribution] = None,
 ) -> Optional[Dict[float, Union[torch.Tensor, np.ndarray]]]:
-    """Process distance-based metrics (CRPS, Energy, Coverage)."""
-    if y_pred_quantiles is None and samples is not None:
-        q_levels = [0.05, 0.1, 0.3, 0.5, 0.7, 0.9, 0.95]
-        samples_t = convert_to_tensor(samples)
-        y_pred_quantiles = {q: torch.quantile(samples_t, q, dim=0) for q in q_levels}
+    """Process distance-based metrics (CRPS, Energy, Coverage).
+
+    CRPS uses the most accurate representation available (M-MET-001): the
+    closed form for a Normal ``dist``, then the fair sample estimator
+    (:func:`crps_from_samples`) for samples, and the trapezoidal quantile
+    approximation only when the forecast *is* a set of quantiles.
+    """
+    samples_t = convert_to_tensor(samples) if samples is not None else None
+    aligned = _align_samples(samples_t, y_true_t) if samples_t is not None else None
 
     if y_pred_quantiles is not None:
         results["crps"] = continuous_ranked_probability_score(
             y_pred_quantiles, y_true_t, reduction="mean"
         )
-        if 0.05 in y_pred_quantiles and 0.95 in y_pred_quantiles:
-            q05 = convert_to_tensor(y_pred_quantiles[0.05])
-            q95 = convert_to_tensor(y_pred_quantiles[0.95])
-            within = (y_true_t >= q05) & (y_true_t <= q95)
-            results["coverage_90"] = float(within.to(torch.float32).mean().item())
-            results["interval_width_90"] = float((q95 - q05).mean().item())
+        interval = (
+            (y_pred_quantiles[0.05], y_pred_quantiles[0.95])
+            if 0.05 in y_pred_quantiles and 0.95 in y_pred_quantiles
+            else None
+        )
+    else:
+        normal_crps = _normal_crps(dist_obj, y_true_t)
+        if normal_crps is not None:
+            results["crps"] = normal_crps
+        elif aligned is not None:
+            results["crps"] = crps_from_samples(aligned, y_true_t, reduction="mean")
+        interval = (
+            (torch.quantile(aligned, 0.05, dim=0), torch.quantile(aligned, 0.95, dim=0))
+            if aligned is not None
+            else None
+        )
 
-    elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
-        results["crps"] = crps_from_samples(samples, y_true_t, reduction="mean")
+    if interval is not None:
+        q05 = convert_to_tensor(interval[0])
+        q95 = convert_to_tensor(interval[1])
+        within = (y_true_t >= q05) & (y_true_t <= q95)
+        results["coverage_90"] = float(within.to(torch.float32).mean().item())
+        results["interval_width_90"] = float((q95 - q05).mean().item())
 
     if samples is not None and y_true_t.dim() > 1:
         results["energy_score"] = energy_score(samples, y_true_t, reduction="mean")
@@ -898,6 +1046,7 @@ def _process_fallback_pit(
     y_pred_quantiles: Optional[Dict[float, Union[torch.Tensor, np.ndarray]]],
     y_true_t: torch.Tensor,
     results: Dict[str, Union[torch.Tensor, float, np.ndarray]],
+    generator: Optional[torch.Generator] = None,
 ) -> None:
     """Compute PIT values and uniformity statistics if not already computed."""
     if pit_values is None:
@@ -907,7 +1056,7 @@ def _process_fallback_pit(
             elif samples is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
                 pit_values = _pit_from_samples(samples, y_true_t)
             elif y_pred_quantiles is not None and (y_true_t.dim() == 1 or y_true_t.shape[-1] == 1):
-                pit_values = _pit_from_quantiles(y_pred_quantiles, y_true_t)
+                pit_values = _pit_from_quantiles(y_pred_quantiles, y_true_t, generator=generator)
         except ValueError:
             pit_values = None
 
@@ -932,6 +1081,7 @@ def distribution_metrics_report(
     support: Optional[Union[torch.Tensor, np.ndarray]] = None,
     density: Optional[Union[torch.Tensor, np.ndarray]] = None,
     n_samples: int = 100,
+    generator: Optional[torch.Generator] = None,
 ) -> Dict[str, Union[torch.Tensor, float, np.ndarray]]:
     """
     Generate a universal distribution metrics report for probabilistic regression.
@@ -947,11 +1097,18 @@ def distribution_metrics_report(
         support: Optional 1D support grid for density-based metrics.
         density: Optional predictive densities [batch, support].
         n_samples: Number of samples to draw from `dist` if `samples` is None.
+        generator: Optional ``torch.Generator`` for the randomised tail PIT of
+            quantile forecasts (targets outside the outermost quantiles get a
+            uniform PIT within the tail). ``None`` uses a fixed seed, so the
+            report is deterministic.
 
     Returns:
         Dict of results:
             - log_prob: Mean log-likelihood (if dist is available)
-            - crps: Continuous Ranked Probability Score
+            - crps: Continuous Ranked Probability Score. Closed form for a
+              Normal ``dist``, fair sample estimator (:func:`crps_from_samples`)
+              for samples (drawn from ``dist`` otherwise), and the trapezoidal
+              quantile approximation only for ``y_pred_quantiles``.
             - energy_score: Energy Score (for multivariate targets)
             - pit_chi2: PIT uniformity chi-square statistic
             - pit_ks: PIT uniformity Kolmogorov-Smirnov statistic
@@ -964,10 +1121,10 @@ def distribution_metrics_report(
         raise ValueError("y_true must be provided either as a Tensor or ndarray.")
     y_true_t = convert_to_tensor(y_true)
     pit_values: Optional[torch.Tensor] = None
+    dist_obj: Optional[torch.distributions.Distribution] = None
 
     # 1. Log-likelihood and Sampling
     if dist is not None:
-        dist_obj: torch.distributions.Distribution
         if isinstance(dist, dict):
             loc_val: Any = dist.get("loc")
             if loc_val is None:
@@ -988,7 +1145,9 @@ def distribution_metrics_report(
         )
 
     # 2. Distance-based metrics (CRPS / Energy)
-    y_pred_quantiles = _process_distance_metrics(y_true_t, y_pred_quantiles, samples, results)
+    y_pred_quantiles = _process_distance_metrics(
+        y_true_t, y_pred_quantiles, samples, results, dist_obj=dist_obj
+    )
 
     # 3. Density-based metrics (CDE loss)
     if support is not None and density is not None:
@@ -996,7 +1155,14 @@ def distribution_metrics_report(
 
     # 4. PIT fallback for non-cdf predictive representations
     _process_fallback_pit(
-        pit_values, support, density, samples, y_pred_quantiles, y_true_t, results
+        pit_values,
+        support,
+        density,
+        samples,
+        y_pred_quantiles,
+        y_true_t,
+        results,
+        generator=generator,
     )
 
     return results
@@ -1047,12 +1213,11 @@ def dss_score(
     """
     Functional Dawid-Sebastiani score: ``(y - mu)^2 / sigma^2 + 2 * ln(sigma)``.
     """
-    metric = DawidSebastianiScore()
-    metric.update(
-        convert_to_tensor(y_pred_mean),  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
-        convert_to_tensor(y_pred_std),
-        convert_to_tensor(y_true),
-    )
+    mean_t = convert_to_tensor(y_pred_mean)
+    std_t = convert_to_tensor(y_pred_std)
+    y_true_t = convert_to_tensor(y_true)
+    metric = prepare_functional_metric(DawidSebastianiScore(), mean_t, std_t, y_true_t)
+    metric.update(mean_t, std_t, y_true_t)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
     return float(metric.compute().item())  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty
 
 
@@ -1062,10 +1227,14 @@ class VarioScore(Metric):
 
     ``nu_rho = 0.5 * E|X - X'|^rho - E|X - y|^rho``; fair, strictly proper for
     the CRPS family when rho in (0, 2].
+
+    The score is *positively oriented* (higher is better): at ``rho = 1`` it
+    equals ``-CRPS`` (fair ensemble estimator), so ``higher_is_better = True``.
+    A single-member ensemble has no spread term and scores ``-E|X - y|^rho``.
     """
 
     is_differentiable = False
-    higher_is_better = False
+    higher_is_better = True
     full_state_update = False
 
     def __init__(self, rho: float = 1.0, **kwargs: Any) -> None:
@@ -1100,6 +1269,9 @@ def _gini_mean_abs_diff(samples: torch.Tensor, rho: float) -> torch.Tensor:
     :func:`crps_from_samples`; other exponents use exact pairwise distances.
     """
     n = samples.shape[0]
+    if n < 2:
+        # M-MET-004: one member carries no spread information (Dirac forecast).
+        return torch.zeros(samples.shape[1:], device=samples.device, dtype=samples.dtype)
     if rho == 1.0:
         j = torch.arange(n, device=samples.device, dtype=samples.dtype)
         weights = (2 * j - n + 1).view(n, *([1] * (samples.dim() - 1)))
@@ -1118,10 +1290,12 @@ def vario_score(
     rho: float = 1.0,
 ) -> float:
     """
-    Functional vario score: ``0.5 * E|X - X'|^rho - E|X - y|^rho``.
+    Functional vario score: ``0.5 * E|X - X'|^rho - E|X - y|^rho`` (higher is better).
     """
-    metric = VarioScore(rho=rho)
-    metric.update(convert_to_tensor(y_samples), convert_to_tensor(y_true))  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
+    samples_t = convert_to_tensor(y_samples)
+    y_true_t = convert_to_tensor(y_true)
+    metric = prepare_functional_metric(VarioScore(rho=rho), samples_t, y_true_t)
+    metric.update(samples_t, y_true_t)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
     return float(metric.compute().item())  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty
 
 
@@ -1171,11 +1345,10 @@ def pinball_metric(
     """
     Functional mean pinball across quantile levels.
     """
-    metric = PinballMetric()
-    metric.update(
-        {level: convert_to_tensor(q) for level, q in quantiles_dict.items()},  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
-        convert_to_tensor(y_true),
-    )
+    quantiles_t = {level: convert_to_tensor(q) for level, q in quantiles_dict.items()}
+    y_true_t = convert_to_tensor(y_true)
+    metric = prepare_functional_metric(PinballMetric(), y_true_t, quantiles_t)
+    metric.update(quantiles_t, y_true_t)  # ty: ignore[invalid-argument-type]  # torchmetrics update/compute overrides confuse ty
     return float(metric.compute().item())  # ty: ignore[missing-argument]  # torchmetrics update/compute overrides confuse ty
 
 

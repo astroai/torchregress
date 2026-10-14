@@ -488,3 +488,35 @@ def test_every_catalog_public_path_resolves() -> None:
 
     if failures:
         pytest.fail("Catalog entries with broken public_path:\n" + "\n".join(failures))
+
+
+def test_method_catalog_declares_explicit_public_api() -> None:
+    assert sorted(method_catalog.__all__) == [
+        "CapabilityValue",
+        "ComparativeEvidenceRow",
+        "DecisionWorkflowStep",
+        "MethodMetadata",
+        "TaskRecommendation",
+        "get_method_metadata",
+        "list_comparative_evidence_rows",
+        "list_decision_workflow_steps",
+        "list_methods",
+        "list_task_recommendations",
+    ]
+    for name in method_catalog.__all__:
+        assert hasattr(method_catalog, name)
+    leaked = {
+        "Any",
+        "Dict",
+        "Iterable",
+        "List",
+        "Literal",
+        "Optional",
+        "annotations",
+        "asdict",
+        "dataclass",
+    }
+    assert leaked.isdisjoint(method_catalog.__all__)
+    namespace: dict[str, object] = {}
+    exec("from torchregress.method_catalog import *", namespace)
+    assert leaked.isdisjoint(namespace)

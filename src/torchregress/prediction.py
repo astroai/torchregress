@@ -27,6 +27,47 @@ def quantiles_to_density_grid(
     n_support: int = 200,
     range_margin: float = 0.05,
 ) -> tuple[Tensor, Tensor]:
+    """Convert quantile predictions to a per-row density on a regular support grid.
+
+    The quantile function is linearly interpolated between the knots
+    ``(tau_k, q_k)``, which gives a piecewise-constant density
+    ``(tau_{k+1} - tau_k) / (q_{k+1} - q_k)`` on ``[q_k, q_{k+1}]``.
+
+    .. note::
+       **Tails.**  The mass below the first level (``tau_0``) and above the last
+       (``1 - tau_K``) is spread uniformly over the ``range_margin`` margins, so the
+       grid CDF equals ``tau_k`` at every knot and a central interval read off the
+       grid keeps its nominal level.  The tail *shape* beyond the outer knots is
+       unknown from quantiles alone; use wide outer levels (e.g. 0.01 / 0.99) and
+       a larger ``range_margin`` when the tails matter.  Before 0.3.0 the tail mass
+       was dropped and the grid renormalised (PRD-001).
+
+    Parameters
+    ----------
+    quantiles : Tensor
+        Quantile predictions, shape ``[batch, n_quantiles]``.  Crossing quantiles
+        are repaired by sorting each row (monotone rearrangement, as in
+        ``constraints.NonCrossingSort``).
+    quantile_levels : sequence of float
+        Strictly increasing levels ``tau_k``, one per column.
+    n_support : int, default 200
+        Number of grid points per row (>= 2).
+    range_margin : float, default 0.05
+        Fraction of ``q_K - q_0`` added on each side of the quantile range.
+
+    Returns
+    -------
+    support : Tensor
+        Grid of shape ``[batch, n_support]``.
+    density : Tensor
+        Density on the grid, same shape, trapezoid-normalised to integrate to one.
+
+    Raises
+    ------
+    ValueError
+        If the quantiles are non-finite or not 2-D, the levels do not match the
+        columns or are not strictly increasing, or ``n_support < 2``.
+    """
     q = torch.as_tensor(quantiles)
     if torch.is_grad_enabled():
         q = q.detach()
@@ -47,7 +88,8 @@ def quantiles_to_density_grid(
     if not (levels[1:] > levels[:-1]).all():
         raise ValueError("quantile levels must be strictly increasing")
 
-    q = q.cummax(dim=1).values
+    # Monotone rearrangement (sort), not cummax: cummax creates ties whose mass is dropped.
+    q = torch.sort(q, dim=1).values
     q_lo = q[:, 0:1]
     q_hi = q[:, -1:]
     width = (q_hi - q_lo).clamp(min=1.0e-6)
@@ -67,6 +109,12 @@ def quantiles_to_density_grid(
         mask = (support >= left) & (support <= right)
         dens = torch.where(mask, slopes[:, seg_idx : seg_idx + 1], dens)
 
+    # Tail mass tau_0 / 1 - tau_K is spread uniformly over the grid margins, so the
+    # grid CDF equals tau_k at every knot (the interior keeps its true slopes).
+    tail_lo = levels[0] / (q_lo - lo).clamp(min=1.0e-8)
+    tail_hi = (1.0 - levels[-1]) / (hi - q_hi).clamp(min=1.0e-8)
+    dens = torch.where(support < q_lo, tail_lo, dens)
+    dens = torch.where(support > q_hi, tail_hi, dens)
     dens = dens.clamp(min=0.0)
 
     integral = torch.trapezoid(dens, support, dim=1).clamp(min=1.0e-8)
@@ -81,7 +129,12 @@ def bars_to_density_grid(
     n_support: int = 200,
     range_margin: float = 0.05,
 ) -> tuple[Tensor, Tensor]:
-    """Convert piecewise-constant bar distributions to a regular support grid."""
+    """Convert piecewise-constant bar distributions to a regular support grid.
+
+    The grid spans ``[edges[0], edges[-1]]`` widened by ``range_margin`` times the
+    edge range on each side; the density is zero outside the bin edges (bars have no
+    mass there) and is renormalised to integrate to one on the grid.
+    """
     logits = torch.as_tensor(bar_logits)
     if torch.is_grad_enabled():
         logits = logits.detach()
@@ -110,6 +163,10 @@ def bars_to_density_grid(
     bar_density = probs / widths
     bin_idx = torch.searchsorted(edges[:, 1:-1], support).clamp(0, logits.shape[1] - 1)
     dens = torch.gather(bar_density, 1, bin_idx).clamp(min=0.0)
+    # searchsorted maps points left/right of the edges to the first/last bar; the
+    # piecewise-constant law has no mass outside [edges[0], edges[-1]].
+    inside = (support >= edges[:, :1]) & (support <= edges[:, -1:])
+    dens = torch.where(inside, dens, torch.zeros_like(dens))
     integral = torch.trapezoid(dens, support, dim=1).clamp(min=1.0e-8)
     density = dens / integral[:, None]
     return support, density

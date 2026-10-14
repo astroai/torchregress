@@ -45,12 +45,25 @@ class LabelShiftEMConfig:
     tol : float
         Convergence tolerance for prior differences.
     eps : float
-        Small constant for numerical stability.
+        Small constant for numerical stability. Classes (bins) whose source
+        prior is at most ``eps`` are excluded from EM and get target prior 0.
+    loglik_tol : float, optional
+        If set, EM also stops (``converged=True``) once the mean target
+        log-likelihood ``mean_i log sum_k p_ik q_k / pi_k`` improves by less
+        than ``loglik_tol`` nats per row in one iteration. Useful for many
+        overlapping classes (fine regression bins), where the prior iterate
+        drifts too slowly for the ``tol`` criterion while the fit has stopped
+        improving. ``None`` (default) keeps the ``tol`` criterion only.
     """
 
     max_iter: int = 100
     tol: float = 1.0e-6
     eps: float = 1.0e-8
+    loglik_tol: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.loglik_tol is not None and not self.loglik_tol > 0.0:
+            raise ValueError(f"loglik_tol must be positive when set, got {self.loglik_tol}")
 
 
 @dataclass(frozen=True)
@@ -102,7 +115,61 @@ def estimate_target_prior_em(
     random_state: int | None = 0,
     config: LabelShiftEMConfig | None = None,
 ) -> LabelShiftEstimate:
-    """Estimate target priors from unlabeled predictions via EM."""
+    """
+    Estimate the target label prior from unlabeled predictions by EM
+    (Saerens, Latinne & Decaestecker 2002).
+
+    Each iteration reweights the source posteriors by ``q / pi`` (target over
+    source prior), renormalises them per row and sets ``q`` to their mean.
+
+    Parameters
+    ----------
+    probabilities : np.ndarray
+        Target predicted probabilities ``[n, k]`` (rows are renormalised).
+    source_prior : np.ndarray
+        Source prior ``[k]``. Classes with source prior ``<= config.eps``
+        are excluded (target prior 0): under label shift the target support
+        lies inside the source support, and their ratio ``q / pi`` is
+        otherwise unbounded.
+    sample_weights : np.ndarray, optional
+        Row weights for the M-step average (and the log-likelihood).
+    sample_size : int, optional
+        Subsample this many rows (without replacement) first.
+    random_state : int, optional
+        Seed for the subsample.
+    config : LabelShiftEMConfig, optional
+        Iteration limits and tolerances.
+
+    Returns
+    -------
+    LabelShiftEstimate
+        Source prior (clipped at ``eps``, normalised), target prior,
+        iterations and convergence flag.
+
+    Notes
+    -----
+    **Calibrated posteriors are required.** EM is the maximum-likelihood
+    estimate of ``q`` only when ``probabilities`` are calibrated *source
+    posteriors* ``p_s(y = k | x)`` whose source marginal is ``source_prior``
+    (``E_s[p_s(y = k | x)] = pi_k``), and label shift holds at the level of
+    the classes or bins (``p(x | y = k)`` shared by source and target).
+    Binned Gaussians qualify only if ``N(mean, std)`` is a calibrated
+    predictive ``p_s(y | x)``; for a prediction that is a noisy copy of the
+    label with ``std`` the residual spread they are the likelihood
+    ``p(pred | y)`` (no shrinkage toward the prior). With such miscalibrated
+    probabilities EM converges to a biased fixed point. Calibrate first, or
+    pass the mean source posterior as ``source_prior``;
+    :func:`estimate_target_prior_bbse` needs only a confusion matrix and stays
+    consistent without calibration. On many overlapping bins the maximum
+    likelihood prior is an ill-posed deconvolution: iterating to the ``tol``
+    criterion fits sampling noise, so prefer ``loglik_tol`` there.
+
+    References
+    ----------
+    .. [1] Saerens, M., Latinne, P., & Decaestecker, C. (2002). Adjusting the
+       outputs of a classifier to new a priori probabilities: a simple
+       procedure. *Neural Computation*, 14(1), 21-41.
+    """
     if source_prior is None:
         raise ValueError("source_prior must be explicitly provided for EM label-shift correction.")
     cfg = config or LabelShiftEMConfig()
@@ -114,31 +181,53 @@ def estimate_target_prior_em(
         random_state=random_state,
     )
     n_classes = probs.shape[1]
-    src = np.asarray(source_prior, dtype=float)
-    if src.shape != (n_classes,):
+    src_raw = np.asarray(source_prior, dtype=float)
+    if src_raw.shape != (n_classes,):
         raise ValueError("source_prior must have shape [n_classes]")
-    src = np.clip(src, cfg.eps, None)
+    src = np.clip(src_raw, cfg.eps, None)
     src = src / src.sum()
 
-    tgt = src.copy()
-    converged = False
+    # EM runs on the classes with source mass only.
+    mass = np.clip(src_raw, 0.0, None)
+    active = mass > cfg.eps * max(float(mass.sum()), cfg.eps)
+    if active.all() or not active.any():
+        active = np.ones(n_classes, dtype=bool)
+        probs_a, src_a = probs, src
+    else:
+        probs_a = _normalize_rows(probs[:, active], cfg.eps)
+        src_a = src[active] / src[active].sum()
+
+    def _expand(prior_a: np.ndarray) -> np.ndarray:
+        if active.all():
+            return prior_a
+        full = np.zeros(n_classes, dtype=float)
+        full[active] = prior_a
+        return full
+
+    tgt = src_a.copy()
+    prev_loglik: float | None = None
     for step in range(1, cfg.max_iter + 1):
+        if cfg.loglik_tol is not None:
+            evidence = (probs_a * (np.clip(tgt, cfg.eps, None) / src_a)[None, :]).sum(axis=1)
+            log_ev = np.log(np.clip(evidence, cfg.eps, None))
+            loglik = float(np.average(log_ev, weights=weights))
+            if prev_loglik is not None and loglik - prev_loglik < cfg.loglik_tol:
+                return LabelShiftEstimate(src, _expand(tgt), step - 1, True)
+            prev_loglik = loglik
         corrected = apply_label_shift_correction(
-            probs, source_prior=src, target_prior=tgt, eps=cfg.eps
+            probs_a, source_prior=src_a, target_prior=tgt, eps=cfg.eps
         )
         new_tgt = (
             np.average(corrected, axis=0, weights=weights)
             if weights is not None
             else corrected.mean(axis=0)
-        )  # noqa: E501
+        )
         new_tgt = np.clip(new_tgt, cfg.eps, None)
         new_tgt = new_tgt / new_tgt.sum()
         if np.max(np.abs(new_tgt - tgt)) < cfg.tol:
-            tgt = new_tgt
-            converged = True
-            return LabelShiftEstimate(src, tgt, step, converged)
+            return LabelShiftEstimate(src, _expand(new_tgt), step, True)
         tgt = new_tgt
-    return LabelShiftEstimate(src, tgt, cfg.max_iter, converged)
+    return LabelShiftEstimate(src, _expand(tgt), cfg.max_iter, False)
 
 
 class PosteriorLabelShiftAdapter:
@@ -291,14 +380,16 @@ def gaussian_moments_from_binned_probabilities(
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
-        Reconstructed mean and standard deviation.
+        Reconstructed mean and standard deviation, in the promoted dtype of
+        ``probabilities`` and ``bin_edges`` (float64 for float64 edges; never
+        down-cast to float32, which loses sub-0.03 resolution at offsets ~3e5).
     """
     probs = _normalize_rows(probabilities, eps)
     centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
     mean = probs @ centers
     second = probs @ (centers**2)
     var = np.clip(second - mean**2, eps, None)
-    return mean.astype(np.float32), np.sqrt(var).astype(np.float32)
+    return mean, np.sqrt(var)
 
 
 @dataclass(frozen=True)
@@ -404,6 +495,11 @@ def correct_gaussian_predictions_for_label_shift(
     corrected_mean, corrected_std = gaussian_moments_from_binned_probabilities(
         corrected, bin_edges, eps=cfg.eps
     )
+    # Return in the dtype of the supplied predictions (float64 stays float64).
+    out_dtype = np.result_type(np.asarray(mean).dtype, np.asarray(std).dtype)
+    if np.issubdtype(out_dtype, np.floating):
+        corrected_mean = corrected_mean.astype(out_dtype, copy=False)
+        corrected_std = corrected_std.astype(out_dtype, copy=False)
     metadata: dict[str, object] = {
         "target_prior": estimate.target_prior.tolist(),
         "source_prior": estimate.source_prior.tolist(),

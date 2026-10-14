@@ -9,6 +9,11 @@ import torch
 
 from ..utils.validation import check_tensor
 
+# Eigenvalue / variance floors are expressed relative to the mean variance of the
+# observed features so that RC is equivariant to rescaling the units of W (an
+# absolute floor dominates features whose variance is itself ~1e-6 or smaller).
+_RELATIVE_FLOOR = 1.0e-6
+
 
 def _project_covariance_psd(
     covariance: torch.Tensor, *, min_eigenvalue: float = 1.0e-6
@@ -64,16 +69,33 @@ class RegressionCalibration:
         self.reliability_matrix: torch.Tensor | None = None
         self.device: torch.device | None = None
 
-    def _prepare_sigma_u(self, n_features: int, device: torch.device) -> torch.Tensor:
-        """Converts input sigma_u to a full covariance matrix."""
-        sigma = self.sigma_u_input
+    def _prepare_sigma_u(
+        self,
+        n_features: int,
+        device: torch.device,
+        dtype: torch.dtype | None = None,
+        sigma: float | torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Converts a sigma_u specification to a full covariance matrix in ``dtype``.
+
+        ``sigma`` defaults to the specification given at construction; ``dtype``
+        should be the dtype of the data (default: dtype of a tensor ``sigma``, else
+        the torch default dtype).
+        """
+        if sigma is None:
+            sigma = self.sigma_u_input
         if isinstance(sigma, (int, float)):
-            return torch.eye(n_features, device=device) * float(sigma) ** 2
+            eye_dtype = dtype if dtype is not None else torch.get_default_dtype()
+            return torch.eye(n_features, device=device, dtype=eye_dtype) * float(sigma) ** 2
 
         if isinstance(sigma, torch.Tensor):
             sigma = sigma.to(device)
+            if dtype is not None:
+                sigma = sigma.to(dtype)
             if sigma.numel() == 1:
-                return torch.eye(n_features, device=device) * float(sigma.item()) ** 2
+                return torch.eye(n_features, device=device, dtype=sigma.dtype) * (
+                    float(sigma.item()) ** 2
+                )
             if sigma.ndim == 1:
                 if sigma.shape[0] != n_features:
                     raise ValueError(
@@ -121,15 +143,17 @@ class RegressionCalibration:
         self.sigma_w = (X_centered.T @ X_centered) / (n_samples - 1)
 
         # 2. Prepare noise covariance Sigma_u
-        self.sigma_u = self._prepare_sigma_u(n_features, self.device)
+        self.sigma_u = self._prepare_sigma_u(n_features, self.device, X_observed.dtype)
 
         # 3. Estimate variance of TRUE X (Sigma_x = Sigma_w - Sigma_u)
         sigma_x = self.sigma_w - self.sigma_u
 
         # Ensure Sigma_x is Positive Semi-Definite
         # Simple approach: Eigen-decomposition and clipping negative eigenvalues
+        # The floor is relative to the mean variance of W (trace(Sigma_w) / D).
+        floor = _RELATIVE_FLOOR * torch.diagonal(self.sigma_w).mean()
         L, Q = torch.linalg.eigh(sigma_x)
-        L_clipped = torch.clamp(L, min=1e-6)  # Clip small/negative eigenvalues
+        L_clipped = torch.clamp(L, min=float(floor))  # Clip small/negative eigenvalues
         # Coverage invariants (TOR003): chain .to() on torch.diag because
         # torch.diag does not accept device=/dtype= kwargs natively.
         sigma_x_psd = Q @ torch.diag(L_clipped).to(device=sigma_x.device, dtype=sigma_x.dtype) @ Q.T
@@ -162,8 +186,8 @@ class RegressionCalibration:
             or float(reliability_diag.max()) > 1.5
         )
         if unstable:
-            sigma_x_diag = torch.diagonal(sigma_x_psd).clamp_min(1.0e-6)
-            sigma_u_diag = torch.diagonal(self.sigma_u).clamp_min(1.0e-6)
+            sigma_x_diag = torch.diagonal(sigma_x_psd).clamp_min(float(floor))
+            sigma_u_diag = torch.diagonal(self.sigma_u).clamp_min(float(floor))
             reliability_ratio = (sigma_x_diag / (sigma_x_diag + sigma_u_diag)).clamp(0.0, 1.0)
             # Coverage invariants (TOR003): chain .to() on torch.diag because
             # torch.diag does not accept device=/dtype= kwargs natively.
@@ -213,6 +237,8 @@ class RegressionCalibration:
         """Return posterior mean and covariance for latent clean inputs.
 
         When ``sigma_u`` is omitted, this uses the noise specification stored during ``fit``.
+        A scalar, ``(D,)`` vector (standard deviations) or ``(D, D)`` covariance ``sigma_u``
+        overrides the stored specification for this call.
         If ``sigma_u`` is a ``(N, D)`` tensor it is interpreted as per-sample diagonal
         standard deviations and a batched posterior covariance is returned.
         """
@@ -225,12 +251,17 @@ class RegressionCalibration:
         n_features = X_observed.shape[-1]
 
         sigma_value = self.sigma_u_input if sigma_u is None else sigma_u
+        # Same relative scale as the fit-time floors: mean variance of the signal.
+        signal_scale = float(torch.diagonal(signal).mean())
+        floor = _RELATIVE_FLOOR * signal_scale
         if (
             isinstance(sigma_value, torch.Tensor)
             and sigma_value.ndim == 2
             and sigma_value.shape == X_observed.shape
         ):
-            sigma_diag = sigma_value.to(self.device, dtype=X_observed.dtype).clamp_min(1.0e-6)
+            sigma_diag = sigma_value.to(self.device, dtype=X_observed.dtype).clamp_min(
+                _RELATIVE_FLOOR * signal_scale**0.5
+            )
             # Coverage invariants (TOR003): chain .to() on torch.diag_embed because
             # torch.diag_embed does not accept device=/dtype= kwargs natively.
             sigma_u_cov = torch.diag_embed(sigma_diag.pow(2)).to(
@@ -241,16 +272,19 @@ class RegressionCalibration:
             centered = (X_observed - self.mu_w).unsqueeze(-1)
             post_mean = self.mu_w.unsqueeze(0) + (gain @ centered).squeeze(-1)
             post_cov = signal.unsqueeze(0) - gain @ signal.unsqueeze(0)
-            post_cov = _project_covariance_psd(post_cov)
+            post_cov = _project_covariance_psd(post_cov, min_eigenvalue=floor)
             return post_mean, post_cov
 
         sigma_u_cov = self.sigma_u
-        if sigma_value is not None and sigma_u is not None:
-            sigma_u_cov = self._prepare_sigma_u(n_features, self.device)
+        if sigma_u is not None:
+            # Honour the override (the stored specification is only the default).
+            sigma_u_cov = self._prepare_sigma_u(
+                n_features, self.device, X_observed.dtype, sigma=sigma_u
+            )
         if sigma_u_cov is None:
             raise RuntimeError("sigma_u is not available; fit the calibrator first")
         gain = signal @ torch.linalg.pinv(signal + sigma_u_cov)
         post_mean = self.mu_w + (X_observed - self.mu_w) @ gain.T
         post_cov = signal - gain @ signal
-        post_cov = _project_covariance_psd(post_cov)
+        post_cov = _project_covariance_psd(post_cov, min_eigenvalue=floor)
         return post_mean, post_cov

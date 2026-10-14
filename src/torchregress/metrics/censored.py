@@ -11,10 +11,12 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import float_dtype
+
 
 def censoring_rate(censoring: Tensor) -> Tensor:
     """Fraction of censored samples (non-zero censoring codes)."""
-    return (censoring != 0).float().mean()
+    return (censoring != 0).to(float_dtype(censoring)).mean()
 
 
 def observed_mae(y_pred: Tensor, target: Tensor, censoring: Tensor | None = None) -> Tensor:
@@ -80,13 +82,15 @@ def concordance_index(y_pred: Tensor, target: Tensor, censoring: Tensor | None =
     y_hat_less = y_hat_obs.unsqueeze(1) < y_hat.unsqueeze(0)
     y_hat_eq = y_hat_obs.unsqueeze(1) == y_hat.unsqueeze(0)
 
-    n_comparable = comparable.sum(dtype=torch.float32)
-    concordant = (comparable & y_hat_less).sum(dtype=torch.float32) + 0.5 * (
-        comparable & y_hat_eq
-    ).sum(dtype=torch.float32)
+    # Count pairs exactly in int64, then cast to the inputs' floating dtype.
+    dtype = float_dtype(y_hat, y)
+    n_comparable = comparable.sum().to(dtype)
+    concordant = (comparable & y_hat_less).sum().to(dtype) + 0.5 * (comparable & y_hat_eq).sum().to(
+        dtype
+    )
 
     if n_comparable <= 0:
-        return torch.tensor(float("nan"), dtype=torch.float32, device=y.device)
+        return torch.tensor(float("nan"), dtype=dtype, device=y.device)
     return concordant / n_comparable
 
 
@@ -101,7 +105,7 @@ def interval_overlap_rate(
         raise ValueError("all interval tensors must share identical shapes")
 
     overlap = (pred_upper >= lower_bound) & (pred_lower <= upper_bound)
-    return overlap.float().mean()
+    return overlap.to(float_dtype(pred_lower, pred_upper, lower_bound, upper_bound)).mean()
 
 
 __all__ = [

@@ -27,7 +27,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/imbalanced_regression.py`: tail performance vs calibration tradeoffs
 - `examples/evaluate_conformal_methods.py`: coverage vs interval width tradeoffs
 - `examples/ood_selective_prediction_comparison.py`: OOD vs selective-prediction tradeoffs (AURC, rejection policy, OOD gap)
-  now includes DeepEnsemble, heteroscedastic ensemble, MC dropout, `SWAG`, and `BNN`
+  now includes BaseEnsembleModel, heteroscedastic ensemble, MC dropout, `SWAG`, and `BNN`
 - `examples/ood_selective_prediction_realdata_comparison.py`: real-data OOD/selective comparison on Diabetes with covariate-shift split
 - `examples/eiv_method_comparison.py`: EIV method tradeoffs (analytic/MC/ODR/ensemble variants)
 - `examples/eiv_method_realdata_comparison.py`: real-data EIV tradeoffs on Diabetes with synthetic measurement-error injection
@@ -51,7 +51,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/causal_dr_realdata_comparison.py`: real-covariate DR ATE/CATE comparison with overlap diagnostics
 - `examples/external_comparison_conformal_vs_mapie.py`: conformal intervals (split + CQR) vs MAPIE; JSON → `reports/external_comparison_conformal_vs_mapie_latest.json`
 - `examples/external_comparison_bayesian_linear_vs_botorch.py`: low-shot Bayesian linear head vs BoTorch `SingleTaskGP`; JSON → `reports/external_comparison_bayesian_linear_vs_botorch_latest.json`
-- `examples/external_comparison_tweedie_vs_sklego.py`: Tweedie / compound-Poisson regression vs scikit-lego `GLMRegressor`; JSON → `reports/external_comparison_tweedie_vs_sklego_latest.json`
+- `examples/external_comparison_tweedie_vs_sklego.py`: Tweedie / compound-Poisson regression vs scikit-learn `TweedieRegressor` (scikit-lego no longer ships a GLM); JSON → `reports/external_comparison_tweedie_vs_sklego_latest.json`
 - [External comparison guide](external-comparison-vs-mapie-botorch-sklego.md): consolidated page for the three external benchmarks.
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 - `examples/contrastive_flow_parameter_estimation.py`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
@@ -337,7 +337,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 ### [OOD / Selective Prediction Comparison (Real Data)](ood_selective_prediction_realdata_comparison.md)
 
 - Shared-budget comparison on Diabetes with deterministic covariate-shift OOD split.
-- Adds real-data evidence breadth for OOD/selective tradeoffs across DeepEnsemble/MCDropout/`SWAG`/`BNN` with split-conformal interval diagnostics.
+- Adds real-data evidence breadth for OOD/selective tradeoffs across BaseEnsembleModel/MCDropout/`SWAG`/`BNN` with split-conformal interval diagnostics.
 
 ### [EIV Method Comparison](eiv_method_comparison.md)
 

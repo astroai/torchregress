@@ -165,7 +165,8 @@ When features $X$ are measured with known noise $\sigma_u$:
     ```python
     from torchregress.losses import StructuralEIVLoss
 
-    loss_fn = StructuralEIVLoss(error_ratio=0.5)
+    # sigma_x, sigma_y: noise covariances; sigma_xy: cross-covariance (see EIV Losses)
+    loss_fn = StructuralEIVLoss(model=model, sigma_x=cov_x, sigma_y=cov_y, sigma_xy=cov_xy)
     ```
 
 → See [RC](../methods/algorithms/rc.md) · [SIMEX](../methods/algorithms/simex.md) · [EIV Losses](../losses/eiv.md)

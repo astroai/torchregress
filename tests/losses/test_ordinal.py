@@ -95,3 +95,19 @@ def test_ordinal_losses_validate_shapes() -> None:
         assert "soft target shape" in str(exc)
     else:
         raise AssertionError("Expected ValueError for invalid soft ordinal target shape")
+
+
+def test_coral_loss_keeps_its_own_docstring() -> None:
+    assert CumulativeLinkLoss.__doc__ is not None
+    assert CORALLoss.__doc__ is not None
+    assert CumulativeLinkLoss.__doc__.startswith("Ordinal loss over cumulative logits")
+    assert "CORAL" in CORALLoss.__doc__
+    assert CORALLoss.__doc__ != CumulativeLinkLoss.__doc__
+    assert "CORAL ordinal loss" not in CumulativeLinkLoss.__doc__
+
+
+def test_coral_loss_matches_cumulative_link_loss() -> None:
+    assert issubclass(CORALLoss, CumulativeLinkLoss)
+    logits = torch.randn(8, 4)
+    target = torch.randint(0, 5, (8,))
+    assert torch.equal(CORALLoss()(logits, target), CumulativeLinkLoss()(logits, target))

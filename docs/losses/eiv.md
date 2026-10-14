@@ -48,7 +48,9 @@ The **recommended starting point** for modern probabilistic models. Instead of r
 
 $$p(y|x_{\text{obs}}) = \int p(y|x) p(x|x_{\text{obs}}) dx \approx \frac{1}{N} \sum_{i=1}^N p(y|x_i)$$
 
-where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extremely stable and works naturally with complex predictive heads like MDNs or Binned PDFs.
+where $x_i \sim p(x \mid x_{\text{obs}})$ is drawn from the posterior of the clean input: either a custom `posterior_sampler`, a fitted calibrator with a `posterior()` method (e.g. `RegressionCalibration`), or the Gaussian posterior implied by a structural prior $x \sim \mathcal{N}(\mu_x, \Sigma_x)$ (`prior_mean`, `prior_cov`) and measurement error $\Sigma_u$ (`sigma_u`). This approach is extremely stable and works naturally with complex predictive heads like MDNs or Binned PDFs.
+
+The default `marginalization_mode="likelihood"` computes $-\log \frac{1}{N}\sum_i p(y \mid x_i)$ (log-mean-exp of the per-draw NLL); `"expectation"` averages the NLL over draws instead (an upper bound by Jensen's inequality). The `base_loss` is evaluated element-wise automatically (its `reduction` is switched to `"none"` for the call), so a default-constructed `GaussianNLLLoss()` works; sample `weights` and `mask` are applied once to the marginalised per-sample loss.
 
 !!! warning "Critical API Difference"
     Unlike standard PyTorch loss functions which take predictions and targets, e.g., `loss_fn(y_pred, target)`, EIV loss functions must evaluate the model internally at perturbed inputs.
@@ -67,14 +69,26 @@ where $x_i \sim \mathcal{N}(x_{\text{obs}}, \Sigma_X)$. This approach is extreme
     The Taylor expansion used by `FunctionalEIVLoss` requires the model $f(x)$ to be **twice differentiable** with respect to inputs. Activation functions like `ReLU` have zero second derivatives, causing the curvature term $\partial^2 f / \partial x^2$ to vanish. Prefer smooth activations (`GELU`, `Tanh`, `SiLU`) when using `FunctionalEIVLoss`.
 
 ```python
-from torchregress.losses import LatentMarginalizationLoss, GaussianNLLLoss
+import torch
+import torch.nn as nn
+
+from torchregress.losses import GaussianNLLLoss, LatentMarginalizationLoss
+
+torch.manual_seed(0)
+x_obs = torch.randn(64, 2)
+y_obs = x_obs.sum(dim=-1, keepdim=True) + 0.1 * torch.randn(64, 1)
+my_model = nn.Linear(2, 2)  # outputs [mean, log_var]
 
 loss_fn = LatentMarginalizationLoss(
     model=my_model,
-    base_loss=GaussianNLLLoss(), # Any standard regression loss
-    sigma_u=0.2,                 # Input measurement-error std
-    n_samples=16,                # Number of MC samples
+    base_loss=GaussianNLLLoss(),      # per-draw NLL (evaluated element-wise)
+    prior_mean=x_obs.mean(dim=0),     # structural prior on the clean input
+    prior_cov=torch.cov(x_obs.T),
+    sigma_u=0.2,                      # input measurement-error std
+    n_samples=16,                     # number of MC draws
 )
+loss = loss_fn(x_obs, y_obs)          # pass observed inputs, not model(x)
+loss.backward()
 ```
 
 #### NoisyInputPredictor (Wrapper)

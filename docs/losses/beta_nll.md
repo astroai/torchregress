@@ -26,13 +26,13 @@ $$
 \boxed{\;
 \mathcal{L}_{\beta\text{-NLL},i}
 =
-(\sigma_i^2 + \varepsilon)^{-\beta}
+\big(\max(\sigma_i^2, \varepsilon)\big)^{\beta}
 \cdot
 \mathcal{L}_{\text{NLL},i}
 \;}
 $$
 
-where $(\sigma_i^2 + \varepsilon)^{-\beta}$ is computed from **detached** $\sigma_i^2$ (no gradient through the prefactor). For $\beta = 0$ this is exactly [`GaussianNLLLoss`](../api/losses.md).
+where $\big(\max(\sigma_i^2, \varepsilon)\big)^{\beta}$ is computed from **detached** $\sigma_i^2$ (no gradient through the prefactor), i.e. Seitzer et al.'s $\lfloor\sigma^{2\beta}\rfloor\,\mathcal{L}_{\text{NLL}}$: large-variance points are up-weighted relative to plain NLL, counteracting the $1/\sigma^2$ gradient scaling that lets the mean ignore them. The per-sample loss sums these terms over the feature dimension (1-D `[B]` inputs are one scalar target per sample). For $\beta = 0$ the per-element terms are exactly those of [`GaussianNLLLoss`](../api/losses.md) (which averages rather than sums over features under `reduction="mean"`).
 
 ---
 

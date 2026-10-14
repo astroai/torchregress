@@ -11,6 +11,39 @@ Conformal prediction produces **prediction intervals with finite-sample coverage
 
 See the [Predictors page](../methods/conformal/predictors.md) for the recommended standalone API. For a quickstart, see [§4 of the Quickstart](../getting-started/quickstart.md#4-conformal-prediction-for-guaranteed-coverage).
 
+## How the guarantee works
+
+Given a calibration set $\{(x_i, y_i)\}_{i=1}^n$ and a nonconformity score $s(x, y)$ (e.g. the absolute residual for split conformal, or a quantile-residual score for CQR), compute the level
+
+$$
+\hat q = \left\lceil (n+1)(1-\alpha) \right\rceil\text{-th smallest of } \{s_1, \dots, s_n\},
+$$
+
+which is $\,+ \infty\,$ (infinite intervals, i.e. no finite guarantee is achievable) when $\lceil(n+1)(1-\alpha)\rceil > n$. Interval $\hat q$ then satisfies
+
+$$
+\Pr\big(y_{n+1} \in \mathcal{C}(x_{n+1})\big) \ge 1 - \alpha
+$$
+
+for **any** exchangeable $(x_{n+1}, y_{n+1})$ — no density model, no asymptotics. Violations happen only under exchangeability failure (distribution shift); weighted and transport variants in [Distributional Conformal](../methods/conformal/distributional.md) compensate for a known shift.
+
+## Minimal example
+
+```python
+import torch
+from torchregress.losses import SplitConformal
+
+cal_pred, cal_true = torch.randn(500), torch.randn(500)
+cp = SplitConformal(alpha=0.1)
+cp.calibrate(cal_pred, cal_true)                # held-out calibration set
+
+test_pred = torch.randn(200)
+lower, upper = cp.predict_interval(test_pred)   # >= 90% coverage under exchangeability
+```
+
+!!! note
+    The single-number `ConformalLoss` wrapper exists for loss-style integration; most users are better served by calling a predictor's `fit`/`predict` directly.
+
 ## References
 
 | # | Reference |

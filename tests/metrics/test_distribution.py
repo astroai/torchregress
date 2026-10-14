@@ -309,18 +309,32 @@ class TestPITFromQuantiles:
         assert float(pit.item()) == pytest.approx(0.5)
 
     def test_below_lowest_quantile(self) -> None:
-        """Value below lowest quantile gets PIT=0."""
-        y_true = torch.tensor([-10.0])
-        quantiles = {0.1: torch.tensor([[0.0]]), 0.9: torch.tensor([[1.0]])}
+        """Value below the lowest quantile gets a randomised PIT in [0, tau_1]."""
+        y_true = torch.full((500,), -10.0)
+        quantiles = {0.1: torch.zeros(500), 0.9: torch.ones(500)}
         pit = _pit_from_quantiles(quantiles, y_true)
-        assert float(pit.item()) == pytest.approx(0.0)
+        assert float(pit.min()) >= 0.0
+        assert float(pit.max()) <= 0.1
+        assert float(pit.mean()) == pytest.approx(0.05, abs=0.01)  # U(0, 0.1)
 
     def test_above_highest_quantile(self) -> None:
-        """Value above highest quantile gets PIT=1."""
-        y_true = torch.tensor([100.0])
-        quantiles = {0.1: torch.tensor([[0.0]]), 0.9: torch.tensor([[1.0]])}
+        """Value above the highest quantile gets a randomised PIT in [tau_K, 1]."""
+        y_true = torch.full((500,), 100.0)
+        quantiles = {0.1: torch.zeros(500), 0.9: torch.ones(500)}
         pit = _pit_from_quantiles(quantiles, y_true)
-        assert float(pit.item()) == pytest.approx(1.0)
+        assert float(pit.min()) >= 0.9
+        assert float(pit.max()) <= 1.0
+        assert float(pit.mean()) == pytest.approx(0.95, abs=0.01)  # 0.9 + U(0, 0.1)
+
+    def test_tail_pit_is_deterministic_and_seedable(self) -> None:
+        """Default generator is fixed-seed; an explicit generator changes the draw."""
+        y_true = torch.full((50,), -10.0)
+        quantiles = {0.1: torch.zeros(50), 0.9: torch.ones(50)}
+        a = _pit_from_quantiles(quantiles, y_true)
+        b = _pit_from_quantiles(quantiles, y_true)
+        torch.testing.assert_close(a, b)
+        c = _pit_from_quantiles(quantiles, y_true, generator=torch.Generator().manual_seed(7))
+        assert not torch.equal(a, c)
 
     def test_interpolation(self) -> None:
         """Value between quantile levels is interpolated."""

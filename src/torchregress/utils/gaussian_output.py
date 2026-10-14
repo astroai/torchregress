@@ -92,7 +92,7 @@ def parse_heteroscedastic_output(
     Backward-compatible wrapper around :func:`split_mean_log_variance` that also
     accepts legacy 2-D tensors ``[batch, 2 * n_outputs]``.
     """
-    if isinstance(output, torch.Tensor) and output.ndim >= 2 and output.shape[1] % 2 == 0:
+    if isinstance(output, torch.Tensor) and output.ndim == 2 and output.shape[1] % 2 == 0:
         dim = output.shape[1] // 2
         return output[:, :dim], output[:, dim:]
     try:

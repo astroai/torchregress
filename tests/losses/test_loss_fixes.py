@@ -60,6 +60,7 @@ modern PyTorch:
 
 from __future__ import annotations
 
+import inspect
 import re
 
 import pytest
@@ -127,6 +128,14 @@ class TestSLSLossStepCounterAdvances:
         )
 
     def test_k_gt_1_unfreezes_union_weights_after_warmup(self) -> None:
+        """Past warmup the K>1 mixture weights are learned -- without mutation.
+
+        B-LOSS-004: ``forward`` used to call ``frontier.freeze_weights(False)``
+        (a persistent side effect, so later step<=warmup evaluations silently
+        used unfrozen weights).  The freeze state is now derived from the step
+        per call: the attribute stays untouched and only post-warmup steps
+        route gradient into the mixture-weight network.
+        """
         loss_fn = SLSLoss(
             d=2,
             context_dim=3,
@@ -139,10 +148,7 @@ class TestSLSLossStepCounterAdvances:
         target = torch.randn(8, 2)
 
         frontier = loss_fn.frontier
-        assert frontier._freeze_weights is True, (
-            "K>1 union frontier should start frozen and only unfreeze past "
-            "warmup; this is a regression in the unfreeze logic itself."
-        )
+        assert frontier._freeze_weights is True
 
         n_calls = loss_fn.warmup_steps + 2
         for _ in range(n_calls):
@@ -152,11 +158,16 @@ class TestSLSLossStepCounterAdvances:
             f"After {n_calls} forward passes step_counter should be "
             f"{n_calls} (got {loss_fn.step_counter})."
         )
-        assert frontier._freeze_weights is False, (
-            "K>1 union frontier weights never unfroze past warmup; the "
-            "``step_counter > warmup_steps`` guard never fires because "
-            "the counter was stuck at 0 (B1 regression)."
-        )
+        assert frontier._freeze_weights is True, "forward must not mutate the frontier"
+
+        def weights_net_grad(step: int) -> float:
+            loss_fn.zero_grad()
+            loss_fn.forward_frontier(y_pred, target, step=step).backward()
+            grads = [p.grad for p in frontier.weights_net.parameters()]
+            return sum(float(g.abs().sum()) for g in grads if g is not None)
+
+        assert weights_net_grad(loss_fn.warmup_steps) == 0.0  # frozen (uniform)
+        assert weights_net_grad(loss_fn.warmup_steps + 1) > 0.0  # learned
 
 
 # ---------------------------------------------------------------------------
@@ -518,7 +529,16 @@ class TestLocalConformalSentinelFallback:
             "include the sentinel-column fallback.  The post-fix path "
             "is missing (pre-fix: argmax of all-False hits returns 0)."
         )
-        assert sentinel_per_class.get("LocalConformalMAD", False), (
+        # LocalConformalMAD shares LocalConformal's (row-blocked) quantile
+        # search, so it carries the sentinel unless it re-implements it.
+        from torchregress.losses.conformal import LocalConformalMAD
+
+        shares_search = (
+            "_local_quantiles_block" not in vars(LocalConformalMAD)
+            and "_local_quantiles" not in vars(LocalConformalMAD)
+            and "self._local_quantiles(" in inspect.getsource(LocalConformalMAD.predict_interval)
+        )
+        assert sentinel_per_class.get("LocalConformalMAD", False) or shares_search, (
             "H3 regression: LocalConformalMAD.predict_interval does not "
             "include the sentinel-column fallback."
         )

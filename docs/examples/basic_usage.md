@@ -135,7 +135,7 @@ with torch.no_grad():
     y_pred_test = model(X_test)
 
     # Calculate metrics
-    mse = tr.metrics.mse(y_pred_test, y_test)
+    mse = tr.metrics.mean_squared_error(y_pred_test, y_test)
     rmse = tr.metrics.rmse(y_pred_test, y_test)
     mae = tr.metrics.mean_absolute_error(y_pred_test, y_test)
     r2 = tr.metrics.R2Score()(y_pred_test, y_test)
