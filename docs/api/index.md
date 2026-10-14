@@ -66,7 +66,7 @@ torchregress/
 │   ├── robust.py          # Huber, Cauchy, Tukey, Barron, Adaptive, CVaR, LogCosh, Charbonnier, PseudoHuber
 │   ├── quantile.py        # Quantile, MultiQuantile, QuantileCrossover
 │   ├── expectile.py       # Expectile, MultiExpectile, AsymmetricLeastSquares
-│   ├── conformal.py       # SplitConformal, CQR, UACQR, Density, MonteCarlo, Local, CTI, SLS, ConformalLoss
+│   ├── conformal.py       # SplitConformal, CQR, UACQR, Density, MonteCarlo, Local, CTI, SLS, NexCP, MultivariateScore, ConformalLoss
 │   ├── censored.py        # CensoredGaussianNLL, CensoredQuantile, AFT
 │   ├── poisson.py         # PoissonDeviance, NegativeBinomial, ZeroInflatedPoisson
 │   ├── poisson_gaussian.py
@@ -76,7 +76,7 @@ torchregress/
 │   ├── nflows.py           # NormalizingFlowLoss, ContrastiveFlowLoss
 │   ├── imbalanced.py      # Density, Focal, LDS, Propensity, BMC, BalancedMSE
 │   ├── uncertain_gt.py    # NoisyTargetGaussianNLL, PseudoLabel, Consistency
-│   ├── eiv.py             # FunctionalEIV, StructuralEIV, ODR, EnsembleEIV
+│   ├── eiv.py             # BaseEIVLoss, FunctionalEIV, StructuralEIV, ODR, EnsembleEIV
 │   ├── transforms.py      # Log, BoxCox, Sqrt, YeoJohnson, TransformedTarget
 │   ├── balanced_mse.py
 │   ├── evidential.py      # EvidentialRegression
@@ -103,7 +103,7 @@ torchregress/
 ├── comparison.py          # Comparison-example helpers (seeds, JSON summary)
 ├── prediction.py          # Predictive batch containers
 ├── viz/                   # Diagnostic, monitoring, results, utils plots
-├── semi_supervised.py     # TeacherStudentTrainer
+├── semi_supervised.py     # TeacherStudentTrainer (alias SelfAgreementTrainer)
 └── utils/                 # tensor_ops, validation, augment, ordinal, propensity, transforms
 ```
 

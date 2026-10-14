@@ -295,6 +295,7 @@ EXPECTED_EXPORTS = {
         "SAGERegAgreement",
         "SAGERegLoss",
         "SAGERegOutput",
+        "SelfAgreementTrainer",
         "TeacherStudentTrainer",
         "build_consensus_predictive_batch",
         "disagreement_to_weight",
