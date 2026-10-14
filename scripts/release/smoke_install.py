@@ -13,9 +13,11 @@ packaged ``torchregress-health`` check.
 from __future__ import annotations
 
 import importlib
+import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 # Submodules whose import needs an optional extra, and the extra's name.
 NEEDS_EXTRA = {"viz": "viz"}
@@ -37,7 +39,14 @@ def main() -> int:
             failures.append(f"{name}: {type(exc).__name__}: {exc}")
         else:
             print(f"  {name}: ok")
-    health = shutil.which("torchregress-health")
+    # The CI venv runs this file by path and does not put the venv's bin on
+    # PATH, so which() alone misses the console script installed next to
+    # sys.executable.
+    bindir = str(Path(sys.executable).parent)
+    health = shutil.which(
+        "torchregress-health",
+        path=os.pathsep.join([bindir, os.environ.get("PATH", "")]),
+    )
     if health is None:
         failures.append("torchregress-health entry point not installed")
     else:
