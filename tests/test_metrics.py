@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from torchregress.metrics.calibration import (
+from torchregress.metrics import (
     bias,
     calibration_metrics_report,
     expected_calibration_error,

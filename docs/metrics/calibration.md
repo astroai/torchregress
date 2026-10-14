@@ -29,7 +29,7 @@ $$
 $$
 
 ```python
-from torchregress.metrics.calibration import expected_calibration_error
+from torchregress.metrics import expected_calibration_error
 
 # Using a dictionary of quantile predictions
 quantiles = {0.1: q10_pred, 0.5: q50_pred, 0.9: q90_pred}
@@ -72,7 +72,7 @@ $$
 $$
 
 ```python
-from torchregress.metrics.calibration import marginal_calibration_error
+from torchregress.metrics import marginal_calibration_error
 
 # y_pred_samples has shape [n_samples, batch_size]
 mce_metrics = marginal_calibration_error(y_pred_samples, y_true)
@@ -92,7 +92,7 @@ $$
 $$
 
 ```python
-from torchregress.metrics.calibration import bias
+from torchregress.metrics import bias
 
 mean_bias = bias(y_pred, y_true)
 ```
@@ -111,7 +111,7 @@ $$
 where $z_q = \Phi^{-1}(q)$ is the inverse CDF of the standard normal distribution.
 
 ```python
-from torchregress.metrics.calibration import calibration_score
+from torchregress.metrics import calibration_score
 
 # Get ECE computed over a fine normal quantile grid
 score = calibration_score(y_true, pred_mean, pred_std)
@@ -127,7 +127,7 @@ See also: [calibration_score](../api/metrics.md).
 Generate a comprehensive report of calibration metrics.
 
 ```python
-from torchregress.metrics.calibration import calibration_metrics_report
+from torchregress.metrics import calibration_metrics_report
 from torch.distributions import Normal
 
 # Using a PyTorch distribution
