@@ -308,7 +308,7 @@ class IsotonicMeanCalibrator:
             val = float(self._y[0].item())
             return torch.full_like(xq, val)
 
-        idx = torch.searchsorted(self._x, xq).clamp(1, len(self._x) - 1)
+        idx = torch.searchsorted(self._x, xq.contiguous()).clamp(1, len(self._x) - 1)
         x_left = self._x[idx - 1]
         x_right = self._x[idx]
         y_left = self._y[idx - 1]
