@@ -21,6 +21,8 @@ remove are decided for 0.4.0.
 - `torchregress.estimators` (experimental, may change in 0.4): model-agnostic UQ wrappers. `ConformalRegressor(base, method="split" | "normalized" | "cqr" | "cv+" | "jackknife+", alpha, n_folds, prefit)` with `fit` / `predict` / `predict_interval(X, alpha, test_weights)` puts `SplitConformal`, `CQR` or `CVPlus` intervals on any scikit-learn or LightGBM model, a quantile pair/triple, a torch module with a training callable, or a fitted `TabularFit`; NumPy in gives NumPy out and tensors give tensors. `CalibratedRegressor(base, method="vts" | "isotonic+vts")` fits `VarianceTemperatureScaler` (and `IsotonicMeanCalibrator`) on a held-out split of any Gaussian-output base and offers `predict_dist` / `predict_interval`, optionally with conformal widths. Tests check parity with direct use of the conformal classes and with MAPIE `SplitConformalRegressor` / `ConformalizedQuantileRegressor` (prefit) to 1e-6. Docs: `docs/methods/estimators.md`, `docs/api/estimators.md`. `estimators` is a new lazy top-level submodule (plan item B1).
 - `estimators.calibrated_deep_ensemble(X, y, n_members, val_fraction, loss, alpha, conformal, seed, **fit_kwargs)`: Gaussian `TabularMLP` ensemble via `fit_tabular_ensemble` with mixture moments (mean member variance plus variance of member means), a variance temperature fitted on a held-out carve and optional normalized split-conformal intervals; returns a `CalibratedRegressor` (plan item B3). Experimental, may change in 0.4.
 
+- Examples for the 0.3.0 APIs: `tabular_mlp_tutorial.py` (`TabularMLP`, `fit_tabular`, `TabularPreprocessor` with NaNs), `calibrated_regressor_comparison.py` (`CalibratedRegressor`, `calibrated_deep_ensemble`, `ConformalRegressor`), `nsf_tail_bound_comparison.py` (`recommended_tail_bound` vs the fixed NSF bound on Student-t noise) and `orthogonal_inference_rff_demo.py` (random Fourier nuisances, median bandwidth, `ridge="gcv"`), each under 15 s on 2 CPU cores and smoke-tested.
+
 ### Changed
 
 - `MixtureDensityLoss(covariance_type="full")` now reads its lower-triangular
@@ -31,6 +33,13 @@ remove are decided for 0.4.0.
   benchmark, train / test NLL 0.42 / 3.32 vs -3.45 / 0.31 with the precision form
   (sbi's MDN: 0.04). The output layout is unchanged. `predict_mean_std` and
   `predict_interval` now support full covariance (per-dimension marginals).
+  The precision form is not better everywhere: in harness run #6
+  (`density_parity`, test NLL) it improves mt_scm20d 3.11 → 0.33 and mt_jura
+  2.53 → 1.95 but is worse on the 2-target energy_efficiency (-1.32 → -0.76)
+  and mt_enb (-1.18 → -0.85). `docs/losses/mdn.md` now explains both
+  parameterisations, recommends comparing `full_parameterization="covariance"`
+  on validation NLL for low-dimensional targets, and warns that the extracted
+  precision factor `T` is not a covariance square root (use `.sample()`).
 
 - `quantiles_to_density_grid` (and `PredictiveBatch.with_density` for quantile
   batches) keeps the tail mass: `tau_0` below the first quantile and
