@@ -880,3 +880,70 @@ def test_heteroscedastic_laplace_demo_main_smoke(monkeypatch) -> None:
 
     monkeypatch.setattr(HeteroscedasticLaplaceRegressor, "fit", fast_fit)
     mod.main()
+
+
+def test_tabular_mlp_tutorial_main_smoke() -> None:
+    mod = _load_example_module("tabular_mlp_tutorial")
+    results = mod.main(epochs=2, seed=0)
+    assert set(results) >= {"mse_rmse", "gauss_rmse", "gauss_coverage90", "nan_rmse"}
+    assert all(np.isfinite(v) for v in results.values())
+    assert 0.0 <= results["gauss_coverage90"] <= 1.0
+
+
+def test_calibrated_regressor_comparison_main_smoke() -> None:
+    import json
+    import tempfile
+
+    mod = _load_example_module("calibrated_regressor_comparison")
+    cfg = mod.CalibratedComparisonConfig(
+        n_train=120,
+        n_cal=60,
+        n_test=60,
+        hidden=(8,),
+        epochs=2,
+        batch_size=32,
+        n_members=2,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "summary.json"
+        mod.main(cfg, summary_json_path=str(out))
+        rows = json.loads(out.read_text())["rows"]
+    assert len(rows) == 5
+    by_name = {r["Method"]: r for r in rows}
+    assert by_name["ConformalRegressor(split)"]["NLL"] is None
+    for row in rows:
+        assert 0.0 <= row["Coverage"] <= 1.0
+        assert row["Width"] > 0.0
+
+
+def test_nsf_tail_bound_comparison_main_smoke() -> None:
+    import json
+    import tempfile
+
+    pytest.importorskip("zuko")
+    mod = _load_example_module("nsf_tail_bound_comparison")
+    cfg = mod.TailBoundConfig(
+        n_train=120,
+        n_test=40,
+        context_dim=4,
+        hidden=8,
+        n_transforms=1,
+        epochs=1,
+        batch_size=32,
+        n_samples=16,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "summary.json"
+        mod.main(cfg, summary_json_path=str(out))
+        rows = json.loads(out.read_text())["rows"]
+    assert [r["Method"] for r in rows] == ["NSF default bound", "NSF recommended_tail_bound"]
+    assert rows[0]["TailBound"] == 5.0
+    assert rows[1]["TailBound"] >= 5.0
+    assert all(np.isfinite(r["NLL"]) for r in rows)
+
+
+def test_orthogonal_inference_rff_demo_main_smoke() -> None:
+    mod = _load_example_module("orthogonal_inference_rff_demo")
+    rows = mod.main(replications=2, n=120, seed=0, n_rff=16)
+    assert len(rows) == 3
+    assert all(np.isfinite(r["Bias"]) for r in rows)

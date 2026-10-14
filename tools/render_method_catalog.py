@@ -573,7 +573,7 @@ def main() -> None:
     args.markdown_out.write_text(markdown, encoding="utf-8")
 
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
-    args.json_out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    args.json_out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     if args.update_method_matrix is not None:
         update_method_matrix_page(args.update_method_matrix, rows)
@@ -593,7 +593,7 @@ def main() -> None:
         if args.comparative_evidence_json_out is not None:
             args.comparative_evidence_json_out.parent.mkdir(parents=True, exist_ok=True)
             args.comparative_evidence_json_out.write_text(
-                json.dumps(evidence_report, indent=2), encoding="utf-8"
+                json.dumps(evidence_report, indent=2) + "\n", encoding="utf-8"
             )
             print(f"Wrote comparative evidence JSON: {args.comparative_evidence_json_out}")
 

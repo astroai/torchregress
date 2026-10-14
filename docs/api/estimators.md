@@ -1,9 +1,11 @@
 # Estimators API
 
 Reference for `torchregress.estimators`: model-agnostic conformal and calibration
-wrappers and a calibrated deep-ensemble recipe. **Experimental API, may change in
-0.4.** Background, equations and limitations are in
+wrappers and a calibrated deep-ensemble recipe. Background, equations and limitations are in
 [Model-Agnostic UQ Wrappers](../methods/estimators.md).
+
+!!! warning "Experimental"
+    Experimental in 0.3; the API may change in 0.4.
 
 ```python
 from torchregress.estimators import (

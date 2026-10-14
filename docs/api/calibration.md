@@ -18,6 +18,12 @@ For background, see [Calibration methods](../methods/calibration.md) and
 | `IsotonicMeanCalibrator` | Isotonic regression on point predictions, implemented natively via PAVA (no sklearn dependency). Ties are pooled and block end points are kept, so it matches `sklearn.isotonic.IsotonicRegression(out_of_bounds="clip")`. `fit(pred_mean, target)`, `transform(pred_mean)`. `out_of_bounds="clip"` (default) or any other value for linear extrapolation of the end segments. |
 | `PITCalibrator` | Monotonic empirical-CDF mapping for Probability Integral Transform values. `pit_from_gaussian(pred_mean, pred_std, target)` computes PIT; `fit(pit_values)`, `transform(pit_values)` returns remapped values. |
 
+!!! tip "`clip` trade-off"
+    On the torchregress-harness `synthetic_outliers` dataset, `clip=5` gave the best CRPS
+    but raised test NLL from 1.64 to 2.71: test outliers meet a variance fitted without them.
+    Keep the default (no clip) when NLL matters; use `clip=5` when CRPS or robustness to
+    outlier-inflated variance matters. See [Calibration methods](../methods/calibration.md).
+
 ```python
 from torchregress.calibration import (
     VarianceTemperatureScaler, IsotonicMeanCalibrator, PITCalibrator,

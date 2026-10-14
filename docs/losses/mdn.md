@@ -48,6 +48,7 @@ loss_fn = MixtureDensityLoss(
 | `n_components` | `int` | — | Number of mixture components $K$ |
 | `n_features` | `int` | — | Target dimensionality $d$ |
 | `covariance_type` | `str` | `"diagonal"` | `"diagonal"` or `"full"` |
+| `full_parameterization` | `str` | `"precision"` | For `"full"`: the triangular factor parameterises the precision or the covariance (see [below](#full-covariance-precision-or-covariance-factor)) |
 | `min_std` | `float` | `1e-3` | Minimum std for stability |
 
 ### Model Output Size
@@ -68,7 +69,31 @@ loss_fn = MixtureDensityLoss(
 
     $$\text{output\_dim} = K + K \cdot d + K \cdot \frac{d(d+1)}{2}$$
 
-    The last block parameterises Cholesky factors $L_k$ with $\Sigma_k = L_k L_k^\top$.
+    The last block parameterises lower-triangular factors $T_k$ (positive diagonal). By default they are Cholesky factors of the **precision**, $\Sigma_k^{-1} = T_k T_k^\top$; with `full_parameterization="covariance"`, $\Sigma_k = T_k T_k^\top$. The layout is the same for both.
+
+### Full covariance: precision or covariance factor
+
+With `covariance_type="full"` the network outputs, per component, a lower-triangular $T_k$. `full_parameterization` sets what it means:
+
+| `full_parameterization` | Meaning of $T_k$ | Component log-density |
+|:------------------------|:-----------------|:----------------------|
+| `"precision"` (default since 0.3.0, as in sbi's MDN) | $P_k = \Sigma_k^{-1} = T_k T_k^\top$ | $-\tfrac12 \lVert T_k^\top (y-\mu_k)\rVert^2 + \sum_i \log T_{k,ii} - \tfrac d2 \log 2\pi$ |
+| `"covariance"` (pre-0.3.0 behaviour) | $\Sigma_k = T_k T_k^\top$ | $-\tfrac12 \lVert T_k^{-1} (y-\mu_k)\rVert^2 - \sum_i \log T_{k,ii} - \tfrac d2 \log 2\pi$ |
+
+The precision form is linear in $T_k$ and needs no triangular solve, which makes it much easier to optimise when there are many targets. It is not better everywhere. Harness run #6 (`density_parity`, test NLL, mean of 3 seeds, lower is better) against run #5 (covariance form), with sbi's MDN on the same splits:
+
+| Dataset | Targets $d$ | `"covariance"` (run #5) | `"precision"` (run #6) | sbi MDN |
+|:--------|:-----------:|------------------------:|-----------------------:|--------:|
+| mt_scm20d | 16 | 3.11 | **0.33** | -0.01 |
+| mt_jura | 3 | 2.53 | **1.95** | 1.92 |
+| energy_efficiency | 2 | **-1.32** | -0.76 | -1.33 |
+| mt_enb | 2 | **-1.18** | -0.85 | -1.24 |
+
+!!! tip "Which parameterisation to use"
+    Keep the default `"precision"`: it wins clearly on many targets (scm20d: 3.11 → 0.33). For low-dimensional targets ($d \le 2$ here) the covariance form did better, so also train with `full_parameterization="covariance"` and keep whichever has the lower **validation** NLL.
+
+!!! warning "Sampling from a precision factor"
+    In precision mode `_extract_distribution_parameters` returns the precision factor $T$ ($P = T T^\top$), not a covariance Cholesky factor. A covariance square root is $T^{-\top}$: a draw is $\mu + T^{-\top}\varepsilon$, **not** $\mu + T\varepsilon$. Use `loss_fn.sample(...)` (and `predict_interval`), which handle both parameterisations, rather than sampling from the extracted factors yourself. A harness suite that used $T$ as if it were $L$ got 0.00 interval coverage.
 
 ### Training
 
@@ -124,8 +149,8 @@ samples = loss_fn.sample(model(x_test), n_samples=1000)
 !!! tip "Avoiding component collapse"
     Monitor component usage during training:
     ```python
-    weights, means, stds = loss_fn._extract_distribution_parameters(params)
-    active = (weights > 0.05).float().mean()  # should stay > 0.5
+    log_weights, means, scales = loss_fn._extract_distribution_parameters(params)
+    active = (log_weights.exp() > 0.05).float().mean()  # should stay > 0.5
     ```
 
 !!! tip "Initialisation"
@@ -160,7 +185,7 @@ While MDNs are highly expressive, they present several training and optimization
    The log-sum-exp trick is numerically sensitive in `float16` or `bfloat16`. Use `float32` for the NLL computation and only cast down after the loss is computed. Mixed-precision training with MDNs requires careful gradient scaling.
 
 6. **Covariance Type Constraints**:
-   The `"full"` covariance mode is only supported for univariate targets ($d = 1$) in practice; for multivariate targets with full covariance, memory usage grows as $\mathcal{O}(K \cdot d^2)$ per sample, which becomes prohibitive beyond $d \approx 5$.
+   With `"full"` covariance the head has $K \cdot d(d+1)/2$ factor outputs and memory grows as $\mathcal{O}(K \cdot d^2)$ per sample. The default precision parameterisation trains on 16 targets (scm20d above); for very large $d$ prefer diagonal components or a flow.
 
 ---
 

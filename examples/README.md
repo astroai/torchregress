@@ -38,6 +38,7 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `basic_usage.py` | tutorial | Point, quantile and Gaussian-NLL losses on one toy problem, with a plot. | fast |
 | `native_api_usage.py` | tutorial | Using the losses as plain PyTorch modules inside normal training loops. | fast |
 | `ensemble_tutorial.py` | tutorial | Deep ensembles with aleatoric/epistemic uncertainty decomposition. | fast |
+| `tabular_mlp_tutorial.py` | tutorial | `TabularMLP` + `fit_tabular` with MSE and `GaussianNLLLoss` (2 outputs) heads on bundled Diabetes, and `TabularPreprocessor` NaN imputation with missing indicators (`--epochs`, `--seed`). | fast (about 6 s) |
 | `evidential_regression.py` | tutorial | Evidential (NIG) regression and its uncertainty split. | slow (about 80-110 s) |
 | `gaussian_full_covariance_regression.py` | tutorial | Full-covariance Gaussian head for multi-output targets. | fast |
 | `gaussian_low_rank_regression.py` | tutorial | Low-rank-plus-diagonal Gaussian head. | fast |
@@ -62,6 +63,7 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `test_time_adaptation_suite.py` | tutorial | Covariate-shift alignment, label-shift correction, sample selection. | fast |
 | `ppi_calibrated_mean.py` | tutorial | Standard vs affine-calibrated prediction-powered inference for a mean. | fast |
 | `ppi_mean_plus_split_conformal.py` | tutorial | Combining PPI mean inference with split-conformal intervals. | fast |
+| `orthogonal_inference_rff_demo.py` | tutorial | `orthogonal_partially_linear` with a `random_fourier_features` basis (`median_heuristic_bandwidth`, `polynomial_degree=3`, `ridge="gcv"`) vs the default call and naive OLS: bias and 95% CI coverage over replications (`--replications`, `--n`, `--seed`). | fast (about 9 s) |
 | `metrics_suite_showcase.py` | tutorial | Tour of the point, distribution, interval, OOD, decision, ensemble and weak-GT metrics. | fast |
 | `viz_diagnostic_gallery.py` | tutorial | Every `torchregress.viz` diagnostic plot in one gallery. | fast |
 | `stellar_spectra_ensemble.py` | tutorial | Deep ensemble of heteroscedastic CNNs on synthetic stellar spectra, with a corner plot. | slow (about 8 min on 2 shared cores) |
@@ -90,6 +92,8 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `sls_multimodal_regression.py` | comparison | SLS vs CQR vs CTI for multimodal targets. | fast |
 | `transformed_target_regression_comparison.py` | comparison | Transformed-target losses. | fast |
 | `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods. | fast |
+| `calibrated_regressor_comparison.py` | comparison | `CalibratedRegressor` (`vts`, `isotonic+vts`), `ConformalRegressor(method="split")` and `calibrated_deep_ensemble` vs an uncalibrated Gaussian `TabularMLP`: RMSE, 90% coverage, width, NLL, runtime (`--epochs`, `--seed`, `--n-members`). | fast (about 10 s) |
+| `nsf_tail_bound_comparison.py` | comparison | NSF head with `create_flow_model(bound=recommended_tail_bound(y_std))` vs the fixed bound 5 on Student-t(3) noise: test NLL, 90% coverage and width (needs `zuko`; `--epochs`, `--seed`). | fast (about 11 s) |
 | `external_comparison_bayesian_linear_vs_botorch.py` | comparison | `BayesianLinearHead` vs BoTorch `SingleTaskGP` (needs `botorch`). | fast |
 | `external_comparison_conformal_vs_mapie.py` | comparison | Conformal intervals vs MAPIE >= 1.0, crepes, torchcp >= 1.2 (needs `mapie crepes torchcp`; ported to the current comparator APIs, see below). | fast |
 | `external_comparison_tweedie_vs_sklego.py` | comparison | Tweedie losses vs a log-link GLM. scikit-lego 0.9.x has no Tweedie GLM, so the baseline is `sklearn.linear_model.TweedieRegressor`. | fast |

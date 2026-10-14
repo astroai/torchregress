@@ -115,7 +115,8 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `create_mdn_loss` | `create_mdn_loss(n_components=5, ...)` | Factory for `MixtureDensityLoss` |
 | `NormalizingFlowLoss` | `NormalizingFlowLoss(flow=..., reduction="mean")` | Conditional flow NLL (requires `zuko`) |
 | `ContrastiveFlowLoss` | `ContrastiveFlowLoss(...)` | Contrastive likelihood-ratio flow |
-| `create_flow_model` | `create_flow_model(...)` | Factory: build a flow model |
+| `create_flow_model` | `create_flow_model(n_features, context_dim=0, flow_type="nsf", n_transforms=5, ..., bound=None)` | Factory: build a flow model; `bound` sets the spline tail bound `B` (default 5, zuko's) |
+| `recommended_tail_bound` | `recommended_tail_bound(standardized_targets, *, margin=1.25, minimum=5.0, maximum=25.0) → float` | Tail bound covering the standardized training targets; pass the result as `create_flow_model(..., bound=...)` |
 | `create_flow_loss` | `create_flow_loss(...)` | Factory: build a flow loss |
 | `create_contrastive_flow_loss` | `create_contrastive_flow_loss(...)` | Factory: build a contrastive flow loss |
 | `EvidentialRegressionLoss` | `EvidentialRegressionLoss(coeff_nig=1e-2, reduction="mean", unconstrained_inputs=True)` | NIG evidential regression |
