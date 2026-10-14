@@ -124,6 +124,12 @@ loss = st(y_pred_st, y)  # y_pred_st: [batch, 4]
 
 The skew-normal reduces exactly to the Gaussian NLL at `alpha=0`; the skew-t reduces to Student-t at `alpha=0`.
 
+A skewness head can be initialised at `alpha=0` (symmetric start) for both families: the gradient in $\alpha$ there is non-zero. For the skew-t,
+
+$$\left.\frac{\partial \log f}{\partial \alpha}\right|_{\alpha=0} = 2\, t_{\nu+1}(0)\; z \sqrt{\tfrac{\nu+1}{\nu+z^2}},$$
+
+which `SkewTLoss` reproduces (before 0.3.0 its Student-t CDF term had an exactly zero derivative at $\alpha = 0$, so a zero-initialised head never learned skew).
+
 ### Beta regression
 
 ```python

@@ -113,9 +113,23 @@ print(fit.best_epoch, float(torch.sqrt(((mean.numpy() - y[3000:]) ** 2).mean()))
 
 !!! tip "Missing values"
     NaNs are replaced by the training median and every column that had a NaN at
-    fit time gets a 0/1 indicator column, so build the model with
-    `in_features=TabularPreprocessor().fit(X).n_features_out_` (or use
-    `fit_tabular_ensemble`, which passes the width to a factory function).
+    fit time gets a 0/1 indicator column, so the model width depends on the rows
+    the preprocessor was fitted on. Fit the preprocessor once and pass it to
+    `fit_tabular`: otherwise `fit_tabular` fits its own copy on the training part
+    after the validation carve-out, and if all NaNs of a column fall in that
+    carve-out the width differs and `fit_tabular` raises `ValueError`.
+
+    ```python
+    from torchregress.losses import WeightedMSELoss
+    from torchregress.models import TabularMLP, TabularPreprocessor, fit_tabular
+
+    prep = TabularPreprocessor().fit(X_train)
+    model = TabularMLP(in_features=prep.n_features_out_, out_features=1)
+    fit = fit_tabular(model, WeightedMSELoss(), X_train, y_train, preprocessor=prep)
+    ```
+
+    `fit_tabular_ensemble` already fits one preprocessor on all of `X_train` and
+    passes its width to the factory function.
 
 !!! info "Determinism"
     `fit_tabular(seed=...)` seeds the split, shuffling and dropout in a forked
