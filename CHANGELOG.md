@@ -73,6 +73,9 @@ remove are decided for 0.4.0.
   (n_train x n_test) candidate tensors (CV+ uses every training row); the
   order statistics now come from `torch.kthvalue` over test-row blocks, with
   identical endpoints.
+- `metrics.ood` kernel density scores and `NeighborhoodCovariancePseudoLabeler`
+  (which built an (n_query, n_ref, D) difference tensor) now work in query-row
+  blocks; results are identical.
 - `algorithms.WarmupMCTrainer` iterated a `DataLoader` over a `TensorDataset`
   (one Python `__getitem__` per row per epoch); it now shuffles and slices on
   the device, as `LatentNN` does.

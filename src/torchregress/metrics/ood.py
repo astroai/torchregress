@@ -16,6 +16,28 @@ from torchregress.metrics.utils import (
     metric_state_list,
 )
 
+_BLOCK_ELEMS = 1 << 24
+
+
+def _kernel_density_blocked(
+    x_test: torch.Tensor, x_reference: torch.Tensor, bandwidth: float
+) -> torch.Tensor:
+    """Per-row mean Gaussian kernel value, processing query rows in memory-bounded blocks."""
+    n_ref = x_reference.shape[0]
+    block = max(1, _BLOCK_ELEMS // max(1, n_ref))
+    out = []
+    for start in range(0, max(1, x_test.shape[0]), block):
+        # M-MET-003: direct differences; the matmul path loses float32 precision.
+        dists = torch.cdist(
+            x_test[start : start + block],
+            x_reference,
+            p=2,
+            compute_mode="donot_use_mm_for_euclid_dist",
+        )
+        kernel_values = torch.exp(-(dists**2) / (2 * bandwidth**2))
+        out.append(torch.mean(kernel_values, dim=1))
+    return torch.cat(out)
+
 
 def _mahalanobis(
     x: torch.Tensor, mean: torch.Tensor, cov: torch.Tensor, jitter: float
@@ -188,15 +210,9 @@ class KernelDensityScore(Metric):
         x_test = ensure_batch_dim(convert_to_tensor(x_test))
         x_reference = ensure_batch_dim(convert_to_tensor(x_reference))
 
-        # Memory optimization: Use torch.cdist instead of manual broadcasting
-        # Manual broadcasting creates an intermediate (N_test, N_ref, D) tensor
-        # which is memory intensive. cdist is optimized for this.
-        # M-MET-003: direct differences; the matmul path loses float32 precision.
-        dists = torch.cdist(x_test, x_reference, p=2, compute_mode="donot_use_mm_for_euclid_dist")
-        dist_sq = dists**2
-
-        kernel_values = torch.exp(-dist_sq / (2 * self.bandwidth**2))
-        density_scores = torch.mean(kernel_values, dim=1)
+        # Memory optimization: query rows are processed in blocks so the distance
+        # matrix never exceeds ~_BLOCK_ELEMS elements.
+        density_scores = _kernel_density_blocked(x_test, x_reference, self.bandwidth)
         metric_state_list[torch.Tensor](self.scores).append(density_scores)
 
     def compute(self) -> torch.Tensor:
@@ -406,12 +422,7 @@ def kernel_density_score(
     x_test_t = ensure_batch_dim(convert_to_tensor(x_test))
     x_ref_t = ensure_batch_dim(convert_to_tensor(x_reference))
 
-    # Memory optimization: Use torch.cdist instead of manual broadcasting
-    dists = torch.cdist(x_test_t, x_ref_t, p=2, compute_mode="donot_use_mm_for_euclid_dist")
-    dist_sq = dists**2
-
-    kernel_values = torch.exp(-dist_sq / (2 * bandwidth**2))
-    density_scores = torch.mean(kernel_values, dim=1)
+    density_scores = _kernel_density_blocked(x_test_t, x_ref_t, bandwidth)
 
     if reduction == "mean":
         return torch.mean(density_scores)
