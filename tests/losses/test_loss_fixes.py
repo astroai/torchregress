@@ -60,6 +60,7 @@ modern PyTorch:
 
 from __future__ import annotations
 
+import inspect
 import re
 
 import pytest
@@ -528,7 +529,16 @@ class TestLocalConformalSentinelFallback:
             "include the sentinel-column fallback.  The post-fix path "
             "is missing (pre-fix: argmax of all-False hits returns 0)."
         )
-        assert sentinel_per_class.get("LocalConformalMAD", False), (
+        # LocalConformalMAD shares LocalConformal's (row-blocked) quantile
+        # search, so it carries the sentinel unless it re-implements it.
+        from torchregress.losses.conformal import LocalConformalMAD
+
+        shares_search = (
+            "_local_quantiles_block" not in vars(LocalConformalMAD)
+            and "_local_quantiles" not in vars(LocalConformalMAD)
+            and "self._local_quantiles(" in inspect.getsource(LocalConformalMAD.predict_interval)
+        )
+        assert sentinel_per_class.get("LocalConformalMAD", False) or shares_search, (
             "H3 regression: LocalConformalMAD.predict_interval does not "
             "include the sentinel-column fallback."
         )

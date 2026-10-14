@@ -63,6 +63,15 @@ remove are decided for 0.4.0.
   scipy 1.18.1 (PyPI) and the pixi lock (conda-forge torch 2.13.0).
 
 ### Fixed
+- `LocalConformal`, `LocalConformalMAD` and `DensityConformal` built dense
+  (n_test x n_cal) kernel matrices with several temporaries alive at once, so
+  memory grew with the product of the two sizes: at ~2x10^4 x 1.5x10^4 rows the
+  harness `conformal/zurich_delays` job was killed by a 32 GB limit. Kernel
+  weights and the weighted-quantile search now run in test-row blocks
+  (O(n_cal) memory per block); results are identical.
+- `algorithms.WarmupMCTrainer` iterated a `DataLoader` over a `TensorDataset`
+  (one Python `__getitem__` per row per epoch); it now shuffles and slices on
+  the device, as `LatentNN` does.
 - `algorithms.LatentNN` scaled quadratically with the number of rows: the per-row
   latent inputs were one dense `nn.Parameter` under `torch.optim.Adam`, so every
   mini-batch step updated all N x D values and moments (O(N^2 D / B) per epoch;

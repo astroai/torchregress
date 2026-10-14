@@ -16,7 +16,6 @@ from collections.abc import Callable
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-from torch.utils.data import DataLoader, TensorDataset
 
 from ..losses.eiv import FunctionalEIVLoss
 from ..utils.validation import check_tensor
@@ -109,8 +108,8 @@ class WarmupMCTrainer:
         device = X.device
         model = self.model_factory().to(device)
         opt = Adam(model.parameters(), lr=self.lr)
-        dataset = TensorDataset(X, y)
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        n_rows = X.shape[0]
+        batch_size = min(int(self.batch_size), n_rows) if n_rows else 1
 
         # Single loop, swap loss after warmup boundary
         mc_loss = FunctionalEIVLoss(
@@ -123,7 +122,12 @@ class WarmupMCTrainer:
         model.train()
         for epoch in range(self.total_epochs):
             use_mc = epoch >= self.warmup_epochs
-            for Xb, yb in loader:
+            # Device-side shuffling: a DataLoader over a TensorDataset costs one
+            # Python __getitem__ per row per epoch (hours at ~10^6 rows).
+            order = torch.randperm(n_rows, device=device)
+            for start in range(0, n_rows, batch_size):
+                idx = order[start : start + batch_size]
+                Xb, yb = X[idx], y[idx]
                 opt.zero_grad(set_to_none=True)
                 if use_mc:
                     loss = mc_loss(Xb, yb)

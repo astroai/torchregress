@@ -1414,21 +1414,26 @@ class LocalConformal(ConformalPredictor):
         self.groups_cal = groups[sorted_idx] if groups is not None else None
         self._is_calibrated = True
 
-    def predict_interval(
-        self,
-        y_pred: Tensor,
-        *,
-        groups: Optional[Tensor] = None,
-        x: Optional[Tensor] = None,
-        test_weights: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
-        if test_weights is not None:
-            raise ValueError("LocalConformal does not support test_weights.")
-        if not self._is_calibrated or self.resids is None or self.X_cal is None:
-            raise RuntimeError("Predictor must be calibrated before making predictions.")
-        if x is None:
-            raise ValueError("LocalConformal requires test features `x` at prediction time.")
+    # Test rows per kernel block: every (rows, n_cal) intermediate stays below
+    # ~2**24 elements, so memory is O(n_cal) per block instead of O(n_test *
+    # n_cal) -- the dense version needed tens of GB at 10^4 x 10^4.
+    _BLOCK_ELEMS = 1 << 24
 
+    def _local_quantiles(self, x: Tensor, groups: Optional[Tensor]) -> Tensor:
+        """Weighted-residual quantile per test row, computed in row blocks."""
+        assert self.X_cal is not None and self.resids is not None
+        n_cal = int(self.X_cal.shape[0])
+        block = max(1, self._BLOCK_ELEMS // max(1, n_cal + 1))
+        out = [
+            self._local_quantiles_block(
+                x[i : i + block], None if groups is None else groups[i : i + block]
+            )
+            for i in range(0, x.shape[0], block)
+        ]
+        return torch.cat(out, dim=0) if out else self.resids.new_empty(0)
+
+    def _local_quantiles_block(self, x: Tensor, groups: Optional[Tensor]) -> Tensor:
+        assert self.X_cal is not None and self.resids is not None
         M = x.shape[0]
         N = self.X_cal.shape[0]
         device = x.device
@@ -1498,6 +1503,24 @@ class LocalConformal(ConformalPredictor):
         # Fetch the corresponding quantiles
         resids_device = self.resids.to(device)
         q = resids_device[idx]  # (M,)
+        return q
+
+    def predict_interval(
+        self,
+        y_pred: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
+        x: Optional[Tensor] = None,
+        test_weights: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Tensor]:
+        if test_weights is not None:
+            raise ValueError("LocalConformal does not support test_weights.")
+        if not self._is_calibrated or self.resids is None or self.X_cal is None:
+            raise RuntimeError("Predictor must be calibrated before making predictions.")
+        if x is None:
+            raise ValueError("LocalConformal requires test features `x` at prediction time.")
+
+        q = self._local_quantiles(x, groups)
 
         # Broadcast q to y_pred shape
         q = q.view(-1, *([1] * (y_pred.dim() - 1)))
@@ -1609,60 +1632,7 @@ class LocalConformalMAD(LocalConformal):
                 "LocalConformalMAD requires test MAD estimates `mad` at prediction time."
             )
 
-        M = x.shape[0]
-        N = self.X_cal.shape[0]
-        device = x.device
-        dtype = x.dtype
-
-        # Compute kernel weights
-        if self.K_obj is not None:
-            try:
-                kis, _ = self.K_obj.Ki(x, self.X_cal)
-                if kis.dim() == 1:
-                    kis = kis.unsqueeze(0)
-            except Exception:
-                kis_list = []
-                for i in range(M):
-                    ki, _ = self.K_obj.Ki(x[i], self.X_cal)
-                    kis_list.append(ki)
-                kis = torch.stack(kis_list, dim=0)
-        else:
-            dist_sq = torch.cdist(x.float(), self.X_cal.float(), p=2.0) ** 2
-            dist_sq = dist_sq.to(dtype)
-            kis = torch.exp(-dist_sq / (2 * self.bandwidth**2))
-
-        # Apply Mondrian group mask if present
-        if groups is not None and self.groups_cal is not None:
-            group_mask = groups.unsqueeze(1) == self.groups_cal.unsqueeze(0).to(groups.device)
-            kis = kis * group_mask.to(kis.dtype)
-
-        # Append self-similarity of test point
-        w_self = torch.ones((M, 1), device=device, dtype=dtype)
-        weights_all = torch.cat([kis, w_self], dim=1)
-
-        if self.weights_cal is not None:
-            weights_all[:, :N] = weights_all[:, :N] * self.weights_cal.unsqueeze(0).to(device)
-
-        total_weights = weights_all.sum(dim=1, keepdim=True)
-        total_weights = torch.max(total_weights, torch.tensor(1e-8, device=device, dtype=dtype))
-        normalized_weights = weights_all / total_weights
-
-        cum_weights = torch.cumsum(normalized_weights, dim=1)
-        q_level = min(math.ceil((N + 1) * (1.0 - self.alpha)) / (N + 1), 1.0)
-        # Append a sentinel True column so the search never returns 0 when
-        # floating-point error keeps ``cum_weights`` slightly below ``q_level``
-        # (matches the LocalConformal fix above; see that method for details).
-        hits = cum_weights >= q_level
-        sentinel = torch.ones((hits.shape[0], 1), dtype=torch.bool, device=hits.device)
-        idx = torch.argmax(torch.cat([hits, sentinel], dim=1).to(torch.int8), dim=1)
-        # Derive ``n_cal`` from the actual calibration count rather than the
-        # sentinel-decorated ``resids`` shape so future changes to the tail
-        # bookkeeping don't silently misclip.
-        n_cal = int(self.X_cal.shape[0])
-        idx = idx.clamp(max=n_cal)
-
-        resids_device = self.resids.to(device)
-        q = resids_device[idx]
+        q = self._local_quantiles(x, groups)
 
         # Reshape q to broadcast with y_pred
         q = q.view(-1, *([1] * (y_pred.dim() - 1)))
@@ -2246,9 +2216,14 @@ class DensityConformal(ConformalPredictor):
     def _kde_density_1d(self, query: Tensor, reference: Tensor) -> Tensor:
         q = query.reshape(-1, 1)
         r = reference.reshape(1, -1)
-        z = (q - r) / self.bandwidth
-        kernel = torch.exp(-0.5 * z**2) / math.sqrt(2.0 * math.pi)
-        density = kernel.mean(dim=1) / self.bandwidth
+        # Query blocks bound the (rows, n_ref) kernel matrix (O(n_ref) memory).
+        block = max(1, (1 << 24) // max(1, r.shape[1]))
+        parts = []
+        for i in range(0, q.shape[0], block):
+            z = (q[i : i + block] - r) / self.bandwidth
+            kernel = torch.exp(-0.5 * z**2) / math.sqrt(2.0 * math.pi)
+            parts.append(kernel.mean(dim=1))
+        density = (torch.cat(parts) if parts else q.new_empty(0)) / self.bandwidth
         return density.clamp(min=self.min_density)
 
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
