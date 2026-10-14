@@ -161,6 +161,13 @@ from torchregress.losses import InverseGaussianLoss
 loss_fn = InverseGaussianLoss(link="log")
 ```
 
+!!! warning "Strictly positive targets"
+    `GammaLoss` and `InverseGaussianLoss` (and `TweedieLoss` with $p \ge 2$) raise
+    `ValueError` if any unmasked target is $\le 0$: both densities have support
+    $y > 0$ and their deviances are undefined at $y = 0$. For data with exact
+    zeros use `CompoundPoissonLoss` ($1 < p < 2$) or a hurdle model; do not shift
+    the targets, which changes the estimand.
+
 ### CompoundPoissonLoss
 
 For $1 < p < 2$ — handles data with a **point mass at zero** and positive continuous values:
