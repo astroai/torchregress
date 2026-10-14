@@ -89,7 +89,8 @@ def test_A_LOSS_001_reduce_mask2d_weights1d() -> None:
 @pytest.mark.parametrize("reduction", ["sum", "none", "mean"])
 def test_A_LOSS_019_reduce_weight_collapse_averages(reduction: str) -> None:
     torch.manual_seed(0)
-    m, t, cov = torch.randn(4, 3), torch.randn(4, 3), torch.eye(3)
+    m, t = torch.randn(4, 3), torch.randn(4, 3)
+    cov = torch.eye(3, dtype=m.dtype)
     fn = MultivariateGaussianLoss(reduction=reduction)
     ones_w = torch.ones(4, 3)
     all_true = torch.ones(4, 3, dtype=torch.bool)
@@ -510,7 +511,7 @@ def test_A_LOSS_016_evidential_omega() -> None:
 @pytest.mark.parametrize("mode", ["covariance", "cholesky"])
 def test_A_LOSS_017_wasserstein_eigh_nan_grad(mode: str) -> None:
     pc = torch.eye(3, dtype=F64).repeat(2, 1, 1).requires_grad_(True)
-    tc = torch.diag(torch.tensor([1.0, 2.0, 3.0], dtype=F64)).repeat(2, 1, 1)
+    tc = torch.diag(torch.tensor([1.0, 2.0, 3.0], dtype=F64)).to(dtype=F64).repeat(2, 1, 1)
     m = torch.zeros(2, 3, dtype=F64)
     GaussianWassersteinBoundLoss(covariance_parameterization=mode)(m, m, pc, tc).backward()
     assert pc.grad is not None and torch.isfinite(pc.grad).all(), pc.grad
@@ -531,9 +532,11 @@ def test_A_LOSS_017_matrix_sqrt_grad_values() -> None:
     # Repeated eigenvalue in a rotated basis: still finite and correct
     # (divided difference 1 / (s_i + s_j)).
     q, _ = torch.linalg.qr(torch.randn(3, 3, dtype=F64))
-    deg = (q @ torch.diag(torch.tensor([4.0, 4.0, 1.0], dtype=F64)) @ q.T).requires_grad_(True)
+    deg = (
+        q @ torch.diag(torch.tensor([4.0, 4.0, 1.0], dtype=F64)).to(dtype=F64) @ q.T
+    ).requires_grad_(True)
     (g2,) = torch.autograd.grad(symmetric_spd_matrix_sqrt(deg).diagonal().sum(), deg)
-    expected = q @ torch.diag(torch.tensor([0.25, 0.25, 0.5], dtype=F64)) @ q.T
+    expected = q @ torch.diag(torch.tensor([0.25, 0.25, 0.5], dtype=F64)).to(dtype=F64) @ q.T
     torch.testing.assert_close(g2, expected, rtol=1e-8, atol=1e-10)
 
 

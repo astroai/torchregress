@@ -298,7 +298,7 @@ def test_ALG_007_rc_posterior_matrix_and_vector_override() -> None:
     rc = RegressionCalibration(0.5).fit(w)
     assert rc.signal_covariance is not None
     std = torch.tensor([0.01, 0.02], dtype=torch.float64)
-    cov = torch.diag(std**2)
+    cov = torch.diag(std**2).to(dtype=torch.float64)
     m_vec, c_vec = rc.posterior(w[:4], sigma_u=std)  # (D,) = per-feature std
     m_mat, c_mat = rc.posterior(w[:4], sigma_u=cov)  # (D, D) = covariance
     sx = rc.signal_covariance
