@@ -94,11 +94,11 @@ lower_cal, upper_cal = semi.calibrate_interval(lower, upper, weights_target, alp
 ## Calibration metrics (re-exports)
 
 The following metrics are also re-exported here for convenience — see
-[Metrics API](metrics.md#calibration-metrics-metricscalibration) for full details.
+[Metrics API](metrics.md#calibration-metrics) for full details.
 
 | Symbol | Origin |
 |:-------|:-------|
-| `ExpectedCalibrationError`, `MarginalCalibrationError` | `metrics.calibration` |
+| `ExpectedCalibrationError`, `MarginalCalibrationError` | `calibration.metrics` (also exported from `torchregress.metrics`) |
 | `expected_calibration_error`, `marginal_calibration_error` | functional form |
 | `bias`, `calibration_score`, `calibration_metrics_report` | functional helpers |
 

@@ -102,7 +102,10 @@ the stateful `OutlierFraction` below.
 
 ---
 
-## Calibration metrics (`metrics.calibration`)
+## Calibration metrics
+
+Defined in `torchregress.calibration.metrics`; import them from
+`torchregress.metrics` or `torchregress.calibration`.
 
 → **Guide:** [Calibration metrics](../metrics/calibration.md)
 

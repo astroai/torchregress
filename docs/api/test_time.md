@@ -317,6 +317,44 @@ shrunk toward the source prior and ratio-clipped (`prior_transport_strength`,
     carry no per-row confidence either way: `top_fraction=1.0` is then equivalent and
     uses every row.
 
+For a **Gaussian** predictive the prior correction is applied as a moment change: the
+native mean moves by $w_i\,(m^{\text{transported}}_i - m^{\text{grid}}_i)$ and the std is
+scaled by $1 + w_i\,(s^{\text{transported}}_i / s^{\text{grid}}_i - 1)$, where $m, s$ are the
+moments of the row's binned predictive before and after the prior reweighting and $w_i$ is
+the row's predictive mass inside the support grid. A prior equal to the source prior
+returns the input predictive, and a row whose predictive lies past the grid passes through
+unchanged. (Before 0.3.0 the output was the moments of the transported grid itself, which
+added the discretisation and the truncation at the grid edge: target predictives beyond the
+source label range collapsed onto the edge bin, std of the order of the grid step and NLL
+in the thousands.) Metadata `prior_mass_outside_source_range` is the raw EM prior mass on
+the support bins outside `[min, max]` of the source labels.
+
+!!! warning "Label shift: support, shrinkage and inflation"
+    - **Target labels must lie in the source label range.** Label shift assumes
+      $\operatorname{supp} p_t(y) \subseteq \operatorname{supp} p_s(y)$. When the raw EM prior
+      puts more than 0.2 of its mass on the `support_margin` bins past the source labels
+      (which hold no source labels; their source prior is only the predictive tails), the
+      prior ratio there is extrapolated, not estimated, and `adapt_unlabeled_target` raises a
+      `UserWarning`. The same warning fires when EM itself is unreliable (wide, overlapping
+      predictives). Treat the transported predictive as untrustworthy then.
+    - **The stabilised prior shrinks with the grid resolution.** The shrink weight is
+      `prior_transport_strength` times the mean peak bin probability of the selected rows
+      above uniform, and a Gaussian predictive's peak bin probability scales as
+      $\Delta / \sigma$ (grid step over predictive std). On a known 0.8 SD label shift with a
+      calibrated Ridge predictive the shrink weight is 0.39, 0.19, 0.09, 0.05 and 0.02 at
+      `n_support` = 16, 32, 64, 128, 256: the raw EM prior is within TV 0.01-0.05 of the
+      true target prior at every resolution, but the stabilised prior closes only
+      ~35 % of the TV 0.32 gap at 16 bins and ~2 % at the default 256 bins
+      (`transport_applied` is `True` either way). Compare `target_prior_raw` with
+      `target_prior`, and use a coarser grid (`n_support` 16-32, bins narrower than the
+      predictive std) when the prior correction should take effect.
+    - **Uncertainty inflation reacts to the label shift.** Under label shift the inputs
+      shift too ($p_t(x) = \int p(x \mid y)\, p_t(y)\, dy$), so with feature inputs the
+      representation-shift inflator widens the predictive: 90 % coverage 0.89 to 0.96 and
+      Gaussian NLL 0.03 to 0.08 on the 0.8 SD design. Set
+      `enable_uncertainty_inflation=False` for a pure label-shift correction (NLL 0.029 to
+      0.019 at 16 bins, 0.028 at 256).
+
 The transport supports PPI (`mean` / `quantile` / `ols` estimands) and
 dispatches conformal calibration to `cqr` / `cti` / `interval` / `split`
 based on the predictive family. The conformal threshold is the exact split-conformal

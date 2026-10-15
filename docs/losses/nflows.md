@@ -229,6 +229,17 @@ is the over-sharpening signature that early stopping removes on the datasets abo
     data-dependent bound cannot be chosen at construction time; derive it from the
     standardised training target with `recommended_tail_bound` and pass it as `bound`.
 
+!!! warning "Amortized posteriors over wide priors (SBI)"
+    The same limit applies when the flow models `p(theta | x)`: a parameter whose
+    training range exceeds the bound is outside the spline domain. On the sbibm
+    `gaussian_mixture` task (`theta ~ U(-10, 10)^2`) an NSF trained on raw `theta` with the
+    default bound put every posterior on the bound edge (posterior mean `-4.92` for a
+    reference at `-9.26`; C2ST 0.997 against 0.51 for sbi NPE, which z-scores `theta`).
+    Either z-score `theta` before training (and invert the samples, subtracting
+    `sum(log scale)` from log-densities), or pass `bound=recommended_tail_bound(theta_train)`;
+    in the harness `sbi_parity` suite both bring C2ST to about 0.6 at the same simulation
+    budget. `NormalizingFlowLoss` warns once when a target exceeds the bound.
+
 ---
 
 ## Inference

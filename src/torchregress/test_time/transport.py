@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field, replace
 from statistics import NormalDist
 from typing import Any, Sequence, cast
@@ -28,6 +29,10 @@ ArrayLike = np.ndarray | Tensor | Sequence[float]
 # met in ``max_iter`` steps (the convergence gate then skipped transport), and
 # iterating further only fits sampling noise.
 _PRIOR_EM_LOGLIK_TOL = 1.0e-4
+
+# Warn when the raw EM target prior puts more than this mass on the support
+# bins outside the source label range (the ``support_margin`` bins).
+_PRIOR_OUTSIDE_SOURCE_RANGE_WARN = 0.2
 
 
 def _floating(t: Tensor) -> Tensor:
@@ -731,10 +736,31 @@ class ShiftFactoredPredictiveTransport:
             config=cfg,
             evidence_scale=evidence_scale,
         )
+        # Label shift assumes supp p_t(y) <= supp p_s(y). Raw EM mass on the
+        # ``support_margin`` bins past the source label range means the target
+        # predictives sit beyond the source labels: the prior ratio there is
+        # extrapolated from the source predictive tails, not estimated.
+        support_values = self.state_.source_support.double()
+        src_targets = self.state_.source_targets.double()
+        outside_range = (support_values < src_targets.min()) | (support_values > src_targets.max())
+        raw_prior = _to_tensor(estimate.target_prior).double().reshape(-1)
+        outside_mass = float(raw_prior[outside_range].sum().item())
+        if outside_mass > _PRIOR_OUTSIDE_SOURCE_RANGE_WARN:
+            warnings.warn(
+                f"ShiftFactoredPredictiveTransport: the EM target prior puts {outside_mass:.2f} "
+                "of its mass on support bins outside the source label range, which hold no "
+                "source labels. Either the target labels extend past the source label range "
+                "(label shift assumes they do not) or the EM estimate is unreliable; the prior "
+                "correction is extrapolated there, so check the transported predictive (metadata "
+                "'prior_mass_outside_source_range', 'target_prior_raw').",
+                UserWarning,
+                stacklevel=2,
+            )
         prior_meta = {
             **prior_meta,
             "prior_selection_fraction": selected_fraction,
             "prior_source_target_tv": prior_tv,
+            "prior_mass_outside_source_range": outside_mass,
         }
         if skip_reason is not None:
             prior_meta["prior_transport_skip_reason"] = skip_reason
@@ -776,6 +802,48 @@ class ShiftFactoredPredictiveTransport:
                 adapted_density,
                 cfg.eps,
             )
+        elif (
+            metadata.get("family") == "gaussian"
+            and effective_predictions.mean is not None
+            and effective_predictions.std is not None
+        ):
+            # Gaussian predictive: apply the prior correction as a moment change
+            # (transported minus untransported grid moments) to the native
+            # mean / std. Reading the moments of the transported grid directly
+            # also applied the discretisation and the truncation at the grid
+            # edge, so a near-identity prior change moved the predictive and a
+            # target predictive past the source label range collapsed onto the
+            # edge bin (std ~ grid step, NLL in the thousands). The prior ratio
+            # is defined on the source support only: the change is weighted by
+            # each row's in-grid predictive mass (rows off the grid pass through).
+            m0, s0 = _probability_moments(self.state_.source_support, probabilities, cfg.eps)
+            m1, s1 = _probability_moments(self.state_.source_support, transported, cfg.eps)
+            native_mean = _as_1d(effective_predictions.mean).double()
+            native_std = _as_1d(effective_predictions.std).double().clamp(cfg.eps, None)
+            in_grid = in_grid_mass if in_grid_mass is not None else torch.ones_like(m0)
+            in_grid = _to_tensor(in_grid).double().reshape(-1).clamp(0.0, 1.0)
+            mean = (native_mean + in_grid * (m1 - m0)).to(out_dtype)
+            std_ratio = 1.0 + in_grid * (s1 / s0.clamp(cfg.eps, None) - 1.0)
+            std = (native_std * std_ratio).clamp(cfg.eps, None).to(out_dtype)
+            if (
+                self._shift_calibrator is not None
+                and target_features is not None
+                and cfg.enable_uncertainty_inflation
+            ):
+                std = cast(Tensor, self._shift_calibrator.calibrate_std(std, target_features)).to(
+                    out_dtype
+                )
+            adapted_density = _gaussian_density_on_support(
+                mean,
+                std,
+                self.state_.source_support,
+                cfg.eps,
+            )
+            transported = _density_to_probabilities(
+                self.state_.source_support,
+                adapted_density,
+                cfg.eps,
+            )
         else:
             mean, std = _probability_moments(
                 self.state_.source_support, transported, cfg.eps, out_dtype
@@ -785,34 +853,18 @@ class ShiftFactoredPredictiveTransport:
                 and target_features is not None
                 and cfg.enable_uncertainty_inflation
             ):
-                if metadata.get("family") == "gaussian":
-                    std = cast(
-                        Tensor, self._shift_calibrator.calibrate_std(std, target_features)
-                    ).to(out_dtype)
-                    adapted_density = _gaussian_density_on_support(
-                        mean,
-                        std,
-                        self.state_.source_support,
-                        cfg.eps,
-                    )
-                    transported = _density_to_probabilities(
-                        self.state_.source_support,
-                        adapted_density,
-                        cfg.eps,
-                    )
-                else:
-                    transported = self._shift_calibrator.calibrate_probabilities(
-                        transported,
-                        target_features,
-                    )
-                    adapted_density = _probabilities_to_density(
-                        self.state_.source_support,
-                        transported,
-                        cfg.eps,
-                    )
-                    mean, std = _probability_moments(
-                        self.state_.source_support, transported, cfg.eps, out_dtype
-                    )
+                transported = self._shift_calibrator.calibrate_probabilities(
+                    transported,
+                    target_features,
+                )
+                adapted_density = _probabilities_to_density(
+                    self.state_.source_support,
+                    transported,
+                    cfg.eps,
+                )
+                mean, std = _probability_moments(
+                    self.state_.source_support, transported, cfg.eps, out_dtype
+                )
             else:
                 adapted_density = _probabilities_to_density(
                     self.state_.source_support,

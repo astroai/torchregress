@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from matplotlib.figure import Figure
 
-from torchregress.metrics.calibration import expected_calibration_error
+from torchregress.calibration.metrics import expected_calibration_error
 from torchregress.metrics.utils import convert_to_tensor
 from torchregress.viz.utils import add_annotations, add_identity_line, add_zero_line
 

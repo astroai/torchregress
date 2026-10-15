@@ -11,7 +11,7 @@ from torchmetrics import (  # noqa: F401  # kept for soft backward compatibility
     R2Score,
 )
 
-from .calibration import (
+from ..calibration.metrics import (
     ExpectedCalibrationError,
     MarginalCalibrationError,
     bias,

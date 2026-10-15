@@ -45,6 +45,10 @@ class TweedieLoss(RegressionLoss):
         reduction: Specifies the reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
         link: Link function, 'log' or 'identity'. Default is 'log' for p>=1, 'identity' for p=0.
 
+    Raises:
+        ValueError: In ``forward`` when ``p >= 2`` (Gamma, Inverse Gaussian) and any
+            unmasked target is ``<= 0``; those distributions have support ``y > 0``.
+
     Example:
         >>> # Compound Poisson-Gamma (p=1.5)
         >>> loss_fn = TweedieLoss(p=1.5, link='log')
@@ -97,6 +101,26 @@ class TweedieLoss(RegressionLoss):
             raise ValueError(f"Power parameter p must be non-negative, got {p}")
         if 0 < p < 1:
             raise ValueError(f"Power parameter p between 0 and 1 is not supported, got {p}")
+
+    def _require_strictly_positive_target(
+        self, target: torch.Tensor, mask: Optional[torch.Tensor]
+    ) -> None:
+        """Raise if any unmasked target lies outside the support ``y > 0``.
+
+        The Gamma (p=2) and Inverse Gaussian (p=3) densities and deviances are
+        undefined at ``y <= 0``; an ``eps`` guard would silently turn such
+        targets into a large finite penalty, so they are rejected instead.
+        Entries with ``mask == False`` are not validated.
+        """
+        bad = target <= 0
+        if mask is not None:
+            bad = bad & mask.to(torch.bool)
+        if torch.any(bad):
+            name = "GammaLoss" if self.p == 2 else "InverseGaussianLoss"
+            raise ValueError(
+                f"{name} (TweedieLoss p={self.p:g}) requires strictly positive targets; "
+                f"received {int(bad.sum())} unmasked target(s) <= 0"
+            )
 
     def _get_mean(self, y_pred: torch.Tensor) -> torch.Tensor:
         """
@@ -220,6 +244,8 @@ class TweedieLoss(RegressionLoss):
         """
         # Validate inputs
         self._validate_inputs(y_pred, target, mask)
+        if self.p >= 2:
+            self._require_strictly_positive_target(target, mask)
 
         # Get mean parameter μ
         mu = self._get_mean(y_pred)
@@ -284,7 +310,7 @@ def tweedie_loss(
 
     Args:
         y_pred: Predicted values (log(μ) if ``link='log'``).
-        target: Non-negative target values.
+        target: Non-negative target values (strictly positive for ``p >= 2``).
         p: Tweedie power parameter (0, 1, 2, 3, or in (1, 2)).
         mask: Optional boolean mask of valid entries.
         weights: Optional per-element weights.

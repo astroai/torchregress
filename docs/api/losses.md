@@ -223,6 +223,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 
 | Symbol | Constructor |
 |:-------|:------------|
+| `BaseEIVLoss` | `BaseEIVLoss(model, sigma_x, sigma_y=None, reduction="mean", eps=1e-3)`: base class of the EIV losses below (sigma/covariance handling); subclass it for a custom EIV loss |
 | `StructuralEIVLoss` | `StructuralEIVLoss(model=..., sigma_x=..., sigma_y=..., sigma_xy=...)` |
 | `FunctionalEIVLoss` | `FunctionalEIVLoss(model=..., sigma_x=0.5, sigma_y=0.3)` |
 | `OrthogonalDistanceRegressionLoss` | `OrthogonalDistanceRegressionLoss(model=...)` |
@@ -254,6 +255,8 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `DistributionalConformal` | `DistributionalConformal(alpha=0.1)` | PIT-based CDF calibration |
 | `LevelSetConformalPredictor` | `LevelSetConformalPredictor(alpha=0.1)` | Smallest density sets |
 | `MultiTargetConformal` | `MultiTargetConformal(alpha=0.1)` | Multi-target joint coverage |
+| `MultivariateScoreConformal` | `MultivariateScoreConformal(alpha, score_fn="mahalanobis")` | Joint ellipsoid from a scalar Mahalanobis / Gaussian-NLL score of `(mu, Sigma)`; optional importance weights |
+| `NonExchangeableConformalRegressor` | `NonExchangeableConformalRegressor(alpha, *, normalize_weights=True)` | Weighted (NexCP) split conformal beyond exchangeability, with `two_sided_coverage_bounds()` |
 | `PrevalenceAdjustedCP` | `PrevalenceAdjustedCP(alpha=0.1)` | Group-prevalence-adjusted |
 | `R2CConformal` | `R2CConformal(alpha=0.1, bin_edges=...)` | Regression-as-classification CP |
 | `SLSConformal` | `SLSConformal(alpha=0.1, ...)` | Super-level set conformal |

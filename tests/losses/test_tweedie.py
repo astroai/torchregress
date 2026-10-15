@@ -1,5 +1,6 @@
 import unittest
 
+import pytest
 import torch
 from torch.autograd import gradcheck
 
@@ -461,3 +462,44 @@ class TestTweedieLossNumericalStability:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPositiveSupportValidation:
+    """Gamma (p=2) and Inverse Gaussian (p=3) require strictly positive targets."""
+
+    @pytest.mark.parametrize(
+        "factory,name",
+        [(GammaLoss, "GammaLoss"), (InverseGaussianLoss, "InverseGaussianLoss")],
+    )
+    @pytest.mark.parametrize("bad_value", [0.0, -1.0])
+    def test_raises_on_non_positive_target(self, factory, name, bad_value):
+        loss_fn = factory()
+        y_pred = torch.zeros(3)
+        target = torch.tensor([1.0, bad_value, 2.0])
+        with pytest.raises(ValueError, match=f"{name}.*requires strictly positive targets"):
+            loss_fn(y_pred, target)
+
+    @pytest.mark.parametrize("p", [2.0, 3.0])
+    def test_tweedie_base_raises_for_p_ge_2(self, p):
+        with pytest.raises(ValueError, match="requires strictly positive targets"):
+            TweedieLoss(p=p)(torch.zeros(2), torch.tensor([0.0, 1.0]))
+
+    @pytest.mark.parametrize("factory", [GammaLoss, InverseGaussianLoss])
+    def test_passes_on_positive_target(self, factory):
+        loss = factory()(torch.zeros(3), torch.tensor([0.5, 1.0, 2.0]))
+        assert torch.isfinite(loss)
+
+    @pytest.mark.parametrize("factory", [GammaLoss, InverseGaussianLoss])
+    def test_mask_excludes_non_positive_entries(self, factory):
+        y_pred = torch.zeros(3)
+        target = torch.tensor([1.0, 0.0, 2.0])
+        mask = torch.tensor([True, False, True])
+        loss = factory()(y_pred, target, mask=mask)
+        expected = factory()(y_pred[mask], target[mask])
+        assert torch.isfinite(loss)
+        assert torch.allclose(loss, expected)
+
+    def test_lower_powers_still_accept_zero(self):
+        target = torch.tensor([0.0, 1.0, 2.0])
+        for p in (0.0, 1.0, 1.5):
+            assert torch.isfinite(TweedieLoss(p=p)(torch.zeros(3), target))
