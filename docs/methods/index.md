@@ -56,7 +56,9 @@ measurement error correction, [TIC-TAC](algorithms/tictac.md) for covariance
 learning, [Heteroscedastic Laplace](algorithms/heteroscedastic_laplace.md)
 for last-layer Bayesian regression, and
 [Adaptive Prior VI](algorithms/adaptive_prior_vi.md) for covariate-shift
-robustness. **Start here if standard training isn't enough for your data.**
+robustness, [VIR](algorithms/vir.md) for imbalanced targets with evidential
+uncertainty, and [Continuous Group DRO](algorithms/group_dro.md) for
+worst-regime robustness. **Start here if standard training isn't enough for your data.**
 
 ### [Test-Time & Shift](test-time/bayesian-linear-regression.md)
 

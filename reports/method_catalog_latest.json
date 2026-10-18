@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 137,
+    "total_methods": 139,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -15,7 +15,7 @@
       "evidential": 1,
       "expectile": 3,
       "flow": 3,
-      "imbalanced_algorithm": 2,
+      "imbalanced_algorithm": 4,
       "imbalanced_loss": 9,
       "inference": 1,
       "likelihood_ratio": 1,
@@ -41,7 +41,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 19,
-      "Available": 111
+      "Available": 113
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -2993,6 +2993,54 @@
       "imbalance": "yes",
       "noisy_features_eiv": "no",
       "notes": "Contrastive regularizer for imbalanced regression: pushes apart label-distant pairs whose predictions collapsed, weighted by inverse label density. Needs the model prediction; O(B^2) per batch."
+    },
+    {
+      "name": "VIRLoss",
+      "family": "imbalanced_algorithm",
+      "public_path": "torchregress.algorithms.VIRLoss",
+      "task_tags": [
+        "imbalance",
+        "rare_targets",
+        "imbalanced_regression",
+        "aleatoric_uq",
+        "evidential"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "Variational Imbalanced Regression loss: Normal-Inverse-Gamma evidential head with label-density reweighting and evidential regularisation. Call fit(train_targets) to estimate the smoothed label density; outputs a Student-t predictive."
+    },
+    {
+      "name": "VIRRegressor",
+      "family": "imbalanced_algorithm",
+      "public_path": "torchregress.algorithms.VIRRegressor",
+      "task_tags": [
+        "imbalance",
+        "rare_targets",
+        "imbalanced_regression",
+        "aleatoric_uq",
+        "evidential"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "End-to-end variational imbalanced regressor: feature encoder + probabilistic latent smoothing + NIG predictive head; predict(return_std=True) returns mean and evidential predictive uncertainty. Single-output scalar targets."
     },
     {
       "name": "ContinuousGroupDRO",

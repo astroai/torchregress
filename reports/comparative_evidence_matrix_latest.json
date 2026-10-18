@@ -64,6 +64,7 @@
         "DensityWeightedLoss",
         "PropensityWeightedLoss",
         "LDSLoss",
+        "VIRRegressor",
         "GaussianNLLLoss",
         "MultiQuantileLoss"
       ],

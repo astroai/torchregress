@@ -2,8 +2,10 @@
 Binned inverse-frequency weighted MSE losses for imbalanced regression targets.
 
 Splits the target range into bins and reweights squared error inversely to the
-empirical bin mass (with optional additive smoothing). This follows the
-continuous analogue of class-balanced losses used for long-tailed regression.
+empirical bin mass (with optional additive smoothing). This is the continuous
+analogue of class-balanced (inverse-frequency) losses, *not* the noise-adaptive
+Balanced MSE (BMC) of Ren et al. (2022); the historical ``BalancedMSELoss`` name
+is kept for API compatibility but the implementation is plain bin weighting.
 """
 
 from __future__ import annotations
@@ -78,11 +80,13 @@ class BalancedMSELoss(RegressionLoss):
     -----
     Call :meth:`fit` once on training targets before the optimization loop.
 
-    References
-    ----------
-    .. [1] Ren, J., Xiao, C., Chang, X., Huang, S., Li, G., & Wang, S. (2022).
-       Balanced MSE for Long-Tailed Visual Recognition. In *CVPR 2022*.
-       https://arxiv.org/abs/2203.16427
+    .. warning::
+       The historical name is retained for API compatibility, but this class
+       implements **inverse bin-frequency weighting**, not the noise-adaptive
+       Balanced MSE (BMC) of Ren et al. (2022), which models the target-noise
+       distribution and is a different estimator. ``BinReweightedMSELoss`` is
+       the same inverse-frequency family with automatic bin edges. Do not cite
+       this class as a Balanced-MSE (Ren et al.) implementation.
     """
 
     bin_edges: Tensor

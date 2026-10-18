@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-17`
+_Generated date_: `2026-10-18`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `137`
+- Total methods: `139`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -26,7 +26,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `evidential` | 1 |
 | `expectile` | 3 |
 | `flow` | 3 |
-| `imbalanced_algorithm` | 2 |
+| `imbalanced_algorithm` | 4 |
 | `imbalanced_loss` | 9 |
 | `inference` | 1 |
 | `likelihood_ratio` | 1 |
@@ -55,7 +55,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 19 |
-| `Available` | 111 |
+| `Available` | 113 |
 
 ## Method Rows
 
@@ -130,6 +130,8 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `SLSLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `prediction_intervals` | `calibration*`, `ood*` | `torchregress.losses.SLSLoss` |
 | `ContinuousGroupDRO` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.ContinuousGroupDRO` |
 | `GroupDROTrainer` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.GroupDROTrainer` |
+| `VIRLoss` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `imbalanced_regression`, `aleatoric_uq`, `evidential` | `calibration*`, `ood*` | `torchregress.algorithms.VIRLoss` |
+| `VIRRegressor` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `imbalanced_regression`, `aleatoric_uq`, `evidential` | `calibration*`, `ood*` | `torchregress.algorithms.VIRRegressor` |
 | `BalancedMSELoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BalancedMSELoss` |
 | `BinReweightedMSELoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BinReweightedMSELoss` |
 | `ConR` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `contrastive` | `calibration*`, `ood*` | `torchregress.losses.ConR` |

@@ -199,6 +199,8 @@ EXPECTED_EXPORTS = {
         "build_decoder_mlp",
         "ContinuousGroupDRO",
         "GroupDROTrainer",
+        "VIRLoss",
+        "VIRRegressor",
     ],
     "causal": [
         "dr_ate",

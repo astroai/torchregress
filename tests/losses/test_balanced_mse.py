@@ -1,4 +1,4 @@
-"""Tests for BalancedMSELoss and BinReweightedMSELoss (renamed from BMCLoss per A11)."""
+"""Tests for the historical BalancedMSELoss and BinReweightedMSELoss (inverse bin weighting)."""
 
 import pytest
 import torch

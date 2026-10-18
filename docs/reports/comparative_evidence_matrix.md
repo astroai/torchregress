@@ -2,7 +2,7 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_comparative_evidence_markdown`
 _Source artifacts_: `reports/comparative_evidence_matrix_latest.json`, `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-17`
+_Generated date_: `2026-10-18`
 
 ## Summary
 
@@ -16,7 +16,7 @@ _Generated date_: `2026-10-17`
 |---|---|---|---|---|---|---|
 | Robust regression / outliers | `Decision-grade` | `examples/comprehensive_comparison.py`, `examples/comprehensive_loss_comparison.py` | fixed seeds, shared scenarios / domain split, runtime summaries | MSE, MAE, R2, runtime | `WeightedHuberLoss`, `PseudoHuberLoss`, `LogCoshLoss`, `CharbonnierLoss`, `CauchyLoss`, `TukeyBiweightLoss`, `BarronLoss`, `AdaptiveRobustLoss`, `CVaRLoss`, `WeightedMSELoss` | Needs broader real-domain coverage beyond synthetic and tabular comparison tasks. |
 |  |  |  |  |  |  | _Note_: Robust/probabilistic/EIV comparisons run under shared budgets; results are available in the reports directory. |
-| Imbalanced / rare-target regression | `Strong` | `examples/imbalanced_regression.py` | shared split, summary tables | tail vs dense metrics, tail MAE/RMSE, native interval coverage/width, runtime | `DensityWeightedLoss`, `PropensityWeightedLoss`, `LDSLoss`, `GaussianNLLLoss`, `MultiQuantileLoss` | Needs additional real-data long-tail benchmarks beyond synthetic selection proxies. |
+| Imbalanced / rare-target regression | `Strong` | `examples/imbalanced_regression.py` | shared split, summary tables | tail vs dense metrics, tail MAE/RMSE, native interval coverage/width, runtime | `DensityWeightedLoss`, `PropensityWeightedLoss`, `LDSLoss`, `VIRRegressor`, `GaussianNLLLoss`, `MultiQuantileLoss` | Needs additional real-data long-tail benchmarks beyond synthetic selection proxies. |
 | Output constraints + post-hoc calibration transforms | `Strong` | `examples/constraints_calibration_comparison.py` | fixed seed, shared synthetic split, shared calibrator fit budget | MAE, NLL, PIT chi-square, crossing/bound violations, runtime | `BoundedHead`, `NonCrossingSort`, `VarianceTemperatureScaler`, `IsotonicMeanCalibrator`, `PITCalibrator` | Needs additional domain benchmarks beyond synthetic stress tests. |
 | Target transforms for skewed regression | `Strong` | `examples/transformed_target_regression_comparison.py` | fixed seed, shared architecture, shared optimizer/epoch budget | MSE, MAE, R2, MAPE, upper-tail MAE, runtime | `WeightedMSELoss`, `LogTransformLoss`, `BoxCoxTransformLoss`, `SqrtTransformLoss` | Needs real-data positive-target benchmarks beyond synthetic multiplicative-noise tasks. |
 |  |  |  |  |  |  | _Note_: Focused evidence for target-transform choice under skewed positive targets. |

@@ -52,6 +52,17 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 ---
 
+## Variational imbalanced regression (VIR)
+
+→ Method guide: [Variational Imbalanced Regression](../methods/algorithms/vir.md).
+
+| Symbol | Description |
+|:-------|:------------|
+| `VIRRegressor` | `(encoder, *, feature_dim=None, latent_dim=None, n_bins=20, kernel_sigma=1.0, smoothing_shrinkage=5.0, prior=(0.0,1.0,2.0,0.1), reg_weight=0.01, max_importance_weight=10.0, kl_weight=1e-3, epochs=100, batch_size=64, lr=1e-3, weight_decay=0.0, inference_smoothing="two_pass", n_refine=1, seed=None, device=None, verbose=False)` — encoder + probabilistic label-similarity latent smoothing + NIG evidential head; `fit(X, y)`, `predict(X, return_std=True)` returns NIG mean and predictive uncertainty, and `predict_interval(X, confidence=0.9)` returns lower/upper bounds. Single-output targets. |
+| `VIRLoss` | `(*, prior=(0.0,1.0,2.0,0.1), reg_weight=0.01, n_bins=20, kernel_sigma=1.0, min_nu=2.0, min_beta=1e-6, max_importance_weight=10.0, reduction="mean")` — reweighted NIG evidential loss; `fit(train_targets)` estimates the smoothed label density. Consumes the raw 3-unit NIG head output. |
+
+---
+
 ## IVON
 
 → Method guide: [IVON](../methods/algorithms/ivon.md).

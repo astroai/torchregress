@@ -1641,6 +1641,46 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="VIRLoss",
+        family="imbalanced_algorithm",
+        public_path="torchregress.algorithms.VIRLoss",
+        task_tags=(
+            "imbalance",
+            "rare_targets",
+            "imbalanced_regression",
+            "aleatoric_uq",
+            "evidential",
+        ),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "Variational Imbalanced Regression loss: Normal-Inverse-Gamma evidential head with "
+            "label-density reweighting and evidential regularisation. Call fit(train_targets) "
+            "to estimate the smoothed label density; outputs a Student-t predictive."
+        ),
+    ),
+    MethodMetadata(
+        name="VIRRegressor",
+        family="imbalanced_algorithm",
+        public_path="torchregress.algorithms.VIRRegressor",
+        task_tags=(
+            "imbalance",
+            "rare_targets",
+            "imbalanced_regression",
+            "aleatoric_uq",
+            "evidential",
+        ),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "End-to-end variational imbalanced regressor: feature encoder + probabilistic latent "
+            "smoothing + NIG predictive head; predict(return_std=True) returns mean and "
+            "evidential predictive uncertainty. Single-output scalar targets."
+        ),
+    ),
+    MethodMetadata(
         name="ContinuousGroupDRO",
         family="imbalanced_algorithm",
         public_path="torchregress.algorithms.ContinuousGroupDRO",
@@ -1828,8 +1868,11 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "PrimeLoss",
             "ConR",
             "ContinuousGroupDRO",
+            "VIRRegressor",
         ),
         notes=(
+            "VIR adds evidential predictive uncertainty to imbalanced regression; use it when "
+            "tail accuracy and calibrated uncertainty are both required. "
             "Astronomical benchmarks do not justify density weighting as default. "
             "Advanced research methods (DensityWeightedLoss, LDSLoss) should "
             "only be tried if coverage/calibration allow for tail gains. "
@@ -2092,6 +2135,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "DensityWeightedLoss",
             "PropensityWeightedLoss",
             "LDSLoss",
+            "VIRRegressor",
             "GaussianNLLLoss",
             "MultiQuantileLoss",
         ),

@@ -233,6 +233,7 @@ nav = [
       { "Adaptive Prior Inference" = "methods/algorithms/adaptive_prior_vi.md" },
       { "Bayesian Learning Rule (IVON)" = "methods/algorithms/ivon.md" },
       { "Continuous Group DRO" = "methods/algorithms/group_dro.md" },
+      { "Variational Imbalanced Regression" = "methods/algorithms/vir.md" },
     ] },
     { "Test-Time Adaptation" = [
       { "Shift Adaptation Overview" = "methods/test-time/regression-shift-adaptation-roadmap.md" },

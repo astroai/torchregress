@@ -33,6 +33,7 @@ from .latentnn import LatentNN
 from .rc import RegressionCalibration
 from .simex import SIMEX
 from .tictac import TaylorInducedCovarianceHead
+from .vir import VIRLoss, VIRRegressor
 from .warmup_mc import WarmupMCTrainer
 
 __all__ = [
@@ -58,4 +59,6 @@ __all__ = [
     "build_decoder_mlp",
     "ContinuousGroupDRO",
     "GroupDROTrainer",
+    "VIRLoss",
+    "VIRRegressor",
 ]

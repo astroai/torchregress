@@ -13,6 +13,13 @@ the flow, DML and transport improvements below). Other methods to add or
 remove are decided for 0.4.0.
 
 ### Added
+- Variational Imbalanced Regression (`VIRLoss`, `VIRRegressor`) for long-tailed
+  regression with evidential (Normal-Inverse-Gamma) uncertainty: label-similarity
+  latent smoothing, smoothed label-density reweighting, evidential regularisation,
+  and `predict(return_std=True)`. Docs: `docs/methods/algorithms/vir.md`.
+- Corrected the historical `BalancedMSELoss` documentation: it implements inverse
+  bin-frequency weighting, not Ren et al.'s noise-adaptive Balanced MSE (BMC);
+  the misleading citation was removed and the distinction is documented.
 - Contrastive likelihood-ratio / neural-ratio-estimation tooling (2026-10-17):
   - `losses.NeuralRatioLoss` (+ `build_ratio_classifier`, `neural_ratio_logits`,
     `neural_ratio_loss`): classifier-based neural ratio estimation with balanced binary
