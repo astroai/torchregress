@@ -17,6 +17,8 @@ from .covariance_pseudo_labels import (
     NeighborhoodCovariancePseudoLabeler,
 )
 from .error_aware import ErrorAwareFeatureEncoder, NoiseAwareRegressor
+from .forward_inversion import ForwardInversionRegressor, build_decoder_mlp
+from .group_dro import ContinuousGroupDRO, GroupDROTrainer
 from .heteroscedastic_laplace import (
     HeteroscedasticLaplaceRegressor,
     NaturalHeteroscedasticHead,
@@ -52,4 +54,8 @@ __all__ = [
     "VIDSRegressor",
     "sample_synthetic_environments",
     "WarmupMCTrainer",
+    "ForwardInversionRegressor",
+    "build_decoder_mlp",
+    "ContinuousGroupDRO",
+    "GroupDROTrainer",
 ]

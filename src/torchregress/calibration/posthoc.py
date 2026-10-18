@@ -385,8 +385,282 @@ class PITCalibrator:
         return mapped.clamp(self.eps, 1.0 - self.eps).reshape(pit_values.shape).to(pit_values.dtype)
 
 
+@dataclass
+class VarianceRestoringCalibrator:
+    """Restore the marginal variance and tails of conditional-mean predictions.
+
+    A predictor trained with mean-squared error estimates the conditional mean
+    ``E[y | x]``. The law of total variance,
+
+        Var(y) = Var(E[y | x]) + E[Var(y | x)],
+
+    implies that such predictions are generically *under-dispersed*: the target
+    noise term is not represented, the marginal variance of the predictions is
+    smaller than that of the targets, and extreme targets (e.g. stars with
+    ``[Fe/H] < -2.5``) are compressed toward the bulk. This calibrator re-shapes
+    the point predictions themselves so that their marginal distribution
+    matches the calibration-target distribution. It provides two maps:
+
+    * ``method="affine"`` (moment matching): with prior mean ``mu0`` (default
+      ``mean(target)``) and ``s = sqrt(Var(target) / Var(pred))``,
+
+          T(z) = mu0 + s * (z - mu0).
+
+      Fitted attributes are ``prior_mean_`` (``mu0``) and ``scale_`` (``s``).
+      The variance ratio is matched exactly by construction; the mean moves by
+      the same stretch, so it equals the target mean only when the fit
+      predictions are already centred on ``mu0``.
+    * ``method="quantile"`` (1-D optimal transport): sort the calibration
+      predictions and targets as ``x_(1) <= ... <= x_(n)`` and
+      ``y_(1) <= ... <= y_(n)``; between the pairs ``(x_(i), y_(i))`` the map is
+      the piecewise-linear monotone interpolant, continued beyond the
+      calibration range according to ``out_of_bounds``. In one dimension the
+      monotone map is the W2-optimal transport map between the empirical
+      marginals, and it reproduces the calibration marginal exactly. Fitted
+      attributes are the sorted grids ``_x`` and ``_y``.
+
+    .. warning::
+       Marginal matching is *not* conditional-mean calibration. For a perfectly
+       calibrated MSE-optimal predictor (``E[y | z] = z``), the missing spread
+       is irreducible target noise: stretching restores the marginal variance
+       and tails but increases the MSE (by about ``(s - 1)^2 Var(pred)`` for the
+       affine map). For an attenuated / under-dispersed predictor
+       (``pred = rho * y + noise`` with ``rho < 1``) it can reduce both the
+       Wasserstein-1 distance and the MSE. There is no unconditional
+       improvement guarantee, so :meth:`describe` reports ``mse_before`` and
+       ``mse_after`` next to the marginal diagnostics. Use this calibrator when
+       the *population* distribution of predictions is the quantity of interest
+       (e.g. population-level metallicity studies), not as a free fix for
+       conditional bias.
+
+    A per-sample heteroscedastic rescaling, ``sigma * sqrt(1 + sigma**2 /
+    Var(mu))``, was considered for the original audit but is intentionally not
+    implemented: it is an ad hoc rule rather than the solution of a transport or
+    moment-matching objective and it diverges where the predicted-mean variance
+    is small. Global moment matching and the 1-D optimal-transport map are the
+    principled versions of the same intuition.
+
+    Parameters
+    ----------
+    method : {"affine", "quantile"}
+        Moment matching (two parameters) or 1-D optimal transport (fully
+        non-parametric) marginal matching.
+    out_of_bounds : {"clip", "linear"}
+        ``"clip"`` (default) holds the end values outside the calibration
+        prediction range; ``"linear"`` extrapolates the end segments linearly.
+        Only used by ``method="quantile"``.
+    eps : float
+        Small positive floor in target-variance (squared-target) units, used as
+        a denominator guard for the affine scale and for the ratios reported by
+        :meth:`describe`. Lower it when targets live on tiny scales.
+
+    References
+    ----------
+    .. [1] Villani, C. (2009). *Optimal Transport: Old and New*. Grundlehren der
+       mathematischen Wissenschaften 338. Springer.
+    .. [2] Peyre, G., & Cuturi, M. (2019). Computational Optimal Transport.
+       *Foundations and Trends in Machine Learning*, 11(5-6), 355-607.
+    .. [3] Kuleshov, V., Fenner, N., & Ermon, S. (2018). Accurate Uncertainties
+       for Deep Learning Using Calibrated Regression. In *ICML 2018*.
+       https://arxiv.org/abs/1807.00263
+    .. [4] Casella, G., & Berger, R. L. (2002). *Statistical Inference*
+       (2nd ed.). Duxbury. (Law of total variance.)
+    """
+
+    method: str = "affine"
+    out_of_bounds: str = "clip"
+    eps: float = 1e-8
+
+    def __post_init__(self) -> None:
+        self.prior_mean_: float | None = None
+        self.scale_: float | None = None
+        self._x: Tensor | None = None
+        self._y: Tensor | None = None
+
+    def _validate_hyperparameters(self) -> None:
+        if self.method not in ("affine", "quantile"):
+            raise ValueError(f"unknown method {self.method!r}; expected 'affine' or 'quantile'")
+        if self.method == "quantile" and self.out_of_bounds not in ("clip", "linear"):
+            raise ValueError(
+                f"unknown out_of_bounds {self.out_of_bounds!r}; expected 'clip' or 'linear'"
+            )
+        if not self.eps > 0:
+            raise ValueError("eps must be positive")
+
+    def fit(
+        self,
+        pred_mean: Tensor,
+        target: Tensor,
+        *,
+        prior_mean: float | Tensor | None = None,
+    ) -> "VarianceRestoringCalibrator":
+        """Fit the marginal map on a held-out calibration split.
+
+        Parameters
+        ----------
+        pred_mean : Tensor
+            Point predictions on the calibration set (any shape; flattened).
+        target : Tensor
+            Targets on the calibration set (same number of elements).
+        prior_mean : float or Tensor, optional
+            Centre ``mu0`` of the affine map. Defaults to ``mean(target)``.
+            Must be a finite scalar and is only accepted by
+            ``method="affine"``.
+
+        Returns
+        -------
+        VarianceRestoringCalibrator
+            ``self``, fitted.
+
+        Notes
+        -----
+        Non-finite pairs are dropped before fitting. At least two finite
+        samples and a non-zero prediction variance are required.
+        """
+        self._validate_hyperparameters()
+        if pred_mean.numel() != target.numel():
+            raise ValueError("pred_mean and target must contain the same number of elements")
+        if prior_mean is not None:
+            if self.method != "affine":
+                raise ValueError("prior_mean is only used by method='affine'")
+            prior = torch.as_tensor(prior_mean, dtype=torch.float64).detach().reshape(-1)
+            if prior.numel() != 1:
+                raise ValueError("prior_mean must be a scalar")
+            if not bool(torch.isfinite(prior).all()):
+                raise ValueError("prior_mean must be finite")
+
+        x = pred_mean.detach().reshape(-1).double()
+        y = target.detach().reshape(-1).double()
+        keep = torch.isfinite(x) & torch.isfinite(y)
+        if int(keep.sum()) < 2:
+            raise ValueError("need at least two finite calibration samples")
+        x, y = x[keep], y[keep]
+        var_x = float(x.var(unbiased=False))
+        if not var_x > 0.0:
+            raise ValueError(
+                "pred_mean must have non-zero variance to fit a variance-restoring map"
+            )
+
+        self.prior_mean_ = None
+        self.scale_ = None
+        self._x = None
+        self._y = None
+        if self.method == "affine":
+            var_y = float(y.var(unbiased=False))
+            self.scale_ = math.sqrt(var_y / max(var_x, self.eps))
+            if not math.isfinite(self.scale_):
+                raise ValueError("degenerate calibration data: affine scale is not finite")
+            if prior_mean is None:
+                self.prior_mean_ = float(y.mean())
+            else:
+                self.prior_mean_ = float(torch.as_tensor(prior_mean, dtype=torch.float64))
+        else:
+            self._x = x.sort().values.contiguous()
+            self._y = y.sort().values.contiguous()
+        return self
+
+    def _affine_map(self, x: Tensor) -> Tensor:
+        prior = self.prior_mean_
+        scale = self.scale_
+        if prior is None or scale is None:
+            raise ValueError("VarianceRestoringCalibrator must be fitted before transform")
+        return prior + scale * (x - prior)
+
+    def _quantile_map(self, x: Tensor) -> Tensor:
+        grid_x = self._x
+        grid_y = self._y
+        if grid_x is None or grid_y is None:
+            raise ValueError("VarianceRestoringCalibrator must be fitted before transform")
+        n = grid_x.numel()
+        if n < 2:  # defensive; fit() requires at least two finite samples
+            return torch.full_like(x, float(grid_y[0]))
+
+        # torch.searchsorted returns n for queries beyond the last grid point.
+        idx = torch.searchsorted(grid_x, x.contiguous()).clamp(1, n - 1)
+        x_left = grid_x[idx - 1]
+        x_right = grid_x[idx]
+        y_left = grid_y[idx - 1]
+        y_right = grid_y[idx]
+
+        # Duplicate calibration predictions would give a zero width; map them to
+        # the left end of the tie block (the map is not single-valued there).
+        denom = x_right - x_left
+        safe_denom = torch.where(denom > 0, denom, torch.ones_like(denom))
+        t = torch.where(denom > 0, (x - x_left) / safe_denom, torch.zeros_like(x))
+
+        if self.out_of_bounds == "clip":
+            t = t.clamp(0.0, 1.0)
+            mapped = y_left + t * (y_right - y_left)
+            mapped = torch.where(x <= grid_x[0], grid_y[0], mapped)
+            return torch.where(x >= grid_x[-1], grid_y[-1], mapped)
+        return y_left + t * (y_right - y_left)
+
+    def transform(self, pred_mean: Tensor) -> Tensor:
+        """Apply the fitted marginal map, preserving shape and dtype.
+
+        ``transform`` raises a ``ValueError`` if the calibrator has not been
+        fitted yet.
+        """
+        self._validate_hyperparameters()
+        x = pred_mean.detach().reshape(-1).double()
+        if self.method == "affine":
+            mapped = self._affine_map(x)
+        else:
+            mapped = self._quantile_map(x)
+        return mapped.reshape(pred_mean.shape).to(pred_mean.dtype)
+
+    def describe(self, pred_mean: Tensor, target: Tensor) -> dict[str, float]:
+        """Diagnostics of the fitted map on the data supplied by the caller.
+
+        This is an evaluation helper, not a fitting step. It reports both the
+        point-error trade-off and the marginal-distribution match, so that the
+        cost of restoring the marginal is visible:
+
+        ``mse_before`` / ``mse_after`` / ``mse_ratio``
+            Mean squared error of the raw and transformed predictions.
+        ``wasserstein1_before`` / ``wasserstein1_after``
+            Empirical 1-Wasserstein distance between the predictions and the
+            targets (equal sample sizes; sorted-pair average absolute gap).
+        ``var_ratio_before`` / ``var_ratio_after``
+            ``Var(pred) / Var(target)`` before and after the transform; both
+            methods match it to about one after fitting.
+
+        Non-finite pairs are dropped. The ``eps`` floor is used for ratios
+        whose denominator is zero, so every returned value is finite.
+        """
+        if pred_mean.numel() != target.numel():
+            raise ValueError("pred_mean and target must contain the same number of elements")
+        raw = pred_mean.detach().reshape(-1)
+        y = target.detach().reshape(-1)
+        keep = torch.isfinite(raw) & torch.isfinite(y)
+        if int(keep.sum()) < 2:
+            raise ValueError("need at least two finite samples to describe")
+        raw = raw[keep].double()
+        y = y[keep].double()
+        after = self.transform(raw).double()
+
+        mse_before = float(torch.mean((raw - y) ** 2))
+        mse_after = float(torch.mean((after - y) ** 2))
+        w1_before = float(torch.mean((raw.sort().values - y.sort().values).abs()))
+        w1_after = float(torch.mean((after.sort().values - y.sort().values).abs()))
+        var_y = float(y.var(unbiased=False))
+        var_before = float(raw.var(unbiased=False))
+        var_after = float(after.var(unbiased=False))
+        denom = max(var_y, self.eps)
+        return {
+            "mse_before": mse_before,
+            "mse_after": mse_after,
+            "mse_ratio": mse_after / max(mse_before, self.eps),
+            "wasserstein1_before": w1_before,
+            "wasserstein1_after": w1_after,
+            "var_ratio_before": var_before / denom,
+            "var_ratio_after": var_after / denom,
+        }
+
+
 __all__ = [
     "VarianceTemperatureScaler",
     "IsotonicMeanCalibrator",
     "PITCalibrator",
+    "VarianceRestoringCalibrator",
 ]

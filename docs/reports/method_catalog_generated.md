@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-07`
+_Generated date_: `2026-10-17`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `128`
+- Total methods: `136`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -16,17 +16,18 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Family | Count |
 |---|---:|
 | `bnn` | 7 |
-| `calibration_transform` | 6 |
+| `calibration_transform` | 7 |
 | `causal` | 2 |
 | `censored` | 3 |
 | `conformal` | 13 |
 | `constraints` | 2 |
-| `eiv` | 13 |
+| `eiv` | 16 |
 | `ensemble` | 8 |
 | `evidential` | 1 |
 | `expectile` | 3 |
 | `flow` | 3 |
-| `imbalanced_loss` | 7 |
+| `imbalanced_algorithm` | 2 |
+| `imbalanced_loss` | 9 |
 | `inference` | 1 |
 | `mc_dropout` | 1 |
 | `mdn` | 1 |
@@ -53,7 +54,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 19 |
-| `Available` | 102 |
+| `Available` | 110 |
 
 ## Method Rows
 
@@ -73,6 +74,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `IsotonicMeanCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.IsotonicMeanCalibrator` |
 | `PITCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration`, `distribution_calibration` | `calibration`, `ood*` | `torchregress.calibration.PITCalibrator` |
 | `SemiConformalCalibrator` | `calibration_transform` | `Strong` | `calibration`, `conformal`, `semi_supervised`, `shift_adaptation` | `calibration`, `ood*` | `torchregress.calibration.SemiConformalCalibrator` |
+| `VarianceRestoringCalibrator` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration`, `distribution_matching`, `attenuation_bias` | `calibration`, `ood*` | `torchregress.calibration.VarianceRestoringCalibrator` |
 | `VarianceTemperatureScaler` | `calibration_transform` | `Available` | `calibration`, `posthoc_calibration` | `calibration`, `ood*` | `torchregress.calibration.VarianceTemperatureScaler` |
 | `dr_ate` | `causal` | `Available` | `causal_inference`, `ate`, `selection_bias` | `calibration*`, `ood*` | `torchregress.causal.dr_ate` |
 | `dr_cate` | `causal` | `Available` | `causal_inference`, `cate`, `selection_bias` | `calibration*`, `ood*` | `torchregress.causal.dr_cate` |
@@ -94,7 +96,9 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `UACQR` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `heteroscedastic_noise` | `calibration`, `ood*` | `torchregress.losses.UACQR` |
 | `BoundedHead` | `constraints` | `Available` | `constraints`, `bounded_outputs` | `calibration*`, `ood*` | `torchregress.constraints.BoundedHead` |
 | `NonCrossingSort` | `constraints` | `Available` | `constraints`, `ordered_outputs` | `calibration*`, `ood*` | `torchregress.constraints.NonCrossingSort` |
+| `CorrectedScoreEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `attenuation_bias`, `corrected_score` | `calibration*`, `ood*` | `torchregress.losses.CorrectedScoreEIVLoss` |
 | `ErrorAwareFeatureEncoder` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `feature_encoding` | `calibration*`, `ood*` | `torchregress.algorithms.ErrorAwareFeatureEncoder` |
+| `ForwardInversionRegressor` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `attenuation_bias`, `generative_model` | `calibration*`, `ood*` | `torchregress.algorithms.ForwardInversionRegressor` |
 | `FunctionalEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.FunctionalEIVLoss` |
 | `InputNoiseAugmentationLoss` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `augmentation` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseAugmentationLoss` |
 | `InputNoiseBinnedPDFLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `multimodal` | `calibration*`, `ood*` | `torchregress.losses.InputNoiseBinnedPDFLoss` |
@@ -106,6 +110,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `OrthogonalDistanceRegressionLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.OrthogonalDistanceRegressionLoss` |
 | `RegressionCalibration` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `calibration` | `calibration`, `ood*` | `torchregress.algorithms.RegressionCalibration` |
 | `SIMEX` | `eiv` | `Strong` | `noisy_features`, `measurement_error`, `simex` | `calibration*`, `ood*` | `torchregress.algorithms.SIMEX` |
+| `SplitMeasurementLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `attenuation_bias`, `repeated_measures` | `calibration*`, `ood*` | `torchregress.losses.SplitMeasurementLoss` |
 | `StructuralEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error` | `calibration*`, `ood*` | `torchregress.losses.StructuralEIVLoss` |
 | `BaseEnsembleModel` | `ensemble` | `Core` | `epistemic_uq`, `ood`, `selective_prediction` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood` | `torchregress.ensemble.BaseEnsembleModel` |
 | `BatchEnsembleRegressor` | `ensemble` | `Available` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BatchEnsembleRegressor` |
@@ -122,12 +127,16 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `ContrastiveFlowLoss` | `flow` | `Available` | `parameter_estimation`, `domain_shift`, `simulation_based_inference` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.ContrastiveFlowLoss` |
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
 | `SLSLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `prediction_intervals` | `calibration*`, `ood*` | `torchregress.losses.SLSLoss` |
+| `ContinuousGroupDRO` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.ContinuousGroupDRO` |
+| `GroupDROTrainer` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.GroupDROTrainer` |
 | `BalancedMSELoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BalancedMSELoss` |
 | `BinReweightedMSELoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BinReweightedMSELoss` |
+| `ConR` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `contrastive` | `calibration*`, `ood*` | `torchregress.losses.ConR` |
 | `DensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.DensityWeightedLoss` |
 | `FeatureDistributionSmoother` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.FeatureDistributionSmoother` |
 | `FocalRLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `focal` | `calibration*`, `ood*` | `torchregress.losses.FocalRLoss` |
 | `LDSLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.LDSLoss` |
+| `PrimeLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `imbalanced_regression` | `calibration*`, `ood*` | `torchregress.losses.PrimeLoss` |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `selection_bias`, `missing_labels` | `calibration*`, `ood*` | `torchregress.losses.PropensityWeightedLoss` |
 | `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | `epistemic_uq`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MCDropoutWrapper` |
@@ -198,7 +207,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 
-`ErrorAwareFeatureEncoder`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `RegressionCalibration`, `SIMEX`, `StructuralEIVLoss`
+`CorrectedScoreEIVLoss`, `ErrorAwareFeatureEncoder`, `ForwardInversionRegressor`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `RegressionCalibration`, `SIMEX`, `SplitMeasurementLoss`, `StructuralEIVLoss`
 
 ### Decomposition (`decomposition=yes`)
 

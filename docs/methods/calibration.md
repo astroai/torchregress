@@ -30,7 +30,7 @@ Modern neural networks are notoriously **overconfident** \[1\]. A model might pr
 
 ## Available Calibrators
 
-**torchregress** provides three main calibrators, each targeting a different type of miscalibration.
+**torchregress** provides four main calibrators, each targeting a different type of miscalibration.
 
 ### 1. Variance Temperature Scaling ([VarianceTemperatureScaler](../api/calibration.md))
 
@@ -139,6 +139,47 @@ pit_test = PITCalibrator.pit_from_gaussian(pred_mean_test, pred_std_test, y_test
 calibrated_pit = cal.transform(pit_test)
 ```
 
+### 4. Variance-Restoring / Distribution-Matching Calibration ([VarianceRestoringCalibrator](../api/calibration.md))
+
+The first three calibrators adjust **conditional** quantities: the mean, the variance, or the PIT distribution of an individual prediction given its input. None of them restores the **marginal** distribution of the targets. Yet a predictor trained with mean-squared error estimates $\mathbb E[y\mid x]$, and by the law of total variance
+
+$$\operatorname{Var}(y) = \operatorname{Var}\bigl(\mathbb E[y\mid x]\bigr) + \mathbb E\bigl[\operatorname{Var}(y\mid x)\bigr],$$
+
+its predictions are generically **under-dispersed**: the conditional-mean map compresses extreme targets (e.g. $\mathrm{[Fe/H]} < -2.5$) toward the bulk and has a smaller variance than $y$. This calibrator restores the marginal distribution of the point predictions, with two maps:
+
+* **`method="affine"`** — moment matching. With prior mean $\mu_0$ (default $\overline{y}$) and
+
+  $$s = \sqrt{\frac{\operatorname{Var}(y)}{\operatorname{Var}(\hat\mu)}}, \qquad T(z) = \mu_0 + s\,(z - \mu_0).$$
+
+* **`method="quantile"`** — 1-D optimal transport. Sorting the calibration predictions and targets and interpolating between the ordered pairs gives the monotone map that minimises the Wasserstein-2 distance between the empirical marginals, i.e. it reproduces the calibration target marginal exactly (up to interpolation); outside the calibration range it clips (`out_of_bounds="clip"`, default) or extrapolates linearly (`"linear"`).
+
+```python
+import torch
+from torchregress.calibration import VarianceRestoringCalibrator
+
+# A deliberately shrunk predictor: pred = 0.6 * y + noise.
+torch.manual_seed(0)
+y_cal = torch.randn(2000)
+pred_cal = 0.6 * y_cal + 0.2 * torch.randn(2000)
+y_test = torch.randn(2000)
+pred_test = 0.6 * y_test + 0.2 * torch.randn(2000)
+
+restorer = VarianceRestoringCalibrator(method="quantile")
+restorer.fit(pred_cal, y_cal)
+restored = restorer.transform(pred_test)
+print(restorer.describe(pred_test, y_test))
+# var_ratio_before ~ 0.35, var_ratio_after ~ 1.0,
+# mse_after < mse_before (the predictor is attenuated),
+# wasserstein1_after < wasserstein1_before
+```
+
+!!! warning "Marginal matching is not conditional calibration"
+    For a *perfectly calibrated* MSE-optimal predictor ($\mathbb E[y\mid z] = z$), the missing spread is irreducible target noise: stretching restores the marginal variance and tails but **increases** the MSE. For a shrunk/attenuated predictor ($\hat y = \rho y + \text{noise}$ with $\rho < 1$) it can reduce both the Wasserstein-1 distance and the MSE. There is no unconditional improvement guarantee, so always report both the point error and the marginal diagnostics (`describe` returns `mse_before`, `mse_after`, `mse_ratio`, `wasserstein1_before/after`, `var_ratio_before/after`).
+
+    Use this calibrator when the **population distribution** of predictions is the quantity of interest — e.g. population-level metallicity studies, extreme-value recovery, or matching an external reference distribution — and **not** as a substitute for fixing conditional bias with [isotonic calibration](#2-isotonic-mean-calibration-isotonicmeancalibrator) or the mean calibration methods above.
+
+    A per-sample heteroscedastic rescaling $\sigma\sqrt{1 + \sigma^2/\operatorname{Var}(\hat\mu)}$ was considered and intentionally not implemented: it is an ad-hoc rule rather than the solution of a transport or moment-matching objective, and it diverges where the predicted-mean variance is small. Global moment matching and the 1-D OT map are the principled versions of the same intuition.
+
 ---
 
 ## Comparison Matrix
@@ -148,6 +189,7 @@ calibrated_pit = cal.transform(pit_test)
 | **Temperature** | Variance | 1 (Scalar) | [VarianceTemperatureScaler](../api/calibration.md) | Heteroscedastic Gaussian models |
 | **Isotonic** | Mean Bias | Non-parametric | [IsotonicMeanCalibrator](../api/calibration.md) | Systematic point-prediction errors |
 | **PIT** | PIT ranks | Non-parametric | [PITCalibrator](../api/calibration.md) | Any model with CDF / Gaussian predictive std |
+| **Variance-restoring** | Marginal distribution | 2 (affine) / non-parametric (quantile) | [VarianceRestoringCalibrator](../api/calibration.md) | Population/tail distribution, attenuated predictions |
 
 ---
 
@@ -170,6 +212,8 @@ calibrated_pit = cal.transform(pit_test)
 | 1 | Guo et al. ["On Calibration of Modern Neural Networks."](https://arxiv.org/abs/1706.04599) *ICML*, 2017. |
 | 2 | Kuleshov et al. ["Accurate Uncertainties for Deep Learning Using Calibrated Regression."](https://arxiv.org/abs/1807.00263) *ICML*, 2018. |
 | 3 | Levi et al. ["Evaluating and Calibrating Uncertainty Prediction in Regression Tasks."](https://arxiv.org/abs/1905.11659) *Sensors*, 2022. |
+| 4 | Villani, C. *Optimal Transport: Old and New.* Springer, 2009; Peyré & Cuturi, ["Computational Optimal Transport."](https://arxiv.org/abs/1803.00567) *Foundations and Trends in ML*, 2019. |
+| 5 | Casella, G., & Berger, R. L. *Statistical Inference* (2nd ed.). Duxbury, 2002. (Law of total variance.) |
 
 ---
 
@@ -180,6 +224,7 @@ calibrated_pit = cal.transform(pit_test)
 3. **Small calibration sets**: Non-parametric calibrators (`IsotonicMeanCalibrator`, `PITCalibrator`) can overfit when $n < 500$, producing jagged mappings. Prefer `VarianceTemperatureScaler` (1 parameter) for small sets.
 4. **Covariate shift**: All calibrators assume the calibration and test sets share the same covariate distribution. Under shift, a fixed mapping learned on the calibration set may not transfer.
 5. **Calibration is not coverage**: Post-hoc calibration improves agreement between predicted confidence and observed frequency, but provides no finite-sample coverage guarantee. For coverage guarantees, use [Conformal Prediction](conformal/index.md).
+6. **Marginal calibration is not conditional calibration**: `VarianceRestoringCalibrator` matches the distribution of predictions to the target distribution; it can increase the MSE of an already conditional-mean-calibrated predictor. Use it when the population distribution (especially the tails) is what matters, and check `describe` diagnostics on a separate split.
 
 ## Recommendations
 
@@ -188,6 +233,7 @@ calibrated_pit = cal.transform(pit_test)
 - **Use `IsotonicMeanCalibrator`** for systematic point-prediction bias (e.g., consistently over-predicting in low-target regions).
 - **Calibration set size**: Target $n \ge 200$ for temperature scaling, $n \ge 500$ for non-parametric methods. See the [calibration comparison example](../examples/constraints_calibration_comparison.md).
 - **Chain calibrators carefully**: Mean → Variance → PIT is valid but each step consumes degrees of freedom from the calibration set. Don't chain more than two non-parametric calibrators on small sets.
+- **Use `VarianceRestoringCalibrator` only for marginal/tail restoration**: choose `method="affine"` for a two-parameter moment match, `method="quantile"` for an exact marginal shape (1-D optimal transport). Inspect `describe(...)` before deploying; it reports the point-error cost next to the marginal gain.
 - **Validate after calibration**: Always re-evaluate calibration metrics (ECE, PIT) on a separate test set after applying calibrators. See [Calibration metrics](../metrics/calibration.md).
 
 ## Next Steps

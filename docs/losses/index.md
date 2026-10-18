@@ -237,8 +237,10 @@ For regression when **inputs have measurement uncertainty**:
 | `FunctionalEIVLoss` | Per-sample $\sigma_x$ | Heteroscedastic input noise |
 | `OrthogonalDistanceRegressionLoss` | Perpendicular distances | General EIV |
 | `EnsembleEIVLoss` | Ensemble disagreement | No known error model |
+| `SplitMeasurementLoss` | Two independent measurements | Paired/repeat exposures, no noise model needed |
+| `CorrectedScoreEIVLoss` | Stefanski–Nakamura corrected score | Known $\Sigma_x$, avoids attenuation without latent parameters |
 
-Read the full [EIV losses guide](eiv.md) for loss-based correction, or see the algorithm pages for [Regression Calibration](../methods/algorithms/rc.md) and [SIMEX](../methods/algorithms/simex.md).
+Read the full [EIV losses guide](eiv.md) for loss-based correction, [split-measurement and corrected-score losses](split_eiv.md) for attenuation-free objectives, or see the algorithm pages for [Regression Calibration](../methods/algorithms/rc.md), [SIMEX](../methods/algorithms/simex.md) and [forward generative inversion](../methods/algorithms/forward_inversion.md).
 
 ---
 
@@ -252,8 +254,11 @@ For targets with significant **distribution imbalance**:
 | `FocalRLoss` | Focus on hard examples |
 | `LDSLoss` | Label Distribution Smoothing |
 | `PropensityWeightedLoss` | Inverse propensity scores |
+| `FeatureDistributionSmoother` | FDS: feature-moment calibration across target bins |
+| `PrimeLoss` | PRIME: learnable proxies with uniformly spaced targets |
+| `ConR` | Contrastive collapse penalty weighted by label density |
 
-Read the full [Imbalanced regression guide](imbalanced.md) — density weighting, Focal-R, LDS, propensity weighting.
+Read the full [Imbalanced regression guide](imbalanced.md) — density weighting, Focal-R, LDS, propensity weighting — and [PRIME & ConR](prime_conr.md) for representation-level methods. Group-robust training over target bins is covered by [Continuous Group DRO](../methods/algorithms/group_dro.md).
 
 ---
 

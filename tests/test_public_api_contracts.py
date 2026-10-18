@@ -191,6 +191,10 @@ EXPECTED_EXPORTS = {
         "VIDSRegressor",
         "sample_synthetic_environments",
         "WarmupMCTrainer",
+        "ForwardInversionRegressor",
+        "build_decoder_mlp",
+        "ContinuousGroupDRO",
+        "GroupDROTrainer",
     ],
     "causal": [
         "dr_ate",
@@ -231,6 +235,7 @@ EXPECTED_EXPORTS = {
         "VarianceTemperatureScaler",
         "IsotonicMeanCalibrator",
         "PITCalibrator",
+        "VarianceRestoringCalibrator",
         "SemiConformalCalibrator",
         "ExpectedCalibrationError",
         "MarginalCalibrationError",

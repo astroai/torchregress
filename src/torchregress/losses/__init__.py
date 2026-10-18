@@ -167,6 +167,9 @@ from .poisson_gaussian import (
     PoissonGaussianMixtureLoss,
 )
 
+# Representation-level imbalanced-regression losses (PRIME proxies, ConR)
+from .prime import ConR, PrimeLoss, conr_loss, uniform_proxy_targets
+
 # Quantile losses
 from .quantile import (
     MultiQuantileLoss,
@@ -186,6 +189,14 @@ from .robust import (
     LogCoshLoss,
     PseudoHuberLoss,
     TukeyBiweightLoss,
+)
+
+# Split-measurement and corrected-score EIV losses
+from .split_eiv import (
+    CorrectedScoreEIVLoss,
+    SplitMeasurementLoss,
+    corrected_score_eiv_loss,
+    split_measurement_loss,
 )
 from .student_t import StudentTLoss
 from .transforms import (
@@ -236,8 +247,10 @@ __all__ = [
     "CompoundPoissonLoss",
     "ConformalLoss",
     "ConformalPredictor",
+    "ConR",
     "ConsistencyRegLoss",
     "ContrastiveFlowLoss",
+    "CorrectedScoreEIVLoss",
     "CumulativeLinkLoss",
     "DensityConformal",
     "DensityWeightedLoss",
@@ -295,6 +308,7 @@ __all__ = [
     "PoissonGaussianMixtureLoss",
     "PoissonLikelihoodRatioLoss",
     "PrevalenceAdjustedCP",
+    "PrimeLoss",
     "PropensityWeightedLoss",
     "PseudoHuberLoss",
     "PseudoLabelConsistencyLoss",
@@ -312,6 +326,7 @@ __all__ = [
     "SkewNormalNLLLoss",
     "SkewTLoss",
     "SplitConformal",
+    "SplitMeasurementLoss",
     "SqrtTransformLoss",
     "StructuralEIVLoss",
     "StudentTLoss",
@@ -356,4 +371,8 @@ __all__ = [
     "sqr_loss",
     "symmetric_spd_matrix_sqrt",
     "tweedie_loss",
+    "conr_loss",
+    "corrected_score_eiv_loss",
+    "split_measurement_loss",
+    "uniform_proxy_targets",
 ]

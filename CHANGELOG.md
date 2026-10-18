@@ -13,6 +13,36 @@ the flow, DML and transport improvements below). Other methods to add or
 remove are decided for 0.4.0.
 
 ### Added
+- **Post-freeze method additions (user-requested audit, 2026-10-17; targeted at 0.4.0):**
+  - `algorithms.ForwardInversionRegressor` (+ `build_decoder_mlp`): generative `y -> x`
+    surrogate (statistical inverse regression / auto-decoder construction) trained with
+    known per-observable errors and inverted per object by maximum likelihood (damped
+    Gauss–Newton or L-BFGS) with Fisher covariance `(J^T Sigma_x^{-1} J)^{-1}`; removes
+    input attenuation and inverse-regression prior bias. Training supports the full
+    heteroscedastic Gaussian likelihood (default), a robust Student-t likelihood
+    (`likelihood="student_t"`) and fixed-weight heteroskedastic least squares
+    (`likelihood="wls"`). `predict(..., return_info=True)` returns per-object stationarity
+    and Fisher-condition diagnostics for the local, non-convex test-time inversion, and the
+    guide documents when a discriminative model is the better choice. Docs:
+    `docs/methods/algorithms/forward_inversion.md`.
+  - `losses.SplitMeasurementLoss` / `split_measurement_loss` and
+    `losses.CorrectedScoreEIVLoss` / `corrected_score_eiv_loss`: paired-exposure
+    cross-product loss (no noise model required) and the Stefanski–Nakamura corrected
+    score (subtracts the measurement-error curvature instead of adding a TLS gradient
+    penalty). Docs: `docs/losses/split_eiv.md`.
+  - `losses.PrimeLoss` and `losses.ConR` (+ `conr_loss`, `uniform_proxy_targets`):
+    representation-level imbalanced-regression losses (PRIME proxies with uniformly
+    spaced targets; ConR contrastive collapse penalty). Feature Distribution Smoothing
+    already existed (`losses.FeatureDistributionSmoother`) and is cross-linked, not
+    duplicated. Docs: `docs/losses/prime_conr.md`.
+  - `algorithms.ContinuousGroupDRO` and `algorithms.GroupDROTrainer`: exponentiated-gradient
+    worst-target-regime training over continuous target bins (equalizes per-regime mean
+    loss, unlike CVaR's worst individual samples). Docs: `docs/methods/algorithms/group_dro.md`.
+  - `calibration.VarianceRestoringCalibrator`: marginal de-shrinkage by moment matching or
+    1-D optimal transport, with `describe()` diagnostics; documented as marginal (not
+    conditional) calibration. Docs: `docs/methods/calibration.md`.
+  - `method_catalog` metadata, `docs/api/*`, loss-guide indexes and site navigation updated
+    for all of the above.
 - `MixtureDensityLoss.sample` supports `covariance_type="full"` (draws `mu + L eps` from the selected component's covariance Cholesky factor); previously only diagonal mixtures could be sampled.
 - `inference.random_fourier_features` and `inference.median_heuristic_bandwidth`: random Fourier feature nuisance basis for `orthogonal_partially_linear` with a median-heuristic bandwidth (median pairwise distance of the standardised `z` on a seeded subsample), per-covariate polynomial terms (`polynomial_degree`, default 3: across five confounding designs it keeps 95% coverage within 0.90-0.95, where degree 1 drops to 0.78 on cubic confounding) and a seeded draw. `orthogonal_partially_linear(ridge="gcv" | "loo")` picks the nuisance ridge penalty per nuisance and training fold by generalized cross-validation or exact leave-one-out error (closed form from one SVD, unpenalised intercept); a float `ridge` (default `1e-6`) behaves exactly as before. Over 200 replications at n = 500 the old harness recipe (unit-bandwidth RFF, `ridge=1e-2`, no linear part) gave Coverage95 0.785 / bias +0.008 on CCDDHNR-2018 and 0.820 / +0.060 on the cubic design; the new defaults give 0.955 / +0.004 and 0.900 / +0.016, and `polynomial_degree=3` gives 0.945 / -0.002 on the cubic design (plan item B5).
 - `losses.create_flow_model(bound=...)` sets the NSF spline tail bound (zuko fixes it at 5), and `losses.recommended_tail_bound(y_standardised)` derives it from the training target (data range with 25% head-room, clipped to [5, 25]). `NormalizingFlowLoss`'s out-of-range warning reports the actual bound. New "Training recipe for NLL and calibration" section in `docs/losses/nflows.md` (validation early stopping, derived bound, 16 bins): test NLL 1.272 -> 1.201 (skewed), 1.935 -> 1.852 (Student-t 3 df), 6.144 -> 5.417 (`load_diabetes`) with equal or better 90% interval scores, versus the fixed 60-epoch recipe of the harness `pzflow_parity` row (plan item B4). Library defaults (`bins=8`, bound 5) are unchanged.

@@ -110,6 +110,13 @@ if HAS_ZUKO:
                 **kwargs,
             )
             self.tail_bound = float(bound)
+else:
+
+    class BoundedNSF:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "BoundedNSF requires the 'zuko' package. Install with: pip install zuko"
+            )
 
 
 def create_flow_model(

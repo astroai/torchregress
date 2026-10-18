@@ -197,7 +197,7 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 
 ## Data quality issues
 
-→ **Guides:** [Imbalanced](../losses/imbalanced.md) · [Uncertain GT](../losses/uncertain_ground_truth.md) · [Noisy labels](../losses/noisy_labels.md)
+→ **Guides:** [Imbalanced](../losses/imbalanced.md) · [PRIME & ConR](../losses/prime_conr.md) · [Uncertain GT](../losses/uncertain_ground_truth.md) · [Noisy labels](../losses/noisy_labels.md)
 
 | Symbol | Signature | Strategy |
 |:-------|:----------|:---------|
@@ -208,6 +208,8 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | `LDSLoss` | `LDSLoss(...)` | Label Distribution Smoothing |
 | `FeatureDistributionSmoother` | `FeatureDistributionSmoother(...)` | Feature Distribution Smoothing |
 | `PropensityWeightedLoss` | `PropensityWeightedLoss(...)` | Inverse propensity weights |
+| `PrimeLoss` | `PrimeLoss(feature_dim, n_proxies=100, *, label_range=None, class_balanced=False, ...)` | PRIME proxy alignment (learnable proxies, uniform target spacing) |
+| `ConR` | `ConR(*, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2)` | ConR contrastive collapse penalty; `forward(features, target, prediction=..., ...)` |
 | `NoisyTargetGaussianNLL` | `NoisyTargetGaussianNLL(reduction="mean")` | Adds known target-noise σ²_y |
 | `PseudoLabelNLL` | `PseudoLabelNLL(pseudo_weight=0.8, ...)` | Pseudo-label + confidence NLL |
 | `ConsistencyRegLoss` | `ConsistencyRegLoss(reduction="mean")` | Student–teacher MSE |
@@ -217,7 +219,7 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 
 ## Error-in-variables (EIV)
 
-→ **Guides:** [EIV losses](../losses/eiv.md) · **Algorithms:** [SIMEX](../methods/algorithms/simex.md) · [RC](../methods/algorithms/rc.md) · [LatentNN](../methods/algorithms/latentnn.md)
+→ **Guides:** [EIV losses](../losses/eiv.md) · [Split-measurement & corrected-score](../losses/split_eiv.md) · **Algorithms:** [SIMEX](../methods/algorithms/simex.md) · [RC](../methods/algorithms/rc.md) · [LatentNN](../methods/algorithms/latentnn.md) · [Forward inversion](../methods/algorithms/forward_inversion.md)
 
 Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 
@@ -233,6 +235,8 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `InputNoiseBinnedPDFLoss` | `InputNoiseBinnedPDFLoss(...)` |
 | `LatentMarginalizationLoss` | `LatentMarginalizationLoss(...)` |
 | `NoisyInputPredictor` | `NoisyInputPredictor(...)` |
+| `SplitMeasurementLoss` | `SplitMeasurementLoss(model, reduction="mean")`; `forward(x1, y, y_pred_second=x2, ...)` — paired independent measurements, no `sigma_x` needed |
+| `CorrectedScoreEIVLoss` | `CorrectedScoreEIVLoss(model, sigma_x, stabilize="none", jacobian_chunk_size=None)` — Stefanski–Nakamura corrected score |
 
 ---
 

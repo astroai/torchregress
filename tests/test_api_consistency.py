@@ -174,6 +174,10 @@ def test_reduction_behavior():
         "GaussianCRPSLoss",  # Needs concatenated [mean, log_var] input
         "GaussianWassersteinBoundLoss",  # Needs pred/target mean + covariance tensors
         "SLSLoss",  # Needs d and context_dim parameters
+        "SplitMeasurementLoss",  # Needs a model + paired measurement views
+        "CorrectedScoreEIVLoss",  # Needs a model
+        "PrimeLoss",  # Needs feature_dim + fit(train_targets)
+        "ConR",  # Needs model predictions + fit(train_targets)
     ]
 
     # Flexible-shape family losses consume multi-column parameter vectors

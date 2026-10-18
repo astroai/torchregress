@@ -23,7 +23,7 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 ## EIV algorithms
 
-→ Method guides: [SIMEX](../methods/algorithms/simex.md), [RC](../methods/algorithms/rc.md), [LatentNN](../methods/algorithms/latentnn.md), [Error-aware](../methods/algorithms/error_aware.md). Losses: [EIV losses](../losses/eiv.md).
+→ Method guides: [SIMEX](../methods/algorithms/simex.md), [RC](../methods/algorithms/rc.md), [LatentNN](../methods/algorithms/latentnn.md), [Forward generative inversion](../methods/algorithms/forward_inversion.md), [Error-aware](../methods/algorithms/error_aware.md). Losses: [EIV losses](../losses/eiv.md).
 
 | Symbol | Description |
 |:-------|:------------|
@@ -31,11 +31,24 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 | `PredictionSIMEX(...)` | SIMEX variant optimised for prediction (shrinkage on extrapolated coefs). |
 | `RegressionCalibration` | `(sigma_u)` — Classical RC with PSD projection. `fit_transform`, `posterior(...)` for per-sample cov. |
 | `LatentNN` | `(model_factory, sigma_x, sigma_y, epochs, …)` — Joint latent-input + network optimization. |
+| `ForwardInversionRegressor` | `(decoder=None, *, n_labels, n_observables, hidden_dims=(128,128), sigma_x, learn_noise=True, likelihood="gaussian"|"student_t"|"wls", degrees_of_freedom=5.0, epochs, batch_size, lr, ...)` — Generative `y -> x` surrogate (inverse regression / auto-decoder); `fit(X, y, train_decoder=True)`, `predict(X, *, method="gauss_newton"|"lbfgs", sigma_x=None, mask=None, return_std=False, return_info=False)`, `predict_with_covariance(...)`. `predict(return_info=True)` also returns per-object stationarity / Fisher-condition diagnostics for the non-convex test-time inversion. |
+| `build_decoder_mlp(n_labels, n_observables, hidden_dims=(128,128), activation="silu")` | Default MLP decoder for `ForwardInversionRegressor`. |
 | `ErrorAwareFeatureEncoder` | Encoder with input-noise awareness. |
 | `NoiseAwareRegressor` | Noise-aware prediction head wrapper. |
 | `NeighborhoodCovarianceConfig` | Config for neighborhood-based cov targets. |
 | `NeighborhoodCovariancePseudoLabeler` | Pseudo-covariance targets from neighborhoods. |
 | `mahalanobis_covariance_pseudo_labels(…)` | Functional form of the above. |
+
+---
+
+## Group DRO — worst-regime training
+
+→ Method guide: [Continuous Group DRO](../methods/algorithms/group_dro.md).
+
+| Symbol | Description |
+|:-------|:------------|
+| `ContinuousGroupDRO` | `(group_edges, *, eta=0.01, base_loss="mse", min_group_weight=0.0, update_every=1, reduction="mean")` — exponentiated-gradient group weights over continuous target bins. `forward(y_pred, target, mask=None, weights=None)` updates `q` in training mode; `group_weights()`, `group_losses(...)`, `fit_group_edges(targets)`, `reset()`. `eval()` freezes the adversarial weights. |
+| `GroupDROTrainer` | `(*, model_factory, group_edges, base_loss="mse", eta=0.01, epochs=100, lr=1e-3, batch_size=64, weight_decay=0.0, seed=None)` — end-to-end `fit(X, y)` / `predict(X)`; exposes `group_weights_`, `group_losses_`, `history_`. |
 
 ---
 

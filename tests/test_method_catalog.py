@@ -520,3 +520,44 @@ def test_method_catalog_declares_explicit_public_api() -> None:
     namespace: dict[str, object] = {}
     exec("from torchregress.method_catalog import *", namespace)
     assert leaked.isdisjoint(namespace)
+
+
+def test_method_catalog_includes_new_representation_and_eiv_methods() -> None:
+    names = {m.name for m in method_catalog._METHODS}
+    assert {
+        "ForwardInversionRegressor",
+        "SplitMeasurementLoss",
+        "CorrectedScoreEIVLoss",
+        "PrimeLoss",
+        "ConR",
+        "ContinuousGroupDRO",
+        "GroupDROTrainer",
+        "VarianceRestoringCalibrator",
+    } <= names
+
+    eiv = {row["name"] for row in method_catalog.list_methods(task_tag="noisy_features")}
+    assert {"ForwardInversionRegressor", "SplitMeasurementLoss", "CorrectedScoreEIVLoss"} <= eiv
+
+    imbalanced = {row["name"] for row in method_catalog.list_methods(task_tag="imbalance")}
+    assert {"PrimeLoss", "ConR", "ContinuousGroupDRO"} <= imbalanced
+
+    posthoc = {row["name"] for row in method_catalog.list_methods(task_tag="posthoc_calibration")}
+    assert "VarianceRestoringCalibrator" in posthoc
+
+    expected_families = {
+        "ForwardInversionRegressor": "eiv",
+        "SplitMeasurementLoss": "eiv",
+        "CorrectedScoreEIVLoss": "eiv",
+        "PrimeLoss": "imbalanced_loss",
+        "ConR": "imbalanced_loss",
+        "ContinuousGroupDRO": "imbalanced_algorithm",
+        "VarianceRestoringCalibrator": "calibration_transform",
+    }
+    for name, family in expected_families.items():
+        assert method_catalog.get_method_metadata(name)["family"] == family
+    assert (
+        method_catalog.get_method_metadata("ForwardInversionRegressor")["noisy_features_eiv"]
+        == "yes"
+    )
+    assert method_catalog.get_method_metadata("PrimeLoss")["imbalance"] == "yes"
+    assert method_catalog.get_method_metadata("VarianceRestoringCalibrator")["calibration"] == "yes"

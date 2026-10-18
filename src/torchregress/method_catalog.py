@@ -1530,6 +1530,135 @@ _METHODS: tuple[MethodMetadata, ...] = (
             "heteroscedastic weight gating and instability scoring."
         ),
     ),
+    MethodMetadata(
+        name="ForwardInversionRegressor",
+        family="eiv",
+        public_path="torchregress.algorithms.ForwardInversionRegressor",
+        task_tags=("noisy_features", "measurement_error", "attenuation_bias", "generative_model"),
+        maturity="Available",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=(
+            "Generative y->x surrogate (inverse-regression / auto-decoder construction) "
+            "trained with the known observable errors (full heteroscedastic Gaussian NLL, "
+            "robust Student-t, or weighted least squares), then inverted per object by "
+            "maximum likelihood. Removes input attenuation and inverse-regression prior "
+            "bias; assumes accurate labels, an identifiable decoder and an observation "
+            "model that covers every pixel channel."
+        ),
+    ),
+    MethodMetadata(
+        name="SplitMeasurementLoss",
+        family="eiv",
+        public_path="torchregress.losses.SplitMeasurementLoss",
+        task_tags=(
+            "noisy_features",
+            "measurement_error",
+            "attenuation_bias",
+            "repeated_measures",
+        ),
+        maturity="Available",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=(
+            "Cross-product loss over two independent noisy measurements; cancels input "
+            "attenuation without a noise model. Requires paired exposures and a model "
+            "linear in the features for exact unbiasedness."
+        ),
+    ),
+    MethodMetadata(
+        name="CorrectedScoreEIVLoss",
+        family="eiv",
+        public_path="torchregress.losses.CorrectedScoreEIVLoss",
+        task_tags=("noisy_features", "measurement_error", "attenuation_bias", "corrected_score"),
+        maturity="Available",
+        noisy_features_eiv="yes",
+        calibration="partial",
+        notes=(
+            "Stefanski-Nakamura corrected score: subtracts the measurement-error curvature "
+            "from the squared residual instead of adding a TLS gradient penalty. Needs the "
+            "input-noise covariance and a vmap-safe model; can produce negative per-sample "
+            "losses."
+        ),
+    ),
+    MethodMetadata(
+        name="PrimeLoss",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.PrimeLoss",
+        task_tags=(
+            "imbalance",
+            "rare_targets",
+            "representation_learning",
+            "imbalanced_regression",
+        ),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "PRIME proxy alignment: learnable feature proxies with uniformly spaced targets; "
+            "every mini-batch receives tail gradient even when no tail samples are present. "
+            "Scalar targets only; proxies must be added to the optimizer."
+        ),
+    ),
+    MethodMetadata(
+        name="ConR",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.ConR",
+        task_tags=("imbalance", "rare_targets", "representation_learning", "contrastive"),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "Contrastive regularizer for imbalanced regression: pushes apart label-distant "
+            "pairs whose predictions collapsed, weighted by inverse label density. Needs the "
+            "model prediction; O(B^2) per batch."
+        ),
+    ),
+    MethodMetadata(
+        name="ContinuousGroupDRO",
+        family="imbalanced_algorithm",
+        public_path="torchregress.algorithms.ContinuousGroupDRO",
+        task_tags=("imbalance", "rare_targets", "group_robust", "distributionally_robust"),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "Group DRO over target bins: exponentiated-gradient weights on the worst-performing "
+            "target regime. Equalizes per-regime mean loss (unlike CVaR, which chases individual "
+            "outliers); needs physical target bins."
+        ),
+    ),
+    MethodMetadata(
+        name="GroupDROTrainer",
+        family="imbalanced_algorithm",
+        public_path="torchregress.algorithms.GroupDROTrainer",
+        task_tags=("imbalance", "rare_targets", "group_robust", "distributionally_robust"),
+        maturity="Available",
+        imbalance="yes",
+        calibration="partial",
+        notes=(
+            "Convenience trainer wrapping a model with ContinuousGroupDRO; exposes final group "
+            "weights and per-regime losses for diagnosis."
+        ),
+    ),
+    MethodMetadata(
+        name="VarianceRestoringCalibrator",
+        family="calibration_transform",
+        public_path="torchregress.calibration.VarianceRestoringCalibrator",
+        task_tags=(
+            "calibration",
+            "posthoc_calibration",
+            "distribution_matching",
+            "attenuation_bias",
+        ),
+        maturity="Available",
+        calibration="yes",
+        notes=(
+            "Marginal de-shrinkage of conditional-mean predictions via moment matching or 1-D "
+            "optimal transport. Restores population variance/tails but is not conditional "
+            "calibration: for an already calibrated MSE predictor it can increase MSE."
+        ),
+    ),
 )
 
 
@@ -1645,11 +1774,17 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "FunctionalEIVLoss",
             "StructuralEIVLoss",
             "OrthogonalDistanceRegressionLoss",
+            "ForwardInversionRegressor",
+            "SplitMeasurementLoss",
+            "CorrectedScoreEIVLoss",
         ),
         notes=(
             "Start with explicit input-noise marginalization and test-time "
             "predictive averaging, then escalate to Jacobian-based EIV losses "
-            "only if they clearly help."
+            "only if they clearly help. When attenuation bias dominates and labels "
+            "are much more precise than the features, prefer the generative y->x "
+            "inversion or a corrected-score loss; with repeat exposures use the "
+            "split-measurement loss."
         ),
     ),
     TaskRecommendation(
@@ -1661,11 +1796,20 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Imbalanced / rare-target regression",
         recommended_start="GaussianCRPSLoss / QuantileLoss + tail-slice evaluation",
-        strong_alternatives=("DensityConformal",),
+        strong_alternatives=(
+            "DensityConformal",
+            "FeatureDistributionSmoother",
+            "PrimeLoss",
+            "ConR",
+            "ContinuousGroupDRO",
+        ),
         notes=(
             "Astronomical benchmarks do not justify density weighting as default. "
             "Advanced research methods (DensityWeightedLoss, LDSLoss) should "
-            "only be tried if coverage/calibration allow for tail gains."
+            "only be tried if coverage/calibration allow for tail gains. "
+            "Representation-level methods (FDS, PRIME, ConR) and group-robust "
+            "training (Group DRO over target bins) address feature collapse and "
+            "worst-regime bias that output reweighting cannot fix."
         ),
     ),
     TaskRecommendation(
@@ -1683,8 +1827,17 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Post-hoc calibration transforms",
         recommended_start="VarianceTemperatureScaler",
-        strong_alternatives=("IsotonicMeanCalibrator", "PITCalibrator"),
-        notes="Fit transforms on a held-out calibration split.",
+        strong_alternatives=(
+            "IsotonicMeanCalibrator",
+            "PITCalibrator",
+            "VarianceRestoringCalibrator",
+        ),
+        notes=(
+            "Fit transforms on a held-out calibration split. "
+            "VarianceRestoringCalibrator matches the marginal distribution "
+            "(tails/population variance) and is not a substitute for conditional "
+            "mean/variance calibration."
+        ),
     ),
     TaskRecommendation(
         task="Calibrated intervals with coverage guarantees",
