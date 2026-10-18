@@ -13,6 +13,27 @@ the flow, DML and transport improvements below). Other methods to add or
 remove are decided for 0.4.0.
 
 ### Added
+- Contrastive likelihood-ratio / neural-ratio-estimation tooling (2026-10-17):
+  - `losses.NeuralRatioLoss` (+ `build_ratio_classifier`, `neural_ratio_logits`,
+    `neural_ratio_loss`): classifier-based neural ratio estimation with balanced binary
+    (NRE-A) and multiclass (NRE-B/InfoNCE-style) criteria, paired or mismatched negatives,
+    and flow-loss-style shape/ambiguity validation. The logit estimates
+    `log p(x|theta) - log p(x)`, so grid-argmax is the MLE and the training prior cancels
+    under a prior-sampled reference. Docs: `docs/losses/nre.md`.
+  - `inference.posterior_log_weights`, `effective_sample_size`, `grid_log_posterior`,
+    `maximum_likelihood_estimate`: finite-bank likelihood-ratio/posterior reweighting,
+    Kish ESS diagnostics, and MLE/MAP point estimates with documented prior/proposal
+    corrections. Docs: `docs/api/inference.md`, `docs/methods/inference.md`.
+  - `metrics.simulation_based_calibration_ranks`, `sbc_rank_histogram`,
+    `sbc_uniformity_pvalue`, `tarp_coverage`: simulation-based calibration and TARP
+    posterior-coverage diagnostics. Docs: `docs/metrics/calibration.md`,
+    `docs/api/metrics.md`.
+  - `ContrastiveFlowLoss`: documented `temperature=1, margin=0` likelihood-ratio regime with
+    a `likelihood_ratio_mode` property, chunked negative evaluation, and target-shape
+    validation; the flow guide now frames it correctly as InfoNCE/multiclass NRE and
+    distinguishes it from the Elsharkawy-Kahn contrastive-normalizing-flow method.
+  - The contrastive-flow comparison example now also trains classifier NRE and an NPE-style
+    posterior flow, and reports SBC/TARP diagnostics next to point accuracy and runtime.
 - **Post-freeze method additions (user-requested audit, 2026-10-17; targeted at 0.4.0):**
   - `algorithms.ForwardInversionRegressor` (+ `build_decoder_mlp`): generative `y -> x`
     surrogate (statistical inverse regression / auto-decoder construction) trained with

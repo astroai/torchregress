@@ -119,6 +119,10 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `recommended_tail_bound` | `recommended_tail_bound(standardized_targets, *, margin=1.25, minimum=5.0, maximum=25.0) → float` | Tail bound covering the standardized training targets; pass the result as `create_flow_model(..., bound=...)` |
 | `create_flow_loss` | `create_flow_loss(...)` | Factory: build a flow loss |
 | `create_contrastive_flow_loss` | `create_contrastive_flow_loss(...)` | Factory: build a contrastive flow loss |
+| `NeuralRatioLoss` | `NeuralRatioLoss(classifier, *, criterion="bce", reduction="mean")` | Classifier-based neural ratio estimation; `forward(context, observations, negative_context=..., negative_target=None, ...)` |
+| `build_ratio_classifier` | `build_ratio_classifier(context_dim, observable_dim, hidden_dims=(64,64), activation="silu")` | Default MLP logit scorer for NRE |
+| `neural_ratio_logits` | `neural_ratio_logits(classifier, context, observable)` | Per-candidate log-ratio logits |
+| `neural_ratio_loss` | `neural_ratio_loss(classifier, context, observable, negative_context, negative_target=None, criterion="bce", reduction="mean")` | Functional NRE loss |
 | `EvidentialRegressionLoss` | `EvidentialRegressionLoss(coeff_nig=1e-2, reduction="mean", unconstrained_inputs=True)` | NIG evidential regression |
 | `DiscreteWasserstein1Loss` | `DiscreteWasserstein1Loss(bin_edges=None, from_logits=False, reduction="mean")` | 1-Wasserstein between mass vectors on a shared grid; see [Grid & basis densities](../losses/density_basis.md) |
 | `discrete_wasserstein1` | `discrete_wasserstein1(p, q, centers)` | Functional form |

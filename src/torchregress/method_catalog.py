@@ -929,8 +929,34 @@ _METHODS: tuple[MethodMetadata, ...] = (
         decomposition="partial",
         calibration="partial",
         notes=(
-            "Likelihood-ratio style flow objective for parameter ranking against alternate "
-            "hypotheses; strongest when simulation under alternate settings is available."
+            "InfoNCE-style contrastive likelihood-ratio ranking over flow log-densities; "
+            "temperature=1 and margin=0 is the likelihood-ratio regime, otherwise the "
+            "scores are tempered rankings. Distinct from the Elsharkawy-Kahn contrastive "
+            "normalizing-flow density-shaping method. For classifier-based NRE see "
+            "NeuralRatioLoss."
+        ),
+    ),
+    MethodMetadata(
+        name="NeuralRatioLoss",
+        family="likelihood_ratio",
+        public_path="torchregress.losses.NeuralRatioLoss",
+        task_tags=(
+            "parameter_estimation",
+            "simulation_based_inference",
+            "domain_shift",
+            "likelihood_ratio",
+        ),
+        maturity="Available",
+        multi_target="partial",
+        non_gaussian="partial",
+        calibration="partial",
+        notes=(
+            "Classifier-based neural ratio estimation (binary BCE or multiclass). Trains a "
+            "classifier to distinguish true (x, theta) pairs from mismatched ones; the "
+            "logit estimates log p(x|theta)-log p(x), so argmax over candidate hypotheses "
+            "is the MLE and the training label/simulation prior cancels. Needs a reference "
+            "prior for the negative contexts; validate with SBC/TARP before trusting "
+            "posterior weights."
         ),
     ),
     MethodMetadata(
@@ -1810,6 +1836,20 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "Representation-level methods (FDS, PRIME, ConR) and group-robust "
             "training (Group DRO over target bins) address feature collapse and "
             "worst-regime bias that output reweighting cannot fix."
+        ),
+    ),
+    TaskRecommendation(
+        task="Likelihood-ratio / simulation-based parameter estimation",
+        recommended_start="NeuralRatioLoss",
+        strong_alternatives=("ContrastiveFlowLoss", "NormalizingFlowLoss"),
+        notes=(
+            "Use NRE when a simulator can generate (parameters, observations) and the "
+            "target is an MLE/MAP estimate, likelihood-ratio test or hypothesis ranking. "
+            "Draw negative contexts from the simulation/prior distribution, and validate "
+            "posterior weights and intervals with SBC/TARP before trusting them. "
+            "ContrastiveFlowLoss is the flow-log-density variant; an NPE-style "
+            "p(theta|x) conditional flow is the alternative when amortised posterior "
+            "samples are needed."
         ),
     ),
     TaskRecommendation(

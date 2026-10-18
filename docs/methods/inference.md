@@ -271,6 +271,43 @@ diag = ppi_diagnostics(y_gold, f_hat_gold, f_hat_all)
 
 ---
 
+## Likelihood-Ratio Posterior Reweighting (NRE)
+
+The same package also provides utilities for a different inference pattern: a model estimates
+the **likelihood ratio** between hypotheses rather than a population parameter.
+
+Let $r(x,\theta) = p(x \mid \theta)/p_{\mathrm{ref}}(x)$, for example the output of
+[`NeuralRatioLoss`](../losses/nre.md) or of a contrastive flow. For a finite candidate bank
+$\{\theta_k\}_{k=1}^{K}$ drawn from a proposal $q(\theta)$:
+
+$$p(\theta \mid x) \;\propto\; \frac{r(x,\theta)\,p(\theta)}{q(\theta)},
+\qquad \log w_k = \log r(x,\theta_k) + \log p(\theta_k) - \log q(\theta_k).$$
+
+When the candidates are drawn from the target prior ($q=p$) the corrections cancel and the
+posterior weights are the normalized ratios. The **maximum-likelihood estimate** is
+$\arg\max_k \log p(x \mid \theta_k)$; adding $\log p(\theta_k)$ gives the MAP estimate, and the
+MLE itself does not depend on the training label/simulation prior (the $p(x)$ factor is constant
+in $\theta$).
+
+| Utility | Use |
+|:--|:--|
+| [`posterior_log_weights`](../api/inference.md) | normalize candidate log ratios with prior/proposal corrections |
+| [`effective_sample_size`](../api/inference.md) | Kish ESS of the candidate bank; gate posterior means/quantiles on it |
+| [`grid_log_posterior`](../api/inference.md) | the same for likelihood scans on a parameter grid |
+| [`maximum_likelihood_estimate`](../api/inference.md) | MLE/MAP point estimate and winning index |
+
+!!! warning "Caveats"
+    * A ratio model is only as good as its reference distribution: scores are relative to the
+      proposal/negative-sampling distribution, not absolute posteriors.
+    * Finite banks give self-normalized importance-sampling estimates: check the ESS, the grid
+      truncation, and unequal cell volumes (`log_reference`).
+    * A maximum-likelihood point is not a posterior mean; use the weights for minimum-MSE summaries
+      and [SBC/TARP](../metrics/calibration.md) to validate posterior calibration.
+
+See the [NRE loss guide](../losses/nre.md) for training the ratio model itself.
+
+---
+
 ## Limitations
 
 1. **MCAR labelling required**: PPI assumes labelled samples are Missing Completely At Random. If labelling is non-random (e.g., only easy examples get labels), the bias correction is invalid. Extensions for MNAR exist but require additional modelling.

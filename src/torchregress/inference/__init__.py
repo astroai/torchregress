@@ -16,6 +16,12 @@ from .ppi import (
     ppi_pp_mean_ci,
     ppi_quantile_ci,
 )
+from .ratio import (
+    effective_sample_size,
+    grid_log_posterior,
+    maximum_likelihood_estimate,
+    posterior_log_weights,
+)
 
 __all__ = [
     "OrthogonalEstimate",
@@ -30,4 +36,8 @@ __all__ = [
     "ppi_quantile_ci",
     "ppi_ols_ci",
     "ppi_diagnostics",
+    "posterior_log_weights",
+    "effective_sample_size",
+    "grid_log_posterior",
+    "maximum_likelihood_estimate",
 ]

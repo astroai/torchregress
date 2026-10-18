@@ -71,6 +71,9 @@ Coverage and width metrics for prediction intervals — PICP, MPIW, interval sco
 ### Calibration Metrics
 
 ECE, MCE, calibration score, and bias — validate that your uncertainty estimates are honest.
+For simulation-based-inference posteriors, the same page also covers SBC rank uniformity and
+TARP coverage diagnostics (`simulation_based_calibration_ranks`, `sbc_uniformity_pvalue`,
+`tarp_coverage`).
 
 [Learn more about calibration metrics →](calibration.md)
 

@@ -62,6 +62,7 @@ _Generated date_: `2026-10-17`
 | Noisy features / measurement error | `InputNoiseAugmentationLoss + GaussianCRPSLoss` / `MDNLoss` / `InputNoiseBinnedPDFLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss`, `ForwardInversionRegressor`, `SplitMeasurementLoss`, `CorrectedScoreEIVLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. When attenuation bias dominates and labels are much more precise than the features, prefer the generative y->x inversion or a corrected-score loss; with repeat exposures use the split-measurement loss. |
 | Noisy labels / label corruption | `WeightedHuberLoss` | `BaseEnsembleModel`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
 | Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal`, `FeatureDistributionSmoother`, `PrimeLoss`, `ConR`, `ContinuousGroupDRO` | Astronomical benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. Representation-level methods (FDS, PRIME, ConR) and group-robust training (Group DRO over target bins) address feature collapse and worst-regime bias that output reweighting cannot fix. |
+| Likelihood-ratio / simulation-based parameter estimation | `NeuralRatioLoss` | `ContrastiveFlowLoss`, `NormalizingFlowLoss` | Use NRE when a simulator can generate (parameters, observations) and the target is an MLE/MAP estimate, likelihood-ratio test or hypothesis ranking. Draw negative contexts from the simulation/prior distribution, and validate posterior weights and intervals with SBC/TARP before trusting them. ContrastiveFlowLoss is the flow-log-density variant; an NPE-style p(theta|x) conditional flow is the alternative when amortised posterior samples are needed. |
 | Selection bias / covariate-dependent missing labels | `PropensityWeightedLoss` | `DensityWeightedLoss` | Estimate p(observed|x) and apply IPW to reduce selection bias. |
 | Output constraints / monotonicity | `BoundedHead` / `NonNegativeHead` / `NonCrossingSort` | `SimplexHead`, `SpectralNormWrapper` | Apply structural constraints in the head before post-hoc calibration. |
 | Post-hoc calibration transforms | `VarianceTemperatureScaler` | `IsotonicMeanCalibrator`, `PITCalibrator`, `VarianceRestoringCalibrator` | Fit transforms on a held-out calibration split. VarianceRestoringCalibrator matches the marginal distribution (tails/population variance) and is not a substitute for conditional mean/variance calibration. |
@@ -106,6 +107,7 @@ _Generated date_: `2026-10-17`
 | `imbalanced_algorithm` (2) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `imbalanced_loss` (9) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
+| `likelihood_ratio` (1) | partial | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` (1) | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `multivariate` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
@@ -234,6 +236,7 @@ _Generated date_: `2026-10-17`
 | `PrimeLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
+| `NeuralRatioLoss` | `likelihood_ratio` | `Available` | partial | no | no | no | no | partial | partial |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | yes | no | yes | partial | partial | partial | partial |
 | `MDNLoss` | `mdn` | `Available` | yes | yes | no | yes | no | partial | partial |
 | `TaskAgnosticCorrelations` | `multivariate` | `Available` | yes | no | no | no | no | partial | partial |
@@ -314,6 +317,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `imbalanced_algorithm` | 2 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `imbalanced_loss` | 9 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
+| `likelihood_ratio` | 1 | partial | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
 | `mdn` | 1 | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `multivariate` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |

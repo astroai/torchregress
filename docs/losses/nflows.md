@@ -89,16 +89,19 @@ loss_fn = create_flow_loss(
 )
 ```
 
-### Contrastive Flow Variant
+### Contrastive Likelihood-Ratio Flow Variant (InfoNCE / NRE)
 
-When the downstream task is **parameter ranking** rather than generic density estimation,
-use `ContrastiveFlowLoss`. It compares the observed target under the correct context against
-one or more alternate contexts:
+When the downstream task is **hypothesis ranking or likelihood-ratio estimation** rather than
+generic density estimation, use `ContrastiveFlowLoss`. It is a multiclass InfoNCE objective over
+the flow's conditional log-densities: the observed target is scored under the generating context
+and one or more alternate contexts, and the flow is trained so that the true hypothesis scores
+highest:
 
 ```python
 from torchregress.losses import ContrastiveFlowLoss
 
-loss_fn = ContrastiveFlowLoss(flow=flow, temperature=0.7, margin=0.2)
+# Likelihood-ratio mode: T=1, margin=0.
+loss_fn = ContrastiveFlowLoss(flow=flow)
 loss = loss_fn(
     positive_context,
     target,
@@ -106,8 +109,27 @@ loss = loss_fn(
 )
 ```
 
-This is useful for nuisance-aware parameter estimation, simulator calibration, and domain-shift
-settings where you care about the **likelihood ratio between hypotheses**, not only `p(y|x)`.
+This is a **contrastive likelihood-ratio / neural-ratio-estimation (NRE) objective**, not a
+density-calibration objective. Two regimes matter:
+
+| Setting | What the scores mean |
+|:--|:--|
+| `temperature=1, margin=0` (`likelihood_ratio_mode is True`) | Score difference `log p(x|c+) - log p(x|c-)` estimates the log likelihood ratio between hypotheses (up to an offset constant in `x`). |
+| `temperature != 1` or `margin != 0` | Tempered contrastive ranking score. `margin` acts like a log prior-odds offset only at `T=1`; otherwise the scores are **not** a calibrated likelihood ratio. |
+
+!!! warning "What the ratio is relative to"
+    The learned ratio is relative to the distribution the negative contexts are drawn from.
+    If candidates are drawn from the prior (or the scan grid), then argmax over candidates is
+    the maximum-likelihood estimate and is independent of the training label frequency; for
+    posterior weights use [`posterior_log_weights`](../api/inference.md) with the correct
+    `log_prior` / `log_reference` corrections. Arbitrary negative banks give rankings, not
+    posterior probabilities.
+
+For a dedicated classifier-based NRE loss (cheaper: no flow Jacobians, and the standard
+ratio-estimation formulation), see [`NeuralRatioLoss`](nre.md) and the
+[NRE guide](nre.md). The Elsharkawy & Kahn (2025) *Contrastive Normalizing Flow* is related work,
+but its objective (contrastive density shaping between signal and background, followed by a
+classifier and Neyman intervals) is different from the InfoNCE loss implemented here.
 
 In practice, expect `ContrastiveFlowLoss` to help only when:
 
@@ -279,7 +301,7 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 1. **Computational cost**: Each training step evaluates $K$ invertible transforms and their Jacobian determinants. For `NSF` with 5+ transforms and large context dimensions, training can be 5–20× slower than an equivalent MDN.
 2. **Mask semantics**: Flow objectives model a **joint density** over all target dimensions. Only **sample-level** masking is supported — if one target dimension is missing, drop the whole sample.
 3. **Architecture choice matters**: `RealNVP` is fast but less expressive; `NSF` is most expressive but slower. Match the flow type to your target: use `NSF` for complex multimodality, `MAF` for conditional density estimation, `RealNVP` for a quick baseline.
-4. **ContrastiveFlowLoss is task-specific**: It optimises hypothesis ranking, not density calibration. If you need well-calibrated conditional densities for sampling or downstream UQ, start with `NormalizingFlowLoss`. `ContrastiveFlowLoss` is for parameter ranking / retrieval tasks with informative negative contexts.
+4. **ContrastiveFlowLoss is task-specific**: It optimises a contrastive likelihood-ratio/ranking objective, not density calibration. `temperature != 1` or `margin != 0` leave the calibrated-likelihood-ratio regime; negative contexts must follow a meaningful reference distribution for the ratios to be interpretable. If you need well-calibrated conditional densities for sampling or downstream UQ, start with `NormalizingFlowLoss`. For classifier-based NRE see [`NeuralRatioLoss`](nre.md).
 5. **Dependency**: Requires [`zuko`](https://github.com/probabilists/zuko). Not installed by default; use `pip install torchregress[flows]`.
 
 ## When To Use Which Flow Objective
@@ -287,7 +309,8 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 | Objective | Start Here When | Tradeoff |
 |:--|:--|:--|
 | `NormalizingFlowLoss` | You need calibrated conditional densities, sampling, or a strong general-purpose flow baseline | Does not directly optimize parameter discrimination |
-| `ContrastiveFlowLoss` | You need to rank the true hypothesis above alternate parameter settings with meaningful training negatives | Can underperform plain NLL when density calibration is the real objective |
+| `ContrastiveFlowLoss` | You need to rank the true hypothesis above alternate parameter settings with meaningful training negatives | InfoNCE/ranking objective, not calibrated densities; temperature/margin and the negative distribution define the estimand |
+| [`NeuralRatioLoss`](nre.md) | You want the standard binary/multiclass NRE ratio estimator with a classifier (cheaper, no flow Jacobians) | Needs a classifier and a good reference distribution; ratios are relative to that reference |
 
 ---
 
@@ -307,4 +330,8 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 | 1 | D. Rezende, S. Mohamed. ["Variational Inference with Normalizing Flows."](https://arxiv.org/abs/1505.05770) *ICML*, **2015**. |
 | 2 | G. Papamakarios et al. ["Normalizing Flows for Probabilistic Modeling and Inference."](https://arxiv.org/abs/1912.02762) *JMLR*, 22(57):1–64, **2021**. |
 | 3 | F. Rozet et al. ["Zuko: Normalizing Flows in PyTorch."](https://github.com/probabilists/zuko) **2022**. |
-| 4 | I. Elsharkawy, Y. Kahn. ["Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation."](https://arxiv.org/abs/2505.08709) *arXiv:2505.08709*, **2025**. |
+| 4 | I. Elsharkawy, Y. Kahn. ["Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation."](https://arxiv.org/abs/2505.08709) *arXiv:2505.08709*, **2025**. (Related work: density-shaping CNF + classifier + Neyman intervals; not the InfoNCE objective in `ContrastiveFlowLoss`.) |
+| 5 | A. Oord, Y. Li, O. Vinyals. ["Representation Learning with Contrastive Predictive Coding."](https://arxiv.org/abs/1807.03748) *arXiv:1807.03748*, **2018**. (InfoNCE.) |
+| 6 | K. Cranmer, J. Pavez, G. Louppe. ["Approximating Likelihood Ratios with Calibrated Discriminative Classifiers."](https://arxiv.org/abs/1506.02169) *arXiv:1506.02169*, **2015**. (Classifier-based ratio estimation.) |
+| 7 | C. Durkan, I. Murray, G. Papamakarios. ["On Contrastive Learning for Likelihood-free Inference."](https://arxiv.org/abs/2002.03712) *ICML*, **2020**. (Balanced contrastive NRE.) |
+| 8 | B. K. Miller, A. Cole, C. Weniger, G. Louppe. ["Contrastive Neural Ratio Estimation."](https://arxiv.org/abs/2210.06170) *NeurIPS*, **2022**. (Multiclass NRE/CNRE.) |

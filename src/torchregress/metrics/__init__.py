@@ -122,6 +122,12 @@ from .point import (
     tail_rmse,
     trimmed_mean_squared_error,
 )
+from .sbi import (
+    sbc_rank_histogram,
+    sbc_uniformity_pvalue,
+    simulation_based_calibration_ranks,
+    tarp_coverage,
+)
 from .tac import (
     TaskAgnosticCorrelations,
     task_agnostic_correlations,
@@ -142,6 +148,11 @@ __all__ = [
     "marginal_calibration_error",
     "calibration_score",
     "calibration_metrics_report",
+    # Simulation-based inference calibration (SBC / TARP)
+    "simulation_based_calibration_ranks",
+    "sbc_rank_histogram",
+    "sbc_uniformity_pvalue",
+    "tarp_coverage",
     # Censored
     "censoring_rate",
     "observed_mae",

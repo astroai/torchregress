@@ -145,3 +145,54 @@ def test_contrastive_flow_rejects_empty_negative_banks(
     ]:
         with pytest.raises(ValueError, match="at least one negative hypothesis"):
             loss_fn(positive_context, target, negative_context=neg, **kwargs)
+
+
+def test_likelihood_ratio_mode_semantics() -> None:
+    flow = _DummyConditionalFlow()
+    assert ContrastiveFlowLoss(flow=flow).likelihood_ratio_mode is True
+    assert ContrastiveFlowLoss(flow=flow, temperature=1.0, margin=0.0).likelihood_ratio_mode is True
+    assert (
+        ContrastiveFlowLoss(flow=flow, temperature=0.7, margin=0.0).likelihood_ratio_mode is False
+    )
+    assert (
+        ContrastiveFlowLoss(flow=flow, temperature=1.0, margin=0.2).likelihood_ratio_mode is False
+    )
+
+
+def test_negative_log_likelihood_chunking_is_exact() -> None:
+    torch.manual_seed(0)
+    flow = _DummyConditionalFlow()
+    target = torch.tensor([[1.0], [2.0], [0.5], [1.5]])
+    positive_context = target.clone()
+    negative_context = torch.stack([torch.tensor([[-1.0], [2.5]])] * 4, dim=0)
+
+    unchunked = ContrastiveFlowLoss(flow=flow, temperature=0.5, margin=0.1)
+    expected = unchunked.log_likelihood_ratio(positive_context, target, negative_context)
+
+    for chunk_size in (1, 2, 7):
+        chunked = ContrastiveFlowLoss(flow=flow, temperature=0.5, margin=0.1, chunk_size=chunk_size)
+        actual = chunked.log_likelihood_ratio(positive_context, target, negative_context)
+        assert torch.allclose(actual, expected, atol=1e-6), chunk_size
+        loss = chunked(positive_context, target, negative_context=negative_context)
+        ref_loss = unchunked(positive_context, target, negative_context=negative_context)
+        assert torch.allclose(loss, ref_loss, atol=1e-6)
+
+
+def test_chunk_size_validation() -> None:
+    flow = _DummyConditionalFlow()
+    for bad in (0, -1, 2.5, True):
+        with pytest.raises(ValueError, match="chunk_size"):
+            ContrastiveFlowLoss(flow=flow, chunk_size=bad)
+
+
+def test_negative_log_likelihoods_validate_target_features() -> None:
+    loss_fn = ContrastiveFlowLoss(
+        flow=_DummyConditionalFlow(n_features=2, context_dim=1),
+        temperature=0.5,
+        margin=0.1,
+    )
+    positive_context = torch.zeros(3, 1)
+    target = torch.zeros(3, 2)
+    negative_context = torch.zeros(3, 2, 1)
+    with pytest.raises(ValueError, match="features in target"):
+        loss_fn.negative_log_likelihoods(positive_context, target[:, :1], negative_context)

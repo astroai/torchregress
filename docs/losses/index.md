@@ -206,10 +206,11 @@ For **arbitrarily complex** conditional distributions:
 | Loss | Description |
 |:-----|:-----------|
 | `NormalizingFlowLoss` | NLL via change-of-variables (requires `zuko`) |
-| `ContrastiveFlowLoss` | Contrastive likelihood-ratio training over positive vs alternate contexts |
+| `ContrastiveFlowLoss` | InfoNCE/contrastive likelihood-ratio ranking over positive vs alternate contexts (flow log-densities) |
+| `NeuralRatioLoss` | Classifier-based neural ratio estimation (binary/multiclass) for parameter inference |
 | `create_flow_model()` / `create_flow_loss()` / `create_contrastive_flow_loss()` | Factory functions |
 
-Read the full [Normalizing flows guide](nflows.md) — NSF/RealNVP/MAF architectures, contrastive flow variant, inference sampling.
+Read the full [Normalizing flows guide](nflows.md) — NSF/RealNVP/MAF architectures, contrastive flow variant, inference sampling — and the [neural ratio estimation guide](nre.md) for the classifier-based likelihood-ratio estimator, posterior-weight utilities and SBI calibration diagnostics.
 
 ---
 

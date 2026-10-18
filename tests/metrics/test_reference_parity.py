@@ -927,3 +927,80 @@ def test_every_metrics_export_is_covered():
     stale = (covered | unexplained) - exported
     assert not stale, f"registry names not exported by torchregress.metrics: {sorted(stale)}"
     assert all(reason.strip() for reason in NO_REFERENCE.values())
+
+
+# =========================================================================== SBI diagnostics
+
+
+@covers("simulation_based_calibration_ranks", ref="numpy tie-aware rank")
+def test_sbc_ranks_match_numpy_tie_aware_rank():
+    rng = np.random.default_rng(1234)
+    samples = rng.normal(size=(9, 41, 2))
+    true = rng.normal(size=(9, 2))
+    samples[0, :5, 0] = true[0, 0]  # exact ties
+    samples[3, :3, 1] = true[3, 1]
+
+    expected = (samples < true[:, None, :]).sum(axis=1) + 0.5 * (samples == true[:, None, :]).sum(
+        axis=1
+    )
+    got = M.simulation_based_calibration_ranks(samples, true)
+
+    assert got.shape == (9, 2)
+    assert np.allclose(got.numpy(), expected)
+
+
+@covers("sbc_rank_histogram", ref="numpy histogram")
+def test_sbc_rank_histogram_matches_numpy():
+    ranks = np.array([[0.0, 5.0], [3.0, 2.0], [7.5, 9.0], [1.0, 4.0], [6.0, 8.0], [2.0, 5.0]])
+    n_posterior_samples = 10
+    n_bins = 6
+
+    hist = M.sbc_rank_histogram(ranks, n_bins=n_bins, n_posterior_samples=n_posterior_samples)
+    edges = hist["bin_edges"].numpy()
+    counts = hist["counts"].numpy()
+    assert counts.shape == (2, n_bins)
+
+    for dim in range(2):
+        expected, expected_edges = np.histogram(ranks[:, dim], bins=edges)
+        assert np.array_equal(edges, expected_edges)
+        assert np.array_equal(counts[dim], expected)
+
+
+@covers("sbc_uniformity_pvalue", ref="scipy.stats.chisquare")
+def test_sbc_uniformity_pvalue_matches_scipy():
+    rng = np.random.default_rng(99)
+    ranks = rng.integers(0, 10, size=(400, 2)).astype(float)
+    n_bins = 10
+    n_posterior_samples = 9
+
+    out = M.sbc_uniformity_pvalue(ranks, n_bins=n_bins, n_posterior_samples=n_posterior_samples)
+    hist = M.sbc_rank_histogram(ranks, n_bins=n_bins, n_posterior_samples=n_posterior_samples)
+    edges = hist["bin_edges"].numpy()
+
+    for dim in range(2):
+        expected_counts, _ = np.histogram(ranks[:, dim], bins=edges)
+        expected = st.chisquare(expected_counts)
+        assert np.isclose(out["chi2"][dim], expected.statistic)
+        assert np.isclose(out["p_values"][dim], expected.pvalue)
+
+
+@covers("tarp_coverage", ref="numpy naive loop")
+def test_tarp_coverage_matches_naive_numpy_loop():
+    rng = np.random.default_rng(7)
+    samples = rng.normal(size=(20, 50, 2))
+    true = rng.normal(size=(20, 2))
+    reference = rng.normal(size=(20, 2))
+    alphas = np.array([0.0, 0.1, 0.5, 0.9, 1.0])
+
+    out = M.tarp_coverage(samples, true, reference, alphas=alphas)
+
+    distances = np.linalg.norm(samples - reference[:, None, :], axis=2)
+    true_distances = np.linalg.norm(true - reference, axis=1)
+    thresholds = np.quantile(distances, alphas, axis=1)  # [A, N]
+    expected_coverage = (true_distances[None, :] <= thresholds).mean(axis=1)
+
+    assert np.allclose(out["alpha"].numpy(), alphas, atol=1e-6)
+    assert np.allclose(out["coverage"].numpy(), expected_coverage, atol=1e-6)
+    assert np.isclose(
+        out["tarp_error"], float(np.max(np.abs(expected_coverage - alphas))), atol=1e-6
+    )

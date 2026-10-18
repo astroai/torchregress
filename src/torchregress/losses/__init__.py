@@ -150,6 +150,14 @@ except ImportError:
     pass  # zuko not installed; normalizing flow features unavailable
 
 
+# Neural ratio estimation (classifier-based likelihood ratios)
+from .nre import (
+    NeuralRatioLoss,
+    build_ratio_classifier,
+    neural_ratio_logits,
+    neural_ratio_loss,
+)
+
 # Poisson losses
 # Ordinal losses
 from .ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
@@ -297,6 +305,7 @@ __all__ = [
     "MultivariateScoreConformal",
     "MultivariateGaussianLoss",
     "NegativeBinomialNLLLoss",
+    "NeuralRatioLoss",
     "NoisyInputPredictor",
     "NoisyTargetGaussianNLL",
     "NonExchangeableConformalRegressor",
@@ -375,4 +384,7 @@ __all__ = [
     "corrected_score_eiv_loss",
     "split_measurement_loss",
     "uniform_proxy_targets",
+    "build_ratio_classifier",
+    "neural_ratio_logits",
+    "neural_ratio_loss",
 ]

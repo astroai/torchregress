@@ -162,6 +162,191 @@ See also: [calibration_metrics_report](../api/metrics.md).
 
 ---
 
+## Simulation-based calibration (SBC) and TARP
+
+The calibration metrics above compare a **predictive distribution** with observed
+targets. In simulation-based inference (SBI) — approximate Bayesian computation,
+neural posterior estimation, validating an MCMC or variational inference
+implementation, or inverting a forward model — there is a prior question: does the
+inference algorithm return the posterior that actually generated the data? When the
+data are simulated from a known prior and likelihood, the ground-truth parameters
+are known by construction, and posterior calibration can be tested directly. SBC
+and TARP are the standard diagnostics for that setting.
+
+Both diagnostics take posterior draws of shape `[N, S, D]`: `N` simulated
+observations, `S` posterior draws per observation, `D` parameter dimensions. They
+do not test whether the assumed prior/likelihood model matches reality — that is a
+modelling question. They test whether the inference algorithm is calibrated for the
+model you gave it.
+
+### SBC ranks
+
+For every simulated observation $n$ and parameter dimension $d$, SBC (Cook et al.
+2006; Talts et al. 2018) computes the rank of the true value among the posterior
+draws, crediting exact ties with half a draw:
+
+$$
+r_{nd} = \sum_{s=1}^{S} \mathbb{1}\!\left[\theta^{(s)}_{nd} < \theta^{\star}_{nd}\right] + \tfrac{1}{2} \sum_{s=1}^{S} \mathbb{1}\!\left[\theta^{(s)}_{nd} = \theta^{\star}_{nd}\right]
+$$
+
+For a calibrated posterior the true value is exchangeable with the posterior draws,
+so the rank is discrete-uniform on the $S+1$ possible values:
+
+$$
+\Pr(r_{nd} = k) = \frac{1}{S+1}, \qquad k = 0, 1, \dots, S
+$$
+
+Deviations are diagnosed from the rank histogram: a U-shape means the posterior is
+too narrow (over-confident), a central peak means it is too wide (under-confident),
+and a monotone skew indicates a bias. Uniformity is quantified per dimension with a
+chi-square test on $B$ integer bins over $[0, S+1]$:
+
+$$
+X^2_d = \sum_{b=1}^{B} \frac{(O_{db} - E_b)^2}{E_b}, \qquad E_b = N \, \frac{w_b}{S+1}
+$$
+
+where $O_{db}$ are the observed counts, $w_b$ is the number of integer rank values
+in bin $b$ ($w_b = 1$ for the default $S+1$ one-bin-per-rank histogram), and
+$X^2_d \sim \chi^2_{B-1}$ under the null hypothesis.
+
+!!! note "Reading an SBC rejection"
+    A small p-value rejects the combination "prior + likelihood + inference
+    algorithm" — it does not say which of the three is wrong. SBC checks one
+    marginal rank per parameter dimension, so it is a necessary but not sufficient
+    condition: a posterior with correct marginals can still have wrong
+    correlations. All simulated data must go through the exact same pipeline as the
+    real data (including any data-dependent preprocessing).
+
+### TARP coverage
+
+The TARP test (Lemos et al. 2023) builds *random credible regions* from a reference
+point $\tilde{\theta}_n$ and the posterior draws,
+
+$$
+d_{ns} = \lVert \theta^{(s)}_n - \tilde{\theta}_n \rVert_2, \qquad d^{\star}_n = \lVert \theta^{\star}_n - \tilde{\theta}_n \rVert_2
+$$
+
+and defines the region as the ball of radius equal to the $\alpha$-quantile
+$q_n(\alpha)$ of the distances. The empirical coverage curve is
+
+$$
+\hat{c}(\alpha) = \frac{1}{N} \sum_{n=1}^{N} \mathbb{1}\!\left[d^{\star}_n \le q_n(\alpha)\right], \qquad \mathrm{TARP\ error} = \max_{\alpha} \left|\hat{c}(\alpha) - \alpha\right|
+$$
+
+For a calibrated posterior, and for reference points that are independent of the
+true parameters and of the posterior draws,
+$\mathbb{E}[\hat{c}(\alpha)] = \alpha$ at every nominal level. Unlike SBC, TARP
+tests the **joint** posterior — dispersion and correlation structure included — so
+it is sensitive to failures a per-parameter rank test cannot see. Systematic
+deviations from the diagonal identify the failure mode: over-confident posteriors
+typically under-cover at high nominal levels (while over-covering at low levels),
+under-confident posteriors show the opposite pattern, and biased posteriors produce
+asymmetric curves. The last two lines of the example below contrast a calibrated
+and an over-confident posterior.
+
+### Runnable example
+
+```python
+import math
+
+import torch
+
+from torchregress.metrics.sbi import (
+    sbc_rank_histogram,
+    sbc_uniformity_pvalue,
+    simulation_based_calibration_ranks,
+    tarp_coverage,
+)
+
+torch.manual_seed(0)
+n_obs, n_samples, n_dims = 2000, 100, 2
+
+# Simulate from an exact Gaussian posterior: prior theta ~ N(0, 1),
+# likelihood y | theta ~ N(theta, 1), so the posterior is N(y / 2, 1 / 2).
+truth = torch.randn(n_obs, n_dims)
+y = truth + torch.randn(n_obs, n_dims)
+posterior_mean = 0.5 * y
+posterior_scale = math.sqrt(0.5)
+calibrated = posterior_mean.unsqueeze(1) + posterior_scale * torch.randn(
+    n_obs, n_samples, n_dims
+)
+
+ranks = simulation_based_calibration_ranks(calibrated, truth)
+histogram = sbc_rank_histogram(ranks)
+uniformity = sbc_uniformity_pvalue(ranks)
+print("calibrated min p-value:", uniformity["min_p_value"])
+print("calibrated edge-bin counts:", histogram["counts"][:, [0, -1]].tolist())
+
+# TARP reference points: drawn independently from the prior.
+reference_points = torch.randn(n_obs, n_dims)
+calibrated_tarp = tarp_coverage(calibrated, truth, reference_points)
+print("calibrated TARP error:", calibrated_tarp["tarp_error"])
+
+# Over-confident posterior: same posterior mean, half the standard deviation.
+overconfident = posterior_mean.unsqueeze(1) + 0.5 * posterior_scale * torch.randn(
+    n_obs, n_samples, n_dims
+)
+overconfident_ranks = simulation_based_calibration_ranks(overconfident, truth)
+overconfident_uniformity = sbc_uniformity_pvalue(overconfident_ranks)
+overconfident_tarp = tarp_coverage(overconfident, truth, reference_points)
+print("over-confident min p-value:", overconfident_uniformity["min_p_value"])
+print("over-confident TARP error:", overconfident_tarp["tarp_error"])
+```
+
+With this fixed seed the calibrated posterior gives a minimum p-value around 0.36
+and a TARP error of about 0.02, while the over-confident posterior gives a p-value
+that underflows to zero and a TARP error of about 0.24.
+
+### Caveats
+
+!!! warning "Statistical diagnostics, not calibration certificates"
+    - **Finite-sample stochasticity.** Under the null, SBC p-values are uniform on
+      $[0, 1]$, so small values occur by chance; the calibration is only as good as
+      the number of simulations $N$ and draws $S$. The TARP error is a maximum over
+      the $\alpha$ grid, so it is positive even for a calibrated posterior (order
+      $10^{-2}$ for $N \sim 10^3$) and is **not** a calibrated p-value. Compare
+      estimators on the same simulated data and with the same grid.
+    - **Multiple testing.** Testing $D$ parameter dimensions at level $\alpha$ gives
+      a family-wise false-positive rate of roughly $D\alpha$. Use the returned
+      `bonferroni_min_p_value` for a conservative correction, or treat the p-values
+      as descriptive.
+    - **Reference points for TARP.** They must be drawn independently from the
+      prior, in the same parameter space and units as the posterior, and must never
+      be the true generating parameters (that would trivially cover the truth). The
+      default Euclidean metric depends on parameter scales: standardise or whiten
+      parameters whose units differ before running TARP, otherwise the largest-scale
+      dimension dominates the regions.
+    - **What each test actually covers.** SBC tests the marginal rank of each
+      dimension separately; TARP tests the joint coverage of random balls. TARP is
+      not a mode-coverage or point-accuracy test: a multimodal posterior can have a
+      correct coverage curve (the ball may swallow the true mode), and both tests
+      can pass for a posterior with the right shape but the wrong mode. Neither
+      replaces predictive calibration (ECE, PIT) or proper scores (CRPS, NLL)
+      evaluated on real observations.
+    - **Ties and sampler assumptions.** The tie-aware rank follows the randomised
+      rank in expectation but is not exactly discrete-uniform for heavily discrete
+      parameters, and the chi-square null assumes near-continuous ranks. The SBC
+      derivation also assumes independent posterior draws: thin autocorrelated MCMC
+      chains before computing ranks.
+    - **Simulate what you analyse.** Every data-dependent step of the real pipeline
+      (feature standardisation, cuts, selection functions, noise realisations) must
+      be part of the simulation, otherwise the test validates a different problem.
+
+### SBC and TARP references
+
+| # | Reference |
+|:-:|:----------|
+| 1 | S. R. Cook, A. Gelman, D. B. Rubin. ["Validation of Software for Bayesian Models Using Posterior Quantiles."](https://doi.org/10.1198/106186006X136976) *Journal of Computational and Graphical Statistics*, 15(3):675–692, **2006**. |
+| 2 | S. Talts, M. Betancourt, D. Simpson, A. Vehtari, A. Gelman. ["Validating Bayesian Inference Algorithms with Simulation-Based Calibration."](https://arxiv.org/abs/1804.06788) arXiv:1804.06788, **2018**. |
+| 3 | P. Lemos, A. Coogan, Y. Hezaveh, L. Perreault-Levasseur. ["Sampling-Based Accuracy Testing of Posterior Estimators for General Inference."](https://arxiv.org/abs/2302.03026) *ICML*, **2023**. |
+| 4 | J. Geweke. ["Getting It Right: Joint Distribution Tests of Posterior Simulators."](https://doi.org/10.1198/016214504000001132) *Journal of the American Statistical Association*, 99(467):799–804, **2004**. |
+
+→ See the [metrics catalogue](index.md), [distribution metrics](distribution.md) for
+PIT-based predictive calibration, and the [metrics API](../api/metrics.md) for the
+function signatures.
+
+---
+
 ## References
 
 | # | Reference |

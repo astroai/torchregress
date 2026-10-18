@@ -3,7 +3,9 @@
 Complete reference for `torchregress.inference`. This package implements
 **Prediction-Powered Inference (PPI)** — confidence-interval estimators that
 combine a small trusted-labeled set with a large model-predicted unlabeled set
-to improve statistical efficiency while preserving frequentist coverage.
+to improve statistical efficiency while preserving frequentist coverage — and
+**likelihood-ratio posterior reweighting** utilities for neural ratio
+estimation (NRE), contrastive ratio models and grid likelihood scans.
 
 For background, see [PPI + conformal](../guide/method-selection.md) and the
 [inference example](../examples/index.md).
@@ -157,6 +159,46 @@ q_ci = ppi_quantile_ci(y_l, p_l, p_u, q=0.9, config=cfg)
 ols_ci = ppi_ols_ci(x_l, y_l, x_u, p_l, p_u, add_intercept=True, config=cfg)
 # ols_ci["coef"] -> list of length 4 (intercept + 3 coefs)
 ```
+
+---
+
+## Likelihood-ratio posterior reweighting (`inference.ratio`)
+
+For a ratio estimator $r(x,\theta) = p(x \mid \theta) / p_{\mathrm{ref}}(x)$ over a finite
+candidate bank $\{\theta_k\}_{k=1}^{K}$ drawn from a proposal $q(\theta)$, the self-normalized
+importance-sampling posterior is
+
+$$p(\theta \mid x) \;\propto\; \frac{r(x,\theta)\,p(\theta)}{q(\theta)},
+\qquad \log w_k = \log r(x,\theta_k) + \log p(\theta_k) - \log q(\theta_k).$$
+
+| Symbol | Description |
+|:-------|:------------|
+| `posterior_log_weights(log_ratio, *, log_prior=None, log_reference=None, dim=-1)` | Normalize candidate log ratios into log posterior weights via `log_softmax(log_ratio + log_prior - log_reference)`. `log_prior` is the target prior, `log_reference` the proposal actually used for the candidates; when candidates are drawn from the prior the two cancel. |
+| `effective_sample_size(log_weights, *, dim=-1)` | Kish ESS $1/\sum_k w_k^2 = \exp(-\operatorname{logsumexp}_k 2\log w_k)$, per bank, in $[1,K]$. Gate posterior summaries on a reasonable ESS (near 1 means one candidate dominates the bank). |
+| `grid_log_posterior(log_scores, *, log_prior=None, log_reference=None, dim=-1)` | Same semantics for likelihood scans / parameter grids. A uniform grid proposal cancels; non-uniform or importance grids pass `log_reference` (including log cell volumes). Weights are posterior probabilities *within the supplied grid*. |
+| `maximum_likelihood_estimate(scores, hypotheses, *, log_prior=None, dim=-1)` | Returns `(hypotheses[best_index], best_index)`. `log_prior` turns MLE into MAP; the MLE itself is invariant to the training/sampling prior. Ties break to the first index. |
+
+```python
+import torch
+from torchregress.inference import (
+    effective_sample_size,
+    maximum_likelihood_estimate,
+    posterior_log_weights,
+)
+
+# Candidates drawn from the prior: prior/reference corrections cancel.
+theta = torch.linspace(-5.0, 5.0, 201)
+log_ratio = -(0.7 - theta) ** 2 / 2          # estimated log r(x, theta)
+log_w = posterior_log_weights(log_ratio)     # normalized log posterior weights
+ess = effective_sample_size(log_w)           # 1 <= ess <= 201
+posterior_mean = (log_w.exp() * theta).sum()
+mle, index = maximum_likelihood_estimate(log_ratio[None, :], theta)
+```
+
+!!! warning "Finite candidate banks only"
+    These utilities summarize a *finite supplied bank*. They do not correct for a truncated or
+    poorly covering proposal; check the ESS and widen the bank/proposal if it is small. `-inf`
+    log-ratios are rejected — encode hard exclusions with a large finite penalty.
 
 ---
 

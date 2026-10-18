@@ -50,3 +50,41 @@ def test_contrastive_flow_parameter_estimation_main_smoke() -> None:
         raise
 
     assert set(metrics) == {"mu_mae", "nuisance_mae"}
+
+
+def test_contrastive_flow_comparison_smoke() -> None:
+    mod = _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    cfg = mod.ContrastiveFlowComparisonConfig(
+        n_train=32,
+        n_test=6,
+        events_per_experiment=16,
+        batch_size=8,
+        epochs=1,
+        hidden=8,
+        flow_context_dim=8,
+        flow_transforms=1,
+        n_negatives=2,
+        mu_grid_size=5,
+        nuisance_grid_size=5,
+        n_posterior_samples=16,
+    )
+
+    try:
+        rows = mod.main(cfg)
+    except ImportError as exc:
+        if "zuko" in str(exc).lower():
+            pytest.skip("optional zuko dependency not available")
+        raise
+
+    methods = {row["Method"] for row in rows}
+    assert {
+        "GaussianSummary",
+        "NormalizingFlow",
+        "ContrastiveFlow",
+        "NeuralRatio",
+        "NormalizingFlowPosterior",
+    } <= methods
+    for row in rows:
+        assert "ParamMAE" in row
+        if row["ParamMAE"] is not None:
+            assert row["ParamMAE"] >= 0.0

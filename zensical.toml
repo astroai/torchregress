@@ -185,6 +185,7 @@ nav = [
     { "Distributional Modeling" = [
       { "Mixture Density Networks" = "losses/mdn.md" },
       { "Normalizing Flows" = "losses/nflows.md" },
+      { "Neural Ratio Estimation" = "losses/nre.md" },
       { "Grid & Basis Densities" = "losses/density_basis.md" },
       { "Evidential Regression" = "losses/advanced.md" },
       { "Super-Level Set Regression" = "losses/sls.md" },

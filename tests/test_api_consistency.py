@@ -178,6 +178,7 @@ def test_reduction_behavior():
         "CorrectedScoreEIVLoss",  # Needs a model
         "PrimeLoss",  # Needs feature_dim + fit(train_targets)
         "ConR",  # Needs model predictions + fit(train_targets)
+        "NeuralRatioLoss",  # Needs a classifier + negative contexts
     ]
 
     # Flexible-shape family losses consume multi-column parameter vectors

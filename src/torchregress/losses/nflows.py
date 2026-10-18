@@ -679,9 +679,24 @@ class ContrastiveFlowLoss(NormalizingFlowLoss):
 
     where ``T`` is the temperature and ``m`` is an optional positive-class margin.
 
+    **Interpretation.**  This is a contrastive likelihood-ratio/ranking
+    objective: for ``T = 1`` and ``m = 0`` it is the binary (one negative) or
+    multiclass (several negatives) neural-ratio-estimation (NRE) loss written
+    with normalizing-flow log-densities, and the score difference
+    ``log p(x|c+) - log p(x|c-)`` estimates the log likelihood ratio between the
+    two hypotheses (up to a constant offset in ``x``).  For ``T != 1`` the
+    objective is a tempered contrastive ranking score, not a calibrated
+    likelihood ratio; ``m != 0`` acts like a log prior-odds offset only in the
+    ``T = 1`` case.  Use :attr:`likelihood_ratio_mode` to check whether the
+    instance is in the likelihood-ratio regime; see ``docs/losses/nflows.md``
+    and ``docs/losses/nre.md`` for the statistical caveats.  For a dedicated
+    classifier-based NRE loss (cheaper, no flow Jacobians) see
+    :class:`torchregress.losses.nre.NeuralRatioLoss`.
+
     This is useful when the downstream task is parameter estimation or robust
     hypothesis ranking under nuisance/domain-shift conditions rather than generic
-    density modeling alone.
+    density modeling alone.  It is *not* the contrastive density-shaping
+    objective of Elsharkawy & Kahn (2025); see the guide for the distinction.
     """
 
     def __init__(
@@ -691,14 +706,32 @@ class ContrastiveFlowLoss(NormalizingFlowLoss):
         *,
         temperature: float = 1.0,
         margin: float = 0.0,
+        chunk_size: int | None = None,
     ) -> None:
         super().__init__(flow=flow, reduction=reduction)
         if temperature <= 0:
             raise ValueError(f"temperature must be > 0, got {temperature}")
         if margin < 0:
             raise ValueError(f"margin must be >= 0, got {margin}")
+        if chunk_size is not None and (
+            isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size < 1
+        ):
+            raise ValueError(f"chunk_size must be a positive integer or None, got {chunk_size!r}")
         self.temperature = float(temperature)
         self.margin = float(margin)
+        self.chunk_size = chunk_size
+
+    @property
+    def likelihood_ratio_mode(self) -> bool:
+        """Whether scores are a (tempered) likelihood-ratio estimate.
+
+        ``True`` only for ``temperature == 1`` and ``margin == 0``.  Outside
+        that regime the objective is a contrastive ranking score: ``margin``
+        shifts the positive class and ``temperature`` re-scales the log-ratios,
+        so :meth:`log_likelihood_ratio` should not be interpreted as a
+        calibrated likelihood ratio.
+        """
+        return self.temperature == 1.0 and self.margin == 0.0
 
     def _prepare_negative_context(
         self,
@@ -769,14 +802,31 @@ class ContrastiveFlowLoss(NormalizingFlowLoss):
             shared_negative_context=shared_negative_context,
         )
         batch_size, n_negatives, _ = normalized_neg.shape
-        flat_context = normalized_neg.reshape(batch_size * n_negatives, -1)
         target_matrix = target if target.dim() > 1 else target.unsqueeze(-1)
+        if target_matrix.shape[-1] != self.n_features:
+            raise ValueError(
+                f"Expected {self.n_features} features in target, got {target_matrix.shape[-1]}"
+            )
+        flat_context = normalized_neg.reshape(batch_size * n_negatives, -1)
         flat_target = (
             target_matrix.unsqueeze(1)
             .expand(-1, n_negatives, -1)
             .reshape(batch_size * n_negatives, -1)
         )
-        return self.log_prob(flat_context, flat_target).reshape(batch_size, n_negatives)
+        if self.chunk_size is None or self.chunk_size >= flat_context.shape[0]:
+            negative = self.log_prob(flat_context, flat_target)
+        else:
+            negative = torch.cat(
+                [
+                    self.log_prob(
+                        flat_context[start : start + self.chunk_size],
+                        flat_target[start : start + self.chunk_size],
+                    )
+                    for start in range(0, flat_context.shape[0], self.chunk_size)
+                ],
+                dim=0,
+            )
+        return negative.reshape(batch_size, n_negatives)
 
     def log_likelihood_ratio(
         self,

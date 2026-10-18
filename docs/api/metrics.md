@@ -121,6 +121,31 @@ Defined in `torchregress.calibration.metrics`; import them from
 
 ---
 
+## Posterior calibration diagnostics (`metrics.sbi`)
+
+Defined in `torchregress.metrics.sbi`; import them from `torchregress.metrics`.
+These diagnostics require **simulated** data with known ground-truth parameters
+(prior + likelihood simulation): they test whether the posterior inference
+algorithm is calibrated, not whether predictive intervals cover real targets.
+
+→ **Guide:** [Calibration metrics § Simulation-based calibration (SBC) and TARP](../metrics/calibration.md#simulation-based-calibration-sbc-and-tarp)
+
+| Symbol | Signature | Description |
+|:-------|:----------|:------------|
+| `simulation_based_calibration_ranks` | `simulation_based_calibration_ranks(posterior_samples, true_values, *, dim=-1)` | Tie-aware SBC rank of the true parameters among posterior draws; `[N, S, D]` (or `[S, D]` for one observation) → `[N, D]`, uniform on `{0, …, S}` for a calibrated posterior |
+| `sbc_rank_histogram` | `sbc_rank_histogram(ranks, *, n_bins=None, n_posterior_samples=None)` | Per-dimension rank histogram over `[0, S + 1]` (flat when calibrated); defaults to one bin per integer rank |
+| `sbc_uniformity_pvalue` | `sbc_uniformity_pvalue(ranks, *, n_bins=None, n_posterior_samples=None)` | Chi-square uniformity p-values per parameter dimension, with `min_p_value`, `dof`, `n_ranks` and a Bonferroni-corrected minimum |
+| `tarp_coverage` | `tarp_coverage(posterior_samples, true_values, reference_values, *, alphas=None)` | TARP (Lemos et al. 2023) random-credible-region coverage curve `[A]` and `tarp_error = max |coverage − alpha|`; reference points are typically drawn from the prior |
+
+!!! warning "Read the caveats"
+    SBC p-values are stochastic finite-sample tests and multiple-testing applies across
+    parameter dimensions; TARP requires reference points independent of the truth and
+    posterior, and its `tarp_error` is not a p-value. See the
+    [SBC and TARP caveats](../metrics/calibration.md#simulation-based-calibration-sbc-and-tarp)
+    before using either diagnostic for model selection.
+
+---
+
 ## Ensemble metrics (`metrics.ensemble`)
 
 → **Guide:** [Ensemble metrics](../metrics/ensemble.md)

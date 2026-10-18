@@ -561,3 +561,16 @@ def test_method_catalog_includes_new_representation_and_eiv_methods() -> None:
     )
     assert method_catalog.get_method_metadata("PrimeLoss")["imbalance"] == "yes"
     assert method_catalog.get_method_metadata("VarianceRestoringCalibrator")["calibration"] == "yes"
+
+
+def test_method_catalog_includes_neural_ratio_estimation() -> None:
+    meta = method_catalog.get_method_metadata("NeuralRatioLoss")
+    assert meta["family"] == "likelihood_ratio"
+    assert meta["maturity"] == "Available"
+    nre = {
+        row["name"] for row in method_catalog.list_methods(task_tag="simulation_based_inference")
+    }
+    assert "NeuralRatioLoss" in nre
+
+    tasks = {row["task"] for row in method_catalog.list_task_recommendations()}
+    assert "Likelihood-ratio / simulation-based parameter estimation" in tasks

@@ -105,3 +105,8 @@ negative hypotheses accidentally matches the minibatch size.
 - See [Normalizing Flows](../losses/nflows.md) for the base conditional flow API.
 - See [Task-First Method Selection Matrix](../guide/method-selection.md) for when to choose
   flow-based methods over Gaussian, MDN, or conformal alternatives.
+
+## See also
+
+- [Contrastive Flow Parameter Estimation Comparison](contrastive_flow_parameter_estimation_comparison.md) — the same task with NRE, NPE and SBC/TARP baselines.
+- [Neural Ratio Estimation](../losses/nre.md) — classifier-based likelihood-ratio estimator.

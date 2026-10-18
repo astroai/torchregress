@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `136`
+- Total methods: `137`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -29,6 +29,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `imbalanced_algorithm` | 2 |
 | `imbalanced_loss` | 9 |
 | `inference` | 1 |
+| `likelihood_ratio` | 1 |
 | `mc_dropout` | 1 |
 | `mdn` | 1 |
 | `multivariate` | 1 |
@@ -54,7 +55,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 19 |
-| `Available` | 110 |
+| `Available` | 111 |
 
 ## Method Rows
 
@@ -139,6 +140,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `PrimeLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `imbalanced_regression` | `calibration*`, `ood*` | `torchregress.losses.PrimeLoss` |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `selection_bias`, `missing_labels` | `calibration*`, `ood*` | `torchregress.losses.PropensityWeightedLoss` |
 | `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
+| `NeuralRatioLoss` | `likelihood_ratio` | `Available` | `parameter_estimation`, `simulation_based_inference`, `domain_shift`, `likelihood_ratio` | `calibration*`, `ood*` | `torchregress.losses.NeuralRatioLoss` |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | `epistemic_uq`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MCDropoutWrapper` |
 | `MDNLoss` | `mdn` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.MDNLoss` |
 | `TaskAgnosticCorrelations` | `multivariate` | `Available` | `covariance_evaluation`, `conditioning` | `calibration*`, `ood*` | `torchregress.metrics.TaskAgnosticCorrelations` |
