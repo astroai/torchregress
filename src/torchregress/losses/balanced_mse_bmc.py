@@ -695,7 +695,11 @@ def balanced_mse_bmc_loss(
     elif not bool(valid.all()):
         raise ValueError("target contains non-finite values; mark missing entries with mask=...")
 
-    fill = tgt_c[valid].median() if bool(valid.any()) else torch.zeros((), dtype=dtype)
+    fill = (
+        tgt_c[valid].median()
+        if bool(valid.any())
+        else torch.zeros((), dtype=dtype, device=tgt_c.device)
+    )
     support = torch.where(valid, tgt_c, fill).detach()
     log_prior_c = torch.where(valid, prior_c, torch.full_like(prior_c, -torch.inf))
     per_sample = _bmc_per_sample(pred_c, tgt_c, support, log_prior_c, sigma_tensor, valid)

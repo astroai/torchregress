@@ -241,6 +241,22 @@ def test_weights_are_averaged_within_duplicate_label_groups() -> None:
     assert torch.allclose(per_anchor, expected_full, atol=1e-12)
 
 
+def test_mask_and_weights_combine() -> None:
+    generator = torch.Generator().manual_seed(17)
+    features = torch.randn(9, 4, generator=generator)
+    target = torch.rand(9, generator=generator)
+    mask = torch.tensor([1, 0, 1, 1, 0, 1, 1, 1, 0], dtype=torch.bool)
+    weights = torch.rand(9, generator=generator)
+
+    per_anchor = RankSimLoss(gamma=1.0, reduction="none")(features, target, mask=mask)
+    expected = (per_anchor[mask] * weights[mask]).sum() / weights[mask].sum()
+    assert torch.allclose(
+        RankSimLoss(gamma=1.0)(features, target, mask=mask, weights=weights),
+        expected,
+        atol=1e-6,
+    )
+
+
 def test_column_targets_and_float64_are_supported() -> None:
     generator = torch.Generator().manual_seed(6)
     features = torch.randn(9, 4, generator=generator, dtype=torch.float64)
@@ -448,6 +464,18 @@ def test_invalid_inputs_raise() -> None:
         loss(features, target + float("nan"))
     with pytest.raises(ValueError, match="finite"):
         loss(features + float("inf"), target)
+    with pytest.raises(ValueError, match="floating"):
+        loss(torch.ones(6, 3, dtype=torch.long), target)
+    with pytest.raises(ValueError, match="feature dimension"):
+        loss(torch.randn(6, 0), target)
+    with pytest.raises(ValueError, match=r"\[N, D\]"):
+        rank_sim_regularizer(torch.randn(6), target)
+    with pytest.raises(ValueError, match="floating"):
+        rank_sim_regularizer(torch.ones(6, 3, dtype=torch.long), target)
+    with pytest.raises(ValueError, match="feature dimension"):
+        rank_sim_regularizer(torch.randn(6, 0), target)
+    with pytest.raises(ValueError, match="reduction"):
+        rank_sim_regularizer(features, target, reduction="median")
     with pytest.raises(ValueError, match="gamma"):
         RankSimLoss(gamma=-1.0)
     with pytest.raises(ValueError, match="interpolation_strength"):

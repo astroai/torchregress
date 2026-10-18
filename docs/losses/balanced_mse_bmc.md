@@ -190,7 +190,7 @@ missing labels in a batch-coupled loss.
 from torchregress.losses import BalancedMSEBMC
 
 loss_fn = BalancedMSEBMC(
-    sigma=None,             # None -> robust fit-time estimate
+    sigma=None,             # None -> robust fit-time estimate or target proxy
     prior="histogram",      # "histogram" | "kde" | "uniform"
     num_bins=64,
     prior_bandwidth=None,   # None -> 1.5 bin widths (histogram) / Silverman (KDE)

@@ -16,7 +16,7 @@ Long-tailed regression is not only an output-space reweighting problem. A networ
 ```mermaid
 graph LR
     A["features z: B x D"] --> B["cosine similarity matrix"]
-    C["targets y: B"] --> D["label similarity -|y_i - y_j|"]
+    C["targets y: B"] --> D["label similarity: negative distance"]
     B --> E["rank every row"]
     D --> F["rank every row"]
     E --> G["MSE between the two rank vectors"]
