@@ -120,7 +120,8 @@ for _ in range(50):
 | Method | Mechanism | Persistent tail signal? | Extra parameters | Batch-composition sensitive? |
 |:-------|:-----------|:------------------------|:-----------------|:-----------------------------|
 | [LDS](imbalanced.md) (`LDSLoss`) | Kernel-smoothed label density reweighting | No (loss-level) | No | No |
-| [Balanced MSE](imbalanced.md) (`BalancedMSELoss`) | Restores balanced prediction distribution | No (output-level) | No | No |
+| [Balanced MSE (BMC)](balanced_mse_bmc.md) (`BalancedMSEBMC`) | Noise-adaptive batch posterior balancing | Yes (batch-coupled) | No | Yes |
+| `RankSimLoss` | Matches label-distance and feature-similarity rankings | Only via batch pairs | No | Yes ($O(B^2)$) |
 | [FDS](imbalanced.md) (`FeatureDistributionSmoother`) | Kernels smooth feature mean/variance across bins | Yes (EMA per bin) | No | No |
 | `RankNContrastLoss` | Orders features by pairwise label distance | Only via batch pairs | No | Yes ($O(B^2)$, no tail samples → no tail gradient) |
 | **PRIME** (`PrimeLoss`) | Uniform learnable proxies + geometry/alignment | Yes (proxies always present) | $C\times D$ proxies | No |
