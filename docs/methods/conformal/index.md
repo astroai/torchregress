@@ -166,6 +166,8 @@ For multi-output regression ($\mathbf{Y} \in \mathbb{R}^D$), calibrating each co
 | 4 | Angelopoulos & Bates. ["A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification."](https://arxiv.org/abs/2107.07511) *Technical Report*, 2021. |
 | 5 | Barber et al. ["Predictive inference with the jackknife+."](https://arxiv.org/abs/1905.02928) *The Annals of Statistics*, 2021. |
 | 6 | Xu & Xie. ["Conformal prediction interval for dynamic time-series."](https://arxiv.org/abs/2010.14144) *ICML*, 2021. |
+| 7 | Lei et al. ["Distribution-Free Predictive Inference for Regression."](https://arxiv.org/abs/1604.04173) *JASA*, 113(523):1094–1111, 2018. |
+| 8 | Prinster et al. ["Conformal Validity Guarantees Exist for Any Data Distribution (and How to Find Them)."](https://arxiv.org/abs/2405.06627) *ICML*, 2024. |
 
 ---
 

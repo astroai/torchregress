@@ -268,6 +268,7 @@ diag = ppi_diagnostics(y_gold, f_hat_gold, f_hat_all)
 | 4 | J. Gronsbell et al. "Efficient and Robust Semi-Supervised Estimation of ATE." *JASA*, **2024**. |
 | 5 | J. Miao et al. ["Demystifying Prediction Powered Inference."](https://arxiv.org/abs/2601.20819) *arXiv:2601.20819*, **2025**. |
 | 6 | Y. Chen et al. ["Calibeating Prediction-Powered Inference."](https://arxiv.org/abs/2604.21260) *arXiv:2604.21260*, **2026**. |
+| 7 | M. P. Stoica et al. ["In-Context Parametric Inference: Point or Distribution Estimators?"](https://arxiv.org/abs/2502.11617) *arXiv:2502.11617*, **2025** — compares amortized point (MLE/MAP) and posterior (NPE) estimators; background for choosing NRE/NPE in this guide. |
 
 ---
 

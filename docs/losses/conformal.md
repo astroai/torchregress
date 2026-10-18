@@ -51,3 +51,4 @@ lower, upper = cp.predict_interval(test_pred)   # >= 90% coverage under exchange
 | 1 | Vovk, V., Gammerman, A. & Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer. |
 | 2 | Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*. |
 | 3 | Angelopoulos, A. N. & Bates, S. (2021). A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification. *arXiv:2107.07511*. |
+| 4 | Lei, L., G'Sell, M., Rinaldo, A., Ryan, T. J. & Wasserman, L. (2018). Distribution-Free Predictive Inference for Regression. *JASA*, 113(523):1094–1111. |
