@@ -203,6 +203,8 @@ nav = [
       { "Input Measurement Error (EIV)" = "losses/eiv.md" },
       { "Split-Measurement & Corrected-Score EIV" = "losses/split_eiv.md" },
       { "PRIME & ConR (Representation-Level)" = "losses/prime_conr.md" },
+      { "Balanced MSE (BMC)" = "losses/balanced_mse_bmc.md" },
+      { "RankSim (Ranking Similarity)" = "losses/rank_sim.md" },
     ] },
     { "Target Transformations" = "losses/transforms.md" },
     { "Conformal Prediction Wrappers" = "losses/conformal.md" },

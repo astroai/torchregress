@@ -258,8 +258,10 @@ For targets with significant **distribution imbalance**:
 | `FeatureDistributionSmoother` | FDS: feature-moment calibration across target bins |
 | `PrimeLoss` | PRIME: learnable proxies with uniformly spaced targets |
 | `ConR` | Contrastive collapse penalty weighted by label density |
+| `BalancedMSEBMC` | Noise-adaptive Balanced MSE (BMC) of Ren et al. 2022; batch-coupled |
+| `RankSimLoss` | Ranking-similarity regularization on features (Gong et al. 2022) |
 
-Read the full [Imbalanced regression guide](imbalanced.md) — density weighting, Focal-R, LDS, propensity weighting — and [PRIME & ConR](prime_conr.md) for representation-level methods. Group-robust training over target bins is covered by [Continuous Group DRO](../methods/algorithms/group_dro.md).
+Read the full [Imbalanced regression guide](imbalanced.md) — density weighting, Focal-R, LDS, propensity weighting — and [PRIME & ConR](prime_conr.md) for representation-level methods, plus [Balanced MSE (BMC)](balanced_mse_bmc.md) and [RankSim](rank_sim.md). Group-robust training over target bins is covered by [Continuous Group DRO](../methods/algorithms/group_dro.md).
 
 ---
 

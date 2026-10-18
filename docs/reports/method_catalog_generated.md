@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `139`
+- Total methods: `141`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -27,7 +27,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `expectile` | 3 |
 | `flow` | 3 |
 | `imbalanced_algorithm` | 4 |
-| `imbalanced_loss` | 9 |
+| `imbalanced_loss` | 11 |
 | `inference` | 1 |
 | `likelihood_ratio` | 1 |
 | `mc_dropout` | 1 |
@@ -55,7 +55,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 19 |
-| `Available` | 113 |
+| `Available` | 115 |
 
 ## Method Rows
 
@@ -132,6 +132,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `GroupDROTrainer` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.GroupDROTrainer` |
 | `VIRLoss` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `imbalanced_regression`, `aleatoric_uq`, `evidential` | `calibration*`, `ood*` | `torchregress.algorithms.VIRLoss` |
 | `VIRRegressor` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `imbalanced_regression`, `aleatoric_uq`, `evidential` | `calibration*`, `ood*` | `torchregress.algorithms.VIRRegressor` |
+| `BalancedMSEBMC` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail`, `noise_adaptive` | `calibration*`, `ood*` | `torchregress.losses.BalancedMSEBMC` |
 | `BalancedMSELoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BalancedMSELoss` |
 | `BinReweightedMSELoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `long_tail` | `calibration*`, `ood*` | `torchregress.losses.BinReweightedMSELoss` |
 | `ConR` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `contrastive` | `calibration*`, `ood*` | `torchregress.losses.ConR` |
@@ -141,6 +142,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `LDSLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets` | `calibration*`, `ood*` | `torchregress.losses.LDSLoss` |
 | `PrimeLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `imbalanced_regression` | `calibration*`, `ood*` | `torchregress.losses.PrimeLoss` |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | `imbalance`, `selection_bias`, `missing_labels` | `calibration*`, `ood*` | `torchregress.losses.PropensityWeightedLoss` |
+| `RankSimLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `ranking` | `calibration*`, `ood*` | `torchregress.losses.RankSimLoss` |
 | `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
 | `NeuralRatioLoss` | `likelihood_ratio` | `Available` | `parameter_estimation`, `simulation_based_inference`, `domain_shift`, `likelihood_ratio` | `calibration*`, `ood*` | `torchregress.losses.NeuralRatioLoss` |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | `epistemic_uq`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MCDropoutWrapper` |

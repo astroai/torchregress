@@ -61,7 +61,7 @@ _Generated date_: `2026-10-18`
 | Multi-target correlated outputs | `MultivariateGaussianLoss` / `LowRankGaussianLoss` | `MDNLoss`, `NormalizingFlowLoss` | Prefer low-rank/full covariance when Gaussian is enough. |
 | Noisy features / measurement error | `InputNoiseAugmentationLoss + GaussianCRPSLoss` / `MDNLoss` / `InputNoiseBinnedPDFLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss`, `ForwardInversionRegressor`, `SplitMeasurementLoss`, `CorrectedScoreEIVLoss` | Start with explicit input-noise marginalization and test-time predictive averaging, then escalate to Jacobian-based EIV losses only if they clearly help. When attenuation bias dominates and labels are much more precise than the features, prefer the generative y->x inversion or a corrected-score loss; with repeat exposures use the split-measurement loss. |
 | Noisy labels / label corruption | `WeightedHuberLoss` | `BaseEnsembleModel`, `ConformalLoss` | Prefer robust baselines before heavier methods. |
-| Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal`, `FeatureDistributionSmoother`, `PrimeLoss`, `ConR`, `ContinuousGroupDRO`, `VIRRegressor` | VIR adds evidential predictive uncertainty to imbalanced regression; use it when tail accuracy and calibrated uncertainty are both required. Astronomical benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. Representation-level methods (FDS, PRIME, ConR) and group-robust training (Group DRO over target bins) address feature collapse and worst-regime bias that output reweighting cannot fix. |
+| Imbalanced / rare-target regression | `GaussianCRPSLoss` / `QuantileLoss + tail-slice evaluation` | `DensityConformal`, `FeatureDistributionSmoother`, `PrimeLoss`, `ConR`, `ContinuousGroupDRO`, `VIRRegressor`, `BalancedMSEBMC`, `RankSimLoss` | VIR adds evidential predictive uncertainty to imbalanced regression; use it when tail accuracy and calibrated uncertainty are both required. Astronomical benchmarks do not justify density weighting as default. Advanced research methods (DensityWeightedLoss, LDSLoss) should only be tried if coverage/calibration allow for tail gains. Representation-level methods (FDS, PRIME, ConR) and group-robust training (Group DRO over target bins) address feature collapse and worst-regime bias that output reweighting cannot fix. |
 | Likelihood-ratio / simulation-based parameter estimation | `NeuralRatioLoss` | `ContrastiveFlowLoss`, `NormalizingFlowLoss` | Use NRE when a simulator can generate (parameters, observations) and the target is an MLE/MAP estimate, likelihood-ratio test or hypothesis ranking. Draw negative contexts from the simulation/prior distribution, and validate posterior weights and intervals with SBC/TARP before trusting them. ContrastiveFlowLoss is the flow-log-density variant; an NPE-style p(theta|x) conditional flow is the alternative when amortised posterior samples are needed. |
 | Selection bias / covariate-dependent missing labels | `PropensityWeightedLoss` | `DensityWeightedLoss` | Estimate p(observed|x) and apply IPW to reduce selection bias. |
 | Output constraints / monotonicity | `BoundedHead` / `NonNegativeHead` / `NonCrossingSort` | `SimplexHead`, `SpectralNormWrapper` | Apply structural constraints in the head before post-hoc calibration. |
@@ -105,7 +105,7 @@ _Generated date_: `2026-10-18`
 | `expectile` (3) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `flow` (3) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_algorithm` (4) | yes | no | partial | no | no | no | partial | partial | yes | no |
-| `imbalanced_loss` (9) | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `imbalanced_loss` (11) | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `likelihood_ratio` (1) | partial | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` (1) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
@@ -228,6 +228,7 @@ _Generated date_: `2026-10-18`
 | `GroupDROTrainer` | `imbalanced_algorithm` | `Available` | yes | no | no | no | no | partial | partial |
 | `VIRLoss` | `imbalanced_algorithm` | `Available` | yes | no | no | no | no | partial | partial |
 | `VIRRegressor` | `imbalanced_algorithm` | `Available` | yes | no | no | no | no | partial | partial |
+| `BalancedMSEBMC` | `imbalanced_loss` | `Available` | no | no | no | no | no | partial | partial |
 | `BalancedMSELoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `BinReweightedMSELoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `ConR` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
@@ -237,6 +238,7 @@ _Generated date_: `2026-10-18`
 | `LDSLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PrimeLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `PropensityWeightedLoss` | `imbalanced_loss` | `Available` | yes | no | no | no | no | partial | partial |
+| `RankSimLoss` | `imbalanced_loss` | `Available` | no | no | no | no | no | partial | partial |
 | `PredictionPoweredInference` | `inference` | `Available` | yes | no | no | no | no | partial | partial |
 | `NeuralRatioLoss` | `likelihood_ratio` | `Available` | partial | no | no | no | no | partial | partial |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | yes | no | yes | partial | partial | partial | partial |
@@ -317,7 +319,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `expectile` | 3 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `flow` | 3 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `imbalanced_algorithm` | 4 | yes | no | partial | no | no | no | partial | partial | yes | no |
-| `imbalanced_loss` | 9 | yes | no | partial | no | no | no | partial | partial | yes | no |
+| `imbalanced_loss` | 11 | yes | no | partial | no | no | no | partial | partial | yes | no |
 | `inference` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `likelihood_ratio` | 1 | partial | no | partial | no | no | no | partial | partial | no | no |
 | `mc_dropout` | 1 | yes | no | partial | yes | partial | partial | partial | partial | no | no |
@@ -346,7 +348,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `BaseEnsembleModel`, `BatchEnsembleRegressor`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
 | Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `CalibratedRegressor`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceRestoringCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `CVPlus`, `ConformalLoss`, `ConformalRegressor`, `DensityConformal`, `EnsembleBatchCP`, `JackknifePlus`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `RegressionCalibration`, `calibrated_deep_ensemble`, `MultiQuantileLoss`, `QuantileLoss`, `WeightedConformalRegressionAdapter` |
 | Multimodal targets | `multimodal=yes` | `SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss` |
-| Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `ContinuousGroupDRO`, `GroupDROTrainer`, `VIRLoss`, `VIRRegressor`, `BalancedMSELoss`, `BinReweightedMSELoss`, `ConR`, `DensityWeightedLoss`, `FeatureDistributionSmoother`, `FocalRLoss`, `LDSLoss`, `PrimeLoss`, `PropensityWeightedLoss` |
+| Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `ContinuousGroupDRO`, `GroupDROTrainer`, `VIRLoss`, `VIRRegressor`, `BalancedMSEBMC`, `BalancedMSELoss`, `BinReweightedMSELoss`, `ConR`, `DensityWeightedLoss`, `FeatureDistributionSmoother`, `FocalRLoss`, `LDSLoss`, `PrimeLoss`, `PropensityWeightedLoss`, `RankSimLoss` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `CorrectedScoreEIVLoss`, `ErrorAwareFeatureEncoder`, `ForwardInversionRegressor`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `RegressionCalibration`, `SIMEX`, `SplitMeasurementLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->
 

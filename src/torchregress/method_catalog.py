@@ -1350,6 +1350,36 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Inverse bin-frequency weighted MSE; call fit(train_targets) on fixed bin edges.",
     ),
     MethodMetadata(
+        name="BalancedMSEBMC",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.BalancedMSEBMC",
+        task_tags=("imbalance", "rare_targets", "long_tail", "noise_adaptive"),
+        maturity="Available",
+        imbalance="yes",
+        multi_target="no",
+        calibration="partial",
+        notes=(
+            "True noise-adaptive Balanced MSE (BMC; Ren et al. 2022). Batch-coupled "
+            "softmax over targets with a label prior and target-noise scale; call "
+            "fit(train_targets), single-output targets, batches >= ~64 recommended."
+        ),
+    ),
+    MethodMetadata(
+        name="RankSimLoss",
+        family="imbalanced_loss",
+        public_path="torchregress.losses.RankSimLoss",
+        task_tags=("imbalance", "rare_targets", "representation_learning", "ranking"),
+        maturity="Available",
+        imbalance="yes",
+        multi_target="no",
+        calibration="partial",
+        notes=(
+            "RankSim ranking-similarity regularizer (Gong et al. 2022): matches "
+            "label-distance and feature-similarity rankings; add gamma * loss to a "
+            "task loss. O(B^2); distinct from Rank-N-Contrast."
+        ),
+    ),
+    MethodMetadata(
         name="BinReweightedMSELoss",
         family="imbalanced_loss",
         public_path="torchregress.losses.BinReweightedMSELoss",
@@ -1869,6 +1899,8 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
             "ConR",
             "ContinuousGroupDRO",
             "VIRRegressor",
+            "BalancedMSEBMC",
+            "RankSimLoss",
         ),
         notes=(
             "VIR adds evidential predictive uncertainty to imbalanced regression; use it when "

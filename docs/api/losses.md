@@ -128,6 +128,8 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `discrete_wasserstein1` | `discrete_wasserstein1(p, q, centers)` | Functional form |
 | `RankNContrastLoss` | `RankNContrastLoss(temperature=2.0, similarity="l2", reduction="mean")` | Rank-N-Contrast representation loss (features vs continuous labels) |
 | `rank_n_contrast_loss` | `rank_n_contrast_loss(features, labels, temperature, similarity)` | Per-anchor functional form |
+| `RankSimLoss` | `RankSimLoss(gamma=1.0, *, interpolation_strength=2.0, similarity="cosine", duplicate_policy="mean", reduction="mean")` | RankSim ranking-similarity regularizer for imbalanced regression (compose with a task loss) |
+| `rank_sim_regularizer` | `rank_sim_regularizer(features, target, *, interpolation_strength=2.0, similarity="cosine", duplicate_policy="mean", reduction="mean")` | Functional RankSim form |
 
 $$\\mathcal{L}_{\\text{quantile}} = \\max(q(y-\\hat{y}), (q-1)(y-\\hat{y}))$$ $$\\mathcal{L}_{\\text{expectile}} = |e - \\mathbb{I}(y<\\hat{y})| \\cdot (y-\\hat{y})^2$$ $$\\mathcal{L}_{\\text{MDN}} = -\\log \\sum_k \\pi_k \\mathcal{N}(y \\mid \\mu_k, \\sigma_k^2)$$
 
@@ -206,6 +208,8 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | Symbol | Signature | Strategy |
 |:-------|:----------|:---------|
 | `BalancedMSELoss` | `BalancedMSELoss(bin_edges, ...)` | Inverse bin-frequency weights |
+| `BalancedMSEBMC` | `BalancedMSEBMC(*, sigma=None, prior="histogram", num_bins=64, prior_bandwidth=None, kde_points=2048, prior_floor=1e-6, min_sigma=1e-6, reduction="mean")` | True noise-adaptive Balanced MSE (BMC) of Ren et al. 2022; batch-coupled |
+| `balanced_mse_bmc_loss` | `balanced_mse_bmc_loss(y_pred, target, log_prior, sigma, *, mask=None, weights=None, reduction="mean")` | Functional BMC form |
 | `BinReweightedMSELoss` | `BinReweightedMSELoss(num_bins, *, noise_sigma=1.0, binning="equal", ...)` | Binned inverse-frequency weighted MSE |
 | `DensityWeightedLoss` | `DensityWeightedLoss(...)` | Inverse target-density weights |
 | `FocalRLoss` | `FocalRLoss(gamma=2.0, ...)` | Focus on hard examples |

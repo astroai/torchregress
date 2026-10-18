@@ -10,6 +10,7 @@ including weighted losses, Gaussian-based losses, robust losses, and more.
 # Balanced MSE (imbalanced targets)
 from ..utils.gaussian_output import low_rank_output_dim, split_low_rank_gaussian_output
 from .balanced_mse import BalancedMSELoss, BinReweightedMSELoss
+from .balanced_mse_bmc import BalancedMSEBMC, balanced_mse_bmc_loss
 from .base import (
     BaseLoss,
     DistributionLoss,
@@ -126,6 +127,7 @@ from .loss_registry import create_loss_from_config, get_regression_loss, list_re
 
 # Mixture Density Networks
 from .mdn import MDNLoss, MixtureDensityLoss, create_mdn_loss
+from .rank_sim import RankSimLoss, rank_sim_regularizer
 
 # SLS regression
 from .sls import (
@@ -236,6 +238,8 @@ __all__ = [
     "AsymmetricLaplaceNLLLoss",
     "AsymmetricLeastSquaresLoss",
     "BalancedMSELoss",
+    "BalancedMSEBMC",
+    "balanced_mse_bmc_loss",
     "BarronLoss",
     "BaseEIVLoss",
     "BaseLoss",
@@ -327,6 +331,8 @@ __all__ = [
     "QuantileLoss",
     "R2CConformal",
     "RankNContrastLoss",
+    "RankSimLoss",
+    "rank_sim_regularizer",
     "RegressionLoss",
     "SLSConformal",
     "SLSLoss",

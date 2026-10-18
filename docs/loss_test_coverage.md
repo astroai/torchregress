@@ -41,6 +41,8 @@ canonical way a contract break shows up in CI.
 | `WeightedNLLLoss` | `base.py` | `tests/losses/test_base.py` | `TestWeightedClassificationLosses` | Mask-filtered per-sample NLL matches native `NLLLoss` mean |
 | `BalancedMSELoss` | `balanced_mse.py` | `tests/losses/test_balanced_mse.py` | (per-class suite) | Effective MSE under target-density weights |
 | `BinReweightedMSELoss` | `balanced_mse.py` | `tests/losses/test_balanced_mse.py` | (per-class suite) | Binned inverse-frequency weighted MSE with automatic edges |
+| `BalancedMSEBMC` | `balanced_mse_bmc.py` | `tests/losses/test_balanced_mse_bmc.py` | (per-class suite) | Batch-coupled noise-adaptive Balanced MSE (BMC), label prior + sigma fitting, hand-formula parity |
+| `RankSimLoss` | `rank_sim.py` | `tests/losses/test_rank_sim.py` | (per-class suite) | Ranking-similarity regularizer with blackbox rank gradient; hand-computable ranking checks |
 | `BetaNLLLoss` | `beta_nll.py` | `tests/losses/test_beta_nll.py` + `tests/losses/test_functional_wrappers.py` | `TestBetaNLLLossWrapper` | Detached `var⁻ᵝ` rescaling; reduces to vanilla Gaussian NLL at `β=0` |
 | `beta_nll_loss` | `beta_nll.py` | `tests/losses/test_functional_wrappers.py` | `TestBetaNLLLossWrapper::test_parity_with_class` | Functional wrapper parity with `BetaNLLLoss` on tuple & concat inputs |
 | `CensoredGaussianNLLLoss` | `censored.py` | `tests/losses/test_censored.py` | (per-class) | Censoring mask propagates to NLL |

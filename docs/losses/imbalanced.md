@@ -33,7 +33,7 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 **Inverse bin-frequency weighting** (historically called `BalancedMSELoss`): partition the target range into histogram bins on training data, then weight each sample by roughly `1 / (bin count)` (with optional additive smoothing). Bin weights are normalised so that their average over the **training samples** is 1 (the training loss stays on the MSE scale); empty bins (zero smoothed count) get weight 0 instead of a huge `1/eps` that would collapse every populated bin's weight. `BalancedMSELoss` uses **your** `bin_edges`; `BinReweightedMSELoss` builds **equal-width** or **quantile** edges from `num_bins` and uses `noise_sigma` as a pseudocount when inverting counts (Laplace-style).
 
 !!! warning "Name vs. method"
-    Despite its historical name, `BalancedMSELoss` is **inverse bin-frequency weighting**, not the noise-adaptive **Balanced MSE (BMC)** of Ren et al. (CVPR 2022, [arXiv:2203.16427](https://arxiv.org/abs/2203.16427)). BMC models the target-noise distribution and is a different estimator; do not cite this class as a Ren et al. implementation. A true BMC loss is a planned follow-up.
+    Despite its historical name, `BalancedMSELoss` is **inverse bin-frequency weighting**, not the noise-adaptive **Balanced MSE (BMC)** of Ren et al. (CVPR 2022, [arXiv:2203.16427](https://arxiv.org/abs/2203.16427)). BMC models the target-noise distribution and is a different estimator; do not cite this class as a Ren et al. implementation. Use [`BalancedMSEBMC`](balanced_mse_bmc.md) for the true batch-coupled BMC loss.
 
 ```python
 from torchregress.losses import BalancedMSELoss, BinReweightedMSELoss

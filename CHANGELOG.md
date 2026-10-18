@@ -13,6 +13,12 @@ the flow, DML and transport improvements below). Other methods to add or
 remove are decided for 0.4.0.
 
 ### Added
+- True noise-adaptive Balanced MSE (`BalancedMSEBMC`, `balanced_mse_bmc_loss`;
+  Ren et al., CVPR 2022) with fitted label prior and target-noise scale; this is
+  distinct from the historical inverse-bin-frequency `BalancedMSELoss`.
+- RankSim ranking-similarity regularizer (`RankSimLoss`, `rank_sim_regularizer`;
+  Gong et al., ICML 2022) for representation-level imbalanced regression, with
+  a blackbox-interpolation gradient and composition with task losses.
 - Variational Imbalanced Regression (`VIRLoss`, `VIRRegressor`) for long-tailed
   regression with evidential (Normal-Inverse-Gamma) uncertainty: label-similarity
   latent smoothing, smoothed label-density reweighting, evidential regularisation,

@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 139,
+    "total_methods": 141,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -16,7 +16,7 @@
       "expectile": 3,
       "flow": 3,
       "imbalanced_algorithm": 4,
-      "imbalanced_loss": 9,
+      "imbalanced_loss": 11,
       "inference": 1,
       "likelihood_ratio": 1,
       "mc_dropout": 1,
@@ -41,7 +41,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 19,
-      "Available": 113
+      "Available": 115
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -2458,6 +2458,52 @@
       "imbalance": "yes",
       "noisy_features_eiv": "no",
       "notes": "Inverse bin-frequency weighted MSE; call fit(train_targets) on fixed bin edges."
+    },
+    {
+      "name": "BalancedMSEBMC",
+      "family": "imbalanced_loss",
+      "public_path": "torchregress.losses.BalancedMSEBMC",
+      "task_tags": [
+        "imbalance",
+        "rare_targets",
+        "long_tail",
+        "noise_adaptive"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "no",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "True noise-adaptive Balanced MSE (BMC; Ren et al. 2022). Batch-coupled softmax over targets with a label prior and target-noise scale; call fit(train_targets), single-output targets, batches >= ~64 recommended."
+    },
+    {
+      "name": "RankSimLoss",
+      "family": "imbalanced_loss",
+      "public_path": "torchregress.losses.RankSimLoss",
+      "task_tags": [
+        "imbalance",
+        "rare_targets",
+        "representation_learning",
+        "ranking"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "no",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "RankSim ranking-similarity regularizer (Gong et al. 2022): matches label-distance and feature-similarity rankings; add gamma * loss to a task loss. O(B^2); distinct from Rank-N-Contrast."
     },
     {
       "name": "BinReweightedMSELoss",
