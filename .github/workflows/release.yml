@@ -33,6 +33,13 @@ jobs:
       - name: Check metadata and README rendering
         run: pipx run twine check --strict dist/*
 
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
   # Install the wheel with core dependencies only, on every supported Python,
   # before anything is published.
   install-smoke:
@@ -60,12 +67,6 @@ jobs:
       - name: Import every submodule and run torchregress-health
         working-directory: ${{ runner.temp }}
         run: python ${{ github.workspace }}/scripts/release/smoke_install.py
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-          if-no-files-found: error
 
   publish-testpypi:
     if: contains(github.ref_name, 'rc')
