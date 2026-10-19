@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-19
+
 **Algorithm freeze for 0.3.0 (from 2026-10-05):** no new methods or method changes
 until 0.3.0 ships, except the competitive-gap items decided on 2026-10-07
 (`TabularMLP`, model-agnostic UQ wrappers, calibrated-ensemble recipe, and
@@ -367,6 +369,7 @@ remove are decided for 0.4.0.
 - Initial PyPI release candidate (unreleased). Pre-1.0 blockers TR-COR-01…09 (all fixed in `6ce4b9e`).
 - Features: 19 loss families, `PredictiveBatch`, `torchmetrics` metrics, conformal (split/CQR/CTI/weighted/Mondrian/CV+), `SemiConformalCalibrator`, ensembles (DeepEnsemble/BatchEnsemble/SWAG/Laplace/BNN/MC-Dropout), algorithms (IRLS/SIMEX/RC/LatentNN/TICTAC/VIDS), causal `dr_*`, PPI, test-time (BLR/OT/COSA/subspace/transport).
 
-[Unreleased]: https://github.com/astroai/torchregress/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/astroai/torchregress/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/astroai/torchregress/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/astroai/torchregress/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/astroai/torchregress/releases/tag/v0.1.0
