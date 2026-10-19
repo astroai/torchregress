@@ -10,6 +10,7 @@ from torchregress.losses import (
     LDSLoss,
     PropensityWeightedLoss,
 )
+from torchregress.losses.imbalanced import _gaussian_kde_score_samples
 
 
 class TestFocalRLoss:
@@ -124,6 +125,22 @@ class TestLDSLoss:
             target = torch.randn(32, 1)
             loss = loss_fn(pred, target)
             assert torch.isfinite(loss)
+
+
+def test_kde_score_samples_chunked_large() -> None:
+    """Regression test for the O(N^2) KDE memory blow-up (100k x 100k = 40 GB)."""
+    torch.manual_seed(0)
+    train = torch.randn(5000, 1)
+    query = torch.randn(3000, 1)
+    score = _gaussian_kde_score_samples(train, query, 0.5)
+    assert score.shape == (3000,)
+    assert torch.isfinite(score).all()
+
+    from sklearn.neighbors import KernelDensity
+
+    kde = KernelDensity(bandwidth=0.5).fit(train.numpy())
+    reference = kde.score_samples(query.numpy())
+    assert torch.allclose(score, torch.as_tensor(reference, dtype=score.dtype), rtol=1e-4, atol=1e-4)
 
 
 class TestDensityWeightedLoss:

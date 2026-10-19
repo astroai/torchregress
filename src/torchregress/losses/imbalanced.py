@@ -44,18 +44,21 @@ def _gaussian_kde_score_samples(
     if query.dim() == 1:
         query = query.unsqueeze(-1)
 
-    q_sq = (query**2).sum(dim=1, keepdim=True)
-    t_sq = (train**2).sum(dim=1)
-    sq_dists = q_sq + t_sq - 2 * (query @ train.T)
-
+    # Chunk the query/train product: a naive [N_query, N_train] distance
+    # matrix needs O(N^2) memory (100k x 100k = 40 GB) and SIGKILLs real
+    # tabular training jobs.  A bounded query chunk keeps memory O(chunk*N).
     inv_h2 = 1.0 / (bandwidth * bandwidth)
-    log_kernel_vals = -0.5 * sq_dists * inv_h2
-
-    log_sum = torch.logsumexp(log_kernel_vals, dim=1)
-
     d = train.shape[1]
     log_norm = math.log(train.shape[0]) + d * math.log(bandwidth * math.sqrt(2.0 * math.pi))
-
+    t_sq = (train**2).sum(dim=1)
+    chunk = 1024
+    log_sums = []
+    for start in range(0, query.shape[0], chunk):
+        q = query[start : start + chunk]
+        q_sq = (q**2).sum(dim=1, keepdim=True)
+        sq_dists = q_sq + t_sq - 2 * (q @ train.T)
+        log_sums.append(torch.logsumexp(-0.5 * sq_dists * inv_h2, dim=1))
+    log_sum = torch.cat(log_sums) if log_sums else query.new_empty(0)
     return log_sum - log_norm
 
 
