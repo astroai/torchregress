@@ -164,6 +164,7 @@ nav = [
     { "Performance" = "guide/performance.md" },
     { "Reports & Evidence" = [
       "reports/index.md",
+      { "Benchmark Results" = "reports/results.md" },
       { "Method Catalog" = "reports/method_catalog_generated.md" },
       { "Comparative Evidence" = "reports/comparative_evidence_matrix.md" },
       { "Real-Data Recommendation Guide" = "reports/real_data_recommendation_guide.md" },

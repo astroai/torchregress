@@ -12,6 +12,7 @@ Generated evidence artifacts that back the method-selection guide and comparativ
 | [Docs Quality Audit](docs_quality_audit.md) | Per-file LaTeX/structure review status (generated) |
 | [0.3.0 Release Audit](audit_0.3.0.md) | 61 defects found and fixed before the first PyPI release, each with a regression test |
 | [0.3.0 API Review](api_review_0.3.0.md) | Public API freeze review: exports, privatisation candidates, naming and argument-order inconsistencies, `PROPOSALS.md` P0 decisions, and a plan for 0.3.0 and 0.4 |
+| [Benchmark Results](results.md) | Curated pointers to the 0.3.0 parity report, seed-spread report and post-release research benchmarks |
 
 ## Machine-readable artifacts
 
