@@ -18,7 +18,12 @@ ABSTRACT_OR_META = {
 
 # Temporary compatibility exceptions where an optional extra parameter appears
 # after `weights` in the public signature. Keep this list small and explicit.
-POST_WEIGHTS_EXTRA_EXCEPTIONS: dict[str, set[str]] = {}
+POST_WEIGHTS_EXTRA_EXCEPTIONS: dict[str, set[str]] = {
+    # Retain ConR's established positional (prediction, mask, weights) API.
+    # The new optional noise argument is passed by keyword after those slots.
+    "ConR": {"label_sigma"},
+    "UncertaintyAwareConR": {"label_sigma"},
+}
 
 # Losses whose forward uses explicit mean/covariance supervision names instead of y_pred/target.
 FORWARD_PRIMARY_ARG_NAMES: dict[str, tuple[str, str]] = {

@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-18`
+_Generated date_: `2026-10-20`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `141`
+- Total methods: `144`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -21,6 +21,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `censored` | 3 |
 | `conformal` | 13 |
 | `constraints` | 2 |
+| `density_loss` | 2 |
 | `eiv` | 16 |
 | `ensemble` | 8 |
 | `evidential` | 1 |
@@ -39,6 +40,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `poisson_gaussian` | 3 |
 | `probabilistic_loss` | 8 |
 | `quantile` | 2 |
+| `representation_regularizer` | 1 |
 | `robust_loss` | 9 |
 | `semi_supervised` | 1 |
 | `swag` | 2 |
@@ -55,7 +57,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 19 |
-| `Available` | 115 |
+| `Available` | 118 |
 
 ## Method Rows
 
@@ -97,6 +99,8 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `UACQR` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `heteroscedastic_noise` | `calibration`, `ood*` | `torchregress.losses.UACQR` |
 | `BoundedHead` | `constraints` | `Available` | `constraints`, `bounded_outputs` | `calibration*`, `ood*` | `torchregress.constraints.BoundedHead` |
 | `NonCrossingSort` | `constraints` | `Available` | `constraints`, `ordered_outputs` | `calibration*`, `ood*` | `torchregress.constraints.NonCrossingSort` |
+| `BinnedDensityLoss` | `density_loss` | `Available` | `scalar_targets`, `conditional_density`, `soft_targets` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.BinnedDensityLoss` |
+| `NoiseAwareDensityLoss` | `density_loss` | `Available` | `noisy_labels`, `conditional_density`, `measurement_model` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.NoiseAwareDensityLoss` |
 | `CorrectedScoreEIVLoss` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `attenuation_bias`, `corrected_score` | `calibration*`, `ood*` | `torchregress.losses.CorrectedScoreEIVLoss` |
 | `ErrorAwareFeatureEncoder` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `feature_encoding` | `calibration*`, `ood*` | `torchregress.algorithms.ErrorAwareFeatureEncoder` |
 | `ForwardInversionRegressor` | `eiv` | `Available` | `noisy_features`, `measurement_error`, `attenuation_bias`, `generative_model` | `calibration*`, `ood*` | `torchregress.algorithms.ForwardInversionRegressor` |
@@ -169,6 +173,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `NeighborhoodCovariancePseudoLabeler` | `probabilistic_loss` | `Available` | `pseudo_labels`, `heteroscedastic_noise`, `self_supervision` | `aleatoric*`, `calibration*`, `ood*` | `torchregress.algorithms.NeighborhoodCovariancePseudoLabeler` |
 | `MultiQuantileLoss` | `quantile` | `Strong` | `prediction_intervals`, `non_gaussian`, `multi_quantile` | `calibration`, `ood*` | `torchregress.losses.MultiQuantileLoss` |
 | `QuantileLoss` | `quantile` | `Core` | `prediction_intervals`, `non_gaussian` | `calibration`, `ood*` | `torchregress.losses.QuantileLoss` |
+| `UncertaintyAwareConR` | `representation_regularizer` | `Available` | `imbalanced_regression`, `noisy_labels`, `scalar_targets` | `ood*` | `torchregress.losses.UncertaintyAwareConR` |
 | `AdaptiveRobustLoss` | `robust_loss` | `Available` | `outliers`, `adaptive_shape`, `learnable` | `calibration*`, `ood*` | `torchregress.losses.AdaptiveRobustLoss` |
 | `BarronLoss` | `robust_loss` | `Available` | `outliers`, `adaptive_shape` | `calibration*`, `ood*` | `torchregress.losses.BarronLoss` |
 | `CVaRLoss` | `robust_loss` | `Available` | `outliers`, `tail_focused`, `worst_case`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.CVaRLoss` |
@@ -209,7 +214,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`SLSConformal`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
+`SLSConformal`, `BinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 

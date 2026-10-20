@@ -90,6 +90,13 @@ loss_fn = NoiseAwareDensityLoss(mdn, mode="analytic")
 loss = loss_fn(mdn_output, y_observed, sigma=sigma)
 ```
 
+Joint density losses accept row masks, not partially observed target vectors:
+partial-coordinate likelihoods require actual marginal densities. Masked rows
+may contain unavailable label/error values and contribute zero. Negative or
+nonfinite observed standard deviations are rejected; zero is the clean limit.
+Explicit integration modes fail for unsupported density/target combinations
+rather than silently switching algorithms.
+
 ## Binned histogram / ordinal CDF head
 
 `BinnedDensityLoss` is the corresponding smoothed categorical head.  The model
@@ -102,7 +109,12 @@ q_i^{(k)} = \Phi\!\left(\frac{e_{k+1}-\tilde y_i}{\sigma_i}\right)
 $$
 
 and the loss is the cross-entropy $-\sum_k q_i^{(k)}\log \mathrm{softmax}(z_i)_k$.
-The CDF is the cumulative bin probability.  This is a deliberately strong
+The Gaussian bin masses are normalized over the finite bin range. This is
+soft-target cross-entropy, **not** the measurement marginal likelihood above:
+putting the label kernel inside an expected log score differs from taking the
+log of the convolved density. It does not establish latent-density recovery.
+The CDF interpolates linearly within each bin, matching uniform intra-bin
+sampling. This is a deliberately strong
 baseline for **low-label, scalar** problems: it has no Jacobian, no mode
 collapse, and is much cheaper than a flow.  It is not a replacement for a flow
 on genuinely multi-dimensional or highly structured targets.

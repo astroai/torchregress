@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 141,
+    "total_methods": 144,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -10,6 +10,7 @@
       "censored": 3,
       "conformal": 13,
       "constraints": 2,
+      "density_loss": 2,
       "eiv": 16,
       "ensemble": 8,
       "evidential": 1,
@@ -28,6 +29,7 @@
       "poisson_gaussian": 3,
       "probabilistic_loss": 8,
       "quantile": 2,
+      "representation_regularizer": 1,
       "robust_loss": 9,
       "semi_supervised": 1,
       "swag": 2,
@@ -41,7 +43,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 19,
-      "Available": 115
+      "Available": 118
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1687,6 +1689,72 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Single-model mixture predictive spread is not epistemic/aleatoric decomposition; use MDNEnsembleModel for model-disagreement signals."
+    },
+    {
+      "name": "NoiseAwareDensityLoss",
+      "family": "density_loss",
+      "public_path": "torchregress.losses.NoiseAwareDensityLoss",
+      "task_tags": [
+        "noisy_labels",
+        "conditional_density",
+        "measurement_model"
+      ],
+      "maturity": "Available",
+      "multimodal": "partial",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Known Gaussian label-error convolution: exact diagonal MDN, scalar-flow quadrature, otherwise Monte Carlo. Joint densities require complete target vectors or whole-row masks; no latent-truth calibration guarantee."
+    },
+    {
+      "name": "BinnedDensityLoss",
+      "family": "density_loss",
+      "public_path": "torchregress.losses.BinnedDensityLoss",
+      "task_tags": [
+        "scalar_targets",
+        "conditional_density",
+        "soft_targets"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "no",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Finite-bin scalar distribution with uniform within-bin sampling/CDF. Gaussian-smoothed target cross-entropy is not a measurement marginal likelihood or deconvolution estimator."
+    },
+    {
+      "name": "UncertaintyAwareConR",
+      "family": "representation_regularizer",
+      "public_path": "torchregress.losses.UncertaintyAwareConR",
+      "task_tags": [
+        "imbalanced_regression",
+        "noisy_labels",
+        "scalar_targets"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "no",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "no",
+      "ood_support": "partial",
+      "imbalance": "yes",
+      "noisy_features_eiv": "no",
+      "notes": "Scalar Gaussian-error interval probabilities soften ConR memberships; zero errors recover the hard objective. No multivariate radial-noise approximation or calibrated predictive uncertainty."
     },
     {
       "name": "NormalizingFlowLoss",

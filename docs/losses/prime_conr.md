@@ -90,7 +90,12 @@ uncertainty.  Instead of forcing each pair into a hard positive/negative class,
 it uses the Gaussian probability that two noisy labels fall within
 `label_threshold` to soften the positive and negative pair weights.  The
 observed-label distances still enter the pushing weight; only pair membership is
-softened.  With `label_sigma=0` the pair probabilities become a step function.
+softened. For scalar Gaussian errors the exact positive probability is
+$\Phi((\omega-|y_i-y_j|)/s_{ij})-\Phi((-\omega-|y_i-y_j|)/s_{ij})$,
+where $s_{ij}^2=\sigma_i^2+\sigma_j^2$. The weighted mean of positive
+similarities uses these memberships and reduces exactly to ordinary ConR at
+zero error. Soft noisy memberships currently accept scalar labels only;
+a multivariate Euclidean distance is not a scalar Gaussian random variable.
 For gross label contamination (rather than measurement error), use a
 contamination model or a robust task loss instead.
 

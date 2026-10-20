@@ -519,7 +519,7 @@ def conr_loss(
         density_weights: Optional ``[N]`` per-anchor pushing power ``eta_i``
             (inverse-label-density weights, see :meth:`ConR.fit`).  Defaults to
             ones.
-        label_sigma: Optional per-label standard deviation ``[N]``, ``[N, L]``,
+        label_sigma: Optional scalar-label standard deviation ``[N]``, ``[N, 1]``,
             or scalar.  When supplied, pair memberships are softened with the
             Gaussian probability that two noisy labels are within
             ``label_threshold``; ambiguous pairs are down-weighted rather than
@@ -607,49 +607,54 @@ def _conr_loss_soft_noisy(
 ) -> Tensor:
     """Soft ConR where pair membership is a Gaussian label-distance probability."""
     n_samples = features.shape[0]
-    if not isinstance(label_sigma, Tensor):
-        label_sigma = torch.as_tensor(label_sigma, dtype=labels_2d.dtype, device=labels_2d.device)
-    sigma = label_sigma.to(dtype=labels_2d.dtype, device=labels_2d.device)
+    if labels_2d.shape[1] != 1:
+        raise ValueError("uncertainty-aware ConR currently requires scalar labels")
+    sigma = torch.as_tensor(label_sigma, dtype=labels_2d.dtype, device=labels_2d.device)
     if sigma.numel() == 1:
-        sigma = sigma.reshape(()).expand(n_samples)
-    if sigma.dim() == 1:
-        sigma = sigma.reshape(-1, 1).expand_as(labels_2d)
+        sigma = sigma.reshape(()).expand_as(labels_2d)
     else:
-        sigma = sigma.expand_as(labels_2d)
-    sigma = sigma.clamp_min(1.0e-8)
-    if labels_2d.shape[1] == 1:
-        label_dist = (labels_2d - labels_2d.T).abs()
-        sigma_pair = (sigma**2 + sigma.T**2).sqrt()
-    else:
-        label_dist = torch.cdist(labels_2d, labels_2d, p=2)
-        sigma_norm = sigma.square().sum(dim=-1).sqrt()
-        sigma_pair = (sigma_norm[:, None] ** 2 + sigma_norm[None, :] ** 2).sqrt()
-    pred_scalar = predictions.reshape(n_samples, -1).mean(dim=-1)
-    pred_dist = (pred_scalar[:, None] - pred_scalar[None, :]).abs()
-    off_diag = ~torch.eye(n_samples, dtype=torch.bool, device=features.device)
-    normal = torch.distributions.Normal(
-        loc=torch.zeros((), device=features.device, dtype=features.dtype),
-        scale=torch.ones((), device=features.device, dtype=features.dtype),
+        sigma = sigma.reshape(n_samples, -1)
+        if sigma.shape != labels_2d.shape:
+            raise ValueError("label_sigma must be scalar or one value per scalar label")
+    if not torch.isfinite(sigma).all() or (sigma < 0).any():
+        raise ValueError("label_sigma must contain finite nonnegative standard deviations")
+    sigma = sigma.detach()
+    label_dist = (labels_2d - labels_2d.T).abs()
+    sigma_pair = (sigma.square() + sigma.T.square()).sqrt()
+    safe_sigma = sigma_pair.clamp_min(torch.finfo(sigma.dtype).tiny)
+    # P(-threshold <= Y_i - Y_j <= threshold), not a one-sided CDF.
+    p_pos = torch.special.ndtr((label_threshold - label_dist) / safe_sigma) - torch.special.ndtr(
+        (-label_threshold - label_dist) / safe_sigma
     )
-    z = (label_threshold - label_dist) / sigma_pair.clamp_min(1.0e-8)
-    p_pos = normal.cdf(z).clamp(1.0e-4, 1.0 - 1.0e-4) * off_diag
-    neg_gate = ((1.0 - p_pos) * (pred_dist <= prediction_threshold) * off_diag).clamp_min(0.0)
-    sim = (F.normalize(features, dim=-1) @ F.normalize(features, dim=-1).T) / temperature
-    eta = torch.ones(n_samples, dtype=sim.dtype, device=sim.device)
+    p_pos = torch.where(
+        sigma_pair == 0, (label_dist <= label_threshold).to(p_pos.dtype), p_pos
+    ).clamp(0, 1)
+    off_diag = ~torch.eye(n_samples, dtype=torch.bool, device=features.device)
+    p_pos = p_pos * off_diag
+    preds = predictions.reshape(n_samples, -1)
+    pred_dist = (preds.mean(-1)[:, None] - preds.mean(-1)[None, :]).abs()
+    eta = torch.ones(n_samples, dtype=features.dtype, device=features.device)
     if density_weights is not None:
-        eta = density_weights.reshape(n_samples).to(dtype=sim.dtype, device=sim.device)
+        if density_weights.numel() != n_samples:
+            raise ValueError("density_weights must have one entry per sample")
+        eta = density_weights.reshape(n_samples).to(features)
+    neg_weight = (
+        (1 - p_pos)
+        * (pred_dist <= prediction_threshold)
+        * off_diag
+        * eta[:, None]
+        * label_dist
+        * push_scale
+    )
+    sim = (F.normalize(features, dim=-1) @ F.normalize(features, dim=-1).T) / temperature
+    mass = p_pos.sum(1)
+    valid = (mass > 0) & (neg_weight.sum(1) > 0)
     tiny = torch.finfo(sim.dtype).tiny
-    pos_w = (p_pos * eta[:, None]).clamp_min(tiny)
-    neg_w = (neg_gate * eta[:, None] * label_dist * push_scale).clamp_min(tiny)
-    log_pos = torch.logsumexp(sim + torch.log(pos_w), dim=1)
-    log_neg = torch.logsumexp(sim + torch.log(neg_w), dim=1)
-    log_denom = torch.logaddexp(log_pos, log_neg)
-    mass = pos_w.sum(dim=1)
-    log_pos_mean = log_pos - torch.log(mass.clamp_min(tiny))
-    per_anchor = log_denom - log_pos_mean
-    valid = (mass > 1.0e-6) & (neg_w.sum(dim=1) > 1.0e-6)
-    per_anchor = torch.where(valid, per_anchor, torch.zeros_like(per_anchor))
-    return torch.where(torch.isfinite(per_anchor), per_anchor, torch.zeros_like(per_anchor))
+    log_pos = torch.logsumexp(sim + p_pos.clamp_min(tiny).log(), dim=1)
+    log_neg = torch.logsumexp(sim + neg_weight.clamp_min(tiny).log(), dim=1)
+    positive_mean = (p_pos * sim).sum(1) / mass.clamp_min(tiny)
+    per_anchor = torch.logaddexp(log_pos, log_neg) - positive_mean
+    return torch.where(valid, per_anchor, torch.zeros_like(per_anchor))
 
 
 class ConR(BaseLoss):
@@ -893,7 +898,14 @@ class ConR(BaseLoss):
             temperature=self.temperature,
             push_scale=self.push_scale,
         )
+        if label_sigma is not None:
+            sigma = torch.as_tensor(label_sigma, dtype=labels.dtype, device=labels.device)
+            if sigma.numel() != 1:
+                sigma = sigma.reshape(n_samples, -1)
+            kwargs_loss["label_sigma"] = sigma
         if mask_flat is not None:
+            if label_sigma is not None and kwargs_loss["label_sigma"].numel() != 1:
+                kwargs_loss["label_sigma"] = kwargs_loss["label_sigma"][mask_flat]
             keep = mask_flat
             keep_idx = torch.nonzero(keep, as_tuple=False).squeeze(-1)
             per_anchor = y_pred.new_zeros(n_samples)
@@ -929,7 +941,9 @@ class UncertaintyAwareConR(ConR):
     denominator use the same observed labels; only the *hard* membership is
     softened.  Use this when labels have meaningful measurement errors (for
     example spectroscopic redshift quality flags or repeated measurements);
-    with ``label_sigma=0`` it reduces to the standard ConR objective.
+    with ``label_sigma=0`` it reduces to the standard ConR objective. Soft noisy
+    memberships currently require scalar labels; no multivariate radial-noise
+    probability is approximated by a univariate Gaussian CDF.
 
     Example:
         >>> conr = UncertaintyAwareConR(label_sigma=0.02, label_threshold=0.1)

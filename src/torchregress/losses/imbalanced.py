@@ -122,7 +122,7 @@ class DensityWeightedLoss(RegressionLoss):
     Notes:
         - Requires fitting density on training data before use
         - Requires sample indices during training to retrieve precomputed weights
-        - Preserves calibration (safe method)
+        - Changes the target-weighted population optimum; calibration is not preserved
         - Alternative: Can pass target values directly without indices
 
     References

@@ -47,8 +47,12 @@ def _as_sigma(sigma: Tensor | float | None, target: Tensor) -> Optional[Tensor]:
     if not isinstance(sigma, Tensor):
         sigma = torch.as_tensor(sigma, device=target.device, dtype=target.dtype)
     sigma = sigma.to(device=target.device, dtype=target.dtype)
+    if not torch.isfinite(sigma).all() or (sigma < 0).any():
+        raise ValueError("sigma must contain finite nonnegative standard deviations")
     if sigma.numel() == 1:
-        return sigma.reshape(()).expand_as(target).clamp_min(_MIN_SIGMA)
+        return sigma.reshape(()).expand_as(target)
+    if sigma.shape == target.shape + (1,):
+        sigma = sigma.squeeze(-1)
     if sigma.dim() == 1:
         if sigma.shape[0] == target.shape[0]:
             sigma = sigma.reshape(-1, *([1] * (target.dim() - 1)))
@@ -59,7 +63,7 @@ def _as_sigma(sigma: Tensor | float | None, target: Tensor) -> Optional[Tensor]:
                 f"sigma shape {tuple(sigma.shape)} is neither one-per-sample nor one-per-feature"
             )
     try:
-        return sigma.expand_as(target).clamp_min(_MIN_SIGMA)
+        return sigma.expand_as(target)
     except RuntimeError as exc:
         raise ValueError(
             f"sigma shape {tuple(sigma.shape)} cannot broadcast to target shape "
@@ -197,10 +201,12 @@ class NoiseAwareDensityLoss(BaseLoss):
         self.mode = mode
         self.n_samples = int(n_samples)
         self.gh_order = int(gh_order)
+        if self.n_samples < 1 or self.gh_order < 2:
+            raise ValueError("n_samples must be positive and gh_order at least two")
         if not 0.0 <= float(contamination_fraction) < 1.0:
             raise ValueError("contamination_fraction must be in [0, 1)")
         self.contamination_fraction = float(contamination_fraction)
-        if float(contamination_scale) <= 0.0:
+        if not math.isfinite(float(contamination_scale)) or float(contamination_scale) <= 0.0:
             raise ValueError("contamination_scale must be positive")
         self.contamination_scale = float(contamination_scale)
 
@@ -232,6 +238,10 @@ class NoiseAwareDensityLoss(BaseLoss):
         if self.mode in {"auto", "analytic"} and mdn_diag:
             return _mdn_diagonal_convolved_log_prob(self.base_loss, y_pred, target, sigma)
 
+        if self.mode in {"analytic", "quadrature"}:
+            raise ValueError(
+                "requested integration mode is unsupported for this density/target dimension"
+            )
         # Generic Monte Carlo: draw latent target noise and average the clean
         # density over the Gaussian measurement kernel.
         eps = torch.randn(self.n_samples, *target.shape, device=target.device, dtype=target.dtype)
@@ -265,21 +275,43 @@ class NoiseAwareDensityLoss(BaseLoss):
             target = target.unsqueeze(-1)
         if y_pred.dim() == 1:
             y_pred = y_pred.unsqueeze(-1)
-        sigma_t = _as_sigma(self.sigma if sigma is None else sigma, target)
+        if target.dim() != 2 or target.shape[0] != y_pred.shape[0]:
+            raise ValueError("target must be [B,D] and share the prediction batch")
+        row_mask = None
+        if mask is not None:
+            mask = mask.to(device=target.device, dtype=torch.bool)
+            if mask.numel() == target.shape[0]:
+                row_mask = mask.reshape(-1)
+            elif mask.shape == target.shape:
+                if ((mask.any(-1)) != mask.all(-1)).any():
+                    raise ValueError(
+                        "partial target masks require marginal densities, "
+                        "not a joint-density row loss"
+                    )
+                row_mask = mask.all(-1)
+            else:
+                raise ValueError("mask must contain one entry per row or match target")
+            target = torch.where(row_mask[:, None], target, torch.zeros_like(target))
+            keep_context = row_mask.reshape((-1,) + (1,) * (y_pred.dim() - 1))
+            y_pred = torch.where(keep_context, y_pred, torch.zeros_like(y_pred))
+        if weights is not None:
+            if weights.numel() != target.shape[0]:
+                raise ValueError("joint-density weights must contain one entry per row")
+            weights = weights.reshape(-1)
+        sigma_value = self.sigma if sigma is None else sigma
+        if isinstance(sigma_value, Tensor) and row_mask is not None:
+            sigma_value = sigma_value.to(target)
+            # Invalid rows may contain unavailable uncertainties, just like labels.
+            if sigma_value.numel() == target.shape[0]:
+                sigma_value = torch.where(row_mask, sigma_value.reshape(-1), 0)
+            elif sigma_value.shape == target.shape:
+                sigma_value = torch.where(row_mask[:, None], sigma_value, 0)
+        sigma_t = _as_sigma(sigma_value, target)
         if sigma_t is None:
-            # No label-noise information: ordinary density NLL.
-            previous = getattr(self.base_loss, "reduction", None)
-            if previous is not None:
-                self.base_loss.reduction = "none"
-            try:
-                nll = self.base_loss(y_pred, target, mask=mask, weights=weights)
-            finally:
-                if previous is not None:
-                    self.base_loss.reduction = previous
-            nll = nll.reshape(nll.shape[0], -1).sum(dim=-1)
-            return self._reduce(nll, mask, weights)
-
-        log_clean = self._clean_log_prob(y_pred, target, sigma_t)
+            # Apply masking/weighting once, outside the underlying density score.
+            log_clean = _scalar_log_density_from_loss(self.base_loss, y_pred, target)
+        else:
+            log_clean = self._clean_log_prob(y_pred, target, sigma_t)
         if self.contamination_fraction > 0.0:
             log_bad = self._contamination_log_prob(target)
             eps = self.contamination_fraction
@@ -295,7 +327,7 @@ class NoiseAwareDensityLoss(BaseLoss):
             )
         else:
             log_mix = log_clean
-        return self._reduce(-log_mix, mask, weights)
+        return self._reduce(-log_mix, row_mask, weights)
 
 
 class BinnedDensityLoss(BaseLoss):
@@ -303,9 +335,9 @@ class BinnedDensityLoss(BaseLoss):
 
     The model outputs one logit per target bin.  Hard labels are one-hot
     categorical targets; with ``sigma`` the target is replaced by its Gaussian
-    measurement distribution integrated over each bin, which makes the head a
-    proper noise-aware likelihood and a natural low-data baseline.  The CDF is
-    simply the cumulative bin probability.
+    measurement distribution integrated over each bin, yielding a soft-target
+    cross-entropy score. This is not a deconvolved measurement likelihood.
+    Sampling and the CDF use uniform density within each finite bin.
 
     Parameters
     ----------
@@ -330,8 +362,8 @@ class BinnedDensityLoss(BaseLoss):
         edges = torch.as_tensor(bin_edges, dtype=torch.float32)
         if edges.dim() != 1 or edges.numel() < 2:
             raise ValueError("bin_edges must be a 1D sequence with at least two edges")
-        if not bool(torch.all(edges[1:] > edges[:-1])):
-            raise ValueError("bin_edges must be strictly increasing")
+        if not torch.isfinite(edges).all() or not bool(torch.all(edges[1:] > edges[:-1])):
+            raise ValueError("bin_edges must be finite and strictly increasing")
         self.register_buffer("bin_edges", edges)
         if not 0.0 <= float(label_smoothing) < 1.0:
             raise ValueError("label_smoothing must be in [0, 1)")
@@ -348,7 +380,9 @@ class BinnedDensityLoss(BaseLoss):
     ) -> Tensor:
         """Gaussian bin masses (or hard one-hot with smoothing) for each row."""
         if target.dim() > 1:
-            target = target.reshape(target.shape[0], -1).mean(dim=-1)
+            if target.numel() != target.shape[0]:
+                raise ValueError("BinnedDensityLoss supports one scalar target per row")
+            target = target.reshape(-1)
         target = target.reshape(-1).to(dtype=self.bin_edges.dtype, device=self.bin_edges.device)
         edges: Tensor = self.bin_edges
         sigma_t = _as_sigma(sigma, target)
@@ -381,23 +415,35 @@ class BinnedDensityLoss(BaseLoss):
         del kwargs
         if y_pred.dim() != 2 or y_pred.shape[-1] != self.n_bins:
             raise ValueError(f"y_pred must be [B, {self.n_bins}] bin logits")
+        if target.numel() != y_pred.shape[0]:
+            raise ValueError("BinnedDensityLoss supports one scalar target per row")
+        target = target.reshape(-1)
+        if mask is not None:
+            if mask.numel() != len(target):
+                raise ValueError("mask must contain one entry per scalar target")
+            mask = mask.reshape(-1).to(device=target.device, dtype=torch.bool)
+            target = torch.where(mask, target, torch.zeros_like(target))
+            if isinstance(sigma, Tensor) and sigma.numel() == len(target):
+                sigma = torch.where(mask, sigma.reshape(-1).to(target), 0)
+        if weights is not None:
+            if weights.numel() != len(target):
+                raise ValueError("weights must contain one entry per scalar target")
+            weights = weights.reshape(-1)
         probs = self.bin_probabilities(target, sigma).to(device=y_pred.device, dtype=y_pred.dtype)
         log_probs = torch.log_softmax(y_pred, dim=-1)
         nll = -(probs * log_probs).sum(dim=-1)
         return self._reduce(nll, mask, weights)
 
     def cdf(self, y_pred: Tensor, values: Tensor) -> Tensor:
-        """Step-CDF at the right bin edges (``[B, K+1]`` for query values)."""
-        probs = torch.softmax(y_pred, dim=-1)
-        cdf_bins = torch.cat(
-            [
-                torch.zeros(probs.shape[0], 1, device=probs.device, dtype=probs.dtype),
-                probs.cumsum(-1),
-            ],
-            dim=-1,
-        )
-        idx = torch.searchsorted(self.bin_edges, values.reshape(-1)).clamp(0, self.n_bins)
-        return cdf_bins.gather(1, idx.reshape(-1, 1)).reshape(values.shape)
+        """CDF of the uniform-within-bin distribution, one query per row."""
+        if y_pred.dim() != 2 or y_pred.shape[-1] != self.n_bins:
+            raise ValueError(f"y_pred must be [B, {self.n_bins}] bin logits")
+        if values.numel() != y_pred.shape[0]:
+            raise ValueError("values must contain one query per prediction row")
+        edges = self.bin_edges.to(y_pred)
+        query = values.reshape(-1, 1).to(y_pred)
+        fraction = ((query - edges[:-1]) / (edges[1:] - edges[:-1])).clamp(0, 1)
+        return (torch.softmax(y_pred, dim=-1) * fraction).sum(-1).reshape(values.shape)
 
     def sample(self, y_pred: Tensor, n_samples: int = 1) -> Tensor:
         """Draw bin indices and uniform intra-bin target values."""

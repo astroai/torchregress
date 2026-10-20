@@ -891,6 +891,52 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="NoiseAwareDensityLoss",
+        family="density_loss",
+        public_path="torchregress.losses.NoiseAwareDensityLoss",
+        task_tags=("noisy_labels", "conditional_density", "measurement_model"),
+        maturity="Available",
+        multimodal="partial",
+        non_gaussian="yes",
+        aleatoric="yes",
+        notes=(
+            "Known Gaussian label-error convolution: exact diagonal MDN, scalar-flow "
+            "quadrature, otherwise Monte Carlo. Joint densities require complete target "
+            "vectors or whole-row masks; no latent-truth calibration guarantee."
+        ),
+    ),
+    MethodMetadata(
+        name="BinnedDensityLoss",
+        family="density_loss",
+        public_path="torchregress.losses.BinnedDensityLoss",
+        task_tags=("scalar_targets", "conditional_density", "soft_targets"),
+        maturity="Available",
+        multi_target="no",
+        multimodal="yes",
+        non_gaussian="yes",
+        aleatoric="yes",
+        notes=(
+            "Finite-bin scalar distribution with uniform within-bin sampling/CDF. "
+            "Gaussian-smoothed target cross-entropy is not a measurement marginal "
+            "likelihood or deconvolution estimator."
+        ),
+    ),
+    MethodMetadata(
+        name="UncertaintyAwareConR",
+        family="representation_regularizer",
+        public_path="torchregress.losses.UncertaintyAwareConR",
+        task_tags=("imbalanced_regression", "noisy_labels", "scalar_targets"),
+        maturity="Available",
+        multi_target="no",
+        calibration="no",
+        imbalance="yes",
+        notes=(
+            "Scalar Gaussian-error interval probabilities soften ConR memberships; "
+            "zero errors recover the hard objective. No multivariate radial-noise "
+            "approximation or calibrated predictive uncertainty."
+        ),
+    ),
+    MethodMetadata(
         name="NormalizingFlowLoss",
         family="flow",
         public_path="torchregress.losses.NormalizingFlowLoss",
