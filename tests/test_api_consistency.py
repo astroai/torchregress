@@ -179,6 +179,9 @@ def test_reduction_behavior():
         "PrimeLoss",  # Needs feature_dim + fit(train_targets)
         "ConR",  # Needs model predictions + fit(train_targets)
         "NeuralRatioLoss",  # Needs a classifier + negative contexts
+        "NoiseAwareDensityLoss",  # Meta-loss (needs base density loss)
+        "BinnedDensityLoss",  # Needs bin_edges + scalar logits
+        "UncertaintyAwareConR",  # Needs model predictions + label_sigma
     ]
 
     # Flexible-shape family losses consume multi-column parameter vectors

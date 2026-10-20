@@ -206,11 +206,14 @@ For **arbitrarily complex** conditional distributions:
 | Loss | Description |
 |:-----|:-----------|
 | `NormalizingFlowLoss` | NLL via change-of-variables (requires `zuko`) |
+| `NoiseAwareDensityLoss` | Marginal likelihood with Gaussian label noise (GH/analytic/MC) |
 | `ContrastiveFlowLoss` | InfoNCE/contrastive likelihood-ratio ranking over positive vs alternate contexts (flow log-densities) |
+| `create_flow_model(..., flow_type="bpf")` | Bernstein-polynomial flow (scalar/joint) |
+| `create_flow_model(..., flow_type="cinn")` | Conditional affine-coupling (cINN-style) flow |
 | `NeuralRatioLoss` | Classifier-based neural ratio estimation (binary/multiclass) for parameter inference |
 | `create_flow_model()` / `create_flow_loss()` / `create_contrastive_flow_loss()` | Factory functions |
 
-Read the full [Normalizing flows guide](nflows.md) — NSF/RealNVP/MAF architectures, contrastive flow variant, inference sampling — and the [neural ratio estimation guide](nre.md) for the classifier-based likelihood-ratio estimator, posterior-weight utilities and SBI calibration diagnostics.
+Read the full [Normalizing flows guide](nflows.md) — NSF/cNSF, cINN/RealNVP, BPF, contrastive flow variant, inference sampling — and the [neural ratio estimation guide](nre.md) for the classifier-based likelihood-ratio estimator, posterior-weight utilities and SBI calibration diagnostics.
 
 ---
 
@@ -258,6 +261,7 @@ For targets with significant **distribution imbalance**:
 | `FeatureDistributionSmoother` | FDS: feature-moment calibration across target bins |
 | `PrimeLoss` | PRIME: learnable proxies with uniformly spaced targets |
 | `ConR` | Contrastive collapse penalty weighted by label density |
+| `UncertaintyAwareConR` | ConR with Gaussian-softened pair membership |
 | `BalancedMSEBMC` | Noise-adaptive Balanced MSE (BMC) of Ren et al. 2022; batch-coupled |
 | `RankSimLoss` | Ranking-similarity regularization on features (Gong et al. 2022) |
 
@@ -270,11 +274,13 @@ Read the full [Imbalanced regression guide](imbalanced.md) — density weighting
 | Loss | Strategy |
 |:-----|:---------|
 | `NoisyTargetGaussianNLL` | Adds known target-noise $\sigma_y^2$ to predicted variance |
+| `NoiseAwareDensityLoss` | Marginal likelihood for flow/MDN density under label noise |
+| `BinnedDensityLoss` | Smoothed histogram / ordinal-CDF scalar density |
 | `ConsistencyRegLoss` | Teacher-student consistency |
 | `PseudoLabelNLL` | Blends observed + pseudo labels |
 | `PseudoLabelConsistencyLoss` | Single objective for pseudo-label + teacher-consistency point-regression training |
 
-Read the [Noisy labels guide](noisy_labels.md) for target-noise-aware NLL and consistency losses, or the [Uncertain GT guide](uncertain_ground_truth.md) for pseudo-label workflows.
+Read the [Noisy labels guide](noisy_labels.md), the [noise-aware density guide](noise_aware_density.md), for target-noise-aware NLL/densities and consistency losses, or the [Uncertain GT guide](uncertain_ground_truth.md) for pseudo-label workflows.
 
 ---
 

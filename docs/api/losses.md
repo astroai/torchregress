@@ -114,8 +114,10 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `MixtureDensityLoss` | `MixtureDensityLoss(n_components=5, reduction="mean")` | Alias for `MDNLoss` |
 | `create_mdn_loss` | `create_mdn_loss(n_components=5, ...)` | Factory for `MixtureDensityLoss` |
 | `NormalizingFlowLoss` | `NormalizingFlowLoss(flow=..., reduction="mean")` | Conditional flow NLL (requires `zuko`) |
+| `NoiseAwareDensityLoss` | `NoiseAwareDensityLoss(base_loss, sigma=None, mode="auto", ...)` | Marginal likelihood with Gaussian label noise; GH for scalar flows, analytic for diagonal MDNs |
+| `BinnedDensityLoss` | `BinnedDensityLoss(bin_edges, label_smoothing=0.0)` | Smoothed histogram / ordinal-CDF scalar density head |
 | `ContrastiveFlowLoss` | `ContrastiveFlowLoss(...)` | Contrastive likelihood-ratio flow |
-| `create_flow_model` | `create_flow_model(n_features, context_dim=0, flow_type="nsf", n_transforms=5, ..., bound=None)` | Factory: build a flow model; `bound` sets the spline tail bound `B` (default 5, zuko's) |
+| `create_flow_model` | `create_flow_model(n_features, context_dim=0, flow_type="nsf", ...)` | Factory: NSF/cNSF, MAF, RealNVP/cINN, or Bernstein-polynomial (`bpf`) flow; `bound` sets the NSF tail bound |
 | `recommended_tail_bound` | `recommended_tail_bound(standardized_targets, *, margin=1.25, minimum=5.0, maximum=25.0) → float` | Tail bound covering the standardized training targets; pass the result as `create_flow_model(..., bound=...)` |
 | `create_flow_loss` | `create_flow_loss(...)` | Factory: build a flow loss |
 | `create_contrastive_flow_loss` | `create_contrastive_flow_loss(...)` | Factory: build a contrastive flow loss |
@@ -218,6 +220,7 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | `PropensityWeightedLoss` | `PropensityWeightedLoss(...)` | Inverse propensity weights |
 | `PrimeLoss` | `PrimeLoss(feature_dim, n_proxies=100, *, label_range=None, class_balanced=False, ...)` | PRIME proxy alignment (learnable proxies, uniform target spacing) |
 | `ConR` | `ConR(*, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2)` | ConR contrastive collapse penalty; `forward(features, target, prediction=..., ...)` |
+| `UncertaintyAwareConR` | `UncertaintyAwareConR(*, label_sigma=..., label_threshold=0.2, ...)` | ConR with Gaussian-uncertainty-softened pair membership |
 | `NoisyTargetGaussianNLL` | `NoisyTargetGaussianNLL(reduction="mean")` | Adds known target-noise σ²_y |
 | `PseudoLabelNLL` | `PseudoLabelNLL(pseudo_weight=0.8, ...)` | Pseudo-label + confidence NLL |
 | `ConsistencyRegLoss` | `ConsistencyRegLoss(reduction="mean")` | Student–teacher MSE |

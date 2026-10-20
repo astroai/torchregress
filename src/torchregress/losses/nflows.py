@@ -15,14 +15,14 @@ from torch import Tensor
 from torch.nn import Module
 
 try:
-    from zuko.flows import MAF, NSF, RealNVP  # type: ignore[import-untyped]
+    from zuko.flows import BPF, MAF, NSF, RealNVP  # type: ignore[import-untyped]
     from zuko.transforms import MonotonicRQSTransform  # type: ignore[import-untyped]
 
     HAS_ZUKO = True
 except ImportError:
     HAS_ZUKO = False
 
-    MAF = NSF = RealNVP = MonotonicRQSTransform = None  # optional; guarded by HAS_ZUKO
+    BPF = MAF = NSF = RealNVP = MonotonicRQSTransform = None  # type: ignore[assignment]
 
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
@@ -142,9 +142,11 @@ def create_flow_model(
     context_dim : int, default=0
         Context / conditioning dimension from the backbone model.
     flow_type : str, default="nsf"
-        Flow architecture: ``"nsf"`` (Neural Spline Flow), ``"maf"`` (Masked
-        Autoregressive Flow), or ``"realnvp"`` (RealNVP).  NSF provides the
-        best expressivity-per-parameter and is the recommended default.
+        Flow architecture: ``"nsf"``/``"ncsf"`` (Neural Spline Flow),
+        ``"maf"`` (Masked Autoregressive Flow), ``"realnvp"``/``"nice"``/
+        ``"cinn"`` (affine coupling; cINN-style), or ``"bpf"`` (Bernstein
+        polynomial flow).  NSF provides the best expressivity-per-parameter
+        for scalar regression and is the recommended default.
     n_transforms : int, default=5
         Number of coupling/autoregressive transforms in the flow.
 
@@ -193,14 +195,23 @@ def create_flow_model(
         raise ImportError("zuko is required for normalizing flows. Install torchregress[flows].")
 
     flow_type_key = flow_type.lower()
+    # "cinn" is a conditional RealNVP coupling flow with learned permutations:
+    # the same affine-coupling family used by cINN (Ardizzone et al. 2019), not
+    # a separate dependency.  "bpf" is zuko's Bernstein-polynomial flow.
+    if flow_type_key == "cinn":
+        flow_type_key = "realnvp"
     flow_cls_map = {
         "nsf": NSF,
+        "ncsf": NSF,
         "maf": MAF,
         "realnvp": RealNVP,
+        "nice": RealNVP,
+        "bpf": BPF,
     }
     if flow_type_key not in flow_cls_map:
         raise ValueError(
-            f"Unsupported flow_type {flow_type!r}. Expected one of {sorted(flow_cls_map)}."
+            f"Unsupported flow_type {flow_type!r}. Expected one of "
+            f"{sorted(flow_cls_map)} (plus aliases 'cinn'/'ncsf')."
         )
 
     hidden = _resolve_hidden_features(
@@ -217,13 +228,17 @@ def create_flow_model(
         if float(bound) != DEFAULT_TAIL_BOUND:
             flow_cls = BoundedNSF
             kwargs["bound"] = float(bound)
-    flow = flow_cls(
-        features=n_features,
-        context=context_dim,
-        transforms=n_transforms,
-        hidden_features=hidden,
-        **kwargs,
-    )
+    if flow_type_key == "bpf":
+        # BPF has no autoregressive transforms; degree is its only capacity knob.
+        flow = flow_cls(features=n_features, context=context_dim, **kwargs)
+    else:
+        flow = flow_cls(
+            features=n_features,
+            context=context_dim,
+            transforms=n_transforms,
+            hidden_features=hidden,
+            **kwargs,
+        )
     # Store context dim in a stable attribute used by NormalizingFlowLoss.
     setattr(flow, "context", context_dim)
     return cast(Module, flow)

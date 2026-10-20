@@ -140,7 +140,9 @@ def test_kde_score_samples_chunked_large() -> None:
 
     kde = KernelDensity(bandwidth=0.5).fit(train.numpy())
     reference = kde.score_samples(query.numpy())
-    assert torch.allclose(score, torch.as_tensor(reference, dtype=score.dtype), rtol=1e-4, atol=1e-4)
+    assert torch.allclose(
+        score, torch.as_tensor(reference, dtype=score.dtype), rtol=1e-4, atol=1e-4
+    )
 
 
 class TestDensityWeightedLoss:

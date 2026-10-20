@@ -11,8 +11,12 @@ When target labels contain measurement noise, annotation errors, or systematic c
 
 ## Approaches in torchregress
 
-!!! info "No dedicated noisy-label meta-loss"
-    torchregress handles label noise through **composable building blocks** already in the library: robust losses, tail-focused objectives, uncertain-target likelihoods, reweighting, and ensembles.
+!!! info "Composable building blocks, not one meta-loss"
+    torchregress handles label noise through composable objectives: robust
+    losses, tail-focused terms, uncertain-target likelihoods,
+    **noise-aware conditional densities**, reweighting, and ensembles.  For a
+    full conditional PDF, start with `NoiseAwareDensityLoss` rather than a
+    point-loss wrapper.
 
 ### 1. Robust Losses
 
@@ -70,6 +74,14 @@ loss_fn = NoisyTargetGaussianNLL()  # [API](../api/losses.md)
 
 See [Uncertain Ground Truth](uncertain_ground_truth.md) for `NoisyTargetGaussianNLL`, `ConsistencyRegLoss`, `PseudoLabelNLL`, and `PseudoLabelConsistencyLoss`.
 
+For a full conditional density with known label noise, use
+[`NoiseAwareDensityLoss`](noise_aware_density.md).  It convolves
+`NormalizingFlowLoss`, a diagonal `MixtureDensityLoss`, or a custom density
+head with the Gaussian measurement model; scalar flows use Gaussian–Hermite
+quadrature, MDNs use the exact analytic mixture convolution, and non-scalar
+heads fall back to Monte-Carlo averaging.  An optional contamination component
+handles grossly wrong labels (a different problem from measurement noise).
+
 ### 4. Density / Propensity Weighting
 
 Downweight samples in noisy regions using density or propensity scores:
@@ -120,7 +132,11 @@ graph LR
 
 ## Limitations
 
-1. **No dedicated noisy-label meta-loss**: torchregress handles label noise through composable building blocks (robust losses, CVaR, density weighting, ensembles). There is no single "noisy label" loss that automatically detects and downweights mislabelled samples.
+1. **No automatic noise detector**: `NoiseAwareDensityLoss` requires a known
+   or externally estimated `sigma`; without repeated measurements or structural
+   assumptions, the clean density and the label-noise distribution are not
+   separately identifiable.  Robust losses/ensembles remain the right tools when
+   the noise process is unknown.
 2. **Robust losses only bound influence**: Huber, Cauchy, and Tukey losses reduce the effect of outliers but do not identify or remove mislabelled samples. If a mislabelled point has a moderate residual, it still contributes to training.
 3. **Ensemble disagreement requires multiple models**: Identifying noisy samples via ensemble epistemic uncertainty requires training 3–5 models, multiplying compute cost.
 4. **CVaR is aggressive**: `CVaRLoss(alpha=0.1)` fits only the worst 10% of samples. If data quality is generally high, this overfits to the few genuine outliers and ignores the majority of clean data.

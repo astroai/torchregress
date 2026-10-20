@@ -10,8 +10,17 @@ Imbalanced regression addresses problems where the target distribution is **high
 
 $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \quad \xrightarrow{\text{reweight}} \quad \mathcal{L}_{\text{balanced}} = \frac{1}{N}\sum_{i=1}^N w(y_i)\;\ell(f(x_i), y_i)$$
 
-!!! warning "Calibration risk"
-    Reweighting changes the effective training distribution.  **DensityWeightedLoss** preserves calibration; **LDSLoss** may break it.  Always validate calibration after training.
+!!! warning "Reweighting changes the target distribution"
+    Target-dependent weights change the population optimum.  For a weighted log
+    score the optimizer converges to
+
+    $$p_w(y\mid x)=\frac{w(y)p(y\mid x)}{\int w(y')p(y'\mid x)\,dy'},$$
+
+    which is **not** the naturally occurring $p(y\mid x)$ unless $w(y)$ is
+    constant.  `DensityWeightedLoss` and other inverse-density schemes therefore
+    optimize a *tail-balanced* objective, not population density estimation.
+    This can be useful for rare-value performance, but must be reported
+    separately from calibration; it is not "calibration preserving".
 
 ---
 
@@ -23,7 +32,7 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 | `BalancedMSEBMC` | True noise-adaptive **Balanced MSE (BMC)** | Batch-coupled; tune/learn $\sigma$ | `fit(y)` | [BMC guide](balanced_mse_bmc.md) |
 | `RankSimLoss` | Feature ranking-similarity regularizer | Add to task loss | — | [RankSim guide](rank_sim.md) |
 | `BinReweightedMSELoss` | Inverse bin frequency + count smoothing | ⚠️ Check | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
-| `DensityWeightedLoss` | Inverse kernel-density weights | ✅ Safe | `fit_density(y)` | [Losses API](../api/losses.md) (imbalanced) |
+| `DensityWeightedLoss` | Inverse kernel-density weights | ⚠️ Tail objective (changes target density) | `fit_density(y)` | [Losses API](../api/losses.md) (imbalanced) |
 | `LDSLoss` | Smoothed label distribution | ⚠️ May break | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
 | `PropensityWeightedLoss` | Inverse propensity scores | ✅ With correct scores | None | [Losses API](../api/losses.md) (imbalanced) |
 | `FocalRLoss` | Sigmoid-scaled error emphasis | ✅ Mostly | None | [Losses API](../api/losses.md) (imbalanced) |
@@ -54,7 +63,10 @@ Multi-output targets use the **mean coordinate** for bin assignment; the weighte
     If test targets fall outside the bin edges estimated from `fit(y_train)`, the weights for those samples are undefined. Always ensure `y_train` covers the full expected range of test targets, or use `DensityWeightedLoss` which handles out-of-range values gracefully via KDE.
 
 !!! warning "KDE scaling"
-    `DensityWeightedLoss.fit_density()` uses kernel density estimation (KDE) which scales as $\mathcal{O}(N^2)$ with the number of training targets for a naive implementation. For datasets with $N > 10^4$ targets, use a subsample for density estimation or switch to a bin-based method (`BalancedMSELoss`, `BinReweightedMSELoss`).
+    `DensityWeightedLoss.fit_density()` uses kernel density estimation (KDE).
+    The query axis is chunked, so memory is bounded rather than $\mathcal{O}(N^2)$;
+    the time cost still grows with $N \times N_{\text{train}}$.  For very large
+    training sets, subsample for density estimation or use a bin-based method.
 
 !!! warning "Calibration"
     Like other reweighting schemes, these losses change the training objective. Validate calibration on held-out data before relying on variance or interval outputs.
@@ -85,7 +97,9 @@ loss = loss_fn(model(x), y)
 | `reweight_factor` | `float` | `1.0` | Interpolation: 0 = uniform, 1 = full inverse density |
 
 !!! tip "Recommended first choice"
-    DensityWeightedLoss preserves calibration and is the safest default for imbalanced regression.
+    `DensityWeightedLoss` is a **tail-balanced** objective: it changes the
+    effective target density.  Do not use it as a drop-in population density
+    estimator; evaluate calibration and rare-slice performance separately.
 
 ---
 
@@ -185,7 +199,7 @@ graph TD
 
 ## Limitations
 
-1. **Calibration risk**: Reweighting changes the effective training distribution. `DensityWeightedLoss` preserves calibration; `LDSLoss` may break it. Always validate calibration on held-out data after training with any reweighting scheme.
+1. **Calibration risk**: Any target-dependent weight changes the population optimum. `DensityWeightedLoss` and `LDSLoss` both target a reweighted distribution unless corrected; validate calibration and report the weighting objective. Use sampling-selection corrections for population inference instead.
 2. **Out-of-range targets**: If test targets fall outside the bin edges estimated from `fit(y_train)` for `BalancedMSELoss` / `BinReweightedMSELoss`, weights are undefined. Ensure training targets cover the full expected test range.
 3. **KDE scaling**: `DensityWeightedLoss.fit_density()` scales as $\mathcal{O}(N^2)$ with training set size. For $N > 10^4$, subsample for density estimation or switch to a bin-based method.
 4. **FocalRLoss does not rebalance**: Unlike density-based methods, `FocalRLoss` upweights hard samples regardless of their target value. It helps with difficult examples but does not address target-distribution imbalance.
@@ -193,7 +207,7 @@ graph TD
 
 ## Recommendations
 
-- **Default choice**: `DensityWeightedLoss` is the safest starting point — it preserves calibration and handles out-of-range values gracefully via KDE.
+- **Default choice**: `DensityWeightedLoss` is a reasonable tail-focused starting point; it handles out-of-range values via KDE, but it changes the target density.  For population density estimation use the unweighted likelihood plus an explicit sampling-selection model.
 - **For large datasets**: Use `BalancedMSELoss` or `BinReweightedMSELoss` with pre-computed bin edges to avoid $\mathcal{O}(N^2)$ density estimation.
 - **For extreme imbalance**: `LDSLoss` with post-hoc calibration (temperature scaling) is the most aggressive option. See the [imbalanced regression demo](../../examples/imbalanced_regression.py).
 - **No pre-fitting needed**: `FocalRLoss` requires no separate `fit()` step — use when you want a quick, adaptive reweighting during training.

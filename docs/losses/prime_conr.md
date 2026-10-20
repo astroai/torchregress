@@ -83,6 +83,24 @@ Call `prime.fit(y_train)` instead of `label_range` to estimate the proxy targets
 
 ## 2. ConR: contrastive regularizer for collapse
 
+### Uncertainty-aware ConR
+
+`UncertaintyAwareConR` wraps `ConR` for labels with known measurement
+uncertainty.  Instead of forcing each pair into a hard positive/negative class,
+it uses the Gaussian probability that two noisy labels fall within
+`label_threshold` to soften the positive and negative pair weights.  The
+observed-label distances still enter the pushing weight; only pair membership is
+softened.  With `label_sigma=0` the pair probabilities become a step function.
+For gross label contamination (rather than measurement error), use a
+contamination model or a robust task loss instead.
+
+```python
+from torchregress.losses import UncertaintyAwareConR
+
+conr = UncertaintyAwareConR(label_sigma=0.02, label_threshold=0.1)
+loss = mse(pred, y) + 4.0 * conr(features, y, prediction=pred)
+```
+
 ConR (Keramati et al., ICLR 2024) selects pairs using **both** label and prediction similarity. For anchor $i$ with feature $\mathbf z_i$, label $y_i$ and prediction $p_i$:
 
 $$\text{pos}_i = \{j \ne i:\ \lvert y_i - y_j\rvert \le \omega\}, \qquad

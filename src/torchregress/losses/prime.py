@@ -480,6 +480,7 @@ def conr_loss(
     temperature: float = 0.07,
     push_scale: float = 0.2,
     density_weights: Optional[Tensor] = None,
+    label_sigma: Optional[Tensor | float] = None,
 ) -> Tensor:
     """Per-anchor ConR regularizer (Keramati et al., 2024, Eq. 1-2).
 
@@ -518,6 +519,12 @@ def conr_loss(
         density_weights: Optional ``[N]`` per-anchor pushing power ``eta_i``
             (inverse-label-density weights, see :meth:`ConR.fit`).  Defaults to
             ones.
+        label_sigma: Optional per-label standard deviation ``[N]``, ``[N, L]``,
+            or scalar.  When supplied, pair memberships are softened with the
+            Gaussian probability that two noisy labels are within
+            ``label_threshold``; ambiguous pairs are down-weighted rather than
+            forced into the wrong class.  With ``None`` (default) the exact
+            hard-label ConR objective is unchanged.
 
     Returns:
         ``[N]`` tensor of per-anchor ConR values.
@@ -533,6 +540,18 @@ def conr_loss(
 
     n_samples = features.shape[0]
     labels_2d = labels.reshape(n_samples, -1)
+    if label_sigma is not None:
+        return _conr_loss_soft_noisy(
+            features,
+            labels_2d,
+            predictions,
+            label_sigma=label_sigma,
+            label_threshold=label_threshold,
+            prediction_threshold=prediction_threshold,
+            temperature=temperature,
+            push_scale=push_scale,
+            density_weights=density_weights,
+        )
     preds = predictions.reshape(n_samples, -1)
     if labels_2d.shape[0] != n_samples or preds.shape[0] != n_samples:
         raise ValueError("features, labels and predictions must share the batch dimension")
@@ -571,6 +590,65 @@ def conr_loss(
     positive_mean = sim.masked_fill(~pos, 0.0).sum(dim=1) / n_pos
     per_anchor = log_denom - positive_mean
     per_anchor = torch.where(has_pos & has_neg, per_anchor, torch.zeros_like(per_anchor))
+    return torch.where(torch.isfinite(per_anchor), per_anchor, torch.zeros_like(per_anchor))
+
+
+def _conr_loss_soft_noisy(
+    features: Tensor,
+    labels_2d: Tensor,
+    predictions: Tensor,
+    *,
+    label_sigma: Tensor | float,
+    label_threshold: float,
+    prediction_threshold: float,
+    temperature: float,
+    push_scale: float,
+    density_weights: Optional[Tensor],
+) -> Tensor:
+    """Soft ConR where pair membership is a Gaussian label-distance probability."""
+    n_samples = features.shape[0]
+    if not isinstance(label_sigma, Tensor):
+        label_sigma = torch.as_tensor(label_sigma, dtype=labels_2d.dtype, device=labels_2d.device)
+    sigma = label_sigma.to(dtype=labels_2d.dtype, device=labels_2d.device)
+    if sigma.numel() == 1:
+        sigma = sigma.reshape(()).expand(n_samples)
+    if sigma.dim() == 1:
+        sigma = sigma.reshape(-1, 1).expand_as(labels_2d)
+    else:
+        sigma = sigma.expand_as(labels_2d)
+    sigma = sigma.clamp_min(1.0e-8)
+    if labels_2d.shape[1] == 1:
+        label_dist = (labels_2d - labels_2d.T).abs()
+        sigma_pair = (sigma**2 + sigma.T**2).sqrt()
+    else:
+        label_dist = torch.cdist(labels_2d, labels_2d, p=2)
+        sigma_norm = sigma.square().sum(dim=-1).sqrt()
+        sigma_pair = (sigma_norm[:, None] ** 2 + sigma_norm[None, :] ** 2).sqrt()
+    pred_scalar = predictions.reshape(n_samples, -1).mean(dim=-1)
+    pred_dist = (pred_scalar[:, None] - pred_scalar[None, :]).abs()
+    off_diag = ~torch.eye(n_samples, dtype=torch.bool, device=features.device)
+    normal = torch.distributions.Normal(
+        loc=torch.zeros((), device=features.device, dtype=features.dtype),
+        scale=torch.ones((), device=features.device, dtype=features.dtype),
+    )
+    z = (label_threshold - label_dist) / sigma_pair.clamp_min(1.0e-8)
+    p_pos = normal.cdf(z).clamp(1.0e-4, 1.0 - 1.0e-4) * off_diag
+    neg_gate = ((1.0 - p_pos) * (pred_dist <= prediction_threshold) * off_diag).clamp_min(0.0)
+    sim = (F.normalize(features, dim=-1) @ F.normalize(features, dim=-1).T) / temperature
+    eta = torch.ones(n_samples, dtype=sim.dtype, device=sim.device)
+    if density_weights is not None:
+        eta = density_weights.reshape(n_samples).to(dtype=sim.dtype, device=sim.device)
+    tiny = torch.finfo(sim.dtype).tiny
+    pos_w = (p_pos * eta[:, None]).clamp_min(tiny)
+    neg_w = (neg_gate * eta[:, None] * label_dist * push_scale).clamp_min(tiny)
+    log_pos = torch.logsumexp(sim + torch.log(pos_w), dim=1)
+    log_neg = torch.logsumexp(sim + torch.log(neg_w), dim=1)
+    log_denom = torch.logaddexp(log_pos, log_neg)
+    mass = pos_w.sum(dim=1)
+    log_pos_mean = log_pos - torch.log(mass.clamp_min(tiny))
+    per_anchor = log_denom - log_pos_mean
+    valid = (mass > 1.0e-6) & (neg_w.sum(dim=1) > 1.0e-6)
+    per_anchor = torch.where(valid, per_anchor, torch.zeros_like(per_anchor))
     return torch.where(torch.isfinite(per_anchor), per_anchor, torch.zeros_like(per_anchor))
 
 
@@ -745,6 +823,7 @@ class ConR(BaseLoss):
         prediction: Optional[Tensor] = None,
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
+        label_sigma: Optional[Tensor | float] = None,
         **kwargs: Any,
     ) -> Tensor:
         """Compute the ConR regularizer.
@@ -838,3 +917,60 @@ class ConR(BaseLoss):
         )
         reduced_weights = weights.reshape(n_samples) if weights is not None else None
         return self._reduce(per_anchor, None, reduced_weights)
+
+
+class UncertaintyAwareConR(ConR):
+    """ConR with Gaussian label-uncertainty-aware pair membership.
+
+    This is a thin, explicit wrapper around :class:`ConR`: it stores a default
+    per-label standard deviation and forwards it to :func:`conr_loss`, where
+    positive/negative pair memberships are softened by the probability that two
+    noisy labels fall within the label threshold.  Pair distances in the
+    denominator use the same observed labels; only the *hard* membership is
+    softened.  Use this when labels have meaningful measurement errors (for
+    example spectroscopic redshift quality flags or repeated measurements);
+    with ``label_sigma=0`` it reduces to the standard ConR objective.
+
+    Example:
+        >>> conr = UncertaintyAwareConR(label_sigma=0.02, label_threshold=0.1)
+        >>> loss = task_loss + 4.0 * conr(features, noisy_labels, prediction=pred)
+    """
+
+    def __init__(
+        self,
+        *,
+        label_sigma: Tensor | float,
+        label_threshold: float = 0.2,
+        prediction_threshold: Optional[float] = None,
+        temperature: float = 0.07,
+        push_scale: float = 0.2,
+        reduction: str = "mean",
+    ) -> None:
+        super().__init__(
+            label_threshold=label_threshold,
+            prediction_threshold=prediction_threshold,
+            temperature=temperature,
+            push_scale=push_scale,
+            reduction=reduction,
+        )
+        self.label_sigma = label_sigma
+
+    def forward(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        prediction: Optional[Tensor] = None,
+        mask: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        label_sigma: Optional[Tensor | float] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        return super().forward(
+            y_pred,
+            target,
+            prediction=prediction,
+            mask=mask,
+            weights=weights,
+            label_sigma=self.label_sigma if label_sigma is None else label_sigma,
+            **kwargs,
+        )

@@ -153,6 +153,9 @@ except ImportError:
 
 
 # Neural ratio estimation (classifier-based likelihood ratios)
+from .noise_aware_density import BinnedDensityLoss, NoiseAwareDensityLoss
+
+# Neural ratio estimation (classifier-based likelihood ratios)
 from .nre import (
     NeuralRatioLoss,
     build_ratio_classifier,
@@ -178,7 +181,7 @@ from .poisson_gaussian import (
 )
 
 # Representation-level imbalanced-regression losses (PRIME proxies, ConR)
-from .prime import ConR, PrimeLoss, conr_loss, uniform_proxy_targets
+from .prime import ConR, PrimeLoss, UncertaintyAwareConR, conr_loss, uniform_proxy_targets
 
 # Quantile losses
 from .quantile import (
@@ -245,6 +248,7 @@ __all__ = [
     "BaseLoss",
     "BetaNLLLoss",
     "BetaRegressionNLLLoss",
+    "BinnedDensityLoss",
     "BinReweightedMSELoss",
     "BoxCoxTransformLoss",
     "CORALLoss",
@@ -311,6 +315,7 @@ __all__ = [
     "NegativeBinomialNLLLoss",
     "NeuralRatioLoss",
     "NoisyInputPredictor",
+    "NoiseAwareDensityLoss",
     "NoisyTargetGaussianNLL",
     "NonExchangeableConformalRegressor",
     "NormalizingFlowLoss",
@@ -350,6 +355,7 @@ __all__ = [
     "TweedieLoss",
     "UACQR",
     "UnionFrontier",
+    "UncertaintyAwareConR",
     "VolumePreservingFlow",
     "WeightedCrossEntropyLoss",
     "WeightedHuberLoss",

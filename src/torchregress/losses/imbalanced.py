@@ -82,13 +82,16 @@ def _compute_base_loss(base_loss: str, y_pred: Tensor, target: Tensor) -> Tensor
 @register_regression_loss("density_weighted")
 class DensityWeightedLoss(RegressionLoss):
     """
-    Density-weighted loss for imbalanced regression (calibration-safe).
+    Density-weighted loss for imbalanced regression (tail-balanced objective).
 
     Weights samples inversely proportional to their local density in target space.
     This upweights rare/extreme values while downweighting common values.
 
-    This method is SAFE for calibration because it only reweights the training
-    samples without changing the conditional distribution p(y|x).
+    Target-density reweighting **changes the population optimum**: with
+    ``w(y)`` the weighted log-score optimum is
+    ``p_w(y|x) = w(y)p(y|x) / ∫ w(y')p(y'|x) dy'``.  This is a tail-balanced /
+    cost-sensitive objective, not a population-density estimator; report
+    calibration against the reweighted objective separately.
 
     Args:
         kernel_width: Bandwidth for kernel density estimation. Default: 0.5

@@ -44,6 +44,21 @@ In **standard regression**, conditional normalizing flows act as a drop-in repla
 
 See the [NormalizingFlowLoss API](../api/losses.md) for the training contract and `create_flow_loss` helper.
 
+### Choosing a flow family
+
+| Flow | Best for | Caveat |
+|:--|:--|:--|
+| `nsf` / `ncsf` | scalar/multi-target continuous regression; best calibration per parameter | bounded spline domain; widen `bound` for heavy tails |
+| `realnvp` / `cinn` | fast affine-coupling training, high-dimensional targets | can produce occasional catastrophic point tails; use robust metrics |
+| `maf` | unbounded, autoregressive densities | slower sampling; conditional context dependence |
+| `bpf` | smooth Bernstein-polynomial scalar/joint densities | newer, less battle-tested than NSF |
+
+For **noisy labels**, wrap the flow with
+[`NoiseAwareDensityLoss`](noise_aware_density.md) instead of fitting the
+observed label directly.  For **imbalanced targets**, remember that
+target-density reweighting changes the population density (see
+[imbalanced regression](imbalanced.md)).
+
 ## Usage
 
 ### Step 1: Create a zuko flow
@@ -65,7 +80,7 @@ flow = create_flow_model(
 |:----------|:-----|:--------|:------------|
 | `n_features` | `int` | — | Target dimensionality |
 | `context_dim` | `int` | `0` | Size of conditioning vector (model output) |
-| `flow_type` | `str` | `"nsf"` | `"realnvp"`, `"maf"`, or `"nsf"` |
+| `flow_type` | `str` | `"nsf"` | `"nsf"`/`"ncsf"`, `"maf"`, `"realnvp"`/`"cinn"`, or `"bpf"` |
 | `n_transforms` | `int` | `5` | Number of invertible blocks |
 | `hidden_features` | `list[int]` or `None` | `None` | Hidden layer sizes (default: `[64, 64]`) |
 | `bound` | `float` or `None` | `None` | NSF only: half-width `B` of the spline domain `[-B, B]` (zuko's fixed `5` when `None`). See [Training recipe](#training-recipe-for-nll-and-calibration). |
