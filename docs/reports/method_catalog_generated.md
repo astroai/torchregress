@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `147`
+- Total methods: `148`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -27,6 +27,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `evidential` | 1 |
 | `expectile` | 3 |
 | `flow` | 3 |
+| `flow_matching` | 1 |
 | `imbalanced_algorithm` | 4 |
 | `imbalanced_loss` | 11 |
 | `inference` | 1 |
@@ -59,7 +60,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 19 |
-| `Available` | 121 |
+| `Available` | 122 |
 
 ## Method Rows
 
@@ -134,6 +135,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `ContrastiveFlowLoss` | `flow` | `Available` | `parameter_estimation`, `domain_shift`, `simulation_based_inference` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.ContrastiveFlowLoss` |
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
 | `SLSLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `prediction_intervals` | `calibration*`, `ood*` | `torchregress.losses.SLSLoss` |
+| `FlowMatchingMLP` | `flow_matching` | `Available` | `multimodal`, `multi_target`, `conditional_density`, `sampling` | `aleatoric*`, `calibration*`, `ood*` | `torchregress.models.FlowMatchingMLP` |
 | `ContinuousGroupDRO` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.ContinuousGroupDRO` |
 | `GroupDROTrainer` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.GroupDROTrainer` |
 | `VIRLoss` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `imbalanced_regression`, `aleatoric_uq`, `evidential` | `calibration*`, `ood*` | `torchregress.algorithms.VIRLoss` |
@@ -219,7 +221,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`SLSConformal`, `BinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `MDNLoss`, `PZRecipeLoss`, `TriLoss`, `PZRecipe`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
+`SLSConformal`, `BinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `FlowMatchingMLP`, `MDNLoss`, `PZRecipeLoss`, `TriLoss`, `PZRecipe`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 

@@ -10,6 +10,7 @@ from torchregress.models import (
     TabularFit, TabularEnsembleFit, fit_tabular, fit_tabular_ensemble,
     FTTransformer, FeatureTokenizer, PZRecipe,
     PZRecipeFit, fit_pz_recipe,
+    FlowMatchingMLP, cfm_loss, sample_cfm,
 )
 ```
 
@@ -106,3 +107,19 @@ Reference two-stage training loop: stage 1 minimizes `PZRecipeLoss`
 trains `model.stage2_head` as a bin classifier.  Quantile bin centers are
 estimated from the training target.  This is a compact reference
 implementation, not the paper's historical TabM schedule.
+
+
+## FlowMatchingMLP / cfm_loss / sample_cfm
+
+`FlowMatchingMLP(n_features, context_dim, *, hidden=(128, 128), time_embedding=16)`
+
+Time-conditioned MLP velocity field for conditional flow matching.
+
+`cfm_loss(velocity, context, target, *, generator=None, eps=1e-3)`
+
+OT-CFM velocity-regression loss; returns a scalar mean loss.
+
+`sample_cfm(velocity, context, *, n_samples=128, steps=32, generator=None)`
+
+Euler sampler returning `[B, n_samples, n_features]`.  CFM has no exact
+likelihood; use sample-based CRPS/energy/coverage/PIT or an ODE likelihood.

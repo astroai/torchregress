@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 147,
+    "total_methods": 148,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -16,6 +16,7 @@
       "evidential": 1,
       "expectile": 3,
       "flow": 3,
+      "flow_matching": 1,
       "imbalanced_algorithm": 4,
       "imbalanced_loss": 11,
       "inference": 1,
@@ -45,7 +46,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 19,
-      "Available": 121
+      "Available": 122
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1757,6 +1758,29 @@
       "imbalance": "yes",
       "noisy_features_eiv": "no",
       "notes": "Scalar Gaussian-error interval probabilities soften ConR memberships; zero errors recover the hard objective. No multivariate radial-noise approximation or calibrated predictive uncertainty."
+    },
+    {
+      "name": "FlowMatchingMLP",
+      "family": "flow_matching",
+      "public_path": "torchregress.models.FlowMatchingMLP",
+      "task_tags": [
+        "multimodal",
+        "multi_target",
+        "conditional_density",
+        "sampling"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "partial",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "OT-CFM velocity field with a short Euler sampler. No exact likelihood; use sample-based CRPS/energy/coverage/PIT, or an ODE likelihood if NLL is required."
     },
     {
       "name": "PZRecipeLoss",

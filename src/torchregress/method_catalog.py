@@ -937,6 +937,22 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="FlowMatchingMLP",
+        family="flow_matching",
+        public_path="torchregress.models.FlowMatchingMLP",
+        task_tags=("multimodal", "multi_target", "conditional_density", "sampling"),
+        maturity="Available",
+        multimodal="yes",
+        multi_target="yes",
+        non_gaussian="yes",
+        aleatoric="partial",
+        calibration="partial",
+        notes=(
+            "OT-CFM velocity field with a short Euler sampler. No exact likelihood; "
+            "use sample-based CRPS/energy/coverage/PIT, or an ODE likelihood if NLL is required."
+        ),
+    ),
+    MethodMetadata(
         name="PZRecipeLoss",
         family="photo_z_loss",
         public_path="torchregress.losses.PZRecipeLoss",

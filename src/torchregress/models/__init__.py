@@ -6,6 +6,7 @@
 work with any torchregress loss.
 """
 
+from .flow_matching import FlowMatchingMLP, cfm_loss, sample_cfm
 from .ft_transformer import FeatureTokenizer, FTTransformer, PZRecipe
 from .preprocessing import TabularPreprocessor
 from .pz_recipe import PZRecipeFit, fit_pz_recipe
@@ -15,6 +16,9 @@ from .training import TabularEnsembleFit, TabularFit, fit_tabular, fit_tabular_e
 __all__ = [
     "FTTransformer",
     "FeatureTokenizer",
+    "FlowMatchingMLP",
+    "cfm_loss",
+    "sample_cfm",
     "PZRecipe",
     "PZRecipeFit",
     "fit_pz_recipe",
