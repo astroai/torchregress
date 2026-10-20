@@ -63,6 +63,10 @@ the stateful `OutlierFraction` below.
 | `pit_local_w1` | `pit_local_w1(features, pit, k=100)` | Median local PIT 1-Wasserstein distance over photometric neighbours |
 | `pdf_width_68` | `pdf_width_68(samples, redshift)` | Median central-68% PDF width divided by `1+z` |
 | `paired_bootstrap_ci` | `paired_bootstrap_ci(a, b, n_boot=2000, alpha=0.32)` | Paired percentile interval for the mean difference |
+| `neighbour_target_gap` | `neighbour_target_gap(features, target, k=10)` | Median k-NN target difference / target std |
+| `target_ordering` | `target_ordering(features, target)` | Spearman feature-distance vs target-distance correlation |
+| `frozen_readout_metrics` | `frozen_readout_metrics(features, target, k=25)` | OLS/k-NN RMSE, MAE, NMAD on frozen features |
+| `representation_geometry_report` | `representation_geometry_report(features, target, k=10)` | Aggregate geometry + readout diagnostics |
 | `energy_score` | `energy_score(y_samples, y_true, beta=1.0)` | Multivariate energy score |
 | `gaussian_nll` | `gaussian_nll(mean, y_true, var, reduction="mean", min_variance=None)` | Diagonal Gaussian NLL (variance, not log-var); variance floor defaults to `finfo(dtype).tiny` |
 | `probability_integral_transform` | `probability_integral_transform(cdf_fn, y_true)` | PIT values via CDF callable |

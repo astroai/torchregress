@@ -59,6 +59,19 @@ historical pipeline uses a TabM classifier in stage 2; any TabM-like classifier
 can be substituted.  Bins and normalization must be fitted from the training
 sample, as in the paper.
 
+### Tri-loss variant
+
+The methods paper compares a CE+CRPS+RnC encoder ("tri-loss").  `TriLoss`
+uses the same quantile bins but replaces the squared CDF error with an exact
+piecewise-linear CRPS:
+
+```python
+from torchregress.losses import TriLoss
+
+loss_fn = TriLoss(bin_centers, ce_weight=1.0, crps_weight=0.5, rnc_weight=0.1)
+loss = loss_fn(logits, z, features=features)
+```
+
 `CumulativeCDFLoss` is also available standalone.  For continuous densities use
 [normalizing flows](nflows.md) or [MDNs](mdn.md); the recipe is a deliberately
 strong low-data binned baseline.

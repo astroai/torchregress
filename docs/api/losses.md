@@ -118,6 +118,7 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `BinnedDensityLoss` | `BinnedDensityLoss(bin_edges, label_smoothing=0.0)` | Smoothed histogram / ordinal-CDF scalar density head |
 | `PZRecipeLoss` | `PZRecipeLoss(bin_centers, ce_weight=0.5, cdf_weight=0.5, rnc_weight=0.1, ...)` | CE + binned-CDF + RnC-N photo-z objective |
 | `CumulativeCDFLoss` | `CumulativeCDFLoss(bin_centers, reduction="mean")` | Binned CDF squared-error loss |
+| `TriLoss` | `TriLoss(bin_centers, ce_weight=1.0, crps_weight=0.5, rnc_weight=0.1, ...)` | CE + binned-CRPS + RnC-N methods-paper tri-loss |
 | `cumulative_cdf_loss` | `cumulative_cdf_loss(logits, target, bin_centers)` | Functional binned CDF loss |
 | `ContrastiveFlowLoss` | `ContrastiveFlowLoss(...)` | Contrastive likelihood-ratio flow |
 | `create_flow_model` | `create_flow_model(n_features, context_dim=0, flow_type="nsf", ...)` | Factory: NSF/cNSF, MAF, RealNVP/cINN, or Bernstein-polynomial (`bpf`) flow; `bound` sets the NSF tail bound |

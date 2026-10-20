@@ -68,6 +68,17 @@ NO_REFERENCE: dict[str, str] = {
     "consistency_error": "trivial student/teacher L_p discrepancy; no library equivalent",
     "pseudo_label_acceptance_rate": "trivial thresholded mean; no library equivalent",
     "uncertain_gt_metrics_report": "composition of uncertain-target metrics; NLL component parity-tested",
+    "binned_cdf": "paper-defined conversion from bin masses to CDF; no external library",
+    "crps_from_binned_cdf": "paper-defined exact piecewise-linear CRPS; no external library",
+    "paired_bootstrap_ci": "torchregress-specific paired percentile bootstrap",
+    "pdf_width_68": "paper-defined normalized central-68% PDF width",
+    "pit_cvm": "paper-defined PIT Cramér--von Mises statistic",
+    "pit_local_w1": "paper-defined local photometric PIT-Wasserstein diagnostic",
+    "frozen_readout_metrics": "paper-defined frozen-feature OLS/k-NN readout diagnostic",
+    "neighbour_target_gap": "paper-defined neighbourhood target-homogeneity diagnostic",
+    "nmad": "paper-defined normalized median absolute deviation; no external library",
+    "representation_geometry_report": "composition of paper-defined geometry diagnostics",
+    "target_ordering": "paper-defined Spearman feature/target distance ordering",
 }
 
 

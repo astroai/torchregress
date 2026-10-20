@@ -130,6 +130,13 @@ from .point import (
     tail_rmse,
     trimmed_mean_squared_error,
 )
+from .representation import (
+    frozen_readout_metrics,
+    neighbour_target_gap,
+    nmad,
+    representation_geometry_report,
+    target_ordering,
+)
 from .sbi import (
     sbc_rank_histogram,
     sbc_uniformity_pvalue,
@@ -152,6 +159,7 @@ __all__ = [
     "ExpectedCalibrationError",
     "MarginalCalibrationError",
     "bias",
+    "frozen_readout_metrics",
     "binned_cdf",
     "expected_calibration_error",
     "marginal_calibration_error",
@@ -271,4 +279,9 @@ __all__ = [
     # "MeanSquaredError",
     # "MeanAbsoluteError",
     # "R2Score",
+    "frozen_readout_metrics",
+    "neighbour_target_gap",
+    "nmad",
+    "representation_geometry_report",
+    "target_ordering",
 ]

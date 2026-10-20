@@ -191,7 +191,7 @@ from .quantile import (
     QuantileLoss,
     quantile_loss,
 )
-from .recipe import CumulativeCDFLoss, PZRecipeLoss, cumulative_cdf_loss
+from .recipe import CumulativeCDFLoss, PZRecipeLoss, TriLoss, cumulative_cdf_loss
 
 # Robust losses
 from .robust import (
@@ -334,6 +334,7 @@ __all__ = [
     "PseudoLabelConsistencyLoss",
     "PseudoLabelNLL",
     "PZRecipeLoss",
+    "TriLoss",
     "QuantileCrossover",
     "QuantileCrossoverLoss",
     "QuantileLoss",

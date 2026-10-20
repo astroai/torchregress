@@ -42,3 +42,24 @@ def test_cumulative_cdf_class() -> None:
     loss_fn = CumulativeCDFLoss(torch.linspace(0.0, 2.0, 10))
     loss = loss_fn(torch.randn(6, 10), torch.rand(6) * 2.0)
     assert torch.isfinite(loss)
+
+
+def test_tri_loss_crps_matches_metric_and_gradients() -> None:
+
+    from torchregress.losses import TriLoss
+    from torchregress.metrics import binned_cdf, crps_from_binned_cdf
+
+    centers = torch.linspace(0.0, 2.0, 20)
+    loss_fn = TriLoss(centers, ce_weight=0.0, crps_weight=1.0, rnc_weight=0.0)
+    logits = torch.randn(7, 20, requires_grad=True)
+    target = torch.rand(7) * 2.0
+    loss = loss_fn(logits, target)
+    assert torch.isfinite(loss)
+    loss.backward()
+    assert logits.grad is not None and torch.isfinite(logits.grad).all()
+    reference = crps_from_binned_cdf(
+        loss_fn._edges().detach().numpy(),
+        binned_cdf(torch.softmax(logits.detach(), -1).numpy()),
+        target.numpy(),
+    )
+    assert abs(float(loss) - reference) < 1e-4
