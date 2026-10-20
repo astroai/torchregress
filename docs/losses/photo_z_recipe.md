@@ -54,7 +54,9 @@ features = model.encode(x)
 ```
 
 `PZRecipe` is a lean FT-Transformer (per-feature tokenizer + CLS + Transformer)
-with a stage-1 bin head and a compact stage-2 MLP classifier.  The paper's
+with a stage-1 bin head and a compact stage-2 MLP classifier.  The helper
+`fit_pz_recipe(model, X, y, stage1_epochs=..., stage2_epochs=...)` trains both
+stages and returns a `PZRecipeFit` with `predict_proba`/`predict`.  The paper's
 historical pipeline uses a TabM classifier in stage 2; any TabM-like classifier
 can be substituted.  Bins and normalization must be fitted from the training
 sample, as in the paper.

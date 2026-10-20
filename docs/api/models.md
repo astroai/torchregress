@@ -9,6 +9,7 @@ from torchregress.models import (
     TabularMLP, PeriodicEmbedding, TabularPreprocessor,
     TabularFit, TabularEnsembleFit, fit_tabular, fit_tabular_ensemble,
     FTTransformer, FeatureTokenizer, PZRecipe,
+    PZRecipeFit, fit_pz_recipe,
 )
 ```
 
@@ -94,3 +95,14 @@ Two-stage photo-z model: stage 1 produces `n_bins` quantile-bin logits from the
 FT-Transformer representation; stage 2 is a compact MLP classifier on the same
 features.  Pass ``stage2_head`` (for example a TabM-like classifier mapping
 ``d_token`` features to logits) to substitute the paper's stage-2 architecture.  See [Photo-z recipe](../losses/photo_z_recipe.md).
+
+
+## fit_pz_recipe
+
+`fit_pz_recipe(model, X, y, *, stage1_epochs=100, stage2_epochs=50, batch_size=256, lr=1e-3, weight_decay=1e-5, n_stage2_bins=None, seed=0, device=None) -> PZRecipeFit`
+
+Reference two-stage training loop: stage 1 minimizes `PZRecipeLoss`
+(CE+CDF+RnC-N) on the FT-Transformer features; stage 2 freezes the encoder and
+trains `model.stage2_head` as a bin classifier.  Quantile bin centers are
+estimated from the training target.  This is a compact reference
+implementation, not the paper's historical TabM schedule.

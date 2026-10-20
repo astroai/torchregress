@@ -152,6 +152,8 @@ EXPECTED_EXPORTS = {
         "FTTransformer",
         "FeatureTokenizer",
         "PZRecipe",
+        "PZRecipeFit",
+        "fit_pz_recipe",
         "TabularMLP",
         "PeriodicEmbedding",
         "TabularPreprocessor",
