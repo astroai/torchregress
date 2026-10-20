@@ -6,11 +6,15 @@
 work with any torchregress loss.
 """
 
+from .ft_transformer import FeatureTokenizer, FTTransformer, PZRecipe
 from .preprocessing import TabularPreprocessor
 from .tabular_mlp import PeriodicEmbedding, TabularMLP
 from .training import TabularEnsembleFit, TabularFit, fit_tabular, fit_tabular_ensemble
 
 __all__ = [
+    "FTTransformer",
+    "FeatureTokenizer",
+    "PZRecipe",
     "TabularMLP",
     "PeriodicEmbedding",
     "TabularPreprocessor",

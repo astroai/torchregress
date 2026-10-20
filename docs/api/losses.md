@@ -116,6 +116,9 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `NormalizingFlowLoss` | `NormalizingFlowLoss(flow=..., reduction="mean")` | Conditional flow NLL (requires `zuko`) |
 | `NoiseAwareDensityLoss` | `NoiseAwareDensityLoss(base_loss, sigma=None, mode="auto", ...)` | Marginal likelihood with Gaussian label noise; GH for scalar flows, analytic for diagonal MDNs |
 | `BinnedDensityLoss` | `BinnedDensityLoss(bin_edges, label_smoothing=0.0)` | Smoothed histogram / ordinal-CDF scalar density head |
+| `PZRecipeLoss` | `PZRecipeLoss(bin_centers, ce_weight=0.5, cdf_weight=0.5, rnc_weight=0.1, ...)` | CE + binned-CDF + RnC-N photo-z objective |
+| `CumulativeCDFLoss` | `CumulativeCDFLoss(bin_centers, reduction="mean")` | Binned CDF squared-error loss |
+| `cumulative_cdf_loss` | `cumulative_cdf_loss(logits, target, bin_centers)` | Functional binned CDF loss |
 | `ContrastiveFlowLoss` | `ContrastiveFlowLoss(...)` | Contrastive likelihood-ratio flow |
 | `create_flow_model` | `create_flow_model(n_features, context_dim=0, flow_type="nsf", ...)` | Factory: NSF/cNSF, MAF, RealNVP/cINN, or Bernstein-polynomial (`bpf`) flow; `bound` sets the NSF tail bound |
 | `recommended_tail_bound` | `recommended_tail_bound(standardized_targets, *, margin=1.25, minimum=5.0, maximum=25.0) → float` | Tail bound covering the standardized training targets; pass the result as `create_flow_model(..., bound=...)` |

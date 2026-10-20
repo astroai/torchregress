@@ -191,6 +191,7 @@ from .quantile import (
     QuantileLoss,
     quantile_loss,
 )
+from .recipe import CumulativeCDFLoss, PZRecipeLoss, cumulative_cdf_loss
 
 # Robust losses
 from .robust import (
@@ -267,6 +268,7 @@ __all__ = [
     "ConsistencyRegLoss",
     "ContrastiveFlowLoss",
     "CorrectedScoreEIVLoss",
+    "CumulativeCDFLoss",
     "CumulativeLinkLoss",
     "DensityConformal",
     "DensityWeightedLoss",
@@ -331,6 +333,7 @@ __all__ = [
     "PseudoHuberLoss",
     "PseudoLabelConsistencyLoss",
     "PseudoLabelNLL",
+    "PZRecipeLoss",
     "QuantileCrossover",
     "QuantileCrossoverLoss",
     "QuantileLoss",
@@ -369,6 +372,7 @@ __all__ = [
     "beta_nll_loss",
     "beta_regression_nll",
     "create_contrastive_flow_loss",
+    "cumulative_cdf_loss",
     "discrete_wasserstein1",
     "create_flow_loss",
     "create_flow_model",

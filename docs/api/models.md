@@ -8,6 +8,7 @@ equations and when to use it, see [Tabular MLP](../methods/tabular_mlp.md).
 from torchregress.models import (
     TabularMLP, PeriodicEmbedding, TabularPreprocessor,
     TabularFit, TabularEnsembleFit, fit_tabular, fit_tabular_ensemble,
+    FTTransformer, FeatureTokenizer, PZRecipe,
 )
 ```
 
@@ -77,3 +78,18 @@ Leaves the global torch RNG untouched.
 Trains `n_members` models from seeds `seed, seed + 1, …`; `make_model(in_features)`
 builds each one. `TabularEnsembleFit.predict_members(X)` returns
 `(n_members, n, out_features)`; `predict(X)` returns their mean.
+
+
+## FTTransformer / PZRecipe
+
+`FTTransformer(n_features, *, d_token=128, n_layers=3, n_heads=4, dropout=0.1, out_dim=None)`
+
+Feature-tokenizer Transformer (Gorishniy et al., 2021).  Each numeric feature
+gets its own token embedding; a CLS token is prepended and a standard Transformer
+encoder returns a `d_token`-dimensional representation (or an `out_dim` head).
+
+`PZRecipe(n_features, *, n_bins=100, d_token=128, n_layers=3, n_heads=4, dropout=0.1, stage2_bins=200, stage2_hidden=256)`
+
+Two-stage photo-z model: stage 1 produces `n_bins` quantile-bin logits from the
+FT-Transformer representation; stage 2 is a compact MLP classifier on the same
+features (TabM-like heads can be substituted).  See [Photo-z recipe](../losses/photo_z_recipe.md).

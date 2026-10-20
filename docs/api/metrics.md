@@ -57,6 +57,12 @@ the stateful `OutlierFraction` below.
 | `crps_gaussian` | `crps_gaussian(mean, y_true, std, reduction="mean")` | Analytic CRPS for Gaussian (μ, σ) |
 | `continuous_ranked_probability_score` | `continuous_ranked_probability_score(quantiles, y_true)` | CRPS from quantile forecasts |
 | `crps_from_samples` | `crps_from_samples(samples, y)` | Empirical CRPS from MC samples |
+| `crps_from_binned_cdf` | `crps_from_binned_cdf(edges, cdf, y)` | Exact piecewise-linear CRPS for binned PDFs |
+| `binned_cdf` | `binned_cdf(probabilities)` | CDF values at bin edges from bin masses |
+| `pit_cvm` | `pit_cvm(pit, normalized=False)` | PIT Cramér–von Mises distance from uniformity |
+| `pit_local_w1` | `pit_local_w1(features, pit, k=100)` | Median local PIT 1-Wasserstein distance over photometric neighbours |
+| `pdf_width_68` | `pdf_width_68(samples, redshift)` | Median central-68% PDF width divided by `1+z` |
+| `paired_bootstrap_ci` | `paired_bootstrap_ci(a, b, n_boot=2000, alpha=0.32)` | Paired percentile interval for the mean difference |
 | `energy_score` | `energy_score(y_samples, y_true, beta=1.0)` | Multivariate energy score |
 | `gaussian_nll` | `gaussian_nll(mean, y_true, var, reduction="mean", min_variance=None)` | Diagonal Gaussian NLL (variance, not log-var); variance floor defaults to `finfo(dtype).tiny` |
 | `probability_integral_transform` | `probability_integral_transform(cdf_fn, y_true)` | PIT values via CDF callable |

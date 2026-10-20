@@ -194,6 +194,7 @@ nav = [
     ] },
     { "Special Target Types" = [
       { "Ordinal" = "losses/ordinal.md" },
+      { "Photo-z Recipe (CE+CDF+RnC-N)" = "losses/photo_z_recipe.md" },
       { "Censored & Survival" = "losses/censored.md" },
       { "Poisson & Tweedie" = "losses/poisson_tweedie.md" },
       { "Poisson-Gaussian Mixture" = "losses/poisson_gaussian.md" },

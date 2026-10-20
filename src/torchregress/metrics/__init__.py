@@ -100,6 +100,14 @@ from .ordinal import (
     ordinal_accuracy,
     quadratic_weighted_kappa,
 )
+from .photo_z import (
+    binned_cdf,
+    crps_from_binned_cdf,
+    paired_bootstrap_ci,
+    pdf_width_68,
+    pit_cvm,
+    pit_local_w1,
+)
 from .point import (
     HuberMetric,
     MedianAbsoluteDeviation,
@@ -144,6 +152,7 @@ __all__ = [
     "ExpectedCalibrationError",
     "MarginalCalibrationError",
     "bias",
+    "binned_cdf",
     "expected_calibration_error",
     "marginal_calibration_error",
     "calibration_score",
@@ -169,6 +178,7 @@ __all__ = [
     "conditional_density_estimation_loss",
     "continuous_ranked_probability_score",
     "crps_from_samples",
+    "crps_from_binned_cdf",
     "dss_score",
     "energy_score",
     "gaussian_nll",
@@ -178,6 +188,10 @@ __all__ = [
     "kolmogorov_smirnov_uniform_statistic",
     "pinball_loss",
     "pinball_metric",
+    "paired_bootstrap_ci",
+    "pdf_width_68",
+    "pit_cvm",
+    "pit_local_w1",
     "probability_integral_transform",
     "vario_score",
     "variogram_score",
