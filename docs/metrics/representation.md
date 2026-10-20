@@ -36,3 +36,10 @@ $1.4826\,\mathrm{median}|r|$ and is used in the readout metrics.
     comparison should use a task-specific validation protocol, paired seeds, and
     test-sample uncertainty intervals; see
     [`paired_bootstrap_ci`](photo_z.md#pdf-width-and-paired-uncertainty).
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Chang et al. (2026), companion methods paper; neighbourhood gap, target ordering and frozen readouts. |
+| 2 | Zha, K. et al. ["Rank-N-Contrast."](https://arxiv.org/abs/2301.06658) NeurIPS 2023. |

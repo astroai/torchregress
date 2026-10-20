@@ -75,3 +75,11 @@ loss = loss_fn(logits, z, features=features)
 `CumulativeCDFLoss` is also available standalone.  For continuous densities use
 [normalizing flows](nflows.md) or [MDNs](mdn.md); the recipe is a deliberately
 strong low-data binned baseline.
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Chang et al. (2026), companion photo-z solution paper (PZRecipe, CE+CDF+RnC-N, local-W1). |
+| 2 | Zha, K. et al. ["Rank-N-Contrast: A Framework for Learning Continuous Representations from Regression Labels."](https://arxiv.org/abs/2301.06658) NeurIPS 2023. |
+| 3 | Gorishniy, Y. et al. ["Revisiting Deep Learning Models for Tabular Data."](https://arxiv.org/abs/2106.11959) NeurIPS 2021. |

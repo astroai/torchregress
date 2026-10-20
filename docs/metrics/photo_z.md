@@ -66,3 +66,11 @@ percentile (68% interval).  This is test-sample uncertainty only; it does not
 include retraining variation.  Use [PIT diagnostics](distribution.md) for
 standard histogram/KS statistics and [calibration metrics](calibration.md) for
 post-hoc calibration.
+
+## References
+
+| # | Reference |
+|:-:|:----------|
+| 1 | Chang et al. (2026), companion photo-z paper; PIT CvM, local-W1, W68 and binned CRPS conventions. |
+| 2 | Polsterer, K. L. et al. "Photometric redshifts with CRPS." 2016 (binned CRPS/PDF scoring). |
+| 3 | D'Isanto, A. & Polsterer, K. L. "Photometric redshift estimation via deep learning." A&A 2018 (PIT/PDF diagnostics). |
