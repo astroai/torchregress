@@ -207,13 +207,21 @@ class JointDistributionalTTA:
         params: list[torch.nn.Parameter],
         diagnostics: Dict[str, Any],
     ) -> int:
-        """Gaussian-NLL self-training toward frozen pseudo-label moments.
+        """Match frozen diagonal-Gaussian teachers with KL(teacher || student).
 
-        ponytail: plain MSE toward own predictions has exactly-zero gradient
-        at init (target == output); the log-var term of the NLL carries the
-        actual adaptation signal (variance sharpening on kept points).
-        Upgrade path: augmentation-consistency targets.
+        Identical unperturbed teacher/student moments have zero gradient. A
+        variance-sharpening signal cannot be manufactured by retaining the
+        student's log variance while dividing residuals by the teacher variance.
+        Meaningful self-training needs distinct declared teacher/student views.
         """
+        y_pl = y_pl.detach().clone()
+        var_pl = var_pl.detach().clamp_min(_VAR_EPS)
+        if (
+            y_pl.shape != var_pl.shape
+            or not torch.isfinite(y_pl).all()
+            or not torch.isfinite(var_pl).all()
+        ):
+            raise ValueError("finite aligned diagonal teacher moments required")
         opt = torch.optim.Adam(params, lr=1e-4)
         best = float("inf")
         plateau = 0
@@ -223,8 +231,14 @@ class JointDistributionalTTA:
         for step in range(100):
             opt.zero_grad(set_to_none=True)
             mu, var = gaussian_outputs(model, X_tgt)
-            nll = 0.5 * (torch.log(var) + (mu - y_pl) ** 2 / var_pl.clamp_min(1e-6))
-            loss = nll.mean()
+            var = var.clamp_min(_VAR_EPS)
+            # Stable exact Gaussian KL: expm1(delta)-delta is zero with zero
+            # derivative at equal variances, avoiding cancellation/Adam drift.
+            delta = var_pl.log() - var.log()
+            kl = 0.5 * (torch.expm1(delta) - delta + (mu - y_pl).square() / var)
+            loss = kl.mean()
+            if not torch.isfinite(loss):
+                raise FloatingPointError("nonfinite teacher/student Gaussian KL")
             val = float(loss.detach())
             loss.backward()
             opt.step()
@@ -238,6 +252,8 @@ class JointDistributionalTTA:
         if was_training:
             model.train()
         diagnostics["head_finetune_steps"] = steps_run
+        diagnostics["head_finetune_objective"] = "KL(frozen Gaussian teacher || student)"
+        diagnostics["identical_unperturbed_teacher_has_zero_gradient"] = True
         return steps_run
 
     # ------------------------------------------------------------------

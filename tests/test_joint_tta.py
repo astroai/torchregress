@@ -196,3 +196,46 @@ def test_pseudo_label_round_zero_is_baseline() -> None:
     for before, after in zip(params_before, model.head.parameters()):
         assert torch.equal(before, after)
     assert "pseudo_label_yield" not in res.diagnostics
+
+
+class _ConstantGaussian(torch.nn.Module):
+    def __init__(self, variance=1.0):
+        super().__init__()
+        self.head = torch.nn.ParameterDict(
+            {
+                "mean": torch.nn.Parameter(torch.zeros(2, dtype=torch.float64)),
+                "log_var": torch.nn.Parameter(
+                    torch.full((2,), math.log(variance), dtype=torch.float64)
+                ),
+            }
+        )
+
+    def forward(self, x):
+        return self.head["mean"].expand(len(x), -1), self.head["log_var"].exp().expand(len(x), -1)
+
+
+def test_frozen_self_gaussian_kl_is_stationary_without_variance_collapse():
+    model = _ConstantGaussian(0.7).eval()
+    x = torch.zeros(8, 3, dtype=torch.float64)
+    teacher_mean, teacher_var = model(x)
+    initial = {k: v.clone() for k, v in model.state_dict().items()}
+    diagnostic = {}
+    JointDistributionalTTA()._finetune_head(
+        model, x, teacher_mean, teacher_var, list(model.parameters()), diagnostic
+    )
+    for name, tensor in model.state_dict().items():
+        assert torch.equal(tensor, initial[name])
+    assert diagnostic["identical_unperturbed_teacher_has_zero_gradient"]
+
+
+@pytest.mark.parametrize("initial_variance, direction", [(0.25, 1), (4.0, -1)])
+def test_teacher_gaussian_uncertainty_sets_variance_target(initial_variance, direction):
+    model = _ConstantGaussian(initial_variance).eval()
+    x = torch.zeros(8, 3, dtype=torch.float64)
+    frozen_mean = torch.zeros(8, 2, dtype=torch.float64)
+    frozen_variance = torch.ones(8, 2, dtype=torch.float64)
+    before = model.head["log_var"].detach().clone()
+    JointDistributionalTTA()._finetune_head(
+        model, x, frozen_mean, frozen_variance, list(model.parameters()), {}
+    )
+    assert ((model.head["log_var"] - before) * direction > 0).all()

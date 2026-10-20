@@ -194,6 +194,18 @@ lower, upper = adapter.predict_interval(y_pred_test, X_test)
 | `JointTTAResult` | Frozen outcome of `JointDistributionalTTA.adapt_and_calibrate`: the adapted model, the fitted conformal calibrator, and a diagnostics dict. |
 | `JointDistributionalTTA` | Adapt a distributional regressor at test time (feature alignment + filtered pseudo-label rounds), freeze, then recalibrate once with fixed importance weights. `.adapt_and_calibrate(model, X_cal_src, y_cal_src, X_target)`, `.predict_intervals(result, X_test)`. |
 
+`JointDistributionalTTA` head matching minimizes diagonal Gaussian
+$D_{\mathrm{KL}}(\mathcal{N}(\mu_t,v_t)\Vert\mathcal{N}(\mu_s,v_s))$
+with frozen teacher moments. Its per-coordinate score is
+$\tfrac12[\log(v_s/v_t)+(v_t+(\mu_s-\mu_t)^2)/v_s-1]$.
+An unperturbed model matched to its own moments has zero gradient; no
+variance-sharpening signal is invented. With alignment disabled and identical
+teacher/student views, use `pseudo_label_rounds=0` for an honest weighted-CP
+control. Meaningful self-training requires distinct justified views or teachers.
+The conformal statement concerns observed targets and the required sampling/
+weight assumptions; it does not establish calibrated physical truth.
+
+
 ---
 
 ## Streaming evaluation (`test_time.benchmark`)
