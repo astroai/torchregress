@@ -88,8 +88,9 @@ Feature-tokenizer Transformer (Gorishniy et al., 2021).  Each numeric feature
 gets its own token embedding; a CLS token is prepended and a standard Transformer
 encoder returns a `d_token`-dimensional representation (or an `out_dim` head).
 
-`PZRecipe(n_features, *, n_bins=100, d_token=128, n_layers=3, n_heads=4, dropout=0.1, stage2_bins=200, stage2_hidden=256)`
+`PZRecipe(n_features, *, n_bins=100, d_token=128, n_layers=3, n_heads=4, dropout=0.1, stage2_bins=200, stage2_hidden=256, stage2_head=None)`
 
 Two-stage photo-z model: stage 1 produces `n_bins` quantile-bin logits from the
 FT-Transformer representation; stage 2 is a compact MLP classifier on the same
-features (TabM-like heads can be substituted).  See [Photo-z recipe](../losses/photo_z_recipe.md).
+features.  Pass ``stage2_head`` (for example a TabM-like classifier mapping
+``d_token`` features to logits) to substitute the paper's stage-2 architecture.  See [Photo-z recipe](../losses/photo_z_recipe.md).

@@ -97,6 +97,7 @@ class PZRecipe(nn.Module):
         dropout: float = 0.1,
         stage2_bins: int = 200,
         stage2_hidden: int = 256,
+        stage2_head: Optional[nn.Module] = None,
     ) -> None:
         super().__init__()
         self.n_bins = int(n_bins)
@@ -109,11 +110,15 @@ class PZRecipe(nn.Module):
             dropout=dropout,
         )
         self.stage1_head = nn.Linear(d_token, self.n_bins)
-        self.stage2_head = nn.Sequential(
-            nn.Linear(d_token, stage2_hidden),
-            nn.SiLU(),
-            nn.Dropout(dropout),
-            nn.Linear(stage2_hidden, self.stage2_bins),
+        self.stage2_head = (
+            stage2_head
+            if stage2_head is not None
+            else nn.Sequential(
+                nn.Linear(d_token, stage2_hidden),
+                nn.SiLU(),
+                nn.Dropout(dropout),
+                nn.Linear(stage2_hidden, self.stage2_bins),
+            )
         )
 
     def encode(self, x: Tensor) -> Tensor:
