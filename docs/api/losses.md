@@ -271,6 +271,10 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `LocalConformal` | `LocalConformal(alpha=0.1, bandwidth=1.0)` | Local feature-space coverage |
 | `LocalConformalMAD` | `LocalConformalMAD(alpha=0.1, ...)` | Local + MAD scaling |
 | `CTI` | `CTI(alpha=0.1, grid_size=500)` | Density thresholded intervals |
+| `ConformalizedDensity` | `ConformalizedDensity(alpha=0.1, grid_size=500)` | Split-conformal level sets for any conditional log-density |
+| `ContrastiveFlowConformal` | `ContrastiveFlowConformal(flow_loss, alpha=0.1)` | Conformal level sets around a contrastive-flow positive density |
+| `WaldoConformal` | `WaldoConformal(alpha=0.1, critical_bins=None, covariance_type="diagonal")` | Wald-statistic confidence regions from conditional mean/covariance |
+| `WaldoPosteriorCalibrator` | `WaldoPosteriorCalibrator(alpha=0.1, covariance_type="full")` | WALDO calibration from predictive samples |
 | `DistributionalConformal` | `DistributionalConformal(alpha=0.1)` | PIT-based CDF calibration |
 | `LevelSetConformalPredictor` | `LevelSetConformalPredictor(alpha=0.1)` | Smallest density sets |
 | `MultiTargetConformal` | `MultiTargetConformal(alpha=0.1)` | Multi-target joint coverage |

@@ -2,13 +2,13 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 148,
+    "total_methods": 153,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
       "causal": 2,
       "censored": 3,
-      "conformal": 13,
+      "conformal": 17,
       "constraints": 2,
       "density_loss": 2,
       "eiv": 16,
@@ -16,6 +16,7 @@
       "evidential": 1,
       "expectile": 3,
       "flow": 3,
+      "flow_map": 1,
       "flow_matching": 1,
       "imbalanced_algorithm": 4,
       "imbalanced_loss": 11,
@@ -46,7 +47,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 19,
-      "Available": 122
+      "Available": 127
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1758,6 +1759,121 @@
       "imbalance": "yes",
       "noisy_features_eiv": "no",
       "notes": "Scalar Gaussian-error interval probabilities soften ConR memberships; zero errors recover the hard objective. No multivariate radial-noise approximation or calibrated predictive uncertainty."
+    },
+    {
+      "name": "NormalizingFlowMap",
+      "family": "flow_map",
+      "public_path": "torchregress.models.NormalizingFlowMap",
+      "task_tags": [
+        "multimodal",
+        "multi_target",
+        "conditional_density",
+        "flow_map"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Time-conditioned invertible affine-coupling flow map with exact endpoint likelihood and few-step transport. Tabular instantiation, not the full image-scale autoregressive NFM; no built-in label-noise measurement model."
+    },
+    {
+      "name": "ConformalizedDensity",
+      "family": "conformal",
+      "public_path": "torchregress.losses.ConformalizedDensity",
+      "task_tags": [
+        "conformal",
+        "density",
+        "calibration",
+        "multimodal"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Split-conformal level sets for any -log p(y|x) score; scalar intervals via CTI grid inversion, multi-target level-set membership. Valid marginal coverage, not conditional coverage."
+    },
+    {
+      "name": "ContrastiveFlowConformal",
+      "family": "conformal",
+      "public_path": "torchregress.losses.ContrastiveFlowConformal",
+      "task_tags": [
+        "conformal",
+        "contrastive",
+        "density",
+        "calibration"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Conformal level sets around a ContrastiveFlowLoss positive density; coverage is split-conformal, not a likelihood-ratio calibration."
+    },
+    {
+      "name": "WaldoConformal",
+      "family": "conformal",
+      "public_path": "torchregress.losses.WaldoConformal",
+      "task_tags": [
+        "conformal",
+        "calibration",
+        "confidence_regions",
+        "multi_target"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "WALD-statistic Neyman-inversion regions from conditional mean/covariance; binned critical values approximate WALDO's quantile regression. Valid marginal coverage; conditional coverage depends on critical-value fit."
+    },
+    {
+      "name": "WaldoPosteriorCalibrator",
+      "family": "conformal",
+      "public_path": "torchregress.losses.WaldoPosteriorCalibrator",
+      "task_tags": [
+        "conformal",
+        "calibration",
+        "posterior",
+        "confidence_regions"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "WALD regions using conditional moments estimated from predictive samples (flows/ensembles); supports joint multi-target regions."
     },
     {
       "name": "FlowMatchingMLP",

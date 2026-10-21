@@ -248,6 +248,8 @@ nav = [
     ] },
     { "Tabular MLP" = "methods/tabular_mlp.md" },
     { "Conditional Flow Matching" = "methods/flow_matching.md" },
+    { "Normalizing Flow Maps" = "methods/normalizing_flow_maps.md" },
+    { "WALDO Wald Regions" = "methods/waldo.md" },
     { "Model-Agnostic UQ Wrappers" = "methods/estimators.md" },
     { "Post-Training Calibration" = "methods/calibration.md" },
     { "Output Constraints" = "methods/constraints.md" },

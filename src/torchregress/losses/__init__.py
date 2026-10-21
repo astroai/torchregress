@@ -32,8 +32,10 @@ from .conformal import (
     CQR,
     CTI,
     UACQR,
+    ConformalizedDensity,
     ConformalLoss,
     ConformalPredictor,
+    ContrastiveFlowConformal,
     CVPlus,
     DensityConformal,
     DistributionalConformal,
@@ -114,8 +116,6 @@ from .gaussian_wasserstein import (
     gaussian_wasserstein_bound_loss,
     symmetric_spd_matrix_sqrt,
 )
-
-# Imbalanced regression losses
 from .imbalanced import (
     DensityWeightedLoss,
     FeatureDistributionSmoother,
@@ -136,6 +136,9 @@ from .sls import (
     UnionFrontier,
     VolumePreservingFlow,
 )
+
+# Imbalanced regression losses
+from .waldo import WaldoConformal, WaldoPosteriorCalibrator, waldo_statistic
 from .wasserstein1d import DiscreteWasserstein1Loss, discrete_wasserstein1
 
 # Normalizing flows (zuko is an optional dependency)
@@ -255,6 +258,8 @@ __all__ = [
     "CORALLoss",
     "CQR",
     "CTI",
+    "ConformalizedDensity",
+    "ContrastiveFlowConformal",
     "CVPlus",
     "CVaRLoss",
     "CauchyLoss",
@@ -358,6 +363,9 @@ __all__ = [
     "TukeyBiweightLoss",
     "TweedieLoss",
     "UACQR",
+    "WaldoConformal",
+    "WaldoPosteriorCalibrator",
+    "waldo_statistic",
     "UnionFrontier",
     "UncertaintyAwareConR",
     "VolumePreservingFlow",

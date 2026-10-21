@@ -52,3 +52,36 @@ lower, upper = cp.predict_interval(test_pred)   # >= 90% coverage under exchange
 | 2 | Romano, Y., Patterson, E. & Candès, E. (2019). Conformalized Quantile Regression. *NeurIPS*. |
 | 3 | Angelopoulos, A. N. & Bates, S. (2021). A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification. *arXiv:2107.07511*. |
 | 4 | Lei, L., G'Sell, M., Rinaldo, A., Ryan, T. J. & Wasserman, L. (2018). Distribution-Free Predictive Inference for Regression. *JASA*, 113(523):1094–1111. |
+
+## Density level sets and Wald regions
+
+Two newer calibration layers are available for conditional density models:
+
+- `ConformalizedDensity` / `ContrastiveFlowConformal` — split-conformal
+  level sets using `-log p(y|x)` as the nonconformity score.  Scalar targets get
+  intervals through `CTI`; multi-target targets get exact level-set membership
+  through `contains`.  `ContrastiveFlowConformal` wraps a fitted
+  `ContrastiveFlowLoss`'s positive-context density.
+- `WaldoConformal` / `WaldoPosteriorCalibrator` — WALDO's Wald statistic
+  `(mean - y)^T Cov^{-1}(mean - y)` with Neyman inversion and optionally binned
+  critical values.  The posterior calibrator estimates moments from predictive
+  samples (flow/ensemble) and supports joint multi-target regions.
+
+```python
+from torchregress.losses import ConformalizedDensity, WaldoPosteriorCalibrator
+
+cp = ConformalizedDensity(alpha=0.1)
+cp.calibrate(lambda c, y: -flow_loss.log_prob(c, y), ctx_cal, y_cal)
+lower, upper = cp.predict_interval(
+    lambda c, y: -flow_loss.log_prob(c, y), ctx_test, -3.0, 3.0
+)
+
+waldo = WaldoPosteriorCalibrator(alpha=0.1)
+waldo.calibrate(samples_cal, y_cal)
+inside = waldo.contains(samples_test, y_test)
+```
+
+These are **marginal** split-conformal guarantees.  WALDO's original
+conditional guarantee uses simulator draws at each parameter and quantile
+regression for critical values; the binned critical-value option here is an
+approximation and must be validated by parameter-region coverage.

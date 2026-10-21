@@ -937,6 +937,79 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="NormalizingFlowMap",
+        family="flow_map",
+        public_path="torchregress.models.NormalizingFlowMap",
+        task_tags=("multimodal", "multi_target", "conditional_density", "flow_map"),
+        maturity="Available",
+        multimodal="yes",
+        multi_target="yes",
+        non_gaussian="yes",
+        aleatoric="yes",
+        calibration="partial",
+        notes=(
+            "Time-conditioned invertible affine-coupling flow map with exact endpoint "
+            "likelihood and few-step transport. Tabular instantiation, not the full "
+            "image-scale autoregressive NFM; no built-in label-noise measurement model."
+        ),
+    ),
+    MethodMetadata(
+        name="ConformalizedDensity",
+        family="conformal",
+        public_path="torchregress.losses.ConformalizedDensity",
+        task_tags=("conformal", "density", "calibration", "multimodal"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="yes",
+        calibration="yes",
+        notes=(
+            "Split-conformal level sets for any -log p(y|x) score; scalar intervals via "
+            "CTI grid inversion, multi-target level-set membership. Valid marginal coverage, "
+            "not conditional coverage."
+        ),
+    ),
+    MethodMetadata(
+        name="ContrastiveFlowConformal",
+        family="conformal",
+        public_path="torchregress.losses.ContrastiveFlowConformal",
+        task_tags=("conformal", "contrastive", "density", "calibration"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="yes",
+        calibration="yes",
+        notes=(
+            "Conformal level sets around a ContrastiveFlowLoss positive density; "
+            "coverage is split-conformal, not a likelihood-ratio calibration."
+        ),
+    ),
+    MethodMetadata(
+        name="WaldoConformal",
+        family="conformal",
+        public_path="torchregress.losses.WaldoConformal",
+        task_tags=("conformal", "calibration", "confidence_regions", "multi_target"),
+        maturity="Available",
+        multi_target="yes",
+        calibration="yes",
+        notes=(
+            "WALD-statistic Neyman-inversion regions from conditional mean/covariance; "
+            "binned critical values approximate WALDO's quantile regression. Valid "
+            "marginal coverage; conditional coverage depends on critical-value fit."
+        ),
+    ),
+    MethodMetadata(
+        name="WaldoPosteriorCalibrator",
+        family="conformal",
+        public_path="torchregress.losses.WaldoPosteriorCalibrator",
+        task_tags=("conformal", "calibration", "posterior", "confidence_regions"),
+        maturity="Available",
+        multi_target="yes",
+        calibration="yes",
+        notes=(
+            "WALD regions using conditional moments estimated from predictive samples "
+            "(flows/ensembles); supports joint multi-target regions."
+        ),
+    ),
+    MethodMetadata(
         name="FlowMatchingMLP",
         family="flow_matching",
         public_path="torchregress.models.FlowMatchingMLP",

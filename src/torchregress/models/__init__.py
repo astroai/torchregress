@@ -8,6 +8,7 @@ work with any torchregress loss.
 
 from .flow_matching import FlowMatchingMLP, cfm_loss, sample_cfm
 from .ft_transformer import FeatureTokenizer, FTTransformer, PZRecipe
+from .normalizing_flow_map import NormalizingFlowMap
 from .preprocessing import TabularPreprocessor
 from .pz_recipe import PZRecipeFit, fit_pz_recipe
 from .tabular_mlp import PeriodicEmbedding, TabularMLP
@@ -17,6 +18,7 @@ __all__ = [
     "FTTransformer",
     "FeatureTokenizer",
     "FlowMatchingMLP",
+    "NormalizingFlowMap",
     "cfm_loss",
     "sample_cfm",
     "PZRecipe",

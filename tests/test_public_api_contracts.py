@@ -152,6 +152,7 @@ EXPECTED_EXPORTS = {
         "FTTransformer",
         "FeatureTokenizer",
         "FlowMatchingMLP",
+        "NormalizingFlowMap",
         "cfm_loss",
         "sample_cfm",
         "PZRecipe",

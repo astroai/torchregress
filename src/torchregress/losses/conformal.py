@@ -2858,3 +2858,144 @@ class SLSConformal(LevelSetConformalPredictor):
                 return G_flat.reshape(n_test_b, self.grid_size)
 
             return self._grid_search_level_set(eval_fn, x, threshold, y_min, y_max, self.grid_size)
+
+
+class ConformalizedDensity:
+    """Split-conformal level sets for any conditional log-density.
+
+    This is the built-in conformal calibration for normalizing flows and other
+    density estimators: calibrate the nonconformity score
+    ``s_i = -log p(y_i | x_i)`` on a held-out split, then report the level set
+    ``{y : -log p(y | x) <= q_hat}``.  The finite-sample marginal guarantee is
+    the standard split-conformal one.
+
+    For scalar targets :meth:`predict_interval` uses :class:`CTI`'s grid level
+    search and returns the tightest enclosing interval.  For multi-target
+    targets the threshold and :meth:`contains` are exact level-set membership;
+    a scalar interval is intentionally not manufactured.
+
+    Args:
+        alpha: Miscoverage rate.
+        grid_size: Number of grid points for scalar interval construction.
+
+    Example:
+        >>> from torchregress.losses import ConformalizedDensity, ContrastiveFlowLoss
+        >>> # fit / obtain a flow_loss with log_prob(context, target)
+        >>> cp = ConformalizedDensity(alpha=0.1)
+        >>> cp.calibrate(lambda c, y: -flow_loss.log_prob(c, y), context_cal, y_cal)
+        >>> lower, upper = cp.predict_interval(
+        ...     lambda c, y: -flow_loss.log_prob(c, y), context_test, -3.0, 3.0
+        ... )
+    """
+
+    def __init__(self, alpha: float = 0.1, grid_size: int = 500) -> None:
+        if not 0.0 < alpha < 1.0:
+            raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        self.alpha = float(alpha)
+        self.cti = CTI(alpha=alpha, grid_size=int(grid_size))
+        self._is_calibrated = False
+
+    @property
+    def threshold(self) -> Optional[Tensor]:
+        """Calibrated negative-log-density threshold (``None`` before calibration)."""
+        return self.cti.q_hat if isinstance(self.cti.q_hat, Tensor) else None
+
+    def calibrate(
+        self,
+        negative_log_density: Callable[[Tensor, Tensor], Tensor],
+        context: Tensor,
+        target: Tensor,
+    ) -> None:
+        """Calibrate from a callable returning ``-log p(y | context)``."""
+        log_density = -negative_log_density(context, target).detach().reshape(-1)
+        if not torch.isfinite(log_density).all():
+            raise ValueError("negative log-density must be finite on the calibration split")
+        # CTI computes the nonconformity score itself as -log_density.
+        self.cti.calibrate(log_density, target.reshape(target.shape[0], -1))
+        self._is_calibrated = True
+
+    def calibrate_log_prob(
+        self,
+        log_prob: Callable[[Tensor, Tensor], Tensor],
+        context: Tensor,
+        target: Tensor,
+    ) -> None:
+        """Convenience alias taking ``log p`` instead of negative log-density."""
+        log_density = log_prob(context, target).detach().reshape(-1)
+        if not torch.isfinite(log_density).all():
+            raise ValueError("log-density must be finite on the calibration split")
+        self.cti.calibrate(log_density, target.reshape(target.shape[0], -1))
+        self._is_calibrated = True
+
+    def contains(
+        self,
+        negative_log_density: Callable[[Tensor, Tensor], Tensor],
+        context: Tensor,
+        target: Tensor,
+    ) -> Tensor:
+        """Boolean level-set membership for each row (works for multi-target)."""
+        if not self._is_calibrated or self.threshold is None:
+            raise RuntimeError("Call calibrate() first.")
+        score = negative_log_density(context, target).reshape(-1)
+        return score <= self.threshold.to(score.device)
+
+    def predict_interval(
+        self,
+        negative_log_density: Callable[[Tensor, Tensor], Tensor],
+        context: Tensor,
+        y_min: float,
+        y_max: float,
+    ) -> tuple[Tensor, Tensor]:
+        """Scalar level-set intervals; raises for multi-target contexts."""
+        if not self._is_calibrated:
+            raise RuntimeError("Call calibrate() first.")
+        if context.dim() != 2:
+            raise ValueError("context must be [N, C]")
+        lower, upper = [], []
+        for i in range(context.shape[0]):
+            ctx = context[i : i + 1]
+
+            def density_fn(y_grid: Tensor, _x: Tensor, *, _ctx=ctx) -> Tensor:
+                y = y_grid.reshape(-1, 1).to(_ctx.device, _ctx.dtype)
+                return -negative_log_density(_ctx.expand(y.shape[0], -1), y).reshape(-1)
+
+            lo, hi = self.cti.predict_intervals_from_density(density_fn, ctx, y_min, y_max)
+            lower.append(lo.reshape(-1))
+            upper.append(hi.reshape(-1))
+        return torch.cat(lower).reshape(-1, 1), torch.cat(upper).reshape(-1, 1)
+
+
+class ContrastiveFlowConformal(ConformalizedDensity):
+    """Conformal level sets around a :class:`ContrastiveFlowLoss` positive flow.
+
+    ``ContrastiveFlowLoss`` exposes the positive-context conditional density
+    through :meth:`log_prob`; its contrastive objective changes the training
+    signal, not the split-conformal coverage guarantee.  For a likelihood-ratio
+    regime (``temperature=1``, ``margin=0``) this is the flow density; outside
+    that regime the level set is still a valid conformal score but should not be
+    read as a calibrated likelihood ratio.
+
+    Args:
+        flow_loss: A fitted :class:`~torchregress.losses.ContrastiveFlowLoss`
+            (or any object with ``log_prob(context, target)``).
+        alpha: Miscoverage rate.
+        grid_size: Grid size for scalar interval inversion.
+    """
+
+    def __init__(self, flow_loss: Any, alpha: float = 0.1, grid_size: int = 500) -> None:
+        super().__init__(alpha=alpha, grid_size=grid_size)
+        self.flow_loss = flow_loss
+
+    def calibrate(self, context: Tensor, target: Tensor) -> None:  # type: ignore[override]
+        """Calibrate on held-out contexts/targets using the positive flow density."""
+        super().calibrate_log_prob(self.flow_loss.log_prob, context, target)
+
+    def predict_interval(
+        self, context: Tensor, y_min: float, y_max: float
+    ) -> tuple[Tensor, Tensor]:  # type: ignore[override]
+        """Scalar intervals from the conformal flow level set."""
+        return super().predict_interval(self.flow_loss.log_prob, context, y_min, y_max)
+
+    def contains(self, context: Tensor, target: Tensor) -> Tensor:  # type: ignore[override]
+        """Level-set membership for scalar or multi-target flows."""
+        return super().contains(lambda c, y: -self.flow_loss.log_prob(c, y), context, target)

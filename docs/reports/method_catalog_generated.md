@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-20`
+_Generated date_: `2026-10-21`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `148`
+- Total methods: `153`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -19,7 +19,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `calibration_transform` | 7 |
 | `causal` | 2 |
 | `censored` | 3 |
-| `conformal` | 13 |
+| `conformal` | 17 |
 | `constraints` | 2 |
 | `density_loss` | 2 |
 | `eiv` | 16 |
@@ -27,6 +27,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `evidential` | 1 |
 | `expectile` | 3 |
 | `flow` | 3 |
+| `flow_map` | 1 |
 | `flow_matching` | 1 |
 | `imbalanced_algorithm` | 4 |
 | `imbalanced_loss` | 11 |
@@ -60,7 +61,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 19 |
-| `Available` | 122 |
+| `Available` | 127 |
 
 ## Method Rows
 
@@ -92,6 +93,8 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `CVPlus` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.CVPlus` |
 | `ConformalLoss` | `conformal` | `Core` | `coverage_guarantees`, `calibration` | `calibration`, `ood*` | `torchregress.losses.ConformalLoss` |
 | `ConformalRegressor` | `conformal` | `Available` | `coverage_guarantees`, `prediction_intervals`, `calibration` | `calibration`, `ood*` | `torchregress.estimators.ConformalRegressor` |
+| `ConformalizedDensity` | `conformal` | `Available` | `conformal`, `density`, `calibration`, `multimodal` | `calibration`, `ood*` | `torchregress.losses.ConformalizedDensity` |
+| `ContrastiveFlowConformal` | `conformal` | `Available` | `conformal`, `contrastive`, `density`, `calibration` | `calibration`, `ood*` | `torchregress.losses.ContrastiveFlowConformal` |
 | `DensityConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.DensityConformal` |
 | `EnsembleBatchCP` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.EnsembleBatchCP` |
 | `JackknifePlus` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.JackknifePlus` |
@@ -100,6 +103,8 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `SLSConformal` | `conformal` | `Available` | `coverage_guarantees`, `multimodal`, `calibration` | `calibration`, `ood*` | `torchregress.losses.SLSConformal` |
 | `SplitConformal` | `conformal` | `Core` | `coverage_guarantees`, `calibration`, `baseline` | `calibration`, `ood*` | `torchregress.losses.SplitConformal` |
 | `UACQR` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `heteroscedastic_noise` | `calibration`, `ood*` | `torchregress.losses.UACQR` |
+| `WaldoConformal` | `conformal` | `Available` | `conformal`, `calibration`, `confidence_regions`, `multi_target` | `calibration`, `ood*` | `torchregress.losses.WaldoConformal` |
+| `WaldoPosteriorCalibrator` | `conformal` | `Available` | `conformal`, `calibration`, `posterior`, `confidence_regions` | `calibration`, `ood*` | `torchregress.losses.WaldoPosteriorCalibrator` |
 | `BoundedHead` | `constraints` | `Available` | `constraints`, `bounded_outputs` | `calibration*`, `ood*` | `torchregress.constraints.BoundedHead` |
 | `NonCrossingSort` | `constraints` | `Available` | `constraints`, `ordered_outputs` | `calibration*`, `ood*` | `torchregress.constraints.NonCrossingSort` |
 | `BinnedDensityLoss` | `density_loss` | `Available` | `scalar_targets`, `conditional_density`, `soft_targets` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.BinnedDensityLoss` |
@@ -135,6 +140,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `ContrastiveFlowLoss` | `flow` | `Available` | `parameter_estimation`, `domain_shift`, `simulation_based_inference` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.ContrastiveFlowLoss` |
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
 | `SLSLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `prediction_intervals` | `calibration*`, `ood*` | `torchregress.losses.SLSLoss` |
+| `NormalizingFlowMap` | `flow_map` | `Available` | `multimodal`, `multi_target`, `conditional_density`, `flow_map` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.NormalizingFlowMap` |
 | `FlowMatchingMLP` | `flow_matching` | `Available` | `multimodal`, `multi_target`, `conditional_density`, `sampling` | `aleatoric*`, `calibration*`, `ood*` | `torchregress.models.FlowMatchingMLP` |
 | `ContinuousGroupDRO` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.ContinuousGroupDRO` |
 | `GroupDROTrainer` | `imbalanced_algorithm` | `Available` | `imbalance`, `rare_targets`, `group_robust`, `distributionally_robust` | `calibration*`, `ood*` | `torchregress.algorithms.GroupDROTrainer` |
@@ -221,7 +227,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`SLSConformal`, `BinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `FlowMatchingMLP`, `MDNLoss`, `PZRecipeLoss`, `TriLoss`, `PZRecipe`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
+`SLSConformal`, `BinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MDNLoss`, `PZRecipeLoss`, `TriLoss`, `PZRecipe`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 

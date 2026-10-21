@@ -11,6 +11,7 @@ from torchregress.models import (
     FTTransformer, FeatureTokenizer, PZRecipe,
     PZRecipeFit, fit_pz_recipe,
     FlowMatchingMLP, cfm_loss, sample_cfm,
+    NormalizingFlowMap,
 )
 ```
 
@@ -123,3 +124,14 @@ OT-CFM velocity-regression loss; returns a scalar mean loss.
 
 Euler sampler returning `[B, n_samples, n_features]`.  CFM has no exact
 likelihood; use sample-based CRPS/energy/coverage/PIT or an ODE likelihood.
+
+
+## NormalizingFlowMap
+
+`NormalizingFlowMap(n_features, context_dim, *, n_layers=4, hidden=(128, 128), time_features=16, map_weight=1.0, nll_weight=0.1)`
+
+Time-conditioned invertible affine-coupling flow map.  It provides
+`forward(x, s, t, context)`/`inverse(z, s, t, context)`, exact
+`log_prob(context, target)`, `sample(context, n_samples)`,
+`flow_map_loss`, and `training_loss` (flow-map matching + endpoint NLL).
+See [Normalizing Flow Maps](../methods/normalizing_flow_maps.md).
