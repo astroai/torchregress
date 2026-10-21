@@ -12,9 +12,15 @@ layers.  For an admissible pair $s<t$,
 
 $$
 x_t=f_{s,t}(x_s\mid c),\qquad
-\log p(y\mid c)=\log p_{\rm base}(f_{0,1}(y\mid c))
-+\log\left|\det\frac{\partial f_{0,1}}{\partial y}\right|.
+\log p(y\mid c)=\log p_{\rm base}(f^{-1}_{0,1}(y\mid c))
++\log\left|\det\frac{\partial f^{-1}_{0,1}}{\partial y}\right|.
 $$
+
+The forward endpoint transports Gaussian noise to targets:
+$y=f_{0,1}(z\mid c)$ with $z\sim\mathcal N(0,I)$.
+Sampling uses this forward map; likelihood evaluation uses its inverse and
+inverse log Jacobian. Each time argument can independently be a scalar or
+one value per batch row.
 
 Training combines pointwise flow-map matching,
 

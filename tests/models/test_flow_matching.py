@@ -25,3 +25,11 @@ def test_cfm_scalar_target() -> None:
     net = FlowMatchingMLP(n_features=1, context_dim=4, hidden=(16,))
     ctx = torch.randn(3, 4)
     assert torch.isfinite(cfm_loss(net, ctx, torch.randn(3))).item()
+
+
+def test_cfm_odd_time_embedding_width() -> None:
+    net = FlowMatchingMLP(1, 2, hidden=(8,), time_embedding=3)
+    x = torch.randn(4, 1)
+    t = torch.rand(4)
+    context = torch.randn(4, 2)
+    assert net(x, t, context).shape == x.shape

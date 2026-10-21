@@ -84,6 +84,13 @@ beta = result.state
 | `continuation` | tuple of stages | `()` | Ordered convex-to-redescending weight schedule |
 | convergence tolerances | `float` or `None` | see API | Relative objective, weight and caller-defined parameter-step criteria |
 
+Kish effective sample size and the weighted mean robust objective are invariant
+to a common finite positive multiplier of base precisions. The controller
+normalizes only diagnostic sums to avoid overflow or false breakdown; the
+callback still receives the original precision units. Explicitly masked
+residual entries may be nonfinite and are ignored, including entirely missing
+output columns. Nonfinite observed residuals still terminate the fit.
+
 **Returns:** frozen `IRLSFitResult` with the final state, applied robust weights and precision, residuals, scale, robust objective, Kish effective sample size, termination reason and a tuple of frozen per-iteration diagnostics. Termination is one of `"converged"`, `"max_iterations"`, `"empty"`, `"breakdown"`, or `"non_finite"`. A caller-owned rank failure can be reported by raising `IRLSBreakdownError` from `weighted_fit`.
 
 ---

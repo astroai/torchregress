@@ -114,7 +114,11 @@ soft-target cross-entropy, **not** the measurement marginal likelihood above:
 putting the label kernel inside an expected log score differs from taking the
 log of the convolved density. It does not establish latent-density recovery.
 The CDF interpolates linearly within each bin, matching uniform intra-bin
-sampling. This is a deliberately strong
+sampling. Bin probabilities stay on the target device and preserve floating
+point precision at bin boundaries; floating-point tensor edges retain their
+supplied precision, and samples follow the logits' dtype and device.
+Nonfinite targets must be explicitly masked through the loss; they are not
+silently assigned to an edge bin. This is a deliberately strong
 baseline for **low-label, scalar** problems: it has no Jacobian, no mode
 collapse, and is much cheaper than a flow.  It is not a replacement for a flow
 on genuinely multi-dimensional or highly structured targets.

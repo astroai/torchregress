@@ -236,7 +236,7 @@ def iteratively_reweighted_fit(
         previous_weights: torch.Tensor | None = None
         previous_objective: float | None = None
         for stage_iteration in range(stage.max_iter):
-            if not bool(torch.isfinite(residuals).all().item()):
+            if not _observed_residuals_finite(residuals, mask):
                 return _result(
                     state,
                     last_weights,
@@ -327,7 +327,7 @@ def iteratively_reweighted_fit(
                     f"{residuals.shape} -> {next_residuals.shape}"
                 )
             state_finite = _state_is_finite(next_state)
-            residuals_finite = bool(torch.isfinite(next_residuals).all().item())
+            residuals_finite = _observed_residuals_finite(next_residuals, mask)
             parameter_step = _parameter_step(problem, state, next_state, cfg.eps)
             try:
                 fitted_update = _weight_update(
@@ -486,12 +486,23 @@ def _weight_update(
     precision = _apply_mask_to_precision(precision, mask, residuals)
     base_sample = _sample_precision(base_precision, residuals)
     diagnostic_weights = torch.where(active, base_sample * weights, torch.zeros_like(weights))
+    # Kish ESS and the weighted mean objective must be invariant to a common
+    # precision multiplier. Normalize before summing/squaring to avoid overflow
+    # and false breakdowns for very small, but otherwise valid, precisions.
+    diagnostic_max = diagnostic_weights.max()
+    diagnostic_weights = diagnostic_weights / torch.where(
+        diagnostic_max > 0, diagnostic_max, torch.ones_like(diagnostic_max)
+    )
     total = diagnostic_weights.sum()
     ess = total.square() / diagnostic_weights.square().sum().clamp_min(config.eps)
     rho = _robust_objective(distance, stage.weight, stage.weight_params)
-    denominator = torch.where(active, base_sample, torch.zeros_like(base_sample)).sum()
-    objective = (rho * torch.where(active, base_sample, torch.zeros_like(base_sample))).sum()
-    objective = objective / denominator.clamp_min(config.eps)
+    objective_weights = torch.where(active, base_sample, torch.zeros_like(base_sample))
+    objective_max = objective_weights.max()
+    objective_weights = objective_weights / torch.where(
+        objective_max > 0, objective_max, torch.ones_like(objective_max)
+    )
+    denominator = objective_weights.sum()
+    objective = (rho * objective_weights).sum() / denominator.clamp_min(config.eps)
     return _WeightUpdate(
         weights.detach(),
         precision.detach(),
@@ -509,6 +520,8 @@ def _standardize(
     config: IRLSFitConfig,
     mask: torch.Tensor | None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+    if mask is not None:
+        residuals = torch.where(_expanded_mask(mask, residuals), residuals, 0.0)
     covariance = _covariance(problem, state)
     whiten = _whiten_callback(problem)
     if covariance is not None and whiten is not None:
@@ -597,7 +610,15 @@ def _masked_median(values: torch.Tensor, valid: torch.Tensor) -> torch.Tensor:
     ordered = torch.where(flat_valid, flat_values, torch.inf).sort(dim=0).values
     indices = ((flat_valid.sum(dim=0) - 1).clamp_min(0) // 2).unsqueeze(0)
     median = ordered.gather(0, indices).squeeze(0)
+    median = torch.where(flat_valid.any(dim=0), median, torch.zeros_like(median))
     return median.reshape(values.shape[1:])
+
+
+def _observed_residuals_finite(residuals: torch.Tensor, mask: torch.Tensor | None) -> bool:
+    finite = torch.isfinite(residuals)
+    if mask is not None:
+        finite = finite | ~_expanded_mask(mask, residuals)
+    return bool(finite.all().item())
 
 
 def _residuals(problem: IRLSProblem[StateT] | IRLSCallbacks[StateT], state: StateT) -> torch.Tensor:

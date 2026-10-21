@@ -43,11 +43,13 @@ class FlowMatchingMLP(nn.Module):
             if i < len(widths) - 2:
                 layers.append(nn.SiLU())
         self.net = nn.Sequential(*layers)
-        self.register_buffer("time_frequencies", torch.arange(1, time_embedding // 2 + 1).float())
+        self.register_buffer(
+            "time_frequencies", torch.arange(1, (time_embedding + 1) // 2 + 1).float()
+        )
 
     def _time_features(self, t: Tensor) -> Tensor:
         arg = t.reshape(-1, 1) * self.time_frequencies.to(t.device, t.dtype) * torch.pi
-        return torch.cat([torch.sin(arg), torch.cos(arg)], dim=-1)
+        return torch.cat([torch.sin(arg), torch.cos(arg)], dim=-1)[:, : self.time_embedding]
 
     def forward(self, x: Tensor, t: Tensor, context: Tensor) -> Tensor:
         if x.dim() != 2 or context.dim() != 2:

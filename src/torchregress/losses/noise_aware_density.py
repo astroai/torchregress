@@ -359,7 +359,12 @@ class BinnedDensityLoss(BaseLoss):
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
-        edges = torch.as_tensor(bin_edges, dtype=torch.float32)
+        edge_dtype = (
+            bin_edges.dtype
+            if isinstance(bin_edges, Tensor) and bin_edges.is_floating_point()
+            else torch.float32
+        )
+        edges = torch.as_tensor(bin_edges, dtype=edge_dtype)
         if edges.dim() != 1 or edges.numel() < 2:
             raise ValueError("bin_edges must be a 1D sequence with at least two edges")
         if not torch.isfinite(edges).all() or not bool(torch.all(edges[1:] > edges[:-1])):
@@ -378,13 +383,25 @@ class BinnedDensityLoss(BaseLoss):
         target: Tensor,
         sigma: Optional[Tensor | float] = None,
     ) -> Tensor:
-        """Gaussian bin masses (or hard one-hot with smoothing) for each row."""
+        """Gaussian bin masses, on the target device without lowering precision.
+
+        Hard one-hot targets are used when sigma is absent. Nonfinite targets
+        must be explicitly masked through :meth:`forward` before binning.
+        """
         if target.dim() > 1:
             if target.numel() != target.shape[0]:
                 raise ValueError("BinnedDensityLoss supports one scalar target per row")
             target = target.reshape(-1)
-        target = target.reshape(-1).to(dtype=self.bin_edges.dtype, device=self.bin_edges.device)
-        edges: Tensor = self.bin_edges.to(device=target.device)
+        # The input owns the device. Promoting precision avoids rounding a
+        # float64 target across an otherwise exactly representable bin edge.
+        dtype = torch.promote_types(
+            target.dtype if target.is_floating_point() else self.bin_edges.dtype,
+            self.bin_edges.dtype,
+        )
+        target = target.reshape(-1).to(dtype=dtype)
+        if not torch.isfinite(target).all():
+            raise ValueError("target must contain finite scalar values")
+        edges: Tensor = self.bin_edges.to(target)
         sigma_t = _as_sigma(sigma, target)
         if sigma_t is None or bool(torch.all(sigma_t <= _MIN_SIGMA * 10)):
             idx = torch.searchsorted(edges, target.reshape(-1)).clamp(1, self.n_bins) - 1
@@ -449,7 +466,7 @@ class BinnedDensityLoss(BaseLoss):
         """Draw bin indices and uniform intra-bin target values."""
         probs = torch.softmax(y_pred, dim=-1)
         idx = torch.distributions.Categorical(probs=probs).sample((n_samples,)).transpose(0, 1)
-        edges: Tensor = self.bin_edges.to(device=probs.device)
+        edges: Tensor = self.bin_edges.to(probs)
         left = edges[:-1][idx]
         right = edges[1:][idx]
         return left + (right - left) * torch.rand_like(left)

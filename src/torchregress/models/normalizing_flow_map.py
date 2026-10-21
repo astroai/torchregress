@@ -188,7 +188,12 @@ class NormalizingFlowMap(nn.Module):
     @staticmethod
     def _time_like(value: float | Tensor, x: Tensor) -> Tensor:
         if isinstance(value, Tensor):
-            return value.reshape(-1).to(x.device, x.dtype)
+            value = value.reshape(-1).to(x.device, x.dtype)
+            if value.numel() == 1:
+                return value.expand(x.shape[0])
+            if value.numel() != x.shape[0]:
+                raise ValueError("time must be scalar or have one value per batch row")
+            return value
         return torch.full((x.shape[0],), float(value), device=x.device, dtype=x.dtype)
 
     def forward(
@@ -219,7 +224,7 @@ class NormalizingFlowMap(nn.Module):
         """Exact conditional log-density ``log p(y | context)``."""
         if target.dim() == 1:
             target = target.unsqueeze(-1)
-        z, logdet = self.forward(target, 0.0, 1.0, context)
+        z, logdet = self.inverse(target, 0.0, 1.0, context)
         base = -0.5 * (z**2).sum(dim=-1) - 0.5 * self.n_features * math.log(2.0 * math.pi)
         return base + logdet
 
@@ -234,7 +239,7 @@ class NormalizingFlowMap(nn.Module):
             device=context.device,
         )
         ctx = context.repeat_interleave(n_samples, dim=0)
-        x, _ = self.inverse(z, 1.0, 0.0, ctx)
+        x, _ = self.forward(z, 0.0, 1.0, ctx)
         return x.reshape(b, n_samples, self.n_features)
 
     def flow_map_loss(

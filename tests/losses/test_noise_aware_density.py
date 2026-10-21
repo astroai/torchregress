@@ -105,3 +105,49 @@ def test_uncertainty_aware_conr() -> None:
     loss.backward()
     assert features.grad is not None
     assert torch.isfinite(features.grad).all()
+
+
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+        ),
+    ],
+)
+def test_binned_density_preserves_boundary_precision_and_input_device(device):
+    loss = BinnedDensityLoss([0.0, 1.0, 2.0])
+    target = torch.tensor([1.0 - 1e-8, 1.0 + 1e-8], dtype=torch.float64, device=device)
+    probabilities = loss.bin_probabilities(target)
+    assert probabilities.device == target.device
+    assert probabilities.dtype == torch.float64
+    torch.testing.assert_close(probabilities, torch.eye(2, dtype=target.dtype, device=device))
+    logits = torch.tensor(
+        [[2.0, -1.0], [-1.0, 2.0]], dtype=torch.float64, device=device, requires_grad=True
+    )
+    actual = loss(logits, target)
+    expected = torch.nn.functional.cross_entropy(logits, torch.tensor([0, 1], device=device))
+    torch.testing.assert_close(actual, expected)
+    actual.backward()
+    assert torch.isfinite(logits.grad).all()
+    samples = loss.sample(logits.detach(), 5)
+    assert samples.dtype == logits.dtype and samples.device == logits.device
+
+
+def test_binned_density_rejects_nonfinite_unmasked_targets_but_allows_missing_mask():
+    loss = BinnedDensityLoss([0.0, 1.0, 2.0])
+    target = torch.tensor([0.5, float("nan")])
+    logits = torch.zeros(2, 2)
+    with pytest.raises(ValueError, match="finite"):
+        loss(logits, target)
+    result = loss(logits, target, mask=torch.tensor([True, False]))
+    assert torch.isfinite(result)
+
+
+def test_binned_density_preserves_close_float64_edges():
+    edges = torch.tensor([0.0, 1.0, 1.0 + 1e-8, 2.0], dtype=torch.float64)
+    loss = BinnedDensityLoss(edges)
+    torch.testing.assert_close(loss.bin_edges, edges, rtol=0, atol=0)
+    probabilities = loss.bin_probabilities(torch.tensor([1.0 + 5e-9], dtype=torch.float64))
+    torch.testing.assert_close(probabilities, torch.tensor([[0.0, 1.0, 0.0]], dtype=torch.float64))

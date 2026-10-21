@@ -463,3 +463,54 @@ def test_result_and_history_are_immutable() -> None:
         result.converged = True
     with pytest.raises(FrozenInstanceError):
         result.history[0].objective = 0.0
+
+
+@pytest.mark.parametrize("factor", [1e-200, 1e-20, 1.0, 1e200])
+def test_precision_rescaling_preserves_ess_and_objective(factor: float) -> None:
+    residuals = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64)
+    base = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64)
+    problem = IRLSCallbacks(lambda state: residuals, lambda state, precision: state)
+
+    def run(multiplier: float):
+        return iteratively_reweighted_fit(
+            problem,
+            torch.tensor(0.0, dtype=torch.float64),
+            IRLSFitConfig(max_iter=1, scale="none", base_precision=base * multiplier),
+        )
+
+    expected = run(1.0)
+    result = run(factor)
+    assert result.termination == expected.termination == "max_iterations"
+    assert result.iterations == 1
+    assert result.effective_sample_size == pytest.approx(expected.effective_sample_size)
+    assert result.objective == pytest.approx(expected.objective)
+    torch.testing.assert_close(result.precision / factor, expected.precision)
+
+
+@pytest.mark.parametrize("missing", [10.0, float("nan"), float("inf")])
+@pytest.mark.parametrize("scale", ["mad", "std", "rms", "none"])
+def test_fully_masked_output_does_not_break_observed_fit(missing: float, scale: str) -> None:
+    residuals = torch.tensor([[1.0, missing], [2.0, missing], [3.0, missing]])
+    mask = torch.tensor([[True, False]]).expand_as(residuals)
+    seen: list[torch.Tensor] = []
+
+    def fit(state: torch.Tensor, precision: torch.Tensor) -> torch.Tensor:
+        seen.append(precision)
+        return state
+
+    result = iteratively_reweighted_fit(
+        IRLSCallbacks(lambda state: residuals, fit),
+        torch.tensor(0.0),
+        IRLSFitConfig(max_iter=1, scale=scale, mask=mask),
+    )
+    observed = iteratively_reweighted_fit(
+        IRLSCallbacks(lambda state: residuals[:, 0], lambda state, precision: state),
+        torch.tensor(0.0),
+        IRLSFitConfig(max_iter=1, scale=scale),
+    )
+    assert result.termination == "max_iterations"
+    assert result.history[0].residuals_finite
+    assert len(seen) == 1
+    torch.testing.assert_close(result.weights, observed.weights)
+    torch.testing.assert_close(result.precision[:, 0], observed.precision)
+    assert not result.precision[:, 1].any()

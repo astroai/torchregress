@@ -27,6 +27,9 @@ $$
 x_{k+1}=x_k+\frac1K\,v_\theta(x_k,k/K,c).
 $$
 
+`FlowMatchingMLP(time_embedding=k)` emits exactly $k$ time features, including
+odd widths; positive even widths retain the same sine/cosine layout.
+
 ## When to use it
 
 | Property | CFM | Exact flow (NSF/MAF/RealNVP/BPF) |

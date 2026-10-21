@@ -8,6 +8,13 @@ next.  It covers conditional densities $p(y\mid x)$, multi-target distributions,
 known label noise, and calibration.  A normalizing flow is a **density engine**;
 it is not a fix for imbalance, scarcity, or label noise by itself.
 
+!!! warning "NFM evidence requires a corrected-code rerun"
+    NFM likelihood evaluation and sampling previously used endpoint directions
+    inconsistent with its noise-to-target training map. Results produced before
+    that correction must be rerun before interpreting NLL, sample quality or
+    underfitting. Existing artifacts remain historical evidence, not corrected
+    measurements. The correction does not change NSF/MAF or default-width CFM.
+
 ## Status: what is implemented
 
 | Capability | Public API | Maturity | Use it for |
