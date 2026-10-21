@@ -384,3 +384,97 @@ class WaldoPosteriorCalibrator:
     def predict_region(self, samples: Tensor, target_grid: Tensor) -> Tensor:
         mean, cov = _sample_moments(samples)
         return self.calibrator.predict_region(mean, target_grid, cov)
+
+
+class WaldoDensityConformal:
+    """WALDO regions for any conditional density sampler, without a simulator.
+
+    The conditional mean/covariance are estimated from samples of the density
+    (flow, MDN, ensemble, or bootstrap), so WALDO's prediction/posterior score
+    can be applied to a standard conditional-density model.  Calibration uses a
+    held-out split of observed targets; this is a split-conformal guarantee
+    (marginal), with optional target-binned critical values for a local
+    approximation.  No simulator or parameter prior is required.
+
+    Args:
+        alpha: Miscoverage rate.
+        critical_bins: Optional target bins for a local critical-value curve.
+        covariance_type: ``"diagonal"`` or ``"full"``.
+        n_samples: Number of density samples used per context at calibration
+            and prediction time.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        *,
+        critical_bins: Optional[int] = None,
+        covariance_type: str = "full",
+        n_samples: int = 256,
+    ) -> None:
+        self.alpha = float(alpha)
+        self.n_samples = int(n_samples)
+        self.covariance_type = covariance_type
+        self.calibrator = WaldoConformal(
+            alpha=alpha,
+            critical_bins=critical_bins,
+            covariance_type=covariance_type,
+        )
+
+    @property
+    def threshold(self) -> Optional[Tensor]:
+        return self.calibrator.threshold
+
+    def _moments(
+        self, sample_fn: Callable[[Tensor, int], Tensor], context: Tensor
+    ) -> tuple[Tensor, Tensor]:
+        samples = sample_fn(context, self.n_samples)
+        return _sample_moments(samples)
+
+    def calibrate(
+        self,
+        sample_fn: Callable[[Tensor, int], Tensor],
+        context: Tensor,
+        target: Tensor,
+    ) -> None:
+        """Calibrate on held-out contexts and observed targets."""
+        mean, cov = self._moments(sample_fn, context)
+        self.calibrator.calibrate(mean, target, cov)
+
+    def contains(
+        self,
+        sample_fn: Callable[[Tensor, int], Tensor],
+        context: Tensor,
+        target: Tensor,
+    ) -> Tensor:
+        mean, cov = self._moments(sample_fn, context)
+        return self.calibrator.contains(mean, target, cov)
+
+    def predict_region(
+        self,
+        sample_fn: Callable[[Tensor, int], Tensor],
+        context: Tensor,
+        target_grid: Tensor,
+    ) -> Tensor:
+        mean, cov = self._moments(sample_fn, context)
+        return self.calibrator.predict_region(mean, target_grid, cov)
+
+    def predict_interval(
+        self,
+        sample_fn: Callable[[Tensor, int], Tensor],
+        context: Tensor,
+        *,
+        y_min: Optional[float] = None,
+        y_max: Optional[float] = None,
+        grid_size: int = 500,
+    ) -> tuple[Tensor, Tensor]:
+        samples = sample_fn(context, self.n_samples)
+        mean = samples.mean(dim=1)
+        std = samples.std(dim=1)
+        return self.calibrator.predict_interval(
+            mean,
+            std,
+            y_min=y_min,
+            y_max=y_max,
+            grid_size=grid_size,
+        )

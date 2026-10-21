@@ -44,3 +44,26 @@ def test_contrastive_flow_conformal_level_set() -> None:
     test_ctx = torch.randn(50, 1)
     test_y = test_ctx
     assert cp.contains(test_ctx, test_y).shape == (50,)
+
+
+def test_mondrian_conformal_density() -> None:
+    torch.manual_seed(0)
+    ctx = torch.randn(300, 1)
+    y = ctx + 0.5 * torch.randn(300, 1)
+    groups = (ctx[:, 0] > 0).long()
+    cp = ConformalizedDensity(alpha=0.1, grid_size=100)
+    cp.calibrate(lambda c, v: -_normal_log_prob(c, v), ctx, y, groups=groups)
+    test_ctx = torch.randn(60, 1)
+    test_y = test_ctx + 0.5 * torch.randn(60, 1)
+    test_groups = (test_ctx[:, 0] > 0).long()
+    assert cp.contains(
+        lambda c, v: -_normal_log_prob(c, v), test_ctx, test_y, groups=test_groups
+    ).shape == (60,)
+    lo, hi = cp.predict_interval(
+        lambda c, v: -_normal_log_prob(c, v),
+        test_ctx[:10],
+        -4,
+        4,
+        groups=test_groups[:10],
+    )
+    assert lo.shape == hi.shape == (10, 1)

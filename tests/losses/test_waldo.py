@@ -64,3 +64,24 @@ def test_waldo_posterior_calibrator() -> None:
     assert cp.contains(samples[:10], target[:10]).shape == (10,)
     grid = torch.randn(20, d)
     assert cp.predict_region(samples[:5], grid).shape == (5, 20)
+
+
+def test_waldo_density_conformal() -> None:
+    torch.manual_seed(0)
+    from torchregress.losses import WaldoDensityConformal
+
+    def sample_fn(context: torch.Tensor, n: int) -> torch.Tensor:
+        return context[:, :1].unsqueeze(1) + 0.5 * torch.randn(
+            context.shape[0], n, 1
+        )
+
+    ctx = torch.randn(300, 2)
+    target = sample_fn(ctx, 1)[:, 0]
+    cp = WaldoDensityConformal(alpha=0.1, covariance_type="full", n_samples=128)
+    cp.calibrate(sample_fn, ctx, target)
+    assert cp.threshold is not None
+    test_ctx = torch.randn(50, 2)
+    test_target = sample_fn(test_ctx, 1)[:, 0]
+    assert cp.contains(sample_fn, test_ctx, test_target).shape == (50,)
+    lo, hi = cp.predict_interval(sample_fn, test_ctx[:5], y_min=-4, y_max=4)
+    assert lo.shape == hi.shape == (5, 1)

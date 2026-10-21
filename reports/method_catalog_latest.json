@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 153,
+    "total_methods": 154,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -34,6 +34,7 @@
       "probabilistic_loss": 8,
       "quantile": 2,
       "representation_regularizer": 1,
+      "robust_algorithm": 1,
       "robust_loss": 9,
       "semi_supervised": 1,
       "swag": 2,
@@ -46,7 +47,7 @@
     },
     "maturity": {
       "Core": 7,
-      "Strong": 19,
+      "Strong": 20,
       "Available": 127
     },
     "peer_uq_methods_present": {
@@ -272,6 +273,29 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Conditional Value-at-Risk: averages the worst \u03b1 fraction of per-sample losses.  Pairs with any base loss (MSE, Huber, Cauchy, Tukey).  For multi-output targets, CVaR selects the worst samples, not the worst per-element errors."
+    },
+    {
+      "name": "iteratively_reweighted_fit",
+      "family": "robust_algorithm",
+      "public_path": "torchregress.algorithms.iteratively_reweighted_fit",
+      "task_tags": [
+        "outliers",
+        "noisy_labels",
+        "robust_fitting",
+        "irls"
+      ],
+      "maturity": "Strong",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Solver-agnostic, refit-capable IRLS controller with scalar and block Mahalanobis residuals, continuation, masks, precision weights, and finite/convergence diagnostics. The caller retains weighted-solver ownership."
     },
     {
       "name": "DensityWeightedLoss",

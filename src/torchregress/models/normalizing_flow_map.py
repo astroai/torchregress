@@ -143,14 +143,28 @@ class NormalizingFlowMap(nn.Module):
         time_features: int = 16,
         map_weight: float = 1.0,
         nll_weight: float = 0.1,
+        arch: str = "coupling",
     ) -> None:
         super().__init__()
         self.n_features = int(n_features)
         self.context_dim = int(context_dim)
+        if arch not in ("coupling", "tarflow"):
+            raise ValueError("arch must be 'coupling' or 'tarflow'")
         self.map_weight = float(map_weight)
         self.nll_weight = float(nll_weight)
+        self.arch = str(arch)
         layers = []
         for i in range(int(n_layers)):
+            if self.arch == "tarflow" and self.n_features > 1:
+                layers.append(
+                    AutoregressiveTimeLayer(
+                        self.n_features,
+                        self.context_dim,
+                        hidden=int(hidden[0]) if hidden else 128,
+                        time_features=time_features,
+                    )
+                )
+                continue
             if self.n_features == 1:
                 mask = torch.ones(1, dtype=torch.bool)
             else:
@@ -262,3 +276,91 @@ class NormalizingFlowMap(nn.Module):
             self.map_weight * self.flow_map_loss(context, target, generator=generator)
             - self.nll_weight * self.log_prob(context, target).mean()
         )
+
+
+class AutoregressiveTimeLayer(nn.Module):
+    """Causal-transformer autoregressive flow-map layer.
+
+    This is a TARFlow-style tabular layer: each target coordinate is transformed
+    with scale/shift depending only on earlier coordinates, the two times and
+    the context.  A causal Transformer produces the parameters; inversion is
+    sequential in the target dimension.  It is more expressive than a single
+    affine coupling for low-dimensional targets while remaining exactly
+    invertible.
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        context_dim: int,
+        hidden: int = 128,
+        n_heads: int = 4,
+        time_features: int = 16,
+    ) -> None:
+        super().__init__()
+        if dim < 2:
+            raise ValueError("AutoregressiveTimeLayer requires dim >= 2")
+        self.dim = int(dim)
+        self.context_dim = int(context_dim)
+        self.hidden = int(hidden)
+        self.time = _TimeFeatures(time_features)
+        time_dim = 2 * self.time.freqs.numel()
+        self.token = nn.Linear(1, hidden)
+        self.context_proj = nn.Linear(context_dim + 2 * time_dim, hidden)
+        self.start = nn.Parameter(torch.zeros(1, 1, hidden))
+        layer = nn.TransformerEncoderLayer(
+            d_model=hidden,
+            nhead=n_heads,
+            dim_feedforward=4 * hidden,
+            dropout=0.0,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+        self.encoder = nn.TransformerEncoder(layer, num_layers=1)
+        self.norm = nn.LayerNorm(hidden)
+        self.head = nn.Linear(hidden, 2)
+        nn.init.zeros_(self.head.weight)
+        nn.init.zeros_(self.head.bias)
+
+    def _tokens(self, x: Tensor, s: Tensor, t: Tensor, context: Tensor) -> Tensor:
+        b = x.shape[0]
+        time = torch.cat([self.time(s.reshape(-1)), self.time(t.reshape(-1))], dim=-1)
+        if time.shape[0] != b:
+            time = time[:1].expand(b, -1)
+        cond = self.context_proj(torch.cat([context, time], dim=-1))
+        start = self.start.expand(b, -1, -1) + cond.unsqueeze(1)
+        tokens = self.token(x.unsqueeze(-1)) + cond.unsqueeze(1)
+        return torch.cat([start, tokens], dim=1)
+
+    def _mask(self, length: int, device: torch.device) -> Tensor:
+        return torch.triu(torch.ones(length, length, dtype=torch.bool, device=device), diagonal=1)
+
+    def _params_from_hidden(self, hidden: Tensor) -> tuple[Tensor, Tensor]:
+        raw = self.head(self.norm(hidden[:, :-1]))  # [B, D, 2]
+        scale_raw, shift = raw[..., 0], raw[..., 1]
+        return 0.5 * torch.tanh(scale_raw), shift
+
+    def forward(self, x: Tensor, s: Tensor, t: Tensor, context: Tensor) -> tuple[Tensor, Tensor]:
+        tokens = self._tokens(x, s, t, context)
+        hidden = self.encoder(tokens, mask=self._mask(tokens.shape[1], x.device))
+        scale, shift = self._params_from_hidden(hidden)
+        y = x * torch.exp(scale) + shift
+        return y, scale.sum(dim=-1)
+
+    def inverse(self, y: Tensor, s: Tensor, t: Tensor, context: Tensor) -> tuple[Tensor, Tensor]:
+        b, d = y.shape
+        # Sequential causal inversion.  Prefix tokens use already recovered x.
+        recovered = []
+        logdet = torch.zeros(b, device=y.device, dtype=y.dtype)
+        for j in range(d):
+            x_prefix = torch.stack(recovered, dim=-1) if recovered else y.new_empty(b, 0)
+            tokens = self._tokens(x_prefix, s, t, context)
+            hidden = self.encoder(tokens, mask=self._mask(tokens.shape[1], y.device))
+            raw = self.head(self.norm(hidden[:, -1]))  # [B, 2]
+            scale = 0.5 * torch.tanh(raw[..., 0])
+            shift = raw[..., 1]
+            xj = (y[:, j] - shift) * torch.exp(-scale)
+            recovered.append(xj)
+            logdet = logdet - scale
+        return torch.stack(recovered, dim=-1), logdet

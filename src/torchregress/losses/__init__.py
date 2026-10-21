@@ -138,7 +138,7 @@ from .sls import (
 )
 
 # Imbalanced regression losses
-from .waldo import WaldoConformal, WaldoPosteriorCalibrator, waldo_statistic
+from .waldo import WaldoConformal, WaldoDensityConformal, WaldoPosteriorCalibrator, waldo_statistic
 from .wasserstein1d import DiscreteWasserstein1Loss, discrete_wasserstein1
 
 # Normalizing flows (zuko is an optional dependency)
@@ -364,6 +364,7 @@ __all__ = [
     "TweedieLoss",
     "UACQR",
     "WaldoConformal",
+    "WaldoDensityConformal",
     "WaldoPosteriorCalibrator",
     "waldo_statistic",
     "UnionFrontier",

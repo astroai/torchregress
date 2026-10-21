@@ -179,6 +179,18 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="iteratively_reweighted_fit",
+        family="robust_algorithm",
+        public_path="torchregress.algorithms.iteratively_reweighted_fit",
+        task_tags=("outliers", "noisy_labels", "robust_fitting", "irls"),
+        maturity="Strong",
+        notes=(
+            "Solver-agnostic, refit-capable IRLS controller with scalar and block "
+            "Mahalanobis residuals, continuation, masks, precision weights, and "
+            "finite/convergence diagnostics. The caller retains weighted-solver ownership."
+        ),
+    ),
+    MethodMetadata(
         name="DensityWeightedLoss",
         family="imbalanced_loss",
         public_path="torchregress.losses.DensityWeightedLoss",

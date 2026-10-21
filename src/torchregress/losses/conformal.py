@@ -2905,13 +2905,23 @@ class ConformalizedDensity:
         negative_log_density: Callable[[Tensor, Tensor], Tensor],
         context: Tensor,
         target: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
     ) -> None:
-        """Calibrate from a callable returning ``-log p(y | context)``."""
+        """Calibrate from a callable returning ``-log p(y | context)``.
+
+        Pass ``groups`` for Mondrian (group-conditional) thresholds; use the
+        same group ids at prediction time.
+        """
         log_density = -negative_log_density(context, target).detach().reshape(-1)
         if not torch.isfinite(log_density).all():
             raise ValueError("negative log-density must be finite on the calibration split")
         # CTI computes the nonconformity score itself as -log_density.
-        self.cti.calibrate(log_density, target.reshape(target.shape[0], -1))
+        self.cti.calibrate(
+            log_density,
+            target.reshape(target.shape[0], -1),
+            groups=groups,
+        )
         self._is_calibrated = True
 
     def calibrate_log_prob(
@@ -2919,12 +2929,18 @@ class ConformalizedDensity:
         log_prob: Callable[[Tensor, Tensor], Tensor],
         context: Tensor,
         target: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
     ) -> None:
         """Convenience alias taking ``log p`` instead of negative log-density."""
         log_density = log_prob(context, target).detach().reshape(-1)
         if not torch.isfinite(log_density).all():
             raise ValueError("log-density must be finite on the calibration split")
-        self.cti.calibrate(log_density, target.reshape(target.shape[0], -1))
+        self.cti.calibrate(
+            log_density,
+            target.reshape(target.shape[0], -1),
+            groups=groups,
+        )
         self._is_calibrated = True
 
     def contains(
@@ -2932,12 +2948,19 @@ class ConformalizedDensity:
         negative_log_density: Callable[[Tensor, Tensor], Tensor],
         context: Tensor,
         target: Tensor,
+        *,
+        groups: Optional[Tensor] = None,
     ) -> Tensor:
         """Boolean level-set membership for each row (works for multi-target)."""
-        if not self._is_calibrated or self.threshold is None:
+        if not self._is_calibrated:
             raise RuntimeError("Call calibrate() first.")
         score = negative_log_density(context, target).reshape(-1)
-        return score <= self.threshold.to(score.device)
+        if groups is None:
+            return score <= self.threshold.to(score.device)
+        q = self.cti._per_sample_q(
+            score.numel(), groups=groups, device=score.device, dtype=score.dtype
+        )
+        return score <= q
 
     def predict_interval(
         self,
@@ -2945,6 +2968,8 @@ class ConformalizedDensity:
         context: Tensor,
         y_min: float,
         y_max: float,
+        *,
+        groups: Optional[Tensor] = None,
     ) -> tuple[Tensor, Tensor]:
         """Scalar level-set intervals; raises for multi-target contexts."""
         if not self._is_calibrated:
@@ -2959,7 +2984,13 @@ class ConformalizedDensity:
                 y = y_grid.reshape(-1, 1).to(_ctx.device, _ctx.dtype)
                 return -negative_log_density(_ctx.expand(y.shape[0], -1), y).reshape(-1)
 
-            lo, hi = self.cti.predict_intervals_from_density(density_fn, ctx, y_min, y_max)
+            lo, hi = self.cti.predict_intervals_from_density(
+                density_fn,
+                ctx,
+                y_min,
+                y_max,
+                groups=None if groups is None else groups[i : i + 1],
+            )
             lower.append(lo.reshape(-1))
             upper.append(hi.reshape(-1))
         return torch.cat(lower).reshape(-1, 1), torch.cat(upper).reshape(-1, 1)
@@ -2986,16 +3017,29 @@ class ContrastiveFlowConformal(ConformalizedDensity):
         super().__init__(alpha=alpha, grid_size=grid_size)
         self.flow_loss = flow_loss
 
-    def calibrate(self, context: Tensor, target: Tensor) -> None:  # type: ignore[override]
+    def calibrate(  # type: ignore[override]
+        self, context: Tensor, target: Tensor, *, groups: Optional[Tensor] = None
+    ) -> None:
         """Calibrate on held-out contexts/targets using the positive flow density."""
-        super().calibrate_log_prob(self.flow_loss.log_prob, context, target)
+        super().calibrate_log_prob(self.flow_loss.log_prob, context, target, groups=groups)
 
-    def predict_interval(
-        self, context: Tensor, y_min: float, y_max: float
-    ) -> tuple[Tensor, Tensor]:  # type: ignore[override]
+    def predict_interval(  # type: ignore[override]
+        self,
+        context: Tensor,
+        y_min: float,
+        y_max: float,
+        *,
+        groups: Optional[Tensor] = None,
+    ) -> tuple[Tensor, Tensor]:
         """Scalar intervals from the conformal flow level set."""
-        return super().predict_interval(self.flow_loss.log_prob, context, y_min, y_max)
+        return super().predict_interval(
+            self.flow_loss.log_prob, context, y_min, y_max, groups=groups
+        )
 
-    def contains(self, context: Tensor, target: Tensor) -> Tensor:  # type: ignore[override]
+    def contains(  # type: ignore[override]
+        self, context: Tensor, target: Tensor, *, groups: Optional[Tensor] = None
+    ) -> Tensor:
         """Level-set membership for scalar or multi-target flows."""
-        return super().contains(lambda c, y: -self.flow_loss.log_prob(c, y), context, target)
+        return super().contains(
+            lambda c, y: -self.flow_loss.log_prob(c, y), context, target, groups=groups
+        )
