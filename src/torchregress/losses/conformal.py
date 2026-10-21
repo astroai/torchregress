@@ -2955,8 +2955,6 @@ class ConformalizedDensity:
         if not self._is_calibrated:
             raise RuntimeError("Call calibrate() first.")
         score = negative_log_density(context, target).reshape(-1)
-        if groups is None:
-            return score <= self.threshold.to(score.device)
         q = self.cti._per_sample_q(
             score.numel(), groups=groups, device=score.device, dtype=score.dtype
         )
@@ -3033,7 +3031,7 @@ class ContrastiveFlowConformal(ConformalizedDensity):
     ) -> tuple[Tensor, Tensor]:
         """Scalar intervals from the conformal flow level set."""
         return super().predict_interval(
-            self.flow_loss.log_prob, context, y_min, y_max, groups=groups
+            lambda c, y: -self.flow_loss.log_prob(c, y), context, y_min, y_max, groups=groups
         )
 
     def contains(  # type: ignore[override]
