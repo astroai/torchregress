@@ -12,16 +12,16 @@ it is not a fix for imbalance, scarcity, or label noise by itself.
 
 | Capability | Public API | Maturity | Use it for |
 |:--|:--|:--|:--|
-| Mixture density head | `MDNLoss` | Available | Low-dimensional targets; fast, interpretable modes |
-| Binned scalar CDF | `BinnedDensityLoss` | Available | Scalar densities with few labels; robust noise handling |
-| Conditional flows | `NormalizingFlowLoss`, `create_flow_model` (`nsf`/`maf`/`realnvp`/`cinn`/`bpf`) | Available | Exact conditional likelihood; multimodal tails |
-| Conditional flow matching | `FlowMatchingMLP`, `cfm_loss`, `sample_cfm` | Available | Cheap sample generation; **no exact NLL** |
-| Known Gaussian label noise | `NoiseAwareDensityLoss` over flow/MDN | Available | Measurement-error-aware NLL |
-| Binned photo-z recipe | `PZRecipeLoss`, `PZRecipe`, `TriLoss` | Available | Binned conditional CDF / photo-z challenge reference |
-| Contrastive flow / likelihood ratio | `ContrastiveFlowLoss` | Available | Ranking, SBI, likelihood-ratio-style tasks |
-| Normalizing Flow Map | `NormalizingFlowMap` (`arch="coupling"`/`"tarflow"`) | Research | Exact invertible time maps; not a default regression head |
-| Density conformal | `ConformalizedDensity`, `ContrastiveFlowConformal`, `CTI` | Available | Marginal coverage for any density score; Mondrian groups supported |
-| WALDO | `WaldoConformal`, `WaldoPosteriorCalibrator`, `WaldoDensityConformal` | Available | Wald confidence regions from mean/covariance or density samples |
+| Mixture density head | [`MDNLoss`](../losses/mdn.md) | Available | Low-dimensional targets; fast, interpretable modes |
+| Binned scalar CDF | [`BinnedDensityLoss`](../losses/noise_aware_density.md) | Available | Scalar densities with few labels; robust noise handling |
+| Conditional flows | [`NormalizingFlowLoss`](../losses/nflows.md), [`create_flow_model`](../losses/nflows.md) (`nsf`/`maf`/`realnvp`/`cinn`/`bpf`) | Available | Exact conditional likelihood; multimodal tails |
+| Conditional flow matching | [`FlowMatchingMLP`](../methods/flow_matching.md), [`cfm_loss`](../methods/flow_matching.md), [`sample_cfm`](../methods/flow_matching.md) | Available | Cheap sample generation; **no exact NLL** |
+| Known Gaussian label noise | [`NoiseAwareDensityLoss`](../losses/noise_aware_density.md) over flow/MDN | Available | Measurement-error-aware NLL |
+| Binned photo-z recipe | [`PZRecipeLoss`](../losses/photo_z_recipe.md), [`PZRecipe`](../losses/photo_z_recipe.md), [`TriLoss`](../losses/photo_z_recipe.md) | Available | Binned conditional CDF / photo-z challenge reference |
+| Contrastive flow / likelihood ratio | [`ContrastiveFlowLoss`](../losses/nflows.md) | Available | Ranking, SBI, likelihood-ratio-style tasks |
+| Normalizing Flow Map | [`NormalizingFlowMap`](../methods/normalizing_flow_maps.md) (`arch="coupling"`/`"tarflow"`) | Research | Exact invertible time maps; not a default regression head |
+| Density conformal | [`ConformalizedDensity`](../losses/conformal.md), [`ContrastiveFlowConformal`](../losses/conformal.md), [`CTI`](../losses/conformal.md) | Available | Marginal coverage for any density score; Mondrian groups supported |
+| WALDO | [`WaldoConformal`](../methods/waldo.md), [`WaldoPosteriorCalibrator`](../methods/waldo.md), [`WaldoDensityConformal`](../methods/waldo.md) | Available | Wald confidence regions from mean/covariance or density samples |
 
 The canonical experiment table, artifacts, and code map live in the sibling
 `torchregress-harness` repository at `reports/density_experiments_summary.md`.
