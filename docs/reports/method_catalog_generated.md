@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `154`
+- Total methods: `155`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -19,7 +19,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `calibration_transform` | 7 |
 | `causal` | 2 |
 | `censored` | 3 |
-| `conformal` | 17 |
+| `conformal` | 18 |
 | `constraints` | 2 |
 | `density_loss` | 2 |
 | `eiv` | 16 |
@@ -62,7 +62,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 127 |
+| `Available` | 128 |
 
 ## Method Rows
 
@@ -105,6 +105,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `SplitConformal` | `conformal` | `Core` | `coverage_guarantees`, `calibration`, `baseline` | `calibration`, `ood*` | `torchregress.losses.SplitConformal` |
 | `UACQR` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `heteroscedastic_noise` | `calibration`, `ood*` | `torchregress.losses.UACQR` |
 | `WaldoConformal` | `conformal` | `Available` | `conformal`, `calibration`, `confidence_regions`, `multi_target` | `calibration`, `ood*` | `torchregress.losses.WaldoConformal` |
+| `WaldoDensityConformal` | `conformal` | `Available` | `conformal`, `calibration`, `conditional_density`, `confidence_regions` | `calibration`, `ood*` | `torchregress.losses.WaldoDensityConformal` |
 | `WaldoPosteriorCalibrator` | `conformal` | `Available` | `conformal`, `calibration`, `posterior`, `confidence_regions` | `calibration`, `ood*` | `torchregress.losses.WaldoPosteriorCalibrator` |
 | `BoundedHead` | `constraints` | `Available` | `constraints`, `bounded_outputs` | `calibration*`, `ood*` | `torchregress.constraints.BoundedHead` |
 | `NonCrossingSort` | `constraints` | `Available` | `constraints`, `ordered_outputs` | `calibration*`, `ood*` | `torchregress.constraints.NonCrossingSort` |

@@ -2,13 +2,13 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 154,
+    "total_methods": 155,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
       "causal": 2,
       "censored": 3,
-      "conformal": 17,
+      "conformal": 18,
       "constraints": 2,
       "density_loss": 2,
       "eiv": 16,
@@ -48,7 +48,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 127
+      "Available": 128
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1805,7 +1805,7 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Time-conditioned invertible affine-coupling flow map with exact endpoint likelihood and few-step transport. Tabular instantiation, not the full image-scale autoregressive NFM; no built-in label-noise measurement model."
+      "notes": "Time-conditioned invertible flow map with exact endpoint likelihood and few-step transport; arch='coupling' or 'tarflow'. Tabular instantiation, not the full image-scale autoregressive NFM; no built-in label-noise model."
     },
     {
       "name": "ConformalizedDensity",
@@ -1898,6 +1898,29 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "WALD regions using conditional moments estimated from predictive samples (flows/ensembles); supports joint multi-target regions."
+    },
+    {
+      "name": "WaldoDensityConformal",
+      "family": "conformal",
+      "public_path": "torchregress.losses.WaldoDensityConformal",
+      "task_tags": [
+        "conformal",
+        "calibration",
+        "conditional_density",
+        "confidence_regions"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Simulator-free WALDO adaptation for any conditional-density sampler: moments estimated from samples, split-conformal calibration on held-out targets. Marginal coverage; binned critical values approximate conditional coverage. Not the full simulator-based WALDO guarantee."
     },
     {
       "name": "FlowMatchingMLP",

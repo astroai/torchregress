@@ -960,9 +960,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         aleatoric="yes",
         calibration="partial",
         notes=(
-            "Time-conditioned invertible affine-coupling flow map with exact endpoint "
-            "likelihood and few-step transport. Tabular instantiation, not the full "
-            "image-scale autoregressive NFM; no built-in label-noise measurement model."
+            "Time-conditioned invertible flow map with exact endpoint likelihood and "
+            "few-step transport; arch='coupling' or 'tarflow'. Tabular instantiation, "
+            "not the full image-scale autoregressive NFM; no built-in label-noise model."
         ),
     ),
     MethodMetadata(
@@ -1019,6 +1019,22 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes=(
             "WALD regions using conditional moments estimated from predictive samples "
             "(flows/ensembles); supports joint multi-target regions."
+        ),
+    ),
+    MethodMetadata(
+        name="WaldoDensityConformal",
+        family="conformal",
+        public_path="torchregress.losses.WaldoDensityConformal",
+        task_tags=("conformal", "calibration", "conditional_density", "confidence_regions"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="yes",
+        calibration="yes",
+        notes=(
+            "Simulator-free WALDO adaptation for any conditional-density sampler: "
+            "moments estimated from samples, split-conformal calibration on held-out "
+            "targets. Marginal coverage; binned critical values approximate conditional "
+            "coverage. Not the full simulator-based WALDO guarantee."
         ),
     ),
     MethodMetadata(

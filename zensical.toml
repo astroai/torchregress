@@ -160,6 +160,7 @@ nav = [
     { "Multi-Target Regression" = "guide/multi-target-regression.md" },
     { "Mathematical Foundations" = "guide/math/index.md" },
     { "Best Practices" = "guide/best-practices.md" },
+    { "Density Estimation Roadmap" = "guide/density_estimation_roadmap.md" },
     { "Debugging" = "guide/debugging.md" },
     { "Performance" = "guide/performance.md" },
     { "Reports & Evidence" = [
