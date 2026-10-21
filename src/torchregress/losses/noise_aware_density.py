@@ -384,7 +384,7 @@ class BinnedDensityLoss(BaseLoss):
                 raise ValueError("BinnedDensityLoss supports one scalar target per row")
             target = target.reshape(-1)
         target = target.reshape(-1).to(dtype=self.bin_edges.dtype, device=self.bin_edges.device)
-        edges: Tensor = self.bin_edges
+        edges: Tensor = self.bin_edges.to(device=target.device)
         sigma_t = _as_sigma(sigma, target)
         if sigma_t is None or bool(torch.all(sigma_t <= _MIN_SIGMA * 10)):
             idx = torch.searchsorted(edges, target.reshape(-1)).clamp(1, self.n_bins) - 1
@@ -449,7 +449,7 @@ class BinnedDensityLoss(BaseLoss):
         """Draw bin indices and uniform intra-bin target values."""
         probs = torch.softmax(y_pred, dim=-1)
         idx = torch.distributions.Categorical(probs=probs).sample((n_samples,)).transpose(0, 1)
-        edges: Tensor = self.bin_edges
+        edges: Tensor = self.bin_edges.to(device=probs.device)
         left = edges[:-1][idx]
         right = edges[1:][idx]
         return left + (right - left) * torch.rand_like(left)
