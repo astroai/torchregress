@@ -23,9 +23,8 @@ it is not a fix for imbalance, scarcity, or label noise by itself.
 | Density conformal | `ConformalizedDensity`, `ContrastiveFlowConformal`, `CTI` | Available | Marginal coverage for any density score; Mondrian groups supported |
 | WALDO | `WaldoConformal`, `WaldoPosteriorCalibrator`, `WaldoDensityConformal` | Available | Wald confidence regions from mean/covariance or density samples |
 
-The canonical experiment table, artifacts, and code map live in the harness
-report `reports/density_experiments_summary.md` (sibling
-`torchregress-harness` repository).
+The canonical experiment table, artifacts, and code map live in the sibling
+`torchregress-harness` repository at `reports/density_experiments_summary.md`.
 
 ```mermaid
 flowchart TD
