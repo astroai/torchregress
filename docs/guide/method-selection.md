@@ -123,6 +123,7 @@ _Generated date_: `2026-10-21`
 | `probabilistic_loss` (8) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` (2) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `representation_regularizer` (1) | no | no | partial | no | no | no | no | partial | yes | no |
+| `robust_algorithm` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `robust_loss` (9) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `semi_supervised` (1) | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` (2) | yes | no | partial | yes | partial | partial | partial | partial | no | no |
@@ -283,6 +284,7 @@ _Generated date_: `2026-10-21`
 | `MultiQuantileLoss` | `quantile` | `Strong` | yes | no | no | no | no | yes | partial |
 | `QuantileLoss` | `quantile` | `Core` | yes | no | no | no | no | yes | partial |
 | `UncertaintyAwareConR` | `representation_regularizer` | `Available` | no | no | no | no | no | no | partial |
+| `iteratively_reweighted_fit` | `robust_algorithm` | `Strong` | yes | no | no | no | no | partial | partial |
 | `AdaptiveRobustLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `BarronLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
 | `CVaRLoss` | `robust_loss` | `Available` | yes | no | no | no | no | partial | partial |
@@ -355,6 +357,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 | `probabilistic_loss` | 8 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` | 2 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `representation_regularizer` | 1 | no | no | partial | no | no | no | no | partial | yes | no |
+| `robust_algorithm` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `robust_loss` | 9 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `semi_supervised` | 1 | yes | no | partial | no | no | no | partial | partial | no | no |
 | `swag` | 2 | yes | no | partial | yes | partial | partial | partial | partial | no | no |

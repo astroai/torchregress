@@ -22,6 +22,12 @@ def test_method_catalog_includes_peer_uq_methods_without_experimental_default_la
         assert meta["family"] == "test_time"
 
 
+def test_method_catalog_includes_refit_capable_irls() -> None:
+    metadata = method_catalog.get_method_metadata("iteratively_reweighted_fit")
+    assert metadata["family"] == "robust_algorithm"
+    assert {"outliers", "robust_fitting", "irls"} <= set(metadata["task_tags"])
+
+
 def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     multimodal = method_catalog.list_methods(capability_filters={"multimodal": "yes"})
     multimodal_names = {row["name"] for row in multimodal}

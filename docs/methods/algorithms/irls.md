@@ -2,7 +2,7 @@
 
 > ← [Methods Overview](../index.md) | [SIMEX](simex.md) →
 
-IRLS computes robust **sample weights** from current residuals; in **torchregress** the base model is typically refit in an outer training loop using those weights (see complete example below).
+`iteratively_reweighted_fit` is a solver-agnostic IRLS controller. The caller supplies residual and weighted-refit callbacks, so the same controller works with analytic WLS, iterative nonlinear solvers, sparse operators, or compiled training steps without assuming a global dense design matrix.
 
 ---
 
@@ -14,9 +14,14 @@ $$\hat\beta^{(t+1)} = \arg\min_\beta \sum_{i=1}^n w_i^{(t)}\!\left(y_i - f_\beta
 
 where the weights $w_i^{(t)}$ depend on the residuals from iteration $t$:
 
-$$w_i^{(t)} = \psi\!\left(\frac{r_i^{(t)}}{\hat\sigma}\right)$$
+$$u_i^{(t)} = \frac{r_i^{(t)}}{\hat\sigma}, \qquad
+w_i^{(t)} = \frac{\psi(u_i^{(t)})}{u_i^{(t)}}.$$
 
-and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust scale estimate (MAD, taken over the samples of each output column for `variance_type="robust"`). The weights are applied **once** to the initial precision: the model is not refit inside `iteratively_reweighted_least_squares`, so the residuals (and therefore the weights) are the same at every iteration.
+After each update, the controller calls `problem.weighted_fit(state, precision)` and then recomputes residuals from the returned state. With base precision $P_i$, the callback receives $w_iP_i$. For a vector residual block with covariance $C_i$, the robust score uses the Mahalanobis magnitude
+
+$$d_i = \sqrt{r_i^\mathsf{T} C_i^{-1} r_i},$$
+
+and the callback receives the block precision $w_i C_i^{-1}$ unless `base_precision` is supplied explicitly.
 
 !!! info "Convergence & Local Minima"
     Convergence behavior depends on the robust loss used:
@@ -29,7 +34,7 @@ and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust
 
 !!! warning "Practical constraints"
     - **Computational cost per iteration**: Each IRLS iteration requires re-evaluating the model on the full batch to compute residuals and weights, then re-fitting. For large models or datasets, the per-iteration cost is comparable to one full training epoch.
-    - **MAD scale collapse**: The robust scale estimate (MAD) can become **zero** if many residuals are identical (e.g., saturated predictions). Division by zero in weight computation produces `NaN` losses. Use `variance_type="predicted"` or `"fixed"` to avoid this, or add a `min_scale` floor.
+    - **MAD scale collapse**: MAD can be zero when many residuals are identical. `IRLSFitConfig.min_scale` provides an explicit numerical floor; covariance-whitened residuals normally use `scale="none"`.
     - **Warm-start requirement**: For redescending losses (Tukey, Cauchy), IRLS must be warm-started from a convex loss (Huber, OLS). Starting directly with Tukey weights from a random model typically diverges.
 
 ---
@@ -38,54 +43,56 @@ and $\psi$ is the weight function (Huber, Tukey, etc.), $\hat\sigma$ is a robust
 
 | Function | Formula | Behaviour | Default $c$ |
 |:---------|:--------|:----------|:-----------|
-| `"huber"` | $w = \min(1,\; \delta/\lvert r\rvert)$ | Downweights, never rejects | $\delta = 1.0$ |
+| `"huber"` | $w = \min(1,\; \delta/\lvert r\rvert)$ | Downweights, never rejects | $\delta = 1.345$ |
 | `"tukey"` | $w = (1 - (r/c)^2)^2$ if $\lvert r\rvert \leq c$; else $0$ | Rejects outliers | $c = 4.685$ |
-| `"power"` | $w = 1 / (1 + (\lvert r\rvert/a)^b)$ | Power-law decay | $a=1, b=2$ |
+| `"pseudo_huber"` | $w = [1 + (r/\delta)^2]^{-1/2}$ | Smooth Huber approximation | $\delta = 1.345$ |
+| `"cauchy"` | $w = [1 + (r/c)^2]^{-1}$ | Smooth redescending influence | $c=2.3849$ |
+| `"barron"` | Barron $\psi(r)/r$ | Continuous robust shape family | $\alpha=0$ |
 | Custom `Callable` | User-defined | Flexible | — |
 
 Here $r$ denotes the **scaled** residual $r / \hat\sigma$ passed to the weight function.
 
 ---
 
-## API: `iteratively_reweighted_least_squares`
+## API: `iteratively_reweighted_fit`
 
-Use this function inside your own training loop to compute robust precision weights from current model predictions:
+Implement `IRLSProblem` directly or use `IRLSCallbacks`:
 
 ```python
-from torchregress.algorithms.irls import iteratively_reweighted_least_squares
+from torchregress.algorithms import IRLSCallbacks, IRLSFitConfig, iteratively_reweighted_fit
 
-y_pred, loss_history, final_precision = iteratively_reweighted_least_squares(
-    model=my_model,
-    x=X,
-    y_true=y,
-    weight_fn="tukey",
-    max_iter=20,
-    variance_type="robust",
+problem = IRLSCallbacks(
+    residuals_fn=lambda beta: y - X @ beta,
+    weighted_fit_fn=lambda beta, precision: torch.linalg.lstsq(
+        X * precision.sqrt()[:, None], y * precision.sqrt()
+    ).solution,
 )
+
+result = iteratively_reweighted_fit(problem, initial_beta, IRLSFitConfig(weight="huber"))
+beta = result.state
 ```
 
 | Parameter | Type | Default | Description |
 |:----------|:-----|:--------|:------------|
-| `model` | `nn.Module` | — | PyTorch model (weights fixed during reweighting) |
-| `x`, `y_true` | `Tensor` | — | Batch of inputs and targets |
-| `weight_fn` | `str` or `Callable` | `"huber"` | Weight function |
-| `base_loss` | `str` | `"gaussian"` | `"gaussian"`, `"huber"`, or `"l1"` |
-| `max_iter` | `int` | `10` | IRLS iterations |
-| `tol` | `float` | `1e-4` | Convergence tolerance |
-| `variance_type` | `str` | `"predicted"` | `"predicted"`, `"fixed"`, or `"robust"` |
+| `problem` | `IRLSProblem` or `IRLSCallbacks` | — | Residual and weighted-refit callbacks; optional covariance, whitening and state-step callbacks |
+| `initial_state` | caller-defined | — | Initial model/parameter state |
+| `max_iter` | `int` | `50` | Maximum updates when no continuation schedule is supplied |
+| `weight` | `str` or `Callable` | `"huber"` | Huber, Pseudo-Huber, Tukey, Cauchy, Barron or custom weights |
+| `scale` | `str`, scalar, tensor or callable | `"mad"` | `"mad"`, `"std"`, `"rms"`, `"none"`, fixed or custom scale |
+| `base_precision` | `Tensor` or `None` | `None` | Sample, diagonal-output, or block precision multiplied by robust weights |
+| `mask` | boolean `Tensor` or `None` | `None` | Sample or element mask; covariance blocks require sample masks |
+| `continuation` | tuple of stages | `()` | Ordered convex-to-redescending weight schedule |
+| convergence tolerances | `float` or `None` | see API | Relative objective, weight and caller-defined parameter-step criteria |
 
-**Returns:** `(y_pred, loss_history, final_precision)` — `final_precision` $= \text{initial\_precision}\cdot\psi(r/\hat\sigma)$ holds robust precision multipliers for `WeightedMSELoss(..., weights=final_precision)`. Models that output a variance head (a `(mean, log_sigma)` tuple or a concatenated `[mean, log_sigma]` tensor) are supported: the loss scores the mean and `variance_type="predicted"` takes $\hat\sigma$ from the head.
+**Returns:** frozen `IRLSFitResult` with the final state, applied robust weights and precision, residuals, scale, robust objective, Kish effective sample size, termination reason and a tuple of frozen per-iteration diagnostics. Termination is one of `"converged"`, `"max_iterations"`, `"empty"`, `"breakdown"`, or `"non_finite"`. A caller-owned rank failure can be reported by raising `IRLSBreakdownError` from `weighted_fit`.
 
 ---
 
-## Complete Example
+## Complete analytic WLS example
 
 ```python
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torchregress.algorithms.irls import iteratively_reweighted_least_squares
-from torchregress.losses import WeightedMSELoss
+from torchregress.algorithms import IRLSCallbacks, IRLSFitConfig, iteratively_reweighted_fit
 
 torch.manual_seed(42)
 n = 1000
@@ -94,29 +101,29 @@ y = X @ torch.tensor([1.0, -0.5, 0.2, 0.7, -0.3]) + 0.1 * torch.randn(n)
 outliers = torch.randperm(n)[:50]
 y[outliers] += 5.0 * torch.randn(50)
 
-model = nn.Sequential(nn.Linear(5, 32), nn.ReLU(), nn.Linear(32, 1))
-opt = optim.Adam(model.parameters(), lr=1e-3)
-loss_fn = WeightedMSELoss()
+problem = IRLSCallbacks(
+    residuals_fn=lambda beta: y - X @ beta,
+    weighted_fit_fn=lambda beta, precision: torch.linalg.lstsq(
+        X * precision.sqrt()[:, None], y * precision.sqrt()
+    ).solution,
+)
 
-for epoch in range(5):
-    _, _, precision = iteratively_reweighted_least_squares(
-        model,
-        X,
-        y.unsqueeze(1),
-        weight_fn="tukey",
-        max_iter=15,
-        variance_type="robust",
-    )
-    opt.zero_grad()
-    pred = model(X)
-    loss = loss_fn(pred, y.unsqueeze(1), weights=precision)
-    loss.backward()
-    opt.step()
+result = iteratively_reweighted_fit(
+    problem,
+    torch.zeros(X.shape[1]),
+    IRLSFitConfig(weight="tukey", weight_params={"c": 4.685}),
+)
 
 clean = ~torch.isin(torch.arange(n), outliers)
-pred = model(X).detach()
-print(f"IRLS MAE (clean): {(pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4f}")
+pred = X @ result.state
+print(f"IRLS MAE (clean): {(pred[clean] - y[clean]).abs().mean():.4f}")
 ```
+
+For heteroscedastic vector residuals, provide `covariance_fn=lambda state: covariance` with shape `(samples, target_dim, target_dim)`. For matrix-free or sparse solvers, provide `whiten_fn` and keep any operator representation inside the problem object; the controller never constructs a global design or normal matrix.
+
+## Fixed-prediction compatibility utility
+
+`reweight_fixed_predictions(model, x, y_true, ...)` preserves the previous post-hoc behavior: it evaluates a fixed model and returns `(prediction, loss_history, precision)` without refitting. The old name `iteratively_reweighted_least_squares` remains available as a deprecated alias so existing callers do not break. New code that needs genuine IRLS should use `iteratively_reweighted_fit`.
 
 ---
 
@@ -125,7 +132,8 @@ print(f"IRLS MAE (clean): {(pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4
 | Approach | Handles Outliers | Retraining | Best For |
 |:---------|:---------------:|:----------:|:---------|
 | **Robust losses** (Huber, Cauchy, Tukey) | During training | Requires retraining | End-to-end training |
-| **IRLS reweighting** | Post-hoc or iterative | Can refine existing model | Fine-tuning, classical statistics |
+| **Refit-capable IRLS** | Robust outer loop | Yes, through caller callback | Classical, nonlinear, sparse or custom solvers |
+| **Fixed-prediction reweighting** | Post-hoc weights | No | Compatibility and diagnostics |
 | **CVaR** | Tail focus | During training | Worst-case performance |
 
 !!! tip "When to use IRLS vs robust losses"
@@ -136,21 +144,21 @@ print(f"IRLS MAE (clean): {(pred[clean] - y[clean].unsqueeze(1)).abs().mean():.4
 ## Limitations
 
 1. **Vulnerability to leverage points**: IRLS only downweights outliers based on residuals in the response space ($Y$). It is sensitive to high-leverage points (outliers in $X$). A single high-leverage outlier can attract the regression line even if its residual is small.
-2. **MAD scale collapse**: The robust scale estimate (MAD) can become zero if many residuals are identical (e.g., saturated predictions), producing NaN losses. Use `variance_type="predicted"` or `"fixed"` to avoid this.
+2. **MAD scale collapse**: The robust scale estimate can become zero if many residuals are identical. The configured `min_scale` prevents division by zero, but callers should diagnose the underlying fit collapse.
 3. **Warm-start required for redescending losses**: Tukey and Cauchy weight functions are non-convex. IRLS must be warm-started from a convex loss (OLS, Huber) or it diverges.
-4. **Per-iteration cost**: Each IRLS iteration requires a full forward pass to compute residuals and weights, comparable to one training epoch. For large models, this multiplies training cost.
-5. **Not end-to-end differentiable**: IRLS is an outer-loop reweighting procedure, not a differentiable loss. It cannot be used inside standard `loss.backward()` training — it requires explicit weight computation and re-fitting.
+4. **Per-iteration cost**: Each IRLS update requires a residual evaluation and caller-owned refit. Large-model callbacks should control batching and stopping internally.
+5. **Outer-loop controller**: The controller detaches residual diagnostics and is not an end-to-end differentiable loss. The weighted callback may use autograd internally.
 
 ## Recommendations
 
-- **Default weight function**: Start with `weight_fn="huber"` — it is convex, stable, and handles moderate outliers. Upgrade to `"tukey"` only with warm-start.
+- **Default weight function**: Start with `weight="huber"` — it is convex, stable, and handles moderate outliers. Upgrade to `"tukey"` only with warm-start.
 - **Use robust losses for end-to-end training**: For standard neural network training, prefer [Robust losses](../../losses/robust.md) (Huber, Cauchy, Tukey) which are differentiable and work inside `loss.backward()`.
-- **Use IRLS for post-hoc refinement**: IRLS is best applied to refine an already-trained model, especially when you need classical M-estimation diagnostics (influence functions, standard errors).
-- **Variance type**: Use `variance_type="predicted"` when the model outputs $\sigma^2$; use `"robust"` (MAD-based) for homoscedastic models without variance heads.
+- **Use continuation for redescending weights**: Start with a Huber stage and switch to Tukey, Cauchy, or Barron through `IRLSContinuationStage`.
+- **Use covariance whitening for vector targets**: A full per-sample covariance gives exact block Mahalanobis scores; a custom whitening callback supports structured operators.
 
 ## Next steps
 
-- [Robust losses](../../losses/robust.md) — Huber, Tukey, Cauchy trained end-to-end vs IRLS post-hoc reweighting
+- [Robust losses](../../losses/robust.md) — Huber, Tukey, and Cauchy trained end-to-end vs refit-capable IRLS
 - [SIMEX](simex.md) — simulation-based bias correction for measurement error, complementary to robust regression
 - [EIV losses](../../losses/eiv.md) — functional and structural error-in-variables losses for noisy inputs
 - [Comprehensive comparison](../../examples/comprehensive_comparison.py) — benchmark IRLS against end-to-end robust loss training

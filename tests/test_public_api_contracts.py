@@ -30,7 +30,9 @@ EXPECTED_EXPORTS = {
         "BaseLoss",
         "RegressionLoss",
         "DistributionLoss",
+        "iteratively_reweighted_fit",
         "iteratively_reweighted_least_squares",
+        "reweight_fixed_predictions",
         "__version__",
     ],
     "metrics": [
@@ -199,7 +201,17 @@ EXPECTED_EXPORTS = {
     ],
     "algorithms": [
         "IVON",
+        "iteratively_reweighted_fit",
         "iteratively_reweighted_least_squares",
+        "reweight_fixed_predictions",
+        "robust_weights",
+        "IRLSProblem",
+        "IRLSCallbacks",
+        "IRLSFitConfig",
+        "IRLSContinuationStage",
+        "IRLSIteration",
+        "IRLSFitResult",
+        "IRLSBreakdownError",
         "IRLSConfig",
         "RegressionCalibration",
         "SIMEX",
@@ -344,6 +356,19 @@ EXPECTED_EXPORTS = {
 
 
 EXPECTED_SIGNATURES = {
+    "algorithms.iteratively_reweighted_fit": (
+        "(problem: 'IRLSProblem[StateT] | IRLSCallbacks[StateT]', initial_state: 'StateT', "
+        "config: 'IRLSFitConfig | None' = None) -> 'IRLSFitResult[StateT]'"
+    ),
+    "algorithms.reweight_fixed_predictions": (
+        "(model: torch.nn.modules.module.Module, x: torch.Tensor, y_true: torch.Tensor, "
+        "initial_precision: torch.Tensor | None = None, "
+        "covariance_matrices: torch.Tensor | None = None, "
+        "mask: torch.Tensor | None = None, "
+        "config: Optional[torchregress.algorithms.irls.IRLSConfig] = None, **kwargs: Any) -> "
+        "Union[Tuple[torch.Tensor, List[float], torch.Tensor], "
+        "Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]]"
+    ),
     "algorithms.iteratively_reweighted_least_squares": (
         "(model: torch.nn.modules.module.Module, x: torch.Tensor, y_true: torch.Tensor, "
         "initial_precision: torch.Tensor | None = None, "

@@ -11,8 +11,17 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 
 | Symbol | Description |
 |:-------|:------------|
-| `IRLSConfig` | `(base_loss, max_iter, tol, delta, weight_fn, weight_params, variance_type, epsilon, return_all_predictions, batch_size)` — Configuration dataclass. |
-| `iteratively_reweighted_least_squares` | `(model, x, y_true, *, config)` — Run IRLS. Returns `(y_pred, loss_history, final_precision[, all_predictions])`. |
+| `IRLSProblem` | Protocol requiring `residuals(state)` and `weighted_fit(state, precision)`; optional covariance, whitening, and state-step callbacks are discovered structurally. |
+| `IRLSCallbacks` | Frozen functional adapter for the generic problem protocol. |
+| `IRLSFitConfig` | Robust weights/scale, base precision, masks, continuation stages and objective/weight/parameter convergence tolerances. |
+| `IRLSContinuationStage` | One weight family/tuning stage in a continuation schedule. |
+| `iteratively_reweighted_fit` | `(problem, initial_state, config)` — solver-agnostic IRLS that refits after every weight update and returns `IRLSFitResult`. |
+| `IRLSFitResult`, `IRLSIteration` | Frozen result and history diagnostics with effective sample size and finite/termination status. |
+| `IRLSBreakdownError` | Exception a caller-owned solver raises to return a diagnostic `"breakdown"` result. |
+| `robust_weights` | Huber, Pseudo-Huber, Tukey, Cauchy, Barron-style or custom IRLS multipliers. |
+| `reweight_fixed_predictions` | Explicit compatibility utility for robust reweighting without refitting. |
+| `iteratively_reweighted_least_squares` | Deprecated alias for `reweight_fixed_predictions`. |
+| `IRLSConfig` | Configuration for fixed-prediction compatibility reweighting. |
 | `huber_weights(scaled_residuals, delta)` | Huber weighting function. |
 | `tukey_weights(scaled_residuals, c)` | Tukey biweight; zero weight for `\|r\| > c`. |
 | `power_weights(scaled_residuals, a, b)` | Power weighting. |

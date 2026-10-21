@@ -5,6 +5,7 @@ This module provides implementations of IRLS for robust regression,
 with support for various weighting schemes and loss functions.
 """
 
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
@@ -482,7 +483,7 @@ def _run_irls_loop(  # noqa: PLR0913
     return precision, loss_history, all_predictions
 
 
-def iteratively_reweighted_least_squares(
+def reweight_fixed_predictions(
     model: nn.Module,
     x: torch.Tensor,
     y_true: torch.Tensor,
@@ -496,11 +497,11 @@ def iteratively_reweighted_least_squares(
     | tuple[torch.Tensor, list[float], torch.Tensor, list[torch.Tensor]]
 ):
     """
-    Applies iteratively reweighted least squares (IRLS) for robust regression.
+    Compute robust precision weights for fixed model predictions.
 
-    This function is a performance-optimized implementation that supports PyTorch's
-    latest features, including `torch.compile`. The core logic is broken down into
-    helper functions for clarity and maintainability.
+    This compatibility utility does not refit ``model``. Use
+    :func:`torchregress.algorithms.iteratively_reweighted_fit` for genuine IRLS
+    with a caller-owned weighted solver.
 
     Args:
         model: PyTorch model
@@ -594,3 +595,36 @@ def iteratively_reweighted_least_squares(
         return final_y_pred, loss_history, precision, all_predictions
     else:
         return final_y_pred, loss_history, precision
+
+
+def iteratively_reweighted_least_squares(
+    model: nn.Module,
+    x: torch.Tensor,
+    y_true: torch.Tensor,
+    initial_precision: torch.Tensor | None = None,
+    covariance_matrices: torch.Tensor | None = None,
+    mask: torch.Tensor | None = None,
+    config: IRLSConfig | None = None,
+    **kwargs: Any,
+) -> (
+    tuple[torch.Tensor, list[float], torch.Tensor]
+    | tuple[torch.Tensor, list[float], torch.Tensor, list[torch.Tensor]]
+):
+    """Deprecated alias for :func:`reweight_fixed_predictions`."""
+    warnings.warn(
+        "iteratively_reweighted_least_squares only reweights fixed predictions; "
+        "use reweight_fixed_predictions for that behavior or iteratively_reweighted_fit "
+        "for refit-capable IRLS",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return reweight_fixed_predictions(
+        model=model,
+        x=x,
+        y_true=y_true,
+        initial_precision=initial_precision,
+        covariance_matrices=covariance_matrices,
+        mask=mask,
+        config=config,
+        **kwargs,
+    )

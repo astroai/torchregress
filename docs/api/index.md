@@ -116,8 +116,8 @@ attribute (`tr.losses`) is the only cost; it does not load the others.
 import torchregress as tr
 
 # Top-level, eagerly imported
-from torchregress import BaseLoss, RegressionLoss, DistributionLoss
-from torchregress.algorithms import iteratively_reweighted_least_squares
+from torchregress import BaseLoss, DistributionLoss, RegressionLoss, iteratively_reweighted_fit
+from torchregress.algorithms import reweight_fixed_predictions
 
 # Lazy-loaded submodules
 losses = tr.losses            # tr.losses.WeightedHuberLoss(...)

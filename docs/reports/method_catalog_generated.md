@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `153`
+- Total methods: `154`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -45,6 +45,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `probabilistic_loss` | 8 |
 | `quantile` | 2 |
 | `representation_regularizer` | 1 |
+| `robust_algorithm` | 1 |
 | `robust_loss` | 9 |
 | `semi_supervised` | 1 |
 | `swag` | 2 |
@@ -60,7 +61,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | Maturity | Count |
 |---|---:|
 | `Core` | 7 |
-| `Strong` | 19 |
+| `Strong` | 20 |
 | `Available` | 127 |
 
 ## Method Rows
@@ -187,6 +188,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `MultiQuantileLoss` | `quantile` | `Strong` | `prediction_intervals`, `non_gaussian`, `multi_quantile` | `calibration`, `ood*` | `torchregress.losses.MultiQuantileLoss` |
 | `QuantileLoss` | `quantile` | `Core` | `prediction_intervals`, `non_gaussian` | `calibration`, `ood*` | `torchregress.losses.QuantileLoss` |
 | `UncertaintyAwareConR` | `representation_regularizer` | `Available` | `imbalanced_regression`, `noisy_labels`, `scalar_targets` | `ood*` | `torchregress.losses.UncertaintyAwareConR` |
+| `iteratively_reweighted_fit` | `robust_algorithm` | `Strong` | `outliers`, `noisy_labels`, `robust_fitting`, `irls` | `calibration*`, `ood*` | `torchregress.algorithms.iteratively_reweighted_fit` |
 | `AdaptiveRobustLoss` | `robust_loss` | `Available` | `outliers`, `adaptive_shape`, `learnable` | `calibration*`, `ood*` | `torchregress.losses.AdaptiveRobustLoss` |
 | `BarronLoss` | `robust_loss` | `Available` | `outliers`, `adaptive_shape` | `calibration*`, `ood*` | `torchregress.losses.BarronLoss` |
 | `CVaRLoss` | `robust_loss` | `Available` | `outliers`, `tail_focused`, `worst_case`, `noisy_labels` | `calibration*`, `ood*` | `torchregress.losses.CVaRLoss` |

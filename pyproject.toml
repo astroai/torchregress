@@ -67,6 +67,7 @@ test = [
     "pandas>=3.0",
     "scoringrules>=0.11",
     "properscoring>=0.1",
+    "statsmodels>=0.14",
     "hypothesis>=6.100",
 ]
 docs = [

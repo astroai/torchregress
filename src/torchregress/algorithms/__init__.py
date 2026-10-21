@@ -27,6 +27,18 @@ from .heteroscedastic_laplace import (
 from .irls import (
     IRLSConfig,
     iteratively_reweighted_least_squares,
+    reweight_fixed_predictions,
+)
+from .irls_fit import (
+    IRLSBreakdownError,
+    IRLSCallbacks,
+    IRLSContinuationStage,
+    IRLSFitConfig,
+    IRLSFitResult,
+    IRLSIteration,
+    IRLSProblem,
+    iteratively_reweighted_fit,
+    robust_weights,
 )
 from .ivon import IVON
 from .latentnn import LatentNN
@@ -38,7 +50,17 @@ from .warmup_mc import WarmupMCTrainer
 
 __all__ = [
     "IVON",
+    "iteratively_reweighted_fit",
     "iteratively_reweighted_least_squares",
+    "reweight_fixed_predictions",
+    "robust_weights",
+    "IRLSProblem",
+    "IRLSCallbacks",
+    "IRLSFitConfig",
+    "IRLSContinuationStage",
+    "IRLSIteration",
+    "IRLSFitResult",
+    "IRLSBreakdownError",
     "IRLSConfig",
     "RegressionCalibration",
     "SIMEX",
