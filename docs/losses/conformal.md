@@ -62,7 +62,7 @@ Two newer calibration layers are available for conditional density models:
   intervals through `CTI`; multi-target targets get exact level-set membership
   through `contains`.  `ContrastiveFlowConformal` wraps a fitted
   `ContrastiveFlowLoss`'s positive-context density.
-- `WaldoConformal` / `WaldoPosteriorCalibrator` — WALDO's Wald statistic
+- `WaldoConformal` / `WaldoPosteriorCalibrator` / `WaldoDensityConformal` — WALDO's Wald statistic
   `(mean - y)^T Cov^{-1}(mean - y)` with Neyman inversion and optionally binned
   critical values.  The posterior calibrator estimates moments from predictive
   samples (flow/ensemble) and supports joint multi-target regions.

@@ -275,6 +275,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `ContrastiveFlowConformal` | `ContrastiveFlowConformal(flow_loss, alpha=0.1)` | Conformal level sets around a contrastive-flow positive density |
 | `WaldoConformal` | `WaldoConformal(alpha=0.1, critical_bins=None, covariance_type="diagonal")` | Wald-statistic confidence regions from conditional mean/covariance |
 | `WaldoPosteriorCalibrator` | `WaldoPosteriorCalibrator(alpha=0.1, covariance_type="full")` | WALDO calibration from predictive samples |
+| `WaldoDensityConformal` | `WaldoDensityConformal(alpha=0.1, covariance_type="full", n_samples=256)` | Simulator-free WALDO regions from a conditional-density sampler |
 | `DistributionalConformal` | `DistributionalConformal(alpha=0.1)` | PIT-based CDF calibration |
 | `LevelSetConformalPredictor` | `LevelSetConformalPredictor(alpha=0.1)` | Smallest density sets |
 | `MultiTargetConformal` | `MultiTargetConformal(alpha=0.1)` | Multi-target joint coverage |

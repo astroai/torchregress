@@ -43,6 +43,11 @@ inside = cp.contains(mean_test, y_test, variance_test)
 
 ## Posterior/sample mode
 
+`WaldoDensityConformal` is the simulator-free conditional-density wrapper: pass
+a sampler `sample_fn(context, n)`, calibrate on held-out targets, and use
+`contains`/`predict_region`/`predict_interval`.  It estimates conditional
+moments from the density itself, so no simulator or parameter prior is required.
+
 `WaldoPosteriorCalibrator` estimates the conditional mean/covariance from
 predictive samples (e.g. a flow):
 
