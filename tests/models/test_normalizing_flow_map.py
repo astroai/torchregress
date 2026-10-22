@@ -136,3 +136,24 @@ def test_nfm_mixed_scalar_and_batched_times(arch: str, scalar_s: bool) -> None:
         ]
     )
     torch.testing.assert_close(batched, expected)
+
+
+def test_tokenized_tarflow_high_dimensional_roundtrip() -> None:
+    torch.manual_seed(0)
+    model = NormalizingFlowMap(
+        16,
+        8,
+        n_layers=2,
+        hidden=(32, 32),
+        arch="tarflow",
+        tarflow_layers=2,
+        tarflow_heads=4,
+    )
+    context = torch.randn(4, 8)
+    target = torch.randn(4, 16)
+    z, logdet = model(target, 0.0, 1.0, context)
+    rec, inv_logdet = model.inverse(z, 0.0, 1.0, context)
+    assert torch.allclose(rec, target, atol=1e-5)
+    assert torch.allclose(logdet, -inv_logdet, atol=1e-5)
+    assert torch.isfinite(model.log_prob(context, target)).all()
+    assert model.sample(context, n_samples=3).shape == (4, 3, 16)

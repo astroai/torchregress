@@ -34,6 +34,13 @@ $$
 with the endpoint NLL.  This is a lean tabular instantiation, not the
 image-scale autoregressive NFM of the paper.
 
+`arch="tarflow"` enables a more ambitious tokenized variant: explicit context
+and time tokens followed by one token per target coordinate, with a causal
+multi-layer Transformer and exact sequential inversion.  `tarflow_layers`
+controls the number of transformer blocks per map layer and `tarflow_heads`
+the attention heads.  This is a tabular refinement, not the image-scale
+autoregressive architecture.
+
 ```python
 from torchregress.models import NormalizingFlowMap
 

@@ -144,6 +144,8 @@ class NormalizingFlowMap(nn.Module):
         map_weight: float = 1.0,
         nll_weight: float = 0.1,
         arch: str = "coupling",
+        tarflow_layers: int = 3,
+        tarflow_heads: int = 4,
     ) -> None:
         super().__init__()
         self.n_features = int(n_features)
@@ -157,10 +159,12 @@ class NormalizingFlowMap(nn.Module):
         for i in range(int(n_layers)):
             if self.arch == "tarflow" and self.n_features > 1:
                 layers.append(
-                    AutoregressiveTimeLayer(
+                    TokenizedTARFlowLayer(
                         self.n_features,
                         self.context_dim,
                         hidden=int(hidden[0]) if hidden else 128,
+                        n_heads=max(1, int(tarflow_heads)),
+                        n_encoder_layers=max(1, int(tarflow_layers)),
                         time_features=time_features,
                     )
                 )
@@ -363,6 +367,98 @@ class AutoregressiveTimeLayer(nn.Module):
             tokens = self._tokens(x_prefix, s, t, context)
             hidden = self.encoder(tokens, mask=self._mask(tokens.shape[1], y.device))
             raw = self.head(self.norm(hidden[:, -1]))  # [B, 2]
+            scale = 0.5 * torch.tanh(raw[..., 0])
+            shift = raw[..., 1]
+            xj = (y[:, j] - shift) * torch.exp(-scale)
+            recovered.append(xj)
+            logdet = logdet - scale
+        return torch.stack(recovered, dim=-1), logdet
+
+
+class TokenizedTARFlowLayer(nn.Module):
+    """Tokenized transformer autoregressive flow-map layer.
+
+    A more expressive TARFlow-style layer: explicit context and time tokens are
+    followed by one token per target coordinate, and a causal multi-layer
+    Transformer produces the scale/shift for each coordinate from that
+    coordinate's prefix.  Unlike :class:`AutoregressiveTimeLayer`, the context
+    and both times are first-class tokens and the encoder is multi-layer.
+
+    Exact inversion is sequential in the target dimension; the forward map is a
+    single causal Transformer pass.  This is a tabular refinement of TARFlow,
+    not the image-scale autoregressive architecture.
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        context_dim: int,
+        hidden: int = 128,
+        n_heads: int = 4,
+        n_encoder_layers: int = 3,
+        time_features: int = 16,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        if dim < 2:
+            raise ValueError("TokenizedTARFlowLayer requires dim >= 2")
+        self.dim = int(dim)
+        self.context_dim = int(context_dim)
+        self.hidden = int(hidden)
+        self.time = _TimeFeatures(time_features)
+        time_dim = 2 * self.time.freqs.numel()
+        self.context_proj = nn.Linear(context_dim, hidden)
+        self.time_proj = nn.Linear(2 * time_dim, hidden)
+        self.x_proj = nn.Linear(1, hidden)
+        self.pos = nn.Parameter(torch.zeros(1, dim, hidden))
+        layer = nn.TransformerEncoderLayer(
+            d_model=hidden,
+            nhead=n_heads,
+            dim_feedforward=4 * hidden,
+            dropout=float(dropout),
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+        self.encoder = nn.TransformerEncoder(layer, num_layers=max(1, int(n_encoder_layers)))
+        self.norm = nn.LayerNorm(hidden)
+        self.head = nn.Linear(hidden, 2)
+        nn.init.zeros_(self.head.weight)
+        nn.init.zeros_(self.head.bias)
+
+    def _tokens(self, x: Tensor, s: Tensor, t: Tensor, context: Tensor) -> Tensor:
+        b = x.shape[0]
+        time = torch.cat([self.time(s.reshape(-1)), self.time(t.reshape(-1))], dim=-1)
+        if time.shape[0] != b:
+            time = time[:1].expand(b, -1)
+        start = torch.stack([self.context_proj(context), self.time_proj(time)], dim=1)  # [B, 2, H]
+        if x.shape[1] == 0:
+            return start
+        target = self.x_proj(x.unsqueeze(-1)) + self.pos[:, : x.shape[1]]
+        return torch.cat([start, target], dim=1)
+
+    @staticmethod
+    def _causal_mask(length: int, device: torch.device) -> Tensor:
+        return torch.triu(torch.ones(length, length, dtype=torch.bool, device=device), diagonal=1)
+
+    def forward(self, x: Tensor, s: Tensor, t: Tensor, context: Tensor) -> tuple[Tensor, Tensor]:
+        tokens = self._tokens(x, s, t, context)
+        hidden = self.encoder(tokens, mask=self._causal_mask(tokens.shape[1], x.device))
+        raw = self.head(self.norm(hidden[:, 1 : 1 + self.dim]))  # [B, D, 2]
+        scale = 0.5 * torch.tanh(raw[..., 0])
+        shift = raw[..., 1]
+        y = x * torch.exp(scale) + shift
+        return y, scale.sum(dim=-1)
+
+    def inverse(self, y: Tensor, s: Tensor, t: Tensor, context: Tensor) -> tuple[Tensor, Tensor]:
+        b, d = y.shape
+        recovered: list[Tensor] = []
+        logdet = torch.zeros(b, device=y.device, dtype=y.dtype)
+        for j in range(d):
+            prefix = torch.stack(recovered, dim=-1) if recovered else y.new_empty(b, 0)
+            tokens = self._tokens(prefix, s, t, context)
+            hidden = self.encoder(tokens, mask=self._causal_mask(tokens.shape[1], y.device))
+            raw = self.head(self.norm(hidden[:, -1]))
             scale = 0.5 * torch.tanh(raw[..., 0])
             shift = raw[..., 1]
             xj = (y[:, j] - shift) * torch.exp(-scale)
