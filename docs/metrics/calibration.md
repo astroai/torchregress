@@ -4,6 +4,8 @@
 
 Calibration metrics evaluate whether predicted probabilistic distributions or intervals accurately reflect the true uncertainty in the data.
 
+Calibration is the *honesty* half of forecast quality. For a predictive CDF $F_i$, the probability integral transform $u_i = F_i(y_i)$ should be uniform on $[0,1]$ when the forecast is correct; equivalently, the empirical frequency of $y_i \le F_i^{-1}(q)$ should equal $q$ at every level $q$. Calibration metrics measure the distance from that ideal, separately from sharpness (which the [distribution metrics](distribution.md) reward). They are necessary but not sufficient: the constant forecast $F = $ training marginal is often well calibrated and useless, which is why calibration is always reported with a score such as CRPS.
+
 → See [Calibration methods](../methods/calibration.md), [Visualization diagnostics](../methods/visualization.md#1-diagnostic-plots-torchregressvizdiagnostic), and the [calibration API](../api/metrics.md).
 
 ---

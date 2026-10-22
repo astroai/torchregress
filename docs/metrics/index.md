@@ -6,6 +6,27 @@ models, with special focus on uncertainty quantification. This page is the
 selection guidance ("which metric for my task?"), see the [selection
 guide](#metric-selection-guide) at the bottom.
 
+## How to read a metric
+
+A regression model does not emit one object, so no single number can score it. The four forecast objects this library evaluates are:
+
+| Forecast | Notation | Scored by |
+|:---------|:---------|:----------|
+| Point prediction | $\hat{y}(x)$ | [Point metrics](point.md) |
+| Prediction interval | $[L(x), U(x)]$ | [Interval metrics](interval.md) |
+| Predictive distribution | $F(y \mid x)$ (parametric or sampled) | [Distribution metrics](distribution.md) |
+| Ensemble of members | $\{y^{(m)}(x)\}_{m=1}^{M}$ | [Ensemble metrics](ensemble.md) |
+
+The guiding principle is the **proper scoring rule**. A score $S(F, y)$ is *proper* if the true distribution is optimal in expectation,
+
+$$
+\mathbb{E}_{Y \sim G}\big[S(G, Y)\big] \;\le\; \mathbb{E}_{Y \sim G}\big[S(F, Y)\big] \quad \text{for every forecast } F,
+$$
+
+and *strictly proper* if equality holds only when $F = G$. Squared error is a consistent scoring function for the conditional mean, absolute error for the median, and pinball for a quantile; CRPS and the energy score are proper for the whole distribution. Summaries that do not score the full distribution — a point-only MAE or $R^2$, or coverage without width — are still useful diagnostics, but they can be gamed and should not be the only reported number.
+
+Calibration and sharpness are the two halves of forecast quality: calibration says *the stated probabilities are honest* ($P(Y \le F^{-1}(\tau \mid X)) = \tau$ for all $\tau$), while sharpness says *the forecasts are informative* (narrow intervals, concentrated densities). Proper scores reward both; a calibrated but useless forecast and a sharp but lying forecast both score badly. This is why the library pairs every distributional metric with a calibration diagnostic.
+
 ## torchregress vs torchmetrics — why both exist
 
 Torchregress no longer re-exports `MeanSquaredError`, `MeanAbsoluteError`, or
@@ -21,7 +42,7 @@ from torchmetrics import MeanSquaredError, MeanAbsoluteError, R2Score
 | `r2_score` | `R2Score` | Functional form (NumPy or tensor input) |
 | `huber_loss` | `HuberLoss` | Functional form with `sample_weight` support |
 
-**The remaining ~50 metrics have no torchmetrics equivalent.**  They cover
+**The remaining metrics — well over 100 exported names — have no torchmetrics equivalent.**  They cover
 calibration, CRPS/EnergyScore, prediction intervals, ensemble uncertainties,
 OOD detection, censored/ordinal regression, selective prediction, and more.
 
@@ -91,7 +112,7 @@ Member-level statistics and uncertainty decomposition for ensemble models.
 
 ### Multivariate Metrics
 
-Vector-output RMSE and MAE for multi-target regression.
+Vector-output RMSE and MAE for multi-target regression, plus task-agnostic correlations.
 
 [Learn more about multivariate metrics →](multivariate.md)
 
@@ -100,6 +121,18 @@ Vector-output RMSE and MAE for multi-target regression.
 Selective prediction: risk-coverage curves (AURC) and rejection policies.
 
 [Learn more about decision metrics →](decision.md)
+
+### Representation Geometry
+
+Frozen-feature diagnostics — neighbourhood target gap, target ordering, and readout quality — for comparing encoders independently of the head.
+
+[Learn more about representation metrics →](representation.md)
+
+### Photo-z PDF Diagnostics
+
+Global and local photo-$z$ PDF calibration: PIT Cramér–von Mises, local PIT Wasserstein distance, and central PDF width, scaled by $1+z$.
+
+[Learn more about photo-z metrics →](photo_z.md)
 
 ## Metric Selection Guide
 

@@ -10,7 +10,7 @@ Complete reference for the `torchregress.losses` module. Every exported class, f
 
 All losses share a unified contract:
 
-```python
+```text
 forward(y_pred, target, mask=None, weights=None) -> Tensor | dict
 ```
 
@@ -83,7 +83,7 @@ $$\\mathcal{L}_{\\beta\\text{-NLL}} = (\\sigma^2 + \\varepsilon)^{-\\beta} \\cdo
 | `StudentTLoss` | `StudentTLoss(nu=1.0, scale=1.0, reduction="mean")` | Student-t NLL; Cauchy at ν=1, Gaussian as ν→∞ |
 | `TukeyBiweightLoss` | `TukeyBiweightLoss(c=4.685, reduction="mean")` | Redescending (zero for |r| > c) |
 | `AdaptiveRobustLoss` | `AdaptiveRobustLoss(...)` | Trainable α + scale |
-| `BarronLoss` | `BarronLoss(alpha=1.0, c=1.0, ...)` | Continuous L1 ↔ L2 family |
+| `BarronLoss` | `BarronLoss(alpha=1.0, scale=1.0, ...)` | Continuous L1 ↔ L2 family |
 | `CVaRLoss` | `CVaRLoss(alpha=0.1, ...)` | Tail α-fraction |
 | `huber_elementwise` | `huber_elementwise(residual, delta=1.0)` | Elementwise Huber; quadratic/linear crossover at `delta` |
 | `log_cosh` | `log_cosh(residual, scale=1.0)` | Numerically stable `log(cosh(u))` |
@@ -201,7 +201,7 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | `GammaLoss` | `GammaLoss(link="log")` | Var = φ μ² |
 | `InverseGaussianLoss` | `InverseGaussianLoss(link="log")` | Var = φ μ³ |
 | `CompoundPoissonLoss` | `CompoundPoissonLoss(p=1.5, link="log")` | 1 < p < 2 |
-| `tweedie_loss` | `tweedie_loss(y_pred, y, p=1.5, ...)` | Functional Tweedie loss |
+| `tweedie_loss` | `tweedie_loss(y_pred, target, p=1.5, ...)` | Functional Tweedie loss |
 | `PoissonGaussianMixtureLoss` | `PoissonGaussianMixtureLoss(log_input=True, ...)` | Poisson + Gaussian readout |
 | `EnhancedPoissonGaussianMixtureLoss` | `EnhancedPoissonGaussianMixtureLoss(...)` | Gain/offset/learnable noise |
 | `PoissonGaussianLikelihoodRatioLoss` | `PoissonGaussianLikelihoodRatioLoss(...)` | Likelihood-ratio variant |
@@ -224,7 +224,7 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | `FeatureDistributionSmoother` | `FeatureDistributionSmoother(...)` | Feature Distribution Smoothing |
 | `PropensityWeightedLoss` | `PropensityWeightedLoss(...)` | Inverse propensity weights |
 | `PrimeLoss` | `PrimeLoss(feature_dim, n_proxies=100, *, label_range=None, class_balanced=False, ...)` | PRIME proxy alignment (learnable proxies, uniform target spacing) |
-| `ConR` | `ConR(*, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2, label_sigma=None)` | ConR contrastive collapse penalty; `forward(features, target, prediction=..., ...)` |
+| `ConR` | `ConR(*, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2)` | ConR contrastive collapse penalty; `forward(features, target, prediction=..., ...)` |
 | `conr_loss` | `conr_loss(features, labels, predictions, *, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2, density_weights=None, label_sigma=None)` | Functional per-anchor ConR regularizer (Keramati et al. 2024) |
 | `uniform_proxy_targets` | `uniform_proxy_targets(y_min, y_max, n_proxies)` | Evenly spaced learnable-proxy targets for `PrimeLoss` |
 | `UncertaintyAwareConR` | `UncertaintyAwareConR(*, label_sigma=..., label_threshold=0.2, ...)` | ConR with Gaussian-uncertainty-softened pair membership |
@@ -320,6 +320,6 @@ Conformal guarantee: $$P(Y_{n+1} \\in \\hat{C}(X_{n+1})) \\geq 1 - \\alpha$$
 
 | Symbol | Signature |
 |:-------|:----------|
-| `get_regression_loss` | `get_regression_loss(name, **kwargs)` |
+| `get_regression_loss` | `get_regression_loss(name)` |
 | `list_regression_losses` | `list_regression_losses()` |
 | `create_loss_from_config` | `create_loss_from_config(config)` |

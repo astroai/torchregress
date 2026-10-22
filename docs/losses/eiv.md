@@ -38,6 +38,7 @@ where $\lambda \in (0, 1)$ is the **reliability ratio**.  This is known as **att
 | [`FunctionalEIVLoss`](../api/losses.md) | Taylor expansion of $f$ around $X_{\text{obs}}$ | Fast, gradient-based (Point estimates) | [`FunctionalEIVLoss`](../api/losses.md) |
 | `InputNoiseMDNLoss` | MC marginalization for MDN heads | Handles multimodal targets with noisy inputs | [Losses API](../api/losses.md) (EIV) |
 | `InputNoiseBinnedPDFLoss` | MC marginalization for classification/binning | Reliable uncertainty for binned PDF models | [Losses API](../api/losses.md) (EIV) |
+| `InputNoiseAugmentationLoss` | Shared input-noise Monte-Carlo base class | Build your own noise-aware head loss from any differentiable base loss | [Losses API](../api/losses.md) (EIV) |
 | [`OrthogonalDistanceRegressionLoss`](../api/losses.md) | Optimises latent $X^*$ per sample | Classical ODR, inner loop | [`OrthogonalDistanceRegressionLoss`](../api/losses.md) |
 
 ---

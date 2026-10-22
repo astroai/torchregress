@@ -2,6 +2,24 @@
 
 torchregress provides a comprehensive library of loss functions for regression — from simple point predictions to full distributional models with uncertainty quantification. This page is the **catalogue**: every loss family with its formula, use case, and link to the full guide.
 
+## From likelihood to loss
+
+Almost every loss here is the negative log-likelihood of a conditional model. Given inputs $x$, a target $y$, and a model that predicts distribution parameters $\theta(x)$, training minimises
+
+$$
+\mathcal{L}(\theta) = -\,\mathbb{E}_{(x,y)\sim\mathcal{D}}\big[\log p_\theta(y \mid x)\big].
+$$
+
+The choice of $p_\theta$ is the choice of loss: a fixed-variance Gaussian gives squared error, a Laplace gives absolute error, a Gaussian whose variance is also predicted gives `GaussianNLLLoss`, a mixture gives `MDNLoss`, and so on. Several losses are instead **scoring rules**: pinball is a consistent score for a quantile, while CRPS, the energy score and the Gaussian Wasserstein bound are proper scores for the whole predictive distribution even when no parametric likelihood is assumed. That distinction matters when reading the tables below: likelihood losses are tied to a distributional family, scoring rules are not.
+
+All losses share the same call contract and the same reduction semantics:
+
+```python
+loss_fn(y_pred, target, mask=None, weights=None)   # mask: True = valid, False = missing
+```
+
+`mask` removes missing entries from the denominator and `weights` scales samples; `reduction="mean"` is always the *weighted mean over valid entries* (see [Base Classes](base.md) for the exact zero-fill rule).
+
 !!! tip "Where to start?"
     Use the [Task-First Method Selection Matrix](../guide/method-selection.md) to shortlist losses by problem type.  For prediction intervals with coverage guarantees, see [Conformal Prediction](../methods/conformal/index.md).
 
@@ -87,7 +105,7 @@ Parametric losses for the Gaussian family — supporting **heteroscedastic** (in
 !!! info "GaussianNLL ↔ WeightedMSE continuum"
     Setting `GaussianNLLLoss(fixed_variance=σ²)` makes the model predict **only the mean**, and the loss reduces to a **scaled MSE**.  The factory `create_gaussian_nll(use_mse_for_unit_variance=True)` returns `WeightedMSELoss` when variance is fixed at 1.  This means GaussianNLL and MSE are endpoints of a **single continuum**.
 
-Read the full [Gaussian losses guide](gaussian.md) for deep dives on diagonal, full-covariance, and low-rank variants. Also see [Beta-NLL](beta_nll.md) for stabilized training and [Wasserstein bound](gaussian_wasserstein.md) for covariance supervision.
+Read the full [Gaussian losses guide](gaussian.md) for deep dives on diagonal, full-covariance, and low-rank variants. Also see [Beta-NLL](beta_nll.md) for stabilized training, [Faithful Gaussian & CRPS](faithful_gaussian.md) for decoupled mean/variance training and a proper-score alternative, and [Wasserstein bound](gaussian_wasserstein.md) for covariance supervision.
 
 ---
 
@@ -120,7 +138,7 @@ Distribution-free models for **specific aspects** of the conditional distributio
 | `MultiExpectileLoss` | Multiple expectiles | — |
 | `QuantileCrossoverLoss` | — | Penalises $\hat{q}_{\tau_1} > \hat{q}_{\tau_2}$ when $\tau_1 < \tau_2$ |
 
-Read the full [Quantile & Expectile guide](quantile_expectile.md) — crossover penalties, multi-level prediction intervals, expectile-to-quantile conversion.
+Read the full [Quantile & Expectile guide](quantile_expectile.md) — crossover penalties, multi-level prediction intervals, expectile-to-quantile conversion. For minimum-volume prediction sets with a learned level-set boundary, see [Super-Level-Set (SLS) regression](sls.md).
 
 ---
 
@@ -213,7 +231,7 @@ For **arbitrarily complex** conditional distributions:
 | `NeuralRatioLoss` | Classifier-based neural ratio estimation (binary/multiclass) for parameter inference |
 | `create_flow_model()` / `create_flow_loss()` / `create_contrastive_flow_loss()` | Factory functions |
 
-Read the full [Normalizing flows guide](nflows.md) — NSF/cNSF, cINN/RealNVP, BPF, contrastive flow variant, inference sampling — and the [neural ratio estimation guide](nre.md) for the classifier-based likelihood-ratio estimator, posterior-weight utilities and SBI calibration diagnostics.
+Read the full [Normalizing flows guide](nflows.md) — NSF/cNSF, cINN/RealNVP, BPF, contrastive flow variant, inference sampling — and the [neural ratio estimation guide](nre.md) for the classifier-based likelihood-ratio estimator, posterior-weight utilities and SBI calibration diagnostics. The [flow design notes](flow_research.md) record why exact conditional likelihood is the default for low-dimensional tabular regression and when flow matching or diffusion is the better fit.
 
 ---
 
@@ -227,7 +245,7 @@ For heads that output a whole distribution on a fixed 1D support (binned or spli
 | `DiscreteWasserstein1Loss` | 1-Wasserstein between mass vectors on a shared grid (displacement-aware complement to KL) |
 | `RankNContrastLoss` | Rank-N-Contrast: order features by continuous label distance (Zha et al. 2023) |
 
-Read the [Grid & basis densities guide](density_basis.md).
+Read the [Grid & basis densities guide](density_basis.md). For the astronomy two-stage binned-CDF recipe built on these ideas, see [Photo-z recipe](photo_z_recipe.md).
 
 ---
 
@@ -315,6 +333,12 @@ Parametric NLLs for **non-Gaussian** conditional distributions — skew, heavy-t
 All NLL families (except `SQRLoss`) expose `unconstrained_inputs=True` (default): positivity-constrained parameters are mapped internally as `softplus(raw)+eps`. Set `unconstrained_inputs=False` when your head already outputs positive values — the loss applies the inverse softplus transform internally to avoid `softplus(softplus(x))`.
 
 Read the full [Families guide](families.md) — skew/t, beta, Johnson SU, sinh-arcsinh, GEV, asymmetric Laplace, SQR, and the `unconstrained_inputs` contract.
+
+---
+
+## Conformal Prediction Wrappers
+
+Conformal prediction is a **post-hoc** layer, not a likelihood: it turns any point or quantile predictor into intervals with finite-sample coverage. The predictors are exported from `torchregress.losses` for convenience, but the methodology (split, CQR, CV+, weighted/non-exchangeable, distributional) is documented in [Conformal Prediction](conformal.md) and the [methods section](../methods/conformal/index.md).
 
 ---
 

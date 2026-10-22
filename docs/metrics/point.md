@@ -4,6 +4,16 @@
 
 Point prediction metrics evaluate the accuracy of single-point predictions without considering uncertainty information.
 
+Two cautions frame everything on this page. First, a point metric is only meaningful relative to a **loss function**: the optimal constant predictor under squared error is the mean, under absolute error the median, and under the pinball loss the corresponding quantile. Quoting "the MAE" while training with MSE measures a different target than the one optimised. Second, point metrics say nothing about uncertainty quality — a model can have excellent RMSE and badly calibrated intervals — so pair them with the [distributional](distribution.md), [interval](interval.md), and [calibration](calibration.md) pages.
+
+Formally, with targets $y_i$, predictions $\hat{y}_i$, optional weights $w_i$ and validity mask $m_i$,
+
+$$
+\mathcal{L}_{\text{point}} = \frac{1}{\sum_i w_i m_i}\sum_i w_i m_i\,\ell(y_i, \hat{y}_i),
+$$
+
+where $\ell$ is the squared, absolute, Huber, or pinball loss. The sections below define each $\ell$ and the reports that aggregate them.
+
 ---
 
 ## Basic Metrics

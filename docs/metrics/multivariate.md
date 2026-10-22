@@ -4,6 +4,8 @@
 
 This page covers metrics for evaluating multivariate regression models.
 
+For a vector target $y \in \mathbb{R}^D$, there are two different questions and two different scores. **Marginal** metrics treat the $D$ outputs as $D$ scalar problems and average; they are interpretable per output but blind to dependence. **Joint** metrics score the vector as one object and therefore penalise a forecast that gets each marginal right but the correlation structure wrong. The Euclidean `MultivariateRMSE`/`MultivariateMAE` below are marginal-aggregate scores (they sum squared error over dimensions, then take one root); for dependence-aware scoring use the energy score and variogram score on the [distribution metrics](distribution.md) page. Reporting both is the multivariate analogue of reporting calibration and sharpness together.
+
 ## `MultivariateRMSE`
 
 Computes the root mean squared **Euclidean** error over vector outputs,

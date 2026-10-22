@@ -4,6 +4,10 @@
 
 Detailed API reference for all ensemble and Bayesian uncertainty methods.
 
+The methods on this page are all approximations to the same posterior predictive distribution, but they differ along three axes that determine cost and capability. **Representation:** finite independently trained members (deep ensembles), rank-one weight perturbations (batch ensembles), a parametric posterior (SWAG, Laplace, IVN), or Monte Carlo samples (MC-dropout, BNNs). **Aleatoric modelling:** whether each member predicts only $\hat{y}$ or also a variance/distribution. **When compute is paid:** at training time (deep ensembles), at test time (MC-dropout), or post hoc (SWAG, Laplace). All member-based variants share the law of total variance, $\operatorname{Var}(Y\mid x)=\mathbb{E}_m[\sigma_m^2(x)]+\operatorname{Var}_m[\mu_m(x)]$, and the second term is only identified when members disagree; see the [ensemble overview](index.md) for the derivation and [uncertainty decomposition](../../guide/uncertainty-decomposition.md) for which contracts each method actually satisfies.
+
+The tables below list constructor arguments, obtained variance semantics, and practical notes.
+
 ---
 
 ## Member-based ensembles (`BaseEnsembleModel`)

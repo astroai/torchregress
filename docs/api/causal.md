@@ -45,8 +45,8 @@ cate = dr_cate(x, t, y,
                folds=2)
 # cate["cate_hat"], cate["ate_estimate"], ...
 
-# Policy value
-policy = (dr_cate(... if computed, else torch.zeros(2000)) > 0).float()
+# Policy value: treat units whose estimated CATE is positive
+policy = (cate["cate_hat"] > 0).float()
 val = dr_policy_value(x, t, y, policy=policy,
                       outcome_model=LinearRegression,
                       propensity_model=LogisticRegression)

@@ -4,6 +4,42 @@
 
 `torchregress.test_time` exposes conjugate Gaussian linear regression on **fixed features** (a design matrix $\Phi$), useful for lightweight test-time heads on top of frozen representations.
 
+## Model
+
+The head assumes a linear-Gaussian readout with a Gaussian weight prior,
+
+$$
+y = \Phi w + \varepsilon,\qquad \varepsilon \sim \mathcal{N}(0, \sigma^2 I),\qquad w \sim \mathcal{N}(m_0, \Lambda_0^{-1}),
+$$
+
+so the posterior is available in closed form. After seeing rows $\Phi$ with targets $y$ and optional sample weights $W$, the precision and canonical parameter are
+
+$$
+\Lambda = \Lambda_0 + \sigma^{-2}\Phi^\top W \Phi, \qquad h = \Lambda_0 m_0 + \sigma^{-2}\Phi^\top W y,
+$$
+
+and the posterior is $w \mid \mathcal{D} \sim \mathcal{N}(m, S)$ with $m = \Lambda^{-1}h$ and $S = \Lambda^{-1}$. For a test row $\phi(x)$ the predictive distribution is Gaussian with
+
+$$
+\mathbb{E}[y \mid x] = \phi(x)^\top m, \qquad
+\operatorname{Var}[y \mid x] = \underbrace{\sigma^2}_{\text{aleatoric}} + \underbrace{\phi(x)^\top S\,\phi(x)}_{\text{epistemic}},
+$$
+
+which is exactly the `include_noise` split exposed by `predict(..., return_std=True)`: epistemic variance shrinks where the design matrix carries information, while the noise floor $\sigma^2$ does not. A `RecursiveBayesianHead` applies the same update batch by batch, optionally discounting old precision with $\Lambda \leftarrow \lambda\Lambda$ before each step.
+
+```python
+import torch
+from torchregress.test_time import BayesianLinearHead
+
+head = BayesianLinearHead(in_features=16, out_features=1,
+                          prior_precision=1.0, noise_variance=0.1)
+head.fit(Phi_train, y_train)                      # closed-form posterior update
+
+pred = head.predict(Phi_test, return_std=True)    # {"mean", "variance", "std"}
+epistemic = head.predict(Phi_test, return_std=True,
+                         include_noise=False)["variance"]
+```
+
 ## API
 
 | Class | Role |

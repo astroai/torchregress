@@ -38,6 +38,10 @@ doc_patterns = [
     re.compile(r"`([A-Z][A-Za-z0-9_]+)`"),
     re.compile(r"`([a-z][a-z0-9_]*_[a-z][a-z0-9_]*)`"),
     re.compile(r"\|\s*`([A-Za-z_][A-Za-z0-9_]*)`\s*\|"),
+    # Symbols documented as calls, e.g. `fit_tabular(...)`.
+    re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)\s*\("),
+    # Symbols introduced in a heading, e.g. "## FTTransformer / PZRecipe".
+    re.compile(r"^#{2,4}\s+`?([A-Za-z_][A-Za-z0-9_]*)", re.MULTILINE),
 ]
 
 false_positives = {
@@ -139,6 +143,8 @@ false_positives = {
     "FIXME",
 }
 
+all_exported_names = {sym for info in source_exports.values() for sym in info["symbols"]}
+
 doc_dir = Path("docs/api")
 for apifile in sorted(doc_dir.glob("*.md")):
     text = apifile.read_text()
@@ -146,14 +152,15 @@ for apifile in sorted(doc_dir.glob("*.md")):
     for pattern in doc_patterns:
         for m in pattern.finditer(text):
             sym = m.group(1)
-            if sym in false_positives:
-                continue
-            if len(sym) < 3 and not sym[0].isupper():
-                continue
-            if sym.isdigit():
-                continue
-            if all(c.isupper() for c in sym) and len(sym) <= 3:
-                continue
+            if sym not in all_exported_names:
+                if sym in false_positives:
+                    continue
+                if len(sym) < 3 and not sym[0].isupper():
+                    continue
+                if sym.isdigit():
+                    continue
+                if all(c.isupper() for c in sym) and len(sym) <= 3:
+                    continue
             symbols.add(sym)
     api_symbols[apifile.name] = symbols
 
@@ -168,6 +175,9 @@ missing_by_file = {}
 
 for filepath, info in sorted(source_exports.items()):
     module = info["module"]
+    # Private modules (``_variance``, …) are implementation details, not API.
+    if any(part.startswith("_") for part in module.split(".")):
+        continue
     symbols = info["symbols"]
     total_exported += len(symbols)
     missing = [s for s in symbols if s not in all_documented]

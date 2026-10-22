@@ -87,7 +87,7 @@ stopping on the validation loss with the best weights restored.
 |:-----|:--------------:|:------|
 | `WeightedMSELoss`, `WeightedHuberLoss`, … | $D$ | Point prediction |
 | `GaussianNLLLoss` | $2D$ | `[mean, log_variance]`; `fit_tabular` auto-selects the `"gaussian"` output layout |
-| `MultiQuantileLoss(qs)` (one target) | `len(qs)` | Wrap with `NonCrossingSort` if crossing matters |
+| `MultiQuantileLoss(quantiles)` (one target) | `len(quantiles)` | Wrap with `NonCrossingSort` if crossing matters |
 | Other losses | as the loss requires | Set `standardize_target=False` for heads that are not location/log-variance outputs |
 
 ---

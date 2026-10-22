@@ -4,6 +4,8 @@
 
 Interval metrics evaluate the quality of prediction intervals, focusing on coverage and width properties.
 
+An interval forecast is a pair $[L(x), U(x)]$ with nominal coverage $1-\alpha$: the promise is $P(Y \in [L(X), U(X)]) \ge 1-\alpha$ under exchangeability. Two failure modes are possible and they pull in opposite directions: an interval can be too **narrow** (coverage below nominal) or too **wide** (high coverage, no information). Coverage alone therefore cannot rank intervals — the trivially infinite interval covers everything. The Winkler/interval score is the standard resolution: it pays for width and charges a penalty $\propto 1/\alpha$ for each miss, so it is a proper scoring rule for the central interval. This page reports coverage, width, and the composite score together, and [conformal methods](../methods/conformal/index.md) provide the finite-sample guarantee that motivates the nominal level.
+
 ---
 
 ## Interval Score (Winkler Score)

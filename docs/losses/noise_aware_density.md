@@ -86,7 +86,7 @@ For an MDN the analytic convolution is selected automatically:
 
 ```python
 mdn = MixtureDensityLoss(n_components=5, n_features=1)
-loss_fn = NoiseAwareDensityLoss(mdn, mode="analytic")
+loss_fn = NoiseAwareDensityLoss(base_loss=mdn, mode="analytic")
 loss = loss_fn(mdn_output, y_observed, sigma=sigma)
 ```
 
@@ -175,7 +175,7 @@ cdf = head.cdf(joint_logits, query_points)           # [B] joint CDF
 | Problem | Recommended |
 |:--|:--|
 | Noisy labels, known $\sigma$ | `NoiseAwareDensityLoss` over NSF or MDN |
-| Scalar target, very few labels | `BinnedDensityLoss` or `NoiseAwareDensityLoss(mdn)` |
+| Scalar target, very few labels | `BinnedDensityLoss` or `NoiseAwareDensityLoss(base_loss=mdn)` |
 | Multimodal, multi-target | NSF flow / MDN; noise-aware if $\sigma$ is known |
 | Gross label contamination | Add the contamination component, or use a robust task loss |
 | Population density for inference | Do **not** apply target-density reweighting; use sampling-selection corrections instead |

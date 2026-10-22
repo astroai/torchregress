@@ -103,7 +103,7 @@ $$w_i = \\exp\\!\\left(-\\frac{d_i}{\\tau}\\right)^p \\quad \\text{with optional
 ## Next steps
 
 - [Semi-supervised methods guide](../methods/semi_supervised.md) — conceptual walkthrough and usage
-- [Teacher–student demo](../examples/semi_supervised_regression_comparison.py)
-- [Teacher–student demo](../examples/semi_supervised_regression_comparison.py)
+- [Teacher–student demo](../examples/semi_supervised_regression_comparison.md)
+- [Teacher–student demo](../examples/semi_supervised_regression_comparison.md)
 - [Losses API](losses.md) — supervised loss function catalogue
 - [Ensemble API](ensemble.md) — ensemble methods that pair well with pseudo-label training

@@ -8,6 +8,23 @@ Use the taxonomy below to find the right method for your task, or read each
 section in order — the flow goes from most commonly needed (conformal,
 ensembles) to more specialized tools (causal inference, PPI).
 
+## Three questions every method answers
+
+Beyond the loss function, a regression method is defined by which part of the predictive distribution it identifies and what it guarantees:
+
+1. **What is the forecast object?** A point $\hat{y}(x)$, an interval $[L(x), U(x)]$, a density $p_\theta(y \mid x)$, or a set of members $\{y^{(m)}(x)\}$.
+2. **Where does the uncertainty come from?** Aleatoric noise is the conditional spread of $Y$ given $x$; epistemic uncertainty is uncertainty about the model itself. Their sum is the predictive variance
+   $$
+   \operatorname{Var}(Y \mid x, \mathcal{D}) = \underbrace{\mathbb{E}_{\theta \mid \mathcal{D}}\big[\operatorname{Var}(Y \mid x, \theta)\big]}_{\text{aleatoric}} + \underbrace{\operatorname{Var}_{\theta \mid \mathcal{D}}\big[\mathbb{E}(Y \mid x, \theta)\big]}_{\text{epistemic}}.
+   $$
+3. **What is the guarantee?** Some methods are purely empirical (a better-trained variance head); others carry a finite-sample statement, e.g.
+   $$
+   P\big(Y_{n+1} \in \hat{C}(X_{n+1})\big) \ge 1-\alpha
+   $$
+   for conformal prediction under exchangeability, or asymptotic normality for the doubly-robust causal estimators.
+
+Keeping those three questions separate prevents the most common category error in practice: treating a *coverage* guarantee as an *epistemic* decomposition, or treating ensemble disagreement as a calibrated density. The [uncertainty-decomposition guide](../guide/uncertainty-decomposition.md) states exactly which contracts each family does and does not satisfy.
+
 ---
 
 ## Method Taxonomy
@@ -104,6 +121,28 @@ confounding.**
 Confidence intervals under limited labels — combine a small trusted-labeled
 set with a large model-predicted pool for efficient statistical inference.
 **Start here if you have abundant unlabeled data but scarce labels.**
+
+### [Semi-Supervised Regression](semi_supervised.md)
+
+Teacher–student consistency with distributional pseudo-labels: an EMA teacher
+builds a consensus predictive batch on unlabeled inputs, and the student is
+penalised for disagreeing with it. **Start here if labels are scarce but
+unlabeled inputs are abundant.**
+
+### [Flow Matching & Normalizing Flow Maps](flow_matching.md)
+
+Simulation-free conditional generation with a learned velocity field
+([flow matching](flow_matching.md)) and two-time invertible pushforwards with
+exact endpoint likelihoods ([flow maps](normalizing_flow_maps.md)). **Start
+here when you need multimodal conditional samples rather than a parametric
+density.**
+
+### [WALDO Wald Regions](waldo.md)
+
+Simulator-free confidence regions for regression parameters from predictive
+mean and covariance, with a critical-value regressor calibrated on held-out
+data. **Start here when you want parameter confidence sets rather than
+prediction intervals.**
 
 ### [Visualization](visualization.md)
 

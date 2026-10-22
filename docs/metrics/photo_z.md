@@ -4,6 +4,13 @@ These diagnostics follow the companion photo-z papers and are designed to
 separate whole-sample PDF quality from calibration among photometrically
 similar galaxies.
 
+The distinction is the point of the page: a PDF can have good average PIT
+behaviour while being systematically wrong for the galaxies that share a
+photometric neighbourhood (the regime where photo-$z$ estimates are actually
+used). The metrics below therefore come in pairs — a global score and a local
+score — and a method that improves the global number while worsening the local
+one has not solved the science problem.
+
 ## PIT and PIT Cramér–von Mises
 
 For each test object with reference redshift $z_s$ and predictive CDF $F_i$,

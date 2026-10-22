@@ -4,7 +4,7 @@
 
 → API: [Visualization API](../api/viz.md). Gallery: [`examples/viz_diagnostic_gallery.py`](../../examples/viz_diagnostic_gallery.py).
 
-torchregress provides **34 exported visualization helpers** (25 plot functions + 9 styling utilities) across four submodules to help you
+torchregress provides **34 exported visualization helpers** (26 plot functions + 8 styling/layout utilities) across four submodules to help you
 diagnose models, monitor training, compare results, and style your output.  All functions
 work with standard `matplotlib` axes and support the same styling pipeline.
 
@@ -265,7 +265,7 @@ print(label)  # "Expected Calibration Error"
 
 ## Complete Diagnostic Gallery
 
-The example script `examples/viz_diagnostic_gallery.py` runs **all 25 plot functions** on synthetic data,
+The example script `examples/viz_diagnostic_gallery.py` runs **all 26 plot functions** on synthetic data,
 creates a multi-panel report, and saves each plot individually:
 
 ```bash
@@ -306,8 +306,8 @@ Outputs are saved to `examples/outputs/` and include:
     Call `set_style()` at the top of your script for consistent, publication-quality output.
 
 !!! tip "Use `create_grid_figure` for diagnostic reports"
-    Instead of manual `plt.subplots()`, use `create_grid_figure(n_plots=6, n_cols=3)` and fill
-    each axis with a different diagnostic.  Pass `save_figure(fig, name)` to save.
+    Instead of manual `plt.subplots()`, use `create_grid_figure(n_plots=6, ncols=3)` and fill
+    each axis with a different diagnostic.  Pass `save_figure(fig, filename)` to save.
 
 !!! warning "LaTeX rendering is slow"
     `enable_latex_rendering(True)` requires a LaTeX distribution on your system.  Keep it

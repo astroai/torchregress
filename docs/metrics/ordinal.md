@@ -4,6 +4,8 @@
 
 Metrics for ordered-class regression/classification outputs.
 
+An ordinal target $y \in \{0,1,\dots,K-1\}$ carries more information than a nominal class: the distance $|y-\hat{y}|$ matters. Flat accuracy throws that away (an off-by-one error and an off-by-five error count the same), so the library reports three complementary views: **accuracy** (the flat baseline), **mean absolute class error** (MACE, linear in ordinal distance), and the **quadratic weighted kappa** (QWK, chance-corrected, quadratic in distance). QWK is the standard agreement statistic when the class distribution is skewed; MACE is the interpretable "average classes off". Report at least one distance-aware metric alongside accuracy — see the comparison table at the end of this page.
+
 ---
 
 ## Available Metrics

@@ -4,6 +4,8 @@ A learned encoder can rank differently under different regression readouts.  The
 companion methods paper therefore reports three descriptive summaries on frozen
 features before fitting a readout:
 
+These diagnostics answer a question that is upstream of predictive accuracy: *does the representation organise itself by the target?* If a $k$-nearest-neighbour readout on frozen features already predicts well, the encoder has preserved the target-relevant geometry; if not, no amount of head tuning will recover it. They are reported per encoder, at equal capacity and training budget, precisely because a comparison of end-to-end RMSE conflates the encoder with the readout.
+
 | Diagnostic | Definition | Interpretation |
 |:--|:--|:--|
 | `neighbour_target_gap` | median absolute target difference among each point's $k$ nearest neighbours (standardized features), divided by target std | smaller = more target-homogeneous neighbourhoods |

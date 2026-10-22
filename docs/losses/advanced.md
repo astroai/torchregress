@@ -33,7 +33,17 @@ The total loss combines NIG negative log-likelihood with a regulariser that pena
 
 $$\mathcal{L} = \mathcal{L}_{\text{NIG-NLL}}(\gamma, \nu, \alpha, \beta \mid y) + \lambda \cdot |y - \gamma| \cdot (2\nu + \alpha)$$
 
-Matches [`EvidentialRegressionLoss`](../api/losses.md) with regularisation coefficient `coeff_nig`.
+with the NIG marginal predictive (Amini et al. 2020, Eq. 8)
+
+$$
+\mathcal{L}_{\text{NIG-NLL}} =
+\tfrac12\log\frac{\pi}{\nu} - \alpha\log\Omega
++ \big(\alpha+\tfrac12\big)\log\!\big((y-\gamma)^2\nu+\Omega\big)
++ \log\frac{\Gamma(\alpha)}{\Gamma(\alpha+\frac12)},
+\qquad \Omega = 2\beta(1+\nu),
+$$
+
+so the predictive is a Student-$t$ with $2\alpha$ degrees of freedom, location $\gamma$ and squared scale $\Omega/(2\alpha\nu)$ — the quantity `predict_interval` inverts. Using $2\beta$ in place of $\Omega$ gives the Student-$t$ of the *mean* $\mu$, not the predictive of $y$, and under-covers; 0.3.0 fixed that. Matches [`EvidentialRegressionLoss`](../api/losses.md) with regularisation coefficient `coeff_nig`.
 
 ---
 

@@ -36,6 +36,7 @@ $$\mathcal{L}_{\text{standard}} = \frac{1}{N}\sum_{i=1}^N \ell(f(x_i), y_i) \qua
 | `LDSLoss` | Smoothed label distribution | ⚠️ May break | `fit(y)` | [Losses API](../api/losses.md) (imbalanced) |
 | `PropensityWeightedLoss` | Inverse propensity scores | ✅ With correct scores | None | [Losses API](../api/losses.md) (imbalanced) |
 | `FocalRLoss` | Sigmoid-scaled error emphasis | ✅ Mostly | None | [Losses API](../api/losses.md) (imbalanced) |
+| `FeatureDistributionSmoother` | Feature-statistics (FDS) layer: smooths feature mean/variance across neighbouring target bins with a kernel, then recalibrates batch features | Representation-level; used inside the model | EMA per epoch (`epoch` counter) | [PRIME & ConR](prime_conr.md) |
 
 ---
 

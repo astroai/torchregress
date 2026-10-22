@@ -152,7 +152,7 @@ Evaluation for the same workflow lives in `torchregress.metrics.uncertain` (→ 
 |:-------|:-----------------|:--------|
 | `noisy_target_gaussian_nll(pred_mean, pred_variance, target, target_variance, *, min_variance=1e-8)` | Mean Gaussian NLL with total variance $\sigma_i^2 + s_i^2$ (prediction + known measurement noise): $\quad \tfrac12\!\left(\log(\sigma_i^2+s_i^2) + \frac{(y_i-\mu_i)^2}{\sigma_i^2+s_i^2} + \log 2\pi\right)$ | Comparing NLLs fairly when targets carry different, known noise |
 | `consistency_error(student_pred, teacher_pred, *, p=2)` | Mean $\lvert\mu - \mu_{\text{teacher}}\rvert^p$ (`p=1` MAE, `p=2` MSE — no root is taken) | How much the student disagrees with its EMA teacher during pseudo-labeling |
-| `pseudo_label_acceptance_rate(confidence, *, threshold=0.5)` | Fraction of pseudo-labels at or above `threshold` | Threshold tuning for `generate_pseudo_labels` |
+| `pseudo_label_acceptance_rate(pseudo_confidence, *, threshold=0.5)` | Fraction of pseudo-labels at or above `threshold` | Threshold tuning for `generate_pseudo_labels` |
 | `uncertain_gt_metrics_report(*, pred_mean, pred_variance, target, target_variance, teacher_pred=None, pseudo_confidence=None)` | One-call report combining the above (keyword-only args) | Standard summary for uncertain-GT experiments |
 
 ```python

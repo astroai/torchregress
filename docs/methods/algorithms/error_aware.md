@@ -64,12 +64,11 @@ pred = model(x, sigma_x)
 encoder = ErrorAwareFeatureEncoder(
     input_dim=10,
     hidden_dim=128,
-    output_dim=64,
     dropout=0.0,
 )
 
 # Encode features + noise into quality-aware representation
-features = encoder(x, sigma_x)  # (batch, 64)
+features = encoder(x, sigma_x)  # (batch, 128)
 
 # Then pass to any downstream model
 downstream = nn.Linear(64, 1)

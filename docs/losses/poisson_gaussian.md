@@ -31,7 +31,7 @@ The negative log-likelihood for this mixed model doesn't have a simple closed fo
 
 ### PoissonGaussianMixtureLoss
 
-```python
+```text
 class PoissonGaussianMixtureLoss(RegressionLoss)
 ```
 
@@ -98,7 +98,7 @@ loss = loss_fn_learned(y_pred, y_true)
 
 ### EnhancedPoissonGaussianMixtureLoss
 
-```python
+```text
 class EnhancedPoissonGaussianMixtureLoss(RegressionLoss)
 ```
 

@@ -147,6 +147,72 @@ canonical way a contract break shows up in CI.
 | `low_rank_output_dim` | `utils/gaussian_output.py` | `tests/losses/test_indirect_utilities.py` | `TestLowRankOutputDim` | `2F + F·R` formula; monotonicity; `ValueError` on `n_features<=0` or `rank<=0` |
 | `split_low_rank_gaussian_output` | `utils/gaussian_output.py` | `tests/losses/test_indirect_utilities.py` | `TestSplitLowRankGaussianOutput` | Round-trip `[mean \| factor \| diag]`; unbatched shape; `ValueError` on wrong out_dim |
 
+
+### Supplementary symbol coverage
+
+The matrix above covers the core loss surface; these additional public symbols are exercised by the tests listed here. Status follows the same conventions: **DEDICATED** when a `Test*` class targets the symbol, **DIRECT-LIGHT** when a focused test function exists in the per-symbol suites, and **INDIRECT** otherwise (a refactor should add a direct test).
+
+| Symbol | Module | Test entry point | Coverage |
+|---|---|---|---|
+| `balanced_mse_bmc_loss` | `balanced_mse_bmc.py` | `tests/losses/test_balanced_mse_bmc.py::TestHandFormula` | DIRECT-LIGHT |
+| `CVPlus` | `conformal.py` | `tests/losses/test_conformal.py::TestCVPlus` | DEDICATED |
+| `ConformalizedDensity` | `conformal.py` | `tests/losses/test_conformalized_density.py::test_conformalized_density_scalar_coverage` | DEDICATED |
+| `ContrastiveFlowConformal` | `conformal.py` | `tests/losses/test_conformalized_density.py::test_contrastive_flow_conformal_level_set` | DEDICATED |
+| `EnsembleBatchCP` | `conformal.py` | `tests/losses/test_conformal.py::TestEnsembleBatchCP` | DEDICATED |
+| `JackknifePlus` | `conformal.py` | `tests/losses/test_conformal.py::TestCVPlus` | DIRECT-LIGHT |
+| `MultivariateScoreConformal` | `conformal.py` | `tests/test_multivariate_score_cp.py::test_covariance_shape_flexibility_and_errors` | DIRECT-LIGHT |
+| `NonExchangeableConformalRegressor` | `conformal.py` | `tests/test_nexc_conformal.py::test_uniform_weights_recover_finite_sample_quantile` | DIRECT-LIGHT |
+| `RankNContrastLoss` | `contrastive.py` | `tests/losses/test_rank_n_contrast.py::test_gradients_and_degenerate_batches` | DIRECT-LIGHT |
+| `rank_n_contrast_loss` | `contrastive.py` | `tests/losses/test_rank_n_contrast.py::test_perfectly_ordered_features_score_lower_than_shuffled` | DIRECT-LIGHT |
+| `InputNoiseAugmentationLoss` | `eiv.py` | `tests/losses/test_losses_regression_guards.py::test_a10_input_noise_augmentation_does_not_forward_weights` | DIRECT-LIGHT |
+| `AsymmetricLaplaceNLLLoss` | `families.py` | `tests/losses/test_families.py::test_asymmetric_laplace_unconstrained_inputs_flag` | DIRECT-LIGHT |
+| `BetaRegressionNLLLoss` | `families.py` | `tests/losses/test_families.py::test_beta_regression_registered` | DIRECT-LIGHT |
+| `GEVNLLLoss` | `families.py` | `tests/losses/test_families.py::test_gev_unconstrained_inputs_flag` | DIRECT-LIGHT |
+| `JohnsonSUNLLLoss` | `families.py` | `tests/losses/test_families.py::test_johnson_su_unconstrained_inputs_flag` | DIRECT-LIGHT |
+| `SQRLoss` | `families.py` | `tests/losses/test_families.py::test_sqr_level_count_validated_and_registered` | DIRECT-LIGHT |
+| `SinhArcsinhNLLLoss` | `families.py` | `tests/losses/test_families.py::test_sinh_arcsinh_registered` | DIRECT-LIGHT |
+| `SkewNormalNLLLoss` | `families.py` | `tests/losses/test_families.py::test_skew_normal_class_functional_and_registry` | DIRECT-LIGHT |
+| `SkewTLoss` | `families.py` | `tests/losses/test_families.py::test_skew_t_unconstrained_inputs_flag` | DIRECT-LIGHT |
+| `asymmetric_laplace_nll` | `families.py` | `tests/losses/test_families.py::test_asymmetric_laplace_kappa_one_is_symmetric_laplace` | DIRECT-LIGHT |
+| `beta_regression_nll` | `families.py` | `tests/losses/test_families.py::test_none_reduction_preserves_shape` | DIRECT-LIGHT |
+| `gev_nll` | `families.py` | `tests/losses/test_families.py::test_gev_gumbel_limit_matches_general_formula_at_small_xi` | DIRECT-LIGHT |
+| `johnson_su_nll` | `families.py` | `tests/losses/test_families.py::test_johnson_su_density_integrates_to_one` | DIRECT-LIGHT |
+| `sinh_arcsinh_nll` | `families.py` | `tests/losses/test_families.py::test_none_reduction_preserves_shape` | DIRECT-LIGHT |
+| `skew_normal_nll` | `families.py` | `tests/losses/test_families.py::test_skew_normal_class_functional_and_registry` | DIRECT-LIGHT |
+| `skew_t_nll` | `families.py` | `tests/losses/test_families.py::test_none_reduction_preserves_shape` | DIRECT-LIGHT |
+| `sqr_loss` | `families.py` | `tests/losses/test_families.py::test_sqr_constant_predictions_equal_mean_pinball` | DIRECT-LIGHT |
+| `FeatureDistributionSmoother` | `imbalanced.py` | `tests/losses/test_imbalanced.py::TestFeatureDistributionSmoother` | DEDICATED |
+| `recommended_tail_bound` | `nflows.py` | `tests/losses/test_nflows_tail_bound.py::test_recommended_tail_bound_is_data_range_with_margin_clipped` | DEDICATED |
+| `BinnedDensityLoss` | `noise_aware_density.py` | `tests/losses/test_noise_density_contract_regressions.py::test_binned_uniform_sampling_density_and_cdf_agree` | DIRECT-LIGHT |
+| `JointBinnedDensityLoss` | `noise_aware_density.py` | `tests/losses/test_binned_joint.py::test_joint_validation` | DIRECT-LIGHT |
+| `NoiseAwareDensityLoss` | `noise_aware_density.py` | `tests/losses/test_noise_aware_density.py::test_noise_aware_flow_gradient_and_contamination` | DIRECT-LIGHT |
+| `NeuralRatioLoss` | `nre.py` | `tests/losses/test_nre.py::_train_gaussian_ratio_estimator` | DIRECT-LIGHT |
+| `build_ratio_classifier` | `nre.py` | `tests/losses/test_nre.py::test_build_ratio_classifier_validation_errors` | DEDICATED |
+| `neural_ratio_logits` | `nre.py` | `tests/losses/test_nre.py::test_neural_ratio_logits_validation_errors` | DEDICATED |
+| `neural_ratio_loss` | `nre.py` | `tests/losses/test_nre.py::test_functional_helper_matches_class` | DIRECT-LIGHT |
+| `ConR` | `prime.py` | `tests/losses/test_prime_conr.py::test_conr_permutation_invariance` | DIRECT-LIGHT |
+| `PrimeLoss` | `prime.py` | `tests/losses/test_prime_conr.py::test_label_range_pins_grid_and_allows_forward_without_fit` | DIRECT-LIGHT |
+| `UncertaintyAwareConR` | `prime.py` | `tests/losses/test_noise_aware_density.py::test_uncertainty_aware_conr` | DIRECT-LIGHT |
+| `conr_loss` | `prime.py` | `tests/losses/test_prime_conr.py::test_conr_mask_reduction_and_weights` | DIRECT-LIGHT |
+| `uniform_proxy_targets` | `prime.py` | `tests/losses/test_prime_conr.py::test_uniform_proxy_targets_are_equal_width_and_exclude_endpoints` | DEDICATED |
+| `rank_sim_regularizer` | `rank_sim.py` | `tests/losses/test_rank_sim.py::test_invalid_inputs_raise` | DIRECT-LIGHT |
+| `CumulativeCDFLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_cumulative_cdf_class` | DIRECT-LIGHT |
+| `PZRecipeLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_recipe_loss_components` | DIRECT-LIGHT |
+| `TriLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_tri_loss_crps_matches_metric_and_gradients` | DEDICATED |
+| `cumulative_cdf_loss` | `recipe.py` | `tests/losses/test_recipe.py::test_cumulative_cdf_loss_zero_for_perfect_step` | DEDICATED |
+| `CorrectedScoreEIVLoss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_corrected_score_decreases_on_small_mlp` | DIRECT-LIGHT |
+| `SplitMeasurementLoss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_split_loss_nonlinear_is_finite_and_differentiable_to_second_order` | DIRECT-LIGHT |
+| `corrected_score_eiv_loss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_helpers_match_classes_and_forward_sigma_override` | DIRECT-LIGHT |
+| `split_measurement_loss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_helpers_match_classes_and_forward_sigma_override` | DIRECT-LIGHT |
+| `StudentTLoss` | `student_t.py` | `tests/losses/test_student_t.py::test_extreme_residuals` | DIRECT-LIGHT |
+| `WaldoConformal` | `waldo.py` | `tests/losses/test_waldo.py::test_waldo_conformal_with_regressor_coverage` | DEDICATED |
+| `WaldoCriticalValueRegressor` | `waldo.py` | `tests/losses/test_waldo.py::test_waldo_critical_value_regressor_fit_predict` | DEDICATED |
+| `WaldoDensityConformal` | `waldo.py` | `tests/losses/test_waldo.py::test_waldo_density_conformal` | DEDICATED |
+| `WaldoPosteriorCalibrator` | `waldo.py` | `tests/losses/test_waldo.py::test_waldo_posterior_calibrator` | DEDICATED |
+| `waldo_statistic` | `waldo.py` | `tests/losses/test_waldo.py::test_waldo_statistic_shapes` | DEDICATED |
+| `DiscreteWasserstein1Loss` | `wasserstein1d.py` | `tests/losses/test_wasserstein1d.py::test_default_unit_bins_and_validation` | DIRECT-LIGHT |
+| `discrete_wasserstein1` | `wasserstein1d.py` | `tests/losses/test_wasserstein1d.py::test_metric_properties` | DIRECT-LIGHT |
+
 ### Internal helpers in `utils/gaussian_output.py`
 
 The three helpers below are not in `__all__` — they remain internal contract
@@ -192,9 +258,7 @@ should land alongside a direct test in
 
 ## INDIRECT-only symbols (refactor risk)
 
-The following public symbols have **no dedicated test class**:
-
-- `create_flow_model`, `create_flow_loss`, `create_contrastive_flow_loss` (zuko-dependent, optional)
+The authoritative list is the **Coverage** column of the [supplementary symbol coverage](#supplementary-symbol-coverage) table: symbols marked `DIRECT-LIGHT` or `INDIRECT` have no dedicated `Test*` class. The zuko-dependent flow factories (`create_flow_model`, `create_flow_loss`, `create_contrastive_flow_loss`) remain the canonical example: optional dependency, covered indirectly.
 
 Any **non-trivial** change to these symbols should land alongside a small
 direct test in `tests/losses/test_indirect_utilities.py` (or *specific*

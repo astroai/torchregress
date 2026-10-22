@@ -4,6 +4,8 @@
 
 Metrics for censored and interval-censored regression outcomes.
 
+Censoring means the target is only partially observed. With true event time $T_i$, censoring time $C_i$, observed value $Y_i = \min(T_i, C_i)$ and indicator $\delta_i = \mathbb{I}(T_i \le C_i)$, a right-censored sample tells us "$T_i \ge Y_i$" rather than "$T_i = Y_i$". Scoring such data with ordinary MAE silently treats the censoring bound as the truth. The metrics on this page therefore fall into three groups: censoring-aware summaries (`censoring_rate`), scores restricted to fully observed samples (`observed_mae`), and rank-based scores that use the partial order (`concordance_index`, Harrell's C). For likelihood-based evaluation use the censored losses (`CensoredGaussianNLLLoss`, `AFTLoss`); for interval-censored targets pass the lower/upper bounds where the metric supports them.
+
 ---
 
 ## Available Metrics

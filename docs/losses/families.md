@@ -6,7 +6,7 @@ Parametric NLL losses for **non-Gaussian** conditional distributions — skew, h
 
 All families share the same contract:
 
-```python
+```text
 loss_fn(y_pred, target, mask=None, weights=None) -> Tensor
 ```
 

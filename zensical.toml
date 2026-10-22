@@ -172,6 +172,7 @@ nav = [
       { "Docs Quality Audit" = "reports/docs_quality_audit.md" },
       { "0.3.0 Release Audit" = "reports/audit_0.3.0.md" },
       { "0.3.0 API Review" = "reports/api_review_0.3.0.md" },
+      { "Loss Test Coverage Map" = "loss_test_coverage.md" },
     ] },
   ] },
   { "Loss Functions" = [
@@ -184,6 +185,7 @@ nav = [
     ] },
     { "Outlier-Resistant" = "losses/robust.md" },
     { "Quantile & Expectile" = "losses/quantile_expectile.md" },
+    { "Flexible-Shape Families" = "losses/families.md" },
     { "Distributional Modeling" = [
       { "Mixture Density Networks" = "losses/mdn.md" },
       { "Normalizing Flows" = "losses/nflows.md" },
@@ -271,6 +273,8 @@ nav = [
     { "Ensemble" = "metrics/ensemble.md" },
     { "Multivariate" = "metrics/multivariate.md" },
     { "Decision" = "metrics/decision.md" },
+    { "Photo-z PDF & Local Calibration" = "metrics/photo_z.md" },
+    { "Representation Geometry" = "metrics/representation.md" },
   ] },
   { "Examples" = [
     "examples/index.md",
@@ -355,6 +359,8 @@ nav = [
     { "Test-Time Adaptation" = "api/test_time.md" },
     { "Inference" = "api/inference.md" },
     { "Causal" = "api/causal.md" },
+    { "Semi-Supervised" = "api/semi_supervised.md" },
+    { "Comparison Helpers" = "api/comparison.md" },
     { "Visualization" = "api/viz.md" },
     { "Utilities" = "api/utils.md" },
   ] },

@@ -104,7 +104,7 @@ $\frac{1}{n}\sum_i \log \sum_k p_{ik}\, q_k / \pi_k$ at every step.
     posteriors** whose source average equals `source_prior`
     ($\mathbb{E}_s[p_s(y = k \mid x)] = \pi_k$) and label shift holds at the level of the
     classes or bins ($p(x \mid y = k)$ shared by source and target). Binned Gaussians
-    (`gaussian_bin_probabilities(mean, std, edges)`) qualify only if `N(mean, std)` is a
+    (`gaussian_bin_probabilities(mean, std, bin_edges)`) qualify only if `N(mean, std)` is a
     calibrated predictive $p_s(y \mid x)$. A prediction that is a noisy copy of the label
     (`pred = y + noise`) with `std` the residual spread gives the *likelihood*
     $p(\text{pred} \mid y)$ instead: no shrinkage toward the prior, over-dispersed bins whose

@@ -4,7 +4,16 @@
 
 Ensemble metrics evaluate predictive performance and decompose predictive uncertainty across multiple model predictions.
 
-→ See [Uncertainty decomposition](../guide/uncertainty-decomposition.md) for epistemic vs aleatoric semantics and [Ensemble methods](../methods/ensemble/index.md) for training patterns.
+An ensemble is a finite sample from an epistemic distribution over models. Writing member means $\mu_m(x)$ and (optional) member variances $\sigma_m^2(x)$ for $m=1,\dots,M$, the two useful summaries are the ensemble mean and the total predictive variance. The **law of total variance** gives the decomposition used throughout the library:
+
+$$
+\underbrace{\operatorname{Var}\big(y \mid x\big)}_{\text{total}}
+= \underbrace{\frac{1}{M}\sum_{m=1}^{M}\sigma_m^2(x)}_{\text{aleatoric}}
++ \underbrace{\frac{1}{M}\sum_{m=1}^{M}\big(\mu_m(x)-\bar{\mu}(x)\big)^2}_{\text{epistemic}},
+\qquad \bar{\mu}(x)=\frac{1}{M}\sum_m \mu_m(x).
+$$
+
+The first term is irreducible noise the members agree on; the second is model disagreement. With point-only members the aleatoric term is unavailable and only the disagreement (epistemic) part is identified — an important limitation, not a detail. → See [Uncertainty decomposition](../guide/uncertainty-decomposition.md) for the semantics and [Ensemble methods](../methods/ensemble/index.md) for training patterns.
 
 ---
 

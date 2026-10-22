@@ -185,8 +185,8 @@ losses = {
 Includes decision trees, comparison tables, and complete working example ([`ensemble_tutorial.py`](https://github.com/astroai/torchregress/blob/main/examples/ensemble_tutorial.py)).
 
 ```python
-# Train heteroscedastic ensemble with uncertainty decomposition
-ensemble_models = train_heteroscedastic_ensemble(n_models=5, ...)
+# Train a heteroscedastic ensemble (n_models members), then decompose
+ensemble_models = train_heteroscedastic_ensemble(n_models=5)
 epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 ```
 

@@ -211,6 +211,10 @@ and the [method-selection guide](../guide/method-selection.md); available as
 | Symbol | Description |
 |:-------|:------------|
 | `MethodMetadata` | Frozen dataclass: `name`, `family`, `public_path`, `task_tags`, `maturity`, capability flags (`multimodal`, `multi_target`, `non_gaussian`, `epistemic`, `aleatoric`, `decomposition`, `calibration`, `ood_support`, `imbalance`, `noisy_features_eiv`; each `"yes"` / `"partial"` / `"no"`), and `notes`. |
+| `CapabilityValue` | Type alias: `Literal["yes", "partial", "no"]` — the tri-state capability vocabulary used by `MethodMetadata`. |
+| `TaskRecommendation` | Frozen dataclass for one task row: `task`, `recommended_start`, `strong_alternatives` (tuple of names), `notes`. |
+| `DecisionWorkflowStep` | Frozen dataclass for one ordered decision step: `order`, `question`, `primary_recommendation`, `alternatives`, `caveat`. |
+| `ComparativeEvidenceRow` | Frozen dataclass for one comparative-evidence row: `task`, `examples`, `comparison_grade`, `fairness_controls`, `metrics_coverage`, `peer_methods_visible`, `gaps`, `notes`. |
 | `list_methods` | `(*, family=None, task_tag=None, capability_filters=None, maturity=None)` — Cataloged methods as dict rows; capability filters are exact matches on `yes` / `partial` / `no`. |
 | `get_method_metadata` | `(name)` — Metadata dict for one cataloged method. |
 | `list_task_recommendations` | `()` — Per-task recommended starting point, strong alternatives, and notes. |

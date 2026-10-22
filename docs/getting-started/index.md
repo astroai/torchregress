@@ -2,6 +2,18 @@
 
 Welcome to **torchregress** — a PyTorch library for regression with built-in uncertainty estimation.
 
+The library answers one question well: *given inputs $x$, what can be said about the conditional distribution $p(y \mid x)$ rather than only its mean?* Every feature is a way to represent, train, calibrate, or evaluate some part of that distribution:
+
+| You want | Representation | Where to start |
+|:---------|:---------------|:---------------|
+| A point prediction | $\hat{y}(x)$ | [Standard losses](../losses/index.md#standard-losses) |
+| A mean **and** a variance | $\mathcal{N}(\hat{y}(x), \hat{\sigma}^2(x))$ | [Gaussian losses](../losses/gaussian.md) |
+| A full density | $p_\theta(y \mid x)$ (mixture, flow, basis) | [MDN](../losses/mdn.md), [flows](../losses/nflows.md) |
+| An interval with a guarantee | $[L(x), U(x)]$ with $P(Y \in [L,U]) \ge 1-\alpha$ | [Conformal prediction](../methods/conformal/index.md) |
+| A calibrated uncertainty score | recalibrated $\hat{\sigma}^2(x)$ | [Post-hoc calibration](../methods/calibration.md) |
+
+Point forecasts are a special case (a Dirac distribution), which is why the same NLL reduction and scoring-rule contracts run through the whole library.
+
 ---
 
 ## Choose Your Path

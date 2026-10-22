@@ -4,7 +4,15 @@
 
 The foundation of all torchregress loss functions — providing **unified masking**, **sample weighting**, and **consistent reduction** semantics.
 
----
+Every loss in the library is a scalar functional of a forecast and a target. The two families differ only in what the forecast represents:
+
+$$
+\mathcal{L}_{\text{point}} = \ell\big(\hat{y}(x),\, y\big),
+\qquad
+\mathcal{L}_{\text{distribution}} = -\log p_\theta(y \mid x).
+$$
+
+`RegressionLoss` covers the first form; `DistributionLoss` covers the second, where the model's raw output is parsed into distribution parameters ($\mu$, $\log\sigma^2$, mixture weights, quantile levels, …). Both inherit the same mask/weight/reduction pipeline, so switching from a point loss to a probabilistic one never changes how missing data or sample weights are handled.
 
 ## Class Hierarchy
 

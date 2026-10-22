@@ -88,8 +88,9 @@ builds each one. `TabularEnsembleFit.predict_members(X)` returns
 `FTTransformer(n_features, *, d_token=128, n_layers=3, n_heads=4, dropout=0.1, out_dim=None)`
 
 Feature-tokenizer Transformer (Gorishniy et al., 2021).  Each numeric feature
-gets its own token embedding; a CLS token is prepended and a standard Transformer
-encoder returns a `d_token`-dimensional representation (or an `out_dim` head).
+gets its own token embedding (`FeatureTokenizer(n_features, d_token=128)`); a CLS
+token is prepended and a standard Transformer encoder returns a
+`d_token`-dimensional representation (or an `out_dim` head).
 
 `PZRecipe(n_features, *, n_bins=100, d_token=128, n_layers=3, n_heads=4, dropout=0.1, stage2_bins=200, stage2_hidden=256, stage2_head=None)`
 
@@ -108,6 +109,10 @@ Reference two-stage training loop: stage 1 minimizes `PZRecipeLoss`
 trains `model.stage2_head` as a bin classifier.  Quantile bin centers are
 estimated from the training target.  This is a compact reference
 implementation, not the paper's historical TabM schedule.
+
+`PZRecipeFit` carries the fitted result: `model` (stage-2 trained), `bin_centers`,
+`history` (`stage1` and `stage2` loss lists), `best_epoch`, and `predict(X)`
+returning bin logits in the original target scale.
 
 
 ## FlowMatchingMLP / cfm_loss / sample_cfm

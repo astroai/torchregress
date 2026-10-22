@@ -4,7 +4,13 @@
 
 Out-of-Distribution (OOD) detection metrics evaluate how well a model can identify inputs or predictions that differ significantly from the training distribution.
 
-→ See [Decision metrics](decision.md) for selective-prediction evaluation and [OOD API](../api/metrics.md).
+OOD detection is a **ranking** problem, not a classification problem: a score $s(x)$ is computed for each input (a density, a distance, an entropy, a typicality), and a threshold converts scores into accept/reject decisions. Because the threshold is a deployment choice, the threshold-free summary is the area under the ROC curve,
+
+$$
+\mathrm{AUROC} = P\big(s(X_{\text{in}}) > s(X_{\text{out}})\big) + \tfrac12 P\big(s(X_{\text{in}}) = s(X_{\text{out}})\big),
+$$
+
+which is 0.5 for an uninformative score and 1.0 for perfect separation. A high AUROC does **not** imply good selective prediction: what matters downstream is the risk–coverage trade-off, scored by AURC and the rejection policy on the [decision metrics](decision.md) page. → See also [OOD API](../api/metrics.md).
 
 ---
 

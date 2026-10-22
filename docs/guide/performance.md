@@ -2,6 +2,8 @@
 
 This guide details best practices for scaling regression models in `torchregress` using modern PyTorch features.
 
+Uncertainty-aware training adds a second constraint to the usual throughput/memory trade-off: the numerics that make a model fast (low-precision matmuls, fused kernels, larger batches) can also change the variance and calibration numbers you report. The rule throughout this page is to **optimise the model in reduced precision but validate and score in float32/float64**, and to measure the effect of every speed-up on both error and calibration rather than on loss alone. The sections below cover AMP, compilation, data loading, and the CUDA test path in that order.
+
 ## 1. Automatic Mixed Precision (AMP)
 
 Using `float16` or `bfloat16` can significantly reduce memory usage and speed up training on compatible hardware.

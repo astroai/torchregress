@@ -168,7 +168,7 @@ For heteroscedastic vector residuals, provide `covariance_fn=lambda state: covar
 - [Robust losses](../../losses/robust.md) — Huber, Tukey, and Cauchy trained end-to-end vs refit-capable IRLS
 - [SIMEX](simex.md) — simulation-based bias correction for measurement error, complementary to robust regression
 - [EIV losses](../../losses/eiv.md) — functional and structural error-in-variables losses for noisy inputs
-- [Comprehensive comparison](../../examples/comprehensive_comparison.py) — benchmark IRLS against end-to-end robust loss training
+- [Comprehensive comparison](https://github.com/astroai/torchregress/blob/main/examples/comprehensive_comparison.py) — benchmark IRLS against end-to-end robust loss training
 
 ---
 
