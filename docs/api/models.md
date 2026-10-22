@@ -133,7 +133,7 @@ likelihood; use sample-based CRPS/energy/coverage/PIT or an ODE likelihood.
 
 ## NormalizingFlowMap
 
-`NormalizingFlowMap(n_features, context_dim, *, n_layers=4, hidden=(128, 128), time_features=16, map_weight=1.0, nll_weight=0.1)`
+`NormalizingFlowMap(n_features, context_dim, *, n_layers=4, hidden=(128, 128), time_features=16, map_weight=1.0, nll_weight=0.1, arch="coupling", tarflow_layers=3, tarflow_heads=4)`
 
 Time-conditioned invertible affine-coupling flow map.  It provides
 `forward(x, s, t, context)`/`inverse(z, s, t, context)`, exact
