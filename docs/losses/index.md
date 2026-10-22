@@ -294,6 +294,7 @@ Read the full [Imbalanced regression guide](imbalanced.md) — density weighting
 | `NoisyTargetGaussianNLL` | Adds known target-noise $\sigma_y^2$ to predicted variance |
 | `NoiseAwareDensityLoss` | Marginal likelihood for flow/MDN density under label noise |
 | `BinnedDensityLoss` | Smoothed histogram / ordinal-CDF scalar density |
+| `JointBinnedDensityLoss` | Joint low-dimensional multi-target binned density/CDF (capped histogram) |
 | `ConsistencyRegLoss` | Teacher-student consistency |
 | `PseudoLabelNLL` | Blends observed + pseudo labels |
 | `PseudoLabelConsistencyLoss` | Single objective for pseudo-label + teacher-consistency point-regression training |
