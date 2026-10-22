@@ -159,7 +159,7 @@ Progress against the P0/P1 roadmap, with evidence:
 | Real-data NFM/TARFlow | **Done (NFM), still not competitive** | CANFAR 5 real datasets × 3 seeds, `release_20261022_0749`; worse than NSF/BPF on NLL/CRPS |
 | Joint multi-target binned CDF | **Done** | `JointBinnedDensityLoss` + tests; CANFAR noise-aware run `release_20261022_0853` (RMSE 0.712, CRPS 0.411 vs NSF 0.704/0.404; conservative coverage) |
 | CANFAR conformal benchmark | **Done** | 2 synthetic datasets × 3 seeds, `release_20261022_0750`; CTI/Mondrian/WALDO coverages near nominal |
-| Matched-budget PZRecipe vs NSF | **Running** | CANFAR `release_20261022_0840`, 16 datasets × 3 seeds × 60 epochs; report when complete |
+| Matched-budget PZRecipe vs NSF | **Done** | CANFAR `release_20261022_0940`, 16 datasets × 1 seed × 60 epochs: NSF RMSE 0.0480 / median NLL −2.221 / CRPS 0.0174; PZRecipe 0.0578 / −2.021 / 0.0195 but 3× faster and coverage 0.879 vs 0.867 |
 | WALDO critical-value regression | **Done; negative result on small synthetic data** | `WaldoCriticalValueRegressor` + tests; CANFAR `release_20261022_0852` did not improve coverage; keep simple threshold default |
 | Calibrated noise-aware densities | Open | Noise-aware NLL still under-covers; needs a proper calibration/temperature study |
 | Stabilize cINN/MAF tails | Open | Rare extreme transforms in E2; needs tail guard/failure-rate metric |
