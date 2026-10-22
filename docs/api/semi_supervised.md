@@ -81,7 +81,7 @@ single consensus prediction plus per-sample agreement scores.
 |:-------|:----------|:------------|
 | `distributional_pseudo_loss` | `(student_prediction, consensus_prediction, *, sample_weights=None, reduction="mean", n_support=128, …) → Tensor` | Backbone-aware pseudo-supervision loss on a shared predictive representation. Automatically selects the appropriate loss pathway based on the student's predictive head type: Gaussian NLL for `(mean, std)` heads, cross-entropy for binning heads, or general cross-entropy on the common density support. |
 
-$$\\mathcal{L}_{\\text{pseudo}} = -\\int p_{\\text{consensus}}(y) \\log p_{\\text{student}}(y) \\, dy$$
+$$\mathcal{L}_{\text{pseudo}} = -\int p_{\text{consensus}}(y) \log p_{\text{student}}(y) \, dy$$
 
 ---
 
@@ -96,7 +96,7 @@ per-sample trust weights for pseudo-label filtering.
 | `uncertainty_to_weight` | `(predictive_batch, tau, *, power=1.0, …) → Tensor` | Convert teacher predictive uncertainty (std) into trust weights. Averages std over output dimensions if multivariate, then delegates to `disagreement_to_weight`. |
 | `conformal_width_to_weight` | `(lower, upper, tau=None, *, threshold=None) → Tensor` | Compute pseudo-label weights or masks based on conformal prediction interval width. Returns soft weights `exp(-width / τ)` when `tau` is set, or binary mask `(width ≤ threshold)` when `threshold` is set. |
 
-$$w_i = \\exp\\!\\left(-\\frac{d_i}{\\tau}\\right)^p \\quad \\text{with optional hard threshold } w_i \\geq w_{\\min}$$
+$$w_i = \exp\!\left(-\frac{d_i}{\tau}\right)^p \quad \text{with optional hard threshold } w_i \geq w_{\min}$$
 
 ---
 

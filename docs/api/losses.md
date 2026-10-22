@@ -36,7 +36,7 @@ forward(y_pred, target, mask=None, weights=None) -> Tensor | dict
 | `WeightedCrossEntropyLoss` | `WeightedCrossEntropyLoss(...)` | `nn.CrossEntropyLoss` + mask + weights |
 | `WeightedNLLLoss` | `WeightedNLLLoss(...)` | `nn.NLLLoss` + mask + weights |
 
-$$\\mathcal{L} = \\frac{1}{\\sum w_i m_i} \\sum w_i m_i \\, \\ell(y_{\\text{pred}, i}, y_i)$$
+$$\mathcal{L} = \frac{1}{\sum w_i m_i} \sum w_i m_i \, \ell(y_{\text{pred}, i}, y_i)$$
 
 ---
 
@@ -62,11 +62,11 @@ $$\\mathcal{L} = \\frac{1}{\\sum w_i m_i} \\sum w_i m_i \\, \\ell(y_{\\text{pred
 
 Core formulas:
 
-$$\\mathcal{L}_{\\text{NLL}} = \\frac{1}{2} \\log(2\\pi \\sigma^2) + \\frac{(y - \\mu)^2}{2\\sigma^2}$$
+$$\mathcal{L}_{\text{NLL}} = \frac{1}{2} \log(2\pi \sigma^2) + \frac{(y - \mu)^2}{2\sigma^2}$$
 
-$$\\mathcal{L}_{\\text{CRPS}} = \\sigma \\bigl[ z(2\\Phi(z)-1) + 2\\phi(z) - \\tfrac{1}{\\sqrt{\\pi}} \\bigr], \\quad z = \\tfrac{y-\\mu}{\\sigma}$$
+$$\mathcal{L}_{\text{CRPS}} = \sigma \bigl[ z(2\Phi(z)-1) + 2\phi(z) - \tfrac{1}{\sqrt{\pi}} \bigr], \quad z = \tfrac{y-\mu}{\sigma}$$
 
-$$\\mathcal{L}_{\\beta\\text{-NLL}} = (\\sigma^2 + \\varepsilon)^{-\\beta} \\cdot \\mathcal{L}_{\\text{NLL}}$$
+$$\mathcal{L}_{\beta\text{-NLL}} = (\sigma^2 + \varepsilon)^{-\beta} \cdot \mathcal{L}_{\text{NLL}}$$
 
 ---
 
@@ -89,7 +89,7 @@ $$\\mathcal{L}_{\\beta\\text{-NLL}} = (\\sigma^2 + \\varepsilon)^{-\\beta} \\cdo
 | `log_cosh` | `log_cosh(residual, scale=1.0)` | Numerically stable `log(cosh(u))` |
 | `tukey_biweight` | `tukey_biweight(residual, c=4.685)` | Tukey biweight; constant saturation beyond `c` |
 
-$$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r| \\le \\delta \\\\ \\delta|r| - \\frac{1}{2}\\delta^2 & |r| > \\delta \\end{cases}$$
+$$\mathcal{L}_{\text{Huber}}(r;\delta) = \begin{cases} \frac{1}{2}r^2 & |r| \le \delta \\ \delta|r| - \frac{1}{2}\delta^2 & |r| > \delta \end{cases}$$
 
 ---
 
@@ -138,7 +138,7 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `RankSimLoss` | `RankSimLoss(gamma=1.0, *, interpolation_strength=2.0, similarity="cosine", duplicate_policy="mean", reduction="mean")` | RankSim ranking-similarity regularizer for imbalanced regression (compose with a task loss) |
 | `rank_sim_regularizer` | `rank_sim_regularizer(features, target, *, interpolation_strength=2.0, similarity="cosine", duplicate_policy="mean", reduction="mean")` | Functional RankSim form |
 
-$$\\mathcal{L}_{\\text{quantile}} = \\max(q(y-\\hat{y}), (q-1)(y-\\hat{y}))$$ $$\\mathcal{L}_{\\text{expectile}} = |e - \\mathbb{I}(y<\\hat{y})| \\cdot (y-\\hat{y})^2$$ $$\\mathcal{L}_{\\text{MDN}} = -\\log \\sum_k \\pi_k \\mathcal{N}(y \\mid \\mu_k, \\sigma_k^2)$$
+$$\mathcal{L}_{\text{quantile}} = \max(q(y-\hat{y}), (q-1)(y-\hat{y}))$$ $$\mathcal{L}_{\text{expectile}} = |e - \mathbb{I}(y<\hat{y})| \cdot (y-\hat{y})^2$$ $$\mathcal{L}_{\text{MDN}} = -\log \sum_k \pi_k \mathcal{N}(y \mid \mu_k, \sigma_k^2)$$
 
 ---
 
@@ -187,7 +187,7 @@ Parametric NLL losses for non-Gaussian target families.
 | `CensoredQuantileLoss` | `CensoredQuantileLoss(...)` | Quantile + censoring |
 | `AFTLoss` | `AFTLoss(...)` | Accelerated Failure Time |
 
-$$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sigma^2) + \\tfrac{(y-\\mu)^2}{2\\sigma^2} & c=0 \\\\ -\\log\\Phi(\\tfrac{y-\\mu}{\\sigma}) & c=-1 \\\\ -\\log(1-\\Phi(\\tfrac{y-\\mu}{\\sigma})) & c=1 \\end{cases}$$
+$$\mathcal{L}_{\text{censored}} = \begin{cases} \tfrac{1}{2}\log(2\pi\sigma^2) + \tfrac{(y-\mu)^2}{2\sigma^2} & c=0 \\ -\log\Phi(\tfrac{y-\mu}{\sigma}) & c=-1 \\ -\log(1-\Phi(\tfrac{y-\mu}{\sigma})) & c=1 \end{cases}$$
 
 ### Count data
 
@@ -280,7 +280,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `ContrastiveFlowConformal` | `ContrastiveFlowConformal(flow_loss, alpha=0.1)` | Conformal level sets around a contrastive-flow positive density |
 | `WaldoConformal` | `WaldoConformal(alpha=0.1, critical_bins=None, critical_value_regressor=None, covariance_type="diagonal")` | Wald-statistic confidence regions from conditional mean/covariance |
 | `WaldoCriticalValueRegressor` | `WaldoCriticalValueRegressor(alpha=0.1, n_bins=10, min_samples_per_bin=8)` | Simulator-free local/quantile critical-value approximation for WALDO |
-| `waldo_statistic` | `waldo_statistic(mean, target, covariance=None, *, covariance_type="diagonal", eps=1e-8)` | Per-row Wald statistic $(\\mu-y)^\\top\\Sigma^{-1}(\\mu-y)$ |
+| `waldo_statistic` | `waldo_statistic(mean, target, covariance=None, *, covariance_type="diagonal", eps=1e-8)` | Per-row Wald statistic $(\mu-y)^\top\Sigma^{-1}(\mu-y)$ |
 | `WaldoPosteriorCalibrator` | `WaldoPosteriorCalibrator(alpha=0.1, covariance_type="full")` | WALDO calibration from predictive samples |
 | `WaldoDensityConformal` | `WaldoDensityConformal(alpha=0.1, covariance_type="full", n_samples=256)` | Simulator-free WALDO regions from a conditional-density sampler |
 | `DistributionalConformal` | `DistributionalConformal(alpha=0.1)` | PIT-based CDF calibration |
@@ -294,7 +294,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `CVPlus` / `JackknifePlus` | `CVPlus(alpha=0.1)` | Cross-validation ensemble CP |
 | `EnsembleBatchCP` | `EnsembleBatchCP(alpha=0.1)` | Bootstrap/OOB ensemble CP |
 
-Conformal guarantee: $$P(Y_{n+1} \\in \\hat{C}(X_{n+1})) \\geq 1 - \\alpha$$
+Conformal guarantee: $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
 
 ---
 
