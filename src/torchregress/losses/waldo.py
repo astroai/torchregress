@@ -125,7 +125,8 @@ class WaldoCriticalValueRegressor:
             raise ValueError("at least two calibration rows are required")
         self.global_value_ = torch.quantile(scores, 1.0 - self.alpha)
         n_bins = min(self.n_bins, max(2, key.numel() // self.min_samples_per_bin))
-        edges = torch.quantile(key, torch.linspace(0.0, 1.0, n_bins + 1)).unique()
+        q = torch.linspace(0.0, 1.0, n_bins + 1, device=key.device, dtype=key.dtype)
+        edges = torch.quantile(key, q).unique()
         if edges.numel() < 3:
             self.centers_ = None
             self.values_ = None
@@ -277,7 +278,8 @@ class WaldoConformal:
         # Neyman-inversion estimate: a quantile of tau at each target bin.
         key = target_2d.detach().mean(dim=-1)
         n_bins = min(int(self.critical_bins), max(2, scores.numel() // 10))
-        edges = torch.quantile(key, torch.linspace(0.0, 1.0, n_bins + 1)).unique()
+        q = torch.linspace(0.0, 1.0, n_bins + 1, device=key.device, dtype=key.dtype)
+        edges = torch.quantile(key, q).unique()
         if edges.numel() < 3:
             self._bin_centers = None
             self._bin_values = None
