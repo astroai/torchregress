@@ -150,6 +150,24 @@ item is done only when the code, tests, docs and a harness artifact all exist.
 | **P2** | Contrastive representation + conditional density | Contrastive flow is strong in SBI but not yet a calibrated regression density | Joint representation/density ablation with conformal coverage |
 | **P2** | Semi-supervised / EIV photo-z CDF | Real PZ data have missing labels and noisy features | PZRecipe/flow variants with missing-label and EIV protocols |
 
+## Status update (2026-10-22)
+
+Progress against the P0/P1 roadmap, with evidence:
+
+| Item | Status | Evidence |
+|:--|:--|:--|
+| Real-data NFM/TARFlow | **Done (NFM), still not competitive** | CANFAR 5 real datasets × 3 seeds, `release_20261022_0749`; worse than NSF/BPF on NLL/CRPS |
+| Joint multi-target binned CDF | **Done** | `JointBinnedDensityLoss` + tests; CANFAR noise-aware run `release_20261022_0853` (RMSE 0.712, CRPS 0.411 vs NSF 0.704/0.404; conservative coverage) |
+| CANFAR conformal benchmark | **Done** | 2 synthetic datasets × 3 seeds, `release_20261022_0750`; CTI/Mondrian/WALDO coverages near nominal |
+| Matched-budget PZRecipe vs NSF | **Running** | CANFAR `release_20261022_0840`, 16 datasets × 3 seeds × 60 epochs; report when complete |
+| WALDO critical-value regression | **Done; negative result on small synthetic data** | `WaldoCriticalValueRegressor` + tests; CANFAR `release_20261022_0852` did not improve coverage; keep simple threshold default |
+| Calibrated noise-aware densities | Open | Noise-aware NLL still under-covers; needs a proper calibration/temperature study |
+| Stabilize cINN/MAF tails | Open | Rare extreme transforms in E2; needs tail guard/failure-rate metric |
+| Proper multi-target metrics everywhere | Partial | Joint Cov90, energy, variogram exist in density suites; not all tabular suites use them |
+
+The canonical experiment table and code map live in the sibling harness report
+`reports/density_experiments_summary.md`.
+
 ## Non-goals
 
 - Do not claim conditional coverage from a marginal split-conformal run.
