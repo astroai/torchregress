@@ -16,13 +16,18 @@ from torch.nn import Module
 
 try:
     from zuko.flows import BPF, MAF, NSF, RealNVP  # type: ignore[import-untyped]
-    from zuko.transforms import MonotonicRQSTransform  # type: ignore[import-untyped]
+    from zuko.transforms import (  # type: ignore[import-untyped]
+        BoundedBernsteinTransform,
+        MonotonicRQSTransform,
+        MonotonicTransform,
+    )
 
     HAS_ZUKO = True
 except ImportError:
     HAS_ZUKO = False
 
-    BPF = MAF = NSF = RealNVP = MonotonicRQSTransform = None  # type: ignore[assignment]
+    BPF = MAF = NSF = RealNVP = None  # type: ignore[assignment]
+    BoundedBernsteinTransform = MonotonicRQSTransform = MonotonicTransform = None  # type: ignore[assignment]
 
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
@@ -83,8 +88,57 @@ def recommended_tail_bound(
 
 _MAFBase: Any = MAF
 _RQSTransform: Any = MonotonicRQSTransform
+_BPFBase: Any = BPF
+_BernsteinBase: Any = BoundedBernsteinTransform
+_MonotonicBase: Any = MonotonicTransform
 
 if HAS_ZUKO:
+
+    class _IdentityTailBernsteinTransform(_BernsteinBase):
+        """Bounded Bernstein polynomial with continuous, exact identity tails.
+
+        The upstream bounded transform anchors at the true endpoints but its
+        inherited extrapolation subtracts an inverse-solver epsilon. That shifts
+        the tails and creates jumps. Solver tolerance must not change the map.
+        """
+
+        def f(self, x: Tensor) -> Tensor:
+            unit = (x + self.bound) / (2 * self.bound)
+            interior = (unit > 0) & (unit < 1)
+            # Beta basis evaluation is undefined at endpoints. Unused branches
+            # receive an interior value so their gradients remain finite.
+            safe_unit = torch.where(interior, unit, torch.full_like(unit, 0.5))
+            # de Casteljau evaluation avoids the near-endpoint cancellation of
+            # a Beta-density/log-probability representation of the same basis.
+            polynomial = self.theta
+            weight = safe_unit.unsqueeze(-1)
+            for _ in range(self.order):
+                polynomial = torch.lerp(polynomial[..., :-1], polynomial[..., 1:], weight)
+            return cast(Tensor, torch.where(interior, polynomial.squeeze(-1), x))
+
+        def _inverse(self, y: Tensor) -> Tensor:
+            interior_inverse = _MonotonicBase._inverse(self, y)
+            return cast(
+                Tensor,
+                torch.where((y <= -self.bound) | (y >= self.bound), y, interior_inverse),
+            )
+
+    class _IdentityTailBPF(_BPFBase):
+        """State-compatible BPF using the corrected local bounded transform."""
+
+        def __init__(
+            self, features: int, context: int = 0, degree: int = 16, **kwargs: Any
+        ) -> None:
+            if degree < 1:
+                raise ValueError("BPF degree must be at least 1")
+            _MAFBase.__init__(
+                self,
+                features=features,
+                context=context,
+                univariate=_IdentityTailBernsteinTransform,
+                shapes=[(degree + 1,)],
+                **kwargs,
+            )
 
     class BoundedNSF(_MAFBase):
         """Neural spline flow with a configurable spline tail bound.
@@ -111,6 +165,10 @@ if HAS_ZUKO:
             )
             self.tail_bound = float(bound)
 else:
+
+    class _IdentityTailBPF:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("BPF requires the optional 'zuko' package")
 
     class BoundedNSF:  # type: ignore[no-redef]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -145,7 +203,9 @@ def create_flow_model(
         Flow architecture: ``"nsf"``/``"ncsf"`` (Neural Spline Flow),
         ``"maf"`` (Masked Autoregressive Flow), ``"realnvp"``/``"nice"``/
         ``"cinn"`` (affine coupling; cINN-style), or ``"bpf"`` (Bernstein
-        polynomial flow).  NSF provides the best expressivity-per-parameter
+        polynomial flow with exact identity tails). BPF honors ``n_transforms``
+        and ``hidden_features``; its ``degree`` keyword must be at least 1.
+        NSF provides the best expressivity-per-parameter
         for scalar regression and is the recommended default.
     n_transforms : int, default=5
         Number of coupling/autoregressive transforms in the flow.
@@ -206,7 +266,7 @@ def create_flow_model(
         "maf": MAF,
         "realnvp": RealNVP,
         "nice": RealNVP,
-        "bpf": BPF,
+        "bpf": _IdentityTailBPF,
     }
     if flow_type_key not in flow_cls_map:
         raise ValueError(
@@ -228,17 +288,13 @@ def create_flow_model(
         if float(bound) != DEFAULT_TAIL_BOUND:
             flow_cls = BoundedNSF
             kwargs["bound"] = float(bound)
-    if flow_type_key == "bpf":
-        # BPF has no autoregressive transforms; degree is its only capacity knob.
-        flow = flow_cls(features=n_features, context=context_dim, **kwargs)
-    else:
-        flow = flow_cls(
-            features=n_features,
-            context=context_dim,
-            transforms=n_transforms,
-            hidden_features=hidden,
-            **kwargs,
-        )
+    flow = flow_cls(
+        features=n_features,
+        context=context_dim,
+        transforms=n_transforms,
+        hidden_features=hidden,
+        **kwargs,
+    )
     # Store context dim in a stable attribute used by NormalizingFlowLoss.
     setattr(flow, "context", context_dim)
     return cast(Module, flow)

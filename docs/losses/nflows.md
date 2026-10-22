@@ -63,6 +63,18 @@ target-density reweighting changes the population density (see
 
 ### Step 1: Create a zuko flow
 
+For `bpf`, `n_transforms` and `hidden_features` control the autoregressive
+architecture, while `degree` (at least 1) controls its polynomial coefficients.
+The factory uses a local bounded Bernstein transform with
+$f(x)=x$ for $|x|\geq 5$, continuous endpoint values and unit endpoint derivatives.
+Its inverse solver tolerance controls numerical inversion, not a tail shift.
+The corrected transform retains the parameter and buffer names of the upstream
+BPF, so existing weights load when the actual layer count and widths match.
+Older factory versions ignored the requested BPF layer count and widths; use the
+checkpoint's actual architecture rather than that ignored request when loading.
+Previously recorded predictions and benchmarks keep their original version and
+must not be relabeled as results of this corrected map.
+
 Use the `create_flow_model` helper or build your own zuko flow:
 
 ```python
