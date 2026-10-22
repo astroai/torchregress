@@ -156,14 +156,14 @@ Progress against the P0/P1 roadmap, with evidence:
 
 | Item | Status | Evidence |
 |:--|:--|:--|
-| Real-data NFM/TARFlow | **Done (NFM), still not competitive** | CANFAR 5 real datasets × 3 seeds, `release_20261022_0749`; worse than NSF/BPF on NLL/CRPS |
+| Real-data NFM/TARFlow | **Done; no improvement** | NFM 5 datasets × 3 seeds (`0749`) and ambitious tokenized TARFlow on 3/8/16-target data × 3 seeds (`1205`); both worse than NSF/BPF on NLL/CRPS |
 | Joint multi-target binned CDF | **Done** | `JointBinnedDensityLoss` + tests; CANFAR noise-aware run `release_20261022_0853` (RMSE 0.712, CRPS 0.411 vs NSF 0.704/0.404; conservative coverage) |
 | CANFAR conformal benchmark | **Done** | 2 synthetic datasets × 3 seeds, `release_20261022_0750`; CTI/Mondrian/WALDO coverages near nominal |
 | Matched-budget PZRecipe vs NSF | **Done** | CANFAR `release_20261022_0940`, 16 datasets × 1 seed × 60 epochs: NSF RMSE 0.0480 / median NLL −2.221 / CRPS 0.0174; PZRecipe 0.0578 / −2.021 / 0.0195 but 3× faster and coverage 0.879 vs 0.867 |
 | WALDO critical-value regression | **Done; negative result on small synthetic data** | `WaldoCriticalValueRegressor` + tests; CANFAR `release_20261022_0852` did not improve coverage; keep simple threshold default |
-| Calibrated noise-aware densities | Open | Noise-aware NLL still under-covers; needs a proper calibration/temperature study |
+| Calibrated noise-aware densities | **Partial** | CTI-calibrated noise-aware NSF (`1224`) fixes under-coverage (0.952/0.963) but is over-conservative; needs a split/level study, not a default yet |
 | Stabilize cINN/MAF tails | Open | Rare extreme transforms in E2; needs tail guard/failure-rate metric |
-| Proper multi-target metrics everywhere | Partial | Joint Cov90, energy, variogram exist in density suites; not all tabular suites use them |
+| Proper multi-target metrics everywhere | **Improved** | Energy/variogram now in noise-aware suite; joint Cov90 and a flow failure-rate metric in density parity; still not every tabular suite |
 
 The canonical experiment table and code map live in the sibling harness report
 `reports/density_experiments_summary.md`.
