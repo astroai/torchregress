@@ -71,6 +71,101 @@ def waldo_statistic(
     raise ValueError("covariance_type must be 'diagonal' or 'full'")
 
 
+class WaldoCriticalValueRegressor:
+    """Dependency-free local quantile estimate of a WALDO critical value.
+
+    The original WALDO method learns ``C(theta_0)`` by quantile regression on
+    simulator draws.  When no simulator is available, this class fits a
+    **local quantile curve** on held-out calibration data: it bins a scalar key
+    (the mean of the supplied features, typically the candidate target) and
+    estimates the ``1 - alpha`` quantile of the WALDO statistic in each bin,
+    with interpolation between bin centers.  Sparse bins fall back to the global
+    split-conformal quantile.
+
+    This is a practical simulator-free approximation, not a conditional
+    guarantee.  Always validate coverage by region.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.1,
+        *,
+        n_bins: int = 10,
+        min_samples_per_bin: int = 8,
+    ) -> None:
+        if not 0.0 < float(alpha) < 1.0:
+            raise ValueError("alpha must be in (0, 1)")
+        if int(n_bins) < 2:
+            raise ValueError("n_bins must be >= 2")
+        if int(min_samples_per_bin) < 1:
+            raise ValueError("min_samples_per_bin must be positive")
+        self.alpha = float(alpha)
+        self.n_bins = int(n_bins)
+        self.min_samples_per_bin = int(min_samples_per_bin)
+        self.centers_: Optional[Tensor] = None
+        self.values_: Optional[Tensor] = None
+        self.global_value_: Optional[Tensor] = None
+        self.is_fitted = False
+
+    @staticmethod
+    def _key(features: Tensor) -> Tensor:
+        if features.dim() == 1:
+            return features.reshape(-1)
+        if features.dim() != 2:
+            raise ValueError("features must be [N] or [N, F]")
+        return features.mean(dim=-1)
+
+    def fit(self, features: Tensor, scores: Tensor) -> "WaldoCriticalValueRegressor":
+        """Fit local quantiles from calibration features and Wald scores."""
+        if features.shape[0] != scores.numel():
+            raise ValueError("features and scores must agree on the number of rows")
+        key = self._key(features).detach()
+        scores = scores.detach().reshape(-1)
+        if key.numel() < 2 or scores.numel() < 2:
+            raise ValueError("at least two calibration rows are required")
+        self.global_value_ = torch.quantile(scores, 1.0 - self.alpha)
+        n_bins = min(self.n_bins, max(2, key.numel() // self.min_samples_per_bin))
+        edges = torch.quantile(key, torch.linspace(0.0, 1.0, n_bins + 1)).unique()
+        if edges.numel() < 3:
+            self.centers_ = None
+            self.values_ = None
+            self.is_fitted = True
+            return self
+        centers, values = [], []
+        for left, right in zip(edges[:-1], edges[1:]):
+            mask = (key >= left) & (key <= right)
+            if int(mask.sum()) < self.min_samples_per_bin:
+                continue
+            centers.append((left + right) / 2.0)
+            values.append(torch.quantile(scores[mask], 1.0 - self.alpha))
+        if len(centers) < 2:
+            self.centers_ = None
+            self.values_ = None
+        else:
+            self.centers_ = torch.stack(centers)
+            self.values_ = torch.stack(values).clamp_min(0.0)
+        self.is_fitted = True
+        return self
+
+    def predict_critical(self, features: Tensor) -> Tensor:
+        """Interpolated critical value for each row of features."""
+        if not self.is_fitted:
+            raise RuntimeError("Call fit() first.")
+        key = self._key(features)
+        if self.centers_ is None or self.values_ is None:
+            if self.global_value_ is None:
+                raise RuntimeError("regressor has no fitted values")
+            return self.global_value_.to(key.device, key.dtype).expand_as(key)
+        centers = self.centers_.to(key.device, key.dtype)
+        values = self.values_.to(key.device, key.dtype)
+        idx = torch.searchsorted(centers, key).clamp(1, centers.numel() - 1)
+        left, right = idx - 1, idx
+        frac = ((key - centers[left]) / (centers[right] - centers[left]).clamp_min(1e-12)).clamp(
+            0.0, 1.0
+        )
+        return values[left] + frac * (values[right] - values[left])
+
+
 class WaldoConformal:
     """WALDO-style confidence regions for conditional regression targets.
 
@@ -96,6 +191,7 @@ class WaldoConformal:
         *,
         critical_bins: Optional[int] = None,
         critical_value_fn: Optional[Callable[[Tensor], Tensor]] = None,
+        critical_value_regressor: Optional[WaldoCriticalValueRegressor] = None,
         covariance_type: str = "diagonal",
         min_variance: float = 1e-8,
     ) -> None:
@@ -107,7 +203,11 @@ class WaldoConformal:
             raise ValueError("covariance_type must be 'diagonal' or 'full'")
         self.alpha = float(alpha)
         self.critical_bins = None if critical_bins is None else int(critical_bins)
+        if critical_value_fn is not None and critical_value_regressor is not None:
+            raise ValueError("pass critical_value_fn or critical_value_regressor, not both")
         self.critical_value_fn = critical_value_fn
+        self.critical_value_regressor = critical_value_regressor
+        self._critical_fitted = False
         self.covariance_type = covariance_type
         self.min_variance = float(min_variance)
         self.q_hat: Optional[Tensor] = None
@@ -162,6 +262,9 @@ class WaldoConformal:
         self._cal_scores = scores
         self._cal_targets = target_2d.detach()
         self.q_hat = torch.quantile(scores, 1.0 - self.alpha)
+        if self.critical_value_regressor is not None:
+            self.critical_value_regressor.fit(target_2d.detach(), scores)
+            self._critical_fitted = True
         if self.critical_value_fn is not None:
             self._bin_centers = None
             self._bin_values = None
@@ -214,6 +317,8 @@ class WaldoConformal:
         target_2d = target if target.dim() > 1 else target.unsqueeze(-1)
         if self.critical_value_fn is not None:
             return self.critical_value_fn(target_2d).reshape(-1)
+        if self.critical_value_regressor is not None:
+            return self.critical_value_regressor.predict_critical(target_2d).reshape(-1)
         return self._critical_value(target_2d)
 
     def contains(
@@ -358,11 +463,13 @@ class WaldoPosteriorCalibrator:
         alpha: float = 0.1,
         *,
         critical_bins: Optional[int] = None,
+        critical_value_regressor: Optional[WaldoCriticalValueRegressor] = None,
         covariance_type: str = "full",
     ) -> None:
         self.calibrator = WaldoConformal(
             alpha=alpha,
             critical_bins=critical_bins,
+            critical_value_regressor=critical_value_regressor,
             covariance_type=covariance_type,
         )
         self.alpha = float(alpha)
@@ -409,6 +516,7 @@ class WaldoDensityConformal:
         alpha: float = 0.1,
         *,
         critical_bins: Optional[int] = None,
+        critical_value_regressor: Optional[WaldoCriticalValueRegressor] = None,
         covariance_type: str = "full",
         n_samples: int = 256,
     ) -> None:
@@ -418,6 +526,7 @@ class WaldoDensityConformal:
         self.calibrator = WaldoConformal(
             alpha=alpha,
             critical_bins=critical_bins,
+            critical_value_regressor=critical_value_regressor,
             covariance_type=covariance_type,
         )
 

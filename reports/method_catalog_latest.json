@@ -2,15 +2,15 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 155,
+    "total_methods": 157,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
       "causal": 2,
       "censored": 3,
-      "conformal": 18,
+      "conformal": 19,
       "constraints": 2,
-      "density_loss": 2,
+      "density_loss": 3,
       "eiv": 16,
       "ensemble": 8,
       "evidential": 1,
@@ -48,7 +48,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 128
+      "Available": 130
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1763,6 +1763,29 @@
       "notes": "Finite-bin scalar distribution with uniform within-bin sampling/CDF. Gaussian-smoothed target cross-entropy is not a measurement marginal likelihood or deconvolution estimator."
     },
     {
+      "name": "JointBinnedDensityLoss",
+      "family": "density_loss",
+      "public_path": "torchregress.losses.JointBinnedDensityLoss",
+      "task_tags": [
+        "multi_target",
+        "conditional_density",
+        "soft_targets",
+        "low_dimensional"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Exact joint histogram over low-dimensional multi-target bins with uniform within-cell density/CDF/sampling; Gaussian-smoothed soft targets. Cost grows as product of per-target bins (hard cap max_joint_bins=4096); not a deconvolved measurement likelihood."
+    },
+    {
       "name": "UncertaintyAwareConR",
       "family": "representation_regularizer",
       "public_path": "torchregress.losses.UncertaintyAwareConR",
@@ -1921,6 +1944,29 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Simulator-free WALDO adaptation for any conditional-density sampler: moments estimated from samples, split-conformal calibration on held-out targets. Marginal coverage; binned critical values approximate conditional coverage. Not the full simulator-based WALDO guarantee."
+    },
+    {
+      "name": "WaldoCriticalValueRegressor",
+      "family": "conformal",
+      "public_path": "torchregress.losses.WaldoCriticalValueRegressor",
+      "task_tags": [
+        "conformal",
+        "calibration",
+        "confidence_regions",
+        "heteroscedastic"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "yes",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Dependency-free local quantile approximation to WALDO's critical-value function, learned from held-out scores instead of simulator draws. Simulator-free local approximation; not the original conditional guarantee."
     },
     {
       "name": "FlowMatchingMLP",

@@ -72,6 +72,32 @@ coverage by parameter region.
     constant-threshold version is split-conformal, while the binned version
     depends on the quality of the critical-value regression.
 
+## Critical-value regression without a simulator
+
+The original WALDO critical-value function is fitted by quantile regression on
+simulator draws.  When only observed calibration data are available,
+`WaldoCriticalValueRegressor` fits a local quantile curve instead:
+
+1. reduce the calibration features (usually the candidate target) to a scalar
+   key;
+2. split the key into quantile bins;
+3. estimate the $(1-\alpha)$ quantile of the Wald statistic in each bin;
+4. interpolate between bin centers, falling back to the global split-conformal
+   quantile for sparse bins.
+
+```python
+from torchregress.losses import WaldoConformal, WaldoCriticalValueRegressor
+
+reg = WaldoCriticalValueRegressor(alpha=0.1, n_bins=8, min_samples_per_bin=10)
+cp = WaldoConformal(alpha=0.1, critical_value_regressor=reg)
+cp.calibrate(mean_cal, y_cal, variance_cal)
+inside = cp.contains(mean_test, y_test, variance_test)
+```
+
+This is a **simulator-free local approximation**.  It can tighten regions where
+the Wald statistic is heteroscedastic, but it does not recover WALDO's original
+simulator-based conditional guarantee; validate coverage by target region.
+
 ## References
 
 | # | Reference |

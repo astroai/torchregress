@@ -131,6 +131,45 @@ loss = head(logits, y_observed, sigma=sigma)
 cdf = head.cdf(logits, values)
 ```
 
+## Joint multi-target binned CDF
+
+`BinnedDensityLoss` is scalar-only.  `JointBinnedDensityLoss` extends the same
+idea to a **joint** histogram over $D$ low-dimensional targets: with per-target
+edges $e_{d,k}$ and joint logits $z_i$ of size $\prod_d K_d$,
+
+$$
+q_i(\mathbf k)=\prod_{d=1}^{D}
+\left[\Phi\!\left(\frac{e_{d,k_d+1}-\tilde y_{i,d}}{\sigma_{i,d}}\right)
+-\Phi\!\left(\frac{e_{d,k_d}-\tilde y_{i,d}}{\sigma_{i,d}}\right)\right],
+\qquad
+\mathcal L=-\sum_i\sum_{\mathbf k}q_i(\mathbf k)\log\mathrm{softmax}(z_i)_{\mathbf k}.
+$$
+
+The density is uniform within each joint cell, so the reported log density is
+$\log\mathrm{softmax}(z_i)_{\mathbf k}-\sum_d\log(e_{d,k_d+1}-e_{d,k_d})$.
+This is a genuine joint histogram, not a product of independent scalar heads.
+The cost is $\prod_d K_d$, so the class is intentionally limited to low
+dimensions and rejects outputs above `max_joint_bins` (default 4096).
+
+```python
+from torchregress.losses import JointBinnedDensityLoss
+
+head = JointBinnedDensityLoss(
+    [torch.linspace(-3, 3, 25), torch.linspace(-3, 3, 25)],
+    max_joint_bins=4096,
+)
+loss = head(joint_logits, y_observed, sigma=sigma)   # joint_logits: [B, 625]
+logp = head.log_prob(joint_logits, y_observed)       # [B] log density
+cdf = head.cdf(joint_logits, query_points)           # [B] joint CDF
+```
+
+!!! warning
+    The joint histogram grows exponentially with target dimension.  For $D>3$
+    use a flow, a conditional-binned decomposition, or a copula; do not raise
+    `max_joint_bins` without checking memory and data support.  As with the
+    scalar binned head, the Gaussian soft target is not a deconvolved
+    measurement likelihood.
+
 ## Choosing an objective
 
 | Problem | Recommended |

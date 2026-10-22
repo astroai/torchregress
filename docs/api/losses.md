@@ -116,6 +116,7 @@ $$\\mathcal{L}_{\\text{Huber}}(r;\\delta) = \\begin{cases} \\frac{1}{2}r^2 & |r|
 | `NormalizingFlowLoss` | `NormalizingFlowLoss(flow=..., reduction="mean")` | Conditional flow NLL (requires `zuko`) |
 | `NoiseAwareDensityLoss` | `NoiseAwareDensityLoss(base_loss, sigma=None, mode="auto", ...)` | Marginal likelihood with Gaussian label noise; GH for scalar flows, analytic for diagonal MDNs |
 | `BinnedDensityLoss` | `BinnedDensityLoss(bin_edges, label_smoothing=0.0)` | Smoothed histogram / ordinal-CDF scalar density head |
+| `JointBinnedDensityLoss` | `JointBinnedDensityLoss(bin_edges, n_targets=None, max_joint_bins=4096, ...)` | Joint low-dimensional multi-target binned density/CDF head |
 | `PZRecipeLoss` | `PZRecipeLoss(bin_centers, ce_weight=0.5, cdf_weight=0.5, rnc_weight=0.1, ...)` | CE + binned-CDF + RnC-N photo-z objective |
 | `CumulativeCDFLoss` | `CumulativeCDFLoss(bin_centers, reduction="mean")` | Binned CDF squared-error loss |
 | `TriLoss` | `TriLoss(bin_centers, ce_weight=1.0, crps_weight=0.5, rnc_weight=0.1, ...)` | CE + binned-CRPS + RnC-N methods-paper tri-loss |
@@ -223,7 +224,9 @@ $$\\mathcal{L}_{\\text{censored}} = \\begin{cases} \\tfrac{1}{2}\\log(2\\pi\\sig
 | `FeatureDistributionSmoother` | `FeatureDistributionSmoother(...)` | Feature Distribution Smoothing |
 | `PropensityWeightedLoss` | `PropensityWeightedLoss(...)` | Inverse propensity weights |
 | `PrimeLoss` | `PrimeLoss(feature_dim, n_proxies=100, *, label_range=None, class_balanced=False, ...)` | PRIME proxy alignment (learnable proxies, uniform target spacing) |
-| `ConR` | `ConR(*, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2)` | ConR contrastive collapse penalty; `forward(features, target, prediction=..., ...)` |
+| `ConR` | `ConR(*, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2, label_sigma=None)` | ConR contrastive collapse penalty; `forward(features, target, prediction=..., ...)` |
+| `conr_loss` | `conr_loss(features, labels, predictions, *, label_threshold=0.2, prediction_threshold=None, temperature=0.07, push_scale=0.2, density_weights=None, label_sigma=None)` | Functional per-anchor ConR regularizer (Keramati et al. 2024) |
+| `uniform_proxy_targets` | `uniform_proxy_targets(y_min, y_max, n_proxies)` | Evenly spaced learnable-proxy targets for `PrimeLoss` |
 | `UncertaintyAwareConR` | `UncertaintyAwareConR(*, label_sigma=..., label_threshold=0.2, ...)` | ConR with Gaussian-uncertainty-softened pair membership |
 | `NoisyTargetGaussianNLL` | `NoisyTargetGaussianNLL(reduction="mean")` | Adds known target-noise σ²_y |
 | `PseudoLabelNLL` | `PseudoLabelNLL(pseudo_weight=0.8, ...)` | Pseudo-label + confidence NLL |
@@ -251,7 +254,9 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `LatentMarginalizationLoss` | `LatentMarginalizationLoss(...)` |
 | `NoisyInputPredictor` | `NoisyInputPredictor(...)` |
 | `SplitMeasurementLoss` | `SplitMeasurementLoss(model, reduction="mean")`; `forward(x1, y, y_pred_second=x2, ...)` — paired independent measurements, no `sigma_x` needed |
+| `split_measurement_loss` | `split_measurement_loss(model, x_first, target, x_second, reduction="mean")` — functional paired-measurement loss |
 | `CorrectedScoreEIVLoss` | `CorrectedScoreEIVLoss(model, sigma_x, stabilize="none", jacobian_chunk_size=None)` — Stefanski–Nakamura corrected score |
+| `corrected_score_eiv_loss` | `corrected_score_eiv_loss(model, y_pred, target, sigma_x, reduction="mean", eps=1e-3, stabilize="none", jacobian_chunk_size=None)` — functional corrected score |
 
 ---
 
@@ -273,7 +278,9 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `CTI` | `CTI(alpha=0.1, grid_size=500)` | Density thresholded intervals |
 | `ConformalizedDensity` | `ConformalizedDensity(alpha=0.1, grid_size=500)` | Split-conformal level sets for any conditional log-density |
 | `ContrastiveFlowConformal` | `ContrastiveFlowConformal(flow_loss, alpha=0.1)` | Conformal level sets around a contrastive-flow positive density |
-| `WaldoConformal` | `WaldoConformal(alpha=0.1, critical_bins=None, covariance_type="diagonal")` | Wald-statistic confidence regions from conditional mean/covariance |
+| `WaldoConformal` | `WaldoConformal(alpha=0.1, critical_bins=None, critical_value_regressor=None, covariance_type="diagonal")` | Wald-statistic confidence regions from conditional mean/covariance |
+| `WaldoCriticalValueRegressor` | `WaldoCriticalValueRegressor(alpha=0.1, n_bins=10, min_samples_per_bin=8)` | Simulator-free local/quantile critical-value approximation for WALDO |
+| `waldo_statistic` | `waldo_statistic(mean, target, covariance=None, *, covariance_type="diagonal", eps=1e-8)` | Per-row Wald statistic $(\\mu-y)^\\top\\Sigma^{-1}(\\mu-y)$ |
 | `WaldoPosteriorCalibrator` | `WaldoPosteriorCalibrator(alpha=0.1, covariance_type="full")` | WALDO calibration from predictive samples |
 | `WaldoDensityConformal` | `WaldoDensityConformal(alpha=0.1, covariance_type="full", n_samples=256)` | Simulator-free WALDO regions from a conditional-density sampler |
 | `DistributionalConformal` | `DistributionalConformal(alpha=0.1)` | PIT-based CDF calibration |

@@ -470,3 +470,263 @@ class BinnedDensityLoss(BaseLoss):
         left = edges[:-1][idx]
         right = edges[1:][idx]
         return left + (right - left) * torch.rand_like(left)
+
+
+class JointBinnedDensityLoss(BaseLoss):
+    """Joint binned density / CDF head for low-dimensional multi-target data.
+
+    The model emits one logit per joint histogram cell.  With ``D`` targets and
+    ``K_d`` bins on target ``d`` the output has ``prod_d K_d`` entries, flattened
+    in C order (target 0 slowest, target D-1 fastest).  The density is uniform
+    within each cell.  A Gaussian label-noise model is applied independently per
+    target before forming the joint soft target, so this is a genuine joint
+    histogram rather than a product of independent scalar heads.
+
+    This is intentionally limited to low dimensions: the exact joint histogram
+    grows as ``K**D``.  ``max_joint_bins`` (default 4096) rejects configurations
+    that would make the output impractically large.
+
+    Parameters
+    ----------
+    bin_edges:
+        One edge tensor per target, or a single shared edge tensor.  If a single
+        tensor is passed, ``n_targets`` must be given.
+    n_targets:
+        Number of targets when ``bin_edges`` is shared.  Ignored for a list.
+    max_joint_bins:
+        Upper bound on the flattened joint output size.
+    label_smoothing:
+        Uniform categorical smoothing in ``[0, 1)``.
+    reduction:
+        ``"mean"``, ``"sum"`` or ``"none"``.
+    """
+
+    bin_edges: list[Tensor]
+
+    def __init__(
+        self,
+        bin_edges: Tensor | list[Tensor] | tuple[Tensor, ...],
+        *,
+        n_targets: Optional[int] = None,
+        max_joint_bins: int = 4096,
+        label_smoothing: float = 0.0,
+        reduction: str = "mean",
+    ) -> None:
+        super().__init__(reduction=reduction)
+        if isinstance(bin_edges, Tensor):
+            if bin_edges.dim() != 1:
+                raise ValueError("a shared bin_edges tensor must be 1D")
+            if n_targets is None or int(n_targets) < 2:
+                raise ValueError("n_targets>=2 is required when bin_edges is shared")
+            edges_list = [bin_edges] * int(n_targets)
+        elif isinstance(bin_edges, (list, tuple)):
+            if len(bin_edges) < 2:
+                raise ValueError("JointBinnedDensityLoss requires at least two targets")
+            edges_list = [torch.as_tensor(e) for e in bin_edges]
+        else:
+            raise TypeError("bin_edges must be a tensor or a sequence of tensors")
+
+        normalized: list[Tensor] = []
+        for edges in edges_list:
+            if edges.dim() != 1 or edges.numel() < 2:
+                raise ValueError("each bin_edges tensor must be 1D with at least two edges")
+            if not edges.is_floating_point():
+                edges = edges.float()
+            if not torch.isfinite(edges).all() or not bool(torch.all(edges[1:] > edges[:-1])):
+                raise ValueError("bin edges must be finite and strictly increasing")
+            normalized.append(edges)
+        self.bin_edges = normalized
+        self.n_targets = len(normalized)
+        self.n_bins_per_target = [int(e.numel() - 1) for e in normalized]
+        joint_bins = int(np.prod(self.n_bins_per_target))
+        if joint_bins > int(max_joint_bins):
+            raise ValueError(
+                f"joint output has {joint_bins} bins, above max_joint_bins={max_joint_bins}; "
+                "use a coarser binning or a lower target dimension"
+            )
+        self.joint_bins = joint_bins
+        if not 0.0 <= float(label_smoothing) < 1.0:
+            raise ValueError("label_smoothing must be in [0, 1)")
+        self.label_smoothing = float(label_smoothing)
+        # Strides for C-order flattening; target d contributes stride_d.
+        strides: list[int] = []
+        running = 1
+        for k in reversed(self.n_bins_per_target):
+            strides.append(running)
+            running *= k
+        self._strides = list(reversed(strides))
+
+    def _validate_target(self, target: Tensor) -> None:
+        if target.dim() != 2 or target.shape[1] != self.n_targets:
+            raise ValueError(f"target must be [B, {self.n_targets}]")
+        if not torch.isfinite(target).all():
+            raise ValueError("target must contain finite values")
+
+    def _bin_indices(self, target: Tensor) -> Tensor:
+        """Hard per-target bin indices [B, D]."""
+        dtype = torch.promote_types(target.dtype, self.bin_edges[0].dtype)
+        target = target.to(dtype)
+        idx = []
+        for d, edges in enumerate(self.bin_edges):
+            e = edges.to(target)
+            idx.append(torch.searchsorted(e, target[:, d]).clamp(1, self.n_bins_per_target[d]) - 1)
+        return torch.stack(idx, dim=-1)
+
+    def _flat_index(self, target: Tensor) -> Tensor:
+        idx = self._bin_indices(target).long()
+        stride = torch.as_tensor(self._strides, device=target.device, dtype=torch.long)
+        return (idx * stride).sum(dim=-1)
+
+    def bin_probabilities(
+        self,
+        target: Tensor,
+        sigma: Optional[Tensor | float] = None,
+    ) -> Tensor:
+        """Joint Gaussian-smoothed bin masses, shape ``[B, joint_bins]``."""
+        self._validate_target(target)
+        b = target.shape[0]
+        dtype = torch.promote_types(target.dtype, self.bin_edges[0].dtype)
+        target = target.to(dtype)
+        sigma_t = _as_sigma(sigma, target) if sigma is not None else None
+        per_dim: list[Tensor] = []
+        for d, edges in enumerate(self.bin_edges):
+            e = edges.to(target)
+            if sigma_t is None or bool(torch.all(sigma_t[:, d] <= _MIN_SIGMA * 10)):
+                idx = self._bin_indices(target)[:, d]
+                probs = torch.zeros(b, e.numel() - 1, device=target.device, dtype=dtype)
+                probs.scatter_(1, idx.unsqueeze(1), 1.0)
+            else:
+                normal = torch.distributions.Normal(
+                    loc=target[:, d : d + 1],
+                    scale=sigma_t[:, d : d + 1].clamp_min(_MIN_SIGMA),
+                )
+                cdf = normal.cdf(e.reshape(1, -1))
+                probs = (cdf[:, 1:] - cdf[:, :-1]).clamp_min(1.0e-12)
+                probs = probs / probs.sum(dim=-1, keepdim=True)
+            per_dim.append(probs)
+        # Outer product across target dimensions.
+        joint = per_dim[0]
+        for probs in per_dim[1:]:
+            joint = (joint.unsqueeze(-1) * probs.unsqueeze(-2)).reshape(joint.shape[0], -1)
+        if self.label_smoothing > 0.0:
+            joint = (1.0 - self.label_smoothing) * joint + self.label_smoothing / self.joint_bins
+        return joint
+
+    def forward(
+        self,
+        y_pred: Tensor,
+        target: Tensor,
+        sigma: Optional[Tensor | float] = None,
+        mask: Optional[Tensor] = None,
+        weights: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        del kwargs
+        if y_pred.dim() != 2 or y_pred.shape[-1] != self.joint_bins:
+            raise ValueError(f"y_pred must be [B, {self.joint_bins}] joint logits")
+        if target.shape[0] != y_pred.shape[0]:
+            raise ValueError("target and y_pred must agree on batch size")
+        self._validate_target(target)
+        target = target.to(device=y_pred.device, dtype=y_pred.dtype)
+        sample_mask: Optional[Tensor] = None
+        if mask is not None:
+            m = mask.to(device=y_pred.device, dtype=torch.bool)
+            if m.shape == target.shape:
+                sample_mask = m.all(dim=-1)
+            elif m.numel() == target.shape[0]:
+                sample_mask = m.reshape(-1)
+            else:
+                raise ValueError("mask must be [B] or [B, D]")
+            target = torch.where(sample_mask.unsqueeze(-1), target, torch.zeros_like(target))
+            if isinstance(sigma, Tensor):
+                sigma = sigma.to(y_pred.device)
+                if sigma.shape == target.shape:
+                    sigma = torch.where(sample_mask.unsqueeze(-1), sigma, torch.zeros_like(sigma))
+        if weights is not None and weights.numel() != target.shape[0]:
+            raise ValueError("weights must contain one entry per sample")
+        probs = self.bin_probabilities(target, sigma).to(device=y_pred.device, dtype=y_pred.dtype)
+        log_probs = torch.log_softmax(y_pred, dim=-1)
+        nll = -(probs * log_probs).sum(dim=-1)
+        return self._reduce(nll, sample_mask, weights)
+
+    def log_prob(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        """Log joint density (uniform within bins), shape ``[B]``."""
+        if y_pred.dim() != 2 or y_pred.shape[-1] != self.joint_bins:
+            raise ValueError(f"y_pred must be [B, {self.joint_bins}] joint logits")
+        self._validate_target(target)
+        target = target.to(device=y_pred.device, dtype=y_pred.dtype)
+        flat = self._flat_index(target)
+        log_probs = torch.log_softmax(y_pred, dim=-1)
+        log_density = log_probs.gather(1, flat.unsqueeze(1)).squeeze(1)
+        widths = torch.ones(target.shape[0], device=target.device, dtype=target.dtype)
+        for d, edges in enumerate(self.bin_edges):
+            e = edges.to(target)
+            widths = widths * (e[1:] - e[:-1])[self._bin_indices(target)[:, d]]
+        return log_density - torch.log(widths)
+
+    def sample(self, y_pred: Tensor, n_samples: int = 1) -> Tensor:
+        """Draw ``[B, n_samples, D]`` samples uniformly within joint cells."""
+        if y_pred.dim() != 2 or y_pred.shape[-1] != self.joint_bins:
+            raise ValueError(f"y_pred must be [B, {self.joint_bins}] joint logits")
+        probs = torch.softmax(y_pred, dim=-1)
+        flat = torch.distributions.Categorical(probs=probs).sample((n_samples,)).transpose(0, 1)
+        out = []
+        remainder = flat
+        for d in range(self.n_targets):
+            stride = self._strides[d]
+            k = self.n_bins_per_target[d]
+            idx = (remainder // stride) % k
+            edges = self.bin_edges[d].to(y_pred)
+            left, right = edges[:-1][idx], edges[1:][idx]
+            out.append(left + (right - left) * torch.rand_like(left))
+            remainder = remainder % stride
+        return torch.stack(out, dim=-1)
+
+    def cdf(self, y_pred: Tensor, values: Tensor) -> Tensor:
+        """Joint CDF at one query point per row; uniform within cells."""
+        if y_pred.dim() != 2 or y_pred.shape[-1] != self.joint_bins:
+            raise ValueError(f"y_pred must be [B, {self.joint_bins}] joint logits")
+        if values.dim() != 2 or values.shape != (y_pred.shape[0], self.n_targets):
+            raise ValueError(f"values must be [B, {self.n_targets}]")
+        values = values.to(y_pred)
+        probs = torch.softmax(y_pred, dim=-1)
+        # Build per-cell probability grid and query fractions.
+        fracs = []
+        for d, edges in enumerate(self.bin_edges):
+            e = edges.to(values)
+            q = values[:, d : d + 1]
+            frac = ((q - e[:-1]) / (e[1:] - e[:-1])).clamp(0, 1)
+            fracs.append(frac)
+        # Sum over cells with product of below-query fractions.
+        # Iterate over joint cells via meshgrid-free indexing over flattened grid.
+        weights = probs.clone()
+        for d in range(self.n_targets):
+            f = fracs[d].reshape(y_pred.shape[0], 1, self.n_bins_per_target[d], 1)
+            # reshape weights so axis d is K
+            prefix = int(np.prod(self.n_bins_per_target[:d])) if d else 1
+            suffix = int(np.prod(self.n_bins_per_target[d + 1 :])) if d + 1 < self.n_targets else 1
+            w = weights.reshape(y_pred.shape[0], prefix, self.n_bins_per_target[d], suffix)
+            w = w * f
+            weights = w.reshape(y_pred.shape[0], -1)
+        return weights.sum(dim=-1)
+
+    def marginal_cdf(self, y_pred: Tensor, dim: int, values: Tensor) -> Tensor:
+        """Marginal CDF for one target dimension."""
+        if not 0 <= int(dim) < self.n_targets:
+            raise ValueError("dim out of range")
+        if y_pred.dim() != 2 or y_pred.shape[-1] != self.joint_bins:
+            raise ValueError(f"y_pred must be [B, {self.joint_bins}] joint logits")
+        if values.numel() != y_pred.shape[0]:
+            raise ValueError("values must contain one query per row")
+        probs = torch.softmax(y_pred, dim=-1)
+        shape = [y_pred.shape[0]] + self.n_bins_per_target
+        grid = probs.reshape(shape)
+        # Sum over all dimensions except `dim`.
+        other = [d for d in range(self.n_targets) if d != int(dim)]
+        for d in sorted(other, reverse=True):
+            grid = grid.sum(dim=d + 1)
+        marginal = grid  # [B, K_dim]
+        e = self.bin_edges[int(dim)].to(values)
+        q = values.reshape(-1, 1).to(marginal)
+        frac = ((q - e[:-1]) / (e[1:] - e[:-1])).clamp(0, 1)
+        return (marginal * frac).sum(dim=-1)

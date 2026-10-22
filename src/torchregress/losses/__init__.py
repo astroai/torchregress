@@ -138,7 +138,13 @@ from .sls import (
 )
 
 # Imbalanced regression losses
-from .waldo import WaldoConformal, WaldoDensityConformal, WaldoPosteriorCalibrator, waldo_statistic
+from .waldo import (
+    WaldoConformal,
+    WaldoCriticalValueRegressor,
+    WaldoDensityConformal,
+    WaldoPosteriorCalibrator,
+    waldo_statistic,
+)
 from .wasserstein1d import DiscreteWasserstein1Loss, discrete_wasserstein1
 
 # Normalizing flows (zuko is an optional dependency)
@@ -156,7 +162,7 @@ except ImportError:
 
 
 # Neural ratio estimation (classifier-based likelihood ratios)
-from .noise_aware_density import BinnedDensityLoss, NoiseAwareDensityLoss
+from .noise_aware_density import BinnedDensityLoss, JointBinnedDensityLoss, NoiseAwareDensityLoss
 
 # Neural ratio estimation (classifier-based likelihood ratios)
 from .nre import (
@@ -253,6 +259,7 @@ __all__ = [
     "BetaNLLLoss",
     "BetaRegressionNLLLoss",
     "BinnedDensityLoss",
+    "JointBinnedDensityLoss",
     "BinReweightedMSELoss",
     "BoxCoxTransformLoss",
     "CORALLoss",
@@ -364,6 +371,7 @@ __all__ = [
     "TweedieLoss",
     "UACQR",
     "WaldoConformal",
+    "WaldoCriticalValueRegressor",
     "WaldoDensityConformal",
     "WaldoPosteriorCalibrator",
     "waldo_statistic",

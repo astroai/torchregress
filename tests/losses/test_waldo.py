@@ -83,3 +83,37 @@ def test_waldo_density_conformal() -> None:
     assert cp.contains(sample_fn, test_ctx, test_target).shape == (50,)
     lo, hi = cp.predict_interval(sample_fn, test_ctx[:5], y_min=-4, y_max=4)
     assert lo.shape == hi.shape == (5, 1)
+
+
+def test_waldo_critical_value_regressor_fit_predict() -> None:
+    from torchregress.losses.waldo import WaldoCriticalValueRegressor
+
+    torch.manual_seed(0)
+    features = torch.linspace(-2, 2, 300).reshape(-1, 1)
+    # Heteroscedastic score: critical value grows with |target|.
+    scores = 1.0 + 0.5 * features[:, 0] + 0.1 * torch.randn(300)
+    reg = WaldoCriticalValueRegressor(alpha=0.1, n_bins=8, min_samples_per_bin=5)
+    reg.fit(features, scores)
+    pred = reg.predict_critical(features)
+    assert pred.shape == (300,)
+    assert torch.isfinite(pred).all()
+    # Local quantiles should track the heteroscedastic trend.
+    assert pred[-10:].mean() > pred[:10].mean()
+
+
+def test_waldo_conformal_with_regressor_coverage() -> None:
+    from torchregress.losses.waldo import WaldoConformal, WaldoCriticalValueRegressor
+
+    torch.manual_seed(0)
+    n = 600
+    target = torch.randn(n, 1) * 1.5
+    mean = torch.zeros(n, 1)
+    var = (0.4 + 0.2 * target.abs()).clamp_min(0.05)
+    reg = WaldoCriticalValueRegressor(alpha=0.1, n_bins=6, min_samples_per_bin=10)
+    cp = WaldoConformal(alpha=0.1, critical_value_regressor=reg, covariance_type="diagonal")
+    cp.calibrate(mean[:300], target[:300], var[:300])
+    inside = cp.contains(mean[300:], target[300:], var[300:])
+    assert inside.shape == (300,)
+    coverage = inside.float().mean().item()
+    assert 0.75 <= coverage <= 1.0
+    assert cp.critical_value(target[:5]).shape == (5,)

@@ -934,6 +934,23 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="JointBinnedDensityLoss",
+        family="density_loss",
+        public_path="torchregress.losses.JointBinnedDensityLoss",
+        task_tags=("multi_target", "conditional_density", "soft_targets", "low_dimensional"),
+        maturity="Available",
+        multi_target="yes",
+        multimodal="yes",
+        non_gaussian="yes",
+        aleatoric="yes",
+        notes=(
+            "Exact joint histogram over low-dimensional multi-target bins with uniform "
+            "within-cell density/CDF/sampling; Gaussian-smoothed soft targets. Cost grows "
+            "as product of per-target bins (hard cap max_joint_bins=4096); not a "
+            "deconvolved measurement likelihood."
+        ),
+    ),
+    MethodMetadata(
         name="UncertaintyAwareConR",
         family="representation_regularizer",
         public_path="torchregress.losses.UncertaintyAwareConR",
@@ -1035,6 +1052,20 @@ _METHODS: tuple[MethodMetadata, ...] = (
             "moments estimated from samples, split-conformal calibration on held-out "
             "targets. Marginal coverage; binned critical values approximate conditional "
             "coverage. Not the full simulator-based WALDO guarantee."
+        ),
+    ),
+    MethodMetadata(
+        name="WaldoCriticalValueRegressor",
+        family="conformal",
+        public_path="torchregress.losses.WaldoCriticalValueRegressor",
+        task_tags=("conformal", "calibration", "confidence_regions", "heteroscedastic"),
+        maturity="Available",
+        multi_target="yes",
+        calibration="yes",
+        notes=(
+            "Dependency-free local quantile approximation to WALDO's critical-value "
+            "function, learned from held-out scores instead of simulator draws. "
+            "Simulator-free local approximation; not the original conditional guarantee."
         ),
     ),
     MethodMetadata(
