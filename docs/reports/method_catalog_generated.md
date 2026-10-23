@@ -8,7 +8,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `157`
+- Total methods: `154`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
 
 ### By Family
@@ -37,8 +37,6 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `mdn` | 1 |
 | `multivariate` | 1 |
 | `ordinal` | 3 |
-| `photo_z_loss` | 2 |
-| `photo_z_model` | 1 |
 | `point_loss` | 1 |
 | `poisson` | 4 |
 | `poisson_gaussian` | 3 |
@@ -62,7 +60,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 130 |
+| `Available` | 127 |
 
 ## Method Rows
 
@@ -169,9 +167,6 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `CORALLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets`, `calibration` | `calibration*`, `ood*` | `torchregress.losses.CORALLoss` |
 | `CumulativeLinkLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets`, `calibration` | `calibration*`, `ood*` | `torchregress.losses.CumulativeLinkLoss` |
 | `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets` | `calibration*`, `ood*` | `torchregress.losses.OrdinalCrossEntropyLoss` |
-| `PZRecipeLoss` | `photo_z_loss` | `Available` | `photo_z`, `binned_cdf`, `representation_learning`, `ordinal` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.PZRecipeLoss` |
-| `TriLoss` | `photo_z_loss` | `Available` | `photo_z`, `binned_crps`, `representation_learning`, `ordinal` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.TriLoss` |
-| `PZRecipe` | `photo_z_model` | `Available` | `photo_z`, `tabular`, `binned_cdf`, `representation_learning` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.PZRecipe` |
 | `WeightedMSELoss` | `point_loss` | `Core` | `baseline` | `calibration*`, `ood*` | `torchregress.losses.WeightedMSELoss` |
 | `NegativeBinomialNLLLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `overdispersion` | `calibration*`, `ood*` | `torchregress.losses.NegativeBinomialNLLLoss` |
 | `PoissonDevianceLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `poisson` | `calibration*`, `ood*` | `torchregress.losses.PoissonDevianceLoss` |
@@ -232,7 +227,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MDNLoss`, `PZRecipeLoss`, `TriLoss`, `PZRecipe`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
+`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MDNLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 

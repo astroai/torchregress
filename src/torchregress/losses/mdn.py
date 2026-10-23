@@ -524,6 +524,12 @@ class MixtureDensityLoss(DistributionLoss):
 
         return lower, upper
 
+    def log_prob(self, y_pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """Per-sample log mixture density ``[B]``."""
+        params = self._extract_distribution_parameters(y_pred)
+        nll = self._calculate_nll(target, params)
+        return -nll.reshape(-1)
+
     def sample(
         self,
         y_pred: torch.Tensor,

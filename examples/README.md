@@ -66,9 +66,6 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `orthogonal_inference_rff_demo.py` | tutorial | `orthogonal_partially_linear` with a `random_fourier_features` basis (`median_heuristic_bandwidth`, `polynomial_degree=3`, `ridge="gcv"`) vs the default call and naive OLS: bias and 95% CI coverage over replications (`--replications`, `--n`, `--seed`). | fast (about 9 s) |
 | `metrics_suite_showcase.py` | tutorial | Tour of the point, distribution, interval, OOD, decision, ensemble and weak-GT metrics. | fast |
 | `viz_diagnostic_gallery.py` | tutorial | Every `torchregress.viz` diagnostic plot in one gallery. | fast |
-| `stellar_spectra_ensemble.py` | tutorial | Deep ensemble of heteroscedastic CNNs on synthetic stellar spectra, with a corner plot. | slow (about 8 min on 2 shared cores) |
-| `stellar_spectra_ensemble_flows.py` | tutorial | Ensemble of normalizing flows on the same spectra (needs `zuko`). | slow (about 6 min on 2 shared cores) |
-| `stellar_spectra_flow_corner.py` | tutorial | Conditional flow posterior and a 3x3 corner plot (needs `zuko`). | slow (about 100 s) |
 
 ## Comparisons (synthetic data)
 
@@ -159,7 +156,6 @@ script with a `--dataset {synthetic,diabetes}` style switch:
 - **Conformal**: `conformal_regression_example`, `evaluate_conformal_methods`, `conformal_mondrian_demo`.
 - **OT-shift conformal**: `ot_shift_conformal_demo` and `benchmarks/ot_conformal_score_shift_benchmark` describe the same toy.
 - **Contrastive flows**: `contrastive_flow_parameter_estimation` and `contrastive_flow_parameter_estimation_comparison`.
-- **Stellar spectra**: the three `stellar_spectra_*` scripts repeat the same synthetic generator and CNN.
 - **Count / zero-inflated data**: `poisson_regression_demo`, `tweedie_regression_demo`, `poisson_gaussian_mixture_demo`.
 - **Bayesian linear head**: `test_time_bayesian_linear_head_demo`, `test_time_blr_predictive_adapter_demo`, `benchmarks/bayesian_linear_head_*`.
 - **Wasserstein bound**: `gaussian_wasserstein_bound_demo` and `wasserstein_bound_hybrid_pretrain_demo`.

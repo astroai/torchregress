@@ -245,7 +245,7 @@ For heads that output a whole distribution on a fixed 1D support (binned or spli
 | `DiscreteWasserstein1Loss` | 1-Wasserstein between mass vectors on a shared grid (displacement-aware complement to KL) |
 | `RankNContrastLoss` | Rank-N-Contrast: order features by continuous label distance (Zha et al. 2023) |
 
-Read the [Grid & basis densities guide](density_basis.md). For the astronomy two-stage binned-CDF recipe built on these ideas, see [Photo-z recipe](photo_z_recipe.md).
+Read the [Grid & basis densities guide](density_basis.md).
 
 ---
 
@@ -362,3 +362,10 @@ Conformal prediction is a **post-hoc** layer, not a likelihood: it turns any poi
 | Measurement error | `StructuralEIVLoss` | [RC](../methods/algorithms/rc.md) or [SIMEX](../methods/algorithms/simex.md) |
 | Ordered categories | `CumulativeLinkLoss` | `CORALLoss` |
 | Censored/survival | `CensoredGaussianNLLLoss` | `AFTLoss` |
+
+
+For a generic scalar binned-CDF training objective, use
+[`CumulativeCDFLoss` or `cumulative_cdf_loss`](density_basis.md#generic-cumulative-cdf-objective).
+The astronomy-specific recipe/model composites and stellar-spectrum examples
+are removed from the core library; applications can compose the generic losses
+and `FTTransformer` in their own training pipelines.

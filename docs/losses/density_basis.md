@@ -120,3 +120,35 @@ per anchor.
 | `RankNContrastLoss` | **Representation space** | Ordering features by target distance to improve downstream uncertainty/forecasting heads — pair it with a distribution head, not instead of one | Direct probabilistic prediction: RNC shapes features; it does not itself define a predictive distribution |
 
 → Combine them: train features with `RankNContrastLoss`, then a `BSplineDensityBasis` head with an NLL plus a small `DiscreteWasserstein1Loss` term.
+
+
+## Generic cumulative-CDF objective
+
+[`CumulativeCDFLoss`](../api/losses.md) and `cumulative_cdf_loss` retain the
+generic binned objective independently of an astronomy-specific recipe. For
+ordered centers $c_j$, bin probabilities $p_j=\operatorname{softmax}(a)_j$,
+and cumulative masses $C_j=\sum_{k\le j}p_k$, the objective is
+
+$$
+L(y,a)=\bar h\sum_j\left(C_j-\mathbf 1[c_j\ge y]\right)^2,
+\qquad \bar h=(c_K-c_1)/(K-1).
+$$
+
+The mean-width weighting is a fixed-grid training objective; it is not the
+exact piecewise-linear CRPS on nonuniform bins. Use the
+[distribution metrics](../metrics/distribution.md) for that score.
+
+```python
+import torch
+from torchregress.losses import CumulativeCDFLoss
+
+loss = CumulativeCDFLoss(torch.linspace(-2., 2., 9))
+logits = torch.zeros((3, 9), requires_grad=True)
+value = loss(logits, torch.tensor([-.2, .3, 1.1]))
+value.backward()
+```
+
+For continuous scoring, `BinnedDensityLoss.log_prob` divides each bin mass by
+its width and returns negative infinity outside the finite support.
+`MixtureDensityLoss.log_prob` instead evaluates the normalized continuous
+mixture density. Binned classification cross-entropy alone has different units.

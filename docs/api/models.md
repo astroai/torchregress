@@ -8,8 +8,7 @@ equations and when to use it, see [Tabular MLP](../methods/tabular_mlp.md).
 from torchregress.models import (
     TabularMLP, PeriodicEmbedding, TabularPreprocessor,
     TabularFit, TabularEnsembleFit, fit_tabular, fit_tabular_ensemble,
-    FTTransformer, FeatureTokenizer, PZRecipe,
-    PZRecipeFit, fit_pz_recipe,
+    FTTransformer, FeatureTokenizer,
     FlowMatchingMLP, cfm_loss, sample_cfm,
     NormalizingFlowMap,
 )
@@ -81,38 +80,6 @@ Leaves the global torch RNG untouched.
 Trains `n_members` models from seeds `seed, seed + 1, …`; `make_model(in_features)`
 builds each one. `TabularEnsembleFit.predict_members(X)` returns
 `(n_members, n, out_features)`; `predict(X)` returns their mean.
-
-
-## FTTransformer / PZRecipe
-
-`FTTransformer(n_features, *, d_token=128, n_layers=3, n_heads=4, dropout=0.1, out_dim=None)`
-
-Feature-tokenizer Transformer (Gorishniy et al., 2021).  Each numeric feature
-gets its own token embedding (`FeatureTokenizer(n_features, d_token=128)`); a CLS
-token is prepended and a standard Transformer encoder returns a
-`d_token`-dimensional representation (or an `out_dim` head).
-
-`PZRecipe(n_features, *, n_bins=100, d_token=128, n_layers=3, n_heads=4, dropout=0.1, stage2_bins=200, stage2_hidden=256, stage2_head=None)`
-
-Two-stage photo-z model: stage 1 produces `n_bins` quantile-bin logits from the
-FT-Transformer representation; stage 2 is a compact MLP classifier on the same
-features.  Pass ``stage2_head`` (for example a TabM-like classifier mapping
-``d_token`` features to logits) to substitute the paper's stage-2 architecture.  See [Photo-z recipe](../losses/photo_z_recipe.md).
-
-
-## fit_pz_recipe
-
-`fit_pz_recipe(model, X, y, *, stage1_epochs=100, stage2_epochs=50, batch_size=256, lr=1e-3, weight_decay=1e-5, n_stage2_bins=None, seed=0, device=None) -> PZRecipeFit`
-
-Reference two-stage training loop: stage 1 minimizes `PZRecipeLoss`
-(CE+CDF+RnC-N) on the FT-Transformer features; stage 2 freezes the encoder and
-trains `model.stage2_head` as a bin classifier.  Quantile bin centers are
-estimated from the training target.  This is a compact reference
-implementation, not the paper's historical TabM schedule.
-
-`PZRecipeFit` carries the fitted result: `model` (stage-2 trained), `bin_centers`,
-`history` (`stage1` and `stage2` loss lists), `best_epoch`, and `predict(X)`
-returning bin logits in the original target scale.
 
 
 ## FlowMatchingMLP / cfm_loss / sample_cfm

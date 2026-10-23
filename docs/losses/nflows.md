@@ -15,7 +15,7 @@ Conditional Normalizing Flows model complex, non-Gaussian, multi-dimensional tar
 
 ### 1. Conditional Density Estimation in Regression
 
-Given observed input features $\mathbf{x} \in \mathbb{R}^D$ (e.g. 1D stellar spectra, images, tabular covariates) and continuous target variables $\mathbf{y} \in \mathbb{R}^M$ (e.g. stellar parameters $[T_{\text{eff}}, \log g, [\text{Fe/H}]]$):
+Given observed input features $\mathbf{x} \in \mathbb{R}^D$ (e.g. tabular covariates or high-dimensional embeddings) and continuous target variables $\mathbf{y} \in \mathbb{R}^M$:
 
 1. **Backbone Context Extractor**: A neural network (e.g. 1D CNN, MLP, or ResNet) $c_\theta(\mathbf{x})$ maps the input $\mathbf{x}$ to a conditioning context vector $\mathbf{c} \in \mathbb{R}^{d_{\text{ctx}}}$.
 2. **Invertible Flow Head**: An invertible transformation $\mathbf{f}_\phi(\mathbf{y}; \mathbf{c})$ conditioned on context $\mathbf{c}$ maps the target $\mathbf{y} \in \mathbb{R}^M$ into a simple base Gaussian variable $\mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_M)$.

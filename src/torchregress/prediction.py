@@ -239,6 +239,18 @@ class PredictiveBatch:
     density: np.ndarray | torch.Tensor | None = None
     extra: dict[str, Any] | None = None
 
+    @classmethod
+    def from_density(
+        cls, support: np.ndarray | torch.Tensor, density: np.ndarray | torch.Tensor
+    ) -> "PredictiveBatch":
+        """Container for a normalized density on a common support."""
+        return cls(support=support, density=density)
+
+    @classmethod
+    def from_samples(cls, samples: np.ndarray | torch.Tensor) -> "PredictiveBatch":
+        """Container for predictive samples (call ``with_density`` to grid them)."""
+        return cls(samples=samples)
+
     def with_density(
         self,
         *,

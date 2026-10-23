@@ -1085,39 +1085,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
-        name="PZRecipeLoss",
-        family="photo_z_loss",
-        public_path="torchregress.losses.PZRecipeLoss",
-        task_tags=("photo_z", "binned_cdf", "representation_learning", "ordinal"),
-        maturity="Available",
-        multi_target="no",
-        multimodal="yes",
-        non_gaussian="yes",
-        aleatoric="yes",
-        calibration="partial",
-        notes=(
-            "CE + equal-width binned-CDF + RnC-N first-stage photo-z objective. "
-            "Binned conditional CDF, not a continuous density likelihood; bin "
-            "centers and normalization must be fitted from training data."
-        ),
-    ),
-    MethodMetadata(
-        name="TriLoss",
-        family="photo_z_loss",
-        public_path="torchregress.losses.TriLoss",
-        task_tags=("photo_z", "binned_crps", "representation_learning", "ordinal"),
-        maturity="Available",
-        multi_target="no",
-        multimodal="yes",
-        non_gaussian="yes",
-        aleatoric="yes",
-        calibration="partial",
-        notes=(
-            "Methods-paper CE + exact binned-CRPS + RnC-N tri-loss. Uses the same "
-            "quantile bins as PZRecipeLoss; CRPS differs from the squared binned CDF."
-        ),
-    ),
-    MethodMetadata(
         name="NormalizingFlowLoss",
         family="flow",
         public_path="torchregress.losses.NormalizingFlowLoss",
@@ -1375,23 +1342,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ood_support="partial",
         calibration="partial",
         notes="Shared-weight ensemble variant for lower-latency uncertainty decomposition.",
-    ),
-    MethodMetadata(
-        name="PZRecipe",
-        family="photo_z_model",
-        public_path="torchregress.models.PZRecipe",
-        task_tags=("photo_z", "tabular", "binned_cdf", "representation_learning"),
-        maturity="Available",
-        multi_target="no",
-        multimodal="yes",
-        non_gaussian="yes",
-        aleatoric="yes",
-        calibration="partial",
-        notes=(
-            "Lean two-stage FT-Transformer + bin-classifier photo-z model. Stage 1 "
-            "uses PZRecipeLoss; stage 2 freezes features. Reference structure, not "
-            "the historical TabM training schedule."
-        ),
     ),
     MethodMetadata(
         name="TabularMLP",

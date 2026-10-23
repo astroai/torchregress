@@ -196,10 +196,8 @@ The matrix above covers the core loss surface; these additional public symbols a
 | `conr_loss` | `prime.py` | `tests/losses/test_prime_conr.py::test_conr_mask_reduction_and_weights` | DIRECT-LIGHT |
 | `uniform_proxy_targets` | `prime.py` | `tests/losses/test_prime_conr.py::test_uniform_proxy_targets_are_equal_width_and_exclude_endpoints` | DEDICATED |
 | `rank_sim_regularizer` | `rank_sim.py` | `tests/losses/test_rank_sim.py::test_invalid_inputs_raise` | DIRECT-LIGHT |
-| `CumulativeCDFLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_cumulative_cdf_class` | DIRECT-LIGHT |
-| `PZRecipeLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_recipe_loss_components` | DIRECT-LIGHT |
-| `TriLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_tri_loss_crps_matches_metric_and_gradients` | DEDICATED |
-| `cumulative_cdf_loss` | `recipe.py` | `tests/losses/test_recipe.py::test_cumulative_cdf_loss_zero_for_perfect_step` | DEDICATED |
+| `CumulativeCDFLoss` | `cdf.py` | `tests/losses/test_cdf.py::test_cumulative_cdf_class` | DIRECT-LIGHT |
+| `cumulative_cdf_loss` | `cdf.py` | `tests/losses/test_cdf.py::test_cumulative_cdf_loss_zero_for_perfect_step` | DEDICATED |
 | `CorrectedScoreEIVLoss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_corrected_score_decreases_on_small_mlp` | DIRECT-LIGHT |
 | `SplitMeasurementLoss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_split_loss_nonlinear_is_finite_and_differentiable_to_second_order` | DIRECT-LIGHT |
 | `corrected_score_eiv_loss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_helpers_match_classes_and_forward_sigma_override` | DIRECT-LIGHT |

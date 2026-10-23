@@ -154,10 +154,11 @@ See [Visualization Methods](../methods/visualization.md) for implementation.
 ## Conditional Density and Multi-Target Predictions
 
 For conditional densities, multi-target distributions, known label noise, and
-calibration, use the dedicated [Density Estimation Roadmap](density_estimation_roadmap.md)
-rather than treating a normalizing flow as a drop-in point predictor.  The short
-version: NSF for exact likelihood, BPF for CRPS/coverage, CFM for cheap samples
-without NLL, and split-conformal/Mondrian or WALDO for calibrated regions.
+calibration, see [Multi-Target Regression](multi-target-regression.md) and the
+density pages rather than treating a normalizing flow as a drop-in point
+predictor.  The short version: NSF for exact likelihood, BPF for CRPS/coverage,
+CFM for cheap samples without NLL, and split-conformal/Mondrian or WALDO for
+calibrated regions.
 
 ## References
 

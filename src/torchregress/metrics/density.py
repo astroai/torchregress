@@ -1,9 +1,7 @@
-"""Photo-z style PDF diagnostics from Cheng et al. (2026) and related work.
+"""Generic calibration and binned-distribution diagnostics.
 
-The functions here implement the metric conventions used in the companion
-astronomy papers: PIT Cramér--von Mises, exact CRPS for a piecewise-linear
-binned CDF, local (photometric-neighbour) PIT Wasserstein distance, the
-normalized central-68% PDF width, and paired bootstrap intervals.
+These functions are not astronomy-specific; they are used by general
+conditional-density and survival/ordinal workflows.
 """
 
 from __future__ import annotations
@@ -16,9 +14,11 @@ from torch import Tensor
 
 
 def _as_1d(x: Any, name: str) -> Tensor:
-    t = torch.as_tensor(x, dtype=torch.float64)
+    t = torch.as_tensor(x, dtype=torch.float64).detach().cpu()
     if t.ndim != 1:
         raise ValueError(f"{name} must be 1-D, got {tuple(t.shape)}")
+    if not bool(torch.isfinite(t).all()):
+        raise ValueError(f"{name} must contain finite values")
     return t
 
 
@@ -32,7 +32,8 @@ def pit_cvm(pit: Any, *, normalized: bool = False) -> float:
     u = _as_1d(pit, "pit")
     if u.numel() == 0:
         raise ValueError("pit must contain at least one value")
-    u = u.clamp(0.0, 1.0)
+    if not bool(((u >= 0) & (u <= 1)).all()):
+        raise ValueError("pit values must be between 0 and 1")
     u, _ = torch.sort(u)
     n = u.numel()
     # Piecewise-constant empirical CDF: F=i/n on [u_i, u_{i+1}], with F=0 on
@@ -68,14 +69,20 @@ def crps_from_binned_cdf(
 
     The CDF rises linearly between adjacent edges.  Each sample's integral is
     computed in closed form, including the intervals below and above the
-    reference redshift; no grid approximation is used.  Inputs with bin masses
+    reference target; no grid approximation is used.  Inputs with bin masses
     instead of CDF values can be converted with :func:`binned_cdf`.
     """
     edges = _as_1d(bin_edges, "bin_edges")
     if edges.numel() < 2:
         raise ValueError("bin_edges needs at least two values")
-    c = torch.as_tensor(cdf, dtype=torch.float64)
+    if not bool(torch.all(edges[1:] > edges[:-1])):
+        raise ValueError("bin_edges must be strictly increasing")
+    c = torch.as_tensor(cdf, dtype=torch.float64).detach().cpu()
+    if not bool(torch.isfinite(c).all()):
+        raise ValueError("cdf must contain finite values")
     y = _as_1d(target, "target")
+    if y.numel() == 0:
+        raise ValueError("target must contain at least one value")
     if c.ndim == 1:
         c = c.unsqueeze(0)
     if c.shape != (y.numel(), edges.numel()):
@@ -97,11 +104,11 @@ def crps_from_binned_cdf(
         yi = float(y[i])
         if yi <= float(edges[0]):
             # At every support z >= y, the step CDF is 1.
-            values[i] = _integral_sq_linear(1.0 - fa[i], 1.0 - fb[i], widths).sum()
+            values[i] = edges[0] - yi + _integral_sq_linear(1.0 - fa[i], 1.0 - fb[i], widths).sum()
             continue
         if yi >= float(edges[-1]):
             # At every support z < y, the step CDF is 0.
-            values[i] = _integral_sq_linear(fa[i], fb[i], widths).sum()
+            values[i] = yi - edges[-1] + _integral_sq_linear(fa[i], fb[i], widths).sum()
             continue
         total = torch.zeros((), dtype=torch.float64)
         for j in range(len(widths)):
@@ -142,63 +149,12 @@ def binned_cdf(probabilities: Any) -> np.ndarray:
         Normalized probability masses per bin (rows are normalized internally).
     """
     p = np.asarray(probabilities, dtype=np.float64)
-    p = p / np.maximum(p.sum(axis=1, keepdims=True), 1e-12)
+    if p.ndim != 2 or p.shape[0] == 0 or p.shape[1] == 0:
+        raise ValueError("probabilities must be a nonempty [N, K] matrix")
+    if not np.isfinite(p).all() or np.any(p < 0) or np.any(p.sum(axis=1) <= 0):
+        raise ValueError("probabilities must be finite, nonnegative, with positive row sums")
+    p = p / p.sum(axis=1, keepdims=True)
     return np.concatenate([np.zeros((p.shape[0], 1)), np.cumsum(p, axis=1)], axis=1)
-
-
-def pdf_width_68(samples: Any, redshift: Any) -> float:
-    """Median central-68% PDF width divided by ``1 + z``.
-
-    ``samples`` is ``[N, S]`` predictive samples; ``redshift`` is ``[N]``.
-    This is the paper's ``W68`` diagnostic.
-    """
-    s = torch.as_tensor(samples, dtype=torch.float64)
-    z = _as_1d(redshift, "redshift")
-    if s.ndim != 2 or s.shape[0] != z.numel():
-        raise ValueError("samples must be [N, S] with N matching redshift")
-    lo = torch.quantile(s, 0.16, dim=1)
-    hi = torch.quantile(s, 0.84, dim=1)
-    return float(torch.median((hi - lo) / (1.0 + z)))
-
-
-def pit_local_w1(features: Any, pit: Any, *, k: int = 100, chunk: int = 2048) -> float:
-    """Median local PIT 1-Wasserstein distance over photometric neighbours.
-
-    For each object, take its ``k`` nearest neighbours in standardized feature
-    space (excluding itself), compute the 1-Wasserstein distance between the
-    neighbours' PIT values and Uniform(0,1), and return the median over objects.
-    This is the paper's ``local-W1``.  The finite-sample reference is ~0.028 at
-    ``k=100``; it is not a strict lower bound.
-
-    The distance is computed from the sorted neighbour PIT values using a
-    dense uniform grid, which is deterministic and adequate at k~100.
-    """
-    f = torch.as_tensor(features, dtype=torch.float64)
-    u = _as_1d(pit, "pit")
-    if f.ndim != 2 or f.shape[0] != u.numel():
-        raise ValueError("features must be [N, D] with N matching pit")
-    if k < 2:
-        raise ValueError("k must be at least 2")
-    n = f.shape[0]
-    if n <= k:
-        raise ValueError("k must be smaller than the number of objects")
-    mu = f.mean(dim=0, keepdim=True)
-    sd = f.std(dim=0, keepdim=True).clamp_min(1e-12)
-    f = (f - mu) / sd
-    grid = torch.linspace(0.0, 1.0, 2001, dtype=torch.float64)
-    w1 = torch.empty(n, dtype=torch.float64)
-    for start in range(0, n, chunk):
-        stop = min(start + chunk, n)
-        d = torch.cdist(f[start:stop], f)  # [chunk, N]
-        # Exclude self by setting its distance to +inf before top-k.
-        rows = torch.arange(start, stop)
-        d[torch.arange(stop - start), rows] = float("inf")
-        _, idx = torch.topk(d, k, dim=1, largest=False)
-        neigh = u[idx]  # [chunk, k]
-        # Empirical CDF on the uniform grid; integrate |F_n - u|.
-        cdf = (neigh[:, :, None] <= grid[None, None, :]).to(torch.float64).mean(dim=1)
-        w1[start:stop] = torch.trapezoid(torch.abs(cdf - grid[None, :]), grid, dim=1)
-    return float(torch.median(w1))
 
 
 def paired_bootstrap_ci(
@@ -219,6 +175,10 @@ def paired_bootstrap_ci(
     bb = np.asarray(b, dtype=np.float64).reshape(-1)
     if aa.shape != bb.shape:
         raise ValueError("a and b must have the same shape")
+    if not aa.size or not np.isfinite(aa).all() or not np.isfinite(bb).all():
+        raise ValueError("paired samples must be nonempty and finite")
+    if not isinstance(n_boot, int) or n_boot < 1 or not 0 < alpha < 1:
+        raise ValueError("n_boot must be positive and alpha must lie in (0, 1)")
     rng = np.random.default_rng(seed)
     diffs = aa - bb
     boot = np.empty(n_boot, dtype=np.float64)

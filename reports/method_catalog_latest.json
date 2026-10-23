@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 157,
+    "total_methods": 154,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -26,8 +26,6 @@
       "mdn": 1,
       "multivariate": 1,
       "ordinal": 3,
-      "photo_z_loss": 2,
-      "photo_z_model": 1,
       "point_loss": 1,
       "poisson": 4,
       "poisson_gaussian": 3,
@@ -48,7 +46,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 130
+      "Available": 127
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1992,52 +1990,6 @@
       "notes": "OT-CFM velocity field with a short Euler sampler. No exact likelihood; use sample-based CRPS/energy/coverage/PIT, or an ODE likelihood if NLL is required."
     },
     {
-      "name": "PZRecipeLoss",
-      "family": "photo_z_loss",
-      "public_path": "torchregress.losses.PZRecipeLoss",
-      "task_tags": [
-        "photo_z",
-        "binned_cdf",
-        "representation_learning",
-        "ordinal"
-      ],
-      "maturity": "Available",
-      "multimodal": "yes",
-      "multi_target": "no",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "yes",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "CE + equal-width binned-CDF + RnC-N first-stage photo-z objective. Binned conditional CDF, not a continuous density likelihood; bin centers and normalization must be fitted from training data."
-    },
-    {
-      "name": "TriLoss",
-      "family": "photo_z_loss",
-      "public_path": "torchregress.losses.TriLoss",
-      "task_tags": [
-        "photo_z",
-        "binned_crps",
-        "representation_learning",
-        "ordinal"
-      ],
-      "maturity": "Available",
-      "multimodal": "yes",
-      "multi_target": "no",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "yes",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "Methods-paper CE + exact binned-CRPS + RnC-N tri-loss. Uses the same quantile bins as PZRecipeLoss; CRPS differs from the squared binned CDF."
-    },
-    {
       "name": "NormalizingFlowLoss",
       "family": "flow",
       "public_path": "torchregress.losses.NormalizingFlowLoss",
@@ -2476,29 +2428,6 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Shared-weight ensemble variant for lower-latency uncertainty decomposition."
-    },
-    {
-      "name": "PZRecipe",
-      "family": "photo_z_model",
-      "public_path": "torchregress.models.PZRecipe",
-      "task_tags": [
-        "photo_z",
-        "tabular",
-        "binned_cdf",
-        "representation_learning"
-      ],
-      "maturity": "Available",
-      "multimodal": "yes",
-      "multi_target": "no",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "yes",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "Lean two-stage FT-Transformer + bin-classifier photo-z model. Stage 1 uses PZRecipeLoss; stage 2 freezes features. Reference structure, not the historical TabM training schedule."
     },
     {
       "name": "TabularMLP",

@@ -31,6 +31,12 @@ from .decision import (
     RiskCoverageCurve,
     risk_coverage_curve,
 )
+from .density import (
+    binned_cdf,
+    crps_from_binned_cdf,
+    paired_bootstrap_ci,
+    pit_cvm,
+)
 from .distribution import (
     ContinuousRankedProbabilityScore,
     DawidSebastianiScore,
@@ -99,14 +105,6 @@ from .ordinal import (
     mean_absolute_class_error,
     ordinal_accuracy,
     quadratic_weighted_kappa,
-)
-from .photo_z import (
-    binned_cdf,
-    crps_from_binned_cdf,
-    paired_bootstrap_ci,
-    pdf_width_68,
-    pit_cvm,
-    pit_local_w1,
 )
 from .point import (
     HuberMetric,
@@ -197,9 +195,7 @@ __all__ = [
     "pinball_loss",
     "pinball_metric",
     "paired_bootstrap_ci",
-    "pdf_width_68",
     "pit_cvm",
-    "pit_local_w1",
     "probability_integral_transform",
     "vario_score",
     "variogram_score",

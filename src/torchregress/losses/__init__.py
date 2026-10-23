@@ -162,6 +162,7 @@ except ImportError:
 
 
 # Neural ratio estimation (classifier-based likelihood ratios)
+from .cdf import CumulativeCDFLoss, cumulative_cdf_loss
 from .noise_aware_density import BinnedDensityLoss, JointBinnedDensityLoss, NoiseAwareDensityLoss
 
 # Neural ratio estimation (classifier-based likelihood ratios)
@@ -200,7 +201,6 @@ from .quantile import (
     QuantileLoss,
     quantile_loss,
 )
-from .recipe import CumulativeCDFLoss, PZRecipeLoss, TriLoss, cumulative_cdf_loss
 
 # Robust losses
 from .robust import (
@@ -345,8 +345,6 @@ __all__ = [
     "PseudoHuberLoss",
     "PseudoLabelConsistencyLoss",
     "PseudoLabelNLL",
-    "PZRecipeLoss",
-    "TriLoss",
     "QuantileCrossover",
     "QuantileCrossoverLoss",
     "QuantileLoss",

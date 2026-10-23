@@ -61,8 +61,6 @@ the stateful `OutlierFraction` below.
 | `crps_from_binned_cdf` | `crps_from_binned_cdf(bin_edges, cdf, target, reduction="mean")` | Exact piecewise-linear CRPS for binned PDFs |
 | `binned_cdf` | `binned_cdf(probabilities)` | CDF values at bin edges from bin masses |
 | `pit_cvm` | `pit_cvm(pit, normalized=False)` | PIT Cramér–von Mises distance from uniformity |
-| `pit_local_w1` | `pit_local_w1(features, pit, k=100)` | Median local PIT 1-Wasserstein distance over photometric neighbours |
-| `pdf_width_68` | `pdf_width_68(samples, redshift)` | Median central-68% PDF width divided by `1+z` |
 | `paired_bootstrap_ci` | `paired_bootstrap_ci(a, b, n_boot=2000, alpha=0.32)` | Paired percentile interval for the mean difference |
 | `neighbour_target_gap` | `neighbour_target_gap(features, target, k=10)` | Median k-NN target difference / target std |
 | `target_ordering` | `target_ordering(features, target)` | Spearman feature-distance vs target-distance correlation |

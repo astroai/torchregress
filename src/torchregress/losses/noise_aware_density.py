@@ -451,6 +451,21 @@ class BinnedDensityLoss(BaseLoss):
         nll = -(probs * log_probs).sum(dim=-1)
         return self._reduce(nll, mask, weights)
 
+    def log_prob(self, y_pred: Tensor, target: Tensor) -> Tensor:
+        """Per-sample log density of the uniform-within-bin distribution."""
+        if y_pred.dim() != 2 or y_pred.shape[-1] != self.n_bins:
+            raise ValueError(f"y_pred must be [B, {self.n_bins}] bin logits")
+        if target.numel() != y_pred.shape[0]:
+            raise ValueError("BinnedDensityLoss supports one scalar target per row")
+        target = target.reshape(-1).to(device=y_pred.device, dtype=y_pred.dtype)
+        edges = self.bin_edges.to(y_pred)
+        idx = torch.searchsorted(edges, target).clamp(1, self.n_bins) - 1
+        log_p = torch.log_softmax(y_pred, dim=-1).gather(1, idx.unsqueeze(1)).squeeze(1)
+        widths = (edges[1:] - edges[:-1])[idx]
+        log_density = log_p - torch.log(widths)
+        inside = (target >= edges[0]) & (target <= edges[-1])
+        return torch.where(inside, log_density, torch.full_like(log_density, -torch.inf))
+
     def cdf(self, y_pred: Tensor, values: Tensor) -> Tensor:
         """CDF of the uniform-within-bin distribution, one query per row."""
         if y_pred.dim() != 2 or y_pred.shape[-1] != self.n_bins:
@@ -662,7 +677,13 @@ class JointBinnedDensityLoss(BaseLoss):
         for d, edges in enumerate(self.bin_edges):
             e = edges.to(target)
             widths = widths * (e[1:] - e[:-1])[self._bin_indices(target)[:, d]]
-        return log_density - torch.log(widths)
+        inside = torch.ones(target.shape[0], device=target.device, dtype=torch.bool)
+        for d, edges in enumerate(self.bin_edges):
+            e = edges.to(target)
+            inside = inside & (target[:, d] >= e[0]) & (target[:, d] <= e[-1])
+        return torch.where(
+            inside, log_density - torch.log(widths), torch.full_like(log_density, -torch.inf)
+        )
 
     def sample(self, y_pred: Tensor, n_samples: int = 1) -> Tensor:
         """Draw ``[B, n_samples, D]`` samples uniformly within joint cells."""
