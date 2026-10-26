@@ -4,7 +4,6 @@ import torch
 from torch.autograd import gradcheck
 
 from torchregress.losses.expectile import (
-    AsymmetricLeastSquaresLoss,
     ExpectileCrossoverLoss,
     ExpectileLoss,
     MultiExpectileLoss,
@@ -326,37 +325,6 @@ class TestExpectileLoss(unittest.TestCase):
         mask[0, 0] = False  # Mask out one element
         loss_masked_weighted = loss_fn(y_pred, y_true, mask=mask, weights=non_uniform_weights)
         self.assertFalse(torch.isnan(loss_masked_weighted).any())
-
-    def test_asymmetric_least_squares_alias(self):
-        """Test AsymmetricLeastSquaresLoss as alias for ExpectileLoss."""
-        # Create same expectile value with different class names
-        tau = 0.7
-        expectile_loss = ExpectileLoss(expectile=tau).to(self.device)
-        als_loss = AsymmetricLeastSquaresLoss(expectile=tau).to(self.device)
-
-        # Create test data
-        y_true = torch.randn(self.batch_size, self.n_features, device=self.device)
-        y_pred = torch.randn(self.batch_size, self.n_features, device=self.device)
-
-        # Both should give identical results
-        loss1 = expectile_loss(y_pred, y_true)
-        loss2 = als_loss(y_pred, y_true)
-
-        self.assertAlmostEqual(loss1.item(), loss2.item(), places=6)
-
-        # Test with mask
-        mask = torch.randint(0, 2, (self.batch_size, self.n_features), device=self.device).bool()
-        loss1_masked = expectile_loss(y_pred, y_true, mask)
-        loss2_masked = als_loss(y_pred, y_true, mask)
-
-        self.assertAlmostEqual(loss1_masked.item(), loss2_masked.item(), places=6)
-
-        # Test with weights
-        weights = torch.rand(self.batch_size, self.n_features, device=self.device)
-        loss1_weighted = expectile_loss(y_pred, y_true, weights=weights)
-        loss2_weighted = als_loss(y_pred, y_true, weights=weights)
-
-        self.assertAlmostEqual(loss1_weighted.item(), loss2_weighted.item(), places=6)
 
     def test_multi_expectile_loss_basics(self):
         """Test basic functionality of MultiExpectileLoss."""

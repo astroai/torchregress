@@ -19,8 +19,7 @@ guidance, and detailed usage walkthroughs, see [Algorithms overview](../methods/
 | `IRLSFitResult`, `IRLSIteration` | Frozen result and history diagnostics with effective sample size and finite/termination status. |
 | `IRLSBreakdownError` | Exception a caller-owned solver raises to return a diagnostic `"breakdown"` result. |
 | `robust_weights` | Huber, Pseudo-Huber, Tukey, Cauchy, Barron-style or custom IRLS multipliers. |
-| `reweight_fixed_predictions` | Explicit compatibility utility for robust reweighting without refitting. |
-| `iteratively_reweighted_least_squares` | Deprecated alias for `reweight_fixed_predictions`. |
+| `reweight_fixed_predictions` | Robust reweighting of a fixed model. Does not refit. |
 | `IRLSConfig` | Configuration for fixed-prediction compatibility reweighting. |
 | `huber_weights(scaled_residuals, delta)` | Huber weighting function. |
 | `tukey_weights(scaled_residuals, c)` | Tukey biweight; zero weight for `\|r\| > c`. |

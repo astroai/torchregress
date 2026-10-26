@@ -5,45 +5,45 @@ from __future__ import annotations
 import pytest
 import torch
 
-from torchregress.utils.quantile import multi_quantile_loss, quantile_loss
+from torchregress.utils.quantile import multi_quantile_loss, pinball_residual
 
-# ── quantile_loss ────────────────────────────────────────────────────────────
+# ── pinball_residual ────────────────────────────────────────────────────────────
 
 
-def test_quantile_loss_scalar_quantile() -> None:
+def test_pinball_residual_scalar_quantile() -> None:
     """Scalar quantile produces per-element pinball loss."""
     y_pred = torch.tensor([0.0, 2.0, 4.0])
     y_true = torch.tensor([1.0, 1.0, 1.0])
     # q=0.5: max(0.5*res, -0.5*res) = 0.5*|res|
-    loss = quantile_loss(y_pred, y_true, 0.5)
+    loss = pinball_residual(y_pred, y_true, 0.5)
     expected = 0.5 * (y_true - y_pred).abs()
     torch.testing.assert_close(loss, expected)
 
 
-def test_quantile_loss_upper_quantile_penalizes_underprediction() -> None:
+def test_pinball_residual_upper_quantile_penalizes_underprediction() -> None:
     """q=0.9 penalizes under-prediction more than over-prediction."""
     y_pred = torch.tensor([0.0, 10.0])
     y_true = torch.tensor([5.0, 5.0])
     # res = [5, -5]
     # q=0.9: max(0.9*res, -0.1*res)
     #  → max(4.5, -0.5) = 4.5 for first, max(-4.5, 0.5) = 0.5 for second
-    loss = quantile_loss(y_pred, y_true, 0.9)
+    loss = pinball_residual(y_pred, y_true, 0.9)
     expected = torch.tensor([4.5, 0.5])
     torch.testing.assert_close(loss, expected)
 
 
-def test_quantile_loss_lower_quantile_penalizes_overprediction() -> None:
+def test_pinball_residual_lower_quantile_penalizes_overprediction() -> None:
     """q=0.1 penalizes over-prediction more than under-prediction."""
     y_pred = torch.tensor([0.0, 10.0])
     y_true = torch.tensor([5.0, 5.0])
     # q=0.1: max(0.1*res, -0.9*res)
     #  → max(0.5, -4.5) = 0.5 for first, max(-0.5, 4.5) = 4.5 for second
-    loss = quantile_loss(y_pred, y_true, 0.1)
+    loss = pinball_residual(y_pred, y_true, 0.1)
     expected = torch.tensor([0.5, 4.5])
     torch.testing.assert_close(loss, expected)
 
 
-def test_quantile_loss_tensor_quantile() -> None:
+def test_pinball_residual_tensor_quantile() -> None:
     """Per-element quantiles via a tensor."""
     y_pred = torch.tensor([0.0, 0.0])
     y_true = torch.tensor([1.0, -1.0])
@@ -52,68 +52,68 @@ def test_quantile_loss_tensor_quantile() -> None:
     # Second: res=-1, q=0.1 → max(-0.1, -0.9) → wait, max(-0.1, -0.9) = -0.1
     #  (q-1)*res for q=0.1 → -0.9 * -1 = 0.9
     # Actually: q*res = 0.1*(-1) = -0.1; (q-1)*res = -0.9*(-1) = 0.9 → max = 0.9
-    loss = quantile_loss(y_pred, y_true, q)
+    loss = pinball_residual(y_pred, y_true, q)
     expected = torch.tensor([0.9, 0.9])
     torch.testing.assert_close(loss, expected)
 
 
-def test_quantile_loss_zero_quantile() -> None:
+def test_pinball_residual_zero_quantile() -> None:
     """q=0 always penalizes over-prediction."""
     y_pred = torch.tensor([0.0, 10.0])
     y_true = torch.tensor([5.0, 5.0])
-    loss = quantile_loss(y_pred, y_true, 0.0)
+    loss = pinball_residual(y_pred, y_true, 0.0)
     # q=0: max(0, -1*res) = max(0, -res) = ReLU(-res)
     expected = torch.tensor([0.0, 5.0])  # res=5→0, res=-5→5
     torch.testing.assert_close(loss, expected)
 
 
-def test_quantile_loss_one_quantile() -> None:
+def test_pinball_residual_one_quantile() -> None:
     """q=1 always penalizes under-prediction."""
     y_pred = torch.tensor([0.0, 10.0])
     y_true = torch.tensor([5.0, 5.0])
-    loss = quantile_loss(y_pred, y_true, 1.0)
+    loss = pinball_residual(y_pred, y_true, 1.0)
     # q=1: max(res, 0) = ReLU(res)
     expected = torch.tensor([5.0, 0.0])
     torch.testing.assert_close(loss, expected)
 
 
-def test_quantile_loss_device_transfer() -> None:
+def test_pinball_residual_device_transfer() -> None:
     """Float quantile is moved to y_pred device."""
     y_pred = torch.tensor([1.0, 2.0])
     y_true = torch.tensor([0.0, 3.0])
-    loss = quantile_loss(y_pred, y_true, 0.5)
+    loss = pinball_residual(y_pred, y_true, 0.5)
     assert loss.device == y_pred.device
 
 
-def test_quantile_loss_dtype_preserved() -> None:
+def test_pinball_residual_dtype_preserved() -> None:
     """Output dtype matches y_pred dtype."""
     y_pred = torch.tensor([1.0, 2.0], dtype=torch.float64)
     y_true = torch.tensor([0.0, 3.0], dtype=torch.float64)
-    loss = quantile_loss(y_pred, y_true, 0.5)
+    loss = pinball_residual(y_pred, y_true, 0.5)
     assert loss.dtype == torch.float64
 
 
-def test_quantile_loss_tensor_quantile_device() -> None:
+def test_pinball_residual_tensor_quantile_device() -> None:
     """Tensor quantile is moved to y_pred device."""
     y_pred = torch.tensor([1.0])
     y_true = torch.tensor([0.0])
     q = torch.tensor(0.5)
-    loss = quantile_loss(y_pred, y_true, q)
+    loss = pinball_residual(y_pred, y_true, q)
     assert loss.device == y_pred.device
 
 
-def test_quantile_loss_batch_shape() -> None:
+def test_pinball_residual_batch_shape() -> None:
     """Batch dimensions are preserved."""
     y_pred = torch.randn(4, 3)
     y_true = torch.randn(4, 3)
-    loss = quantile_loss(y_pred, y_true, 0.5)
+    loss = pinball_residual(y_pred, y_true, 0.5)
     assert loss.shape == (4, 3)
 
 
-def test_quantile_loss_exact_match_gives_zero() -> None:
+def test_pinball_residual_exact_match_gives_zero() -> None:
     """When y_pred == y_true, loss is exactly zero for any quantile."""
     for q in [0.0, 0.1, 0.5, 0.9, 1.0]:
-        loss = quantile_loss(torch.ones(5), torch.ones(5), q)
+        loss = pinball_residual(torch.ones(5), torch.ones(5), q)
         assert (loss == 0.0).all()
 
 
@@ -129,7 +129,7 @@ def test_multi_quantile_loss_averages_across_quantiles() -> None:
     assert loss.shape == (2,)
     # Verify against manual per-quantile computation
     manual = torch.stack(
-        [quantile_loss(y_pred[:, i], y_true, qs[i].item()) for i in range(3)], dim=1
+        [pinball_residual(y_pred[:, i], y_true, qs[i].item()) for i in range(3)], dim=1
     ).mean(dim=1)
     torch.testing.assert_close(loss, manual)
 
@@ -143,7 +143,7 @@ def test_multi_quantile_loss_with_weights() -> None:
     loss = multi_quantile_loss(y_pred, y_true, qs, quantile_weights=weights)
     assert loss.shape == (8,)
     # With only median weighted, result should match single-quantile median
-    loss_median = quantile_loss(y_pred[:, 1], y_true, 0.5)
+    loss_median = pinball_residual(y_pred[:, 1], y_true, 0.5)
     torch.testing.assert_close(loss, loss_median)
 
 
@@ -185,7 +185,7 @@ def test_multi_quantile_loss_weights_multivariate() -> None:
     loss = multi_quantile_loss(y_pred, y_true, qs, quantile_weights=weights)
     assert loss.shape == (4, 2)
     # Should match the median quantile only
-    loss_median = quantile_loss(y_pred[:, 1, :], y_true, 0.5)
+    loss_median = pinball_residual(y_pred[:, 1, :], y_true, 0.5)
     torch.testing.assert_close(loss, loss_median)
 
 

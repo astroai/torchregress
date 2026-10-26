@@ -332,16 +332,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Simultaneous multi-expectile loss for distribution-free interval estimation.",
     ),
     MethodMetadata(
-        name="AsymmetricLeastSquaresLoss",
-        family="expectile",
-        public_path="torchregress.losses.AsymmetricLeastSquaresLoss",
-        task_tags=("prediction_intervals", "non_gaussian", "expectile"),
-        maturity="Available",
-        non_gaussian="yes",
-        calibration="partial",
-        notes="Base asymmetric least-squares loss for expectile regression.",
-    ),
-    MethodMetadata(
         name="ConformalLoss",
         family="conformal",
         public_path="torchregress.losses.ConformalLoss",
@@ -447,19 +437,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes=(
             "CV+ conformal prediction utilizing out-of-fold residuals "
             "for cross-validation ensembles."
-        ),
-    ),
-    MethodMetadata(
-        name="JackknifePlus",
-        family="conformal",
-        public_path="torchregress.losses.JackknifePlus",
-        task_tags=("coverage_guarantees", "calibration", "ensemble"),
-        maturity="Available",
-        non_gaussian="yes",
-        calibration="yes",
-        notes=(
-            "Jackknife+ conformal prediction, equivalent to CV+ with "
-            "leave-one-out cross-validation."
         ),
     ),
     MethodMetadata(
@@ -627,16 +604,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
             "Cumulative-threshold objective with K-1 logits for ordinal labels or "
             "soft ordered-bin PMFs."
         ),
-    ),
-    MethodMetadata(
-        name="CORALLoss",
-        family="ordinal",
-        public_path="torchregress.losses.CORALLoss",
-        task_tags=("ordinal", "ordered_targets", "calibration"),
-        maturity="Available",
-        non_gaussian="yes",
-        calibration="partial",
-        notes="CORAL-style cumulative ordinal objective.",
     ),
     MethodMetadata(
         name="CensoredGaussianNLLLoss",
@@ -887,9 +854,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Empirical CDF remapping for PIT distribution calibration.",
     ),
     MethodMetadata(
-        name="MDNLoss",
+        name="MixtureDensityLoss",
         family="mdn",
-        public_path="torchregress.losses.MDNLoss",
+        public_path="torchregress.losses.MixtureDensityLoss",
         task_tags=("multimodal", "non_gaussian", "multi_target"),
         maturity="Available",
         multimodal="yes",
@@ -1082,39 +1049,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes=(
             "OT-CFM velocity field with a short Euler sampler. No exact likelihood; "
             "use sample-based CRPS/energy/coverage/PIT, or an ODE likelihood if NLL is required."
-        ),
-    ),
-    MethodMetadata(
-        name="PZRecipeLoss",
-        family="photo_z_loss",
-        public_path="torchregress.losses.PZRecipeLoss",
-        task_tags=("photo_z", "binned_cdf", "representation_learning", "ordinal"),
-        maturity="Available",
-        multi_target="no",
-        multimodal="yes",
-        non_gaussian="yes",
-        aleatoric="yes",
-        calibration="partial",
-        notes=(
-            "CE + equal-width binned-CDF + RnC-N first-stage photo-z objective. "
-            "Binned conditional CDF, not a continuous density likelihood; bin "
-            "centers and normalization must be fitted from training data."
-        ),
-    ),
-    MethodMetadata(
-        name="TriLoss",
-        family="photo_z_loss",
-        public_path="torchregress.losses.TriLoss",
-        task_tags=("photo_z", "binned_crps", "representation_learning", "ordinal"),
-        maturity="Available",
-        multi_target="no",
-        multimodal="yes",
-        non_gaussian="yes",
-        aleatoric="yes",
-        calibration="partial",
-        notes=(
-            "Methods-paper CE + exact binned-CRPS + RnC-N tri-loss. Uses the same "
-            "quantile bins as PZRecipeLoss; CRPS differs from the squared binned CDF."
         ),
     ),
     MethodMetadata(
@@ -1375,23 +1309,6 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ood_support="partial",
         calibration="partial",
         notes="Shared-weight ensemble variant for lower-latency uncertainty decomposition.",
-    ),
-    MethodMetadata(
-        name="PZRecipe",
-        family="photo_z_model",
-        public_path="torchregress.models.PZRecipe",
-        task_tags=("photo_z", "tabular", "binned_cdf", "representation_learning"),
-        maturity="Available",
-        multi_target="no",
-        multimodal="yes",
-        non_gaussian="yes",
-        aleatoric="yes",
-        calibration="partial",
-        notes=(
-            "Lean two-stage FT-Transformer + bin-classifier photo-z model. Stage 1 "
-            "uses PZRecipeLoss; stage 2 freezes features. Reference structure, not "
-            "the historical TabM training schedule."
-        ),
     ),
     MethodMetadata(
         name="TabularMLP",
@@ -2042,7 +1959,11 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Heteroscedastic noise (aleatoric UQ)",
         recommended_start="GaussianCRPSLoss",
-        strong_alternatives=("GaussianNLLLoss", "HeteroscedasticEnsembleModel", "MDNLoss"),
+        strong_alternatives=(
+            "GaussianNLLLoss",
+            "HeteroscedasticEnsembleModel",
+            "MixtureDensityLoss",
+        ),
         notes=(
             "Astronomical benchmarks favor CRPS-trained Gaussian heads as the safest "
             "calibrated Gaussian baseline."
@@ -2086,7 +2007,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     ),
     TaskRecommendation(
         task="Multimodal targets",
-        recommended_start="MDNLoss",
+        recommended_start="MixtureDensityLoss",
         strong_alternatives=("MDNEnsembleModel", "BinnedPDFEnsembleModel", "NormalizingFlowLoss"),
         notes=(
             "MDN is usually easier to debug first; ensembles of MDN or ordered-bin "
@@ -2096,19 +2017,20 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Non-Gaussian / skewed tails",
         recommended_start="QuantileLoss / ExpectileLoss / TweedieLoss",
-        strong_alternatives=("MDNLoss", "NormalizingFlowLoss"),
+        strong_alternatives=("MixtureDensityLoss", "NormalizingFlowLoss"),
         notes="Choose by target support and evaluation metric.",
     ),
     TaskRecommendation(
         task="Multi-target correlated outputs",
         recommended_start="MultivariateGaussianLoss / LowRankGaussianLoss",
-        strong_alternatives=("MDNLoss", "NormalizingFlowLoss"),
+        strong_alternatives=("MixtureDensityLoss", "NormalizingFlowLoss"),
         notes="Prefer low-rank/full covariance when Gaussian is enough.",
     ),
     TaskRecommendation(
         task="Noisy features / measurement error",
         recommended_start=(
-            "InputNoiseAugmentationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
+            "InputNoiseAugmentationLoss + GaussianCRPSLoss / "
+            "MixtureDensityLoss / InputNoiseBinnedPDFLoss"
         ),
         strong_alternatives=(
             "FunctionalEIVLoss",
@@ -2260,7 +2182,7 @@ _TASK_RECOMMENDATIONS: tuple[TaskRecommendation, ...] = (
     TaskRecommendation(
         task="Ordinal / ordered targets",
         recommended_start="CumulativeLinkLoss",
-        strong_alternatives=("CORALLoss", "OrdinalCrossEntropyLoss"),
+        strong_alternatives=("OrdinalCrossEntropyLoss",),
         notes="Prefer cumulative objectives when rank-distance errors matter.",
     ),
     TaskRecommendation(
@@ -2303,7 +2225,7 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
     DecisionWorkflowStep(
         order=3,
         question="Need multimodal outputs?",
-        primary_recommendation="MDNLoss",
+        primary_recommendation="MixtureDensityLoss",
         alternatives=("NormalizingFlowLoss",),
         caveat="Move to flows when MDN component count/training stability is the bottleneck.",
     ),
@@ -2311,7 +2233,8 @@ _DECISION_WORKFLOW: tuple[DecisionWorkflowStep, ...] = (
         order=4,
         question="Have noisy features / measurement error?",
         primary_recommendation=(
-            "InputNoiseAugmentationLoss + GaussianCRPSLoss / MDNLoss / InputNoiseBinnedPDFLoss"
+            "InputNoiseAugmentationLoss + GaussianCRPSLoss / "
+            "MixtureDensityLoss / InputNoiseBinnedPDFLoss"
         ),
         alternatives=("FunctionalEIVLoss / StructuralEIVLoss / OrthogonalDistanceRegressionLoss",),
         caveat=(
@@ -2594,7 +2517,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "matched model capacity",
         ),
         metrics_coverage=("accuracy", "ordinal class MAE", "QWK", "true-class NLL", "runtime"),
-        peer_methods_visible=("OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"),
+        peer_methods_visible=("OrdinalCrossEntropyLoss", "CumulativeLinkLoss"),
         gaps=(
             "Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label "
             "datasets for stronger external validity."
@@ -2684,7 +2607,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "marginal calibration error",
             "runtime",
         ),
-        peer_methods_visible=("GaussianNLLLoss", "MDNLoss", "NormalizingFlowLoss"),
+        peer_methods_visible=("GaussianNLLLoss", "MixtureDensityLoss", "NormalizingFlowLoss"),
         gaps=(
             "Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal "
             "targets on real covariates) and optional-dependency CI coverage for zuko flow runs."

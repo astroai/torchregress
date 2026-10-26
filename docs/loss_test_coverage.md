@@ -77,8 +77,6 @@ canonical way a contract break shows up in CI.
 | `ExpectileLoss` | `expectile.py` | `tests/losses/test_expectile.py` + `tests/losses/test_functional_wrappers.py` | `TestExpectileLoss` + `TestExpectileLossWrapper` | `τ=0.5` collapses to MSE; asymmetric weights `τ`/`1-τ` |
 | `expectile_loss` | `expectile.py` | `tests/losses/test_functional_wrappers.py` | `TestExpectileLossWrapper` | Parity with `ExpectileLoss` class |
 | `MultiExpectileLoss` | `expectile.py` | `tests/losses/test_non_gaussian_consistency.py` | `TestExpectileContract` | Average across expectile levels per sample |
-| `AsymmetricLeastSquaresLoss` | `expectile.py` | `tests/losses/test_expectile.py` | (per-class) | Subclass of `ExpectileLoss` accepts `tau=` alias |
-| `ExpectileCrossover` | `expectile.py` | `tests/losses/test_indirect_utilities.py` | `TestCrossoverAliases::test_expectile_crossover_is_class_alias` | `ExpectileCrossover IS ExpectileCrossoverLoss` |
 | `ExpectileCrossoverLoss` | `expectile.py` | `tests/losses/test_non_gaussian_consistency.py` | `TestExpectileContract` | Crossover penalty on pairs of predictands |
 | `FaithfulGaussianLoss` | `faithful_gaussian.py` | `tests/losses/test_faithful_gaussian.py` | (per-class) | Mean / variance decoupled layers |
 | `GaussianCRPSLoss` | `gaussian.py` | `tests/losses/test_gaussian.py` | `TestGaussianLosses::test_gaussian_crps_loss_matches_metric` | Analytic CRPS matches shared `crps_gaussian` metric |
@@ -96,7 +94,7 @@ canonical way a contract break shows up in CI.
 | `get_regression_loss` | `loss_registry.py` | `tests/losses/test_loss_registry.py` | (per-class) | Lookup by registry key |
 | `list_regression_losses` | `loss_registry.py` | `tests/losses/test_loss_registry.py` | (per-class) | Sorted list of registered names |
 | `create_loss_from_config` | `loss_registry.py` | `tests/losses/test_loss_registry.py` | (per-class) | YAML-style config construction with aliases |
-| `MixtureDensityLoss` (re-exported as `MDNLoss`) | `mdn.py` | `tests/losses/test_mdn.py` | (per-class) | Full-cov Cholesky backward finite & differentiable |
+| `MixtureDensityLoss` (re-exported as `MixtureDensityLoss`) | `mdn.py` | `tests/losses/test_mdn.py` | (per-class) | Full-cov Cholesky backward finite & differentiable |
 | `create_mdn_loss` | `mdn.py` | `tests/losses/test_indirect_utilities.py` | `TestCreateMdnLoss` | Factory routes kwargs to `MixtureDensityLoss`; rejects bad `covariance_type`; end-to-end forward + backward smoke |
 | `SLSLoss` | `sls.py` | `tests/losses/test_sls.py` + consistency suite | (top-level `test_sls_loss_warmup_and_forward`, etc.) | Step-counter monotonic advance; warmup window; K>1 unfreeze gating |
 | `VolumePreservingFlow` | `sls.py` | `tests/losses/test_sls.py` (round-trip) + `tests/losses/test_sls_internals.py` | `TestVolumePreservingFlow` | Invertibility: `flow.inverse(flow(y)) == y`; alternating half-mask per layer |
@@ -109,7 +107,6 @@ canonical way a contract break shows up in CI.
 | `create_contrastive_flow_loss` | `nflows.py` | (INDIRECT — special optional) | — | Build contrastive flow loss |
 | `OrdinalCrossEntropyLoss` | `ordinal.py` | `tests/losses/test_ordinal.py` | (per-class) | Label-smoothed ordinal CE |
 | `CumulativeLinkLoss` | `ordinal.py` | `tests/losses/test_ordinal.py` | (per-class) | Cumulative-link logistic loss |
-| `CORALLoss` | `ordinal.py` | `tests/losses/test_ordinal.py` | (per-class) | CORAL rank-consistent ordinal loss |
 | `NegativeBinomialNLLLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | NB NLL with dispersion parameter |
 | `PoissonDevianceLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | Poisson deviance residual |
 | `PoissonLikelihoodRatioLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | LR loss vs. Poisson mean |
@@ -118,7 +115,6 @@ canonical way a contract break shows up in CI.
 | `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Gain-offset mixture w/ learnable params |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` + consistency | (per-class) | LR mixture NLL |
 | `MultiQuantileLoss` | `quantile.py` | `tests/losses/test_quantile.py` + `tests/losses/test_non_gaussian_consistency.py` | `TestMultiQuantileLoss` | Average across multiple quantiles per sample |
-| `QuantileCrossover` | `quantile.py` | `tests/losses/test_indirect_utilities.py` | `TestCrossoverAliases` | `QuantileCrossover IS QuantileCrossoverLoss`; aliases accept strictly non-default kwargs that reach live attributes |
 | `QuantileCrossoverLoss` | `quantile.py` | `tests/losses/test_quantile.py` + consistency | `TestQuantileLoss::test_quantile_crossover_constraint` | Crossover penalty `Σᵢ max(fᵢ - fᵢ₊₁, 0)` |
 | `QuantileLoss` | `quantile.py` | `tests/losses/test_quantile.py` + `tests/losses/test_functional_wrappers.py` | `TestQuantileLoss`, `TestQuantileLossWrapper` | Asymmetric pinball; `q=0.5` recovers MAE |
 | `quantile_loss` | `quantile.py` | `tests/losses/test_functional_wrappers.py` | `TestQuantileLossWrapper` | Parity with `QuantileLoss` class |
@@ -159,7 +155,6 @@ The matrix above covers the core loss surface; these additional public symbols a
 | `ConformalizedDensity` | `conformal.py` | `tests/losses/test_conformalized_density.py::test_conformalized_density_scalar_coverage` | DEDICATED |
 | `ContrastiveFlowConformal` | `conformal.py` | `tests/losses/test_conformalized_density.py::test_contrastive_flow_conformal_level_set` | DEDICATED |
 | `EnsembleBatchCP` | `conformal.py` | `tests/losses/test_conformal.py::TestEnsembleBatchCP` | DEDICATED |
-| `JackknifePlus` | `conformal.py` | `tests/losses/test_conformal.py::TestCVPlus` | DIRECT-LIGHT |
 | `MultivariateScoreConformal` | `conformal.py` | `tests/test_multivariate_score_cp.py::test_covariance_shape_flexibility_and_errors` | DIRECT-LIGHT |
 | `NonExchangeableConformalRegressor` | `conformal.py` | `tests/test_nexc_conformal.py::test_uniform_weights_recover_finite_sample_quantile` | DIRECT-LIGHT |
 | `RankNContrastLoss` | `contrastive.py` | `tests/losses/test_rank_n_contrast.py::test_gradients_and_degenerate_batches` | DIRECT-LIGHT |
@@ -196,10 +191,8 @@ The matrix above covers the core loss surface; these additional public symbols a
 | `conr_loss` | `prime.py` | `tests/losses/test_prime_conr.py::test_conr_mask_reduction_and_weights` | DIRECT-LIGHT |
 | `uniform_proxy_targets` | `prime.py` | `tests/losses/test_prime_conr.py::test_uniform_proxy_targets_are_equal_width_and_exclude_endpoints` | DEDICATED |
 | `rank_sim_regularizer` | `rank_sim.py` | `tests/losses/test_rank_sim.py::test_invalid_inputs_raise` | DIRECT-LIGHT |
-| `CumulativeCDFLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_cumulative_cdf_class` | DIRECT-LIGHT |
-| `PZRecipeLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_recipe_loss_components` | DIRECT-LIGHT |
-| `TriLoss` | `recipe.py` | `tests/losses/test_recipe.py::test_tri_loss_crps_matches_metric_and_gradients` | DEDICATED |
-| `cumulative_cdf_loss` | `recipe.py` | `tests/losses/test_recipe.py::test_cumulative_cdf_loss_zero_for_perfect_step` | DEDICATED |
+| `CumulativeCDFLoss` | `cdf.py` | `tests/losses/test_cdf.py::test_cumulative_cdf_class` | DIRECT-LIGHT |
+| `cumulative_cdf_loss` | `cdf.py` | `tests/losses/test_cdf.py::test_cumulative_cdf_loss_zero_for_perfect_step` | DEDICATED |
 | `CorrectedScoreEIVLoss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_corrected_score_decreases_on_small_mlp` | DIRECT-LIGHT |
 | `SplitMeasurementLoss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_split_loss_nonlinear_is_finite_and_differentiable_to_second_order` | DIRECT-LIGHT |
 | `corrected_score_eiv_loss` | `split_eiv.py` | `tests/losses/test_split_eiv.py::test_helpers_match_classes_and_forward_sigma_override` | DIRECT-LIGHT |
@@ -236,7 +229,7 @@ should land alongside a direct test in
 | `test_sls_internals.py` | SLS internal modules — `VolumePreservingFlow` / `MahalanobisFrontier` (full + low-rank) / `UnionFrontier` / `QuantileNetwork`. |
 | `test_eiv_internals.py` | EIV internal modules — `NoisyInputPredictor` / `BaseEIVLoss._prepare_covariance_from_sigma`. |
 | `test_functional_wrappers.py` | Functional wrappers (`quantile_loss`, `expectile_loss`, `beta_nll_loss`, `tweedie_loss`, `gaussian_wasserstein_bound_loss`). |
-| `test_indirect_utilities.py` | Public indirect utilities — `low_rank_output_dim`, `split_low_rank_gaussian_output`, `symmetric_spd_matrix_sqrt`, `create_gaussian_nll`, `create_mdn_loss`, plus the `QuantileCrossover`/`ExpectileCrossover` aliases. |
+| `test_indirect_utilities.py` | Public indirect utilities — `low_rank_output_dim`, `split_low_rank_gaussian_output`, `symmetric_spd_matrix_sqrt`, `create_gaussian_nll`, `create_mdn_loss`. |
 | `test_loss_registry.py` | `get_regression_loss` / `list_regression_losses` / `create_loss_from_config`. |
 
 ## Discriminator invariants: where to look when refactoring

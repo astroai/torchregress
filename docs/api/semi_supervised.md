@@ -41,7 +41,6 @@ history = trainer.fit(model, labeled_loader, unlabeled_loader, epochs=10)
 | Symbol | Description |
 |:-------|:------------|
 | `TeacherStudentTrainer` | Modular teacher–student consistency trainer for semi-supervised regression. Orchestrates labeled and unlabeled training steps. Custom sample-weighting policies can be injected for continuous heteroscedastic pseudo-labeling, conformal width gating, and target label shift prior correction. Constructor accepts `optimizer`, `supervised_loss_fn`, `predictive_batch_fn`, optional `augment_fn`, `unsupervised_loss_fn`, `sample_weight_fn`, and hyperparameters (`n_views`, `agreement_weight`, `ema_decay`, `n_support`, …). The default trust weights use `disagreement_to_weight` with `tau` (default 0.2), `weight_power`, `hard_weight_threshold`, `batch_relative_mode`, `batch_trust_top_k`. |
-| `SelfAgreementTrainer` | Plain alias of `TeacherStudentTrainer`, exported from `torchregress.semi_supervised`. It adds no methods of its own; use the `TeacherStudentTrainer` interface (`fit`, `compute_consensus`). |
 
 ---
 

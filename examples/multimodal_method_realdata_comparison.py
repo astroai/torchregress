@@ -16,6 +16,7 @@ import torch.nn as nn
 from sklearn.datasets import load_diabetes
 from torch.utils.data import DataLoader, TensorDataset
 
+from torchregress.calibration import marginal_calibration_error
 from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
@@ -24,8 +25,8 @@ from torchregress.comparison import (
     timed_call,
     write_comparison_summary_json,
 )
-from torchregress.losses import MDNLoss, create_gaussian_nll
-from torchregress.metrics import energy_score, marginal_calibration_error
+from torchregress.losses import MixtureDensityLoss, create_gaussian_nll
+from torchregress.metrics import energy_score
 
 
 @dataclass
@@ -174,7 +175,7 @@ def _gaussian_predict_and_metrics(
 
 def _mdn_predict_and_metrics(
     model: nn.Module,
-    loss_fn: MDNLoss,
+    loss_fn: MixtureDensityLoss,
     x_test: torch.Tensor,
     y_test: torch.Tensor,
     *,
@@ -287,7 +288,9 @@ def main(
         }
     )
 
-    mdn_loss = MDNLoss(n_components=cfg.mdn_components, n_features=2, covariance_type="diagonal")
+    mdn_loss = MixtureDensityLoss(
+        n_components=cfg.mdn_components, n_features=2, covariance_type="diagonal"
+    )
     mdn_model = MLP(d_in, mdn_loss.expected_output_size, hidden=cfg.hidden)
     _, train_s = timed_call(_train_model, mdn_model, mdn_loss, loader, epochs=cfg.epochs, lr=cfg.lr)
     (mdn_metrics, mdn_meta), eval_s = timed_call(

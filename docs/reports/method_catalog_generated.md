@@ -2,14 +2,14 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-22`
+_Generated date_: `2026-10-26`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `157`
-- Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MDNLoss`
+- Total methods: `151`
+- Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 
 ### By Family
 
@@ -19,13 +19,13 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `calibration_transform` | 7 |
 | `causal` | 2 |
 | `censored` | 3 |
-| `conformal` | 19 |
+| `conformal` | 18 |
 | `constraints` | 2 |
 | `density_loss` | 3 |
 | `eiv` | 16 |
 | `ensemble` | 8 |
 | `evidential` | 1 |
-| `expectile` | 3 |
+| `expectile` | 2 |
 | `flow` | 3 |
 | `flow_map` | 1 |
 | `flow_matching` | 1 |
@@ -36,9 +36,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `mc_dropout` | 1 |
 | `mdn` | 1 |
 | `multivariate` | 1 |
-| `ordinal` | 3 |
-| `photo_z_loss` | 2 |
-| `photo_z_model` | 1 |
+| `ordinal` | 2 |
 | `point_loss` | 1 |
 | `poisson` | 4 |
 | `poisson_gaussian` | 3 |
@@ -62,7 +60,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 130 |
+| `Available` | 124 |
 
 ## Method Rows
 
@@ -98,7 +96,6 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `ContrastiveFlowConformal` | `conformal` | `Available` | `conformal`, `contrastive`, `density`, `calibration` | `calibration`, `ood*` | `torchregress.losses.ContrastiveFlowConformal` |
 | `DensityConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.DensityConformal` |
 | `EnsembleBatchCP` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.EnsembleBatchCP` |
-| `JackknifePlus` | `conformal` | `Available` | `coverage_guarantees`, `calibration`, `ensemble` | `calibration`, `ood*` | `torchregress.losses.JackknifePlus` |
 | `MonteCarloConformal` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `epistemic_uq` | `epistemic*`, `calibration`, `ood*` | `torchregress.losses.MonteCarloConformal` |
 | `PrevalenceAdjustedCP` | `conformal` | `Available` | `coverage_guarantees`, `density_conformal`, `imbalance` | `calibration`, `ood*` | `torchregress.losses.PrevalenceAdjustedCP` |
 | `SLSConformal` | `conformal` | `Available` | `coverage_guarantees`, `multimodal`, `calibration` | `calibration`, `ood*` | `torchregress.losses.SLSConformal` |
@@ -138,7 +135,6 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `MDNEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration`, `uq_decomposition` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.MDNEnsembleModel` |
 | `calibrated_deep_ensemble` | `ensemble` | `Available` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `calibration`, `tabular` | `epistemic`, `aleatoric`, `decomposition*`, `calibration`, `ood*` | `torchregress.estimators.calibrated_deep_ensemble` |
 | `EvidentialRegressionLoss` | `evidential` | `Available` | `uq_decomposition`, `single_pass`, `evidential` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.losses.EvidentialRegressionLoss` |
-| `AsymmetricLeastSquaresLoss` | `expectile` | `Available` | `prediction_intervals`, `non_gaussian`, `expectile` | `calibration*`, `ood*` | `torchregress.losses.AsymmetricLeastSquaresLoss` |
 | `ExpectileLoss` | `expectile` | `Available` | `prediction_intervals`, `non_gaussian`, `expectile` | `calibration*`, `ood*` | `torchregress.losses.ExpectileLoss` |
 | `MultiExpectileLoss` | `expectile` | `Available` | `prediction_intervals`, `non_gaussian`, `multi_expectile` | `calibration*`, `ood*` | `torchregress.losses.MultiExpectileLoss` |
 | `ContrastiveFlowLoss` | `flow` | `Available` | `parameter_estimation`, `domain_shift`, `simulation_based_inference` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.ContrastiveFlowLoss` |
@@ -164,14 +160,10 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
 | `NeuralRatioLoss` | `likelihood_ratio` | `Available` | `parameter_estimation`, `simulation_based_inference`, `domain_shift`, `likelihood_ratio` | `calibration*`, `ood*` | `torchregress.losses.NeuralRatioLoss` |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | `epistemic_uq`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MCDropoutWrapper` |
-| `MDNLoss` | `mdn` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.MDNLoss` |
+| `MixtureDensityLoss` | `mdn` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.MixtureDensityLoss` |
 | `TaskAgnosticCorrelations` | `multivariate` | `Available` | `covariance_evaluation`, `conditioning` | `calibration*`, `ood*` | `torchregress.metrics.TaskAgnosticCorrelations` |
-| `CORALLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets`, `calibration` | `calibration*`, `ood*` | `torchregress.losses.CORALLoss` |
 | `CumulativeLinkLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets`, `calibration` | `calibration*`, `ood*` | `torchregress.losses.CumulativeLinkLoss` |
 | `OrdinalCrossEntropyLoss` | `ordinal` | `Available` | `ordinal`, `ordered_targets` | `calibration*`, `ood*` | `torchregress.losses.OrdinalCrossEntropyLoss` |
-| `PZRecipeLoss` | `photo_z_loss` | `Available` | `photo_z`, `binned_cdf`, `representation_learning`, `ordinal` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.PZRecipeLoss` |
-| `TriLoss` | `photo_z_loss` | `Available` | `photo_z`, `binned_crps`, `representation_learning`, `ordinal` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.TriLoss` |
-| `PZRecipe` | `photo_z_model` | `Available` | `photo_z`, `tabular`, `binned_cdf`, `representation_learning` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.PZRecipe` |
 | `WeightedMSELoss` | `point_loss` | `Core` | `baseline` | `calibration*`, `ood*` | `torchregress.losses.WeightedMSELoss` |
 | `NegativeBinomialNLLLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `overdispersion` | `calibration*`, `ood*` | `torchregress.losses.NegativeBinomialNLLLoss` |
 | `PoissonDevianceLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `poisson` | `calibration*`, `ood*` | `torchregress.losses.PoissonDevianceLoss` |
@@ -232,7 +224,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MDNLoss`, `PZRecipeLoss`, `TriLoss`, `PZRecipe`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
+`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MixtureDensityLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 

@@ -105,21 +105,15 @@ $$\mathcal{L}_{\text{Huber}}(r;\delta) = \begin{cases} \frac{1}{2}r^2 & |r| \le 
 | `ExpectileLoss` | `ExpectileLoss(expectile=0.5, reduction="mean")` | Asymmetric L2 |
 | `MultiExpectileLoss` | `MultiExpectileLoss(expectiles=[...])` | Joint expectile |
 | `ExpectileCrossoverLoss` | `ExpectileCrossoverLoss(expectiles=[...])` | + non-crossing penalty (levels must be strictly ascending) |
-| `ExpectileCrossover` | `ExpectileCrossover(expectiles=[...])` | Alias for `ExpectileCrossoverLoss` |
-| `AsymmetricLeastSquaresLoss` | `AsymmetricLeastSquaresLoss(expectile=0.5)` | Alias for ExpectileLoss |
-| `QuantileCrossover` | `QuantileCrossover(quantiles=[...])` | Alias for `QuantileCrossoverLoss` |
 | `quantile_loss` | `quantile_loss(y_pred, target, quantile=0.5, mask=None, weights=None, reduction="mean")` | Functional pinball loss |
 | `expectile_loss` | `expectile_loss(y_pred, target, expectile=0.5, mask=None, weights=None, reduction="mean")` | Functional expectile loss |
-| `MDNLoss` | `MDNLoss(n_components=5, reduction="mean")` | Mixture Density Network NLL |
-| `MixtureDensityLoss` | `MixtureDensityLoss(n_components=5, reduction="mean")` | Alias for `MDNLoss` |
+| `MixtureDensityLoss` | `MixtureDensityLoss(n_components=5, reduction="mean")` | Mixture Density Network NLL |
 | `create_mdn_loss` | `create_mdn_loss(n_components=5, ...)` | Factory for `MixtureDensityLoss` |
 | `NormalizingFlowLoss` | `NormalizingFlowLoss(flow=..., reduction="mean")` | Conditional flow NLL (requires `zuko`) |
 | `NoiseAwareDensityLoss` | `NoiseAwareDensityLoss(base_loss, sigma=None, mode="auto", ...)` | Marginal likelihood with Gaussian label noise; GH for scalar flows, analytic for diagonal MDNs |
 | `BinnedDensityLoss` | `BinnedDensityLoss(bin_edges, label_smoothing=0.0)` | Smoothed histogram / ordinal-CDF scalar density head |
 | `JointBinnedDensityLoss` | `JointBinnedDensityLoss(bin_edges, n_targets=None, max_joint_bins=4096, ...)` | Joint low-dimensional multi-target binned density/CDF head |
-| `PZRecipeLoss` | `PZRecipeLoss(bin_centers, ce_weight=0.5, cdf_weight=0.5, rnc_weight=0.1, ...)` | CE + binned-CDF + RnC-N photo-z objective |
 | `CumulativeCDFLoss` | `CumulativeCDFLoss(bin_centers, reduction="mean")` | Binned CDF squared-error loss |
-| `TriLoss` | `TriLoss(bin_centers, ce_weight=1.0, crps_weight=0.5, rnc_weight=0.1, ...)` | CE + binned-CRPS + RnC-N methods-paper tri-loss |
 | `cumulative_cdf_loss` | `cumulative_cdf_loss(logits, target, bin_centers)` | Functional binned CDF loss |
 | `ContrastiveFlowLoss` | `ContrastiveFlowLoss(...)` | Contrastive likelihood-ratio flow |
 | `create_flow_model` | `create_flow_model(n_features, context_dim=0, flow_type="nsf", ...)` | Factory: NSF/cNSF, MAF, RealNVP/cINN, or Bernstein-polynomial (`bpf`) flow; `bound` sets the NSF tail bound |
@@ -175,8 +169,7 @@ Parametric NLL losses for non-Gaussian target families.
 
 | Symbol | Signature | Output |
 |:-------|:----------|:-------|
-| `CumulativeLinkLoss` | `CumulativeLinkLoss(reduction="mean", level_weights=None, pos_weight=None)` | `K-1` logits |
-| `CORALLoss` | `CORALLoss(reduction="mean", level_weights=None, pos_weight=None)` | `K-1` binary logits |
+| `CumulativeLinkLoss` | `CumulativeLinkLoss(reduction="mean", level_weights=None, pos_weight=None)` | `K-1` logits. `CORALHead` supplies the shared-weight constraint; the loss is this class. |
 | `OrdinalCrossEntropyLoss` | `OrdinalCrossEntropyLoss(...)` | `K` logits |
 
 ### Censored / survival
@@ -269,7 +262,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `ConformalLoss` | `ConformalLoss(method="cqr", alpha=0.1)` | Training + calibration wrapper |
 | `ConformalPredictor` | `ConformalPredictor(...)` | Base post-hoc calibrator |
 | `SplitConformal` | `SplitConformal(alpha=0.1)` | Residual-based |
-| `CQR` | `CQR(alpha=0.1, debias=False)` | Conformalized Quantile Regression |
+| `CQR` | `CQR(alpha=0.1)` | Conformalized Quantile Regression |
 | `UACQR` | `UACQR(alpha=0.1, ...)` | Width-normalized CQR |
 | `DensityConformal` | `DensityConformal(alpha=0.1)` | Density-weighted residuals |
 | `MonteCarloConformal` | `MonteCarloConformal(alpha=0.1)` | MC-sample normalized |
@@ -291,7 +284,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `PrevalenceAdjustedCP` | `PrevalenceAdjustedCP(alpha=0.1)` | Group-prevalence-adjusted |
 | `R2CConformal` | `R2CConformal(alpha=0.1, bin_edges=...)` | Regression-as-classification CP |
 | `SLSConformal` | `SLSConformal(alpha=0.1, ...)` | Super-level set conformal |
-| `CVPlus` / `JackknifePlus` | `CVPlus(alpha=0.1)` | Cross-validation ensemble CP |
+| `CVPlus` | `CVPlus(alpha=0.1)` | Cross-validation ensemble CP. Leave-one-out (`K = n`) is the jackknife+ case. |
 | `EnsembleBatchCP` | `EnsembleBatchCP(alpha=0.1)` | Bootstrap/OOB ensemble CP |
 
 Conformal guarantee: $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$

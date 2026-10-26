@@ -546,7 +546,7 @@ def test_A_LOSS_017_matrix_sqrt_grad_values() -> None:
 
 
 def test_A_LOSS_018_all_exports() -> None:
-    for name in ("StudentTLoss", "ExpectileCrossover", "QuantileCrossover"):
+    for name in ("StudentTLoss", "ExpectileCrossoverLoss", "QuantileCrossoverLoss"):
         assert name in L.__all__, name
         assert hasattr(L, name), name
     assert len(L.__all__) == len(set(L.__all__))

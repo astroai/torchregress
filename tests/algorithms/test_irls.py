@@ -5,7 +5,7 @@ import torch.nn as nn
 from torchregress.algorithms.irls import (
     _batched_predict,
     calculate_mad,
-    iteratively_reweighted_least_squares,
+    reweight_fixed_predictions,
 )
 
 
@@ -35,11 +35,11 @@ def test_batched_predict(data):
     assert torch.allclose(y_pred, model(x), atol=1e-5)
 
 
-def test_iteratively_reweighted_least_squares_logic(data):
+def test_reweight_fixed_predictions_logic(data):
     x, y = data
     model = SimpleModel()
 
-    y_pred, loss_hist, precision = iteratively_reweighted_least_squares(
+    y_pred, loss_hist, precision = reweight_fixed_predictions(
         model=model,
         x=x,
         y_true=y,

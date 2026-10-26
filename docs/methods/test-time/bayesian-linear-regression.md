@@ -1,6 +1,6 @@
 # Bayesian linear regression heads
 
-> ← [OT Shift Conformal](ot-shift-conformal.md) | [Shift Roadmap](regression-shift-adaptation-roadmap.md) →
+> ← [OT Shift Conformal](ot-shift-conformal.md) | [Methods Overview](../index.md) →
 
 `torchregress.test_time` exposes conjugate Gaussian linear regression on **fixed features** (a design matrix $\Phi$), useful for lightweight test-time heads on top of frozen representations.
 

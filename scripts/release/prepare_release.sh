@@ -47,7 +47,7 @@ import re
 from pathlib import Path
 
 text = Path("pyproject.toml").read_text(encoding="utf-8")
-match = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+(?:rc\d+)?)"$', text, re.MULTILINE)
+match = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?)"$', text, re.MULTILINE)
 if match is None:
     raise SystemExit("Could not read version from pyproject.toml")
 print(match.group(1))
@@ -133,7 +133,15 @@ fi
 COMMIT_MESSAGE="Release ${TAG}"
 echo "== Commit and tag =="
 run git add pyproject.toml
-run git commit -m "${COMMIT_MESSAGE}"
+if (( DRY_RUN == 1 )); then
+  echo "[dry-run] git commit -m ${COMMIT_MESSAGE}"
+else
+  if git diff --cached --quiet; then
+    echo "pyproject.toml already at ${VERSION}; tagging without a release commit."
+  else
+    git commit -m "${COMMIT_MESSAGE}"
+  fi
+fi
 run git tag -a "${TAG}" -m "${COMMIT_MESSAGE}"
 
 cat <<EOF
@@ -144,5 +152,6 @@ Next steps:
   git push origin main
   git push origin ${TAG}
 
-Pushing ${TAG} triggers .github/workflows/release.yml and publishes to PyPI.
+Pushing ${TAG} triggers .github/workflows/release.yml.
+Pre-release tags publish to TestPyPI. Final vX.Y.Z tags publish to PyPI.
 EOF

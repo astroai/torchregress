@@ -9,8 +9,12 @@ import re
 import sys
 from pathlib import Path
 
-VERSION_PATTERN = re.compile(r"^version\s*=\s*\"(\d+\.\d+\.\d+(?:rc\d+)?)\"$", re.MULTILINE)
-TAG_PATTERN = re.compile(r"^v(\d+\.\d+\.\d+(?:rc\d+)?)$")
+_PRE = r"(?:a|b|rc)\d+"
+VERSION_PATTERN = re.compile(
+    rf"^version\s*=\s*\"(\d+\.\d+\.\d+(?:{_PRE})?)\"$",
+    re.MULTILINE,
+)
+TAG_PATTERN = re.compile(rf"^v(\d+\.\d+\.\d+(?:{_PRE})?)$")
 
 
 def repo_root() -> Path:
@@ -28,7 +32,8 @@ def read_project_version(pyproject: Path) -> str:
 def normalize_tag(tag: str) -> tuple[str, str]:
     match = TAG_PATTERN.fullmatch(tag)
     if match is None:
-        raise SystemExit(f"Invalid release tag {tag!r}; expected format vX.Y.Z or vX.Y.ZrcN")
+        expected = "vX.Y.Z or vX.Y.ZaN / vX.Y.ZbN / vX.Y.ZrcN"
+        raise SystemExit(f"Invalid release tag {tag!r}; expected {expected}")
     return tag, match.group(1)
 
 

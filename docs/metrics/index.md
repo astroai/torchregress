@@ -128,12 +128,6 @@ Frozen-feature diagnostics — neighbourhood target gap, target ordering, and re
 
 [Learn more about representation metrics →](representation.md)
 
-### Photo-z PDF Diagnostics
-
-Global and local photo-$z$ PDF calibration: PIT Cramér–von Mises, local PIT Wasserstein distance, and central PDF width, scaled by $1+z$.
-
-[Learn more about photo-z metrics →](photo_z.md)
-
 ## Metric Selection Guide
 
 | If you need to evaluate... | Consider using... |
@@ -146,3 +140,8 @@ Global and local photo-$z$ PDF calibration: PIT Cramér–von Mises, local PIT W
 | Selective prediction | `RiskCoverageCurve`, `RejectionPolicy`, [`risk_coverage_curve`](../api/metrics.md) |
 
 For detailed guidance on metric selection and interpretation, see the [practical usage guide](../guide/practical-usage.md) and [uncertainty decomposition](../guide/uncertainty-decomposition.md).
+
+
+The [distribution metrics](distribution.md#binned-cdf-and-pit-helpers) also
+provide generic `binned_cdf`, `crps_from_binned_cdf`, `pit_cvm`, and
+`paired_bootstrap_ci` helpers. These no longer require a photo-z-specific module.

@@ -106,7 +106,7 @@ $$
 p(y \mid x) = \sum_{k=1}^K \pi_k(x)\ \mathcal{N}\!\bigl(y \mid \mu_k(x),\, \sigma_k^2(x)\bigr)
 $$
 
-- [`MDNLoss`](../api/losses.md) (Mixture Density Network) for known $K$ (Bishop 1994).
+- [`MixtureDensityLoss`](../api/losses.md) (Mixture Density Network) for known $K$ (Bishop 1994).
 - [`NormalizingFlowLoss`](../api/losses.md) for flexible, non-parametric densities
   (Rezende & Mohamed 2015).
 

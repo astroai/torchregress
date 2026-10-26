@@ -20,7 +20,7 @@ import torch
 import torch.nn.functional as F
 
 from ..utils.quantile import multi_quantile_loss
-from ..utils.quantile import quantile_loss as _util_quantile_loss
+from ..utils.quantile import pinball_residual as _util_quantile_loss
 from ..utils.validation import validate_quantile, validate_range
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
@@ -399,7 +399,3 @@ def quantile_loss(
     return QuantileLoss(quantile=quantile, reduction=reduction)(
         y_pred, target, mask=mask, weights=weights
     )
-
-
-# Compatibility alias used in docs.
-QuantileCrossover = QuantileCrossoverLoss

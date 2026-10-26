@@ -10,7 +10,7 @@ $$
 \mathcal{L}(\theta) = -\,\mathbb{E}_{(x,y)\sim\mathcal{D}}\big[\log p_\theta(y \mid x)\big].
 $$
 
-The choice of $p_\theta$ is the choice of loss: a fixed-variance Gaussian gives squared error, a Laplace gives absolute error, a Gaussian whose variance is also predicted gives `GaussianNLLLoss`, a mixture gives `MDNLoss`, and so on. Several losses are instead **scoring rules**: pinball is a consistent score for a quantile, while CRPS, the energy score and the Gaussian Wasserstein bound are proper scores for the whole predictive distribution even when no parametric likelihood is assumed. That distinction matters when reading the tables below: likelihood losses are tied to a distributional family, scoring rules are not.
+The choice of $p_\theta$ is the choice of loss: a fixed-variance Gaussian gives squared error, a Laplace gives absolute error, a Gaussian whose variance is also predicted gives `GaussianNLLLoss`, a mixture gives `MixtureDensityLoss`, and so on. Several losses are instead **scoring rules**: pinball is a consistent score for a quantile, while CRPS, the energy score and the Gaussian Wasserstein bound are proper scores for the whole predictive distribution even when no parametric likelihood is assumed. That distinction matters when reading the tables below: likelihood losses are tied to a distributional family, scoring rules are not.
 
 All losses share the same call contract and the same reduction semantics:
 
@@ -36,7 +36,7 @@ graph LR
     B -->|Uncertainty| D["GaussianNLLLoss / BetaNLLLoss"]
     B -->|Robustness| E["CauchyLoss / TukeyBiweightLoss"]
     B -->|Intervals| F["QuantileLoss + CQR"]
-    B -->|Full distribution| G["MDNLoss / NormalizingFlowLoss"]
+    B -->|Full distribution| G["MixtureDensityLoss / NormalizingFlowLoss"]
     B -->|Count data| H["PoissonDevianceLoss / TweedieLoss"]
 ```
 
@@ -71,7 +71,7 @@ censored/ordinal targets, error-in-variables, conformal prediction, etc.
 !!! tip "Rule of thumb"
     - Use **`torch.nn.MSELoss` / `L1Loss`** for plain regression with no missing data.
     - Use **torchregress `Weighted*` wrappers** when you need mask or per-sample weight support.
-    - Use **torchregress probabilistic losses** (`GaussianNLLLoss`, `MDNLoss`, etc.) for
+    - Use **torchregress probabilistic losses** (`GaussianNLLLoss`, `MixtureDensityLoss`, etc.) for
       uncertainty-aware regression — they handle distribution contracts that native losses don't.
 
 ---
@@ -150,7 +150,7 @@ For **ordered categorical** targets where class distance matters.
 |:-----|:-------|:--------|
 | `OrdinalCrossEntropyLoss` | Standard CE (baseline) | $K$ logits |
 | `CumulativeLinkLoss` | Cumulative-threshold model | $K-1$ logits |
-| `CORALLoss` | Consistent Rank Logits | $K-1$ binary logits |
+| `CumulativeLinkLoss` | Cumulative link / CORAL objective | $K-1$ binary logits |
 
 Read the full [Ordinal losses guide](ordinal.md) — cumulative link, CORAL, cross-entropy baselines.
 
@@ -210,7 +210,7 @@ $$p(y \mid x) = \sum_{k=1}^K \pi_k(x)\,\mathcal{N}\!\bigl(y \mid \mu_k(x),\, \si
 
 | Loss | Description |
 |:-----|:-----------|
-| `MixtureDensityLoss` / `MDNLoss` | NLL for Gaussian mixtures |
+| `MixtureDensityLoss` | NLL for Gaussian mixtures |
 | `create_mdn_loss()` | Factory function |
 
 Read the full [MDN guide](mdn.md) — component selection, label switching, mixture-of-mixtures ensembles.
@@ -245,7 +245,7 @@ For heads that output a whole distribution on a fixed 1D support (binned or spli
 | `DiscreteWasserstein1Loss` | 1-Wasserstein between mass vectors on a shared grid (displacement-aware complement to KL) |
 | `RankNContrastLoss` | Rank-N-Contrast: order features by continuous label distance (Zha et al. 2023) |
 
-Read the [Grid & basis densities guide](density_basis.md). For the astronomy two-stage binned-CDF recipe built on these ideas, see [Photo-z recipe](photo_z_recipe.md).
+Read the [Grid & basis densities guide](density_basis.md).
 
 ---
 
@@ -360,5 +360,12 @@ Conformal prediction is a **post-hoc** layer, not a likelihood: it turns any poi
 | Semi-supervised regression | `PseudoLabelConsistencyLoss` | `PseudoLabelNLL` |
 | Strong target skew / multiplicative noise | `LogTransformLoss` | `BoxCoxTransformLoss` or `SqrtTransformLoss` |
 | Measurement error | `StructuralEIVLoss` | [RC](../methods/algorithms/rc.md) or [SIMEX](../methods/algorithms/simex.md) |
-| Ordered categories | `CumulativeLinkLoss` | `CORALLoss` |
+| Ordered categories | `CumulativeLinkLoss` | `OrdinalCrossEntropyLoss` |
 | Censored/survival | `CensoredGaussianNLLLoss` | `AFTLoss` |
+
+
+For a generic scalar binned-CDF training objective, use
+[`CumulativeCDFLoss` or `cumulative_cdf_loss`](density_basis.md#generic-cumulative-cdf-objective).
+The astronomy-specific recipe/model composites and stellar-spectrum examples
+are removed from the core library; applications can compose the generic losses
+and `FTTransformer` in their own training pipelines.

@@ -178,6 +178,39 @@ which underestimated the CRPS by 3-4%.
 
 ---
 
+## Binned-CDF and PIT helpers
+
+For discrete probability masses on fixed bin edges, `binned_cdf` converts the
+masses to CDF values at the edges and `crps_from_binned_cdf` evaluates the exact
+piecewise-linear CRPS:
+
+$$
+\mathrm{CRPS} = \int \bigl(F(z)-\mathbf{1}[z \ge y]\bigr)^2\,dz .
+$$
+
+`pit_cvm` is the Cramér–von Mises distance of PIT values from Uniform(0, 1),
+and `paired_bootstrap_ci` returns a paired percentile interval for the mean
+difference of two metric vectors.  These are generic calibration/diagnostic
+helpers; binned mass is not a continuous density and its cross-entropy is not a
+continuous NLL. CRPS includes the distance from a reference target outside the
+finite support; PIT values and bin masses must be finite and valid. These
+reporting helpers return CPU scalars/NumPy arrays, including for tensor inputs.
+
+```python
+import numpy as np
+from torchregress.metrics import binned_cdf, crps_from_binned_cdf, pit_cvm
+
+probabilities = np.array([[0.2, 0.5, 0.3]])
+edges = np.array([0., 1., 2., 3.])
+y = np.array([1.2])
+pit_values = np.array([0.2, 0.5, 0.8])
+cdf = binned_cdf(probabilities)                 # [N, K+1]
+score = crps_from_binned_cdf(edges, cdf, y)     # exact binned CRPS
+cvm = pit_cvm(pit_values, normalized=True)
+```
+
+---
+
 ## Summary Matrix
 
 | Metric | Best For | Proper? | API Reference |

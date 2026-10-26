@@ -8,8 +8,6 @@ API contract:
 - :func:`symmetric_spd_matrix_sqrt`         (torchregress.losses.gaussian_wasserstein)
 - :func:`create_gaussian_nll`               (torchregress.losses.gaussian)
 - :func:`create_mdn_loss`                   (torchregress.losses.mdn)
-- :data:`QuantileCrossover`  (alias for :class:`QuantileCrossoverLoss`)
-- :data:`ExpectileCrossover` (alias for :class:`ExpectileCrossoverLoss`)
 """
 
 from __future__ import annotations
@@ -19,7 +17,6 @@ import unittest
 import torch
 
 from torchregress.losses import GaussianNLLLoss, WeightedMSELoss
-from torchregress.losses.expectile import ExpectileCrossover, ExpectileCrossoverLoss
 from torchregress.losses.gaussian import (
     LowRankGaussianLoss,
     MultivariateGaussianLoss,
@@ -27,7 +24,6 @@ from torchregress.losses.gaussian import (
 )
 from torchregress.losses.gaussian_wasserstein import symmetric_spd_matrix_sqrt
 from torchregress.losses.mdn import MixtureDensityLoss, create_mdn_loss
-from torchregress.losses.quantile import QuantileCrossover, QuantileCrossoverLoss
 from torchregress.utils.gaussian_output import (
     low_rank_output_dim,
     split_low_rank_gaussian_output,
@@ -275,62 +271,6 @@ class TestCreateMdnLoss(unittest.TestCase):
         val.backward()
         self.assertIsNotNone(y_pred.grad)
         self.assertTrue(torch.isfinite(y_pred.grad).all())
-
-
-# ---------------------------------------------------------------------------
-# Class aliases
-# ---------------------------------------------------------------------------
-
-
-class TestCrossoverAliases(unittest.TestCase):
-    """``QuantileCrossover`` / ``ExpectileCrossover`` are exported from the
-    top-level ``torchregress.losses`` namespace as backward-compatibility
-    aliases for the concrete caller classes.
-    """
-
-    def test_quantile_crossover_is_class_alias(self):
-        # Strict identity (not isinstance) -- catches accidental rebinding of
-        # the alias to ``functools.partial(QuantileCrossoverLoss, ...)``, a
-        # factory closure, or any builder function that *returns* the class
-        # instead of being the class object itself.
-        self.assertIs(QuantileCrossover, QuantileCrossoverLoss)
-
-    def test_expectile_crossover_is_class_alias(self):
-        # Mirrors the QuantileCrossover alias-discrimination contract.
-        self.assertIs(ExpectileCrossover, ExpectileCrossoverLoss)
-
-    def test_quantile_crossover_instantiable_via_alias(self):
-        # Construct through the alias and verify the instance is the
-        # underlying class.  This catches accidentally redefining the
-        # alias to a builder function.
-        loss = QuantileCrossover(quantiles=[0.1, 0.5, 0.9])
-        self.assertIsInstance(loss, QuantileCrossoverLoss)
-
-    def test_expectile_crossover_instantiable_via_alias(self):
-        loss = ExpectileCrossover(expectiles=[0.1, 0.5, 0.9])
-        self.assertIsInstance(loss, ExpectileCrossoverLoss)
-
-    def test_canonical_aliases_share_constructor_signature(self):
-        """Both aliases must accept the same constructor kwargs as the
-        underlying class without raising.  Catches accidental re-binding of
-        the alias to a builder function (e.g. ``partial``) by the caller.
-        Use strictly non-default kwargs so the assertion actually forces the
-        alias to traverse the constructor rather than the default-mercy path.
-        """
-        kwargs = dict(
-            quantiles=[0.1, 0.7, 0.9],
-            base_loss=2.5,
-            crossover_penalty=7.5,
-            reduction="sum",
-        )
-        loss_via_alias = QuantileCrossover(**kwargs)
-        loss_via_class = QuantileCrossoverLoss(**kwargs)
-        # Same type still holds after construction.
-        self.assertIs(type(loss_via_alias), type(loss_via_class))
-        # And the propagated kwargs actually reached the live attributes.
-        self.assertEqual(loss_via_alias.base_loss, 2.5)
-        self.assertEqual(loss_via_alias.crossover_penalty, 7.5)
-        self.assertEqual(loss_via_alias.reduction, "sum")
 
 
 if __name__ == "__main__":

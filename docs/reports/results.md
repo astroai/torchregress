@@ -32,11 +32,6 @@ reports for caveats and the exact budgets.
 
 On the synthetic EIV designs, `TLS`/`ODR` win low-noise linear problems,
 `EnsembleEIV` and `RC` are safer at high noise, and input-noise marginalization
-wins nonlinear problems. On real photo-z data, a noise-aware network beats the
-classical EIV corrections. Full discussion:
-[harness EIV/imbalance summary](https://github.com/astroai/torchregress-harness/blob/main/EIV_IMBALANCED_WORTHINESS.md).
-
-### Imbalanced regression
 
 On California housing, `BMC` gives the best tail/worst-region tradeoff among
 loss-level methods, `GroupDRO` wins worst-group MAE, and `VIR` wins NLL/CRPS.

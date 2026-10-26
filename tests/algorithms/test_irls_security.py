@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from torchregress.algorithms.irls import iteratively_reweighted_least_squares
+from torchregress.algorithms.irls import reweight_fixed_predictions
 
 
 def test_irls_nan_input_rejection():
@@ -15,9 +15,7 @@ def test_irls_nan_input_rejection():
     y = torch.randn(10, 1)
 
     with pytest.raises(ValueError, match="contains NaN values"):
-        iteratively_reweighted_least_squares(
-            model=model, x=x, y_true=y, max_iter=2, variance_type="robust"
-        )
+        reweight_fixed_predictions(model=model, x=x, y_true=y, max_iter=2, variance_type="robust")
 
 
 def test_irls_inf_target_rejection():
@@ -30,9 +28,7 @@ def test_irls_inf_target_rejection():
     y[0, 0] = float("inf")
 
     with pytest.raises(ValueError, match="contains infinite values"):
-        iteratively_reweighted_least_squares(
-            model=model, x=x, y_true=y, max_iter=2, variance_type="robust"
-        )
+        reweight_fixed_predictions(model=model, x=x, y_true=y, max_iter=2, variance_type="robust")
 
 
 def test_irls_nan_precision_rejection():
@@ -45,7 +41,7 @@ def test_irls_nan_precision_rejection():
     precision[0, 0] = float("nan")
 
     with pytest.raises(ValueError, match="contains NaN values"):
-        iteratively_reweighted_least_squares(
+        reweight_fixed_predictions(
             model=model,
             x=x,
             y_true=y,

@@ -168,7 +168,7 @@ hyper-rectangular confidence regions are conservative but valid.
 When targets are multimodal, skewed, or have bounded support, Gaussian
 assumptions fail. torchregress provides:
 
-### 3.1 Mixture density networks: [`MDNLoss`](../api/losses.md)
+### 3.1 Mixture density networks: [`MixtureDensityLoss`](../api/losses.md)
 
 A mixture of multivariate Gaussians,
 
@@ -333,14 +333,14 @@ lower, upper = cp.predict_interval(y_pred_test)
 | Independent diagonal Gaussian | any | no | $\mathcal{O}(K)$ | Targets roughly independent; cheap baseline |
 | `MultivariateGaussianLoss` | $K \le 10$ | no | $\mathcal{O}(K^3)$ | Strong correlations; small $K$ |
 | `LowRankGaussianLoss` | $K > 10$ | no | $\mathcal{O}(K R^2)$ | High $K$; rank-$R$ structure |
-| `MDNLoss` | $K \le 5$ | yes | $\mathcal{O}(J K^2)$ | Disjoint modes; conditional branching |
+| `MixtureDensityLoss` | $K \le 5$ | yes | $\mathcal{O}(J K^2)$ | Disjoint modes; conditional branching |
 | `NormalizingFlowLoss` | small/medium | yes | high | Arbitrarily complex joint densities |
 
 The choice is governed by:
 
 - **$K$:** for $K \le 10$, use `MultivariateGaussianLoss`. For
   $K \in \[10, 1000\]$, use `LowRankGaussianLoss` with $R \approx 5$–$10$.
-- **Multimodality:** for disjoint modes, use `MDNLoss`. For arbitrary
+- **Multimodality:** for disjoint modes, use `MixtureDensityLoss`. For arbitrary
   shapes, use `NormalizingFlowLoss`.
 - **Joint coverage requirements:** for hyper-rectangular regions,
   use `MultiTargetConformal`. For ellipsoidal or density-level-set

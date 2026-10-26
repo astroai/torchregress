@@ -8,8 +8,12 @@ import re
 import subprocess
 from pathlib import Path
 
-VERSION_PATTERN = re.compile(r"^version\s*=\s*\"(\d+)\.(\d+)\.(\d+)(?:rc(\d+))?\"$", re.MULTILINE)
-EXPLICIT_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)(rc\d+)?")
+_PRE = r"(?:a|b|rc)\d+"
+VERSION_PATTERN = re.compile(
+    rf"^version\s*=\s*\"(\d+)\.(\d+)\.(\d+)(?:({_PRE}))?\"$",
+    re.MULTILINE,
+)
+EXPLICIT_PATTERN = re.compile(rf"(\d+)\.(\d+)\.(\d+)(?:{_PRE})?")
 SEMVER_PARTS = ("major", "minor", "patch")
 
 
@@ -23,8 +27,8 @@ def read_full_version(pyproject: Path) -> str:
     match = VERSION_PATTERN.search(text)
     if match is None:
         raise SystemExit(f"Could not find semver version in {pyproject}")
-    rc = f"rc{match.group(4)}" if match.group(4) is not None else ""
-    return f"{match.group(1)}.{match.group(2)}.{match.group(3)}{rc}"
+    suffix = match.group(4) or ""
+    return f"{match.group(1)}.{match.group(2)}.{match.group(3)}{suffix}"
 
 
 def read_version(pyproject: Path) -> tuple[int, int, int]:
@@ -34,8 +38,8 @@ def read_version(pyproject: Path) -> tuple[int, int, int]:
         raise SystemExit(f"Could not find semver version in {pyproject}")
     if match.group(4) is not None:
         raise SystemExit(
-            "Current version is a release candidate; set the next version explicitly "
-            "with --version X.Y.Z (or X.Y.ZrcN)."
+            "Current version is a pre-release; set the next version explicitly "
+            "with --version X.Y.Z (or X.Y.ZaN / X.Y.ZbN / X.Y.ZrcN)."
         )
     return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
@@ -47,7 +51,9 @@ def format_version(parts: tuple[int, int, int]) -> str:
 def parse_explicit_version(value: str) -> str:
     """Validate an explicit ``X.Y.Z`` or ``X.Y.ZrcN`` version and return it."""
     if EXPLICIT_PATTERN.fullmatch(value) is None:
-        raise SystemExit(f"Invalid explicit version {value!r}; expected X.Y.Z or X.Y.ZrcN")
+        raise SystemExit(
+            f"Invalid explicit version {value!r}; expected X.Y.Z or X.Y.ZaN / X.Y.ZbN / X.Y.ZrcN"
+        )
     return value
 
 

@@ -81,12 +81,12 @@ The library targets two audiences:
 | Clean regression baseline | `WeightedMSELoss` | `WeightedHuberLoss` | [Losses](losses/index.md) |
 | Heteroscedastic noise (aleatoric UQ) | `GaussianNLLLoss` | `BetaNLLLoss`, heteroscedastic ensemble | [Gaussian](losses/gaussian.md) |
 | Epistemic uncertainty | `BaseEnsembleModel` | `SWAG`, `BayesianNeuralNetwork`, `HeteroscedasticBNN` | [Ensembles](methods/ensemble/index.md) |
-| Multimodal conditional distributions | `MDNLoss` | `NormalizingFlowLoss` | [MDN](losses/mdn.md) · [Flows](losses/nflows.md) |
+| Multimodal conditional distributions | `MixtureDensityLoss` | `NormalizingFlowLoss` | [MDN](losses/mdn.md) · [Flows](losses/nflows.md) |
 | Imbalanced / rare targets | `QuantileLoss` + tail-slice evaluation | `DensityWeightedLoss`, `LDSLoss` | [Imbalanced](losses/imbalanced.md) |
 | Noisy features / measurement error | `LatentMarginalizationLoss` | `FunctionalEIVLoss`, `StructuralEIVLoss`, `OrthogonalDistanceRegressionLoss` | [EIV](losses/eiv.md) |
 | Noisy labels / weak supervision | `NoisyTargetGaussianNLL` | `ConsistencyRegLoss`, `PseudoLabelConsistencyLoss` | [Noisy labels](losses/noisy_labels.md) |
 | Censored / survival | `CensoredGaussianNLLLoss` | `AFTLoss`, `CensoredQuantileLoss` | [Censored](losses/censored.md) |
-| Ordinal / ordered categories | `CumulativeLinkLoss` | `CORALLoss` | [Ordinal](losses/ordinal.md) |
+| Ordinal / ordered categories | `CumulativeLinkLoss` | `OrdinalCrossEntropyLoss` | [Ordinal](losses/ordinal.md) |
 | Count / Tweedie / positive-skewed | `TweedieLoss` | `NegativeBinomialNLLLoss`, `GammaLoss` | [Tweedie](losses/poisson_tweedie.md) |
 | Robust to outliers | `WeightedHuberLoss` | `CauchyLoss`, `TukeyBiweightLoss` | [Robust](losses/robust.md) |
 | Worst-case / tail-focused | `CVaRLoss` | robust losses + tail-slice evaluation | [Robust](losses/robust.md) |

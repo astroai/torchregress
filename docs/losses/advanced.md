@@ -132,7 +132,7 @@ samples = loss_fn.sample_predictions(params, n_samples=100)
     - Single forward pass latency constraint
 
 !!! warning "Limitations"
-    - Assumes unimodal Gaussian observations — for multimodal data, use [`MDNLoss`](mdn.md) or [`NormalizingFlowLoss`](nflows.md)
+    - Assumes unimodal Gaussian observations — for multimodal data, use [`MixtureDensityLoss`](mdn.md) or [`NormalizingFlowLoss`](nflows.md)
     - Regularisation coefficient $\lambda$ requires tuning; too large and the model underfits by forcing all predictions toward a uniform prior; too small and the epistemic uncertainty estimates collapse to near-zero
     - Can be poorly calibrated without careful training; the NIG-derived Student-t predictive distribution has $2\alpha$ degrees of freedom — when $\alpha$ is small (close to 1), the predictive distribution has heavy tails and infinite variance, making interval estimates unreliable
     - The NIG regularizer is computed **per sample**; very small batch sizes (< 16) produce noisy regularizer estimates that can destabilize training

@@ -1,25 +1,10 @@
 """
 Metrics for evaluating regression models.
+
+Point-error classes live in ``torchmetrics``. Calibration metrics live in
+``torchregress.calibration``.
 """
 
-# torchmetrics classes (MeanSquaredError, MeanAbsoluteError, R2Score) are no longer
-# re-exported.  Import them directly from ``torchmetrics`` instead.
-
-from torchmetrics import (  # noqa: F401  # kept for soft backward compatibility; do not use in new code
-    MeanAbsoluteError,
-    MeanSquaredError,
-    R2Score,
-)
-
-from ..calibration.metrics import (
-    ExpectedCalibrationError,
-    MarginalCalibrationError,
-    bias,
-    calibration_metrics_report,
-    calibration_score,
-    expected_calibration_error,
-    marginal_calibration_error,
-)
 from .censored import (
     censoring_rate,
     concordance_index,
@@ -30,6 +15,12 @@ from .decision import (
     RejectionPolicy,
     RiskCoverageCurve,
     risk_coverage_curve,
+)
+from .density import (
+    binned_cdf,
+    crps_from_binned_cdf,
+    paired_bootstrap_ci,
+    pit_cvm,
 )
 from .distribution import (
     ContinuousRankedProbabilityScore,
@@ -76,7 +67,6 @@ from .interval import (
     Sharpness,
     interval_metrics_report,
     interval_score,
-    prediction_interval_coverage,
     prediction_interval_coverage_probability,
     sharpness,
 )
@@ -99,14 +89,6 @@ from .ordinal import (
     mean_absolute_class_error,
     ordinal_accuracy,
     quadratic_weighted_kappa,
-)
-from .photo_z import (
-    binned_cdf,
-    crps_from_binned_cdf,
-    paired_bootstrap_ci,
-    pdf_width_68,
-    pit_cvm,
-    pit_local_w1,
 )
 from .point import (
     HuberMetric,
@@ -155,16 +137,8 @@ from .uncertain import (
 )
 
 __all__ = [
-    # Calibration
-    "ExpectedCalibrationError",
-    "MarginalCalibrationError",
-    "bias",
     "frozen_readout_metrics",
     "binned_cdf",
-    "expected_calibration_error",
-    "marginal_calibration_error",
-    "calibration_score",
-    "calibration_metrics_report",
     # Simulation-based inference calibration (SBC / TARP)
     "simulation_based_calibration_ranks",
     "sbc_rank_histogram",
@@ -197,9 +171,7 @@ __all__ = [
     "pinball_loss",
     "pinball_metric",
     "paired_bootstrap_ci",
-    "pdf_width_68",
     "pit_cvm",
-    "pit_local_w1",
     "probability_integral_transform",
     "vario_score",
     "variogram_score",
@@ -227,7 +199,6 @@ __all__ = [
     "Sharpness",
     "interval_score",
     "sharpness",
-    "prediction_interval_coverage",
     "prediction_interval_coverage_probability",
     "interval_metrics_report",
     # Multivariate
@@ -275,10 +246,6 @@ __all__ = [
     "consistency_error",
     "pseudo_label_acceptance_rate",
     "uncertain_gt_metrics_report",
-    # Torchmetrics direct exports — deprecated; import directly from torchmetrics
-    # "MeanSquaredError",
-    # "MeanAbsoluteError",
-    # "R2Score",
     "frozen_readout_metrics",
     "neighbour_target_gap",
     "nmad",

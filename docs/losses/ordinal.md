@@ -121,20 +121,17 @@ This is the right fit for:
 - regression-as-classification with uncertain ordered bins,
 - soft pseudo labels from a teacher model.
 
-### CORALLoss
+### CORAL head
 
-CORAL-style consistent rank logits. See [CORALLoss API](../api/losses.md).
+The CORAL rank constraint (shared weight, per-level bias) lives on the model, for example `CORALHead`. The loss is `CumulativeLinkLoss`.
 
 ```python
-from torchregress.losses import CORALLoss
+from torchregress.losses import CumulativeLinkLoss
 
 logits = torch.randn(32, num_classes - 1)  # K-1 binary logits
-loss_fn = CORALLoss()
+loss_fn = CumulativeLinkLoss()
 loss = loss_fn(logits, labels)
 ```
-
-!!! tip "When to use"
-    Best **empirical performance** on many benchmarks (Cao et al., 2020).
 
 ---
 
@@ -147,12 +144,12 @@ loss = loss_fn(logits, labels)
 
 ## Method Comparison
 
-| | OrdinalCE | CumulativeLinkLoss | CORALLoss |
-|:-|:---------:|:------------------:|:---------:|
-| Exploits ordering | ❌ | ✅ | ✅ |
-| Parameters | $K$ logits | $K-1$ logits + thresholds | $K-1$ biases (shared weights) |
-| Guarantees monotonicity | ❌ | ✅ (via thresholds) | ✅ (by construction) |
-| Typical performance | Baseline | Good | Best |
+| | OrdinalCE | CumulativeLinkLoss |
+|:-|:---------:|:------------------:|
+| Exploits ordering | ❌ | ✅ |
+| Parameters | $K$ logits | $K-1$ logits. A CORAL head uses one shared weight and $K-1$ biases |
+| Guarantees monotonicity | ❌ | ✅ (via thresholds, or by the head) |
+| Typical performance | Baseline | Good |
 
 ---
 
@@ -161,7 +158,7 @@ loss = loss_fn(logits, labels)
 ```python
 import torch
 import torch.nn as nn
-from torchregress.losses import CORALLoss
+from torchregress.losses import CumulativeLinkLoss
 
 K = 5  # 1-5 star ratings
 
@@ -180,7 +177,7 @@ class RatingModel(nn.Module):
         return h - self.biases.unsqueeze(0)  # [batch, K-1]
 
 model = RatingModel(in_dim=50, K=K)
-loss_fn = CORALLoss()
+loss_fn = CumulativeLinkLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 # Training
@@ -204,7 +201,7 @@ with torch.no_grad():
     Sum the sigmoid-activated outputs: $\hat{y} = \sum_{k=1}^{K-1} \sigma(f(x) - b_k)$.  Round to nearest integer for discrete predictions.
 
 !!! tip "Choosing between losses"
-    - **Start with CORALLoss** — best empirical performance
+    - **Start with CumulativeLinkLoss** — cumulative logits, with a CORAL head when the rank constraint belongs on the model
     - Use **CumulativeLinkLoss** for interpretable threshold parameters
     - Use **OrdinalCrossEntropyLoss** as a baseline or when you already have soft bin targets
 

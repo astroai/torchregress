@@ -2,7 +2,7 @@
 
 > ← [LatentNN](latentnn.md) | [SIMEX](simex.md) → [Post-hoc calibration](../calibration.md)
 
-**Group Distributionally Robust Optimization (Group DRO)** replaces the average training risk with the *worst-group* risk over a small set of physical regimes. For regression on a long-tailed continuous target — stellar metallicity, age, redshift, luminosity — the target range is split into interpretable bins, and the model is trained to equalize its error across them instead of averaging a catastrophic tail away with a well-populated bulk.
+**Group Distributionally Robust Optimization (Group DRO)** replaces the average training risk with the *worst-group* risk over a small set of physical regimes. For regression on a long-tailed continuous target, the target range is split into interpretable bins, and the model is trained to equalize its error across them instead of averaging a catastrophic tail away with a well-populated bulk.
 
 `torchregress` already has a **CVaR** loss that focuses on the worst individual samples. CVaR is the wrong tool for noisy astronomical data: the highest-loss individuals are usually corrupted spectra or outliers in the *bulk*, not the metal-poor tail. Group DRO first **averages the individual noise inside each target regime**, then equalizes the regime means, so a noisy solar-metallicity sample cannot dominate the objective.
 

@@ -36,8 +36,8 @@ $1.4826\,\mathrm{median}|r|$ and is used in the readout metrics.
 !!! warning "Descriptor, not a benchmark"
     The readout split here is a quick deterministic diagnostic.  A manuscript
     comparison should use a task-specific validation protocol, paired seeds, and
-    test-sample uncertainty intervals; see
-    [`paired_bootstrap_ci`](photo_z.md#pdf-width-and-paired-uncertainty).
+    test-sample uncertainty intervals; use `paired_bootstrap_ci` where a paired
+    bootstrap is appropriate.
 
 ## References
 

@@ -130,7 +130,7 @@ For heteroscedastic vector residuals, provide `covariance_fn=lambda state: covar
 
 ## Fixed-prediction compatibility utility
 
-`reweight_fixed_predictions(model, x, y_true, ...)` preserves the previous post-hoc behavior: it evaluates a fixed model and returns `(prediction, loss_history, precision)` without refitting. The old name `iteratively_reweighted_least_squares` remains available as a deprecated alias so existing callers do not break. New code that needs genuine IRLS should use `iteratively_reweighted_fit`.
+`reweight_fixed_predictions(model, x, y_true, ...)` evaluates a fixed model and returns `(prediction, loss_history, precision)` without refitting. Code that needs genuine IRLS should use `iteratively_reweighted_fit`.
 
 ---
 

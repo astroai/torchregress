@@ -47,6 +47,7 @@ import torch
 from scipy.spatial.distance import mahalanobis
 from sklearn.neighbors import KernelDensity
 
+import torchregress.calibration as C
 import torchregress.metrics as M
 
 RTOL = 1e-10
@@ -54,16 +55,13 @@ RTOL = 1e-10
 COVERED: dict[str, str] = {}
 
 NO_REFERENCE: dict[str, str] = {
-    "MarginalCalibrationError": "torchregress-specific binned marginal-CDF gap; no library equivalent",
-    "marginal_calibration_error": "torchregress-specific binned marginal-CDF gap; no library equivalent",
-    "calibration_metrics_report": "composition of ECE/MCE/bias, whose components are parity-tested",
     "censoring_rate": "trivial mean of a censoring mask; no library equivalent",
     "observed_mae": "trivial MAE over the observed subset; torchregress censoring codes",
     "interval_overlap_rate": "torchregress-specific overlap of predicted and censoring intervals",
     "RiskCoverageCurve": "torchregress-specific risk-coverage curve / AURC (trapezoid over coverage)",
     "RejectionPolicy": "torchregress-specific selective-prediction policy",
     "risk_coverage_curve": "torchregress-specific risk-coverage curve / AURC (trapezoid over coverage)",
-    "OutlierFraction": "torchregress-specific |e|/(1+y) or |e| > k*std outlier rule (photo-z style)",
+    "OutlierFraction": "torchregress-specific |e|/(1+y) or |e| > k*std outlier rule (robust outlier rule)",
     "ood_metrics_report": "composition of OOD scores, whose components are parity-tested",
     "consistency_error": "trivial student/teacher L_p discrepancy; no library equivalent",
     "pseudo_label_acceptance_rate": "trivial thresholded mean; no library equivalent",
@@ -71,9 +69,7 @@ NO_REFERENCE: dict[str, str] = {
     "binned_cdf": "paper-defined conversion from bin masses to CDF; no external library",
     "crps_from_binned_cdf": "paper-defined exact piecewise-linear CRPS; no external library",
     "paired_bootstrap_ci": "torchregress-specific paired percentile bootstrap",
-    "pdf_width_68": "paper-defined normalized central-68% PDF width",
     "pit_cvm": "paper-defined PIT Cramér--von Mises statistic",
-    "pit_local_w1": "paper-defined local photometric PIT-Wasserstein diagnostic",
     "frozen_readout_metrics": "paper-defined frozen-feature OLS/k-NN readout diagnostic",
     "neighbour_target_gap": "paper-defined neighbourhood target-homogeneity diagnostic",
     "nmad": "paper-defined normalized median absolute deviation; no external library",
@@ -421,7 +417,6 @@ def test_interval_score():
 
 @covers(
     "prediction_interval_coverage_probability",
-    "prediction_interval_coverage",
     "PredictionIntervalCoverageProbability",
     "MeanPredictionIntervalWidth",
     "Sharpness",
@@ -436,7 +431,6 @@ def test_coverage_and_width():
     assert _f(M.prediction_interval_coverage_probability(_t(lo), _t(hi), _t(y))) == pytest.approx(
         cov_ref
     )
-    assert _f(M.prediction_interval_coverage(_t(lo), _t(hi), _t(y))) == pytest.approx(cov_ref)
     m = M.PredictionIntervalCoverageProbability()
     m.update(_t(lo), _t(hi), _t(y))
     assert _f(m.compute()) == pytest.approx(cov_ref)
@@ -713,39 +707,32 @@ def _qce(levels: np.ndarray, q: np.ndarray, y: np.ndarray) -> tuple[float, float
     return np.abs(err).mean(), math.sqrt(np.mean(err**2)), np.abs(err).max()
 
 
-@covers(
-    "expected_calibration_error",
-    "ExpectedCalibrationError",
-    "calibration_score",
-    ref="numpy quantile calibration error (Kuleshov et al. 2018) on scipy.stats.norm.ppf quantiles",
-)
 def test_quantile_calibration_error():
     mu, sig, y = _quantile_forecast()
     levels = np.array([0.1, 0.25, 0.5, 0.75, 0.9])
     q = mu[None, :] + sig[None, :] * st.norm.ppf(levels)[:, None]
     mace, rmsce, maxce = _qce(levels, q, y)
     qd = {float(lv): _t(q[i]) for i, lv in enumerate(levels)}
-    out = M.expected_calibration_error(qd, _t(y))
+    out = C.expected_calibration_error(qd, _t(y))
     assert _f(out["mean_absolute_calibration_error"]) == pytest.approx(mace, rel=1e-6)
     assert _f(out["root_mean_squared_calibration_error"]) == pytest.approx(rmsce, rel=1e-6)
     assert _f(out["maximum_calibration_error"]) == pytest.approx(maxce, rel=1e-6)
-    m = M.ExpectedCalibrationError()
+    m = C.ExpectedCalibrationError()
     m.update({k: v[:150] for k, v in qd.items()}, _t(y[:150]))
     m.update({k: v[150:] for k, v in qd.items()}, _t(y[150:]))
     assert _f(m.compute()["mean_absolute_calibration_error"]) == pytest.approx(mace, rel=1e-6)
 
     levels = np.linspace(0.05, 0.95, 19)
     q = mu[None, :] + sig[None, :] * st.norm.ppf(levels)[:, None]
-    out = M.calibration_score(_t(y), _t(mu), _t(sig))
+    out = C.calibration_score(_t(y), _t(mu), _t(sig))
     assert _f(out["mean_absolute_calibration_error"]) == pytest.approx(
         _qce(levels, q, y)[0], rel=1e-6
     )
 
 
-@covers("bias", ref="numpy mean(y_pred - y_true)")
 def test_bias():
     yp, yt = _point()
-    assert _f(M.bias(_t(yp), _t(yt))) == pytest.approx(np.mean(yp - yt), rel=1e-12)
+    assert _f(C.bias(_t(yp), _t(yt))) == pytest.approx(np.mean(yp - yt), rel=1e-12)
 
 
 # =========================================================================== censored / ordinal

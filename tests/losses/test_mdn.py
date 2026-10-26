@@ -6,9 +6,6 @@ import torch.nn.functional as F
 
 from torchregress.losses.mdn import MixtureDensityLoss
 
-# Alias for tests
-MDNLoss = MixtureDensityLoss
-
 
 class TestMixtureDensityLoss:
     """Tests for MixtureDensityLoss implementation."""
@@ -301,10 +298,10 @@ class TestMixtureDensityLoss:
     # Removed test_factory_function as create_mdn_loss was removed.
 
     def test_mdn_edge_cases(self):
-        """Test MDNLoss with edge cases: zeros, empty tensors, extreme values, NaN/Inf."""
+        """Test MixtureDensityLoss with edge cases: zeros, empty tensors, extreme values, NaN/Inf."""
         n_components = 3
         n_features = 1
-        loss_fn = MDNLoss(n_components=n_components, n_features=n_features)
+        loss_fn = MixtureDensityLoss(n_components=n_components, n_features=n_features)
 
         # Test with zeros
         y_pred_zeros = torch.zeros(10, loss_fn.expected_output_size)
@@ -331,14 +328,16 @@ class TestMixtureDensityLoss:
 
 class TestMDNLossNumericalStability:
     def test_mdn_gradient_flow(self):
-        """Test that gradients flow through MDNLoss properly."""
+        """Test that gradients flow through MixtureDensityLoss properly."""
 
         # Create simple model and test gradient flow
         n_samples = 5
         n_components = 2
         n_features = 2
 
-        loss_fn = MDNLoss(n_components=n_components, n_features=n_features, reduction="mean")
+        loss_fn = MixtureDensityLoss(
+            n_components=n_components, n_features=n_features, reduction="mean"
+        )
         y_pred = torch.randn(n_samples, loss_fn.expected_output_size, requires_grad=True)
         target = torch.randn(n_samples, n_features)
 
@@ -355,7 +354,9 @@ class TestMDNLossNumericalStability:
         n_components = 2
         n_features = 1
 
-        mdn_loss = MDNLoss(n_components=n_components, n_features=n_features, reduction="mean")
+        mdn_loss = MixtureDensityLoss(
+            n_components=n_components, n_features=n_features, reduction="mean"
+        )
 
         # Test with normal values
         y_pred = torch.randn(n_samples, mdn_loss.expected_output_size, requires_grad=True)
@@ -373,7 +374,9 @@ class TestMDNLossNumericalStability:
         n_components = 2
         n_features = 1
 
-        mdn_loss = MDNLoss(n_components=n_components, n_features=n_features, reduction="mean")
+        mdn_loss = MixtureDensityLoss(
+            n_components=n_components, n_features=n_features, reduction="mean"
+        )
 
         # Create data
         y_pred = torch.randn(n_samples, mdn_loss.expected_output_size, requires_grad=True)
@@ -406,7 +409,7 @@ class TestMDNMixtureAggregationNumerics:
         The geometry below keeps every responsibility r_k above 1e-12 so
         each logit receives a healthy gradient under the fixed code."""
         n_samples, n_components, n_features = 2, 3, 1
-        loss_fn = MDNLoss(n_components=n_components, n_features=n_features)
+        loss_fn = MixtureDensityLoss(n_components=n_components, n_features=n_features)
 
         y_pred = torch.zeros(n_samples, loss_fn.expected_output_size)
         # Extreme weight logits: the -100/-100 tails carry ~0 probability mass.
@@ -434,7 +437,7 @@ class TestMDNMixtureAggregationNumerics:
     def test_matches_direct_numerical_mixture_nll(self):
         torch.manual_seed(7)
         n_components, n_features = 3, 2
-        loss_fn = MDNLoss(n_components=n_components, n_features=n_features)
+        loss_fn = MixtureDensityLoss(n_components=n_components, n_features=n_features)
 
         y_pred = torch.randn(4, loss_fn.expected_output_size)
         target = torch.randn(4, n_features)

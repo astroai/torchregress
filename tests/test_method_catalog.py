@@ -8,10 +8,10 @@ from torchregress import method_catalog
 
 def test_method_catalog_includes_peer_uq_methods_without_experimental_default_label() -> None:
     names = {m.name for m in method_catalog._METHODS}
-    assert {"SWAG", "BayesianNeuralNetwork", "MDNLoss"} <= names
+    assert {"SWAG", "BayesianNeuralNetwork", "MixtureDensityLoss"} <= names
     assert {"BayesianLinearHead", "RecursiveBayesianHead"} <= names
 
-    for name in ("SWAG", "BayesianNeuralNetwork", "MDNLoss"):
+    for name in ("SWAG", "BayesianNeuralNetwork", "MixtureDensityLoss"):
         meta = method_catalog.get_method_metadata(name)
         assert meta["maturity"] != "Experimental"
         assert meta["family"] in {"swag", "bnn", "mdn"}
@@ -31,7 +31,7 @@ def test_method_catalog_includes_refit_capable_irls() -> None:
 def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
     multimodal = method_catalog.list_methods(capability_filters={"multimodal": "yes"})
     multimodal_names = {row["name"] for row in multimodal}
-    assert {"MDNLoss", "NormalizingFlowLoss", "ContrastiveFlowLoss"} <= multimodal_names
+    assert {"MixtureDensityLoss", "NormalizingFlowLoss", "ContrastiveFlowLoss"} <= multimodal_names
 
     eiv = method_catalog.list_methods(task_tag="noisy_features")
     eiv_names = {row["name"] for row in eiv}
@@ -45,7 +45,7 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
         "HeteroscedasticBNN",
         "MDNEnsembleModel",
     } <= decomp_names
-    assert "MDNLoss" not in decomp_names
+    assert "MixtureDensityLoss" not in decomp_names
 
     inference = method_catalog.list_methods(task_tag="inference")
     inference_names = {row["name"] for row in inference}
@@ -57,7 +57,7 @@ def test_method_catalog_filtering_by_capability_and_task_tag() -> None:
 
     ordinal = method_catalog.list_methods(task_tag="ordinal")
     ordinal_names = {row["name"] for row in ordinal}
-    assert {"OrdinalCrossEntropyLoss", "CumulativeLinkLoss", "CORALLoss"} <= ordinal_names
+    assert {"OrdinalCrossEntropyLoss", "CumulativeLinkLoss"} <= ordinal_names
 
     censored = method_catalog.list_methods(task_tag="censored")
     censored_names = {row["name"] for row in censored}

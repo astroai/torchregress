@@ -26,7 +26,6 @@ from .heteroscedastic_laplace import (
 )
 from .irls import (
     IRLSConfig,
-    iteratively_reweighted_least_squares,
     reweight_fixed_predictions,
 )
 from .irls_fit import (
@@ -51,7 +50,6 @@ from .warmup_mc import WarmupMCTrainer
 __all__ = [
     "IVON",
     "iteratively_reweighted_fit",
-    "iteratively_reweighted_least_squares",
     "reweight_fixed_predictions",
     "robust_weights",
     "IRLSProblem",

@@ -164,7 +164,6 @@ def test_reduction_behavior():
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
         "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
         "CumulativeLinkLoss",  # Needs discrete ordinal targets
-        "CORALLoss",  # Needs discrete ordinal targets
         "CensoredGaussianNLLLoss",  # Needs mean+variance inputs
         "AFTLoss",  # Needs loc+log-scale inputs
         "InputNoiseAugmentationLoss",  # Meta-loss (needs model/base_loss)
@@ -183,9 +182,7 @@ def test_reduction_behavior():
         "BinnedDensityLoss",  # Needs bin_edges + scalar logits
         "JointBinnedDensityLoss",  # Needs per-target bin_edges + joint logits
         "UncertaintyAwareConR",  # Needs model predictions + label_sigma
-        "PZRecipeLoss",  # Needs bin centers + features
         "CumulativeCDFLoss",  # Needs bin centers
-        "TriLoss",  # Needs bin centers + features
     ]
 
     # Flexible-shape family losses consume multi-column parameter vectors

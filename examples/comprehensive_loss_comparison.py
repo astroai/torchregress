@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
+from torchregress.calibration import ExpectedCalibrationError
 from torchregress.comparison import (
     compute_point_metrics,
     print_comparison_summary,
@@ -30,10 +31,7 @@ from torchregress.losses import (
     TukeyBiweightLoss,
     create_loss_from_config,
 )
-from torchregress.metrics import (
-    ContinuousRankedProbabilityScore,
-    ExpectedCalibrationError,
-)
+from torchregress.metrics import ContinuousRankedProbabilityScore
 
 
 class SimpleMLP(nn.Module):

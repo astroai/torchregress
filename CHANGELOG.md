@@ -6,13 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
-## [0.3.0] - 2026-10-19
+Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, and harness parity. No new methods.
 
-**Algorithm freeze for 0.3.0 (from 2026-10-05):** no new methods or method changes
-until 0.3.0 ships, except the competitive-gap items decided on 2026-10-07
-(`TabularMLP`, model-agnostic UQ wrappers, calibrated-ensemble recipe, and
-the flow, DML and transport improvements below). Other methods to add or
-remove are decided for 0.4.0.
+## [0.3.0b1] - 2026-10-26
+
+API cut. One public name per behavior.
+
+### Removed
+
+- Compatibility aliases: `MDNLoss` (use `MixtureDensityLoss`), `ExpectileCrossover`, `QuantileCrossover`, `AsymmetricLeastSquaresLoss`, `CORALLoss` (use `CumulativeLinkLoss`; `CORALHead` is unchanged), `JackknifePlus` (use `CVPlus`; leave-one-out is `K = n`), `SelfAgreementTrainer` (use `TeacherStudentTrainer`), `iteratively_reweighted_least_squares` (use `reweight_fixed_predictions` or `iteratively_reweighted_fit`), `RepresentationShiftCalibrator`, `SignificantSubspaceAligner`, `prediction_interval_coverage`, `MeanIntervalWidth`.
+- Torchmetrics re-exports and the calibration-metric re-exports from `torchregress.metrics`. Calibration metrics are `torchregress.calibration` only.
+- The ignored `debias` argument on `CQR`, `UACQR`, and `ConformalLoss`.
+- `utils.quantile.quantile_loss` is `pinball_residual`. `fetch_openml_regression_with_sklearn_fallback` is `fetch_openml_regression`.
+- Registry keys `"als"` and `"coral"`.
 
 ### Added
 - True noise-adaptive Balanced MSE (`BalancedMSEBMC`, `balanced_mse_bmc_loss`;
@@ -369,7 +375,7 @@ remove are decided for 0.4.0.
 - Initial PyPI release candidate (unreleased). Pre-1.0 blockers TR-COR-01…09 (all fixed in `6ce4b9e`).
 - Features: 19 loss families, `PredictiveBatch`, `torchmetrics` metrics, conformal (split/CQR/CTI/weighted/Mondrian/CV+), `SemiConformalCalibrator`, ensembles (DeepEnsemble/BatchEnsemble/SWAG/Laplace/BNN/MC-Dropout), algorithms (IRLS/SIMEX/RC/LatentNN/TICTAC/VIDS), causal `dr_*`, PPI, test-time (BLR/OT/COSA/subspace/transport).
 
-[Unreleased]: https://github.com/astroai/torchregress/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/astroai/torchregress/compare/v0.2.0...v0.3.0
+[Unreleased]: https://github.com/astroai/torchregress/compare/v0.3.0b1...HEAD
+[0.3.0b1]: https://github.com/astroai/torchregress/compare/v0.2.0...v0.3.0b1
 [0.2.0]: https://github.com/astroai/torchregress/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/astroai/torchregress/releases/tag/v0.1.0

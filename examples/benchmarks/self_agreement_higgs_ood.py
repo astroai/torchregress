@@ -45,6 +45,7 @@ import torch.nn.functional as F  # noqa: E402
 from torch import Tensor, nn  # noqa: E402
 from torch.utils.data import DataLoader, TensorDataset  # noqa: E402
 
+from torchregress.calibration import calibration_score  # noqa: E402
 from torchregress.comparison import (  # noqa: E402
     print_comparison_summary,
     print_fairness_notes,
@@ -53,14 +54,13 @@ from torchregress.comparison import (  # noqa: E402
     write_comparison_summary_json,
 )
 from torchregress.metrics import (  # noqa: E402
-    calibration_score,
     crps_gaussian,
     gaussian_nll,
     prediction_interval_coverage_probability,
 )
 from torchregress.prediction import PredictiveBatch  # noqa: E402
 from torchregress.semi_supervised import (  # noqa: E402
-    SelfAgreementTrainer,
+    TeacherStudentTrainer,
     disagreement_to_weight,
     predictive_agreement_score,
 )
@@ -626,7 +626,7 @@ def _train_sage_student(
             cfg.feature_mix_prob,
         )
 
-    trainer = SelfAgreementTrainer(
+    trainer = TeacherStudentTrainer(
         optimizer=optimizer,
         supervised_loss_fn=lambda model_, x, y: _supervised_loss(
             cast(TabularGaussianRegressor, model_), x, y

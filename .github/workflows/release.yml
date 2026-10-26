@@ -1,6 +1,7 @@
 name: Release
 
-# vX.Y.ZrcN tags publish to TestPyPI (dry run); vX.Y.Z tags publish to PyPI.
+# Pre-release tags vX.Y.ZaN, vX.Y.ZbN, and vX.Y.ZrcN publish to TestPyPI.
+# Final tags vX.Y.Z publish to PyPI.
 # Both use Trusted Publishing: astroai/torchregress, workflow release.yml,
 # environment `testpypi` or `pypi` respectively (see docs/RELEASING.md).
 
@@ -69,7 +70,7 @@ jobs:
         run: python ${{ github.workspace }}/scripts/release/smoke_install.py
 
   publish-testpypi:
-    if: contains(github.ref_name, 'rc')
+    if: contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc')
     needs: [build, install-smoke]
     runs-on: ubuntu-latest
     environment:
@@ -89,7 +90,7 @@ jobs:
           attestations: true
 
   publish-pypi:
-    if: ${{ !contains(github.ref_name, 'rc') }}
+    if: ${{ !(contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc')) }}
     needs: [build, install-smoke]
     runs-on: ubuntu-latest
     environment:

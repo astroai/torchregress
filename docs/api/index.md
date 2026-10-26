@@ -64,8 +64,8 @@ torchregress/
 │   ├── gaussian_wasserstein.py
 │   ├── faithful_gaussian.py
 │   ├── robust.py          # Huber, Cauchy, Tukey, Barron, Adaptive, CVaR, LogCosh, Charbonnier, PseudoHuber
-│   ├── quantile.py        # Quantile, MultiQuantile, QuantileCrossover
-│   ├── expectile.py       # Expectile, MultiExpectile, AsymmetricLeastSquares
+│   ├── quantile.py        # Quantile, MultiQuantile, QuantileCrossoverLoss
+│   ├── expectile.py       # Expectile, MultiExpectile
 │   ├── conformal.py       # SplitConformal, CQR, UACQR, Density, MonteCarlo, Local, CTI, SLS, NexCP, MultivariateScore, ConformalLoss
 │   ├── censored.py        # CensoredGaussianNLL, CensoredQuantile, AFT
 │   ├── poisson.py         # PoissonDeviance, NegativeBinomial, ZeroInflatedPoisson
@@ -103,7 +103,7 @@ torchregress/
 ├── comparison.py          # Comparison-example helpers (seeds, JSON summary)
 ├── prediction.py          # Predictive batch containers
 ├── viz/                   # Diagnostic, monitoring, results, utils plots
-├── semi_supervised.py     # TeacherStudentTrainer (alias SelfAgreementTrainer)
+├── semi_supervised.py     # TeacherStudentTrainer
 └── utils/                 # tensor_ops, validation, augment, ordinal, propensity, transforms
 ```
 

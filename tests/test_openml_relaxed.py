@@ -57,7 +57,7 @@ def test_fetch_openml_regression_frame_skip_checksum_smoke(monkeypatch: pytest.M
     assert "relaxed_arff_no_md5" in tag
 
 
-def test_fetch_openml_regression_with_sklearn_fallback_always_relaxed(
+def test_fetch_openml_regression_always_relaxed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import numpy as np
@@ -68,7 +68,7 @@ def test_fetch_openml_regression_with_sklearn_fallback_always_relaxed(
 
     monkeypatch.setattr(m, "fetch_openml_regression_frame_skip_checksum", relaxed)
 
-    X, y, tag = m.fetch_openml_regression_with_sklearn_fallback(
+    X, y, tag = m.fetch_openml_regression(
         data_id=42225,
         name=None,
         version=1,
@@ -79,9 +79,9 @@ def test_fetch_openml_regression_with_sklearn_fallback_always_relaxed(
     assert tag == "relaxed"
 
 
-def test_fetch_openml_regression_with_sklearn_fallback_no_args() -> None:
+def test_fetch_openml_regression_no_args() -> None:
     with pytest.raises(ValueError, match="openml regression fetch requires data_id or name"):
-        m.fetch_openml_regression_with_sklearn_fallback(
+        m.fetch_openml_regression(
             data_id=None,
             name=None,
             version=1,

@@ -287,9 +287,9 @@ lower, upper = cp.predict_interval(y_pred_test, x=x_test, mad=mad_test)
 
 ---
 
-## CVPlus & JackknifePlus
+## CVPlus
 
-**CV+** and **Jackknife+** (leave-one-out variant) conformal predictors are designed specifically for ensemble models (e.g., cross-validation ensembles). Instead of holding out a single calibration dataset, they reuse the out-of-fold/out-of-bag predictions from a $K$-fold training procedure.
+**CV+** conformal prediction is for cross-validation ensembles. Leave-one-out (jackknife+) is the same predictor with `K = n`. Instead of holding out a single calibration dataset, it reuses the out-of-fold predictions from a $K$-fold training procedure.
 
 !!! abstract "Summary"
     **Score:** $\;s_i = \lvert y_i - \hat{y}_{-f(i)}(x_i) \rvert$ (out-of-fold absolute residual)

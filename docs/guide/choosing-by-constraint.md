@@ -124,7 +124,7 @@ When the conditional $p(y \mid x)$ is known or expected to be
 multimodal, a single Gaussian head is structurally inadequate.
 Recommended order:
 
-1. **MDN** ([`MDNLoss`](../api/losses.md)). Good first multimodal baseline; tune the
+1. **MDN** ([`MixtureDensityLoss`](../api/losses.md)). Good first multimodal baseline; tune the
    number of components $J$ by held-out CRPS.
 2. **Quantile / expectile methods** — [`MultiQuantileLoss`](../api/losses.md) with
    $[0.05, 0.1, 0.5, 0.9, 0.95]$. Suitable when intervals (not the
@@ -290,7 +290,7 @@ for row in rows:
 | Coverage only | `SplitConformal` / `CQR` | A density model alone (no coverage guarantee) |
 | Decomposition only | Heteroscedastic ensemble, BNN, evidential | Conformal prediction (no decomposition) |
 | Coverage **and** decomposition | Probabilistic head + conformal calibration | Either alone |
-| Multimodal targets | `MDNLoss` → `NormalizingFlowLoss` | A single Gaussian head |
+| Multimodal targets | `MixtureDensityLoss` → `NormalizingFlowLoss` | A single Gaussian head |
 | Noisy inputs | `FunctionalEIVLoss`, `OrthogonalDistanceRegressionLoss`, RC, SIMEX | Standard NLL on the noisy input |
 | Single-pass uncertainty | `EvidentialRegressionLoss` | A heavy ensemble for marginal benefit |
 | Production-grade audit trail | `write_comparison_summary_json` + `torchregress.health` | Ad-hoc logging |

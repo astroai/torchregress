@@ -2,19 +2,19 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 157,
+    "total_methods": 151,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
       "causal": 2,
       "censored": 3,
-      "conformal": 19,
+      "conformal": 18,
       "constraints": 2,
       "density_loss": 3,
       "eiv": 16,
       "ensemble": 8,
       "evidential": 1,
-      "expectile": 3,
+      "expectile": 2,
       "flow": 3,
       "flow_map": 1,
       "flow_matching": 1,
@@ -25,9 +25,7 @@
       "mc_dropout": 1,
       "mdn": 1,
       "multivariate": 1,
-      "ordinal": 3,
-      "photo_z_loss": 2,
-      "photo_z_model": 1,
+      "ordinal": 2,
       "point_loss": 1,
       "poisson": 4,
       "poisson_gaussian": 3,
@@ -48,12 +46,12 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 130
+      "Available": 124
     },
     "peer_uq_methods_present": {
       "SWAG": true,
       "BayesianNeuralNetwork": true,
-      "MDNLoss": true
+      "MixtureDensityLoss": true
     }
   },
   "rows": [
@@ -577,28 +575,6 @@
       "notes": "Simultaneous multi-expectile loss for distribution-free interval estimation."
     },
     {
-      "name": "AsymmetricLeastSquaresLoss",
-      "family": "expectile",
-      "public_path": "torchregress.losses.AsymmetricLeastSquaresLoss",
-      "task_tags": [
-        "prediction_intervals",
-        "non_gaussian",
-        "expectile"
-      ],
-      "maturity": "Available",
-      "multimodal": "no",
-      "multi_target": "yes",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "no",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "Base asymmetric least-squares loss for expectile regression."
-    },
-    {
       "name": "ConformalLoss",
       "family": "conformal",
       "public_path": "torchregress.losses.ConformalLoss",
@@ -816,28 +792,6 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "CV+ conformal prediction utilizing out-of-fold residuals for cross-validation ensembles."
-    },
-    {
-      "name": "JackknifePlus",
-      "family": "conformal",
-      "public_path": "torchregress.losses.JackknifePlus",
-      "task_tags": [
-        "coverage_guarantees",
-        "calibration",
-        "ensemble"
-      ],
-      "maturity": "Available",
-      "multimodal": "no",
-      "multi_target": "yes",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "no",
-      "decomposition": "no",
-      "calibration": "yes",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "Jackknife+ conformal prediction, equivalent to CV+ with leave-one-out cross-validation."
     },
     {
       "name": "EnsembleBatchCP",
@@ -1162,28 +1116,6 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Cumulative-threshold objective with K-1 logits for ordinal labels or soft ordered-bin PMFs."
-    },
-    {
-      "name": "CORALLoss",
-      "family": "ordinal",
-      "public_path": "torchregress.losses.CORALLoss",
-      "task_tags": [
-        "ordinal",
-        "ordered_targets",
-        "calibration"
-      ],
-      "maturity": "Available",
-      "multimodal": "no",
-      "multi_target": "yes",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "no",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "CORAL-style cumulative ordinal objective."
     },
     {
       "name": "CensoredGaussianNLLLoss",
@@ -1697,9 +1629,9 @@
       "notes": "Empirical CDF remapping for PIT distribution calibration."
     },
     {
-      "name": "MDNLoss",
+      "name": "MixtureDensityLoss",
       "family": "mdn",
-      "public_path": "torchregress.losses.MDNLoss",
+      "public_path": "torchregress.losses.MixtureDensityLoss",
       "task_tags": [
         "multimodal",
         "non_gaussian",
@@ -1990,52 +1922,6 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "OT-CFM velocity field with a short Euler sampler. No exact likelihood; use sample-based CRPS/energy/coverage/PIT, or an ODE likelihood if NLL is required."
-    },
-    {
-      "name": "PZRecipeLoss",
-      "family": "photo_z_loss",
-      "public_path": "torchregress.losses.PZRecipeLoss",
-      "task_tags": [
-        "photo_z",
-        "binned_cdf",
-        "representation_learning",
-        "ordinal"
-      ],
-      "maturity": "Available",
-      "multimodal": "yes",
-      "multi_target": "no",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "yes",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "CE + equal-width binned-CDF + RnC-N first-stage photo-z objective. Binned conditional CDF, not a continuous density likelihood; bin centers and normalization must be fitted from training data."
-    },
-    {
-      "name": "TriLoss",
-      "family": "photo_z_loss",
-      "public_path": "torchregress.losses.TriLoss",
-      "task_tags": [
-        "photo_z",
-        "binned_crps",
-        "representation_learning",
-        "ordinal"
-      ],
-      "maturity": "Available",
-      "multimodal": "yes",
-      "multi_target": "no",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "yes",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "Methods-paper CE + exact binned-CRPS + RnC-N tri-loss. Uses the same quantile bins as PZRecipeLoss; CRPS differs from the squared binned CDF."
     },
     {
       "name": "NormalizingFlowLoss",
@@ -2476,29 +2362,6 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Shared-weight ensemble variant for lower-latency uncertainty decomposition."
-    },
-    {
-      "name": "PZRecipe",
-      "family": "photo_z_model",
-      "public_path": "torchregress.models.PZRecipe",
-      "task_tags": [
-        "photo_z",
-        "tabular",
-        "binned_cdf",
-        "representation_learning"
-      ],
-      "maturity": "Available",
-      "multimodal": "yes",
-      "multi_target": "no",
-      "non_gaussian": "yes",
-      "epistemic": "no",
-      "aleatoric": "yes",
-      "decomposition": "no",
-      "calibration": "partial",
-      "ood_support": "partial",
-      "imbalance": "no",
-      "noisy_features_eiv": "no",
-      "notes": "Lean two-stage FT-Transformer + bin-classifier photo-z model. Stage 1 uses PZRecipeLoss; stage 2 freezes features. Reference structure, not the historical TabM training schedule."
     },
     {
       "name": "TabularMLP",

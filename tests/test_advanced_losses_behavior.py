@@ -7,7 +7,7 @@ from torch import nn
 from torchregress.losses import (
     EnsembleEIVLoss,
     FunctionalEIVLoss,
-    MDNLoss,
+    MixtureDensityLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
     create_mdn_loss,
@@ -23,7 +23,7 @@ def test_mdn_factory_mask_behavior_and_error_paths() -> None:
         covariance_type="diagonal",
         reduction="none",
     )
-    assert isinstance(loss_fn, MDNLoss)
+    assert isinstance(loss_fn, MixtureDensityLoss)
 
     y_pred = torch.randn(3, loss_fn.expected_output_size)
     target = torch.randn(3, 2)
@@ -38,7 +38,7 @@ def test_mdn_factory_mask_behavior_and_error_paths() -> None:
     with pytest.raises(ValueError, match="Expected 2 features"):
         loss_fn(y_pred, torch.randn(3, 3))
 
-    mdn_full = MDNLoss(n_components=2, n_features=2, covariance_type="full")
+    mdn_full = MixtureDensityLoss(n_components=2, n_features=2, covariance_type="full")
     draws = mdn_full.sample(torch.randn(2, mdn_full.expected_output_size), n_samples=4)
     assert draws.shape == (4, 2, 2) and torch.isfinite(draws).all()
 

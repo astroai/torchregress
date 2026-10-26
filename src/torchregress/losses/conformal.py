@@ -2,7 +2,7 @@
 Conformal prediction for regression.
 
 Provides standalone conformal predictors (calibration + prediction) and
-backward-compatible loss wrappers. Most methods provide finite-sample
+loss wrappers. Most methods provide finite-sample
 marginal coverage guarantees ``>= 1-alpha`` under exchangeability
 (split/CQR/CTI/etc.). Cross-validation variants (CV+/Jackknife+) provide
 ``>= 1-2alpha`` (Barber et al. 2021, Thm 1); weighted variants provide
@@ -25,7 +25,7 @@ Composable features (all predictors):
 - Mondrian groups (group-conditional calibration)
 - Weighted scores (covariate-shift robustness)
 
-Loss wrappers (backward-compatible):
+Loss wrappers:
 - ConformalLoss: training loss + calibration + prediction
 """
 
@@ -1147,10 +1147,6 @@ class CVPlus(ConformalPredictor):
         return lower_bound, upper_bound
 
 
-# JackknifePlus is equivalent to CVPlus when K = n (leave-one-out cross-validation)
-JackknifePlus = CVPlus
-
-
 class EnsembleBatchCP(ConformalPredictor):
     """Ensemble Batch Prediction Intervals (EnbPI) / Bootstrap+ Conformal Predictor.
 
@@ -1205,14 +1201,10 @@ class CQR(ConformalPredictor):
 
     Args:
         alpha: Miscoverage rate.
-        debias: Accepted for backward compatibility; no longer applies any
-            extra correction.  Calibration always uses the standard
-            finite-sample conformal adjustment (the ceil((n+1)*(1-alpha))
-            order statistic via :func:`finite_sample_quantile`).
         normalize_fn: Optional difficulty normalization.
 
     Example:
-        >>> cqr = CQR(alpha=0.1, debias=True)
+        >>> cqr = CQR(alpha=0.1)
         >>> cqr.calibrate(cal_quantile_preds, cal_targets)
         >>> lower, upper = cqr.predict_interval(test_quantile_preds)
 
@@ -1225,11 +1217,9 @@ class CQR(ConformalPredictor):
     def __init__(
         self,
         alpha: float = 0.1,
-        debias: bool = False,
         normalize_fn: Optional[Callable[..., Tensor]] = None,
     ) -> None:
         super().__init__(alpha=alpha, normalize_fn=normalize_fn)
-        self.debias = debias
 
     def _compute_scores(self, y_pred: Tensor, target: Tensor) -> Tensor:
         # A 1-D target must gain a trailing feature axis before the
@@ -1278,7 +1268,6 @@ class UACQR(CQR):
 
     Args:
         alpha: Miscoverage rate.
-        debias: Same as :class:`CQR`.
         min_width: Floor on :math:`q_{\\mathrm{hi}} - q_{\\mathrm{lo}}` for division.
         aggregation: ``\"mean\"`` or ``\"max\"`` across output dimensions for multi-target.
 
@@ -1291,7 +1280,6 @@ class UACQR(CQR):
     def __init__(
         self,
         alpha: float = 0.1,
-        debias: bool = False,
         *,
         min_width: float = 1e-6,
         aggregation: str = "mean",
@@ -1300,7 +1288,7 @@ class UACQR(CQR):
         if aggregation not in ("mean", "max"):
             raise ValueError('aggregation must be "mean" or "max".')
         self._uacqr_aggregation = aggregation
-        super().__init__(alpha=alpha, debias=debias, normalize_fn=self._uacqr_difficulty)
+        super().__init__(alpha=alpha, normalize_fn=self._uacqr_difficulty)
 
     def _uacqr_difficulty(self, y_pred: Tensor, x: Tensor) -> Tensor:
         del x
@@ -2582,7 +2570,7 @@ class MonteCarloConformal(ConformalPredictor):
 
 
 # ---------------------------------------------------------------------------
-# Backward-compatible Loss Wrappers
+# Loss wrappers
 # ---------------------------------------------------------------------------
 
 
@@ -2604,8 +2592,6 @@ class ConformalLoss(RegressionLoss):
     Args:
         method: ``'split'``, ``'cqr'``, or ``'uacqr'``.
         alpha: Miscoverage rate.
-        debias: Accepted for backward compatibility; no extra correction is
-            applied beyond the standard finite-sample conformal adjustment.
         reduction: Reduction for training loss.
         normalize_fn: Optional difficulty normalization (not used for ``'uacqr'``).
         uacqr_min_width: For ``method='uacqr'``, floor on predicted quantile width.
@@ -2622,7 +2608,6 @@ class ConformalLoss(RegressionLoss):
         self,
         method: str = "cqr",
         alpha: float = 0.1,
-        debias: bool = False,
         reduction: str = "mean",
         normalize_fn: Optional[Callable[..., Tensor]] = None,
         *,
@@ -2642,7 +2627,7 @@ class ConformalLoss(RegressionLoss):
         # Create the underlying predictor
         self._predictor: ConformalPredictor
         if method == "cqr":
-            self._predictor = CQR(alpha=alpha, debias=debias, normalize_fn=normalize_fn)
+            self._predictor = CQR(alpha=alpha, normalize_fn=normalize_fn)
         elif method == "uacqr":
             if normalize_fn is not None:
                 raise ValueError(
@@ -2650,7 +2635,6 @@ class ConformalLoss(RegressionLoss):
                 )
             self._predictor = UACQR(
                 alpha=alpha,
-                debias=debias,
                 min_width=uacqr_min_width,
                 aggregation=uacqr_aggregation,
             )

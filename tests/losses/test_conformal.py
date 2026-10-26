@@ -17,7 +17,6 @@ from torchregress.losses.conformal import (
     DensityConformal,
     DistributionalConformal,
     EnsembleBatchCP,
-    JackknifePlus,
     LocalConformal,
     LocalConformalMAD,
     MonteCarloConformal,
@@ -133,7 +132,7 @@ def test_uacqr_calibrate_and_predict_interval() -> None:
     lower = target - torch.rand(n, 1).abs()
     upper = target + torch.rand(n, 1).abs()
     y_pred_cal = torch.cat([lower, upper], dim=-1)
-    u = UACQR(alpha=0.1, debias=False)
+    u = UACQR(alpha=0.1)
     u.calibrate(y_pred_cal, target)
     y_pred_test = torch.cat([torch.zeros(7, 1), torch.ones(7, 1)], dim=-1)
     lo, hi = u.predict_interval(y_pred_test)
@@ -280,7 +279,7 @@ class TestCQR:
     def test_debias(self):
         """Debiased CQR should also achieve coverage."""
         alpha = 0.1
-        cqr = CQR(alpha=alpha, debias=True)
+        cqr = CQR(alpha=alpha)
         pred_cal, truth_cal = self._make_synthetic_quantile_data(300, seed=30)
         pred_test, truth_test = self._make_synthetic_quantile_data(1000, seed=40)
         cqr.calibrate(pred_cal, truth_cal)
@@ -792,7 +791,7 @@ class TestConformalLossCQRDebias:
         upper_test = truth_test + 0.8 * torch.abs(torch.randn(n_test, 1))
         pred_test = torch.cat([lower_test, upper_test], dim=-1)
 
-        loss_fn = ConformalLoss(method="cqr", alpha=alpha, debias=True)
+        loss_fn = ConformalLoss(method="cqr", alpha=alpha)
         loss_fn.calibrate(pred_cal, truth_cal)
 
         lower, upper = loss_fn.predict_interval(pred_test)
@@ -1191,7 +1190,7 @@ class TestLocalConformalMAD:
 
 
 class TestCVPlus:
-    """Tests for CVPlus and JackknifePlus predictors."""
+    """Tests for CVPlus and CVPlus predictors."""
 
     def test_basic_calibrate_predict(self):
         torch.manual_seed(42)
@@ -1224,9 +1223,6 @@ class TestCVPlus:
         assert lower.shape == (n_test, output_dim)
         assert upper.shape == (n_test, output_dim)
         assert (lower <= upper).all()
-
-        # JackknifePlus alias check
-        assert JackknifePlus is CVPlus
 
     def test_with_mask(self):
         torch.manual_seed(42)

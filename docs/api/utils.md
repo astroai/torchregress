@@ -166,7 +166,7 @@ Some have a public equivalent elsewhere: `parse_heteroscedastic_output` in `torc
 | `class_probs_to_levels` | `utils.ordinal` | `(target_probs, *, class_dim=-1, eps=1e-8)` — Convert per-class PMF targets to cumulative levels `P(y > k)`. |
 | `normalize_class_probs` | `utils.ordinal` | `(target_probs, *, class_dim=-1, eps=1e-8)` — Normalise non-negative class probabilities along `class_dim`. |
 | `get_device` | `utils.pytorch_compat` | `(device_str=None)` — Resolve the requested device, falling back to the best available one. |
-| `quantile_loss` | `utils.quantile` | `(y_pred, y_true, quantile)` — Functional pinball loss for a single quantile. |
+| `pinball_residual` | `utils.quantile` | `(y_pred, y_true, quantile)` — Elementwise pinball residual for a single quantile. |
 | `multi_quantile_loss` | `utils.quantile` | `(y_pred, y_true, quantiles, quantile_weights=None)` — Functional pinball loss averaged over multiple quantiles. |
 | `apply_mask` | `utils.tensor_ops` | `(tensor, mask)` — Zero out entries where `mask` is `False` (`torch.where`, so NaN / Inf at masked positions is dropped). |
 | `convert_to_tensor` | `utils.tensor_ops` | `(x, *, dtype=None, device=None)` — Cast list / ndarray / tensor to `torch.Tensor`. |
@@ -198,7 +198,7 @@ boolean, and numeric-coded nominal (for example `{0,1}`) columns are kept as
 | Symbol | Description |
 |:-------|:------------|
 | `fetch_openml_regression_frame_skip_checksum` | `(*, data_id, target_column="target", download_timeout=600.0, json_timeout=120.0)` — Load `(X, y, tag)` float32 arrays for an OpenML dataset id without MD5 verification. |
-| `fetch_openml_regression_with_sklearn_fallback` | `(*, data_id, name, version, target_column)` — Resolve a dataset by id or by `name` / `version` and load `(X, y, tag)`; kept under its historical name, it always uses the relaxed ARFF parser. |
+| `fetch_openml_regression` | `(*, data_id, name, version, target_column)` — Resolve a dataset by id or by `name` / `version` and load `(X, y, tag)` with the relaxed ARFF parser. |
 
 ---
 
