@@ -2613,7 +2613,6 @@ class ConformalLoss(RegressionLoss):
         *,
         uacqr_min_width: float = 1e-6,
         uacqr_aggregation: str = "mean",
-        **kwargs: Any,
     ) -> None:
         super().__init__(reduction=reduction)
         method = method.lower()

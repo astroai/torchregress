@@ -28,8 +28,8 @@ Affected fixes:
   return ``0`` when no entry satisfies ``cum_weights >= q_level``. See
   docstring on the H3 class for the detection caveat (modern PyTorch's
   ``torch.cumsum`` is non-trivial to monkeypatch from pytest).
-* H4 (``conformal.py``): :class:`CQR.debias` docstring/code alignment and
-  ``n<=0`` calibration set guard.
+* H4 (``conformal.py``): CQR calibration invariants — ``self.alpha`` is
+  never mutated, and empty / all-masked calibration raises.
 
 How we verified the test/pass-on-post-fix-on-pre-fixcontract
 ------------------------------------------------------------
@@ -42,11 +42,8 @@ modern PyTorch:
 * **H1** — three of five WLW tests fail on the reverted ``base.py``
   (the bug only manifests for the *instance* path with a non-default
   reduction).  The two class-path tests are smoke tests.
-* **H4** — four of six CQR debias tests fail on the reverted
-  ``conformal.py`` (the direct ``(n+1)/n`` division raises
-  ZeroDivisionError on empty calibration; the alpha factor mismatch
-  surfaces in `test_debias_factor_shrinks_alpha` and
-  `test_debias_alpha_is_restored`).
+* **H4** — empty / all-masked calibration raises ``ValueError``; alpha is
+  restored after calibrate.
 * **H2** — verified via ``L_matrices._version`` capture at forward-return
   time (recipe steps 1-3 of the original recipe).  Pre-fix builds
   ``L_matrices`` via two in-place ``__setitem__`` writes on
@@ -545,44 +542,15 @@ class TestLocalConformalSentinelFallback:
 
 
 # ---------------------------------------------------------------------------
-# B3 (TR-MET-07 follow-up): the ad-hoc ``CQR.debias`` ``alpha * n / (n + 1)``
-#     multiplicative shrinkage has been DELETED; calibration always uses the
-#     standard finite-sample adjustment (ceil((n+1)*(1-alpha)) order statistic).
+# B3 / H4: CQR calibration uses the standard finite-sample order statistic
+#     ceil((n+1)*(1-alpha)); alpha is never mutated; empty calibration raises.
 # ---------------------------------------------------------------------------
 
 
-class TestCQRDebiasDocCodeAlignment:
-    """The ``debias`` kwarg is accepted for backward compatibility but is a
-    no-op: ``debias=True`` must produce exactly the same calibration as
-    ``debias=False`` at the same alpha (the old audit-documented
-    ``alpha * n / (n + 1)`` shrinkage widened intervals beyond the guaranteed
-    finite-sample rule).
-    """
+class TestCQRCalibrationInvariants:
+    """CQR calibration invariants that must survive conformal refactors."""
 
-    def test_debias_is_noop(self) -> None:
-        """``debias=True`` and ``debias=False`` must calibrate identically."""
-        torch.manual_seed(4)
-        n_cal = 99
-        y_cal = torch.randn(n_cal, 1)
-        y_pred = torch.cat(
-            [
-                y_cal - 0.4 * torch.rand(n_cal, 1),
-                y_cal + 0.4 * torch.rand(n_cal, 1),
-            ],
-            dim=-1,
-        )
-
-        cp_debiased = CQR(alpha=0.1)
-        cp_plain = CQR(alpha=0.1)
-        cp_debiased.calibrate(y_pred, y_cal)
-        cp_plain.calibrate(y_pred, y_cal)
-
-        assert torch.isclose(cp_debiased.q_hat.float(), cp_plain.q_hat.float(), atol=1e-6), (
-            f"debias=True must not alter the finite-sample threshold: "
-            f"q_debiased={float(cp_debiased.q_hat):.6f} vs q_plain={float(cp_plain.q_hat):.6f}"
-        )
-
-    def test_debias_alpha_is_restored_after_calibrate(self) -> None:
+    def test_alpha_is_restored_after_calibrate(self) -> None:
         """``self.alpha`` must never be mutated during calibration."""
         torch.manual_seed(1)
         cp = CQR(alpha=0.1)
@@ -607,34 +575,3 @@ class TestCQRDebiasDocCodeAlignment:
         mask = torch.zeros(n_cal, dtype=torch.bool)
         with pytest.raises(ValueError):
             cp.calibrate(y_pred, y_cal, mask=mask)
-
-    def test_debias_does_not_widen_q_hat(self) -> None:
-        """``debias=True`` must NOT widen the threshold any more (B3)."""
-        torch.manual_seed(0)
-        n_cal = 50
-        y_cal = torch.randn(n_cal, 1)
-        lo = y_cal - 0.3 * torch.rand(n_cal, 1) - 0.1
-        hi = y_cal + 0.3 * torch.rand(n_cal, 1) + 0.1
-        y_pred = torch.cat([lo, hi], dim=-1)
-
-        cp_clean = CQR(alpha=0.1)
-        cp_debiased = CQR(alpha=0.1)
-        cp_clean.calibrate(y_pred, y_cal)
-        cp_debiased.calibrate(y_pred, y_cal)
-
-        q_clean = float(cp_clean.q_hat)
-        q_debiased = float(cp_debiased.q_hat)
-        assert abs(q_debiased - q_clean) < 1e-6, (
-            f"debias=True must be a no-op: q_clean={q_clean}, q_debiased={q_debiased}"
-        )
-
-    def test_debias_false_does_not_mutate_alpha(self) -> None:
-        """``debias=False`` is a pure pass-through and must not touch
-        ``self.alpha``."""
-        torch.manual_seed(5)
-        cp = CQR(alpha=0.1)
-        n_cal = 30
-        y_cal = torch.randn(n_cal, 1)
-        y_pred = torch.cat([y_cal - 0.3, y_cal + 0.3], dim=-1)
-        cp.calibrate(y_pred, y_cal)
-        assert cp.alpha == pytest.approx(0.1)

@@ -4,7 +4,7 @@ Covers:
 - ``finite_sample_quantile`` identity vs brute-force order statistic (TR-MET-07).
 - Mondrian predict_interval rejects unseen group ids instead of silently
   producing zero-width intervals (TR-LOSS-22).
-- CQR ``debias`` shrinkage removal: debias=True is a no-op (B3 / TR-MET-07).
+- CQR finite-sample order-statistic threshold (B3 / TR-MET-07).
 - CV+ finite-sample order statistics replace linear-interpolated quantiles.
 """
 
@@ -111,21 +111,8 @@ def test_mondrian_known_groups_still_predict() -> None:
 
 
 # ---------------------------------------------------------------------------
-# B3 — CQR debias removal
+# B3 — CQR finite-sample threshold
 # ---------------------------------------------------------------------------
-
-
-def test_cqr_debias_is_noop() -> None:
-    torch.manual_seed(11)
-    n_cal = 80
-    y_cal = torch.randn(n_cal, 1)
-    y_pred = torch.cat([y_cal - 0.3 * torch.rand(n_cal, 1), y_cal + 0.3 * torch.rand(n_cal, 1)], -1)
-
-    cqr_on = CQR(alpha=0.1)
-    cqr_off = CQR(alpha=0.1)
-    cqr_on.calibrate(y_pred, y_cal)
-    cqr_off.calibrate(y_pred, y_cal)
-    assert torch.isclose(cqr_on.q_hat, cqr_off.q_hat)
 
 
 def test_cqr_q_hat_matches_finite_sample_rule() -> None:
@@ -139,7 +126,8 @@ def test_cqr_q_hat_matches_finite_sample_rule() -> None:
     cqr.calibrate(torch.cat([lo, hi], -1), y_cal)
 
     scores = torch.maximum(lo - y_cal, y_cal - hi).squeeze(-1)
-    k = min(math.ceil((n_cal + 1) * (1.0 - alpha)), n_cal)
+    k = math.ceil((n_cal + 1) * (1.0 - alpha))
+    assert k <= n_cal
     expected = torch.sort(scores).values[k - 1]
     assert torch.isclose(cqr.q_hat.squeeze(), expected)
 

@@ -48,10 +48,10 @@ canonical way a contract break shows up in CI.
 | `CensoredGaussianNLLLoss` | `censored.py` | `tests/losses/test_censored.py` | (per-class) | Censoring mask propagates to NLL |
 | `CensoredQuantileLoss` | `censored.py` | `tests/losses/test_censored.py` | (per-class) | Pinball loss with left-/right-censoring adjustments |
 | `AFTLoss` | `censored.py` | `tests/losses/test_censored.py` | (per-class suite) | Accelerated-failure-time log-location residual |
-| `CQR` | `conformal.py` | `tests/losses/test_conformal.py` | `TestCQR` + `TestConformalLossCQRDebias` | Finite-sample quantile thresholds (`debias` accepted as documented no-op); alpha restoration after calibrate; calibrated interval is `[q_lo - q_hat, q_hi + q_hat]` |
+| `CQR` | `conformal.py` | `tests/losses/test_conformal.py` | `TestCQR` + `tests/losses/test_loss_fixes.py::TestCQRCalibrationInvariants` | Finite-sample quantile thresholds; alpha restoration after calibrate; empty/all-masked calibration raises; calibrated interval is `[q_lo - q_hat, q_hi + q_hat]` |
 | `CTI` | `conformal.py` | `tests/losses/test_conformal.py` | `TestCTI` | Smallest density-level-set interval via grid search |
 | `SLSConformal` | `conformal.py` | `tests/losses/test_sls_conformal.py` | (per-class) | Score = `G(X,Y) / q_τ(X)`; interval from frontier level set |
-| `ConformalLoss` | `conformal.py` | `tests/losses/test_conformal.py` | `TestSplitConformal`, `TestCQR`, `TestConformalLossCQRDebias`, etc. | Method-routes to underlying predictor; pinball training loss for cqr/uacqr |
+| `ConformalLoss` | `conformal.py` | `tests/losses/test_conformal.py` | `TestSplitConformal`, `TestCQR`, etc. | Method-routes to underlying predictor; pinball training loss for cqr/uacqr; rejects unknown kwargs |
 | `ConformalPredictor` | `conformal.py` | `tests/losses/test_conformal.py` | (base for `Test*Conformal`) | Virtual `_compute_scores`/`_build_intervals`; Mondrian + normalised + weighted composable features |
 | `LevelSetConformalPredictor` | `conformal.py` | `tests/losses/test_conformal.py` | (via `TestCTI`, `TestDistributionalConformal`, `TestSLSConformal`) | Shared `_grid_search_level_set` utility |
 | `LocalConformal` | `conformal.py` | `tests/losses/test_conformal.py` | `TestLocalConformal` + `tests/losses/test_loss_fixes.py::TestLocalConformalSentinelFallback` | Sentinel `True` column guards against underflow when cum-weights miss `1-α` |
@@ -225,7 +225,7 @@ should land alongside a direct test in
 |---|---|
 | `test_gaussian_consistency.py` | Cross-family Gaussian invariants (input formats, mask/weights contracts, gradient contracts, CRPS stability, Wasserstein relationships). Locks every variant of the Gaussian loss family to the same input contract. |
 | `test_non_gaussian_consistency.py` | Cross-family contracts for Poisson-Gaussian, censored, Tweedie, quantile, ordinal, conformal, EIV, expectile, evidential, robust, balanced-MSE families. |
-| `test_loss_fixes.py` | Regression tests for the **5 documented loss-bugs** — `SLSLoss.step_counter`, `WeightedLossWrapper.reduction`, `MixtureDensityLoss.full-cov Cholesky backward`, `LocalConformal.predict_interval sentinel`, `CQR.debias factor`. Use this file first when investigating these invariants. |
+| `test_loss_fixes.py` | Regression tests for documented loss bugs — `SLSLoss.step_counter`, `WeightedLossWrapper.reduction`, `MixtureDensityLoss.full-cov Cholesky backward`, `LocalConformal.predict_interval sentinel`, plus CQR calibration invariants (alpha not mutated; empty/all-masked raises). Use this file first when investigating these invariants. |
 | `test_sls_internals.py` | SLS internal modules — `VolumePreservingFlow` / `MahalanobisFrontier` (full + low-rank) / `UnionFrontier` / `QuantileNetwork`. |
 | `test_eiv_internals.py` | EIV internal modules — `NoisyInputPredictor` / `BaseEIVLoss._prepare_covariance_from_sigma`. |
 | `test_functional_wrappers.py` | Functional wrappers (`quantile_loss`, `expectile_loss`, `beta_nll_loss`, `tweedie_loss`, `gaussian_wasserstein_bound_loss`). |
@@ -238,7 +238,7 @@ should land alongside a direct test in
 |---|---|---|
 | **NLL formula and reduction** | `test_gaussian.py::TestGaussianLosses` + `test_gaussian_consistency.py::TestMaskContract` | `test_beta_nll.py`, `test_poisson_gaussian.py` |
 | **Pinball / quantile formulation** | `test_quantile.py::TestQuantileLoss` + `tests/losses/test_functional_wrappers.py::TestQuantileLossWrapper` | `test_non_gaussian_consistency.py` |
-| **Conformal debias direction & coverage** | `test_loss_fixes.py::TestCQRDebiasDocCodeAlignment` + `test_conformal.py::TestConformalLossCQRDebias` | `test_conformal.py` |
+| **CQR calibration invariants** | `test_loss_fixes.py::TestCQRCalibrationInvariants` | `test_conformal.py::TestCQR` |
 | **Determinism across dataloader calls (sentinel underflow)** | `test_loss_fixes.py::TestLocalConformalSentinelFallback` | `test_conformal.py::TestLocalConformal` |
 | **Volume-preserving flow invertibility** | `test_sls.py::test_volume_preserving_*` + `test_sls_internals.py::TestVolumePreservingFlow` | `test_sls_internals.py` |
 | **Mahalanobis frontier shape & rank default** | `test_sls_internals.py::TestMahalanobisFrontier{LowRank,Full}` | `test_sls.py::test_mahalanobis_frontier_full_and_low_rank` |

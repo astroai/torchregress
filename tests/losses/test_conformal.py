@@ -276,18 +276,6 @@ class TestCQR:
         coverage = covered.float().mean().item()
         assert coverage >= (1 - alpha) - 0.05
 
-    def test_debias(self):
-        """Debiased CQR should also achieve coverage."""
-        alpha = 0.1
-        cqr = CQR(alpha=alpha)
-        pred_cal, truth_cal = self._make_synthetic_quantile_data(300, seed=30)
-        pred_test, truth_test = self._make_synthetic_quantile_data(1000, seed=40)
-        cqr.calibrate(pred_cal, truth_cal)
-        lower, upper = cqr.predict_interval(pred_test)
-        covered = (truth_test >= lower) & (truth_test <= upper)
-        coverage = covered.float().mean().item()
-        assert coverage >= (1 - alpha) - 0.05
-
 
 class TestNormalizedCP:
     """Tests for normalized (difficulty-adaptive) conformal prediction."""
@@ -773,31 +761,9 @@ class TestMultiTargetConformal:
             assert coverage >= (1 - alpha) - 0.05, f"Dim {d} coverage {coverage:.3f} too low"
 
 
-class TestConformalLossCQRDebias:
-    """Test CQR debiasing through the loss wrapper."""
-
-    def test_debias_coverage(self):
-        torch.manual_seed(42)
-        alpha = 0.1
-        n_cal, n_test = 300, 1000
-
-        truth_cal = torch.randn(n_cal, 1)
-        lower_cal = truth_cal - 0.8 * torch.abs(torch.randn(n_cal, 1))
-        upper_cal = truth_cal + 0.8 * torch.abs(torch.randn(n_cal, 1))
-        pred_cal = torch.cat([lower_cal, upper_cal], dim=-1)
-
-        truth_test = torch.randn(n_test, 1)
-        lower_test = truth_test - 0.8 * torch.abs(torch.randn(n_test, 1))
-        upper_test = truth_test + 0.8 * torch.abs(torch.randn(n_test, 1))
-        pred_test = torch.cat([lower_test, upper_test], dim=-1)
-
-        loss_fn = ConformalLoss(method="cqr", alpha=alpha)
-        loss_fn.calibrate(pred_cal, truth_cal)
-
-        lower, upper = loss_fn.predict_interval(pred_test)
-        covered = (truth_test >= lower) & (truth_test <= upper)
-        coverage = covered.float().mean().item()
-        assert coverage >= (1 - alpha) - 0.05
+def test_conformal_loss_rejects_unknown_kwargs() -> None:
+    with pytest.raises(TypeError):
+        ConformalLoss(method="cqr", debias=True)
 
 
 class TestConformalLossMondrianWeighted:
