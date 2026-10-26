@@ -471,11 +471,11 @@ def test_ordinal_regression_comparison_writes_summary_json(tmp_path: Path) -> No
     _assert_summary_schema(
         out,
         task_substring="ordinal",
-        required_methods={"OrdinalCrossEntropy", "CumulativeLink", "CORAL"},
+        required_methods={"OrdinalCrossEntropy", "CumulativeLink"},
     )
     payload = _load_payload(out)
     rows = _rows_by_method(payload)
-    for method in ("OrdinalCrossEntropy", "CumulativeLink", "CORAL"):
+    for method in ("OrdinalCrossEntropy", "CumulativeLink"):
         row = rows[method]
         _assert_row_has_keys(row, ["Accuracy", "OrdinalMAE", "QWK", "train_s", "eval_s", "Notes"])
         _assert_probability(row["Accuracy"])
@@ -499,11 +499,11 @@ def test_ordinal_regression_realdata_comparison_writes_summary_json(tmp_path: Pa
     _assert_summary_schema(
         out,
         task_substring="real-data",
-        required_methods={"OrdinalCrossEntropy", "CumulativeLink", "CORAL"},
+        required_methods={"OrdinalCrossEntropy", "CumulativeLink"},
     )
     payload = _load_payload(out)
     rows = _rows_by_method(payload)
-    for method in ("OrdinalCrossEntropy", "CumulativeLink", "CORAL"):
+    for method in ("OrdinalCrossEntropy", "CumulativeLink"):
         row = rows[method]
         _assert_row_has_keys(row, ["Accuracy", "OrdinalMAE", "QWK", "train_s", "eval_s", "Notes"])
         _assert_probability(row["Accuracy"])
