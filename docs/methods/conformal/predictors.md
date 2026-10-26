@@ -72,7 +72,7 @@ lower, upper = cp.predict_interval(y_pred_test)
 ```python
 from torchregress.losses import CQR
 
-cqr = CQR(alpha=0.1, debias=True)
+cqr = CQR(alpha=0.1)
 
 # y_pred_cal: Tensor of shape (n, 2) = [q_lo, q_hi] per sample
 cqr.calibrate(y_pred_cal, y_cal)
@@ -80,10 +80,6 @@ lower, upper = cqr.predict_interval(y_pred_test)
 ```
 
 → See [CQR API](../../api/losses.md).
-
-| Parameter | Type | Default | Description |
-|:----------|:-----|:--------|:------------|
-| `debias` | `bool` | `False` | Apply finite-sample bias correction (Gibbs et al., 2025). |
 
 !!! tip "When to use"
     Whenever you have a **quantile regression** model (e.g., `MultiQuantileLoss` with quantiles $[\alpha/2, 1-\alpha/2]$).  CQR inherits the model's adaptive width and adds the coverage guarantee.
@@ -103,7 +99,7 @@ lower, upper = cqr.predict_interval(y_pred_test)
 ```python
 from torchregress.losses import UACQR
 
-u = UACQR(alpha=0.1, debias=False, min_width=1e-6, aggregation="mean")
+u = UACQR(alpha=0.1, min_width=1e-6, aggregation="mean")
 u.calibrate(y_pred_cal, y_cal)  # x optional; width from y_pred only
 lower, upper = u.predict_interval(y_pred_test)
 ```

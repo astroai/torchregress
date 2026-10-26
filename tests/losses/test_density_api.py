@@ -5,7 +5,6 @@ from __future__ import annotations
 import torch
 
 from torchregress.losses import BinnedDensityLoss, JointBinnedDensityLoss, MixtureDensityLoss
-from torchregress.prediction import PredictiveBatch
 
 
 def test_mdn_log_prob_and_samples() -> None:
@@ -32,15 +31,6 @@ def test_joint_binned_log_prob_and_samples() -> None:
     target = torch.randn(4, 2)
     assert joint.log_prob(logits, target).shape == (4,)
     assert joint.sample(logits, n_samples=3).shape == (4, 3, 2)
-
-
-def test_predictive_batch_constructors() -> None:
-    support = torch.linspace(0, 1, 10)
-    density = torch.ones(3, 10) / 10.0
-    batch = PredictiveBatch.from_density(support, density)
-    assert batch.support is support and batch.density is density
-    samples = torch.randn(3, 20)
-    assert PredictiveBatch.from_samples(samples).samples is samples
 
 
 def test_binned_log_prob_respects_finite_support():

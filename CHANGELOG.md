@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, and harness parity. No new methods.
 
+### Fixed
+
+- `ConformalLoss` no longer swallows unknown keyword arguments (including the
+  removed `debias`). Docs and tests that still advertised the no-op are gone.
+- Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors
+  (use the dataclass fields directly).
+
 ## [0.3.0b1] - 2026-10-26
 
 API cut. One public name per behavior.
