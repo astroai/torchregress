@@ -40,7 +40,6 @@ from .conformal import (
     DensityConformal,
     DistributionalConformal,
     EnsembleBatchCP,
-    JackknifePlus,
     LevelSetConformalPredictor,
     LocalConformal,
     LocalConformalMAD,
@@ -74,8 +73,6 @@ from .evidential import EvidentialRegressionLoss
 
 # Expectile losses
 from .expectile import (
-    AsymmetricLeastSquaresLoss,
-    ExpectileCrossover,
     ExpectileCrossoverLoss,
     ExpectileLoss,
     MultiExpectileLoss,
@@ -126,7 +123,7 @@ from .imbalanced import (
 from .loss_registry import create_loss_from_config, get_regression_loss, list_regression_losses
 
 # Mixture Density Networks
-from .mdn import MDNLoss, MixtureDensityLoss, create_mdn_loss
+from .mdn import MixtureDensityLoss, create_mdn_loss
 from .rank_sim import RankSimLoss, rank_sim_regularizer
 
 # SLS regression
@@ -175,7 +172,7 @@ from .nre import (
 
 # Poisson losses
 # Ordinal losses
-from .ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
+from .ordinal import CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from .poisson import (
     NegativeBinomialNLLLoss,
     PoissonDevianceLoss,
@@ -196,7 +193,6 @@ from .prime import ConR, PrimeLoss, UncertaintyAwareConR, conr_loss, uniform_pro
 # Quantile losses
 from .quantile import (
     MultiQuantileLoss,
-    QuantileCrossover,
     QuantileCrossoverLoss,
     QuantileLoss,
     quantile_loss,
@@ -249,7 +245,6 @@ __all__ = [
     "AFTLoss",
     "AdaptiveRobustLoss",
     "AsymmetricLaplaceNLLLoss",
-    "AsymmetricLeastSquaresLoss",
     "BalancedMSELoss",
     "BalancedMSEBMC",
     "balanced_mse_bmc_loss",
@@ -262,7 +257,6 @@ __all__ = [
     "JointBinnedDensityLoss",
     "BinReweightedMSELoss",
     "BoxCoxTransformLoss",
-    "CORALLoss",
     "CQR",
     "CTI",
     "ConformalizedDensity",
@@ -291,7 +285,6 @@ __all__ = [
     "EnsembleBatchCP",
     "EnsembleEIVLoss",
     "EvidentialRegressionLoss",
-    "ExpectileCrossover",
     "ExpectileCrossoverLoss",
     "ExpectileLoss",
     "FaithfulGaussianLoss",
@@ -307,7 +300,6 @@ __all__ = [
     "InputNoiseBinnedPDFLoss",
     "InputNoiseMDNLoss",
     "InverseGaussianLoss",
-    "JackknifePlus",
     "JohnsonSUNLLLoss",
     "LDSLoss",
     "LatentMarginalizationLoss",
@@ -317,7 +309,6 @@ __all__ = [
     "LogCoshLoss",
     "LogTransformLoss",
     "LowRankGaussianLoss",
-    "MDNLoss",
     "MahalanobisFrontier",
     "MixtureDensityLoss",
     "MonteCarloConformal",
@@ -345,7 +336,6 @@ __all__ = [
     "PseudoHuberLoss",
     "PseudoLabelConsistencyLoss",
     "PseudoLabelNLL",
-    "QuantileCrossover",
     "QuantileCrossoverLoss",
     "QuantileLoss",
     "R2CConformal",

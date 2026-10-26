@@ -267,8 +267,7 @@
       ],
       "peer_methods_visible": [
         "OrdinalCrossEntropyLoss",
-        "CumulativeLinkLoss",
-        "CORALLoss"
+        "CumulativeLinkLoss"
       ],
       "gaps": "Includes one quantile-binned real-data benchmark; needs domain-native ordinal-label datasets for stronger external validity.",
       "notes": "Comparison examples evaluate hard-label, soft-plausibility, and cumulative objectives under shared training budgets and ordinal-aware metrics."
@@ -351,7 +350,7 @@
       ],
       "peer_methods_visible": [
         "GaussianNLLLoss",
-        "MDNLoss",
+        "MixtureDensityLoss",
         "NormalizingFlowLoss"
       ],
       "gaps": "Needs domain-specific real-data multimodal benchmark(s) (beyond synthetic multimodal targets on real covariates) and optional-dependency CI coverage for zuko flow runs.",

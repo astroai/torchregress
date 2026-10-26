@@ -8,7 +8,7 @@ import torch
 from torch import Tensor
 
 
-def quantile_loss(
+def pinball_residual(
     y_pred: Tensor,
     y_true: Tensor,
     quantile: Union[float, Tensor],

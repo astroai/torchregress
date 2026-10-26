@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import torch
 
-from torchregress.losses import BinnedDensityLoss, JointBinnedDensityLoss, MDNLoss
+from torchregress.losses import BinnedDensityLoss, JointBinnedDensityLoss, MixtureDensityLoss
 from torchregress.prediction import PredictiveBatch
 
 
 def test_mdn_log_prob_and_samples() -> None:
-    mdn = MDNLoss(n_components=3, n_features=2)
+    mdn = MixtureDensityLoss(n_components=3, n_features=2)
     target = torch.randn(4, 2)
     out = torch.randn(4, mdn.expected_output_size)
     lp = mdn.log_prob(out, target)

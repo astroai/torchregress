@@ -8,13 +8,15 @@ This file provides merged guidance to coding agents (Claude, Gemini, Codex) when
 
 **Naming Convention:** The library name is "torchregress" (all lowercase).
 
+**Release scope:** `0.3.0b1` is the API cut (one public name per behavior, no compatibility aliases). `0.3.0` is bugs, performance of existing code, docs that match the code, and harness parity. Do not add methods or compatibility shims on the way to `0.3.0`. See `ROADMAP.md`.
+
 ## Sibling repositories
 
 | Repo | Path (typical) | Scope |
 |------|----------------|-------|
-| **torchregress** (this repo) | `$HOME/src/torchregress` | Library, docs, general examples, CI |
-| **torchregress-research** | `$HOME/src/torchregress-research` | NeurIPS manuscripts, SAGE/SPT benchmarks |
-| **torchregress-harness** | `$HOME/src/torchregress-harness` | External-software parity harness |
+| **torchregress** (this repo) | `~/src/astroai/torchregress` | Library, docs, general examples, CI |
+| **torchregress-research** | `~/src/sfabbro/torchregress-research` | NeurIPS manuscripts, SAGE/SPT benchmarks |
+| **torchregress-harness** | `~/src/astroai/torchregress-harness` | External-software parity harness |
 
 Do not add paper manuscripts or NeurIPS benchmark scripts to this repo. Do not add SAGE/SPT
 parity suites to **torchregress-harness** (they belong in **torchregress-research**).
@@ -227,12 +229,12 @@ When adding new loss functions:
 ## Dependencies
 
 Core dependencies:
-- torch >= 2.13
-- numpy >= 2.5
+- torch >= 2.14.1
+- numpy >= 2.5.4
 - torchmetrics >= 1.9
-- scipy >= 1.18
+- scipy >= 1.18.1
 
-(matplotlib >= 3.11 is the `viz` extra; floors track the newest conda-forge releases
+(matplotlib >= 3.11.2 is the `viz` extra; floors track the newest conda-forge releases
 in `pixi.lock` and were raised for 0.3.0.)
 
 Optional (feature-specific) dependencies:

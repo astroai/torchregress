@@ -18,7 +18,7 @@ from torchregress.estimators import (
     calibrated_deep_ensemble,
 )
 from torchregress.losses import GaussianNLLLoss, MultiQuantileLoss, WeightedMSELoss
-from torchregress.losses.conformal import CQR, CVPlus, JackknifePlus, SplitConformal
+from torchregress.losses.conformal import CQR, CVPlus, SplitConformal
 from torchregress.metrics import gaussian_nll
 from torchregress.models import TabularMLP, fit_tabular
 
@@ -194,7 +194,7 @@ class TestParityWithConformalClasses:
             m = LinearRegression().fit(X[fold != j], y[fold != j])
             oof[fold == j] = m.predict(X[fold == j])
             members[j] = m.predict(self.Xt)
-        cls = JackknifePlus if method == "jackknife+" else CVPlus
+        cls = CVPlus
         cp = cls(alpha=0.2)
         cp.calibrate_ensemble(_t(oof)[:, None], _t(y)[:, None], torch.as_tensor(fold))
         e_lo, e_hi = cp.predict_interval(_t(members)[:, :, None])

@@ -1,6 +1,6 @@
 # Multimodal Method Comparison
 
-→ Guide: [Multi-target regression](../guide/multi-target-regression.md). API: [`GaussianNLLLoss`](../api/losses.md), [`MDNLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md), [`marginal_calibration_error`](../api/metrics.md).
+→ Guide: [Multi-target regression](../guide/multi-target-regression.md). API: [`GaussianNLLLoss`](../api/losses.md), [`MixtureDensityLoss`](../api/losses.md), [`NormalizingFlowLoss`](../api/losses.md), [`marginal_calibration_error`](../api/metrics.md).
 
 This example compares shared-budget probabilistic methods on a multimodal, multi-target synthetic regression task.
 
@@ -9,7 +9,7 @@ Script: `examples/multimodal_method_comparison.py`
 ## What It Compares
 
 - Diagonal Gaussian NLL baseline ([`GaussianNLLLoss`](../api/losses.md))
-- Mixture Density Network ([`MDNLoss`](../api/losses.md))
+- Mixture Density Network ([`MixtureDensityLoss`](../api/losses.md))
 - Conditional normalizing flow ([`NormalizingFlowLoss`](../api/losses.md), optional if `zuko` is installed)
 
 ## Metrics Reported

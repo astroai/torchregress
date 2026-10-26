@@ -572,8 +572,8 @@ class TestCQRDebiasDocCodeAlignment:
             dim=-1,
         )
 
-        cp_debiased = CQR(alpha=0.1, debias=True)
-        cp_plain = CQR(alpha=0.1, debias=False)
+        cp_debiased = CQR(alpha=0.1)
+        cp_plain = CQR(alpha=0.1)
         cp_debiased.calibrate(y_pred, y_cal)
         cp_plain.calibrate(y_pred, y_cal)
 
@@ -585,7 +585,7 @@ class TestCQRDebiasDocCodeAlignment:
     def test_debias_alpha_is_restored_after_calibrate(self) -> None:
         """``self.alpha`` must never be mutated during calibration."""
         torch.manual_seed(1)
-        cp = CQR(alpha=0.1, debias=True)
+        cp = CQR(alpha=0.1)
         n_cal = 30
         y_cal = torch.randn(n_cal, 1)
         y_pred = torch.cat([y_cal - 0.3, y_cal + 0.3], dim=-1)
@@ -594,13 +594,13 @@ class TestCQRDebiasDocCodeAlignment:
 
     def test_empty_calibration_raises_value_error(self) -> None:
         """An empty calibration set raises the base-class ValueError."""
-        cp = CQR(alpha=0.1, debias=True)
+        cp = CQR(alpha=0.1)
         with pytest.raises(ValueError):
             cp.calibrate(torch.empty(0, 2), torch.empty(0, 1))
 
     def test_all_masked_samples_raise_value_error(self) -> None:
         """A fully-masked calibration set also raises ValueError."""
-        cp = CQR(alpha=0.1, debias=True)
+        cp = CQR(alpha=0.1)
         n_cal = 5
         y_pred = torch.randn(n_cal, 2)
         y_cal = torch.randn(n_cal, 1)
@@ -617,8 +617,8 @@ class TestCQRDebiasDocCodeAlignment:
         hi = y_cal + 0.3 * torch.rand(n_cal, 1) + 0.1
         y_pred = torch.cat([lo, hi], dim=-1)
 
-        cp_clean = CQR(alpha=0.1, debias=False)
-        cp_debiased = CQR(alpha=0.1, debias=True)
+        cp_clean = CQR(alpha=0.1)
+        cp_debiased = CQR(alpha=0.1)
         cp_clean.calibrate(y_pred, y_cal)
         cp_debiased.calibrate(y_pred, y_cal)
 
@@ -632,7 +632,7 @@ class TestCQRDebiasDocCodeAlignment:
         """``debias=False`` is a pure pass-through and must not touch
         ``self.alpha``."""
         torch.manual_seed(5)
-        cp = CQR(alpha=0.1, debias=False)
+        cp = CQR(alpha=0.1)
         n_cal = 30
         y_cal = torch.randn(n_cal, 1)
         y_pred = torch.cat([y_cal - 0.3, y_cal + 0.3], dim=-1)

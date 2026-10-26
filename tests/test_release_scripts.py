@@ -102,7 +102,7 @@ class TestBumpVersion:
 
         result = _run_bump(pyproject, "patch")
         assert result.returncode != 0
-        assert "release candidate" in result.stderr
+        assert "pre-release" in result.stderr
 
     def test_dry_run_does_not_write(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"

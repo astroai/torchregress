@@ -9,9 +9,8 @@ inputs and returns a [`PredictiveBatch`](utils.md) or
 self-describing dataclass (see the
 [Predictive containers](utils.md) section in the Utilities API).
 
-For background, see [Bayesian Linear Regression](../methods/test-time/bayesian-linear-regression.md),
-[Optimal Transport Conformal](../methods/test-time/ot-shift-conformal.md), and
-[Shift Adaptation Roadmap](../methods/test-time/regression-shift-adaptation-roadmap.md). The
+For background, see [Bayesian Linear Regression](../methods/test-time/bayesian-linear-regression.md)
+and [Optimal Transport Conformal](../methods/test-time/ot-shift-conformal.md). The
 shared `PredictiveBatch` container is documented in the
 [Utilities API — Predictive containers](utils.md) section.
 
@@ -426,7 +425,6 @@ ema.copy_to(model)
 
 - [Bayesian Linear Regression](../methods/test-time/bayesian-linear-regression.md)
 - [Optimal Transport Conformal](../methods/test-time/ot-shift-conformal.md)
-- [Shift Adaptation Roadmap](../methods/test-time/regression-shift-adaptation-roadmap.md)
 
 
 ## Test-Time Adaptation Details

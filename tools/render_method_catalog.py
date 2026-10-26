@@ -309,7 +309,7 @@ def build_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "maturity": {k: v for k, v in _maturity_counts(rows)},
             "peer_uq_methods_present": {
                 name: any(row["name"] == name for row in rows)
-                for name in ("SWAG", "BayesianNeuralNetwork", "MDNLoss")
+                for name in ("SWAG", "BayesianNeuralNetwork", "MixtureDensityLoss")
             },
         },
         "rows": normalized_rows,
@@ -340,7 +340,7 @@ def render_markdown(rows: list[dict[str, Any]]) -> str:
         "- Peer methods present: "
         + ", ".join(
             f"`{name}`"
-            for name in ("SWAG", "BayesianNeuralNetwork", "MDNLoss")
+            for name in ("SWAG", "BayesianNeuralNetwork", "MixtureDensityLoss")
             if any(row["name"] == name for row in rows_sorted)
         )
     )
@@ -451,7 +451,7 @@ def render_method_matrix_generated_section(rows: list[dict[str, Any]]) -> str:
         "Peer-method check: "
         + ", ".join(
             f"`{name}`"
-            for name in ("SWAG", "BayesianNeuralNetwork", "MDNLoss")
+            for name in ("SWAG", "BayesianNeuralNetwork", "MixtureDensityLoss")
             if any(row["name"] == name for row in rows_sorted)
         )
     )

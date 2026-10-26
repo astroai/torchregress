@@ -18,9 +18,9 @@ import numpy as np
 import pytest
 import torch
 
+from torchregress.calibration import ExpectedCalibrationError
 from torchregress.metrics import (
     DawidSebastianiScore,
-    ExpectedCalibrationError,
     GaussianNLLEnsemble,
     PinballMetric,
     RejectionPolicy,

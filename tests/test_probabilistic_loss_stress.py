@@ -1,6 +1,6 @@
 import torch
 
-from torchregress.losses import LowRankGaussianLoss, MDNLoss, MultivariateGaussianLoss
+from torchregress.losses import LowRankGaussianLoss, MixtureDensityLoss, MultivariateGaussianLoss
 from torchregress.metrics import ensemble_variance_decomposition
 
 
@@ -58,7 +58,7 @@ def test_low_rank_gaussian_loss_shape_stress_is_finite() -> None:
     assert torch.all(torch.isfinite(loss))
 
 
-def _build_extreme_mdn_predictions(loss_fn: MDNLoss, batch: int) -> torch.Tensor:
+def _build_extreme_mdn_predictions(loss_fn: MixtureDensityLoss, batch: int) -> torch.Tensor:
     y_pred = torch.randn(batch, loss_fn.expected_output_size)
     # Extreme logits to test softmax stability.
     y_pred[:, : loss_fn.n_components] = torch.tensor([40.0, -40.0, 0.0])[: loss_fn.n_components]
@@ -78,8 +78,12 @@ def test_mdn_losses_diagonal_and_full_remain_finite_under_extreme_parameters() -
     torch.manual_seed(0)
     batch = 6
 
-    mdn_diag = MDNLoss(n_components=3, n_features=2, covariance_type="diagonal", reduction="none")
-    mdn_full = MDNLoss(n_components=3, n_features=2, covariance_type="full", reduction="mean")
+    mdn_diag = MixtureDensityLoss(
+        n_components=3, n_features=2, covariance_type="diagonal", reduction="none"
+    )
+    mdn_full = MixtureDensityLoss(
+        n_components=3, n_features=2, covariance_type="full", reduction="mean"
+    )
 
     target = torch.randn(batch, 2)
     y_pred_diag = _build_extreme_mdn_predictions(mdn_diag, batch)
@@ -96,7 +100,9 @@ def test_mdn_losses_diagonal_and_full_remain_finite_under_extreme_parameters() -
 def test_mdn_mask_and_weights_and_ensemble_decomposition_shape_stress() -> None:
     torch.manual_seed(0)
     batch = 7
-    mdn = MDNLoss(n_components=2, n_features=3, covariance_type="diagonal", reduction="none")
+    mdn = MixtureDensityLoss(
+        n_components=2, n_features=3, covariance_type="diagonal", reduction="none"
+    )
     y_pred = torch.randn(batch, mdn.expected_output_size)
     target = torch.randn(batch, 3)
     mask = torch.tensor(

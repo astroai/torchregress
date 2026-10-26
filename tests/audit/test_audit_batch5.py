@@ -331,7 +331,7 @@ PUBLIC = {
     "torchregress.utils.tensor_ops": ["float_dtype"],
     "torchregress.utils.openml_relaxed": [
         "fetch_openml_regression_frame_skip_checksum",
-        "fetch_openml_regression_with_sklearn_fallback",
+        "fetch_openml_regression",
     ],
     "torchregress.method_catalog": [
         "list_methods",

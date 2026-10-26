@@ -579,7 +579,3 @@ class MixtureDensityLoss(DistributionLoss):
 def create_mdn_loss(**kwargs: Any) -> MixtureDensityLoss:
     """Convenience factory for :class:`MixtureDensityLoss`."""
     return MixtureDensityLoss(**kwargs)
-
-
-# Compatibility alias used in docs/examples.
-MDNLoss = MixtureDensityLoss

@@ -398,7 +398,7 @@ class LDSLoss(RegressionLoss):
         >>>     optimizer.step()
         >>>
         >>> # IMPORTANT: Validate calibration after training
-        >>> from torchregress.metrics import expected_calibration_error
+        >>> from torchregress.calibration import expected_calibration_error
         >>> quantiles = {q: model(x).quantile(q) for q in (0.1, 0.5, 0.9)}
         >>> cal_err = expected_calibration_error(quantiles, y_true)
         >>> print(f"Calibration error: {cal_err:.4f}")

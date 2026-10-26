@@ -196,7 +196,7 @@ def fetch_openml_regression_frame_skip_checksum(
     return X_out, y_out, tag
 
 
-def fetch_openml_regression_with_sklearn_fallback(
+def fetch_openml_regression(
     *,
     data_id: int | None,
     name: str | None,
@@ -205,8 +205,7 @@ def fetch_openml_regression_with_sklearn_fallback(
 ) -> tuple[np.ndarray, np.ndarray, str]:
     """Load OpenML regression data as (X, y, tag) numpy arrays.
 
-    Always uses the relaxed ARFF parser directly (no sklearn dependency).
-    The function name is kept for backward compatibility.
+    Uses the relaxed ARFF parser directly.
     """
     if data_id is not None:
         return fetch_openml_regression_frame_skip_checksum(

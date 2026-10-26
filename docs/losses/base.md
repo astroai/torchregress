@@ -22,7 +22,7 @@ graph TD
     A --> C["DistributionLoss"]
     D["WeightedLossWrapper"] -. "wraps any nn.Module" .-> E["nn.Module (any PyTorch loss)"]
     B --> F["WeightedHuberLoss, WeightedMSELoss, WeightedL1Loss"]
-    C --> G["GaussianNLLLoss, MDNLoss, ..."]
+    C --> G["GaussianNLLLoss, MixtureDensityLoss, ..."]
 ```
 
 | Base Class | Purpose | Model Output |

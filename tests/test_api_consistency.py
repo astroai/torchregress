@@ -164,7 +164,6 @@ def test_reduction_behavior():
         "NoiseAdaptiveLoss",  # Needs n_samples parameter
         "OrdinalCrossEntropyLoss",  # Needs class-index discrete targets
         "CumulativeLinkLoss",  # Needs discrete ordinal targets
-        "CORALLoss",  # Needs discrete ordinal targets
         "CensoredGaussianNLLLoss",  # Needs mean+variance inputs
         "AFTLoss",  # Needs loc+log-scale inputs
         "InputNoiseAugmentationLoss",  # Meta-loss (needs model/base_loss)

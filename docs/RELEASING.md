@@ -44,7 +44,7 @@ In the GitHub repository:
 
 **Settings → Environments → New environment → `pypi`** (and again for `testpypi`)
 
-Tags `vX.Y.ZrcN` publish to TestPyPI through the `testpypi` environment; tags `vX.Y.Z`
+Tags `vX.Y.ZaN`, `vX.Y.ZbN`, and `vX.Y.ZrcN` publish to TestPyPI through the `testpypi` environment; tags `vX.Y.Z`
 publish to PyPI through `pypi`. A TestPyPI trusted publisher with the same owner,
 repository and workflow, and environment `testpypi`, is needed for the dry run.
 
@@ -70,8 +70,8 @@ on every push to `main`. The README, `pyproject.toml` and the PyPI page link the
 3. Prepare a release candidate and push it:
 
    ```bash
-   ./scripts/release/prepare_release.sh --version 0.3.0rc1
-   git push origin main && git push origin v0.3.0rc1
+   ./scripts/release/prepare_release.sh --version 0.3.0b1
+   git push origin main && git push origin v0.3.0b1
    ```
 
 4. Watch **Actions → Release**: `build`, the six `install-smoke` legs, then
@@ -81,7 +81,7 @@ on every push to `main`. The README, `pyproject.toml` and the PyPI page link the
    ```bash
    python -m venv /tmp/tr && . /tmp/tr/bin/activate
    pip install --index-url https://test.pypi.org/simple/ \
-       --extra-index-url https://pypi.org/simple/ torchregress==0.3.0rc1
+       --extra-index-url https://pypi.org/simple/ torchregress==0.3.0b1
    torchregress-health
    ```
 

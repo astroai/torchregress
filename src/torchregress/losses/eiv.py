@@ -23,7 +23,7 @@ from ..utils.tensor_ops import (
 from ..utils.validation import validate_weights
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
-from .mdn import MDNLoss
+from .mdn import MixtureDensityLoss
 from .ordinal import OrdinalCrossEntropyLoss
 
 
@@ -579,7 +579,7 @@ class LatentMarginalizationLoss(BaseEIVLoss):
 
     Args:
         model: Model function f(x) that predicts target parameters or point predictions
-        base_loss: Underlying NLL/probabilistic loss (e.g. GaussianNLLLoss, MDNLoss)
+        base_loss: Underlying NLL/probabilistic loss (e.g. GaussianNLLLoss, MixtureDensityLoss)
         posterior_sampler: Either a pre-fit `RegressionCalibration` calibrator,
             or a custom callable `posterior_sampler(x_obs, n_samples) -> x_samples`
             (which returns a tensor of shape `[n_samples, batch_size, n_features]`),
@@ -899,7 +899,7 @@ class InputNoiseMDNLoss(InputNoiseAugmentationLoss):
             "min_std": kwargs.pop("min_std", 1e-3),
             "eps": kwargs.pop("eps", 1e-8),
         }
-        base_loss = MDNLoss(**mdn_kwargs)
+        base_loss = MixtureDensityLoss(**mdn_kwargs)
         super().__init__(
             model=model,
             base_loss=base_loss,

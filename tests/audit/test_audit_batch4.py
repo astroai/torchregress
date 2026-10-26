@@ -26,7 +26,7 @@ from torchregress.algorithms import (
     NeighborhoodCovariancePseudoLabeler,
     RegressionCalibration,
 )
-from torchregress.algorithms.irls import huber_weights, iteratively_reweighted_least_squares
+from torchregress.algorithms.irls import huber_weights, reweight_fixed_predictions
 from torchregress.prediction import PredictiveBatch
 from torchregress.test_time import (
     BayesianLinearHead,
@@ -95,7 +95,7 @@ def test_ALG_001_irls_weights_not_compounded() -> None:
     """Fixed model => residuals constant => every iteration yields the same weights."""
     x = torch.zeros(6, 1)
     for max_iter in (1, 3, 10):
-        _, _, prec = iteratively_reweighted_least_squares(
+        _, _, prec = reweight_fixed_predictions(
             _ZeroLinear(),
             x,
             _Y6,
@@ -112,7 +112,7 @@ def test_ALG_001_irls_weights_not_compounded() -> None:
 def test_ALG_001_irls_weights_scale_initial_precision() -> None:
     x = torch.zeros(6, 1)
     init = torch.linspace(1.0, 3.0, 6).unsqueeze(1)
-    _, _, prec = iteratively_reweighted_least_squares(
+    _, _, prec = reweight_fixed_predictions(
         _ZeroLinear(),
         x,
         _Y6,
@@ -132,7 +132,7 @@ def test_ALG_002_irls_robust_scale_over_samples() -> None:
     n = 201
     y = torch.randn(n, 1, generator=g)
     x = torch.zeros(n, 1)
-    _, _, prec = iteratively_reweighted_least_squares(
+    _, _, prec = reweight_fixed_predictions(
         _ZeroLinear(),
         x,
         y,
@@ -150,7 +150,7 @@ def test_ALG_002_irls_robust_scale_over_samples() -> None:
 def test_ALG_002_irls_robust_scale_is_per_output_column() -> None:
     g = torch.Generator().manual_seed(1)
     y = torch.randn(301, 2, generator=g) * torch.tensor([1.0, 10.0])
-    _, _, prec = iteratively_reweighted_least_squares(
+    _, _, prec = reweight_fixed_predictions(
         _TwoOutputZero(),
         torch.zeros(301, 1),
         y,
@@ -177,7 +177,7 @@ class _TwoOutputZero(nn.Module):
 def test_ALG_003_irls_concatenated_output_default_config() -> None:
     """Default config (gaussian base loss, predicted variance) with ``[mean, log_sigma]``."""
     x = torch.zeros(6, 1)
-    y_pred, hist, prec = iteratively_reweighted_least_squares(_ZeroLinear(2), x, _Y6, max_iter=1)
+    y_pred, hist, prec = reweight_fixed_predictions(_ZeroLinear(2), x, _Y6, max_iter=1)
     assert y_pred.shape == (6, 2)
     assert len(hist) == 1 and math.isfinite(hist[0])
     assert prec.shape == _Y6.shape
@@ -186,7 +186,7 @@ def test_ALG_003_irls_concatenated_output_default_config() -> None:
 
 def test_ALG_003_irls_tuple_output_default_config() -> None:
     x = torch.zeros(6, 1)
-    _, hist, prec = iteratively_reweighted_least_squares(_TupleHead(), x, _Y6, max_iter=1)
+    _, hist, prec = reweight_fixed_predictions(_TupleHead(), x, _Y6, max_iter=1)
     assert math.isfinite(hist[0])
     torch.testing.assert_close(prec, huber_weights(_Y6, 1.0))
 

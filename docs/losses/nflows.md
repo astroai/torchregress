@@ -37,9 +37,9 @@ $$\mathcal{L}_{\text{NLL}}(\theta, \phi) = -\frac{1}{N} \sum_{i=1}^N \left[ \log
 | **Standard Supervised Regression** | Observed paired dataset $\mathcal{D} = \{(\mathbf{x}_i, \mathbf{y}_i)\}_{i=1}^N$ | Direct parametric likelihood head $p(\mathbf{y} \mid \mathbf{x})$ | Maximum Likelihood Estimation (MLE) over target labels |
 | **Simulation-Based Inference (SBI)** | Forward simulator $x \sim p(x \mid \theta)$ + prior $p(\theta)$ | Density ratio estimator or posterior surrogate $q(\theta \mid x)$ | Amortized Bayesian parameter retrieval from simulated $x$ |
 
-In **standard regression**, conditional normalizing flows act as a drop-in replacement for `GaussianNLLLoss` or `MDNLoss`:
+In **standard regression**, conditional normalizing flows act as a drop-in replacement for `GaussianNLLLoss` or `MixtureDensityLoss`:
 - **Beyond Gaussianity**: Unlike `GaussianNLLLoss` (which restricts $p(\mathbf{y} \mid \mathbf{x})$ to symmetric ellipses), flows capture non-linear parameter degeneracies (such as banana-shaped $T_{\text{eff}}$ vs. $\log g$ contours in astrophysics), heavy tails, and skewness.
-- **Beyond Fixed Components**: Unlike `MDNLoss` (which requires choosing a fixed number $K$ of Gaussian mixture modes and can suffer from mode collapse during training), flows transform a continuous base space smoothly, providing stable likelihood gradients.
+- **Beyond Fixed Components**: Unlike `MixtureDensityLoss` (which requires choosing a fixed number $K$ of Gaussian mixture modes and can suffer from mode collapse during training), flows transform a continuous base space smoothly, providing stable likelihood gradients.
 - **Fast Sampling at Inference**: Given a new input spectrum $\mathbf{x}_{\text{test}}$, evaluating context $\mathbf{c} = c_\theta(\mathbf{x}_{\text{test}})$ enables drawing $N = 5,000$ exact joint posterior samples $\mathbf{y}^{(s)} \sim p(\mathbf{y} \mid \mathbf{x}_{\text{test}})$ in milliseconds to produce full 1D and 2D corner plots.
 
 See the [NormalizingFlowLoss API](../api/losses.md) for the training contract and `create_flow_loss` helper.

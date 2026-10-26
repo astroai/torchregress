@@ -28,7 +28,7 @@ from torchregress.losses import (
     WeightedHuberLoss,
     WeightedMSELoss,
 )
-from torchregress.metrics import interval_score, prediction_interval_coverage
+from torchregress.metrics import interval_score, prediction_interval_coverage_probability
 
 
 @dataclass
@@ -167,7 +167,7 @@ def _interval_metrics(
     *,
     alpha: float,
 ) -> tuple[float, float, float]:
-    cov = prediction_interval_coverage(lower, upper, y_true, alpha=alpha)
+    cov = prediction_interval_coverage_probability(lower, upper, y_true, alpha=alpha)
     width = float(torch.mean(upper - lower).item())
     score = interval_score(lower, upper, y_true, alpha=alpha)
     score_f = float(score.item()) if isinstance(score, torch.Tensor) else float(score)

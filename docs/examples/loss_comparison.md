@@ -8,7 +8,7 @@ This page compares robust and standard regression losses across pedagogical scen
 pixi run python examples/loss_comparison.py
 ```
 
-→ API: [Losses](../api/losses.md) (`WeightedMSELoss`, `WeightedHuberLoss`, `CauchyLoss`, `GaussianNLLLoss`, `MDNLoss`, …).
+→ API: [Losses](../api/losses.md) (`WeightedMSELoss`, `WeightedHuberLoss`, `CauchyLoss`, `GaussianNLLLoss`, `MixtureDensityLoss`, …).
 
 | # | Reference |
 |:-:|:----------|

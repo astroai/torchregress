@@ -324,11 +324,6 @@ class MultiExpectileLoss(RegressionLoss):
         return self._reduce(per_sample, sample_mask, sample_weights)
 
 
-# ponytail: AsymmetricLeastSquaresLoss is an alias for ExpectileLoss.
-AsymmetricLeastSquaresLoss = ExpectileLoss
-register_regression_loss("als")(AsymmetricLeastSquaresLoss)
-
-
 @register_regression_loss("expectile_crossover")
 class ExpectileCrossoverLoss(RegressionLoss):
     """
@@ -467,7 +462,3 @@ def expectile_loss(
     return ExpectileLoss(expectile=expectile, reduction=reduction)(
         y_pred, target, mask=mask, weights=weights
     )
-
-
-# Compatibility alias used in docs.
-ExpectileCrossover = ExpectileCrossoverLoss

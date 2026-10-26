@@ -121,8 +121,8 @@ def test_cqr_debias_is_noop() -> None:
     y_cal = torch.randn(n_cal, 1)
     y_pred = torch.cat([y_cal - 0.3 * torch.rand(n_cal, 1), y_cal + 0.3 * torch.rand(n_cal, 1)], -1)
 
-    cqr_on = CQR(alpha=0.1, debias=True)
-    cqr_off = CQR(alpha=0.1, debias=False)
+    cqr_on = CQR(alpha=0.1)
+    cqr_off = CQR(alpha=0.1)
     cqr_on.calibrate(y_pred, y_cal)
     cqr_off.calibrate(y_pred, y_cal)
     assert torch.isclose(cqr_on.q_hat, cqr_off.q_hat)

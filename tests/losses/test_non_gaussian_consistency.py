@@ -20,7 +20,7 @@ from torchregress.losses.expectile import (
     ExpectileLoss,
     MultiExpectileLoss,
 )
-from torchregress.losses.ordinal import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
+from torchregress.losses.ordinal import CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.losses.poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
@@ -951,46 +951,6 @@ class TestOrdinalFamilyContract:
         mask[0, 0] = False
         fn = CumulativeLinkLoss(reduction="mean")
         assert fn(logits, target) != fn(logits, target, mask=mask)
-
-    def test_coral_equals_cumulative_link(self):
-        """CORALLoss = CumulativeLinkLoss (same computation, different
-        architectural convention)."""
-        logits = torch.randn(4, 3, 2)
-        target = torch.randint(0, 4, (4, 2))
-        coral = CORALLoss(reduction="none")(logits, target)
-        cl = CumulativeLinkLoss(reduction="none")(logits, target)
-        torch.testing.assert_close(coral, cl)
-
-    def test_coral_reduction_consistency(self):
-        logits = torch.randn(6, 3, 2)
-        target = torch.randint(0, 4, (6, 2))
-        _check_reduction(CORALLoss, logits, target)
-
-    def test_coral_mask_changes_loss(self):
-        logits = torch.randn(5, 3, 2)
-        target = torch.randint(0, 4, (5, 2))
-        mask = torch.ones(5, 2, dtype=torch.bool)
-        mask[0, 0] = False
-        fn = CORALLoss(reduction="mean")
-        assert fn(logits, target) != fn(logits, target, mask=mask)
-
-    def test_coral_weights_scale_loss(self):
-        logits = torch.randn(4, 3, 2)
-        target = torch.randint(0, 3, (4, 2))
-        w1 = torch.ones(4, 2)
-        w2 = w1.clone()
-        w2[0, 0] = 2.0
-        fn = CORALLoss(reduction="none")
-        out1 = fn(logits, target, weights=w1)
-        out2 = fn(logits, target, weights=w2)
-        torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
-
-    def test_coral_gradients_flow(self):
-        logits = torch.randn(4, 3, 2, requires_grad=True)
-        target = torch.randint(0, 4, (4, 2))
-        loss = CORALLoss()(logits, target)
-        loss.backward()
-        assert logits.grad is not None and torch.isfinite(logits.grad).all()
 
 
 # ── ConformalLoss ─────────────────────────────────────────────────────

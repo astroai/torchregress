@@ -5,14 +5,13 @@ from typing import Any, cast
 import numpy as np
 import torch
 
+from torchregress.calibration import calibration_score, expected_calibration_error
 from torchregress.metrics import (
     EntropyScore,
     KernelDensityScore,
     MahalanobisDistance,
     TypicalityScore,
-    calibration_score,
     entropy_score,
-    expected_calibration_error,
     kernel_density_score,
     mahalanobis_distance,
     ood_metrics_report,

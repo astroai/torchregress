@@ -243,7 +243,6 @@ nav = [
       { "Variational Imbalanced Regression" = "methods/algorithms/vir.md" },
     ] },
     { "Test-Time Adaptation" = [
-      { "Shift Adaptation Overview" = "methods/test-time/regression-shift-adaptation-roadmap.md" },
       { "Bayesian Linear Regression" = "methods/test-time/bayesian-linear-regression.md" },
       { "Optimal Transport Conformal" = "methods/test-time/ot-shift-conformal.md" },
     ] },

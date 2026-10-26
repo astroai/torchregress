@@ -18,7 +18,7 @@ except PackageNotFoundError:
     __version__ = "0.0.0+dev"
 
 # Eager import only the small, high-value top-level symbols.
-from .algorithms.irls import iteratively_reweighted_least_squares, reweight_fixed_predictions
+from .algorithms.irls import reweight_fixed_predictions
 from .algorithms.irls_fit import iteratively_reweighted_fit
 from .losses.base import BaseLoss, DistributionLoss, RegressionLoss
 
@@ -82,7 +82,6 @@ __all__ = [
     "DistributionLoss",
     # Core functions
     "iteratively_reweighted_fit",
-    "iteratively_reweighted_least_squares",
     "reweight_fixed_predictions",
     "__version__",
 ]

@@ -47,7 +47,7 @@ The **irreducible** noise in the observation process.
 
 Modelled by parametric likelihood heads such as `GaussianNLLLoss`,
 `BetaNLLLoss`, `MultivariateGaussianLoss`, and non-parametric heads such as
-`MDNLoss` and `NormalizingFlowLoss`.
+`MixtureDensityLoss` and `NormalizingFlowLoss`.
 
 ### 2.2 Epistemic uncertainty (model ignorance)
 
@@ -172,7 +172,7 @@ replace, likelihood-based losses.
 | Mask support or sample weights | [`WeightedMSELoss`](../api/losses.md) | `torch.nn.MSELoss` |
 | Aleatoric uncertainty (per-sample σ) | [`GaussianNLLLoss`](../api/losses.md) with `learn_variance=True` | Point loss + post-hoc σ estimation |
 | Epistemic uncertainty | Ensembles, SWAG, BNN, evidential | Single MC-dropout run with no diagnostics |
-| Multimodal conditional | [`MDNLoss`](../api/losses.md) or [`NormalizingFlowLoss`](../api/losses.md) | A single Gaussian head |
+| Multimodal conditional | [`MixtureDensityLoss`](../api/losses.md) or [`NormalizingFlowLoss`](../api/losses.md) | A single Gaussian head |
 | Coverage guarantees | [`SplitConformal`](../api/losses.md) / [`CQR`](../api/losses.md) on top of a strong backbone | Conformal *instead of* likelihood |
 | Distribution shift at test time | `BayesianLinearHead` or `ShiftFactoredPredictiveTransport` | A model retrained on a single batch |
 | Causal treatment effects | `dr_ate` / `dr_cate` | Naive difference in means |

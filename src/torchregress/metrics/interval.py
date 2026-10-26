@@ -236,23 +236,6 @@ def interval_metrics_report(
     return report
 
 
-def prediction_interval_coverage(
-    lower_bound: Union[torch.Tensor, np.ndarray],
-    upper_bound: Union[torch.Tensor, np.ndarray],
-    y_true: Union[torch.Tensor, np.ndarray],
-    alpha: float = 0.1,
-    return_diagnostics: bool = False,
-) -> Union[torch.Tensor, float, Dict[str, torch.Tensor]]:
-    """Compatibility alias for :func:`prediction_interval_coverage_probability`."""
-    return prediction_interval_coverage_probability(
-        lower_bound=lower_bound,
-        upper_bound=upper_bound,
-        y_true=y_true,
-        alpha=alpha,
-        return_diagnostics=return_diagnostics,
-    )
-
-
 class Sharpness(Metric):
     """
     Sharpness: mean prediction-interval width (§6 F1). Lower is sharper.
@@ -280,10 +263,6 @@ class Sharpness(Metric):
     def compute(self) -> torch.Tensor:
         """Compute mean interval width."""
         return metric_state_tensor(self.width_sum) / metric_state_tensor(self.total)
-
-
-class MeanIntervalWidth(Sharpness):
-    """Alias of :class:`Sharpness` (mean width semantics)."""
 
 
 def sharpness(

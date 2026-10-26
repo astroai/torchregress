@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 
-from torchregress.losses import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
+from torchregress.losses import CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.utils.ordinal import labels_to_levels
 
 
@@ -55,17 +55,6 @@ def test_cumulative_link_accepts_soft_class_prob_targets() -> None:
     assert torch.allclose(actual, expected)
 
 
-def test_coral_loss_forward_and_backward() -> None:
-    logits = torch.randn(8, 4, requires_grad=True)
-    target = torch.randint(0, 5, (8,))
-
-    loss_fn = CORALLoss()
-    loss = loss_fn(logits, target)
-    assert loss.ndim == 0
-    loss.backward()
-    assert logits.grad is not None
-
-
 def test_cumulative_link_accepts_spatial_targets() -> None:
     logits = torch.randn(4, 3, 2)
     target = torch.randint(0, 4, (4, 2))
@@ -95,19 +84,3 @@ def test_ordinal_losses_validate_shapes() -> None:
         assert "soft target shape" in str(exc)
     else:
         raise AssertionError("Expected ValueError for invalid soft ordinal target shape")
-
-
-def test_coral_loss_keeps_its_own_docstring() -> None:
-    assert CumulativeLinkLoss.__doc__ is not None
-    assert CORALLoss.__doc__ is not None
-    assert CumulativeLinkLoss.__doc__.startswith("Ordinal loss over cumulative logits")
-    assert "CORAL" in CORALLoss.__doc__
-    assert CORALLoss.__doc__ != CumulativeLinkLoss.__doc__
-    assert "CORAL ordinal loss" not in CumulativeLinkLoss.__doc__
-
-
-def test_coral_loss_matches_cumulative_link_loss() -> None:
-    assert issubclass(CORALLoss, CumulativeLinkLoss)
-    logits = torch.randn(8, 4)
-    target = torch.randint(0, 5, (8,))
-    assert torch.equal(CORALLoss()(logits, target), CumulativeLinkLoss()(logits, target))

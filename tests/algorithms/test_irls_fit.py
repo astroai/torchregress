@@ -11,8 +11,6 @@ from torchregress.algorithms import (
     IRLSContinuationStage,
     IRLSFitConfig,
     iteratively_reweighted_fit,
-    iteratively_reweighted_least_squares,
-    reweight_fixed_predictions,
     robust_weights,
 )
 
@@ -58,20 +56,6 @@ def test_analytic_dense_wls_and_refit_count() -> None:
     torch.testing.assert_close(result.state, expected)
     torch.testing.assert_close(result.precision, base_precision)
     assert len(calls) == result.iterations == 1
-
-
-def test_fixed_prediction_compatibility_name_and_deprecated_alias() -> None:
-    model = torch.nn.Linear(1, 1, bias=False)
-    model.weight.data.zero_()
-    x = torch.zeros(5, 1)
-    target = torch.arange(5.0).unsqueeze(1)
-    explicit = reweight_fixed_predictions(model, x, target, max_iter=1, variance_type="fixed")
-    with pytest.deprecated_call(match="only reweights fixed predictions"):
-        legacy = iteratively_reweighted_least_squares(
-            model, x, target, max_iter=1, variance_type="fixed"
-        )
-    torch.testing.assert_close(legacy[0], explicit[0])
-    torch.testing.assert_close(legacy[2], explicit[2])
 
 
 def test_statsmodels_rlm_huber_parity() -> None:

@@ -31,20 +31,12 @@ EXPECTED_EXPORTS = {
         "RegressionLoss",
         "DistributionLoss",
         "iteratively_reweighted_fit",
-        "iteratively_reweighted_least_squares",
         "reweight_fixed_predictions",
         "__version__",
     ],
     "metrics": [
-        "ExpectedCalibrationError",
-        "MarginalCalibrationError",
-        "bias",
         "frozen_readout_metrics",
         "binned_cdf",
-        "expected_calibration_error",
-        "marginal_calibration_error",
-        "calibration_score",
-        "calibration_metrics_report",
         "simulation_based_calibration_ranks",
         "sbc_rank_histogram",
         "sbc_uniformity_pvalue",
@@ -99,7 +91,6 @@ EXPECTED_EXPORTS = {
         "Sharpness",
         "interval_score",
         "sharpness",
-        "prediction_interval_coverage",
         "prediction_interval_coverage_probability",
         "interval_metrics_report",
         "MultivariateMAE",
@@ -197,7 +188,6 @@ EXPECTED_EXPORTS = {
     "algorithms": [
         "IVON",
         "iteratively_reweighted_fit",
-        "iteratively_reweighted_least_squares",
         "reweight_fixed_predictions",
         "robust_weights",
         "IRLSProblem",
@@ -338,7 +328,6 @@ EXPECTED_EXPORTS = {
         "SAGERegAgreement",
         "SAGERegLoss",
         "SAGERegOutput",
-        "SelfAgreementTrainer",
         "TeacherStudentTrainer",
         "build_consensus_predictive_batch",
         "disagreement_to_weight",
@@ -356,15 +345,6 @@ EXPECTED_SIGNATURES = {
         "config: 'IRLSFitConfig | None' = None) -> 'IRLSFitResult[StateT]'"
     ),
     "algorithms.reweight_fixed_predictions": (
-        "(model: torch.nn.modules.module.Module, x: torch.Tensor, y_true: torch.Tensor, "
-        "initial_precision: torch.Tensor | None = None, "
-        "covariance_matrices: torch.Tensor | None = None, "
-        "mask: torch.Tensor | None = None, "
-        "config: Optional[torchregress.algorithms.irls.IRLSConfig] = None, **kwargs: Any) -> "
-        "Union[Tuple[torch.Tensor, List[float], torch.Tensor], "
-        "Tuple[torch.Tensor, List[float], torch.Tensor, List[torch.Tensor]]]"
-    ),
-    "algorithms.iteratively_reweighted_least_squares": (
         "(model: torch.nn.modules.module.Module, x: torch.Tensor, y_true: torch.Tensor, "
         "initial_precision: torch.Tensor | None = None, "
         "covariance_matrices: torch.Tensor | None = None, "
@@ -401,12 +381,12 @@ EXPECTED_SIGNATURES = {
         "reduction: str = 'mean', "
         "as_numpy: bool = False) -> torch.Tensor | float | numpy.ndarray"
     ),
-    "metrics.expected_calibration_error": (
+    "calibration.expected_calibration_error": (
         "(y_pred_quantiles: Dict[float, torch.Tensor | numpy.ndarray], "
         "y_true: torch.Tensor | numpy.ndarray, return_diagnostics: bool = False, "
         "as_numpy: bool = False) -> Dict[str, torch.Tensor | float | numpy.ndarray]"
     ),
-    "metrics.calibration_score": (
+    "calibration.calibration_score": (
         "(y_true: torch.Tensor | numpy.ndarray, "
         "pred_mean: torch.Tensor | numpy.ndarray, "
         "pred_std: torch.Tensor | numpy.ndarray, n_levels: int = 19, as_numpy: bool = False) "

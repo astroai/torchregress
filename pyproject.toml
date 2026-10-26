@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torchregress"
-version = "0.3.0rc1"
+version = "0.3.0b1"
 description = "Probabilistic and robust regression for PyTorch: losses, metrics, conformal prediction and calibration."
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
@@ -14,7 +14,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12, <3.16"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
@@ -38,12 +38,12 @@ keywords = [
     "loss functions",
 ]
 # Floors track the newest releases the conda-forge pixi lock resolves
-# (2026-10-05); raised for 0.3.0, see CHANGELOG.
+# (2026-10-26).
 dependencies = [
-    "torch>=2.13",
-    "numpy>=2.5",
+    "torch>=2.14.1",
+    "numpy>=2.5.4",
     "torchmetrics>=1.9",
-    "scipy>=1.18",
+    "scipy>=1.18.1",
 ]
 
 [project.urls]
@@ -58,23 +58,23 @@ torchregress-health = "torchregress.health:check_health"
 
 [project.optional-dependencies]
 test = [
-    "pytest>=9.1",
+    "pytest>=9.1.1",
     "pytest-cov>=7.1",
-    "polars>=1.43",
+    "polars>=2.1",
     "pyarrow>=25.0",
     "PyYAML>=6.0.3",
-    "scikit-learn>=1.9",
-    "pandas>=3.0",
+    "scikit-learn>=1.9.1",
+    "pandas>=3.1",
     "scoringrules>=0.11",
     "properscoring>=0.1",
-    "statsmodels>=0.14",
-    "hypothesis>=6.100",
+    "statsmodels>=0.15",
+    "hypothesis>=6.170.11",
 ]
 docs = [
-    "zensical>=0.0.52",
+    "zensical>=0.0.73",
 ]
 viz = [
-    "matplotlib>=3.11",
+    "matplotlib>=3.11.2",
 ]
 flows = [
     "zuko>=1.6",
@@ -95,7 +95,6 @@ python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 filterwarnings = [
-    "ignore::DeprecationWarning",
     "ignore::UserWarning",
 ]
 

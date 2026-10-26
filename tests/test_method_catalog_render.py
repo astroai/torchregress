@@ -31,7 +31,7 @@ def test_render_markdown_contains_peer_methods_and_no_experimental_default() -> 
     assert "# Generated Method Catalog Snapshot" in md
     assert "`SWAG`" in md
     assert "`BayesianNeuralNetwork`" in md
-    assert "`MDNLoss`" in md
+    assert "`MixtureDensityLoss`" in md
     assert "Experimental" not in md
 
 
@@ -45,7 +45,7 @@ def test_render_method_matrix_generated_section_contains_hard_task_shortlists() 
     assert "OOD + epistemic signals" in section
     assert "`swag`" in section
     assert "`SWAG`" in section
-    assert "`MDNLoss`" in section
+    assert "`MixtureDensityLoss`" in section
     assert "`HeteroscedasticBatchEnsembleModel`" in section
 
 
@@ -95,7 +95,7 @@ def test_build_report_contains_family_and_maturity_counts() -> None:
     assert report["summary"]["families"]["swag"] >= 1
     assert report["summary"]["peer_uq_methods_present"]["SWAG"] is True
     assert report["summary"]["peer_uq_methods_present"]["BayesianNeuralNetwork"] is True
-    assert report["summary"]["peer_uq_methods_present"]["MDNLoss"] is True
+    assert report["summary"]["peer_uq_methods_present"]["MixtureDensityLoss"] is True
 
 
 def test_committed_method_catalog_artifacts_are_in_sync() -> None:

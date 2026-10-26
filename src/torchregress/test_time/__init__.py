@@ -56,8 +56,6 @@ from .transport import (
     ShiftFactoredTransportState,
 )
 
-RepresentationShiftCalibrator = RepresentationShiftInflator
-SignificantSubspaceAligner = WeightedSubspaceMomentAligner
 __all__ = [
     "AdaptationBatch",
     "BayesianLinearHead",

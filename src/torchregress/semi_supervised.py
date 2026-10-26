@@ -1181,13 +1181,10 @@ def _split_unlabeled_batch(batch: Any) -> Tensor:
     return x
 
 
-SelfAgreementTrainer = TeacherStudentTrainer
-
 __all__ = [
     "SAGERegAgreement",
     "SAGERegLoss",
     "SAGERegOutput",
-    "SelfAgreementTrainer",
     "TeacherStudentTrainer",
     "build_consensus_predictive_batch",
     "disagreement_to_weight",

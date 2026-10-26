@@ -138,9 +138,9 @@ scripts were already extracted to
 `contrastive_flow_benchmark_utils.py` holds helpers shared by the two
 contrastive-flow scripts and has no `main`.
 
-## Candidates to merge in 0.4
+## Candidates to merge for 0.3.0
 
-Nothing is deleted or merged for 0.3.0. These overlap and could share one
+Tracked in `ROADMAP.md`. These overlap and could share one
 script with a `--dataset {synthetic,diabetes}` style switch:
 
 - **Synthetic / real-data pairs** that share the same harness and differ only in data source:

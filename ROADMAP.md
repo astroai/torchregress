@@ -1,38 +1,28 @@
 # Roadmap
 
-> **Algorithm freeze for 0.3.0 (since 2026-10-05).** Until 0.3.0 is on PyPI,
-> only fixes, tests, docs and packaging land. Which methods to add or remove
-> is decided for 0.4.
-
-1.0 is a promise about API stability, not about features. It comes only after
-two minor releases with no unplanned breaking change.
+0.3.0b1 is the API cut. 0.3.0 is the release that makes that API correct,
+fast, and documented. One public name per behavior. Compatibility aliases
+are not added back.
 
 | Release | Theme | Contents | Done when |
 |:--|:--|:--|:--|
-| **0.3.0** | First PyPI release | 0.3.0 audit of losses, conformal, metrics, calibration, inference, causal and ensembles ([report](docs/reports/audit_0.3.0.md)); metrics parity tests against scoringrules/properscoring/scipy/scikit-learn; harness release run on CANFAR; local CUDA test run (`pixi run test-cuda`) on the release candidate; trusted publishing from `astroai/torchregress` | `pip install torchregress` works on Linux and macOS, Python 3.12–3.14 |
-| 0.3.x | Stabilise | Patch fixes from early users; audit batches 4–5 (`algorithms`, `test_time`, `utils`, `viz`); weekly latest-comparators harness job; conda-forge feedstock | No open High issues; feedstock merged |
-| 0.4 | GPU and hardening | Self-hosted CUDA runner (weekly and per release candidate), CPU–CUDA equality for every loss and metric, OOM guard, MPS decision; bf16/fp16 where it is safe; API trim (private helpers, one spelling per idea) with a deprecation policy | Every loss and metric passes CPU–CUDA equality |
-| 0.5 | Estimators, not just losses | Bundled `ConditionalFlow` estimator (fit / sample / log_prob / interval); scikit-learn-style wrappers for the most-used method families; amortised-inference helpers building on the sbi comparison | The one-line usage in the harness sbi and pzflow suites works |
-| 0.6 | Structured and multi-target | Joint intervals beyond Gaussian; censored and errors-in-variables workflows for survey data (photo-z, galaxy properties) as tutorials | Harness rows for each, at parity or better |
-| 1.0 | API freeze | Deprecation policy enforced for two minors; every method family benchmarked; complete docs; software paper together with the harness paper | No unplanned breaking change from 0.5 to 0.6 |
+| **0.3.0b1** | Clean API | One name per behavior. Removed duplicate exports, no-op arguments, and agent clutter. Dependency floors match the lockfile. Pre-release tags publish to TestPyPI only. | `pyproject.toml` says `0.3.0b1` and tag `v0.3.0b1` exists |
+| **0.3.0** | Correct, fast, documented | Bug fixes and performance work on the code that already exists. Docs that match the code. Harness parity. No new methods. No compatibility shims. Example pairs that differ only by dataset share one script (`--dataset`). | `pip install torchregress` works on Linux and macOS, Python 3.12–3.14, and the harness release run is green |
+| 0.4 | GPU equality | Self-hosted CUDA runner, CPU–CUDA equality for every loss and metric, OOM guard, MPS decision, bf16/fp16 where it is safe | Every loss and metric passes CPU–CUDA equality |
+| 0.5 | Estimators | Bundled conditional-flow estimator (`fit` / `sample` / `log_prob` / `interval`) and scikit-learn-style wrappers for the most-used families | The harness sbi and pzflow one-liners work |
+| 0.6 | Structured outputs | Joint intervals beyond Gaussian. Censored and errors-in-variables tutorials for survey data | Harness rows for each |
+| 1.0 | API freeze | Two minor releases with no unplanned breaking change. Every method family benchmarked. Software paper with the harness paper | No unplanned breaking change from 0.5 to 0.6 |
 
-Not yet scheduled: a model-card style report built from `health.py` and the
-metrics suite; a hosted leaderboard from the latest-comparators job.
+## 0.3.0 docs and harness work
 
-## Deprecation policy (from 0.4)
+These stay out of the beta diff and land while 0.3.0 is stabilized:
 
-A public name or argument that is going away is deprecated in minor release
-N with a `DeprecationWarning` that names the replacement, and removed in N+2.
-The CHANGELOG lists every deprecation and removal.
+- Merge example pairs that share a harness and differ only by data source: causal, censored, EIV, multimodal, noisy-label, OOD selective prediction, ordinal, and uncertain-ground-truth comparisons.
+- Merge the overlapping loss, conformal, contrastive-flow, count, Bayesian-linear-head, and Wasserstein-bound demos the same way.
+- Move external-library comparators and the SAGE-Reg Higgs script to torchregress-harness and torchregress-research.
 
-## Earlier roadmap items
+## After 0.3.0
 
-The 0.1.0 and 0.2.0 milestones of the previous roadmap shipped as described in
-`CHANGELOG.md`, except for these, which move to the releases above:
+Not scheduled inside 0.3.0: a shift-adaptation product surface (covariate shift, label shift, selection bias, calibration drift) beyond the test-time primitives that already exist; a model-card report from `health.py`; a hosted leaderboard.
 
-- CUDA runner, device fixture, `@pytest.mark.cuda`, CPU–CUDA equality, OOM
-  guard and MPS decision → 0.4.
-- Coverage target of 92% on the risky paths, and property-based tests beyond
-  the metrics → 0.3.x.
-- Notebook examples for every method category → after the examples are sorted
-  into tutorial, comparison and real-data scripts (0.3.x).
+1.0 is a promise about API stability, not about features.

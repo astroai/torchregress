@@ -2,7 +2,7 @@
 
 This guide compares multiple methods for modeling ordered-target data (where targets are discrete classes with a natural sequence or hierarchy).
 
-→ API: [`CumulativeLinkLoss`](../api/losses.md), [`CORALLoss`](../api/losses.md), [`OrdinalCrossEntropyLoss`](../api/losses.md). Metrics: [`quadratic_weighted_kappa`](../api/metrics.md).
+→ API: [`CumulativeLinkLoss`](../api/losses.md), [`OrdinalCrossEntropyLoss`](../api/losses.md). Metrics: [`quadratic_weighted_kappa`](../api/metrics.md).
 
 | # | Reference |
 |:-:|:----------|
@@ -67,7 +67,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader, TensorDataset
 
-from torchregress.losses import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
+from torchregress.losses import CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.metrics import (
     mean_absolute_class_error,
     ordinal_accuracy,
@@ -146,7 +146,6 @@ def main() -> None:
     methods = [
         ("OrdinalCrossEntropy", MLP(cfg.n_features, cfg.hidden, cfg.num_classes), OrdinalCrossEntropyLoss(), "class_logits"),
         ("CumulativeLink", MLP(cfg.n_features, cfg.hidden, cfg.num_classes - 1), CumulativeLinkLoss(), "cumulative_logits"),
-        ("CORAL", MLP(cfg.n_features, cfg.hidden, cfg.num_classes - 1), CORALLoss(), "cumulative_logits"),
     ]
 
     for name, model, loss_fn, encoding in methods:

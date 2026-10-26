@@ -1,25 +1,10 @@
 """
 Metrics for evaluating regression models.
+
+Point-error classes live in ``torchmetrics``. Calibration metrics live in
+``torchregress.calibration``.
 """
 
-# torchmetrics classes (MeanSquaredError, MeanAbsoluteError, R2Score) are no longer
-# re-exported.  Import them directly from ``torchmetrics`` instead.
-
-from torchmetrics import (  # noqa: F401  # kept for soft backward compatibility; do not use in new code
-    MeanAbsoluteError,
-    MeanSquaredError,
-    R2Score,
-)
-
-from ..calibration.metrics import (
-    ExpectedCalibrationError,
-    MarginalCalibrationError,
-    bias,
-    calibration_metrics_report,
-    calibration_score,
-    expected_calibration_error,
-    marginal_calibration_error,
-)
 from .censored import (
     censoring_rate,
     concordance_index,
@@ -82,7 +67,6 @@ from .interval import (
     Sharpness,
     interval_metrics_report,
     interval_score,
-    prediction_interval_coverage,
     prediction_interval_coverage_probability,
     sharpness,
 )
@@ -153,16 +137,8 @@ from .uncertain import (
 )
 
 __all__ = [
-    # Calibration
-    "ExpectedCalibrationError",
-    "MarginalCalibrationError",
-    "bias",
     "frozen_readout_metrics",
     "binned_cdf",
-    "expected_calibration_error",
-    "marginal_calibration_error",
-    "calibration_score",
-    "calibration_metrics_report",
     # Simulation-based inference calibration (SBC / TARP)
     "simulation_based_calibration_ranks",
     "sbc_rank_histogram",
@@ -223,7 +199,6 @@ __all__ = [
     "Sharpness",
     "interval_score",
     "sharpness",
-    "prediction_interval_coverage",
     "prediction_interval_coverage_probability",
     "interval_metrics_report",
     # Multivariate
@@ -271,10 +246,6 @@ __all__ = [
     "consistency_error",
     "pseudo_label_acceptance_rate",
     "uncertain_gt_metrics_report",
-    # Torchmetrics direct exports — deprecated; import directly from torchmetrics
-    # "MeanSquaredError",
-    # "MeanAbsoluteError",
-    # "R2Score",
     "frozen_readout_metrics",
     "neighbour_target_gap",
     "nmad",

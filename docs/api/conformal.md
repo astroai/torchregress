@@ -28,8 +28,7 @@ unified coverage theorem, see [Conformal prediction](../methods/conformal/index.
 | `PrevalenceAdjustedCP` | Group-prevalence-adjusted | Subgroup prior shift |
 | `R2CConformal` | Regression-as-classification | Multimodal / binned targets |
 | `SLSConformal` | Super-level set conformal | Density-based / SLS regression |
-| `CVPlus` | Out-of-fold residuals | Cross-validation ensembles |
-| `JackknifePlus` | Leave-one-out residuals | Leave-one-out cross-validation ensembles (alias of CVPlus) |
+| `CVPlus` | Out-of-fold residuals | Cross-validation ensembles. Leave-one-out (`K = n`) is the jackknife+ case. |
 | `EnsembleBatchCP` | Out-of-bag residuals | Bootstrap-based ensemble predictors (EnbPI) |
 | `ConformalLoss(method=…)` | Unified CQR/UACQR/split training wrapper | One-call training of supported methods |
 

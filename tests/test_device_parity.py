@@ -28,6 +28,7 @@ import pytest
 import torch
 from torch import nn
 
+import torchregress.calibration as C
 import torchregress.losses as L
 import torchregress.metrics as M
 
@@ -603,7 +604,6 @@ LOSS_CASES: dict[str, Builder] = {
     "NoisyTargetGaussianNLL": _noisy_target_nll,
     "PseudoLabelNLL": _pseudo_label_nll,
     # Mixture density networks
-    "MDNLoss[diagonal]": _mdn(L.MDNLoss, "diagonal"),
     "MixtureDensityLoss[diagonal]": _mdn(L.MixtureDensityLoss, "diagonal"),
     "MixtureDensityLoss[full]": _mdn(L.MixtureDensityLoss, "full"),
     # Quantile / expectile
@@ -613,7 +613,6 @@ LOSS_CASES: dict[str, Builder] = {
     "QuantileCrossoverLoss": _quantile_stack(L.QuantileCrossoverLoss, [0.1, 0.5, 0.9]),
     "ExpectileLoss": _point(L.ExpectileLoss, expectile=0.3),
     "expectile_loss": _expectile_fn,
-    "AsymmetricLeastSquaresLoss": _point(L.AsymmetricLeastSquaresLoss, expectile=0.7),
     "MultiExpectileLoss": _quantile_stack(L.MultiExpectileLoss, [0.1, 0.5, 0.9]),
     "ExpectileCrossoverLoss": _quantile_stack(L.ExpectileCrossoverLoss, [0.1, 0.5, 0.9]),
     "SQRLoss": _sqr,
@@ -685,7 +684,6 @@ LOSS_CASES: dict[str, Builder] = {
     "BoxCoxTransformLoss": _transformed(L.BoxCoxTransformLoss, lam=0.5),
     "YeoJohnsonTransformLoss": _transformed(L.YeoJohnsonTransformLoss, lam=0.5),
     # Ordinal / distributional-target
-    "CORALLoss": _ordinal(L.CORALLoss, cumulative=True),
     "CumulativeLinkLoss": _ordinal(L.CumulativeLinkLoss, cumulative=True),
     "OrdinalCrossEntropyLoss": _ordinal(L.OrdinalCrossEntropyLoss, cumulative=False),
     "DiscreteWasserstein1Loss": _wasserstein1d,
@@ -811,7 +809,7 @@ def _calibration_report(r: _Rng) -> Built:
     # Explicit samples/quantiles: drawing from a Distribution would use device-specific RNG.
     y = r.normal(N)
     return (
-        M.calibration_metrics_report,
+        C.calibration_metrics_report,
         (r.normal(16, N), y),
         {"y_pred_quantiles": _quantile_dict(r, y), "n_bins": 5},
     )
@@ -835,7 +833,7 @@ def _distribution_report(r: _Rng) -> Built:
 
 def _ece_qdict(r: _Rng) -> Built:
     y = r.normal(N)
-    return M.expected_calibration_error, (_quantile_dict(r, y), y), {}
+    return C.expected_calibration_error, (_quantile_dict(r, y), y), {}
 
 
 def _crps_q(r: _Rng) -> Built:
@@ -860,7 +858,7 @@ def _pinball_cls(r: _Rng) -> Built:
 
 def _ece_cls(r: _Rng) -> Built:
     y = r.normal(N)
-    return _MetricRunner(M.ExpectedCalibrationError()), (_quantile_dict(r, y), y), {}
+    return _MetricRunner(C.ExpectedCalibrationError()), (_quantile_dict(r, y), y), {}
 
 
 def _ensemble_mv(r: _Rng) -> tuple[torch.Tensor, torch.Tensor]:
@@ -1016,7 +1014,7 @@ METRIC_CASES: dict[str, Builder] = {
     "median_absolute_error": _metric(M.median_absolute_error, _n, _n),
     "huber_loss": _metric(M.huber_loss, _n, _n, delta=0.7),
     "r2_score": _metric(M.r2_score, _n, _n),
-    "bias": _metric(M.bias, _n, _n),
+    "bias": _metric(C.bias, _n, _n),
     "attenuation_factor": _metric(M.attenuation_factor, _n, _n),
     "trimmed_mean_squared_error": _metric(M.trimmed_mean_squared_error, _n, _n),
     "median_absolute_deviation": _metric(M.median_absolute_deviation, _n, _n),
@@ -1062,9 +1060,9 @@ METRIC_CASES: dict[str, Builder] = {
     # Calibration
     "expected_calibration_error": _ece_qdict,
     "ExpectedCalibrationError": _ece_cls,
-    "marginal_calibration_error": _metric(M.marginal_calibration_error, _samples, _n, n_bins=5),
-    "MarginalCalibrationError": _pcls(M.MarginalCalibrationError, _samples, _n, n_bins=5),
-    "calibration_score": _metric(M.calibration_score, _n, _n, _pos, n_levels=9),
+    "marginal_calibration_error": _metric(C.marginal_calibration_error, _samples, _n, n_bins=5),
+    "MarginalCalibrationError": _pcls(C.MarginalCalibrationError, _samples, _n, n_bins=5),
+    "calibration_score": _metric(C.calibration_score, _n, _n, _pos, n_levels=9),
     "calibration_metrics_report": _calibration_report,
     "distribution_metrics_report": _distribution_report,
     # Intervals
@@ -1072,7 +1070,6 @@ METRIC_CASES: dict[str, Builder] = {
     "prediction_interval_coverage_probability": _interval_metric(
         M.prediction_interval_coverage_probability, y=True
     ),
-    "prediction_interval_coverage": _interval_metric(M.prediction_interval_coverage, y=True),
     "sharpness": _sharpness,
     "interval_metrics_report": _interval_report,
     "IntervalScore": _interval_cls(M.IntervalScore, y=True),

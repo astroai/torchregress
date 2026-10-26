@@ -23,6 +23,7 @@ from typing import Any, Callable
 import torch
 import torch.nn as nn
 
+from torchregress.calibration import calibration_score
 from torchregress.causal import dr_ate
 from torchregress.inference import PPIConfig, ppi_mean_ci, ppi_ols_ci, ppi_quantile_ci
 from torchregress.losses import (
@@ -33,18 +34,14 @@ from torchregress.losses import (
     FunctionalEIVLoss,
     GaussianNLLLoss,
     LowRankGaussianLoss,
-    MDNLoss,
+    MixtureDensityLoss,
     MonteCarloConformal,
     MultivariateGaussianLoss,
     NoisyTargetGaussianNLL,
     OrdinalCrossEntropyLoss,
     PseudoLabelNLL,
 )
-from torchregress.metrics import (
-    calibration_score,
-    ensemble_variance_decomposition,
-    ood_metrics_report,
-)
+from torchregress.metrics import ensemble_variance_decomposition, ood_metrics_report
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -286,9 +283,13 @@ def run_benchmark_smoke(
     lr_cov_diag = torch.rand(b, d, device=device_obj) + 0.1
     lr_loss = LowRankGaussianLoss(reduction="mean").to(device_obj)
 
-    mdn_diag = MDNLoss(n_components=3, n_features=d, covariance_type="diagonal").to(device_obj)
+    mdn_diag = MixtureDensityLoss(n_components=3, n_features=d, covariance_type="diagonal").to(
+        device_obj
+    )
     mdn_diag_pred = torch.randn(b, mdn_diag.expected_output_size, device=device_obj)
-    mdn_full = MDNLoss(n_components=3, n_features=d, covariance_type="full").to(device_obj)
+    mdn_full = MixtureDensityLoss(n_components=3, n_features=d, covariance_type="full").to(
+        device_obj
+    )
     mdn_full_pred = torch.randn(b, mdn_full.expected_output_size, device=device_obj)
     mdn_target = torch.randn(b, d, device=device_obj)
 
@@ -724,7 +725,7 @@ def run_benchmark_sweep(
         for n_components in (2, 5):
             for dim in (2, 4):
                 batch = 32
-                loss = MDNLoss(
+                loss = MixtureDensityLoss(
                     n_components=n_components,
                     n_features=dim,
                     covariance_type=covariance_type,

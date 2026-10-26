@@ -1,13 +1,12 @@
 import pytest
 import torch
 
+from torchregress.calibration import ExpectedCalibrationError, expected_calibration_error
 from torchregress.metrics import (
     ContinuousRankedProbabilityScore,
-    ExpectedCalibrationError,
     MedianAbsoluteDeviation,
     PredictionIntervalCoverageProbability,
     continuous_ranked_probability_score,
-    expected_calibration_error,
     median_absolute_deviation,
     prediction_interval_coverage_probability,
 )

@@ -14,7 +14,7 @@ from torchregress.comparison import (
     timed_call,
     write_comparison_summary_json,
 )
-from torchregress.losses import CORALLoss, CumulativeLinkLoss, OrdinalCrossEntropyLoss
+from torchregress.losses import CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.metrics import (
     mean_absolute_class_error,
     ordinal_accuracy,
@@ -139,13 +139,6 @@ def run_comparison(cfg: OrdinalRealDataConfig) -> list[dict[str, object]]:
             CumulativeLinkLoss(),
             "cumulative_logits",
             "cumulative-threshold ordinal objective",
-        ),
-        (
-            "CORAL",
-            _MLP(n_features, cfg.hidden, cfg.num_classes - 1),
-            CORALLoss(),
-            "cumulative_logits",
-            "CORAL-style cumulative objective",
         ),
     ]
 

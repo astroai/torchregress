@@ -42,7 +42,6 @@ from torchregress.losses.conformal import (
     CVPlus,
     DensityConformal,
     DistributionalConformal,
-    JackknifePlus,
     MultiTargetConformal,
     MultivariateScoreConformal,
     NonExchangeableConformalRegressor,
@@ -343,7 +342,7 @@ def test_B_CONF_004_jackknife_plus_matches_barber_reference() -> None:
     y_cal = rng.standard_normal(10)
     alpha = 0.1  # (n+1) alpha = 1.1 -> floor 1 (the old code used ceil = 2)
     oob, members, folds = _jackknife_mean_inputs(y_cal)
-    jp = JackknifePlus(alpha=alpha)
+    jp = CVPlus(alpha=alpha)
     jp.calibrate_ensemble(oob, torch.from_numpy(y_cal).reshape(-1, 1), folds)
     lo, hi = jp.predict_interval(members)
     assert (float(lo), float(hi)) == _reference_jackknife_plus(y_cal, alpha)
