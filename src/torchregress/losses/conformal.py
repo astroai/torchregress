@@ -2646,6 +2646,7 @@ class ConformalLoss(RegressionLoss):
         target: Tensor,
         mask: Optional[Tensor] = None,
         weights: Optional[Tensor] = None,
+        **kwargs: Any,
     ) -> Tensor:
         """Training loss (MSE for split, pinball for CQR)."""
         if self.method in ("cqr", "uacqr"):

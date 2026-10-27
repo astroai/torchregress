@@ -15,7 +15,6 @@ Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, a
 - Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors
   (use the dataclass fields directly).
 - Removed the identity factory `create_mdn_loss` (use `MixtureDensityLoss`).
-- `ConformalLoss.forward` no longer accepts unused `**kwargs`.
 
 ## [0.3.0b1] - 2026-10-26
 

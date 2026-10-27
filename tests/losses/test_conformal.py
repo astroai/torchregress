@@ -761,14 +761,9 @@ class TestMultiTargetConformal:
             assert coverage >= (1 - alpha) - 0.05, f"Dim {d} coverage {coverage:.3f} too low"
 
 
-def test_conformal_loss_rejects_unknown_kwargs() -> None:
+def test_conformal_loss_rejects_unknown_init_kwargs() -> None:
     with pytest.raises(TypeError):
         ConformalLoss(method="cqr", debias=True)
-    loss_fn = ConformalLoss(method="split", alpha=0.1)
-    y_pred = torch.randn(4, 1)
-    target = torch.randn(4, 1)
-    with pytest.raises(TypeError):
-        loss_fn(y_pred, target, bogus=True)
 
 
 class TestConformalLossMondrianWeighted:
