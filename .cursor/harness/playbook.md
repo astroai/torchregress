@@ -17,3 +17,6 @@
 ## Bullets (session 2026-08-26)
 - id: conformal-float64-cumsum
   desc: Weighted-conformal thresholds need float64 cumulative weights; float32 cumsum drift (~n*eps32) shifts the order-statistic index by one and breaks exact uniform-weight == finite_sample_quantile reduction.
+
+- id: alias-cut-kwargs
+  desc: Removing a no-op kwarg is incomplete if a wrapper still has unused **kwargs (ConformalLoss swallowed debias); also delete tautological dual-instance tests and docs examples that still pass it.

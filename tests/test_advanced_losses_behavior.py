@@ -10,20 +10,18 @@ from torchregress.losses import (
     MixtureDensityLoss,
     OrthogonalDistanceRegressionLoss,
     StructuralEIVLoss,
-    create_mdn_loss,
     nflows,
 )
 
 
-def test_mdn_factory_mask_behavior_and_error_paths() -> None:
+def test_mdn_mask_behavior_and_error_paths() -> None:
     torch.manual_seed(0)
-    loss_fn = create_mdn_loss(
+    loss_fn = MixtureDensityLoss(
         n_components=2,
         n_features=2,
         covariance_type="diagonal",
         reduction="none",
     )
-    assert isinstance(loss_fn, MixtureDensityLoss)
 
     y_pred = torch.randn(3, loss_fn.expected_output_size)
     target = torch.randn(3, 2)
