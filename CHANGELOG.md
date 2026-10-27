@@ -14,6 +14,7 @@ Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, a
   removed `debias`). Docs and tests that still advertised the no-op are gone.
 - Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors
   (use the dataclass fields directly).
+- Removed the identity factory `create_mdn_loss` (use `MixtureDensityLoss`).
 
 ## [0.3.0b1] - 2026-10-26
 

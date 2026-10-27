@@ -108,7 +108,6 @@ $$\mathcal{L}_{\text{Huber}}(r;\delta) = \begin{cases} \frac{1}{2}r^2 & |r| \le 
 | `quantile_loss` | `quantile_loss(y_pred, target, quantile=0.5, mask=None, weights=None, reduction="mean")` | Functional pinball loss |
 | `expectile_loss` | `expectile_loss(y_pred, target, expectile=0.5, mask=None, weights=None, reduction="mean")` | Functional expectile loss |
 | `MixtureDensityLoss` | `MixtureDensityLoss(n_components=5, reduction="mean")` | Mixture Density Network NLL |
-| `create_mdn_loss` | `create_mdn_loss(n_components=5, ...)` | Factory for `MixtureDensityLoss` |
 | `NormalizingFlowLoss` | `NormalizingFlowLoss(flow=..., reduction="mean")` | Conditional flow NLL (requires `zuko`) |
 | `NoiseAwareDensityLoss` | `NoiseAwareDensityLoss(base_loss, sigma=None, mode="auto", ...)` | Marginal likelihood with Gaussian label noise; GH for scalar flows, analytic for diagonal MDNs |
 | `BinnedDensityLoss` | `BinnedDensityLoss(bin_edges, label_smoothing=0.0)` | Smoothed histogram / ordinal-CDF scalar density head |

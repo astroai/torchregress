@@ -7,7 +7,6 @@ API contract:
 - :func:`split_low_rank_gaussian_output`    (torchregress.utils.gaussian_output)
 - :func:`symmetric_spd_matrix_sqrt`         (torchregress.losses.gaussian_wasserstein)
 - :func:`create_gaussian_nll`               (torchregress.losses.gaussian)
-- :func:`create_mdn_loss`                   (torchregress.losses.mdn)
 """
 
 from __future__ import annotations
@@ -23,7 +22,6 @@ from torchregress.losses.gaussian import (
     create_gaussian_nll,
 )
 from torchregress.losses.gaussian_wasserstein import symmetric_spd_matrix_sqrt
-from torchregress.losses.mdn import MixtureDensityLoss, create_mdn_loss
 from torchregress.utils.gaussian_output import (
     low_rank_output_dim,
     split_low_rank_gaussian_output,
@@ -225,52 +223,6 @@ class TestCreateGaussianNll(unittest.TestCase):
     def test_unknown_covariance_type_raises(self):
         with self.assertRaises(ValueError):
             create_gaussian_nll(covariance_type="not_a_mode")
-
-
-# ---------------------------------------------------------------------------
-# create_mdn_loss
-# ---------------------------------------------------------------------------
-
-
-class TestCreateMdnLoss(unittest.TestCase):
-    def test_default_returns_mixture_density_loss(self):
-        loss = create_mdn_loss(n_components=3, n_features=2)
-        self.assertIsInstance(loss, MixtureDensityLoss)
-
-    def test_kwargs_propagate_to_constructor(self):
-        loss = create_mdn_loss(n_components=4, n_features=2, covariance_type="full", min_std=1e-2)
-        self.assertEqual(loss.n_components, 4)
-        self.assertEqual(loss.n_features, 2)
-        self.assertEqual(loss.covariance_type, "full")
-        self.assertEqual(loss.min_std, 1e-2)
-
-    def test_default_covariance_is_diagonal(self):
-        loss = create_mdn_loss(n_components=2, n_features=1)
-        self.assertEqual(loss.covariance_type, "diagonal")
-
-    def test_invalid_covariance_type_raises(self):
-        with self.assertRaises(ValueError):
-            create_mdn_loss(n_components=2, n_features=1, covariance_type="not_a_real_mode")
-
-    def test_forward_smoke(self):
-        """A factory-built MDN loss must be callable end-to-end with a small
-        parameter shaped model output.  This catches accidental construction
-        failures (e.g. ``MixtureDensityLoss`` validator regression).
-        """
-        n_components, n_features = 2, 3
-        loss = create_mdn_loss(n_components=n_components, n_features=n_features)
-        # Diagonal MDN: ``[weights | means | log_stds]`` so the output dim is
-        # ``n_components + 2 * n_components * n_features``.  This is the
-        # canonical formula internally; any deviation would break ``forward``.
-        out_dim = n_components + 2 * n_components * n_features
-        y_pred = torch.randn(4, out_dim, requires_grad=True)
-        target = torch.randn(4, n_features)
-        val = loss(y_pred, target)
-        self.assertTrue(torch.isfinite(val).all())
-        # Backward must also succeed (sanity check on autograd graph).
-        val.backward()
-        self.assertIsNotNone(y_pred.grad)
-        self.assertTrue(torch.isfinite(y_pred.grad).all())
 
 
 if __name__ == "__main__":

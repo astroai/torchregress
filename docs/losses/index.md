@@ -211,7 +211,6 @@ $$p(y \mid x) = \sum_{k=1}^K \pi_k(x)\,\mathcal{N}\!\bigl(y \mid \mu_k(x),\, \si
 | Loss | Description |
 |:-----|:-----------|
 | `MixtureDensityLoss` | NLL for Gaussian mixtures |
-| `create_mdn_loss()` | Factory function |
 
 Read the full [MDN guide](mdn.md) — component selection, label switching, mixture-of-mixtures ensembles.
 

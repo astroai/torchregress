@@ -189,16 +189,6 @@ While MDNs are highly expressive, they present several training and optimization
 
 ---
 
-## Factory Function
-
-```python
-from torchregress.losses import create_mdn_loss
-
-loss_fn = create_mdn_loss(n_components=5, n_features=3, covariance_type="full")
-```
-
----
-
 ## Next steps
 
 - [Normalizing Flows](nflows.md) — more flexible distributions for complex targets

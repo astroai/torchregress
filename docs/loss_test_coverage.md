@@ -95,7 +95,6 @@ canonical way a contract break shows up in CI.
 | `list_regression_losses` | `loss_registry.py` | `tests/losses/test_loss_registry.py` | (per-class) | Sorted list of registered names |
 | `create_loss_from_config` | `loss_registry.py` | `tests/losses/test_loss_registry.py` | (per-class) | YAML-style config construction with aliases |
 | `MixtureDensityLoss` (re-exported as `MixtureDensityLoss`) | `mdn.py` | `tests/losses/test_mdn.py` | (per-class) | Full-cov Cholesky backward finite & differentiable |
-| `create_mdn_loss` | `mdn.py` | `tests/losses/test_indirect_utilities.py` | `TestCreateMdnLoss` | Factory routes kwargs to `MixtureDensityLoss`; rejects bad `covariance_type`; end-to-end forward + backward smoke |
 | `SLSLoss` | `sls.py` | `tests/losses/test_sls.py` + consistency suite | (top-level `test_sls_loss_warmup_and_forward`, etc.) | Step-counter monotonic advance; warmup window; K>1 unfreeze gating |
 | `VolumePreservingFlow` | `sls.py` | `tests/losses/test_sls.py` (round-trip) + `tests/losses/test_sls_internals.py` | `TestVolumePreservingFlow` | Invertibility: `flow.inverse(flow(y)) == y`; alternating half-mask per layer |
 | `MahalanobisFrontier` | `sls.py` | `tests/losses/test_sls_internals.py` | `TestMahalanobisFrontierFull`, `TestMahalanobisFrontierLowRank` | Full-mode `num_L_params = d(d+1)/2`; low-rank default `rank = ⌈√d⌉`; `G ≥ 0` invariant |
@@ -229,7 +228,7 @@ should land alongside a direct test in
 | `test_sls_internals.py` | SLS internal modules — `VolumePreservingFlow` / `MahalanobisFrontier` (full + low-rank) / `UnionFrontier` / `QuantileNetwork`. |
 | `test_eiv_internals.py` | EIV internal modules — `NoisyInputPredictor` / `BaseEIVLoss._prepare_covariance_from_sigma`. |
 | `test_functional_wrappers.py` | Functional wrappers (`quantile_loss`, `expectile_loss`, `beta_nll_loss`, `tweedie_loss`, `gaussian_wasserstein_bound_loss`). |
-| `test_indirect_utilities.py` | Public indirect utilities — `low_rank_output_dim`, `split_low_rank_gaussian_output`, `symmetric_spd_matrix_sqrt`, `create_gaussian_nll`, `create_mdn_loss`. |
+| `test_indirect_utilities.py` | Public indirect utilities — `low_rank_output_dim`, `split_low_rank_gaussian_output`, `symmetric_spd_matrix_sqrt`, `create_gaussian_nll`. |
 | `test_loss_registry.py` | `get_regression_loss` / `list_regression_losses` / `create_loss_from_config`. |
 
 ## Discriminator invariants: where to look when refactoring

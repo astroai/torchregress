@@ -295,8 +295,6 @@ class TestMixtureDensityLoss:
         with pytest.raises(ValueError, match="Model output size .* doesn't match expected size"):
             loss_fn(invalid_pred, target)
 
-    # Removed test_factory_function as create_mdn_loss was removed.
-
     def test_mdn_edge_cases(self):
         """Test MixtureDensityLoss with edge cases: zeros, empty tensors, extreme values, NaN/Inf."""
         n_components = 3
