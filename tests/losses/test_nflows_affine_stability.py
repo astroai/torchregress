@@ -85,12 +85,14 @@ def test_only_the_two_safeguards_differ_from_zuko(zuko_cls, stable_cls):
 @pytest.mark.parametrize("flow_type", AFFINE_TYPES)
 def test_log_prob_is_exact_change_of_variables_and_inverse_round_trips(flow_type, device):
     torch.manual_seed(1)
+    # MPS has no float64; assert_close then applies its float32 tolerances.
+    dtype = torch.float32 if torch.device(device).type == "mps" else torch.float64
     flow = create_flow_model(3, 2, flow_type, 3, hidden_features=[16, 16])
-    flow = flow.to(device=device, dtype=torch.float64)
-    c = torch.randn(1, 2, dtype=torch.float64, device=device)
+    flow = flow.to(device=device, dtype=dtype)
+    c = torch.randn(1, 2, dtype=dtype, device=device)
     dist = flow(c)
     # Far beyond the soft-clip bound so the clipped conditioner is exercised.
-    x = torch.tensor([[-30.0, 0.7, 45.0]], dtype=torch.float64, device=device)
+    x = torch.tensor([[-30.0, 0.7, 45.0]], dtype=dtype, device=device)
 
     def forward(v):
         return dist.transform(v.unsqueeze(0)).squeeze(0)
