@@ -1673,7 +1673,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         calibration="partial",
         notes=(
             "Heuristic local target-covariance estimates from input-space neighbours; "
-            "experimental. See examples/wasserstein_bound_hybrid_pretrain_demo.py."
+            "experimental. See examples/gaussian_wasserstein_bound_demo.py --mode hybrid."
         ),
     ),
     MethodMetadata(
@@ -2390,7 +2390,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Robust regression / outliers",
         examples=(
             "examples/comprehensive_comparison.py",
-            "examples/comprehensive_loss_comparison.py",
+            "examples/loss_comparison.py",
         ),
         comparison_grade="Decision-grade",
         fairness_controls=(
@@ -2573,7 +2573,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
     ComparativeEvidenceRow(
         task="Calibrated intervals / coverage",
         examples=(
-            "examples/evaluate_conformal_methods.py",
+            "examples/conformal_regression_example.py",
             "examples/ood_selective_prediction_comparison.py",
             "examples/ood_selective_prediction_realdata_comparison.py",
         ),
@@ -2750,7 +2750,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         examples=(
             "examples/noisy_label_comparison.py",
             "examples/noisy_label_realdata_comparison.py",
-            "examples/comprehensive_loss_comparison.py",
+            "examples/loss_comparison.py",
         ),
         comparison_grade="Strong",
         fairness_controls=(

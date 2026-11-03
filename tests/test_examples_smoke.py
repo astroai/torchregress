@@ -60,13 +60,10 @@ def test_hard_problem_examples_import_smoke() -> None:
     # Import-only smoke checks for examples touched in the audit-priority pass.
     _load_example_module("ot_shift_conformal_demo")
     _load_example_module("test_time_bayesian_linear_head_demo")
-    _load_example_module("test_time_blr_predictive_adapter_demo")
     _load_example_module("gaussian_wasserstein_bound_demo")
-    _load_example_module("wasserstein_bound_hybrid_pretrain_demo")
     _load_example_module("heteroscedastic_beta_nll_demo")
     _load_example_module("imbalanced_regression")
     _load_example_module("balanced_mse_demo")
-    _load_example_module("evaluate_conformal_methods")
     _load_example_module("ood_selective_prediction_comparison")
     _load_example_module("ood_selective_prediction_realdata_comparison")
     _load_example_module("eiv_method_comparison")
@@ -75,7 +72,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("noisy_label_realdata_comparison")
     _load_example_module("multimodal_method_comparison")
     _load_example_module("multimodal_method_realdata_comparison")
-    _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    _load_example_module("contrastive_flow_parameter_estimation")
     _load_example_module("ordinal_regression_comparison")
     _load_example_module("ordinal_regression_realdata_comparison")
     _load_example_module("ordinal_uncertain_ground_truth_comparison")
@@ -88,11 +85,9 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
     _load_example_module("causal_dr_uplift_comparison")
     _load_example_module("causal_dr_realdata_comparison")
-    _load_example_module("poisson_regression_demo")
-    _load_example_module("tweedie_regression_demo")
+    _load_example_module("count_regression_demo")
     _load_example_module("poisson_gaussian_contamination_mixture_demo")
     _load_example_module("expectile_regression_demo")
-    _load_example_module("conformal_mondrian_demo")
     _load_example_module("eiv_algorithms_demo")
     _load_example_module("heteroscedastic_laplace_demo")
     _load_example_module("viz_diagnostic_gallery")
@@ -124,15 +119,31 @@ def test_comprehensive_comparison_main_smoke(monkeypatch) -> None:
     mod.main()
 
 
-def test_comprehensive_loss_comparison_main_smoke(monkeypatch) -> None:
-    mod = _load_example_module("comprehensive_loss_comparison")
+def test_loss_comparison_basic_suite_smoke(monkeypatch, tmp_path) -> None:
+    mod = _load_example_module("loss_comparison")
+    monkeypatch.chdir(tmp_path)
+    orig_train_and_evaluate = mod.train_and_evaluate
+    monkeypatch.setattr(
+        mod,
+        "train_and_evaluate",
+        lambda *args, **kwargs: orig_train_and_evaluate(*args, **{**kwargs, "epochs": 1}),
+    )
+    monkeypatch.setattr(mod.plt, "show", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mod.plt, "savefig", lambda *args, **kwargs: None)
+
+    mod.main(["--suite", "basic"])
+
+
+def test_loss_comparison_comprehensive_suite_smoke(monkeypatch, tmp_path) -> None:
+    mod = _load_example_module("loss_comparison")
+    monkeypatch.chdir(tmp_path)
 
     monkeypatch.setattr(mod, "train_model", lambda *args, **kwargs: None)
     monkeypatch.setattr(mod.plt, "show", lambda *args, **kwargs: None)
     monkeypatch.setattr(mod.plt, "savefig", lambda *args, **kwargs: None)
     monkeypatch.setattr(mod.DensityWeightedLoss, "fit_density", lambda self, y: None)
 
-    mod.main()
+    mod.main(["--suite", "comprehensive"])
 
 
 def test_imbalanced_regression_main_smoke(monkeypatch) -> None:
@@ -216,6 +227,8 @@ def test_test_time_bayesian_linear_head_demo_main_smoke(monkeypatch) -> None:
         "argv",
         [
             "test_time_bayesian_linear_head_demo.py",
+            "--mode",
+            "exactness",
             "--n-train",
             "40",
             "--n-test",
@@ -229,15 +242,17 @@ def test_test_time_bayesian_linear_head_demo_main_smoke(monkeypatch) -> None:
     mod.main()
 
 
-def test_test_time_blr_predictive_adapter_demo_main_smoke(monkeypatch) -> None:
+def test_test_time_bayesian_linear_head_demo_adapter_mode_smoke(monkeypatch) -> None:
     import sys
 
-    mod = _load_example_module("test_time_blr_predictive_adapter_demo")
+    mod = _load_example_module("test_time_bayesian_linear_head_demo")
     monkeypatch.setattr(
         sys,
         "argv",
         [
-            "test_time_blr_predictive_adapter_demo.py",
+            "test_time_bayesian_linear_head_demo.py",
+            "--mode",
+            "adapter",
             "--n-train",
             "32",
             "--n-test",
@@ -256,20 +271,24 @@ def test_gaussian_wasserstein_bound_demo_main_smoke(monkeypatch) -> None:
 
     mod = _load_example_module("gaussian_wasserstein_bound_demo")
     monkeypatch.setattr(
-        sys, "argv", ["gaussian_wasserstein_bound_demo.py", "--batch", "2", "--dim", "2"]
+        sys,
+        "argv",
+        ["gaussian_wasserstein_bound_demo.py", "--mode", "loss", "--batch", "2", "--dim", "2"],
     )
     mod.main()
 
 
-def test_wasserstein_bound_hybrid_pretrain_demo_main_smoke(monkeypatch) -> None:
+def test_gaussian_wasserstein_bound_demo_hybrid_mode_smoke(monkeypatch) -> None:
     import sys
 
-    mod = _load_example_module("wasserstein_bound_hybrid_pretrain_demo")
+    mod = _load_example_module("gaussian_wasserstein_bound_demo")
     monkeypatch.setattr(
         sys,
         "argv",
         [
-            "wasserstein_bound_hybrid_pretrain_demo.py",
+            "gaussian_wasserstein_bound_demo.py",
+            "--mode",
+            "hybrid",
             "--pretrain-steps",
             "3",
             "--finetune-steps",
@@ -295,8 +314,13 @@ def test_heteroscedastic_beta_nll_demo_main_smoke(monkeypatch) -> None:
     mod.main()
 
 
-def test_evaluate_conformal_methods_main_smoke(monkeypatch) -> None:
-    mod = _load_example_module("evaluate_conformal_methods")
+def test_conformal_regression_example_tour_mode_smoke() -> None:
+    mod = _load_example_module("conformal_regression_example")
+    mod.main(["--mode", "tour"])
+
+
+def test_conformal_regression_example_sweep_mode_smoke(monkeypatch) -> None:
+    mod = _load_example_module("conformal_regression_example")
 
     class _StubConformalLoss:
         def __init__(self, method="split", alpha=0.1, **kwargs):
@@ -332,7 +356,7 @@ def test_evaluate_conformal_methods_main_smoke(monkeypatch) -> None:
     monkeypatch.setattr(mod, "timed_call", lambda fn, *args, **kwargs: (fn(*args, **kwargs), 0.0))
     monkeypatch.setattr(mod.plt, "savefig", lambda *args, **kwargs: None)
 
-    mod.main()
+    mod.main(["--mode", "sweep"])
 
 
 def test_normalizing_flows_multitarget_main_smoke(monkeypatch) -> None:
@@ -655,8 +679,8 @@ def test_multimodal_method_realdata_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_contrastive_flow_parameter_estimation_comparison_main_smoke() -> None:
-    mod = _load_example_module("contrastive_flow_parameter_estimation_comparison")
+def test_contrastive_flow_parameter_estimation_compare_mode_smoke() -> None:
+    mod = _load_example_module("contrastive_flow_parameter_estimation")
     cfg = mod.ContrastiveFlowComparisonConfig(
         n_train=32,
         n_test=16,
@@ -670,7 +694,7 @@ def test_contrastive_flow_parameter_estimation_comparison_main_smoke() -> None:
         mu_grid_size=9,
         nuisance_grid_size=7,
     )
-    mod.main(cfg)
+    mod.run_comparison(cfg)
 
 
 def test_ordinal_regression_comparison_main_smoke() -> None:
@@ -784,26 +808,28 @@ def test_causal_dr_realdata_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_poisson_regression_demo_main_smoke(monkeypatch) -> None:
-    mod = _load_example_module("poisson_regression_demo")
+def test_count_regression_demo_poisson_family_smoke(monkeypatch) -> None:
+    mod = _load_example_module("count_regression_demo")
     orig_train_and_eval = mod.train_and_eval
     monkeypatch.setattr(
         mod,
         "train_and_eval",
         lambda *args, **kwargs: orig_train_and_eval(*args, epochs=1, **kwargs),
     )
-    mod.main()
+    results = mod.main(["--family", "poisson"])
+    assert set(results) == {"poisson"}
 
 
-def test_tweedie_regression_demo_main_smoke(monkeypatch) -> None:
-    mod = _load_example_module("tweedie_regression_demo")
+def test_count_regression_demo_tweedie_family_smoke(monkeypatch) -> None:
+    mod = _load_example_module("count_regression_demo")
     orig_train_tweedie = mod.train_tweedie
     monkeypatch.setattr(
         mod,
         "train_tweedie",
         lambda *args, **kwargs: orig_train_tweedie(*args, epochs=1, **kwargs),
     )
-    mod.main()
+    results = mod.main(["--family", "tweedie"])
+    assert set(results) == {"tweedie"}
 
 
 def test_poisson_gaussian_contamination_mixture_demo_main_smoke(monkeypatch) -> None:
@@ -828,9 +854,9 @@ def test_expectile_regression_demo_main_smoke(monkeypatch) -> None:
     mod.main()
 
 
-def test_conformal_mondrian_demo_main_smoke() -> None:
-    mod = _load_example_module("conformal_mondrian_demo")
-    mod.main()
+def test_conformal_regression_example_mondrian_mode_smoke() -> None:
+    mod = _load_example_module("conformal_regression_example")
+    mod.main(["--mode", "mondrian"])
 
 
 def test_eiv_algorithms_demo_main_smoke(monkeypatch) -> None:

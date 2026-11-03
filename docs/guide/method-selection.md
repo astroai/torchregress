@@ -406,9 +406,9 @@ Use this matrix to shortlist methods, then validate the shortlist against exampl
 benchmarks:
 
 - Comparison examples: `examples/comprehensive_comparison.py`,
-  `examples/comprehensive_loss_comparison.py`
+  `examples/loss_comparison.py --suite comprehensive`
 - Hard-task examples: `examples/imbalanced_regression.py`,
-  `examples/evaluate_conformal_methods.py`,
+  `examples/conformal_regression_example.py --mode sweep`,
   `examples/normalizing_flows_multitarget.py`
 - Comparative coverage tracker: [Comparative Evidence Matrix](../reports/comparative_evidence_matrix.md)
 - Performance smoke/sweep baselines: `tools/benchmark_smoke.py` and reports under

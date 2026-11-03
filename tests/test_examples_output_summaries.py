@@ -419,10 +419,10 @@ def test_multimodal_realdata_comparison_writes_summary_json(tmp_path: Path) -> N
         _assert_non_negative(rows[method]["MCE"])
 
 
-def test_contrastive_flow_parameter_estimation_comparison_writes_summary_json(
+def test_contrastive_flow_parameter_estimation_compare_mode_writes_summary_json(
     tmp_path: Path,
 ) -> None:
-    mod = _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    mod = _load_example_module("contrastive_flow_parameter_estimation")
     out = tmp_path / "contrastive_flow_synth_summary.json"
     cfg = mod.ContrastiveFlowComparisonConfig(
         n_train=48,
@@ -437,7 +437,7 @@ def test_contrastive_flow_parameter_estimation_comparison_writes_summary_json(
         mu_grid_size=9,
         nuisance_grid_size=7,
     )
-    mod.main(cfg, summary_json_path=str(out))
+    mod.run_comparison(cfg, summary_json_path=str(out))
     _assert_summary_schema(
         out,
         task_substring="parameter estimation",

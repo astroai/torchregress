@@ -218,7 +218,7 @@ model's output head.  The practical recommendations are:
   best all-rounder across all benchmark suites.
 - Use when you need **per-sample aleatoric uncertainty** (heteroscedastic variance).
 - Use as the **fine-tuning loss** after Wasserstein pre-training (see
-  `gaussian_wasserstein_bound_demo.py`).
+  `gaussian_wasserstein_bound_demo.py --mode hybrid`).
 - For **multivariate targets with full covariance**, use
   ``MultivariateGaussianLoss`` instead.
 - For **low-rank covariance** (e.g. high-dimensional outputs), use
