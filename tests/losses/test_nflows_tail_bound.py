@@ -43,9 +43,11 @@ def test_default_bound_builds_the_plain_zuko_nsf():
     assert type(create_flow_model(1, 4, "nsf", 2, bound=5.0)).__name__ == "NSF"
 
 
-def test_bound_is_validated_and_nsf_only():
+def test_bound_is_validated_and_spline_or_affine_only():
+    # Affine flows take ``bound`` as their conditioner soft-clip half-width
+    # (tests/losses/test_nflows_affine_stability.py); BPF has no bound.
     with pytest.raises(ValueError, match="nsf"):
-        create_flow_model(1, 4, "maf", 2, bound=10.0)
+        create_flow_model(1, 4, "bpf", 2, bound=10.0)
     for bad in (0.0, -3.0, float("inf"), float("nan")):
         with pytest.raises(ValueError, match="bound"):
             create_flow_model(1, 4, "nsf", 2, bound=bad)
