@@ -256,6 +256,15 @@ def _point(cls: Callable[..., Any], **init: Any) -> Builder:
     return build
 
 
+def _positive_support(cls: Callable[..., Any], *, shape: int = 2, **init: Any) -> Builder:
+    """Gamma / inverse Gaussian: positive predictions and strictly positive targets (y > 0)."""
+
+    def build(r: _Rng) -> Built:
+        return cls(**init), (r.positive(N, shape), r.positive(N, shape)), {}
+
+    return build
+
+
 def _positive_rate(cls: Callable[..., Any], *, shape: int = 2, **init: Any) -> Builder:
     """Count-like losses: positive predictions, integer-valued float targets."""
 
@@ -643,8 +652,8 @@ LOSS_CASES: dict[str, Builder] = {
     ),
     "TweedieLoss": _positive_rate(L.TweedieLoss, p=1.5, link="identity"),
     "tweedie_loss": _tweedie_fn,
-    "GammaLoss": _positive_rate(L.GammaLoss, link="identity"),
-    "InverseGaussianLoss": _positive_rate(L.InverseGaussianLoss, link="identity"),
+    "GammaLoss": _positive_support(L.GammaLoss, link="identity"),
+    "InverseGaussianLoss": _positive_support(L.InverseGaussianLoss, link="identity"),
     "CompoundPoissonLoss": _positive_rate(L.CompoundPoissonLoss, link="identity"),
     "PoissonGaussianContaminationMixtureLoss": _poisson_gaussian(
         L.PoissonGaussianContaminationMixtureLoss, initial_variance=0.1, log_input=False
