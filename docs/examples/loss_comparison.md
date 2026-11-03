@@ -1,12 +1,23 @@
 # Loss Function Comparison
 
-This page compares robust and standard regression losses across pedagogical scenarios. The **runnable script** [`examples/loss_comparison.py`](../../examples/loss_comparison.py) implements the **outlier robustness** benchmark (MSE, MAE, Huber, Log-Cosh, Barron, Adaptive Robust, Quantile); the sections below add additional scenario walkthroughs for method selection.
+This page compares robust and standard regression losses across pedagogical scenarios. The **runnable script** [`examples/loss_comparison.py`](https://github.com/astroai/torchregress/blob/main/examples/loss_comparison.py) has two suites on outlier-contaminated data (`--suite all` by default runs both); the scenario sections below add walkthroughs for method selection.
 
 **Run the script:**
 
 ```bash
-pixi run python examples/loss_comparison.py
+pixi run python examples/loss_comparison.py --suite basic          # linear model, SGD, 7 losses
+pixi run python examples/loss_comparison.py --suite comprehensive  # MLP, Adam, 10 losses, point + CRPS/ECE metrics
 ```
+
+| Suite | Data | Model and budget | Losses | Reported |
+|:--|:--|:--|:--|:--|
+| `basic` | $y = 2x + 1$, 100 points, 15% outliers ($\sigma = 5$) | `nn.Linear`, full-batch SGD, 200 epochs | MSE, MAE, Huber, Log-Cosh, Barron, Adaptive Robust, Quantile (0.5) | Held-out loss value per loss; `loss_comparison.png` |
+| `comprehensive` | $y = 2x + 1 + \sin 2x$, 200 points, 10% outliers | 64-32 MLP, Adam, 100 epochs, batch 32, per-method seeds | the `basic` set minus Quantile, plus Gaussian NLL, Tukey biweight, Charbonnier, density-weighted MSE | MSE, MAE, $R^2$, CRPS/ECE (Gaussian NLL head), runtime; `docs/assets/images/examples/comprehensive_loss_comparison.png` under the working directory |
+
+!!! warning
+    The `basic` suite reports each loss's own held-out value, which is not comparable across
+    losses (an MAE value and an MSE value are on different scales). Use the `comprehensive`
+    suite's common point metrics when ranking losses.
 
 → API: [Losses](../api/losses.md) (`WeightedMSELoss`, `WeightedHuberLoss`, `CauchyLoss`, `GaussianNLLLoss`, `MixtureDensityLoss`, …).
 

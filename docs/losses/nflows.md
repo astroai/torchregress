@@ -305,7 +305,7 @@ with torch.no_grad():
 For a challenge-style parameter scan built on top of `ContrastiveFlowLoss`, see
 [Contrastive Flow Parameter Estimation](../examples/contrastive_flow_parameter_estimation.md).
 For shared-budget comparisons against Gaussian-summary and plain-flow baselines, see
-[Contrastive Flow Parameter Estimation Comparison](../examples/contrastive_flow_parameter_estimation_comparison.md)
+[Comparison Against Baselines](../examples/contrastive_flow_parameter_estimation.md#comparison-against-baselines) (`--mode compare`).
 
 !!! warning "Mask semantics"
     Flow objectives model a **joint density** over all target dimensions. `NormalizingFlowLoss`
@@ -346,7 +346,7 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 - [MDN losses](mdn.md) — lighter-weight mixture models for simpler multimodality
 - [SLS regression](sls.md) — volume-optimal prediction regions (flow-based frontier)
 - [Contrastive flow estimation](../examples/contrastive_flow_parameter_estimation.md) — parameter ranking example
-- [Flow comparison](../examples/contrastive_flow_parameter_estimation_comparison.md) — benchmark flows vs MDN vs Gaussian
+- [Flow comparison](../examples/contrastive_flow_parameter_estimation.md#comparison-against-baselines) — Gaussian summary, flow NLL, contrastive flow, NRE and NPE on one budget
 
 ---
 

@@ -253,9 +253,9 @@ are written to be auditable, share seeds, and emit machine-readable
 artefacts.
 
 - `examples/comprehensive_comparison.py`
-- `examples/comprehensive_loss_comparison.py`
+- `examples/loss_comparison.py --suite comprehensive`
 - `examples/imbalanced_regression.py`
-- `examples/evaluate_conformal_methods.py`
+- `examples/conformal_regression_example.py --mode sweep`
 - `examples/normalizing_flows_multitarget.py`
 
 For performance guardrails, use:

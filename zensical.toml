@@ -285,18 +285,14 @@ nav = [
       { "Heteroscedastic Laplace" = "examples/heteroscedastic_laplace.md" },
       { "Beta Negative Log-Likelihood" = "examples/heteroscedastic_beta_nll.md" },
       { "Wasserstein Bound Demo" = "examples/gaussian_wasserstein_bound.md" },
-      { "Wasserstein Hybrid Pretraining" = "examples/wasserstein_bound_hybrid_pretrain.md" },
       { "Bayesian Linear Head" = "examples/test_time_bayesian_linear_head.md" },
-      { "Bayesian Linear Adapter" = "examples/test_time_blr_predictive_adapter.md" },
       { "Optimal Transport Conformal" = "examples/ot_shift_conformal_demo.md" },
     ] },
     { "Prediction Intervals" = [
       { "Conformal Regression" = "examples/conformal_regression_example.md" },
-      { "Mondrian Conformal" = "examples/conformal_mondrian.md" },
       { "Expectile Regression" = "examples/expectile_regression.md" },
       { "Normalizing Flows (Multi-Target)" = "examples/normalizing_flows_multitarget.md" },
       { "Contrastive Flow Estimation" = "examples/contrastive_flow_parameter_estimation.md" },
-      { "Contrastive Flow Comparison" = "examples/contrastive_flow_parameter_estimation_comparison.md" },
       { "Multimodal Methods" = "examples/multimodal_method_comparison.md" },
     ] },
     { "Robustness & Data Quality" = [
@@ -311,8 +307,7 @@ nav = [
       { "Transformed Targets" = "examples/transformed_target_regression_comparison.md" },
     ] },
     { "Special Target Types" = [
-      { "Poisson" = "examples/poisson_regression.md" },
-      { "Tweedie" = "examples/tweedie_regression.md" },
+      { "Count & Zero-Inflated" = "examples/count_regression.md" },
       { "Poisson-Gaussian Contamination Mixture" = "examples/poisson_gaussian_contamination_mixture.md" },
       { "Ordinal Comparison" = "examples/ordinal_regression_comparison.md" },
       { "Ordinal (Real Data)" = "examples/ordinal_regression_realdata_comparison.md" },

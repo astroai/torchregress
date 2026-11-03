@@ -23,15 +23,15 @@ tasks currently have decision-grade comparisons vs demo-only examples.
 Use the comparison examples first when making implementation decisions:
 
 - `examples/comprehensive_comparison.py`: robust losses + uncertainty + ensemble behavior on multiple scenarios
-- `examples/comprehensive_loss_comparison.py`: controlled robust-loss comparisons
+- `examples/loss_comparison.py --suite comprehensive`: controlled robust-loss comparisons
 - `examples/imbalanced_regression.py`: tail performance vs calibration tradeoffs
-- `examples/evaluate_conformal_methods.py`: coverage vs interval width tradeoffs
+- `examples/conformal_regression_example.py --mode sweep`: coverage vs interval width tradeoffs
 - `examples/ood_selective_prediction_comparison.py`: OOD vs selective-prediction tradeoffs (AURC, rejection policy, OOD gap)
   now includes BaseEnsembleModel, heteroscedastic ensemble, MC dropout, `SWAG`, and `BNN`
 - `examples/ood_selective_prediction_realdata_comparison.py`: real-data OOD/selective comparison on Diabetes with covariate-shift split
 - `examples/eiv_method_comparison.py`: EIV method tradeoffs (analytic/MC/ODR/ensemble variants); `--dataset diabetes` runs on Diabetes with synthetic measurement-error injection
 - `examples/multimodal_method_comparison.py`: Gaussian vs MDN vs optional flow on multimodal multi-target data; `--dataset diabetes` uses real Diabetes features + synthetic multimodal targets
-- `examples/contrastive_flow_parameter_estimation_comparison.py`: shared-budget synthetic comparison for Gaussian summary density vs plain flow vs contrastive flow
+- `examples/contrastive_flow_parameter_estimation.py --mode compare`: shared-budget synthetic comparison for Gaussian summary density vs plain flow vs contrastive flow vs NRE vs NPE
 - `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics
 - `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
 - `examples/ordinal_regression_realdata_comparison.py`: real-data ordinal comparison on Diabetes with train-quantile binning
@@ -50,7 +50,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/external_comparison_tweedie_vs_sklego.py`: Tweedie / compound-Poisson regression vs scikit-learn `TweedieRegressor` (scikit-lego no longer ships a GLM); JSON → `reports/external_comparison_tweedie_vs_sklego_latest.json`
 - [External comparison guide](external-comparison-vs-mapie-botorch-sklego.md): consolidated page for the three external benchmarks.
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
-- `examples/contrastive_flow_parameter_estimation.py`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
+- `examples/contrastive_flow_parameter_estimation.py --mode demo`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
 
 When comparing methods, prefer examples that document:
 
@@ -89,7 +89,7 @@ rmse = tr.metrics.rmse(predictions, y_test)
 
 ### [Loss Comparison](loss_comparison.md)
 
-This example compares different loss functions on the same dataset:
+This example compares different loss functions on the same dataset (`examples/loss_comparison.py`; `--suite basic` for a linear model with seven losses, `--suite comprehensive` for an MLP with ten losses and point/CRPS/ECE metrics):
 
 - Comparing traditional vs. robust losses
 - Analyzing how different losses handle outliers
@@ -144,24 +144,15 @@ losses = {
 
 ### [Bayesian linear head (test-time) demo](test_time_bayesian_linear_head.md)
 
-- Synthetic linear targets on fixed features; compares batch `BayesianLinearHead.fit` to two-step `RecursiveBayesianHead.partial_fit` with `forgetting_factor=1`, reports posterior error vs a known weight vector, and prints rough held-out Gaussian interval coverage.
+- `--mode exactness`: synthetic linear targets on fixed features; compares batch `BayesianLinearHead.fit` to two-step `RecursiveBayesianHead.partial_fit` with `forgetting_factor=1`, reports posterior error vs a known weight vector, and prints rough held-out Gaussian interval coverage.
+- `--mode adapter`: thin `SupportsPredictiveBatch` wrapper exposing `predict_distribution(...)` around `BayesianLinearHead.predictive_batch`; prints `PredictiveBatch` diagnostics.
 - Script: [`examples/test_time_bayesian_linear_head_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/test_time_bayesian_linear_head_demo.py).
-
-### [BLR predictive adapter (SupportsPredictiveBatch)](test_time_blr_predictive_adapter.md)
-
-- Thin wrapper exposing `predict_distribution(...)` around `BayesianLinearHead.predictive_batch`.
-- Runtime protocol-check against `SupportsPredictiveBatch` and prints `PredictiveBatch` diagnostics.
-- Script: [`examples/test_time_blr_predictive_adapter_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/test_time_blr_predictive_adapter_demo.py).
 
 ### [Gaussian Wasserstein bound demo](gaussian_wasserstein_bound.md)
 
-- One-step mean + full-covariance supervision with [`GaussianWassersteinBoundLoss`](../losses/gaussian_wasserstein.md); prints loss and gradient norms.
+- `--mode loss`: one-step mean + full-covariance supervision with [`GaussianWassersteinBoundLoss`](../losses/gaussian_wasserstein.md); prints loss and gradient norms.
+- `--mode hybrid`: tiny scalar head; neighbourhood covariance pseudo-labels + diagonal Wasserstein-bound pretrain, then Gaussian NLL fine-tune; prints NLL before/after the second phase.
 - Script: [`examples/gaussian_wasserstein_bound_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/gaussian_wasserstein_bound_demo.py).
-
-### [Wasserstein-bound hybrid pretrain](wasserstein_bound_hybrid_pretrain.md)
-
-- Tiny scalar head: neighbourhood covariance pseudo-labels + diagonal Wasserstein-bound pretrain, then Gaussian NLL fine-tune; prints NLL before/after the second phase.
-- Script: [`examples/wasserstein_bound_hybrid_pretrain_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/wasserstein_bound_hybrid_pretrain_demo.py).
 
 ### [Beta-NLL heteroscedastic demo](heteroscedastic_beta_nll.md)
 
@@ -247,7 +238,12 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 ### [Conformal Regression](conformal_regression_example.md)
 
 - Using conformal prediction to obtain prediction intervals with guaranteed coverage ([`SplitConformal`](../api/losses.md), [`CQR`](../api/losses.md)).
-- Compare against `evaluate_conformal_methods.py` for coverage-vs-width tradeoffs across methods.
+- `--mode tour` walks through every predictor, `--mode sweep` compares coverage-vs-width tradeoffs across $\alpha$, and `--mode mondrian` shows group-conditional (Mondrian) calibration.
+
+### [Count and Zero-Inflated Regression](count_regression.md)
+
+- `examples/count_regression_demo.py --family poisson`: Poisson deviance, likelihood ratio, zero-inflated Poisson and negative binomial losses on ZIP count data.
+- `--family tweedie`: `TweedieLoss` and `CompoundPoissonLoss` on compound Poisson-Gamma (zero-inflated continuous) data.
 
 ### [Evidential Regression](evidential_regression.md)
 

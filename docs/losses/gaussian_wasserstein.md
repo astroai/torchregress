@@ -72,9 +72,9 @@ loss = loss_fn(pred_mean, target_mean, pred_cov, target_cov, mask=mask, weights=
 
 ## Runnable example
 
-See [Gaussian Wasserstein bound demo](../examples/gaussian_wasserstein_bound.md) and ``examples/gaussian_wasserstein_bound_demo.py``.
+See [Gaussian Wasserstein bound demo](../examples/gaussian_wasserstein_bound.md) and ``examples/gaussian_wasserstein_bound_demo.py --mode loss``.
 
-For a **two-phase** pseudo-covariance pretrain then Gaussian NLL fine-tune, see [Wasserstein-bound hybrid pretrain](../examples/wasserstein_bound_hybrid_pretrain.md).
+For a **two-phase** pseudo-covariance pretrain then Gaussian NLL fine-tune, see [Wasserstein-bound hybrid pretraining](../examples/gaussian_wasserstein_bound.md#hybrid-pretraining-w2-bound-then-gaussian-nll) (``--mode hybrid``).
 
 ---
 
@@ -109,7 +109,7 @@ Metrics supported: pooled **Mahalanobis** in ``x`` (default) or **Euclidean** di
 
 - **Use only with covariance targets**: This loss is for supervised or pseudo-supervised covariance learning. For standard likelihood training on $(x, y)$ pairs, use `GaussianNLLLoss`.
 - **Start with diagonal parameterisation**: `covariance_parameterization="diagonal"` is simpler, faster, and numerically more stable than full covariance or Cholesky modes.
-- **Two-phase strategy**: Consider a pseudo-covariance pretrain with `GaussianWassersteinBoundLoss` followed by `GaussianNLLLoss` fine-tuning. See the [hybrid pretrain demo](../../examples/wasserstein_bound_hybrid_pretrain_demo.py).
+- **Two-phase strategy**: Consider a pseudo-covariance pretrain with `GaussianWassersteinBoundLoss` followed by `GaussianNLLLoss` fine-tuning. See the [hybrid pretraining example](../examples/gaussian_wasserstein_bound.md#hybrid-pretraining-w2-bound-then-gaussian-nll) (`examples/gaussian_wasserstein_bound_demo.py --mode hybrid`).
 - **Validate pseudo-labels**: When using `NeighborhoodCovariancePseudoLabeler`, check that the produced covariance matrices are plausible (positive eigenvalues, reasonable scale) before training.
 
 ## Next steps

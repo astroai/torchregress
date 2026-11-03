@@ -45,21 +45,17 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `heteroscedastic_beta_nll_demo.py` | tutorial | Gaussian NLL vs Beta-NLL under heteroscedastic noise (`--epochs`, `--seed`, `--lr`). | fast |
 | `heteroscedastic_laplace_demo.py` | tutorial | Laplace likelihood and its uncertainty decomposition. | fast |
 | `expectile_regression_demo.py` | tutorial | Expectile vs quantile regression under heteroscedasticity. | fast |
-| `poisson_regression_demo.py` | tutorial | Poisson and zero-inflated count regression. | fast |
-| `tweedie_regression_demo.py` | tutorial | Tweedie loss for zero-inflated continuous data. | fast |
+| `count_regression_demo.py` | tutorial | `--family poisson`: Poisson deviance, likelihood-ratio, ZIP and negative-binomial losses on zero-inflated counts; `--family tweedie`: Tweedie and compound Poisson losses on zero-inflated continuous data (default `all`). | fast |
 | `poisson_gaussian_contamination_mixture_demo.py` | tutorial | Poisson-Gaussian contamination-mixture losses (for shot plus read noise use `PoissonGaussianLoss`). | fast |
 | `balanced_mse_demo.py` | tutorial | `BalancedMSELoss` / `BinReweightedMSELoss` on a long-tailed target (`--n`, `--steps`, `--seed`). | fast |
 | `imbalanced_regression.py` | tutorial | Imbalanced regression with a calibration check. | fast |
 | `bayesian_learning_rule_demo.py` | tutorial | Variational regression with the Bayesian Learning Rule (IVON). | fast |
 | `normalizing_flows_multitarget.py` | tutorial | Multi-target conditional flows (needs `zuko`). | slow (about 70 s) |
-| `conformal_regression_example.py` | tutorial | Split, CQR, UACQR, per-dimension, CV+ and EnbPI conformal wrappers. | fast |
-| `conformal_mondrian_demo.py` | tutorial | Group-conditional (Mondrian) conformal intervals. | fast |
+| `conformal_regression_example.py` | tutorial + comparison | `--mode tour`: split, CQR, UACQR, per-dimension, CV+ and EnbPI conformal wrappers; `--mode sweep`: coverage and width of trained split/CQR/UACQR vs target level; `--mode mondrian`: group-conditional (Mondrian) intervals (default `all`). | fast |
 | `ot_shift_conformal_demo.py` | tutorial | Score-CDF gap, OT-style reweighting, weighted split conformal (`--seed`). | fast |
 | `eiv_algorithms_demo.py` | tutorial | Errors-in-variables input-noise correction algorithms. | fast (about 50 s) |
-| `gaussian_wasserstein_bound_demo.py` | tutorial | `GaussianWassersteinBoundLoss` with mean plus covariance targets. | fast |
-| `wasserstein_bound_hybrid_pretrain_demo.py` | tutorial | Wasserstein-bound pretraining then Gaussian NLL fine-tuning. | fast |
-| `test_time_bayesian_linear_head_demo.py` | tutorial | Exact conjugate `BayesianLinearHead` on fixed features. | fast |
-| `test_time_blr_predictive_adapter_demo.py` | tutorial | Predictive-batch adapter around `BayesianLinearHead`. | fast |
+| `gaussian_wasserstein_bound_demo.py` | tutorial | `--mode loss`: `GaussianWassersteinBoundLoss` with mean plus covariance targets; `--mode hybrid`: Wasserstein-bound pretraining then Gaussian NLL fine-tuning (default `all`). | fast |
+| `test_time_bayesian_linear_head_demo.py` | tutorial | `--mode exactness`: exact conjugate `BayesianLinearHead` vs `RecursiveBayesianHead` on fixed features; `--mode adapter`: `SupportsPredictiveBatch` adapter around `BayesianLinearHead` (default `all`). | fast |
 | `test_time_adaptation_suite.py` | tutorial | Covariate-shift alignment, label-shift correction, sample selection. | fast |
 | `ppi_calibrated_mean.py` | tutorial | Standard vs affine-calibrated prediction-powered inference for a mean. | fast |
 | `ppi_mean_plus_split_conformal.py` | tutorial | Combining PPI mean inference with split-conformal intervals. | fast |
@@ -71,15 +67,12 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 
 | Script | Type | What it shows | Runtime |
 |---|---|---|---|
-| `loss_comparison.py` | comparison | Standard vs robust losses on noisy data with outliers. | fast |
-| `comprehensive_loss_comparison.py` | comparison | Many losses on one MLP with point, distribution and calibration metrics. | fast |
+| `loss_comparison.py` | comparison | Standard vs robust losses on data with outliers: `--suite basic` (linear model, 7 losses) and `--suite comprehensive` (MLP, 10 losses, point, distribution and calibration metrics) (default `all`). | fast |
 | `comprehensive_comparison.py` | comparison | Robust losses, uncertainty heads and ensembles side by side. | fast |
-| `evaluate_conformal_methods.py` | comparison | Coverage and width of the conformal predictors vs target level. | fast |
 | `causal_dr_uplift_comparison.py` | comparison | Doubly-robust ATE/CATE estimators. | fast |
 | `censored_regression_comparison.py` | comparison | Censored-regression losses. | fast |
 | `constraints_calibration_comparison.py` | comparison | Constrained heads and post-hoc calibrators (variance temperature, isotonic, PIT). | fast |
-| `contrastive_flow_parameter_estimation.py` | comparison | Contrastive normalizing flows for nuisance-aware parameter estimation. | fast |
-| `contrastive_flow_parameter_estimation_comparison.py` | comparison | Parameter-estimation methods on synthetic pseudo-experiments. | fast |
+| `contrastive_flow_parameter_estimation.py` | comparison | `--mode demo`: contrastive normalizing flow for nuisance-aware parameter estimation; `--mode compare`: Gaussian summary, flow NLL, contrastive flow, NRE and NPE on the same pseudo-experiments (`--summary-json-path`; default `all`; needs `zuko`). | fast |
 | `eiv_method_comparison.py` | comparison | EIV loss variants under measurement error. | fast |
 | `multimodal_method_comparison.py` | comparison | Multimodal / multi-target regression methods. | fast |
 | `noisy_label_comparison.py` | comparison | Noisy-label losses with calibration metrics. | fast |
@@ -133,11 +126,6 @@ It still lives here and runs; it is not moved. The NeurIPS SAGE/SPT reproduction
 scripts were already extracted to
 [torchregress-research](https://github.com/sfabbro/torchregress-research).
 
-### Helper module (not a script)
-
-`contrastive_flow_benchmark_utils.py` holds helpers shared by the two
-contrastive-flow scripts and has no `main`.
-
 ## Candidates to merge for 0.3.0
 
 Tracked in `ROADMAP.md`. These overlap and could share one
@@ -148,14 +136,17 @@ script with a `--dataset {synthetic,diabetes}` style switch:
   `ood_selective_prediction_comparison` + `ood_selective_prediction_realdata_comparison`,
   `ordinal_regression_comparison` + `ordinal_regression_realdata_comparison`,
   `uncertain_gt_density_conformal_comparison` + `uncertain_gt_density_conformal_realdata_comparison`.
-- **Loss comparisons**: `loss_comparison`, `comprehensive_loss_comparison`, `comprehensive_comparison`.
-- **Conformal**: `conformal_regression_example`, `evaluate_conformal_methods`, `conformal_mondrian_demo`.
 - **OT-shift conformal**: `ot_shift_conformal_demo` and `benchmarks/ot_conformal_score_shift_benchmark` describe the same toy.
-- **Contrastive flows**: `contrastive_flow_parameter_estimation` and `contrastive_flow_parameter_estimation_comparison`.
-- **Count / zero-inflated data**: `poisson_regression_demo`, `tweedie_regression_demo`, `poisson_gaussian_contamination_mixture_demo`.
-- **Bayesian linear head**: `test_time_bayesian_linear_head_demo`, `test_time_blr_predictive_adapter_demo`, `benchmarks/bayesian_linear_head_*`.
-- **Wasserstein bound**: `gaussian_wasserstein_bound_demo` and `wasserstein_bound_hybrid_pretrain_demo`.
 - **Intro**: `basic_usage` and `native_api_usage`.
+
+Already merged (one script per topic, variants behind a flag): `loss_comparison --suite`,
+`conformal_regression_example --mode`, `contrastive_flow_parameter_estimation --mode`,
+`count_regression_demo --family`, `test_time_bayesian_linear_head_demo --mode`,
+`gaussian_wasserstein_bound_demo --mode`. Kept separate on purpose:
+`comprehensive_comparison` (robustness, uncertainty heads and ensembles across three
+scenarios, not a loss sweep), `poisson_gaussian_contamination_mixture_demo` (detector
+noise mixtures, not count regression) and `benchmarks/bayesian_linear_head_*`
+(library benchmarks, not tutorials).
 
 ## External-library comparators
 
