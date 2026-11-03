@@ -226,22 +226,3 @@ class TestEIVCorrectness(unittest.TestCase):
         pred_simex.fit(W_obs, Y)
         preds = pred_simex.predict(W_obs[:5])
         self.assertEqual(preds.shape[0], 5)
-
-    def test_simex_extrapolate_estimand_removed(self):
-        """Audit-trail stub: the classical parameter-level SIMEX
-        (`extrapolate_estimand`) was removed as part of the SIMEX yagni cut
-        (commit "complete over-engineering trims: SIMEX yagni + archive
-        cleanup + CI Codecov drop"). The original test asserted numerical
-        correctness -- that the corrected slope lied in (2.0, 4.0) when the
-        true slope was 3.0 -- on the path through `extrapolate_estimand`,
-        which was the SIMEX method's only caller in the repo. To
-        reintroduce classical SIMEX: restore the ``extrapolate_estimand``
-        method on ``SIMEX`` (the original method body remains in
-        git history at the pre-trim commit) and re-apply this stub as a
-        live assertion. See ``tests/losses/test_eiv_correctness.py`` git
-        log for the prior version of this test method.
-        """
-        self.skipTest(
-            "extrapolate_estimand removed in SIMEX yagni cut; "
-            "see docstring for reintroducing instructions."
-        )
