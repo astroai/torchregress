@@ -84,9 +84,6 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods (`--dataset synthetic\|diabetes`). | fast |
 | `calibrated_regressor_comparison.py` | comparison | `CalibratedRegressor` (`vts`, `isotonic+vts`), `ConformalRegressor(method="split")` and `calibrated_deep_ensemble` vs an uncalibrated Gaussian `TabularMLP`: RMSE, 90% coverage, width, NLL, runtime (`--epochs`, `--seed`, `--n-members`). | fast (about 10 s) |
 | `nsf_tail_bound_comparison.py` | comparison | NSF head with `create_flow_model(bound=recommended_tail_bound(y_std))` vs the fixed bound 5 on Student-t(3) noise: test NLL, 90% coverage and width (needs `zuko`; `--epochs`, `--seed`). | fast (about 11 s) |
-| `external_comparison_bayesian_linear_vs_botorch.py` | comparison | `BayesianLinearHead` vs BoTorch `SingleTaskGP` (needs `botorch`). | fast |
-| `external_comparison_conformal_vs_mapie.py` | comparison | Conformal intervals vs MAPIE >= 1.0, crepes, torchcp >= 1.2 (needs `mapie crepes torchcp`; ported to the current comparator APIs, see below). | fast |
-| `external_comparison_tweedie_vs_sklego.py` | comparison | Tweedie losses vs a log-link GLM. scikit-lego 0.9.x has no Tweedie GLM, so the baseline is `sklearn.linear_model.TweedieRegressor`. | fast |
 
 ## Real-data comparisons
 
@@ -115,20 +112,20 @@ Small benchmarks of the library itself. Run from the repo root.
 | `benchmarks/tail_extremes_sweep.py` | comparison | Sweep over the tail benchmark configurations (imports `tail_extremes_benchmark`). | fast (about 50 s) |
 | `benchmarks/foundation_model_comparison.py` | real-data | TabPFN vs torchregress Gaussian and mixture-density heads on California Housing (`--n_samples`). | needs-download (California Housing; TabPFN also needs weights and a Hugging Face token) |
 
-### Research benchmarks (belong in torchregress-research)
+### Moved out of this repository in 0.3.0
 
-| Script | What it shows | Runtime |
-|---|---|---|
-| `benchmarks/self_agreement_higgs_ood.py` | SAGE-Reg Higgs-inspired OOD benchmark: supervised, Mean Teacher, Pi-model, confidence-weighted pseudo-labels and SAGE-Reg on a shifted tabular task (synthetic unless `--dataset-path` is given). | fast (about 50 s) |
+- The SAGE-Reg Higgs OOD benchmark and the NeurIPS SAGE/SPT reproduction scripts live in
+  [torchregress-research](https://github.com/sfabbro/torchregress-research)
+  (`benchmarks/neurips/sage/self_agreement_higgs_ood.py`).
+- The external-library comparisons (MAPIE, crepes, torchcp, BoTorch, scikit-learn and
+  statsmodels GLMs) are suites of
+  [torchregress-harness](https://github.com/astroai/torchregress-harness)
+  (`conformal`, `bayesian_linear`, `tweedie`); see
+  [External comparison](../docs/examples/external-comparison-vs-mapie-botorch-sklego.md).
 
-It still lives here and runs; it is not moved. The NeurIPS SAGE/SPT reproduction
-scripts were already extracted to
-[torchregress-research](https://github.com/sfabbro/torchregress-research).
+## Candidates to merge after 0.3.0
 
-## Candidates to merge for 0.3.0
-
-Tracked in `ROADMAP.md`. These overlap and could share one
-script with a `--dataset {synthetic,diabetes}` style switch:
+These overlap and could share one script:
 
 - **OT-shift conformal**: `ot_shift_conformal_demo` and `benchmarks/ot_conformal_score_shift_benchmark` describe the same toy.
 - **Intro**: `basic_usage` and `native_api_usage`.
@@ -143,31 +140,3 @@ uncertain ground truth) behind `--dataset {synthetic,diabetes}`, `loss_compariso
 scenarios, not a loss sweep), `poisson_gaussian_contamination_mixture_demo` (detector
 noise mixtures, not count regression) and `benchmarks/bayesian_linear_head_*`
 (library benchmarks, not tutorials).
-
-## External-library comparators
-
-The `external_comparison_*` scripts need their comparator packages installed
-explicitly (there is no `torchregress[external]` extra):
-
-```bash
-uv pip install mapie crepes torchcp botorch gpytorch   # scikit-lego is optional, see below
-```
-
-They track the current comparator APIs (last checked with MAPIE 1.5.0 and
-1.5.1.dev6, crepes 0.9.1, torchcp 1.2.1, scikit-learn 1.9.1, scikit-lego 0.9.10):
-
-- `external_comparison_conformal_vs_mapie.py` uses MAPIE's `SplitConformalRegressor`
-  and `ConformalizedQuantileRegressor` (`fit` / `conformalize` / `predict_interval`,
-  `confidence_level = 1 - alpha`) and torchcp's `SplitPredictor` with the `ABS`
-  score. MAPIE 0.x (`MapieRegressor`) and torchcp < 1.2 (`SplitCP`) are no longer supported.
-- `external_comparison_tweedie_vs_sklego.py` compares against
-  `sklearn.linear_model.TweedieRegressor` because scikit-lego 0.9.x has no
-  Tweedie/GLM estimator (`GLMRegressor` was removed). scikit-lego is only probed
-  so its version and the missing GLM are recorded in the summary.
-
-A comparator that is not installed gives a `skipped: <lib> not installed` row. One that is
-installed but whose API does not match gives `skipped: <lib> <version> incompatible`
-(or `failed: <lib> <version> incompatible (...)` if it breaks while running), so API
-drift is never reported as "not installed". Skipped rows keep `null` metrics so the JSON
-schema is stable. Each script prints the installed comparator versions and records them in
-the summary JSON `notes` and per-row `Version` field.

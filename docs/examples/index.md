@@ -42,10 +42,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/ppi_mean_plus_split_conformal.py`: PPI-style mean inference plus `SplitConformal` predictive bands with a labeled split (see `docs/methods/inference.md`)
 - `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison (`--dataset synthetic|diabetes`)
 - `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics; `--dataset diabetes` uses real Diabetes covariates
-- `examples/external_comparison_conformal_vs_mapie.py`: conformal intervals (split + CQR) vs MAPIE; JSON → `reports/external_comparison_conformal_vs_mapie_latest.json`
-- `examples/external_comparison_bayesian_linear_vs_botorch.py`: low-shot Bayesian linear head vs BoTorch `SingleTaskGP`; JSON → `reports/external_comparison_bayesian_linear_vs_botorch_latest.json`
-- `examples/external_comparison_tweedie_vs_sklego.py`: Tweedie / compound-Poisson regression vs scikit-learn `TweedieRegressor` (scikit-lego no longer ships a GLM); JSON → `reports/external_comparison_tweedie_vs_sklego_latest.json`
-- [External comparison guide](external-comparison-vs-mapie-botorch-sklego.md): consolidated page for the three external benchmarks.
+- [External comparison guide](external-comparison-vs-mapie-botorch-sklego.md): MAPIE, crepes, torchcp, BoTorch and scikit-learn comparisons, run in torchregress-harness.
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
 - `examples/contrastive_flow_parameter_estimation.py --mode demo`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
 

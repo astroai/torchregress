@@ -19,11 +19,15 @@ Exception, decided 2026-11-03: the multi-source Gaussian losses and calibration 
 `GaussianCopulaSplineHead`, and `PoissonGaussianLoss` landed after the beta and ship in
 0.3.0. Nothing else new lands before the tag.
 
-These stay out of the beta diff and land while 0.3.0 is stabilized:
+Done for 0.3.0:
 
-- Merge example pairs that share a harness and differ only by data source: causal, censored, EIV, multimodal, noisy-label, OOD selective prediction, ordinal, and uncertain-ground-truth comparisons.
-- Merge the overlapping loss, conformal, contrastive-flow, count, Bayesian-linear-head, and Wasserstein-bound demos the same way.
-- Move external-library comparators and the SAGE-Reg Higgs script to torchregress-harness and torchregress-research.
+- Example pairs that shared a harness and differed only by data source are one script
+  each with `--dataset {synthetic,diabetes}`: causal, censored, EIV, multimodal,
+  noisy-label, OOD selective prediction, ordinal, and uncertain-ground-truth comparisons.
+- The overlapping loss, conformal, contrastive-flow, count, Bayesian-linear-head, and
+  Wasserstein-bound demos are one script per topic, variants behind a flag.
+- External-library comparators are torchregress-harness suites (`conformal`,
+  `bayesian_linear`, `tweedie`); the SAGE-Reg Higgs script is in torchregress-research.
 
 ## After 0.3.0
 

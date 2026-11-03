@@ -2982,7 +2982,7 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Heuristic local target-covariance estimates from input-space neighbours; experimental. See examples/wasserstein_bound_hybrid_pretrain_demo.py."
+      "notes": "Heuristic local target-covariance estimates from input-space neighbours; experimental. See examples/gaussian_wasserstein_bound_demo.py --mode hybrid."
     },
     {
       "name": "OptimalTransportCoverageGap",

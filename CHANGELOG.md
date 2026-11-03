@@ -44,6 +44,18 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
   (`PoissonGaussianLoss`). Behaviour is unchanged. The example is now
   `examples/poisson_gaussian_contamination_mixture_demo.py`.
   `PoissonGaussianLikelihoodRatioLoss` is unchanged: it is not a mixture.
+- Examples: each synthetic / real-data pair is one script with
+  `--dataset {synthetic,diabetes}` (causal, censored, EIV, multimodal,
+  noisy-label, OOD selective prediction, ordinal, uncertain ground truth); the
+  `*_realdata_comparison.py` files are gone. Overlapping demos are one script per
+  topic: `loss_comparison.py --suite`, `conformal_regression_example.py --mode`,
+  `contrastive_flow_parameter_estimation.py --mode`, `count_regression_demo.py
+  --family` (replaces the Poisson and Tweedie demos),
+  `test_time_bayesian_linear_head_demo.py --mode`,
+  `gaussian_wasserstein_bound_demo.py --mode`. Summary JSON values are unchanged.
+- The `external_comparison_*` examples (MAPIE, crepes, torchcp, BoTorch,
+  scikit-learn) moved to torchregress-harness suites, and
+  `examples/benchmarks/self_agreement_higgs_ood.py` to torchregress-research.
 
 ### Fixed
 
@@ -52,6 +64,8 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
   Seifert et al. (2023), which uses it. They compute a two-component mixture;
   the docs now say so, report its low-count bias, and point to
   `PoissonGaussianLoss`. Behaviour is unchanged.
+- Examples whose real-data track never seeded the global RNG (censored, uncertain
+  ground truth) now do, so their Diabetes results are reproducible.
 - `ConformalLoss` no longer swallows unknown keyword arguments (including the
   removed `debias`). Docs and tests that still advertised the no-op are gone.
 - Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors

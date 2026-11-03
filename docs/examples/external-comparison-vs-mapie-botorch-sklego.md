@@ -1,48 +1,35 @@
-# External Comparison: torchregress vs MAPIE / BoTorch / scikit-lego
+# External Comparison: torchregress vs MAPIE / crepes / torchcp / BoTorch / scikit-learn
 
-This page documents three external-comparison benchmarks that pit `torchregress`
-against widely-used third-party libraries on canonical regression tasks.
+These comparisons pit `torchregress` against widely used third-party libraries on
+canonical regression tasks. They live in the external-software parity harness,
+[torchregress-harness](https://github.com/astroai/torchregress-harness), which pins
+the comparator versions, runs them on shared splits and several datasets, and
+publishes the results in its
+[`PARITY_REPORT.md`](https://github.com/astroai/torchregress-harness/blob/main/PARITY_REPORT.md).
+Until 0.3.0 they were scripts in `examples/`; keeping them in the harness keeps
+comparator dependencies out of this repository.
 
 → API: [`SplitConformal`](../api/losses.md), [`CQR`](../api/losses.md), [`BayesianLinearHead`](../api/test_time.md).
 
-| Task | External library | Comparison focus | Artifact |
+| Task | External library | Comparison focus | Harness suite |
 |---|---|---|---|
-| Conformal prediction intervals | [MAPIE](https://mapie.readthedocs.io/), [crepes](https://crepes.readthedocs.io/), [torchcp](https://github.com/snap-stanford/torchcp) | Split + CQR coverage / width / interval score | `reports/external_comparison_conformal_vs_mapie_latest.json` |
-| Low-shot Bayesian linear regression | [BoTorch](https://botorch.org/) | RMSE / NLL / 95% coverage | `reports/external_comparison_bayesian_linear_vs_botorch_latest.json` |
-| Tweedie / compound-Poisson regression | [scikit-learn `TweedieRegressor`](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.TweedieRegressor.html) (scikit-lego 0.9.x has no Tweedie GLM) | MAE / Tweedie deviance | `reports/external_comparison_tweedie_vs_sklego_latest.json` |
+| Conformal prediction intervals | [MAPIE](https://mapie.readthedocs.io/), [crepes](https://crepes.readthedocs.io/), [torchcp](https://github.com/snap-stanford/torchcp) | Split + CQR coverage / width / interval score | `conformal` |
+| Low-shot Bayesian linear regression | [BoTorch](https://botorch.org/) | RMSE / NLL / 95% coverage | `bayesian_linear` |
+| Tweedie / compound-Poisson regression | [scikit-learn `TweedieRegressor`](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.TweedieRegressor.html), statsmodels GLM | MAE / Tweedie deviance | `tweedie` |
 
-## Setup
+## Run the comparisons
 
-The external libraries are optional dependencies and there is no
-`torchregress[external]` extra. Install the comparators directly:
-
-```bash
-uv pip install mapie crepes torchcp botorch gpytorch   # or: pixi add mapie crepes torchcp botorch gpytorch
-```
-
-The Tweedie benchmark only needs scikit-learn; scikit-lego (0.9.x) is merely
-probed, because it no longer ships a Tweedie GLM.
-
-If an external library is not installed, the corresponding script still runs
-and emits rows with the metrics set to `null` plus a `Notes` field that
-documents the skip (`skipped: <lib> not installed`). A library that is
-installed but whose API does not match the version this page targets gives
-`skipped: <lib> <version> incompatible` (or `failed: ... incompatible` if it
-breaks while running) instead, so API drift is never reported as "not
-installed". The JSON artifacts stay schema-stable across environments, and each
-script prints the installed comparator versions and records them in the
-summary `notes` and in a per-row `Version` field.
-
-Run the three benchmarks:
+From a checkout of torchregress-harness next to torchregress (see its README for the
+pixi environment and the `conformal`, `bayesian` and `tweedie` extras):
 
 ```bash
-pixi run python examples/external_comparison_conformal_vs_mapie.py \
-    --summary-json-path reports/external_comparison_conformal_vs_mapie_latest.json
-pixi run python examples/external_comparison_bayesian_linear_vs_botorch.py \
-    --summary-json-path reports/external_comparison_bayesian_linear_vs_botorch_latest.json
-pixi run python examples/external_comparison_tweedie_vs_sklego.py \
-    --summary-json-path reports/external_comparison_tweedie_vs_sklego_latest.json
+pixi run python tools/run_all.py --suites conformal,bayesian_linear,tweedie \
+    --datasets diabetes,synthetic_hetero,synthetic_sinusoidal,synthetic_tweedie \
+    --output results/latest/external_comparisons.json
 ```
+
+Each row records the comparator library and version. A comparator that is not
+installed is reported as skipped, never as a torchregress result.
 
 ## Task 1 — Conformal prediction intervals (vs MAPIE / crepes / torchcp)
 
@@ -68,26 +55,8 @@ design. The `torchregress/Split+Linear` row is included so the wrapper
 itself is compared apples-to-apples against MAPIE/crepes/torchcp on the
 same linear backbone.
 
-**Latest run** (alpha = 0.1, seed 260612, MAPIE 1.5.0, crepes 0.9.1,
-torchcp 1.2.1; exact numbers depend on library versions and BLAS):
 
-| Method | Coverage | Width | Interval score |
-|---|---:|---:|---:|
-| torchregress / Split + MLP | 0.905 | 1.328 | 1.890 |
-| torchregress / CQR + MLP | 0.933 | 1.480 | 1.759 |
-| torchregress / Split + Linear | 0.918 | 2.299 | 2.869 |
-| MAPIE / Split + Linear | 0.903 | 1.635 | 2.348 |
-| MAPIE / CQR + GBR | 0.918 | 1.903 | 2.205 |
-| crepes / Split + Linear | 0.903 | 1.635 | 2.348 |
-| crepes / CQR + GBR | 0.918 | 1.903 | 2.205 |
-| torchcp / Split + Linear | 0.903 | 1.635 | 2.348 |
-
-The three external split rows share one backbone and one calibration set and so
-agree exactly, as do the two CQR rows; the `torchregress/Split+Linear` row is
-wider because its single linear layer is trained by 60 epochs of Adam
-(`lr=1e-3`) and is not converged to the least-squares fit.
-
-**Script:** [`examples/external_comparison_conformal_vs_mapie.py`](https://github.com/astroai/torchregress/blob/main/examples/external_comparison_conformal_vs_mapie.py)
+**Harness suite:** [`suites/tabular/conformal.py`](https://github.com/astroai/torchregress-harness/blob/main/suites/tabular/conformal.py)
 
 **Note on `torch-uncertainty`:** the `torch-uncertainty` library (ENSTA-U2IS-AI)
 focuses on classification UQ and does **not** ship an end-to-end regression
@@ -111,7 +80,7 @@ comparable), and runtime. Capacity is **not** matched: torchregress is an
 exact-conjugate linear posterior; BoTorch fits a flexible GP with
 hyperparameter marginal-likelihood optimization.
 
-**Script:** [`examples/external_comparison_bayesian_linear_vs_botorch.py`](https://github.com/astroai/torchregress/blob/main/examples/external_comparison_bayesian_linear_vs_botorch.py)
+**Harness suite:** [`suites/tabular/bayesian_linear.py`](https://github.com/astroai/torchregress-harness/blob/main/suites/tabular/bayesian_linear.py)
 
 ## Task 3 — Tweedie / compound-Poisson regression (vs a log-link GLM)
 
@@ -130,15 +99,8 @@ linear in the features with a log link. The unit-deviance metric is the standard
 for Tweedie responses and is the closest thing to a likelihood-grounded
 comparison across library boundaries.
 
-**Latest run** (p = 1.5, seed 260614, scikit-learn 1.9.1):
 
-| Method | MAE | Tweedie deviance |
-|---|---:|---:|
-| torchregress / Tweedie | 0.680 | 0.666 |
-| torchregress / CompoundPoisson | 0.676 | 0.674 |
-| scikit-learn / TweedieRegressor (log link, alpha=0) | 0.677 | 0.663 |
-
-**Script:** [`examples/external_comparison_tweedie_vs_sklego.py`](https://github.com/astroai/torchregress/blob/main/examples/external_comparison_tweedie_vs_sklego.py)
+**Harness suite:** [`suites/tabular/tweedie.py`](https://github.com/astroai/torchregress-harness/blob/main/suites/tabular/tweedie.py) (also runs a statsmodels Tweedie GLM as ground truth)
 
 ## Decision Criteria
 
@@ -152,9 +114,9 @@ comparison across library boundaries.
 
 - Capacity is intentionally not matched between libraries. The numbers are
   meant to anchor an operational default, not a horse race.
-- The benchmarks run on synthetic data. For external-data validation, see the
-  `*_realdata_comparison.py` examples in the same directory.
+- The harness also runs these suites on real datasets (California housing, Diabetes,
+  insurance claims and others); see its parity report.
 - BoTorch adds a significant dependency footprint (gpytorch, botorch, pyro).
   Treat it as an opt-in, not a default.
-- The comparator packages are deliberately not part of any torchregress extra,
-  so default installs stay light; install them explicitly as shown above.
+- The comparator packages are not part of any torchregress extra, so default
+  installs stay light; the harness installs them.

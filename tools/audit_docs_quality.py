@@ -244,6 +244,9 @@ def save_tracker(data: dict[str, dict]) -> None:
 def init_tracker(files: list[Path]) -> dict[str, dict]:
     tracker = load_tracker()
     today = date.today().isoformat()
+    current = {path.relative_to(REPO_ROOT).as_posix() for path in files}
+    for rel in [rel for rel in tracker if rel not in current]:
+        del tracker[rel]  # the page was deleted or renamed
     for path in files:
         rel = path.relative_to(REPO_ROOT).as_posix()
         if rel in tracker:
