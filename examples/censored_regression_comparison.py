@@ -147,6 +147,8 @@ def _simulate(cfg: CensoredComparisonConfig) -> dict[str, Tensor]:
 
 
 def _make_realdata(cfg: CensoredRealDataConfig) -> dict[str, Tensor]:
+    # Seeds the global RNG used by censoring draws and model init, as _simulate does.
+    torch.manual_seed(cfg.seed)
     x_np, y_np = load_diabetes(return_X_y=True)
     x_all = torch.tensor(x_np, dtype=torch.float32)
     y_all_raw = torch.tensor(y_np, dtype=torch.float32)
