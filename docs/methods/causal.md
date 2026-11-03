@@ -139,10 +139,9 @@ For causal estimates to be valid, three assumptions must hold:
 - **Diagnose before interpreting**: Always inspect the `diagnostics` dict from `dr_ate`/`dr_cate` — it contains effective sample size (ESS) and overlap warnings.
 - **Propensity clipping**: If propensity scores are extreme ($< 0.05$ or $> 0.95$), consider clipping or trimming before estimation. See [Propensity utilities](../api/utils.md).
 - **Complement with PPI**: For causal quantities that can be framed as population means, [PPI inference](inference.md) can leverage unlabeled data for tighter confidence intervals.
-- **Example pipelines**: See [Causal DR uplift comparison](../examples/causal_dr_uplift_comparison.md) and [Causal DR real-data comparison](../examples/causal_dr_realdata_comparison.md).
+- **Example pipelines**: See [Causal DR uplift comparison](../examples/causal_dr_uplift_comparison.md) (`--dataset synthetic` or `--dataset diabetes` for real covariates).
 
 ## Next Steps
 - Learn about [Propensity Weighted Losses](../losses/imbalanced.md)
 - View the [Causal DR Uplift Comparison](../examples/causal_dr_uplift_comparison.md)
-- View the [Causal DR Comparison (Real Covariates)](../examples/causal_dr_realdata_comparison.md)
 - Explore [Inference Methods Detail](inference.md)

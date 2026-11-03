@@ -70,24 +70,20 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("ood_selective_prediction_comparison")
     _load_example_module("ood_selective_prediction_realdata_comparison")
     _load_example_module("eiv_method_comparison")
-    _load_example_module("eiv_method_realdata_comparison")
     _load_example_module("noisy_label_comparison")
     _load_example_module("noisy_label_realdata_comparison")
     _load_example_module("multimodal_method_comparison")
-    _load_example_module("multimodal_method_realdata_comparison")
     _load_example_module("contrastive_flow_parameter_estimation_comparison")
     _load_example_module("ordinal_regression_comparison")
     _load_example_module("ordinal_regression_realdata_comparison")
     _load_example_module("ordinal_uncertain_ground_truth_comparison")
     _load_example_module("censored_regression_comparison")
-    _load_example_module("censored_regression_realdata_comparison")
     _load_example_module("constraints_calibration_comparison")
     _load_example_module("transformed_target_regression_comparison")
     _load_example_module("semi_supervised_regression_comparison")
     _load_example_module("uncertain_gt_density_conformal_comparison")
     _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
     _load_example_module("causal_dr_uplift_comparison")
-    _load_example_module("causal_dr_realdata_comparison")
     _load_example_module("poisson_regression_demo")
     _load_example_module("tweedie_regression_demo")
     _load_example_module("poisson_gaussian_contamination_mixture_demo")
@@ -433,8 +429,8 @@ def test_eiv_method_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_eiv_method_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("eiv_method_realdata_comparison")
+def test_eiv_method_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("eiv_method_comparison")
     cfg = mod.EIVRealDataConfig(n_train=64, n_test=32, epochs=1, hidden=8)
     mod.main(cfg)
 
@@ -639,8 +635,8 @@ def test_multimodal_method_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_multimodal_method_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("multimodal_method_realdata_comparison")
+def test_multimodal_method_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("multimodal_method_comparison")
     cfg = mod.MultimodalRealDataConfig(
         n_train=64,
         n_test=24,
@@ -722,8 +718,8 @@ def test_censored_regression_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_censored_regression_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("censored_regression_realdata_comparison")
+def test_censored_regression_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("censored_regression_comparison")
     cfg = mod.CensoredRealDataConfig(
         n_train=128,
         n_test=64,
@@ -775,13 +771,39 @@ def test_causal_dr_uplift_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_causal_dr_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("causal_dr_realdata_comparison")
+def test_causal_dr_uplift_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("causal_dr_uplift_comparison")
     cfg = mod.CausalDRRealDataConfig(
         n_samples=280,
         folds=2,
     )
     mod.main(cfg)
+
+
+@pytest.mark.parametrize(
+    ("stem", "synthetic_cfg", "diabetes_cfg"),
+    [
+        ("causal_dr_uplift_comparison", "CausalDRConfig", "CausalDRRealDataConfig"),
+        ("censored_regression_comparison", "CensoredComparisonConfig", "CensoredRealDataConfig"),
+        ("eiv_method_comparison", "EIVConfig", "EIVRealDataConfig"),
+        (
+            "multimodal_method_comparison",
+            "MultimodalComparisonConfig",
+            "MultimodalRealDataConfig",
+        ),
+    ],
+)
+def test_dataset_flag_examples_map_each_dataset_to_its_config(
+    stem: str, synthetic_cfg: str, diabetes_cfg: str
+) -> None:
+    mod = _load_example_module(stem)
+    assert set(mod.DATASETS) == {"synthetic", "diabetes"}
+    assert mod.DATASETS["synthetic"].config_cls is getattr(mod, synthetic_cfg)
+    assert mod.DATASETS["diabetes"].config_cls is getattr(mod, diabetes_cfg)
+    for spec in mod.DATASETS.values():
+        assert mod._dataset_for_config(spec.config_cls()) is spec
+    with pytest.raises(TypeError):
+        mod._dataset_for_config(object())
 
 
 def test_poisson_regression_demo_main_smoke(monkeypatch) -> None:

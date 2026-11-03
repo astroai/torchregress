@@ -298,7 +298,6 @@ nav = [
       { "Contrastive Flow Estimation" = "examples/contrastive_flow_parameter_estimation.md" },
       { "Contrastive Flow Comparison" = "examples/contrastive_flow_parameter_estimation_comparison.md" },
       { "Multimodal Methods" = "examples/multimodal_method_comparison.md" },
-      { "Multimodal (Real Data)" = "examples/multimodal_method_realdata_comparison.md" },
     ] },
     { "Robustness & Data Quality" = [
       { "Imbalanced Regression" = "examples/imbalanced_regression.md" },
@@ -319,9 +318,7 @@ nav = [
       { "Ordinal (Real Data)" = "examples/ordinal_regression_realdata_comparison.md" },
       { "Ordinal with Uncertain Labels" = "examples/ordinal_uncertain_ground_truth_comparison.md" },
       { "Censored Comparison" = "examples/censored_regression_comparison.md" },
-      { "Censored (Real Data)" = "examples/censored_regression_realdata_comparison.md" },
       { "Input Measurement Error" = "examples/eiv_method_comparison.md" },
-      { "Input Error (Real Data)" = "examples/eiv_method_realdata_comparison.md" },
       { "Input Error Algorithms" = "examples/eiv_algorithms.md" },
     ] },
     { "Out-of-Distribution" = [
@@ -333,7 +330,6 @@ nav = [
     ] },
     { "Causal Inference" = [
       { "Doubly Robust Causal Uplift" = "examples/causal_dr_uplift_comparison.md" },
-      { "Doubly Robust Causal (Real Data)" = "examples/causal_dr_realdata_comparison.md" },
     ] },
     { "External Comparisons" = [
       { "vs MAPIE, crepes, torchcp, BoTorch, scikit-learn" = "examples/external-comparison-vs-mapie-botorch-sklego.md" },
