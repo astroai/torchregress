@@ -144,14 +144,14 @@ def test_M_MET_007_even_n_median():
     assert float(M.median_absolute_error(torch.tensor(yp), torch.tensor(yt))) == pytest.approx(
         sk_medae(yt, yp)
     )
-    mad_ref = 1.4826 * st.median_abs_deviation(yt - yp)
+    mad_ref = 1.482602218505602 * st.median_abs_deviation(yt - yp)
     assert float(M.median_absolute_deviation(torch.tensor(yp), torch.tensor(yt))) == pytest.approx(
         mad_ref, rel=1e-12
     )
     nmad = M.NormalizedMedianAbsoluteDeviation()
     nmad.update(torch.tensor(yp), torch.tensor(yt))
     assert float(nmad.compute()) == pytest.approx(
-        1.4826 * st.median_abs_deviation(yp - yt), rel=1e-12
+        1.482602218505602 * st.median_abs_deviation(yp - yt), rel=1e-12
     )
 
 

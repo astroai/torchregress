@@ -261,14 +261,14 @@ class TestPriorAndSigmaFitting:
         predictions = target - 0.3 * torch.randn(500, generator=generator)
         loss_fn = BalancedMSEBMC(prior="uniform").fit(target, predictions)
         residuals = target - predictions
-        expected = 1.4826 * (residuals - residuals.median()).abs().median()
+        expected = 1.482602218505602 * (residuals - residuals.median()).abs().median()
         assert torch.isclose(loss_fn.sigma, expected, rtol=1e-6)
 
     def test_target_mad_sigma_proxy(self) -> None:
         generator = torch.Generator().manual_seed(3)
         target = 2.0 + 1.5 * torch.randn(300, generator=generator)
         loss_fn = BalancedMSEBMC(prior="uniform").fit(target)
-        expected = 1.4826 * (target - target.median()).abs().median()
+        expected = 1.482602218505602 * (target - target.median()).abs().median()
         assert torch.isclose(loss_fn.sigma, expected, rtol=1e-6)
 
     def test_constant_targets_get_finite_sigma(self) -> None:

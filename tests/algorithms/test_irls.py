@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 import torch
 import torch.nn as nn
@@ -92,3 +93,16 @@ def test_calculate_mad_edge_cases():
     t_empty = torch.tensor([])
     with pytest.raises(IndexError):
         calculate_mad(t_empty)
+
+
+def test_calculate_mad_even_counts_match_scipy() -> None:
+    import scipy.stats as stats
+
+    # Even counts: the textbook median averages the two middle values.
+    t = torch.tensor([[1.0, 2.0, 4.0, 10.0], [0.5, -3.0, 2.0, 2.5]], dtype=torch.float64)
+    for dim in (0, 1):
+        expected = stats.median_abs_deviation(t.numpy(), axis=dim, scale=1.0)
+        got = calculate_mad(t, dim=dim).squeeze(dim)
+        np.testing.assert_allclose(got.numpy(), expected, rtol=0.0, atol=1e-15)
+    # [1, 2, 4, 10]: median 3, |deviations| [2, 1, 1, 7], MAD 1.5 (lower median gave 1).
+    assert calculate_mad(t[0]).item() == 1.5

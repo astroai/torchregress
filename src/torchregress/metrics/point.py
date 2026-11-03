@@ -20,40 +20,9 @@ from torchregress.metrics.utils import (
     validate_inputs,
     validate_sample_weight,
 )
+from torchregress.utils.tensor_ops import _MAD_TO_SIGMA, _median
 
 MetricValue = Union[torch.Tensor, float, np.ndarray]
-
-
-def _median(values: torch.Tensor, dim: Optional[int] = None) -> torch.Tensor:
-    """Median that averages the two middle values for even counts.
-
-    ``torch.median`` returns the *lower* median, which differs from
-    ``numpy.median`` / ``scipy`` / ``sklearn`` for even sample sizes (M-MET-007).
-
-    Parameters
-    ----------
-    values : Tensor
-        Input values.
-    dim : int, optional
-        Reduction dimension; ``None`` reduces over all elements.
-
-    Returns
-    -------
-    Tensor
-        The median (NaN for an empty reduction).
-    """
-    if dim is None:
-        values = values.reshape(-1)
-        dim = 0
-    n = values.shape[dim]
-    if n == 0:
-        shape = list(values.shape)
-        del shape[dim]
-        return torch.full(shape, float("nan"), device=values.device, dtype=values.dtype)
-    ordered = torch.sort(values, dim=dim).values
-    lower = ordered.narrow(dim, (n - 1) // 2, 1)
-    upper = ordered.narrow(dim, n // 2, 1)
-    return (0.5 * (lower + upper)).squeeze(dim)
 
 
 def _median_absolute_error(abs_errors: torch.Tensor, multioutput: str) -> torch.Tensor:
@@ -245,7 +214,7 @@ class MedianAbsoluteDeviation(Metric):
     higher_is_better = False
     full_state_update = False
 
-    def __init__(self, scale: float = 1.4826, **kwargs: Any) -> None:
+    def __init__(self, scale: float = 1.482602218505602, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.scale = scale
         self.add_state("errors", default=[], dist_reduce_fx="cat")
@@ -343,7 +312,7 @@ class NormalizedMedianAbsoluteDeviation(Metric):
     """
     Calculate the Normalized Median Absolute Deviation.
 
-    ``1.4826 * median(|d - median(d)|)`` with ``d = y_pred - y_true`` (divided by
+    ``1.482602218505602 * median(|d - median(d)|)`` with ``d = y_pred - y_true`` (divided by
     ``1 + y_true`` when ``normalization="relative"``); even counts average the
     two middle values.
     """
@@ -371,7 +340,7 @@ class NormalizedMedianAbsoluteDeviation(Metric):
     def compute(self) -> torch.Tensor:
         """Compute normalized median absolute deviation."""
         diffs = torch.cat(metric_state_list[torch.Tensor](self.diffs))
-        return 1.4826 * _median(torch.abs(diffs - _median(diffs)))
+        return _MAD_TO_SIGMA * _median(torch.abs(diffs - _median(diffs)))
 
 
 def _per_sample_mean(values: torch.Tensor) -> torch.Tensor:
@@ -645,7 +614,7 @@ def trimmed_mean_squared_error(
 def median_absolute_deviation(
     y_pred: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],
-    scale: float = 1.4826,
+    scale: float = 1.482602218505602,
     as_numpy: bool = False,
 ) -> MetricValue:
     """Compute Median Absolute Deviation (MAD).
