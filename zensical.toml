@@ -300,17 +300,14 @@ nav = [
       { "Balanced Reweighting" = "examples/balanced_mse.md" },
       { "Noisy Labels" = "examples/noisy_labels_regression.md" },
       { "Noisy Label Comparison" = "examples/noisy_label_comparison.md" },
-      { "Noisy Label (Real Data)" = "examples/noisy_label_realdata_comparison.md" },
       { "Semi-Supervised" = "examples/semi_supervised_regression_comparison.md" },
       { "Uncertain Ground Truth" = "examples/uncertain_gt_density_conformal_comparison.md" },
-      { "Uncertain Ground Truth (Real Data)" = "examples/uncertain_gt_density_conformal_realdata_comparison.md" },
       { "Transformed Targets" = "examples/transformed_target_regression_comparison.md" },
     ] },
     { "Special Target Types" = [
       { "Count & Zero-Inflated" = "examples/count_regression.md" },
       { "Poisson-Gaussian Contamination Mixture" = "examples/poisson_gaussian_contamination_mixture.md" },
       { "Ordinal Comparison" = "examples/ordinal_regression_comparison.md" },
-      { "Ordinal (Real Data)" = "examples/ordinal_regression_realdata_comparison.md" },
       { "Ordinal with Uncertain Labels" = "examples/ordinal_uncertain_ground_truth_comparison.md" },
       { "Censored Comparison" = "examples/censored_regression_comparison.md" },
       { "Input Measurement Error" = "examples/eiv_method_comparison.md" },
@@ -318,7 +315,6 @@ nav = [
     ] },
     { "Out-of-Distribution" = [
       { "OOD Comparison" = "examples/ood_selective_prediction_comparison.md" },
-      { "OOD (Real Data)" = "examples/ood_selective_prediction_realdata_comparison.md" },
     ] },
     { "Calibration & Constraints" = [
       { "Constraints & Calibration" = "examples/constraints_calibration_comparison.md" },

@@ -75,13 +75,13 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `contrastive_flow_parameter_estimation.py` | comparison | `--mode demo`: contrastive normalizing flow for nuisance-aware parameter estimation; `--mode compare`: Gaussian summary, flow NLL, contrastive flow, NRE and NPE on the same pseudo-experiments (`--summary-json-path`; default `all`; needs `zuko`). | fast |
 | `eiv_method_comparison.py` | comparison | EIV loss variants under measurement error. | fast |
 | `multimodal_method_comparison.py` | comparison | Multimodal / multi-target regression methods. | fast |
-| `noisy_label_comparison.py` | comparison | Noisy-label losses with calibration metrics. | fast |
-| `ood_selective_prediction_comparison.py` | comparison | OOD and selective-prediction signals across uncertainty methods. | fast |
-| `ordinal_regression_comparison.py` | comparison | Ordinal regression methods. | fast |
+| `noisy_label_comparison.py` | comparison | Noisy-label losses with calibration metrics (`--dataset synthetic\|diabetes`). | fast |
+| `ood_selective_prediction_comparison.py` | comparison | OOD and selective-prediction signals across uncertainty methods (`--dataset synthetic\|diabetes`). | fast |
+| `ordinal_regression_comparison.py` | comparison | Ordinal regression methods (`--dataset synthetic\|diabetes`). | fast |
 | `ordinal_uncertain_ground_truth_comparison.py` | comparison | Uncertain ground truth in regression-as-classification. | fast |
 | `sls_multimodal_regression.py` | comparison | SLS vs CQR vs CTI for multimodal targets. | fast |
 | `transformed_target_regression_comparison.py` | comparison | Transformed-target losses. | fast |
-| `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods. | fast |
+| `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods (`--dataset synthetic\|diabetes`). | fast |
 | `calibrated_regressor_comparison.py` | comparison | `CalibratedRegressor` (`vts`, `isotonic+vts`), `ConformalRegressor(method="split")` and `calibrated_deep_ensemble` vs an uncalibrated Gaussian `TabularMLP`: RMSE, 90% coverage, width, NLL, runtime (`--epochs`, `--seed`, `--n-members`). | fast (about 10 s) |
 | `nsf_tail_bound_comparison.py` | comparison | NSF head with `create_flow_model(bound=recommended_tail_bound(y_std))` vs the fixed bound 5 on Student-t(3) noise: test NLL, 90% coverage and width (needs `zuko`; `--epochs`, `--seed`). | fast (about 11 s) |
 | `external_comparison_bayesian_linear_vs_botorch.py` | comparison | `BayesianLinearHead` vs BoTorch `SingleTaskGP` (needs `botorch`). | fast |
@@ -96,11 +96,10 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `censored_regression_comparison.py --dataset diabetes` | real-data | Censored losses on Diabetes. | fast |
 | `eiv_method_comparison.py --dataset diabetes` | real-data | EIV losses on Diabetes with injected measurement error. | fast |
 | `multimodal_method_comparison.py --dataset diabetes` | real-data | Multimodal / multi-target methods on Diabetes features. | fast |
-| `noisy_label_realdata_comparison.py` | real-data | Noisy-label losses on Diabetes. | fast |
-| `ood_selective_prediction_realdata_comparison.py` | real-data | OOD / selective prediction on Diabetes. | fast |
-| `ordinal_regression_realdata_comparison.py` | real-data | Ordinal methods on binned Diabetes. | fast |
+| `noisy_label_comparison.py --dataset diabetes` | real-data | Noisy-label losses on Diabetes. | fast |
+| `ood_selective_prediction_comparison.py --dataset diabetes` | real-data | OOD / selective prediction on Diabetes. | fast |
+| `ordinal_regression_comparison.py --dataset diabetes` | real-data | Ordinal methods on binned Diabetes. | fast |
 | `semi_supervised_regression_comparison.py` | real-data | Semi-supervised regression methods on a real-data proxy. | fast |
-| `uncertain_gt_density_conformal_realdata_comparison.py` | real-data | Uncertain-GT and density conformal on Diabetes. | fast |
 | `imdb_wiki_age_regression.py` | real-data | Age regression on IMDB-WIKI with several losses (ResNet backbone). | needs-download (about 1 GB dataset plus pretrained weights) |
 
 ## Library benchmarks (`benchmarks/`)
@@ -131,15 +130,12 @@ scripts were already extracted to
 Tracked in `ROADMAP.md`. These overlap and could share one
 script with a `--dataset {synthetic,diabetes}` style switch:
 
-- **Synthetic / real-data pairs** that share the same harness and differ only in data source:
-  `noisy_label_comparison` + `noisy_label_realdata_comparison`,
-  `ood_selective_prediction_comparison` + `ood_selective_prediction_realdata_comparison`,
-  `ordinal_regression_comparison` + `ordinal_regression_realdata_comparison`,
-  `uncertain_gt_density_conformal_comparison` + `uncertain_gt_density_conformal_realdata_comparison`.
 - **OT-shift conformal**: `ot_shift_conformal_demo` and `benchmarks/ot_conformal_score_shift_benchmark` describe the same toy.
 - **Intro**: `basic_usage` and `native_api_usage`.
 
-Already merged (one script per topic, variants behind a flag): `loss_comparison --suite`,
+Already merged (one script per topic, variants behind a flag): the synthetic / real-data
+pairs (causal, censored, EIV, multimodal, noisy-label, OOD selective prediction, ordinal,
+uncertain ground truth) behind `--dataset {synthetic,diabetes}`, `loss_comparison --suite`,
 `conformal_regression_example --mode`, `contrastive_flow_parameter_estimation --mode`,
 `count_regression_demo --family`, `test_time_bayesian_linear_head_demo --mode`,
 `gaussian_wasserstein_bound_demo --mode`. Kept separate on purpose:

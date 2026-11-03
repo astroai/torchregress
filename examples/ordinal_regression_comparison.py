@@ -1,9 +1,20 @@
-"""Shared-budget comparison for ordinal regression methods."""
+"""Shared-budget comparison for ordinal regression methods.
+
+Run on a synthetic latent-variable task (default) or on quantile-binned Diabetes
+targets::
+
+    python examples/ordinal_regression_comparison.py --dataset synthetic
+    python examples/ordinal_regression_comparison.py --dataset diabetes
+
+Each dataset keeps its own fixed seed and split sizes; the models, training loop,
+and metrics are shared.
+"""
 
 import argparse
 from dataclasses import dataclass
 
 import torch
+from sklearn.datasets import load_diabetes
 from torch import Tensor
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -21,9 +32,14 @@ from torchregress.metrics import (
 )
 from torchregress.utils import ordinal_predict
 
+DATASETS = ("synthetic", "diabetes")
+EXAMPLE = "examples/ordinal_regression_comparison.py"
+
 
 @dataclass(frozen=True)
 class OrdinalComparisonConfig:
+    """Synthetic latent-variable task (``--dataset synthetic``)."""
+
     seed: int = 260227
     n_train: int = 512
     n_test: int = 256
@@ -33,6 +49,31 @@ class OrdinalComparisonConfig:
     epochs: int = 30
     batch_size: int = 64
     lr: float = 1e-2
+
+
+@dataclass(frozen=True)
+class OrdinalRealDataConfig:
+    """sklearn Diabetes targets binned at train quantiles (``--dataset diabetes``)."""
+
+    seed: int = 260305
+    n_train: int = 320
+    n_test: int = 120
+    num_classes: int = 5
+    hidden: int = 32
+    epochs: int = 30
+    batch_size: int = 64
+    lr: float = 1e-2
+
+
+OrdinalConfig = OrdinalComparisonConfig | OrdinalRealDataConfig
+
+
+def default_config(dataset: str) -> OrdinalConfig:
+    if dataset == "synthetic":
+        return OrdinalComparisonConfig()
+    if dataset == "diabetes":
+        return OrdinalRealDataConfig()
+    raise ValueError(f"Unknown dataset {dataset!r}; expected one of {DATASETS}.")
 
 
 class _MLP(torch.nn.Module):
@@ -50,7 +91,7 @@ class _MLP(torch.nn.Module):
         return self.net(x)
 
 
-def _make_data(cfg: OrdinalComparisonConfig) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+def _make_synthetic_data(cfg: OrdinalComparisonConfig) -> tuple[Tensor, Tensor, Tensor, Tensor]:
     torch.manual_seed(cfg.seed)
     x = torch.randn(cfg.n_train + cfg.n_test, cfg.n_features)
 
@@ -61,12 +102,34 @@ def _make_data(cfg: OrdinalComparisonConfig) -> tuple[Tensor, Tensor, Tensor, Te
 
     cutpoints = torch.tensor([-1.0, -0.25, 0.4, 1.1], dtype=latent.dtype)
     y = torch.bucketize(latent, cutpoints).long()
+    return x[: cfg.n_train], y[: cfg.n_train], x[cfg.n_train :], y[cfg.n_train :]
 
-    x_train = x[: cfg.n_train]
-    y_train = y[: cfg.n_train]
-    x_test = x[cfg.n_train :]
-    y_test = y[cfg.n_train :]
-    return x_train, y_train, x_test, y_test
+
+def _make_diabetes_data(cfg: OrdinalRealDataConfig) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    x_np, y_np = load_diabetes(return_X_y=True)
+    x = torch.tensor(x_np, dtype=torch.float32)
+    y = torch.tensor(y_np, dtype=torch.float32)
+
+    need = cfg.n_train + cfg.n_test
+    if need > x.shape[0]:
+        raise ValueError(f"Requested {need} samples but diabetes dataset has {x.shape[0]}.")
+
+    g = torch.Generator().manual_seed(cfg.seed)
+    perm = torch.randperm(x.shape[0], generator=g)[:need]
+    x = x[perm]
+    y = y[perm]
+
+    # Ordinal classes from train-only quantile cutpoints (no test leakage).
+    quantiles = torch.linspace(0.0, 1.0, cfg.num_classes + 1, dtype=y.dtype)
+    cutpoints = torch.quantile(y[: cfg.n_train], quantiles[1:-1])
+    y_ord = torch.bucketize(y, cutpoints).long()
+    return x[: cfg.n_train], y_ord[: cfg.n_train], x[cfg.n_train :], y_ord[cfg.n_train :]
+
+
+def _make_data(cfg: OrdinalConfig) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    if isinstance(cfg, OrdinalRealDataConfig):
+        return _make_diabetes_data(cfg)
+    return _make_synthetic_data(cfg)
 
 
 def _train_model(
@@ -74,14 +137,20 @@ def _train_model(
     loss_fn: torch.nn.Module,
     x_train: Tensor,
     y_train: Tensor,
-    cfg: OrdinalComparisonConfig,
+    cfg: OrdinalConfig,
 ) -> None:
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr)
+    # The synthetic run shuffles from the global RNG seeded in run_comparison; the
+    # Diabetes run uses its own generator. Both are deterministic for a fixed seed.
+    generator = (
+        torch.Generator().manual_seed(cfg.seed) if isinstance(cfg, OrdinalRealDataConfig) else None
+    )
     loader = DataLoader(
         TensorDataset(x_train, y_train),
         batch_size=cfg.batch_size,
         shuffle=True,
+        generator=generator,
     )
     for _ in range(cfg.epochs):
         for xb, yb in loader:
@@ -111,28 +180,32 @@ def _evaluate(
     }
 
 
-def run_comparison(cfg: OrdinalComparisonConfig) -> list[dict[str, object]]:
+def run_comparison(cfg: OrdinalConfig) -> list[dict[str, object]]:
     torch.manual_seed(cfg.seed)
     x_train, y_train, x_test, y_test = _make_data(cfg)
+    n_features = int(x_train.shape[1])
+    is_real = isinstance(cfg, OrdinalRealDataConfig)
 
-    rows: list[dict[str, object]] = []
     methods = [
         (
             "OrdinalCrossEntropy",
-            _MLP(cfg.n_features, cfg.hidden, cfg.num_classes),
+            _MLP(n_features, cfg.hidden, cfg.num_classes),
             OrdinalCrossEntropyLoss(),
             "class_logits",
-            "class-logit baseline",
+            "class-logit baseline on quantile-binned Diabetes targets"
+            if is_real
+            else "class-logit baseline",
         ),
         (
             "CumulativeLink",
-            _MLP(cfg.n_features, cfg.hidden, cfg.num_classes - 1),
+            _MLP(n_features, cfg.hidden, cfg.num_classes - 1),
             CumulativeLinkLoss(),
             "cumulative_logits",
             "cumulative-threshold ordinal objective",
         ),
     ]
 
+    rows: list[dict[str, object]] = []
     for name, model, loss_fn, encoding, notes in methods:
         _, train_s = timed_call(_train_model, model, loss_fn, x_train, y_train, cfg)
         metrics, eval_s = timed_call(_evaluate, model, x_test, y_test, encoding=encoding)
@@ -149,39 +222,63 @@ def run_comparison(cfg: OrdinalComparisonConfig) -> list[dict[str, object]]:
     return rows
 
 
-def main(cfg: OrdinalComparisonConfig | None = None, summary_json_path: str | None = None) -> None:
-    cfg = cfg or OrdinalComparisonConfig()
+def main(
+    cfg: OrdinalConfig | None = None,
+    summary_json_path: str | None = None,
+    *,
+    dataset: str = "synthetic",
+) -> None:
+    """Run the comparison; ``cfg`` (when given) determines the dataset."""
+    cfg = cfg or default_config(dataset)
+    is_real = isinstance(cfg, OrdinalRealDataConfig)
     rows = run_comparison(cfg)
 
+    suffix = " (Real Data)" if is_real else ""
     print_fairness_notes(
-        title="Ordinal Regression Comparison",
-        seed_policy="fixed seed and shared synthetic split",
+        title=f"Ordinal Regression Comparison{suffix}",
+        seed_policy=(
+            "fixed seed and shared Diabetes split with train-quantile binning"
+            if is_real
+            else "fixed seed and shared synthetic split"
+        ),
         train_budget="same MLP depth/width and epochs across methods",
         metric_policy="accuracy, ordinal class-MAE, QWK, runtime",
     )
     print_comparison_summary(
-        "Ordinal method summary",
+        "Ordinal method summary (real data)" if is_real else "Ordinal method summary",
         rows,
         metric_order=["Accuracy", "OrdinalMAE", "QWK", "train_s", "eval_s"],
     )
 
     if summary_json_path is not None:
-        out = write_comparison_summary_json(
-            summary_json_path,
-            example="examples/ordinal_regression_comparison.py",
-            task="Ordinal regression / ordered targets",
-            config=cfg,
-            rows=rows,
-            notes=[
+        if is_real:
+            notes = [
+                "Targets are quantile-binned from Diabetes continuous labels using train-only cutpoints.",
+                "All methods share architecture and training budget.",
+            ]
+        else:
+            notes = [
                 "All methods share architecture and training budget.",
                 "CumulativeLink/CORAL use K-1 cumulative logits; CE uses K class logits.",
-            ],
+            ]
+        out = write_comparison_summary_json(
+            summary_json_path,
+            example=f"{EXAMPLE} --dataset diabetes" if is_real else EXAMPLE,
+            task=(
+                "Ordinal regression / ordered targets (real-data)"
+                if is_real
+                else "Ordinal regression / ordered targets"
+            ),
+            config=cfg,
+            rows=rows,
+            notes=notes,
         )
         print(f"\nWrote summary JSON: {out}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run ordinal regression comparison example")
+    parser.add_argument("--dataset", choices=DATASETS, default="synthetic")
     parser.add_argument("--summary-json-path", type=str, default=None)
     args = parser.parse_args()
-    main(summary_json_path=args.summary_json_path)
+    main(summary_json_path=args.summary_json_path, dataset=args.dataset)

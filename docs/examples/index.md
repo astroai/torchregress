@@ -27,14 +27,12 @@ Use the comparison examples first when making implementation decisions:
 - `examples/imbalanced_regression.py`: tail performance vs calibration tradeoffs
 - `examples/conformal_regression_example.py --mode sweep`: coverage vs interval width tradeoffs
 - `examples/ood_selective_prediction_comparison.py`: OOD vs selective-prediction tradeoffs (AURC, rejection policy, OOD gap)
-  now includes BaseEnsembleModel, heteroscedastic ensemble, MC dropout, `SWAG`, and `BNN`
-- `examples/ood_selective_prediction_realdata_comparison.py`: real-data OOD/selective comparison on Diabetes with covariate-shift split
+  across a deep ensemble, heteroscedastic ensemble, MC dropout, `SWAG`, and `BNN`; `--dataset diabetes` runs a real-data covariate-shift split
 - `examples/eiv_method_comparison.py`: EIV method tradeoffs (analytic/MC/ODR/ensemble variants); `--dataset diabetes` runs on Diabetes with synthetic measurement-error injection
 - `examples/multimodal_method_comparison.py`: Gaussian vs MDN vs optional flow on multimodal multi-target data; `--dataset diabetes` uses real Diabetes features + synthetic multimodal targets
 - `examples/contrastive_flow_parameter_estimation.py --mode compare`: shared-budget synthetic comparison for Gaussian summary density vs plain flow vs contrastive flow vs NRE vs NPE
-- `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics
-- `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
-- `examples/ordinal_regression_realdata_comparison.py`: real-data ordinal comparison on Diabetes with train-quantile binning
+- `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics (`--dataset synthetic|diabetes`)
+- `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`); `--dataset diabetes` uses train-quantile binning of Diabetes targets
 - `examples/ordinal_uncertain_ground_truth_comparison.py`: ordered-bin ambiguous-label comparison with soft plausibility targets and soft pseudo labels
 - `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`); `--dataset diabetes` runs on Diabetes with shared synthetic censoring overlays
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
@@ -42,8 +40,7 @@ Use the comparison examples first when making implementation decisions:
 - `examples/semi_supervised_regression_comparison.py`: masked-label semi-supervised regression with pseudo labels and teacher consistency
 - `examples/ppi_calibrated_mean.py`: raw vs affinely calibrated prediction-powered mean inference (arXiv:2604.21260)
 - `examples/ppi_mean_plus_split_conformal.py`: PPI-style mean inference plus `SplitConformal` predictive bands with a labeled split (see `docs/methods/inference.md`)
-- `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison
-- `examples/uncertain_gt_density_conformal_realdata_comparison.py`: real-data uncertain-label + conformal comparison on Diabetes
+- `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison (`--dataset synthetic|diabetes`)
 - `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics; `--dataset diabetes` uses real Diabetes covariates
 - `examples/external_comparison_conformal_vs_mapie.py`: conformal intervals (split + CQR) vs MAPIE; JSON → `reports/external_comparison_conformal_vs_mapie_latest.json`
 - `examples/external_comparison_bayesian_linear_vs_botorch.py`: low-shot Bayesian linear head vs BoTorch `SingleTaskGP`; JSON → `reports/external_comparison_bayesian_linear_vs_botorch_latest.json`
@@ -179,10 +176,10 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 → See [`uncertainty_decomposition`](../api/metrics.md) and [Ensemble API](../api/ensemble.md).
 
-### [Ordinal Regression Comparison (Real Data)](ordinal_regression_realdata_comparison.md)
+### [Ordinal Regression Comparison](ordinal_regression_comparison.md)
 
-- Shared-budget comparison on real Diabetes covariates/targets with train-quantile binning.
-- Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
+- Shared-budget comparison on a synthetic latent-score task or (`--dataset diabetes`) real Diabetes covariates/targets with train-quantile binning.
+- Compares class-logit cross-entropy against the cumulative-link objective.
 - Reports ordinal accuracy, class-index MAE, QWK, and runtime.
 
 ### [Ordinal Uncertain Ground Truth Comparison](ordinal_uncertain_ground_truth_comparison.md)
@@ -221,12 +218,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 - Shared-budget comparison for uncertain ground-truth supervision and density-aware conformal intervals.
 - Compares `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, and `MonteCarloConformal`.
 - Reports coverage/width plus uncertain-GT objective values (`NoisyTargetNLL`, `ConsistencyLoss`, `PseudoLabelNLL`).
-
-### [Uncertain-GT + Density Conformal Comparison (Real Data)](uncertain_gt_density_conformal_realdata_comparison.md)
-
-- Shared-budget comparison on real Diabetes covariates/targets with feature-dependent annotation noise.
-- Compares `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, and `MonteCarloConformal`.
-- Reports coverage/width plus uncertain-GT objective values (`NoisyTargetNLL`, `ConsistencyLoss`, `PseudoLabelNLL`).
+- `--dataset diabetes` runs the same comparison on real Diabetes covariates/targets with feature-dependent annotation noise and a fitted MLP predictor.
 
 ### [Causal DR Uplift Comparison](causal_dr_uplift_comparison.md)
 
@@ -266,11 +258,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Shared-budget comparison of robust/probabilistic methods under label corruption.
 - Includes split-conformal coverage/width metrics plus native interval metrics for Gaussian/quantile heads.
-
-### [Noisy Label Real-Data Comparison](noisy_label_realdata_comparison.md)
-
-- Shared-budget comparison on the Diabetes dataset with synthetic label corruption.
-- Adds real-data evidence breadth for noisy-label robustness/calibration tradeoffs.
+- `--dataset diabetes` runs it on the Diabetes dataset with synthetic label corruption for real-data evidence breadth.
 
 ### [Normalizing Flows](normalizing_flows_multitarget.md)
 
@@ -287,11 +275,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Shared-budget comparison of uncertainty methods for risk-coverage and OOD signal behavior.
 - Includes AURC, rejection-policy risk/coverage, split-conformal interval metrics, and OOD uncertainty-gap summaries.
-
-### [OOD / Selective Prediction Comparison (Real Data)](ood_selective_prediction_realdata_comparison.md)
-
-- Shared-budget comparison on Diabetes with deterministic covariate-shift OOD split.
-- Adds real-data evidence breadth for OOD/selective tradeoffs across BaseEnsembleModel/MCDropout/`SWAG`/`BNN` with split-conformal interval diagnostics.
+- `--dataset diabetes` runs it on Diabetes with a deterministic covariate-shift OOD split for real-data evidence breadth.
 
 ### [EIV Method Comparison](eiv_method_comparison.md)
 

@@ -169,7 +169,7 @@ def test_ood_comparison_writes_summary_json(tmp_path: Path) -> None:
 
 
 def test_ood_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("ood_selective_prediction_realdata_comparison")
+    mod = _load_example_module("ood_selective_prediction_comparison")
     out = tmp_path / "ood_realdata_summary.json"
     cfg = mod.OODRealDataConfig(
         n_train=64,
@@ -485,8 +485,8 @@ def test_ordinal_regression_comparison_writes_summary_json(tmp_path: Path) -> No
         _assert_non_negative(row["eval_s"])
 
 
-def test_ordinal_regression_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("ordinal_regression_realdata_comparison")
+def test_ordinal_regression_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("ordinal_regression_comparison")
     out = tmp_path / "ordinal_realdata_comparison_summary.json"
     cfg = mod.OrdinalRealDataConfig(
         n_train=128,
@@ -713,11 +713,11 @@ def test_uncertain_gt_density_conformal_comparison_writes_summary_json(tmp_path:
         _assert_non_negative(row["eval_s"])
 
 
-def test_uncertain_gt_density_conformal_realdata_comparison_writes_summary_json(
+def test_uncertain_gt_density_conformal_comparison_diabetes_writes_summary_json(
     tmp_path: Path,
 ) -> None:
-    mod = _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
-    out = tmp_path / "uncertain_gt_density_conformal_realdata_summary.json"
+    mod = _load_example_module("uncertain_gt_density_conformal_comparison")
+    out = tmp_path / "uncertain_gt_density_conformal_diabetes_summary.json"
     cfg = mod.UncertainGTConformalRealDataConfig(
         n_train=128,
         n_cal=64,
@@ -914,9 +914,9 @@ def test_noisy_label_comparison_writes_summary_json(tmp_path: Path) -> None:
     _assert_non_negative(rows["Quantile90"]["NativeWidth90"])
 
 
-def test_noisy_label_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("noisy_label_realdata_comparison")
-    out = tmp_path / "noisy_label_realdata_summary.json"
+def test_noisy_label_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("noisy_label_comparison")
+    out = tmp_path / "noisy_label_diabetes_summary.json"
     cfg = mod.NoisyLabelRealDataConfig(
         n_train=64,
         n_cal=24,
