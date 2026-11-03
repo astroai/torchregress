@@ -6,6 +6,7 @@ normalizing flows to model complex output distributions.
 Uses the zuko package for efficient implementation of various flows.
 """
 
+import math
 from collections.abc import Sequence
 from functools import partial
 from typing import Any, Callable, Optional, cast
@@ -15,9 +16,20 @@ from torch import Tensor
 from torch.nn import Module
 
 try:
-    from zuko.flows import BPF, MAF, NSF, RealNVP  # type: ignore[import-untyped]
+    from zuko.distributions import DiagNormal  # type: ignore[import-untyped]
+    from zuko.flows import (  # type: ignore[import-untyped]
+        BPF,
+        MAF,
+        NSF,
+        Flow,
+        GeneralCouplingTransform,
+        MaskedAutoregressiveTransform,
+        RealNVP,
+        UnconditionalDistribution,
+    )
     from zuko.transforms import (  # type: ignore[import-untyped]
         BoundedBernsteinTransform,
+        MonotonicAffineTransform,
         MonotonicRQSTransform,
         MonotonicTransform,
     )
@@ -26,8 +38,11 @@ try:
 except ImportError:
     HAS_ZUKO = False
 
-    BPF = MAF = NSF = RealNVP = None  # type: ignore[assignment]
+    BPF = MAF = NSF = RealNVP = Flow = None  # type: ignore[assignment]
+    GeneralCouplingTransform = MaskedAutoregressiveTransform = None  # type: ignore[assignment]
+    DiagNormal = UnconditionalDistribution = None  # type: ignore[assignment]
     BoundedBernsteinTransform = MonotonicRQSTransform = MonotonicTransform = None  # type: ignore[assignment]
+    MonotonicAffineTransform = None  # type: ignore[assignment]
 
 from ..utils.pytorch_compat import _collect_transform_cycles
 from .base import DistributionLoss
@@ -35,6 +50,14 @@ from .loss_registry import register_regression_loss
 
 #: Domain half-width of zuko's rational-quadratic spline (identity outside).
 DEFAULT_TAIL_BOUND = 5.0
+
+# Affine flows (``"maf"``, ``"realnvp"``/``"nice"``/``"cinn"``): soft bound on each
+# layer's log-scale, ``|log s| < 3`` (zuko's ``MonotonicAffineTransform`` default
+# ``slope=1e-3`` allows ``|log s| < 6.9``, i.e. a 1000x stretch per layer when sampling).
+_AFFINE_LOG_SCALE_BOUND = 3.0
+# Affine flows: half-width (standardized target units) beyond which the conditioner
+# inputs are softly clipped; see ``_soft_clip``.
+_AFFINE_CONDITIONER_BOUND = 10.0
 
 
 def recommended_tail_bound(
@@ -87,8 +110,24 @@ def recommended_tail_bound(
     return float(min(max(margin * float(values.abs().max()), minimum), maximum))
 
 
+def _soft_clip(x: Tensor, bound: float) -> Tensor:
+    """Odd, smooth, strictly increasing squash of ``x`` into ``(-bound, bound)``.
+
+    ``x / sqrt(1 + (x / bound)^2)`` is the identity to second order near zero
+    (``x - x^3 / (2 bound^2)``) and saturates at ``+-bound`` far out.
+    """
+    return x * torch.rsqrt(1.0 + (x / bound).square())
+
+
 _MAFBase: Any = MAF
+_RealNVPBase: Any = RealNVP
+_FlowBase: Any = Flow
+_ARTransformBase: Any = MaskedAutoregressiveTransform
+_CouplingTransformBase: Any = GeneralCouplingTransform
 _RQSTransform: Any = MonotonicRQSTransform
+_AffineTransform: Any = MonotonicAffineTransform
+_DiagNormal: Any = DiagNormal
+_UnconditionalDistribution: Any = UnconditionalDistribution
 _BPFBase: Any = BPF
 _BernsteinBase: Any = BoundedBernsteinTransform
 _MonotonicBase: Any = MonotonicTransform
@@ -141,6 +180,136 @@ if HAS_ZUKO:
                 **kwargs,
             )
 
+    class _SoftClippedAutoregressiveTransform(_ARTransformBase):
+        """MADE transform whose conditioner sees soft-clipped autoregressive inputs.
+
+        The univariate parameters of ``x_i`` are a function of
+        ``_soft_clip(x_<i)`` (and the context) instead of ``x_<i``.  This is
+        still an exact autoregressive bijection with the same triangular
+        Jacobian; only the conditioner's view of extreme preceding coordinates
+        is bounded.  Without it, sampling (the inverse pass) is unstable: a
+        far-tail base draw gives an out-of-range ``x_j``, the ReLU conditioner
+        extrapolates linearly to a huge shift and a saturated small scale, so
+        ``x_{j+1} = (z - shift) / scale`` is larger still, and the error compounds
+        geometrically over the coordinates and layers (finite samples of
+        ``1e11`` and beyond from a flow with a sound test NLL).
+        """
+
+        def __init__(self, *args: Any, conditioner_bound: float, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self.conditioner_bound = float(conditioner_bound)
+
+        def meta(self, c: Optional[Tensor], x: Tensor) -> Any:
+            return super().meta(c, _soft_clip(x, self.conditioner_bound))
+
+    class _SoftClippedCouplingTransform(_CouplingTransformBase):
+        """Coupling transform whose conditioner sees soft-clipped conditioning inputs.
+
+        Same rationale as :class:`_SoftClippedAutoregressiveTransform`: the
+        coupling remains an exact bijection, and an extreme coordinate produced
+        by one layer cannot drive the next layer's conditioner into linear
+        extrapolation.
+        """
+
+        def __init__(self, *args: Any, conditioner_bound: float, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self.conditioner_bound = float(conditioner_bound)
+
+        def meta(self, c: Optional[Tensor], x: Tensor) -> Any:
+            return super().meta(c, _soft_clip(x, self.conditioner_bound))
+
+    def _affine_univariate(slope: float, kwargs: dict[str, Any]) -> Any:
+        if "univariate" in kwargs:
+            return kwargs.pop("univariate")
+        if not 0.0 < float(slope) < 1.0:
+            raise ValueError("slope must lie in (0, 1)")
+        return partial(_AffineTransform, slope=float(slope))
+
+    def _standard_normal_base(features: int) -> Any:
+        return _UnconditionalDistribution(
+            _DiagNormal,
+            loc=torch.zeros(features),
+            scale=torch.ones(features),
+            buffer=True,
+        )
+
+    class _StableMAF(_MAFBase):
+        """Masked autoregressive flow with numerically safe affine layers.
+
+        Layout, masks and state-dict keys are those of :class:`zuko.flows.MAF`
+        (alternating ascending/descending orders, standard normal base); two
+        changes make sampling stable: each layer's log-scale is softly bounded
+        by ``-log(slope)`` (default 3) and the conditioner sees
+        ``_soft_clip(x_<i, conditioner_bound)``.
+        """
+
+        def __init__(
+            self,
+            features: int,
+            context: int = 0,
+            transforms: int = 3,
+            randperm: bool = False,
+            slope: float = math.exp(-_AFFINE_LOG_SCALE_BOUND),
+            conditioner_bound: float = _AFFINE_CONDITIONER_BOUND,
+            **kwargs: Any,
+        ) -> None:
+            univariate = _affine_univariate(slope, kwargs)
+            orders = [torch.arange(features), torch.flipud(torch.arange(features))]
+            # One feature: zuko builds a context-only element-wise transform with
+            # no autoregressive inputs, so there is nothing to clip.
+            clip = {"conditioner_bound": conditioner_bound} if features > 1 else {}
+            layer_cls = _SoftClippedAutoregressiveTransform if features > 1 else _ARTransformBase
+            layers = [
+                layer_cls(
+                    features=features,
+                    context=context,
+                    order=torch.randperm(features) if randperm else orders[i % 2],
+                    univariate=univariate,
+                    **clip,
+                    **kwargs,
+                )
+                for i in range(transforms)
+            ]
+            _FlowBase.__init__(self, layers, _standard_normal_base(features))
+
+    class _StableRealNVP(_RealNVPBase):
+        """Affine coupling flow (RealNVP / cINN) with numerically safe layers.
+
+        Masks and state-dict keys are those of :class:`zuko.flows.RealNVP`;
+        log-scale bound and conditioner soft clipping as in :class:`_StableMAF`.
+        """
+
+        def __init__(
+            self,
+            features: int,
+            context: int = 0,
+            transforms: int = 3,
+            randmask: bool = False,
+            slope: float = math.exp(-_AFFINE_LOG_SCALE_BOUND),
+            conditioner_bound: float = _AFFINE_CONDITIONER_BOUND,
+            **kwargs: Any,
+        ) -> None:
+            univariate = _affine_univariate(slope, kwargs)
+            clip = {"conditioner_bound": conditioner_bound} if features > 1 else {}
+            layer_cls = _SoftClippedCouplingTransform if features > 1 else _CouplingTransformBase
+            layers = []
+            for i in range(transforms):
+                if randmask:
+                    mask = torch.randperm(features) % 2 == i % 2
+                else:
+                    mask = torch.arange(features) % 2 == i % 2
+                layers.append(
+                    layer_cls(
+                        features=features,
+                        context=context,
+                        mask=mask,
+                        univariate=univariate,
+                        **clip,
+                        **kwargs,
+                    )
+                )
+            _FlowBase.__init__(self, layers, _standard_normal_base(features))
+
     class BoundedNSF(_MAFBase):
         """Neural spline flow with a configurable spline tail bound.
 
@@ -166,6 +335,14 @@ if HAS_ZUKO:
             )
             self.tail_bound = float(bound)
 else:
+
+    class _StableMAF:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("MAF requires the optional 'zuko' package")
+
+    class _StableRealNVP:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("RealNVP requires the optional 'zuko' package")
 
     class _IdentityTailBPF:  # type: ignore[no-redef]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -264,9 +441,9 @@ def create_flow_model(
     flow_cls_map = {
         "nsf": NSF,
         "ncsf": NSF,
-        "maf": MAF,
-        "realnvp": RealNVP,
-        "nice": RealNVP,
+        "maf": _StableMAF,
+        "realnvp": _StableRealNVP,
+        "nice": _StableRealNVP,
         "bpf": _IdentityTailBPF,
     }
     if flow_type_key not in flow_cls_map:
@@ -282,11 +459,13 @@ def create_flow_model(
     flow_cls = flow_cls_map[flow_type_key]
     assert flow_cls is not None
     if bound is not None:
-        if flow_type_key != "nsf":
-            raise ValueError("bound is only supported for flow_type='nsf'")
+        if flow_type_key not in ("nsf", "maf", "realnvp", "nice"):
+            raise ValueError("bound is only supported for flow_type 'nsf', 'maf' and 'realnvp'")
         if not (float(bound) > 0.0 and float(bound) < float("inf")):
             raise ValueError("bound must be positive and finite")
-        if float(bound) != DEFAULT_TAIL_BOUND:
+        if flow_type_key != "nsf":
+            kwargs["conditioner_bound"] = float(bound)
+        elif float(bound) != DEFAULT_TAIL_BOUND:
             flow_cls = BoundedNSF
             kwargs["bound"] = float(bound)
     flow = flow_cls(
