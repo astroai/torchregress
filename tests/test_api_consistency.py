@@ -144,8 +144,8 @@ def test_reduction_behavior():
         "PoissonLikelihoodRatioLoss",
         "ZeroInflatedPoissonNLLLoss",
         "NegativeBinomialNLLLoss",
-        "PoissonGaussianMixtureLoss",
-        "EnhancedPoissonGaussianMixtureLoss",
+        "PoissonGaussianContaminationMixtureLoss",
+        "EnhancedPoissonGaussianContaminationMixtureLoss",
         "PoissonGaussianLikelihoodRatioLoss",
         "QuantileCrossoverLoss",
         "ConformalLoss",  # Needs special input shape

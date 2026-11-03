@@ -646,15 +646,15 @@ LOSS_CASES: dict[str, Builder] = {
     "GammaLoss": _positive_rate(L.GammaLoss, link="identity"),
     "InverseGaussianLoss": _positive_rate(L.InverseGaussianLoss, link="identity"),
     "CompoundPoissonLoss": _positive_rate(L.CompoundPoissonLoss, link="identity"),
-    "PoissonGaussianMixtureLoss": _poisson_gaussian(
-        L.PoissonGaussianMixtureLoss, initial_variance=0.1, log_input=False
+    "PoissonGaussianContaminationMixtureLoss": _poisson_gaussian(
+        L.PoissonGaussianContaminationMixtureLoss, initial_variance=0.1, log_input=False
     ),
     "PoissonGaussianLoss": _poisson_gaussian_convolution,
     "PoissonGaussianLikelihoodRatioLoss": _poisson_gaussian(
         L.PoissonGaussianLikelihoodRatioLoss, log_input=False
     ),
-    "EnhancedPoissonGaussianMixtureLoss": _poisson_gaussian(
-        L.EnhancedPoissonGaussianMixtureLoss, gain=1.5, read_noise=0.2, shot_noise=0.1
+    "EnhancedPoissonGaussianContaminationMixtureLoss": _poisson_gaussian(
+        L.EnhancedPoissonGaussianContaminationMixtureLoss, gain=1.5, read_noise=0.2, shot_noise=0.1
     ),
     # Censored
     "CensoredGaussianNLLLoss": _censored_gaussian,

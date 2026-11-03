@@ -185,7 +185,10 @@ from .poisson import (
 
 # Mixed Poisson-Gaussian losses
 from .poisson_gaussian import (
+    EnhancedPoissonGaussianContaminationMixtureLoss,
+    # Deprecated aliases (removed in the next minor release)
     EnhancedPoissonGaussianMixtureLoss,
+    PoissonGaussianContaminationMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianLoss,
     PoissonGaussianMixtureLoss,
@@ -285,6 +288,7 @@ __all__ = [
     "DiscreteWasserstein1Loss",
     "DistributionLoss",
     "DistributionalConformal",
+    "EnhancedPoissonGaussianContaminationMixtureLoss",
     "EnhancedPoissonGaussianMixtureLoss",
     "EnsembleBatchCP",
     "EnsembleEIVLoss",
@@ -336,6 +340,7 @@ __all__ = [
     "PoissonDevianceLoss",
     "PoissonGaussianLikelihoodRatioLoss",
     "PoissonGaussianLoss",
+    "PoissonGaussianContaminationMixtureLoss",
     "PoissonGaussianMixtureLoss",
     "PoissonLikelihoodRatioLoss",
     "PrevalenceAdjustedCP",

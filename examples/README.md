@@ -47,7 +47,7 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `expectile_regression_demo.py` | tutorial | Expectile vs quantile regression under heteroscedasticity. | fast |
 | `poisson_regression_demo.py` | tutorial | Poisson and zero-inflated count regression. | fast |
 | `tweedie_regression_demo.py` | tutorial | Tweedie loss for zero-inflated continuous data. | fast |
-| `poisson_gaussian_mixture_demo.py` | tutorial | Poisson-Gaussian mixture loss for shot plus readout noise. | fast |
+| `poisson_gaussian_contamination_mixture_demo.py` | tutorial | Poisson-Gaussian contamination-mixture losses (for shot plus read noise use `PoissonGaussianLoss`). | fast |
 | `balanced_mse_demo.py` | tutorial | `BalancedMSELoss` / `BinReweightedMSELoss` on a long-tailed target (`--n`, `--steps`, `--seed`). | fast |
 | `imbalanced_regression.py` | tutorial | Imbalanced regression with a calibration check. | fast |
 | `bayesian_learning_rule_demo.py` | tutorial | Variational regression with the Bayesian Learning Rule (IVON). | fast |
@@ -156,7 +156,7 @@ script with a `--dataset {synthetic,diabetes}` style switch:
 - **Conformal**: `conformal_regression_example`, `evaluate_conformal_methods`, `conformal_mondrian_demo`.
 - **OT-shift conformal**: `ot_shift_conformal_demo` and `benchmarks/ot_conformal_score_shift_benchmark` describe the same toy.
 - **Contrastive flows**: `contrastive_flow_parameter_estimation` and `contrastive_flow_parameter_estimation_comparison`.
-- **Count / zero-inflated data**: `poisson_regression_demo`, `tweedie_regression_demo`, `poisson_gaussian_mixture_demo`.
+- **Count / zero-inflated data**: `poisson_regression_demo`, `tweedie_regression_demo`, `poisson_gaussian_contamination_mixture_demo`.
 - **Bayesian linear head**: `test_time_bayesian_linear_head_demo`, `test_time_blr_predictive_adapter_demo`, `benchmarks/bayesian_linear_head_*`.
 - **Wasserstein bound**: `gaussian_wasserstein_bound_demo` and `wasserstein_bound_hybrid_pretrain_demo`.
 - **Intro**: `basic_usage` and `native_api_usage`.

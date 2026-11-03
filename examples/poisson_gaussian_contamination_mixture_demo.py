@@ -1,5 +1,5 @@
 """
-Poisson-Gaussian Mixture Loss for Shot and Readout Noise Demo.
+Poisson-Gaussian contamination-mixture losses demo.
 
 This example demonstrates how to train models using Poisson-Gaussian mixture loss functions,
 which are particularly useful in signal processing and scientific imaging (e.g., microscopy,
@@ -8,8 +8,8 @@ noise and continuous Gaussian electronic (readout) noise.
 
 Supported losses (both are two-component mixtures, not the shot-plus-read-noise
 convolution that generates the data here; for that model use PoissonGaussianLoss):
-1. PoissonGaussianMixtureLoss: -log(w Pois(y; λ) + (1 - w) N(y; λ, σ²)).
-2. EnhancedPoissonGaussianMixtureLoss: the same equal-weight mixture with
+1. PoissonGaussianContaminationMixtureLoss: -log(w Pois(y; λ) + (1 - w) N(y; λ, σ²)).
+2. EnhancedPoissonGaussianContaminationMixtureLoss: the same equal-weight mixture with
    μ = g λ + b and Gaussian variance σ_1² + σ_2² μ.
 """
 
@@ -20,8 +20,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.losses import (
-    EnhancedPoissonGaussianMixtureLoss,
-    PoissonGaussianMixtureLoss,
+    EnhancedPoissonGaussianContaminationMixtureLoss,
+    PoissonGaussianContaminationMixtureLoss,
 )
 
 
@@ -95,7 +95,7 @@ def train_and_evaluate(loss_name, loss_fn, x_train, y_train, x_test, true_rate_t
 
 def main():
     print("=" * 60)
-    print("Poisson-Gaussian Mixture Regression Demo")
+    print("Poisson-Gaussian Contamination Mixture Regression Demo")
     print("=" * 60)
 
     sigma = 0.6
@@ -108,13 +108,13 @@ def main():
     true_rate_test = true_rate[n_train:]
 
     losses = {
-        "PG-Mixture (Fixed Var)": PoissonGaussianMixtureLoss(
+        "PG-Mixture (Fixed Var)": PoissonGaussianContaminationMixtureLoss(
             initial_variance=sigma**2, log_input=False
         ),
-        "PG-Mixture (Learn Var)": PoissonGaussianMixtureLoss(
+        "PG-Mixture (Learn Var)": PoissonGaussianContaminationMixtureLoss(
             learn_variance=True, initial_variance=1.0, log_input=False
         ),
-        "PG-Enhanced (Learn Gain)": EnhancedPoissonGaussianMixtureLoss(
+        "PG-Enhanced (Learn Gain)": EnhancedPoissonGaussianContaminationMixtureLoss(
             gain="learn", read_noise=sigma**2, shot_noise=0.1, log_input=False
         ),
     }

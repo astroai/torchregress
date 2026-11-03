@@ -7,16 +7,20 @@ Two different likelihoods share the "Poisson-Gaussian" name:
   count ``K ~ Poisson(rate)`` read out as ``y = gain * K + offset + eps`` with
   Gaussian read noise ``eps ~ N(0, read_noise_variance)``. Use it for shot noise
   plus read noise (CCD/CMOS, photon counting, microscopy, low-dose imaging).
-- :class:`PoissonGaussianMixtureLoss` and
-  :class:`EnhancedPoissonGaussianMixtureLoss` are two-component mixtures
+- :class:`PoissonGaussianContaminationMixtureLoss` and
+  :class:`EnhancedPoissonGaussianContaminationMixtureLoss` are two-component mixtures
   ``w * Pois(y; .) + (1 - w) * N(y; .)``: each sample is drawn from *either* a
   Poisson *or* a Gaussian law. That is a contamination model, not the
   shot-plus-read-noise model.
+  The former names ``PoissonGaussianMixtureLoss`` and
+  ``EnhancedPoissonGaussianMixtureLoss`` remain as deprecated aliases and will be
+  removed in the next minor release.
 - :class:`PoissonGaussianLikelihoodRatioLoss` averages a Poisson deviance and a
   scaled squared error; it is not a likelihood of either model.
 """
 
 import math
+import warnings
 from dataclasses import dataclass
 from typing import Any, Optional, Union, cast
 
@@ -26,7 +30,7 @@ from torch.nn import PoissonNLLLoss
 
 from ._poisson_gaussian_kernel import poisson_gaussian_nll
 from .base import RegressionLoss
-from .loss_registry import register_regression_loss
+from .loss_registry import register_deprecated_loss_key, register_regression_loss
 
 
 def _safe_log_weight(weight: "float | torch.Tensor", like: torch.Tensor) -> torch.Tensor:
@@ -53,8 +57,8 @@ class PoissonGaussianConfig:
 
 
 @dataclass(frozen=True)
-class PoissonGaussianMixtureConfig:
-    """Configuration for PoissonGaussianMixtureLoss."""
+class PoissonGaussianContaminationMixtureConfig:
+    """Configuration for PoissonGaussianContaminationMixtureLoss."""
 
     eps: float = 1e-8
     learn_variance: bool = False
@@ -67,8 +71,8 @@ class PoissonGaussianMixtureConfig:
 
 
 @dataclass(frozen=True)
-class EnhancedPoissonGaussianConfig:
-    """Configuration for EnhancedPoissonGaussianMixtureLoss."""
+class EnhancedPoissonGaussianContaminationMixtureConfig:
+    """Configuration for EnhancedPoissonGaussianContaminationMixtureLoss."""
 
     gain: Union[float, str] = 1.0
     offset: Union[float, str] = 0.0
@@ -255,8 +259,8 @@ class PoissonGaussianLoss(RegressionLoss):
         return self._reduce(nll, mask, weights)
 
 
-@register_regression_loss("poisson_gaussian_mixture")
-class PoissonGaussianMixtureLoss(RegressionLoss):
+@register_regression_loss("poisson_gaussian_contamination_mixture")
+class PoissonGaussianContaminationMixtureLoss(RegressionLoss):
     """
     Two-component Poisson/Gaussian mixture NLL (a contamination model).
 
@@ -294,7 +298,7 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         reduction: Method for loss reduction. Default: 'mean'
 
     Example:
-        >>> loss_fn = PoissonGaussianMixtureLoss(initial_variance=0.1, log_input=True)
+        >>> loss_fn = PoissonGaussianContaminationMixtureLoss(initial_variance=0.1, log_input=True)
         >>> y_pred = torch.log(torch.tensor([[10.0, 20.0], [5.0, 15.0]]))  # log(lambda)
         >>> target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])
         >>> loss_fn(y_pred, target)
@@ -311,14 +315,14 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
 
     def __init__(
         self,
-        config: Optional[PoissonGaussianMixtureConfig] = None,
+        config: Optional[PoissonGaussianContaminationMixtureConfig] = None,
         reduction: str = "mean",
         **kwargs: Any,
     ) -> None:
         if "reduction" not in kwargs and config is None:
             kwargs["reduction"] = reduction
         if config is None:
-            config = PoissonGaussianMixtureConfig(**kwargs)
+            config = PoissonGaussianContaminationMixtureConfig(**kwargs)
         super().__init__(reduction=config.reduction)
         self.config = config
         self.eps = config.eps
@@ -430,8 +434,8 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         return self._reduce(mixture_nll, mask, weights)
 
 
-@register_regression_loss("enhanced_poisson_gaussian_mixture")
-class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
+@register_regression_loss("enhanced_poisson_gaussian_contamination_mixture")
+class EnhancedPoissonGaussianContaminationMixtureLoss(RegressionLoss):
     """
     Two-component Poisson/Gaussian mixture NLL with gain, offset and a
     signal-dependent Gaussian variance (a contamination model).
@@ -464,7 +468,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         reduction: Method for loss reduction. Default: 'mean'
 
     Example:
-        >>> loss_fn = EnhancedPoissonGaussianMixtureLoss(
+        >>> loss_fn = EnhancedPoissonGaussianContaminationMixtureLoss(
         ...     gain='learn',
         ...     read_noise=0.2,
         ...     shot_noise=0.1
@@ -485,14 +489,14 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
 
     def __init__(
         self,
-        config: Optional[EnhancedPoissonGaussianConfig] = None,
+        config: Optional[EnhancedPoissonGaussianContaminationMixtureConfig] = None,
         reduction: str = "mean",
         **kwargs: Any,
     ) -> None:
         if "reduction" not in kwargs and config is None:
             kwargs["reduction"] = reduction
         if config is None:
-            config = EnhancedPoissonGaussianConfig(**kwargs)
+            config = EnhancedPoissonGaussianContaminationMixtureConfig(**kwargs)
         super().__init__(reduction=config.reduction)
         self.config = config
         self.log_input = config.log_input
@@ -621,7 +625,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         )
 
         # True mixture NLL with equal weights (A1) — same logsumexp form as
-        # PoissonGaussianMixtureLoss; the previous arithmetic mean was not the
+        # PoissonGaussianContaminationMixtureLoss; the previous arithmetic mean was not the
         # NLL of the Poisson-Gaussian mixture.
         loss = -torch.logsumexp(
             torch.stack(
@@ -742,3 +746,77 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce(combined_lr, mask, weights)
+
+
+# ---------------------------------------------------------------------------
+# Deprecated aliases (to be removed in the next minor release)
+# ---------------------------------------------------------------------------
+
+_ALIAS_NOTE = (
+    "It computes a two-component mixture w*Pois + (1-w)*N, not the Poisson-Gaussian "
+    "detector convolution; use {new} for the mixture, or PoissonGaussianLoss for "
+    "shot-plus-read-noise detector data."
+)
+
+
+def _warn_alias(old: str, new: str) -> None:
+    warnings.warn(
+        f"{old} is deprecated and will be removed in the next minor release. "
+        + _ALIAS_NOTE.format(new=new),
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+@register_regression_loss("poisson_gaussian_mixture")
+class PoissonGaussianMixtureLoss(PoissonGaussianContaminationMixtureLoss):
+    """Deprecated alias of :class:`PoissonGaussianContaminationMixtureLoss`."""
+
+    def __init__(
+        self,
+        config: Optional[PoissonGaussianContaminationMixtureConfig] = None,
+        reduction: str = "mean",
+        **kwargs: Any,
+    ) -> None:
+        _warn_alias("PoissonGaussianMixtureLoss", "PoissonGaussianContaminationMixtureLoss")
+        super().__init__(config, reduction, **kwargs)
+
+
+@register_regression_loss("enhanced_poisson_gaussian_mixture")
+class EnhancedPoissonGaussianMixtureLoss(EnhancedPoissonGaussianContaminationMixtureLoss):
+    """Deprecated alias of :class:`EnhancedPoissonGaussianContaminationMixtureLoss`."""
+
+    def __init__(
+        self,
+        config: Optional[EnhancedPoissonGaussianContaminationMixtureConfig] = None,
+        reduction: str = "mean",
+        **kwargs: Any,
+    ) -> None:
+        _warn_alias(
+            "EnhancedPoissonGaussianMixtureLoss",
+            "EnhancedPoissonGaussianContaminationMixtureLoss",
+        )
+        super().__init__(config, reduction, **kwargs)
+
+
+register_deprecated_loss_key("poisson_gaussian_mixture", "poisson_gaussian_contamination_mixture")
+register_deprecated_loss_key(
+    "enhanced_poisson_gaussian_mixture", "enhanced_poisson_gaussian_contamination_mixture"
+)
+
+_DEPRECATED_CONFIGS = {
+    "PoissonGaussianMixtureConfig": "PoissonGaussianContaminationMixtureConfig",
+    "EnhancedPoissonGaussianConfig": "EnhancedPoissonGaussianContaminationMixtureConfig",
+}
+
+
+def __getattr__(name: str) -> Any:
+    new = _DEPRECATED_CONFIGS.get(name)
+    if new is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    warnings.warn(
+        f"{name} is deprecated and will be removed in the next minor release; use {new}.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return globals()[new]

@@ -1,8 +1,8 @@
-# Poisson-Gaussian Mixture Examples
+# Poisson-Gaussian Contamination Mixture Examples
 
-This guide demonstrates how to model data affected by both count (Poisson/shot) noise and continuous (Gaussian/readout) noise using `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss`.
+This guide demonstrates how to model data affected by both count (Poisson/shot) noise and continuous (Gaussian/readout) noise using `PoissonGaussianContaminationMixtureLoss` and `EnhancedPoissonGaussianContaminationMixtureLoss`.
 
-→ API: [`PoissonGaussianMixtureLoss`](../api/losses.md).
+→ API: [`PoissonGaussianContaminationMixtureLoss`](../api/losses.md).
 
 | # | Reference |
 |:-:|:----------|
@@ -23,11 +23,11 @@ The two losses demonstrated below are **two-component mixtures**, not that
 convolution, and are biased at low counts (see the
 [comparison](../losses/poisson_gaussian.md#mixture-losses)).
 
-### Poisson-Gaussian Mixture Loss
+### Poisson-Gaussian Contamination Mixture Loss
 
 $$L(y, \lambda) = -\log\big(w\,\text{Pois}(y; \lambda) + (1-w)\,\mathcal{N}(y; \lambda, \sigma^2)\big)$$
 
-### Enhanced Poisson-Gaussian Mixture Loss
+### Enhanced Poisson-Gaussian Contamination Mixture Loss
 
 With $\mu = g\lambda + b$:
 
@@ -47,7 +47,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchregress.losses import PoissonGaussianMixtureLoss, EnhancedPoissonGaussianMixtureLoss
+from torchregress.losses import PoissonGaussianContaminationMixtureLoss, EnhancedPoissonGaussianContaminationMixtureLoss
 
 # Generate synthetic Poisson-Gaussian noise data
 np.random.seed(42)
@@ -80,7 +80,7 @@ class SignalModel(nn.Module):
 # Train with learnable Gaussian variance
 model = SignalModel()
 optimizer = optim.Adam(model.parameters(), lr=0.01)
-loss_fn = PoissonGaussianMixtureLoss(learn_variance=True, log_input=False)
+loss_fn = PoissonGaussianContaminationMixtureLoss(learn_variance=True, log_input=False)
 
 for epoch in range(150):
     rate_pred = torch.exp(model(x_tensor))

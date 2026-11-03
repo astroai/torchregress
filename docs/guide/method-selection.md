@@ -270,10 +270,10 @@ _Generated date_: `2026-11-03`
 | `PoissonDevianceLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
 | `PoissonLikelihoodRatioLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
 | `ZeroInflatedPoissonNLLLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
-| `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
+| `EnhancedPoissonGaussianContaminationMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
+| `PoissonGaussianContaminationMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian` | `Available` | yes | no | no | no | no | partial | partial |
 | `PoissonGaussianLoss` | `poisson_gaussian` | `Available` | yes | no | no | no | no | partial | partial |
-| `PoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
 | `BetaNLLLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
 | `FaithfulGaussianLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
 | `GaussianCRPSLoss` | `probabilistic_loss` | `Strong` | yes | no | no | yes | no | partial | partial |
@@ -377,7 +377,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 |---|---|---|
 | OOD + epistemic signals | `task_tag='ood'` + `epistemic=yes` | `BayesianNeuralNetwork`, `HeteroscedasticBNN`, `BaseEnsembleModel`, `BatchEnsembleRegressor`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MultiSWAG`, `SWAG` |
 | Coverage / calibration | `calibration=yes` | `BinnedLabelShiftEstimator`, `CalibratedRegressor`, `IsotonicMeanCalibrator`, `PITCalibrator`, `SemiConformalCalibrator`, `VarianceRestoringCalibrator`, `VarianceTemperatureScaler`, `CQR`, `CTI`, `CVPlus`, `ConformalLoss`, `ConformalRegressor`, `ConformalizedDensity`, `ContrastiveFlowConformal`, `DensityConformal`, `EnsembleBatchCP`, `MonteCarloConformal`, `PrevalenceAdjustedCP`, `SLSConformal`, `SplitConformal`, `UACQR`, `WaldoConformal`, `WaldoCriticalValueRegressor`, `WaldoDensityConformal`, `WaldoPosteriorCalibrator`, `RegressionCalibration`, `calibrated_deep_ensemble`, `MultiQuantileLoss`, `QuantileLoss`, `WeightedConformalRegressionAdapter` |
-| Multimodal targets | `multimodal=yes` | `SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MixtureDensityLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss` |
+| Multimodal targets | `multimodal=yes` | `SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MixtureDensityLoss`, `EnhancedPoissonGaussianContaminationMixtureLoss`, `PoissonGaussianContaminationMixtureLoss` |
 | Imbalanced / rare targets | `imbalance=yes` | `DensityConformal`, `PrevalenceAdjustedCP`, `ContinuousGroupDRO`, `GroupDROTrainer`, `VIRLoss`, `VIRRegressor`, `BalancedMSEBMC`, `BalancedMSELoss`, `BinReweightedMSELoss`, `ConR`, `DensityWeightedLoss`, `FeatureDistributionSmoother`, `FocalRLoss`, `LDSLoss`, `PrimeLoss`, `PropensityWeightedLoss`, `RankSimLoss`, `UncertaintyAwareConR` |
 | Noisy features / EIV | `noisy_features_eiv=yes` | `CorrectedScoreEIVLoss`, `ErrorAwareFeatureEncoder`, `ForwardInversionRegressor`, `FunctionalEIVLoss`, `InputNoiseAugmentationLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `LatentMarginalizationLoss`, `LatentNN`, `NoiseAwareRegressor`, `NoisyInputPredictor`, `OrthogonalDistanceRegressionLoss`, `RegressionCalibration`, `SIMEX`, `SplitMeasurementLoss`, `StructuralEIVLoss` |
 <!-- END:METHOD_CATALOG_GENERATED_SECTION -->

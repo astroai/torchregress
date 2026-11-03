@@ -174,10 +174,10 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `PoissonDevianceLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `poisson` | `calibration*`, `ood*` | `torchregress.losses.PoissonDevianceLoss` |
 | `PoissonLikelihoodRatioLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `poisson`, `ablation` | `calibration*`, `ood*` | `torchregress.losses.PoissonLikelihoodRatioLoss` |
 | `ZeroInflatedPoissonNLLLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `zero_inflated` | `calibration*`, `ood*` | `torchregress.losses.ZeroInflatedPoissonNLLLoss` |
-| `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.EnhancedPoissonGaussianMixtureLoss` |
+| `EnhancedPoissonGaussianContaminationMixtureLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.EnhancedPoissonGaussianContaminationMixtureLoss` |
+| `PoissonGaussianContaminationMixtureLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.PoissonGaussianContaminationMixtureLoss` |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `ablation` | `calibration*`, `ood*` | `torchregress.losses.PoissonGaussianLikelihoodRatioLoss` |
 | `PoissonGaussianLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.PoissonGaussianLoss` |
-| `PoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.PoissonGaussianMixtureLoss` |
 | `BetaNLLLoss` | `probabilistic_loss` | `Available` | `heteroscedastic_noise`, `aleatoric_uq`, `optimization_stability` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.BetaNLLLoss` |
 | `FaithfulGaussianLoss` | `probabilistic_loss` | `Available` | `heteroscedastic_noise`, `aleatoric_uq`, `mean_variance_decoupling` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.FaithfulGaussianLoss` |
 | `GaussianCRPSLoss` | `probabilistic_loss` | `Strong` | `heteroscedastic_noise`, `aleatoric_uq`, `calibration` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.GaussianCRPSLoss` |
@@ -233,7 +233,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MixtureDensityLoss`, `EnhancedPoissonGaussianMixtureLoss`, `PoissonGaussianMixtureLoss`
+`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MixtureDensityLoss`, `EnhancedPoissonGaussianContaminationMixtureLoss`, `PoissonGaussianContaminationMixtureLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 

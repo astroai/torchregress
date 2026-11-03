@@ -8,9 +8,16 @@ and says which one to use.
 | Loss | Model | Use for |
 |:-----|:------|:--------|
 | `PoissonGaussianLoss` | Convolution: a Poisson count read out with additive Gaussian noise | Detector data: shot noise plus read noise (CCD/CMOS, photon counting, microscopy, low-dose imaging) |
-| `PoissonGaussianMixtureLoss` | Two-component mixture: each sample is Poisson *or* Gaussian | Not a detector model; see [Mixture losses](#mixture-losses) |
-| `EnhancedPoissonGaussianMixtureLoss` | Same mixture with gain, offset and a signal-dependent Gaussian variance | Not a detector model; see [Mixture losses](#mixture-losses) |
+| `PoissonGaussianContaminationMixtureLoss` | Two-component mixture: each sample is Poisson *or* Gaussian | Not a detector model; see [Mixture losses](#mixture-losses) |
+| `EnhancedPoissonGaussianContaminationMixtureLoss` | Same mixture with gain, offset and a signal-dependent Gaussian variance | Not a detector model; see [Mixture losses](#mixture-losses) |
 | `PoissonGaussianLikelihoodRatioLoss` | Average of a Poisson deviance and a scaled squared error | Not a likelihood of either model |
+
+!!! warning "Renamed mixture losses"
+    `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss` (registry keys
+    `"poisson_gaussian_mixture"` and `"enhanced_poisson_gaussian_mixture"`) are deprecated
+    aliases of the `...ContaminationMixtureLoss` classes above, which keep the same
+    behaviour. They emit `DeprecationWarning` and will be removed in the next minor release.
+    For shot-plus-read-noise detector data use `PoissonGaussianLoss`.
 
 !!! tip "API reference"
     See [`PoissonGaussianLoss`](../api/losses.md) and the other classes in the
@@ -119,13 +126,13 @@ add `loss_fn.parameters()` to the optimiser.
 
 ## Mixture losses
 
-`PoissonGaussianMixtureLoss` computes
+`PoissonGaussianContaminationMixtureLoss` computes
 
 $$\mathcal{L}(\lambda; y) = -\log\!\Big(w\,\text{Pois}(y;\lambda) + (1-w)\,\mathcal{N}(y;\lambda,\sigma^2)\Big),$$
 
 with the Poisson term from `torch.nn.PoissonNLLLoss(full=True)`. It is a
 two-component mixture: each sample comes from *one* of the two laws.
-`EnhancedPoissonGaussianMixtureLoss` uses the same form with equal weights,
+`EnhancedPoissonGaussianContaminationMixtureLoss` uses the same form with equal weights,
 $\mu = g\lambda + b$ in both components and a Gaussian variance
 $\sigma_1^2 + \sigma_2^2\,\mu$.
 
@@ -145,7 +152,7 @@ Simulated detector data ($g = 1$, $b = 0$; 25 pixels per fit, 300 fits; rate
 estimated by maximum likelihood; coverage of the 95% profile-likelihood
 interval):
 
-| $\lambda$, $\sigma^2$ | `PoissonGaussianLoss` bias / coverage | `PoissonGaussianMixtureLoss` bias / coverage | Enhanced (`shot_noise=1`) bias / coverage |
+| $\lambda$, $\sigma^2$ | `PoissonGaussianLoss` bias / coverage | `PoissonGaussianContaminationMixtureLoss` bias / coverage | Enhanced (`shot_noise=1`) bias / coverage |
 |:--|:--|:--|:--|
 | 0.5, 4 | +3% / 0.97 | estimate collapses to 0 / 0.00 | collapses to 0 / 0.00 |
 | 2, 4 | +2% / 0.94 | −71% / 0.14 | −70% / 0.18 |
@@ -159,7 +166,7 @@ loss in the table is biased by several standard errors.
 
 ### Parameters
 
-`PoissonGaussianMixtureLoss`:
+`PoissonGaussianContaminationMixtureLoss`:
 
 - `eps` (float): numerical floor. Default `1e-8`.
 - `learn_variance` (bool), `initial_variance` (float), `min_variance` (float): Gaussian variance $\sigma^2$.
@@ -167,7 +174,7 @@ loss in the table is biased by several standard errors.
 - `mixture_weights`: weight $w$ of the Poisson component; `None` (0.5), a float, or `'learn'`.
 - `extra_variance_model` (bool): add the `extra_var` forward argument to $\sigma^2$. Note that `extra_var` is the **third positional** parameter of `forward(y_pred, target, extra_var=None, mask=None, weights=None)`.
 
-`EnhancedPoissonGaussianMixtureLoss`:
+`EnhancedPoissonGaussianContaminationMixtureLoss`:
 
 - `gain`, `offset`, `read_noise` ($\sigma_1^2$), `shot_noise` ($\sigma_2^2$): floats or `'learn'`.
 - `log_input` (bool), `calibration` (bool, adds a learnable affine map on $\lambda$).
@@ -180,8 +187,8 @@ import torchregress as tr
 y_pred = torch.log(torch.tensor([[10.0, 20.0], [5.0, 15.0]]))
 target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])
 
-mixture = tr.losses.PoissonGaussianMixtureLoss(initial_variance=0.1, log_input=True)
-enhanced = tr.losses.EnhancedPoissonGaussianMixtureLoss(
+mixture = tr.losses.PoissonGaussianContaminationMixtureLoss(initial_variance=0.1, log_input=True)
+enhanced = tr.losses.EnhancedPoissonGaussianContaminationMixtureLoss(
     gain=1.0, read_noise=0.1, shot_noise=1.0, log_input=True
 )
 print(mixture(y_pred, target), enhanced(y_pred, target))
@@ -220,7 +227,7 @@ flowchart TD
 - [Poisson & Tweedie](poisson_tweedie.md) — count models without read noise
 - [Gaussian losses](gaussian.md) — the high-count limit
 - [Transform losses](transforms.md) — variance-stabilising transforms (Anscombe) as an alternative
-- [Poisson-Gaussian example](../examples/poisson_gaussian_mixture.md) — runnable demo of the mixture losses
+- [Poisson-Gaussian example](../examples/poisson_gaussian_contamination_mixture.md) — runnable demo of the mixture losses
 
 ---
 

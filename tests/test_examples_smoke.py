@@ -90,7 +90,7 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("causal_dr_realdata_comparison")
     _load_example_module("poisson_regression_demo")
     _load_example_module("tweedie_regression_demo")
-    _load_example_module("poisson_gaussian_mixture_demo")
+    _load_example_module("poisson_gaussian_contamination_mixture_demo")
     _load_example_module("expectile_regression_demo")
     _load_example_module("conformal_mondrian_demo")
     _load_example_module("eiv_algorithms_demo")
@@ -806,8 +806,8 @@ def test_tweedie_regression_demo_main_smoke(monkeypatch) -> None:
     mod.main()
 
 
-def test_poisson_gaussian_mixture_demo_main_smoke(monkeypatch) -> None:
-    mod = _load_example_module("poisson_gaussian_mixture_demo")
+def test_poisson_gaussian_contamination_mixture_demo_main_smoke(monkeypatch) -> None:
+    mod = _load_example_module("poisson_gaussian_contamination_mixture_demo")
     orig_train_and_evaluate = mod.train_and_evaluate
     monkeypatch.setattr(
         mod,

@@ -17,6 +17,29 @@ Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, a
   outliers, chunked evaluation and analytic gradients (ported from torchsky).
   Docs: `docs/losses/poisson_gaussian.md`.
 
+### Changed
+
+- Renamed `PoissonGaussianMixtureLoss` to `PoissonGaussianContaminationMixtureLoss`
+  (registry key `"poisson_gaussian_contamination_mixture"`) and
+  `EnhancedPoissonGaussianMixtureLoss` to
+  `EnhancedPoissonGaussianContaminationMixtureLoss`
+  (`"enhanced_poisson_gaussian_contamination_mixture"`), with matching config
+  dataclasses (`PoissonGaussianContaminationMixtureConfig`,
+  `EnhancedPoissonGaussianContaminationMixtureConfig`). They compute
+  `w*Pois + (1-w)*N` with a shared rate, not the detector convolution
+  (`PoissonGaussianLoss`). Behaviour is unchanged. The example is now
+  `examples/poisson_gaussian_contamination_mixture_demo.py`.
+  `PoissonGaussianLikelihoodRatioLoss` is unchanged: it is not a mixture.
+
+### Deprecated
+
+- `PoissonGaussianMixtureLoss`, `EnhancedPoissonGaussianMixtureLoss`, their
+  registry keys (`"poisson_gaussian_mixture"`,
+  `"enhanced_poisson_gaussian_mixture"`) and the old config names remain as
+  aliases that emit `DeprecationWarning` on construction or lookup. They will be
+  removed in the next minor release; use the renamed classes, or
+  `PoissonGaussianLoss` for detector noise.
+
 ### Fixed
 
 - `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss` docs

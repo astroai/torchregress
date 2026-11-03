@@ -783,9 +783,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Poisson shot noise convolved with Gaussian read noise (detector likelihood).",
     ),
     MethodMetadata(
-        name="PoissonGaussianMixtureLoss",
+        name="PoissonGaussianContaminationMixtureLoss",
         family="poisson_gaussian",
-        public_path="torchregress.losses.PoissonGaussianMixtureLoss",
+        public_path="torchregress.losses.PoissonGaussianContaminationMixtureLoss",
         task_tags=("count_data", "non_gaussian", "mixture", "noisy_counts"),
         maturity="Available",
         non_gaussian="yes",
@@ -794,9 +794,9 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="Two-component Poisson/Gaussian mixture; not the shot-plus-read-noise model.",
     ),
     MethodMetadata(
-        name="EnhancedPoissonGaussianMixtureLoss",
+        name="EnhancedPoissonGaussianContaminationMixtureLoss",
         family="poisson_gaussian",
-        public_path="torchregress.losses.EnhancedPoissonGaussianMixtureLoss",
+        public_path="torchregress.losses.EnhancedPoissonGaussianContaminationMixtureLoss",
         task_tags=("count_data", "non_gaussian", "mixture", "noisy_counts"),
         maturity="Available",
         non_gaussian="yes",
