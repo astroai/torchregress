@@ -137,6 +137,23 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
   `covariance_type="diagonal"` raised a shape error for multi-target samples
   (they passed the full sample covariance). They now use the per-target sample
   variances.
+- `GaussianLatentForwardObservationNLLLoss` placed its Gauss–Hermite nodes on
+  the latent prior, so it was badly wrong when the observation noise is narrow
+  relative to the latent spread pushed through the map, even for a linear map
+  (harness repro: -0.30, +0.47, -0.10 nats at Q=64, 128, 256; up to hundreds of
+  nats on synthetic SNR 7-50 fluxes at Q=32). It now uses adaptive
+  Gauss–Hermite quadrature: a fixed number of derivative-free bracketing and
+  parabolic passes on `[N,Q]` node grids centre and scale the rule on the
+  integrand's peak. The centre and scale are a stop-gradient change of
+  variables, there are no host syncs, and it runs under `torch.inference_mode`.
+  The rule is exact for linear maps at any order of 3 or more, and the
+  synthetic flux grid's maximum error at Q=32 drops to 2e-7 nats. The map is
+  now called several times per forward (once per pass without autograd), so it
+  must be deterministic and side-effect free. Forward cost at equal order is
+  about 2.5-5x on CPU, but Q=16 now beats the old Q=256. The quadrature
+  constants are no longer float64 buffers: they are converted to the input
+  device and dtype at use, so `.to("mps")` works. They no longer appear in
+  `state_dict()`.
 
 ## [0.3.0b1] - 2026-10-26
 

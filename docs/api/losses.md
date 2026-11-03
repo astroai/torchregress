@@ -321,6 +321,6 @@ Conformal guarantee: $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
 
 `PackedObservations` holds padded measurement values, masks, local observation-map means and Jacobians, and a possibly correlated measurement covariance. `MarginalizedMultiSourceGaussianNLLLoss` jointly marginalizes a shared latent Gaussian for the supplied linearized map; see [the multi-source guide](../losses/multisource.md) for shape, precision and interpretation details.
 
-`GaussianLatentForwardObservationNLLLoss` integrates a scalar Gaussian latent through a differentiable nonlinear observation map using finite Gauss–Hermite quadrature. It does not automatically combine dependent observations; see the [multi-source guide](../losses/multisource.md).
+`GaussianLatentForwardObservationNLLLoss` integrates a scalar Gaussian latent through a differentiable nonlinear observation map using adaptive (posterior-centred) Gauss–Hermite quadrature, exact for linear maps and accurate for narrow observation noise. It does not automatically combine dependent observations; see the [multi-source guide](../losses/multisource.md).
 
 `RobustMultiSourceGaussianNLLLoss` adds a normalized mixture of measurement-block outlier models to the shared-latent likelihood. It preserves within-block covariance, rejects cross-block measurement covariance and explicitly bounds its exponential assignment enumeration.
