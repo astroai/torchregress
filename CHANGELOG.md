@@ -33,6 +33,15 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
 
 ### Changed
 
+- Performance: `GaussianCopulaSplineHead.intrinsic_log_prob` and `observed_log_prob`
+  no longer loop in Python over distinct missingness patterns. The exact observed-subvector
+  Gaussian marginal is computed for the whole batch with one batched Cholesky of
+  `diag(m) L Lᵀ diag(m) + diag(1 - m)`; fully observed batches use the predicted Cholesky
+  factor `L` directly (no `L Lᵀ` re-factorisation). Input checks are read back in one
+  device-to-host copy. Results and gradients match the per-pattern implementation to
+  float64 round-off. CPU, batch 2048, forward+backward: D=12 with random missingness
+  (≈1090 patterns) 1.43 → 0.07 s/step; D=6 0.09 → 0.04 s/step.
+
 - Renamed `PoissonGaussianMixtureLoss` to `PoissonGaussianContaminationMixtureLoss`
   (registry key `"poisson_gaussian_contamination_mixture"`) and
   `EnhancedPoissonGaussianMixtureLoss` to
