@@ -51,7 +51,9 @@ class FTTransformer(nn.Module):
             batch_first=True,
             norm_first=True,
         )
-        self.encoder = nn.TransformerEncoder(layer, num_layers=n_layers)
+        # norm_first layers cannot use the nested-tensor fast path; say so up front
+        # instead of letting TransformerEncoder warn on every construction.
+        self.encoder = nn.TransformerEncoder(layer, num_layers=n_layers, enable_nested_tensor=False)
         self.norm = nn.LayerNorm(d_token)
         self.out_dim = out_dim
         self.head = nn.Linear(d_token, out_dim) if out_dim is not None else None
