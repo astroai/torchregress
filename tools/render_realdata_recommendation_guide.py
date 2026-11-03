@@ -32,8 +32,15 @@ def _replace_marked_section(text: str, replacement: str) -> str:
 
 
 def _has_real_proxy_example(example_path: str) -> bool:
+    """Real-data evidence: a ``*_realdata_*`` script or a ``--dataset <non-synthetic>`` run."""
     token = example_path.lower()
-    return any(marker in token for marker in ("_realdata_",))
+    if "_realdata_" in token:
+        return True
+    args = token.split()
+    for flag, value in zip(args, args[1:]):
+        if flag == "--dataset" and value != "synthetic":
+            return True
+    return False
 
 
 def _evidence_band(row: dict[str, Any]) -> str:

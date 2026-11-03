@@ -53,6 +53,30 @@ where $\epsilon_i$ represents the residual noise following a specific distributi
 
 ---
 
+## Comparison Script and Datasets
+
+Script: `examples/censored_regression_comparison.py`
+
+The script trains `CensoredGaussianNLL`, `CensoredQuantile` (median), and `AFT` heads with the same MLP capacity, epochs, and censoring split, and reports `MAE_true`, `ObsMAE`, `CIndex`, `CensorRate`, `train_s`, and `eval_s`. Censor coding is `0` observed, `1` right-censored, `-1` left-censored; a small interval-censored subset uses explicit lower/upper bounds. Select the data with `--dataset`; each dataset keeps its own fixed seed and split sizes.
+
+| `--dataset` | Data | Censoring | Defaults |
+|:--|:--|:--|:--|
+| `synthetic` (default) | Simulated log-normal event times from 6 Gaussian features | Random log-normal left/right limits; 12% interval subset ($\pm 15\%$ bounds) | `seed=260227`, `n_train=768`, `n_test=256` |
+| `diabetes` | Real `sklearn` Diabetes covariates; standardized target shifted to positive support | **Synthetic** overlays: right/left limits at the train 78%/22% quantiles shifted by $\lvert x_0 \rvert$, $\lvert x_1 \rvert$; 10% interval subset ($\pm 10\%$ bounds) | `seed=260305`, `n_train=320`, `n_test=120` |
+
+```bash
+pixi run python examples/censored_regression_comparison.py
+pixi run python examples/censored_regression_comparison.py --dataset diabetes \
+  --summary-json-path reports/example_summaries/censored_regression_comparison_diabetes.json
+```
+
+!!! warning "Real covariates, synthetic censoring"
+    The `diabetes` run uses real covariates and targets, but the censoring mechanism is
+    synthetic. It improves external validity over the fully simulated run; it is not a
+    survival-analysis benchmark.
+
+---
+
 ## Code Example
 
 Below is the complete, self-contained code comparing Censored Gaussian NLL, Censored Quantile, and AFT losses on simulated right/left and interval-censored data.

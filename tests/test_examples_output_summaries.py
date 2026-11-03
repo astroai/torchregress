@@ -318,8 +318,8 @@ def test_eiv_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_non_negative(row["eval_s"])
 
 
-def test_eiv_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("eiv_method_realdata_comparison")
+def test_eiv_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("eiv_method_comparison")
     out = tmp_path / "eiv_realdata_summary.json"
     cfg = mod.EIVRealDataConfig(n_train=64, n_test=32, epochs=1, hidden=8)
     mod.main(cfg, summary_json_path=str(out))
@@ -382,8 +382,8 @@ def test_multimodal_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_non_negative(rows[method]["MCE"])
 
 
-def test_multimodal_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("multimodal_method_realdata_comparison")
+def test_multimodal_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("multimodal_method_comparison")
     out = tmp_path / "multimodal_realdata_summary.json"
     cfg = mod.MultimodalRealDataConfig(
         n_train=64,
@@ -595,8 +595,8 @@ def test_censored_regression_comparison_writes_summary_json(tmp_path: Path) -> N
         _assert_non_negative(row["eval_s"])
 
 
-def test_censored_regression_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("censored_regression_realdata_comparison")
+def test_censored_regression_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("censored_regression_comparison")
     out = tmp_path / "censored_realdata_comparison_summary.json"
     cfg = mod.CensoredRealDataConfig(
         n_train=128,
@@ -818,8 +818,8 @@ def test_causal_dr_uplift_comparison_writes_summary_json(tmp_path: Path) -> None
         _assert_non_negative(row["train_s"])
 
 
-def test_causal_dr_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("causal_dr_realdata_comparison")
+def test_causal_dr_uplift_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("causal_dr_uplift_comparison")
     out = tmp_path / "causal_dr_realdata_summary.json"
     cfg = mod.CausalDRRealDataConfig(n_samples=320, folds=2)
     mod.main(cfg, summary_json_path=str(out))

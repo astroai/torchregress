@@ -2541,7 +2541,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Causal inference regression (DR ATE/CATE)",
         examples=(
             "examples/causal_dr_uplift_comparison.py",
-            "examples/causal_dr_realdata_comparison.py",
+            "examples/causal_dr_uplift_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2566,7 +2566,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate "
             "Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap "
             "diagnostics. A naive difference-in-means baseline is reported alongside "
-            "``dr_ate``/``dr_cate`` in both comparison examples (see ``_naive_ate`` "
+            "``dr_ate``/``dr_cate`` for both ``--dataset`` choices (see ``_naive_ate`` "
             "helper) for reference."
         ),
     ),
@@ -2629,7 +2629,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Censored / interval-censored regression",
         examples=(
             "examples/censored_regression_comparison.py",
-            "examples/censored_regression_realdata_comparison.py",
+            "examples/censored_regression_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2689,7 +2689,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Multimodal / multi-target non-Gaussian",
         examples=(
             "examples/multimodal_method_comparison.py",
-            "examples/multimodal_method_realdata_comparison.py",
+            "examples/multimodal_method_comparison.py --dataset diabetes",
             "examples/normalizing_flows_multitarget.py",
         ),
         comparison_grade="Strong",
@@ -2719,7 +2719,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Noisy features / EIV",
         examples=(
             "examples/eiv_method_comparison.py",
-            "examples/eiv_method_realdata_comparison.py",
+            "examples/eiv_method_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(

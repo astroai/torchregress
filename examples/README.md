@@ -20,7 +20,7 @@ with the training loops stubbed out or shrunk.
 
 - **tutorial**: teaches one API or loss on synthetic data.
 - **comparison**: several methods under a shared budget on synthetic data (they usually write a JSON summary, see `--summary-json-path`).
-- **real-data**: uses a real dataset. The `*_realdata_comparison.py` scripts use scikit-learn's bundled Diabetes data (no network). The two others download data.
+- **real-data**: uses a real dataset. The `*_realdata_comparison.py` scripts and the `--dataset diabetes` runs of the merged comparison scripts use scikit-learn's bundled Diabetes data (no network). The two others download data.
 
 **Runtime class** (measured on 2 shared CPU cores, torch CPU, no GPU)
 
@@ -99,10 +99,10 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 
 | Script | Type | What it shows | Runtime |
 |---|---|---|---|
-| `causal_dr_realdata_comparison.py` | real-data | Doubly-robust causal estimators on Diabetes covariates. | fast |
-| `censored_regression_realdata_comparison.py` | real-data | Censored losses on Diabetes. | fast |
-| `eiv_method_realdata_comparison.py` | real-data | EIV losses on Diabetes with injected measurement error. | fast |
-| `multimodal_method_realdata_comparison.py` | real-data | Multimodal / multi-target methods on Diabetes features. | fast |
+| `causal_dr_uplift_comparison.py --dataset diabetes` | real-data | Doubly-robust causal estimators on Diabetes covariates. | fast |
+| `censored_regression_comparison.py --dataset diabetes` | real-data | Censored losses on Diabetes. | fast |
+| `eiv_method_comparison.py --dataset diabetes` | real-data | EIV losses on Diabetes with injected measurement error. | fast |
+| `multimodal_method_comparison.py --dataset diabetes` | real-data | Multimodal / multi-target methods on Diabetes features. | fast |
 | `noisy_label_realdata_comparison.py` | real-data | Noisy-label losses on Diabetes. | fast |
 | `ood_selective_prediction_realdata_comparison.py` | real-data | OOD / selective prediction on Diabetes. | fast |
 | `ordinal_regression_realdata_comparison.py` | real-data | Ordinal methods on binned Diabetes. | fast |
@@ -144,10 +144,6 @@ Tracked in `ROADMAP.md`. These overlap and could share one
 script with a `--dataset {synthetic,diabetes}` style switch:
 
 - **Synthetic / real-data pairs** that share the same harness and differ only in data source:
-  `causal_dr_uplift_comparison` + `causal_dr_realdata_comparison`,
-  `censored_regression_comparison` + `censored_regression_realdata_comparison`,
-  `eiv_method_comparison` + `eiv_method_realdata_comparison`,
-  `multimodal_method_comparison` + `multimodal_method_realdata_comparison`,
   `noisy_label_comparison` + `noisy_label_realdata_comparison`,
   `ood_selective_prediction_comparison` + `ood_selective_prediction_realdata_comparison`,
   `ordinal_regression_comparison` + `ordinal_regression_realdata_comparison`,
