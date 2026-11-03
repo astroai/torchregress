@@ -19,6 +19,22 @@ Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, a
 
 ### Changed
 
+- Performance: `MarginalizedMultiSourceGaussianNLLLoss` and
+  `RobustMultiSourceGaussianNLLLoss` now score all objects as one padded batch.
+  They use batched Cholesky and triangular solves, so there is no per-object
+  Python loop and no per-object host synchronization. Unobserved slots are
+  decoupled unit-variance coordinates with zero residual and zero Jacobian, so
+  they contribute nothing. The robust mixture scores each inlier/outlier
+  assignment for the whole batch and takes a batched `logsumexp`. Values and
+  gradients match the previous object-by-object code (float64: values within
+  2e-15 relative, gradients within 1e-11 relative). On CPU with float64,
+  50k objects, 12 slots and D=3, forward plus backward runs at about 1.6e5
+  objects/s, up from 1.0e3 (`auto`). The robust variant runs at 1.7e4
+  objects/s, up from 70. Inputs are validated once per batch. If a batch has
+  several different errors, the first failing check type is reported. Checks
+  are no longer reported per object. `last_diagnostics` is now a read-only
+  mapping that is copied to Python lists only when it is read. Timing script:
+  `python -m tools.benchmark_multisource`.
 - Renamed `PoissonGaussianMixtureLoss` to `PoissonGaussianContaminationMixtureLoss`
   (registry key `"poisson_gaussian_contamination_mixture"`) and
   `EnhancedPoissonGaussianMixtureLoss` to

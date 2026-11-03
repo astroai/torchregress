@@ -19,6 +19,17 @@ loss = MarginalizedMultiSourceGaussianNLLLoss(method="auto")(mean, scale_tril, o
 
 The caller provides $h(\mu)$ and $H$ without detaching them, so gradients can reach both the predictor and observation-map parameters. The default mean reduction excludes stars with no observed dimensions. The covariance must be positive definite on the observed subspace. Optional, explicitly bounded jitter is reported in `last_diagnostics`; no unknown error is implicitly converted into a known zero.
 
+### Batched evaluation
+
+All objects in a batch are factorized together (batched Cholesky and triangular solves on the inputs' device and dtype). Each unobserved slot $j$ becomes a decoupled coordinate with unit variance, zero residual, and a zero Jacobian row:
+
+$$\tilde R_{jj}=1,\qquad \tilde R_{ij}=\tilde R_{ji}=0,\qquad \tilde r_j=0,\qquad \tilde H_{j\cdot}=0 .$$
+
+The padded covariance is block diagonal after a permutation, so the padded Cholesky factor restricted to the observed rows is the factor of the observed submatrix. A padded slot adds $\log 1=0$ to the log-determinant and $0$ to the quadratic form. The $\log(2\pi)$ constant counts observed slots only. Values and gradients match the earlier object-by-object evaluation to floating-point rounding.
+
+!!! info "Validation and diagnostics"
+    Inputs are validated once per batch, with one host synchronization. If several objects are invalid in different ways, the error reported is the first failing check in this order: non-finite latent parameters, latent scale, non-finite observed values, asymmetric covariance, then not positive definite. `last_diagnostics` is a read-only mapping. It is copied to Python lists only when you read it. Adaptive jitter (`max_jitter > jitter`) adds one synchronization for each jitter level that is actually tried.
+
 ## Differentiable observation-map components
 
 `torchregress.calibration.bspline_basis_with_derivative` returns a clamped B-spline basis, its derivative, and flags for numerical extrapolation. Its boundary policy explicitly selects linear tails, constant boundary values, or an error. The spline heads default to constant boundary values; this is a numerical convention, not evidence of physical calibration outside support. These flags indicate the spline domain only, not verified population or physical support.
@@ -31,4 +42,4 @@ These tools do not establish an absolute physical scale or resolve correlated/re
 
 `GaussianLatentForwardObservationNLLLoss` evaluates a Gaussian measurement likelihood after integrating a scalar Gaussian latent through a caller-supplied differentiable forward map. It uses normalized Gauss–Hermite weights and finite-order quadrature. Missing observations are masked before the map, and negative observations are valid. Compare quadrature orders for broad latent distributions or narrow observation noise; multiple dependent observations of the same latent must be integrated jointly rather than multiplied as separate marginal likelihoods.
 
-`RobustMultiSourceGaussianNLLLoss` uses a normalized inlier/outlier mixture per measurement block while integrating over the same shared latent Gaussian. It preserves covariance within a block and requires explicit block IDs; it rejects cross-block measurement covariance, because the assumed independent block inflation would be ambiguous. Assignment enumeration grows exponentially and is bounded by configuration. The outlier model and its probabilities must be justified for the data rather than treated as proof that labels are correct.
+`RobustMultiSourceGaussianNLLLoss` uses a normalized inlier/outlier mixture per measurement block while integrating over the same shared latent Gaussian. It preserves covariance within a block and requires explicit block IDs; it rejects cross-block measurement covariance, because the assumed independent block inflation would be ambiguous. Assignment enumeration grows exponentially and is bounded by configuration. Each assignment is scored for the whole batch at once, and an object skips assignments of blocks it does not have. The mixture is a batched `logsumexp` over assignments. The outlier model and its probabilities must be justified for the data rather than treated as proof that labels are correct.
