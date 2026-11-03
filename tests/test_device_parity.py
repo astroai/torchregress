@@ -464,6 +464,50 @@ def _poisson_gaussian_convolution(r: _Rng) -> Built:
     return loss, (rate, target), {}
 
 
+class _MultiSourceCase(nn.Module):
+    """Pack plain tensors into ``PackedObservations`` so ``_as`` can move them."""
+
+    def __init__(self, loss: nn.Module) -> None:
+        super().__init__()
+        self.loss = loss
+
+    def forward(
+        self,
+        params: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        values: torch.Tensor,
+        jacobian: torch.Tensor,
+        covariance: torch.Tensor,
+        mask: torch.Tensor,
+        block_ids: torch.Tensor,
+    ) -> torch.Tensor:
+        mean, lower, offset = params
+        mapped = torch.einsum("bkd,bd->bk", jacobian, mean) + offset
+        obs = L.PackedObservations(values, mapped, jacobian, covariance, mask, block_ids)
+        return self.loss(mean, lower, obs)
+
+
+def _multisource(loss: nn.Module) -> Builder:
+    """Ragged 5-slot, 3-block problem with within-block correlated noise (D=2)."""
+
+    def build(r: _Rng) -> Built:
+        k, dims = 5, 2
+        blocks = torch.tensor([0, 0, 1, 2, 2])
+        same = (blocks[:, None] == blocks[None, :]).to(torch.float64)
+        corr = torch.eye(k, dtype=torch.float64) + 0.3 * (same - torch.eye(k, dtype=torch.float64))
+        sigma = r.uniform(N, k, lo=0.2, hi=0.6)
+        mask = r.mask(N, k)
+        values = r.normal(N, k).masked_fill(~mask, float("nan"))
+        lower = torch.tril(0.3 * r.normal(N, dims, dims), -1) + torch.diag_embed(
+            r.positive(N, dims)
+        )
+        params = (r.normal(N, dims), lower, 0.1 * r.normal(N, k))
+        covariance = sigma[:, :, None] * corr * sigma[:, None, :]
+        args = (params, values, r.normal(N, k, dims), covariance, mask, blocks.expand(N, k))
+        return _MultiSourceCase(loss), args, {}
+
+    return build
+
+
 def _conformal(method: str) -> Builder:
     def build(r: _Rng) -> Built:
         if method == "split":
@@ -695,6 +739,14 @@ LOSS_CASES: dict[str, Builder] = {
         L.PoissonGaussianContaminationMixtureLoss, initial_variance=0.1, log_input=False
     ),
     "PoissonGaussianLoss": _poisson_gaussian_convolution,
+    # Shared-latent multi-source likelihoods (batched Cholesky over objects)
+    "MarginalizedMultiSourceGaussianNLLLoss": _multisource(
+        L.MarginalizedMultiSourceGaussianNLLLoss("none")
+    ),
+    "MarginalizedMultiSourceGaussianNLLLoss[information]": _multisource(
+        L.MarginalizedMultiSourceGaussianNLLLoss(method="information")
+    ),
+    "RobustMultiSourceGaussianNLLLoss": _multisource(L.RobustMultiSourceGaussianNLLLoss("none")),
     "PoissonGaussianLikelihoodRatioLoss": _poisson_gaussian(
         L.PoissonGaussianLikelihoodRatioLoss, log_input=False
     ),
