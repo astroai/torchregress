@@ -269,7 +269,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `LocalConformal` | `LocalConformal(alpha=0.1, bandwidth=1.0)` | Local feature-space coverage |
 | `LocalConformalMAD` | `LocalConformalMAD(alpha=0.1, ...)` | Local + MAD scaling |
 | `CTI` | `CTI(alpha=0.1, grid_size=500)` | Density thresholded intervals |
-| `ConformalizedDensity` | `ConformalizedDensity(alpha=0.1, grid_size=500)` | Split-conformal level sets for any conditional log-density |
+| `ConformalizedDensity` | `ConformalizedDensity(alpha=0.1, grid_size=500, *, chunk_size=131072)` | Split-conformal level sets for any conditional log-density |
 | `ContrastiveFlowConformal` | `ContrastiveFlowConformal(flow_loss, alpha=0.1)` | Conformal level sets around a contrastive-flow positive density |
 | `WaldoConformal` | `WaldoConformal(alpha=0.1, critical_bins=None, critical_value_regressor=None, covariance_type="diagonal")` | Wald-statistic confidence regions from conditional mean/covariance |
 | `WaldoCriticalValueRegressor` | `WaldoCriticalValueRegressor(alpha=0.1, n_bins=10, min_samples_per_bin=8)` | Simulator-free local/quantile critical-value approximation for WALDO |

@@ -34,6 +34,11 @@ from torch import Tensor
 
 from .conformal import finite_sample_quantile
 
+# Elements per vectorised chunk in the grid/region searches (bounded memory).
+_ELEMENT_BUDGET = 1 << 22
+# Sample vectors (rows x n_samples) per ``sample_fn`` call / moment chunk.
+_SAMPLE_BUDGET = 1 << 20
+
 
 def waldo_statistic(
     mean: Tensor,
@@ -275,6 +280,10 @@ class WaldoConformal:
             covariance_type=self.covariance_type,
             eps=self.min_variance,
         ).detach()
+        self._fit_scores(scores, target_2d)
+
+    def _fit_scores(self, scores: Tensor, target_2d: Tensor) -> None:
+        """Fit the threshold and critical-value curve from calibration scores."""
         self._cal_scores = scores
         self._cal_targets = target_2d.detach()
         self.q_hat = finite_sample_quantile(scores, self.alpha)
@@ -362,6 +371,8 @@ class WaldoConformal:
         """Scalar WALDO intervals by Neyman inversion on a grid.
 
         ``std`` is the conditional standard deviation (diagonal covariance).
+        All rows share one grid over ``[y_min, y_max]`` and are evaluated in
+        vectorised row chunks.
         For multi-target inputs this method raises; use :meth:`contains` or
         :meth:`predict_region` for joint regions.
         """
@@ -376,20 +387,24 @@ class WaldoConformal:
             radius = math.sqrt(max(qmax, 1.0)) * 8.0
             y_min = float((m - radius * s).min())
             y_max = float((m + radius * s).max())
-        lower = torch.empty_like(m)
-        upper = torch.empty_like(m)
-        for i in range(m.numel()):
-            grid = torch.linspace(y_min, y_max, int(grid_size), device=m.device, dtype=m.dtype)
-            score = (grid - m[i]) ** 2 / (s[i] ** 2)
-            crit = self.critical_value(grid.reshape(-1, 1))
-            accepted = score <= crit
-            if bool(accepted.any()):
-                idx = accepted.nonzero(as_tuple=True)[0]
-                lower[i] = grid[idx[0]]
-                upper[i] = grid[idx[-1]]
-            else:
-                lower[i] = m[i]
-                upper[i] = m[i]
+        g = int(grid_size)
+        grid = torch.linspace(y_min, y_max, g, device=m.device, dtype=m.dtype)
+        # The grid is shared by all rows, so the critical values are too.
+        crit = self.critical_value(grid.reshape(-1, 1))
+        rows = max(1, _ELEMENT_BUDGET // max(g, 1))
+        lower_parts, upper_parts = [], []
+        for start in range(0, m.numel(), rows):
+            m_b = m[start : start + rows].unsqueeze(1)
+            s_b = s[start : start + rows].unsqueeze(1)
+            accepted = (grid.unsqueeze(0) - m_b) ** 2 / (s_b**2) <= crit.unsqueeze(0)
+            has = accepted.any(dim=1)
+            first = accepted.int().argmax(dim=1)
+            last = g - 1 - accepted.flip(dims=[1]).int().argmax(dim=1)
+            # Rows with an empty acceptance set collapse to the mean.
+            lower_parts.append(torch.where(has, grid[first], m_b.squeeze(1)))
+            upper_parts.append(torch.where(has, grid[last], m_b.squeeze(1)))
+        lower = torch.cat(lower_parts) if lower_parts else torch.empty_like(m)
+        upper = torch.cat(upper_parts) if upper_parts else torch.empty_like(m)
         return lower.reshape(-1, 1), upper.reshape(-1, 1)
 
     def predict_region(
@@ -409,6 +424,40 @@ class WaldoConformal:
             raise RuntimeError("Call calibrate() first.")
         if mean.dim() == 1:
             mean = mean.unsqueeze(-1)
+        if target_grid.dim() not in (2, 3):
+            raise ValueError("target_grid must be [G, D] or [N, G, D]")
+        n, d = mean.shape[0], mean.shape[-1]
+        g = target_grid.shape[-2]
+        per_row = g * d * (d if covariance is not None and self.covariance_type == "full" else 1)
+        rows = max(1, _ELEMENT_BUDGET // max(per_row, 1))
+        if n <= rows:
+            return self._predict_region(mean, target_grid, covariance)
+        if target_grid.dim() == 3 and target_grid.shape[0] != n:
+            raise ValueError("per-row target_grid must be [N, G, D]")
+        if covariance is not None:
+            covariance = (
+                covariance.reshape(n, d)
+                if self.covariance_type == "diagonal"
+                else covariance.reshape(n, d, d)
+            )
+        return torch.cat(
+            [
+                self._predict_region(
+                    mean[i : i + rows],
+                    target_grid if target_grid.dim() == 2 else target_grid[i : i + rows],
+                    None if covariance is None else covariance[i : i + rows],
+                )
+                for i in range(0, n, rows)
+            ]
+        )
+
+    def _predict_region(
+        self,
+        mean: Tensor,
+        target_grid: Tensor,
+        covariance: Optional[Tensor],
+    ) -> Tensor:
+        """Unchunked :meth:`predict_region` for ``[N, D]`` means."""
         if target_grid.dim() == 2:
             if target_grid.shape[-1] != mean.shape[-1]:
                 raise ValueError("target_grid last dimension must match mean")
@@ -460,6 +509,27 @@ def _sample_moments(samples: Tensor) -> tuple[Tensor, Tensor]:
     return mean, cov
 
 
+def _moments_for(samples: Tensor, covariance_type: str) -> tuple[Tensor, Tensor]:
+    """Sample mean and the covariance in the layout ``covariance_type`` expects."""
+    mean, cov = _sample_moments(samples)
+    if covariance_type == "diagonal":
+        cov = cov.diagonal(dim1=-2, dim2=-1)  # per-target sample variances [N, D]
+    return mean, cov
+
+
+def _resolve_chunk_rows(chunk_size: Optional[int], n_samples: int) -> int:
+    """Rows per chunk: explicit ``chunk_size`` or the sample-vector budget."""
+    if chunk_size is not None:
+        if int(chunk_size) < 1:
+            raise ValueError(f"chunk_size must be None or a positive integer, got {chunk_size}")
+        return int(chunk_size)
+    return max(1, _SAMPLE_BUDGET // max(int(n_samples), 1))
+
+
+def _row_chunks(n: int, rows: int) -> list[tuple[int, int]]:
+    return [(i, min(i + rows, n)) for i in range(0, n, rows)] or [(0, 0)]
+
+
 class WaldoPosteriorCalibrator:
     """WALDO calibration from predictive samples (posterior-estimator mode).
 
@@ -469,10 +539,18 @@ class WaldoPosteriorCalibrator:
     :meth:`predict_region` define joint ellipsoidal Wald regions; scalar
     intervals are not manufactured.
 
+    The sample moments and Wald scores are computed in row chunks, so no
+    temporary as large as ``samples`` is created; the caller still holds the
+    full ``[N, S, D]`` tensor.  To stream the samples themselves, use
+    :class:`WaldoDensityConformal` with a sampler callable.
+
     Args:
         alpha: Miscoverage rate.
         critical_bins: Optional target-binned critical values.
         covariance_type: ``"diagonal"`` or ``"full"``.
+        chunk_size: Rows per moment/score chunk.  ``None`` (default) uses
+            ``max(1, 2**20 // S)`` rows for ``S`` samples per row.  Results do
+            not depend on it.
     """
 
     def __init__(
@@ -482,6 +560,7 @@ class WaldoPosteriorCalibrator:
         critical_bins: Optional[int] = None,
         critical_value_regressor: Optional[WaldoCriticalValueRegressor] = None,
         covariance_type: str = "full",
+        chunk_size: Optional[int] = None,
     ) -> None:
         self.calibrator = WaldoConformal(
             alpha=alpha,
@@ -491,23 +570,43 @@ class WaldoPosteriorCalibrator:
         )
         self.alpha = float(alpha)
         self.covariance_type = covariance_type
+        if chunk_size is not None:
+            _resolve_chunk_rows(chunk_size, 1)  # validate early
+        self.chunk_size = chunk_size
 
     @property
     def threshold(self) -> Optional[Tensor]:
         return self.calibrator.threshold
 
+    def _chunks(self, samples: Tensor) -> list[tuple[int, int]]:
+        if samples.dim() != 3:
+            raise ValueError("samples must be [N, S, D]")
+        rows = _resolve_chunk_rows(self.chunk_size, samples.shape[1])
+        return _row_chunks(samples.shape[0], rows)
+
     def calibrate(self, samples: Tensor, target: Tensor) -> None:
-        mean, cov = _sample_moments(samples)
-        self.calibrator.calibrate(mean, target, cov)
+        target_2d = target if target.dim() > 1 else target.unsqueeze(-1)
+        scores = []
+        for a, b in self._chunks(samples):
+            mean, cov = _moments_for(samples[a:b], self.covariance_type)
+            scores.append(self.calibrator.score(mean, target_2d[a:b], cov).detach())
+        self.calibrator._fit_scores(torch.cat(scores), target_2d.detach())
         self._is_calibrated = True
 
     def contains(self, samples: Tensor, target: Tensor) -> Tensor:
-        mean, cov = _sample_moments(samples)
-        return self.calibrator.contains(mean, target, cov)
+        parts = []
+        for a, b in self._chunks(samples):
+            mean, cov = _moments_for(samples[a:b], self.covariance_type)
+            parts.append(self.calibrator.contains(mean, target[a:b], cov))
+        return torch.cat(parts)
 
     def predict_region(self, samples: Tensor, target_grid: Tensor) -> Tensor:
-        mean, cov = _sample_moments(samples)
-        return self.calibrator.predict_region(mean, target_grid, cov)
+        parts = []
+        for a, b in self._chunks(samples):
+            mean, cov = _moments_for(samples[a:b], self.covariance_type)
+            grid = target_grid if target_grid.dim() != 3 else target_grid[a:b]
+            parts.append(self.calibrator.predict_region(mean, grid, cov))
+        return torch.cat(parts)
 
 
 class WaldoDensityConformal:
@@ -520,12 +619,26 @@ class WaldoDensityConformal:
     (marginal), with optional target-binned critical values for a local
     approximation.  No simulator or parameter prior is required.
 
+    ``sample_fn`` is called on consecutive row chunks of ``context`` (in row
+    order), so only ``[chunk, n_samples, D]`` samples exist at a time.  When the
+    split has at most ``chunk`` rows this is the single call of earlier
+    releases and the result is bit-identical for a fixed seed.  With several
+    chunks the per-row Monte Carlo moments are drawn from the same
+    distribution, but a sampler that draws its noise as one ``[S, N, D]`` block
+    (e.g. ``flow(c).sample((S,))``) consumes the generator in a different order,
+    so individual draws, and hence thresholds, differ by Monte Carlo error
+    (the score distribution is unchanged).  Deterministic samplers, or samplers
+    whose draws for a row depend only on that row (e.g. per-row seeding), give
+    identical results for any ``chunk_size``.
+
     Args:
         alpha: Miscoverage rate.
         critical_bins: Optional target bins for a local critical-value curve.
         covariance_type: ``"diagonal"`` or ``"full"``.
         n_samples: Number of density samples used per context at calibration
             and prediction time.
+        chunk_size: Context rows per ``sample_fn`` call.  ``None`` (default)
+            uses ``max(1, 2**20 // n_samples)`` rows (4096 for 256 samples).
     """
 
     def __init__(
@@ -536,6 +649,7 @@ class WaldoDensityConformal:
         critical_value_regressor: Optional[WaldoCriticalValueRegressor] = None,
         covariance_type: str = "full",
         n_samples: int = 256,
+        chunk_size: Optional[int] = None,
     ) -> None:
         self.alpha = float(alpha)
         self.n_samples = int(n_samples)
@@ -546,16 +660,12 @@ class WaldoDensityConformal:
             critical_value_regressor=critical_value_regressor,
             covariance_type=covariance_type,
         )
+        self._chunk_rows = _resolve_chunk_rows(chunk_size, self.n_samples)
+        self.chunk_size = chunk_size
 
     @property
     def threshold(self) -> Optional[Tensor]:
         return self.calibrator.threshold
-
-    def _moments(
-        self, sample_fn: Callable[[Tensor, int], Tensor], context: Tensor
-    ) -> tuple[Tensor, Tensor]:
-        samples = sample_fn(context, self.n_samples)
-        return _sample_moments(samples)
 
     def calibrate(
         self,
@@ -564,8 +674,12 @@ class WaldoDensityConformal:
         target: Tensor,
     ) -> None:
         """Calibrate on held-out contexts and observed targets."""
-        mean, cov = self._moments(sample_fn, context)
-        self.calibrator.calibrate(mean, target, cov)
+        target_2d = target if target.dim() > 1 else target.unsqueeze(-1)
+        scores = []
+        for a, b in _row_chunks(context.shape[0], self._chunk_rows):
+            mean, cov = _moments_for(sample_fn(context[a:b], self.n_samples), self.covariance_type)
+            scores.append(self.calibrator.score(mean, target_2d[a:b], cov).detach())
+        self.calibrator._fit_scores(torch.cat(scores), target_2d.detach())
 
     def contains(
         self,
@@ -573,8 +687,11 @@ class WaldoDensityConformal:
         context: Tensor,
         target: Tensor,
     ) -> Tensor:
-        mean, cov = self._moments(sample_fn, context)
-        return self.calibrator.contains(mean, target, cov)
+        parts = []
+        for a, b in _row_chunks(context.shape[0], self._chunk_rows):
+            mean, cov = _moments_for(sample_fn(context[a:b], self.n_samples), self.covariance_type)
+            parts.append(self.calibrator.contains(mean, target[a:b], cov))
+        return torch.cat(parts)
 
     def predict_region(
         self,
@@ -582,8 +699,12 @@ class WaldoDensityConformal:
         context: Tensor,
         target_grid: Tensor,
     ) -> Tensor:
-        mean, cov = self._moments(sample_fn, context)
-        return self.calibrator.predict_region(mean, target_grid, cov)
+        parts = []
+        for a, b in _row_chunks(context.shape[0], self._chunk_rows):
+            mean, cov = _moments_for(sample_fn(context[a:b], self.n_samples), self.covariance_type)
+            grid = target_grid if target_grid.dim() != 3 else target_grid[a:b]
+            parts.append(self.calibrator.predict_region(mean, grid, cov))
+        return torch.cat(parts)
 
     def predict_interval(
         self,
@@ -594,12 +715,14 @@ class WaldoDensityConformal:
         y_max: Optional[float] = None,
         grid_size: int = 500,
     ) -> tuple[Tensor, Tensor]:
-        samples = sample_fn(context, self.n_samples)
-        mean = samples.mean(dim=1)
-        std = samples.std(dim=1)
+        means, stds = [], []
+        for a, b in _row_chunks(context.shape[0], self._chunk_rows):
+            samples = sample_fn(context[a:b], self.n_samples)
+            means.append(samples.mean(dim=1))
+            stds.append(samples.std(dim=1))
         return self.calibrator.predict_interval(
-            mean,
-            std,
+            torch.cat(means),
+            torch.cat(stds),
             y_min=y_min,
             y_max=y_max,
             grid_size=grid_size,

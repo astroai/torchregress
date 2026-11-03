@@ -47,6 +47,14 @@ inside = cp.contains(mean_test, y_test, variance_test)
 a sampler `sample_fn(context, n)`, calibrate on held-out targets, and use
 `contains`/`predict_region`/`predict_interval`.  It estimates conditional
 moments from the density itself, so no simulator or parameter prior is required.
+`sample_fn` is called on row chunks of `context` (keyword-only `chunk_size`,
+default `2**20 // n_samples` rows), so at most `[chunk_size, n_samples, D]`
+samples exist at once.  With `covariance_type="diagonal"` the per-target sample
+variances are used.  When the split fits in one chunk, a fixed seed gives the
+same draws as a single call; with several chunks, a sampler that draws one
+`[n_samples, N, D]` noise block (e.g. `flow(c).sample((n,))`) uses the generator
+in a different order, so thresholds differ by Monte Carlo error.  Deterministic
+or per-row-seeded samplers give identical results for any `chunk_size`.
 
 `WaldoPosteriorCalibrator` estimates the conditional mean/covariance from
 predictive samples (e.g. a flow):
@@ -59,6 +67,11 @@ cp.calibrate(samples_cal, y_cal)          # samples_cal: [N, S, D]
 inside = cp.contains(samples_test, y_test)
 region = cp.predict_region(samples_test, candidate_grid)
 ```
+
+Moments and Wald scores are computed in row chunks (`chunk_size`, same default
+as above), so no second `[N, S, D]` temporary is created; the samples tensor
+itself must still fit in memory.  To stream the samples too, use
+`WaldoDensityConformal` with a sampler.
 
 This is the WALDO "posterior estimator" mode.  It is a **calibration** layer: a
 bad posterior can still produce a valid but wide region; validate empirical

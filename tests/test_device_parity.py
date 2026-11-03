@@ -1064,6 +1064,70 @@ def _pcls(cls: Callable[..., Any], *make: Callable[[_Rng], Any], **init: Any) ->
     return _stateful(cls, *make, **init)
 
 
+# Chunked density-conformal calibrators: calibrate on 3N rows with a chunk size
+# that does not divide N, then predict on N rows.  The score below is rational
+# (``+ - * /`` only) and row-wise, so it is evaluated identically on every device.
+def _rational_nld(ctx: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    mean = 0.8 * ctx[:, :1] + 0.3 * ctx[:, 1:2] / (1.0 + ctx[:, 1:2] * ctx[:, 1:2])
+    scale = 0.3 + 0.4 * ctx[:, 2:3] * ctx[:, 2:3] / (1.0 + ctx[:, 2:3] * ctx[:, 2:3])
+    z = (y.reshape(y.shape[0], -1) - mean) / scale
+    return (0.5 * z * z + scale).sum(dim=-1)
+
+
+def _rational_sampler(ctx: torch.Tensor, n: int) -> torch.Tensor:
+    """Deterministic ``[N, n, 2]`` pseudo-samples (no RNG: CPU and CUDA streams differ)."""
+    k = torch.arange(n, device=ctx.device, dtype=ctx.dtype).reshape(1, n, 1)
+    u = (k * 0.6180339887 + 0.1 * ctx[:, 2:3].unsqueeze(1)) % 1.0 - 0.5
+    v = (k * 0.7548776662 + 0.1 * ctx[:, 1:2].unsqueeze(1)) % 1.0 - 0.5
+    return ctx[:, :2].unsqueeze(1) + torch.cat([u, 0.3 * u + v], dim=-1)
+
+
+def _density_conformal_case(d: int) -> Builder:
+    def build(r: _Rng) -> Built:
+        def run(ctx: torch.Tensor, y: torch.Tensor, ctx_t: torch.Tensor, y_t: torch.Tensor) -> Any:
+            cp = L.ConformalizedDensity(alpha=0.2, grid_size=25, chunk_size=5)
+            cp.calibrate(_rational_nld, ctx, y)
+            out: tuple[Any, ...] = (cp.threshold, cp.contains(_rational_nld, ctx_t, y_t))
+            if d == 1:
+                out = (*out, *cp.predict_interval(_rational_nld, ctx_t, -3.0, 3.0))
+            return out
+
+        return run, (r.normal(3 * N, 3), r.normal(3 * N, d), r.normal(N, 3), r.normal(N, d)), {}
+
+    return build
+
+
+def _contrastive_flow_conformal(r: _Rng) -> Built:
+    class _Flow:
+        def log_prob(self, ctx: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            return -_rational_nld(ctx, y)
+
+    def run(ctx: torch.Tensor, y: torch.Tensor, ctx_t: torch.Tensor, y_t: torch.Tensor) -> Any:
+        cp = L.ContrastiveFlowConformal(_Flow(), alpha=0.2, grid_size=25, chunk_size=5)
+        cp.calibrate(ctx, y)
+        return (cp.threshold, cp.contains(ctx_t, y_t), *cp.predict_interval(ctx_t, -3.0, 3.0))
+
+    return run, (r.normal(3 * N, 3), r.normal(3 * N, 1), r.normal(N, 3), r.normal(N, 1)), {}
+
+
+def _waldo_density_conformal(r: _Rng) -> Built:
+    def run(ctx: torch.Tensor, y: torch.Tensor, ctx_t: torch.Tensor, y_t: torch.Tensor) -> Any:
+        cp = L.WaldoDensityConformal(alpha=0.2, n_samples=16, chunk_size=5)
+        cp.calibrate(_rational_sampler, ctx, y)
+        return cp.threshold, cp.contains(_rational_sampler, ctx_t, y_t)
+
+    return run, (r.normal(3 * N, 3), r.normal(3 * N, 2), r.normal(N, 3), r.normal(N, 2)), {}
+
+
+def _waldo_posterior_calibrator(r: _Rng) -> Built:
+    def run(samples: torch.Tensor, y: torch.Tensor) -> Any:
+        cp = L.WaldoPosteriorCalibrator(alpha=0.2, chunk_size=5)
+        cp.calibrate(samples[: 3 * N], y[: 3 * N])
+        return cp.threshold, cp.contains(samples[3 * N :], y[3 * N :])
+
+    return run, (r.normal(4 * N, 16, 2), r.normal(4 * N, 2)), {}
+
+
 METRIC_CASES: dict[str, Builder] = {
     # Point metrics (functions)
     "mean_squared_error": _metric(M.mean_squared_error, _n, _n),
@@ -1194,6 +1258,12 @@ METRIC_CASES: dict[str, Builder] = {
     "consistency_error": _metric(M.consistency_error, _n, _n),
     "pseudo_label_acceptance_rate": _metric(M.pseudo_label_acceptance_rate, lambda r: r.uniform(N)),
     "uncertain_gt_metrics_report": _uncertain_report,
+    # Chunked density-conformal calibrators
+    "ConformalizedDensity[scalar]": _density_conformal_case(1),
+    "ConformalizedDensity[multi]": _density_conformal_case(3),
+    "ContrastiveFlowConformal": _contrastive_flow_conformal,
+    "WaldoDensityConformal": _waldo_density_conformal,
+    "WaldoPosteriorCalibrator": _waldo_posterior_calibrator,
 }
 
 XFAIL_METRICS_PARITY: dict[str, str] = {}
