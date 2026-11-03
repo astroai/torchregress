@@ -223,6 +223,8 @@ def _split_realdata(cfg: UncertainGTConformalRealDataConfig) -> dict[str, Tensor
 
 
 def _fit_predictor(cfg: UncertainGTConformalRealDataConfig, data: dict[str, Tensor]) -> _MLP:
+    # Seed the weight init so the run is reproducible for a fixed cfg.seed.
+    torch.manual_seed(cfg.seed)
     model = _MLP(int(data["x_train"].shape[1]), cfg.hidden)
     opt = torch.optim.Adam(model.parameters(), lr=cfg.lr)
     model.train()
