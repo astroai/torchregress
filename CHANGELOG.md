@@ -58,6 +58,23 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
   are no longer reported per object. `last_diagnostics` is now a read-only
   mapping that is copied to Python lists only when it is read. Timing script:
   `python -m tools.benchmark_multisource`.
+
+- Performance: `SkewTLoss` / `skew_t_nll` no longer synchronise with the host
+  on accelerators. The Student-t CDF in the skew-t density evaluated its
+  incomplete-beta continued fraction with an early-exit Lentz loop that read a
+  convergence flag back to the host every term (on CUDA ~1,500 kernel launches
+  and ~17 device-to-host reads per training step, and no CUDA-graph capture).
+  Off the CPU the same continued fraction is now evaluated at a fixed depth
+  (63 Lentz iterations; the early-exit loop never needs more than ~70 for
+  dof ≤ 1e10) as a binary-tree product of its 2×2 recurrence matrices, with no
+  value-dependent control flow, so training steps can be captured and
+  replayed as CUDA graphs. The CPU keeps the early-exit loop (faster there,
+  unchanged numerics). Values and gradients match the early-exit evaluation
+  to float64 round-off (≤1e-12 relative for dof ≤ 1e3) and scipy's
+  `t.logcdf` to 1e-10 relative over dof 1+1e-6 … 1e3. H100 MIG 1g.12gb, MLP +
+  `SkewTLoss` Adam step, batch 4096: 42.8 ms eager → 31.4 ms eager, 2.2 ms
+  as a CUDA graph (batch 1024: 34.4 → 28.8 / 1.4 ms). Timing script:
+  `python tools/benchmark_skew_t.py --device cuda`.
 - Renamed `PoissonGaussianMixtureLoss` to `PoissonGaussianContaminationMixtureLoss`
   (registry key `"poisson_gaussian_contamination_mixture"`) and
   `EnhancedPoissonGaussianMixtureLoss` to
