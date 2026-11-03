@@ -30,6 +30,32 @@ Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, a
   (`PoissonGaussianLoss`). Behaviour is unchanged. The example is now
   `examples/poisson_gaussian_contamination_mixture_demo.py`.
   `PoissonGaussianLikelihoodRatioLoss` is unchanged: it is not a mixture.
+- Density-conformal calibration and prediction stream over rows, so peak memory
+  no longer grows with the split size (1M+ rows on CPU or GPU):
+  - `ConformalizedDensity` / `ContrastiveFlowConformal` evaluate the density in
+    chunks of at most `chunk_size` (new keyword-only argument, default 131072)
+    `(context, y)` pairs in `calibrate`, `calibrate_log_prob` and `contains`.
+    Scalar `predict_interval` evaluates `chunk_size // grid_size` contexts per
+    density call instead of one Python iteration per row (about 8x faster on
+    2000 rows with a small NSF on CPU). Results are identical for row-wise
+    densities.
+  - `WaldoDensityConformal` calls `sample_fn` on row chunks (new keyword-only
+    `chunk_size`, default `2**20 // n_samples` rows) and computes moments and
+    Wald scores per chunk. A split that fits in one chunk gives bit-identical
+    results for a fixed seed; with several chunks a sampler that draws one
+    `[S, N, D]` noise block consumes the generator in a different order, so
+    thresholds differ by Monte Carlo error only (same score distribution).
+  - `WaldoPosteriorCalibrator` computes sample moments and scores per row chunk
+    (new keyword-only `chunk_size`), without a second `[N, S, D]` temporary.
+    Results are unchanged.
+  - `WaldoConformal.predict_interval` is vectorised over rows (shared grid and
+    critical values, no per-row Python loop or host sync; about 100x faster on
+    20000 rows) and `WaldoConformal.predict_region` processes rows in bounded
+    chunks. Outputs are unchanged.
+  - The grid level-set search shared by `CTI`, `SLSConformal` and
+    `ConformalizedDensity` no longer synchronises with the device.
+  - `tools/benchmark_conformal_streaming.py` times these paths at realistic
+    sizes (`--device cuda` for GPU).
 
 ### Deprecated
 
@@ -52,6 +78,10 @@ Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, a
 - Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors
   (use the dataclass fields directly).
 - Removed the identity factory `create_mdn_loss` (use `MixtureDensityLoss`).
+- `WaldoDensityConformal` and `WaldoPosteriorCalibrator` with
+  `covariance_type="diagonal"` raised a shape error for multi-target samples
+  (they passed the full sample covariance). They now use the per-target sample
+  variances.
 
 ## [0.3.0b1] - 2026-10-26
 
