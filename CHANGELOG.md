@@ -127,6 +127,15 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
 
 ### Fixed
 
+- Sampling a normalizing flow (`NormalizingFlowLoss.sample` and everything built on it:
+  `ContrastiveFlowLoss`, `quantile`/`cdf`, WALDO sample functions) and the spline
+  inverse of `GaussianCopulaSplineHead.intrinsic_log_prob` / `observed_log_prob` no
+  longer strand tensors in reference cycles. torch's `Transform.inv` caches its
+  inverse with a strong reference, so every zuko inverse pass left a
+  `transform <-> inverse` cycle holding its spline parameters (about 11 KiB per
+  6-D NSF draw) until Python's object-count-driven GC ran; on CUDA chunked
+  sampling of a few hundred thousand draws ran an 11 GiB device out of memory.
+  The young generation is now collected after each call; results are unchanged.
 - Medians follow the textbook (NumPy/SciPy) convention, averaging the two
   middle values for even counts, instead of `torch.median`'s lower middle value:
   `neighbour_target_gap`, the `*_NMAD` entries of `frozen_readout_metrics`,

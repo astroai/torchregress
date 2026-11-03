@@ -29,6 +29,7 @@ except ImportError:
     BPF = MAF = NSF = RealNVP = None  # type: ignore[assignment]
     BoundedBernsteinTransform = MonotonicRQSTransform = MonotonicTransform = None  # type: ignore[assignment]
 
+from ..utils.pytorch_compat import _collect_transform_cycles
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
 
@@ -713,18 +714,23 @@ class NormalizingFlowLoss(DistributionLoss):
             Samples [batch_size, n_samples, n_features] or [batch_size, n_features] if n_samples=1
         """
         batch_size = y_pred.shape[0]
-        dist = self.distribution(y_pred)
-
-        if self.context_dim is not None and self.context_dim > 0:
-            if n_samples == 1:
-                samples = cast(Tensor, dist.sample((1,))).transpose(0, 1).squeeze(1)
+        # Sampling inverts the flow; the inverse transforms zuko builds per call
+        # (and per autoregressive pass) form reference cycles that would keep
+        # their spline parameters - about 11 KiB per 6-D NSF draw - on the
+        # device until Python's cyclic GC happens to run.
+        with _collect_transform_cycles():
+            dist = self.distribution(y_pred)
+            if self.context_dim is not None and self.context_dim > 0:
+                if n_samples == 1:
+                    samples = cast(Tensor, dist.sample((1,))).transpose(0, 1).squeeze(1)
+                else:
+                    samples = cast(Tensor, dist.sample((n_samples,))).transpose(0, 1)
             else:
-                samples = cast(Tensor, dist.sample((n_samples,))).transpose(0, 1)
-        else:
-            if n_samples == 1:
-                samples = cast(Tensor, dist.sample((batch_size,)))
-            else:
-                samples = cast(Tensor, dist.sample((batch_size, n_samples)))
+                if n_samples == 1:
+                    samples = cast(Tensor, dist.sample((batch_size,)))
+                else:
+                    samples = cast(Tensor, dist.sample((batch_size, n_samples)))
+            del dist
 
         return cast(Tensor, samples)
 

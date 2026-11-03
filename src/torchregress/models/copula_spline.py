@@ -9,6 +9,8 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
+from ..utils.pytorch_compat import _collect_transform_cycles
+
 # A deferred validation: (0-d boolean flag, error class, message).
 _Check = tuple[Tensor, type[Exception], str]
 
@@ -183,6 +185,12 @@ class GaussianCopulaSplineHead(nn.Module):
 
     def intrinsic_log_prob(self, context: Tensor, value: Tensor, mask: Tensor) -> Tensor:
         """Exact intrinsic subvector density for each row; empty rows return zero."""
+        # The spline inverse leaves a transform <-> inverse reference cycle that
+        # holds the spline parameters (and their autograd graph) until GC.
+        with _collect_transform_cycles():
+            return self._intrinsic_log_prob(context, value, mask)
+
+    def _intrinsic_log_prob(self, context: Tensor, value: Tensor, mask: Tensor) -> Tensor:
         dtype = torch.promote_types(self._out.weight.dtype, value.dtype)
         with torch.autocast(device_type=context.device.type, enabled=False):
             mean, lower, transform, finite = self._flow_parameters(context, dtype)
@@ -198,6 +206,12 @@ class GaussianCopulaSplineHead(nn.Module):
         standard-normal draws [K,D]. Missing-coordinate integration is analytic;
         the remaining noise integral is not certified by a finite ESS alone.
         """
+        with _collect_transform_cycles():
+            return self._observed_log_prob(context, value, sigma, mask, nodes)
+
+    def _observed_log_prob(
+        self, context: Tensor, value: Tensor, sigma: Tensor, mask: Tensor, nodes: Tensor
+    ) -> tuple[Tensor, Tensor]:
         if sigma.shape != mask.shape or nodes.ndim != 2 or nodes.shape[1] != self.target_dim:
             raise ValueError("Noise or node shape differs")
         if len(nodes) < 2:
