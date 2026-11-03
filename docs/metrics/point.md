@@ -177,7 +177,7 @@ $$
 \text{MAD}(e) = c \cdot \text{median}\left(\{|e_i - \text{median}(e)|\}_{i=1}^{N}\right)
 $$
 
-where $e_i = y_i - \hat{y}_i$ and $c = 1.4826$ by default (the Gaussian
+where $e_i = y_i - \hat{y}_i$ and $c = 1.482602218505602$ by default (the Gaussian
 consistency factor that makes MAD a consistent estimator of $\sigma$ for
 normally distributed residuals). Both medians average the two middle values
 for even $N$, so the result equals
@@ -186,7 +186,7 @@ for even $N$, so the result equals
 ```python
 from torchregress.metrics.point import median_absolute_deviation
 
-mad = median_absolute_deviation(y_pred, y_true, scale=1.4826)
+mad = median_absolute_deviation(y_pred, y_true, scale=1.482602218505602)
 ```
 See also: [median_absolute_deviation](../api/metrics.md).
 
@@ -212,7 +212,7 @@ See also: [normalized_rmse](../api/metrics.md).
 The photometric-redshift NMAD, a stateful metric:
 
 $$
-\text{NMAD} = 1.4826 \cdot \text{median}\left(|d_i - \text{median}(d)|\right),
+\text{NMAD} = 1.482602218505602 \cdot \text{median}\left(|d_i - \text{median}(d)|\right),
 \qquad d_i = \hat{y}_i - y_i \;\; \text{or} \;\; d_i = \frac{\hat{y}_i - y_i}{1 + y_i}
 $$
 

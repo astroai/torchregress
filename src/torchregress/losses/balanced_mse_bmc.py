@@ -69,7 +69,7 @@ PriorKind = Literal["histogram", "kde", "uniform"]
 
 #: Consistency factor converting a Gaussian median absolute deviation (MAD)
 #: to a standard-deviation estimate.
-_MAD_TO_SIGMA = 1.4826
+_MAD_TO_SIGMA = 1.482602218505602  # 1 / Phi^{-1}(0.75)
 
 
 def _scalar_targets(t: Tensor, name: str) -> tuple[Tensor, bool]:
@@ -116,7 +116,7 @@ def _compute_dtype(*tensors: Tensor) -> torch.dtype:
 
 
 def _mad_scale(x: Tensor) -> Tensor:
-    """Robust Gaussian scale estimate ``1.4826 * median(|x - median(x)|).``"""
+    """Robust Gaussian scale estimate ``1.482602218505602 * median(|x - median(x)|).``"""
     x = x.reshape(-1)
     center = x.median()
     return _MAD_TO_SIGMA * (x - center).abs().median()

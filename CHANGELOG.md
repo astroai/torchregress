@@ -107,8 +107,43 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
     `ConformalizedDensity` no longer synchronises with the device.
   - `tools/benchmark_conformal_streaming.py` times these paths at realistic
     sizes (`--device cuda` for GPU).
+- Performance: `crps_from_binned_cdf` is computed in closed form for all rows
+  and bins at once (target clipped to each bin, float64, row chunks of bounded
+  memory) instead of a Python loop over rows and bins, on the device of the
+  first tensor argument. Return types are unchanged (float for `mean`/`sum`,
+  NumPy array for `none`). Agrees with the loop to 2e-15; 1e5 rows x 64 bins on
+  CPU: 119 s -> 0.11 s (1e6 rows: 1.2 s).
+- Memory: `neighbour_target_gap`, `target_ordering`, `frozen_readout_metrics`
+  and `representation_geometry_report` no longer build N x N (or N_test x
+  N_train) distance matrices: k-NN and pair distances are computed in row
+  chunks (O(chunk * N) memory) on the input's device, and tensors with
+  `requires_grad` are accepted. `target_ordering` keeps its rule (all pairs
+  when N(N-1)/2 <= `max_pairs`, else `max_pairs` seeded random pairs) and gives
+  bit-identical values. N = 1e5, D = 16 now runs on CPU in about 25 s; before,
+  the gap alone needed an 80 GB distance matrix.
+- `FTTransformer` (and `AutoregressiveTimeLayer`) build their `norm_first`
+  encoders with `enable_nested_tensor=False`, which silences the PyTorch
+  warning on every construction. Behaviour is unchanged.
 
 ### Fixed
+
+- Medians follow the textbook (NumPy/SciPy) convention, averaging the two
+  middle values for even counts, instead of `torch.median`'s lower middle value:
+  `neighbour_target_gap`, the `*_NMAD` entries of `frozen_readout_metrics`,
+  `calculate_mad` (and so `reweight_fixed_predictions(variance_type="robust")`),
+  and the masked `scale="mad"` estimate of `iteratively_reweighted_fit`.
+  `neighbour_target_gap`'s docstring now says what it computes: the median over
+  points of the mean absolute target difference to the k nearest neighbours.
+- MAD-to-sigma consistency constant is `1 / Phi^-1(0.75) = 1.482602218505602`
+  instead of the rounded `1.4826` everywhere (`MedianAbsoluteDeviation`,
+  `median_absolute_deviation`, `NormalizedMedianAbsoluteDeviation`, representation
+  `nmad` and readout NMAD, IRLS robust scales, `BalancedMSEBMC` robust scale,
+  `VarianceTemperatureScaler` `clip`).
+- `PoissonGaussianLoss` learnable parameters (`log_gain`, `offset`,
+  `log_read_noise_variance`) are created in float64 from the exact initial
+  values, so `.double()` / `.to(torch.float64)` no longer carry a float32-rounded
+  `log(read_noise_variance)`; in float64 the learnable loss matches the fixed one
+  to 1e-15 (was ~4e-9). Float32 inputs see the same values as before.
 
 - `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss` docs
   and docstrings described the shot-plus-read-noise convolution and cited

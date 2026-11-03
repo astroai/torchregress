@@ -11,6 +11,51 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import torch
 
+# Gaussian consistency constant for the median absolute deviation: 1 / Phi^{-1}(3/4),
+# so that ``_MAD_TO_SIGMA * MAD`` estimates the standard deviation of a normal sample.
+_MAD_TO_SIGMA = 1.482602218505602
+
+
+def _median(values: torch.Tensor, dim: Optional[int] = None, keepdim: bool = False) -> torch.Tensor:
+    """Median that averages the two middle values for even counts.
+
+    ``torch.median`` returns the *lower* median, which differs from
+    ``numpy.median`` / ``scipy`` / ``sklearn`` for even sample sizes (M-MET-007).
+
+    Parameters
+    ----------
+    values : Tensor
+        Input values.
+    dim : int, optional
+        Reduction dimension; ``None`` reduces over all elements.
+    keepdim : bool
+        Keep the reduced dimension (size 1); ignored when ``dim`` is ``None``.
+
+    Returns
+    -------
+    Tensor
+        The median (NaN for an empty reduction).
+    """
+    if values.ndim == 0:
+        return values.clone()
+    if dim is None:
+        values = values.reshape(-1)
+        dim = 0
+        keepdim = False
+    n = values.shape[dim]
+    if n == 0:
+        shape = list(values.shape)
+        if keepdim:
+            shape[dim] = 1
+        else:
+            del shape[dim]
+        return torch.full(shape, float("nan"), device=values.device, dtype=values.dtype)
+    ordered = torch.sort(values, dim=dim).values
+    lower = ordered.narrow(dim, (n - 1) // 2, 1)
+    upper = ordered.narrow(dim, n // 2, 1)
+    mid = 0.5 * (lower + upper)
+    return mid if keepdim else mid.squeeze(dim)
+
 
 def convert_to_tensor(
     x: Union[torch.Tensor, np.ndarray, List, float, int],

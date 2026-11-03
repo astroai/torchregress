@@ -11,6 +11,7 @@ import torch
 from torch import Tensor
 
 from torchregress.utils.distributions import normal_cdf
+from torchregress.utils.tensor_ops import _MAD_TO_SIGMA
 
 
 @dataclass
@@ -34,7 +35,7 @@ class VarianceTemperatureScaler:
       best-measured samples and over-coverage for the worst.
 
     ``clip`` drops calibration samples whose residual lies more than ``clip``
-    robust standard deviations (1.4826 MAD) from the median before fitting, so
+    robust standard deviations (1.482602218505602 MAD) from the median before fitting, so
     a few catastrophic failures do not set the scale. This is a trade-off: the
     variance is then fitted *without* the outliers, so outliers met at test time
     are scored against a narrower predictive distribution (better CRPS and
@@ -131,7 +132,7 @@ class VarianceTemperatureScaler:
         if clip is not None:
             residual = (y - mean)[keep]
             centre = residual.median()
-            robust = 1.4826 * (residual - centre).abs().median()
+            robust = _MAD_TO_SIGMA * (residual - centre).abs().median()
             if float(robust) > 0:
                 keep &= (y - mean - centre).abs() <= clip * robust
         if int(keep.sum()) < 2:

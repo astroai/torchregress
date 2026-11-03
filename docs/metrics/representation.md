@@ -8,7 +8,7 @@ These diagnostics answer a question that is upstream of predictive accuracy: *do
 
 | Diagnostic | Definition | Interpretation |
 |:--|:--|:--|
-| `neighbour_target_gap` | median absolute target difference among each point's $k$ nearest neighbours (standardized features), divided by target std | smaller = more target-homogeneous neighbourhoods |
+| `neighbour_target_gap` | median over points of the mean absolute target difference to each point's $k$ nearest neighbours (standardized features), divided by target std | smaller = more target-homogeneous neighbourhoods |
 | `target_ordering` | Spearman correlation between pairwise feature distance and pairwise target distance | larger = feature distances order targets better |
 | `frozen_readout_metrics` | OLS and $k$-NN readouts on a deterministic frozen-feature split: RMSE, MAE, NMAD | shows whether a ranking survives a change of readout |
 
@@ -31,7 +31,7 @@ report = representation_geometry_report(features, z, k=10)
 ```
 
 `nmad(y_pred, y_true)` is the normalized median absolute deviation
-$1.4826\,\mathrm{median}|r|$ and is used in the readout metrics.
+$1.482602218505602\,\mathrm{median}|r|$ and is used in the readout metrics.
 
 !!! warning "Descriptor, not a benchmark"
     The readout split here is a quick deterministic diagnostic.  A manuscript

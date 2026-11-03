@@ -19,6 +19,7 @@ from ..losses.gaussian import (
     GaussianNLLLoss,
     MultivariateGaussianLoss,
 )
+from ..utils.tensor_ops import _MAD_TO_SIGMA, _median
 from ..utils.validation import check_tensor
 
 
@@ -120,6 +121,10 @@ def calculate_mad(residuals: torch.Tensor, dim: int = -1) -> torch.Tensor:
     """
     Calculates the Median Absolute Deviation (MAD) along the specified dimension.
 
+    Unscaled ``median(|r - median(r)|)``, equal to
+    ``scipy.stats.median_abs_deviation(r, scale=1.0)``: even counts average the
+    two middle values (not ``torch.median``'s lower middle value).
+
     Args:
         residuals: Residual tensor
         dim: Dimension along which to calculate MAD
@@ -127,8 +132,10 @@ def calculate_mad(residuals: torch.Tensor, dim: int = -1) -> torch.Tensor:
     Returns:
         MAD tensor
     """
-    median = torch.median(residuals, dim=dim, keepdim=True)[0]
-    return torch.median(torch.abs(residuals - median), dim=dim, keepdim=True)[0]
+    if residuals.ndim > 0 and residuals.shape[dim] == 0:
+        raise IndexError(f"calculate_mad(): reduction dim {dim} has zero size")
+    median = _median(residuals, dim=dim, keepdim=True)
+    return _median(torch.abs(residuals - median), dim=dim, keepdim=True)
 
 
 # --- Variance Estimation Functions ---
@@ -196,7 +203,7 @@ def estimate_variance(
         # ``dim=-1`` would take the MAD over the output features instead, which is a
         # single element (MAD = 0) for the documented ``(N, 1)`` targets.
         mad = calculate_mad(residuals, dim=0)
-        return (1.4826 * mad) ** 2  # Consistent estimator for Gaussian distribution
+        return (_MAD_TO_SIGMA * mad) ** 2  # Consistent estimator for Gaussian distribution
 
     else:
         raise ValueError(

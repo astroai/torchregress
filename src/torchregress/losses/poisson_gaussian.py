@@ -181,13 +181,17 @@ class PoissonGaussianLoss(RegressionLoss):
         self.max_terms = int(config.max_terms)
         # Fixed values stay Python floats (exact in float64, movable to any device);
         # learnable ones are unconstrained parameters initialised at those values.
+        # They are created in float64 so ``.double()`` / ``.to(torch.float64)`` keep
+        # the exact initial value (a float32 tensor would already have rounded it);
+        # ``detector_parameters`` casts to the input dtype, so float32 inputs see the
+        # same rounded value as before, and ``.float()`` converts them as usual.
         if config.learn_gain:
-            self.log_gain = nn.Parameter(torch.tensor(math.log(config.gain)))
+            self.log_gain = nn.Parameter(torch.tensor(math.log(config.gain), dtype=torch.float64))
         if config.learn_offset:
-            self.offset = nn.Parameter(torch.tensor(float(config.offset)))
+            self.offset = nn.Parameter(torch.tensor(float(config.offset), dtype=torch.float64))
         if config.learn_read_noise:
             self.log_read_noise_variance = nn.Parameter(
-                torch.tensor(math.log(config.read_noise_variance))
+                torch.tensor(math.log(config.read_noise_variance), dtype=torch.float64)
             )
 
     def detector_parameters(
