@@ -304,7 +304,7 @@ class MarginalizedMultiSourceGaussianNLLLoss(nn.Module):
         levels = torch.zeros_like(failed, dtype=torch.long)
         with torch.no_grad():
             base = r_sym.detach()
-            diagonal = torch.diag_embed(maskf)
+            diagonal = torch.diag_embed(maskf).to(device=base.device, dtype=base.dtype)
             while bool(failed.any()):
                 if self.max_jitter <= amount:
                     raise ValueError(_NOT_PD)
@@ -331,9 +331,13 @@ class MarginalizedMultiSourceGaussianNLLLoss(nn.Module):
         tolerance = batch.tolerance
         asymmetric = ((r - r.mT).abs() > tolerance + tolerance * r.mT.abs()).any()
         # Padded diagonal is one: decoupled coordinates with zero log-determinant.
-        r_sym = (r + r.mT) * 0.5 + torch.diag_embed(1 - batch.maskf)
+        r_sym = (r + r.mT) * 0.5 + torch.diag_embed(1 - batch.maskf).to(
+            device=r.device, dtype=r.dtype
+        )
         if self.jitter:
-            r_jittered = r_sym + torch.diag_embed(batch.maskf * self.jitter)
+            r_jittered = r_sym + torch.diag_embed(batch.maskf * self.jitter).to(
+                device=r_sym.device, dtype=r_sym.dtype
+            )
         else:
             r_jittered = r_sym
         r_factor, info = torch.linalg.cholesky_ex(r_jittered)
@@ -353,7 +357,9 @@ class MarginalizedMultiSourceGaussianNLLLoss(nn.Module):
             if self.max_jitter <= self.jitter:
                 raise ValueError(_NOT_PD)
             amounts, levels, level_amounts = self._retry_jitter(r_sym, batch.maskf, failed)
-            r_jittered = r_sym + torch.diag_embed(batch.maskf * amounts.unsqueeze(-1))
+            r_jittered = r_sym + torch.diag_embed(batch.maskf * amounts.unsqueeze(-1)).to(
+                device=r_sym.device, dtype=r_sym.dtype
+            )
             r_factor, info = torch.linalg.cholesky_ex(r_jittered)
             nll, *checks = self._evaluate(batch, r_jittered, r_factor)
             status = torch.stack([(info != 0).any()] + [(c != 0).any() for c in checks[::2]])

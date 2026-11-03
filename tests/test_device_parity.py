@@ -499,7 +499,7 @@ def _multisource(loss: nn.Module) -> Builder:
         values = r.normal(N, k).masked_fill(~mask, float("nan"))
         lower = torch.tril(0.3 * r.normal(N, dims, dims), -1) + torch.diag_embed(
             r.positive(N, dims)
-        )
+        ).to(device="cpu", dtype=torch.float64)
         params = (r.normal(N, dims), lower, 0.1 * r.normal(N, k))
         covariance = sigma[:, :, None] * corr * sigma[:, None, :]
         args = (params, values, r.normal(N, k, dims), covariance, mask, blocks.expand(N, k))

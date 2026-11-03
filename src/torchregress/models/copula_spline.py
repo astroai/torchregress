@@ -161,7 +161,9 @@ class GaussianCopulaSplineHead(nn.Module):
             weight = mask.to(lower.dtype)
             masked_lower = lower * weight.unsqueeze(-1)
             covariance = masked_lower @ masked_lower.transpose(-1, -2)
-            covariance = covariance + torch.diag_embed(1 - weight)
+            covariance = covariance + torch.diag_embed(1 - weight).to(
+                device=covariance.device, dtype=covariance.dtype
+            )
             chol, info = torch.linalg.cholesky_ex(covariance)
             if info.any():
                 raise torch.linalg.LinAlgError(

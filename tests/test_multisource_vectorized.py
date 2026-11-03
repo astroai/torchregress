@@ -73,7 +73,9 @@ def make_problem(
     values = torch.randn(batch, k, generator=gen, dtype=torch.float64)
     values[~mask] = float("nan")
     raw = 0.4 * torch.randn(batch, dims, dims, generator=gen, dtype=torch.float64)
-    lower = torch.tril(raw, -1) + torch.diag_embed(0.3 + raw.diagonal(dim1=-2, dim2=-1).abs())
+    lower = torch.tril(raw, -1) + torch.diag_embed(0.3 + raw.diagonal(dim1=-2, dim2=-1).abs()).to(
+        device=raw.device, dtype=raw.dtype
+    )
     tensors = {
         "mean": torch.randn(batch, dims, generator=gen, dtype=torch.float64),
         "lower": lower,
