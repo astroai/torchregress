@@ -411,11 +411,17 @@ def create_flow_model(
         targets with ``|y| > 5`` need a wider bound; see
         :func:`recommended_tail_bound`.  Larger bounds spread the ``bins``
         spline knots over a wider range, so raise ``bins=`` (an NSF keyword,
-        forwarded to zuko, default 8) with it.  Not supported for the other
-        flow types.
+        forwarded to zuko, default 8) with it.
+
+        For the affine flows (``"maf"``, ``"realnvp"``/``"nice"``/``"cinn"``)
+        ``bound`` is the half-width beyond which the conditioner inputs are
+        softly clipped, ``x / sqrt(1 + (x / bound)^2)`` (default 10, in
+        standardized target units); see Notes.  Not supported for ``"bpf"``.
     **kwargs : Any
         Additional keyword arguments forwarded to the zuko flow constructor
-        (for NSF: ``bins``, ``slope``).
+        (for NSF: ``bins``, ``slope``; for the affine flows: ``slope``,
+        default ``exp(-3)``, which bounds each layer's log-scale by
+        ``-log(slope)``, plus ``randperm`` (MAF) / ``randmask`` (coupling)).
 
     Returns
     -------
@@ -428,6 +434,16 @@ def create_flow_model(
     The ``context`` attribute is injected on the flow instance after
     construction so that :class:`NormalizingFlowLoss` can discover the
     context dimension.  This is a torchregress convention, not a zuko API.
+
+    The affine flows keep zuko's layout and parameter names but differ from
+    :class:`zuko.flows.MAF` / :class:`zuko.flows.RealNVP` in two ways that
+    make sampling numerically safe: the log-scale of every layer is softly
+    bounded by 3 (zuko: 6.9) and the conditioners see soft-clipped inputs.
+    Without them, a far-tail base draw makes the ReLU conditioner extrapolate
+    to a large shift and a saturated small scale, and the inverse pass
+    cascades geometrically over coordinates and layers (finite samples of
+    ``1e12`` from a flow whose NLL looks sound).  Both directions use the
+    same conditioner, so ``log_prob`` stays exact.
     """
     if not HAS_ZUKO:
         raise ImportError("zuko is required for normalizing flows. Install torchregress[flows].")

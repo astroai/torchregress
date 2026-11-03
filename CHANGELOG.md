@@ -127,6 +127,24 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
 
 ### Fixed
 
+- `create_flow_model(flow_type="maf")` and the affine-coupling types
+  (`"realnvp"`/`"cinn"`/`"nice"`) no longer produce exploding samples. A far-tail
+  base draw could give an out-of-range coordinate; the ReLU conditioner then
+  extrapolated to a huge shift and a saturated tiny scale (zuko's affine layer
+  allows `|log s| < 6.9`, a 1000x stretch per layer), and the inverse pass
+  cascaded geometrically over coordinates and layers. On
+  `synthetic_multitarget_big` (density_parity, seed 1, GPU) the MAF had a sound
+  NLL (0.957) but finite samples up to 2.4e12 and CRPS 1.3e4; all three seeds
+  showed the same tail on larger draws, and so does zuko's MAF used through sbi.
+  The affine flows keep zuko's layout and state-dict keys but bound each layer's
+  log-scale softly by 3 (`slope=exp(-3)`, overridable with `slope=`) and feed the
+  conditioners `x / sqrt(1 + (x / B)^2)` with `B = 10` (standardized units;
+  `bound=` sets `B`). Both directions use the same conditioner, so the flows
+  remain exact bijections with exact `log_prob`. **Outputs change**: newly
+  trained MAF/RealNVP/cINN flows differ, and existing checkpoints load unchanged
+  but evaluate under the new layers (pass `slope=1e-3` and a very large `bound`
+  to reproduce the old map). `bound` is now accepted for `"maf"` and the
+  affine-coupling types as the conditioner clip half-width.
 - Sampling a normalizing flow (`NormalizingFlowLoss.sample` and everything built on it:
   `ContrastiveFlowLoss`, `quantile`/`cdf`, WALDO sample functions) and the spline
   inverse of `GaussianCopulaSplineHead.intrinsic_log_prob` / `observed_log_prob` no
