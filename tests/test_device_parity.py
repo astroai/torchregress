@@ -31,6 +31,7 @@ from torch import nn
 import torchregress.calibration as C
 import torchregress.losses as L
 import torchregress.metrics as M
+from torchregress.models import GaussianCopulaSplineHead
 
 pytestmark = pytest.mark.cuda
 
@@ -601,6 +602,41 @@ def _beta_regression(r: _Rng) -> Built:
     return L.BetaRegressionNLLLoss(), (0.5 * r.normal(N, 2), r.uniform(N, 1, lo=0.1, hi=0.9)), {}
 
 
+class _CopulaSplineDensity(nn.Module):
+    """Expose ``GaussianCopulaSplineHead`` densities as ``fn(context, value, mask, ...)``."""
+
+    def __init__(self, r: _Rng, *, noise: bool) -> None:
+        super().__init__()
+        self.head = GaussianCopulaSplineHead(2, D, width=8, bins=4)
+        self.head.double()
+        with torch.no_grad():  # deterministic weights: both devices build the same head
+            for parameter in self.head.parameters():
+                parameter.copy_(0.3 * r.normal(*parameter.shape))
+        self.noise = noise
+
+    def forward(self, context: torch.Tensor, value: torch.Tensor, mask: torch.Tensor, *rest: Any):
+        if self.noise:
+            return self.head.observed_log_prob(context, value, *rest[:1], mask, *rest[1:])
+        return self.head.intrinsic_log_prob(context, value, mask)
+
+
+def _copula_spline(*, noise: bool, complete: bool) -> Builder:
+    """Ragged missingness (batched marginal path) or complete rows (direct Cholesky path)."""
+
+    def build(r: _Rng) -> Built:
+        module = _CopulaSplineDensity(r, noise=noise)
+        mask = torch.ones(N, D, dtype=torch.bool) if complete else r.mask(N, D)
+        if not complete:
+            mask[1] = False  # an empty row
+            mask[2] = torch.tensor([False, True, False])
+        args: tuple[Any, ...] = (r.normal(N, 2), r.normal(N, D), mask)
+        if noise:
+            args = (*args, 0.2 * r.positive(N, D), r.normal(4, D))
+        return module, args, {}
+
+    return build
+
+
 LOSS_CASES: dict[str, Builder] = {
     # Weighted point losses
     "WeightedMSELoss": _point(L.WeightedMSELoss),
@@ -706,6 +742,10 @@ LOSS_CASES: dict[str, Builder] = {
     "OrdinalCrossEntropyLoss": _ordinal(L.OrdinalCrossEntropyLoss, cumulative=False),
     "DiscreteWasserstein1Loss": _wasserstein1d,
     "RankNContrastLoss": _rank_n_contrast,
+    # Correlated spline flow densities (gradient w.r.t. the context)
+    "GaussianCopulaSplineHead[intrinsic,ragged]": _copula_spline(noise=False, complete=False),
+    "GaussianCopulaSplineHead[intrinsic,complete]": _copula_spline(noise=False, complete=True),
+    "GaussianCopulaSplineHead[observed,ragged]": _copula_spline(noise=True, complete=False),
 }
 
 # Strict xfails for genuine library device/dtype bugs, keyed by case name (applies to the
