@@ -32,6 +32,8 @@ from typing import Callable, Optional
 import torch
 from torch import Tensor
 
+from .conformal import finite_sample_quantile
+
 
 def waldo_statistic(
     mean: Tensor,
@@ -69,6 +71,19 @@ def waldo_statistic(
         solved = torch.linalg.solve(cov, diff.unsqueeze(-1)).squeeze(-1)
         return (diff * solved).sum(dim=-1).clamp_min(0.0)
     raise ValueError("covariance_type must be 'diagonal' or 'full'")
+
+
+def _interp_critical(left: Tensor, right: Tensor, frac: Tensor) -> Tensor:
+    """Linear interpolation between bin critical values.
+
+    A bin with too few points for the requested level has a ``+inf`` finite-sample
+    threshold; next to such a bin the critical value is ``+inf`` (the region is
+    everything) instead of the ``nan`` that ``inf - inf`` would give.
+    """
+    inf = torch.isinf(left) | torch.isinf(right)
+    safe_left = torch.where(inf, torch.zeros_like(left), left)
+    safe_right = torch.where(inf, torch.zeros_like(right), right)
+    return torch.where(inf, torch.maximum(left, right), safe_left + frac * (safe_right - safe_left))
 
 
 class WaldoCriticalValueRegressor:
@@ -123,7 +138,7 @@ class WaldoCriticalValueRegressor:
         scores = scores.detach().reshape(-1)
         if key.numel() < 2 or scores.numel() < 2:
             raise ValueError("at least two calibration rows are required")
-        self.global_value_ = torch.quantile(scores, 1.0 - self.alpha)
+        self.global_value_ = finite_sample_quantile(scores, self.alpha)
         n_bins = min(self.n_bins, max(2, key.numel() // self.min_samples_per_bin))
         q = torch.linspace(0.0, 1.0, n_bins + 1, device=key.device, dtype=key.dtype)
         edges = torch.quantile(key, q).unique()
@@ -138,7 +153,7 @@ class WaldoCriticalValueRegressor:
             if int(mask.sum()) < self.min_samples_per_bin:
                 continue
             centers.append((left + right) / 2.0)
-            values.append(torch.quantile(scores[mask], 1.0 - self.alpha))
+            values.append(finite_sample_quantile(scores[mask], self.alpha))
         if len(centers) < 2:
             self.centers_ = None
             self.values_ = None
@@ -164,7 +179,7 @@ class WaldoCriticalValueRegressor:
         frac = ((key - centers[left]) / (centers[right] - centers[left]).clamp_min(1e-12)).clamp(
             0.0, 1.0
         )
-        return values[left] + frac * (values[right] - values[left])
+        return _interp_critical(values[left], values[right], frac)
 
 
 class WaldoConformal:
@@ -236,7 +251,7 @@ class WaldoConformal:
         frac = ((key - centers[left]) / (centers[right] - centers[left]).clamp_min(1e-12)).clamp(
             0.0, 1.0
         )
-        return values[left] + frac * (values[right] - values[left])
+        return _interp_critical(values[left], values[right], frac)
 
     def calibrate(
         self,
@@ -262,7 +277,7 @@ class WaldoConformal:
         ).detach()
         self._cal_scores = scores
         self._cal_targets = target_2d.detach()
-        self.q_hat = torch.quantile(scores, 1.0 - self.alpha)
+        self.q_hat = finite_sample_quantile(scores, self.alpha)
         if self.critical_value_regressor is not None:
             self.critical_value_regressor.fit(target_2d.detach(), scores)
             self._critical_fitted = True
@@ -290,7 +305,7 @@ class WaldoConformal:
             if not bool(mask.any()):
                 continue
             centers.append((left + right) / 2.0)
-            values.append(torch.quantile(scores[mask], 1.0 - self.alpha))
+            values.append(finite_sample_quantile(scores[mask], self.alpha))
         if len(centers) < 2:
             self._bin_centers = None
             self._bin_values = None

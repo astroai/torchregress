@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 
 from torchregress.losses import WaldoConformal, waldo_statistic
@@ -117,3 +119,33 @@ def test_waldo_conformal_with_regressor_coverage() -> None:
     coverage = inside.float().mean().item()
     assert 0.75 <= coverage <= 1.0
     assert cp.critical_value(target[:5]).shape == (5,)
+
+
+def test_waldo_threshold_is_finite_sample_order_statistic() -> None:
+    """q_hat is the ceil((n+1)(1-alpha))-th smallest score, not an interpolated quantile."""
+    torch.manual_seed(1)
+    n, d, alpha = 50, 2, 0.1
+    mean = torch.zeros(n, d, dtype=torch.float64)
+    target = torch.randn(n, d, dtype=torch.float64)
+    var = torch.ones(n, d, dtype=torch.float64)
+    cp = WaldoConformal(alpha=alpha)
+    cp.calibrate(mean, target, var)
+    scores = waldo_statistic(mean, target, var)
+    k = math.ceil((n + 1) * (1 - alpha))
+    assert cp.q_hat is not None
+    assert torch.equal(cp.q_hat, torch.sort(scores).values[k - 1])
+    assert cp.q_hat > torch.quantile(scores, 1 - alpha)
+
+
+def test_waldo_binned_critical_value_is_inf_not_nan_for_tiny_bins() -> None:
+    """Bins too small for alpha give +inf thresholds; interpolation must not produce nan."""
+    torch.manual_seed(2)
+    n, d = 40, 1
+    mean = torch.zeros(n, d, dtype=torch.float64)
+    target = torch.randn(n, d, dtype=torch.float64)
+    var = torch.ones(n, d, dtype=torch.float64)
+    cp = WaldoConformal(alpha=0.01, critical_bins=4)  # ~10 points per bin < 1/alpha
+    cp.calibrate(mean, target, var)
+    crit = cp.critical_value(torch.linspace(-2, 2, 9, dtype=torch.float64).reshape(-1, 1))
+    assert not torch.isnan(crit).any()
+    assert torch.isinf(crit).all()

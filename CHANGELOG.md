@@ -66,6 +66,17 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
   `PoissonGaussianLoss`. Behaviour is unchanged.
 - Examples whose real-data track never seeded the global RNG (censored, uncertain
   ground truth) now do, so their Diabetes results are reproducible.
+- `WaldoConformal` (and `WaldoPosteriorCalibrator` / `WaldoDensityConformal`,
+  which use it) set the Wald threshold with an interpolated `torch.quantile`
+  instead of the finite-sample order statistic `ceil((n+1)(1-alpha))`, so
+  regions under-covered (0.882 vs 0.90 nominal at n=50 over 2000 repeats; now
+  0.9075). Global, per-bin and `WaldoCriticalValueRegressor` thresholds all use
+  `finite_sample_quantile`. A bin with too few points for `alpha` has an
+  infinite threshold, and the interpolated critical value next to it is `+inf`
+  instead of `nan`. Found by the torchregress-harness multivariate rows.
+- `probability_integral_transform(return_histogram=True)` raised on CUDA tensors
+  (`torch.histogram` has no CUDA kernel); it now bins with bucketize/bincount
+  under the same convention.
 - `ConformalLoss` no longer swallows unknown keyword arguments (including the
   removed `debias`). Docs and tests that still advertised the no-op are gone.
 - Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors
