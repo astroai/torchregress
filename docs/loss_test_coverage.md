@@ -110,6 +110,7 @@ canonical way a contract break shows up in CI.
 | `PoissonDevianceLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | Poisson deviance residual |
 | `PoissonLikelihoodRatioLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | LR loss vs. Poisson mean |
 | `ZeroInflatedPoissonNLLLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | ZIP NLL with mixing parameter |
+| `PoissonGaussianLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian_convolution.py` | oracle + limits + gradcheck | Poisson-Gaussian convolution (detector) NLL |
 | `PoissonGaussianMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Poisson+Gaussian NLL mixture |
 | `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Gain-offset mixture w/ learnable params |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` + consistency | (per-class) | LR mixture NLL |

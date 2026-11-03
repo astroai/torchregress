@@ -187,6 +187,7 @@ from .poisson import (
 from .poisson_gaussian import (
     EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
+    PoissonGaussianLoss,
     PoissonGaussianMixtureLoss,
 )
 
@@ -334,6 +335,7 @@ __all__ = [
     "OrthogonalDistanceRegressionLoss",
     "PoissonDevianceLoss",
     "PoissonGaussianLikelihoodRatioLoss",
+    "PoissonGaussianLoss",
     "PoissonGaussianMixtureLoss",
     "PoissonLikelihoodRatioLoss",
     "PrevalenceAdjustedCP",

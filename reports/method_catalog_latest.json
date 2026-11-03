@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 158,
+    "total_methods": 159,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -29,7 +29,7 @@
       "ordinal": 2,
       "point_loss": 1,
       "poisson": 4,
-      "poisson_gaussian": 3,
+      "poisson_gaussian": 4,
       "probabilistic_loss": 11,
       "quantile": 2,
       "representation_regularizer": 1,
@@ -47,7 +47,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 131
+      "Available": 132
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1455,6 +1455,28 @@
       "notes": "NIG evidential regression; single-pass aleatoric and epistemic uncertainty."
     },
     {
+      "name": "PoissonGaussianLoss",
+      "family": "poisson_gaussian",
+      "public_path": "torchregress.losses.PoissonGaussianLoss",
+      "task_tags": [
+        "count_data",
+        "non_gaussian",
+        "noisy_counts"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Poisson shot noise convolved with Gaussian read noise (detector likelihood)."
+    },
+    {
       "name": "PoissonGaussianMixtureLoss",
       "family": "poisson_gaussian",
       "public_path": "torchregress.losses.PoissonGaussianMixtureLoss",
@@ -1475,7 +1497,7 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Poisson-Gaussian mixture for count data with Gaussian readout noise."
+      "notes": "Two-component Poisson/Gaussian mixture; not the shot-plus-read-noise model."
     },
     {
       "name": "EnhancedPoissonGaussianMixtureLoss",
@@ -1498,7 +1520,7 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Enhanced Poisson-Gaussian mixture with improved stability and learnable parameters."
+      "notes": "Two-component Poisson/Gaussian mixture with gain, offset and learnable noise."
     },
     {
       "name": "PoissonGaussianLikelihoodRatioLoss",

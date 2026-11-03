@@ -194,8 +194,9 @@ $$\mathcal{L}_{\text{censored}} = \begin{cases} \tfrac{1}{2}\log(2\pi\sigma^2) +
 | `InverseGaussianLoss` | `InverseGaussianLoss(link="log")` | Var = φ μ³ |
 | `CompoundPoissonLoss` | `CompoundPoissonLoss(p=1.5, link="log")` | 1 < p < 2 |
 | `tweedie_loss` | `tweedie_loss(y_pred, target, p=1.5, ...)` | Functional Tweedie loss |
-| `PoissonGaussianMixtureLoss` | `PoissonGaussianMixtureLoss(log_input=True, ...)` | Poisson + Gaussian readout |
-| `EnhancedPoissonGaussianMixtureLoss` | `EnhancedPoissonGaussianMixtureLoss(...)` | Gain/offset/learnable noise |
+| `PoissonGaussianLoss` | `PoissonGaussianLoss(gain=1.0, offset=0.0, read_noise_variance=1.0, ...)` | Poisson shot noise convolved with Gaussian read noise: g²λ + σ² |
+| `PoissonGaussianMixtureLoss` | `PoissonGaussianMixtureLoss(log_input=True, ...)` | Two-component Poisson/Gaussian mixture (not the detector model) |
+| `EnhancedPoissonGaussianMixtureLoss` | `EnhancedPoissonGaussianMixtureLoss(...)` | Mixture with gain/offset/learnable noise (not the detector model) |
 | `PoissonGaussianLikelihoodRatioLoss` | `PoissonGaussianLikelihoodRatioLoss(...)` | Likelihood-ratio variant |
 
 ---

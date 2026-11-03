@@ -44,7 +44,7 @@ loss = tr.losses.WeightedHuberLoss()
 <!-- BEGIN:TASK_MATRIX_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_task_matrix_table`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-27`
+_Generated date_: `2026-11-03`
 
 | Task / Constraint | Recommended Start | Strong Alternatives | Notes |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Legend:
 <!-- BEGIN:FAMILY_CAPABILITY_MATRIX_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_family_capability_matrix_table`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-27`
+_Generated date_: `2026-11-03`
 
 | Method Family | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD Support | Imbalance | Noisy Features (EIV) |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -118,7 +118,7 @@ _Generated date_: `2026-10-27`
 | `ordinal` (2) | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` (1) | yes | no | no | no | no | no | partial | partial | no | no |
 | `poisson` (4) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `poisson_gaussian` (3) | yes | yes | yes | no | no | no | partial | partial | no | no |
+| `poisson_gaussian` (4) | yes | yes | yes | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` (11) | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` (2) | yes | no | yes | no | no | no | yes | partial | no | no |
 | `representation_regularizer` (1) | no | no | partial | no | no | no | no | partial | yes | no |
@@ -161,7 +161,7 @@ Next step for operational tradeoffs: [Choosing Methods by Constraint](choosing-b
 
 _Generated provenance_: `tools/render_method_catalog.py:render_method_matrix_generated_section`
 _Source artifacts_: `docs/reports/method_catalog_generated.md`, `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-27`
+_Generated date_: `2026-11-03`
 
 | Method | Family | Maturity | Multi-target | Multimodal | Epistemic | Aleatoric | Decomposition | Calibration | OOD |
 |---|---|---|---|---|---|---|---|---|---|
@@ -272,6 +272,7 @@ _Generated date_: `2026-10-27`
 | `ZeroInflatedPoissonNLLLoss` | `poisson` | `Available` | yes | no | no | no | no | partial | partial |
 | `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian` | `Available` | yes | no | no | no | no | partial | partial |
+| `PoissonGaussianLoss` | `poisson_gaussian` | `Available` | yes | no | no | no | no | partial | partial |
 | `PoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | yes | yes | no | no | no | partial | partial |
 | `BetaNLLLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
 | `FaithfulGaussianLoss` | `probabilistic_loss` | `Available` | yes | no | no | yes | no | partial | partial |
@@ -355,7 +356,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 | `ordinal` | 2 | yes | no | yes | no | no | no | partial | partial | no | no |
 | `point_loss` | 1 | yes | no | no | no | no | no | partial | partial | no | no |
 | `poisson` | 4 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `poisson_gaussian` | 3 | yes | yes | yes | no | no | no | partial | partial | no | no |
+| `poisson_gaussian` | 4 | yes | yes | yes | no | no | no | partial | partial | no | no |
 | `probabilistic_loss` | 11 | yes | no | partial | no | yes | no | partial | partial | no | no |
 | `quantile` | 2 | yes | no | yes | no | no | no | yes | partial | no | no |
 | `representation_regularizer` | 1 | no | no | partial | no | no | no | no | partial | yes | no |
@@ -437,7 +438,7 @@ Key tradeoffs and common failure modes:
 <!-- BEGIN:DECISION_WORKFLOW_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_decision_workflow`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-27`
+_Generated date_: `2026-11-03`
 
 1. Need coverage guarantees?
    Use `ConformalLoss (split / CQR / ACI patterns)`.

@@ -773,6 +773,16 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="NIG evidential regression; single-pass aleatoric and epistemic uncertainty.",
     ),
     MethodMetadata(
+        name="PoissonGaussianLoss",
+        family="poisson_gaussian",
+        public_path="torchregress.losses.PoissonGaussianLoss",
+        task_tags=("count_data", "non_gaussian", "noisy_counts"),
+        maturity="Available",
+        non_gaussian="yes",
+        calibration="partial",
+        notes="Poisson shot noise convolved with Gaussian read noise (detector likelihood).",
+    ),
+    MethodMetadata(
         name="PoissonGaussianMixtureLoss",
         family="poisson_gaussian",
         public_path="torchregress.losses.PoissonGaussianMixtureLoss",
@@ -781,7 +791,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         non_gaussian="yes",
         multimodal="yes",
         calibration="partial",
-        notes="Poisson-Gaussian mixture for count data with Gaussian readout noise.",
+        notes="Two-component Poisson/Gaussian mixture; not the shot-plus-read-noise model.",
     ),
     MethodMetadata(
         name="EnhancedPoissonGaussianMixtureLoss",
@@ -792,7 +802,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         non_gaussian="yes",
         multimodal="yes",
         calibration="partial",
-        notes="Enhanced Poisson-Gaussian mixture with improved stability and learnable parameters.",
+        notes="Two-component Poisson/Gaussian mixture with gain, offset and learnable noise.",
     ),
     MethodMetadata(
         name="PoissonGaussianLikelihoodRatioLoss",

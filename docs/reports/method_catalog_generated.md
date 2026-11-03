@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-10-27`
+_Generated date_: `2026-11-03`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `158`
+- Total methods: `159`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 
 ### By Family
@@ -40,7 +40,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `ordinal` | 2 |
 | `point_loss` | 1 |
 | `poisson` | 4 |
-| `poisson_gaussian` | 3 |
+| `poisson_gaussian` | 4 |
 | `probabilistic_loss` | 11 |
 | `quantile` | 2 |
 | `representation_regularizer` | 1 |
@@ -61,7 +61,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 131 |
+| `Available` | 132 |
 
 ## Method Rows
 
@@ -176,6 +176,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `ZeroInflatedPoissonNLLLoss` | `poisson` | `Available` | `count_data`, `non_gaussian`, `zero_inflated` | `calibration*`, `ood*` | `torchregress.losses.ZeroInflatedPoissonNLLLoss` |
 | `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.EnhancedPoissonGaussianMixtureLoss` |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `ablation` | `calibration*`, `ood*` | `torchregress.losses.PoissonGaussianLikelihoodRatioLoss` |
+| `PoissonGaussianLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.PoissonGaussianLoss` |
 | `PoissonGaussianMixtureLoss` | `poisson_gaussian` | `Available` | `count_data`, `non_gaussian`, `mixture`, `noisy_counts` | `calibration*`, `ood*` | `torchregress.losses.PoissonGaussianMixtureLoss` |
 | `BetaNLLLoss` | `probabilistic_loss` | `Available` | `heteroscedastic_noise`, `aleatoric_uq`, `optimization_stability` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.BetaNLLLoss` |
 | `FaithfulGaussianLoss` | `probabilistic_loss` | `Available` | `heteroscedastic_noise`, `aleatoric_uq`, `mean_variance_decoupling` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.FaithfulGaussianLoss` |

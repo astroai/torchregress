@@ -8,8 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, and harness parity. No new methods.
 
+### Added
+
+- `PoissonGaussianLoss` (registry key `"poisson_gaussian"`): NLL of Poisson shot
+  noise convolved with Gaussian read noise, `y = g K + b + eps`, with fixed or
+  learnable gain, offset and read-noise variance. Finite support with
+  `tail_sigma` and renormalisation, an observation-conditioned window for
+  outliers, chunked evaluation and analytic gradients (ported from torchsky).
+  Docs: `docs/losses/poisson_gaussian.md`.
+
 ### Fixed
 
+- `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss` docs
+  and docstrings described the shot-plus-read-noise convolution and cited
+  Seifert et al. (2023), which uses it. They compute a two-component mixture;
+  the docs now say so, report its low-count bias, and point to
+  `PoissonGaussianLoss`. Behaviour is unchanged.
 - `ConformalLoss` no longer swallows unknown keyword arguments (including the
   removed `debias`). Docs and tests that still advertised the no-op are gone.
 - Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors

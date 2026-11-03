@@ -6,10 +6,11 @@ which are particularly useful in signal processing and scientific imaging (e.g.,
 low-light photography) where observations suffer from both discrete Poisson counting (shot)
 noise and continuous Gaussian electronic (readout) noise.
 
-Supported losses:
-1. PoissonGaussianMixtureLoss: Models y ~ Poisson(λ) + N(0, σ²).
-2. EnhancedPoissonGaussianMixtureLoss: Models y ~ Poisson(g * λ + b) + N(0, σ_1² + σ_2² * λ)
-   where g is gain, b is offset, σ_1² is read noise, and σ_2² is shot noise.
+Supported losses (both are two-component mixtures, not the shot-plus-read-noise
+convolution that generates the data here; for that model use PoissonGaussianLoss):
+1. PoissonGaussianMixtureLoss: -log(w Pois(y; λ) + (1 - w) N(y; λ, σ²)).
+2. EnhancedPoissonGaussianMixtureLoss: the same equal-weight mixture with
+   μ = g λ + b and Gaussian variance σ_1² + σ_2² μ.
 """
 
 import numpy as np
@@ -125,7 +126,7 @@ def main():
         print(f"Loss: {name:<25} MAE on true rate: {mae:.4f}")
 
     print("\nObservation:")
-    print("1. Poisson-Gaussian mixture loss models both counting uncertainty and readout noise.")
+    print("1. Both losses are two-component mixtures; PoissonGaussianLoss is the detector model.")
     print(
         "2. Enhanced formulation allows learning additional physical parameters like camera gain."
     )

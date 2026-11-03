@@ -446,6 +446,14 @@ def _poisson_gaussian(cls: Callable[..., Any], **init: Any) -> Builder:
     return build
 
 
+def _poisson_gaussian_convolution(r: _Rng) -> Built:
+    rate = r.positive(N, 2) * 8.0
+    target = 1.5 * rate + 2.0 + 2.0 * r.normal(N, 2)
+    target[0, 0] = 400.0  # far outlier row
+    loss = L.PoissonGaussianLoss(gain=1.5, offset=2.0, read_noise_variance=4.0)
+    return loss, (rate, target), {}
+
+
 def _conformal(method: str) -> Builder:
     def build(r: _Rng) -> Built:
         if method == "split":
@@ -641,6 +649,7 @@ LOSS_CASES: dict[str, Builder] = {
     "PoissonGaussianMixtureLoss": _poisson_gaussian(
         L.PoissonGaussianMixtureLoss, initial_variance=0.1, log_input=False
     ),
+    "PoissonGaussianLoss": _poisson_gaussian_convolution,
     "PoissonGaussianLikelihoodRatioLoss": _poisson_gaussian(
         L.PoissonGaussianLikelihoodRatioLoss, log_input=False
     ),

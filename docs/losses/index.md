@@ -184,7 +184,7 @@ For **count data** and targets with specific mean-variance relationships.
 | `InverseGaussianLoss` | Inverse Gaussian | Positive, $\text{Var} \propto \mu^3$ |
 | `CompoundPoissonLoss` | Compound Poisson | Zeros + continuous positives |
 
-Read the [Poisson & Tweedie guide](poisson_tweedie.md) for count models and [Poisson-Gaussian](poisson_gaussian.md) for mixed readout-noise models.
+Read the [Poisson & Tweedie guide](poisson_tweedie.md) for count models and [Poisson-Gaussian](poisson_gaussian.md) for shot noise plus read noise (`PoissonGaussianLoss`).
 
 ---
 
