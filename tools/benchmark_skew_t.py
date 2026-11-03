@@ -87,7 +87,9 @@ def _count_launches(dev: torch.device, batch: int) -> dict[str, int]:
         torch.cuda.synchronize()
     names = [e.name for e in prof.events()]
     launches = sum(n.startswith(("cudaLaunchKernel", "cuLaunchKernel")) for n in names)
-    syncs = sum(n in ("cudaStreamSynchronize", "cudaMemcpyAsync") for n in names) - 1
+    # Stream syncs inside the step (the explicit device sync after it is not
+    # counted); device-to-device cudaMemcpyAsync copies do not block the host.
+    syncs = sum(n == "cudaStreamSynchronize" for n in names)
     return {"kernel_launches": launches, "host_syncs": syncs}
 
 
