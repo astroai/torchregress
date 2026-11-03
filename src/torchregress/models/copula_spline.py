@@ -25,6 +25,9 @@ class GaussianCopulaSplineHead(nn.Module):
     are approximate and must be checked for convergence.
     """
 
+    row: Tensor
+    col: Tensor
+
     def __init__(
         self,
         context_dim: int,
@@ -55,19 +58,25 @@ class GaussianCopulaSplineHead(nn.Module):
             nn.GELU(),
             nn.Linear(width, target_dim + len(row) + target_dim * (3 * bins - 1)),
         )
-        nn.init.zeros_(self.net[-1].weight)
-        nn.init.zeros_(self.net[-1].bias)
+        nn.init.zeros_(self._out.weight)
+        nn.init.zeros_(self._out.bias)
         with torch.no_grad():
             # softplus(raw)+floor = 1 at initialization, making the initial
             # transform and base covariance the identity.
-            self.net[-1].bias[target_dim : target_dim + len(row)][row == col] = math.log(
+            self._out.bias[target_dim : target_dim + len(row)][row == col] = math.log(
                 math.expm1(1 - min_scale)
             )
+
+    @property
+    def _out(self) -> nn.Linear:
+        layer = self.net[-1]
+        assert isinstance(layer, nn.Linear)
+        return layer
 
     def _distribution_parameters(self, context: Tensor, *, work_dtype=None):
         if context.ndim != 2 or not torch.isfinite(context).all():
             raise ValueError("Context must be finite [B,C]")
-        parameter_dtype = self.net[-1].weight.dtype
+        parameter_dtype = self._out.weight.dtype
         if parameter_dtype not in (torch.float32, torch.float64):
             raise ValueError("Keep spline-flow parameters in float32 or float64")
         raw = self.net(context.to(parameter_dtype))
@@ -124,7 +133,7 @@ class GaussianCopulaSplineHead(nn.Module):
 
     def intrinsic_log_prob(self, context: Tensor, value: Tensor, mask: Tensor) -> Tensor:
         """Exact intrinsic subvector density for each row; empty rows return zero."""
-        dtype = torch.promote_types(self.net[-1].weight.dtype, value.dtype)
+        dtype = torch.promote_types(self._out.weight.dtype, value.dtype)
         with torch.autocast(device_type=context.device.type, enabled=False):
             mean, lower, transform = self._distribution_parameters(context, work_dtype=dtype)
             return self._intrinsic(mean, lower, transform, value.to(dtype), mask)
@@ -145,7 +154,7 @@ class GaussianCopulaSplineHead(nn.Module):
         if not torch.isfinite(sigma[mask]).all() or (sigma[mask] < 0).any():
             raise ValueError("Observed noise scales must be finite and nonnegative")
         dtype = torch.promote_types(
-            self.net[-1].weight.dtype, torch.promote_types(value.dtype, sigma.dtype)
+            self._out.weight.dtype, torch.promote_types(value.dtype, sigma.dtype)
         )
         dtype = torch.promote_types(dtype, nodes.dtype)
         with torch.autocast(device_type=context.device.type, enabled=False):

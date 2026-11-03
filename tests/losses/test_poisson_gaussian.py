@@ -1,16 +1,12 @@
-import pytest
 import torch
 from torch import optim
 
 from torchregress.losses.poisson_gaussian import (
     EnhancedPoissonGaussianContaminationMixtureConfig,
     EnhancedPoissonGaussianContaminationMixtureLoss,
-    EnhancedPoissonGaussianMixtureLoss,
-    PoissonGaussianContaminationMixtureConfig,
     PoissonGaussianContaminationMixtureLoss,
     PoissonGaussianLikelihoodRatioConfig,
     PoissonGaussianLikelihoodRatioLoss,
-    PoissonGaussianMixtureLoss,
 )
 
 
@@ -552,57 +548,3 @@ def test_numerical_stability():
     target3 = torch.tensor([[0.0, 1e-8], [1e-9, 1e-7]])
     loss3 = loss_fn3(y_pred3, target3)
     assert not torch.isnan(loss3)
-
-
-class TestDeprecatedMixtureAliases:
-    """Old mixture names warn and behave identically to the renamed classes."""
-
-    @pytest.mark.parametrize(
-        ("old", "new", "kwargs"),
-        [
-            (
-                PoissonGaussianMixtureLoss,
-                PoissonGaussianContaminationMixtureLoss,
-                {"initial_variance": 0.3},
-            ),
-            (
-                EnhancedPoissonGaussianMixtureLoss,
-                EnhancedPoissonGaussianContaminationMixtureLoss,
-                {"gain": 1.5, "read_noise": 0.2, "shot_noise": 0.1},
-            ),
-        ],
-    )
-    def test_class_alias_warns_and_matches(self, old, new, kwargs):
-        with pytest.warns(DeprecationWarning, match="PoissonGaussianLoss"):
-            old_fn = old(**kwargs)
-        new_fn = new(**kwargs)
-        assert isinstance(old_fn, new)
-        y_pred = torch.tensor([[10.0, 20.0], [5.0, 15.0]])
-        target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])
-        assert torch.equal(old_fn(y_pred, target), new_fn(y_pred, target))
-
-    @pytest.mark.parametrize(
-        ("old_key", "new_key"),
-        [
-            ("poisson_gaussian_mixture", "poisson_gaussian_contamination_mixture"),
-            (
-                "enhanced_poisson_gaussian_mixture",
-                "enhanced_poisson_gaussian_contamination_mixture",
-            ),
-        ],
-    )
-    def test_registry_alias_warns(self, old_key, new_key):
-        from torchregress.losses.loss_registry import create_loss_from_config, get_regression_loss
-
-        with pytest.warns(DeprecationWarning, match="next minor release"):
-            old_cls = get_regression_loss(old_key)
-        assert issubclass(old_cls, get_regression_loss(new_key))
-        with pytest.warns(DeprecationWarning):
-            create_loss_from_config({"type": old_key})
-
-    def test_old_config_names_warn(self):
-        from torchregress.losses import poisson_gaussian as mod
-
-        with pytest.warns(DeprecationWarning):
-            cfg_cls = mod.PoissonGaussianMixtureConfig
-        assert cfg_cls is PoissonGaussianContaminationMixtureConfig

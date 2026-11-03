@@ -6,14 +6,10 @@ Use @register_regression_loss(name) to register custom loss classes.
 
 from __future__ import annotations
 
-import warnings
 from typing import Any, Callable, Dict, List, Type
 
 # Global registry dictionary
 loss_registry: Dict[str, Type] = {}
-
-# Deprecated registry key -> replacement key. Lookup by a deprecated key warns.
-deprecated_loss_keys: Dict[str, str] = {}
 
 
 def register_regression_loss(name: str) -> Callable:
@@ -36,21 +32,6 @@ def register_regression_loss(name: str) -> Callable:
     return decorator
 
 
-def register_deprecated_loss_key(old: str, new: str) -> None:
-    """Mark registry key ``old`` as deprecated in favour of ``new``."""
-    deprecated_loss_keys[old] = new
-
-
-def _warn_deprecated_key(name: str) -> None:
-    if name in deprecated_loss_keys:
-        warnings.warn(
-            f"Loss registry key '{name}' is deprecated and will be removed in the next minor "
-            f"release; use '{deprecated_loss_keys[name]}'.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-
-
 def get_regression_loss(name: str) -> Type:
     """
     Retrieve a registered loss class by name.
@@ -66,7 +47,6 @@ def get_regression_loss(name: str) -> Type:
     """
     if name not in loss_registry:
         raise KeyError(f"Loss '{name}' is not registered.")
-    _warn_deprecated_key(name)
     return loss_registry[name]
 
 
@@ -97,7 +77,6 @@ def create_loss_from_config(config: Dict[str, Any]) -> Any:
 
     # ponytail: registry is already populated by @register_regression_loss decorators.
     if loss_type in loss_registry:
-        _warn_deprecated_key(loss_type)
         return loss_registry[loss_type](**cfg)
 
     available = sorted(loss_registry)

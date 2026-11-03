@@ -12,7 +12,7 @@ def test_waldo_statistic_shapes() -> None:
     target = torch.ones(4, 2)
     var = torch.ones(4, 2)
     assert torch.allclose(waldo_statistic(mean, target, var), torch.full((4,), 2.0))
-    cov = torch.eye(2).expand(4, 2, 2)
+    cov = torch.eye(2, dtype=mean.dtype, device=mean.device).expand(4, 2, 2)
     assert torch.allclose(
         waldo_statistic(mean, target, cov, covariance_type="full"), torch.full((4,), 2.0)
     )

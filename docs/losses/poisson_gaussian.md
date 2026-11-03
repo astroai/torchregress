@@ -12,13 +12,6 @@ and says which one to use.
 | `EnhancedPoissonGaussianContaminationMixtureLoss` | Same mixture with gain, offset and a signal-dependent Gaussian variance | Not a detector model; see [Mixture losses](#mixture-losses) |
 | `PoissonGaussianLikelihoodRatioLoss` | Average of a Poisson deviance and a scaled squared error | Not a likelihood of either model |
 
-!!! warning "Renamed mixture losses"
-    `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss` (registry keys
-    `"poisson_gaussian_mixture"` and `"enhanced_poisson_gaussian_mixture"`) are deprecated
-    aliases of the `...ContaminationMixtureLoss` classes above, which keep the same
-    behaviour. They emit `DeprecationWarning` and will be removed in the next minor release.
-    For shot-plus-read-noise detector data use `PoissonGaussianLoss`.
-
 !!! tip "API reference"
     See [`PoissonGaussianLoss`](../api/losses.md) and the other classes in the
     API reference for full signatures.

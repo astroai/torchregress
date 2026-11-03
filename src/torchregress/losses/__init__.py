@@ -186,12 +186,9 @@ from .poisson import (
 # Mixed Poisson-Gaussian losses
 from .poisson_gaussian import (
     EnhancedPoissonGaussianContaminationMixtureLoss,
-    # Deprecated aliases (removed in the next minor release)
-    EnhancedPoissonGaussianMixtureLoss,
     PoissonGaussianContaminationMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
     PoissonGaussianLoss,
-    PoissonGaussianMixtureLoss,
 )
 
 # Representation-level imbalanced-regression losses (PRIME proxies, ConR)
@@ -289,7 +286,6 @@ __all__ = [
     "DistributionLoss",
     "DistributionalConformal",
     "EnhancedPoissonGaussianContaminationMixtureLoss",
-    "EnhancedPoissonGaussianMixtureLoss",
     "EnsembleBatchCP",
     "EnsembleEIVLoss",
     "EvidentialRegressionLoss",
@@ -341,7 +337,6 @@ __all__ = [
     "PoissonGaussianLikelihoodRatioLoss",
     "PoissonGaussianLoss",
     "PoissonGaussianContaminationMixtureLoss",
-    "PoissonGaussianMixtureLoss",
     "PoissonLikelihoodRatioLoss",
     "PrevalenceAdjustedCP",
     "PrimeLoss",

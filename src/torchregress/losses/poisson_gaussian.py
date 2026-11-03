@@ -12,15 +12,11 @@ Two different likelihoods share the "Poisson-Gaussian" name:
   ``w * Pois(y; .) + (1 - w) * N(y; .)``: each sample is drawn from *either* a
   Poisson *or* a Gaussian law. That is a contamination model, not the
   shot-plus-read-noise model.
-  The former names ``PoissonGaussianMixtureLoss`` and
-  ``EnhancedPoissonGaussianMixtureLoss`` remain as deprecated aliases and will be
-  removed in the next minor release.
 - :class:`PoissonGaussianLikelihoodRatioLoss` averages a Poisson deviance and a
   scaled squared error; it is not a likelihood of either model.
 """
 
 import math
-import warnings
 from dataclasses import dataclass
 from typing import Any, Optional, Union, cast
 
@@ -30,7 +26,7 @@ from torch.nn import PoissonNLLLoss
 
 from ._poisson_gaussian_kernel import poisson_gaussian_nll
 from .base import RegressionLoss
-from .loss_registry import register_deprecated_loss_key, register_regression_loss
+from .loss_registry import register_regression_loss
 
 
 def _safe_log_weight(weight: "float | torch.Tensor", like: torch.Tensor) -> torch.Tensor:
@@ -746,77 +742,3 @@ class PoissonGaussianLikelihoodRatioLoss(RegressionLoss):
 
         # Apply reduction with mask and weights
         return self._reduce(combined_lr, mask, weights)
-
-
-# ---------------------------------------------------------------------------
-# Deprecated aliases (to be removed in the next minor release)
-# ---------------------------------------------------------------------------
-
-_ALIAS_NOTE = (
-    "It computes a two-component mixture w*Pois + (1-w)*N, not the Poisson-Gaussian "
-    "detector convolution; use {new} for the mixture, or PoissonGaussianLoss for "
-    "shot-plus-read-noise detector data."
-)
-
-
-def _warn_alias(old: str, new: str) -> None:
-    warnings.warn(
-        f"{old} is deprecated and will be removed in the next minor release. "
-        + _ALIAS_NOTE.format(new=new),
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
-@register_regression_loss("poisson_gaussian_mixture")
-class PoissonGaussianMixtureLoss(PoissonGaussianContaminationMixtureLoss):
-    """Deprecated alias of :class:`PoissonGaussianContaminationMixtureLoss`."""
-
-    def __init__(
-        self,
-        config: Optional[PoissonGaussianContaminationMixtureConfig] = None,
-        reduction: str = "mean",
-        **kwargs: Any,
-    ) -> None:
-        _warn_alias("PoissonGaussianMixtureLoss", "PoissonGaussianContaminationMixtureLoss")
-        super().__init__(config, reduction, **kwargs)
-
-
-@register_regression_loss("enhanced_poisson_gaussian_mixture")
-class EnhancedPoissonGaussianMixtureLoss(EnhancedPoissonGaussianContaminationMixtureLoss):
-    """Deprecated alias of :class:`EnhancedPoissonGaussianContaminationMixtureLoss`."""
-
-    def __init__(
-        self,
-        config: Optional[EnhancedPoissonGaussianContaminationMixtureConfig] = None,
-        reduction: str = "mean",
-        **kwargs: Any,
-    ) -> None:
-        _warn_alias(
-            "EnhancedPoissonGaussianMixtureLoss",
-            "EnhancedPoissonGaussianContaminationMixtureLoss",
-        )
-        super().__init__(config, reduction, **kwargs)
-
-
-register_deprecated_loss_key("poisson_gaussian_mixture", "poisson_gaussian_contamination_mixture")
-register_deprecated_loss_key(
-    "enhanced_poisson_gaussian_mixture", "enhanced_poisson_gaussian_contamination_mixture"
-)
-
-_DEPRECATED_CONFIGS = {
-    "PoissonGaussianMixtureConfig": "PoissonGaussianContaminationMixtureConfig",
-    "EnhancedPoissonGaussianConfig": "EnhancedPoissonGaussianContaminationMixtureConfig",
-}
-
-
-def __getattr__(name: str) -> Any:
-    new = _DEPRECATED_CONFIGS.get(name)
-    if new is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    warnings.warn(
-        f"{name} is deprecated and will be removed in the next minor release; use {new}.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return globals()[new]

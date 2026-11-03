@@ -15,6 +15,10 @@ are not added back.
 
 ## 0.3.0 docs and harness work
 
+Exception, decided 2026-11-03: the multi-source Gaussian losses and calibration heads,
+`GaussianCopulaSplineHead`, and `PoissonGaussianLoss` landed after the beta and ship in
+0.3.0. Nothing else new lands before the tag.
+
 These stay out of the beta diff and land while 0.3.0 is stabilized:
 
 - Merge example pairs that share a harness and differ only by data source: causal, censored, EIV, multimodal, noisy-label, OOD selective prediction, ordinal, and uncertain-ground-truth comparisons.

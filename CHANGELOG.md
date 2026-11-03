@@ -6,10 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
-Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, and harness parity. No new methods.
+Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, and harness parity.
+Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
+"no new methods" rule applies from here to the 0.3.0 tag.
 
 ### Added
 
+- Multi-source regression: `MarginalizedMultiSourceGaussianNLLLoss` and
+  `PackedObservations` (joint NLL over all noisy measurements of one shared
+  Gaussian latent, linearized observation maps, full measurement covariance,
+  masked missing dimensions), `RobustMultiSourceGaussianNLLLoss`, and
+  `GaussianLatentForwardObservationNLLLoss` (quadrature through a nonlinear
+  forward map). Calibration heads `CommonScaleSplineHead`,
+  `RelativeSurveySplineHead`, `ConditionBiasHead` and
+  `bspline_basis_with_derivative`. Docs: `docs/losses/multisource.md`.
+- `torchregress.models.GaussianCopulaSplineHead`: a conditional joint spline
+  flow (full-covariance Gaussian followed by per-coordinate monotone
+  rational-quadratic splines) with exact marginalization of missing
+  coordinates. Requires the `flows` extra.
 - `PoissonGaussianLoss` (registry key `"poisson_gaussian"`): NLL of Poisson shot
   noise convolved with Gaussian read noise, `y = g K + b + eps`, with fixed or
   learnable gain, offset and read-noise variance. Finite support with
@@ -30,15 +44,6 @@ Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, a
   (`PoissonGaussianLoss`). Behaviour is unchanged. The example is now
   `examples/poisson_gaussian_contamination_mixture_demo.py`.
   `PoissonGaussianLikelihoodRatioLoss` is unchanged: it is not a mixture.
-
-### Deprecated
-
-- `PoissonGaussianMixtureLoss`, `EnhancedPoissonGaussianMixtureLoss`, their
-  registry keys (`"poisson_gaussian_mixture"`,
-  `"enhanced_poisson_gaussian_mixture"`) and the old config names remain as
-  aliases that emit `DeprecationWarning` on construction or lookup. They will be
-  removed in the next minor release; use the renamed classes, or
-  `PoissonGaussianLoss` for detector noise.
 
 ### Fixed
 
