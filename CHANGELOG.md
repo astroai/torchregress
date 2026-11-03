@@ -131,7 +131,12 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
   middle values for even counts, instead of `torch.median`'s lower middle value:
   `neighbour_target_gap`, the `*_NMAD` entries of `frozen_readout_metrics`,
   `calculate_mad` (and so `reweight_fixed_predictions(variance_type="robust")`),
-  and the masked `scale="mad"` estimate of `iteratively_reweighted_fit`.
+  the masked `scale="mad"` estimate of `iteratively_reweighted_fit`, the
+  `VarianceTemperatureScaler` `clip` centre/MAD and variance median,
+  `BalancedMSEBMC`'s robust scale and fitted median, `RepresentationShiftInflator`'s
+  reference scale, the median-heuristic bandwidths of `random_fourier_features`
+  and the test-time Bayesian head, and the MC-sample centre in `conformal.py`.
+  Results move slightly for even-sized inputs.
   `neighbour_target_gap`'s docstring now says what it computes: the median over
   points of the mean absolute target difference to the k nearest neighbours.
 - MAD-to-sigma consistency constant is `1 / Phi^-1(0.75) = 1.482602218505602`
@@ -139,12 +144,6 @@ Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
   `median_absolute_deviation`, `NormalizedMedianAbsoluteDeviation`, representation
   `nmad` and readout NMAD, IRLS robust scales, `BalancedMSEBMC` robust scale,
   `VarianceTemperatureScaler` `clip`).
-- `PoissonGaussianLoss` learnable parameters (`log_gain`, `offset`,
-  `log_read_noise_variance`) are created in float64 from the exact initial
-  values, so `.double()` / `.to(torch.float64)` no longer carry a float32-rounded
-  `log(read_noise_variance)`; in float64 the learnable loss matches the fixed one
-  to 1e-15 (was ~4e-9). Float32 inputs see the same values as before.
-
 - `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss` docs
   and docstrings described the shot-plus-read-noise convolution and cited
   Seifert et al. (2023), which uses it. They compute a two-component mixture;

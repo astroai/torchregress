@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 
 from torchregress.prediction import PredictiveBatch
+from torchregress.utils.tensor_ops import _median
 
 
 def _augment_features(phi: torch.Tensor, *, fit_intercept: bool) -> torch.Tensor:
@@ -197,7 +198,7 @@ class BayesianLinearHead(nn.Module):
             if pdists.numel() == 0:
                 gamma = 1.0
             else:
-                median_sq = pdists.median().item() ** 2
+                median_sq = _median(pdists).item() ** 2
                 gamma = 1.0 / max(2.0 * median_sq, 1e-12)
         self._rbf_gamma.fill_(gamma)
 

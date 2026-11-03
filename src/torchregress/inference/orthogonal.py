@@ -35,6 +35,8 @@ from typing import Literal
 import torch
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import _median
+
 __all__ = [
     "OrthogonalEstimate",
     "median_heuristic_bandwidth",
@@ -148,7 +150,7 @@ def median_heuristic_bandwidth(
     points = points - points.mean(dim=0, keepdim=True)
     distances = torch.cdist(points, points, compute_mode="donot_use_mm_for_euclid_dist")
     upper = torch.triu_indices(points.shape[0], points.shape[0], offset=1)
-    median = float(distances[upper[0], upper[1]].median())
+    median = float(_median(distances[upper[0], upper[1]]))
     return median if median > 0.0 else 1.0
 
 

@@ -60,6 +60,8 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import _median
+
 from .base import BaseLoss, RegressionLoss
 from .loss_registry import register_regression_loss
 
@@ -118,8 +120,8 @@ def _compute_dtype(*tensors: Tensor) -> torch.dtype:
 def _mad_scale(x: Tensor) -> Tensor:
     """Robust Gaussian scale estimate ``1.482602218505602 * median(|x - median(x)|).``"""
     x = x.reshape(-1)
-    center = x.median()
-    return _MAD_TO_SIGMA * (x - center).abs().median()
+    center = _median(x)
+    return _MAD_TO_SIGMA * _median((x - center).abs())
 
 
 def _bmc_per_sample(
@@ -382,7 +384,7 @@ class BalancedMSEBMC(RegressionLoss):
             self._prior_log_density = torch.empty(0, dtype=fit_dtype, device=targets.device)
             self._kde_points = torch.empty(0, dtype=fit_dtype, device=targets.device)
 
-        self._fitted_median = targets.median().to(dtype=torch.float32).clone()
+        self._fitted_median = _median(targets).to(dtype=torch.float32).clone()
 
         if self._sigma_init is not None:
             self._sigma = torch.tensor(self._sigma_init, dtype=torch.float32, device=targets.device)
@@ -696,7 +698,7 @@ def balanced_mse_bmc_loss(
         raise ValueError("target contains non-finite values; mark missing entries with mask=...")
 
     fill = (
-        tgt_c[valid].median()
+        _median(tgt_c[valid])
         if bool(valid.any())
         else torch.zeros((), dtype=dtype, device=tgt_c.device)
     )

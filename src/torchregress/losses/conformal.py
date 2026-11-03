@@ -36,6 +36,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 import torch
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import _median
+
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
@@ -2520,7 +2522,7 @@ class MonteCarloConformal(ConformalPredictor):
         if mc_samples.dim() < 2:
             raise ValueError("mc_samples must have shape [n_samples, batch, ...]")
         if self.center == "median":
-            center = mc_samples.median(dim=0).values
+            center = _median(mc_samples, dim=0)
         else:
             center = mc_samples.mean(dim=0)
         uncertainty = mc_samples.std(dim=0, unbiased=False).clamp(min=self.min_uncertainty)

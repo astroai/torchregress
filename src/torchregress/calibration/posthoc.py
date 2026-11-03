@@ -11,7 +11,7 @@ import torch
 from torch import Tensor
 
 from torchregress.utils.distributions import normal_cdf
-from torchregress.utils.tensor_ops import _MAD_TO_SIGMA
+from torchregress.utils.tensor_ops import _MAD_TO_SIGMA, _median
 
 
 @dataclass
@@ -131,8 +131,8 @@ class VarianceTemperatureScaler:
         keep &= torch.isfinite(noise)
         if clip is not None:
             residual = (y - mean)[keep]
-            centre = residual.median()
-            robust = _MAD_TO_SIGMA * (residual - centre).abs().median()
+            centre = _median(residual)
+            robust = _MAD_TO_SIGMA * _median((residual - centre).abs())
             if float(robust) > 0:
                 keep &= (y - mean - centre).abs() <= clip * robust
         if int(keep.sum()) < 2:
@@ -141,7 +141,7 @@ class VarianceTemperatureScaler:
 
         # Work in units of the typical predicted variance, so the optimiser sees
         # O(1) numbers whatever the physical scale of the target.
-        unit = var.median().clamp_min(torch.finfo(torch.float64).tiny)
+        unit = _median(var).clamp_min(torch.finfo(torch.float64).tiny)
         var_u, noise_u = (var / unit).clamp_min(self.eps), noise / unit
         residual_sq = (y - mean) ** 2 / unit
         floor_u = self.variance_floor / float(unit)
