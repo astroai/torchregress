@@ -82,13 +82,13 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `contrastive_flow_parameter_estimation_comparison.py` | comparison | Parameter-estimation methods on synthetic pseudo-experiments. | fast |
 | `eiv_method_comparison.py` | comparison | EIV loss variants under measurement error. | fast |
 | `multimodal_method_comparison.py` | comparison | Multimodal / multi-target regression methods. | fast |
-| `noisy_label_comparison.py` | comparison | Noisy-label losses with calibration metrics. | fast |
-| `ood_selective_prediction_comparison.py` | comparison | OOD and selective-prediction signals across uncertainty methods. | fast |
-| `ordinal_regression_comparison.py` | comparison | Ordinal regression methods. | fast |
+| `noisy_label_comparison.py` | comparison | Noisy-label losses with calibration metrics (`--dataset synthetic\|diabetes`). | fast |
+| `ood_selective_prediction_comparison.py` | comparison | OOD and selective-prediction signals across uncertainty methods (`--dataset synthetic\|diabetes`). | fast |
+| `ordinal_regression_comparison.py` | comparison | Ordinal regression methods (`--dataset synthetic\|diabetes`). | fast |
 | `ordinal_uncertain_ground_truth_comparison.py` | comparison | Uncertain ground truth in regression-as-classification. | fast |
 | `sls_multimodal_regression.py` | comparison | SLS vs CQR vs CTI for multimodal targets. | fast |
 | `transformed_target_regression_comparison.py` | comparison | Transformed-target losses. | fast |
-| `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods. | fast |
+| `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods (`--dataset synthetic\|diabetes`). | fast |
 | `calibrated_regressor_comparison.py` | comparison | `CalibratedRegressor` (`vts`, `isotonic+vts`), `ConformalRegressor(method="split")` and `calibrated_deep_ensemble` vs an uncalibrated Gaussian `TabularMLP`: RMSE, 90% coverage, width, NLL, runtime (`--epochs`, `--seed`, `--n-members`). | fast (about 10 s) |
 | `nsf_tail_bound_comparison.py` | comparison | NSF head with `create_flow_model(bound=recommended_tail_bound(y_std))` vs the fixed bound 5 on Student-t(3) noise: test NLL, 90% coverage and width (needs `zuko`; `--epochs`, `--seed`). | fast (about 11 s) |
 | `external_comparison_bayesian_linear_vs_botorch.py` | comparison | `BayesianLinearHead` vs BoTorch `SingleTaskGP` (needs `botorch`). | fast |
@@ -103,11 +103,7 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `censored_regression_realdata_comparison.py` | real-data | Censored losses on Diabetes. | fast |
 | `eiv_method_realdata_comparison.py` | real-data | EIV losses on Diabetes with injected measurement error. | fast |
 | `multimodal_method_realdata_comparison.py` | real-data | Multimodal / multi-target methods on Diabetes features. | fast |
-| `noisy_label_realdata_comparison.py` | real-data | Noisy-label losses on Diabetes. | fast |
-| `ood_selective_prediction_realdata_comparison.py` | real-data | OOD / selective prediction on Diabetes. | fast |
-| `ordinal_regression_realdata_comparison.py` | real-data | Ordinal methods on binned Diabetes. | fast |
 | `semi_supervised_regression_comparison.py` | real-data | Semi-supervised regression methods on a real-data proxy. | fast |
-| `uncertain_gt_density_conformal_realdata_comparison.py` | real-data | Uncertain-GT and density conformal on Diabetes. | fast |
 | `imdb_wiki_age_regression.py` | real-data | Age regression on IMDB-WIKI with several losses (ResNet backbone). | needs-download (about 1 GB dataset plus pretrained weights) |
 
 ## Library benchmarks (`benchmarks/`)
@@ -147,11 +143,7 @@ script with a `--dataset {synthetic,diabetes}` style switch:
   `causal_dr_uplift_comparison` + `causal_dr_realdata_comparison`,
   `censored_regression_comparison` + `censored_regression_realdata_comparison`,
   `eiv_method_comparison` + `eiv_method_realdata_comparison`,
-  `multimodal_method_comparison` + `multimodal_method_realdata_comparison`,
-  `noisy_label_comparison` + `noisy_label_realdata_comparison`,
-  `ood_selective_prediction_comparison` + `ood_selective_prediction_realdata_comparison`,
-  `ordinal_regression_comparison` + `ordinal_regression_realdata_comparison`,
-  `uncertain_gt_density_conformal_comparison` + `uncertain_gt_density_conformal_realdata_comparison`.
+  `multimodal_method_comparison` + `multimodal_method_realdata_comparison`.
 - **Loss comparisons**: `loss_comparison`, `comprehensive_loss_comparison`, `comprehensive_comparison`.
 - **Conformal**: `conformal_regression_example`, `evaluate_conformal_methods`, `conformal_mondrian_demo`.
 - **OT-shift conformal**: `ot_shift_conformal_demo` and `benchmarks/ot_conformal_score_shift_benchmark` describe the same toy.

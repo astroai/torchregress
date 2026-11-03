@@ -2501,7 +2501,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         examples=(
             "examples/semi_supervised_regression_comparison.py",
             "examples/uncertain_gt_density_conformal_comparison.py",
-            "examples/uncertain_gt_density_conformal_realdata_comparison.py",
+            "examples/uncertain_gt_density_conformal_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2575,7 +2575,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         examples=(
             "examples/evaluate_conformal_methods.py",
             "examples/ood_selective_prediction_comparison.py",
-            "examples/ood_selective_prediction_realdata_comparison.py",
+            "examples/ood_selective_prediction_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2605,7 +2605,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Ordinal regression / ordered targets",
         examples=(
             "examples/ordinal_regression_comparison.py",
-            "examples/ordinal_regression_realdata_comparison.py",
+            "examples/ordinal_regression_comparison.py --dataset diabetes",
             "examples/ordinal_uncertain_ground_truth_comparison.py",
         ),
         comparison_grade="Strong",
@@ -2652,7 +2652,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="OOD robustness / selective prediction",
         examples=(
             "examples/ood_selective_prediction_comparison.py",
-            "examples/ood_selective_prediction_realdata_comparison.py",
+            "examples/ood_selective_prediction_comparison.py --dataset diabetes",
             "examples/comprehensive_comparison.py",
         ),
         comparison_grade="Decision-grade",
@@ -2749,7 +2749,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Noisy labels / corruption",
         examples=(
             "examples/noisy_label_comparison.py",
-            "examples/noisy_label_realdata_comparison.py",
+            "examples/noisy_label_comparison.py --dataset diabetes",
             "examples/comprehensive_loss_comparison.py",
         ),
         comparison_grade="Strong",

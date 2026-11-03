@@ -68,16 +68,13 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("balanced_mse_demo")
     _load_example_module("evaluate_conformal_methods")
     _load_example_module("ood_selective_prediction_comparison")
-    _load_example_module("ood_selective_prediction_realdata_comparison")
     _load_example_module("eiv_method_comparison")
     _load_example_module("eiv_method_realdata_comparison")
     _load_example_module("noisy_label_comparison")
-    _load_example_module("noisy_label_realdata_comparison")
     _load_example_module("multimodal_method_comparison")
     _load_example_module("multimodal_method_realdata_comparison")
     _load_example_module("contrastive_flow_parameter_estimation_comparison")
     _load_example_module("ordinal_regression_comparison")
-    _load_example_module("ordinal_regression_realdata_comparison")
     _load_example_module("ordinal_uncertain_ground_truth_comparison")
     _load_example_module("censored_regression_comparison")
     _load_example_module("censored_regression_realdata_comparison")
@@ -85,7 +82,6 @@ def test_hard_problem_examples_import_smoke() -> None:
     _load_example_module("transformed_target_regression_comparison")
     _load_example_module("semi_supervised_regression_comparison")
     _load_example_module("uncertain_gt_density_conformal_comparison")
-    _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
     _load_example_module("causal_dr_uplift_comparison")
     _load_example_module("causal_dr_realdata_comparison")
     _load_example_module("poisson_regression_demo")
@@ -387,8 +383,8 @@ def test_ood_selective_prediction_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_ood_selective_prediction_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("ood_selective_prediction_realdata_comparison")
+def test_ood_selective_prediction_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("ood_selective_prediction_comparison")
     cfg = mod.OODRealDataConfig(
         n_train=64,
         n_cal=24,
@@ -610,8 +606,8 @@ def test_noisy_label_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_noisy_label_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("noisy_label_realdata_comparison")
+def test_noisy_label_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("noisy_label_comparison")
     cfg = mod.NoisyLabelRealDataConfig(
         n_train=64,
         n_cal=24,
@@ -685,8 +681,8 @@ def test_ordinal_regression_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_ordinal_regression_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("ordinal_regression_realdata_comparison")
+def test_ordinal_regression_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("ordinal_regression_comparison")
     cfg = mod.OrdinalRealDataConfig(
         n_train=128,
         n_test=64,
@@ -753,8 +749,8 @@ def test_uncertain_gt_density_conformal_comparison_main_smoke() -> None:
     mod.main(cfg)
 
 
-def test_uncertain_gt_density_conformal_realdata_comparison_main_smoke() -> None:
-    mod = _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
+def test_uncertain_gt_density_conformal_comparison_diabetes_main_smoke() -> None:
+    mod = _load_example_module("uncertain_gt_density_conformal_comparison")
     cfg = mod.UncertainGTConformalRealDataConfig(
         n_train=120,
         n_cal=64,
@@ -947,3 +943,27 @@ def test_orthogonal_inference_rff_demo_main_smoke() -> None:
     rows = mod.main(replications=2, n=120, seed=0, n_rff=16)
     assert len(rows) == 3
     assert all(np.isfinite(r["Bias"]) for r in rows)
+
+
+@pytest.mark.parametrize(
+    ("stem", "synthetic_cls", "diabetes_cls"),
+    [
+        ("noisy_label_comparison", "NoisyLabelComparisonConfig", "NoisyLabelRealDataConfig"),
+        ("ood_selective_prediction_comparison", "OODConfig", "OODRealDataConfig"),
+        ("ordinal_regression_comparison", "OrdinalComparisonConfig", "OrdinalRealDataConfig"),
+        (
+            "uncertain_gt_density_conformal_comparison",
+            "UncertainGTConformalConfig",
+            "UncertainGTConformalRealDataConfig",
+        ),
+    ],
+)
+def test_dataset_flag_selects_dataset_config(
+    stem: str, synthetic_cls: str, diabetes_cls: str
+) -> None:
+    mod = _load_example_module(stem)
+    assert mod.DATASETS == ("synthetic", "diabetes")
+    assert type(mod.default_config("synthetic")) is getattr(mod, synthetic_cls)
+    assert type(mod.default_config("diabetes")) is getattr(mod, diabetes_cls)
+    with pytest.raises(ValueError, match="Unknown dataset"):
+        mod.default_config("not-a-dataset")
