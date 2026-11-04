@@ -147,6 +147,15 @@ Bug fixes, performance of existing code, docs, and harness parity on top of the
 
 ### Fixed
 
+- `VIRRegressor` training is stable again across seeds, platforms and torch
+  versions. The `kl_weight` latent regulariser averaged
+  `KL(q(z|x) || N(0, I))` over the latent dimensions instead of summing them,
+  so it was `latent_dim` times weaker than documented. Without a scale anchor,
+  the label-smoothing recolouring let the encoder expand the latent scale every
+  epoch (latent and gradient norms grew roughly 100x). Late epochs then became
+  chaotic and tail error regressed on some seeds, for example in the pip/torch
+  2.15 CI job. The KL is now summed over latent dimensions and averaged over
+  the batch; the default weight is unchanged.
 - `create_flow_model(flow_type="maf")` and the affine-coupling types
   (`"realnvp"`/`"cinn"`/`"nice"`) no longer produce exploding samples. A far-tail
   base draw could give an out-of-range coordinate; the ReLU conditioner then
