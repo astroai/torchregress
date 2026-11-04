@@ -112,7 +112,7 @@ with $\Omega_i=2\beta_i^*(1+\nu_i^*)$. The training objective adds the evidentia
 
 $$\mathcal L_i=\mathcal L_i^{\mathrm{NLL}}+\lambda\,(\nu_i^*+2\alpha_i^*)\,|y_i-\gamma_i^*|,$$
 
-and optionally a small $\mathrm{KL}\big(q_\phi(z_i\mid x_i)\,\|\,\mathcal N(0,I)\big)$ term scaled by `kl_weight`.
+and optionally a small $\mathrm{KL}\big(q_\phi(z_i\mid x_i)\,\|\,\mathcal N(0,I)\big)=\tfrac12\sum_{j}\big(\sigma_{ij}^2+\mu_{ij}^2-1-\log\sigma_{ij}^2\big)$ term (summed over latent dimensions, averaged over the batch) scaled by `kl_weight`.
 
 ### Prediction
 
@@ -330,7 +330,7 @@ graph TD
 ## Caveats and failure modes
 
 !!! warning "This is the discriminative core, not the full VAE"
-    The input-reconstruction term of the paper's ELBO is not implemented. Consequently the latent space is regularised only by the predictive loss and the optional `kl_weight`, not by a decoder. Two practical consequences: (i) the latent scale can drift if `kl_weight=0` and the encoder is large; (ii) the "variational" uncertainty reported here is the **NIG predictive** uncertainty, not a posterior over encoder weights. Use ensembles or a Bayesian last layer if you need model-uncertainty decomposition.
+    The input-reconstruction term of the paper's ELBO is not implemented. Consequently the latent space is regularised only by the predictive loss and the optional `kl_weight`, not by a decoder. Two practical consequences: (i) the latent scale can drift if `kl_weight=0`: the label-smoothing recolouring contracts between-bin separations every epoch and, without a scale anchor, the encoder compensates by expanding its output until training becomes unstable (keep `kl_weight > 0`); (ii) the "variational" uncertainty reported here is the **NIG predictive** uncertainty, not a posterior over encoder weights. Use ensembles or a Bayesian last layer if you need model-uncertainty decomposition.
 
 !!! warning "Smoothing helps only when neighbouring labels are statistically similar"
     The recolouring removes the between-bin component of the representation and replaces it with the kernel-smoothed mean. This is beneficial when the target is effectively constant within a bin (the paper's age/score regression setting), but it can *hurt* fine-grained interpolation where the within-bin variation carries most of the signal. In that regime use a larger `smoothing_shrinkage` (or `n_bins` fine enough that the signal is between bins) and let the reweighted NIG head do the work. The synthetic test in `tests/algorithms/test_vir.py` deliberately uses ordered discrete targets where smoothing is meaningful.
@@ -359,6 +359,7 @@ graph TD
 | 4 | Sagawa, S., Koh, P. W., Hashimoto, T. B., & Liang, P. (2020). Distributionally Robust Neural Networks for Group Shifts. *ICLR 2020*. [arXiv:1911.08731](https://arxiv.org/abs/1911.08731) |
 | 5 | Lim, J., Lee, S., Um, D., Park, S.-U., & Shin, J. (2025). PRIME: Deep Imbalanced Regression with Proxies. *ICML 2025*. [Poster](https://icml.cc/virtual/2025/poster/44388) |
 | 6 | Keramati, M., Meng, L., & Evans, R. D. (2024). ConR: Contrastive Regularizer for Deep Imbalanced Regression. *ICLR 2024*. [arXiv:2309.06651](https://arxiv.org/abs/2309.06651) |
+| 7 | Kingma, D. P., & Welling, M. (2014). Auto-Encoding Variational Bayes. *ICLR 2014*. [arXiv:1312.6114](https://arxiv.org/abs/1312.6114) |
 
 ## See also
 

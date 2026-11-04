@@ -4,17 +4,246 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
-Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, and harness parity. No new methods.
+## [0.3.0] - 2026-11-04
+
+Bug fixes, performance of existing code, docs, and harness parity on top of the
+0.3.0b1 API cut. Three method families landed after the beta and ship in 0.3.0
+(see *Added*).
+
+### Added
+
+- Multi-source regression: `MarginalizedMultiSourceGaussianNLLLoss` and
+  `PackedObservations` (joint NLL over all noisy measurements of one shared
+  Gaussian latent, linearized observation maps, full measurement covariance,
+  masked missing dimensions), `RobustMultiSourceGaussianNLLLoss`, and
+  `GaussianLatentForwardObservationNLLLoss` (quadrature through a nonlinear
+  forward map). Calibration heads `CommonScaleSplineHead`,
+  `RelativeSurveySplineHead`, `ConditionBiasHead` and
+  `bspline_basis_with_derivative`. Docs: `docs/losses/multisource.md`.
+- `torchregress.models.GaussianCopulaSplineHead`: a conditional joint spline
+  flow (full-covariance Gaussian followed by per-coordinate monotone
+  rational-quadratic splines) with exact marginalization of missing
+  coordinates. Requires the `flows` extra.
+- `PoissonGaussianLoss` (registry key `"poisson_gaussian"`): NLL of Poisson shot
+  noise convolved with Gaussian read noise, `y = g K + b + eps`, with fixed or
+  learnable gain, offset and read-noise variance. Finite support with
+  `tail_sigma` and renormalisation, an observation-conditioned window for
+  outliers, chunked evaluation and analytic gradients (ported from torchsky).
+  Docs: `docs/losses/poisson_gaussian.md`.
+
+### Changed
+
+- Performance: `GaussianCopulaSplineHead.intrinsic_log_prob` and `observed_log_prob`
+  no longer loop in Python over distinct missingness patterns. The exact observed-subvector
+  Gaussian marginal is computed for the whole batch with one batched Cholesky of
+  `diag(m) L Lᵀ diag(m) + diag(1 - m)`; fully observed batches use the predicted Cholesky
+  factor `L` directly (no `L Lᵀ` re-factorisation). Input checks are read back in one
+  device-to-host copy. Results and gradients match the per-pattern implementation to
+  float64 round-off. CPU, batch 2048, forward+backward: D=12 with random missingness
+  (≈1090 patterns) 1.43 → 0.07 s/step; D=6 0.09 → 0.04 s/step.
+
+- Performance: `MarginalizedMultiSourceGaussianNLLLoss` and
+  `RobustMultiSourceGaussianNLLLoss` now score all objects as one padded batch.
+  They use batched Cholesky and triangular solves, so there is no per-object
+  Python loop and no per-object host synchronization. Unobserved slots are
+  decoupled unit-variance coordinates with zero residual and zero Jacobian, so
+  they contribute nothing. The robust mixture scores each inlier/outlier
+  assignment for the whole batch and takes a batched `logsumexp`. Values and
+  gradients match the previous object-by-object code (float64: values within
+  2e-15 relative, gradients within 1e-11 relative). On CPU with float64,
+  50k objects, 12 slots and D=3, forward plus backward runs at about 1.6e5
+  objects/s, up from 1.0e3 (`auto`). The robust variant runs at 1.7e4
+  objects/s, up from 70. Inputs are validated once per batch. If a batch has
+  several different errors, the first failing check type is reported. Checks
+  are no longer reported per object. `last_diagnostics` is now a read-only
+  mapping that is copied to Python lists only when it is read. Timing script:
+  `python -m tools.benchmark_multisource`.
+
+- Performance: `SkewTLoss` / `skew_t_nll` no longer synchronise with the host
+  on accelerators. The Student-t CDF in the skew-t density evaluated its
+  incomplete-beta continued fraction with an early-exit Lentz loop that read a
+  convergence flag back to the host every term (on CUDA ~1,500 kernel launches
+  and ~17 device-to-host reads per training step, and no CUDA-graph capture).
+  Off the CPU the same continued fraction is now evaluated at a fixed depth
+  (63 Lentz iterations; the early-exit loop never needs more than ~70 for
+  dof ≤ 1e10) as a binary-tree product of its 2×2 recurrence matrices, with no
+  value-dependent control flow, so training steps can be captured and
+  replayed as CUDA graphs. The CPU keeps the early-exit loop (faster there,
+  unchanged numerics). Values and gradients match the early-exit evaluation
+  to float64 round-off (≤1e-12 relative for dof ≤ 1e3) and scipy's
+  `t.logcdf` to 1e-10 relative over dof 1+1e-6 … 1e3. H100 MIG 1g.12gb, MLP +
+  `SkewTLoss` Adam step, batch 4096: 42.8 ms eager → 31.4 ms eager, 2.2 ms
+  as a CUDA graph (batch 1024: 34.4 → 28.8 / 1.4 ms). Timing script:
+  `python tools/benchmark_skew_t.py --device cuda`.
+- Renamed `PoissonGaussianMixtureLoss` to `PoissonGaussianContaminationMixtureLoss`
+  (registry key `"poisson_gaussian_contamination_mixture"`) and
+  `EnhancedPoissonGaussianMixtureLoss` to
+  `EnhancedPoissonGaussianContaminationMixtureLoss`
+  (`"enhanced_poisson_gaussian_contamination_mixture"`), with matching config
+  dataclasses (`PoissonGaussianContaminationMixtureConfig`,
+  `EnhancedPoissonGaussianContaminationMixtureConfig`). They compute
+  `w*Pois + (1-w)*N` with a shared rate, not the detector convolution
+  (`PoissonGaussianLoss`). Behaviour is unchanged. The example is now
+  `examples/poisson_gaussian_contamination_mixture_demo.py`.
+  `PoissonGaussianLikelihoodRatioLoss` is unchanged: it is not a mixture.
+- Examples: each synthetic / real-data pair is one script with
+  `--dataset {synthetic,diabetes}` (causal, censored, EIV, multimodal,
+  noisy-label, OOD selective prediction, ordinal, uncertain ground truth); the
+  `*_realdata_comparison.py` files are gone. Overlapping demos are one script per
+  topic: `loss_comparison.py --suite`, `conformal_regression_example.py --mode`,
+  `contrastive_flow_parameter_estimation.py --mode`, `count_regression_demo.py
+  --family` (replaces the Poisson and Tweedie demos),
+  `test_time_bayesian_linear_head_demo.py --mode`,
+  `gaussian_wasserstein_bound_demo.py --mode`. Summary JSON values are unchanged.
+- The `external_comparison_*` examples (MAPIE, crepes, torchcp, BoTorch,
+  scikit-learn) moved to torchregress-harness suites, and
+  `examples/benchmarks/self_agreement_higgs_ood.py` to torchregress-research.
+- Density-conformal calibration and prediction stream over rows, so peak memory
+  no longer grows with the split size (1M+ rows on CPU or GPU):
+  - `ConformalizedDensity` / `ContrastiveFlowConformal` evaluate the density in
+    chunks of at most `chunk_size` (new keyword-only argument, default 131072)
+    `(context, y)` pairs in `calibrate`, `calibrate_log_prob` and `contains`.
+    Scalar `predict_interval` evaluates `chunk_size // grid_size` contexts per
+    density call instead of one Python iteration per row (about 8x faster on
+    2000 rows with a small NSF on CPU). Results are identical for row-wise
+    densities.
+  - `WaldoDensityConformal` calls `sample_fn` on row chunks (new keyword-only
+    `chunk_size`, default `2**20 // n_samples` rows) and computes moments and
+    Wald scores per chunk. A split that fits in one chunk gives bit-identical
+    results for a fixed seed; with several chunks a sampler that draws one
+    `[S, N, D]` noise block consumes the generator in a different order, so
+    thresholds differ by Monte Carlo error only (same score distribution).
+  - `WaldoPosteriorCalibrator` computes sample moments and scores per row chunk
+    (new keyword-only `chunk_size`), without a second `[N, S, D]` temporary.
+    Results are unchanged.
+  - `WaldoConformal.predict_interval` is vectorised over rows (shared grid and
+    critical values, no per-row Python loop or host sync; about 100x faster on
+    20000 rows) and `WaldoConformal.predict_region` processes rows in bounded
+    chunks. Outputs are unchanged.
+  - The grid level-set search shared by `CTI`, `SLSConformal` and
+    `ConformalizedDensity` no longer synchronises with the device.
+  - `tools/benchmark_conformal_streaming.py` times these paths at realistic
+    sizes (`--device cuda` for GPU).
+- Performance: `crps_from_binned_cdf` is computed in closed form for all rows
+  and bins at once (target clipped to each bin, float64, row chunks of bounded
+  memory) instead of a Python loop over rows and bins, on the device of the
+  first tensor argument. Return types are unchanged (float for `mean`/`sum`,
+  NumPy array for `none`). Agrees with the loop to 2e-15; 1e5 rows x 64 bins on
+  CPU: 119 s -> 0.11 s (1e6 rows: 1.2 s).
+- Memory: `neighbour_target_gap`, `target_ordering`, `frozen_readout_metrics`
+  and `representation_geometry_report` no longer build N x N (or N_test x
+  N_train) distance matrices: k-NN and pair distances are computed in row
+  chunks (O(chunk * N) memory) on the input's device, and tensors with
+  `requires_grad` are accepted. `target_ordering` keeps its rule (all pairs
+  when N(N-1)/2 <= `max_pairs`, else `max_pairs` seeded random pairs) and gives
+  bit-identical values. N = 1e5, D = 16 now runs on CPU in about 25 s; before,
+  the gap alone needed an 80 GB distance matrix.
+- `FTTransformer` (and `AutoregressiveTimeLayer`) build their `norm_first`
+  encoders with `enable_nested_tensor=False`, which silences the PyTorch
+  warning on every construction. Behaviour is unchanged.
 
 ### Fixed
 
+- `VIRRegressor` training is stable again across seeds, platforms and torch
+  versions. The `kl_weight` latent regulariser averaged
+  `KL(q(z|x) || N(0, I))` over the latent dimensions instead of summing them,
+  so it was `latent_dim` times weaker than documented. Without a scale anchor,
+  the label-smoothing recolouring let the encoder expand the latent scale every
+  epoch (latent and gradient norms grew roughly 100x). Late epochs then became
+  chaotic and tail error regressed on some seeds, for example in the pip/torch
+  2.15 CI job. The KL is now summed over latent dimensions and averaged over
+  the batch; the default weight is unchanged.
+- `create_flow_model(flow_type="maf")` and the affine-coupling types
+  (`"realnvp"`/`"cinn"`/`"nice"`) no longer produce exploding samples. A far-tail
+  base draw could give an out-of-range coordinate; the ReLU conditioner then
+  extrapolated to a huge shift and a saturated tiny scale (zuko's affine layer
+  allows `|log s| < 6.9`, a 1000x stretch per layer), and the inverse pass
+  cascaded geometrically over coordinates and layers. On
+  `synthetic_multitarget_big` (density_parity, seed 1, GPU) the MAF had a sound
+  NLL (0.957) but finite samples up to 2.4e12 and CRPS 1.3e4; all three seeds
+  showed the same tail on larger draws, and so does zuko's MAF used through sbi.
+  The affine flows keep zuko's layout and state-dict keys but bound each layer's
+  log-scale softly by 3 (`slope=exp(-3)`, overridable with `slope=`) and feed the
+  conditioners `x / sqrt(1 + (x / B)^2)` with `B = 10` (standardized units;
+  `bound=` sets `B`). Both directions use the same conditioner, so the flows
+  remain exact bijections with exact `log_prob`. **Outputs change**: newly
+  trained MAF/RealNVP/cINN flows differ, and existing checkpoints load unchanged
+  but evaluate under the new layers (pass `slope=1e-3` and a very large `bound`
+  to reproduce the old map). `bound` is now accepted for `"maf"` and the
+  affine-coupling types as the conditioner clip half-width.
+- Sampling a normalizing flow (`NormalizingFlowLoss.sample` and everything built on it:
+  `ContrastiveFlowLoss`, `quantile`/`cdf`, WALDO sample functions) and the spline
+  inverse of `GaussianCopulaSplineHead.intrinsic_log_prob` / `observed_log_prob` no
+  longer strand tensors in reference cycles. torch's `Transform.inv` caches its
+  inverse with a strong reference, so every zuko inverse pass left a
+  `transform <-> inverse` cycle holding its spline parameters (about 11 KiB per
+  6-D NSF draw) until Python's object-count-driven GC ran; on CUDA chunked
+  sampling of a few hundred thousand draws ran an 11 GiB device out of memory.
+  The young generation is now collected after each call; results are unchanged.
+- Medians follow the textbook (NumPy/SciPy) convention, averaging the two
+  middle values for even counts, instead of `torch.median`'s lower middle value:
+  `neighbour_target_gap`, the `*_NMAD` entries of `frozen_readout_metrics`,
+  `calculate_mad` (and so `reweight_fixed_predictions(variance_type="robust")`),
+  the masked `scale="mad"` estimate of `iteratively_reweighted_fit`, the
+  `VarianceTemperatureScaler` `clip` centre/MAD and variance median,
+  `BalancedMSEBMC`'s robust scale and fitted median, `RepresentationShiftInflator`'s
+  reference scale, the median-heuristic bandwidths of `random_fourier_features`
+  and the test-time Bayesian head, and the MC-sample centre in `conformal.py`.
+  Results move slightly for even-sized inputs.
+  `neighbour_target_gap`'s docstring now says what it computes: the median over
+  points of the mean absolute target difference to the k nearest neighbours.
+- MAD-to-sigma consistency constant is `1 / Phi^-1(0.75) = 1.482602218505602`
+  instead of the rounded `1.4826` everywhere (`MedianAbsoluteDeviation`,
+  `median_absolute_deviation`, `NormalizedMedianAbsoluteDeviation`, representation
+  `nmad` and readout NMAD, IRLS robust scales, `BalancedMSEBMC` robust scale,
+  `VarianceTemperatureScaler` `clip`).
+- `PoissonGaussianMixtureLoss` and `EnhancedPoissonGaussianMixtureLoss` docs
+  and docstrings described the shot-plus-read-noise convolution and cited
+  Seifert et al. (2023), which uses it. They compute a two-component mixture;
+  the docs now say so, report its low-count bias, and point to
+  `PoissonGaussianLoss`. Behaviour is unchanged.
+- Examples whose real-data track never seeded the global RNG (censored, uncertain
+  ground truth) now do, so their Diabetes results are reproducible.
+- `WaldoConformal` (and `WaldoPosteriorCalibrator` / `WaldoDensityConformal`,
+  which use it) set the Wald threshold with an interpolated `torch.quantile`
+  instead of the finite-sample order statistic `ceil((n+1)(1-alpha))`, so
+  regions under-covered (0.882 vs 0.90 nominal at n=50 over 2000 repeats; now
+  0.9075). Global, per-bin and `WaldoCriticalValueRegressor` thresholds all use
+  `finite_sample_quantile`. A bin with too few points for `alpha` has an
+  infinite threshold, and the interpolated critical value next to it is `+inf`
+  instead of `nan`. Found by the torchregress-harness multivariate rows.
+- `probability_integral_transform(return_histogram=True)` raised on CUDA tensors
+  (`torch.histogram` has no CUDA kernel); it now bins with bucketize/bincount
+  under the same convention.
 - `ConformalLoss` no longer swallows unknown keyword arguments (including the
   removed `debias`). Docs and tests that still advertised the no-op are gone.
 - Removed the thin `PredictiveBatch.from_density` / `from_samples` constructors
   (use the dataclass fields directly).
 - Removed the identity factory `create_mdn_loss` (use `MixtureDensityLoss`).
+- `WaldoDensityConformal` and `WaldoPosteriorCalibrator` with
+  `covariance_type="diagonal"` raised a shape error for multi-target samples
+  (they passed the full sample covariance). They now use the per-target sample
+  variances.
+- `GaussianLatentForwardObservationNLLLoss` placed its Gauss–Hermite nodes on
+  the latent prior, so it was badly wrong when the observation noise is narrow
+  relative to the latent spread pushed through the map, even for a linear map
+  (harness repro: -0.30, +0.47, -0.10 nats at Q=64, 128, 256; up to hundreds of
+  nats on synthetic SNR 7-50 fluxes at Q=32). It now uses adaptive
+  Gauss–Hermite quadrature: a fixed number of derivative-free bracketing and
+  parabolic passes on `[N,Q]` node grids centre and scale the rule on the
+  integrand's peak. The centre and scale are a stop-gradient change of
+  variables, there are no host syncs, and it runs under `torch.inference_mode`.
+  The rule is exact for linear maps at any order of 3 or more, and the
+  synthetic flux grid's maximum error at Q=32 drops to 2e-7 nats. The map is
+  now called several times per forward (once per pass without autograd), so it
+  must be deterministic and side-effect free. Forward cost at equal order is
+  about 2.5-5x on CPU, but Q=16 now beats the old Q=256. The quadrature
+  constants are no longer float64 buffers: they are converted to the input
+  device and dtype at use, so `.to("mps")` works. They no longer appear in
+  `state_dict()`.
 
 ## [0.3.0b1] - 2026-10-26
 
@@ -383,7 +612,8 @@ API cut. One public name per behavior.
 - Initial PyPI release candidate (unreleased). Pre-1.0 blockers TR-COR-01…09 (all fixed in `6ce4b9e`).
 - Features: 19 loss families, `PredictiveBatch`, `torchmetrics` metrics, conformal (split/CQR/CTI/weighted/Mondrian/CV+), `SemiConformalCalibrator`, ensembles (DeepEnsemble/BatchEnsemble/SWAG/Laplace/BNN/MC-Dropout), algorithms (IRLS/SIMEX/RC/LatentNN/TICTAC/VIDS), causal `dr_*`, PPI, test-time (BLR/OT/COSA/subspace/transport).
 
-[Unreleased]: https://github.com/astroai/torchregress/compare/v0.3.0b1...HEAD
+[Unreleased]: https://github.com/astroai/torchregress/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/astroai/torchregress/compare/v0.3.0b1...v0.3.0
 [0.3.0b1]: https://github.com/astroai/torchregress/compare/v0.2.0...v0.3.0b1
 [0.2.0]: https://github.com/astroai/torchregress/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/astroai/torchregress/releases/tag/v0.1.0

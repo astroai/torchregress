@@ -115,3 +115,6 @@ torchz_metrics.json
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+# Claude Code agent worktrees
+.claude/worktrees/

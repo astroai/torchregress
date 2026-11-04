@@ -498,3 +498,20 @@ def test_fully_masked_output_does_not_break_observed_fit(missing: float, scale: 
     torch.testing.assert_close(result.weights, observed.weights)
     torch.testing.assert_close(result.precision[:, 0], observed.precision)
     assert not result.precision[:, 1].any()
+
+
+def test_mad_scale_uses_textbook_median_with_mask() -> None:
+    import numpy as np
+
+    from torchregress.algorithms.irls_fit import _estimate_scale
+
+    residuals = torch.tensor(
+        [[1.0, 0.0], [2.0, -4.0], [4.0, 9.0], [10.0, 1.0], [99.0, 2.0]], dtype=torch.float64
+    )
+    mask = torch.tensor([[True, True], [True, True], [True, True], [True, True], [False, True]])
+    scale = _estimate_scale(residuals, mask, "mad", 0.0)
+    expected = [
+        1.482602218505602 * np.median(np.abs(col - np.median(col)))
+        for col in ([1.0, 2.0, 4.0, 10.0], [0.0, -4.0, 9.0, 1.0, 2.0])
+    ]
+    np.testing.assert_allclose(scale.numpy(), expected, rtol=0.0, atol=1e-15)

@@ -253,7 +253,7 @@ for x, y in train_loader:
 - [Poisson-Gaussian losses](poisson_gaussian.md) — combined shot noise + readout noise for imaging
 - [Robust losses](robust.md) — bounded-influence alternatives for tail-heavy data
 - [Transforms](transforms.md) — log/Box-Cox alternatives for positive-skewed targets
-- [Tweedie regression example](../examples/tweedie_regression.md) — runnable demo
+- [Count and Tweedie regression example](../examples/count_regression.md) — runnable demo (`examples/count_regression_demo.py`)
 
 ---
 

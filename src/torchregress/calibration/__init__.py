@@ -18,6 +18,12 @@ from .metrics import (
     expected_calibration_error,
     marginal_calibration_error,
 )
+from .multisource import (
+    CommonScaleSplineHead,
+    ConditionBiasHead,
+    RelativeSurveySplineHead,
+    bspline_basis_with_derivative,
+)
 from .posthoc import (
     IsotonicMeanCalibrator,
     PITCalibrator,
@@ -28,6 +34,10 @@ from .semicp import SemiConformalCalibrator
 from .shift import BinnedLabelShiftEstimator, RepresentationShiftInflator
 
 __all__ = [
+    "CommonScaleSplineHead",
+    "ConditionBiasHead",
+    "RelativeSurveySplineHead",
+    "bspline_basis_with_derivative",
     # posthoc transforms
     "VarianceTemperatureScaler",
     "IsotonicMeanCalibrator",

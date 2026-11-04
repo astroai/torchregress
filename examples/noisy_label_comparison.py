@@ -1,15 +1,25 @@
 """
-Dedicated noisy-label comparison with calibration metrics.
+Noisy-label comparison with calibration metrics.
 
 This example compares robust and probabilistic regression approaches under
-label corruption using a shared training budget and common metrics.
+label corruption using a shared training budget and common metrics. Two
+datasets are available::
+
+    python examples/noisy_label_comparison.py --dataset synthetic   # 1-D toy curve
+    python examples/noisy_label_comparison.py --dataset diabetes    # sklearn Diabetes
+
+The Diabetes run uses real features/targets with synthetic label corruption.
+Each dataset keeps its own fixed seed, split sizes, and training budget; the
+models, corruption mechanism, and metrics are shared.
 """
 
+import argparse
 from dataclasses import dataclass
 from typing import Optional
 
 import torch
 import torch.nn as nn
+from sklearn.datasets import load_diabetes
 from torch.utils.data import DataLoader, TensorDataset
 
 from torchregress.comparison import (
@@ -30,9 +40,14 @@ from torchregress.losses import (
 )
 from torchregress.metrics import interval_score, prediction_interval_coverage_probability
 
+DATASETS = ("synthetic", "diabetes")
+EXAMPLE = "examples/noisy_label_comparison.py"
+
 
 @dataclass
 class NoisyLabelComparisonConfig:
+    """Synthetic 1-D curve (``--dataset synthetic``)."""
+
     n_train: int = 512
     n_cal: int = 128
     n_test: int = 256
@@ -45,6 +60,35 @@ class NoisyLabelComparisonConfig:
     seed: int = 7
     hidden: int = 64
     alpha: float = 0.1
+
+
+@dataclass
+class NoisyLabelRealDataConfig:
+    """sklearn Diabetes with synthetic label corruption (``--dataset diabetes``)."""
+
+    n_train: int = 256
+    n_cal: int = 96
+    n_test: int = 90
+    noise_ratio: float = 0.2
+    noise_scale: float = 1.75
+    base_noise: float = 0.15
+    batch_size: int = 64
+    epochs: int = 40
+    lr: float = 1e-3
+    seed: int = 17
+    hidden: int = 64
+    alpha: float = 0.1
+
+
+NoisyLabelConfig = NoisyLabelComparisonConfig | NoisyLabelRealDataConfig
+
+
+def default_config(dataset: str) -> NoisyLabelConfig:
+    if dataset == "synthetic":
+        return NoisyLabelComparisonConfig()
+    if dataset == "diabetes":
+        return NoisyLabelRealDataConfig()
+    raise ValueError(f"Unknown dataset {dataset!r}; expected one of {DATASETS}.")
 
 
 def _make_clean_targets(x: torch.Tensor) -> torch.Tensor:
@@ -72,9 +116,35 @@ def _corrupt_labels(
     return y_obs, noisy_mask
 
 
-def generate_noisy_label_splits(
+def _split(
+    x: torch.Tensor,
+    y_clean: torch.Tensor,
+    y_obs: torch.Tensor,
+    noisy_mask: torch.Tensor,
+    cfg: NoisyLabelConfig,
+) -> dict[str, torch.Tensor]:
+    train_end = cfg.n_train
+    cal_end = train_end + cfg.n_cal
+    test_end = cal_end + cfg.n_test
+    return {
+        "x_train": x[:train_end],
+        "y_train_obs": y_obs[:train_end],
+        "y_train_clean": y_clean[:train_end],
+        "train_noisy_mask": noisy_mask[:train_end],
+        "x_cal": x[train_end:cal_end],
+        "y_cal_obs": y_obs[train_end:cal_end],
+        "y_cal_clean": y_clean[train_end:cal_end],
+        "x_test": x[cal_end:test_end],
+        "y_test_obs": y_obs[cal_end:test_end],
+        "y_test_clean": y_clean[cal_end:test_end],
+        "test_noisy_mask": noisy_mask[cal_end:test_end],
+    }
+
+
+def generate_noisy_label_synthetic_splits(
     cfg: NoisyLabelComparisonConfig,
 ) -> dict[str, torch.Tensor]:
+    """Synthetic splits: evenly spaced 1-D inputs on a smooth nonlinear curve."""
     total = cfg.n_train + cfg.n_cal + cfg.n_test
     x = torch.linspace(-3.0, 3.0, total).unsqueeze(1)
     y_clean = _make_clean_targets(x)
@@ -85,29 +155,53 @@ def generate_noisy_label_splits(
         base_noise=cfg.base_noise,
         seed=cfg.seed,
     )
+    return _split(x, y_clean, y_obs, noisy_mask, cfg)
 
-    train_end = cfg.n_train
-    cal_end = train_end + cfg.n_cal
-    return {
-        "x_train": x[:train_end],
-        "y_train_obs": y_obs[:train_end],
-        "y_train_clean": y_clean[:train_end],
-        "train_noisy_mask": noisy_mask[:train_end],
-        "x_cal": x[train_end:cal_end],
-        "y_cal_obs": y_obs[train_end:cal_end],
-        "y_cal_clean": y_clean[train_end:cal_end],
-        "x_test": x[cal_end:],
-        "y_test_obs": y_obs[cal_end:],
-        "y_test_clean": y_clean[cal_end:],
-        "test_noisy_mask": noisy_mask[cal_end:],
-    }
+
+def generate_noisy_label_diabetes_splits(cfg: NoisyLabelRealDataConfig) -> dict[str, torch.Tensor]:
+    """Diabetes splits: seeded permutation, train-standardized targets, then corruption."""
+    x_np, y_np = load_diabetes(return_X_y=True)
+    x = torch.tensor(x_np, dtype=torch.float32)
+    y = torch.tensor(y_np, dtype=torch.float32).unsqueeze(1)
+    n_total = x.shape[0]
+
+    if cfg.n_train + cfg.n_cal + cfg.n_test > n_total:
+        raise ValueError(
+            f"Requested {cfg.n_train + cfg.n_cal + cfg.n_test} samples, but dataset has {n_total}."
+        )
+
+    g = torch.Generator().manual_seed(cfg.seed)
+    perm = torch.randperm(n_total, generator=g)
+    x = x[perm]
+    y_clean = y[perm]
+
+    # Standardize targets using clean train labels for stable optimization.
+    y_train_clean = y_clean[: cfg.n_train]
+    y_mean = y_train_clean.mean()
+    y_std = y_train_clean.std(unbiased=False).clamp_min(1e-6)
+    y_clean_std = (y_clean - y_mean) / y_std
+
+    y_obs_std, noisy_mask = _corrupt_labels(
+        y_clean_std,
+        noise_ratio=cfg.noise_ratio,
+        noise_scale=cfg.noise_scale,
+        base_noise=cfg.base_noise,
+        seed=cfg.seed + 1,
+    )
+    return _split(x, y_clean_std, y_obs_std, noisy_mask, cfg)
+
+
+def make_splits(cfg: NoisyLabelConfig) -> dict[str, torch.Tensor]:
+    if isinstance(cfg, NoisyLabelRealDataConfig):
+        return generate_noisy_label_diabetes_splits(cfg)
+    return generate_noisy_label_synthetic_splits(cfg)
 
 
 class Regressor(nn.Module):
-    def __init__(self, out_dim: int = 1, hidden: int = 64) -> None:
+    def __init__(self, input_dim: int = 1, out_dim: int = 1, hidden: int = 64) -> None:
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(1, hidden),
+            nn.Linear(input_dim, hidden),
             nn.ReLU(),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
@@ -154,10 +248,7 @@ def _gaussian_interval(raw: torch.Tensor, *, alpha: float) -> tuple[torch.Tensor
 def _quantile_outputs(raw: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     q = raw.reshape(raw.shape[0], 3, 1)
     q_sorted, _ = torch.sort(q, dim=1)
-    lower = q_sorted[:, 0]
-    median = q_sorted[:, 1]
-    upper = q_sorted[:, 2]
-    return lower, median, upper
+    return q_sorted[:, 0], q_sorted[:, 1], q_sorted[:, 2]
 
 
 def _interval_metrics(
@@ -199,9 +290,8 @@ def _evaluate_method(
                 native_lower, native_upper, splits["y_test_clean"], alpha=alpha
             )
         elif name == "Quantile90":
-            q_cal_l, q_cal_m, _ = _quantile_outputs(raw_cal)
+            _, pred_cal, _ = _quantile_outputs(raw_cal)
             q_test_l, pred_test, q_test_u = _quantile_outputs(raw_test)
-            pred_cal = q_cal_m
             loss_value = float("nan")
             native_cov, native_width, _ = _interval_metrics(
                 q_test_l, q_test_u, splits["y_test_clean"], alpha=alpha
@@ -234,32 +324,46 @@ def _evaluate_method(
     }
 
 
+def _methods(cfg: NoisyLabelConfig, d_in: int) -> list[tuple[str, nn.Module, object]]:
+    hidden = cfg.hidden
+    methods: list[tuple[str, nn.Module, object]] = [
+        ("MSE", Regressor(d_in, hidden=hidden), WeightedMSELoss()),
+        ("Huber", Regressor(d_in, hidden=hidden), WeightedHuberLoss(delta=1.0)),
+        ("Cauchy", Regressor(d_in, hidden=hidden), CauchyLoss(c=1.0)),
+    ]
+    # Tukey (redescending) is part of the synthetic benchmark only; the published
+    # Diabetes numbers were produced without it, and per-method seeds depend on order.
+    if not isinstance(cfg, NoisyLabelRealDataConfig):
+        methods.append(("Tukey", Regressor(d_in, hidden=hidden), TukeyBiweightLoss(c=4.685)))
+    methods += [
+        ("GaussianNLL", Regressor(d_in, out_dim=2, hidden=hidden), GaussianNLLLoss()),
+        (
+            "Quantile90",
+            Regressor(d_in, out_dim=3, hidden=hidden),
+            MultiQuantileLoss(quantiles=[0.05, 0.5, 0.95], joint_prediction=True),
+        ),
+    ]
+    return methods
+
+
 def main(
-    cfg: Optional[NoisyLabelComparisonConfig] = None,
+    cfg: Optional[NoisyLabelConfig] = None,
     summary_json_path: str | None = None,
+    *,
+    dataset: str = "synthetic",
 ) -> None:
-    cfg = cfg or NoisyLabelComparisonConfig()
+    """Run the comparison; ``cfg`` (when given) determines the dataset."""
+    cfg = cfg or default_config(dataset)
+    is_real = isinstance(cfg, NoisyLabelRealDataConfig)
     set_comparison_seed(cfg.seed)
-    splits = generate_noisy_label_splits(cfg)
+    splits = make_splits(cfg)
     train_loader = DataLoader(
         TensorDataset(splits["x_train"], splits["y_train_obs"]),
         batch_size=cfg.batch_size,
         shuffle=True,
         generator=torch.Generator().manual_seed(cfg.seed),
     )
-
-    methods: list[tuple[str, nn.Module, object]] = [
-        ("MSE", Regressor(hidden=cfg.hidden), WeightedMSELoss()),
-        ("Huber", Regressor(hidden=cfg.hidden), WeightedHuberLoss(delta=1.0)),
-        ("Cauchy", Regressor(hidden=cfg.hidden), CauchyLoss(c=1.0)),
-        ("Tukey", Regressor(hidden=cfg.hidden), TukeyBiweightLoss(c=4.685)),
-        ("GaussianNLL", Regressor(out_dim=2, hidden=cfg.hidden), GaussianNLLLoss()),
-        (
-            "Quantile90",
-            Regressor(out_dim=3, hidden=cfg.hidden),
-            MultiQuantileLoss(quantiles=[0.05, 0.5, 0.95], joint_prediction=True),
-        ),
-    ]
+    methods = _methods(cfg, int(splits["x_train"].shape[1]))
 
     summary_rows: list[dict[str, object]] = []
     for idx, (name, model, loss_fn) in enumerate(methods):
@@ -275,8 +379,14 @@ def main(
         summary_rows.append(result)
 
     print_fairness_notes(
-        title="Noisy Label Comparison",
-        seed_policy="fixed seed; shared corrupted train/cal/test splits",
+        title="Noisy Label Real-Data Comparison (Diabetes)"
+        if is_real
+        else "Noisy Label Comparison",
+        seed_policy=(
+            "fixed seed; shared permuted split and label-corruption mask"
+            if is_real
+            else "fixed seed; shared corrupted train/cal/test splits"
+        ),
         train_budget=f"{cfg.epochs} epochs, batch_size={cfg.batch_size}, lr={cfg.lr}",
         metric_policy=(
             "Clean/observed point metrics + shared split-conformal coverage/width/interval score; "
@@ -284,7 +394,11 @@ def main(
         ),
     )
     print_comparison_summary(
-        "Noisy Label Robustness + Calibration Summary",
+        (
+            "Noisy Label (Real Data) Robustness + Calibration Summary"
+            if is_real
+            else "Noisy Label Robustness + Calibration Summary"
+        ),
         summary_rows,
         metric_order=[
             "CleanMSE",
@@ -301,24 +415,40 @@ def main(
     )
     noisy_frac = float(splits["train_noisy_mask"].float().mean().item())
     print("\nDataset notes:")
+    if is_real:
+        print("- Dataset: sklearn.datasets.load_diabetes (real data, synthetic label corruption).")
     print(f"- Train label corruption fraction: {noisy_frac:.2%}")
+    if is_real:
+        print("- Targets are standardized using clean train labels for optimization stability.")
     print("- Conformal intervals use noisy calibration labels (stressful but realistic).")
     print("- Coverage is evaluated against clean test labels to show robustness to corruption.")
 
     if summary_json_path is not None:
+        notes = [
+            "Shared split-conformal calibration metrics for all methods",
+            "Native interval metrics included for Gaussian and quantile heads",
+        ]
+        if is_real:
+            notes.insert(
+                0,
+                "Dataset: sklearn diabetes (real features/targets) with synthetic label corruption",
+            )
         out = write_comparison_summary_json(
             summary_json_path,
-            example="examples/noisy_label_comparison.py",
-            task="Noisy labels / corruption",
+            example=f"{EXAMPLE} --dataset diabetes" if is_real else EXAMPLE,
+            task=(
+                "Noisy labels / corruption (real-data)" if is_real else "Noisy labels / corruption"
+            ),
             config=cfg,
             rows=summary_rows,
-            notes=[
-                "Shared split-conformal calibration metrics for all methods",
-                "Native interval metrics included for Gaussian and quantile heads",
-            ],
+            notes=notes,
         )
         print(f"\nWrote summary JSON: {out}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Run the noisy-label comparison example")
+    parser.add_argument("--dataset", choices=DATASETS, default="synthetic")
+    parser.add_argument("--summary-json-path", type=str, default=None)
+    args = parser.parse_args()
+    main(summary_json_path=args.summary_json_path, dataset=args.dataset)

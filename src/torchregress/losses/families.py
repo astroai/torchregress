@@ -91,6 +91,97 @@ def _betacf(a: Tensor, b: Tensor, x: Tensor, itmax: int = 300, eps: float = 3e-1
     return h
 
 
+# Depth of the fixed continued fraction below: partial numerators d_0 .. d_{N-1}
+# (N / 2 - 1 = 63 Lentz iterations of ``_betacf``; N must be a power of two).
+# On the Student-t CDF branches (a or b = df/2 with df >= 1 and the argument on
+# the convergent side of the ``betai`` switch) the early-exit Lentz loop never
+# needs more than ~70 iterations to reach 3e-14 for df <= 1e10, and this depth
+# agrees with it to float64 rounding (tests/losses/test_skew_t_cdf_accuracy.py).
+_CF_TERMS = 128
+# Elements per chunk of the [N/2, n] convergent stack (bounds the temporary
+# memory of large no-grad evaluations; shape-static, so sync-free).
+_CF_CHUNK = 16384
+
+
+def _bit_reversed_arange(n: int, device: torch.device, dtype: torch.dtype) -> Tensor:
+    """``0 .. n-1`` (``n`` a power of two) in bit-reversed order, built on
+    ``device`` (no host-to-device copy, so it is CUDA-graph capturable)."""
+    bits = n.bit_length() - 1
+    idx = torch.arange(n, device=device, dtype=dtype)
+    if bits < 2:
+        return idx
+    return idx.reshape([2] * bits).permute(*reversed(range(bits))).reshape(-1)
+
+
+def _betacf_fixed(a: Tensor, b: Tensor, x: Tensor) -> Tensor:
+    """Fixed-depth, host-sync-free ``_betacf`` (same continued fraction).
+
+    ``_betacf`` evaluates ``1 / (1 + d_1 / (1 + d_2 / (1 + ...)))`` with
+    modified Lentz and a data-dependent ``bool(...)`` convergence test every
+    iteration (a device-to-host sync and ~25 kernel launches per term). Here
+    the first ``_CF_TERMS`` partial numerators are built in one vectorised pass
+    and the convergents ``A_N``, ``B_N`` (``A_n = A_{n-1} + d_n A_{n-2}``, same
+    for ``B_n``) come from the ordered product of the recurrence matrices
+    ``M_n = [[1, 1], [d_n, 0]]``, ``[[A_N, .], [B_N, .]] = M_0 M_1 ... M_{N-1}``,
+    reduced as a balanced binary tree in ``log2(N)`` elementwise levels. The
+    columns are laid out in bit-reversed order so every level multiplies the
+    left half by the right half (contiguous slices). With ``|d_n| <= 1`` on the
+    convergent side of the switch the entries stay within ``2^N`` of 1, so no
+    rescaling is needed in float64. The result is ``B_N / A_N``. No Python
+    control flow depends on tensor values: forward and backward are CUDA-graph
+    capturable.
+    """
+    shape = torch.broadcast_shapes(a.shape, b.shape, x.shape)
+    a_f = a.expand(shape).reshape(1, -1)
+    b_f = b.expand(shape).reshape(1, -1)
+    x_f = x.expand(shape).reshape(1, -1)
+    # Row k holds the pair (M_{2k}, M_{2k+1}); rows sit at bit-reversed positions
+    # (term axis first, so every tree level slices contiguous blocks).
+    k = _bit_reversed_arange(_CF_TERMS // 2, x.device, x.dtype).unsqueeze(-1)
+    first = k == 0.0
+    # 2k - 1, except 0 for k = 0 (d_0 is replaced below; keeps (a - 1) = 0 at
+    # df = 2 out of a denominator, so no 0/0 reaches the backward pass).
+    k_shift = torch.where(first, torch.zeros_like(k), 2.0 * k - 1.0)
+    out = []
+    for a_c, b_c, x_c in zip(
+        a_f.split(_CF_CHUNK, dim=1),
+        b_f.split(_CF_CHUNK, dim=1),
+        x_f.split(_CF_CHUNK, dim=1),
+        strict=True,
+    ):
+        a2k = a_c + 2.0 * k
+        # d_{2k} = k (b - k) x / ((a + 2k - 1)(a + 2k)); d_0 = 1 encodes the
+        # initial [[A_0, A_{-1}], [B_0, B_{-1}]] = [[1, 1], [1, 0]].
+        d_e = k * (b_c - k) * x_c / ((a_c + k_shift) * a2k)
+        d_e = torch.where(first, torch.ones_like(d_e), d_e)
+        # d_{2k+1} = -(a + k)(a + b + k) x / ((a + 2k)(a + 2k + 1)).
+        d_o = -(a_c + k) * (a_c + b_c + k) * x_c / (a2k * (a2k + 1.0))
+        # First level in closed form:
+        # [[1, 1], [d_e, 0]] @ [[1, 1], [d_o, 0]] = [[1 + d_o, 1], [d_e, d_e]].
+        p00, p01, p10, p11 = 1.0 + d_o, torch.ones_like(d_o), d_e, d_e
+        while p00.shape[0] > 1:
+            h = p00.shape[0] // 2
+            l00, l01, l10, l11 = p00[:h], p01[:h], p10[:h], p11[:h]
+            r00, r01, r10, r11 = p00[h:], p01[h:], p10[h:], p11[h:]
+            p00 = l00 * r00 + l01 * r10
+            p01 = l00 * r01 + l01 * r11
+            p10 = l10 * r00 + l11 * r10
+            p11 = l10 * r01 + l11 * r11
+        out.append(p10[0] / p00[0])
+    return torch.cat(out).reshape(shape)
+
+
+def _cf_fixed_depth(device: torch.device) -> bool:
+    """Use ``_betacf_fixed`` off the CPU.
+
+    On the CPU ``bool(tensor)`` is a plain memory read, and the early-exit
+    Lentz loop stops after ~10 terms for typical dof, so it stays faster there
+    than the fixed 64-pair tree. On accelerators every convergence test is a
+    device-to-host sync (and blocks CUDA-graph capture), so the fixed depth wins.
+    """
+    return device.type != "cpu"
+
+
 def _positive(raw: Tensor, eps: float) -> Tensor:
     return F.softplus(raw) + eps
 
@@ -255,9 +346,11 @@ def _student_t_log_cdf_vec(x: Tensor, df: Tensor) -> Tensor:
     # One continued-fraction call for both branches: I_u(1/2, df/2) in the
     # centre, I_xb(df/2, 1/2) in the tails. Unused-branch inputs are replaced
     # by safe values so no inf/NaN reaches the backward pass through where().
+    # Off the CPU at fixed depth (no host sync): see ``_cf_fixed_depth``.
     aa = torch.where(central, torch.full_like(df64, 0.5), half_df)
     bb = torch.where(central, half_df, torch.full_like(df64, 0.5))
-    cf = _betacf(aa, bb, torch.where(central, u, xb))
+    xx = torch.where(central, u, xb)
+    cf = _betacf_fixed(aa, bb, xx) if _cf_fixed_depth(x.device) else _betacf(aa, bb, xx)
     ln_norm = torch.lgamma(aa + bb) - torch.lgamma(aa) - torch.lgamma(bb) - torch.log(aa)
 
     # centre: s = sign(x) I_u(1/2, df/2) = x / sqrt(df + x^2) * xb^{df/2} * norm * cf

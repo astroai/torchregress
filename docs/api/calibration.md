@@ -10,6 +10,10 @@ For background, see [Calibration methods](../methods/calibration.md) and
 
 ---
 
+## Multi-source observation maps (`calibration.multisource`)
+
+`bspline_basis_with_derivative` returns basis values, analytic derivatives and extrapolation flags with explicit linear, constant or error boundary behavior. `RelativeSurveySplineHead` imposes a per-target weighted zero-sum on relative source offsets. `CommonScaleSplineHead` represents a separate common correction, whose physical interpretation requires independent anchors. `ConditionBiasHead` is zero at each source's reference condition. The heads return both offsets and Jacobians. These components do not themselves certify calibration or external support; see [Multi-source Gaussian likelihood](../losses/multisource.md).
+
 ## Post-hoc transforms (`calibration.posthoc`)
 
 | Symbol | Description |

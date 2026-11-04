@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 import torch
 
@@ -215,7 +216,8 @@ def test_cross_fitting_shares_one_split_across_nuisances():
 def _pairwise_median(points: torch.Tensor) -> float:
     distances = torch.cdist(points, points)
     upper = torch.triu_indices(points.shape[0], points.shape[0], offset=1)
-    return float(distances[upper[0], upper[1]].median())
+    # Textbook median (average of the two middle values for an even pair count).
+    return float(np.median(distances[upper[0], upper[1]].numpy()))
 
 
 def test_median_heuristic_bandwidth_is_the_median_pairwise_distance():

@@ -11,6 +11,7 @@ from typing import Any, Generic, Literal, Protocol, TypeVar, cast, runtime_check
 import torch
 
 from ..losses.robust import _barron_elementwise
+from ..utils.tensor_ops import _MAD_TO_SIGMA
 
 StateT = TypeVar("StateT")
 RobustWeightName = Literal["huber", "pseudo_huber", "tukey", "cauchy", "barron"]
@@ -588,7 +589,7 @@ def _estimate_scale(
         count = valid.sum(dim=0).clamp_min(1)
         if scale_spec == "mad":
             center = _masked_median(residuals, valid)
-            scale = 1.4826 * _masked_median((residuals - center).abs(), valid)
+            scale = _MAD_TO_SIGMA * _masked_median((residuals - center).abs(), valid)
         elif scale_spec == "std":
             mean = torch.where(valid, residuals, 0.0).sum(dim=0) / count
             variance = torch.where(valid, (residuals - mean).square(), 0.0).sum(dim=0)
@@ -607,9 +608,14 @@ def _estimate_scale(
 def _masked_median(values: torch.Tensor, valid: torch.Tensor) -> torch.Tensor:
     flat_values = values.reshape(values.shape[0], -1)
     flat_valid = valid.reshape(valid.shape[0], -1)
+    # Invalid entries sort to the end; with ``m`` valid entries per column the
+    # median averages order statistics ``(m - 1) // 2`` and ``m // 2`` (numpy
+    # convention), not the lower middle value alone.
     ordered = torch.where(flat_valid, flat_values, torch.inf).sort(dim=0).values
-    indices = ((flat_valid.sum(dim=0) - 1).clamp_min(0) // 2).unsqueeze(0)
-    median = ordered.gather(0, indices).squeeze(0)
+    count = flat_valid.sum(dim=0)
+    lower = ordered.gather(0, ((count - 1).clamp_min(0) // 2).unsqueeze(0)).squeeze(0)
+    upper = ordered.gather(0, (count // 2).clamp_max(ordered.shape[0] - 1).unsqueeze(0)).squeeze(0)
+    median = 0.5 * (lower + upper)
     median = torch.where(flat_valid.any(dim=0), median, torch.zeros_like(median))
     return median.reshape(values.shape[1:])
 

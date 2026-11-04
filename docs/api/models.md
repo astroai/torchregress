@@ -107,3 +107,5 @@ Time-conditioned invertible affine-coupling flow map.  It provides
 `log_prob(context, target)`, `sample(context, n_samples)`,
 `flow_map_loss`, and `training_loss` (flow-map matching + endpoint NLL).
 See [Normalizing Flow Maps](../methods/normalizing_flow_maps.md).
+
+`GaussianCopulaSplineHead` is a conditional, full-vector spline flow built from a full-covariance Gaussian base and coordinatewise monotone rational-quadratic splines. Intrinsic likelihoods for any observed subset marginalize missing coordinates analytically. Gaussian label-noise convolution uses caller-supplied finite normal quadrature nodes and requires convergence checks. The copula is Gaussian: the model cannot express arbitrary nonlinear or tail dependence. It requires the optional `flows` extra.

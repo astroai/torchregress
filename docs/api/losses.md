@@ -194,8 +194,9 @@ $$\mathcal{L}_{\text{censored}} = \begin{cases} \tfrac{1}{2}\log(2\pi\sigma^2) +
 | `InverseGaussianLoss` | `InverseGaussianLoss(link="log")` | Var = φ μ³ |
 | `CompoundPoissonLoss` | `CompoundPoissonLoss(p=1.5, link="log")` | 1 < p < 2 |
 | `tweedie_loss` | `tweedie_loss(y_pred, target, p=1.5, ...)` | Functional Tweedie loss |
-| `PoissonGaussianMixtureLoss` | `PoissonGaussianMixtureLoss(log_input=True, ...)` | Poisson + Gaussian readout |
-| `EnhancedPoissonGaussianMixtureLoss` | `EnhancedPoissonGaussianMixtureLoss(...)` | Gain/offset/learnable noise |
+| `PoissonGaussianLoss` | `PoissonGaussianLoss(gain=1.0, offset=0.0, read_noise_variance=1.0, ...)` | Poisson shot noise convolved with Gaussian read noise: g²λ + σ² |
+| `PoissonGaussianContaminationMixtureLoss` | `PoissonGaussianContaminationMixtureLoss(log_input=True, ...)` | Two-component Poisson/Gaussian mixture (not the detector model) |
+| `EnhancedPoissonGaussianContaminationMixtureLoss` | `EnhancedPoissonGaussianContaminationMixtureLoss(...)` | Mixture with gain/offset/learnable noise (not the detector model) |
 | `PoissonGaussianLikelihoodRatioLoss` | `PoissonGaussianLikelihoodRatioLoss(...)` | Likelihood-ratio variant |
 
 ---
@@ -268,7 +269,7 @@ Call pattern: construct with `model=...`, then `loss(x_obs, y_obs, mask=...)`.
 | `LocalConformal` | `LocalConformal(alpha=0.1, bandwidth=1.0)` | Local feature-space coverage |
 | `LocalConformalMAD` | `LocalConformalMAD(alpha=0.1, ...)` | Local + MAD scaling |
 | `CTI` | `CTI(alpha=0.1, grid_size=500)` | Density thresholded intervals |
-| `ConformalizedDensity` | `ConformalizedDensity(alpha=0.1, grid_size=500)` | Split-conformal level sets for any conditional log-density |
+| `ConformalizedDensity` | `ConformalizedDensity(alpha=0.1, grid_size=500, *, chunk_size=131072)` | Split-conformal level sets for any conditional log-density |
 | `ContrastiveFlowConformal` | `ContrastiveFlowConformal(flow_loss, alpha=0.1)` | Conformal level sets around a contrastive-flow positive density |
 | `WaldoConformal` | `WaldoConformal(alpha=0.1, critical_bins=None, critical_value_regressor=None, covariance_type="diagonal")` | Wald-statistic confidence regions from conditional mean/covariance |
 | `WaldoCriticalValueRegressor` | `WaldoCriticalValueRegressor(alpha=0.1, n_bins=10, min_samples_per_bin=8)` | Simulator-free local/quantile critical-value approximation for WALDO |
@@ -315,3 +316,11 @@ Conformal guarantee: $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
 | `get_regression_loss` | `get_regression_loss(name)` |
 | `list_regression_losses` | `list_regression_losses()` |
 | `create_loss_from_config` | `create_loss_from_config(config)` |
+
+## Multi-source Gaussian observations
+
+`PackedObservations` holds padded measurement values, masks, local observation-map means and Jacobians, and a possibly correlated measurement covariance. `MarginalizedMultiSourceGaussianNLLLoss` jointly marginalizes a shared latent Gaussian for the supplied linearized map; see [the multi-source guide](../losses/multisource.md) for shape, precision and interpretation details.
+
+`GaussianLatentForwardObservationNLLLoss` integrates a scalar Gaussian latent through a differentiable nonlinear observation map using adaptive (posterior-centred) Gauss–Hermite quadrature, exact for linear maps and accurate for narrow observation noise. It does not automatically combine dependent observations; see the [multi-source guide](../losses/multisource.md).
+
+`RobustMultiSourceGaussianNLLLoss` adds a normalized mixture of measurement-block outlier models to the shared-latent likelihood. It preserves within-block covariance, rejects cross-block measurement covariance and explicitly bounds its exponential assignment enumeration.

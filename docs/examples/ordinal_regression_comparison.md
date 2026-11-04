@@ -56,6 +56,29 @@ Sharing the weights guarantees **classifier consistency**: the predicted binary 
 
 ---
 
+## Comparison Script
+
+Script: `examples/ordinal_regression_comparison.py`
+
+The script compares `OrdinalCrossEntropy` (K class logits) against `CumulativeLink` (K−1 cumulative logits) with the same MLP and training budget, and reports `Accuracy`, `OrdinalMAE`, `QWK`, `train_s`, and `eval_s`. Select the dataset with `--dataset`:
+
+| `--dataset` | Data | Ordinal labels | Seed / splits (train / test) |
+|:------------|:-----|:---------------|:-----------------------------|
+| `synthetic` (default) | 6 Gaussian features, nonlinear latent score + noise | latent score bucketized at fixed cutpoints $(-1, -0.25, 0.4, 1.1)$ into 5 classes | seed 260227; 512 / 256 |
+| `diabetes` | [`sklearn.datasets.load_diabetes`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html) (10 features) | continuous target binned into 5 classes at **train-only** quantiles (no test leakage) | seed 260305; 320 / 120 |
+
+```bash
+pixi run python examples/ordinal_regression_comparison.py                      # synthetic
+pixi run python examples/ordinal_regression_comparison.py --dataset diabetes   # real data
+pixi run python examples/ordinal_regression_comparison.py --dataset diabetes \
+  --summary-json-path reports/example_summaries/ordinal_regression_comparison_diabetes.json
+```
+
+!!! warning "Quantile-binned real targets"
+    The `diabetes` classes are derived from a continuous target, so they are equal-frequency bins rather than domain-native ordinal labels. Treat the run as a real-covariate proxy benchmark.
+
+---
+
 ## Code Example
 
 Below is the complete, self-contained code showing how to compare these ordinal losses on synthetic data.
@@ -142,7 +165,7 @@ def main() -> None:
     cfg = OrdinalComparisonConfig()
     x_tr, y_tr, x_te, y_te = make_data(cfg)
 
-    # Compare baseline independent logits vs ordinal cumulative link and CORAL
+    # Compare baseline independent class logits vs the ordinal cumulative-link objective
     methods = [
         ("OrdinalCrossEntropy", MLP(cfg.n_features, cfg.hidden, cfg.num_classes), OrdinalCrossEntropyLoss(), "class_logits"),
         ("CumulativeLink", MLP(cfg.n_features, cfg.hidden, cfg.num_classes - 1), CumulativeLinkLoss(), "cumulative_logits"),

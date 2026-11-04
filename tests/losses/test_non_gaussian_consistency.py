@@ -22,9 +22,9 @@ from torchregress.losses.expectile import (
 )
 from torchregress.losses.ordinal import CumulativeLinkLoss, OrdinalCrossEntropyLoss
 from torchregress.losses.poisson_gaussian import (
-    EnhancedPoissonGaussianMixtureLoss,
+    EnhancedPoissonGaussianContaminationMixtureLoss,
+    PoissonGaussianContaminationMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
-    PoissonGaussianMixtureLoss,
 )
 from torchregress.losses.quantile import (
     MultiQuantileLoss,
@@ -91,17 +91,17 @@ def _make_pos_preds(batch=4, dim=3, log_input=False):
     return torch.log(lam) if log_input else lam
 
 
-# ── PoissonGaussianMixtureLoss ────────────────────────────────────────
+# ── PoissonGaussianContaminationMixtureLoss ────────────────────────────────────────
 
 
-class TestPoissonGaussianMixtureContract:
-    """Reduction / mask / weight contracts for PoissonGaussianMixtureLoss."""
+class TestPoissonGaussianContaminationMixtureContract:
+    """Reduction / mask / weight contracts for PoissonGaussianContaminationMixtureLoss."""
 
     def test_reduction_consistency(self):
         batch, dim = 6, 3
         y_pred = _make_pos_preds(batch, dim)
         target = _make_pos_targets(batch, dim)
-        _check_reduction(PoissonGaussianMixtureLoss, y_pred, target)
+        _check_reduction(PoissonGaussianContaminationMixtureLoss, y_pred, target)
 
     def test_mask_changes_loss(self):
         batch, dim = 5, 3
@@ -110,7 +110,7 @@ class TestPoissonGaussianMixtureContract:
         mask = torch.ones(batch, dim, dtype=torch.bool)
         mask[0, 0] = False
 
-        fn = PoissonGaussianMixtureLoss(reduction="mean")
+        fn = PoissonGaussianContaminationMixtureLoss(reduction="mean")
         loss_full = fn(y_pred, target)
         loss_masked = fn(y_pred, target, mask=mask)
         assert loss_masked != loss_full
@@ -121,7 +121,7 @@ class TestPoissonGaussianMixtureContract:
         target = _make_pos_targets(batch, dim)
         mask = torch.zeros(batch, dim, dtype=torch.bool)
 
-        fn = PoissonGaussianMixtureLoss(reduction="mean")
+        fn = PoissonGaussianContaminationMixtureLoss(reduction="mean")
         loss = fn(y_pred, target, mask=mask)
         assert isinstance(loss, torch.Tensor)
 
@@ -133,7 +133,7 @@ class TestPoissonGaussianMixtureContract:
         w2 = w1.clone()
         w2[0, 0] = 2.0
 
-        fn = PoissonGaussianMixtureLoss(reduction="none")
+        fn = PoissonGaussianContaminationMixtureLoss(reduction="none")
         out1 = fn(y_pred, target, weights=w1)
         out2 = fn(y_pred, target, weights=w2)
 
@@ -146,13 +146,15 @@ class TestPoissonGaussianMixtureContract:
         w = torch.ones(batch, dim)
         w[0, 0] = 0.0
 
-        fn = PoissonGaussianMixtureLoss(reduction="none")
+        fn = PoissonGaussianContaminationMixtureLoss(reduction="none")
         out = fn(y_pred, target, weights=w)
         assert out[0, 0] == 0.0
 
     def test_gradients_flow(self):
         model = torch.nn.Linear(3, 3)
-        loss_fn = PoissonGaussianMixtureLoss(learn_variance=True, mixture_weights="learn")
+        loss_fn = PoissonGaussianContaminationMixtureLoss(
+            learn_variance=True, mixture_weights="learn"
+        )
         opt = torch.optim.SGD(list(model.parameters()) + list(loss_fn.parameters()), lr=0.01)
         x = torch.randn(4, 3)
         target = _make_pos_targets(4, 3)
@@ -168,7 +170,7 @@ class TestPoissonGaussianMixtureContract:
         assert torch.isfinite(loss)
 
     def test_numerical_stability_extreme_lambda(self):
-        fn = PoissonGaussianMixtureLoss()
+        fn = PoissonGaussianContaminationMixtureLoss()
         # Very small predictions
         y_pred = torch.tensor([[1e-10, 1e-8], [1e-9, 1e-7]])
         target = torch.tensor([[0.0, 1e-8], [1e-9, 1e-7]])
@@ -182,7 +184,7 @@ class TestPoissonGaussianMixtureContract:
         assert torch.isfinite(loss)
 
 
-class TestPoissonGaussianMixtureRelationships:
+class TestPoissonGaussianContaminationMixtureRelationships:
     """Family relationships: PG mixture reduces to known limits."""
 
     def test_equal_weights_are_symmetric(self):
@@ -191,10 +193,10 @@ class TestPoissonGaussianMixtureRelationships:
         y_pred = _make_pos_preds(3, 2)
         target = _make_pos_targets(3, 2)
 
-        fn = PoissonGaussianMixtureLoss(mixture_weights=None)  # default 0.5
+        fn = PoissonGaussianContaminationMixtureLoss(mixture_weights=None)  # default 0.5
         loss1 = fn(y_pred, target)
 
-        fn2 = PoissonGaussianMixtureLoss(mixture_weights=0.5)  # explicit 0.5
+        fn2 = PoissonGaussianContaminationMixtureLoss(mixture_weights=0.5)  # explicit 0.5
         loss2 = fn2(y_pred, target)
 
         torch.testing.assert_close(loss1, loss2)
@@ -204,7 +206,7 @@ class TestPoissonGaussianMixtureRelationships:
         y_pred = _make_pos_preds(3, 2)
         target = _make_pos_targets(3, 2)
 
-        fn_pg = PoissonGaussianMixtureLoss(mixture_weights=1.0, reduction="none")
+        fn_pg = PoissonGaussianContaminationMixtureLoss(mixture_weights=1.0, reduction="none")
         pg_loss = fn_pg(y_pred, target)
 
         # Pure Poisson NLL (full=True matches the internal PoissonNLLLoss)
@@ -220,8 +222,8 @@ class TestPoissonGaussianMixtureRelationships:
         y_pred = _make_pos_preds(4, 3)
         target = _make_pos_targets(4, 3)
 
-        fn_default = PoissonGaussianMixtureLoss(reduction="mean")
-        fn_weighted = PoissonGaussianMixtureLoss(mixture_weights=0.3, reduction="mean")
+        fn_default = PoissonGaussianContaminationMixtureLoss(reduction="mean")
+        fn_weighted = PoissonGaussianContaminationMixtureLoss(mixture_weights=0.3, reduction="mean")
 
         loss_default = fn_default(y_pred, target)
         loss_weighted = fn_weighted(y_pred, target)
@@ -233,24 +235,26 @@ class TestPoissonGaussianMixtureRelationships:
         y_pred = _make_pos_preds(4, 3)
         target = _make_pos_targets(4, 3)
 
-        fn_default = PoissonGaussianMixtureLoss(reduction="mean")
-        fn_learn = PoissonGaussianMixtureLoss(mixture_weights="learn", reduction="mean")
+        fn_default = PoissonGaussianContaminationMixtureLoss(reduction="mean")
+        fn_learn = PoissonGaussianContaminationMixtureLoss(
+            mixture_weights="learn", reduction="mean"
+        )
 
         # Learner starts at sigmoid(0) = 0.5, same as default
         torch.testing.assert_close(fn_default(y_pred, target), fn_learn(y_pred, target))
 
 
-# ── EnhancedPoissonGaussianMixtureLoss ────────────────────────────────
+# ── EnhancedPoissonGaussianContaminationMixtureLoss ────────────────────────────────
 
 
 class TestEnhancedPoissonGaussianContract:
-    """Reduction / mask / weight contracts for EnhancedPoissonGaussianMixtureLoss."""
+    """Reduction / mask / weight contracts for EnhancedPoissonGaussianContaminationMixtureLoss."""
 
     def test_reduction_consistency(self):
         batch, dim = 6, 3
         y_pred = _make_pos_preds(batch, dim)
         target = _make_pos_targets(batch, dim)
-        _check_reduction(EnhancedPoissonGaussianMixtureLoss, y_pred, target)
+        _check_reduction(EnhancedPoissonGaussianContaminationMixtureLoss, y_pred, target)
 
     def test_mask_changes_loss(self):
         batch, dim = 5, 3
@@ -259,7 +263,7 @@ class TestEnhancedPoissonGaussianContract:
         mask = torch.ones(batch, dim, dtype=torch.bool)
         mask[0, 0] = False
 
-        fn = EnhancedPoissonGaussianMixtureLoss(reduction="mean")
+        fn = EnhancedPoissonGaussianContaminationMixtureLoss(reduction="mean")
         loss_full = fn(y_pred, target)
         loss_masked = fn(y_pred, target, mask=mask)
         assert loss_masked != loss_full
@@ -272,7 +276,7 @@ class TestEnhancedPoissonGaussianContract:
         w2 = w1.clone()
         w2[0, 0] = 2.0
 
-        fn = EnhancedPoissonGaussianMixtureLoss(reduction="none")
+        fn = EnhancedPoissonGaussianContaminationMixtureLoss(reduction="none")
         out1 = fn(y_pred, target, weights=w1)
         out2 = fn(y_pred, target, weights=w2)
         torch.testing.assert_close(out2[0, 0] / out1[0, 0], torch.tensor(2.0))
@@ -282,13 +286,13 @@ class TestEnhancedPoissonGaussianContract:
         y_pred = _make_pos_preds(4, 3)
         target = _make_pos_targets(4, 3)
 
-        fn = EnhancedPoissonGaussianMixtureLoss(read_noise=1.0, shot_noise=0.0)
+        fn = EnhancedPoissonGaussianContaminationMixtureLoss(read_noise=1.0, shot_noise=0.0)
         loss = fn(y_pred, target)
         assert torch.isfinite(loss)
 
     def test_gradients_flow(self):
         model = torch.nn.Linear(3, 3)
-        loss_fn = EnhancedPoissonGaussianMixtureLoss(
+        loss_fn = EnhancedPoissonGaussianContaminationMixtureLoss(
             gain="learn", offset="learn", read_noise="learn"
         )
         opt = torch.optim.SGD(list(model.parameters()) + list(loss_fn.parameters()), lr=0.01)
@@ -304,7 +308,7 @@ class TestEnhancedPoissonGaussianContract:
         assert torch.isfinite(loss)
 
     def test_numerical_stability(self):
-        fn = EnhancedPoissonGaussianMixtureLoss()
+        fn = EnhancedPoissonGaussianContaminationMixtureLoss()
         y_pred = torch.full((2, 2), 1e8)
         target = torch.full((2, 2), 1e8 + 100)
         loss = fn(y_pred, target)
@@ -662,8 +666,8 @@ class TestPoissonGaussianCrossFamily:
         y_pred = _make_pos_preds(4, 3)
         target = _make_pos_targets(4, 3)
 
-        pg = PoissonGaussianMixtureLoss(mixture_weights=0.5, reduction="mean")
-        epg = EnhancedPoissonGaussianMixtureLoss(
+        pg = PoissonGaussianContaminationMixtureLoss(mixture_weights=0.5, reduction="mean")
+        epg = EnhancedPoissonGaussianContaminationMixtureLoss(
             gain=1.0, offset=0.0, read_noise=1.0, shot_noise=0.0, reduction="mean"
         )
 

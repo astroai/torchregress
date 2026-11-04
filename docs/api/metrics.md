@@ -20,8 +20,8 @@ Complete reference for `torchregress.metrics`. Every metric, class, and report f
 | `r2_score` | `r2_score(y_pred, y_true, as_numpy=False)` | Functional R² (unweighted) |
 | `huber_loss` | `huber_loss(y_pred, y_true, delta=1.0, sample_weight=None, reduction="mean")` | Functional Huber loss |
 | `median_absolute_error` | `median_absolute_error(y_pred, y_true, multioutput="uniform_average")` | MedAE (matches `sklearn.metrics.median_absolute_error`) |
-| `median_absolute_deviation` | `median_absolute_deviation(y_pred, y_true, scale=1.4826)` | MAD |
-| `nmad` | `nmad(y_pred, y_true)` | Normalised MAD of residuals: `1.4826 * median(\|r\|)` (NumPy, float64) |
+| `median_absolute_deviation` | `median_absolute_deviation(y_pred, y_true, scale=1.482602218505602)` | MAD |
+| `nmad` | `nmad(y_pred, y_true)` | Normalised MAD of residuals: `1.482602218505602 * median(\|r\|)` (NumPy, float64) |
 | `normalized_rmse` | `normalized_rmse(y_pred, y_true, normalization="std")` | NRMSE |
 | `trimmed_mean_squared_error` | `trimmed_mean_squared_error(y_pred, y_true, proportion=0.1)` | Trimmed MSE (matches `scipy.stats.trim_mean`) |
 | `tail_rmse` | `tail_rmse(y_pred, y_true, *, quantile=0.9, tail="upper")` | Tail RMSE |

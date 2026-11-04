@@ -49,8 +49,8 @@ See the [NormalizingFlowLoss API](../api/losses.md) for the training contract an
 | Flow | Best for | Caveat |
 |:--|:--|:--|
 | `nsf` / `ncsf` | scalar/multi-target continuous regression; best calibration per parameter | bounded spline domain; widen `bound` for heavy tails |
-| `realnvp` / `cinn` | fast affine-coupling training, high-dimensional targets | can produce occasional catastrophic point tails; use robust metrics |
-| `maf` | unbounded, autoregressive densities | slower sampling; conditional context dependence |
+| `realnvp` / `cinn` | fast affine-coupling training, high-dimensional targets | less expressive per layer than NSF; see [stable affine layers](#stable-affine-layers-maf-realnvp-cinn) |
+| `maf` | unbounded, autoregressive densities | sampling needs one pass per target coordinate; see [stable affine layers](#stable-affine-layers-maf-realnvp-cinn) |
 | `bpf` | smooth Bernstein-polynomial scalar/joint densities | newer, less battle-tested than NSF |
 
 For **noisy labels**, wrap the flow with
@@ -95,7 +95,8 @@ flow = create_flow_model(
 | `flow_type` | `str` | `"nsf"` | `"nsf"`/`"ncsf"`, `"maf"`, `"realnvp"`/`"cinn"`, or `"bpf"` |
 | `n_transforms` | `int` | `5` | Number of invertible blocks |
 | `hidden_features` | `list[int]` or `None` | `None` | Hidden layer sizes (default: `[64, 64]`) |
-| `bound` | `float` or `None` | `None` | NSF only: half-width `B` of the spline domain `[-B, B]` (zuko's fixed `5` when `None`). See [Training recipe](#training-recipe-for-nll-and-calibration). |
+| `bound` | `float` or `None` | `None` | NSF: half-width `B` of the spline domain `[-B, B]` (zuko's fixed `5` when `None`); see [Training recipe](#training-recipe-for-nll-and-calibration). MAF / RealNVP / cINN: conditioner soft-clip half-width (`10` when `None`); see [stable affine layers](#stable-affine-layers-maf-realnvp-cinn). Not accepted for BPF. |
+| `slope` | `float` | NSF `1e-3`, affine `e^{-3}` | Minimum slope of each layer (forwarded to zuko's spline / affine transform). For the affine flows it bounds the log-scale: $|\log s| < -\log(\text{slope})$. |
 | `bins` | `int` | `8` | NSF only (forwarded to zuko): spline knots per transform. |
 
 ### Step 2: Wrap in NormalizingFlowLoss
@@ -305,7 +306,7 @@ with torch.no_grad():
 For a challenge-style parameter scan built on top of `ContrastiveFlowLoss`, see
 [Contrastive Flow Parameter Estimation](../examples/contrastive_flow_parameter_estimation.md).
 For shared-budget comparisons against Gaussian-summary and plain-flow baselines, see
-[Contrastive Flow Parameter Estimation Comparison](../examples/contrastive_flow_parameter_estimation_comparison.md)
+[Comparison Against Baselines](../examples/contrastive_flow_parameter_estimation.md#comparison-against-baselines) (`--mode compare`).
 
 !!! warning "Mask semantics"
     Flow objectives model a **joint density** over all target dimensions. `NormalizingFlowLoss`
@@ -314,6 +315,78 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
     a model with an explicit missing-data strategy.
 
 ---
+
+## Stable affine layers (MAF, RealNVP, cINN)
+
+An affine layer maps coordinate $i$ as $z_i = s_i\,x_i + t_i$ with
+$(\log s_i, t_i) = h(x_{<i}, \mathbf{c})$ for MAF ($x_{<i}$ are the preceding
+coordinates in the layer's order) or $h(x_A, \mathbf{c})$ for a coupling layer
+($x_A$ is the unchanged half). Sampling runs the inverse
+$x_i = (z_i - t_i)/s_i$. The conditioner $h$ is a ReLU network, which
+extrapolates linearly outside the training range. One far-tail base draw gives a
+large $x_j$; $h$ answers with a large shift and a small scale, so $x_{j+1}$ is
+larger still and the error grows geometrically over coordinates and layers. The
+density stays correct (the test NLL looks fine), but a few in a million samples
+are astronomically large, finite numbers, and sample-based scores (CRPS, energy
+score, intervals) are ruined. torchregress observed samples of $10^{12}$ in
+standardized units from a 6-target MAF trained on one million rows, and the same
+tail from zuko's MAF used through sbi.
+
+`create_flow_model` therefore builds the affine flows (zuko layout, masks and
+state-dict keys) with two safeguards:
+
+$$
+\log s_i = \frac{a_i}{1 + |a_i| / L}, \qquad L = -\log(\text{slope}) = 3,
+$$
+
+so that each layer stretches or shrinks a coordinate by at most $e^{3}$ (zuko's
+default $L = 6.9$ allows a factor $10^3$), and the conditioner sees
+softly clipped inputs
+
+$$
+(\log s_i, t_i) = h\big(\operatorname{clip}_B(x_{<i}), \mathbf{c}\big), \qquad
+\operatorname{clip}_B(x) = \frac{x}{\sqrt{1 + (x/B)^2}}, \qquad B = 10 .
+$$
+
+$\operatorname{clip}_B$ is the identity to second order near zero and saturates at
+$\pm B$, so the conditioner's outputs stay in the range it learned and the
+inverse cannot cascade. The same conditioner is used in both directions: the
+layers remain exact bijections with an exact triangular Jacobian, and
+`log_prob` and `sample` describe the same density. $B$ is in the target's
+units, so standardize the target (as for NSF) or pass a wider `bound=`, e.g.
+`recommended_tail_bound(y_standardised)` for heavy tails.
+
+!!! warning "Changed in 0.3.0"
+    Flows built by earlier versions used zuko's unbounded conditioners and
+    $L = 6.9$. Their checkpoints load unchanged (same parameter names) but are
+    evaluated with the safeguards; pass `slope=1e-3` and a very large `bound` to
+    rebuild the old map.
+
+```python
+import torch
+from torchregress.losses import NormalizingFlowLoss, create_flow_model
+
+torch.manual_seed(0)
+y = torch.distributions.StudentT(3.0).sample((4096, 3))  # heavy tails
+x = torch.randn(4096, 8)
+y_std = (y - y.mean(0)) / y.std(0)
+encoder = torch.nn.Sequential(torch.nn.Linear(8, 32), torch.nn.ReLU(), torch.nn.Linear(32, 32))
+loss_fn = NormalizingFlowLoss(create_flow_model(3, 32, flow_type="maf", n_transforms=3))
+params = list(encoder.parameters()) + list(loss_fn.parameters())
+optimizer = torch.optim.Adam(params, lr=1e-3)
+for _ in range(200):
+    optimizer.zero_grad()
+    loss = loss_fn(encoder(x), y_std)
+    loss.backward()
+    optimizer.step()
+with torch.no_grad():
+    samples = loss_fn.sample(encoder(x[:100]), n_samples=1000)  # [100, 1000, 3]
+print(float(samples.abs().max()))
+```
+
+NSF and BPF need no such safeguard: their monotone maps are the identity
+outside $[-B, B]$ and map $[-B, B]$ onto itself, so a layer's inverse satisfies
+$|x| \le \max(|z|, B)$.
 
 ## Flow Architectures
 
@@ -346,7 +419,7 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 - [MDN losses](mdn.md) — lighter-weight mixture models for simpler multimodality
 - [SLS regression](sls.md) — volume-optimal prediction regions (flow-based frontier)
 - [Contrastive flow estimation](../examples/contrastive_flow_parameter_estimation.md) — parameter ranking example
-- [Flow comparison](../examples/contrastive_flow_parameter_estimation_comparison.md) — benchmark flows vs MDN vs Gaussian
+- [Flow comparison](../examples/contrastive_flow_parameter_estimation.md#comparison-against-baselines) — Gaussian summary, flow NLL, contrastive flow, NRE and NPE on one budget
 
 ---
 
@@ -362,3 +435,6 @@ For shared-budget comparisons against Gaussian-summary and plain-flow baselines,
 | 6 | K. Cranmer, J. Pavez, G. Louppe. ["Approximating Likelihood Ratios with Calibrated Discriminative Classifiers."](https://arxiv.org/abs/1506.02169) *arXiv:1506.02169*, **2015**. (Classifier-based ratio estimation.) |
 | 7 | C. Durkan, I. Murray, G. Papamakarios. ["On Contrastive Learning for Likelihood-free Inference."](https://arxiv.org/abs/2002.03712) *ICML*, **2020**. (Balanced contrastive NRE.) |
 | 8 | B. K. Miller, A. Cole, C. Weniger, G. Louppe. ["Contrastive Neural Ratio Estimation."](https://arxiv.org/abs/2210.06170) *NeurIPS*, **2022**. (Multiclass NRE/CNRE.) |
+| 9 | G. Papamakarios, T. Pavlakou, I. Murray. ["Masked Autoregressive Flow for Density Estimation."](https://arxiv.org/abs/1705.07057) *NeurIPS*, **2017**. (MAF.) |
+| 10 | L. Dinh, J. Sohl-Dickstein, S. Bengio. ["Density Estimation Using Real NVP."](https://arxiv.org/abs/1605.08803) *ICLR*, **2017**. (Affine coupling.) |
+| 11 | L. Ardizzone et al. ["Guided Image Generation with Conditional Invertible Neural Networks."](https://arxiv.org/abs/1907.02392) *arXiv:1907.02392*, **2019**. (cINN; soft clamping of affine log-scales.) |

@@ -326,7 +326,7 @@ class AutoregressiveTimeLayer(nn.Module):
             batch_first=True,
             norm_first=True,
         )
-        self.encoder = nn.TransformerEncoder(layer, num_layers=1)
+        self.encoder = nn.TransformerEncoder(layer, num_layers=1, enable_nested_tensor=False)
         self.norm = nn.LayerNorm(hidden)
         self.head = nn.Linear(hidden, 2)
         nn.init.zeros_(self.head.weight)

@@ -58,6 +58,27 @@ def _integral_sq_linear(fa: Tensor, fb: Tensor, width: Tensor) -> Tensor:
     return width * (fa**2 + fa * fb + fb**2) / 3.0
 
 
+# Rows per chunk are chosen so one chunk holds about this many (row, bin) cells;
+# peak memory is a few float64 [chunk, K] temporaries regardless of N.
+_CRPS_CHUNK_CELLS = 1 << 22
+
+
+def _input_device(*values: Any) -> torch.device:
+    for v in values:
+        if isinstance(v, Tensor):
+            return v.device
+    return torch.device("cpu")
+
+
+def _as_1d_on(x: Any, name: str, device: torch.device) -> Tensor:
+    t = torch.as_tensor(x, dtype=torch.float64, device=device).detach()
+    if t.ndim != 1:
+        raise ValueError(f"{name} must be 1-D, got {tuple(t.shape)}")
+    if not bool(torch.isfinite(t).all()):
+        raise ValueError(f"{name} must contain finite values")
+    return t
+
+
 def crps_from_binned_cdf(
     bin_edges: Any,
     cdf: Any,
@@ -71,16 +92,27 @@ def crps_from_binned_cdf(
     computed in closed form, including the intervals below and above the
     reference target; no grid approximation is used.  Inputs with bin masses
     instead of CDF values can be converted with :func:`binned_cdf`.
+
+    For a target ``y`` and bin ``[a, b]`` let ``t = clip(y, a, b)``; the bin
+    contributes ``∫_a^t F^2 + ∫_t^b (1 - F)^2`` (both closed-form for a linear
+    ``F``), and targets outside ``[e_0, e_K]`` add ``max(e_0 - y, 0) +
+    max(y - e_K, 0)``.  The computation is batched over rows and bins in float64
+    on the device of the first tensor argument (CPU for NumPy input), in row
+    chunks of bounded memory.  ``reduction="mean"``/``"sum"`` return a Python
+    float and ``"none"`` a NumPy array, whatever the input type.
     """
-    edges = _as_1d(bin_edges, "bin_edges")
+    if reduction not in ("mean", "sum", "none"):
+        raise ValueError("reduction must be 'mean', 'sum', or 'none'")
+    device = _input_device(cdf, target, bin_edges)
+    edges = _as_1d_on(bin_edges, "bin_edges", device)
     if edges.numel() < 2:
         raise ValueError("bin_edges needs at least two values")
     if not bool(torch.all(edges[1:] > edges[:-1])):
         raise ValueError("bin_edges must be strictly increasing")
-    c = torch.as_tensor(cdf, dtype=torch.float64).detach().cpu()
+    c = torch.as_tensor(cdf, dtype=torch.float64, device=device).detach()
     if not bool(torch.isfinite(c).all()):
         raise ValueError("cdf must contain finite values")
-    y = _as_1d(target, "target")
+    y = _as_1d_on(target, "target", device)
     if y.numel() == 0:
         raise ValueError("target must contain at least one value")
     if c.ndim == 1:
@@ -95,49 +127,31 @@ def crps_from_binned_cdf(
         torch.allclose(c[:, -1], torch.ones_like(c[:, -1]), atol=1e-8)
     ):
         raise ValueError("cdf must start at 0 and end at 1")
-    widths = edges[1:] - edges[:-1]
-    fa = c[:, :-1]
-    fb = c[:, 1:]
+    lo = edges[:-1]
+    hi = edges[1:]
+    widths = hi - lo
     n = y.numel()
-    values = torch.zeros(n, dtype=torch.float64)
-    for i in range(n):
-        yi = float(y[i])
-        if yi <= float(edges[0]):
-            # At every support z >= y, the step CDF is 1.
-            values[i] = edges[0] - yi + _integral_sq_linear(1.0 - fa[i], 1.0 - fb[i], widths).sum()
-            continue
-        if yi >= float(edges[-1]):
-            # At every support z < y, the step CDF is 0.
-            values[i] = yi - edges[-1] + _integral_sq_linear(fa[i], fb[i], widths).sum()
-            continue
-        total = torch.zeros((), dtype=torch.float64)
-        for j in range(len(widths)):
-            a, b = float(edges[j]), float(edges[j + 1])
-            if b <= yi:
-                total = total + _integral_sq_linear(fa[i, j], fb[i, j], widths[j])
-            elif a >= yi:
-                total = total + _integral_sq_linear(1.0 - fa[i, j], 1.0 - fb[i, j], widths[j])
-            else:
-                frac = (yi - a) / (b - a)
-                fy = fa[i, j] + frac * (fb[i, j] - fa[i, j])
-                left_w = yi - a
-                right_w = b - yi
-                total = total + _integral_sq_linear(
-                    fa[i, j], fy, torch.as_tensor(left_w, dtype=torch.float64)
-                )
-                total = total + _integral_sq_linear(
-                    1.0 - fy,
-                    1.0 - fb[i, j],
-                    torch.as_tensor(right_w, dtype=torch.float64),
-                )
-        values[i] = total
+    chunk = max(1, _CRPS_CHUNK_CELLS // widths.numel())
+    parts = []
+    for start in range(0, n, chunk):
+        yc = y[start : start + chunk, None]
+        fa = c[start : start + chunk, :-1]
+        fb = c[start : start + chunk, 1:]
+        # Split point of each bin: the target clipped to the bin.
+        t = torch.minimum(torch.maximum(yc, lo), hi)
+        left_w = t - lo
+        right_w = hi - t
+        fy = fa + (left_w / widths) * (fb - fa)
+        below = _integral_sq_linear(fa, fy, left_w)
+        above = _integral_sq_linear(1.0 - fy, 1.0 - fb, right_w)
+        outside = (edges[0] - yc[:, 0]).clamp_min(0.0) + (yc[:, 0] - edges[-1]).clamp_min(0.0)
+        parts.append((below + above).sum(dim=1) + outside)
+    values = torch.cat(parts)
     if reduction == "mean":
         return float(values.mean())
     if reduction == "sum":
         return float(values.sum())
-    if reduction == "none":
-        return values.numpy()
-    raise ValueError("reduction must be 'mean', 'sum', or 'none'")
+    return values.cpu().numpy()
 
 
 def binned_cdf(probabilities: Any) -> np.ndarray:

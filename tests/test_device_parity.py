@@ -31,6 +31,7 @@ from torch import nn
 import torchregress.calibration as C
 import torchregress.losses as L
 import torchregress.metrics as M
+from torchregress.models import GaussianCopulaSplineHead
 
 pytestmark = pytest.mark.cuda
 
@@ -256,6 +257,15 @@ def _point(cls: Callable[..., Any], **init: Any) -> Builder:
     return build
 
 
+def _positive_support(cls: Callable[..., Any], *, shape: int = 2, **init: Any) -> Builder:
+    """Gamma / inverse Gaussian: positive predictions and strictly positive targets (y > 0)."""
+
+    def build(r: _Rng) -> Built:
+        return cls(**init), (r.positive(N, shape), r.positive(N, shape)), {}
+
+    return build
+
+
 def _positive_rate(cls: Callable[..., Any], *, shape: int = 2, **init: Any) -> Builder:
     """Count-like losses: positive predictions, integer-valued float targets."""
 
@@ -446,6 +456,58 @@ def _poisson_gaussian(cls: Callable[..., Any], **init: Any) -> Builder:
     return build
 
 
+def _poisson_gaussian_convolution(r: _Rng) -> Built:
+    rate = r.positive(N, 2) * 8.0
+    target = 1.5 * rate + 2.0 + 2.0 * r.normal(N, 2)
+    target[0, 0] = 400.0  # far outlier row
+    loss = L.PoissonGaussianLoss(gain=1.5, offset=2.0, read_noise_variance=4.0)
+    return loss, (rate, target), {}
+
+
+class _MultiSourceCase(nn.Module):
+    """Pack plain tensors into ``PackedObservations`` so ``_as`` can move them."""
+
+    def __init__(self, loss: nn.Module) -> None:
+        super().__init__()
+        self.loss = loss
+
+    def forward(
+        self,
+        params: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        values: torch.Tensor,
+        jacobian: torch.Tensor,
+        covariance: torch.Tensor,
+        mask: torch.Tensor,
+        block_ids: torch.Tensor,
+    ) -> torch.Tensor:
+        mean, lower, offset = params
+        mapped = torch.einsum("bkd,bd->bk", jacobian, mean) + offset
+        obs = L.PackedObservations(values, mapped, jacobian, covariance, mask, block_ids)
+        return self.loss(mean, lower, obs)
+
+
+def _multisource(loss: nn.Module) -> Builder:
+    """Ragged 5-slot, 3-block problem with within-block correlated noise (D=2)."""
+
+    def build(r: _Rng) -> Built:
+        k, dims = 5, 2
+        blocks = torch.tensor([0, 0, 1, 2, 2])
+        same = (blocks[:, None] == blocks[None, :]).to(torch.float64)
+        corr = torch.eye(k, dtype=torch.float64) + 0.3 * (same - torch.eye(k, dtype=torch.float64))
+        sigma = r.uniform(N, k, lo=0.2, hi=0.6)
+        mask = r.mask(N, k)
+        values = r.normal(N, k).masked_fill(~mask, float("nan"))
+        lower = torch.tril(0.3 * r.normal(N, dims, dims), -1) + torch.diag_embed(
+            r.positive(N, dims)
+        ).to(device="cpu", dtype=torch.float64)
+        params = (r.normal(N, dims), lower, 0.1 * r.normal(N, k))
+        covariance = sigma[:, :, None] * corr * sigma[:, None, :]
+        args = (params, values, r.normal(N, k, dims), covariance, mask, blocks.expand(N, k))
+        return _MultiSourceCase(loss), args, {}
+
+    return build
+
+
 def _conformal(method: str) -> Builder:
     def build(r: _Rng) -> Built:
         if method == "split":
@@ -584,6 +646,41 @@ def _beta_regression(r: _Rng) -> Built:
     return L.BetaRegressionNLLLoss(), (0.5 * r.normal(N, 2), r.uniform(N, 1, lo=0.1, hi=0.9)), {}
 
 
+class _CopulaSplineDensity(nn.Module):
+    """Expose ``GaussianCopulaSplineHead`` densities as ``fn(context, value, mask, ...)``."""
+
+    def __init__(self, r: _Rng, *, noise: bool) -> None:
+        super().__init__()
+        self.head = GaussianCopulaSplineHead(2, D, width=8, bins=4)
+        self.head.double()
+        with torch.no_grad():  # deterministic weights: both devices build the same head
+            for parameter in self.head.parameters():
+                parameter.copy_(0.3 * r.normal(*parameter.shape))
+        self.noise = noise
+
+    def forward(self, context: torch.Tensor, value: torch.Tensor, mask: torch.Tensor, *rest: Any):
+        if self.noise:
+            return self.head.observed_log_prob(context, value, *rest[:1], mask, *rest[1:])
+        return self.head.intrinsic_log_prob(context, value, mask)
+
+
+def _copula_spline(*, noise: bool, complete: bool) -> Builder:
+    """Ragged missingness (batched marginal path) or complete rows (direct Cholesky path)."""
+
+    def build(r: _Rng) -> Built:
+        module = _CopulaSplineDensity(r, noise=noise)
+        mask = torch.ones(N, D, dtype=torch.bool) if complete else r.mask(N, D)
+        if not complete:
+            mask[1] = False  # an empty row
+            mask[2] = torch.tensor([False, True, False])
+        args: tuple[Any, ...] = (r.normal(N, 2), r.normal(N, D), mask)
+        if noise:
+            args = (*args, 0.2 * r.positive(N, D), r.normal(4, D))
+        return module, args, {}
+
+    return build
+
+
 LOSS_CASES: dict[str, Builder] = {
     # Weighted point losses
     "WeightedMSELoss": _point(L.WeightedMSELoss),
@@ -635,17 +732,26 @@ LOSS_CASES: dict[str, Builder] = {
     ),
     "TweedieLoss": _positive_rate(L.TweedieLoss, p=1.5, link="identity"),
     "tweedie_loss": _tweedie_fn,
-    "GammaLoss": _positive_rate(L.GammaLoss, link="identity"),
-    "InverseGaussianLoss": _positive_rate(L.InverseGaussianLoss, link="identity"),
+    "GammaLoss": _positive_support(L.GammaLoss, link="identity"),
+    "InverseGaussianLoss": _positive_support(L.InverseGaussianLoss, link="identity"),
     "CompoundPoissonLoss": _positive_rate(L.CompoundPoissonLoss, link="identity"),
-    "PoissonGaussianMixtureLoss": _poisson_gaussian(
-        L.PoissonGaussianMixtureLoss, initial_variance=0.1, log_input=False
+    "PoissonGaussianContaminationMixtureLoss": _poisson_gaussian(
+        L.PoissonGaussianContaminationMixtureLoss, initial_variance=0.1, log_input=False
     ),
+    "PoissonGaussianLoss": _poisson_gaussian_convolution,
+    # Shared-latent multi-source likelihoods (batched Cholesky over objects)
+    "MarginalizedMultiSourceGaussianNLLLoss": _multisource(
+        L.MarginalizedMultiSourceGaussianNLLLoss("none")
+    ),
+    "MarginalizedMultiSourceGaussianNLLLoss[information]": _multisource(
+        L.MarginalizedMultiSourceGaussianNLLLoss(method="information")
+    ),
+    "RobustMultiSourceGaussianNLLLoss": _multisource(L.RobustMultiSourceGaussianNLLLoss("none")),
     "PoissonGaussianLikelihoodRatioLoss": _poisson_gaussian(
         L.PoissonGaussianLikelihoodRatioLoss, log_input=False
     ),
-    "EnhancedPoissonGaussianMixtureLoss": _poisson_gaussian(
-        L.EnhancedPoissonGaussianMixtureLoss, gain=1.5, read_noise=0.2, shot_noise=0.1
+    "EnhancedPoissonGaussianContaminationMixtureLoss": _poisson_gaussian(
+        L.EnhancedPoissonGaussianContaminationMixtureLoss, gain=1.5, read_noise=0.2, shot_noise=0.1
     ),
     # Censored
     "CensoredGaussianNLLLoss": _censored_gaussian,
@@ -688,6 +794,10 @@ LOSS_CASES: dict[str, Builder] = {
     "OrdinalCrossEntropyLoss": _ordinal(L.OrdinalCrossEntropyLoss, cumulative=False),
     "DiscreteWasserstein1Loss": _wasserstein1d,
     "RankNContrastLoss": _rank_n_contrast,
+    # Correlated spline flow densities (gradient w.r.t. the context)
+    "GaussianCopulaSplineHead[intrinsic,ragged]": _copula_spline(noise=False, complete=False),
+    "GaussianCopulaSplineHead[intrinsic,complete]": _copula_spline(noise=False, complete=True),
+    "GaussianCopulaSplineHead[observed,ragged]": _copula_spline(noise=True, complete=False),
 }
 
 # Strict xfails for genuine library device/dtype bugs, keyed by case name (applies to the
@@ -1006,6 +1116,70 @@ def _pcls(cls: Callable[..., Any], *make: Callable[[_Rng], Any], **init: Any) ->
     return _stateful(cls, *make, **init)
 
 
+# Chunked density-conformal calibrators: calibrate on 3N rows with a chunk size
+# that does not divide N, then predict on N rows.  The score below is rational
+# (``+ - * /`` only) and row-wise, so it is evaluated identically on every device.
+def _rational_nld(ctx: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    mean = 0.8 * ctx[:, :1] + 0.3 * ctx[:, 1:2] / (1.0 + ctx[:, 1:2] * ctx[:, 1:2])
+    scale = 0.3 + 0.4 * ctx[:, 2:3] * ctx[:, 2:3] / (1.0 + ctx[:, 2:3] * ctx[:, 2:3])
+    z = (y.reshape(y.shape[0], -1) - mean) / scale
+    return (0.5 * z * z + scale).sum(dim=-1)
+
+
+def _rational_sampler(ctx: torch.Tensor, n: int) -> torch.Tensor:
+    """Deterministic ``[N, n, 2]`` pseudo-samples (no RNG: CPU and CUDA streams differ)."""
+    k = torch.arange(n, device=ctx.device, dtype=ctx.dtype).reshape(1, n, 1)
+    u = (k * 0.6180339887 + 0.1 * ctx[:, 2:3].unsqueeze(1)) % 1.0 - 0.5
+    v = (k * 0.7548776662 + 0.1 * ctx[:, 1:2].unsqueeze(1)) % 1.0 - 0.5
+    return ctx[:, :2].unsqueeze(1) + torch.cat([u, 0.3 * u + v], dim=-1)
+
+
+def _density_conformal_case(d: int) -> Builder:
+    def build(r: _Rng) -> Built:
+        def run(ctx: torch.Tensor, y: torch.Tensor, ctx_t: torch.Tensor, y_t: torch.Tensor) -> Any:
+            cp = L.ConformalizedDensity(alpha=0.2, grid_size=25, chunk_size=5)
+            cp.calibrate(_rational_nld, ctx, y)
+            out: tuple[Any, ...] = (cp.threshold, cp.contains(_rational_nld, ctx_t, y_t))
+            if d == 1:
+                out = (*out, *cp.predict_interval(_rational_nld, ctx_t, -3.0, 3.0))
+            return out
+
+        return run, (r.normal(3 * N, 3), r.normal(3 * N, d), r.normal(N, 3), r.normal(N, d)), {}
+
+    return build
+
+
+def _contrastive_flow_conformal(r: _Rng) -> Built:
+    class _Flow:
+        def log_prob(self, ctx: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            return -_rational_nld(ctx, y)
+
+    def run(ctx: torch.Tensor, y: torch.Tensor, ctx_t: torch.Tensor, y_t: torch.Tensor) -> Any:
+        cp = L.ContrastiveFlowConformal(_Flow(), alpha=0.2, grid_size=25, chunk_size=5)
+        cp.calibrate(ctx, y)
+        return (cp.threshold, cp.contains(ctx_t, y_t), *cp.predict_interval(ctx_t, -3.0, 3.0))
+
+    return run, (r.normal(3 * N, 3), r.normal(3 * N, 1), r.normal(N, 3), r.normal(N, 1)), {}
+
+
+def _waldo_density_conformal(r: _Rng) -> Built:
+    def run(ctx: torch.Tensor, y: torch.Tensor, ctx_t: torch.Tensor, y_t: torch.Tensor) -> Any:
+        cp = L.WaldoDensityConformal(alpha=0.2, n_samples=16, chunk_size=5)
+        cp.calibrate(_rational_sampler, ctx, y)
+        return cp.threshold, cp.contains(_rational_sampler, ctx_t, y_t)
+
+    return run, (r.normal(3 * N, 3), r.normal(3 * N, 2), r.normal(N, 3), r.normal(N, 2)), {}
+
+
+def _waldo_posterior_calibrator(r: _Rng) -> Built:
+    def run(samples: torch.Tensor, y: torch.Tensor) -> Any:
+        cp = L.WaldoPosteriorCalibrator(alpha=0.2, chunk_size=5)
+        cp.calibrate(samples[: 3 * N], y[: 3 * N])
+        return cp.threshold, cp.contains(samples[3 * N :], y[3 * N :])
+
+    return run, (r.normal(4 * N, 16, 2), r.normal(4 * N, 2)), {}
+
+
 METRIC_CASES: dict[str, Builder] = {
     # Point metrics (functions)
     "mean_squared_error": _metric(M.mean_squared_error, _n, _n),
@@ -1136,6 +1310,12 @@ METRIC_CASES: dict[str, Builder] = {
     "consistency_error": _metric(M.consistency_error, _n, _n),
     "pseudo_label_acceptance_rate": _metric(M.pseudo_label_acceptance_rate, lambda r: r.uniform(N)),
     "uncertain_gt_metrics_report": _uncertain_report,
+    # Chunked density-conformal calibrators
+    "ConformalizedDensity[scalar]": _density_conformal_case(1),
+    "ConformalizedDensity[multi]": _density_conformal_case(3),
+    "ContrastiveFlowConformal": _contrastive_flow_conformal,
+    "WaldoDensityConformal": _waldo_density_conformal,
+    "WaldoPosteriorCalibrator": _waldo_posterior_calibrator,
 }
 
 XFAIL_METRICS_PARITY: dict[str, str] = {}

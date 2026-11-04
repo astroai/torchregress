@@ -101,6 +101,7 @@ from .families import (
     skew_t_nll,
     sqr_loss,
 )
+from .forward_quadrature import GaussianLatentForwardObservationNLLLoss
 from .gaussian import (
     GaussianCRPSLoss,
     GaussianNLLLoss,
@@ -124,6 +125,8 @@ from .loss_registry import create_loss_from_config, get_regression_loss, list_re
 
 # Mixture Density Networks
 from .mdn import MixtureDensityLoss
+from .multisource import MarginalizedMultiSourceGaussianNLLLoss, PackedObservations
+from .multisource_robust import RobustMultiSourceGaussianNLLLoss
 from .rank_sim import RankSimLoss, rank_sim_regularizer
 
 # SLS regression
@@ -182,9 +185,10 @@ from .poisson import (
 
 # Mixed Poisson-Gaussian losses
 from .poisson_gaussian import (
-    EnhancedPoissonGaussianMixtureLoss,
+    EnhancedPoissonGaussianContaminationMixtureLoss,
+    PoissonGaussianContaminationMixtureLoss,
     PoissonGaussianLikelihoodRatioLoss,
-    PoissonGaussianMixtureLoss,
+    PoissonGaussianLoss,
 )
 
 # Representation-level imbalanced-regression losses (PRIME proxies, ConR)
@@ -281,7 +285,7 @@ __all__ = [
     "DiscreteWasserstein1Loss",
     "DistributionLoss",
     "DistributionalConformal",
-    "EnhancedPoissonGaussianMixtureLoss",
+    "EnhancedPoissonGaussianContaminationMixtureLoss",
     "EnsembleBatchCP",
     "EnsembleEIVLoss",
     "EvidentialRegressionLoss",
@@ -294,6 +298,7 @@ __all__ = [
     "GEVNLLLoss",
     "GammaLoss",
     "GaussianCRPSLoss",
+    "GaussianLatentForwardObservationNLLLoss",
     "GaussianNLLLoss",
     "GaussianWassersteinBoundLoss",
     "InputNoiseAugmentationLoss",
@@ -310,6 +315,7 @@ __all__ = [
     "LogTransformLoss",
     "LowRankGaussianLoss",
     "MahalanobisFrontier",
+    "MarginalizedMultiSourceGaussianNLLLoss",
     "MixtureDensityLoss",
     "MonteCarloConformal",
     "MultiExpectileLoss",
@@ -325,10 +331,12 @@ __all__ = [
     "NonExchangeableConformalRegressor",
     "NormalizingFlowLoss",
     "OrdinalCrossEntropyLoss",
+    "PackedObservations",
     "OrthogonalDistanceRegressionLoss",
     "PoissonDevianceLoss",
     "PoissonGaussianLikelihoodRatioLoss",
-    "PoissonGaussianMixtureLoss",
+    "PoissonGaussianLoss",
+    "PoissonGaussianContaminationMixtureLoss",
     "PoissonLikelihoodRatioLoss",
     "PrevalenceAdjustedCP",
     "PrimeLoss",
@@ -343,6 +351,7 @@ __all__ = [
     "RankSimLoss",
     "rank_sim_regularizer",
     "RegressionLoss",
+    "RobustMultiSourceGaussianNLLLoss",
     "SLSConformal",
     "SLSLoss",
     "SQRLoss",

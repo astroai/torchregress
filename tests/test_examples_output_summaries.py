@@ -169,7 +169,7 @@ def test_ood_comparison_writes_summary_json(tmp_path: Path) -> None:
 
 
 def test_ood_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("ood_selective_prediction_realdata_comparison")
+    mod = _load_example_module("ood_selective_prediction_comparison")
     out = tmp_path / "ood_realdata_summary.json"
     cfg = mod.OODRealDataConfig(
         n_train=64,
@@ -318,8 +318,8 @@ def test_eiv_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_non_negative(row["eval_s"])
 
 
-def test_eiv_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("eiv_method_realdata_comparison")
+def test_eiv_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("eiv_method_comparison")
     out = tmp_path / "eiv_realdata_summary.json"
     cfg = mod.EIVRealDataConfig(n_train=64, n_test=32, epochs=1, hidden=8)
     mod.main(cfg, summary_json_path=str(out))
@@ -382,8 +382,8 @@ def test_multimodal_comparison_writes_summary_json(tmp_path: Path) -> None:
         _assert_non_negative(rows[method]["MCE"])
 
 
-def test_multimodal_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("multimodal_method_realdata_comparison")
+def test_multimodal_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("multimodal_method_comparison")
     out = tmp_path / "multimodal_realdata_summary.json"
     cfg = mod.MultimodalRealDataConfig(
         n_train=64,
@@ -419,10 +419,10 @@ def test_multimodal_realdata_comparison_writes_summary_json(tmp_path: Path) -> N
         _assert_non_negative(rows[method]["MCE"])
 
 
-def test_contrastive_flow_parameter_estimation_comparison_writes_summary_json(
+def test_contrastive_flow_parameter_estimation_compare_mode_writes_summary_json(
     tmp_path: Path,
 ) -> None:
-    mod = _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    mod = _load_example_module("contrastive_flow_parameter_estimation")
     out = tmp_path / "contrastive_flow_synth_summary.json"
     cfg = mod.ContrastiveFlowComparisonConfig(
         n_train=48,
@@ -437,7 +437,7 @@ def test_contrastive_flow_parameter_estimation_comparison_writes_summary_json(
         mu_grid_size=9,
         nuisance_grid_size=7,
     )
-    mod.main(cfg, summary_json_path=str(out))
+    mod.run_comparison(cfg, summary_json_path=str(out))
     _assert_summary_schema(
         out,
         task_substring="parameter estimation",
@@ -485,8 +485,8 @@ def test_ordinal_regression_comparison_writes_summary_json(tmp_path: Path) -> No
         _assert_non_negative(row["eval_s"])
 
 
-def test_ordinal_regression_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("ordinal_regression_realdata_comparison")
+def test_ordinal_regression_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("ordinal_regression_comparison")
     out = tmp_path / "ordinal_realdata_comparison_summary.json"
     cfg = mod.OrdinalRealDataConfig(
         n_train=128,
@@ -595,8 +595,8 @@ def test_censored_regression_comparison_writes_summary_json(tmp_path: Path) -> N
         _assert_non_negative(row["eval_s"])
 
 
-def test_censored_regression_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("censored_regression_realdata_comparison")
+def test_censored_regression_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("censored_regression_comparison")
     out = tmp_path / "censored_realdata_comparison_summary.json"
     cfg = mod.CensoredRealDataConfig(
         n_train=128,
@@ -713,11 +713,11 @@ def test_uncertain_gt_density_conformal_comparison_writes_summary_json(tmp_path:
         _assert_non_negative(row["eval_s"])
 
 
-def test_uncertain_gt_density_conformal_realdata_comparison_writes_summary_json(
+def test_uncertain_gt_density_conformal_comparison_diabetes_writes_summary_json(
     tmp_path: Path,
 ) -> None:
-    mod = _load_example_module("uncertain_gt_density_conformal_realdata_comparison")
-    out = tmp_path / "uncertain_gt_density_conformal_realdata_summary.json"
+    mod = _load_example_module("uncertain_gt_density_conformal_comparison")
+    out = tmp_path / "uncertain_gt_density_conformal_diabetes_summary.json"
     cfg = mod.UncertainGTConformalRealDataConfig(
         n_train=128,
         n_cal=64,
@@ -818,8 +818,8 @@ def test_causal_dr_uplift_comparison_writes_summary_json(tmp_path: Path) -> None
         _assert_non_negative(row["train_s"])
 
 
-def test_causal_dr_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("causal_dr_realdata_comparison")
+def test_causal_dr_uplift_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("causal_dr_uplift_comparison")
     out = tmp_path / "causal_dr_realdata_summary.json"
     cfg = mod.CausalDRRealDataConfig(n_samples=320, folds=2)
     mod.main(cfg, summary_json_path=str(out))
@@ -914,9 +914,9 @@ def test_noisy_label_comparison_writes_summary_json(tmp_path: Path) -> None:
     _assert_non_negative(rows["Quantile90"]["NativeWidth90"])
 
 
-def test_noisy_label_realdata_comparison_writes_summary_json(tmp_path: Path) -> None:
-    mod = _load_example_module("noisy_label_realdata_comparison")
-    out = tmp_path / "noisy_label_realdata_summary.json"
+def test_noisy_label_comparison_diabetes_writes_summary_json(tmp_path: Path) -> None:
+    mod = _load_example_module("noisy_label_comparison")
+    out = tmp_path / "noisy_label_diabetes_summary.json"
     cfg = mod.NoisyLabelRealDataConfig(
         n_train=64,
         n_cal=24,

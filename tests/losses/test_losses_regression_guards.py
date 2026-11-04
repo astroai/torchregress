@@ -21,8 +21,8 @@ from torchregress.losses.expectile import MultiExpectileLoss
 from torchregress.losses.gaussian import GaussianNLLLoss
 from torchregress.losses.poisson import NegativeBinomialNLLLoss, ZeroInflatedPoissonNLLLoss
 from torchregress.losses.poisson_gaussian import (
-    EnhancedPoissonGaussianMixtureLoss,
-    PoissonGaussianMixtureLoss,
+    EnhancedPoissonGaussianContaminationMixtureLoss,
+    PoissonGaussianContaminationMixtureLoss,
 )
 from torchregress.losses.quantile import MultiQuantileLoss, QuantileCrossoverLoss
 from torchregress.losses.utils_robust import huber_elementwise, log_cosh, tukey_biweight
@@ -87,7 +87,7 @@ def test_a1_mixture_nll_matches_logsumexp_closed_form() -> None:
     torch.manual_seed(0)
     y_pred = torch.rand(8, 2) * 5 + 0.1
     target = torch.rand(8, 2) * 5
-    fn = PoissonGaussianMixtureLoss(initial_variance=0.3, mixture_weights=0.7)
+    fn = PoissonGaussianContaminationMixtureLoss(initial_variance=0.3, mixture_weights=0.7)
     got = fn(y_pred, target)
 
     pll = nn.PoissonNLLLoss(log_input=False, full=True, eps=1e-8, reduction="none")(y_pred, target)
@@ -105,7 +105,7 @@ def test_a1_mixture_nll_matches_logsumexp_closed_form() -> None:
 def test_a1_mixture_differs_from_arithmetic_mean() -> None:
     y_pred = torch.tensor([[2.0]])
     target = torch.tensor([[3.0]])
-    fn = PoissonGaussianMixtureLoss(initial_variance=1.0)
+    fn = PoissonGaussianContaminationMixtureLoss(initial_variance=1.0)
     mixture = float(fn(y_pred, target))
     pll = float(nn.PoissonNLLLoss(log_input=False, full=True, eps=1e-8)(y_pred, target))
     gll = 0.5 * (math.log(2 * math.pi) + 1.0)
@@ -116,7 +116,7 @@ def test_a1_mixture_differs_from_arithmetic_mean() -> None:
 def test_a1_enhanced_uses_true_mixture_nll() -> None:
     y_pred = torch.tensor([[2.0, 3.0]])
     target = torch.tensor([[2.5, 2.0]])
-    fn = EnhancedPoissonGaussianMixtureLoss(read_noise=0.5, shot_noise=0.2)
+    fn = EnhancedPoissonGaussianContaminationMixtureLoss(read_noise=0.5, shot_noise=0.2)
     out = fn(y_pred, target)
     assert torch.isfinite(out)
 

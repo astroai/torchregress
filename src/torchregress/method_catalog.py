@@ -283,6 +283,51 @@ _METHODS: tuple[MethodMetadata, ...] = (
         calibration="partial",
     ),
     MethodMetadata(
+        name="GaussianLatentForwardObservationNLLLoss",
+        family="probabilistic_loss",
+        public_path="torchregress.losses.GaussianLatentForwardObservationNLLLoss",
+        task_tags=("forward_observation", "measurement_noise", "quadrature"),
+        maturity="Available",
+        multi_target="no",
+        non_gaussian="partial",
+        aleatoric="yes",
+        calibration="partial",
+        notes=(
+            "Scalar latent Gaussian integrated through a nonlinear observation map "
+            "by finite Gauss-Hermite quadrature."
+        ),
+    ),
+    MethodMetadata(
+        name="MarginalizedMultiSourceGaussianNLLLoss",
+        family="probabilistic_loss",
+        public_path="torchregress.losses.MarginalizedMultiSourceGaussianNLLLoss",
+        task_tags=("multi_target", "correlated_targets", "missing_labels", "noisy_labels"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="no",
+        aleatoric="yes",
+        calibration="partial",
+        notes=(
+            "Joint observed-source Gaussian likelihood, exact only for the supplied "
+            "linearized observation model; does not independently establish calibration."
+        ),
+    ),
+    MethodMetadata(
+        name="RobustMultiSourceGaussianNLLLoss",
+        family="probabilistic_loss",
+        public_path="torchregress.losses.RobustMultiSourceGaussianNLLLoss",
+        task_tags=("multi_target", "correlated_targets", "missing_labels", "robust"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="partial",
+        aleatoric="yes",
+        calibration="partial",
+        notes=(
+            "Normalized measurement-block outlier mixture for one shared latent; "
+            "enumeration is bounded and cross-block noise covariance is rejected."
+        ),
+    ),
+    MethodMetadata(
         name="LowRankGaussianLoss",
         family="probabilistic_loss",
         public_path="torchregress.losses.LowRankGaussianLoss",
@@ -728,26 +773,36 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes="NIG evidential regression; single-pass aleatoric and epistemic uncertainty.",
     ),
     MethodMetadata(
-        name="PoissonGaussianMixtureLoss",
+        name="PoissonGaussianLoss",
         family="poisson_gaussian",
-        public_path="torchregress.losses.PoissonGaussianMixtureLoss",
-        task_tags=("count_data", "non_gaussian", "mixture", "noisy_counts"),
+        public_path="torchregress.losses.PoissonGaussianLoss",
+        task_tags=("count_data", "non_gaussian", "noisy_counts"),
         maturity="Available",
         non_gaussian="yes",
-        multimodal="yes",
         calibration="partial",
-        notes="Poisson-Gaussian mixture for count data with Gaussian readout noise.",
+        notes="Poisson shot noise convolved with Gaussian read noise (detector likelihood).",
     ),
     MethodMetadata(
-        name="EnhancedPoissonGaussianMixtureLoss",
+        name="PoissonGaussianContaminationMixtureLoss",
         family="poisson_gaussian",
-        public_path="torchregress.losses.EnhancedPoissonGaussianMixtureLoss",
+        public_path="torchregress.losses.PoissonGaussianContaminationMixtureLoss",
         task_tags=("count_data", "non_gaussian", "mixture", "noisy_counts"),
         maturity="Available",
         non_gaussian="yes",
         multimodal="yes",
         calibration="partial",
-        notes="Enhanced Poisson-Gaussian mixture with improved stability and learnable parameters.",
+        notes="Two-component Poisson/Gaussian mixture; not the shot-plus-read-noise model.",
+    ),
+    MethodMetadata(
+        name="EnhancedPoissonGaussianContaminationMixtureLoss",
+        family="poisson_gaussian",
+        public_path="torchregress.losses.EnhancedPoissonGaussianContaminationMixtureLoss",
+        task_tags=("count_data", "non_gaussian", "mixture", "noisy_counts"),
+        maturity="Available",
+        non_gaussian="yes",
+        multimodal="yes",
+        calibration="partial",
+        notes="Two-component Poisson/Gaussian mixture with gain, offset and learnable noise.",
     ),
     MethodMetadata(
         name="PoissonGaussianLikelihoodRatioLoss",
@@ -778,6 +833,34 @@ _METHODS: tuple[MethodMetadata, ...] = (
         non_gaussian="partial",
         calibration="partial",
         notes="Post-head sorting transform to remove crossing violations.",
+    ),
+    MethodMetadata(
+        name="RelativeSurveySplineHead",
+        family="observation_mapping",
+        public_path="torchregress.calibration.RelativeSurveySplineHead",
+        task_tags=("multi_source", "relative_bias", "correlated_targets"),
+        maturity="Available",
+        non_gaussian="no",
+        calibration="partial",
+        notes="Fixed per-target zero-sum gauge; does not identify an absolute scale.",
+    ),
+    MethodMetadata(
+        name="CommonScaleSplineHead",
+        family="observation_mapping",
+        public_path="torchregress.calibration.CommonScaleSplineHead",
+        task_tags=("multi_source", "common_bias"),
+        maturity="Available",
+        calibration="partial",
+        notes="Common correction requires independent anchoring for physical interpretation.",
+    ),
+    MethodMetadata(
+        name="ConditionBiasHead",
+        family="observation_mapping",
+        public_path="torchregress.calibration.ConditionBiasHead",
+        task_tags=("multi_source", "conditional_bias"),
+        maturity="Available",
+        calibration="partial",
+        notes="Source-specific condition correction centered at a reference condition.",
     ),
     MethodMetadata(
         name="VarianceTemperatureScaler",
@@ -930,6 +1013,21 @@ _METHODS: tuple[MethodMetadata, ...] = (
             "Scalar Gaussian-error interval probabilities soften ConR memberships; "
             "zero errors recover the hard objective. No multivariate radial-noise "
             "approximation or calibrated predictive uncertainty."
+        ),
+    ),
+    MethodMetadata(
+        name="GaussianCopulaSplineHead",
+        family="flow",
+        public_path="torchregress.models.GaussianCopulaSplineHead",
+        task_tags=("multi_target", "correlated_targets", "missing_labels", "conditional_density"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="yes",
+        aleatoric="yes",
+        calibration="partial",
+        notes=(
+            "Joint conditional spline flow with a Gaussian copula; intrinsic arbitrary-mask "
+            "marginals are exact, while Gaussian-error convolution uses finite quadrature."
         ),
     ),
     MethodMetadata(
@@ -1575,7 +1673,7 @@ _METHODS: tuple[MethodMetadata, ...] = (
         calibration="partial",
         notes=(
             "Heuristic local target-covariance estimates from input-space neighbours; "
-            "experimental. See examples/wasserstein_bound_hybrid_pretrain_demo.py."
+            "experimental. See examples/gaussian_wasserstein_bound_demo.py --mode hybrid."
         ),
     ),
     MethodMetadata(
@@ -2292,7 +2390,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Robust regression / outliers",
         examples=(
             "examples/comprehensive_comparison.py",
-            "examples/comprehensive_loss_comparison.py",
+            "examples/loss_comparison.py",
         ),
         comparison_grade="Decision-grade",
         fairness_controls=(
@@ -2403,7 +2501,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         examples=(
             "examples/semi_supervised_regression_comparison.py",
             "examples/uncertain_gt_density_conformal_comparison.py",
-            "examples/uncertain_gt_density_conformal_realdata_comparison.py",
+            "examples/uncertain_gt_density_conformal_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2443,7 +2541,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Causal inference regression (DR ATE/CATE)",
         examples=(
             "examples/causal_dr_uplift_comparison.py",
-            "examples/causal_dr_realdata_comparison.py",
+            "examples/causal_dr_uplift_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2468,16 +2566,16 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
             "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate "
             "Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap "
             "diagnostics. A naive difference-in-means baseline is reported alongside "
-            "``dr_ate``/``dr_cate`` in both comparison examples (see ``_naive_ate`` "
+            "``dr_ate``/``dr_cate`` for both ``--dataset`` choices (see ``_naive_ate`` "
             "helper) for reference."
         ),
     ),
     ComparativeEvidenceRow(
         task="Calibrated intervals / coverage",
         examples=(
-            "examples/evaluate_conformal_methods.py",
+            "examples/conformal_regression_example.py",
             "examples/ood_selective_prediction_comparison.py",
-            "examples/ood_selective_prediction_realdata_comparison.py",
+            "examples/ood_selective_prediction_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2507,7 +2605,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Ordinal regression / ordered targets",
         examples=(
             "examples/ordinal_regression_comparison.py",
-            "examples/ordinal_regression_realdata_comparison.py",
+            "examples/ordinal_regression_comparison.py --dataset diabetes",
             "examples/ordinal_uncertain_ground_truth_comparison.py",
         ),
         comparison_grade="Strong",
@@ -2531,7 +2629,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Censored / interval-censored regression",
         examples=(
             "examples/censored_regression_comparison.py",
-            "examples/censored_regression_realdata_comparison.py",
+            "examples/censored_regression_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2554,7 +2652,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="OOD robustness / selective prediction",
         examples=(
             "examples/ood_selective_prediction_comparison.py",
-            "examples/ood_selective_prediction_realdata_comparison.py",
+            "examples/ood_selective_prediction_comparison.py --dataset diabetes",
             "examples/comprehensive_comparison.py",
         ),
         comparison_grade="Decision-grade",
@@ -2591,7 +2689,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Multimodal / multi-target non-Gaussian",
         examples=(
             "examples/multimodal_method_comparison.py",
-            "examples/multimodal_method_realdata_comparison.py",
+            "examples/multimodal_method_comparison.py --dataset diabetes",
             "examples/normalizing_flows_multitarget.py",
         ),
         comparison_grade="Strong",
@@ -2621,7 +2719,7 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Noisy features / EIV",
         examples=(
             "examples/eiv_method_comparison.py",
-            "examples/eiv_method_realdata_comparison.py",
+            "examples/eiv_method_comparison.py --dataset diabetes",
         ),
         comparison_grade="Strong",
         fairness_controls=(
@@ -2651,8 +2749,8 @@ _COMPARATIVE_EVIDENCE_ROWS: tuple[ComparativeEvidenceRow, ...] = (
         task="Noisy labels / corruption",
         examples=(
             "examples/noisy_label_comparison.py",
-            "examples/noisy_label_realdata_comparison.py",
-            "examples/comprehensive_loss_comparison.py",
+            "examples/noisy_label_comparison.py --dataset diabetes",
+            "examples/loss_comparison.py",
         ),
         comparison_grade="Strong",
         fairness_controls=(

@@ -141,8 +141,7 @@ update_ema_teacher_(ema_teacher, student, momentum=0.95)
 ## Comparison Examples
 
 - [Semi-Supervised Regression Comparison](../examples/semi_supervised_regression_comparison.md)
-- [Uncertain-GT + Density Conformal Comparison](../examples/uncertain_gt_density_conformal_comparison.md)
-- [Uncertain-GT + Density Conformal Comparison (Real Data)](../examples/uncertain_gt_density_conformal_realdata_comparison.md)
+- [Uncertain-GT + Density Conformal Comparison](../examples/uncertain_gt_density_conformal_comparison.md) (synthetic and `--dataset diabetes`)
 
 ## Companion metrics (`torchregress.metrics`)
 

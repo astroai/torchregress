@@ -1,14 +1,19 @@
 """
-Poisson-Gaussian mixture loss functions for signal processing applications.
+Poisson-Gaussian losses.
 
-This module provides loss functions that model signals as a mixture of
-Poisson process (for count/shot noise) and Gaussian readout noise.
+Two different likelihoods share the "Poisson-Gaussian" name:
 
-These models are especially useful for:
-- Scientific imaging (e.g., microscopy)
-- Low-light photography
-- Medical imaging (e.g., CT scans, PET)
-- Sensor data with both counting noise and electronic noise
+- :class:`PoissonGaussianLoss` is the detector (convolution) model: a Poisson
+  count ``K ~ Poisson(rate)`` read out as ``y = gain * K + offset + eps`` with
+  Gaussian read noise ``eps ~ N(0, read_noise_variance)``. Use it for shot noise
+  plus read noise (CCD/CMOS, photon counting, microscopy, low-dose imaging).
+- :class:`PoissonGaussianContaminationMixtureLoss` and
+  :class:`EnhancedPoissonGaussianContaminationMixtureLoss` are two-component mixtures
+  ``w * Pois(y; .) + (1 - w) * N(y; .)``: each sample is drawn from *either* a
+  Poisson *or* a Gaussian law. That is a contamination model, not the
+  shot-plus-read-noise model.
+- :class:`PoissonGaussianLikelihoodRatioLoss` averages a Poisson deviance and a
+  scaled squared error; it is not a likelihood of either model.
 """
 
 import math
@@ -19,6 +24,7 @@ import torch
 import torch.nn as nn
 from torch.nn import PoissonNLLLoss
 
+from ._poisson_gaussian_kernel import poisson_gaussian_nll
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
@@ -31,8 +37,24 @@ def _safe_log_weight(weight: "float | torch.Tensor", like: torch.Tensor) -> torc
 
 
 @dataclass(frozen=True)
-class PoissonGaussianMixtureConfig:
-    """Configuration for PoissonGaussianMixtureLoss."""
+class PoissonGaussianConfig:
+    """Configuration for PoissonGaussianLoss."""
+
+    gain: float = 1.0
+    offset: float = 0.0
+    read_noise_variance: float = 1.0
+    learn_gain: bool = False
+    learn_offset: bool = False
+    learn_read_noise: bool = False
+    log_input: bool = False
+    tail_sigma: float = 12.0
+    max_terms: int = 4096
+    reduction: str = "mean"
+
+
+@dataclass(frozen=True)
+class PoissonGaussianContaminationMixtureConfig:
+    """Configuration for PoissonGaussianContaminationMixtureLoss."""
 
     eps: float = 1e-8
     learn_variance: bool = False
@@ -45,8 +67,8 @@ class PoissonGaussianMixtureConfig:
 
 
 @dataclass(frozen=True)
-class EnhancedPoissonGaussianConfig:
-    """Configuration for EnhancedPoissonGaussianMixtureLoss."""
+class EnhancedPoissonGaussianContaminationMixtureConfig:
+    """Configuration for EnhancedPoissonGaussianContaminationMixtureLoss."""
 
     gain: Union[float, str] = 1.0
     offset: Union[float, str] = 0.0
@@ -68,19 +90,195 @@ class PoissonGaussianLikelihoodRatioConfig:
     reduction: str = "mean"
 
 
-@register_regression_loss("poisson_gaussian_mixture")
-class PoissonGaussianMixtureLoss(RegressionLoss):
+@register_regression_loss("poisson_gaussian")
+class PoissonGaussianLoss(RegressionLoss):
+    r"""
+    Poisson-Gaussian detector NLL (shot noise convolved with read noise).
+
+    The latent count is Poisson and the measured value given the count is
+    Gaussian:
+
+        K ~ Poisson(λ),   y = g·K + b + ε,   ε ~ N(0, σ²)
+
+        p(y) = Σ_k Pois(k; λ) · N(y; g·k + b, σ²)
+
+    ``λ`` is the expected count (electrons/photons), ``g`` the gain in output
+    units per count, ``b`` a signed offset (bias, background in output units)
+    and ``σ²`` the read-noise variance in output units squared. ``target`` is
+    in output units and may be non-integer or negative.
+
+    The sum runs over a per-element count window that keeps at least
+    ``tail_sigma`` standard deviations of the Poisson prior and of the
+    observation-conditioned posterior over ``k`` (so outliers far from
+    ``g·λ + b`` are scored on their own window). In-distribution windows are
+    renormalised, so the returned law is a normalised density. Elements are
+    processed in chunks of about ``2**22`` count terms; first derivatives are
+    analytic posterior moments and need O(batch) memory. The window is chosen
+    without gradient; changing it changes the finite mixture only by the
+    discarded tail mass beyond ``tail_sigma`` standard deviations.
+
+    Args:
+        gain: Gain ``g`` (> 0), or its initial value when ``learn_gain``. Default: 1.0
+        offset: Offset ``b``, or its initial value when ``learn_offset``. Default: 0.0
+        read_noise_variance: Read-noise variance ``σ²`` (> 0), or its initial
+            value when ``learn_read_noise``. Default: 1.0
+        learn_gain: Learn ``log g`` as a parameter. Default: False
+        learn_offset: Learn ``b`` as a parameter. Default: False
+        learn_read_noise: Learn ``log σ²`` as a parameter. Default: False
+        log_input: ``y_pred`` is ``log λ`` instead of ``λ``. Default: False
+        tail_sigma: Support radius in standard deviations. Default: 12.0
+        max_terms: Maximum count-window width; wider windows raise
+            ``ValueError`` (use the Gaussian limit there). Default: 4096
+        reduction: 'none' | 'mean' | 'sum'. Default: 'mean'
+
+    ``forward`` also accepts per-element ``gain``, ``offset`` and
+    ``read_noise_variance`` tensors (broadcastable to ``target``) that replace
+    the module values for that call, e.g. per-pixel calibration maps.
+
+    At high counts the law tends to ``N(g·λ + b, g²·λ + σ²)``; as ``σ → 0``
+    with ``g = 1, b = 0`` it tends to ``Poisson(λ)`` on integer targets.
+
+    Example:
+        >>> loss_fn = PoissonGaussianLoss(gain=2.0, offset=100.0, read_noise_variance=9.0)
+        >>> rate = torch.tensor([[3.0, 40.0]], requires_grad=True)
+        >>> target = torch.tensor([[104.5, 181.0]])
+        >>> loss_fn(rate, target).backward()
+
+    References
+    ----------
+    .. [1] D. L. Snyder, A. M. Hammoud, R. L. White (1993). Image recovery from
+       data acquired with a charge-coupled-device camera. JOSA A 10(5), 1014-1023.
+       https://doi.org/10.1364/JOSAA.10.001014
+    .. [2] J. Seifert et al. (2023). Maximum-likelihood estimation in
+       ptychography in the presence of Poisson-Gaussian noise statistics.
+       Optics Letters 48(22), 6027-6030. https://arxiv.org/abs/2308.02436
     """
-    Negative log-likelihood loss for a mixture of Gaussian (readout noise)
-    and Poisson (count) noise, common in imaging and signal processing.
 
-    This models the signal as a combination of:
-    y ~ Poisson(λ) + N(0, σ²)
+    def __init__(
+        self,
+        config: Optional[PoissonGaussianConfig] = None,
+        reduction: str = "mean",
+        **kwargs: Any,
+    ) -> None:
+        if "reduction" not in kwargs and config is None:
+            kwargs["reduction"] = reduction
+        if config is None:
+            config = PoissonGaussianConfig(**kwargs)
+        super().__init__(reduction=config.reduction)
+        if not (math.isfinite(config.gain) and config.gain > 0):
+            raise ValueError("gain must be finite and positive")
+        if not (math.isfinite(config.read_noise_variance) and config.read_noise_variance > 0):
+            raise ValueError("read_noise_variance must be finite and positive")
+        if not math.isfinite(config.offset):
+            raise ValueError("offset must be finite")
+        if not (math.isfinite(config.tail_sigma) and config.tail_sigma > 0):
+            raise ValueError("tail_sigma must be finite and positive")
+        if int(config.max_terms) < 2:
+            raise ValueError("max_terms must be at least 2")
+        self.config = config
+        self.log_input = config.log_input
+        self.tail_sigma = float(config.tail_sigma)
+        self.max_terms = int(config.max_terms)
+        # Fixed values stay Python floats (exact in float64, movable to any device);
+        # learnable ones are unconstrained parameters initialised at those values.
+        if config.learn_gain:
+            self.log_gain = nn.Parameter(torch.tensor(math.log(config.gain)))
+        if config.learn_offset:
+            self.offset = nn.Parameter(torch.tensor(float(config.offset)))
+        if config.learn_read_noise:
+            self.log_read_noise_variance = nn.Parameter(
+                torch.tensor(math.log(config.read_noise_variance))
+            )
 
-    The loss is the exact mixture NLL
-        -log( w_p·exp(-NLL_poisson) + w_g·exp(-NLL_gaussian) )
-    computed with ``torch.logsumexp`` (not the arithmetic weighted mean of
-    the two component NLLs).
+    def detector_parameters(
+        self, like: torch.Tensor
+    ) -> "tuple[torch.Tensor | float, torch.Tensor | float, torch.Tensor | float]":
+        """Current ``(gain, offset, read_noise_variance)`` in ``like``'s dtype."""
+        cfg = self.config
+        gain = self.log_gain.to(like.dtype).exp() if cfg.learn_gain else cfg.gain
+        offset = self.offset.to(like.dtype) if cfg.learn_offset else cfg.offset
+        var = (
+            self.log_read_noise_variance.to(like.dtype).exp()
+            if cfg.learn_read_noise
+            else cfg.read_noise_variance
+        )
+        return gain, offset, var
+
+    def forward(
+        self,
+        y_pred: torch.Tensor,
+        target: torch.Tensor,
+        gain: Optional[torch.Tensor] = None,
+        offset: Optional[torch.Tensor] = None,
+        read_noise_variance: Optional[torch.Tensor] = None,
+        mask: Optional[torch.Tensor] = None,
+        weights: Optional[torch.Tensor] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        """
+        Calculate the Poisson-Gaussian detector NLL.
+
+        Args:
+            y_pred: Expected count ``λ >= 0`` (or ``log λ`` if ``log_input``)
+            target: Measured values in output units
+            gain, offset, read_noise_variance: Optional per-call overrides,
+                broadcastable to ``target`` (pass by keyword)
+            mask: Optional boolean mask (False = missing; may hold NaN there)
+            weights: Optional sample weights
+
+        Returns:
+            Loss value according to ``reduction``
+        """
+        self._validate_inputs(y_pred, target, mask)
+        if mask is not None:
+            # Masked entries may hold NaN/Inf; replace them before the kernel's
+            # fail-closed checks (and before ``exp``, so no NaN reaches the
+            # backward pass) and drop them again in ``_reduce``.
+            keep = mask.to(dtype=torch.bool, device=target.device)
+            fill = 0.0 if self.log_input else 1.0
+            y_pred = torch.where(keep, y_pred, torch.full_like(y_pred, fill))
+            target = torch.where(keep, target, torch.zeros_like(target))
+        rate = torch.exp(y_pred) if self.log_input else y_pred
+        g, b, var = self.detector_parameters(target)
+        g = gain if gain is not None else g
+        b = offset if offset is not None else b
+        var = read_noise_variance if read_noise_variance is not None else var
+        nll = poisson_gaussian_nll(
+            target,
+            rate,
+            var,
+            g,
+            b,
+            tail_sigma=self.tail_sigma,
+            max_terms=self.max_terms,
+        )
+        return self._reduce(nll, mask, weights)
+
+
+@register_regression_loss("poisson_gaussian_contamination_mixture")
+class PoissonGaussianContaminationMixtureLoss(RegressionLoss):
+    """
+    Two-component Poisson/Gaussian mixture NLL (a contamination model).
+
+    Each sample is modelled as coming from *one* of two laws: with probability
+    ``w`` a Poisson law with rate ``λ`` and with probability ``1 - w`` a
+    Gaussian ``N(λ, σ²)``. The loss is the exact mixture NLL
+
+        -log( w·Pois(y; λ) + (1 - w)·N(y; λ, σ²) )
+
+    computed with ``torch.logsumexp``.
+
+    This is **not** the shot-noise-plus-read-noise detector model
+    ``y = K + ε`` with ``K ~ Poisson(λ)`` and ``ε ~ N(0, σ²)``, whose density
+    is the convolution ``Σ_k Pois(k; λ) N(y; k, σ²)``. For detector data use
+    :class:`PoissonGaussianLoss`. The mixture can be read as an
+    ε-contamination likelihood (Huber, 1964), where ``1 - w`` is the fraction
+    of samples that follow the Gaussian law rather than the Poisson law.
+
+    The Poisson component is ``torch.nn.PoissonNLLLoss(full=True)``, which is
+    evaluated on continuous and possibly negative targets: there it is not a
+    normalised density, so the two components are not on a common measure and
+    ``w`` is not a calibrated contamination fraction.
 
     Args:
         eps: Small constant for numerical stability. Default: 1e-8
@@ -88,7 +286,7 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         initial_variance: Initial value for Gaussian variance. Default: 1.0
         min_variance: Minimum variance value for numerical stability. Default: 1e-6
         log_input: Whether y_pred is provided as log(lambda). Default: False
-        mixture_weights: How to weight the mixture components:
+        mixture_weights: Weight ``w`` of the Poisson component:
             - If None: Equal weighting (0.5, 0.5)
             - If float: Fixed weighting (mixture_weights, 1-mixture_weights)
             - If 'learn': Learn the mixture weights
@@ -96,31 +294,31 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         reduction: Method for loss reduction. Default: 'mean'
 
     Example:
-        >>> # For imaging data with fixed noise variance
-        >>> loss_fn = PoissonGaussianMixtureLoss(initial_variance=0.1, log_input=True)
+        >>> loss_fn = PoissonGaussianContaminationMixtureLoss(initial_variance=0.1, log_input=True)
         >>> y_pred = torch.log(torch.tensor([[10.0, 20.0], [5.0, 15.0]]))  # log(lambda)
-        >>> target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])  # noisy measurements
+        >>> target = torch.tensor([[11.2, 19.5], [4.8, 16.3]])
         >>> loss_fn(y_pred, target)
         tensor(1.8241)
 
     References
     ----------
-    .. [1] Seifert, J., et al. (2023). Maximum-likelihood estimation in ptychography
-       in the presence of Poisson-Gaussian noise statistics.
-       Optics Letters 48(22), 6027-6030 (2023).
-       https://arxiv.org/abs/2308.02436
+    .. [1] P. J. Huber (1964). Robust estimation of a location parameter.
+       Annals of Mathematical Statistics 35(1), 73-101.
+       https://doi.org/10.1214/aoms/1177703732
+    .. [2] G. J. McLachlan, D. Peel (2000). Finite Mixture Models. Wiley.
+       https://doi.org/10.1002/0471721182
     """
 
     def __init__(
         self,
-        config: Optional[PoissonGaussianMixtureConfig] = None,
+        config: Optional[PoissonGaussianContaminationMixtureConfig] = None,
         reduction: str = "mean",
         **kwargs: Any,
     ) -> None:
         if "reduction" not in kwargs and config is None:
             kwargs["reduction"] = reduction
         if config is None:
-            config = PoissonGaussianMixtureConfig(**kwargs)
+            config = PoissonGaussianContaminationMixtureConfig(**kwargs)
         super().__init__(reduction=config.reduction)
         self.config = config
         self.eps = config.eps
@@ -163,7 +361,7 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         Calculate the Poisson-Gaussian mixture loss.
 
         Args:
-            y_pred: Predicted values (lambda for Poisson component)
+            y_pred: Rate ``λ`` (or ``log λ`` if ``log_input``), shared by both components
             target: Target values
             mask: Optional mask for invalid values
             weights: Optional tensor of weights for each sample
@@ -232,31 +430,41 @@ class PoissonGaussianMixtureLoss(RegressionLoss):
         return self._reduce(mixture_nll, mask, weights)
 
 
-@register_regression_loss("enhanced_poisson_gaussian_mixture")
-class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
+@register_regression_loss("enhanced_poisson_gaussian_contamination_mixture")
+class EnhancedPoissonGaussianContaminationMixtureLoss(RegressionLoss):
     """
-    Advanced Poisson-Gaussian mixture loss with additional features for scientific applications.
+    Two-component Poisson/Gaussian mixture NLL with gain, offset and a
+    signal-dependent Gaussian variance (a contamination model).
 
-    This extends the basic Poisson-Gaussian mixture with:
-    1. Support for gain/scaling factor in the model
-    2. Handling of offset/bias term
-    3. Optional calibration parameters
-    4. Multiple variance components
+    With ``μ = g·λ + b`` (``λ`` optionally passed through an affine
+    ``calibration``), the loss is the equal-weight mixture NLL
 
-    Model: y ~ Poisson(g * λ + b) + N(0, σ₁² + σ₂² * λ)
+        -log( 0.5·Pois(y; μ) + 0.5·N(y; μ, σ₁² + σ₂²·μ) )
+
+    computed with ``torch.logsumexp``. Each sample is treated as coming from
+    one of the two laws.
+
+    This is **not** the detector model ``y = g·K + b + ε`` with
+    ``K ~ Poisson(λ)`` and ``ε ~ N(0, σ²)``: there the Poisson rate is ``λ``
+    (not ``g·λ + b``) and the density is the convolution
+    ``Σ_k Pois(k; λ) N(y; g·k + b, σ²)``. For detector data use
+    :class:`PoissonGaussianLoss`. With ``offset = 0`` and ``shot_noise = g`` the
+    Gaussian component alone is the moment-matched approximation
+    ``N(g·λ, g²·λ + σ₁²)`` of the detector model; the Poisson component is
+    ``torch.nn.PoissonNLLLoss(full=True)`` on ``y`` in output units, which is a
+    count law only when ``g = 1`` and ``y`` is a non-negative integer.
 
     Args:
         gain: Fixed gain/scaling factor or 'learn' to make it learnable. Default: 1.0
         offset: Fixed offset/bias or 'learn' to make it learnable. Default: 0.0
         read_noise: Constant variance component (σ₁²). Default: 1.0
-        shot_noise: Signal-dependent variance component (σ₂²). Default: 0.0
+        shot_noise: Signal-dependent variance coefficient (σ₂²). Default: 0.0
         log_input: Whether inputs are in log space. Default: False
         calibration: Whether to include calibration parameters. Default: False
         reduction: Method for loss reduction. Default: 'mean'
 
     Example:
-        >>> # For scientific imaging with signal-dependent noise
-        >>> loss_fn = EnhancedPoissonGaussianMixtureLoss(
+        >>> loss_fn = EnhancedPoissonGaussianContaminationMixtureLoss(
         ...     gain='learn',
         ...     read_noise=0.2,
         ...     shot_noise=0.1
@@ -268,22 +476,23 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
 
     References
     ----------
-    .. [1] Seifert, J., et al. (2023). Maximum-likelihood estimation in ptychography
-       in the presence of Poisson-Gaussian noise statistics.
-       Optics Letters 48(22), 6027-6030 (2023).
-       https://arxiv.org/abs/2308.02436
+    .. [1] P. J. Huber (1964). Robust estimation of a location parameter.
+       Annals of Mathematical Statistics 35(1), 73-101.
+       https://doi.org/10.1214/aoms/1177703732
+    .. [2] G. J. McLachlan, D. Peel (2000). Finite Mixture Models. Wiley.
+       https://doi.org/10.1002/0471721182
     """
 
     def __init__(
         self,
-        config: Optional[EnhancedPoissonGaussianConfig] = None,
+        config: Optional[EnhancedPoissonGaussianContaminationMixtureConfig] = None,
         reduction: str = "mean",
         **kwargs: Any,
     ) -> None:
         if "reduction" not in kwargs and config is None:
             kwargs["reduction"] = reduction
         if config is None:
-            config = EnhancedPoissonGaussianConfig(**kwargs)
+            config = EnhancedPoissonGaussianContaminationMixtureConfig(**kwargs)
         super().__init__(reduction=config.reduction)
         self.config = config
         self.log_input = config.log_input
@@ -412,7 +621,7 @@ class EnhancedPoissonGaussianMixtureLoss(RegressionLoss):
         )
 
         # True mixture NLL with equal weights (A1) — same logsumexp form as
-        # PoissonGaussianMixtureLoss; the previous arithmetic mean was not the
+        # PoissonGaussianContaminationMixtureLoss; the previous arithmetic mean was not the
         # NLL of the Poisson-Gaussian mixture.
         loss = -torch.logsumexp(
             torch.stack(

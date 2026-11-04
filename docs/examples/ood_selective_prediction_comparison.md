@@ -54,6 +54,60 @@ OOD metrics identify test points $x_{\text{test}}$ that lie outside the training
 
 ---
 
+## Comparison Script
+
+Script: `examples/ood_selective_prediction_comparison.py`
+
+One script runs the full shared-budget comparison on either dataset, selected with `--dataset`:
+
+| `--dataset` | Data | OOD split | Seed / splits (train / cal / ID / OOD) | Budget |
+|:------------|:-----|:----------|:---------------------------------------|:-------|
+| `synthetic` (default) | 1-D $y = \sin x + 0.15\cos 2x$ + noise, train on $x \in [-3, 3]$ | $x \in [-7, -4.5] \cup [4.5, 7]$ (extrapolation) | seed 123; 160 / 48 / 80 / 80 | 25 epochs, MLP width 32 |
+| `diabetes` | [`sklearn.datasets.load_diabetes`](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html), targets standardized on train labels | rows with the most extreme absolute value of one feature (`shift_feature_idx=2`) | seed 321; 200 / 60 / 60 / 60 | 20 epochs, MLP width 64 |
+
+The remaining (non-OOD) rows are shuffled with the fixed seed and split into train, calibration, and ID test sets.
+
+### What It Compares
+
+- `DeepEnsemble` (independently seeded point MLPs; member std as uncertainty)
+- `HeteroscedasticEnsemble` (mean + log-variance heads; epistemic + aleatoric decomposition)
+- `MCDropoutWrapper (proxy)` (dropout kept on at inference)
+- [`SWAG`](../api/ensemble.md)
+- [`BayesianNeuralNetwork`](../api/ensemble.md)
+
+### Metrics Reported
+
+- `MSE_ID`, `MSE_OOD`
+- `AURC` (risk-coverage)
+- `rej20_risk`, `rej20_cov` (20% rejection policy)
+- `ConformalCov90_ID`, `ConformalCov90_OOD`, `ConformalWidth90_ID` (shared split-conformal calibration set)
+- `unc_id`, `unc_ood`, `ood_unc_gap`
+- `train_s`, `eval_s`
+
+### Fairness Notes
+
+- Fixed seeds and shared train/calibration/ID/OOD splits per dataset
+- Shared model budgets and uncertainty sample counts
+- Common metrics and runtime reporting across methods
+
+### When This Fails / Caveats
+
+- `synthetic` is a toy extrapolation task for method-comparison discipline, not a production OOD benchmark.
+- `diabetes` is real data but not a labeled OOD benchmark suite: OOD is a single-feature shift proxy and may not match your deployment failure modes.
+- Split-conformal intervals calibrated on ID data can under-cover under severe shift; track ID and OOD coverage separately.
+- SWAG/BNN run with lightweight shared budgets; use multiple signals (risk-coverage, uncertainty gap, task error), not the uncertainty gap alone.
+
+### Run
+
+```bash
+pixi run python examples/ood_selective_prediction_comparison.py                      # synthetic
+pixi run python examples/ood_selective_prediction_comparison.py --dataset diabetes   # real data
+pixi run python examples/ood_selective_prediction_comparison.py --dataset diabetes \
+  --summary-json-path reports/example_summaries/ood_selective_prediction_comparison_diabetes.json
+```
+
+---
+
 ## Code Example
 
 Below is the complete, self-contained code showing how to compare selective prediction and OOD signals across several uncertainty methods.

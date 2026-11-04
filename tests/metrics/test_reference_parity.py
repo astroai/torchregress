@@ -582,23 +582,25 @@ def test_median_absolute_error(shape):
     "median_absolute_deviation",
     "MedianAbsoluteDeviation",
     "NormalizedMedianAbsoluteDeviation",
-    ref="1.4826 * scipy.stats.median_abs_deviation",
+    ref="1.482602218505602 * scipy.stats.median_abs_deviation",
 )
 @pytest.mark.parametrize("n", [100, 101])
 def test_mad_and_nmad(n):
     yp, yt = _point(shape=(n,))
     yt = np.abs(yt)  # keep 1 + y away from 0 for the relative NMAD
-    ref = 1.4826 * st.median_abs_deviation(yt - yp)
+    ref = 1.482602218505602 * st.median_abs_deviation(yt - yp)
     assert _f(M.median_absolute_deviation(_t(yp), _t(yt))) == pytest.approx(ref, rel=1e-12)
     m = M.MedianAbsoluteDeviation()
     m.update(_t(yp), _t(yt))
     assert _f(m.compute()) == pytest.approx(ref, rel=1e-12)
     nmad = M.NormalizedMedianAbsoluteDeviation()
     nmad.update(_t(yp), _t(yt))
-    assert _f(nmad.compute()) == pytest.approx(1.4826 * st.median_abs_deviation(yp - yt), rel=1e-12)
+    assert _f(nmad.compute()) == pytest.approx(
+        1.482602218505602 * st.median_abs_deviation(yp - yt), rel=1e-12
+    )
     rel = M.NormalizedMedianAbsoluteDeviation(normalization="relative")
     rel.update(_t(yp), _t(yt))
-    ref_rel = 1.4826 * st.median_abs_deviation((yp - yt) / (1 + yt))
+    ref_rel = 1.482602218505602 * st.median_abs_deviation((yp - yt) / (1 + yt))
     assert _f(rel.compute()) == pytest.approx(ref_rel, rel=1e-12)
 
 
@@ -688,8 +690,12 @@ def test_regression_metrics_report():
     assert _f(rep["mae"]) == pytest.approx(skm.mean_absolute_error(yt, yp), rel=1e-12)
     assert _f(rep["r2"]) == pytest.approx(skm.r2_score(yt, yp), rel=1e-12)
     assert _f(rep["huber_loss"]) == pytest.approx(ssp.huber(1.0, e).mean(), rel=1e-12)
-    assert _f(rep["mad"]) == pytest.approx(1.4826 * st.median_abs_deviation(e), rel=1e-12)
-    assert _f(rep["nmad"]) == pytest.approx(1.4826 * st.median_abs_deviation(-e), rel=1e-12)
+    assert _f(rep["mad"]) == pytest.approx(
+        1.482602218505602 * st.median_abs_deviation(e), rel=1e-12
+    )
+    assert _f(rep["nmad"]) == pytest.approx(
+        1.482602218505602 * st.median_abs_deviation(-e), rel=1e-12
+    )
 
 
 # =========================================================================== calibration

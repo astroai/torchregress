@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torchregress"
-version = "0.3.0b1"
+version = "0.3.0"
 description = "Probabilistic and robust regression for PyTorch: losses, metrics, conformal prediction and calibration."
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [

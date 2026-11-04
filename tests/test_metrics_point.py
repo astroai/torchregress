@@ -224,8 +224,8 @@ class TestMedianAbsoluteDeviation:
         metric = MedianAbsoluteDeviation()
         metric.update(torch.tensor([1.0, 2.0, 3.0]), torch.tensor([0.0, 0.0, 0.0]))
         val = float(metric.compute())
-        # errors: [1,2,3]; median=2; deviations: [1,0,1]; median=1; mad=1.4826*1
-        assert val == pytest.approx(1.4826)
+        # errors: [1,2,3]; median=2; deviations: [1,0,1]; median=1; mad=1.482602218505602*1
+        assert val == pytest.approx(1.482602218505602)
 
     def test_custom_scale(self) -> None:
         metric = MedianAbsoluteDeviation(scale=2.0)
@@ -346,8 +346,8 @@ class TestNormalizedMedianAbsoluteDeviation:
         y_true = torch.tensor([0.0, 0.0, 0.0])
         metric.update(y_pred, y_true)
         val = float(metric.compute())
-        # diffs: [1,2,3]; median=2; abs_dev: [1,0,1]; median=1; nmad=1.4826
-        assert val == pytest.approx(1.4826)
+        # diffs: [1,2,3]; median=2; abs_dev: [1,0,1]; median=1; nmad=1.482602218505602
+        assert val == pytest.approx(1.482602218505602)
 
     def test_relative_normalization(self) -> None:
         metric = NormalizedMedianAbsoluteDeviation(normalization="relative")
@@ -358,8 +358,8 @@ class TestNormalizedMedianAbsoluteDeviation:
         val = float(metric.compute())
         # diffs = (y_pred - y_true) / (1 + y_true) = [3,7,11] / 4 = [0.75, 1.75, 2.75]
         # median_diff = 1.75; abs_dev = [1.0, 0.0, 1.0]; median_abs_dev = 1.0
-        # nmad = 1.4826 * 1.0 ≈ 1.4826
-        assert val == pytest.approx(1.4826, rel=1e-4)
+        # nmad = 1.482602218505602 * 1.0 ≈ 1.482602218505602
+        assert val == pytest.approx(1.482602218505602, rel=1e-4)
 
     def test_exact_match_yields_zero(self) -> None:
         metric = NormalizedMedianAbsoluteDeviation()
@@ -371,8 +371,8 @@ class TestNormalizedMedianAbsoluteDeviation:
         metric.update(torch.tensor([1.0, 2.0]), torch.tensor([0.0, 0.0]))
         metric.update(torch.tensor([3.0, 4.0]), torch.tensor([0.0, 0.0]))
         # diffs: [1, 2, 3, 4]; median = 2.5
-        # abs_dev: [1.5, 0.5, 0.5, 1.5]; median = 1.0; 1.4826
-        assert float(metric.compute()) == pytest.approx(1.4826)
+        # abs_dev: [1.5, 0.5, 0.5, 1.5]; median = 1.0; 1.482602218505602
+        assert float(metric.compute()) == pytest.approx(1.482602218505602)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

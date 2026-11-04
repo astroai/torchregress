@@ -81,6 +81,19 @@ waldo.calibrate(samples_cal, y_cal)
 inside = waldo.contains(samples_test, y_test)
 ```
 
+!!! tip "Large calibration and test splits"
+    Calibration, `contains` and `predict_interval` stream over rows, so the
+    split never has to pass through the density in one call.
+    `ConformalizedDensity(..., chunk_size=131072)` bounds the number of
+    `(context, y)` pairs per density call (`chunk_size // grid_size` contexts
+    per call for scalar intervals); `WaldoDensityConformal(..., chunk_size=None)`
+    bounds the contexts per `sample_fn` call (default `2**20 // n_samples`).
+    Lower `chunk_size` if one call runs out of GPU memory.  Scores are per row,
+    so chunking does not change thresholds for a row-wise density.  The one
+    exception is a random sampler split over several chunks: draws then come
+    from the generator in a different order, so a WALDO threshold changes by
+    Monte Carlo error.
+
 These are **marginal** split-conformal guarantees.  WALDO's original
 conditional guarantee uses simulator draws at each parameter and quantile
 regression for critical values; the binned critical-value option here is an

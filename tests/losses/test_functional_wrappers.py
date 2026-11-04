@@ -15,7 +15,7 @@ Covered wrappers
 - ``beta_nll_loss`` (BetaNLLLoss parity + edge cases)
 - ``tweedie_loss`` (TweedieLoss p-value routing)
 - ``gaussian_wasserstein_bound_loss`` (4 covariance parameterizations)
-- ``poisson_gaussian_mixture_loss`` (factory config plumbing)
+- ``poisson_gaussian_contamination_mixture_loss`` (factory config plumbing)
 - ``enhanced_poisson_gaussian_loss`` (factory config plumbing)
 - ``poisson_gaussian_likelihood_ratio_loss`` (factory config plumbing)
 """
@@ -331,7 +331,7 @@ class TestGaussianWassersteinBoundWrapper(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# poisson_gaussian_mixture_loss / enhanced_poisson_gaussian_loss /
+# poisson_gaussian_contamination_mixture_loss / enhanced_poisson_gaussian_loss /
 # poisson_gaussian_likelihood_ratio_loss
 # ---------------------------------------------------------------------------
 

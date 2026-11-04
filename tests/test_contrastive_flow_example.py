@@ -43,7 +43,7 @@ def test_contrastive_flow_parameter_estimation_main_smoke() -> None:
     )
 
     try:
-        metrics = mod.main(cfg)
+        metrics = mod.run_demo(cfg)
     except ImportError as exc:
         if "zuko" in str(exc).lower():
             pytest.skip("optional zuko dependency not available")
@@ -53,7 +53,7 @@ def test_contrastive_flow_parameter_estimation_main_smoke() -> None:
 
 
 def test_contrastive_flow_comparison_smoke() -> None:
-    mod = _load_example_module("contrastive_flow_parameter_estimation_comparison")
+    mod = _load_example_module("contrastive_flow_parameter_estimation")
     cfg = mod.ContrastiveFlowComparisonConfig(
         n_train=32,
         n_test=6,
@@ -70,7 +70,7 @@ def test_contrastive_flow_comparison_smoke() -> None:
     )
 
     try:
-        rows = mod.main(cfg)
+        rows = mod.run_comparison(cfg)
     except ImportError as exc:
         if "zuko" in str(exc).lower():
             pytest.skip("optional zuko dependency not available")

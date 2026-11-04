@@ -6,6 +6,7 @@
 work with any torchregress loss.
 """
 
+from .copula_spline import GaussianCopulaSplineHead
 from .flow_matching import FlowMatchingMLP, cfm_loss, sample_cfm
 from .ft_transformer import FeatureTokenizer, FTTransformer
 from .normalizing_flow_map import NormalizingFlowMap
@@ -17,6 +18,7 @@ __all__ = [
     "FTTransformer",
     "FeatureTokenizer",
     "FlowMatchingMLP",
+    "GaussianCopulaSplineHead",
     "NormalizingFlowMap",
     "cfm_loss",
     "sample_cfm",

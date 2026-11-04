@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 151,
+    "total_methods": 159,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -15,7 +15,7 @@
       "ensemble": 8,
       "evidential": 1,
       "expectile": 2,
-      "flow": 3,
+      "flow": 4,
       "flow_map": 1,
       "flow_matching": 1,
       "imbalanced_algorithm": 4,
@@ -25,11 +25,12 @@
       "mc_dropout": 1,
       "mdn": 1,
       "multivariate": 1,
+      "observation_mapping": 3,
       "ordinal": 2,
       "point_loss": 1,
       "poisson": 4,
-      "poisson_gaussian": 3,
-      "probabilistic_loss": 8,
+      "poisson_gaussian": 4,
+      "probabilistic_loss": 11,
       "quantile": 2,
       "representation_regularizer": 1,
       "robust_algorithm": 1,
@@ -46,7 +47,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 124
+      "Available": 132
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -465,6 +466,74 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": ""
+    },
+    {
+      "name": "GaussianLatentForwardObservationNLLLoss",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.losses.GaussianLatentForwardObservationNLLLoss",
+      "task_tags": [
+        "forward_observation",
+        "measurement_noise",
+        "quadrature"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "no",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Scalar latent Gaussian integrated through a nonlinear observation map by finite Gauss-Hermite quadrature."
+    },
+    {
+      "name": "MarginalizedMultiSourceGaussianNLLLoss",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.losses.MarginalizedMultiSourceGaussianNLLLoss",
+      "task_tags": [
+        "multi_target",
+        "correlated_targets",
+        "missing_labels",
+        "noisy_labels"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "no",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Joint observed-source Gaussian likelihood, exact only for the supplied linearized observation model; does not independently establish calibration."
+    },
+    {
+      "name": "RobustMultiSourceGaussianNLLLoss",
+      "family": "probabilistic_loss",
+      "public_path": "torchregress.losses.RobustMultiSourceGaussianNLLLoss",
+      "task_tags": [
+        "multi_target",
+        "correlated_targets",
+        "missing_labels",
+        "robust"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Normalized measurement-block outlier mixture for one shared latent; enumeration is bounded and cross-block noise covariance is rejected."
     },
     {
       "name": "LowRankGaussianLoss",
@@ -1386,17 +1455,16 @@
       "notes": "NIG evidential regression; single-pass aleatoric and epistemic uncertainty."
     },
     {
-      "name": "PoissonGaussianMixtureLoss",
+      "name": "PoissonGaussianLoss",
       "family": "poisson_gaussian",
-      "public_path": "torchregress.losses.PoissonGaussianMixtureLoss",
+      "public_path": "torchregress.losses.PoissonGaussianLoss",
       "task_tags": [
         "count_data",
         "non_gaussian",
-        "mixture",
         "noisy_counts"
       ],
       "maturity": "Available",
-      "multimodal": "yes",
+      "multimodal": "no",
       "multi_target": "yes",
       "non_gaussian": "yes",
       "epistemic": "no",
@@ -1406,12 +1474,12 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Poisson-Gaussian mixture for count data with Gaussian readout noise."
+      "notes": "Poisson shot noise convolved with Gaussian read noise (detector likelihood)."
     },
     {
-      "name": "EnhancedPoissonGaussianMixtureLoss",
+      "name": "PoissonGaussianContaminationMixtureLoss",
       "family": "poisson_gaussian",
-      "public_path": "torchregress.losses.EnhancedPoissonGaussianMixtureLoss",
+      "public_path": "torchregress.losses.PoissonGaussianContaminationMixtureLoss",
       "task_tags": [
         "count_data",
         "non_gaussian",
@@ -1429,7 +1497,30 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Enhanced Poisson-Gaussian mixture with improved stability and learnable parameters."
+      "notes": "Two-component Poisson/Gaussian mixture; not the shot-plus-read-noise model."
+    },
+    {
+      "name": "EnhancedPoissonGaussianContaminationMixtureLoss",
+      "family": "poisson_gaussian",
+      "public_path": "torchregress.losses.EnhancedPoissonGaussianContaminationMixtureLoss",
+      "task_tags": [
+        "count_data",
+        "non_gaussian",
+        "mixture",
+        "noisy_counts"
+      ],
+      "maturity": "Available",
+      "multimodal": "yes",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Two-component Poisson/Gaussian mixture with gain, offset and learnable noise."
     },
     {
       "name": "PoissonGaussianLikelihoodRatioLoss",
@@ -1495,6 +1586,70 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Post-head sorting transform to remove crossing violations."
+    },
+    {
+      "name": "RelativeSurveySplineHead",
+      "family": "observation_mapping",
+      "public_path": "torchregress.calibration.RelativeSurveySplineHead",
+      "task_tags": [
+        "multi_source",
+        "relative_bias",
+        "correlated_targets"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "no",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Fixed per-target zero-sum gauge; does not identify an absolute scale."
+    },
+    {
+      "name": "CommonScaleSplineHead",
+      "family": "observation_mapping",
+      "public_path": "torchregress.calibration.CommonScaleSplineHead",
+      "task_tags": [
+        "multi_source",
+        "common_bias"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Common correction requires independent anchoring for physical interpretation."
+    },
+    {
+      "name": "ConditionBiasHead",
+      "family": "observation_mapping",
+      "public_path": "torchregress.calibration.ConditionBiasHead",
+      "task_tags": [
+        "multi_source",
+        "conditional_bias"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "partial",
+      "epistemic": "no",
+      "aleatoric": "no",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Source-specific condition correction centered at a reference condition."
     },
     {
       "name": "VarianceTemperatureScaler",
@@ -1738,6 +1893,29 @@
       "imbalance": "yes",
       "noisy_features_eiv": "no",
       "notes": "Scalar Gaussian-error interval probabilities soften ConR memberships; zero errors recover the hard objective. No multivariate radial-noise approximation or calibrated predictive uncertainty."
+    },
+    {
+      "name": "GaussianCopulaSplineHead",
+      "family": "flow",
+      "public_path": "torchregress.models.GaussianCopulaSplineHead",
+      "task_tags": [
+        "multi_target",
+        "correlated_targets",
+        "missing_labels",
+        "conditional_density"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "Joint conditional spline flow with a Gaussian copula; intrinsic arbitrary-mask marginals are exact, while Gaussian-error convolution uses finite quadrature."
     },
     {
       "name": "NormalizingFlowMap",
@@ -2804,7 +2982,7 @@
       "ood_support": "partial",
       "imbalance": "no",
       "noisy_features_eiv": "no",
-      "notes": "Heuristic local target-covariance estimates from input-space neighbours; experimental. See examples/wasserstein_bound_hybrid_pretrain_demo.py."
+      "notes": "Heuristic local target-covariance estimates from input-space neighbours; experimental. See examples/gaussian_wasserstein_bound_demo.py --mode hybrid."
     },
     {
       "name": "OptimalTransportCoverageGap",

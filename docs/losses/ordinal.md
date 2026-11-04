@@ -214,7 +214,7 @@ with torch.no_grad():
 
 - [Ordinal metrics](../metrics/ordinal.md) — MAE, Quadratic Weighted Kappa, Spearman $\rho$
 - [Censored losses](censored.md) — another type of partially-observed target
-- [Ordinal comparison (real data)](../examples/ordinal_regression_realdata_comparison.md) — benchmark on real datasets
+- [Ordinal comparison](../examples/ordinal_regression_comparison.md) — synthetic and real-data (`--dataset diabetes`) benchmark
 - [Soft ordinal targets](../examples/ordinal_uncertain_ground_truth_comparison.md) — ambiguous labels and pseudo-labels
 
 ---

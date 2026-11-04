@@ -20,7 +20,7 @@ with the training loops stubbed out or shrunk.
 
 - **tutorial**: teaches one API or loss on synthetic data.
 - **comparison**: several methods under a shared budget on synthetic data (they usually write a JSON summary, see `--summary-json-path`).
-- **real-data**: uses a real dataset. The `*_realdata_comparison.py` scripts use scikit-learn's bundled Diabetes data (no network). The two others download data.
+- **real-data**: uses a real dataset. The `*_realdata_comparison.py` scripts and the `--dataset diabetes` runs of the merged comparison scripts use scikit-learn's bundled Diabetes data (no network). The two others download data.
 
 **Runtime class** (measured on 2 shared CPU cores, torch CPU, no GPU)
 
@@ -45,21 +45,17 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 | `heteroscedastic_beta_nll_demo.py` | tutorial | Gaussian NLL vs Beta-NLL under heteroscedastic noise (`--epochs`, `--seed`, `--lr`). | fast |
 | `heteroscedastic_laplace_demo.py` | tutorial | Laplace likelihood and its uncertainty decomposition. | fast |
 | `expectile_regression_demo.py` | tutorial | Expectile vs quantile regression under heteroscedasticity. | fast |
-| `poisson_regression_demo.py` | tutorial | Poisson and zero-inflated count regression. | fast |
-| `tweedie_regression_demo.py` | tutorial | Tweedie loss for zero-inflated continuous data. | fast |
-| `poisson_gaussian_mixture_demo.py` | tutorial | Poisson-Gaussian mixture loss for shot plus readout noise. | fast |
+| `count_regression_demo.py` | tutorial | `--family poisson`: Poisson deviance, likelihood-ratio, ZIP and negative-binomial losses on zero-inflated counts; `--family tweedie`: Tweedie and compound Poisson losses on zero-inflated continuous data (default `all`). | fast |
+| `poisson_gaussian_contamination_mixture_demo.py` | tutorial | Poisson-Gaussian contamination-mixture losses (for shot plus read noise use `PoissonGaussianLoss`). | fast |
 | `balanced_mse_demo.py` | tutorial | `BalancedMSELoss` / `BinReweightedMSELoss` on a long-tailed target (`--n`, `--steps`, `--seed`). | fast |
 | `imbalanced_regression.py` | tutorial | Imbalanced regression with a calibration check. | fast |
 | `bayesian_learning_rule_demo.py` | tutorial | Variational regression with the Bayesian Learning Rule (IVON). | fast |
 | `normalizing_flows_multitarget.py` | tutorial | Multi-target conditional flows (needs `zuko`). | slow (about 70 s) |
-| `conformal_regression_example.py` | tutorial | Split, CQR, UACQR, per-dimension, CV+ and EnbPI conformal wrappers. | fast |
-| `conformal_mondrian_demo.py` | tutorial | Group-conditional (Mondrian) conformal intervals. | fast |
+| `conformal_regression_example.py` | tutorial + comparison | `--mode tour`: split, CQR, UACQR, per-dimension, CV+ and EnbPI conformal wrappers; `--mode sweep`: coverage and width of trained split/CQR/UACQR vs target level; `--mode mondrian`: group-conditional (Mondrian) intervals (default `all`). | fast |
 | `ot_shift_conformal_demo.py` | tutorial | Score-CDF gap, OT-style reweighting, weighted split conformal (`--seed`). | fast |
 | `eiv_algorithms_demo.py` | tutorial | Errors-in-variables input-noise correction algorithms. | fast (about 50 s) |
-| `gaussian_wasserstein_bound_demo.py` | tutorial | `GaussianWassersteinBoundLoss` with mean plus covariance targets. | fast |
-| `wasserstein_bound_hybrid_pretrain_demo.py` | tutorial | Wasserstein-bound pretraining then Gaussian NLL fine-tuning. | fast |
-| `test_time_bayesian_linear_head_demo.py` | tutorial | Exact conjugate `BayesianLinearHead` on fixed features. | fast |
-| `test_time_blr_predictive_adapter_demo.py` | tutorial | Predictive-batch adapter around `BayesianLinearHead`. | fast |
+| `gaussian_wasserstein_bound_demo.py` | tutorial | `--mode loss`: `GaussianWassersteinBoundLoss` with mean plus covariance targets; `--mode hybrid`: Wasserstein-bound pretraining then Gaussian NLL fine-tuning (default `all`). | fast |
+| `test_time_bayesian_linear_head_demo.py` | tutorial | `--mode exactness`: exact conjugate `BayesianLinearHead` vs `RecursiveBayesianHead` on fixed features; `--mode adapter`: `SupportsPredictiveBatch` adapter around `BayesianLinearHead` (default `all`). | fast |
 | `test_time_adaptation_suite.py` | tutorial | Covariate-shift alignment, label-shift correction, sample selection. | fast |
 | `ppi_calibrated_mean.py` | tutorial | Standard vs affine-calibrated prediction-powered inference for a mean. | fast |
 | `ppi_mean_plus_split_conformal.py` | tutorial | Combining PPI mean inference with split-conformal intervals. | fast |
@@ -71,43 +67,36 @@ Optional dependencies are noted where a script needs one (`zuko` for flows,
 
 | Script | Type | What it shows | Runtime |
 |---|---|---|---|
-| `loss_comparison.py` | comparison | Standard vs robust losses on noisy data with outliers. | fast |
-| `comprehensive_loss_comparison.py` | comparison | Many losses on one MLP with point, distribution and calibration metrics. | fast |
+| `loss_comparison.py` | comparison | Standard vs robust losses on data with outliers: `--suite basic` (linear model, 7 losses) and `--suite comprehensive` (MLP, 10 losses, point, distribution and calibration metrics) (default `all`). | fast |
 | `comprehensive_comparison.py` | comparison | Robust losses, uncertainty heads and ensembles side by side. | fast |
-| `evaluate_conformal_methods.py` | comparison | Coverage and width of the conformal predictors vs target level. | fast |
 | `causal_dr_uplift_comparison.py` | comparison | Doubly-robust ATE/CATE estimators. | fast |
 | `censored_regression_comparison.py` | comparison | Censored-regression losses. | fast |
 | `constraints_calibration_comparison.py` | comparison | Constrained heads and post-hoc calibrators (variance temperature, isotonic, PIT). | fast |
-| `contrastive_flow_parameter_estimation.py` | comparison | Contrastive normalizing flows for nuisance-aware parameter estimation. | fast |
-| `contrastive_flow_parameter_estimation_comparison.py` | comparison | Parameter-estimation methods on synthetic pseudo-experiments. | fast |
+| `contrastive_flow_parameter_estimation.py` | comparison | `--mode demo`: contrastive normalizing flow for nuisance-aware parameter estimation; `--mode compare`: Gaussian summary, flow NLL, contrastive flow, NRE and NPE on the same pseudo-experiments (`--summary-json-path`; default `all`; needs `zuko`). | fast |
 | `eiv_method_comparison.py` | comparison | EIV loss variants under measurement error. | fast |
 | `multimodal_method_comparison.py` | comparison | Multimodal / multi-target regression methods. | fast |
-| `noisy_label_comparison.py` | comparison | Noisy-label losses with calibration metrics. | fast |
-| `ood_selective_prediction_comparison.py` | comparison | OOD and selective-prediction signals across uncertainty methods. | fast |
-| `ordinal_regression_comparison.py` | comparison | Ordinal regression methods. | fast |
+| `noisy_label_comparison.py` | comparison | Noisy-label losses with calibration metrics (`--dataset synthetic\|diabetes`). | fast |
+| `ood_selective_prediction_comparison.py` | comparison | OOD and selective-prediction signals across uncertainty methods (`--dataset synthetic\|diabetes`). | fast |
+| `ordinal_regression_comparison.py` | comparison | Ordinal regression methods (`--dataset synthetic\|diabetes`). | fast |
 | `ordinal_uncertain_ground_truth_comparison.py` | comparison | Uncertain ground truth in regression-as-classification. | fast |
 | `sls_multimodal_regression.py` | comparison | SLS vs CQR vs CTI for multimodal targets. | fast |
 | `transformed_target_regression_comparison.py` | comparison | Transformed-target losses. | fast |
-| `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods. | fast |
+| `uncertain_gt_density_conformal_comparison.py` | comparison | Uncertain labels with density-aware conformal methods (`--dataset synthetic\|diabetes`). | fast |
 | `calibrated_regressor_comparison.py` | comparison | `CalibratedRegressor` (`vts`, `isotonic+vts`), `ConformalRegressor(method="split")` and `calibrated_deep_ensemble` vs an uncalibrated Gaussian `TabularMLP`: RMSE, 90% coverage, width, NLL, runtime (`--epochs`, `--seed`, `--n-members`). | fast (about 10 s) |
 | `nsf_tail_bound_comparison.py` | comparison | NSF head with `create_flow_model(bound=recommended_tail_bound(y_std))` vs the fixed bound 5 on Student-t(3) noise: test NLL, 90% coverage and width (needs `zuko`; `--epochs`, `--seed`). | fast (about 11 s) |
-| `external_comparison_bayesian_linear_vs_botorch.py` | comparison | `BayesianLinearHead` vs BoTorch `SingleTaskGP` (needs `botorch`). | fast |
-| `external_comparison_conformal_vs_mapie.py` | comparison | Conformal intervals vs MAPIE >= 1.0, crepes, torchcp >= 1.2 (needs `mapie crepes torchcp`; ported to the current comparator APIs, see below). | fast |
-| `external_comparison_tweedie_vs_sklego.py` | comparison | Tweedie losses vs a log-link GLM. scikit-lego 0.9.x has no Tweedie GLM, so the baseline is `sklearn.linear_model.TweedieRegressor`. | fast |
 
 ## Real-data comparisons
 
 | Script | Type | What it shows | Runtime |
 |---|---|---|---|
-| `causal_dr_realdata_comparison.py` | real-data | Doubly-robust causal estimators on Diabetes covariates. | fast |
-| `censored_regression_realdata_comparison.py` | real-data | Censored losses on Diabetes. | fast |
-| `eiv_method_realdata_comparison.py` | real-data | EIV losses on Diabetes with injected measurement error. | fast |
-| `multimodal_method_realdata_comparison.py` | real-data | Multimodal / multi-target methods on Diabetes features. | fast |
-| `noisy_label_realdata_comparison.py` | real-data | Noisy-label losses on Diabetes. | fast |
-| `ood_selective_prediction_realdata_comparison.py` | real-data | OOD / selective prediction on Diabetes. | fast |
-| `ordinal_regression_realdata_comparison.py` | real-data | Ordinal methods on binned Diabetes. | fast |
+| `causal_dr_uplift_comparison.py --dataset diabetes` | real-data | Doubly-robust causal estimators on Diabetes covariates. | fast |
+| `censored_regression_comparison.py --dataset diabetes` | real-data | Censored losses on Diabetes. | fast |
+| `eiv_method_comparison.py --dataset diabetes` | real-data | EIV losses on Diabetes with injected measurement error. | fast |
+| `multimodal_method_comparison.py --dataset diabetes` | real-data | Multimodal / multi-target methods on Diabetes features. | fast |
+| `noisy_label_comparison.py --dataset diabetes` | real-data | Noisy-label losses on Diabetes. | fast |
+| `ood_selective_prediction_comparison.py --dataset diabetes` | real-data | OOD / selective prediction on Diabetes. | fast |
+| `ordinal_regression_comparison.py --dataset diabetes` | real-data | Ordinal methods on binned Diabetes. | fast |
 | `semi_supervised_regression_comparison.py` | real-data | Semi-supervised regression methods on a real-data proxy. | fast |
-| `uncertain_gt_density_conformal_realdata_comparison.py` | real-data | Uncertain-GT and density conformal on Diabetes. | fast |
 | `imdb_wiki_age_regression.py` | real-data | Age regression on IMDB-WIKI with several losses (ResNet backbone). | needs-download (about 1 GB dataset plus pretrained weights) |
 
 ## Library benchmarks (`benchmarks/`)
@@ -123,68 +112,31 @@ Small benchmarks of the library itself. Run from the repo root.
 | `benchmarks/tail_extremes_sweep.py` | comparison | Sweep over the tail benchmark configurations (imports `tail_extremes_benchmark`). | fast (about 50 s) |
 | `benchmarks/foundation_model_comparison.py` | real-data | TabPFN vs torchregress Gaussian and mixture-density heads on California Housing (`--n_samples`). | needs-download (California Housing; TabPFN also needs weights and a Hugging Face token) |
 
-### Research benchmarks (belong in torchregress-research)
+### Moved out of this repository in 0.3.0
 
-| Script | What it shows | Runtime |
-|---|---|---|
-| `benchmarks/self_agreement_higgs_ood.py` | SAGE-Reg Higgs-inspired OOD benchmark: supervised, Mean Teacher, Pi-model, confidence-weighted pseudo-labels and SAGE-Reg on a shifted tabular task (synthetic unless `--dataset-path` is given). | fast (about 50 s) |
+- The SAGE-Reg Higgs OOD benchmark and the NeurIPS SAGE/SPT reproduction scripts live in
+  [torchregress-research](https://github.com/sfabbro/torchregress-research)
+  (`benchmarks/neurips/sage/self_agreement_higgs_ood.py`).
+- The external-library comparisons (MAPIE, crepes, torchcp, BoTorch, scikit-learn and
+  statsmodels GLMs) are suites of
+  [torchregress-harness](https://github.com/astroai/torchregress-harness)
+  (`conformal`, `bayesian_linear`, `tweedie`); see
+  [External comparison](../docs/examples/external-comparison-vs-mapie-botorch-sklego.md).
 
-It still lives here and runs; it is not moved. The NeurIPS SAGE/SPT reproduction
-scripts were already extracted to
-[torchregress-research](https://github.com/sfabbro/torchregress-research).
+## Candidates to merge after 0.3.0
 
-### Helper module (not a script)
+These overlap and could share one script:
 
-`contrastive_flow_benchmark_utils.py` holds helpers shared by the two
-contrastive-flow scripts and has no `main`.
-
-## Candidates to merge for 0.3.0
-
-Tracked in `ROADMAP.md`. These overlap and could share one
-script with a `--dataset {synthetic,diabetes}` style switch:
-
-- **Synthetic / real-data pairs** that share the same harness and differ only in data source:
-  `causal_dr_uplift_comparison` + `causal_dr_realdata_comparison`,
-  `censored_regression_comparison` + `censored_regression_realdata_comparison`,
-  `eiv_method_comparison` + `eiv_method_realdata_comparison`,
-  `multimodal_method_comparison` + `multimodal_method_realdata_comparison`,
-  `noisy_label_comparison` + `noisy_label_realdata_comparison`,
-  `ood_selective_prediction_comparison` + `ood_selective_prediction_realdata_comparison`,
-  `ordinal_regression_comparison` + `ordinal_regression_realdata_comparison`,
-  `uncertain_gt_density_conformal_comparison` + `uncertain_gt_density_conformal_realdata_comparison`.
-- **Loss comparisons**: `loss_comparison`, `comprehensive_loss_comparison`, `comprehensive_comparison`.
-- **Conformal**: `conformal_regression_example`, `evaluate_conformal_methods`, `conformal_mondrian_demo`.
 - **OT-shift conformal**: `ot_shift_conformal_demo` and `benchmarks/ot_conformal_score_shift_benchmark` describe the same toy.
-- **Contrastive flows**: `contrastive_flow_parameter_estimation` and `contrastive_flow_parameter_estimation_comparison`.
-- **Count / zero-inflated data**: `poisson_regression_demo`, `tweedie_regression_demo`, `poisson_gaussian_mixture_demo`.
-- **Bayesian linear head**: `test_time_bayesian_linear_head_demo`, `test_time_blr_predictive_adapter_demo`, `benchmarks/bayesian_linear_head_*`.
-- **Wasserstein bound**: `gaussian_wasserstein_bound_demo` and `wasserstein_bound_hybrid_pretrain_demo`.
 - **Intro**: `basic_usage` and `native_api_usage`.
 
-## External-library comparators
-
-The `external_comparison_*` scripts need their comparator packages installed
-explicitly (there is no `torchregress[external]` extra):
-
-```bash
-uv pip install mapie crepes torchcp botorch gpytorch   # scikit-lego is optional, see below
-```
-
-They track the current comparator APIs (last checked with MAPIE 1.5.0 and
-1.5.1.dev6, crepes 0.9.1, torchcp 1.2.1, scikit-learn 1.9.1, scikit-lego 0.9.10):
-
-- `external_comparison_conformal_vs_mapie.py` uses MAPIE's `SplitConformalRegressor`
-  and `ConformalizedQuantileRegressor` (`fit` / `conformalize` / `predict_interval`,
-  `confidence_level = 1 - alpha`) and torchcp's `SplitPredictor` with the `ABS`
-  score. MAPIE 0.x (`MapieRegressor`) and torchcp < 1.2 (`SplitCP`) are no longer supported.
-- `external_comparison_tweedie_vs_sklego.py` compares against
-  `sklearn.linear_model.TweedieRegressor` because scikit-lego 0.9.x has no
-  Tweedie/GLM estimator (`GLMRegressor` was removed). scikit-lego is only probed
-  so its version and the missing GLM are recorded in the summary.
-
-A comparator that is not installed gives a `skipped: <lib> not installed` row. One that is
-installed but whose API does not match gives `skipped: <lib> <version> incompatible`
-(or `failed: <lib> <version> incompatible (...)` if it breaks while running), so API
-drift is never reported as "not installed". Skipped rows keep `null` metrics so the JSON
-schema is stable. Each script prints the installed comparator versions and records them in
-the summary JSON `notes` and per-row `Version` field.
+Already merged (one script per topic, variants behind a flag): the synthetic / real-data
+pairs (causal, censored, EIV, multimodal, noisy-label, OOD selective prediction, ordinal,
+uncertain ground truth) behind `--dataset {synthetic,diabetes}`, `loss_comparison --suite`,
+`conformal_regression_example --mode`, `contrastive_flow_parameter_estimation --mode`,
+`count_regression_demo --family`, `test_time_bayesian_linear_head_demo --mode`,
+`gaussian_wasserstein_bound_demo --mode`. Kept separate on purpose:
+`comprehensive_comparison` (robustness, uncertainty heads and ensembles across three
+scenarios, not a loss sweep), `poisson_gaussian_contamination_mixture_demo` (detector
+noise mixtures, not count regression) and `benchmarks/bayesian_linear_head_*`
+(library benchmarks, not tutorials).

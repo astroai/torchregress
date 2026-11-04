@@ -141,7 +141,7 @@ def test_ALG_002_irls_robust_scale_over_samples() -> None:
         delta=1.345,
         max_iter=1,
     )
-    sigma = 1.4826 * (y - y.median()).abs().median()
+    sigma = 1.482602218505602 * (y - y.median()).abs().median()
     # Most standard-normal residuals are inside delta: mean weight is ~0.9 (was ~0).
     assert prec.mean().item() > 0.8
     torch.testing.assert_close(prec, huber_weights(y / sigma, 1.345), rtol=1e-3, atol=1e-5)

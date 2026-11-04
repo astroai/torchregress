@@ -23,38 +23,28 @@ tasks currently have decision-grade comparisons vs demo-only examples.
 Use the comparison examples first when making implementation decisions:
 
 - `examples/comprehensive_comparison.py`: robust losses + uncertainty + ensemble behavior on multiple scenarios
-- `examples/comprehensive_loss_comparison.py`: controlled robust-loss comparisons
+- `examples/loss_comparison.py --suite comprehensive`: controlled robust-loss comparisons
 - `examples/imbalanced_regression.py`: tail performance vs calibration tradeoffs
-- `examples/evaluate_conformal_methods.py`: coverage vs interval width tradeoffs
+- `examples/conformal_regression_example.py --mode sweep`: coverage vs interval width tradeoffs
 - `examples/ood_selective_prediction_comparison.py`: OOD vs selective-prediction tradeoffs (AURC, rejection policy, OOD gap)
-  now includes BaseEnsembleModel, heteroscedastic ensemble, MC dropout, `SWAG`, and `BNN`
-- `examples/ood_selective_prediction_realdata_comparison.py`: real-data OOD/selective comparison on Diabetes with covariate-shift split
-- `examples/eiv_method_comparison.py`: EIV method tradeoffs (analytic/MC/ODR/ensemble variants)
-- `examples/eiv_method_realdata_comparison.py`: real-data EIV tradeoffs on Diabetes with synthetic measurement-error injection
-- `examples/multimodal_method_comparison.py`: Gaussian vs MDN vs optional flow on multimodal multi-target data
-- `examples/multimodal_method_realdata_comparison.py`: real-data features + synthetic multimodal targets for Gaussian/MDN/flow comparison
-- `examples/contrastive_flow_parameter_estimation_comparison.py`: shared-budget synthetic comparison for Gaussian summary density vs plain flow vs contrastive flow
-- `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics
-- `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`, `CORAL`)
-- `examples/ordinal_regression_realdata_comparison.py`: real-data ordinal comparison on Diabetes with train-quantile binning
+  across a deep ensemble, heteroscedastic ensemble, MC dropout, `SWAG`, and `BNN`; `--dataset diabetes` runs a real-data covariate-shift split
+- `examples/eiv_method_comparison.py`: EIV method tradeoffs (analytic/MC/ODR/ensemble variants); `--dataset diabetes` runs on Diabetes with synthetic measurement-error injection
+- `examples/multimodal_method_comparison.py`: Gaussian vs MDN vs optional flow on multimodal multi-target data; `--dataset diabetes` uses real Diabetes features + synthetic multimodal targets
+- `examples/contrastive_flow_parameter_estimation.py --mode compare`: shared-budget synthetic comparison for Gaussian summary density vs plain flow vs contrastive flow vs NRE vs NPE
+- `examples/noisy_label_comparison.py`: robust + probabilistic methods under label corruption with calibration metrics (`--dataset synthetic|diabetes`)
+- `examples/ordinal_regression_comparison.py`: ordered-target comparison (`OrdinalCrossEntropy`, `CumulativeLink`); `--dataset diabetes` uses train-quantile binning of Diabetes targets
 - `examples/ordinal_uncertain_ground_truth_comparison.py`: ordered-bin ambiguous-label comparison with soft plausibility targets and soft pseudo labels
-- `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`)
-- `examples/censored_regression_realdata_comparison.py`: real-data censored comparison on Diabetes with shared censoring overlays
+- `examples/censored_regression_comparison.py`: censored/interval-censored comparison (`CensoredGaussianNLL`, `CensoredQuantile`, `AFT`); `--dataset diabetes` runs on Diabetes with shared synthetic censoring overlays
 - `examples/constraints_calibration_comparison.py`: constrained heads + post-hoc calibration transforms comparison
 - `examples/transformed_target_regression_comparison.py`: skewed-target transform comparison (`MSE`, `LogTransform`, `BoxCox`, `Sqrt`)
 - `examples/semi_supervised_regression_comparison.py`: masked-label semi-supervised regression with pseudo labels and teacher consistency
 - `examples/ppi_calibrated_mean.py`: raw vs affinely calibrated prediction-powered mean inference (arXiv:2604.21260)
 - `examples/ppi_mean_plus_split_conformal.py`: PPI-style mean inference plus `SplitConformal` predictive bands with a labeled split (see `docs/methods/inference.md`)
-- `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison
-- `examples/uncertain_gt_density_conformal_realdata_comparison.py`: real-data uncertain-label + conformal comparison on Diabetes
-- `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics
-- `examples/causal_dr_realdata_comparison.py`: real-covariate DR ATE/CATE comparison with overlap diagnostics
-- `examples/external_comparison_conformal_vs_mapie.py`: conformal intervals (split + CQR) vs MAPIE; JSON → `reports/external_comparison_conformal_vs_mapie_latest.json`
-- `examples/external_comparison_bayesian_linear_vs_botorch.py`: low-shot Bayesian linear head vs BoTorch `SingleTaskGP`; JSON → `reports/external_comparison_bayesian_linear_vs_botorch_latest.json`
-- `examples/external_comparison_tweedie_vs_sklego.py`: Tweedie / compound-Poisson regression vs scikit-learn `TweedieRegressor` (scikit-lego no longer ships a GLM); JSON → `reports/external_comparison_tweedie_vs_sklego_latest.json`
-- [External comparison guide](external-comparison-vs-mapie-botorch-sklego.md): consolidated page for the three external benchmarks.
+- `examples/uncertain_gt_density_conformal_comparison.py`: uncertain-label losses + density/prevalence/MC conformal comparison (`--dataset synthetic|diabetes`)
+- `examples/causal_dr_uplift_comparison.py`: doubly-robust ATE/CATE comparison with overlap diagnostics; `--dataset diabetes` uses real Diabetes covariates
+- [External comparison guide](external-comparison-vs-mapie-botorch-sklego.md): MAPIE, crepes, torchcp, BoTorch and scikit-learn comparisons, run in torchregress-harness.
 - `examples/normalizing_flows_multitarget.py`: multi-target multimodal modeling (single-method deep dive)
-- `examples/contrastive_flow_parameter_estimation.py`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
+- `examples/contrastive_flow_parameter_estimation.py --mode demo`: nuisance-aware parameter scans with `ContrastiveFlowLoss`
 
 When comparing methods, prefer examples that document:
 
@@ -93,7 +83,7 @@ rmse = tr.metrics.rmse(predictions, y_test)
 
 ### [Loss Comparison](loss_comparison.md)
 
-This example compares different loss functions on the same dataset:
+This example compares different loss functions on the same dataset (`examples/loss_comparison.py`; `--suite basic` for a linear model with seven losses, `--suite comprehensive` for an MLP with ten losses and point/CRPS/ECE metrics):
 
 - Comparing traditional vs. robust losses
 - Analyzing how different losses handle outliers
@@ -148,24 +138,15 @@ losses = {
 
 ### [Bayesian linear head (test-time) demo](test_time_bayesian_linear_head.md)
 
-- Synthetic linear targets on fixed features; compares batch `BayesianLinearHead.fit` to two-step `RecursiveBayesianHead.partial_fit` with `forgetting_factor=1`, reports posterior error vs a known weight vector, and prints rough held-out Gaussian interval coverage.
+- `--mode exactness`: synthetic linear targets on fixed features; compares batch `BayesianLinearHead.fit` to two-step `RecursiveBayesianHead.partial_fit` with `forgetting_factor=1`, reports posterior error vs a known weight vector, and prints rough held-out Gaussian interval coverage.
+- `--mode adapter`: thin `SupportsPredictiveBatch` wrapper exposing `predict_distribution(...)` around `BayesianLinearHead.predictive_batch`; prints `PredictiveBatch` diagnostics.
 - Script: [`examples/test_time_bayesian_linear_head_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/test_time_bayesian_linear_head_demo.py).
-
-### [BLR predictive adapter (SupportsPredictiveBatch)](test_time_blr_predictive_adapter.md)
-
-- Thin wrapper exposing `predict_distribution(...)` around `BayesianLinearHead.predictive_batch`.
-- Runtime protocol-check against `SupportsPredictiveBatch` and prints `PredictiveBatch` diagnostics.
-- Script: [`examples/test_time_blr_predictive_adapter_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/test_time_blr_predictive_adapter_demo.py).
 
 ### [Gaussian Wasserstein bound demo](gaussian_wasserstein_bound.md)
 
-- One-step mean + full-covariance supervision with [`GaussianWassersteinBoundLoss`](../losses/gaussian_wasserstein.md); prints loss and gradient norms.
+- `--mode loss`: one-step mean + full-covariance supervision with [`GaussianWassersteinBoundLoss`](../losses/gaussian_wasserstein.md); prints loss and gradient norms.
+- `--mode hybrid`: tiny scalar head; neighbourhood covariance pseudo-labels + diagonal Wasserstein-bound pretrain, then Gaussian NLL fine-tune; prints NLL before/after the second phase.
 - Script: [`examples/gaussian_wasserstein_bound_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/gaussian_wasserstein_bound_demo.py).
-
-### [Wasserstein-bound hybrid pretrain](wasserstein_bound_hybrid_pretrain.md)
-
-- Tiny scalar head: neighbourhood covariance pseudo-labels + diagonal Wasserstein-bound pretrain, then Gaussian NLL fine-tune; prints NLL before/after the second phase.
-- Script: [`examples/wasserstein_bound_hybrid_pretrain_demo.py`](https://github.com/astroai/torchregress/blob/main/examples/wasserstein_bound_hybrid_pretrain_demo.py).
 
 ### [Beta-NLL heteroscedastic demo](heteroscedastic_beta_nll.md)
 
@@ -192,10 +173,10 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 → See [`uncertainty_decomposition`](../api/metrics.md) and [Ensemble API](../api/ensemble.md).
 
-### [Ordinal Regression Comparison (Real Data)](ordinal_regression_realdata_comparison.md)
+### [Ordinal Regression Comparison](ordinal_regression_comparison.md)
 
-- Shared-budget comparison on real Diabetes covariates/targets with train-quantile binning.
-- Compares class-logit cross-entropy against cumulative-link and CORAL objectives.
+- Shared-budget comparison on a synthetic latent-score task or (`--dataset diabetes`) real Diabetes covariates/targets with train-quantile binning.
+- Compares class-logit cross-entropy against the cumulative-link objective.
 - Reports ordinal accuracy, class-index MAE, QWK, and runtime.
 
 ### [Ordinal Uncertain Ground Truth Comparison](ordinal_uncertain_ground_truth_comparison.md)
@@ -209,12 +190,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 - Shared-budget comparison for right/left and interval-censored targets.
 - Compares Gaussian NLL, quantile, and AFT censored losses.
 - Reports true-target MAE, observed MAE, concordance index, censoring rate, and runtime.
-
-### [Censored Regression Comparison (Real Data)](censored_regression_realdata_comparison.md)
-
-- Shared-budget comparison on real Diabetes covariates/targets with synthetic censoring overlays.
-- Compares Gaussian NLL, quantile, and AFT censored losses.
-- Reports true-target MAE, observed MAE, concordance index, censoring rate, and runtime.
+- `--dataset diabetes` runs the same comparison on real Diabetes covariates/targets with synthetic censoring overlays.
 
 ### [Constraints + Calibration Comparison](constraints_calibration_comparison.md)
 
@@ -239,29 +215,24 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 - Shared-budget comparison for uncertain ground-truth supervision and density-aware conformal intervals.
 - Compares `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, and `MonteCarloConformal`.
 - Reports coverage/width plus uncertain-GT objective values (`NoisyTargetNLL`, `ConsistencyLoss`, `PseudoLabelNLL`).
-
-### [Uncertain-GT + Density Conformal Comparison (Real Data)](uncertain_gt_density_conformal_realdata_comparison.md)
-
-- Shared-budget comparison on real Diabetes covariates/targets with feature-dependent annotation noise.
-- Compares `SplitConformal`, `DensityConformal`, `PrevalenceAdjustedCP`, and `MonteCarloConformal`.
-- Reports coverage/width plus uncertain-GT objective values (`NoisyTargetNLL`, `ConsistencyLoss`, `PseudoLabelNLL`).
+- `--dataset diabetes` runs the same comparison on real Diabetes covariates/targets with feature-dependent annotation noise and a fitted MLP predictor.
 
 ### [Causal DR Uplift Comparison](causal_dr_uplift_comparison.md)
 
 - Shared-budget comparison for doubly-robust causal regression (`dr_ate`, `dr_cate`).
-- Includes a synthetic uplift scenario.
-- Reports ATE error, CI quality, overlap-rate, and effective sample size diagnostics.
-
-### [Causal DR Comparison (Real Covariates)](causal_dr_realdata_comparison.md)
-
-- Shared-budget comparison for doubly-robust causal regression (`dr_ate`, `dr_cate`) on real covariates.
-- Uses Diabetes features/baseline outcomes with confounded treatment assignment and known effect construction.
+- Includes synthetic uplift and selection-bias scenarios.
+- `--dataset diabetes` uses Diabetes features/baseline outcomes with confounded treatment assignment and known effect construction.
 - Reports ATE error, CI quality, overlap-rate, and effective sample size diagnostics.
 
 ### [Conformal Regression](conformal_regression_example.md)
 
 - Using conformal prediction to obtain prediction intervals with guaranteed coverage ([`SplitConformal`](../api/losses.md), [`CQR`](../api/losses.md)).
-- Compare against `evaluate_conformal_methods.py` for coverage-vs-width tradeoffs across methods.
+- `--mode tour` walks through every predictor, `--mode sweep` compares coverage-vs-width tradeoffs across $\alpha$, and `--mode mondrian` shows group-conditional (Mondrian) calibration.
+
+### [Count and Zero-Inflated Regression](count_regression.md)
+
+- `examples/count_regression_demo.py --family poisson`: Poisson deviance, likelihood ratio, zero-inflated Poisson and negative binomial losses on ZIP count data.
+- `--family tweedie`: `TweedieLoss` and `CompoundPoissonLoss` on compound Poisson-Gamma (zero-inflated continuous) data.
 
 ### [Evidential Regression](evidential_regression.md)
 
@@ -284,11 +255,7 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Shared-budget comparison of robust/probabilistic methods under label corruption.
 - Includes split-conformal coverage/width metrics plus native interval metrics for Gaussian/quantile heads.
-
-### [Noisy Label Real-Data Comparison](noisy_label_realdata_comparison.md)
-
-- Shared-budget comparison on the Diabetes dataset with synthetic label corruption.
-- Adds real-data evidence breadth for noisy-label robustness/calibration tradeoffs.
+- `--dataset diabetes` runs it on the Diabetes dataset with synthetic label corruption for real-data evidence breadth.
 
 ### [Normalizing Flows](normalizing_flows_multitarget.md)
 
@@ -299,31 +266,19 @@ epistemic, aleatoric = ensemble_variance_decomposition(means, log_vars)
 
 - Shared-budget comparison of `GaussianNLL`, `MDN`, and optional flow models on multimodal multi-target data.
 - Includes common point metrics, NLL, calibration error, energy score, and runtime.
-
-### [Multimodal Method Comparison (Real Data Features)](multimodal_method_realdata_comparison.md)
-
-- Shared-budget comparison on Diabetes features with synthetic multimodal multi-target outputs.
-- Adds real-covariate evidence breadth for Gaussian/MDN/flow tradeoffs.
+- `--dataset diabetes` runs on Diabetes features with synthetic multimodal multi-target outputs, adding real-covariate evidence breadth.
 
 ### [OOD / Selective Prediction Comparison](ood_selective_prediction_comparison.md)
 
 - Shared-budget comparison of uncertainty methods for risk-coverage and OOD signal behavior.
 - Includes AURC, rejection-policy risk/coverage, split-conformal interval metrics, and OOD uncertainty-gap summaries.
-
-### [OOD / Selective Prediction Comparison (Real Data)](ood_selective_prediction_realdata_comparison.md)
-
-- Shared-budget comparison on Diabetes with deterministic covariate-shift OOD split.
-- Adds real-data evidence breadth for OOD/selective tradeoffs across BaseEnsembleModel/MCDropout/`SWAG`/`BNN` with split-conformal interval diagnostics.
+- `--dataset diabetes` runs it on Diabetes with a deterministic covariate-shift OOD split for real-data evidence breadth.
 
 ### [EIV Method Comparison](eiv_method_comparison.md)
 
 - Shared-budget comparison of EIV variants (`FunctionalEIV`, `StructuralEIV`, `ODR`, `EnsembleEIV`).
 - Includes clean-vs-observed test MSE and runtime tradeoffs.
-
-### [EIV Method Comparison (Real Data)](eiv_method_realdata_comparison.md)
-
-- Shared-budget EIV comparison on Diabetes with synthetic feature/label measurement error.
-- Adds real-data evidence breadth for EIV quality/runtime tradeoffs.
+- `--dataset diabetes` runs on Diabetes with synthetic feature/label measurement error, adding real-data evidence breadth.
 
 ## Running the Examples
 

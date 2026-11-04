@@ -22,12 +22,21 @@ def test_evidence_band_classification_split() -> None:
         "gaps": "Needs additional external datasets.",
     }
     decision_grade_row = {
-        "examples": ["examples/eiv_method_realdata_comparison.py"],
+        "examples": ["examples/eiv_method_comparison.py --dataset diabetes"],
+        "comparison_grade": "Decision-grade",
+        "gaps": "",
+    }
+    explicit_synthetic_row = {
+        "examples": ["examples/eiv_method_comparison.py --dataset synthetic"],
         "comparison_grade": "Decision-grade",
         "gaps": "",
     }
 
     assert render_realdata_recommendation_guide._evidence_band(synthetic_row) == "Synthetic only"
+    assert (
+        render_realdata_recommendation_guide._evidence_band(explicit_synthetic_row)
+        == "Synthetic only"
+    )
     assert render_realdata_recommendation_guide._evidence_band(real_proxy_row) == "Real proxy"
     assert (
         render_realdata_recommendation_guide._evidence_band(decision_grade_row)

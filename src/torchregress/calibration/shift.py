@@ -8,6 +8,8 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import _median
+
 
 def _ensure_tensor(x: Union[Tensor, np.ndarray, list[float]]) -> Tensor:
     if isinstance(x, Tensor):
@@ -52,7 +54,7 @@ class RepresentationShiftInflator:
         self.source_mean_ = reps.mean(dim=0).numpy()
         self.source_var_ = reps.var(dim=0, unbiased=False).clamp(self.eps, None).numpy()
         d2 = self._squared_mahalanobis(reps)
-        self.reference_scale_ = float(d2.clamp(0.0, None).sqrt().median().item())
+        self.reference_scale_ = float(_median(d2.clamp(0.0, None).sqrt()).item())
         return self
 
     def _squared_mahalanobis(self, reps: Tensor) -> Tensor:

@@ -15,7 +15,7 @@
       "task": "Robust regression / outliers",
       "examples": [
         "examples/comprehensive_comparison.py",
-        "examples/comprehensive_loss_comparison.py"
+        "examples/loss_comparison.py"
       ],
       "comparison_grade": "Decision-grade",
       "fairness_controls": [
@@ -159,7 +159,7 @@
       "examples": [
         "examples/semi_supervised_regression_comparison.py",
         "examples/uncertain_gt_density_conformal_comparison.py",
-        "examples/uncertain_gt_density_conformal_realdata_comparison.py"
+        "examples/uncertain_gt_density_conformal_comparison.py --dataset diabetes"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
@@ -192,7 +192,7 @@
       "task": "Causal inference regression (DR ATE/CATE)",
       "examples": [
         "examples/causal_dr_uplift_comparison.py",
-        "examples/causal_dr_realdata_comparison.py"
+        "examples/causal_dr_uplift_comparison.py --dataset diabetes"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
@@ -213,14 +213,14 @@
         "dr_cate"
       ],
       "gaps": "Includes real-covariate proxy benchmarks; needs external treatment-effect datasets for stronger external validity.",
-      "notes": "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap diagnostics. A naive difference-in-means baseline is reported alongside ``dr_ate``/``dr_cate`` in both comparison examples (see ``_naive_ate`` helper) for reference."
+      "notes": "Evidence includes synthetic uplift/astronomy-style scenarios plus real-covariate Diabetes proxy scenarios, all with cross-fitted DR estimators and overlap diagnostics. A naive difference-in-means baseline is reported alongside ``dr_ate``/``dr_cate`` for both ``--dataset`` choices (see ``_naive_ate`` helper) for reference."
     },
     {
       "task": "Calibrated intervals / coverage",
       "examples": [
-        "examples/evaluate_conformal_methods.py",
+        "examples/conformal_regression_example.py",
         "examples/ood_selective_prediction_comparison.py",
-        "examples/ood_selective_prediction_realdata_comparison.py"
+        "examples/ood_selective_prediction_comparison.py --dataset diabetes"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
@@ -249,7 +249,7 @@
       "task": "Ordinal regression / ordered targets",
       "examples": [
         "examples/ordinal_regression_comparison.py",
-        "examples/ordinal_regression_realdata_comparison.py",
+        "examples/ordinal_regression_comparison.py --dataset diabetes",
         "examples/ordinal_uncertain_ground_truth_comparison.py"
       ],
       "comparison_grade": "Strong",
@@ -276,7 +276,7 @@
       "task": "Censored / interval-censored regression",
       "examples": [
         "examples/censored_regression_comparison.py",
-        "examples/censored_regression_realdata_comparison.py"
+        "examples/censored_regression_comparison.py --dataset diabetes"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
@@ -302,7 +302,7 @@
       "task": "OOD robustness / selective prediction",
       "examples": [
         "examples/ood_selective_prediction_comparison.py",
-        "examples/ood_selective_prediction_realdata_comparison.py",
+        "examples/ood_selective_prediction_comparison.py --dataset diabetes",
         "examples/comprehensive_comparison.py"
       ],
       "comparison_grade": "Decision-grade",
@@ -332,7 +332,7 @@
       "task": "Multimodal / multi-target non-Gaussian",
       "examples": [
         "examples/multimodal_method_comparison.py",
-        "examples/multimodal_method_realdata_comparison.py",
+        "examples/multimodal_method_comparison.py --dataset diabetes",
         "examples/normalizing_flows_multitarget.py"
       ],
       "comparison_grade": "Strong",
@@ -360,7 +360,7 @@
       "task": "Noisy features / EIV",
       "examples": [
         "examples/eiv_method_comparison.py",
-        "examples/eiv_method_realdata_comparison.py"
+        "examples/eiv_method_comparison.py --dataset diabetes"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [
@@ -387,8 +387,8 @@
       "task": "Noisy labels / corruption",
       "examples": [
         "examples/noisy_label_comparison.py",
-        "examples/noisy_label_realdata_comparison.py",
-        "examples/comprehensive_loss_comparison.py"
+        "examples/noisy_label_comparison.py --dataset diabetes",
+        "examples/loss_comparison.py"
       ],
       "comparison_grade": "Strong",
       "fairness_controls": [

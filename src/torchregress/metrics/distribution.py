@@ -171,13 +171,18 @@ def probability_integral_transform(
 
     if not return_histogram:
         if _to_np:
-            return pit_values.numpy()
+            return pit_values.detach().cpu().numpy()
         return pit_values
 
     bin_edges = torch.linspace(
         0.0, 1.0, n_bins + 1, device=pit_values.device, dtype=pit_values.dtype
     )
-    counts = torch.histogram(pit_values, bin_edges)[0]
+    # torch.histogram has no CUDA kernel. Same convention: half-open bins with a
+    # closed last bin; values outside [0, 1] and NaN are not counted.
+    flat = pit_values.reshape(-1)
+    flat = flat[(flat >= 0.0) & (flat <= 1.0)]
+    bin_idx = (torch.bucketize(flat, bin_edges, right=True) - 1).clamp_(0, n_bins - 1)
+    counts = torch.bincount(bin_idx, minlength=n_bins).to(pit_values.dtype)
     expected = pit_values.numel() / n_bins
     uniformity_chi2 = torch.sum((counts - expected) ** 2 / max(expected, 1.0))
     ks_statistic = kolmogorov_smirnov_uniform_statistic(pit_values)
@@ -191,7 +196,7 @@ def probability_integral_transform(
     }
     if _to_np:
         out = {
-            k: (float(v) if v.ndim == 0 else v.numpy()) if torch.is_tensor(v) else v
+            k: (float(v) if v.ndim == 0 else v.detach().cpu().numpy()) if torch.is_tensor(v) else v
             for k, v in out.items()
         }
     return out

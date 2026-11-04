@@ -36,6 +36,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 import torch
 from torch import Tensor
 
+from torchregress.utils.tensor_ops import _median
+
 from .base import RegressionLoss
 from .loss_registry import register_regression_loss
 
@@ -937,35 +939,28 @@ class LevelSetConformalPredictor(ConformalPredictor):
         threshold = threshold.view(-1, 1)
 
         in_set = values <= threshold  # (n_test, grid_size)
-
-        lower = torch.full((n_test, 1), y_max, device=device, dtype=dtype)
-        upper = torch.full((n_test, 1), y_min, device=device, dtype=dtype)
+        if values.dim() == 1:
+            # A single-row eval_fn may return ``(grid_size,)``; the comparison
+            # above already broadcast it to ``(n_test, grid_size)``.
+            values = values.unsqueeze(0).expand(n_test, -1)
 
         has_valid = in_set.any(dim=1)
 
-        # First True from left → lower; last True (first True from right) → upper
+        # First True from left → lower; last True (first True from right) → upper.
+        # Empty level sets fall back to the argmin of the values.  Selection
+        # uses ``torch.where`` so no host-device synchronisation is needed.
         start_indices = in_set.int().argmax(dim=1)
         end_indices = grid_size - 1 - in_set.flip(dims=[1]).int().argmax(dim=1)
-
-        valid_mask = has_valid
-        if valid_mask.any():
-            lower[valid_mask, 0] = y_grid[start_indices[valid_mask]]
-            upper[valid_mask, 0] = y_grid[end_indices[valid_mask]]
-
-        # Fallback for samples with empty level sets: use argmin of values
-        invalid_mask = ~has_valid
-        if invalid_mask.any():
-            fallback_idx = values[invalid_mask].argmin(dim=1)
-            lower[invalid_mask, 0] = y_grid[fallback_idx]
-            upper[invalid_mask, 0] = y_grid[fallback_idx]
+        fallback_idx = values.argmin(dim=1)
+        lower = y_grid[torch.where(has_valid, start_indices, fallback_idx)]
+        upper = y_grid[torch.where(has_valid, end_indices, fallback_idx)]
 
         # Infinite threshold: every y is in the prediction set.
         inf_mask = torch.isposinf(threshold.view(-1))
-        if inf_mask.any():
-            lower[inf_mask, 0] = float("-inf")
-            upper[inf_mask, 0] = float("inf")
+        lower = torch.where(inf_mask, torch.full_like(lower, float("-inf")), lower)
+        upper = torch.where(inf_mask, torch.full_like(upper, float("inf")), upper)
 
-        return lower, upper
+        return lower.view(-1, 1), upper.view(-1, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -2527,7 +2522,7 @@ class MonteCarloConformal(ConformalPredictor):
         if mc_samples.dim() < 2:
             raise ValueError("mc_samples must have shape [n_samples, batch, ...]")
         if self.center == "median":
-            center = mc_samples.median(dim=0).values
+            center = _median(mc_samples, dim=0)
         else:
             center = mc_samples.mean(dim=0)
         uncertainty = mc_samples.std(dim=0, unbiased=False).clamp(min=self.min_uncertainty)
@@ -2857,9 +2852,19 @@ class ConformalizedDensity:
     targets the threshold and :meth:`contains` are exact level-set membership;
     a scalar interval is intentionally not manufactured.
 
+    The density callable is evaluated in row chunks of at most ``chunk_size``
+    ``(context, y)`` pairs (calibration, :meth:`contains`, and
+    ``chunk_size // grid_size`` contexts per call in :meth:`predict_interval`),
+    so peak memory does not grow with the split size.  Scores are per row, so
+    the result does not depend on ``chunk_size`` as long as the callable is
+    row-wise (row ``i`` of its output depends only on row ``i`` of its inputs).
+
     Args:
         alpha: Miscoverage rate.
         grid_size: Number of grid points for scalar interval construction.
+        chunk_size: Maximum number of ``(context, y)`` rows passed to the
+            density callable in one call (default ``131072``).  Lower it if a
+            single call does not fit in (GPU) memory.
 
     Example:
         >>> from torchregress.losses import ConformalizedDensity, ContrastiveFlowLoss
@@ -2871,17 +2876,42 @@ class ConformalizedDensity:
         ... )
     """
 
-    def __init__(self, alpha: float = 0.1, grid_size: int = 500) -> None:
+    def __init__(
+        self, alpha: float = 0.1, grid_size: int = 500, *, chunk_size: int = 131_072
+    ) -> None:
         if not 0.0 < alpha < 1.0:
             raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        if int(chunk_size) < 1:
+            raise ValueError(f"chunk_size must be a positive integer, got {chunk_size}")
         self.alpha = float(alpha)
         self.cti = CTI(alpha=alpha, grid_size=int(grid_size))
+        self.chunk_size = int(chunk_size)
         self._is_calibrated = False
 
     @property
     def threshold(self) -> Optional[Tensor]:
         """Calibrated negative-log-density threshold (``None`` before calibration)."""
         return self.cti.q_hat if isinstance(self.cti.q_hat, Tensor) else None
+
+    def _rowwise(
+        self, fn: Callable[[Tensor, Tensor], Tensor], context: Tensor, target: Tensor
+    ) -> Tensor:
+        """Evaluate ``fn(context, target)`` in row chunks, detached and flattened."""
+        n = context.shape[0]
+        step = self.chunk_size
+        if n <= step:
+            return fn(context, target).detach().reshape(-1)
+        if target.shape[0] != n:
+            raise ValueError(
+                f"context and target must have the same number of rows, got {n} and "
+                f"{target.shape[0]}"
+            )
+        return torch.cat(
+            [
+                fn(context[i : i + step], target[i : i + step]).detach().reshape(-1)
+                for i in range(0, n, step)
+            ]
+        )
 
     def calibrate(
         self,
@@ -2896,7 +2926,7 @@ class ConformalizedDensity:
         Pass ``groups`` for Mondrian (group-conditional) thresholds; use the
         same group ids at prediction time.
         """
-        log_density = -negative_log_density(context, target).detach().reshape(-1)
+        log_density = -self._rowwise(negative_log_density, context, target)
         if not torch.isfinite(log_density).all():
             raise ValueError("negative log-density must be finite on the calibration split")
         # CTI computes the nonconformity score itself as -log_density.
@@ -2916,7 +2946,7 @@ class ConformalizedDensity:
         groups: Optional[Tensor] = None,
     ) -> None:
         """Convenience alias taking ``log p`` instead of negative log-density."""
-        log_density = log_prob(context, target).detach().reshape(-1)
+        log_density = self._rowwise(log_prob, context, target)
         if not torch.isfinite(log_density).all():
             raise ValueError("log-density must be finite on the calibration split")
         self.cti.calibrate(
@@ -2937,7 +2967,7 @@ class ConformalizedDensity:
         """Boolean level-set membership for each row (works for multi-target)."""
         if not self._is_calibrated:
             raise RuntimeError("Call calibrate() first.")
-        score = negative_log_density(context, target).reshape(-1)
+        score = self._rowwise(negative_log_density, context, target)
         q = self.cti._per_sample_q(
             score.numel(), groups=groups, device=score.device, dtype=score.dtype
         )
@@ -2952,29 +2982,43 @@ class ConformalizedDensity:
         *,
         groups: Optional[Tensor] = None,
     ) -> tuple[Tensor, Tensor]:
-        """Scalar level-set intervals; raises for multi-target contexts."""
+        """Scalar level-set intervals; raises for multi-target contexts.
+
+        Each context is evaluated on the same ``grid_size`` grid over
+        ``[y_min, y_max]``; contexts are batched, ``chunk_size // grid_size``
+        (at least one) per density call.
+        """
         if not self._is_calibrated:
             raise RuntimeError("Call calibrate() first.")
         if context.dim() != 2:
             raise ValueError("context must be [N, C]")
+        n = context.shape[0]
+        grid_size = int(self.cti.grid_size)
+        if n == 0:
+            empty = context.new_empty((0, 1))
+            return empty, empty.clone()
+        q = self.cti._per_sample_q(n, groups=groups, device=context.device, dtype=context.dtype)
+        rows = max(1, self.chunk_size // grid_size)
+
+        def eval_fn(y_grid: Tensor, ctx: Tensor) -> Tensor:
+            b = ctx.shape[0]
+            c = ctx.unsqueeze(1).expand(b, grid_size, ctx.shape[1]).reshape(b * grid_size, -1)
+            y = y_grid.reshape(1, grid_size).expand(b, grid_size).reshape(-1, 1)
+            return negative_log_density(c, y).reshape(b, grid_size)
+
         lower, upper = [], []
-        for i in range(context.shape[0]):
-            ctx = context[i : i + 1]
-
-            def density_fn(y_grid: Tensor, _x: Tensor, *, _ctx=ctx) -> Tensor:
-                y = y_grid.reshape(-1, 1).to(_ctx.device, _ctx.dtype)
-                return -negative_log_density(_ctx.expand(y.shape[0], -1), y).reshape(-1)
-
-            lo, hi = self.cti.predict_intervals_from_density(
-                density_fn,
-                ctx,
+        for start in range(0, n, rows):
+            lo, hi = LevelSetConformalPredictor._grid_search_level_set(
+                eval_fn,
+                context[start : start + rows],
+                q[start : start + rows],
                 y_min,
                 y_max,
-                groups=None if groups is None else groups[i : i + 1],
+                grid_size,
             )
-            lower.append(lo.reshape(-1))
-            upper.append(hi.reshape(-1))
-        return torch.cat(lower).reshape(-1, 1), torch.cat(upper).reshape(-1, 1)
+            lower.append(lo)
+            upper.append(hi)
+        return torch.cat(lower), torch.cat(upper)
 
 
 class ContrastiveFlowConformal(ConformalizedDensity):
@@ -2992,10 +3036,19 @@ class ContrastiveFlowConformal(ConformalizedDensity):
             (or any object with ``log_prob(context, target)``).
         alpha: Miscoverage rate.
         grid_size: Grid size for scalar interval inversion.
+        chunk_size: Maximum number of ``(context, y)`` rows per ``log_prob``
+            call; see :class:`ConformalizedDensity`.
     """
 
-    def __init__(self, flow_loss: Any, alpha: float = 0.1, grid_size: int = 500) -> None:
-        super().__init__(alpha=alpha, grid_size=grid_size)
+    def __init__(
+        self,
+        flow_loss: Any,
+        alpha: float = 0.1,
+        grid_size: int = 500,
+        *,
+        chunk_size: int = 131_072,
+    ) -> None:
+        super().__init__(alpha=alpha, grid_size=grid_size, chunk_size=chunk_size)
         self.flow_loss = flow_loss
 
     def calibrate(  # type: ignore[override]

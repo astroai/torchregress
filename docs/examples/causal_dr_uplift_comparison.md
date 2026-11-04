@@ -58,6 +58,25 @@ Propensity score division by $e(X_i)$ or $1 - e(X_i)$ can lead to high variance 
 
 ---
 
+## Comparison Script and Datasets
+
+Script: `examples/causal_dr_uplift_comparison.py`
+
+The script compares `NaiveDiff` (difference in means), cross-fitted `dr_ate`, and cross-fitted DR pseudo-outcome `dr_cate` on two confounded scenarios per dataset, and reports `ATE_true`, `ATE_hat`, `ATE_abs_error`, `CI_contains_true`, `CI_width`, `OverlapRate`, `MinESS`, and `train_s`. Select the data with `--dataset`; each dataset keeps its own fixed seed and sample size.
+
+| `--dataset` | Covariates | Scenarios | Defaults |
+|:--|:--|:--|:--|
+| `synthetic` (default) | 6 simulated Gaussian features | `Uplift`, `SelectionBias` | `seed=260227`, `n_samples=1200`, `folds=3` |
+| `diabetes` | Real `sklearn` Diabetes covariates; the standardized Diabetes target is the baseline outcome | `DiabetesProxy`, `DiabetesSelectionBias` (simulated treatment assignment and effects, so the true ATE is known) | `seed=260305`, `n_samples=420`, `folds=3` |
+
+```bash
+pixi run python examples/causal_dr_uplift_comparison.py
+pixi run python examples/causal_dr_uplift_comparison.py --dataset diabetes \
+  --summary-json-path reports/example_summaries/causal_dr_uplift_comparison_diabetes.json
+```
+
+---
+
 ## Code Example
 
 Below is the complete, self-contained code comparing naive treatment differences against Doubly Robust ATE and CATE estimates on synthetic uplift data.

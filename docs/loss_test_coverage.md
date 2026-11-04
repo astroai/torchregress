@@ -110,8 +110,9 @@ canonical way a contract break shows up in CI.
 | `PoissonDevianceLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | Poisson deviance residual |
 | `PoissonLikelihoodRatioLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | LR loss vs. Poisson mean |
 | `ZeroInflatedPoissonNLLLoss` | `poisson.py` | `tests/losses/test_poisson.py` | (per-class) | ZIP NLL with mixing parameter |
-| `PoissonGaussianMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Poisson+Gaussian NLL mixture |
-| `EnhancedPoissonGaussianMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Gain-offset mixture w/ learnable params |
+| `PoissonGaussianLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian_convolution.py` | oracle + limits + gradcheck | Poisson-Gaussian convolution (detector) NLL |
+| `PoissonGaussianContaminationMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Poisson+Gaussian NLL mixture |
+| `EnhancedPoissonGaussianContaminationMixtureLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` | (per-class) + consistency | Gain-offset mixture w/ learnable params |
 | `PoissonGaussianLikelihoodRatioLoss` | `poisson_gaussian.py` | `tests/losses/test_poisson_gaussian.py` + consistency | (per-class) | LR mixture NLL |
 | `MultiQuantileLoss` | `quantile.py` | `tests/losses/test_quantile.py` + `tests/losses/test_non_gaussian_consistency.py` | `TestMultiQuantileLoss` | Average across multiple quantiles per sample |
 | `QuantileCrossoverLoss` | `quantile.py` | `tests/losses/test_quantile.py` + consistency | `TestQuantileLoss::test_quantile_crossover_constraint` | Crossover penalty `Σᵢ max(fᵢ - fᵢ₊₁, 0)` |
