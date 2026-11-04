@@ -146,6 +146,8 @@ References
        Botvinick, M., Mohamed, S., & Lerchner, A. (2017). beta-VAE: Learning
        Basic Visual Concepts with a Constrained Variational Framework.
        In *ICLR 2017*.  (Reparameterisation and whitening/recolouring.)
+.. [5] Kingma, D. P., & Welling, M. (2014). Auto-Encoding Variational
+       Bayes. In *ICLR 2014*. https://arxiv.org/abs/1312.6114
 """
 
 from __future__ import annotations
@@ -199,6 +201,34 @@ def _validate_prior(prior: tuple[float, float, float, float]) -> tuple[float, fl
     if not (beta0 >= 0.0 and math.isfinite(beta0)):
         raise ValueError(f"prior beta0 must be non-negative and finite, got {beta0}")
     return gamma0, nu0, alpha0, beta0
+
+
+def _latent_kl(mean: Tensor, variance: Tensor) -> Tensor:
+    r"""Per-sample KL divergence of a diagonal Gaussian from :math:`\mathcal N(0, I)`.
+
+    The divergence of a diagonal Gaussian factorises over latent dimensions, so
+    it is the **sum** over the last axis (Kingma & Welling, 2014, Appendix B):
+
+    .. math::
+
+        \mathrm{KL}_i = \tfrac12 \sum_{j}
+            \left(\sigma_{ij}^2 + \mu_{ij}^2 - 1 - \log\sigma_{ij}^2\right).
+
+    Averaging over the latent axis instead would divide the regulariser by the
+    latent width and leave the representation scale effectively unanchored:
+    the label-smoothing recolouring contracts between-bin separations every
+    epoch, the encoder compensates by expanding its output, and training
+    becomes unstable (latent norms and gradient norms grow by two orders of
+    magnitude over a long fit).
+
+    Args:
+        mean: ``(N, L)`` latent means.
+        variance: ``(N, L)`` positive latent variances.
+
+    Returns:
+        ``(N,)`` tensor of per-sample divergences.
+    """
+    return 0.5 * (variance + mean * mean - 1.0 - variance.log()).sum(dim=-1)
 
 
 def _gaussian_smoothing_matrix(
@@ -710,7 +740,8 @@ class VIRRegressor:
         reg_weight: Evidential regulariser weight :math:`\lambda`.
         max_importance_weight: Clamp on the density reweighting.
         kl_weight: Weight of :math:`\mathrm{KL}(q(z\mid x)\,\|\,\mathcal N(0,I))`
-            on the raw probabilistic representation.  The paper's full ELBO
+            on the raw probabilistic representation (summed over latent
+            dimensions, averaged over the batch).  The paper's full ELBO
             balances this KL with an input-reconstruction term; without the
             decoder it is a scale regulariser, so ``0`` is allowed but can let
             the latent scale drift.
@@ -763,9 +794,10 @@ class VIRRegressor:
         * The encoder is cloned at :meth:`fit`; retrain by calling
           :meth:`fit` again (a fresh copy is taken each time).
         * This class implements the discriminative core of VIR.  It does not
-          model ``p(x | z)`` and therefore has no reconstruction/KL term; the
-          latent smoothing is a training-time regulariser, not a posterior
-          over the encoder weights.  Uncertainty is the NIG predictive
+          model ``p(x | z)`` and therefore has no reconstruction term (only
+          the optional ``kl_weight`` scale regulariser); the latent
+          smoothing is a training-time regulariser, not a posterior over
+          the encoder weights.  Uncertainty is the NIG predictive
           uncertainty (aleatoric + evidential epistemic); it is **not** a
           Bayesian model-uncertainty decomposition.
         * Only single-output regression is supported and non-finite
@@ -1159,10 +1191,7 @@ class VIRRegressor:
                     # representation.  The full VIR ELBO also has an input
                     # reconstruction term that balances this KL; without it,
                     # use a small weight as a scale regulariser.
-                    kl = (
-                        0.5 * (raw_variance + raw_mean * raw_mean - 1.0 - raw_variance.log()).mean()
-                    )
-                    loss = loss + self.kl_weight * kl
+                    loss = loss + self.kl_weight * _latent_kl(raw_mean, raw_variance).mean()
                 loss.backward()
                 optimizer.step()
                 running_loss += float(loss.detach())
