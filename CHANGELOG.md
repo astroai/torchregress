@@ -4,11 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
-Notes for **0.3.0** start here: bug fixes, performance of existing code, docs, and harness parity.
-Three method families landed after the beta and ship in 0.3.0 (see *Added*); the
-"no new methods" rule applies from here to the 0.3.0 tag.
+## [0.3.0] - 2026-11-04
+
+Bug fixes, performance of existing code, docs, and harness parity on top of the
+0.3.0b1 API cut. Three method families landed after the beta and ship in 0.3.0
+(see *Added*).
 
 ### Added
 
@@ -600,7 +603,8 @@ API cut. One public name per behavior.
 - Initial PyPI release candidate (unreleased). Pre-1.0 blockers TR-COR-01…09 (all fixed in `6ce4b9e`).
 - Features: 19 loss families, `PredictiveBatch`, `torchmetrics` metrics, conformal (split/CQR/CTI/weighted/Mondrian/CV+), `SemiConformalCalibrator`, ensembles (DeepEnsemble/BatchEnsemble/SWAG/Laplace/BNN/MC-Dropout), algorithms (IRLS/SIMEX/RC/LatentNN/TICTAC/VIDS), causal `dr_*`, PPI, test-time (BLR/OT/COSA/subspace/transport).
 
-[Unreleased]: https://github.com/astroai/torchregress/compare/v0.3.0b1...HEAD
+[Unreleased]: https://github.com/astroai/torchregress/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/astroai/torchregress/compare/v0.3.0b1...v0.3.0
 [0.3.0b1]: https://github.com/astroai/torchregress/compare/v0.2.0...v0.3.0b1
 [0.2.0]: https://github.com/astroai/torchregress/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/astroai/torchregress/releases/tag/v0.1.0
