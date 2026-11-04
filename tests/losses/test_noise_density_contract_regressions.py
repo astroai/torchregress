@@ -122,6 +122,7 @@ def test_uncertainty_conr_matches_independent_gaussian_interval_probability():
 
 @pytest.mark.parametrize("family", ["nsf", "cinn", "bpf"])
 def test_three_output_flow_has_true_joint_density_and_finite_gradients(family):
+    pytest.importorskip("zuko")  # optional `flows` extra; CI's pip matrix installs [test,viz]
     torch.manual_seed(21)
     extra = {"degree": 8} if family == "bpf" else {}
     model = create_flow_model(
