@@ -22,6 +22,7 @@ from .ratio import (
     maximum_likelihood_estimate,
     posterior_log_weights,
 )
+from .wifi import MixtureFractionEstimate, WifiRatioEnsemble
 
 __all__ = [
     "OrthogonalEstimate",
@@ -40,4 +41,6 @@ __all__ = [
     "effective_sample_size",
     "grid_log_posterior",
     "maximum_likelihood_estimate",
+    "MixtureFractionEstimate",
+    "WifiRatioEnsemble",
 ]

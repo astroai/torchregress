@@ -34,6 +34,8 @@ try:
         MonotonicTransform,
     )
 
+    from .tarflow import TransformerFlow
+
     HAS_ZUKO = True
 except ImportError:
     HAS_ZUKO = False
@@ -43,10 +45,17 @@ except ImportError:
     DiagNormal = UnconditionalDistribution = None  # type: ignore[assignment]
     BoundedBernsteinTransform = MonotonicRQSTransform = MonotonicTransform = None  # type: ignore[assignment]
     MonotonicAffineTransform = None  # type: ignore[assignment]
+    TransformerFlow = None  # type: ignore[assignment,misc]
 
 from ..utils.pytorch_compat import _collect_transform_cycles
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
+
+#: Largest number of draws (contexts x samples) that ``NormalizingFlowLoss.sample``
+#: inverts in one block.  Inverting an autoregressive flow rebuilds every layer's
+#: univariate parameters once per target per layer, and that garbage is only freed
+#: when a block ends, so larger requests are split into blocks of this size.
+_SAMPLE_CHUNK_ROWS = 8192
 
 #: Domain half-width of zuko's rational-quadratic spline (identity outside).
 DEFAULT_TAIL_BOUND = 5.0
@@ -381,8 +390,15 @@ def create_flow_model(
         Flow architecture: ``"nsf"``/``"ncsf"`` (Neural Spline Flow),
         ``"maf"`` (Masked Autoregressive Flow), ``"realnvp"``/``"nice"``/
         ``"cinn"`` (affine coupling; cINN-style), or ``"bpf"`` (Bernstein
-        polynomial flow with exact identity tails). BPF honors ``n_transforms``
-        and ``hidden_features``; its ``degree`` keyword must be at least 1.
+        polynomial flow with exact identity tails), or ``"tarflow"``
+        (transformer autoregressive flow, see
+        :class:`~torchregress.losses.tarflow.TransformerFlow`; ``univariate=``
+        ``"spline"`` (default) or ``"affine"``, ``n_heads=``, ``dropout=``,
+        ``n_layers=`` per block, e.g. ``(4, 1, 1)`` for a deep-shallow stack).
+        BPF honors ``n_transforms`` and ``hidden_features``; its ``degree``
+        keyword must be at least 1.  For ``"tarflow"``, ``hidden_features``
+        sets the Transformer width (its largest entry) and, unless
+        ``n_layers=`` is given, the layers per block (its length).
         NSF provides the best expressivity-per-parameter
         for scalar regression and is the recommended default.
     n_transforms : int, default=5
@@ -461,6 +477,7 @@ def create_flow_model(
         "realnvp": _StableRealNVP,
         "nice": _StableRealNVP,
         "bpf": _IdentityTailBPF,
+        "tarflow": TransformerFlow,
     }
     if flow_type_key not in flow_cls_map:
         raise ValueError(
@@ -475,22 +492,39 @@ def create_flow_model(
     flow_cls = flow_cls_map[flow_type_key]
     assert flow_cls is not None
     if bound is not None:
-        if flow_type_key not in ("nsf", "maf", "realnvp", "nice"):
-            raise ValueError("bound is only supported for flow_type 'nsf', 'maf' and 'realnvp'")
+        if flow_type_key not in ("nsf", "maf", "realnvp", "nice", "tarflow"):
+            raise ValueError(
+                "bound is only supported for flow_type 'nsf', 'maf', 'realnvp' and 'tarflow'"
+            )
         if not (float(bound) > 0.0 and float(bound) < float("inf")):
             raise ValueError("bound must be positive and finite")
-        if flow_type_key != "nsf":
+        if flow_type_key == "tarflow":
+            if kwargs.get("univariate", "spline") == "spline":
+                kwargs["bound"] = float(bound)
+            else:
+                kwargs["conditioner_bound"] = float(bound)
+        elif flow_type_key != "nsf":
             kwargs["conditioner_bound"] = float(bound)
         elif float(bound) != DEFAULT_TAIL_BOUND:
             flow_cls = BoundedNSF
             kwargs["bound"] = float(bound)
-    flow = flow_cls(
-        features=n_features,
-        context=context_dim,
-        transforms=n_transforms,
-        hidden_features=hidden,
-        **kwargs,
-    )
+    if flow_type_key == "tarflow":
+        kwargs.setdefault("n_layers", len(hidden))
+        flow = flow_cls(
+            features=n_features,
+            context=context_dim,
+            transforms=n_transforms,
+            hidden=max(hidden),
+            **kwargs,
+        )
+    else:
+        flow = flow_cls(
+            features=n_features,
+            context=context_dim,
+            transforms=n_transforms,
+            hidden_features=hidden,
+            **kwargs,
+        )
     # Store context dim in a stable attribute used by NormalizingFlowLoss.
     setattr(flow, "context", context_dim)
     return cast(Module, flow)
@@ -690,7 +724,10 @@ class NormalizingFlowLoss(DistributionLoss):
         """
         if self._range_warned:
             return
-        if "nsf" not in type(self.flow).__name__.lower():
+        # Spline flows: zuko's NSF (fixed bound) and the flows that record
+        # ``tail_bound`` (BoundedNSF, spline TransformerFlow).
+        is_zuko_nsf = NSF is not None and isinstance(self.flow, NSF)
+        if not is_zuko_nsf and not hasattr(self.flow, "tail_bound"):
             return
         tail_bound = float(getattr(self.flow, "tail_bound", DEFAULT_TAIL_BOUND))
         try:
@@ -909,13 +946,57 @@ class NormalizingFlowLoss(DistributionLoss):
             Samples [batch_size, n_samples, n_features] or [batch_size, n_features] if n_samples=1
         """
         batch_size = y_pred.shape[0]
+        if self.context_dim is None and y_pred.numel() > 0:
+            # Same inference as ``distribution``.
+            self.context_dim = y_pred.shape[-1] if y_pred.dim() > 0 else 0
+        conditional = self.context_dim is not None and self.context_dim > 0
+        rows = batch_size * n_samples
+        if rows <= _SAMPLE_CHUNK_ROWS:
+            samples = self._sample_block(y_pred, n_samples, conditional)
+        elif conditional:
+            # Bounded blocks of contexts x draws: each block's inverse-transform
+            # garbage is collected before the next starts, so peak memory does
+            # not grow with the request.
+            per_block = max(1, _SAMPLE_CHUNK_ROWS // n_samples)
+            draw_block = min(n_samples, _SAMPLE_CHUNK_ROWS)
+            parts = []
+            for context_chunk in y_pred.split(per_block):
+                draws = [
+                    self._sample_block(context_chunk, min(draw_block, n_samples - k), True)
+                    for k in range(0, n_samples, draw_block)
+                ]
+                draws = [d.unsqueeze(1) if d.dim() == 2 else d for d in draws]
+                parts.append(torch.cat(draws, dim=1))
+            samples = torch.cat(parts, dim=0)
+            if n_samples == 1:
+                samples = samples.squeeze(1)
+        else:
+            per_block = max(1, _SAMPLE_CHUNK_ROWS // n_samples)
+            parts = [
+                self._sample_block(
+                    y_pred[:0], n_samples, False, n_rows=min(per_block, batch_size - k)
+                )
+                for k in range(0, batch_size, per_block)
+            ]
+            samples = torch.cat(parts, dim=0)
+        return cast(Tensor, samples)
+
+    def _sample_block(
+        self,
+        y_pred: Tensor,
+        n_samples: int,
+        conditional: bool,
+        n_rows: Optional[int] = None,
+    ) -> Tensor:
+        """One sampling call; ``n_rows`` replaces the batch size when unconditional."""
+        batch_size = y_pred.shape[0] if n_rows is None else n_rows
         # Sampling inverts the flow; the inverse transforms zuko builds per call
         # (and per autoregressive pass) form reference cycles that would keep
         # their spline parameters - about 11 KiB per 6-D NSF draw - on the
         # device until Python's cyclic GC happens to run.
         with _collect_transform_cycles():
             dist = self.distribution(y_pred)
-            if self.context_dim is not None and self.context_dim > 0:
+            if conditional:
                 if n_samples == 1:
                     samples = cast(Tensor, dist.sample((1,))).transpose(0, 1).squeeze(1)
                 else:
@@ -926,7 +1007,6 @@ class NormalizingFlowLoss(DistributionLoss):
                 else:
                     samples = cast(Tensor, dist.sample((batch_size, n_samples)))
             del dist
-
         return cast(Tensor, samples)
 
 

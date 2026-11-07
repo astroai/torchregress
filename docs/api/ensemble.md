@@ -43,6 +43,7 @@ Member log-variances are converted with the `GaussianNLLLoss` training bounds
 | `RandomPartitionEnsembleModel` | Each member uses its own bin edges; ensemble averages CDFs on shared grid |
 | `CumulativeLinkEnsembleModel` | Members predict cumulative-link logits; ensemble averages PMFs |
 | `MDNEnsembleModel` | Members predict mixture components; mixture-of-mixtures aggregation |
+| `DensityEnsemble` | Mixture of independently trained conditional densities (flows); `log_prob`, `sample`, `entropy_decomposition` → `total` / `aleatoric` / `epistemic`; `fit_weights(x, y)` fits the mixture weights with a sandwich covariance (`weight_covariance`) and `log_prob_std(x, y)` returns the standard error of `log p(y \| x)`. See [flow ensembles](../losses/nflows.md#ensembles-of-flows-and-joint-calibration) |
 | `HeteroscedasticBatchEnsembleModel` | Parameter-efficient shared-backbone ensemble with per-member `(μ, log_σ²)` outputs |
 
 ```python
