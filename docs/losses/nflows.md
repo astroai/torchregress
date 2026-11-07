@@ -511,7 +511,11 @@ the mixture: one affine map per block cannot split a mode.
     8 targets and about a quarter at 16 (0.20 against 0.74 nats), with the best
     joint calibration in both cases.
     It lost on **multimodal** targets (both mixtures), and for **2 to 4 targets**
-    MAF and NSF were as accurate or better.
+    MAF and NSF were as accurate or better. On the torchregress-harness
+    `multivariate_intervals` suite (2 or 3 targets, at most a few thousand rows, fixed
+    60-epoch budget) TarFlow was the most over-confident flow: its 90% joint
+    highest-density regions covered 0.45 to 0.63 of the test targets, against 0.60
+    to 0.73 for NSF and 0.71 to 0.83 for a five-flow `DensityEnsemble`.
     It also costs 2 to 3× NSF's training time per epoch and samples 30 to 75×
     slower than MAF (one Transformer pass per target per block).
     These are synthetic tasks at one training budget, so compare held-out NLL
