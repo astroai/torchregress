@@ -518,11 +518,15 @@ the mixture: one affine map per block cannot split a mode.
     and [`sample_hpd_coverage`](../metrics/distribution.md) on your own data
     before switching.
 
-!!! warning "Sampling memory"
-    Sampling builds every spline intermediate for all draws at once:
-    `S` draws for `N` contexts and `D` targets hold several
-    `S·N·D·(3·bins)` float tensors. Sample large batches in chunks of contexts
-    (e.g. 50 contexts × 256 draws at 16 targets) rather than all at once.
+!!! warning "Sample through the loss, not the raw zuko flow"
+    Inverting an autoregressive flow (NSF, MAF, BPF, TarFlow) rebuilds every
+    layer's univariate parameters once per target per layer, and torch's cached
+    inverse transforms keep them in reference cycles until Python's garbage
+    collector runs. `NormalizingFlowLoss.sample` collects them after each
+    block of at most 8192 draws (contexts × samples). Large requests are also
+    faster that way: 51,200 NSF draws at 16 targets took 33 s instead of 84 s.
+    Calling `flow(context).sample(...)` directly skips both: in the benchmark
+    above, repeated raw calls at 16 targets grew one process to about 18 GB on Linux.
 
 ## Flow Architectures
 

@@ -51,6 +51,12 @@ from ..utils.pytorch_compat import _collect_transform_cycles
 from .base import DistributionLoss
 from .loss_registry import register_regression_loss
 
+#: Largest number of draws (contexts x samples) that ``NormalizingFlowLoss.sample``
+#: inverts in one block.  Inverting an autoregressive flow rebuilds every layer's
+#: univariate parameters once per target per layer, and that garbage is only freed
+#: when a block ends, so larger requests are split into blocks of this size.
+_SAMPLE_CHUNK_ROWS = 8192
+
 #: Domain half-width of zuko's rational-quadratic spline (identity outside).
 DEFAULT_TAIL_BOUND = 5.0
 
@@ -940,13 +946,57 @@ class NormalizingFlowLoss(DistributionLoss):
             Samples [batch_size, n_samples, n_features] or [batch_size, n_features] if n_samples=1
         """
         batch_size = y_pred.shape[0]
+        if self.context_dim is None and y_pred.numel() > 0:
+            # Same inference as ``distribution``.
+            self.context_dim = y_pred.shape[-1] if y_pred.dim() > 0 else 0
+        conditional = self.context_dim is not None and self.context_dim > 0
+        rows = batch_size * n_samples
+        if rows <= _SAMPLE_CHUNK_ROWS:
+            samples = self._sample_block(y_pred, n_samples, conditional)
+        elif conditional:
+            # Bounded blocks of contexts x draws: each block's inverse-transform
+            # garbage is collected before the next starts, so peak memory does
+            # not grow with the request.
+            per_block = max(1, _SAMPLE_CHUNK_ROWS // n_samples)
+            draw_block = min(n_samples, _SAMPLE_CHUNK_ROWS)
+            parts = []
+            for context_chunk in y_pred.split(per_block):
+                draws = [
+                    self._sample_block(context_chunk, min(draw_block, n_samples - k), True)
+                    for k in range(0, n_samples, draw_block)
+                ]
+                draws = [d.unsqueeze(1) if d.dim() == 2 else d for d in draws]
+                parts.append(torch.cat(draws, dim=1))
+            samples = torch.cat(parts, dim=0)
+            if n_samples == 1:
+                samples = samples.squeeze(1)
+        else:
+            per_block = max(1, _SAMPLE_CHUNK_ROWS // n_samples)
+            parts = [
+                self._sample_block(
+                    y_pred[:0], n_samples, False, n_rows=min(per_block, batch_size - k)
+                )
+                for k in range(0, batch_size, per_block)
+            ]
+            samples = torch.cat(parts, dim=0)
+        return cast(Tensor, samples)
+
+    def _sample_block(
+        self,
+        y_pred: Tensor,
+        n_samples: int,
+        conditional: bool,
+        n_rows: Optional[int] = None,
+    ) -> Tensor:
+        """One sampling call; ``n_rows`` replaces the batch size when unconditional."""
+        batch_size = y_pred.shape[0] if n_rows is None else n_rows
         # Sampling inverts the flow; the inverse transforms zuko builds per call
         # (and per autoregressive pass) form reference cycles that would keep
         # their spline parameters - about 11 KiB per 6-D NSF draw - on the
         # device until Python's cyclic GC happens to run.
         with _collect_transform_cycles():
             dist = self.distribution(y_pred)
-            if self.context_dim is not None and self.context_dim > 0:
+            if conditional:
                 if n_samples == 1:
                     samples = cast(Tensor, dist.sample((1,))).transpose(0, 1).squeeze(1)
                 else:
@@ -957,7 +1007,6 @@ class NormalizingFlowLoss(DistributionLoss):
                 else:
                     samples = cast(Tensor, dist.sample((batch_size, n_samples)))
             del dist
-
         return cast(Tensor, samples)
 
 

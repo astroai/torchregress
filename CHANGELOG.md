@@ -34,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (default) or affine maps. On a synthetic skewed copula its KL gap is about half of NSF's
   at 8 targets and a quarter at 16; on multimodal targets and for 2-4 targets NSF/MAF
   remain better and sample much faster (see the flow docs).
+### Changed
+
+- `NormalizingFlowLoss.sample` draws large requests in blocks of at most 8192 draws
+  (contexts x samples) and frees each block's inverse-transform garbage before the next.
+  Results follow the same distribution; requests up to 8192 draws are unchanged
+  bit for bit. 51,200 NSF draws at 16 targets went from 84 s to 33 s.
+
 ### Fixed
 
 - `NormalizingFlowLoss` spline-range warning identified spline flows by searching the class
