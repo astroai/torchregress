@@ -52,6 +52,7 @@ See the [NormalizingFlowLoss API](../api/losses.md) for the training contract an
 | `realnvp` / `cinn` | fast affine-coupling training, high-dimensional targets | less expressive per layer than NSF; see [stable affine layers](#stable-affine-layers-maf-realnvp-cinn) |
 | `maf` | unbounded, autoregressive densities | sampling needs one pass per target coordinate; see [stable affine layers](#stable-affine-layers-maf-realnvp-cinn) |
 | `bpf` | smooth Bernstein-polynomial scalar/joint densities | newer, less battle-tested than NSF |
+| `tarflow` | 8 or more smooth, skewed targets that all depend on each other | loses to NSF/MAF on multimodal targets and for 2–4 targets; samples 30 to 75× slower than MAF; see [TarFlow](#transformer-autoregressive-flows-tarflow) |
 
 For **noisy labels**, wrap the flow with
 [`NoiseAwareDensityLoss`](noise_aware_density.md) instead of fitting the
@@ -92,12 +93,13 @@ flow = create_flow_model(
 |:----------|:-----|:--------|:------------|
 | `n_features` | `int` | — | Target dimensionality |
 | `context_dim` | `int` | `0` | Size of conditioning vector (model output) |
-| `flow_type` | `str` | `"nsf"` | `"nsf"`/`"ncsf"`, `"maf"`, `"realnvp"`/`"cinn"`, or `"bpf"` |
+| `flow_type` | `str` | `"nsf"` | `"nsf"`/`"ncsf"`, `"maf"`, `"realnvp"`/`"cinn"`, `"bpf"`, or `"tarflow"` |
 | `n_transforms` | `int` | `5` | Number of invertible blocks |
-| `hidden_features` | `list[int]` or `None` | `None` | Hidden layer sizes (default: `[64, 64]`) |
-| `bound` | `float` or `None` | `None` | NSF: half-width `B` of the spline domain `[-B, B]` (zuko's fixed `5` when `None`); see [Training recipe](#training-recipe-for-nll-and-calibration). MAF / RealNVP / cINN: conditioner soft-clip half-width (`10` when `None`); see [stable affine layers](#stable-affine-layers-maf-realnvp-cinn). Not accepted for BPF. |
+| `hidden_features` | `list[int]` or `None` | `None` | Hidden layer sizes (default: `[64, 64]`). For `tarflow`: Transformer width (largest entry) and, unless `n_layers=` is given, layers per block (number of entries). |
+| `bound` | `float` or `None` | `None` | NSF: half-width `B` of the spline domain `[-B, B]` (zuko's fixed `5` when `None`); see [Training recipe](#training-recipe-for-nll-and-calibration). Spline `tarflow`: the same spline half-width. MAF / RealNVP / cINN and affine `tarflow`: conditioner soft-clip half-width (`10` when `None`); see [stable affine layers](#stable-affine-layers-maf-realnvp-cinn). Not accepted for BPF. |
 | `slope` | `float` | NSF `1e-3`, affine `e^{-3}` | Minimum slope of each layer (forwarded to zuko's spline / affine transform). For the affine flows it bounds the log-scale: $|\log s| < -\log(\text{slope})$. |
-| `bins` | `int` | `8` | NSF only (forwarded to zuko): spline knots per transform. |
+| `bins` | `int` | `8` | NSF and spline `tarflow`: spline knots per transform. |
+| `univariate`, `n_layers`, `n_heads`, `dropout` | | `"spline"`, from `hidden_features`, `4`, `0.0` | `tarflow` only: element-wise map (`"spline"` or `"affine"`), Transformer layers per block (an int, or one per block such as `(4, 1, 1)`), attention heads, dropout. |
 
 ### Step 2: Wrap in NormalizingFlowLoss
 
@@ -388,6 +390,140 @@ NSF and BPF need no such safeguard: their monotone maps are the identity
 outside $[-B, B]$ and map $[-B, B]$ onto itself, so a layer's inverse satisfies
 $|x| \le \max(|z|, B)$.
 
+## Transformer autoregressive flows (TarFlow)
+
+`flow_type="tarflow"` builds a tabular, conditional version of TarFlow
+(Zhai et al. 2025, ref. 14) and its deep-shallow scaling, STARFlow
+(Gu et al. 2025, ref. 15). Block $k$ is an exact autoregressive bijection in a
+coordinate order $\pi_k$:
+
+$$
+z_{\pi_k(j)} = f\!\left(y_{\pi_k(j)};\ \boldsymbol\theta_{k,j}\right),
+\qquad
+\boldsymbol\theta_{k,j} = \operatorname{CausalTransformer}_k\!\left(\mathbf{c},\, y_{\pi_k(0)}, \ldots, y_{\pi_k(j-1)}\right)_j ,
+$$
+
+where the token sequence is a context token followed by one token per
+preceding target, and $f$ is a monotone rational-quadratic spline (as in NSF, ref. 16)
+or, with `univariate="affine"`, TarFlow's affine map. Consecutive blocks reverse
+the order. The Jacobian is triangular, so
+
+$$
+\log p(\mathbf{y}\mid\mathbf{c}) = \log \mathcal{N}(\mathbf{z}; \mathbf{0}, \mathbf{I})
++ \sum_k \sum_j \log \left|\frac{\partial f}{\partial y_{\pi_k(j)}}\right| .
+$$
+
+The difference from NSF and MAF is the conditioner: a masked MLP (MADE) gives
+every target the same fixed-width view of its predecessors, while attention
+lets each target weigh any of them. Density evaluation is one Transformer pass
+per block; sampling needs one pass per target coordinate per block.
+
+The image-specific parts of TarFlow (patch tokens, noise augmentation with a
+score-based denoising step, guidance) and STARFlow's pretrained autoencoder
+latent space are left out, because tabular targets are continuous,
+low-dimensional and modelled directly.
+
+```python
+import torch
+
+from torchregress.losses import NormalizingFlowLoss, create_flow_model, recommended_tail_bound
+
+torch.manual_seed(0)
+x = torch.randn(2000, 2)
+z = torch.randn(2000, 8).cumsum(dim=1) / torch.arange(1, 9).sqrt()  # correlated
+y = z + 0.3 * torch.tanh(x[:, :1]) * z**2  # skewed, context-dependent, 8 targets
+y = (y - y.mean(0)) / y.std(0)
+
+flow = create_flow_model(
+    n_features=8,
+    context_dim=2,
+    flow_type="tarflow",
+    n_transforms=3,
+    hidden_features=[64],
+    n_layers=(4, 1, 1),  # STARFlow-style: one deep block, then shallow ones
+    bound=recommended_tail_bound(y),
+)
+loss_fn = NormalizingFlowLoss(flow)
+optimizer = torch.optim.Adam(flow.parameters(), lr=1e-3)
+for epoch in range(3):
+    for batch in torch.randperm(2000).split(256):
+        optimizer.zero_grad()
+        loss_fn(x[batch], y[batch]).backward()
+        optimizer.step()
+
+samples = loss_fn.sample(x[:5], n_samples=1000)  # [5, 1000, 8], for corner plots
+```
+
+### TarFlow against NSF and MAF
+
+Each flow was trained with Adam ($10^{-3}$), batch size 256 and early stopping
+on validation NLL (patience 15). The data were 8000 training, 2000 validation and
+4000 test pairs, with standardized targets and the spline bound from
+`recommended_tail_bound`. Results are means over 3 seeds. The
+tasks have known conditional densities. *KL gap* is
+$\mathbb{E}[\log p - \log \hat p]$ on the test set in nats (0 is perfect).
+*Calibration* is the mean absolute error of the sample-based joint HPD coverage
+([`sample_hpd_coverage`](../metrics/distribution.md)) at 0.5, 0.68, 0.9 and 0.95.
+*Sampling* is the wall time for 256 draws at each of 1000 contexts (8 CPU threads
+shared by 4 jobs). NSF and MAF use 5 blocks of MLP widths `[128, 128]`.
+TarFlow uses 3 blocks of width 64, with 2 layers per block, or 4, 1 and 1
+layers in the deep-shallow variant.
+
+| Task (targets) | Flow | KL gap (nats) | Calibration error | Sampling (s) |
+|:--|:--|--:|--:|--:|
+| Banana (2) | NSF | 0.068 ± 0.017 | 0.013 | 3.6 |
+| | MAF | **0.038 ± 0.009** | 0.010 | 1.8 |
+| | TarFlow, spline | 0.085 ± 0.036 | 0.021 | 11.7 |
+| | TarFlow, deep-shallow | 0.076 ± 0.026 | 0.015 | 9.3 |
+| 3-component Gaussian mixture (4) | NSF | **0.357 ± 0.026** | 0.029 | 14.2 |
+| | MAF | 0.361 ± 0.032 | 0.033 | 3.7 |
+| | TarFlow, spline | 0.438 ± 0.013 | 0.033 | 45.4 |
+| | TarFlow, deep-shallow | 0.467 ± 0.019 | 0.024 | 44.3 |
+| Student-t, 3 dof (3) | NSF | 0.088 ± 0.024 | 0.013 | 10.1 |
+| | MAF | **0.058 ± 0.014** | 0.019 | 2.7 |
+| | TarFlow, spline | 0.109 ± 0.009 | 0.028 | 27.4 |
+| | TarFlow, deep-shallow | 0.088 ± 0.015 | 0.014 | 27.0 |
+| Skewed Gaussian copula (8) | NSF | 0.297 ± 0.015 | 0.033 | 52.7 |
+| | MAF | 0.242 ± 0.009 | 0.025 | 4.7 |
+| | TarFlow, spline | 0.175 ± 0.021 | 0.021 | 140.8 |
+| | TarFlow, deep-shallow | **0.147 ± 0.011** | **0.013** | 141.5 |
+| 4-component Gaussian mixture (8) | NSF | 1.020 ± 0.032 | 0.054 | 26.1 |
+| | MAF | **0.871 ± 0.089** | **0.037** | 2.7 |
+| | TarFlow, spline | 1.207 ± 0.059 | 0.053 | 105.1 |
+| | TarFlow, deep-shallow | 1.221 ± 0.026 | 0.057 | 103.0 |
+| Skewed Gaussian copula (16)† | NSF | 0.735 ± 0.034 | 0.048 | 70.9 |
+| | MAF | 0.771 ± 0.034 | 0.043 | 5.2 |
+| | TarFlow, spline | **0.197 ± 0.012** | **0.027** | 383.0 |
+| | TarFlow, deep-shallow | 0.203 ± 0.016 | 0.033 | 399.4 |
+
+† One job per 8-core session (2 threads per job), so the sampling times are not
+directly comparable with the other rows.
+
+The affine variant (`univariate="affine"`, five blocks) was only run on the
+first four tasks. It beat the spline variant on the banana (0.053 nats) but was
+worse on the other three (0.547, 0.117 and 0.263 nats), and worst of all flows on
+the mixture: one affine map per block cannot split a mode.
+
+!!! info "When TarFlow is worth it"
+    TarFlow is a specialist option, not a replacement for NSF.
+    It won clearly on the **skewed copula**, where 8 or more smooth, skewed
+    targets all depend on each other. There its KL gap was about half of NSF's at
+    8 targets and about a quarter at 16 (0.20 against 0.74 nats), with the best
+    joint calibration in both cases.
+    It lost on **multimodal** targets (both mixtures), and for **2 to 4 targets**
+    MAF and NSF were as accurate or better.
+    It also costs 2 to 3× NSF's training time per epoch and samples 30 to 75×
+    slower than MAF (one Transformer pass per target per block).
+    These are synthetic tasks at one training budget, so compare held-out NLL
+    and [`sample_hpd_coverage`](../metrics/distribution.md) on your own data
+    before switching.
+
+!!! warning "Sampling memory"
+    Sampling builds every spline intermediate for all draws at once:
+    `S` draws for `N` contexts and `D` targets hold several
+    `S·N·D·(3·bins)` float tensors. Sample large batches in chunks of contexts
+    (e.g. 50 contexts × 256 draws at 16 targets) rather than all at once.
+
 ## Flow Architectures
 
 | Flow | Expressivity | Sampling | Density Eval | Best For |
@@ -395,6 +531,7 @@ $|x| \le \max(|z|, B)$.
 | **RealNVP** | ⭐⭐ | Fast | Fast | Lower dimensions, quick baseline |
 | **MAF** | ⭐⭐⭐ | Slow | Fast | Conditional density estimation |
 | **NSF** | ⭐⭐⭐⭐ | Medium | Medium | Complex multimodal distributions |
+| **TarFlow** | ⭐⭐⭐ | Slow | Medium | Many smooth, mutually dependent targets (8 or more) |
 
 ## Limitations
 
@@ -423,6 +560,105 @@ $|x| \le \max(|z|, B)$.
 
 ---
 
+## Ensembles of flows and joint calibration
+
+A single flow captures aleatoric spread, not the uncertainty in its own fit. Train $M$ flows
+independently (different seeds or bootstraps) and combine them with
+[`DensityEnsemble`](../api/ensemble.md), the equal-weight mixture
+
+$$
+p(y \mid x) = \frac{1}{M}\sum_{m=1}^{M} p_m(y \mid x),
+$$
+
+whose entropy splits into a mean member entropy (aleatoric) and the members' mutual information
+with $y$ (epistemic, $\geq 0$):
+
+$$
+H\bigl[p(\cdot \mid x)\bigr] = \frac{1}{M}\sum_m H\bigl[p_m(\cdot \mid x)\bigr]
++ \frac{1}{M}\sum_m \mathrm{KL}\bigl(p_m(\cdot \mid x)\,\|\,p(\cdot \mid x)\bigr).
+$$
+
+Unlike a variance decomposition, this holds for multimodal and multi-target densities.
+
+Per-dimension PIT and interval coverage cannot detect a wrong *joint* shape (for example, a
+wrong correlation between targets). [`sample_hpd_level`](../api/metrics.md) works on joint
+highest-density regions instead. For each target it counts how many predictive draws have a
+higher density than the observed $y$:
+
+$$
+\ell(x, y) = \frac{1}{S}\sum_{s=1}^{S} \mathbf{1}\bigl[\log p(y_s \mid x) > \log p(y \mid x)\bigr],
+\qquad y_s \sim p(\cdot \mid x).
+$$
+
+For a calibrated model $\ell$ is uniform on $[0, 1]$ in any dimension, and
+[`sample_hpd_coverage`](../api/metrics.md) reports the coverage of the nominal 50/68/90/95%
+regions. Values pile up near 1 when the model is over-confident and near 0 when it is
+under-confident.
+
+```python
+import torch
+from torch import nn
+from torchregress.ensemble import DensityEnsemble
+from torchregress.losses import create_flow_loss, recommended_tail_bound
+from torchregress.metrics import model_hpd_level
+
+torch.manual_seed(0)
+x = torch.randn(2048, 4)
+y = torch.stack([x[:, 0] + 0.3 * torch.randn(2048), x[:, 0] * x[:, 1] + 0.3 * torch.randn(2048)], 1)
+
+bound = recommended_tail_bound(y)  # keep the spline range wide enough for x0 * x1
+heads = []
+for seed in range(3):
+    torch.manual_seed(seed)
+    head = create_flow_loss(n_features=2, context_dim=4, flow_type="nsf", bound=bound)
+    optimiser = torch.optim.Adam(head.parameters(), lr=3e-3)
+    for _ in range(200):
+        loss = head(x, y)            # conditional NLL with the features as context
+        optimiser.zero_grad()
+        loss.backward()
+        optimiser.step()
+    heads.append(head)
+
+ensemble = DensityEnsemble(heads)
+x_test = torch.randn(256, 4)
+y_test = torch.stack(
+    [x_test[:, 0] + 0.3 * torch.randn(256), x_test[:, 0] * x_test[:, 1] + 0.3 * torch.randn(256)], 1
+)
+with torch.no_grad():
+    nll = -ensemble.log_prob(x_test, y_test).mean()
+parts = ensemble.entropy_decomposition(x_test, n_samples=64)       # total / aleatoric / epistemic
+levels = model_hpd_level(ensemble, x_test, y_test, n_samples=128)  # ~ Uniform(0, 1) if calibrated
+coverage_90 = (levels <= 0.9).float().mean()  # well below 0.9 means over-confident
+```
+
+Short training budgets typically leave flow ensembles over-confident (90% joint coverage well
+below 0.9 in this example). Validation-NLL early stopping and more members both help;
+conformalising the ensemble density with [`ConformalizedDensity`](conformal.md) restores
+marginal coverage.
+
+**Fitted weights with error bars.** Equal weights are a choice, not an estimate.
+`ensemble.fit_weights(x_val, y_val)` fits $\pi$ by maximum likelihood on held-out data (concave, solved
+by EM) and stores a sandwich covariance; `ensemble.log_prob_std(x, y)` then returns the standard
+error of $\log p(y \mid x)$ due to estimating $\pi$. This applies the *wifi ensemble* idea
+(Benevedes & Thaler 2025, see [NRE](nre.md#frequentist-uncertainties-wifi-ensembles)) to densities.
+It quantifies weight uncertainty only, not errors inside the frozen members, and assumes the
+weights are away from zero.
+
+```python
+# Continuing the example above: fresh data that the heads were not trained on.
+x_val = torch.randn(1024, 4)
+y_val = torch.stack(
+    [x_val[:, 0] + 0.3 * torch.randn(1024), x_val[:, 0] * x_val[:, 1] + 0.3 * torch.randn(1024)], 1
+)
+ensemble.fit_weights(x_val, y_val)
+log_p = ensemble.log_prob(x_test, y_test)
+log_p_std = ensemble.log_prob_std(x_test, y_test)  # [N]
+```
+
+!!! tip "Cost"
+    `entropy_decomposition` scores every member's draws under every member: $M^2 S$ flow
+    evaluations per row. Use small $S$ (32–128) for monitoring and larger $S$ only for reports.
+
 ## References
 
 | # | Reference |
@@ -434,7 +670,12 @@ $|x| \le \max(|z|, B)$.
 | 5 | A. Oord, Y. Li, O. Vinyals. ["Representation Learning with Contrastive Predictive Coding."](https://arxiv.org/abs/1807.03748) *arXiv:1807.03748*, **2018**. (InfoNCE.) |
 | 6 | K. Cranmer, J. Pavez, G. Louppe. ["Approximating Likelihood Ratios with Calibrated Discriminative Classifiers."](https://arxiv.org/abs/1506.02169) *arXiv:1506.02169*, **2015**. (Classifier-based ratio estimation.) |
 | 7 | C. Durkan, I. Murray, G. Papamakarios. ["On Contrastive Learning for Likelihood-free Inference."](https://arxiv.org/abs/2002.03712) *ICML*, **2020**. (Balanced contrastive NRE.) |
-| 8 | B. K. Miller, A. Cole, C. Weniger, G. Louppe. ["Contrastive Neural Ratio Estimation."](https://arxiv.org/abs/2210.06170) *NeurIPS*, **2022**. (Multiclass NRE/CNRE.) |
+| 8 | B. K. Miller, C. Weniger, P. Forré. ["Contrastive Neural Ratio Estimation."](https://arxiv.org/abs/2210.06170) *NeurIPS*, **2022**. (Bias-free multiclass NRE; `NeuralRatioLoss(criterion="cnre")`.) |
 | 9 | G. Papamakarios, T. Pavlakou, I. Murray. ["Masked Autoregressive Flow for Density Estimation."](https://arxiv.org/abs/1705.07057) *NeurIPS*, **2017**. (MAF.) |
 | 10 | L. Dinh, J. Sohl-Dickstein, S. Bengio. ["Density Estimation Using Real NVP."](https://arxiv.org/abs/1605.08803) *ICLR*, **2017**. (Affine coupling.) |
 | 11 | L. Ardizzone et al. ["Guided Image Generation with Conditional Invertible Neural Networks."](https://arxiv.org/abs/1907.02392) *arXiv:1907.02392*, **2019**. (cINN; soft clamping of affine log-scales.) |
+| 12 | B. Lakshminarayanan, A. Pritzel, C. Blundell. ["Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles."](https://arxiv.org/abs/1612.01474) *NeurIPS*, **2017**. (Deep ensembles.) |
+| 13 | S. Depeweg et al. ["Decomposition of Uncertainty in Bayesian Deep Learning for Efficient and Risk-sensitive Learning."](https://arxiv.org/abs/1710.07283) *ICML*, **2018**. (Entropy decomposition.) |
+| 14 | S. Zhai et al. ["Normalizing Flows are Capable Generative Models."](https://arxiv.org/abs/2412.06329) *ICML*, **2025**. (TarFlow; `flow_type="tarflow"`.) |
+| 15 | J. Gu et al. ["STARFlow: Scaling Latent Normalizing Flows for High-resolution Image Synthesis."](https://arxiv.org/abs/2506.06276) *arXiv:2506.06276*, **2025**. (Deep-shallow design; `n_layers=(4, 1, 1)`.) |
+| 16 | C. Durkan, A. Bekasov, I. Murray, G. Papamakarios. ["Neural Spline Flows."](https://arxiv.org/abs/1906.04032) *NeurIPS*, **2019**. (NSF; rational-quadratic splines.) |

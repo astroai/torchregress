@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `NeuralRatioLoss(criterion="cnre", gamma=...)`: bias-free contrastive neural ratio
+  estimation (Miller, Weniger & Forré 2022). An extra "independent" class fixes the
+  normalisation, so the logit estimates `log p(x|theta) - log p(x)` exactly at any number
+  of negatives; `neural_ratio_loss` gains `gamma`.
+- `torchregress.ensemble.DensityEnsemble`: equal-weight mixture of independently trained
+  conditional flows (or any head with `log_prob`/`sample`), with
+  `entropy_decomposition()` returning total / aleatoric / epistemic (member mutual
+  information) entropies.
+- `torchregress.inference.WifiRatioEnsemble` and `MixtureFractionEstimate`: wifi
+  ensembles (Benevedes & Thaler, PRD 112, 056024, 2025). Frequentist standard errors on
+  learned log density ratios (convex weight fit over frozen members plus sandwich
+  covariance) and on mixture fractions, with the ratio uncertainty propagated by
+  Gong–Samaniego.
+- `DensityEnsemble.fit_weights` / `log_prob_std`: maximum-likelihood mixture weights on
+  held-out data with a sandwich covariance, giving standard errors on `log p(y|x)`.
+- `torchregress.metrics.sample_hpd_level`, `sample_hpd_coverage`, `model_hpd_level`:
+  multivariate highest-density-region calibration from predictive draws, testing the
+  joint multi-target shape that per-dimension PIT cannot.
+- `create_flow_model(flow_type="tarflow")` (`torchregress.losses.tarflow.TransformerFlow`):
+  conditional transformer autoregressive flow after TarFlow (Zhai et al., ICML 2025) with
+  STARFlow-style deep-shallow blocks (`n_layers=(4, 1, 1)`). A causal Transformer over a
+  context token and the preceding targets parameterizes rational-quadratic splines
+  (default) or affine maps. On a synthetic skewed copula its KL gap is about half of NSF's
+  at 8 targets and a quarter at 16; on multimodal targets and for 2-4 targets NSF/MAF
+  remain better and sample much faster (see the flow docs).
+### Fixed
+
+- `NormalizingFlowLoss` spline-range warning identified spline flows by searching the class
+  name for "nsf", which also matched "TransformerFlow"; it now checks for zuko's NSF or a
+  `tail_bound` attribute.
+- `test_recommended_tail_bound_is_data_range_with_margin_clipped` used an unseeded
+  `torch.randn(500)` and failed for about 1.6% of global RNG states; the input is now seeded.
+- Docs: corrected author lists for Miller, Weniger & Forré (CNRE) and Elsharkawy & Kahn;
+  added a survey of contrastive/ratio flow methods to `docs/losses/flow_research.md`.
+
 ## [0.3.0] - 2026-11-04
 
 Bug fixes, performance of existing code, docs, and harness parity on top of the

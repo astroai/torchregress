@@ -64,8 +64,17 @@ def _formula_inputs() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return context, observable, negative_context
 
 
-def _reference_loss(positive: torch.Tensor, negative: torch.Tensor, criterion: str) -> torch.Tensor:
-    """Independent (softplus / logsumexp) reference implementation of the criteria."""
+def _reference_loss(
+    positive: torch.Tensor, negative: torch.Tensor, criterion: str, gamma: float = 1.0
+) -> torch.Tensor:
+    """Independent (softplus / logsumexp / explicit-probability) reference criteria."""
+    if criterion == "cnre":
+        # Explicit K + 1 class posterior of Miller, Weniger & Forre (2022).
+        k = negative.shape[1]
+        dependent = torch.cat([positive.unsqueeze(1), negative[:, : k - 1]], dim=1)
+        q_true = (gamma / k) * positive.exp() / (1.0 + (gamma / k) * dependent.exp().sum(dim=1))
+        q_null = 1.0 / (1.0 + (gamma / k) * negative.exp().sum(dim=1))
+        return -(gamma / (1.0 + gamma)) * q_true.log() - (1.0 / (1.0 + gamma)) * q_null.log()
     if criterion == "bce":
         # -log sigmoid(s+) - mean_k log sigmoid(-s-_k)
         return F.softplus(-positive) + F.softplus(negative).mean(dim=1)
@@ -209,7 +218,7 @@ def test_build_ratio_classifier_validation_errors() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("criterion", ["bce", "multiclass"])
+@pytest.mark.parametrize("criterion", ["bce", "multiclass", "cnre"])
 def test_loss_matches_hand_computed_formula(criterion: str) -> None:
     context, observable, negative_context = _formula_inputs()
     positive = _linear_logits(context, observable).squeeze(-1)
@@ -267,6 +276,82 @@ def test_log_likelihood_ratio_sign_reflects_hypothesis_preference() -> None:
         rtol=0,
         atol=1e-12,
     )
+
+
+@pytest.mark.parametrize("gamma", [0.25, 1.0, 4.0])
+def test_cnre_matches_reference_for_gamma(gamma: float) -> None:
+    context, observable, negative_context = _formula_inputs()
+    positive = _linear_logits(context, observable).squeeze(-1)
+    negative = _linear_logits(negative_context, observable.unsqueeze(1)).squeeze(-1)
+    expected = _reference_loss(positive, negative, "cnre", gamma=gamma)
+    loss_fn = NeuralRatioLoss(_linear_classifier(), criterion="cnre", gamma=gamma, reduction="none")
+    actual = loss_fn(context, observable, negative_context=negative_context)
+    torch.testing.assert_close(actual, expected, rtol=0, atol=1e-12)
+
+
+def test_cnre_single_negative_is_half_balanced_bce() -> None:
+    # K = 1, gamma = 1: (softplus(-s+) + softplus(s-)) / 2, i.e. half of NRE-A.
+    context, observable, negative_context = _formula_inputs()
+    one_negative = negative_context[:, :1]
+    cnre = NeuralRatioLoss(_linear_classifier(), criterion="cnre", reduction="none")
+    bce = NeuralRatioLoss(_linear_classifier(), criterion="bce", reduction="none")
+    torch.testing.assert_close(
+        cnre(context, observable, negative_context=one_negative),
+        0.5 * bce(context, observable, negative_context=one_negative),
+        rtol=0,
+        atol=1e-12,
+    )
+
+
+def test_cnre_is_stable_for_extreme_logits() -> None:
+    loss_fn = NeuralRatioLoss(nn.Identity(), criterion="cnre", reduction="none")
+    loss_fn._context_dim, loss_fn._observable_dim = 1, 1
+    positive = torch.tensor([400.0, -400.0], dtype=torch.float64)
+    negative = torch.tensor([[-400.0, 400.0], [400.0, -400.0]], dtype=torch.float64)
+    values = loss_fn._criterion_loss(positive, negative)
+    assert torch.isfinite(values).all()
+
+
+def test_cnre_rejects_negative_target_and_bad_gamma() -> None:
+    loss_fn, context, observable, negative_context = _small_loss_fn(criterion="cnre")
+    with pytest.raises(ValueError, match="negative_target"):
+        loss_fn(
+            context,
+            observable,
+            negative_context=negative_context,
+            negative_target=torch.randn(4, 2, 1),
+        )
+    for gamma in (0.0, -1.0, float("inf"), float("nan")):
+        with pytest.raises(ValueError, match="gamma"):
+            NeuralRatioLoss(_linear_classifier(), criterion="cnre", gamma=gamma)
+
+
+def test_cnre_recovers_absolute_log_ratio_where_multiclass_is_offset() -> None:
+    """CNRE logits estimate ``log r`` itself; NRE-B only up to an x-dependent offset.
+
+    Data: ``c ~ N(0, 1)``, ``x | c ~ N(c, sigma^2)``, so
+    ``log r(x, c) = log N(x; c, sigma^2) - log N(x; 0, 1 + sigma^2)``.  With few
+    negatives (``K = 2``) the multiclass optimum is shifted by ``f(x)``, while
+    the CNRE optimum is the ratio itself.
+    """
+    torch.manual_seed(30_000)
+    c = torch.randn(512, 1)
+    x = c + SIGMA * torch.randn(512, 1)
+    analytic = (
+        -((x - c) ** 2) / (2 * SIGMA**2)
+        - 0.5 * torch.log(torch.tensor(2 * torch.pi * SIGMA**2))
+        + x**2 / (2 * (1 + SIGMA**2))
+        + 0.5 * torch.log(torch.tensor(2 * torch.pi * (1 + SIGMA**2)))
+    ).squeeze(-1)
+
+    errors = {}
+    for criterion in ("cnre", "multiclass"):
+        classifier, *_ = _train_gaussian_ratio_estimator(criterion, n_negatives=2, steps=600)
+        with torch.no_grad():
+            estimate = neural_ratio_logits(classifier, c, x)
+        errors[criterion] = float((estimate - analytic).abs().median())
+    assert errors["cnre"] < 0.3
+    assert errors["cnre"] < 0.5 * errors["multiclass"]
 
 
 def test_invalid_criterion_and_classifier_type() -> None:
@@ -734,9 +819,18 @@ def test_neural_ratio_logits_validation_errors() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("criterion", ["bce", "multiclass"])
 @pytest.mark.parametrize("reduction", ["none", "mean", "sum"])
-@pytest.mark.parametrize("with_negative_target", [False, True])
+@pytest.mark.parametrize(
+    ("criterion", "with_negative_target"),
+    [
+        ("bce", False),
+        ("bce", True),
+        ("multiclass", False),
+        ("multiclass", True),
+        # cnre rejects negative_target (see test_cnre_rejects_negative_target_and_bad_gamma).
+        ("cnre", False),
+    ],
+)
 def test_functional_helper_matches_class(
     criterion: str, reduction: str, with_negative_target: bool
 ) -> None:
@@ -815,7 +909,7 @@ def test_forward_signature_contract() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("criterion", ["bce", "multiclass"])
+@pytest.mark.parametrize("criterion", ["bce", "multiclass", "cnre"])
 def test_gaussian_nre_recovers_mle_ranking(criterion: str) -> None:
     """Trained NRE logits rank candidates by likelihood, recovering the MLE.
 

@@ -162,6 +162,15 @@ ols_ci = ppi_ols_ci(x_l, y_l, x_u, p_l, p_u, add_intercept=True, config=cfg)
 
 ---
 
+## wifi ensembles
+
+→ **Guide:** [NRE: frequentist uncertainties](../losses/nre.md#frequentist-uncertainties-wifi-ensembles)
+
+| Symbol | Description |
+|:-------|:------------|
+| `WifiRatioEnsemble(*, max_iter=100, tol=1e-12, rcond=1e-10)` | Benevedes & Thaler (2025). `fit(numerator_features, denominator_features)` fits $\log r = w_0 + \sum_i w_i f_i$ over frozen member outputs (`[N, M]`) by a convex symmetrised MLC loss (Newton), with sandwich covariance `covariance_`. `log_ratio(features)`, `log_ratio_std(features)`, `mixture_fraction(features)`; static `member_features(members, *inputs)` stacks member outputs. |
+| `MixtureFractionEstimate` | Frozen dataclass returned by `mixture_fraction`: `fraction`, `std`, `std_statistical`, `std_ratio` (Gong–Samaniego term), `at_boundary`. |
+
 ## Likelihood-ratio posterior reweighting (`inference.ratio`)
 
 For a ratio estimator $r(x,\theta) = p(x \mid \theta) / p_{\mathrm{ref}}(x)$ over a finite

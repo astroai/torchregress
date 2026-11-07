@@ -34,6 +34,8 @@ try:
         MonotonicTransform,
     )
 
+    from .tarflow import TransformerFlow
+
     HAS_ZUKO = True
 except ImportError:
     HAS_ZUKO = False
@@ -43,6 +45,7 @@ except ImportError:
     DiagNormal = UnconditionalDistribution = None  # type: ignore[assignment]
     BoundedBernsteinTransform = MonotonicRQSTransform = MonotonicTransform = None  # type: ignore[assignment]
     MonotonicAffineTransform = None  # type: ignore[assignment]
+    TransformerFlow = None  # type: ignore[assignment,misc]
 
 from ..utils.pytorch_compat import _collect_transform_cycles
 from .base import DistributionLoss
@@ -381,8 +384,15 @@ def create_flow_model(
         Flow architecture: ``"nsf"``/``"ncsf"`` (Neural Spline Flow),
         ``"maf"`` (Masked Autoregressive Flow), ``"realnvp"``/``"nice"``/
         ``"cinn"`` (affine coupling; cINN-style), or ``"bpf"`` (Bernstein
-        polynomial flow with exact identity tails). BPF honors ``n_transforms``
-        and ``hidden_features``; its ``degree`` keyword must be at least 1.
+        polynomial flow with exact identity tails), or ``"tarflow"``
+        (transformer autoregressive flow, see
+        :class:`~torchregress.losses.tarflow.TransformerFlow`; ``univariate=``
+        ``"spline"`` (default) or ``"affine"``, ``n_heads=``, ``dropout=``,
+        ``n_layers=`` per block, e.g. ``(4, 1, 1)`` for a deep-shallow stack).
+        BPF honors ``n_transforms`` and ``hidden_features``; its ``degree``
+        keyword must be at least 1.  For ``"tarflow"``, ``hidden_features``
+        sets the Transformer width (its largest entry) and, unless
+        ``n_layers=`` is given, the layers per block (its length).
         NSF provides the best expressivity-per-parameter
         for scalar regression and is the recommended default.
     n_transforms : int, default=5
@@ -461,6 +471,7 @@ def create_flow_model(
         "realnvp": _StableRealNVP,
         "nice": _StableRealNVP,
         "bpf": _IdentityTailBPF,
+        "tarflow": TransformerFlow,
     }
     if flow_type_key not in flow_cls_map:
         raise ValueError(
@@ -475,22 +486,39 @@ def create_flow_model(
     flow_cls = flow_cls_map[flow_type_key]
     assert flow_cls is not None
     if bound is not None:
-        if flow_type_key not in ("nsf", "maf", "realnvp", "nice"):
-            raise ValueError("bound is only supported for flow_type 'nsf', 'maf' and 'realnvp'")
+        if flow_type_key not in ("nsf", "maf", "realnvp", "nice", "tarflow"):
+            raise ValueError(
+                "bound is only supported for flow_type 'nsf', 'maf', 'realnvp' and 'tarflow'"
+            )
         if not (float(bound) > 0.0 and float(bound) < float("inf")):
             raise ValueError("bound must be positive and finite")
-        if flow_type_key != "nsf":
+        if flow_type_key == "tarflow":
+            if kwargs.get("univariate", "spline") == "spline":
+                kwargs["bound"] = float(bound)
+            else:
+                kwargs["conditioner_bound"] = float(bound)
+        elif flow_type_key != "nsf":
             kwargs["conditioner_bound"] = float(bound)
         elif float(bound) != DEFAULT_TAIL_BOUND:
             flow_cls = BoundedNSF
             kwargs["bound"] = float(bound)
-    flow = flow_cls(
-        features=n_features,
-        context=context_dim,
-        transforms=n_transforms,
-        hidden_features=hidden,
-        **kwargs,
-    )
+    if flow_type_key == "tarflow":
+        kwargs.setdefault("n_layers", len(hidden))
+        flow = flow_cls(
+            features=n_features,
+            context=context_dim,
+            transforms=n_transforms,
+            hidden=max(hidden),
+            **kwargs,
+        )
+    else:
+        flow = flow_cls(
+            features=n_features,
+            context=context_dim,
+            transforms=n_transforms,
+            hidden_features=hidden,
+            **kwargs,
+        )
     # Store context dim in a stable attribute used by NormalizingFlowLoss.
     setattr(flow, "context", context_dim)
     return cast(Module, flow)
@@ -690,7 +718,10 @@ class NormalizingFlowLoss(DistributionLoss):
         """
         if self._range_warned:
             return
-        if "nsf" not in type(self.flow).__name__.lower():
+        # Spline flows: zuko's NSF (fixed bound) and the flows that record
+        # ``tail_bound`` (BoundedNSF, spline TransformerFlow).
+        is_zuko_nsf = NSF is not None and isinstance(self.flow, NSF)
+        if not is_zuko_nsf and not hasattr(self.flow, "tail_bound"):
             return
         tail_bound = float(getattr(self.flow, "tail_bound", DEFAULT_TAIL_BOUND))
         try:

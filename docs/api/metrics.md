@@ -74,6 +74,9 @@ the stateful `OutlierFraction` below.
 | `conditional_density_estimation_loss` | `conditional_density_estimation_loss(...)` | Conditional density estimation loss |
 | `highest_posterior_density_coverage` | `highest_posterior_density_coverage(support, density, y_true, alpha=0.1)` | HPD coverage metric. **`alpha` is the HPD mass (0.9 = a 90% region), not the miscoverage**; see [HPD coverage](../metrics/distribution.md#highest-posterior-density-hpd-coverage) |
 | `highest_posterior_density_level` | `highest_posterior_density_level(support, density, y_true)` | HPD level computation |
+| `sample_hpd_level` | `sample_hpd_level(log_prob_target, log_prob_samples)` | Multivariate HPD level from predictive draws; uniform when calibrated. See [sample-based HPD](../metrics/distribution.md#sample-based-multivariate-hpd-coverage) |
+| `sample_hpd_coverage` | `sample_hpd_coverage(log_prob_target, log_prob_samples, credibility=(0.5, 0.68, 0.9, 0.95))` | Joint HPD-region coverage per nominal credibility (region mass, not miscoverage) |
+| `model_hpd_level` | `model_hpd_level(model, context, target, n_samples=256)` | `sample_hpd_level` for any model with `log_prob(context, y)` and `sample(context, n)` (flows, `DensityEnsemble`) |
 | `dss_score` | `dss_score(y_pred_mean, y_pred_std, y_true)` | Dawid-Sebastiani score: `(y − μ)² / σ² + 2·ln σ` |
 | `vario_score` | `vario_score(y_samples, y_true, rho=1.0)` | Vario score (Zamo & Naveau) for ensemble forecasts; higher is better (`-CRPS` at `rho=1`) |
 | `variogram_score` | `variogram_score(y_samples, y_true, p=0.5, reduction="mean")` | Functional variogram score (Scheuerer & Hamill 2015): dependence-aware proper score for multivariate forecasts |

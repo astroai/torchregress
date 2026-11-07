@@ -139,6 +139,37 @@ cov_90 = highest_posterior_density_coverage(support, density, y_true, alpha=0.9)
 cov_10 = highest_posterior_density_coverage(support, density, y_true)  # alpha=0.1 default: approx. 0.10
 ```
 
+### Sample-based (multivariate) HPD coverage
+
+A grid does not scale past one or two targets. For any model that can evaluate $\log p(y \mid x)$
+and draw $y_s \sim p(\cdot \mid x)$ (conditional flows, `DensityEnsemble`), the HPD level is
+estimated by ranking the observed density among the draws:
+
+$$\hat\ell(y) = \frac{1}{S}\sum_{s=1}^{S}\Bigl(\mathbf{1}\bigl[\log p(y_s \mid x) > \log p(y \mid x)\bigr] + \tfrac12\,\mathbf{1}\bigl[\log p(y_s \mid x) = \log p(y \mid x)\bigr]\Bigr).$$
+
+If $y$ is exchangeable with the draws, $\hat\ell$ is uniform on $[0, 1]$ up to $1/S$
+discretisation, in any target dimension. This tests the **joint** region, so it detects wrong
+inter-target correlations that per-dimension PIT misses. `sample_hpd_coverage` takes
+`credibility` as the nominal region mass (`0.9` = 90% region).
+
+```python
+import torch
+from torchregress.metrics import sample_hpd_coverage
+
+dist = torch.distributions.MultivariateNormal(torch.zeros(3), torch.eye(3))
+y_true = dist.sample((2000,))
+draws = dist.sample((2000, 256))  # [N, S, D] predictive draws
+coverage = sample_hpd_coverage(dist.log_prob(y_true), dist.log_prob(draws))
+# approx. tensor([0.50, 0.68, 0.90, 0.95])
+```
+
+| Metric | Dimension | Needs | Tests |
+|:--|:--|:--|:--|
+| `highest_posterior_density_coverage` | 1-D | Density on a grid | Marginal HPD calibration |
+| `sample_hpd_coverage` / `model_hpd_level` | any | `log_prob` + draws | Joint HPD calibration |
+| `tarp_coverage` | any | Draws only | Joint calibration via random balls (no density needed) |
+| `energy_score` | any | Draws only | Proper score (sharpness + calibration) |
+
 ---
 
 ## Unified Metrics Report

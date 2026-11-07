@@ -9,6 +9,7 @@ from .combiners import (
     SoftmaxModelCombiner,
     StackingEnsemble,
 )
+from .density import DensityEnsemble
 from .laplace import FullNetworkLaplace
 from .layers import BatchEnsembleLinear
 from .mc_dropout import MCDropoutWrapper, enable_dropout
@@ -44,6 +45,7 @@ __all__ = [
     "BatchEnsembleOutput",
     "SoftmaxModelCombiner",
     "StackingEnsemble",
+    "DensityEnsemble",
     "SWAG",
     "MultiSWAG",
     "FullNetworkLaplace",

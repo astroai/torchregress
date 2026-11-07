@@ -92,9 +92,34 @@ InfoNCE-style form: the softmax is normalized over the sampled candidate set, an
 a contrastive bound rather than an exact finite-$K$ ratio estimator. As $K \to \infty$ its optimum
 satisfies $\exp(s(\theta, x)) \propto r(x,\theta)$, i.e. the logit approaches $\log r$ up to an
 additive constant; at finite $K$ NRE-B has an intrinsic bias term (Miller, Weniger & Forré 2022).
-The bias-free multiclass CNRE estimator of that paper is not implemented here, so prefer
-`criterion="bce"` (NRE-A) when an accurate absolute log-ratio is needed and use the multiclass form
-for ranking with many candidates.
+Use `criterion="cnre"` (below) or `criterion="bce"` (NRE-A) when an accurate absolute log-ratio
+is needed. Use the multiclass form only for ranking with many candidates.
+
+**Contrastive NRE (CNRE)** (Miller, Weniger & Forré 2022) removes that bias by adding a class
+$y = 0$ in which none of the $K$ candidates generated $x$. With prior odds $\gamma$ between
+"candidate $k$ generated $x$" ($y \geq 1$, uniform over $k$) and $y = 0$, the class posterior is
+
+$$
+q(y = k \mid \Theta, x) = \frac{(\gamma/K)\, e^{s(\theta_k, x)}}
+{1 + (\gamma/K)\sum_{j=1}^{K} e^{s(\theta_j, x)}}, \qquad
+q(y = 0 \mid \Theta, x) = \frac{1}{1 + (\gamma/K)\sum_{j=1}^{K} e^{s(\theta_j, x)}},
+$$
+
+and the loss mixes a dependent set (the true $\theta_+$ and $K-1$ negatives) with an independent
+set (all $K$ negatives):
+
+$$
+\mathcal{L}_{\text{CNRE}} = -\frac{\gamma}{1+\gamma}\log q\bigl(y = 1 \mid \theta_+, \theta^-_{1:K-1}, x\bigr)
+- \frac{1}{1+\gamma}\log q\bigl(y = 0 \mid \theta^-_{1:K}, x\bigr).
+$$
+
+The $y = 0$ class fixes the normalisation, so the optimum is $s = \log r(x, \theta)$ exactly for
+every $K$. $K = 1$ recovers binary NRE with prior odds $\gamma$. The negatives must be drawn from
+the reference prior independently of $x$, so `negative_target` is rejected for `criterion="cnre"`.
+
+!!! tip "Choosing $\gamma$ and $K$"
+    $\gamma = 1$ (the default) is a safe start. Larger $K$ makes each update more informative, but
+    unlike NRE-B the estimate stays unbiased at any $K$. A typical range is $K = 2$–$32$.
 
 In both objectives the classifier sees a positive pair and negative pairs. The reduction over the
 batch is handled by [`BaseLoss`](base.md) (`'none' | 'mean' | 'sum'`, `mask`, `weights`).
@@ -168,7 +193,8 @@ logits = neural_ratio_logits(classifier, candidate_context, observations)       
 ```
 
 `criterion="bce"` is the balanced binary loss; `criterion="multiclass"` is the categorical /
-InfoNCE-style loss. The classifier is a plain `nn.Module` mapping
+InfoNCE-style loss; `criterion="cnre"` is the bias-free contrastive loss (tune `gamma`, default
+`1.0`). The classifier is a plain `nn.Module` mapping
 `concat([context, observable])` to one logit; `build_ratio_classifier` tags it with
 `context_dim` / `observable_dim`, and `NeuralRatioLoss` infers the dimensions lazily for custom
 modules.
@@ -288,6 +314,104 @@ generating $c$ within the observation noise ($\approx 0.2$ for $\sigma = 0.5$).
 
 ---
 
+## Frequentist uncertainties: wifi ensembles
+
+A trained ratio estimator has no error bar. *wifi ensembles* (Benevedes & Thaler, PRD 112,
+056024, 2025) add one. Train $M$ ratio estimators $f_i(x) \approx \log r(x)$ independently
+(bootstrap resamples), freeze them, and model
+
+$$
+\log r_w(x) = w_0 + \sum_{i=1}^{M} w_i f_i(x),
+$$
+
+fitting $w$ on held-out samples $x \sim p$ (numerator) and $x \sim q$ (denominator) by the
+symmetrised maximum-likelihood-classifier loss
+
+$$
+L(w) = \mathbb{E}_p\bigl[-s_w + e^{-s_w}\bigr] + \mathbb{E}_q\bigl[s_w + e^{s_w}\bigr],
+\qquad s_w = \log r_w,
+$$
+
+which is convex in $w$ and minimised pointwise by $s = \log p/q$. Because $\hat w$ is an
+M-estimator, its covariance is the sandwich $\Sigma_w = H^{-1} V H^{-1}$ ($H$ the Hessian of
+$L$, $V$ the covariance of the per-sample scores), and
+
+$$
+\operatorname{Var}\bigl[\log \hat r(x)\bigr] = F(x)^\top \Sigma_w F(x), \qquad F = (1, f_1, \ldots, f_M).
+$$
+
+For a mixture $x \sim \kappa p + (1-\kappa) q$, the pseudo-MLE of $\kappa$ maximises
+$\sum_j \log\bigl(1 + \kappa(\hat r_j - 1)\bigr)$ and its variance adds the ratio uncertainty
+(Gong & Samaniego 1981):
+
+$$
+\operatorname{Var}(\hat\kappa) = \frac{J + c^\top \Sigma_w c}{I^2},\quad
+I = \sum_j \frac{(r_j-1)^2}{D_j^2},\;
+J = \sum_j \Bigl(\frac{r_j-1}{D_j}\Bigr)^2,\;
+c = \sum_j \frac{r_j F_j}{D_j^2},\;
+D_j = 1 + \kappa(r_j - 1).
+$$
+
+[`WifiRatioEnsemble`](../api/inference.md#wifi-ensembles) works on stacked member outputs, so the
+members can be `NeuralRatioLoss` classifiers, plain binary classifiers, or flow log-density
+differences.
+
+```python
+import torch
+import torch.nn.functional as F
+from torch import nn
+
+from torchregress.inference import WifiRatioEnsemble
+
+torch.manual_seed(0)
+# Numerator p = N([1, 0], I), denominator q = N([0, 0], I) in 2-D.
+def draw_p(n): return torch.randn(n, 2) + torch.tensor([1.0, 0.0])
+def draw_q(n): return torch.randn(n, 2)
+
+# 1) Train M classifiers on bootstrap resamples; logit ~ log p(x)/q(x).
+x_train = torch.cat([draw_p(4000), draw_q(4000)])
+label = torch.cat([torch.ones(4000), torch.zeros(4000)])
+members = []
+for _ in range(8):
+    index = torch.randint(len(x_train), (len(x_train),))
+    net = nn.Sequential(nn.Linear(2, 32), nn.SiLU(), nn.Linear(32, 32), nn.SiLU(), nn.Linear(32, 1))
+    optimiser = torch.optim.Adam(net.parameters(), lr=3e-3)
+    for _ in range(300):
+        loss = F.binary_cross_entropy_with_logits(net(x_train[index]).squeeze(-1), label[index])
+        optimiser.zero_grad()
+        loss.backward()
+        optimiser.step()
+    members.append(net)
+
+# 2) Freeze the members and fit the wifi weights on fresh held-out samples.
+features = lambda x: WifiRatioEnsemble.member_features(members, x)  # [N, M]
+wifi = WifiRatioEnsemble().fit(features(draw_p(5000)), features(draw_q(5000)))
+
+# 3) Log ratio with a frequentist standard error.
+x_test = torch.tensor([[0.0, 0.0], [1.0, 0.0], [2.0, 1.0]])
+log_r, log_r_std = wifi.log_ratio(features(x_test)), wifi.log_ratio_std(features(x_test))
+true_log_r = x_test[:, 0] - 0.5
+
+# 4) Mixture fraction kappa in x ~ kappa p + (1 - kappa) q, with the ratio
+#    uncertainty propagated (Gong-Samaniego).
+from_p = torch.rand(10_000) < 0.2
+x_mix = torch.where(from_p.unsqueeze(1), draw_p(10_000), draw_q(10_000))
+estimate = wifi.mixture_fraction(features(x_mix))
+print(f"kappa = {estimate.fraction:.3f} +/- {estimate.std:.3f} "
+      f"(stat {estimate.std_statistical:.3f}, ratio {estimate.std_ratio:.3f})")
+```
+
+!!! warning "Validity conditions"
+    The intervals are asymptotically valid when the span of $\{1, f_i\}$ contains the true log
+    ratio, which is why the paper uses large ensembles ($M = 16$–$32$) of diverse, well-trained
+    members. Fit $w$ on data **not** used to train the members. Nearly collinear members make
+    individual weights unstable (large, alternating signs), but $\log \hat r(x)$ and its error
+    stay well defined. In tests with a well-specified basis the 1σ intervals cover 64–71% (nominal
+    68%), and dropping the ratio term from $\operatorname{Var}(\hat\kappa)$ falls to 25% coverage.
+
+The equations are a reconstruction from the paper's text, validated by coverage tests on
+problems with a known ratio rather than against the authors' code.
+
 ## Comparison with related objectives
 
 | Objective | What it learns | Needs a density model? | Negatives required? | Main limitation |
@@ -354,6 +478,8 @@ calibration diagnostics (see [calibration metrics](../metrics/calibration.md)).
 | 4 | B. K. Miller, A. Cole, P. Forré, G. Louppe, C. Weniger. ["Truncated Marginal Neural Ratio Estimation."](https://arxiv.org/abs/2107.01214) *NeurIPS*, **2021**. |
 | 5 | A. van den Oord, Y. Li, O. Vinyals. ["Representation Learning with Contrastive Predictive Coding."](https://arxiv.org/abs/1807.03748) *arXiv:1807.03748*, **2018**. |
 | 6 | I. Elsharkawy, Y. Kahn. ["Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation."](https://arxiv.org/abs/2505.08709) *arXiv:2505.08709*, **2025** — related classifier-based parameter estimation with learned flow embeddings, not a ratio-classifier loss. |
+| 7 | S. Benevedes, J. Thaler. ["Frequentist Uncertainties on Neural Density Ratios with wifi Ensembles."](https://arxiv.org/abs/2506.00113) *Phys. Rev. D* 112, 056024, **2025** — `WifiRatioEnsemble`. |
+| 8 | B. Gong, F. J. Samaniego. "Pseudo Maximum Likelihood Estimation: Theory and Applications." *Ann. Statist.* 9(4):861–869, **1981**. (Variance of two-step estimators.) |
 
 ---
 

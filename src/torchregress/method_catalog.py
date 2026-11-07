@@ -1196,6 +1196,28 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="WifiRatioEnsemble",
+        family="likelihood_ratio",
+        public_path="torchregress.inference.WifiRatioEnsemble",
+        task_tags=(
+            "parameter_estimation",
+            "simulation_based_inference",
+            "likelihood_ratio",
+            "confidence_intervals",
+        ),
+        maturity="Available",
+        multi_target="partial",
+        non_gaussian="yes",
+        epistemic="partial",
+        calibration="yes",
+        notes=(
+            "wifi ensembles (Benevedes & Thaler 2025): log r = w0 + sum_i w_i f_i over frozen "
+            "ratio estimators, convex weight fit on held-out data, sandwich covariance; "
+            "frequentist error bars on log r(x) and mixture fractions (Gong-Samaniego). Valid "
+            "when the member span contains the true log ratio."
+        ),
+    ),
+    MethodMetadata(
         name="NeuralRatioLoss",
         family="likelihood_ratio",
         public_path="torchregress.losses.NeuralRatioLoss",
@@ -1210,7 +1232,8 @@ _METHODS: tuple[MethodMetadata, ...] = (
         non_gaussian="partial",
         calibration="partial",
         notes=(
-            "Classifier-based neural ratio estimation (binary BCE or multiclass). Trains a "
+            "Classifier-based neural ratio estimation (binary BCE, multiclass NRE-B, or "
+            "bias-free contrastive CNRE with criterion='cnre'). Trains a "
             "classifier to distinguish true (x, theta) pairs from mismatched ones; the "
             "logit estimates log p(x|theta)-log p(x), so argmax over candidate hypotheses "
             "is the MLE and the training label/simulation prior cancels. Needs a reference "
@@ -1487,6 +1510,31 @@ _METHODS: tuple[MethodMetadata, ...] = (
         notes=(
             "Uses a mixture-of-mixtures aggregation to avoid MDN component "
             "label-switching across members."
+        ),
+    ),
+    MethodMetadata(
+        name="DensityEnsemble",
+        family="ensemble",
+        public_path="torchregress.ensemble.DensityEnsemble",
+        task_tags=(
+            "multimodal_targets",
+            "multi_target",
+            "conditional_density",
+            "uq_decomposition",
+        ),
+        maturity="Available",
+        multimodal="yes",
+        multi_target="yes",
+        non_gaussian="yes",
+        epistemic="yes",
+        aleatoric="yes",
+        decomposition="yes",
+        calibration="partial",
+        notes=(
+            "Mixture of independently trained conditional flows; entropy decomposition "
+            "(member entropy + member mutual information); fit_weights gives ML weights "
+            "with a sandwich covariance and log_prob_std error bars. Check joint "
+            "calibration with sample_hpd_coverage."
         ),
     ),
     MethodMetadata(

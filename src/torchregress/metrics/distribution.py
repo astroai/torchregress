@@ -346,6 +346,139 @@ def highest_posterior_density_coverage(
     return float((levels <= float(alpha)).to(levels.dtype).mean().item())
 
 
+def sample_hpd_level(
+    log_prob_target: Union[torch.Tensor, np.ndarray],
+    log_prob_samples: Union[torch.Tensor, np.ndarray],
+) -> torch.Tensor:
+    """Highest-density level of each target, estimated from predictive draws.
+
+    This is the multivariate counterpart of
+    :func:`highest_posterior_density_level`: it needs no grid, only the
+    predictive log-density of the observed target and of ``S`` draws from the
+    same predictive distribution (any dimension, e.g. a conditional flow or a
+    :class:`~torchregress.ensemble.DensityEnsemble`)::
+
+        level[n] = (#{s : lp_s > lp_y} + 0.5 * #{s : lp_s == lp_y}) / S
+
+    ``level`` estimates the mass of the smallest highest-density region that
+    contains ``y``.  For a calibrated model ``y`` is exchangeable with the
+    draws, so the levels are uniform on ``[0, 1]`` up to the ``1/S``
+    discretisation.  Over-confident models pile up near 1; under-confident
+    models pile up near 0.
+
+    Parameters
+    ----------
+    log_prob_target : Tensor or ndarray
+        ``log p(y_n | x_n)``, shape ``[N]``.
+    log_prob_samples : Tensor or ndarray
+        ``log p(y_{n,s} | x_n)`` for draws ``y_{n,s} ~ p(. | x_n)``, shape
+        ``[N, S]``.
+
+    Returns
+    -------
+    Tensor
+        Levels in ``[0, 1]``, shape ``[N]``.
+    """
+    target_t = convert_to_tensor(log_prob_target)
+    samples_t = convert_to_tensor(log_prob_samples).to(target_t.device)
+    if target_t.ndim != 1:
+        raise ValueError(f"log_prob_target must have shape [N], got {tuple(target_t.shape)}")
+    if samples_t.ndim != 2 or samples_t.shape[0] != target_t.shape[0]:
+        raise ValueError(
+            "log_prob_samples must have shape [N, S] matching log_prob_target, got "
+            f"{tuple(samples_t.shape)}"
+        )
+    if samples_t.shape[1] < 1:
+        raise ValueError("log_prob_samples must contain at least one draw per target")
+    if not (torch.isfinite(target_t).all() and torch.isfinite(samples_t).all()):
+        raise ValueError("log-densities must be finite")
+    reference = target_t.unsqueeze(1).to(samples_t.dtype)
+    above = (samples_t > reference).to(samples_t.dtype).sum(dim=1)
+    ties = (samples_t == reference).to(samples_t.dtype).sum(dim=1)
+    return (above + 0.5 * ties) / samples_t.shape[1]
+
+
+def sample_hpd_coverage(
+    log_prob_target: Union[torch.Tensor, np.ndarray],
+    log_prob_samples: Union[torch.Tensor, np.ndarray],
+    credibility: Union[float, torch.Tensor, np.ndarray, Tuple[float, ...]] = (
+        0.5,
+        0.68,
+        0.9,
+        0.95,
+    ),
+) -> torch.Tensor:
+    """Empirical coverage of sample-estimated highest-density regions.
+
+    Returns, for each nominal ``credibility`` level ``c``, the fraction of
+    targets whose :func:`sample_hpd_level` is at most ``c``.  A calibrated
+    joint predictive gives ``coverage ~= credibility``.  This tests the
+    *joint* multi-target region, which per-dimension PIT/coverage cannot.
+
+    ``credibility`` is the nominal region mass (``0.9`` = 90% region), not a
+    miscoverage rate.
+
+    Returns
+    -------
+    Tensor
+        Coverage per credibility level, shape ``[L]``.
+    """
+    levels = sample_hpd_level(log_prob_target, log_prob_samples)
+    nominal = torch.as_tensor(credibility, dtype=levels.dtype, device=levels.device).reshape(-1)
+    if ((nominal < 0) | (nominal > 1)).any():
+        raise ValueError("credibility levels must lie in [0, 1]")
+    return (levels.unsqueeze(0) <= nominal.unsqueeze(1)).to(levels.dtype).mean(dim=1)
+
+
+def model_hpd_level(
+    model: Any,
+    context: torch.Tensor,
+    target: torch.Tensor,
+    *,
+    n_samples: int = 256,
+) -> torch.Tensor:
+    """:func:`sample_hpd_level` for a model exposing ``log_prob`` and ``sample``.
+
+    ``model`` follows the :class:`~torchregress.losses.NormalizingFlowLoss`
+    convention: ``model.log_prob(context, y) -> [N]`` and
+    ``model.sample(context, n_samples) -> [N, S, D]``.  This covers conditional
+    flows and :class:`~torchregress.ensemble.DensityEnsemble`.  Runs under
+    ``torch.no_grad()``.
+
+    Parameters
+    ----------
+    model : object
+        Conditional density with ``log_prob`` and ``sample``.
+    context : Tensor
+        Conditioning input passed to the model, ``[N, ...]``.
+    target : Tensor
+        Observed targets, ``[N, D]`` (``[N]`` for one target).
+    n_samples : int, default 256
+        Predictive draws per target; the level resolution is ``1 / n_samples``.
+
+    Returns
+    -------
+    Tensor
+        Levels in ``[0, 1]``, shape ``[N]``.
+    """
+    if isinstance(n_samples, bool) or not isinstance(n_samples, int) or n_samples < 2:
+        raise ValueError(f"n_samples must be an integer >= 2, got {n_samples!r}")
+    with torch.no_grad():
+        target_2d = target.unsqueeze(-1) if target.dim() == 1 else target
+        n_rows = int(target_2d.shape[0])
+        samples = model.sample(context, n_samples=n_samples)
+        if samples.dim() != 3 or samples.shape[:2] != (n_rows, n_samples):
+            raise ValueError(
+                f"model.sample must return [N, n_samples, D], got {tuple(samples.shape)}"
+            )
+        repeated_context = context.repeat_interleave(n_samples, dim=0)
+        lp_samples = model.log_prob(
+            repeated_context, samples.reshape(n_rows * n_samples, -1)
+        ).reshape(n_rows, n_samples)
+        lp_target = model.log_prob(context, target_2d).reshape(n_rows)
+    return sample_hpd_level(lp_target, lp_samples)
+
+
 def gaussian_nll(
     mean: Union[torch.Tensor, np.ndarray],
     y_true: Union[torch.Tensor, np.ndarray],

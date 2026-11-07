@@ -28,20 +28,25 @@ Because :math:`\\log r(x, \\theta) = \\log p(x \\mid \\theta) - \\log p(x)` and
 the property that distinguishes NRE from a conditional-density surrogate that
 has to model the target distribution directly.
 
-Two classifier objectives are supported:
+Three classifier objectives are supported:
 
 - ``"bce"``: balanced binary NRE / likelihood-ratio trick,
   :math:`-\\log\\sigma(s_+) - \\frac{1}{K}\\sum_k \\log\\sigma(-s^-_k)`.
 - ``"multiclass"``: categorical (NRE-B / InfoNCE-style) NRE,
   :math:`-\\log\\mathrm{softmax}([s_+, s^-_1, \\ldots, s^-_K])_0`.
+- ``"cnre"``: contrastive NRE (Miller, Weniger & Forre 2022), a ``K + 1``-class
+  objective whose extra class holds ``K`` parameters that are all independent
+  of ``x``.  Its optimum is the exact ratio for any ``K``.
 
 The balanced binary objective (NRE-A in the literature) targets
 :math:`\\log r(x, \\theta)` exactly at its optimum when the negatives follow
 the same reference prior.  The multiclass objective (NRE-B) is a contrastive
 variant: it has an intrinsic bias at finite ``K`` and only approaches the same
-ratio as the number of negatives grows; Miller, Weniger & Forre (2022) propose
-a bias-free multiclass variant (CNRE) that is not implemented here.  Prefer
-``"bce"`` when a calibrated absolute log-ratio is required.
+ratio as the number of negatives grows.  ``"cnre"`` removes that bias: the
+independent class pins the normalisation, so ``s = log r`` at the optimum for
+every ``K`` while keeping the contrastive use of several candidates per
+observation.  Prefer ``"bce"`` or ``"cnre"`` when a calibrated absolute
+log-ratio is required.
 
 The classifier is trained jointly with the rest of the model by minimising this
 loss; the returned value is reduced per sample exactly like other torchregress
@@ -50,6 +55,7 @@ losses (mask, sample weights, ``'none' | 'mean' | 'sum'``).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Any, Optional
 
@@ -76,7 +82,7 @@ _ACTIVATIONS: dict[str, type[nn.Module]] = {
     "leaky_relu": nn.LeakyReLU,
 }
 
-_CRITERIA = ("bce", "multiclass")
+_CRITERIA = ("bce", "multiclass", "cnre")
 
 
 def build_ratio_classifier(
@@ -247,7 +253,35 @@ class NeuralRatioLoss(BaseLoss):
     parameters by the logit recovers the maximum-likelihood estimate while the
     training prior cancels between the joint and marginal classes.  The
     multiclass objective is a contrastive (InfoNCE-style, NRE-B) variant that
-    approaches the same ratio as the number of negatives grows.
+    approaches the same ratio as the number of negatives grows.  The ``"cnre"``
+    objective is the bias-free contrastive variant of Miller, Weniger & Forre
+    (2022).
+
+    **CNRE.**  With ``K`` negatives per observation, the classifier sees
+    ``K + 1`` classes.  Class ``k >= 1`` means candidate ``k`` generated ``x``;
+    class ``0`` means no candidate did.  With prior odds ``gamma`` between
+    "some candidate generated ``x``" and class ``0``, the class posterior is
+
+    .. math::
+
+        q(y = k \\mid \\Theta, x) =
+        \\frac{(\\gamma/K)\\, e^{s(\\theta_k, x)}}
+        {1 + (\\gamma/K) \\sum_{j=1}^{K} e^{s(\\theta_j, x)}},
+
+    and the loss is
+
+    .. math::
+
+        \\mathcal{L} = -\\frac{\\gamma}{1+\\gamma}
+        \\log q(y = 1 \\mid \\theta_+, \\theta^-_{1:K-1}, x)
+        - \\frac{1}{1+\\gamma} \\log q(y = 0 \\mid \\theta^-_{1:K}, x).
+
+    The positive set holds the true parameter and the first ``K - 1``
+    negatives.  The independent set holds all ``K`` negatives.  The optimum is
+    ``s = log p(x | theta) - log p(x)`` exactly for every ``K``.  ``K = 1``
+    reduces to binary NRE with prior odds ``gamma``.  Negatives must be drawn
+    independently of ``x`` (from the reference prior), so ``negative_target``
+    is not accepted with this criterion.
 
     Args:
         classifier: Module mapping ``concat([context, observable])`` to one logit,
@@ -257,7 +291,11 @@ class NeuralRatioLoss(BaseLoss):
         criterion: ``"bce"`` for balanced binary NRE (NRE-A;
             :math:`-\\log\\sigma(s_+) - \\frac{1}{K}\\sum_k\\log\\sigma(-s^-_k)`)
             or ``"multiclass"`` for categorical NRE (NRE-B;
-            :math:`-\\log\\mathrm{softmax}([s_+, s^-_1,\\ldots,s^-_K])_0`).
+            :math:`-\\log\\mathrm{softmax}([s_+, s^-_1,\\ldots,s^-_K])_0`),
+            or ``"cnre"`` for bias-free contrastive NRE (see above).
+        gamma: CNRE prior odds between the dependent classes and the
+            independent class, ``> 0``.  Default ``1.0``.  Only used by
+            ``criterion="cnre"``.
         reduction: ``'none' | 'mean' | 'sum'`` over samples.
 
     Shapes:
@@ -289,6 +327,7 @@ class NeuralRatioLoss(BaseLoss):
         classifier: nn.Module,
         *,
         criterion: str = "bce",
+        gamma: float = 1.0,
         reduction: str = "mean",
     ) -> None:
         super().__init__(reduction=reduction)
@@ -297,8 +336,12 @@ class NeuralRatioLoss(BaseLoss):
         criterion = str(criterion).lower()
         if criterion not in _CRITERIA:
             raise ValueError(f"criterion must be one of {list(_CRITERIA)}, got {criterion!r}")
+        gamma = float(gamma)
+        if not math.isfinite(gamma) or gamma <= 0.0:
+            raise ValueError(f"gamma must be a finite positive number, got {gamma}")
         self.classifier = classifier
         self.criterion = criterion
+        self.gamma = gamma
 
         inferred_context = getattr(classifier, "context_dim", None)
         inferred_observable = getattr(classifier, "observable_dim", None)
@@ -493,8 +536,25 @@ class NeuralRatioLoss(BaseLoss):
             # Balanced NRE: the positive term and the average over negatives
             # carry equal total weight, matching a balanced binary classifier.
             return -F.logsigmoid(positive_logits) - F.logsigmoid(-negative_logits).mean(dim=1)
+        if self.criterion == "cnre":
+            return self._cnre_loss(positive_logits, negative_logits)
         logits = torch.cat([positive_logits.unsqueeze(1), negative_logits], dim=1)
         return -F.log_softmax(logits, dim=1)[:, 0]
+
+    def _cnre_loss(self, positive_logits: Tensor, negative_logits: Tensor) -> Tensor:
+        """Per-sample CNRE loss (Miller, Weniger & Forre 2022), unreduced."""
+        n_negatives = int(negative_logits.shape[1])
+        log_odds = math.log(self.gamma / n_negatives)
+        dependent = torch.cat([positive_logits.unsqueeze(1), negative_logits[:, :-1]], dim=1)
+
+        def log_normaliser(logits: Tensor) -> Tensor:
+            # log(1 + (gamma / K) * sum_j exp(s_j))
+            return F.softplus(log_odds + torch.logsumexp(logits, dim=1))
+
+        dependent_nll = log_normaliser(dependent) - log_odds - positive_logits
+        independent_nll = log_normaliser(negative_logits)
+        weight = self.gamma / (1.0 + self.gamma)
+        return weight * dependent_nll + (1.0 - weight) * independent_nll
 
     def log_likelihood_ratio(
         self,
@@ -606,6 +666,11 @@ class NeuralRatioLoss(BaseLoss):
             negative_context = kwargs.pop("negative_y_pred", None)
         if negative_context is None:
             raise ValueError("NeuralRatioLoss requires negative_context in forward()")
+        if self.criterion == "cnre" and negative_target is not None:
+            raise ValueError(
+                "criterion='cnre' scores every candidate against the observed target; "
+                "draw negative_context from the reference prior and omit negative_target"
+            )
 
         # Validate the batch dimension before touching mask/weights so malformed
         # inputs raise the same shape errors as _logits does below.
@@ -634,6 +699,7 @@ def neural_ratio_loss(
     negative_target: Optional[Tensor] = None,
     criterion: str = "bce",
     reduction: str = "mean",
+    gamma: float = 1.0,
 ) -> Tensor:
     """Functional NRE loss: train ``classifier`` as a likelihood-ratio estimator.
 
@@ -648,8 +714,9 @@ def neural_ratio_loss(
             ``[1, K, C]`` or ``[K, C]`` (shared bank).
         negative_target: Optional mismatched observations ``[N, K, D]``,
             ``[1, K, D]`` or ``[K, D]``.
-        criterion: ``"bce"`` (default) or ``"multiclass"``.
+        criterion: ``"bce"`` (default), ``"multiclass"`` or ``"cnre"``.
         reduction: ``'none' | 'mean' | 'sum'``.
+        gamma: CNRE prior odds (only used by ``criterion="cnre"``).
 
     Returns:
         Loss tensor.
@@ -665,6 +732,7 @@ def neural_ratio_loss(
     loss_fn = NeuralRatioLoss(
         classifier,
         criterion=criterion,
+        gamma=gamma,
         reduction=reduction,
     )
     return loss_fn(
