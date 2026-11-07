@@ -275,6 +275,23 @@ trains for a fixed 60 epochs on all training rows with no validation split, whic
 the `fixed 60 epochs` recipe above; its 0.756 coverage at a nominal 0.90 (pzflow: 0.915)
 is the over-sharpening signature that early stopping removes on the datasets above.
 
+The same holds for **joint** calibration of multi-target flows. On the harness
+`multivariate_intervals` suite (five datasets with 2 or 3 targets: `energy_efficiency` and four
+synthetic sets, one seed), the share of test targets inside the 90% joint highest-density
+region ([`sample_hpd_coverage`](../metrics/distribution.md)) moved as follows when the
+fixed 60-epoch budget was replaced by the recipe above:
+
+| Flow | Fixed 60 epochs | Early stopping, recommended bound, 16 bins |
+|:--|:--|:--|
+| NSF | 0.60–0.73 | 0.79–0.89 |
+| TarFlow (`n_layers=(4, 1, 1)`) | 0.45–0.63 | 0.81–0.89 |
+| `DensityEnsemble` of 5 NSF flows | 0.71–0.83 | **0.88–0.94** |
+
+Test NLL improved in 14 of the 15 comparisons. The ensemble of early-stopped
+flows had the smallest joint calibration error on every dataset: its mean absolute
+coverage error over the levels 0.5, 0.68, 0.9 and 0.95 was 0.008 to 0.038, and its
+largest single deviation was 0.084 (0.14 for single early-stopped NSF or TarFlow).
+
 !!! tip "Why not change the library defaults"
     `create_flow_model` keeps zuko's `bins=8` and bound `5` and `NormalizingFlowLoss` does
     not train the flow, so the budget and stopping rule belong to the training loop. The
@@ -511,11 +528,11 @@ the mixture: one affine map per block cannot split a mode.
     8 targets and about a quarter at 16 (0.20 against 0.74 nats), with the best
     joint calibration in both cases.
     It lost on **multimodal** targets (both mixtures), and for **2 to 4 targets**
-    MAF and NSF were as accurate or better. On the torchregress-harness
-    `multivariate_intervals` suite (2 or 3 targets, at most a few thousand rows, fixed
-    60-epoch budget) TarFlow was the most over-confident flow: its 90% joint
-    highest-density regions covered 0.45 to 0.63 of the test targets, against 0.60
-    to 0.73 for NSF and 0.71 to 0.83 for a five-flow `DensityEnsemble`.
+    MAF and NSF were as accurate or better. TarFlow overfits a fixed epoch budget
+    more than NSF does: on the harness `multivariate_intervals` suite its 90% joint
+    highest-density regions covered only 0.45 to 0.63 of the test targets after
+    60 epochs, but 0.81 to 0.89 with early stopping, on a par with NSF (see the
+    [training recipe](#training-recipe-for-nll-and-calibration)).
     It also costs 2 to 3× NSF's training time per epoch and samples 30 to 75×
     slower than MAF (one Transformer pass per target per block).
     These are synthetic tasks at one training budget, so compare held-out NLL
