@@ -296,10 +296,13 @@ class WifiRatioEnsemble:
         # The score is strictly decreasing on (lower, upper).
         lo = lower + 1e-12 * max(1.0, abs(lower)) if math.isfinite(lower) else -1.0
         hi = upper - 1e-12 * max(1.0, abs(upper)) if math.isfinite(upper) else 1.0
-        while not math.isfinite(lower) and score(lo) < 0:
-            lo *= 2.0
-        while not math.isfinite(upper) and score(hi) > 0:
-            hi *= 2.0
+        # With every r_j on one side of 1 the interval is unbounded on that side
+        # and the likelihood can increase without limit; search no further than
+        # |kappa| = _KAPPA_SEARCH_LIMIT and report the estimate as at_boundary.
+        while not math.isfinite(lower) and score(lo) < 0 and lo > -_KAPPA_SEARCH_LIMIT:
+            lo = max(2.0 * lo, -_KAPPA_SEARCH_LIMIT)
+        while not math.isfinite(upper) and score(hi) > 0 and hi < _KAPPA_SEARCH_LIMIT:
+            hi = min(2.0 * hi, _KAPPA_SEARCH_LIMIT)
         at_boundary = False
         if score(lo) <= 0:
             kappa, at_boundary = lo, True
@@ -319,8 +322,11 @@ class WifiRatioEnsemble:
         meat = float((delta / denominator).square().sum())
         cross = (design * (ratio / denominator.square()).unsqueeze(1)).sum(dim=0)
         ratio_term = float(cross @ self.covariance_ @ cross)
-        std_statistical = math.sqrt(meat) / information
-        std_ratio = math.sqrt(max(ratio_term, 0.0)) / information
+        if information > 0.0:
+            std_statistical = math.sqrt(meat) / information
+            std_ratio = math.sqrt(max(ratio_term, 0.0)) / information
+        else:  # no curvature left at the search limit: kappa is not determined
+            std_statistical = std_ratio = math.inf
         return MixtureFractionEstimate(
             fraction=kappa,
             std=math.hypot(std_statistical, std_ratio),
@@ -328,6 +334,10 @@ class WifiRatioEnsemble:
             std_ratio=std_ratio,
             at_boundary=at_boundary,
         )
+
+
+#: Largest |kappa| searched when the feasible interval is unbounded on a side.
+_KAPPA_SEARCH_LIMIT = 1e6
 
 
 def _covariance(rows: Tensor) -> Tensor:

@@ -175,3 +175,18 @@ def test_validation_errors() -> None:
     with pytest.raises(ValueError, match="constant"):
         constant = WifiRatioEnsemble().fit(torch.zeros(20, 1), torch.zeros(20, 1))
         constant.mixture_fraction(torch.zeros(10, 1))
+
+
+def test_mixture_fraction_with_all_ratios_above_one_stays_finite() -> None:
+    # Every mixture point has r > 1, so the likelihood increases in kappa
+    # without bound: the search stops at its limit and flags the boundary
+    # instead of overflowing to kappa = inf (which divided by zero).
+    generator = torch.Generator().manual_seed(7)
+    x_p, x_q = _samples(generator, 2000)
+    wifi = WifiRatioEnsemble().fit(_basis(x_p), _basis(x_q))
+    x_mix = torch.linspace(2.5, 4.0, 8, dtype=torch.float64)
+    assert bool((wifi.log_ratio(_basis(x_mix)) > 0).all())
+    estimate = wifi.mixture_fraction(_basis(x_mix))
+    assert estimate.at_boundary
+    assert math.isfinite(estimate.fraction) and estimate.fraction > 1.0
+    assert not math.isnan(estimate.std)
