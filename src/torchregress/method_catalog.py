@@ -1031,6 +1031,23 @@ _METHODS: tuple[MethodMetadata, ...] = (
         ),
     ),
     MethodMetadata(
+        name="MarginalContrastiveDensity",
+        family="flow",
+        public_path="torchregress.models.MarginalContrastiveDensity",
+        task_tags=("multi_target", "correlated_targets", "conditional_density"),
+        maturity="Available",
+        multi_target="yes",
+        non_gaussian="yes",
+        aleatoric="yes",
+        calibration="partial",
+        notes=(
+            "MCD (Meziani et al. 2022): p(y|x) = p(y) r(x, y) from an unconditional flow and "
+            "a CNRE ratio classifier; Monte-Carlo-normalized log-density and "
+            "importance-resampled samples, whose effective sample size drops when p(y|x) "
+            "is much narrower than p(y). Baseline for flow heads."
+        ),
+    ),
+    MethodMetadata(
         name="NormalizingFlowMap",
         family="flow_map",
         public_path="torchregress.models.NormalizingFlowMap",

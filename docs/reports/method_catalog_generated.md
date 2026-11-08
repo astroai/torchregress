@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-06`
+_Generated date_: `2026-11-08`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `161`
+- Total methods: `162`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 
 ### By Family
@@ -26,7 +26,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `ensemble` | 9 |
 | `evidential` | 1 |
 | `expectile` | 2 |
-| `flow` | 4 |
+| `flow` | 5 |
 | `flow_map` | 1 |
 | `flow_matching` | 1 |
 | `imbalanced_algorithm` | 4 |
@@ -61,7 +61,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 134 |
+| `Available` | 135 |
 
 ## Method Rows
 
@@ -141,6 +141,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `MultiExpectileLoss` | `expectile` | `Available` | `prediction_intervals`, `non_gaussian`, `multi_expectile` | `calibration*`, `ood*` | `torchregress.losses.MultiExpectileLoss` |
 | `ContrastiveFlowLoss` | `flow` | `Available` | `parameter_estimation`, `domain_shift`, `simulation_based_inference` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.ContrastiveFlowLoss` |
 | `GaussianCopulaSplineHead` | `flow` | `Available` | `multi_target`, `correlated_targets`, `missing_labels`, `conditional_density` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.GaussianCopulaSplineHead` |
+| `MarginalContrastiveDensity` | `flow` | `Available` | `multi_target`, `correlated_targets`, `conditional_density` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.MarginalContrastiveDensity` |
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
 | `SLSLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `prediction_intervals` | `calibration*`, `ood*` | `torchregress.losses.SLSLoss` |
 | `NormalizingFlowMap` | `flow_map` | `Available` | `multimodal`, `multi_target`, `conditional_density`, `flow_map` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.NormalizingFlowMap` |

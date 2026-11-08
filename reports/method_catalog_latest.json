@@ -2,7 +2,7 @@
   "artifact": "method_catalog",
   "version": 1,
   "summary": {
-    "total_methods": 161,
+    "total_methods": 162,
     "families": {
       "bnn": 7,
       "calibration_transform": 7,
@@ -15,7 +15,7 @@
       "ensemble": 9,
       "evidential": 1,
       "expectile": 2,
-      "flow": 4,
+      "flow": 5,
       "flow_map": 1,
       "flow_matching": 1,
       "imbalanced_algorithm": 4,
@@ -47,7 +47,7 @@
     "maturity": {
       "Core": 7,
       "Strong": 20,
-      "Available": 134
+      "Available": 135
     },
     "peer_uq_methods_present": {
       "SWAG": true,
@@ -1916,6 +1916,28 @@
       "imbalance": "no",
       "noisy_features_eiv": "no",
       "notes": "Joint conditional spline flow with a Gaussian copula; intrinsic arbitrary-mask marginals are exact, while Gaussian-error convolution uses finite quadrature."
+    },
+    {
+      "name": "MarginalContrastiveDensity",
+      "family": "flow",
+      "public_path": "torchregress.models.MarginalContrastiveDensity",
+      "task_tags": [
+        "multi_target",
+        "correlated_targets",
+        "conditional_density"
+      ],
+      "maturity": "Available",
+      "multimodal": "no",
+      "multi_target": "yes",
+      "non_gaussian": "yes",
+      "epistemic": "no",
+      "aleatoric": "yes",
+      "decomposition": "no",
+      "calibration": "partial",
+      "ood_support": "partial",
+      "imbalance": "no",
+      "noisy_features_eiv": "no",
+      "notes": "MCD (Meziani et al. 2022): p(y|x) = p(y) r(x, y) from an unconditional flow and a CNRE ratio classifier; Monte-Carlo-normalized log-density and importance-resampled samples, whose effective sample size drops when p(y|x) is much narrower than p(y). Baseline for flow heads."
     },
     {
       "name": "NormalizingFlowMap",
