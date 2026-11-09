@@ -102,6 +102,28 @@ compute `log_normalizer(x)` once and call `log_prob(..., normalize=False)`.
 | Unconditional structure in $\mathbf{y}$ | modelled once by the marginal flow | relearned for every context |
 | Best for | weakly informative features, a reference baseline | informative features, sharp conditionals |
 
+### Harness comparison
+
+On the torchregress-harness `multivariate_intervals` suite (five datasets with 2 or 3
+targets, one seed), all rows trained with the same early-stopping recipe: a 15% validation
+carve, patience 10, `recommended_tail_bound` and 16 bins. MCD uses an NSF marginal and a
+CNRE classifier on the raw features. *HPD90* is the share of test targets inside the 90%
+joint highest-density region; *cal. err.* is the mean absolute coverage error over the
+levels 0.5, 0.68, 0.9 and 0.95; *ESS* is the mean effective share of the 8192-draw bank.
+
+| Dataset | Test NLL: NSF / 5-flow ensemble / MCD | HPD90: NSF / ensemble / MCD | Cal. err.: NSF / ensemble / MCD | MCD ESS |
+|:--|:--|:--|:--|--:|
+| `energy_efficiency` | 0.373 / **0.119** / 0.842 | 0.844 / **0.939** / 0.978 | 0.080 / **0.038** / 0.136 | 0.16 |
+| synthetic multivariate | 0.009 / **−0.250** / 0.222 | 0.788 / **0.903** / 0.922 | 0.113 / **0.022** / 0.027 | 0.05 |
+| synthetic bimodal | 4.517 / **4.412** / 4.629 | 0.855 / 0.902 / **0.905** | 0.045 / 0.008 / **0.006** | 0.51 |
+| synthetic Gaussian | 4.018 / **3.911** / 3.964 | 0.835 / **0.882** / 0.850 | 0.071 / **0.027** / 0.053 | 0.38 |
+| synthetic non-Gaussian | 3.703 / **3.600** / 4.250 | 0.893 / **0.912** / 0.883 | 0.021 / **0.013** / 0.014 | 0.48 |
+
+MCD's NLL was worse than a single NSF on four of the five datasets. Its joint
+calibration was competitive, best of the three on the bimodal set, but it over-covered
+on `energy_efficiency`, where only 16% of the bank carried the weight. The ensemble of
+early-stopped flows had the best NLL on every dataset.
+
 MCD's appeal is that the conditional part is plain classification, so the ratio
 model can be anything that produces a logit. Its weak point is structural:
 sampling and normalization both average over $p(\mathbf{y})$, which wastes draws
