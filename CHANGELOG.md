@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `torchregress.models.MarginalContrastiveDensity`: Marginal Contrastive Discrimination
+  (Meziani, Ndiaye & Riu 2022), `p(y|x) = p(y) r(x, y)` from an unconditional flow and a
+  CNRE ratio classifier. Monte-Carlo-normalized `log_prob`, importance-resampled `sample`
+  and an `effective_sample_size` diagnostic; works with `model_hpd_level` and
+  `DensityEnsemble`.
 - `NeuralRatioLoss(criterion="cnre", gamma=...)`: bias-free contrastive neural ratio
   estimation (Miller, Weniger & Forré 2022). An extra "independent" class fixes the
   normalisation, so the logit estimates `log p(x|theta) - log p(x)` exactly at any number

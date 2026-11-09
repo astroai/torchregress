@@ -147,6 +147,7 @@ EXPECTED_EXPORTS = {
         "FeatureTokenizer",
         "FlowMatchingMLP",
         "GaussianCopulaSplineHead",
+        "MarginalContrastiveDensity",
         "NormalizingFlowMap",
         "cfm_loss",
         "sample_cfm",

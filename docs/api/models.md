@@ -109,3 +109,19 @@ Time-conditioned invertible affine-coupling flow map.  It provides
 See [Normalizing Flow Maps](../methods/normalizing_flow_maps.md).
 
 `GaussianCopulaSplineHead` is a conditional, full-vector spline flow built from a full-covariance Gaussian base and coordinatewise monotone rational-quadratic splines. Intrinsic likelihoods for any observed subset marginalize missing coordinates analytically. Gaussian label-noise convolution uses caller-supplied finite normal quadrature nodes and requires convergence checks. The copula is Gaussian: the model cannot express arbitrary nonlinear or tail dependence. It requires the optional `flows` extra.
+
+
+## MarginalContrastiveDensity
+
+`MarginalContrastiveDensity(marginal, classifier, *, gamma=1.0, n_negatives=8)`
+
+Marginal Contrastive Discrimination: `p(y | x) = p(y) r(x, y)` from an
+unconditional flow `marginal` (e.g. `create_flow_model(D, context_dim=0)`) and a
+ratio classifier over `concat([x, y])` (e.g. `build_ratio_classifier(x_dim, D)`)
+trained with CNRE. It provides `loss(x, y)` (marginal NLL + CNRE loss with
+in-batch shuffled pairs), `log_prob(x, y, *, normalize=True, n_samples=4096)`,
+`log_normalizer(x)`, `log_ratio(x, y)`, `marginal_log_prob(y)`,
+`sample(x, n_samples, *, n_proposals=4096)` (importance resampling),
+`effective_sample_size(x)` and `refresh_bank()` (eval mode caches the marginal draws
+shared by these methods). See
+[Marginal Contrastive Discrimination](../methods/marginal_contrastive_density.md).

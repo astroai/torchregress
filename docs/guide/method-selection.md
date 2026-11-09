@@ -44,7 +44,7 @@ loss = tr.losses.WeightedHuberLoss()
 <!-- BEGIN:TASK_MATRIX_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_task_matrix_table`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-06`
+_Generated date_: `2026-11-08`
 
 | Task / Constraint | Recommended Start | Strong Alternatives | Notes |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Legend:
 <!-- BEGIN:FAMILY_CAPABILITY_MATRIX_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_family_capability_matrix_table`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-06`
+_Generated date_: `2026-11-08`
 
 | Method Family | Multi-target | Multimodal | Non-Gaussian | Epistemic | Aleatoric | Decomposition | Calibration | OOD Support | Imbalance | Noisy Features (EIV) |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -104,7 +104,7 @@ _Generated date_: `2026-11-06`
 | `ensemble` (9) | yes | yes | yes | yes | yes | yes | yes | yes | no | no |
 | `evidential` (1) | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `expectile` (2) | yes | no | yes | no | no | no | partial | partial | no | no |
-| `flow` (4) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
+| `flow` (5) | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `flow_map` (1) | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `flow_matching` (1) | yes | yes | yes | no | partial | no | partial | partial | no | no |
 | `imbalanced_algorithm` (4) | yes | no | partial | no | no | no | partial | partial | yes | no |
@@ -161,7 +161,7 @@ Next step for operational tradeoffs: [Choosing Methods by Constraint](choosing-b
 
 _Generated provenance_: `tools/render_method_catalog.py:render_method_matrix_generated_section`
 _Source artifacts_: `docs/reports/method_catalog_generated.md`, `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-06`
+_Generated date_: `2026-11-08`
 
 | Method | Family | Maturity | Multi-target | Multimodal | Epistemic | Aleatoric | Decomposition | Calibration | OOD |
 |---|---|---|---|---|---|---|---|---|---|
@@ -237,6 +237,7 @@ _Generated date_: `2026-11-06`
 | `MultiExpectileLoss` | `expectile` | `Available` | yes | no | no | no | no | partial | partial |
 | `ContrastiveFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `GaussianCopulaSplineHead` | `flow` | `Available` | yes | no | no | yes | no | partial | partial |
+| `MarginalContrastiveDensity` | `flow` | `Available` | yes | no | no | yes | no | partial | partial |
 | `NormalizingFlowLoss` | `flow` | `Available` | yes | yes | no | yes | partial | partial | partial |
 | `SLSLoss` | `flow` | `Available` | yes | yes | no | no | no | partial | partial |
 | `NormalizingFlowMap` | `flow_map` | `Available` | yes | yes | no | yes | no | partial | partial |
@@ -344,7 +345,7 @@ Peer-method check: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 | `ensemble` | 9 | yes | yes | yes | yes | yes | yes | yes | yes | no | no |
 | `evidential` | 1 | yes | no | partial | yes | yes | yes | partial | partial | no | no |
 | `expectile` | 2 | yes | no | yes | no | no | no | partial | partial | no | no |
-| `flow` | 4 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
+| `flow` | 5 | yes | yes | yes | no | yes | partial | partial | partial | no | no |
 | `flow_map` | 1 | yes | yes | yes | no | yes | no | partial | partial | no | no |
 | `flow_matching` | 1 | yes | yes | yes | no | partial | no | partial | partial | no | no |
 | `imbalanced_algorithm` | 4 | yes | no | partial | no | no | no | partial | partial | yes | no |
@@ -440,7 +441,7 @@ Key tradeoffs and common failure modes:
 <!-- BEGIN:DECISION_WORKFLOW_GENERATED -->
 _Generated provenance_: `tools/render_method_catalog.py:render_decision_workflow`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-06`
+_Generated date_: `2026-11-08`
 
 1. Need coverage guarantees?
    Use `ConformalLoss (split / CQR / ACI patterns)`.
