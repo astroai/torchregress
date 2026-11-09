@@ -1008,3 +1008,63 @@ def test_tarp_coverage_matches_naive_numpy_loop():
     assert np.isclose(
         out["tarp_error"], float(np.max(np.abs(expected_coverage - alphas))), atol=1e-6
     )
+
+
+# =========================================================================== sample-based HPD
+
+
+def _naive_sample_hpd_level(lp_target: np.ndarray, lp_samples: np.ndarray) -> np.ndarray:
+    levels = np.empty(lp_target.shape[0])
+    for n in range(lp_target.shape[0]):
+        above = sum(1.0 for value in lp_samples[n] if value > lp_target[n])
+        ties = sum(1.0 for value in lp_samples[n] if value == lp_target[n])
+        levels[n] = (above + 0.5 * ties) / lp_samples.shape[1]
+    return levels
+
+
+@covers("sample_hpd_level", ref="numpy naive loop over scipy.stats.multivariate_normal.logpdf")
+def test_sample_hpd_level_matches_naive_loop():
+    rng = _rng(41)
+    cov = np.array([[1.0, 0.6, 0.0], [0.6, 2.0, 0.3], [0.0, 0.3, 0.5]])
+    mvn = st.multivariate_normal(np.zeros(3), cov)
+    y = rng.multivariate_normal(np.zeros(3), cov, size=40)
+    draws = rng.multivariate_normal(np.zeros(3), cov, size=(40, 64))
+    lp_target, lp_samples = mvn.logpdf(y), mvn.logpdf(draws)
+    lp_samples[0, :8] = lp_target[0]  # exercise the half-credit ties
+    got = M.sample_hpd_level(_t(lp_target), _t(lp_samples)).numpy()
+    np.testing.assert_allclose(got, _naive_sample_hpd_level(lp_target, lp_samples), atol=0)
+
+
+@covers("sample_hpd_coverage", ref="numpy naive loop")
+def test_sample_hpd_coverage_matches_naive_loop():
+    rng = _rng(42)
+    lp_target, lp_samples = rng.normal(size=50), rng.normal(size=(50, 30))
+    credibility = np.array([0.0, 0.25, 0.5, 0.9, 1.0])
+    levels = _naive_sample_hpd_level(lp_target, lp_samples)
+    expected = np.array([(levels <= c).mean() for c in credibility])
+    got = M.sample_hpd_coverage(_t(lp_target), _t(lp_samples), credibility=credibility).numpy()
+    np.testing.assert_allclose(got, expected, atol=0)
+
+
+@covers("model_hpd_level", ref="scipy.stats.multivariate_normal.logpdf on the model's own draws")
+def test_model_hpd_level_matches_scipy_density_ranking():
+    class _FixedDrawsGaussian:
+        def __init__(self, cov: np.ndarray, draws: np.ndarray) -> None:
+            self.mvn, self.draws = st.multivariate_normal(np.zeros(2), cov), draws
+
+        def log_prob(self, context: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+            centred = target.numpy() - context.numpy()
+            return torch.from_numpy(np.atleast_1d(self.mvn.logpdf(centred)))
+
+        def sample(self, context: torch.Tensor, n_samples: int = 1) -> torch.Tensor:
+            return torch.from_numpy(self.draws + context.numpy()[:, None, :])
+
+    rng = _rng(43)
+    cov = np.array([[1.0, -0.4], [-0.4, 0.7]])
+    context = rng.normal(size=(25, 2))
+    draws = rng.multivariate_normal(np.zeros(2), cov, size=(25, 32))
+    target = context + rng.multivariate_normal(np.zeros(2), cov, size=25)
+    model = _FixedDrawsGaussian(cov, draws)
+    expected = _naive_sample_hpd_level(model.mvn.logpdf(target - context), model.mvn.logpdf(draws))
+    got = M.model_hpd_level(model, _t(context), _t(target), n_samples=32).numpy()
+    np.testing.assert_allclose(got, expected, atol=1e-12)

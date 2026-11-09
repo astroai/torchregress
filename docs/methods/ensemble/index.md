@@ -68,6 +68,7 @@ This increases computational latency and memory consumption linearly with $S$ ($
 | **`BinnedPDFEnsemble`** | ✅ | ⚠️ | [BinnedPDFEnsembleModel](../../api/ensemble.md) | Ordered-bin / non-Gaussian PDFs |
 | **`RandomPartitionEnsemble`** | ✅ | ⚠️ | [RandomPartitionEnsembleModel](../../api/ensemble.md) | Members on different bin edges; CDF-averaged PDF |
 | **`MDNEnsemble`** | ✅ | ✅ | [MDNEnsembleModel](../../api/ensemble.md) | Multimodal predictive densities |
+| **`DensityEnsemble`** | ✅ | ✅ | [DensityEnsemble](../../api/ensemble.md) | Mixtures of conditional flows; entropy decomposition |
 | **`SWAG`** \[2\] | ✅ | ❌ | [SWAG](../../api/ensemble.md) | Large-scale Bayesian |
 | **`MCDropout`** \[3\] | ✅ | ❌ | [MCDropoutWrapper](../../api/ensemble.md) | Affordable uncertainty baseline |
 

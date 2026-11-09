@@ -100,6 +100,7 @@ and [Ensemble API](../api/ensemble.md).
 | `HeteroscedasticEnsembleModel`, `HeteroscedasticBatchEnsembleModel` | yes | yes | **Full** variance decomposition; returns `epistemic_variance`, `aleatoric_variance`, and total `variance`. |
 | `HeteroscedasticBNN` | yes | yes | **Full** variance decomposition via `predict_with_decomposition()`. |
 | `MDNEnsembleModel` | yes | yes | Ensemble disagreement plus mixture predictive spread; decomposition reported as a sum of two well-defined terms. |
+| `DensityEnsemble` | yes | yes | **Full** entropy decomposition for mixtures of conditional densities (flows): `total` = mean member entropy (`aleatoric`) + member mutual information with $y$ (`epistemic`, $\geq 0$). Valid for multimodal and multi-target targets. |
 | `BaseEnsembleModel` | yes | partial | **Full only if** members also predict variances or distributions. Plain point ensembles expose *epistemic disagreement* only. |
 | `BatchEnsembleRegressor` | yes | partial | **Full** for heteroscedastic heads; homoscedastic heads expose no aleatoric component. |
 | `BinnedPDFEnsembleModel`, `CumulativeLinkEnsembleModel` | yes | partial | Ensemble disagreement plus distributional / ordinal spread; decomposition is representation-specific (binned PDF entropy or cumulative-link logits). |

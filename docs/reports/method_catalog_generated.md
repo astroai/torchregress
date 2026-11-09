@@ -2,13 +2,13 @@
 
 _Generated provenance_: `tools/render_method_catalog.py:render_markdown`
 _Source artifacts_: `reports/method_catalog_latest.json`
-_Generated date_: `2026-11-03`
+_Generated date_: `2026-11-08`
 
 It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 
 ## Summary
 
-- Total methods: `159`
+- Total methods: `162`
 - Peer methods present: `SWAG`, `BayesianNeuralNetwork`, `MixtureDensityLoss`
 
 ### By Family
@@ -23,16 +23,16 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 | `constraints` | 2 |
 | `density_loss` | 3 |
 | `eiv` | 16 |
-| `ensemble` | 8 |
+| `ensemble` | 9 |
 | `evidential` | 1 |
 | `expectile` | 2 |
-| `flow` | 4 |
+| `flow` | 5 |
 | `flow_map` | 1 |
 | `flow_matching` | 1 |
 | `imbalanced_algorithm` | 4 |
 | `imbalanced_loss` | 11 |
 | `inference` | 1 |
-| `likelihood_ratio` | 1 |
+| `likelihood_ratio` | 2 |
 | `mc_dropout` | 1 |
 | `mdn` | 1 |
 | `multivariate` | 1 |
@@ -61,7 +61,7 @@ It is a code-backed snapshot used to reduce docs drift in the task-first matrix.
 |---|---:|
 | `Core` | 7 |
 | `Strong` | 20 |
-| `Available` | 132 |
+| `Available` | 135 |
 
 ## Method Rows
 
@@ -131,6 +131,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `BatchEnsembleRegressor` | `ensemble` | `Available` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BatchEnsembleRegressor` |
 | `BinnedPDFEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.BinnedPDFEnsembleModel` |
 | `CumulativeLinkEnsembleModel` | `ensemble` | `Available` | `ordinal`, `non_gaussian`, `calibration` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.CumulativeLinkEnsembleModel` |
+| `DensityEnsemble` | `ensemble` | `Available` | `multimodal_targets`, `multi_target`, `conditional_density`, `uq_decomposition` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.DensityEnsemble` |
 | `HeteroscedasticBatchEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `epistemic_uq`, `aleatoric_uq`, `ood`, `low_compute` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.HeteroscedasticBatchEnsembleModel` |
 | `HeteroscedasticEnsembleModel` | `ensemble` | `Strong` | `uq_decomposition`, `ood`, `calibration` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood` | `torchregress.ensemble.HeteroscedasticEnsembleModel` |
 | `MDNEnsembleModel` | `ensemble` | `Available` | `multimodal_targets`, `non_gaussian`, `calibration`, `uq_decomposition` | `epistemic`, `aleatoric`, `decomposition`, `calibration*`, `ood*` | `torchregress.ensemble.MDNEnsembleModel` |
@@ -140,6 +141,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `MultiExpectileLoss` | `expectile` | `Available` | `prediction_intervals`, `non_gaussian`, `multi_expectile` | `calibration*`, `ood*` | `torchregress.losses.MultiExpectileLoss` |
 | `ContrastiveFlowLoss` | `flow` | `Available` | `parameter_estimation`, `domain_shift`, `simulation_based_inference` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.ContrastiveFlowLoss` |
 | `GaussianCopulaSplineHead` | `flow` | `Available` | `multi_target`, `correlated_targets`, `missing_labels`, `conditional_density` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.GaussianCopulaSplineHead` |
+| `MarginalContrastiveDensity` | `flow` | `Available` | `multi_target`, `correlated_targets`, `conditional_density` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.MarginalContrastiveDensity` |
 | `NormalizingFlowLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `decomposition*`, `calibration*`, `ood*` | `torchregress.losses.NormalizingFlowLoss` |
 | `SLSLoss` | `flow` | `Available` | `multimodal`, `non_gaussian`, `prediction_intervals` | `calibration*`, `ood*` | `torchregress.losses.SLSLoss` |
 | `NormalizingFlowMap` | `flow_map` | `Available` | `multimodal`, `multi_target`, `conditional_density`, `flow_map` | `aleatoric`, `calibration*`, `ood*` | `torchregress.models.NormalizingFlowMap` |
@@ -161,6 +163,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 | `RankSimLoss` | `imbalanced_loss` | `Available` | `imbalance`, `rare_targets`, `representation_learning`, `ranking` | `calibration*`, `ood*` | `torchregress.losses.RankSimLoss` |
 | `PredictionPoweredInference` | `inference` | `Available` | `inference`, `limited_labels`, `population_estimation` | `calibration*`, `ood*` | `torchregress.inference.ppi_mean_ci` |
 | `NeuralRatioLoss` | `likelihood_ratio` | `Available` | `parameter_estimation`, `simulation_based_inference`, `domain_shift`, `likelihood_ratio` | `calibration*`, `ood*` | `torchregress.losses.NeuralRatioLoss` |
+| `WifiRatioEnsemble` | `likelihood_ratio` | `Available` | `parameter_estimation`, `simulation_based_inference`, `likelihood_ratio`, `confidence_intervals` | `epistemic*`, `calibration`, `ood*` | `torchregress.inference.WifiRatioEnsemble` |
 | `MCDropoutWrapper` | `mc_dropout` | `Strong` | `epistemic_uq`, `low_compute` | `epistemic`, `aleatoric*`, `decomposition*`, `calibration*`, `ood*` | `torchregress.ensemble.MCDropoutWrapper` |
 | `MixtureDensityLoss` | `mdn` | `Available` | `multimodal`, `non_gaussian`, `multi_target` | `aleatoric`, `calibration*`, `ood*` | `torchregress.losses.MixtureDensityLoss` |
 | `TaskAgnosticCorrelations` | `multivariate` | `Available` | `covariance_evaluation`, `conditioning` | `calibration*`, `ood*` | `torchregress.metrics.TaskAgnosticCorrelations` |
@@ -233,7 +236,7 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Multimodal (`multimodal=yes`)
 
-`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MixtureDensityLoss`, `EnhancedPoissonGaussianContaminationMixtureLoss`, `PoissonGaussianContaminationMixtureLoss`
+`SLSConformal`, `BinnedDensityLoss`, `JointBinnedDensityLoss`, `InputNoiseBinnedPDFLoss`, `InputNoiseMDNLoss`, `DensityEnsemble`, `ContrastiveFlowLoss`, `NormalizingFlowLoss`, `SLSLoss`, `NormalizingFlowMap`, `FlowMatchingMLP`, `MixtureDensityLoss`, `EnhancedPoissonGaussianContaminationMixtureLoss`, `PoissonGaussianContaminationMixtureLoss`
 
 ### Noisy Features / EIV (`noisy_features_eiv=yes`)
 
@@ -241,4 +244,4 @@ Legend: `*` suffix means partial support. This snapshot is for discovery and com
 
 ### Decomposition (`decomposition=yes`)
 
-`HeteroscedasticBNN`, `HeteroscedasticLaplaceRegressor`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNEnsembleModel`, `EvidentialRegressionLoss`
+`HeteroscedasticBNN`, `HeteroscedasticLaplaceRegressor`, `DensityEnsemble`, `HeteroscedasticBatchEnsembleModel`, `HeteroscedasticEnsembleModel`, `MDNEnsembleModel`, `EvidentialRegressionLoss`

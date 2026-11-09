@@ -21,7 +21,8 @@ zuko = pytest.importorskip("zuko")
 
 
 def test_recommended_tail_bound_is_data_range_with_margin_clipped():
-    assert recommended_tail_bound(torch.randn(500)) == DEFAULT_TAIL_BOUND  # never below zuko's 5
+    standard = torch.randn(500, generator=torch.Generator().manual_seed(1))  # max |y| = 3.3
+    assert recommended_tail_bound(standard) == DEFAULT_TAIL_BOUND  # never below zuko's 5
     assert recommended_tail_bound(torch.tensor([-12.0, 0.0, 3.0])) == pytest.approx(15.0)
     assert recommended_tail_bound(torch.tensor([[-12.0], [30.0]])) == 25.0  # upper clip
     assert recommended_tail_bound([2.0, -8.0], margin=1.0) == 8.0

@@ -14,6 +14,10 @@ It is a **research/engineering note**, not a benchmark ranking.
 | Conditional MAF | `flow_type="maf"` | Unbounded autoregressive density; slower sampling |
 | Bernstein polynomial flow (BPF) | `flow_type="bpf"` | Smooth scalar/joint density with a polynomial basis; no spline tail bound |
 | Contrastive likelihood-ratio flow | `ContrastiveFlowLoss` | Hypothesis ranking / NRE, **not** calibrated density estimation |
+| Bias-free contrastive ratio estimation | `NeuralRatioLoss(criterion="cnre")` | Exact $\log r$ at any number of negatives (Miller et al. 2022) |
+| Ensemble of flows | `DensityEnsemble` | Mixture density plus entropy decomposition (aleatoric / epistemic); fitted weights with frequentist error bars on $\log p$ |
+| Frequentist ratio uncertainty | `inference.WifiRatioEnsemble` | wifi ensembles: error bars on $\log r(x)$ and on mixture fractions |
+| Joint (multi-target) calibration | `sample_hpd_level`, `sample_hpd_coverage`, `model_hpd_level` | Highest-density-region coverage from draws; tests the joint shape |
 | EIV / simulator-aware flow | `InputNoiseAugmentationLoss`, `LatentMarginalizationLoss`, `flow_eiv` harness suites | Observation-model-aware alternatives |
 
 The main recommendation for scarce/noisy/imbalanced regression is the
@@ -30,6 +34,23 @@ regularizer — rather than a larger flow.
 | **Diffusion / score-based models** | Flexible multimodal generation, strong high-dimensional sample quality | No exact cheap density; likelihood evaluation and calibration for scalar regression are more complex and slower than NSF/MDN |
 | **DRIFT / Hybrid Bernstein Normalizing Flows** (UAI 2024/2025) | Flexible distributional regression; smooth polynomial bases; multivariate marginal-plus-flow construction | Newer and less battle-tested; BPF is supported in zuko and available as `flow_type="bpf"` for a lean first test |
 | **Contrastive Normalizing Flows for uncertainty-aware parameter estimation** (Elsharkawy & Kahn, 2025) | Density shaping / classification under systematics and distribution shifts | Different objective from density calibration; useful for SBI systematics, not a replacement for NLL |
+
+## Contrastive and ratio-based flow literature
+
+Survey of contrastive/ratio methods proposed around flows, judged against the goal of the best
+multi-target conditional density $p(y \mid x)$:
+
+| Method | Objective | Gives a calibrated $p(y \mid x)$? | Status in torchregress |
+|:--|:--|:--|:--|
+| CNRE (Miller, Weniger & Forré, 2022) | $K{+}1$-class contrastive classifier with an "independent" class | No: a likelihood ratio $p(x \mid \theta)/p(x)$ | `NeuralRatioLoss(criterion="cnre")` |
+| Contrastive Normalizing Flows (Elsharkawy & Kahn, 2025; IML 2025) | Flows trained to separate signal/background densities, then a classifier and Neyman intervals for a signal fraction under systematics | No: densities are deliberately shaped for discrimination | Related work only; a signal-fraction workflow belongs in a research repo |
+| *wifi* ensembles (Benevedes & Thaler, PRD 112, 056024, 2025) | $\log r(x) = \sum_i w_i f_i(x)$ over frozen, independently trained (bootstrap) ratio networks plus a constant; $w$ fit on held-out data by a convex symmetrised maximum-likelihood-classifier loss; sandwich covariance on $w$ gives $\sigma[\log r(x)]$; Gong–Samaniego propagation to downstream parameters (e.g. a mixture fraction) | No: a ratio with frequentist error bars | `inference.WifiRatioEnsemble`; the same recipe for density mixtures is `DensityEnsemble.fit_weights` / `log_prob_std` |
+| Factorizable Normalizing Flows for profiled SBI (Valsecchi, Donegà & Wallny, 2026) | Flows that model nuisance-parameter deformations of a multivariate distribution of interest, amortised over nuisances, with a Poisson-bootstrap ensemble | Partly: a conditional density in nuisance parameters for unbinned likelihood fits | Not implemented; HEP-analysis scope |
+| MCD, Marginal Contrastive Discrimination (Meziani, Ndiaye & Riu, 2022) | $p(y \mid x) = p(y)\, r(x, y)$ with the ratio learned by joint-vs-marginal classification | Yes, if the marginal $p(y)$ and the ratio are both accurate | Implemented: [`MarginalContrastiveDensity`](../methods/marginal_contrastive_density.md) (flow marginal + CNRE ratio) |
+
+**Takeaway:** contrastive objectives estimate *ratios* or shape densities for discrimination.
+For calibrated multi-target conditional densities, exact-likelihood flows (NSF/MAF), ensembles of
+them, and joint HPD calibration checks remain the primary tools.
 
 **Practical verdict:** for low-dimensional tabular regression with noisy or
 scarce labels, the exact conditional likelihood of NSF/MAF/RealNVP/BPF plus a
@@ -63,8 +84,12 @@ the product; use flow-map matching only after profiling sampling cost.
 | 2 | A. Tong et al. ["Improving and generalizing flow-based generative models with minibatch optimal transport."](https://arxiv.org/abs/2302.00482) TMLR 2023. |
 | 3 | N. M. Boffi et al. ["Flow map matching with stochastic interpolants."](https://arxiv.org/abs/2406.07507) 2024. |
 | 4 | M. Keramati et al. ["ConR: Contrastive Regularizer for Deep Imbalanced Regression."](https://arxiv.org/abs/2309.06651) ICLR 2024. |
-| 5 | M. Elsharkawy & S. Kahn. ["Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation."](https://arxiv.org/abs/2505.08709) 2025. |
+| 5 | I. Elsharkawy & Y. Kahn. ["Contrastive Normalizing Flows for Uncertainty-Aware Parameter Estimation."](https://arxiv.org/abs/2505.08709) 2025. |
 | 6 | D. Kook et al. "DRIFT: Distributional Regression with Flexible Tails." UAI 2024. |
 | 7 | J. Arpogaus et al. "Hybrid Bernstein Normalizing Flows." UAI 2025. |
 | 8 | C. Durkan et al. ["Neural Spline Flows."](https://arxiv.org/abs/1906.04032) NeurIPS 2019. |
 | 9 | L. Ardizzone et al. ["Guided Image Generation with Conditional Invertible Neural Networks."](https://arxiv.org/abs/1907.02392) 2019. |
+| 10 | B. K. Miller, C. Weniger, P. Forré. ["Contrastive Neural Ratio Estimation."](https://arxiv.org/abs/2210.06170) NeurIPS 2022. |
+| 11 | S. Benevedes, J. Thaler. ["Frequentist Uncertainties on Neural Density Ratios with wifi Ensembles."](https://arxiv.org/abs/2506.00113) Phys. Rev. D 112, 056024, 2025. |
+| 12 | D. Valsecchi, M. Donegà, R. Wallny. ["Profiling systematic uncertainties in Simulation-Based Inference with Factorizable Normalizing Flows."](https://arxiv.org/abs/2602.13184) 2026. |
+| 13 | K. Meziani, A. Ndiaye, B. Riu. ["MCD: Marginal Contrastive Discrimination for conditional density estimation."](https://arxiv.org/abs/2206.01592) 2022. |
