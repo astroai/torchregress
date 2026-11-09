@@ -192,3 +192,69 @@ def test_mcd_heads_combine_in_a_density_ensemble() -> None:
         ensemble.log_prob(x, y), _conditional(x).log_prob(y), rtol=0, atol=0.1
     )
     assert ensemble.sample(x, n_samples=7).shape == (20, 7, 2)
+
+
+class _CountingRatio(_OracleRatio):
+    """Oracle ratio that counts how many pairs it scores."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pairs = 0
+
+    def forward(self, pair: torch.Tensor) -> torch.Tensor:
+        self.pairs += pair.shape[0]
+        return super().forward(pair)
+
+
+def test_eval_mode_reuses_one_bank_until_refreshed() -> None:
+    generator = torch.Generator().manual_seed(11)
+    x, y = _data(30, generator)
+    model = _oracle().eval()
+    first = model.log_prob(x, y, n_samples=512)
+    torch.testing.assert_close(model.log_prob(x, y, n_samples=512), first, rtol=0, atol=0)
+    # Target and draws scored in separate calls share the normalizer.
+    torch.testing.assert_close(
+        model.log_normalizer(x[:5], n_samples=512),
+        model.log_normalizer(x, n_samples=512)[:5],
+        rtol=0,
+        atol=0,
+    )
+    model.refresh_bank()
+    assert not torch.equal(model.log_prob(x, y, n_samples=512), first)
+    model.train()
+    a, b = model.log_normalizer(x, n_samples=512), model.log_normalizer(x, n_samples=512)
+    assert not torch.equal(a, b)  # train mode draws a fresh bank per call
+
+
+def test_normalizer_runs_once_per_unique_context_without_gradients() -> None:
+    ratio = _CountingRatio()
+    model = MarginalContrastiveDensity(_OracleMarginal(), ratio).eval()
+    x = torch.randn(4, 2, dtype=torch.float64).repeat_interleave(100, dim=0)  # 400 rows
+    log_z = model.log_normalizer(x, n_samples=256)
+    assert ratio.pairs == 4 * 256
+    assert log_z.shape == (400,) and not log_z.requires_grad
+    torch.testing.assert_close(log_z[::100], model.log_normalizer(x[::100], n_samples=256))
+
+
+def test_classifier_is_registered_once() -> None:
+    model = MarginalContrastiveDensity(_OracleMarginal(), build_ratio_classifier(2, 2))
+    keys = list(model.state_dict())
+    assert keys and all(k.startswith("classifier.") for k in keys)
+
+
+def test_float64_contexts_round_trip_through_a_float32_flow() -> None:
+    zuko = pytest.importorskip("zuko")
+    del zuko
+    from torchregress.losses import create_flow_model
+
+    torch.manual_seed(12)
+    model = MarginalContrastiveDensity(
+        create_flow_model(2, 0, n_transforms=2), build_ratio_classifier(2, 2).double()
+    ).eval()
+    x = torch.randn(6, 2, dtype=torch.float64)
+    samples = model.sample(x, n_samples=3, n_proposals=256)
+    assert samples.dtype == torch.float64
+    scores = model.log_prob(x.repeat_interleave(3, dim=0), samples.reshape(-1, 2), n_samples=256)
+    assert scores.dtype == torch.float64 and bool(torch.isfinite(scores).all())
+    level = model_hpd_level(model, x, torch.randn(6, 2, dtype=torch.float64), n_samples=16)
+    assert level.shape == (6,)

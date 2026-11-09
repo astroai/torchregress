@@ -121,6 +121,7 @@ ratio classifier over `concat([x, y])` (e.g. `build_ratio_classifier(x_dim, D)`)
 trained with CNRE. It provides `loss(x, y)` (marginal NLL + CNRE loss with
 in-batch shuffled pairs), `log_prob(x, y, *, normalize=True, n_samples=4096)`,
 `log_normalizer(x)`, `log_ratio(x, y)`, `marginal_log_prob(y)`,
-`sample(x, n_samples, *, n_proposals=4096)` (importance resampling) and
-`effective_sample_size(x)`. See
+`sample(x, n_samples, *, n_proposals=4096)` (importance resampling),
+`effective_sample_size(x)` and `refresh_bank()` (eval mode caches the marginal draws
+shared by these methods). See
 [Marginal Contrastive Discrimination](../methods/marginal_contrastive_density.md).

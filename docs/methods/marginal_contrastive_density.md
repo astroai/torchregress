@@ -42,7 +42,15 @@ $$
 
 with $M = 4096$ (`n_samples`). Its error is about
 $\operatorname{sd}(r(\mathbf{x}, \cdot)) / \sqrt{M}$, larger for contexts whose
-conditional sits in the tail of $p(\mathbf{y})$.
+conditional sits in the tail of $p(\mathbf{y})$. The normalizer is computed without
+gradients and once per distinct context, so `log_prob` (and `forward`, its negative) is
+a score, not a training objective: train with `loss`.
+
+In eval mode the marginal draws are cached (one bank per size) and shared by `log_prob`,
+`sample` and `effective_sample_size`. Scores from separate calls, such as a target and
+its predictive draws in `model_hpd_level`, then use the same normalizer, and the
+effective sample size describes the bank that `sample` resampled. `train()`,
+`load_state_dict` and `refresh_bank()` discard the cache.
 
 `sample(x, n)` uses sampling-importance-resampling: a bank of `n_proposals`
 marginal draws is resampled with weights $r(\mathbf{x}, \tilde{\mathbf{y}}_m)$.
