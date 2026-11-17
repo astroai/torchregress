@@ -63,7 +63,7 @@ def _linear_problem(
         xw = x * weights.unsqueeze(-1)
         normal = x.transpose(1, 2) @ xw
         if prior is not None:
-            normal = normal + torch.diag_embed(prior)
+            normal = normal + torch.diag_embed(prior).to(device=prior.device, dtype=prior.dtype)
         rhs = (xw * target.unsqueeze(-1)).sum(1)
         out = solve_normal_equations(normal, rhs, nonnegative=nonnegative, start=theta)
         return BatchedIRLSStep(

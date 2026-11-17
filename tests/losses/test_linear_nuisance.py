@@ -105,7 +105,9 @@ class TestDenseParity:
             values=target,
             mapped_mean=y_pred,
             jacobian=basis.expand(4, -1, -1),
-            measurement_covariance=torch.diag_embed(1.0 / precision),
+            measurement_covariance=torch.diag_embed(1.0 / precision).to(
+                device=precision.device, dtype=precision.dtype
+            ),
             mask=mask,
         )
         ref = MarginalizedMultiSourceGaussianNLLLoss(reduction="none", method=method)(

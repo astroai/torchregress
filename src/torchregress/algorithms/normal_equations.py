@@ -235,7 +235,9 @@ def _jacobi_scale(normal: Tensor, rhs: Tensor) -> tuple[Tensor, Tensor, Tensor, 
     scale = torch.where(dead, 1.0, diag.sqrt())
     scaled = normal / (scale.unsqueeze(-1) * scale.unsqueeze(-2))
     pair = dead.unsqueeze(-1) | dead.unsqueeze(-2)
-    scaled = torch.where(pair, 0.0, scaled) + torch.diag_embed(dead.to(normal.dtype))
+    scaled = torch.where(pair, 0.0, scaled) + torch.diag_embed(dead.to(normal.dtype)).to(
+        device=normal.device, dtype=normal.dtype
+    )
     gs = torch.where(dead, 0.0, rhs / scale)
     return scaled, gs, scale, dead
 
@@ -279,7 +281,9 @@ def _ridge_failed_rows(
         term = ridge * eye
     else:
         mask = ridged_variables if rows is None else ridged_variables[rows]
-        term = ridge * torch.diag_embed(mask.to(system.dtype))
+        term = ridge * torch.diag_embed(mask.to(system.dtype)).to(
+            device=system.device, dtype=system.dtype
+        )
     chol_r, info_r = torch.linalg.cholesky_ex(sub + term)
     singular_r = info_r != 0
     if rows is None:
@@ -308,7 +312,9 @@ def _solve_unconstrained(
 def _free_block(scaled: Tensor, free: Tensor) -> Tensor:
     """``scaled`` on the free block, identity elsewhere."""
     pair = free.unsqueeze(-1) & free.unsqueeze(-2)
-    return torch.where(pair, scaled, 0.0) + torch.diag_embed((~free).to(scaled.dtype))
+    return torch.where(pair, scaled, 0.0) + torch.diag_embed((~free).to(scaled.dtype)).to(
+        device=scaled.device, dtype=scaled.dtype
+    )
 
 
 def _free_block_cholesky(
@@ -348,7 +354,9 @@ def _solve_nonnegative(
             # does not depend on the warm start (the unridged solution).
             live = (~dead[rows]).to(scaled.dtype)
             scaled = scaled.clone()
-            scaled[rows] = scaled[rows] + ridge * torch.diag_embed(live)
+            scaled[rows] = scaled[rows] + ridge * torch.diag_embed(live).to(
+                device=live.device, dtype=live.dtype
+            )
             x_r, free_r, _, singular_r, chol_r, fresh_r = _active_set(
                 scaled[rows], gs[rows], dead[rows], constrained[rows], x[rows], ridge, kkt_tol
             )
